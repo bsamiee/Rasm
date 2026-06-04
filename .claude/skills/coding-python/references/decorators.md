@@ -2,8 +2,6 @@
 
 Decorator type algebra, stack ordering, context propagation, and AOP composition for Python 3.14+. This file is the canonical location for all decorator stack variant patterns — all other reference files delegate stack ordering and variant concerns here. All snippets assume expression v5.6+ with `Result`, `pipe`, `Block`, `Map`, `curry_flip`.
 
----
-
 ## Signature-Preserving Decorator Type Algebra
 
 Decorators typed as `Callable[..., Any] → Callable[..., Any]` erase parameter variance — the checker sees opaque signatures after two stacks. PEP 695 `**P` parameter-spec syntax with `Concatenate` (PEP 612) encodes context obligations in the callable's domain; `absorb` discharges via `ContextVar` resolution, projecting to `Hom[P, T, E | Fault[C, Ctx]]` with `**P` preserved. PEP 696 default `E = Never` on `Hom` is the identity of error-union accumulation: $\bot \cup F \equiv F$, so `stack` over $n$ layers produces $E \cup \bigcup_{i=1}^{n} F_i$ with no phantom channels.
@@ -45,8 +43,6 @@ def stack[**P, T, E](layers: Block[Callable[[Hom[P, T, E]], Hom[P, T, E]]], fn: 
 ```
 
 `Concatenate[Ctx, P]` declares context dependency structurally — `absorb` discharges via `ContextVar.get()` and `@wraps` propagates `__wrapped__`/`__type_params__` for `inspect.signature` chain traversal. `gate` returns `Result[Ctx, Fault[C, Ctx]]`: `C` identifies the faulting concern, `Ctx` snapshots state at failure, `magnitude` carries quantitative deviation. The `(ctx.set(c), fn(...))[1]` tuple sequences the side effect in expression position — left-to-right evaluation is language-guaranteed. Async callables requiring `Coroutine` return types: see Async Contracts section. Callable anchor governance: types.md.
-
----
 
 ## Stack Order Law and Approved Variants
 
@@ -96,8 +92,6 @@ def assemble[**P, T, E](layers: Block[Layer[P, T, E]], fn: Hom[P, T, E]) -> Resu
 ```
 
 `Slot(-1)` seeds below all valid positions. The fold accumulates `(last_slot, depth, composed_fn)` — `depth` in `Inversion` localizes the violation for decoration-time diagnostics. `filter_with` gates $s_i \geq s_{i-1}$: shared slots are permitted (multiple validators at position 2), regressions short-circuit via `bind`. Approved variants constrain slot sets per operation class: queries `{trace, cache}`, commands `{trace, authorize, validate, retry}`, events `{trace, validate}`. Retry semantics: effects.md; boundary application: surface.md.
-
----
 
 ## ContextVar Propagation and Reversible Scope Ownership
 
@@ -160,8 +154,6 @@ def apply_impulses[**P, T, E](impulses: Block[Impulse], fn: Callable[P, Result[T
 
 `project(var.get()).map(var.set).bind(...)` chains through the Result rail: failed projection produces no `Token`, propagating without scope corruption. `var.reset(token)` targets the operation — concurrent `set` calls are unaffected. `scoped[S, ...]` parameterizes over any `ContextVar[S]`, not just `Map`-backed scopes — `apply_impulses` specializes to `Scope` via the projection lambda. `block.fold` stacking $n$ impulses produces $n$ independently-reversible layers unwinding innermost-first. `isolated` via `copy_context().run` forks a snapshot for task boundaries; structured-concurrency scoping: concurrency.md.
 
----
-
 ## Idempotency, Double-Decoration Guards, and Introspection Parity
 
 Double-decoration corrupts the codomain: `E | Breach[C] | Breach[C]` collapses at the type level while runtime doubles every interception — duplicate spans, duplicate token acquisitions, quadratic compounding under `block.fold`. Behavioral guards break under reimport and concurrent decoration; the guard keys on `id(dec)` stored in `frozenset[int]`.
@@ -200,8 +192,6 @@ def once[**P, T, E, F](dec: Callable[[Wrapped[P, T, E]], Wrapped[P, T, E | F]]) 
 ```
 
 `id(dec)` is process-scoped and unique; `frozenset[int]` on the wrapper gives $O(1)$ membership testing, survives `copy.copy` via attribute propagation through `wraps`. `filter_with` mirrors the errors.md gate: tag-absent proceeds to `.map(dec)`, tag-present short-circuits through `Breach` into `.default_value(fn)` — idempotent passthrough with zero branching. Post-application `wraps(fn)` preserves `__wrapped__` for `inspect.unwrap` and `__type_params__` for PEP 695 generic bounds through the decoration chain.
-
----
 
 ## Rail-Safe Wrappers for Result, Option, and Effect Pipelines
 
@@ -246,8 +236,6 @@ def convolve[**P, T, E, F](transform: Rail[T, E, F]) -> Callable[[Hom[P, T, E]],
 ```
 
 `Rail[T, E, F]` makes codomain widening explicit — no pathway from `Result` back to bare `T`. `memoize_ok` stores in `ContextVar[Map[K, T]]`: persistent `Map` guarantees task isolation per the ContextVar section, `Option.map(Ok)` wraps hits, `.default_with` falls through on miss. `convolve` is the universal lifter: any `Rail` becomes a decorator with the same error-widening contract as `absorb`. Rail composition: effects.md; error construction: errors.md.
-
----
 
 ## Async Decorator Contracts: Cancellation, Deadlines, and Backpressure
 
@@ -318,8 +306,6 @@ def bounded_retry[**P, T, E](
 
 `move_on_after` catches `Cancelled` internally and falls through to `Error(Timeout(...))` — the wrapper never intercepts the exception. Stacking `@deadline(5.0) @bounded_retry(3, 0.1, pred)` bounds total time including backoff; swapping order converts to per-attempt timeout — the stack order law determines interpretation. The `BOUNDARY ADAPTER` marker acknowledges imperative iteration: `anyio.sleep` is effectful and early exit on `Ok` requires short-circuit semantics `block.fold` cannot express. Task topology: concurrency.md.
 
----
-
 ## singledispatch Dispatch-Surface Propagation
 
 `.register(type)(fn)` mutates an internal `MappingProxy` that `@wraps` does not transfer — `register`, `dispatch`, `registry` are absent from `WRAPPER_ASSIGNMENTS`. Policy decorators using only `@wraps` silently amputate the registration surface. `lift_dispatch` propagates dispatch attributes from the base — found via `unwrap` with a `registry`-detecting stop predicate — through unlimited decoration depth.
@@ -349,8 +335,6 @@ def lift_dispatch[**P, T, E](dec: Callable[[Hom[P, T, E]], Hom[P, T, E]]) -> Cal
 ```
 
 `unwrap(fn, stop=lambda f: hasattr(f, 'registry'))` halts at the singledispatch base regardless of intermediate wrappers. `block.fold` conditionally transfers each attribute via `(setattr(...), w)[-1]`; `update_wrapper` seeds the accumulator with `__wrapped__`/`__module__`/`__qualname__`. For method-level dispatch, policy decorators must stay INSIDE `@singledispatchmethod` or implement `__get__` to preserve the descriptor protocol. Protocol contracts: protocols.md; callable governance: types.md.
-
----
 
 ## Rules
 

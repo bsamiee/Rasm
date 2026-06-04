@@ -1,15 +1,8 @@
 # [H1][RASM_APPUI_AGENTS]
->**Dictum:** *Build product UI intent; delegate native behavior.*
-
-<br>
 
 [CRITICAL] Build `Rasm.AppUi` as one unified, fully-integrated platform. The `.csproj` targets `net10.0`, is present in `Workspace.slnx`, and consumes central package pins through versionless references. Scaffold source surfaces in Phase 0 before heavy work. Integrate every package together, never as separate per-package subsystems.
 
----
 ## [1][OWNER_CONTRACT]
->**Dictum:** *One public app-surface rail beats toolkit wrappers.*
-
-<br>
 
 - One typed app-surface operation rail owns shell, screen, command, live-view, chart, visual, and diagnostic concerns.
 - Keep Avalonia, ReactiveUI, DynamicData, SkiaSharp, and LiveCharts2 types internal behind product concepts.
@@ -29,11 +22,7 @@
 - Compose the packages into one paradigm; no parallel rails or per-package folders.
 - `DiagnosticReceipt` is AppUi-owned; AppHost references/correlates but does not define it.
 
----
 ## [2][HOST_BOUNDARY]
->**Dictum:** *Host execution belongs to host owners.*
-
-<br>
 
 | [INDEX] | [DO_NOT_DUPLICATE]                                          | [OWNER]               |
 | :-----: | ----------------------------------------------------------- | --------------------- |
@@ -46,11 +35,7 @@
 
 AppUi emits product UI intent and receipts. Final mutation runs through the owner rails above.
 
----
 ## [3][EMBEDDING_RULES]
->**Dictum:** *Each embedding rule is host-fatal if violated.*
-
-<br>
 
 | [INDEX] | [RULE]                                          | [SEVERITY]   | [DETAIL]                                                                                   |
 | :-----: | ----------------------------------------------- | ------------ | ------------------------------------------------------------------------------------------ |
@@ -66,11 +51,7 @@ AppUi emits product UI intent and receipts. Final mutation runs through the owne
 |  [10]   | Await `TopLevel.Closed` before base dispose     | [CRITICAL]   | Disposing Eto parent before Avalonia TopLevel closes causes native handle double-free      |
 |  [11]   | GH2 embedding is [DEFERRED]                     | [IMPORTANT]  | No GH2 dockable panel-host API in current RhinoWIP; Rhino-panel embedding is supported. Trigger: `api query gh2 Panel` per WIP drop |
 
----
 ## [4][PACKAGE_RULES]
->**Dictum:** *Project references are versionless; pins live centrally.*
-
-<br>
 
 - Keep AppUi package references versionless; write only NuGet IDs in docs — no version numbers.
 - `SkiaSharp.NativeAssets.macOS`: once the Phase-0 gate (`_ARCHITECTURE.md §4.3`) confirms Rhino's `libSkiaSharp` native major matches, reference with `<ExcludeAssets>native</ExcludeAssets>` to share Rhino's loaded copy; a mismatched major is a hard build gate — same-named dylibs cannot co-load.
@@ -78,11 +59,7 @@ AppUi emits product UI intent and receipts. Final mutation runs through the owne
 - Unify SkiaSharp version across Avalonia bundled, LiveCharts2, and `Svg.Skia` — version mismatch = native symbol collision at load.
 - Use `Xaml.Behaviors.Avalonia` (not `Avalonia.Xaml.Interactions` — deprecated).
 
----
 ## [5][EVIDENCE]
->**Dictum:** *Source slices produce host evidence.*
-
-<br>
 
 Executable proof comes from source and host scenarios. Evidence categories:
 
@@ -95,11 +72,7 @@ Executable proof comes from source and host scenarios. Evidence categories:
 - Screenshot/support-bundle `DiagnosticReceipt`.
 - Accessibility automation peer verification.
 
----
 ## [6][REJECTIONS]
->**Dictum:** *Wrapper APIs are not platform APIs.*
-
-<br>
 
 - No Avalonia, ReactiveUI, DynamicData, SkiaSharp, or LiveCharts2 forwarding surface.
 - No AppUi-owned Rhino/GH2 dispatch, repaint, undo, or lifecycle rail.

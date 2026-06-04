@@ -5,9 +5,6 @@ description: >-
 ---
 
 # [H1][HOOKS-BUILDER]
->**Dictum:** *Deterministic behavior requires hooks; prompts fail execution guarantees.*
-
-<br>
 
 Build Claude Code hooks—shell commands, prompt evaluations, or multi-turn agents execute at 15 agent lifecycle events.
 
@@ -38,13 +35,9 @@ Build Claude Code hooks—shell commands, prompt evaluations, or multi-turn agen
 | Troubleshooting | [troubleshooting.md](references/troubleshooting.md)    |
 | Validation      | [validation.md](references/validation.md)              |
 
----
 ## [1][EVENT_SELECTION]
->**Dictum:** *Automation goal determines hook type; blocking capability varies by event.*
 
-<br>
-
-**Decision Gate:**<br>
+**Decision Gate:**
 - *Intercept before execution?* → PreToolUse (validate/block/modify parameters)
 - *Control permission dialogs?* → PermissionRequest (auto-approve/deny)
 - *React after completion?* → PostToolUse (format, lint, add context)
@@ -80,11 +73,7 @@ Build Claude Code hooks—shell commands, prompt evaluations, or multi-turn agen
 |   [8]   | SubagentStart      | Shows stderr to user only                    |
 |   [9]   | PreCompact         | Shows stderr to user only                    |
 
----
 ## [2][CONFIGURATION]
->**Dictum:** *Centralized configuration enables scope-aware hook precedence.*
-
-<br>
 
 | [INDEX] | [SCOPE] | [PATH]                        | [USE]                | [GIT]  |
 | :-----: | ------- | ----------------------------- | -------------------- | :----: |
@@ -96,11 +85,7 @@ Build Claude Code hooks—shell commands, prompt evaluations, or multi-turn agen
 
 **Snapshot:** Hooks captured at startup; mid-session edits require `/hooks` review to reload.
 
----
 ## [3][IMPLEMENTATION]
->**Dictum:** *Deterministic and evaluative patterns require distinct execution modes.*
-
-<br>
 
 | [INDEX] | [TYPE]  | [USE_CASE]                       | [TIMEOUT] | [CHARACTERISTICS]            |
 | :-----: | ------- | -------------------------------- | :-------: | ---------------------------- |
@@ -138,19 +123,11 @@ Build Claude Code hooks—shell commands, prompt evaluations, or multi-turn agen
 |   [1]   | `prompt` | string |     —      | Instructions for LLM; `$ARGUMENTS` = hook JSON |
 |   [2]   | `model`  | string | fast model | Model to use for evaluation                    |
 
----
 ## [4][SCRIPTING]
->**Dictum:** *Hook reliability requires functional pipeline patterns.*
-
-<br>
 
 Python 3.14+ with strict typing. Zero imperative patterns.
 
----
 ## [5][VALIDATION]
->**Dictum:** *Gates prevent incomplete artifacts.*
-
-<br>
 
 [VERIFY] Completion:
 - [ ] Event: Selected correct hook type for automation goal.

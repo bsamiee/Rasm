@@ -1,15 +1,8 @@
 # [H1][VALIDATION]
->**Dictum:** *Operational criteria verify hook quality.*
-
-<br>
 
 Consolidated checklist for hooks-builder. SKILL.md §VALIDATION contains high-level gates; this file contains operational verification procedures.
 
----
 ## [1][SCHEMA_GATE]
->**Dictum:** *Silent registration failures demand pre-validation.*
-
-<br>
 
 [VERIFY] Schema compliance:
 - [ ] JSON syntax valid—no trailing commas.
@@ -21,11 +14,7 @@ Consolidated checklist for hooks-builder. SKILL.md §VALIDATION contains high-le
 - [ ] `async` and `statusMessage` fields used appropriately.
 - [ ] `once` field only used in skill-scoped hooks.
 
----
 ## [2][LIFECYCLE_GATE]
->**Dictum:** *Pre-implementation verification prevents runtime failures.*
-
-<br>
 
 [VERIFY] Lifecycle compliance:
 - [ ] Match event to automation goal (blocking or observing).
@@ -36,11 +25,7 @@ Consolidated checklist for hooks-builder. SKILL.md §VALIDATION contains high-le
 - [ ] Set timeout appropriate for script complexity (in seconds).
 - [ ] Consider race conditions for PermissionRequest hooks under 1.5s.
 
----
 ## [3][INTEGRATION_GATE]
->**Dictum:** *Gate checklist verification ensures correct integration.*
-
-<br>
 
 [VERIFY] Integration compliance:
 - [ ] `$CLAUDE_PROJECT_DIR` quoted in command strings.
@@ -50,11 +35,7 @@ Consolidated checklist for hooks-builder. SKILL.md §VALIDATION contains high-le
 - [ ] Windows: absolute paths used instead of env variables.
 - [ ] PermissionRequest hooks complete in <1.5s.
 
----
 ## [4][SCRIPTING_GATE]
->**Dictum:** *Gate checklist enforces script quality.*
-
-<br>
 
 [VERIFY] Script quality:
 - [ ] `ty check` passes with zero errors.
@@ -64,11 +45,7 @@ Consolidated checklist for hooks-builder. SKILL.md §VALIDATION contains high-le
 - [ ] No forbidden security patterns.
 - [ ] Path validation uses `realpath()`.
 
----
 ## [5][RECIPES_GATE]
->**Dictum:** *Gate checklist enforces recipe quality.*
-
-<br>
 
 [VERIFY] Recipe compliance:
 - [ ] Dispatch tables replace if/else chains.
@@ -77,11 +54,7 @@ Consolidated checklist for hooks-builder. SKILL.md §VALIDATION contains high-le
 - [ ] Exit 0 for non-blocking hooks.
 - [ ] Prompt/agent hooks use `{"ok": true/false}` response schema.
 
----
 ## [6][TROUBLESHOOTING_GATE]
->**Dictum:** *Gate checklist prevents common failures.*
-
-<br>
 
 [VERIFY] Deployment readiness:
 - [ ] JSON syntax validated (no trailing commas).
@@ -92,11 +65,7 @@ Consolidated checklist for hooks-builder. SKILL.md §VALIDATION contains high-le
 - [ ] PermissionRequest hooks complete in <1.5s.
 - [ ] Prompt/agent hooks only on eligible events (8 events, NOT TeammateIdle).
 
----
 ## [7][ERROR_SYMPTOMS]
->**Dictum:** *Symptom-to-fix mapping accelerates diagnosis.*
-
-<br>
 
 | [SYMPTOM]                 | [CAUSE]                       | [FIX]                         |
 | ------------------------- | ----------------------------- | ----------------------------- |
@@ -111,11 +80,7 @@ Consolidated checklist for hooks-builder. SKILL.md §VALIDATION contains high-le
 | Prompt hook not firing    | Used on TeammateIdle          | TeammateIdle: exit codes only |
 | Wrong timeout units       | Used milliseconds             | Timeouts are in SECONDS       |
 
----
 ## [8][OPERATIONAL_COMMANDS]
->**Dictum:** *Observable outcomes enable verification.*
-
-<br>
 
 ```bash
 # JSON validation

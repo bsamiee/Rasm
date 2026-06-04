@@ -1,7 +1,4 @@
 # [H1][RAILS_TOOLING]
->**Dictum:** *Each rail has one command path and one owner.*
-
-<br>
 
 ## [1][MANAGED]
 
@@ -21,7 +18,6 @@
 
 `quality static` and MTP test runs isolate MSBuild output under `.artifacts/quality/<rail>/<run-id>/`. Mutation is explicit and fail-fast on `.artifacts/locks/mutation.lock`; the lock file remains stable and is truncated after release.
 
----
 ## [2][MUTATION]
 
 Stryker is owned by the pure-managed `Rasm` project/test pair. Thresholds are `95/90/85`; reporters are `html/json/progress`. Zero discovery fails the rail.
@@ -31,7 +27,6 @@ uv run python -m tools.quality self-test
 uv run python -m tools.quality test run --mutation changed
 ```
 
----
 ## [3][BRIDGE]
 
 | [INDEX] | [COMMAND] | [USE] |

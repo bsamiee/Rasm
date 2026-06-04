@@ -1,7 +1,4 @@
 # [H1][FILE-PIPELINES]
->**Dictum:** *Atomic I/O, structured traversal, and descriptor-based multiplexing eliminate partial writes, glob hazards, and hardcoded FDs.*
-
-<br>
 
 Production patterns for file I/O beyond basic reads. Basic file reads (`$(<file)`, `mapfile`) and conditionals (`-f`, `-d`, `-r`) are in [bash-scripting-guide.md S6/S9](./bash-scripting-guide.md).
 
@@ -12,11 +9,7 @@ Production patterns for file I/O beyond basic reads. Basic file reads (`$(<file)
 |  [3]  | Directory traversal   |  S3   | Sorted globs, fd search, recursive processing |
 |  [4]  | Structured extraction |  S4   | Config parsing, marker sections, line access  |
 
----
 ## [1][ATOMIC_WRITE_LIFECYCLE]
->**Dictum:** *rename(2) is the only atomic filesystem operation — write-then-move prevents partial output on crash or signal.*
-
-<br>
 
 `rename(2)` atomicity holds only within a single filesystem — cross-device `mv` falls back to copy+delete. `umask 077` must precede `mktemp` — the race between creation and `chmod` is unclosable. `sync --data-only` (coreutils 8.24+) before `mv` ensures data durability — without it, power loss after `mv` can yield a zero-length file.
 
@@ -78,11 +71,7 @@ _with_tempdir() {
 
 `_register_cleanup` pushes onto the LIFO `_CLEANUP_STACK` (see [script-patterns.md](./script-patterns.md)). `_atomic_snapshot` uses `${file##*/}` instead of `$(basename)` to avoid a fork per file. For true multi-file atomicity, swap a symlink: `ln -sfn "${staging}" "${dest_dir}.new" && mv -Tf "${dest_dir}.new" "${dest_dir}"`.
 
----
 ## [2][DESCRIPTOR_MULTIPLEX]
->**Dictum:** *Dynamic FD allocation via `exec {fd}>file` eliminates hardcoded descriptor collisions.*
-
-<br>
 
 `exec {fd}>file` delegates to the kernel's `open()` return, stored in `$fd`. Composable, collision-free, mandatory for library-quality functions — hardcoded FDs collide when functions compose.
 
@@ -119,11 +108,7 @@ _fan_out() {
 
 `exec {fd}>&-` closes the descriptor — omitting leaks FDs (default ulimit ~1024). `_fan_out` calls `wait` because `>(tee ...)` subshells can outlive the parent. For bounded-concurrency job pools, use `wait -n -p finished_pid` (Bash 5.1+) — see `_run_pool` in data-pipeline.sh.
 
----
 ## [3][DIRECTORY_TRAVERSAL]
->**Dictum:** *`GLOBSORT` for ordered glob expansion, `fd` for search, glob for in-process traversal, `find` as last resort.*
-
-<br>
 
 **GLOBSORT (Bash 5.3+)** controls glob result ordering without forking to `ls` or `stat`. Scoped via `local` in functions — does not leak. Replaces `ls -t | while read` pipelines entirely.
 
@@ -201,11 +186,7 @@ _collect_filtered() {
 
 `globstar` recurses into symlinked directories — `_walk` checks `! -L` to prevent cycles. `_EXCLUDE` as associative set is O(1) per segment vs linear pattern matching. When `fd` is available, exclusion is better via `fd --exclude` rather than post-filtering.
 
----
 ## [4][STRUCTURED_EXTRACTION]
->**Dictum:** *`mapfile` + array indexing replaces sed/awk for structured file sections — zero forks, O(1) per line.*
-
-<br>
 
 Config files, markdown, and structured logs have internal structure. Pure bash extraction via `mapfile` + array slicing operates on the loaded array — no repeated file I/O.
 
@@ -262,7 +243,6 @@ printf '%s\n' "${sql_block[@]}"
 
 `_parse_kv` handles `key = "quoted value"` and `key=bare_value` uniformly — regex alternation strips quotes only when matched symmetrically. `mapfile -t` loads the entire file once; subsequent iteration is pure array traversal. Array slicing `${arr[@]:offset:count}` is O(count) copy, not O(n) scan.
 
----
 ## [RULES]
 
 - Atomic writes: `umask 077` → `mktemp` → write → `sync --data-only` (fsync) → `mv` — full pipeline.

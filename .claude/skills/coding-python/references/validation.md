@@ -2,7 +2,6 @@
 
 Checklist for auditing `.py` modules against python-standards contracts. Items below complement Ruff, ty, mypy, validate-pyproject, ast-grep, and `tools.py_analyzer`.
 
----
 ## Type Integrity
 
 - [ ] One canonical schema per entity -- py-analyzer blocks duplicate dataclass/Pydantic/msgspec field shapes
@@ -12,7 +11,6 @@ Checklist for auditing `.py` modules against python-standards contracts. Items b
 - [ ] Discriminated unions via `Discriminator` + `Tag` + `TypeAdapter` or `@tagged_union`
 - [ ] Immutable collections: `tuple`/`frozenset`/`Mapping`/`Block[T]` over mutable equivalents
 
----
 ## Effect Integrity
 
 - [ ] `Result[T, E]` sync, `@effect.async_result` async, `Option[T]` absence -- correct container per channel
@@ -22,14 +20,12 @@ Checklist for auditing `.py` modules against python-standards contracts. Items b
 - [ ] Result library consistency: `expression` exclusively per module (no `returns` imports)
 - [ ] No mid-pipeline library mixing: `expression.pipe` only -- `returns.flow` absent from codebase
 
----
 ## Control Flow
 
 - [ ] Zero domain `if`/`else`/`elif` -- py-analyzer blocks statement flow; use `match`/`case` with `assert_never`
 - [ ] Zero `for`/`while` in domain transforms -- py-analyzer blocks loops; boundary loops require exemption metadata
 - [ ] Guard clauses via `case x if predicate:` -- not bare `if` statements
 
----
 ## Decorator Integrity
 
 - [ ] PEP 695 `**P` / parameter-spec preservation + `Concatenate` + `@wraps` on every decorator
@@ -37,33 +33,28 @@ Checklist for auditing `.py` modules against python-standards contracts. Items b
 - [ ] One concern per decorator; factories accept frozen `BaseModel` config
 - [ ] Class-based decorators implement descriptor protocol (`__set_name__` + `__get__`)
 
----
 ## Concurrency Integrity
 
 - [ ] `anyio.create_task_group()` sole spawn -- no bare `asyncio.create_task`
 - [ ] `checkpoint()` in tight async loops; `CapacityLimiter` for backpressure
 - [ ] `ContextVar` for request-scoped state; `CancelScope` with explicit deadlines
 
----
 ## Surface Quality
 
 - [ ] No helper spam, class proliferation, DTO soup, framework coupling, or import-time IO
 
----
 ## Algorithm Integrity
 
 - [ ] `reduce` replaces accumulator loops; `accumulate` for scans; generators for lazy transforms
 - [ ] `@trampoline` for unbounded recursion depth -- stack safety mandatory
 - [ ] `Decimal` + `ROUND_HALF_EVEN` for financial arithmetic -- zero `float` in monetary paths
 
----
 ## Performance Integrity
 
 - [ ] `__slots__` on non-Pydantic domain classes; module-level singletons for Encoder/Decoder/TypeAdapter
 - [ ] `CapacityLimiter` sized to downstream; `checkpoint_if_cancelled()` in hot loops
 - [ ] Profiling evidence before optimization -- no premature tuning
 
----
 ## Detection Heuristics
 
 | [INDEX] | [CAUSE]                  | [GREP_ID] | [RG_PATTERN]                                          | [FIX]                                      |
@@ -89,7 +80,6 @@ Checklist for auditing `.py` modules against python-standards contracts. Items b
 
 All patterns use `rg -n`. Combine G2+G14 for full control-flow audit; G4+G15 for dispatch audit.
 
----
 ## Skill Eval Prompts
 
 - Explicit invocation: "Using coding-python, refine this Python module for Result rails, Protocol DI, and Ruff/ty compliance."
@@ -98,7 +88,6 @@ All patterns use `rg -n`. Combine G2+G14 for full control-flow audit; G4+G15 for
 - Negative control: "Only tune a PostgreSQL query." Expected: do not load Python references unless Python code is present.
 - Compliance checks: output should avoid command thrash, avoid new helper files, keep recovery outside `@effect.result` generators, and prefer `assert_never` on closed matches.
 
----
 ## Quick Reference
 
 | [INDEX] | [CHECKLIST_AREA]      | [WHAT_IT_VALIDATES]                                                            |

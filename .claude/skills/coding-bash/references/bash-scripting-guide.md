@@ -1,15 +1,8 @@
 # [H1][BASH-SCRIPTING-GUIDE]
->**Dictum:** *Language mastery enables functional shell scripts.*
-
-<br>
 
 Bash 5.2+/5.3 language reference. Strict mode, parameter expansion, arrays, data structures, namerefs, arithmetic, builtin performance.
 
----
 ## [1][STRICT_MODE]
->**Dictum:** *Strict mode failures must be understood, not cargo-culted.*
-
-<br>
 
 ```bash
 #!/usr/bin/env bash
@@ -30,11 +23,7 @@ IFS=$'\n\t'
 
 `set -E` vs `set -e`: `-e` kills the script but `-E` ensures the ERR trap fires first for stack trace context. Without `-E`, function failures bypass the trap — silent exit, no diagnostics. `inherit_errexit` closes the `$()` loophole: `local -r x="$(failing_cmd)"` silently succeeds without it because subshells do NOT inherit `-e` by default.
 
----
 ## [2][BASH_5_2_5_3]
->**Dictum:** *Feature awareness prevents subshell overhead.*
-
-<br>
 
 | [IDX] | [FEATURE]         | [SYNTAX]                         | [PURPOSE]                                    |
 | :---: | :---------------- | :------------------------------- | :------------------------------------------- |
@@ -69,11 +58,7 @@ shopt -s lastpipe
 command | mapfile -t arr       # arr is in calling scope, not lost to subshell
 ```
 
----
 ## [3][PARAMETER_EXPANSION]
->**Dictum:** *Expansion operators replace external commands.*
-
-<br>
 
 ```bash
 # --- defaults and guards ---
@@ -120,11 +105,7 @@ printf '%s\n' "${files[@]/#/backup/}"              # Prefix: backup/a.log ...
 printf '%s\n' "${files[@]/%.log/.bak}"             # Suffix swap: a.bak ...
 ```
 
----
 ## [4][BRANCHING]
->**Dictum:** *Parameter expansion and dispatch tables replace conditional branching.*
-
-<br>
 
 | [IDX] | [PATTERN]                                     | [STYLE]                   |
 | :---: | :-------------------------------------------- | :------------------------ |
@@ -144,11 +125,7 @@ esac
 # Dispatch table and arithmetic examples: see [7][DATA_STRUCTURES] and [8][ARITHMETIC]
 ```
 
----
 ## [5][VARIABLES_AND_ARRAYS]
->**Dictum:** *Readonly declarations enforce immutability.*
-
-<br>
 
 ```bash
 readonly MAX_RETRIES=3                              # Module-level: UPPER, readonly
@@ -199,11 +176,7 @@ exec {fd}>&-                                        # Release FD
 
 **Controlled global mutation** — `declare -g` is the single escape hatch. Use exclusively for config loading; validate key names against `^[A-Za-z_][A-Za-z_0-9]*$` before `declare -g "${key}=${value}"`.
 
----
 ## [6][NAMEREFS]
->**Dictum:** *Namerefs enable pure function return values without subshells.*
-
-<br>
 
 ```bash
 # Return scalar via nameref (zero-fork alternative to $(subshell))
@@ -235,11 +208,7 @@ _reduce() {
 - **Array constraint**: `local -na` is invalid. Namerefs CAN reference arrays (`local -n _arr=my_array; ${_arr[@]}`), but cannot be declared as arrays.
 - **Scope**: Namerefs resolve at the call site's scope, not the declaration site — this is why they work for returning values up the call stack.
 
----
 ## [7][DATA_STRUCTURES]
->**Dictum:** *Associative arrays enable O(1) dispatch and membership.*
-
-<br>
 
 ```bash
 # Dispatch table: see [4][BRANCHING] for full pattern
@@ -277,11 +246,7 @@ _queue+=("value")                                    # Enqueue
 local -r front="${_queue[_q_head]}"; (( _q_head++ )) # Dequeue
 ```
 
----
 ## [8][ARITHMETIC]
->**Dictum:** *Arithmetic context replaces external math and boolean logic.*
-
-<br>
 
 ```bash
 # Ternary assignment
@@ -307,11 +272,7 @@ local -r t1="${EPOCHREALTIME}"
 local -r us=$(( (${t1%.*} - ${t0%.*}) * 1000000 + 10#${t1#*.} - 10#${t0#*.} ))
 ```
 
----
 ## [9][BUILTIN_PERFORMANCE]
->**Dictum:** *Fewer forks yield faster scripts.*
-
-<br>
 
 | [IDX] | [NEED]          | [EXTERNAL_FORK]              | [BASH_NATIVE_ZERO_FORK]                            |
 | :---: | :-------------- | :--------------------------- | :------------------------------------------------- |

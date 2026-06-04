@@ -1,7 +1,4 @@
 # Claude Workspace Setup
->**Dictum:** *Automatic setup prepares sessions; manual bootstrap changes hosts.*
-
-<br>
 
 ## [1][SESSION_START]
 
@@ -13,7 +10,6 @@
 - `CLAUDE_EXTRA_PATH` - Backward-compatible alias used when `CLAUDE_TOOL_PATHS` is unset.
 - `CLAUDE_ALLOW_MISSING_TOOL_PATHS=1` - Preserve explicit PATH entries even when the directory is absent.
 
----
 ## [2][HOST_BOOTSTRAP]
 
 `scripts/bootstrap-cli-tools.sh` is manual. Default mode is `check`, which reports missing tools without mutating the host.
@@ -30,7 +26,6 @@
 - `CLAUDE_BOOTSTRAP_ALLOW_NETWORK=1` - Permit package and tool downloads.
 - `CLAUDE_BOOTSTRAP_ALLOW_REMOTE_INSTALLERS=1` - Permit remote installer scripts and release assets.
 
----
 ## [3][BOUNDARIES]
 
 [CRITICAL]:

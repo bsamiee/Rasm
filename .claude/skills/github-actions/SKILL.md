@@ -9,9 +9,6 @@ description: >-
 ---
 
 # [H1][GITHUB-ACTIONS]
->**Dictum:** *Workflow generation and validation enforce security, performance, and supply chain integrity.*
-
-<br>
 
 Generate and validate production-ready GitHub Actions workflows and custom actions.
 
@@ -65,11 +62,7 @@ Generate and validate production-ready GitHub Actions workflows and custom actio
 | Example           | [docker-lint-scan-action.yml](examples/docker-lint-scan-action.yml)        |
 | Example           | [pr-change-router-action.yml](examples/pr-change-router-action.yml)        |
 
----
 ## [1][STANDARDS]
->**Dictum:** *Mandatory standards enforce baseline quality across all generated workflows.*
-
-<br>
 
 Every generated workflow enforces defense-in-depth: supply chain integrity prevents compromised actions from executing, minimal permissions limit blast radius if a job is compromised, and harden-runner detects anomalous behavior at runtime. These layers are independent — failure of one leaves others intact.
 
@@ -87,11 +80,7 @@ Every generated workflow enforces defense-in-depth: supply chain integrity preve
 
 [REFERENCE] [best-practices.md](./references/best-practices.md) — Security checklist, supply chain controls, anti-patterns.
 
----
 ## [2][TEMPLATES]
->**Dictum:** *Templates scaffold canonical workflow and action structure.*
-
-<br>
 
 Templates use `[PLACEHOLDER]` syntax for generation-time substitution. SHA resolution happens at generation time via the discovery protocol — templates contain placeholder SHAs, not static pins.
 
@@ -125,11 +114,7 @@ All templates use a unified `[UPPER_SNAKE_CASE]` placeholder convention:
 
 [REFERENCE] [custom-actions.md](./references/custom-actions.md) — Action type selection, metadata, runtime deprecation.
 
----
 ## [3][EXAMPLES]
->**Dictum:** *Examples demonstrate production patterns for common scenarios.*
-
-<br>
 
 Each example demonstrates distinct patterns with minimal overlap. Load relevant examples before generation to match the target scenario.
 
@@ -147,11 +132,7 @@ Each example demonstrates distinct patterns with minimal overlap. Load relevant 
 |  [10]   | **Docker Lint + Scan**                   | `examples/docker-lint-scan-action.yml`  | Composite action: Trivy scan, hadolint, SARIF output.             |
 |  [11]   | **PR Change Router**                     | `examples/pr-change-router-action.yml`  | Composite action: paths-filter, dynamic matrix, label sync.       |
 
----
 ## [4][ACTION_DISCOVERY]
->**Dictum:** *Runtime version resolution prevents stale SHA pins and supply chain drift.*
-
-<br>
 
 Static SHA catalogs decay — actions release frequently and stale pins miss security patches. Resolve versions at generation time. Never embed hardcoded SHAs in reference docs or templates.
 
@@ -171,11 +152,7 @@ Static SHA catalogs decay — actions release frequently and stale pins miss sec
 
 [REFERENCE] [version-discovery.md](./references/version-discovery.md) — Discovery protocol, SHA pinning format, common actions index, automated maintenance.
 
----
 ## [5][VALIDATION]
->**Dictum:** *Three-stage pipeline and 11 best practice checks gate workflow quality.*
-
-<br>
 
 **Validation pipeline:**
 

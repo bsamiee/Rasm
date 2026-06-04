@@ -1,15 +1,8 @@
 # [H1][RASM_APPHOST_ROADMAP]
->**Dictum:** *Scaffold the runtime, then integrate flow, telemetry, config, and host modes.*
-
-<br>
 
 This roadmap sequences the build. The runtime platform is built fully from the foundation; external-hop and companion lanes integrate with the concern that owns them.
 
----
 ## [1][PHASE_0]
->**Dictum:** *Housekeeping lands and compiles before heavy work.*
-
-<br>
 
 - Add every core package to root `Directory.Packages.props` at the newest viable versions; project references stay versionless; no unusual pinning. In-process: `LanguageExt.Core`, `OpenTelemetry.Api`, `Microsoft.Extensions.Logging.Abstractions`, `NodaTime`, `FluentValidation`, `Microsoft.Extensions.Http.Resilience`. In-box no-pin: `System.Threading.Channels`, `System.Threading.Tasks.Dataflow`, `System.Diagnostics.DiagnosticSource`, `TimeProvider`. Companion: `Microsoft.Extensions.Hosting`, `Microsoft.Extensions.DependencyInjection`, `Microsoft.Extensions.Configuration` (+ `.Binder` + `.Json`), `Microsoft.Extensions.Options` (+ `.ConfigurationExtensions` + `.DataAnnotations`), `Microsoft.Extensions.Diagnostics`, `OpenTelemetry.Instrumentation.Runtime`, `OpenTelemetry.Instrumentation.Process`, `OpenTelemetry.Exporter.OpenTelemetryProtocol`, `Serilog` (+ `.Sinks.OpenTelemetry` + `.Enrichers.Span` + `.Enrichers.Thread` + `.Enrichers.Environment`), `Scrutor`, `FluentValidation.DependencyInjectionExtensions`, `Microsoft.Extensions.ObjectPool` (conditional).
 - Create `Rasm.AppHost.csproj`, wire into `Workspace.slnx` and the central build, resolve host assemblies as sibling libs do. Target `net10.0` (not `net10.0-windows`).
@@ -18,11 +11,7 @@ This roadmap sequences the build. The runtime platform is built fully from the f
 
 Phase 0 is complete when restore and build pass clean.
 
----
 ## [2][RUNTIME_CORE]
->**Dictum:** *One runtime rail owns profiles, flow, config, health, and lifecycle.*
-
-<br>
 
 Build the runtime rail with its core mechanisms integrated:
 
@@ -44,11 +33,7 @@ Build the runtime rail with its core mechanisms integrated:
 
 Runtime operations return typed `LifecycleReceipt` DU cases; correlate `DiagnosticReceipt` (AppUi-owned) without redefining it.
 
----
 ## [3][SCOPED_LANES]
->**Dictum:** *External lanes integrate with the concern that owns them.*
-
-<br>
 
 | [INDEX] | [LANE]                            | [INTEGRATES_WITH]                    |
 | :-----: | --------------------------------- | ------------------------------------ |
@@ -61,11 +46,7 @@ Runtime operations return typed `LifecycleReceipt` DU cases; correlate `Diagnost
 |   [7]   | Dataflow                          | Multi-stage topology beyond Channels |
 |   [8]   | ObjectPool                        | Conditional; when allocation profiling warrants |
 
----
 ## [4][RUNTIME_EVIDENCE]
->**Dictum:** *Runtime claims require runtime evidence.*
-
-<br>
 
 Runtime claims are scoped to proven profiles. Owner-local receipts identify:
 

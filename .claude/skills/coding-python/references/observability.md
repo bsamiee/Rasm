@@ -2,7 +2,6 @@
 
 Observability in Python 3.14+ fuses traces, logs, and metrics behind one `@instrument` surface. `structlog` builds event dicts, `logging` transports, and `OpenTelemetry SDK >= 1.39` exports spans/logs through `ReadableLogRecord`. Correlation flows through `ContextVar` and `merge_contextvars`. All snippets target `structlog >= 25.5`, `opentelemetry-sdk >= 1.39`, expression v5.6+ with `Result`, `Ok`, `Error`, `match/case` dispatch, and explicit boundary loops only.
 
----
 ## Signal Pipeline
 
 `@instrument` creates a span, emits structured start/success/failure events, and projects `Result` outcomes into telemetry. The structlog chain is pure transformation: `merge_contextvars` -> `CallsiteParameterAdder` -> `add_log_level` -> `TimeStamper` -> `inject_trace_identifiers` -> stdlib bridge.
@@ -99,7 +98,6 @@ def configure_structlog() -> None:
 - [NEVER] Use `AsyncBoundLogger` -- deprecated since 23.1.0. Use `FilteringBoundLogger` with `ainfo`/`aerror`.
 - [ALWAYS] Place `merge_contextvars` first in the processor chain.
 
----
 ## Context Threading
 
 A custom processor reads `trace_id` (32-char hex) and `span_id` (16-char hex) from the active OTel span context. `bind_contextvars()` sets context-local pairs that `merge_contextvars` injects into every log event. Each `anyio` task inherits a snapshot of the parent context automatically.
@@ -154,7 +152,6 @@ Propagation paths:
 - Cross-thread: per-thread `ContextVar` isolation.
 - Span correlation: `trace.get_current_span()` via OTel context propagation.
 
----
 ## Bootstrap
 
 `bootstrap_telemetry()` configures: (1) `Resource` identity, (2) `TracerProvider` + `BatchSpanProcessor`, (3) `LoggerProvider` + `BatchLogRecordProcessor` (OTel >= 1.39 -- `LogData` removed), (4) structlog chain. Init order: Resource -> Exporters -> Processors -> Providers -> Global. Called once at startup -- never at import time.
@@ -202,7 +199,6 @@ def bootstrap_telemetry(service_name: str, service_version: str = "0.0.0") -> tu
 - [ALWAYS] Use `ReadableLogRecord` for export (OTel >= 1.39) -- `LogData` removed.
 - [ALWAYS] All global registrations (`set_tracer_provider`, `set_meter_provider`, `set_logger_provider`) are write-once.
 
----
 ## Metrics Projection
 
 `@instrument` projects counters and histograms from `Ok`/`Error` via `opentelemetry.metrics`. Rate is a monotonic counter per call. Error is a monotonic counter per `Error` outcome. Duration is a histogram recording elapsed seconds. All share the `operation` dimension for dashboard correlation.
@@ -268,7 +264,6 @@ def instrument_with_metrics[**P, R](func: Callable[P, Result[R, Exception]]) -> 
 
 RED instruments: **Rate** `service.requests.total` (counter, `operation` + `outcome`), **Error** `service.errors.total` (counter, `operation` + `error_type`), **Duration** `service.request.duration` (histogram, `operation`). Dimension stability is critical -- `operation` keys must match across all three for dashboard joins.
 
----
 ## Rules
 
 - [NEVER] Split logs, traces, and metrics across separate decorators -- fuse in one surface.
@@ -285,7 +280,6 @@ RED instruments: **Rate** `service.requests.total` (counter, `operation` + `outc
 - [ALWAYS] Use `expression.Result` (`Ok`/`Error`) for all outcome projection -- canonical library.
 - [PREFER] `msgspec.json.encode` as JSON serializer backend for structlog.
 
----
 ## Quick Reference
 
 | [INDEX] | [PATTERN]                  | [WHEN]                                    | [KEY_TRAIT]                            |

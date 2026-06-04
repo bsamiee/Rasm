@@ -1,15 +1,8 @@
 # [H1][RASM_PERSISTENCE_ROADMAP]
->**Dictum:** *Scaffold the store, then build query algebra, live state, and snapshots.*
-
-<br>
 
 This roadmap sequences the build. The store rail, query algebra, migrations, and live-state projection are built fully from the foundation; compact-snapshot and companion lanes integrate with the concern that owns them.
 
----
 ## [1][PHASE_0]
->**Dictum:** *Housekeeping lands and compiles before heavy work.*
-
-<br>
 
 - Add every core package to root `Directory.Packages.props` at newest viable versions; project references stay versionless; no version numbers in `.csproj`. Core packages: `Microsoft.EntityFrameworkCore.Sqlite`, `Microsoft.Data.Sqlite`, `Microsoft.EntityFrameworkCore.Design` (`PrivateAssets=all`), `SQLitePCLRaw.bundle_e_sqlite3` (carries the `SQLitePCLRaw.lib.e_sqlite3` macOS-arm64 native asset), `NodaTime`, `NodaTime.Serialization.SystemTextJson`, `FluentValidation`, `MessagePack`, `MessagePack.Generator`, `EFCore.NamingConventions`, `EFCore.BulkExtensions`, `K4os.Compression.LZ4`, `Microsoft.Extensions.Compliance.Redaction`. `LanguageExt.Core` is already in central management via the Functional Core group; `System.Reactive` and `DynamicData` via the App UI group.
 - `StoreOpen` calls `SQLitePCL.Batteries.Init()` (idempotent) before the first `SqliteConnection`. Failure → `MissingNativeAsset` receipt; no throw.
@@ -19,11 +12,7 @@ This roadmap sequences the build. The store rail, query algebra, migrations, and
 
 Phase 0 is complete when restore and build pass clean.
 
----
 ## [2][STORE_CORE]
->**Dictum:** *Open, migrate, query, project, close — one algebra.*
-
-<br>
 
 Build the store rail with lifecycle, query, and live projection integrated:
 
@@ -41,11 +30,7 @@ Build the store rail with lifecycle, query, and live projection integrated:
 |  [10]   | `EFCore.NamingConventions`            | snake_case column names globally                                               |
 |  [11]   | `PRAGMA user_version` + `__EFMigrationsHistory` | Both checked on `StoreOpen`; `user_version` is the fast-path integer gate; `__EFMigrationsHistory` is the migration-log truth |
 
----
 ## [3][SCOPED_LANES]
->**Dictum:** *Snapshot and companion lanes integrate with the concern that owns them.*
-
-<br>
 
 | [INDEX] | [LANE]                            | [INTEGRATES_WITH]                                                              |
 | :-----: | --------------------------------- | ------------------------------------------------------------------------------ |
@@ -59,10 +44,6 @@ Build the store rail with lifecycle, query, and live projection integrated:
 |   [8]   | Raw `Microsoft.Data.Sqlite` bypass | Native-load probe or EF bypass slice                                          |
 |   [9]   | Companion-service database        | Separate out-of-process only; Npgsql never in-process                         |
 
----
 ## [4][STORE_EVIDENCE]
->**Dictum:** *Store claims require lifecycle evidence.*
-
-<br>
 
 Store claims are scoped to the proven local store. Receipts identify database path, schema version, migration result, query result, close/dispose path, downgrade rejection (`PRAGMA user_version` + `__EFMigrationsHistory`), partial-migration failure, native-load proof (`Batteries.Init` before first `SqliteConnection`), corruption recovery (`integrity_check` → rename → snapshot restore), WAL/PRAGMA config proof, `BehaviorSubject.OnNext` serialization proof, snapshot codec compatibility, support-bundle redaction, and backup path.

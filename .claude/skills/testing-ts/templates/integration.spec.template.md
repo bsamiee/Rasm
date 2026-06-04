@@ -1,7 +1,4 @@
 # [H1][INTEGRATION_TEMPLATE]
->**Dictum:** *Scaffold for integration tests using testcontainers and/or MSW for boundary testing.*
-
-<br>
 
 <!-- ┌─────────────────────────────────────────────────────────────────────────────┐ -->
 <!-- │ Placeholders: ${UPPER_SNAKE_CASE} — replace all before use.                 │ -->
@@ -70,11 +67,7 @@ layer(${LAYER_NAME})('${SUITE_NAME}', (it) => {
 });
 ```
 
----
 ## [1][PLACEHOLDER_REFERENCE]
->**Dictum:** *Quick lookup — see inline comments above for usage guidance.*
-
-<br>
 
 | [INDEX] | [PLACEHOLDER]          | [EXAMPLE]                                   |
 | :-----: | ---------------------- | ------------------------------------------- |

@@ -1,7 +1,4 @@
 # [H1][ARRAY-ALGEBRA]
->**Dictum:** *Arrays are the compositional unit — set operations, structural transforms, and higher-order traversal replace imperative mutation.*
-
-<br>
 
 Set algebra via associative arrays, structural transforms via bulk expansion, higher-order traversal via nameref + function dispatch, and null-safe pipeline bridging. Declaration, access, slicing, and basic iteration are in [bash-scripting-guide.md S6](./bash-scripting-guide.md).
 
@@ -14,11 +11,7 @@ Set algebra via associative arrays, structural transforms via bulk expansion, hi
 |  [5]  | Higher-order trav |  S3   | Map/filter/reduce/scan/predicates via nameref             |
 |  [6]  | Pipeline bridge   |  S4   | Null-safe array-to-pipeline, parallel map, collect        |
 
----
 ## [1][SET_ALGEBRA]
->**Dictum:** *Associative arrays reduce set operations from O(n*m) to O(n+m).*
-
-<br>
 
 Build a set from one array and probe from the other instead of nested iteration. Case-insensitive sets: key via `${item,,}` in `_to_set` — propagates uniformly to all downstream operations.
 
@@ -112,11 +105,7 @@ Nameref pitfalls: avoid `local -n _r=$1` where caller passes `_r` (circular ref)
 
 **Performance**: all operations O(n) per call. Above ~10k elements, delegate to `comm`/`sort`/`join` on sorted files — external tools handle large datasets orders of magnitude faster than bash loops.
 
----
 ## [2][STRUCTURAL_TRANSFORMS]
->**Dictum:** *Bulk expansion operators reshape arrays without element-wise iteration.*
-
-<br>
 
 ```bash
 # Bulk prefix/suffix — O(n) in expansion engine, zero loops
@@ -171,9 +160,7 @@ config_merge merged overrides  # last-write wins
 # merged: [ssl]="true" [port]="5433" [host]="localhost" [db]="myapp"
 ```
 
----
 ## [3][HIGHER_ORDER_TRAVERSE]
->**Dictum:** *Function names as first-class values enable map/filter/reduce without language-level support.*
 
 ```bash
 _map() {
@@ -221,9 +208,7 @@ declare total=0; _reduce _add big total
 
 `_map` (nameref, zero forks) vs `_map_exec` (stdout capture, one fork per element). `_any`/`_all` short-circuit — O(1) best case. `_count_by` builds a frequency table in a single pass.
 
----
 ## [4][PIPELINE_INTEGRATION]
->**Dictum:** *Null-delimited interchange prevents filename corruption at array↔pipeline boundaries.*
 
 Only null-delimited (`\0`) is safe for arbitrary data — newline-delimited breaks on filenames with embedded newlines.
 
@@ -324,7 +309,6 @@ _pool_map() {
 
 `_map_exec` unusable above 10K (fork per element). Associative arrays degrade O(n^2) beyond ~50K entries on stock bash (no rehashing compiled in) — delegate to `awk` associative arrays or `jq`.
 
----
 ## [RULES]
 
 - `declare -A` for set ops — O(n+m) beats O(n*m). `set_*` for assoc-array set algebra; `_union`/`_intersect`/`_diff` for indexed arrays.

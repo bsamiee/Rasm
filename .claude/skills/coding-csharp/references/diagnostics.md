@@ -1,15 +1,8 @@
 # [H1][DIAGNOSTICS]
->**Dictum:** *Diagnostics preserve algebraic structure; inspect without collapsing context.*
-
-<br>
 
 Diagnostics in C# 14 / .NET 10 remain compositional with `Fin<T>` / `Validation<Error,T>` / `Eff<RT,T>` and never force procedural collapse. Centralized runtime surfaces own telemetry identities; probes remain identity-preserving taps.
 
----
 ## [1][DIAGNOSTIC_RUNTIME]
->**Dictum:** *One module owns diagnostic state and probes; debug enrichment is compile-time gated.*
-
-<br>
 
 Centralizing `ActivitySource`, `Meter`, `ILoggerFactory`, and `Counter<long>` in a single `internal static` class enforces a single telemetry identity surface -- multiple `ActivitySource` instances with distinct names fragment distributed traces because the OTel collector correlates spans by source name, not by class hierarchy. `Probe.Tap` and `Probe.Trace` are identity-preserving by construction: `Tap` re-yields the pipeline value via `from..in..select` without entering the error channel, and `Trace` reproduces the original `Fin<T>` discriminant on both arms of `.Match()`, so neither combinator can short-circuit or alter the functor's shape. `DebugLayer` is zero-cost in release builds because the `#if DEBUG` conditional compilation directive eliminates the `Span` call entirely at the IL level -- the release overload is a direct return of `pipeline`, not a no-op wrapper that still allocates a delegate.
 
@@ -104,11 +97,7 @@ public static class Probe {
 }
 ```
 
----
 ## [2][FAILURE_INTELLIGENCE]
->**Dictum:** *Failure analysis is projection: flatten once, summarize once.*
-
-<br>
 
 LanguageExt `Error` is a recursive tree where `Inner` is `Option<Error>` -- errors from recovery handlers and composed `Eff` pipelines accumulate as chains that must be explicitly traversed via `.AsIterable()` + `.Inner.Match()` to surface root causes; there is no implicit flattening on `.Message` or `.Code`. `Validation<Error,T>` in v5 declares `BiMap` as an abstract method -- `Validation.Fail` and `Validation.Success` both override it, and `Bifunctor.Extensions` provides additional `K<F,L,A>` overloads. Use `validation.BiMap(Succ: ..., Fail: ...)` for dual-channel projection without collapsing context; reserve `.Match()` for terminal boundary projections that produce a single output type. Materializing the flat `Seq<Error>` once in `Flatten` then reusing it for both `.Count` and `.Map(e => e.Message)` in `Summary` keeps the traversal O(n) -- calling `Flatten` separately per consumer would re-traverse the full chain for each projection site, producing O(n²) work in error reporting paths.
 
@@ -171,11 +160,7 @@ file static class ValidationExtensions {
 |   [8]   | `SYSLIB1040` | `[GeneratedRegex]` method not `partial`  | `static partial Regex Pattern();`  |
 |   [9]   | `SYSLIB1042` | Invalid pattern in `[GeneratedRegex]`    | fix regex; validated at build time |
 
----
 ## [2A][EFF_STACK_TRACE_NAVIGATION]
->**Dictum:** *Read Eff failure traces by ignoring runtime plumbing and following domain annotations.*
-
-<br>
 
 When an `Eff<RT,T>` pipeline fails, the .NET stack trace interleaves LanguageExt runtime frames with domain code. Without triage rules, developers chase internal machinery instead of root causes. Three techniques reconstruct the logical failure path: frame filtering, `MapFail` annotation chains, and `Probe.Span` Activity correlation.
 
@@ -285,11 +270,7 @@ file static class SpanCorrelation {
 }
 ```
 
----
 ## [3][PERF_DIAGNOSTICS]
->**Dictum:** *Profile from runtime signals first; prove minimal-capture hot paths.*
-
-<br>
 
 ```bash
 # Cross-platform process discovery
@@ -340,11 +321,7 @@ public static class ClosureDiagnostics {
 }
 ```
 
----
 ## [4][DIAGNOSTIC_CANON]
->**Dictum:** *Diagnostic constraints enforce compositional observability.*
-
-<br>
 
 | [INDEX] | [CONSTRAINT]                  | [MANDATE]                                                                    | [ENFORCEMENT_SURFACE]          |
 | :-----: | ----------------------------- | ---------------------------------------------------------------------------- | ------------------------------ |

@@ -1,13 +1,8 @@
 # [H1][RECIPES]
->**Dictum:** *Polymorphic patterns enable reliable automation.*
-
-<br>
 
 Six patterns use dispatch tables, frozen state, `B: Final` constants.
 
----
 ## [1][SECURITY_GATE]
->**Dictum:** *PreToolUse dispatch prevents dangerous operations.*
 
 **Events:** PreToolUse (Bash|Write|Read matcher)
 
@@ -50,9 +45,7 @@ if __name__ == "__main__":
     sys.exit(main())
 ```
 
----
 ## [2][INPUT_TRANSFORMER]
->**Dictum:** *UpdatedInput field enables parameter modification.*
 
 **Events:** PreToolUse (Bash|Write matcher)
 
@@ -83,9 +76,7 @@ if __name__ == "__main__":
     sys.exit(main())
 ```
 
----
 ## [3][QUALITY_PIPELINE]
->**Dictum:** *PostToolUse formatters enforce code quality.*
 
 **Events:** PostToolUse (Write|Edit matcher)
 
@@ -113,9 +104,7 @@ if __name__ == "__main__":
     sys.exit(main())
 ```
 
----
 ## [4][CONTEXT_BOOTSTRAP]
->**Dictum:** *SessionStart injects project context.*
 
 **Events:** SessionStart (startup|resume|compact matcher)
 
@@ -140,9 +129,7 @@ if __name__ == "__main__":
     sys.exit(main())
 ```
 
----
 ## [5][OBSERVABILITY]
->**Dictum:** *Structured logging enables analysis.*
 
 **Events:** All (catch-all matcher)
 
@@ -178,9 +165,7 @@ if __name__ == "__main__":
     sys.exit(main())
 ```
 
----
 ## [6][STOP_EVALUATOR]
->**Dictum:** *Prompt hooks evaluate task completion.*
 
 **Events:** Stop, SubagentStop (prompt type)
 

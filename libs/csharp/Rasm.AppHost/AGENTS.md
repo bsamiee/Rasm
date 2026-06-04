@@ -1,15 +1,8 @@
 # [H1][RASM_APPHOST_AGENTS]
->**Dictum:** *Coordinate runtime; do not absorb owners.*
-
-<br>
 
 [CRITICAL] Build `Rasm.AppHost` now as one unified runtime platform. Add package references centrally, create the `.csproj`, and scaffold the folder structure in Phase 0 before heavy work. Build the runtime core fully; integrate external lanes with the concern that owns them.
 
----
 ## [1][OWNER_CONTRACT]
->**Dictum:** *One runtime rail routes operations and receipts.*
-
-<br>
 
 - Use runtime-record `Eff.runtime<RT>()` as the default Rhino/GH2 plugin composition mode. `RasmRuntime` is the sole `RT` type. No `Has<RT,_>` traits or `Readable.asks` — v4 vocabulary, forbidden by `coding-csharp/references/composition.md`.
 - The composition root is `PlugIn.OnLoad`. It constructs the AppUi-owned UI scheduler boundary **on the UI thread**, then calls `AppHost.Boot(token, timeProvider, uiScheduler, …capabilities)`. `Boot` returns `BootReceipt(Runtime, Drain, Lifecycle)`; the `RasmRuntime` is handed to AppUi to activate observables.
@@ -25,11 +18,7 @@
 - Emit `LifecycleReceipt.Faulted` on sibling fault; apply degradation policy from `RasmConfig` data (`KeepRunning`/`DrainAndReload`/`UnloadPlugin`). No inline branching in domain logic.
 - Own the support-bundle trigger: `SupportBundleRequested` event → Persistence export signal; window and size-cap from named `RasmConfig` fields.
 
----
 ## [2][BOUNDARY_RULES]
->**Dictum:** *One owner per operational concern.*
-
-<br>
 
 | [INDEX] | [CONCERN]           | [RULE]                                                                    |
 | :-----: | ------------------- | ------------------------------------------------------------------------- |
@@ -48,11 +37,7 @@
 |  [13]   | Drain deadline      | `CancellationTokenSource.CancelAfter(TimeSpan, TimeProvider)`, 3–5 s; forceful cancel |
 |  [14]   | GH2 SDK             | AppHost is GH2-agnostic; no GH2 API crosses into AppHost source; `async:true` unsupported in GH components |
 
----
 ## [3][SHUTDOWN_DRAIN_ORDER]
->**Dictum:** *Ordered drain prevents receipt loss and race conditions.*
-
-<br>
 
 [CRITICAL] Shutdown sequence — execute in strict order:
 
@@ -65,11 +50,7 @@
 
 Compute-before-Persistence: prevents dropping the last batch. Persistence-before-UI: prevents racing `OnCompleted` against a pending change-set. The `InvokeOnUiThread` fence ensures `OnCompleted` fires on the UI thread before Rhino destroys the window.
 
----
 ## [4][EVIDENCE]
->**Dictum:** *Source slices produce runtime evidence.*
-
-<br>
 
 Executable proof comes from source and host scenarios. Evidence categories:
 
@@ -85,11 +66,7 @@ Executable proof comes from source and host scenarios. Evidence categories:
 - `HealthSnapshot` query at boot and after sibling fault.
 - GH2-agnosticism: no GH2 import in AppHost source.
 
----
 ## [5][REJECTIONS]
->**Dictum:** *AppHost is not an infrastructure dumping ground.*
-
-<br>
 
 - No domain logic.
 - No AppUi rendering.

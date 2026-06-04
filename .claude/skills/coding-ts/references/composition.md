@@ -2,7 +2,6 @@
 
 Composition owns graph geometry, not service semantics. Snippets target current Effect APIs, maintain branch-free FP+ROP, avoid wrapper indirection. Root assembly is a one-time boundary operation; feature modules export partial layers.
 
----
 ## [1][COMPOSITION_LAWS]
 
 - Encode dependencies with raw `Layer` combinators; no helpers hiding DAG semantics.
@@ -12,7 +11,6 @@ Composition owns graph geometry, not service semantics. Snippets target current 
 - Collection-driven mapping (`HashMap`, `Chunk`) when topology must stay data-driven.
 - Effect-* packages are first-class graph nodes; composition wires nodes.
 
----
 ## [2][REQUIREMENT_ELIMINATION_AND_VISIBILITY]
 
 `provide` collapses a requirement edge, retaining only consumer output — provider vanishes. `provideMerge` eliminates and unions provider output for downstream binding. Misclassifying an edge produces type errors or silent capability leakage.
@@ -57,7 +55,6 @@ const Pipeline = (() => {
 - `sealed` enforces `RIn = never` at value level. Composes with `Layer.launch`, `Effect.provide`, `Layer.merge`.
 - `SampleRate` vocabulary with `as const satisfies` — `SampleMode` = `keyof typeof SampleRate` propagates exhaustiveness.
 
----
 ## [3][BOUNDARY_OUTPUT_SHAPING]
 
 Exposing every internal node creates accidental coupling. `Layer.project` narrows to consumer-facing subset; `discard` produces initialization-only layers (no output); `passthrough` re-exposes requirements as outputs for test introspection.
@@ -109,7 +106,6 @@ const Boundary = (() => {
 - `passthrough` on `RIn = Config` produces `Layer<Out | Config, E, Config>` — both requirement and output. Useful for test assertions; production use leaks capability.
 - Default memoization deduplicates across projections. `Layer.fresh` creates isolated instance.
 
----
 ## [4][DYNAMIC_TOPOLOGY_SELECTION]
 
 Static `provide`/`merge` chains fix topology at module load. `Layer.unwrapEffect` defers wiring to graph-construction time; `unwrapScoped` extends this to modes with scoped resources.
@@ -156,7 +152,6 @@ const IngestTopology = (() => {
 - `$match` curried form passes directly to `Effect.map`. Adding mode without handler fails at compile time — two-site exhaustiveness.
 - Default memoization deduplicates shared sub-layers across modes.
 
----
 ## [5][ERROR_AWARE_GRAPH_REWRITES]
 
 Layer-level error handling operates on construction, not runtime requests. `Layer.match` receives typed `E` (defects/interrupts propagate); `matchCause` receives full `Cause<E>` — use only when cause-level discrimination is required.
@@ -195,7 +190,6 @@ const rewriteMesh = <R>(primary: Layer.Layer<Transport, MeshFault, R>) => {
 - `HashMap` dispatch with `Option.match` provides type-safe partial coverage. Unhandled reasons fall through to `Layer.fail(e)`.
 - Same primary graph with distinct error-handling topologies — error channel narrowing visible at type level.
 
----
 ## [6][MEMOIZATION_AND_FRESHNESS]
 
 Default sharing is a correctness invariant masquerading as optimization — shared pools across DDL migrations and read queries produce lock leakage and visibility races. `Layer.fresh` enforces construction-time isolation; `memoize` + `extendScope` binds finalization to managed scope boundary.
@@ -230,7 +224,6 @@ const topology = <A, E, R>(pool: Layer.Layer<A, E, R>) =>
 - `extendScope` changes `RIn` to include `Scope` — finalization propagates to enclosing scope rather than first use-site completion.
 - `Record.map` + `Effect.all` resolves selections within same `Scope`. `withFreshness` is curried: base captured once, layout per-caller.
 
----
 ## [7][EFFECT_STAR_CROSS_LIBRARY_COMPOSITION]
 
 `@effect/*` packages publish layers composing with the same `provide`/`merge` algebra but create cross-boundary requirement edges invisible until graph close. Failing to eliminate produces `RIn = HttpClient | PgClient | ...` — formally open, operationally unrunnable.
@@ -279,7 +272,6 @@ const AppInfra = (() => {
 - `closed` on final graph = acceptance test: `RIn = never` proves all library surfaces resolved. Adding dependency without resolver extension → type error at `closed`.
 - Each library sub-graph closes independently, composing as opaque atoms.
 
----
 ## [8][ROOT_ASSEMBLY_ONCE]
 
 Build-phase layer operations (`tap`, `annotateLogs`, `locally`) execute once at startup, not per-request. Constraining every subgraph to `RIn = never` guarantees closed graph: no dangling requirements escape to `Layer.launch`.
@@ -315,7 +307,6 @@ const assembleRoot = <const Layers extends readonly [ClosedLayer, ...ClosedLayer
 - `launch` converts `Layer<ROut, E, never>` to `Effect<never, E>` — runs until interrupted. `NodeRuntime.runMain` handles signals, finalization, exit codes.
 - Heterogeneous tuple preserves exact error union. Adding/removing subgraph = single-argument edit.
 
----
 ## [9][LAYER_FUSION_AND_NORMALIZATION]
 
 Parallel graph nodes producing overlapping data require merge policy, not concatenation. `zipWith` fuses two contexts through a combiner encoding conflict resolution. `Layer.map` normalizes to consumer-facing contract, separating internal representation from minimal downstream interface.

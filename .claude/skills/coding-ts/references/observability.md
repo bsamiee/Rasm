@@ -2,7 +2,6 @@
 
 This chapter owns projection and transport composition for traces, metrics, and logs in Effect systems. It does not own domain failure taxonomy (`errors.md`), route ownership (`surface.md`), or throughput tuning policy (`performance.md`). Every section is executable reference material for production-grade telemetry decisions.
 
----
 ## [1][OPERATION_RAIL_AND_METRIC_ALGEBRA]
 
 - Execution law: canonicalize operation and rail once, then reuse the same dimension set in span, metrics, and logs.
@@ -97,7 +96,6 @@ const loadProfile = (userId: string) => observeOperation(telemetryVocab.operatio
 
 Projection rules stay deterministic: operation and rail are finite vocabularies, unknown values collapse to explicit sentinel values, and outcome values are bounded to `ok|error|defect|interrupt`. Raw identifiers and free-form strings never become metric dimensions. This keeps metric cardinality stable while preserving operation-level forensic power through structured logs.
 
----
 ## [2][SCOPED_CORRELATION_AND_OPTIONAL_SPAN_SAFETY]
 
 - Correlation writes once at ingress and propagates by scope; inner rails consume but do not mutate correlation shape.
@@ -136,7 +134,6 @@ const requestProgram = withCorrelation("interactive", "pro")(Effect.logInfo("req
 
 Scope is the only writable correlation boundary: ingress writes once, downstream rails inherit. Optional span access is mandatory because context-free rails can run in tests, fibers, and detached execution paths. The pattern keeps metrics/logs/span attributes consistent without relying on ambient global state.
 
----
 ## [3][CAUSE_PROJECTION_MATRIX_AND_ERROR_SEMANTICS]
 
 - Channel matrix: spans get compact bounded keys, metrics get bounded vocab values, logs keep full causal detail.
@@ -203,7 +200,6 @@ const unstableRail = annotateFailure(Effect.fail("network.timeout"));
 
 Projection policy is explicit: spans receive bounded keys, metrics receive bounded value vocabularies, and logs keep compact deterministic fingerprints by default. Parallel/sequential composition keeps left/right kind attribution, preventing merge loss during fan-out and retry graphs.
 
----
 ## [4][BOUNDARY_INSTRUMENTATION_HTTP]
 
 - Input contract: `routeTemplate` is already canonical from `surface.md`; this section does not derive routes from URLs.
@@ -280,7 +276,6 @@ const observeHttpBoundary = <A extends { status: number }, E, R>(method: string,
 
 Route production belongs to `surface.md`; this chapter consumes pre-shaped route templates and projects telemetry at the HTTP boundary. Status-class bucketing stays bounded and queryable (`2xx|4xx|5xx|other|unknown`) while span and metric dimensions remain aligned.
 
----
 ## [5][PROPAGATION_AND_OTLP_TOPOLOGY_DECISIONS]
 
 - Unified mode minimizes wiring and suits single-collector deployments with shared retry/backoff behavior.
@@ -321,7 +316,6 @@ const telemetryLive = telemetryLayer("unified", "http://127.0.0.1:4318", "runtim
 
 `@effect/opentelemetry@0.61+` requires explicit serialization policy: `Otlp.layer` needs `OtlpSerialization`, while `layerJson/layerProtobuf` encode policy directly. `@effect/platform` propagation support is W3C/B3 with extraction order `w3c -> b3 -> x-b3-*`; keep ingress/egress policy consistent across services.
 
----
 ## [6][STREAM_SCHEDULE_STM_TMAP_OBSERVABILITY_BLUEPRINT]
 
 - Read this rail in three phases: retry decision policy, stream batch instrumentation, STM snapshot projection.

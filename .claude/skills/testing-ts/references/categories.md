@@ -1,15 +1,8 @@
 # [H1][TEST_CATEGORIES]
->**Dictum:** *Category routing selects environment, tooling, and patterns per module.*
-
-<br>
 
 [IMPORTANT] Walk routing matrix per module. Pure modules route to Unit PBT. Boundary modules (database, HTTP, Redis) route to Integration. Cross-service orchestration routes to System. User-facing flows route to E2E.
 
----
 ## [1][ROUTING_MATRIX]
->**Dictum:** *Single lookup determines category assignment.*
-
-<br>
 
 | [INDEX] | **Category** | [LOCATION]              | [ENV]    | [KEY_TOOLS]                  | [ROUTE_WHEN]                      |
 | :-----: | ------------ | ----------------------- | -------- | ---------------------------- | --------------------------------- |
@@ -19,13 +12,9 @@
 |   [4]   | System       | `tests/system/`         | node     | Full Layer stack, mock edges | Cross-service orchestration.      |
 |   [5]   | E2E          | `tests/e2e/`            | chromium | Playwright, agent pipeline   | User-facing flows, visual checks. |
 
----
 ## [2][UNIT_PBT]
->**Dictum:** *Unit tests prove algebraic properties of pure domain logic.*
 
-<br>
-
-**Environment:** node (root-tests or packages-node Vitest project).<br>
+**Environment:** node (root-tests or packages-node Vitest project).
 **Tools:** `@effect/vitest` (`it.effect`, `it.effect.prop`, `layer`), fast-check arbitraries, `node:crypto` (differential oracle).
 
 **Setup:** `tests/setup.ts` registers `addEqualityTesters()` -- structural equality for Effect types in `expect().toEqual()`. No custom matchers -- standard `expect()` via `it.effect()`.
@@ -50,13 +39,9 @@
 
 [REFERENCE] Law selection: [→laws.md](./laws.md) — Density techniques: [→density.md](./density.md).
 
----
 ## [3][INTEGRATION]
->**Dictum:** *Integration tests verify boundary contracts against real infrastructure.*
 
-<br>
-
-**Environment:** node (root-tests Vitest project).<br>
+**Environment:** node (root-tests Vitest project).
 **Tools:** testcontainers (`GenericContainer`, `Wait`), MSW (`http.get`, `http.post` handlers).
 
 **Container Lifecycle:** Start in `beforeAll` (60s timeout for pull/start). Stop in `afterAll`. Compose real service layer with container-provided connection via `Layer.provide(ConnectionPool.layer({ host, port }))`.
@@ -75,13 +60,9 @@
 
 **Routing Decision:** Modules communicating with PostgreSQL, Redis, or external HTTP services. Verify SQL queries, cache operations, HTTP client behavior.
 
----
 ## [3.5][CONTRACT]
->**Dictum:** *Contract tests verify structural compatibility across package boundaries.*
 
-<br>
-
-**Environment:** node (root-tests or packages-node Vitest project).<br>
+**Environment:** node (root-tests or packages-node Vitest project).
 **Tools:** `@effect/vitest` (`it.effect`, `it.effect.prop`, `layer`), `Schema.decodeUnknown`, `Effect.provideService`, `Arbitrary.make`.
 
 **Contract tests** verify that:
@@ -103,13 +84,9 @@
 
 **Routing Decision:** Cross-package schema compatibility, service tag structural checks, layer composition verification. Use when two packages share types or services at their boundary.
 
----
 ## [4][SYSTEM]
->**Dictum:** *System tests verify cross-service orchestration via Layer composition.*
 
-<br>
-
-**Environment:** node.<br>
+**Environment:** node.
 **Tools:** Full service stack composed via Effect Layer. Services mock at edges -- no containers.
 
 **Layer Composition:** Merge service layers via `Layer.provideMerge(ServiceA.Default, ServiceB.Default)`. Inject test config via `ConfigProvider.fromMap`. Suppress logs via `Logger.minimumLogLevel(LogLevel.Warning)`.
@@ -126,13 +103,9 @@
 
 **Routing Decision:** Cross-service interactions. Error propagation chains. API route handlers orchestrating multiple services.
 
----
 ## [5][E2E]
->**Dictum:** *E2E tests verify user flows through full application stack.*
 
-<br>
-
-**Environment:** chromium (Playwright).<br>
+**Environment:** chromium (Playwright).
 **Agent Pipeline:** planner (UI exploration) -> generator (spec creation) -> healer (failure remediation). Agents handle E2E spec generation -- do not manually author.
 
 **Bootstrap:** Start only physically present applications or documented test fixtures for the current workspace.
@@ -151,11 +124,7 @@
 
 **Routing Decision:** User-facing flows. Visual verification. Cross-app navigation. Authentication flows. Invoke Playwright agent pipeline.
 
----
 ## [6][CROSS_CUTTING]
->**Dictum:** *Cross-cutting techniques apply across categories, not within one.*
-
-<br>
 
 | [INDEX] | **Technique**        | [SCOPE]                | [MECHANISM]                                        |
 | :-----: | -------------------- | ---------------------- | -------------------------------------------------- |

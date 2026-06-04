@@ -10,7 +10,6 @@ description: >-
 ---
 
 # [H1][CODING-CSHARP]
->**Dictum:** *C# + LanguageExt style, type discipline, and module organization govern all C# work.*
 
 All code follows six governing principles:
 - **Polymorphic** — one entrypoint per concern, generic over specific, extend over duplicate

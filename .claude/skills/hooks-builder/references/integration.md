@@ -1,15 +1,8 @@
 # [H1][INTEGRATION]
->**Dictum:** *Settings precedence governs hook resolution.*
-
-<br>
 
 Hooks integrate via settings files, environment variables, and context injection patterns.
 
----
 ## [1][ENVIRONMENT]
->**Dictum:** *Environment variables enable portable automation.*
-
-<br>
 
 ### [1.1][HOOK_VARIABLES]
 
@@ -45,11 +38,7 @@ _debug = lambda msg: DEBUG and print(f"[hook] {msg}", file=sys.stderr)
 |   [2]   | Windows    | PATH wiped on env append             | Use full executable paths |
 |   [3]   | Remote     | SSH key access required              | Configure SSH agent       |
 
----
 ## [2][CONTEXT_INJECTION]
->**Dictum:** *Stdout from specific events injects context to Claude.*
-
-<br>
 
 ### [2.1][OUTPUT_ROUTING]
 
@@ -93,11 +82,7 @@ def cache_to_env(key: str, value: str) -> None:
 cache_to_env("SKILL_COUNT", str(len(skills)))
 ```
 
----
 ## [3][ATTENTION_WEIGHTING]
->**Dictum:** *XML-like tags weight agent attention.*
-
-<br>
 
 | [INDEX] | [TAG]         | [WEIGHT] | [USE]                     |
 | :-----: | ------------- | :------: | ------------------------- |
@@ -105,11 +90,7 @@ cache_to_env("SKILL_COUNT", str(len(skills)))
 |   [2]   | `<IMPORTANT>` |   High   | Key guidance              |
 |   [3]   | `<context>`   | Standard | General context injection |
 
----
 ## [4][MERGE_BEHAVIOR]
->**Dictum:** *Scope merging at session start composes hooks.*
-
-<br>
 
 | [INDEX] | [SCOPE] | [PATH]                        | [PRECEDENCE] |
 | :-----: | ------- | ----------------------------- | :----------: |
@@ -121,11 +102,7 @@ cache_to_env("SKILL_COUNT", str(len(skills)))
 - Hook snapshots captured at startup; changes require `/hooks` review
 - Identical hook commands auto-deduplicated
 
----
 ## [5][TIMING]
->**Dictum:** *Fast hook execution preserves user experience.*
-
-<br>
 
 | [INDEX] | [EVENT]           | [THRESHOLD] | [CONSEQUENCE]                |
 | :-----: | ----------------- | :---------: | ---------------------------- |
@@ -133,7 +110,6 @@ cache_to_env("SKILL_COUNT", str(len(skills)))
 |   [2]   | SessionStart      |     <5s     | Delayed session start        |
 |   [3]   | All hooks         |   <100ms    | Imperceptible latency        |
 
----
 ## [6][FOLDER_STRUCTURE]
 
 ```

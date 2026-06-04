@@ -1,13 +1,6 @@
 # [H1][SCRIPTING]
->**Dictum:** *Python 3.14 functional pipelines produce reliable hooks.*
 
-<br>
-
----
 ## [1][SHEBANG]
->**Dictum:** *PEP 723 inline metadata enables zero-setup execution.*
-
-<br>
 
 ```python
 #!/usr/bin/env -S uv run --quiet --script
@@ -17,11 +10,7 @@
 # ///
 ```
 
----
 ## [2][TYPES]
->**Dictum:** *PEP 695 type aliases replace TypeAlias annotations.*
-
-<br>
 
 ```python
 from collections.abc import Callable
@@ -37,11 +26,7 @@ class SkillEntry(NamedTuple):
     trigger: str
 ```
 
----
 ## [3][CONSTANTS]
->**Dictum:** *Frozen dataclass with field factories enables immutable config.*
-
-<br>
 
 ```python
 from dataclasses import dataclass, field
@@ -60,11 +45,7 @@ DEBUG: Final[bool] = os.environ.get("CLAUDE_HOOK_DEBUG", "").lower() in ("1", "t
 _debug = lambda msg: DEBUG and print(f"[hook] {msg}", file=sys.stderr)
 ```
 
----
 ## [4][DISPATCH]
->**Dictum:** *Handler tables route all behavior — zero conditionals.*
-
-<br>
 
 ```python
 handlers: dict[str, Handler] = {
@@ -80,11 +61,7 @@ def tool(**cfg: Any) -> Callable[[Callable], Callable]:
     return lambda fn: (_tools.__setitem__(fn.__name__, (fn, {"method": "POST", **cfg})), fn)[1]
 ```
 
----
 ## [5][PATTERN_MATCHING]
->**Dictum:** *Structural pattern matching replaces if/else chains.*
-
-<br>
 
 ```python
 def _fold_line(state: ParseState, line: str) -> ParseState:
@@ -115,11 +92,7 @@ def handle(action: Action) -> int:
             assert_never(unreachable)
 ```
 
----
 ## [6][EXPRESSIONS]
->**Dictum:** *Walrus operator and comprehensions eliminate statements.*
-
-<br>
 
 ```python
 # Walrus in comprehension
@@ -129,11 +102,7 @@ lines = [line for n, g in B.groups if (line := f'<group name="{n}">{" ".join(g)}
 result = {"status": "success", **fmt(o, a)} if o else {"status": "error", "msg": f"{cmd} failed"}
 ```
 
----
 ## [7][OUTPUT]
->**Dictum:** *XML tags optimize Claude context injection per Anthropic guidance.*
-
-<br>
 
 ```python
 def _format_xml(skills: list[SkillEntry], targets: frozenset[str]) -> str:
@@ -146,11 +115,7 @@ def _format_xml(skills: list[SkillEntry], targets: frozenset[str]) -> str:
     ])
 ```
 
----
 ## [8][SECURITY]
->**Dictum:** *Defense patterns prevent exploitation.*
-
-<br>
 
 | [FORBIDDEN]                | [REQUIRED]                               |
 | -------------------------- | ---------------------------------------- |
@@ -158,11 +123,7 @@ def _format_xml(skills: list[SkillEntry], targets: frozenset[str]) -> str:
 | `eval()` / `exec()`        | `json.load(sys.stdin)`                   |
 | `path.startswith(prefix)`  | `Path(p).resolve().is_relative_to(root)` |
 
----
 ## [9][TOOLING]
->**Dictum:** *Quality gates enforce standards.*
-
-<br>
 
 ```toml
 [tool.ty.environment]

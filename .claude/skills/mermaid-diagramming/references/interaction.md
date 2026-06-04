@@ -1,14 +1,7 @@
 # [H1][INTERACTION]
->**Dictum:** *Interaction diagrams model temporal behavior between participants.*
-
-<br>
 
 Two diagram types: `sequenceDiagram` (message-passing protocols), `journey` (user experience mapping).
----
 ## [1][SEQUENCE]
->**Dictum:** *Sequence diagrams capture message-passing protocols.*
-
-<br>
 
 ### [1.1][PARTICIPANTS]
 
@@ -23,13 +16,12 @@ Two diagram types: `sequenceDiagram` (message-passing protocols), `journey` (use
 |   [7]   | queue       | `participant A@{ "type": "queue" }`       | Queue symbol       | Async queue         |
 |   [8]   | collections | `participant A@{ "type": "collections" }` | Stack symbol       | Data collection     |
 
-**Aliasing:** `participant LongName as Short`—ID differs from display label.<br>
-**Grouping:** `box rgb(r,g,b) Label` ... `end`—supports `transparent` for visual clustering.<br>
+**Aliasing:** `participant LongName as Short`—ID differs from display label.
+**Grouping:** `box rgb(r,g,b) Label` ... `end`—supports `transparent` for visual clustering.
 **Lifecycle:** `create participant X` spawns mid-diagram; `destroy X` terminates with `X` marker.
 
 [CRITICAL] JSON type requires double quotes; incompatible with `as Alias` syntax.
 
----
 ### [1.2][ARROWS]
 
 | [INDEX] | [SYNTAX] | [APPEARANCE]         | [USE_CASE]          |
@@ -45,13 +37,12 @@ Two diagram types: `sequenceDiagram` (message-passing protocols), `journey` (use
 |   [9]   | `<<->>>` | Bidirectional solid  | Duplex sync (v11+)  |
 |  [10]   | `<<-->>` | Bidirectional dotted | Duplex async (v11+) |
 
-**Format:** `Sender->>Receiver: Message text`—escaping: `#35;` (hash), `#59;` (semicolon), `<br/>` (newline).<br>
-**Activation:** `->>+B` (activate), `-->>-B` (deactivate); or explicit `activate B`, `deactivate B`.<br>
+**Format:** `Sender->>Receiver: Message text`—escaping: `#35;` (hash), `#59;` (semicolon), ` ` (newline).
+**Activation:** `->>+B` (activate), `-->>-B` (deactivate); or explicit `activate B`, `deactivate B`.
 **Notes:** `note right of A: text`, `note left of A: text`, `note over A: text`, `note over A,B: spans`.
 
 [CRITICAL] Reserved word `end` in messages wraps as `(end)`, `[end]`, `{end}`.
 
----
 ### [1.3][CONTROL_FLOW]
 
 | [INDEX] | [BLOCK]  | [SYNTAX]                                    | [PURPOSE]                  |
@@ -80,13 +71,11 @@ break When process fails
 end
 ```
 
----
 ### [1.4][FEATURES]
 
-**Autonumber:** `autonumber`—placed after `sequenceDiagram`, before first message; no offset/increment control.<br>
+**Autonumber:** `autonumber`—placed after `sequenceDiagram`, before first message; no offset/increment control.
 **Links:** `link A: Label @ URL` (single), `links A: {"Label1": "URL1", "Label2": "URL2"}` (multi)—placed after participant declarations; `participant` compatible only; `actor` has known issues.
 
----
 ## [2][JOURNEY]
 
 ### [2.1][SYNTAX]
@@ -101,7 +90,7 @@ end
 |   [4]   |    4    | Good          | Light green |
 |   [5]   |    5    | Excellent     | Green       |
 
-**Actors:** Comma-separated; no declaration needed.<br>
+**Actors:** Comma-separated; no declaration needed.
 **Sections:** `section Phase Name` groups tasks.
 
 ```
@@ -119,7 +108,6 @@ journey
 ```
 **Theming:** Variables `fillType0`-`fillType9` (sections), `titleColor`/`titleFontFamily`/`titleFontSize` (v11+); actor colors theme-dependent—use `themeCSS` for overrides.
 
----
 ## [3][CONFIG]
 
 Comments via `%% text` (single-line only, own line).
@@ -156,7 +144,6 @@ Comments via `%% text` (single-line only, own line).
 |   [2]   | `message` |       16       | Message text       |
 |   [3]   | `note`    |       14       | Note content       |
 
----
 ### [3.2][JOURNEY_CONFIG]
 
 | [INDEX] | [KEY]         | [TYPE]  | [DEFAULT] | [EFFECT]               |

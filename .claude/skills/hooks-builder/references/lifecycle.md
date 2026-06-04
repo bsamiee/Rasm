@@ -1,15 +1,8 @@
 # [H1][LIFECYCLE]
->**Dictum:** *Hook effectiveness requires matching event to intervention goal.*
-
-<br>
 
 Fifteen lifecycle events span agent execution. Each fires at distinct point with event-specific input.
 
----
 ## [1][EVENTS]
->**Dictum:** *Blocking capability determines whether hooks enforce or observe.*
-
-<br>
 
 | [INDEX] | [EVENT]            | [TRIGGER]                        | [CAN_BLOCK] | [OUTPUT_VISIBILITY]   |
 | :-----: | ------------------ | -------------------------------- | :---------: | --------------------- |
@@ -31,13 +24,10 @@ Fifteen lifecycle events span agent execution. Each fires at distinct point with
 
 [CRITICAL] Exit code 2 blocks action for events marked `Yes` in CAN_BLOCK column. PostToolUse/PostToolUseFailure exit 2 shows stderr to Claude but cannot undo the tool call. Setup runs only on explicit `claude --init` or `claude --init-only` invocation — not on regular session start.
 
----
 ## [2][INPUT_SCHEMAS]
->**Dictum:** *Event-specific fields enable targeted automation.*
-
-<br>
 
 ### [2.1][COMMON_FIELDS]
+
 All events receive via stdin JSON:
 
 | [INDEX] | [FIELD]           | [TYPE] | [DESCRIPTION]                                                    |
@@ -49,6 +39,7 @@ All events receive via stdin JSON:
 |   [5]   | `permission_mode` | string | `default`, `plan`, `acceptEdits`, `dontAsk`, `bypassPermissions` |
 
 ### [2.2][TOOL_EVENTS]
+
 PreToolUse, PermissionRequest, PostToolUse, PostToolUseFailure add:
 
 | [INDEX] | [FIELD]       | [TYPE] | [DESCRIPTION]                         |
@@ -60,6 +51,7 @@ PreToolUse, PermissionRequest, PostToolUse, PostToolUseFailure add:
 PostToolUse adds `tool_response` (object). PostToolUseFailure adds `error` (string) and optional `is_interrupt` (boolean).
 
 ### [2.3][STOP_EVENTS]
+
 Stop and SubagentStop add:
 
 | [INDEX] | [FIELD]            | [TYPE]  | [DESCRIPTION]                                    |
@@ -107,11 +99,7 @@ SubagentStop additionally provides `agent_id` (string), `agent_type` (string), a
 |   [5]   | Notification     | `title`               | Optional notification title                                              |
 |   [6]   | Notification     | `notification_type`   | `permission_prompt`, `idle_prompt`, `auth_success`, `elicitation_dialog` |
 
----
 ## [3][EXIT_CODES]
->**Dictum:** *Exit code 2 blocks; exit 0 with JSON controls fine-grained behavior.*
-
-<br>
 
 | [INDEX] | [CODE] | [BEHAVIOR]                                              |
 | :-----: | :----: | ------------------------------------------------------- |
@@ -136,11 +124,7 @@ SubagentStop additionally provides `agent_id` (string), `agent_type` (string), a
 |   [9]   | PostToolUseFailure  | Shows stderr to Claude (tool already failed)           |
 |  [10]   | Non-blocking events | Shows stderr to user only (no effect on execution)     |
 
----
 ## [4][EXECUTION]
->**Dictum:** *Timeouts and deduplication prevent runaway execution.*
-
-<br>
 
 | [INDEX] | [PROPERTY]      | [VALUE]                                                              |
 | :-----: | --------------- | -------------------------------------------------------------------- |

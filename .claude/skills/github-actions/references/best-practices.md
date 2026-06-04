@@ -1,13 +1,6 @@
 # [H1][BEST-PRACTICES]
->**Dictum:** *Security hardening, supply chain integrity, and performance optimization govern workflow quality.*
 
-<br>
-
----
 ## [1][SECURITY]
->**Dictum:** *Defense-in-depth layers prevent credential theft, injection, and unauthorized access.*
-
-<br>
 
 [CRITICAL]:
 - [ALWAYS] SHA-pin every `uses:` reference — format: `owner/repo@<SHA> # vN.N.N`. [REFERENCE] Pinning protocol and incident history: [->version-discovery.md](./version-discovery.md).
@@ -26,7 +19,6 @@
 
 [IMPORTANT] **Secure-by-Default (Dec 8, 2025 — enforced):** `pull_request_target` workflows now anchor execution to default-branch definitions. `GITHUB_REF` resolves to `refs/heads/main`; `GITHUB_SHA` points to default branch HEAD at run start. Environment policy evaluation aligns with the execution ref. This cuts off "pwn request" attacks by pinning workflow source to a trusted branch. [->advanced-triggers.md§PULL_REQUEST_TARGET](./advanced-triggers.md).
 
----
 ### [1.1][GITHUB_TOKEN_SCOPES]
 
 | [INDEX] | [SCOPE]           | [LEVELS]            | [COMMON_USE]                       |
@@ -48,11 +40,7 @@
 
 Shorthand: `permissions: read-all` / `permissions: write-all` / `permissions: {}` (deny-all). `write` implies `read` for all scopes except `id-token`.
 
----
 ## [2][SUPPLY_CHAIN]
->**Dictum:** *Layered controls secure artifacts from source to deployment.*
-
-<br>
 
 | [INDEX] | [CONTROL]             | [IMPLEMENTATION]                                                              |
 | :-----: | --------------------- | ----------------------------------------------------------------------------- |
@@ -65,9 +53,6 @@ Shorthand: `permissions: read-all` / `permissions: write-all` / `permissions: {}
 |   [7]   | **Dependency review** | `actions/dependency-review-action` on PRs — license + vulnerability gates.    |
 |   [8]   | **Secret scanning**   | Push protection blocks detected secrets pre-merge; up to 500 custom patterns. |
 |   [9]   | **Auto-maintenance**  | [->version-discovery.md§AUTOMATED_MAINTENANCE](./version-discovery.md)        |
-
-<br>
-
 ### [2.1][OIDC_FEDERATION]
 
 | [INDEX] | [PROVIDER] | [ACTION]                                | [KEY_INPUTS]                                    |
@@ -78,7 +63,6 @@ Shorthand: `permissions: read-all` / `permissions: write-all` / `permissions: {}
 
 Prerequisite: `permissions: { id-token: write }` at job level. Subject claims include repo, branch, environment for fine-grained trust policies. Short-lived tokens per session — zero rotation overhead.
 
----
 ### [2.2][TOKEN_SELECTION]
 
 | [INDEX] | [TYPE]               | [SCOPE]            |  [LIFETIME]  | [CROSS_REPO] | [USE_CASE]           |
@@ -89,11 +73,7 @@ Prerequisite: `permissions: { id-token: write }` at job level. Subject claims in
 
 [IMPORTANT] Prefer App tokens over PATs — scoped, auditable, account-independent.
 
----
 ## [3][PERFORMANCE]
->**Dictum:** *Caching, concurrency, and targeted execution minimize cost and latency.*
-
-<br>
 
 [IMPORTANT]:
 - [ALWAYS] `actions/cache` or setup action built-in cache (`cache: 'pnpm'`) — v5 backend is ~80% faster uploads.
@@ -118,9 +98,6 @@ Prerequisite: `permissions: { id-token: write }` at job level. Subject claims in
 |   [1]   | **pnpm store**      | `$(pnpm store path)` | `${{ runner.os }}-pnpm-${{ hashFiles('pnpm-lock.yaml') }}` |
 |   [2]   | **Nx computation**  | `.nx/cache`          | `${{ runner.os }}-nx-${{ hashFiles('pnpm-lock.yaml') }}`   |
 |   [3]   | **Docker BuildKit** | GHA cache backend    | `cache-from: type=gha` / `cache-to: type=gha,mode=max`     |
-
-<br>
-
 ### [3.1][WORKFLOW_AND_RUNNER_LIMITS]
 
 | [INDEX] | [LIMIT]                         | [VALUE]                                             |
@@ -149,7 +126,6 @@ Prerequisite: `permissions: { id-token: write }` at job level. Subject claims in
 
 Larger runners (Team/Enterprise): up to 1,000 concurrent jobs; 100 GPU max.
 
----
 ### [3.2][RUNNERS]
 
 | [INDEX] | [TYPE]        | [SPEC]          | [NOTES]                                                    |
@@ -162,7 +138,6 @@ Larger runners (Team/Enterprise): up to 1,000 concurrent jobs; 100 GPU max.
 
 [IMPORTANT] ARM64 labels: `ubuntu-24.04-arm`, `ubuntu-22.04-arm`. No `-arm64` suffix — the canonical format is `-arm`. Free for public repos; Team/Enterprise for private repos.
 
----
 ### [3.3][SELF_HOSTED_SCALING]
 
 **Actions Runner Controller (ARC)** — Kubernetes operator for ephemeral, autoscaling self-hosted runners.
@@ -172,11 +147,7 @@ Larger runners (Team/Enterprise): up to 1,000 concurrent jobs; 100 GPU max.
 - Install via Helm: `oci://ghcr.io/actions/actions-runner-controller-charts/gha-runner-scale-set-controller`.
 - Runner Groups: security boundaries controlling which orgs/repos access which runners.
 
----
 ## [4][CONTAINER_SERVICES]
->**Dictum:** *Service containers provide ephemeral backing services for integration tests.*
-
-<br>
 
 | [INDEX] | [SERVICE]    | [IMAGE]       | [HEALTH_CMD]      | [ENV]                                   |
 | :-----: | ------------ | ------------- | ----------------- | --------------------------------------- |
@@ -186,11 +157,7 @@ Larger runners (Team/Enterprise): up to 1,000 concurrent jobs; 100 GPU max.
 
 Networking: service name as hostname inside container jobs (`postgres://postgres:5432`). VM runners use `localhost` with port mapping.
 
----
 ## [5][ORGANIZATIONAL_CONTROLS]
->**Dictum:** *Repository rulesets and required workflows enforce org-wide CI standards.*
-
-<br>
 
 - **Required workflows via rulesets**: org/enterprise-level CI enforcement; replaces deprecated `required_workflows` feature.
 - **Ruleset features**: branch targeting, bypass rules for admins, evaluation/dry-run mode before enforcement.
@@ -206,11 +173,7 @@ Networking: service name as hostname inside container jobs (`postgres://postgres
 - Status reports support Markdown (up to 1,024 characters).
 - Integrations: Datadog, ServiceNow, Honeycomb — external gates for canary metrics, change management, SLO verification.
 
----
 ## [6][ANTI_PATTERNS]
->**Dictum:** *Known anti-patterns require specific remediations.*
-
-<br>
 
 | [INDEX] | [ANTI_PATTERN]                                | [FIX]                                                                    |
 | :-----: | --------------------------------------------- | ------------------------------------------------------------------------ |

@@ -3,6 +3,7 @@
 [REQUIRED]: Read and adhere to `CLAUDE.md`
 
 ## [0][LOAD_ORDER]
+
 - **Cursor / Codex chain:** `CLAUDE.md` → root `AGENTS.md` → nearest nested `AGENTS.md` → matched `.cursor/rules/*.mdc` → skill by file type.
 - **Codex budget:** nested `AGENTS.md` chains concatenate toward a 32 KiB limit — keep nested files delta-only; offload encyclopedic detail to co-located `_ARCHITECTURE.md`.
 - **Optional local override:** gitignored `AGENTS.override.md` beside root or bridge AGENTS for machine-specific paths.
@@ -12,6 +13,7 @@
 Skill-per-file-type routing lives in `CLAUDE.md` §1 and is loaded before this file; do not duplicate it here. This manifest adds operating deltas on top of that table. The one extension worth stating: `.verify.csx` scenarios and the testkit also route to `testing-cs`.
 
 ## [2][NAVIGATION_CONTEXT]
+
 - Cross-stack owner precedence and proof order: `docs/usage.md` §1 and §5 before leaf API docs.
 - Use `fd` for discovery, then `rg` for exact references.
 - Use structural search (`ast-grep`) for symbol-aware changes when available.
@@ -40,11 +42,13 @@ Skill-per-file-type routing lives in `CLAUDE.md` §1 and is loaded before this f
 |  [11]   | `docs/standards`               | Doc-type, style, evidence, and agentic-documentation standards    |
 
 ## [3][LANGUAGE_POLICY]
+
 - ALWAYS: follow `CLAUDE.md` Effect-first approach.
 - C#: preserve strict analyzer and formatting posture in `.editorconfig` and `Directory.Build.props`.
 - Python: enforce Python 3.14+ baseline via Ruff + ty with explicit configuration.
 
 ## [4][CODING_POLICY]
+
 - Prefer refining/extending existing modules over adding wrappers or duplicate helpers.
 - Always read a file fully, identify if possible to do less code and refactor/extend existing logic over spamming new functionality.
 - Keep implementations dense, strongly typed, and test/validation-backed.
@@ -57,6 +61,7 @@ Skill-per-file-type routing lives in `CLAUDE.md` §1 and is loaded before this f
 - Avoid verbosity spam in plans or explanations; keep detail high and signal-focused.
 
 ## [5][DOCUMENTATION_POLICY]
+
 - Route README, ADR, architecture, code documentation, and doc-type standards through `docs/standards/README.md`.
 - Route Markdown structure, headers, lists, tables, diagrams, prose, and evidence through `docs/standards`.
 - Keep documentation rooted in existing paths, commands, and configured tooling; remove invented or stale paths.
@@ -69,6 +74,7 @@ Skill-per-file-type routing lives in `CLAUDE.md` §1 and is loaded before this f
 - Universal C# enforcement snippets: `.claude/skills/coding-csharp/references/`; repo posture and XML-backed proof: `docs/external-libs/`. Do not duplicate skill bodies in docs leaves.
 
 ## [6][LIVE_RHINO_BRIDGE]
+
 - Quality operator truth: `tools/quality/README.md`.
 - Runtime evidence and bridge operator routes: `CLAUDE.md` §5.2 and `tools/rhino-bridge/README.md`.
 - Canonical bridge agent deltas: `tools/rhino-bridge/AGENTS.md`.

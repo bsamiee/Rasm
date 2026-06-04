@@ -1,18 +1,11 @@
 # [H1][ARCHITECTURE]
->**Dictum:** *Visualize system structure and temporal flow for infrastructure planning.*
-
-<br>
 
 C4, architecture-beta, packet-beta, timeline, gitGraph, kanban diagrams.
 
 [REFERENCE] Theme, classDef: [->styling.md](./styling.md)
 [REFERENCE] Validation: [->validation.md§8](./validation.md#8architecture_diagrams)
 
----
 ## [1][C4]
->**Dictum:** *Communicate architecture at multiple abstraction levels.*
-
-<br>
 
 **Levels:** `C4Context` (landscape), `C4Container` (apps/services), `C4Component` (internal), `C4Dynamic` (runtime), `C4Deployment` (infrastructure).
 
@@ -27,11 +20,7 @@ C4, architecture-beta, packet-beta, timeline, gitGraph, kanban diagrams.
 
 [CRITICAL] Named parameters use `$` prefix. C4 uses fixed CSS — theme skins have no effect.
 
----
 ## [2][INFRASTRUCTURE]
->**Dictum:** *Document deployment topology for operations planning.*
-
-<br>
 
 **Declaration:** `architecture-beta`
 
@@ -41,11 +30,7 @@ C4, architecture-beta, packet-beta, timeline, gitGraph, kanban diagrams.
 
 [CRITICAL] Layout engine non-deterministic — same code renders differently on refresh (known v11.5.0+).
 
----
 ## [3][PACKET]
->**Dictum:** *Document bit-level protocol layouts.*
-
-<br>
 
 **Declaration:** `packet-beta`
 
@@ -54,11 +39,7 @@ C4, architecture-beta, packet-beta, timeline, gitGraph, kanban diagrams.
 
 [CRITICAL] All bits MUST be defined — gaps or overlaps trigger errors.
 
----
 ## [4][TIMELINE]
->**Dictum:** *Track project milestones for roadmap communication.*
-
-<br>
 
 **Declaration:** `timeline`
 
@@ -67,11 +48,7 @@ C4, architecture-beta, packet-beta, timeline, gitGraph, kanban diagrams.
 
 [CRITICAL] `%%{init:...}%%` deprecated v10.5.0; use YAML frontmatter exclusively.
 
----
 ## [5][GITGRAPH]
->**Dictum:** *Illustrate branching strategy for team alignment.*
-
-<br>
 
 **Declaration:** `gitGraph` or `gitGraph LR:|TB:|BT:`
 
@@ -81,11 +58,7 @@ C4, architecture-beta, packet-beta, timeline, gitGraph, kanban diagrams.
 
 [CRITICAL] `%%{init:...}%%` deprecated v10.5.0; use YAML frontmatter exclusively.
 
----
 ## [6][KANBAN]
->**Dictum:** *Track work items for sprint planning.*
-
-<br>
 
 **Declaration:** `kanban`
 

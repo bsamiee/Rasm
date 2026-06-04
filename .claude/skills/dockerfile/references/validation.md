@@ -1,15 +1,8 @@
 # [H1][DOCKERFILE_REFERENCE]
->**Dictum:** *Validation rules and fix patterns enforce production standards.*
-
-<br>
 
 [IMPORTANT] Docker Engine 29.2+ | BuildKit 0.27+ | Dockerfile syntax 1 (auto-resolving) | February 2026
 
----
 ## [1][BASE_IMAGES]
->**Dictum:** *Image selection determines attack surface and size.*
-
-<br>
 
 | [INDEX] | [IMAGE]                                     | [SIZE] | [SHELL] |
 | :-----: | ------------------------------------------- | :----: | :-----: |
@@ -38,11 +31,7 @@ Pin: `alpine:3.23` (good), `alpine:3.23@sha256:...` (reproducible). Never `:late
 
 Chainguard: daily rebuilds (vs Google distroless periodic), multi-layer OCI caching, FIPS variants, free at `:latest`, production requires subscription.
 
----
 ## [2][SECURITY_RULES]
->**Dictum:** *Each rule maps to a concrete fix pattern.*
-
-<br>
 
 | [INDEX] | [RULE]                          | [FIX]                                                                     |
 | :-----: | ------------------------------- | ------------------------------------------------------------------------- |
@@ -59,11 +48,7 @@ Chainguard: daily rebuilds (vs Google distroless periodic), multi-layer OCI cach
 |  [11]   | **Non-privileged ports**        | Ports < 1024 require root capability; use 3000/8000/8080.                 |
 |  [12]   | **STOPSIGNAL**                  | `STOPSIGNAL SIGTERM` (or `SIGQUIT` for nginx).                            |
 
----
 ## [3][HEALTHCHECK]
->**Dictum:** *Health probes must use exec-form with `--start-interval`.*
-
-<br>
 
 | [INDEX] | [APP_TYPE]            | [INTERVAL] | [TIMEOUT] | [START_PERIOD] | [START_INTERVAL] | [RETRIES] | [CHECK_METHOD]                                                      |
 | :-----: | --------------------- | :--------: | :-------: | :------------: | :--------------: | :-------: | ------------------------------------------------------------------- |
@@ -77,11 +62,7 @@ Chainguard: daily rebuilds (vs Google distroless periodic), multi-layer OCI cach
 
 **STOPSIGNAL by application:** Node.js/Python/Go/Java = `SIGTERM`. nginx = `SIGQUIT` (graceful drain).
 
----
 ## [4][HADOLINT_RULES]
->**Dictum:** *Key hadolint rules with severity and rationale.*
-
-<br>
 
 | [INDEX] | [RULE]     | [SEV] | [DESCRIPTION]                                                        |
 | :-----: | ---------- | :---: | -------------------------------------------------------------------- |
@@ -102,11 +83,7 @@ Chainguard: daily rebuilds (vs Google distroless periodic), multi-layer OCI cach
 |  [15]   | **DL3059** | info  | Combine consecutive RUN -- each = 1 layer.                           |
 |  [16]   | **DL4006** | warn  | Set pipefail -- pipe failures silently swallowed without it.         |
 
----
 ## [5][CHECKOV_POLICIES]
->**Dictum:** *CKV_DOCKER and CKV2_DOCKER policies with fix rationale.*
-
-<br>
 
 **CKV_DOCKER (11 policies):**
 
@@ -140,11 +117,7 @@ Chainguard: daily rebuilds (vs Google distroless periodic), multi-layer OCI cach
 
 Suppress: `# checkov:skip=CKV_DOCKER_2:Reason here`
 
----
 ## [6][BUILDKIT_VERSION_MATRIX]
->**Dictum:** *Feature availability gates Dockerfile syntax choices.*
-
-<br>
 
 | [INDEX] | [FEATURE]                            | [MIN_DOCKER] | [MIN_BUILDKIT] |  [FRONTEND]  |
 | :-----: | ------------------------------------ | :----------: | :------------: | :----------: |

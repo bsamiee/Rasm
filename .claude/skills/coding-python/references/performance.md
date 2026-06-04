@@ -2,7 +2,6 @@
 
 Performance in Python 3.14+ is structural: `__slots__` on all classes, `msgspec.Struct(gc=False)` for GC-exempt wire objects, `tuple` over `list`, frozen collections with structural sharing, free-threading via PEP 779, and copy-and-patch JIT via PEP 744. All snippets target `msgspec >= 0.20`, `anyio >= 4.12`, `expression >= 5.6`, and CPython 3.14+ free-threading build.
 
----
 ## Memory and Allocation
 
 `__slots__` eliminates per-instance `__dict__` overhead (~56 bytes per object on 64-bit). `tuple` over `list` and `frozenset` over `set` prevent accidental mutation and reduce GC tracking. `expression.collections.Block[T]` provides frozen list semantics with structural sharing for O(log32 N) append/update -- suitable as Pydantic model fields via built-in `__get_pydantic_core_schema__`.
@@ -59,7 +58,6 @@ Allocation hierarchy (prefer top):
 
 [CRITICAL]: `__slots__` on all non-Pydantic, non-dataclass domain classes. Pydantic `BaseModel` manages its own `__dict__` -- adding `__slots__` conflicts.
 
----
 ## CPython Internals
 
 CPython 3.14 ships two runtime-altering features: **free-threading** (PEP 779 -- GIL disabled per-interpreter) and **copy-and-patch JIT** (PEP 744 -- template-based compilation of hot bytecode). Both change which optimizations matter.
@@ -96,7 +94,6 @@ JIT implications:
 
 [IMPORTANT]: Free-threading does NOT eliminate the need for `CapacityLimiter` backpressure in async pipelines -- it enables true parallelism for CPU-bound threads, but async concurrency still requires structured bounds.
 
----
 ## Serialization Throughput
 
 `msgspec.json` outperforms `json` by 5-10x for encode/decode via C-backed codegen. `orjson` provides similar throughput with different trade-offs (no schema validation, returns `bytes` natively). `Struct(gc=False, frozen=True)` produces zero-GC immutable wire objects. Module-level `Encoder`/`Decoder` singletons amortize schema compilation cost across requests.
@@ -162,7 +159,6 @@ Throughput hierarchy:
 
 [CRITICAL]: `Encoder`/`Decoder` at module level -- never per-request. `TypeAdapter` at module level -- construction compiles Pydantic core schema.
 
----
 ## Async Performance
 
 Async performance is bounded concurrency performance. `CapacityLimiter` prevents fan-out from exhausting memory, `MemoryObjectStream` buffer sizing controls backpressure, and checkpoint variant selection determines latency distribution across tasks.
@@ -220,7 +216,6 @@ uvloop note: `anyio` auto-selects uvloop when installed (`pip install uvloop`). 
 
 [IMPORTANT]: Size `CapacityLimiter` to downstream capacity (database pool size, external API rate limit), not to upstream request volume.
 
----
 ## Profiling and Measurement
 
 | [INDEX] | [TOOL]          | [USE_WHEN]                           | [KEY_TRAIT]                                  |
@@ -267,7 +262,6 @@ Profiling workflow:
 
 [CRITICAL]: [NEVER] optimize without profiling evidence. `scalene` for line-level granularity when `cProfile` is too coarse. `memray` for heap analysis when `tracemalloc` overhead is acceptable.
 
----
 ## Rules
 
 - [ALWAYS] `__slots__` on all non-Pydantic, non-dataclass domain classes.
@@ -278,7 +272,6 @@ Profiling workflow:
 - [NEVER] Optimize without measurement evidence from profiling tools.
 - [NEVER] Unbounded `MemoryObjectStream` buffer in production.
 
----
 ## Quick Reference
 
 | [INDEX] | [PATTERN]                 | [WHEN]                                | [KEY_TRAIT]                            |

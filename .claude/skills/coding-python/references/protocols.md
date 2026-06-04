@@ -49,8 +49,6 @@ def fuse(ref: Emitter[float], readings: Block[Emitter[float]]) -> float:
 
 `narrows` is nested because `TypeIs[C]` requires a named function with return annotation — lambdas cannot carry it — and `C` binds from the enclosing PEP 695 scope, precluding module-level placement. `filter_with` threads PEP 742 complement narrowing: `narrows(o)` gates conformance, the `Error` branch carries `(cap, type(o))` as rejection evidence without a dedicated error class. PEP 695 infers `T` covariant in `Emitter[T]` from `sample(self) -> T` (output-only); adding `T` to an input position flips to invariant — a compile-time contract change invisible with manual annotations. Stack composition is right-to-left: `@curry_flip(1)` flips `ref` to data position for pipeability, `@structural(Emitter)` wraps the first positional in conformance verification — the body sees only typed `Emitter[float]` because `.map` threads the narrowed value post-gate. `block.fold` accumulates `(weighted_sum, total_weight)` single-pass; `fma` fuses multiply-add with extended precision — the information-filter where `sw/w` yields the minimum-variance estimate.
 
----
-
 ## Protocol Design: Capability Slicing and AOP Authorization
 
 Capabilities as a `Literal` vocabulary with `frozenset` subset algebra turns authorization into a lattice meet — `req <= held` is O(1) versus per-scope string comparison, and `PortFault.denied` carries the first missing capability via `next(iter(req - c[1]))` as typed evidence. `gated` pre-computes the requirement set at decoration time; `collect` demonstrates severity-gated fold accumulation where `PortFault.absent` entries (recoverable) preserve the accumulator via `or_else_with` while `PortFault.denied` entries (terminal) short-circuit — the `@tagged_union` discriminant property IS the routing predicate.
@@ -125,8 +123,6 @@ def collect[T](port: Readable[T], keys: Block[str]) -> Result[Map[str, T], PortF
 ```
 
 `filter_with` on `Ok(_ctx.get())` gates authorization as a single expression — `req <= c[1]` performs subset membership on `frozenset[Cap]`; the failure branch constructs `PortFault.denied` with `next(iter(req - c[1]))` extracting the first missing capability from the set difference (safe because `req <= held` was False, guaranteeing non-empty difference). Protocol intersection composes via multiple inheritance (`Dual[T]` = `Readable[T]` x `Writable[T]`); `collect` demands only `Readable[T]`, so bidirectional adapters satisfy structurally while `Writable`-only fails at the type level. The fold's `or_else_with` chain implements severity-gated accumulation: `.recoverable` routes `PortFault.absent` through `Ok(m)` preserving the map unchanged, while `PortFault.denied` propagates via `filter_with(lambda _: f.recoverable, lambda _: f)` — terminal authorization failures make all subsequent reads structurally unauthorized, so short-circuit IS the correct domain semantics, not a limitation.
-
----
 
 ## Variance Discipline and Severity-Routed Recovery
 
@@ -203,8 +199,6 @@ def ingest_or_fallback(dec: Decode[str], xf: Refine[str, float], store: Store[fl
 
 `Arrow[A, B, E]` is the Kleisli category for `Result` — `compose` threads `E | F` union accumulation through `bind`, and `recover` is an arrow from `Fault[T]` to `Result[T, Hard[T]]` that eliminates `Soft` by `Literal` discriminant match. The `@effect.result` generator binds only happy-path values; recovery stays in `ingest_or_fallback` at the composition boundary via `.or_else_with(...)`. Error type parameterization tracks provenance: `Refine[T, U]` returns `Hard[T]` (not `Hard[U]`), preserving pre-refinement input for upstream retry context, while `Soft` carries `raw: bytes` (original wire payload). Adding a third severity level without a match arm triggers `assert_never` — exhaustive dispatch is structural, not policy-based.
 
----
-
 ## Reader-Threaded Capability Composition
 
 `@curry_flip(1)` on `ask` makes `ask(Sensor)` structurally isomorphic to the Reader monad — a suspended computation `Scope -> Result[C, Missing[C]]` — without declaring a `Reader` type alias, since `yield from` inside `@effect.result` generators subsumes sequential Reader composition and `reader_bind` becomes superfluous. `scoped` maps to Reader's `local`: `copy_context().run` forks the `ContextVar` snapshot, and `block.fold(lambda s, c: s.add(type(c), c), _scope.get())` performs polymorphic capability registration by runtime type projection, eliminating `singledispatch` and explicit registry maps.
@@ -250,8 +244,6 @@ def acquire(channel: int):
 
 `ask(Sensor)` returns `Callable[[Scope], Result[Sensor, Missing[Sensor]]]` — the partially applied function IS the Reader value, produced by `curry_flip(1)` flipping the scope parameter to data position. `reader_bind` is eliminated entirely: inside the `@effect.result` generator, `yield from ask(Sensor)(_scope.get())` performs monadic bind through the generator protocol, and chaining two `yield from` calls composes Readers sequentially with cross-step references as local variables rather than witness data. `scoped(caps)` returns `Callable[[Callable[[], T]], T]` — a pipeable context injector that forks `ContextVar` snapshot via `copy_context().run`, walrus-assigns the built scope inside the tuple expression, and returns `thunk()` at index `[1]` — capability mutations within the forked context are invisible to sibling tasks without explicit scope threading via `Concatenate`. `block.fold(lambda s, c: s.add(type(c), c), ...)` replaces `singledispatch` registration, explicit dispatch tables, and decorator-based registries with a single fold that projects runtime type as the `Map` key.
 
----
-
 ## Conformance Algebra with TypeIs Narrowing
 
 Runtime conformance checking bridges static Protocol contracts with dynamic adapter verification — `narrows` with `TypeIs[C]` (PEP 742) encodes both structural and semantic requirements as a single predicate with complement narrowing in both branches, nested inside `conform` because the semantic predicate varies per call site. The fold visits tiers in descending strength order, short-circuiting via `or_else_with` on first match — `Block` ordering IS the lattice structure with zero comparator overhead.
@@ -293,8 +285,6 @@ def conform[C](
 ```
 
 `narrows` is nested because `TypeIs[C]` requires a named function with return annotation — lambdas cannot carry `TypeIs` — yet the semantic predicate `pred` closes over `conform`'s scope, making module-level placement impossible without partial application ceremony. `gate` speculatively constructs `Certified(obj, attest, tc[0])` inside `Ok`, then `filter_with` validates through `narrows` — PEP 742 complement narrowing means the negative path provably excludes `C`, a guarantee `TypeGuard` cannot provide. `block.fold` with `or_else_with` implements the conformance lattice as a short-circuiting join: `or_else_with` evaluates `gate(tc)` only when the accumulator holds `Error`, so the first successful tier becomes the supremum and all weaker tiers are skipped. `Rejection[C]` as a tuple alias eliminates a dedicated error dataclass while preserving structured context — the triple `(expected_cap, actual_type, tier)` suffices for both pattern matching and diagnostics.
-
----
 
 ## Async Fan-Out and Recursive Retry Composition
 
@@ -364,8 +354,6 @@ async def dispatch[T, E](
 ```
 
 The recursive tail call scales delay by $(1 + \sqrt{5})/2$ — irrational spacing prevents harmonic resonance with power-of-two rate limiters — while `w + d` accumulates elapsed time as recursion state. `match r` discriminates a three-constructor variant space (`None | Ok | Error`): `None` absorbs cancellation into `Timeout`, `Ok` short-circuits success, guarded `Error` partitions retriable failures via `pred` from exhausted ones via `n <= 0`. `block.fold(lambda _, f: tg.start_soon(_emit, f), None)` drives task registration as a void fold; memory stream sized to arrow count collects via `receive_nowait` after `TaskGroup` exit guarantees all sends complete. `Option.Some(errs).filter(lambda b: b.length > 0).to_result(oks).swap()` inverts rail polarity without conditional logic — empty errors yields `Ok(oks)`, non-empty yields `Error(errs)`.
-
----
 
 ## Version-Gated Protocol Surfaces
 
@@ -446,8 +434,6 @@ def gate[M: StrEnum, **P, T, E](
 ```
 
 `routes: Map[Ver, Callable]` provides O(log N) keyed lookup where `Literal[1, 2, 3]` constrains the vocabulary at the type level — adding a version extends the `Map` without `@singledispatch` ceremony, making this the categorical dual of open extension: closed versions, open implementations per version. `block.try_find(lambda a: isinstance(a, Versioned))` extracts the versioned adapter from positional args as `Option[Versioned]`, defaulting to the first known version for unversioned call sites. The deprecation gate `sunsets.try_find(method).map(lambda sr: Ok(adapter).filter_with(...)).default_value(Ok(adapter))` is a three-layer monad transformation: `Option.map` lifts `Option[tuple]` into `Option[Result]`, `.default_value` discharges the `Option` (no sunset entry -> `Ok`), and `filter_with` inside the map provides the threshold gate `v < sr[0]` — the adapter closure capture threads through all three layers without intermediate bindings.
-
----
 
 ## Rules
 

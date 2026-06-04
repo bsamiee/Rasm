@@ -1,13 +1,6 @@
 # [H1][MODERN-FEATURES]
->**Dictum:** *Modern workflow features enable reuse, safety, and performance — validate correct usage and limits.*
 
-<br>
-
----
 ## [1][REUSABLE_WORKFLOWS]
->**Dictum:** *Reusable workflows share entire pipelines across repositories — validate nesting, counts, and input types.*
-
-<br>
 
 ### [1.1][LIMITS]
 
@@ -31,11 +24,7 @@
 
 [REFERENCE] Reusable workflow orchestration: [advanced-triggers.md](./advanced-triggers.md).
 
----
 ## [2][DEPLOYMENT_ENVIRONMENTS]
->**Dictum:** *Environment protection rules gate deployments on approval and conditions — validate configuration.*
-
-<br>
 
 ### [2.1][PROTECTION_RULES]
 
@@ -60,11 +49,7 @@ Custom deployment protection rules use GitHub Apps subscribing to the `deploymen
 |   [3]   | **Protection gate timeout**    | `[ENV]` | External gate must respond within 30 days (default timeout).     |
 |   [4]   | **No protection on prod**      | `[ENV]` | Production environment without any protection rules configured.  |
 
----
 ## [3][JOB_SUMMARIES]
->**Dictum:** *Step summaries render Markdown in the workflow run UI — validate size limits.*
-
-<br>
 
 | [INDEX] | [CONSTRAINT]              |         [LIMIT]          | [WHAT_TO_FLAG]                                     |
 | :-----: | ------------------------- | :----------------------: | -------------------------------------------------- |
@@ -84,11 +69,7 @@ Custom deployment protection rules use GitHub Apps subscribing to the `deploymen
 
 [IMPORTANT] Always quote `$GITHUB_STEP_SUMMARY` in `run:` blocks to prevent word splitting.
 
----
 ## [4][CONTAINER_JOBS]
->**Dictum:** *Container jobs provide isolated environments — validate images, networking, and health checks.*
-
-<br>
 
 ### [4.1][NETWORKING]
 
@@ -124,11 +105,7 @@ jobs:
 
 [IMPORTANT] When job runs in a container, service containers share a Docker network — use service name as hostname, no port mapping.
 
----
 ## [5][CONCURRENCY_CONTROL]
->**Dictum:** *Concurrency groups prevent redundant and conflicting runs — validate group naming and cancel semantics.*
-
-<br>
 
 ```yaml
 concurrency:
@@ -144,11 +121,7 @@ concurrency:
 
 **Semantics:** Max 1 running + 1 pending per group. When a third run enters, the pending run is cancelled (not the running one). `cancel-in-progress: true` cancels the running job instead. Use `false` for deployments to avoid partial state.
 
----
 ## [6][YAML_ANCHORS]
->**Dictum:** *YAML anchors reduce duplication within a single file — validate anchor/alias correctness and limitations.*
-
-<br>
 
 **Status:** Supported since September 2025. Basic YAML 1.2.2 anchors (`&name`) and aliases (`*name`) only.
 
@@ -185,11 +158,7 @@ jobs:
       - run: pnpm lint
 ```
 
----
 ## [7][MATRIX_STRATEGY]
->**Dictum:** *Matrix strategy interaction semantics govern failure propagation and concurrency.*
-
-<br>
 
 | [INDEX] | [KEY]               | [DEFAULT]               | [BEHAVIOR]                                                                           |
 | :-----: | ------------------- | ----------------------- | ------------------------------------------------------------------------------------ |
@@ -206,11 +175,7 @@ jobs:
 |   [3]   | **`continue-on-error` masking** | `[MATRIX]` | `continue-on-error: true` with `fail-fast: true` hides failures.     |
 |   [4]   | **Exceeds 256 jobs**            | `[MATRIX]` | Matrix expansion exceeds 256 job limit per workflow.                 |
 
----
 ## [8][NODE_RUNTIME]
->**Dictum:** *Node.js runtime migration timeline governs action compatibility — validate against deadlines.*
-
-<br>
 
 | [INDEX] | [RUNTIME]      | [STATUS]                                                      |
 | :-----: | -------------- | ------------------------------------------------------------- |
@@ -239,11 +204,7 @@ jobs:
 
 [IMPORTANT] Early testing: set `FORCE_JAVASCRIPT_ACTIONS_TO_NODE24=true` as workflow env var. node24 is incompatible with macOS 13.4 and earlier; ARM32 self-hosted runners are unsupported.
 
----
 ## [9][WORKFLOW_DISPATCH_INPUTS]
->**Dictum:** *Manual trigger inputs have type constraints and count limits.*
-
-<br>
 
 | [INDEX] | [CONSTRAINT]     | [LIMIT]                                                | [WHAT_TO_FLAG]                                       |
 | :-----: | ---------------- | ------------------------------------------------------ | ---------------------------------------------------- |
@@ -252,11 +213,7 @@ jobs:
 |   [3]   | Valid types      | `string`, `boolean`, `choice`, `number`, `environment` | Other types are invalid.                             |
 |   [4]   | `choice` options | Required list                                          | `type: choice` without `options:` list is an error.  |
 
----
 ## [10][ACTIONLINT_FEATURES]
->**Dictum:** *actionlint 1.7.10 validation capabilities inform what can be statically checked.*
-
-<br>
 
 | [INDEX] | [FEATURE]                          | [VERSION] | [DESCRIPTION]                                                     |
 | :-----: | ---------------------------------- | :-------: | ----------------------------------------------------------------- |

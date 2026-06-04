@@ -119,7 +119,6 @@ The Tier 2 hot path is collapsed without adding files:
 `Rasm.Vectors` is the typed vector geometry and numerics layer over RhinoCommon geometry, MathNet linear algebra, CSparse.NET sparse Cholesky, LanguageExt result rails, and Thinktecture-generated dispatch. Factories create atoms, spaces, fields, clouds, matrices, meshes, and intent cases; `VectorIntent.Project<TOut>(Context, Op?)` remains the singular consumer rail for executing an intent into a requested output shape. `Spectral.cs` is the shared substrate owning DEC operator assembly, spectral basis values, FEM heat-method scaffolding, the Crouzeix-Raviart connection Laplacian (Stein-Wardetzky-Jacobson-Grinspun 2020), the Crane-Desbrun-Schröder trivial-connection 1-form, and the polymorphic `SpectralFilter` algebra consumed by both mesh descriptors and scalar spectral fields. `Mesh.cs` owns `LaplacianCache`, which memoises spectral bases and factorisations per mesh snapshot.
 
 ```mermaid
----
 config:
   layout: elk
   look: neo
@@ -135,13 +134,12 @@ config:
     clusterBkg: "#282a36"
     clusterBorder: "#6272a4"
     edgeLabelBackground: "#282a36"
----
 flowchart TB
     accTitle: Rasm.Vectors projection rail with spectral substrate
     accDescr: Factories build typed vector values and VectorIntent cases. Project validates context, dispatches to owning vector modules, and returns Fin of the requested output. Spectral.cs holds DEC operators, spectral basis values, and spectral filter algebra shared by Mesh and Field; Mesh-owned LaplacianCache memoises per-mesh bases and factors.
 
     subgraph Build["Typed Construction"]
-        Factories["Factories<br/>Atoms, Space, Field, Cloud, Mesh, Matrix<br/>Modes, Flow, Sample, Align"]
+        Factories["Factories Atoms, Space, Field, Cloud, Mesh, Matrix Modes, Flow, Sample, Align"]
     end
 
     subgraph Rail["Singular Intent Rail"]
@@ -155,22 +153,22 @@ flowchart TB
 
     subgraph Bands["Capability Bands"]
         direction LR
-        Geometry["Geometry projections<br/>axis, angle, frame, support, surface"]
-        FieldBand["Field algebra<br/>CSG, kernels, noise, gradients, streamlines"]
-        CloudBand["Cloud workflows<br/>metrics, winding, hull, transport, ICP"]
-        MeshBand["Mesh workflows<br/>Laplacian, topology, remesh, descriptors, caches"]
+        Geometry["Geometry projections axis, angle, frame, support, surface"]
+        FieldBand["Field algebra CSG, kernels, noise, gradients, streamlines"]
+        CloudBand["Cloud workflows metrics, winding, hull, transport, ICP"]
+        MeshBand["Mesh workflows Laplacian, topology, remesh, descriptors, caches"]
     end
 
     subgraph Spectral["Spectral Substrate"]
         direction LR
-        Dec["DiscreteCalculus<br/>d0, d1, star0, star1, star2"]
-        Basis["SpectralBasis<br/>eigenpair values"]
-        Filter["SpectralFilter<br/>Heat, Wave, Biharmonic, Diffusion, CommuteTime, Identity"]
+        Dec["DiscreteCalculus d0, d1, star0, star1, star2"]
+        Basis["SpectralBasis eigenpair values"]
+        Filter["SpectralFilter Heat, Wave, Biharmonic, Diffusion, CommuteTime, Identity"]
         Dec -->|operators| Filter
         Basis -->|modes| Filter
     end
 
-    Providers["Shared providers<br/>Domain.Geometry, RhinoCommon, Matrix"]
+    Providers["Shared providers Domain.Geometry, RhinoCommon, Matrix"]
 
     Factories --> Intent
     Dispatch --> Geometry
@@ -178,7 +176,7 @@ flowchart TB
     Dispatch --> CloudBand
     Dispatch --> MeshBand
 
-    MeshCache["LaplacianCache<br/>mesh snapshot caches"]
+    MeshCache["LaplacianCache mesh snapshot caches"]
 
     FieldBand -->|mesh-aware fields| MeshBand
     MeshBand -->|memoises| MeshCache

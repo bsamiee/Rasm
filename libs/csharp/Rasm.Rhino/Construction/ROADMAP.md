@@ -1,17 +1,10 @@
 # [H1][RASM_RHINO_CONSTRUCTION_ROADMAP]
->**Dictum:** *Construction turns design intent into valid Rhino geometry without caller ceremony.*
-
-<br>
 
 [IMPORTANT] `Construction` owns 2D and 3D Rhino geometry creation for `Rasm.Rhino`. It lets downstream plugins/apps describe primitives, generated geometry, fitted forms, transforms, framed bounds, annotation output, and document/block/preview-ready projection without remembering every RhinoCommon factory overload or validity sentinel.
 
 `Construction` is the name for this concern because `Drawing` already means UI/display drawing and `Geometry` is already a domain-level concept in `Rasm`. The folder stays Rhino-first: RhinoCommon owns geometry validity, topology, transforms, and tolerances; Rasm adds typed construction intent, policy, diagnostics, projection, and integration with Blocks, Commands, UI, and Camera.
 
----
 ## [1][SOURCE_TRUTH]
->**Dictum:** *Construction APIs must be current WIP members, not remembered examples.*
-
-<br>
 
 | [INDEX] | [SOURCE] | [STATUS] | [USE] |
 | :-----: | -------- | -------- | ----- |
@@ -22,11 +15,7 @@
 
 [VERIFY] Re-run source checks before implementation. Every named Rhino member requires local XML or decompile proof before code claims capability.
 
----
 ## [2][API_MAP]
->**Dictum:** *RhinoCommon remains the construction engine.*
-
-<br>
 
 | [INDEX] | [FAMILY] | [RHINO WIP SURFACE] | [CONSTRUCTION RAIL IMPLICATION] |
 | :-----: | -------- | ------------------- | ------------------------------- |
@@ -57,11 +46,7 @@ Rejected or missing local APIs. Re-verify each through `api query rhino-common <
 - `Line.Create`, `Circle.Create`, `Arc.Create`, `Ellipse.Create`, `EllipseCurve`, `Surface.TryConvertBrep`: false or suspect in local WIP.
 - No-tolerance curve boolean/tween and planar-boundary style overloads are obsolete or rejected; use explicit tolerance/settings overloads. Older Brep fillet/chamfer signatures are separately obsolete.
 
----
 ## [3][TARGET_SHAPE]
->**Dictum:** *One construction algebra feeds blocks, documents, previews, and cameras.*
-
-<br>
 
 ### [3.1][PUBLIC_RAIL]
 
@@ -75,7 +60,6 @@ Operation families:
 - Transforms/frames: orient, basis conversion, projection, mirror, scale, decompose, generated arrays, framed bounds.
 - Output: native typed result, block-ready members, document-ready payload, preview geometry, bounds, transform, or diagnostics.
 
----
 ### [3.2][VALUE_ADD]
 
 | [INDEX] | [CAPABILITY] | [VALUE] |
@@ -88,7 +72,6 @@ Operation families:
 | [6] | Annotation output | Project text, leaders, dimensions, dots, hatches, and clipping planes without moving UI drawing or document mutation. |
 | [7] | Numeric fitting | Use MathNet only after explicit Rhino coordinate/unit/tolerance projection; keep storage internal. |
 
----
 ### [3.3][FILE_ARCHITECTURE]
 
 | [INDEX] | [FILE] | [OWNERSHIP] |
@@ -104,7 +87,6 @@ Deferred split thresholds:
 
 Do not create one file per Rhino geometry type.
 
----
 ### [3.4][EXTERNAL_STACK]
 
 | [INDEX] | [OWNER] | [USE] |
@@ -117,11 +99,7 @@ Do not create one file per Rhino geometry type.
 | [6] | Thinktecture | `ConstructionOp`, value objects, smart enums, and generated dispatch. |
 | [7] | MathNet | Fitting, solving, optimization, and statistics after explicit Rhino projection. |
 
----
 ## [4][CENTRALIZATION]
->**Dictum:** *Construction removes repeated shape classification from sibling folders.*
-
-<br>
 
 | [INDEX] | [CURRENT LOCATION] | [MOVE OR DELEGATE] | [REASON] |
 | :-----: | ------------------ | ------------------ | -------- |
@@ -135,11 +113,7 @@ Do not create one file per Rhino geometry type.
 
 [IMPORTANT] Do not route construction into a facade layer that only renames Rhino factories. Value comes from canonical intent, validity, policy, diagnostics, projection, and reusable output.
 
----
 ## [5][VALIDATION]
->**Dictum:** *Construction implementation proves every Rhino factory claim locally.*
-
-<br>
 
 Docs-only refinement gate:
 - `uv run python -m tools.quality api doctor`.

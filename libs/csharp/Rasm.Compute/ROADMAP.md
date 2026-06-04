@@ -1,15 +1,8 @@
 # [H1][RASM_COMPUTE_ROADMAP]
->**Dictum:** *Scaffold measured execution, then add tensor, model, and remote lanes.*
-
-<br>
 
 This roadmap sequences the build. The measured-compute core wraps `Rasm.Vectors` algorithms in `Eff<RT,ExecutionReceipt>`; model and remote lanes integrate with the concern that owns them.
 
----
 ## [1][PHASE_0]
->**Dictum:** *Housekeeping lands and compiles before heavy work.*
-
-<br>
 
 - Add every core package to root `Directory.Packages.props` at the newest viable versions; project references stay versionless; no version numbers in this document. Adjacent packages for Compute: `CommunityToolkit.HighPerformance`, `UnitsNet`, `System.Reactive`. Scoped: `Microsoft.ML.OnnxRuntime`, `Grpc.Net.Client`, `Google.Protobuf`.
 - Conditional (prove before adding): `Microsoft.ML.OnnxRuntime.Extensions` (custom geometry ops), `Grpc.Net.ClientFactory` (DI bootstrap), `Microsoft.IO.RecyclableMemoryStream` (proven `Stream` path only).
@@ -22,11 +15,7 @@ This roadmap sequences the build. The measured-compute core wraps `Rasm.Vectors`
 
 Phase 0 is complete when restore and build pass clean and the native dylib probe succeeds inside RhinoWIP.
 
----
 ## [2][MEASURED_CORE]
->**Dictum:** *Measured envelope and equivalence ride the default substrate.*
-
-<br>
 
 Build the compute rail with cancellation, measurement, and equivalence integrated:
 
@@ -41,11 +30,7 @@ Build the compute rail with cancellation, measurement, and equivalence integrate
 |   [7]   | Baseline timing and equivalence receipts    | `BenchmarkReceipt` with `BenchmarkDotNet` evidence              |
 |   [8]   | Failure taxonomy                            | Typed `ExecutionReceipt.Failure` discriminant                   |
 
----
 ## [3][SCOPED_LANES]
->**Dictum:** *Model and remote lanes integrate with the concern that owns them.*
-
-<br>
 
 | [INDEX] | [LANE]               | [INTEGRATES_WITH]                                                                                                            |
 | :-----: | -------------------- | ---------------------------------------------------------------------------------------------------------------------------- |
@@ -54,10 +39,6 @@ Build the compute rail with cancellation, measurement, and equivalence integrate
 |   [3]   | gRPC companion lane  | `Grpc.Net.Client` + `Google.Protobuf`; `.proto` in shared-contracts project; `SocketsHttpHandler` keep-alive configuration  |
 |   [4]   | Remote retry policy  | AppHost outbound-hop ownership; Compute emits `RemoteReceipt.RetryOwnerConflict` if a second retry owner appears            |
 
----
 ## [4][MEASUREMENT_EVIDENCE]
->**Dictum:** *Compute claims can disprove themselves.*
-
-<br>
 
 Performance claims are scoped to the measured input class. Receipts identify substrate, input class, output equivalence, timing, allocation category, cancellation, timeout, and failure path. Benchmark artifacts land under `.artifacts/compute/benchmarks/<substrate>/<run-id>/`; Persistence indexes them. CoreML fp16 downcast is a declared equivalence caveat on `ModelReceipt` — not silently ignored.

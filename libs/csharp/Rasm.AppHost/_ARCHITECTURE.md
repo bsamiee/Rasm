@@ -1,15 +1,8 @@
 # [H1][RASM_APPHOST_ARCHITECTURE]
->**Dictum:** *Runtime profiles coordinate owners without owning their internals.*
-
-<br>
 
 `Rasm.AppHost` is the composition/runtime boundary for Rasm application surfaces. Its default plugin mode is runtime-record `Eff.runtime<RT>()`; Generic Host and `IServiceCollection` are companion/test/bridge modes only — `[NEVER]` in-process.
 
----
 ## [1][BUILD_STATUS]
->**Dictum:** *Build the runtime platform fully and unified from the foundation.*
-
-<br>
 
 ```mermaid
 flowchart LR
@@ -29,11 +22,7 @@ flowchart LR
 |   [4]   | Host packages    | `[NOT_STARTED]`          |
 |   [5]   | Runtime evidence | Per host scenario        |
 
----
 ## [2][MODE_CONTRACT]
->**Dictum:** *Plugin mode stays explicit; host mode is the companion lane.*
-
-<br>
 
 | [INDEX] | [MODE]                        | [OWNED_BY_APPHOST]                                     | [PACKAGE_SCOPE]                      |
 | :-----: | ----------------------------- | ------------------------------------------------------ | ------------------------------------ |
@@ -46,11 +35,7 @@ flowchart LR
 
 The public rail accepts typed runtime operations as data and emits lifecycle/status/fault receipts. It does not expose `IServiceProvider` as an application API.
 
----
 ## [3][OWNER_SPLIT]
->**Dictum:** *Coordination is AppHost; implementation belongs to the target owner.*
-
-<br>
 
 | [INDEX] | [CONCERN]   | [APPHOST_OWNS]                            | [OTHER_OWNER]                                                  |
 | :-----: | ----------- | ----------------------------------------- | -------------------------------------------------------------- |
@@ -72,11 +57,7 @@ AppHost owns the shared spine all four folders integrate through. `RasmRuntime` 
 
 Layout: `Runtime/` (record, lifecycle, cancellation, time), `Flow/` (channel, scheduler, drain, backpressure), with root `AppHost.cs` (Boot/Drain composition) and `Telemetry.cs` (fused observability) — cohesive files with canonical sections, never per-concern mini-files.
 
----
 ## [4][TYPE_SHAPES]
->**Dictum:** *Named shapes precede implementation; undefined shapes are placeholders.*
-
-<br>
 
 ### [4.1][RASMRUNTIME]
 
@@ -171,11 +152,7 @@ AppHost owns the support-bundle trigger and collection signal. When triggered (u
 
 Persistence stores, redacts, and exports; AppHost coordinates collection and size-cap policy — neither owns the other's concern.
 
----
 ## [5][PACKAGES]
->**Dictum:** *Core runtime integrates now; external lanes are scoped to their concern.*
-
-<br>
 
 ### [5.1][IN_PROCESS_PACKAGES]
 
@@ -245,11 +222,7 @@ Confirmed in-box on `net10.0` — no `PackageVersion` entry needed:
 |   [7]   | `Microsoft.Extensions.Caching.Memory`         | Caching is a Persistence concern                           |
 |   [8]   | Any `Microsoft.AspNetCore.*`                  | ASP.NET Core owns the web server process; incompatible with Rhino host |
 
----
 ## [6][FLOW_POLICY]
->**Dictum:** *One mechanism owns each hop.*
-
-<br>
 
 - Runtime records resolve capabilities through `Eff.runtime<RT>()`. No `Has<RT,_>` traits or `Readable.asks`.
 - LanguageExt `Schedule` owns domain and hosted `Eff`/`IO` retry/repeat cadence.
@@ -260,11 +233,7 @@ Confirmed in-box on `net10.0` — no `PackageVersion` entry needed:
 - Channel capacity is a named field in `RasmRuntime`, not a file-level constant.
 - Observability emits from one fused projection surface (`Telemetry.cs`); no split telemetry branches.
 
----
 ## [7][RUNTIME_EVIDENCE]
->**Dictum:** *Runtime claims promote by evidence category.*
-
-<br>
 
 | [INDEX] | [STATE]        | [MEANING]                                |
 | :-----: | -------------- | ---------------------------------------- |
@@ -273,11 +242,7 @@ Confirmed in-box on `net10.0` — no `PackageVersion` entry needed:
 
 Evidence categories: startup, drain, cancellation, fault propagation, scope disposal, telemetry correlation, outbound retry ownership, support-bundle correlation, Rhino/GH unload behavior, `InvokeOnUiThread` fence proof, `TimeProvider`-deadline proof, health snapshot query, degradation policy applied.
 
----
 ## [8][SOURCE_ANCHORS]
->**Dictum:** *Sources ground integration.*
-
-<br>
 
 | [INDEX] | [SOURCE]                                                                                                              | [USE]                                      |
 | :-----: | --------------------------------------------------------------------------------------------------------------------- | ------------------------------------------ |

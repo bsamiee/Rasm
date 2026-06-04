@@ -1,7 +1,4 @@
 # [H1][SHELL-INTROSPECTION]
->**Dictum:** *Runtime reflection — call stacks, trap hierarchies, process lifecycle, and capability detection — enables production-grade diagnostics and resource safety.*
-
-<br>
 
 Call stack introspection, nameref composition patterns, hierarchical trap composition, process lifecycle with PID maps, and dispatch-table capability detection including Bash 5.3 variables. Basic variable types, arithmetic, and brace expansion are in [bash-scripting-guide.md S4/S6](./bash-scripting-guide.md).
 
@@ -13,11 +10,7 @@ Call stack introspection, nameref composition patterns, hierarchical trap compos
 |  [4]  | Process lifecycle  |  S4   | PID maps, signal fwd, wait -n, exec      |
 |  [5]  | Runtime capability |  S5   | Fallback chains, env contracts, 5.3 vars |
 
----
 ## [1][CALL_STACK_DIAGNOSTICS]
->**Dictum:** *FUNCNAME, BASH_LINENO, and BASH_SOURCE are parallel arrays — index i gives the caller at depth i in the call stack.*
-
-<br>
 
 `BASH_LINENO[i-1]` pairs with `FUNCNAME[i]` — line number records the call site, FUNCNAME records the called function. `set -E` (errtrace) is mandatory: without it, ERR fires only at top-level scope.
 
@@ -62,11 +55,7 @@ _caller_chain() {
 
 `FUNCNAME[0]` = current function, `FUNCNAME[1]` = caller — `_log` uses this for automatic span labels. `_caller_chain` serializes the full stack via nameref (`deploy:42 <- _main:15 <- main:0`). `BASH_COMMAND` in ERR traps contains the exact failing command text.
 
----
 ## [2][NAMEREF_PATTERNS]
->**Dictum:** *`local -n` eliminates subshell forks for multi-value return — the caller allocates, the callee populates.*
-
-<br>
 
 Namerefs (`local -n`) bind a local name to a caller-scope variable, replacing `$(subshell)` capture with direct writes. Scales to multiple return channels where subshell can only return one string.
 
@@ -102,11 +91,7 @@ divide quot rem 17 5  # quot=3, rem=2
 
 The `__` prefix convention prevents callee nameref names from colliding with caller variables — the Bash equivalent of name mangling.
 
----
 ## [3][TRAP_HIERARCHY]
->**Dictum:** *ERR fires first (diagnostic capture), then EXIT (cleanup orchestrator), then the process terminates — this ordering is a guarantee, not convention.*
-
-<br>
 
 Execution order: ERR (stack intact for diagnostics) then EXIT (cleanup). Signal traps (INT/TERM) trigger EXIT via `exit`. `_CLEANUP_STACK` LIFO separates registration from release — reverse iteration ensures dependent resources release before their dependencies.
 
@@ -142,11 +127,7 @@ _register_cleanup "exec {_REPORT_FD}>&-"
 
 Signal traps call `exit` with conventional codes (130=INT, 143=TERM) to trigger the EXIT trap. `_CLEANING` guard prevents re-entrant execution on cascading signals. `eval` in `_run_cleanups` is safe — handlers are script-registered, never user input.
 
----
 ## [4][PROCESS_LIFECYCLE]
->**Dictum:** *Bash does not propagate signals to background children — PID tracking and explicit forwarding are mandatory for clean shutdown.*
-
-<br>
 
 `wait -f PID` (5.2+) waits without job control. `wait -n -p VARNAME` (5.1+) returns the specific completed PID for per-job error handling. `SRANDOM` draws from `/dev/urandom` (kernel CSPRNG) — use for jitter and temp names where `RANDOM` (LCG) is insufficient.
 
@@ -210,11 +191,7 @@ _exec_service() {
 
 `_JOBS` maps logical names to PIDs for targeted signal delivery. `_graceful_stop` uses `read -rt 0.5 <> <(:)` as fork-free sub-second sleep, then escalates to SIGKILL after deadline. `_parallel` uses `wait -n -p` with PID as associative key; `unset` (not pattern substitution) removes array elements. `_exec_service` calls `_run_cleanups` before `exec` — EXIT traps do not fire after successful exec.
 
----
 ## [5][RUNTIME_CAPABILITY]
->**Dictum:** *Capability detection at startup populates readonly flags — dispatch tables select implementation at init, not per-call.*
-
-<br>
 
 ```bash
 declare -Ar _TOOL_FALLBACKS=(
@@ -300,7 +277,6 @@ shopt -s array_expand_once
 
 `_TOOL_FALLBACKS` encodes preference-ordered fallback chains — `_resolve_tool` walks via `command -v` and returns the first available implementation. `_ENV_CONTRACT` unifies required/type/enum validation into regex patterns. `_bench` uses EPOCHREALTIME PE arithmetic; `10#${us}` forces decimal on zero-padded microseconds. `BASH_SOURCE[-1]` is the entry script, `BASH_SOURCE[0]` is the current file. `BASH_MONOSECONDS` replaces `EPOCHSECONDS` where NTP drift matters. `BASH_TRAPSIG` enables dispatch-table signal routing from a single handler. `array_expand_once` (replacing `assoc_expand_once`) prevents subscript double-evaluation.
 
----
 ## [RULES]
 
 - `FUNCNAME[i]` + `BASH_LINENO[i-1]` — arrays are offset by one; line number records call site, FUNCNAME records called function.

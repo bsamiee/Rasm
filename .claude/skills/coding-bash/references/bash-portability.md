@@ -1,5 +1,4 @@
 # [H1][BASH-PORTABILITY]
->**Dictum:** *Capability probing at runtime eliminates the false choice between features and portability.*
 
 Cross-platform shell compatibility for Bash 5.2+/5.3, zsh, dash, and container-minimal shells. Platform detection, GNU/BSD coreutil divergence, capability probing, container environments, POSIX 2024 adoption reality.
 
@@ -12,11 +11,7 @@ Cross-platform shell compatibility for Bash 5.2+/5.3, zsh, dash, and container-m
 |   [5]   | Container environments  |  S5   | Alpine, Wolfi, distroless — PID 1 + image selection       |
 |   [6]   | Signal/trap portability |  S6   | Cross-shell trap semantics — EXIT, ERR, subshell          |
 
----
 ## [1][SHEBANG_AND_MACOS_REEXEC]
->**Dictum:** *The shebang determines which interpreter runs the script — misconfiguration silently alters semantics.*
-
-<br>
 
 | [INDEX] | [SHEBANG]             | [USE_WHEN]                          |
 | :-----: | :-------------------- | :---------------------------------- |
@@ -39,9 +34,7 @@ Cross-platform shell compatibility for Bash 5.2+/5.3, zsh, dash, and container-m
 }
 ```
 
----
 ## [2][SHELL_COMPATIBILITY_MATRIX]
->**Dictum:** *Feature availability determines which shell features are safe to use in a given deployment context.*
 
 Cross-shell semantic divergences — not feature presence but behavioral differences that cause silent bugs:
 
@@ -73,9 +66,7 @@ Adoption bottleneck: dash (Debian/Ubuntu `/bin/sh`) has not shipped `pipefail`. 
 _has_pipefail() { (set -o pipefail 2>/dev/null); }
 ```
 
----
 ## [3][COREUTIL_DIVERGENCE]
->**Dictum:** *GNU and BSD coreutils share command names but diverge on flags — untested cross-platform scripts fail silently.*
 
 | [INDEX] | [CMD]      | [GNU]                      | [BSD_(macOS)]                   | [PORTABLE]                             |
 | :-----: | :--------- | :------------------------- | :------------------------------ | :------------------------------------- |
@@ -117,9 +108,7 @@ _parse_date() {
 }
 ```
 
----
 ## [4][PLATFORM_DISPATCH]
->**Dictum:** *Runtime probing detects actual capability — version numbers lie when builds omit features.*
 
 Resolve platform at init. Bind OS-specific functions once. All call sites dispatch through a uniform key — zero runtime branching after initialization. Tool probes (`_HAS_RG`, `_resolve_tool`) and bash version probes (`_HAS_INSITU`) are owned by `variable-features.md` and `version-features.md` respectively.
 
@@ -187,11 +176,7 @@ _grep_pcre() {
 }
 ```
 
----
 ## [5][CONTAINER_ENVIRONMENTS]
->**Dictum:** *Alpine's ash and busybox sh implement a POSIX subset — bash assumptions break silently.*
-
-<br>
 
 ### [5.1][IMAGE_SELECTION_MATRIX]
 
@@ -230,11 +215,7 @@ _exec_service() { exec "$@"; }
 # handling reaping + signal forwarding natively — prefer over in-script forwarding
 ```
 
----
 ## [6][SIGNAL_AND_TRAP_PORTABILITY]
->**Dictum:** *Trap behavior differs across shells — untested signal handling fails in production.*
-
-<br>
 
 | [INDEX] | [BEHAVIOR]           | [BASH_5.2+]             | [DASH/ASH]       | [ZSH_5.9+]  |
 | :-----: | :------------------- | :---------------------- | :--------------- | :---------- |
@@ -269,7 +250,6 @@ _critical_section() {
 
 Cleanup implementation (`_cleanup`, `_CLEANUP_STACK`, `_CLEANING` guard) is owned by `script-patterns.md` S5. ERR trap stack trace (`_on_err` with `BASH_COMMAND`/`BASH_LINENO`/`FUNCNAME`) is owned by `script-patterns.md` S5 and `variable-features.md` S2.
 
----
 ## [RULES]
 
 - `#!/usr/bin/env bash` default — NEVER `#!/bin/bash` unless security policy mandates. NEVER `env -S` (macOS/busybox lack it).

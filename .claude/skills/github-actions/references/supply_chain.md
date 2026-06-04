@@ -1,13 +1,6 @@
 # [H1][SUPPLY-CHAIN]
->**Dictum:** *Supply chain validation detects insecure action consumption, missing attestations, and credential misuse.*
 
-<br>
-
----
 ## [1][SHA_PINNING]
->**Dictum:** *Mutable refs are the primary supply chain attack vector — detect and flag unpinned actions.*
-
-<br>
 
 ### [1.1][DETECTION_RULES]
 
@@ -48,11 +41,7 @@
 
 **Current posture:** SHA pinning + Dependabot/Renovate automated updates. Org setting "Require actions to be pinned to a full-length commit SHA" enforces `@<40-char-SHA>` format, rejects `@v1`/`@main` refs. Available in GitHub Enterprise Cloud and Server 3.12+.
 
----
 ## [2][OIDC_FEDERATION]
->**Dictum:** *OIDC eliminates long-lived credentials — detect static credential usage and missing permissions.*
-
-<br>
 
 **Required permission:** `id-token: write` at job level. Short-lived tokens per session — zero rotation overhead.
 
@@ -83,11 +72,7 @@ Subject claims include repo, branch, and environment for fine-grained trust poli
 |   [2]   | **`No OpenIDConnect provider found`**                         | OIDC identity provider not created in cloud account.      |
 |   [3]   | **Missing `id-token: write`**                                 | Permission absent from job-level `permissions:` block.    |
 
----
 ## [3][SBOM_AND_PROVENANCE]
->**Dictum:** *Attestation validation ensures artifacts carry verifiable provenance.*
-
-<br>
 
 ### [3.1][SLSA_LEVELS]
 
@@ -128,11 +113,7 @@ gh attestation verify <file-path> --repo owner/repo --format json
 
 Key flags: `--repo` (single repo), `--owner` (org-wide), `--bundle` (offline), `--bundle-from-oci` (registry-stored), `--predicate-type` (non-default SLSA type), `--format json` (machine-readable).
 
----
 ## [4][HARDEN_RUNNER]
->**Dictum:** *Runtime monitoring detects supply chain compromise in CI — validate presence and configuration.*
-
-<br>
 
 **Canonical version:** v2.14.2. EDR-class agent for GitHub Actions runners.
 
@@ -157,11 +138,7 @@ Key flags: `--repo` (single repo), `--owner` (org-wide), `--bundle` (offline), `
 |   [4]   | **Empty allowlist in block mode** | `[HARDEN]` | `egress-policy: block` without `allowed-endpoints`.         |
 |   [5]   | **Old version**                   | `[HARDEN]` | Version < v2.14.2 — missing socket syscall audit fix.       |
 
----
 ## [5][TOKEN_HYGIENE]
->**Dictum:** *Token selection and scope validation prevent credential over-provisioning.*
-
-<br>
 
 ### [5.1][TOKEN_SELECTION]
 
@@ -188,11 +165,7 @@ Key flags: `--repo` (single repo), `--owner` (org-wide), `--bundle` (offline), `
 |   [2]   | **`Resource not accessible by integration`**     | Missing permissions in the GitHub App configuration.             |
 |   [3]   | **Token expired**                                | Token generated too early — regenerate before the step (1h TTL). |
 
----
 ## [6][DEPENDENCY_REVIEW]
->**Dictum:** *Automated dependency review gates PRs on license and vulnerability policy.*
-
-<br>
 
 | [INDEX] | [CHECK]                       | [TAG]       | [WHAT_TO_FLAG]                                                    |
 | :-----: | ----------------------------- | ----------- | ----------------------------------------------------------------- |
@@ -201,11 +174,7 @@ Key flags: `--repo` (single repo), `--owner` (org-wide), `--bundle` (offline), `
 |   [3]   | **No gitleaks**               | `[SECRETS]` | Missing `gitleaks/gitleaks-action` for CI-level secret scanning.  |
 |   [4]   | **No Dependabot for actions** | `[MAINT]`   | Missing `.github/dependabot.yml` with `github-actions` ecosystem. |
 
----
 ## [7][NODE_RUNTIME]
->**Dictum:** *Runtime deprecation detection prevents workflow failures on forced migration.*
-
-<br>
 
 | [INDEX] | [RUNTIME]  | [STATUS]                                  |    [DEADLINE]     |
 | :-----: | ---------- | ----------------------------------------- | :---------------: |

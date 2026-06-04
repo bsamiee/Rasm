@@ -1,25 +1,14 @@
 # [H1][VALIDATION]
->**Dictum:** *Validation gates verify spec quality at structural, semantic, and statistical layers.*
-
-<br>
 
 [IMPORTANT] Three validation layers run in sequence: structural (fast, syntactic), semantic (coverage + oracle), statistical (mutation score). A spec must pass all three before submission. Each layer catches a distinct defect class -- structural catches formatting violations, semantic catches coverage gaps, statistical catches circular reasoning.
 
----
 ## [1][STRUCTURAL_GATE]
->**Dictum:** *Syntactic conformance is the prerequisite for semantic evaluation.*
-
-<br>
 
 The PostToolUse hook enforces 13 structural rules on every `*.spec.ts` edit. Structural violations block further validation -- fix before proceeding.
 
 [REFERENCE] Full rule table with patterns and fixes: [→guardrails.md](./guardrails.md) section 1.1.
 
----
 ## [2][SEMANTIC_GATE]
->**Dictum:** *Coverage validates completeness; oracle independence validates correctness.*
-
-<br>
 
 ### [2.1][COVERAGE]
 
@@ -49,11 +38,7 @@ Arbitraries must produce diverse, representative inputs covering the domain's ed
 
 [REFERENCE] Arbitrary safety filters and precondition discipline: [→guardrails.md](./guardrails.md) sections 4.2-4.3.
 
----
 ## [3][STATISTICAL_GATE]
->**Dictum:** *Mutation score separates contract-driven tests from circular ones.*
-
-<br>
 
 ### [3.1][MUTATION_ANALYSIS]
 
@@ -63,11 +48,7 @@ Run Stryker after semantic gate passes. Analyze surviving mutants to determine i
 
 [REFERENCE] Mutation thresholds, kill strategies, and equivalent mutant handling: [→guardrails.md](./guardrails.md) section 1.2.
 
----
 ## [4][VALIDATION_PIPELINE]
->**Dictum:** *Sequential gates with early termination minimize wasted effort.*
-
-<br>
 
 | [INDEX] | [GATE] | [CHECK]                 | [ON_FAIL]                            |
 | :-----: | :----: | ----------------------- | ------------------------------------ |
@@ -79,11 +60,7 @@ Run Stryker after semantic gate passes. Analyze surviving mutants to determine i
 
 [REFERENCE] Thresholds: SKILL.md section 2. Hook rules: [→guardrails.md](./guardrails.md) section 1.1.
 
----
 ## [5][ERROR_DIAGNOSIS]
->**Dictum:** *Known symptoms map to deterministic fixes.*
-
-<br>
 
 | [INDEX] | [SYMPTOM]                       | [ROOT_CAUSE]                               | [FIX]                                                 |
 | :-----: | ------------------------------- | ------------------------------------------ | ----------------------------------------------------- |

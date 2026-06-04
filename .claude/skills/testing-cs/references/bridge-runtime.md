@@ -1,7 +1,4 @@
 # [H1][BRIDGE_RUNTIME]
->**Dictum:** *Native behavior is proven in the host that owns it.*
-
-<br>
 
 ## [1][OWNERSHIP]
 
@@ -35,11 +32,7 @@ When a RhinoWIP update or product change makes a previously bridge-owned API gen
 
 Reclassifications are conservative by default: when in doubt, the behavior stays bridge-owned. The cost of a false-positive reclassification (silent CI failure on next RhinoWIP regression) outweighs the cost of an over-strict bridge classification.
 
----
 ## [4][SCENARIO_GROUPING]
->**Dictum:** *Bridge handshakes are 3-8s each; amortize via thematic grouping.*
-
-<br>
 
 Every `uv run python -m tools.quality bridge verify <scenario>` invocation pays a 3-8s Rhino handshake (assembly probing, RhinoCode resolution, document init). N independent `.verify.csx` files cost N × handshake; grouping K related scenarios into one file costs 1 × handshake + K × scenario body.
 
@@ -60,7 +53,6 @@ Do NOT group when:
 
 Evidence channel: grouped assertions populate a shared `FactBag` via `facts.Add(string key, object value);` inside the `Scenario.Run` body. On scope exit the harness emits one `facts={json}` plain line plus one `rasm.rhino-bridge.evidence=facts={json}` marker carrying the whole dictionary. When a grouped scenario fails, the JSON evidence under `.artifacts/rhino/verify/<scenario>.json` shows the predicate that threw plus the full fact dictionary collected before the throw.
 
----
 ## [5][SCENARIO_LOC_GUIDANCE]
 
 | [TYPE] | [TARGET_LOC] | [NOTES] |

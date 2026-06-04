@@ -1,13 +1,6 @@
 # [H1][COMMON-ERRORS]
->**Dictum:** *Error catalog maps symptoms to root causes and fixes, aligned with actionlint rule names.*
 
-<br>
-
----
 ## [1][SYNTAX_ERRORS]
->**Dictum:** *Structural errors prevent workflow parsing.*
-
-<br>
 
 | [INDEX] | [ERROR]                                     | [ACTIONLINT_RULE] | [FIX]                           |
 | :-----: | ------------------------------------------- | ----------------- | ------------------------------- |
@@ -17,11 +10,7 @@
 |   [4]   | `Unexpected key`                            | `syntax-check`    | Remove unknown keys             |
 |   [5]   | `Duplicate key`                             | `syntax-check`    | Remove duplicate keys           |
 
----
 ## [2][EXPRESSION_ERRORS]
->**Dictum:** *Expression type mismatches and injection risks fail validation.*
-
-<br>
 
 | [INDEX] | [ERROR]                              | [ACTIONLINT_RULE] | [FIX]                             |
 | :-----: | ------------------------------------ | ----------------- | --------------------------------- |
@@ -61,11 +50,7 @@
 
 [REFERENCE] Injection prevention: [expressions-and-contexts.md](./expressions-and-contexts.md).
 
----
 ## [3][DEPRECATED_COMMANDS]
->**Dictum:** *Removed commands require environment file replacements.*
-
-<br>
 
 | [INDEX] | [COMMAND]                          | [STATUS]            | [REPLACEMENT]                          |
 | :-----: | ---------------------------------- | ------------------- | -------------------------------------- |
@@ -82,11 +67,7 @@
 - `::error file=F,line=L::MESSAGE` — error annotation.
 - `::group::TITLE` / `::endgroup::` — collapsible log groups.
 
----
 ## [4][ACTION_ERRORS]
->**Dictum:** *Action resolution, input, and runtime errors require version-aware fixes.*
-
-<br>
 
 | [INDEX] | [ERROR]                                    | [ACTIONLINT_RULE] | [FIX]                                                              |
 | :-----: | ------------------------------------------ | ----------------- | ------------------------------------------------------------------ |
@@ -111,11 +92,7 @@
 
 [REFERENCE] Full SHA map: SHA resolution: use `git ls-remote` discovery protocol at generation time.
 
----
 ## [5][JOB_CONFIGURATION]
->**Dictum:** *Runner labels and job dependencies must reference valid identifiers.*
-
-<br>
 
 | [INDEX] | [ERROR]                                               | [ACTIONLINT_RULE] | [FIX]                                                       |
 | :-----: | ----------------------------------------------------- | ----------------- | ----------------------------------------------------------- |
@@ -125,11 +102,7 @@
 |   [4]   | **Missing `timeout-minutes:`**                        | —                 | Default is 6 hours — add explicit timeout to every job.     |
 |   [5]   | **`-arm64` suffix on runner label**                   | `runner-label`    | Use `-arm` suffix: `ubuntu-24.04-arm` not `-arm64`.         |
 
----
 ## [6][REUSABLE_WORKFLOW_ERRORS]
->**Dictum:** *Reusable workflow configuration has strict type and reference constraints.*
-
-<br>
 
 | [INDEX] | [ERROR]                                      | [ACTIONLINT_RULE] | [FIX]                                                             |
 | :-----: | -------------------------------------------- | ----------------- | ----------------------------------------------------------------- |
@@ -139,11 +112,7 @@
 |   [4]   | **`secrets: inherit` with explicit secrets** | `workflow-call`   | Cannot combine `secrets: inherit` with named secret declarations. |
 |   [5]   | **Nesting exceeds 10 levels**                | —                 | Maximum 10 levels of workflow nesting (caller + 9 deep).          |
 
----
 ## [7][SCHEDULE_ERRORS]
->**Dictum:** *CRON expressions require valid field ranges and correct syntax.*
-
-<br>
 
 | [INDEX] | [ERROR]                       | [ACTIONLINT_RULE] | [FIX]                                                                            |
 | :-----: | ----------------------------- | ----------------- | -------------------------------------------------------------------------------- |
@@ -158,22 +127,14 @@
 # Good: cron: '30 6 * * 1-5' # Weekdays at 06:30 UTC
 ```
 
----
 ## [8][PATH_FILTER_ERRORS]
->**Dictum:** *Glob patterns require directory separators.*
-
-<br>
 
 | [INDEX] | [ERROR]                             | [ACTIONLINT_RULE] | [FIX]                             |
 | :-----: | ----------------------------------- | ----------------- | --------------------------------- |
 |   [1]   | **`Invalid glob pattern: '**.js'`** | `glob`            | Use `**/*.js` not `**.js`.        |
 |   [2]   | **No `?` wildcard support**         | —                 | `hashFiles` does not support `?`. |
 
----
 ## [9][ENVIRONMENT_AND_SECRETS]
->**Dictum:** *Secret access requires exact name matching and platform-aware syntax.*
-
-<br>
 
 | [INDEX] | [ERROR]                          | [ACTIONLINT_RULE] | [FIX]                                                                         |
 | :-----: | -------------------------------- | ----------------- | ----------------------------------------------------------------------------- |
@@ -182,11 +143,7 @@
 |   [3]   | **Short secret not masked**      | —                 | Secrets shorter than 4 characters are NOT masked in logs.                     |
 |   [4]   | **Secret in `run:` block**       | `expression`      | Pass via `env:` indirection — never interpolate `${{ secrets.* }}` in `run:`. |
 
----
 ## [10][PERMISSIONS_ERRORS]
->**Dictum:** *Permission blocks require valid scope names and follow least-privilege.*
-
-<br>
 
 | [INDEX] | [ERROR]                             | [ACTIONLINT_RULE] | [FIX]                                                                                                                                                                                                                          |
 | :-----: | ----------------------------------- | ----------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
@@ -195,11 +152,7 @@
 |   [3]   | **Missing `id-token: write`**       | —                 | Required for OIDC federation (AWS/GCP/Azure auth actions).                                                                                                                                                                     |
 |   [4]   | **Missing `attestations: write`**   | —                 | Required for `actions/attest-build-provenance` / `attest-sbom`.                                                                                                                                                                |
 
----
 ## [11][DEBUGGING]
->**Dictum:** *Debug techniques expose runtime state for diagnosis.*
-
-<br>
 
 | [INDEX] | [METHOD]              | [HOW]                                                                |
 | :-----: | --------------------- | -------------------------------------------------------------------- |

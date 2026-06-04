@@ -2,8 +2,6 @@
 
 Three-tier codec boundary for Python 3.14+: Pydantic `TypeAdapter` validates ingress, `dataclass(frozen=True, slots=True)` anchors domain, msgspec `Struct(frozen=True, gc=False)` serializes egress, Suitkaise `cucumber` crosses process boundaries for unpicklable resources. Domain models never import wire libraries.
 
----
-
 ## Codec Architecture
 
 A polymorphic `capture` combinator eliminates all boundary `try/except` repetition -- parameterized on exception type for Pydantic vs cucumber vs arbitrary boundaries. `async_capture` is the async counterpart -- sole `try/except` site for coroutine boundaries. `pipe(raw, validate(adapter), result.bind(transform), result.map(encode))` is the canonical pipeline. `result.bind` and `result.map` are module-level curried functions from `expression` -- never `Result.bind` (unbound instance method).
@@ -73,8 +71,6 @@ def ingest[I, D, W](
 ```
 
 `capture` generalizes over exception type via `catch` parameter -- Pydantic boundaries pass `catch=ValidationError, extract=_pydantic_extract`; cucumber boundaries pass `catch=Exception`. `async_capture` mirrors the signature for coroutine boundaries -- the `thunk` returns an `Awaitable[T]` that is `await`ed inside the sole async `try/except`. `ingest` wires the full decode-validate-transform-project-encode pipeline. `_pydantic_extract` is a named function (not lambda assignment per PEP 8 E731) extracting structured violation paths from Pydantic `ValidationError`.
-
----
 
 ## Inbound Validation
 
@@ -146,8 +142,6 @@ PaymentAdapter: Final[TypeAdapter[Payment]] = TypeAdapter(Payment)
 ```
 
 `_PaymentBase` hoists shared `ConfigDict(strict=True)` and `amount: Trimmed` -- subclasses inherit config and common fields without duplication. `ConfigDict` resolves via MRO: when multiple bases define `model_config`, Pydantic merges them silently without warning -- restrict Pydantic base hierarchies to single-inheritance chains to avoid ambiguous config resolution. `Discriminator("method")` resolves the correct subclass when the discriminant is a direct `Literal` field present on all union members -- no callable, no `Tag()` wrappers needed. Reserve the manual `Discriminator(callable)` + `Tag()` pattern for cases where the discriminant requires computation (nested field access, derived value, heterogeneous field names across variants). `Trimmed` collapses strip + nonblank into a single `Annotated` composition -- `str.strip` as `BeforeValidator` (method reference, zero wrapper), `Field(min_length=1)` as structural constraint. `_cross_validate` uses `match bool(self.payload)` since `case {}` in PEP 636 matches ANY mapping (not just empty) -- `bool({})` is `False`, providing the correct emptiness check. `_normalize` accepts `object` (not `dict[str, object] | object` -- `dict` is already a subtype of `object`, so the union is redundant).
-
----
 
 ## Wire Serialization & Schema Evolution
 
@@ -284,8 +278,6 @@ def decode_versioned(registry: Map[int, type[VersionedResponse]], raw: bytes) ->
 ```
 
 `WireCodec` and `WireDecoder` are structural `Protocol`s -- any object with `.encode(obj) -> bytes` or `.decode(data) -> object` satisfies the contract, enabling third-party encoder extensions without class-identity coupling. `_WIRE_ENC` and `_WIRE_DEC` dispatch tables map wire format types to codec/decoder instances symmetrically -- `_WIRE_DEC` wires `_dec_hook` through `msgspec.json.decode`/`msgspec.msgpack.decode` at call site (module-level decoder allocation eliminated for decoders, reserved for hot-path encoders only). `decode_event` consumes `_WIRE_DEC` and wraps in `capture("parse")` for `Result` error rail -- symmetric counterpart to `encode_event`. `_unsupported` returns `Never` (`typing.Never`) -- the type checker proves all code paths through the fallback raise unconditionally, enabling dead-code elimination in downstream branches. `_WIRE_ENC` dispatch table replaces the boolean-index tuple hack -- `KeyError` on unknown wire types vs silent fallback. `_encode_perf: Final[Sktimer]` tracks the last 1000 encode latencies on a rolling window -- access `_encode_perf.mean`, `.percentile(99)`, `.stdev` for production profiling. `@timethis(_encode_perf)` injects start/stop around every `encode_event` call with zero ceremony. `decode_versioned` composes `Map.try_find` (returns `Option`) with `capture` for deferred `msgspec.json.decode` -- each version's Struct inherits from the previous, adding fields with defaults for forward compatibility.
-
----
 
 ## Transport & Process Boundaries
 
@@ -490,8 +482,6 @@ def batch_freeze(objects: list[object], *, workers: int = 4) -> list[bytes]:
 
 `verify_reconnected` uses structural `match/case` on the `Reconnector` base class (class pattern) instead of `hasattr`/`getattr` probing -- adhering to the [NEVER] rule. `SessionState.__deserialize__` returns `Self` (PEP 673) instead of a string forward reference. `_RECONNECT_AUTH` is typed `dict[str, object]` reflecting the heterogeneous kwargs consumed by different Reconnector subclasses. `Share` synchronization depends on `_shared_meta` generated by `@sk` AST analysis -- classes using `__getattr__`-based delegation, descriptor protocols, or dynamically-constructed methods must provide manual `_shared_meta` dicts for accurate cross-process attribute synchronization.
 
----
-
 ## Settings
 
 `BaseSettings(frozen=True)` loaded once at bootstrap via `capture`, injected as immutable dependency. `SecretStr` redacts from logs/repr.
@@ -515,8 +505,6 @@ def load_settings() -> Result[AppSettings, CodecFault]:
 ```
 
 `load_settings` reuses `capture` with `catch=ValidationError` -- zero standalone `try/except`. Settings class demonstrates `SecretStr`, `SettingsConfigDict`, and constraint validators in 10 lines.
-
----
 
 ## Rules
 
@@ -565,8 +553,6 @@ def load_settings() -> Result[AppSettings, CodecFault]:
 - [NEVER] `.asynced()` on functions without detected blocking calls -- `sk` raises `SkModifierError`. Use `@blocking` marker for opaque calls.
 - [NEVER] Lambda assignment to identifiers -- use `def` (PEP 8 E731). Lambda in default args and dispatch table values is acceptable.
 - [NEVER] `sk.asynced()` under `anyio.create_task_group()` -- `asyncio.to_thread` escapes anyio structured concurrency.
-
----
 
 ## Quick Reference
 

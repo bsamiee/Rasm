@@ -6,27 +6,19 @@ description: >-
 ---
 
 # [H1][SONARCLOUD-TOOLS]
->**Dictum:** *Zero-arg defaults enable immediate code quality inspection.*
-
-<br>
 
 Execute SonarCloud queries through unified Python CLI.
 
 [IMPORTANT] Commands require explicit `SONARCLOUD_PROJECT` and `SONARCLOUD_ORG`. 1Password may inject `SONAR_TOKEN`. SonarCloud API base: `https://sonarcloud.io/api`.
 
----
 ## [0][SCANNER]
->**Dictum:** *Scanner guidance must match configured project files.*
-
-<br>
 
 **Requirements:**
-- `SONAR_TOKEN` environment variable (1Password injection or export)<br>
+- `SONAR_TOKEN` environment variable (1Password injection or export)
 - Explicit scanner config and coverage paths before local analysis.
 
 **Configuration:** Add `sonar-project.properties` and a package script before documenting local scanner analysis.
 
----
 ## [1][COMMANDS]
 
 | [CMD]        | [ARGS]                   | [PURPOSE]                     |
@@ -38,7 +30,6 @@ Execute SonarCloud queries through unified Python CLI.
 | projects     | `[page_size]`            | List organization projects    |
 | hotspots     | `[status]`               | Security hotspots             |
 
----
 ## [2][USAGE]
 
 ```bash
@@ -61,7 +52,6 @@ uv run .claude/skills/sonarcloud-tools/scripts/sonarcloud.py projects 50
 uv run .claude/skills/sonarcloud-tools/scripts/sonarcloud.py hotspots TO_REVIEW
 ```
 
----
 ## [3][ARGUMENTS]
 
 **quality-gate**: `[branch]` or `pr <num>`
@@ -86,7 +76,6 @@ uv run .claude/skills/sonarcloud-tools/scripts/sonarcloud.py hotspots TO_REVIEW
 **hotspots**: `[status]`
 - `status` -- Filter: `TO_REVIEW`, `ACKNOWLEDGED`, `FIXED`, `SAFE`
 
----
 ## [4][OUTPUT]
 
 Commands return: `{"status": "success|error", ...}`.
@@ -100,14 +89,12 @@ Commands return: `{"status": "success|error", ...}`.
 |   [5]   | `projects`     | `{organization, total, projects[]}`                  |
 |   [6]   | `hotspots`     | `{project, total, hotspots[]}`                       |
 
----
 ## [5][ENVIRONMENT]
 
 | [VAR]         | [REQUIRED] | [DESCRIPTION]                    |
 | ------------- | ---------- | -------------------------------- |
 | `SONAR_TOKEN` | Yes        | SonarCloud API token (1Password) |
 
----
 ## [6][ERROR_HANDLING]
 
 - HTTP errors print `[ERROR] <status>: <body>` and exit 1

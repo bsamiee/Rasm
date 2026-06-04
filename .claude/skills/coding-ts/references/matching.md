@@ -256,6 +256,7 @@ const route = Match.discriminatorsExhaustive("channel")({
 - `Weights` vocabulary centralizes severity and decay parameters — `quantify` combines `instanceOf` dispatch with `N.divide`/`N.multiply` arithmetic on class fields, `route` uses `discriminatorsExhaustive` as the canonical function form for pipeline composition. Both access the same vocabulary; `quantify` uses `base` + `decay` for depth-scaled scoring, `route` uses only `decay` for flat projection. The vocabulary-driven pattern means adding a channel requires one `Weights` entry, one class, one union constituent, and the compiler enforces handler addition in both matchers.
 
 ## Rules
+
 - Closed tagged domains require exhaustive finalizers (`tagsExhaustive`, `discriminatorsExhaustive`, or terminal `Match.exhaustive`) — no catch-all `orElse` masking new variants in bounded unions.
 - `Match.withReturnType` precedes all branch declarations — placement after any `when` evaluates the constraint against partially-constructed result type.
 - Predicate composition via `whenAnd`/`whenOr`/`not` replaces boolean branching — no `if`/ternary chains for multi-dimension dispatch.

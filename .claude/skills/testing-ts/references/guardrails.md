@@ -1,15 +1,8 @@
 # [H1][GUARDRAILS]
->**Dictum:** *Automated gates catch structure; design guardrails catch semantics.*
-
-<br>
 
 Two enforcement layers: **automated gates** (machine-checkable, zero-tolerance) and **design guardrails** (require judgment, enforced via review). Together they form defense-in-depth preventing circular, flaky, and implementation-confirming tests.
 
----
 ## [1][AUTOMATED_GATES]
->**Dictum:** *PostToolUse hook + Stryker enforce structural correctness without human intervention.*
-
-<br>
 
 ### [1.1][HOOK_RULES]
 
@@ -50,11 +43,7 @@ Stryker injects code mutants (operator swaps, conditional negations, statement d
 |   [3]   | Statement deletion       | Test that depends on deleted operation    |
 |   [4]   | String mutation          | Known-answer vector comparison            |
 
----
 ## [2][ANTI_PATTERNS]
->**Dictum:** *Design-level anti-patterns supplement automated hook rules (section 1.1).*
-
-<br>
 
 Hook rules catch syntactic violations. These anti-patterns catch **semantic** issues that require judgment:
 
@@ -73,11 +62,7 @@ Hook rules catch syntactic violations. These anti-patterns catch **semantic** is
 
 **Mock compression pattern:** Mock factories constructing a single-field object (`{ method: vi.fn(() => Effect.void) }`) are thin wrappers adding indirection without value. Inline the literal directly into `_provide` or `Effect.provideService`. Reserve named `_mk*` factories for mocks with 2+ configurable fields or conditional behavior (e.g., `_mkDb({ a?: …, ns?: …, set?: … })`).
 
----
 ## [3][ORACLE_INDEPENDENCE]
->**Dictum:** *Expected values must be external to the implementation under test.*
-
-<br>
 
 A test is **implementation-confirming** when changing internal algorithm (preserving contract) breaks it. These tests create maintenance burden and catch zero real bugs. Six detection signals:
 
@@ -101,11 +86,7 @@ A test is **implementation-confirming** when changing internal algorithm (preser
 |   [5]   | Manually computed        | Verify       | Hand-calculate, document derivation     |
 |   [6]   | Source output pasted     | **Circular** | **Replace** with law or oracle          |
 
----
 ## [4][DETERMINISM_AND_ISOLATION]
->**Dictum:** *Tests must be deterministic, isolated, and reproducible.*
-
-<br>
 
 ### [4.1][TIME_DETERMINISM]
 
@@ -130,11 +111,7 @@ Use `it.scoped` for tests requiring `Scope`-managed resources (semaphores, circu
 
 Each `it.effect` / `it.effect.prop` runs in a fresh Effect runtime. Shared state between tests must be immutable (`as const`) or re-initialized per test. Layer-scoped suites (`layer(testLayer)('name', ...)`) share a service layer but each test gets isolated fiber execution.
 
----
 ## [5][HUMAN_REVIEW]
->**Dictum:** *Automation catches syntax; humans verify semantics.*
-
-<br>
 
 Three criteria automation cannot verify:
 

@@ -2,8 +2,6 @@
 
 Error taxonomy, routing, accumulation, boundary translation, and recovery ownership for Python 3.14+. Every error variant, policy projection, and observability mapping across all reference files is governed by this file — errors.md defines what "typed, bounded, exhaustively-routed error rails" means at the domain level. All snippets assume expression v5.6+ with `Result`, `Option`, `@effect.result`, `pipe`, `Block`, `Map`, `seq`.
 
----
-
 ## Error Taxonomy and Routing
 
 Without projection from fault discriminants to a uniform `(Policy, severity)` pair, recovery logic branches on variant identity — each new `SpectralFault` variant silently creates handler gaps across every consumer. A closed `match/case` + `assert_never` taxonomy guarantees exhaustive routing at definition time; `block.fold` threads the signal through the fault chain, short-circuiting on the first abort-policy fault.
@@ -68,8 +66,6 @@ def triage(faults: Block[SpectralFault], signal: Block[float]) -> Result[Block[f
 ```
 
 `gate` closes over the routed `(policy, severity)` pair at fold time and returns a filter that short-circuits via `filter_with` on `Policy.abort`, propagating `(fault, policy, severity)` as `Err` context. `block.fold(lambda acc, f: acc.bind(gate(f)), Ok(signal))` mirrors `apply_chain` — `bind` skips remaining faults after the first abort while threading the signal unchanged through retry/degrade faults. `sumprod` computes order-weighted residual for `Stall` as an extended-precision dot product $r/e + n \cdot r$; the inner `block.fold` accumulates windowed energy for `Leakage` severity inline.
-
----
 
 ## Error Metadata and Observability Mapping
 
@@ -140,8 +136,6 @@ def project(fault: SensorFault, cid: CorrId) -> Envelope:
 ```
 
 Three isomorphic variants carrying identical `(Ratio, Threshold, Count)` structure collapse into one `SensorFault` with `Reason` as its discriminant — the match that previously extracted uniform locals is eliminated because the fields are already uniform. `_SEVERITY: Final[Map[Reason, Severity]]` pre-computes the `Reason → Severity` mapping at module scope; `project` is a direct field-access pipeline with zero branching. `NewType` wrappers (`Ratio`, `Count`, `Threshold`) prevent cross-dimensional assignment at the call site, while `kw_only=True` on both `SensorFault` and `Envelope` forces named construction, blocking positional mis-ordering. `safe` carries only derived `ratio` and `count` dimensions; `redacted` carries the absolute `threshold` — the redaction boundary is structural, not policy-based, so adding a `Dim` variant without updating `project` produces a missing-key gap visible at the consumption site rather than a silent zero.
-
----
 
 ## Accumulation, Collapse, and Context Preservation
 
@@ -216,8 +210,6 @@ def calibrate(stim: Block[float], resp: Block[float], bounds: tuple[Bound, Bound
 ```
 
 Single-pass `block.fold` accumulates six sufficient statistics $(n, \Sigma x, \Sigma y, \Sigma xy, \Sigma x^2, \Sigma y^2)$ with `fma` for fused precision; the normal-equations residual $\text{SSR} = \Sigma y^2 - \hat\beta_1 \Sigma xy - \hat\beta_0 \Sigma y$ via `sumprod` eliminates the second data traversal. `gate` returns `_EMPTY` (the `Final` monoid identity, zero allocation per passing check) on success or a singleton `Block[Defect]` on failure — `block.fold` over the three-element `Block` with `(*acc, *gate(*t))` accumulates unconditionally because monoid concatenation does not short-circuit; `gate(*t)` star-unpacks each `(Axis, value, Bound)` triple. `Option.Some(...).filter(lambda _: len(faults) == 0).to_result(DiagPayload(...))` pivots the accumulated count as the sole `Ok`/`Error` discriminant — `block.map(lambda d: d.axis.name)` projects typed `Axis` members to boundary-safe strings, constituting the redacted transport form with internal `Bound` constraints and measured values stripped.
-
----
 
 ## Boundary Translation for HTTP, CLI, and Message Surfaces
 
@@ -331,8 +323,6 @@ def translate(surface: Surface, fault: Fault) -> Egress:
 
 `_EGRESS[fault.kind]` yields every protocol-specific field — URI, status, exit code, title, routing key — in one `Map` lookup with zero runtime derivation; `_Spec(kw_only=True)` prevents swap risk across its five fields and `Final` forbids rebinding. Nested `match/case` exhausts two orthogonal closed vocabularies — `Surface` via `assert_never(unreachable)` and `Literal[1, 2]` via `assert_never(uv)` — with `ProblemExt(Problem, frozen=True)` using `msgspec.Struct` inheritance to extend V2 without duplicating the base triple. Redaction is structural omission: `Fault` carries `raw_mv: MilliVolt` and `cal_gain: CalGain` but no egress type includes either field — `NewType` scalars enforce nominal distinction at zero runtime cost; `translate` is a pure function with zero inline logging (boundary observability is a trace decorator concern per decorators.md).
 
----
-
 ## Recovery Ownership and Compensation Boundaries
 
 The generator's `EffectError` is builder-internal — catching it re-enters a computation whose intermediate witness bindings are already consumed by short-circuit, making in-generator recovery structurally impossible. Recoverability is a type-level property encoded by field presence: an error variant carrying captured prior state IS the typed recovery discriminant, while a variant carrying only diagnostic scalars is structurally terminal. `.or_else_with(compensate)` at the composition boundary (called as `step(...).or_else_with(compensate)`) consumes the full union once, producing either an alternative value from the error's captured context or propagating the terminal variant unchanged.
@@ -388,8 +378,6 @@ def compensate(fault: Fault) -> Result[State, Fault]:
 ```
 
 Predict and update are inlined as `yield from` expressions inside the `@effect.result` generator — covariance prediction via `fma(f * f, prior.p, q)` feeds `filter_with` against `_COV_CEILING`, and the measurement-update Kalman gain/NIS computation feeds a second `filter_with` against `chi2`, with the generator widening disjoint error types (`Diverged`, `Rejected`) into `Fault` via covariant `yield from`. `step(...).or_else_with(compensate)` is the sole recovery site at the composition boundary — `compensate` eliminates `Diverged` at the value level by destructuring `prior: State` to produce an inflated-covariance reset where `max(s.p, _COV_FLOOR)` guards degenerate priors before $_\text{INFLATION}\times$ scaling, while `Rejected` passes through as `Error`, ensuring the post-recovery error space is a strict subset of the pre-recovery union. `Diverged` carries `prior: State` making it structurally recoverable; `Rejected` carries only `nis: float` making it structurally terminal — recoverability is field presence, not a boolean flag.
-
----
 
 ## Rules
 

@@ -2,7 +2,6 @@
 
 Protocol-driven numeric abstractions for Python 3.14+. Structural subtyping replaces inheritance hierarchies. Expression `block.fold`/`seq.fold` replace imperative accumulation. All snippets assume expression v5.6+, NumPy 2.4+, Polars 1.32+.
 
----
 ## Protocol Numeric Algebra
 
 Monoidal reduction requires identity + associative combine — `Protocol` encodes both structurally, and PEP 695 infers `T` invariant from dual-position (`identity` produces, `combine` consumes). `@curry_flip(1)` defers the data parameter; `block.fold` threads the monoid through the error rail via `bind`, short-circuiting on first `Defect`.
@@ -37,7 +36,6 @@ def reduce_checked[T](m: Monoid[T], xs: Block[T]) -> Result[T, Defect]:
 
 `Monoid[T]` unifies identity element, associative binary operation, and per-element validation into one Protocol surface. PEP 695 infers `T` invariant because `identity` returns `T` (covariant) while `combine` accepts `T` (contravariant), preventing `Monoid[int]` from structurally satisfying `Monoid[float]`. The `bind`→`validate`→`map`→`combine` chain inside `block.fold` threads the accumulator through the error rail — first invalid element short-circuits the entire fold. `@curry_flip(1)` makes `reduce_checked(monoid)` a reusable `Block[T] -> Result[T, Defect]` arrow. Concrete `combine` implementations benefit from `math.fma(a, weight, b)` for fused multiply-add precision when the monoid accumulates weighted sums.
 
----
 ## Polars Lazy Patterns
 
 `pipe` chains compose `LazyFrame → LazyFrame` transforms with deferred execution — predicate pushdown, projection pruning, and join reordering happen at `.collect()`. `pl.struct(*cols)` packs multiple columns into a single struct Series for atomic multi-column operations via `map_batches`. `when/then/otherwise` replaces conditional branching with expression-level dispatch.
@@ -86,7 +84,6 @@ def analyze(lf: pl.LazyFrame, cols: tuple[str, ...], by: str) -> Result[pl.DataF
 
 `mahalanobis_regime` returns a `FrameArrow` that fuses multivariate distance computation with regime classification. `pl.struct(*cols).map_batches(_distance, return_dtype=pl.Float64)` packs columns atomically — `_distance` receives the entire struct Series, extracts typed arrays via `s.struct.field(c).to_numpy()`, and computes Mahalanobis distance via `einsum('...i,ij,...j->...', d, inv_cov, d)` as a batched bilinear form. `np.linalg.pinv` handles rank-deficient covariance where `inv` would fail; `np.eye(len(cols)) * 1e-10` regularizes near-singular matrices. `when/then/otherwise` classifies regime labels at the expression level — the query optimizer pushes predicates through the conditional. `compose_lazy` folds `Block[FrameArrow]` left-to-right via `block.fold` with zero intermediate `.collect()`. `analyze` validates minimum dimensionality ($\geq 2$ features for covariance) via `filter_with` before the terminal `.collect()` materializes the fused plan.
 
----
 ## NumPy Typed Vectorization
 
 `NDArray[np.float64]` provides compile-time dtype enforcement via numpy 2.4+ stubs. `np.isdtype` gates on Array API dtype taxonomy — backend-agnostic validation across NumPy, CuPy, and JAX. `svdvals` extracts singular values without full $U$/$V$ decomposition; `vector_norm` provides explicit batched norm computation via the Array API norm split.
@@ -127,7 +124,6 @@ def rank_decomposition(data: NDArray[np.float64], tol: float = 1e-10):
 
 `spectral_energy` computes windowed energy without allocation: `sliding_window_view(s, window)` returns a strided view, and `einsum('...i,...i->...', w, w)` contracts the window axis as a batched dot product. `np.isdtype(s.dtype, "real floating")` replaces fragile `np.issubdtype` hierarchy checks with the declarative Array API dtype taxonomy. `rank_decomposition` uses `np.linalg.svdvals` — singular values in descending order without computing full $U$/$V$ matrices — where `eigvalsh` requires Hermitian input, `svdvals` handles arbitrary rectangular matrices. Effective rank counts singular values above relative tolerance `sv[0] * tol * max(shape)`, the condition number `sv[0] / sv[rank-1]` uses the smallest *significant* singular value (not the potentially-zero trailing value), and `np.linalg.vector_norm(sv[rank:])` computes the 2-norm of the truncated residual via the Array API norm decomposition. The `@effect.result` generator sequences two `yield from` gates — dtype/shape validation and zero-matrix rejection — making the dependent computation chain explicit.
 
----
 ## Numeric Precision & Stability
 
 Pydantic's full validator lifecycle — `BeforeValidator` → core `Field` constraints → `AfterValidator` → `PlainSerializer` — controls numeric precision end-to-end in a single `Annotated` stack. `localcontext` scopes `Decimal` precision without global mutation. Kahan-Babuška compensated summation via `block.fold` tracks accumulated rounding error; `math.ulp` quantifies IEEE 754 representational granularity for stability gating.
@@ -176,7 +172,6 @@ def compensated_sum(threshold: float, xs: Block[float]) -> Result[tuple[float, R
 
 `MonetaryDecimal` demonstrates the complete Pydantic validator lifecycle in one `Annotated` stack: `BeforeValidator(lambda v: Decimal(str(v)))` coerces raw inputs to `Decimal` before core validation, `Field(max_digits=12, decimal_places=2, ge=0, allow_inf_nan=False)` applies structural constraints, `AfterValidator` quantizes to cents, and `PlainSerializer(lambda v: f"{v:.2f}", return_type=str)` controls serialization format — `TypeAdapter.json_schema(mode='serialization')` emits `{"type": "string"}` matching the actual wire format. `convert` sequences two `filter_with` gates: pre-conversion validates non-positive amounts, `localcontext(prec=28, rounding=ROUND_HALF_EVEN)` scopes banker's rounding to IEEE 754 decimal128 significance, and post-conversion catches underflow-to-zero from extreme rate ratios. `compensated_sum` implements Kahan-Babuška summation within `block.fold`: the walrus-operator step `(t := acc[0] + (y := x - acc[1]), (t - acc[0]) - y)` recovers algebraically-lost low-order bits — `y` captures the compensated input, `t` the partial sum. `filter_with` gates on ULP-relative stability: `abs(c) < threshold * ulp(abs(t)) * 128` ensures residual stays within a caller-specified multiple of machine epsilon; factor 128 accounts for $O(n)$ error growth.
 
----
 ## Zero-Copy Memoryview
 
 `memoryview` wraps buffer-protocol objects with zero allocation on slicing. Pre-compiled `struct.Struct` amortizes format parsing; `.iter_unpack` streams typed records lazily. `Result` rails gate structural integrity — malformed buffers produce typed errors instead of `struct.error` exceptions.

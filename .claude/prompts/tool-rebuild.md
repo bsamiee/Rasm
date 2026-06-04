@@ -2,8 +2,6 @@
 
 Reusable prompt for **rebuilding an existing tool into a unified, finalized system**. Paste this, then name the target tool (e.g. `tools/<name>`) and any audit/critique that diagnosed it.
 
----
-
 ## [1] WHAT "REBUILD" MEANS HERE
 
 A rebuild is **not** a from-scratch rewrite. It finalizes a tool whose initial implementation accreted **piecemeal across many sessions** — so it carries the predictable rot: entangled/duplicated types and constants (in any language), parallel shapes for one concept, dual paradigms / split-brain seams, status-string projectors, per-binary code fragmentation, fragile hardcoded logic, and hand-rolled code where a library already owns the concern. The job is **polymorphic collapse into one coherent, dense, agent-first system** — preserving every capability while destroying the entanglement.

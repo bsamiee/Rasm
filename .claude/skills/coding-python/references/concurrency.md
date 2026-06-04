@@ -2,7 +2,6 @@
 
 Concurrency in Python 3.14+ is boundary architecture. `anyio.create_task_group()` is the spawn primitive, `CancelScope` owns deadlines and shielding, `CapacityLimiter` + `MemoryObjectStream` enforce backpressure, and `ContextVar[tuple]` replaces mutable globals under free-threading. All snippets target `anyio >= 4.12`, expression v5.6+ with `Result`, `Ok`, `Error`, `Option`, `@effect.async_result`, `pipe`, `Block`, `match/case` dispatch, and explicit boundary loops only.
 
----
 ## Structured Concurrency Algebra
 
 Seven primitives compose one bounded pipeline: `TaskGroup` owns lifecycle, `CancelScope(deadline)` enforces timeout, `CancelScope(shield=True)` protects critical sections, `CapacityLimiter` caps concurrency, `MemoryObjectStream[T]` carries typed backpressure, and `checkpoint()` yields cooperatively.
@@ -96,7 +95,6 @@ Checkpoint variants: `checkpoint()` (yield + cancel check), `checkpoint_if_cance
 - [ALWAYS] Close send streams via `async with send:` to signal completion downstream.
 - [ALWAYS] Wrap commit/ack in `CancelScope(shield=True)` and re-raise cancellation.
 
----
 ## Free Threading
 
 Under `python3.14t` (GIL disabled via PEP 779), decorator closures capturing mutable state become data races. `ContextVar[tuple[...]]` provides scoped immutable snapshots, `threading.Lock` guards genuinely shared mutable resources, and frozen models are inherently thread-safe.
@@ -154,7 +152,6 @@ Free-threading rules:
 - Frozen Pydantic models are inherently safe.
 - `expression.CancellationToken` for cooperative cross-thread cancellation: `token.cancel()` signals, workers check `token.is_cancellation_requested` at yield points.
 
----
 ## Interpreter Isolation
 
 `InterpreterPoolExecutor` provides process-level isolation without fork overhead -- values crossing must be `bytes`, `int`, `float`, `bool`, or `None`.
@@ -198,7 +195,6 @@ Interpreter boundary rules:
 - Prefer `msgspec.json` wire encoding.
 - Manual `try/except` at boundary with `# BOUNDARY ADAPTER` marker wraps into `Result`.
 
----
 ## Exception Groups
 
 When multiple tasks fail concurrently inside a `TaskGroup`, anyio raises an `ExceptionGroup`. `except*` (PEP 654) provides structured handling -- each clause matches a subset, unmatched exceptions propagate automatically.
@@ -252,7 +248,6 @@ Exception group rules:
 - `ExceptionGroup` from `TaskGroup` is the ONLY context for `except*` in domain-adjacent code.
 - For finer-grained isolation, `expression.MailboxProcessor` processes messages sequentially — converting concurrent failures to ordered `Result` values.
 
----
 ## Rules
 
 - [ALWAYS] Spawn via `anyio.create_task_group()` only.
@@ -270,7 +265,6 @@ Exception group rules:
 
 Rule note: `try/except get_cancelled_exc_class(): raise` is the only permitted domain-adjacent `try/except`; cancellation is a foreign exception protocol. `# BOUNDARY ADAPTER` marks all other `try/except` at interpreter and process boundaries.
 
----
 ## Quick Reference
 
 | [INDEX] | [PATTERN]                    | [WHEN]                                      | [KEY_TRAIT]                              |

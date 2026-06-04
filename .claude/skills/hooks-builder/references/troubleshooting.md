@@ -1,15 +1,8 @@
 # [H1][TROUBLESHOOTING]
->**Dictum:** *Known issue awareness enables defensive implementation.*
-
-<br>
 
 Platform-specific bugs, timing issues, and configuration gotchas.
 
----
 ## [1][PLATFORM_ISSUES]
->**Dictum:** *Platform differences require explicit handling.*
-
-<br>
 
 | [INDEX] | [PLATFORM] | [ISSUE]                       | [WORKAROUND]                        |
 | :-----: | ---------- | ----------------------------- | ----------------------------------- |
@@ -28,11 +21,7 @@ Platform-specific bugs, timing issues, and configuration gotchas.
 }
 ```
 
----
 ## [2][TIMING_ISSUES]
->**Dictum:** *Hook execution speed determines behavior.*
-
-<br>
 
 | [INDEX] | [ISSUE]                | [THRESHOLD] | [SOLUTION]                         |
 | :-----: | ---------------------- | :---------: | ---------------------------------- |
@@ -61,11 +50,7 @@ def _acquire_lock() -> bool:
 _acquire_lock() or sys.exit(0)  # Another instance running
 ```
 
----
 ## [3][EXIT_CODE_GOTCHAS]
->**Dictum:** *Exit code verification compensates for documentation divergence.*
-
-<br>
 
 | [INDEX] | [CODE] | [DOCUMENTED]       | [ACTUAL]                         |
 | :-----: | :----: | ------------------ | -------------------------------- |
@@ -76,11 +61,7 @@ _acquire_lock() or sys.exit(0)  # Another instance running
 
 [CRITICAL] Use exit 0 for warnings. Exit 1 blocks despite documentation.
 
----
 ## [4][CONFIG_ISSUES]
->**Dictum:** *Configuration validation prevents silent failures.*
-
-<br>
 
 | [INDEX] | [ISSUE]                       | [SYMPTOM]                     | [FIX]                        |
 | :-----: | ----------------------------- | ----------------------------- | ---------------------------- |
@@ -91,11 +72,7 @@ _acquire_lock() or sys.exit(0)  # Another instance running
 |   [5]   | Wrong shebang                 | `/usr/bin/env: bad interp`    | Use `#!/usr/bin/env python3` |
 |   [6]   | /hooks shows "No hooks"       | Valid config ignored (#11544) | Check settings.json location |
 
----
 ## [5][REMOTE_EXECUTION]
->**Dictum:** *Remote execution requires explicit configuration.*
-
-<br>
 
 | [INDEX] | [CONTEXT]         | [ISSUE]                    | [SOLUTION]                           |
 | :-----: | ----------------- | -------------------------- | ------------------------------------ |
@@ -104,11 +81,7 @@ _acquire_lock() or sys.exit(0)  # Another instance running
 |   [3]   | CI/CD             | No interactive approval    | Pre-approve in settings              |
 |   [4]   | GitHub Codespaces | PATH issues                | Use absolute paths                   |
 
----
 ## [6][DEBUGGING]
->**Dictum:** *Debug mode reveals hook behavior.*
-
-<br>
 
 | [INDEX] | [METHOD]           | [COMMAND]                                       |
 | :-----: | ------------------ | ----------------------------------------------- |

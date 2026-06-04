@@ -1,7 +1,4 @@
 # [H1][MUTATION_COVERAGE]
->**Dictum:** *Scores are gates only after ownership and discovery are true.*
-
-<br>
 
 ## [1][COVERAGE]
 
@@ -22,11 +19,7 @@
 - The quality wrapper applies a whole-process timeout. Stryker owns mutant scheduling; selected mutants plus timed-out mutants mean the rail ran.
 - Mutation uses an advisory lock. Live contention fails fast; unlocked stale lock files are reused automatically.
 
----
 ## [3][THEORY_EXPANSION_AS_STRYKER_ENABLER]
->**Dictum:** *PBT hosts are one mutation target; Theory rows are N.*
-
-<br>
 
 Stryker mutates each test method body and asks "does any test fail?". A `Spec.ForAll(Gen.OneOfConst([A,B,C]), ...)` body is ONE method, ONE mutation target — Stryker kills the mutation if any case catches it, then moves on. Survivors that affect only case B are invisible.
 
@@ -42,7 +35,6 @@ Do NOT convert when:
 - The oracle requires random input variation per case (PBT generators over case-specific inputs).
 - Per-case Theory rows would be pure copy-paste of body code.
 
----
 ## [4][SURVIVOR_TAXONOMY]
 
 | [INDEX] | [CLASS] | [ACTION] |

@@ -9,17 +9,10 @@ description: >-
 ---
 
 # [H1][TESTING_CS]
->**Dictum:** *A test is an adversarial law with an independent oracle, not confirmation of current output.*
-
-<br>
 
 Use this skill with `coding-csharp` for `.cs` specs/testkit code, `coding-bash` for scripts, and `docs/standards` for Markdown. The canonical unit rail is xUnit v3/MTP + CsCheck + `Rasm.TestKit`; native Rhino/GH runtime behavior belongs in `*.verify.csx` bridge scenarios. Managed tests attempt falsification through independent oracles, mutation-visible rows, failure categories, model/metamorphic relations, receipt tampering, and raw-payload laws.
 
----
 ## [1][WORKFLOW]
->**Dictum:** *Classify first; falsify with fewer, stronger laws second.*
-
-<br>
 
 1. Read the owning production file and its sibling tests.
 2. Classify each behavior as static-managed or bridge-owned native/runtime.
@@ -31,11 +24,7 @@ Use this skill with `coding-csharp` for `.cs` specs/testkit code, `coding-bash` 
 8. Write the spec from [unit-pbt.spec.template.md](templates/unit-pbt.spec.template.md).
 9. Validate with scoped cleanup first, then targeted build/test proof for touched rails.
 
----
 ## [2][RAILS]
->**Dictum:** *Bridge ownership is executable proof, not a documentation escape hatch.*
-
-<br>
 
 | [INDEX] | [RAIL] | [LOCATION] | [OWNS] |
 | :-----: | ------ | ---------- | ------ |
@@ -64,11 +53,7 @@ Use this skill with `coding-csharp` for `.cs` specs/testkit code, `coding-bash` 
 - Keep `ConcurrentDictionary`, `Interlocked`, `Directory`, `Path`, `Console.WriteLine`, and `System.Drawing` inside explicit test/tool/bridge boundary adapters.
 - For `Rasm.Vectors`, the canonical bridge-vs-static rail list lives in [bridge-runtime.md `[2][RULES]`](references/bridge-runtime.md); static specs own pure MathNet/Spectral/factory/failure laws and managed input guards, every other native success belongs in bridge scenarios per that authoritative list.
 
----
 ## [3][SCENARIOS]
->**Dictum:** *Scenario files are source-only runtime laws owned by tests.*
-
-<br>
 
 Place `*.verify.csx` files beside the relevant test slice under `tests/csharp/libs/<Project>/<MirrorPath>/scenarios/`. The bridge maps that convention to `libs/csharp/<Project>/<Project>.csproj`; do not add manifests, catalogs, app-local scenario folders, or per-scenario path maps.
 
@@ -84,11 +69,7 @@ The bridge injects `SCENARIO_NAME` and `CAPTURE_PATH` before execution. Do not d
 - Capture paths live beside bridge reports under `.artifacts/rhino/verify` or `.artifacts/rhino/bridge/check`.
 - On macOS, `ViewCapture.CaptureToBitmap(view)` can capture the active viewport. Set the active view and redraw before capture when a scenario uses viewport evidence.
 
----
 ## [4][SPEC_SHAPE]
->**Dictum:** *One generated input should exercise many assertions.*
-
-<br>
 
 | [INDEX] | [RULE] | [DETAIL] |
 | :-----: | ------ | -------- |
@@ -109,11 +90,7 @@ The bridge injects `SCENARIO_NAME` and `CAPTURE_PATH` before execution. Do not d
 - Hand-constructing a record type (e.g., `TopologyReceipt`) and asserting its own fields is Grade D mirror coverage. Migrate to a bridge scenario OR add an `IsValid` predicate law via `TheoryData<Record, bool>` (one valid row, each invariant individually broken).
 - Filter `Spec.ForAll(Gen.OneOfConst([A,B,C]), ...)` shows as ONE Stryker mutation target. Convert to `[Theory][InlineData(A)][InlineData(B)][InlineData(C)]` (or `MemberData(...)` from `SmartEnum.Items`) when Stryker survivors include per-case logic — Theory rows give N separately-killable targets.
 
----
 ## [5][TOOL_RAIL]
->**Dictum:** *Tool knowledge lives in docs; specs use the small contract.*
-
-<br>
 
 | [INDEX] | [TOOL] | [DOC] | [LOCAL_USE] |
 | :-----: | ------ | ----- | ----------- |
@@ -135,11 +112,7 @@ Current local truth:
 - Do not claim a `Check.Hash` cache path without inspecting the current package/source.
 - Treat Stryker zero discovery as a failed mutation rail; the managed target is 95% after discovery proof.
 
----
 ## [6][VALIDATION]
->**Dictum:** *A failing law is evidence; investigate product behavior before weakening the test.*
-
-<br>
 
 Use the repo gate appropriate to the touched surface:
 

@@ -1,11 +1,8 @@
 # [H1][OBSERVABILITY]
->**Dictum:** *Observability is one algebra; typed outcomes remain primary.*
 
 Observability in C# 14 / .NET 10 keeps `Fin<T>`, `Validation<Error,T>`, and `Eff<RT,T>` intact while projecting telemetry through one compositional surface. **[NOT_IN_GRAPH]** Serilog/OpenTelemetry/Http.Resilience until host packages are pinned. Canonical surfaces: `[LoggerMessage]`, `ActivitySource`, `Meter`, `TagList`, `LogContext`, Serilog OTLP sink, OpenTelemetry exporters.
 
----
 ## [1][SIGNAL_ALGEBRA]
->**Dictum:** *One module owns identities, tag algebra, and fused channel emission.*
 
 ```csharp
 namespace Domain.Observability;
@@ -198,9 +195,7 @@ public static class Observe {
 }
 ```
 
----
 ## [2][OBSERVABILITY_CANON]
->**Dictum:** *Observability constraints are architecture contracts, not optional style.*
 
 | [INDEX] | [CONSTRAINT]               | [MANDATE]                                                                        | [SURFACE]                           |
 | :-----: | :------------------------- | -------------------------------------------------------------------------------- | ----------------------------------- |
@@ -221,8 +216,6 @@ public static class Observe {
 |  [15]   | **`TRACE_DIMENSIONS`**     | span attributes via SetTag; initial tags at StartActivity for sampler visibility | TagPolicy.AnnotateSpan              |
 |  [16]   | **`RECORDING_GATE`**       | gate expensive tag computation behind IsAllDataRequested                         | TagPolicy.AnnotateSpanWhenRecording |
 
----
-
 **Tag taxonomy** — canonical dimensions from TagPolicy.Outcome and AnnotateFailure:
 
 | [INDEX] | [DIMENSION]      | [REQUIRED]      | [SEMANTICS]                                       |
@@ -233,9 +226,7 @@ public static class Observe {
 |   [4]   | **`service`**    | **recommended** | service identity for shared dashboards            |
 |   [5]   | **`component`**  | **recommended** | adapter boundary (`gateway`, `repo`, `scheduler`) |
 
----
 ## [3][EFF_PIPELINE]
->**Dictum:** *`Eff` instrumentation composes as one wrapper; no business-flow forks.*
 
 ```csharp
 // (imports from section [1])
@@ -274,9 +265,7 @@ public static class ObserveEff {
 }
 ```
 
----
 ## [4][COMPOSITION_ROOT]
->**Dictum:** *Composition root wires exporters and resilience; domain modules emit canonical signals only.*
 
 ```csharp
 namespace App.Bootstrap;
@@ -374,9 +363,7 @@ public static class ResilienceContextSetup {
 }
 ```
 
----
 ## [5][RULES]
->**Dictum:** *Observability quality is consistency under composition pressure.*
 
 - [ALWAYS] Emit via Observe.Outcome, Observe.Validation, and ObserveEff.Pipeline.
 - [ALWAYS] Keep ActivitySource/Meter identities centralized in Signals.

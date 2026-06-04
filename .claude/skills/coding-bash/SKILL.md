@@ -8,7 +8,6 @@ description: >-
 ---
 
 # [H1][CODING-BASH]
->**Dictum:** *Functional patterns and strict mode produce maintainable shell automation.*
 
 All code follows five governing principles:
 - **Functional** — immutable locals, pure functions, dispatch tables, and tightly bounded mutable shell state

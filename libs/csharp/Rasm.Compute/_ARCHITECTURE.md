@@ -1,15 +1,8 @@
 # [H1][RASM_COMPUTE_ARCHITECTURE]
->**Dictum:** *Measured compute selects substrates; domain owners define results.*
-
-<br>
 
 `Rasm.Compute` is the owner for measured execution beyond direct in-process `Rasm.Vectors` operations. It keeps tensor, model, remote, cancellation, benchmark, and receipt concerns explicit without turning package APIs into public platform APIs.
 
----
 ## [1][BUILD_STATUS]
->**Dictum:** *Build the measured-compute platform fully on the default substrate.*
-
-<br>
 
 ```mermaid
 flowchart LR
@@ -28,11 +21,7 @@ flowchart LR
 |   [4]   | Packages           | `[NOT_STARTED]`          |
 |   [5]   | Benchmark evidence | Per measured input class |
 
----
 ## [2][PUBLIC_RAIL_CONTRACT]
->**Dictum:** *Compute intent is data; substrate choice is internal.*
-
-<br>
 
 | [INDEX] | [CONCEPT]           | [OWNS]                                                                      | [DOES_NOT_OWN]              |
 | :-----: | ------------------- | --------------------------------------------------------------------------- | --------------------------- |
@@ -46,11 +35,7 @@ flowchart LR
 
 Operations are `Eff<RT, ExecutionReceipt>` on the runtime record `RT` (defined by `Rasm.AppHost`). `RT` carries the `CancellationToken` and `TimeProvider`; Compute owns no executor. AppHost owns the bounded `Channel<ComputeRequest>`, drains it on its background scheduler, and calls Compute to execute each request; `ComputeRequest` is defined in the shared-contracts project, not in `Rasm.Compute`.
 
----
 ## [3][TYPE_SHAPES]
->**Dictum:** *Name every canonical type before writing a single implementation file.*
-
-<br>
 
 ### [3.1][RUNTIME_CONSTRAINT]
 
@@ -145,11 +130,7 @@ One `InferenceSession` per `ModelKey`, managed through `Atom<HashMap<ModelKey, S
 
 Each operation declares an allocation category: `Minimal` (< 1 MB), `Moderate` (1–64 MB), `Heavy` (> 64 MB). The budget is measured via `GC.GetAllocatedBytesForCurrentThread()` before and after the operation body. An overrun does not throw; it sets `ExecutionReceipt.Failure = ExecutionFailure.AllocationBudgetExceeded` and returns the partial receipt. `MemoryOwner<T>` (`CommunityToolkit.HighPerformance`) and `ArrayPoolBufferWriter<T>` are the staging buffers for mesh/tensor work; `ArrayPool<T>` (in-box) for smaller transient allocations. `Microsoft.IO.RecyclableMemoryStream` is used only where a `Stream`-shaped code path is proven necessary.
 
----
 ## [4][SUBSTRATE_ORDER]
->**Dictum:** *Use the existing numerical owner before adding a new substrate.*
-
-<br>
 
 | [INDEX] | [SUBSTRATE]               | [SCOPE]      | [BASIS]                                                          |
 | :-----: | ------------------------- | ------------ | ---------------------------------------------------------------- |
@@ -160,11 +141,7 @@ Each operation declares an allocation category: `Minimal` (< 1 MB), `Moderate` (
 
 `System.Numerics.Tensors` is in-box on net10.0 — call `TensorPrimitives` directly; rent input buffers from `ArrayPool<T>` (in-box) or `MemoryOwner<T>` (`CommunityToolkit.HighPerformance`). `UnitsNet` provides typed physical scalars (lengths, angles, forces) for CAD inputs and results — satisfying the no-weak-types rule for dimension-bearing values.
 
----
 ## [5][PACKAGES]
->**Dictum:** *Name by NuGet ID; assume newest; no version numbers in documentation.*
-
-<br>
 
 ### [5.1][APPROVED_ADJACENT]
 
@@ -198,11 +175,7 @@ Each operation declares an allocation category: `Minimal` (< 1 MB), `Moderate` (
 |   [9]   | `Grpc.AspNetCore` / `Grpc.HealthCheck` / `Grpc.Reflection` | Server-side packages; Compute is a client                                           |
 |  [10]   | MessagePack / MemoryPack            | No serialization boundary in Compute; Persistence owns snapshot codecs                                       |
 
----
 ## [6][MODEL_LANE_INTEGRATION]
->**Dictum:** *ORT integration has sharp edges; every one is documented here.*
-
-<br>
 
 [CRITICAL] Use the current CoreML EP API: `SessionOptions.AppendExecutionProvider("CoreML", new Dictionary<string,string>{ ["ModelFormat"] = "MLProgram", ["MLComputeUnits"] = "CPUAndNeuralEngine", ["ModelCacheDirectory"] = path })`. The old `OrtSessionOptionsAppendExecutionProvider_CoreML` native P/Invoke was deprecated in ORT 1.20 and must not appear in new code.
 
@@ -216,29 +189,17 @@ Each operation declares an allocation category: `Minimal` (< 1 MB), `Moderate` (
 
 [REMOTE_LANE] gRPC idle-connection handling: configure `SocketsHttpHandler` with `KeepAlivePingDelay`, `KeepAlivePingTimeout`, and `EnableMultipleHttp2Connections = true` to prevent idle-connection timeouts from surfacing as transient errors. AppHost owns retry on the remote hop; Compute emits `RemoteReceipt.RetryOwnerConflict` if a second retry owner appears.
 
----
 ## [7][GRASSHOPPER_SURFACING]
->**Dictum:** *GH2 components surface compute results without blocking the solve thread.*
-
-<br>
 
 - In-process operations (default substrate, `Rasm.Vectors` calls): use `GH_TaskCapableComponent` with cached result; `ExpireSolution(true)` after the task completes.
 - Model or remote operations (> 100 ms): submit to AppHost's `Channel<ComputeRequest>` from the solve method; cache the last `ExecutionReceipt` and call `ExpireSolution(true)` when the channel drain delivers the result. The GH solve thread never blocks on ONNX `Run` or gRPC.
 - Progress: subscribe to `IObservable<ComputeProgress>` via AppUi, which calls `ObserveOn(RasmUiScheduler.RxScheduler)`; components with no subscriber receive no-op cold-Subject emissions at zero cost.
 
----
 ## [8][FAILURE_MODEL]
->**Dictum:** *Compute failures identify substrate and evidence gap.*
-
-<br>
 
 `ExecutionReceipt.Failure` is a typed discriminant. Cases: `InputRejected`, `UnsupportedSubstrate`, `Cancelled`, `DeadlineExceeded`, `AllocationBudgetExceeded`, `OutputInequivalent`, `BenchmarkRegression`, `ModelNotFound`, `ModelVersionMismatch`, `ModelLoadFailed`, `UnsafeConcurrency`, `RemoteDeadlineExceeded`, `PayloadRejected`, `RetryOwnerConflict`, `RemoteFault`. `OnError` is never called on the progress observable; all failures surface through the receipt.
 
----
 ## [9][MEASUREMENT_EVIDENCE]
->**Dictum:** *Performance status promotes through measurement.*
-
-<br>
 
 | [INDEX] | [STATE]        | [MEANING]                                           |
 | :-----: | -------------- | --------------------------------------------------- |
@@ -248,11 +209,7 @@ Each operation declares an allocation category: `Minimal` (< 1 MB), `Moderate` (
 
 Benchmark claims carry baseline, target, input class, tolerance, memory profile, and artifact path under `.artifacts/compute/benchmarks/<substrate>/<run-id>/`, which Persistence indexes. The Compute benchmark project lives in `tests/csharp/libs/Rasm.Compute/Rasm.Compute.Benchmarks.csproj` and references `BenchmarkDotNet` (already in central management).
 
----
 ## [10][CROSS_FOLDER]
->**Dictum:** *One runtime spine; typed receipts out; observable progress to the UI.*
-
-<br>
 
 Compute plugs into the shared spine all four folders share:
 - **Runtime record:** `Eff<RT, T>` on `RasmRuntime` (AppHost-defined); `RT` carries `CancellationToken` and `TimeProvider`. `IComputeRuntime` is the minimal constraint letting Compute compile and test without AppHost.
@@ -264,11 +221,7 @@ Compute plugs into the shared spine all four folders share:
 
 Layout: five cohesive flat files — `Intent.cs`, `Substrate.cs`, `Model.cs`, `Remote.cs`, `Progress.cs` — each with canonical sections; benchmark receipts co-locate in `Substrate.cs`. No per-lane subfolders or mini-files.
 
----
 ## [11][SOURCE_ANCHORS]
->**Dictum:** *Sources ground integration.*
-
-<br>
 
 | [INDEX] | [SOURCE]                                                                                                                                                                                         | [USE]                                                 |
 | :-----: | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | ----------------------------------------------------- |

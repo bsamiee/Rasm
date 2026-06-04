@@ -274,6 +274,7 @@ const withBoundaryTranslation = <A, E extends { readonly _tag: string }, R>(
 - `withBoundaryTranslation(classify)`: `mapError` applies classification, `tapError` combines logging + `annotateCurrentSpan`, `withSpan` names boundary in traces. Transport-edge concern, distinct from normalization.
 
 ## Rules
+
 - One boundary error type per module surface — internal tagged errors are file-scoped, never exported.
 - Normalization via `catchTags` or per-stage `mapError` must reduce to exactly the boundary type; residual union = incomplete handling.
 - Defects never caught by `catchAll`/`catchTags` — only `sandbox`/`unsandbox` or `catchAllCause` with exhaustive `Cause.match` at explicit boundaries.

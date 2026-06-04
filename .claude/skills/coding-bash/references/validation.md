@@ -1,9 +1,6 @@
 # [H1][VALIDATION]
->**Dictum:** *Static analysis catches defects that syntax validation misses.*
 
----
 ## [1][VALIDATION_PIPELINE]
->**Dictum:** *Each layer targets a distinct defect class; execute in order.*
 
 Validation is sequential — each gate must pass before the next runs. `bash -n` catches unclosed quotes, missing `done`/`fi`, and heredoc mismatches, but CANNOT detect unquoted expansions, unused variables, or unreachable code. ShellCheck fills the semantic gap. Tests prove runtime behavior. Coverage quantifies untested surface.
 
@@ -16,9 +13,7 @@ Validation is sequential — each gate must pass before the next runs. `bash -n`
 |   [5]   | **Coverage**     | `kcov --include-path=. coverage/ bats tests/` | Dead code, untested branches       | Semantic correctness      |
 |   [6]   | **Quality gate** | Exit 1 on coverage < threshold                | Enforcement                        | -                         |
 
----
 ## [2][CRITICAL_SC_CODES]
->**Dictum:** *Understanding WHY a code matters drives correct remediation.*
 
 **SC2086 — Unquoted variable (info severity, security-critical impact)**
 Unquoted `$var` undergoes word splitting AND pathname globbing. An input containing `* /etc/passwd` expands to every file in CWD plus `/etc/passwd`. Under `rm`, this is arbitrary file deletion. SC2086 is classified "info" because quoting is occasionally intentionally omitted (arithmetic contexts, `[[ ]]` RHS patterns) — the severity does NOT reflect the risk. Treat every SC2086 as a potential injection vector until proven safe.
@@ -44,9 +39,7 @@ BusyBox `sh` implements `[[ ]]` but omits glob pattern matching on the RHS. `[[ 
 **SC2046 — Unquoted command substitution (warning)**
 `$(cmd)` without quotes undergoes word splitting and globbing — same injection class as SC2086 but with the added risk that `cmd`'s output is attacker-influenced. Filenames with spaces, glob characters, or IFS-matching bytes cause silent data corruption.
 
----
 ## [3][SC_CODE_REFERENCE]
->**Dictum:** *Code familiarity accelerates fix identification.*
 
 | [INDEX] | [CODE]     | [SEV] | [ISSUE]                          | [FIX]                                      |
 | :-----: | ---------- | :---- | :------------------------------- | :----------------------------------------- |
@@ -69,9 +62,7 @@ BusyBox `sh` implements `[[ ]]` but omits glob pattern matching on the RHS. `[[ 
 |  [17]   | **SC3030** | warn  | Arrays in sh script              | Fix shebang to `bash`                      |
 |  [18]   | **SC3037** | warn  | `echo` flags in sh               | `printf` — paradigm requires it regardless |
 
----
 ## [4][SHELLCHECKRC]
->**Dictum:** *Project-level config enforces paradigm without per-file directives.*
 
 ```bash
 # .shellcheckrc — paradigm-aligned defaults
@@ -100,9 +91,7 @@ disable:
 severity: style
 ```
 
----
 ## [5][DIRECTIVES]
->**Dictum:** *Inline suppression requires justification — naked disables are defects.*
 
 ```bash
 # Correct: justification explains WHY suppression is safe
@@ -132,9 +121,7 @@ Directive reference:
 | `# shellcheck source=/dev/null`               | Skip unresolvable source     |
 | `# shellcheck enable=require-variable-braces` | Enable optional check inline |
 
----
 ## [6][IDIOMATIC_PATTERNS]
->**Dictum:** *Idiomatic patterns eliminate SC warnings at source.*
 
 | [INDEX] | [PATTERN]                               | [ELIMINATES]           | [REPLACES]                 |
 | :-----: | :-------------------------------------- | :--------------------- | :------------------------- |
@@ -168,9 +155,7 @@ _assert_match() { [[ "$1" =~ $2 ]]  || _die "ASSERT ${FUNCNAME[1]}:${BASH_LINENO
 
 Inline assertions with automatic caller location via `FUNCNAME[1]`/`BASH_LINENO[0]`. Use in `_self_test()` to validate dispatch table integrity, nameref output functions, and env contract parsing without external test frameworks.
 
----
 ## [7][STRICT_MODE_INTERACTIONS]
->**Dictum:** *Strict mode changes ShellCheck semantics — understand the interactions.*
 
 `set -Eeuo pipefail` + `shopt -s inherit_errexit` creates constraints that ShellCheck assumes may not be active:
 
@@ -182,9 +167,7 @@ Inline assertions with automatic caller location via `FUNCNAME[1]`/`BASH_LINENO[
 | `$(cmd)` in `[[ ]]`      | `inherit_errexit` propagates into cmd sub       | Failures inside `[[ $(cmd) ]]` now fatal |
 | `$@` unquoted + `set -u` | `set -u` catches unset but NOT empty `$@`       | SC2068 still required — `"$@"` always    |
 
----
 ## [8][CI_INTEGRATION]
->**Dictum:** *Automated gates prevent unchecked merges.*
 
 ```yaml
 # .github/workflows/shell-quality.yml

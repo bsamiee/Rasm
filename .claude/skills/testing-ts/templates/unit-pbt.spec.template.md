@@ -1,7 +1,4 @@
 # [H1][UNIT_PBT_TEMPLATE]
->**Dictum:** *Scaffold for algebraic property-based test files targeting `packages/server/` modules.*
-
-<br>
 
 <!-- ┌─────────────────────────────────────────────────────────────────────────────┐ -->
 <!-- │ Placeholders: ${UPPER_SNAKE_CASE} — replace all before use.                 │ -->
@@ -54,11 +51,7 @@ layer(${LAYER_NAME})('${SUITE_NAME}', (it) => {
 });
 ```
 
----
 ## [1][PLACEHOLDER_REFERENCE]
->**Dictum:** *Quick lookup — see inline comments above for usage guidance.*
-
-<br>
 
 | [INDEX] | [PLACEHOLDER]          | [EXAMPLE]                                |
 | :-----: | ---------------------- | ---------------------------------------- |

@@ -1,29 +1,18 @@
 # [H1][STYLING]
->**Dictum:** *Theme and visual configuration control diagram appearance.*
-
-<br>
 
 Themes, looks, themeVariables, classDef, linkStyle, Edge ID, CSS injection, accessibility.
 
 [CRITICAL] Hex colors required — `#RRGGBB` or `#RRGGBBAA`; named colors NOT recognized.
 [REFERENCE] Validation: [->validation.md§1](./validation.md#1configuration)
 
----
 ## [1][THEMES_LOOKS]
->**Dictum:** *Presets and looks establish visual foundation.*
-
-<br>
 
 **Themes:** `base` (customizable via themeVariables), `default`, `dark`, `forest`, `neutral` (not customizable).
 **Looks (v11.0+):** `neo` (default modern), `classic` (traditional), `handDrawn` (sketch). Applies to `flowchart`, `state`, `packet`.
 
 [IMPORTANT] ONLY `theme: base` accepts `themeVariables`.
 
----
 ## [2][THEMEVARIABLES]
->**Dictum:** *Variables cascade from primaryColor when unset.*
-
-<br>
 
 **Core:** `background` (#f4f4f4), `darkMode` (false), `fontFamily` (trebuchet ms), `fontSize` (16px), `primaryColor` (#fff4dd, derives secondary/tertiary/borders), `primaryTextColor`, `primaryBorderColor`, `secondaryColor`, `tertiaryColor`, `lineColor`.
 
@@ -42,11 +31,7 @@ Themes, looks, themeVariables, classDef, linkStyle, Edge ID, CSS injection, acce
 - *Requirement:* `requirementBackground`, `requirementBorderColor`, `relationColor`
 - *Architecture:* `archEdgeColor`, `archEdgeArrowColor`, `archGroupBorderColor`
 
----
 ## [3][CLASSDEF]
->**Dictum:** *Reusable style classes prevent inline repetition.*
-
-<br>
 
 **Declaration:** `classDef name prop:val,prop:val` | `classDef cls1,cls2 prop:val` | `classDef default prop:val`.
 **Properties:** `fill`, `stroke`, `stroke-width`, `stroke-dasharray` (escape commas `5\,5`), `color`, `font-size`, `font-weight`, `opacity`, `rx`, `ry`.
@@ -56,11 +41,7 @@ Themes, looks, themeVariables, classDef, linkStyle, Edge ID, CSS injection, acce
 
 [CRITICAL] Notes and namespaces NOT styleable; place `classDef` at diagram end; subgraph titles NOT individually styleable.
 
----
 ## [4][LINKSTYLE_EDGE_ID]
->**Dictum:** *Edge styling controls link appearance and animation.*
-
-<br>
 
 **linkStyle:** `linkStyle 0 stroke:#hex,stroke-width:2px` (single), `linkStyle 0,1,2 stroke:#hex` (multiple), `linkStyle default stroke:#hex`, `linkStyle -` (previous edge, v11.6.0+).
 **Properties:** `stroke`, `stroke-width`, `color` (labels), `stroke-dasharray`, `fill` (none).
@@ -73,21 +54,13 @@ Themes, looks, themeVariables, classDef, linkStyle, Edge ID, CSS injection, acce
 [CRITICAL] Edge ID cannot style `color` or `stroke` directly — use `linkStyle`.
 [IMPORTANT] Indices 0-based in declaration order; only `-` references previous edge.
 
----
 ## [5][CSS_INJECTION]
->**Dictum:** *CSS injection overrides theme defaults via specificity.*
-
-<br>
 
 `.cssClass > rect { fill: #ff0000 !important; }`, `.er.entityBox { stroke: #0000ff !important; }`.
 
 [CRITICAL] Use `!important` — Mermaid CSS takes precedence; Shadow DOM prevents override; ER requires `themeCSS`.
 
----
 ## [6][ACCESSIBILITY]
->**Dictum:** *Accessibility directives expose diagram semantics to assistive technology.*
-
-<br>
 
 **Directives:** `accTitle: Title text`, `accDescr: Description text`, `accDescr { multi-line }`. Place after diagram type; generates `<title>` and `<desc>` with `aria` attributes.
 

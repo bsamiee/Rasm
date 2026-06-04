@@ -1,15 +1,8 @@
 # [H1][TEXT-PROCESSING-GUIDE]
->**Dictum:** *Tool selection determines pipeline efficiency.*
-
-<br>
 
 External tool reference: rg, awk, sd, fd, choose, jq, yq, mlr, jnv. Pipeline composition, capability probing, macOS caveats.
 
----
 ## [1][TOOL_SELECTION]
->**Dictum:** *Match tool to data shape — WHY matters more than WHAT.*
-
-<br>
 
 | [INDEX] | [NEED]         | [TOOL]   | [VER] | [WHY]                                                        |
 | :-----: | :------------- | :------- | :---: | :----------------------------------------------------------- |
@@ -46,11 +39,7 @@ _require_tool fd find && _find() { fd "$@"; } || _find() { find "$@"; }
 |   [3]   | BSD `date`      | `date -d` unavailable          | `printf '%(%F)T'`         |
 |   [4]   | BSD `stat`      | `stat -c` unavailable          | `wc -c < f` or `[[ -f ]]` |
 
----
 ## [2][REGEX_DIALECTS]
->**Dictum:** *PCRE2 is the primary dialect — BRE/ERE knowledge for legacy triage only.*
-
-<br>
 
 `rg` and `sd` use PCRE2 natively. BRE/ERE awareness needed only when reading existing `grep`/`sed` in legacy scripts.
 
@@ -72,11 +61,7 @@ _require_tool fd find && _find() { fd "$@"; } || _find() { find "$@"; }
 [:lower:] a-z          [:upper:] A-Z          [:space:] whitespace
 ```
 
----
 ## [3][RIPGREP]
->**Dictum:** *rg replaces grep entirely — exploit the full surface.*
-
-<br>
 
 | [INDEX] | [FLAG]               | [PURPOSE]              | [EXAMPLE]                                 |
 | :-----: | :------------------- | :--------------------- | :---------------------------------------- |
@@ -112,11 +97,7 @@ rg --json 'ERROR' logs/ \
              | map({(.[0].data.path.text): length}) | add'
 ```
 
----
 ## [4][AWK]
->**Dictum:** *Single awk program over piped grep|sed|cut chains.*
-
-<br>
 
 Prefer `choose` for simple field selection. Prefer `mlr` for CSV/TSV (header-aware, typed). awk for: aggregation, state machines, multi-field formatting on unstructured text. Use gawk 5.3+ `--csv` for CSV with quoted fields — eliminates `-F','` breakage on embedded commas.
 
@@ -139,11 +120,7 @@ Builtins: `NF` (fields), `NR` (line#), `FNR` (file-line#), `FS`/`OFS` (separator
 
 **Zero-fork alternative for simple field ops**: when extracting/transforming bash variables, prefer `local -n` nameref + `printf -v` over spawning awk/sed subshells. Reserve awk for multi-line aggregation and state machines where bash builtins cannot compete.
 
----
 ## [5][SD]
->**Dictum:** *sd eliminates sed's escape complexity and macOS incompatibility.*
-
-<br>
 
 sd uses PCRE2 natively, writes in-place by default (no `-i` flag), and requires no backslash escaping for capture groups. On macOS, `sed -i` requires an empty string argument (`sed -i '' ...`) — sd avoids this entirely.
 
@@ -155,11 +132,7 @@ sd 'pattern.*\n' '' file.txt              # Delete lines matching pattern
 command | sd 'old' 'new'                  # Pipe mode (stdin → stdout)
 ```
 
----
 ## [6][PIPELINE_PATTERNS]
->**Dictum:** *Composable pipelines — composition over sequential commands.*
-
-<br>
 
 **Tool composition patterns**:
 ```bash
@@ -198,11 +171,7 @@ mlr -c -j filter '$revenue > 1000' then sort-by -nr revenue data.csv \
 |   [5]   | File paths        | `fd`         | `fd --exec-batch` bulk actions  |
 |   [6]   | Substitution      | `sd`         | `fd --exec-batch sd` bulk edits |
 
----
 ## [7][PERFORMANCE]
->**Dictum:** *Fewer forks yield faster pipelines.*
-
-<br>
 
 | [INDEX] | [TECHNIQUE]    | [PATTERN]                                                |
 | :-----: | :------------- | :------------------------------------------------------- |
@@ -217,11 +186,7 @@ mlr -c -j filter '$revenue > 1000' then sort-by -nr revenue data.csv \
 |   [9]   | Null-delimited | `jq --raw-output0` + `xargs -0` — special-char safe      |
 |  [10]   | Thread control | `rg --threads 4` — bound parallelism in constrained envs |
 
----
 ## [8][STRUCTURED_DATA]
->**Dictum:** *Structured data demands structural tools — regex is a category error.*
-
-<br>
 
 ### jq 1.8+ — JSON processing
 

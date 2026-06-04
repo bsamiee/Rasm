@@ -1,7 +1,4 @@
 # [H1][STRING-TRANSFORMS]
->**Dictum:** *Parameter expansion chains compose string transforms without forks — each `${}` operator is a pure function over the variable's value.*
-
-<br>
 
 Multi-stage transform pipelines, regex extraction with BASH_REMATCH, codec patterns (URL/hex/base64), printf formatting, and template expansion. Single-operator PE reference in [bash-scripting-guide.md S5](./bash-scripting-guide.md).
 
@@ -13,11 +10,7 @@ Multi-stage transform pipelines, regex extraction with BASH_REMATCH, codec patte
 |  [4]  | Codec patterns     |  S4   | URL encode, hex, base64, JSON escape          |
 |  [5]  | Template expansion |  S5   | Heredocs, format strings, envsubst            |
 
----
 ## [1][TRANSFORM_PIPELINES]
->**Dictum:** *Chained parameter expansion composes transforms left-to-right — each operation's output is the next operation's input.*
-
-<br>
 
 Each `${}` produces a new string without mutating the variable — reassignment is explicit. In a loop processing N strings with M transforms, chained PE costs 0 forks vs `sed`/`awk` costing N*M process spawns. The `${var,,}` / `${var^^}` case transforms are locale-dependent — under `LC_CTYPE=tr_TR.UTF-8`, `${var^^}` maps `i` to `I` (dotless), not `İ`. Pin `LC_ALL=C` when ASCII-only case folding is required.
 
@@ -77,11 +70,7 @@ _safe_filename_53() {
 
 **Edge cases**: `${var:-default}` substitutes when var is unset OR empty; `${var-default}` substitutes only when unset. `${var:+alt}` substitutes when var is set AND non-empty; `${var+alt}` substitutes when set (even if empty). Critical distinction for optional parameter pipelines.
 
----
 ## [2][REGEX_EXTRACTION]
->**Dictum:** *BASH_REMATCH capture groups replace awk/sed field extraction with zero-fork structured parsing.*
-
-<br>
 
 `[[ str =~ regex ]]` populates `BASH_REMATCH` — index 0 is the full match, indices 1+ are capture groups. ERE only (no PCRE) — no lookahead, no `\d`/`\w`, use `[0-9]` and `[[:alpha:]]`. Bash does NOT support named capture groups (`(?P<name>...)`) — use positional indices only. Each `=~` match is O(1) process cost vs `grep -oP` spawning a subprocess per invocation.
 
@@ -130,11 +119,7 @@ _parse_duration() {
 
 Regex pattern must be unquoted on RHS of `=~` — quoting forces literal string match. BASH_REMATCH indexing follows group nesting depth: outer groups get lower indices. `_extract_pairs` uses `local` (not `local -r`) inside the loop — `local -r` would fail on second iteration with a redeclaration error. See service-wrapper.sh `_parse_traceparent` for a production example: `[[ "${tp}" =~ ^([0-9a-f]{2})-([0-9a-f]{32})-([0-9a-f]{16})-([0-9a-f]{2})$ ]]` validates W3C trace context and extracts trace/span/flags in a single match.
 
----
 ## [3][PRINTF_FORMATTING]
->**Dictum:** *`printf -v` captures formatted output into a variable without forking — the only fork-free alternative to command substitution.*
-
-<br>
 
 `printf -v var` assigns directly to the named variable — no subshell, no `$()`, O(0) fork cost. In a loop of 10,000 iterations, `printf -v ts '%(%F %T)T' -1` vs `ts=$(date +"%F %T")` is ~50x faster (builtin vs fork+exec+wait per iteration). `%q` produces shell-quoted output safe for `eval`-free reuse. `%(%T)T` (Bash 5.0+) formats epoch timestamps without `$(date)`.
 
@@ -179,11 +164,7 @@ _build_key() {
 
 `printf -v` writes to the variable in the CURRENT scope — not a subshell. This means `local -n` namerefs compose with `printf -v` for zero-allocation output. `${var@Q}` is the PE equivalent of `printf '%q'` — use PE form in expansion contexts, `printf -v` form when building into a separate variable. Bash 5.3+ `${ cmd; }` is the third fork-free capture mechanism — use when the producer is a function (not a format string), since `printf -v` cannot capture another function's stdout; see [version-features.md S1](./version-features.md) for benchmarks. See service-wrapper.sh `_init_trace` for a production pattern: `printf -v TRACE_ID '%08x%08x%08x%08x' "${SRANDOM}" "${SRANDOM}" "${SRANDOM}" "${SRANDOM}"` generates 128-bit hex identifiers from CSPRNG without forking `uuidgen` or reading `/dev/urandom`.
 
----
 ## [4][CODEC_PATTERNS]
->**Dictum:** *Encoding transforms map between domains — URL-safe, hex, base64 — using expansion and printf format specifiers.*
-
-<br>
 
 Bidirectional encoding projections: unsafe-in-context to safe-representation and back. `_urlencode` is byte-level via `printf '%%%02X'` with the `'` prefix (POSIX numeric extraction). `_urldecode` is fork-free: single PE replaces `%` with `\x`, then `printf '%b'` interprets the escapes. Hex/base64 require external tools (no pure-bash byte-level I/O for arbitrary binary).
 
@@ -235,11 +216,7 @@ _json_escape() {
 
 `printf '%%%02X' "'${char}"` — the `'` prefix extracts the character's numeric value (POSIX `printf` extension). `${input//%/\\x}` converts all `%` to `\x` in a single expansion, then `printf '%b'` interprets `\xNN` sequences — the entire decode is one PE + one builtin. `_b64url_decode` padding restoration: base64 requires length divisible by 4; modular arithmetic restores the stripped `=` characters.
 
----
 ## [5][TEMPLATE_EXPANSION]
->**Dictum:** *Heredocs with selective quoting control expansion scope — `<<'EOF'` suppresses, `<<EOF` enables.*
-
-<br>
 
 Two expansion levels: parameter expansion inside unquoted heredocs (shell-level), and `envsubst` for external template files (environment-level). `<<'EOF'` (quoted delimiter) suppresses ALL expansion — the most common heredoc bug is mixing quoted/unquoted delimiters.
 
@@ -284,7 +261,6 @@ _render_row() {
 
 `envsubst` explicit variable list prevents unintended expansion of `$PATH`, `$HOME`, etc. `_render_from_file` exports then unexports to avoid polluting the environment. `printf` format strings over `eval`-based templates — format specifiers cannot execute code.
 
----
 ## [RULES]
 
 - Chain PEs left-to-right with explicit reassignment — each `${}` is pure, 0 forks per transform.

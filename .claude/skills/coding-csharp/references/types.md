@@ -91,7 +91,6 @@ public sealed record Reading {
 }
 ```
 
----
 ## Smart Constructors and Refined Scalar Boundaries
 
 Construction failure that escapes the return type distributes the rejection obligation as caller convention — `TraverseM(T.From)` cannot route those failures through `BindFail`, and every binding site discovers invalidity as an unhandled exception rather than a structural obligation encoded in the type. `Fin<SELF>` internalizes the boundary: the rejection codomain is structural, and every call site binding `From`'s result is statically obligated to account for failure before value extraction. Bypass routes — implicit scalar coercion, Thinktecture's generated `Create` path, `default(T)` construction — breach the guarantee independently; closure requires all three sealed simultaneously.

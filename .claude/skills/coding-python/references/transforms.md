@@ -2,8 +2,6 @@
 
 Compositional logic substrate for Python 3.14+. Every code body across all reference files is written in this style — transforms.md defines what "algorithmic, functional, AOP-driven code" means at the logic level. All snippets assume expression v5.6+ with `Result`, `@effect.result`, `pipe`, `Block`, `Map`, `Seq`.
 
----
-
 ## Discriminant Projection
 
 Without projection to a uniform `Transform` signature, composing match-arm transforms with `@register` extensions requires branching on provenance — `block.fold` becomes structurally impossible. Projection targets `Callable` returning `Result` because domain invariants make failure structural.
@@ -70,8 +68,6 @@ def apply_chain(stages: Block[Stage], level: Decimal) -> Result[Decimal, Rejecti
 ```
 
 `Rejection[S]` reuses the failing stage as error context, eliminating parallel hierarchy. Adding a `Stage` variant without a match arm fails at type-check. `@curry_flip(1)` defers the signal parameter, making `apply_chain(stages)` pipeable.
-
----
 
 ## Monoidal Accumulation
 
@@ -155,8 +151,6 @@ def analyze(batches: Seq[Seq[float]]) -> tuple[Seq[Emission], Stats]:
 
 `merge` is associative with `Stats()` as identity — `Option.Some(n).filter(bool)` guards 0/0 while the walrus `c :=` binds the cross term for reuse in m2 and between; `sumprod` computes the weighted mean as extended-precision dot product. M3 merge carries the cross-M2 term `3δ(nA·M2_B − nB·M2_A)/n`; M4 adds corrections at O(δ²·M2) and O(δ·M3) — all cross-moment terms vanish when nB=1, collapsing the Welford step to pure δ-power corrections against `term1` and `d_n`. `step` scores against the PRIOR distribution; Welford update order remains load-bearing: `d` before mean, `d − d_n` after — non-negative product keeps m2 monotonic. `between` stays zero during scan; η² = between/m2 is populated ONLY through merge, making monoidal combination structurally necessary for heterogeneity detection — within-group SS is `m2 − between` by algebraic invariant, not a field. The two paths in `analyze` agree by monoid homomorphism: fold-then-merge produces the same `Stats` as fold over the concatenation — associativity is the gate, excluding EMA and exact median while admitting higher moments and reservoir sampling.
 
----
-
 ## Keyed Composition
 
 Default-value joins erase the boundary between contribution and silence — no downstream computation can recover the distinction. Absence must be a type-level signal, not a default value; the vocabulary tuple defines totality, so every missing member is a gap, not a missing key. Pre-sorted preconditions are inexpressible in the type system — misordered input silently corrupts alignment.
@@ -220,8 +214,6 @@ def monitor(*feeds: Iterable[Reading]) -> Iterable[tuple[int, Result[Fused, Blac
 ```
 
 `seq.choose(cov.try_find)` is point-free: `try_find` IS the chooser signature (`Zone → Option[float]`). `entry: Callable[[V], tuple[S, W]]` produces the shape Map construction consumes. `policy = coalesce or LWW` totalizes merge, eliminating branches. `heapq.merge` stability guarantees deterministic feed interleaving — non-stable merge makes results non-reproducible.
-
----
 
 ## Structural Polymorphism
 
@@ -308,8 +300,6 @@ def fuse[T: Fusible](ref: T, sensors: Seq[T]) -> Result[tuple[float, float], Fai
 
 `@runtime_checkable` enables beartype's `isinstance` delegation (attribute existence only); one Protocol consolidates both axes since no function uses either independently. Protocol registration with singledispatch silently falls through (MRO walk) — register concrete types; chi-squared critical values are type-level: 6.635 = 99%, 3.841 = 95%, df=1. Precision is triple-use: Mahalanobis gate scaler, `fma(nv, p, acc[0])` fusion weight, and `1/acc[1]` output variance — the information-filter accumulates `Σ(xᵢ/σᵢ²)` and `Σ(1/σᵢ²)` as natural parameters, finalize converts to moment parameters `(estimate, variance)`. Precision additivity makes the accumulator a commutative monoid with identity `(0, 0)`, guarded at extraction by `Option.filter(lambda t: t[1] > 0)`.
 
----
-
 ## Monadic Composition
 
 `pipeline()` erases cross-step references — each stage sees only its predecessor's `Ok` value, so an update that needs both predicted state and raw observation is structurally inexpressible. `yield from` recovers those references through intermediate bindings, but each bind site is a `map_error` boundary where stage diagnostics must wrap with captured intermediates into the unified channel — ceremony scaling linearly with depth. Error variants that carry intermediate state through the wrapping make recovery self-contained at the `.or_else_with` call site — the captured context is all the recovery function receives.
@@ -370,8 +360,6 @@ def recover(err: Fault) -> Result[State, Fault]:
 ```
 
 Recovery is structurally impossible inside the generator — `EffectError` is `Builder`-internal, forcing `.or_else_with(recover)` at the call site. `y` is dual-use: state correction via `fma(K, y, pred.x)` and NIS numerator `y * y / S`; `S` is triple-use — gain denominator, NIS denominator, and innovation variance. `map_error(lambda v: Diverged(v, prior))` closes over `prior` from the generator scope — non-static capture is irreducible because `prior` is the generator's parameter. `predict` gates `p > 0` — covariance positivity structurally guarantees `update`'s divisions operate on non-degenerate quantities through the generator's short-circuit. `Diverged` destructures for inflated-covariance reset; `Rejected` propagates because no safe correction exists for a gain-innovation combination that violated the NIS gate.
-
----
 
 ## Decorator Algebra
 
@@ -471,8 +459,6 @@ def apply_concerns[**P, T, E](concerns: Block[Concern], fn: Callable[P, Result[T
 ```
 
 `with_concern` matches outside the wrapper — concern fields bind at construction, not per-call. Retry Ok passthrough is O(1): fold visits all `n` but `or_else_with` skips the sleep-retry body. Govern's `filter_with` gate returns `Breach(concern, rsrc)` with `cause=None` — fn never called; `res.map(lambda _: cost).default_value(pen + cost)` computes deduction directly — Ok pays `cost`, Error pays `pen + cost`, coefficient space interpolates throttle/breaker/hybrid without branching. `block.fold` stacks left-to-right — first concern in Block = innermost wrapper.
-
----
 
 ## Rules
 

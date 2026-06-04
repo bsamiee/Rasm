@@ -4,7 +4,6 @@ Self-contained advanced capability reference for pinned library versions. **Not*
 
 Pin truth: `LanguageExt.Core` 5.0.0-beta-77, `Thinktecture.Runtime.Extensions` 10.2.0, `MathNet.Numerics` 6.0.0-beta2, `CSparse` 4.3.0, C# 14.0 / net10.0, .NET 10 SDK compiler. AppUi package truth is active under `Rasm.AppUi`; host composition packages (Scrutor 7, etc.) are `[NOT_IN_GRAPH]` until directly consumed.
 
----
 ## [1][LOAD_WITH]
 
 | Task                            | Reference                                                            |
@@ -16,7 +15,6 @@ Pin truth: `LanguageExt.Core` 5.0.0-beta-77, `Thinktecture.Runtime.Extensions` 1
 | EF, FluentValidation bridge     | [persistence.md](persistence.md), [validation.md](validation.md) §10 |
 | Serilog, OTel, Http resilience  | [observability.md](observability.md)                                 |
 
----
 ## [2][LANGUAGEEXT_OPERATORS]
 
 | Symbol                 | Carrier                 | Semantics                                   |
@@ -37,7 +35,6 @@ Eff recovery: `Prelude.catch`, `Prelude.retry(schedule, eff)`, `IfFailEff` — n
 
 **Absent from pinned XML:** `Decision`, `\|>`, `ComposeK`, `HyloM`, `FoldArrows`. Use LINQ `from..in..select` for monadic composition.
 
----
 ## [3][LANGUAGEEXT_COMBINATORS]
 
 | Combinator                                              | Notes                                          |
@@ -56,7 +53,6 @@ Eff recovery: `Prelude.catch`, `Prelude.retry(schedule, eff)`, `IfFailEff` — n
 
 `Validation<string,T>` is not supported — use `Validation<StringM,T>` or `Validation<Error,T>`. Parallel fault channels at UI boundaries may use `Validation<Seq<TFault>,T>` with a dedicated fault type — not `Validation<Seq<Error>,T>` in domain.
 
----
 ## [4][THINKTECTURE_ATTRIBUTES]
 
 | Attribute                                                        | Effect                            |
@@ -75,7 +71,6 @@ Thinktecture does **not** emit union `operator +`/`|` in 10.2.0. Set `Serializat
 
 Generic or ref-struct constrained sums use plain `abstract record` + manual `switch` — not `[Union]`.
 
----
 ## [5][MATHNET_CSPARSE]
 
 | Surface                                       | Owner                        |
@@ -87,7 +82,6 @@ Generic or ref-struct constrained sums use plain `abstract record` + manual `swi
 
 Package id for direct sparse library: **`CSparse`**. No LOBPCG type in MathNet 6.0.0-beta2 XML. Prefer native geometry APIs for model semantics; MathNet for numerical kernels after explicit coordinate projection.
 
----
 ## [6][C14_HIGHLIGHTS]
 
 | Feature                          | Use                                        |
@@ -101,7 +95,6 @@ Package id for direct sparse library: **`CSparse`**. No LOBPCG type in MathNet 6
 | User-defined compound assignment | Domain monoid/receipt `+=`                 |
 | Switch / list patterns           | Total value-returning dispatch             |
 
----
 ## [7][HOST_PACKAGES]
 
 **`[NOT_IN_GRAPH]`** until a bootstrap consumer pins packages. Active AppUi package truth lives in `Directory.Packages.props` and `docs/system-api-map/packages.md`.

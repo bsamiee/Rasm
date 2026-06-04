@@ -1,15 +1,8 @@
 # [H1][SCHEMA]
->**Dictum:** *Declarative automation requires structured configuration.*
-
-<br>
 
 Three nesting levels: event -> matcher group -> hook handler.
 
----
 ## [1][STRUCTURE]
->**Dictum:** *Layered configuration enables multiple hooks per event.*
-
-<br>
 
 ```json
 {
@@ -26,11 +19,7 @@ Three nesting levels: event -> matcher group -> hook handler.
 **Command fields:** `command` (shell command/path), `async` (background, no decision control).
 **Prompt/Agent fields:** `prompt` (instructions, `$ARGUMENTS` = hook input JSON), `model` (fast model default).
 
----
 ## [2][MATCHERS]
->**Dictum:** *Matchers filter invocations; precision reduces unnecessary execution.*
-
-<br>
 
 **Tool matchers** (PreToolUse, PermissionRequest, PostToolUse, PostToolUseFailure):
 
@@ -46,11 +35,7 @@ Three nesting levels: event -> matcher group -> hook handler.
 **Other matchers:** Notification: `"permission_prompt"`, `"idle_prompt"`, `"auth_success"`, `"elicitation_dialog"`. SubagentStart/Stop: agent type name. PreCompact: `"manual"|"auto"`.
 **No matcher support:** UserPromptSubmit, Stop, TeammateIdle, TaskCompleted — always fire.
 
----
 ## [3][JSON_RESPONSES]
->**Dictum:** *Structured responses enable fine-grained agent control.*
-
-<br>
 
 **Universal output (exit 0):** `continue` (false halts Claude), `stopReason` (message on halt), `suppressOutput` (hide stdout), `systemMessage` (warning to user).
 
@@ -62,11 +47,7 @@ Three nesting levels: event -> matcher group -> hook handler.
 
 **Context injection** (SessionStart, Setup, UserPromptSubmit): Plain stdout or `additionalContext` in JSON. SessionStart supports `CLAUDE_ENV_FILE`. Setup stdout becomes context visible to Claude.
 
----
 ## [4][HOOK_TYPES]
->**Dictum:** *Three hook types serve distinct evaluation patterns.*
-
-<br>
 
 **Command hooks:** Deterministic shell scripts. JSON stdin, exit codes + optional JSON stdout.
 **Prompt hooks:** Single-turn LLM evaluation. Response: `{"ok": true}` or `{"ok": false, "reason": "..."}`.
@@ -76,11 +57,7 @@ Three nesting levels: event -> matcher group -> hook handler.
 
 [IMPORTANT] TeammateIdle does NOT support prompt or agent hooks — exit codes only.
 
----
 ## [5][TESTING]
->**Dictum:** *Independent testing validates hook logic before deployment.*
-
-<br>
 
 | [INDEX] | [METHOD]    | [COMMAND]                                         |
 | :-----: | ----------- | ------------------------------------------------- |

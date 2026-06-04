@@ -2,8 +2,6 @@
 
 Effect rail selection, accumulation, Kleisli composition, async cancellation, Protocol-threaded dependencies, recovery algebra, and boundary adapters for Python 3.14+. This file governs effectful computation — all other reference files assume these rail semantics. All snippets assume expression v5.6+ with `Result`, `Option`, `@effect.result`, `@effect.async_result`, `pipe`, `Block`, `Map`, `curry_flip`.
 
----
-
 ## Rail Selection, Accumulation, and Collapse
 
 Rail selection encodes failure semantics at the type level — `Result[T, Block[Defect]]` carries per-axis diagnostic context through the error channel, while `to_option()` erases the error type to presence/absence when downstream only needs a sentinel for "validation failed." The accumulator discriminates on `mode`: `"seq"` threads `bind` through the fold, short-circuiting on first `Error` and discarding subsequent diagnostics; `"par"` decomposes each `Result` into value/defect channels via `swap().default_value(_EMPTY)`, concatenating both through Block's monoidal `+` without short-circuit. Terminal collapse selects exactly one projection at the boundary — `to_option().map(f).default_value(fallback)` for absence-to-sentinel, `swap().default_value(identity)` for typed error extraction — ensuring the rail-safe interior never leaks raw `Result` to the untyped exterior.
@@ -55,8 +53,6 @@ def boundary(specs: Block[tuple[str, float, float]], samples: Block[float]) -> t
 
 `r.map(block.of).default_value(block.empty())` extracts the Ok value as a singleton Block or returns the monoid identity on failure — dual to `r.swap().default_value(_EMPTY)` which extracts the Error block or returns identity on success; `+` concatenates both channels unconditionally because Block monoid does not short-circuit, and `_EMPTY: Final` is reused without allocation. `Option.Some(oks).filter(lambda _: errs.length == 0).to_result(errs)` pivots on defect presence: empty errs passes the filter converting `Some(oks)` to `Ok(oks)`, non-empty fails it producing `Nothing`, which `to_result(errs)` lifts to `Error(errs)`. `boundary` composes `gate` (per-sample `filter_with` producing `Result[float, Block[Defect]]`), `block.map` (element-wise application), and `accumulate("par")` in a single `pipe` chain; collapse uses `to_option().map(...)` for signal energy via `fma(x, x, a)` (squared-magnitude fold with fused precision), and independently `swap().default_value(_EMPTY)` for defect extraction — the two projections operate on the same `result` without interference.
 
----
-
 ## Kleisli Pipelines and Generator Algebra
 
 Kleisli composition via `bind` erases intermediate bindings — each arrow sees only its predecessor's `Ok`, making cross-step reference structurally impossible without witness capture. `compose_k` recovers provenance by pairing the final result with `Witness(prior=a, mid=b)`, while `map_error` at each stage lifts per-arrow error types into the unified channel `G` through `lift_f` and `lift_g` — ceremony that scales linearly with pipeline depth. The `@effect.result` generator eliminates this ceremony: `yield from` binds intermediates into the generator scope, making cross-step dependencies live computation inputs rather than inert witness data, with `filter_with` producing stage-tagged error triples directly at each gate site.
@@ -95,8 +91,6 @@ def pipeline(spectrum: Block[float], noise_floor: float, threshold: float):
 ```
 
 `compose_k` returns `Kleisli[A, tuple[C, Witness[A, B]], G]` — `Witness` captures `prior: A` and `mid: B` as named fields replacing untyped tuple nesting, enabling destructured access at the call site; `lift_f` closes over the input `a` at the first `map_error` site while `lift_g` closes over the intermediate `b` at the second, and the `G` unification target is the composition's error-channel ceremony requiring one wrapper function per arrow. The `@effect.result` generator eliminates all lifter ceremony: `rms` binds via `yield from` and feeds both `normed = pipe(spectrum, block.map(lambda x: x / rms))` and the final `fma(peak, rms, 0.0)` — a denormalization that uses step-1 (`rms`) and step-2 (`peak`) results simultaneously, which `compose_k` cannot express because intermediate values are trapped in `Witness` rather than in scope. `filter_with` at each gate site produces the error triple `(stage_name, intermediate_data, metric)` inline — `block.fold(lambda a, x: fma(x, x, a), 0.0)` accumulates spectral energy with fused precision, and `block.fold(max, 0.0)` extracts the spectral peak, both via the same combinator with different binary operators.
-
----
 
 ## Async Rail Composition: Cancellation and Backpressure
 
@@ -162,8 +156,6 @@ async def fanout[T, E](
 
 `r: Result[T, E] | None = None` serves as cancellation sentinel — `move_on_after` expiration leaves `r` as `None`, which `case None` converts to `Deadline(w, budget)` with full temporal provenance; successful completion overwrites `r` for `Ok`/`Error` dispatch. The guard `n <= 0 or not pred(e)` folds retry exhaustion and non-retryable errors into one `Saturated` arm; the recursive tail call scales delay by `(1 + 5**0.5) / 2` and accumulates `w + d` for deadline tracking. `fanout` drives task registration through `block.fold(lambda _, f: tg.start_soon(_go, f), None)` — side-effect-only fold with discarded accumulator — then drains the memory stream synchronously via `receive_nowait()` since all sends completed before `async with` exit; `block.choose` with `.to_option()` / `.swap().to_option()` partitions into typed `Block` accumulators, and `Option.Some(errs).filter(length > 0).to_result(oks).swap()` inverts rail polarity without conditional branching.
 
----
-
 ## Protocol-Threaded Dependency Flow
 
 Reader-style capability threading reifies dependency acquisition as a monadic yield — `ask[C]` is a single-yield generator that binds from a `ContextVar[Scope]` lookup, producing `Missing[C]` when the scope lacks registration instead of raising. Scope construction folds capabilities through `pipe(block.of_seq(caps), block.fold(...))`, replacing `singledispatch`/`reduce` with a single chain that threads `type(c)` → `c` bindings into the parent scope — no registration decorator, no dispatch table, no `raise TypeError` default. `scoped` forks the `ContextVar` snapshot via `copy_context().run`, ensuring capability mutations remain invisible to sibling tasks; `@effect.result` generators bind sequentially through `yield from`, short-circuiting on `Missing` with full type-level provenance.
@@ -208,8 +200,6 @@ def run(channel: int):
 ```
 
 `ask[C]` yields exactly once — `.try_find(cap)` returns `Option[object]`, chained through `.map(Ok).default_value(Error(Missing(cap)))` to normalize absent capabilities to typed error rails without exceptions. `scoped` folds variadic capabilities via `block.fold(lambda s, c: s.add(type(c), c), _scope.get())` — polymorphic registration by runtime type replaces `singledispatch` entirely, and the tuple expression `(_scope.set(scope), thunk())[1]` evaluates set-then-execute in expression position inside `copy_context().run`. `run` demonstrates staged composition: `SensorBus` binds from scope via `yield from ask(SensorBus)`, the second `yield from` absorbs `bus.read`'s `Result[float, str]` into the error rail, and the return expression applies φ-scaled calibration — two distinct error types (`Missing[SensorBus]`, `str`) merge into the unified rail declared in `@effect.result[float, Missing[SensorBus] | str]`.
-
----
 
 ## Recovery, Fallback, and Resilience Algebra
 
@@ -274,8 +264,6 @@ def recover(anomaly: Anomaly, strategies: Block[Strategy], counts: Map[type, int
 ```
 
 `gate` converts the circuit-breaker check into a pure `Option` chain: `try_find` yields `Option[int]`, `filter(n >= threshold)` retains only above-threshold counts, `map` wraps into `CircuitOpen`, `to_result` normalizes to `Result`, and `swap` flips polarity so circuit-open becomes the error rail — zero conditionals. `@curry_flip(2)` on the 3-parameter function means `gate(counts, threshold)` binds both config arguments, returning `Callable[[Anomaly], Result[Anomaly, CircuitOpen]]` for direct use in `pipe`. `route` applies policy-specific post-processing after the strategy fold: `Drift.map` compensates the sensor offset on the recovered signal, `Spike.filter_with` validates the recovery magnitude stays below the anomaly's spike threshold, and `Dropout` rejects strategies entirely as non-recoverable. The fold seeds with `Error(anomaly)` so the first strategy receives the original fault via `or_else_with`; subsequent strategies receive the prior strategy's error — ordering in the `Block` directly encodes recovery priority.
-
----
 
 ## Boundary Adapters for HTTP/CLI/Worker Surfaces
 
@@ -354,8 +342,6 @@ def ingest[T, R](
 ```
 
 `Surface` carries a `qualifier` field (HTTP version string, AMQP queue name, empty for CLI) that `collapse` threads into transport-specific constructors — `Envelope` composes `qualifier` with `fault.code` as the routing key, while HTTP and CLI arms discard it structurally. The positional invariant `("drift", "spike", "dropout").index(fault.code)` is type-safe: `code`'s `Literal` constraint makes `ValueError` structurally unreachable — `rank` and `label` pre-compute the index and uppercase projection once before the match, eliminating duplication and feeding HTTP status (`502 + rank`) and POSIX exit code (`70 + rank`) via arithmetic offset. `@curry_flip(1)` on both `collapse` and `validate` enables uniform partial-application style: `collapse(surface)` and `validate(adapter)` each bind their config argument first, producing unary functions that slot directly into `map_error` and `pipe` respectively. `ingest` is the composition root: `bind(transform)` chains the domain function on the success rail, `map_error(collapse(surface))` projects faults to egress on the error rail — callers receive `Result[R, Problem | Exit | Envelope]` with zero access to `SensorFault` internals.
-
----
 
 ## Rules
 

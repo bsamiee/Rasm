@@ -2,7 +2,6 @@
 
 Cross-boundary integration contracts. Each section addresses a single topology where schema authority, error classification, or runtime policy must align across transport/persistence/cluster boundaries.
 
----
 ## Schema convergence
 
 Model projections derive RPC and HTTP contracts — the model IS the schema authority. Protocol errors share a vocabulary with status codes; the vocabulary drives both transport binding and error serialization.
@@ -47,7 +46,6 @@ const httpClient = (baseUrl: string) => Effect.gen(function* () {
 - Parallel error classes with duplicated field definitions.
 - Decode functions diverging from transport schemas.
 
----
 ## Transport classification
 
 Status classification is a closed algebra — the vocabulary maps status ranges to policy bundles. `Effect.filterOrFail` gates success/failure; metrics and logging derive from the same lookup with zero conditional branching.
@@ -95,7 +93,6 @@ const execute = <A>(req: HttpClientRequest.HttpClientRequest, schema: S.Schema<A
 - Duplicated timing logic across transport functions.
 - Metric tagging diverging from classification vocabulary.
 
----
 ## Stream persistence window
 
 Windowed persistence composes three boundaries: decode (unknown → typed), window (time/count aggregation), and transaction (batch atomicity). `Sink.foldWeighted` with `aggregateWithin` provides algebraic control over batch formation; transaction scope matches exactly one aggregated chunk.
@@ -138,7 +135,6 @@ const persist = (raw: Stream.Stream<unknown>) =>
 - Retry schedules that conflict with error stage classification.
 - Manual SQL column enumeration drifting from schema.
 
----
 ## Workflow compensation
 
 Saga compensation is vocabulary-driven — each activity maps to a rollback policy. `Effect.when` gates compensation execution; the vocabulary determines both eligibility and rollback action label. Activity definitions inline their compensation policy.
@@ -186,7 +182,6 @@ const FulfillLive = Fulfill.toLayer(({ orderId }) => Effect.gen(function* () {
 - Activity schema diverging from compensation value type.
 - Implicit non-reversibility via missing wrapper.
 
----
 ## Cluster entity topology
 
 Entity protocols aggregate RPC capabilities into sharded actors. Singleton duties run at most once cluster-wide. Layer composition makes the runtime graph explicit — no implicit startup glue.
@@ -238,7 +233,6 @@ const ClusterTopology = Layer.mergeAll(JobEntityLive, RebalanceLeader)
 - Entity responsibilities spread across unrelated modules.
 - Singleton duties with non-deterministic scheduling.
 
----
 ## STM coordination
 
 High-contention coordination requires transactional atomicity — `TMap` for ledger state, `TQueue` for ingestion policy. Queue strategy (bounded/dropping/sliding) is a vocabulary choice evaluated once at construction.

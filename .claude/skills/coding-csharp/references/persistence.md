@@ -1,15 +1,8 @@
 # [H1][PERSISTENCE]
->**Dictum:** *The database is an effect; DbContext belongs in the Eff shell; queries compose as expressions.*
-
-<br>
 
 EF Core persistence aligned with LanguageExt v5. **[NOT_IN_GRAPH]** until a persistence host pins EF packages — patterns below are schematic for bootstrap projects.
 
----
 ## [1][DBCONTEXT_AS_EFFECT]
->**Dictum:** *The database is an effect; DbContext belongs in the Eff shell.*
-
-<br>
 
 `Eff<RT,T>` wraps DbContext operations so that database access is explicit in the type signature -- callers cannot accidentally invoke SQL without acknowledging the effect. The runtime record carries `AppDbContext` as a property; `Eff.runtime<RT>()` lifts the runtime into the pipeline and property reads select capabilities. `IO.liftAsync` wraps async EF Core calls, keeping `async`/`await` confined to the `IO` boundary. Scope ownership belongs to the composition root -- never dispose context inside an `Eff` pipeline. Configure the provider once via `DbContextOptionsBuilder` with `EnableRetryOnFailure` for transient fault tolerance and `UseSnakeCaseNamingConvention` for PostgreSQL idiom.
 
@@ -78,11 +71,7 @@ public static class OrderPersistence {
 
 [IMPORTANT]: Runtime is a plain `sealed record` -- no interface indirection. `CancellationToken` lives on the runtime so `Eff` pipelines resolve it implicitly via `ResolveToken` (see `concurrency.md` [4] -- token threading). `IO.liftAsync` keeps `async`/`await` inside the `IO` boundary. `MigrateAsync` is idempotent -- schema rollback is always a new forward migration; `Down()` is unreliable in production. `EnableRetryOnFailure` handles transient PostgreSQL errors (connection drops, deadlocks) with exponential backoff.
 
----
 ## [2][QUERY_COMPOSITION]
->**Dictum:** *Queries compose as expressions; materialization happens at boundaries.*
-
-<br>
 
 `IQueryable<T>` composition builds server-evaluated expression trees without touching application memory -- the critical distinction from `IEnumerable<T>` LINQ. Reusable WHERE clauses are `Expression<Func<T, bool>>` values that compose via `.Where()` chaining. Keyset pagination outperforms offset pagination at scale because `OFFSET N` forces the database to scan and discard N rows on every page, while keyset uses an indexed `WHERE id > cursor` seek. Read projections use `.Select()` to push column selection to SQL and `AsNoTracking()` to skip the change tracker, which eliminates the identity map overhead that doubles memory for read-only queries.
 
@@ -181,11 +170,7 @@ public static class ViewRefresh {
 
 [CRITICAL]: Keyset pagination fetches `pageSize + 1` rows to determine `hasNext` without a COUNT query -- COUNT on large tables forces a sequential scan in PostgreSQL. Expression trees execute server-side; `.Select()` pushes column selection to SQL; `AsNoTracking()` skips the change tracker. Write models use OCC via `RowVersion`/`UpdatedAt` -- never mix tracked and untracked entities in the same pipeline.
 
----
 ## [3][TYPE_MAPPING]
->**Dictum:** *The database schema speaks primitives; the domain speaks types.*
-
-<br>
 
 `ValueConverter<TModel, TProvider>` bridges domain primitives and DU variants to relational columns -- the converter is the only place where the domain type system touches the storage schema. DU variants map to string discriminators via switch expressions; `Instant` maps to `DateTimeOffset` via NodaTime's lossless conversion. `OwnsOne` maps value objects to parent table columns (table splitting), eliminating the need for a separate join while keeping the domain model compositional. `OwnsMany` maps collections to a child table with automatic cascade. Value objects are `readonly record struct` with no identity and no `DbSet<T>` -- EF Core handles their lifecycle within the aggregate root.
 
@@ -285,11 +270,7 @@ public static readonly Action<EntityTypeBuilder<CustomerEntity>> ConfigureCustom
 
 [IMPORTANT]: Register converters via `.HasConversion<DomainIdentityConverter>()`, `.HasConversion<InstantConverter>()`, `.HasConversion<JsonColumnConverter<T>>().HasColumnType("jsonb")`. Configuration uses `Action<EntityTypeBuilder<T>>` lambdas to avoid `IEntityTypeConfiguration<T>` methods. `_ => throw new UnreachableException()` is the permitted defensive arm until C# ships first-class DU exhaustiveness. Value objects (`readonly record struct` with `OwnsOne`/`OwnsMany`) are persistence-layer composites with no identity -- distinct from domain primitives (`DomainIdentity`, `TenantId`) which are branded scalars mapped via `ValueConverter`.
 
----
 ## [4][REPOSITORY_ALGEBRA]
->**Dictum:** *Repositories are interpreters; queries are data.*
-
-<br>
 
 Sealed DU query algebra encodes repository operations as data -- adding a new query shape means adding a case, not a method signature that ripples through interfaces and implementations. The `Fold` catamorphism provides exhaustive dispatch: the compiler enforces that every interpreter handles every case. This inverts the expression problem: new operations require updating all interpreters (visible at compile time), while new interpreters require zero changes to the algebra. Contrast with `IRepository<T>` where adding `GetByPredicate` forces changes to every implementation with no compiler safety net.
 
@@ -324,11 +305,7 @@ public abstract record RepoQuery<TKey, TEntity, TResult> where TEntity : class {
 
 [CRITICAL]: Interpreter maps: `GetById` to `FindAsync` + `Optional`, `GetByPredicate` to `.Where().ToListAsync()` + `toSeq`, `GetPage` to `KeysetPagination.GetPage`, `Exists` to `AnyAsync`. All async calls lift via `IO.liftAsync`. The `private protected` constructor prevents external subtypes from breaking exhaustiveness. See `composition.md` [5] for the algebraic compression pattern.
 
----
 ## [5][RULES]
->**Dictum:** *Rules compress into constraints.*
-
-<br>
 
 - [ALWAYS] Wrap DbContext access in `Eff<RT,T>` via runtime record -- database operations are effects.
 - [ALWAYS] Validate all inbound DTOs via the FluentValidation boundary bridge before any persistence pipeline; see `validation.md` [10] for the `ValidationResult → Validation<Error,T>` contract.
@@ -346,7 +323,6 @@ public abstract record RepoQuery<TKey, TEntity, TResult> where TEntity : class {
 - [NEVER] Offset pagination on large tables -- `OFFSET N` forces sequential scan; use keyset.
 - [NEVER] `IEntityTypeConfiguration<T>` with override methods -- use `Action<EntityTypeBuilder<T>>` lambdas.
 
----
 ## [6][QUICK_REFERENCE]
 
 | [INDEX] | [PATTERN]                | [WHEN]                                   | [KEY_TRAIT]                                |

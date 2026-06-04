@@ -1,11 +1,8 @@
 # [H1][TESTING_LAWS]
->**Dictum:** *Algebraic laws define WHAT to test -- mathematical truths independent of implementation.*
 
 [IMPORTANT] Walk law taxonomy per exported function. Select all applicable laws. Pack laws sharing the same arbitrary shape into a single `it.effect.prop`.
 
----
 ## [1][ALGEBRAIC_LAWS]
->**Dictum:** *Algebraic laws hold universally -- they are provable independent of any implementation.*
 
 ### [1.1][FUNCTION_PROPERTIES]
 
@@ -96,9 +93,7 @@ it.effect.prop('det + nondet', { x: _arb }, ({ x }) => Effect.gen(function* () {
 
 **Type-level tests** run at compile time -- zero runtime cost. Use alongside algebraic PBT to verify type narrowing, branded type rejection, and schema type inference.
 
----
 ## [2][TESTING_STRATEGIES]
->**Dictum:** *Strategies define HOW to obtain expected values when algebraic laws alone are insufficient.*
 
 ### [2.1][ORACLE_STRATEGIES]
 
@@ -149,9 +144,7 @@ it.effect('uniformity', () => Effect.gen(function* () {
 }));
 ```
 
----
 ## [3][DOMAIN_INVARIANTS]
->**Dictum:** *Security and boundary properties are universally-quantified invariants -- they hold for ALL inputs.*
 
 ### [3.1][SECURITY_INVARIANTS]
 
@@ -187,9 +180,7 @@ it.effect.prop('tenant isolation', { t1: fc.uuid(), t2: fc.uuid(), x: _arb }, ({
 |   [4]   | Format bounds | Invalid version/min-bytes yield `INVALID_FORMAT`  |
 |   [5]   | AAD binding   | Wrong/missing additional authenticated data fails |
 
----
 ## [4][LAW_SELECTION]
->**Dictum:** *Walk each exported function through the taxonomy to discover applicable laws.*
 
 **Selection procedure:**
 1. **Identify function signature** -- `A -> B`, `A -> A`, `(A, A) -> B`, `(A, B) -> A`.

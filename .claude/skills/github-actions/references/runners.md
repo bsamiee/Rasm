@@ -1,13 +1,6 @@
 # [H1][RUNNERS]
->**Dictum:** *Runner validation detects deprecated labels, architecture mismatches, and missing timeouts.*
 
-<br>
-
----
 ## [1][STANDARD_LABELS]
->**Dictum:** *Standard labels resolve to current OS versions — validate against canonical mapping.*
-
-<br>
 
 | [INDEX] | [OS]        | [LABELS]                                         | [DEFAULT]    |
 | :-----: | ----------- | ------------------------------------------------ | ------------ |
@@ -15,11 +8,7 @@
 |   [2]   | **Windows** | `windows-latest`, `windows-2025`, `windows-2022` | windows-2025 |
 |   [3]   | **macOS**   | `macos-latest`, `macos-15`, `macos-14`           | macos-15     |
 
----
 ## [2][DEPRECATED_AND_RETIRED]
->**Dictum:** *Deprecated runner labels cause workflow failures — detect and flag proactively.*
-
-<br>
 
 | [INDEX] | [LABEL]            | [STATUS]                    | [DATE]         | [REPLACEMENT]   |
 | :-----: | ------------------ | --------------------------- | -------------- | --------------- |
@@ -40,11 +29,7 @@
 
 Apple Silicon (ARM64) required after Fall 2027. Flag Intel macOS labels with deprecation warning.
 
----
 ## [3][ARM64_RUNNERS]
->**Dictum:** *ARM64 label format validation prevents silent job failures.*
-
-<br>
 
 | [INDEX] | [LABEL]                | [AVAILABILITY]                                                |
 | :-----: | ---------------------- | ------------------------------------------------------------- |
@@ -61,11 +46,7 @@ Apple Silicon (ARM64) required after Fall 2027. Flag Intel macOS labels with dep
 |   [2]   | **`ubuntu-latest-arm`** | `[RUNNER]` | Not a valid label — use explicit version (`ubuntu-24.04-arm`). |
 |   [3]   | **ARM in private repo** | `[RUNNER]` | Requires Team or Enterprise plan — free only for public repos. |
 
----
 ## [4][GPU_RUNNERS]
->**Dictum:** *GPU runner validation checks plan eligibility and cost awareness.*
-
-<br>
 
 | [INDEX] | [LABEL]             | [GPU]                                            | [PRICING] |
 | :-----: | ------------------- | ------------------------------------------------ | --------- |
@@ -73,22 +54,14 @@ Apple Silicon (ARM64) required after Fall 2027. Flag Intel macOS labels with dep
 
 Requires Team or Enterprise Cloud plan. Flag `gpu-*` labels in workflows targeting Free/Pro plans.
 
----
 ## [5][XLARGE_RUNNERS]
->**Dictum:** *Xlarge runner validation ensures plan compatibility.*
-
-<br>
 
 | [INDEX] | [LABEL]                                      | [SPECS]                           | [PRICING] |
 | :-----: | -------------------------------------------- | --------------------------------- | --------- |
 |   [1]   | **`macos-latest-xlarge`, `macos-15-xlarge`** | 5-core M2 Pro, 8-core GPU, 14 GB. | $0.16/min |
 |   [2]   | **`macos-14-xlarge`**                        | 5-core M2 Pro, 8-core GPU, 14 GB. | $0.16/min |
 
----
 ## [6][LARGER_RUNNERS]
->**Dictum:** *Larger runner specs and limits inform capacity validation.*
-
-<br>
 
 | [INDEX] | [TYPE]        | [SPEC]         | [NOTES]                            |
 | :-----: | ------------- | -------------- | ---------------------------------- |
@@ -98,11 +71,7 @@ Requires Team or Enterprise Cloud plan. Flag `gpu-*` labels in workflows targeti
 
 Larger runners (Team/Enterprise): up to 1,000 concurrent jobs; 100 GPU max.
 
----
 ## [7][MULTI_ARCHITECTURE]
->**Dictum:** *Cross-architecture matrix validation ensures correct label pairing.*
-
-<br>
 
 ```yaml
 strategy:
@@ -117,11 +86,7 @@ runs-on: ${{ matrix.runner }}
 
 [IMPORTANT] Validate ARM64 matrix uses `-arm` suffix (not `-arm64`). Flag `ubuntu-latest-arm64` in matrix definitions.
 
----
 ## [8][SELF_HOSTED]
->**Dictum:** *Self-hosted runner validation checks label declarations and security posture.*
-
-<br>
 
 ### [8.1][ACTIONLINT_LABELS]
 
@@ -142,11 +107,7 @@ Custom labels must be declared for actionlint validation — unlisted labels pro
 |   [3]   | **Missing harden-runner**     | `[SELF-HOSTED]` | Self-hosted runners need runtime monitoring (K8s support in v2). |
 |   [4]   | **No runner group isolation** | `[SELF-HOSTED]` | Runner groups should restrict org/repo access boundaries.        |
 
----
 ## [9][SELECTION_CHECKLIST]
->**Dictum:** *Runner selection criteria balance architecture, cost, and deprecation risk.*
-
-<br>
 
 | [INDEX] | [CRITERION]      | [GUIDANCE]                                                                                  |
 | :-----: | ---------------- | ------------------------------------------------------------------------------------------- |

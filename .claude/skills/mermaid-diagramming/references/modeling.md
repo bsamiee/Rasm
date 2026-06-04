@@ -1,18 +1,11 @@
 # [H1][MODELING]
->**Dictum:** *Enable precise communication of architectural contracts and data flows.*
-
-<br>
 
 Four types: `classDiagram` (OO structure), `erDiagram` (data relationships), `stateDiagram-v2` (state machines), `requirementDiagram` (traceability).
 
 [REFERENCE] classDef, styling: [->styling.md](./styling.md)
 [REFERENCE] Validation: [->validation.md§6](./validation.md#6modeling_diagrams)
 
----
 ## [1][CLASS_DIAGRAMS]
->**Dictum:** *Visualize type hierarchies and object relationships.*
-
-<br>
 
 **Declaration:** `classDiagram`.
 
@@ -30,11 +23,7 @@ Four types: `classDiagram` (OO structure), `erDiagram` (data relationships), `st
 
 [CRITICAL] Comma-separated generics (`~K,V~`) NOT supported in nested contexts.
 
----
 ## [2][ENTITY_RELATIONSHIP]
->**Dictum:** *Clarify data dependencies and enforce schema integrity.*
-
-<br>
 
 **Declaration:** `erDiagram`.
 
@@ -42,15 +31,11 @@ Four types: `classDiagram` (OO structure), `erDiagram` (data relationships), `st
 **Crow's Foot (left|right):** `||` (exactly one), `|o`/`o|` (zero or one), `}|`/`|{` (one or more), `}o`/`o{` (zero or more).
 **Lines:** `--` identifying (strong), `..` non-identifying (weak).
 **Syntax:** `ENTITY1 ||--o{ ENTITY2 : label`.
-**Direction:** `direction LR|TB|RL|BT` at diagram start. Multi-line labels via `<br />` (v11.1.0+).
+**Direction:** `direction LR|TB|RL|BT` at diagram start. Multi-line labels via ` ` (v11.1.0+).
 
 [IMPORTANT] Entity names UPPERCASE by convention. Reserved: `ONE`, `MANY`, `TO`, `U`, `1` (bug #7093).
 
----
 ## [3][STATE_DIAGRAMS]
->**Dictum:** *Track system behavior and validate transition logic.*
-
-<br>
 
 **Declaration:** `stateDiagram-v2` (v1 deprecated).
 
@@ -63,11 +48,7 @@ Four types: `classDiagram` (OO structure), `erDiagram` (data relationships), `st
 
 [CRITICAL] Place `classDef` at diagram root, not inside composites. Start/End `[*]` and containers reject styling.
 
----
 ## [4][REQUIREMENT_DIAGRAMS]
->**Dictum:** *Verify requirement satisfaction and maintain audit trails.*
-
-<br>
 
 **Declaration:** `requirementDiagram`.
 
@@ -78,11 +59,7 @@ Four types: `classDiagram` (OO structure), `erDiagram` (data relationships), `st
 **Relations:** `contains`, `copies`, `derives`, `satisfies`, `verifies`, `refines`, `traces`. Syntax: `A - contains -> B`, reverse: `B <- contains - A`.
 **Direction:** `direction TB|BT|LR|RL`. Styling: `classDef`, `class`, `style`, `:::className`.
 
----
 ## [5][CONFIG]
->**Dictum:** *Tune layout and spacing for optimal hierarchy.*
-
-<br>
 
 | [INDEX] | [KEY]              | [TYPE]  | [DEFAULT] | [APPLIES_TO] |
 | :-----: | ------------------ | ------- | :-------: | ------------ |

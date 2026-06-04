@@ -6,15 +6,11 @@ description: >-
 ---
 
 # [H1][TAVILY-TOOLS]
->**Dictum:** *Command-specific arguments enforce correct invocation.*
-
-<br>
 
 Execute Tavily AI web operations through unified Python CLI.
 
 [IMPORTANT] `search` requires `--query`; `extract` requires `--urls`; `crawl`/`map` require `--url`; `research` requires `--query`. 1Password injects API key automatically.
 
----
 ## [1][COMMANDS]
 
 | [CMD]    | [REQUIRED_ARG] | [PURPOSE]                             |
@@ -25,7 +21,6 @@ Execute Tavily AI web operations through unified Python CLI.
 | map      | `--url URL`    | Map website URL structure             |
 | research | `--query TEXT` | Multi-step deep research with report  |
 
----
 ## [2][USAGE]
 
 ```bash
@@ -51,7 +46,6 @@ uv run .claude/skills/tavily-tools/scripts/tavily.py research --query "Nx 22 mig
 uv run .claude/skills/tavily-tools/scripts/tavily.py research --query "Effect vs RxJS comparison" --model pro
 ```
 
----
 ## [3][ARGUMENTS]
 
 **search**: `--query TEXT [options]`
@@ -92,7 +86,6 @@ uv run .claude/skills/tavily-tools/scripts/tavily.py research --query "Effect vs
 - `--query` — Research question (required)
 - `--model` — Research agent: `mini`, `pro`, `auto` (default: `auto`)
 
----
 ## [4][OUTPUT]
 
 Commands return: `{"status": "success|error", ...}`.
@@ -105,14 +98,12 @@ Commands return: `{"status": "success|error", ...}`.
 |   [4]   | `map`      | `{base_url, urls[], total_mapped}`     |
 |   [5]   | `research` | `{query, report, sources[]}`           |
 
----
 ## [5][ENVIRONMENT]
 
 | [VAR]            | [REQUIRED] | [DESCRIPTION]                       |
 | ---------------- | ---------- | ----------------------------------- |
 | `TAVILY_API_KEY` | Yes        | Tavily API key (1Password injected) |
 
----
 ## [6][ERROR_HANDLING]
 
 - HTTP errors print `[ERROR] <status>: <body>` and exit 1

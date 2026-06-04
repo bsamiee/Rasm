@@ -1,7 +1,4 @@
 # [H1][VERSION-FEATURES]
->**Dictum:** *Version-specific primitives eliminate fork overhead and enable production patterns impossible in prior releases.*
-
-<br>
 
 Bash 5.2/5.3 feature exploitation. Fork-free substitution, REPLY-bound substitution, GLOBSORT pipelines, epoch instrumentation, monotonic clock, trap signal dispatch, loadable builtins (fltexpr, strptime, kv), shell options (array_expand_once, read -E, source -p), version gating. Minimum baseline is 5.2 — features below that threshold are unconditionally available.
 
@@ -18,11 +15,7 @@ Bash 5.2/5.3 feature exploitation. Fork-free substitution, REPLY-bound substitut
 |  [9]  | Wait primitives        |  S9   | 5.2+  | Bounded concurrency, PID tracking, job completion    |
 | [10]  | Version gating         |  S10  | 5.2+  | Feature dispatch across 5.2/5.3 fleet boundary       |
 
----
 ## [1][FORK_FREE_SUBSTITUTION]
->**Dictum:** *Current-shell substitution eliminates the dominant cost in tight loops.*
-
-<br>
 
 `${ cmd; }` (whitespace after `{` mandatory) runs in the current shell, capturing stdout without fork/exec. Side effects propagate — variable assignments, traps, `cd` persist. This is NOT sandboxed capture.
 
@@ -75,11 +68,7 @@ subdir=${ cd /tmp && pwd; } # PWD IS /tmp — current shell mutated
 
 Use `${ }` for inline value construction in hot paths. Use `$()` when isolation is required — side-effect propagation is load-bearing for accumulators but hazardous for pure transforms.
 
----
 ## [2][REPLY_BOUND_EXPANSION]
->**Dictum:** *REPLY-bound expansion decouples current-shell execution from inline stdout capture.*
-
-<br>
 
 `${| cmd; }` executes `cmd` in the current shell, expands to the value of `REPLY`, and restores `REPLY` after expansion. It does not capture stdout. The command must assign `REPLY` directly; any stdout it writes still goes to the caller's stdout. Bind the expansion immediately when the value matters.
 
@@ -106,11 +95,7 @@ disk_pct=${| REPLY="$(df --output=pcent / | tail -1 | tr -d '[:space:]%')"; }
 
 `${| }` vs `${ }`: `${ }` expands to captured stdout inline; `${| }` expands to `REPLY` set by the command body. Use `${ }` for stdout capture, `${| }` when a current-shell body should compute a value through `REPLY` while stdout remains independent.
 
----
 ## [3][GLOBSORT_PIPELINES]
->**Dictum:** *Glob-level sorting eliminates post-hoc sort pipelines.*
-
-<br>
 
 GLOBSORT (5.3) controls pathname expansion order globally. `+` prefix = ascending (default), `-` = descending.
 
@@ -152,11 +137,7 @@ readonly file_count="${#files[@]}"
 
 `nosort` bypasses sorting entirely — use for 10k+ entry directories where readdir performance matters and order is irrelevant.
 
----
 ## [4][EPOCH_INSTRUMENTATION]
->**Dictum:** *Builtin epoch variables eliminate the dominant fork in timing and security patterns.*
-
-<br>
 
 Three builtin variables replace `date(1)` forks entirely. All are unconditionally available at the 5.2+ baseline:
 
@@ -230,11 +211,7 @@ _rate_check() {
 
 `10#${usec}` forces base-10 interpretation — microsecond strings like `09` would otherwise parse as invalid octal.
 
----
 ## [5][MONOTONIC_CLOCK]
->**Dictum:** *Monotonic timing eliminates NTP-induced measurement corruption in production instrumentation.*
-
-<br>
 
 `BASH_MONOSECONDS` (5.3) reads the system monotonic clock — immune to NTP adjustments, leap seconds, and manual `date -s` changes that corrupt `EPOCHREALTIME`-based elapsed measurements. Integer seconds resolution. Availability depends on OS `clock_gettime(CLOCK_MONOTONIC)` support (Linux, macOS, BSDs — universally present on modern systems).
 
@@ -286,11 +263,7 @@ _mono_now() {
 
 `BASH_MONOSECONDS` replaces the common pattern of `EPOCHREALTIME` arithmetic for duration measurement — simpler (integer vs microsecond string splitting), correct (monotonic vs wall-clock), and fork-free. Reserve `EPOCHREALTIME` for timestamps and sub-second precision where monotonicity is not required.
 
----
 ## [6][TRAP_SIGNAL_DISPATCH]
->**Dictum:** *Signal-aware trap handlers enable single-handler dispatch across heterogeneous shutdown signals.*
-
-<br>
 
 `BASH_TRAPSIG` (5.3) is set to the numeric signal number inside a trap handler. Before 5.3, a single handler shared across signals had no way to determine which signal fired — requiring separate handler functions per signal or wrapper hacks.
 
@@ -333,11 +306,7 @@ trap '_on_signal' HUP INT TERM
 
 Before 5.3, achieving signal discrimination required `trap '_handler INT' INT; trap '_handler TERM' TERM` — duplicating the trap registration and passing signal identity as a string argument. `BASH_TRAPSIG` collapses this to a single registration with runtime discrimination.
 
----
 ## [7][LOADABLE_BUILTINS]
->**Dictum:** *Loadable builtins eliminate external process overhead for domain-specific operations.*
-
-<br>
 
 Bash 5.3 ships loadable builtins as shared objects — `enable -f /path/to/builtin name` loads them into process memory with zero IPC overhead. Guard with `enable -f ... 2>/dev/null || fallback` — availability depends on compile-time options.
 
@@ -406,11 +375,7 @@ _kv_get() {
 
 `BASH_LOADABLES_PATH` provides default search path. Verify interfaces with `help <builtin>` after loading — APIs may vary across installations. Always provide awk/date/associative-array fallback.
 
----
 ## [8][SHELL_OPTIONS_53]
->**Dictum:** *5.3 shell options and builtin changes close long-standing usability and safety gaps.*
-
-<br>
 
 Three additions address distinct production needs: array expansion safety, interactive prompting, and library loading isolation.
 
@@ -470,11 +435,7 @@ _source_lib() {
 
 `array_expand_once` should be enabled globally in scripts using associative arrays with computed subscripts — it is strictly safer than the default. `read -E` is interactive-only (no effect in non-interactive scripts). `source -p` is the 5.3 equivalent of controlling `LD_LIBRARY_PATH` for shell libraries.
 
----
 ## [9][WAIT_PRIMITIVES]
->**Dictum:** *Wait primitives enable bounded-concurrency pools without external job managers.*
-
-<br>
 
 `wait -n` (5.1+, unconditional at 5.2 baseline) blocks until ANY background job completes — the foundation for worker pools. `wait -n -p VARNAME` (5.2+) additionally stores the completed PID, enabling per-job result tracking. `wait -f PID` (5.2+) waits for a specific PID even outside job control — critical for scripts running under `set -m` restrictions.
 
@@ -527,11 +488,7 @@ shopt -u patsub_replacement   # restore default — scope carefully
 
 `wait -n` without `-p` is sufficient when you only need backpressure (throttle to N concurrent). Add `-p` when you need to correlate completion with the specific job that finished. `wait -f` is needed in non-job-control contexts where `wait PID` would fail silently.
 
----
 ## [10][VERSION_GATING]
->**Dictum:** *Feature gating at startup enables polymorphic dispatch across 5.2/5.3 fleet boundary.*
-
-<br>
 
 Since the minimum baseline is 5.2, version gating discriminates only the 5.2 vs 5.3 boundary. Features at or below 5.2 (EPOCHSECONDS, EPOCHREALTIME, SRANDOM, `wait -n -p`, `wait -f`) are unconditionally available — no flags needed.
 
@@ -585,7 +542,6 @@ _features() {
 
 Version gating via packed integer eliminates nested `[[ ]]` chains. `_capture` uses eval (the only acceptable use — template-generated, not user-input derived) to select syntax at call site. Feature flags as `readonly` arithmetic — `(( _HAS_X ))` is zero-cost branching. `array_expand_once` is unconditionally enabled on 5.3 — it is strictly safer than the default and has no backwards-compatibility cost within a controlled script.
 
----
 ## [RULES]
 
 - `${ cmd; }` for all captures in tight loops — fork overhead dominates at >100 iterations (~5-8x speedup).

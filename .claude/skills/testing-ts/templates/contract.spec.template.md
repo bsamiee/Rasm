@@ -1,7 +1,4 @@
 # [H1][CONTRACT_TEMPLATE]
->**Dictum:** *Scaffold for contract tests verifying schema compatibility, service tag shape, and layer composition across package boundaries.*
-
-<br>
 
 <!-- ┌─────────────────────────────────────────────────────────────────────────────┐ -->
 <!-- │ Placeholders: ${UPPER_SNAKE_CASE} — replace all before use.                 │ -->
@@ -69,11 +66,7 @@ layer(_contractLayer)('contract: ${SUITE_NAME}', (it) => {
 });
 ```
 
----
 ## [1][PLACEHOLDER_REFERENCE]
->**Dictum:** *Quick lookup — see inline comments above for usage guidance.*
-
-<br>
 
 | [INDEX] | [PLACEHOLDER]          | [EXAMPLE]                                           |
 | :-----: | ---------------------- | --------------------------------------------------- |

@@ -1,13 +1,6 @@
 # [H1][VERSION-DISCOVERY]
->**Dictum:** *Evergreen action versioning replaces static catalogs — single source of truth for SHA resolution and permissions.*
 
-<br>
-
----
 ## [1][DISCOVERY_PROTOCOL]
->**Dictum:** *Runtime resolution replaces static pinning.*
-
-<br>
 
 [IMPORTANT]:
 - [ALWAYS] Resolve versions at generation time — never embed static SHAs in reference docs.
@@ -29,11 +22,7 @@ grep -oP 'uses:\s+\K[^@]+' .github/workflows/*.yml | sort -u | while read action
 done
 ```
 
----
 ## [2][SHA_PINNING_FORMAT]
->**Dictum:** *Full SHA pins prevent supply-chain attacks via tag retargeting.*
-
-<br>
 
 Format: `owner/repo@<40-char-SHA> # vX.Y.Z`
 
@@ -48,11 +37,7 @@ Format: `owner/repo@<40-char-SHA> # vX.Y.Z`
 - [ALWAYS] Pin to full 40-character SHA with version comment suffix.
 - [NEVER] Use mutable refs (`@main`, `@latest`, `@v1`) in production workflows.
 
----
 ## [3][AUTOMATED_MAINTENANCE]
->**Dictum:** *Automation replaces manual version tracking.*
-
-<br>
 
 ```yaml
 # .github/dependabot.yml — automated SHA updates
@@ -77,11 +62,7 @@ Dependabot natively parses `# v4.2.2` comments after SHA pins — updates both S
 
 Renovate resolves version tag from comment, fetches new SHA, updates both. `helpers:pinGitHubActionDigests` auto-converts tag refs to SHA pins.
 
----
 ## [4][IMMUTABLE_ACTIONS]
->**Dictum:** *Org-level SHA pinning enforcement replaces the stalled OCI immutable-publish approach.*
-
-<br>
 
 **Status:** OCI immutable publishing **paused** (not progressing to GA). GitHub pivoted to org-level SHA pinning enforcement as the primary supply chain control.
 
@@ -90,11 +71,7 @@ Renovate resolves version tag from comment, fetches new SHA, updates both. `help
 - `actions/publish-immutable-action` repo exists but is **not usable** for external consumers.
 - SHA pinning + Dependabot/Renovate automated updates is the recommended supply chain posture until immutable actions reach GA.
 
----
 ## [5][COMMON_ACTIONS_INDEX]
->**Dictum:** *Action index lists capabilities and permissions — single source of truth.*
-
-<br>
 
 | [ACTION]                                | [MAJOR] | [KEY_INPUTS]                                                     | [REQUIRED_PERMISSIONS]                          |
 | --------------------------------------- | :-----: | ---------------------------------------------------------------- | ----------------------------------------------- |
@@ -136,11 +113,7 @@ Renovate resolves version tag from comment, fetches new SHA, updates both. `help
 
 [IMPORTANT] Column `[MAJOR]` shows the current major version series. Always resolve exact SHA via discovery protocol at generation time — never use bare `@vN` tags.
 
----
 ## [6][ARTIFACTS]
->**Dictum:** *Artifact v6/v7 provides immutable, immediately-available cross-job data transfer.*
-
-<br>
 
 | [INDEX] | [PROPERTY]         | [VALUE]                                                     |
 | :-----: | ------------------ | ----------------------------------------------------------- |
@@ -160,11 +133,7 @@ Renovate resolves version tag from comment, fetches new SHA, updates both. `help
     if-no-files-found: error
 ```
 
----
 ## [7][SIGNING_VERIFICATION]
->**Dictum:** *Attestation verification closes the supply chain loop from build to consumption.*
-
-<br>
 
 **`gh attestation verify`** — GA in GitHub CLI. Verifies Sigstore-signed build provenance and SBOM attestations.
 

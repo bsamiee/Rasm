@@ -1,15 +1,8 @@
 # [H1][VALIDATION]
->**Dictum:** *Operational criteria verify diagram correctness.*
-
-<br>
 
 Consolidated validation for all Mermaid diagram types. Anti-patterns, escaping rules, verification checklists.
 
----
 ## [1][CONFIGURATION]
->**Dictum:** *Global settings control all diagram rendering.*
-
-<br>
 
 [REFERENCE] Configuration details: [->global-config.md](./global-config.md)
 
@@ -22,11 +15,7 @@ Consolidated validation for all Mermaid diagram types. Anti-patterns, escaping r
 - [ ] Theme uses `base` for `themeVariables`.
 - [ ] Security level via `initialize()` only.
 
----
 ## [2][SECURITY]
->**Dictum:** *Sandboxing protects against XSS and injection.*
-
-<br>
 
 **Anti-patterns:** `securityLevel` in frontmatter (silently ignored), `javascript:` URLs, `data:` URLs, missing `dompurifyConfig`, `secure` override in config.
 
@@ -36,11 +25,7 @@ Consolidated validation for all Mermaid diagram types. Anti-patterns, escaping r
 - [ ] Sanitize callbacks for nodeId and user input.
 - [ ] Never use secure keys in frontmatter.
 
----
 ## [3][ACCESSIBILITY]
->**Dictum:** *WCAG 2.1 compliance requires semantic descriptions.*
-
-<br>
 
 **Anti-patterns:** `accTitle`/`accDescr` before diagram type (place after), accessibility in `block-beta` (#6524) and `mindmap` (#4167).
 
@@ -49,11 +34,7 @@ Consolidated validation for all Mermaid diagram types. Anti-patterns, escaping r
 - [ ] Provide `accDescr` for WCAG 2.1 compliance.
 - [ ] Avoid accessibility in `block-beta` and `mindmap` (known bugs).
 
----
 ## [4][GRAPH_DIAGRAMS]
->**Dictum:** *Node-edge topology requires strict ID and edge syntax.*
-
-<br>
 
 **Reserved words:** `end`, `default`, `subgraph`, `direction`, `style`, `linkStyle`, `classDef`, `class`, `click`, `flowchart`, `graph`. Escape: `id["end"]` or capitalize.
 **Node IDs:** Alphanumeric + underscore. Invalid first char: `o`, `x` (edge conflict).
@@ -72,11 +53,7 @@ Consolidated validation for all Mermaid diagram types. Anti-patterns, escaping r
 [VERIFY] Block:
 - [ ] `columns N` first; all blocks have explicit span `:N`.
 
----
 ## [5][INTERACTION_DIAGRAMS]
->**Dictum:** *Temporal sequencing requires balanced activation.*
-
-<br>
 
 **Anti-patterns:** JSON without quotes, JSON + `as Alias` mixed, unbalanced `+`/`-` activation, missing `end`, `end` in message text (wrap in brackets), journey score outside 1-5.
 
@@ -87,11 +64,7 @@ Consolidated validation for all Mermaid diagram types. Anti-patterns, escaping r
 [VERIFY] Journey:
 - [ ] Scores integer 1-5 only; group tasks in `section` blocks.
 
----
 ## [6][MODELING_DIAGRAMS]
->**Dictum:** *Structural models require precise relationship syntax.*
-
-<br>
 
 **Reserved words:** State: `end`, `state`. ER: `ONE`, `MANY`, `TO`, `U`, `1` (bug #7093).
 **Anti-patterns:** `<T>` generics (use `~T~`), missing visibility prefix, ER empty `{ }`, `classDef` inside composite, state styling on start/end.
@@ -110,11 +83,7 @@ Consolidated validation for all Mermaid diagram types. Anti-patterns, escaping r
 [VERIFY] Requirement:
 - [ ] `id:` field present; valid relation type.
 
----
 ## [7][CHART_DIAGRAMS]
->**Dictum:** *Data visualization requires consistent array lengths.*
-
-<br>
 
 **Anti-patterns:** Pie values sum to 0, sankey circular flow, XY mismatched arrays, gantt invalid dates, radar axis/value mismatch, quadrant coords outside 0-1, treemap mixed indent or non-numeric leaf.
 
@@ -127,11 +96,7 @@ Consolidated validation for all Mermaid diagram types. Anti-patterns, escaping r
 - [ ] Quadrant: coordinates 0.0-1.0.
 - [ ] Treemap: consistent indentation, numeric leaves.
 
----
 ## [8][ARCHITECTURE_DIAGRAMS]
->**Dictum:** *System architecture diagrams require strict hierarchy rules.*
-
-<br>
 
 **Anti-patterns:** C4 missing `Rel()`, undefined alias, wrong `$` prefix; architecture missing `in` clause; overlapping/incomplete bits in packet; gitgraph merge before branch, checkout before branch, cherry-pick same branch; kanban wrong indentation, wrong priority strings.
 
@@ -150,11 +115,7 @@ Consolidated validation for all Mermaid diagram types. Anti-patterns, escaping r
 [VERIFY] Kanban:
 - [ ] Tasks indented under columns; priority exact match with single quotes.
 
----
 ## [9][ERROR_SYMPTOMS]
->**Dictum:** *Common failure patterns map to specific fixes.*
-
-<br>
 
 | [INDEX] | [SYMPTOM]           | [FIX]                              |
 | :-----: | ------------------- | ---------------------------------- |

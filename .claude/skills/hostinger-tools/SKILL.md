@@ -7,15 +7,11 @@ description: >-
 ---
 
 # [H1][HOSTINGER-TOOLS]
->**Dictum:** *Unified interface reduces API complexity.*
-
-<br>
 
 Invokes Hostinger API through Python wrapper using `HOSTINGER_TOKEN` env var. Base URL: `https://developers.hostinger.com`.
 
 [IMPORTANT] Zero-arg commands default to `page=1`, `limit=30`. Uses `--key value` flag syntax. Hostinger also provides an MCP server and n8n node for automation.
 
----
 ## [1][VPS_CORE]
 
 ```bash
@@ -29,7 +25,6 @@ uv run .claude/skills/hostinger-tools/scripts/hostinger.py vps-actions --id 1196
 uv run .claude/skills/hostinger-tools/scripts/hostinger.py vps-action-view --id 1196440 --action-id 71183700
 ```
 
----
 ## [2][VPS_CONFIG]
 
 ```bash
@@ -42,7 +37,6 @@ uv run .claude/skills/hostinger-tools/scripts/hostinger.py vps-ptr-create --id 1
 uv run .claude/skills/hostinger-tools/scripts/hostinger.py vps-ptr-delete --id 1196440 --ip-id 1154886
 ```
 
----
 ## [3][VPS_RECOVERY]
 
 ```bash
@@ -51,7 +45,6 @@ uv run .claude/skills/hostinger-tools/scripts/hostinger.py vps-recovery-stop --i
 uv run .claude/skills/hostinger-tools/scripts/hostinger.py vps-recreate --id 1196440 --template-id 1007 --password "NewPass123!"
 ```
 
----
 ## [4][DOCKER]
 
 ```bash
@@ -67,7 +60,6 @@ uv run .claude/skills/hostinger-tools/scripts/hostinger.py docker-update --id 11
 uv run .claude/skills/hostinger-tools/scripts/hostinger.py docker-delete --id 1196440 --project myapp
 ```
 
----
 ## [5][FIREWALL]
 
 ```bash
@@ -83,7 +75,6 @@ uv run .claude/skills/hostinger-tools/scripts/hostinger.py firewall-rule-update 
 uv run .claude/skills/hostinger-tools/scripts/hostinger.py firewall-rule-delete --id 12345 --rule-id 67890
 ```
 
----
 ## [6][SSH_KEYS]
 
 ```bash
@@ -94,7 +85,6 @@ uv run .claude/skills/hostinger-tools/scripts/hostinger.py ssh-key-attach --key-
 uv run .claude/skills/hostinger-tools/scripts/hostinger.py ssh-key-attached --vps-id 1196440
 ```
 
----
 ## [7][SCRIPTS]
 
 ```bash
@@ -105,7 +95,6 @@ uv run .claude/skills/hostinger-tools/scripts/hostinger.py script-update --id 12
 uv run .claude/skills/hostinger-tools/scripts/hostinger.py script-delete --id 12345
 ```
 
----
 ## [8][SNAPSHOTS]
 
 ```bash
@@ -117,7 +106,6 @@ uv run .claude/skills/hostinger-tools/scripts/hostinger.py backup-list --id 1196
 uv run .claude/skills/hostinger-tools/scripts/hostinger.py backup-restore --id 1196440 --backup-id 67890
 ```
 
----
 ## [9][DNS]
 
 ```bash
@@ -125,7 +113,6 @@ uv run .claude/skills/hostinger-tools/scripts/hostinger.py dns-records --domain 
 uv run .claude/skills/hostinger-tools/scripts/hostinger.py dns-snapshots --domain example.com
 ```
 
----
 ## [10][DOMAINS]
 
 ```bash
@@ -134,7 +121,6 @@ uv run .claude/skills/hostinger-tools/scripts/hostinger.py domain-view --domain 
 uv run .claude/skills/hostinger-tools/scripts/hostinger.py domain-check --domain example --tlds com,net,io
 ```
 
----
 ## [11][DOMAIN_EXTENDED]
 
 ```bash
@@ -148,7 +134,6 @@ uv run .claude/skills/hostinger-tools/scripts/hostinger.py domain-forwarding-del
 uv run .claude/skills/hostinger-tools/scripts/hostinger.py domain-nameservers-set --domain example.com --ns1 ns1.hostinger.com --ns2 ns2.hostinger.com
 ```
 
----
 ## [12][WHOIS]
 
 ```bash
@@ -160,7 +145,6 @@ uv run .claude/skills/hostinger-tools/scripts/hostinger.py whois-delete --id 123
 uv run .claude/skills/hostinger-tools/scripts/hostinger.py whois-usage --id 12345
 ```
 
----
 ## [13][BILLING]
 
 ```bash
@@ -175,7 +159,6 @@ uv run .claude/skills/hostinger-tools/scripts/hostinger.py billing-auto-renewal-
 uv run .claude/skills/hostinger-tools/scripts/hostinger.py billing-auto-renewal-disable --id AzqaEWV5FiDYT4Ka3
 ```
 
----
 ## [14][HOSTING]
 
 ```bash
@@ -186,7 +169,6 @@ uv run .claude/skills/hostinger-tools/scripts/hostinger.py hosting-website-creat
 uv run .claude/skills/hostinger-tools/scripts/hostinger.py hosting-datacenters-list --order-id 12345
 ```
 
----
 ## [15][REFERENCE]
 
 ```bash
@@ -195,7 +177,6 @@ uv run .claude/skills/hostinger-tools/scripts/hostinger.py template-list
 uv run .claude/skills/hostinger-tools/scripts/hostinger.py template-view --id 1007
 ```
 
----
 ## [16][OUTPUT]
 
 Commands return: `{"status": "success|error", ...}`.
@@ -207,14 +188,12 @@ Commands return: `{"status": "success|error", ...}`.
 |   [3]   | Action commands | `{id: int, action: bool}`  |
 |   [4]   | Create commands | `{id: int, created: bool}` |
 
----
 ## [17][ENVIRONMENT]
 
 | [VAR]             | [REQUIRED] | [DESCRIPTION]              |
 | ----------------- | ---------- | -------------------------- |
 | `HOSTINGER_TOKEN` | Yes        | Hostinger API bearer token |
 
----
 ## [18][ERROR_HANDLING]
 
 - HTTP errors print `[ERROR] <status>: <body>` and exit 1

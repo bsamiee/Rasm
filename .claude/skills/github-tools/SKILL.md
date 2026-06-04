@@ -6,15 +6,11 @@ description: >-
 ---
 
 # [H1][GITHUB-TOOLS]
->**Dictum:** *Standardized invocation reduces agent errors.*
-
-<br>
 
 Invokes gh CLI commands through Python wrapper.
 
 [IMPORTANT] Zero-arg commands default to `state=open`, `limit=30`. All commands use positional args. gh CLI 2.62+ features: `pr revert`, `release verify`, `auth status --json`, Copilot CLI integration.
 
----
 ## [1][COMMANDS]
 
 ### [1.1][ISSUES]
@@ -104,7 +100,6 @@ Invokes gh CLI commands through Python wrapper.
 | discussion-close         | `<discussion_id>`              | Close discussion           |
 | discussion-delete        | `<discussion_id>`              | Delete discussion          |
 
----
 ## [2][USAGE]
 
 ```bash
@@ -149,7 +144,6 @@ uv run .claude/skills/github-tools/scripts/gh.py discussion-view 5
 uv run .claude/skills/github-tools/scripts/gh.py api "/repos/{owner}/{repo}/issues" GET
 ```
 
----
 ## [3][OUTPUT]
 
 Commands return: `{"status": "success|error", ...}`.
@@ -162,7 +156,6 @@ Commands return: `{"status": "success|error", ...}`.
 |   [4]   | Search commands   | `{query: string, results: object[]}` |
 |   [5]   | Diff commands     | `{number: int, diff: string}`        |
 
----
 ## [4][ENVIRONMENT]
 
 | [VAR]               | [REQUIRED] | [DESCRIPTION]                             |
@@ -170,7 +163,6 @@ Commands return: `{"status": "success|error", ...}`.
 | `GH_TOKEN`          | Yes        | GitHub token (auto-configured by gh auth) |
 | `GH_PROJECTS_TOKEN` | No         | Override token for project commands       |
 
----
 ## [5][ERROR_HANDLING]
 
 - gh CLI errors print `[ERROR] <message>` and exit 1

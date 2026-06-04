@@ -1,5 +1,4 @@
 ```mermaid
----
 config:
   layout: elk
   look: neo
@@ -33,7 +32,6 @@ config:
     archEdgeWidth: "3.5"
     archGroupBorderColor: "#bd93f9"
     archGroupBorderWidth: "3.5"
----
 architecture-beta
     accTitle: Cloud-Native E-Commerce Platform
     accDescr: Production architecture demonstrating clean left-to-right flow with strategic grouping, no crossing arrows, enhanced Dracula styling, and advanced ELK configurations for optimal layout.

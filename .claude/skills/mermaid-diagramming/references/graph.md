@@ -1,18 +1,11 @@
 # [H1][GRAPH]
->**Dictum:** *Graph diagrams communicate process flow and system structure.*
-
-<br>
 
 Flowchart (directional flow), block-beta (grid composition), mindmap (hierarchical radial). Interactivity via callbacks and URL navigation.
 
 [REFERENCE] classDef, linkStyle: [->styling.md](./styling.md)
 [REFERENCE] Validation: [->validation.md§4](./validation.md#4graph_diagrams)
 
----
 ## [1][FLOWCHART]
->**Dictum:** *Shape selection clarifies node role in process.*
-
-<br>
 
 **Declaration:** `flowchart LR|TB|RL|BT`
 
@@ -32,7 +25,6 @@ Flowchart (directional flow), block-beta (grid composition), mindmap (hierarchic
 **Image:** `@{ shape: image, img: "url", label: "text", pos: t|b, w: 100, h: 100, constraint: on|off }`
 **Markdown:** `` "`**bold** *italic*`" `` — rich formatting in node/edge/subgraph labels.
 
----
 ### [1.2][EDGES]
 
 | [INDEX] | [SYNTAX] | [TYPE]        | [SEMANTIC]     |
@@ -53,12 +45,10 @@ Flowchart (directional flow), block-beta (grid composition), mindmap (hierarchic
 
 [IMPORTANT] Escape commas in `stroke-dasharray` as `\,` (comma is style delimiter).
 
----
 ### [1.3][SUBGRAPHS]
 
 **Syntax:** `subgraph ID ["Title"]` ... `end`. Supports `direction TB` inside, inter-subgraph links (`Phase1 --> Phase2`), max 3 nesting levels. External links disable subgraph direction control.
 
----
 ### [1.4][CONFIG]
 
 | [INDEX] | [KEY]             | [TYPE]  |    [DEFAULT]    | [DESCRIPTION]                      |
@@ -70,11 +60,7 @@ Flowchart (directional flow), block-beta (grid composition), mindmap (hierarchic
 |   [5]   | `wrappingWidth`   | number  |      `200`      | Max label width before wrap        |
 |   [6]   | `defaultRenderer` | string  | `dagre-wrapper` | `dagre-d3`, `dagre-wrapper`, `elk` |
 
----
 ## [2][BLOCK]
->**Dictum:** *Block diagrams expose system architecture through grid composition.*
-
-<br>
 
 **Declaration:** `block-beta`. Manual grid-based positioning.
 
@@ -82,11 +68,7 @@ Flowchart (directional flow), block-beta (grid composition), mindmap (hierarchic
 
 [IMPORTANT] Missing `:N` suffix causes layout errors. Specify span width explicitly.
 
----
 ## [3][MINDMAP]
->**Dictum:** *Mindmaps communicate hierarchical relationships through spatial organization.*
-
-<br>
 
 **Declaration:** `mindmap`. Indentation depth defines parent-child relationships in radial tree layout.
 
@@ -97,11 +79,7 @@ Flowchart (directional flow), block-beta (grid composition), mindmap (hierarchic
 
 [IMPORTANT] Indentation creates hierarchy — spaces or tabs, never mixed.
 
----
 ## [4][INTERACTIVITY]
->**Dictum:** *Click handlers transform diagrams into navigation interfaces.*
-
-<br>
 
 **Callback:** `click nodeId callback "tooltip"` | `click nodeId call callback()`. Define JS functions before render.
 **URL:** `click nodeId "https://url" "tooltip"` | `click nodeId href "https://url" "tooltip" _blank`.

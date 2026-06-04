@@ -7,15 +7,11 @@ description: >-
 ---
 
 # [H1][CONTEXT7-TOOLS]
->**Dictum:** *Three commands mirror MCP capabilities plus unified convenience.*
-
-<br>
 
 Query Context7 library documentation. Matches MCP tool structure (resolve-library-id, query-docs).
 
 [IMPORTANT] Context7 pulls up-to-date, version-specific documentation from source. Supports private documents (early access). Community-driven library coverage.
 
----
 ## [1][COMMANDS]
 
 | [CMD]   | [ARGS]                 | [RETURNS]                       |
@@ -24,7 +20,6 @@ Query Context7 library documentation. Matches MCP tool structure (resolve-librar
 | docs    | `<library-id> <query>` | Documentation filtered by query |
 | lookup  | `<library> <query>`    | Resolve + docs in one call      |
 
----
 ## [2][USAGE]
 
 ```bash
@@ -44,7 +39,6 @@ uv run .claude/skills/context7-tools/scripts/context7.py lookup react "hooks"
 uv run .claude/skills/context7-tools/scripts/context7.py lookup vite "v7 migration guide"
 ```
 
----
 ## [3][ARGUMENTS]
 
 **resolve**: `<library> [query]`
@@ -59,14 +53,12 @@ uv run .claude/skills/context7-tools/scripts/context7.py lookup vite "v7 migrati
 - `library` — Library name (required)
 - `query` — Topic to fetch docs for (required)
 
----
 ## [4][SELECTION_LOGIC]
 
 `lookup` auto-selects library by: VIP status -> highest benchmark score.
 
 Use `resolve` first when disambiguation needed (e.g., multiple React packages).
 
----
 ## [5][OUTPUT]
 
 Commands return JSON or plain text.
@@ -77,14 +69,12 @@ Commands return JSON or plain text.
 |   [2]   | `docs`    | Plain text documentation prefixed with `[library-id]` |
 |   [3]   | `lookup`  | Plain text documentation (same as docs)               |
 
----
 ## [6][ENVIRONMENT]
 
 | [VAR]              | [REQUIRED] | [DESCRIPTION]                  |
 | ------------------ | ---------- | ------------------------------ |
 | `CONTEXT7_API_KEY` | No         | Optional bearer token for auth |
 
----
 ## [7][ERROR_HANDLING]
 
 - HTTP errors print `[ERROR] <status>: <body>` and exit 1

@@ -1,15 +1,8 @@
 # [H1][RASM_APPUI_ARCHITECTURE]
->**Dictum:** *Product UI is one typed intent rail lowered through host-owned execution.*
-
-<br>
 
 `Rasm.AppUi` is the platform boundary above `Rasm.Rhino/UI` and `Rasm.Grasshopper/UI`. It captures product UI intent, state, visual requests, diagnostics, and receipts through one unified rail, without duplicating Rhino/GH2 dispatch, repaint, undo, document affinity, or lifecycle policy.
 
----
 ## [1][BUILD_STATUS]
->**Dictum:** *Build fully and unified from the first commit.*
-
-<br>
 
 ```mermaid
 flowchart LR
@@ -28,11 +21,7 @@ flowchart LR
 |   [4]   | Package references    | Active direct; every pinned AppUi package is referenced |
 |   [5]   | Host runtime evidence | Per host scenario        |
 
----
 ## [2][PUBLIC_RAIL_CONTRACT]
->**Dictum:** *The rail names product concepts, not toolkit classes.*
-
-<br>
 
 | [INDEX] | [CONCEPT]          | [OWNS]                                                            | [DOES_NOT_OWN]                 |
 | :-----: | ------------------ | ----------------------------------------------------------------- | ------------------------------ |
@@ -46,11 +35,7 @@ flowchart LR
 
 The public entry accepts typed app-surface operations as data and returns typed outcomes/receipts. Toolkit types stay internal; product concepts cross the boundary.
 
----
 ## [3][HOST_DELEGATION]
->**Dictum:** *AppUi aggregates; host rails execute.*
-
-<br>
 
 | [INDEX] | [APPUI_INTENT] | [RHINO_RAIL]                                     | [GH2_RAIL]                         | [FORBIDDEN_DUPLICATE]       |
 | :-----: | -------------- | ------------------------------------------------ | ---------------------------------- | --------------------------- |
@@ -77,11 +62,7 @@ macOS support means coexistence inside RhinoWIP/GH2, not generic desktop success
 - Await `TopLevel.Closed` before calling base dispose — disposing the Eto parent before the Avalonia TopLevel closes causes a native handle double-free.
 - [DEFERRED] GH2-Avalonia embedding: the current GH2 SDK (RhinoWIP, decompiled `Grasshopper2.dll`) exposes no dockable plugin-panel registration API — there is no `Grasshopper2.UI.IPanel` or `RegisterPanel` equivalent; the editor is one GH2-owned Eto `Form`, and plugin surfaces are per-component `InputPanel`, `Grasshopper2.UI.Toolbar`, canvas paint hooks, and transient `FloatingForm` popups — none a persistent host for a retained Avalonia `TopLevel`. The canvas NSView is reachable (`Editor.Instance.Canvas.ControlObject as NSView`, proven in `Rasm.Grasshopper/UI`), but no persistent panel host exists. Do not attempt GH2 embedding until a GH2 panel-host API ships; trigger: `uv run python -m tools.quality api query gh2 Panel` on each WIP drop. Rhino-panel embedding remains the supported path.
 
----
 ## [4][PACKAGES]
->**Dictum:** *Integrated packages compose into one paradigm, never side by side.*
-
-<br>
 
 ### [4.1][CORE_MATRIX]
 
@@ -129,11 +110,7 @@ Version matrix is coupled: Avalonia ↔ ReactiveUI.Avalonia ↔ ReactiveUI ↔ D
 
 Layout: cohesive flat files — `Shell.cs`, `Screen.cs`, `Command.cs`, `Live.cs`, `Visual.cs`, `Chart.cs`, `Diagnostic.cs` — each with canonical sections; UI scheduler boundary co-locates with ReactiveUI activation in `Screen.cs`. No per-concept subfolders or mini-files.
 
----
 ## [5][TYPE_SHAPES]
->**Dictum:** *Named types have defined shapes before any code lands.*
-
-<br>
 
 ### [5.1][SCHEDULER]
 
@@ -240,11 +217,7 @@ AppState
 
 View layer: ReactiveUI (`ReactiveCommand` / `IObservable<T>` / VMs). App-surface rail lowers typed operations → `CommandReceipt`. Cross-folder work runs as `Eff<RT, T>` inside AppHost's runtime record. AppUi submits intents and consumes typed receipts and observables — it never carries `Eff` directly.
 
----
 ## [6][COMPOSITION]
->**Dictum:** *One scheduler spine; inbound contracts parameterized, fired when siblings land.*
-
-<br>
 
 [CRITICAL] Bootstrap order: `PlugIn.OnLoad` is the composition root. Constructs `RasmUiScheduler` on the UI thread → calls `AppHost.Boot(token, timeProvider, uiScheduler, …capabilities)` → receives `BootReceipt` (runtime record + `DrainHandle`) → hands `RasmRuntime` to AppUi to activate inbound observables. `RasmUiScheduler` is AppUi-owned and AppHost-referenced — non-circular.
 
@@ -258,11 +231,7 @@ Inbound contracts are typed, built fully now, and ready to fire when the sibling
 |   [2]   | Scheduling | `Rasm.AppHost`     | Background/runtime work dispatched via `RasmRuntime`; UI marshals results onto `RasmUiScheduler`              |
 |   [3]   | Progress   | `Rasm.Compute`     | `IObservable<ComputeProgress>` — `ObserveOn(RasmUiScheduler.RxScheduler)` before UI bind; cold, no `OnError` |
 
----
 ## [7][WORLD_CLASS_CAPABILITIES]
->**Dictum:** *Named product capabilities, built on the unified rail.*
-
-<br>
 
 | [INDEX] | [CAPABILITY]              | [MECHANISM]                                                                                      |
 | :-----: | ------------------------- | ------------------------------------------------------------------------------------------------ |
@@ -275,11 +244,7 @@ Inbound contracts are typed, built fully now, and ready to fire when the sibling
 |   [7]   | Clipboard                 | Avalonia `IClipboard` injected into `Screen`; no static access                                   |
 |   [8]   | Accessibility             | `AutomationProperties.Name/HelpText` on every interactive control; `AutomationPeer` overrides for custom visuals |
 
----
 ## [8][RUNTIME_EVIDENCE]
->**Dictum:** *Runtime status is per host and per capability.*
-
-<br>
 
 | [INDEX] | [STATE]        | [MEANING]                                    |
 | :-----: | -------------- | -------------------------------------------- |
@@ -288,11 +253,7 @@ Inbound contracts are typed, built fully now, and ready to fire when the sibling
 
 Evidence categories: RhinoWIP macOS load, GH2 coexistence (DEFERRED — no GH2 plugin-panel host API in current RhinoWIP), host parent identity, focus/keyboard/z-order, Retina scale, native asset layout, GPU/frame-pacing coexistence with the viewport, screenshot, disposal/unload, accessibility, support-bundle diagnostics.
 
----
 ## [9][SOURCE_ANCHORS]
->**Dictum:** *Sources ground integration.*
-
-<br>
 
 | [INDEX] | [SOURCE]                                                                                      | [USE]                                          |
 | :-----: | --------------------------------------------------------------------------------------------- | ---------------------------------------------- |

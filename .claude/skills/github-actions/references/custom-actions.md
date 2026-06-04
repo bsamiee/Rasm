@@ -1,13 +1,6 @@
 # [H1][CUSTOM-ACTIONS]
->**Dictum:** *Action type selection determines runtime, startup cost, and capability scope.*
 
-<br>
-
----
 ## [1][ACTION_TYPES]
->**Dictum:** *Three action types serve distinct runtime and capability requirements.*
-
-<br>
 
 | [INDEX] | [TYPE]     | [RUNTIME]     | [STARTUP] | [PRE/POST] | [USE_CASE]             |
 | :-----: | ---------- | ------------- | :-------: | :--------: | ---------------------- |
@@ -19,9 +12,6 @@
 1. Combine workflow steps; error propagation via `if: failure()`
 2. Custom runtime/toolchains; language-agnostic execution
 3. API interactions via `@actions/core` toolkit; pre/post lifecycle
-
-<br>
-
 ### [1.1][DECISION_TREE]
 
 | [INDEX] | [QUESTION]                      | [ANSWER] | [RECOMMENDATION]                              |
@@ -32,11 +22,7 @@
 |   [4]   | **Full pipeline reuse?**        |   Yes    | Reusable workflow (`workflow_call`).          |
 |   [5]   | **SLSA L3 provenance?**         |   Yes    | Reusable workflow (`job_workflow_ref` claim). |
 
----
 ## [2][DIRECTORY_STRUCTURE]
->**Dictum:** *Location determines consumption syntax.*
-
-<br>
 
 **Local actions** (monorepo pattern): `.github/actions/<name>/action.yml`
 
@@ -52,11 +38,7 @@
 
 [IMPORTANT] Monorepo pattern `.github/actions/` keeps actions co-located with consuming workflows. Each action is self-contained with own `action.yml`.
 
----
 ## [3][METADATA]
->**Dictum:** *action.yml metadata defines inputs, outputs, and runtime configuration.*
-
-<br>
 
 ```yaml
 name: 'Action Name'
@@ -83,11 +65,7 @@ runs:
 
 [IMPORTANT] Composite inputs are always strings (no `type:` key). JavaScript actions support `pre:` and `post:` lifecycle steps for setup/cleanup.
 
----
 ## [4][ERROR_PROPAGATION]
->**Dictum:** *Composite actions propagate errors by default; granular control requires explicit outcome checks.*
-
-<br>
 
 ```yaml
 runs:
@@ -107,11 +85,7 @@ runs:
 
 [CRITICAL] Composite actions require `shell:` on every `run:` step. `continue-on-error` behavior with input variables is unpredictable — test thoroughly.
 
----
 ## [5][VERSIONING]
->**Dictum:** *Semantic version tags enable consumer stability guarantees.*
-
-<br>
 
 ```bash
 git tag -a v1.0.0 -m "Release v1.0.0" && git push origin v1.0.0
@@ -120,11 +94,7 @@ git tag -fa v1 -m "Update v1 to v1.0.0" && git push origin v1 --force
 
 Consumers reference: `@v1.0.0` (exact), `@v1` (latest v1.x), `@SHA` (most secure). [REFERENCE] SHA pinning protocol: [->version-discovery.md§SHA_PINNING_FORMAT](./version-discovery.md).
 
----
 ## [6][RUNTIME]
->**Dictum:** *Runtime selection accounts for deprecation timeline and capability needs.*
-
-<br>
 
 | [INDEX] | [RUNTIME]       | [STATUS]                                                 |
 | :-----: | --------------- | -------------------------------------------------------- |
@@ -134,11 +104,7 @@ Consumers reference: `@v1.0.0` (exact), `@v1` (latest v1.x), `@SHA` (most secure
 
 **Toolkit:** `@actions/core@3.x`, `@actions/github@9.x`. Bundle with `@vercel/ncc@0.38.x build index.js --minify`.
 
----
 ## [7][JAVASCRIPT_ACTIONS]
->**Dictum:** *JavaScript actions provide the richest runtime with pre/post lifecycle and ncc bundling.*
-
-<br>
 
 **Lifecycle:** `pre:` runs before job steps (setup). `main:` runs as the action step. `post:` runs after job completes (cleanup, even on failure).
 
@@ -162,11 +128,7 @@ core.setOutput('result', JSON.stringify({ status: 'ok', version: '1.0.0' }));
 core.setSecret(token);  // masks in all subsequent logs
 ```
 
----
 ## [8][DOCKER_ACTIONS]
->**Dictum:** *Docker actions provide isolated environments with custom toolchains.*
-
-<br>
 
 ```dockerfile
 FROM golang:1.23 AS builder
@@ -192,11 +154,7 @@ runs:
 
 [IMPORTANT] Docker actions only run on Linux runners. Container startup adds 5-30s overhead. Prefer distroless/scratch base images.
 
----
 ## [9][LOCAL_ACTION_CACHING]
->**Dictum:** *Split cache pattern enables granular restore/save control in composite actions.*
-
-<br>
 
 ```yaml
 # Composite action — split cache for deterministic control
@@ -219,11 +177,7 @@ steps:
 
 [IMPORTANT] Prefix cache keys with action name to avoid collision across actions: `my-action-${{ runner.os }}-...`. Split pattern prevents save on cache hit (avoids redundant uploads).
 
----
 ## [10][TESTING]
->**Dictum:** *Action testing validates inputs, outputs, and error paths before publication.*
-
-<br>
 
 | [INDEX] | [STRATEGY]               | [TOOL]                     | [SCOPE]                                    |
 | :-----: | ------------------------ | -------------------------- | ------------------------------------------ |
@@ -232,11 +186,7 @@ steps:
 |   [3]   | **CI validation**        | Dedicated test workflow    | `.github/workflows/test-action.yml` on PR. |
 |   [4]   | **Output validation**    | `actions/github-script`    | Assert outputs match expected values.      |
 
----
 ## [11][MARKETPLACE]
->**Dictum:** *Marketplace publication requires specific metadata and runtime compliance.*
-
-<br>
 
 1. Public repository with `action.yml` in root.
 2. Branding metadata (icon + color) — Feather icon set.

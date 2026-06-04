@@ -1,15 +1,8 @@
 # [H1][RASM_APPUI_ROADMAP]
->**Dictum:** *Scaffold the foundation, then consume the pinned packages as one surface.*
-
-<br>
 
 This roadmap sequences the build. The platform integrates all packages together from the foundation; it does not drip capability in behind separate consumers.
 
----
 ## [1][PHASE_0]
->**Dictum:** *Housekeeping lands and compiles before heavy work.*
-
-<br>
 
 - Use the existing root `Directory.Packages.props` AppUi matrix. `PackageReference` entries stay versionless. Do not repin or add package-manager aliases in this pass. Coupled version matrix: Avalonia ↔ ReactiveUI.Avalonia ↔ ReactiveUI ↔ DynamicData ↔ System.Reactive ↔ SkiaSharp (Avalonia-bundled, LiveCharts2-aligned). Target `net10.0` so System.Reactive pulls no WPF/WinForms facade.
 - SkiaSharp gate (§4.3): confirm Rhino's bundled `libSkiaSharp` native major. If it matches, reference `SkiaSharp.NativeAssets.macOS` with `<ExcludeAssets>native</ExcludeAssets>` to share Rhino's loaded copy; a mismatched major is a hard build gate (same-named dylibs cannot co-load). Carry `HarfBuzzSharp.NativeAssets.macOS` unconditionally (not bundled by Rhino).
@@ -21,11 +14,7 @@ This roadmap sequences the build. The platform integrates all packages together 
 
 Phase 0 restore/build foundation is complete. Source scaffolding and runtime embedding proof remain.
 
----
 ## [2][INTEGRATION]
->**Dictum:** *One unified rail composes every package.*
-
-<br>
 
 Build the single typed app-surface rail and compose the packages into one paradigm:
 
@@ -48,11 +37,7 @@ Build the single typed app-surface rail and compose the packages into one paradi
 
 Command outcomes return `CommandReceipt`. Host execution lowers through `Rasm.Rhino/UI` and `Rasm.Grasshopper/UI`. The scheduler spine precedes live projection; DynamicData change-sets observe on `RasmUiScheduler` before binding.
 
----
 ## [3][HIGHER_ORDER]
->**Dictum:** *Higher-order capability rides on the unified rail.*
-
-<br>
 
 On the integrated foundation, build the higher-order product-UI capabilities a plugin needs — each as parameterized capability on the one rail, not a parallel subsystem:
 
@@ -70,11 +55,7 @@ On the integrated foundation, build the higher-order product-UI capabilities a p
 |  [10]   | Clipboard                   | Avalonia `IClipboard` injected into `Screen`; no static access                           |
 |  [11]   | Accessibility               | `AutomationProperties` on every interactive control; `AutomationPeer` for custom visuals |
 
----
 ## [4][EMBEDDING_VALIDATION]
->**Dictum:** *Embed correctly before shipping any panel.*
-
-<br>
 
 | [INDEX] | [STEP]               | [REQUIREMENT]                                                                   |
 | :-----: | -------------------- | ------------------------------------------------------------------------------- |
@@ -85,19 +66,11 @@ On the integrated foundation, build the higher-order product-UI capabilities a p
 |   [5]   | Disposal order       | `Content = null` → await `TopLevel.Closed` → base dispose                       |
 |   [6]   | GH2 embedding        | [DEFERRED] — no GH2 dockable panel-host API in current RhinoWIP; Rhino-panel embedding is supported. Trigger: `api query gh2 Panel` per WIP drop |
 
----
 ## [5][RUNTIME_EVIDENCE]
->**Dictum:** *Host claims require host evidence.*
-
-<br>
 
 Runtime claims are scoped to proven host scenarios. Owner-local `DiagnosticReceipt` records identify the host, parent handle, focus behavior, command result, disposal path, GPU/frame-pacing coexistence with the viewport, and screenshot/support evidence for RhinoWIP macOS load and GH2 coexistence.
 
----
 ## [6][PHASE_0_GATES]
->**Dictum:** *These need a machine with RhinoWIP + restore; resolve before heavy work.*
-
-<br>
 
 Items that could not be settled from research alone — each needs an agent with the macOS host (RhinoWIP.app) and/or `dotnet restore`. Each row gives the exact command, the decision it gates, and the action per outcome.
 

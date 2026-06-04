@@ -1,13 +1,6 @@
 # [H1][ACT-USAGE]
->**Dictum:** *Local validation tools catch errors before CI execution.*
 
-<br>
-
----
 ## [1][ACTIONLINT]
->**Dictum:** *Static analysis validates syntax, expressions, and security before execution.*
-
-<br>
 
 **Current version:** 1.7.10 (December 30, 2025).
 
@@ -78,11 +71,7 @@ jobs:
 |   [9]   | **Permissions**         | Valid scope names (`models`, `artifact-metadata` in 1.7.8+/1.7.10). |
 |  [10]   | **Constant conditions** | `if: true`, `if: false`, and complex constant expressions.          |
 
----
 ## [2][ACT]
->**Dictum:** *Local execution validates workflow behavior without pushing.*
-
-<br>
 
 **Current version:** v0.2.84 (January 1, 2026).
 
@@ -126,11 +115,7 @@ act workflow_dispatch --input version=1.2.3    # Trigger with inputs
 -P ubuntu-latest=catthehacker/ubuntu:act-latest
 ```
 
----
 ## [3][LIMITATIONS]
->**Dictum:** *Known limitations inform when to use CI instead of local validation.*
-
-<br>
 
 | [INDEX] | [TOOL]         | [LIMITATION]                        | [IMPACT]                                                   |
 | :-----: | -------------- | ----------------------------------- | ---------------------------------------------------------- |
@@ -143,11 +128,7 @@ act workflow_dispatch --input version=1.2.3    # Trigger with inputs
 |   [7]   | **act**        | YAML anchor explosion (pre-v0.2.84) | Fixed in v0.2.84 — update to latest.                       |
 |   [8]   | **act**        | `.github/workflows/` only           | Cannot validate workflows in other directories.            |
 
----
 ## [4][TROUBLESHOOTING]
->**Dictum:** *Common issues have known resolutions.*
-
-<br>
 
 | [INDEX] | [ISSUE]                             | [SOLUTION]                                                    |
 | :-----: | ----------------------------------- | ------------------------------------------------------------- |

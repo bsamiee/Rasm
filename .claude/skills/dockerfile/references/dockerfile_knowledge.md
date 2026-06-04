@@ -1,15 +1,8 @@
 # [H1][DOCKERFILE_KNOWLEDGE]
->**Dictum:** *Generation patterns produce production-ready Dockerfiles.*
-
-<br>
 
 [IMPORTANT] Docker Engine 29.2+ | BuildKit 0.27+ | Dockerfile syntax 1 (auto-resolving) | February 2026
 
----
 ## [1][MULTI_STAGE_TEMPLATE]
->**Dictum:** *Universal template parameterized per language.*
-
-<br>
 
 ```dockerfile
 # syntax=docker/dockerfile:1
@@ -51,11 +44,7 @@ HEALTHCHECK --interval=30s --timeout=5s --start-period=${START} --start-interval
 ENTRYPOINT ${ENTRYPOINT}
 ```
 
----
 ## [2][LANGUAGE_SUBSTITUTION]
->**Dictum:** *Per-language values fill the universal template.*
-
-<br>
 
 | [INDEX] | [STACK]       | [BUILD_IMAGE]             | [RUNTIME_IMAGE]             |
 | :-----: | ------------- | ------------------------- | --------------------------- |
@@ -91,11 +80,7 @@ ENTRYPOINT ${ENTRYPOINT}
 - **NODE/JAVA** (Alpine): `addgroup -g 1001 -S nodejs && adduser -u 1001 -S -G nodejs -s /sbin/nologin nodejs`
 - **GO_DISTROLESS**: Built-in `nonroot` user (UID 65532) — no creation needed
 
----
 ## [3][PNPM_MONOREPO]
->**Dictum:** *pnpm fetch + deploy pattern maximizes cache efficiency.*
-
-<br>
 
 **Stage sequence:** `base` (corepack enable) -> `deps` (fetch + install) -> `build` (nx build + pnpm deploy) -> `runtime`
 
@@ -112,11 +97,7 @@ ENTRYPOINT ${ENTRYPOINT}
 - `STOPSIGNAL SIGTERM` for graceful Node.js shutdown
 - Exemplar: the Dockerfile in the physical app root is the production reference.
 
----
 ## [4][CACHE_MOUNTS]
->**Dictum:** *Cache targets vary per package manager.*
-
-<br>
 
 | [INDEX] | [PKG_MGR]    | [CACHE_TARGET]                          |
 | :-----: | ------------ | --------------------------------------- |
@@ -141,11 +122,7 @@ ENTRYPOINT ${ENTRYPOINT}
 10. apt: Add `sharing=locked`
 11. apk: `apk add --no-cache` sufficient
 
----
 ## [5][FRAMEWORK_NOTES]
->**Dictum:** *Framework-specific patterns supplement the universal template.*
-
-<br>
 
 | [INDEX] | [FRAMEWORK]        | [KEY_PATTERNS]                                                                                                                 |
 | :-----: | ------------------ | ------------------------------------------------------------------------------------------------------------------------------ |
@@ -156,11 +133,7 @@ ENTRYPOINT ${ENTRYPOINT}
 |   [5]   | **Django**         | gunicorn `--bind 0.0.0.0:8000 --workers 4`, collect static in build stage                                                      |
 |   [6]   | **Remix**          | `output: 'server'`, copy `build/server` + `build/client` + `public`                                                            |
 
----
 ## [6][BUILD_ORCHESTRATION]
->**Dictum:** *Bake and buildx enable multi-platform, multi-target builds.*
-
-<br>
 
 ```hcl
 variable "GIT_SHA"    { default = "unknown" }

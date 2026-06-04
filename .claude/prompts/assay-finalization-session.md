@@ -2,8 +2,6 @@
 
 Paste to start the next `assay` session. **Ultracode**: author and run a workflow per phase; correctness/exhaustiveness over cost; the orchestrator holds architectural authority and the value filter. The goal of this session is to make `assay` **provably correct, 100% resilient (no fragile logic, no latent bugs), at full functional parity with the old tool, and then fully optimized** — agent-first, blazing fast, with the absolute minimum agent-facing surface and the maximum internal power.
 
----
-
 ## [1] WHERE / WHAT / STATE
 
 - **Tool (PROMOTED, live):** `tools/assay/` — the agent-first polyglot quality keychain. Modules: `core/{status,model,engine,routing,aspect}.py`, `composition/{settings,catalog,registry}.py`, `rails/{static,code,test,docs,bridge,package,api}.py`, `automation/{model,engine}.py`, `__init__.py`, `__main__.py`. Invoke: `uv run python -m tools.assay <claim> <verb> [args]`. Claims: `static`/`code`/`test`/`bridge`/`package`/`api`/`docs` (+ `self-test` on root, + an `automation` watch/schedule arm). It supersedes `tools/quality/` (C#-only) and the `package.json` quality scripts.

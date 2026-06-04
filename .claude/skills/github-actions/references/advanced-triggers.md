@@ -1,13 +1,6 @@
 # [H1][ADVANCED-TRIGGERS]
->**Dictum:** *Trigger selection determines security context, secret access, and orchestration capability.*
 
-<br>
-
----
 ## [1][TRIGGER_SELECTION]
->**Dictum:** *Scenario determines trigger type; path filters scope execution.*
-
-<br>
 
 | [INDEX] | [SCENARIO]                    | [TRIGGER]                           | [SECRETS] | [PATH_FILTER] |
 | :-----: | ----------------------------- | ----------------------------------- | :-------: | :-----------: |
@@ -29,11 +22,7 @@ on:
     paths: ['packages/frontend/**', 'packages/shared/**']
 ```
 
----
 ## [2][WORKFLOW_RUN]
->**Dictum:** *Workflow chaining runs with target branch context for safe secret access.*
-
-<br>
 
 ```yaml
 on:
@@ -55,11 +44,7 @@ jobs:
 
 [IMPORTANT] Max 3 levels of chaining. Artifacts accessible via `run-id` from triggering workflow.
 
----
 ## [3][REPOSITORY_DISPATCH]
->**Dictum:** *External API triggers enable cross-system orchestration.*
-
-<br>
 
 ```yaml
 on:
@@ -82,11 +67,7 @@ curl -X POST -H "Authorization: Bearer $TOKEN" -H "Accept: application/vnd.githu
 
 [CRITICAL] Only triggers on default branch. Cross-repo dispatch requires App token or PAT.
 
----
 ## [4][CHATOPS]
->**Dictum:** *Issue comment triggers require permission validation and argument sanitization.*
-
-<br>
 
 ```yaml
 on:
@@ -111,11 +92,7 @@ jobs:
 
 [IMPORTANT] Verify `author_association`. Pass comment content through `env:` indirection. [REFERENCE] [->expressions-and-contexts.md§INJECTION_PREVENTION](./expressions-and-contexts.md).
 
----
 ## [5][WORKFLOW_DISPATCH]
->**Dictum:** *Manual triggers accept typed inputs with UI rendering.*
-
-<br>
 
 ```yaml
 on:
@@ -137,19 +114,11 @@ on:
 
 **`ref` parameter:** API triggers specify branch/tag/SHA via `ref` field in request body. UI triggers use branch picker dropdown. Max 25 inputs, 65,535 chars payload.
 
----
 ## [6][SCHEDULE]
->**Dictum:** *Cron schedules run in UTC with no native timezone support.*
-
-<br>
 
 [IMPORTANT] All `schedule` cron expressions evaluate in **UTC only** (no timezone override). Timezone support is on GitHub roadmap (Q1 2026 preview). Convert local times manually. Schedules only run on the default branch.
 
----
 ## [7][MERGE_GROUP]
->**Dictum:** *Merge queue validates combined changes before merge to target branch.*
-
-<br>
 
 ```yaml
 on:
@@ -167,11 +136,7 @@ jobs:
 
 **Context properties:** `base_ref`, `base_sha`, `head_ref`, `head_sha`, `head_commit.*`
 
----
 ## [8][PULL_REQUEST_TARGET]
->**Dictum:** *Target-branch triggers require strict isolation from PR head code.*
-
-<br>
 
 **Dec 8, 2025 enforcement (active):** Workflow source always comes from default branch — no matter which branch the PR targets. `GITHUB_REF` resolves to `refs/heads/main`; `GITHUB_SHA` points to default branch HEAD at run start. Environment protection rules evaluate against the execution ref. This eliminates "pwn request" attacks where malicious PRs modified workflow definitions.
 
@@ -195,11 +160,7 @@ jobs:
             });
 ```
 
----
 ## [9][DYNAMIC_MATRIX]
->**Dictum:** *Dynamic matrix generation enables data-driven parallel job execution.*
-
-<br>
 
 ```yaml
 jobs:
@@ -235,11 +196,7 @@ jobs:
 
 [IMPORTANT] `uses:` values are static strings — not dynamically generated. Max 256 jobs per matrix.
 
----
 ## [10][ORCHESTRATION_PATTERNS]
->**Dictum:** *Promotion chains, reusable workflows, and concurrency groups enforce deployment order.*
-
-<br>
 
 | [INDEX] | [PATTERN]                 | [KEY_RULES]                                                                                                |
 | :-----: | ------------------------- | ---------------------------------------------------------------------------------------------------------- |

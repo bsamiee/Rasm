@@ -2,8 +2,6 @@
 
 Type authority for Python 3.14+. All snippets assume expression v5.6+ and PEP 695/696 type syntax.
 
----
-
 ## Type Features
 
 PEP 695 `type` aliases (lazy-evaluated, no forward-reference quoting), PEP 696 defaults on type parameters, `Literal` vocabularies as compile-time value sets, `TypeIs` (PEP 742) for complement-narrowed predicates, and `@overload` for input-dependent return type narrowing — composed through `Result` rails and `@effect.result` generators to eliminate `if`/`else` dispatch entirely.
@@ -132,8 +130,6 @@ def project(t: Transition) -> Transform:
 - `TypeIs` (PEP 742) bridges phantom parameter erasure at boundaries — `isinstance` cannot distinguish `Signal["raw"]` from `Signal["cal"]` at runtime. The predicate re-derives the phantom tag from **both** calibration post-conditions: phase $\in [0, \tau)$ (`PhaseAlign`) **and** RMS $\approx 1.0$ (`RmsNorm` normalizes samples by their RMS). Checking phase bounds alone is unsound — a raw signal with naturally-bounded phase would pass. Both stages must leave observable invariants for the predicate to be a valid witness. Domain-internal code uses `Morph[A, B]` for static proof; `TypeIs` is reserved for deserialization, FFI, and dynamic dispatch boundaries.
 - `Morph[A: Stage, B: Stage]` constrains the callable algebra to valid stage transitions — unbounded phantom parameters accept any type including nonsense tags. `block.fold` accumulates sum-of-squares via `fma` and count in one pass; `filter_with` gates on the energy floor with `Rejection[P]` carrying the failing configuration. `PhaseAlign` demonstrates total refinement — modular wrapping maps all reals to the valid range without failure witness.
 
----
-
 ## Refined Scalars and Smart Constructor Rails
 
 `Constraint` union replaces stringly-typed validation — `Modular` and `Bounded` carry configuration, `Literal["bit_aligned"]` replaces the zero-field marker class. `Violation` carries `Literal`-discriminated field identity and the failing constraint as structured error context, composed through `@effect.result` generator sequencing.
@@ -203,8 +199,6 @@ def mk_tone(p: float, a: float, r: float) -> Result[Tone, Violation]:
 
 `Literal["bit_aligned"]` replaces the zero-field marker dataclass `BitAligned()` — marker classes with no fields add no information beyond their tag, which `Literal` provides natively with exhaustive `match/case` support via `case "bit_aligned":`. `ViolationField` PEP 695 alias replaces the nested `Enum` class — bounded string vocabularies are `Literal`'s domain per type discipline when they serve as phantom tags or dataclass field discriminants; `StrEnum` is reserved for vocabularies needing programmatic iteration, runtime identity, or method dispatch. `Bounded` rejects IEEE 754 specials — `isfinite` gates infinities/NaN, `frexp` exponent $\leq -1022$ rejects subnormals (denormalized representation causes DSP pipeline stalls). `bit_aligned` gates on integrality of the original value before power-of-2 validation — `float(int(v))` truncation would silently accept non-integral inputs like `8.5` as valid. `@effect.result` flattens the three-bind chain into `yield from` sequencing. `kw_only=True` on `Tone` prevents silent positional swap of type-compatible `NewType` fields.
 
----
-
 ## Tagged Unions and Exhaustive Dispatch Contracts
 
 `Sink.weight` parameterizes absorbing-state behavior: self-loop adjacency `(0, weight)` and single-element entropy $-w \log_2 w$ ensure the field carries analytical weight, not dead storage.
@@ -270,8 +264,6 @@ def entropy(phase: Phase) -> float:
 
 Self-loop `(0, w)` for `Sink` makes the absorbing transition explicit in graph structure. Match-based coefficient extraction unifies `Sink → (w,)` and `Emitting → coeffs` into one `sumprod` pipeline — `Sink` contributes $-w \log_2 w$, collapsing to 0 only at $w = 1$ (certain absorption). `seq.filter(bool)` gates zero-probability coefficients before $\log_2$ — domain restriction is structural, not conditional.
 
----
-
 ## Literal Vocabularies and Key Routing Types
 
 Minkowski signature $(-1, 1, 1)$ makes the metric physically non-trivial — the inner product can be negative (timelike), exposing sign-dependent bugs that Euclidean identity metrics silently pass. Single-pass `block.fold` accumulates resolved components and gap axes simultaneously.
@@ -315,8 +307,6 @@ def contract(u: Map[Axis, float], v: Map[Axis, float], metric: Metric = (-1.0, 1
 
 `zip(Axis, metric)` makes the zipped iterator the single source of truth versus parallel `ClassVar` lookups. `map2` expresses independent combination (both `Some` required) versus `bind`'s sequential dependency — the applicative/monadic distinction matters for reasoning about failure independence.
 
----
-
 ## Collection Invariants and Non-Empty Semantics
 
 Where domain semantics require $\geq 1$ member, the emptiness check is paid once at construction — every downstream fold, map, and projection inherits the non-empty proof through its return type.
@@ -357,8 +347,6 @@ def gram(basis: Span[Vec]) -> tuple[Span[Vec], float]:
 ```
 
 PEP 695 infers `T` covariant from field/return positions — no manual `TypeVar("T", covariant=True)`. `reduce` seeds `block.fold` with `head`, making seedless reduction total by type. `gram` uses `block.map` per row — $O(n)$ materialization versus the quadratic `(*acc, sumprod)` fold — and extracts condition number via single-pass `(lo, hi)` accumulation. `hypot(*v)` avoids intermediate overflow that `sqrt(sumprod(v, v))` silently corrupts.
-
----
 
 ## Boundary Projection Types and Compatibility Shapes
 
@@ -442,8 +430,6 @@ def project(version: Version, s: Sample) -> Result[Egress, QOverflow]:
 
 `_EgressBase` config: `gc=False` (leaf int-only structs, no reference cycles), `tag_field="v"` (O(1) discriminated-union wire decoding), `forbid_unknown_fields=True` (strict deserialization). Version is a precision discriminant — V1 at $10^4$, V2 at $10^6$. `@curry_flip(1)` + walrus produces a reusable `float → int` quantizer per scale; `@overload` stubs narrow return type per `Literal` version, eliminating runtime `isinstance` at consumption sites.
 
----
-
 ## Callable Signature Algebra and Decorator Compatibility
 
 `Wrapped[**P, T, E = Never]` is the morphism object of the decorator algebra: `**P` and `T` remain rigid while `E` widens under union at each stacking layer. `block.fold(with_concern, fn)` makes composition left-associative over `Block[Concern]` — decorators.md, effects.md, and validation.md consume these contracts.
@@ -509,8 +495,6 @@ def apply_concerns[**P, T, E](concerns: Block[Concern], fn: Wrapped[P, T, E]) ->
 ```
 
 Match outside the wrapper binds concern coefficients at decoration time — per-call wrappers see closed-over configuration and a rigid `[**P, T, E]` signature. `Budget` post-gates (fn executes, result filtered); `Quota` pre-gates (capacity checked before invocation). See transforms.md for stateful `ContextVar`-backed concerns (Retry, Govern) composing via the same fold.
-
----
 
 ## Rules
 

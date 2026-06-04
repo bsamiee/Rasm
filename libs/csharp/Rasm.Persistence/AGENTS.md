@@ -1,15 +1,8 @@
 # [H1][RASM_PERSISTENCE_AGENTS]
->**Dictum:** *Keep durability local, typed, and outside solve paths.*
-
-<br>
 
 [CRITICAL] Build `Rasm.Persistence` now as one local durable-state platform: store rail, query algebra, migrations, and read-only live-state projection. Add package references centrally (no version numbers in `.csproj`), create the `.csproj`, and scaffold the folder structure in Phase 0 before heavy work. Build the store core fully; integrate snapshot and companion lanes with the concern that owns them.
 
----
 ## [1][OWNER_CONTRACT]
->**Dictum:** *Persistence owns storage semantics, not orchestration.*
-
-<br>
 
 - Use SQLite-local storage as the default plugin/app lane. Store file path: `RhinoApp.GetDataDirectory(persistentSettings:true)` — never `Environment.SpecialFolder`.
 - Keep Postgres/Npgsql as companion-service-only guidance; Npgsql never appears in the Persistence `.csproj`.
@@ -26,11 +19,7 @@
 - Encryption-at-rest is deferred; return `NativeEncryptionUnavailable` receipt case; document reliance on file-system (APFS) encryption.
 - `RhinoCommon.PlugIn.Settings` is a complementary KV store for lightweight UI prefs — it coexists with the SQLite store; it is not a replacement.
 
----
 ## [2][BOUNDARY_RULES]
->**Dictum:** *No storage concern enters the computational kernel or solve loop.*
-
-<br>
 
 | [INDEX] | [BOUNDARY]         | [RULE]                                                                            |
 | :-----: | ------------------ | --------------------------------------------------------------------------------- |
@@ -41,11 +30,7 @@
 |   [5]   | `Rasm.AppUi`       | Consume `IObservable<AppState>` only; call `ObserveOn(RasmUiScheduler.RxScheduler)` |
 |   [6]   | Support bundles    | AppHost collects; Persistence stores, redacts, exports, cleans                    |
 
----
 ## [3][INTEGRATION_CORRECTIONS]
->**Dictum:** *Fix wrong assumptions before they enter production code.*
-
-<br>
 
 [CRITICAL] These are definitive: treat violations as bugs.
 
@@ -61,11 +46,7 @@
 |   [8]   | Downgrade guard via `__EFMigrationsHistory` alone         | Also check `PRAGMA user_version` (the integer schema-version mirror) on `StoreOpen` as the fast-path gate before EF initialization. |
 |   [9]   | `BehaviorSubject<AppState>.OnNext` called from multiple threads | `BehaviorSubject` is not thread-safe. Serialize all `OnNext` calls through a lock or single-concurrency scheduler inside the fold worker. |
 
----
 ## [4][EVIDENCE]
->**Dictum:** *Source slices produce store evidence.*
-
-<br>
 
 Executable proof comes from source and store scenarios. Evidence categories:
 
@@ -82,11 +63,7 @@ Executable proof comes from source and store scenarios. Evidence categories:
 - Online backup (`SqliteConnection.BackupDatabase`) receipt.
 - `NativeEncryptionUnavailable` receipt returned, not thrown.
 
----
 ## [5][REJECTIONS]
->**Dictum:** *Persistence is not a cache for computation.*
-
-<br>
 
 - No GH solve hot-path calls.
 - No domain references to EF or SQLite.

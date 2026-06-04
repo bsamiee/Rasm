@@ -9,7 +9,6 @@ Operate as a senior developer in a bleeding-edge monorepo; use the newest viable
 - [ALWAYS] If an external contract requires a different name, isolate mapping at boundary adapters and keep canonical names internally.
 - [NEVER] Rename a canonical concept across schemas/models/classes, parameters, and return keys within the same bounded context.
 
----
 ## [1][REQUIRED_STANDARDS]
 
 If reviewing, refining, editing, creating, or modifying X file type, use skill Y (required):
@@ -30,7 +29,6 @@ If reviewing, refining, editing, creating, or modifying X file type, use skill Y
 - [ALWAYS] Treat `.claude/skills/*` as project skill context and `/Users/bardiasamiee/.codex/skills/*` as Codex runtime skill context; keep overlapping standards mirrored when they govern this repo.
 - [ALWAYS] Documentation mechanics, structure, prose, and evidence rules come from `docs/standards`.
 
----
 ## [2][BEHAVIOR]
 
 [IMPORTANT]:
@@ -42,7 +40,6 @@ If reviewing, refining, editing, creating, or modifying X file type, use skill Y
 [CRITICAL]:
 - [NEVER] Use emojis; use `[X]` style markers with concise UPPERCASE formatting.
 
----
 ## [3][DEPENDENCY_POLICY]
 
 [IMPORTANT]: **External-Lib-First**: approved dependencies are primary implementation surface.
@@ -58,7 +55,6 @@ If reviewing, refining, editing, creating, or modifying X file type, use skill Y
 - [ALWAYS] Keep RhinoWIP/GH2/Eto/System.Drawing host assemblies resolved through `Directory.Build.props` app-bundle references; if SDK compilation needs a NuGet reference surface, add it only as a conditioned central compile package.
 - [NEVER] Add unused `PackageVersion` entries as future intent.
 
----
 ## [4][UNIVERSAL_CONSTRAINTS]
 
 [CRITICAL]:
@@ -90,7 +86,6 @@ If reviewing, refining, editing, creating, or modifying X file type, use skill Y
 - [ALWAYS] Consider `tools/cs-analyzer` when a repeated C# optimization pattern is proven by diffs. Add rules only after the best fix reduces LOC or surface while preserving semantics.
 - [ALWAYS] Use indexed `Map(..., index)` plus `TraverseM(identity)` when an indexed effectful traversal is needed and no native indexed `TraverseM` exists; do not replace it with an index-threaded fold unless the fold carries additional algorithm state.
 
----
 ## [5][OUTPUT]
 
 [IMPORTANT]:
@@ -150,7 +145,6 @@ Three orthogonal rails: static analysis, unit tests, runtime verification. Each 
 - [ALWAYS] Prefer FEWER deep, complex surfaces over MANY loose, simple ones. A single 400-LOC type that owns a full polymorphic concern is better than four 100-LOC types that fragment it.
 - [ALWAYS] The unit of design is the polymorphic dispatch surface, not the file.
 
----
 ## [6][FILE_ORGANIZATION]
 
 [IMPORTANT] **Section separators**: language comment marker + space + `---` + bracketed UPPERCASE label with spaces replaced by `_` + dash fill to 90 columns.
