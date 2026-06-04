@@ -8,6 +8,7 @@ row carries ``Mode.MUTATION``, so ``--mutation`` on a TS-only request folds to `
 """
 
 from dataclasses import dataclass
+from pathlib import Path  # noqa: TC003  # unconditional: cyclopts resolves TestParams.target's `Path | None` at CLI-build (PEP 649)
 from typing import TYPE_CHECKING
 
 from expression import Result  # noqa: TC002  # unconditional: beartype @checked resolves the handler forward-ref (PEP 649)
@@ -33,8 +34,6 @@ from tools.assay.core.routing import route  # intra-package import; tools.assay 
 
 
 if TYPE_CHECKING:
-    from pathlib import Path
-
     from expression.collections import Block
 
     from tools.assay.core.model import AnyDetail, Completed, Language, Tool  # intra-package import; tools.assay is the package root
