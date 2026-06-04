@@ -35,6 +35,7 @@ One member instance serves Cyclopts token, `msgspec` wire value, and `match` key
 - Add a `Detail` variant: one new `msgspec.Struct` subclassing `Detail` with a new explicit short `tag`, one entry in the `AnyDetail` union, one `_DETAIL_DECODER` rebuild.
 - Add an aspect: one new `Layer` factory in `core/aspect.py` + a new `Slot` member + a new seam entry. The `compose` sort picks it up automatically.
 - Add an automation trigger/action: one tagged case on `Trigger`/`Action` unions in `automation/model.py`.
+- Add an in-process tool: one catalog row with `Runner.INPROC` + a bound `Tool.thunk` (`Callable[[Check], Completed]`); `engine._guarded` runs it on a worker thread (`anyio.to_thread`) under the same `fail_after` deadline + `traced` span, folded through the identical `Completed`→`fold` rail as a subprocess (this is the `code query` tree-sitter path).
 
 **Never** add a parallel type, a parallel param, a second rail shape, a new module for a program, or a helper file for indirection.
 Functionality is never removed to reduce LOC — density is concept count, not byte count.
@@ -60,6 +61,7 @@ Use every library **at its intended power**. Hand-rolling a lower-level reimplem
 | `aiocron` | adopted | `crontab(spec, start=False)` `Schedule` trigger under one task group; zero data-store. |
 | `fsspec`/`universal-pathlib` | adopted | `ArtifactStore` backend abstraction; `UPath` for all path fields; `memory://` gives zero-IO test isolation. |
 | `asyncssh` | adopted | `_run_remote` backend in `core/engine`; `conn.run`/`create_process` for `exec_target=ssh://…`. |
+| `tree-sitter` (+py/ts grammars) | adopted | `code query` AST search via `Runner.INPROC`; `Language(capsule)`/`Parser`/`Query(lang, src)`/`QueryCursor` — 0.25.x captures live on `QueryCursor`, not `Query`. |
 
 ---
 ## [4][HARD_ANTI-SPAM_DOCTRINE]
@@ -97,21 +99,30 @@ Stop and collapse before merging any of these:
 
 **(f) `_WRITES`/`_RING` are per-invocation `ContextVar`s.** The automation loop reuses `rail()` per fire; both vars are set fresh in the `try` block of `rail.run` and reset in the `finally`. A process-static `count()` would fault every fire after the first. Do not hoist them out of the per-invocation scope.
 
+**(g) Inherent power, never flags.** Improve a tool by deepening its internal behavior/resilience/integration — never by adding an agent-facing knob. Agents must be unable to mis-invoke or feed wrong I/O; the tool auto-routes and self-describes on failure. Minimal agent surface, maximal internal value. New capability rides inherent behavior, a new claim/verb, or a richer `Detail`/`Match` — not a flag.
+
+**(h) Terse agent wire; never truncate silently.** `Envelope` is `omit_defaults=True` (only non-default fields emit; `schema_version` always). A capped inline collection MUST set `truncated=true` AND persist the full set to an on-disk artifact whose pointer rides `report.artifacts` — a capped list with neither is information loss, not a terse wire. `Fault` never carries `FAILED` (a defect rides `Completed(FAILED)` on the success channel); the Error channel is `faulted`/`busy`/`timeout` only.
+
+**(i) Resilience before optimization.** Prove correctness + full old-tool parity + resilience (no fragile logic, no latent bugs, every path runs) before optimizing. Never optimize on a fragile base; never trade a capability for speed.
+
+**(j) Tree-walking tools self-walk via `Input.NONE`.** ast-grep `run`/`scan` and biome `ci` walk a tree themselves (respecting `.gitignore`); they take a directory/file PATH, never a `**/*.py` glob (ast-grep rejects a glob as a path → ENOENT → silent zero matches — this once made the static ast-grep lint inert). Splice the target paths into `tool.command` with `Input.NONE`; only a tool consuming an explicit file list (tree-sitter INPROC) takes `Input.FILES`. Add `--no-ignore hidden` where one tool's walk must cover the same tree as another's `fd` file list.
+
 ---
 ## [6][HOW_TO_CHECK_FOR_REAL_BUGS]
 
-The static gate is necessary but not sufficient. A tool that passes all six static checks — `ruff check`, `ruff format --check`, `ty check`, `mypy --strict`, `py_compile`, `import tools.assay._TMP.__main__` — can still crash on every invocation due to beartype forward-ref shadowing, async-span wrapping, or nested-anyio defects. These only surface at runtime.
+The static gate is necessary but not sufficient. A tool that passes every static check — `ruff check`, `ruff format --check`, `ty check`, `mypy --strict`, `import tools.assay.__main__` — can still crash on every invocation due to beartype forward-ref shadowing, async-span wrapping, or nested-anyio defects. These only surface at runtime.
 
 **Always verify a change by running it:**
 
 ```bash
-uv run python -m tools.assay._TMP <claim> <verb>          # minimal smoke
-uv run python -m tools.assay._TMP static plan             # zero-spawn plan fold
-uv run python -m tools.assay._TMP api doctor              # api health with ilspy
-uv run python -m tools.assay._TMP self-test               # preflight census
+uv run python -m tools.assay <claim> <verb>          # minimal smoke
+uv run python -m tools.assay static plan             # zero-spawn plan fold
+uv run python -m tools.assay api doctor              # api health with ilspy
+uv run python -m tools.assay self-test               # preflight census
+uv run python -m tools.assay code search --pattern '<pat>' --language python   # code arm
 ```
 
-Inspect the single stdout Envelope; structlog diagnostics ride stderr. A `faulted` Envelope with `error_context.hint` names the failing step. Treat every "all green" static claim in docs as a hypothesis to re-verify at runtime — not established fact.
+Inspect the single stdout Envelope; structlog diagnostics ride stderr. The success wire is **terse** (`Envelope` `omit_defaults=True`) — `status`/`exit_code` are omitted on a clean OK run, so decode via the typed `Envelope` (or `.get(...)`), never assume a raw `dict["status"]`. A `faulted` Envelope's `error_context.failing_step`/`hint` names the failing stage. Treat every "all green" static claim as a hypothesis to re-verify at runtime — and run `uv run ruff clean` before an authoritative gate: a warm ruff cache silently masked ~9 real D-rule/E501 violations during this tool's promotion.
 
 ---
 ## [7][OWNERSHIP_TABLE]
@@ -127,6 +138,7 @@ Inspect the single stdout Envelope; structlog diagnostics ride stderr. A `faulte
 | `composition/catalog.py` | `TOOLS` rows, `select(claim, language)`, parser functions | Handlers, registry, inline parser bodies |
 | `composition/registry.py` | `REGISTRY` binds, `rail`, `_emit` (sole stdout writer), `build_app` | Tool argv logic |
 | `rails/{static,test,docs}.py` | One `thin_rail` + thin adapters → `Result[Report, Fault]` | New status types, helper modules |
+| `rails/code.py` | `code` search/rewrite/query: ast-grep `run` (Input.NONE self-walk) + tree-sitter INPROC; `Match`/`Artifact` results, no `Detail`; `rewrite --apply` leased | New status types; glob-as-path argv |
 | `rails/{bridge,package,api}.py` | Bespoke folds + typed `Detail` variants | Catalog argv, second stdout writer |
 | `automation/model.py` | `Trigger`/`Action` tagged unions | Treating automation as a `Claim` |
 | `automation/engine.py` | One anyio task-group drive loop (watchfiles/aiocron), one Envelope per fire | A second `_emit`, per-fire `BUSY` retry |
@@ -134,13 +146,13 @@ Inspect the single stdout Envelope; structlog diagnostics ride stderr. A `faulte
 ---
 ## [8][VALIDATION_LADDER]
 
-After any `.py` change:
+After any `.py` change (from the repo root — a wrong cwd reports phantom errors):
 
 ```bash
-uv run ruff check tools/assay/_TMP
-uv run ruff format --check tools/assay/_TMP
-uv run ty check tools/assay/_TMP
-uv run mypy --strict --explicit-package-bases tools/assay/_TMP
+uv run ruff clean                                              # authoritative gate needs a cold cache
+uv run ruff check tools/assay && uv run ruff format --check tools/assay
+uv run ty check --python-platform all tools/assay
+uv run mypy --strict --explicit-package-bases tools/assay
 ```
 
 Then run the tool: static-only passes mean nothing without a runtime smoke call.

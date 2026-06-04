@@ -16,7 +16,7 @@ Use this index when:
 - splitting, merging, moving, or deleting a document;
 - checking whether a standard is active.
 
-Do not use inactive material in `_TMP/` unless the user explicitly asks to integrate it.
+Unless the user explicitly asks to integrate it, do not use inactive material in `_TMP/`.
 
 ## Owner precedence
 
@@ -39,7 +39,7 @@ Read order is workflow order; owner precedence still decides conflicts.
 
 ## Reader-need map
 
-Diátaxis is the corpus map. Classify a document by what the reader is doing:
+Diátaxis is the corpus map. Classify a document by what the reader does:
 
 - Tutorial: a tested path that teaches a learner.
 - How-to: one real task for a competent reader.
@@ -105,7 +105,7 @@ Prefer one owner for a claim, and link across owners instead of copying the same
 
 ## Split and link
 
-Split a draft when it serves more than one primary reader need:
+When a draft serves more than one primary reader need, split it:
 
 - Move background from tutorials and how-to guides into explanation.
 - Move catalogs, option tables, and command inventories into reference or API documentation.
@@ -126,7 +126,7 @@ Maintain documentation like code:
 - Delete or replace dead documentation when it is known to be wrong.
 - Add a review trigger for a drift-prone claim, and prefer an explicit stale marker over silent uncertainty when a claim cannot be verified during maintenance.
 
-Do not preserve old paths, terminology, commands, or product claims as compatibility notes unless live product support and evidence justify them.
+Unless live product support and evidence justify them, do not preserve old paths, terminology, commands, or product claims as compatibility notes.
 
 ## Folder layout
 

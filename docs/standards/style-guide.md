@@ -27,14 +27,14 @@ Use the first source that decides a naming or wording question:
 4. This guide for local prose and notation rules.
 5. Established editorial style references for unresolved general mechanics.
 
-When sources conflict, choose the repo-local term only when a current owner or contract proves it, and do not alternate terms to dodge the conflict.
+When sources conflict, choose the repo-local term only when a current owner or contract proves it, and never alternate terms to dodge the conflict.
 
 ## Prose rules
 
 - Put the controlling rule, constraint, or outcome before supporting detail.
 - Keep one controlling idea in each paragraph.
 - Prefer concrete nouns and verbs over abstract labels.
-- Use active voice for instructions and decisions by default; use passive only when the actor is irrelevant or less important than the result.
+- Use active voice for instructions and decisions by default; when the actor is irrelevant or less important than the result, use passive.
 - Use present tense for durable standards, future tense for planned work, and past tense only for historical evidence or completed verification.
 - Write instructions as positive imperatives that name the action to take; convert `do not omit the unit` into `attach the unit to its value`. The cognition rationale for this framing is the position standard's concern.
 - Use `must`, `should`, and `may` only for requirements, recommendations, and permitted options.
@@ -49,6 +49,9 @@ Use a front-and-close shape. The first sentence carries the point: rule, claim, 
 
 - Use a comma before a coordinating conjunction joining two independent clauses.
 - Use a semicolon before and a comma after a conjunctive adverb joining two independent clauses, and do not join independent clauses with a comma alone.
+- Join elements of equal rank with a coordinating conjunction (for, and, nor, but, or, yet, so); subordinate one element to another with a subordinating conjunction (because, although, since, while, if, when).
+- Construct both arms of a correlative pair (both/and, either/or, not only/but also) in parallel; the conjunction signals the rank it joins, so the arms must match in form.
+- Use `that` for a restrictive clause; use `which`, set off by commas, for a nonrestrictive one.
 - Use the serial comma in lists of three or more items.
 - Break center-embedded or multi-condition sentences into shorter sentences.
 - Keep parallel items parallel in grammar and scope.
@@ -67,6 +70,7 @@ Use a front-and-close shape. The first sentence carries the point: rule, claim, 
 ## Punctuation, numbers, and notation
 
 - Use U.S. English spelling unless an official product or source name differs.
+- Form the possessive singular by adding `'s` regardless of the final consonant: `Charles's`, `the witness's`, `the boss's`.
 - Use sentence-style capitalization for headings and ordinary labels; reserve title case for titles of works, official labels, and externally required names.
 - Use numerals for versions, measurements, commands, flags, identifiers, and any value readers compare, and keep units attached to their values.
 - Use straight quotes and ASCII-safe punctuation in any Markdown a reader may copy into commands, code, config, or trackers; typographic punctuation is acceptable only in prose that is never copied as a literal.
@@ -87,7 +91,7 @@ Use a front-and-close shape. The first sentence carries the point: rule, claim, 
 
 Examples must prove shape or prevent misuse. Place an example beside the rule it clarifies per the form standard, and own only its wording here.
 
-- Prefer one accepted shape and one rejected shape when the distinction matters.
+- Prefer one positive shape and one rejected shape when the distinction matters.
 - Keep an example's wording consistent with the terminology it teaches.
 - When a block could be copied, run, or mistaken for current policy, mark its reuse risk; the intent-label vocabulary is the form standard's concern.
 

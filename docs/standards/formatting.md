@@ -4,7 +4,7 @@ description: Notation, status and invocation markers, table styling, and whitesp
 
 # Formatting
 
-This standard owns the presentation layer: the markers, alignment, whitespace, and heading idiom that visually render a container once its structure is chosen. It is the thin notation skin over form. It does not choose containers, decompose tables, write prose, or weigh evidence; it decides how a chosen structure looks and which markers carry status and emphasis. Keep this layer minimal — markers and styling earn their place by aiding an agent or reader, never by decorating the page.
+This standard owns the presentation layer: the markers, alignment, whitespace, and heading idiom that visually render a container once form chooses its structure. It is the thin notation skin over form. It does not choose containers, decompose tables, write prose, or weigh evidence; it decides how a chosen structure looks and which markers carry status and emphasis. Keep this layer minimal: markers and styling earn their place by aiding an agent or reader, never by decorating the page.
 
 ## Use when
 
@@ -36,16 +36,16 @@ Do not bring invocation markers into the prose standards or ordinary documentati
 
 ## Table styling
 
-Style a table for scanning once form has decided it is a table:
+Once form chooses a table, style it for scanning:
 
 - Alignment: left-align text and identifier columns, right-align numeric and measurement columns, center status tokens, booleans, and single glyphs.
 - Header case: title-case column headers in prose documents; instruction files may use bracketed uppercase rubrics to match their idiom.
 - Empty cells: mark an absent or not-applicable value with an em-dash (`—`); never leave a cell blank, since a blank cell is ambiguous to an agent reading raw Markdown.
-- Stub column: align the first column left, or center it when it is a pure index; the form standard sets what the stub column may contain.
+- Stub column: align the first column left, or, when it is a pure index, center it; the form standard sets what the stub column may contain.
 
-The four alignment classes are encoded in the GFM separator row — left-align with `:---`, right-align with `---:`, center with `:---:`. A copy-safe skeleton:
+The GFM separator row encodes the four alignment classes — left-align with `:---`, right-align with `---:`, center with `:---:`. A copy-safe skeleton:
 
-```markdown
+```markdown copy-safe
 | Item   | Count | Status | Active |
 | :----- | ----: | :----: | :----: |
 | Mesh   |    42 | [PASS] |   ✓    |

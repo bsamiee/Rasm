@@ -2,9 +2,9 @@
 
 ## [0][SCOPE]
 
-These instructions apply only to `docs/standards/**`. They extend `CLAUDE.md` and the root `AGENTS.md`; they do not replace them. Keep this file a compact router for standards work, not a second style guide.
+These instructions govern `docs/standards/**` only. They extend `CLAUDE.md` and the root `AGENTS.md`; they do not replace them. Keep this file a compact router for standards work, not a second style guide.
 
-For Codex, nested project instruction files load from the repository root toward the current directory, and closer files override earlier project guidance.
+For Codex, closer files override earlier project guidance, and resolution loads nested project instruction files from the repository root toward the current directory.
 
 Source of truth: [OpenAI Codex `AGENTS.md` guide](https://developers.openai.com/codex/guides/agents-md)
 Last verified: 2026-06-04
@@ -14,11 +14,11 @@ Review trigger: OpenAI Codex project-instruction guidance changes.
 
 1. Read `CLAUDE.md`, root `AGENTS.md`, and `docs/usage.md`.
 2. Read `docs/standards/README.md`; it is the index, reader-need map, and router.
-3. Read the five shared standards when the change touches shared rules: `agentic-documentation.md`, `information-structure.md`, `style-guide.md`, `proof.md`, and `formatting.md`.
-4. Read exactly one matching type standard under `explanation/`, `reference/`, `task/`, or `learning/` when a document type is involved.
+3. If the change touches shared rules, read the five shared standards: `agentic-documentation.md`, `information-structure.md`, `style-guide.md`, `proof.md`, and `formatting.md`.
+4. If the change involves a document type, read exactly one matching type standard under `explanation/`, `reference/`, `task/`, or `learning/`.
 5. Read the target standards file fully before rewriting it.
 
-`docs/standards/_TMP/**` is inactive source material. Use it only when the user explicitly asks to integrate inactive material.
+`docs/standards/_TMP/**` is inactive source material. Use it only when the user explicitly asks to integrate it.
 
 ## [2][ROUTING]
 
@@ -31,11 +31,11 @@ Review trigger: OpenAI Codex project-instruction guidance changes.
 
 ## [3][REWRITE_RULES]
 
+- [ALWAYS] Preserve every load-bearing fact when restructuring; a dropped command, version, invariant, routing pointer, or field is a regression, not a simplification.
 - Pick one primary reader need before editing.
 - Apply standards implicitly in the rewritten prose; do not announce the technique inside the published document.
 - Prefer restructuring, deletion, and owner links over parallel rules.
 - Keep one concept under one owner; link adjacent standards instead of copying their bodies.
-- Preserve every load-bearing fact when restructuring; a dropped command, version, invariant, routing pointer, or field is a regression, not a simplification.
 - Put source of truth, scope, and high-risk constraints early, then close each major section with the boundary, proof, or next action that keeps the rule usable.
 - Do not bury high-impact constraints, exceptions, or route-away rules mid-paragraph or mid-list.
 - Use the container the form standard prescribes: prose for one relationship, bullets for peers, numbered lists for order, status-tagged records for trackable sets, tables for lookup, diagrams for relationships prose cannot show.
@@ -47,18 +47,18 @@ Use the front-and-close pattern at page and section level: the first sentence st
 
 ## [5][SENTENCE_DISCIPLINE]
 
+- Preserve official names, commands, paths, flags, and symbols exactly.
 - Use present tense for durable standards, future for planned work, past only for historical evidence.
 - Prefer active voice, concrete verbs, positive form, and one controlling idea per paragraph.
 - Keep parallel lists parallel in grammar and scope.
 - State a gating condition before the action it controls; a rule may trail a minor exception.
-- Preserve official names, commands, paths, flags, and symbols exactly.
 - Soft-wrap prose; protect copyable code, commands, and placeholders with ASCII-safe Markdown.
 
 ## [6][EXCLUSIONS]
 
 Do not publish live task instructions, conversation fragments, reasoning summaries, authoring notes, temporary local rationale, unverified provider behavior, private machine paths, secrets, or fixed multi-agent workflow counts in standards docs.
 
-Do not claim a Markdown linter, link checker, docs build, renderer, CI gate, or provider behavior exists unless current repository tooling or current primary documentation proves it.
+[NEVER] Claim a Markdown linter, link checker, docs build, renderer, CI gate, or provider behavior exists unless current repository tooling or current primary documentation proves it.
 
 ## [7][VALIDATION]
 

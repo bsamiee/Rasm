@@ -20,13 +20,13 @@ import msgspec
 import pytest
 from upath import UPath
 
-from tools.assay._TMP.composition.settings import (  # noqa: PLC2701  # _TMP is the staging package root, mirrored from the source convention
+from tools.assay.composition.settings import (  # noqa: PLC2701  # private package surface under test
     ArtifactScope,
     AssaySettings,
 )
-from tools.assay._TMP.core.model import Claim, Envelope, envelope as wrap_envelope, receipt  # noqa: PLC2701  # _TMP staging package root
-from tools.assay._TMP.core.status import RailStatus  # noqa: PLC2701  # _TMP staging package root
-from tools.assay._TMP.rails import bridge as bridge_rail, package as package_rail  # noqa: PLC2701  # _TMP staging package root
+from tools.assay.core.model import Claim, Envelope, envelope as wrap_envelope, receipt  # noqa: PLC2701  # private package surface under test
+from tools.assay.core.status import RailStatus  # noqa: PLC2701  # private package surface under test
+from tools.assay.rails import bridge as bridge_rail, package as package_rail  # noqa: PLC2701  # private package surface under test
 from tools.quality.rails import package as quality_package
 from tools.quality.settings import ArtifactScope as QualityScope, QualitySettings
 
@@ -36,7 +36,7 @@ if TYPE_CHECKING:
 
     from expression import Result
 
-    from tools.assay._TMP.core.model import Completed, Fault, Report  # _TMP staging package root
+    from tools.assay.core.model import Completed, Fault, Report
 
 
 # --- [MODELS] --------------------------------------------------------------------------
@@ -343,9 +343,9 @@ def yak_shape() -> YakShape:
 
 @pytest.fixture
 def ab_diff(assay_root: AssayHarness) -> Callable[[Claim, str], AbDelta]:
-    """Run a read-only ``_TMP`` rail and the matching ``tools.quality`` rail; decode both + the field delta.
+    """Run a read-only ``assay`` rail and the matching ``tools.quality`` rail; decode both + the field delta.
 
-    Both operators run in-process under isolated settings (zero host mutation): the ``_TMP`` rail folds a
+    Both operators run in-process under isolated settings (zero host mutation): the ``assay`` rail folds a
     ``Result[Report, Fault]`` wrapped to one ``Envelope`` (``report``/``error_context`` rails), and the
     quality rail payload decodes to its ``query``/``packages`` dict. ``mapping`` records the canonical
     ``rail↔claim``/``data↔report``/``evidence↔error_context`` correspondence the migration preserves.

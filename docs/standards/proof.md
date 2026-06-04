@@ -4,7 +4,7 @@ description: Evidence strength, freshness, verification, and agent-surface evalu
 
 # Proof
 
-Proof is a claim-level obligation. Each command, contract, status, version, support statement, generated artifact, diagram, procedure, or provider claim must point to evidence strong enough to refresh it. This standard owns evidence strength, freshness, conflict resolution, and verification. It does not own where a claim sits, which container presents it, or the words that phrase it.
+Proof is a claim-level obligation. Each command, contract, status, version, support statement, generated artifact, diagram, procedure, or provider claim must point to evidence strong enough to refresh it. This standard owns evidence strength, freshness, conflict resolution, and verification, and it does not own where a claim sits, which container presents it, or the words that phrase it.
 
 ## Use when
 
@@ -18,7 +18,7 @@ Apply this standard when documentation states:
 - machine-facing indexes, retrieval metadata, generated mirrors, tool catalogs, or other agent surfaces whose behavior is the claim;
 - current external-provider behavior.
 
-Add proof fields only when a claim can drift or a reader needs the source to trust it. Do not use evidence fields as page decoration.
+Add proof fields only when a claim can drift or a reader needs the source to trust it, and never use evidence fields as page decoration.
 
 ## Evidence hierarchy
 
@@ -43,7 +43,7 @@ When sources disagree, use the source closest to the executing system:
 - official versioned docs beat community examples;
 - newer primary sources beat older primary sources for changing tools.
 
-If a lower source is still useful, cite it as background and state which higher source controls the claim.
+If a lower source remains useful, cite it as background and state which higher source controls the claim.
 
 ## Freshness fields
 
@@ -66,7 +66,7 @@ Last verified: 2026-06-04
 Review trigger: static rail verbs or routing change in `tools/quality`.
 ```
 
-Carry only the fields the claim needs: a generated artifact adds `Generated from:` and `Source of truth:`, a settled command may need only `Evidence:`. When several claims share one schema, group them per the definition-block rules information-structure.md owns.
+Carry only the fields the claim needs: a generated artifact adds `Generated from:` and `Source of truth:`, and a settled command may need only `Evidence:`. When several claims share one schema, group them per the definition-block rules information-structure.md owns.
 
 ## Evidence placement
 
@@ -74,7 +74,7 @@ Place evidence close to the claim it proves. A source inventory at the top or bo
 
 ## Assertion and uncertainty
 
-State a verified fact plainly, and mark a genuine gap explicitly. A qualifier is load-bearing only when evidence is actually uncertain; in that case keep it and name the missing source, the unrun check, or the provisional status. When there is no evidence basis for doubt, the hedge is noise and the phrasing standard removes it. An existence, optionality, or scope qualifier on a fact — `optional`, `if present`, `where supported` — is part of the fact; preserve it when you relocate the fact, because flattening a hedged claim into an unconditional one loses information. Do not present training-data recall or assumption as verified fact; if a claim cannot be checked against a current source during the change, say so and mark it provisional rather than asserting it.
+State a verified fact plainly, and mark a genuine gap explicitly. A qualifier is load-bearing only when evidence is genuinely uncertain; in that case, keep it and name the missing source, the unrun check, or the provisional status. When no evidence basis for doubt exists, the hedge is noise and the phrasing standard removes it. An existence, optionality, or scope qualifier on a fact — `optional`, `if present`, `where supported` — is part of the fact, so preserve it when you relocate the fact, because flattening a hedged claim into an unconditional one loses information. Never present training-data recall or assumption as verified fact; if a claim cannot be checked against a current source during the change, state that gap and mark the claim provisional rather than asserting it.
 
 ## Preservation under refactor
 
@@ -105,15 +105,16 @@ This is the canonical docs-as-code gate ladder for the standard; the external-re
 | An operational procedure | run the documented steps, or state why a step is a review gate rather than an executable command. |
 | Visual layout is the claim | render screenshots, diagrams, PDFs, or pages. |
 
-Do not claim a gate passed unless it ran in the current change or a current status check proves it — recall that a gate would pass is not proof it did. If no configured gate exists, state that rather than inventing one.
+Do not claim a gate passed unless it ran in the current change or a current status check proves it — knowing a gate would pass is not proof it did. If no configured gate exists, state that rather than inventing one.
 
 ## Agent-surface evaluation
 
 Treat a machine-facing surface as a contract when it affects retrieval, generated mirrors, tool use, or structured output, and prove it with evaluation rather than assertion. Useful evaluation includes:
 
-- representative questions or tasks drawn from real maintenance failures, not invented happy paths;
+- 20-50 representative questions or tasks drawn from real maintenance failures, not invented happy paths;
 - a baseline comparison against the previous surface, manual route, or known failure;
-- repeated trials when the claim is about stochastic output, retrieval ranking, or tool selection;
+- 3-5 trials per case when the claim is about stochastic output, retrieval ranking, or tool selection;
+- a Wilson-score 95% confidence interval for binary rates — task pass, valid JSON, instruction-following — and a paired comparison against the baseline on the same task set;
 - exact checks for format and link correctness, plus a judge or source-trace review for retrieved or generated answers;
 - a transcript or trace, with model or provider version, configured tool set, token or context budget, latency, and tool errors when the surface owns them;
 - an unsupported-claim review and a tool-call failure review.
@@ -151,7 +152,7 @@ A compliant note names the command, the source path, and a freshness marker, and
 
 ```markdown copy-safe
 Claim: `static full` parity covers `Workspace.slnx`.
-Evidence: `uv run python -m tools.quality static full` — restore/build/analyzers green across the solution closure.
+Evidence: `uv run python -m tools.quality static full`; restore/build/analyzers green across the solution closure.
 Source of truth: `Workspace.slnx`; routing in `tools/quality/__main__.py`.
 Last verified: 2026-06-04
 ```

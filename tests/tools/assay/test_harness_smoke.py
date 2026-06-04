@@ -14,9 +14,9 @@ from typing import TYPE_CHECKING
 import pytest
 
 from tests.tools.assay.conftest import RailProbe
-from tools.assay._TMP.composition import registry  # noqa: PLC2701  # _TMP staging package root
-from tools.assay._TMP.core.engine import run_check  # noqa: PLC2701  # _TMP staging package root
-from tools.assay._TMP.core.model import (  # noqa: PLC2701  # _TMP staging package root
+from tools.assay.composition import registry  # noqa: PLC2701  # private package surface under test
+from tools.assay.core.engine import run_check  # noqa: PLC2701  # private package surface under test
+from tools.assay.core.model import (  # noqa: PLC2701  # private package surface under test
     Bind,
     Check,
     Claim,
@@ -27,9 +27,9 @@ from tools.assay._TMP.core.model import (  # noqa: PLC2701  # _TMP staging packa
     Runner,
     Tool,
 )
-from tools.assay._TMP.core.routing import Routed, Scope  # noqa: PLC2701  # _TMP staging package root
-from tools.assay._TMP.core.status import RailStatus  # noqa: PLC2701  # _TMP staging package root
-from tools.assay._TMP.rails import bridge as bridge_rail, package as package_rail  # noqa: PLC2701  # _TMP staging package root
+from tools.assay.core.routing import Routed, Scope  # noqa: PLC2701  # private package surface under test
+from tools.assay.core.status import RailStatus  # noqa: PLC2701  # private package surface under test
+from tools.assay.rails import bridge as bridge_rail, package as package_rail  # noqa: PLC2701  # private package surface under test
 
 
 if TYPE_CHECKING:
@@ -38,7 +38,7 @@ if TYPE_CHECKING:
     from expression import Result
 
     from tests.tools.assay.conftest import AbDelta, AssayHarness, BridgeResult, SshLoopback, YakShape
-    from tools.assay._TMP.core.model import Fault, Report
+    from tools.assay.core.model import Fault, Report
 
 
 # --- [OPERATIONS] ----------------------------------------------------------------------

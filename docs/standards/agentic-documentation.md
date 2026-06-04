@@ -4,11 +4,11 @@ description: Position, agent cognition, and machine-facing publication surfaces
 
 # Agentic documentation
 
-This standard owns position and agent cognition: where controlling content sits inside a unit, how serial-position salience governs that placement, and how machine-facing surfaces publish repository truth so agents can find, trust, and refresh it. It does not decide container form, sentence craft, or evidence strength. It also does not make model output trustworthy, authorize access, or sanitize untrusted content; documentation reduces ambiguity, never enforces it.
+This standard owns position and agent cognition: where controlling content sits inside a unit, how serial-position salience governs that placement, and how machine-facing surfaces publish repository truth so agents find, trust, and refresh it. It does not decide container form, sentence craft, or evidence strength. It also does not make model output trustworthy, authorize access, or sanitize untrusted content; documentation reduces ambiguity, never enforces it.
 
 ## Use when
 
-Apply this standard when a document or surface must place high-value content for an agent reader, or when publishing a machine-facing surface:
+Apply this standard when a document or surface places high-value content for an agent reader, or when you publish a machine-facing surface:
 
 - ordering a unit so the controlling rule leads and the binding constraint closes;
 - writing or revising local instruction files such as `AGENTS.md`;
@@ -21,22 +21,27 @@ Container choice, sentence mechanics, and evidence strength belong to the form, 
 
 ## Serial-position salience
 
-Place the controlling rule first and the binding constraint last in every unit, because attention is non-uniform across position. Models recall content near the start and end of a context more reliably than content in the middle, and that bias persists in current long-context frontier models rather than disappearing as windows grow. Treat the advertised context window as an upper bound, not a working budget: effective working context is roughly 60-70% of the nominal window, and the middle of a long unit is where high-value content is lost.
+Place the controlling rule first and the binding constraint last in every unit, because attention concentrates at sequence edges and that bias persists in current long-context frontier models rather than fading as windows grow. Treat the advertised context window as an upper bound, not a working budget: effective working context is roughly 60-70% of the nominal window, and the middle of a long unit is where high-value content is lost.
 
-Apply the pattern recursively at every scale:
+Apply the pattern recursively at every scale; this recursion — where high-value content sits, in what order, scale-invariant — is the rule this standard owns, distinct from which container carries it (information-structure) and the prose that realizes it (style-guide).
 
 - Document: lead with scope and the highest-risk constraint; close with boundaries and the proof or route that makes the document safe to reuse.
 - Section: open with what the section controls; end on its boundary or owner.
-- Paragraph: state the point first; qualify in the middle; close on the term, action, or constraint to retain.
-- Sentence: put the condition before the action it governs.
+- Paragraph and sentence: [style-guide.md](style-guide.md) owns the prose shape that realizes the ring.
 
-Salience is relative, not a hard cutoff: middle content is down-weighted, not erased. When a constraint is load-bearing and the unit is long, restate it in compact form at the close, near where an agent acts on it. Keep low-value inventories, history, and incidental detail out of the lead, and never bury a high-risk constraint, exception, or route-away rule mid-unit.
+Salience is relative, not a hard cutoff: the middle down-weights content, it does not erase it. If a constraint is load-bearing and the unit is long, restate it in compact form at the close, near where an agent acts on it. Keep low-value inventories, history, and incidental detail out of the lead, and never bury a high-risk constraint, exception, or route-away rule mid-unit.
 
 `Source of truth:` Anthropic, OpenAI, and Google prompt-engineering documentation; "Lost in the Middle" (Liu et al., 2023) and RULER (NVIDIA, 2024). `Last verified:` 2026-06-04.
 
 ## Context invariance
 
-The position ring holds whether the unit is a durable document or a task prompt. A standard, a retrieval chunk, an `AGENTS.md` overlay, and a one-shot instruction all reward the same shape: controlling content at the edges, supporting detail in the middle. Order a task prompt as high-level role and constraints first, source material and long context next, and the immediate ask plus a compact restatement of the binding constraints last. Do not rewrite an ordinary durable document into task-prompt shape, and do not bury a durable rule inside transient task framing.
+The position ring holds across every unit, whatever its lifetime or reader: controlling content at the edges, supporting detail in the middle. Three instantiations carry it.
+
+- Durable document: a standard or a reference page leads with scope and the highest-risk constraint and closes on boundaries and route; an `AGENTS.md` overlay is a position-ring instance of this same durable-document shape.
+- Task prompt: order high-level role and constraints first, source material and long context next, and the immediate ask last. If documents lead and the immediate ask closes, anchor the ask with a transition phrase such as "Based on the information above" so the model re-binds to the supplied context before reasoning, then restate the binding constraints in compact form.
+- Retrieval chunk: lead each chunk with the identity and constraint that let it stand alone once retrieval strips surrounding structure.
+
+Do not rewrite an ordinary durable document into task-prompt shape, and do not bury a durable rule inside transient task framing.
 
 ## Constraint stacking
 
@@ -46,13 +51,13 @@ Rank instructions so an agent resolves conflicts deterministically. State the ra
 - Preferences: defaults that hold unless a stated condition overrides them.
 - Defaults: starting choices an agent may replace when evidence is stronger.
 
-Remove contradictory instructions rather than layering a caveat on top of a conflicting rule; unresolved contradiction degrades instruction-following more than any single weak rule. When two rules can both apply, name which controls.
+Remove contradictory instructions rather than layering a caveat on top of a conflicting rule; unresolved contradiction degrades instruction-following more than any single weak rule. If two rules can both apply, name which controls.
 
 ## Framing for instruction-following
 
 Write instructions as positive imperatives that name the action to take, because agents follow an explicit target more reliably than a prohibition. Convert "do not leave the constraint implicit" into "state the constraint first." Reserve negative form for genuine hard boundaries, and pair each prohibition with the positive action that replaces it. Keep guidance clear, consistent, and in a high-salience position; current models are comparatively strong at following clear instructions and comparatively weak at reconciling vague or contradicted ones.
 
-When factual grounding matters, require evidence extraction before synthesis: have the agent quote or cite the source spans first, then reason from them. This quote-before-synthesis order reduces unsupported claims and keeps the proof trail inspectable.
+If factual grounding matters, require evidence extraction before synthesis: have the agent quote or cite the source spans first, then reason from them. This quote-before-synthesis order reduces unsupported claims and keeps the proof trail inspectable.
 
 ## Artifact separation
 
@@ -66,7 +71,7 @@ Do not publish task-specific interaction material as durable documentation. Prom
 
 ## Provider behavior
 
-Treat provider-specific guidance as preferred patterns within a converging ecosystem, not as iron laws, and adjust for model class: reasoning-tuned models want leaner prompts with fewer in-prompt examples, while standard models benefit from explicit few-shot structure.
+Treat provider-specific guidance as preferred patterns within a converging ecosystem, not as iron laws, and adjust for model class: reasoning-tuned models want leaner prompts with fewer in-prompt examples, whereas standard models benefit from explicit few-shot structure. Keep a single delimiter family — XML-style tags or Markdown sectioning, not both — consistent within one prompt.
 
 - Claude: structure prompts with explicit sections and XML-style tags marking instructions, context, and inputs; place high-level instructions early, long source documents in the middle, and the immediate task plus the critical reminder at the end. Favor durable workspace norms in `CLAUDE.md` or `AGENTS.md`.
 - GPT and Codex: state the outcome and success criteria first, remove conflicting instructions, and control length with an explicit verbosity or word budget. Move output schemas out of the prose and into the provider's structured-output mechanism wherever the result feeds a tool.
@@ -76,7 +81,7 @@ Treat provider-specific guidance as preferred patterns within a converging ecosy
 
 ## Task and output contracts
 
-When assembling a context-heavy task instruction, order it to the position ring and bound it to a contract the consumer can check.
+Order a context-heavy task instruction to the position ring, and bound it to a contract the consumer can check.
 
 Order a task instruction as:
 
@@ -87,13 +92,13 @@ Order a task instruction as:
 5. Output contract.
 6. Validation and stop rule.
 
-Bind machine-consumed output to the narrowest contract the consumer actually validates: a schema, a typed tool input, a generated model, a catalog entry, or a documented field list. Prefer a provider's schema-enforced structured output over a schema described in prose when the surface supports it, and treat output format as a tunable choice rather than a fixed default. When a human reviews the contract instead of tooling enforcing it, state that proof gap.
+Bind machine-consumed output to the narrowest contract the consumer actually validates: a schema, a typed tool input, a generated model, a catalog entry, or a documented field list. Close and total the schema — `additionalProperties: false` with every field marked required — so the consumer validates a fully-specified shape rather than a narrow-but-open one. Prefer a provider's schema-enforced structured output over a schema described in prose where the surface supports it, and treat output format as a tunable choice rather than a fixed default. If a human reviews the contract instead of tooling enforcing it, state that proof gap.
 
 ## AGENTS.md authoring
 
 Write `AGENTS.md` as a durable, behavioral overlay for one directory: what changes here, which standards and commands apply, and which patterns are forbidden. It complements the human-facing README; it does not duplicate it.
 
-Use a recommended minimal section set as the starting point, shared by both the include-list below and the rendered skeleton so the bullets and the skeleton headings line up. This set is the suggested baseline, not a closed vocabulary: a directory may extend it with additional bracketed sections (for example load order, navigation context, routing tables, or rewrite rules) or relabel a section when a clearer name fits its needs. What binds is the include/exclude content rule below, not the exact section names. Whatever sections you keep, include only stable, universal, behavioral content an agent acts on:
+Start from a recommended minimal section set, shared by both the include-list below and the rendered skeleton so the bullets and the skeleton headings line up. This set is the suggested baseline, not a closed vocabulary: a directory may extend it with additional bracketed sections (for example load order, navigation context, routing tables, or rewrite rules) or relabel a section where a clearer name fits its needs. What binds is the include/exclude content rule below, not the exact section names. Whatever sections you keep, include only stable, universal, behavioral content an agent acts on:
 
 - `Scope`: directory scope and purpose, and the read order an agent follows into the deeper rules;
 - `Routing`: routing to the standards and reference files that own deeper rules, and ownership of conflicting guidance;
@@ -101,7 +106,7 @@ Use a recommended minimal section set as the starting point, shared by both the 
 - `Exclusions`: forbidden patterns, security constraints, and known gotchas;
 - `Validation`: the gate that proves a change here, plus `Source of truth:` and `Last verified:` for any provider-behavior claim.
 
-Render the overlay from this copy-safe heading skeleton, treated as an illustrative template rather than a fixed set, so an author copies the shape rather than reconstructing it from prose and then extends or relabels sections as the directory requires:
+Render the overlay from this copy-safe heading skeleton, an illustrative template rather than a fixed set, so an author copies the shape rather than reconstructing it from prose and then extends or relabels sections as the directory requires:
 
 ```markdown conceptual
 # <Directory> agents
@@ -131,7 +136,7 @@ Exclude content that rots or wastes context:
 - large auto-generated reference dumps;
 - logs, transient state, or per-session task notes.
 
-Layer files by scope and keep each lean. Resolution concatenates from repository root toward the edited file, so the closest file wins on conflict while higher-level files contribute non-conflicting defaults. Place a file only where a directory carries guidance specific to that level and needed across sessions; every word loaded costs reasoning budget, so a top-level overlay should stay near one screen. Start from the recommended `Scope`, `Routing`, `Execution rules`, `Exclusions`, `Validation` skeleton above, and extend or relabel its sections where the directory needs more. Iterate the file from observed agent failures rather than from speculation, and record provider-behavior claims with `Source of truth:` and `Last verified:` beside the claim.
+Layer files by scope and keep each lean. Resolution concatenates from repository root toward the edited file, so the closest file wins on conflict while higher-level files contribute non-conflicting defaults. Place a file only where a directory carries guidance specific to that level and needed across sessions; every word loaded costs reasoning budget, so a top-level overlay should stay near one screen. Start from the recommended `Scope`, `Routing`, `Execution rules`, `Exclusions`, `Validation` skeleton above, then extend or relabel its sections where the directory needs more. Iterate the file from observed agent failures rather than from speculation, and record provider-behavior claims with `Source of truth:` and `Last verified:` beside the claim.
 
 ## llms.txt and indexes
 
@@ -141,7 +146,7 @@ Keep machine-readable indexes shallow and curated. Link to the canonical README,
 - `llms-full.txt`: expanded context only when generated from canonical documents, reviewed, and marked as generated.
 - Markdown or MDX mirrors: allowed when they preserve canonical meaning and name their source page.
 
-Claim only what the repository publishes and how it is refreshed. Do not claim crawler adoption, ranking, answer correctness, access control, or injection resistance from documentation alone.
+Claim only what the repository publishes and how it refreshes. Do not claim crawler adoption, ranking, answer correctness, access control, or injection resistance from documentation alone.
 
 ## Retrieval and provenance
 
@@ -166,7 +171,7 @@ access: <public | internal | restricted | secret; filter rule when not public>
 review_trigger: <event that makes the chunk stale>
 ```
 
-Each retrievable chunk should carry enough context to stand alone, because retrieval strips surrounding structure. Claim hybrid retrieval, reranking, or provider-specific search only when the deployed stack supports it and the proof names the configured provider, command, or source of truth. Keep very large tables and long records chunked rather than passed whole, since the same long-context degradation that erodes prose erodes oversized structured content.
+Each retrievable chunk should carry enough context to stand alone, because retrieval strips surrounding structure. Claim hybrid retrieval, reranking, or provider-specific search only where the deployed stack supports it and the proof names the configured provider, command, or source of truth. Keep very large tables and long records chunked rather than passed whole, because the same long-context degradation that erodes prose erodes oversized structured content.
 
 ## MCP and tool catalogs
 
@@ -176,7 +181,7 @@ Catalog MCP surfaces by control type before detailing any schema:
 - Prompts: reusable interaction templates.
 - Tools: executable operations with typed inputs and outputs.
 
-For each capability, name what it is, when to inspect it, the required authorization or local setup, and where its canonical reference lives. Detailed schemas belong in API or reference documentation. A documented tool is not safe to call merely because it is documented; safety comes from permissions, review, and runtime controls, not from the catalog entry.
+For each capability, name what it is, when to inspect it, the required authorization or local setup, and where its canonical reference lives. For a tool, also name the precondition that gates invocation and the case where it must not be invoked. Detailed schemas belong in API or reference documentation. A documented tool is not safe to call merely because it is documented; safety comes from permissions, review, and runtime controls, never from the catalog entry.
 
 ## Metadata and generated mirrors
 
@@ -192,7 +197,7 @@ Add front matter or sidecar metadata only when a renderer, indexer, generator, r
 
 Fields with no proof-label counterpart — `description`, `owner`, `source`, `generated`, `last_reviewed`, `access`, `parent` — are triage or routing metadata and do not assert a claim, so they carry no prose label.
 
-A generated or mirrored file must link its canonical source, name the generator or workflow when one is maintained, preserve heading hierarchy where possible, mark omissions, and exclude secrets, personal data, task notes, and private machine details. Do not hand-edit a generated mirror as independent truth.
+A generated or mirrored file must link its canonical source, name the generator or workflow where one is maintained, preserve heading hierarchy where possible, mark omissions, and exclude secrets, personal data, task notes, and private machine details. Do not hand-edit a generated mirror as independent truth.
 
 Separate public, internal, restricted, and secret material into distinct corpora or enforce equivalent filters at the boundary. Documentation can describe an access class; it cannot enforce one.
 

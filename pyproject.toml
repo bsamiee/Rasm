@@ -24,6 +24,9 @@ dependencies = [
     "aiocron>=2.1",
     "universal-pathlib>=0.0.22",
     "asyncssh>=2.23.0",
+    "tree-sitter>=0.25.2",
+    "tree-sitter-python>=0.25.0",
+    "tree-sitter-typescript>=0.23.2",
 ]
 
 [dependency-groups]
@@ -46,6 +49,7 @@ dev = [
     "ruff",
     "time-machine>=3.2.0",
     "ty",
+    "types-psutil>=7.2.2",
     "validate-pyproject[all]",
 ]
 scientific = ["dask", "numpy", "pandas", "pandas-stubs", "polars", "scipy", "scipy-stubs", "sympy", "xarray"]

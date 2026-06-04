@@ -4,7 +4,7 @@ description: Container selection, structured records, tables, diagrams, and page
 
 # Information structure
 
-This standard owns form: which container carries a piece of information, and how that container is structured for scanning, retrieval, and maintenance. Choose the container after the document type is known and before writing long sections. It does not decide where high-value content sits inside a unit, what the words say, how a container is visually styled, or how strong the evidence is.
+This standard owns form: which container carries a piece of information, and how that container is structured for scanning, retrieval, and maintenance. After the document type is known and before you write long sections, choose the container. It does not decide where high-value content sits inside a unit, what the words say, how a container is visually styled, or how strong the evidence is.
 
 ## Use when
 
@@ -21,7 +21,7 @@ Salience and ordering within a unit belong to the position standard, sentence me
 
 ## Container chooser
 
-Use the smallest container that preserves meaning, and change container when the reader's question changes from explanation to lookup, ordered action, relationship, or proof. Structured containers are not decoration: bullets and key-value blocks outperform prose for option selection and field extraction, and tables outperform both for dense factual lookup, so reach for structure whenever the content is a set of peers, records, or comparisons.
+Use the smallest container that preserves meaning, and change container when the reader's question shifts from explanation to lookup, ordered action, relationship, or proof. Structured containers are not decoration: bullets and key-value blocks outperform prose for option selection and field extraction, and tables outperform both for dense factual lookup, so reach for structure whenever the content is a set of peers, records, or comparisons.
 
 - Prose: one concept, decision, caveat, or transition where a sentence is genuinely clearer than a list.
 - Bullets: peer facts, requirements, unordered options.
@@ -40,7 +40,7 @@ A single record read by field belongs in a definition block, not a one-row table
 
 ## Tables
 
-Use a table when row-and-column comparison or lookup across a homogeneous set is the point, and keep it within bounds that current models and split-pane readers handle. A table degrades past roughly 15 columns or 20 rows; degradation is continuous, so treat these as the line past which decomposition is mandatory, not optional. Tables are the most token-efficient structured format up to moderate size, but an oversized table suffers the same long-context degradation as any other oversized unit.
+Use a table when row-and-column comparison or lookup across a homogeneous set is the point, and keep it within bounds that current models and split-pane readers handle. A table degrades past roughly 15 columns or 20 rows; degradation is continuous, so treat these bounds as the line past which decomposition is mandatory, not optional. Tables are the most token-efficient structured format up to moderate size, yet an oversized table suffers the same long-context degradation as any other oversized unit.
 
 Decompose by the dominant violation, never both at once:
 
@@ -52,26 +52,26 @@ When you pivot, name the output form in a one-sentence lead before it. The permi
 
 When a topic needs more rows than the ceiling across all axis values combined, use the summarize-then-detail form: a summary table of at most 5 columns with one row per axis value, where one column carries the heading anchor of the detail section, followed immediately by the detail tables or record sections. The summary table is the retrieval entry point; the detail sections are the lookup surface.
 
-Avoid a table entirely when the content is a sequence of actions, when the first column repeats the same long phrase, or when a single record is read by field rather than compared across rows.
+Avoid a table entirely when the content is a sequence of actions, when the first column repeats one long phrase, or when a single record is read by field rather than compared across rows.
 
 ## Table content discipline
 
 A cell holds one atomic fact: a single value, a short phrase, a status token, or a Markdown inline such as a code span or link. Keep cells to about 8 words. A column whose cells average more than 8 words is a prose column; a table may carry at most one prose column and it must be the last column. When two or more columns would be prose columns, the content is not a comparison — convert it to definition blocks or labeled subsections.
 
-When a cell would need a constraint, exception, or version qualifier longer than the cell limit, place a short token in the cell and carry the qualification in a footnote or a notes block immediately after the table. The stub column — the first column — must be a short, unique, scannable key: an identifier, command, proper noun, or status token, not a sentence.
+When a cell would need a constraint, exception, or version qualifier longer than the cell limit, place a short token in the cell and carry the qualification in a footnote or a notes block immediately after the table. Keep the stub column — the first column — a short, unique, scannable key: an identifier, command, proper noun, or status token, not a sentence.
 
 ## Tables and prose
 
 A table and its surrounding prose each own a distinct role; neither restates the other. Pair them deliberately:
 
-- Promote prose to a table when a paragraph compares three or more items across two or more attributes. Comparison prose that an agent must parse into an implicit table should have been a table.
-- Frame a table with one or two sentences immediately before it when the reader cannot act on the table alone — when a status value is contextual, when which row applies is not obvious, or when an invariant governs the whole set. The framing carries what the table cannot; it never reads the cells back in sentences.
+- When a paragraph compares three or more items across two or more attributes, promote the prose to a table. Comparison prose that an agent must parse into an implicit table should have been a table.
+- When the reader cannot act on the table alone — when a status value is contextual, when which row applies is not obvious, or when an invariant governs the whole set — frame the table with one or two sentences immediately before it. The framing carries what the table cannot; it never reads the cells back in sentences.
 - Do not follow a complete table with prose that restates its cells. Follow-on prose may state a consequence or exception, nothing already in the grid.
 - In a mixed block, assign each container one role and keep them disjoint: prose owns the decision criteria or invariant, the table owns the per-item values.
 
 ## Structured records
 
-A finite enumerable set whose items carry state — milestones, decisions, requirements, risks, tasks, gates — must be rendered as structured records, never as flat prose. This is the form that prevents a roadmap from becoming paragraphs with no status, no dependency, and no exit proof. Each item is a record carrying machine-readable fields; the choice between a record table and a per-item record block follows the table rules above (a table while items stay homogeneous and short-celled, a per-item block once any field needs more than a cell).
+Render a finite enumerable set whose items carry state — milestones, decisions, requirements, risks, tasks, gates — as structured records, never as flat prose. This form prevents a roadmap from becoming paragraphs with no status, no dependency, and no exit proof. Each item is a record carrying machine-readable fields; the choice between a record table and a per-item record block follows the table rules above — a table while items stay homogeneous and short-celled, a per-item block once any field needs more than a cell.
 
 Use this closed `Status` vocabulary so an agent can filter on exact strings: `PLANNED`, `IN-PROGRESS`, `BLOCKED`, `DONE`, `DROPPED`. A type standard may define a domain-specific status set in place of this default — a roadmap names lifecycle stages, a decision log names decision states — and may extend or rename the recurring fields for its domain — a roadmap carries `Exit criteria` and `Proof surface` — provided each status set stays closed, each field stays one `label: value` per line, and both are defined before first use. The recurring record fields carry fixed meanings:
 
@@ -110,7 +110,7 @@ The fields trail the item text after an em dash, so a checkbox item carrying the
 
 The first line is an acceptance item (`Owner` + `Exit`, `Proof` on completion); the second is a status item (`Status` plus `Owner` and `Depends`). A verification item carries item text alone.
 
-Use a checklist rather than prose whenever a document asserts that gates, steps, or criteria are complete; prose cannot encode completion state, and a plain bullet cannot be checked.
+Whenever a document asserts that gates, steps, or criteria are complete, use a checklist rather than prose; prose cannot encode completion state, and a plain bullet cannot be checked.
 
 ## Lists
 
@@ -129,13 +129,13 @@ Owner: Runtime maintainers
 Review trigger: Host SDK version changes
 ```
 
-When several records share one schema, use a grouped definition block: a plain group-name line, then the shared `label: value` fields indented beneath it, with a blank line between groups. Move to a subsection-per-record block — an H3 heading as the record identifier and a definition block as its body — once a record exceeds 5 fields or any field needs a list or code block. Do not pack several labeled facts into one sentence, and do not widen a record into a one-row table.
+When several records share one schema, use a grouped definition block: a plain group-name line, then the shared `label: value` fields indented beneath it, with a blank line between groups. Once a record exceeds 5 fields or any field needs a list or code block, move to a subsection-per-record block — an H3 heading as the record identifier and a definition block as its body. Do not pack several labeled facts into one sentence, and do not widen a record into a one-row table.
 
 ## Decision and lookup tables
 
 Two table forms answer a different question than a comparison table:
 
-- Decision table: rows are condition combinations, left columns are the inputs and right columns the resulting action or rule. Use it when two or more independent conditions jointly determine an outcome over a finite, enumerable combination space. Prefer prose for a single condition with one outcome, and a flowchart when the conditions are sequential rather than combinatorial.
+- Decision table: rows are condition combinations, left columns the inputs and right columns the resulting action or rule. Use it when two or more independent conditions jointly determine an outcome over a finite, enumerable combination space. Prefer prose for a single condition with one outcome, and a flowchart when the conditions are sequential rather than combinatorial.
 - Lookup table: a flat mapping from a discrete key to a value, behavior, or next state, optimized for O(1) retrieval rather than cross-row comparison. Use it for command-to-effect, code-to-meaning, or status-to-policy maps.
 
 A decision table carries one column per input condition on the left and the resolved action on the right, one row per combination in the enumerated space:
@@ -156,7 +156,7 @@ A lookup table is a single key column mapping to its value, read by key rather t
 
 ## Code blocks
 
-Fence every command, literal file, config, schema, or copyable snippet, and mark its intent — in the info string after the language, or as a leading comment where the language has one — so a reader knows whether the block is safe to run, study, or avoid. Use one intent label per block:
+Every fence carries a language tag in its info string, and the intent label follows the language. Fence every command, literal file, config, schema, or copyable snippet, and mark its intent — in the info string after the language, or as a leading comment where the language has one — so a reader knows whether the block is safe to run, study, or avoid. Use exactly one intent label per block:
 
 - `copy-safe`: run or paste as written. For a config or data block, use this when the block is byte-equivalent to a named source-of-truth file, and name that file in the label (`copy-safe — config.yml`).
 - `conceptual`: an illustrative or proposed shape, not a verbatim or runnable artifact.
@@ -170,22 +170,74 @@ Keep blocks short enough to review. Summarize long machine output and link the g
 
 ## ASCII structures
 
-Use ASCII when raw-Markdown inspection matters more than a rendered image: file trees, repository layout, artifact placement, small stacks or matrices, and tiny flows embedded in code comments where no render step exists.
+Use ASCII when raw-Markdown inspection matters more than a rendered image: file trees, repository layout, artifact placement, small stacks or matrices, and tiny flows embedded in code comments where no render step exists. Alignment is the whole point: connectors and columns must line up exactly in a monospace font, because a misaligned ASCII diagram reads harder than the prose it replaced.
+
+A file tree uses box-drawing connectors, with `├──` on every child but the last and `└──` on the last, and a `│` riser carrying down through each open branch:
 
 ```text conceptual
 project/
-  README.md
-  guide.md
-  reference/
-    api.md
-    options.md
+├── README.md
+├── guide.md
+└── reference/
+    ├── api.md
+    └── options.md
 ```
 
-Keep ASCII diagrams short, aligned, and labeled. When a flow needs multiple branches, actors, or states, it has outgrown ASCII; move it to Mermaid.
+A small stack or box illustrates a layered or boxed relationship; the rules align to a single width so the frame reads as one shape:
+
+```text conceptual
+┌─────────────────┐
+│  boundary (I/O) │
+├─────────────────┤
+│  domain (pure)  │
+├─────────────────┤
+│  ports (effect) │
+└─────────────────┘
+```
+
+A small matrix aligns every column to a fixed width so values read down a column, not just across a row:
+
+```text conceptual
+state      enter  exit   retry
+idle       yes    no     no
+running    yes    yes    yes
+failed     no     yes    yes
+```
+
+Keep ASCII diagrams short, aligned, and labeled. When a flow needs multiple branches, actors, or states, it has outgrown ASCII; move it to Mermaid. Forcing a branching flow into ASCII produces the misaligned, hard-to-trace shape this rule rejects:
+
+```text rejected
+Request
+  |
+  +-- authenticated? --no--> 401 reject
+  |        |
+  |       yes
+  |        v
+  +-- quota? --no--> 429 throttle
+           |
+          yes
+           v
+        cache? --yes--> serve cached
+           |
+          no --> fetch origin, then serve
+```
+
+The same multi-branch flow renders cleanly as a Mermaid `flowchart`, which is where it belongs:
+
+```mermaid conceptual
+flowchart TD
+    Request --> Auth{"Authenticated?"}
+    Auth -->|no| Reject["401 reject"]
+    Auth -->|yes| Quota{"Quota remaining?"}
+    Quota -->|no| Throttle["429 throttle"]
+    Quota -->|yes| Cache{"Cache hit?"}
+    Cache -->|yes| Serve["Serve cached"]
+    Cache -->|no| Origin["Fetch origin, then serve"]
+```
 
 ## Mermaid and C4
 
-Use Mermaid when rendered structure adds value beyond bullets or ASCII. Mermaid source is compact and well understood by current models, so prefer it over embedded images for any diagram an agent may need to read or revise. Map the shape to the diagram type:
+Use Mermaid when rendered structure adds value beyond bullets or ASCII. Mermaid source is compact and well understood by current models, so prefer it over embedded images for any diagram an agent may need to read or revise. Map the content shape to the diagram type:
 
 - `flowchart`: branching workflow or data movement.
 - `sequenceDiagram`: actor-to-actor interaction over time.
@@ -194,7 +246,7 @@ Use Mermaid when rendered structure adds value beyond bullets or ASCII. Mermaid 
 - `classDiagram`: type relationships when names alone are insufficient.
 - `quadrantChart`, `sankey`, `architecture`, and C4 views: comparative positioning, flow volume, or system structure when a simpler type loses meaning.
 
-Keep diagrams small enough to review in source. Quote labels containing punctuation, parentheses, or reserved words, and add accessible titles and descriptions when the renderer supports them. For architecture, a C4 Context and Container pair is the baseline; deeper Component, dynamic, or deployment views are added only where internal structure or runtime behavior is the subject. Choosing whether a diagram is needed is this standard's call; how an architecture model is structured belongs to the architecture type standard.
+Keep diagrams small enough to review in source. Quote labels containing punctuation, parentheses, or reserved words, and add accessible titles and descriptions when the renderer supports them. For architecture, a C4 Context and Container pair is the baseline; add deeper Component, dynamic, or deployment views only where internal structure or runtime behavior is the subject. Choosing whether a diagram is needed is this standard's call; how an architecture model is structured belongs to the architecture type standard.
 
 ## Callouts, collapsible, and footnotes
 
@@ -206,15 +258,15 @@ Three forms separate special-purpose content from the reading path. Each carries
 
 ## Line wrapping
 
-Do not hard-wrap Markdown prose. Write each paragraph as one logical line and let the renderer and editor soft-wrap it. A fixed-width manual wrap inflates line count, creates reflow churn on every edit, and inserts newline tokens mid-sentence for no agent benefit; the repository sets no Markdown line-length limit, so the wrap is pure noise. Insert a manual line break only where it is structural — between list items, table rows, and definition-block fields, inside fenced blocks, or at a deliberate hard break.
+Do not hard-wrap Markdown prose. Write each paragraph as one logical line and let the renderer and editor soft-wrap it. A fixed-width manual wrap inflates line count, churns reflow on every edit, and inserts newline tokens mid-sentence for no agent benefit; the repository sets no Markdown line-length limit, so the wrap is pure noise. Insert a manual line break only where it is structural — between list items, table rows, and definition-block fields, inside fenced blocks, or at a deliberate hard break.
 
 ## Markdown economy
 
-Carry meaning with structure, not ornament. Frontier models are robust to Markdown, so the optimization is to spend tokens on signal: meaningful headings, lists, records, and tables, not nested decoration. Avoid stacked emphasis and redundant rules, and let one structure own each section. Decorative markup consumes context budget without improving comprehension.
+Carry meaning with structure, not ornament. Frontier models are robust to Markdown, so spend tokens on signal: meaningful headings, lists, records, and tables, not nested decoration. Avoid stacked emphasis and redundant rules, and let one structure own each section. Decorative markup consumes context budget without improving comprehension.
 
 ## Page anatomy
 
-Render the page shape as a copy-safe heading skeleton, not a narrated list of section names — a skeleton is itself a structure prescription, and an author copies it rather than reconstructing it from prose:
+Render the page shape as a copy-safe heading skeleton, not a narrated list of section names — a skeleton is itself a structure prescription, and an author copies it rather than reconstructs it from prose:
 
 ```markdown conceptual
 # <Title>
@@ -235,7 +287,7 @@ Section cardinality:
 - `Source or authority` — conditional; include only where source order changes behavior.
 - `Examples` — conditional; include only where misuse is likely.
 
-Every long standard needs a chooser, boundaries, and a checklist. A type standard additionally carries a required-structure section: a copy-safe heading skeleton plus a section-cardinality block, so an author cannot omit a mandatory section. Show that artifact, do not name it — give the type standard the same fenced skeleton plus cardinality tagging that this page uses, so the omission becomes mechanically impossible:
+Every long standard needs a chooser, boundaries, and a checklist. A type standard additionally carries a required-structure section: a copy-safe heading skeleton plus a section-cardinality block, so an author cannot omit a mandatory section. Show that artifact, do not name it — give the type standard the same fenced skeleton plus cardinality tagging this page uses, so the omission becomes mechanically impossible:
 
 ```markdown conceptual
 # <Scope> <type>
@@ -260,7 +312,7 @@ Treat headings as navigation and retrieval boundaries:
 - Use H3 only to refine one H2 concern; avoid H4 and deeper unless a renderer or generated format requires them.
 - Use sentence-style headings unless a fixed template label or official name requires another form, and do not put links in headings.
 
-Each H2 should identify enough context to be read out of order. When a section could be reused as a generated mirror, task template, or state artifact, state that artifact type where the distinction changes how an agent uses it.
+Each H2 should carry enough context to be read out of order. When a section could be reused as a generated mirror, task template, or state artifact, state that artifact type where the distinction changes how an agent uses it.
 
 ## Metadata placement
 
