@@ -1,0 +1,1 @@
+"""The automation spine: one ``anyio`` loop hosts watch + schedule over a shared stop."""
