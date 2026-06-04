@@ -28,7 +28,7 @@ Name exactly one profile and exactly one ISTQB strategy archetype in the opening
 |   [2]   | Service integration | unit, integration, contract | presubmit, post-submit   | seam and schema drift         |
 |   [3]   | End-to-end journey  | integration, e2e, smoke     | release, nightly         | cross-boundary journey break  |
 |   [4]   | Host-runtime bridge | unit, scenario, visual      | manual approval, release | host or device behavior drift |
-|   [5]   | Nonfunctional       | load, soak, security, a11y  | nightly, release         | budget or compliance breach   |
+|   [5]   | Nonfunctional       | load, soak, security, accessibility | nightly, release | budget or compliance breach   |
 
 A scope may state a sixth row when it owns a level no profile above covers; the new row must declare an in-scope level set, a dominant trigger, and the single risk it owns.
 
@@ -45,7 +45,7 @@ Prefer the risk-based archetype unless the scope owns a reason another archetype
 
 ## [3][SOURCE_TRUTH]
 
-Repository truth owns the gate name, command, runner, status-check identifier, artifact path, and owner role. The strategy names the level, risk, trigger, and selection rule and links the live source for the executable detail. When a fact can drift, prove it from repository truth before any external example. Carry the owning gate config or CI workflow in the `source_of_truth` front-matter field so an indexer can reach it.
+Repository truth owns the gate name, command, runner, status-check identifier, artifact path, and owner role. The strategy names the level, risk, trigger, and selection rule and links the live source for the executable detail. When a fact can drift, prove it from repository truth before any external example. Carry the owning gate config or CI workflow in the opening metadata `Source of truth` field so an indexer can reach it.
 
 External testing vocabulary supplies the level semantics this document reuses:
 
@@ -305,7 +305,7 @@ Do not publish a metric the scope cannot act on, and do not present a raw covera
 
 ## [16][REVIEW_TRIGGER]
 
-Refresh the strategy on any of these events (use an event trigger, not a calendar date, unless an external testing standard changes on a schedule). Carry the dominant trigger in the `review_trigger` front-matter field:
+Refresh the strategy on any of these events. Use an event trigger, not a calendar date, unless an external testing standard changes on a schedule. Carry the dominant trigger in the opening metadata `Review trigger` field:
 
 - a gate, runner, or status check is added, renamed, or removed;
 - a test level changes its size, scope, or hermeticity boundary;

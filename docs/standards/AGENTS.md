@@ -33,37 +33,27 @@ Review trigger: OpenAI Codex project-instruction guidance changes.
 
 ## [4][REWRITE_RULES]
 
-- [ALWAYS] Preserve every load-bearing fact when restructuring; a dropped command, version, invariant, routing pointer, or field is a regression, not a simplification.
+- Preserve every load-bearing fact when restructuring; a dropped command, version, invariant, routing pointer, or field is a regression.
 - Pick one primary reader need before editing.
-- Apply standards implicitly in the rewritten prose; do not announce the technique inside the published document.
-- Prefer restructuring, deletion, and owner links over parallel rules.
-- Keep one concept under one owner; link adjacent standards instead of copying their bodies.
-- Put source of truth, scope, and high-risk constraints early, then close each major section with the boundary, proof, or next action that keeps the rule usable.
-- Do not bury high-impact constraints, exceptions, or route-away rules mid-paragraph or mid-list.
-- Use the container the form standard prescribes: prose for one relationship, bullets for peers, numbered lists for order, status-tagged records for trackable sets, tables for lookup, diagrams for relationships prose cannot show.
-- Delete stale commands, obsolete tool names, compatibility aliases, placeholders, and duplicated external-standard summaries.
+- Apply standards implicitly in the rewritten prose.
+- Link adjacent standards instead of copying their bodies.
+- Put source of truth, scope, and high-risk constraints early.
+- Close each major section with the boundary, proof, or next action that keeps the rule usable.
+- Split a section that mixes concept, task, reference, process, and proof, or make the chooser explicit.
+- Delete stale commands, removed tool names, legacy aliases, placeholders, and duplicated external-standard summaries.
 
-## [5][STRUCTURE_DISCIPLINE]
+## [5][STYLE_DISCIPLINE]
 
-Use the front-and-close pattern at page and section level: the first sentence states the rule, outcome, or scope; the middle qualifies or proves it; the last closes with the boundary, evidence requirement, or route to the owner. Each H2 is a retrievable unit a reader understands from its first paragraph. When a section mixes concept, task, reference, process, and proof, split it or make the chooser explicit. Use examples only where misuse is likely, beside the rule, marked for reuse risk.
+Preserve official names, commands, paths, flags, symbols, fields, status vocabularies, and qualifiers exactly. Use present tense for durable standards, future for planned work, and past only for historical evidence. Keep high-impact constraints, exceptions, and route-away rules at the edge of the unit that depends on them.
 
-## [6][SENTENCE_DISCIPLINE]
+## [6][EXCLUSIONS]
 
-- Preserve official names, commands, paths, flags, and symbols exactly.
-- Use present tense for durable standards, future for planned work, past only for historical evidence.
-- Prefer active voice, concrete verbs, positive form, and one controlling idea per paragraph.
-- Keep parallel lists parallel in grammar and scope.
-- State a gating condition before the action it controls; a rule may trail a minor exception.
-- Soft-wrap prose; protect copyable code, commands, and placeholders with ASCII-safe Markdown.
-
-## [7][EXCLUSIONS]
-
-Do not publish live task instructions, conversation fragments, reasoning summaries, authoring notes, temporary local rationale, unverified provider behavior, private machine paths, secrets, or fixed multi-agent workflow counts in standards docs.
+Do not publish live task instructions, chat excerpts, rationale summaries, draft notes, session-local rationale, unverified provider behavior, nonpublic machine paths, secrets, or fixed multi-agent workflow counts in standards docs.
 
 [NEVER] Claim a Markdown linter, link checker, docs build, renderer, CI gate, or provider behavior exists unless current repository tooling or current primary documentation proves it.
 
-## [8][VALIDATION]
+## [7][VALIDATION]
 
 For Markdown-only standards edits, run `git diff --check` on the changed Markdown at minimum. Run configured Markdown, link, docs-build, diagram, or render checks only when the changed claim requires that proof. When no configured checker exists for changed links, run a local path and anchor validation or state the proof gap honestly.
 
-Before finishing, search the active standards for stale owner names, forbidden process language, trailing whitespace, and old filenames. Validate that the changed file follows its own lead, section order, form choices, proof rules, and review checklist, and that no load-bearing fact was dropped.
+Before finishing, search the active standards for stale owner names, forbidden process language, trailing whitespace, and renamed files. Validate that the changed file follows its own lead, section order, form choices, proof rules, and review checklist, and that no load-bearing fact was dropped.

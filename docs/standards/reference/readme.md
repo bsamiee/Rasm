@@ -17,7 +17,9 @@ Do not use a README to carry architecture structure, an API or symbol catalog, a
 
 This standard adopts the `standard-readme` specification as the professional baseline for section identity and order, the `makeareadme` guidance for section content, and `shields.io` conventions for badges. Where the canonical baseline and this standard differ, this standard's profile model and structure rules control, because the repository routes deeper concerns to owning types rather than expanding the README. Treat the baseline as the section vocabulary every profile draws from, and treat the profile lists below as the binding required set.
 
-`Source of truth:` `standard-readme` spec (`github.com/RichardLitt/standard-readme/blob/main/spec.md`), `makeareadme.com`, `shields.io`. `Last verified:` 2026-06-04. `Review trigger:` the `standard-readme` spec or `shields.io` badge model changes.
+Source of truth: [standard-readme specification](https://github.com/RichardLitt/standard-readme/blob/main/spec.md), [Make a README](https://www.makeareadme.com/), and [Shields.io](https://shields.io/).
+Last verified: 2026-06-04.
+Review trigger: the `standard-readme` spec or `shields.io` badge model changes.
 
 ## [3][SOURCE_TRUTH]
 
@@ -50,7 +52,7 @@ Every profile obeys one shared contract:
 - Open with one bracketed H1 whose label names the repository, package, directory, tool, or corpus, such as `# [RASM]`; when a hosting platform explicitly requires an unbracketed display title, explain the exception in the first paragraph.
 - Place a one-paragraph description directly after the title, and after any badge or banner, before any other section. Keep the description under roughly 120 characters of leading summary so a package-manager and GitHub blurb match it.
 - Use relative links for repository-local targets so the README renders on the hosting platform and in a local checkout alike.
-- Show every advertised install, setup, usage, or command exactly as a reader runs it in a fenced, intent-labeled code block, or mark the unverified line as a known gap with `Evidence:`.
+- Show every advertised install, setup, usage, or command exactly as a reader runs it in a fenced, intent-labeled code block. If a command was not verified, mark it as a proof gap with `Evidence: not verified in this change` rather than implying proof.
 
 Field cardinality for the shared contract: the file name, the H1 title, and the one-paragraph description are required and singular. Badges and banners are optional and repeatable. Relative-link usage is a required constraint on every local link, not a section.
 
@@ -232,6 +234,8 @@ A hub index is the profile most readers misbuild as a flat link dump, so show th
 ```markdown template
 # [DOCUMENTATION]
 
+This corpus routes readers to the document type that owns their current need.
+
 ## [1][CHOOSE_NEXT_PAGE]
 
 Read by what you are doing, then open one child.
@@ -265,7 +269,13 @@ Evidence: Directory.Packages.props; tools.quality static build output.
 
 ## [12][BOUNDARIES]
 
-- [README.md](../README.md) owns document-type routing: which type a draft becomes, where a document is placed, when it is split, and which standard owns a rule. Route every "is this a README or an architecture page, an API catalog, a tutorial, a runbook, a roadmap, or a contributing guide" question to that router by topic. When a README starts to carry one of those concerns, split the concern to its owning type and leave one link behind.
+- [README.md](../README.md) owns document-type routing, placement, splitting, and lifecycle.
+- [architecture.md](../explanation/architecture.md) owns current structure and invariants.
+- [api.md](api.md) owns generated endpoint and symbol catalogs.
+- [tutorial.md](../learning/tutorial.md) owns learning paths.
+- [runbook.md](../task/runbook.md) owns operational recovery.
+- [roadmap.md](../explanation/roadmap.md) owns future-work sequence and milestone exit proof.
+- [contributing.md](../task/contributing.md) owns contribution workflow and pull-request evidence.
 
 ## [13][REVIEW_CHECKLIST]
 

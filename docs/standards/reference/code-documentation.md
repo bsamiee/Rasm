@@ -51,7 +51,7 @@ Every code-documentation comment author works from the profile discriminator dow
 
 ```
 
-A comment is complete only when it satisfies its profile's mandatory-field set, leads with the per-kind sentence shape, carries the toolchain tags at their stated cardinality, and trips none of the anti-patterns. Each rules section closes with one acceptance criterion stating its observable pass condition; treat that criterion as an executable reject test, not advice.
+A comment is complete only when it satisfies its profile's mandatory-field set, leads with the per-kind sentence shape, carries the toolchain tags at their stated cardinality, and trips none of the anti-patterns. Treat each acceptance criterion in this standard as an executable reject test, not advice.
 
 ## [3][DOCUMENTATION_PROFILES]
 
@@ -70,7 +70,7 @@ Acceptance criterion for the profile choice: a reader who knows the language but
 Lead every comment with a controlling sentence shaped by the symbol kind, because `Purpose in one controlling sentence` is satisfiable with a name echo otherwise. The shape carries contract, not filler:
 
 - Type: a noun phrase opening with `Represents` or `Provides` that names the concept the type models, not its fields.
-- Method or function: an imperative effect clause that names what the call does — `Resolves the host symbol`, `Cancels the pending render`.
+- Method or function: a present-tense effect clause that names what the call does — `Resolves the host symbol`, `Cancels the pending render`.
 - Boolean return: `<c>true</c> if <condition>; otherwise, <c>false</c>.` in C#, and the equivalent `Returns true when <condition>` phrasing in TypeScript and Python.
 - Property and Python `@property`: an attribute-style noun phrase naming what the value is, never `Returns the …` or `Gets the …`.
 
@@ -243,7 +243,7 @@ Reject these named low-value shapes; each carries a paired transformation from t
 - Name-echo summary — a summary that paraphrases the symbol name (`Gets the value` on `GetValue`). Rewrite it to the per-kind lead-sentence shape so it carries intent.
 - Line-narrating inline comment — an inline comment that restates the next statement. Delete it; reserve inline comments for the reason a non-obvious choice exists.
 
-Acceptance criterion: a reviewer can locate each shipped comment in this catalog as an accepted form, never as a rejected one.
+Acceptance criterion: each shipped comment satisfies its profile and matches no rejected anti-pattern in this catalog.
 
 ## [12][BOUNDARIES]
 

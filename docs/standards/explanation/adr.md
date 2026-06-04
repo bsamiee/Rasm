@@ -31,7 +31,7 @@ Confirmation evidence is class-specific: a structural ADR cites the architecture
 
 ## [3][SOURCE_ORDER]
 
-Use the ADR community vocabulary, the MADR section model, and Michael Nygard's decision lifecycle for section names, status names, supersession semantics, and immutable accepted records. The section template tracks MADR 4.0 (`Confirmation` is a sub-element of `Decision outcome`, `decision_makers` is the owner field). Use the Olaf Zimmermann Y-statement as the compact rationale form inside `Decision outcome`. When the local corpus already fixes a status set or file-name pattern, the established repository convention controls over the external default.
+Use the ADR community vocabulary, the MADR section model, and Michael Nygard's decision lifecycle for section names, status names, supersession semantics, and immutable accepted records. The section template tracks MADR 4.0: `Confirmation` is a sub-element of `Decision outcome`; the local metadata field is `Decision makers`. Use the Olaf Zimmermann Y-statement as the compact rationale form inside `Decision outcome`. When the local corpus already fixes a status set or file-name pattern, the established repository convention controls over the external default.
 
 `Source of truth:` MADR 4.0.0 template (2024-09-17), Michael Nygard ADR practice, Olaf Zimmermann Y-statement. `Last verified:` 2026-06-04. `Review trigger:` MADR section or status model changes.
 
@@ -49,12 +49,12 @@ Use one decision corpus per repository unless owner-local decision logs already 
 
 The decision-log index is a finite enumerable set of trackable records, so render it as a status-tagged record table, never as flat prose. One row per ADR, ordered by number, each carrying the fields below. A `superseded` row keeps its link to the replacing ADR so the chain is traversable from the index.
 
-| [INDEX] | [NUMBER] | [TITLE]                          | [STATUS]     | [CLASS]    |     [DATE] | [SUPERSEDES_SUPERSEDED] |
-| :-----: | :------- | :------------------------------- | :----------- | :--------- | ---------: | :---------------------- |
-|   [1]   | `0001`   | Adopt central package management | `accepted`   | dependency | 2026-01-12 | —                       |
-|   [2]   | `0007`   | Single session-state store       | `superseded` | structural | 2026-03-04 | superseded by `0023`    |
+| [INDEX] | [NUMBER] | [TITLE]                          | [STATUS]     | [CLASS]    |     [DATE] | [SUPERSEDES] | [SUPERSEDED_BY] |
+| :-----: | :------- | :------------------------------- | :----------- | :--------- | ---------: | :----------- | :-------------- |
+|   [1]   | `0001`   | Adopt central package management | `accepted`   | dependency | 2026-01-12 | —            | —               |
+|   [2]   | `0007`   | Single session-state store       | `superseded` | structural | 2026-03-04 | —            | `0023`          |
 
-Map the lifecycle status to the bracketed lifecycle-marker set formatting.md owns when an agent filters the index inline: `proposed` reads as `[IN-PROGRESS]`, `accepted` as `[DONE]`, `rejected` and `deprecated` as `[DROPPED]`, and `superseded` as `[DROPPED]`. Keep the ADR front-matter `status` field in its own lowercase lifecycle vocabulary; the bracketed marker is for inline index scanning only.
+Map the lifecycle status to the bracketed lifecycle-marker set formatting.md owns when an agent filters the index inline: `proposed` reads as `[IN-PROGRESS]`, `accepted` as `[DONE]`, `rejected` and `deprecated` as `[DROPPED]`, and `superseded` as `[DROPPED]`. Keep the ADR metadata `Status` field in its own lowercase lifecycle vocabulary; the bracketed marker is for inline index scanning only.
 
 ## [5][STATUS_LIFECYCLE]
 
@@ -179,7 +179,11 @@ Promote a design document to an ADR only when an accepted decision becomes durab
 
 ## [10][BOUNDARIES]
 
-- For proposal discussion and review history before acceptance, current structure and invariants, build sequence and exit proof, or which document type owns a decision artifact, route by topic to [README.md](../README.md).
+- [design-doc.md](design-doc.md) owns proposal discussion and review history before acceptance.
+- [architecture.md](architecture.md) owns current structure and invariants.
+- [roadmap.md](roadmap.md) owns build sequence and milestone exit proof.
+- [runbook.md](../task/runbook.md) owns symptom-to-fix operational recovery.
+- [README.md](../README.md) owns document-type routing, placement, and lifecycle.
 
 ## [11][REVIEW_CHECKLIST]
 

@@ -1,8 +1,12 @@
 # [RUNBOOK_STANDARDS]
 
-A runbook drives a responder from an observable operational symptom to triage, mitigation, rollback, escalation, recovery verification, and evidence capture under pressure. Lead with the trigger and impact, keep read-only observation ahead of any state change, and end every state-changing step on a check that proves recovery or containment rather than command completion. The responder acts during an active incident, so the page supplies the exact path, not background, severity governance, or a postmortem template. The canonical professional standard for this type is the Google SRE generic-mitigation model — mitigate before full root cause is known, using a closed menu of drain, rollback, restart, and add-capacity actions — and the PagerDuty incident-response model — impact-based severity with a single acting authority, escalation matrix, and a status-update cadence. Anchor every runbook to that standard: a responder who has never seen the system must execute it under pressure without further lookup.
+A runbook drives a responder from an observable operational symptom to triage, mitigation, rollback, escalation, recovery verification, and evidence capture under pressure. Lead with the trigger and impact. Keep read-only observation ahead of state change, and end every state-changing step on a check that proves recovery or containment rather than command completion.
 
-`Source of truth:` Google SRE Workbook (incident-response, on-call) and SRE Book (emergency-response); PagerDuty incident-response documentation and severity-classification guidance. `Last verified:` 2026-06-04. `Review trigger:` SRE or PagerDuty incident-response guidance changes.
+The responder acts during an active incident, so the page supplies the exact path, not background, severity governance, or a postmortem template. The canonical professional standard is the Google SRE generic-mitigation model and the PagerDuty incident-response model. The first mitigates before full root cause is known with a closed menu of drain, rollback, restart, and add-capacity actions. The second contributes impact-based severity, single acting authority, an escalation matrix, and a status-update cadence. Anchor every runbook to that standard: a responder who has never seen the system must execute it under pressure without further lookup.
+
+Source of truth: Google SRE Workbook (incident-response, on-call) and SRE Book (emergency-response); PagerDuty incident-response documentation and severity-classification guidance.
+Last verified: 2026-06-04.
+Review trigger: SRE or PagerDuty incident-response guidance changes.
 
 ## [1][USE_WHEN]
 
@@ -21,14 +25,14 @@ A runbook declares its severity-profile rule in `## [1][TRIGGER]`. The profile s
 
 | [INDEX] | [PROFILE]         | [IMPACT]              | [CLOCK]           | [AUTH]        | [PLUS]                  | [ESCALATE]          |
 | :-----: | :---------------- | :-------------------- | :---------------- | :------------ | :---------------------- | :------------------ |
-|   [1]   | `sev-critical`    | outage/loss/security  | immediate         | on-call       | rollback/comms/evidence | outage/loss/failure |
+|   [1]   | `sev-critical`    | outage, loss, or security | immediate     | on-call       | rollback, comms, evidence | outage, loss, or failure |
 |   [2]   | `sev-major`       | degraded/budget/cap   | ack window        | on-call scope | rollback, comms         | budget/time breach  |
-|   [3]   | `sev-minor`       | contained/pre-failure | next biz/escalate | owning team   | base only               | higher threshold    |
-|   [4]   | `sev-maintenance` | planned + abort point | scheduled window  | change owner  | rollback/abort          | abort/overrun       |
+|   [3]   | `sev-minor`       | contained or pre-failure | next business window or escalation | owning team | base only | higher threshold |
+|   [4]   | `sev-maintenance` | planned + abort point | scheduled window  | change owner  | rollback or abort       | abort or overrun    |
 
-Base sections (`# [RECOVER_OBSERVABLE_SYMPTOM]`, the metadata block, `## [1][TRIGGER]`, `## [2][IMPACT]`, `## [3][SAFETY_PREREQUISITES]`, `## [4][TRIAGE]`, `## [5][MITIGATION]`, `## [7][ESCALATION]`, `## [9][VERIFICATION]`) are required for every profile; `## [7][ESCALATION]` is always present, and only its triggering criteria vary by profile as the table's right column states. A `sev-critical` runbook whose trigger has no reversible mitigation must say so in `## [6][ROLLBACK_ABORT]` and require escalation before any irreversible action, not leave rollback silent.
+The base response path is `# [RECOVER_OBSERVABLE_SYMPTOM]`, the metadata block, `## [1][TRIGGER]`, `## [2][IMPACT]`, `## [3][SAFETY_PREREQUISITES]`, `## [4][TRIAGE]`, `## [5][MITIGATION]`, `## [7][ESCALATION]`, and `## [9][VERIFICATION]`. Every runbook also carries `## [12][BOUNDARIES]` and `## [13][REVIEW_CHECKLIST]`. `## [7][ESCALATION]` is always present; only its triggering criteria vary by profile. A `sev-critical` runbook whose trigger has no reversible mitigation must say so in `## [6][ROLLBACK_ABORT]` and require escalation before any irreversible action, not leave rollback silent.
 
-For `sev-critical`, the on-call responder may act; risky actions need a named second.
+For `sev-critical`, the on-call responder may act. Risky actions need a named second.
 
 ## [3][PLACEMENT]
 
@@ -186,7 +190,7 @@ The generic-mitigation menu is the canonical starting set; name the menu as a lo
 | :-----: | :----------- | :------------------------- | :----------------------- | :------------------------------- |
 |   [1]   | Drain        | bugged element; shiftable  | yes                      | drained element error rate falls |
 |   [2]   | Rollback     | recent change introduced   | yes, unless data changed | pre-change signal returns        |
-|   [3]   | Restart      | wedged; no bad change      | yes                      | component returns healthy        |
+|   [3]   | Restart      | wedged; no bad change      | yes                      | readiness check meets threshold  |
 |   [4]   | Add capacity | saturation/capacity impact | yes                      | saturation returns to baseline   |
 
 ## [9][ESCALATION_RULES]
@@ -228,8 +232,7 @@ Render the cadence and audience as a definition block or a small decision table 
 A runbook claims a recovery path works, so attach claim-level evidence to drift-prone steps and name the freshness trigger:
 
 ```markdown template
-Evidence: `rasm deploy rollback --service checkout --to last-known-good` and the
-checkout error-rate dashboard returning below the alert threshold
+Evidence: `rasm deploy rollback --service checkout --to last-known-good` and the checkout error-rate dashboard returning below the alert threshold
 Last verified: 2026-06-04
 Review trigger: deploy CLI flags, the rollback target alias, or the alert rule change
 ```

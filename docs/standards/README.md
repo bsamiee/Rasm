@@ -134,7 +134,7 @@ Unless live product support and evidence justify them, do not preserve old paths
 - Reference leaves that hide procedures in dense tables.
 - Runbooks without an observable trigger, owner, verification, or escalation.
 - Generated API documentation forked by hand-written endpoint or symbol tables.
-- Standards that mention authoring interactions, obsolete workflow names, or temporary task labels instead of durable document behavior.
+- Standards that mention authoring interactions, removed workflow names, or transient task labels instead of durable document behavior.
 
 ## [12][MAINTENANCE_RULES]
 
@@ -142,10 +142,17 @@ Unless live product support and evidence justify them, do not preserve old paths
 - Prefer restructuring, deletion, and owner links over duplicated guidance.
 - Restructure without dropping load-bearing facts; diff content coverage before replacing a document, per the preservation rule in proof.
 - Use a table only when comparison or lookup value beats a list.
-- Remove a stale standard instead of keeping a compatibility alias.
+- Remove a stale standard instead of keeping a legacy alias.
 - Keep release history in the project's release mechanism, not in this index.
 
-## [13][REVIEW_CHECKLIST]
+## [13][BOUNDARIES]
+
+- Shared standards own cross-cutting rules; this README only routes readers to them.
+- Type standards own artifact-specific structure; this README only chooses the primary type.
+- `docs/usage.md` owns cross-stack implementation precedence and proof order outside the standards library.
+- `docs/standards/AGENTS.md` owns local agent routing and validation for edits inside this folder.
+
+## [14][REVIEW_CHECKLIST]
 
 - [ ] Active standards are linked by current filename.
 - [ ] Each shared standard has one clear owner role.

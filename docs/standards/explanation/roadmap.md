@@ -1,8 +1,8 @@
 # [ROADMAP_STANDARDS]
 
-A roadmap states planned sequence, milestone intent, the measurable outcome each milestone serves, dependencies, exit criteria, and the proof that closes each milestone. It answers what must happen next, what outcome the work moves, what has cleared its exit bar, and what evidence shows the work is done. It carries intent, outcome, and proof surfaces, not the live dates, status, or blocker state that a planning system owns.
+A roadmap states planned sequence, milestone intent, the measurable outcome each milestone serves, dependencies, exit criteria, and the proof that closes each milestone. It answers what must happen next, what outcome the work moves, what has cleared its exit bar, and what evidence shows the work is done. It summarizes live dates, status, and blocker state only through links and review fields; the planning system owns those facts.
 
-This standard uses an outcome-based, horizon-aware roadmap: every milestone ladders up to a measurable objective rather than a shipped feature, and certainty decreases with horizon so far-dated work is never promised as committed. It binds that form to the agent-facing structures — machine-scannable frontmatter, status-tagged milestone records, binary exit checklists, and a live-source dependency table — that keep a roadmap honest and refreshable.
+This standard uses an outcome-based, horizon-aware roadmap: every milestone ladders up to a measurable objective rather than a shipped feature, and certainty decreases with horizon so far-dated work is never promised as committed. It binds that form to the agent-facing structures — opening metadata, status-tagged milestone records, binary exit checklists, and a live-source dependency table — that keep a roadmap honest and refreshable.
 
 ## [1][USE_WHEN]
 
@@ -101,7 +101,7 @@ Horizon axis: phased | now-next-later | release-cycle | status-snapshot
 
 ## [6][DEPENDENCIES_BLOCKERS]
 
-## [7][EXIT_PROOF]
+## [7][EXIT_PROOF_RULES]
 
 ## [8][DEFERRED_OUT_SCOPE]
 
@@ -116,7 +116,7 @@ Horizon axis: phased | now-next-later | release-cycle | status-snapshot
 Section cardinality:
 
 - Metadata fields `Id`, `Status`, `Profile`, `Owner`, `Source of truth`, `Last reviewed`, and `Horizon axis` — required, one each.
-- `Scope`, `Current status`, `Status vocabulary`, `Milestones`, `Exit proof` — required.
+- `Scope`, `Current status`, `Status vocabulary`, `Milestones`, `Exit proof rules` — required.
 - `Dependencies and blockers` — conditional; required when any milestone has a prerequisite, external dependency, or go/no-go gate; omit only when every milestone is independent.
 - `Deferred or out-of-scope work` — conditional; required when any item is excluded; omit only when nothing is deferred.
 - `Public roadmap rules` — conditional; required for the `Public product roadmap` profile and any external-facing `Release train`; omit for internal profiles.
@@ -160,7 +160,7 @@ Treat each milestone as one `repeatable` record. Render it as a field/value reco
 - Status — required, one value from the status vocabulary.
 - Outcome — required, the measurable result or OKR link the milestone serves.
 - Deliverables or scoped outcomes — required, one or more concrete artifacts.
-- Exit criteria — required, a binary checklist of observable, falsifiable conditions; see Exit proof.
+- Exit criteria — required, a binary checklist of observable, falsifiable conditions; see Exit proof rules.
 - Proof surface — required, the smallest evidence that demonstrates exit.
 - Dependencies, blockers, or prerequisite milestones — repeatable; required when any exist, absent when the milestone is independent.
 - Confidence — conditional; required on `Next`, `Later`, directional, and exploratory milestones where certainty is genuinely partial; carry `Low`, `Med`, `High` or a percentage.
@@ -174,11 +174,11 @@ For the `Public product roadmap` profile and any external `Release train`, group
 
 ## [11][DEPENDENCIES_BLOCKERS]
 
-Expose sequencing risk as a decision table that links the live source, not as task tracking, so each dependency edge and its go/no-go gate is explicit instead of buried in prose. Each row names a relationship and points to the system that owns the current state.
+Expose sequencing risk as a dependency edge table that links the live source, not as task tracking. Each row names a relationship and points to the system that owns the current state.
 
 | [INDEX] | [EDGE]  | [RELATIONSHIP] | [LIVE_SOURCE]     | [GATE_DECISION]              |
 | :-----: | :------ | :------------- | :---------------- | :--------------------------- |
-|   [1]   | M2 ← M1 | blocked by     | `<issue link>`    | go when host bundle resolves |
+|   [1]   | M2 <- M1 | blocked by     | `<issue link>`    | go when host bundle resolves |
 |   [2]   | M3 ext  | vendor         | `<contract link>` | go/no-go on `<evidence>`     |
 
 - Name the relationship from a fixed set: `blocks`, `blocked by`, `prerequisite`, `external-vendor`, or `go/no-go`.
@@ -187,14 +187,14 @@ Expose sequencing risk as a decision table that links the live source, not as ta
 - Record a go/no-go decision point in the `Gate decision` column when the next milestone depends on evidence.
 - Move tactical subtasks to the tracker or design document; a roadmap holds the dependency edge, not the task breakdown.
 
-## [12][EXIT_PROOF]
+## [12][EXIT_PROOF_RULES]
 
 Roadmap proof is milestone-level, and each milestone names the smallest evidence that demonstrates exit. Exit criteria are a binary checklist: each item is an observable, falsifiable condition that is independently true or false, captured as a GFM task-list item, not a single vague sentence. A criterion such as "improve performance" is rejected; "`- [ ] p95 latency < 200 ms verified by <command>`" is accepted. The checklist captures completion conditions beyond linked tasks — `design approved`, `beta feedback complete`, `legal review` — so closure is checkable item by item.
 
 ```markdown template
 Exit criteria:
-- [ ] all public scenarios run through the in-process bridge
-- [ ] no scenario marked skip without a linked issue
+    - [ ] all public scenarios run through the in-process bridge
+    - [ ] no scenario marked skip without a linked issue
 ```
 
 The proof surface is one concrete artifact a reader can open or one command a reader can run, not a description of done. Choose the proof type that matches the milestone outcome:
@@ -231,8 +231,8 @@ Goal: Every public scenario runs through the in-process bridge.
 Outcome: Scenario coverage of public surface reaches 100% (host-parity OKR).
 Deliverables: scenario suite under `tests/csharp/scenarios/`, bridge verify route.
 Exit criteria:
-- [ ] all public scenarios run through the in-process bridge
-- [ ] no scenario marked skip without a linked issue
+    - [ ] all public scenarios run through the in-process bridge
+    - [ ] no scenario marked skip without a linked issue
 Proof surface: `uv run python -m tools.quality bridge verify "tests/csharp/scenarios/**"`
 Dependencies: blocked by M2 (host bundle resolution) -> `<live link>`
 ```
@@ -271,7 +271,7 @@ The first block is a `template`; the second is `rejected` and exists only to sho
 - [ ] Every milestone record carries goal, status, outcome, deliverables, an exit-criteria checklist, and a proof surface, plus dependencies when any exist.
 - [ ] Each exit criterion is a binary task-list item, and the proof surface is one openable artifact or runnable command per milestone.
 - [ ] A milestone is `Complete` only when every exit checkbox is checked and the linked proof agrees.
-- [ ] Dependencies use the decision table, name the relationship, and link the live source; subtask breakdowns are excluded.
+- [ ] Dependencies use the dependency edge table, name the relationship, and link the live source; subtask breakdowns are excluded.
 - [ ] Exploratory or far-horizon milestones carry a confidence indicator and, for experiments, an off-ramp condition.
 - [ ] Deferred work is explicit when anything is excluded, and Cancelled items state the successor or that the need was retired.
 - [ ] Public or external profiles declare directional, committed, or historical framing in the lead; `Now` is sized to capacity, `Later` is bounded, far-horizon items carry no fixed dates, and shipped items link evidence in ISO-8601.

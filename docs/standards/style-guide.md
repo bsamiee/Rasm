@@ -1,6 +1,6 @@
 # [STYLE_GUIDE]
 
-This standard owns craft: the words inside a document, the sentences that carry them, terminology, punctuation, links, and code-safe Markdown. Apply it after the document type and container are chosen. It does not decide where content sits in a unit, which container holds it, or how strong the evidence behind a claim is.
+This standard owns craft: the words inside a document, sentence mechanics, terminology, punctuation, links, and code-safe Markdown. Apply it after the document type and container are chosen. It does not decide content position, container form, or evidence strength.
 
 ## [1][USE_WHEN]
 
@@ -23,36 +23,48 @@ Use the first source that decides a naming or wording question:
 4. This guide for local prose and notation rules.
 5. Established editorial style references for unresolved general mechanics.
 
-When sources conflict, choose the repo-local term only when a current owner or contract proves it, and never alternate terms to dodge the conflict. For unresolved sentence composition, use concision, parallelism, positive form, and concrete language. For unresolved punctuation, capitalization, numbers, and quotation mechanics, use established editorial style unless repository notation or code-safe Markdown overrides it.
+When sources conflict, choose the repo-local term only when a current owner or contract proves it. Never alternate terms to dodge the conflict. For unresolved sentence composition, use concision, parallelism, positive form, and concrete language. For unresolved punctuation, capitalization, numbers, and quotation mechanics, use established editorial style unless repository notation or code-safe Markdown overrides it.
 
 ## [3][PROSE_RULES]
 
 - Put the controlling rule, constraint, or outcome before supporting detail.
 - Keep one controlling idea in each paragraph.
 - Prefer concrete nouns and verbs over abstract labels.
-- Use active voice for instructions and decisions by default; when the actor is irrelevant or less important than the result, use passive.
+- Use active voice for instructions and decisions by default.
+- Use passive voice when the actor is irrelevant or less important than the result.
 - Use present tense for durable standards, future tense for planned work, and past tense only for historical evidence or completed verification.
-- Write instructions as positive imperatives that name the action to take; convert `do not omit the unit` into `attach the unit to its value`. The cognition rationale for this framing is the position standard's concern.
+- Write instructions as positive imperatives that name the action to take. Convert `do not omit the unit` into `attach the unit to its value`. The cognition rationale for this framing is the position standard's concern.
 - Use `must`, `should`, and `may` only for requirements, recommendations, and permitted options.
-- Remove filler, marketing claims, author notes, and transient interaction language; cut a hedge that carries no information, but keep a qualifier that marks genuine uncertainty and let the evidence standard govern it.
+- Remove filler, marketing claims, draft notes, and transient interaction language.
+- Cut a hedge that carries no information. Preserve a qualifier that marks genuine uncertainty, and let the evidence standard govern it.
 - Keep each exception next to the rule it modifies.
 
 ## [4][PARAGRAPH_ARCHITECTURE]
 
-Use a front-and-close shape. The first sentence carries the point: rule, claim, scope, outcome, or transition. The middle qualifies, explains, or proves it. The final sentence closes on the consequence, boundary, evidence requirement, or next route. Do not hide the strongest constraint in the middle of a paragraph; if a reader must obey a condition, give it the first sentence or its own. End on the term, action, proof, or owner the reader should retain, not on a weak qualifier.
+Use a front-and-close shape. The first sentence states the rule, claim, scope, outcome, or transition. The middle qualifies, explains, or proves it. The final sentence closes on the consequence, boundary, evidence requirement, or next route.
+
+Give a required condition the first sentence or a separate paragraph. Do not hide the strongest constraint in the middle. End on the term, action, proof, or owner the reader should retain, not on a weak qualifier.
 
 ## [5][SENTENCE_MECHANICS]
 
+**Clause joining**
 - Use a comma before a coordinating conjunction joining two independent clauses.
 - For imperative clauses joined by a coordinating conjunction, omit the comma when the joined command reads clearly without it.
 - Omit the comma before a coordinating conjunction that joins only a compound predicate.
-- Use a semicolon before and a comma after a conjunctive adverb joining two independent clauses, and do not join independent clauses with a comma alone.
-- Join elements of equal rank with a coordinating conjunction (for, and, nor, but, or, yet, so); subordinate one element to another with a subordinating conjunction (because, although, since, while, if, when). Do not chain equal clauses with repeated `and` or `but`; coordinate only equal ideas and subordinate unequal ones.
-- Construct both arms of a correlative pair (both/and, either/or, not only/but also) in parallel; the conjunction signals the rank it joins, so the arms must match in form.
+- Use a semicolon before and a comma after a conjunctive adverb joining two independent clauses.
+- Do not join independent clauses with a comma alone.
+
+**Rank and parallelism**
+- Join elements of equal rank with a coordinating conjunction: for, and, nor, but, or, yet, so.
+- Subordinate one element to another with a subordinating conjunction: because, although, since, while, if, when.
+- Coordinate only equal ideas and subordinate unequal ones; do not chain equal clauses with repeated `and` or `but`.
+- Construct both arms of a correlative pair in parallel: both/and, either/or, not only/but also.
+- Keep parallel items parallel in grammar and scope.
+
+**Clarity**
 - Use `that` for a restrictive clause; use `which`, set off by commas, for a nonrestrictive one.
 - Use sentence-initial conjunctions, split infinitives, and terminal prepositions when they produce the clearest technical sentence.
 - Break center-embedded or multi-condition sentences into shorter sentences.
-- Keep parallel items parallel in grammar and scope.
 - Use ordering transitions such as `First`, `Then`, and `Finally` only when order matters.
 - State a condition before the action it controls: `If <signal>, do <action>`.
 - Keep modifiers and related words next to the terms they govern.
@@ -65,22 +77,36 @@ Use a front-and-close shape. The first sentence carries the point: rule, claim, 
 - Introduce an acronym once per document unless the acronym is more recognizable than its expansion.
 - Use singular `they` when gender is unknown, irrelevant, or intentionally unspecified.
 - Do not invent reader-facing names for internal concepts.
-- Do not name stale commands, removed tools, temporary task labels, or obsolete skills unless a current owner proves they are still supported.
+- Do not name stale commands, removed tools, transient task labels, or removed skills unless a current owner proves they are still supported.
 
 ## [7][PUNCTUATION_NUMBERS_NOTATION]
 
+**Local mechanics**
 - Use U.S. English spelling unless an official product or source name differs.
 - Form the possessive singular by adding `'s` regardless of the final consonant: `Charles's`, `the witness's`, `the boss's`.
 - Use the serial comma in lists of three or more items.
-- Use a colon after a complete sentence that directly introduces a list, table, example, consequence, or complete explanation. Capitalize the first word after a colon only when the following material is a complete sentence; keep fragments, definition-block values, table cells, and field continuations lowercase unless source casing differs.
-- Use semicolons only for closely related independent clauses or complex inline lists with internal commas. Prefer sentence splits or vertical lists in agent-facing documentation, and do not end bullet items with semicolons.
-- Use spaced em dashes for prose interruptions and inline field separators, and use the bare em dash only as the table value for an absent or not-applicable cell. Use en dashes for inclusive ranges, open-compound modifiers in prose, and compound modifiers formed from two names. Hyphenate compound modifiers before nouns when needed for clarity; omit needless hyphens after `-ly` adverbs; use a suspended hyphen for shared compounds. Use ASCII hyphen-minus in commands, flags, paths, slugs, identifiers, code, config, tracker literals, and copyable text.
-- Use parentheses for nonessential clarification; promote required conditions into the main sentence. If a parenthetical is a full sentence, put the period inside the closing parenthesis; if it is part of the enclosing sentence, put the period outside.
+- Use one space after terminal punctuation.
+
+**Stops and separators**
+- Use a colon after a complete sentence that directly introduces a list, table, example, consequence, or complete explanation.
+- Capitalize the first word after a colon only when the following material is a complete sentence. Keep fragments, definition-block values, table cells, and field continuations lowercase unless source casing differs.
+- Use semicolons only for closely related independent clauses or complex inline lists with internal commas.
+- Prefer sentence splits or vertical lists in agent-facing documentation, and do not end bullet items with semicolons.
+- Use parentheses for nonessential clarification; promote required conditions into the main sentence. If a parenthetical is a full sentence, put the period inside the closing parenthesis. If it is part of the enclosing sentence, put the period outside.
+
+**Dashes and hyphens**
+- Use spaced em dashes for prose interruptions and inline field separators.
+- Use the bare em dash only as the table value for an absent or not-applicable cell.
+- Use en dashes for inclusive ranges, open-compound modifiers in prose, and compound modifiers formed from two names.
+- Hyphenate compound modifiers before nouns when needed for clarity.
+- Omit needless hyphens after `-ly` adverbs, and use a suspended hyphen for shared compounds.
+- Use ASCII hyphen-minus in commands, flags, paths, slugs, identifiers, code, config, tracker literals, and copyable text.
+
+**Notation**
 - Avoid slashes for prose alternatives; use `or`, `and`, or `or both`. Keep slashes for code, paths, URLs, and exact product syntax.
 - Reserve title case for titles of works, official labels, externally required names, and ordinary prose labels outside bracketed notation. In title case, capitalize prepositions of 5 or more letters and capitalize later elements in hyphenated prefixed compounds when the title style requires it.
 - Use numerals for versions, measurements, commands, flags, identifiers, dates, editions, counts, thresholds, exact quantities, and any value readers compare, and keep units attached to their values. Spell out isolated nontechnical counts from zero through nine only when the value is not a comparison, threshold, field value, or literal. A year may open a sentence in numeral form.
 - In ordinary prose quotations, place commas and periods inside closing quotation marks and colons and semicolons outside. For UI labels, commands, code, exact strings, and copied source text, preserve literal punctuation and prefer backticks over quotation marks.
-- Use one space after terminal punctuation.
 - Use straight quotes and ASCII-safe punctuation in any Markdown a reader may copy into commands, code, config, or trackers; typographic punctuation is acceptable only in prose that is never copied as a literal.
 
 ## [8][CODE_SAFE_MARKDOWN]
@@ -105,7 +131,7 @@ Examples must prove shape or prevent misuse. Place an example beside the rule it
 - Keep an example's wording consistent with the terminology it teaches.
 - When a block could be copied, run, or mistaken for current policy, mark its reuse risk; the intent-label vocabulary is the form standard's concern.
 
-The pair below shows the discipline this section names: a hedge-laden sentence rejected, and its de-hedged positive-imperative rewrite marked as an accepted shape.
+The pair below contrasts a hedge-laden sentence with a direct positive imperative.
 
 ```text rejected
 It is probably best to try to avoid not stating the unit when you can.

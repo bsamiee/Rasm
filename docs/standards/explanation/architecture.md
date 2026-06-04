@@ -34,7 +34,7 @@ Each row fixes the scope, the canonical file name, the minimum C4 views, and the
 
 | [INDEX] | [PROFILE]      | [SCOPE]                         | [FILE_NAME]            | [REQUIRED_C4_VIEWS]    | [REQUIRED_SECTIONS] |
 | :-----: | :------------- | :------------------------------ | :--------------------- | :--------------------- | ------------------: |
-|   [1]   | Landscape      | System or tool boundary         | `ARCHITECTURE.md`      | Context + Container    |                   6 |
+|   [1]   | Landscape      | System or tool boundary         | `ARCHITECTURE.md`      | Context + Container    |                   7 |
 |   [2]   | Owner-contract | Package or sub-concern boundary | `_ARCHITECTURE.md`     | Container or Component |                   5 |
 |   [3]   | Embedded       | Single directory, one entry     | section in `README.md` | None (codemap only)    |                   3 |
 
@@ -118,7 +118,7 @@ Use the arc42-lite section order below. Each entry states its cardinality and th
 3. Solution strategy — required. State the top architectural choices and the quality goal each one serves, one sentence per choice. Bind each choice to a goal named in section 1; a strategy that serves no stated goal is decoration.
 4. Building-block view and codemap — required. Decompose into containers and bind each to real repository paths; building-block entries are repeatable. Each block carries its owned concern, its repository path, and its relationship to sibling blocks. The C4 Container view renders the same set the codemap lists; the two must not disagree.
 5. Invariants and rejected shapes — required. State each invariant as an observable, falsifiable rule and each rejected shape with the reason it is forbidden and the check that catches it; both are repeatable. An invariant names the rule, the boundary it governs, and the analyzer, test, or review that proves it. A rejected shape names the forbidden construction and the failure mode it prevents.
-6. Risks and glossary — required. Record open architectural risks as status-tagged records and the terms a first-time reader cannot infer as a glossary; risk entries are repeatable. Each risk carries its `Status`, the `Exit` condition that retires it, the `Owner` accountable, and the `Proof` or mitigation in flight.
+6. Risks and glossary — required. Record open architectural risks as status-tagged records. Define terms a first-time reader cannot infer as a co-located glossary. Each risk carries its `Status`, the `Exit` condition that retires it, the `Owner` accountable, and the `Proof` or mitigation in flight.
 7. Runtime scenarios — conditional. Required when a current invariant depends on the order of a cross-container flow; one C4 Dynamic view per scenario. State the trigger, the ordered steps across containers, and the invariant the order proves.
 8. Deployment view — conditional. Required when deployed topology, host placement, or a runtime boundary explains a current invariant. State each deployment node, what runs on it, and the boundary the placement enforces.
 

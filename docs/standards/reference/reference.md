@@ -130,11 +130,11 @@ Status: Supported | Deprecated | Removed | Blocked-pending-upgrade
 
 ### [1.1][GPU_MESH_TESSELLATION]
 
-Capability: Parallel GPU tessellation of NURBS-derived meshes.
+Capability: Optional accelerated rendering for the named surface.
 Status: Blocked-pending-upgrade
-Constraint: Requires RhinoWIP 8.16+ and a Metal-capable host; absent on the Intel CI runner.
-Evidence: `uv run python -m tools.quality api show Rhino.Render.MeshProvider` (returns the gated symbol).
-Review trigger: re-verify when the host bundle pin in `Directory.Build.props` advances.
+Constraint: Requires `<minimum host version>` and `<required capability>`; absent on `<fallback environment>`.
+Evidence: `<exact source command or generated contract>` proves the gated symbol or feature flag.
+Review trigger: re-verify when `<host bundle pin or support source>` advances.
 
 | [INDEX] | [STATUS]                | [CALLER_ACTION]                                                      |
 | :-----: | :---------------------- | :------------------------------------------------------------------- |
@@ -147,12 +147,11 @@ Review trigger: re-verify when the host bundle pin in `Directory.Build.props` ad
 The next block is `rejected`: it dissolves the same facts into prose, so no status token is enumerable, no field is filterable, and no action resolves in one scan.
 
 ```markdown rejected
-GPU tessellation is currently not available everywhere — it needs a recent
-RhinoWIP and a Metal machine, and on our CI box it just is not there yet, so
-for now you should probably guard it and fall back when it is missing.
+The accelerated path is not available on every host. It needs a newer host and
+the required capability, so guard it and fall back when it is missing.
 ```
 
-## [7][COMMAND_CODE_CONDITION]
+## [7][KEYED_MAPPINGS]
 
 A command reference and a capability reference both carry mappings a reader resolves by key; render the mapping as the table form that matches the question.
 
@@ -193,20 +192,18 @@ Define each enumerated or coded value's meaning, not just its name, so a coded d
 
 A reference example illustrates one fact, runs at most 12 lines, and sits beside the fact it clarifies; it shows shape and never becomes a procedure. Label every fenced block with its intent so a reader knows whether to run it, study it, or avoid it: `copy-safe` for a block safe to run as written, `conceptual` for an illustrative shape, `output-only` for sample output, `deprecated` for a retained-for-recognition form, and `rejected` for a counter-example. Move multi-step usage to a how-to guide and keep the cross-link in Boundaries.
 
-An exemplary reference example is the shape the paragraph above describes: it sits beside the one fact it clarifies, carries its intent in the info string, and shows form without teaching a path. The block below illustrates the flag fact it accompanies — `-n` performs a dry run and changes nothing — and is safe to run as written, so it carries the `copy-safe` label. The rejected form uses `-f`, which mutates state.
+An exemplary reference example sits beside the one fact it clarifies, carries its intent in the info string, and shows form without teaching a path. The block below illustrates a dry-run flag fact without naming a real destructive command family.
 
-```bash copy-safe
-# beside the fact: `--dry-run` lists what would be removed and changes nothing.
-
-git clean -xdn
+```text conceptual
+example-tool plan --dry-run
+# Lists planned changes and mutates nothing.
 ```
 
 A warning belongs in a reference leaf when it states a constraint, destructive behavior, an unsupported combination, a security-sensitive fact, or a likely misuse. State it before the action it governs, keep it factual, and attach the evidence that proves it. The counter-example carries the `rejected` label in its info string, matching the intent-label convention every fenced block obeys.
 
 ```text rejected
-# deletes the working tree with no confirmation
-
-git clean -xdf
+example-tool apply --force
+# Mutates state without an explicit target or confirmation.
 ```
 
 ## [11][BOUNDARIES]

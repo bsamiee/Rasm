@@ -1,6 +1,6 @@
 # [TUTORIAL_STANDARDS]
 
-A tutorial teaches one learner outcome by guiding them through concrete action, visible results, and a path the author executed end to end before publication. The author owns reliability — the lesson works for every learner, every time — and the learner owns only attention. A learning path orders multiple tested lessons so each later lesson reuses skill, vocabulary, or artifacts established earlier. This standard owns lesson shape, learner-path ordering, and execution proof; it does not own task procedure for a competent reader, role readiness, incident recovery, lookup facts, or conceptual explanation.
+A tutorial teaches one learner outcome by guiding them through concrete action, visible results, and a path the author executed end to end before publication. The author owns reliability: the lesson must be reproducible from the stated start state, with proof gaps marked rather than hidden. A learning path orders multiple tested lessons so each later lesson reuses skill, vocabulary, or artifacts established earlier. This standard owns lesson shape, learner-path ordering, and execution proof; it does not own task procedure for a competent reader, role readiness, incident recovery, lookup facts, or conceptual explanation.
 
 ## [1][USE_WHEN]
 
@@ -17,15 +17,19 @@ Route elsewhere by topic when the reader is a competent operator completing a kn
 
 ## [2][AUTHORING_DOCTRINE]
 
-These imperatives govern every section below; they are the binding contract of the type, drawn from canonical tutorial doctrine. `Source of truth:` Diataxis tutorial doctrine (`diataxis.fr/tutorials/`) and Refactoring English, "Rules for Writing Software Tutorials" (revised January 2025, `refactoringenglish.com/chapters/rules-for-software-tutorials/`). `Last verified:` 2026-06-04. `Review trigger:` Diataxis tutorial or named tutorial-writing guidance changes.
+These imperatives govern every section below; they are the binding contract of the type, drawn from canonical tutorial doctrine.
+
+Source of truth: [Diataxis tutorial doctrine](https://diataxis.fr/tutorials/) and Refactoring English, ["Rules for Writing Software Tutorials"](https://refactoringenglish.com/chapters/rules-for-software-tutorials/) (published 2025-01-02; last revised 2025-01-31).
+Last verified: 2026-06-04.
+Review trigger: Diataxis tutorial or named tutorial-writing guidance changes.
 
 - Show the destination first: state the artifact and show its end state before step one, never a prose promise alone.
 - Deliver a visible, comprehensible result at every step; keep the example in a working state at every checkpoint.
-- Keep a narrative of expectation: tell the learner what they will see before they run a step, and give exact example output.
+- Keep a narrative of expectation: tell the learner what result they should confirm before they run a step, and give exact example output.
 - Flag likely failure inline at the step where it happens, and consolidate recoverable failures into a troubleshooting table.
 - Point out what the learner should notice; never assume the result speaks for itself.
 - Give the learner meaningful work before abstract explanation: the learner acts and sees a result, then any explanation follows.
-- Minimise explanation ruthlessly and ignore options and alternatives: one concrete path, every branch linked out from `Next steps`.
+- Minimize explanation ruthlessly and ignore options and alternatives: one concrete path, every branch linked out from `Next steps`.
 - Permit repetition: keep inputs reproducible, repeatable, and disposable so a learner can rerun from a clean start.
 
 ## [3][VARIANT_PROFILES]
@@ -49,7 +53,7 @@ Open every tutorial with an in-body metadata block. Use only the fields below un
 Description: <one line naming what this teaches>
 Difficulty: beginner | intermediate | advanced
 Estimated time: <e.g. 20 minutes>
-Version: <exact tested stack, e.g. Node.js v22.12.0, pnpm 9.x>
+Version: <exact tested stack, e.g. Node.js v22.12.0, pnpm v9.15.4>
 Last verified: YYYY-MM-DD
 ```
 
@@ -94,7 +98,7 @@ Estimated time: <duration>
 Version: <pinned tested stack>
 Last verified: YYYY-MM-DD
 
-## [1][WHAT_WE_WILL]
+## [1][WHAT_WE_WILL_BUILD]
 
 ## [2][LEARNING_OUTCOME]
 
@@ -118,7 +122,7 @@ Last verified: YYYY-MM-DD
 
 ```
 
-- `What we will build`: required, one paragraph naming exactly one artifact, plus a required artifact preview — a screenshot path under the repository, an exact final-output block, or a small end-state diagram. A prose promise alone fails this section.
+- `What we will build`: required, one paragraph naming exactly one artifact, plus a required artifact preview: a screenshot path with alt text or nearby proof text, an exact final-output block, or a small end-state diagram with a visible caption or description. A prose promise alone fails this section.
 - `Learning outcome`: required; 1 to 3 bullets, each a specific capability the learner can perform afterward.
 - `Prerequisites`: required; tools, versions, accounts, and prior lessons as a bulleted list, each item independently checkable. Each version names the exact tested value and a verify command where one exists.
 - `Start state`: required; the exact repository state, named branch, commit, sample data, or fixture the learner begins from, reproducible without the author present.
@@ -176,7 +180,7 @@ Order entries so each later lesson consumes a prior lesson's proof. If the entri
 
 ## [7][STEP_RECORDS]
 
-Each step is a checkpoint record, not a bare instruction line. A step must leave the learner in a verified working state, not merely "run this". Render each step as a numbered list item whose continuation lines carry one `label: value` per line, indented under the numbered item. The numbered item is the step's action sentence; the labels are its checkpoint fields. This is the ordered-list form, not an H3 heading and not a standalone definition block, so the 3-to-12 ceiling never forces a wall of headings:
+Each step is a checkpoint record, not a bare instruction line. A step must leave the learner in a verified working state, not merely "run this". Render each step as a numbered list item whose continuation lines carry one `label: value` per line, indented under the numbered item. The numbered item is the checkpoint title; the `Action` field owns the imperative. This is the ordered-list form, not an H3 heading and not a standalone definition block, so the 3-to-12 ceiling never forces a wall of headings:
 
 - `Action`: required; one imperative naming what the learner does.
 - `Command`: required; the exact copy-safe command or the exact file path and edit. State the command first, then its expected signal.
@@ -222,20 +226,19 @@ Keep every command copy-safe per the craft owner: no shell prompt in input lines
 
 ## [8][EXECUTION_VOCABULARY]
 
-When a tutorial spans multiple sessions or carries steps the author could not fully execute, tag each checkpoint with a closed execution-proof vocabulary so a learner or agent knows which steps were actually run:
+When a tutorial spans multiple sessions or carries steps the author could not fully execute, tag each unverified checkpoint with a closed execution-proof vocabulary so a learner or agent knows which steps were not author-run:
 
-- `VERIFIED`: the author ran this step front to back and observed the `Expected` signal.
 - `NEEDS-FIXTURE`: the step depends on a fixture or seed the learner must stage first.
 - `UNVERIFIED-REQUIRES-<X>`: the step depends on hardware, credentials, or a live service the author could not exercise; name the dependency in place of `<X>`.
 
-The tag rides in the step record's optional `Execution` field defined in `Step records` above — one tag per step, on its own `label: value` continuation line — so it occupies a fixed, machine-readable slot rather than floating in prose. Define the set inline at first use and apply no tag beyond this closed set; per-item sigils are notation spam this corpus rejects. A short tutorial whose every step is verified needs no tags. The tag makes the execution-proof claim machine-checkable and prevents an unverified step from reading as asserted fact.
+The tag rides in the step record's optional `Execution` field defined in `Step records` above — one tag per step, on its own `label: value` continuation line — so it occupies a fixed, machine-readable slot rather than floating in prose. Define the set inline at first use and apply no tag beyond this closed set; per-item sigils are notation spam this corpus rejects. A tutorial whose every step is verified needs no tags. The tag makes an unverified dependency machine-checkable and prevents a proof gap from reading as asserted fact.
 
 ## [9][RESULT_EXIT_GATE]
 
 State the `Result` as the final artifact diffed against a stated reference — a reference repository branch, a golden file path, or the exact final output — then close the section with a `Done when` gate. The gate turns the result from a description into a checkable completion contract: the learner and an agent validating the document both know objectively whether the lesson closed.
 
 ```markdown template
-## [1][RESULT]
+## [6][RESULT]
 
 `sample.csv` matches `reference/sample.csv` byte for byte.
 
@@ -258,19 +261,19 @@ Capture every failure point the author hit during the mandatory front-to-back ex
 
 Order rows by the step at which the symptom first appears, and keep each cell within the form owner's cell ceiling, carrying any long qualifier in a note after the table.
 
-## [11][ACCEPTANCE_CRITERIA]
+## [11][PUBLICATION_GATES]
 
-A tutorial is publishable only when every criterion is observably met:
+A tutorial is publishable only when every external gate is observably met:
 
 - the opening metadata carries `Description`, `Difficulty`, `Estimated time`, the pinned `Version`, and `Last verified`;
 - the title names the artifact, not the internal skill;
-- `What we will build` shows the end state via screenshot path, output block, or diagram before step one;
+- `What we will build` shows the end state via screenshot path plus text equivalent, output block, or diagram plus caption before step one;
 - the learning outcome states a specific capability;
 - the start state is reproducible from the named fixture, branch, or repository state;
 - every step is a checkpoint record pairing one action, one copy-safe command, one exact expected signal, and a verified working state;
 - the result is an artifact the learner diffs against a stated reference, and the `Done when` gate is observable;
 - known failure points are captured as `If wrong` fields or troubleshooting rows, not omitted;
-- the path runs front to back from the start state with no undocumented step;
+- the path runs front to back from the start state with no undocumented step, or each proof gap is tagged in the execution vocabulary;
 - terminology appears at first use, not in a glossary the learner must hold;
 - one concept and one artifact carry the lesson, with no in-step variants.
 
@@ -311,8 +314,8 @@ Learner-facing first person such as `We will build` is correct because the docum
 - [ ] Opening metadata carries `Description`, `Difficulty`, `Estimated time`, the pinned `Version`, and `Last verified`.
 - [ ] The title names the observable artifact, not an internal skill.
 - [ ] The learning outcome states a specific capability, not a vague aspiration.
-- [ ] `What we will build` shows the end state via screenshot, output, or diagram before step one.
-- [ ] Audience and start state are explicit and reproducible from a named fixture, branch, or commit.
+- [ ] `What we will build` shows the end state via screenshot plus text equivalent, output, or diagram plus caption before step one.
+- [ ] Prerequisites and start state are explicit and reproducible from a named fixture, branch, or commit.
 - [ ] The base spine is present and every required section carries its content.
 - [ ] `Steps` holds 3 to 12 numbered checkpoint records.
 - [ ] Each step record carries `Action`, a copy-safe `Command`, an exact `Expected` signal, and a verified `Working state`.

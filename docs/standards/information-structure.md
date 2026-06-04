@@ -1,42 +1,49 @@
 # [INFORMATION_STRUCTURE]
 
-This standard owns form: which container carries a piece of information, and how that container is structured for scanning, retrieval, and maintenance. After the document type is known and before you write long sections, choose the container. It does not decide where high-value content sits inside a unit, what the words say, how a container is visually styled, or how strong the evidence is.
+This standard owns form: which container carries a piece of information and how that container supports scanning, retrieval, and maintenance. Choose the container after the document type is known and before drafting long sections. This standard does not decide salience, prose, visual styling, or evidence strength.
 
 ## [1][USE_WHEN]
 
 Apply this standard to choose and shape containers:
 
-- prose, bullets, numbered lists, checklists, definition blocks, status-tagged records, tables, or code blocks;
-- decision tables, lookup tables, monospace text structures, Mermaid diagrams, or a C4 architecture handoff;
-- callouts, collapsible blocks, and footnotes;
-- code-block intent labels and example placement;
-- headings, section boundaries, line wrapping, and retrieval chunk shape;
-- page anatomy for a standard or reference page.
+- prose, bullets, numbered lists, and checklists;
+- definition blocks, status-tagged records, tables, decision tables, and lookup tables;
+- code blocks, intent labels, examples, monospace text structures, Mermaid diagrams, and C4 architecture handoffs;
+- callouts, collapsible blocks, footnotes, headings, section boundaries, line wrapping, retrieval chunks, and page anatomy.
 
 Salience and ordering within a unit belong to the position standard, sentence mechanics to the craft standard, evidence strength to the proof standard, and visual styling (alignment, markers, whitespace) to the formatting standard.
 
 ## [2][CONTAINER_CHOOSER]
 
-Use the smallest container that preserves meaning, and change container when the reader's question shifts from explanation to lookup, ordered action, relationship, or proof. Structured containers are not decoration: bullets and key-value blocks outperform prose for option selection and field extraction, and tables outperform both for dense factual lookup, so reach for structure whenever the content is a set of peers, records, or comparisons.
+Use the smallest container that preserves meaning. Change container when the reader's question shifts from explanation to lookup, ordered action, relationship, or proof. Structured containers are not decoration: bullets and key-value blocks outperform prose for option selection and field extraction, and tables outperform both for dense factual lookup.
 
-- Prose: one concept, decision, caveat, or transition where a sentence is genuinely clearer than a list.
-- Bullets: peer facts, requirements, unordered options.
+**Narrative and peer sets**
+- Prose: one concept, decision, caveat, or transition where a sentence is clearer than a list.
+- Bullets: peer facts, requirements, or unordered options.
 - Numbered lists: ordered actions, ranked choices, lifecycle steps, or gates.
 - Checklists (`- [ ]`): verification, acceptance, or status items whose completion is asserted and checked.
+
+**Records and lookup**
 - Definition blocks: terms, statuses, commands, roles, and short labeled facts, one `label: value` per line.
-- Status-tagged records: any finite enumerable set whose items carry status over time — milestones, decisions, requirements, risks, tasks.
+- Status-tagged records: finite enumerable sets whose items carry status over time, such as milestones, decisions, requirements, risks, or tasks.
 - Tables: dense row-and-column comparison or lookup across a homogeneous set.
 - Decision tables: an action or rule determined by a finite combination of conditions.
+
+**Literal and visual forms**
 - Code blocks: commands, literal files, config, schemas, or copyable snippets.
 - Monospace text structures: hierarchy or short branching where raw-Markdown inspection matters more than rendered polish.
-- Mermaid: multi-node workflows, sequences, state, or relationships that readers need rendered.
+- Mermaid: multi-node workflows, sequences, states, or relationships that readers need rendered.
 - Callouts, collapsible blocks, footnotes: constraint interrupts, low-salience reference, and inline provenance.
 
 A single record read by field belongs in a definition block, not a one-row table. Sparse data compared across rows still belongs in a table, not flattened into prose. When no two items share a comparison question, abandon the table and give each item its own record.
 
 ## [3][TABLES]
 
-Use a table when row-and-column comparison or lookup across a homogeneous set is the point, and keep it within bounds that agent readers and split-pane readers handle. A table degrades past roughly 15 columns or 20 rows; degradation is continuous, so treat these bounds as the line past which decomposition is mandatory, not optional. Tables are the most token-efficient structured format up to moderate size, yet an oversized table suffers the same long-context degradation as any other oversized unit. The formatting standard owns the bracketed table surface: enumerable Markdown tables carry `[INDEX]` first, bracketed uppercase rubrics in the header row, and `[1]` through `[n]` row identifiers.
+Use a table when row-and-column comparison or lookup across a homogeneous set is the point. Keep it within bounds that agent readers and split-pane readers handle.
+
+A table degrades past roughly 15 columns or 20 rows. Degradation is continuous, so these bounds mark the point where decomposition becomes mandatory. Tables are the most token-efficient structured format up to moderate size, but an oversized table suffers the same long-context degradation as any other oversized unit.
+
+The formatting standard owns the bracketed table surface: enumerable Markdown tables carry `[INDEX]` first, bracketed uppercase rubrics in the header row, and `[1]` through `[n]` row identifiers.
 
 Decompose by the dominant violation, never both at once:
 
@@ -67,9 +74,13 @@ A table and its surrounding prose each own a distinct role; neither restates the
 
 ## [6][STRUCTURED_RECORDS]
 
-Render a finite enumerable set whose items carry state — milestones, decisions, requirements, risks, tasks, gates — as structured records, never as flat prose. This form prevents a roadmap from becoming paragraphs with no status, no dependency, and no exit proof. Each item is a record carrying machine-readable fields; the choice between a record table and a per-item record block follows the table rules above — a table while items stay homogeneous and short-celled, a per-item block once any field needs more than a cell.
+Render a finite enumerable set whose items carry state as structured records, never as flat prose. Milestones, decisions, requirements, risks, tasks, and gates need status, dependency, and exit proof. Each item is a record with machine-readable fields.
 
-Use this closed `Status` vocabulary so an agent can filter on exact strings: `PLANNED`, `IN-PROGRESS`, `BLOCKED`, `DONE`, `DROPPED`. A type standard may define a domain-specific status set in place of this default — a roadmap names lifecycle stages, a decision log names decision states — and may extend or rename the recurring fields for its domain — a roadmap carries `Exit criteria` and `Proof surface` — provided each status set stays closed, each field stays one `label: value` per line, and both are defined before first use. The recurring record fields carry fixed meanings:
+Choose the record container by field shape. Use a table while items stay homogeneous and short-celled. Switch to a per-item record block once any field needs more than a cell.
+
+Use this closed `Status` vocabulary so an agent can filter on exact strings: `PLANNED`, `IN-PROGRESS`, `BLOCKED`, `DONE`, `DROPPED`. A type standard may define a domain-specific status set in place of this default. It may also extend or rename recurring fields for its domain, such as roadmap `Exit criteria` and `Proof surface`. Each status set stays closed, each field stays one `label: value` per line, and both are defined before first use.
+
+The recurring record fields carry fixed meanings:
 
 - `Status`: the current lifecycle state, from the closed set above.
 - `Exit`: the single observable, falsifiable condition that moves the item to `DONE` — a shipped artifact, a merged path, or a passing gate.
@@ -164,14 +175,19 @@ A lookup table is a single key column mapping to its value, read by key rather t
 
 ## [11][CODE_BLOCKS]
 
-Every fence carries a language tag in its info string, and the intent label follows the language. Fence every command, literal file, config, schema, or copyable snippet, and mark its intent in the info string after the language so a reader knows whether the block is safe to run, study, fill in, or avoid. Use exactly one intent label per block:
+Every fence carries a language tag in its info string, and the intent label follows the language. Fence every command, literal file, config, schema, or copyable snippet. Mark exactly one intent label so a reader knows whether the block is safe to run, study, fill in, or avoid.
 
+**Reusable inputs**
 - `copy-safe`: run or paste as written. For a config or data block, use this when the block is byte-equivalent to a named source-of-truth file, and name that file in the label (`copy-safe — config.yml`).
 - `template`: copy the structure, then replace every placeholder before use. Use this for section templates, metadata blocks, and table shapes that contain placeholders.
+
+**Explanatory or scoped blocks**
 - `conceptual`: an illustrative or proposed shape, not a verbatim or runnable artifact.
 - `test-only`: valid only in a test or fixture context.
 - `generated`: produced by a generator; edit the source, not the block.
 - `output-only`: sample output, not an input to run.
+
+**Reuse warnings**
 - `deprecated`: retained for recognition; do not adopt.
 - `rejected`: a counter-example shown to prevent misuse.
 
@@ -255,7 +271,11 @@ Use Mermaid when rendered structure adds value beyond bullets or monospace text.
 - `classDiagram`: type relationships when names alone are insufficient.
 - `quadrantChart`, `sankey`, `architecture`, and C4 views: comparative positioning, flow volume, or system structure when a simpler type loses meaning.
 
-Keep diagrams small enough to review in source. Use stable semantic node IDs (`Request`, `Quota`, `Recovery`) instead of one-letter IDs except in tiny examples where the rendered label is the whole subject. Keep IDs ASCII-safe and distinct from Mermaid keywords. Quote labels containing punctuation, parentheses, or reserved words inside the node label, not by making the node ID a sentence. Add renderer-supported accessible titles and descriptions when available, but do not depend on renderer metadata alone: every diagram, screenshot, badge cluster, or banner that carries meaning needs nearby visible text stating what the visual proves. For architecture, a C4 Context and Container pair is the baseline; add deeper Component, dynamic, or deployment views only where internal structure or runtime behavior is the subject. Choosing whether a diagram is needed is this standard's call; how an architecture model is structured belongs to the architecture type standard.
+Keep diagrams small enough to review in source. Use stable semantic node IDs (`Request`, `Quota`, `Recovery`) instead of one-letter IDs except in tiny examples where the rendered label is the whole subject. Keep IDs ASCII-safe and distinct from Mermaid keywords. Quote labels containing punctuation, parentheses, or reserved words inside the node label, not by making the node ID a sentence.
+
+Add renderer-supported accessible titles and descriptions when available, but do not depend on renderer metadata alone. Every diagram, screenshot, badge cluster, or banner that carries meaning needs nearby visible text stating what the visual proves.
+
+For architecture, a C4 Context and Container pair is the baseline. Add deeper Component, dynamic, or deployment views only where internal structure or runtime behavior is the subject. Choosing whether a diagram is needed is this standard's call; how an architecture model is structured belongs to the architecture type standard.
 
 ## [14][CALLOUTS_COLLAPSIBLE_FOOTNOTES]
 
@@ -277,7 +297,7 @@ Carry meaning with structure, not ornament. Markdown structure is cheap, readabl
 
 ## [17][PAGE_ANATOMY]
 
-Render the page shape as a template heading set, not a narrated list of section names. The template is the structure prescription:
+Render the page shape as a template heading set, not a narrated list of section names. The template is the structure prescription.
 
 ```markdown template
 # [TITLE]
@@ -304,7 +324,7 @@ Section cardinality:
 - `Source or authority` — conditional; include only where source order changes behavior.
 - `Examples` — conditional; include only where misuse is likely.
 
-Every long standard needs a chooser, boundaries, and a checklist. A type standard additionally carries a required-structure section: a template heading set plus a section-cardinality block. The cardinality block makes required, conditional, optional, and repeatable sections explicit:
+Every long standard needs a chooser, boundaries, and a checklist. A type standard additionally carries a required-structure section: a template heading set plus a section-cardinality block. The cardinality block makes required, conditional, optional, and repeatable sections explicit.
 
 ```markdown template
 # [SCOPE_TYPE]
@@ -349,7 +369,7 @@ Use examples to show shape, not to pad:
 - Put the example beside the rule it clarifies and keep its data realistic.
 - Mark placeholders and omitted sections explicitly, and label any block a reader could copy, run, or mistake for current policy with its intent.
 
-Do not publish interaction fragments, private paths, or local task notes as reusable patterns.
+Do not publish interaction excerpts, nonpublic local paths, or local task notes as reusable patterns.
 
 ## [21][BOUNDARIES]
 

@@ -1,6 +1,6 @@
 # [AGENTIC_DOCUMENTATION]
 
-This standard owns position and agent cognition: where controlling content sits inside a unit, how serial-position salience governs that placement, and how machine-facing surfaces publish repository truth so agents find, trust, and refresh it. It does not decide container form, sentence craft, or evidence strength. It also does not make model output trustworthy, authorize access, or sanitize untrusted content; documentation reduces ambiguity, never enforces it.
+This standard owns position and agent cognition: where controlling content sits inside a unit, how serial-position salience governs that placement, and how machine-facing surfaces publish repository truth so agents find, trust, and refresh it. It does not decide container form, sentence craft, or evidence strength. Documentation reduces ambiguity; it does not make model output trustworthy, authorize access, or sanitize untrusted content.
 
 ## [1][USE_WHEN]
 
@@ -17,7 +17,7 @@ Container choice, sentence mechanics, and evidence strength belong to the form, 
 
 ## [2][SERIAL_POSITION_SALIENCE]
 
-Place the controlling rule first and the binding constraint last in every unit, because attention concentrates at sequence edges and middle-position degradation can still appear in long-context work. Treat the advertised context window as capacity, not as a reason to bury constraints: the middle of a long unit is where high-value content is easiest to miss.
+Place the controlling rule first and the binding constraint last in every unit. Attention concentrates at sequence edges, and middle-position degradation can still appear in long-context work. Treat the advertised context window as capacity, not as a reason to bury constraints.
 
 Apply the pattern recursively at every scale. Put high-value content at the unit edges; container choice belongs to `information-structure.md`, and sentence craft belongs to `style-guide.md`.
 
@@ -25,11 +25,11 @@ Apply the pattern recursively at every scale. Put high-value content at the unit
 - Section: open with what the section controls; end on its boundary or owner.
 - Paragraph and sentence: [style-guide.md](style-guide.md) owns the prose shape that realizes the ring.
 
-Salience is relative, not a hard cutoff: the middle down-weights content, it does not erase it. If a constraint is load-bearing and the unit is long, restate it in compact form at the close, near where an agent acts on it. Keep low-value inventories, history, and incidental detail out of the lead, and never bury a high-risk constraint, exception, or route-away rule mid-unit.
+Salience is relative, not a hard cutoff: the middle down-weights content, it does not erase it. If a constraint is load-bearing and the unit is long, restate it in compact form at the close, near where an agent acts on it. Keep low-value inventories, history, and incidental detail out of the lead. Never bury a high-risk constraint, exception, or route-away rule mid-unit.
 
 Use bracketed headings, table rubrics, `[INDEX]` rows, and compact status markers as salience aids, not as decoration. They help an agent find boundaries, compare rows, and filter state; they do not replace the front-and-close rule, claim-level evidence, or precise prose.
 
-`Source of truth:` this corpus's position-ring rule and provider prompt-engineering documentation. `Last verified:` 2026-06-04.
+`Source of truth:` this corpus's local position-ring rule, plus the linked provider prompt-engineering documentation in [Provider behavior](#13providerbehavior). `Last verified:` 2026-06-04.
 
 ## [3][CONTEXT_INVARIANCE]
 
@@ -68,48 +68,7 @@ Keep durable documentation, task instructions, prompt assets, and state artifact
 
 Do not publish task-specific interaction material as durable documentation. Promote only the stable rule into its owning standard, and leave transient context in the artifact that owns the interaction.
 
-## [7][PROVIDER_BEHAVIOR]
-
-Treat provider-specific guidance as preferred patterns within a converging ecosystem, not as iron laws. Keep the stable contract portable: outcome, constraints, evidence boundary, output shape, and stop rule. Then adapt delimiter, long-context placement, and schema mechanics to the provider surface that will run the prompt. Use one delimiter family in a prompt — XML-style tags or Markdown sectioning, not both — unless an external template requires otherwise.
-
-### [7.1][OPENAI_CODEX]
-
-Preferred structure: outcome, success criteria, constraints, available evidence, and final-answer shape before process detail.
-Delimiter: Markdown sectioning is the default for durable instruction files; use another delimiter only when the target surface or template requires it.
-Long context: keep critical constraints at the opening and closing edge; use compact restatement near the final ask when bulky source material sits in the middle.
-Structured output: put machine-consumed contracts in structured outputs or strict tool schemas where the API supports them; prose may steer JSON shape, but it does not enforce it.
-State and caching: keep `AGENTS.md` lean and scoped because Codex loads the instruction chain from global guidance through the working directory and closer files override earlier conflicting guidance. Use prompt caching only for stable prefixes and treat it as latency and cost optimization, not state or correctness proof.
-Output control: control answer length with explicit word, section, or verbosity contracts; do not treat verbosity as hidden reasoning control.
-Source family: OpenAI prompt guidance, structured-output, prompt-caching, conversation-state, and Codex `AGENTS.md` documentation.
-Last verified: 2026-06-04
-
-### [7.2][CLAUDE_CODE]
-
-Preferred structure: separate instructions, context, examples, documents, and variable inputs when the prompt mixes those concerns.
-Delimiter: use XML-style tags for complex prompts, with descriptive names and nesting only where hierarchy is real.
-Long context: place source documents near the top and the query or task at the end; wrap multi-document inputs with source and content metadata.
-Structured output: state the exact output fields, formats, and missing-data behavior; use schema enforcement where the surface supplies it.
-Claude Code files: `CLAUDE.md`, skills, commands, and task prompts use Markdown structure. XML tags are a prompt-clarity tool inside complex prompt content, not a Claude Code file-format requirement. `AGENTS.md` affects Claude Code only when `CLAUDE.md` imports or links it.
-Output control: ask for evidence, quoted or cited source spans within access and copyright limits, and final answer shape before synthesis when factual grounding matters.
-Source family: Anthropic prompting-best-practices and Claude Code memory documentation.
-Last verified: 2026-06-04
-
-### [7.3][GEMINI]
-
-Preferred structure: direct task instruction with explicit constraints, accepted values, output format, missing-data behavior, and validation rule.
-Delimiter: use one delimiter family, Markdown or XML-style tags, and keep the same family across instructions, context, and examples.
-Long context: place source material before the specific question or instruction and use a bridge phrase such as `Based on the information above` to bind the final ask to the supplied material.
-Structured output: prefer schema-backed structured output for extraction, classification, JSON payloads, and agent-to-agent exchange, but keep semantic validation in application or review logic.
-Verification split: when source availability or capability is uncertain, verify the relevant information exists first, then answer only inside the verified scope.
-Output control: state the desired length, sections, and refusal or missing-data behavior explicitly.
-Source family: Google Gemini prompt-strategy, long-context, file-prompting, and structured-output documentation.
-Last verified: 2026-06-04
-
-Do not require exposed chain-of-thought in published prompt standards. Ask for evidence, checks, summaries, or a decision trail the consumer can inspect, and rely on provider reasoning controls where the runtime exposes them. Use examples only when they materially teach format, tone, edge handling, or tool choice; remove examples that merely repeat the rule.
-
-`Source of truth:` the provider source families named beside each provider rule above. `Last verified:` 2026-06-04. `Review trigger:` provider prompt-engineering, structured-output, memory, or context guidance changes.
-
-## [8][TASK_OUTPUT_CONTRACTS]
+## [7][TASK_OUTPUT_CONTRACTS]
 
 Order a context-heavy task instruction to the position ring, and bind it to a contract the consumer can check. Invariant constraints and exclusions stay near an edge even when bulky evidence must sit before the final ask.
 
@@ -123,13 +82,15 @@ Order a task instruction as:
 6. Output contract and missing-evidence behavior.
 7. Validation and stop rule.
 
-Bind machine-consumed output to the narrowest contract the consumer actually validates: a schema, a typed tool input, a generated model, a catalog entry, or a documented field list. Close and total JSON-object schemas — `additionalProperties: false` with every property required, representing optionality with an explicit nullable value where the provider supports it — so the consumer validates a fully specified shape rather than a narrow-but-open one. Prefer provider schema enforcement over a schema described in prose where the surface supports it, and treat prompt-only JSON as a weaker fallback that requires validation and repair handling. A schema proves shape, not truth; keep semantic validation, refusal handling, and downstream suitability checks visible in the proof path. If a human reviews the contract instead of tooling enforcing it, state that proof gap.
+Bind machine-consumed output to the narrowest contract the consumer actually validates: a schema, a typed tool input, a generated model, a catalog entry, or a documented field list. Close and total JSON-object schemas so the consumer validates a fully specified shape rather than a narrow-but-open one. Use `additionalProperties: false` with every property required, and represent optionality with an explicit nullable value where the provider supports it.
 
-## [9][AGENTS_MD_AUTHORING]
+Prefer provider schema enforcement over a schema described in prose where the surface supports it. Treat prompt-only JSON as a weaker fallback that requires validation and repair handling. A schema proves shape, not truth; keep semantic validation, refusal handling, and downstream suitability checks visible in the proof path. If a human reviews the contract instead of tooling enforcing it, state that proof gap.
+
+## [8][AGENTS_MD_AUTHORING]
 
 Write `AGENTS.md` as a durable, behavioral overlay for one directory: what changes here, which standards and commands apply, and which patterns are forbidden. It complements the human-facing README; it does not duplicate it. Keep root guidance short and place specialized rules near the subtree they govern; provider-specific loading behavior belongs in the provider-behavior section.
 
-Start from a recommended minimal section set, shared by both the include-list below and the rendered template so the bullets and headings line up. This set is the suggested baseline, not a closed vocabulary: a directory may extend it with additional bracketed sections (for example load order, navigation context, routing tables, or rewrite rules) or relabel a section where a clearer name fits its needs. What binds is the include/exclude content rule below, not the exact section names. Whatever sections you keep, include only stable, universal, behavioral content an agent acts on:
+Start from the section set below. It is a suggested baseline, not a closed vocabulary: a directory may extend it with additional bracketed sections or relabel a section where a clearer name fits its needs. What binds is the include/exclude rule, not the exact section names. Whatever sections you keep, include only stable, universal, behavioral content an agent acts on:
 
 - `Scope`: directory scope and purpose, and the read order an agent follows into the deeper rules;
 - `Routing`: routing to the standards and reference files that own deeper rules, and ownership of conflicting guidance;
@@ -173,9 +134,11 @@ Exclude content that rots or wastes context:
 - thread-scoped goals, plans, or completion state;
 - logs, transient state, or per-session task notes.
 
-Layer files by scope and keep each lean. Lower directories should carry only the guidance specific to that level, and higher-level files should contribute only broad defaults. Place a file only where a directory carries guidance specific to that level and needed across sessions; every word loaded costs reasoning budget, so a top-level overlay should stay near one screen. Start from the recommended `Scope`, `Routing`, `Execution rules`, `Exclusions`, `Validation` template above, then extend or relabel its sections where the directory needs more. Iterate the file from observed agent failures rather than from speculation, and record provider-behavior claims with `Source of truth:` and `Last verified:` beside the claim.
+Layer files by scope and keep each lean. Lower directories should carry only guidance specific to that level, and higher-level files should contribute only broad defaults. Place a file only where a directory carries guidance needed across sessions. Every word loaded costs reasoning budget, so a top-level overlay should stay near one screen.
 
-## [10][LLMS_TXT_INDEXES]
+Iterate the file from observed agent failures rather than speculation. Record provider-behavior claims with `Source of truth:` and `Last verified:` beside the claim.
+
+## [9][LLMS_TXT_INDEXES]
 
 Keep machine-readable indexes shallow and curated. Link to the canonical README, architecture, API, reference, how-to, runbook, support, and standards pages; do not copy their bodies into the index.
 
@@ -185,7 +148,7 @@ Keep machine-readable indexes shallow and curated. Link to the canonical README,
 
 Claim only what the repository publishes and how it refreshes. Do not claim crawler adoption, ranking, answer correctness, access control, or injection resistance from documentation alone.
 
-## [11][RETRIEVAL_PROVENANCE]
+## [10][RETRIEVAL_PROVENANCE]
 
 Document a retrieval surface with the provenance an agent needs to trust and refresh a chunk. State, per corpus or chunk:
 
@@ -208,9 +171,9 @@ access: <public | internal | restricted | secret; filter rule when not public>
 review_trigger: <event that makes the chunk stale>
 ```
 
-Each retrievable chunk should carry enough context to stand alone, because retrieval strips surrounding structure. Claim hybrid retrieval, reranking, or provider-specific search only where the deployed stack supports it and the proof names the configured provider, command, or source of truth. Keep very large tables and long records chunked rather than passed whole, because the same long-context degradation that erodes prose erodes oversized structured content.
+Each retrievable chunk should carry enough context to stand alone, because retrieval strips surrounding structure. Claim hybrid retrieval, reranking, or provider-specific search only where the deployed stack supports it and the proof names the configured provider, command, or source of truth. Keep very large tables and long records chunked rather than passed whole; long-context degradation erodes oversized structured content too.
 
-## [12][MCP_TOOL_CATALOGS]
+## [11][MCP_TOOL_CATALOGS]
 
 Catalog MCP surfaces by control type before detailing any schema:
 
@@ -218,11 +181,15 @@ Catalog MCP surfaces by control type before detailing any schema:
 - Prompts: reusable interaction templates.
 - Tools: executable operations with typed inputs and outputs.
 
-For each capability, name what it is, when to inspect it, the required authorization or local setup, and where its canonical reference lives. For a tool, also name the precondition that gates invocation and the case where it must not be invoked. Detailed schemas belong in API or reference documentation. A documented tool is not safe to call merely because it is documented; safety comes from permissions, review, and runtime controls, never from the catalog entry.
+For each capability, name what it is, when to inspect it, the required authorization or local setup, and where its canonical reference lives. For a tool, also name the precondition that gates invocation and the case where it must not be invoked.
 
-## [13][METADATA_GENERATED_MIRRORS]
+Detailed schemas belong in API or reference documentation. A documented tool is not safe to call merely because it is documented; safety comes from permissions, review, and runtime controls, never from the catalog entry.
 
-Add YAML frontmatter, sidecar metadata, or generated index fields only when a named renderer, indexer, generator, retrieval store, or review workflow consumes that exact shape. Use an in-body definition block for ordinary document metadata; do not add YAML frontmatter as a speculative summary, fake routing layer, or authoring habit. Use snake-case field names when a machine reads the field. Durable fields may include `description`, `owner`, `source`, `source_of_truth`, `evidence`, `generated`, `generated_from`, `last_reviewed`, `last_verified`, `review_trigger`, `access`, and `parent`. Map each machine field to its human-facing proof label so the same fact reads the same way in prose and in metadata; the proof labels are the ones proof.md owns.
+## [12][METADATA_GENERATED_MIRRORS]
+
+Add YAML frontmatter, sidecar metadata, or generated index fields only when a named renderer, indexer, generator, retrieval store, or review workflow consumes that exact shape. Use an in-body definition block for ordinary document metadata. Do not add YAML frontmatter as a speculative summary, fake routing layer, or authoring habit.
+
+Use snake-case field names when a machine reads the field. Durable fields may include `description`, `owner`, `source`, `source_of_truth`, `evidence`, `generated`, `generated_from`, `last_reviewed`, `last_verified`, `review_trigger`, `access`, and `parent`. Map each machine field to its human-facing proof label so the same fact reads the same way in prose and metadata; proof.md owns the proof labels.
 
 | [INDEX] | [METADATA_FIELD]  | [PROOF_LABEL]      |
 | :-----: | :---------------- | :----------------- |
@@ -237,6 +204,47 @@ Fields with no proof-label counterpart — `description`, `owner`, `source`, `ge
 A generated or mirrored file must link its canonical source, name the generator or workflow where one is maintained, preserve heading hierarchy where possible, mark omissions, and exclude secrets, personal data, task notes, and private machine details. Do not hand-edit a generated mirror as independent truth.
 
 Separate public, internal, restricted, and secret material into distinct corpora or enforce equivalent filters at the boundary. Documentation can describe an access class; it cannot enforce one.
+
+## [13][PROVIDER_BEHAVIOR]
+
+Treat provider-specific guidance as preferred patterns within a converging ecosystem, not as iron laws. Keep the stable contract portable: outcome, constraints, evidence boundary, output shape, and stop rule. Then adapt delimiter, long-context placement, and schema mechanics to the provider surface that will run the prompt. Use one delimiter family in a prompt — XML-style tags or Markdown sectioning, not both — unless an external template requires otherwise.
+
+### [13.1][OPENAI_CODEX]
+
+Preferred structure: outcome, success criteria, constraints, available evidence, and final-answer shape before process detail.
+Delimiter: Markdown sectioning is the default for durable instruction files; use another delimiter only when the target surface or template requires it.
+Long context: keep critical constraints at the opening and closing edge; use compact restatement near the final ask when bulky source material sits in the middle.
+Structured output: put machine-consumed contracts in structured outputs or strict tool schemas where the API supports them; prose may steer JSON shape, but it does not enforce it.
+State and caching: keep `AGENTS.md` lean and scoped because Codex loads the instruction chain from global guidance through the working directory and closer files override earlier conflicting guidance. Use prompt caching only for stable prefixes and treat it as latency and cost optimization, not state or correctness proof.
+Output control: control answer length with explicit word, section, or verbosity contracts; do not treat verbosity as hidden reasoning control.
+Source of truth: [OpenAI prompting guide](https://platform.openai.com/docs/guides/prompting), [Structured Outputs guide](https://platform.openai.com/docs/guides/structured-outputs), [Prompt caching guide](https://platform.openai.com/docs/guides/prompt-caching), and [Codex `AGENTS.md` documentation](https://github.com/openai/codex/blob/main/docs/agents_md.md).
+Last verified: 2026-06-04
+
+### [13.2][CLAUDE_CODE]
+
+Preferred structure: separate instructions, context, examples, documents, and variable inputs when the prompt mixes those concerns.
+Delimiter: use XML-style tags for complex prompts, with descriptive names and nesting only where hierarchy is real.
+Long context: place source documents near the top and the query or task at the end; wrap multi-document inputs with source and content metadata.
+Structured output: state the exact output fields, formats, and missing-data behavior; use schema enforcement where the surface supplies it.
+Claude Code files: `CLAUDE.md`, skills, commands, and task prompts use Markdown structure. XML tags are a prompt-clarity tool inside complex prompt content, not a Claude Code file-format requirement. `AGENTS.md` affects Claude Code only when `CLAUDE.md` imports or links it.
+Output control: ask for evidence, quoted or cited source spans within access and copyright limits, and final answer shape before synthesis when factual grounding matters.
+Source of truth: [Anthropic prompting best practices](https://docs.anthropic.com/en/docs/build-with-claude/prompt-engineering/claude-prompting-best-practices), [Claude Code memory documentation](https://docs.anthropic.com/en/docs/claude-code/memory), and [extended thinking documentation](https://docs.anthropic.com/en/docs/build-with-claude/extended-thinking).
+Last verified: 2026-06-04
+
+### [13.3][GEMINI]
+
+Preferred structure: direct task instruction with explicit constraints, accepted values, output format, missing-data behavior, and validation rule.
+Delimiter: use one delimiter family, Markdown or XML-style tags, and keep the same family across instructions, context, and examples.
+Long context: place source material before the specific question or instruction and use a bridge phrase such as `Based on the information above` to bind the final ask to the supplied material.
+Structured output: prefer schema-backed structured output for extraction, classification, JSON payloads, and agent-to-agent exchange, but keep semantic validation in application or review logic.
+Verification split: when source availability or capability is uncertain, verify the relevant information exists first, then answer only inside the verified scope.
+Output control: state the desired length, sections, and refusal or missing-data behavior explicitly.
+Source of truth: [Gemini prompt design strategies](https://ai.google.dev/gemini-api/docs/prompting-strategies), [Gemini long context guide](https://ai.google.dev/gemini-api/docs/long-context), and [Gemini structured output guide](https://ai.google.dev/gemini-api/docs/structured-output).
+Last verified: 2026-06-04
+
+Do not require exposed chain-of-thought in published prompt standards. Ask for evidence, checks, summaries, or a decision trail the consumer can inspect, and rely on provider reasoning controls where the runtime exposes them. Use examples only when they materially teach format, tone, edge handling, or tool choice; remove examples that merely repeat the rule.
+
+`Source of truth:` the linked provider sources named beside each provider rule above. `Last verified:` 2026-06-04. `Review trigger:` provider prompt-engineering, structured-output, memory, or context guidance changes.
 
 ## [14][BOUNDARIES]
 
@@ -260,4 +268,4 @@ Separate public, internal, restricted, and secret material into distinct corpora
 - [ ] MCP resources, prompts, and tools are separated before schemas.
 - [ ] Metadata exists only where a consumer reads it.
 - [ ] Generated mirrors identify source and generation status.
-- [ ] No secrets, private paths, or unverified provider claims are exposed.
+- [ ] No secrets, nonpublic local paths, or unverified provider claims are exposed.

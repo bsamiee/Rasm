@@ -62,7 +62,7 @@ Last verified: 2026-06-04
 Review trigger: static rail verbs or routing change in `tools/quality`.
 ```
 
-Carry only the fields the claim needs: a generated artifact adds `Generated from:` and `Source of truth:`, and a settled command may need only `Evidence:`. When several claims share one schema, group them per the definition-block rules information-structure.md owns.
+Carry only the fields the claim needs: a generated artifact adds `Generated from:` and `Source of truth:`, and a settled command may need only `Evidence:`. When several claims share one schema, group them per the definition-block rules [information-structure.md](information-structure.md) owns.
 
 ## [5][EVIDENCE_PLACEMENT]
 
@@ -105,17 +105,19 @@ Do not claim a gate passed unless it ran in the current change or a current stat
 
 ## [10][AGENT_SURFACE_EVALUATION]
 
-Treat a machine-facing surface as a contract when it affects retrieval, generated mirrors, tool use, or structured output, and prove it with evaluation rather than assertion. The minimum receipt names the surface, baseline or prior behavior, checks, result, and freshness trigger. Add the rigor fields below when the claim depends on stochastic output, ranking, tool selection, latency, or provider behavior:
+Treat a machine-facing surface as a contract when it affects retrieval, generated mirrors, tool use, or structured output. Prove that contract with evaluation rather than assertion.
 
-- 20-50 representative questions or tasks drawn from real maintenance failures, not invented happy paths;
+A deterministic surface needs a minimum receipt: surface, baseline or prior behavior, checks, result, and freshness trigger. Add the rigor fields below only when the claim depends on stochastic output, ranking, tool selection, latency, or provider behavior:
+
+- 20–50 representative questions or tasks drawn from real maintenance failures, not invented happy paths;
 - a baseline comparison against the previous surface, manual route, or known failure;
-- 3-5 trials per case when the claim is about stochastic output, retrieval ranking, or tool selection;
-- a Wilson-score 95% confidence interval for binary rates — task pass, valid JSON, instruction-following — and a paired comparison against the baseline on the same task set;
+- 3–5 trials per case when the claim is about stochastic output, retrieval ranking, or tool selection;
+- a Wilson score 95% confidence interval for binary rates — task pass, valid JSON, instruction-following — and a paired comparison against the baseline on the same task set;
 - exact checks for format and link correctness, plus a judge or source-trace review for retrieved or generated answers;
 - a transcript or trace, with model or provider version, configured tool set, token or context budget, latency, and tool errors when the surface owns them;
 - an unsupported-claim review and a tool-call failure review.
 
-Record the evaluation as a definition block beside the surface it proves, so required fields stay present and optional rigor fields are not collapsed into a bare assertion:
+Record the evaluation as a definition block beside the surface it proves. Keep required fields visible, and omit optional rigor fields only when the surface does not own them:
 
 ```markdown template
 Surface: `docs/standards/_index.json` retrieval index.
@@ -128,7 +130,7 @@ Reviews: unsupported-claim review clean; tool-call-failure review clean.
 Last verified: 2026-06-04
 ```
 
-Omit a field only when the surface does not own it — a non-stochastic, deterministic surface drops `Trials`, a surface with no model in the loop drops the model line of `Trace`. State the proof gap when a contract is reviewed by a human rather than enforced by tooling.
+State the proof gap when a contract is reviewed by a human rather than enforced by tooling.
 
 ## [11][EVIDENCE_FORMAT]
 

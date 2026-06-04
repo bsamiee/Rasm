@@ -15,9 +15,11 @@ Route a first-success learning path, an operational symptom response, a contribu
 
 ## [2][CANONICAL_SOURCE]
 
-This standard operationalizes the Diataxis how-to guide. A how-to is a sequence of actions addressed to an already-competent user who knows what they want to do; its fundamental structure is a sequence with logical ordering in time; it maintains focus on one goal and links to explanation and reference rather than embedding either; and it phrases branches as conditional imperatives. The rules below add the agent-facing structure, profile discipline, and claim-level proof that the framework leaves to the author.
+This standard operationalizes the Diataxis how-to guide. A how-to is a sequence of actions for an already-competent user who knows what they want to do. Its structure follows time, keeps focus on one goal, links explanation and reference instead of embedding them, and phrases branches as conditional imperatives. The rules below add agent-facing structure, profile discipline, and claim-level proof.
 
-`Source of truth:` Diataxis how-to guide documentation (`https://diataxis.fr/how-to-guides/`). `Last verified:` 2026-06-04. `Review trigger:` Diataxis how-to guidance changes.
+Source of truth: [Diataxis how-to guide documentation](https://diataxis.fr/how-to-guides/).
+Last verified: 2026-06-04.
+Review trigger: Diataxis how-to guidance changes.
 
 ## [3][TASK_PROFILES]
 
@@ -25,11 +27,11 @@ A how-to task carries one of three profiles. The profile sets which optional sec
 
 | [INDEX] | [PROFILE]        | [TASK]                       | [REQUIRED_PLUS]            | [PROOF]           | [ROLLBACK]      |
 | :-----: | :--------------- | :--------------------------- | :------------------------- | :---------------- | :-------------- |
-|   [1]   | Idempotent setup | install/provision/wire       | access + target context    | convergence check | omit; re-run    |
-|   [2]   | Mutating action  | deploy/release/migrate once  | access + irreversible mark | new-state check   | required check  |
-|   [3]   | Read or inspect  | query/render/export no state | none beyond base           | artifact shape    | omit; no change |
+|   [1]   | Idempotent setup | install, provision, or wire            | access + target context    | convergence check | omit; re-run    |
+|   [2]   | Mutating action  | deploy, release, or migrate once       | access + irreversible mark | new-state check   | required check  |
+|   [3]   | Read or inspect  | query, render, or export without state | none beyond base           | artifact shape    | omit; no change |
 
-Base sections (`# [HOW_TASK]`, the metadata block, `## [1][GOAL]`, `## [3][PROCEDURE]`, `## [4][VERIFICATION]`) are required for every profile. A mutating-action guide that cannot state a reverse action must say so and route the reverse path to a runbook by topic rather than leave rollback silent.
+The base task path is `# [HOW_TASK]`, the metadata block, `## [1][GOAL]`, `## [3][PROCEDURE]`, and `## [4][VERIFICATION]`. Every guide also carries `## [7][BOUNDARIES]` and `## [8][REVIEW_CHECKLIST]`. A mutating-action guide that cannot state a reverse action must say so and route the reverse path to a runbook by topic rather than leave rollback silent.
 
 ## [4][REQUIRED_STRUCTURE]
 

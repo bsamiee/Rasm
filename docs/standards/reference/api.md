@@ -45,6 +45,10 @@ A conforming API page uses these H2 sections, in this order, for the page's prof
 
 <One-sentence scope and the declared profile.>
 
+Last verified: YYYY-MM-DD
+Review trigger: <upstream version, generator, or contract change>
+Generated from: <source model or generation command, when generated>
+
 ## [1][PROFILE_SOURCE_TRUTH]
 
 ## [2][AUTHENTICATION_AUTHORIZATION]
@@ -71,14 +75,13 @@ A conforming API page uses these H2 sections, in this order, for the page's prof
 
 ```
 
-This is the section template for a new API page.
-
 Section cardinality:
 
+- Opening metadata: required for curated-external and generated-library pages; include only fields the profile needs.
 - `Profile and source of truth`: required, single; names the profile and the one source-of-truth artifact path.
 - `Authentication and authorization`: required for HTTP-contract and curated-external profiles; optional for a generated-library page that exposes no auth surface.
 - `Conventions`: required when the API paginates, filters, sorts, expands fields, enforces idempotency, or rate-limits; holds the API mechanics below.
-- `Operations`: required, repeatable; links the generated contract and never transcribes its endpoint table.
+- `Operations`: required, repeatable; links the generated or official source-of-truth artifact and never transcribes its endpoint table.
 - `Schemas`: required per operation that carries a request or response body; link the generated schema.
 - `Errors`: required, single, for the HTTP-contract and curated-external profiles; carries the error model below.
 - `Async operations`: required when any operation is long-running; omit the section entirely otherwise.
@@ -122,9 +125,11 @@ or `403` (valid token, insufficient scope).
 
 ## [7][HTTP_CONTRACT_REQUIREMENTS]
 
-Use OpenAPI 3.2.0 for a new HTTP API contract unless a named consumer toolchain requires an older supported OpenAPI line, in which case record the consumer and its minimum version beside the `openapi` field. The 3.2.0 line is the current release; carry its freshness so the pin does not silently rot.
+Use OpenAPI 3.2.0 for a new HTTP API contract unless a named consumer toolchain requires an older supported OpenAPI line. When a consumer pins an older line, record the consumer and its minimum version beside the `openapi` field. Carry freshness beside the version pin so currentness does not silently rot.
 
-`Evidence:` OpenAPI Specification 3.2.0, `spec.openapis.org/oas/v3.2.0.html`. `Last verified:` 2026-06-04. `Review trigger:` OpenAPI publishes a 3.3 or later line.
+Evidence: [OpenAPI Specification 3.2.0](https://spec.openapis.org/oas/v3.2.0.html).
+Last verified: 2026-06-04
+Review trigger: OpenAPI publishes a 3.3 or later line.
 
 Required contract content (each entry is required unless marked):
 
@@ -193,7 +198,8 @@ Document the error contract as structured content, because the error surface is 
 - Machine-readable error body: the documented body shape — RFC 9457 `application/problem+json` members `type`, `title`, `status`, `detail`, `instance`, or a named typed envelope — so a client parses one shape across operations.
 - Error catalog: one row per failure an agent dispatches on, naming the error type or code, its cause, whether the caller can repair the request, and the retry-or-abort guidance.
 
-`Evidence:` RFC 9457 Problem Details for HTTP APIs, `rfc-editor.org/rfc/rfc9457.html`. `Last verified:` 2026-06-04.
+Evidence: RFC 9457 Problem Details for HTTP APIs, `rfc-editor.org/rfc/rfc9457.html`.
+Last verified: 2026-06-04
 
 The error catalog is a lookup table keyed by status and code; keep it within the table ceilings and split by status class when it exceeds them. The rows below are illustrative shape, not contract data; replace them with owner-verified rows in a real API document.
 

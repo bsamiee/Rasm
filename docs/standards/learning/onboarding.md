@@ -23,7 +23,9 @@ Anchor every onboarding document to the canonical site-reliability and 30-60-90 
 - Access-provisioning practice contributes the rule that provisioning is a tracked, owned, dated gate before day one, because a hire idle awaiting access is the most-cited onboarding failure.
 - Onboarding-as-product practice contributes the rule that the program captures the newcomer's fresh-eyes documentation contribution and a dated feedback point before the learner normalizes the team's gaps.
 
-`Source of truth:` Google SRE on-call onboarding; 30-60-90 engineering onboarding framework; DORA and SHRM readiness-metric guidance. `Last verified:` 2026-06-04. `Review trigger:` the canonical onboarding model changes.
+Source of truth: Google SRE on-call onboarding; 30-60-90 engineering onboarding framework; DORA and SHRM readiness-metric guidance.
+Last verified: 2026-06-04.
+Review trigger: the canonical onboarding model changes.
 
 ## [3][SOURCE_ORDER]
 
@@ -31,7 +33,7 @@ Use the first source that decides a readiness claim:
 
 1. Current repository source, manifests, generated contracts, command output, permission grants, and recorded sign-off.
 2. This onboarding standard for ramp shape, gate structure, and required sections.
-3. Site reliability onboarding practice for ordered learning, shadowing, progressive access, and readiness gates; open-source maintainer practice for triage, review, release, and stale-document stewardship.
+3. Site reliability onboarding practice for ordered learning, shadowing, progressive access, and readiness gates; repository maintainer practice for triage, review, release, and stale-document stewardship.
 
 Repository truth owns every factual claim, prerequisite, command, permission, and piece of readiness proof. External practice owns ramp pattern only, never a specific command, version, or grant.
 
@@ -91,9 +93,11 @@ Review trigger: <event that makes this ramp stale>
 
 ## [12][RAMP_FLOW]
 
-## [13][BOUNDARIES]
+## [13][EXAMPLES]
 
-## [14][REVIEW_CHECKLIST]
+## [14][BOUNDARIES]
+
+## [15][REVIEW_CHECKLIST]
 
 ```
 
@@ -112,6 +116,7 @@ Section cardinality:
 - Owner roles: required, one; holds buddy, reviewer, and sign-off owner, named distinctly.
 - Feedback and refresh: required, one; holds a dated feedback-capture point and the drift check, or the checklist that owns it.
 - Ramp flow: optional, one; holds the gated lifecycle diagram when the forward-only gate order needs rendering.
+- Examples: optional, zero or one; holds accepted and rejected record shapes when a proof rule is misuse-prone.
 - Boundaries: required, one; holds one route-away link per adjacent owner.
 - Review checklist: required, one; holds observable author self-checks.
 
@@ -119,12 +124,12 @@ Omit `Shadowing and review path` only when the role transfers no authority and h
 
 ## [7][AUDIENCE]
 
-Discharge two obligations and no more. Name the single role this ramp confers — the same role the opening metadata `Role` and the Readiness-target end-state carry, never a second role — so the document stays bounded to one ramp. Then list the prior knowledge the reader is assumed to already hold as canonical repository source paths, not prose summaries, consistent with the prerequisite-reading rule under Provisioning; the difference is that this list is what the reader needs *before opening the document*, while the Provisioning prerequisite list is what they read *before learning-checklist item one*.
+Do two things and no more. Name the single role this ramp confers — the same role carried by opening metadata `Role` and the readiness-target end-state — so the document stays bounded to one ramp. Then list the prior knowledge the reader is assumed to hold before opening the document as canonical repository source paths, not prose summaries. The Provisioning prerequisite list is different: it names what the learner reads before learning-checklist item one.
 
 ```markdown template
 This ramp confers: Contributor on the bridge subsystem.
 Assumes prior knowledge:
-- src/bridge/README.md — what the bridge is and the request it serves
+- tools/rhino-bridge/README.md — what the bridge is and the request it serves
 - docs/standards/learning/onboarding.md — how a ramp is gated
 ```
 
@@ -196,6 +201,18 @@ Carry at least one observable comprehension question in the `Proof` field for ev
 ## [13][FIRST_SAFE_TASKS]
 
 A first safe task gives the learner real ownership while keeping its blast radius contained to one reviewed unit and its supervision explicit. It is safe because its scope is bounded and its reviewer is named, not because it is low value.
+
+Render selected tasks as records so the learner, reviewer, exit gate, and proof stay together:
+
+```markdown template
+Task: <supervised low-blast-radius task>
+Scope: <single reviewed unit and forbidden blast radius>
+Reviewer: <owner role gating the result>
+Exit: <observable accepted result>
+Proof: <link, command result, review note, or artifact that closes the task>
+Status: <PLANNED | IN-PROGRESS | BLOCKED | DONE | DROPPED>
+Fresh-eyes: <yes/no; if yes, name the documentation deliverable>
+```
 
 Draw first safe tasks from this set, and include at least one fresh-eyes documentation deliverable so the newcomer's contribution is captured before they normalize team gaps:
 
@@ -293,15 +310,15 @@ A learning-checklist item misfires when its proof is unobservable. Show one reje
 
 ```markdown rejected
 Scope: request lifecycle through the bridge
-Understanding: how a scenario reaches RhinoWIP
+Understanding: how a scenario reaches the host runtime
 Proof: read the bridge module and feel comfortable with it
 Sign-off: done
 ```
 
 ```markdown conceptual
-Scope: request lifecycle through the bridge
-Source: docs/standards/learning/onboarding.md and the bridge module
-Understanding: how a scenario request reaches RhinoWIP and returns evidence
+Scope: request lifecycle through `tools/rhino-bridge`
+Source: docs/standards/learning/onboarding.md and tools/rhino-bridge/README.md
+Understanding: how a scenario request reaches the host runtime and returns evidence through the bridge
 Proof: trace one scenario path aloud to the owner and answer two follow-ups
 Owner: Runtime maintainers
 Access: read-only repository access

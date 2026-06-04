@@ -2,7 +2,7 @@
 
 A support matrix states which runtime, platform, version, feature, or integration surface is `Supported`, `Maintenance`, `Limited`, `Deprecated`, `End of support`, `Retired`, or `Unsupported`, names the exact fix classes each status still grants, and points each status at refreshable evidence. It is a policy-backed reference document, not a roadmap, a release note, or a recovery procedure: it answers "is this combination supported right now, and until when," and nothing else.
 
-Source of truth: this standard governs support-matrix document structure; each matrix names its own upstream source; lifecycle-model vocabulary follows endoflife.date, Microsoft lifecycle, and Kubernetes version-skew documentation.
+Source of truth: this standard governs support-matrix document structure; each matrix names its own upstream source; lifecycle-model vocabulary follows [endoflife.date API](https://endoflife.date/docs/api), [Microsoft lifecycle](https://learn.microsoft.com/en-us/lifecycle/), and [Kubernetes version-skew policy](https://kubernetes.io/releases/version-skew-policy/).
 Last verified: 2026-06-04
 Review trigger: cross-cutting standards change, or canonical lifecycle/skew model changes.
 
@@ -104,7 +104,7 @@ Owner: <refresh owner, when one exists>
 
 ## [12][MIGRATION_PATHS]
 
-## [13][EVIDENCE]
+## [13][EVIDENCE_CONDITIONAL]
 
 ## [14][BOUNDARIES]
 
@@ -127,7 +127,7 @@ Section cardinality:
 - `Limitations`: optional, repeatable per limited surface.
 - `Deprecations and removals`: required when any row is `Deprecated`, `End of support`, or `Retired`; omit when no row carries those statuses.
 - `Migration paths`: required when a deprecation has a replacement; omit otherwise.
-- `Evidence`: required, single or attached per row per the evidence standard.
+- `Evidence`: conditional; use a page-level section only when one source and one trigger prove the whole matrix, otherwise attach evidence per row.
 - `Boundaries`: required, single, one link per adjacent owner.
 - `Review checklist`: required, single.
 
@@ -279,9 +279,9 @@ Source of truth: vendor deprecation-policy page
 
 Keep migration guidance in a support matrix decision-oriented and bounded; the full procedure lives in a how-to guide. For each migration, name the source and target versions or features, whether the path is direct or staged, the prerequisites, the known breaking changes, the validation signal that confirms success, and a link to the owning how-to or migration guide. Move step-by-step migration work to a how-to guide and operational recovery to a runbook; this matrix records the target and the status, not the keystrokes.
 
-## [16][EVIDENCE]
+## [16][EVIDENCE_CONDITIONAL]
 
-Attach evidence to every support status, beside the row or surface it proves, using the freshness fields the evidence standard defines. Page-level metadata freshness does not prove an individual row unless that row maps back to one shared source and one shared trigger; otherwise attach claim-level evidence per drift-prone row. Prefer local manifests, lockfiles, generated contracts, compatibility-test output, official lifecycle pages, release notes, migration guides, security bulletins, and known-limitations pages from the owner.
+Attach evidence to every support status, beside the row or surface it proves, using the freshness fields the evidence standard defines. Use a page-level evidence section only when one source and one trigger prove the whole matrix. Otherwise attach claim-level evidence per drift-prone row. Prefer local manifests, lockfiles, generated contracts, compatibility-test output, official lifecycle pages, release notes, migration guides, security bulletins, and known-limitations pages from the owner.
 
 Name the event that makes a status stale with a `Review trigger:` field on the drift-prone row or surface, and use a calendar `Last verified:` date only when the upstream source changes on a schedule. Triggers that apply to support matrices include:
 
@@ -303,7 +303,10 @@ Review trigger: host SDK version change or compat-check failure
 
 - [reference.md](reference.md) owns curated lookup facts when support status is one fact among many rather than the whole table.
 - [api.md](api.md) owns generated or contract-backed API surface truth that a support row points at.
-- [README.md](../README.md) owns document-type routing for roadmaps, release notes, how-to migration procedures, and runbook recovery, plus placement and lifecycle questions.
+- [roadmap.md](../explanation/roadmap.md) owns future support intent and milestone exit proof.
+- [how-to.md](../task/how-to.md) owns step-by-step migration procedures.
+- [runbook.md](../task/runbook.md) owns operational recovery for support-impacting incidents.
+- [README.md](../README.md) owns document-type routing, placement, and lifecycle.
 
 ## [18][REVIEW_CHECKLIST]
 

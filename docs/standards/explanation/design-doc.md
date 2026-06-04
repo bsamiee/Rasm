@@ -44,7 +44,7 @@ Source order decides a wording or scope question when sources disagree:
 
 A design document proposes; it never overrides an accepted decision. When a slice contradicts a prior accepted decision, the design must either supersede that decision through the decision-record handoff or narrow its own scope.
 
-## [5][FRONT_MATTER_IDENTITY]
+## [5][OPENING_METADATA]
 
 Every design document opens with one definition block, one `label: value` per line. Field cardinality is fixed; an optional field is omitted, never left blank.
 
@@ -76,10 +76,10 @@ The body uses the H2 order in the template below. Each H2 is a standalone retrie
 Status: Draft
 Profile: Lightweight | Standard | RFC-wide
 Date: YYYY-MM-DD
-Authors: <name or owner role>            # repeatable
-Reviewers: <consulted owner or group>    # required at Discussion+, repeatable
-Last Call deadline: YYYY-MM-DD           # required at Last Call+ for Standard / RFC-wide
-Supersedes design: <path or omit>        # optional, repeatable
+Authors: <name or owner role>
+Reviewers: <consulted owner or group>
+Last Call deadline: YYYY-MM-DD
+Supersedes design: <path or omit>
 
 # [CHANGE_NAMED_OUTCOME]
 
@@ -177,6 +177,8 @@ and confirmation evidence. Target: <docs/decisions/NNNN-...>
 - [README.md](../README.md) — document-type routing.
 ```
 
+Metadata cardinality follows [OPENING_METADATA]. `Authors` is repeatable, `Reviewers` is required at `Discussion` and later, `Last Call deadline` is required at `Last Call` and later for `Standard` and `RFC-wide`, and `Supersedes design` is optional and repeatable.
+
 Section cardinality:
 
 | [INDEX] | [SECTION]                            | [CARD]      | [NOTES]                                          |
@@ -220,9 +222,9 @@ State the controlling content of each section first and the binding constraint l
 Render `Goals` as a checklist of measurable conditions, because the checkbox shape makes a missing metric visible per item. A bare prose goal with no pass condition is the primary low-value failure mode, and a checkbox without a proof clause exposes it.
 
 ```markdown template
-## [1][GOALS]
+## [2][GOALS]
 
-- [ ] Cold profile-view P95 under 1 s — proven by `bench profile-view --p95` in CI.
+- [ ] Cold profile-view P95 under 1 s — proven by `<exact benchmark command or status check>`.
 - [ ] Zero write-amplification regression — proven by the storage contract diff.
 - [ ] Rollback in one slice — proven by the S5 feature-flag-off path.
 ```
@@ -255,7 +257,7 @@ A review slice is one self-contained change that a reviewer can understand, vali
 
 The slice kinds are fixed; the row count is not. Collapse rows that do not apply and keep dependency order honest. Every row that remains carries a rollback boundary; a blank rollback cell is non-conforming. When the slice sequence turns into a milestone plan with dates and exit gates, it has left this type: keep only the review shape here and route the sequence to the roadmap owner by topic.
 
-## [11][RISKS_PROOF_SIGN]
+## [11][TRACKABLE_RECORDS]
 
 Three sections carry trackable record sets. Render each as a structured record, never as a prose list, so an agent can filter on the discriminant field and compute readiness from the structure.
 
@@ -327,7 +329,7 @@ Show one accepted and one rejected shape where misuse is common.
 Alternatives must carry the trade-off that rejected each option:
 
 ```markdown template
-## [1][ALTERNATIVES_CONSIDERED]
+## [6][ALTERNATIVES_CONSIDERED]
 
 - Single-writer queue: simplest ownership, but caps throughput at one core and
   fails the 5k-event/s target. Rejected on throughput.
@@ -340,7 +342,7 @@ Alternatives must carry the trade-off that rejected each option:
 A rejected alternatives section records options without the deciding trade-off, so a reviewer cannot tell why the choice held:
 
 ```markdown rejected
-## [1][ALTERNATIVES_CONSIDERED]
+## [6][ALTERNATIVES_CONSIDERED]
 
 - We also looked at a single-writer queue and a sharded design.
 - The sharded one seemed better.
