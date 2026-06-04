@@ -10,7 +10,7 @@ from collections import deque
 from collections.abc import Callable
 from contextvars import ContextVar
 from functools import reduce
-from itertools import count, groupby
+from itertools import count, groupby, starmap
 from operator import attrgetter
 import sys
 import time
@@ -20,22 +20,33 @@ from typing import Final, TYPE_CHECKING
 from cyclopts import App, Parameter
 from expression import Error, Ok, Result
 import msgspec
+import structlog
 
 from tools.assay.composition.catalog import select, TOOLS  # intra-package import; tools.assay is the package root
 from tools.assay.composition.settings import ArtifactScope, AssaySettings  # intra-package import; tools.assay is the package root
 from tools.assay.core.aspect import _RING, checked, compose, logged, traced  # noqa: PLC2701  # intra-package import; tools.assay is the package root
+from tools.assay.core.engine import fan_out  # intra-package import; tools.assay is the package root
 from tools.assay.core.model import (  # intra-package import; tools.assay is the package root
+    ArtifactKind,
     Bind,
+    Check,
     Claim,
     Completed,
+    Counts,
     Diagnostic,
     Envelope,
     Fault,
     fold,
+    Input,
+    Language,
     receipt,
     Report,
+    RunDelta,
+    Runner,
+    Tool,
     validate_detail,
 )
+from tools.assay.core.routing import Routed, Scope  # intra-package import; tools.assay is the package root
 from tools.assay.core.status import RailStatus  # intra-package import; tools.assay is the package root
 from tools.assay.rails import (  # intra-package import; tools.assay is the package root
     api as api_rail,
@@ -58,6 +69,7 @@ from tools.assay.rails.test import TestParams  # intra-package import; tools.ass
 if TYPE_CHECKING:
     from collections.abc import Iterator, Mapping
 
+    from tools.assay.composition.settings import ArtifactStore  # intra-package import; tools.assay is the package root
     from tools.assay.core.aspect import Layer  # intra-package import; tools.assay is the package root
 
 
@@ -75,6 +87,14 @@ _ARTIFACT_CAP: Final = 100  # the Report.artifacts bound the fold saturates; the
 # PER-INVOCATION one-Envelope guard (Invariant 1), seeded fresh in rail.run: a process-static
 # count() would fault every fire after the first in the long-lived automation loop.
 _WRITES: ContextVar[Iterator[int]] = ContextVar("assay_writes")
+_LOG: Final = structlog.get_logger("assay.registry")  # best-effort run-history persist rail (history writes never fault a rail)
+_PROBE_ROUTED: Final[Routed] = Routed(language=Language.PYTHON, scope=Scope.CHANGED)  # Input.NONE probe seed: place emits one empty tail
+_PROBE_TIMEOUT: Final = 8.0  # per `--version`/git probe deadline so a hung tool never strands self-test
+_ENVELOPE_DECODER: Final[msgspec.json.Decoder[Envelope]] = msgspec.json.Decoder(Envelope)  # run-history read-back
+_GIT_PROBES: Final[tuple[tuple[str, tuple[str, ...]], ...]] = (
+    ("git-head", ("git", "rev-parse", "--short", "HEAD")),
+    ("git-dirty", ("git", "status", "--porcelain")),
+)
 
 
 def _identity_hom(*_a: object, **_k: object) -> Result[Report, Fault]:
@@ -236,6 +256,7 @@ def _emit(bind: Bind, settings: AssaySettings, started: float, outcome: Result[R
     match next(_WRITES.get()):
         case 0:
             sys.stdout.buffer.write(_ENCODER.encode(envelope) + b"\n")
+            _persist(settings, envelope)
             return envelope
         case rank:
             doubled = Envelope(
@@ -335,6 +356,114 @@ def _guard(thunk: Callable[[], Result[Report, Fault]]) -> Result[Report, Fault]:
 _ENCODER: Final = msgspec.json.Encoder(order="deterministic")  # content-addressable wire order; the sole stdout codec, cached once
 
 
+def _persist(settings: AssaySettings, envelope: Envelope) -> None:
+    """Side-write the emitted Envelope to the run-history store, then prune to the newest ``artifact_retention`` runs.
+
+    Inherent (no flag): the persist is a side write AFTER the sole stdout Envelope (the one-Envelope invariant is
+    untouched — stdout already carried the single line). A store/FS error degrades to a structlog warning, never a
+    rail fault: run-history is best-effort observability, not a gate. ``pipe_file`` writes the deterministic-order
+    bytes the same wire codec produced, so a persisted Envelope round-trips byte-identically through ``delta``.
+    """
+    try:
+        store = settings.store()
+        directory = store.ensure(ArtifactKind.HISTORY.value, settings.run_id)
+        store.fs.pipe_file(f"{directory}/envelope.json", _ENCODER.encode(envelope))
+        _retain(store, settings.artifact_retention)
+    except OSError as exc:
+        _LOG.warning("history.persist_failed", run_id=settings.run_id, error=str(exc)[:200])
+
+
+def _retain(store: ArtifactStore, keep: int) -> None:
+    """Prune the run-history to the newest ``keep`` runs: glob the run dirs, sort by ``run_id``, ``rm`` the oldest excess.
+
+    ``run_id`` is an ISO-timestamp prefix, so a lexical sort is chronological; the just-written current run is in the
+    set and survives. fsspec ``rm`` is idempotent on an already-pruned path, so concurrent invocations never fault.
+    """
+    runs = sorted(store.glob(f"{ArtifactKind.HISTORY.value}/*"))
+    excess = runs[: max(0, len(runs) - keep)]
+    tuple(store.fs.rm(path, recursive=True) for path in excess)
+
+
+def _run_ids(store: ArtifactStore) -> tuple[str, ...]:
+    """The persisted ``run_id``s, chronologically sorted (the ISO-timestamp basename of each history run dir)."""
+    return tuple(path.rstrip("/").rsplit("/", 1)[-1] for path in sorted(store.glob(f"{ArtifactKind.HISTORY.value}/*")))
+
+
+def _prior(run_ids: tuple[str, ...], run_id: str) -> str:
+    """The ``run_id`` chronologically just before ``run_id`` (the largest persisted id < it); ``""`` when none precedes it."""
+    earlier = tuple(r for r in run_ids if r < run_id)
+    return earlier[-1] if earlier else ""
+
+
+def _load_run(store: ArtifactStore, run_id: str) -> Envelope | None:
+    """Decode one persisted run Envelope from the history store; absence / decode-failure / an empty id folds to ``None``."""
+    match run_id:
+        case "":
+            return None
+        case _:
+            try:
+                return _ENVELOPE_DECODER.decode(store.fs.cat_file(f"{store.root}/{ArtifactKind.HISTORY.value}/{run_id}/envelope.json"))
+            except OSError, msgspec.MsgspecError:
+                return None
+
+
+def _delta_report(before_id: str, after_id: str, before: Envelope | None, after: Envelope | None) -> Report:
+    """Fold two persisted Envelopes' status/counts/result drift into a ``RunDelta`` ``Report``; a missing side folds to EMPTY.
+
+    Results are keyed by ``(id, line)`` so ``added``/``removed`` are the symmetric-difference cardinalities — what
+    the after-run introduced vs what it resolved. An error-channel Envelope (no ``report``) contributes zero counts.
+    """
+    match (before, after):
+        case (Envelope() as b, Envelope() as a):
+            bc = b.report.counts if b.report is not None else Counts()
+            ac = a.report.counts if a.report is not None else Counts()
+            before_keys = frozenset((m.id, m.line) for m in (b.report.results if b.report is not None else ()))
+            after_keys = frozenset((m.id, m.line) for m in (a.report.results if a.report is not None else ()))
+            detail = RunDelta(
+                before_run=before_id,
+                after_run=after_id,
+                before_status=b.status,
+                after_status=a.status,
+                ok_delta=ac.ok - bc.ok,
+                failed_delta=ac.failed - bc.failed,
+                total_delta=ac.total - bc.total,
+                added=len(after_keys - before_keys),
+                removed=len(before_keys - after_keys),
+            )
+            note = f"delta {before_id} -> {after_id}: {b.status.value} -> {a.status.value}, +{detail.added}/-{detail.removed} results"
+            return fold(Claim.STATIC, "delta", (Completed(("delta", after_id), 0, status=RailStatus.OK, notes=(note,)),), detail=detail)
+        case _:
+            missing = after_id if after is None else before_id
+            note = f"delta: run not found in history: {missing or '(no prior run)'}"
+            return fold(Claim.STATIC, "delta", (Completed(("delta", after_id), 0, status=RailStatus.EMPTY, notes=(note,)),))
+
+
+def delta(run_id: str, *, against: str = "") -> Envelope:
+    """Root verb ``delta <run-id> [--against <id>]``: diff two persisted run Envelopes into a ``RunDelta`` Detail.
+
+    Sibling to ``self-test`` (a ROOT command, NOT a Claim): loads the ``run-id`` Envelope and either the ``--against``
+    run or the chronologically prior persisted run, folds their status/counts/result drift onto a ``Report.detail``,
+    and writes the single Envelope. A run absent from history (never persisted, or pruned past ``artifact_retention``)
+    folds to EMPTY. Read-only — no rail params, no scope lease, no strict promotion.
+    """
+    settings = AssaySettings()
+    store = settings.store()
+    before_id = against or _prior(_run_ids(store), run_id)
+    report = _delta_report(before_id, run_id, _load_run(store, before_id), _load_run(store, run_id))
+    envelope = Envelope(
+        schema_version=1,
+        claim=Claim.STATIC,
+        verb="delta",
+        status=report.status,
+        exit_code=report.status.exit_code,
+        run_id=settings.run_id,
+        report=report,
+        notes=report.notes,
+    )
+    sys.stdout.buffer.write(_ENCODER.encode(envelope) + b"\n")  # root command: the sole stdout Envelope writer for `delta`
+    return envelope
+
+
 def self_test(*, rhino: bool = False) -> Envelope:
     """Root preflight: affirm the composition is wired + the catalog is unrotted; ``--rhino`` extends to the live host.
 
@@ -346,13 +475,17 @@ def self_test(*, rhino: bool = False) -> Envelope:
     row is routable via ``select()``, and every catalog parser is callable on an empty ``Completed``
     without raising — folded to ``FAILED`` on the first broken row so day-one catalog rot is caught at
     preflight, not at a live rail. ``--rhino`` is surfaced as a note so the headless and live preflights
-    share one ``Envelope`` shape. Returns the ``Envelope`` directly — it is a root command, not a bound rail.
+    share one ``Envelope`` shape. ``_health`` deepens the census with a concurrent (``fan_out``) toolchain
+    version + git-staleness probe whose findings ride the notes — surfaced-but-not-fatal so a MISSING tool
+    is reported, not a failed self-test. Returns the ``Envelope`` directly — it is a root command, not a bound rail.
     """
+    settings = AssaySettings()
     claims = frozenset(b.claim for b in REGISTRY)
     healthy = all(callable(b.handler) for b in REGISTRY) and all(any(b.claim is c for b in REGISTRY) for c in claims) and _composes() and _census()
     status = RailStatus.OK if healthy else RailStatus.FAILED
-    note = f"rows={len(REGISTRY)} claims={len(claims)} tools={len(TOOLS)} rhino={'probed' if rhino else 'skipped'}"
-    report = fold(Claim.STATIC, "self-test", (receipt(("assay", "self-test"), 0 if healthy else 1, status=status, notes=(note,)),))
+    summary = f"rows={len(REGISTRY)} claims={len(claims)} tools={len(TOOLS)} rhino={'probed' if rhino else 'skipped'}"
+    notes = (summary, *_health(settings))
+    report = fold(Claim.STATIC, "self-test", (receipt(("assay", "self-test"), 0 if healthy else 1, status=status, notes=notes),))
     envelope = Envelope(
         schema_version=1,
         claim=Claim.STATIC,
@@ -364,6 +497,83 @@ def self_test(*, rhino: bool = False) -> Envelope:
     )
     sys.stdout.buffer.write(_ENCODER.encode(envelope) + b"\n")  # root command: write the Envelope through the wire so census evidence is visible
     return envelope
+
+
+def _health(settings: AssaySettings) -> tuple[str, ...]:
+    """Probe every distinct tool's version + git worktree staleness CONCURRENTLY via ``fan_out``; project each to a note.
+
+    The toolchain-doctor deepening (no new Claim/verb/flag): one ``<launcher> <tool> --version`` probe per distinct
+    program in ``TOOLS`` (deduped; the DOTNET tools fold to one ``dotnet --version``; INPROC has no subprocess) plus
+    two read-only git probes, all run through the same capacity-bounded ``fan_out`` the rails use. Findings are
+    surfaced-but-not-fatal — a MISSING tool rides a note, never the self-test OK/FAILED contract, so self-test stays
+    a wiring check that ALSO reports the live toolchain inventory + whether the worktree is dirty.
+    """
+    probes = (*_tool_probes(), *starmap(_probe, _GIT_PROBES))
+    results = fan_out(probes, settings=settings, scope=None, routed=_PROBE_ROUTED)
+    return tuple(map(_probe_note, probes, results, strict=True))
+
+
+def _probe(name: str, argv: tuple[str, ...]) -> Check:
+    """Build one ``DIRECT``/``Input.NONE`` probe ``Check``: the full argv (launcher + program + flag) runs verbatim under a deadline."""
+    tool = Tool(name=name, runner=Runner.DIRECT, command=argv, input=Input.NONE, language=Language.PYTHON, claim=Claim.STATIC, timeout=_PROBE_TIMEOUT)
+    return Check(tool=tool)
+
+
+def _tool_probes() -> tuple[Check, ...]:
+    """One ``--version`` probe per DISTINCT program in ``TOOLS`` (dedup by launcher+program; DOTNET → SDK; INPROC skipped)."""
+    keyed = {_probe_key(t): _probe_argv(t) for t in TOOLS if t.runner is not Runner.INPROC}
+    return tuple(_probe(argv[-2], argv) for argv in keyed.values())
+
+
+def _probe_key(tool: Tool) -> str:
+    """Dedup key: every DOTNET tool shares the ``dotnet`` SDK; every other launcher keys by ``(runner, program)``."""
+    match tool.runner:
+        case Runner.DOTNET:
+            return "dotnet"
+        case _:
+            return f"{tool.runner.value}:{tool.command[0]}"
+
+
+def _probe_argv(tool: Tool) -> tuple[str, ...]:
+    """The version-probe argv: the DOTNET SDK once, else the launcher prefix + program + ``--version``."""
+    match tool.runner:
+        case Runner.DOTNET:
+            return ("dotnet", "--version")
+        case _:
+            return (*tool.runner.prefix, tool.command[0], "--version")
+
+
+def _probe_note(check: Check, result: Result[Completed, Fault]) -> str:
+    """Project one probe ``Result`` to a note: git head/dirty status, else a tool version/present/MISSING line."""
+    done = result.ok if result.is_ok() else None
+    match check.tool.name:
+        case "git-head" | "git-dirty" as kind:
+            return _git_note(kind, done)
+        case prog:
+            return _tool_note(prog, done)
+
+
+def _git_note(kind: str, done: Completed | None) -> str:
+    """A git probe note: HEAD short-sha (``git-head``), clean/dirty worktree (``git-dirty``), or unavailable."""
+    match done:
+        case Completed() if kind == "git-head":
+            return f"git: HEAD {done.stdout.decode(errors='replace').strip()[:40] or 'unknown'}"
+        case Completed():
+            return f"git: {'dirty' if done.stdout.strip() else 'clean'}"
+        case None:
+            return f"git: {kind.removeprefix('git-')} unavailable"
+
+
+def _tool_note(prog: str, done: Completed | None) -> str:
+    """A tool version-probe note: the first ``--version`` line, present-with-exit, or MISSING (spawn failure)."""
+    match done:
+        case Completed() if done.returncode == 0:
+            lines = done.stdout.decode(errors="replace").strip().splitlines()
+            return f"tool {prog}: {lines[0][:80] if lines else 'present'}"
+        case Completed():
+            return f"tool {prog}: present (exit {done.returncode})"
+        case None:
+            return f"tool {prog}: MISSING"
 
 
 def _census() -> bool:
@@ -460,6 +670,7 @@ def build_app(registry: tuple[Bind, ...]) -> App:
     )
     app = reduce(_register, subs, root)
     _register(app, self_test, name="self-test")
+    _register(app, delta, name="delta")  # root verb: read-back of the auto-persisted run history (sibling to self-test)
     return app
 
 
@@ -484,4 +695,4 @@ def _register(app: App, obj: App | Callable[..., object], *, name: str | None = 
 
 # --- [EXPORTS] --------------------------------------------------------------------------
 
-__all__ = ["REGISTRY", "Handler", "build_app", "rail", "self_test"]
+__all__ = ["REGISTRY", "Handler", "build_app", "delta", "rail", "self_test"]

@@ -19,6 +19,7 @@ one ``loop.call_at`` callback, and the ``Sequence`` fold is a recursive head/tai
 """
 
 from collections.abc import Callable, Coroutine
+import hashlib
 import sys
 from typing import TYPE_CHECKING
 
@@ -27,6 +28,7 @@ import anyio
 from expression import Error, Ok, Result
 import msgspec
 import psutil  # typed via the types-psutil stub (psutil ships no py.typed marker)
+import structlog
 from watchfiles import awatch, DefaultFilter, PythonFilter
 
 from tools.assay.automation.model import (  # intra-package import; tools.assay is the package root
@@ -84,6 +86,8 @@ _FILTERS: dict[str, BaseFilter] = {"default": DefaultFilter(), "python": PythonF
 _PROGRAM_ROUTED: Routed = Routed(language=Language.PYTHON, scope=Scope.FULL)  # NONE-route seed: ``place`` emits one empty tail
 
 _ENCODER = msgspec.json.Encoder(order="deterministic")  # the sole automation stdout codec, cached once
+_LOG: structlog.stdlib.BoundLogger = structlog.get_logger("assay.automation")  # scheduling operational-event rail (coalesced-tick recovery)
+_JITTER_MS: int = 100  # deterministic per-run cron jitter window: a hashlib digest over run_id de-syncs a fleet sharing one schedule
 
 
 # --- [OPERATIONS] -----------------------------------------------------------------------
@@ -379,6 +383,55 @@ async def _watch(spec: Watch, fire: Fire, stop: anyio.Event) -> None:
         await fire()
 
 
+def _jitter(run_id: str) -> float:
+    """Deterministic per-run cron jitter in seconds (0 to ``_JITTER_MS``), from a hashlib digest over ``run_id`` — no RNG, no knob.
+
+    A fleet of agents sharing one cron schedule each derives a STABLE small offset from its ``run_id``,
+    de-syncing the thundering herd at the leading edge of every fire without a seed parameter or a wall-clock read.
+    """
+    return (int.from_bytes(hashlib.sha256(run_id.encode()).digest()[:4], "big") % _JITTER_MS) / 1000.0
+
+
+def _hardened_fire(fire: Fire, settings: AssaySettings) -> Fire:
+    """Wrap a scheduled ``Fire`` with an in-flight gate + coalesced missed-tick recovery + deterministic ``run_id`` jitter.
+
+    A cron tick arriving while a fire is in-flight is COALESCED — counted in the ``missed`` cell and dropped,
+    NOT queued behind the ``CapacityLimiter`` into an unbounded pile-up (which a leased ``Action`` would turn into
+    spurious ``BUSY`` storms ``@retried`` will not absorb). The ``running`` cell gates re-entry; ``_drain`` runs the
+    fire then ONE catch-up fire if any ticks were missed (cron behind-schedule semantics: run once to catch up,
+    never N), logging the coalesced count to the structlog operational rail. The leading ``_jitter`` (a hashlib
+    digest over ``settings.run_id``, bounded — no RNG, no wall-clock, no knob) de-syncs a fleet sharing one schedule.
+    Single-task event loop: there is no ``await`` between the read and the write of ``running``, so the cells are race-free.
+    """
+    running: list[bool] = [False]
+    missed: list[int] = [0]
+    jitter_s = _jitter(settings.run_id)
+
+    async def hardened() -> None:
+        match running[0]:
+            case True:
+                missed[0] += 1
+            case False:
+                running[0] = True
+                await anyio.sleep(jitter_s)
+                await _drain(fire, missed)
+                running[0] = False
+
+    return hardened
+
+
+async def _drain(fire: Fire, missed: list[int]) -> None:
+    """Fire once, then ONE behind-schedule catch-up fire if ticks coalesced during it, logging the missed count."""
+    await fire()
+    match missed[0]:
+        case 0:
+            return
+        case count:
+            _LOG.warning("schedule.coalesced", missed=count)
+            missed[0] = 0
+            await fire()  # single catch-up; ticks during it fold into the next natural tick's drain
+
+
 async def _schedule(spec: str, fire: Fire, stop: anyio.Event) -> None:
     """Host the ``aiocron.crontab`` tasklet over the shared stop: each cron tick fires once.
 
@@ -446,8 +499,11 @@ async def drive(trigger: Trigger, action: Action, settings: AssaySettings) -> No
                 await _co_resident(tg, worker)
         case Schedule(cron=cron_spec, cpu_threshold=ceiling):
             fire, worker = _armed(action, settings, limiter=limiter, ceiling=ceiling)
+            # harden the direct fire (in-flight gate + coalesced-tick recovery + jitter); a top-level Debounce
+            # already coalesces via its worker, so its cron-facing signal stays a bare notify.
+            scheduled = _hardened_fire(fire, settings) if worker is None else fire
             async with anyio.create_task_group() as tg:
-                tg.start_soon(_schedule, cron_spec, fire, stop)
+                tg.start_soon(_schedule, cron_spec, scheduled, stop)
                 await _co_resident(tg, worker)
 
 

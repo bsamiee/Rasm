@@ -101,6 +101,12 @@ class AssaySettings(BaseSettings):
     stream_tail_bytes: Annotated[int, Field(ge=512)] = 4096  # engine bounded-tail deque cap (stdout/stderr retention)
     stream_chunk_bytes: Annotated[int, Field(ge=4096)] = 65536  # engine ByteReceiveStream.receive max per read
     lease_drift_tolerance: Annotated[float, Field(gt=0)] = 1.0  # psutil create_time NTP-drift band (seconds)
+    artifact_retention: int = Field(
+        default=50,
+        ge=1,
+        le=10000,
+        validation_alias=AliasChoices("ASSAY_ARTIFACT_RETENTION"),  # prefixed-only; run-history keeps the newest N persisted Envelopes
+    )
     scoped_verbs: frozenset[str] = frozenset(("build", "clean", "msbuild", "pack", "publish", "restore", "run", "test"))
     trigger_files: frozenset[str] = frozenset((
         ".config/dotnet-tools.json",

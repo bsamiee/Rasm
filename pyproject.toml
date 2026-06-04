@@ -192,7 +192,7 @@ storage-dir =   ".cache/inline-snapshot"
 [tool.coverage.run]
 branch =          true
 relative_files =  true
-source =          ["tools/quality"]
+source =          ["tools/assay"]
 dynamic_context = "test_function"
 data_file =       ".cache/coverage/.coverage"
 core =            "ctrace"
@@ -228,10 +228,10 @@ output = ".artifacts/python/coverage/coverage.lcov"
 # --- [MUTMUT] --------------------------------------------------------------
 
 [tool.mutmut]
-paths_to_mutate = ["tools/quality"]
+paths_to_mutate = ["tools/assay"]
 # Cheap pre-filter: ty checks the mutated copy (cwd=mutants/) and kills type-invalid mutants before any test runs; gitlab JSON is mutmut-native.
-type_check_command = ["uv", "run", "ty", "check", "--output-format", "gitlab", "tools/quality"]
-pytest_add_cli_args_test_selection = ["tests/tools/quality"]
+type_check_command = ["uv", "run", "ty", "check", "--output-format", "gitlab", "tools/assay"]
+pytest_add_cli_args_test_selection = ["tests/tools/assay"]
 pytest_add_cli_args = [
     "-x",
     "--tb=short",
@@ -246,7 +246,7 @@ pytest_add_cli_args = [
     "-p",
     "no:random-order",
 ]
-do_not_mutate = ["tools/quality/__init__.py"]
+do_not_mutate = ["tools/assay/__init__.py"]
 mutate_only_covered_lines = true
 max_stack_depth = 10
 

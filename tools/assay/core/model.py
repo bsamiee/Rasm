@@ -123,14 +123,22 @@ class ArtifactKind(StrEnum):
     RHINO = "rhino"
     SCOPE = "scope"
     CODE = "code"
+    HISTORY = "history"  # run-history namespace: one persisted Envelope per run_id, read back by the `delta` verb
 
 
 class SourceKind(StrEnum):
-    """api source provenance: typed origin of an ``ApiSurface`` symbol, never ``str``."""
+    """api source provenance: typed origin of an ``ApiSurface`` symbol, never ``str``.
+
+    One member per language family — the ``api`` rail auto-detects by key shape (C# ``ASSEMBLY``/``NUGET``
+    first, then ``PYDIST`` for an installed Python distribution, then ``TSDECL`` for an npm package's
+    ``.d.ts``), so the handlers ``match`` on this discriminant rather than proliferating per-language verbs.
+    """
 
     ASSEMBLY = "assembly"
     NUGET = "nuget"
     TOOL = "tool"
+    PYDIST = "pydist"  # installed Python distribution surfaced via importlib.metadata + inspect + annotationlib
+    TSDECL = "tsdecl"  # npm package surfaced from its node_modules .d.ts declaration files via tree-sitter
 
 
 class MutationLane(StrEnum):
@@ -322,7 +330,26 @@ class Diagnostic(Detail, frozen=True, tag="diagnostic"):
     hint: Annotated[str, msgspec.Meta(max_length=256)] = ""
 
 
-type AnyDetail = ApiSurface | VerifySummary | TestRun | PackageRun | ApiResolution | Diagnostic
+class RunDelta(Detail, frozen=True, tag="delta"):
+    """``delta`` evidence: the before/after run identity plus the status/count/result drift of two persisted Envelopes.
+
+    Rides ``Report.detail`` for the root ``delta`` verb. ``added``/``removed`` are the symmetric-difference
+    cardinalities of the two runs' ``Match`` result sets (keyed by ``(id, line)``), so an agent reads what a
+    change introduced or resolved between two runs straight off the wire without re-diffing the raw reports.
+    """
+
+    before_run: str = ""
+    after_run: str = ""
+    before_status: RailStatus = RailStatus.EMPTY
+    after_status: RailStatus = RailStatus.EMPTY
+    ok_delta: int = 0
+    failed_delta: int = 0
+    total_delta: int = 0
+    added: int = 0
+    removed: int = 0
+
+
+type AnyDetail = ApiSurface | VerifySummary | TestRun | PackageRun | ApiResolution | Diagnostic | RunDelta
 
 
 class Report(Base, frozen=True):
@@ -485,6 +512,7 @@ __all__ = [
     "Parser",
     "Report",
     "ResourceBusyError",
+    "RunDelta",
     "Runner",
     "SourceKind",
     "SymbolShape",
