@@ -1,15 +1,8 @@
 # [H1][SHARPFUZZ_API]
->**Dictum:** *Fuzz pure parsers and decoders, not Rhino runtime.*
-
-<br>
 
 [IMPORTANT] `SharpFuzz` (version pinned in `Directory.Packages.props`) is isolated in `tests/csharp/_fuzz` behind harness proof and does not run in the normal managed test gate.
 
----
 ## [1][PACKAGE]
->**Dictum:** *Fuzzing is a separate executable rail.*
-
-<br>
 
 | [INDEX] | [PACKAGE]   | [PIN]                      | [USE]                   |
 | :-----: | ----------- | -------------------------- | ----------------------- |
@@ -17,11 +10,7 @@
 
 [SOURCE] NuGet package page: https://www.nuget.org/packages/SharpFuzz
 
----
 ## [2][SURFACE]
->**Dictum:** *Harnesses own corpus and crash semantics.*
-
-<br>
 
 | [INDEX] | [API]                                          | [RASM_USE]                                                              |
 | :-----: | ---------------------------------------------- | ----------------------------------------------------------------------- |
@@ -32,11 +21,7 @@
 |   [5]   | corpus/crash dirs                              | File-based artifacts under `.artifacts/fuzz`.                           |
 |   [6]   | instrumentation CLI                            | Not in the local tool manifest until a first-class fuzz rail needs it. |
 
----
 ## [3][RASM_SCOPE]
->**Dictum:** *Fuzz input grammars, not live hosts.*
-
-<br>
 
 Use SharpFuzz for pure managed parsers, token readers, import decoders, and resilient command-token surfaces. Do not fuzz RhinoDoc, GH document/canvas, viewport state, or app-bundle assembly loading.
 

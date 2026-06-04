@@ -1,15 +1,8 @@
 # [H1][LANGUAGEEXT_COLLECTIONS]
->**Dictum:** *Collections encode traversal semantics before storage concerns.*
-
-<br>
 
 [IMPORTANT] Rasm uses `Seq<T>` as the default cross-module sequence. Convert Rhino/GH arrays and host collections at the adapter edge.
 
----
 ## [1][SELECTION]
->**Dictum:** *Collection choice follows lifetime and traversal shape.*
-
-<br>
 
 | [INDEX] | [SURFACE]      | [SEMANTICS]                                           | [USE]                                     |
 | :-----: | -------------- | ----------------------------------------------------- | ----------------------------------------- |
@@ -19,11 +12,7 @@
 |   [4]   | `HashMap<K,V>` | Immutable lookup.                                     | Domain maps after key policy is explicit. |
 |   [5]   | `HashSet<T>`   | Immutable set.                                        | Block graphs, format capability sets.     |
 
----
 ## [2][TRAVERSAL]
->**Dictum:** *Traverse turns many rails into one rail of many values.*
-
-<br>
 
 Use `Traverse`, `TraverseM`, `Choose`, `Fold`, `FoldWhile`, `Map`, `Bind`, and `Flatten()` to keep failure and collection shape together. Prefer one traversal that validates, projects, and accumulates over repeated filter-map passes.
 
@@ -36,11 +25,7 @@ Use `Traverse`, `TraverseM`, `Choose`, `Fold`, `FoldWhile`, `Map`, `Bind`, and `
 
 Full combinator inventory: `combinators.md`.
 
----
 ## [3][INTEROP]
->**Dictum:** *Host collections convert before domain logic begins.*
-
-<br>
 
 | [INDEX] | [HOST]                   | [RULE]                                                                |
 | :-----: | ------------------------ | --------------------------------------------------------------------- |
@@ -49,11 +34,7 @@ Full combinator inventory: `combinators.md`.
 |   [3]   | MathNet vectors/matrices | Keep internal to algorithm execution; project into Rasm result types. |
 |   [4]   | BCL spans                | Use only inside measured primitive kernels or boundary adapters.      |
 
----
 ## [4][RULES]
->**Dictum:** *Traversal code reads as algebra, not procedure.*
-
-<br>
 
 - Do not hand-roll mutable accumulation for domain transforms.
 - Do not expose MathNet or Rhino mutable storage as public collection identity.

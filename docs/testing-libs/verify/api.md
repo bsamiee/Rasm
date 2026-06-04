@@ -1,15 +1,8 @@
 # [H1][VERIFY_API]
->**Dictum:** *Snapshots compare stable artifacts; they are not domain oracles.*
-
-<br>
 
 [IMPORTANT] Rasm uses `Verify.XunitV3` (version pinned in `Directory.Packages.props`) in `tests/csharp/_tooling` only with concrete snapshot-worthy tests. Do not use Verify for algebraic laws, numeric behavior, or Rhino/GH native truth.
 
----
 ## [1][PACKAGE]
->**Dictum:** *Use the xUnit v3 package rail.*
-
-<br>
 
 | [INDEX] | [PACKAGE]        | [PIN]                      | [USE]                         |
 | :-----: | ---------------- | -------------------------- | ----------------------------- |
@@ -17,11 +10,7 @@
 
 [SOURCE] NuGet package page: https://www.nuget.org/packages/Verify.XunitV3
 
----
 ## [2][SETTINGS]
->**Dictum:** *Determinism must be global and explicit.*
-
-<br>
 
 | [INDEX] | [SURFACE]                 | [RASM_USE]                                                                            |
 | :-----: | ------------------------- | ------------------------------------------------------------------------------------- |
@@ -31,19 +20,11 @@
 |   [4]   | Scrubbers                 | Remove machine paths, timestamps, generated IDs, and runtime-specific noise.          |
 |   [5]   | `Verify.Cli`              | Review/accept received files manually; never auto-accept in scripts.                  |
 
----
 ## [3][RASM_SCOPE]
->**Dictum:** *A verified file must encode a stable public artifact.*
-
-<br>
 
 Use Verify for analyzer diagnostics, generated manifests, normalized bridge JSON, or package/config reports. Avoid snapshots for floating numeric values, generated random samples, current implementation output, or anything better described by an algebraic law.
 
----
 ## [4][NATURAL_USE_CASES_IN_RASM]
->**Dictum:** *Snapshots earn their place by encoding what an algebraic law cannot.*
-
-<br>
 
 | [INDEX] | [USE_CASE]                           |
 | :-----: | ------------------------------------ |
@@ -64,11 +45,7 @@ Anti-uses (Grade F):
 - Snapshotting `Matrix.spec.cs` SVD reconstruction output is not a law; the math IS the oracle.
 - Snapshotting bridge scenario stdout when it includes wall-clock timing or RhinoWIP version strings — scrub or skip.
 
----
 ## [5][SCRUBBER_RAIL]
->**Dictum:** *Scrubbers are part of the contract, not noise reduction.*
-
-<br>
 
 Module initializer in `tests/csharp/_tooling/ModuleInitializers.cs`:
 

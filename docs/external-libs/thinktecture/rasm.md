@@ -1,15 +1,8 @@
 # [H1][THINKTECTURE_RASM]
->**Dictum:** *Rasm uses generated shape to collapse primitive, enum, and variant sprawl.*
-
-<br>
 
 [IMPORTANT] Thinktecture owns domain shape. LanguageExt owns error and execution rails.
 
----
 ## [1][OWNERSHIP]
->**Dictum:** *One generated declaration replaces each repeated concept family.*
-
-<br>
 
 | [INDEX] | [PRESSURE]                            | [RESPONSE]                                              |
 | :-----: | ------------------------------------- | ------------------------------------------------------- |
@@ -20,11 +13,7 @@
 |   [5]   | Union SelfOp emission policy.         | `[SkipUnionOps]` / `[GenerateUnionOps]` — see §2 below. |
 |   [6]   | Dispatch union with threaded runtime. | `[Union(SwitchMapStateParameterName = …)]`.             |
 
----
 ## [2][UNION_OPS_POLICY]
->**Dictum:** *CSP0802 governs SelfOp emission — not Thinktecture union operators.*
-
-<br>
 
 Defined in `libs/csharp/Rasm/Domain/Validation.cs`. Enforced by CSP0802 in `Rasm.Domain` and `Rasm.Analysis` namespaces only.
 
@@ -37,22 +26,14 @@ Defined in `libs/csharp/Rasm/Domain/Validation.cs`. Enforced by CSP0802 in `Rasm
 
 Universal Thinktecture union attributes: `union-attributes.md`.
 
----
 ## [3][RHINO_GH2]
->**Dictum:** *Generated shape describes intent; native APIs keep semantics.*
-
-<br>
 
 - Use value objects for tolerances, names, formula text, and scalar admission.
 - Use smart enums for operation modes, metric families, port policy, and bounded UI/native vocabularies.
 - Use unions for command intent, document mutation, output shape, and operation result variants.
 - Keep Rhino validity, GH2 tree/path semantics, and MathNet diagnostics in their owning layers.
 
----
 ## [4][REJECTION]
->**Dictum:** *Generated code is not a wrapper excuse.*
-
-<br>
 
 - Do not create convenience wrappers around generated factories or dispatch.
 - Do not keep parallel dictionaries beside smart enums.

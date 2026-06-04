@@ -1,12 +1,8 @@
----
-description: Index and router for the documentation standards library
----
-
-# Documentation standards
+# [DOCUMENTATION_STANDARDS]
 
 This folder is the active standards library and router for Rasm documentation. Start here to find the reader need, pick the document type, and route to the shared standard that owns each rule. This index is the one file that links across the library; the standards it points to name their neighbors by topic and link back only at their boundaries.
 
-## Use when
+## [1][USE_WHEN]
 
 Use this index when:
 
@@ -18,26 +14,27 @@ Use this index when:
 
 Unless the user explicitly asks to integrate it, do not use inactive material in `_TMP/`.
 
-## Owner precedence
+## [2][OWNER_PRECEDENCE]
 
 Use the strongest applicable owner:
 
 1. Current repository source, manifests, generated contracts, and runnable tool output.
-2. The document-type standard in this folder.
-3. The shared standard for position, form, craft, evidence, or notation.
-4. External standards cited by the active local standard.
+2. `docs/usage.md` for cross-stack owner precedence and proof order.
+3. The document-type standard in this folder.
+4. The shared standard for position, form, craft, evidence, or notation.
+5. External standards named by the active local standard.
 
 When a claim can drift, prove it with repository truth before web examples or prior notes.
 
-## Read order
+## [3][READ_ORDER]
 
 Read order is workflow order; owner precedence still decides conflicts.
 
 1. Use the reader-need map and type chooser below to pick one document type.
 2. Apply the five shared standards: position, form, craft, evidence, and notation.
-3. Apply exactly one type standard. If a draft serves two reader needs, split it and link between the files.
+3. Apply exactly one type standard when the artifact is a Diataxis document. Shared standards, instruction files, generated mirrors, indexes, retrieval chunks, metadata records, MCP catalogs, and structured-output contracts route through the shared owner instead.
 
-## Reader-need map
+## [4][READER_NEED_MAP]
 
 Diátaxis is the corpus map. Classify a document by what the reader does:
 
@@ -48,40 +45,31 @@ Diátaxis is the corpus map. Classify a document by what the reader does:
 
 Resolve edge cases by action and cognition: action plus learning is tutorial, action plus work is how-to, cognition plus work is reference, and cognition plus learning is explanation. Publish only documents that answer a real reader need; do not create empty quadrant folders to look complete.
 
-## Choose the type
+## [5][CHOOSE_TYPE]
 
-Map the reader need to its Diátaxis quadrant first, then to the artifact. The four quadrants below own the four type families in [Folder layout](#folder-layout) one-to-one, so the route reads need → quadrant → type in one pass.
+Map the reader need to its Diátaxis quadrant first, then to the artifact. The linked path encodes the quadrant, so each row routes one reader need to one standard without a redundant quadrant column.
 
-Explanation (cognition + learning):
-
-- Current structure, boundaries, and invariants: [architecture.md](explanation/architecture.md).
-- Durable decision with consequences and confirmation: [adr.md](explanation/adr.md).
-- Pre-implementation proposal or RFC-style review: [design-doc.md](explanation/design-doc.md).
-- Build sequence, milestones, and exit proof: [roadmap.md](explanation/roadmap.md).
-- Test levels, gates, evidence, or flake policy: [test-strategy.md](explanation/test-strategy.md).
-
-Reference (cognition + work):
-
-- Entry point or local hub: [readme.md](reference/readme.md).
-- Curated lookup truth: [reference.md](reference/reference.md).
-- HTTP contract or generated API surface: [api.md](reference/api.md).
-- Public symbol intent, constraints, and failure channels: [code-documentation.md](reference/code-documentation.md).
-- Supported versions, platforms, runtimes, or features: [support-matrix.md](reference/support-matrix.md).
-
-How-to (action + work):
-
-- One repeatable task for a competent reader: [how-to.md](task/how-to.md).
-- Operational symptom-to-fix procedure: [runbook.md](task/runbook.md).
-- Contributor workflow and pull-request evidence: [contributing.md](task/contributing.md).
-
-Tutorial (action + learning):
-
-- Tested learning path: [tutorial.md](learning/tutorial.md).
-- Role ramp for contributors, maintainers, or operators: [onboarding.md](learning/onboarding.md).
+| [INDEX] | [READER_NEED]                            | [TYPE_PATH]                                                        | [ROUTE_AWAY]                  |
+| :-----: | :--------------------------------------- | :----------------------------------------------------------------- | :---------------------------- |
+|   [1]   | Current structure and invariants         | [explanation/architecture.md](explanation/architecture.md)         | decisions, tasks, incidents   |
+|   [2]   | Durable decision and consequences        | [explanation/adr.md](explanation/adr.md)                           | proposals, architecture       |
+|   [3]   | Proposal or RFC-style review             | [explanation/design-doc.md](explanation/design-doc.md)             | accepted decisions, structure |
+|   [4]   | Milestone sequence and exit proof        | [explanation/roadmap.md](explanation/roadmap.md)                   | release history, support      |
+|   [5]   | Test portfolio and gate policy           | [explanation/test-strategy.md](explanation/test-strategy.md)       | test procedures               |
+|   [6]   | Entry point or local hub                 | [reference/readme.md](reference/readme.md)                         | catalogs, tutorials           |
+|   [7]   | Curated lookup truth                     | [reference/reference.md](reference/reference.md)                   | procedures, teaching          |
+|   [8]   | HTTP or generated API contract           | [reference/api.md](reference/api.md)                               | symbol docs, plans            |
+|   [9]   | Public symbol intent and failures        | [reference/code-documentation.md](reference/code-documentation.md) | endpoint catalogs, tutorials  |
+|  [10]   | Support by version, platform, or feature | [reference/support-matrix.md](reference/support-matrix.md)         | roadmaps, migrations          |
+|  [11]   | Repeatable competent-reader task         | [task/how-to.md](task/how-to.md)                                   | learning, recovery            |
+|  [12]   | Operational symptom response             | [task/runbook.md](task/runbook.md)                                 | normal tasks, postmortems     |
+|  [13]   | Contribution workflow and PR evidence    | [task/contributing.md](task/contributing.md)                       | onboarding, incidents         |
+|  [14]   | Tested learning path                     | [learning/tutorial.md](learning/tutorial.md)                       | reference, variants           |
+|  [15]   | Role readiness ramp                      | [learning/onboarding.md](learning/onboarding.md)                   | task guides, contributing     |
 
 If no quadrant fits cleanly, reduce the scope until one reader outcome is primary.
 
-## Shared standards
+## [6][SHARED_STANDARDS]
 
 Every document obeys five shared owners; each rule has exactly one of them:
 
@@ -91,7 +79,7 @@ Every document obeys five shared owners; each rule has exactly one of them:
 - [proof.md](proof.md): evidence — strength, freshness, source conflicts, verification, agent-surface evaluation, and preservation under refactor.
 - [formatting.md](formatting.md): notation — status and invocation markers, table styling, whitespace, and the heading idiom.
 
-## Placement
+## [7][PLACEMENT]
 
 Place documentation where the reader or tool first looks:
 
@@ -103,7 +91,7 @@ Place documentation where the reader or tool first looks:
 
 Prefer one owner for a claim, and link across owners instead of copying the same claim into multiple pages.
 
-## Split and link
+## [8][SPLIT_LINK]
 
 When a draft serves more than one primary reader need, split it:
 
@@ -117,7 +105,7 @@ When a draft serves more than one primary reader need, split it:
 
 After splitting, add the smallest useful cross-link and do not leave a summary copy that can drift.
 
-## Lifecycle
+## [9][LIFECYCLE]
 
 Maintain documentation like code:
 
@@ -128,7 +116,7 @@ Maintain documentation like code:
 
 Unless live product support and evidence justify them, do not preserve old paths, terminology, commands, or product claims as compatibility notes.
 
-## Folder layout
+## [10][FOLDER_LAYOUT]
 
 - Root files are the five shared standards, this index, and `AGENTS.md`, the agent instruction file for `docs/standards/**` (instruction-file rules owned by [agentic-documentation.md](agentic-documentation.md)).
 - `explanation/` holds decision, design, architecture, roadmap, and test-strategy standards.
@@ -137,7 +125,7 @@ Unless live product support and evidence justify them, do not preserve old paths
 - `learning/` holds tutorial and onboarding standards.
 - `_TMP/` holds inactive source material outside the active standard set.
 
-## Anti-patterns
+## [11][ANTI_PATTERNS]
 
 - README files that carry design history, tutorials, or API catalogs.
 - Architecture documents that carry task plans or incident response.
@@ -148,7 +136,7 @@ Unless live product support and evidence justify them, do not preserve old paths
 - Generated API documentation forked by hand-written endpoint or symbol tables.
 - Standards that mention authoring interactions, obsolete workflow names, or temporary task labels instead of durable document behavior.
 
-## Maintenance rules
+## [12][MAINTENANCE_RULES]
 
 - Keep this README a route map; put detailed rules in the owning standard.
 - Prefer restructuring, deletion, and owner links over duplicated guidance.
@@ -157,7 +145,7 @@ Unless live product support and evidence justify them, do not preserve old paths
 - Remove a stale standard instead of keeping a compatibility alias.
 - Keep release history in the project's release mechanism, not in this index.
 
-## Review checklist
+## [13][REVIEW_CHECKLIST]
 
 - [ ] Active standards are linked by current filename.
 - [ ] Each shared standard has one clear owner role.

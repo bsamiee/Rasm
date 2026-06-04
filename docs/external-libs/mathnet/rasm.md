@@ -1,15 +1,8 @@
 # [H1][MATHNET_RASM]
->**Dictum:** *MathNet computes; Rasm owns receipts, paths, and failure vocabulary.*
-
-<br>
 
 [IMPORTANT] Production numerics: `libs/csharp/Rasm/Vectors/Matrix.cs`, `Cloud.cs`, `Mesh.cs` (CSparse hybrid). `MathNet.Symbolics`, Optimization, Integration, and Interpolation are pinned but **not referenced** in production `.cs` files.
 
----
 ## [1][PUBLIC_SURFACES]
->**Dictum:** *Public matrix API wraps MathNet; storage never leaks.*
-
-<br>
 
 | [INDEX] | [RASM_PUBLIC_API]                                                 | [BACKEND]                                                       |
 | :-----: | ----------------------------------------------------------------- | --------------------------------------------------------------- |
@@ -23,11 +16,7 @@ Internal implementation types (`MatrixKernel`, `LobpcgCore`) are not public API.
 
 RhinoCommon owns geometry; MathNet receives explicit coordinates after validity projection.
 
----
 ## [2][RECEIPTS_AND_PATHS]
->**Dictum:** *Receipts are records; path/stop vocabularies are SmartEnums.*
-
-<br>
 
 | [INDEX] | [TYPE]                              | [KIND]                   |
 | :-----: | ----------------------------------- | ------------------------ |
@@ -43,11 +32,7 @@ RhinoCommon owns geometry; MathNet receives explicit coordinates after validity 
 
 MathNet solver type for sparse iterative: **`BiCgStab`** (spelling in MathNet API). Package id for sparse Cholesky co-primary: **`CSparse`** (not `CSparse.NET`).
 
----
 ## [3][SOLVE_FLOWS]
->**Dictum:** *Every solve returns a receipt, not a raw vector.*
-
-<br>
 
 | [INDEX] | [FLOW]                 | [BACKEND]                                                      |
 | :-----: | ---------------------- | -------------------------------------------------------------- |
@@ -59,20 +44,12 @@ MathNet solver type for sparse iterative: **`BiCgStab`** (spelling in MathNet AP
 
 Document non-convergence and non-finite scalars as typed `Fin` failures at boundary — see `linear.md`.
 
----
 ## [4][BOUNDARY]
->**Dictum:** *Numeric failure is fallible admission.*
-
-<br>
 
 - Wrap native/MathNet throws in `op.Catch` or `Try.lift` at Vectors boundary.
 - Project GH2/Rhino outputs from Rasm receipts — never expose MathNet matrix types on public API.
 
----
 ## [5][NOT_IN_GRAPH]
->**Dictum:** *Pinned is not adopted.*
-
-<br>
 
 | [INDEX] | [SURFACE]                                  | [STATUS]                                 |
 | :-----: | ------------------------------------------ | ---------------------------------------- |

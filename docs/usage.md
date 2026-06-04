@@ -1,15 +1,8 @@
 # [H1][RASM_USAGE]
->**Dictum:** *Advanced Rasm code chooses the owner before choosing the API.*
-
-<br>
 
 [IMPORTANT] Cross-stack implementation surface for new work. Leaf docs own package and member detail.
 
----
 ## [1][OWNER_LADDER]
->**Dictum:** *The strongest implementation uses each layer for its native concern.*
-
-<br>
 
 | [INDEX] | [OWNER]            | [CAPABILITY]                                                           |
 | :-----: | ------------------ | ---------------------------------------------------------------------- |
@@ -32,11 +25,7 @@
 - [7] `../libs/csharp/Rasm.AppUi/README.md`, `../libs/csharp/Rasm.AppHost/README.md`, `../libs/csharp/Rasm.Persistence/README.md`, `../libs/csharp/Rasm.Compute/README.md`
 - [8] `host-libraries.md` §1, §8
 
----
 ## [2][FLOW]
->**Dictum:** *Values move from native truth into rails, algorithms, and host output.*
-
-<br>
 
 1. Admit raw input through Rhino/GH2/System boundary policy.
 2. Encode domain meaning with Thinktecture generated shapes.
@@ -45,11 +34,7 @@
 5. Project output back through Rhino validity or GH2 tree/diagnostic rules.
 6. Route app UI, runtime, persistence, and compute concerns through their owner-local platform manuals before adding packages or public rails.
 
----
 ## [3][PATTERNS]
->**Dictum:** *Stacking power comes from explicit ownership, not wrappers.*
-
-<br>
 
 | [INDEX] | [PATTERN]        | [GUIDANCE]                                                                                    |
 | :-----: | ---------------- | --------------------------------------------------------------------------------------------- |
@@ -58,11 +43,7 @@
 |   [3]   | Symbolic GH2     | GH2 reads formula text; Symbolics parses/evaluates; diagnostics report exact failed stage.    |
 |   [4]   | System primitive | BCL handles grammar, lookup, spans, timing, or diagnostics only when it owns the concern.     |
 
----
 ## [4][REJECTIONS]
->**Dictum:** *False sophistication creates weak code.*
-
-<br>
 
 - Do not wrap library APIs without domain value.
 - Do not add packages as future intent in `Directory.Packages.props`.
@@ -72,11 +53,7 @@
 - Do not treat public docs as compile truth when local WIP XML differs.
 - Do not use current early implementation symbols as doctrine.
 
----
 ## [5][PROOF]
->**Dictum:** *Every advanced claim carries a proof path.*
-
-<br>
 
 | [INDEX] | [SOURCE]                                    | [OWNS]                                                           |
 | :-----: | ------------------------------------------- | ---------------------------------------------------------------- |

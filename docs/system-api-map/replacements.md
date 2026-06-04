@@ -1,15 +1,8 @@
 # [H1][REPLACEMENTS]
->**Dictum:** *Refactoring starts by choosing the canonical owner.*
-
-<br>
 
 [IMPORTANT] Replacement means moving behavior to the owning API, not adding wrappers. BCL surface catalog: `bcl.md`. Language features: `../external-libs/csharp/language.md`.
 
----
 ## [1][TEXT_AND_LOOKUP]
->**Dictum:** *Grammar, character-set scans, culture/encoding, and lookup lifetime are separate.*
-
-<br>
 
 | [INDEX] | [LOCAL_PATTERN]                                                  |
 | :-----: | ---------------------------------------------------------------- |
@@ -46,11 +39,7 @@
 - [14] `Convert.ToHexString` / `ToHexStringLower` (CA1872).
 - [15] `ReadOnlySpan<char>.EnumerateLines` — not for length-prefixed wire newlines.
 
----
 ## [2][COLLECTIONS_AND_EQUALITY]
->**Dictum:** *Lifetime, comparer policy, and domain rail ownership are decided before collection choice.*
-
-<br>
 
 | [INDEX] | [LOCAL_PATTERN]                                                                  |
 | :-----: | -------------------------------------------------------------------------------- |
@@ -89,11 +78,7 @@
 - [15] `FrozenDictionary.GetAlternateLookup<ReadOnlySpan<char>>()` when comparer supports alternate keys.
 - [16] `FrozenDictionary` slice + `Atom<HashMap<…>>` overlay; rebuild frozen view on registration.
 
----
 ## [3][VALIDATION_AND_DISPATCH]
->**Dictum:** *Closed vocabularies carry lookup and behavior.*
-
-<br>
 
 | [INDEX] | [LOCAL_PATTERN]                                           |
 | :-----: | --------------------------------------------------------- |
@@ -114,11 +99,7 @@
 - [6] `Validator.TryValidateObject` + data annotations at boundary only — not domain rails.
 - [7] `Enumerable.LeftJoin` / `RightJoin`.
 
----
 ## [4][NUMERICS]
->**Dictum:** *Numerical policy delegates to Rhino, MathNet, or measured BCL kernels.*
-
-<br>
 
 | [INDEX] | [LOCAL_PATTERN]                             |
 | :-----: | ------------------------------------------- |
@@ -147,11 +128,7 @@
 - [10] `Enumerable.Shuffle` on materialized sequences.
 - [11] `System.IO.Hashing.XxHash64` — reserve `SHA256` for integrity-oriented boundaries.
 
----
 ## [5][RUNTIME_AND_IO]
->**Dictum:** *Concurrency, timing, observability, and wire framing each have one BCL owner.*
-
-<br>
 
 | [INDEX] | [LOCAL_PATTERN]                                           |
 | :-----: | --------------------------------------------------------- |
@@ -208,11 +185,7 @@
 - [24] `FileSystemWatcher` + debounce via injectable `TimeProvider`.
 - [25] Centralized handler at composition root — CSP0008; product Rhino code is not an HTTP service.
 
----
 ## [6][HOST_BOUNDARIES]
->**Dictum:** *Native host structures remain native until projected.*
-
-<br>
 
 | [INDEX] | [LOCAL_PATTERN]                           |
 | :-----: | ----------------------------------------- |

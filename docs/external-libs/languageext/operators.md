@@ -1,17 +1,10 @@
 # [H1][LANGUAGEEXT_OPERATORS]
->**Dictum:** *Operators encode algebra on a carrier; identify the carrier before composing.*
-
-<br>
 
 [IMPORTANT] Pin **`LanguageExt.Core`** at the version pinned in `Directory.Packages.props`. Verify overload semantics in local package XML.
 
 Hand-written domain `operator +`/`|` on application types are **not** LanguageExt operators.
 
----
 ## [1][KLEISLI_AND_APPLICATIVE]
->**Dictum:** *Bind sequences dependent steps; star and triple-angle sequence independent applicative steps.*
-
-<br>
 
 | [INDEX] | [SYMBOL]               | [CARRIER]             | [SEMANTICS]                              |
 | :-----: | ---------------------- | --------------------- | ---------------------------------------- |
@@ -26,11 +19,7 @@ Prefer tuple `.Apply(f)` with explicit lowering, or `Validation` `&`, when indep
 
 `Validation<string,T>` is **not supported** — error type needs `Semigroup`/`Monoid` (use `StringM` or `Error`). Rasm forbids `Validation<Seq<Error>,T>` (`CSP0703`); see `rasm.md`.
 
----
 ## [2][CHOICE_CATCH_FINALLY]
->**Dictum:** *Pipe meaning depends on carrier — not a single alternative algebra.*
-
-<br>
 
 | [INDEX] | [CARRIER]               | [SYMBOL] | [SEMANTICS]                           |
 | :-----: | ----------------------- | -------- | ------------------------------------- |
@@ -43,11 +32,7 @@ Prefer tuple `.Apply(f)` with explicit lowering, or `Validation` `&`, when indep
 
 Eff recovery: **`Prelude.catch(...)`**, **`IfFailEff`**, **`IfFail`** — not unconstrained `eff1 | eff2`.
 
----
 ## [3][SCHEDULE_ALGEBRA]
->**Dictum:** *Retry policy composes with union, intersect, pipe, and transformer chain.*
-
-<br>
 
 | [INDEX] | [EXPRESSION]                                                                 | [MEANING]                                               |
 | :-----: | ---------------------------------------------------------------------------- | ------------------------------------------------------- |
@@ -61,11 +46,7 @@ Schedule intersect uses **`intersect(...)`** or documented fullwidth intersect g
 
 Pair with `IO<T>.Retry(Schedule)`, `Prelude.retry` / `repeat`, or `@catch` at effect boundaries.
 
----
 ## [4][NOT_IN_PINNED_XML]
->**Dictum:** *Absence in XML is absence in API.*
-
-<br>
 
 | [INDEX] | [CLAIM]                                              | [STATUS]                         |
 | :-----: | ---------------------------------------------------- | -------------------------------- |
@@ -75,11 +56,7 @@ Pair with `IO<T>.Retry(Schedule)`, `Prelude.retry` / `repeat`, or `@catch` at ef
 
 Use LINQ `from..in..select` for monadic composition. **`Next.Loop`** exists for trampolining.
 
----
 ## [5][RULES]
->**Dictum:** *Document carrier before symbol.*
-
-<br>
 
 - Verify every operator claim against pinned `LanguageExt.Core.xml`.
 - Disambiguate hand domain operators from LanguageExt and from `[Flags]`.

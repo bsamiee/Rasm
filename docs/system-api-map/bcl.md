@@ -1,15 +1,8 @@
 # [H1][BCL]
->**Dictum:** *Use built-in primitives where they own the concern completely.*
-
-<br>
 
 [IMPORTANT] BCL APIs do not replace LanguageExt rails, Thinktecture shape, MathNet algorithms, Rhino geometry, or GH2 data semantics. C# 14 language features live in `../external-libs/csharp/language.md`; this file owns BCL/shared-framework API surfaces. SDK implicit usings and workspace globals — see `meta.md` §6.
 
----
 ## [1][TEXT]
->**Dictum:** *Grammar, character-set policy, culture, and encoding are separate concerns — each gets one BCL owner.*
-
-<br>
 
 | [INDEX] | [NAMESPACE_OR_TYPE]              | [SURFACE]                                                                      |
 | :-----: | -------------------------------- | ------------------------------------------------------------------------------ |
@@ -53,11 +46,7 @@
 - [18] Composed allowed-code-point policy beside `Rune` and `SearchValues<char>`.
 
 
----
 ## [2][COLLECTIONS]
->**Dictum:** *Collection lifetime and comparer policy determine the owner.*
-
-<br>
 
 | [INDEX] | [NAMESPACE_OR_TYPE]              | [SURFACE]                                                                                                      |
 | :-----: | -------------------------------- | -------------------------------------------------------------------------------------------------------------- |
@@ -82,11 +71,7 @@
 
 Collection expressions (`[]`, spread) are a C# owner (`../external-libs/csharp/language.md`); BCL targets may be expression-built then frozen via `ToFrozenDictionary`/`ToFrozenSet`.
 
----
 ## [3][EQUALITY]
->**Dictum:** *Equality policy is chosen at construction; hash follows comparer contract.*
-
-<br>
 
 | [INDEX] | [NAMESPACE_OR_TYPE]               | [SURFACE]                                            |
 | :-----: | --------------------------------- | ---------------------------------------------------- |
@@ -107,11 +92,7 @@ Collection expressions (`[]`, spread) are a C# owner (`../external-libs/csharp/l
 
 `HashCode` output is process-randomized — never persist or use as stable file keys. Records use compiler-synthesized equality; Thinktecture overrides synthesis on branded members.
 
----
 ## [4][NUMERICS]
->**Dictum:** *Primitive numeric kernels do not own geometry or algorithms.*
-
-<br>
 
 | [INDEX] | [NAMESPACE_OR_TYPE]         | [SURFACE]                                                                                              |
 | :-----: | --------------------------- | ------------------------------------------------------------------------------------------------------ |
@@ -140,11 +121,7 @@ Collection expressions (`[]`, spread) are a C# owner (`../external-libs/csharp/l
 
 Do not adopt `System.Numerics.Tensors` in production until `packages.md` records a measured consumer.
 
----
 ## [5][RUNTIME]
->**Dictum:** *Runtime state stays injectable, monotonic, and observable.*
-
-<br>
 
 | [INDEX] | [NAMESPACE_OR_TYPE]             | [SURFACE]                                                          |
 | :-----: | ------------------------------- | ------------------------------------------------------------------ |
@@ -177,11 +154,7 @@ Do not adopt `System.Numerics.Tensors` in production until `packages.md` records
 
 Reject for new code: `DiagnosticSource`, `TraceSource` (legacy spans), `Debug.Assert` for domain invariants (use typed rails or `UnreachableException`).
 
----
 ## [6][IO_AND_BUFFERS]
->**Dictum:** *File and wire I/O stay at boundaries; buffer lifetime is explicit; spans are the internal contract.*
-
-<br>
 
 | [INDEX] | [NAMESPACE_OR_TYPE]           | [SURFACE]                                                      |
 | :-----: | ----------------------------- | -------------------------------------------------------------- |
@@ -214,11 +187,7 @@ Reject for new code: `DiagnosticSource`, `TraceSource` (legacy spans), `Debug.As
 
 Validate length-from-wire against a bounded cap before any pool rent or allocation.
 
----
 ## [7][CRYPTO_AND_INTEGRITY]
->**Dictum:** *Cryptographic integrity stays at tooling and exchange boundaries.*
-
-<br>
 
 | [INDEX] | [NAMESPACE_OR_TYPE]            | [SURFACE]                                                                       |
 | :-----: | ------------------------------ | ------------------------------------------------------------------------------- |
@@ -233,11 +202,7 @@ Validate length-from-wire against a bounded cap before any pool rent or allocati
 - [3] Non-cryptographic cache keys and content IDs — not `SHA256`.
 - [4] Structured DER when PKI/signing needs ASN.1 — defer until required.
 
----
 ## [8][BOUNDARY_CONTRACTS]
->**Dictum:** *Nullable flow and validation attributes clarify boundary APIs without replacing domain rails.*
-
-<br>
 
 | [INDEX] | [NAMESPACE_OR_TYPE]                     | [SURFACE]                                                                   |
 | :-----: | --------------------------------------- | --------------------------------------------------------------------------- |
@@ -250,11 +215,7 @@ Validate length-from-wire against a bounded cap before any pool rent or allocati
 - [2] Regex/JSON syntax hints; trim annotations only when pursuing NativeAOT.
 - [3] Sync DTO validation at boundary — not Thinktecture/LanguageExt domain admission.
 
----
 ## [9][LINQ_EXTENDED]
->**Dictum:** *LINQ extended operators serve cold in-memory transforms at boundaries — domain traversal stays LanguageExt.*
-
-<br>
 
 | [INDEX] | [NAMESPACE_OR_TYPE] | [SURFACE]                                    |
 | :-----: | ------------------- | -------------------------------------------- |
@@ -269,11 +230,7 @@ Validate length-from-wire against a bounded cap before any pool rent or allocati
 - [3] Batching, indexed enumeration, avoid forced full counts.
 - [4] In-memory random order — tests use CsCheck `Gen.Shuffle` instead.
 
----
 ## [10][COMPILER_AND_INTEROP]
->**Dictum:** *Compiler attributes and interop surfaces are opt-in per module, never workspace-global.*
-
-<br>
 
 | [INDEX] | [NAMESPACE_OR_TYPE]               | [SURFACE]                                        |
 | :-----: | --------------------------------- | ------------------------------------------------ |
@@ -294,11 +251,7 @@ Validate length-from-wire against a bounded cap before any pool rent or allocati
 
 `required` members need no manual `[RequiredMember]` import when using the keyword. ISA intrinsics require explicit subnamespace usings — never workspace-global.
 
----
 ## [11][EXPLICIT_USINGS]
->**Dictum:** *SDK implicit usings cover a narrow subset; most BCL owners need file-level or project-global `using`.*
-
-<br>
 
 | [INDEX] | [NAMESPACE]                                                                                                                         | [SDK_IMPLICIT] | [TYPICAL_POLICY]                                                   |
 | :-----: | ----------------------------------------------------------------------------------------------------------------------------------- | -------------- | ------------------------------------------------------------------ |
@@ -316,10 +269,6 @@ Validate length-from-wire against a bounded cap before any pool rent or allocati
 
 Workspace LanguageExt/Thinktecture globals — see `meta.md` §6.
 
----
 ## [12][DRAWING]
->**Dictum:** *Drawing is a RhinoWIP host-boundary exception on macOS.*
-
-<br>
 
 `System.Drawing.Common` is not a universal dependency. Rasm resolves Rhino UI drawing through RhinoWIP app-bundle assemblies and uses compile-only package metadata only where forwarded `System.Drawing.*` types require it. Runtime drawing claims need RhinoWIP host proof, not NuGet claims alone.

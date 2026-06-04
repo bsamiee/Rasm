@@ -1,17 +1,10 @@
 # [H1][MATHNET_LINEAR]
->**Dictum:** *Linear algebra executes in MathNet; diagnostics and receipts exit at the application boundary.*
-
-<br>
 
 [IMPORTANT] Pin **`MathNet.Numerics`** at the version pinned in `Directory.Packages.props`. Verify solver and factorization names against local XML before documenting new call sites.
 
 Spatial geometry semantics belong to the host (RhinoCommon, etc.) — MathNet receives explicit coordinates, dimensions, and tolerance policy after validity projection.
 
----
 ## [1][DENSE_SURFACES]
->**Dictum:** *Choose the algorithm object by diagnostic need.*
-
-<br>
 
 | [INDEX] | [SURFACE]                                                 | [USE]                                                    |
 | :-----: | --------------------------------------------------------- | -------------------------------------------------------- |
@@ -22,11 +15,7 @@ Spatial geometry semantics belong to the host (RhinoCommon, etc.) — MathNet re
 
 **Dense factorization families:** standard and `User*` variants for specialized storage — verify availability in pinned XML.
 
----
 ## [2][SPARSE_SURFACES]
->**Dictum:** *Sparse assembly and iteration live in MathNet; SPD direct Cholesky often delegates to CSparse.*
-
-<br>
 
 | [INDEX] | [SURFACE]                                                | [USE]                                   |
 | :-----: | -------------------------------------------------------- | --------------------------------------- |
@@ -40,11 +29,7 @@ Spatial geometry semantics belong to the host (RhinoCommon, etc.) — MathNet re
 
 Full sparse strategy and CSparse boundary: **`sparse.md`**.
 
----
 ## [3][ITERATIVE_CATALOG]
->**Dictum:** *Iterative solvers return status, not just values.*
-
-<br>
 
 | [INDEX] | [TYPE]                           | [ROLE]                          |
 | :-----: | -------------------------------- | ------------------------------- |
@@ -57,11 +42,7 @@ Full sparse strategy and CSparse boundary: **`sparse.md`**.
 
 Document solver family, preconditioner, stop criteria, iteration count, residual, and final status in application receipts.
 
----
 ## [4][EIGEN_AND_OPTIMIZATION]
->**Dictum:** *Partial eigen and optimization are MathNet-owned.*
-
-<br>
 
 | [INDEX] | [DOMAIN]                    | [ENTRY SURFACES]                                                                              |
 | :-----: | --------------------------- | --------------------------------------------------------------------------------------------- |
@@ -73,11 +54,7 @@ Document solver family, preconditioner, stop criteria, iteration count, residual
 
 MathNet.Symbolics is pinned separately in `Directory.Packages.props` — see `symbolics.md`.
 
----
 ## [5][SCALAR_NAMESPACES]
->**Dictum:** *Four scalar namespaces coexist — pick one per module.*
-
-<br>
 
 | [INDEX] | [NAMESPACE]                                | [SCALAR]            |
 | :-----: | ------------------------------------------ | ------------------- |
@@ -88,30 +65,18 @@ MathNet.Symbolics is pinned separately in `Directory.Packages.props` — see `sy
 
 Do not mix scalar namespaces within one transform pipeline without explicit conversion.
 
----
 ## [6][BOUNDARY]
->**Dictum:** *Numeric failure is fallible admission at the host edge.*
-
-<br>
 
 - Wrap native/MathNet throws in typed result rails at boundary only.
 - Preserve non-convergence and non-finite scalars as typed failures.
 - Never expose MathNet storage types as public host output identity.
 - Build matrices from explicit coordinate order and units.
 
----
 ## [7][PERFORMANCE]
->**Dictum:** *Hot-path claims require measurement.*
-
-<br>
 
 Use MathNet vector and matrix operations for algorithmic linear algebra. Use BCL spans or tensor primitives only behind `docs/system-api-map/packages.md` adoption and measured proof. Do not replace MathNet solvers with primitive reductions without profiling.
 
----
 ## [8][RULES]
->**Dictum:** *Algorithm choice follows structure and diagnostic need.*
-
-<br>
 
 - Dense direct for small `n` or when factorization reuse dominates.
 - Sparse iterative when structure is uncertain or pattern changes frequently.

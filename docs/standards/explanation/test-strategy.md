@@ -1,17 +1,10 @@
----
-description: Standard for test strategy documents
-owner: <owner role or group>
-source_of_truth: <path to gate config or CI workflow>
-review_trigger: <event, for example a gate added or renamed>
----
-
-# Test strategy standards
+# [TEST_STRATEGY_STANDARDS]
 
 A test strategy document fixes the test portfolio, risk model, gate placement, ownership, required proof by change type, entry and exit criteria, and flaky-test policy for one maintained scope. It is a testing-risk policy: it states which test levels exist, where each gate runs, how risk selects test depth, who owns a failure, and what evidence closes a change. It is not a contributor command list, a framework reference, a proof-strength catalog, or an implementation history. Name one profile and one strategy archetype in the opening paragraph of every test strategy you write.
 
-This standard anchors to ISO/IEC/IEEE 29119-3:2021 for test-documentation content, to the ISTQB test policy -> test strategy -> test plan hierarchy and its strategy archetypes, to Google's test-size and test-pyramid model for the size-versus-scope and hermeticity-versus-fidelity trade-offs, and to risk-based testing for the likelihood-by-impact risk model. `Source of truth:` ISO/IEC/IEEE 29119-3:2021; ISTQB Foundation syllabus and glossary; "Software Engineering at Google" ch. 14. `Last verified:` 2026-06-04.
+This standard anchors to ISO/IEC/IEEE 29119-3:2021 for test-documentation content, to the ISTQB test policy -> test strategy -> test plan hierarchy and its strategy archetypes, to Google's test-size and test-pyramid model for the size-versus-scope and hermeticity-versus-fidelity trade-offs, and to risk-based testing for the likelihood-by-impact risk model. `Source of truth:` ISO/IEC/IEEE 29119-3:2021; ISTQB Foundation syllabus and glossary; "Software Engineering at Google" ch. 14. `Last verified:` 2026-06-04. `Review trigger:` ISO, ISTQB, or maintained testing-model guidance changes.
 
-## Use when
+## [1][USE_WHEN]
 
 Use a test strategy when a scope must state any of these:
 
@@ -25,32 +18,32 @@ Use a test strategy when a scope must state any of these:
 
 Do not use a test strategy to list every command a contributor runs, to catalog runner flags or framework APIs, or to record milestone sequence.
 
-## Profiles and archetypes
+## [2][PROFILES_ARCHETYPES]
 
 Name exactly one profile and exactly one ISTQB strategy archetype in the opening paragraph. The profile fixes which sections carry weight and which test levels are in scope. The archetype fixes how the strategy selects test depth, so the reader knows the selection rule before reading the gates. Split the document when one page needs more than one profile.
 
-| Profile | In-scope levels | Dominant gate trigger | Primary risk owned |
-| --- | --- | --- | --- |
-| Library unit-heavy | unit, property, contract | presubmit | logic regression |
-| Service integration | unit, integration, contract | presubmit, post-submit | seam and schema drift |
-| End-to-end journey | integration, e2e, smoke | release, nightly | cross-boundary journey break |
-| Host-runtime bridge | unit, scenario, visual | manual approval, release | host or device behavior drift |
-| Nonfunctional | load, soak, security, a11y | nightly, release | budget or compliance breach |
+| [INDEX] | [PROFILE]           | [SCOPE_LEVELS]              | [DOMINANT_GATE_TRIGGER]  | [PRIMARY_RISK_OWNED]          |
+| :-----: | :------------------ | :-------------------------- | :----------------------- | :---------------------------- |
+|   [1]   | Library unit-heavy  | unit, property, contract    | presubmit                | logic regression              |
+|   [2]   | Service integration | unit, integration, contract | presubmit, post-submit   | seam and schema drift         |
+|   [3]   | End-to-end journey  | integration, e2e, smoke     | release, nightly         | cross-boundary journey break  |
+|   [4]   | Host-runtime bridge | unit, scenario, visual      | manual approval, release | host or device behavior drift |
+|   [5]   | Nonfunctional       | load, soak, security, a11y  | nightly, release         | budget or compliance breach   |
 
 A scope may state a sixth row when it owns a level no profile above covers; the new row must declare an in-scope level set, a dominant trigger, and the single risk it owns.
 
-| Archetype | Test-depth selection rule | Declare when |
-| --- | --- | --- |
-| Analytical or risk-based | risk tier from the risk model drives depth and gate | a risk register governs coverage |
-| Methodical or standards-driven | a fixed checklist or coverage standard drives depth | a compliance or coverage standard binds |
-| Process-compliant | an external process spec drives depth | a regulated process owns the gates |
-| Reactive | failures and exploratory findings drive new tests | the scope is volatile or newly mapped |
-| Model-based | a behavior or state model generates the tests | a model owns the input space |
-| Regression-averse | broad regression and reuse drive depth | change frequency outweighs novelty |
+| [INDEX] | [ARCHETYPE]     | [DEPTH_DRIVER]       | [DECLARE_WHEN]            |
+| :-----: | :-------------- | :------------------- | :------------------------ |
+|   [1]   | Risk-based      | risk tier            | risk register governs     |
+|   [2]   | Standards-based | fixed checklist      | compliance standard binds |
+|   [3]   | Process-bound   | external process     | regulated gates apply     |
+|   [4]   | Reactive        | failures/findings    | scope is volatile         |
+|   [5]   | Model-based     | behavior/state model | model owns input space    |
+|   [6]   | Regression-led  | broad reuse          | churn outweighs novelty   |
 
-Prefer the analytical or risk-based archetype unless the scope owns a reason another archetype fits better; the analytical archetype is the only one that binds gate selection to an auditable risk tier.
+Prefer the risk-based archetype unless the scope owns a reason another archetype fits better; it binds gate selection to an auditable risk tier.
 
-## Source of truth
+## [3][SOURCE_TRUTH]
 
 Repository truth owns the gate name, command, runner, status-check identifier, artifact path, and owner role. The strategy names the level, risk, trigger, and selection rule and links the live source for the executable detail. When a fact can drift, prove it from repository truth before any external example. Carry the owning gate config or CI workflow in the `source_of_truth` front-matter field so an indexer can reach it.
 
@@ -65,7 +58,7 @@ External testing vocabulary supplies the level semantics this document reuses:
 - Entry criteria are the conditions that must hold before a gate runs; exit criteria are the risk-tiered completion thresholds that close a release class.
 - Flaky-test policy requires detection, measurement, mitigation, owner-backed quarantine, and a repair deadline.
 
-## Placement
+## [4][PLACEMENT]
 
 - Shared scope strategy: `docs/test-strategy.md`.
 - Test-corpus strategy: `docs/testing-strategy.md` or a maintained test-docs hub.
@@ -73,44 +66,54 @@ External testing vocabulary supplies the level semantics this document reuses:
 
 Keep one strategy per scope. Link a lower-level owner strategy instead of copying its gate map into a shared document.
 
-## Required structure
+## [5][REQUIRED_STRUCTURE]
 
-Use this section order. Front matter and every H2 below are required (cardinality 1). `Principles` is required but may collapse to three bullets for a purely mechanical portfolio. `Boundaries` and `Review checklist` are the canonical closing pair, both required (cardinality 1 each); a `Boundaries` link to an adjacent owner is omitted only when the owner README already links that neighbor. The skeleton below is copy-safe.
+Use this section order. The opening metadata block and every H2 below are required (cardinality 1). `Principles` is required but may collapse to three bullets for a purely mechanical portfolio. `Boundaries` and `Review checklist` are the canonical closing pair, both required (cardinality 1 each); a `Boundaries` link to an adjacent owner is omitted only when the owner README already links that neighbor. The template below is the required shape.
 
-```markdown conceptual
----
-description: Test strategy for <scope>
-owner: <owner role or group>
-source_of_truth: <path to gate config or CI workflow>
-review_trigger: <event, for example a gate added or renamed>
----
+```markdown template
+# [SCOPE_TEST_STRATEGY]
 
-# <Scope> test strategy
+Owner: <owner role or group>
+Source of truth: <path to gate config or CI workflow>
+Review trigger: <event, for example a gate added or renamed>
 
-<Lead: name the one profile and the one ISTQB strategy archetype, and the single risk class this scope owns, in prose — e.g. "This is a Service integration strategy using the analytical or risk-based archetype; it owns seam and schema drift across the persistence boundary.">
+<Lead: name the one profile and the one ISTQB strategy archetype, and the single risk class this scope owns, in prose — e.g. "This is a Service integration strategy using the Risk-based archetype; it owns seam and schema drift across the persistence boundary.">
 
-## Scope
-## Principles
-## Risk model
-## Test levels
-## Gate mapping
-## Entry and exit criteria
-## Required proof by change type
-## Ownership
-## Flaky-test policy
-## Metrics
-## Review trigger
-## Boundaries
-## Review checklist
+## [1][SCOPE]
+
+## [2][PRINCIPLES]
+
+## [3][RISK_MODEL]
+
+## [4][TEST_LEVELS]
+
+## [5][GATE_MAPPING]
+
+## [6][ENTRY_EXIT_CRITERIA]
+
+## [7][REQUIRED_PROOF_CHANGE]
+
+## [8][OWNERSHIP]
+
+## [9][FLAKY_TEST_POLICY]
+
+## [10][METRICS]
+
+## [11][REVIEW_TRIGGER]
+
+## [12][BOUNDARIES]
+
+## [13][REVIEW_CHECKLIST]
+
 ```
 
-Per-section cardinality: front matter (1), opening paragraph naming one profile and one archetype in prose (1), every H2 above (1 each, required, including the `Boundaries` and `Review checklist` closing pair). The `Risk model` section is required but collapses to the tier table plus the register link for a mechanical portfolio that owns no scored risk. A single `Boundaries` neighbor link is omitted only when the owner README already carries it; the section itself is never omitted.
+Per-section cardinality: opening metadata block (1), opening paragraph naming one profile and one archetype in prose (1), every H2 above (1 each, required, including the `Boundaries` and `Review checklist` closing pair). The `Risk model` section is required but collapses to the tier table plus the register link for a mechanical portfolio that owns no scored risk. A single `Boundaries` neighbor link is omitted only when the owner README already carries it; the section itself is never omitted.
 
-## Scope
+## [6][SCOPE]
 
 State the maintained scope boundary, what is in and out, and the single risk class the scope owns. A strategy that owns more than one risk class is two strategies; split it. Name the scope in the H1 and the owned risk class in the opening paragraph so both stand alone in retrieval.
 
-## Principles
+## [7][PRINCIPLES]
 
 State the trade-off rules the portfolio obeys. Required rules:
 
@@ -124,22 +127,22 @@ State the trade-off rules the portfolio obeys. Required rules:
 - Treat coverage percentage as a signal, never as proof of correctness.
 - Add a nonfunctional level only when the scope owns that risk.
 
-## Risk model
+## [8][RISK_MODEL]
 
 Bind test depth and gate selection to an auditable risk tier; this is the construct that makes "which gate" derivable rather than asserted. State the likelihood scale, the impact scale, the tier buckets with numeric ranges, and the rule mapping each tier to test depth and a minimum gate. Use a decision table so an agent resolves a tier to a gate deterministically.
 
-| Tier | Score (likelihood x impact) | Test depth | Minimum gate |
-| --- | --- | --- | --- |
-| Extreme | 20-25 | full plus nonfunctional | release plus e2e |
-| High | 13-19 | integration plus property | post-submit |
-| Medium | 5-12 | unit plus contract | presubmit |
-| Low | 1-4 | unit or review gate | presubmit |
+| [INDEX] | [TIER]  | [SCORE_LIKELIHOOD_X] | [TEST_DEPTH]              | [MINIMUM_GATE]   |
+| :-----: | :------ | -------------------: | :------------------------ | :--------------- |
+|   [1]   | Extreme |                20-25 | full plus nonfunctional   | release plus e2e |
+|   [2]   | High    |                13-19 | integration plus property | post-submit      |
+|   [3]   | Medium  |                 5-12 | unit plus contract        | presubmit        |
+|   [4]   | Low     |                  1-4 | unit or review gate       | presubmit        |
 
 State the likelihood and impact scales as concrete bands, for example likelihood 1 (rare) to 5 (frequent) and impact 1 (cosmetic) to 5 (data loss or safety). Link the risk register from repository truth, and name at least the High-tier and Extreme-tier risks the scope currently owns; an empty matrix is a gap, not a strategy.
 
 Require risk-to-test traceability: every register risk at High or Extreme back-links to the level or gate that covers it, and an uncovered High or Extreme risk is a defect in the strategy. State the back-link as a register field or as a `Covered-by:` line per risk, not as an unstated assumption.
 
-## Test levels
+## [9][TEST_LEVELS]
 
 Define only the levels the scope runs or reviews. Render each level as a definition block carrying all nine fields, one `label: value` per line, so a missing field is visibly absent (all required, cardinality 1 per level):
 
@@ -174,11 +177,12 @@ Avoid the rejected form below: it names a framework, omits the risk and tier, an
 
 ```text rejected
 # rejected: taxonomy by tool, no risk, no owner, no hermeticity
+
 Level: xunit-tests
 Trigger: CI
 ```
 
-## Gate mapping
+## [10][GATE_MAPPING]
 
 A gate map connects a level to its automation without becoming a runner manual. Render each gate as a definition block carrying its required fields, one `label: value` per line (required fields cardinality 1; the resource policy field is optional, cardinality 0..1):
 
@@ -192,7 +196,7 @@ A gate map connects a level to its automation without becoming a runner manual. 
 
 This definition block is one accepted gate record:
 
-```text conceptual
+```text template
 Gate: post-submit-integration
 Trigger: post-submit
 Selection: dependency impact across changed seams
@@ -206,7 +210,7 @@ Order gates by trigger latency. Fast deterministic gates block at presubmit. Slo
 
 The diagram below fixes gate ordering and the residual risk carried between triggers. A state diagram is the deliberate choice: gate progression is a sequence of trigger states with a terminal merge or release transition, not a table lookup or a component graph.
 
-```mermaid
+```mermaid conceptual
 stateDiagram-v2
     [*] --> Presubmit: changed-path impact
     Presubmit --> PostSubmit: unit + contract green
@@ -220,7 +224,7 @@ stateDiagram-v2
     end note
 ```
 
-## Entry and exit criteria
+## [11][ENTRY_EXIT_CRITERIA]
 
 State the conditions that open each gate and the risk-tiered thresholds that close each release class; this is the canonical phase gate that makes "when is testing complete" observable. Render entry and exit criteria as a definition block per gate and release class (all fields required, cardinality 1 per gate):
 
@@ -241,22 +245,22 @@ Exit (hotfix): 100% regression pass on the affected risk areas only;
 
 Tailoring of thresholds per release class is expected. State each tailored class explicitly; an unstated hotfix path is an ungated path.
 
-## Required proof by change type
+## [12][REQUIRED_PROOF_CHANGE]
 
 Map each change family to the smallest sufficient proof surface. The strategy names which proof is required; evidence-strength judgment belongs to the proof owner named in `Boundaries`. Every row resolves to a runnable gate name from repository truth.
 
-| Change family | Smallest sufficient gate | Escalation trigger |
-| --- | --- | --- |
-| Behavior or algorithm | narrow unit or property gate | touches a public contract |
-| Integration or contract | seam-level integration gate | crosses an owner boundary |
-| User journey or deployment | high-fidelity e2e gate | alters a critical journey |
-| Host-runtime change | scenario or visual gate | changes host or device output |
-| Nonfunctional risk | the specialized gate owning that risk | breaches a stated budget |
-| Docs-only or config-only | review gate or generated-evidence check | changes a documented contract |
+| [INDEX] | [CHANGE_FAMILY]            | [SMALLEST_SUFFICIENT_GATE]              | [ESCALATION_TRIGGER]          |
+| :-----: | :------------------------- | :-------------------------------------- | :---------------------------- |
+|   [1]   | Behavior or algorithm      | narrow unit or property gate            | touches a public contract     |
+|   [2]   | Integration or contract    | seam-level integration gate             | crosses an owner boundary     |
+|   [3]   | User journey or deployment | high-fidelity e2e gate                  | alters a critical journey     |
+|   [4]   | Host-runtime change        | scenario or visual gate                 | changes host or device output |
+|   [5]   | Nonfunctional risk         | the specialized gate owning that risk   | breaches a stated budget      |
+|   [6]   | Docs-only or config-only   | review gate or generated-evidence check | changes a documented contract |
 
 When an escalation trigger fires, the change must also clear the broader gate the row escalates into, in addition to its base gate.
 
-## Ownership
+## [13][OWNERSHIP]
 
 Every test level, gate, and quarantine path has one accountable owner role (cardinality: exactly 1 owner per level, gate, and quarantine path). Define who:
 
@@ -268,7 +272,7 @@ Every test level, gate, and quarantine path has one accountable owner role (card
 
 A large or cross-owner test with no named diagnosis owner is a defect in the strategy, not an acceptable gap.
 
-## Flaky-test policy
+## [14][FLAKY_TEST_POLICY]
 
 Define a flaky test as one that both passes and fails against the same relevant code and environment state. Render the policy as a definition block carrying each field (all required, cardinality 1):
 
@@ -284,22 +288,22 @@ Define a flaky test as one that both passes and fails against the same relevant 
 
 Quarantine suppresses signal; it is never a repair. A quarantined test past its maximum duration escalates to the owner named in `Ownership`.
 
-## Metrics
+## [15][METRICS]
 
 Use metrics to sharpen signal, never to replace owner judgment. Track only metrics that change a decision, and bind each metric to the named decision it drives so an unactionable metric is visibly orphaned. Use a lookup table from metric to decision:
 
-| Metric | Decision it drives |
-| --- | --- |
-| Pass, fail, flake, retry, quarantine, re-enable rate per level | portfolio rebalance and level retirement |
-| Gate duration and queue time per trigger | gate placement and trigger latency |
-| Failure-localization quality | level granularity and artifact requirements |
-| Risk-weighted and critical-journey coverage | test depth per risk tier |
-| Behavior-level coverage per named risk | risk-to-test traceability completeness and gap detection |
-| Defect-escape evidence from production or release feedback | gate sufficiency and entry/exit thresholds |
+| [INDEX] | [METRIC]                                                       | [DECISION_IT_DRIVES]                                     |
+| :-----: | :------------------------------------------------------------- | :------------------------------------------------------- |
+|   [1]   | Pass, fail, flake, retry, quarantine, re-enable rate per level | portfolio rebalance and level retirement                 |
+|   [2]   | Gate duration and queue time per trigger                       | gate placement and trigger latency                       |
+|   [3]   | Failure-localization quality                                   | level granularity and artifact requirements              |
+|   [4]   | Risk-weighted and critical-journey coverage                    | test depth per risk tier                                 |
+|   [5]   | Behavior-level coverage per named risk                         | risk-to-test traceability completeness and gap detection |
+|   [6]   | Defect-escape evidence from production or release feedback     | gate sufficiency and entry/exit thresholds               |
 
 Do not publish a metric the scope cannot act on, and do not present a raw coverage percentage as proof of correctness.
 
-## Review trigger
+## [16][REVIEW_TRIGGER]
 
 Refresh the strategy on any of these events (use an event trigger, not a calendar date, unless an external testing standard changes on a schedule). Carry the dominant trigger in the `review_trigger` front-matter field:
 
@@ -313,7 +317,7 @@ Refresh the strategy on any of these events (use an event trigger, not a calenda
 - a flake-rate, gate-duration, or release-escape threshold is breached;
 - external testing guidance the strategy reuses is revised.
 
-## Boundaries
+## [17][BOUNDARIES]
 
 - Contributor workflow and per-task commands: [contributing.md](../task/contributing.md).
 - Evidence strength, freshness fields, and verification gates: [proof.md](../proof.md).
@@ -322,10 +326,10 @@ Refresh the strategy on any of these events (use an event trigger, not a calenda
 - Delivery sequence and milestone exit criteria: [roadmap.md](roadmap.md).
 - Document-type routing, placement, and lifecycle: [README.md](../README.md).
 
-## Review checklist
+## [18][REVIEW_CHECKLIST]
 
 - [ ] Exactly one profile and one ISTQB strategy archetype are named in the opening paragraph.
-- [ ] Front matter carries `owner`, `source_of_truth`, and `review_trigger`.
+- [ ] Opening metadata carries `Owner`, `Source of truth`, and `Review trigger`.
 - [ ] Scope and owner boundaries are stated, and one risk class is owned.
 - [ ] The risk model states a scoring scale, tier buckets, and a tier-to-gate mapping, and links the register.
 - [ ] Each High or Extreme register risk back-links to the level or gate that covers it.

@@ -1,15 +1,8 @@
 # [H1][STRYKER_API]
->**Dictum:** *Mutation scores the managed law suite only when explicitly requested.*
-
-<br>
 
 [IMPORTANT] Rasm uses `dotnet-stryker` (version pinned in `.config/dotnet-tools.json`) through `tools.quality test run --mutation changed|full`. Default `tools.quality test run` is unit-only. Stryker runs with the MTP runner against the `Rasm` project/test pair, and zero-test discovery fails the rail.
 
----
 ## [1][LOCAL_RAIL]
->**Dictum:** *Mutation has one narrow owner.*
-
-<br>
 
 | [INDEX] | [FACT]                 | [VALUE]                                                                                  |
 | :-----: | ---------------------- | ---------------------------------------------------------------------------------------- |
@@ -22,11 +15,7 @@
 |   [7]   | Lock                   | `.artifacts/locks/mutation.lock`; live advisory contention fails fast                    |
 |   [8]   | Timeout                | `1200s` whole-process guard in `tools.quality`; Stryker owns per-mutant execution timing |
 
----
 ## [2][MUTATION_MODES]
->**Dictum:** *Expensive proof must be explicit.*
-
-<br>
 
 | [INDEX] | [MODE]    | [COMMAND]                                                    | [POLICY]                                               |
 | :-----: | --------- | ------------------------------------------------------------ | ------------------------------------------------------ |
@@ -36,11 +25,7 @@
 
 `list` and `coverage` do not mutate. Focused `--target` runs are unit-only unless mutation remains on the default managed Rasm pair.
 
----
 ## [3][PARALLELISM]
->**Dictum:** *Unit tests isolate; mutation serializes.*
-
-<br>
 
 | [INDEX] | [RAIL]                   | [POLICY]                                         |
 | :-----: | ------------------------ | ------------------------------------------------ |
@@ -51,11 +36,7 @@
 
 Unlocked lock files are stale and reusable. The quality tool rewrites them before launching Stryker.
 
----
 ## [4][METRICS]
->**Dictum:** *Survivors are classified before tests change.*
-
-<br>
 
 - Mutation score is meaningful only after non-zero test discovery; zero Stryker discovery fails the rail.
 - Target `95%` on the eligible managed slice after runner proof.
@@ -64,21 +45,13 @@ Unlocked lock files are stale and reusable. The quality tool rewrites them befor
 - Do not mutate `libs/csharp/Rasm.Rhino`, `libs/csharp/Rasm.Grasshopper`, plugin apps, bridge tools, or `*.verify.csx`.
 - Treat slow runs with selected mutants, timeouts, and non-zero discovery as real mutation results, not hangs.
 
----
 ## [5][CONFIG]
->**Dictum:** *Add config only for config-only value.*
-
-<br>
 
 Keep Python operator-owned settings while mutation targets one project. Add `stryker-config.*` only when config-only options such as coverage analysis, executable excludes, or multi-project orchestration become necessary.
 
 [SOURCE] Stryker config docs: https://stryker-mutator.io/docs/stryker-net/configuration/
 
----
 ## [6][THEORY_AS_STRYKER_ENABLER]
->**Dictum:** *PBT hosts are one mutation target; Theory rows are N.*
-
-<br>
 
 Stryker mutates each test method body and asks "does any test fail?". A `Spec.ForAll(Gen.OneOfConst([A,B,C]), ...)` body is ONE method, ONE mutation target. A `[Theory][InlineData(A)][InlineData(B)][InlineData(C)]` becomes THREE separately-tracked entry points.
 
@@ -88,11 +61,7 @@ Convert when:
 
 Do not convert when the cases share oracle logic and the PBT body is the more honest representation.
 
----
 ## [7][SURVIVOR_TAXONOMY]
->**Dictum:** *Every survivor classifies before any test changes.*
-
-<br>
 
 | [INDEX] | [CLASS]           | [ACTION]                                                               |
 | :-----: | ----------------- | ---------------------------------------------------------------------- |

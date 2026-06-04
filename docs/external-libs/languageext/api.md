@@ -1,15 +1,8 @@
 # [H1][LANGUAGEEXT_API]
->**Dictum:** *LanguageExt owns rails, effects, and algebraic composition.*
-
-<br>
 
 [IMPORTANT] Pin **`LanguageExt.Core`** at the version pinned in `Directory.Packages.props`. Typical workspace imports: `LanguageExt`, `LanguageExt.Common`, `LanguageExt.Traits`, `LanguageExt.Effects`, `LanguageExt.Pretty`, `LanguageExt.Traits.Domain`, and static `LanguageExt.Prelude` when global usings are enabled.
 
----
 ## [1][SOURCE_TRUTH]
->**Dictum:** *Local beta XML is the exact API contract.*
-
-<br>
 
 | [INDEX] | [SOURCE]                                                             | [USE]                                        |
 | :-----: | -------------------------------------------------------------------- | -------------------------------------------- |
@@ -18,11 +11,7 @@
 |   [3]   | `uv run python -m tools.quality api query LanguageExt.Core <symbol>` | Public member evidence.                      |
 |   [4]   | NuGet and upstream docs                                              | Secondary feature context.                   |
 
----
 ## [2][SURFACE_MAP]
->**Dictum:** *Choose the rail by failure and execution semantics.*
-
-<br>
 
 | [INDEX] | [SURFACE]                    | [OWNS]                                     | [TYPICAL_USE]                                         |
 | :-----: | ---------------------------- | ------------------------------------------ | ----------------------------------------------------- |
@@ -37,11 +26,7 @@
 |   [9]   | `Atom<T>`, `Ref<T>`          | Managed reactive state.                    | UI/session state — no Subscribe API in LanguageExt v5. |
 |  [10]   | `HashMap<K,V>`, `HashSet<T>` | Immutable map/set.                         | Keyed memoization after key policy is explicit.       |
 
----
 ## [3][ADVANCED_INDEX]
->**Dictum:** *Operator and combinator detail lives in sibling files.*
-
-<br>
 
 | [INDEX] | [FILE]           | [OWNS]                                                                                      |
 | :-----: | ---------------- | ------------------------------------------------------------------------------------------- |
@@ -53,11 +38,7 @@
 |   [6]   | `traits.md`      | Effect-polymorphic traits, `K<F,A>` algorithms                                              |
 |   [7]   | `collections.md` | `Seq`, `Arr`, immutable collection patterns                                                 |
 
----
 ## [4][BOUNDARIES]
->**Dictum:** *Collapse effects only where hosts require concrete output.*
-
-<br>
 
 - Keep `Match`, `Run*`, and unsafe collapse at host boundaries only.
 - Prefer `Flatten()` for nested rails when local XML proves availability.

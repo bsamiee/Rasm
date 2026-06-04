@@ -1,15 +1,8 @@
 # [H1][THINKTECTURE_UNIONS]
->**Dictum:** *Unions make closed-world choice exhaustive and generated.*
-
-<br>
 
 [IMPORTANT] Prefer named regular unions for domain variants. Use ad-hoc unions only for compact local alternatives.
 
----
 ## [1][UNION_TYPES]
->**Dictum:** *Union shape follows how much meaning each case carries.*
-
-<br>
 
 | [INDEX] | [SURFACE]                    | [USE]                                                         |
 | :-----: | ---------------------------- | ------------------------------------------------------------- |
@@ -18,11 +11,7 @@
 |   [3]   | `[Union<TypeParamRef1,...>]` | Generic member references.                                    |
 |   [4]   | `[AdHocUnion(typeof(...))]`  | Local compact choice across up to verified generated members. |
 
----
 ## [2][DISPATCH]
->**Dictum:** *Generated dispatch replaces visitors and repeated switch arms.*
-
-<br>
 
 Use generated `Switch` and `Map` directly. Prefer state-threaded overloads and `static` lambdas where they remove closure allocations. Partial overload generation uses `SwitchMethods` / `MapMethods` and `[UnionSwitchMapOverload]` — default to exhaustive dispatch.
 
@@ -30,11 +19,7 @@ State-threaded dispatch: `[Union(SwitchMapStateParameterName = "…")]` — see 
 
 Project-specific union SelfOp policy: see `rasm.md` §4.
 
----
 ## [3][BOUNDARIES]
->**Dictum:** *A union boundary chooses one wire model.*
-
-<br>
 
 - Keep union serialization policy explicit at the boundary.
 - Convert generated validation once into LanguageExt rails.

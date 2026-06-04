@@ -1,7 +1,4 @@
 # [H1][CSHARP_LANGUAGE]
->**Dictum:** *C# 14 is the expression substrate; the compiler enforces shape before libraries add rails.*
-
-<br>
 
 [IMPORTANT] Pin C# 14.0 on net10.0 (`LangVersion`, `TargetFramework`, `Nullable=enable`, `ImplicitUsings=enable`).
 Compiler toolset: .NET 10 SDK compiler (global compile).
@@ -10,11 +7,7 @@ Do not use `LangVersion=preview` / `latest`.
 
 Route BCL and host-reference policy through `docs/system-api-map`. Owns language features at the pinned version.
 
----
 ## [1][SOURCE_TRUTH]
->**Dictum:** *Build props outrank blog posts and memory.*
-
-<br>
 
 | [INDEX] | [SOURCE]                   | [OWNS]                                                               |
 | :-----: | -------------------------- | -------------------------------------------------------------------- |
@@ -22,11 +15,7 @@ Route BCL and host-reference policy through `docs/system-api-map`. Owns language
 |   [2]   | Central package manifest   | Analyzer and Roslyn analyzer-authoring packages                      |
 |   [3]   | .NET 10 SDK / Roslyn       | Compiler feature set for C# 14.                                      |
 
----
 ## [2][C14_NEW]
->**Dictum:** *C# 14 reduces ceremony at boundaries and makes spans first-class.*
-
-<br>
 
 | [INDEX] | [FEATURE]                         | [FUNCTIONAL_USE]                                                        |
 | :-----: | --------------------------------- | ----------------------------------------------------------------------- |
@@ -49,11 +38,7 @@ Route BCL and host-reference policy through `docs/system-api-map`. Owns language
 - [7] Primary constructor syntax allowed on only one partial declaration.
 - [8] Custom `+=`/`-=` on domain types without imperative unpack/repack.
 
----
 ## [3][C13_BASELINE]
->**Dictum:** *LangVersion 14.0 inherits C# 13; treat these as active baseline.*
-
-<br>
 
 | [INDEX] | [FEATURE]                               | [FUNCTIONAL_USE]                                                   |
 | :-----: | --------------------------------------- | ------------------------------------------------------------------ |
@@ -74,11 +59,7 @@ Route BCL and host-reference policy through `docs/system-api-map`. Owns language
 - [6] `[OverloadResolutionPriority(n)]` on preferred overload.
 - [7] .NET 9+ BCL type.
 
----
 ## [4][C12_BASELINE]
->**Dictum:** *Collection syntax and primary constructors anchor immutable data carriers.*
-
-<br>
 
 | [INDEX] | [FEATURE]                 | [FUNCTIONAL_USE]                                           |
 | :-----: | ------------------------- | ---------------------------------------------------------- |
@@ -95,11 +76,7 @@ Route BCL and host-reference policy through `docs/system-api-map`. Owns language
 - [4] Same rules as method default parameters.
 - [5] Reduces noise in dense generic signatures.
 
----
 ## [5][EXPRESSION_BASELINE]
->**Dictum:** *Functional modules at LangVersion 14.0 still depend on C# 8–11 expression features.*
-
-<br>
 
 | [INDEX] | [FEATURE]                         | [FUNCTIONAL_USE]                                               |
 | :-----: | --------------------------------- | -------------------------------------------------------------- |
@@ -113,11 +90,7 @@ Route BCL and host-reference policy through `docs/system-api-map`. Owns language
 |   [8]   | Raw string literals               | Multi-line DSL/JSON without escape noise.                      |
 |   [9]   | Nullable reference types          | `Nullable=enable`; lift host nulls at boundary only.           |
 
----
 ## [6][FUNCTIONAL_RULES]
->**Dictum:** *Language features express shape; libraries express rails.*
-
-<br>
 
 [RULES]
 - [1] Prefer switch expressions and patterns over nested statement branching for value-returning transforms.
@@ -129,11 +102,7 @@ Route BCL and host-reference policy through `docs/system-api-map`. Owns language
 - [7] Treat null-conditional assignment as boundary ergonomics; domain logic should remain on typed option/result rails, not nullable mutation chains.
 - [8] Audit overload sets where `T[]`, `IEnumerable<T>`, and `ReadOnlySpan<T>` coexist—implicit span conversions can change overload winners.
 
----
 ## [7][OUT_OF_SCOPE]
->**Dictum:** *Preview and app-model features are not production baseline.*
-
-<br>
 
 | [INDEX] | [FEATURE]                              | [STATUS]                                       |
 | :-----: | -------------------------------------- | ---------------------------------------------- |

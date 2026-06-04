@@ -1,15 +1,8 @@
 # [H1][MATHNET_SPARSE]
->**Dictum:** *MathNet iterates and assembles; CSparse factors at the CSC boundary; outcome classification belongs to the caller.*
-
-<br>
 
 [IMPORTANT] Pin **`MathNet.Numerics`** and co-primary **`CSparse`** (NuGet id **`CSparse`**, not `CSparse.NET`) at the versions pinned in `Directory.Packages.props`. Verify MathNet names against `MathNet.Numerics.xml`; verify CSparse against `CSparse.xml` under `lib/{tfm}/`.
 
----
 ## [1][SOURCE_TRUTH]
->**Dictum:** *Pinned local XML outranks memory.*
-
-<br>
 
 | [INDEX] | [PACKAGE]          |          [VERSION]           | [XML]                                           |
 | :-----: | ------------------ | :--------------------------: | ----------------------------------------------- |
@@ -18,11 +11,7 @@
 
 The pinned `MathNet.Numerics` XML contains **zero** CSparse references — hybrid routing is integrator-authored.
 
----
 ## [2][ROLE_SPLIT]
->**Dictum:** *Complementary backends, not interchangeable substitutes.*
-
-<br>
 
 | [INDEX] | [CONCERN]                                                  | [OWNER]                                           |
 | :-----: | ---------------------------------------------------------- | ------------------------------------------------- |
@@ -35,11 +24,7 @@ The pinned `MathNet.Numerics` XML contains **zero** CSparse references — hybri
 |   [7]   | Partial / block eigen algorithms                           | Application layer — no LOBPCG type in MathNet XML |
 |   [8]   | Solver path/stop/residual vocabulary                       | Application layer                                 |
 
----
 ## [3][FORMAT_STRATEGY]
->**Dictum:** *Pick canonical storage by assembly and backend.*
-
-<br>
 
 | [INDEX] | [FORMAT]                       | [NATIVE]                                                  | [BEST_FOR]                                |
 | :-----: | ------------------------------ | --------------------------------------------------------- | ----------------------------------------- |
@@ -59,11 +44,7 @@ Triplets -> dedupe/sum -> CSC (CSparse direct path)
 - Require square `n × n`.
 - Pin or shift semidefinite operators before Cholesky.
 
----
 ## [4][DECISION_FLOW]
->**Dictum:** *Structure and reuse pattern choose the backend.*
-
-<br>
 
 | [INDEX] | [SCENARIO]                        | [PRIMARY]                   | [SECONDARY]                       |
 | :-----: | --------------------------------- | --------------------------- | --------------------------------- |
@@ -81,11 +62,7 @@ Triplets -> dedupe/sum -> CSC (CSparse direct path)
 
 **Direct fallback:** when iterative residual fails policy, `Matrix<T>.Solve(b)` — provider-dependent; validate residuals explicitly.
 
----
 ## [5][MATHNET_ITERATIVE]
->**Dictum:** *Verify exact type names in pinned XML.*
-
-<br>
 
 | [INDEX] | [SURFACE]                                                                                                 | [ROLE]                      |
 | :-----: | --------------------------------------------------------------------------------------------------------- | --------------------------- |
@@ -99,11 +76,7 @@ Triplets -> dedupe/sum -> CSC (CSparse direct path)
 
 Solvers: `MathNet.Numerics.LinearAlgebra.{Double|Single|Complex|Complex32}.Solvers.*`. Shared: `MathNet.Numerics.LinearAlgebra.Solvers.*`.
 
----
 ## [6][HYBRID_PATTERNS]
->**Dictum:** *Convert at the boundary; cache at the topology.*
-
-<br>
 
 | [INDEX] | [PATTERN]                          | [SHAPE]                                                                 |
 | :-----: | ---------------------------------- | ----------------------------------------------------------------------- |
@@ -113,11 +86,7 @@ Solvers: `MathNet.Numerics.LinearAlgebra.{Double|Single|Complex|Complex32}.Solve
 |   [4]   | Residual validation                | Post-solve residual via MathNet SpMV on CSR even when factor is CSparse |
 |   [5]   | Eigen outer / solve inner          | Block iterative layer on MathNet; inner SPD shifts via CSparse Cholesky |
 
----
 ## [7][CSPARSE_SURFACE]
->**Dictum:** *CSparse is the direct sparse factorization engine — CSC-native.*
-
-<br>
 
 | [INDEX] | [NAMESPACE]                               | [OWNS]                                                                          |
 | :-----: | ----------------------------------------- | ------------------------------------------------------------------------------- |
@@ -130,11 +99,7 @@ Solvers: `MathNet.Numerics.LinearAlgebra.{Double|Single|Complex|Complex32}.Solve
 **Storage:** COO assembly via `CoordinateStorage.At`; CSC fields `ColumnPointers`, `RowIndices`, `Values`. Factories: `Converter`, `CompressedColumnStorage.OfIndexed`, `OfRowMajor`, `OfColumnMajor`, etc.
 **Matvec:** `Multiply`, `TransposeMultiply` with optional `α, β` scaling.
 
----
 ## [8][CSPARSE_ORDERING]
->**Dictum:** *Fill-reducing order is part of the factorization contract.*
-
-<br>
 
 | [INDEX] | [ORDERING]             | [SYMBOLIC_GRAPH]        | [CHOL_LDL] |       [LU_QR]       |
 | :-----: | ---------------------- | ----------------------- | :--------: | :-----------------: |
@@ -149,11 +114,7 @@ Rectangular QR + `MinimumDegreeAtPlusA`: AMD requires square `A` — prefer `Min
 
 `Permutation`: `Apply`, `ApplyInverse`, `Create`, `Invert`, `IsValid`.
 
----
 ## [9][CSPARSE_FACTORIZATION]
->**Dictum:** *Pick factorization by structure, not by convenience.*
-
-<br>
 
 | [INDEX] | [CLASS]          | [MATRIX]                         | [ORDERING]                            |
 | :-----: | ---------------- | -------------------------------- | ------------------------------------- |
@@ -175,11 +136,7 @@ Rectangular QR + `MinimumDegreeAtPlusA`: AMD requires square `A` — prefer `Min
 
 All implement `ISparseFactorization<T>` → `ISolver<T>` with Span-based `Solve`.
 
----
 ## [10][CSPARSE_SOLVE]
->**Dictum:** *Solve is permutation plus triangular chain.*
-
-<br>
 
 Use `Permutation.Apply` / `ApplyInverse` and `SolverHelper` kernels — not abstract `P`/`Q` alone.
 
@@ -192,11 +149,7 @@ Use `Permutation.Apply` / `ApplyInverse` and `SolverHelper` kernels — not abst
 
 **Advanced:** `SymbolicFactorization` + split `SymbolicAnalysis`/`Factorize`; `SparseCholesky.UpDown`; Matrix Market I/O.
 
----
 ## [11][RULES]
->**Dictum:** *Sparse strategy is measured, not assumed.*
-
-<br>
 
 - Do not convert CSR->CSC every step without caching factorization.
 - Profile fill-in (factor nnz / input nnz) before choosing direct over iterative.

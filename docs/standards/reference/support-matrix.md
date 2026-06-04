@@ -1,17 +1,14 @@
----
-description: Standard for support matrices — versions, platforms, runtimes, features
-source_of_truth: this standard governs support-matrix document structure; each matrix names its own upstream source
-last_verified: 2026-06-04
-review_trigger: cross-cutting standards change, or canonical lifecycle/skew model changes
----
-
-# Support matrix standards
+# [SUPPORT_MATRIX_STANDARDS]
 
 A support matrix states which runtime, platform, version, feature, or integration surface is `Supported`, `Maintenance`, `Limited`, `Deprecated`, `End of support`, `Retired`, or `Unsupported`, names the exact fix classes each status still grants, and points each status at refreshable evidence. It is a policy-backed reference document, not a roadmap, a release note, or a recovery procedure: it answers "is this combination supported right now, and until when," and nothing else.
 
-This standard anchors to three canonical professional models. The lifecycle vocabulary follows the [endoflife.date product schema](https://github.com/endoflife-date/endoflife.date/blob/master/product-schema.json), which mandates a three-date taxonomy per release line — end of active support, end of life, and end of extended support — and encodes an unknown date explicitly rather than as a blank. The intersection model follows the [Microsoft lifecycle configuration matrix](https://learn.microsoft.com/lifecycle/products), where two co-governing lifecycles each carry their own end-of-support date and the supported window of a cell is the earlier of the two. The compatibility-skew model follows the [Kubernetes version-skew policy](https://kubernetes.io/releases/version-skew-policy/), which quantifies skew numerically, fixes its direction, constrains upgrade order, and forbids minor-version skips. `Last verified:` 2026-06-04. `Review trigger:` any of the three canonical models revises its taxonomy.
+Source of truth: this standard governs support-matrix document structure; each matrix names its own upstream source; lifecycle-model vocabulary follows endoflife.date, Microsoft lifecycle, and Kubernetes version-skew documentation.
+Last verified: 2026-06-04
+Review trigger: cross-cutting standards change, or canonical lifecycle/skew model changes.
 
-## Use when
+This standard anchors to three lifecycle models: endoflife.date release-line dates, Microsoft lifecycle intersections, and Kubernetes-style version skew. The lifecycle vocabulary carries end of active support, end of life, and end of extended support as separate dates; the intersection model derives support from the earlier co-governing lifecycle; and the skew model states numeric bounds, direction, upgrade order, and unsupported combinations.
+
+## [1][USE_WHEN]
 
 Use a support matrix when a reader compares support facts across rows:
 
@@ -22,7 +19,7 @@ Use a support matrix when a reader compares support facts across rows:
 
 Route away when the reader's need is a sequence rather than a lookup. Future work order, release narrative, step-by-step migration, and operational recovery each belong to a different document type; the README corpus map owns that routing.
 
-## Source of truth
+## [2][SOURCE_TRUTH]
 
 Resolve every support fact against the first source that proves it, because a local restatement drifts the moment upstream policy moves:
 
@@ -33,7 +30,7 @@ Resolve every support fact against the first source that proves it, because a lo
 
 Do not invent local lifecycle semantics when upstream policy owns the phase, date, support entitlement, or compatibility rule. When a generated compatibility check and prose disagree, the check controls and the prose is corrected.
 
-## Profiles
+## [3][PROFILES]
 
 A support matrix carries one of five profiles. Choose the profile by what the reader is comparing, then apply that profile's extra required fields on top of the shared matrix fields. Split the page when a second profile would force a second status vocabulary or a second source of truth into the same matrix.
 
@@ -54,7 +51,7 @@ support-matrix/
 - Feature availability: capabilities by plan, edition, runtime, platform, API version, region, or integration. Extra required content per row: the entitlement or bound that gates the feature.
 - API or feature deprecation: deprecated surfaces, replacements, warning signals, removal versions or dates, and migration paths. Extra required content per row: replacement surface and removal version or stated policy window.
 
-## Support regime
+## [4][SUPPORT_REGIME]
 
 Name the support regime in `Scope`, because the regime is itself a support precondition the reader must satisfy. Two regimes govern how a row stays supported:
 
@@ -63,7 +60,7 @@ Name the support regime in `Scope`, because the regime is itself a support preco
 
 A matrix that mixes both regimes states which regime governs each row. A matrix with no named regime is non-conforming, because the reader cannot tell whether staying current is a condition of support.
 
-## Placement
+## [5][PLACEMENT]
 
 Place the matrix where the owner that can refresh it first looks:
 
@@ -71,41 +68,53 @@ Place the matrix where the owner that can refresh it first looks:
 - Reference-adjacent matrix: the owner's reference corpus when the matrix is lookup data alongside other reference leaves.
 - Package-local matrix: `{owner}/SUPPORT.md` only when support truth is local to that one owner.
 
-## Required structure
+## [6][REQUIRED_STRUCTURE]
 
-Author every support matrix with these H2 sections in order. The frontmatter block precedes the H1. Each row below states the section's cardinality, so an author knows what is mandatory, what is optional, and what repeats per surface.
+Author every support matrix with these H2 sections in order. The opening metadata block follows the H1. Each row below states the section's cardinality, so an author knows what is mandatory, what is optional, and what repeats per surface.
 
-```markdown conceptual
----
-description: <Surface> support matrix — versions, lifecycle, compatibility
-source_of_truth: <owning vendor policy page | generated compat-check | manifest path>
-last_verified: YYYY-MM-DD
-review_trigger: <upstream release | lifecycle-policy update | compat-check change>
-owner: <refresh owner, when one exists>
----
+```markdown template
+# [SURFACE_SUPPORT_MATRIX]
 
-# <Surface> support matrix
+Source of truth: <owning vendor policy page | generated compat-check | manifest path>
+Last verified: YYYY-MM-DD
+Review trigger: <upstream release | lifecycle-policy update | compat-check change>
+Owner: <refresh owner, when one exists>
 
-## Scope
-## Source of truth
-## Status vocabulary
-## Lifecycle dates
-## Matrix
-## Reading rule
-## Compatibility bounds
-## Dependency floors
-## Exclusions
-## Limitations
-## Deprecations and removals
-## Migration paths
-## Evidence
-## Boundaries
-## Review checklist
+## [1][SCOPE]
+
+## [2][SOURCE_TRUTH]
+
+## [3][STATUS_VOCABULARY]
+
+## [4][LIFECYCLE_DATES]
+
+## [5][MATRIX]
+
+## [6][READING_RULE]
+
+## [7][COMPATIBILITY_BOUNDS]
+
+## [8][DEPENDENCY_FLOORS]
+
+## [9][EXCLUSIONS]
+
+## [10][LIMITATIONS]
+
+## [11][DEPRECATIONS_REMOVALS]
+
+## [12][MIGRATION_PATHS]
+
+## [13][EVIDENCE]
+
+## [14][BOUNDARIES]
+
+## [15][REVIEW_CHECKLIST]
+
 ```
 
 Section cardinality:
 
-- Frontmatter: required, single; carries `source_of_truth`, `last_verified`, and `review_trigger`, plus `owner` where a refresh owner exists.
+- Opening metadata: required, single; carries `Source of truth`, `Last verified`, and `Review trigger`, plus `Owner` where a refresh owner exists.
 - `Scope`: required, single; names the supported surface, the one profile, and the support regime.
 - `Source of truth`: required, single.
 - `Status vocabulary`: required, single; defines only the statuses the matrix uses, each by the fix classes it grants.
@@ -122,7 +131,7 @@ Section cardinality:
 - `Boundaries`: required, single, one link per adjacent owner.
 - `Review checklist`: required, single.
 
-## Status vocabulary
+## [7][STATUS_VOCABULARY]
 
 Define only the statuses the matrix actually uses, and define each by the exact fix classes it grants rather than by a color or icon. Name which of these the status receives: security fixes, bug fixes, feature work, documentation updates, assisted support, self-service support, and compatibility testing. A status that names no fix classes is non-conforming, because the reader cannot tell what the status actually entitles.
 
@@ -136,7 +145,7 @@ Define only the statuses the matrix actually uses, and define each by the exact 
 
 Carry status through the labeled term, not through color, icon, or badge as the only signal. A reader using a screen reader or copying the table as plain text must recover the status from the text.
 
-## Lifecycle dates
+## [8][LIFECYCLE_DATES]
 
 State each release line as a definition block carrying three distinct lifecycle dates, never one collapsed date. The three-date taxonomy is load-bearing: collapsing it hides whether a surface still receives security fixes after feature and bug fixes stop. A lifecycle row with a single undifferentiated date is non-conforming.
 
@@ -163,49 +172,49 @@ LTS: yes
 Source of truth: vendor lifecycle policy page
 ```
 
-## Matrix
+## [9][MATRIX]
 
 Use a table when row-and-column scanning is the clearest comparison, and keep it inside the table ceiling that [information-structure.md](../information-structure.md) owns. When a matrix exceeds that ceiling, split it by profile, status, platform, or phase before it loses scannability. When a single surface is read by field rather than compared across rows, use a definition block, not a one-row table. When a row needs a paragraph, nested steps, or a migration explanation, move that surface into a grouped subsection or a footnote.
 
 Each row must stand alone. Include this field set, marking each field required, optional, or repeatable for the chosen profile:
 
-| Field | Cardinality | Holds |
-| --- | --- | --- |
-| Surface | required | product, component, feature, integration, runtime, platform, or API |
-| Version or scope | required | version, release line, channel, edition, plan, region, or environment |
-| Status | required | one term from the status vocabulary |
-| Key date | required for lifecycle and deprecation; optional otherwise | the relevant lifecycle date; lifecycle profile carries all three in its block |
-| Supported capabilities | optional | what the surface does support under this status |
-| Unsupported capabilities | optional | what this status explicitly excludes |
-| Compatibility bound | required for compatibility; optional otherwise | minimum, maximum, and skew direction |
-| Requirement | optional, repeatable | dependency, entitlement, patch, or toolchain floor |
-| Replacement | required when `Deprecated`; optional otherwise | replacement surface or migration target |
-| Evidence | required | source path, contract, command, or official policy link |
+- Surface: required; product, component, feature, integration, runtime, platform, or API.
+- Version or scope: required; version, release line, channel, edition, plan, region, or environment.
+- Status: required; one term from the status vocabulary.
+- Key date: required for lifecycle and deprecation, optional otherwise; lifecycle profile carries all three dates in its block.
+- Supported capabilities: optional; what the surface does support under this status.
+- Unsupported capabilities: optional; what this status explicitly excludes.
+- Compatibility bound: required for compatibility, optional otherwise; minimum, maximum, and skew direction.
+- Requirement: optional and repeatable; dependency, entitlement, patch, or toolchain floor.
+- Replacement: required when `Deprecated`, optional otherwise; replacement surface or migration target.
+- Evidence: required; source path, contract, command, or official policy link.
 
 Do not copy a large generated or vendor-owned matrix when the official source is stronger. Link the source and publish only the local subset that changes a reader decision.
 
 When two lifecycles co-govern a cell, use a two-axis intersection table: each axis header carries its own end-of-support date, and the cell carries the derived supported-until date or `n/a` for an incompatible pair. Carry any conditional or exception support in a numbered footnote, never as prose inside a cell; a footnote keeps the cell atomic — a date, `n/a`, or a marker — while the condition lives below the table.
 
-Realistic two-axis intersection matrix (dates and rows illustrative):
+Conceptual two-axis intersection matrix:
 
-| — | Office 2024 — EOL Oct 2029 | Office 2021 — EOL Oct 2026 |
-| --- | :---: | :---: |
-| OS 2025 — EOL Oct 2034 | Oct 2029 | Oct 2026 [^1] |
-| OS 2022 — EOL Oct 2031 | Oct 2026 | Oct 2026 |
+| [OS_EOL]               | [OFFICE_2024_EOL] | [OFFICE_2021_EOL] |
+| :--------------------- | :---------------- | :---------------- |
+| OS 2025 — EOL Oct 2034 | Oct 2029          | Oct 2026 [^1]     |
+| OS 2022 — EOL Oct 2031 | Oct 2026          | Oct 2026          |
 
 [^1]: Conditional: security-bridge extension to a stated date; feature updates end at the earlier end of life.
-<!-- intent: conceptual — sample intersection rows; replace with owner-verified data -->
 
-Realistic compatibility matrix (versions and rows illustrative):
+Note: Rows above are conceptual samples; replace them with owner-verified lifecycle data in a real support matrix.
 
-| Component A | Component B | Status | Skew direction | Unsupported combination | Evidence |
-| --- | --- | :---: | --- | --- | --- |
-| API server 3.4–3.6 | Agent 3.4–3.6 | `Supported` | server >= agent | server 3.6 with agent 3.3 | `docs/support/compatibility.md` row check |
-| API server 3.6 | Agent 3.3 | `Unsupported` | — | mixed-version rollout > 2 minor | upstream compatibility policy |
-| API server 3.3 | Agent 3.6 | `Unsupported` | newer agent forbidden | any | generated `compat-check` output |
-<!-- intent: conceptual — sample compatibility rows; replace with owner-verified data -->
+Conceptual compatibility record table:
 
-## Reading rule
+| [INDEX] | [COMP_A]    | [COMP_B]      | [STATUS]      | [REASON]              | [EVIDENCE]                          |
+| :-----: | :---------- | :------------ | :------------ | :-------------------- | :---------------------------------- |
+|   [1]   | API 3.4-3.6 | Agent 3.4-3.6 | `Supported`   | API >= agent          | `docs/support/compatibility.md` row |
+|   [2]   | API 3.6     | Agent 3.3     | `Unsupported` | skew exceeds 2 minor  | upstream compatibility policy       |
+|   [3]   | API 3.3     | Agent 3.6     | `Unsupported` | newer agent forbidden | generated `compat-check` output     |
+
+Note: Rows above are conceptual samples; replace them with owner-verified compatibility data in a real support matrix.
+
+## [10][READING_RULE]
 
 State the cell-derivation rule for any two-axis or intersection matrix, immediately above or below the first such table. Without it the grid is unreadable: the reader cannot tell how a cell value is derived. State the rule as a field-and-value sentence:
 
@@ -214,7 +223,7 @@ Supported window = the earlier of the two component end-of-life dates.
 Incompatible pair = n/a.
 ```
 
-## Compatibility bounds
+## [11][COMPATIBILITY_BOUNDS]
 
 State the bounds explicitly for any compatibility-profile row, because an unstated direction reads as bidirectional and ships a false support claim. Quantify the skew numerically; a direction alone is insufficient. For each compatible pair, state every field below as a discrete, extractable fact:
 
@@ -229,11 +238,11 @@ Named unsupported combination: server 3.6 with agent 3.3.
 
 The named unsupported combination makes the boundary concrete rather than implied. The mixed-version limit must carry a time bound when the mixed state is permitted only transiently during rollout.
 
-## Dependency floors
+## [12][DEPENDENCY_FLOORS]
 
 State the dependency floor for any row whose support is tied to an upstream runtime, OS, or toolchain, because the matrix must never over-promise beyond what the upstream itself supports. For each such row, state the minimum upstream version, the ceiling upstream version where one is bounded, and the controlling rule: local support never extends past the upstream's own end of life. When the upstream reaches end of life, the dependent row reaches end of support on the same date regardless of any local schedule.
 
-## Exclusions
+## [13][EXCLUSIONS]
 
 Enumerate the unsupported configurations and combinations explicitly, as a bulleted list of named cases. The boundary must be concrete, not inferred from a missing row: an agent must not read the absence of a row as support. State each unsupported configuration as its own item, naming the specific combination that is excluded.
 
@@ -243,7 +252,7 @@ Enumerate the unsupported configurations and combinations explicitly, as a bulle
 - Mixed-region deployment under the single-region plan.
 ```
 
-## Deprecations and removals
+## [14][DEPRECATIONS_REMOVALS]
 
 Distinguish `Deprecated`, `End of support`, `Retired`, and `Unsupported` explicitly; collapsing them hides whether the surface still runs. Render each deprecation entry as a definition block or per-item record block with one `label: value` line per field — not a bullet list of fields. The seven fields each entry carries are:
 
@@ -266,13 +275,13 @@ Behavior change: v1 returns coarse tessellation; v2 returns owner-precision mesh
 Source of truth: vendor deprecation-policy page
 ```
 
-## Migration paths
+## [15][MIGRATION_PATHS]
 
 Keep migration guidance in a support matrix decision-oriented and bounded; the full procedure lives in a how-to guide. For each migration, name the source and target versions or features, whether the path is direct or staged, the prerequisites, the known breaking changes, the validation signal that confirms success, and a link to the owning how-to or migration guide. Move step-by-step migration work to a how-to guide and operational recovery to a runbook; this matrix records the target and the status, not the keystrokes.
 
-## Evidence
+## [16][EVIDENCE]
 
-Attach evidence to every support status, beside the row or surface it proves, using the freshness fields the evidence standard defines. Page-level frontmatter freshness does not prove an individual row unless that row maps back to one shared source and one shared trigger; otherwise attach claim-level evidence per drift-prone row. Prefer local manifests, lockfiles, generated contracts, compatibility-test output, official lifecycle pages, release notes, migration guides, security bulletins, and known-limitations pages from the owner.
+Attach evidence to every support status, beside the row or surface it proves, using the freshness fields the evidence standard defines. Page-level metadata freshness does not prove an individual row unless that row maps back to one shared source and one shared trigger; otherwise attach claim-level evidence per drift-prone row. Prefer local manifests, lockfiles, generated contracts, compatibility-test output, official lifecycle pages, release notes, migration guides, security bulletins, and known-limitations pages from the owner.
 
 Name the event that makes a status stale with a `Review trigger:` field on the drift-prone row or surface, and use a calendar `Last verified:` date only when the upstream source changes on a schedule. Triggers that apply to support matrices include:
 
@@ -290,15 +299,15 @@ Last verified: 2026-06-04
 Review trigger: host SDK version change or compat-check failure
 ```
 
-## Boundaries
+## [17][BOUNDARIES]
 
 - [reference.md](reference.md) owns curated lookup facts when support status is one fact among many rather than the whole table.
 - [api.md](api.md) owns generated or contract-backed API surface truth that a support row points at.
 - [README.md](../README.md) owns document-type routing for roadmaps, release notes, how-to migration procedures, and runbook recovery, plus placement and lifecycle questions.
 
-## Review checklist
+## [18][REVIEW_CHECKLIST]
 
-- [ ] Frontmatter carries `source_of_truth`, `last_verified`, and `review_trigger`.
+- [ ] Opening metadata carries `Source of truth`, `Last verified`, and `Review trigger`.
 - [ ] Scope names the supported surface, one profile, and the support regime (rolling or fixed-term).
 - [ ] Source of truth is explicit and ordered.
 - [ ] Each status used is defined by the fix classes it grants, not by an icon.

@@ -1,15 +1,8 @@
 # [H1][THINKTECTURE_API]
->**Dictum:** *Thinktecture owns generated domain shape and exhaustive dispatch.*
-
-<br>
 
 [IMPORTANT] Rasm pins `Thinktecture.Runtime.Extensions` at the version pinned in `Directory.Packages.props`. `Directory.Build.props` supplies the package reference and global `Thinktecture` using.
 
----
 ## [1][SOURCE_TRUTH]
->**Dictum:** *Generated API claims require local XML or compile proof.*
-
-<br>
 
 | [INDEX] | [SOURCE]                                                                         | [USE]                                                    |
 | :-----: | -------------------------------------------------------------------------------- | -------------------------------------------------------- |
@@ -18,11 +11,7 @@
 |   [3]   | Package nuspec                                                                   | Analyzer, refactoring, source-generator package closure. |
 |   [4]   | Official wiki and Context7                                                       | Secondary source for generator behavior.                 |
 
----
 ## [2][SURFACES]
->**Dictum:** *Generated declarations own admission, lookup, and dispatch.*
-
-<br>
 
 | [INDEX] | [SURFACE]                          | [OWNS]                                 | [RASM_USE]                                                |
 | :-----: | ---------------------------------- | -------------------------------------- | --------------------------------------------------------- |
@@ -35,11 +24,7 @@
 
 Attribute property detail: `objects.md` (value objects), `union-attributes.md` (union dispatch and operator policy), `enums.md` (`UseDelegateFromConstructor`).
 
----
 ## [3][PUBLIC_CONTRACTS]
->**Dictum:** *Generic constraints use real generated interfaces.*
-
-<br>
 
 | [INDEX] | [CONTRACT]                                  | [USE]                                                   |
 | :-----: | ------------------------------------------- | ------------------------------------------------------- |
@@ -49,11 +34,7 @@ Attribute property detail: `objects.md` (value objects), `union-attributes.md` (
 |   [4]   | `ISmartEnum<T,TKey,TValidationError>`       | Generic smart-enum contract with validation error type. |
 |   [5]   | `IValidationError<T>`, `ValidationError`    | Generator validation error shape.                       |
 
----
 ## [4][RULES]
->**Dictum:** *Generated shape replaces parallel local ceremony.*
-
-<br>
 
 - Prefer generated factories, `Items`, `Get`, `TryGet`, `Switch`, and `Map` directly.
 - Bridge generator validation once into LanguageExt `Error`, `Fin`, or `Validation`.

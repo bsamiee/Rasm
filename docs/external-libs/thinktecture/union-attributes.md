@@ -1,17 +1,10 @@
 # [H1][THINKTECTURE_UNION_ATTRIBUTES]
->**Dictum:** *Union attributes control generated dispatch shape.*
-
-<br>
 
 [IMPORTANT] Pin **`Thinktecture.Runtime.Extensions`** at the version pinned in `Directory.Packages.props`. Verify attribute properties in local package XML.
 
 Thinktecture `[Union]` generates case types, `.Switch()`, `.Map()` — **not** `operator +`/`|` on the union type in Thinktecture v10.
 
----
 ## [1][UNION_ATTRIBUTES]
->**Dictum:** *Generated dispatch replaces repeated switch arms.*
-
-<br>
 
 | [INDEX] | [PROPERTY]                                 | [EFFECT]                                              |
 | :-----: | ------------------------------------------ | ----------------------------------------------------- |
@@ -46,11 +39,7 @@ public abstract partial record Command { /* cases */ }
 
 Ad-hoc unions: `[Union<T1,T2,...>]` and `[AdHocUnion(typeof(...))]` — up to five members with per-slot `T{n}Name`, `T{n}IsStateless`, `T{n}IsNullableReferenceType`.
 
----
 ## [2][VALUE_OBJECT_ATTRIBUTES]
->**Dictum:** *Value objects enforce boundary invariants at construction.*
-
-<br>
 
 | [INDEX] | [ATTRIBUTE]                                   | [ROLE]                                                      |
 | :-----: | --------------------------------------------- | ----------------------------------------------------------- |
@@ -69,11 +58,7 @@ Bridge Thinktecture validation once into LanguageExt rails at the boundary — s
 
 Set **`SerializationFrameworks = SerializationFrameworks.None`** on VOs and SmartEnums when JSON/MessagePack integration packages are not pinned — core generator defaults to `All`.
 
----
 ## [3][SMART_ENUM_ATTRIBUTES]
->**Dictum:** *Smart enums replace stringly constants with total dispatch.*
-
-<br>
 
 | [INDEX] | [ATTRIBUTE]                                                | [ROLE]                            |
 | :-----: | ---------------------------------------------------------- | --------------------------------- |
@@ -84,21 +69,13 @@ Set **`SerializationFrameworks = SerializationFrameworks.None`** on VOs and Smar
 
 See `enums.md` for SmartEnum patterns.
 
----
 ## [4][WHEN_NOT_TO_USE_UNION]
->**Dictum:** *Generic or ref-struct constraints block Thinktecture union codegen.*
-
-<br>
 
 Use plain `abstract record` + manual `this switch` when:
 - Generic over state (`Transition<TState>`, `Request<T>`, …).
 - `allows ref struct` conflicts with generated case shapes.
 
----
 ## [5][RULES]
->**Dictum:** *Dispatch attributes are architecture, not decoration.*
-
-<br>
 
 - Prefer `SwitchMapStateParameterName` over duplicating context in every case payload.
 - Keep exhaustive dispatch: generated `.Switch` / `.Map` or manual total `switch`.

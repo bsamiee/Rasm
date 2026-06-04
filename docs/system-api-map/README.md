@@ -1,15 +1,8 @@
 # [H1][SYSTEM_API_MAP]
->**Dictum:** *System APIs are capability choices before package choices.*
-
-<br>
 
 [IMPORTANT] Scope: BCL, shared-framework surfaces, package state, host references, build metadata. Cross-stack owner order: `../usage.md` §1. Product libraries: `../external-libs/README.md`. Test tools: `../testing-libs/xunit/api.md`. C# 14 language: `../external-libs/csharp/language.md`.
 
----
 ## [1][FILES]
->**Dictum:** *Each file answers one implementation question.*
-
-<br>
 
 | [INDEX] | [FILE]            | [QUESTION]                                                                        |
 | :-----: | ----------------- | --------------------------------------------------------------------------------- |
@@ -18,11 +11,7 @@
 |   [3]   | `replacements.md` | Which owner replaces repeated local machinery?                                    |
 |   [4]   | `meta.md`         | Which C# build/meta file owns language, analyzer, host wiring, and global usings? |
 
----
 ## [2][ROUTING]
->**Dictum:** *Route to one leaf; do not duplicate owner ladders here.*
-
-<br>
 
 | [INDEX] | [QUESTION]                                       | [READ]                       |
 | :-----: | ------------------------------------------------ | ---------------------------- |
@@ -36,22 +25,14 @@
 |   [8]   | Test-tool APIs                                   | `../testing-libs/README.md`  |
 |   [9]   | Host composition packages                        | `../host-libraries.md` §8    |
 
----
 ## [3][ADOPTION]
->**Dictum:** *Shared-framework availability differs from measured production adoption.*
-
-<br>
 
 - Distinguish in-box BCL from platform packages that still need an explicit `PackageReference` on first consumer (`packages.md` §1).
 - Keep unadopted packages out of active guidance until a measured consumer lands.
 - Verify RhinoWIP/GH2 APIs with local XML or decompile before public docs.
 - Reconcile package graph edits with `packages.md` and affected `docs/external-libs/**/api.md` version pins.
 
----
 ## [4][TEST_CONSUMERS]
->**Dictum:** *Test boundary code follows System API ownership; test tools stay separate.*
-
-<br>
 
 - Route serializers, fuzz parsers, bridge probes, host loaders, filesystem evidence, and capture code through `bcl.md` and `replacements.md`.
 - Route xUnit, CsCheck, Verify, Stryker, ArchUnitNET, BenchmarkDotNet, and SharpFuzz APIs through `../testing-libs/`.

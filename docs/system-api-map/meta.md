@@ -1,15 +1,8 @@
 # [H1][CSHARP_META]
->**Dictum:** *C# meta files are build contracts, not incidental configuration.*
-
-<br>
 
 [IMPORTANT] Scope: language version, central package graph, analyzer posture, RhinoWIP/GH2 host references, generated assembly metadata, global usings. BCL surfaces: `bcl.md`. Package state: `packages.md`. Language catalog: `../external-libs/csharp/language.md`.
 
----
 ## [1][CONTROL_PLANES]
->**Dictum:** *Each root file owns one build decision layer.*
-
-<br>
 
 | [INDEX] | [FILE]                     |
 | :-----: | -------------------------- |
@@ -30,11 +23,7 @@
 - [6] Locked restore graph per project.
 - [7] .NET CLI runner selection for MTP tests; no SDK pin.
 
----
 ## [2][LANGUAGE_AND_ANALYZERS]
->**Dictum:** *Deterministic language and analyzer settings protect consistent output.*
-
-<br>
 
 `TargetFramework=net10.0`, `LangVersion=14.0`, `AnalysisLevel=latest-all`, warnings-as-errors, and analyzer packages stay centralized. Prefer explicit language version over floating `latest`.
 
@@ -47,35 +36,19 @@
 
 C# 14 feature catalog: `../external-libs/csharp/language.md`. Compiler pin state: `packages.md` §3. Treat analyzer failures as architecture pressure unless the owning policy explicitly permits an exception.
 
----
 ## [3][HOST_REFERENCES]
->**Dictum:** *RhinoWIP assemblies are host references, not generic packages.*
-
-<br>
 
 `Directory.Build.props` owns RhinoWIP app paths, `RhinoCommon`, `Rhino.UI`, `Grasshopper2`, `GrasshopperIO`, `Eto`, RhinoCode references, `System.Drawing.Common` host assembly, and conditioned compile package metadata. Verify host assemblies with `uv run python -m tools.quality api doctor` before changing references or host docs.
 
----
 ## [4][GENERATED_METADATA]
->**Dictum:** *MSBuild emits assembly metadata where possible.*
-
-<br>
 
 Use centralized generated `InternalsVisibleTo`, plugin description attributes, platform metadata, and GUID attributes instead of scattered `AssemblyInfo.cs` files. Keep project files focused on real project identity and references.
 
----
 ## [5][PACKAGE_GRAPH]
->**Dictum:** *Central pins need consumers or transitive proof.*
-
-<br>
 
 Add central versions only with active consumer proof, transitive pin need, or a conditioned compile surface. For graph changes, validate restore/build state and update lockfiles intentionally. Build/analyzer packages: `packages.md` §3. Local analyzer refs are not central-package entries.
 
----
 ## [6][GLOBAL_USINGS]
->**Dictum:** *Usings stack in layers; BCL owners in `bcl.md` §11 need explicit import unless a layer below covers them.*
-
-<br>
 
 | [INDEX] | [LAYER]   | [INJECTED]                                                                                                          |
 | :-----: | --------- | ------------------------------------------------------------------------------------------------------------------- |
@@ -102,11 +75,7 @@ Add central versions only with active consumer proof, transitive pin need, or a 
 
 **Bridge scenarios:** compile-time globals differ from runtime scenario usings staged by `tools/rhino-bridge` — see `tools/rhino-bridge/README.md`.
 
----
 ## [7][USE_WORKSPACE_LIBRARIES]
->**Dictum:** *Plugin and bridge trees opt out of workspace library injection by default.*
-
-<br>
 
 | [INDEX] | [DEFAULT] | [WHEN_FALSE]                          | [SUPPRESSED]                                        |
 | :-----: | --------- | ------------------------------------- | --------------------------------------------------- |
@@ -116,11 +85,7 @@ When `UseWorkspaceLibraries=false`, host references, compiler toolset, third-par
 
 Opt-in per `.csproj` under gated trees when a tool or plugin boundary still needs rails. Example: `tools/rhino-bridge/client` declares LanguageExt/Thinktecture directly when gated.
 
----
 ## [8][LOCAL_ANALYZER]
->**Dictum:** *The analyzer project is an isolated build island.*
-
-<br>
 
 - Root: `tools/cs-analyzer`; referenced as `OutputItemType="Analyzer"` from non-exempt projects.
 - Skipped on: analyzer project itself, `CsAnalyzer.Tests` (local analyzer ref only — tests still receive workspace globals and third-party analyzers).

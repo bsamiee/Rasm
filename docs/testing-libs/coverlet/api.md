@@ -1,15 +1,8 @@
 # [H1][COVERLET_API]
->**Dictum:** *Coverage maps untested code; it does not prove behavior.*
-
-<br>
 
 [IMPORTANT] Rasm uses `coverlet.MTP` (version pinned in `Directory.Packages.props`) through the .NET 10 Microsoft Testing Platform runner. It is injected only for runnable test projects; `Rasm.TestKit`, benchmarks, fuzz harnesses, and bridge scenarios are not coverage targets.
 
----
 ## [1][PACKAGE]
->**Dictum:** *Coverage stays opt-in until ownership is clean.*
-
-<br>
 
 | [INDEX] | [PACKAGE]      | [PIN]                      | [USE]                                                                    |
 | :-----: | -------------- | -------------------------- | ------------------------------------------------------------------------ |
@@ -17,11 +10,7 @@
 
 [SOURCE] xUnit MTP coverage docs: https://xunit.net/docs/getting-started/v3/code-coverage-with-mtp
 
----
 ## [2][MTP_SURFACE]
->**Dictum:** *Central properties beat flag spam.*
-
-<br>
 
 | [INDEX] | [ARGUMENT]                                      | [RASM_POSTURE]                                               |
 | :-----: | ----------------------------------------------- | ------------------------------------------------------------ |
@@ -32,11 +21,7 @@
 |   [5]   | `--coverlet-exclude-by-attribute`               | Coverage and generated-code attribute exclusions.            |
 |   [6]   | `--coverlet-exclude-assemblies-without-sources` | `None`; local proof showed stricter modes can empty reports. |
 
----
 ## [3][RASM_SCOPE]
->**Dictum:** *Native gaps are bridge gaps, not coverage lies.*
-
-<br>
 
 - `Rasm.Tests` is the first managed coverage target.
 - Rhino/GH document, UI, viewport, command, and native validity behavior belongs to bridge scenarios.
@@ -49,11 +34,7 @@ Local command:
 uv run python -m tools.quality test coverage
 ```
 
----
 ## [4][SURVIVOR_CLASSIFICATION]
->**Dictum:** *Every uncovered line classifies before any test changes.*
-
-<br>
 
 | [INDEX] | [CLASS]               | [ACTION]                                                                                                       |
 | :-----: | --------------------- | -------------------------------------------------------------------------------------------------------------- |

@@ -1,15 +1,8 @@
 # [H1][ARCHUNIT_API]
->**Dictum:** *Architecture tests guard dependency direction, not style.*
-
-<br>
 
 [IMPORTANT] Rasm uses `TngTech.ArchUnitNET.xUnitV3` (version pinned in `Directory.Packages.props`) in `tests/csharp/_architecture` for compiled assembly boundary laws that the local analyzer does not own.
 
----
 ## [1][PACKAGE]
->**Dictum:** *Use the xUnit v3 ArchUnit package.*
-
-<br>
 
 | [INDEX] | [PACKAGE]                     | [PIN]                      | [USE]                             |
 | :-----: | ----------------------------- | -------------------------- | --------------------------------- |
@@ -17,11 +10,7 @@
 
 [SOURCE] NuGet package page: https://www.nuget.org/packages/TngTech.ArchUnitNET.xUnitV3
 
----
 ## [2][SURFACE]
->**Dictum:** *Load assemblies once; assert dependency laws.*
-
-<br>
 
 | [INDEX] | [API]                                              | [RASM_USE]                                                    |
 | :-----: | -------------------------------------------------- | ------------------------------------------------------------- |
@@ -31,11 +20,7 @@
 |   [4]   | `Slices().Matching(...).Should().BeFreeOfCycles()` | Cycle checks where namespace slices are stable.               |
 |   [5]   | `Because(...)`                                     | Encode design reason in failing assertion.                    |
 
----
 ## [3][RASM_SCOPE]
->**Dictum:** *Do not duplicate analyzer law.*
-
-<br>
 
 Use ArchUnitNET for assembly/package direction, dependency cycles, and high-level boundary ownership. Keep expression style, helper sprawl, branching, and LanguageExt/Thinktecture rules in `tools/cs-analyzer`.
 
@@ -45,11 +30,7 @@ Run architecture laws in Debug so dependency metadata is not optimized away:
 uv run python -m tools.quality test run --target tests/csharp/_architecture/Rasm.Architecture.Tests.csproj
 ```
 
----
 ## [4][CROSS_LAYER_INTERFACE_COVERAGE]
->**Dictum:** *Closed switches over open type sets are structural debt — assert reachability.*
-
-<br>
 
 When a closed-world dispatch (e.g., `OpAcceptance.ValidityOf` in `Domain/Validation.cs`) must recognize an open set of types from downstream layers (e.g., `[BoundaryAdapter]`-marked records from `Vectors`, `Mesh`, `Field`), the canonical extension hook is a marker interface (`IDomainValid`). The architecture test enumerates all implementers and asserts each is reachable through the dispatch:
 
@@ -71,11 +52,7 @@ public void EveryBoundaryAdapterImplementsIDomainValidOrIsRegisteredInValidityOf
 
 Catches the entire `AcceptValue / ValidityOf` gap regression class once and forever. See `feedback_acceptvalue_validity_gap` memory for the bug-class background.
 
----
 ## [5][CYCLE_DETECTION_SCOPE]
->**Dictum:** *Cycles are architectural, not symbolic.*
-
-<br>
 
 Rasm uses namespace-slice cycle detection only for stable namespaces (Domain, Vectors, Mesh, Field) — not for in-flight refactor namespaces or test/_testkit. Slice patterns:
 

@@ -1,15 +1,8 @@
 # [H1][CSCHECK_API]
->**Dictum:** *CsCheck searches state space; Rasm supplies independent oracles.*
-
-<br>
 
 [IMPORTANT] Rasm pins `CsCheck` at the version pinned in `Directory.Packages.props`. Specs use `Rasm.TestKit.Spec` first; raw `Check.*` calls move into `_testkit` only after at least two specs need the same rail.
 
----
 ## [1][PACKAGE_TRUTH]
->**Dictum:** *The wrapper exposes a smaller contract than the package.*
-
-<br>
 
 | [INDEX] | [FACT]                   | [VALUE]                                             |
 | :-----: | ------------------------ | --------------------------------------------------- |
@@ -20,11 +13,7 @@
 
 [SOURCE] NuGet package page: https://www.nuget.org/packages/CsCheck
 
----
 ## [2][CHECK_SURFACE]
->**Dictum:** *Promote package APIs through one Rasm contract.*
-
-<br>
 
 | [INDEX] | [API]                            | [USE]                                     | [RASM]                                          |
 | :-----: | -------------------------------- | ----------------------------------------- | ----------------------------------------------- |
@@ -36,11 +25,7 @@
 |   [6]   | `Check.ChiSquared`               | Generator distribution audit              | Testkit gen validation only                     |
 |   [7]   | `Check.Faster`(+Async)           | Statistical perf comparison               | BenchmarkDotNet on benchmark rail               |
 
----
 ## [3][GEN_SURFACE]
->**Dictum:** *Generators describe domains, not branches.*
-
-<br>
 
 | [INDEX] | [API]                                                       | [RASM_USE]                                                |
 | :-----: | ----------------------------------------------------------- | --------------------------------------------------------- |
@@ -53,11 +38,7 @@
 |   [7]   | `Gen.Enum<T>`, `FrequencyConst`, nullable/null generators   | Closed-set and edge-bias domains.                         |
 |   [8]   | `Gen.Operation`, `GenOperationAsync`, `GenMetamorphic`      | Stateful, async, and paired-operation laws.               |
 
----
 ## [4][RASM_POLICY]
->**Dictum:** *Every failing sample must reproduce the law.*
-
-<br>
 
 - `Spec.ForAll` precedence: explicit args, then `CsCheck_Seed`, `CsCheck_Iter`, `CsCheck_Time`, `CsCheck_Threads`, then package defaults.
 - `Spec.Metamorphic` currently means one generated input checked by path/oracle equality; it is not CsCheck `SampleMetamorphic`.
@@ -66,11 +47,7 @@
 - Do not promote spec-local generators until two specs share the same domain shape.
 - Use `Check.Hash` only for stable tool artifacts. Treat cache location and key shape as package-owned details unless current source inspection proves them.
 
----
 ## [5][SHRINKING_DISCIPLINE]
->**Dictum:** *Generators must preserve shrinking — `throw` breaks it.*
-
-<br>
 
 CsCheck shrinking finds the minimal counterexample by repeatedly narrowing failed inputs. Two generator patterns break shrinking:
 
@@ -97,11 +74,7 @@ public static readonly Gen<Dimension> Dimension =
 
 [SOURCE] CsCheck README on `Where` shrinking: https://github.com/AnthonyLloyd/CsCheck
 
----
 ## [6][ENV_KNOBS]
->**Dictum:** *Env policy flows through `Spec.ForAll` precedence; never set globals.*
-
-<br>
 
 | [INDEX] | [VAR]                | [DEFAULT]       | [USE]                                                                                            |
 | :-----: | -------------------- | --------------- | ------------------------------------------------------------------------------------------------ |
@@ -117,11 +90,7 @@ public static readonly Gen<Dimension> Dimension =
 
 `Spec.ForAll` precedence: explicit args > env vars > package defaults. CI policy: tune `CsCheck_Iter=1000` and `CsCheck_Time=60` for nightly extended runs; keep PR validation at defaults. `CsCheck_Replay=10` for CI, default 100 for local repro.
 
----
 ## [7][MODEL_BASED]
->**Dictum:** *Model is smaller than actual; both are observed at every step.*
-
-<br>
 
 `Check.SampleModelBased` takes `Gen<(Actual, Model)>` plus `GenOperation<Actual, Model>` operations, applies a generated operation sequence, and asserts actual/model equivalence after transitions. `SampleModelBasedAsync` uses `Gen<Task<(Actual, Model)>>` plus `GenOperationAsync<Actual, Model>`. Use when:
 
@@ -139,11 +108,7 @@ public static GenOperation<Atom<HashMap<int, int>>, Dictionary<int, int>> SetOp(
         dict => dict[key] = value);
 ```
 
----
 ## [8][DISTRIBUTION_AUDIT]
->**Dictum:** *Generated distributions must be audited — assumptions about uniformity rot.*
-
-<br>
 
 `Check.ChiSquared(expected, actual, sigma)` audits a generator's distribution against expected frequencies. Expected bucket counts must all be greater than `5`; expected and actual arrays must have the same length. Sigma defaults to `6`. Use when:
 
@@ -153,11 +118,7 @@ public static GenOperation<Atom<HashMap<int, int>>, Dictionary<int, int>> SetOp(
 
 Audit lives in `tests/csharp/libs/Rasm/TestKit/Gens.spec.cs` (a generator self-test), not in product spec files.
 
----
 ## [9][PARALLEL_CHECKS]
->**Dictum:** *`Check.SampleParallel` linearizes; `Causal.Profile` explains.*
-
-<br>
 
 `Gen<T>.SampleParallel` runs generated operations concurrently and asserts a linearizable history exists. `Spec.ConcurrentProfiled` wraps this and emits `Causal.Profile` output to `ITestOutputHelper`. Use for:
 
@@ -169,11 +130,7 @@ Replay `SampleParallel` failures with the emitted parallel seed, including any t
 
 [SOURCE] CsCheck causal profiling: https://github.com/AnthonyLloyd/CsCheck#parallel-sampling
 
----
 ## [10][PERFORMANCE_ASSERTIONS]
->**Dictum:** *`Check.Faster` is statistical; BenchmarkDotNet is for shipping numbers.*
-
-<br>
 
 `Check.Faster(faster, slower, sigma)` compares two implementations across generated inputs and reports confidence that the first implementation is faster. Use only for:
 

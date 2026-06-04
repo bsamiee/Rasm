@@ -1,15 +1,8 @@
 # [H1][XUNIT_API]
->**Dictum:** *xUnit owns MTP discovery; Rasm owns laws and oracles.*
-
-<br>
 
 [IMPORTANT] Rasm uses xUnit v3 through .NET 10 Microsoft Testing Platform. Root `global.json` selects the MTP runner; `Directory.Build.props` injects `xunit.v3.mtp-v2` and generates per-project `obj/xunit.runner.json`. There is no root runner file and no retired adapter.
 
----
 ## [1][PACKAGE_MODE]
->**Dictum:** *Runner packages define discovery behavior.*
-
-<br>
 
 | [INDEX] | [PACKAGE]                     | [PIN]                      | [STATE]          | [USE]                                      |
 | :-----: | ----------------------------- | -------------------------- | ---------------- | ------------------------------------------ |
@@ -21,11 +14,7 @@
 
 [SOURCE] xUnit MTP docs: https://xunit.net/docs/getting-started/v3/microsoft-testing-platform
 
----
 ## [2][DISCOVERY]
->**Dictum:** *Generated tests must remain stable under MTP.*
-
-<br>
 
 | [INDEX] | [SURFACE]                                      | [RASM_USE]                                                  |
 | :-----: | ---------------------------------------------- | ----------------------------------------------------------- |
@@ -37,11 +26,7 @@
 
 MTP commands use `dotnet test --project <csproj>` or `uv run python -m tools.quality test ...`; positional project paths are invalid in MTP mode.
 
----
 ## [3][FIXTURES_CONTEXT]
->**Dictum:** *Use v3 APIs that exist, not v2 folklore.*
-
-<br>
 
 | [INDEX] | [SURFACE]                                  | [NOTES]                                               |
 | :-----: | ------------------------------------------ | ----------------------------------------------------- |
@@ -53,22 +38,14 @@ MTP commands use `dotnet test --project <csproj>` or `uv run python -m tools.qua
 
 Assembly fixtures use public parameterless constructors, initialize before assembly test execution, inject by exact fixture type, and clean up through `DisposeAsync` or `Dispose`.
 
----
 ## [4][ASSERTIONS]
->**Dictum:** *Assert structural contracts, not incidental strings.*
-
-<br>
 
 - Use `Spec.Succ`, `Spec.Fail`, `Spec.Valid`, `Spec.Invalid`, `Spec.FailCategory`, and `Spec.FailMany` for Rasm rails.
 - Use `Assert.Equivalent` for stable object shape only when member equality is the oracle.
 - Use `Assert.Throws*` only at boundary adapters where exceptions are the public contract.
 - Avoid `Assert.Skip`; bridge-owned native behavior belongs in `*.verify.csx`.
 
----
 ## [5][MTP_FILTERS]
->**Dictum:** *Filters belong to the runner that owns discovery.*
-
-<br>
 
 | [INDEX] | [INPUT]            | [MTP_FLAG]          | [RASM_ROUTE]                       |
 | :-----: | ------------------ | ------------------- | ---------------------------------- |
@@ -79,29 +56,17 @@ Assembly fixtures use public parameterless constructors, initialize before assem
 
 `tools.quality test` maps single filter text to MTP-native query, trait, class, or method flags.
 
----
 ## [6][THEORY_DATA_FROM_SMARTENUM]
->**Dictum:** *Reflection over closed-set catalogs is the maintenance-free Theory.*
-
-<br>
 
 When a `[Theory]` should cover every case of a `[SmartEnum<int>]` or `[Union]`, build `TheoryData` from the closed-set `Items` property rather than enumerating `[InlineData]` rows. Adding a new case auto-extends coverage; no spec maintenance is required.
 
 Cross-reference: this pattern is also a Stryker enabler — see `docs/testing-libs/stryker/api.md [6][THEORY_AS_STRYKER_ENABLER]`.
 
----
 ## [7][TEST_CONTEXT_CANCELLATION]
->**Dictum:** *Long-running properties must respect `TestContext.Current.CancellationToken`.*
-
-<br>
 
 `Spec.ForAll` reads `TestContext.Current.CancellationToken` and propagates into the property body. Raw `Check.Sample` calls do not. Read `TestContext.Current` at the use site and do not cache it across samples.
 
----
 ## [8][CUSTOM_TEST_PIPELINE_HOOKS]
->**Dictum:** *Pre-test assembly setup belongs to `ITestPipelineStartup`.*
-
-<br>
 
 | [INDEX] | [HOOK]                                          | [USE_CASE]                                                     |
 | :-----: | ----------------------------------------------- | -------------------------------------------------------------- |

@@ -1,14 +1,10 @@
----
-description: Standard for pre-implementation design documents and RFC-style review
----
-
-# Design document standards
+# [DESIGN_DOCUMENT_STANDARDS]
 
 A design document is a collaborative pre-implementation proposal that frames a problem, compares options, collects owner feedback, splits the change into reviewable slices, and states the proof plan before any durable decision or implementation change lands. It owns proposal and review history; it does not own the accepted decision, the build sequence, or the current structure. Route those to their owners by topic.
 
-The canonical structure derives from Google's "Design Docs at Google" practice and IETF RFC review: context and scope, goals and non-goals, the actual design where the trade-offs are the point, alternatives considered with the deciding trade-off recorded, and the cross-cutting concerns a team standardizes. A design document carries exactly what a reviewer needs to challenge the trade-offs and no more — as short as possible and as long as necessary.
+The canonical structure derives from Google's "Design Docs at Google" practice and IETF RFC review: context and scope, goals and non-goals, the actual design where the trade-offs are the point, alternatives considered with the deciding trade-off recorded, and the cross-cutting concerns a team standardizes. A design document carries exactly what a reviewer needs to challenge the trade-offs and no more — as short as possible and as long as necessary. `Source of truth:` Google's design-doc practice and IETF RFC review practice. `Last verified:` 2026-06-04. `Review trigger:` design-doc or RFC-review source guidance changes.
 
-## Use when
+## [1][USE_WHEN]
 
 Use a design document when work needs any of these before code lands:
 
@@ -20,23 +16,25 @@ Use a design document when work needs any of these before code lands:
 
 Do not use a design document when there is no real trade-off to capture. A change with one obvious approach, no competing options, and no cross-boundary consequence does not earn a design document — write the code and route the rationale to a commit message or an inline comment. Do not use a design document for an already-accepted durable decision, milestone sequence and exit proof, operational symptom-to-fix response, lookup catalogs, generated contract truth, or contributor workflow. Reduce the draft to its single primary reader need; route the other needs to the owning type through the index.
 
-## Requirement keywords
+## [2][REQUIREMENT_KEYWORDS]
 
 The words `must`, `should`, and `may` in this standard and in any design document carry their requirement, recommendation, and permission force in lowercase prose, following the craft standard's modal discipline and the intent of IETF BCP 14. Do not introduce bracketed, all-caps, or per-item requirement tags such as `[MUST]` or `[ALWAYS]` to mark normativity; that notation belongs to instruction files, not to this prose type, and reviving it here is notation spam this corpus rejects. Status, result, and lifecycle markers remain the only bracketed tokens, and only in the record and table cells the form standard assigns them.
 
-## Variant profiles
+## [3][VARIANT_PROFILES]
 
-One design-document type carries three review modes. Pick the profile from the decision's blast radius, then apply the shared required structure plus the profile's added obligations. A profile raises the bar; it never removes a required section.
+One design-document type carries three review modes. Pick the profile from the decision's blast radius, then apply the shared required structure plus the profile's added obligations. A profile raises the bar; it never removes a required section. The table stays compact by shortening cells to the routing fact and leaving the surrounding prose to define the invariant.
 
-| Profile | Trigger | Owner approval | Final-objection window | ADR handoff | Added obligation |
-| --- | --- | --- | --- | --- | --- |
-| Lightweight | One owner, one package, reversible in one slice | One accountable owner | Optional | Not required | May fold `Alternatives considered` into `Proposed approach` when only one option survived triage; `Cross-cutting implications` is not required (it is conditional on `Standard`/`RFC-wide`) |
-| Standard | Two or more owners or packages, multi-slice | Each accountable owner | Required `Last Call` | Required when it sets durable architecture policy | Full `Review slices` table with dependency order and rollback boundary, and `Cross-cutting implications` in table form |
-| RFC-wide | Cross-runtime, external contract, or public-surface change | Each owner plus a named final-comment driver | Required `Last Call` with a dated deadline and a notification channel | Required | `Cross-cutting implications` covers every applicable concern with an owner or an explicit `n/a` reason |
+| [INDEX] | [PROFILE]   | [TRIGGER]                   | [APPROVAL]      | [CALL]          | [ADR]     | [PLUS]                           |
+| :-----: | :---------- | :-------------------------- | :-------------- | :-------------- | :-------- | :------------------------------- |
+|   [1]   | Lightweight | one owner/pkg; one slice    | one owner       | optional        | no        | fold alts; omit cross-cutting    |
+|   [2]   | Standard    | 2+ owners/pkgs; multi-slice | each owner      | required        | if policy | slices and cross-cutting tables  |
+|   [3]   | RFC-wide    | runtime, contract, public   | owners + driver | dated + channel | yes       | each concern gets owner or `n/a` |
+
+`If policy` means the design sets durable architecture policy. `Comment driver` means the owner role that collects final comments and records the Last Call disposition.
 
 RFC-style review is a mode of this type, not a separate artifact. Do not fork content into a parallel RFC file unless an external hosting or governance process demands a distinct one; when it does, name that process and link the canonical copy.
 
-## Authority
+## [4][AUTHORITY]
 
 Source order decides a wording or scope question when sources disagree:
 
@@ -46,11 +44,11 @@ Source order decides a wording or scope question when sources disagree:
 
 A design document proposes; it never overrides an accepted decision. When a slice contradicts a prior accepted decision, the design must either supersede that decision through the decision-record handoff or narrow its own scope.
 
-## Front matter and identity
+## [5][FRONT_MATTER_IDENTITY]
 
 Every design document opens with one definition block, one `label: value` per line. Field cardinality is fixed; an optional field is omitted, never left blank.
 
-```markdown conceptual
+```markdown template
 Status: Draft | Discussion | Last Call | Accepted | Implemented | Abandoned
 Profile: Lightweight | Standard | RFC-wide
 Date: YYYY-MM-DD
@@ -70,11 +68,11 @@ Supersedes design: <path or none>
 
 `Status` and `Profile` are the document's discriminants: an agent reads them to route the document to its lifecycle obligations and to gate the conditional sections. Keep both to a single value from the closed set so the routing stays drift-free.
 
-## Required structure
+## [6][REQUIRED_STRUCTURE]
 
-The body uses the H2 order in the skeleton below. Each H2 is a standalone retrieval unit: it opens with what it controls and closes on its boundary or owner. Copy the skeleton, keep the headings verbatim, and fill each section with the structure the section rules require — not flat prose where a record, checklist, or table is mandated.
+The body uses the H2 order in the template below. Each H2 is a standalone retrieval unit: it opens with what it controls and closes on its boundary or owner. Copy the template, keep the headings verbatim, and fill each section with the structure the section rules require — not flat prose where a record, checklist, or table is mandated.
 
-```markdown conceptual
+```markdown template
 Status: Draft
 Profile: Lightweight | Standard | RFC-wide
 Date: YYYY-MM-DD
@@ -83,111 +81,125 @@ Reviewers: <consulted owner or group>    # required at Discussion+, repeatable
 Last Call deadline: YYYY-MM-DD           # required at Last Call+ for Standard / RFC-wide
 Supersedes design: <path or omit>        # optional, repeatable
 
-# <Change named as an outcome>
+# [CHANGE_NAMED_OUTCOME]
 
-## Problem
+## [1][PROBLEM]
+
 <the controlling pressure and who feels it; one pressure per paragraph>
 
-## Goals
-- [ ] <outcome> — proven by <metric, threshold, or observable pass condition>
-- [ ] <outcome> — proven by <...>
+## [2][GOALS]
 
-## Non-goals
+- [ ] `<outcome>` — proven by `<metric, threshold, or observable pass condition>`
+- [ ] `<outcome>` — proven by `<...>`
+
+## [3][NON_GOALS]
+
 - <plausible candidate scope declined> — declined because <reason>
 
-## Context
+## [4][CONTEXT]
+
 - Current source: <path>
 - Respects decision: <ADR link>
 - Related: <issue or standard link>
 
-## Proposed approach
+## [5][PROPOSED_APPROACH]
+
 <chosen design shape and load-bearing decisions; close on the one constraint a reviewer must accept>
 
-## Alternatives considered
-| Option | Good | Neutral | Bad | Verdict |
-| --- | --- | --- | --- | --- |
-| <chosen> | … | … | … | Selected: <deciding trade-off> |
-| <rejected> | … | … | … | Rejected on <deciding trade-off> |
-| Do nothing | … | … | … | Rejected because <cost of inaction> |
+## [6][ALTERNATIVES_CONSIDERED]
 
-## Review slices
-| Slice | Kind | Depends on | Reviewer focus | Rollback boundary |
-| --- | --- | --- | --- | --- |
-| S1 | Preparatory refactor | none | Behavior parity | Revert commit |
-| S2 | Contract or schema | S1 | Contract compatibility | Versioned or expand-contract |
-| S3 | Implementation | S2 | Algorithm and ownership | Feature flag off |
-| S4 | Tests and validation | S3 | Coverage and proof | Drop artifacts, keep code |
-| S5 | Rollout or cleanup | S3 | Operational safety | Halt rollout, restore prior |
+| [INDEX] | [OPTION]   | [GOOD] | [NEUTRAL] | [BAD] | [VERDICT]                           |
+| :-----: | :--------- | :----- | :-------- | :---- | :---------------------------------- |
+|   [1]   | <chosen>   | …      | …         | …     | Selected: <deciding trade-off>      |
+|   [2]   | <rejected> | …      | …         | …     | Rejected on <deciding trade-off>    |
+|   [3]   | Do nothing | …      | …         | …     | Rejected because <cost of inaction> |
 
-## Cross-cutting implications
-| Concern | Applies? | Owner | Treatment or n/a reason |
-| --- | --- | --- | --- |
-| Security | yes / n/a | <owner> | <treatment or one-line reason> |
-| Privacy | … | … | … |
-| Accessibility | … | … | … |
-| Internationalization | … | … | … |
-| Data | … | … | … |
-| Operational | … | … | … |
-| Compatibility | … | … | … |
-| Runtime | … | … | … |
+## [7][REVIEW_SLICES]
 
-## Risks and open questions
-### <Risk or open question, named>
+| [INDEX] | [SLICE] | [KIND]               | [DEPENDS] | [REVIEWER_FOCUS]        | [ROLLBACK_BOUNDARY]          |
+| :-----: | :------ | :------------------- | :-------- | :---------------------- | :--------------------------- |
+|   [1]   | S1      | Preparatory refactor | none      | Behavior parity         | Revert commit                |
+|   [2]   | S2      | Contract or schema   | S1        | Contract compatibility  | Versioned or expand-contract |
+|   [3]   | S3      | Implementation       | S2        | Algorithm and ownership | Feature flag off             |
+|   [4]   | S4      | Tests and validation | S3        | Coverage and proof      | Drop artifacts, keep code    |
+|   [5]   | S5      | Rollout or cleanup   | S3        | Operational safety      | Halt rollout, restore prior  |
+
+## [8][CROSS_CUTTING_IMPLICATIONS]
+
+| [INDEX] | [CONCERN]            | [APPLIES] | [OWNER] | [TREATMENT_OR_REASON]          |
+| :-----: | :------------------- | :-------- | :------ | :----------------------------- |
+|   [1]   | Security             | yes / n/a | <owner> | <treatment or one-line reason> |
+|   [2]   | Privacy              | …         | …       | …                              |
+|   [3]   | Accessibility        | …         | …       | …                              |
+|   [4]   | Internationalization | …         | …       | …                              |
+|   [5]   | Data                 | …         | …       | …                              |
+|   [6]   | Operational          | …         | …       | …                              |
+|   [7]   | Compatibility        | …         | …       | …                              |
+|   [8]   | Runtime              | …         | …       | …                              |
+
+## [9][RISKS_OPEN_QUESTIONS]
+
+### [9.1][RISK_OPEN_QUESTION]
+
 Owner: <name>
 Disposition: open | assigned | deferred (owner) | accepted-as-risk | resolved
-Tracking: <issue link>
+Tracking: `<issue link>`
 
-## Last Call record
+## [10][LAST_CALL_RECORD]
+
 Selected direction: <one-line summary>
 Deadline: YYYY-MM-DD
 Channel: <notification surface>
 
-| Owner | Approval | Date |
-| --- | --- | --- |
-| <accountable owner> | approved / objecting / pending | YYYY-MM-DD |
+| [INDEX] | [OWNER]             | [APPROVAL]                     |     [DATE] |
+| :-----: | :------------------ | :----------------------------- | ---------: |
+|   [1]   | <accountable owner> | approved / objecting / pending | YYYY-MM-DD |
 
 Open objections: <objection — owner — disposition>
 Final disposition: <accepted / returned to Discussion>
 
-## Validation and proof plan
-| Gate | Command or contract | Acceptance signal | Enforcement |
-| --- | --- | --- | --- |
-| <name> | `<exact command or contract path>` | <pass signal> | enforced / review-only |
+## [11][VALIDATION_PROOF_PLAN]
 
-## Decision-record handoff
+| [INDEX] | [GATE] | [COMMAND_CONTRACT]                 | [ACCEPTANCE_SIGNAL] | [ENFORCEMENT]          |
+| :-----: | :----- | :--------------------------------- | :------------------ | :--------------------- |
+|   [1]   | <name> | `<exact command or contract path>` | <pass signal>       | enforced / review-only |
+
+## [12][DECISION_RECORD_HANDOFF]
+
 Derive ADR from drivers, selected option, rejected alternatives, consequences,
 and confirmation evidence. Target: <docs/decisions/NNNN-...>
 
-## Boundaries
-- adr.md — accepted durable decision and confirmation.
-- roadmap.md — build sequence when slices grow into a dated plan.
-- architecture.md — current structure the proposal must respect.
-- README.md — document-type routing.
+## [13][BOUNDARIES]
+
+- [adr.md](adr.md) — accepted durable decision and confirmation.
+- [roadmap.md](roadmap.md) — build sequence when slices grow into a dated plan.
+- [architecture.md](architecture.md) — current structure the proposal must respect.
+- [README.md](../README.md) — document-type routing.
 ```
 
 Section cardinality:
 
-| Section | Cardinality | Notes |
-| --- | --- | --- |
-| Front matter | required, once | Definition block; cardinality fixed per field |
-| `# <Title>` | required, once | H1, sentence-style, names the outcome |
-| `## Problem` | required, once | From `Discussion` onward |
-| `## Goals` | required, once | Checklist; each item names its measurable condition |
-| `## Non-goals` | required, once | Each item is a declined candidate scope |
-| `## Context` | required, once | Live links; background facts only |
-| `## Proposed approach` | required, once | Closes on the one constraint to accept |
-| `## Alternatives considered` | required, once | Table when two or more options survive; may fold at Lightweight |
-| `## Review slices` | required, once | Fixed-kind table; rows collapse, kinds do not |
-| `## Cross-cutting implications` | conditional | Required at `Standard` and `RFC-wide`; table form; omitted at `Lightweight` |
-| `## Risks and open questions` | required, once | One record per item; each carries owner and disposition |
-| `## Last Call record` | conditional | Required at `Last Call` status and later |
-| `## Validation and proof plan` | required, once | Per-gate record with enforcement flag |
-| `## Decision-record handoff` | conditional | Required on acceptance when it binds two or more owners or supersedes |
-| `## Boundaries` | required, once | One link per adjacent owner |
+| [INDEX] | [SECTION]                            | [CARD]      | [NOTES]                                          |
+| :-----: | :----------------------------------- | :---------- | :----------------------------------------------- |
+|   [1]   | Opening metadata                     | required    | definition block; fixed fields                   |
+|   [2]   | `# [TITLE]`                          | required    | H1 names the outcome                             |
+|   [3]   | `## [1][PROBLEM]`                    | required    | from `Discussion` onward                         |
+|   [4]   | `## [2][GOALS]`                      | required    | checklist; each item names a condition           |
+|   [5]   | `## [3][NON_GOALS]`                  | required    | each item declines plausible scope               |
+|   [6]   | `## [4][CONTEXT]`                    | required    | live links; background facts only                |
+|   [7]   | `## [5][PROPOSED_APPROACH]`          | required    | closes on the constraint to accept               |
+|   [8]   | `## [6][ALTERNATIVES_CONSIDERED]`    | required    | table for 2+ surviving options                   |
+|   [9]   | `## [7][REVIEW_SLICES]`              | required    | fixed kinds; row count varies                    |
+|  [10]   | `## [8][CROSS_CUTTING_IMPLICATIONS]` | conditional | required for `Standard` and `RFC-wide`           |
+|  [11]   | `## [9][RISKS_OPEN_QUESTIONS]`       | required    | one record per item                              |
+|  [12]   | `## [10][LAST_CALL_RECORD]`          | conditional | required at `Last Call` and later                |
+|  [13]   | `## [11][VALIDATION_PROOF_PLAN]`     | required    | one record per gate                              |
+|  [14]   | `## [12][DECISION_RECORD_HANDOFF]`   | conditional | required when acceptance binds owners/supersedes |
+|  [15]   | `## [13][BOUNDARIES]`                | required    | one link per adjacent owner                      |
 
 `Last Call record` and `Decision-record handoff` are omitted while the document is `Draft` or `Discussion`, and `Cross-cutting implications` is required only at the `Standard` and `RFC-wide` profiles; every other section is required from `Discussion` onward. A `Draft` may carry placeholder headings with a one-line gap note.
 
-## Section rules
+## [7][SECTION_RULES]
 
 State the controlling content of each section first and the binding constraint last. Where a section names a finite set of trackable items — goals, alternatives, slices, concerns, risks, gates, approvals — render that set as the mandated structure, never as flat prose.
 
@@ -199,16 +211,16 @@ State the controlling content of each section first and the binding constraint l
 - `Alternatives considered`: record the strongest rejected options, each with the trade-off that rejected it, plus an explicit do-nothing baseline. An alternative with no recorded trade-off is not a real alternative. Use the comparison table when two or more options survive triage; the `Lightweight` profile may fold the section to prose bullets when only one option survived.
 - `Review slices`: define self-contained, ordered, revertible changes. Use the slice table below; every row carries a rollback boundary with no blank cell.
 - `Cross-cutting implications`: required at `Standard` and `RFC-wide` only; omit the section at `Lightweight`, where one owner and one package keep the cross-boundary surface narrow. When present, cover security, privacy, accessibility, internationalization, data, operational, compatibility, and runtime concerns in table form, where the concern set is large enough that prose lets a concern disappear. Mark a non-applicable concern `n/a` with a one-line reason rather than dropping the row, so no concern silently vanishes.
-- `Risks and open questions`: render one record per item, each carrying an owner and a disposition from the closed set `open | assigned | deferred (owner) | accepted-as-risk | resolved`. A newly raised item enters `open`; it stays `open` until it is `resolved`, `assigned` to an owner, `deferred` with an owner, or `accepted-as-risk`, which are the terminal values the readiness gate reads. A flat prose risk list with no owner per item is non-conforming.
+- `Risks and open questions`: render one record per item, each carrying an owner and a disposition from the closed set `open | assigned | deferred (owner) | accepted-as-risk | resolved`. A newly raised item enters `open`; it stays `open` until it is `resolved`, `assigned` to an owner, `deferred` with an owner, or `accepted-as-risk`. Acceptance may leave a live risk only when it is accountable: `assigned` names the owner actively carrying it, and `deferred (owner)` names the owner who accepted the later decision point. A flat prose risk list with no owner per item is non-conforming.
 - `Last Call record`: summarize the selected direction, record each accountable owner's approval status in the sign-off table, and list the unresolved objections with their owners, the deadline, the notification channel, and the final disposition.
 - `Validation and proof plan`: name the exact commands, contracts, runtime checks, review gates, and acceptance criteria that will prove the design, one record per gate. Mark a gate enforced only when a command or status check runs it, and mark a review-only gate `review-only`. A review gate that no command enforces is stated as a gate, not a passed check.
 
-## Goals checklist
+## [8][GOALS_CHECKLIST]
 
 Render `Goals` as a checklist of measurable conditions, because the checkbox shape makes a missing metric visible per item. A bare prose goal with no pass condition is the primary low-value failure mode, and a checkbox without a proof clause exposes it.
 
-```markdown conceptual
-## Goals
+```markdown template
+## [1][GOALS]
 
 - [ ] Cold profile-view P95 under 1 s — proven by `bench profile-view --p95` in CI.
 - [ ] Zero write-amplification regression — proven by the storage contract diff.
@@ -217,45 +229,47 @@ Render `Goals` as a checklist of measurable conditions, because the checkbox sha
 
 Each item pairs the outcome with the metric, threshold, or observable signal that proves it. Carry the contrapositive into `Non-goals`: a declined scope is a real candidate the reader might expect, stated as a bullet with the reason it is out of scope.
 
-## Alternatives considered
+## [9][ALTERNATIVES_CONSIDERED]
 
 Record at least the chosen option, the strongest rejected option, and an explicit do-nothing baseline, with the deciding trade-off on every row. The baseline row is mandatory: a reviewer cannot judge a proposal without seeing the cost of inaction. Use the `Good`, `Neutral`, `Bad`, `Verdict` matrix when two or more options survive triage, mirroring the sibling ADR option matrix so a reviewer compares options at a glance and verifies each carries its deciding trade-off.
 
-| Option | Good | Neutral | Bad | Verdict |
-| --- | --- | --- | --- | --- |
-| Sharded writers | Meets 5k-event/s target | New rebalance path | Shard-loss failure mode | Selected: throughput, rebalance risk tracked |
-| Single-writer queue | Simplest ownership | One core | Caps at one core | Rejected on throughput |
-| Do nothing | No new code | — | Misses the target | Rejected because the pressure persists |
+| [INDEX] | [OPTION]            | [GOOD]           | [NEUTRAL] | [BAD]           | [VERDICT]              |
+| :-----: | :------------------ | :--------------- | :-------- | :-------------- | :--------------------- |
+|   [1]   | Sharded writers     | Meets target     | rebalance | shard-loss mode | Selected: throughput   |
+|   [2]   | Single-writer queue | Simple ownership | one core  | caps throughput | Rejected: throughput   |
+|   [3]   | Do nothing          | No new code      | —         | misses pressure | Rejected: cost remains |
 
 When only one option survived and the trade-off is asymmetric, the `Lightweight` profile may fold this section into `Proposed approach` as labeled prose bullets, but the deciding trade-off and the do-nothing baseline still appear.
 
-## Review slices
+## [10][REVIEW_SLICES]
 
 A review slice is one self-contained change that a reviewer can understand, validate, and revert without the rest of the proposal landing first. Slices separate the kinds of change so each carries one reviewer focus, and each row names what it depends on and its rollback boundary.
 
-| Slice | Kind | Depends on | Reviewer focus | Rollback boundary |
-| --- | --- | --- | --- | --- |
-| S1 | Preparatory refactor or migration | none | Behavior parity | Revert commit; no schema change |
-| S2 | Contract or schema change | S1 | Contract compatibility | Versioned rollback or expand-contract |
-| S3 | Implementation | S2 | Algorithm and ownership | Feature flag off |
-| S4 | Tests and validation artifacts | S3 | Coverage and proof | Drop artifacts, keep code |
-| S5 | Rollout, cleanup, or removal | S3 | Operational safety | Halt rollout; restore prior path |
+| [INDEX] | [SLICE] | [KIND]                            | [DEPENDS] | [REVIEWER_FOCUS]        | [ROLLBACK_BOUNDARY]                   |
+| :-----: | :------ | :-------------------------------- | :-------- | :---------------------- | :------------------------------------ |
+|   [1]   | S1      | Preparatory refactor or migration | none      | Behavior parity         | Revert commit; no schema change       |
+|   [2]   | S2      | Contract or schema change         | S1        | Contract compatibility  | Versioned rollback or expand-contract |
+|   [3]   | S3      | Implementation                    | S2        | Algorithm and ownership | Feature flag off                      |
+|   [4]   | S4      | Tests and validation artifacts    | S3        | Coverage and proof      | Drop artifacts, keep code             |
+|   [5]   | S5      | Rollout, cleanup, or removal      | S3        | Operational safety      | Halt rollout; restore prior path      |
 
 The slice kinds are fixed; the row count is not. Collapse rows that do not apply and keep dependency order honest. Every row that remains carries a rollback boundary; a blank rollback cell is non-conforming. When the slice sequence turns into a milestone plan with dates and exit gates, it has left this type: keep only the review shape here and route the sequence to the roadmap owner by topic.
 
-## Risks, proof, and sign-off records
+## [11][RISKS_PROOF_SIGN]
 
 Three sections carry trackable record sets. Render each as a structured record, never as a prose list, so an agent can filter on the discriminant field and compute readiness from the structure.
 
 `Risks and open questions` carries one record per item, each with an owner and a disposition from the closed set `open | assigned | deferred (owner) | accepted-as-risk | resolved`. A live item carries `open`, `assigned`, or `deferred (owner)`; a settled item carries the terminal `resolved` or `accepted-as-risk`. The two records below show one risk carried as an accepted residual and one open question driven to a terminal `resolved` answer:
 
-```markdown conceptual
-### Shard rebalance under shard loss
+```markdown template
+### [N.M][SHARD_REBALANCE_SHARD]
+
 Owner: runtime-maintainers
 Disposition: accepted-as-risk
 Tracking: issues/482
 
-### Should writers fan out per partition or per key?
+### [N.M][SHOULD_WRITERS_FAN]
+
 Owner: storage-owner
 Disposition: resolved
 Tracking: issues/487 — resolved per-key; benchmark in issues/487 settled the contention question
@@ -263,32 +277,32 @@ Tracking: issues/487 — resolved per-key; benchmark in issues/487 settled the c
 
 `Validation and proof plan` carries one record per gate, with the exact command or contract and an enforcement flag that an agent can read to tell a real gate from a review intention:
 
-| Gate | Command or contract | Acceptance signal | Enforcement |
-| --- | --- | --- | --- |
-| Unit laws | `uv run python -m tools.quality test run` | suite green | enforced |
-| Storage contract | `contracts/storage.schema.json` diff | no breaking change | enforced |
-| Owner design review | — | two owner approvals | review-only |
+| [INDEX] | [GATE]              | [COMMAND_CONTRACT]                        | [ACCEPTANCE_SIGNAL] | [ENFORCEMENT] |
+| :-----: | :------------------ | :---------------------------------------- | :------------------ | :------------ |
+|   [1]   | Unit laws           | `uv run python -m tools.quality test run` | suite green         | enforced      |
+|   [2]   | Storage contract    | `contracts/storage.schema.json` diff      | no breaking change  | enforced      |
+|   [3]   | Owner design review | —                                         | two owner approvals | review-only   |
 
 `Last Call record` carries the sign-off table so readiness-to-accept is computable from the structure rather than reconstructed from discussion prose:
 
-| Owner | Approval | Date |
-| --- | --- | --- |
-| runtime-maintainers | approved | 2026-06-01 |
-| storage-owner | pending | — |
+| [INDEX] | [OWNER]             | [APPROVAL] |     [DATE] |
+| :-----: | :------------------ | :--------- | ---------: |
+|   [1]   | runtime-maintainers | approved   | 2026-06-01 |
+|   [2]   | storage-owner       | pending    |          — |
 
-The document is ready to accept only when every accountable owner's row reads `approved` and every risk and objection reads a terminal disposition — `resolved`, `assigned`, `deferred (owner)`, or `accepted-as-risk` — with no record left `open`.
+The document is ready to accept only when every accountable owner's row reads `approved`, every objection reads `resolved` or `accepted-as-risk`, and every remaining live risk is accountable through `assigned` or `deferred (owner)` with no record left `open`.
 
-## Lifecycle
+## [12][LIFECYCLE]
 
 Statuses advance in one direction except for a documented return to `Discussion`. Each transition has an observable entry condition.
 
-```mermaid
+```mermaid conceptual
 stateDiagram-v2
     [*] --> Draft
     Draft --> Discussion: problem, goals, and viable options drafted
     Discussion --> LastCall: one direction selected, no open blocking objection
     LastCall --> Discussion: new evidence changes the selected direction
-    LastCall --> Accepted: objections resolved, assigned, deferred (owner), or accepted-as-risk
+    LastCall --> Accepted: objections resolved or accepted-as-risk; live risks assigned or deferred with owner
     Accepted --> Implemented: change and proof plan landed with linked evidence
     Draft --> Abandoned: proposal dropped, reason recorded
     Discussion --> Abandoned: proposal dropped, reason recorded
@@ -299,21 +313,21 @@ stateDiagram-v2
 
 - `Draft`: authors are shaping the problem, goals, and viable approaches.
 - `Discussion`: reviewers test trade-offs, alternatives, scope, and slices.
-- `Last Call`: the selected direction is fixed and remaining objections must reach a terminal disposition — `resolved`, `assigned`, `deferred (owner)`, or `accepted-as-risk` — before acceptance.
+- `Last Call`: the selected direction is fixed, remaining objections must become `resolved` or `accepted-as-risk`, and remaining live risks must be `assigned` or `deferred (owner)` before acceptance.
 - `Accepted`: every accountable owner approves implementation.
 - `Implemented`: implementation and validation landed, with evidence linked.
 - `Abandoned`: the proposal will not continue, with the reason recorded.
 
 Enter `Last Call` only when a reviewer can evaluate the final direction without rediscovering the discussion. When evidence changes the selected direction after `Last Call` opens, return the document to `Discussion`, update the trade-off summary, and open a new `Last Call`; do not edit the decision under an open window.
 
-## Examples
+## [13][EXAMPLES]
 
 Show one accepted and one rejected shape where misuse is common.
 
 Alternatives must carry the trade-off that rejected each option:
 
-```markdown conceptual
-## Alternatives considered
+```markdown template
+## [1][ALTERNATIVES_CONSIDERED]
 
 - Single-writer queue: simplest ownership, but caps throughput at one core and
   fails the 5k-event/s target. Rejected on throughput.
@@ -326,28 +340,28 @@ Alternatives must carry the trade-off that rejected each option:
 A rejected alternatives section records options without the deciding trade-off, so a reviewer cannot tell why the choice held:
 
 ```markdown rejected
-## Alternatives considered
+## [1][ALTERNATIVES_CONSIDERED]
 
 - We also looked at a single-writer queue and a sharded design.
 - The sharded one seemed better.
 ```
 
-## Decision-record handoff
+## [14][DECISION_RECORD_HANDOFF]
 
 After acceptance, a design must yield a decision record when acceptance binds two or more owners, packages, or runtime boundaries, or when it supersedes a prior durable decision. The decision-record standard owns the derivation mechanics; route them there by topic.
 
-## Boundaries
+## [15][BOUNDARIES]
 
 - [adr.md](adr.md) owns the accepted durable decision and its confirmation evidence after this proposal is approved.
 - [roadmap.md](roadmap.md) owns build sequence, milestones, and exit proof when slices grow into a dated plan.
 - [architecture.md](architecture.md) owns current structure and invariants the proposal must respect.
 - [README.md](../README.md) routes document-type choice, placement, and lifecycle questions, and links to the lookup and API owners for generated contract truth.
 
-## Review checklist
+## [16][REVIEW_CHECKLIST]
 
 - [ ] `Status` and `Profile` are set to a single closed-set value and the profile's added obligation is met.
-- [ ] Front-matter cardinality holds: required fields present, optional fields omitted rather than blank.
-- [ ] The body follows the required-structure skeleton and section cardinality.
+- [ ] Opening metadata cardinality holds: required fields present, optional fields omitted rather than blank.
+- [ ] The body follows the required-structure template and section cardinality.
 - [ ] `Problem` names a specific pressure and who feels it.
 - [ ] Each goal is a checklist item naming its metric, threshold, or pass condition.
 - [ ] Each non-goal is a declined candidate scope, not a restated failure mode.

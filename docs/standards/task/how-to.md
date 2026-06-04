@@ -1,12 +1,8 @@
----
-description: Standard for how-to guides
----
-
-# How-to standards
+# [HOW_STANDARDS]
 
 A how-to guide drives one competent reader through one repeatable task to a verifiable outcome. Lead with the task outcome, keep only the action that reaches it, and end with a check that proves the outcome rather than command completion. The reader already knows the domain and exercises judgment; the guide supplies the exact path, not teaching, background, or a lookup catalog.
 
-## Use when
+## [1][USE_WHEN]
 
 Write a how-to guide when every condition holds:
 
@@ -17,42 +13,51 @@ Write a how-to guide when every condition holds:
 
 Route a first-success learning path, an operational symptom response, a contribution workflow, an API surface, supported-version facts, or a conceptual explanation to its own type. The README corpus map resolves the reader need to a type; this standard owns the how-to type only.
 
-## Canonical source
+## [2][CANONICAL_SOURCE]
 
 This standard operationalizes the Diataxis how-to guide. A how-to is a sequence of actions addressed to an already-competent user who knows what they want to do; its fundamental structure is a sequence with logical ordering in time; it maintains focus on one goal and links to explanation and reference rather than embedding either; and it phrases branches as conditional imperatives. The rules below add the agent-facing structure, profile discipline, and claim-level proof that the framework leaves to the author.
 
-`Source of truth:` Diataxis how-to guide documentation (`https://diataxis.fr/how-to-guides/`); 2025-2026 practitioner conventions for prerequisites-first, per-stage expected outcomes, verification checks, and rollback with post-rollback verification. `Last verified:` 2026-06-04. `Review trigger:` Diataxis how-to guidance changes.
+`Source of truth:` Diataxis how-to guide documentation (`https://diataxis.fr/how-to-guides/`). `Last verified:` 2026-06-04. `Review trigger:` Diataxis how-to guidance changes.
 
-## Task profiles
+## [3][TASK_PROFILES]
 
-A how-to task carries one of three profiles. The profile sets which optional sections become required and which proof the guide must end on. Pick exactly one profile per guide; a task that spans two profiles is two guides.
+A how-to task carries one of three profiles. The profile sets which optional sections become required and which proof the guide must end on. Pick exactly one profile per guide; a task that spans two profiles is two guides. Keep the task facts together so the author can compare trigger, proof, and rollback in one scan.
 
-| Profile | Triggering task | Required beyond base | Outcome proof | Rollback section |
-| --- | --- | --- | --- | --- |
-| Idempotent setup | Configure, install, provision, or wire a component to a target state | `Prerequisites` lists access and target context | Re-running converges to the same state and the state check passes | Omit; safe to re-run |
-| Mutating action | Deploy, release, migrate, or change durable state once | `Prerequisites` lists access; `Procedure` marks the irreversible step | State after the action matches the intended new state | Required: state the reverse action and its check |
-| Read or inspect | Query, render, export, or diagnose without changing state | None beyond base | The produced artifact or reading matches the expected shape | Omit; no state changed |
+| [INDEX] | [PROFILE]        | [TASK]                       | [REQUIRED_PLUS]            | [PROOF]           | [ROLLBACK]      |
+| :-----: | :--------------- | :--------------------------- | :------------------------- | :---------------- | :-------------- |
+|   [1]   | Idempotent setup | install/provision/wire       | access + target context    | convergence check | omit; re-run    |
+|   [2]   | Mutating action  | deploy/release/migrate once  | access + irreversible mark | new-state check   | required check  |
+|   [3]   | Read or inspect  | query/render/export no state | none beyond base           | artifact shape    | omit; no change |
 
-Base sections (`# How to <task>`, the metadata block, `## Goal`, `## Procedure`, `## Verification`) are required for every profile. A mutating-action guide that cannot state a reverse action must say so and route the reverse path to a runbook by topic rather than leave rollback silent.
+Base sections (`# [HOW_TASK]`, the metadata block, `## [1][GOAL]`, `## [3][PROCEDURE]`, `## [4][VERIFICATION]`) are required for every profile. A mutating-action guide that cannot state a reverse action must say so and route the reverse path to a runbook by topic rather than leave rollback silent.
 
-## Required structure
+## [4][REQUIRED_STRUCTURE]
 
 Use the section set below; each `##` heading is a standalone retrieval unit a reader may open out of order. Order them so the outcome leads, prerequisites precede procedure, and the proof closes the path.
 
-```markdown
-<!-- copy-safe — how-to skeleton; fill the metadata block and every base section -->
-# How to <task>
+```markdown template
+<!-- source-only: how-to template; fill the metadata block and every base section -->
+# [HOW_TASK]
 
 Last verified: YYYY-MM-DD
 Review trigger: <command, flag, schema, target, or contract change>
 
-## Goal
-## Prerequisites
-## Procedure
-## Verification
-## Rollback
-## Troubleshooting
-## Boundaries
+## [1][GOAL]
+
+## [2][PREREQUISITES]
+
+## [3][PROCEDURE]
+
+## [4][VERIFICATION]
+
+## [5][ROLLBACK]
+
+## [6][TROUBLESHOOTING]
+
+## [7][BOUNDARIES]
+
+## [8][REVIEW_CHECKLIST]
+
 ```
 
 Section cardinality:
@@ -64,11 +69,12 @@ Section cardinality:
 - `Verification` (required, one block): proves the outcome named in `Goal`.
 - `Rollback` (required for mutating profile, omitted otherwise): the reverse action and the check that confirms the reverse.
 - `Troubleshooting` (optional, repeatable entries): only task-local failure modes with actionable recovery, as a record per failure mode.
-- `Boundaries` (optional): one link per adjacent owner when an adjacent maintained document carries what this guide deliberately excludes.
+- `Boundaries` (required, one): one link per adjacent owner when an adjacent maintained document carries what this guide deliberately excludes.
+- `Review checklist` (required, one): verification gates for the published guide.
 
 Omit an optional section rather than publishing it empty.
 
-## Scope rules
+## [5][SCOPE_RULES]
 
 - Solve one task per guide and state its outcome in the title and `Goal`.
 - Start and end where a competent reader starts and ends; do not re-teach setup the reader already owns.
@@ -76,7 +82,7 @@ Omit an optional section rather than publishing it empty.
 - Keep action in the guide; move concepts, API catalogs, option inventories, and broad failure analysis to their owning types and name them by topic.
 - Carry exactly one accessible successful path. Admit a judgment point only when real work forks: state the decision condition, give each branch, then rejoin the single path.
 
-## Prerequisites rules
+## [6][PREREQUISITES_RULES]
 
 A prerequisite is a record the reader scans and confirms before starting, so render `Prerequisites` as a definition block with one `label: value` per line, never as a paragraph and never as a one-row table. Each record names a concrete, checkable fact, not a vague readiness claim:
 
@@ -92,7 +98,7 @@ Target context: staging cluster, `checkout` namespace
 Tools: `rasm` CLI 2.4 or newer; cluster access configured
 ```
 
-## Procedure rules
+## [7][PROCEDURE_RULES]
 
 - Number steps when order changes the result; use peer bullets when steps are independent.
 - Open each step with an imperative verb and an input-neutral UI verb, so the step holds across mouse, keyboard, and command surfaces.
@@ -104,19 +110,21 @@ Tools: `rasm` CLI 2.4 or newer; cluster access configured
 - Link a repeated sub-procedure to its canonical guide instead of copying it.
 - Show one accepted command and, where a near-miss is a likely error, one rejected command, each in a fenced block with an intent label.
 
-Label every fenced block with one intent so the reader knows whether to run it. The accepted command is `copy-safe`; the near-miss is `rejected`:
+Label every fenced block with one intent so the reader knows whether to run it. A real guide uses `copy-safe` only for a command that runs as written; the illustrative accepted shape below is `conceptual`, and the near-miss is `rejected`:
 
-```bash
-# copy-safe — apply the pinned migration to the named target
+```bash conceptual
+# Apply the pinned migration to the named target.
+
 rasm migrate apply --target staging --plan ./plan.lock
 ```
 
-```bash
-# rejected — omits the target and the pinned plan, so it migrates the default host
+```bash rejected
+# Omits the target and the pinned plan, so it migrates the default host.
+
 rasm migrate apply
 ```
 
-## Verification and rollback rules
+## [8][VERIFICATION_ROLLBACK_RULES]
 
 - End on a `Verification` block that observes the `Goal` outcome, not that a command exited zero.
 - Bind the check to the profile: setup proves convergence to the target state, mutating action proves the new state, read profile proves the artifact or reading shape.
@@ -126,12 +134,13 @@ rasm migrate apply
 Render `Verification` as a checklist when the outcome carries several independently observable conditions, so the reader asserts and confirms each rather than reading proof back as prose. Each item names the check and its expected result:
 
 ```markdown conceptual
-## Verification
+## [1][VERIFICATION]
+
 - [ ] State check reports `checkout` at the new revision. Evidence: `rasm state get --service checkout`
 - [ ] Health probe returns ready within the rollout window. Evidence: `checkout` readiness dashboard
 ```
 
-## Troubleshooting rules
+## [9][TROUBLESHOOTING_RULES]
 
 Keep `Troubleshooting` to failure modes that block this task and have a concrete recovery; route operational recovery, escalation, and incident evidence to a runbook by topic. A failure-mode set is a finite enumerable set, so render each entry as a record carrying its signal, cause, and recovery, never as a flat paragraph:
 
@@ -139,10 +148,10 @@ Keep `Troubleshooting` to failure modes that block this task and have a concrete
 - Cause: the condition that produced the signal, when known.
 - Recovery: the concrete action that returns the reader to the path, or the route to the owning runbook when recovery exceeds this task.
 
-Render each entry as a `### <symptom>` H3 whose body carries the three fields as one `label: value` per line:
+Render each entry as a `### [N.M][SYMPTOM]` H3 whose body carries the three fields as one `label: value` per line:
 
 ```markdown conceptual
-### Migration apply reports a target mismatch
+### [N.M][MIGRATION_APPLY_REPORTS]
 
 Signal: `error: target "staging" not found in plan ./plan.lock`
 Cause: the plan was generated against a different cluster than the one named in `--target`.
@@ -152,14 +161,14 @@ Recovery: regenerate the plan against the named target, then re-run the apply st
 A symptom-to-recovery set with three or more entries is a lookup the reader scans by signal; render it as a record per entry or a lookup table keyed on the signal, so the reader finds the matching row without reading prose:
 
 ```markdown conceptual
-| Signal | Cause | Recovery |
-| --- | --- | --- |
-| `target "staging" not found` | Plan built against another cluster | Regenerate the plan against the named target, then re-apply |
-| `revision drift detected` | A manual change diverged from the plan | Reconcile drift, then re-run the apply step |
-| `readiness timed out` | Probe window shorter than the rollout | Wait for the rollout window, then re-check readiness |
+| [INDEX] | [SIGNAL]      | [CAUSE]            | [RECOVERY]                  |
+| :-----: | :------------ | :----------------- | :-------------------------- |
+|   [1]   | target absent | wrong cluster plan | regenerate plan for target  |
+|   [2]   | drift         | manual divergence  | reconcile, then rerun apply |
+|   [3]   | timeout       | short probe window | wait window, then re-check  |
 ```
 
-## Proof obligation
+## [10][PROOF_OBLIGATION]
 
 A how-to guide claims a path works, so the path must have been run or its gaps stated. Attach claim-level evidence to drift-prone facts and name the freshness trigger:
 
@@ -171,7 +180,7 @@ Review trigger: migrate CLI flags or the plan-lock schema change
 
 State an unrun step honestly: mark it provisional and name the gate that would prove it, rather than asserting a path that was not executed.
 
-## Format choices
+## [11][FORMAT_CHOICES]
 
 - Use a numbered list for the ordered procedure, peer bullets for independent steps, and a fenced labeled block for every command.
 - Use a definition block for the metadata block and for `Prerequisites` records that a reader scans or updates per line, not a one-row table.
@@ -180,30 +189,32 @@ State an unrun step honestly: mark it provisional and name the gate that would p
 
 A forking mutating-action procedure renders its decision and rejoin as a flowchart:
 
-```mermaid
-%% conceptual — branch-and-rejoin shape for a guide with one real judgment point
+```mermaid conceptual
+%% branch-and-rejoin shape for a guide with one real judgment point
 flowchart TD
-    A[Run state check] --> B{Drift detected?}
-    B -- "No" --> D[Apply migration]
-    B -- "Yes" --> C[Reconcile drift]
-    C --> D
-    D --> E[Verify new state]
+    StateCheck["Run state check"] --> Drift{"Drift detected?"}
+    Drift -- "No" --> Apply["Apply migration"]
+    Drift -- "Yes" --> Reconcile["Reconcile drift"]
+    Reconcile --> Apply
+    Apply --> Verify["Verify new state"]
 ```
 
-## Boundaries
+The text equivalent is the same branch: run a state check, reconcile drift only when drift exists, then apply the migration and verify the new state.
+
+## [12][BOUNDARIES]
 
 - [runbook.md](runbook.md) owns operational symptom response, recovery, escalation, and incident evidence; a how-to performs normal tasks and routes operational recovery there.
 - [contributing.md](contributing.md) owns contribution workflow, review collaboration, and pull-request evidence.
 - [tutorial.md](../learning/tutorial.md) teaches a first-success path and owns learning ramps; a how-to completes a task for a reader who can already act.
 - [proof.md](../proof.md) owns evidence strength and the freshness fields a verification step cites.
-- [information-structure.md](../information-structure.md) owns container, table, record, decision-table, checklist, and diagram form; this guide binds those forms to sections but does not redefine them.
-- [formatting.md](../formatting.md) owns the intent-label vocabulary (`copy-safe`, `rejected`, `conceptual`) and the status-marker vocabulary (`Optional:`, `Irreversible:`) this guide applies to fenced blocks and steps.
+- [information-structure.md](../information-structure.md) owns container, table, record, decision-table, checklist, diagram form, and the intent-label vocabulary this guide applies to fenced blocks.
+- This guide owns the leading step markers `Optional:` and `Irreversible:` because they change how a how-to reader acts before a step.
 - [style-guide.md](../style-guide.md) owns imperative and input-neutral phrasing and the conditional-imperative form this guide requires of procedure steps.
 - [README.md](../README.md) owns reader-need classification, document-type choice, placement, and lifecycle; route a draft that serves another reader need there.
 
-## Review checklist
+## [13][REVIEW_CHECKLIST]
 
-- [ ] Title starts with `How to` and `Goal` names one observable outcome.
+- [ ] H1 uses a bracketed semantic task label and `Goal` names one observable outcome.
 - [ ] The metadata block carries `Last verified` and `Review trigger`.
 - [ ] Exactly one task profile is chosen and its required sections are present.
 - [ ] Prerequisites are a definition block of checkable access, context, and versioned-tool records, listing only what this task consumes.

@@ -1,15 +1,8 @@
 # [H1][BENCHMARKDOTNET_API]
->**Dictum:** *Benchmarks measure hot paths outside the unit rail.*
-
-<br>
 
 [IMPORTANT] Rasm uses `BenchmarkDotNet` (version pinned in `Directory.Packages.props`) only in `tests/csharp/_benchmarks`. Benchmarks are executable measurement rails, not xUnit specs and not part of `tools.quality test run`.
 
----
 ## [1][PACKAGE]
->**Dictum:** *Benchmark projects own benchmark dependencies.*
-
-<br>
 
 | [INDEX] | [PACKAGE]         | [PIN]                      | [USE]                                 |
 | :-----: | ----------------- | -------------------------- | ------------------------------------- |
@@ -17,11 +10,7 @@
 
 [SOURCE] NuGet package page: https://www.nuget.org/packages/BenchmarkDotNet
 
----
 ## [2][CONFIG]
->**Dictum:** *Measurement policy lives in C# config.*
-
-<br>
 
 | [INDEX] | [SURFACE]                                         | [RASM_USE]                                             |
 | :-----: | ------------------------------------------------- | ------------------------------------------------------ |
@@ -34,11 +23,7 @@
 
 [SOURCE] BenchmarkDotNet config docs: https://benchmarkdotnet.org/articles/configs/configs.html
 
----
 ## [3][RASM_SCOPE]
->**Dictum:** *Do not benchmark Rhino app-bundle runtime outside RhinoWIP.*
-
-<br>
 
 Use BenchmarkDotNet for pure managed hot paths such as numeric kernels, generated dispatch, parsing, and allocation-sensitive transforms. Do not benchmark RhinoDoc, GH canvas, viewport, UI thread, or bridge scenarios here.
 

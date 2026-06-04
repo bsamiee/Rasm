@@ -1,15 +1,8 @@
 # [H1][LANGUAGEEXT_EFFECTS]
->**Dictum:** *Effects preserve execution and failure meaning until the host consumes them.*
-
-<br>
 
 [IMPORTANT] Pin **`LanguageExt.Core`** at the version pinned in `Directory.Packages.props`. Runtime effects use concrete runtime records and `Eff.runtime<RT>()`. Boundary adapters may use statement control flow only with an explicit boundary marker in code.
 
----
 ## [1][RAILS]
->**Dictum:** *One rail answers one failure question.*
-
-<br>
 
 | [INDEX] | [RAIL]                | [QUESTION]                         | [USE]                                                     |
 | :-----: | --------------------- | ---------------------------------- | --------------------------------------------------------- |
@@ -18,19 +11,11 @@
 |   [3]   | `Eff<RT,T>`           | Which runtime context is needed?   | Document, filesystem, clock, bridge.                      |
 |   [4]   | `IO<T>`               | Which side-effect is deferred?     | Resource, file, process, and host execution descriptions. |
 
----
 ## [2][RUNTIME_RECORD]
->**Dictum:** *Runtime records expose capabilities without service location.*
-
-<br>
 
 Use `Eff.runtime<RT>()` to read host capability records, then project with `Map`, `Bind`, `MapFail`, `BiMap`, or LINQ query syntax. Keep runtime records small and concrete. Do not introduce service locators, decorator containers, or unused package posture when a runtime record owns the dependency.
 
----
 ## [3][SCHEDULE]
->**Dictum:** *Delay schedules belong on Eff decorators, hosted jobs, and IO retry — not pure Fin transforms.*
-
-<br>
 
 Schedule builders: `recurs`, `spaced`, `linear`, `exponential`, `fibonacci`, `upto`, `jitter`, `maxDelay`.
 Composition: `Schedule.a | Schedule.b`, `union`, `intersect`, `transformerA + transformerB` — full operator table in the same package doc set under operators §3.
@@ -39,11 +24,7 @@ IO: `IO<T>.Retry(Schedule)`, `Finally`, `Bracket`.
 
 Pure domain `Fin`/`Validation` transforms avoid blocking delay schedules.
 
----
 ## [4][STATE]
->**Dictum:** *Managed state belongs to hosts, not domain transforms.*
-
-<br>
 
 | [INDEX] | [SURFACE]                           | [USE]                                                      |
 | :-----: | ----------------------------------- | ---------------------------------------------------------- |
@@ -53,22 +34,14 @@ Pure domain `Fin`/`Validation` transforms avoid blocking delay schedules.
 
 Never use LanguageExt state to hide native object lifetime, host tree mutation, or ordinary domain accumulation.
 
----
 ## [5][RECOVERY]
->**Dictum:** *Recovery projects typed failures, not raw exceptions.*
-
-<br>
 
 - Convert native exceptions at boundary adapters into `Error` once.
 - Prefer `MapFail`, `BiMap`, fallback alternatives, and verified catch combinators from local XML.
 - Keep terminal collapse at command/component/tool edges.
 - Preserve original operation, host object, tolerance, and input name in diagnostics.
 
----
 ## [6][V5_DELTAS]
->**Dictum:** *v5 reshaped the effect surface; pinned local XML is the only truth.*
-
-<br>
 
 `Directory.Packages.props` pins the `LanguageExt.Core` version. Verify deltas from v4 surface with `uv run python -m tools.quality api query LanguageExt.Core <symbol>`:
 

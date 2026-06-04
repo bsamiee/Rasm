@@ -1,15 +1,8 @@
 # [H1][PACKAGES]
->**Dictum:** *Current graph truth beats approved intent.*
-
-<br>
 
 [IMPORTANT] Central package management lives in `Directory.Packages.props`. Project files declare usage without versions. Local .NET CLI tools live in `.config/dotnet-tools.json` because `dotnet tool restore` owns executable tool restore.
 
----
 ## [1][STATE]
->**Dictum:** *A package name without state creates false guidance.*
-
-<br>
 
 | [INDEX] | [STATE]                  | [MEANING]                                                                              |
 | :-----: | ------------------------ | -------------------------------------------------------------------------------------- |
@@ -23,11 +16,7 @@
 |   [8]   | Local tool manifest      | Version lives in `.config/dotnet-tools.json`; not an MSBuild package.                  |
 |   [9]   | Central pre-consumer pin | Central version exists, but no project references the package yet.                     |
 
----
 ## [2][CURRENT]
->**Dictum:** *Only package references and central versions define current graph state.*
-
-<br>
 
 | [INDEX] | [PACKAGE]                                    | [STATE]                  | [OWNER]                                                   |
 | :-----: | -------------------------------------------- | ------------------------ | --------------------------------------------------------- |
@@ -56,11 +45,7 @@
 |  [23]   | AppUi Avalonia/ReactiveUI/DynamicData matrix | Active direct            | `Rasm.AppUi` retained product UI rail                     |
 |  [24]   | AppUi SkiaSharp/LiveCharts/SVG/text matrix   | Active direct            | `Rasm.AppUi` visuals, charts, and text shaping            |
 
----
 ## [3][FIRST_CONSUMER_CANDIDATES]
->**Dictum:** *Approved candidates are not graph truth.*
-
-<br>
 
 Owner-local platform manuals may name future package candidates, but `Directory.Packages.props` must stay unchanged until a concrete project or host bootstrap consumes the package.
 
@@ -73,11 +58,7 @@ Owner-local platform manuals may name future package candidates, but `Directory.
 
 [CRITICAL] Candidate does not mean pinned, restored, loaded, or runtime-proven. Central pre-consumer pins are pinned but not active in a project until a project references them. AppUi package references restore/build, but runtime embedding still needs host evidence.
 
----
 ## [4][BUILD_AND_ANALYZERS]
->**Dictum:** *Compile and analyzer packages are build contracts, not runtime dependencies.*
-
-<br>
 
 | [INDEX] | [PACKAGE]                                    | [STATE]                | [OWNER]                                 |
 | :-----: | -------------------------------------------- | ---------------------- | --------------------------------------- |
@@ -88,19 +69,11 @@ Owner-local platform manuals may name future package candidates, but `Directory.
 |   [5]   | `Microsoft.CodeAnalysis.Analyzers`           | Active in `CsAnalyzer` | Release tracking for Roslyn rules       |
 |   [6]   | `CsAnalyzer` (local)                         | Shared analyzer ref    | CSP####; not a central `PackageVersion` |
 
----
 ## [5][GATED_INJECTION]
->**Dictum:** *Plugin projects do not inherit workspace library injection by default.*
-
-<br>
 
 Rhino and Grasshopper plugin projects default `UseWorkspaceLibraries=false`. Tooling and bridge client projects inherit workspace library injection unless they explicitly opt out. Host references, third-party analyzers, and local CsAnalyzer still apply unless explicitly skipped.
 
----
 ## [6][TEST_TOOL_SCOPE]
->**Dictum:** *Test tools belong to the test rail, not product dependency policy.*
-
-<br>
 
 - Raw xUnit, CsCheck, coverlet, and Stryker API guidance lives under `../testing-libs`.
 - Test project package injection lives in `Directory.Build.props`; versions live in `Directory.Packages.props`.

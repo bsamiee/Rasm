@@ -1,7 +1,4 @@
 # [H1][HOST_LIBRARIES]
->**Dictum:** *Host packages enter the graph only when a host entry point exists.*
-
-<br>
 
 Scope: composition roots, external I/O boundaries, app runtime, persistence, compute, and product UI surfaces. Domain modules stay on LanguageExt rails, Thinktecture shapes, MathNet/CSparse numerics, and host SDK boundaries.
 
@@ -14,11 +11,7 @@ Scope: composition roots, external I/O boundaries, app runtime, persistence, com
 |   [3]   | `Rasm.Persistence` | `../libs/csharp/Rasm.Persistence/_ARCHITECTURE.md` |
 |   [4]   | `Rasm.Compute`     | `../libs/csharp/Rasm.Compute/_ARCHITECTURE.md`     |
 
----
 ## [1][COMPOSITION_MODES]
->**Dictum:** *In-process plugins use runtime records; generic hosts use service collections.*
-
-<br>
 
 | [INDEX] | [MODE]                                       |  [DEFAULT]   | [COMPOSITION]                                                 |
 | :-----: | -------------------------------------------- | :----------: | ------------------------------------------------------------- |
@@ -28,11 +21,7 @@ Scope: composition roots, external I/O boundaries, app runtime, persistence, com
 
 Scrutor, Generic Host, logging providers, telemetry exporters, HTTP resilience, EF Core, and validation packages are `[NOT_IN_GRAPH]` until a concrete bootstrap consumer exists. The AppUi package matrix is active direct through `Rasm.AppUi.csproj`. `Directory.Packages.props` is graph truth; owner-local manuals are intent and adoption guidance.
 
----
 ## [2][FIRST_CONSUMER_CANDIDATES]
->**Dictum:** *Approved candidates still need a project, package reference, and evidence.*
-
-<br>
 
 | [INDEX] | [CANDIDATE]                    | [TRIGGER]                                                    | [OWNER]            |
 | :-----: | ------------------------------ | ------------------------------------------------------------ | ------------------ |
@@ -51,11 +40,7 @@ Scrutor, Generic Host, logging providers, telemetry exporters, HTTP resilience, 
 
 Refresh latest stable package versions immediately before the first concrete consumer. Do not record exact candidate versions in owner docs.
 
----
 ## [3][BOUNDARIES]
->**Dictum:** *One retry, time, validation, and telemetry owner exists per hop.*
-
-<br>
 
 - LanguageExt `Schedule` owns domain and hosted `Eff`/`IO` retry/repeat cadence.
 - HTTP resilience owns typed outbound `HttpClient` policies only.
@@ -65,11 +50,7 @@ Refresh latest stable package versions immediately before the first concrete con
 - Observability packages register at a composition root. Domain results stay typed first and project to logs, traces, and metrics at boundaries.
 - Persistence owns database open/migrate/query/dispose semantics. AppHost may schedule or orchestrate durable work; it does not own storage internals.
 
----
 ## [4][REJECTIONS]
->**Dictum:** *Package names are not architecture.*
-
-<br>
 
 - Do not add unused central `PackageVersion` entries as future intent.
 - Do not call a package active until a project references it and owner-local evidence records the behavior.

@@ -1,15 +1,8 @@
 # [H1][LANGUAGEEXT_COMBINATORS]
->**Dictum:** *Combinators preserve rail shape; collapse only at host boundaries.*
-
-<br>
 
 [IMPORTANT] Pin **`LanguageExt.Core`** at the version pinned in `Directory.Packages.props`. Verify members in local package XML before documenting new combinators.
 
----
 ## [1][LOWERING]
->**Dictum:** *K<F,A> is not F<A> in C# — lower explicitly.*
-
-<br>
 
 | [INDEX] | [CARRIER]    | [LOWER AFTER TRAVERSEM]               |
 | :-----: | ------------ | ------------------------------------- |
@@ -20,11 +13,7 @@
 
 `Prelude.lower` and `k >> lower` are documented downcast operators in pinned XML.
 
----
 ## [2][RAIL_TRANSFORMS]
->**Dictum:** *Transform success and failure without leaving the carrier.*
-
-<br>
 
 | [INDEX] | [COMBINATOR]                                   | [CARRIERS]                        | [NOTES]             |
 | :-----: | ---------------------------------------------- | --------------------------------- | ------------------- |
@@ -36,11 +25,7 @@
 |   [6]   | `.ToFin()` / `.ToValidation()` / `.ToOption()` | cross-rail                        | Boundary projection |
 |   [7]   | `.Match(Succ:, Fail:)`                         | `Fin`, `Option`, `Either`         | Terminal collapse   |
 
----
 ## [3][APPLICATIVE]
->**Dictum:** *Independent failures accumulate; dependent steps bind.*
-
-<br>
 
 | [INDEX] | [FORM]                                  | [USE]                           |
 | :-----: | --------------------------------------- | ------------------------------- |
@@ -50,11 +35,7 @@
 
 `Validation<string,T>` is **not supported** — use `StringM` or `Error`. Rasm forbids `Validation<Seq<Error>,T>` (`CSP0703`); see `rasm.md`.
 
----
 ## [4][COLLECTION_TRAVERSAL]
->**Dictum:** *Traverse keeps collection shape and failure rail together.*
-
-<br>
 
 | [INDEX] | [COMBINATOR]                   | [NOTES]                                    |
 | :-----: | ------------------------------ | ------------------------------------------ |
@@ -67,11 +48,7 @@
 
 `HashMap` algebra: `.AddOrUpdate`, `.Find`, `.Filter`.
 
----
 ## [5][EFFECT_AND_RECOVERY]
->**Dictum:** *Host effects use runtime records; recovery is explicit.*
-
-<br>
 
 | [INDEX] | [COMBINATOR]                                           | [NOTES]                                    |
 | :-----: | ------------------------------------------------------ | ------------------------------------------ |
@@ -82,11 +59,7 @@
 |   [5]   | `Prelude.catch` / `@catch` / `catchOf` / `catchOfFold` | Effect recovery                            |
 |   [6]   | `IO<T>.Retry(Schedule)` / `Prelude.retry` / `repeat`   | Schedule-driven retry                      |
 
----
 ## [6][STATE]
->**Dictum:** *Atoms swap; Subscribe APIs removed in LanguageExt v5.*
-
-<br>
 
 | [INDEX] | [COMBINATOR]                          | [NOTES]                      |
 | :-----: | ------------------------------------- | ---------------------------- |
@@ -95,11 +68,7 @@
 |   [3]   | `Atom<T>.SwapIO` / `SwapMaybeIO`      | IO-backed swap               |
 |   [4]   | `AtomHashMap` / `AtomSeq` / `AtomQue` | Collection-shaped atoms      |
 
----
 ## [7][PRELUDE_GUARDS]
->**Dictum:** *Prelude guards short-circuit monadic chains.*
-
-<br>
 
 | [INDEX] | [MEMBER]                     | [USE]                               |
 | :-----: | ---------------------------- | ----------------------------------- |
@@ -110,11 +79,7 @@
 |   [5]   | `identity`                   | `.Traverse(identity) >> lower`      |
 |   [6]   | `toSeq` / `toHashMap`        | Collection normalization            |
 
----
 ## [8][TRAITS]
->**Dictum:** *Trait modules are opt-in abstraction.*
-
-<br>
 
 | [INDEX] | [SURFACE]                         | [NOTES]                      |
 | :-----: | --------------------------------- | ---------------------------- |
@@ -124,11 +89,7 @@
 
 Use file-local `from..in` unless measured duplication proves trait abstraction. See `traits.md`.
 
----
 ## [9][RULES]
->**Dictum:** *Choose combinator by failure semantics.*
-
-<br>
 
 - One fallible step → `Fin` + `Bind`/`Map`.
 - Independent fields → `Validation` + `Apply` / `&`.
