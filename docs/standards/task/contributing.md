@@ -1,103 +1,52 @@
 # [CONTRIBUTING_STANDARDS]
 
-A contributing guide tells a prospective contributor which paths the project accepts, how to prepare a change, what evidence proves it, and what review expects. It is a workflow document for contributors. Keep architecture catalogs, operational recovery, role curricula, gate taxonomy, and security-disclosure policy in their own owners, named here by topic and linked only at the boundary.
+A contributing guide tells a prospective contributor which contribution paths the project accepts, how normal changes move from intent to review, what evidence proves the work, and how pull requests converge. It is a contributor workflow document, not an onboarding course, architecture map, gate taxonomy, incident route, governance policy, support policy, or security-disclosure policy. Keep adjacent concerns in their owners and link them only at the boundary.
 
 ## [1][USE_WHEN]
 
-Use a contributing guide when readers need accepted contribution paths, normal-change workflow, quality-gate evidence, pull-request evidence, review-collaboration rules, or security-report routing. Do not use it for role readiness, incident response, gate taxonomy, governance authority, or security-disclosure policy. Route those by topic to onboarding, runbook, test-strategy, and the maintained project policy when one exists; otherwise require maintainer consultation.
+Use a contributing guide when readers need accepted contribution paths, normal-change workflow, quality-gate evidence, pull-request evidence, review-collaboration rules, or security-report routing. Do not use it for role readiness, incident response, gate taxonomy, governance authority, support status, or vulnerability-disclosure policy. Route those by topic to onboarding, runbook, test-strategy, support-matrix, and maintained governance or security policy when one exists; otherwise require maintainer consultation before the contributor acts.
 
 ## [2][CANONICAL_SOURCE]
 
-Anchor the published guide to the canonical contribution conventions, and record the proof beside the claim rather than asserting from memory.
+Anchor contribution conventions to current project policy first and primary platform conventions second. A guide may mention a host surface, commit format, sign-off, code of conduct, license, contribution location, review ladder, or security route only when repository configuration, host settings, or maintained policy proves the project uses it.
 
-- `Source of truth:` GitHub contribution-guideline and community-profile conventions; Conventional Commits 1.0.0 when the project enforces `<type>(<scope>): <description>`; Developer Certificate of Origin when the project requires per-commit `Signed-off-by`.
-- `GitHub convention:` a `CONTRIBUTING` file in the repository root, `.github/`, or `docs/`, surfaced on issue and pull-request creation views and the repository contribute tab.
-- `Guide contents:` steps for good issues and pull requests, links to external docs and the code of conduct, and community and behavioral expectations.
-- `Last verified:` 2026-06-04.
-- `Review trigger:` GitHub community-health-file guidance, the Conventional Commits specification, or the project's enforced commit or sign-off policy changes.
+GitHub contributing placement
+    Source of truth: [GitHub contributing-guideline conventions](https://docs.github.com/en/communities/setting-up-your-project-for-healthy-contributions/setting-guidelines-for-repository-contributors).
+    Claim: `CONTRIBUTING` files may live in repository root, `.github/`, or `docs/`; GitHub surfaces the selected file during issue and pull-request creation and on the repository `contribute` page. When the repository includes `CONTRIBUTING.md`, GitHub also surfaces a `Contributing` overview tab and sidebar link.
+    Last verified: 2026-06-04
+    Review trigger: GitHub contributing-guideline placement or surfacing behavior changes.
 
-Claim a convention only when the repository enforces it. Do not import a `feat:`/`fix:` prefix rule, a sign-off requirement, or a community-health-file location into the guide unless project configuration or policy proves the project uses it.
+GitHub default community-health fallback
+    Source of truth: [GitHub default community-health files](https://docs.github.com/en/communities/setting-up-your-project-for-healthy-contributions/creating-a-default-community-health-file).
+    Claim: account-level default community-health files are fallback files for repositories that lack their own file of that type; GitHub applies the same `.github/`, root, then `docs` precedence. Do not treat an organization default as cloned repository truth.
+    Last verified: 2026-06-04
+    Review trigger: GitHub default community-health fallback behavior changes.
+
+Commit-message convention
+    Source of truth: [Conventional Commits 1.0.0](https://www.conventionalcommits.org/en/v1.0.0/).
+    Claim: Conventional Commits permits `<type>[optional scope][!]: <description>`, optional body, and optional footers. A project may enforce a stricter subset only when repository configuration or maintained policy proves that subset.
+    Last verified: 2026-06-04
+    Review trigger: Conventional Commits specification or project commit-policy enforcement changes.
+
+Sign-off and DCO
+    Source of truth: [Developer Certificate of Origin 1.1](https://developercertificate.org/) for the certification text; [git commit `--signoff`](https://git-scm.com/docs/git-commit) for the trailer command behavior; repository or host policy for enforcement.
+    Claim: DCO proves the certification text, Git proves how `--signoff` adds the trailer, and the project must prove whether every commit requires `Signed-off-by`.
+    Last verified: 2026-06-04
+    Review trigger: DCO text, Git sign-off behavior, or project sign-off enforcement changes.
+
+Security report routing
+    Source of truth: [GitHub private vulnerability reporting](https://docs.github.com/en/code-security/how-tos/report-and-fix-vulnerabilities/privately-reporting-a-security-vulnerability), project `SECURITY.md`, and maintained project security policy.
+    Claim: a normal contributing guide routes vulnerability reports to the maintained security policy or coordinated private reporting channel. If no route is documented, it tells reporters to ask maintainers for the preferred security contact without publishing exploit details.
+    Last verified: 2026-06-04
+    Review trigger: GitHub private vulnerability reporting, project security policy, or coordinated disclosure route changes.
+
+Claim an enforced convention only from repository truth: host settings, branch-protection rules, required checks, workflow files, commit linting, sign-off checks, pull-request templates, issue templates, or maintained policy documents. Do not import a `feat:` or `fix:` prefix rule, a `Signed-off-by` line, a contribution location, response-time promise, branch-protection claim, or security-reporting path from external examples alone.
 
 ## [3][WAYS_CONTRIBUTE]
 
-A contributing guide carries one or more contribution paths, each with a distinct contributor intent, entry artifact, prerequisite, and accepted-scope bound. State each path the project accepts so a reader picks the correct first action without guessing. Keep the path facts together; shorten cells before splitting the structure. A small library may publish only the first two paths, while a multi-owner monorepo publishes all five.
+A contributing guide carries one row per accepted, reviewable contribution path. Each row names the contributor intent, entry artifact, prerequisite when one gates action, and scope bound, so a contributor picks the correct first action without reading the whole guide. Remove paths the project does not accept or cannot review; do not leave empty rows, speculative routes, or maturity-based variants.
 
-| [INDEX] | [PATH]              | [INTENT]        | [ENTRY]          | [PREREQUISITE]       | [ACCEPTED_SCOPE]                    |
-| :-----: | :------------------ | :-------------- | :--------------- | :------------------- | :---------------------------------- |
-|   [1]   | Report              | defect evidence | Issue            | duplicate search     | repro, environment, expectation     |
-|   [2]   | Propose             | agree direction | Issue or discussion | maintained path    | problem, direction, owners          |
-|   [3]   | Patch (small)       | land fix        | Pull request     | local gates          | one concern, no compatibility break |
-|   [4]   | Patch (coordinated) | land broad work | Issue then PR    | maintainer agreement | cross-owner or breaking work        |
-|   [5]   | Non-code            | improve corpus  | Issue or PR      | reviewable path      | docs, tests, examples, triage       |
-
-`Non-code` scope includes reproduction cases, design feedback, accessibility fixes, translations, reviews, and release notes when those paths are maintained and reviewable.
-
-Required path fields per row: contributor intent, entry artifact, and accepted scope. The prerequisite field is required when an action is gated and omitted otherwise. Carry a non-code path as its own row when maintainers can review it; demote a path to "not accepted" by removing its row, not by leaving an empty cell. Route a contributor to maintainer consultation before broad, expensive, compatibility-breaking, governance, security-sensitive, or cross-owner work.
-
-State the path-selection rule as a decision table when more than one signal routes a contributor, so a reader reaches the correct entry artifact without reading every row:
-
-| [INDEX] | [CHANGE_SIGNAL]             | [COMPATIBILITY_BREAK] | [ENTRY_ARTIFACT]               |
-| :-----: | :-------------------------- | :-------------------- | :----------------------------- |
-|   [1]   | Defect or reproduction only | —                     | Issue                          |
-|   [2]   | Self-contained fix          | No                    | Pull request                   |
-|   [3]   | Cross-owner or expensive    | No                    | Issue first, then pull request |
-|   [4]   | Any source change           | Yes                   | Issue first, then pull request |
-|   [5]   | Security-sensitive          | Any                   | Private security route         |
-
-## [4][REQUIRED_STRUCTURE]
-
-The published guide uses the section set below. Each `##` heading is a standalone retrieval unit; order them so a reader meets scope before workflow and proof before review.
-
-```markdown template
-# [CONTRIBUTING]
-
-## [1][SCOPE]
-
-## [2][WAYS_CONTRIBUTE]
-
-## [3][BEFORE_YOU_START]
-
-## [4][SETUP_WORKFLOW]
-
-## [5][QUALITY_GATES]
-
-## [6][DOCUMENTATION_CHANGES]
-
-## [7][PULL_REQUESTS]
-
-## [8][REVIEW]
-
-## [9][SECURITY_REPORTS]
-
-## [10][GETTING_HELP]
-
-## [11][BOUNDARIES]
-
-## [12][EXAMPLE_CONTRIBUTION_PATH]
-
-## [13][REVIEW_CHECKLIST]
-
-```
-
-Section cardinality:
-
-| [INDEX] | [SECTION]                 | [CARDINALITY]         | [CARRIES]                                                                     |
-| :-----: | :------------------------ | :-------------------- | :---------------------------------------------------------------------------- |
-|   [1]   | Scope                     | Required, one         | Accepted paths and topics routed elsewhere                                    |
-|   [2]   | Ways to contribute        | Required, one         | One path table row per accepted path                                          |
-|   [3]   | Before you start          | Optional, zero or one | Prerequisite knowledge, conduct link, license note                            |
-|   [4]   | Setup and workflow        | Required, one         | Commands to reach a first-gate-passing tree, then the enforced workflow facts |
-|   [5]   | Quality gates             | Required, one         | One gate row per change family                                                |
-|   [6]   | Documentation changes     | Optional, zero or one | When docs travel with the change                                              |
-|   [7]   | Pull requests             | Required, one         | Required and conditional proof fields                                         |
-|   [8]   | Review                    | Required, one         | Collaboration rules and review profiles                                       |
-|   [9]   | Security reports          | Required, one         | Private vulnerability route                                                   |
-|  [10]   | Getting help              | Optional, zero or one | Where to ask when blocked                                                     |
-|  [11]   | Boundaries                | Required, one         | Adjacent owners for routed-away content                                       |
-|  [12]   | Example contribution path | Optional, zero or one | One accepted and one rejected path shape when scope misuse is likely          |
-|  [13]   | Review checklist          | Required, one         | Verification gates for the published guide                                    |
-
-Repeatable unit: one path table row inside `Ways to contribute`, one per accepted path. Copy the row shape rather than reconstructing it:
+Use this path-row shape; fill it only with project-accepted paths:
 
 ```markdown template
 | [INDEX] | [PATH]      | [INTENT]             | [ENTRY_ARTIFACT] | [PREREQUISITE]                 | [SCOPE_BOUND]          |
@@ -105,75 +54,169 @@ Repeatable unit: one path table row inside `Ways to contribute`, one per accepte
 |   [1]   | <path name> | <contributor intent> | <entry artifact> | <prerequisite, or `—` if none> | <accepted-scope bound> |
 ```
 
-Omit an optional section only when it is irrelevant or fully replaced by one directly linked owner document. Omit a placeholder rather than publishing it empty. Do not keep template instructions or maintainer notes in the published guide.
+Required path fields per row: contributor intent, entry artifact, and scope bound. The prerequisite field is required when an action is gated and marked `—` only when no prerequisite exists. Route broad, expensive, compatibility-breaking, governance, security-sensitive, or cross-owner work to maintainer consultation before the contributor spends implementation effort.
 
-## [5][BEFORE_YOU_START]
+`Non-code` is a path only when maintainers can review the work. It may include reproduction cases, design feedback, accessibility fixes, translations, reviews, examples, and release notes when the project maintains those routes.
 
-State the conduct, license, and prerequisite facts a contributor must accept before opening any path. Carry the route, not the policy text.
+Use a decision table for path selection only when two or more independent conditions jointly choose the entry artifact. A single signal-to-artifact mapping belongs in prose beside the path table, not in a table that duplicates it.
+
+Show a near-miss only when authors tend to publish vague path bounds. Keep the example focused on the fields that teach the distinction:
+
+```markdown conceptual
+INTENT: land fix
+PREREQUISITE: local gate
+SCOPE_BOUND: self-contained; no break
+```
+
+```markdown rejected
+INTENT: quick fixes
+PREREQUISITE: a little prep
+SCOPE_BOUND: comfortable changes
+```
+
+## [4][REQUIRED_STRUCTURE]
+
+The published guide uses a required base plus conditional additions. Each `##` heading is a standalone retrieval unit; renumber headings in document order after inserting or omitting conditional sections.
+
+```markdown template
+# [CONTRIBUTING]
+
+<Lead: accepted contribution surface and the highest-risk contribution boundary.>
+
+## [1][SCOPE]
+
+## [2][WAYS_CONTRIBUTE]
+
+## [3][SETUP_WORKFLOW]
+
+## [4][QUALITY_GATES]
+
+## [5][PULL_REQUESTS]
+
+## [6][REVIEW]
+
+## [7][SECURITY_REPORTS]
+
+## [8][BOUNDARIES]
+
+## [9][REVIEW_CHECKLIST]
+
+```
+
+Conditional additions:
+
+```markdown template
+## [N][BEFORE_YOU_START]
+
+## [N][DOCUMENTATION_CHANGES]
+
+## [N][GETTING_HELP]
+
+```
+
+Section cardinality:
+
+| [INDEX] | [SECTION]             | [CARDINALITY]            | [CARRIES]                                                                     |
+| :-----: | :-------------------- | :----------------------- | :---------------------------------------------------------------------------- |
+|   [1]   | Scope                 | Required, one            | Accepted contribution surface and topics routed elsewhere                     |
+|   [2]   | Ways to contribute    | Required, one            | One path table row per accepted path                                          |
+|   [3]   | Setup and workflow    | Required, one            | Commands to reach a first-gate-passing tree, then the enforced workflow facts |
+|   [4]   | Quality gates         | Required, one            | Contributor-facing evidence for maintained gates                              |
+|   [5]   | Pull requests         | Required, one            | Required and conditional proof fields                                         |
+|   [6]   | Review                | Required, one            | Collaboration rules and conditional review profiles                           |
+|   [7]   | Security reports      | Required, one            | Private vulnerability route                                                   |
+|   [8]   | Boundaries            | Required, one            | Adjacent owners for routed-away content                                       |
+|   [9]   | Review checklist      | Required, one            | Verification gates for the published guide                                    |
+|  [10]   | Before you start      | Conditional, zero or one | Conduct, license, sign-off, support, account, or agreement prerequisites      |
+|  [11]   | Documentation changes | Conditional, zero or one | When docs travel with changed source truth                                    |
+|  [12]   | Getting help          | Optional, zero or one    | Where to ask when blocked                                                     |
+
+Omit a conditional or optional section when its condition is absent or when one directly linked owner document fully replaces it. Omit a placeholder rather than publishing it empty. Do not keep template instructions, maintainer notes, or speculative routes in the published guide.
+
+## [5][SCOPE_RULES]
+
+`Scope` states what the project accepts before it teaches any workflow. It carries the accepted contribution surface, the public or private entry route for each surface, and the topics the guide deliberately routes away.
+
+Minimum content:
+
+- accepted contribution surfaces the project can review;
+- explicit non-contribution topics such as role readiness, incident response, gate taxonomy, support policy, governance authority, and vulnerability disclosure;
+- the owner route for each excluded topic, or maintainer consultation when no maintained owner exists;
+- the highest-risk boundary, such as security-sensitive, breaking, or cross-owner work requiring direction first.
+
+Do not publish broad encouragement without a reviewable path. A contribution guide that invites work the project cannot review creates contributor waste and maintainer ambiguity.
+
+## [6][BEFORE_YOU_START]
+
+State the conduct, license, sign-off, and prerequisite facts a contributor must accept before opening any path. Carry the route and the acceptance action, not the policy body.
 
 - Link the code of conduct and state that contribution implies acceptance, when the project enforces one.
-- Name the contribution license or sign-off requirement, when one governs the change: the inbound license, the `Signed-off-by` Developer Certificate of Origin line, or the contributor-license-agreement route. State how to add a sign-off (`git commit --signoff`) when the project requires it.
+- Name the contribution license or sign-off requirement, when one governs the change: the inbound license, the `Signed-off-by` Developer Certificate of Origin line, or the contributor-license-agreement route.
+- State how to add a sign-off with `git commit --signoff` only when the project requires DCO sign-off.
+- Name required accounts, permissions, or contributor agreements only when they gate contribution.
 - Link the support or discussion channel for questions that are not yet a contribution.
 
-Do not embed the full code-of-conduct text, the license body, or the contributor-license-agreement; route each to its owner.
+Do not embed prerequisite knowledge, first-task guidance, shadowing, or role readiness here; route those to onboarding. Do not embed the full code-of-conduct text, license body, DCO body, or contributor-license-agreement. Route each to its maintained owner.
 
-## [6][SETUP_WORKFLOW]
+## [7][SETUP_WORKFLOW]
 
 Setup states the commands a contributor on the normal path runs to reach a working tree that passes the first gate; it carries nothing else. Link deeper onboarding, architecture, build, or platform material instead of embedding it. Setup is current when every command in it ran against the repository at or after `Last verified`.
 
-Workflow states six facts, each required when the project enforces it:
+Workflow states each enforced fact the contributor must follow:
 
 1. How to find an issue to take or how to propose new work.
 2. Whether to fork, branch from the default branch, or request write access.
-3. The branch, commit, or changeset discipline the project enforces, including any commit-message or pull-request-title convention (such as Conventional Commits `<type>(<scope>): <description>`) when the project enforces one.
-4. How to keep one change to one concern so review stays tractable.
-5. When generated files, dependency-manifest updates, screenshots, artifacts, or docs must travel with the code.
-6. How to recover or ask for help when setup or a gate fails.
+3. The branch, commit, changeset, or pull-request-title discipline the project enforces.
+4. Any commit-message convention, such as Conventional Commits `<type>[optional scope][!]: <description>`, only when the project enforces it.
+5. How to keep one change to one concern so review stays tractable.
+6. When generated files, dependency-manifest updates, screenshots, artifacts, or docs must travel with the code.
+7. How to recover or ask for help when setup or a gate fails.
 
-State each branch condition before its action: `If <signal>, do <action>`. Do not claim continuous integration, required status checks, branch protection, maintainer response time, commit-convention enforcement, or automation behavior unless repository or host configuration proves it.
+State each branch condition before its action: `If <signal>, do <action>`. Do not claim continuous integration, required status checks, branch protection, maintainer response time, commit-convention enforcement, sign-off enforcement, or automation behavior unless repository or host configuration proves it.
 
-`Evidence:` repository host config (branch-protection rules, required-checks list), the workflow files under `.github/`, and any commit-lint or sign-off-check configuration. `Review trigger:` default-branch name, branch-protection, required-check, fork-policy, or commit-convention change.
+Evidence: repository host config, branch-protection rules, required-checks list, workflow files under `.github/`, pull-request templates, issue templates, and any commit-lint or sign-off-check configuration.
+Review trigger: default-branch name, branch protection, required checks, fork policy, pull-request template, issue template, commit convention, or sign-off policy changes.
 
-## [7][QUALITY_GATES]
+## [8][QUALITY_GATES]
 
-Quality gates name the runnable command or review gate that proves a change, the evidence to attach, and the threshold that escalates to a broader gate. State the gate per change family so a contributor runs the minimal proof and no more.
+Quality gates name the runnable command or review gate that proves a contributor's change and the evidence to attach. State the contributor-facing proof per change family so a contributor can run the maintained gate and report gaps without learning the whole gate taxonomy.
 
-The change-family-to-gate mapping is repository truth, not prose to invent here. A guide for a multi-rail repository states one record per change family:
+The change-family-to-gate mapping is repository truth, not prose to invent here. Use a placeholder template unless the owning repository proves concrete commands:
 
-| [INDEX] | [CHANGE] | [PROOF_GATE]                  | [EVIDENCE]          | [ESCALATES_ON]              |
-| :-----: | :------- | :---------------------------- | :------------------ | :-------------------------- |
-|   [1]   | Source   | owning build or analyzer      | command and result  | shared build, package, or config |
-|   [2]   | Test     | targeted affected test        | command and count   | flaky or cross-target fail  |
-|   [3]   | Docs     | `git diff --check` + doc gate | gate run and result | generated/navigation change |
+```markdown template
+| [INDEX] | [CHANGE]         | [PROOF_GATE]                                   | [EVIDENCE]                    | [GAP_FIELD]                 |
+| :-----: | :--------------- | :--------------------------------------------- | :---------------------------- | :-------------------------- |
+|   [1]   | <change family>  | <runnable command or maintained review gate>   | <command/status and result>   | <unrun or failing gate>     |
+```
 
-Required gate fields per row: change family, proof gate, evidence to attach. The escalation-threshold field is required when a broader gate exists and omitted when no escalation applies. Point every gate at a current runnable command or maintained quality document; state honestly when a gate is a human review rather than an executable command, and never assert a gate passed unless it ran in the change or a current status check proves it.
+Required gate fields per row: change family, proof gate, evidence to attach, and the field that states known gaps. Point every gate at a current runnable command or maintained quality document; state honestly when a gate is a human review rather than an executable command, and never assert a gate passed unless it ran in the change or a current status check proves it. Route gate taxonomy, gate ownership, flake policy, escalation thresholds, and portfolio-level proof to [test-strategy.md](../explanation/test-strategy.md) or the maintained quality owner.
 
-## [8][DOCUMENTATION_CHANGES]
+## [9][DOCUMENTATION_CHANGES]
 
-State when docs must change in the same contribution that alters their source truth: code behavior, configuration, generated contracts, user-visible behavior, support status, or operational procedure. Route a new or changed document through the standards index by topic, then through the matching document-type standard; this guide carries the trigger, not the style guide, architecture map, API catalog, or release history.
+Include `Documentation changes` when contributions can alter documentation source truth: code behavior, configuration, generated contracts, user-visible behavior, support status, or operational procedure. Route a new or changed document through the standards index by topic, then through the matching document-type standard; this guide carries the trigger, not the style guide, architecture map, API catalog, or release history.
 
-## [9][PULL_REQUESTS]
+## [10][PULL_REQUESTS]
 
 A pull request is accepted for review when its body carries the proof fields below. Missing required proof is a request-changes condition, not a reviewer nicety. Render the always-required self-check as a checklist so the definition of done is asserted, not implied:
 
 - [ ] Summary of one to three sentences states the change and its motivation.
 - [ ] Proof is attached: the commands, checks, status checks, or review gates run, with results.
-- [ ] Known gaps are stated plainly or marked "none": unrun checks, follow-up work, reviewer-access needs.
+- [ ] Known gaps are stated plainly or marked `none`: unrun checks, follow-up work, reviewer-access needs.
 - [ ] Single concern; unrelated changes are excluded.
 - [ ] Commit-message or title convention is satisfied, when the project enforces one.
 - [ ] Sign-off (`Signed-off-by`) is present on every commit, when the project requires it.
 
 Attach these fields when their trigger applies:
 
-| [INDEX] | [TRIGGER]                                           | [FIELD]                                                         |
-| :-----: | :-------------------------------------------------- | :-------------------------------------------------------------- |
-|   [1]   | Review routes by area                               | Paths, owners, or areas touched                                 |
+| [INDEX] | [TRIGGER]                                           | [FIELD]                                                            |
+| :-----: | :-------------------------------------------------- | :----------------------------------------------------------------- |
+|   [1]   | Review routes by area                               | Paths, owners, or areas touched                                    |
 |   [2]   | Visual, runtime, operational, or user-facing change | Screenshots, recordings, logs, generated artifacts, or repro steps |
-|   [3]   | Existing direction governs the change               | Link to the governing issue, discussion, design, or decision    |
+|   [3]   | Existing direction governs the change               | Link to the governing issue, discussion, design, or decision       |
 
 State an unrun gate as unrun rather than implying it passed. Update the pull request body when proof, scope, or risk changes during review.
 
-## [10][REVIEW]
+## [11][REVIEW]
 
 Review guidance defines how contributors and maintainers collaborate so a thread converges. Apply these rules to every review:
 
@@ -182,62 +225,50 @@ Review guidance defines how contributors and maintainers collaborate so a thread
 - Keep unrelated changes out of the contribution.
 - Re-state proof, scope, or risk in the pull request body when any of them changes.
 
-When the project runs a review or triage ladder, describe it as a profile so a contributor knows which review depth a change attracts:
-
-| [INDEX] | [PROFILE]   | [TRIGGER]                     | [APPROVER]        | [MERGE_CONDITION]                  |
-| :-----: | :---------- | :---------------------------- | :---------------- | :--------------------------------- |
-|   [1]   | Light       | docs, tests, single-owner fix | owning maintainer | required checks green              |
-|   [2]   | Standard    | multi-file source change      | owning maintainer | approval plus green checks         |
-|   [3]   | Coordinated | cross-owner/breaking/security | each owner        | owner approvals, checks, direction |
-
-Required profile fields per row: trigger, approver, merge condition. Omit the table entirely when the project runs a single flat review path.
-
-## [11][SECURITY_REPORTS]
-
-Route every vulnerability report to the project's maintained security policy or coordinated vulnerability-reporting channel, and keep that route out of the normal issue and pull-request flow. When no coordinated route is documented, instruct reporters to ask maintainers for the preferred security contact without publishing exploit details.
-
-Carry only the route here. Do not embed a `SECURITY.md` template, a disclosure timeline, a bounty promise, a supported-version policy, or an advisory workflow; those belong to the security-policy owner.
-
-## [12][EXAMPLE_CONTRIBUTION_PATH]
-
-Show one accepted shape and one rejected shape so scope becomes a bound, not a mood.
-
-Accepted — scope is a testable bound:
+When the project runs a maintained review or triage ladder, describe only the contributor-facing profile signal and source. Approval authority, branch protection, merge conditions, and governance policy belong to the maintained repository policy owner. Omit the profile table entirely when the project runs a single flat review path or when no maintained policy proves the profiles.
 
 ```markdown template
-| [INDEX] | [PATH]        | [INTENT] | [ENTRY]      | [PREREQ]   | [ACCEPTED_SCOPE]         |
-| :-----: | :------------ | :------- | :----------- | :--------- | :----------------------- |
-|   [1]   | Patch (small) | land fix | pull request | local gate | self-contained; no break |
+| [INDEX] | [PROFILE]      | [TRIGGER]               | [SOURCE]                       | [CONTRIBUTOR_ACTION]          |
+| :-----: | :------------- | :---------------------- | :----------------------------- | :---------------------------- |
+|   [1]   | <profile name> | <review-routing signal> | <maintained review-policy link> | <contributor-facing action>   |
 ```
 
-Rejected — scope is a vague qualifier a reviewer cannot apply:
+Required profile fields per row: trigger, governing source, and contributor action.
 
-```markdown rejected
-| [INDEX] | [PATH]        | [INTENT]    | [ENTRY]      | [PREREQ]      | [ACCEPTED_SCOPE]    |
-| :-----: | :------------ | :---------- | :----------- | :------------ | :------------------ |
-|   [1]   | Patch (small) | quick fixes | pull request | a little prep | comfortable changes |
-```
+## [12][SECURITY_REPORTS]
+
+Route every vulnerability report to the project's maintained security policy, enabled private vulnerability-reporting channel, or coordinated vulnerability-reporting channel, and keep that route out of the normal issue and pull-request flow. When no coordinated route is documented, instruct reporters to ask maintainers for the preferred security contact without publishing exploit details.
+
+Carry only the private route and no policy body. Do not embed a `SECURITY.md` template, disclosure timeline, bounty promise, supported-version policy, advisory workflow, embargo rule, or response-time claim; those belong to the security-policy owner.
 
 ## [13][BOUNDARIES]
 
-- [README.md](../README.md) owns document-type routing, the reader-need map, the placement decision, and the evidence-standard route for new and changed docs.
-- [runbook.md](runbook.md) owns operational symptom-to-fix procedures, rollback, and escalation.
+- [README.md](../README.md) owns document-type routing, the reader-need map, placement, and lifecycle for new and changed docs.
+- [runbook.md](runbook.md) owns operational symptom-to-fix procedures, rollback, escalation, communication, and evidence capture.
 - [onboarding.md](../learning/onboarding.md) owns role readiness, first safe tasks, shadowing, and sign-off for contributors, maintainers, and operators.
-- [test-strategy.md](../explanation/test-strategy.md) owns gate taxonomy, gate ownership, gate cost, and flake policy.
-- [support-matrix.md](../reference/support-matrix.md) owns supported versions, platforms, runtimes, and end-of-support facts.
+- [test-strategy.md](../explanation/test-strategy.md) owns gate taxonomy, gate ownership, gate cost, flake policy, and portfolio-level proof.
+- [support-matrix.md](../reference/support-matrix.md) owns supported versions, platforms, runtimes, deprecation, and end-of-support facts.
 - Maintained governance and security-policy documents carry authority, disclosure, support-window, and advisory policy when they exist; otherwise this guide routes those topics to maintainer consultation without becoming the policy body.
 
 ## [14][REVIEW_CHECKLIST]
 
-- [ ] Placement is discoverable by the hosting platform (root, `.github/`, or `docs/`).
-- [ ] The guide anchors its conventions to a current source with `Last verified`, and claims no convention the repository does not enforce.
-- [ ] Scope and every accepted contribution path are stated, each with intent, entry artifact, and accepted scope.
+**Source and scope**
+- [ ] Placement is discoverable by the hosting platform or explicitly routed from the repository entrypoint.
+- [ ] The guide anchors conventions to current source with `Last verified`, and drift-prone claims have nearby evidence fields.
+- [ ] No CI, status-check, branch-protection, merge-condition, response-time, sign-off, security, approver, or commit-convention claim appears without host, repository, or maintained-policy proof.
+- [ ] `Scope` states accepted contribution surfaces and route-away topics before workflow details.
+
+**Workflow and proof**
+- [ ] Every accepted contribution path has intent, `ENTRY_ARTIFACT`, and `SCOPE_BOUND`.
 - [ ] Conduct, license, and sign-off prerequisites are linked, not embedded, when the project enforces them.
-- [ ] Setup commands ran at or after `Last verified` and link deeper docs.
+- [ ] Setup commands ran at or after `Last verified` and link deeper docs instead of embedding them.
 - [ ] Workflow states each enforced fact, including any commit or title convention, and writes conditions before actions.
-- [ ] Each quality-gate row names a runnable command or maintained gate and its evidence.
-- [ ] Pull-request required fields use the checklist form and unrun gates are marked unrun.
-- [ ] Review rules keep normal collaboration public and each comment answered.
+- [ ] Each quality-gate row names a runnable command or maintained review gate, evidence to attach, and how to state gaps.
+- [ ] Pull-request required fields use the checklist form and mark unrun gates honestly.
+
+**Structure and examples**
+- [ ] Review rules keep normal collaboration public and require every comment to receive a response.
 - [ ] Documentation-change triggers route new docs through the standards corpus by topic.
 - [ ] Security reporting points to a private or coordinated route without becoming a security-policy template.
-- [ ] No CI, status-check, branch-protection, response-time, or commit-convention claim appears without host or repository proof.
+- [ ] Tables answer comparison, lookup, or decision questions and do not duplicate prose.
+- [ ] Examples are single-purpose, non-duplicative, and cannot be mistaken for default project policy.

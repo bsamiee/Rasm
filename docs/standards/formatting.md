@@ -97,7 +97,7 @@ Labels are uppercase, use underscores for compounds, and ideally contain 1-2 sem
 
 ## [7][ANCHORS_COMMENTS]
 
-Treat heading anchors and hidden Markdown comments as source-level notation:
+Treat heading anchors and hidden Markdown comments as source-level notation. Anchor rules below are this repository's local validation convention for in-repo links; external renderers may apply different duplicate-suffix or punctuation rules.
 
 - Anchor stability: a bracketed heading slug is the lowercased heading text with brackets, punctuation, dots, and underscores removed; `## [10][FOLDER_LAYOUT]` becomes `#10folderlayout`. When a heading number or label changes, update every in-repo link to that anchor in the same change.
 - Duplicate headings: do not create duplicate bracket-heading anchors in one file. Rename the semantic label rather than relying on renderer-specific duplicate suffixes.
@@ -116,11 +116,14 @@ Treat heading anchors and hidden Markdown comments as source-level notation:
 
 ## [9][REVIEW_CHECKLIST]
 
+**Markers and tables**
 - [ ] Status, result, and change markers come from the closed token sets.
 - [ ] Markers do not appear in ordinary prose or duplicate a field or checkbox state.
 - [ ] Invocation markers appear only in instruction files, sparingly, on real invariants.
 - [ ] Table columns are aligned by type: text left, numeric/date values right, and only indexes plus compact markers or short booleans centered.
 - [ ] Table cells escape literal pipes, stay single-line, and move long qualifications to visible notes, footnotes, or record blocks.
+
+**Spacing and headings**
 - [ ] Bullets use `-`, list items carry no blank lines between them, and structural elements have one blank line around them.
 - [ ] The document uses the bracketed heading format consistently.
 - [ ] Heading links match the rendered anchor slug, and hidden comments carry only source-view hints.

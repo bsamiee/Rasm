@@ -133,16 +133,16 @@ Whenever a document asserts that gates, steps, or criteria are complete, use a c
 Use one label per line when a label carries meaning a reader will scan, quote, or update independently:
 
 ```markdown conceptual
-Owner: Runtime maintainers
-Review trigger: Host SDK version changes
+Owner: Platform maintainers
+Review trigger: runtime version changes
 ```
 
 When several records share one schema, use a grouped definition block: a plain group-name line, then the shared `label: value` fields indented four spaces beneath it, with a blank line between groups. A list-valued field keeps the label on its own line and indents the child list four spaces beneath the label; a wrapped prose continuation also indents four spaces. Once a record exceeds 5 fields, two or more fields need continuations, or any field needs a code block, move to a subsection-per-record block — an H3 heading as the record identifier and a definition block as its body. Do not pack several labeled facts into one sentence, and do not widen a record into a one-row table.
 
 ```markdown template
-Runtime maintainers
+Platform maintainers
     Owner: Platform
-    Review trigger: Host SDK version changes
+    Review trigger: runtime version changes
 
 Release criteria
     Exit criteria:
@@ -297,7 +297,7 @@ Carry meaning with structure, not ornament. Markdown structure is cheap, readabl
 
 ## [17][PAGE_ANATOMY]
 
-Render the page shape as a template heading set, not a narrated list of section names. The template is the structure prescription.
+Render the page shape as a template heading set, not a narrated list of section names. The template is the structure prescription; conditional sections appear in a separate addition block so agents do not publish empty headings.
 
 ```markdown template
 # [TITLE]
@@ -306,15 +306,20 @@ Render the page shape as a template heading set, not a narrated list of section 
 
 ## [1][USE_WHEN]
 
-## [2][SOURCE_AUTHORITY]
+## [2][<REQUIRED_SHAPE>]
 
-## [3][<REQUIRED_SHAPE>]
+## [3][BOUNDARIES]
 
-## [4][EXAMPLES]
+## [4][REVIEW_CHECKLIST]
 
-## [5][BOUNDARIES]
+```
 
-## [6][REVIEW_CHECKLIST]
+Conditional additions:
+
+```markdown template
+## [N][SOURCE_AUTHORITY]
+
+## [N][EXAMPLES]
 
 ```
 
@@ -335,15 +340,20 @@ Every long standard needs a chooser, boundaries, and a checklist. A type standar
 
 ## [2][<SECTION_B>]
 
-## [3][<CONDITIONAL_SECTION>]
+## [3][BOUNDARIES]
 
-## [4][BOUNDARIES]
-
-## [5][REVIEW_CHECKLIST]
+## [4][REVIEW_CHECKLIST]
 
 ```
 
-Tag each heading `required | conditional | optional | repeatable` in a cardinality block beneath the template — `required` sections always appear, `conditional` sections appear only when their condition holds, `optional` sections appear at author discretion, and `repeatable` records appear once per item.
+Conditional additions:
+
+```markdown template
+## [N][<CONDITIONAL_SECTION>]
+
+```
+
+Tag each heading `required | conditional | optional | repeatable` in a cardinality block beneath the template — `required` sections always appear, `conditional` sections appear only when their condition holds, `optional` sections appear at author discretion, and `repeatable` records appear once per item. Put conditional sections in a separate addition block unless every instance of the type needs the heading.
 
 ## [18][HEADINGS_CHUNKS]
 
@@ -381,18 +391,25 @@ Do not publish interaction excerpts, nonpublic local paths, or local task notes 
 
 ## [22][REVIEW_CHECKLIST]
 
-- [ ] The page follows the prescribed anatomy: lead, use when, rules, examples, boundaries, checklist.
+**Page shape**
+- [ ] The page follows the prescribed anatomy: lead, use when, rules, boundaries, checklist, and examples only where misuse is likely.
 - [ ] One primary container owns each section, and mixed blocks assign disjoint roles.
+- [ ] Lists nest no deeper than two levels and group past seven items with bold labels.
+
+**Records and tables**
 - [ ] Tables stay within column and row bounds, hold no paragraph cells beyond one trailing prose column, and decompose by the dominant violation when over.
-- [ ] A finite enumerable set of trackable items uses status-tagged records with `Status`, `Exit`, and `Depends`, never flat prose.
+- [ ] A finite enumerable set of trackable items uses status-tagged records with `Status`, `Exit`, and applicable `Depends` or `Proof` fields, never flat prose.
 - [ ] Checklists use the checkbox form and carry the fields their checklist form requires.
 - [ ] A single record uses a definition block; record clusters use grouped or subsection-per-record blocks.
 - [ ] Decision and lookup tables are used for condition-action and key-value content respectively.
-- [ ] Lists nest no deeper than two levels and group past seven items with bold labels.
+
+**Literal and visual forms**
 - [ ] Code blocks carry exactly one intent label, and placeholder templates use `template`, not `copy-safe`.
 - [ ] Monospace text is short and raw-Markdown readable; Mermaid is used only when rendering adds value.
 - [ ] Callouts, collapsible blocks, and footnotes are used for their purpose and the renderer supports them.
 - [ ] Hidden comments are source-only hints, and any reader-facing safety, proof, or intent text is visible.
+
+**Retrieval and examples**
 - [ ] Prose is not hard-wrapped; manual breaks are structural only.
 - [ ] Headings form standalone retrievable H2 units and carry no links.
 - [ ] Examples sit beside the rule they clarify; metadata is present only where a consumer reads it.

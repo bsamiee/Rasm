@@ -1,37 +1,44 @@
 # [ROADMAP_STANDARDS]
 
-A roadmap states planned sequence, milestone intent, the measurable outcome each milestone serves, dependencies, exit criteria, and the proof that closes each milestone. It answers what must happen next, what outcome the work moves, what has cleared its exit bar, and what evidence shows the work is done. It summarizes live dates, status, and blocker state only through links and review fields; the planning system owns those facts.
+A roadmap states planned sequence, milestone intent, the measurable outcome each milestone serves, dependencies, exit criteria, and the proof that closes each milestone. It answers what must happen next, what outcome the work moves, what has cleared its exit bar, and what evidence shows the work is done. Live dates, status, blocker state, and shipped history belong to the planning, release, or changelog system when one exists; Markdown summarizes and links that truth rather than becoming a second tracker.
 
-This standard uses an outcome-based, horizon-aware roadmap: every milestone ladders up to a measurable objective rather than a shipped feature, and certainty decreases with horizon so far-dated work is never promised as committed. It binds that form to the agent-facing structures — opening metadata, status-tagged milestone records, binary exit checklists, and a live-source dependency table — that keep a roadmap honest and refreshable.
+This standard uses local outcome and horizon framing: milestones ladder up to measurable outcomes rather than shipped artifacts, and certainty decreases with horizon so far-dated work is not written as commitment. The durable structures are opening metadata, status vocabulary, milestone records, binary exit checklists, dependency edges, public-reader framing rules, and completion proof.
 
 ## [1][USE_WHEN]
 
 Use a roadmap when readers need planned sequence across milestones, the outcome each milestone serves, dependency and blocker visibility, exit criteria for a build or release or capability sequence, or the proof surfaces that close those milestones.
 
-Route elsewhere when the reader's real need is current structure, a durable decision, a pre-code proposal, test taxonomy, supported-version lifecycle, a command or API lookup, or a repeatable procedure. Each of those needs has its own owner named in Boundaries.
+Route elsewhere when the reader needs current structure, durable decision rationale, pre-code proposal review, test taxonomy, supported-version lifecycle, command or API lookup, release history, or a repeatable procedure.
 
-## [2][SOURCE_TRUTH]
+## [2][SOURCE_ORDER]
 
-Maintained milestone, linked-issue, release, and pull-request systems own dates, status, blocker state, and exit evidence whenever they exist. A Markdown roadmap summarizes that contract and links the live source; it never restates a date or status the planning system can change underneath it.
+Use the nearest live source for mutable planning facts and this standard for local roadmap shape:
 
-When the Markdown and the planning system disagree, the planning system controls the live fact and the Markdown is stale. Carry the live link, not a copy, for any field the source can change.
+1. Owner-maintained milestone, issue, release, project, or planning system for mutable status, dates, blockers, and completion evidence.
+2. Current repository source, manifests, generated contracts, and release artifacts for proof surfaces.
+3. This standard for milestone record shape, exit proof, dependency edges, and public-reader boundaries.
+4. Common Changelog only when a project adopts `CHANGELOG.md` release-history formatting.
 
-`Source of truth:` the owner's milestone, issue, and release systems.
+When Markdown and a live planning system disagree, the live system controls the mutable fact. If no external planner exists, the Markdown roadmap may be the source of truth, but it must say so in `Source of truth:` and carry `Last reviewed:` plus `Review trigger:`.
+
+Source of truth: owner milestone, issue, release, or planning system when present; otherwise owner-maintained Markdown.
+External basis: [Common Changelog](https://common-changelog.org/) for `CHANGELOG.md` release-history boundaries only. `Now` / `Next` / `Later` and `directional` / `committed` / `historical` are local public-roadmap framing vocabularies, not an external standard.
+Last verified: 2026-06-04
+Review trigger: planning source, release-history source, or public-roadmap framing changes.
 
 ## [3][PROFILES]
 
-Pick exactly one profile and name it in the opening metadata block and the lead paragraph. A profile fixes the milestone granularity, the proof surface, the horizon axis, and the reader-boundary rules; mixing two profiles in one page splits the proof model, so split the document instead. Keep the profile facts together, with short cells and a note only where a token needs interpretation.
+Pick exactly one real profile and name it in the opening metadata block and lead paragraph. `No roadmap` is a route-away verdict, not a profile.
 
-| [INDEX] | [PROFILE]         | [READER]           | [UNIT]            | [HORIZON]      | [PROOF]           | [COMMITMENT]  |
-| :-----: | :---------------- | :----------------- | :---------------- | :------------- | :---------------- | :------------ |
-|   [1]   | Phased build      | builders           | capability layer  | phased         | path, build, test | no            |
-|   [2]   | Concern spec      | concern owners     | scoped outcome    | phased         | contract/scenario | no            |
-|   [3]   | Foundation status | extension owners   | extension point   | snapshot       | invariant/codemap | no            |
-|   [4]   | Release train     | release owners     | release/iteration | release cycle  | check/artifact/PR | external only |
-|   [5]   | Public product    | external readers   | theme             | Now/Next/Later | release evidence  | yes           |
-|   [6]   | No roadmap        | mature-scope owner | none              | none           | architecture/ADR  | n/a           |
+| [INDEX] | [PROFILE]         | [READER]         | [UNIT]            | [HORIZON]      | [PROOF]           | [FRAMING]                       |
+| :-----: | :---------------- | :--------------- | :---------------- | :------------- | :---------------- | :------------------------------ |
+|   [1]   | Phased build      | builders         | capability layer  | phased         | path, build, test | internal                        |
+|   [2]   | Concern spec      | concern owners   | scoped outcome    | phased         | contract/scenario | internal                        |
+|   [3]   | Foundation status | extension owners | extension point   | snapshot       | invariant/codemap | internal                        |
+|   [4]   | Release train     | release owners   | release/iteration | release cycle  | check/artifact/PR | internal or external            |
+|   [5]   | Public product    | external readers | theme             | Now/Next/Later | release evidence  | directional, committed, history |
 
-The `No roadmap` profile is a routing verdict, not a document: when architecture and ADRs already carry the truth, do not author a roadmap. Record the verdict in the owner's README index instead.
+If architecture and ADRs already carry the truth, do not author a roadmap. Record the `No roadmap` verdict in the owner's README index with links to the controlling architecture and ADRs.
 
 ## [4][PLACEMENT]
 
@@ -44,18 +51,18 @@ Place a roadmap next to the owner that can refresh it. Use the narrowest scope t
 
 ## [5][STATUS_VOCABULARY]
 
-Define only the statuses the roadmap actually uses, and use each one with the exact meaning below. A roadmap that introduces a status outside this set defines it inline before first use.
+Use the default status set below, and define only the subset that appears in the roadmap instance. If a live planning system owns a different status vocabulary, map its statuses in the roadmap's `Status vocabulary` section rather than inventing local synonyms.
 
-Status: Planned | Active | Blocked | Complete | Deferred | Cancelled
+Default status set:
 
 - `Planned`: accepted for sequencing, not yet executing.
-- `Active`: in progress and still inside its milestone scope.
+- `Active`: in progress and still inside milestone scope.
 - `Blocked`: a named dependency or decision prevents progress.
 - `Complete`: exit criteria passed and proof is linked.
 - `Deferred`: intentionally moved outside the current sequence.
 - `Cancelled`: removed from the plan, with the reason stated.
 
-The `Release train` and `Public product roadmap` profiles may add exploration, design, preview, and general-availability stages only when the product or release process already assigns those meanings. The status set forms a lifecycle whose transitions are the subject, so render it as a state diagram.
+The `Release train` and `Public product` profiles may add exploration, design, preview, and general-availability stages only when the product or release process already assigns those meanings. The status lifecycle is a state subject, so a state diagram is appropriate when the instance uses most transitions.
 
 ```mermaid conceptual
 stateDiagram-v2
@@ -74,205 +81,233 @@ stateDiagram-v2
 
 ## [6][REQUIRED_STRUCTURE]
 
-Use this template. The opening metadata block is an in-body definition block so an agent can triage profile, status, ownership, source of truth, and freshness without parsing YAML. Each section carries a cardinality: `required` sections always appear, `conditional` sections appear only when their condition holds, `optional` sections appear at author discretion, and `repeatable` records appear once per item.
+Use this required heading order. Omit conditional sections until their trigger holds; when they appear, insert them at the named position and renumber headings in document order.
 
 ```markdown template
 # [SCOPE_ROADMAP]
 
-Id: <scope-slug>-roadmap
 Status: Planned | Active | Blocked | Complete | Deferred | Cancelled
-Profile: Phased build | Concern spec | Foundation status | Release train | Public product roadmap
+Profile: Phased build | Concern spec | Foundation status | Release train | Public product
 Owner: <owner role or group>
-Source of truth: <link to the owner milestone, issue, or release system>
-Last reviewed: <YYYY-MM-DD>
-Horizon axis: phased | now-next-later | release-cycle | status-snapshot
+Source of truth: <live planning source, or owner-maintained Markdown>
+Last reviewed: YYYY-MM-DD
+Review trigger: <event that makes the roadmap stale>
+Framing: internal | directional | committed | historical
 
-<Lead: name the one profile; for external profiles declare directional, committed, or historical; state the one coordinated sequence this covers.>
+<Lead: name the profile, the one coordinated sequence, and the framing if the roadmap is external-facing.>
 
 ## [1][SCOPE]
 
-## [2][CURRENT_STATUS]
+## [2][STATUS_VOCABULARY]
 
-## [3][STATUS_VOCABULARY]
+## [3][MILESTONES]
 
-## [4][PRINCIPLES_CONSTRAINTS]
+## [4][EXIT_PROOF_RULES]
 
-## [5][MILESTONES]
+## [5][BOUNDARIES]
 
-## [6][DEPENDENCIES_BLOCKERS]
-
-## [7][EXIT_PROOF_RULES]
-
-## [8][DEFERRED_OUT_SCOPE]
-
-## [9][PUBLIC_ROADMAP_RULES]
-
-## [10][BOUNDARIES]
-
-## [11][REVIEW_CHECKLIST]
-
+## [6][REVIEW_CHECKLIST]
 ```
+
+Conditional additions:
+
+```markdown template
+## [N][CURRENT_STATUS]
+
+<Insert after `Scope` when a snapshot table adds value over the live planner.>
+
+## [N][PRINCIPLES_CONSTRAINTS]
+
+<Insert before `Milestones` when a constraint shapes sequence beyond mechanical order.>
+
+## [N][DEPENDENCIES_BLOCKERS]
+
+<Insert after `Milestones` when prerequisites, external dependencies, or go/no-go gates exist.>
+
+## [N][DEFERRED_OUT_SCOPE]
+
+<Insert after `Dependencies and blockers` when anything is excluded or deferred outside milestone records.>
+
+## [N][PUBLIC_ROADMAP_RULES]
+
+<Insert before `Boundaries` for `Public product` and external-facing `Release train`.>
+```
+
+Metadata cardinality:
+
+- `Status`, `Profile`, `Owner`, `Source of truth`, `Last reviewed`, and `Review trigger` are required.
+- `Framing` is required for public or external roadmaps and optional for internal roadmaps.
+- `Id` is optional and appears only when a named index, generator, retrieval store, or review workflow consumes it.
+- `Horizon axis` is optional and appears only when a machine consumer reads it; otherwise profile and lead prose carry the horizon.
 
 Section cardinality:
 
-- Metadata fields `Id`, `Status`, `Profile`, `Owner`, `Source of truth`, `Last reviewed`, and `Horizon axis` — required, one each.
-- `Scope`, `Current status`, `Status vocabulary`, `Milestones`, `Exit proof rules` — required.
-- `Dependencies and blockers` — conditional; required when any milestone has a prerequisite, external dependency, or go/no-go gate; omit only when every milestone is independent.
-- `Deferred or out-of-scope work` — conditional; required when any item is excluded; omit only when nothing is deferred.
-- `Public roadmap rules` — conditional; required for the `Public product roadmap` profile and any external-facing `Release train`; omit for internal profiles.
-- `Principles and constraints` — optional; include only when a constraint shapes the sequence beyond the mechanical order of the milestones.
-- `Boundaries`, `Review checklist` — required.
+- `Scope`, `Status vocabulary`, `Milestones`, `Exit proof rules`, `Boundaries`, and `Review checklist` are required.
+- `Current status` is conditional; include it only when a snapshot table adds value over the live planner and every row links its live source.
+- `Dependencies and blockers` is conditional; include it when any milestone has a prerequisite, external dependency, or go/no-go gate.
+- `Deferred or out-of-scope work` is conditional; include it when an exclusion is not already clear in milestone `Deferred work`.
+- `Public roadmap rules` is conditional; include it for `Public product` and any external-facing `Release train`.
+- `Principles and constraints` is conditional; include it only when a constraint shapes sequence beyond mechanical order.
 
-## [7][METADATA_RULES]
+## [7][CURRENT_STATUS]
 
-Carry the machine-scannable header as an opening definition block, one `label: value` field per line, so an agent triages relevance, ownership, and freshness before reading the body. Every field below is required; a roadmap missing `Source of truth` or `Last reviewed` is rejected.
-
-- `Id`: a stable `<scope-slug>-roadmap` identifier an index or generator can reference.
-- `Status`: one value from the status vocabulary, naming the roadmap's own lifecycle state.
-- `Profile`: exactly one profile, matching the lead paragraph.
-- `Owner`: the role or group accountable for refreshing the roadmap.
-- `Source of truth`: a link to the owning milestone, issue, or release system, never a copied status.
-- `Last reviewed`: the date the roadmap was last reconciled against its source, in ISO-8601 (`YYYY-MM-DD`).
-- `Horizon axis`: the certainty axis the milestones use — `phased`, `now-next-later`, `release-cycle`, or `status-snapshot` — matching the profile.
-
-## [8][CURRENT_STATUS]
-
-Render the at-a-glance lifecycle view as a snapshot table, never as prose narration, so a reader sees every milestone's state and the live source in one scan. One row per milestone; the `Status` cell carries a value from the closed vocabulary, and the live-source cell links the system that owns the current state.
+Render current status as a snapshot table only when the table adds a useful cross-milestone scan. The table links live source per row; it never copies a mutable date or status without `Last reviewed` beside it.
 
 | [INDEX] | [MILESTONE] | [STATUS] | [OUTCOME_IT_SERVES] | [LIVE_SOURCE] | [LAST_REVIEWED] |
 | :-----: | :---------- | :------- | :------------------ | :------------ | --------------: |
-|   [1]   | M1          | Complete | `<metric or OKR>`   | `<link>`      |      2026-05-20 |
-|   [2]   | M2          | Active   | `<metric or OKR>`   | `<link>`      |      2026-06-04 |
+|   [1]   | M1          | Complete | reduce contract drift | issue/101     |      2026-05-20 |
+|   [2]   | M2          | Active   | shorten review cycle  | issue/112     |      2026-06-04 |
 
-Link the live source per row; never copy a date or status the planning system can change without the live-source link and review date beside it. Use an em-dash for a cell with no applicable value, and keep dates in ISO-8601.
+If a planning system already gives the same view, link it from the lead or `Scope` section and omit this section.
 
-## [9][OUTCOME_ANCHORING]
+## [8][MILESTONES]
 
-Anchor every milestone to a measurable outcome, not to the artifact it ships. Each milestone names the business objective or OKR it ladders up to and the observable result that proves the outcome moved — a metric, a threshold, or a verifiable condition. A milestone whose only stated value is "ship X" is rejected; the deliverable is the means, the outcome is the point.
+Treat each milestone as one repeatable record. Render it as a field/value block so outcome, intent, proof, deferred work, and dependencies stay separate.
 
-State the outcome as the `Outcome` field on the milestone record and again as the `Outcome it serves` column in the Current-status table, so the output-versus-outcome separation holds in both the index and the detail.
+Outcome anchoring is mandatory. Each milestone names the objective or OKR it serves and the observable result that proves the outcome moved. A milestone whose only stated value is `ship X` is rejected; the deliverable is the means, the outcome is the point.
 
-## [10][MILESTONES]
+Required fields:
 
-Treat each milestone as one `repeatable` record. Render it as a field/value record block so every milestone carries the same load-bearing fields and an author cannot collapse goal into proof or omit exit criteria. Every milestone carries the fields below; mark a field absent only when the cardinality permits it.
+- `Status`: one value from the roadmap's status vocabulary.
+- `Goal`: one sentence stating the intended change.
+- `Outcome`: the measurable result or OKR link the milestone serves.
+- `Deliverables`: concrete artifacts or scoped outcomes.
+- `Exit criteria`: a binary checklist of observable, falsifiable conditions.
+- `Proof surface`: the smallest evidence that demonstrates exit.
 
-- Goal — required, one sentence stating the intended change.
-- Status — required, one value from the status vocabulary.
-- Outcome — required, the measurable result or OKR link the milestone serves.
-- Deliverables or scoped outcomes — required, one or more concrete artifacts.
-- Exit criteria — required, a binary checklist of observable, falsifiable conditions; see Exit proof rules.
-- Proof surface — required, the smallest evidence that demonstrates exit.
-- Dependencies, blockers, or prerequisite milestones — repeatable; required when any exist, absent when the milestone is independent.
-- Confidence — conditional; required on `Next`, `Later`, directional, and exploratory milestones where certainty is genuinely partial; carry `Low`, `Med`, `High` or a percentage.
-- Off-ramp — conditional; required on exploratory or controlled-experiment milestones; state the criterion that ends the experiment and the action taken when it fails.
-- Owner or accountable review group — optional; include when the milestone owner differs from the opening metadata `Owner`.
-- Deferred work — optional; include when this milestone intentionally excludes a related outcome.
+Conditional fields:
 
-Separate intent from proof. A milestone reaches `Complete` only when every exit-criterion checkbox is checked and its proof surface agrees; a passing build with an unchecked criterion, or all criteria met with no linked proof, leaves the milestone `Active`.
+- `Dependencies`: required when prerequisites, blockers, or external dependencies exist.
+- `Off-ramp`: required for experiments or exploratory milestones; state the criterion that ends the experiment and the action taken when it fails.
+- `Owner`: include when the milestone owner differs from the roadmap owner.
+- `Deferred work`: include when the milestone intentionally excludes a related outcome; state `Reason`, `Successor`, and `Review trigger` when the deferred work is not self-evident.
 
-For the `Public product roadmap` profile and any external `Release train`, group milestones by horizon — `### [N.M][NOW]`, `### [N.M][NEXT]`, `### [N.M][LATER]` — and shift content type with the horizon: `Now` carries committed solutions in active development, `Next` carries validated opportunities not yet committed to a solution, and `Later` carries target outcomes only. See Public roadmap rules.
+Separate intent from proof. A milestone reaches `Complete` only when every exit-criterion checkbox is checked, its proof surface agrees, and completed proof carries `Last verified:` beside the milestone. A passing build with an unchecked criterion, or all criteria met with no linked proof, leaves the milestone `Active`.
 
-## [11][DEPENDENCIES_BLOCKERS]
+For `Public product` and external `Release train` roadmaps, group milestones by horizon: `Now`, `Next`, and `Later`. `Now` carries committed active work, `Next` carries likely near-term outcomes with partial confidence, and `Later` carries directional outcomes only.
 
-Expose sequencing risk as a dependency edge table that links the live source, not as task tracking. Each row names a relationship and points to the system that owns the current state.
+Accepted milestone record:
 
-| [INDEX] | [EDGE]  | [RELATIONSHIP] | [LIVE_SOURCE]     | [GATE_DECISION]              |
-| :-----: | :------ | :------------- | :---------------- | :--------------------------- |
-|   [1]   | M2 <- M1 | blocked by     | `<issue link>`    | go when host bundle resolves |
-|   [2]   | M3 ext  | vendor         | `<contract link>` | go/no-go on `<evidence>`     |
+```markdown template
+### [N.M][M2_CONTRACT_FREEZE]
 
-- Name the relationship from a fixed set: `blocks`, `blocked by`, `prerequisite`, `external-vendor`, or `go/no-go`.
-- Link the issue, pull request, epic, milestone, release, design, ADR, or support record that owns the live dependency; never copy its status.
+Status: Active
+Goal: Freeze the public event contract for downstream consumers.
+Outcome: integration failures from contract drift drop to zero for the release cycle.
+Deliverables: `contracts/events.schema.json`, generated reference page.
+Exit criteria:
+    - [ ] schema diff shows no breaking changes
+    - [ ] downstream owner review is approved
+Proof surface: `contracts/events.schema.json` generated diff and owner review link.
+Dependencies: blocked by M1 (`issue/101`)
+```
+
+The next block collapses goal into proof and omits outcome and exit criteria:
+
+```markdown rejected
+### [N.M][M2_CONTRACT]
+
+Status: Active
+Goal: Make the contract pass.
+Proof surface: it works.
+```
+
+## [9][DEPENDENCIES_BLOCKERS]
+
+Expose sequencing risk as a dependency edge table that links live source, not as task tracking. Each row names a relationship and points to the system that owns current state.
+
+| [INDEX] | [EDGE]             | [RELATIONSHIP]      | [OWNER_SOURCE]     | [LIVE_SOURCE] | [GATE_DECISION]          |
+| :-----: | :----------------- | :------------------ | :----------------- | :------------ | :----------------------- |
+|   [1]   | M2 <- M1           | blocked by          | internal milestone | issue/101     | go when dependency lands |
+|   [2]   | M3 <- external API | external dependency | provider contract  | contract doc  | go/no-go on evidence     |
+
+- Name the relationship from a fixed set: `blocks`, `blocked by`, `prerequisite`, `external dependency`, or `go/no-go`.
+- Link the issue, pull request, epic, milestone, release, design, ADR, or support record that owns the live dependency.
 - State each external dependency by owner, contract, or vendor source.
-- Record a go/no-go decision point in the `Gate decision` column when the next milestone depends on evidence.
-- Move tactical subtasks to the tracker or design document; a roadmap holds the dependency edge, not the task breakdown.
+- Record a go/no-go decision point when the next milestone depends on evidence.
+- Move tactical subtasks to the tracker or design document; a roadmap holds the dependency edge, not task breakdown.
 
-## [12][EXIT_PROOF_RULES]
+## [10][DEFERRED_OUT_SCOPE]
 
-Roadmap proof is milestone-level, and each milestone names the smallest evidence that demonstrates exit. Exit criteria are a binary checklist: each item is an observable, falsifiable condition that is independently true or false, captured as a GFM task-list item, not a single vague sentence. A criterion such as "improve performance" is rejected; "`- [ ] p95 latency < 200 ms verified by <command>`" is accepted. The checklist captures completion conditions beyond linked tasks — `design approved`, `beta feedback complete`, `legal review` — so closure is checkable item by item.
+Use this section only when exclusions or deferred work are not clear enough inside milestone records. Each item is a record, not a sentence list:
+
+```markdown template
+### [N.M][LEGACY_EXPORT]
+
+Status: Deferred
+Reason: depends on downstream contract owner decision.
+Successor: M4 or retirement ADR.
+Review trigger: downstream contract decision lands.
+```
+
+Cancelled work states the successor or that the need retired. Deferred work states the event that can return it to the sequence.
+
+## [11][EXIT_PROOF_RULES]
+
+Roadmap proof is milestone-level. Exit criteria are binary checklist items: each item is independently true or false, captured as a GFM task-list item, not a vague sentence.
 
 ```markdown template
 Exit criteria:
-    - [ ] all public scenarios run through the in-process bridge
-    - [ ] no scenario marked skip without a linked issue
+    - [ ] public contract generated and linked
+    - [ ] migration rollback path reviewed by owner
 ```
 
 The proof surface is one concrete artifact a reader can open or one command a reader can run, not a description of done. Choose the proof type that matches the milestone outcome:
 
-- a source path, manifest, generated contract, or release artifact;
-- an exact command, build, test, documentation build, link check, or preview build;
-- a status check or pull-request review gate;
-- an operational verification, runtime run, screenshot, or captured artifact;
-- a product metric, support signal, adoption threshold, or owner sign-off when the milestone is rollout-oriented.
+- source path, manifest, generated contract, or release artifact;
+- exact command, build, test, documentation build, link check, or preview build;
+- status check or pull-request review gate;
+- operational verification, runtime run, screenshot, or captured artifact;
+- product metric, support signal, adoption threshold, or owner sign-off when the milestone is rollout-oriented.
 
-Attach the evidence beside the milestone it proves, using the freshness fields the evidence owner defines. State an unrun gate honestly rather than implying it passed.
+Attach evidence beside the milestone it proves, using the freshness fields the evidence owner defines. State an unrun gate honestly rather than implying it passed. A `Complete` milestone requires `Last verified:` next to its proof surface.
 
-## [13][PUBLIC_ROADMAP_RULES]
+## [12][PUBLIC_ROADMAP_RULES]
 
-A `Public product roadmap` or external-facing `Release train` carries stronger reader boundaries because external readers treat a published item as a commitment. Apply these rules in addition to the shared milestone rules.
+A `Public product` roadmap or external-facing `Release train` carries stronger reader boundaries because external readers treat published items as commitments. Apply these rules in addition to the shared milestone rules.
 
-- Declare the framing — `directional`, `committed`, or `historical` — as a single explicit statement in the lead paragraph, not buried in a later bullet.
-- Group milestones by the `Now` / `Next` / `Later` horizon and shift content type per horizon: `Now` holds committed solutions in active development sized to actual capacity; `Next` holds validated opportunities not yet committed to a solution; `Later` holds target outcomes only.
-- Size `Now` to actual capacity and keep `Later` bounded: `Later` holds only items serving a current outcome or strategic bet, never an open backlog.
-- Omit fixed dates on `Next` and `Later` unless the source of truth maintains them; use cycle or quarter granularity, and use ISO-8601 for any date that does appear.
-- Distinguish shipped work from planned work by evidence link, not by status color alone, and link each shipped item to release notes, an issue closure, or a changelog entry.
-- Hand the shipped-history tail to a Keep-a-Changelog-style source: link the changelog or release notes that own the canonical history rather than restating it, and keep that history in ISO-8601, latest first.
-- Move supported-version and end-of-life truth to a support matrix once those facts outgrow a single milestone note.
+Framing values:
 
-## [14][EXAMPLES]
+- `directional`: communicates intent and relative priority; dates and exact scope are not committed.
+- `committed`: communicates work accepted for a named release, cycle, or launch window; proof source owns the commitment.
+- `historical`: communicates shipped work only; release notes or changelog own canonical history.
 
-Show one milestone record beside the rules it follows, because the goal/outcome/exit/proof separation is the field set most often collapsed in practice.
+Rules:
 
-```markdown template
-### [N.M][M3_BRIDGE_SCENARIO]
+- Declare framing in the lead paragraph.
+- Group by `Now` / `Next` / `Later`; use `directional`, `committed`, or `historical` framing instead of inventing confidence labels.
+- Size `Now` to actual capacity and keep `Later` bounded to current outcomes or strategic bets.
+- Omit fixed dates on `Next` and `Later` unless the source of truth maintains them; use cycle or quarter granularity for noncommitted horizons.
+- Distinguish shipped work from planned work by evidence link, not status color.
+- Hand shipped-history tails to the project release mechanism, such as `CHANGELOG.md` or release notes.
+- When a project adopts Common Changelog, `CHANGELOG.md` release entries are sorted SemVer-latest first and use `VERSION - YYYY-MM-DD`; otherwise the project release mechanism owns history.
+- Move supported-version and end-of-life truth to a support matrix once those facts outgrow one milestone note.
 
-Status: Active
-Goal: Every public scenario runs through the in-process bridge.
-Outcome: Scenario coverage of public surface reaches 100% (host-parity OKR).
-Deliverables: scenario suite under `tests/csharp/scenarios/`, bridge verify route.
-Exit criteria:
-    - [ ] all public scenarios run through the in-process bridge
-    - [ ] no scenario marked skip without a linked issue
-Proof surface: `uv run python -m tools.quality bridge verify "tests/csharp/scenarios/**"`
-Dependencies: blocked by M2 (host bundle resolution) -> `<live link>`
-```
-
-The next block collapses goal into proof, omits the outcome, and states exit criteria as an unverifiable phrase, so a reader cannot tell what the milestone moves or when it closes.
-
-```markdown rejected
-### [N.M][M3_BRIDGE_COVERAGE]
-
-Status: Active
-Goal: Make the bridge pass.
-Proof surface: it works.
-```
-
-The first block is a `template`; the second is `rejected` and exists only to show the failure.
-
-## [15][BOUNDARIES]
+## [13][BOUNDARIES]
 
 - [architecture.md](architecture.md) owns current structure, invariants, and owner boundaries.
 - [adr.md](adr.md) owns durable decisions and their confirmation.
 - [design-doc.md](design-doc.md) owns pre-code proposals and validation plans.
 - [test-strategy.md](test-strategy.md) owns gate taxonomy and flake policy.
 - [support-matrix.md](../reference/support-matrix.md) owns supported versions and lifecycle status.
-- [reference.md](../reference/reference.md) owns command, release, and compatibility lookup.
+- [reference.md](../reference/reference.md) owns release lookup facts; release history belongs to the project release mechanism.
 - [runbook.md](../task/runbook.md) owns operational procedures and recovery.
 - [README.md](../README.md) owns document-type routing, placement, and lifecycle.
 
-## [16][REVIEW_CHECKLIST]
+## [14][REVIEW_CHECKLIST]
 
-- [ ] Opening metadata carries `Id`, `Status`, one `Profile`, `Owner`, `Source of truth`, ISO-8601 `Last reviewed`, and `Horizon axis`.
-- [ ] Exactly one profile is named in opening metadata and the lead, and it matches `Horizon axis`.
-- [ ] Scope states what the sequence covers and what it excludes.
-- [ ] Current status is a snapshot table linking the live source per milestone, not prose.
-- [ ] Every milestone names a measurable outcome or OKR it serves, not only the artifact shipped.
-- [ ] Status values come from the defined vocabulary and are used consistently.
-- [ ] Every milestone record carries goal, status, outcome, deliverables, an exit-criteria checklist, and a proof surface, plus dependencies when any exist.
-- [ ] Each exit criterion is a binary task-list item, and the proof surface is one openable artifact or runnable command per milestone.
-- [ ] A milestone is `Complete` only when every exit checkbox is checked and the linked proof agrees.
-- [ ] Dependencies use the dependency edge table, name the relationship, and link the live source; subtask breakdowns are excluded.
-- [ ] Exploratory or far-horizon milestones carry a confidence indicator and, for experiments, an off-ramp condition.
-- [ ] Deferred work is explicit when anything is excluded, and Cancelled items state the successor or that the need was retired.
-- [ ] Public or external profiles declare directional, committed, or historical framing in the lead; `Now` is sized to capacity, `Later` is bounded, far-horizon items carry no fixed dates, and shipped items link evidence in ISO-8601.
-- [ ] Each adjacent owner is linked once in Boundaries and nowhere else.
+- [ ] Exactly one real profile is named in metadata and the lead; `No roadmap` is used only as a route-away verdict.
+- [ ] Opening metadata carries `Status`, `Profile`, `Owner`, `Source of truth`, `Last reviewed`, and `Review trigger`; optional machine fields exist only when consumed.
+- [ ] Scope states what the sequence covers and excludes.
+- [ ] Current status appears only when it adds value over the live planner and links live source per milestone.
+- [ ] Status values come from the roadmap vocabulary or are mapped from the live system.
+- [ ] Every milestone names a measurable outcome or OKR it serves.
+- [ ] Every milestone record carries `Status`, `Goal`, `Outcome`, `Deliverables`, an exit-criteria checklist, and a proof surface.
+- [ ] Each exit criterion is binary, and the proof surface is one openable artifact or runnable command.
+- [ ] A milestone is `Complete` only when every exit checkbox is checked, linked proof agrees, and `Last verified` appears beside completed proof.
+- [ ] Dependencies use the dependency edge table, name the relationship, and link live source.
+- [ ] Public or external profiles declare `directional`, `committed`, or `historical` framing in the lead.
+- [ ] Far-horizon items avoid fixed dates unless the source owns them.
+- [ ] Deferred work is explicit when anything is excluded, and cancelled items state the successor or that the need retired.
+- [ ] Common Changelog is cited only for adopted `CHANGELOG.md` release-history format, not roadmap horizon practice.
+- [ ] Adjacent owners are linked once in Boundaries.

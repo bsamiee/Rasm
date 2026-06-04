@@ -29,11 +29,11 @@ Salience is relative, not a hard cutoff: the middle down-weights content, it doe
 
 Use bracketed headings, table rubrics, `[INDEX]` rows, and compact status markers as salience aids, not as decoration. They help an agent find boundaries, compare rows, and filter state; they do not replace the front-and-close rule, claim-level evidence, or precise prose.
 
-`Source of truth:` this corpus's local position-ring rule, plus the linked provider prompt-engineering documentation in [Provider behavior](#13providerbehavior). `Last verified:` 2026-06-04.
+`Local rule:` this corpus uses the position ring as its normative placement rule. `Source of truth:` provider-behavior claims are proved only by the linked provider documentation in [Provider behavior](#13providerbehavior). `Last verified:` 2026-06-04.
 
 ## [3][CONTEXT_INVARIANCE]
 
-The position ring holds across every unit, whatever its lifetime or reader: controlling content at the edges, supporting detail in the middle. Three instantiations carry it.
+The position ring holds across every unit, whatever its lifetime or reader: controlling content at the edges, supporting detail in the middle. Use the three shapes below according to artifact lifetime.
 
 - Durable document: a standard or a reference page leads with scope and the highest-risk constraint and closes on boundaries and route; an `AGENTS.md` overlay is a position-ring instance of this same durable-document shape.
 - Task prompt: put objective, durable constraints, and output expectations at an edge, place bulky source material in the middle, and close with the immediate ask plus the binding constraints the model must obey while answering. When long documents lead, anchor the final ask with a bridge phrase such as `Based on the information above`, then restate the critical constraints in compact form.
@@ -126,7 +126,7 @@ Use this heading template as the starting shape. Extend or relabel sections only
 <The gate that proves a change here; `Source of truth:` and `Last verified:` for any provider claim.>
 ```
 
-Exclude content that rots or wastes context:
+Exclude content that goes stale or wastes context:
 
 - full README or marketing copy;
 - exhaustive path or file enumerations that change with the tree;
@@ -207,7 +207,7 @@ Separate public, internal, restricted, and secret material into distinct corpora
 
 ## [13][PROVIDER_BEHAVIOR]
 
-Treat provider-specific guidance as preferred patterns within a converging ecosystem, not as iron laws. Keep the stable contract portable: outcome, constraints, evidence boundary, output shape, and stop rule. Then adapt delimiter, long-context placement, and schema mechanics to the provider surface that will run the prompt. Use one delimiter family in a prompt — XML-style tags or Markdown sectioning, not both — unless an external template requires otherwise.
+Treat provider-specific guidance as preferred patterns within a converging ecosystem, not as universal rules. Keep the stable contract portable: outcome, constraints, evidence boundary, output shape, and stop rule. Then adapt delimiter, long-context placement, and schema mechanics to the provider surface that will run the prompt. Use one delimiter family in a prompt — XML-style tags or Markdown sectioning, not both — unless an external template requires otherwise.
 
 ### [13.1][OPENAI_CODEX]
 
@@ -217,7 +217,7 @@ Long context: keep critical constraints at the opening and closing edge; use com
 Structured output: put machine-consumed contracts in structured outputs or strict tool schemas where the API supports them; prose may steer JSON shape, but it does not enforce it.
 State and caching: keep `AGENTS.md` lean and scoped because Codex loads the instruction chain from global guidance through the working directory and closer files override earlier conflicting guidance. Use prompt caching only for stable prefixes and treat it as latency and cost optimization, not state or correctness proof.
 Output control: control answer length with explicit word, section, or verbosity contracts; do not treat verbosity as hidden reasoning control.
-Source of truth: [OpenAI prompting guide](https://platform.openai.com/docs/guides/prompting), [Structured Outputs guide](https://platform.openai.com/docs/guides/structured-outputs), [Prompt caching guide](https://platform.openai.com/docs/guides/prompt-caching), and [Codex `AGENTS.md` documentation](https://github.com/openai/codex/blob/main/docs/agents_md.md).
+Source of truth: [OpenAI prompting guide](https://developers.openai.com/api/docs/guides/prompting), [Structured Outputs guide](https://developers.openai.com/api/docs/guides/structured-outputs), [Prompt caching guide](https://developers.openai.com/api/docs/guides/prompt-caching), and [Codex `AGENTS.md` documentation](https://developers.openai.com/codex/guides/agents-md).
 Last verified: 2026-06-04
 
 ### [13.2][CLAUDE_CODE]
@@ -256,16 +256,21 @@ Do not require exposed chain-of-thought in published prompt standards. Ask for e
 
 ## [15][REVIEW_CHECKLIST]
 
+**Position and instructions**
 - [ ] The controlling rule leads each unit and the binding constraint closes it.
 - [ ] Load-bearing constraints in long units are restated near the close.
 - [ ] Durable docs, prompt assets, task instructions, and state artifacts stay separate.
 - [ ] Instructions are positive imperatives with ranked constraints.
+
+**Provider and agent surfaces**
 - [ ] Provider claims carry a current primary source and `Last verified` date.
-- [ ] `AGENTS.md` files are behavioral, lean, and free of rot-prone enumeration.
+- [ ] `AGENTS.md` files are behavioral, lean, and free of change-prone enumeration.
 - [ ] Provider-specific prompt rules remain preferred patterns and do not claim enforcement, correctness, or universal superiority.
 - [ ] Indexes link to canonical docs; `llms.txt` is treated as a map.
 - [ ] Retrieval chunks carry source, heading path, owner, access, and freshness.
 - [ ] MCP resources, prompts, and tools are separated before schemas.
 - [ ] Metadata exists only where a consumer reads it.
 - [ ] Generated mirrors identify source and generation status.
+
+**Safety**
 - [ ] No secrets, nonpublic local paths, or unverified provider claims are exposed.

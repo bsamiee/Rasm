@@ -27,17 +27,22 @@ When sources conflict, choose the repo-local term only when a current owner or c
 
 ## [3][PROSE_RULES]
 
+**Shape**
 - Put the controlling rule, constraint, or outcome before supporting detail.
 - Keep one controlling idea in each paragraph.
+- Keep each exception next to the rule it modifies.
+
+**Voice**
 - Prefer concrete nouns and verbs over abstract labels.
 - Use active voice for instructions and decisions by default.
 - Use passive voice when the actor is irrelevant or less important than the result.
 - Use present tense for durable standards, future tense for planned work, and past tense only for historical evidence or completed verification.
 - Write instructions as positive imperatives that name the action to take. Convert `do not omit the unit` into `attach the unit to its value`. The cognition rationale for this framing is the position standard's concern.
 - Use `must`, `should`, and `may` only for requirements, recommendations, and permitted options.
+
+**Noise removal**
 - Remove filler, marketing claims, draft notes, and transient interaction language.
 - Cut a hedge that carries no information. Preserve a qualifier that marks genuine uncertainty, and let the evidence standard govern it.
-- Keep each exception next to the rule it modifies.
 
 ## [4][PARAGRAPH_ARCHITECTURE]
 
@@ -167,11 +172,14 @@ Review in four passes before publication:
 
 ## [14][REVIEW_CHECKLIST]
 
+**Names and prose**
 - [ ] Repo-local and vendor names are preserved exactly.
 - [ ] One concept has one term.
 - [ ] Paragraphs carry one controlling idea and close on the intended owner, action, proof, or boundary.
 - [ ] Sentences are direct, concrete, and free of needless words.
 - [ ] Conditions appear before the actions they control.
+
+**Mechanics and sources**
 - [ ] Commands, paths, flags, symbols, and placeholders use backticks.
 - [ ] Punctuation around code spans preserves literal copyability.
 - [ ] Examples are necessary and placed beside the rule they clarify.

@@ -1,293 +1,282 @@
 # [README_STANDARDS]
 
-A README is an entry document: it orients a reader at a repository, package, directory, tool, or documentation-corpus boundary in one screen, gives the shortest path to one successful action, and routes every deeper concern to the document that owns it. The README is the front door and the local index, never the architecture page, the API catalog, the tutorial, or the contribution workflow.
+A README is an entry document for one boundary: repository, package, directory, documentation corpus, tool, or local service. It orients the reader, gives the shortest route to one useful next action, and links every deeper concern to the document that owns it. A README is the front door and local index, not an architecture page, API catalog, tutorial, runbook, roadmap, ADR, or contribution workflow.
 
 ## [1][USE_WHEN]
 
 Use a README to open exactly one boundary:
 
-- a repository, for users, adopters, and contributors who arrive at the root;
-- a package, library, or directory, for the local purpose and import surface;
-- a documentation corpus, as the hub that routes a reader to the next page;
-- a tool, command, or local service, for the first runnable invocation.
+- repository root for users, adopters, and contributors;
+- package, library, or directory for local purpose and public entrypoints;
+- documentation corpus for routing a reader to the next page;
+- tool, command, or local service for the first successful invocation.
 
-Do not use a README to carry architecture structure, an API or symbol catalog, a learning path, an operational recovery procedure, a future-work sequence, a durable decision record, or a contribution workflow. Route each to its owner by topic and keep the README a one-screen front door.
+Route architecture structure, API or symbol catalogs, learning paths, operational recovery, future-work sequences, durable decisions, and contribution workflow to their owning standards. Keep the README to orientation, first path, and routing.
 
-## [2][CANONICAL_ANCHOR]
+## [2][SOURCE_AUTHORITY]
 
-This standard adopts the `standard-readme` specification as the professional baseline for section identity and order, the `makeareadme` guidance for section content, and `shields.io` conventions for badges. Where the canonical baseline and this standard differ, this standard's profile model and structure rules control, because the repository routes deeper concerns to owning types rather than expanding the README. Treat the baseline as the section vocabulary every profile draws from, and treat the profile lists below as the binding required set.
+README conventions come from platform rendering, open-source README baselines, badge providers, and local routing policy. Use the source that owns the question.
 
-Source of truth: [standard-readme specification](https://github.com/RichardLitt/standard-readme/blob/main/spec.md), [Make a README](https://www.makeareadme.com/), and [Shields.io](https://shields.io/).
-Last verified: 2026-06-04.
-Review trigger: the `standard-readme` spec or `shields.io` badge model changes.
+GitHub README documentation
+    Source of truth: [GitHub README documentation](https://docs.github.com/en/repositories/managing-your-repositorys-settings-and-features/customizing-your-repository/about-readmes).
+    Owns: rendering, discovery, and recognized file placement.
+    Local use: platform-visible README behavior.
+    Last verified: 2026-06-04
+    Review trigger: GitHub README rendering or placement guidance changes.
 
-## [3][SOURCE_TRUTH]
+standard-readme specification
+    Source of truth: [standard-readme specification](https://github.com/RichardLitt/standard-readme/blob/main/spec.md).
+    Owns: open-source project section baseline.
+    Local use: baseline narrowed by local owner routing.
+    Last verified: 2026-06-04
+    Review trigger: standard-readme baseline changes.
 
-README claims about names, commands, status, and support are drift-prone, so order their evidence before writing them. Use the strongest source that proves the claim:
+Make a README
+    Source of truth: [Make a README](https://www.makeareadme.com/).
+    Owns: practical project README guidance.
+    Local use: background practice, not binding section order.
+    Last verified: 2026-06-04
+    Review trigger: practical README guidance changes.
 
-1. Repository source, manifests, lockfiles, and generated contracts for names, commands, entrypoints, and package status.
-2. Runnable tool output for advertised setup, quick-start, and verification commands, captured during the change.
-3. The owning document for any claim the README only summarizes and links.
+Shields.io documentation
+    Source of truth: [Shields.io documentation](https://shields.io/docs/).
+    Owns: badge generation surface.
+    Local use: badge rendering, not status truth.
+    Last verified: 2026-06-04
+    Review trigger: Shields.io badge model changes.
 
-When the README would restate a fact another document owns, link that document and let the link carry the truth; do not copy the fact into the README where it can drift out of step with its owner.
+Repository truth
+    Source of truth: repository source, manifests, lockfiles, generated contracts, runnable command output, and owner documents.
+    Review trigger: source, command, package, support, or owner-document change.
 
-## [4][PROFILES]
+When a README would restate a fact another document owns, link the owner and avoid a second copy. Local Rasm routing intentionally keeps API catalogs, contribution workflow bodies, roadmap sequences, runbook procedures, and architecture rationale out of README files even when a generic README baseline lists adjacent sections.
 
-A README resolves to one of four profiles. Each profile fixes a different reader, a different required section set, and a different acceptance bar. Pick one primary profile and name it in the opening paragraph whenever the file could be read as another profile.
+## [3][PROFILES]
+
+Choose one primary profile by the boundary the README opens, not by the directory where it sits.
 
 | [INDEX] | [PROFILE]     | [READER]                 | [BOUNDARY]      | [SUCCESS_SIGNAL]                       |
 | :-----: | :------------ | :----------------------- | :-------------- | :------------------------------------- |
 |   [1]   | Root entry    | user or contributor      | repository      | first run plus owner-doc route         |
-|   [2]   | Package entry | package consumer/editor  | package         | purpose, status, and import surface    |
+|   [2]   | Package entry | package consumer or editor | package         | purpose, status, and entrypoints       |
 |   [3]   | Hub index     | corpus navigator         | docs corpus     | correct child page on first read       |
-|   [4]   | Tool entry    | command/service operator | tool or service | first command runs and verifies effect |
+|   [4]   | Tool entry    | command or service operator | tool or service | first command runs and verifies effect |
 
-Choose the profile by the boundary the file opens, not by where the file sits. A package directory whose README mostly routes a documentation corpus is a hub index, and a repository root whose README mostly drives one command is a tool entry.
+Name the profile in the opening paragraph when the file could plausibly read as another profile.
 
-## [5][README_CONTRACT]
+## [4][README_CONTRACT]
 
-Every profile obeys one shared contract:
+Every README obeys one shared contract:
 
 - Name the file `README.md` unless a hosting platform or localization standard requires a documented variant.
-- Open with one bracketed H1 whose label names the repository, package, directory, tool, or corpus, such as `# [RASM]`; when a hosting platform explicitly requires an unbracketed display title, explain the exception in the first paragraph.
-- Place a one-paragraph description directly after the title, and after any badge or banner, before any other section. Keep the description under roughly 120 characters of leading summary so a package-manager and GitHub blurb match it.
-- Use relative links for repository-local targets so the README renders on the hosting platform and in a local checkout alike.
-- Show every advertised install, setup, usage, or command exactly as a reader runs it in a fenced, intent-labeled code block. If a command was not verified, mark it as a proof gap with `Evidence: not verified in this change` rather than implying proof.
+- Use an H1 that matches the repository, package, directory, tool, or corpus display name.
+- Use plain public README section headings such as `Install`, `Usage`, and `License` when a hosting platform, package registry, or public convention exposes headings to readers. Use the bracketed heading idiom only for repo-internal documentation where this corpus controls the renderer and convention.
+- Place a one-paragraph description directly after the title, and after any badge or banner, before any other section.
+- Use relative links for repository-local targets so the README renders on the hosting platform and in a local checkout.
+- Show advertised install, setup, usage, and verification commands exactly as a reader runs them in fenced, intent-labeled code blocks.
+- Mark an unverified advertised command with `Evidence: not verified in this change` rather than implying it ran.
 
-Field cardinality for the shared contract: the file name, the H1 title, and the one-paragraph description are required and singular. Badges and banners are optional and repeatable. Relative-link usage is a required constraint on every local link, not a section.
+Field cardinality: file name, H1, and description are required and singular. Section-heading convention is required and singular: choose public plain headings or repo-internal bracketed headings, not both. Badges and banners are optional and repeatable. Relative links are required for every local link.
 
-## [6][BADGE_CONTENT_RULES]
+## [5][BADGES_BANNERS]
 
-Badges are metadata signals, not decoration. Include a badge only when it reflects maintained automation, a real release, security posture, or package metadata, and remove a badge whose automation is retired. Apply these content rules:
+Badges are status metadata, not decoration. Include a badge only when it reflects maintained automation, a release, security posture, or package metadata that a reader can verify.
 
-- Cap the lead block at two to four high-value badges — build status, version, coverage, license — and push secondary badges lower or into a table.
-- Source badges consistently from `shields.io` or the host's native workflow badge so the set reads as one visual group.
-- Link each badge to the service that produced it so a reader reaches the underlying status.
-- Prefer dynamic badges driven by CI, registry, or coverage state over static text badges for any claim that changes.
+- Keep the lead block to two to four high-value badges such as build, version, coverage, and license.
+- Link each badge to the service that produced the status.
+- Use static badges only for stable labels such as license or documentation availability. Use dynamic badges driven by maintained CI, registry, coverage, or security services for changing facts.
+- Remove retired or unverifiable badges.
+- Use a table only when badge-backed facts are part of a real status comparison; do not use tables for badge layout.
 
-A badge is a status claim, so it inherits the evidence obligation: a build or coverage badge must point at the workflow or service that produces it, and a stale badge is a regression, not a leftover.
+A badge is a support or status claim and inherits the proof obligation of the service that produces it.
 
-## [7][PROFILE_STRUCTURES]
+Banners are identity or orientation media, not proof. Include a banner only when the hosting surface renders local images reliably, the image has useful alt text, and the README still opens with a visible text description. Do not use a banner as the only carrier of product name, status, support, or call-to-action content.
 
-Each profile lists its sections in reading order with field cardinality: `required` sections always appear; `optional` sections appear at the author's discretion when the named concern exists but no rule forces them; `conditional` sections are required if and only if a named trigger holds, so the author has no discretion once the trigger is present; and `repeatable` marks a section that holds a list whose length varies. The four cardinality words are the closed vocabulary; `conditional` differs from `optional` in that a present trigger makes the section mandatory rather than merely permitted.
+## [6][REQUIRED_STRUCTURE]
+
+Use the core template for the chosen profile, then add only the conditional sections that the profile triggers. Public and registry-visible README files use plain section headings; repo-internal README files may translate the same section names into the bracketed heading idiom only when local standards control the renderer.
 
 Root entry:
 
-1. Title — required, singular.
-2. Badges or banner — optional, repeatable; obey the badge content rules above.
-3. Description — required, one paragraph stating purpose and boundary.
-4. Status, maturity, or support note — conditional; required when the repository is pre-release, experimental, or under a stated support phase, and render it as a status-tagged record per the structure rules below.
-5. Install, setup, or quick start — required for any repository a reader installs or runs; render commands as intent-labeled code blocks.
-6. Minimal usage or first successful path — required when a reader can produce one observable result; show the command and its expected output.
-7. Documentation map — required when owner documents exist; repeatable definition block or table of one link per owner with a one-line role.
-8. Help or support — optional; include when a support channel exists.
-9. Security reporting link — optional; include when a security policy or contact exists.
-10. Contributing link — optional; include when a contribution workflow is maintained.
-11. Maintainers or governance link — optional; include when ownership is durable and published.
-12. License — required; name the SPDX identifier and the license owner, and place it last.
+```markdown template
+# <Repository display name>
+
+<One-paragraph description naming purpose and boundary.>
+```
 
 Package entry:
 
-1. Purpose and boundary — required; one paragraph naming what the package owns and the nearest concern it explicitly excludes.
-2. Current status — required; the package maturity or support phase as a status-tagged record with its evidence source.
-3. Public entrypoints or supported import surface — required; the importable names, exports, or commands a consumer depends on, as a lookup table or definition block.
-4. Local build, test, or usage command — conditional; required when the package is directly runnable from its own directory, as an intent-labeled code block.
-5. Owner documents — optional, repeatable; one link per owner to the architecture, design, API, roadmap, or decision record that the README summarizes.
-6. Constraints, non-goals, or known exclusions — conditional; required when a reader would otherwise assume an unsupported capability.
-7. Owner, maintainer, or escalation contact — optional; include when ownership is durable.
+```markdown template
+# <Package display name>
+
+<One-paragraph purpose and boundary.>
+
+## Status
+
+## Entrypoints
+```
 
 Hub index:
 
-1. Corpus purpose — required; one paragraph naming the corpus and its boundary.
-2. How to choose a child page — required; the reader question or reader need that selects each child, framed for routing rather than inventory.
-3. Child links with one-line roles — required, repeatable; one link per child page with the role that distinguishes it from its siblings, as a definition block under eight children or a table when children carry comparable columns such as status or owner.
-4. Freshness trigger — conditional; required when the child set changes as the corpus grows, naming the event that makes the map stale.
+```markdown template
+# <Corpus display name>
+
+<One-paragraph corpus purpose and boundary.>
+
+## Choose
+
+## Pages
+```
 
 Tool entry:
 
-1. Tool purpose and boundary — required; what the tool does and the nearest concern it does not.
-2. Supported environment or prerequisites — required; the runtime, host, or permission a reader needs before the first command.
-3. First successful command — required; one copyable, intent-labeled invocation that produces one observable result.
-4. Common command map — optional; the commands (target three to seven) a reader runs after the first successful command, as a lookup table of command to effect.
-5. Output, artifact, or side-effect locations — conditional; required when the tool writes files, captures, or external state.
-6. Verification command or expected result — required; the command or signal that confirms the tool ran correctly.
-7. Troubleshooting or owner escalation — optional; render known failure to known response as a decision table when more than one symptom maps to a distinct fix.
-
-## [8][REQUIRED_STRUCTURE]
-
-Every README instantiates one profile's template below. Copy the matching template, keep `required` headings, add a `conditional` heading whenever its trigger holds, add an `optional` heading only when its concern exists, and repeat a `repeatable` block per item. Heading labels use the bracketed uppercase idiom and may relabel the semantic label only when the profile role and order remain intact; the section identity and order are fixed.
-
-Each template is a faithful render of its profile's section list above, not a re-derivation. Every numbered list item maps to exactly one heading in the same order, except the pre-heading slots that precede the first H2: the H1 title and the lead paragraph in every profile, plus the optional Badges or banner comment a Root entry carries. So a Root entry renders list items 1 through 3 as the H1, a badge comment, and the Description paragraph, and each of the other three profiles renders list item 1 as the H1 and its lead paragraph; every remaining list item becomes exactly one H2. The cardinality comment on each template heading repeats verbatim the cardinality word its list entry carries, so an author who follows the list and an author who follows the template derive the same required set. When a heading rewords a list label, that is the only permitted deviation, and the comment still names the same cardinality and trigger.
-
-Root entry template:
-
 ```markdown template
-# [REPOSITORY_NAME]
+# <Tool display name>
 
-<!-- source-only: badges are optional and repeatable; use 2-4 high-value linked shields.io badges -->
+<One-paragraph tool purpose and boundary.>
 
-<One-paragraph description: required, singular>
+## Requirements
 
-## [1][STATUS_CONDITIONAL_PRE]
+## First command
 
-## [2][INSTALL_REQUIRED_WHEN]
-
-## [3][USAGE_REQUIRED_WHEN]
-
-## [4][DOCUMENTATION_REQUIRED_WHEN]
-
-## [5][SUPPORT_OPTIONAL]
-
-## [6][SECURITY_OPTIONAL]
-
-## [7][CONTRIBUTING_OPTIONAL]
-
-## [8][MAINTAINERS_OPTIONAL]
-
-## [9][LICENSE_REQUIRED_LAST]
-
+## Verify
 ```
 
-Package entry template:
+Profile additions:
 
-```markdown template
-# [PACKAGE_NAME]
+Root entry
+    Required when installable or runnable: `Install`, `Usage`.
+    Required when owner documents exist: `Documentation`.
+    Required when published: `License`, placed last.
+    Conditional: `Status`, `Support`, `Security`, `Contributing`, `Maintainers`, `Owner`.
 
-<Purpose and boundary: required, singular>
+Package entry
+    Required: `Status`, `Entrypoints`.
+    Conditional: `Usage`, `Documents`, `Constraints`, `Owner`, `License`.
+    Omit: repository-wide contribution, security, support, or roadmap bodies unless the package owns a distinct local policy.
 
-## [1][STATUS_REQUIRED_STATUS]
+Hub index
+    Required: `Choose`, `Pages`.
+    Conditional: `Freshness`.
+    Omit: install, usage, support, and command sections unless the corpus itself owns that first action.
 
-## [2][ENTRYPOINTS_REQUIRED_IMPORT]
+Tool entry
+    Required: `Requirements`, `First command`, `Verify`.
+    Conditional: `Commands`, `Output`, `Troubleshooting`, `Owner`.
+    Omit: full command catalogs and operational recovery; route them to reference or runbook owners.
 
-## [3][USAGE_CONDITIONAL_DIRECTLY]
+Section cardinality:
 
-## [4][DOCUMENTS_OPTIONAL_REPEATABLE]
+- Title and description: required, single for every profile.
+- `Status`: conditional for root entry when pre-release, experimental, or under a support phase; required for package entry; omitted for hub index and tool entry unless status itself changes reader action.
+- `Install`: required for root entries a reader installs or runs.
+- `Usage`: required when the root or package can produce one observable result; conditional for package entries directly runnable from their directory.
+- `Documentation`: required when owner documents exist.
+- `Support`, `Security`, `Contributing`, `Maintainers`, `Owner`: optional when a durable owner or policy exists.
+- `License`: required for published repositories and placed last.
+- `Entrypoints`: required for package entries.
+- `Documents`: optional, repeatable for package owner documents.
+- `Constraints`: conditional when a reader would otherwise assume unsupported capability.
+- `Choose`: required for hub indexes.
+- `Pages`: required and repeatable for hub indexes.
+- `Freshness`: conditional for hub indexes whose child set changes.
+- `Requirements`, `First command`, and `Verify`: required for tool entries.
+- `Commands`: optional for first-run-adjacent commands only; full command inventories route to [reference.md](reference.md) or [api.md](api.md).
+- `Output`: conditional when the tool writes files, captures, external state, or durable artifacts.
+- `Troubleshooting`: optional for first-run setup failures only; multi-symptom operational recovery routes to [runbook.md](../task/runbook.md).
 
-## [5][CONSTRAINTS_CONDITIONAL_UNSUPPORTED]
+## [7][CONTENT_REQUIREMENTS]
 
-## [6][OWNER_OPTIONAL]
+A README must carry the facts its profile needs and no deeper owner's body.
 
-```
+- Boundary: name what the README opens and the nearest concern it excludes in the first paragraph.
+- First path: for root, package, and tool profiles that advertise commands, provide the shortest path to one observable result and proof status for each command.
+- Hub route: for hub indexes, route by reader need and prove child-link freshness; do not invent install or verification commands.
+- Owner map: include one link per owner document for deeper concerns the README only summarizes.
+- Status: source package or support claims to a manifest, lockfile, generated contract, support matrix, or current tool output.
+- License: name the SPDX identifier and owner for any published repository.
+- Tool side effects: name output, artifact, or external-state locations and the verification signal.
 
-Hub index template:
+## [8][STRUCTURE_RULES]
 
-```markdown template
-# [CORPUS_NAME]
+Use structure where it improves scanning:
 
-<Corpus purpose: required, singular>
+- Status, maturity, and support: status-tagged record with `Status`, an exit or support-phase condition, and `Evidence:`.
+- Entrypoints, import surfaces, and command maps: lookup table or definition block, never prose that hides a key-to-effect map.
+- Documentation and child maps: definition block under eight entries; table only when entries carry comparable columns such as owner or status.
+- First-run troubleshooting: decision table only when more than one setup symptom maps to a distinct response; otherwise use one short paragraph.
+- Commands: fenced blocks with an info string and intent label.
+- License: closing section for published repositories.
 
-## [1][CHOOSE_NEXT_PAGE]
+Troubleshooting in a README is limited to reaching the first successful path. Ongoing incidents, triage, rollback, and recovery belong to a runbook.
 
-## [2][PAGES_REQUIRED_REPEATABLE]
+## [9][EXAMPLES]
 
-## [3][FRESHNESS_CONDITIONAL_CHILD]
+A hub index example teaches routing by reader need rather than a flat link dump:
 
-```
-
-Tool entry template:
-
-```markdown template
-# [TOOL_NAME]
-
-<Tool purpose and boundary: required, singular>
-
-## [1][REQUIREMENTS_REQUIRED_RUNTIME]
-
-## [2][FIRST_COMMAND_REQUIRED]
-
-## [3][COMMANDS_OPTIONAL_LOOKUP]
-
-## [4][OUTPUT_CONDITIONAL_TOOL]
-
-## [5][VERIFY_REQUIRED_CONFIRMS]
-
-## [6][TROUBLESHOOTING_OPTIONAL_DECISION]
-
-```
-
-## [9][STRUCTURE_RULES]
-
-Apply the agent-friendly form at the sections where it fits; prose is the fallback only where no structure applies:
-
-- Status, maturity, and support: render as a status-tagged record carrying `Status` from the closed set (`PLANNED`, `IN-PROGRESS`, `BLOCKED`, `DONE`, `DROPPED`), an `Exit` or support-phase condition, and an `Evidence:` source. A maturity claim with no status field and no source is the prose drift this rule removes.
-- Import surface, entrypoints, and command maps: render as a lookup table (key to effect) or a definition block, never as a paragraph the reader must parse into an implicit list. A command-to-effect set is a lookup table; a single record read by field is a definition block.
-- Troubleshooting and symptom routing: render as a decision table — condition columns left, the resulting fix right — once more than one symptom maps to a distinct response. A single symptom-fix pair stays prose.
-- Documentation and child maps: render as a definition block of one `link: role` per line under eight entries, and pivot to a table only when entries gain comparable columns such as status or owner. Keep one link per entry and a role that separates it from its siblings.
-- Verification and acceptance: render the install, usage, and verify commands so each is copyable and intent-labeled, and confirm completion through the review checklist's checkbox form rather than asserting it in prose.
-- License: state the SPDX identifier and the license owner, and place the section last so the binding legal constraint closes the file.
-
-## [10][CONTENT_REQUIREMENTS]
-
-A README that omits these facts is incomplete regardless of how well it reads. Each profile must carry, with evidence where the fact can drift:
-
-- The boundary it opens and the nearest concern it excludes, stated in the first paragraph.
-- The shortest path to one observable result: the install or first command, then the usage or verify step that proves it, both copyable and run during the change.
-- One link per owner document for every deeper concern the README only summarizes, with no concern both summarized and owned in the README.
-- A current status or support claim sourced to a manifest, lockfile, or tool output for any package that is pre-release, experimental, or under a stated support phase.
-- A license with its SPDX identifier and owner for any published repository.
-- For a tool, the output or side-effect locations and the verification signal; for a hub, the reader need that selects each child; for a package, the supported import surface a consumer depends on.
-
-## [11][EXAMPLES]
-
-A hub index is the profile most readers misbuild as a flat link dump, so show the routing shape directly. Use a definition block for the child map when each child is read by field and the corpus holds fewer than eight children; pivot to a table only when the child set adds comparable columns such as status or owner.
-
-```markdown template
-# [DOCUMENTATION]
+```markdown conceptual
+# Documentation
 
 This corpus routes readers to the document type that owns their current need.
 
-## [1][CHOOSE_NEXT_PAGE]
+## [1][CHOOSE]
 
 Read by what you are doing, then open one child.
 
-[architecture.md](../explanation/architecture.md): current structure, boundaries, and invariants
-[runbook.md](../task/runbook.md): symptom-to-fix steps when a service degrades
-[support-matrix.md](support-matrix.md): which versions, platforms, and runtimes are supported
+## [2][PAGES]
+
+[architecture.md](../explanation/architecture.md): current structure, boundaries, and invariants.
+[runbook.md](../task/runbook.md): symptom-to-fix response when a service degrades.
+[support-matrix.md](support-matrix.md): supported versions, platforms, and runtimes.
 ```
 
-That block is a template example: it shows the routing shape, not a complete runnable file. It keeps one link per child, gives each child a role that separates it from its siblings, and routes by reader need rather than by alphabetized inventory.
+The example is conceptual because it omits `Freshness` when the child-set trigger does not apply. It keeps one link per child and gives each child a role that separates it from siblings.
 
-The opposite shape misroutes the reader. The rejected example pads the same map with prose that hides the route and duplicates the child's own content:
+Rejected child prose:
 
 ```markdown rejected
-The architecture document is a very important and comprehensive resource that
-you should definitely read carefully, and it covers many topics including the
-overall structure as well as some of the boundaries and a few invariants...
+The architecture document covers lots of helpful context about the overall
+structure, boundaries, invariants, and related details.
 ```
 
-That block is `rejected`: it buries the link, restates what the child owns, and forces the reader to parse a paragraph to find one route. A README that explains a child instead of linking it has stopped being an index.
+The rejected shape buries the route and duplicates the child page's content.
 
-A package status claim is the fact most often flattened into undated prose, so render it as a status-tagged record with its source:
+Package status record:
 
 ```markdown template
 ## [1][STATUS]
 
 Status: IN-PROGRESS
-Exit: public API frozen and the package published to the registry.
-Evidence: Directory.Packages.props; tools.quality static build output.
+Exit: public API frozen and package published to the registry.
+Evidence: `<manifest-or-contract>`; `<verification-command-or-proof-gap>`.
 ```
 
-## [12][BOUNDARIES]
+## [10][BOUNDARIES]
 
 - [README.md](../README.md) owns document-type routing, placement, splitting, and lifecycle.
 - [architecture.md](../explanation/architecture.md) owns current structure and invariants.
 - [api.md](api.md) owns generated endpoint and symbol catalogs.
+- [reference.md](reference.md) owns fact lookup leaves.
 - [tutorial.md](../learning/tutorial.md) owns learning paths.
 - [runbook.md](../task/runbook.md) owns operational recovery.
 - [roadmap.md](../explanation/roadmap.md) owns future-work sequence and milestone exit proof.
 - [contributing.md](../task/contributing.md) owns contribution workflow and pull-request evidence.
 
-## [13][REVIEW_CHECKLIST]
+## [11][REVIEW_CHECKLIST]
 
-- [ ] Exactly one profile is primary, and the opening paragraph names it when the file could read as another profile.
-- [ ] The H1 matches the repository, package, directory, tool, or corpus name, or explains the intended mismatch in the first paragraph.
-- [ ] The one-paragraph description sits directly after the title or banner and before any other section.
-- [ ] The file instantiates the matching required-structure template, with every required heading present, every conditional heading present wherever its trigger holds, and optional headings only where their concern exists.
-- [ ] Status and support claims use a status-tagged record with `Status`, an exit or support-phase condition, and an evidence source.
-- [ ] Import surfaces and command maps use a lookup table or definition block; troubleshooting uses a decision table once more than one symptom maps to a fix.
-- [ ] Install, setup, usage, and verification commands are copyable, intent-labeled, and were run in this change, or each unverified line carries an `Evidence:` gap note.
-- [ ] Badges are capped at a high-value lead block, linked to their service, sourced consistently, and free of retired automation.
-- [ ] Every link routes a deeper concern to its owner instead of duplicating the owner's content.
-- [ ] Name, status, and support claims cite repository source, manifest, or tool output, not recall.
-- [ ] The license names its SPDX identifier and owner and closes the file.
-- [ ] Every relative link resolves from this file's directory.
+- [ ] Exactly one profile is primary, and the opening paragraph names it where ambiguity exists.
+- [ ] Source-role deviations from generic README baselines are intentional and route deeper bodies to owner documents.
+- [ ] The H1 matches the display name unless a repo-internal standard intentionally controls the heading idiom.
+- [ ] Public or registry-visible README files use plain section headings; repo-internal README files use bracketed headings only where local convention controls.
+- [ ] The description sits directly after the title or badge block.
+- [ ] Required sections for the chosen profile are present; conditional sections appear only when triggered.
+- [ ] No optional or conditional heading appears empty.
+- [ ] Runnable proof applies only to profiles and sections that advertise runnable commands.
+- [ ] Hub indexes prove child-link freshness and route by reader need.
+- [ ] Status and support claims use records with evidence.
+- [ ] Entrypoints and command maps use lookup tables or definition blocks.
+- [ ] Troubleshooting stays limited to first-run setup; operational recovery links to a runbook.
+- [ ] Badges are linked, maintained, high-value status claims, and banners are not the only carrier of meaning.
+- [ ] Every deeper concern links to its owner instead of duplicating owner content.
+- [ ] License closes published repository README files.
+- [ ] Every relative link resolves from the README's directory.

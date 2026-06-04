@@ -32,7 +32,7 @@ Read order is workflow order; owner precedence still decides conflicts.
 
 1. Use the reader-need map and type chooser below to pick one document type.
 2. Apply the five shared standards: position, form, craft, evidence, and notation.
-3. Apply exactly one type standard when the artifact is a Diataxis document. Shared standards, instruction files, generated mirrors, indexes, retrieval chunks, metadata records, MCP catalogs, and structured-output contracts route through the shared owner instead.
+3. Apply exactly one type standard when the artifact is a Diátaxis document. Shared standards, instruction files, generated mirrors, indexes, retrieval chunks, metadata records, MCP catalogs, and structured-output contracts route through the shared owner instead.
 
 ## [4][READER_NEED_MAP]
 
@@ -127,12 +127,15 @@ Unless live product support and evidence justify them, do not preserve old paths
 
 ## [11][ANTI_PATTERNS]
 
+**Type drift**
 - README files that carry design history, tutorials, or API catalogs.
 - Architecture documents that carry task plans or incident response.
 - ADRs that include execution procedures instead of decision confirmation.
 - Tutorials that branch into production variants.
 - Reference leaves that hide procedures in dense tables.
 - Runbooks without an observable trigger, owner, verification, or escalation.
+
+**Surface drift**
 - Generated API documentation forked by hand-written endpoint or symbol tables.
 - Standards that mention authoring interactions, removed workflow names, or transient task labels instead of durable document behavior.
 

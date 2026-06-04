@@ -91,15 +91,15 @@ If current official docs are unavailable, state the gap and mark the source as p
 
 This is the canonical docs-as-code gate ladder for the standard; the external-research, evidence-format, and agent-surface sections defer here for which gate a changed claim requires. Match the changed-claim condition to the required gate:
 
-| [INDEX] | [CLAIM_CHANGED]                           | [GATE]                                                |
-| :-----: | :---------------------------------------- | :---------------------------------------------------- |
-|   [1]   | Markdown content only                     | `git diff --check` on changed Markdown, at minimum    |
-|   [2]   | Structure, tables, examples, generated MD | configured formatter or linter                        |
-|   [3]   | Links added, removed, renamed, generated  | configured link checker, or local path and anchor validation when no checker exists |
-|   [4]   | Navigation, diagrams, config, docs output | docs build                                            |
-|   [5]   | Generated contract claim                  | regenerate or compare generated output against source |
-|   [6]   | Operational procedure                     | run steps, or mark the step as review-only            |
-|   [7]   | Visual layout claim                       | render screenshots, diagrams, PDFs, or pages          |
+| [INDEX] | [CLAIM_CHANGED]                           | [GATE]                                           |
+| :-----: | :---------------------------------------- | :----------------------------------------------- |
+|   [1]   | Markdown content only                     | `git diff --check` on changed Markdown           |
+|   [2]   | Structure, tables, examples, generated MD | configured formatter or linter                   |
+|   [3]   | Links added, removed, renamed, generated  | link checker or local path/anchor validation     |
+|   [4]   | Navigation, diagrams, config, docs output | docs build                                       |
+|   [5]   | Generated contract claim                  | regenerate or compare generated output to source |
+|   [6]   | Operational procedure                     | run steps or mark review-only                    |
+|   [7]   | Visual layout claim                       | render screenshots, diagrams, PDFs, or pages     |
 
 Do not claim a gate passed unless it ran in the current change or a current status check proves it — knowing a gate would pass is not proof it did. If no configured gate exists, state that rather than inventing one; a local validation script is a local check, not a configured repository gate.
 
@@ -117,15 +117,25 @@ A deterministic surface needs a minimum receipt: surface, baseline or prior beha
 - a transcript or trace, with model or provider version, configured tool set, token or context budget, latency, and tool errors when the surface owns them;
 - an unsupported-claim review and a tool-call failure review.
 
-Record the evaluation as a definition block beside the surface it proves. Keep required fields visible, and omit optional rigor fields only when the surface does not own them:
+Record the evaluation as a definition block beside the surface it proves. Keep the minimum receipt visible for deterministic surfaces:
 
 ```markdown template
 Surface: `docs/standards/_index.json` retrieval index.
-Questions: 12 drawn from real "which standard owns X" maintenance misses.
-Baseline: prior flat README link list; new index resolves 11/12 vs 6/12.
+Baseline: prior flat README link list.
+Checks: exact file links and heading-anchor validity.
+Result: index links resolve and no orphan target remains.
+Last verified: 2026-06-04
+Review trigger: standard filename, heading label, route map, or index-generation change.
+```
+
+Add rigor fields only when the surface owns stochastic output, ranking, tool selection, latency, or provider behavior:
+
+```markdown template
+Questions: 24 drawn from real "which standard owns X" maintenance misses.
+Baseline: prior flat README link list; new index resolves 22/24 vs 14/24.
 Trials: 3 runs per question; ranking stable across runs.
-Checks: exact link + heading-anchor validity; judge review of top-1 source trace.
-Trace: model `claude-opus-4-8`, tool set `{search, read}`, token budget 8k, p50 latency 1.4s, 0 tool errors.
+Checks: exact link and heading-anchor validity; judge review of top-1 source trace.
+Trace: model or provider version, tool set `{search, read}`, token budget 8k, p50 latency 1.4s, 0 tool errors.
 Reviews: unsupported-claim review clean; tool-call-failure review clean.
 Last verified: 2026-06-04
 ```
@@ -167,16 +177,20 @@ The contrast is the rule: a note is reproducible when a maintainer can re-run th
 
 ## [12][PROOF_DOCUMENT_TYPE]
 
-The evidence hierarchy, freshness fields, and docs-as-code gates above govern every document; a README, Architecture page, Reference page, How-to, or Code-documentation comment carries no proof obligation those rules do not already derive, so do not restate the generic obligation per type. This section lists only the proof surfaces that are genuinely type-distinct — the obligation a type carries that the hierarchy alone does not produce:
+The evidence hierarchy, freshness fields, and docs-as-code gates above govern every document. Do not restate generic proof per type. This section lists only type-distinct proof surfaces — obligations the hierarchy alone does not make specific enough for an authoring agent:
 
-| [INDEX] | [TYPE]     | [DISTINCT_PROOF]                                                         |
-| :-----: | :--------- | :----------------------------------------------------------------------- |
-|   [1]   | ADR        | confirmation evidence and current supersession links                     |
-|   [2]   | Design doc | validation plan with commands, contracts, checks, reviews, or risks      |
-|   [3]   | Roadmap    | milestone exit criteria, dependencies, and proof surface                 |
-|   [4]   | API doc    | generated contract or reference is linked as truth                       |
-|   [5]   | Runbook    | executable or review-only triage, mitigation, rollback, and verification |
-|   [6]   | Onboarding | observable exercises, review tasks, or owner sign-off                    |
+| [INDEX] | [TYPE]       | [DISTINCT_PROOF]                          |
+| :-----: | :----------- | :---------------------------------------- |
+|   [1]   | ADR          | confirmation and supersession evidence    |
+|   [2]   | Design doc   | validation plan evidence                  |
+|   [3]   | Roadmap      | milestone exit and dependency proof       |
+|   [4]   | API doc      | generated contract or reference truth     |
+|   [5]   | Contributing | workflow, PR, and sign-off evidence       |
+|   [6]   | How-to       | executed path or stated proof gap         |
+|   [7]   | Runbook      | triage-to-recovery evidence capture       |
+|   [8]   | Onboarding   | exercises, review tasks, or owner signoff |
+
+The table names the distinct proof surface only. The type standard owns the full field set: contributing preserves workflow evidence, PR proof fields, unrun gates, and enforced sign-off or commit-format proof; how-to preserves executed path or proof gap, outcome verification, and rollback proof when state-changing; runbook preserves triage, mitigation, rollback, escalation, recovery verification, and evidence capture.
 
 ## [13][BOUNDARIES]
 
@@ -188,14 +202,19 @@ The evidence hierarchy, freshness fields, and docs-as-code gates above govern ev
 
 ## [14][REVIEW_CHECKLIST]
 
+**Evidence and freshness**
 - [ ] Drift-prone claims have claim-level evidence.
 - [ ] Evidence sits close enough to the claim to support maintenance.
 - [ ] Repository truth and generated contracts outrank prose.
 - [ ] External facts use primary sources where available.
 - [ ] A freshness trigger or `Last verified` exists where a claim can drift.
 - [ ] Commands and checks are exact and reproducible.
+
+**Generated and agent surfaces**
 - [ ] Generated content is linked or regenerated, not manually forked.
 - [ ] Provider-specific behavior has current official proof.
-- [ ] Agent surfaces are evaluated with baseline, trials, and source trace where the behavior is the claim.
+- [ ] Agent surfaces carry deterministic receipt fields, and add baseline trials, source trace, and review fields where stochastic, ranking, tool-selection, latency, or provider behavior is the claim.
+
+**Gaps and preservation**
 - [ ] Genuine uncertainty is marked; unrun gates and proof gaps are stated.
 - [ ] A refactor preserved every load-bearing fact; no command, version, field, or invariant was dropped.
