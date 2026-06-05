@@ -16,7 +16,7 @@ Use an architecture document when a future agent must understand a maintained co
 
 Route decision rationale to [adr.md](adr.md), proposed change review to [design-doc.md](design-doc.md), implementation sequence to [roadmap.md](roadmap.md), gate taxonomy to [test-strategy.md](test-strategy.md), operational recovery to [runbook.md](../task/runbook.md), generated API contracts to [api.md](../reference/api.md), and public symbol intent to [code-documentation.md](../reference/code-documentation.md). Link an adjacent document in the body only when it changes a path, entrypoint, dependency, invariant, status, or proof rule.
 
-Authoring contract:
+[AUTHORING_CONTRACT]:
 - Agent use: locate the code scope, decide whether a file belongs to the scope, preserve dependency direction, and verify that represented paths still match repository truth.
 - Required produced structure: lead, scope boundary, project identity, contracts/generated truth, codemap, entrypoints and flows, dependency direction, invariants, status overlays, proof, boundaries, and checklist.
 - Section cardinality: one scope boundary, one project identity, one codemap, one proof section, one boundaries section, and only diagrams or status overlays whose trigger changes code reading.
@@ -24,7 +24,7 @@ Authoring contract:
 - Maintenance triggers: path move, project or manifest change, generated output change, public contract change, entrypoint change, dependency edge change, invariant change, support row change, or roadmap status change.
 - Stale prevention: every status marker has a removal trigger; every diagram node maps to a path, contract, runtime boundary, generated artifact, or external route.
 
-Architecture view discipline:
+[VIEW_DISCIPLINE]:
 - arc42 informs useful categories; this local section order controls the produced document.
 - C4 Context, Container, and Component are view levels, not required headings. A C4 Container is a deployable or executable runtime unit, not a package, library, or folder. A C4 Component appears only inside a named container.
 - Structurizr or another checked-in model is the model source only when repository tooling already carries it. Mermaid is renderer source, not the canonical architecture model.
@@ -75,7 +75,6 @@ Use this heading order for a standalone architecture file. Embedded architecture
 ```
 
 Add these conditional sections only when their trigger applies:
-
 ```markdown template
 ## [N][RUNTIME_BOUNDARY]
 
@@ -89,7 +88,6 @@ Add these conditional sections only when their trigger applies:
 Required sections are required because agents need them in order: identify scope, locate project truth, read the codemap, follow work through entrypoints, understand dependency constraints, preserve invariants, handle current status, verify drift-prone claims, and route adjacent concerns.
 
 An accepted lead is concrete enough to start work:
-
 ```markdown conceptual
 # [EVENT_PIPELINE_ARCHITECTURE]
 
@@ -97,7 +95,6 @@ This architecture explains `src/EventPipeline/` as the `EventPipeline.csproj` pa
 ```
 
 Reject a lead that describes a system without code anchors:
-
 ```markdown rejected
 # [EVENT_SYSTEM]
 
@@ -107,7 +104,6 @@ This document describes the event system at a high level.
 ## [4][SECTION_RULES]
 
 Each section carries one agent action:
-
 | [SECTION]                       | [AGENT_ACTION]                                                                             | [UPDATE_TRIGGER]                                                                                  |
 | :------------------------------ | :----------------------------------------------------------------------------------------- | :------------------------------------------------------------------------------------------------ |
 | `Scope boundary`                | decide whether this page covers the file being edited                                      | path, route, generated directory, host boundary, or exclusion changes                             |
@@ -163,7 +159,7 @@ Review trigger: schema, generator, public envelope type, generated artifact path
 Route-away: operation details, parameters, fields, and generated symbol catalog stay in [api.md](../reference/api.md) and [code-documentation.md](../reference/code-documentation.md).
 ```
 
-When the architecture needs a compact routing map, use this order:
+When the architecture needs a compact routing map, use this order.
 
 Architecture-local structure records may lead with identity and routing fields; once they carry adjacent-document facts, use the shared relation fields in order: `Changed fact`, `Consumed by`, `Use in this document`, `Update when`, `Close when`, `Route-away`.
 
@@ -192,7 +188,6 @@ Architecture path-state markers use this closed vocabulary when bracketed inline
 - `[DEPRECATED]`: path remains readable or callable only under a support, migration, or compatibility rule.
 
 A useful codemap shows structure, route, project identity, and status in one place:
-
 ```text conceptual
 src/EventPipeline/
 ├── EventPipeline.csproj              package boundary; exports event contract API
@@ -240,7 +235,6 @@ Entrypoints name how work enters the code scope. Use records or a table when the
 |   [2]   | `Execution/EventWorker.cs`  | worker loop   | `EventEnvelope`      | validated event envelope | worker fault      | `Storage/EventStore.cs`       | persists accepted event     |
 
 For record-shaped entrypoints, keep fields in this order:
-
 ```markdown template
 Entrypoint: `<file, command, callback, route, public type, host hook, generated surface, or worker>`
 Kind: `<command | host callback | public type | generated surface | route | worker | adapter>`
@@ -279,7 +273,6 @@ flowchart LR
 Text equivalent: host callbacks enter `Admission/EventIngress.cs`, validation checks the generated contract, accepted events move through `Execution/EventWorker.cs`, persisted state passes through `Storage/EventStore.cs`, and deprecated legacy reads remain isolated from the admission path.
 
 Reject diagrams that redraw folders:
-
 ```mermaid rejected
 flowchart TB
     Root["src/EventPipeline"] --> Contracts["Contracts"]
@@ -300,7 +293,6 @@ Every C4 or topology node maps to a codemap path, manifest, runtime boundary, ge
 ## [8][DEPENDENCY_DIRECTION]
 
 Dependency representation answers what may import, call, reference, or generate what. Use the smallest structure that prevents wrong edits. For a tiny scope, a monospace edge list is enough:
-
 ```text conceptual
 Allowed direction:
 Admission -> Contracts
@@ -311,7 +303,6 @@ Storage -/-> Admission
 ```
 
 Use a matrix when several folders or packages have comparable dependency rules:
-
 | [FROM]       | [MAY_DEPEND_ON]            | [MUST_NOT_DEPEND_ON]       | [CHECK]                |
 | :----------- | :------------------------- | :------------------------- | :--------------------- |
 | `Admission/` | `Contracts/`, `Execution/` | `Storage/` direct writes   | dependency gate        |
@@ -340,7 +331,6 @@ Adjacent relation:
 ```
 
 Reject invariants that cannot guide an edit:
-
 ```markdown rejected
 Invariant: the package stays clean and modular.
 ```
@@ -350,7 +340,6 @@ Invariant: the package stays clean and modular.
 Architecture may include roadmap and status only when those facts change current code reading. It is not a task tracker, progress report, or release log. When a linked milestone exists, architecture maintenance must check whether the milestone still changes a codemap path, flow node, dependency edge, or invariant; remove the overlay when it closes, defers without current effect, or moves to release history.
 
 Use this record when a status-bearing fact affects a codemap path, flow node, dependency edge, or invariant:
-
 ```markdown template
 Changed fact: <path, project, package, entrypoint, contract, flow, dependency, or invariant>
 Consumed by: <codemap, flow, dependency matrix, invariant, or proof section>

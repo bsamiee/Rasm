@@ -14,7 +14,7 @@ Use an ADR when a decision meets at least one trigger:
 
 Do not use an ADR to run a proposal review. While an option is still under debate, use a design document; when the decision becomes durable policy, derive the ADR from the selected option, rejected alternatives, consequences, and status-specific evidence.
 
-Authoring contract:
+[AUTHORING_CONTRACT]:
 - Agent use: classify one durable decision, preserve its disposition, and decide whether current code, roadmap, architecture, or generated contracts must change.
 - Required produced structure: lead lifecycle facts, context/problem, drivers, considered options, outcome, consequences, status evidence, boundaries, and checklist.
 - Section cardinality: one durable decision, one decision class, one status, one outcome, and one status-evidence section; optional comparison and more-information sections appear only when they change the decision record.
@@ -40,7 +40,7 @@ Accepted confirmation evidence must match the class: structural ADRs cite a refr
 
 Place ADRs where the decision log first looks, and never reuse a number.
 
-Default placement:
+[DEFAULT_PLACEMENT]:
 - Directory: `docs/decisions/`.
 - File name: `NNNN-short-title.md`, where `NNNN` is a four-digit monotonic number and `short-title` is lowercase and dash-separated.
 - Decision log index: `docs/decisions/README.md`.
@@ -102,7 +102,6 @@ Do not retrofit old accepted ADRs into a newer template. Existing records may re
 Distinguish supersession from amendment. A supersession replaces the decision and flips the original to `superseded`; an amendment extends the original with a new record while the original stays `accepted`. Record amendment links in `More information`, not in `Status`.
 
 Maintenance action follows the change, not the author's desire to refresh formatting:
-
 | [INDEX] | [CHANGE]                         | [ACTION]                 | [RECORD_EFFECT]                                       |
 | :-----: | :------------------------------- | :----------------------- | :---------------------------------------------------- |
 |   [1]   | typo, broken link, route wording | edit existing ADR        | decision, drivers, and outcome stay unchanged         |
@@ -139,7 +138,6 @@ Use the heading set below for every new ADR. State status, class, supersession l
 ```
 
 Add these conditional sections only when their trigger applies:
-
 ```markdown template
 ## [N][DECISION_BASIS_MATRIX]
 
@@ -151,18 +149,16 @@ Add these conditional sections only when their trigger applies:
 ```
 
 ADR cardinality splits into these groups:
-
-Lifecycle fact cardinality:
+[LIFECYCLE_FACTS]:
 - `Status`, `Class`, `Date`, `Decision source`, and `Evidence source` are required.
 - `Supersedes` is required and names every replaced ADR or `none`.
 - `Superseded by` is required and names the replacing ADR for `superseded` records or `none`.
 
-Section cardinality:
+[SECTIONS]:
 - `Context and problem`, `Decision drivers`, `Considered options`, `Decision outcome`, `Consequences`, `Status evidence`, `Boundaries`, and `Checklist` are required.
 - `Decision basis matrix` and `More information` are conditional and appear only from the conditional additions block.
 
 The H1 names the decision only; the lead carries the lifecycle facts and top-level reader promise. A compact accepted lead looks like this:
-
 ```markdown conceptual
 # [ADOPT_EVENT_ENVELOPE]
 
@@ -178,7 +174,6 @@ This ADR accepts the shared event envelope as the durable cross-scope contract f
 ```
 
 Reject a lead that hides lifecycle facts or mixes proposal work into the ADR:
-
 ```markdown rejected
 # [EVENT_ENVELOPE]
 
@@ -202,7 +197,6 @@ Each section carries specific facts, not generic prose:
 - `More information`: link only sources that explain or govern the decision.
 
 The decision-outcome field block is the safer shape when one sentence would become overloaded:
-
 ```markdown template
 Context: <force or constraint that made the decision necessary>
 Concern: <quality, boundary, contract, or risk being optimized>
@@ -214,7 +208,6 @@ Disposition reason: <reason declined, retired, or replaced; rejected, deprecated
 ```
 
 Use this small status-aware consequence shape:
-
 ```markdown template
 - Benefit: <effect> (driver: <driver name>)
 - Accepted downside: <cost or constraint> (driver: <driver name>)
@@ -234,7 +227,6 @@ Status determines the evidence receipt. Put the receipt inside `Status evidence`
 |   [4]   | `superseded` | forward link and replacing-record back link |
 
 Use one status-aware receipt shape. Include only fields that apply to the status, but keep proof fields when the claim can drift:
-
 ```markdown template
 Status: <accepted | rejected | deprecated | superseded>
 Confirmation surface: <diagram, codemap, generated contract, manifest, gate, measurement, audit, or omitted for non-accepted statuses>
@@ -249,7 +241,6 @@ Review trigger: <contract, manifest, architecture, support, gate, or supersessio
 Omit inapplicable fields entirely; do not write `omitted` into a produced receipt.
 
 The next examples are complete because the fields match the status:
-
 ```markdown template
 Status: accepted
 Confirmation surface: generated event schema diff.
@@ -294,7 +285,6 @@ Use a decision-basis matrix only when it improves final-decision reconstruction.
 The columns name the decision facts an ADR preserves: the driver served, the cost the selected option accepts, the risk a rejected option leaves, and the final verdict.
 
 The rejected shape below hides the decision basis inside prose:
-
 ```markdown rejected
 Option A is good because it has schema support but it adds a dependency, and option B avoids the dependency though it is slower, and deferring costs nothing now but compounds risk later.
 ```
@@ -321,7 +311,6 @@ Route-away: <proposal history, implementation task body, milestone body, or proo
 Omit optional adjacent fields when the link does not change future maintenance behavior. Keep the shared relation fields whenever a target remains.
 
 Class-specific adjacent updates keep the decision from drifting into the wrong route:
-
 | [INDEX] | [ADR_CLASS]   | [UPDATE_ADJACENT_WHEN]                                    | [CONSUMING_DOCUMENT]                             |
 | :-----: | :------------ | :-------------------------------------------------------- | :----------------------------------------------- |
 |   [1]   | structural    | accepted boundary changes current directories or flows    | architecture                                     |

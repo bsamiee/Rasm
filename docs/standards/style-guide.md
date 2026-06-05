@@ -25,12 +25,12 @@ When sources conflict, choose the repo-local term only when a current route or c
 
 ## [3][PROSE_RULES]
 
-Shape:
+[SHAPE]:
 - Put the controlling rule, constraint, or outcome before supporting detail.
 - Keep one controlling idea in each paragraph.
 - Keep each exception next to the rule it modifies.
 
-Voice:
+[VOICE]:
 - Prefer concrete nouns and verbs over abstract labels.
 - Use active voice for instructions and decisions by default.
 - Use passive voice when the actor is irrelevant or less important than the result.
@@ -38,7 +38,7 @@ Voice:
 - Write instructions as positive imperatives that name the action to take. Convert `do not omit the unit` into `attach the unit to its value`. The cognition rationale for this framing is the position standard's concern.
 - Use `must`, `should`, and `may` only for requirements, recommendations, and permitted options.
 
-Noise removal:
+[NOISE_REMOVAL]:
 - Remove filler, marketing claims, draft notes, and transient interaction language.
 - In coding-project documents, prefer concrete paths, commands, contracts, failure modes, gates, and artifacts over vague planning or operational prose. Remove wording about alignment, routing, momentum, or value when it does not change an implementation, validation, access, support, or recovery decision.
 - Reject prompt-era process vocabulary in durable docs unless quoted as archival evidence: `dictum`, `dossier`, `stage N`, `validated snippet`, task-ledger labels, and agent-invented abstraction names. Prefer current source names, configured command names, public symbols, and maintained document types.
@@ -52,21 +52,21 @@ Give a required condition the first sentence or a separate paragraph. Do not hid
 
 ## [5][SENTENCE_MECHANICS]
 
-Clause joining:
+[CLAUSE_JOINING]:
 - Use a comma before a coordinating conjunction joining two independent clauses.
 - For imperative clauses joined by a coordinating conjunction, omit the comma when the joined command reads clearly without it.
 - Omit the comma before a coordinating conjunction that joins only a compound predicate.
 - Use a semicolon before and a comma after a conjunctive adverb joining two independent clauses.
 - Do not join independent clauses with a comma alone.
 
-Rank and parallelism:
+[RANK_PARALLELISM]:
 - Join elements of equal rank with a coordinating conjunction: for, and, nor, but, or, yet, so.
 - Subordinate one element to another with a subordinating conjunction: because, although, since, while, if, when.
 - Coordinate only equal ideas and subordinate unequal ones; do not chain equal clauses with repeated `and` or `but`.
 - Construct both arms of a correlative pair in parallel: both/and, either/or, not only/but also.
 - Keep parallel items parallel in grammar and scope.
 
-Clarity:
+[CLARITY]:
 - Use `that` for a restrictive clause; use `which`, set off by commas, for a nonrestrictive one.
 - Use sentence-initial conjunctions, split infinitives, and terminal prepositions when they produce the clearest technical sentence.
 - Break center-embedded or multi-condition sentences into shorter sentences.
@@ -86,20 +86,20 @@ Clarity:
 
 ## [7][PUNCTUATION_NUMBERS_NOTATION]
 
-Local mechanics:
+[LOCAL_MECHANICS]:
 - Use U.S. English spelling unless an official product or source name differs.
 - Form the possessive singular by adding `'s` regardless of the final consonant: `Charles's`, `the witness's`, `the boss's`.
 - Use the serial comma in lists of three or more items.
 - Use one space after terminal punctuation.
 
-Stops and separators:
+[STOPS_SEPARATORS]:
 - Use a colon after a complete sentence that directly introduces a list, table, example, consequence, or complete explanation.
 - Capitalize the first word after a colon only when the following material is a complete sentence. Keep fragments, definition-block values, table cells, and field continuations lowercase unless source casing differs.
 - Use semicolons only for closely related independent clauses or complex inline lists with internal commas.
 - Prefer sentence splits or vertical lists in agent-facing documentation, and do not end bullet items with semicolons.
 - Use parentheses for nonessential clarification; promote required conditions into the main sentence. If a parenthetical is a full sentence, put the period inside the closing parenthesis. If it is part of the enclosing sentence, put the period outside.
 
-Dashes and hyphens:
+[DASHES_HYPHENS]:
 - Use spaced em dashes for prose interruptions and inline field separators.
 - Use the bare em dash only as the table value for an absent or not-applicable cell.
 - Use en dashes for inclusive ranges, open-compound modifiers in prose, and compound modifiers formed from two names.
@@ -107,10 +107,11 @@ Dashes and hyphens:
 - Omit needless hyphens after `-ly` adverbs, and use a suspended hyphen for shared compounds.
 - Use ASCII hyphen-minus in commands, flags, paths, slugs, identifiers, code, config, tracker literals, and copyable text.
 
-Notation:
+[NOTATION]:
 - Avoid slashes for prose alternatives; use `or`, `and`, or `or both`. Keep slashes for code, paths, URLs, and exact product syntax.
-- Keep labels raw by default. Use `Label: value` for a short labeled fact, list item, or record line; use code spans only when the label is a literal field, symbol, command, path, flag, exact token, or placeholder.
-- Do not bold a whole label line for emphasis. Promote it to a heading when it needs an anchor or independent retrieval; otherwise keep it as a raw set label.
+- Use `[X_Y_Z]:` for a standalone group label before a list, table, fenced block, or example. Keep it to 1-3 semantic words, uppercase with underscores, and do not use it for a complete sentence.
+- Use `Label: value` only for a short item-scoped fact, checklist field, or definition-block record line. Use code spans only when the label is a literal field, symbol, command, path, flag, exact token, or placeholder.
+- Do not bold a whole label line for emphasis. Promote it to a heading when it needs an anchor or independent retrieval; otherwise keep it as a bracketed set label.
 - Reserve title case for titles of works, official labels, externally required names, and ordinary prose labels outside bracketed notation. In title case, capitalize prepositions of 5 or more letters and capitalize later elements in hyphenated prefixed compounds when the title style requires it.
 - Use numerals for versions, measurements, commands, flags, identifiers, dates, editions, counts, thresholds, exact quantities, and any value readers compare, and keep units attached to their values. Spell out isolated nontechnical counts from zero through nine only when the value is not a comparison, threshold, field value, or literal. A year may open a sentence in numeral form.
 - In ordinary prose quotations, place commas and periods inside closing quotation marks and colons and semicolons outside. For UI labels, commands, code, exact strings, and copied source text, preserve literal punctuation and prefer backticks over quotation marks.
@@ -174,15 +175,14 @@ Review in four passes before publication:
 ## [14][CHECKLIST]
 
 Use this checklist by group:
-
-Names and prose:
+[NAMES_PROSE]:
 - [ ] Repo-local and vendor names are preserved exactly.
 - [ ] One concept has one term.
 - [ ] Paragraphs carry one controlling idea and close on the intended route, action, proof, or boundary.
 - [ ] Sentences are direct, concrete, and free of needless words.
 - [ ] Conditions appear before the actions they control.
 
-Mechanics and sources:
+[MECHANICS_SOURCES]:
 - [ ] Commands, paths, flags, symbols, and placeholders use backticks.
 - [ ] Punctuation around code spans preserves literal copyability.
 - [ ] Examples are necessary and placed beside the rule they clarify.

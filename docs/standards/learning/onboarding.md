@@ -12,7 +12,7 @@ Use an agent ramp when a source area needs a repeatable preparation path before 
 
 Route first-success teaching to [tutorial.md](tutorial.md), normal repeatable work to [how-to.md](../task/how-to.md), operational recovery to [runbook.md](../task/runbook.md), contribution workflow to [contributing.md](../task/contributing.md), and lookup facts to [reference.md](../reference/reference.md).
 
-Authoring contract:
+[AUTHORING_CONTRACT]:
 - Agent use: identify the bounded source area, read the exact sources, complete one low-risk action, and stop unless the validation gate proves readiness.
 - Required produced structure: `Scope`, `Source path`, `Read first`, `Constraints`, `First safe action`, `Validation`, `Stop rules`, `Boundaries`, and `Checklist`.
 - Section cardinality: one source area, one first safe action, one validation gate, and one stop-rule set.
@@ -48,7 +48,6 @@ Use this skeleton. Omit optional sections that do not change agent behavior.
 ```
 
 Add these conditional headings only when they change agent behavior:
-
 ```markdown template
 ## [N][GENERATED_SURFACES]
 
@@ -91,7 +90,6 @@ Route-away: `<body that stays in architecture, API, reference, support, how-to, 
 ```
 
 Reject reading lists that only name files:
-
 ```markdown rejected
 - `README.md`
 - `src/`

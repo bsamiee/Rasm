@@ -119,8 +119,7 @@ Unless live product support and evidence justify them, do not preserve old paths
 ## [11][ANTI_PATTERNS]
 
 These anti-patterns fall into three groups:
-
-Type drift:
+[TYPE_DRIFT]:
 - README files that carry design history, tutorials, or API catalogs.
 - Architecture documents that carry task plans or incident response.
 - ADRs that include execution procedures instead of decision confirmation.
@@ -128,12 +127,12 @@ Type drift:
 - Reference leaves that hide procedures in dense tables.
 - Runbooks without an observable trigger, route, verification, or escalation.
 
-Surface drift:
+[SURFACE_DRIFT]:
 - Generated API documentation forked by hand-written endpoint or symbol tables.
 - Standards that mention authoring interactions, removed workflow names, or transient task labels instead of durable document behavior.
 
-Design dossier split:
-A module dossier that carries contracts, command maps, snippets, status vocabularies, path structure, risks, gotchas, and implementation sequence under one design, README, or architecture page must split by reader need: current code structure to architecture, callable contracts to API, lookup facts to reference, source-symbol semantics to code documentation, future work to roadmap, and failure response to runbook.
+[DESIGN_DOSSIER]:
+- Mixed module dossier: a module dossier that carries contracts, command maps, snippets, status vocabularies, path structure, risks, gotchas, and implementation sequence under one design, README, or architecture page must split by reader need: current code structure to architecture, callable contracts to API, lookup facts to reference, source-symbol semantics to code documentation, future work to roadmap, and failure response to runbook.
 
 ## [12][MAINTENANCE_RULES]
 

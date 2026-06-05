@@ -12,7 +12,7 @@ Use a README to open exactly one boundary:
 
 Route architecture structure, API or symbol catalogs, learning paths, operational recovery, future-work sequences, durable decisions, and contribution workflow to their controlling standards. Route agent-only read order, behavioral overlays, validation ladders, forbidden patterns, and provider-loading rules to `AGENTS.md`. A README may link an instruction file when it changes the reader's route, but it must not copy the instruction body. Keep the README to orientation, first path, action-changing status, and routing.
 
-Authoring contract:
+[AUTHORING_CONTRACT]:
 - Agent use: identify the one boundary the README opens, choose the matching profile, and keep the page to first success plus maintained routing.
 - Required produced structure: H1, one-paragraph description, profile-required first-path or routing sections, optional status/support facts only when they change action, and routed documentation links.
 - Section cardinality: one H1 and one description; one primary profile; required profile sections appear once; conditional sections appear only when the boundary consumes them.
@@ -38,7 +38,6 @@ Use GitHub README documentation for platform-visible rendering, discovery, and r
 When a README would restate a fact another document carries, link the route and avoid a second copy. Local Rasm routing intentionally keeps API catalogs, contribution workflow bodies, roadmap sequences, runbook procedures, and architecture rationale out of README files even when a generic README baseline lists adjacent sections.
 
 README heading modes are:
-
 | [INDEX] | [SURFACE]                                  | [HEADING_MODE]  | [RULE]                                                 |
 | :-----: | :----------------------------------------- | :-------------- | :----------------------------------------------------- |
 |   [1]   | public or registry surface                 | plain H1/H2     | use names such as `# Rasm`, `## Install`, `## Usage`   |
@@ -76,7 +75,6 @@ Field cardinality: file name, H1, and description are required and singular. Sec
 Use the core template for the chosen profile, then add only the conditional sections that the profile triggers. Public and registry-visible README files use plain section headings; repo-internal README files may translate the same section names into the bracketed heading idiom only when local standards control the renderer.
 
 Use this root-entry template:
-
 ```markdown template
 # <Repository display name>
 
@@ -90,7 +88,6 @@ Use this root-entry template:
 ```
 
 Use this package-entry template:
-
 ```markdown template
 # <Package display name>
 
@@ -102,7 +99,6 @@ Use this package-entry template:
 ```
 
 Use this hub-index template:
-
 ```markdown template
 # <Corpus display name>
 
@@ -114,7 +110,6 @@ Use this hub-index template:
 ```
 
 Use this tool-entry template:
-
 ```markdown template
 # <Tool display name>
 
@@ -128,27 +123,26 @@ Use this tool-entry template:
 ```
 
 Use these profile additions only when the chosen profile triggers them:
+[ROOT_ENTRY]:
+- Required when installable or runnable: `Install`, `Usage`.
+- Required when source documents exist: `Documentation`.
+- Required when published: `License`, placed last.
+- Conditional: `Status`, `Support`, `Security`, `Contributing`.
 
-Root entry
-    Required when installable or runnable: `Install`, `Usage`.
-    Required when source documents exist: `Documentation`.
-    Required when published: `License`, placed last.
-    Conditional: `Status`, `Support`, `Security`, `Contributing`.
+[PACKAGE_ENTRY]:
+- Required: `Status`, `Entrypoints`.
+- Conditional: `Usage`, `Documents`, `Constraints`, `License`.
+- Omit: repository-wide contribution, security, support, or roadmap bodies unless the package carries a distinct local policy.
 
-Package entry
-    Required: `Status`, `Entrypoints`.
-    Conditional: `Usage`, `Documents`, `Constraints`, `License`.
-    Omit: repository-wide contribution, security, support, or roadmap bodies unless the package carries a distinct local policy.
+[HUB_INDEX]:
+- Required: `Choose`, `Pages`.
+- Conditional: child-set maintenance note when the page list changes outside normal review.
+- Omit: install, usage, support, and command sections unless the corpus itself carries that first action.
 
-Hub index
-    Required: `Choose`, `Pages`.
-    Conditional: child-set maintenance note when the page list changes outside normal review.
-    Omit: install, usage, support, and command sections unless the corpus itself carries that first action.
-
-Tool entry
-    Required: `Requirements`, `First command`, `Verify`.
-    Conditional: `Command reference link`, `Output`, `Troubleshooting`, `Support route`.
-    Omit: full command catalogs and operational recovery; route them to reference or runbook routes.
+[TOOL_ENTRY]:
+- Required: `Requirements`, `First command`, `Verify`.
+- Conditional: `Command reference link`, `Output`, `Troubleshooting`, `Support route`.
+- Omit: full command catalogs and operational recovery; route them to reference or runbook routes.
 
 README section cardinality uses these fields:
 - Title and description: required, single for every profile.
@@ -201,7 +195,6 @@ A README must carry the facts its profile needs and no deeper route's body.
 When the README's first path, status, constraints, entrypoints, or maintained-document links change, check the routed documents and update only the controlling facts that changed. A README route change does not justify copying architecture, support, runbook, API, roadmap, tutorial, contribution, or agent-instruction bodies into the README.
 
 Use this surface-split table:
-
 | [INDEX] | [SURFACE]                    | [OWNS]                                                                                        | [README_ROUTE]                                        |
 | :-----: | :--------------------------- | :-------------------------------------------------------------------------------------------- | :---------------------------------------------------- |
 |   [1]   | `README.md`                  | boundary, first successful action, status that changes action, entrypoints, document routes   | link deeper route only when the reader must choose it |
@@ -225,7 +218,6 @@ Use structure where it improves scanning:
 Troubleshooting in a README is limited to reaching the first successful path. Ongoing incidents, triage, rollback, and recovery belong to a runbook.
 
 Use a `Documents` block as the default package link map. Use fields `Document`, `Carries`, `Read when`, and `Route-away`, one entry per adjacent route. Use a reader-route card when a route helps a reader choose where to go:
-
 ```text template
 Need: `<reader decision or first-use question>`
 Go to: `<source document or section>`
@@ -236,7 +228,6 @@ Route-away: `<deep body content that stays in the consuming route>`
 Use the full adjacent-document relation record from [information-structure.md](../information-structure.md) only when a changed README fact requires another maintained document to update. Use multiple consumed-by paths only when the same changed fact updates them together; otherwise use a short `Documents` list.
 
 Use a package or tool entry card when status, entrypoints, and first proof would otherwise scatter across several short sections:
-
 ```text template
 Status: `<declared local status term and source; omit when status does not change reader action>`
 Entrypoints: `<import surface, command, executable, or public type family>`
@@ -258,7 +249,6 @@ Route-away: full command catalog, envelope fields, status exits, rail architectu
 ```
 
 The card above is valid because the fields decide first use. Instruction files may appear in a README map only as agent instruction targets; do not list `AGENTS.md` as a package, corpus, or tool entrypoint. The rejected shape below creates one card per link and turns routing into low-value field spam:
-
 ```text rejected
 Need: current structure
 Open: `ARCHITECTURE.md`
@@ -268,7 +258,6 @@ Open: `ROADMAP.md`
 ```
 
 Reject this multi-route card because it mixes command, API, support, and architecture bodies:
-
 ```text rejected
 Changed fact: README links changed.
 Consumed by: architecture, roadmap, runbook, API, support, tutorial.
@@ -278,7 +267,6 @@ Use in this document: everything should be updated.
 ## [10][EXAMPLES]
 
 A hub index example teaches routing by reader need rather than a flat link dump:
-
 ```markdown conceptual
 # Documentation
 
@@ -298,7 +286,6 @@ Read by what you are doing, then open one child.
 The example is conceptual because the child set does not need a separate maintenance note. It keeps one link per child and gives each child a reason that separates it from siblings.
 
 Use this local hub-index pattern:
-
 ```markdown conceptual
 ## [1][CHOOSE]
 
@@ -312,7 +299,6 @@ Use this local hub-index pattern:
 The row labels are reader questions, not just filenames. File-only lists route poorly when the corpus mixes API, reference, support, and strategy facts.
 
 Reject this child prose because it duplicates the child page:
-
 ```markdown rejected
 The architecture document covers lots of helpful context about the overall
 structure, boundaries, invariants, and related details.
@@ -321,7 +307,6 @@ structure, boundaries, invariants, and related details.
 The rejected shape buries the route and duplicates the child page's content.
 
 Use this root first-path example:
-
 ````markdown conceptual
 # Rasm
 
@@ -374,8 +359,7 @@ Root README correction: a root `## Commands` section that copies static, bridge,
 ## [12][CHECKLIST]
 
 Use this checklist by group:
-
-Profile and shape:
+[PROFILE_SHAPE]:
 - [ ] Exactly one profile is primary, and the opening paragraph names it where ambiguity exists.
 - [ ] Source-route deviations from generic README baselines are intentional and route deeper bodies to source documents.
 - [ ] The H1 matches the display name unless a repo-internal standard intentionally controls the heading idiom.
@@ -384,7 +368,7 @@ Profile and shape:
 - [ ] Required sections for the chosen profile are present; conditional sections appear only when triggered.
 - [ ] No optional or conditional heading appears empty.
 
-Routes and content:
+[ROUTES_CONTENT]:
 - [ ] Runnable proof applies only to profiles and sections that advertise runnable commands.
 - [ ] Hub indexes with changing child sets route by reader need and keep child links current.
 - [ ] Status and support claims use records with claim-level proof delegated to [proof.md](../proof.md).
@@ -393,7 +377,7 @@ Routes and content:
 - [ ] Tool README files contain no command inventory beyond the first path; deeper command, API, runbook, architecture, and maintenance bodies are linked to their routes.
 - [ ] Package README status rows name reader action, exit, evidence or source truth, and review trigger.
 
-Proof and closeout:
+[PROOF_CLOSEOUT]:
 - [ ] Troubleshooting stays limited to first-run setup; operational recovery links to a runbook.
 - [ ] Badges are linked, maintained, high-value status claims, and banners are not the only carrier of meaning.
 - [ ] Every deeper concern links to its route instead of duplicating route content.

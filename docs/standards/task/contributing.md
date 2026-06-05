@@ -6,7 +6,7 @@ A contributing guide tells a prospective contributor which contribution paths th
 
 Use a contributing guide when readers need accepted contribution paths, normal-change workflow, quality-gate evidence, pull-request evidence, review-collaboration rules, or security-report routing. Do not use it for readiness, incident response, gate taxonomy, repository policy, support status, or vulnerability-disclosure policy. Route those by topic to onboarding, runbook, test-strategy, support-matrix, and maintained repository-policy or security-policy sources when one exists; otherwise require a source-routing check before the contributor acts.
 
-Authoring contract:
+[AUTHORING_CONTRACT]:
 - Agent use: prove the project accepts the contribution path, name the first artifact and gates, and keep repository policy, security, support, and readiness in their routes.
 - Required produced structure: `Scope`, `Ways to contribute`, `Setup workflow`, `Quality gates`, `Pull requests`, `Review`, `Security reports`, `Boundaries`, and `Checklist`.
 - Section cardinality: one accepted-path table; one setup workflow; one quality-gate mapping only when maintained gates exist; conditional help, documentation, and maintenance sections appear only when their trigger changes contributor action.
@@ -30,7 +30,6 @@ Claim an enforced convention only from repository truth: host settings, branch-p
 A contributing guide carries one row per accepted, reviewable contribution path. Each row names the contributor intent, entry artifact, prerequisite when one gates action, and scope bound, so a contributor picks the correct first action without reading the whole guide. Remove paths the project does not accept or cannot review; do not leave empty rows, speculative routes, or maturity-based variants.
 
 Use this path-row shape only for project-accepted paths:
-
 ```markdown template
 | [INDEX] | [PATH]      | [INTENT]             | [ENTRY_ARTIFACT] | [PREREQUISITE]                 | [SCOPE_BOUND]          |
 | :-----: | :---------- | :------------------- | :--------------- | :----------------------------- | :--------------------- |
@@ -42,7 +41,6 @@ Required path fields per row: contributor intent, entry artifact, and scope boun
 Route broad, expensive, compatibility-breaking, security-sensitive, or cross-scope work to a source-routing check before the contributor spends implementation effort. Use prose for a single route-away condition. Use a decision table only when two or more independent conditions jointly choose the entry artifact. Use a route-selection flowchart only when normal contribution, security-sensitive work, and consultation-before-implementation all exist and the branch-and-rejoin path would be hard to follow as prose.
 
 Show a near-miss only when authors tend to publish vague path bounds:
-
 ```markdown conceptual
 INTENT: land fix
 PREREQUISITE: local gate
@@ -84,7 +82,6 @@ The published guide uses a required base plus conditional additions. Each `##` h
 ```
 
 Add these conditional sections only when their trigger applies:
-
 ```markdown template
 ## [N][BEFORE_YOU_START]
 
@@ -137,7 +134,6 @@ State each branch condition before its action: `If <signal>, do <action>`. Do no
 Quality gates name the runnable command or review gate that proves a contributor's change and the result to attach. State the contributor-facing result per change family so a contributor can run the maintained gate and report gaps without learning the whole gate taxonomy.
 
 The change-family-to-gate mapping is repository truth, not prose to invent here. Publish the mapping only when the repository proves concrete commands or maintained review gates:
-
 ```markdown template
 | [INDEX] | [CHANGE]        | [GATE]                                       | [RESULT_TO_REPORT]          | [KNOWN_GAP]             |
 | :-----: | :-------------- | :------------------------------------------- | :-------------------------- | :---------------------- |
@@ -147,7 +143,6 @@ The change-family-to-gate mapping is repository truth, not prose to invent here.
 Required gate fields per row: change family, gate, result to report, and known gap. Point every gate at a current runnable command or maintained quality document; state honestly when a gate is a human review rather than an executable command, and never assert a gate passed unless it ran in the change or a current status check proves it. Route gate taxonomy, gate routing, flake policy, escalation thresholds, and portfolio-level proof to [test-strategy.md](../explanation/test-strategy.md) or the maintained quality route.
 
 Show a gap in the row where the contributor reports a result, not in a separate apology paragraph:
-
 ```markdown conceptual
 | [INDEX] | [CHANGE]        | [GATE]                        | [RESULT_TO_REPORT]             | [KNOWN_GAP]                                                       |
 | :-----: | :-------------- | :---------------------------- | :----------------------------- | :---------------------------------------------------------------- |
@@ -166,7 +161,6 @@ Include `Getting help` only for contribution blockers that prevent a contributor
 Include `Documentation changes` when contributions can alter documentation truth: code behavior, configuration, generated contracts, user-visible behavior, support status, gate policy, route practice, contribution workflow, operational procedure, or public entry route. Route a new or changed document through the standards index by topic, then through the matching document-type standard; this guide carries the trigger, not the adjacent document.
 
 When documentation travels with a change, use a short handoff record instead of a loose link or copied section:
-
 ```markdown template
 Changed fact: <code behavior, configuration, generated contract, procedure, support fact, or workflow>
 Consumed by: <API, code-documentation, README, support matrix, test strategy, roadmap, architecture, how-to, runbook, tutorial, onboarding, contributing, or reference>
@@ -182,7 +176,6 @@ Use richer integration only when the adjacent document changes contributor actio
 ## [11][PULL_REQUESTS]
 
 A pull request is accepted for review when its body carries the change summary, run results, known gaps, scope, and required self-checks. Missing required results are a request-changes condition, not a validator nicety. Use the host template when one exists; otherwise use one body shape with checklist items embedded, not a separate checklist plus a duplicate template:
-
 ```markdown template
 Summary: <one to three sentences naming the change and motivation>
 
@@ -256,13 +249,12 @@ These adjacent standards own routed material:
 ## [17][CHECKLIST]
 
 Use this checklist by group:
-
-Scope and policy:
+[SCOPE_POLICY]:
 - [ ] Placement is discoverable by the hosting platform or explicitly routed from the repository entrypoint.
 - [ ] No CI, status-check, branch-protection, merge-condition, response-time, sign-off, security, merge-permission, CODEOWNERS, template, DCO, or commit-convention claim appears without host, repository, or maintained-policy confirmation.
 - [ ] `Scope` states accepted contribution surfaces and route-away topics before workflow details.
 
-Workflow and results:
+[WORKFLOW_RESULTS]:
 - [ ] Every accepted contribution path has intent, `ENTRY_ARTIFACT`, and `SCOPE_BOUND`.
 - [ ] Conduct, license, and sign-off prerequisites are linked, not embedded, when the project enforces them.
 - [ ] Setup commands either have current run results beside the claim or state the unrun gate.
@@ -270,7 +262,7 @@ Workflow and results:
 - [ ] Each quality-gate row names a runnable command or maintained review gate, the result to report, and how to state gaps.
 - [ ] Pull-request evidence uses one body shape and marks unrun gates honestly.
 
-Structure and examples:
+[STRUCTURE_EXAMPLES]:
 - [ ] Review rules keep normal collaboration public and require every comment to receive a response.
 - [ ] Documentation-change triggers route new docs through the standards corpus by topic and use the handoff record only when docs travel with the change.
 - [ ] `Getting help` appears only for contribution blockers and routes support, onboarding, incidents, repository policy, and security reports elsewhere.

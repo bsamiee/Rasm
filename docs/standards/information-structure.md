@@ -17,20 +17,19 @@ Salience and ordering within a unit belong to the position standard, sentence me
 Use the smallest container that preserves meaning. Change container when the reader's question shifts from explanation to lookup, ordered action, relationship, or proof. Structured containers are not decoration: bullets and key-value blocks outperform prose for option selection and field extraction, and tables outperform both for dense factual lookup.
 
 Container choices fall into these groups:
-
-Narrative and peer sets:
+[NARRATIVE_SETS]:
 - Prose: one concept, decision, caveat, or transition where a sentence is clearer than a list.
 - Bullets: peer facts, requirements, or unordered options.
 - Numbered lists: ordered actions, ranked choices, lifecycle steps, or gates.
 - Checklists (`- [ ]`): verification, acceptance, or status items whose completion is asserted and checked.
 
-Records and lookup:
+[RECORDS_LOOKUP]:
 - Definition blocks: terms, statuses, commands, routes, and short labeled facts, one `label: value` per line.
 - Status-tagged records: finite enumerable sets whose items carry status over time, such as milestones, decisions, requirements, risks, or tasks.
 - Tables: dense row-and-column comparison or lookup across a homogeneous set.
 - Decision tables: an action or rule determined by a finite combination of conditions.
 
-Literal and visual forms:
+[LITERAL_VISUAL]:
 - Code blocks: commands, literal files, config, schemas, or copyable snippets.
 - Monospace text structures: hierarchy or short branching where raw-Markdown inspection matters more than rendered polish.
 - Mermaid: multi-node workflows, sequences, states, or relationships that readers need rendered.
@@ -82,7 +81,7 @@ Choose the record container by field shape. Use a table while items stay homogen
 
 Use this closed default `Status` vocabulary so an agent can filter exact strings: `PLANNED`, `IN-PROGRESS`, `BLOCKED`, `DEFERRED`, `DONE`, `DROPPED`, `CANCELED`. A type standard may define a domain-specific status set in place of this default only when it defines exact casing, active states, blocked states, returnable states, terminal states, and deletion or removal behavior before the first example. A narrowed subset of the default status set is a domain-specific status set and must declare omitted states and removal behavior before examples.
 
-Default status meanings:
+[STATUS_MEANINGS]:
 - `PLANNED`: accepted for the record set, not yet executing.
 - `IN-PROGRESS`: actively executing inside the record's scope.
 - `BLOCKED`: unable to advance until a named dependency, decision, access grant, or proof gap closes.
@@ -113,7 +112,6 @@ Use these record-order rules:
 - Proof sub-blocks use the proof-local field run from [proof.md](proof.md) without interruption. Local identity or context fields such as `Gate`, `Surface`, `Representation`, or `Proof route` may precede `Evidence`; local result, match, disposition, or close fields follow `Review trigger`.
 
 A per-item record block names the item, then carries its fields one `label: value` per line:
-
 ```markdown template
 ### [N.M][SINGLE_FILE_AST]
 
@@ -127,7 +125,6 @@ Evidence: linked test receipt when complete.
 Escalate from a record table to per-item record blocks when any item has more than 5 fields, when any field needs a list or code block, or when items are updated independently over the document's life.
 
 Use an adjacent-document relation record only when another maintained document changes reader action, proof, or maintenance. It is not a background-link format. Put it beside the section that consumes the adjacent fact, and delete it when the fact no longer affects this document:
-
 ```markdown template
 Changed fact: <path, command, contract, milestone, support row, gate, symptom, or public symbol behavior>
 Consumed by: <this document section or produced artifact>
@@ -149,7 +146,6 @@ A checklist is the form for items whose completion is asserted and verified. Use
 - Status checklist: a living tracker; each item carries a `Status` and, where they exist, `Depends` and proof fields.
 
 The fields trail the item text after an em dash, so a checkbox item carrying them stays a single line and never widens into a record block:
-
 ```markdown template
 - [ ] Contract reference regenerated — Exit: generated API page matches source contract
 - [ ] Dependency gate wired — Status: IN-PROGRESS; Depends: #design-corpus; Evidence: runtime gate pending
@@ -164,18 +160,17 @@ Whenever a document asserts that gates, steps, or criteria are complete, use a c
 - Use bullets for equivalent items and numbered lists only when order is real.
 - Keep items parallel in grammar and scope, and avoid single-item lists.
 - Limit nesting to two levels; split deeper structure into subsections.
-- Split a list past seven items into named sets, each set introduced by a bold inline label on its own line followed by its sub-list.
+- Split a list past seven items into named sets, each set introduced by a bracketed `[X_Y_Z]:` label followed immediately by its sub-list.
 - Do not mix ordered and unordered items in one logical block.
 
 ## [9][DEFINITION_BLOCKS]
 
 Use one label per line when a label carries meaning a reader will scan, quote, or update independently:
-
 ```markdown conceptual
 Proof source: platform maintenance path
 ```
 
-When several records share one schema, use a grouped definition block: a plain set-name line, then the shared `label: value` fields indented four spaces beneath it, with a blank line between sets. A list-valued field keeps the label on its own line and indents the child list four spaces beneath the label; a wrapped prose continuation also indents four spaces. Once a record exceeds 5 fields, two or more fields need continuations, or any field needs a code block, move to a subsection-per-record block — an H3 heading as the record identifier and a definition block as its body. Do not pack several labeled facts into one sentence, and do not widen a record into a one-row table.
+When several records share one schema, use a grouped definition block: a plain record-name line, then the shared `label: value` fields indented four spaces beneath it, with a blank line between records. A list-valued field keeps the label on its own line and indents the child list four spaces beneath the label; a wrapped prose continuation also indents four spaces. Once a record exceeds 5 fields, two or more fields need continuations, or any field needs a code block, move to a subsection-per-record block — an H3 heading as the record identifier and a definition block as its body. Do not pack several labeled facts into one sentence, and do not widen a record into a one-row table.
 
 ```markdown template
 Platform maintenance path
@@ -195,7 +190,6 @@ Two table forms answer a different question than a comparison table:
 - Lookup table: a flat mapping from a discrete key to a value, behavior, or next state, optimized for O(1) retrieval rather than cross-row comparison. Use it for command-to-effect, code-to-meaning, or status-to-policy maps.
 
 A decision table carries one column per input condition on the left and the resolved action on the right, one row per combination in the enumerated space:
-
 | [INDEX] | [AUTHENTICATED] | [QUOTA_REMAINING] | [ACTION]     |
 | :-----: | :-------------- | :---------------- | :----------- |
 |   [1]   | no              | —                 | 401 reject   |
@@ -203,7 +197,6 @@ A decision table carries one column per input condition on the left and the reso
 |   [3]   | yes             | yes               | serve        |
 
 A lookup table is a single key column mapping to its value, read by key rather than compared across rows:
-
 | [INDEX] | [STATUS_TOKEN] | [RETRY_POLICY]      |
 | :-----: | :------------- | :------------------ |
 |   [1]   | `TRANSIENT`    | backoff, 3 attempts |
@@ -214,17 +207,17 @@ A lookup table is a single key column mapping to its value, read by key rather t
 
 Every ordinary code fence carries a language tag in its info string, and the intent label follows the language. Fence every command, literal file, config, schema, or copyable snippet. Mark exactly one intent label so a reader knows whether the block is safe to run, study, fill in, or avoid. Renderer-local fences use the exact renderer tag and carry intent in nearby visible prose instead of in the info string; Mermaid fences are `mermaid`, not `mermaid conceptual`. Reference and API-heavy pages must not publish ordinary `bash`, `csharp`, `json`, or similar fences without an intent label.
 
-Reusable inputs:
+[REUSABLE_INPUTS]:
 - `copy-safe`: run or paste as written. For a config or data block, use this when the block is byte-equivalent to a named source-of-truth file, and name that file in the label (`copy-safe — config.yml`).
 - `template`: copy the structure, then replace every placeholder before use. Use this for section templates, lead contexts, and table shapes that contain placeholders.
 
-Explanatory or scoped blocks:
+[EXPLANATORY_BLOCKS]:
 - `conceptual`: an illustrative or proposed shape, not a verbatim or runnable artifact.
 - `test-only`: valid only in a test or fixture context.
 - `generated`: produced by a generator; edit the source, not the block.
 - `output-only`: sample output, not an input to run.
 
-Reuse warnings:
+[REUSE_WARNINGS]:
 - `deprecated`: retained for recognition; do not adopt.
 - `rejected`: a counter-example shown to prevent misuse.
 
@@ -235,7 +228,6 @@ Keep blocks short enough to review. Pair runnable commands and observed output a
 Use monospace text when raw-Markdown inspection matters more than a rendered image: file trees, repository layout, artifact placement, small stacks or matrices, and tiny flows embedded in code comments where no render step exists. UTF-8 box drawing is allowed when the repository and renderer preserve it; use plain ASCII only when the target surface cannot reliably render box-drawing characters. Alignment is the whole point: connectors and columns must line up exactly in a monospace font, because a misaligned text diagram reads harder than the prose it replaced. Use text graphics only when alignment encodes hierarchy, order, state, dependency, or column comparison; no ASCII banners, ornamental separators, decorative frames, glyph legends, or box art whose alignment is not load-bearing.
 
 A file tree uses box-drawing connectors, with `├──` on every child but the last and `└──` on the last, and a `│` riser carrying down through each open branch:
-
 ```text conceptual
 project/
 ├── README.md
@@ -246,7 +238,6 @@ project/
 ```
 
 A small stack or box illustrates a layered or boxed relationship; the rules align to a single width so the frame reads as one shape:
-
 ```text conceptual
 ┌─────────────────┐
 │  boundary (I/O) │
@@ -258,7 +249,6 @@ A small stack or box illustrates a layered or boxed relationship; the rules alig
 ```
 
 A small matrix aligns every column to a fixed width so values read down a column, not just across a row:
-
 ```text conceptual
 state      enter  exit   retry
 idle       yes    no     no
@@ -267,7 +257,6 @@ failed     no     yes    yes
 ```
 
 Keep monospace diagrams short, aligned, and labeled. When a flow needs multiple branches, actors, or states, it has outgrown monospace text; move it to Mermaid. Forcing a branching flow into monospace text produces the misaligned, hard-to-trace shape this rule rejects:
-
 ```text rejected
 Request
   |
@@ -285,7 +274,6 @@ Request
 ```
 
 The same conceptual multi-branch flow renders cleanly as a Mermaid `flowchart`, which is where it belongs:
-
 ```mermaid
 ---
 config:
@@ -368,13 +356,12 @@ Render the page shape as a template heading set, not a narrated list of section 
 ```
 
 Add conditional standard sections with this template:
-
 ```markdown template
 ## [N][EXAMPLES]
 
 ```
 
-Section cardinality:
+[SECTION_CARDINALITY]:
 - `Lead`, `Use when`, the rules section(s), `Boundaries`, `Checklist` — required.
 - `Examples` — conditional; include only where misuse is likely.
 
@@ -406,7 +393,6 @@ Taxonomies, baselines, examples, graphics, and provider notes follow only after 
 ```
 
 Add conditional type sections with this template:
-
 ```markdown template
 ## [N][<CONDITIONAL_SECTION>]
 
@@ -445,26 +431,25 @@ Do not publish interaction excerpts, nonpublic local paths, or local task notes 
 ## [21][CHECKLIST]
 
 Use this checklist by group:
-
-Page shape:
+[PAGE_SHAPE]:
 - [ ] The page follows the prescribed anatomy: lead, use when, rules, boundaries, checklist, and examples only where misuse is likely.
 - [ ] One primary container carries each section, and mixed blocks assign disjoint routes.
-- [ ] Lists nest no deeper than two levels and sets past seven items use raw set labels.
+- [ ] Lists nest no deeper than two levels and sets past seven items use bracketed set labels.
 
-Records and tables:
+[RECORDS_TABLES]:
 - [ ] Tables stay within column and row bounds, hold no paragraph cells beyond one trailing prose column, and decompose by the dominant violation when over.
 - [ ] A finite enumerable set of trackable items uses status-tagged records with `Status`, `Exit`, and applicable dependency or completion-evidence details, never flat prose.
 - [ ] Checklists use the checkbox form and carry the fields their checklist form requires.
 - [ ] A single record uses a definition block; record clusters use grouped or subsection-per-record blocks.
 - [ ] Decision and lookup tables are used for condition-action and key-value content respectively.
 
-Literal and visual forms:
+[LITERAL_VISUAL]:
 - [ ] Ordinary code blocks carry exactly one intent label, renderer-local fences use exact language tags, and placeholder templates use `template`, not `copy-safe`.
 - [ ] Monospace text is short and raw-Markdown readable; Mermaid is used only when rendering adds value.
 - [ ] Callouts, collapsible blocks, and footnotes are used for their purpose and the renderer supports them.
 - [ ] Hidden comments are source-only hints, and any reader-facing safety, proof, or intent text is visible.
 
-Retrieval and examples:
+[RETRIEVAL_EXAMPLES]:
 - [ ] Prose is not hard-wrapped; manual breaks are structural only.
 - [ ] Headings form standalone retrievable H2 units and carry no links.
 - [ ] Examples sit beside the rule they clarify.

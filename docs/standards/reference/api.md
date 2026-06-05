@@ -17,7 +17,7 @@ Apply this standard to a surface that callers, generated clients, or agents invo
 
 Route source-level public symbol comment style to [code-documentation.md](code-documentation.md). Route lookup facts that are not callable API surfaces to [reference.md](reference.md), support status to [support-matrix.md](support-matrix.md), API procedures to [how-to.md](../task/how-to.md), learning paths to [tutorial.md](../learning/tutorial.md), and first entry routes to [readme.md](readme.md).
 
-Authoring contract:
+[AUTHORING_CONTRACT]:
 - Agent use: locate the controlling contract or upstream artifact, collect generated or source-backed truth through the maintained local route, then document only the caller-facing facts the chosen profile requires.
 - Required produced structure: opening scope, `Contract`, one profile body, `API change maintenance`, `Boundaries`, and `Checklist`.
 - Section cardinality: one primary profile, one contract record, and only the profile sections triggered by the callable surface.
@@ -106,7 +106,6 @@ Review trigger: `<contract, source, generated output, field, status, side effect
 ```
 
 Use field cards only for inputs, outputs, parameters, envelope members, or schema fields whose validation, defaults, source, side effects, or failure behavior matter independently:
-
 ```text template
 Field: `<name>`
 Type/schema: `<type, schema path, enum, or carrier>`
@@ -121,35 +120,34 @@ Review trigger: `<field, source, schema, parser, or generated output changes>`
 ## [6][PROFILE_RULES]
 
 Profile rules split by API surface:
-
-Local HTTP contract:
+[LOCAL_HTTP]:
 - Use OpenAPI 3.2.0 for new local HTTP contracts unless a named consumer toolchain pins another supported line.
 - Link generated operations instead of hand-copying endpoint tables.
 - Curate only caller constraints that source truth cannot make obvious: preconditions, authorization constraints, valid state transitions, idempotency, skip conditions, units, ranges, null-or-absent semantics, unsafe values, repairability, and retry-or-abort guidance.
 - HTTP mechanics appear only when the contract proves them: authorization, pagination, filtering, sorting, expansion, rate limiting, idempotency, async/long-running operations, schemas, and errors.
 - For RFC 9457 Problem Details, treat `type` as the problem identifier and HTTP status as transport class; never require callers to parse `detail` as machine-readable data.
 
-Local CLI/tool contract:
+[LOCAL_CLI_TOOL]:
 - Document invocation prefix, stdout/stderr or return envelope, status values, exit codes, side effects, artifact paths, source truth, and review triggers.
 - Route flags, command inventory, and runnable recipes to reference or task routes.
 - Keep stdout/stderr, typed return, artifacts, and diagnostics separate when agents parse them differently.
 
-MCP/tool callable contract:
+[MCP_TOOL]:
 - Document catalog/schema source, authorization or connector setup, preconditions, input field cards, output field cards, side effects, failure carrier, evidence, source of truth, and review trigger.
 - Route installation, workflow, and recovery elsewhere unless they change the callable schema or preconditions.
 
-Generated host/API metadata:
+[HOST_METADATA]:
 - Document source key, resolution order, maintained query shapes, output fields, empty/miss behavior, generated artifacts, and refresh route.
 - Use local tooling and generated output as source truth; do not transcribe broad host or package catalogs.
 - Route host support and availability to support matrix, task procedure to how-to, and source comments to code documentation.
 
-Generated library reference:
+[LIBRARY_REFERENCE]:
 - Mark generated pages or sections as generated and name the generation route.
 - Link symbol-family output instead of hand-copying all members.
 - When generated symbol text is wrong, repair source comments or generator input first, then regenerate or relink.
 - Document success, failure, effects, and real thrown exceptions without implying phantom throws.
 
-External facts:
+[EXTERNAL_FACTS]:
 - Cite official specifications, standards, vendor docs, or locally generated upstream reference beside facts that can drift.
 - Separate stable lookup facts from examples and migration notes.
 - Do not copy vendor catalogs or imply local routing of upstream behavior.
@@ -184,7 +182,7 @@ Route-away: `<adjacent route body; omit untriggered routes>`
 
 State versioning and deprecation as one explicit statement per contract, or route support dates to support matrix. Distinguish versioning scheme, deprecation notice, sunset or removal signal, migration target, and support lifecycle date.
 
-External standard anchors:
+[EXTERNAL_ANCHORS]:
 - [OpenAPI Specification](https://spec.openapis.org/oas/latest.html) for local OpenAPI contracts.
 - [RFC 9457](https://www.rfc-editor.org/rfc/rfc9457.html) for HTTP Problem Details.
 - [RFC 9745](https://www.rfc-editor.org/rfc/rfc9745.html) for `Deprecation`.
@@ -206,25 +204,24 @@ Refresh external-source claims when the source revises the named behavior, a loc
 ## [10][CHECKLIST]
 
 Use this checklist by group:
-
-Contract and source:
+[CONTRACT_SOURCE]:
 - [ ] The page declares exactly one profile and uses that profile's required body.
 - [ ] Contract source, generated artifact, source of truth, and refresh route are named where they exist.
 - [ ] Generated contracts and generated reference output are linked or regenerated, not transcribed.
 - [ ] Local API/tool source-collection mechanics are linked to their route instead of repeated.
 
-Profile-specific facts:
+[PROFILE_FACTS]:
 - [ ] CLI/tool pages name invocation, output channels or return envelope, statuses, exit codes, side effects, artifact paths, source truth, and review triggers.
 - [ ] MCP/tool pages name catalog/schema source, authorization/setup, preconditions, input/output fields, side effects, and failure carrier.
 - [ ] Generated host/API pages name source key, resolution order, query shape, output fields, empty/miss behavior, artifact paths, and refresh route.
 - [ ] External SDK/test-tool pages distinguish upstream API facts from local rail posture and route command recipes or strategy policy away.
 
-HTTP, errors, and versioning:
+[HTTP_ERRORS_VERSIONING]:
 - [ ] HTTP-only sections appear only for HTTP surfaces that expose the concern.
 - [ ] OpenAPI pages use OpenAPI 3.2.0 or name the consumer/toolchain pin.
 - [ ] Error documentation carries status mapping, body shape, problem identifier or local error code, repairability, and retry guidance.
 - [ ] Versioning distinguishes deprecation notice, sunset or removal signal, migration target, and support lifecycle dates.
 
-Closeout:
+[CLOSEOUT]:
 - [ ] API surface cards appear only when adjacent route links change caller or agent behavior.
 - [ ] Every ordinary fenced block carries an intent label, and every relative link resolves.

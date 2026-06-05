@@ -12,7 +12,7 @@ Write a how-to guide when every condition holds:
 
 Route a first-success learning path, an operational symptom response, a contribution workflow, an API surface, supported-version facts, or a conceptual explanation to its own type. The README corpus map resolves the reader need to a type; this standard carries the how-to type only.
 
-Authoring contract:
+[AUTHORING_CONTRACT]:
 - Agent use: state one observable task outcome, write the ordered path for a competent reader, and finish on outcome proof rather than command completion.
 - Required produced structure: `Goal`, ordered `Procedure`, and `Verification`, plus triggered prerequisites, rollback, troubleshooting, boundaries, checklist, or maintenance sections.
 - Section cardinality: one goal, one primary successful path, and one verification surface; conditional sections appear only when the task consumes their facts or recovery.
@@ -53,7 +53,6 @@ Use the section set below; each `##` heading is a standalone retrieval unit a re
 ```
 
 Add these conditional sections only when their trigger applies:
-
 ```markdown template
 ## [N][PREREQUISITES]
 
@@ -75,7 +74,6 @@ Omit a conditional section when the condition is absent. Do not publish empty pl
 ## [5][MINIMAL_PATTERN]
 
 A minimal how-to still carries the full outcome path. Use a compact skeleton when the task is small rather than adding placeholder sections:
-
 ```markdown conceptual
 # [VALIDATE_STANDARDS_MARKDOWN]
 
@@ -88,11 +86,11 @@ Validate a standards-only Markdown change so the proof record names whitespace s
 1. In the repository root, list the standards changes.
     Operation: `git status --short -- docs/standards`
     Expected result: only intended Markdown standards files appear.
-   If code files appear, stop and split the change before validating it as docs-only.
+    If code files appear, stop and split the change before validating it as docs-only.
 2. Check patch safety and whitespace.
     Operation: `git diff --check -- docs/standards`
     Expected result: the command exits 0 and prints no whitespace error lines.
-   If the command reports a file and line, fix that line and rerun the check.
+    If the command reports a file and line, fix that line and rerun the check.
 
 ## [3][VERIFICATION]
 
@@ -115,7 +113,6 @@ How-to scope follows these rules:
 - Carry one primary successful path. Add branches only for unavoidable judgment points, state the decision condition, and rejoin when possible; split broad variants into separate guides.
 
 When a procedure depends on adjacent truth to choose a target, branch, artifact, procedure input, safety boundary, or verification, carry one task-specific handoff record at the first point of use. Do not copy the adjacent document's map, roadmap, catalog, lesson, or policy body:
-
 ```markdown template
 Changed fact: <specific target, branch, artifact, input, safety boundary, or verification this procedure consumes>
 Consumed by: <procedure step, prerequisite, rollback, troubleshooting entry, or verification check>
@@ -147,14 +144,13 @@ Prepared artifact: standards-only Markdown diff under `docs/standards/`
 ## [8][PROCEDURE_RULES]
 
 Procedure rules split into step order and step wording:
-
-Step order:
+[STEP_ORDER]:
 - Number steps as the default procedure form; order may follow dependency, reader flow, setup context, or judgment sequence.
 - Use peer bullets only inside a step or for genuinely independent checks whose order does not affect the reader's path.
 - Combine actions that share a place and yield one logical result; split a step that changes place or produces a separately verifiable result.
 - Link a repeated sub-procedure to its canonical guide instead of copying it.
 
-Step wording:
+[STEP_WORDING]:
 - Open each step with an imperative verb and an input-neutral UI verb, so the step holds across mouse, keyboard, command, and automation surfaces.
 - State the place of action before the action when the tool, shell, host, directory, UI, or document is not obvious from the prior step.
 - State a gating condition before the action it controls as a conditional imperative: `If <signal>, <action>`.
@@ -162,16 +158,14 @@ Step wording:
 - Mark an optional step with a leading `Optional:` and mark an irreversible step with a leading `Irreversible:` so the reader sees the stakes before acting.
 
 A step that uses a command should bind operation, expected result, and next condition in the same record so an agent does not leave the reader with a command-only instruction:
-
 ```markdown conceptual
 1. In the repository root, check the reviewed diff.
     Operation: `git diff --check -- docs/standards`
     Expected result: the command exits 0 and prints no whitespace error lines.
-   If a file and line are reported, fix that line before rerunning.
+    If a file and line are reported, fix that line before rerunning.
 ```
 
 Use a fenced command only when the command is multi-line, copy-safe as written, or clearer outside the step record. Include a rejected near-miss only when it prevents a likely material error:
-
 ```bash conceptual
 git diff --check -- docs/standards
 ```
@@ -195,7 +189,6 @@ For a forking procedure, use prose or a numbered branch first. Use a decision ta
 End on a `Verification` block that observes the `Goal` outcome, not that a command exited zero. Bind the check to the task's actual outcome: setup proves convergence to the target state, mutation proves the new state, and read-only work proves the artifact, reading, or export shape. State each expected result beside the command, query, dashboard, generated artifact, UI path, or review gate that proves it.
 
 Render `Verification` as a checklist when the outcome carries several independently observable conditions:
-
 ```markdown conceptual
 ## [3][VERIFICATION]
 
@@ -204,7 +197,6 @@ Render `Verification` as a checklist when the outcome carries several independen
 ```
 
 Reject verification that proves only command completion:
-
 ```markdown rejected
 ## [3][VERIFICATION]
 
@@ -214,7 +206,6 @@ Reject verification that proves only command completion:
 The rejected form omits the requested revision, target state, and readiness outcome, so it cannot prove the `Goal`.
 
 For a state-changing task, give `Rollback` the reverse action, its expected result, and its own check. When no reverse exists, say so and route recovery to a runbook by topic:
-
 ```markdown conceptual
 Reverse action: revert the edited Markdown section in the same patch.
 Expected result: the previous rendered section text and links are restored.
@@ -227,7 +218,6 @@ Recovery route: use the publication rollback runbook if the published artifact i
 ```
 
 A how-to guide claims a path works, so the path must have been run or its gaps stated. Use the proof labels from [proof.md](../proof.md) beside the affected step or outcome:
-
 ```markdown conceptual
 Evidence: `git diff --check -- docs/standards` ran against the documented path set; local path and anchor validation passed or the proof gap was recorded.
 Last verified: 2026-06-04
@@ -243,7 +233,6 @@ Keep `Troubleshooting` to failure modes that block this task and have a concrete
 - `Recovery`: the concrete action that returns the reader to the path, or the route to the controlling runbook when recovery exceeds this task.
 
 Render each entry as a `### [N.M][SYMPTOM]` H3 whose body carries the fields one `label: value` per line:
-
 ```markdown conceptual
 ### [N.M][TARGET_NOT_FOUND]
 
@@ -267,13 +256,12 @@ Review a how-to when a command, tool version, target path, UI label, expected ou
 ## [13][BOUNDARIES]
 
 These adjacent standards own routed material:
-
-Task documents:
+[TASK_DOCUMENTS]:
 - [runbook.md](runbook.md) carries operational symptom response, recovery, escalation, rollback under incident pressure, communication, and incident evidence; a how-to performs normal tasks and routes operational recovery there.
 - [contributing.md](contributing.md) carries contribution workflow, review collaboration, and pull-request evidence.
 - [tutorial.md](../learning/tutorial.md) teaches a first-success path and carries learning ramps; a how-to completes a task for a reader who can already act.
 
-Shared standards:
+[SHARED_STANDARDS]:
 - [proof.md](../proof.md) carries evidence strength, verification gaps, and claim-level evidence details.
 - [information-structure.md](../information-structure.md) carries container, table, record, decision-table, checklist, diagram form, and the intent-label vocabulary this guide applies to fenced blocks.
 - This guide carries the leading step markers `Optional:` and `Irreversible:` because they change how a how-to reader acts before a step.
@@ -283,20 +271,19 @@ Shared standards:
 ## [14][CHECKLIST]
 
 Use this checklist by group:
-
-Scope:
+[SCOPE]:
 - [ ] H1 uses a bracketed semantic task label and `Goal` names one observable outcome.
 - [ ] Conditional sections appear only when the task consumes their facts or actions.
 - [ ] Adjacent routes are named by topic in prose and linked once each only in `Boundaries` when adjacent maintained routes exist.
 - [ ] Adjacent-route handoff records appear only when adjacent truth controls a procedure decision, target, artifact, input, safety boundary, or verification.
 
-Procedure:
+[PROCEDURE]:
 - [ ] Prerequisites are a definition block of checkable access, context, versioned-tool, or prepared-artifact records, listing only what this task consumes.
 - [ ] Procedure steps are imperative, input-neutral, ordered by reader flow, condition-first, and place-clear.
 - [ ] Optional and irreversible steps carry their leading markers when present.
 - [ ] Fenced commands appear only when they are clearer than a step record, and every ordinary fenced block carries one intent label.
 
-Verification:
+[VERIFICATION]:
 - [ ] Verification proves the outcome, states each expected result, and uses claim-level evidence through [proof.md](../proof.md).
 - [ ] The path was run or the unrun gate is stated beside the affected step or check.
 - [ ] State-changing guides carry `Rollback` with a reverse check, or state that no reverse exists and route recovery to a runbook by topic.

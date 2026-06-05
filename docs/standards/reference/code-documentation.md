@@ -13,7 +13,7 @@ Apply this standard when writing or reviewing source-level comments on:
 
 Skip comments that restate the signature, obvious accessors, private implementation details, or names the type already makes unambiguous. Generated reference pages route through [api.md](api.md); curated lookup facts outside source route through [reference.md](reference.md); scope-local README maps route through [readme.md](readme.md); prose mechanics inside comments route through [style-guide.md](../style-guide.md).
 
-Authoring contract:
+[AUTHORING_CONTRACT]:
 - Agent use: decide whether a public symbol needs source documentation and whether that documentation changes generated reference, README, architecture, support, or task docs.
 - Required produced structure: symbol profile, semantic comment shape, generated-reference handoff, maintenance triggers, language tag rules, boundaries, and checklist.
 - Section cardinality: one public-symbol decision per comment, one generated-reference handoff only when adjacent output changes, and language-specific rules only where the source language applies.
@@ -181,7 +181,7 @@ The example is conceptual over the repo-real `tools.quality api query` contract.
 
 Use PEP 257 triple-double-quoted docstrings on public modules, packages, classes, functions, methods, and properties. Rasm's Ruff configuration selects Google-style structured sections, so keep section names and ordering consistent with that dialect until `pyproject.toml` changes.
 
-Python cardinality:
+[PYTHON_CARDINALITY]:
 - Summary line: required; function and method summaries may use imperative form, while module, class, and property summaries use the symbol-kind shape.
 - Blank line after summary: required only for multiline docstrings.
 - `Args:`: conditional; include only parameter meaning, units, ranges, or protocol obligations the annotation omits.
@@ -235,15 +235,13 @@ Resolve every code reference through the toolchain that carries it, or omit the 
 - Python references use the configured documentation generator's resolvable syntax.
 
 Reserve inline comments for the reason a non-obvious choice exists:
-
 ```csharp conceptual
 // Host catalog lists members lazily, so resolve eagerly here to surface a
 // missing symbol at registration rather than at first call.
 RegisterEager(symbol);
 ```
 
-Reject narration:
-
+[REJECT_NARRATION]:
 ```csharp rejected
 // Register the symbol.
 RegisterEager(symbol);

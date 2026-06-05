@@ -14,7 +14,7 @@ Route a page to this standard when the reader extracts a fact rather than follow
 
 Route HTTP contracts and generated API surfaces to [api.md](api.md), broad support policy to [support-matrix.md](support-matrix.md), procedures to [how-to.md](../task/how-to.md), operational recovery to [runbook.md](../task/runbook.md), and rationale to explanation documents.
 
-Authoring contract:
+[AUTHORING_CONTRACT]:
 - Agent use: decide the lookup profile, state the source model, then publish only facts a reader can extract without following a task path.
 - Required produced structure: lead, `Scope`, one or more lookup sets, optional status vocabulary or examples, `Boundaries`, and `Checklist`.
 - Section cardinality: one primary profile per leaf; lookup sets repeat by subject shape; examples appear only beside a likely misuse.
@@ -25,44 +25,43 @@ Authoring contract:
 
 Choose one primary profile per reference leaf. Split the leaf when a second profile changes source model, entry fields, or lookup order.
 
-Fact catalog
-    Carries: grouped facts about one external dependency, runtime, host, product, or local tool surface.
-    Required sets: scope and one or more fact sets.
-    Entry shape: fact card or homogeneous lookup table.
-    Route-away: procedures, support policy, generated API catalogs, and architecture rationale.
+[FACT_CATALOG]:
+- Carries: grouped facts about one external dependency, runtime, host, product, or local tool surface.
+- Required sets: scope and one or more fact sets.
+- Entry shape: fact card or homogeneous lookup table.
+- Route-away: procedures, support policy, generated API catalogs, and architecture rationale.
 
-Command reference
-    Carries: command names, flags, arguments, defaults, output shape, exit behavior, side effects, and short misuse examples.
-    Required sets: scope and one set per command or command family.
-    Entry shape: command family card plus keyed flag or exit-code mappings.
-    Route-away: step-by-step task execution and operational recovery.
+[COMMAND_REFERENCE]:
+- Carries: command names, flags, arguments, defaults, output shape, exit behavior, side effects, and short misuse examples.
+- Required sets: scope and one set per command or command family.
+- Entry shape: command family card plus keyed flag or exit-code mappings.
+- Route-away: step-by-step task execution and operational recovery.
 
-Glossary
-    Carries: terms, abbreviations, aliases, preferred terms, admitted terms, deprecated terms, rejected terms, and related concepts.
-    Required sets: scope, term entries grouped by domain or alphabetized.
-    Entry shape: glossary term card or short definition block.
-    Route-away: explanatory concept essays and external ontology catalogs.
+[GLOSSARY]:
+- Carries: terms, abbreviations, aliases, preferred terms, admitted terms, deprecated terms, rejected terms, and related concepts.
+- Required sets: scope, term entries grouped by domain or alphabetized.
+- Entry shape: glossary term card or short definition block.
+- Route-away: explanatory concept essays and external ontology catalogs.
 
-Data dictionary
-    Carries: data elements with definition, type, value domain, nullability, provenance, routing, and source schema.
-    Required sets: scope and element entries.
-    Entry shape: data element card or schema-local generated table.
-    Route-away: schema files, migrations, generated API contracts, and warehouse catalogs.
+[DATA_DICTIONARY]:
+- Carries: data elements with definition, type, value domain, nullability, provenance, routing, and source schema.
+- Required sets: scope and element entries.
+- Entry shape: data element card or schema-local generated table.
+- Route-away: schema files, migrations, generated API contracts, and warehouse catalogs.
 
-Capability reference
-    Carries: supported features, limitations, status vocabulary, version constraints, and evidence where support is one fact among many.
-    Required sets: scope, status vocabulary, and capability entries.
-    Entry shape: status-tagged capability records.
-    Route-away: broad support matrices and future roadmap intent.
+[CAPABILITY_REFERENCE]:
+- Carries: supported features, limitations, status vocabulary, version constraints, and evidence where support is one fact among many.
+- Required sets: scope, status vocabulary, and capability entries.
+- Entry shape: status-tagged capability records.
+- Route-away: broad support matrices and future roadmap intent.
 
-Source map or package/tool fact catalog
-    Carries: source-key maps, package graph posture, BCL/shared-framework surfaces, external-library posture, testing-tool facts, and replacement maps.
-    Required sets: scope with source model, one or more fact sets, and route-away table.
-    Entry shape: fact cards or grouped records when rows need proof/update fields.
-    Route-away: callable API contracts, support lifecycle, test strategy, how-to commands, architecture, and source comments.
+[SOURCE_MAP_CATALOG]:
+- Carries: source-key maps, package graph posture, BCL/shared-framework surfaces, external-library posture, testing-tool facts, and replacement maps.
+- Required sets: scope with source model, one or more fact sets, and route-away table.
+- Entry shape: fact cards or grouped records when rows need proof/update fields.
+- Route-away: callable API contracts, support lifecycle, test strategy, how-to commands, architecture, and source comments.
 
 Use these lookup archetypes:
-
 | [INDEX] | [ARCHETYPE]               | [USE_FOR]                                                  | [WHEN_ROWS_BECOME_RECORDS]                                                   |
 | :-----: | :------------------------ | :--------------------------------------------------------- | :--------------------------------------------------------------------------- |
 |   [1]   | dependency API fact page  | package or SDK facts such as `docs/external-libs/*/api.md` | any member, version, or generated fact has independent proof                 |
@@ -76,7 +75,6 @@ Use these lookup archetypes:
 Order reference leaves to source first, lookup in the body, and boundaries last.
 
 Use this required core:
-
 ```markdown template
 # [TOPIC]
 
@@ -92,14 +90,13 @@ Use this required core:
 ```
 
 Add these conditional sections only when their trigger applies:
-
 ```markdown template
 ## [N][STATUS_VOCABULARY]
 
 ## [N][EXAMPLES]
 ```
 
-Section cardinality:
+[SECTION_CARDINALITY]:
 - Opening scope: required, single.
 - `Source model`: required inside `Scope` for any reference leaf whose facts can drift, are generated, are package/tool facts, or are sourced from command output.
 - `Status vocabulary`: required for capability references; absent otherwise.
@@ -117,7 +114,6 @@ Profile skeletons make the generic `LOOKUP_GROUP` concrete:
 - Source map or package/tool fact catalog: `Scope` with source model, grouped fact records, route-away table, `Boundaries`, and `Checklist`.
 
 Source model records use proof fields only when the source proves drift-prone facts:
-
 ```text template
 Source model: `<official source, generated artifact, command output, manifest, source map, or package/tool corpus>`
 Evidence: `<source path, command output, generated artifact, official page, or proof gap>`
@@ -157,7 +153,6 @@ State only fields a reader needs to use the fact:
 Choose the container by how the reader reads the entry. A single record read by field belongs in a definition block. Homogeneous peer entries compared across the same columns belong in a table within the shared table ceiling. Sparse, heterogeneous, or independently updated entries belong in per-entry definition blocks or subsection records, not a table with many empty cells. Mark absent table values with an em-dash so blanks never read as unknown.
 
 Use a minimal fact card when the fact is stable and only needs lookup fields:
-
 ```text template
 Name: `<canonical fact, term, command, field, or capability>`
 Kind: `<runtime | host | package | command | field | status | ...>`
@@ -167,7 +162,6 @@ Use: `<one sentence naming the reader action this fact changes>`
 ```
 
 Use a proof-bearing fact card when the fact can drift, routes adjacent work, or changes generated/API/support behavior:
-
 ```text template
 Name: `<canonical fact, term, command, field, or capability>`
 Definition: `<one factual statement>`
@@ -184,7 +178,6 @@ Route-away: `<README | API | code documentation | support matrix | how-to | runb
 Omit fields that do not apply, except `Name` and `Definition`. Put run IDs, source versions, and proof gaps in `Evidence` or a visible proof-gap sentence, not in `Last verified`.
 
 Route changed reference facts by the first route whose reader action changes:
-
 | [INDEX] | [CHANGED_FACT]                                                                   | [ROUTE_TO]                                        |
 | :-----: | :------------------------------------------------------------------------------- | :------------------------------------------------ |
 |   [1]   | callable contract, generated output, input/output/failure carrier                | [api.md](api.md)                                  |
@@ -198,7 +191,6 @@ Route changed reference facts by the first route whose reader action changes:
 |   [9]   | entrypoint or first-use route                                                    | [readme.md](readme.md)                            |
 
 When a reference fact changes a procedure, recovery path, public surface, entry map, support decision, tutorial variant, roadmap sequence, architecture boundary, or symbol contract, update the adjacent route at the point it consumes the fact instead of copying that route into the reference page:
-
 ```text template
 Changed fact: `<fact anchor and changed value>`
 Consumed by: `<README, API, code documentation, support matrix, how-to, runbook, tutorial, roadmap, or architecture path>`
@@ -219,7 +211,6 @@ Capability entries use these fields:
 - `Evidence`: source, command output, or official link when the support fact can drift, with exact evidence details local by [proof.md](../proof.md).
 
 When status maps deterministically to caller decision, include a compact lookup table keyed by status:
-
 | [INDEX] | [STATUS]               | [DECISION]           | [NOTE]                     |
 | :-----: | :--------------------- | :------------------- | :------------------------- |
 |   [1]   | `<declared-supported>` | use without guard    | no guard required          |
@@ -235,7 +226,6 @@ Use lookup tables for direct key-to-value retrieval: exit-code-to-meaning, error
 Keep the stub column a short key: identifier, command, code, status token, or term. Move qualifications longer than a cell into a visible note immediately after the table. A mutating command documents exit codes and side effects beside the command, not in surrounding prose.
 
 Use a command family card before flag, argument, or exit-code tables:
-
 ```text template
 Command family: `<command or subcommand>`
 Invocation pattern: `<command> <required-args> [optional-flags]`
@@ -268,7 +258,6 @@ A glossary is a local controlled vocabulary. Every concept resolves to one prefe
 This local stricter policy maps to external practice rather than claiming external standards require the same terms. SKOS-style preferred, alternate, and hidden labels can support local preferred terms, admitted terms, and hidden-search labels. A local `rejected` term is repository policy unless a named adopted vocabulary defines a stronger authorization status.
 
 Glossary entries use one sense per card when the term has aliases or status:
-
 ```text template
 Term: `<preferred term>`
 Sense: `<one bounded-context meaning>`
@@ -295,7 +284,6 @@ Per element, include the subset that applies:
 Define every coded value's meaning, not just its name. Link the machine-readable schema rather than copying it. Split dictionaries with more than 20 elements by source system or subject area before the table exceeds the row ceiling.
 
 Use a data element card when schema fields need proof or lineage:
-
 ```text template
 Canonical name: `<field or element name>`
 Definition: `<semantic definition, not type echo>`
@@ -311,7 +299,6 @@ Sensitivity/access: `<classification; omit when unrestricted or not classified>`
 A reference example illustrates one fact, runs at most 12 lines, and never becomes a procedure. Place it beside the fact it clarifies and label the fence with intent.
 
 Use this command fact entry:
-
 ```text template
 Invocation: `uv run python -m tools.quality static report libs/csharp/Rasm`
 Flag: `report`
@@ -322,7 +309,6 @@ Side effect: does not intentionally mutate tracked source.
 Replace placeholders with exact command help, a source path, or a generated command reference before publishing a real command reference.
 
 Reject this prose-only warning because it hides the source model:
-
 ```text rejected
 This command has a dry-run mode, but the warning omits invocation, effect, and side effect.
 ```
@@ -345,14 +331,13 @@ The accepted shape gives the reader one lookup fact plus the information needed 
 ## [12][CHECKLIST]
 
 Use this checklist by group:
-
-Profile and source:
+[PROFILE_SOURCE]:
 - [ ] The page describes facts rather than teaching a path or arguing a rationale.
 - [ ] One primary profile is chosen and its lookup sets are present.
 - [ ] Drift-prone, generated, source-map, package graph, and command-output facts have a source model.
 - [ ] External-library pages choose package fact catalog, capability reference, repo posture, or generated/package API fact profile instead of relying on file names.
 
-Entries and examples:
+[ENTRIES_EXAMPLES]:
 - [ ] Lookup sets mirror the subject's shape.
 - [ ] Fact cards carry source guidance, route-away, and use fields where they change maintenance behavior.
 - [ ] Command family cards name invocation pattern, output shape, mutation, and exit behavior.
@@ -363,6 +348,6 @@ Entries and examples:
 - [ ] Sparse or heterogeneous entries use records instead of unnecessary tables.
 - [ ] Examples illustrate one fact and every ordinary fenced block carries an intent label.
 
-Boundaries:
+[BOUNDARIES]:
 - [ ] Procedures, learning paths, future sequence, rationale, broad support policy, and generated API catalogs route through boundaries when reference facts change reader action.
 - [ ] Every relative link resolves.

@@ -17,14 +17,14 @@ Container selection, table construction, and structured-record fields belong to 
 
 Render an inline status, result, change, or compact state as a bracketed token so an agent can filter on an exact string. Use a closed set; do not invent tokens, emojis, or decorative alternates. A record's `Status:` field carries the plain lifecycle value the form standard defines (`DONE`, `BLOCKED`); the bracketed form is for inline use.
 
-Token families:
+[TOKEN_FAMILIES]:
 - Result: `[PASS]`, `[FAIL]`, `[SKIP]`, `[PARTIAL]`, `[N/A]`. Use `[PASS]` and `[FAIL]` for gate outcomes; reserve `[OK]` and `[ERROR]` for runtime health or operational state.
 - Change: `[ADDED]`, `[REMOVED]`, `[CHANGED]`, `[UNCHANGED]`.
 - Lifecycle marker: the form standard's exact default status value in brackets: `[PLANNED]`, `[IN-PROGRESS]`, `[BLOCKED]`, `[DEFERRED]`, `[DONE]`, `[DROPPED]`, `[CANCELED]`.
 - Compact glyph: `[o]` pass, `[x]` fail, `[!]` attention, `[?]` unknown, `[+]` added, `[-]` removed, `[=]` unchanged, `[/]` skipped, `[~]` partial, `[$]` cached.
 - Explicit state: `[OK]`, `[ERROR]`, `[WARNING]`, `[CAUTION]`, `[PENDING]`, `[UNKNOWN]`, `[NEW]`, `[DELETED]`, `[SAME]`, `[NULL]`, `[APPROX]`, `[CACHED]`, `[SAVED]`.
 
-Use rules:
+[USE_RULES]:
 - Prefer the most specific family, and do not use two tokens that mean the same thing in one column.
 - Keep domain status vocabularies in their declared casing as field values; bracketed inline lifecycle markers uppercase the canonical token and replace spaces with hyphens. A type-local marker such as `[PROVISIONAL]` or `[DEPRECATED]` is valid only when the type standard declares that marker's closed vocabulary, meaning, and removal behavior before the first rendered example or production use.
 - Use compact glyphs only where density matters, such as validation lists, delta summaries, or table cells.
@@ -34,7 +34,6 @@ Use rules:
 - Use `—` for an empty or absent table value, `n/a` when the domain vocabulary requires a not-applicable term, `[N/A]` when a result itself is not applicable, `[SKIP]` when a gate intentionally did not run, `[UNKNOWN]` when a value should exist but is not known, and `[NULL]` only when a literal null value is the fact.
 
 Render progress as plain text only after [information-structure.md](information-structure.md) defines the calculation rule. Keep it plain and inspectable:
-
 ```text conceptual
 Progress: 3/6 exit criteria proven; numerator counts checked exit criteria with proof receipts, denominator counts all exit criteria in this milestone.
 ```
@@ -52,29 +51,27 @@ Do not bring invocation markers into the prose standards or ordinary documentati
 Once form chooses a table, style it for scanning.
 
 Table styling uses these groups:
-
-Alignment:
+[ALIGNMENT]:
 - Left-align text, identifiers, paths, commands, code spans, enum words, and prose phrases.
 - Right-align numeric, measurement, count, and date columns.
 - Center only `[INDEX]`, compact markers, booleans, tri-state values, and glyph-like cells.
 - Treat numeric-looking identifiers as text. Left-align ADR numbers, version ranges, issue IDs, package names, endpoint paths, and code spans unless the column represents a quantity or date.
 - Align a mixed column by semantic type, not by its shortest cell. If a column mixes compact tokens with longer words, code spans, or phrases, left-align it unless the whole column is numeric or date-like.
 
-Surface:
+[SURFACE]:
 - Every table column header is a bracketed uppercase rubric such as `[SOURCE_PATH]`, `[REQUIRED_GATE]`, or `[STATUS]`; compound rubrics use underscores and avoid spaces.
 - Every enumerable Markdown table starts with `[INDEX]`, center-aligned, with body rows numbered `[1]` through `[n]`.
 - A non-enumerable matrix may use a short bracketed stub rubric instead only when row order or row identity is not enumerable.
 - Align the first column left, or, when it is a pure index, center it; the form standard sets what the stub column may contain.
 - A centered non-index cell must be a compact marker or a value whose visible text is three letters or fewer, such as `yes`, `no`, `n/a`, `—`, `[o]`, or `[x]`. Do not center whole words such as `accepted`, `Supported`, `Standard`, `Contract`, or `Required`.
 
-Safety:
+[SAFETY]:
 - Mark an absent or not-applicable value with an em-dash (`—`); never leave a cell blank.
 - Escape a literal pipe inside a table cell as `\|`, including inside code spans, because unescaped pipes split GFM cells.
 - Do not use `<br>`, embedded lists, or multiline HTML inside Markdown table cells. When one cell needs that structure, move the row to a definition block or subsection-per-record block.
 - Put reader-facing qualifications, generated-table caveats, and "replace with verified data" warnings in visible prose, a note block, or a footnote immediately after the table. Hidden comments are source-only hints, never the only carrier of safety or proof.
 
 The GFM separator row encodes the four alignment classes — left-align with `:---`, right-align with `---:`, center with `:---:`. A template:
-
 ```markdown template
 | [INDEX] | [ITEM] | [COUNT] | [STATUS] | [ACTIVE] |
 | :-----: | :----- | ------: | :------- | :------: |
@@ -88,14 +85,16 @@ The index column is centered, the text column (`[ITEM]`) is left-aligned, the nu
 
 - Use `-` for bullets; do not use `*` or `+`.
 - Keep no blank line between items of one list; a blank line ends the list.
-- Put one blank line after every H1, H2, and H3 heading before the next line, including when the next line is another heading, and one blank line on each side of a table, fenced block, or diagram.
+- Put one blank line after every H1, H2, and H3 heading before the next line, including when the next line is another heading, and one blank line on each side of a table, fenced block, or diagram unless a colon lead directly introduces that structure.
 - Introduce one list with a complete lead sentence ending in a colon, then start the list on the next line with no blank gap.
-- Use a raw set label followed by a colon when the introducer is only a category label or list name. Put the list on the next line with no blank gap.
-- Use grouped sibling lists for a short series of lists that share one lead but are not nested under one parent item. Write a complete lead sentence, then one blank line, then each raw set label and its list. Keep one blank line between groups. Promote a group to H3 when it needs an anchor, a long explanation, or independent retrieval.
+- Treat a complete sentence as a lead, never as a label. If the line reads as a sentence, keep it prose and let the following list carry the facts.
+- Use a bracketed set label only when the introducer is a category, set, key, or compact list name. The label format is `[X_Y_Z]:`: uppercase, underscores for compounds, 1-3 semantic words, and no surrounding bold or code span.
+- Put the list, table, fenced block, or example on the next line after a bracketed set label with no blank gap.
+- Use grouped sibling lists for a short series of lists that share one lead but are not nested under one parent item. Write a complete lead sentence ending in a colon, the first bracketed set label on the next line, and that label's list on the following line. Keep one blank line between completed peer groups when useful. Promote a group to H3 when it needs an anchor, a long explanation, or independent retrieval.
 - Use a nested list only when every child item qualifies one parent item. Indent child bullets, ordered-list continuations, and field continuations with four spaces.
 - Keep short checklist fields inline after an em dash. Promote larger checklist state to the record form defined by `information-structure.md`.
 - Keep definition-block labels in sentence case or verified field casing, followed by one colon and one space. Indent wrapped or list-valued field content four spaces beneath the label.
-- Keep list item labels raw by default: `Label: value`. Use backticks only for literal fields, symbols, commands, paths, flags, exact tokens, or placeholders. Do not bold the label or the whole line.
+- Keep item-scoped field labels raw by default inside bullets, checklist items, and definition blocks: `Label: value`. Use bracketed set labels only for standalone group labels. Use backticks only for literal fields, symbols, commands, paths, flags, exact tokens, or placeholders. Do not bold the label or the whole line.
 - Let prose soft-wrap; the form standard carries the no-hard-wrap rule, and this whitespace discipline governs only the gaps between structural elements.
 
 ```markdown conceptual
@@ -108,12 +107,11 @@ Use the container that matches the reader action:
 
 ```markdown conceptual
 Section cardinality uses these groups:
-
-Required universal:
+[REQUIRED_UNIVERSAL]:
 - Opening lead: required, single; states the support question, profile, and regime.
 - Required sections: `Scope`, `Status vocabulary`, `Matrix`, `Exclusions`, `Boundaries`, and `Checklist`.
 
-Conditional profile:
+[CONDITIONAL_PROFILE]:
 - `Lifecycle dates`: required for product-lifecycle and deprecation profiles.
 - `Reading rule`: required for two-axis, intersection, or derived cells.
 ```
@@ -152,8 +150,7 @@ Comment limits: never use a hidden comment as the only carrier of safety, proof,
 ## [9][CHECKLIST]
 
 Use this checklist by group:
-
-Markers and tables:
+[MARKERS_TABLES]:
 - [ ] Status, result, and change markers come from the closed token sets.
 - [ ] Markers do not appear in ordinary prose or duplicate a field or checkbox state.
 - [ ] Progress markers state their calculation rule and do not duplicate checklist completion.
@@ -161,7 +158,7 @@ Markers and tables:
 - [ ] Table columns are aligned by type: text left, numeric/date values right, and only indexes plus compact markers or short booleans centered.
 - [ ] Table cells escape literal pipes, stay single-line, and move long qualifications to visible notes, footnotes, or record blocks.
 
-Spacing and headings:
+[SPACING_HEADINGS]:
 - [ ] Bullets use `-`, list items carry no blank lines between them, and structural elements have one blank line around them.
 - [ ] The document uses the bracketed heading format consistently.
 - [ ] Heading links match the rendered anchor slug, and hidden comments carry only source-view hints.

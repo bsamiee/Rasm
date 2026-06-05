@@ -15,7 +15,7 @@ Use a roadmap when a code scope has a coordinated sequence that cannot be unders
 
 Route current structure to [architecture.md](architecture.md), durable decisions to [adr.md](adr.md), pre-code proposal review to [design-doc.md](design-doc.md), gate taxonomy to [test-strategy.md](test-strategy.md), supported-version lifecycle to [support-matrix.md](../reference/support-matrix.md), release history to the project release mechanism, and repeatable procedures to [runbook.md](../task/runbook.md) or how-to/tutorial documents.
 
-Authoring contract:
+[AUTHORING_CONTRACT]:
 - Agent use: decide next implementation work, blocked work, required proof, and adjacent document updates.
 - Required produced structure: lead, scope, status vocabulary, ID/progress rules, milestone records, exit proof rules, boundaries, and checklist.
 - Section cardinality: one scope, one status vocabulary, one ID/progress rule set, one milestone list, and optional current status, constraints, dependencies, handoffs, issue/risk register, or deferred-work sections only when referenced.
@@ -34,7 +34,6 @@ Use the nearest live source for mutable planning facts and the Markdown roadmap 
 When Markdown and a live planner disagree, the live planner controls mutable facts. If no live planner exists, the Markdown roadmap may control task IDs and status, but every completion claim still needs proof under [proof.md](../proof.md).
 
 Maintenance follows the route of the changed fact:
-
 | [INDEX] | [EVENT]                                              | [ROADMAP_ACTION]                                                   |
 | :-----: | :--------------------------------------------------- | :----------------------------------------------------------------- |
 |   [1]   | live planner status, blocker, or route changes       | refresh the linked snapshot or remove duplicated mutable facts     |
@@ -45,7 +44,6 @@ Maintenance follows the route of the changed fact:
 |   [6]   | architecture and ADRs already carry all active truth | replace the roadmap with a `No roadmap` verdict in the route index |
 
 `No roadmap` is a route-away verdict:
-
 ```markdown template
 Roadmap: not authored.
 Reason: current architecture and accepted ADRs already carry the active route truth.
@@ -92,7 +90,6 @@ Avoid vague status labels such as `ongoing`, `soon`, `almost complete`, `waiting
 ## [5][REQUIRED_STRUCTURE]
 
 Use this heading order for a standalone roadmap:
-
 ```markdown template
 # [<CODE_SCOPE>_ROADMAP]
 
@@ -114,7 +111,6 @@ Use this heading order for a standalone roadmap:
 ```
 
 Add these conditional sections only when they change sequencing or maintenance behavior:
-
 ```markdown template
 ## [N][CURRENT_STATUS]
 
@@ -143,14 +139,13 @@ Add these conditional sections only when they change sequencing or maintenance b
 
 Required sections are required because agents need them in order: understand mission and code scope, map statuses, use stable IDs and progress, execute milestones, prove closure, route adjacent concerns, and review for drift. Conditional sections appear only when they change sequencing or maintenance behavior.
 
-Section cardinality:
+[SECTION_CARDINALITY]:
 - `Lead`, `Scope`, `Status vocabulary`, `ID/progress rules`, `Milestones`, `Exit proof rules`, `Boundaries`, and `Checklist`: required, single.
 - `Milestones`: repeatable records under one required section.
 - `Current status`, `Constraints`, `Dependencies and blockers`, `Documentation handoffs`, `Work register`, and `Deferred/dropped/canceled work`: conditional.
 - Handoff, blocker, issue, risk, task, and proof-gap records: repeatable only when referenced by a milestone, dependency, proof rule, or adjacent document.
 
 An accepted lead is implementation-specific:
-
 ```markdown conceptual
 # [EVENT_PIPELINE_ROADMAP]
 
@@ -158,7 +153,6 @@ Roadmap state: ACTIVE. Sequence type: Package build. This roadmap sequences `src
 ```
 
 Reject a lead that makes a vague commitment:
-
 ```markdown rejected
 # [EVENT_ROADMAP]
 
@@ -177,7 +171,6 @@ The `Scope` section names:
 - release-history route for shipped history.
 
 This example shows a scope mission and boundary record:
-
 ```markdown conceptual
 Mission: make `src/EventPipeline/` a standalone package with stable generated contracts, one worker execution path, and documented public caller semantics.
 Included: `src/EventPipeline/EventPipeline.csproj`, `Contracts/`, `Admission/`, `Execution/`, generated reference page.
@@ -210,7 +203,6 @@ IDs exist so milestones, dependencies, architecture notes, ADRs, designs, proof 
 - If tasks are proof subchecks for one exit criterion, keep them nested under that criterion and do not assign task IDs.
 
 Progress defaults to unweighted checked exit criteria with proof agreement:
-
 ```text template
 Progress: 3/6 exit criteria proven
 ```
@@ -244,8 +236,7 @@ Route-away: <architecture, support matrix, test strategy, README, or runbook bod
 Each milestone is one field/value record. It separates implementation intent from proof so an agent can update one field without rewriting the plan.
 
 Milestone records split fields into required and conditional sets:
-
-Required fields:
+[REQUIRED_FIELDS]:
 - `ID`: stable `M<N>` identifier.
 - `Status`: one value from the roadmap status vocabulary.
 - `Progress`: count calculated by `ID_PROGRESS_RULES`, unless a live planner carries progress.
@@ -257,7 +248,7 @@ Required fields:
 - `Proof surface`: smallest evidence that demonstrates exit.
 - `Proof map`: required when `Progress` is nonzero or when one `Proof surface` covers multiple gates; map each checked exit criterion to the exact evidence, generated artifact, command, status check, review, or stated proof gap.
 
-Conditional fields:
+[CONDITIONAL_FIELDS]:
 - `Live task source`: required when a live planner carries tasks.
 - `Tasks`: allowed only when Markdown controls tasks; use stable `M<N>.T<N>` IDs.
 - `Dependencies`: required when prerequisites, blockers, or external dependencies exist.
@@ -270,7 +261,6 @@ Conditional fields:
 - `Off-ramp`: required for exploratory or risky implementation; state the stop condition and action.
 
 Use this accepted milestone record shape:
-
 ```markdown template
 ### [4.1][M2_WORKER_EXECUTION]
 
@@ -302,7 +292,6 @@ Documentation handoff: architecture flow, code documentation, generated referenc
 ```
 
 Reject this milestone shape because it has no calculated progress or proof:
-
 ```markdown rejected
 ### [4.1][M2_WORKER]
 
@@ -349,7 +338,6 @@ flowchart LR
 Text equivalent: the edge table controls dependency source and go/no-go fields; the graph only shows that M1 unblocks M2, M2 unblocks M3, and the support row gates M4.
 
 Blocker records cover access blockers, proof blockers, decision blockers, and support blockers that are not clean milestone-to-milestone edges:
-
 ```markdown template
 ID: B-M2-1
 Status: BLOCKED
@@ -382,7 +370,6 @@ Route-away: architecture body, source-comment content, and gate taxonomy stay in
 Every `Documentation handoff` listed in a milestone must have a matching handoff record or an explicit route-away note that explains why the adjacent route does not change.
 
 Use these common handoff triggers:
-
 | [TRIGGER]                                                                     | [UPDATE_TARGET]             |
 | :---------------------------------------------------------------------------- | :-------------------------- |
 | path, project, package, generated output, flow, dependency, invariant changes | architecture                |

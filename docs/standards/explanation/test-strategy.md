@@ -17,7 +17,7 @@ Use a test strategy when a maintained scope must state any of these:
 
 Do not use a test strategy to list every command a contributor runs, catalog runner flags or framework APIs, record milestone sequence, or prescribe incident recovery from a failing production gate.
 
-Authoring contract:
+[AUTHORING_CONTRACT]:
 - Agent use: identify the maintained scope, choose one profile and one primary archetype, then map risk tiers to real local gates without turning the page into a command manual.
 - Required produced structure: lead, `Scope`, `Principles`, `Risk model`, `Test levels`, `Gate mapping`, `Required proof by change`, `Diagnosis and repair`, `Boundaries`, and `Checklist`.
 - Section cardinality: required sections appear once; entry/exit, flaky-test, metrics, and maintenance sections appear only when their trigger changes gate behavior.
@@ -86,7 +86,7 @@ External testing vocabulary supplies these concepts:
 - Entry criteria open a gate; exit criteria close a release, manual, or manually accepted class.
 - Flaky-test policy requires detection, measurement, mitigation, quarantine, and repair or deletion criteria when the scope can quarantine tests.
 
-Closed field vocabularies:
+[FIELD_VOCABULARIES]:
 - `Trigger`: `presubmit`, `post-submit`, `nightly`, `release`, `manual runtime gate`, `incident follow-up`.
 - `Blocking`: `blocks merge`, `blocks release`, `blocks acceptance`, `reports only`.
 - `Quarantine status`: active `suspected`, `quarantined`, `repairing`; returnable `re-enabled`; terminal `deleted`. There is no blocked quarantine status: if repair is blocked, the record carries the blocker as evidence and remains `quarantined` or `repairing`. A deleted test is removed from the strategy only when duplicate coverage or retired behavior is proven and the deletion evidence remains in the controlling change record.
@@ -129,7 +129,6 @@ Use this required section order. Conditional sections are omitted until their tr
 ```
 
 Use this accepted lead shape:
-
 ```markdown conceptual
 # [EVENT_CONTRACT_TEST_STRATEGY]
 
@@ -137,7 +136,6 @@ This `Service integration` strategy uses the `Analytical` archetype for event-co
 ```
 
 Use this conditional-section decision table:
-
 | [INDEX] | [SECTION]                 | [TRIGGER]               | [AFTER]                                   | [OMIT_WHEN]                 |
 | :-----: | :------------------------ | :---------------------- | :---------------------------------------- | :-------------------------- |
 |   [1]   | `Entry and exit criteria` | release/manual gates    | Gate mapping                              | no open/close criteria      |
@@ -146,7 +144,6 @@ Use this conditional-section decision table:
 |   [4]   | `Maintenance events`      | multiple stale events   | before Boundaries                         | claim-level proof is enough |
 
 Use this conditional-addition template:
-
 ```markdown template
 ## [N][ENTRY_EXIT_CRITERIA]
 
@@ -157,7 +154,7 @@ Use this conditional-addition template:
 ## [N][MAINTENANCE_EVENTS]
 ```
 
-Section cardinality:
+[SECTION_CARDINALITY]:
 - Opening paragraph, `Scope`, `Principles`, `Risk model`, `Test levels`, `Gate mapping`, `Required proof by change`, `Diagnosis and repair`, `Boundaries`, and `Checklist` are required.
 - Conditional sections appear only when their decision-table trigger holds.
 
@@ -226,7 +223,6 @@ Trigger: <presubmit, post-submit, nightly, release, or manual runtime gate>
 ```
 
 Reject this level record because it names no source, risk, trigger, or diagnosis path:
-
 ```text rejected
 Level: framework-tests
 Trigger: CI
@@ -235,7 +231,6 @@ Trigger: CI
 The rejected form names a framework and omits risk, tier, size, hermeticity, and diagnosis path.
 
 Local rail classes stay distinct from test levels. Use this table as a selection checklist, then replace every row a produced strategy uses with the repository's current gate name, status check, or generated artifact:
-
 | [INDEX] | [RAIL_CLASS]                | [TYPICAL_LOCAL_SOURCE]                              | [PROOF_FUNCTION]                                  |
 | :-----: | :-------------------------- | :-------------------------------------------------- | :------------------------------------------------ |
 |   [1]   | static/type/build           | analyzer, formatter, compiler, MTP build            | source-shape and compilation evidence             |
@@ -251,7 +246,6 @@ Local rail classes stay distinct from test levels. Use this table as a selection
 ## [11][GATE_MAPPING]
 
 A gate map connects a level to automation without becoming a runner manual. Link commands, status checks, and runner configuration; do not list runnable command recipes. Render each gate as one definition block:
-
 ```text template
 Gate: <local-gate-name>
 Trigger: <presubmit, post-submit, nightly, release, manual runtime gate, or incident follow-up>
@@ -269,7 +263,6 @@ Review trigger: <gate, runner, status check, support target, risk tier, or contr
 Order gates by trigger latency. Fast deterministic gates block early. Slower or less hermetic gates run later; each deferred gate states residual risk.
 
 When adjacent truth changes gate selection, proof escalation, support scope, command routing, or recovery routing, add one adjacent proof record beside the gate record:
-
 ```text template
 Changed fact: <invariant, generated contract, support row, public symbol, contributor command, validation path, or recovery route>
 Consumed by: <gate, test level, risk tier, or required-proof row>
@@ -282,7 +275,6 @@ Route-away: <architecture body, API catalog, support policy, command procedure, 
 Use architecture when topology or invariants select the gate; API or code documentation when generated contracts or public symbols supply proof; support matrix when supported-version truth controls test scope; contributing or how-to when the executable command path belongs outside strategy; runbook only for production gate recovery. Omit background-only links that do not change gate choice, proof strength, or recovery path.
 
 The diagram below is conceptual, not universal. A produced strategy may include a gate diagram only when it names real local gate IDs, status checks, trigger classes, and the text equivalent that proves the same ordering:
-
 ```mermaid
 ---
 config:
@@ -311,7 +303,7 @@ Text equivalent: changed-path impact selects the presubmit gate first; unit and 
 
 Include entry and exit criteria when the strategy carries release gates, manual runtime gate, regulated gate, hotfix tailoring, or locally defined phase vocabulary. State conditions that open each gate and thresholds that close each class; if phases appear, define the phase vocabulary before the first criterion that uses it.
 
-Criteria fields:
+[CRITERIA_FIELDS]:
 - `Gate`: the gate or release class.
 - `Entry`: conditions that must hold before the gate runs.
 - `Exit`: concrete thresholds tied to risk tier or acceptance class.
@@ -344,7 +336,6 @@ Map each change family to the smallest sufficient proof surface. The table below
 When an escalation trigger fires, the change also clears the broader gate the row escalates into. A produced strategy that leaves a placeholder, generic gate class, or unowned review path in this table is incomplete.
 
 Reject copied-placeholder proof because it hides the missing local source:
-
 ```markdown rejected
 | [INDEX] | [CHANGE] | [PROOF]      | [ESCALATE_WHEN] |
 | :-----: | :------- | :----------- | :-------------- |
@@ -382,7 +373,6 @@ Use these policy fields:
 Thresholds such as retry-pass rate or maximum quarantine duration are examples until a local strategy adopts them from policy. Quarantine suppresses signal; it is never repair. A quarantined test past its maximum duration follows the repair path named in `Diagnosis and repair`.
 
 Use this policy record:
-
 ```markdown template
 Detection: <signal and threshold from local gate history>
 Severity: <class and rerun policy>
@@ -396,7 +386,6 @@ Deletion criteria: <duplicated stronger coverage or retired behavior>
 ```
 
 Reject this policy sentence because it lacks a repair path and threshold:
-
 ```text rejected
 Flaky tests can be quarantined until they are fixed.
 ```

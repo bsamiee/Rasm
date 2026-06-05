@@ -12,7 +12,7 @@ Use a support matrix when a reader compares support facts across rows:
 
 Route future support intent to [roadmap.md](../explanation/roadmap.md), current codemap/path-state changes to [architecture.md](../explanation/architecture.md), step-by-step migration to [how-to.md](../task/how-to.md), operational recovery to [runbook.md](../task/runbook.md), and ordinary lookup facts to [reference.md](reference.md).
 
-Authoring contract:
+[AUTHORING_CONTRACT]:
 - Agent use: choose one support profile and regime, declare the status vocabulary, then publish only support facts a reader can compare or act on.
 - Required produced structure: lead, `Scope`, `Status vocabulary`, `Matrix`, `Exclusions`, `Boundaries`, and `Checklist`, with profile-triggered lifecycle, bounds, dependency, limitation, deprecation, or migration sections inserted only when needed.
 - Section cardinality: one support question per matrix; one status vocabulary; one or more matrix sets only when profile axes differ; conditional sections appear only when their rows consume them.
@@ -48,7 +48,6 @@ A matrix that mixes regimes states the regime per row or per section.
 Use the universal structure, then insert profile-conditional sections only where triggered.
 
 Use this universal template:
-
 ```markdown template
 # [SURFACE_SUPPORT]
 
@@ -68,7 +67,6 @@ Use this universal template:
 ```
 
 Add these conditional sections only when the selected profile requires them:
-
 ```markdown template
 ## [N][LIFECYCLE_DATES]
 
@@ -86,13 +84,12 @@ Add these conditional sections only when the selected profile requires them:
 ```
 
 Section cardinality uses these groups:
-
-Required universal:
+[REQUIRED_UNIVERSAL]:
 - Opening lead: required, single; states the support question, profile, and regime.
 - Required sections: `Scope`, `Status vocabulary`, `Matrix`, `Exclusions`, `Boundaries`, and `Checklist`.
 - Repeatable section: `Matrix`, one table or grouped subsection per profile axis.
 
-Conditional profile:
+[CONDITIONAL_PROFILE]:
 - `Lifecycle dates`: required for product-lifecycle and deprecation profiles.
 - `Reading rule`: required for two-axis, intersection, or derived cells.
 - `Compatibility bounds`: required for compatibility profiles.
@@ -100,7 +97,7 @@ Conditional profile:
 - `Deprecations` and `Migration paths`: required when any row is deprecated, end-of-support, retired, removed, or has a replacement.
 - `Limitations`: optional and repeatable for limited surfaces.
 
-Close:
+[CLOSE]:
 - `Boundaries`: required, single.
 - `Checklist`: required, single.
 
@@ -126,7 +123,6 @@ Missing-value rule: `<how null, false, omitted, not announced, and unknown value
 ```
 
 When importing endoflife.date data, preserve upstream field names before mapping them to local display labels:
-
 Boolean/date pairs: `isEoas`/`eoasFrom`, `isEol`/`eolFrom`, `isEoes`/`eoesFrom`, and `isDiscontinued`/`discontinuedFrom`.
 Related fields: `isLts`, `ltsFrom`, `isMaintained`, `latest`, and `custom` when they affect a row.
 Missing-value rule: preserve omitted fields, explicit `null`, false booleans, and not-announced dates as distinct facts.
@@ -237,7 +233,6 @@ Basis when needed: source path, contract, command, generated check, or official 
 Do not copy a large generated or vendor-local matrix when the official source is stronger. Publish only the local subset that changes reader decisions and link the controlling source.
 
 An accepted matrix shows the comparison axis, support condition, explicit unknowns, and proof stub without turning cells into paragraphs:
-
 ```markdown conceptual
 | [INDEX] | [SURFACE]              | [VERSION] | [STATUS]  | [UPSTREAM_PHASE] | [PHASE_GRANTS] | [BOUND]                      | [KEY_DATE]      | [BASIS]                   |
 | :-----: | :--------------------- | :-------- | :-------- | :--------------- | :------------- | :--------------------------- | :-------------- | :------------------------ |
@@ -249,7 +244,6 @@ An accepted matrix shows the comparison axis, support condition, explicit unknow
 Notes: `not announced` and `still supported` are explicit values, not blank cells. Row-level proof belongs beside the row note or promoted record: `Evidence: <policy, generated check, or command>` and `Review trigger: <release line, policy, entitlement, or generated-check change>`.
 
 When a table row needs proof, replacement, or migration detail too large for a cell, move that row to a record:
-
 ```text template
 Surface: `<product, component, feature, runtime, platform, API, or plan>`
 Version or scope: `<release line, version range, entitlement, or environment>`
@@ -281,8 +275,7 @@ Cells stay atomic: date, status, compact marker, or `n/a`. Put conditional suppo
 
 State compatibility bounds using the source model that governs the surface.
 
-For skew-governed systems:
-
+[SKEW_GOVERNED]:
 ```text template
 Component: `<component-name>`
 Counterpart: `<component-or-control-plane-name>`
@@ -321,7 +314,7 @@ The examples are source-backed exclusion shapes. Publish only exclusions proven 
 
 Distinguish `Deprecated`, `End of support`, `Retired`, and `Unsupported`; they answer different reader questions. Render each deprecation as a definition block or per-item record, not a bullet list of fields.
 
-Required fields:
+[REQUIRED_FIELDS]:
 - deprecated surface and first deprecated version or announcement date.
 - current availability.
 - warning signal emitted at use, where one exists.
@@ -349,7 +342,6 @@ Review trigger: command surface, generated API contract, support policy, or migr
 Keep migration guidance decision-oriented. For each migration, name source surface, target surface, direct or staged path, prerequisites, known breaking changes, validation signal, and controlling how-to. Put the step-by-step work in [how-to.md](../task/how-to.md) and operational recovery in [runbook.md](../task/runbook.md).
 
 Use a migration anchor record when the support matrix links roadmap intent, API deprecation, README status, or a how-to without embedding the sequence:
-
 ```text template
 Source surface: `<deprecated, limited, unsupported, or retired surface>`
 Target surface: `<replacement; omit when no replacement exists>`
@@ -389,15 +381,14 @@ Package graph states are adoption states, not support statuses by default. A sup
 ## [17][CHECKLIST]
 
 Use this checklist by group:
-
-Source and status:
+[SOURCE_STATUS]:
 - [ ] Opening lead carries the support question, profile, and regime.
 - [ ] Scope names the surface, one profile, and the support regime.
 - [ ] Status vocabulary defines only used statuses and maps each to upstream phase and fix classes.
 - [ ] Imported lifecycle values preserve upstream names, boolean and date pairs, and null or not-announced distinctions before local mapping.
 - [ ] Imported lifecycle rows distinguish omitted, explicit null, false, and not-announced values where the source model distinguishes them.
 
-Matrix and bounds:
+[MATRIX_BOUNDS]:
 - [ ] Matrix rows stand alone and carry claim-level proof through [proof.md](../proof.md) when needed.
 - [ ] Exclusions enumerate unsupported configurations explicitly.
 - [ ] Lifecycle profiles keep active support, end of life, extended support, retirement, discontinuation, maintained, LTS, and latest facts distinct where the source distinguishes them.
@@ -408,7 +399,7 @@ Matrix and bounds:
 - [ ] Conditional support uses visible notes or footnotes, never paragraph cells.
 - [ ] Lifecycle, deprecation, or compatibility diagrams appear only where transitions or edges change reader action, and each diagram has a text equivalent.
 
-Deprecation and migration:
+[DEPRECATION_MIGRATION]:
 - [ ] Deprecation entries distinguish current availability, warning signal, replacement, removal, behavior change, and the policy behind removal.
 - [ ] Migration anchors name source, target, roadmap or how-to route, and validation signal rather than embedding steps.
 - [ ] Boundaries route adjacent concerns once and every relative link resolves.

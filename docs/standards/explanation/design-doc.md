@@ -15,7 +15,7 @@ Use a design document when the change has design ambiguity and needs any of thes
 
 Do not use a design document for one obvious approach with no meaningful trade-off. Route accepted durable decisions to ADRs, current structure to architecture documents, dated build sequence to roadmaps, operational symptom response to runbooks, lookup catalogs to reference, generated contracts to API documentation, and contributor workflow to contributing guides.
 
-Authoring contract:
+[AUTHORING_CONTRACT]:
 - Agent use: first prove ambiguity, then choose the profile, then write only the sections required by the lifecycle state and profile.
 - Required produced structure: lead with status/profile/source facts, then `Problem`, goals or draft gaps, context, approach, alternatives, risks/questions, proof plan, boundaries, and checklist.
 - Section cardinality: required sections appear once; conditional slices, cross-cutting checks, final-check, and ADR handoff sections appear only when their trigger holds.
@@ -41,14 +41,13 @@ Local final check is a document state inside this type, not a separate RFC artif
 Every design document states lifecycle facts where they route source and proof obligations: status and profile in the lead, check-scope and final-check facts in the matching sections, and supersession in the handoff or boundaries section.
 
 `Status` uses uppercase values from this closed set. State groups first, then individual status meanings:
-
-Lifecycle groups:
+[LIFECYCLE_GROUPS]:
 Active proposal states: `DRAFT`, `DISCUSSION`, `FINAL-CHECK`.
 Returnable state: `DISCUSSION`; return here when new evidence changes the selected direction after `FINAL-CHECK`.
 Post-check states: `ACCEPTED`, `IMPLEMENTED`.
 Terminal states: `IMPLEMENTED`, `DROPPED`; `ACCEPTED` is terminal for proposal checking but may advance to `IMPLEMENTED` when implementation and proof links are recorded.
 
-Status meanings:
+[STATUS_MEANINGS]:
 - `DRAFT`: problem, rough goals, and gaps are being shaped; do not evaluate a final approach yet.
 - `DISCUSSION`: viable options and trade-offs are ready for route checks.
 - `FINAL-CHECK`: one direction is selected and only final objections remain.
@@ -57,7 +56,7 @@ Status meanings:
 - `DROPPED`: proposal stopped, with reason and supersession if one exists.
 Replacement behavior: keep a replaced or dropped design when it preserves rationale an agent still needs; delete only when the accepted ADR, roadmap, replacement design, or implementation evidence preserves the rationale and links back to the replaced design. There is no design-level blocked status; blockers stay in risk/open-question records with `Depends`.
 
-Lifecycle fact cardinality:
+[LIFECYCLE_FACTS]:
 - `Status`, `Profile`, `Date`, and `Source` are required in the lead.
 - `Check scopes` is required at `DISCUSSION` and later.
 - `Final check deadline` and `Final check source` are required at `FINAL-CHECK` and later for `Standard` and `Public-contract`.
@@ -96,7 +95,6 @@ Use the base skeleton for every status, then apply the lifecycle deltas. Conditi
 ```
 
 Use this draft-delta skeleton before checkable options exist:
-
 ```markdown template
 ## [2][ROUGH_GOALS]
 
@@ -106,7 +104,6 @@ Use this draft-delta skeleton before checkable options exist:
 ```
 
 Add these conditional sections only when their trigger applies:
-
 ```markdown template
 ## [N][CHANGE_SLICES]
 
@@ -126,7 +123,6 @@ Add these conditional sections only when their trigger applies:
 ```
 
 Use this lifecycle/profile decision table:
-
 | [INDEX] | [CONDITION]                              | [REQUIRED_OUTPUT]                                           |
 | :-----: | :--------------------------------------- | :---------------------------------------------------------- |
 |   [1]   | `Status: DRAFT`                          | draft skeleton; visible gap note                            |
@@ -136,7 +132,7 @@ Use this lifecycle/profile decision table:
 |   [5]   | acceptance binds durable policy          | decision-record handoff                                     |
 |   [6]   | `Status: IMPLEMENTED`                    | implemented evidence linking the implementation source path |
 
-Section cardinality:
+[SECTION_CARDINALITY]:
 - Lifecycle facts, `Boundaries`, and `Checklist` are required for every status.
 - `Problem`, `Rough goals`, and `Gaps` are enough for `DRAFT`; they replace `Goals`, `Non-goals`, and the checkable proposal body until viable options exist.
 - `Goals`, `Non-goals`, `Context`, `Proposed approach`, `Alternatives considered`, `Risks and open questions`, and `Validation and proof plan` are required at `DISCUSSION` and later.
@@ -144,7 +140,6 @@ Section cardinality:
 - Conditional sections appear only when their trigger row applies.
 
 The H1 names the proposed outcome only. The lead carries lifecycle and source facts:
-
 ```markdown conceptual
 # [FREEZE_EVENT_CONTRACT]
 
@@ -224,7 +219,6 @@ Use a comparison table when two or more options survive triage. The baseline row
 When only one option survived and the trade-off is asymmetric, a `Lightweight` design may render this section as labeled prose instead of a table. The deciding trade-off and baseline still appear inside `Alternatives considered`; do not hide them under `Proposed approach`.
 
 The rejected shape below records options without the deciding trade-off:
-
 ```markdown rejected
 ## [6][ALTERNATIVES_CONSIDERED]
 
@@ -235,14 +229,12 @@ The rejected shape below records options without the deciding trade-off:
 ## [11][CHANGE_SLICES]
 
 A change slice is one self-contained change that an agent can understand, validate, and revert without the rest of the proposal landing first. Use a compact table only while rollback and handoff facts stay short:
-
 | [INDEX] | [ID] | [SLICE]           | [KIND]   | [DEPENDS] | [CHECK_FOCUS]        | [ROLLBACK]   |
 | :-----: | :--- | :---------------- | :------- | :-------- | :------------------- | :----------- |
 |   [1]   | S1   | Contract freeze   | contract | —         | break shape          | schema diff  |
 |   [2]   | S2   | Runtime admission | behavior | S1        | integration boundary | feature flag |
 
 Promote slices to records when proof, rollback, or adjacent handoff needs more than a short cell:
-
 ```markdown template
 ### [N.M][CONTRACT_FREEZE]
 
@@ -258,7 +250,6 @@ Validation gate: contract gate evidence, or proof gap
 Slice kinds are local labels, not a closed global sequence. Keep dependency order honest and leave no blank rollback boundary. Use `Roadmap milestone` only to point at an existing or same-change roadmap milestone; when slices become dated milestones with exit gates, move the sequence to the roadmap route.
 
 The rejected shape below invites fixed-sequence copying:
-
 ```markdown rejected
 | [INDEX] | [SLICE] | [KIND]         | [DEPENDS] |
 | :-----: | :------ | :------------- | :-------- |
@@ -270,7 +261,6 @@ The rejected shape below invites fixed-sequence copying:
 ## [12][TRACKABLE_RECORDS]
 
 `Cross-cutting implications` carries one record per concern for `Standard` and `Public-contract` designs:
-
 ```markdown template
 ### [N.M][SECURITY]
 
@@ -313,7 +303,6 @@ Route-away: benchmark command and runtime tuning stay in test strategy or implem
 ```
 
 `Validation and proof plan` carries one row per gate, with an enforcement flag that separates a real gate from manual intent:
-
 | [INDEX] | [GATE]             | [COMMAND_CONTRACT]     | [ACCEPTANCE_SIGNAL] | [ENFORCEMENT] |
 | :-----: | :----------------- | :--------------------- | :------------------ | :------------ |
 |   [1]   | Unit laws          | unit test status check | suite green         | enforced      |
@@ -321,7 +310,6 @@ Route-away: benchmark command and runtime tuning stay in test strategy or implem
 |   [3]   | Route design check | none                   | two route checks    | manual        |
 
 At `ACCEPTED` and `IMPLEMENTED`, add proof receipt fields beside completed gates rather than rewriting planned gates as if they already ran:
-
 ```markdown template
 Gate: <gate name>
 Proof source: <route required for access, proof, or escalation>
@@ -334,7 +322,6 @@ Result: <accepted signal or remaining gap>
 ```
 
 When a design proof gate depends on an existing test strategy, name that route instead of restating the strategy:
-
 ```markdown template
 Gate: <gate name from test strategy>
 Strategy gate source: <test strategy path and gate anchor>
@@ -408,7 +395,6 @@ Route-away: <body content that stays in the adjacent route>
 ```
 
 Use this handoff decision table:
-
 | [INDEX] | [CONDITION]                   | [HANDOFF_TARGET]             |
 | :-----: | :---------------------------- | :--------------------------- |
 |   [1]   | durable policy accepted       | ADR                          |

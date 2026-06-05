@@ -97,7 +97,6 @@ Start from the section set below. It is a suggested baseline, not a closed vocab
 - `Validation`: the gate that proves a change here, plus provider-behavior proof routed through [proof.md](proof.md) when the claim can drift.
 
 Use this heading template as the starting shape. Extend or relabel sections only when the directory needs a sharper local contract:
-
 ```markdown template
 # [DIRECTORY_AGENTS]
 
@@ -225,14 +224,13 @@ Large source-map and reference-catalog pages are retrieval surfaces. Give them c
 ## [15][CHECKLIST]
 
 Use this checklist by group:
-
-Position and instructions:
+[POSITION_INSTRUCTIONS]:
 - [ ] The controlling rule leads each unit and the binding constraint closes it.
 - [ ] Load-bearing constraints in long units are restated near the close.
 - [ ] Durable docs, prompt assets, task instructions, and state artifacts stay separate.
 - [ ] Instructions are positive imperatives with ranked constraints.
 
-Provider and agent surfaces:
+[PROVIDER_AGENT]:
 - [ ] Provider claims carry current primary proof when they can drift.
 - [ ] `AGENTS.md` files are behavioral, lean, and free of copied README prose, process notes, and change-prone enumeration.
 - [ ] Provider-specific prompt rules remain preferred patterns and do not claim enforcement, correctness, or universal superiority.
@@ -241,5 +239,5 @@ Provider and agent surfaces:
 - [ ] MCP resources, prompts, and tools are separated before schemas.
 - [ ] Generated mirrors identify source and generation status.
 
-Safety:
+[SAFETY]:
 - [ ] No secrets, nonpublic local paths, or unverified provider claims are exposed.

@@ -54,7 +54,6 @@ Local identity or context fields such as `Gate`, `Surface`, `Representation`, or
 Prefer an event trigger over a calendar review date. Use a calendar date only when the external source changes on a schedule or no better trigger exists.
 
 Attach the fields as a definition block beside the claim, one `label: value` per line, so each field is independently scannable and updatable:
-
 ```markdown template
 `uv run python -m tools.quality static build`
 Evidence: `tools/quality/__main__.py` `static build` verb; restore + build + analyzers, no tests.
@@ -89,7 +88,6 @@ If current official docs are unavailable, state the gap and mark the source as p
 ## [9][DOCS_CODE_VERIFICATION]
 
 This is the canonical docs-as-code gate ladder for the standard; the external-research, evidence-format, and agent-surface sections defer here for which gate a changed claim requires. Match the changed-claim condition to the required gate:
-
 | [INDEX] | [CLAIM_CHANGED]                           | [GATE]                                           |
 | :-----: | :---------------------------------------- | :----------------------------------------------- |
 |   [1]   | Markdown content only                     | `git diff --check` on changed Markdown           |
@@ -116,7 +114,6 @@ A deterministic surface needs a minimum receipt: surface, baseline or prior beha
 - an unsupported-claim review and a tool-call failure review.
 
 Record the evaluation as a definition block beside the surface it proves. Keep the minimum receipt visible for deterministic surfaces:
-
 ```markdown template
 Surface: `docs/standards/_index.json` retrieval index.
 Baseline: prior flat README link list.
@@ -127,7 +124,6 @@ Review trigger: standard filename, heading label, route map, or index-generation
 ```
 
 Add rigor fields only when the surface carries stochastic output, ranking, tool selection, latency, or provider behavior:
-
 ```markdown template
 Questions: 24 drawn from real "which standard carries X" maintenance misses.
 Baseline: prior flat README link list; new index resolves 22/24 vs 14/24.
@@ -154,7 +150,6 @@ Keep evidence short and reproducible:
 Do not paste long transcripts. Summarize the result and keep enough source detail for the next maintenance route to reproduce the proof.
 
 A compliant note names the command, the source path, and a freshness marker, and summarizes the outcome rather than reproducing it:
-
 ```markdown template
 Claim: `static full` parity covers `Workspace.slnx`.
 Evidence: `uv run python -m tools.quality static full`; restore/build/analyzers green across the solution closure.
@@ -187,8 +182,7 @@ The evidence hierarchy, freshness fields, proof labels, preservation rule, and d
 ## [14][CHECKLIST]
 
 Use this checklist by group:
-
-Evidence and freshness:
+[EVIDENCE_FRESHNESS]:
 - [ ] Drift-prone claims have claim-level evidence.
 - [ ] Evidence sits close enough to the claim to support maintenance.
 - [ ] Repository truth and generated contracts outrank prose.
@@ -196,11 +190,11 @@ Evidence and freshness:
 - [ ] A freshness trigger or `Last verified` exists where a claim can drift.
 - [ ] Commands and checks are exact and reproducible.
 
-Generated and agent surfaces:
+[GENERATED_AGENT]:
 - [ ] Generated content is linked or regenerated, not manually forked.
 - [ ] Provider-specific behavior has current official proof.
 - [ ] Agent surfaces carry deterministic receipt fields, and add baseline trials, source trace, and review fields where stochastic, ranking, tool-selection, latency, or provider behavior is the claim.
 
-Gaps and preservation:
+[GAPS_PRESERVATION]:
 - [ ] Genuine uncertainty is marked; unrun gates and proof gaps are stated.
 - [ ] A refactor preserved every load-bearing fact; no command, version, field, or invariant was dropped.
