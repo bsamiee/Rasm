@@ -1,23 +1,21 @@
 # [DOCUMENTATION_STANDARDS]
 
-This folder is the active standards library and router for Rasm documentation. Start here to find the reader need, pick the document type, and route to the shared standard that owns each rule. This index is the one file that links across the library; the standards it points to name their neighbors by topic and link back only at their boundaries.
+This folder is the active standards library and router for Rasm documentation. Start here to find the reader need, pick the document type, and route to the shared standard that carries each rule. This index is the one file that links across the library; the standards it points to name their neighbors by topic and link back only at their boundaries.
 
 ## [1][USE_WHEN]
 
 Use this index when:
-
 - creating or rewriting Markdown documentation;
 - deciding which reader need a draft serves and which type fits;
-- deciding which standard owns a rule;
+- deciding which standard carries a rule;
 - splitting, merging, moving, or deleting a document;
 - checking whether a standard is active.
 
-## [2][OWNER_PRECEDENCE]
+## [2][SOURCE_PRECEDENCE]
 
-Use the strongest applicable owner:
-
+Use the strongest applicable source:
 1. Current repository source, manifests, generated contracts, and runnable tool output.
-2. `docs/usage.md` for cross-stack owner precedence and proof order.
+2. `docs/usage.md` for cross-stack source precedence and proof order.
 3. The document-type standard in this folder.
 4. The shared standard for position, form, craft, evidence, or notation.
 5. External standards named by the active local standard.
@@ -26,16 +24,16 @@ When a claim can drift, prove it with repository truth before web examples or pr
 
 ## [3][READ_ORDER]
 
-Read order is workflow order; owner precedence still decides conflicts.
+Read order is workflow order; source precedence still decides conflicts.
 
 1. Use the reader-need map and type chooser below to pick one document type.
-2. Apply the five shared standards: position, form, craft, evidence, and notation.
-3. Apply exactly one type standard when the artifact is a Diátaxis document. Shared standards, instruction files, generated mirrors, indexes, retrieval chunks, MCP catalogs, and structured-output contracts route through the shared owner instead.
+2. For document-type standards, apply the page-anatomy and opening-contract rules in [information-structure.md](information-structure.md), then apply the chosen type standard.
+3. Apply the five shared standards: position, form, craft, evidence, and notation.
+4. Apply exactly one type standard when the artifact is a Diátaxis document. Shared standards, instruction files, generated mirrors, indexes, retrieval chunks, MCP catalogs, and structured-output contracts route through the shared route instead.
 
 ## [4][READER_NEED_MAP]
 
 Diátaxis is the corpus map. Classify a document by what the reader does:
-
 - Tutorial: a tested path that teaches a learner.
 - How-to: one real task for a competent reader.
 - Reference: accurate facts a working reader looks up.
@@ -63,14 +61,13 @@ Map the reader need to its Diátaxis quadrant first, then to the artifact. The l
 |  [12]   | Operational symptom response             | [task/runbook.md](task/runbook.md)                                 | normal tasks, postmortems     |
 |  [13]   | Contribution workflow and PR evidence    | [task/contributing.md](task/contributing.md)                       | onboarding, incidents         |
 |  [14]   | Tested learning path                     | [learning/tutorial.md](learning/tutorial.md)                       | reference, variants           |
-|  [15]   | Role readiness ramp                      | [learning/onboarding.md](learning/onboarding.md)                   | task guides, contributing     |
+|  [15]   | Readiness ramp                            | [learning/onboarding.md](learning/onboarding.md)                   | task guides, contributing     |
 
 If no quadrant fits cleanly, reduce the scope until one reader outcome is primary.
 
 ## [6][SHARED_STANDARDS]
 
-Every document obeys five shared owners; each rule has exactly one of them:
-
+Every document obeys five shared standards; each rule has exactly one source:
 - [agentic-documentation.md](agentic-documentation.md): position and agent cognition — salience and ordering within a unit, artifact separation, provider behavior, instruction files, indexes, retrieval, and catalogs.
 - [information-structure.md](information-structure.md): form — container selection, tables, structured records, lists, diagrams, code blocks, page anatomy, line wrapping, and chunks.
 - [style-guide.md](style-guide.md): craft — sentences, terminology, punctuation, links, examples, code-safe Markdown, and accessibility.
@@ -80,19 +77,17 @@ Every document obeys five shared owners; each rule has exactly one of them:
 ## [7][PLACEMENT]
 
 Place documentation where the reader or tool first looks:
-
 - Repository root for corpus-wide entry documents.
-- Owner-local directory for package, product, tool, or subsystem truth.
-- `docs/` for shared cross-owner material and generated documentation entrypoints.
+- Scope-local directory for package, product, tool, or subsystem truth.
+- `docs/` for shared cross-scope material and generated documentation entrypoints.
 - `docs/standards/` for authoring standards only.
 - Source files for public symbol documentation and rationale that names and types cannot express.
 
-Prefer one owner for a claim, and link across owners instead of copying the same claim into multiple pages.
+Prefer one source for a claim, and link across sources instead of copying the same claim into multiple pages.
 
 ## [8][SPLIT_LINK]
 
 When a draft serves more than one primary reader need, split it:
-
 - Move background from tutorials and how-to guides into explanation.
 - Move catalogs, option tables, and command inventories into reference or API documentation.
 - Move step-by-step work from reference leaves into how-to guides.
@@ -105,8 +100,7 @@ After splitting, add the smallest useful cross-link and do not leave a summary c
 
 ## [9][LIFECYCLE]
 
-Maintain documentation like code:
-
+Maintain documentation with these code-like rules:
 - Create the smallest useful document that answers the reader need.
 - Update docs in the same change that alters the controlling source they describe.
 - Delete or replace dead documentation when it is known to be wrong.
@@ -116,7 +110,7 @@ Unless live product support and evidence justify them, do not preserve old paths
 
 ## [10][FOLDER_LAYOUT]
 
-- Root files are the five shared standards, this index, and `AGENTS.md`, the agent instruction file for `docs/standards/**` (instruction-file rules owned by [agentic-documentation.md](agentic-documentation.md)).
+- Root files are the five shared standards, this index, and `AGENTS.md`, the agent instruction file for `docs/standards/**` (instruction-file rules local by [agentic-documentation.md](agentic-documentation.md)).
 - `explanation/` holds decision, design, architecture, roadmap, and test-strategy standards.
 - `reference/` holds entry, lookup, API, code-documentation, and support-matrix standards.
 - `task/` holds normal-task, operational-recovery, and contribution standards.
@@ -124,38 +118,45 @@ Unless live product support and evidence justify them, do not preserve old paths
 
 ## [11][ANTI_PATTERNS]
 
-**Type drift**
+These anti-patterns fall into three groups:
+
+Type drift:
 - README files that carry design history, tutorials, or API catalogs.
 - Architecture documents that carry task plans or incident response.
 - ADRs that include execution procedures instead of decision confirmation.
 - Tutorials that branch into production variants.
 - Reference leaves that hide procedures in dense tables.
-- Runbooks without an observable trigger, owner, verification, or escalation.
+- Runbooks without an observable trigger, route, verification, or escalation.
 
-**Surface drift**
+Surface drift:
 - Generated API documentation forked by hand-written endpoint or symbol tables.
 - Standards that mention authoring interactions, removed workflow names, or transient task labels instead of durable document behavior.
 
+Design dossier split:
+A module dossier that carries contracts, command maps, snippets, status vocabularies, path structure, risks, gotchas, and implementation sequence under one design, README, or architecture page must split by reader need: current code structure to architecture, callable contracts to API, lookup facts to reference, source-symbol semantics to code documentation, future work to roadmap, and failure response to runbook.
+
 ## [12][MAINTENANCE_RULES]
 
-- Keep this README a route map; put detailed rules in the owning standard.
-- Prefer restructuring, deletion, and owner links over duplicated guidance.
+- Keep this README a route map; put detailed rules in the source standard.
+- Prefer restructuring, deletion, and route links over duplicated guidance.
 - Restructure without dropping load-bearing facts; diff content coverage before replacing a document, per the preservation rule in proof.
+- Route adjacent document updates through the relation record in [information-structure.md](information-structure.md) only when the changed fact alters reader action, proof, or maintenance.
 - Use a table only when comparison or lookup value beats a list.
 - Remove a stale standard instead of keeping a legacy alias.
 - Keep release history in the project's release mechanism, not in this index.
 
 ## [13][BOUNDARIES]
 
-- Shared standards own cross-cutting rules; this README only routes readers to them.
-- Type standards own artifact-specific structure; this README only chooses the primary type.
-- `docs/usage.md` owns cross-stack implementation precedence and proof order outside the standards library.
-- `docs/standards/AGENTS.md` owns local agent routing and validation for edits inside this folder.
+- Shared standards carry cross-cutting rules; this README only routes readers to them.
+- Type standards carry artifact-specific structure; this README only chooses the primary type.
+- `docs/usage.md` carries cross-stack implementation precedence and proof order outside the standards library.
+- `docs/standards/AGENTS.md` carries local agent routing and validation for edits inside this folder.
 
-## [14][REVIEW_CHECKLIST]
+## [14][CHECKLIST]
 
 - [ ] Active standards are linked by current filename.
-- [ ] Each shared standard has one clear owner role.
+- [ ] Each shared standard has one clear source.
 - [ ] Each type standard appears in exactly one family.
 - [ ] The reader-need map and type chooser route to a single primary type.
 - [ ] This index routes readers instead of restating standard bodies.
+- [ ] Mixed module dossiers are split into the source type standards instead of preserved as one polished file.

@@ -1,11 +1,10 @@
 # [AGENTIC_DOCUMENTATION]
 
-This standard owns position and agent cognition: where controlling content sits inside a unit, how serial-position salience governs that placement, and how machine-facing surfaces publish repository truth so agents find, trust, and refresh it. It does not decide container form, sentence craft, or evidence strength. Documentation reduces ambiguity; it does not make model output trustworthy, authorize access, or sanitize untrusted content.
+This standard carries position and agent cognition: where controlling content sits inside a unit, how serial-position salience governs that placement, and how machine-facing surfaces publish repository truth so agents find, trust, and refresh it. It does not decide container form, sentence craft, or evidence strength. Documentation reduces ambiguity; it does not make model output trustworthy, authorize access, or sanitize untrusted content.
 
 ## [1][USE_WHEN]
 
 Apply this standard when a document or surface places high-value content for an agent reader, or when you publish a machine-facing surface:
-
 - ordering a unit so the controlling rule leads and the binding constraint closes;
 - writing or revising local instruction files such as `AGENTS.md`;
 - publishing `llms.txt`, generated mirrors, or machine-readable indexes;
@@ -22,14 +21,14 @@ Place the controlling rule first and the binding constraint last in every unit. 
 Apply the pattern recursively at every scale. Put high-value content at the unit edges; container choice belongs to `information-structure.md`, and sentence craft belongs to `style-guide.md`.
 
 - Document: lead with scope and the highest-risk constraint; close with boundaries and the proof or route that makes the document safe to reuse.
-- Section: open with what the section controls; end on its boundary or owner.
-- Paragraph and sentence: [style-guide.md](style-guide.md) owns the prose shape that realizes the ring.
+- Section: open with what the section controls; end on its boundary or route.
+- Paragraph and sentence: [style-guide.md](style-guide.md) carries the prose shape that realizes the ring.
 
 Salience is relative, not a hard cutoff: the middle down-weights content, it does not erase it. If a constraint is load-bearing and the unit is long, restate it in compact form at the close, near where an agent acts on it. Keep low-value inventories, history, and incidental detail out of the lead. Never bury a high-risk constraint, exception, or route-away rule mid-unit.
 
 Use bracketed headings, table rubrics, `[INDEX]` rows, and compact status markers as salience aids, not as decoration. They help an agent find boundaries, compare rows, and filter state; they do not replace the front-and-close rule, claim-level evidence, or precise prose.
 
-This corpus uses the position ring as its normative placement rule. Provider-behavior claims are proved only through the evidence labels and freshness rules owned by [proof.md](proof.md).
+This corpus uses the position ring as its normative placement rule. Provider-behavior claims are proved only through the evidence labels and freshness rules local by [proof.md](proof.md).
 
 ## [3][CONTEXT_INVARIANCE]
 
@@ -44,7 +43,6 @@ Do not rewrite an ordinary durable document into task-prompt shape, and do not b
 ## [4][CONSTRAINT_STACKING]
 
 Rank instructions so an agent resolves conflicts deterministically. State the rank, not just the rule:
-
 - Invariants: rules that must never break. State them first and absolutely.
 - Preferences: defaults that hold unless a stated condition overrides them.
 - Defaults: starting choices an agent may replace when evidence is stronger.
@@ -62,18 +60,19 @@ If factual grounding matters, require evidence extraction before synthesis: have
 Keep durable documentation, task instructions, prompt assets, and state artifacts in distinct artifacts; each has a different lifetime and reader contract.
 
 - Durable documentation holds stable policy, conventions, reusable examples, canonical links, and tool contracts. It outlives any single interaction.
-- Prompt assets hold reusable task shapes, input slots, constraints, output contracts, and stop rules. They do not outrank `CLAUDE.md`, `AGENTS.md`, or this standards library; promote only durable policy from them into the owning instruction or standards file.
-- Task instructions hold one objective, the done condition, the current evidence to inspect, hard constraints, the output contract, and the stop rule for one interaction, in the canonical field order the Task and output contracts section owns.
+- Prompt assets hold reusable task shapes, input slots, constraints, output contracts, and stop rules. They do not outrank `CLAUDE.md`, `AGENTS.md`, or this standards library; promote only durable policy from them into the controlling instruction or standards file.
+- Task instructions hold one objective, the done condition, the current evidence to inspect, hard constraints, the output contract, and the stop rule for one interaction, in the canonical field order the Task and output contracts section carries.
 - State artifacts hold validated facts, current status, the next safe action, open questions, provenance, and known proof gaps for resumable work.
 
-Do not publish task-specific interaction material as durable documentation. Promote only the stable rule into its owning standard, and leave transient context in the artifact that owns the interaction.
+Do not publish task-specific interaction material as durable documentation. Promote only the stable rule into its source standard, and leave transient context in the artifact that carries the interaction.
+
+Prompt-era task ledgers, stage numbers, agent dictums, validation snippets, and chat-derived design dossiers are source material only. Promote durable facts into the source document type, and delete or archive the prompt frame instead of publishing it as a section pattern.
 
 ## [7][TASK_OUTPUT_CONTRACTS]
 
 Order a context-heavy task instruction to the position ring, and bind it to a contract the consumer can check. Invariant constraints and exclusions stay near an edge even when bulky evidence must sit before the final ask.
 
 Order a task instruction as:
-
 1. Objective.
 2. Done condition.
 3. Hard constraints and exclusions.
@@ -88,12 +87,11 @@ Prefer provider schema enforcement over a schema described in prose where the su
 
 ## [8][AGENTS_MD_AUTHORING]
 
-Write `AGENTS.md` as a durable, behavioral overlay for one directory: what changes here, which standards and commands apply, and which patterns are forbidden. It complements the human-facing README; it does not duplicate it. Keep root guidance short and place specialized rules near the subtree they govern; provider-specific loading behavior belongs in the provider-behavior section.
+Write `AGENTS.md` as a durable, behavioral overlay for one directory: what the folder carries, which adjacent documents must move with it, which standards and commands apply, and which patterns are forbidden. It complements the human-facing README; it does not duplicate it, summarize it, or carry process notes. Keep root guidance short and place specialized rules near the subtree they govern; provider-specific loading behavior belongs in the provider-behavior section.
 
 Start from the section set below. It is a suggested baseline, not a closed vocabulary: a directory may extend it with additional bracketed sections or relabel a section where a clearer name fits its needs. What binds is the include/exclude rule, not the exact section names. Whatever sections you keep, include only stable, universal, behavioral content an agent acts on:
-
 - `Scope`: directory scope and purpose, and the read order an agent follows into the deeper rules;
-- `Routing`: routing to the standards and reference files that own deeper rules, and ownership of conflicting guidance;
+- `Routing`: routing to the standards and reference files that own deeper rules, adjacent documents that must update with this folder, and routing of conflicting guidance;
 - `Execution rules`: build, test, and quality commands, code-style and review expectations, and commit and pull-request expectations;
 - `Exclusions`: forbidden patterns, security constraints, and known gotchas;
 - `Validation`: the gate that proves a change here, plus provider-behavior proof routed through [proof.md](proof.md) when the claim can drift.
@@ -107,11 +105,11 @@ Use this heading template as the starting shape. Extend or relabel sections only
 
 ## [1][SCOPE]
 
-<What this directory owns; the read order into the standards and reference files below.>
+<What this directory carries; the read order into the standards and reference files below.>
 
 ## [2][ROUTING]
 
-<Which standards and reference files own the deeper rules; which file wins on conflict.>
+<Which standards and reference files own the deeper rules; which adjacent architecture, roadmap, README, reference, runbook, tutorial, or generated contract changes with this folder; which file wins on conflict.>
 
 ## [3][EXECUTION_RULES]
 
@@ -127,14 +125,14 @@ Use this heading template as the starting shape. Extend or relabel sections only
 ```
 
 Exclude content that goes stale or wastes context:
-
 - full README or marketing copy;
+- copied process notes, task plans, or human-facing overview prose;
 - exhaustive path or file enumerations that change with the tree;
 - large auto-generated reference dumps;
 - thread-scoped goals, plans, or completion state;
 - logs, transient state, or per-session task notes.
 
-Layer files by scope and keep each lean. Lower directories should carry only guidance specific to that level, and higher-level files should contribute only broad defaults. Place a file only where a directory carries guidance needed across sessions. Every word loaded costs reasoning budget, so a top-level overlay should stay near one screen.
+Layer files by scope and keep each lean. Lower directories should carry only guidance specific to that level, and higher-level files should contribute only broad defaults. Create or update the nearest `AGENTS.md` when a maintained documentation or code folder has stable local behavior an agent must act on: local surface, adjacent docs that move with it, validation command, forbidden pattern, or proof route. Omit cross-document maintenance that does not change behavior. Every word loaded costs reasoning budget, so a top-level overlay should stay near one screen.
 
 Iterate the file from observed agent failures rather than speculation. Route provider-behavior evidence details to [proof.md](proof.md) instead of repeating evidence-label definitions in the instruction file.
 
@@ -151,22 +149,20 @@ Claim only what the repository publishes and how it refreshes. Do not claim craw
 ## [10][RETRIEVAL_PROVENANCE]
 
 Document a retrieval surface with the provenance an agent needs to trust and refresh a chunk. State, per corpus or chunk:
-
 - the canonical corpus or source documents;
 - the source path or URL and the heading path or parent identity;
-- the document type and owner when known;
-- generated status and the refresh owner or generation path;
+- the document type and route when known;
+- generated status and the refresh route or generation path;
 - the access class and filter rule when content is not public;
 - the drift condition for drift-prone content.
 
-Carry these only in the schema or header shape the deployed retrieval store consumes. When the provenance includes proof, source, freshness, or generation facts, use the label meanings owned by [proof.md](proof.md) instead of defining a parallel vocabulary here.
+Carry these only in the schema or header shape the deployed retrieval store consumes. When the provenance includes proof, source, freshness, or generation facts, use the label meanings local by [proof.md](proof.md) instead of defining a parallel vocabulary here.
 
 Each retrievable chunk should carry enough context to stand alone, because retrieval strips surrounding structure. Claim hybrid retrieval, reranking, or provider-specific search only where the deployed stack supports it and the proof names the configured provider, command, or controlling source. Keep very large tables and long records chunked rather than passed whole; long-context degradation erodes oversized structured content too.
 
 ## [11][MCP_TOOL_CATALOGS]
 
 Catalog MCP surfaces by control type before detailing any schema:
-
 - Resources: passive data or content the client reads as context.
 - Prompts: reusable interaction templates.
 - Tools: executable operations with typed inputs and outputs.
@@ -216,30 +212,34 @@ Do not require exposed chain-of-thought in published prompt standards. Ask for e
 
 Provider-specific behavior uses the linked provider sources named beside each provider rule above, and freshness follows [proof.md](proof.md) when the claim can drift.
 
+Large source-map and reference-catalog pages are retrieval surfaces. Give them chunk-stable headings, source provenance, refresh triggers, and route-away records when facts change reader action. A long table without source/update fields becomes context payload, not a reliable agent lookup surface.
+
 ## [14][BOUNDARIES]
 
-- [information-structure.md](information-structure.md) owns container form, diagrams, page anatomy, and chunk shape; this standard owns where high-value content sits within them.
-- [style-guide.md](style-guide.md) owns sentence and word craft; this standard owns the cognition rationale for positive, imperative framing.
-- [proof.md](proof.md) owns evidence strength, proof details, and the evaluation discipline for machine-facing surfaces.
-- [formatting.md](formatting.md) owns the markers and styling that render the constraints this standard places.
-- [README.md](README.md) owns document-type routing and is the single index that links across standards.
+- [information-structure.md](information-structure.md) carries container form, diagrams, page anatomy, and chunk shape; this standard carries where high-value content sits within them.
+- [style-guide.md](style-guide.md) carries sentence and word craft; this standard carries the cognition rationale for positive, imperative framing.
+- [proof.md](proof.md) carries evidence strength, proof details, and the evaluation discipline for machine-facing surfaces.
+- [formatting.md](formatting.md) carries the markers and styling that render the constraints this standard places.
+- [README.md](README.md) carries document-type routing and is the single index that links across standards.
 
-## [15][REVIEW_CHECKLIST]
+## [15][CHECKLIST]
 
-**Position and instructions**
+Use this checklist by group:
+
+Position and instructions:
 - [ ] The controlling rule leads each unit and the binding constraint closes it.
 - [ ] Load-bearing constraints in long units are restated near the close.
 - [ ] Durable docs, prompt assets, task instructions, and state artifacts stay separate.
 - [ ] Instructions are positive imperatives with ranked constraints.
 
-**Provider and agent surfaces**
+Provider and agent surfaces:
 - [ ] Provider claims carry current primary proof when they can drift.
-- [ ] `AGENTS.md` files are behavioral, lean, and free of change-prone enumeration.
+- [ ] `AGENTS.md` files are behavioral, lean, and free of copied README prose, process notes, and change-prone enumeration.
 - [ ] Provider-specific prompt rules remain preferred patterns and do not claim enforcement, correctness, or universal superiority.
 - [ ] Indexes link to canonical docs; `llms.txt` is treated as a map.
-- [ ] Retrieval chunks carry source, heading path, owner, access, and freshness.
+- [ ] Retrieval chunks carry source, heading path, route, access, and freshness.
 - [ ] MCP resources, prompts, and tools are separated before schemas.
 - [ ] Generated mirrors identify source and generation status.
 
-**Safety**
+Safety:
 - [ ] No secrets, nonpublic local paths, or unverified provider claims are exposed.

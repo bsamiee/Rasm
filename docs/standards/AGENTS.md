@@ -1,13 +1,12 @@
 # [STANDARDS_ROUTER]
 
-This file routes changes inside `docs/standards/**` to the active standards owner and the minimum validation that proves the edit.
+This file routes changes inside `docs/standards/**` to the active standards source and the minimum validation that proves the edit.
 
 ## [1][SCOPE]
 
 These instructions govern `docs/standards/**` only. They extend `CLAUDE.md` and the root `AGENTS.md`; they do not replace them. Keep this file a compact router for standards work, not a second style guide.
 
 For Codex, closer files override earlier project guidance, and resolution loads nested project instruction files from the repository root toward the current directory.
-
 
 ## [2][READ_ORDER]
 
@@ -36,7 +35,10 @@ For Codex, closer files override earlier project guidance, and resolution loads 
 - Close each major section with the boundary, proof, or next action that keeps the rule usable.
 - Split a section that mixes concept, task, reference, process, and proof, or make the chooser explicit.
 - Delete stale commands, removed tool names, legacy aliases, placeholders, and duplicated external-standard summaries.
-- Never add document-level YAML frontmatter metadata blocks to standards files; keep document facts in the rendered body and route claim evidence through `proof.md`.
+- Keep document facts in the rendered body. Do not add page-header blocks outside visible documentation; route claim evidence through `proof.md`.
+- Keep metadata minimal and agent-useful: source, scope, status, tags, evidence, generated-from, freshness, trigger, artifact path, and route-away are acceptable only when they change retrieval, validation, generation, or maintenance behavior.
+- Prefer fewer fields over fuller-looking records. Delete fields that only describe people, hierarchy, ownership, organizational process, or presentation polish.
+- Do not add YAML frontmatter, hidden headers, or management metadata unless a configured tool consumes that exact shape.
 
 ## [5][STYLE_DISCIPLINE]
 
@@ -46,10 +48,12 @@ Preserve official names, commands, paths, flags, symbols, fields, status vocabul
 
 Do not publish live task instructions, chat excerpts, rationale summaries, draft notes, session-local rationale, unverified provider behavior, nonpublic machine paths, secrets, or fixed multi-agent workflow counts in standards docs.
 
+[NEVER] Add people/process metadata such as owner, role, group, team, maintainer, reviewer, stakeholder, audience, business, enterprise, PM, project-management, RACI, approval ladder, or organizational accountability fields. This is a solo-dev, agent-first corpus; such fields are noise unless a literal local tool output or public API uses the exact word.
+
 [NEVER] Claim a Markdown linter, link checker, docs build, renderer, CI gate, or provider behavior exists unless current repository tooling or current primary documentation proves it.
 
 ## [7][VALIDATION]
 
-For Markdown-only standards edits, run `git diff --check` on the changed Markdown at minimum. Run configured Markdown, link, docs-build, diagram, or render checks only when the changed claim requires that proof. When no configured checker exists for changed links, run a local path and anchor validation or state the proof gap honestly.
+Use [proof.md](proof.md) to choose the gate for each changed claim. Minimum for Markdown-only standards edits is `git diff --check` on the changed Markdown. If links or anchors changed and no configured checker exists, run local path/anchor validation or state the proof gap honestly.
 
-Before finishing, search the active standards for stale owner names, forbidden process language, trailing whitespace, and renamed files. Validate that the changed file follows its own lead, section order, form choices, proof rules, and review checklist, and that no load-bearing fact was dropped.
+Before finishing, search active non-`_TMP` standards for forbidden people/process metadata, stale placeholders, fictional command domains, `Consumed by: none`, duplicate diagram/table representations, unsupported progress percentages, decorative markers, table pipe mismatches, ordinary code fences without intent labels where required, trailing whitespace, and renamed files. Keep route/source fields only when they change agent retrieval, validation, generation, or maintenance behavior. Validate that the changed file follows its own lead, section order, form choices, proof rules, and checklist, and that no load-bearing fact was dropped.
