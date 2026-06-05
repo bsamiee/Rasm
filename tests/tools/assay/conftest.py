@@ -1,42 +1,128 @@
-"""Typed fixture surface for assay Phase-2 A/B + isolation laws.
+"""Typed fixture surface for assay bedrock tests.
 
-Mirrors ``tests/tools/quality/conftest.py`` (``QualityHarness``/``RailProbe``/``PackageShape``):
-one tmp-tree settings capsule, one canned-receipt monkeypatch probe, one loopback ssh seam, one
-``_BridgeResult`` writer, one fake-yak/fake-msbuild materializer, and one A/B delta projector that
-decodes the single stdout Envelope each operator emits.
+Session-scoped OTel provider + per-test span exporter, structlog capture, fsspec memory store,
+deterministic psutil doubles, SSH loopback seam, subprocess verb_cell, and module-scope Hypothesis
+strategies for all 8 assay enums.
 """
 
 # --- [IMPORTS] ------------------------------------------------------------------------
 
-import asyncio  # noqa: TID251  # the loopback ssh server needs a persistent run_forever loop on a daemon thread; anyio exposes no such surface, and asyncssh is asyncio-native
 from dataclasses import dataclass, field
+import datetime as dt
+import importlib.util
+import os
 from pathlib import Path
-import threading
+import shutil
+from types import SimpleNamespace
 from typing import override, TYPE_CHECKING
+from unittest.mock import create_autospec, MagicMock
 
+import anyio
+from anyio.abc import ByteReceiveStream
 import asyncssh
-from expression import Ok
+from expression import Ok, Result  # noqa: TC002  # Result used as runtime annotation in diff() closure
+from hypothesis import strategies as st
+from hypothesis.strategies import binary, builds, floats, integers, register_type_strategy, sampled_from
 import msgspec
+import psutil as _psutil
 import pytest
+import time_machine
 from upath import UPath
 
-from tools.assay.composition.settings import (  # noqa: PLC2701  # private package surface under test
-    ArtifactScope,
-    AssaySettings,
+from tools.assay.composition.settings import ArtifactScope, ArtifactStore, AssaySettings  # noqa: TC001
+from tools.assay.core.model import (
+    AnyDetail,
+    ApiResolution,
+    ApiSurface,
+    ArtifactKind,
+    Claim,
+    Completed,
+    Diagnostic,
+    Envelope,
+    envelope as wrap_envelope,
+    Fault,
+    Input,
+    Language,
+    Mode,
+    MutationLane,
+    PackageRun,
+    receipt,
+    RunDelta,
+    Runner,
+    SourceKind,
+    SymbolShape,
+    TestRun,
+    VerifySummary,
 )
-from tools.assay.core.model import Claim, Envelope, envelope as wrap_envelope, receipt  # noqa: PLC2701  # private package surface under test
-from tools.assay.core.status import RailStatus  # noqa: PLC2701  # private package surface under test
-from tools.assay.rails import bridge as bridge_rail, package as package_rail  # noqa: PLC2701  # private package surface under test
+from tools.assay.core.status import RailStatus
+from tools.assay.rails import bridge as bridge_rail, package as package_rail
 from tools.quality.rails import package as quality_package
 from tools.quality.settings import ArtifactScope as QualityScope, QualitySettings
 
 
 if TYPE_CHECKING:
-    from collections.abc import Callable, Generator, Mapping
+    from collections.abc import AsyncGenerator, Awaitable, Callable, Generator, Mapping
 
-    from expression import Result
+    from structlog.types import EventDict
 
-    from tools.assay.core.model import Completed, Fault, Report
+    from tools.assay.core.model import Report
+
+
+# --- [CONSTANTS] -----------------------------------------------------------------------
+
+# Host-gated skipif markers — computed once at collection so xdist workers share the result.
+_DOTNET = shutil.which("dotnet")
+_YAK = shutil.which("yak")
+_ILSPYCMD = shutil.which("ilspycmd")
+_UV = shutil.which("uv")
+_RHINOWIP = next(
+    (p for p in ("/Applications/RhinoWIP.app", "/Applications/Rhino WIP.app", "/Applications/Rhino 8 WIP.app") if Path(p).is_dir()), None
+)
+_TREE_SITTER_PY: bool = importlib.util.find_spec("tree_sitter_python") is not None
+
+skip_no_dotnet = pytest.mark.skipif(_DOTNET is None, reason="dotnet not on PATH")
+skip_no_rhino = pytest.mark.skipif(_RHINOWIP is None, reason="RhinoWIP.app not installed")
+skip_no_yak = pytest.mark.skipif(_YAK is None, reason="yak not on PATH")
+skip_no_ilspycmd = pytest.mark.skipif(_ILSPYCMD is None, reason="ilspycmd not on PATH")
+skip_no_tree_sitter_py = pytest.mark.skipif(not _TREE_SITTER_PY, reason="tree-sitter-python grammar absent")
+
+
+# --- [GENERATORS] -----------------------------------------------------------------------
+# Register all 8 assay enums so from_type(X) resolves in any @given after module import.
+
+register_type_strategy(RailStatus, sampled_from(list(RailStatus)))
+register_type_strategy(Claim, sampled_from(list(Claim)))
+register_type_strategy(Language, sampled_from(list(Language)))
+register_type_strategy(Runner, sampled_from(list(Runner)))
+register_type_strategy(Input, sampled_from(list(Input)))
+register_type_strategy(Mode, sampled_from(list(Mode)))
+register_type_strategy(ArtifactKind, sampled_from(list(ArtifactKind)))
+register_type_strategy(MutationLane, sampled_from(list(MutationLane)))
+register_type_strategy(SourceKind, sampled_from(list(SourceKind)))
+register_type_strategy(SymbolShape, sampled_from(list(SymbolShape)))
+
+# Module-scope composite strategies — built once, reused across all test modules.
+rail_status_st: st.SearchStrategy[RailStatus] = sampled_from(list(RailStatus))
+
+completed_st: st.SearchStrategy[Completed] = builds(
+    Completed,
+    argv=st.tuples(st.text(max_size=32)),
+    returncode=integers(min_value=0, max_value=255),
+    stdout=binary(max_size=256),
+    stderr=binary(max_size=256),
+    status=rail_status_st,
+    duration_ms=floats(min_value=0.0, max_value=10_000.0, allow_nan=False),
+)
+
+fault_st: st.SearchStrategy[Fault] = builds(
+    Fault,
+    argv=st.tuples(st.text(max_size=32)),
+    status=sampled_from([RailStatus.FAULTED, RailStatus.BUSY, RailStatus.TIMEOUT]),
+    message=st.text(max_size=256),
+)
+
+# AnyDetail union: iterate the 7 concrete Detail variants with equal weight per arm (1/8 each).
+_DETAIL_VARIANTS: tuple[type, ...] = (ApiSurface, VerifySummary, TestRun, PackageRun, ApiResolution, Diagnostic, RunDelta)
 
 
 # --- [MODELS] --------------------------------------------------------------------------
@@ -44,11 +130,11 @@ if TYPE_CHECKING:
 
 @dataclass(frozen=True, slots=True)
 class AssayHarness:
-    """The isolated tmp-tree capsule: every assay I/O path roots under ``<root>/.artifacts/assay``.
+    """Isolated tmp-tree capsule: all assay I/O roots under ``<root>/.artifacts/assay``.
 
-    ``settings`` carries ``exec_target=""``/``exec_known_hosts=None`` (point-and-go local) so a bare
-    rail mutates nothing outside ``root``; ``remote`` re-derives the same settings against an ssh
-    ``exec_target`` for the one network-marked law.
+    ``settings`` carries ``exec_target=""``/``exec_known_hosts=None`` for point-and-go local
+    operation that mutates nothing outside ``root``. ``remote`` re-derives the same settings against
+    an ssh ``exec_target`` for the single network-marked law.
     """
 
     root: Path
@@ -73,11 +159,9 @@ class AssayHarness:
 
 @dataclass(frozen=True, slots=True)
 class RailProbe:
-    """Socket-free mock host: monkeypatch the rail-module ``run_check``/``fan_out`` to a canned receipt.
+    """Socket-free mock host: monkeypatch a rail-module member to a canned receipt.
 
-    Rails bind ``from ...engine import run_check`` as a module attribute, so the patch target is the
-    OWNER rail module (``bridge_rail``/``package_rail``/...), never ``core.engine`` — mirrors the
-    legacy ``RailProbe.install``. ``calls`` records every interception for assertion.
+    Patch target is the OWNER rail module, never ``core.engine``, mirroring production binding.
     """
 
     calls: list[tuple[str, tuple[object, ...], dict[str, object]]] = field(default_factory=list)
@@ -96,14 +180,9 @@ class RailProbe:
 
 @dataclass(frozen=True, slots=True)
 class SshLoopback:
-    """A live loopback asyncssh server on a dedicated thread-owned event loop.
+    """A live loopback asyncssh server bound via ``asyncssh.listen``.
 
-    The engine's ``_run_remote`` opens its own ``anyio.run`` loop per spawn, so the server cannot
-    share it: it runs ``run_forever`` on a daemon thread whose loop survives across the engine's
-    transient loops. ``exec_target`` carries a username (``ssh://x@…``) because asyncssh ``saslprep``
-    rejects a ``None`` username at connect. Teardown closes the server, drains ``wait_closed`` on the
-    server loop, stops the loop, joins the thread, and closes the loop so no ``ResourceWarning`` leaks
-    under ``filterwarnings=["error"]``.
+    ``exec_target`` includes a username because asyncssh ``saslprep`` rejects ``None`` at connect.
     """
 
     port: int
@@ -115,12 +194,7 @@ class SshLoopback:
 
 @dataclass(frozen=True, slots=True)
 class AbDelta:
-    """The structural A/B delta: both decoded operator outputs plus the field-name correspondence.
-
-    ``assay`` is the new operator's one-Envelope wire (``report``/``error_context`` rails); ``quality``
-    is the predecessor's rail payload (``query``/``packages`` keys). ``mapping`` is the canonical
-    ``rail↔claim``/``data↔report``/``evidence↔error_context`` correspondence the migration preserves.
-    """
+    """The A/B delta: both decoded operator outputs plus the field-name correspondence."""
 
     assay: Envelope
     quality: dict[str, object]
@@ -129,11 +203,7 @@ class AbDelta:
 
 @dataclass(frozen=True, slots=True)
 class BridgeResult:
-    """A ``_BridgeResult`` JSON writer: one valid camelCase payload plus three adversarial variants.
-
-    The rail decodes ``--result`` JSON with ``strict=False`` and degrades a malformed/partial/missing
-    file to a ``FAILED`` row, so the variants exercise the rail's defensive decode boundary.
-    """
+    """``_BridgeResult`` JSON writer: one valid camelCase payload plus three adversarial variants."""
 
     directory: Path
 
@@ -170,14 +240,7 @@ class BridgeResult:
 
 @dataclass(frozen=True, slots=True)
 class YakShape:
-    """Port of ``PackageShape``: materializes an executable fake-yak + fake-msbuild env over a temp tree.
-
-    ``materialize`` lays a ``YakPackageSlug`` project, a manifest, the primary ``.rhp`` + ``.dll`` under
-    ``bin/<config>/<tfm>``, and an executable ``yak`` script so ``package.evaluate_meta`` resolves a
-    valid ``YakMeta`` and the stage path runs ``yak build`` against the temp tree. ``msbuild_props``
-    answers the ``-getProperty`` envelope with every ``_META_PROPS`` member non-empty except
-    ``YakPushSource``.
-    """
+    """Fake-yak + fake-msbuild materializer."""
 
     slug: str = "rasm-bridge"
     project: Path = Path("apps/bridge/plugin.csproj")
@@ -227,59 +290,59 @@ class YakShape:
         )
 
 
-# --- [OPERATIONS] ----------------------------------------------------------------------
+# --- [PSUTIL DOUBLES] ------------------------------------------------------------------
+# ``_proc`` builds a create_autospec(psutil.Process) double from keyword fields — no hand-rolled API.
+# ``_make_psutil_module`` wraps N pid→proc mappings into a MagicMock(spec=psutil) module double.
 
 
-def _serve_loopback(reply: str) -> tuple[asyncio.AbstractEventLoop, threading.Thread, asyncssh.SSHAcceptor, int]:
-    """Stand a loopback asyncssh server on a dedicated thread-owned loop; return ``(loop, thread, acceptor, port)``.
+def _proc(
+    *,
+    pid: int = 12345,
+    rss: int = 4096,
+    fds: int = 8,
+    cpu: float = 0.0,
+    running: bool = True,
+    create_time: float = 1_700_000_000.0,
+    raise_no_such: bool = False,
+) -> MagicMock:
+    """Return a ``create_autospec(psutil.Process)`` double with the given field values.
 
-    The handler ignores the resolved remote command (``cd … && argv``) and replies a fixed line so the
-    engine's ``_run_remote`` round-trip is deterministic; ``begin_auth -> False`` admits the no-key
-    ephemeral connect the engine opens with ``known_hosts=None``.
+    ``raise_no_such=True`` marks the double as a dead-process sentinel: the module-level factory
+    (``_make_psutil_module``) will raise ``NoSuchProcess`` instead of returning it.
     """
-    loop = asyncio.new_event_loop()
-    ready = threading.Event()
-    box: dict[str, object] = {}
-
-    class _Server(asyncssh.SSHServer):
-        @override
-        def begin_auth(self, username: str) -> bool:  # asyncssh SSHServer override contract: instance method, admits the no-key ephemeral connect
-            return False
-
-    async def _handler(process: asyncssh.SSHServerProcess[str]) -> None:  # noqa: RUF029  # asyncssh process_factory contract requires a coroutine even when the body never awaits
-        process.stdout.write(f"{reply}\n")
-        process.exit(0)
-
-    def _run() -> None:
-        asyncio.set_event_loop(loop)
-
-        async def _boot() -> None:
-            key = asyncssh.generate_private_key("ssh-ed25519")
-            box["acceptor"] = await asyncssh.create_server(_Server, "127.0.0.1", 0, server_host_keys=[key], process_factory=_handler)
-            ready.set()
-
-        loop.run_until_complete(_boot())
-        loop.run_forever()
-
-    thread = threading.Thread(target=_run, daemon=True)
-    thread.start()
-    ready.wait(timeout=10)
-    acceptor = box["acceptor"]
-    assert isinstance(acceptor, asyncssh.SSHAcceptor)
-    return loop, thread, acceptor, acceptor.get_port()
+    p: MagicMock = create_autospec(_psutil.Process, instance=True)
+    p.pid = pid
+    p.memory_info.return_value = SimpleNamespace(rss=rss)
+    p.num_fds.return_value = fds
+    p.cpu_percent.return_value = cpu
+    p.is_running.return_value = running
+    p.create_time.return_value = create_time
+    p._raise_no_such = raise_no_such  # private sentinel flag; consumed by _make_psutil_module
+    return p
 
 
-def _teardown_loopback(loop: asyncio.AbstractEventLoop, thread: threading.Thread, acceptor: asyncssh.SSHAcceptor) -> None:
-    """Close the server + drain its loop with no ``ResourceWarning`` (which ``filterwarnings=["error"]`` would fail)."""
+def _make_psutil_module(procs: dict[int | None, MagicMock], *, cpu_count: int = 4) -> MagicMock:
+    """Return a ``MagicMock(spec=psutil)`` module double that dispatches ``Process(pid)`` via ``procs``.
 
-    async def _shut() -> None:
-        acceptor.close()
-        await acceptor.wait_closed()
+    ``procs[None]`` is the self-process (``Process()`` / ``Process(os.getpid())``); integer keys are
+    specific pids. An unregistered pid causes ``NoSuchProcess`` — no silent fallback.
+    ``raise_no_such=True`` on a double causes the factory to raise ``NoSuchProcess(pid)`` on lookup.
+    """
+    fake = MagicMock(spec=_psutil)
+    fake.NoSuchProcess = _psutil.NoSuchProcess
+    fake.AccessDenied = _psutil.AccessDenied
+    fake.cpu_count.return_value = cpu_count
 
-    asyncio.run_coroutine_threadsafe(_shut(), loop).result(timeout=10)
-    loop.call_soon_threadsafe(loop.stop)
-    thread.join(timeout=10)
-    loop.close()
+    def _process_factory(pid: int | None = None) -> MagicMock:
+        proc = procs.get(pid)
+        if proc is None:
+            raise _psutil.NoSuchProcess(pid if isinstance(pid, int) else 0)
+        if getattr(proc, "_raise_no_such", False):
+            raise _psutil.NoSuchProcess(int(proc.pid))
+        return proc
+
+    fake.Process.side_effect = _process_factory
+    return fake
 
 
 # --- [COMPOSITION] ---------------------------------------------------------------------
@@ -287,15 +350,38 @@ def _teardown_loopback(loop: asyncio.AbstractEventLoop, thread: threading.Thread
 
 @pytest.fixture
 def assay_root(tmp_path: Path) -> AssayHarness:
-    """An isolated tmp-tree ``AssaySettings`` — all I/O redirects under ``<tmp>/.artifacts/assay``."""
+    """Isolated tmp-tree ``AssaySettings`` — all I/O redirects under ``<tmp>/.artifacts/assay``."""
     (tmp_path / "Workspace.slnx").write_text("", encoding="utf-8")
     settings = AssaySettings(root=UPath(tmp_path), exec_target="", exec_known_hosts=None)
     return AssayHarness(tmp_path, settings)
 
 
 @pytest.fixture
+def mem_store(assay_root: AssayHarness) -> Generator[ArtifactStore]:
+    """Isolated fsspec ``memory://`` ArtifactStore partitioned by ``run_id``.
+
+    Teardown uses ``store.fs.rm(root, recursive=True)`` (fsspec-native, lock-safe) to delete only this
+    test's namespace prefix, preserving isolation for concurrent xdist workers.
+
+    Yields:
+        An ``ArtifactStore`` backed by ``fsspec.MemoryFileSystem`` rooted at ``run_id``-keyed prefix.
+    """
+    store = assay_root.settings.store(protocol="memory")
+    yield store
+    if store.fs.exists(f"/{store.root}"):
+        store.fs.rm(f"/{store.root}", recursive=True)
+
+
+@pytest.fixture
+def frozen_clock() -> Generator[None]:
+    """Pin the wall clock to 2026-01-01T00:00:00 UTC for deterministic run_id/started_at oracle tests."""
+    with time_machine.travel(dt.datetime(2026, 1, 1, tzinfo=dt.UTC), tick=False):
+        yield
+
+
+@pytest.fixture
 def envelope() -> Callable[[pytest.CaptureFixture[str]], Envelope]:
-    """Decode the single stdout Envelope line the CLI ``_emit`` writes; structlog rides stderr."""
+    """Decode the single stdout Envelope line the CLI ``_emit`` writes."""
 
     def decode(capsys: pytest.CaptureFixture[str]) -> Envelope:
         captured = capsys.readouterr()
@@ -308,36 +394,50 @@ def envelope() -> Callable[[pytest.CaptureFixture[str]], Envelope]:
 
 @pytest.fixture
 def rail_probe() -> RailProbe:
-    """The socket-free mock host: install canned ``Completed`` receipts on a rail's ``run_check``/``fan_out``."""
+    """Socket-free mock host: install canned ``Completed`` receipts on a rail's ``run_check``/``fan_out``."""
     return RailProbe()
 
 
 @pytest.fixture
-def ssh_loopback(socket_enabled: None) -> Generator[SshLoopback]:
-    """A live loopback asyncssh server (network-marked usage): yields the ssh ``exec_target`` capsule.
+async def ssh_loopback(socket_enabled: None) -> AsyncGenerator[SshLoopback]:
+    """Live loopback asyncssh server (network-marked): yields the ssh ``exec_target`` capsule.
 
-    Depends on ``socket_enabled`` so the server boot ALWAYS runs with ``--disable-socket`` lifted (the
-    boot ``create_server`` binds a TCP listener); consumers still carry ``@pytest.mark.network`` to
-    classify the law. The lift is request-scoped, so the suite's default socket block stands everywhere else.
+    Uses ``asyncssh.listen`` as an async context manager — no daemon threads, no manual teardown,
+    no ResourceWarning under ``filterwarnings=["error"]``.
 
     Yields:
-        ``SshLoopback`` carrying the bound port and the ``ssh://x@127.0.0.1:<port>`` ``exec_target``.
+        ``SshLoopback`` carrying the bound port and ``ssh://x@127.0.0.1:<port>`` ``exec_target``.
     """
     _ = socket_enabled
-    loop, thread, acceptor, port = _serve_loopback("remote-ok")
-    yield SshLoopback(port=port)
-    _teardown_loopback(loop, thread, acceptor)
+
+    class _Server(asyncssh.SSHServer):
+        @override
+        def begin_auth(self, username: str) -> bool:
+            _ = username
+            return False
+
+    async def _handler(process: asyncssh.SSHServerProcess[str]) -> None:  # noqa: RUF029
+        # Echo a fixed token PLUS the received command so callers can assert the command transited.
+        # Format: "remote-ok:<command>\n" — both connectivity and command-fidelity laws can assert.
+        command = process.command or ""
+        process.stdout.write(f"remote-ok:{command}\n")
+        process.exit(0)
+
+    key = asyncssh.generate_private_key("ssh-ed25519")
+    server = await asyncssh.listen("127.0.0.1", 0, server_host_keys=[key], server_factory=_Server, process_factory=_handler)
+    async with server:
+        yield SshLoopback(port=server.get_port())
 
 
 @pytest.fixture
 def bridge_result(tmp_path: Path) -> BridgeResult:
-    """Write a ``_BridgeResult`` JSON (valid + malformed/partial/missing) the bridge rail decodes defensively."""
+    """Write a ``_BridgeResult`` JSON (valid + malformed/partial/missing) for defensive-decode laws."""
     return BridgeResult(tmp_path / "verify")
 
 
 @pytest.fixture
 def yak_shape() -> YakShape:
-    """The fake-yak + fake-msbuild materializer (port of ``PackageShape``)."""
+    """The fake-yak + fake-msbuild materializer."""
     return YakShape()
 
 
@@ -345,10 +445,8 @@ def yak_shape() -> YakShape:
 def ab_diff(assay_root: AssayHarness) -> Callable[[Claim, str], AbDelta]:
     """Run a read-only ``assay`` rail and the matching ``tools.quality`` rail; decode both + the field delta.
 
-    Both operators run in-process under isolated settings (zero host mutation): the ``assay`` rail folds a
-    ``Result[Report, Fault]`` wrapped to one ``Envelope`` (``report``/``error_context`` rails), and the
-    quality rail payload decodes to its ``query``/``packages`` dict. ``mapping`` records the canonical
-    ``rail↔claim``/``data↔report``/``evidence↔error_context`` correspondence the migration preserves.
+    Fault-transparent: asserts that the quality rail is ``is_ok()`` before decoding — silently
+    degrading to empty-dict on fault was the prior bug.
     """
     mapping = {"rail": "claim", "data": "report", "evidence": "error_context"}
 
@@ -360,15 +458,45 @@ def ab_diff(assay_root: AssayHarness) -> Callable[[Claim, str], AbDelta]:
         quality_settings = QualitySettings(root=assay_root.root, rhino_app=None, run_id="ab-diff")
         quality_scope = QualityScope(root=assay_root.root, rail=claim.value, scope_path=assay_root.root, dotnet_env={})
         quality_payload = quality_package.package_list_payload(quality_settings, quality_scope)
-        quality_decoded = _json_object(msgspec.json.decode(quality_payload.ok if quality_payload.is_ok() else b"{}"))
+        assert quality_payload.is_ok(), f"ab_diff: quality rail faulted: {quality_payload}"
+        quality_decoded = msgspec.json.decode(quality_payload.ok, type=dict[str, object])
         return AbDelta(assay=assay_env, quality=quality_decoded, mapping=mapping)
 
     return diff
 
 
-def _json_object(value: object) -> dict[str, object]:
-    match value:
-        case dict() as decoded:
-            return {str(key): item for key, item in decoded.items()}
+@pytest.fixture
+def fake_psutil() -> MagicMock:
+    """Default psutil module double: self-proc on ``None``, dead-sentinel at pid 99999, cpu_count=4.
+
+    Tests override via ``fake.Process.side_effect = _process_factory`` or build fresh with
+    ``_make_psutil_module``. Inject via ``monkeypatch.setattr(engine_mod, "psutil", fake_psutil)``.
+    """
+    default_self = _proc()
+    return _make_psutil_module({None: default_self, 99999: _proc(pid=99999)})
+
+
+@pytest.fixture
+def verb_cell(assay_root: AssayHarness) -> Callable[..., Awaitable[Envelope]]:
+    """Run assay as a real subprocess, decode the single stdout Envelope line.
+
+    Returns an async ``run(*argv)`` coroutine so the caller can ``await`` it directly without
+    ``anyio.run`` nesting that raises ``RuntimeError`` in async test contexts.
+
+    Returns:
+        Async callable ``run(*argv, extra_env=None) -> Envelope``.
+    """
+    match _UV:
+        case None:
+            pytest.skip("uv not on PATH")
         case _:
-            raise AssertionError(f"expected JSON object payload, got {value!r}")
+            pass
+
+    async def run(*argv: str, extra_env: dict[str, str] | None = None) -> Envelope:
+        env = {**os.environ, "ASSAY_ROOT": str(assay_root.root), **(extra_env or {})}  # noqa: TID251  # test boundary: must clone + override env for subprocess isolation
+        result = await anyio.run_process(["uv", "run", "python", "-m", "tools.assay", *argv], env=env, cwd=str(assay_root.root), check=False)
+        rows = result.stdout.splitlines()
+        assert len(rows) == 1, f"expected 1 Envelope line, got {len(rows)}: {result.stdout[:300]!r}"
+        return msgspec.json.decode(rows[0], type=Envelope)
+
+    return run

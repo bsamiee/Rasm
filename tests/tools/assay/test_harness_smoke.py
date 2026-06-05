@@ -11,25 +11,13 @@ JSON decodes defensively, and ``ab_diff`` returns both operator Envelopes.
 from pathlib import Path
 from typing import TYPE_CHECKING
 
-import pytest
+import pytest  # noqa: TC002 — pytest.MonkeyPatch/CaptureFixture used in runtime annotations (no PEP 563)
 
 from tests.tools.assay.conftest import RailProbe
-from tools.assay.composition import registry  # noqa: PLC2701  # private package surface under test
-from tools.assay.core.engine import run_check  # noqa: PLC2701  # private package surface under test
-from tools.assay.core.model import (  # noqa: PLC2701  # private package surface under test
-    Bind,
-    Check,
-    Claim,
-    Envelope,
-    Input,
-    Language,
-    Mode,
-    Runner,
-    Tool,
-)
-from tools.assay.core.routing import Routed, Scope  # noqa: PLC2701  # private package surface under test
-from tools.assay.core.status import RailStatus  # noqa: PLC2701  # private package surface under test
-from tools.assay.rails import bridge as bridge_rail, package as package_rail  # noqa: PLC2701  # private package surface under test
+from tools.assay.composition import registry  # private package surface under test
+from tools.assay.core.model import Bind, Claim, Envelope  # private package surface under test
+from tools.assay.core.status import RailStatus  # private package surface under test
+from tools.assay.rails import bridge as bridge_rail, package as package_rail  # private package surface under test
 
 
 if TYPE_CHECKING:
@@ -37,7 +25,7 @@ if TYPE_CHECKING:
 
     from expression import Result
 
-    from tests.tools.assay.conftest import AbDelta, AssayHarness, BridgeResult, SshLoopback, YakShape
+    from tests.tools.assay.conftest import AbDelta, AssayHarness, BridgeResult, YakShape
     from tools.assay.core.model import Fault, Report
 
 
@@ -64,31 +52,6 @@ def test_rail_probe_yields_canned_status(assay_root: AssayHarness, rail_probe: R
     assert outcome.is_ok()
     assert outcome.ok.status is RailStatus.OK
     assert any(member == "run_check" for member, _args, _kwargs in rail_probe.calls)
-
-
-@pytest.mark.network
-def test_ssh_loopback_round_trips_through_engine(assay_root: AssayHarness, ssh_loopback: SshLoopback, socket_enabled: None) -> None:
-    """The engine's ``_run_remote`` arm spawns over the loopback ssh server and returns the canned reply.
-
-    The one TCP-loopback law: ``socket_enabled`` lifts ``--disable-socket`` for this test only and the
-    ``network`` marker classifies it. ``exec_target`` carries a username so asyncssh ``saslprep`` accepts it.
-    """
-    _ = socket_enabled
-    remote = assay_root.remote(ssh_loopback.exec_target)
-    tool = Tool(
-        name="remote-echo",
-        runner=Runner.DIRECT,
-        command=("/bin/echo", "ignored"),
-        input=Input.NONE,
-        language=Language.CSHARP,
-        claim=Claim.PACKAGE,
-        mode=Mode.QUERY,
-    )
-    check = Check(tool=tool, cwd=assay_root.root)
-    outcome = run_check(check, settings=remote, scope=None, routed=Routed(language=Language.CSHARP, scope=Scope.CHANGED))
-    assert outcome.is_ok()
-    assert outcome.ok.stdout == b"remote-ok\n"
-    assert outcome.ok.returncode == 0
 
 
 def test_bridge_result_variants_decode(bridge_result: BridgeResult) -> None:

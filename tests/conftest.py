@@ -4,11 +4,23 @@
 
 from dataclasses import dataclass
 from pathlib import Path
+from typing import TYPE_CHECKING
 
 from hypothesis import HealthCheck, Phase, settings as hyp_settings
 from hypothesis.configuration import set_hypothesis_home_dir
 from hypothesis.database import DirectoryBasedExampleDatabase
+from opentelemetry import trace as otel_trace
+from opentelemetry.sdk.trace import TracerProvider
+from opentelemetry.sdk.trace.export import SimpleSpanProcessor
+from opentelemetry.sdk.trace.export.in_memory_span_exporter import InMemorySpanExporter
 import pytest
+from structlog.testing import capture_logs
+
+
+if TYPE_CHECKING:
+    from collections.abc import Generator
+
+    from structlog.types import EventDict
 
 
 # --- [MODELS] --------------------------------------------------------------------------
@@ -68,6 +80,19 @@ hyp_settings.register_profile(
 )
 
 
+def pytest_collection_modifyitems(items: list[pytest.Item]) -> None:
+    """Auto-apply ``@pytest.mark.network`` to any test requesting the ``socket_enabled`` fixture.
+
+    Generic to every suite under this root (assay, quality, future py projects): ``pytest-socket``'s
+    ``socket_enabled`` fixture lifts ``--disable-socket`` per test, but without this hook those tests
+    are invisible to ``-m network`` selection. Marking by fixture-name keeps the network contract in one
+    place instead of a per-test decorator that drifts from the fixture it gates.
+    """
+    network = pytest.mark.network
+    for item in items:
+        "socket_enabled" in getattr(item, "fixturenames", ()) and item.add_marker(network, append=False)
+
+
 # --- [EXPORTS] -------------------------------------------------------------------------
 
 
@@ -84,3 +109,43 @@ def hypothesis_examples_dir() -> Path:
 @pytest.fixture(scope="session")
 def hypothesis_home_dir() -> Path:
     return _HYPOTHESIS_HOME
+
+
+@pytest.fixture(scope="session", autouse=True)
+def _otel_provider() -> Generator[InMemorySpanExporter]:
+    """Install a real TracerProvider once per session; ``SimpleSpanProcessor`` ensures synchronous export.
+
+    ``autouse=True``: every test records real spans without opt-in. Placed in root conftest so it runs
+    before engine/aspect module-scope imports that bind the ProxyTracer — pytest guarantees root conftest
+    fixtures execute before sub-conftest fixtures.
+
+    Yields:
+        The ``InMemorySpanExporter`` backed by the session-scoped ``TracerProvider``.
+    """
+    exp = InMemorySpanExporter()
+    tp = TracerProvider()
+    tp.add_span_processor(SimpleSpanProcessor(exp))
+    otel_trace.set_tracer_provider(tp)
+    yield exp
+    tp.shutdown()
+
+
+@pytest.fixture
+def otel_spans(_otel_provider: InMemorySpanExporter) -> InMemorySpanExporter:
+    """Per-test exporter view: clears before return so each test sees only its own spans."""
+    _otel_provider.clear()
+    return _otel_provider
+
+
+@pytest.fixture
+def log_events() -> Generator[list[EventDict]]:
+    """Capture structlog events as plain dicts for one test via ``capture_logs()``.
+
+    INCOMPATIBLE with ``ring_processor`` assertions in the same test: ``capture_logs`` replaces the
+    full processor chain. Use ``_RING.set(deque(...))`` for ring-content assertions instead.
+
+    Yields:
+        Mutable list of captured log event dicts; each entry has ``{'event': str, 'log_level': str, ...}``.
+    """
+    with capture_logs() as events:
+        yield events
