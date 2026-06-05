@@ -1,4 +1,4 @@
-"""Compose registry binds, rail runners, envelopes, and run-history commands."""
+"""Compose Assay registry binds, runners, Envelopes, and history commands."""
 
 from collections import deque
 from collections.abc import Callable
@@ -11,6 +11,7 @@ import time
 from types import FunctionType
 from typing import Final, TYPE_CHECKING
 
+from beartype import beartype
 from cyclopts import App, Parameter
 from expression import Error, Ok, Result
 import msgspec
@@ -18,11 +19,11 @@ import structlog
 
 from tools.assay.composition.catalog import select, TOOLS
 from tools.assay.composition.settings import ArtifactScope, AssaySettings
-from tools.assay.core.aspect import _RING, checked, compose, logged, traced  # noqa: PLC2701
+from tools.assay.core.aspect import _CONF, _RING, compose, logged, Slot, traced  # noqa: PLC2701
 from tools.assay.core.engine import _RESOURCE, _snapshot, fan_out  # noqa: PLC2701
 from tools.assay.core.model import (
-    _HINT_CAP,  # noqa: PLC2701  # intra-package private import: sole definition in model.py, canonical clip site
-    _RESULT_CAP,  # noqa: PLC2701  # intra-package private import: sole definition in model.py, canonical saturation site
+    _HINT_CAP,  # noqa: PLC2701  # intra-package private import: shared model cap, canonical clip site
+    _RESULT_CAP,  # noqa: PLC2701  # intra-package private import: shared model cap, canonical saturation site
     ArtifactKind,
     BaseParams,
     Bind,
@@ -76,47 +77,44 @@ if TYPE_CHECKING:
 
 # --- [TYPES] ----------------------------------------------------------------------------
 
-# The per-verb 3-arg adapter the registry binds. `P` is the verb's Params type, not a ParamSpec.
+# Per-verb adapter; `P` is the verb params type, not a ParamSpec.
 type Handler[P] = Callable[[AssaySettings, ArtifactScope, P], Result[Report, Fault]]
 
 
 # --- [CONSTANTS] ------------------------------------------------------------------------
 
-_ARTIFACT_CAP: Final = 100  # the Report.artifacts bound the fold saturates; the full output rides the run's scope dir
-# Wire caps read through the SOLE field_cap introspection (model.py) so the clip tracks each type: a parse message/hint past
-# its cap sets Envelope.truncated honestly. Fault.message (1024) bounds the constructed parse message; Diagnostic.hint (256)
-# bounds the distilled hint so the auto-observability envelope round-trips through the history decoder (msgspec enforces
-# max_length on DECODE only — an unclipped wire encodes to stdout yet faults on _load_run, folding the run to None in delta).
+_ARTIFACT_CAP: Final = 100
+# field_cap keeps parse messages and hints within the same bounds msgspec enforces when history is read back.
 _MESSAGE_CAP: Final[int] = field_cap(Fault, "message", default=1 << 62)
-# _HINT_CAP and _RESULT_CAP are defined once in core/model.py (the sole saturation + clip sites) and imported above.
-_DISPATCH_NONE: Final = "dispatch=none"  # the shared token _seed_parse_ring writes and _distill reads; one definition, two sites
-# PER-INVOCATION one-Envelope guard (Invariant 1), seeded fresh in rail.run: a process-static
-# count() would fault every fire after the first in the long-lived automation loop.
+_DISPATCH_NONE: Final = "dispatch=none"
+# Seeded per invocation so long-lived automation fires do not trip the one-Envelope guard after the first run.
 _WRITES: ContextVar[Iterator[int]] = ContextVar("assay_writes")
-_LOG: Final = structlog.get_logger("assay.registry")  # best-effort run-history persist rail (history writes never fault a rail)
-_PROBE_ROUTED: Final[Routed] = Routed(language=Language.PYTHON, scope=Scope.CHANGED)  # Input.NONE probe seed: place emits one empty tail
-_PROBE_TIMEOUT: Final = 8.0  # per `--version`/git probe deadline so a hung tool never strands self-test
-_ENVELOPE_DECODER: Final[msgspec.json.Decoder[Envelope]] = msgspec.json.Decoder(Envelope)  # run-history read-back
+_LOG: Final = structlog.get_logger("assay.registry")
+_PROBE_ROUTED: Final[Routed] = Routed(language=Language.PYTHON, scope=Scope.CHANGED)
+_PROBE_TIMEOUT: Final = 8.0
+_ENVELOPE_DECODER: Final[msgspec.json.Decoder[Envelope]] = msgspec.json.Decoder(Envelope)
 
 
 def _identity_hom(*_a: object, **_k: object) -> Result[Report, Fault]:
-    # Identity Hom _composes weaves to probe the decoration-time Slot inversion.
     return Ok(None)  # type: ignore[arg-type]  # ty: ignore[invalid-return-type]  # the probe never inspects the value; Ok(None) stands in for any Report
 
 
 def _correlate(settings: AssaySettings, _scope: ArtifactScope, params: object) -> Mapping[str, object]:
-    # The one correlation map both logged and traced bind; strict read via getattr stays inert on Params lacking the field.
     return {"run_id": settings.run_id, "strict": getattr(params, "strict", False), **settings.agent_context}
 
 
-# checked ▷ logged ▷ traced sorted by Slot in compose; NO retried (a rail is a Hom, not a Spawn).
-_RAIL_LAYERS: Final[tuple[Layer[..., Report], ...]] = (
-    checked(),
+def _checked_rail(fn: Handler[object]) -> Handler[object]:
+    return beartype(conf=_CONF)(fn)
+
+
+# compose sorts by Slot; rails use checked/logged/traced without spawn retry.
+_RAIL_LAYERS: Final[tuple[Layer[[AssaySettings, ArtifactScope, object], Report], ...]] = (
+    (Slot.checked, _checked_rail),
     logged(event="rail", keys=_correlate),
-    traced(span="assay.rail", attrs=_correlate),  # run_id + agent_task_id correlate the rail span with each run_check child span
+    traced(span="assay.rail", attrs=_correlate),
 )
 
-REGISTRY: Final[tuple[Bind, ...]] = (  # binds the per-verb ADAPTERS (static_rail.fix etc.), never thin_rail
+REGISTRY: Final[tuple[Bind, ...]] = (
     Bind(Claim.STATIC, "fix", static_rail.fix, StaticParams, "Format, style, analyzer autofix."),
     Bind(Claim.STATIC, "report", static_rail.report, StaticParams, "Non-mutating diagnostics."),
     Bind(Claim.STATIC, "build", static_rail.build, StaticParams, "Closure-leased restore + build + analyzers."),
@@ -152,13 +150,8 @@ REGISTRY: Final[tuple[Bind, ...]] = (  # binds the per-verb ADAPTERS (static_rai
 
 
 def _bound(params: object, claim: Claim, verb: str) -> Result[object, Fault]:
-    # The single positional-arity boundary: project the variadic `paths` sink onto the verb's contract via
-    # the polymorphic BaseParams.bound (variadic path rail passes through; package/bridge/api-doctor reject a
-    # surplus token; api query/resolve/show cap arity). A Fault short-circuits the handler so the surplus
-    # token rides the canonical `parse` taxonomy _failing_step names — never a silent black-hole exit 0.
-    # On a surplus Fault, seed the SAME dispatch=<claim> + FULL reconstructed command-line row parse_fault
-    # seeds, so both parse raise sites distill ONE Diagnostic shape (recent_events[1] is the whole `<claim>
-    # <verb> <tokens>` line at BOTH sites, never inverted — a surplus reads the same shape as an unknown verb).
+    # BaseParams.bound owns positional arity for every verb; surplus tokens fold into the parse taxonomy.
+    # The surplus path seeds the same dispatch ring shape as parse_fault for one Diagnostic format.
     match params:
         case BaseParams() as p:
             match p.bound(verb):
@@ -172,9 +165,7 @@ def _bound(params: object, claim: Claim, verb: str) -> Result[object, Fault]:
 
 
 def _seed_parse_ring(dispatch: str, tokens: tuple[str, ...]) -> None:
-    # Seed the invocation-scoped ring _distill reads so a parse Fault carries the dispatch discriminant +
-    # the joined FULL command line off machine data: recent_events[0]=dispatch=<claim|none>, recent_events[1]=
-    # the whole reconstructed `<claim> <verb> <tokens>` line — ONE shape both parse raise sites write.
+    # Seed dispatch and reconstructed command line for parse diagnostics.
     cmd = " ".join(tokens)[:_HINT_CAP]
     match _RING.get():
         case deque() as ring:
@@ -184,8 +175,7 @@ def _seed_parse_ring(dispatch: str, tokens: tuple[str, ...]) -> None:
 
 
 def _strict(outcome: Result[Report, Fault], params: object) -> Result[Report, Fault]:
-    # Promote a no-op fold to Error(Fault(FAULTED)) under --strict. Only EMPTY/SKIP promotes —
-    # FAILED/BUSY/TIMEOUT already dominate by severity; getattr keeps it inert on Params lacking strict.
+    # Under --strict, only no-op folds promote; defect and infrastructure statuses already dominate.
     match outcome:
         case Result(tag="ok", ok=report) if getattr(params, "strict", False) and report.status in {RailStatus.EMPTY, RailStatus.SKIP}:
             return Error(Fault((), RailStatus.FAULTED, "strict: empty/skipped fold"))
@@ -196,33 +186,22 @@ def _strict(outcome: Result[Report, Fault], params: object) -> Result[Report, Fa
 def _distill(
     fault: Fault, duration_ms: float, *, events: tuple[str, ...] | None = None, resource: tuple[tuple[str, float], ...] = (), step: str | None = None
 ) -> tuple[Diagnostic, bool]:
-    # Distill a Fault + context into one Diagnostic (+ wire truncation flag).  Two callers:
-    #   • Error(fault) branch: events=None → reads _RING; step=None → _failing_step names the infra stage.
-    #   • Ok(FAILED) branch: events = defect Match rows; step="defects" names the stage the tools failed at.
-    # Generalised so BOTH rails feed ONE Diagnostic shape — zero per-rail ceremony. The resource snapshot
-    # is taken LAZILY here (error path only) when neither the caller nor _diagnose seeded one, so the
-    # psutil oneshot never touches the happy wire.
-    # The truncation flag is the SOLE parse-wire honesty signal: it fires when the framed reason had to
-    # be clipped, the Fault message hit _MESSAGE_CAP, OR surplus() already buried the `…` overflow
-    # sentinel — every byte dropped on the parse wire sets Envelope.truncated, never a silent clip.
+    # Distill Faults and FAILED defect rows into one Diagnostic shape.
+    # Resource snapshots are lazy on the error path, and every clipped parse byte sets Envelope.truncated.
     ring = events if events is not None else tuple(_RING.get() or ())
     step = step if step is not None else _failing_step(fault)
-    reason = fault.message.removeprefix(f"{step}: ") or (ring[-1] if ring else "")  # strip the canonical prefix the step already names
-    framing = f"{step}: after {duration_ms:.1f}ms"  # fixed shape the reason wraps; the trailing `after …ms` discriminant MUST survive
-    budgeted = reason[: max(_HINT_CAP - len(framing), 0)]  # clip the variable reason FIRST so the framing is never severed at the tail
+    reason = fault.message.removeprefix(f"{step}: ") or (ring[-1] if ring else "")
+    framing = f"{step}: after {duration_ms:.1f}ms"
+    budgeted = reason[: max(_HINT_CAP - len(framing), 0)]
     hint = f"{step}: {budgeted} after {duration_ms:.1f}ms"
     truncated = len(reason) > len(budgeted) or len(fault.message) >= _MESSAGE_CAP or fault.message.endswith("…")
-    dispatched = not (ring and ring[0] == _DISPATCH_NONE)  # the TYPED dispatch fact off the SAME ring _seed_parse_ring writes
-    snap = (
-        resource or _RESOURCE.get() or tuple(_snapshot().items())
-    )  # caller ▷ _diagnose's at-fault seed ▷ lazy snapshot (error path only; never the happy wire)
+    dispatched = not (ring and ring[0] == _DISPATCH_NONE)
+    snap = resource or _RESOURCE.get() or tuple(_snapshot().items())
     return Diagnostic(failing_step=step, recent_events=ring, elapsed_ms=duration_ms, hint=hint, dispatched=dispatched, resource=snap), truncated
 
 
 def _failing_step(fault: Fault) -> str:
-    # Name the faulting stage structurally: status ▷ argv ▷ canonical message prefix. Synthetic promotions
-    # carry argv=() plus a strict:/validation:/parse: prefix (never a heuristic ring scan); an empty-argv
-    # fault with no such prefix is the rare lease-fd OSError, folded to spawn.
+    # Name the stage from status, argv, and canonical synthetic-fault prefixes.
     match (fault.status, fault.argv):
         case (RailStatus.TIMEOUT, _):
             return "timeout"
@@ -235,17 +214,13 @@ def _failing_step(fault: Fault) -> str:
 
 
 def _ok_envelope(bind: Bind, settings: AssaySettings, ms: float, report: Report) -> Envelope:
-    # Build the success Envelope: on FAILED, distill error_context from the fold-projected defect rows
-    # so the agent sees which/why identically to the Fault rail. omit_defaults keeps OK/EMPTY terse.
+    # FAILED reports get the same Diagnostic shape as Fault rails, sourced from defect rows.
     truncated = len(report.results) >= _RESULT_CAP or len(report.artifacts) >= _ARTIFACT_CAP
     truncated and sys.stderr.write(f"assay: {bind.claim.value} {bind.verb} output truncated; full results under {settings.run_id}\n")
     failed = tuple(m for m in report.results if m.severity == "failed")
     ctx = (
         _distill(
-            Fault((), RailStatus.FAILED, f"{len(failed)} tool(s) failed"),
-            ms,
-            events=tuple(f"{m.id}: {m.text[:120]}" for m in failed),
-            step="defects",  # a check ran and found defects — NOT an infra spawn/timeout/lease fault
+            Fault((), RailStatus.FAILED, f"{len(failed)} tool(s) failed"), ms, events=tuple(f"{m.id}: {m.text[:120]}" for m in failed), step="defects"
         )[0]
         if report.status is RailStatus.FAILED
         else None
@@ -266,11 +241,8 @@ def _ok_envelope(bind: Bind, settings: AssaySettings, ms: float, report: Report)
 
 
 def _emit(bind: Bind, settings: AssaySettings, started: float, outcome: Result[Report, Fault]) -> Envelope:
-    # The sole stdout writer: fold the rail Result into one Envelope. Truncation on the success wire derives
-    # off the saturated results/artifacts bounds; on the Error wire off _distill's clip flag (parse path).
-    # _WRITES is the one-Envelope guard (Invariant 1): the first write rides stdout; any later rank is a
-    # wiring defect → FAULTED to stderr. A surplus-positional parse Fault MUST NOT persist — it is the same
-    # typo'd-token class parse_fault refuses to ring-pollute, so it shares persist=False (failing_step="parse").
+    # Fold the rail Result into one Envelope and enforce the per-invocation one-write guard.
+    # Parse faults are typo-class events, so they do not enter diffable run history.
     ms = (time.perf_counter() - started) * 1000.0
     persist = True
     match outcome:
@@ -278,7 +250,7 @@ def _emit(bind: Bind, settings: AssaySettings, started: float, outcome: Result[R
             envelope = _ok_envelope(bind, settings, ms, report)
         case Result(error=fault):
             diagnostic, truncated = _distill(fault, ms)
-            persist = diagnostic.failing_step != "parse"  # a typo'd surplus token never enters the diffable history ring
+            persist = diagnostic.failing_step != "parse"
             envelope = Envelope(
                 schema_version=1,
                 claim=bind.claim,
@@ -311,12 +283,8 @@ def _emit(bind: Bind, settings: AssaySettings, started: float, outcome: Result[R
 def rail(bind: Bind) -> Callable[[object], Envelope]:
     """Build the registry runner for one bound verb.
 
-    Args:
-        bind: Registry row containing the claim, verb, handler, params type, and help text.
-
     Returns:
-        Callable that accepts decoded params and emits one `Envelope`.
-
+        Callable that executes the bound verb and emits its Envelope.
     """
     handler: Handler[object] = compose(*_RAIL_LAYERS)(_narrow(bind.handler))
 
@@ -324,9 +292,8 @@ def rail(bind: Bind) -> Callable[[object], Envelope]:
         settings = AssaySettings()
         started = time.perf_counter()
         scope = ArtifactScope.open(settings, bind.claim)
-        # invocation-scoped ring + one-Envelope counter, reset in finally so the automation loop reuses
-        # rail() per fire. The resource snapshot is NOT seeded here — _diagnose seeds it at fault time
-        # and _distill takes it lazily on the defect path, so the psutil oneshot never costs the happy wire.
+        # Ring and write count are invocation-scoped so automation can reuse rail() across fires.
+        # Resource snapshots stay lazy and only run on Fault or defect paths.
         ring_token, writes_token = _RING.set(deque(maxlen=16)), _WRITES.set(count())
         try:
             outcome = _guard(lambda: _bound(params, bind.claim, bind.verb).bind(lambda p: _validated(_strict(handler(settings, scope, p), p))))
@@ -340,20 +307,16 @@ def rail(bind: Bind) -> Callable[[object], Envelope]:
 
 
 def _narrow(handler: object) -> Handler[object]:
-    # Narrow Bind.handler (erased to object) to the 3-arg Handler without cast (banned by TID251). Each
-    # rail imports its -> Result[Report, Fault] return annotation unconditionally so checked's beartype
-    # forward-ref resolution succeeds under PEP 649 without mutating __globals__; a non-function bind faults.
+    # Narrow erased Bind.handler without cast; rail modules import return annotation types for beartype.
     match handler:
         case FunctionType() as fn:
-            return fn  # the FunctionType narrow satisfies the Handler[object] callable shape; the REGISTRY rows are the proof of arity
+            return fn
         case _:
             raise TypeError(f"Bind.handler must be a module-level def (FunctionType), got {type(handler).__name__}")
 
 
 def _validated(outcome: Result[Report, Fault]) -> Result[Report, Fault]:
-    # Round-trip the success Report.detail through the tagged-union codec so malformity fails loud:
-    # validate_detail raises msgspec.MsgspecError inside the _guard thunk. Asserts the wire is decodable
-    # only — the outcome passes through untouched, the detail is never re-emitted.
+    # Validate success Report.detail against the tagged-union wire without rewriting the outcome.
     match outcome:
         case Result(tag="ok", ok=report):
             validate_detail(report.detail)
@@ -363,9 +326,7 @@ def _validated(outcome: Result[Report, Fault]) -> Result[Report, Fault]:
 
 
 def _guard(thunk: Callable[[], Result[Report, Fault]]) -> Result[Report, Fault]:
-    # The one except boundary: catch the docs FaultedPromotion + a malformed Detail, each mapped to
-    # Fault{argv=(), FAULTED} under a canonical strict:/validation: prefix so the composition root OWNS the
-    # synthetic-fault taxonomy and _failing_step names the stage by prefix, never a heuristic ring scan.
+    # The composition root owns synthetic strict:/validation: fault prefixes.
     try:
         return thunk()
     except FaultedPromotion as promoted:
@@ -376,23 +337,18 @@ def _guard(thunk: Callable[[], Result[Report, Fault]]) -> Result[Report, Fault]:
 
 # --- [COMPOSITION] ----------------------------------------------------------------------
 
-_ENCODER: Final = msgspec.json.Encoder(order="deterministic")  # content-addressable wire order; the sole stdout codec, cached once
+_ENCODER: Final = msgspec.json.Encoder(order="deterministic")
 
 
 def _emit_envelope(settings: AssaySettings, envelope: Envelope, *, persist: bool = True) -> Envelope:
-    # The SOLE stdout Envelope writer: write the one deterministic-order wire line, then optionally
-    # side-write it to run-history (rail wire + self-test census persist; delta/parse_fault are read-only/
-    # pre-dispatch and MUST NOT pollute the diffable ring _prior/delta walk, so they pass persist=False).
-    # The history write rides AFTER the stdout line (Invariant 1 untouched). The persist gate lives HERE,
-    # the one caller that owns it, so _persist stays an unconditional best-effort side write.
+    # Single stdout writer; optional history persistence happens after the wire line.
     sys.stdout.buffer.write(_ENCODER.encode(envelope) + b"\n")
     persist and _persist(settings, envelope)  # type: ignore[func-returns-value]  # intentional: _persist returns None; short-circuit is the gate, not a value use
     return envelope
 
 
 def _persist(settings: AssaySettings, envelope: Envelope) -> None:
-    # Run-history side write + prune to artifact_retention. Best-effort: an FS error degrades to a structlog
-    # warning, never a fault. pipe_file writes the same wire bytes so a persisted run round-trips through delta.
+    # History writes are best-effort and use the same bytes delta decodes later.
     try:
         store = settings.store()
         directory = store.ensure(ArtifactKind.HISTORY.value, settings.run_id)
@@ -403,26 +359,22 @@ def _persist(settings: AssaySettings, envelope: Envelope) -> None:
 
 
 def _retain(store: ArtifactStore, keep: int) -> None:
-    # Prune run-history to the newest keep runs. run_id is an ISO-timestamp prefix so a lexical sort is
-    # chronological (the current run survives); fsspec rm is idempotent so concurrent invocations never fault.
+    # ISO-prefixed run_id makes lexical order chronological; fsspec rm stays idempotent under concurrency.
     runs = sorted(store.glob(f"{ArtifactKind.HISTORY.value}/*"))
     excess = runs[: max(0, len(runs) - keep)]
     tuple(store.fs.rm(path, recursive=True) for path in excess)
 
 
 def _run_ids(store: ArtifactStore) -> tuple[str, ...]:
-    # The persisted run_ids, chronologically sorted (ISO-timestamp basename of each history run dir).
     return tuple(path.rstrip("/").rsplit("/", 1)[-1] for path in sorted(store.glob(f"{ArtifactKind.HISTORY.value}/*")))
 
 
 def _prior(run_ids: tuple[str, ...], run_id: str) -> str:
-    # The largest persisted id < run_id (chronologically just before it); "" when none precedes it.
     earlier = tuple(r for r in run_ids if r < run_id)
     return earlier[-1] if earlier else ""
 
 
 def _load_run(store: ArtifactStore, run_id: str) -> Envelope | None:
-    # Decode one persisted run Envelope; absence / decode-failure / an empty id folds to None.
     match run_id:
         case "":
             return None
@@ -434,12 +386,8 @@ def _load_run(store: ArtifactStore, run_id: str) -> Envelope | None:
 
 
 def _delta_report(before_id: str, after_id: str, before: Envelope | None, after: Envelope | None) -> Report:
-    # Fold two persisted Envelopes' status/counts/result drift into a RunDelta Report (missing side → EMPTY).
-    # Results keyed by (id, line) so added/removed are symmetric-difference cardinalities; an error-channel
-    # Envelope (no report) contributes zero counts.
-    def snapshot(
-        run_id: str, env: Envelope
-    ) -> tuple[RunSnapshot, frozenset[tuple[str, int]]]:  # one projection per endpoint: no per-field None cascade
+    # Compare persisted reports by status, counts, and `(id, line)` result keys; missing sides fold to EMPTY.
+    def snapshot(run_id: str, env: Envelope) -> tuple[RunSnapshot, frozenset[tuple[str, int]]]:
         report = env.report
         counts = report.counts if report is not None else Counts()
         keys = frozenset((m.id, m.line) for m in (report.results if report is not None else ()))
@@ -458,62 +406,45 @@ def _delta_report(before_id: str, after_id: str, before: Envelope | None, after:
 
 
 def delta(run_id: str, *, against: str = "") -> Envelope:
-    """Diff two persisted run envelopes.
-
-    Args:
-        run_id: Run identifier to inspect.
-        against: Optional baseline run identifier. When empty, the previous persisted run is used.
+    """Diff two persisted run Envelopes.
 
     Returns:
-        Envelope containing a `RunDelta` report or an empty report when a run is missing.
-
+        Emitted delta Envelope comparing the selected runs.
     """
     settings = AssaySettings()
     store = settings.store()
     before_id = against or _prior(_run_ids(store), run_id)
     report = _delta_report(before_id, run_id, _load_run(store, before_id), _load_run(store, run_id))
-    # Route through the single envelope() factory (matching self_test), lifting report.notes onto the wire.
     env = msgspec.structs.replace(envelope(report, claim=Claim.STATIC, verb="delta", run_id=settings.run_id), notes=report.notes)
-    return _emit_envelope(settings, env, persist=False)  # read-only diff: stdout only, never re-enters the diffable history ring
+    return _emit_envelope(settings, env, persist=False)
 
 
 def parse_fault(tokens: tuple[str, ...], message: str) -> Envelope:
-    """Convert a Cyclopts parse failure into the canonical fault envelope.
-
-    Args:
-        tokens: Command tokens that failed to parse.
-        message: Parser error message.
+    """Convert a Cyclopts parse failure into the canonical fault Envelope.
 
     Returns:
-        Fault envelope written through the same stdout path as rail results.
-
+        Emitted parse-fault Envelope.
     """
     settings = AssaySettings()
     match tokens:
-        case (head, *rest) if head in Claim._value2member_map_:  # StrEnum value lookup avoids a try/except ValueError round-trip
-            claim, verb, dispatch = Claim(head), (rest[0] if rest else ""), head  # head IS a rail: claim/verb are a dispatch fact
+        case (head, *rest) if head in Claim._value2member_map_:
+            claim, verb, dispatch = Claim(head), (rest[0] if rest else ""), head
         case (head, *_):
-            claim, verb, dispatch = Claim.STATIC, head, "none"  # no rail dispatched: claim=static is a placeholder, verb is the raw token
+            claim, verb, dispatch = Claim.STATIC, head, "none"
         case _:
             claim, verb, dispatch = Claim.STATIC, "", "none"
-    fault = Fault((), RailStatus.FAULTED, f"parse: {message}"[:_MESSAGE_CAP])  # clip the WHOLE prefixed string so the field cap holds; step="parse"
-    _seed_parse_ring(
-        dispatch, tokens
-    )  # seed the ring _distill reads: dispatch=<claim|none> + the FULL command line, the SAME shape the rail surplus path seeds
-    diagnostic, truncated = _distill(fault, 0.0)  # dispatched (off dispatch=none) + truncated (off the message clip) derive in the SOLE distill site
+    fault = Fault((), RailStatus.FAULTED, f"parse: {message}"[:_MESSAGE_CAP])
+    _seed_parse_ring(dispatch, tokens)
+    diagnostic, truncated = _distill(fault, 0.0)
     env = msgspec.structs.replace(envelope(fault, claim=claim, verb=verb, run_id=settings.run_id, error_context=diagnostic), truncated=truncated)
     return _emit_envelope(settings, env, persist=False)
 
 
 def self_test(*, rhino: bool = False) -> Envelope:
-    """Run the assay composition preflight.
-
-    Args:
-        rhino: Whether missing Rhino packaging tooling should fail the preflight.
+    """Run the Assay composition preflight.
 
     Returns:
-        Envelope containing registry, catalog, and toolchain health evidence.
-
+        Emitted preflight Envelope.
     """
     settings = AssaySettings()
     claims = frozenset(b.claim for b in REGISTRY)
@@ -522,7 +453,7 @@ def self_test(*, rhino: bool = False) -> Envelope:
     status = RailStatus.FAILED if (not healthy or (rhino and not _yak_ready())) else RailStatus.OK
     summary = f"rows={len(REGISTRY)} claims={len(claims)} tools={len(TOOLS)} healthy={healthy} rhino={'required' if rhino else 'skipped'}"
     report = fold(Claim.STATIC, "self-test", (receipt(("assay", "self-test"), 0 if status is RailStatus.OK else 1, status=status, notes=(summary,)),))
-    # Census rows (typed Match) + health probes join defect rows; tool/git probe lines ride notes (human summary only).
+    # Census rows and health probes are machine data; tool/git probe text rides notes.
     report = msgspec.structs.replace(
         report,
         results=(
@@ -539,9 +470,7 @@ def self_test(*, rhino: bool = False) -> Envelope:
 
 
 def _health(settings: AssaySettings) -> tuple[tuple[Match, ...], tuple[str, ...]]:
-    # Probe each distinct tool's --version + git worktree staleness CONCURRENTLY via the rails' fan_out.
-    # Returns (typed Match rows for machine data, human notes for the wire).
-    # Surfaced-but-not-fatal: a MISSING tool rides a note, never the self-test OK/FAILED contract.
+    # Probe distinct tool versions and git state; missing tools surface as notes, not rail faults.
     probes = (*_tool_probes(), _GIT_HEAD, _GIT_DIRTY)
     results = fan_out(probes, settings=settings, scope=None, routed=_PROBE_ROUTED)
     noted = tuple(map(_probe_note, probes, results, strict=True))
@@ -554,21 +483,20 @@ def _health(settings: AssaySettings) -> tuple[tuple[Match, ...], tuple[str, ...]
 
 
 def _probe(name: str, argv: tuple[str, ...]) -> Check:
-    # One DIRECT/Input.NONE probe Check: the full argv runs verbatim under a deadline.
     tool = Tool(name=name, runner=Runner.DIRECT, command=argv, input=Input.NONE, language=Language.PYTHON, claim=Claim.STATIC, timeout=_PROBE_TIMEOUT)
     return Check(tool=tool)
 
 
-_GIT_HEAD: Final = _probe("git-head", ("git", "rev-parse", "--short", "HEAD"))  # worktree HEAD short-sha probe (read-only, no lease)
-_GIT_DIRTY: Final = _probe("git-dirty", ("git", "status", "--porcelain"))  # worktree clean/dirty probe (read-only, no lease)
+_GIT_HEAD: Final = _probe("git-head", ("git", "rev-parse", "--short", "HEAD"))
+_GIT_DIRTY: Final = _probe("git-dirty", ("git", "status", "--porcelain"))
 
 
 def _tool_probes() -> tuple[Check, ...]:
-    # One --version probe per DISTINCT program in TOOLS (dedup by launcher+program; DOTNET → one SDK probe; INPROC skipped).
-    def keyed(tool: Tool) -> tuple[str, tuple[str, ...]]:  # one match per tool: the dedup key plus the version-probe argv
+    # Deduplicate probes by launcher and program; DOTNET tools share one SDK probe and INPROC tools are skipped.
+    def keyed(tool: Tool) -> tuple[str, tuple[str, ...]]:
         match tool.runner:
             case Runner.DOTNET:
-                return "dotnet", ("dotnet", "--version")  # every DOTNET tool shares the one SDK probe
+                return "dotnet", ("dotnet", "--version")
             case _:
                 return f"{tool.runner.value}:{tool.command[0]}", (*tool.runner.prefix, tool.command[0], "--version")
 
@@ -577,14 +505,12 @@ def _tool_probes() -> tuple[Check, ...]:
 
 
 def _probe_note(check: Check, result: Result[Completed, Fault]) -> tuple[str, bool]:
-    # Project one probe Result to (note, ok): a nested match discriminates the probe family (git vs tool) on
-    # tool.name, then the resolved Completed (or None on a spawn fault) — one surface, no per-family helper.
-    # ok=False when a tool is MISSING; git probes are informational (ok=True always) — surfaced-but-not-fatal.
+    # Project tool/git probe Results to notes; git is informational, missing tools fail self-test health.
     name = check.tool.name
-    match result.ok if result.is_ok() else None:  # outer = the Completed|None spawn result (ty-total in two cases); inner = the probe family
+    match result.ok if result.is_ok() else None:
         case None:
             note = f"git: {name.removeprefix('git-')} unavailable" if name in {"git-head", "git-dirty"} else f"tool {name}: MISSING"
-            return note, name in {"git-head", "git-dirty"}  # git unavailable is informational; tool MISSING is a failure
+            return note, name in {"git-head", "git-dirty"}
         case Completed() as d if name == "git-head":
             return f"git: HEAD {d.stdout.decode(errors='replace').strip()[:40] or 'unknown'}", True
         case Completed() as d if name == "git-dirty":
@@ -597,21 +523,19 @@ def _probe_note(check: Check, result: Result[Completed, Fault]) -> tuple[str, bo
 
 
 def _census() -> bool:
-    # Day-one catalog-rot catch: a row not surfaced by select() (routing fracture) or whose parser raises
-    # on the empty Completed (decode-shape drift) folds to False. select mirrors the rail fan-out slice.
+    # Catch catalog rot: every row must select back to itself and parse an empty Completed when it has a parser.
     return all(t in select(t.claim, t.language) for t in TOOLS) and all(_parses(t.parser) for t in TOOLS)
 
 
 def _parses(parser: object) -> bool:
-    # Probe one catalog Parser against an empty Completed. A None parser is trivially safe; a callable
-    # must fold the degenerate Completed((), 0) without raising — a raise signals a decode-shape regression.
+    # Parser smoke test for degenerate receipts.
     match parser:
         case None:
             return True
         case fn if callable(fn):
             try:
                 fn(Completed((), 0))
-            except Exception:  # noqa: BLE001  # census probe: ANY parser raise on the empty receipt is a rotted row, folded to False
+            except Exception:  # noqa: BLE001  # census probe: any parser raise on the empty receipt is a rotted row, folded to False
                 return False
             return True
         case _:
@@ -619,8 +543,7 @@ def _parses(parser: object) -> bool:
 
 
 def _yak_ready() -> bool:
-    # Probe whether a yak executable is reachable via the configured catalog (heuristic: at least one
-    # PACKAGE-claim Tool has a DIRECT runner whose command starts with "yak" and the path is executable).
+    # Rhino preflight requires a direct `yak` command that is executable on this host.
     import os  # noqa: PLC0415  # stdlib: deferred import, only on --rhino path
 
     return any(
@@ -631,8 +554,7 @@ def _yak_ready() -> bool:
 
 
 def _composes() -> bool:
-    # compose surfaces a Slot inversion as a decoration-time TypeError, so weaving the identity Hom is the
-    # cheapest structural proof the checked ▷ logged ▷ traced order is monotonic without spawning a process.
+    # Weaving identity catches Slot-order inversions without spawning a process.
     try:
         compose(*_RAIL_LAYERS)(_identity_hom)
     except TypeError:
@@ -640,35 +562,26 @@ def _composes() -> bool:
     return True
 
 
-def _leaf(bind: Bind) -> Callable[..., Envelope]:
-    # Wrap rail(bind) as a Cyclopts leaf flattening its Params. The flatten rides BaseParams' inherited
-    # @Parameter(name="*"), so the leaf needs only a runtime __annotate__ (PEP 649 lazy form, NOT a direct
-    # __annotations__ write) pinning the concrete Params type. Identity is set directly, NOT via
-    # functools.wraps — wraps would stamp __wrapped__ at the defaultless run closure, which cyclopts
-    # follows during signature inspection and rejects (a flatten param needs a default on the signature).
+def _leaf(bind: Bind) -> Callable[[object], Envelope]:
+    # Cyclopts needs a concrete default plus PEP 649 lazy annotations to flatten each Params type.
+    # Avoid functools.wraps because __wrapped__ exposes the defaultless rail runner to signature inspection.
     runner = rail(bind)
 
-    def command(
-        params: object = bind.params(),
-    ) -> Envelope:  # cyclopts needs a concrete default on the flatten param; the frozen Params instance is immutable so the shared default is safe
+    def command(params: object = bind.params()) -> Envelope:
         return runner(params)
 
     command.__name__ = bind.verb
     command.__qualname__ = f"_leaf.{bind.verb}"
     command.__doc__ = bind.help
-    command.__annotate__ = lambda _format: {"params": bind.params, "return": Envelope}  # PEP 649 lazy form, never a direct __annotations__ write
+    command.__annotate__ = lambda _format: {"params": bind.params, "return": Envelope}
     return command
 
 
 def build_app(registry: tuple[Bind, ...]) -> App:
     """Build the Cyclopts command tree from registry rows.
 
-    Args:
-        registry: Bind rows to expose as claim subcommands.
-
     Returns:
-        Root Cyclopts application with claim commands and root utility commands.
-
+        Cyclopts application with claim and verb commands registered.
     """
     root = App(name="assay", help="Rasm polyglot quality operator.", default_parameter=Parameter(show_default=False), result_action="return_value")
     keyed = sorted(registry, key=lambda b: b.claim.value)
@@ -678,13 +591,12 @@ def build_app(registry: tuple[Bind, ...]) -> App:
     )
     app = reduce(_register, subs, root)
     _register(app, self_test, name="self-test")
-    _register(app, delta, name="delta")  # root verb: read-back of the auto-persisted run history (sibling to self-test)
+    _register(app, delta, name="delta")
     return app
 
 
-def _register(app: App, obj: App | Callable[..., object], *, name: str | None = None, help: str = "") -> App:  # noqa: A002  # cyclopts command kwarg is named "help"; mirroring the CLI surface
-    # App.command returns the registered object, not the parent, so this seam returns app to keep the
-    # groupby/sub-app folds point-free; name/help are forwarded only when present (App-flatten has no name).
+def _register[**P](app: App, obj: App | Callable[P, object], *, name: str | None = None, help: str = "") -> App:  # noqa: A002  # cyclopts command kwarg is named "help"; mirroring the CLI surface
+    # App.command returns the registered object, so return the parent to keep registry folds linear.
     match (name, help):
         case (None, _):
             app.command(obj)

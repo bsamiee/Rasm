@@ -23,7 +23,11 @@ if TYPE_CHECKING:
 
 
 def main(argv: Sequence[str] | None = None) -> int:
-    """Run the analyzer CLI."""
+    """Run the analyzer CLI.
+
+    Returns:
+        Process exit code for the analyzer invocation.
+    """
     args = _parser().parse_args(argv)
     match args.command:
         case "check":

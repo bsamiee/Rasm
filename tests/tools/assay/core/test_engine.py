@@ -12,7 +12,7 @@ SSH streaming round-trip, OTel span resource snapshot, _drain tail-cap property 
 
 from contextlib import aclosing
 import os
-from typing import TYPE_CHECKING
+from typing import override, TYPE_CHECKING, TypedDict
 
 import anyio
 from anyio.abc import ByteReceiveStream
@@ -25,19 +25,29 @@ import pytest
 from tests.tools.assay.conftest import _make_psutil_module, _proc  # noqa: PLC2701
 import tools.assay.core.engine as engine_mod
 from tools.assay.core.engine import _decode_owner, _drain, _governed, _inproc, _splice, _stale, _total, exclusive_lease, run_check  # noqa: PLC2701
-from tools.assay.core.model import Check, Claim, Completed, Fault, Input, Language, Mode, receipt, Runner, Tool  # noqa: TC001
+from tools.assay.core.model import ArtifactKind, Check, Claim, Completed, Fault, Input, Language, Mode, receipt, Runner, Tool  # noqa: TC001
 from tools.assay.core.routing import Routed, Scope
 from tools.assay.core.status import RailStatus
 
 
 if TYPE_CHECKING:
     from anyio.streams.memory import MemoryObjectReceiveStream
+    from expression import Result
     from opentelemetry.sdk.trace.export.in_memory_span_exporter import InMemorySpanExporter
 
     from tests.tools.assay.conftest import AssayHarness, SshLoopback
 
 
 # --- [CONSTANTS] -----------------------------------------------------------------------
+
+
+class _ProcKw(TypedDict, total=False):
+    """Keyword payload accepted by the psutil process double."""
+
+    raise_no_such: bool
+    running: bool
+    create_time: float
+
 
 _ECHO_TOOL = Tool(
     name="test-echo",
@@ -63,6 +73,12 @@ _PYTHON_TOOL = Tool(
 _ROUTED_CHANGED = Routed(language=Language.CSHARP, scope=Scope.CHANGED)
 
 _CT = 1_700_000_000.0
+_STALE_CASES: tuple[tuple[_ProcKw, bool], ...] = (
+    ({"raise_no_such": True}, True),
+    ({"running": False, "create_time": _CT}, True),
+    ({"running": True, "create_time": _CT}, False),
+    ({"running": True, "create_time": _CT + 5.0}, True),
+)
 
 
 # --- [DRAIN HELPERS] -------------------------------------------------------------------
@@ -82,12 +98,14 @@ class _MemBytesStream(ByteReceiveStream):
     def __init__(self, recv: MemoryObjectReceiveStream[bytes]) -> None:
         self._recv = recv
 
+    @override
     async def receive(self, max_bytes: int = 65536) -> bytes:  # max_bytes: chunks are pre-sized by sender
         try:
             return await self._recv.receive()
         except anyio.EndOfStream, anyio.ClosedResourceError:
             raise anyio.EndOfStream from None
 
+    @override
     async def aclose(self) -> None:
         await self._recv.aclose()
 
@@ -97,6 +115,9 @@ async def _byte_stream(chunks: list[bytes]) -> _MemBytesStream:
 
     Sends all chunks then closes the send end — ``_drain`` sees EOF after the last chunk.
     Buffer size equals ``len(chunks)`` so ``send`` never blocks.
+
+    Returns:
+        A stream adapter ready for ``_drain``.
     """
     send, recv = anyio.create_memory_object_stream[bytes](max_buffer_size=len(chunks) + 1)
     for c in chunks:
@@ -130,16 +151,8 @@ def test_decode_owner_malformed_is_none() -> None:
 # --- [PSUTIL ORACLE] -------------------------------------------------------------------
 
 
-@pytest.mark.parametrize(
-    "proc_kw,expected",
-    [
-        ({"raise_no_such": True}, True),
-        ({"running": False, "create_time": _CT}, True),
-        ({"running": True, "create_time": _CT}, False),
-        ({"running": True, "create_time": _CT + 5.0}, True),
-    ],
-)
-def test_stale_oracle(proc_kw: dict, expected: bool, monkeypatch: pytest.MonkeyPatch) -> None:  # noqa: FBT001
+@pytest.mark.parametrize("proc_kw,expected", _STALE_CASES)
+def test_stale_oracle(proc_kw: _ProcKw, expected: bool, monkeypatch: pytest.MonkeyPatch) -> None:  # noqa: FBT001
     """``_stale`` oracle: NoSuchProcess→True; not_running→True; live+matching→False; drift→True."""
     fake = _make_psutil_module({None: _proc(), 99999: _proc(pid=99999, **proc_kw)})
     monkeypatch.setattr(engine_mod, "psutil", fake)
@@ -322,7 +335,7 @@ def test_otel_span_carries_mem_rss_attribute(assay_root: AssayHarness, otel_span
     assert "mem.rss_bytes" in attrs, f"'mem.rss_bytes' missing from event attributes: {dict(attrs)}"
     # OTel attribute values are typed as AttributeValue (int | float | str | ...); _snapshot stores float(rss).
     rss_val = attrs["mem.rss_bytes"]
-    assert rss_val == fake_rss, f"Expected rss={fake_rss!r}, got {rss_val!r}"  # type: ignore[comparison-overlap]
+    assert rss_val == fake_rss, f"Expected rss={fake_rss!r}, got {rss_val!r}"
 
 
 # --- [LEASE] ---------------------------------------------------------------------------
@@ -360,7 +373,7 @@ def test_exclusive_lease_stale_steal(assay_root: AssayHarness, monkeypatch: pyte
     monkeypatch.setattr(engine_mod, "psutil", fake)
 
     # Write a stale owner block directly into the lock file before the test acquires.
-    lock_path = assay_root.settings.artifact(engine_mod.ArtifactKind.LOCKS, "stale-resource.lock")
+    lock_path = assay_root.settings.artifact(ArtifactKind.LOCKS, "stale-resource.lock")
     lock_path.parent.mkdir(parents=True, exist_ok=True)
     stale_owner = engine_mod._LeaseOwner(resource="stale-resource", run_id="old-run", pid=dead_pid, create_time=dead_ct)
     lock_path.write_bytes(msgspec.json.encode(stale_owner))
@@ -384,7 +397,7 @@ async def test_ssh_loopback_non_streaming_round_trip(assay_root: AssayHarness, s
     remote = assay_root.remote(ssh_loopback.exec_target)
     check = Check(tool=_ECHO_TOOL, cwd=assay_root.root)
 
-    def _sync() -> object:
+    def _sync() -> Result[Completed, Fault]:
         return run_check(check, settings=remote, scope=None, routed=_ROUTED_CHANGED)
 
     outcome = await anyio.to_thread.run_sync(_sync)  # ty: ignore[unresolved-attribute]
@@ -406,7 +419,7 @@ async def test_ssh_streaming_round_trip(assay_root: AssayHarness, ssh_loopback: 
     remote = assay_root.remote(ssh_loopback.exec_target)
     check = Check(tool=_STREAM_TOOL, cwd=assay_root.root)
 
-    def _sync() -> object:
+    def _sync() -> Result[Completed, Fault]:
         return run_check(check, settings=remote, scope=None, routed=_ROUTED_CHANGED)
 
     outcome = await anyio.to_thread.run_sync(_sync)  # ty: ignore[unresolved-attribute]

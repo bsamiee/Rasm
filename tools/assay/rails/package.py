@@ -39,7 +39,7 @@ from tools.assay.core.model import (
 from tools.assay.core.routing import Routed, Scope
 from tools.assay.core.status import RailStatus
 
-# canonical Claim.BRIDGE Mode.CLIENT seam for the rasm-bridge quit/refresh lifecycle steps
+# Reuse the canonical bridge client seam for rasm-bridge lifecycle steps.
 from tools.assay.rails.bridge import _client_run as _bridge_client_run  # noqa: PLC2701
 
 
@@ -49,7 +49,7 @@ if TYPE_CHECKING:
 
 # --- [TYPES] ----------------------------------------------------------------------------
 
-type _Step = tuple[str, ...]  # one resolved yak/bridge argv tail (the command minus the launcher head)
+type _Step = tuple[str, ...]
 
 
 # --- [MODELS] ---------------------------------------------------------------------------
@@ -57,15 +57,9 @@ type _Step = tuple[str, ...]  # one resolved yak/bridge argv tail (the command m
 
 @dataclass(frozen=True, slots=True, kw_only=True)
 class PackageParams(BaseParams):
-    """Parameters shared by package verbs.
+    """Parameters shared by package verbs."""
 
-    Attributes:
-        slug: Yak package slug.
-        version: Yak package version passed to build and plan operations.
-
-    """
-
-    slug: str = ""  # required by stage/deploy/publish/plan; list ignores both
+    slug: str = ""
     version: str = ""
 
     @override
@@ -75,29 +69,11 @@ class PackageParams(BaseParams):
 
 
 class _MsbuildProps(Base, frozen=True):
-    """MSBuild property query JSON envelope."""
-
     Properties: dict[str, str] = {}  # noqa: RUF012  # MSBuild wire key is PascalCase; default-empty so a missing block decodes total
 
 
 class YakMeta(Base, frozen=True, gc=False):
-    """Validated yak package metadata.
-
-    Attributes:
-        project: Package project path.
-        manifest_dir: Directory containing yak manifest assets.
-        target_dir: Build output directory.
-        assembly_name: Primary assembly name.
-        target_ext: Primary artifact extension.
-        yak_path: Yak executable path.
-        yak_platform: Yak platform token.
-        yak_push_source: Optional yak push source.
-        package_dir: Committed package directory.
-        package_pattern: Expected package filename pattern.
-        target_framework: Target framework.
-        project_dir: Project directory.
-
-    """
+    """Validated yak package metadata."""
 
     project: str
     manifest_dir: Path
@@ -114,19 +90,12 @@ class YakMeta(Base, frozen=True, gc=False):
 
     @classmethod
     def from_props(cls, project: str, props: dict[str, str], settings: AssaySettings, slug: str) -> Result[YakMeta, Fault]:
-        """Build validated package metadata from MSBuild properties.
-
-        Args:
-            project: Project path.
-            props: Evaluated MSBuild properties.
-            settings: Runtime settings.
-            slug: Requested package slug.
+        """Build validated yak metadata from MSBuild properties.
 
         Returns:
-            Result containing validated metadata or a precondition fault.
-
+            Validated yak metadata, or a metadata/precondition fault.
         """
-        # YakPushSource is optional (server push target); every other _META_PROPS member must be present + non-empty
+        # YakPushSource is optional; every other metadata property must be present.
         missing = tuple(name for name in _META_PROPS if name != "YakPushSource" and not props.get(name))
         match missing:
             case ():
@@ -150,28 +119,20 @@ class YakMeta(Base, frozen=True, gc=False):
     def validate(self, settings: AssaySettings, slug: str, evaluated_slug: str) -> Result[YakMeta, Fault]:
         """Validate package staging preconditions.
 
-        Args:
-            settings: Runtime settings.
-            slug: Requested package slug.
-            evaluated_slug: Slug evaluated by MSBuild.
-
         Returns:
-            Result containing this metadata or a precondition fault.
-
+            Current metadata when staging preconditions hold, or a fault.
         """
-        root = Path(str(settings.root)).resolve()  # output-dir containment guard is local-fs; UPath → Path
+        root = Path(str(settings.root)).resolve()
         expected = (self.project_dir / "bin" / settings.configuration.value / self.target_framework).resolve()
         resolved = self.target_dir.resolve()
         checks: tuple[tuple[bool, str], ...] = (
             (evaluated_slug == slug, f"package slug mismatch for {self.project}: expected {slug}, evaluated {evaluated_slug}"),
             (self.target_ext == _RHP, f"package project must emit {_RHP} for {slug}: {self.project}"),
-            # containment guard: refuse to clean an output dir outside the worktree's bin/<config>/<tfm>
             (resolved.is_relative_to(root) and resolved == expected, f"refusing to clean unexpected output directory: {self.target_dir}"),
             (
                 self.yak_platform == _YAK_PLATFORM and fnmatch.fnmatch(self.package_pattern, _YAK_DISTRIBUTION_GLOB),
                 f"package distribution must match {_YAK_DISTRIBUTION_GLOB} for {slug}: {self.package_pattern}",
             ),
-            # X_OK probe keeps a non-runnable YakPath a precondition fault, never a yak build spawn OSError
             (self.yak_path.is_file() and os.access(self.yak_path, os.X_OK), f"yak not executable at {self.yak_path}"),
         )
         return next((Error(Fault(("yak", slug), message=detail)) for ok, detail in checks if not ok), Ok(self))
@@ -180,12 +141,12 @@ class YakMeta(Base, frozen=True, gc=False):
 # --- [CONSTANTS] ------------------------------------------------------------------------
 
 _RHP: Final[str] = ".rhp"
-_YAK_PLATFORM: Final[str] = "mac"  # the sole supported distribution host
-_YAK_DISTRIBUTION_GLOB: Final[str] = "*-rh9_*-mac.yak"  # the validated YakPackagePattern shape
-_RASM_BRIDGE_SLUG: Final[str] = "rasm-bridge"  # the lone lifecycle special-case taking the shared bridge.lock
-_PACKAGE_STAGE: Final[str] = "package-stage"  # the per-dir stage lease resource stem
-_BRIDGE_LOCK: Final[str] = "bridge"  # the global live-Rhino lease resource stem shared with rails/bridge.py
-_PACKAGE_ROOTS: Final[tuple[str, ...]] = ("apps", "tools")  # the worktree subtrees holding packageable .csproj rows
+_YAK_PLATFORM: Final[str] = "mac"
+_YAK_DISTRIBUTION_GLOB: Final[str] = "*-rh9_*-mac.yak"
+_RASM_BRIDGE_SLUG: Final[str] = "rasm-bridge"
+_PACKAGE_STAGE: Final[str] = "package-stage"
+_BRIDGE_LOCK: Final[str] = "bridge"
+_PACKAGE_ROOTS: Final[tuple[str, ...]] = ("apps", "tools")
 _CSPROJ: Final[str] = ".csproj"
 _YAK_SLUG_PROP: Final[str] = "YakPackageSlug"
 
@@ -219,7 +180,7 @@ _HOST_EXCLUDES: Final[tuple[str, ...]] = (
     "System.Drawing.Common.*",
 )
 
-# (verb, slug == rasm-bridge) -> ordered yak/bridge step kinds folded after a successful stage.
+# Ordered post-stage step policy keyed by verb and rasm-bridge slug match.
 _STEP_POLICY: Final[dict[tuple[str, bool], tuple[str, ...]]] = {
     ("deploy", False): ("install",),
     ("deploy", True): ("quit", "install", "refresh"),
@@ -227,15 +188,14 @@ _STEP_POLICY: Final[dict[tuple[str, bool], tuple[str, ...]]] = {
     ("publish", True): ("quit", "install", "refresh", "push"),
 }
 
-_DECODER: Final[msgspec.json.Decoder[_MsbuildProps]] = msgspec.json.Decoder(_MsbuildProps)  # one-pass cached envelope decode
+_DECODER: Final[msgspec.json.Decoder[_MsbuildProps]] = msgspec.json.Decoder(_MsbuildProps)
 
 
 # --- [OPERATIONS] -----------------------------------------------------------------------
 
 
 def _yak_tool(meta: YakMeta, command: _Step, mode: Mode) -> Result[Tool, Fault]:
-    # command carries the complete invocation so the Input.NONE place projection appends one empty tail
-    # and the spawned argv is exactly command; a missing catalog row faults rather than IndexError-ing.
+    # Command carries the complete invocation; Input.NONE contributes only the empty routing tail.
     match select(Claim.PACKAGE, Language.CSHARP):
         case (base, *_):
             return Ok(msgspec.structs.replace(base, command=(str(meta.yak_path), *command), mode=mode))
@@ -244,21 +204,20 @@ def _yak_tool(meta: YakMeta, command: _Step, mode: Mode) -> Result[Tool, Fault]:
 
 
 def _yak_build_tail(meta: YakMeta, version: str) -> _Step:
-    return ("build", "--platform", meta.yak_platform, "--version", version)  # run with cwd=stage
+    return ("build", "--platform", meta.yak_platform, "--version", version)
 
 
 def _yak_install_tail(package_file: Path) -> _Step:
-    return ("install", str(package_file))  # run with cwd=package_dir
+    return ("install", str(package_file))
 
 
 def _yak_push_tail(meta: YakMeta, package_file: Path) -> _Step:
-    source = ("--source", meta.yak_push_source) if meta.yak_push_source else ()  # --source only when declared
+    source = ("--source", meta.yak_push_source) if meta.yak_push_source else ()
     return ("push", *source, str(package_file))
 
 
 def _run_yak(meta: YakMeta, command: _Step, mode: Mode, *, cwd: Path, settings: AssaySettings, scope: ArtifactScope) -> Result[Completed, Fault]:
-    # the Routed is the minimal C#/CHANGED shape place needs for an Input.NONE tool; the full argv lives
-    # in _yak_tool's command. A non-zero exit rides Ok(Completed(FAILED)); only a spawn/timeout faults.
+    # Minimal C#/CHANGED Routed satisfies Input.NONE; non-zero yak exits stay on Completed.
     return _yak_tool(meta, command, mode).bind(
         lambda tool: run_check(Check(tool=tool, cwd=cwd), settings=settings, scope=scope, routed=Routed(language=tool.language, scope=Scope.CHANGED))
     )
@@ -267,16 +226,8 @@ def _run_yak(meta: YakMeta, command: _Step, mode: Mode, *, cwd: Path, settings: 
 def evaluate_meta(settings: AssaySettings, scope: ArtifactScope, project: str, slug: str, version: str) -> Result[YakMeta, Fault]:
     """Evaluate and validate yak metadata for one project.
 
-    Args:
-        settings: Runtime settings.
-        scope: Artifact scope.
-        project: Project path.
-        slug: Requested package slug.
-        version: Requested package version.
-
     Returns:
-        Result containing validated metadata or an evaluation fault.
-
+        Validated yak metadata, or an MSBuild/decode/precondition fault.
     """
     query: _Step = (
         "msbuild",
@@ -287,7 +238,7 @@ def evaluate_meta(settings: AssaySettings, scope: ArtifactScope, project: str, s
         "-nologo",
     )
     tool = Tool("dotnet-msbuild", Runner.DOTNET, query, Input.NONE, Language.CSHARP, Claim.PACKAGE, mode=Mode.QUERY)
-    check = Check(tool=tool, cwd=Path(str(settings.root)))  # subprocess cwd is inherently local
+    check = Check(tool=tool, cwd=Path(str(settings.root)))
     routed = Routed(language=tool.language, scope=Scope.CHANGED)
     return run_check(check, settings=settings, scope=scope, routed=routed).bind(
         lambda done: _decode_props(project, done).bind(lambda props: YakMeta.from_props(project, props, settings, slug))
@@ -295,8 +246,7 @@ def evaluate_meta(settings: AssaySettings, scope: ArtifactScope, project: str, s
 
 
 def _decode_props(project: str, done: Completed) -> Result[dict[str, str], Fault]:
-    # codec boundary: a non-zero MSBuild exit emits an MSB####/restore error line (not the envelope) on
-    # stdout, so the decode raises DecodeError. The Fault carries the bounded tail so the operator sees what failed.
+    # Non-zero MSBuild emits plain error text, so decode failure becomes a bounded metadata Fault.
     try:
         return Ok(_DECODER.decode(done.stdout or b"{}").Properties)
     except msgspec.DecodeError:
@@ -305,8 +255,7 @@ def _decode_props(project: str, done: Completed) -> Result[dict[str, str], Fault
 
 
 def _resolve_project(settings: AssaySettings, slug: str) -> Result[str, Fault]:
-    # resolve by slug, never by changed-set; zero or duplicate matches fault so the lifecycle never
-    # operates on an ambiguous target.
+    # Resolve by slug, never by changed set, so package lifecycle cannot target ambiguous projects.
     return _package_projects(settings).bind(lambda projects: _slugged(settings, projects)).bind(lambda pairs: _lone_match(slug, pairs))
 
 
@@ -318,8 +267,7 @@ def _package_projects(settings: AssaySettings) -> Result[tuple[str, ...], Fault]
 
 
 def _slugged(settings: AssaySettings, projects: tuple[str, ...]) -> Result[tuple[tuple[str, str], ...], Fault]:
-    # sequence collapses the per-project slugs into one rail (an IO read error dominates); absence is
-    # already "" from _csproj_slug so a non-yak project rides through as an empty slug, not a fault.
+    # Empty slug means non-yak project; I/O faults still dominate the sequence.
     return sequence(block.of_seq(_csproj_slug(settings, p) for p in projects)).map(lambda slugs: tuple(zip(projects, tuple(slugs), strict=True)))
 
 
@@ -335,15 +283,15 @@ def _lone_match(slug: str, pairs: tuple[tuple[str, str], ...]) -> Result[str, Fa
 
 
 def _csproj_slug(settings: AssaySettings, project: str) -> Result[str, Fault]:
-    # direct XML read, never a full MSBuild evaluation; absence → "" so a non-yak project drops out
-    return _read_bytes(Path(str(settings.root / project))).map(_slug_from_bytes)  # .csproj XML read is local; UPath → Path
+    # Read package slug directly from XML; absence means non-yak project.
+    return _read_bytes(Path(str(settings.root / project))).map(_slug_from_bytes)
 
 
 def _read_bytes(path: Path) -> Result[bytes, Fault]:
     try:
         return Ok(path.read_bytes())
     except FileNotFoundError:
-        return Ok(b"")  # absence is the non-yak/removed-project case; a real IO fault must not mask as "no slug"
+        return Ok(b"")
     except OSError as exc:
         return Error(Fault(("read", str(path)), message=str(exc)[:1024]))
 
@@ -360,8 +308,7 @@ def _slug_from_bytes(raw: bytes) -> str:
 
 
 def _stage_artifacts(meta: YakMeta, staged: Path) -> Result[Path, Fault]:
-    # _HOST_EXCLUDES drops the Rhino/Eto/GH assemblies the host already provides. A missing manifest or
-    # primary .rhp is a precondition Fault so an incomplete distribution never reaches yak build.
+    # Drop host-provided assemblies; require manifest and primary .rhp before yak build.
     manifest = meta.manifest_dir / "manifest.yml"
     primary = meta.target_dir / f"{meta.assembly_name}{meta.target_ext}"
     match (manifest.is_file(), primary.is_file()):
@@ -390,8 +337,7 @@ def _copy_tree(meta: YakMeta, staged: Path) -> Result[Path, Fault]:
 
 
 def _commit(meta: YakMeta, staged: Path, slug: str) -> Result[Report, Fault]:
-    # atomic rotate: rotating to .previous.<pid> before the swap makes a crash mid-rotate recoverable;
-    # an OSError restores the rotated-away tree (only when the live dir is now absent) and discards staged.
+    # Rotate to .previous.<pid> before swap so mid-commit crashes remain recoverable.
     previous = meta.package_dir.with_name(f"{meta.package_dir.name}.previous.{os.getpid()}")
     try:
         rmtree(previous, ignore_errors=True)
@@ -413,8 +359,7 @@ def _commit(meta: YakMeta, staged: Path, slug: str) -> Result[Report, Fault]:
 
 
 def _stage_meta(settings: AssaySettings, scope: ArtifactScope, meta: YakMeta, slug: str, version: str) -> Result[Report, Fault]:
-    # the staged temp lives under the package dir's parent so the final replace is a same-filesystem
-    # atomic rename; the lease keys on package_dir so two slugs sharing one parent serialize.
+    # Stage under package_dir's parent so the final replace is same-filesystem and lease-scoped.
     meta.package_dir.parent.mkdir(parents=True, exist_ok=True)
     staged = Path(mkdtemp(prefix=f"{meta.package_dir.name}.", dir=meta.package_dir.parent))
     resource = f"{_PACKAGE_STAGE}-{meta.package_dir.name}"
@@ -444,7 +389,6 @@ def _commit_or_fail(meta: YakMeta, staged: Path, slug: str, version: str, done: 
 
 
 def _stamp_version(detail: object, version: str) -> PackageRun:
-    # the commit fold leaves version=""; stamp the staged version here
     match detail:
         case PackageRun() as run:
             return msgspec.structs.replace(run, version=version)
@@ -453,8 +397,7 @@ def _stamp_version(detail: object, version: str) -> PackageRun:
 
 
 def _run_step(settings: AssaySettings, scope: ArtifactScope, meta: YakMeta, package_file: Path, kind: str) -> Result[Completed, Fault]:
-    # install/push are yak Check rows (cwd=package_dir); quit/refresh drive the live host through the
-    # bridge client (Mode.CLIENT) under the already-held bridge.lock.
+    # install/push are yak steps; quit/refresh go through the bridge client under bridge.lock.
     match kind:
         case "install":
             return _run_yak(meta, _yak_install_tail(package_file), Mode.DEPLOY, cwd=meta.package_dir, settings=settings, scope=scope)
@@ -465,15 +408,13 @@ def _run_step(settings: AssaySettings, scope: ArtifactScope, meta: YakMeta, pack
 
 
 def _run_bridge_client(settings: AssaySettings, scope: ArtifactScope, verb: str) -> Result[Completed, Fault]:
-    # routes through the canonical rails.bridge._client_run seam; a refresh fault after install leaves the
-    # new .rhp on disk while the host is down — recoverable by a bare bridge launch, so it rides Completed(FAILED).
-    _ = scope  # the bridge client must stay on its canonical bin/ output; _client_run pins scope=None internally
+    # Refresh failure after install is recoverable by bridge launch, so it rides Completed(FAILED).
+    _ = scope
     return _bridge_client_run(settings, verb)
 
 
 def _resolve_package_file(meta: YakMeta) -> Result[Path, Fault]:
-    # glob the committed package_dir (post-swap), not the staged temp, so the resolved path is the live
-    # distribution; zero or many matches faults so install/push never operate on an ambiguous artifact.
+    # Resolve from committed package_dir so install/push never operate on ambiguous staged artifacts.
     matches = sorted(meta.package_dir.glob(meta.package_pattern))
     match matches:
         case [only]:
@@ -483,8 +424,7 @@ def _resolve_package_file(meta: YakMeta) -> Result[Path, Fault]:
 
 
 def _finish(settings: AssaySettings, scope: ArtifactScope, meta: YakMeta, slug: str, verb: str, staged: Report) -> Result[Report, Fault]:
-    # fold the post-stage step policy keyed by (verb, slug == rasm-bridge); a stage verb or non-OK stage
-    # short-circuits to the staged Report unchanged.
+    # Stage verb and non-OK stage results short-circuit before post-stage policy.
     match (verb, staged.status):
         case ("stage", _) | (_, RailStatus.FAILED | RailStatus.FAULTED | RailStatus.TIMEOUT | RailStatus.BUSY):
             return Ok(staged)
@@ -496,8 +436,7 @@ def _finish(settings: AssaySettings, scope: ArtifactScope, meta: YakMeta, slug: 
 def _drive_steps(
     settings: AssaySettings, scope: ArtifactScope, meta: YakMeta, slug: str, verb: str, staged: Report, package_file: Path, steps: tuple[str, ...]
 ) -> Result[Report, Fault]:
-    # the bridge-bound policy acquires bridge.lock once and runs the whole sequence inside it so
-    # quit → install → refresh is atomic under one lease; a non-bridge policy runs the yak steps directly.
+    # Bridge-bound policy acquires bridge.lock once for quit -> install -> refresh.
     needs_bridge = any(step in {"quit", "refresh"} for step in steps)
     run_steps: Callable[[object], Result[Report, Fault]] = lambda _held: _fold_steps(  # noqa: E731  # thunk closes over the lease boundary
         settings, scope, meta, verb, staged, package_file, steps
@@ -512,8 +451,7 @@ def _drive_steps(
 def _fold_steps(
     settings: AssaySettings, scope: ArtifactScope, meta: YakMeta, verb: str, staged: Report, package_file: Path, steps: tuple[str, ...]
 ) -> Result[Report, Fault]:
-    # reduce threads a Result accumulator: each step appends its Completed (incl. a FAILED defect) and
-    # short-circuits on a spawn/lease Fault; the terminal fold derives counts/status once in model.fold.
+    # Result accumulator appends Completed rows and short-circuits only on spawn or lease Faults.
     seed: Result[tuple[Completed, ...], Fault] = Ok(())
     folded = reduce(
         lambda acc, kind: acc.bind(lambda done: _run_step(settings, scope, meta, package_file, kind).map(lambda c: (*done, c))), steps, seed
@@ -522,8 +460,7 @@ def _fold_steps(
 
 
 def _lifecycle(settings: AssaySettings, scope: ArtifactScope, params: PackageParams, verb: str) -> Result[Report, Fault]:
-    # shared resolve → evaluate → stage → finish fold: validate before any lease, stage under the per-dir
-    # lease, then fold the (verb, slug) step policy.
+    # Resolve and validate before leases, then stage and apply verb-specific post-stage steps.
 
     def staged_then_finish(meta: YakMeta) -> Result[Report, Fault]:
         return _stage_meta(settings, scope, meta, params.slug, params.version).bind(
@@ -543,14 +480,8 @@ def _lifecycle(settings: AssaySettings, scope: ArtifactScope, params: PackagePar
 def stage(settings: AssaySettings, scope: ArtifactScope, params: PackageParams) -> Result[Report, Fault]:
     """Stage one yak distribution.
 
-    Args:
-        settings: Runtime settings.
-        scope: Artifact scope.
-        params: Package params.
-
     Returns:
-        Result containing the stage report or operational fault.
-
+        Package lifecycle report, or staging fault.
     """
     return _lifecycle(settings, scope, params, "stage")
 
@@ -558,14 +489,8 @@ def stage(settings: AssaySettings, scope: ArtifactScope, params: PackageParams) 
 def deploy(settings: AssaySettings, scope: ArtifactScope, params: PackageParams) -> Result[Report, Fault]:
     """Stage and install one yak distribution.
 
-    Args:
-        settings: Runtime settings.
-        scope: Artifact scope.
-        params: Package params.
-
     Returns:
-        Result containing the deploy report or operational fault.
-
+        Package lifecycle report, or staging/install fault.
     """
     return _lifecycle(settings, scope, params, "deploy")
 
@@ -573,14 +498,8 @@ def deploy(settings: AssaySettings, scope: ArtifactScope, params: PackageParams)
 def publish(settings: AssaySettings, scope: ArtifactScope, params: PackageParams) -> Result[Report, Fault]:
     """Stage, install, and publish one yak distribution.
 
-    Args:
-        settings: Runtime settings.
-        scope: Artifact scope.
-        params: Package params.
-
     Returns:
-        Result containing the publish report or operational fault.
-
+        Package lifecycle report, or staging/install/publish fault.
     """
     return _lifecycle(settings, scope, params, "publish")
 
@@ -588,16 +507,10 @@ def publish(settings: AssaySettings, scope: ArtifactScope, params: PackageParams
 def list(settings: AssaySettings, scope: ArtifactScope, params: PackageParams) -> Result[Report, Fault]:  # noqa: A001  # registry binds the canonical verb name "list"
     """List package projects and slugs.
 
-    Args:
-        settings: Runtime settings.
-        scope: Artifact scope.
-        params: Package params.
-
     Returns:
-        Result containing package match rows or an enumeration fault.
-
+        Package roster report, or project discovery fault.
     """
-    _ = (scope, params)  # list enumerates the whole package set, not one slug
+    _ = (scope, params)
     return (
         _package_projects(settings)
         .bind(lambda projects: _slugged(settings, projects))
@@ -614,14 +527,8 @@ def list(settings: AssaySettings, scope: ArtifactScope, params: PackageParams) -
 def plan(settings: AssaySettings, scope: ArtifactScope, params: PackageParams) -> Result[Report, Fault]:
     """Evaluate package metadata without staging.
 
-    Args:
-        settings: Runtime settings.
-        scope: Artifact scope.
-        params: Package params.
-
     Returns:
-        Result containing package metadata detail or an evaluation fault.
-
+        Package plan report, or metadata evaluation fault.
     """
     return (
         _resolve_project(settings, params.slug)

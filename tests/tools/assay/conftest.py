@@ -14,7 +14,7 @@ import os
 from pathlib import Path
 import shutil
 from types import SimpleNamespace
-from typing import override, TYPE_CHECKING
+from typing import override, Protocol, TYPE_CHECKING
 from unittest.mock import create_autospec, MagicMock
 
 import anyio
@@ -79,6 +79,16 @@ _RHINOWIP = next(
     (p for p in ("/Applications/RhinoWIP.app", "/Applications/Rhino WIP.app", "/Applications/Rhino 8 WIP.app") if Path(p).is_dir()), None
 )
 _TREE_SITTER_PY: bool = importlib.util.find_spec("tree_sitter_python") is not None
+
+
+# --- [TYPES] ----------------------------------------------------------------------------
+
+
+class VerbRunner(Protocol):
+    """Async subprocess runner fixture surface."""
+
+    def __call__(self, *argv: str, extra_env: dict[str, str] | None = None) -> Awaitable[Envelope]: ...
+
 
 skip_no_dotnet = pytest.mark.skipif(_DOTNET is None, reason="dotnet not on PATH")
 skip_no_rhino = pytest.mark.skipif(_RHINOWIP is None, reason="RhinoWIP.app not installed")
@@ -350,7 +360,11 @@ def _make_psutil_module(procs: dict[int | None, MagicMock], *, cpu_count: int = 
 
 @pytest.fixture
 def assay_root(tmp_path: Path) -> AssayHarness:
-    """Isolated tmp-tree ``AssaySettings`` — all I/O redirects under ``<tmp>/.artifacts/assay``."""
+    """Build isolated tmp-tree settings with redirected artifact I/O.
+
+    Returns:
+        Assay harness rooted under the pytest temporary directory.
+    """
     (tmp_path / "Workspace.slnx").write_text("", encoding="utf-8")
     settings = AssaySettings(root=UPath(tmp_path), exec_target="", exec_known_hosts=None)
     return AssayHarness(tmp_path, settings)
@@ -374,14 +388,22 @@ def mem_store(assay_root: AssayHarness) -> Generator[ArtifactStore]:
 
 @pytest.fixture
 def frozen_clock() -> Generator[None]:
-    """Pin the wall clock to 2026-01-01T00:00:00 UTC for deterministic run_id/started_at oracle tests."""
+    """Pin the wall clock for deterministic run_id and started_at oracle tests.
+
+    Yields:
+        None while time is frozen at 2026-01-01T00:00:00 UTC.
+    """
     with time_machine.travel(dt.datetime(2026, 1, 1, tzinfo=dt.UTC), tick=False):
         yield
 
 
 @pytest.fixture
 def envelope() -> Callable[[pytest.CaptureFixture[str]], Envelope]:
-    """Decode the single stdout Envelope line the CLI ``_emit`` writes."""
+    """Decode the single stdout Envelope line the CLI ``_emit`` writes.
+
+    Returns:
+        Callable that reads captured stdout and decodes one Envelope.
+    """
 
     def decode(capsys: pytest.CaptureFixture[str]) -> Envelope:
         captured = capsys.readouterr()
@@ -394,7 +416,11 @@ def envelope() -> Callable[[pytest.CaptureFixture[str]], Envelope]:
 
 @pytest.fixture
 def rail_probe() -> RailProbe:
-    """Socket-free mock host: install canned ``Completed`` receipts on a rail's ``run_check``/``fan_out``."""
+    """Build a socket-free rail host with canned receipts.
+
+    Returns:
+        Probe that installs fake ``run_check`` and ``fan_out`` responses.
+    """
     return RailProbe()
 
 
@@ -431,13 +457,21 @@ async def ssh_loopback(socket_enabled: None) -> AsyncGenerator[SshLoopback]:
 
 @pytest.fixture
 def bridge_result(tmp_path: Path) -> BridgeResult:
-    """Write a ``_BridgeResult`` JSON (valid + malformed/partial/missing) for defensive-decode laws."""
+    """Build bridge-result fixtures for defensive-decode laws.
+
+    Returns:
+        Bridge result writer rooted under the pytest temporary directory.
+    """
     return BridgeResult(tmp_path / "verify")
 
 
 @pytest.fixture
 def yak_shape() -> YakShape:
-    """The fake-yak + fake-msbuild materializer."""
+    """Build the fake yak and fake MSBuild materializer.
+
+    Returns:
+        Package-shape materializer for yak rail tests.
+    """
     return YakShape()
 
 
@@ -447,6 +481,9 @@ def ab_diff(assay_root: AssayHarness) -> Callable[[Claim, str], AbDelta]:
 
     Fault-transparent: asserts that the quality rail is ``is_ok()`` before decoding — silently
     degrading to empty-dict on fault was the prior bug.
+
+    Returns:
+        Callable that compares an assay Envelope with the quality rail payload.
     """
     mapping = {"rail": "claim", "data": "report", "evidence": "error_context"}
 
@@ -471,13 +508,16 @@ def fake_psutil() -> MagicMock:
 
     Tests override via ``fake.Process.side_effect = _process_factory`` or build fresh with
     ``_make_psutil_module``. Inject via ``monkeypatch.setattr(engine_mod, "psutil", fake_psutil)``.
+
+    Returns:
+        psutil module double with default self-process and dead-process sentinels.
     """
     default_self = _proc()
     return _make_psutil_module({None: default_self, 99999: _proc(pid=99999)})
 
 
 @pytest.fixture
-def verb_cell(assay_root: AssayHarness) -> Callable[..., Awaitable[Envelope]]:
+def verb_cell(assay_root: AssayHarness) -> VerbRunner:
     """Run assay as a real subprocess, decode the single stdout Envelope line.
 
     Returns an async ``run(*argv)`` coroutine so the caller can ``await`` it directly without

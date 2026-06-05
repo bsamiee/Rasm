@@ -1,59 +1,68 @@
-# [STANDARDS_ROUTER]
+# [STANDARDS_AGENT_ROUTER]
 
-This file routes changes inside `docs/standards/**` to the active standards source and the minimum validation that proves the edit.
+This file governs edits inside `docs/standards/**`. Keep it a compact behavioral overlay for agent-only standards work: read the active corpus, route each rule to its owner, preserve load-bearing facts, and never turn this file into a second standards library.
 
 ## [1][SCOPE]
 
-These instructions govern `docs/standards/**` only. They extend `CLAUDE.md` and the root `AGENTS.md`; they do not replace them. Keep this file a compact router for standards work, not a second style guide.
+These instructions extend `CLAUDE.md` and the root `AGENTS.md`; they do not replace them. They apply only to the standards authoring corpus under `docs/standards/**`.
 
-For Codex, closer files override earlier project guidance, and resolution loads nested project instruction files from the repository root toward the current directory.
+The active corpus is the Markdown set discovered by `fd -H . docs/standards -t f -e md`. Treat prompt notes, session history, deprecated source material, external research, and sub-agent critiques as inputs only when the task explicitly names them; promote only durable rules into the owning standard.
 
 ## [2][READ_ORDER]
 
-1. Read `CLAUDE.md`, root `AGENTS.md`, and `docs/usage.md`.
-2. Read `docs/standards/README.md`; it is the index, reader-need map, and router.
-3. If the change touches shared rules, read the five shared standards: `agentic-documentation.md`, `information-structure.md`, `style-guide.md`, `proof.md`, and `formatting.md`.
-4. If the change involves a document type, read exactly one matching type standard under `explanation/`, `reference/`, `task/`, or `learning/`.
-5. Read the target standards file fully before rewriting it.
+[ALWAYS]:
+- For any standards edit, read `CLAUDE.md`, root `AGENTS.md`, and `docs/standards/README.md` before changing files.
+- For edits to `AGENTS.md`, `README.md`, any shared standard, cross-type routing, boundary language, provider behavior, or `agents-md.md`, read every active standards file before editing.
+- For a narrow type-standard edit, use `README.md` to classify the reader need, read the shared owner files needed by the change, read every affected type standard, and then read the full target file.
+- Read `docs/usage.md` only when the edit changes cross-stack owner precedence, source-truth order, implementation proof, host-library routing, or command/tooling claims outside this standards corpus.
 
-## [3][ROUTING]
+## [3][RULE_OWNERS]
 
-- Reader need, document type, placement, lifecycle, and split/link: the index in `README.md`.
-- Salience and ordering within a unit, artifact separation, provider behavior, instruction files, indexes, generated mirrors, retrieval, MCP catalogs, and structured outputs: `agentic-documentation.md`.
-- Container choice, tables, structured records, lists, diagrams, code blocks, line wrapping, and chunks: `information-structure.md`.
-- Prose, terminology, punctuation, links, examples, code-safe Markdown, and accessibility: `style-guide.md`.
-- Evidence, freshness, source conflicts, verification, agent-surface evaluation, and preservation under refactor: `proof.md`.
-- Status and invocation markers, table styling, whitespace, and the heading idiom: `formatting.md`.
+Use the owner that controls the changed rule; do not copy that owner's body into this file.
 
-## [4][REWRITE_RULES]
+| [INDEX] | [OWNER]                    | [CONTROLS]                                                        |
+| :-----: | :------------------------- | :---------------------------------------------------------------- |
+|   [1]   | `README.md`                | reader need, type choice, placement, split/link, lifecycle        |
+|   [2]   | `agentic-documentation.md` | agent salience, instruction files, artifact separation, providers |
+|   [3]   | `agents-md.md`             | `AGENTS.md` semantic slots, profiles, route-away, anti-fragility  |
+|   [4]   | `information-structure.md` | containers, records, tables, diagrams, checklists, cardinality    |
+|   [5]   | `style-guide.md`           | prose, sentence mechanics, terminology, links, code-safe Markdown |
+|   [6]   | `proof.md`                 | evidence, preservation, proof gaps, docs-as-code gate selection   |
+|   [7]   | `formatting.md`            | bracketed headings, invocation markers, table styling, whitespace |
+|   [8]   | type standards             | artifact-specific structure, status vocabulary, local proof slots |
 
-- Preserve every load-bearing fact when restructuring; a dropped command, version, invariant, routing pointer, or field is a regression.
-- Pick one primary reader need before editing.
-- Apply standards implicitly in the rewritten prose.
-- Link adjacent standards instead of copying their bodies.
-- Put controlling source, scope, and high-risk constraints early.
-- Close each major section with the boundary, proof, or next action that keeps the rule usable.
-- Split a section that mixes concept, task, reference, process, and proof, or make the chooser explicit.
-- Delete stale commands, removed tool names, legacy aliases, placeholders, and duplicated external-standard summaries.
-- Keep document facts in the rendered body. Do not add page-header blocks outside visible documentation; route claim evidence through `proof.md`.
-- Keep metadata minimal and agent-useful: source, scope, status, tags, evidence, generated-from, freshness, trigger, artifact path, and route-away are acceptable only when they change retrieval, validation, generation, or maintenance behavior.
-- Prefer fewer fields over fuller-looking records. Delete fields that only describe people, hierarchy, ownership, organizational process, or presentation polish.
-- Do not add YAML frontmatter, hidden headers, or management metadata unless a configured tool consumes that exact shape.
+## [4][ARTIFACT_CONTRACT]
 
-## [5][STYLE_DISCIPLINE]
+Produced standards are executable guidance for future agents. Put scope, reader action, controlling source or status, highest-risk constraint, and route-away at the opening edge; close with boundaries, proof, or the next safe route.
 
-Preserve official names, commands, paths, flags, symbols, fields, status vocabularies, and qualifiers exactly. Use present tense for durable standards, future for planned work, and past only for historical evidence. Keep high-impact constraints, exceptions, and route-away rules at the edge of the unit that depends on them.
+Every type standard must define agent use, required produced structure, section cardinality, adjacent checks, maintenance triggers, and stale-source events before examples, taxonomies, or background. Required, conditional, optional, and repeatable sections must be distinguishable before an agent can copy the shape.
 
-## [6][EXCLUSIONS]
+Use adjacent-document relation records only when the adjacent fact changes reader action, proof, status interpretation, validation, or maintenance. Ordinary background links stay ordinary, and missing adjacent content routes away instead of being embedded.
 
-Do not publish live task instructions, chat excerpts, rationale summaries, draft notes, session-local rationale, unverified provider behavior, nonpublic machine paths, secrets, or fixed multi-agent workflow counts in standards docs.
+## [5][EDIT_INVARIANTS]
 
-[NEVER] Add people/process metadata such as owner, role, group, team, maintainer, reviewer, stakeholder, audience, business, enterprise, PM, project-management, RACI, approval ladder, or organizational accountability fields. This is a solo-dev, agent-first corpus; such fields are noise unless a literal local tool output or public API uses the exact word.
+[ALWAYS]:
+- Preserve every command, path, version, flag, field, qualifier, status value, route pointer, proof field, invariant, and source-truth claim.
+- Pick one primary reader need before rewriting; split or route mixed concept, task, reference, process, proof, and status bodies.
+- Use `information-structure.md` as law for section form: prose for one idea, lists for peer or ordered facts, records for independently maintained state, tables only for real comparison or lookup, and diagrams only when rendered topology or flow adds meaning.
+- Use `style-guide.md` and `agentic-documentation.md` as law for prose: front-and-close paragraphs, condition-before-action instructions, direct present-tense wording, exact source names, and no prompt/session/process narration.
+- Use `agents-md.md` as law for `AGENTS.md` semantic slots, route-away decisions, anti-fragility, trust boundaries, root profile, and corpus rebuild rules.
+- Omit absent fields instead of filling them with `none`, `n/a`, placeholders, or filler records.
 
-[NEVER] Claim a Markdown linter, link checker, docs build, renderer, CI gate, or provider behavior exists unless current repository tooling or current primary documentation proves it.
+## [6][FORBIDDEN_PATTERNS]
 
-## [7][VALIDATION]
+[NEVER]:
+- Add people/process metadata such as `owner`, `role`, `team`, `maintainer`, `reviewer`, `stakeholder`, `audience`, `business`, `enterprise`, `PM`, `RACI`, approval ladder, or organizational accountability unless a literal local tool output or source standard consumes that exact field.
+- Publish live task instructions, chat excerpts, critique summaries, prompt-source narration, rewrite rationale, fixed sub-agent counts, session state, secrets, or nonpublic machine paths.
+- Claim a linter, link checker, docs build, renderer, CI gate, provider behavior, static rail, test rail, or bridge rail exists or passed unless current repository tooling, current primary documentation, or current command output proves it.
+- Preserve stale commands, removed tool names, legacy aliases, empty conditional headings, decorative diagrams, duplicated table/diagram bodies, unsupported progress markers, `Consumed by: none`, or generic metadata whitelists.
+- Hand-maintain generated catalogs, mirrors, or provider claims as independent truth.
 
-Use [proof.md](proof.md) to choose the gate for each changed claim. Minimum for Markdown-only standards edits is `git diff --check` on the changed Markdown. If links or anchors changed and no configured checker exists, run local path/anchor validation or state the proof gap honestly.
+## [7][CLOSE_CHECK]
 
-Before finishing, search active non-`_TMP` standards for forbidden people/process metadata, stale placeholders, fictional command domains, `Consumed by: none`, duplicate diagram/table representations, unsupported progress percentages, decorative markers, table pipe mismatches, ordinary code fences without intent labels where required, trailing whitespace, and renamed files. Keep route/source fields only when they change agent retrieval, validation, generation, or maintenance behavior. Validate that the changed file follows its own lead, section order, form choices, proof rules, and checklist, and that no load-bearing fact was dropped.
+Before finishing a standards edit, verify:
+- [ ] Required read scope was satisfied.
+- [ ] Each changed rule routes to its owner instead of a duplicate body.
+- [ ] Load-bearing facts, qualifiers, proof fields, and route pointers survived.
+- [ ] Links, anchors, diagrams, and provider/tooling claims are proved or gapped when those surfaces changed.
+- [ ] No forbidden people/process metadata, session commentary, placeholder fields, stale commands, decorative markers, or invented tooling claims remain.

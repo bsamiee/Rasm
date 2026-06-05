@@ -94,12 +94,20 @@ class Diagnostic:
     category: RuleCategory
 
     def relative_path(self, root: Path) -> str:
-        """Return a root-relative path when the diagnostic belongs to the project root."""
+        """Return a root-relative path when the diagnostic belongs to the project root.
+
+        Returns:
+            Project-relative path, or an absolute path for diagnostics outside the root.
+        """
         resolved = self.path.resolve()
         return resolved.relative_to(root).as_posix() if resolved.is_relative_to(root) else resolved.as_posix()
 
     def as_json(self, root: Path) -> dict[str, JsonValue]:
-        """Project diagnostic into JSON-compatible fields."""
+        """Project diagnostic into JSON-compatible fields.
+
+        Returns:
+            JSON-compatible diagnostic payload.
+        """
         return {
             "rule_id": self.rule_id.value,
             "severity": self.severity.value,
@@ -157,6 +165,10 @@ RULES: Final[Mapping[RuleId, Rule]] = MappingProxyType({
 
 
 def diagnostic(rule_id: RuleId, path: Path, line: int, column: int, detail: str) -> Diagnostic:
-    """Create a stable error diagnostic from a rule id and location."""
+    """Create a stable error diagnostic from a rule id and location.
+
+    Returns:
+        Diagnostic populated from the rule catalog.
+    """
     rule = RULES[rule_id]
     return Diagnostic(rule_id, Severity.error, path.resolve(), line, column, rule.title, f"{rule.message} {detail}", rule.category)

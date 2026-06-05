@@ -11,7 +11,7 @@ Use a test strategy when a maintained scope must state any of these:
 - how a risk tier selects test depth and the minimum gate;
 - where each gate runs and which changes trigger it;
 - which entry criteria precede a gate or which exit criteria close an acceptance or release class;
-- who carries a failed, noisy, or quarantined test;
+- which route or source carries a failed, noisy, or quarantined test;
 - which evidence is required to approve, merge, release, or manually accept each change family;
 - how cost, speed, fidelity, and reliability trade off across the portfolio.
 
@@ -19,88 +19,12 @@ Do not use a test strategy to list every command a contributor runs, catalog run
 
 [AUTHORING_CONTRACT]:
 - Agent use: identify the maintained scope, choose one profile and one primary archetype, then map risk tiers to real local gates without turning the page into a command manual.
-- Required produced structure: lead, `Scope`, `Principles`, `Risk model`, `Test levels`, `Gate mapping`, `Required proof by change`, `Diagnosis and repair`, `Boundaries`, and `Checklist`.
+- Required produced structure: lead, `Scope`, `Principles`, `Risk model`, `Test levels`, `Gate mapping`, `Required proof by change`, `Diagnosis and repair`, `Boundaries`, and `Validation`.
 - Section cardinality: required sections appear once; entry/exit, flaky-test, metrics, and maintenance sections appear only when their trigger changes gate behavior.
 - Adjacent checks: check architecture for invariants, API and code documentation for generated contracts or public symbols, support matrix for supported targets, roadmap for exit proof, contributing/how-to for command paths, and runbook for production gate recovery only when those facts choose or close a gate.
 - Maintenance triggers: update the strategy when a risk tier, gate, status check, runner, artifact, maintained scope boundary, support target, generated contract, quarantine rule, entry/exit threshold, or proof requirement changes.
 
-## [2][LOCAL_TRUTH]
-
-Separate local executable truth from external testing vocabulary. Repository truth carries gate names, commands, runners, status-check identifiers, artifacts, repair paths, and release policy. External standards and practice supply reusable concepts; no produced strategy claims external compliance unless a local policy explicitly requires it.
-
-
-| [INDEX] | [CONCEPT]            | [USE]                      | [BASIS]                           | [BOUNDARY]         |
-| :-----: | :------------------- | :------------------------- | :-------------------------------- | :----------------- |
-|   [1]   | documentation shape  | strategy/plan/evidence     | ISO 29119-3                       | vocabulary only    |
-|   [2]   | strategy archetypes  | local planning labels      | ISTQB CTAL-TM                     | no compliance      |
-|   [3]   | risk-based depth     | tier-to-gate mapping       | ISTQB CTFL + CTAL-TM              | local register     |
-|   [4]   | small-test base      | deterministic pyramid      | Google ch. 11                     | practice reference |
-|   [5]   | large-test trade-off | size, fidelity, cost       | Google ch. 14                     | concepts only      |
-|   [6]   | flaky-test pressure  | quarantine and repair path | Google ch. 11/14 plus local truth | local thresholds   |
-
-Sources: [ISO 29119-3](https://www.iso.org/standard/79429.html), [ISTQB CTAL-TM](https://istqb.org/wp-content/uploads/2024/11/ISTQB_CTAL-TM_Syllabus_v3.0_zKjKsaN.pdf), [ISTQB CTFL](https://istqb.org/wp-content/uploads/2024/11/ISTQB_CTFL_Syllabus_v4.0.1.pdf), [Google chapter 11](https://abseil.io/resources/swe-book/html/ch11.html), and [Google chapter 14](https://abseil.io/resources/swe-book/html/ch14.html).
-
-Review trigger: external testing source revision, local policy claiming compliance, or local gate vocabulary change.
-
-## [3][PROFILES_ARCHETYPES]
-
-Pick one profile for scope and one primary archetype for depth selection. Split the document when one page needs more than one profile.
-
-| [INDEX] | [PROFILE]           | [SCOPE_LEVELS]                      | [DOMINANT_TRIGGER]           | [PRIMARY_RISK_OWNED]                  |
-| :-----: | :------------------ | :---------------------------------- | :--------------------------- | :------------------------------------ |
-|   [1]   | Library unit-heavy  | unit, property, contract            | presubmit                    | logic regression                      |
-|   [2]   | Service integration | unit, integration, contract         | presubmit, post-submit       | integration-boundary and schema drift |
-|   [3]   | End-to-end journey  | integration, e2e, smoke             | release, nightly             | cross-boundary journey break          |
-|   [4]   | Host runtime        | unit, scenario, visual              | manual runtime gate, release | host or device behavior drift         |
-|   [5]   | Nonfunctional       | load, soak, security, accessibility | nightly, release             | budget or compliance breach           |
-
-Use the archetype vocabulary below as local strategy labels adapted from testing-practice vocabulary. These labels are selection aids; they are not a claimed current ISTQB closed set and are not external compliance claims.
-
-| [INDEX] | [ARCHETYPE]                    | [DEPTH_DRIVER]          | [DECLARE_WHEN]                     |
-| :-----: | :----------------------------- | :---------------------- | :--------------------------------- |
-|   [1]   | Analytical                     | risk analysis           | risk register governs              |
-|   [2]   | Model-based                    | behavior or state model | model carries input space          |
-|   [3]   | Methodical                     | fixed checklist         | method checklist binds             |
-|   [4]   | Process- or standard-compliant | external process        | standard or regulation applies     |
-|   [5]   | Reactive                       | failures or findings    | volatile scope responds to defects |
-|   [6]   | Consultative                   | expert advice           | domain experts select coverage     |
-|   [7]   | Regression-averse              | reusable regression     | churn risk outweighs novelty       |
-
-Prefer `Analytical` when a risk register governs the scope. If a produced strategy combines archetypes, declare one primary archetype and list secondary influences in `Principles` with the gate-selection rule they change.
-
-## [4][FIELD_VOCABULARIES]
-
-Repository truth carries executable details. The strategy names the level, risk, trigger, and selection rule, and it links the live source for commands, runner config, status checks, artifacts, and repair paths. When a fact can drift, prove it from repository truth before external examples.
-
-Carry local executable truth beside the gate, level, risk, or policy claim it proves. Carry external taxonomy proof only in this standard or in a produced strategy's `External basis` note when the strategy explicitly depends on external compliance.
-
-Produced strategies must replace every placeholder with local truth. A strategy is incomplete if it contains `<...>` fields, `LOCAL_*` labels, `*_GATE_NAME` markers, template gate names, generic gate classes, or unnamed repair paths in place of a source path, status check, contract, or proof gate.
-
-External testing vocabulary supplies these concepts:
-- Test size is the resource and isolation boundary: process, machine, network, data store, external service, host runtime, or production-like system.
-- Test scope is the behavior surface verified: function, module, component integration boundary, workflow, system, or user journey.
-- Hermeticity is the degree of isolation from external state; record it as a level field because it controls continuous-integration eligibility.
-- Portfolio shape favors a wide deterministic base, a thinner contract and integration-boundary tier, and capped high-fidelity tests for critical journeys.
-- Gate placement runs fast deterministic checks early and defers expensive or less deterministic checks to later triggers.
-- Risk tier is the likelihood-by-impact or locally defined risk score that selects test depth and minimum gate.
-- Entry criteria open a gate; exit criteria close a release, manual, or manually accepted class.
-- Flaky-test policy requires detection, measurement, mitigation, quarantine, and repair or deletion criteria when the scope can quarantine tests.
-
-[FIELD_VOCABULARIES]:
-- `Trigger`: `presubmit`, `post-submit`, `nightly`, `release`, `manual runtime gate`, `incident follow-up`.
-- `Blocking`: `blocks merge`, `blocks release`, `blocks acceptance`, `reports only`.
-- `Quarantine status`: active `suspected`, `quarantined`, `repairing`; returnable `re-enabled`; terminal `deleted`. There is no blocked quarantine status: if repair is blocked, the record carries the blocker as evidence and remains `quarantined` or `repairing`. A deleted test is removed from the strategy only when duplicate coverage or retired behavior is proven and the deletion evidence remains in the controlling change record.
-
-## [5][PLACEMENT]
-
-Place test strategies at the nearest scope that owns the policy:
-- Shared scope strategy: `docs/test-strategy.md`.
-- Test-corpus strategy: `docs/testing-strategy.md` or a maintained test-docs hub.
-- Scope-local strategy: `<source-area>/TEST_STRATEGY.md` when the policy binds inside one maintained source area only.
-
-Keep one strategy per scope. Link a lower-level strategy instead of copying its gate map into a shared document.
-
-## [6][REQUIRED_STRUCTURE]
+## [2][REQUIRED_STRUCTURE]
 
 Use this required section order. Conditional sections are omitted until their trigger holds; when they appear, insert them at the named position and renumber headings in document order.
 
@@ -119,16 +43,17 @@ Use this required section order. Conditional sections are omitted until their tr
 
 ## [5][GATE_MAPPING]
 
-## [6][REQUIRED_PROOF_CHANGE]
+## [6][REQUIRED_PROOF_BY_CHANGE]
 
 ## [7][DIAGNOSIS_REPAIR]
 
 ## [8][BOUNDARIES]
 
-## [9][CHECKLIST]
+## [9][VALIDATION]
 ```
 
 Use this accepted lead shape:
+
 ```markdown conceptual
 # [EVENT_CONTRACT_TEST_STRATEGY]
 
@@ -136,6 +61,7 @@ This `Service integration` strategy uses the `Analytical` archetype for event-co
 ```
 
 Use this conditional-section decision table:
+
 | [INDEX] | [SECTION]                 | [TRIGGER]               | [AFTER]                                   | [OMIT_WHEN]                 |
 | :-----: | :------------------------ | :---------------------- | :---------------------------------------- | :-------------------------- |
 |   [1]   | `Entry and exit criteria` | release/manual gates    | Gate mapping                              | no open/close criteria      |
@@ -144,6 +70,7 @@ Use this conditional-section decision table:
 |   [4]   | `Maintenance events`      | multiple stale events   | before Boundaries                         | claim-level proof is enough |
 
 Use this conditional-addition template:
+
 ```markdown template
 ## [N][ENTRY_EXIT_CRITERIA]
 
@@ -155,8 +82,73 @@ Use this conditional-addition template:
 ```
 
 [SECTION_CARDINALITY]:
-- Opening paragraph, `Scope`, `Principles`, `Risk model`, `Test levels`, `Gate mapping`, `Required proof by change`, `Diagnosis and repair`, `Boundaries`, and `Checklist` are required.
+- Opening paragraph, `Scope`, `Principles`, `Risk model`, `Test levels`, `Gate mapping`, `Required proof by change`, `Diagnosis and repair`, `Boundaries`, and `Validation` are required.
 - Conditional sections appear only when their decision-table trigger holds.
+- Produced strategies contain no placeholders, template gate names, generic gate classes, or unnamed repair paths in place of a source path, status check, contract, or proof gate.
+
+## [3][LOCAL_TRUTH]
+
+Separate local executable truth from testing vocabulary. Repository truth carries gate names, commands, runners, status-check identifiers, artifacts, repair paths, and release policy. Produced strategies claim only local policy and local evidence.
+
+Use shared testing terms as local labels only when the strategy defines their meaning before use. If a project must claim compliance with a nonlocal policy, route that policy to the maintained policy document and keep this strategy focused on executable gates.
+
+## [4][PROFILES_ARCHETYPES]
+
+Pick one profile for scope and one primary archetype for depth selection. Split the document when one page needs more than one profile.
+
+| [INDEX] | [PROFILE]           | [SCOPE_LEVELS]                      | [DOMINANT_TRIGGER]           | [PRIMARY_RISK_OWNED]                  |
+| :-----: | :------------------ | :---------------------------------- | :--------------------------- | :------------------------------------ |
+|   [1]   | Library unit-heavy  | unit, property, contract            | presubmit                    | logic regression                      |
+|   [2]   | Service integration | unit, integration, contract         | presubmit, post-submit       | integration-boundary and schema drift |
+|   [3]   | End-to-end journey  | integration, e2e, smoke             | release, nightly             | cross-boundary journey break          |
+|   [4]   | Host runtime        | unit, scenario, visual              | manual runtime gate, release | host or device behavior drift         |
+|   [5]   | Nonfunctional       | load, soak, security, accessibility | nightly, release             | budget or compliance breach           |
+
+Use the archetype vocabulary below as local strategy labels. These labels are selection aids; they are not compliance claims.
+
+| [INDEX] | [ARCHETYPE]                  | [DEPTH_DRIVER]          | [DECLARE_WHEN]                     |
+| :-----: | :--------------------------- | :---------------------- | :--------------------------------- |
+|   [1]   | Analytical                   | risk analysis           | risk register governs              |
+|   [2]   | Model-based                  | behavior or state model | model carries input space          |
+|   [3]   | Methodical                   | fixed checklist         | method checklist binds             |
+|   [4]   | Process- or policy-compliant | maintained process      | policy or regulation applies       |
+|   [5]   | Reactive                     | failures or findings    | volatile scope responds to defects |
+|   [6]   | Consultative                 | expert advice           | domain experts select coverage     |
+|   [7]   | Regression-averse            | reusable regression     | churn risk outweighs novelty       |
+
+Prefer `Analytical` when a risk register governs the scope. If a produced strategy combines archetypes, declare one primary archetype and list secondary influences in `Principles` with the gate-selection rule they change.
+
+## [5][TESTING_VOCABULARY]
+
+Use testing vocabulary only after the strategy binds it to local executable truth. The strategy names the level, risk, trigger, and selection rule, then links the live source for commands, runner config, status checks, artifacts, and repair paths beside the claim it proves.
+
+Testing vocabulary supplies these concepts:
+
+[SIZE_SCOPE]:
+- Test size is the resource and isolation boundary: process, machine, network, data store, external service, host runtime, or production-like system.
+- Test scope is the behavior surface verified: function, module, component integration boundary, workflow, system, or user journey.
+- Hermeticity is the degree of isolation from external state; record it as a level field because it controls continuous-integration eligibility.
+
+[PORTFOLIO_POLICY]:
+- Portfolio shape favors a wide deterministic base, a thinner contract and integration-boundary tier, and capped high-fidelity tests for critical journeys.
+- Gate placement runs fast deterministic checks early and defers expensive or less deterministic checks to later triggers.
+- Risk tier is the likelihood-by-impact or locally defined risk score that selects test depth and minimum gate.
+- Entry criteria open a gate; exit criteria close a release, manual, or manually accepted class.
+- Flaky-test policy requires detection, measurement, mitigation, quarantine, and repair or deletion criteria when the scope can quarantine tests.
+
+[FIELD_VALUES]:
+- `Trigger`: `presubmit`, `post-submit`, `nightly`, `release`, `manual runtime gate`, `incident follow-up`.
+- `Blocking`: `blocks merge`, `blocks release`, `blocks acceptance`, `reports only`.
+- `Quarantine status`: active `suspected`, `quarantined`, `repairing`; returnable `re-enabled`; terminal `deleted`. There is no blocked quarantine status: if repair is blocked, the record carries the blocker as evidence and remains `quarantined` or `repairing`. A deleted test is removed from the strategy only when duplicate coverage or retired behavior is proven and the deletion evidence remains in the controlling change record.
+
+## [6][PLACEMENT]
+
+Place test strategies at the nearest scope that owns the policy:
+- Shared scope strategy: `docs/test-strategy.md`.
+- Test-corpus strategy: `docs/testing-strategy.md` or a maintained test-docs hub.
+- Scope-local strategy: `<source-area>/TEST_STRATEGY.md` when the policy binds inside one maintained source area only.
+
+Keep one strategy per scope. Link a lower-level strategy instead of copying its gate map into a shared document.
 
 ## [7][SCOPE]
 
@@ -165,15 +157,21 @@ State the maintained scope boundary, what is in and out, and the single primary 
 ## [8][PRINCIPLES]
 
 State the trade-off rules the portfolio obeys with these required rules:
+
+[PORTFOLIO_SHAPE]:
 - Prefer the smallest test that proves behavior at acceptable fidelity.
 - Separate test size from test scope; never let a runner directory stand in for either.
 - Treat hermeticity as the continuous-integration gate: a less hermetic level runs later and records residual risk.
 - Hold a pyramid distribution unless the scope documents why an alternate shape is cheaper to maintain and more reliable.
 - Replace a duplicated end-to-end test with a smaller integration or contract test when the smaller gate catches the same failure class.
 - Reserve high-fidelity gates for critical journeys, cross-boundary behavior, host runtime proof, or nonfunctional budgets.
+
+[DEPTH_SELECTION]:
 - Select test depth from risk tier or the declared primary archetype, not author preference.
 - Treat coverage percentage as a signal, never proof of correctness.
 - Add a nonfunctional level only when the scope carries that risk.
+
+[EVIDENCE_RAILS]:
 - Keep static analysis, build/type checking, unit/property tests, integration gates, runtime scenario checks, mutation, fuzzing, benchmark, and snapshot/visual proof as separate rail classes unless local policy proves that one gate fully consumes another. A strategy may route commands away, but it must not collapse static-managed evidence and runtime bridge evidence into one unnamed proof bucket.
 
 ## [9][RISK_MODEL]
@@ -193,18 +191,7 @@ Define likelihood and impact scales before using numeric scores. Link the risk r
 
 ## [10][TEST_LEVELS]
 
-Define only levels the scope runs or reviews. Render each level as a definition block with these fields, one `label: value` per line:
-- `Level`: level name.
-- `Purpose`: behavior and risk class covered.
-- `Risk`: tier or risk-register link.
-- `Size`: resource and isolation boundary.
-- `Scope`: behavior surface verified.
-- `Hermeticity`: isolation and CI eligibility.
-- `Diagnosis path`: source, artifact, or procedure used for failure triage.
-- `Budget`: runtime and resource class.
-- `Isolation`: fixture, environment, and test-data policy.
-- `Artifacts`: failure evidence required for diagnosis.
-- `Trigger`: when the level runs.
+Define only levels the scope runs or reviews. Render each level as a definition block; the template below is the authoritative field order. `Size` carries the resource and isolation boundary, `Scope` carries the behavior surface, and `Hermeticity` controls continuous-integration eligibility.
 
 Do not name a level after a runner directory, filename, or framework unless that name also fixes risk and isolation boundary.
 
@@ -222,15 +209,12 @@ Artifacts: <diagnostic artifacts>
 Trigger: <presubmit, post-submit, nightly, release, or manual runtime gate>
 ```
 
-Reject this level record because it names no source, risk, trigger, or diagnosis path:
-```text rejected
-Level: framework-tests
-Trigger: CI
-```
-
-The rejected form names a framework and omits risk, tier, size, hermeticity, and diagnosis path.
+Rejected level: framework-tests
+Rejected trigger: CI
+Reason: the rejected form names a framework and omits source, risk, tier, size, hermeticity, trigger, and diagnosis path.
 
 Local rail classes stay distinct from test levels. Use this table as a selection checklist, then replace every row a produced strategy uses with the repository's current gate name, status check, or generated artifact:
+
 | [INDEX] | [RAIL_CLASS]                | [TYPICAL_LOCAL_SOURCE]                              | [PROOF_FUNCTION]                                  |
 | :-----: | :-------------------------- | :-------------------------------------------------- | :------------------------------------------------ |
 |   [1]   | static/type/build           | analyzer, formatter, compiler, MTP build            | source-shape and compilation evidence             |
@@ -246,6 +230,7 @@ Local rail classes stay distinct from test levels. Use this table as a selection
 ## [11][GATE_MAPPING]
 
 A gate map connects a level to automation without becoming a runner manual. Link commands, status checks, and runner configuration; do not list runnable command recipes. Render each gate as one definition block:
+
 ```text template
 Gate: <local-gate-name>
 Trigger: <presubmit, post-submit, nightly, release, manual runtime gate, or incident follow-up>
@@ -263,6 +248,7 @@ Review trigger: <gate, runner, status check, support target, risk tier, or contr
 Order gates by trigger latency. Fast deterministic gates block early. Slower or less hermetic gates run later; each deferred gate states residual risk.
 
 When adjacent truth changes gate selection, proof escalation, support scope, command routing, or recovery routing, add one adjacent proof record beside the gate record:
+
 ```text template
 Changed fact: <invariant, generated contract, support row, public symbol, contributor command, validation path, or recovery route>
 Consumed by: <gate, test level, risk tier, or required-proof row>
@@ -275,6 +261,7 @@ Route-away: <architecture body, API catalog, support policy, command procedure, 
 Use architecture when topology or invariants select the gate; API or code documentation when generated contracts or public symbols supply proof; support matrix when supported-version truth controls test scope; contributing or how-to when the executable command path belongs outside strategy; runbook only for production gate recovery. Omit background-only links that do not change gate choice, proof strength, or recovery path.
 
 The diagram below is conceptual, not universal. A produced strategy may include a gate diagram only when it names real local gate IDs, status checks, trigger classes, and the text equivalent that proves the same ordering:
+
 ```mermaid
 ---
 config:
@@ -286,7 +273,7 @@ config:
     nodePlacementStrategy: BRANDES_KOEPF
     cycleBreakingStrategy: GREEDY_MODEL_ORDER
 ---
-flowchart LR
+flowchart TB
     accTitle: Test gate latency order
     accDescr: Testing gates move from presubmit through post-submit, nightly, and release gates, with failures blocking early and later gates adding broader proof before acceptance or release.
     Change["changed-path impact"] --> Presubmit["presubmit gate"]
@@ -318,7 +305,7 @@ Exit (hotfix): <tailored thresholds and affected risk areas>
 
 Do not require pass-rate, critical-flow, defect-bound, or escape-budget fields unless the local release policy uses them. An unstated tailored release or gate path is an ungated path.
 
-## [13][REQUIRED_PROOF_CHANGE]
+## [13][REQUIRED_PROOF_BY_CHANGE]
 
 Map each change family to the smallest sufficient proof surface. The table below is a template: produced strategies replace every proof cell with repository gate names, contracts, or source checks and link [proof.md](../proof.md) for evidence strength rather than restating the evidence hierarchy.
 
@@ -335,14 +322,8 @@ Map each change family to the smallest sufficient proof surface. The table below
 
 When an escalation trigger fires, the change also clears the broader gate the row escalates into. A produced strategy that leaves a placeholder, generic gate class, or unowned review path in this table is incomplete.
 
-Reject copied-placeholder proof because it hides the missing local source:
-```markdown rejected
-| [INDEX] | [CHANGE] | [PROOF]      | [ESCALATE_WHEN] |
-| :-----: | :------- | :----------- | :-------------- |
-|   [1]   | behavior | generic gate | if risky        |
-```
-
-The rejected row names no repository gate, contract, source check, or escalation condition.
+Rejected proof row: `behavior | generic gate | if risky`
+Reason: the rejected row names no repository gate, contract, source check, or escalation condition.
 
 ## [14][DIAGNOSIS_REPAIR]
 
@@ -360,11 +341,15 @@ A large or cross-scope test with no diagnosis path is a defect in the strategy.
 Define a flaky test as one that both passes and fails against the same relevant code and environment state. Include this section when the scope has reruns, quarantine, noisy tests, or deletion/re-enable decisions.
 
 Use these policy fields:
+
+[DETECTION_REPAIR]:
 - detection signal with a concrete threshold;
 - severity classes and rerun policy;
 - quarantine criteria;
 - quarantine repair path;
 - quarantine status vocabulary as field values;
+
+[RESIDUAL_EXIT]:
 - maximum quarantine duration;
 - residual signal lost while quarantined;
 - re-enable criteria;
@@ -373,6 +358,7 @@ Use these policy fields:
 Thresholds such as retry-pass rate or maximum quarantine duration are examples until a local strategy adopts them from policy. Quarantine suppresses signal; it is never repair. A quarantined test past its maximum duration follows the repair path named in `Diagnosis and repair`.
 
 Use this policy record:
+
 ```markdown template
 Detection: <signal and threshold from local gate history>
 Severity: <class and rerun policy>
@@ -385,12 +371,8 @@ Re-enable criteria: <green runs or source fix required>
 Deletion criteria: <duplicated stronger coverage or retired behavior>
 ```
 
-Reject this policy sentence because it lacks a repair path and threshold:
-```text rejected
-Flaky tests can be quarantined until they are fixed.
-```
-
-The rejected form has no detection threshold, repair path, status, maximum duration, residual risk, or re-enable rule.
+Rejected policy: Flaky tests can be quarantined until they are fixed.
+Reason: the rejected form has no detection threshold, repair path, status, maximum duration, residual risk, or re-enable rule.
 
 ## [16][METRICS]
 
@@ -406,49 +388,65 @@ Do not publish a metric the scope cannot act on, and do not present raw coverage
 
 ## [17][MAINTENANCE_EVENTS]
 
-Add this section only when several maintenance events need explanation. Events beat calendar dates unless an external standard changes on a schedule.
+Add this section only when several maintenance events need explanation. Events beat calendar dates unless a maintained policy requires a scheduled review.
 
 Use these common maintenance events:
+
+[GATE_MODEL]:
 - gate, runner, or status check added, renamed, or removed;
 - test level changes size, scope, or hermeticity boundary;
 - risk tier, scoring scale, or tier-to-gate mapping changes;
 - entry or exit threshold changes for any release or acceptance class;
 - maintained scope boundary moves;
+
+[POLICY_SIGNAL]:
 - quarantine or flaky-test policy changes;
 - architecture, runtime, or deployment topology changes;
 - flake-rate, gate-duration, or release-escape threshold is breached;
-- external testing guidance the strategy reuses is revised.
+- maintained testing policy the strategy reuses is revised.
 
 ## [18][BOUNDARIES]
 
+[EXPLANATION_TYPES]:
 - [architecture.md](architecture.md) carries architecture topology, runtime boundaries, and invariant checks that select test levels.
 - [adr.md](adr.md) carries process decisions that bind gate policy or quarantine policy.
-- [design-doc.md](design-doc.md) carries proposal validation plans that consume strategy gates.
+- [design-doc.md](design-doc.md) carries proposal proof plans that consume strategy gates.
+- [roadmap.md](roadmap.md) carries delivery sequence and milestone exit criteria.
+
+[TASK_REFERENCE_TYPES]:
 - [contributing.md](../task/contributing.md) carries contributor workflow and per-task commands.
-- [proof.md](../proof.md) carries evidence strength, proof details, and verification gates.
 - [runbook.md](../task/runbook.md) carries operational recovery from a failing gate in production.
 - [reference.md](../reference/reference.md) carries test-tool and framework API lookup.
-- [roadmap.md](roadmap.md) carries delivery sequence and milestone exit criteria.
 - [README.md](../README.md) carries document-type routing, placement, and lifecycle.
+- [proof.md](../proof.md) carries evidence strength, proof details, and verification gates.
 
-## [19][CHECKLIST]
+## [19][VALIDATION]
 
+Use this verification checklist by group:
+
+[OPENING_SCOPE]:
 - [ ] One profile and one primary archetype are named in the opening paragraph; secondary influences are explicit and justified.
-- [ ] Diagnosis and repair names the source, artifact, or procedure used for local executable gate failures.
 - [ ] Scope and maintained boundaries are stated, and one primary risk class is local.
-- [ ] External taxonomy is separated from local executable gate truth through the local-truth section and concept table.
+- [ ] Policy taxonomy is separated from local executable gate truth through the local-truth section and testing vocabulary.
 - [ ] Archetype labels are treated as local adaptations, not compliance claims.
 - [ ] Produced strategies contain no placeholder proof cells, generic gate classes, or unnamed repair paths.
+
+[RISK_GATES]:
 - [ ] Conditional sections appear only when their decision-table trigger holds.
 - [ ] The risk model states the scoring scale in use, tier buckets, tier-to-gate mapping, and risk-register link.
 - [ ] Each High or Extreme register risk back-links to the level or gate that covers it.
 - [ ] Each test level carries purpose, risk, size, scope, hermeticity and CI eligibility, diagnosis path, budget, isolation, artifacts, and trigger.
 - [ ] Each gate carries closed-vocabulary trigger, selection rule, blocking behavior, status check or artifact, escalation path, residual risk, evidence, source of truth, and review trigger.
 - [ ] Deferred gates state the risk that remains unproven.
+
+[PROOF_REPAIR]:
+- [ ] Diagnosis and repair names the source, artifact, or procedure used for local executable gate failures.
 - [ ] Entry and exit criteria appear only when the strategy carries release, manual, manual runtime, regulated, or hotfix gates.
 - [ ] Each change family maps to a local gate, contract, or source check, not a generic gate class.
 - [ ] Every large and cross-scope test has a named diagnosis path.
 - [ ] Flaky-test policy appears when rerun, quarantine, noisy-test, re-enable, or deletion decisions exist, and it carries the quarantine status vocabulary plus repair path, duration, residual signal, and re-enable or deletion criteria.
+
+[CONDITIONAL_BOUNDARIES]:
 - [ ] Each metric binds to a named decision; raw coverage percentage is not presented as proof.
-- [ ] Maintenance events use events, not calendar dates unless the external source changes on schedule.
+- [ ] Maintenance events use source events, not calendar dates unless a maintained policy requires a scheduled review.
 - [ ] Boundaries carry at most one link per adjacent standard.

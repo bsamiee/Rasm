@@ -28,6 +28,8 @@ if TYPE_CHECKING:
 
 @dataclass(frozen=True, slots=True)
 class RasmPytestPaths:
+    """Shared cache and repository paths for Python test fixtures."""
+
     root: Path
     pytest_cache: Path
     hypothesis_home: Path
@@ -90,7 +92,8 @@ def pytest_collection_modifyitems(items: list[pytest.Item]) -> None:
     """
     network = pytest.mark.network
     for item in items:
-        "socket_enabled" in getattr(item, "fixturenames", ()) and item.add_marker(network, append=False)
+        if "socket_enabled" in getattr(item, "fixturenames", ()):
+            item.add_marker(network, append=False)
 
 
 # --- [EXPORTS] -------------------------------------------------------------------------
@@ -98,16 +101,31 @@ def pytest_collection_modifyitems(items: list[pytest.Item]) -> None:
 
 @pytest.fixture(scope="session")
 def rasm_pytest_paths() -> RasmPytestPaths:
+    """Return repo-local cache and Hypothesis paths.
+
+    Returns:
+        Shared pytest path bundle for repo-local Python tests.
+    """
     return RasmPytestPaths(root=_ROOT, pytest_cache=_PYTEST_CACHE, hypothesis_home=_HYPOTHESIS_HOME, hypothesis_examples=_HYPOTHESIS_EXAMPLES)
 
 
 @pytest.fixture(scope="session")
 def hypothesis_examples_dir() -> Path:
+    """Return the persistent Hypothesis example database directory.
+
+    Returns:
+        Directory that stores reusable Hypothesis examples.
+    """
     return _HYPOTHESIS_EXAMPLES
 
 
 @pytest.fixture(scope="session")
 def hypothesis_home_dir() -> Path:
+    """Return the repo-local Hypothesis home directory.
+
+    Returns:
+        Directory that owns Hypothesis profile state.
+    """
     return _HYPOTHESIS_HOME
 
 
@@ -132,7 +150,11 @@ def _otel_provider() -> Generator[InMemorySpanExporter]:
 
 @pytest.fixture
 def otel_spans(_otel_provider: InMemorySpanExporter) -> InMemorySpanExporter:
-    """Per-test exporter view: clears before return so each test sees only its own spans."""
+    """Clear and return the session exporter for one test.
+
+    Returns:
+        Exporter containing only spans recorded after this fixture starts.
+    """
     _otel_provider.clear()
     return _otel_provider
 

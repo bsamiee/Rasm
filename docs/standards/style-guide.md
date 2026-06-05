@@ -17,7 +17,7 @@ Salience and ordering, container form, and evidence strength belong to the posit
 Use the first source that decides a naming or wording question:
 1. Current repository source, manifests, generated contracts, API fields, and verified product or package names.
 2. The active document-type standard for the document being written.
-3. Official vendor documentation for external product names, UI labels, APIs, commands, and support status.
+3. Maintained source for product names, UI labels, APIs, commands, and support status.
 4. This guide for local prose and notation rules.
 5. Established editorial style references for unresolved general mechanics.
 
@@ -87,7 +87,7 @@ Give a required condition the first sentence or a separate paragraph. Do not hid
 ## [7][PUNCTUATION_NUMBERS_NOTATION]
 
 [LOCAL_MECHANICS]:
-- Use U.S. English spelling unless an official product or source name differs.
+- Use U.S. English spelling unless a product or source name differs.
 - Form the possessive singular by adding `'s` regardless of the final consonant: `Charles's`, `the witness's`, `the boss's`.
 - Use the serial comma in lists of three or more items.
 - Use one space after terminal punctuation.
@@ -107,12 +107,16 @@ Give a required condition the first sentence or a separate paragraph. Do not hid
 - Omit needless hyphens after `-ly` adverbs, and use a suspended hyphen for shared compounds.
 - Use ASCII hyphen-minus in commands, flags, paths, slugs, identifiers, code, config, tracker literals, and copyable text.
 
-[NOTATION]:
+Notation rules use these groups:
+
+[MARKUP_LABELS]:
 - Avoid slashes for prose alternatives; use `or`, `and`, or `or both`. Keep slashes for code, paths, URLs, and exact product syntax.
-- Use `[X_Y_Z]:` for a standalone group label before a list, table, fenced block, or example. Keep it to 1-3 semantic words, uppercase with underscores, and do not use it for a complete sentence.
+- Use `[X_Y_Z]:` for a standalone group label before a list or table. Keep it to 1-3 semantic words, uppercase with underscores, put a blank line before it when it follows prose or another structure, and do not use it for a complete sentence, heading surrogate, or fenced-block lead.
 - Use `Label: value` only for a short item-scoped fact, checklist field, or definition-block record line. Use code spans only when the label is a literal field, symbol, command, path, flag, exact token, or placeholder.
 - Do not bold a whole label line for emphasis. Promote it to a heading when it needs an anchor or independent retrieval; otherwise keep it as a bracketed set label.
-- Reserve title case for titles of works, official labels, externally required names, and ordinary prose labels outside bracketed notation. In title case, capitalize prepositions of 5 or more letters and capitalize later elements in hyphenated prefixed compounds when the title style requires it.
+
+[NUMBERS_QUOTES]:
+- Reserve title case for titles of works, source labels, required names, and ordinary prose labels outside bracketed notation. In title case, capitalize prepositions of 5 or more letters and capitalize later elements in hyphenated prefixed compounds when the title style requires it.
 - Use numerals for versions, measurements, commands, flags, identifiers, dates, editions, counts, thresholds, exact quantities, and any value readers compare, and keep units attached to their values. Spell out isolated nontechnical counts from zero through nine only when the value is not a comparison, threshold, field value, or literal. A year may open a sentence in numeral form.
 - In ordinary prose quotations, place commas and periods inside closing quotation marks and colons and semicolons outside. For UI labels, commands, code, exact strings, and copied source text, preserve literal punctuation and prefer backticks over quotation marks.
 - Use straight quotes and ASCII-safe punctuation in any Markdown a reader may copy into commands, code, config, or trackers; typographic punctuation is acceptable only in prose that is never copied as a literal.
@@ -128,26 +132,20 @@ Give a required condition the first sentence or a separate paragraph. Do not hid
 ## [9][LINKS]
 
 - Use link text that describes the destination, and avoid bare URLs unless the URL is the example value.
-- Prefer canonical repo docs, generated contracts, manifests, or official vendor documentation, and avoid deep external links when a stable top-level reference carries the same truth.
+- Prefer canonical repo docs, generated contracts, manifests, or maintained source routes, and avoid deep links when a stable top-level reference carries the same truth.
 - Mark a generated, mirrored, or version-sensitive target in the source document when freshness can drift.
 
 ## [10][EXAMPLES]
 
-Examples must prove shape or prevent misuse. Place an example beside the rule it clarifies per the form standard, and own only its wording here.
+Examples must prove shape or prevent misuse. Place an example beside the rule it clarifies per the form standard, and own only its wording here. Use examples under these limits:
 
 - Prefer one positive shape and one rejected shape when the distinction matters.
 - Keep an example's wording consistent with the terminology it teaches.
-- When a block could be copied, run, or mistaken for current policy, mark its reuse risk; the intent-label vocabulary is the form standard's concern.
+- When a block could be copied, run, or mistaken for current policy, mark its reuse risk; the intent-label vocabulary is the form standard's concern. When the contrast is only short prose or values, use the compact contrast record from the formatting standard instead of separate fences.
 
-The pair below contrasts a hedge-laden sentence with a direct positive imperative.
-
-```text rejected
-It is probably best to try to avoid not stating the unit when you can.
-```
-
-```text conceptual
-Attach the unit to its value.
-```
+Accepted: Attach the unit to its value.
+Rejected: It is probably best to try to avoid not stating the unit when you can.
+Reason: the accepted sentence names the action directly; the rejected sentence hedges, negates, and hides the unit rule.
 
 ## [11][ACCESSIBILITY]
 
@@ -172,15 +170,17 @@ Review in four passes before publication:
 - [formatting.md](formatting.md) carries status and invocation markers, table styling, and whitespace; this standard carries the words.
 - [README.md](README.md) carries document-type routing and cross-standard links.
 
-## [14][CHECKLIST]
+## [14][VALIDATION]
 
-Use this checklist by group:
+Use this verification checklist by group:
+
 [NAMES_PROSE]:
-- [ ] Repo-local and vendor names are preserved exactly.
+- [ ] Repo-local and maintained source names are preserved exactly.
 - [ ] One concept has one term.
 - [ ] Paragraphs carry one controlling idea and close on the intended route, action, proof, or boundary.
 - [ ] Sentences are direct, concrete, and free of needless words.
 - [ ] Conditions appear before the actions they control.
+- [ ] Root-file audit prose states the score basis directly and avoids praise, blame, and session-process narration.
 
 [MECHANICS_SOURCES]:
 - [ ] Commands, paths, flags, symbols, and placeholders use backticks.

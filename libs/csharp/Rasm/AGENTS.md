@@ -1,54 +1,39 @@
-# Rasm Agent Instructions
+# [RASM_AGENTS]
 
-Scope: `libs/csharp/Rasm/` only. Root `AGENTS.md` and `CLAUDE.md` own universal policy; this file adds subtree deltas only.
+Scope: `libs/csharp/Rasm/` only. Root policy and `libs/csharp/AGENTS.md` own universal C# and library-family rules; this file adds kernel and analysis deltas.
 
-## Purpose
+## [1][SCOPE]
 
-`Rasm` is the foundational geometry kernel and higher-order concern library. It is not a thin Rhino API boundary and not a place for extracted wrappers.
+`Rasm` is the foundational geometry kernel and higher-order concern library. It is not a thin Rhino API boundary, wrapper extraction area, or dumping ground for unrelated utilities.
 
-Build reusable category logic for advanced downstream code: analysis, vectors, detection, orientation, transformation, manipulation, topology, measurement, spatial search, and future concern categories. Downstream consumers should get powerful operations with minimal ceremony, no repeated sequencing, and no local reinvention.
+Build reusable category logic for analysis, vectors, detection, orientation, transformation, topology, measurement, spatial search, and future concern categories. Downstream consumers should get powerful operations with minimal ceremony and no repeated sequencing.
 
-## Design Contract
+## [2][READ_ORDER]
 
-- Build concern categories, not method collections. Each folder owns one coherent category through one public OOP surface and typed FP/ROP internals.
-- Add real algorithmic value. Encode geometry reasoning, validation, statistics, projection, ownership, batching, sampling, dispatch, and consistency rules inside the category boundary.
-- Keep public usage small and powerful. Consumers should pass intent and context, then receive typed results without knob spam, boilerplate, or native call choreography.
-- Preserve capability through dense polymorphism. Prefer operation algebras, discriminated unions, smart enums, folds, and projection carriers over helper functions or parallel APIs.
-- Keep logic variable-driven. Avoid hardcoded values. When defaults add value, express them as named policies, constructor defaults, or caller-overridable values tied to domain semantics.
+- When adding shared validation, context, ownership, statistics, acceptance, projection, or geometry-identity behavior, read `Domain/` to find the reusable owner.
+- When changing Vectors capability or public projection behavior, read `Vectors/_ARCHITECTURE.md`.
+- When changing BCL, `System.*`, or package policy, read `docs/system-api-map`.
+- When writing numerical algorithms by hand, read `docs/external-libs/mathnet`.
+- When native runtime behavior is required for mesh, plane, unwrap, remesh, SDF, validity, or host predicates, route to bridge scenario guidance instead of static xUnit.
 
-## Folder Ownership
+## [3][EXTENSION_GRAMMAR]
 
-- `Domain/` is the kernel. It owns `Context`, tolerances, unit semantics, geometry kind detection, coercion, lifecycle ownership, validity, requirement checks, faults, statistics, residuals, distributions, and shared projection carriers.
-- `Analysis/` owns higher-order geometry analysis through `Analyze`, `Operation<TGeometry,TOut>`, and `IAspect`. It imports and extends `Domain` rather than duplicating validation, stats, coercion, or geometry-kind logic.
-- `Vectors/` owns vector intent, direction, support-space projection, fields, clouds, meshes, matrices, sampling, flow, alignment, spectral substrate, typed receipts, and intent projection through `VectorIntent.Project<TOut>`.
-- Future folders should follow the same pattern: one concern category, one consumer surface, compact intent/state records, and internal algorithms that reuse `Domain`.
+- Shared kernel concept: extend `Domain` when the behavior is reused across concern categories or required by acceptance, validation, statistics, context, ownership, or geometry identity.
+- Analysis behavior: extend the analysis owner, operation rail, and aspects; import `Domain` rather than duplicating validation, statistics, coercion, or kind logic.
+- Vector behavior: extend vector intent, support-space projection, fields, clouds, meshes, matrices, sampling, flow, alignment, spectral substrate, typed receipts, or intent projection.
+- Future category: create one concern category with one consumer surface, compact intent or state records, and algorithms that reuse `Domain`.
 
-## Domain Extension Rules
+## [4][EXECUTION_RULES]
 
-- Treat `Domain` as shared kernel, not a dumping ground. Extend it only for concepts reused across multiple concern categories or required by acceptance, validation, stats, context, ownership, or geometry identity.
-- Update `Domain` surgically when a new folder needs shared semantics. Extend existing bodies such as `Validation`, `Stats`, `Context`, `GeometryKernel`, `Kind`, `Requirement`, `OpAcceptance`, or projection carriers instead of creating duplicate local logic.
-- Flow outward from `Domain` into category folders. Do not make `Domain` depend on `Analysis`, `Vectors`, or future concern folders.
-- Keep stats and validation canonical. New residuals, distributions, validity checks, operation faults, tolerance rules, and acceptance rules belong on existing domain rails when reusable.
+- Expose one access path per folder; do not give every file its own consumer API.
+- Model category intent as typed data when primitive parameters create ceremony or hide semantics.
+- Convert native nullable, bool, disposable, and ownership semantics into typed rails at boundary adapters.
+- Preserve Rhino predicate semantics; verify substitutions against local API evidence and runtime behavior before replacing native calls with algebraic approximations.
 
-## Surface Rules
+## [5][REJECTIONS]
 
-- Expose one access path per folder. `Analysis` routes through `Analyze`; `Vectors` routes through `VectorIntent.Project<TOut>` for intent projection; future folders should have one equivalent owner.
-- Do not give every file its own consumer API. Files inside a folder are parts of one unified boundary.
-- Do not create wrapper-only abstractions around RhinoCommon or existing domain code.
-- Do not bolt on new needs beside existing rails. Integrate into current owners, update callers, and remove obsolete paths.
-- Do not duplicate `Domain` logic locally. Import, extend, and compose it.
-
-## Implementation Rules
-
-- Read `Domain/` before adding category logic. Reuse `Context`, `Requirement`, `Stat`, `Distribution`, `GeometryKernel`, `TopologyProjection`, `ClosestHit`, `IntersectionHit`, and `OpAcceptance` where they fit.
-- Model category intent as typed data. Convert many primitive parameters into compact intent records, smart enums, or union cases when that reduces ceremony and clarifies semantics.
-- Keep operation internals functional. Use `Fin<T>`, `Validation`, `Eff`, `Option`, `Seq`, `TraverseM`, folds, projections, and typed failures.
-- Keep native interop at boundary adapters. Convert nullable, bool, disposable, and native ownership semantics into typed rails immediately.
-- Preserve Rhino predicate semantics. Verify substitutions against local API evidence and runtime behavior before replacing native calls with algebraic approximations.
-- Keep native runtime proof out of managed unit specs. Managed specs own factories, failure categories, and deterministic algorithms; bridge scenarios own successful Rhino mesh, plane, unwrap, remesh, SDF, and validity behavior.
-- Prefer advanced C# and approved libraries when they reduce surface area or strengthen invariants. Use `LanguageExt` and `Thinktecture` to collapse behavior, not to decorate unchanged imperative code.
-- Use `docs/system-api-map` for BCL, `System.*`, and package/reference policy; use `docs/external-libs/mathnet` before writing numerical algorithms by hand. MathNet is for proven numeric/symbolic value, not decorative wrapping around unchanged logic.
-- Read `Vectors/_ARCHITECTURE.md` before changing Vectors. Update it after landed rail changes with capability and symbol truth, current proof status, and exact future-work exclusions.
-- Expose only policy fields that execute. Keep fixed kernel/native choices internal, then surface them through typed receipts and architecture truth.
-- Treat plan snippets as intent. Verify native/package member names, enum values, nullability, and overloads against installed metadata, emitted source, compiler output, or `api query` before finalizing code.
-- Classify broad build failures by path. When `tools.quality static build` reaches `Rasm.dll` and then fails in unrelated dirty projects, record that boundary and run a direct target project build for scoped proof.
+- No wrapper-only abstractions around RhinoCommon or existing domain code.
+- No local copies of reusable `Domain` validation, statistics, coercion, geometry-kind, or acceptance logic.
+- No new public rail beside an existing owner without removing the obsolete path.
+- No hardcoded invisible policy values; use named policies, native defaults, typed receipts, or caller input.
+- No exposure of fixed kernel/native choices as public knobs unless they execute and change behavior.

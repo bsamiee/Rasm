@@ -156,7 +156,11 @@ class ModuleAnalyzer(cst.CSTVisitor):
                 return
 
     def facts(self) -> ModuleFacts:
-        """Project mutable visitor state into immutable analyzer facts."""
+        """Project mutable visitor state into immutable analyzer facts.
+
+        Returns:
+            Immutable facts collected from the current module.
+        """
         return ModuleFacts(tuple(self.diagnostics), tuple(self.private_functions), tuple(self.private_calls), tuple(self.models))
 
     def _in_domain_or_application(self) -> bool:
@@ -267,7 +271,11 @@ class ModuleAnalyzer(cst.CSTVisitor):
 
 
 def analyze_paths(root: Path, paths: Sequence[Path]) -> tuple[Diagnostic, ...]:
-    """Analyze Python files under root and return stable diagnostics."""
+    """Analyze Python files under root and return stable diagnostics.
+
+    Returns:
+        Sorted analyzer diagnostics from local and cross-file rules.
+    """
     resolved_root = root.resolve()
     module_facts = tuple(_analyze_file(resolved_root, path) for path in _discover_python_files(resolved_root, paths))
     diagnostics = tuple(diagnostic for facts in module_facts for diagnostic in facts.diagnostics)
@@ -280,7 +288,11 @@ def analyze_paths(root: Path, paths: Sequence[Path]) -> tuple[Diagnostic, ...]:
 
 
 def classify_scope(path: Path, root: Path) -> Scope:
-    """Classify a path into the Rasm semantic policy scope."""
+    """Classify a path into the Rasm semantic policy scope.
+
+    Returns:
+        Semantic scope assigned to the path.
+    """
     parts = _relative_parts(path, root)
     part_set = frozenset(parts)
     tool = any(parts[: len(prefix)] == prefix for prefix in TOOLING_ROOTS) or (

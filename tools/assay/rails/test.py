@@ -42,19 +42,7 @@ if TYPE_CHECKING:
 
 @dataclass(frozen=True, slots=True, kw_only=True)
 class TestParams(BaseParams):
-    """Parameters shared by test verbs.
-
-    Attributes:
-        target: Optional test project override.
-        all: Whether to widen to the whole workspace.
-        no_build: Whether to skip restore and build rows.
-        mutation: Whether to select mutation rows.
-        benchmark: Whether to select benchmark rows.
-        coverage: Whether to select coverage rows.
-        fixtures: Whether to include fixture checks.
-        filter: Runner-specific test filter expression.
-
-    """
+    """Parameters shared by test verbs."""
 
     target: Path | None = None
     all: bool = False
@@ -76,7 +64,6 @@ _LOG: structlog.stdlib.BoundLogger = structlog.get_logger("assay.test")
 
 
 def _languages(selected: Language | None) -> tuple[Language, ...]:
-    # Data-driven off select(Claim.TEST): the polyglot fan never routes a language carrying no test row.
     match selected:
         case None:
             return tuple(sorted({t.language for t in select(Claim.TEST)}, key=lambda member: member.value))
@@ -85,8 +72,7 @@ def _languages(selected: Language | None) -> tuple[Language, ...]:
 
 
 def _eligible(tool: Tool, params: TestParams) -> bool:
-    # Gating before Check construction is load-bearing: a guaranteed-reject mutation row never reaches fan_out and so
-    # never acquires the mutation.lock lease, averting the busy-storm under concurrent agents.
+    # Reject ineligible mutation rows before they can acquire mutation.lock.
     match (tool.mode, params.mutation):
         case (Mode.MUTATION, False):
             return False
@@ -105,24 +91,21 @@ def _rows(language: Language, params: TestParams, mode: Mode) -> tuple[Tool, ...
 
 
 def _mutation_gap(params: TestParams, rows: tuple[Tool, ...]) -> bool:
-    # TS-no-runner / overridden-target gap: a valid-but-inapplicable precondition folds to EMPTY (exit 0), not FAULTED.
+    # Valid but inapplicable mutation requests fold to EMPTY, not FAULTED.
     return params.mutation and not any(t.mode is Mode.MUTATION for t in rows)
 
 
 def _checks(routed: Routed, params: TestParams, mode: Mode) -> tuple[Check, ...]:
-    # Pure projection: scope/deadline reach the executor as fan_out parameters, never as Check fields.
     return tuple(Check(tool=t, paths=routed.files) for t in _rows(routed.language, params, mode))
 
 
 def _routed(languages: tuple[Language, ...], paths: tuple[str, ...]) -> Result[Block[Routed], Fault]:
-    # route resolves one Language per call; the first routing Fault short-circuits the whole polyglot fan.
     return sequence(block.of_seq(route(language, paths) for language in languages))
 
 
 def _dispatch(
     routed: Routed, params: TestParams, *, settings: AssaySettings, scope: ArtifactScope, mode: Mode
 ) -> tuple[Result[Completed, Fault], ...]:
-    # One fan_out per language so each argv tail is projected from its own Routed; an empty fan contributes nothing, not a phantom EMPTY.
     checks = _checks(routed, params, mode)
     match checks:
         case ():
@@ -132,10 +115,7 @@ def _dispatch(
 
 
 def _roster_matches(outcomes: tuple[Completed, ...]) -> tuple[Match, ...]:
-    # Parse discovered test names from OK LIST-mode Completed stdout into typed Match rows.
-    # dotnet test --list-tests: indented names after "The following Tests are available:" header.
-    # pytest --collect-only -q: "module::class::test" lines.
-    # Skip blank lines, the dotnet header ("The following…"), and count summaries ("N test(s) found").
+    # Accept dotnet list-test rows and pytest collect rows; skip headers and count summaries.
     def _skip(name: str) -> bool:
         return name.startswith("The ") or (name[:1].isdigit() and name.endswith("found"))
 
@@ -150,9 +130,7 @@ def _roster_matches(outcomes: tuple[Completed, ...]) -> tuple[Match, ...]:
 
 
 def _detail(done: tuple[Completed, ...], params: TestParams) -> AnyDetail | None:
-    # killed/survived/coverage are Parser-derived, never fold-derived (conflating kill-ratio into Counts would re-introduce
-    # the retired per-rail count struct). parse_tests decodes every receipt to a defaulted TestRun, so the verb's evidence is
-    # the FIRST decode carrying a real mutation lane — else a barren pytest receipt would mask the Stryker/mutmut row that ran.
+    # Mutation evidence is parser-derived; choose the first decoded receipt with a real mutation lane.
     match params.mutation:
         case False:
             return None
@@ -165,17 +143,8 @@ def _detail(done: tuple[Completed, ...], params: TestParams) -> AnyDetail | None
 def thin_rail(settings: AssaySettings, scope: ArtifactScope, params: TestParams, *, claim: Claim, verb: str, mode: Mode) -> Result[Report, Fault]:
     """Run the shared test route, eligibility, fan-out, and fold body.
 
-    Args:
-        settings: Runtime settings.
-        scope: Artifact scope.
-        params: Test params.
-        claim: Claim to fold under.
-        verb: Verb to fold under.
-        mode: Tool mode to select.
-
     Returns:
-        Result containing the folded test report or routing fault.
-
+        Folded test report, or routing/spawn/lease fault.
     """
     languages = _languages(params.language)
     eligible = tuple(t for language in languages for t in _rows(language, params, mode))
@@ -209,14 +178,8 @@ def thin_rail(settings: AssaySettings, scope: ArtifactScope, params: TestParams,
 def run(settings: AssaySettings, scope: ArtifactScope, params: TestParams) -> Result[Report, Fault]:
     """Run eligible test suites.
 
-    Args:
-        settings: Runtime settings.
-        scope: Artifact scope.
-        params: Test params.
-
     Returns:
-        Result containing the test report or routing fault.
-
+        Test run report, or routing/spawn fault.
     """
     return thin_rail(settings, scope, params, claim=Claim.TEST, verb="run", mode=Mode.RUN)
 
@@ -224,14 +187,8 @@ def run(settings: AssaySettings, scope: ArtifactScope, params: TestParams) -> Re
 def list(settings: AssaySettings, scope: ArtifactScope, params: TestParams) -> Result[Report, Fault]:  # noqa: A001  # the verb IS "list"; this is the registry-bound Handler name
     """List discovered tests.
 
-    Args:
-        settings: Runtime settings.
-        scope: Artifact scope.
-        params: Test params.
-
     Returns:
-        Result containing discovered test rows or routing fault.
-
+        Test roster report, or routing/spawn fault.
     """
     languages = _languages(params.language)
 
@@ -251,14 +208,8 @@ def list(settings: AssaySettings, scope: ArtifactScope, params: TestParams) -> R
 def coverage(settings: AssaySettings, scope: ArtifactScope, params: TestParams) -> Result[Report, Fault]:
     """Run eligible suites under coverage.
 
-    Args:
-        settings: Runtime settings.
-        scope: Artifact scope.
-        params: Test params.
-
     Returns:
-        Result containing the coverage report or routing fault.
-
+        Coverage test report, or routing/spawn fault.
     """
     return thin_rail(settings, scope, params, claim=Claim.TEST, verb="coverage", mode=Mode.RUN)
 

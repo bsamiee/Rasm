@@ -1,4 +1,4 @@
-"""Define rail status values and severity folding."""
+"""Define rail status values and their severity fold."""
 
 from enum import StrEnum
 from functools import reduce
@@ -9,15 +9,9 @@ from typing import Self
 
 
 class RailStatus(StrEnum):
-    """Rail status with wire token, exit code, and severity rank.
+    """Rail status with its wire token, exit code, and severity rank."""
 
-    Attributes:
-        exit_code: Process exit code for the status.
-        severity: Rank used by status joins.
-
-    """
-
-    exit_code: int  # annotation-only: the metaclass skips it as a member, __new__ sets it
+    exit_code: int  # annotation-only field; __new__ binds the payload after enum construction
     severity: int
 
     SKIP = "skip", 0, 0, "skipped"
@@ -29,25 +23,22 @@ class RailStatus(StrEnum):
     FAILED = "failed", 1, 6
     FAULTED = "faulted", 2, 7
 
-    def __new__(cls, value: str, exit_code: int, severity: int, *aliases: str) -> Self:  # noqa: D102  # enum payload binder
+    def __new__(cls, value: str, exit_code: int, severity: int, *aliases: str) -> Self:
+        """Bind the wire token, process exit code, severity, and aliases."""
         member = str.__new__(cls, value)
         member._value_ = value
         member.exit_code = exit_code
         member.severity = severity
         for alias in aliases:
-            member._add_value_alias_(alias)  # py3.13+ alias in _value2member_map_; fails loud on cross-member collision
+            member._add_value_alias_(alias)  # Python 3.13+ alias registration rejects cross-member collisions
         return member
 
     @classmethod
     def from_returncode(cls, rc: int) -> RailStatus:
         """Project a process return code onto a rail status.
 
-        Args:
-            rc: Process return code.
-
         Returns:
-            `EMPTY` for zero, `BUSY` for 5, `TIMEOUT` for 124, otherwise `FAILED`.
-
+            Status represented by the process return code.
         """
         match rc:
             case 0:
@@ -64,28 +55,15 @@ class RailStatus(StrEnum):
 
 
 def join(left: RailStatus, right: RailStatus) -> RailStatus:
-    """Join two statuses by severity.
-
-    Args:
-        left: Left status.
-        right: Right status.
-
-    Returns:
-        Higher-severity status, keeping the left value on ties.
-
-    """
+    """Return the higher-severity status, keeping the left status on ties."""
     return left if left.severity >= right.severity else right
 
 
 def fold(*members: RailStatus) -> RailStatus:
-    """Reduce statuses under `join`.
-
-    Args:
-        *members: Statuses to fold.
+    """Reduce statuses under `join`, seeded at `EMPTY`.
 
     Returns:
-        Joined status seeded at `EMPTY`.
-
+        Highest-severity status from the supplied members.
     """
     return reduce(join, members, RailStatus.EMPTY)
 

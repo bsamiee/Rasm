@@ -36,14 +36,9 @@ from tools.assay.core.status import RailStatus
 
 @dataclass(frozen=True, slots=True, kw_only=True)
 class BridgeParams(BaseParams):
-    """Parameters shared by bridge verbs.
+    """Parameters shared by bridge verbs."""
 
-    Attributes:
-        pattern: Scenario path, directory, or glob used by `bridge verify`.
-
-    """
-
-    pattern: str = ""  # selects verify scenarios (path / dir / worktree glob); lifecycle verbs ignore it
+    pattern: str = ""
 
     @override
     def _arity(self, verb: str) -> int:
@@ -52,21 +47,16 @@ class BridgeParams(BaseParams):
 
 
 class _Scenario(msgspec.Struct, frozen=True, gc=False):
-    """Per-scenario bridge verification row."""
-
-    # stem/fault_phase/fault_output are ordering facts the order-insensitive status fold erases, so
-    # the fold lifts them off the first non-zero-exit scenario without re-decoding the report dir.
+    # The status fold erases scenario order, so preserve first-fault facts beside the receipt.
     status: RailStatus
     stem: str
-    exceptions: int = 0  # summed independently of counts.failed: a pass can still surface in-Rhino exceptions
+    exceptions: int = 0
     fault_phase: str = ""
     fault_output: str = ""
     completed: Completed = msgspec.field(default_factory=lambda: receipt((), 0))
 
 
 class _BridgeFault(msgspec.Struct, frozen=True, gc=False, omit_defaults=True, rename="camel"):
-    """Bridge exception report from the C# client JSON."""
-
     category: str = ""
     message: str = ""
     type: str = ""
@@ -74,23 +64,17 @@ class _BridgeFault(msgspec.Struct, frozen=True, gc=False, omit_defaults=True, re
 
 
 class _BridgeDiagnostics(msgspec.Struct, frozen=True, gc=False, omit_defaults=True, rename="camel"):
-    """Bridge diagnostics block from the execute phase."""
-
     command_window: tuple[str, ...] = ()
     exception_reports: tuple[_BridgeFault, ...] = ()
 
 
 class _BridgeOutput(msgspec.Struct, frozen=True, gc=False, omit_defaults=True, rename="camel"):
-    """Captured bridge phase output stream."""
-
     source: str = ""
     text: str = ""
     truncated: bool = False
 
 
 class _BridgePhase(msgspec.Struct, frozen=True, gc=False, omit_defaults=True, rename="camel"):
-    """Bridge lifecycle phase row."""
-
     phase: str
     status: RailStatus = RailStatus.FAILED
     data: dict[str, object] | None = None
@@ -98,8 +82,6 @@ class _BridgePhase(msgspec.Struct, frozen=True, gc=False, omit_defaults=True, re
 
 
 class _BridgeResult(msgspec.Struct, frozen=True, gc=False, omit_defaults=True, rename="camel"):
-    """Per-scenario bridge result JSON."""
-
     command: str = ""
     status: RailStatus = RailStatus.FAILED
     report_path: str = ""
@@ -112,18 +94,17 @@ _CLIENT_PROJECT: Final[str] = "tools/rhino-bridge/client/Rasm.RhinoBridge.Client
 _PLUGIN_PROJECT: Final[str] = "tools/rhino-bridge/plugin/Rasm.RhinoBridge.Plugin.csproj"
 _PROTOCOL_PROJECT: Final[str] = "tools/rhino-bridge/protocol/Rasm.RhinoBridge.Protocol.csproj"
 _SCENARIO_SUFFIX: Final[str] = ".verify.csx"
-_SCENARIO_TIMEOUT_S: Final[float] = 180.0  # per-scenario client deadline (ports quality scenario_timeout_s)
-_VERIFY_TTL_S: Final[float] = 300.0  # stale per-run report retention before launch (ports verify_retention_seconds)
+_SCENARIO_TIMEOUT_S: Final[float] = 180.0
+_VERIFY_TTL_S: Final[float] = 300.0
 _VERIFY_DIR: Final[str] = "verify"
-_PATH_GLYPHS: Final[str] = "/*?["  # a pattern carrying any of these is path-shaped; else it is a bare token globbed as **/<token>
+_PATH_GLYPHS: Final[str] = "/*?["
 _EXECUTE_PHASE: Final[str] = "execute"
 _STDOUT_SOURCE: Final[str] = "stdout"
 _STDERR_SOURCE: Final[str] = "stderr"
 
 _RESULT_DECODER: Final[msgspec.json.Decoder[_BridgeResult]] = msgspec.json.Decoder(_BridgeResult, strict=False)
 
-# `dotnet run --no-build --project <client> -- <args>`: project + conf + verb tail fold into command
-# via structs.replace; Input.NONE appends one empty routing tail.
+# The client command is completed with project, configuration, and verb tail through structs.replace.
 _CLIENT_TOOL: Final[Tool] = Tool(
     name="rasm-bridge",
     runner=Runner.DOTNET,
@@ -134,7 +115,7 @@ _CLIENT_TOOL: Final[Tool] = Tool(
     mode=Mode.VERIFY,
     timeout=_SCENARIO_TIMEOUT_S,
 )
-# Lease-free compile proof for the protocol + plugin + client closure (never drives the live host).
+# Lease-free compile check for the protocol, plugin, and client closure.
 _BUILD_TOOL: Final[Tool] = Tool(
     name="rasm-bridge-build",
     runner=Runner.DOTNET,
@@ -150,21 +131,18 @@ _BUILD_TOOL: Final[Tool] = Tool(
 
 
 def _routed() -> Routed:
-    # the bridge routes no change-set; an empty Routed satisfies run_check without the routing fixpoint
     return Routed(language=Language.CSHARP, scope=Scope.CHANGED)
 
 
 def _client_check(settings: AssaySettings, *args: str) -> Check:
-    # the full invocation rides the Input.NONE command body: an empty Routed never reaches argv as
-    # Check.paths. No scope so the --no-build client stays on canonical bin/ (a scope splices --artifacts-path).
+    # Input.NONE keeps the full client invocation in the command body and out of Check.paths.
     tail = (str(settings.root / _CLIENT_PROJECT), "--configuration", settings.configuration.value, "--", *args)
     tool = msgspec.structs.replace(_CLIENT_TOOL, command=(*_CLIENT_TOOL.command, *tail))
-    return Check(tool=tool, cwd=Path(str(settings.root)))  # subprocess cwd is inherently local; project UPath → Path
+    return Check(tool=tool, cwd=Path(str(settings.root)))
 
 
 def _client_run(settings: AssaySettings, *args: str, timeout: float | None = None) -> Result[Completed, Fault]:
     check = _client_check(settings, *args)
-    # per-scenario timeout override builds an absolute deadline rather than mutating the frozen Tool
     deadline = time.monotonic() + timeout if timeout is not None else None
     return run_check(check, settings=settings, scope=None, routed=_routed(), deadline=deadline)
 
@@ -173,7 +151,6 @@ def _client_run(settings: AssaySettings, *args: str, timeout: float | None = Non
 
 
 def _exceptions(result: _BridgeResult) -> int:
-    # exception count is absent from the exit code; summed independently of counts.failed as telemetry
     return sum(len(_diagnostics(phase.data).exception_reports) for phase in result.phases if phase.phase == _EXECUTE_PHASE and phase.data is not None)
 
 
@@ -189,11 +166,11 @@ def _coerce_diagnostics(raw: object) -> _BridgeDiagnostics:
     try:
         return msgspec.convert(raw, type=_BridgeDiagnostics, strict=False)
     except msgspec.ValidationError:
-        return _BridgeDiagnostics()  # a non-conforming shape → empty roster
+        return _BridgeDiagnostics()
 
 
 def _first_fault(result: _BridgeResult) -> tuple[str, str]:
-    # phases stream in wire order, so the first status severity > OK is the earliest fault (retriage entry)
+    # Phases stream in wire order, so the first defect is the retriage entry.
     return next(((phase.phase, _phase_diagnostic(phase)) for phase in result.phases if phase.status.severity > RailStatus.OK.severity), ("", ""))
 
 
@@ -207,8 +184,7 @@ def _phase_diagnostic(phase: _BridgePhase) -> str:
 
 
 def _decode_result(run: Completed, result_path: Path) -> _BridgeResult:
-    # prefer the result file: the client streams structlog to stderr, so stdout alone conflates
-    # diagnostics with evidence. A decode miss degrades to a FAILED row — a defect, not a rail Fault.
+    # Prefer the result file because client stderr carries structlog diagnostics, not evidence.
     raw = _read_result(result_path).default_value(run.stdout or run.stderr)
     try:
         return _RESULT_DECODER.decode(raw or b"{}")
@@ -224,8 +200,7 @@ def _read_result(result_path: Path) -> Result[bytes, Fault]:
 
 
 def _run_scenario(settings: AssaySettings, report_dir: Path, scenario: Path) -> _Scenario:
-    # a rail-level spawn/timeout Fault projects to a FAILED row rather than short-circuiting the fold:
-    # a non-running client is a scenario failure, keeping the comprehension total over every scenario.
+    # Spawn/timeout Faults become FAILED scenario rows so every discovered scenario stays represented.
     stem = scenario.name.removesuffix(_SCENARIO_SUFFIX) or scenario.stem
     result_path = report_dir / f"{stem}.json"
     run = _client_run(settings, "check", str(scenario), "--result", str(result_path), timeout=_SCENARIO_TIMEOUT_S)
@@ -248,9 +223,8 @@ def _run_scenario(settings: AssaySettings, report_dir: Path, scenario: Path) -> 
 
 
 def _discover(settings: AssaySettings, pattern: str) -> tuple[Path, ...]:
-    # three-stage fold: direct file → directory scan → worktree glob; empty is the UNSUPPORTED
-    # precondition (a valid request with no applicable path, never a Fault).
-    root = Path(str(settings.root))  # scenario discovery globs the local worktree; UPath → Path at the boundary
+    # Discover by direct file, directory scan, then worktree glob; empty is UNSUPPORTED, not Faulted.
+    root = Path(str(settings.root))  # scenario discovery globs the local worktree; UPath -> Path at the boundary
     direct = _direct(root, pattern)
     return direct or _glob(root, pattern)
 
@@ -267,7 +241,7 @@ def _direct(root: Path, pattern: str) -> tuple[Path, ...]:
 
 
 def _glob(root: Path, pattern: str) -> tuple[Path, ...]:
-    # Path.glob treats the positional as a glob, so a bare token expands to **/<token> (recursive scan)
+    # Bare tokens expand to recursive worktree globs.
     normalized = pattern if any(glyph in pattern for glyph in _PATH_GLYPHS) else f"**/{pattern}"
     return tuple(sorted(p.resolve() for p in root.glob(normalized) if p.is_file() and p.name.endswith(_SCENARIO_SUFFIX)))
 
@@ -276,8 +250,7 @@ def _glob(root: Path, pattern: str) -> tuple[Path, ...]:
 
 
 def _expire_stale(report_dir: Path, ttl_s: float) -> None:
-    # must precede launch: expiring after a populated run would race the freshly-written per-scenario
-    # JSON. Best-effort housekeeping — a missing parent or OSError is a no-op, never a rail Fault.
+    # Expire before launch so housekeeping cannot race freshly written scenario JSON.
     parent = report_dir.parent
     match parent.is_dir():
         case False:
@@ -289,7 +262,7 @@ def _expire_stale(report_dir: Path, ttl_s: float) -> None:
 
 def _is_stale(child: Path, parent: Path, cutoff: float) -> bool:
     try:
-        # is_relative_to bounds the sweep so a symlinked report path cannot rmtree outside the scope
+        # is_relative_to bounds the sweep against symlink escapes.
         return child.is_dir() and child.resolve().is_relative_to(parent.resolve()) and child.stat().st_mtime <= cutoff
     except OSError:
         return False
@@ -297,7 +270,7 @@ def _is_stale(child: Path, parent: Path, cutoff: float) -> bool:
 
 def _rmtree(path: Path) -> Path:
     shutil.rmtree(path, ignore_errors=True)
-    return path  # returned for the consuming sweep comprehension
+    return path
 
 
 def _ensure_dir(report_dir: Path) -> Result[None, Fault]:
@@ -314,22 +287,15 @@ def _ensure_dir(report_dir: Path) -> Result[None, Fault]:
 def verify(settings: AssaySettings, scope: ArtifactScope, params: BridgeParams) -> Result[Report, Fault]:
     """Verify bridge scenarios under the live Rhino lease.
 
-    Args:
-        settings: Runtime settings.
-        scope: Artifact scope.
-        params: Bridge params.
-
     Returns:
-        Result containing a verification report or operational fault.
-
+        Verification report, or a lease/build/launch fault.
     """
     argv = ("bridge", "verify", params.pattern)
     return leased("bridge", lambda _held: _verify_locked(settings, scope, params, argv), settings=settings, run_id=settings.run_id, project="bridge")
 
 
 def _verify_locked(settings: AssaySettings, scope: ArtifactScope, params: BridgeParams, argv: tuple[str, ...]) -> Result[Report, Fault]:
-    # sequenced on the Result rail so a prelude Fault (build/launch) short-circuits before discovery:
-    # the stale-report sweep and a fresh client must precede scenario execution.
+    # Build, report-dir setup, and launch must complete before scenario discovery and execution.
     report_dir = Path(scope.path) / _VERIFY_DIR
     _expire_stale(report_dir, _VERIFY_TTL_S)
     prelude = _ensure_dir(report_dir).bind(lambda _: _build_closure(settings)).bind(lambda _: _affirm(_client_run(settings, "launch")))
@@ -341,9 +307,8 @@ def _verify_locked(settings: AssaySettings, scope: ArtifactScope, params: Bridge
 
 
 def _fold_scenarios(settings: AssaySettings, report_dir: Path, scenarios: tuple[Path, ...], argv: tuple[str, ...]) -> Result[Report, Fault]:
-    # counts/status derive in model.fold from the Completed receipts, so VerifySummary carries only the
-    # non-derivable bridge facts. The earliest non-zero-exit row is lifted once in discovery order —
-    # before the order-insensitive status fold erases it — so an agent retriages without opening the dir.
+    # VerifySummary carries only bridge facts the status/count fold cannot derive.
+    # Lift the first failing scenario before order-insensitive folding erases it.
     match scenarios:
         case ():
             return Ok(fold(Claim.BRIDGE, "verify", (receipt(argv, 3, status=RailStatus.UNSUPPORTED),)))
@@ -361,23 +326,21 @@ def _fold_scenarios(settings: AssaySettings, report_dir: Path, scenarios: tuple[
 
 
 def _build_closure(settings: AssaySettings) -> Result[None, Fault]:
-    # one stable per-closure build tree (warm cache) so the live host and --no-build client observe the
-    # same output. A failed compile promotes to a Fault here — a broken plugin must abort before launch.
+    # One stable build tree keeps the live host and --no-build client on the same output.
     scope = ArtifactScope.build(settings, "bridge")
     projects = (_PROTOCOL_PROJECT, _PLUGIN_PROJECT, _CLIENT_PROJECT)
-    check = Check(tool=_BUILD_TOOL, owner="bridge", cwd=Path(str(settings.root)))  # subprocess cwd is inherently local
+    check = Check(tool=_BUILD_TOOL, owner="bridge", cwd=Path(str(settings.root)))
     routed = Routed(language=Language.CSHARP, scope=Scope.CHANGED, projects=tuple(str(settings.root / p) for p in projects))
     return _affirm(run_check(check, settings=settings, scope=scope, routed=routed, deadline=None))
 
 
 def _affirm(outcome: Result[Completed, Fault]) -> Result[None, Fault]:
-    # promote a non-zero build/launch exit to a Fault; ≤ OK severity passes through as None.
+    # Non-zero build/launch exits mean verify could not run, so promote them to Fault.
     match outcome:
         case Result(tag="ok", ok=done) if done.status.severity <= RailStatus.OK.severity:
             return Ok(None)
         case Result(tag="ok", ok=done):
-            # FAILED → FAULTED: the Fault contract reserves FAILED for the success channel (a check ran
-            # and found defects); a failed build/launch means assay could not run the verify (exit 2).
+            # FAILED is success-channel defect evidence; build/launch failure is an operational Fault.
             status = RailStatus.FAULTED if done.status is RailStatus.FAILED else done.status
             return Error(Fault(done.argv, status, (done.stderr or done.stdout or b"")[:1024].decode(errors="replace")))
         case Result(error=fault):
@@ -385,8 +348,7 @@ def _affirm(outcome: Result[Completed, Fault]) -> Result[None, Fault]:
 
 
 def _lifecycle(settings: AssaySettings, verb: str, *args: str) -> Result[Report, Fault]:
-    # one parameterized fold for every lifecycle verb: they differ only by client subcommand + operands,
-    # collapsing to one body under one bridge.lock lease, folding into a single Report (no Detail).
+    # Lifecycle verbs differ only by client subcommand and operands under the same bridge.lock lease.
     return leased(
         "bridge",
         lambda _held: _client_run(settings, verb, *args).map(lambda done: fold(Claim.BRIDGE, verb, (done,))),
@@ -399,14 +361,8 @@ def _lifecycle(settings: AssaySettings, verb: str, *args: str) -> Result[Report,
 def doctor(settings: AssaySettings, scope: ArtifactScope, params: BridgeParams) -> Result[Report, Fault]:
     """Run the bridge host health probe.
 
-    Args:
-        settings: Runtime settings.
-        scope: Artifact scope.
-        params: Bridge params.
-
     Returns:
-        Result containing the bridge lifecycle report or operational fault.
-
+        Bridge lifecycle report or operational fault.
     """
     _ = (scope, params)
     return _lifecycle(settings, "doctor")
@@ -415,14 +371,8 @@ def doctor(settings: AssaySettings, scope: ArtifactScope, params: BridgeParams) 
 def launch(settings: AssaySettings, scope: ArtifactScope, params: BridgeParams) -> Result[Report, Fault]:
     """Launch the bridge host under the live Rhino lease.
 
-    Args:
-        settings: Runtime settings.
-        scope: Artifact scope.
-        params: Bridge params.
-
     Returns:
-        Result containing the launch report or operational fault.
-
+        Bridge lifecycle report or operational fault.
     """
     _ = (scope, params)
     return _lifecycle(settings, "launch")
@@ -431,14 +381,8 @@ def launch(settings: AssaySettings, scope: ArtifactScope, params: BridgeParams) 
 def quit(settings: AssaySettings, scope: ArtifactScope, params: BridgeParams) -> Result[Report, Fault]:  # noqa: A001  # registry verb name; the rail surface mirrors the CLI token, never the builtin
     """Terminate the bridge host under the live Rhino lease.
 
-    Args:
-        settings: Runtime settings.
-        scope: Artifact scope.
-        params: Bridge params.
-
     Returns:
-        Result containing the quit report or operational fault.
-
+        Bridge lifecycle report or operational fault.
     """
     _ = (scope, params)
     return _lifecycle(settings, "quit")
@@ -447,14 +391,8 @@ def quit(settings: AssaySettings, scope: ArtifactScope, params: BridgeParams) ->
 def check(settings: AssaySettings, scope: ArtifactScope, params: BridgeParams) -> Result[Report, Fault]:
     """Probe bridge host liveness.
 
-    Args:
-        settings: Runtime settings.
-        scope: Artifact scope.
-        params: Bridge params.
-
     Returns:
-        Result containing the liveness report or operational fault.
-
+        Bridge lifecycle report or operational fault.
     """
     _ = (scope, params)
     return _lifecycle(settings, "check")
@@ -463,14 +401,8 @@ def check(settings: AssaySettings, scope: ArtifactScope, params: BridgeParams) -
 def clean(settings: AssaySettings, scope: ArtifactScope, params: BridgeParams) -> Result[Report, Fault]:
     """Clean bridge crash and autosave state.
 
-    Args:
-        settings: Runtime settings.
-        scope: Artifact scope.
-        params: Bridge params.
-
     Returns:
-        Result containing the clean report or operational fault.
-
+        Bridge lifecycle report or operational fault.
     """
     _ = (scope, params)
     return _lifecycle(settings, "clean")
@@ -479,14 +411,8 @@ def clean(settings: AssaySettings, scope: ArtifactScope, params: BridgeParams) -
 def build(settings: AssaySettings, scope: ArtifactScope, params: BridgeParams) -> Result[Report, Fault]:
     """Build the bridge plugin and client closure.
 
-    Args:
-        settings: Runtime settings.
-        scope: Artifact scope.
-        params: Bridge params.
-
     Returns:
-        Result containing the build report or operational fault.
-
+        Bridge build report or build fault.
     """
     _ = (scope, params)
     return _build_closure(settings).map(lambda _: fold(Claim.BRIDGE, "build", (receipt(("bridge", "build"), 0),)))

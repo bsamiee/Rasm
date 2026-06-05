@@ -1,81 +1,78 @@
-# [AGENT_MANIFEST]
+# [ROOT_AGENTS]
 
-[REQUIRED]: Read and adhere to `CLAUDE.md`
+Scope: repository root. `CLAUDE.md` owns universal project policy, skill routing, and quality rails; this file is the repo instruction router and first-hop overlay map for root-started work.
 
 ## [0][LOAD_ORDER]
 
-- **Cursor / Codex chain:** `CLAUDE.md` → root `AGENTS.md` → nearest nested `AGENTS.md` → matched `.cursor/rules/*.mdc` → skill by file type.
-- **Codex budget:** nested `AGENTS.md` chains concatenate toward a 32 KiB limit — keep nested files delta-only; offload encyclopedic detail to co-located `_ARCHITECTURE.md`.
-- **Optional local override:** gitignored `AGENTS.override.md` beside root or bridge AGENTS for machine-specific paths.
+[REQUIRED]: Read and follow `CLAUDE.md` before this file.
 
-## [1][REQUIRED_STANDARDS]
+Codex loads project instructions from repository root toward the current directory; closer files override earlier conflicting guidance, and only one instruction file is loaded per directory. `AGENTS.override.md` takes precedence over `AGENTS.md` where present. Nested instruction chains share the project-doc budget, 32 KiB by default, so every overlay stays delta-only.
 
-Skill-per-file-type routing lives in `CLAUDE.md` §1 and is loaded before this file; do not duplicate it here. This manifest adds operating deltas on top of that table. The one extension worth stating: `.verify.csx` scenarios and the testkit also route to `testing-cs`.
+Root-started work must still discover the nearest nested `AGENTS.md` before editing a subtree that owns one. Fallback names and provider-loading behavior are configuration facts, not repo policy, unless current local config proves they apply here.
 
-## [2][NAVIGATION_CONTEXT]
+## [1][READ_ORDER]
 
-- Cross-stack owner precedence and proof order: `docs/usage.md` §1 and §5 before leaf API docs.
-- Use `fd` for discovery, then `rg` for exact references.
-- Use structural search (`ast-grep`) for symbol-aware changes when available.
-- Use Nx topology (`nx graph`, affected commands, `nx-mcp`) before broad scans.
-- Read minimal file slices necessary for the current task.
-- Check `docs/system-api-map` before `System.*`, global using, or host-reference changes. `global.json` is present and owns .NET 10 MTP runner selection; treat edits as full-static triggers.
-- Read `docs/external-libs` and `docs/usage.md` §1 before adding packages or host SDK assumptions.
-- Navigation helpers:
-  - `fd -H .`
-  - `rg -n --hidden --glob '!.git' --glob '!node_modules' "<pattern>" <path>`
-  - `pnpm exec ast-grep run --pattern "<structural-pattern>" <path>`
-  - `ctags -R --exclude=.git --exclude=node_modules --exclude=dist --exclude=build --exclude=.nx .`
+- When editing C# libraries, read `libs/csharp/AGENTS.md`, then the nearest project overlay.
+- When editing C# tests, `.spec.cs`, `.verify.csx`, bridge scenarios, or testkit code, read `tests/csharp/AGENTS.md`; library specs also read `tests/csharp/libs/AGENTS.md`.
+- When editing docs, read `docs/standards/README.md`; instruction-file work also reads `docs/standards/agents-md.md`.
+- When editing `tools/assay`, read `tools/assay/AGENTS.md`.
+- When editing bridge runtime, bridge scenarios, package, deploy, publish, or host-runtime proof, read `tools/rhino-bridge/AGENTS.md`.
+- When changing cross-stack owner precedence, proof order, or host-library routing, read `docs/usage.md`.
+- When changing `System.*`, global usings, package/reference policy, host-provided BCL assumptions, or `global.json`, read `docs/system-api-map`.
+- When adding product-library, host SDK, or host-composition assumptions, read `docs/external-libs` and `docs/host-libraries.md`.
+- When changing test-tool APIs or advanced harness behavior, read `docs/testing-libs`.
 
-| [INDEX] | [PATH]                         | [OWNS]                                                            |
-| :-----: | ------------------------------ | ----------------------------------------------------------------- |
-|   [1]   | `libs/csharp/Rasm`             | Domain, Analysis, Vectors geometry kernel                         |
-|   [2]   | `libs/csharp/Rasm.Rhino`       | RhinoWIP boundary — Commands, UI, Camera, Blocks, Exchange        |
-|   [3]   | `libs/csharp/Rasm.Grasshopper` | GH2 components, data, UI rails                                    |
-|   [4]   | `tests/csharp`                 | xUnit, CsCheck, testkit, bridge scenarios                         |
-|   [5]   | `tools/rhino-bridge`           | Live RhinoWIP runtime verification                                |
-|   [6]   | `docs/usage.md`                | Cross-stack owner ladder and proof hierarchy                      |
-|   [7]   | `docs/host-libraries.md`       | Composition-root packages — doc pins; not-in-graph until consumer |
-|   [8]   | `docs/system-api-map`          | BCL, `System.*`, package and host reference policy                |
-|   [9]   | `docs/external-libs`           | Approved product libraries                                        |
-|  [10]   | `docs/testing-libs`            | Test library APIs                                                 |
-|  [11]   | `docs/standards`               | Doc-type, style, evidence, and agentic-documentation standards    |
+## [2][NAVIGATION]
 
-## [3][LANGUAGE_POLICY]
+Use repository-native discovery before broad scans:
+- File discovery: `fd`.
+- Exact text search: `rg`.
+- Structural search: `ast-grep` when symbol shape matters.
+- Monorepo topology: Nx metadata and affected logic before workspace-wide edits.
 
-- ALWAYS: follow `CLAUDE.md` Effect-first approach.
-- C#: preserve strict analyzer and formatting posture in `.editorconfig` and `Directory.Build.props`.
-- Python: enforce Python 3.14+ baseline via Ruff + ty with explicit configuration.
+Read full target files before editing. Read minimal surrounding files needed to prove ownership, existing patterns, and route conflicts.
 
-## [4][CODING_POLICY]
+## [3][ENGINEERING_CONTRACT]
 
-- Prefer refining/extending existing modules over adding wrappers or duplicate helpers.
-- Always read a file fully, identify if possible to do less code and refactor/extend existing logic over spamming new functionality.
-- Keep implementations dense, strongly typed, and test/validation-backed.
-- Collapse operational receipts into one fact stream with slot/kind metadata and fold-derived projections when 3+ mutation buckets or repeated slot families share construction logic.
-- Preserve algorithm-specific receipts as typed evidence when fields encode route, status, count, solver, sampling, spectral, mesh, or extraction proof.
-- Avoid generic receipt interfaces, ledgers, or reported-value wrappers unless one existing owner already proves the abstraction with net LOC reduction.
-- Keep custom analyzer rules semantic and agnostic. Do not bind diagnostics to project namespaces, paths, or one-off symbols; prove rules with positive and negative samples.
-- Treat CSP analyzer diagnostics as hypotheses. Fix true-positive code, but refine the analyzer when a diagnostic forces larger or less native code without improving correctness.
-- Prefer indexed `Map(..., index)` followed by `TraverseM(identity)` for indexed effectful traversal when the approved library lacks indexed `TraverseM`; do not replace it with manual index folds unless the fold owns more state than the index.
-- Avoid verbosity spam in plans or explanations; keep detail high and signal-focused.
+Extend canonical owners before adding new rails. Prefer root-cause refactoring, caller updates, and obsolete-path removal over additive wrappers or compatibility shims.
 
-## [5][DOCUMENTATION_POLICY]
+Keep implementations dense, strongly typed, and value-driven. Collapse repeated case families into operation algebras, smart enums, unions, folds, projection carriers, typed receipts, or source-owned tables. Avoid low-quality branching when a value, policy, or algebra can drive behavior.
 
-- Route README, ADR, architecture, code documentation, and doc-type standards through `docs/standards/README.md`.
-- Route Markdown structure, headers, lists, tables, diagrams, prose, and evidence through `docs/standards`.
-- Keep documentation rooted in existing paths, commands, and configured tooling; remove invented or stale paths.
-- Cross-stack owner precedence: `docs/usage.md` §1 and §5.
-- Product library API truth: `docs/external-libs`.
-- Host SDK boundaries: local RhinoWIP/GH2 XML and `uv run python -m tools.quality api query`; owner ladder in `docs/usage.md` §1; nested host `AGENTS.md` under `libs/csharp/Rasm.Rhino` and `libs/csharp/Rasm.Grasshopper`.
-- Host composition adoption (Scrutor, EF, OTel…): `docs/host-libraries.md` — not-in-graph until a bootstrap consumer exists. AppUi is now an active direct package consumer; pin truth lives in `Directory.Packages.props` and `docs/system-api-map/packages.md` §2.
-- BCL, packages, host references: `docs/system-api-map`.
-- Test-tool APIs: `docs/testing-libs`.
-- Universal C# enforcement snippets: `.claude/skills/coding-csharp/references/`; repo posture and XML-backed proof: `docs/external-libs/`. Do not duplicate skill bodies in docs leaves.
+Use FP/ROP boundaries by default. Convert nullable, bool, exception, native ownership, disposable, and runtime-failure channels into typed rails at the boundary the owning library controls.
 
-## [6][LIVE_RHINO_BRIDGE]
+Do not add single-use helpers, utility files, generic receipt interfaces, generic ledgers, reported-value wrappers, or wrapper-only APIs unless an existing owner proves net simplification and stronger invariants.
 
-- Quality operator truth: `tools/quality/README.md`.
-- Runtime evidence and bridge operator routes: `CLAUDE.md` §5.2 and `tools/rhino-bridge/README.md`.
-- Canonical bridge agent deltas: `tools/rhino-bridge/AGENTS.md`.
-- Scenario authoring: `tests/csharp/AGENTS.md` §7 and `.claude/skills/testing-cs/references/bridge-runtime.md`.
+Treat analyzer diagnostics as hypotheses. Fix true-positive code, and refine the analyzer when a diagnostic forces less native, larger, or less correct code.
+
+## [4][ROUTING]
+
+| [INDEX] | [CONCERN]                      | [OWNER]                        |
+| :-----: | :----------------------------- | :----------------------------- |
+|   [1]   | Documentation standards        | `docs/standards/README.md`     |
+|   [2]   | `AGENTS.md` file shape         | `docs/standards/agents-md.md`  |
+|   [3]   | Cross-stack owner ladder       | `docs/usage.md`                |
+|   [4]   | BCL, packages, host references | `docs/system-api-map`          |
+|   [5]   | Product and host libraries     | `docs/external-libs`           |
+|   [6]   | Host composition adoption      | `docs/host-libraries.md`       |
+|   [7]   | Test-tool APIs                 | `docs/testing-libs`            |
+|   [8]   | Quality command behavior       | `tools/quality/README.md`      |
+|   [9]   | Rhino bridge operator behavior | `tools/rhino-bridge/README.md` |
+|  [10]   | Live bridge instruction deltas | `tools/rhino-bridge/AGENTS.md` |
+|  [11]   | C# library-family deltas       | `libs/csharp/AGENTS.md`        |
+|  [12]   | C# test and scenario deltas    | `tests/csharp/AGENTS.md`       |
+|  [13]   | Assay tool deltas              | `tools/assay/AGENTS.md`        |
+
+Host SDK boundaries use local RhinoWIP/GH2 XML, decompile evidence when XML is absent, the API rail, `docs/usage.md`, and the nearest host project overlay. AppUi package-consumer and package-pin truth live in central manifests plus `docs/system-api-map`; do not preserve package facts in root prose.
+
+## [5][DOCUMENTATION]
+
+Route README, ADR, architecture, roadmap, test strategy, API, reference, code documentation, support matrix, how-to, runbook, contributing, tutorial, onboarding, and instruction-file work through `docs/standards/README.md`.
+
+Keep documentation rooted in current paths, commands, manifests, source, and configured tooling. Remove stale paths, stale commands, compatibility prose, and invented routes when current repository truth no longer supports them.
+
+## [6][REJECTIONS]
+
+- No command catalogs in root; `CLAUDE.md`, tool READMEs, and nested overlays own current command selection.
+- No subtree-local implementation facts when a nested `AGENTS.md`, README, architecture, roadmap, or source file owns the behavior.
+- No copied provider manuals, fallback-name tutorials, package version prose, roadmap state, generated contract bodies, or bridge transcripts.
+- No C# static, test, or bridge proof claims for docs-only instruction edits.

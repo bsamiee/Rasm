@@ -1,4 +1,4 @@
-"""Route changed or explicit paths into per-language input projections."""
+"""Route changed or explicit paths into language-specific inputs."""
 
 from collections.abc import Mapping
 from enum import StrEnum
@@ -30,7 +30,7 @@ from tools.assay.core.status import RailStatus
 
 
 type RoutePaths = tuple[str, ...]
-type ProjectIndex = Mapping[str, str]  # owner-dir -> root-relative .csproj
+type ProjectIndex = Mapping[str, str]
 
 
 class Scope(StrEnum):
@@ -45,51 +45,20 @@ class Source(Protocol):
     """Filesystem-independent source of changed paths, enumerated paths, and file bytes."""
 
     def changed(self) -> Result[tuple[str, ...], Fault]:
-        """Return the language-agnostic change set.
-
-        Returns:
-            Result containing changed root-relative paths or a fault.
-
-        """
+        """Return the language-agnostic change set."""
 
     def enumerate(self, paths: RoutePaths) -> Result[tuple[str, ...], Fault]:
-        """Expand explicit route paths.
-
-        Args:
-            paths: Input paths to expand.
-
-        Returns:
-            Result containing root-relative files or a fault.
-
-        """
+        """Expand explicit route paths."""
 
     def read(self, rel: str) -> Result[bytes, Fault]:
-        """Read one root-relative file.
-
-        Args:
-            rel: Root-relative file path.
-
-        Returns:
-            Result containing bytes or a fault.
-
-        """
+        """Read one root-relative file."""
 
 
 # --- [MODELS] ---------------------------------------------------------------------------
 
 
 class Routed(Base, frozen=True):
-    """Resolved inputs for one language.
-
-    Attributes:
-        language: Language being routed.
-        scope: Route scope.
-        files: Root-relative files selected for file-based tools.
-        projects: Project paths selected for project-based tools.
-        groups: Project-to-files groups for include-based dotnet format calls.
-        full_triggers: Changed rows that escalated routing to full scope.
-
-    """
+    """Resolved inputs for one language."""
 
     language: Language
     scope: Scope
@@ -110,7 +79,7 @@ _TRIGGER_FILES: frozenset[str] = frozenset((
     ".editorconfig",
     "global.json",
 ))
-_TRIGGER_PREFIXES: tuple[str, ...] = ("tools/cs-analyzer/",)  # any descendant escalates the route to FULL
+_TRIGGER_PREFIXES: tuple[str, ...] = ("tools/cs-analyzer/",)
 
 _CSPROJ: str = ".csproj"
 _PROJECT_REF: str = ".//ProjectReference"
@@ -127,16 +96,14 @@ _LOG: structlog.stdlib.BoundLogger = structlog.get_logger("assay.routing")
 
 
 async def _spawn(argv: tuple[str, ...], root: UPath) -> bytes:
-    # check=True + fail_after raise CalledProcessError/TimeoutError, caught at _git's boundary;
-    # cwd takes str(root) (the UPath path of a local root), never the backend URI
+    # check=True and fail_after raise into _git's single fault boundary.
     with anyio.fail_after(_TIMEOUT):
         done = await anyio.run_process(list(argv), cwd=str(root), check=True)
     return done.stdout
 
 
 def _git(argv: tuple[str, ...], *, root: UPath) -> Result[tuple[str, ...], Fault]:
-    # the lone exception seam this module owns: OSError/Timeout/non-zero -> Fault value;
-    # empty output entries are dropped so a trailing newline never yields a phantom "" row
+    # The lone exception seam: timeout, non-zero, and OSError become Fault values.
     try:
         raw = anyio.run(_spawn, argv, root)
     except TimeoutError:
@@ -149,37 +116,29 @@ def _git(argv: tuple[str, ...], *, root: UPath) -> Result[tuple[str, ...], Fault
 
 
 def _norm(paths: tuple[str, ...]) -> tuple[str, ...]:
-    # canonical root-relative POSIX shape: the Routed.files invariant
     return tuple(sorted({PurePosixPath(p).as_posix() for p in paths}))
 
 
 def _owner(rel: str, index: ProjectIndex) -> str | None:
-    # deepest ancestor index dir, or None: an orphan .cs edit seeds no closure rather than a phantom
     rel_path = PurePosixPath(rel)
     owners = tuple(d for d in index if rel_path.is_relative_to(d))
-    return max(owners, key=str.__len__, default=None)  # deepest ancestor dir; str.__len__ keeps the key result str-typed
+    return max(owners, key=str.__len__, default=None)
 
 
 def _refs(rel: str, source: Source) -> frozenset[str]:
-    # ProjectReference set of one .csproj node, read via source.read (filesystem-blind);
-    # a read fault or unparseable XML yields frozenset() (isolated node) keeping _dependents total.
-    # Memoization is the per-run graph dict in _dependents, never a process-static @cache that would
-    # bleed across runs of a mutated worktree.
+    # Read one project node through Source; unreadable or malformed XML becomes an isolated node.
     match source.read(rel):
         case Result(tag="ok", ok=raw):
             base = PurePosixPath(rel).parent
             tree = _parse(raw)
             return frozenset(
-                normpath(str(base / inc.replace("\\", "/")))  # posix lexical fold of ../ — PurePosixPath is non-normalizing
-                for ref in tree.iterfind(_PROJECT_REF)
-                if (inc := ref.get("Include")) is not None
+                normpath(str(base / inc.replace("\\", "/"))) for ref in tree.iterfind(_PROJECT_REF) if (inc := ref.get("Include")) is not None
             )
         case _:
             return frozenset()
 
 
 def _parse(raw: bytes) -> ET.Element:
-    # malformed XML degrades to an empty Project node, never a raise
     try:
         return ET.fromstring(raw)  # noqa: S314  # trusted local .csproj XML from source.read, never network-sourced
     except ET.ParseError:
@@ -187,9 +146,7 @@ def _parse(raw: bytes) -> ET.Element:
 
 
 def _dependents(seeds: frozenset[str], index: ProjectIndex, source: Source) -> frozenset[str]:
-    # reverse-reachability fixpoint in frozenset set-algebra, iterated len(graph) times — the exact
-    # worst-case DAG reverse-reachability chain length; each pass is monotone under union, so this bound
-    # reaches the closure and keeps an early-stop while (imperative branching) out of the rail.
+    # Reverse reachability converges within len(graph) monotone passes over the project DAG.
     graph = {rel: _refs(rel, source) for rel in index.values()}
     return reduce(
         lambda current, _: current | frozenset(p for p, refs in graph.items() if p not in current and bool(current & refs)), range(len(graph)), seeds
@@ -197,23 +154,19 @@ def _dependents(seeds: frozenset[str], index: ProjectIndex, source: Source) -> f
 
 
 def _escalate(files: tuple[str, ...], settings: AssaySettings | None) -> tuple[str, ...]:
-    # change-set rows escalating scope to FULL (trigger files / analyzer-tree edits); settings supplies
-    # the Tier-A vocabulary, None falls back to the module constants so settings-free route(...) + the
-    # property tests keep the canonical set while a rail-supplied settings can widen it via env.
+    # Settings can widen the trigger vocabulary; tests and settings-free callers use module constants.
     trigger_files = settings.trigger_files if settings is not None else _TRIGGER_FILES
     trigger_prefixes = settings.trigger_prefixes if settings is not None else _TRIGGER_PREFIXES
     return tuple(f for f in files if f in trigger_files or any(f.startswith(prefix) for prefix in trigger_prefixes))
 
 
 def _glob(language: Language, files: tuple[str, ...]) -> Result[Routed, Fault]:
-    # suffix-filter the change-set; always Scope.CHANGED — FULL escalation is a CLOSURE-arm concern
-    # feeding place's dotnet-only SOLUTION projection, and a glob language never routes to SOLUTION
+    # Glob languages never route to SOLUTION, so suffix filtering always stays CHANGED.
     return Ok(Routed(language=language, scope=Scope.CHANGED, files=_norm(tuple(f for f in files if PurePosixPath(f).suffix in language.suffixes))))
 
 
 def _closure(language: Language, files: tuple[str, ...], source: Source, settings: AssaySettings | None) -> Result[Routed, Fault]:
-    # C# escalate-or-resolve. On a FULL escalation we skip the index touch and the _dependents fixpoint
-    # entirely, leaving place to read SOLUTION. Otherwise we discover the project graph and grow it.
+    # Full escalation skips project graph work; otherwise resolve the changed-project closure.
     triggers = _escalate(files, settings)
     match triggers:
         case ():
@@ -223,8 +176,7 @@ def _closure(language: Language, files: tuple[str, ...], source: Source, setting
 
 
 def _resolve(language: Language, changed: tuple[str, ...], universe: tuple[str, ...], source: Source) -> Result[Routed, Fault]:
-    # index keys each project by owning dir (so _owner matches the deepest ancestor); groups pairs each
-    # seed owner with its changed files for the dotnet format --include projection
+    # Index by owner directory, then group changed files for dotnet format --include.
     index = {PurePosixPath(p).parent.as_posix(): PurePosixPath(p).as_posix() for p in universe if PurePosixPath(p).suffix == _CSPROJ}
     owned = {f: owner for f in changed if (owner := _owner(f, index)) is not None}
     seeds = frozenset(index[owner] for owner in owned.values())
@@ -238,15 +190,8 @@ def route(
 ) -> Result[Routed, Fault]:
     """Resolve paths into routed inputs for one language.
 
-    Args:
-        language: Language to route.
-        paths: Explicit paths, or empty for the git change set.
-        source: Optional source provider. Defaults to the local worktree source.
-        settings: Optional settings that provide full-scope trigger vocabulary.
-
     Returns:
-        Result containing routed inputs or a routing fault.
-
+        Routed input projection, or a fault from the source provider.
     """
     src = source if source is not None else LOCAL
     enumerated = src.enumerate(paths) if paths else src.changed()
@@ -256,14 +201,8 @@ def route(
 def place(routed: Routed, tool: Tool, *, settings: AssaySettings) -> tuple[tuple[str, ...], ...]:
     """Project routed inputs into command argument tails.
 
-    Args:
-        routed: Routed inputs for one language.
-        tool: Tool whose input strategy decides the projection.
-        settings: Runtime settings used for solution and default test target paths.
-
     Returns:
-        Argument-tail groups to append to tool commands.
-
+        Command argument tail groups for the tool input mode.
     """
     match tool.input:
         case Input.FILES:
@@ -285,9 +224,7 @@ def place(routed: Routed, tool: Tool, *, settings: AssaySettings) -> tuple[tuple
 
 
 class _LocalSource:
-    # default Source: git change-set + fd enumeration + UPath read, rooted at cwd; all I/O rides the
-    # marked _git boundary or a single UPath.read_bytes whose OSError becomes a Fault value.
-    # _root is a UPath so a memory://-rooted Source reads the change-set unchanged with zero local IO.
+    # Default Source: git change-set, fd enumeration, and UPath reads rooted at the configured workspace.
 
     @property
     def _root(self) -> UPath:
@@ -313,10 +250,7 @@ class _LocalSource:
 
 
 def _expand(target: str, *, root: UPath) -> Result[tuple[str, ...], Fault]:
-    # dir -> fd recursive scan, file -> verbatim, missing -> skip + warn. The missing path is the
-    # resilience boundary: a hard Fault would short-circuit sequence and nuke every other valid path,
-    # so a stale/typo'd path logs route.path_missing and contributes ZERO rows (partial results, never
-    # an opaque whole-request failure). The is_dir/is_file probe is the only concrete-filesystem touch.
+    # Missing explicit paths warn and contribute zero rows so one stale target does not fault the full request.
     absolute = root / target
     match (absolute.is_dir(), absolute.is_file()):
         case (True, _):

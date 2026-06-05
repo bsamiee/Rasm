@@ -1,4 +1,4 @@
-"""Validate Markdown diagrams through the docs rail."""
+"""Validate Mermaid diagrams in Markdown files."""
 
 from dataclasses import dataclass
 from typing import TYPE_CHECKING
@@ -33,12 +33,7 @@ if TYPE_CHECKING:
 
 @dataclass(frozen=True, slots=True, kw_only=True)
 class DocsParams(BaseParams):
-    """Parameters for `docs check`.
-
-    Attributes:
-        strict: Whether empty or skipped docs checks promote to a fault.
-
-    """
+    """Parameters for `docs check`."""
 
     strict: bool = False
 
@@ -50,7 +45,8 @@ class FaultedPromotion(Exception):  # noqa: N818  # sentinel, not an *Error cond
     """Strict-mode promotion raised before registry fault wrapping."""
 
     def __init__(self) -> None:
-        super().__init__("no docs changed")  # the `_guard` seam prefixes the canonical `strict:` failing-step tag
+        """Create the strict-mode promotion sentinel."""
+        super().__init__("no docs changed")
 
 
 # --- [OPERATIONS] -----------------------------------------------------------------------
@@ -59,14 +55,8 @@ class FaultedPromotion(Exception):  # noqa: N818  # sentinel, not an *Error cond
 def check(settings: AssaySettings, scope: ArtifactScope, params: DocsParams) -> Result[Report, Fault]:
     """Run docs validation.
 
-    Args:
-        settings: Runtime settings.
-        scope: Artifact scope.
-        params: Docs params.
-
     Returns:
-        Result containing a docs report or routing fault.
-
+        Docs validation report, or routing/spawn fault.
     """
     return thin_rail(settings, scope, params, claim=Claim.DOCS, verb="check", mode=Mode.CHECK)
 
@@ -74,17 +64,8 @@ def check(settings: AssaySettings, scope: ArtifactScope, params: DocsParams) -> 
 def thin_rail(settings: AssaySettings, scope: ArtifactScope, params: DocsParams, *, claim: Claim, verb: str, mode: Mode) -> Result[Report, Fault]:
     """Run the shared docs route, fan-out, fold, and strict promotion body.
 
-    Args:
-        settings: Runtime settings.
-        scope: Artifact scope.
-        params: Docs params.
-        claim: Claim to fold under.
-        verb: Verb to fold under.
-        mode: Tool mode to select.
-
     Returns:
-        Result containing a docs report or routing fault.
-
+        Folded docs report, or strict-mode/spawn fault.
     """
     return route(Language.DOCS, params.paths).map(
         lambda routed: _strict(_outcomes(routed, settings=settings, scope=scope, claim=claim, verb=verb, mode=mode), strict=params.strict)
@@ -92,9 +73,8 @@ def thin_rail(settings: AssaySettings, scope: ArtifactScope, params: DocsParams,
 
 
 def _outcomes(routed: Routed, *, settings: AssaySettings, scope: ArtifactScope, claim: Claim, verb: str, mode: Mode) -> Report:
-    # mmdc renders ONE -i <input> at a time and engine._argv projects tool.command (never a Check path field), so the input must
-    # ride the command, spliced once per routed file. The walrus guard keeps only Completed slots so the Error channel never enters
-    # the success monoid fold reduces — a contended or timed-out slot cannot mask a clean diagram.
+    # `mmdc` takes one `-i` input per command, so each routed file is spliced into tool.command.
+    # Only Completed slots enter the fold; lease or timeout faults cannot mask clean diagrams.
     checks = tuple(
         Check(tool=msgspec.structs.replace(t, command=(*t.command, "-i", f)))
         for t in select(claim, routed.language)
@@ -106,7 +86,6 @@ def _outcomes(routed: Routed, *, settings: AssaySettings, scope: ArtifactScope, 
 
 
 def _done(slot: Result[Completed, Fault]) -> Completed | None:
-    # Success-channel filter: an Ok slot yields its receipt; an Error slot yields None so it drops out of the fold's monoid.
     match slot:
         case Result(tag="ok", ok=done):
             return done
@@ -115,8 +94,7 @@ def _done(slot: Result[Completed, Fault]) -> Completed | None:
 
 
 def _strict(report: Report, *, strict: bool) -> Report:
-    # Only the ambiguous EMPTY (ran, no diagram affirmed) and SKIP (vacuous opt-out) promote; FAILED is a real defect that
-    # rides its own status and must never be re-promoted, so every other shape is the identity.
+    # Strict mode promotes only ambiguous `EMPTY`/`SKIP`; real defects keep their original status.
     match (strict, report.status):
         case (True, RailStatus.EMPTY | RailStatus.SKIP):
             raise FaultedPromotion

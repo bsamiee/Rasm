@@ -18,7 +18,7 @@ Use the strongest applicable source:
 2. `docs/usage.md` for cross-stack source precedence and proof order.
 3. The document-type standard in this folder.
 4. The shared standard for position, form, craft, evidence, or notation.
-5. External standards named by the active local standard.
+5. Maintained source required by the active local standard.
 
 When a claim can drift, prove it with repository truth before web examples or prior notes.
 
@@ -29,11 +29,11 @@ Read order is workflow order; source precedence still decides conflicts.
 1. Use the reader-need map and type chooser below to pick one document type.
 2. For document-type standards, apply the page-anatomy and opening-contract rules in [information-structure.md](information-structure.md), then apply the chosen type standard.
 3. Apply the five shared standards: position, form, craft, evidence, and notation.
-4. Apply exactly one type standard when the artifact is a Diátaxis document. Shared standards, instruction files, generated mirrors, indexes, retrieval chunks, MCP catalogs, and structured-output contracts route through the shared route instead.
+4. Apply exactly one type standard when the artifact serves a reader-need document type. Shared standards, instruction files, generated mirrors, indexes, retrieval chunks, MCP catalogs, and structured-output contracts route through the shared route instead.
 
 ## [4][READER_NEED_MAP]
 
-Diátaxis is the corpus map. Classify a document by what the reader does:
+Classify a document by what the reader does:
 - Tutorial: a tested path that teaches a learner.
 - How-to: one real task for a competent reader.
 - Reference: accurate facts a working reader looks up.
@@ -43,7 +43,7 @@ Resolve edge cases by action and cognition: action plus learning is tutorial, ac
 
 ## [5][CHOOSE_TYPE]
 
-Map the reader need to its Diátaxis quadrant first, then to the artifact. The linked path encodes the quadrant, so each row routes one reader need to one standard without a redundant quadrant column.
+Map the reader need to the artifact. The linked path encodes the document family, so each row routes one reader need to one standard without a redundant family column.
 
 | [INDEX] | [READER_NEED]                            | [TYPE_PATH]                                                        | [ROUTE_AWAY]                  |
 | :-----: | :--------------------------------------- | :----------------------------------------------------------------- | :---------------------------- |
@@ -61,7 +61,7 @@ Map the reader need to its Diátaxis quadrant first, then to the artifact. The l
 |  [12]   | Operational symptom response             | [task/runbook.md](task/runbook.md)                                 | normal tasks, postmortems     |
 |  [13]   | Contribution workflow and PR evidence    | [task/contributing.md](task/contributing.md)                       | onboarding, incidents         |
 |  [14]   | Tested learning path                     | [learning/tutorial.md](learning/tutorial.md)                       | reference, variants           |
-|  [15]   | Readiness ramp                            | [learning/onboarding.md](learning/onboarding.md)                   | task guides, contributing     |
+|  [15]   | Readiness ramp                           | [learning/onboarding.md](learning/onboarding.md)                   | task guides, contributing     |
 
 If no quadrant fits cleanly, reduce the scope until one reader outcome is primary.
 
@@ -73,6 +73,10 @@ Every document obeys five shared standards; each rule has exactly one source:
 - [style-guide.md](style-guide.md): craft — sentences, terminology, punctuation, links, examples, code-safe Markdown, and accessibility.
 - [proof.md](proof.md): evidence — strength, freshness, source conflicts, verification, agent-surface evaluation, and preservation under refactor.
 - [formatting.md](formatting.md): notation — status and invocation markers, table styling, whitespace, and the heading idiom.
+
+Use these 5 shared standards as the root audit axes. A valid root standards file is scoreable on position, form, craft, evidence, and notation without inventing a sixth local axis or turning the audit into session commentary.
+
+Specialized instruction-surface authoring routes through [agents-md.md](agents-md.md). It defines the semantic slots, root profile, local extension grammar, route-away rules, trust boundaries, and corpus rebuild rules for `AGENTS.md` files while the five shared standards remain the audit axes.
 
 ## [7][PLACEMENT]
 
@@ -110,7 +114,7 @@ Unless live product support and evidence justify them, do not preserve old paths
 
 ## [10][FOLDER_LAYOUT]
 
-- Root files are the five shared standards, this index, and `AGENTS.md`, the agent instruction file for `docs/standards/**` (instruction-file rules local by [agentic-documentation.md](agentic-documentation.md)).
+- Root files are the five shared standards, this index, [agents-md.md](agents-md.md), and `AGENTS.md`, the agent instruction file for `docs/standards/**`.
 - `explanation/` holds decision, design, architecture, roadmap, and test-strategy standards.
 - `reference/` holds entry, lookup, API, code-documentation, and support-matrix standards.
 - `task/` holds normal-task, operational-recovery, and contribution standards.
@@ -119,6 +123,7 @@ Unless live product support and evidence justify them, do not preserve old paths
 ## [11][ANTI_PATTERNS]
 
 These anti-patterns fall into three groups:
+
 [TYPE_DRIFT]:
 - README files that carry design history, tutorials, or API catalogs.
 - Architecture documents that carry task plans or incident response.
@@ -131,8 +136,8 @@ These anti-patterns fall into three groups:
 - Generated API documentation forked by hand-written endpoint or symbol tables.
 - Standards that mention authoring interactions, removed workflow names, or transient task labels instead of durable document behavior.
 
-[DESIGN_DOSSIER]:
-- Mixed module dossier: a module dossier that carries contracts, command maps, snippets, status vocabularies, path structure, risks, gotchas, and implementation sequence under one design, README, or architecture page must split by reader need: current code structure to architecture, callable contracts to API, lookup facts to reference, source-symbol semantics to code documentation, future work to roadmap, and failure response to runbook.
+[MIXED_MODULE_FILES]:
+- Mixed module file: a module document that carries contracts, command maps, snippets, status vocabularies, path structure, risks, gotchas, and implementation sequence under one design doc, README, or architecture page must split by reader need: current code structure to architecture, callable contracts to API, lookup facts to reference, source-symbol semantics to code documentation, future work to roadmap, and failure response to runbook.
 
 ## [12][MAINTENANCE_RULES]
 
@@ -147,15 +152,17 @@ These anti-patterns fall into three groups:
 ## [13][BOUNDARIES]
 
 - Shared standards carry cross-cutting rules; this README only routes readers to them.
+- [agents-md.md](agents-md.md) carries `AGENTS.md` semantic slots, profiles, and anti-fragility rules; [agentic-documentation.md](agentic-documentation.md) carries salience, provider behavior, and artifact separation.
 - Type standards carry artifact-specific structure; this README only chooses the primary type.
 - `docs/usage.md` carries cross-stack implementation precedence and proof order outside the standards library.
-- `docs/standards/AGENTS.md` carries local agent routing and validation for edits inside this folder.
+- `docs/standards/AGENTS.md` carries local agent routing, read scope, and close checks for edits inside this folder.
 
-## [14][CHECKLIST]
+## [14][VALIDATION]
 
 - [ ] Active standards are linked by current filename.
 - [ ] Each shared standard has one clear source.
+- [ ] Root-file audits use the five shared standards as their axes.
 - [ ] Each type standard appears in exactly one family.
 - [ ] The reader-need map and type chooser route to a single primary type.
 - [ ] This index routes readers instead of restating standard bodies.
-- [ ] Mixed module dossiers are split into the source type standards instead of preserved as one polished file.
+- [ ] Mixed module files are split into the source type standards instead of preserved as one polished file.

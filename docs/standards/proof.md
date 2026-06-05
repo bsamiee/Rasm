@@ -20,11 +20,10 @@ Add metadata or proof fields only when the project has an actual need: a drift-p
 Use the strongest source that directly proves the claim:
 1. Machine-readable repository truth: source, manifests, lockfiles, schemas, generated contracts, generated API reference, checked-in diagram models, or symbol documentation generated from source.
 2. Executed local verification: the exact command, check, test, build, render, scenario run, link check, or docs build captured during the change.
-3. Official primary documentation: vendor docs, specifications, release notes, support policies, API references, or standards documents.
+3. Maintained upstream source when repository truth is silent: versioned specifications, release notes, support policies, API references, or standards documents.
 4. Source-controlled secondary material: project examples, migration guides, known limitations, issue records, or controlling-project discussions.
-5. Community material: discovery context only, never final proof when a stronger source exists.
 
-Repository truth and generated contracts outrank prose. Local command output outranks a copied transcript. Current official docs outrank unofficial examples for actively changing tools.
+Repository truth and generated contracts outrank prose. Local command output outranks a copied transcript. Maintained upstream source outranks examples for actively changing tools.
 
 ## [3][CONFLICT_HANDLING]
 
@@ -33,8 +32,8 @@ When sources disagree, use the source closest to the executing system:
 - manifests and lockfiles beat install instructions;
 - source and generated symbol docs beat architecture summaries;
 - local command output beats a copied result;
-- official versioned docs beat community examples;
-- newer primary sources beat older primary sources for changing tools.
+- maintained upstream source beats examples;
+- newer maintained source beats older maintained source for changing tools.
 
 If a lower source remains useful, cite it as background and state which higher source controls the claim.
 
@@ -51,9 +50,10 @@ Use these labels exactly when a human-readable field is needed. Machine-consumed
 
 Local identity or context fields such as `Gate`, `Surface`, `Representation`, or `Proof route` may precede `Evidence`. The proof-local labels then appear contiguously in this order: `Evidence`, `Generated from`, `Source of truth`, `Last verified`, `Review trigger`. Local result, match, disposition, or close fields follow that proof field run.
 
-Prefer an event trigger over a calendar review date. Use a calendar date only when the external source changes on a schedule or no better trigger exists.
+Prefer an event trigger over a calendar review date. Use a calendar date only when a maintained policy changes on a schedule or no better trigger exists.
 
 Attach the fields as a definition block beside the claim, one `label: value` per line, so each field is independently scannable and updatable:
+
 ```markdown template
 `uv run python -m tools.quality static build`
 Evidence: `tools/quality/__main__.py` `static build` verb; restore + build + analyzers, no tests.
@@ -75,28 +75,30 @@ State a verified fact plainly, and mark a genuine gap explicitly. A qualifier is
 
 A refactor relocates content; it never drops it. Restructuring a document, merging sections, or moving a rule to its route must preserve every load-bearing fact — each command, version, flag, path, invariant, routing pointer, field, and qualifier survives somewhere in the result. Before replacing a document, diff the new version's content coverage against the prior one and confirm nothing material disappeared; a dropped fact is a regression, not a simplification. When a leaner rewrite would remove a concrete proof command, a dependency, or a non-derivable constraint, the rewrite is wrong, not the original. Treat a vanished load-bearing item as a blocker that fails verification, exactly as a broken link or an unrun gate does.
 
-## [8][EXTERNAL_RESEARCH]
+## [8][SOURCE_RESEARCH]
 
-Use primary sources first:
-- Prefer official docs, specifications, release notes, package manifests, and source repositories.
+Use maintained sources first:
+- Prefer repository source, generated contracts, manifests, lockfiles, release notes, package manifests, and source repositories.
 - Use current sources for changing tools, APIs, security guidance, support status, and provider behavior.
-- Stable standards may cite canonical official docs without arbitrary recency churn when the rule is settled.
-- Record version, date, commit, or page-update signal when the source exposes one, and replace third-party tutorials with primary docs before publication.
+- Record version, date, commit, or page-update signal when the source exposes one.
 
-If current official docs are unavailable, state the gap and mark the source as provisional.
+If current source is unavailable, state the gap and mark the claim provisional.
 
 ## [9][DOCS_CODE_VERIFICATION]
 
-This is the canonical docs-as-code gate ladder for the standard; the external-research, evidence-format, and agent-surface sections defer here for which gate a changed claim requires. Match the changed-claim condition to the required gate:
+This is the canonical docs-as-code gate ladder for this standards library; the source-research, evidence-format, and agent-surface sections defer here for which gate a changed claim requires. Match the changed-claim condition to the required gate:
+
 | [INDEX] | [CLAIM_CHANGED]                           | [GATE]                                           |
 | :-----: | :---------------------------------------- | :----------------------------------------------- |
 |   [1]   | Markdown content only                     | `git diff --check` on changed Markdown           |
 |   [2]   | Structure, tables, examples, generated MD | configured formatter or linter                   |
-|   [3]   | Links added, removed, renamed, generated  | link checker or local path/anchor validation     |
+|   [3]   | Links or anchors                          | link checker or local path/anchor validation     |
 |   [4]   | Navigation, diagrams, config, docs output | docs build                                       |
 |   [5]   | Generated contract claim                  | regenerate or compare generated output to source |
 |   [6]   | Operational procedure                     | run steps or mark manual-only                    |
 |   [7]   | Visual layout claim                       | render screenshots, diagrams, PDFs, or pages     |
+
+The link-or-anchor row includes added, removed, renamed, or generated links and heading anchors.
 
 Do not claim a gate passed unless it ran in the current change or a current status check proves it — knowing a gate would pass is not proof it did. If no configured gate exists, state that rather than inventing one; a local validation script is a local check, not a configured repository gate.
 
@@ -114,6 +116,7 @@ A deterministic surface needs a minimum receipt: surface, baseline or prior beha
 - an unsupported-claim review and a tool-call failure review.
 
 Record the evaluation as a definition block beside the surface it proves. Keep the minimum receipt visible for deterministic surfaces:
+
 ```markdown template
 Surface: `docs/standards/_index.json` retrieval index.
 Baseline: prior flat README link list.
@@ -124,6 +127,7 @@ Review trigger: standard filename, heading label, route map, or index-generation
 ```
 
 Add rigor fields only when the surface carries stochastic output, ranking, tool selection, latency, or provider behavior:
+
 ```markdown template
 Questions: 24 drawn from real "which standard carries X" maintenance misses.
 Baseline: prior flat README link list; new index resolves 22/24 vs 14/24.
@@ -141,7 +145,7 @@ State the proof gap when a contract is reviewed by a human rather than enforced 
 Keep evidence short and reproducible:
 - the exact command as run;
 - the source path plus field, heading, symbol, or contract name;
-- the versioned specification or official documentation link;
+- the versioned source, specification, or maintained policy link;
 - the generated contract path and generation command;
 - the rendered artifact path when visual output matters;
 - the status-check name and result when CI is the proof;
@@ -150,6 +154,7 @@ Keep evidence short and reproducible:
 Do not paste long transcripts. Summarize the result and keep enough source detail for the next maintenance route to reproduce the proof.
 
 A compliant note names the command, the source path, and a freshness marker, and summarizes the outcome rather than reproducing it:
+
 ```markdown template
 Claim: `static full` parity covers `Workspace.slnx`.
 Evidence: `uv run python -m tools.quality static full`; restore/build/analyzers green across the solution closure.
@@ -179,22 +184,24 @@ The evidence hierarchy, freshness fields, proof labels, preservation rule, and d
 - [formatting.md](formatting.md) carries the markers and styling that present an evidence table or status field.
 - [README.md](README.md) carries document-type routing and cross-standard links.
 
-## [14][CHECKLIST]
+## [14][VALIDATION]
 
-Use this checklist by group:
+Use this verification checklist by group:
+
 [EVIDENCE_FRESHNESS]:
 - [ ] Drift-prone claims have claim-level evidence.
 - [ ] Evidence sits close enough to the claim to support maintenance.
 - [ ] Repository truth and generated contracts outrank prose.
-- [ ] External facts use primary sources where available.
+- [ ] Drift-prone facts use maintained sources where available.
 - [ ] A freshness trigger or `Last verified` exists where a claim can drift.
 - [ ] Commands and checks are exact and reproducible.
 
 [GENERATED_AGENT]:
 - [ ] Generated content is linked or regenerated, not manually forked.
-- [ ] Provider-specific behavior has current official proof.
+- [ ] Provider-specific behavior has current maintained proof.
 - [ ] Agent surfaces carry deterministic receipt fields, and add baseline trials, source trace, and review fields where stochastic, ranking, tool-selection, latency, or provider behavior is the claim.
 
 [GAPS_PRESERVATION]:
 - [ ] Genuine uncertainty is marked; unrun gates and proof gaps are stated.
 - [ ] A refactor preserved every load-bearing fact; no command, version, field, or invariant was dropped.
+- [ ] A 1-10 validity score is backed by stated evidence, not by confidence, taste, or session memory.

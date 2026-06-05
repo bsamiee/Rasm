@@ -63,12 +63,7 @@ def test_cli_verbs_emit_one_json_envelope(
     envelope = quality.envelope(capsys)
 
     assert envelope == IsPartialDict(
-        rail=law.rail,
-        verb=law.verb,
-        command_path=list(law.command_path),
-        status="ok",
-        exit_code=0,
-        duration_ms=IsFloat(ge=0),
+        rail=law.rail, verb=law.verb, command_path=list(law.command_path), status="ok", exit_code=0, duration_ms=IsFloat(ge=0)
     )
     assert envelope["data"] is not None
     assert probe.calls

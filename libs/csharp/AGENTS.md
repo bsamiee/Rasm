@@ -1,75 +1,55 @@
-# [H1][CSHARP_LIBS_AGENTS]
+# [CSHARP_LIBS_AGENTS]
 
-`libs/csharp` is the parent of all `Rasm.*` projects: future-facing C# libraries built as reusable capability layers for downstream plugins, apps, tools, and agents that do not exist yet. No current consumer is required to justify complete domain functionality when the folder is a library boundary.
+Scope: `libs/csharp/` only. Root `AGENTS.md` and `CLAUDE.md` own universal C# policy, skills, and quality rails; this file adds library-family behavior for every `Rasm.*` project.
 
-This file documents lib-scope deltas over root `AGENTS.md` and `CLAUDE.md`. Library contract (capture native capability, expose small OOP boundary, keep intelligence internal), surface preference, greenfield posture, dependency/package policy, and quality-gate validation are owned by those upstream documents — do not restate. Per-project deltas live in each `Rasm.*/AGENTS.md`; host-composition phasing (which packages are `[NOT_IN_GRAPH]` until a consumer exists) is owned by `docs/host-libraries.md` and `CLAUDE.md` §3 — point, do not copy.
+## [1][READ_ORDER]
 
-## [1][SCAFFOLDING_PROTOCOL]
+- When editing a library project, read this file and then the nearest project `AGENTS.md`.
+- When adding a folder, public rail, operation algebra, state record, receipt, or proof pattern, read existing sibling owners first to find the extension rail.
+- When changing `System.*`, package policy, global usings, host references, or `global.json` effects, read `docs/system-api-map`.
+- When adding product-library or host SDK assumptions, read `docs/external-libs`.
+- When moving host-composition packages into graph, read `docs/host-libraries.md`.
 
-[IMPORTANT] Before creating or implementing a new folder:
-1. Read `CLAUDE.md`, root `AGENTS.md`, this file, and the nearest folder-local `AGENTS.md`.
-2. Read every existing folder in the target project directory and map owners, files, public rails, operation algebras, state records, receipts, and validation patterns.
-3. Read relevant docs under `docs/external-libs`, `docs/system-api-map`, and project skills before choosing packages, system APIs, or host references.
-4. Deep-read the external/native API with local truth sources: package XML/nuspec/DLL, RhinoWIP XML/decompile, GH2 XML/decompile, source docs, and repo scripts.
-5. Produce a compact roadmap before production code when the folder is new or the concern boundary changes.
-6. Audit the roadmap or implementation against native truth and existing folder patterns before completion.
+## [2][LIBRARY_CONTRACT]
 
-Roadmaps must include: purpose + boundary (1-2 paragraphs); source-verified API catalog with false/missing APIs called out; source-discipline note requiring local XML/decompile proof for every named native member; proposed file architecture with durable concern ownership; centralization/removal plan for duplicated logic in sibling folders; value-add capabilities beyond raw API access; validation commands and runtime scope.
+Library projects set capability ceilings for downstream agents, plugins, apps, and tools. Missing callers do not justify weak abstractions, wrapper-only APIs, or partial domain functionality.
 
-## [2][VALUE_ADD]
+Capture native or domain capability deeply, expose one small OOP boundary per durable concern, and keep intelligence internal through typed FP/ROP rails. Downstream code passes intent and context, then receives typed results, receipts, projections, or operations without native call choreography.
 
-Expected value-add examples (downstream consumers should get more power and less boilerplate than direct API usage):
-- Idempotent create/update flows with explicit conflict policy.
-- Batch operations with partial-failure diagnostics and grouped receipts.
-- Native capability graphs, dependency audits, stale/missing resource checks, and summaries.
-- Typed metadata, user-string, source, unit, tolerance, and layer policies.
-- Block/document/preview/UI-ready projections from one canonical construction output.
-- Management rails for resources with author/update, refresh/reload, cleanup, graph/audit, and event/watch capability.
-- Automatic overload selection, validity checks, and native sentinel normalization.
-- Event/watch rails with scoped disposal and typed snapshots.
-- MathNet-backed fitting or solving only after explicit domain coordinate projection.
+## [3][EXTENSION_GRAMMAR]
 
-Do not hold back high-value library functionality because no caller exists yet. A library folder sets the capability ceiling; apps should stay thin.
+- New project capability: extend the owning project overlay and source owner before adding a sibling rail.
+- New folder: add it only for a durable sub-concern with multiple consumers or a distinct native boundary.
+- Repeated slot families, mutation buckets, receipt construction, option cases, or overload families: collapse into one typed rail.
+- Data-only catalogue behavior: keep it host-free and geometry-free unless a downstream composition owner exists.
+- Package or solution adoption: update central manifests and project files; keep version truth out of instruction prose.
 
-## [3][SEMANTICS]
+## [4][PROJECT_ROUTING]
 
-- Prefer 1-2 word domain names for files, types, operations, and policies.
-- Name files by durable concern: `Blocks.cs`, `State.cs`, `Kernels.cs`, `Frames.cs`, `Outputs.cs`, `Archive.cs`.
-- Avoid bloated names that encode implementation steps, transient plans, or every native object involved.
-- Avoid weak names: `Helpers`, `Utils`, `Manager`, `Service`, `Common`, `Misc`, `Options`, `Params`.
-- Keep semantics universal inside the bounded context. Boundary adapters may translate external names; internals use canonical vocabulary.
-- Rename decisively when a better semantic owner exists. Do not preserve transitional aliases or compatibility shims.
+| [INDEX] | [PROJECT]          | [LOCAL_ROUTE]                | [ROLE]                               |
+| :-----: | :----------------- | :--------------------------- | :----------------------------------- |
+|   [1]   | `Rasm`             | `Rasm/AGENTS.md`             | geometry kernel and analysis algebra |
+|   [2]   | `Rasm.Rhino`       | `Rasm.Rhino/AGENTS.md`       | RhinoWIP boundary                    |
+|   [3]   | `Rasm.Grasshopper` | `Rasm.Grasshopper/AGENTS.md` | Grasshopper 2 boundary               |
+|   [4]   | `Rasm.Materials`   | `Rasm.Materials/AGENTS.md`   | host-free material catalogue         |
+|   [5]   | `Rasm.AppUi`       | `Rasm.AppUi/AGENTS.md`       | product UI rail                      |
+|   [6]   | `Rasm.AppHost`     | `Rasm.AppHost/AGENTS.md`     | runtime platform                     |
+|   [7]   | `Rasm.Compute`     | `Rasm.Compute/AGENTS.md`     | measured execution platform          |
+|   [8]   | `Rasm.Persistence` | `Rasm.Persistence/AGENTS.md` | local durable state                  |
 
-## [4][FILE_ARCHITECTURE]
+Use co-located `README.md`, `_ARCHITECTURE.md`, and `ROADMAP.md` files where present for project state, package adoption, file architecture, and implementation sequence. This parent overlay carries only family-level invariants.
 
-- Start with the smallest file set that preserves concern ownership.
-- Add a file only when it owns a durable sub-concern with multiple callers or a distinct native boundary.
-- Defer speculative splits with explicit thresholds; `Kernels.cs`, `Frames.cs`, and `Outputs.cs` start only after real multi-caller pressure.
-- Keep operation intent separate from native execution when both are large enough to blur each other.
-- Keep state records compact and typed; avoid record sprawl for one-use parameter bags.
-- Keep generated/native kernels internal unless exposing native identity adds real semantic value.
-- Reuse existing folder patterns before inventing new layout.
-- **Data-only catalogue libs follow the same rules as geometry libs but never reference upstream geometry; they are sibling to `Rasm` core, not subordinate** (e.g. `Rasm.Materials` — zero ProjectReference. Composition with geometry happens in downstream consumer libs that reference both.).
+## [5][BOUNDARY_RULES]
 
-## [5][LIB_TOPOLOGY]
+- Keep the project graph acyclic and rooted in the kernel. A new sibling-to-sibling edge needs a local owner route and proof that composition belongs there.
+- Keep host isolation by host. Rhino and Grasshopper host types stay inside their owning boundary projects unless an explicit multi-host consumer owns composition.
+- Keep scaffold facts in project architecture or roadmap files. Do not infer public surfaces, references, or package adoption from a planned project.
+- Treat solution, central-package, and directory-prop changes as broad build-trigger changes; route command syntax to `CLAUDE.md` and `tools/quality/README.md`.
 
-Durable per-lib ownership and the only legal `ProjectReference` direction (parent `[2][NAVIGATION_CONTEXT]` table lists the host-boundary subset only; this is the full lib-internal map):
+## [6][REJECTIONS]
 
-| [PROJECT]          | [OWNS]                                                                   | [STATE]  | [REFERENCES]                             |
-| ------------------ | ------------------------------------------------------------------------ | -------- | ---------------------------------------- |
-| `Rasm`             | Geometry kernel + analysis algebra (`Domain`, `Analysis`, `Vectors`)     | active   | none (root); carries `Rhino.*` BCL       |
-| `Rasm.Rhino`       | RhinoWIP boundary (Camera, Commands, Construction, Exchange, Blocks, UI) | active   | `Rasm`                                   |
-| `Rasm.Grasshopper` | GH2 component/data/UI boundary                                           | active   | `Rasm`                                   |
-| `Rasm.Materials`   | Architectural material catalogues + pure layout data                     | active   | none (zero geometry, zero host)          |
-| `Rasm.AppUi`       | Unified product UI rail (Avalonia/ReactiveUI/LiveCharts/Skia)            | active   | `Rasm`, `Rasm.Grasshopper`, `Rasm.Rhino` |
-| `Rasm.AppHost`     | Unified runtime platform (DI/host/telemetry coordination)                | scaffold | (planned; no `.csproj` yet)              |
-| `Rasm.Compute`     | Measured-execution platform over `Rasm.Vectors`                          | scaffold | (planned; no `.csproj` yet)              |
-| `Rasm.Persistence` | Local durable state (store/query/migrations/snapshots)                   | scaffold | (planned; no `.csproj` yet)              |
-
-Invariants (verifiable, not inferable from a single file):
-- **Acyclic, `Rasm`-rooted DAG.** Every reference flows toward `Rasm`. A new `Rasm.*` -> `Rasm.*` edge that is not toward the kernel, or any cycle, is a design error — collapse the concern instead.
-- **Host-isolation by host.** `Rhino.*` global usings are legal ONLY in `Rasm` and `Rasm.Rhino`; `Grasshopper2.*` ONLY in `Rasm.Grasshopper`. `Rasm.Materials` (and any data-only catalogue) carries neither host namespace nor any geometry reference. A boundary project must not pull in a foreign host's globals — route cross-host composition through `Rasm.AppUi`, the only multi-host consumer.
-- **Scaffold vs active.** `Rasm.AppHost`, `Rasm.Compute`, `Rasm.Persistence` have no `.csproj` and are absent from `Workspace.slnx`: they are `_ARCHITECTURE.md`/`ROADMAP.md`-stage. Do not add them to other projects' references or assume their public surface exists. Their package adoption is gated by `docs/host-libraries.md` (`[NOT_IN_GRAPH]` until a bootstrap consumer); follow each project's own `AGENTS.md` Phase 0 before writing production code.
-- **Materials is sibling, not subordinate** (restated boundary from `[4]`): composition with geometry happens only in a downstream consumer that references both — never by adding a geometry reference to `Rasm.Materials`.
-
-Adding a project to the solution is a `Workspace.slnx`/`Directory.*.props` trigger change: validate with full static (`uv run python -m tools.quality static full`), per `CLAUDE.md` §5.2.
+- No `Helpers`, `Utils`, `Manager`, `Service`, `Common`, `Misc`, grab-bag `Options`, or generic parameter-bag sprawl.
+- No compatibility aliases or transitional wrappers after the canonical owner exists.
+- No package versions in documentation or project references when central manifests own version truth.
+- No data-only library references to geometry or host assemblies.
+- No public API that merely renames a native call without adding policy, proof, safety, batching, or typed failure value.

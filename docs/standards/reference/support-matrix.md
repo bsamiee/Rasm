@@ -14,7 +14,7 @@ Route future support intent to [roadmap.md](../explanation/roadmap.md), current 
 
 [AUTHORING_CONTRACT]:
 - Agent use: choose one support profile and regime, declare the status vocabulary, then publish only support facts a reader can compare or act on.
-- Required produced structure: lead, `Scope`, `Status vocabulary`, `Matrix`, `Exclusions`, `Boundaries`, and `Checklist`, with profile-triggered lifecycle, bounds, dependency, limitation, deprecation, or migration sections inserted only when needed.
+- Required produced structure: lead, `Scope`, `Status vocabulary`, `Matrix`, `Exclusions`, `Boundaries`, and `Validation`, with profile-triggered lifecycle, bounds, dependency, limitation, deprecation, or migration sections inserted only when needed.
 - Section cardinality: one support question per matrix; one status vocabulary; one or more matrix sets only when profile axes differ; conditional sections appear only when their rows consume them.
 - Adjacent checks: check roadmap for future intent, architecture for current path-state or codemap changes, API/code documentation for contract-backed support, README for entry status, how-to for migration steps, runbook for operational recovery, and reference for ordinary lookup facts only when a row changes those reader actions.
 - Maintenance triggers: update the matrix when a source lifecycle, support phase, compatibility bound, generated check, dependency floor, entitlement, host runtime, support row, deprecation warning, replacement, or migration route changes.
@@ -29,7 +29,7 @@ Choose one profile per matrix. Split the page when a second profile would force 
 - Feature availability: capabilities by plan, edition, runtime, platform, API version, region, or integration.
 - API or feature deprecation: deprecated surfaces, replacements, warning signals, removal versions or dates, and migration targets.
 
-Kubernetes-style skew fields apply only to skew-governed systems. Other compatibility profiles may use semantic-version ranges, peer-dependency bounds, API version windows, provider policy terms, or generated compatibility-check outputs as the controlling model.
+Skew fields apply only to skew-governed systems. Other compatibility profiles may use semantic-version ranges, peer-dependency bounds, API version windows, provider policy terms, or generated compatibility-check outputs as the controlling model.
 
 ## [3][SUPPORT_REGIME]
 
@@ -48,6 +48,7 @@ A matrix that mixes regimes states the regime per row or per section.
 Use the universal structure, then insert profile-conditional sections only where triggered.
 
 Use this universal template:
+
 ```markdown template
 # [SURFACE_SUPPORT]
 
@@ -63,10 +64,11 @@ Use this universal template:
 
 ## [5][BOUNDARIES]
 
-## [6][CHECKLIST]
+## [6][VALIDATION]
 ```
 
 Add these conditional sections only when the selected profile requires them:
+
 ```markdown template
 ## [N][LIFECYCLE_DATES]
 
@@ -84,9 +86,10 @@ Add these conditional sections only when the selected profile requires them:
 ```
 
 Section cardinality uses these groups:
+
 [REQUIRED_UNIVERSAL]:
 - Opening lead: required, single; states the support question, profile, and regime.
-- Required sections: `Scope`, `Status vocabulary`, `Matrix`, `Exclusions`, `Boundaries`, and `Checklist`.
+- Required sections: `Scope`, `Status vocabulary`, `Matrix`, `Exclusions`, `Boundaries`, and `Validation`.
 - Repeatable section: `Matrix`, one table or grouped subsection per profile axis.
 
 [CONDITIONAL_PROFILE]:
@@ -99,55 +102,55 @@ Section cardinality uses these groups:
 
 [CLOSE]:
 - `Boundaries`: required, single.
-- `Checklist`: required, single.
+- `Validation`: required, single.
 
 ## [5][LIFECYCLE_BASELINES]
 
 Map imported lifecycle or compatibility concepts to their source instead of flattening them into local vocabulary.
 
-Use endoflife.date API documentation and OpenAPI for imported lifecycle values. Use Microsoft Lifecycle, Modern Policy, Fixed Policy, and lifecycle definitions for Microsoft support phases. Use Kubernetes Version Skew Policy for skew-governed compatibility. Use local manifests, lockfiles, generated contracts, compatibility checks, release records, and scope-local reference documents for repository support truth.
+Use local manifests, lockfiles, generated contracts, compatibility checks, release records, and scope-local reference documents for repository support truth. Use imported lifecycle or compatibility values only when a maintained source route preserves the source fields before local mapping.
 
-Apply [proof.md](../proof.md) to row-level proof and source-conflict handling. A visible source-model record is required when imported lifecycle data, generated compatibility checks, manifests, lockfiles, or upstream policy controls more than one row. Keep row-level proof for exceptions and rows refreshed independently.
+Apply [proof.md](../proof.md) to row-level proof and source-conflict handling. A visible source-model record is required when imported lifecycle data, generated compatibility checks, manifests, lockfiles, or maintained policy controls more than one row. Keep row-level proof for exceptions and rows refreshed independently.
 
-Do not invent local lifecycle semantics where upstream policy carries phase, date, support entitlement, or compatibility. When a generated compatibility check and prose disagree, the check controls.
+Do not invent local lifecycle semantics where maintained policy carries phase, date, support entitlement, or compatibility. When a generated compatibility check and prose disagree, the check controls.
 
 ```text template
 Support regime: `<rolling, fixed-term, intersection, skew-governed, entitlement-gated, or local generated>`
-Evidence: `<source path, generated check, manifest, lockfile, official policy, or proof gap>`
+Evidence: `<source path, generated check, manifest, lockfile, maintained policy, or proof gap>`
 Generated from: `<compatibility check, lifecycle import, manifest query, or omitted when manually sourced>`
-Source of truth: `<upstream policy, manifest, lockfile, generated contract, support row, or official source>`
+Source of truth: `<maintained policy, manifest, lockfile, generated contract, support row, or maintained source>`
 Last verified: YYYY-MM-DD
 Review trigger: `<policy, lifecycle source, generated check, manifest, package, host, or support document changes>`
 Imported fields: `<source fields preserved before local mapping; omit when not imported>`
 Missing-value rule: `<how null, false, omitted, not announced, and unknown values are preserved>`
 ```
 
-When importing endoflife.date data, preserve upstream field names before mapping them to local display labels:
-Boolean/date pairs: `isEoas`/`eoasFrom`, `isEol`/`eolFrom`, `isEoes`/`eoesFrom`, and `isDiscontinued`/`discontinuedFrom`.
-Related fields: `isLts`, `ltsFrom`, `isMaintained`, `latest`, and `custom` when they affect a row.
-Missing-value rule: preserve omitted fields, explicit `null`, false booleans, and not-announced dates as distinct facts.
+When importing lifecycle data, preserve upstream field names before mapping them to local display labels:
+- Boolean/date pairs: `isEoas`/`eoasFrom`, `isEol`/`eolFrom`, `isEoes`/`eoesFrom`, and `isDiscontinued`/`discontinuedFrom`.
+- Related fields: `isLts`, `ltsFrom`, `isMaintained`, `latest`, and `custom` when they affect a row.
+- Missing-value rule: preserve omitted fields, explicit `null`, false booleans, and not-announced dates as distinct facts.
 
 ## [6][STATUS_VOCABULARY]
 
-Define statuses by the exact fix classes and support channels they grant. Local labels are display labels; each row must carry `Upstream phase:` and `Phase grants:` when an upstream policy carries the terms.
+Define statuses by the exact fix classes and support channels they grant. Local labels are display labels; each row must carry `Source phase:` and `Phase grants:` when a maintained policy carries the terms.
 
 Use these default labels:
-- `Supported`: current supported state under the route policy; exact fix classes come from `Upstream phase:` and `Phase grants:`.
-- `Maintenance`: reduced support such as security fixes, critical bug fixes, or self-service support only, as the upstream phase defines.
+- `Supported`: current supported state under the route policy; exact fix classes come from `Source phase:` and `Phase grants:`.
+- `Maintenance`: reduced support such as security fixes, critical bug fixes, or self-service support only, as the source phase defines.
 - `Limited`: supported only for the stated capabilities, environments, entitlements, or bounds.
 - `Deprecated`: present but discouraged and scheduled or eligible for removal under a stated policy.
 - `End of support`: no ordinary fixes, security updates, or assisted support unless an explicit extended-support program says otherwise.
 - `Retired`: removed or unavailable.
 - `Unsupported`: not intended to work or outside the documented support contract.
 
-Carry status through text, not color, icons, or badges alone. A status definition that names no fix classes or upstream mapping is non-conforming.
+Carry status through text, not color, icons, or badges alone. A status definition that names no fix classes or source mapping is non-conforming.
 
 Status-definition records use this shape. Define only the statuses the produced matrix uses before the first row.
 
 ```text template
 Status: `<display label>`
 Local meaning: `<reader-facing meaning>`
-Upstream phase: `<source phase; omit only when local support truth carries status>`
+Source phase: `<source phase; omit only when local support truth carries status>`
 Phase grants: `<fix classes or support entitlement>`
 Support channel: `<ordinary, security-only, self-service, extended, none, or local channel>`
 Caller action: `<use, avoid, migrate, pin, upgrade, remove, or check support source>`
@@ -160,7 +163,7 @@ Support-display states: `Supported`, `Maintenance`, `Limited`, and `Deprecated` 
 
 ## [7][LIFECYCLE_DATES]
 
-State lifecycle dates as distinct fields and preserve upstream precision. Do not collapse active support, end of life, extended support, end of availability support, end of engineering support, discontinued, maintained, LTS, or latest-release facts into one date when the source distinguishes them.
+State lifecycle dates as distinct fields and preserve source precision. Do not collapse active support, end of life, extended support, end of availability support, end of engineering support, discontinued, maintained, LTS, or latest-release facts into one date when the source distinguishes them.
 
 Use these common lifecycle fields:
 - End of active support: feature and ordinary bug-fix support stop, where the source publishes this date.
@@ -171,7 +174,7 @@ Use these common lifecycle fields:
 ```text conceptual
 Release line: `Rasm net10.0 target framework`
 Status: Supported
-Upstream phase: .NET 10 SDK compiler surface.
+Source phase: .NET 10 SDK compiler surface.
 Phase grants: compile target for repository projects; no package-level runtime support claim.
 Released: not recorded in repository support truth.
 End of active support: not announced in this matrix.
@@ -183,7 +186,7 @@ Last verified: YYYY-MM-DD
 Review trigger: target framework, SDK pin, or support policy changes.
 ```
 
-The record is source-verified against `Directory.Build.props`; publish upstream lifecycle dates only when a support document verifies the external lifecycle source beside the row.
+The record is source-verified against `Directory.Build.props`; publish upstream lifecycle dates only when a support document verifies the maintained lifecycle source beside the row.
 
 Use a lifecycle or deprecation diagram only when transitions change reader action and cannot be scanned as clearly from records. The diagram below is conceptual; keep records as controlling source and place a text equivalent after every real diagram.
 
@@ -202,7 +205,7 @@ stateDiagram-v2
     accTitle: Support lifecycle transition
     accDescr: A surface moves from supported to maintenance or directly to deprecation, then end of support and retirement; migration guidance is recorded beside deprecated surfaces.
     [*] --> Supported
-    Supported --> Maintenance: upstream phase changes
+    Supported --> Maintenance: source phase changes
     Supported --> Deprecated: replacement announced
     Maintenance --> Deprecated: replacement announced
     state "End of support" as EndOfSupport
@@ -217,44 +220,50 @@ Text equivalent: the support row remains `Supported` until the source phase chan
 
 Use a table when row-and-column scanning is the clearest comparison and keep it inside the shared table ceiling. Use a definition block when one surface is read by field. Use grouped subsections when a row needs paragraph detail, nested proof, or migration explanation.
 
-Each row must stand alone. Include the applicable field set:
-Surface: product, component, feature, integration, runtime, platform, API, or plan.
-Version or scope: version, release line, channel, edition, region, environment, or entitlement.
-Status: one term from the status vocabulary.
-Upstream phase: exact lifecycle or support phase from the source, when one exists.
-Key date: lifecycle or deprecation date when the profile carries dates.
-Supported capabilities: capabilities covered when status is partial.
-Unsupported capabilities: capabilities excluded when status is partial.
-Compatibility bound: version range or provider policy term for compatibility rows.
-Requirement: dependency, entitlement, certification, patch, or toolchain floor.
-Replacement: required when deprecated or removed.
-Basis when needed: source path, contract, command, generated check, or official policy link.
+Each row must stand alone. Include the applicable field set by purpose:
 
-Do not copy a large generated or vendor-local matrix when the official source is stronger. Publish only the local subset that changes reader decisions and link the controlling source.
+[IDENTITY_STATUS]:
+- `Surface`: product, component, feature, integration, runtime, platform, API, or plan.
+- `Version or scope`: version, release line, channel, edition, region, environment, or entitlement.
+- `Status`: one term from the status vocabulary.
+- `Source phase`: exact lifecycle or support phase from the source, when one exists.
+- `Key date`: lifecycle or deprecation date when the profile carries dates.
 
-An accepted matrix shows the comparison axis, support condition, explicit unknowns, and proof stub without turning cells into paragraphs:
+[CONSTRAINT_PROOF]:
+- `Supported capabilities`: capabilities covered when status is partial.
+- `Unsupported capabilities`: capabilities excluded when status is partial.
+- `Compatibility bound`: version range or provider policy term for compatibility rows.
+- `Requirement`: dependency, entitlement, certification, patch, or toolchain floor.
+- `Replacement`: required when deprecated or removed.
+- `Basis when needed`: source path, contract, command, generated check, or maintained policy link.
+
+Do not copy a large generated or source-maintained matrix when a maintained source is stronger. Publish only the local subset that changes reader decisions and link the controlling source.
+
+An accepted matrix shows the comparison axis, support condition, explicit unknowns, and proof stub without turning cells into paragraphs. Use `[CONDITION]` for the shortest support condition; promote the row to a record when source phase, phase grants, requirement, replacement, or proof needs separate fields.
+
 ```markdown conceptual
-| [INDEX] | [SURFACE]              | [VERSION] | [STATUS]  | [UPSTREAM_PHASE] | [PHASE_GRANTS] | [BOUND]                      | [KEY_DATE]      | [BASIS]                   |
-| :-----: | :--------------------- | :-------- | :-------- | :--------------- | :------------- | :--------------------------- | :-------------- | :------------------------ |
-|   [1]   | `Rasm` projects        | `net10.0` | Supported | local target     | compile target | repository-wide target       | not announced   | `Directory.Build.props`   |
-|   [2]   | RhinoWIP host refs     | WIP app   | Limited   | host-local       | local lookup   | `/Applications/RhinoWIP.app` | still supported | `Directory.Build.props`   |
-|   [3]   | RhinoCommon API lookup | local XML | Supported | host metadata    | API query      | `rhino-common` source key    | not announced   | `tools.quality api query` |
+| [INDEX] | [SURFACE]              | [SCOPE]   | [STATUS]  | [CONDITION]                  | [KEY_DATE]      | [BASIS]                   |
+| :-----: | :--------------------- | :-------- | :-------- | :--------------------------- | :-------------- | :------------------------ |
+|   [1]   | `Rasm` projects        | `net10.0` | Supported | repository-wide target       | not announced   | `Directory.Build.props`   |
+|   [2]   | RhinoWIP host refs     | WIP app   | Limited   | `/Applications/RhinoWIP.app` | still supported | `Directory.Build.props`   |
+|   [3]   | RhinoCommon API lookup | local XML | Supported | `rhino-common` source key    | not announced   | `tools.quality api query` |
 ```
 
 Notes: `not announced` and `still supported` are explicit values, not blank cells. Row-level proof belongs beside the row note or promoted record: `Evidence: <policy, generated check, or command>` and `Review trigger: <release line, policy, entitlement, or generated-check change>`.
 
 When a table row needs proof, replacement, or migration detail too large for a cell, move that row to a record:
+
 ```text template
 Surface: `<product, component, feature, runtime, platform, API, or plan>`
 Version or scope: `<release line, version range, entitlement, or environment>`
 Status: `<status vocabulary term>`
-Upstream phase: `<source phase; omit when no upstream phase exists>`
+Source phase: `<source phase; omit when no source phase exists>`
 Phase grants: `<fix classes or support channel>`
 Key date: `<date, not announced, still supported, or n/a>`
 Requirement: `<dependency, certification, or entitlement; omit when unconditional>`
 Replacement: `<replacement surface; omit when no replacement exists>`
-Evidence: `<source path, generated check, command, contract, or official policy>`
-Source of truth: `<source path, manifest, generated contract, or upstream policy>`
+Evidence: `<source path, generated check, command, contract, or maintained policy>`
+Source of truth: `<source path, manifest, generated contract, or maintained policy>`
 Review trigger: `<release, policy, compatibility, entitlement, or generated-check change>`
 Route-away: `<README, API, roadmap, migration how-to, runbook, or support document body; omit untriggered routes>`
 ```
@@ -273,9 +282,8 @@ Cells stay atomic: date, status, compact marker, or `n/a`. Put conditional suppo
 
 ## [10][COMPATIBILITY_BOUNDS]
 
-State compatibility bounds using the source model that governs the surface.
+State compatibility bounds using the source model that governs the surface. For skew-governed systems, use this template:
 
-[SKEW_GOVERNED]:
 ```text template
 Component: `<component-name>`
 Counterpart: `<component-or-control-plane-name>`
@@ -308,7 +316,7 @@ Enumerate unsupported configurations explicitly. The absence of a row is not pro
 Unsupported: treating `System.Drawing.Common` as a runtime dependency for Rasm host plugins; using GH2 tree behavior as plain lists; resolving RhinoCommon symbols without local RhinoWIP XML or `tools.quality api query`.
 ```
 
-The examples are source-backed exclusion shapes. Publish only exclusions proven by maintained docs such as `docs/system-api-map`, `docs/usage.md`, or generated API metadata.
+The examples are maintained-source exclusion shapes. Publish only exclusions proven by maintained docs such as `docs/system-api-map`, `docs/usage.md`, or generated API metadata.
 
 ## [13][DEPRECATIONS]
 
@@ -339,9 +347,10 @@ Review trigger: command surface, generated API contract, support policy, or migr
 
 ## [14][MIGRATION_PATHS]
 
-Keep migration guidance decision-oriented. For each migration, name source surface, target surface, direct or staged path, prerequisites, known breaking changes, validation signal, and controlling how-to. Put the step-by-step work in [how-to.md](../task/how-to.md) and operational recovery in [runbook.md](../task/runbook.md).
+Keep migration guidance decision-oriented. For each migration, name source surface, target surface, direct or staged path, prerequisites, known breaking changes, evidence signal, and controlling how-to. Put the step-by-step work in [how-to.md](../task/how-to.md) and operational recovery in [runbook.md](../task/runbook.md).
 
 Use a migration anchor record when the support matrix links roadmap intent, API deprecation, README status, or a how-to without embedding the sequence:
+
 ```text template
 Source surface: `<deprecated, limited, unsupported, or retired surface>`
 Target surface: `<replacement; omit when no replacement exists>`
@@ -349,7 +358,7 @@ Support status: `<status vocabulary term>`
 Changed fact: `<support row or lifecycle fact that changed>`
 Consumed by: `<API, architecture, README, roadmap, migration how-to, runbook, or support matrix>`
 Use in this document: `<reader decision the support matrix changes>`
-Validation signal: `<command, generated check, source inspection, or proof gap>`
+Evidence: `<command, generated check, source inspection, or proof gap>`
 Update when: `<source support status, compatibility bound, generated check, replacement, or migration path changes>`
 Close when: `<target is adopted, source is removed, or consuming document routes away the migration>`
 Route-away: `<step-by-step migration, API catalog, README body, roadmap sequence, or runbook recovery body>`
@@ -367,39 +376,45 @@ Do not create a shared support folder by implication inside this standard.
 
 ## [16][BOUNDARIES]
 
+[REFERENCE_ROUTES]:
 - [reference.md](reference.md) carries support facts when support is one lookup fact among many.
 - [architecture.md](../explanation/architecture.md) carries current codemap/path-state changes caused by support, deprecation, compatibility, or retirement rows.
 - [api.md](api.md) carries generated or contract-backed API surface truth that support rows cite.
 - [code-documentation.md](code-documentation.md) carries public symbol semantics when support or deprecation changes caller-visible source comments.
+
+[PLANNING_TASK_ROUTES]:
 - [roadmap.md](../explanation/roadmap.md) carries future support intent and milestone exit proof.
 - [how-to.md](../task/how-to.md) carries step-by-step migration procedures.
 - [runbook.md](../task/runbook.md) carries operational recovery for support-impacting incidents.
 - [README.md](../README.md) carries document-type routing, placement, and lifecycle.
 
-Package graph states are adoption states, not support statuses by default. A support matrix may consume package state only when it maps the row to support regime, upstream phase, fix classes, support channel, compatibility bounds, replacement, and removal behavior.
+Package graph states are adoption states, not support statuses by default. A support matrix may consume package state only when it maps the row to support regime, source phase, fix classes, support channel, compatibility bounds, replacement, and removal behavior.
 
-## [17][CHECKLIST]
+## [17][VALIDATION]
 
-Use this checklist by group:
+Use this verification checklist by group:
+
 [SOURCE_STATUS]:
 - [ ] Opening lead carries the support question, profile, and regime.
 - [ ] Scope names the surface, one profile, and the support regime.
-- [ ] Status vocabulary defines only used statuses and maps each to upstream phase and fix classes.
-- [ ] Imported lifecycle values preserve upstream names, boolean and date pairs, and null or not-announced distinctions before local mapping.
+- [ ] Status vocabulary defines only used statuses and maps each to source phase and fix classes.
+- [ ] Imported lifecycle values preserve source names, boolean and date pairs, and null or not-announced distinctions before local mapping.
 - [ ] Imported lifecycle rows distinguish omitted, explicit null, false, and not-announced values where the source model distinguishes them.
 
-[MATRIX_BOUNDS]:
+[MATRIX_ROWS]:
 - [ ] Matrix rows stand alone and carry claim-level proof through [proof.md](../proof.md) when needed.
 - [ ] Exclusions enumerate unsupported configurations explicitly.
 - [ ] Lifecycle profiles keep active support, end of life, extended support, retirement, discontinuation, maintained, LTS, and latest facts distinct where the source distinguishes them.
 - [ ] Compatibility profiles use the correct source model: skew, semver range, dependency bounds, API window, provider policy, or generated check.
 - [ ] Skew fields appear only for skew-governed systems and use source-defined component bounds.
-- [ ] Dependency-floor rows state the upstream minimum and support ceiling.
+- [ ] Dependency-floor rows state the source minimum and support ceiling.
+
+[BOUNDS_DIAGRAMS]:
 - [ ] Unknown dates or undecided statuses are encoded explicitly.
 - [ ] Conditional support uses visible notes or footnotes, never paragraph cells.
 - [ ] Lifecycle, deprecation, or compatibility diagrams appear only where transitions or edges change reader action, and each diagram has a text equivalent.
 
 [DEPRECATION_MIGRATION]:
 - [ ] Deprecation entries distinguish current availability, warning signal, replacement, removal, behavior change, and the policy behind removal.
-- [ ] Migration anchors name source, target, roadmap or how-to route, and validation signal rather than embedding steps.
+- [ ] Migration anchors name source, target, roadmap or how-to route, and `Evidence` rather than embedding steps.
 - [ ] Boundaries route adjacent concerns once and every relative link resolves.

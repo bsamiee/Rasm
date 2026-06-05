@@ -39,7 +39,11 @@ _WIRE = msgspec.json.Encoder(order="deterministic")
 
 
 def _make_envelope(run_id: str, claim: Claim = Claim.STATIC) -> Envelope:
-    """Build a deterministic OK Envelope for a given run_id (used as history entry)."""
+    """Build a deterministic OK Envelope for a given run_id.
+
+    Returns:
+        Persistable history Envelope for registry retention tests.
+    """
     report = fold(claim, "check", (receipt(("tool",), 0, status=RailStatus.OK),))
     return msgspec.structs.replace(envelope(report, claim=claim, verb="check"), run_id=run_id)
 
@@ -98,7 +102,11 @@ def _assert_retain_prune(mem_store: ArtifactStore, run_a: str, run_b: str, run_c
 
 
 def _assert_reload_roundtrip(mem_store: ArtifactStore, run_b: str, run_c: str) -> tuple[Envelope, Envelope]:
-    """Reload survivors and assert run_ids survive byte-identically."""
+    """Reload survivors and assert run_ids survive byte-identically.
+
+    Returns:
+        Reloaded survivor envelopes in input order.
+    """
     loaded_b = _load_run(mem_store, run_b)
     loaded_c = _load_run(mem_store, run_c)
     assert loaded_b is not None, "run_b should survive retention"

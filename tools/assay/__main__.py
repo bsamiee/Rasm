@@ -1,4 +1,4 @@
-"""Project the assay registry into the CLI command tree."""
+"""Expose the Assay registry as the CLI entrypoint."""
 
 import sys
 from typing import Final, TYPE_CHECKING
@@ -17,18 +17,15 @@ if TYPE_CHECKING:
 # --- [COMPOSITION] ----------------------------------------------------------------------
 
 
-app: Final = build_app(REGISTRY)  # self-test + auto attached on root inside build_app, beside the claim sub-apps
+app: Final = build_app(REGISTRY)
 
 
-@app.meta.default  # the meta app wraps EVERY command result before exit
+@app.meta.default
 def meta(*tokens: str) -> int:
-    """Resolve CLI tokens to a process exit code.
-
-    Args:
-        *tokens: Command-line tokens excluding the executable name.
+    """Resolve CLI tokens to the returned Envelope exit code.
 
     Returns:
-        The exit code exposed by the returned `Envelope`.
+        Process exit code derived from the emitted Envelope.
     """
     try:
         result = app(tokens, result_action="return_value", backend="asyncio", exit_on_error=False, print_error=False)
@@ -38,20 +35,17 @@ def meta(*tokens: str) -> int:
 
 
 def main(argv: list[str] | None = None) -> int:
-    """Run the CLI and flush tracing before returning.
-
-    Args:
-        argv: Command tokens to dispatch. `None` forwards `sys.argv[1:]`.
+    """Run the CLI and flush tracing before exit.
 
     Returns:
-        The process exit code.
+        Process exit code returned by the CLI dispatcher.
     """
-    # force_flush read off the provider with an identity fallback: zero-cost return when tracing is gated off.
+    # The fallback keeps tracing opt-in without branching the exit path.
     flush: Callable[[int], bool] = getattr(get_tracer_provider(), "force_flush", lambda _timeout_millis: True)
     try:
         return meta(*(sys.argv[1:] if argv is None else argv))
     finally:
-        flush(5000)  # 5 s bound matches BatchSpanProcessor default schedule_delay: spans export before exit
+        flush(5000)
 
 
 if __name__ == "__main__":

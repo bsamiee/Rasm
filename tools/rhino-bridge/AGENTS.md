@@ -1,75 +1,50 @@
-# [AGENT_MANIFEST]
+# [RHINO_BRIDGE_AGENTS]
 
-Scope: `tools/rhino-bridge/` only. Root `AGENTS.md` and `CLAUDE.md` own universal policy; this file is the canonical bridge-operator delta. Full operator reference (command catalog, output contract, reference policy, failure reading, update rules) is `tools/rhino-bridge/README.md` — point to its sections, do not restate them here.
+Scope: `tools/rhino-bridge/` only. Root policy owns universal quality selection; this file is the bridge-operator delta. `README.md` owns architecture, command catalog, output contract, environment variables, failure reading, and update rules.
 
-## [1][ROUTING]
+## [1][READ_ORDER]
 
-- Quality-rail selection and runtime-verification policy: `CLAUDE.md` §5.2; live-lease parallelism rules: `CLAUDE.md` §5.2 [10].
-- Scenario authoring + testkit: `tests/csharp/AGENTS.md` §7 and `.claude/skills/testing-cs/references/bridge-runtime.md`; `.verify.csx` and testkit route to `testing-cs`.
-- Architecture (operator→client→protocol→plugin), command catalog, env vars, status/exit policy: `README.md` §2-§4.
-- Reference projection + isolation policy: `README.md` §5. Failure-signal table: `README.md` §6. Bridge change update rules: `README.md` §7.
+- When changing operator behavior, protocol expectations, command text, or failure interpretation, read `README.md`.
+- When choosing static, test, bridge, package, or publish rails, read `CLAUDE.md` quality policy.
+- When authoring scenarios, read `tests/csharp/AGENTS.md` and `testing-cs` bridge guidance.
+- When changing bridge wire behavior, read protocol, client, plugin, and quality wrapper code first.
 
 ## [2][WHEN_TO_INVOKE]
 
-Use bridge commands ONLY when static .NET gates (`static fix`/`static build`) cannot answer — those rails own managed cleanup and compile/analyzer proof; never reach for the bridge for them.
-- Library scenarios under `tests/csharp/libs/<Project>/<MirrorPath>/scenarios/*.verify.csx` — `bridge verify <path-or-glob>` is the agent-first rail; it resolves the owning project from the mirror convention automatically (no manifest, no catalog).
-- Real diagnostics on a Rhino/GH `*.csproj` — `bridge check <project>`. With no scenario the internal smoke probe emits `returnValue.kind = "assemblyFreshness"` as assembly-load evidence.
-- Build proof on a `*.cs` — `bridge check <source.cs>` returns `unsupported` (exit 3) without a scenario. Exit 3 here is truthful build proof, NOT failure; do not retry it as an error.
-- Runtime host facts before editing native-touching code — `bridge doctor` (resolves `hostRuntime`, `scriptEngine` readiness, and host-assembly versions/paths from the newest installed RhinoWIP bundle, never NuGet).
-- Undocumented host/package member reads — `api doctor|resolve|query|show`; `api query <key> <symbol>` (dotted `Type.Member`) owns member/type reads via `ilspycmd`, XML-optional. Compact JSON to stdout; full query/decompile evidence under `.artifacts/quality/api/<run-id>/`.
+Use bridge commands only when static managed gates cannot answer runtime host behavior:
+- Library `*.verify.csx` scenarios under mirrored test paths.
+- Real diagnostics on Rhino/GH projects or source paired with scenarios.
+- Host runtime facts that require current RhinoWIP/GH2 assemblies.
+- Undocumented host or package member reads through the API rail.
 
-## [3][WHEN_NOT_TO_INVOKE]
+Do not invoke bridge rails for synthetic unit tests, coverage probes, normal managed compile cleanup, Rhino settings automation, or long-running UI-thread experiments that the host cannot cancel safely.
 
-- Synthetic/mocked unit tests or coverage probes — xUnit + `Rasm.TestKit` (`docs/testing-libs/`), never the bridge.
-- Long-running UI-thread experiments — RhinoCode execution is not server-cancelable; `--timeout-ms` is a client transport deadline only.
-- Rhino settings / template / preference automation — owned by `LoadTime.AtStartup` plugin lifecycle, never scripted from this repo.
+## [3][BRIDGE_INVARIANTS]
 
-## [4][BRIDGE_INVARIANTS]
+- Bridge check and verify rebuild the owning project and surface stale lockfiles as lock-drift faults; remediate lock drift through restore, not code edits.
+- Grasshopper-aware scenarios must drive GH2 through the bridge-owned wrapper route so isolated resolver state does not split host singletons.
+- Bridge-hot assemblies must use key types that the isolated resolver can warm up reliably.
+- Scenarios are source-only. The bridge owns reference projection, host assemblies, and injected usings; `#r`, `#load`, and absolute build-output paths are hard errors.
 
-Non-derivable constraints an agent cannot infer from the code:
-- **Rebuild semantics:** `check`/`verify` REBUILD the owning project in Release under `RestoreLockedMode=true`. A stale `packages.lock.json` surfaces as the distinct fault category `nuget-lock-drift` (NU1004/NU1403) — remediate with `dotnet restore Workspace.slnx --force-evaluate`, NOT a code edit. It is not a generic compile error.
-- **GH2 isolated-resolver trap:** Grasshopper-aware projects get bridge-owned `BridgeWire.ScenarioHostUsings` (`Eto.Drawing`) and GH2 is pre-loaded into the default ALC (`BridgeWire.GrasshopperPluginId`) before execution. Drive GH2 only through `Rasm.Grasshopper.UI` wrapper types. A raw `using Grasshopper2.*` plus direct GH2 types forces GH2 as a compile reference, which the isolated resolver binds as a SEPARATE GH2 instance, breaking the shared editor/canvas singletons — such scenarios cannot run on the isolated bridge.
-- **HashMap key policy in bridge-hot assemblies:** use only primitive, `string`, `Guid`, `uint`/`ulong`, or built-in value-tuple keys inside `HashMap<,>`. Custom record-struct keys (e.g. `PreviewFingerprint`) fail under isolated-resolver trait warmup even with correct reference order.
-- **No `#r`/`#load`/absolute paths in scenarios:** the bridge owns reference projection and injects `BridgeWire.ScenarioBaseUsings` into every scenario; host assemblies stay off `#r`. Authoring these in a scenario body is a hard error, not a convenience.
+## [4][SCENARIO_KIT]
 
-## [5][SCENARIO_KIT]
+Author scenarios through the testkit scenario harness. Emit facts through the provided fact bag and rely on bridge markers as the structured wire contract.
 
-- `Rasm.TestKit.Scenarios` capsules (`tests/csharp/_testkit/Scenarios/`) are bridge-staged automatically — no `#r` directive. Catalog/migration patterns live there and in `.claude/skills/testing-cs/references/bridge-runtime.md`.
-- Author via the polymorphic `Scenario.Run(theme, capturePath, (key, facts) => { … })` harness: it builds the `Op key`, emits the `scenario=`/`capture=` header, runs the body, and serializes the `FactBag` to one `facts={json}` plain line plus one `rasm.rhino-bridge.evidence=facts={json}` marker. Inside the body, call `facts.Add(string key, object value)` as a void statement (no return, no chaining).
+Use marker scanning for returned envelopes and evidence facts. Do not parse individual legacy `key=value` lines; human-readable duplicates are noise, not the contract.
 
-## [6][PARSING_EVIDENCE]
+## [5][ARTIFACTS]
 
-- Bridge markers are the structured wire contract. Use `Rasm.RhinoBridge.Protocol.BridgeMarker.Scan(string stdout) -> IReadOnlyList<BridgeMarker>`; filter `BridgeMarker.Evidence` for the `facts` payload and `BridgeMarker.Returned` for `execute.data.returnValue` envelopes.
-- Do NOT parse individual `key=value` plain lines — legacy per-fact emission was removed during the scenario migration. The plain `facts={json}` line is duplicate human-readable noise; rely on the prefixed Evidence marker.
+Bridge verification writes ephemeral JSON reports, shadow references, summaries, and captures under the bridge artifact route. Treat those paths as run-local evidence; never persist references into them as durable documentation truth.
 
-## [7][ARTIFACTS]
+## [6][REJECTIONS]
 
-- `bridge verify` writes JSON reports, shadow refs, `summary.json`, and PNG captures under `.artifacts/rhino/verify/<run-id>`. Treat it as ephemeral: default retention `300` s via `QUALITY_VERIFY_RETENTION_SECONDS`; each run prunes prior bundles past that window. Never persist references into it.
+- No bridge use for managed static cleanup that static rails can prove.
+- No scenario body references, loads, or absolute artifact paths.
+- No raw GH2 host types in isolated scenarios when the wrapper route is required.
+- No parsing of human-readable bridge output when protocol markers exist.
+- No durable documentation link to a run-retained artifact path.
+- No package, deploy, publish, or secret-consuming operation without the quality policy route that owns it.
 
-## [8][VALIDATION]
+## [7][STOP_RULES]
 
-Select the touched rail; parallelism/lease policy is `CLAUDE.md` §5.2 [10] (concurrent static/test rails; fail-fast exclusive leases for live bridge/verify/package). Minimal ladder for bridge changes:
-
-```bash
-uv run python -m tools.quality self-test
-pnpm check:py
-uv run pytest tests/tools/quality/test_quality.py -q
-uv run python -m tools.quality bridge build-bridge
-uv run python -m tools.quality static fix
-uv run python -m tools.quality static build
-uv run python -m tools.quality bridge doctor
-uv run python -m tools.quality bridge check apps/grasshopper/Radyab/Radyab.csproj
-rc=0
-uv run python -m tools.quality bridge check apps/grasshopper/Radyab/Components/ExtractPoints.cs || rc=$?
-[[ "${rc}" == 3 ]]
-uv run python -m tools.quality bridge verify tests/csharp/libs/Rasm/Vectors/scenarios
-```
-
-Packaging changes add:
-
-```bash
-VERSION=0.0.0-ci.$(date -u +%Y%m%d%H%M%S)
-uv run python -m tools.quality bridge package rasm-bridge "${VERSION}"
-uv run python -m tools.quality bridge deploy rasm-bridge "${VERSION}"
-uv run python -m tools.quality bridge publish rasm-bridge "${VERSION}"
-```
+If bridge bootstrap, host assembly identity, staged reference, lock drift, or LanguageExt loading fails, fix setup or report the proof gap before changing scenario semantics. If package, deploy, or publish behavior is in scope, route to the operator README and root quality policy before invoking it.

@@ -1,56 +1,41 @@
-# [AGENT_MANIFEST]
+# [RASM_MATERIALS_AGENTS]
 
-Scope: `libs/csharp/Rasm.Materials/` only. Root `AGENTS.md` and `CLAUDE.md` own universal policy; this file adds subtree deltas only.
+Scope: `libs/csharp/Rasm.Materials/` only. Root policy and `libs/csharp/AGENTS.md` own universal C# and library-family rules; this file adds host-free material-catalogue deltas.
 
-## [1][PURPOSE]
+## [1][SCOPE]
 
-`Rasm.Materials` is the architectural material catalogue plus pure material-owned layout data. It is not a geometry library and not a Rhino-aware module.
+`Rasm.Materials` is the architectural material catalogue plus pure material-owned layout data. It is not a geometry library, Rhino-aware module, persistence surface, or generated-data dump.
 
-Encode building-material reference data (sizes, families, grades, types, bonds, special shapes, joints, properties) and material-domain layout outputs as typed in-memory data carried by closed `SmartEnum` vocabularies, Thinktecture unions, and immutable records. Downstream consumers — geometry generators, Grasshopper components, structural assemblers — receive immutable typed records. No JSON, no SQL, no source generator, no native binary, no I/O.
+Encode material reference data and material-domain layout outputs as typed in-memory data carried by closed vocabularies, unions, immutable records, and total query surfaces. Downstream consumers translate material data into geometry, documents, components, or storage.
 
-## [2][BOUNDARY_DOCTRINE]
+## [2][READ_ORDER]
 
-`Rasm.Materials.csproj` carries **zero `ProjectReference`** by design. Materials is sibling to `Rasm` core, not subordinate. Future consumers that compose materials with geometry (e.g. `Rasm.Masonry` for layout-into-Rhino) reference BOTH `Rasm.Materials` and `Rasm.Rhino` — they never widen `Rasm.Materials` with geometry awareness. Adding a `Rasm` ProjectReference here would let geometry types leak into the catalogue and break the "downstream-consumable by any plugin without dragging the geometry kernel" guarantee that justifies the separation in the first place. Same rule applies to every future data-only catalogue library (`Rasm.Standards`, `Rasm.Codes`, etc.) — sibling, not subordinate.
+- When editing a catalogue, layout, or query rail, read the target material folder to find its bounded context.
+- When changing brick sequence, scope, or deferred work, read `Bricks/ROADMAP.md`.
+- When changing BCL collection, source generation, or package/reference policy, read `docs/system-api-map`.
+- When changing catalogue values, read the source standards of record and preserve typed citation routes in code documentation.
 
-## [3][DESIGN_CONTRACT]
+## [3][EXTENSION_GRAMMAR]
 
-- Build per-material polymorphic surfaces, not flat constant pools. Each material folder owns its full domain (types + data + query) through one consumer surface and dense FP internals.
-- Author data directly in C#. The type system is the schema. Refactor across the catalogue with IDE tools, never through stringly-typed JSON migration.
-- Keep public usage small and typed. Consumers access through SmartEnum-attached properties (`BrickDesignation.UsModular.Unit`, `BondName.English.Course(index)`, `brick.Region.Policy`) and small projections (`BrickRegion.Us.Units()`, `SpecialShape.Catalog`). Unit lookups are total; generated bond courses return `Option.None`.
-- Encode regional standards (BIA TN 10, BS EN 771-1, current DIN/EN 771-1 context, AS/NZS 4455.1 requirements context, IS 1077) as closed vocabularies inside a single `BrickDesignation` `SmartEnum`. Adding a brick = adding one factory line.
-- Express patterns as data + interpreter. Bonds are `CourseTemplate` records (orientations + offset fractions), never class hierarchies. Special shapes are catalogue records, not subtypes.
-- Keep material layout scalar and host-free. Brick-owned layout may emit course/station/elevation/angle records, but never native document or drawing objects.
+- New material: add its own folder, namespace, catalogue, closed vocabularies, query rail, and typed source route.
+- New regional, standard, type, bond, joint, coring, shape, or layout variance: extend the owning vocabulary or union before adding parallel enum families.
+- New layout behavior: keep it scalar and host-free; downstream host modules translate layout records into document objects.
+- New source fact: put evidence in code documentation or catalogue records, not in this overlay.
 
-## [4][FOLDER_OWNERSHIP]
+## [4][BOUNDARY_RULES]
 
-- `Bricks/` owns the masonry catalogue and pure brick layout rail: regional brick sizes (US/UK/DIN/AU/IS), bond patterns as template/generated data, special shapes, joint profiles with attached defaults (thickness, description), regional masonry policy (movement/expansion/weep/tie attached to `BrickRegion`), arch rules attached to `ArchProfile`, ASTM type classifications attached to `BrickType`, coring archetypes with attached void-fraction and classification, and scalar brick assemblies.
-- Future material folders (`Steel/`, `Concrete/`, `Timber/`, `Glass/`, `Stone/`, …) follow the same pattern: one folder, one polymorphic catalogue, one query surface, one error union.
+| [INDEX] | [BOUNDARY]        | [RULE]                                                     |
+| :-----: | :---------------- | :--------------------------------------------------------- |
+|   [1]   | Materials project | Owns host-free catalogues and scalar layout data           |
+|   [2]   | Geometry projects | Consume materials; never leak geometry into catalogues     |
+|   [3]   | Host projects     | Translate material/layout data into native document shapes |
+|   [4]   | Material folders  | Own independent bounded contexts                           |
+|   [5]   | Source standards  | Prove catalogue values through typed code documentation    |
 
-## [5][DOMAIN_EXTENSION_RULES]
+## [5][REJECTIONS]
 
-- Treat each material folder as a closed bounded context. No cross-material data sharing at the catalogue level — a brick joint is not a stone joint; encode separately even when names overlap.
-- Add new bricks by extending the `BrickDesignation` `SmartEnum`. Never branch the regional taxonomy into per-region SmartEnums.
-- Flow outward from `Rasm.Materials.Bricks` into consumers. `Rasm.Materials` itself never depends on geometry, Rhino, or Grasshopper.
-- Keep layout ownership with the material when the output is pure scalar data. Downstream host modules translate scalar assemblies into document objects.
-- Extend brick layout by adding typed input variance, normalizing it into station/elevation constraints, and reusing the single `BrickAssembly.Layout` rail.
-- Regional masonry policy attaches to `BrickRegion` SmartEnum directly (movement coefficients, expansion-joint spacing, weep-hole spacing, tie spacing). The U.S. baseline is a reference/default policy, not a complete current-code authority table; UK/DIN/AU/IS reuse it until authoritative regional values are encoded — no fabricated splits.
-
-## [6][SURFACE_RULES]
-
-- Expose one query surface per material. `Bricks/` routes through SmartEnum-attached payloads plus small projection operations. No finder, repository, sibling accessor, or duplicate catalogue class.
-- Do not export underlying collection builders. Static sets are public only when the union itself owns the vocabulary, as with `SpecialShape.Catalog`.
-- Do not bolt new materials onto `Rasm.Materials.Brick`. New materials get their own folder + namespace + catalogue.
-
-## [7][IMPLEMENTATION_RULES]
-
-- Author dimensions in metric (millimetres). Imperial standards (BIA TN 10) convert at authoring time; the record stores mm only.
-- Keep brick records immutable: `sealed record Brick` with primary constructor, no setters, no mutation.
-- Bond patterns are `Seq<Orientation>` sequences with offset fractions, never strings or magic numbers.
-- Use `Fin<T>` for lookups that may miss; switch expressions for dispatch; `[Union]` for orientation/cut/shape/closure/error variance; `[SmartEnum<string>]` for closed designations.
-- `JointProfile` SmartEnum is self-describing (carries default thickness and description). No separate `JointSpec` record — attached SmartEnum properties are the canonical lookup surface.
-- Apply the Coring methodology (SmartEnum factory params → readonly auto-properties) to every closed vocabulary with canonical data: `Coring`, `BrickType`, `JointProfile`, `BrickRegion`, `BondName`, `ArchProfile`, `BrickDesignation` all carry their authoritative payload inline. Catalogue records (`Brick`, course templates) are SmartEnum-attached, not separate `FrozenDictionary` entries — lookups are total at the type level.
-- Validated value-objects: `Dim3` is `[ComplexValueObject]` with `ValidateFactoryArguments(ref ValidationError?, ref widthMm, ref heightMm, ref lengthMm)`; `AspectRatio` is `[ValueObject<double>(KeyMemberName = "LengthOverWidth", ...)]`. Constructor sites use `Dim3.Create(widthMm: …, …)` and `AspectRatio.Create(lengthOverWidth: …)` — throws `ValidationException` on invalid input, by design (build-time catalogue literals never trigger; consumer-input call sites surface validation failures).
-- Standards-of-record: `BrickSource` `[Union]` (BiaTn10Table1/Table2/BsEn771Part1/DinEn771Part1/AsNzs4455Part1/Is1077, each carrying `string Note`). Every `Brick` carries a typed `BrickSource Source` — no stringly-typed citations.
-- Use `docs/system-api-map` for `FrozenDictionary`, BCL collection, and package/reference policy; keep catalog data in static frozen lookups unless a generated smart enum owns the behavior.
-- Cite the source standard inline as XML doc comment on each catalogue entry (e.g., `/// <summary>BIA TN 10 Table 1.</summary>`).
-- Refactor `Layout.cs` toward union-owned polymorphism as repetition appears: path metrics belong on `BrickPath`, layout constraints belong in one typed constraint union, and station transforms belong in one modifier union. Do not add concern-specific public layout methods.
+- No geometry, Rhino, Grasshopper, persistence, JSON, SQL, generated external schema, native binary, or I/O dependency in the material catalogue.
+- No per-region duplicate enum families when one closed vocabulary owns the distinction.
+- No finder, repository, duplicate accessor, public collection-builder, or stringly typed citation surface.
+- No fabricated regional policy split without source-standard evidence.
+- No public layout method per special case when one typed constraint or modifier rail can own the variance.

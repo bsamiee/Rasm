@@ -1,152 +1,62 @@
-# [H1][ASSAY_AGENTS]
+# [ASSAY_AGENTS]
 
-`tools/assay` methodology and standards for every future agent editing this tree.
-Root `AGENTS.md` and `CLAUDE.md` own universal policy; this file is assay-specific.
-`coding-python` skill is required before any `.py` edit.
+Scope: `tools/assay/` only. Root policy owns universal Python and docs behavior; `coding-python` is required before any `.py` edit. `README.md` owns the command surface, operator workflow, and user-facing tool reference.
 
-## [1][ARCHITECTURE_IN_ONE_BREATH]
+## [1][READ_ORDER]
 
-One **Engine** (`core/engine.run_check`/`fan_out`) runs every program in every language.
-Programs are **data rows** (`Tool` in `composition/catalog.py`), not modules.
-One **rail** per `Claim` selects rows, routes inputs, folds outcomes into one `Report`.
-One **`Envelope`** on stdout per invocation (automation: one per fire, NDJSON).
-Cross-cutting behavior attaches **only** as a slot-ordered aspect stack at **two seams**:
+- When changing command behavior, operator text, or public wire expectations, read `README.md`.
+- When editing a module, read the target module fully first.
+- When adding a rail, verb, tool row, wire detail, or stdout shape, read `core/model.py`, `composition/catalog.py`, and `composition/registry.py`.
+- When changing execution, aspect composition, routing, leases, or subprocess behavior, read `core/engine.py`, `core/aspect.py`, and `core/routing.py`.
+- When changing automation triggers, actions, or fire loops, read `automation/model.py` and `automation/engine.py`.
 
-| [SEAM] | [STACK] | [WHY] |
-| ------ | ------- | ----- |
-| Rail runner (`composition/registry`) | `checked ▷ logged ▷ traced` | Parent span + logging; a rail is a `Hom`, not a `Spawn`. |
-| `run_check` (`core/engine`) | `checked ▷ traced ▷ retried` | Per-`Check` child span; retry on spawn only; logging stays on the parent. |
+## [2][ARCHITECTURE_CONTRACT]
 
-`Slot(IntEnum){checked=0, logged=1, traced=2, retried=3}` — `compose` sorts and rejects inversions as a decoration-time `TypeError`.
-The automation arm (`automation/`) shares Engine, leases, settings, and `_emit`; it is a first-class arm, not a `Claim`.
+Assay is one engine over data rows. Programs are catalog rows, rails select rows, the engine runs checks, and one envelope shape crosses every invocation. Cross-cutting behavior attaches only through ordered aspect seams.
 
-## [2][POLYMORPHIC_ADT_AND_AOT_DISCIPLINE]
+## [3][EXTENSION_GRAMMAR]
 
-**Axis `StrEnum`s carry behavior payloads** — `Runner.prefix`, `Input.flag`/`scoped`, `Language.strategy`/`suffixes`, `Mode.stream`/`writes`.
-One member instance serves Cyclopts token, `msgspec` wire value, and `match` key simultaneously.
-**One `Detail`/`Report`/`Envelope` shape** crosses every rail; `Detail` is a `msgspec` tagged union keyed by `kind` with explicit short tags (`verify`/`test`/`package`/`api`/`resolution`/`diagnostic`) and `forbid_unknown_fields`.
+- Program: add one catalog row.
+- Language: add one language axis member, routing arm, and catalog rows.
+- Verb: add one registry bind and one owning params type.
+- Detail: add one tagged detail variant and union registration.
+- Aspect: add one layer, one slot, and one seam entry.
+- Automation trigger or action: add one tagged union case.
+- In-process tool: add one catalog row with a thunk folded through the same engine rail.
 
-**How to extend correctly — exactly one touch per concern:**
-- Add a program: one `Tool` row in `catalog.py`.
-- Add a language: one `Language` member + one routing arm in `routing.py` + rows in `catalog.py`.
-- Add a verb: one `Bind` row in `REGISTRY` + a frozen `@dataclass` `Params` class in the owning `rails/<claim>.py`.
-- Add a `Detail` variant: one new `msgspec.Struct` subclassing `Detail` with a new explicit short `tag`, one entry in the `AnyDetail` union, one `_DETAIL_DECODER` rebuild.
-- Add an aspect: one new `Layer` factory in `core/aspect.py` + a new `Slot` member + a new seam entry. The `compose` sort picks it up automatically.
-- Add an automation trigger/action: one tagged case on `Trigger`/`Action` unions in `automation/model.py`.
-- Add an in-process tool: one catalog row with `Runner.INPROC` + a bound `Tool.thunk` (`Callable[[Check], Completed]`); `engine._guarded` runs it on a worker thread (`anyio.to_thread`) under the same `fail_after` deadline + `traced` span, folded through the identical `Completed`→`fold` rail as a subprocess (this is the `code query` tree-sitter path).
+## [4][ENGINEERING_RULES]
 
-**Never** add a parallel type, a parallel param, a second rail shape, a new module for a program, or a helper file for indirection.
-Functionality is never removed to reduce LOC — density is concept count, not byte count.
+- Axis enums carry behavior payloads; do not split vocabulary, CLI tokens, wire values, and match keys into parallel types.
+- One report, detail, envelope, artifact, match, count, bind, and params model crosses rails unless a new tagged case is the required extension.
+- Keep registration data-driven. Data rows and folds own behavior; decorators and helper modules are rejected indirection.
+- Keep stdout writes behind the one emitter and keep diagnostics on stderr.
+- Improve tools through deeper internal behavior, resilience, routing, and typed failure, not agent-facing knobs.
+- Cap inline collections only when the wire marks truncation and points to the persisted full artifact.
 
-## [3][DEEP_EXTERNAL_LIB_STACK_AS_A_DISCIPLINE]
+## [5][BOUNDARY_RULES]
 
-Use every library **at its intended power**. Hand-rolling a lower-level reimplementation is a first-class defect.
+| [INDEX] | [BOUNDARY]       | [OWNER]                   |
+| :-----: | :--------------- | :------------------------ |
+|   [1]   | Wire model       | `core/model.py`           |
+|   [2]   | Engine execution | `core/engine.py`          |
+|   [3]   | Routing          | `core/routing.py`         |
+|   [4]   | Aspects          | `core/aspect.py`          |
+|   [5]   | Tool rows        | `composition/catalog.py`  |
+|   [6]   | CLI registry     | `composition/registry.py` |
+|   [7]   | Settings/store   | `composition/settings.py` |
+|   [8]   | Rails            | `rails/<claim>.py`        |
+|   [9]   | Automation model | `automation/model.py`     |
+|  [10]   | Automation loop  | `automation/engine.py`    |
 
-| [LIB] | [TIER] | [INTENDED SEAM] |
-| ----- | ------ | --------------- |
-| `msgspec` | core | `Struct` freeze/gc/hash; tagged-union `Detail`; cached `Encoder`/`Decoder`; `structs.replace` for dynamic arg splice; `Meta` constraints at decode. |
-| `pydantic-settings` | core | `AssaySettings` only; `(init_settings, env_settings)` sources; `AliasChoices`; `model_copy(update=…)` for remote settings. |
-| `expression` | core | `Result`/`Ok`/`Error` rails; `Block.fold`/`block.of_seq`/`block.collect` for concatMap; `@effect.result` for generator ROP only (never a plain returning function). |
-| `anyio` | core | `create_task_group`; `CapacityLimiter`; `run_process`/`open_process`; `fail_after`; single `anyio.run` — never nested. |
-| `cyclopts` | core | `App`; `Parameter(name="*")` flatten; `resolve_returncode`; `__cyclopts_returncode__`. |
-| `beartype` | aspect | `@checked` seam at `BeartypeConf(strategy=O1)`; resolves forward-refs at CALL time. |
-| `structlog` | aspect | `@logged`; `WriteLoggerFactory(sys.stderr)`; `bound_contextvars`; `ring_processor` appends the invocation ring in place. |
-| `opentelemetry` | aspect | `@traced`; one span per call; `baggage`/`context` for fleet correlation; `BatchSpanProcessor`; gated on configured OTLP endpoint. |
-| `stamina` | aspect | `@retried` on spawn only; `RetryHook` closes the baggage↔contextvars loop; never retries `BUSY`/`TIMEOUT`. |
-| `psutil` | adopted | Lease liveness — `(pid, create_time)` steal stale holders; optional fleet CPU governor. |
-| `watchfiles` | adopted | `awatch` debounced filesystem `Watch` trigger; anyio `stop_event`. |
-| `aiocron` | adopted | `crontab(spec, start=False)` `Schedule` trigger under one task group; zero data-store. |
-| `fsspec`/`universal-pathlib` | adopted | `ArtifactStore` backend abstraction; `UPath` for all path fields; `memory://` gives zero-IO test isolation. |
-| `asyncssh` | adopted | `_run_remote` backend in `core/engine`; `conn.run`/`create_process` for `exec_target=ssh://…`. |
-| `tree-sitter` (+py/ts grammars) | adopted | `code query` AST search via `Runner.INPROC`; `Language(capsule)`/`Parser`/`Query(lang, src)`/`QueryCursor` — 0.25.x captures live on `QueryCursor`, not `Query`. |
+## [6][REJECTIONS]
 
-## [4][HARD_ANTI-SPAM_DOCTRINE]
+- No parallel type, params, rail shape, status enum, report struct, parser protocol, tool module, helper file, or wrapper object for one concept.
+- No free `typing.Literal` aliases for vocabularies already owned by an enum.
+- No pydantic model for wire shapes owned by the message model.
+- No stdout writes outside the emitter.
+- No glob-as-path argument for tools that walk their own tree.
+- No runtime-shape annotations hidden under `TYPE_CHECKING` when call-time validation needs them.
 
-Stop and collapse before merging any of these:
+## [7][STOP_RULES]
 
-- Free `typing.Literal` aliases for vocabularies already on a `StrEnum`.
-- `NamedTuple` CLI params — frozen `@dataclass` + Cyclopts `Parameter(name="*")` flatten only.
-- Second model system on wire shapes (pydantic `BaseModel` for `Report`/`Envelope`).
-- `Engine`/`Parser` `Protocol` — engine is module functions; `Parser = Callable[[Completed], AnyDetail | None]`.
-- Per-rail report structs — `Report` + tagged `detail` union only.
-- `Fault` with `returncode` or `detail` — it is `{argv, status=FAULTED, message}` only.
-- `return match …` — `match` is statement form; bind in `case`, then `return`.
-- `helpers.py`, `*Util`, `common_*`, single-call indirection.
-- `@tool`/`@rail` registration decorators — registration is data rows.
-- `@retried` on the rail runner; `@logged` on `run_check`.
-- Stdout writes outside `_emit`.
-- `worst(…)` — the fold is `RailStatus.join` (max-by-severity) + module `fold`.
-- Parallel types modeling one concept (≥3 triggers the collapse).
-
-## [5][LOCKED_ENGINEERING_PRINCIPLES]
-
-*Absorb these as durable principles; do not re-litigate.*
-
-**(a) PEP 758 / ruff format canonical form.** Python 3.14 ships PEP 758 — parenless `except A, B, C:` is valid AND is what `ruff format --target-version py314` produces (it strips grouping parens). Never re-add parens; `ruff format --check` will fail if you do.
-
-**(b) `@checked` beartype / unconditional imports.** `beartype` resolves a function's forward-ref annotations from its module's `__globals__` at first CALL, not at import. Any type in a `@checked`-wrapped signature must be imported **unconditionally** (never under `TYPE_CHECKING`). The `# noqa: TC001` markers on those imports and the `# unconditional for beartype` comments are load-bearing — removing them silently disarms runtime shape validation. Static gates (ruff/ty/mypy/`py_compile`/import) all pass on a function whose beartype annotations are shadowed under `TYPE_CHECKING`; the crash only surfaces at the first real call.
-
-**(c) Engine seam type suppressions are irreducible.** Two suppressions in `core/engine.py` and `core/aspect.py` cannot be retired by explicit parametrization — they only relocate between checkers. `compose_spawn(retried())(_guarded)` keeps one mypy `[arg-type]` (no-arg generic factory; mypy binds to `Never`, ty specializes at apply). The `@wraps`-induced async `_Woven` keeps one `[assignment]`/`ty:[invalid-assignment]` (`Hom`'s sync `Result` cannot unify with `Coroutine`). Do not re-chase.
-
-**(d) `traced` dispatches on `inspect.iscoroutinefunction`.** One factory owns both modalities. The async `awoven` branch awaits `fn(*a, **k)` inside the span context-manager so the span lifetime, baggage bind, and `_stamp` status wrap the real async work — not coroutine creation.
-
-**(e) Engine `_argv` / `structs.replace` splice.** Rails splice DYNAMIC args (pattern/project/input) into `tool.command` via `msgspec.structs.replace(tool, command=…)`, producing a new `Tool` with an updated `command`. `Check.paths` carries file-path scope only. Never stuff dynamic args into `Check.paths`.
-
-**(f) `_WRITES`/`_RING` are per-invocation `ContextVar`s.** The automation loop reuses `rail()` per fire; both vars are set fresh in the `try` block of `rail.run` and reset in the `finally`. A process-static `count()` would fault every fire after the first. Do not hoist them out of the per-invocation scope.
-
-**(g) Inherent power, never flags.** Improve a tool by deepening its internal behavior/resilience/integration — never by adding an agent-facing knob. Agents must be unable to mis-invoke or feed wrong I/O; the tool auto-routes and self-describes on failure. Minimal agent surface, maximal internal value. New capability rides inherent behavior, a new claim/verb, or a richer `Detail`/`Match` — not a flag.
-
-**(h) Terse agent wire; never truncate silently.** `Envelope` is `omit_defaults=True` (only non-default fields emit; `schema_version` always). A capped inline collection MUST set `truncated=true` AND persist the full set to an on-disk artifact whose pointer rides `report.artifacts` — a capped list with neither is information loss, not a terse wire. `Fault` never carries `FAILED` (a defect rides `Completed(FAILED)` on the success channel); the Error channel is `faulted`/`busy`/`timeout` only.
-
-**(i) Resilience before optimization.** Prove correctness + full old-tool parity + resilience (no fragile logic, no latent bugs, every path runs) before optimizing. Never optimize on a fragile base; never trade a capability for speed.
-
-**(j) Tree-walking tools self-walk via `Input.NONE`.** ast-grep `run`/`scan` and biome `ci` walk a tree themselves (respecting `.gitignore`); they take a directory/file PATH, never a `**/*.py` glob (ast-grep rejects a glob as a path → ENOENT → silent zero matches — this once made the static ast-grep lint inert). Splice the target paths into `tool.command` with `Input.NONE`; only a tool consuming an explicit file list (tree-sitter INPROC) takes `Input.FILES`. Add `--no-ignore hidden` where one tool's walk must cover the same tree as another's `fd` file list.
-
-## [6][HOW_TO_CHECK_FOR_REAL_BUGS]
-
-The static gate is necessary but not sufficient. A tool that passes every static check — `ruff check`, `ruff format --check`, `ty check`, `mypy --strict`, `import tools.assay.__main__` — can still crash on every invocation due to beartype forward-ref shadowing, async-span wrapping, or nested-anyio defects. These only surface at runtime.
-
-**Always verify a change by running it:**
-
-```bash
-uv run python -m tools.assay <claim> <verb>          # minimal smoke
-uv run python -m tools.assay static plan             # zero-spawn plan fold
-uv run python -m tools.assay api doctor              # api health with ilspy
-uv run python -m tools.assay self-test               # preflight census
-uv run python -m tools.assay code search --pattern '<pat>' --language python   # code arm
-```
-
-Inspect the single stdout Envelope; structlog diagnostics ride stderr. The success wire is **terse** (`Envelope` `omit_defaults=True`) — `status`/`exit_code` are omitted on a clean OK run, so decode via the typed `Envelope` (or `.get(...)`), never assume a raw `dict["status"]`. A `faulted` Envelope's `error_context.failing_step`/`hint` names the failing stage from the closed set `timeout`/`lease_busy`/`strict`/`validation`/`spawn`/`parse` (the last is a CLI parse fault folded through `parse_fault`/`BaseParams.surplus` into ONE `Diagnostic` shape — both raise sites carry `recent_events=[dispatch=<claim|none>, <full command line>]` + `elapsed_ms` + a `parse: … after …ms` hint identically, with `truncated=true` whenever a byte was dropped: read the TYPED `error_context.dispatched` boolean — `False` on a bare unknown root token whose `claim`/`verb` are placeholders, `True` on a surplus positional rejected by the verb's `BaseParams.bound` arity contract at `rail.run` or an unknown verb/option under a resolved sub-app — never substring-scrape `recent_events[0]`). Treat every "all green" static claim as a hypothesis to re-verify at runtime — and run `uv run ruff clean` before an authoritative gate: a warm ruff cache silently masked ~9 real D-rule/E501 violations during this tool's promotion.
-
-## [7][OWNERSHIP_TABLE]
-
-| [PATH] | [OWNS] | [NEVER] |
-| ------ | ------ | ------- |
-| `core/status.py` | `RailStatus`, `join`, `fold`, `from_returncode` | Second status enum or `status: str` field |
-| `core/model.py` | Axis enums, `Tool`, `Check`, `Report`, `Detail`, `Envelope`, `Artifact`, `Match`, `Counts`, `Bind`, `BaseParams`, `Parser` alias | Env settings, CLI params, per-program argv builders |
-| `core/engine.py` | `run_check`, `fan_out`, `exclusive_lease`, psutil liveness | Rail folds, Cyclopts, `Engine`/`Parser` Protocol |
-| `core/routing.py` | `route`, `place(routed, tool, *, settings)`, `Scope`, `Source` Protocol (sole justified Protocol) | Catalog rows, Envelope emit |
-| `core/aspect.py` | `checked`/`logged`/`traced`/`retried`, `compose`/`compose_spawn`/`assemble`/`_once`, `Slot`, `ring_processor` | Inline structlog/otel/stamina in rails |
-| `composition/settings.py` | `AssaySettings`, `ArtifactScope`, `ArtifactStore` (fsspec seam), `Configuration`/`LogFormat` | msgspec wire structs |
-| `composition/catalog.py` | `TOOLS` rows, `select(claim, language)`, parser functions | Handlers, registry, inline parser bodies |
-| `composition/registry.py` | `REGISTRY` binds, `rail`, `_emit` (sole stdout writer), `build_app` | Tool argv logic |
-| `rails/{static,test,docs}.py` | One `thin_rail` + thin adapters → `Result[Report, Fault]` | New status types, helper modules |
-| `rails/code.py` | `code` search/rewrite/query: ast-grep `run` (Input.NONE self-walk) + tree-sitter INPROC; `Match`/`Artifact` results, no `Detail`; `rewrite --apply` leased | New status types; glob-as-path argv |
-| `rails/{bridge,package,api}.py` | Bespoke folds + typed `Detail` variants | Catalog argv, second stdout writer |
-| `automation/model.py` | `Trigger`/`Action` tagged unions | Treating automation as a `Claim` |
-| `automation/engine.py` | One anyio task-group drive loop (watchfiles/aiocron), one Envelope per fire | A second `_emit`, per-fire `BUSY` retry |
-
-## [8][VALIDATION_LADDER]
-
-After any `.py` change (from the repo root — a wrong cwd reports phantom errors):
-
-```bash
-uv run ruff clean                                              # authoritative gate needs a cold cache
-uv run ruff check tools/assay && uv run ruff format --check tools/assay
-uv run ty check --python-platform all tools/assay
-uv run mypy --strict --explicit-package-bases tools/assay
-```
-
-Then run the tool: static-only passes mean nothing without a runtime smoke call.
-Wire law: `encode(decode(x)) == x` for `Envelope`/`Report`; an unknown `detail` field fails decode.
-Markdown-only edits require no static/test rail unless the user requests proof or move-only preservation fails (`git diff --check`).
+Static checks are not enough for `.py` behavior changes. If the changed rail cannot be exercised through a runtime smoke path, state the gap instead of claiming operator readiness.

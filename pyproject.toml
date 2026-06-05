@@ -96,11 +96,15 @@ error-on-warning = true
 # --- [MYPY] ----------------------------------------------------------------
 
 [tool.mypy]
-python_version =   "3.14"
-cache_dir =        ".cache/mypy"
-strict =           true
-pretty =           true
-warn_unreachable = true
+python_version =          "3.14"
+cache_dir =               ".cache/mypy"
+strict =                  true
+pretty =                  true
+warn_unreachable =        true
+explicit_package_bases =  true
+warn_unused_configs =     true
+disallow_any_explicit =   true
+disallow_any_unimported = true
 plugins = ["pydantic.mypy"]
 enable_error_code = [
     "exhaustive-match",
@@ -140,12 +144,12 @@ warn_untyped_fields =           true
 # --- [PYTEST] --------------------------------------------------------------
 
 [tool.pytest]
-minversion = "9.0"
-strict =     true
-cache_dir =  ".cache/pytest"
-testpaths =  ["tests"]
-pythonpath = ["."]
-collect_imported_tests = false
+minversion =              "9.0"
+strict =                   true
+cache_dir =                ".cache/pytest"
+testpaths =                ["tests"]
+pythonpath =               ["."]
+collect_imported_tests =   false
 empty_parameter_set_mark = "fail_at_collect"
 addopts = [
     "-x",
@@ -257,6 +261,7 @@ target-version = "py314"
 preview =        true
 force-exclude =  true
 line-length =    150
+required-version = ">=0.15.12,<0.16"
 extend-exclude = [
     "**/.approval_tests_temp/**",
     "**/.artifacts/**",
@@ -282,13 +287,6 @@ ignore = [
     # -- Formatter-handled (redundant with ruff format) ---------------------
     "COM812",  # trailing-comma (conflicts with formatter)
     "ISC001",  # implicit-string-concat (conflicts with formatter)
-    # -- Docstring policy ----------------------------------------------------
-    "D100",    # missing-docstring-in-public-module (section separators replace)
-    "D104",    # missing-docstring-in-public-package (__init__.py noise)
-    "D105",    # missing-docstring-in-magic-method (class docstring suffices)
-    "D107",    # missing-docstring-in-init (schema IS the documentation)
-    "DOC201",  # docstring-missing-returns (@safe/@maybe wraps return behavior)
-    "DOC501",  # docstring-missing-exception (@safe converts raise to Failure)
     # -- Match/case + FP style conflicts ------------------------------------
     "RET504",  # unnecessary-assign (named intermediates in flow() pipelines)
     "RET505",  # superfluous-else-return (exhaustive match dispatch)
@@ -465,11 +463,11 @@ runtime-evaluated-decorators =   ["beartype.beartype", "pydantic.computed_field"
 ignore-variadic-names = true
 
 [tool.ruff.lint.isort]
-combine-as-imports = true
+combine-as-imports =         true
 force-sort-within-sections = true
-lines-after-imports = 2
-order-by-type = false
-split-on-trailing-comma = false
+lines-after-imports =        2
+order-by-type =              false
+split-on-trailing-comma =    false
 
 [tool.ruff.lint.mccabe]
 max-complexity = 15
@@ -486,13 +484,16 @@ convention =            "google"
 ignore-decorators =     ["typing.overload", "typing.override"]
 property-decorators =   ["pydantic.computed_field"]
 
+[tool.ruff.lint.pydoclint]
+ignore-one-line-docstrings = false
+
 [tool.ruff.lint.pylint]
 allow-dunder-method-names = ["__get_pydantic_core_schema__", "__get_pydantic_json_schema__"]
 allow-magic-value-types =   ["str", "bytes", "int"]
-max-args = 8
-max-bool-expr = 3
-max-branches = 6
-max-locals = 10
-max-nested-blocks = 4
+max-args =           8
+max-bool-expr =      3
+max-branches =       6
+max-locals =         10
+max-nested-blocks =  4
 max-public-methods = 10
-max-statements = 30
+max-statements =     30

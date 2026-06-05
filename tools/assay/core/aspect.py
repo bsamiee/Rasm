@@ -1,4 +1,4 @@
-"""Define ordered aspect layers for rail and engine execution seams."""
+"""Define ordered aspect layers for rail and engine boundaries."""
 
 from collections import deque
 from collections.abc import Callable, Coroutine, Mapping
@@ -8,7 +8,7 @@ from enum import IntEnum
 from functools import wraps
 import inspect
 from operator import itemgetter
-from typing import assert_never, TYPE_CHECKING
+from typing import assert_never, Protocol, TYPE_CHECKING
 
 from beartype import beartype, BeartypeConf, BeartypeStrategy
 from expression import Ok, Result
@@ -43,15 +43,7 @@ type SpawnLayer[**P, T] = tuple[Slot, Callable[[Spawn[P, T]], Spawn[P, T]]]
 
 
 class Slot(IntEnum):
-    """Aspect layer order.
-
-    Attributes:
-        checked: Runtime shape validation layer.
-        logged: Structured logging layer.
-        traced: OpenTelemetry tracing layer.
-        retried: Spawn retry layer.
-
-    """
+    """Aspect layer order."""
 
     checked = 0
     logged = 1
@@ -59,19 +51,20 @@ class Slot(IntEnum):
     retried = 3
 
 
+class _AssayLogger(Protocol):
+    def info(self, event: str, **kw: object) -> object: ...
+
+    def warning(self, event: str, **kw: object) -> object: ...
+
+    def error(self, event: str, **kw: object) -> object: ...
+
+
 # --- [ERRORS] ---------------------------------------------------------------------------
 
 
 @dataclass(frozen=True, slots=True)
 class Inversion(Exception):  # noqa: N818  # surfaced via TypeError, not an *Error leaf
-    """Decoration-time layer ordering failure.
-
-    Attributes:
-        outer: Previously assembled outer slot.
-        inner: Slot that violated the monotonic order.
-        depth: Layer depth where the inversion was found.
-
-    """
+    """Decoration-time layer ordering failure."""
 
     outer: Slot
     inner: Slot
@@ -82,23 +75,15 @@ class Inversion(Exception):  # noqa: N818  # surfaced via TypeError, not an *Err
 
 _CONF = BeartypeConf(is_pep484_tower=True, strategy=BeartypeStrategy.O1)
 _TRACER = trace.get_tracer("assay.core")
-_LOG = structlog.get_logger("assay")
 _ATTR_CAP = 256
-# Method NAME resolved per-call via getattr so the lazy proxy binds the CONFIGURED chain: capturing
-# _LOG.error/.info here would freeze the import-time default before _configure runs, corrupting the
-# sole-stdout wire.
-_TERMINAL: dict[bool, str] = {True: "error", False: "info"}
-_RING: ContextVar[deque[str] | None] = ContextVar(
-    "assay_ring", default=None
-)  # invocation-scoped recent-events ring; set ONCE by registry.rail, appended in place so it survives the anyio.run boundary
+_RING: ContextVar[deque[str] | None] = ContextVar("assay_ring", default=None)
 
 
 # --- [OPERATIONS] -----------------------------------------------------------------------
 
 
 def _transient(exc: Exception) -> bool:
-    # Retry predicate: a contended lease (ResourceBusyError → BUSY) is a routing fact, not flaky
-    # transport, so it short-circuits to False before the transport arm.
+    # ResourceBusyError is a lease fact, not flaky transport, so it never retries.
     match exc:
         case ResourceBusyError():
             return False
@@ -108,23 +93,21 @@ def _transient(exc: Exception) -> bool:
             return False
 
 
+def _log() -> _AssayLogger:
+    logger: _AssayLogger = structlog.get_logger("assay")
+    return logger
+
+
 def _correlate(projected: Attrs) -> dict[str, str]:
-    # Normalize wire attrs into contextvar identifiers: strip the assay. prefix and turn OTel dots into
-    # _ so agent.task.id binds as the valid agent_task_id that _on_retry reads back; drop empty values.
+    # Normalize OTel-style attrs into contextvar identifiers and drop empty values.
     return {key.removeprefix("assay.").replace(".", "_"): str(val) for key, val in projected.items() if str(val)}
 
 
 def ring_processor(logger: object, method_name: str, event_dict: EventDict) -> EventDict:  # noqa: ARG001  # mandated structlog Processor signature: (logger, method_name, event_dict)
     """Append one structlog event summary to the active recent-events ring.
 
-    Args:
-        logger: Structlog processor logger argument.
-        method_name: Structlog method name.
-        event_dict: Event dictionary to pass through.
-
     Returns:
-        The unchanged event dictionary.
-
+        Event dictionary passed through to the structlog processor chain.
     """
     match _RING.get():
         case deque() as ring:
@@ -138,8 +121,7 @@ def ring_recent() -> tuple[str, ...]:
     """Snapshot the active recent-events ring.
 
     Returns:
-        Recent event summaries, or an empty tuple when no ring is active.
-
+        Recent event summaries for the current context.
     """
     match _RING.get():
         case deque() as ring:
@@ -149,10 +131,8 @@ def ring_recent() -> tuple[str, ...]:
 
 
 def _on_retry(details: RetryDetails) -> None:
-    # Module-scope stamina hook closing the baggage↔contextvars↔hook loop: reads the context traced
-    # bound outside the retried loop (run_id + agent_task_id, even where logged is forbidden) so each
-    # scheduled retry logs under the same correlation as its spawn.
-    _LOG.warning(
+    # Retry hooks read context bound outside the retried loop, including seams where logged is forbidden.
+    _log().warning(
         "retry.scheduled", attempt=details.retry_num, wait_for=details.wait_for, caused_by=type(details.caused_by).__name__, **get_contextvars()
     )
 
@@ -160,20 +140,19 @@ def _on_retry(details: RetryDetails) -> None:
 set_on_retry_hooks([_on_retry])
 
 
-def _once[F: Callable[..., object]](dec: Callable[[F], F]) -> Callable[[F], F]:
-    # Idempotency guard keyed on id(dec): dedup holds only for the SAME instance (distinct factory
-    # instances yield distinct tags), so callers wire each factory once at module scope.
+def _once[**P, T](dec: Callable[[Callable[P, T]], Callable[P, T]]) -> Callable[[Callable[P, T]], Callable[P, T]]:
+    # Idempotency is per decorator instance; callers wire factories once at module scope.
     tag = id(dec)
 
     @wraps(dec)
-    def guard(fn: F) -> F:
+    def guard(fn: Callable[P, T]) -> Callable[P, T]:
         ids: frozenset[int] = getattr(fn, "_assay_ids", frozenset())
         match tag in ids:
             case True:
                 return fn
             case False:
                 woven = dec(fn)
-                woven._assay_ids = ids | {tag}  # type: ignore[attr-defined]  # noqa: SLF001  # idempotency marker on the wrapper
+                woven._assay_ids = ids | {tag}  # type: ignore[attr-defined]  # ty: ignore[unresolved-attribute]  # noqa: SLF001  # idempotency marker on the wrapper
                 return woven
 
     return guard
@@ -182,13 +161,8 @@ def _once[F: Callable[..., object]](dec: Callable[[F], F]) -> Callable[[F], F]:
 def assemble[**P, T](layers: Block[Layer[P, T]], fn: Hom[P, T]) -> Result[Hom[P, T], Inversion]:
     """Apply ordered layers to a rail function.
 
-    Args:
-        layers: Layers to apply in order.
-        fn: Rail function to wrap.
-
     Returns:
-        Result containing the wrapped function or an inversion error.
-
+        Woven function, or an inversion error when slot order regresses.
     """
     seed: Result[tuple[Slot, int, Hom[P, T]], Inversion] = Ok((Slot.checked, 0, fn))
     return layers.fold(
@@ -202,12 +176,8 @@ def assemble[**P, T](layers: Block[Layer[P, T]], fn: Hom[P, T]) -> Result[Hom[P,
 def compose[**P, T](*layers: Layer[P, T]) -> Callable[[Hom[P, T]], Hom[P, T]]:
     """Build a rail-layer decorator.
 
-    Args:
-        *layers: Rail layers to compose.
-
     Returns:
-        Decorator that applies the ordered rail layers.
-
+        Decorator that applies the non-retry layers in slot order.
     """
     homs = block.of_seq(tuple(lyr for lyr in layers if lyr[0] is not Slot.retried))
 
@@ -226,11 +196,8 @@ def compose[**P, T](*layers: Layer[P, T]) -> Callable[[Hom[P, T]], Hom[P, T]]:
 def compose_spawn[**P, T](layer: SpawnLayer[P, T]) -> Callable[[Spawn[P, T]], Spawn[P, T]]:
     """Build an engine spawn-layer decorator.
 
-    Args:
-        layer: Spawn layer to apply.
-
     Returns:
-        Decorator for an async spawn function.
+        Decorator that applies checked, traced, and retry spawn layers.
 
     Raises:
         TypeError: The layer is not a retry slot.
@@ -246,12 +213,8 @@ def compose_spawn[**P, T](layer: SpawnLayer[P, T]) -> Callable[[Spawn[P, T]], Sp
 def checked[**P, T](*, conf: BeartypeConf = _CONF) -> Layer[P, T]:
     """Create the runtime shape-validation layer.
 
-    Args:
-        conf: Beartype configuration.
-
     Returns:
-        Rail layer that applies beartype once per factory instance.
-
+        Layer tuple for the checked slot.
     """
     return (Slot.checked, _once(beartype(conf=conf)))
 
@@ -259,13 +222,8 @@ def checked[**P, T](*, conf: BeartypeConf = _CONF) -> Layer[P, T]:
 def logged[**P, T](*, event: str, keys: Bind[P]) -> Layer[P, T]:
     """Create the rail logging layer.
 
-    Args:
-        event: Event name prefix.
-        keys: Function that projects log correlation keys.
-
     Returns:
-        Rail layer that logs terminal result status.
-
+        Layer tuple for the logged slot.
     """
 
     def dec(fn: Hom[P, T]) -> Hom[P, T]:
@@ -275,14 +233,17 @@ def logged[**P, T](*, event: str, keys: Bind[P]) -> Layer[P, T]:
                 res = fn(*a, **k)
                 match res:
                     case Result(tag="ok", ok=done):
-                        # done: T is the unbounded generic Hom payload, so a bare done.status is a mypy
-                        # --strict attr-defined; getattr is the precise generic projection, not dead code.
-                        _LOG.info(f"{event}.finish", status=getattr(done, "status", RailStatus.OK))
+                        # T is unbounded, so getattr is the generic status projection.
+                        _log().info(f"{event}.finish", status=getattr(done, "status", RailStatus.OK))
                     case Result(error=f):
-                        getattr(_LOG, _TERMINAL[f.status.severity >= RailStatus.FAILED.severity])(
-                            f"{event}.finish", status=f.status, message=f.message, argv=f.argv
-                        )
-                return res  # ty: ignore[invalid-return-type]  # mypy strict needs the Result[T] annotation; @wraps re-scopes that T under ty — the rail is identical
+                        logger = _log()
+                        finish = f"{event}.finish"
+                        match f.status.severity >= RailStatus.FAILED.severity:
+                            case True:
+                                logger.error(finish, status=f.status, message=f.message, argv=f.argv)
+                            case False:
+                                logger.info(finish, status=f.status, message=f.message, argv=f.argv)
+                return res  # ty: ignore[invalid-return-type]  # mypy strict needs the Result[T] annotation; @wraps re-scopes that T under ty: the rail is identical
 
         return woven  # ty: ignore[invalid-return-type]  # @wraps over expression.Result yields ty's _Wrapped re-scope; mypy --strict accepts the Hom passthrough
 
@@ -290,10 +251,9 @@ def logged[**P, T](*, event: str, keys: Bind[P]) -> Layer[P, T]:
 
 
 def _stamp[T](s: Span, res: Result[T, Fault]) -> Result[T, Fault]:
-    # Map the Result onto the live span's attributes + status; returns res unchanged.
     match res:
         case Result(tag="ok", ok=done):
-            s.set_attribute("assay.status", str(getattr(done, "status", RailStatus.OK)))  # generic Hom payload T is unbounded; see logged's note
+            s.set_attribute("assay.status", str(getattr(done, "status", RailStatus.OK)))
             s.set_status(Status(StatusCode.OK))
         case Result(error=f):
             s.set_attributes({"assay.status": f.status, "assay.message": f.message[:_ATTR_CAP]})
@@ -304,14 +264,8 @@ def _stamp[T](s: Span, res: Result[T, Fault]) -> Result[T, Fault]:
 def traced[**P, T](*, span: str, attrs: Callable[P, Attrs], agent: Callable[P, Attrs] | None = None) -> Layer[P, T]:
     """Create the tracing layer for sync rail and async spawn functions.
 
-    Args:
-        span: Span name.
-        attrs: Function that projects span attributes.
-        agent: Optional function that projects agent correlation attributes.
-
     Returns:
-        Rail layer that starts one span around each call.
-
+        Layer tuple for the traced slot.
     """
 
     def dec(fn: Hom[P, T]) -> Hom[P, T]:
@@ -345,7 +299,7 @@ def traced[**P, T](*, span: str, attrs: Callable[P, Attrs], agent: Callable[P, A
                 finally:
                     context.detach(token)
 
-        # awoven is the async Spawn woven (engine seam); both wovens are the @wraps Hom re-scope compose already suppresses.
+        # awoven is the async spawn boundary; compose owns the @wraps Hom re-scope suppression.
         return awoven if inspect.iscoroutinefunction(fn) else woven  # type: ignore[return-value]  # ty: ignore[invalid-return-type]
 
     return (Slot.traced, dec)
@@ -354,14 +308,8 @@ def traced[**P, T](*, span: str, attrs: Callable[P, Attrs], agent: Callable[P, A
 def retried[**P, T](*, on: Hook = _transient, attempts: int = 3, timeout: float = 30.0) -> SpawnLayer[P, T]:
     """Create the engine retry layer.
 
-    Args:
-        on: Predicate that selects retryable exceptions.
-        attempts: Maximum attempts.
-        timeout: Retry timeout in seconds.
-
     Returns:
-        Spawn layer that retries transient exception-channel failures.
-
+        Spawn layer tuple for the retried slot.
     """
     return (Slot.retried, _once(stamina.retry(on=on, attempts=attempts, timeout=timeout)))
 

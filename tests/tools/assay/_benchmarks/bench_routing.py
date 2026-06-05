@@ -7,16 +7,27 @@ Proportionality: place() over k=10 and k=20 synthetic .py files; ratio large/sma
 # --- [IMPORTS] ------------------------------------------------------------------------
 
 import time
-from typing import TYPE_CHECKING
+from typing import Protocol, TYPE_CHECKING
 
 from tools.assay.core.model import Claim, Input, Language, Mode, Runner, Tool
 from tools.assay.core.routing import place, Routed, Scope
 
 
 if TYPE_CHECKING:
-    import pytest
+    from collections.abc import Callable
 
     from tools.assay.composition.settings import AssaySettings
+
+
+# --- [TYPES] ----------------------------------------------------------------------------
+
+
+class RoutingBenchmark(Protocol):
+    """Typed surface consumed from pytest-benchmark's runtime fixture."""
+
+    def pedantic(
+        self, target: Callable[[Routed, Tool], tuple[tuple[str, ...], ...]], *, args: tuple[Routed, Tool], rounds: int, warmup_rounds: int
+    ) -> tuple[tuple[str, ...], ...]: ...
 
 
 # --- [CONSTANTS] -----------------------------------------------------------------------
@@ -32,7 +43,7 @@ _ROUTED = Routed(language=Language.PYTHON, scope=Scope.CHANGED)
 # --- [BENCHMARKS] ----------------------------------------------------------------------
 
 
-def bench_routing_proportionality(assay_root: AssaySettings) -> None:  # type: ignore[name-defined]
+def bench_routing_proportionality(assay_root: AssaySettings) -> None:
     """place() over 2k paths takes <= 3x the time of k paths — routing is O(N) not quadratic."""
     rounds = 500
 
@@ -48,7 +59,11 @@ def bench_routing_proportionality(assay_root: AssaySettings) -> None:  # type: i
     assert ratio <= 3.0, f"routing proportionality violated: ratio = {ratio:.2f} > 3.0"
 
 
-def bench_routing_single_path(benchmark: pytest.FixtureDef, assay_root: AssaySettings) -> None:  # type: ignore[name-defined]
+def bench_routing_single_path(benchmark: RoutingBenchmark, assay_root: AssaySettings) -> None:
     """place() over a single .py path is sub-millisecond — the single-file hot path."""
-    result = benchmark.pedantic(place, args=(_ROUTED, _PY_TOOL), kwargs={"settings": assay_root}, rounds=200, warmup_rounds=10)  # ty: ignore[unresolved-attribute]
+
+    def routed_place(routed: Routed, tool: Tool) -> tuple[tuple[str, ...], ...]:
+        return place(routed, tool, settings=assay_root)
+
+    result = benchmark.pedantic(routed_place, args=(_ROUTED, _PY_TOOL), rounds=200, warmup_rounds=10)
     assert isinstance(result, tuple)

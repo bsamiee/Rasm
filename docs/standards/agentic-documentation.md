@@ -28,7 +28,7 @@ Salience is relative, not a hard cutoff: the middle down-weights content, it doe
 
 Use bracketed headings, table rubrics, `[INDEX]` rows, and compact status markers as salience aids, not as decoration. They help an agent find boundaries, compare rows, and filter state; they do not replace the front-and-close rule, claim-level evidence, or precise prose.
 
-This corpus uses the position ring as its normative placement rule. Provider-behavior claims are proved only through the evidence labels and freshness rules local by [proof.md](proof.md).
+This corpus uses the position ring as its normative placement rule. Provider-behavior claims are proved only through the evidence labels and freshness rules defined by [proof.md](proof.md).
 
 ## [3][CONTEXT_INVARIANCE]
 
@@ -61,7 +61,7 @@ Keep durable documentation, task instructions, prompt assets, and state artifact
 
 - Durable documentation holds stable policy, conventions, reusable examples, canonical links, and tool contracts. It outlives any single interaction.
 - Prompt assets hold reusable task shapes, input slots, constraints, output contracts, and stop rules. They do not outrank `CLAUDE.md`, `AGENTS.md`, or this standards library; promote only durable policy from them into the controlling instruction or standards file.
-- Task instructions hold one objective, the done condition, the current evidence to inspect, hard constraints, the output contract, and the stop rule for one interaction, in the canonical field order the Task and output contracts section carries.
+- Task instructions hold one objective, the done condition, the current evidence to inspect, hard constraints, the output contract, and the stop rule for one interaction, in the canonical field order the task-output-contracts section defines.
 - State artifacts hold validated facts, current status, the next safe action, open questions, provenance, and known proof gaps for resumable work.
 
 Do not publish task-specific interaction material as durable documentation. Promote only the stable rule into its source standard, and leave transient context in the artifact that carries the interaction.
@@ -87,53 +87,11 @@ Prefer provider schema enforcement over a schema described in prose where the su
 
 ## [8][AGENTS_MD_AUTHORING]
 
-Write `AGENTS.md` as a durable, behavioral overlay for one directory: what the folder carries, which adjacent documents must move with it, which standards and commands apply, and which patterns are forbidden. It complements the human-facing README; it does not duplicate it, summarize it, or carry process notes. Keep root guidance short and place specialized rules near the subtree they govern; provider-specific loading behavior belongs in the provider-behavior section.
+Write `AGENTS.md` as a durable, behavioral overlay for one directory. [agents-md.md](agents-md.md) owns the semantic slots, authoring questions, route-away rules, anti-fragility rules, root profile, trust boundaries, and corpus rebuild rules for that surface.
 
-Start from the section set below. It is a suggested baseline, not a closed vocabulary: a directory may extend it with additional bracketed sections or relabel a section where a clearer name fits its needs. What binds is the include/exclude rule, not the exact section names. Whatever sections you keep, include only stable, universal, behavioral content an agent acts on:
-- `Scope`: directory scope and purpose, and the read order an agent follows into the deeper rules;
-- `Routing`: routing to the standards and reference files that own deeper rules, adjacent documents that must update with this folder, and routing of conflicting guidance;
-- `Execution rules`: build, test, and quality commands, code-style and review expectations, and commit and pull-request expectations;
-- `Exclusions`: forbidden patterns, security constraints, and known gotchas;
-- `Validation`: the gate that proves a change here, plus provider-behavior proof routed through [proof.md](proof.md) when the claim can drift.
+This standard still controls salience and provider behavior: keep the highest-risk invariant at the lead, close with the binding proof or route, layer files by scope, and prove provider-loading claims through [proof.md](proof.md). `AGENTS.md` files complement README files; they do not duplicate them, summarize them, carry process notes, or publish session state.
 
-Use this heading template as the starting shape. Extend or relabel sections only when the directory needs a sharper local contract:
-```markdown template
-# [DIRECTORY_AGENTS]
-
-<Lead: what changes in this directory and the one rule an agent must not break.>
-
-## [1][SCOPE]
-
-<What this directory carries; the read order into the standards and reference files below.>
-
-## [2][ROUTING]
-
-<Which standards and reference files own the deeper rules; which adjacent architecture, roadmap, README, reference, runbook, tutorial, or generated contract changes with this folder; which file wins on conflict.>
-
-## [3][EXECUTION_RULES]
-
-<Build, test, and quality commands; code-style, review, and commit or pull-request expectations.>
-
-## [4][EXCLUSIONS]
-
-<Forbidden patterns, security constraints, and known gotchas for this directory.>
-
-## [5][VALIDATION]
-
-<The gate that proves a change here, with provider-behavior proof routed through `proof.md` when the claim can drift.>
-```
-
-Exclude content that goes stale or wastes context:
-- full README or marketing copy;
-- copied process notes, task plans, or human-facing overview prose;
-- exhaustive path or file enumerations that change with the tree;
-- large auto-generated reference dumps;
-- thread-scoped goals, plans, or completion state;
-- logs, transient state, or per-session task notes.
-
-Layer files by scope and keep each lean. Lower directories should carry only guidance specific to that level, and higher-level files should contribute only broad defaults. Create or update the nearest `AGENTS.md` when a maintained documentation or code folder has stable local behavior an agent must act on: local surface, adjacent docs that move with it, validation command, forbidden pattern, or proof route. Omit cross-document maintenance that does not change behavior. Every word loaded costs reasoning budget, so a top-level overlay should stay near one screen.
-
-Iterate the file from observed agent failures rather than speculation. Route provider-behavior evidence details to [proof.md](proof.md) instead of repeating evidence-label definitions in the instruction file.
+Iterate instruction files from observed agent failures and durable local behavior. Speculative rules, fixed subagent counts, provider manuals, and copied command catalogs belong outside the overlay unless they are local invariants with a maintained proof route.
 
 ## [9][LLMS_TXT_INDEXES]
 
@@ -155,7 +113,7 @@ Document a retrieval surface with the provenance an agent needs to trust and ref
 - the access class and filter rule when content is not public;
 - the drift condition for drift-prone content.
 
-Carry these only in the schema or header shape the deployed retrieval store consumes. When the provenance includes proof, source, freshness, or generation facts, use the label meanings local by [proof.md](proof.md) instead of defining a parallel vocabulary here.
+Carry these only in the schema or header shape the deployed retrieval store consumes. When the provenance includes proof, source, freshness, or generation facts, use the label meanings defined by [proof.md](proof.md) instead of defining a parallel vocabulary here.
 
 Each retrievable chunk should carry enough context to stand alone, because retrieval strips surrounding structure. Claim hybrid retrieval, reranking, or provider-specific search only where the deployed stack supports it and the proof names the configured provider, command, or controlling source. Keep very large tables and long records chunked rather than passed whole; long-context degradation erodes oversized structured content too.
 
@@ -209,7 +167,7 @@ Output control: state the desired length, sections, and refusal or missing-data 
 
 Do not require exposed chain-of-thought in published prompt standards. Ask for evidence, checks, summaries, or a decision trail the consumer can inspect, and rely on provider reasoning controls where the runtime exposes them. Use examples only when they materially teach format, tone, edge handling, or tool choice; remove examples that merely repeat the rule.
 
-Provider-specific behavior uses the linked provider sources named beside each provider rule above, and freshness follows [proof.md](proof.md) when the claim can drift.
+Provider-specific rules are local authoring defaults, not proof of current provider behavior. Treat a capability, loading, delimiter, schema, state, or output-control claim as provisional until current primary documentation or local tool output proves it, then record freshness through [proof.md](proof.md).
 
 Large source-map and reference-catalog pages are retrieval surfaces. Give them chunk-stable headings, source provenance, refresh triggers, and route-away records when facts change reader action. A long table without source/update fields becomes context payload, not a reliable agent lookup surface.
 
@@ -219,11 +177,13 @@ Large source-map and reference-catalog pages are retrieval surfaces. Give them c
 - [style-guide.md](style-guide.md) carries sentence and word craft; this standard carries the cognition rationale for positive, imperative framing.
 - [proof.md](proof.md) carries evidence strength, proof details, and the evaluation discipline for machine-facing surfaces.
 - [formatting.md](formatting.md) carries the markers and styling that render the constraints this standard places.
+- [agents-md.md](agents-md.md) carries the produced structure and anti-fragility rules for `AGENTS.md` files.
 - [README.md](README.md) carries document-type routing and is the single index that links across standards.
 
-## [15][CHECKLIST]
+## [15][VALIDATION]
 
-Use this checklist by group:
+Use this verification checklist by group:
+
 [POSITION_INSTRUCTIONS]:
 - [ ] The controlling rule leads each unit and the binding constraint closes it.
 - [ ] Load-bearing constraints in long units are restated near the close.
@@ -231,13 +191,17 @@ Use this checklist by group:
 - [ ] Instructions are positive imperatives with ranked constraints.
 
 [PROVIDER_AGENT]:
-- [ ] Provider claims carry current primary proof when they can drift.
+- [ ] Provider claims carry current maintained-source or local-output proof when they can drift.
 - [ ] `AGENTS.md` files are behavioral, lean, and free of copied README prose, process notes, and change-prone enumeration.
 - [ ] Provider-specific prompt rules remain preferred patterns and do not claim enforcement, correctness, or universal superiority.
 - [ ] Indexes link to canonical docs; `llms.txt` is treated as a map.
 - [ ] Retrieval chunks carry source, heading path, route, access, and freshness.
 - [ ] MCP resources, prompts, and tools are separated before schemas.
 - [ ] Generated mirrors identify source and generation status.
+
+[ROOT_AUDIT]:
+- [ ] The position axis is scoreable from the document lead, section leads, closes, and final boundary.
+- [ ] Task prompts, state artifacts, and durable standards are not mixed inside the scored documentation surface.
 
 [SAFETY]:
 - [ ] No secrets, nonpublic local paths, or unverified provider claims are exposed.

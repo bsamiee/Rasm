@@ -1,4 +1,4 @@
-"""Run structural search, rewrite, and tree-sitter query code rails."""
+"""Run structural search, rewrite, content search, and tree-sitter query rails."""
 
 from dataclasses import dataclass
 from functools import reduce
@@ -52,15 +52,7 @@ if TYPE_CHECKING:
 
 @dataclass(frozen=True, slots=True, kw_only=True)
 class CodeParams(BaseParams):
-    """Parameters shared by code verbs.
-
-    Attributes:
-        pattern: ast-grep pattern, tree-sitter query, or literal search text.
-        rewrite: Replacement pattern for rewrite previews and applies.
-        apply: Whether rewrite should mutate files under the code lease.
-        max_results: Maximum inline match rows.
-
-    """
+    """Parameters shared by code verbs."""
 
     pattern: str = ""
     rewrite: str = ""
@@ -70,22 +62,20 @@ class CodeParams(BaseParams):
 
 # --- [CONSTANTS] ------------------------------------------------------------------------
 
-# tree-sitter grammar capsule factories per Language; the QUERY catalog rows exist only for these, so
-# _query_splice is reached only for a key present here — a new grammar is one row + one entry.
+# Query catalog rows exist only for grammars listed here.
 _GRAMMARS: dict[Language, Callable[[], object]] = {
     Language.PYTHON: tree_sitter_python.language,
     Language.TYPESCRIPT: tree_sitter_typescript.language_typescript,
 }
-_TEXT_CAP: int = 320  # per-Match text bound, mirroring api._matches
-_DEFAULT_TARGET: tuple[str, ...] = (".",)  # empty paths → enumerate the whole worktree, suffix-filtered per language
-_METAVAR: re.Pattern[str] = re.compile(r"\$[A-Z_$]")  # ast-grep metavariable sigil ($VAR / $$$ / $$VAR): present → structural, absent → rg content
+_TEXT_CAP: int = 320
+_DEFAULT_TARGET: tuple[str, ...] = (".",)
+_METAVAR: re.Pattern[str] = re.compile(r"\$[A-Z_$]")
 
 
 # --- [OPERATIONS] -----------------------------------------------------------------------
 
 
 def _languages(selected: Language | None) -> tuple[Language, ...]:
-    # Data-driven off select(Claim.CODE): a grammar-less language carries no code row, so the polyglot fan never wastes a route on it.
     match selected:
         case None:
             return tuple(sorted({t.language for t in select(Claim.CODE)}, key=lambda member: member.value))
@@ -94,12 +84,12 @@ def _languages(selected: Language | None) -> tuple[Language, ...]:
 
 
 def _routed(languages: tuple[Language, ...], paths: tuple[str, ...]) -> Result[Block[Routed], Fault]:
-    # Unlike the gate rails, empty paths resolve the whole worktree (code is a search surface, not a changed-files gate).
+    # Code search defaults to the whole worktree, unlike changed-files quality gates.
     return sequence(block.of_seq(route(language, paths or _DEFAULT_TARGET) for language in languages))
 
 
 def _checks(routed: Routed, mode: Mode, splice: Callable[[Tool, Routed], Tool]) -> tuple[Check, ...]:
-    # No routed files → no check, so the fan never scans the whole tree as a fallback; splice injects the argv or thunk.
+    # No routed files means no check; splice injects argv or the in-process thunk.
     match routed.files:
         case ():
             return ()
@@ -121,7 +111,7 @@ def _dispatch(
 def _fan(
     settings: AssaySettings, scope: ArtifactScope, params: CodeParams, *, mode: Mode, splice: Callable[[Tool, Routed], Tool]
 ) -> Result[tuple[Completed, ...], Fault]:
-    # Shared route -> fan_out spine; a routing/spawn/timeout Fault short-circuits, a non-zero exit rode the success channel as a Completed.
+    # Routing, spawn, and timeout Faults short-circuit; non-zero tool exits stay on Completed.
     return _routed(_languages(params.language), params.paths).bind(
         lambda routed: sequence(routed.collect(lambda r: block.of_seq(_dispatch(r, settings=settings, scope=scope, mode=mode, splice=splice)))).map(
             tuple
@@ -130,8 +120,7 @@ def _fan(
 
 
 def _targets(paths: tuple[str, ...], root: Path) -> tuple[str, ...]:
-    # ast-grep ABORTS the whole run if ANY explicit target is missing, so drop missing paths to keep a partially-bad request resilient.
-    # All-missing is unreachable: _checks gates on routed.files, empty when every path resolved to nothing.
+    # ast-grep aborts on missing explicit targets, so drop stale paths after routing has warned.
     match paths:
         case ():
             return _DEFAULT_TARGET
@@ -140,8 +129,7 @@ def _targets(paths: tuple[str, ...], root: Path) -> tuple[str, ...]:
 
 
 def _search_splice(params: CodeParams, root: Path) -> Callable[[Tool, Routed], Tool]:
-    # Targets ride the command body (Input.NONE), never the fd-enumerated file list, to avoid ARG_MAX on a large monorepo.
-    # --no-ignore hidden unhides tracked dot-dirs so search covers the SAME tree as query; gitignored dirs stay excluded.
+    # Targets ride the command body to avoid ARG_MAX; tracked dot-dirs stay visible, gitignored dirs stay excluded.
     targets = _targets(params.paths, root)
     return lambda tool, routed: msgspec.structs.replace(
         tool, command=(*tool.command, "-p", params.pattern, "-l", routed.language.value, "--json=compact", "--no-ignore", "hidden", *targets)
@@ -162,7 +150,7 @@ def _query_splice(params: CodeParams, root: Path) -> Callable[[Tool, Routed], To
 
 
 def _top_level_patterns(query_src: str) -> int:
-    # Blank string spans and strip ; comments first so a literal paren never miscounts the pattern split (1 = safe-to-narrow).
+    # Mask strings and strip comments so literal parentheses do not affect top-level pattern counting.
     masked = re.sub(r";[^\n]*", "", re.sub(r'"(?:[^"\\]|\\.)*"', '""', query_src))
 
     def step(state: tuple[int, int], ch: str) -> tuple[int, int]:
@@ -179,9 +167,7 @@ def _top_level_patterns(query_src: str) -> int:
 
 
 def _eq_needles(query_src: str) -> frozenset[bytes] | None:
-    # tree-sitter is GIL-bound, so the whole-tree lever is parsing fewer files: a single-pattern #eq?-only query can match a
-    # file only if it contains every literal verbatim, so the literals pre-filter with zero false negatives. Narrowing is
-    # suppressed (None → parse all) for multi-pattern queries, non-#eq? predicates, or escaped literals (raw text ≠ node text).
+    # Single-pattern #eq?-only queries can prefilter files by literal needles with zero false negatives.
     predicates = frozenset(re.findall(r"#([a-z][a-z-]*)\?", query_src))
     match (predicates, _top_level_patterns(query_src)):
         case (preds, 1) if preds == frozenset({"eq"}):
@@ -192,8 +178,7 @@ def _eq_needles(query_src: str) -> frozenset[bytes] | None:
 
 
 def _ts_thunk(query_src: str, language: Language, root: Path) -> InprocThunk:
-    # Captures encode onto Completed.stdout, so the in-process result rides the IDENTICAL Completed wire a subprocess tool would.
-    # needles is computed once outside the per-file loop so the GIL-bound parse runs only on files that can possibly match.
+    # Captures ride Completed.stdout like subprocess output; literal needles reduce GIL-bound parsing.
     needles = _eq_needles(query_src)
 
     def run(check: Check) -> Completed:
@@ -214,12 +199,11 @@ def _ts_thunk(query_src: str, language: Language, root: Path) -> InprocThunk:
 
 
 def _node_text(node: Node) -> str:
-    raw = node.text  # Node.text is bytes | None; an absent source folds to ""
+    raw = node.text
     return raw.decode(errors="replace") if raw is not None else ""
 
 
 def _read(path: Path) -> bytes | None:
-    # Thread-local boundary: an unreadable path folds to None rather than raising.
     try:
         return path.read_bytes()
     except OSError:
@@ -227,49 +211,38 @@ def _read(path: Path) -> bytes | None:
 
 
 def _artifact(settings: AssaySettings, verb: str, content: str) -> Artifact:
-    # run_id segments the path so concurrent/successive queries never clobber the same matches.txt and
-    # delta history replay retrieves the exact listing for any run_id. Content hash makes the id
-    # content-aware: two queries returning the same set share an id; different sets differ, so delta
-    # can distinguish them even within the same verb bucket.
+    # run_id prevents listing clobber; content hash lets delta distinguish changed match sets.
     raw = content.encode()
     digest = sha256(raw).hexdigest()[:12]
-    path = Path(str(settings.artifact(ArtifactKind.CODE, verb, settings.run_id, "matches.txt")))  # code artifact tree is local-fs; UPath → Path
+    path = Path(str(settings.artifact(ArtifactKind.CODE, verb, settings.run_id, "matches.txt")))
     path.parent.mkdir(parents=True, exist_ok=True)
     path.write_bytes(raw)
     return Artifact(id=digest, kind=ArtifactKind.CODE, path=str(path), bytes=len(raw), lines=raw.count(b"\n"))
 
 
 def _ag_normalize(completeds: tuple[Completed, ...]) -> tuple[Completed, ...]:
-    # ast-grep follows the grep convention (exit 1 = no match), so pin it to EMPTY before the fold derives status.
-    # Scoped to ast-grep slices ONLY — a tree-sitter query's exit 1 is a real thunk fault (bad S-expr) and must stay FAILED.
+    # ast-grep exit 1 means no match; tree-sitter exit 1 remains a real thunk fault.
     return tuple(msgspec.structs.replace(d, status=RailStatus.EMPTY) if d.returncode == 1 else d for d in completeds)
 
 
 def _report(settings: AssaySettings, verb: str, pattern: str, completeds: tuple[Completed, ...], rows: tuple[Match, ...], listing: str) -> Report:
-    # A clean fold with hits promotes EMPTY to OK; the full listing rides an Artifact only when non-empty so a zero-hit query is terse.
-    # Defect rows projected from FAILED Completed entries are preserved as `results` when no matching rows exist —
-    # a malformed query surfaces its QueryError/stderr tail instead of an empty results set byte-identical to a valid zero-match.
-    # The match COUNT is typed on Artifact.lines (total untruncated matches); the prose note is dropped so machine data
-    # never rides a string-parsed note. Counts.ok=1 reflects the single synthetic Completed (the slice count); Artifact.lines
-    # is the match cardinality an agent reads directly.
+    # Hits promote EMPTY to OK; no-hit results stay terse, while malformed queries keep defect rows.
+    # Full match cardinality rides Artifact.lines, not notes.
     base = fold(Claim.CODE, verb, completeds)
     status = RailStatus.OK if rows and base.status is RailStatus.EMPTY else base.status
     done = Completed(("code", verb, pattern), 1 if status is RailStatus.FAILED else 0, status=status)
-    final_rows = rows or base.results  # preserve fold-projected defect rows when no match rows exist
+    final_rows = rows or base.results
     return msgspec.structs.replace(
         fold(Claim.CODE, verb, (done,)), artifacts=(_artifact(settings, verb, listing),) if listing else (), results=final_rows
     )
 
 
 def _relevance(pattern: str, text: str) -> int:
-    # Ratio of pattern length to matched text length, clamped to [1, 100]. A tighter match (match text
-    # close to the pattern in length) scores higher; a very broad match (long line, short pattern) scores
-    # lower. The floor of 1 preserves ordering over a strict zero baseline.
+    # Shorter matched text relative to the pattern ranks higher, clamped to [1, 100].
     return max(1, min(100, len(pattern) * 100 // max(len(text), 1)))
 
 
 def _ag_rows(completeds: tuple[Completed, ...], cap: int, pattern: str) -> tuple[tuple[Match, ...], str]:
-    # The listing is the unbounded match set the Artifact retains while Report.results stays bounded by cap.
     matches = tuple(m for done in completeds for m in AST_MATCHES.decode(done.stdout or b"[]"))
     listing = "\n".join(f"{m.file}:{m.range.start.line + 1}: {m.text}" + (f" => {m.replacement}" if m.replacement else "") for m in matches)
     rows = tuple(
@@ -296,14 +269,13 @@ def _ts_rows(completeds: tuple[Completed, ...], cap: int, pattern: str) -> tuple
 
 
 def _content_splice(tool: Tool, params: CodeParams) -> Tool:
-    # Grammar-blind: ripgrep self-walks the targets over the SAME tree the ast-grep search arm covers; --language refines via suffix globs.
+    # ripgrep self-walks targets; --language narrows through suffix globs.
     globs = tuple(arg for suffix in (params.language.suffixes if params.language is not None else ()) for arg in ("--glob", f"*{suffix}"))
     return msgspec.structs.replace(tool, command=(*tool.command, *globs, "-e", params.pattern, "--", *(params.paths or _DEFAULT_TARGET)))
 
 
 def _rg_status(returncode: int, stderr: str, *, has_rows: bool) -> tuple[RailStatus, tuple[str, ...]]:
-    # ripgrep exit 2 is overloaded (bad -P regex = total failure AND missing target among valid = partial success), so hit-presence
-    # decides: ANY exit WITH matches → OK (a non-clean exit rides a warning note); clean no-match → EMPTY; non-zero NO matches → FAILED.
+    # ripgrep exit 2 is overloaded, so hit presence decides partial success versus real failure.
     match (returncode, has_rows):
         case (_, True):
             warn = f"; ripgrep warning: {stderr[:200]}" if returncode not in {0, 1} and stderr else ""
@@ -315,7 +287,7 @@ def _rg_status(returncode: int, stderr: str, *, has_rows: bool) -> tuple[RailSta
 
 
 def _rg_rows(completeds: tuple[Completed, ...], cap: int, pattern: str) -> tuple[tuple[Match, ...], str]:
-    # stdout is NDJSON; only kind == "match" events carry a hit. The listing rides the Artifact while results stays bounded by cap.
+    # Only ripgrep NDJSON match events carry hits; listing is unbounded, results are capped.
     matches = tuple(
         e.data for done in completeds for line in (done.stdout or b"").splitlines() if line for e in (RG_EVENT.decode(line),) if e.kind == "match"
     )
@@ -334,7 +306,7 @@ def _rg_rows(completeds: tuple[Completed, ...], cap: int, pattern: str) -> tuple
 
 
 def _apply_report(verb: str, pattern: str, completeds: tuple[Completed, ...]) -> Report:
-    # ast-grep run -U streams the "Applied N changes" summary to STDERR, not stdout, and the apply produces no JSON for results.
+    # ast-grep apply emits its summary to stderr and no JSON results.
     notes = tuple((d.stderr or d.stdout).decode(errors="replace").strip() for d in completeds if d.stderr or d.stdout) or ("no changes",)
     failed = tuple(d for d in completeds if d.status.severity > RailStatus.OK.severity)
     status = failed[0].status if failed else (RailStatus.OK if completeds else RailStatus.EMPTY)
@@ -348,14 +320,8 @@ def _apply_report(verb: str, pattern: str, completeds: tuple[Completed, ...]) ->
 def search(settings: AssaySettings, scope: ArtifactScope, params: CodeParams) -> Result[Report, Fault]:
     """Search code structurally or by literal content.
 
-    Args:
-        settings: Runtime settings.
-        scope: Artifact scope.
-        params: Code params.
-
     Returns:
-        Result containing match rows, artifacts, or an operational fault.
-
+        Search report, or routing/spawn fault.
     """
     match bool(_METAVAR.search(params.pattern)):
         case True:
@@ -367,7 +333,7 @@ def search(settings: AssaySettings, scope: ArtifactScope, params: CodeParams) ->
 
 
 def _content_search(settings: AssaySettings, scope: ArtifactScope, params: CodeParams) -> Result[Report, Fault]:
-    # ONE grammar-blind check (no per-language fan): targets ride tool.command and a synthetic Routed satisfies the per-spawn shape.
+    # Grammar-blind content search runs one check; a synthetic Routed satisfies the spawn shape.
     match next((t for t in select(Claim.CODE) if t.mode is Mode.CONTENT), None):
         case None:
             return Error(Fault(("code", "search"), status=RailStatus.FAULTED, message="no ripgrep content catalog row"))
@@ -378,7 +344,6 @@ def _content_search(settings: AssaySettings, scope: ArtifactScope, params: CodeP
 
 
 def _content_report(settings: AssaySettings, params: CodeParams, done: Completed) -> Report:
-    # Distinct from _report: ripgrep's overloaded exit codes need the hit-aware interpretation _rg_status owns.
     rows, listing = _rg_rows((done,), params.max_results, params.pattern)
     status, notes = _rg_status(done.returncode, (done.stderr or b"").decode(errors="replace").strip(), has_rows=bool(rows))
     synthetic = Completed(("code", "search", params.pattern), 1 if status is RailStatus.FAILED else 0, status=status, notes=notes)
@@ -390,14 +355,8 @@ def _content_report(settings: AssaySettings, params: CodeParams, done: Completed
 def rewrite(settings: AssaySettings, scope: ArtifactScope, params: CodeParams) -> Result[Report, Fault]:
     """Preview or apply an ast-grep rewrite.
 
-    Args:
-        settings: Runtime settings.
-        scope: Artifact scope.
-        params: Code params.
-
     Returns:
-        Result containing rewrite preview, apply summary, or an operational fault.
-
+        Rewrite preview or apply report, or routing/spawn/lease fault.
     """
     root = Path(str(settings.root))
     match params.apply:
@@ -420,14 +379,8 @@ def rewrite(settings: AssaySettings, scope: ArtifactScope, params: CodeParams) -
 def query(settings: AssaySettings, scope: ArtifactScope, params: CodeParams) -> Result[Report, Fault]:
     """Run a tree-sitter query over grammar-backed languages.
 
-    Args:
-        settings: Runtime settings.
-        scope: Artifact scope.
-        params: Code params.
-
     Returns:
-        Result containing capture rows, artifacts, or an operational fault.
-
+        Query report, or routing/spawn fault.
     """
     return _fan(settings, scope, params, mode=Mode.QUERY, splice=_query_splice(params, Path(str(settings.root)))).map(
         lambda done: _report(settings, "query", params.pattern, done, *_ts_rows(done, params.max_results, params.pattern))

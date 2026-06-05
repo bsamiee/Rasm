@@ -109,7 +109,7 @@ def test_from_returncode_closed_table(rc: int, expected: RailStatus) -> None:
 def test_member_invariants(member: RailStatus) -> None:
     """Per-member invariants: StrEnum bijection, non-negative exit_code, non-negative severity."""
     # StrEnum round-trip
-    assert RailStatus(str(member)) is member
+    assert RailStatus._value2member_map_[str(member)] is member
     # exit_code is a non-negative int
     assert isinstance(member.exit_code, int)
     assert member.exit_code >= 0
@@ -120,7 +120,7 @@ def test_member_invariants(member: RailStatus) -> None:
 
 def test_alias_skipped_resolves_to_skip() -> None:
     """``RailStatus("skipped") is RailStatus.SKIP`` — the alias contract is wired correctly."""
-    assert RailStatus("skipped") is RailStatus.SKIP
+    assert RailStatus._value2member_map_["skipped"] is RailStatus.SKIP
 
 
 def test_faulted_is_max_severity() -> None:

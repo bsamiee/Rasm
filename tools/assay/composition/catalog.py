@@ -1,4 +1,4 @@
-"""Define program catalog rows and parser adapters for assay rails."""
+"""Define Assay tool catalog rows and parser adapters."""
 
 from typing import TYPE_CHECKING
 
@@ -15,8 +15,6 @@ if TYPE_CHECKING:
 
 
 class _Finding(msgspec.Struct, frozen=True, gc=False):
-    """Py-analyzer diagnostic row."""
-
     rule_id: str
     message: str = ""
     path: str = ""
@@ -24,8 +22,6 @@ class _Finding(msgspec.Struct, frozen=True, gc=False):
 
 
 class _ShellMessage(msgspec.Struct, frozen=True, gc=False):
-    """ShellCheck JSON comment row."""
-
     code: int = 0
     message: str = ""
     file: str = ""
@@ -34,35 +30,21 @@ class _ShellMessage(msgspec.Struct, frozen=True, gc=False):
 
 
 class _Shellcheck(msgspec.Struct, frozen=True, gc=False):
-    """ShellCheck JSON envelope."""
-
     comments: tuple[_ShellMessage, ...] = ()
 
 
 class _Point(msgspec.Struct, frozen=True, gc=False):
-    """Ast-grep range endpoint."""
-
     line: int = 0
     column: int = 0
 
 
 class _Range(msgspec.Struct, frozen=True, gc=False):
-    """Ast-grep match range."""
-
     start: _Point = msgspec.field(default_factory=_Point)
     end: _Point = msgspec.field(default_factory=_Point)
 
 
 class AstMatch(msgspec.Struct, frozen=True, gc=False):
-    """Ast-grep compact JSON match.
-
-    Attributes:
-        text: Matched text.
-        file: Matched file path.
-        lines: Source lines reported by ast-grep.
-        replacement: Rewrite replacement preview when present.
-        range: Source range of the match.
-    """
+    """Ast-grep compact JSON match."""
 
     text: str = ""
     file: str = ""
@@ -81,26 +63,17 @@ class Capture(msgspec.Struct, frozen=True, gc=False):
 
 
 class _RgText(msgspec.Struct, frozen=True, gc=False):
-    """Ripgrep UTF-8 text payload."""
-
     text: str = ""
 
 
 class _RgData(msgspec.Struct, frozen=True, gc=False):
-    """Ripgrep JSON event data."""
-
     path: _RgText = msgspec.field(default_factory=_RgText)
     lines: _RgText = msgspec.field(default_factory=_RgText)
     line_number: int = 0
 
 
 class RgEvent(msgspec.Struct, frozen=True, gc=False):
-    """Ripgrep NDJSON event.
-
-    Attributes:
-        kind: Event type from ripgrep's `type` field.
-        data: Event payload for match rows.
-    """
+    """Ripgrep NDJSON event with `type` decoded as `kind`."""
 
     kind: str = msgspec.field(default="", name="type")
     data: _RgData = msgspec.field(default_factory=_RgData)
@@ -109,79 +82,108 @@ class RgEvent(msgspec.Struct, frozen=True, gc=False):
 # --- [CONSTANTS] ------------------------------------------------------------------------
 
 _FINDINGS = msgspec.json.Decoder(tuple[_Finding, ...])
-_SURFACE = msgspec.json.Decoder(ApiSurface)  # decode into the Detail subclass so forbid_unknown_fields gates extras
+_SURFACE = msgspec.json.Decoder(ApiSurface)
 _VERIFY = msgspec.json.Decoder(VerifySummary)
-_TESTS = msgspec.json.Decoder(TestRun)  # decode into the Detail subclass; off-shape lanes caught at parse_tests' codec boundary
+_TESTS = msgspec.json.Decoder(TestRun)
 _SHELLCHECK = msgspec.json.Decoder(_Shellcheck)
 AST_MATCHES = msgspec.json.Decoder(tuple[AstMatch, ...])
 CAPTURES = msgspec.json.Decoder(tuple[Capture, ...])
-CAPTURE_ENCODER = msgspec.json.Encoder()  # the INPROC tree-sitter thunk encodes captures onto Completed.stdout
-RG_EVENT = msgspec.json.Decoder(RgEvent)  # ripgrep --json is NDJSON, decoded one event per line
+CAPTURE_ENCODER = msgspec.json.Encoder()
+RG_EVENT = msgspec.json.Decoder(RgEvent)
 
 
 # --- [OPERATIONS] -----------------------------------------------------------------------
 
 
 def parse_findings(done: Completed) -> AnyDetail | None:
-    """Validate py-analyzer JSON output without emitting detail."""
-    # Claim.STATIC is a pass/fail gate; the decode is the census schema guard, not a Detail source.
+    """Validate py-analyzer JSON and return no detail.
+
+    Returns:
+        Always `None` after schema validation.
+    """
+    # Static findings are pass/fail evidence; schema decode is the census guard.
     _FINDINGS.decode(done.stdout or b"[]")
     return None
 
 
 def parse_build(done: Completed) -> AnyDetail | None:
-    """Accept cs-analyzer build output without emitting detail."""
+    """Accept cs-analyzer build output and return no detail.
+
+    Returns:
+        Always `None`.
+    """
     _ = done
     return None
 
 
 def parse_tests(done: Completed) -> AnyDetail | None:
-    """Decode test telemetry into a `TestRun` detail when present.
-
-    Args:
-        done: Completed process receipt.
+    """Decode test telemetry, defaulting when stdout is not telemetry.
 
     Returns:
-        Parsed test detail, or a default detail when stdout is not telemetry.
+        Test detail decoded from stdout, or an empty test detail.
     """
     try:
-        return _TESTS.decode(done.stdout or b"{}")  # codec boundary: a non-JSON / off-shape receipt is a defaulted no-op, not a fault
+        return _TESTS.decode(done.stdout or b"{}")
     except msgspec.DecodeError:
         return TestRun()
 
 
 def parse_verify(done: Completed) -> AnyDetail | None:
-    """Decode bridge verify JSON into `VerifySummary` detail."""
+    """Decode bridge verify JSON into `VerifySummary`.
+
+    Returns:
+        Bridge verification summary detail.
+    """
     return _VERIFY.decode(done.stdout or b"{}")
 
 
 def parse_search(done: Completed) -> AnyDetail | None:
-    """Validate ast-grep compact JSON without emitting detail."""
-    # Match evidence rides Report.results; the code rail re-decodes the same array for the ranked set.
+    """Validate ast-grep compact JSON and return no detail.
+
+    Returns:
+        Always `None` after schema validation.
+    """
+    # Match evidence rides Report.results; the code rail re-decodes it for ranking.
     AST_MATCHES.decode(done.stdout or b"[]")
     return None
 
 
 def parse_query(done: Completed) -> AnyDetail | None:
-    """Validate tree-sitter capture JSON without emitting detail."""
+    """Validate tree-sitter capture JSON and return no detail.
+
+    Returns:
+        Always `None` after schema validation.
+    """
     CAPTURES.decode(done.stdout or b"[]")
     return None
 
 
 def parse_content(done: Completed) -> AnyDetail | None:
-    """Validate ripgrep NDJSON without emitting detail."""
-    tuple(RG_EVENT.decode(line) for line in (done.stdout or b"").splitlines() if line)  # NDJSON: one object per line, decoded line-by-line
+    """Validate ripgrep NDJSON and return no detail.
+
+    Returns:
+        Always `None` after schema validation.
+    """
+    tuple(RG_EVENT.decode(line) for line in (done.stdout or b"").splitlines() if line)
     return None
 
 
 def parse_surface(done: Completed) -> AnyDetail | None:
-    """Decode ilspy surface JSON into `ApiSurface` detail."""
+    """Decode ilspy surface JSON into `ApiSurface`.
+
+    Returns:
+        API surface detail decoded from stdout.
+    """
     return _SURFACE.decode(done.stdout or b"{}")
 
 
 def parse_shellcheck(done: Completed) -> AnyDetail | None:
-    """Validate ShellCheck JSON without emitting detail."""
-    # Claim.STATIC is a pass/fail gate; the decode is the census schema guard, FAILED rides Completed.
+    """Validate ShellCheck JSON and return no detail.
+
+    Returns:
+        Always `None` after schema validation.
+    """
+    # ShellCheck is a pass/fail gate; schema decode only guards the census.
     _SHELLCHECK.decode(done.stdout or b'{"comments":[]}')
     return None
 
@@ -260,32 +262,30 @@ TOOLS: tuple[Tool, ...] = (
     ),
     Tool("rasm-bridge", DOTNET, ("run", "--no-build", "--", "verify"), PROJECT, CS, Claim.BRIDGE, mode=Mode.VERIFY, parser=parse_verify),
     Tool("ilspycmd", DOTNET, ("tool", "run", "ilspycmd", "--", "-l", "cisde"), NONE, CS, Claim.API, mode=Mode.QUERY, parser=parse_surface),
-    # py/ts api surface+member INPROC thunks emit the SAME Capture array as the tree-sitter code rows,
-    # so parse_query is the census-correct decode (NOT parse_surface's ApiSurface JSON).
+    # Python/TypeScript API thunks emit Capture arrays like tree-sitter, not ApiSurface JSON.
     Tool("py-api", INPROC, ("py-api", "surface"), NONE, PY, Claim.API, mode=Mode.QUERY, parser=parse_query),
     Tool("py-api", INPROC, ("py-api", "member"), NONE, PY, Claim.API, mode=Mode.LIST, parser=parse_query),
     Tool("ts-api", INPROC, ("ts-api", "surface"), NONE, TS, Claim.API, mode=Mode.QUERY, parser=parse_query),
     Tool("ts-api", INPROC, ("ts-api", "member"), NONE, TS, Claim.API, mode=Mode.LIST, parser=parse_query),
     Tool("yak", DIRECT, ("yak", "build"), NONE, CS, Claim.PACKAGE, mode=Mode.STAGE),
-    # -- Bash (config-pending day-one rows; linters not yet configured in-repo) --------------
+    # -- Bash (configured when the tools are available on the executing host) ----------------
     Tool("shellcheck", DIRECT, ("shellcheck", "-f", "json1"), FILES, BASH, Claim.STATIC, parser=parse_shellcheck),
     Tool("shfmt", DIRECT, ("shfmt", "-d"), FILES, BASH, Claim.STATIC),
     Tool("shfmt", DIRECT, ("shfmt", "-w"), FILES, BASH, Claim.STATIC, mode=Mode.WRITE),
-    # -- SQL (config-pending day-one rows; linters not yet configured in-repo) ---------------
+    # -- SQL (configured when the tools are available on the executing host) -----------------
     Tool("sqlfluff", UV, ("sqlfluff", "lint", "--dialect", "postgres"), FILES, SQL, Claim.STATIC),
     Tool("sqlfluff", UV, ("sqlfluff", "fix", "--dialect", "postgres"), FILES, SQL, Claim.STATIC, mode=Mode.WRITE),
     Tool("squawk", UV, ("squawk",), FILES, SQL, Claim.STATIC),
     # -- Docs --------------------------------------------------------------------------------
     Tool("mmdc", PNPM, ("mmdc", "-a", ".artifacts/mermaid", "-q"), INCLUDE, DOCS, Claim.DOCS),
-    # -- Code (ast-grep `run` self-walks via Input.NONE+splice; tree-sitter query needs the file list via Runner.INPROC) --
+    # -- Code (`ast-grep run` self-walks; tree-sitter queries receive routed files) ----------
     Tool("ast-grep", PNPM, ("ast-grep", "run"), NONE, PY, Claim.CODE, parser=parse_search),
     Tool("ast-grep", PNPM, ("ast-grep", "run"), NONE, PY, Claim.CODE, mode=Mode.WRITE, parser=parse_search),
     Tool("ast-grep", PNPM, ("ast-grep", "run"), NONE, TS, Claim.CODE, parser=parse_search),
     Tool("ast-grep", PNPM, ("ast-grep", "run"), NONE, TS, Claim.CODE, mode=Mode.WRITE, parser=parse_search),
     Tool("tree-sitter", INPROC, ("tree-sitter", "query"), FILES, PY, Claim.CODE, mode=Mode.QUERY, parser=parse_query),
     Tool("tree-sitter", INPROC, ("tree-sitter", "query"), FILES, TS, Claim.CODE, mode=Mode.QUERY, parser=parse_query),
-    # ripgrep grammar-blind content search: ONE DIRECT self-walk, never a per-language fan — the PY
-    # language tag is inert (census/membership only); --language refines via globs spliced in the rail.
+    # Ripgrep self-walks once; the Python tag is census-only and --language refines through rail globs.
     Tool(
         "ripgrep",
         DIRECT,
@@ -302,12 +302,8 @@ TOOLS: tuple[Tool, ...] = (
 def select(claim: Claim, language: Language | None = None) -> tuple[Tool, ...]:
     """Select catalog rows for a claim and optional language.
 
-    Args:
-        claim: Claim whose tools should run.
-        language: Optional language slice.
-
     Returns:
-        Deterministically ordered matching tools.
+        Sorted tool rows matching the requested claim and language.
     """
     return tuple(
         sorted(

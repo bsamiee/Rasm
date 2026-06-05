@@ -1,6 +1,8 @@
 # [TUTORIAL_STANDARDS]
 
-A tutorial teaches one learner outcome by guiding the learner through concrete action, visible results, and a primary path the author executed end to end before publication. The author carries reliability: a published lesson must be reproducible from the stated start state, and any unverified dependency must stay outside the core success path or mark the lesson as draft or blocked. A learning path orders three or more tested lessons so later lessons reuse skill, vocabulary, or artifacts established earlier. The three-lesson threshold is a local taxonomy rule, not a Diátaxis requirement. This standard carries lesson shape, learner-path ordering, and execution proof; it does not own competent-reader procedures, readiness, incident recovery, lookup facts, API contract truth, support policy, contribution workflow, or conceptual explanation.
+A tutorial teaches one learner outcome by guiding the learner through concrete action, visible results, and a primary path the author executed end to end before publication. The author carries reliability: a published lesson must be reproducible from the stated start state, and any unverified dependency must stay outside the core success path or mark the lesson as draft or blocked.
+
+A learning path orders three or more tested lessons so later lessons reuse skill, vocabulary, or artifacts established earlier. The three-lesson threshold is a local taxonomy rule. This standard carries lesson shape, learner-path ordering, and execution proof; it does not own competent-reader procedures, readiness, incident recovery, lookup facts, API contract truth, support policy, contribution workflow, or conceptual explanation.
 
 ## [1][USE_WHEN]
 
@@ -16,57 +18,13 @@ Route elsewhere by topic when the reader is a competent operator completing a kn
 
 [AUTHORING_CONTRACT]:
 - Agent use: choose single tutorial or learning path, prove the start state, then write the executed learner path with visible working-state checkpoints.
-- Required produced structure: for a tutorial, `What we will build`, `Learning outcome`, `Prerequisites`, `Start state`, `Steps`, `Result`, `What to notice`, `Next steps`, `Boundaries`, and `Checklist`; for a learning path, reader, outcome, prerequisites, ordered path, completion, boundaries, and checklist.
-- Section cardinality: one observable outcome; 3 to 12 local-rule checkpoint steps for a lesson; at least three tested lessons for a learning path; conditional recovery appears only for observed or source-backed learner traps.
+- Tutorial structure: `What we will build`, `Learning outcome`, `Prerequisites`, `Start state`, `Steps`, `Result`, `What to notice`, `Next steps`, `Boundaries`, and `Validation`.
+- Learning-path structure: `Reader`, `Outcome`, `Prerequisites`, `Path`, `Completion`, `Boundaries`, and `Validation`.
+- Section cardinality: one observable outcome; 3 to 12 local-rule checkpoint steps for a lesson; at least three tested lessons for a learning path; conditional recovery appears only for observed or locally maintained learner traps.
 - Adjacent checks: check how-to, API, reference, support matrix, runbook, contributing, onboarding, roadmap, architecture, code documentation, and README only when a lesson consumes their fact after or inside the learning path.
 - Maintenance triggers: update the tutorial when start state, fixture, command, tested stack, generated artifact, support target, lesson order, learner trap, result gate, or adjacent learning route changes.
 
-## [2][AUTHORING_DOCTRINE]
-
-External tutorial doctrine supplies the learning posture; this standard adds local structure, proof, and artifact rules. [Diátaxis tutorial doctrine](https://diataxis.fr/tutorials/) carries the tutorial type: guided action, visible progress, concrete destination, few choices, minimal explanation, and reliability. [Refactoring English, "Rules for Writing Software Tutorials"](https://refactoringenglish.com/chapters/rules-for-software-tutorials/) supplies stable craft evidence for software tutorials: beginner-safe language, clear outcomes, early end-state preview, copyable examples, long flags, working-state checkpoints, one lesson focus, and demonstrable proof.
-
-Refresh external-source claims when a source revises the named practice or when this standard changes a source-backed behavior. Local defaults such as short-lesson compactness and step-count ranges are maintainability heuristics, not external doctrine.
-
-Tutorial doctrine splits into these rule groups:
-[PATH_DISCIPLINE]:
-- Show the destination first. Local rule: the final artifact appears before step one as screenshot plus text equivalent, exact output, or a small diagram.
-- Deliver a visible, comprehensible result at every step; keep the example in a working state at every checkpoint.
-- Tell the learner what result to confirm before they run a step, and give exact example output where output is the signal.
-- Point out what the learner should notice; never assume the result speaks for itself.
-- Give the learner meaningful work before abstract explanation.
-
-[SCOPE_DISCIPLINE]:
-- Flag known learner traps inline at the step where they happen; consolidate only observed or source-backed recoverable failures into learner-trap recovery.
-- Minimize explanation and options: one concrete path, with branches linked out after completion.
-- Keep inputs reproducible, repeatable, and disposable so a learner can rerun from a clean start.
-- Keep short lessons compact by local rule: when a lesson is under about 15 minutes, keep entry sections to short blocks unless proof requires more.
-
-## [3][STRUCTURAL_CHOICES]
-
-Choose one structure before writing. A single tutorial and a learning path have different closure surfaces, so do not blend them.
-
-| [INDEX] | [STRUCTURE]     | [READER]     | [TITLE]  | [SPINE]      | [CLOSURE]                 |
-| :-----: | :-------------- | :----------- | :------- | :----------- | :------------------------ |
-|   [1]   | Single tutorial | first-timer  | artifact | lesson spine | stated end-state          |
-|   [2]   | Learning path   | path learner | skill    | path spine   | composed final capability |
-
-Treat reader, difficulty, tool family, and concept depth as entry context and prose constraints inside the chosen structure, not as additional variants. Split lessons that need separate inputs, proof, titles, or success artifacts.
-
-## [4][TITLE_OUTCOME_RULES]
-
-Lead the title with the observable artifact or skill outcome, not an internal abstraction:
-```markdown template
-# [VALIDATE_STANDARDS_DIFF]
-```
-
-Reject titles that promise cognition the path cannot show:
-```markdown rejected
-# [UNDERSTANDING_DOCUMENTATION_STANDARDS]
-```
-
-The accepted title names an artifact the lesson can produce. The rejected title names cognition, which routes to explanation. State the learning outcome as a specific capability the learner can perform: `you can validate a standards-only Markdown diff`, never `understand documentation standards`.
-
-## [5][REQUIRED_STRUCTURE]
+## [2][REQUIRED_STRUCTURE]
 
 A single tutorial uses this spine. `Learner-trap recovery` appears only when the author observed recoverable failures or can cite a documented learner trap that does not fit a step-local `If wrong` field.
 
@@ -87,16 +45,17 @@ A single tutorial uses this spine. `Learner-trap recovery` appears only when the
 
 ## [6][RESULT]
 
-## [7][WHAT_NOTICE]
+## [7][WHAT_TO_NOTICE]
 
 ## [8][NEXT_STEPS]
 
 ## [9][BOUNDARIES]
 
-## [10][CHECKLIST]
+## [10][VALIDATION]
 ```
 
 Section cardinality uses these groups:
+
 [ENTRY_SETUP]:
 - `What we will build`: required, one paragraph naming exactly one artifact, plus a required preview: screenshot with text equivalent, exact final-output block, or small end-state diagram with visible caption or description.
 - `Learning outcome`: required; 1 to 3 bullets, each a specific capability the learner can perform afterward.
@@ -105,23 +64,64 @@ Section cardinality uses these groups:
 
 [EXECUTION_CLOSURE]:
 - `Steps`: required by local rule as 3 to 12 numbered checkpoint records with indented `label: value` continuation lines.
-- `Result`: required; final observable artifact compared against the preview, plus a `Done when` exit gate.
+- `Result`: required; final observable artifact compared against the preview, plus `Done when` checks.
 - `What to notice`: required; 1 to 5 observations the learner should register after key results.
 - `Learner-trap recovery`: conditional; add after `What to notice` only for observed recoverable failures or documented traps that cannot fit step-local `If wrong`.
 - `Next steps`: required when a legitimate reinforcement exercise exists; otherwise state that no safe reinforcement exists and route to the next maintained lesson or adjacent route.
-- `Boundaries` and `Checklist`: required.
+- `Boundaries` and `Validation`: required.
 
-Generated documents must not include empty conditional headings. Omit `Learner-trap recovery`, `Related`, or adjacent links when their trigger is false.
+Generated documents must not include empty conditional headings. Omit `Learner-trap recovery` or adjacent links when their trigger is false.
+
+## [3][AUTHORING_RULES]
+
+Tutorial rules split into these groups:
+
+[PATH_DISCIPLINE]:
+- Show the destination first. Local rule: the final artifact appears before step one as screenshot plus text equivalent, exact output, or a small diagram.
+- Deliver a visible, comprehensible result at every step; keep the example in a working state at every checkpoint.
+- Tell the learner what result to confirm before they run a step, and give exact example output where output is the signal.
+- Point out what the learner should notice; never assume the result speaks for itself.
+- Give the learner meaningful work before abstract explanation.
+
+[SCOPE_DISCIPLINE]:
+- Flag known learner traps inline at the step where they happen; consolidate only observed or locally maintained recoverable failures into learner-trap recovery.
+- Minimize explanation and options: one concrete path, with branches linked out after completion.
+- Keep inputs reproducible, repeatable, and disposable so a learner can rerun from a clean start.
+- Keep short lessons compact by local rule: when a lesson is under about 15 minutes, keep entry sections to short blocks unless proof requires more.
+
+## [4][STRUCTURAL_CHOICES]
+
+Choose one structure before writing. A single tutorial and a learning path have different closure surfaces, so do not blend them.
+
+| [INDEX] | [STRUCTURE]     | [READER]     | [TITLE]  | [SPINE]      | [CLOSURE]                 |
+| :-----: | :-------------- | :----------- | :------- | :----------- | :------------------------ |
+|   [1]   | Single tutorial | first-timer  | artifact | lesson spine | stated end-state          |
+|   [2]   | Learning path   | path learner | skill    | path spine   | composed final capability |
+
+Treat reader, difficulty, tool family, and concept depth as entry context and prose constraints inside the chosen structure, not as additional variants. Split lessons that need separate inputs, proof, titles, or success artifacts.
+
+## [5][TITLE_OUTCOME_RULES]
+
+Lead the title with the observable artifact or skill outcome, not an internal abstraction:
+
+```markdown template
+# [VALIDATE_STANDARDS_DIFF]
+```
+
+Accepted title: `# [VALIDATE_STANDARDS_DIFF]`
+Rejected title: `# [UNDERSTANDING_DOCUMENTATION_STANDARDS]`
+Reason: the accepted title names an artifact the lesson can produce; the rejected title names cognition, which routes to explanation. State the learning outcome as a specific capability the learner can perform: `you can validate a standards-only Markdown diff`, never `understand documentation standards`.
 
 ## [6][LEARNING_PATHS]
 
 A learning path index uses this spine when three or more tested lessons compose one broader skill:
+
 ```markdown template
 # [SKILL_OUTCOME_LEARNING]
 
 <Lead: one sentence naming the skill outcome, difficulty, lesson count, and whether stack proof is lesson-local or shared.>
 
-## [1][LEARNING_START]
+## [1][READER]
 
 ## [2][OUTCOME]
 
@@ -133,7 +133,7 @@ A learning path index uses this spine when three or more tested lessons compose 
 
 ## [6][BOUNDARIES]
 
-## [7][CHECKLIST]
+## [7][VALIDATION]
 ```
 
 Learning-path sections are authorable, not prose placeholders:
@@ -144,6 +144,7 @@ Learning-path sections are authorable, not prose placeholders:
 - `Completion`: states the composed capability gate: all available lessons pass, later lessons consume earlier results where claimed, and the final lesson demonstrates the broader skill rather than only its local artifact.
 
 Each `Path` entry is a subsection-per-record block because entries are updated independently and order is load-bearing:
+
 ```markdown template
 ### [N.M][LESSON_TITLE_LINK]
 
@@ -160,13 +161,21 @@ Close when: `<lesson is available, deferred with return trigger, or dropped from
 Route-away: `<branch lesson, how-to, reference, or adjacent document that holds non-core variants>`
 ```
 
-Path `Availability` is the publication axis. `AVAILABLE` means the lesson's primary path ran front to back. `DRAFT` means the lesson has unverified primary-path steps or incomplete fixture support. `BLOCKED` means a required fixture, access grant, generated contract, support target, or source route prevents verification. `DEFERRED` means the lesson is intentionally out of the current path until a named return trigger fires. `DROPPED` means the lesson is removed from the path and retained only when another record still references it. Step-level `Execution` tags explain the concrete unverified dependency inside a lesson; path-level `Availability` summarizes whether that lesson may be used in the path.
+Path `Availability` is the publication axis:
+- `AVAILABLE`: the lesson's primary path ran front to back.
+- `DRAFT`: the lesson has unverified primary-path steps or incomplete fixture support.
+- `BLOCKED`: a required fixture, access grant, generated contract, support target, or source route prevents verification.
+- `DEFERRED`: the lesson is intentionally out of the current path until a named return trigger fires.
+- `DROPPED`: the lesson is removed from the path and retained only when another record still references it.
+
+Step-level `Execution` tags explain the concrete unverified dependency inside a lesson. Path-level `Availability` summarizes whether that lesson may be used in the path.
 
 Order entries so each later lesson consumes a prior lesson's result. If entries can be read in any order without loss, the document is a hub index routed to [readme.md](../reference/readme.md), not a learning path.
 
 ## [7][END_STATE_PREVIEW]
 
 An end-state preview must show the final artifact, not decorate the opening. Exact output is enough when the result is textual:
+
 ```text conceptual
 Changed files: docs/standards/learning/tutorial.md
 Check: git diff --check -- docs/standards
@@ -224,12 +233,8 @@ State each term in the step that first needs it. Use fixed inputs, deterministic
     If wrong: a `trailing whitespace` line names the file and line to fix before continuing.
 ```
 
-Reject this bare step because it lacks an exact signal and working-state gate:
-```markdown rejected
-3. Run the check.
-```
-
-The rejected form carries no exact signal and no working-state gate. Keep every command copy-safe per the craft route: no prompt, long flags, full file paths for edits, and realistic placeholders.
+Rejected step: `3. Run the check.`
+Reason: the rejected form carries no exact signal and no working-state gate. Keep every command copy-safe per the craft route: omit prompts, use long flags, use full file paths where needed, and use realistic placeholders.
 
 ## [9][EXECUTION_VOCABULARY]
 
@@ -254,14 +259,14 @@ This shape is valid only when the link checker is outside the core success path 
 
 ## [10][RESULT_EXIT_GATE]
 
-State `Result` as the final artifact compared against the end-state preview: reference diff, exact output, screenshot plus text equivalent, or diagram plus caption. Close the section with a `Done when` gate so the learner and an agent validating the document know whether the lesson closed.
+State `Result` as the final artifact compared against the end-state preview: reference diff, exact output, screenshot plus text equivalent, or diagram plus caption. Close the section with `Done when` checks so the learner and an agent validating the document know whether the lesson closed. Test automation and release policy route to [test-strategy.md](../explanation/test-strategy.md).
 
 ```markdown template
 ## [6][RESULT]
 
 The standards diff passes the stated end-state preview: changed Markdown has no whitespace errors and the validation gap is explicit.
 
-The result is done when these gates pass:
+The result is done when these checks pass:
 - [ ] the validation result matches `What we will build`
 - [ ] `git diff --check -- docs/standards` exits 0
 - [ ] another agent can reproduce the same check without the author present.
@@ -271,32 +276,36 @@ Each `Done when` item is observable and falsifiable. The final item proves the l
 
 ## [11][LEARNER_TRAP_RECOVERY]
 
-Add learner-trap recovery only for failures observed during front-to-back execution or source-backed learner traps that cannot fit in a step-local `If wrong` field. Do not invent symptom-cause-fix rows because a step could theoretically fail. Operational recovery routes to runbook, and routine task repair routes to how-to.
+Add learner-trap recovery only for failures observed during front-to-back execution or locally maintained learner traps that cannot fit in a step-local `If wrong` field. Do not invent symptom-cause-fix rows because a step could theoretically fail. Operational recovery routes to runbook, and routine task repair routes to how-to.
 
 ```markdown template
-| [INDEX] | [STEP] | [SYMPTOM]                     | [LIKELY_CAUSE]                            | [FIX]                                        | [EVIDENCE]          |
-| :-----: | :----- | :---------------------------- | :---------------------------------------- | :------------------------------------------- | :------------------ |
-|   [1]   | Step 2 | `trailing whitespace` appears | edited line retained spaces               | remove trailing spaces, then rerun the check | observed in dry run |
-|   [2]   | Step 4 | unresolved anchor appears     | heading label changed without link update | update the in-repo anchor link               | source-backed trap  |
+| [INDEX] | [STEP] | [SIGNAL]                      | [RECOVERY]              | [EVIDENCE]       |
+| :-----: | :----- | :---------------------------- | :---------------------- | :--------------- |
+|   [1]   | Step 2 | `trailing whitespace` appears | remove spaces and rerun | observed dry run |
+|   [2]   | Step 4 | unresolved anchor appears     | update link or heading  | maintained trap  |
 ```
 
-Order rows by the step where the symptom first appears. Keep cells within the form route's ceiling and carry long qualifications in a note after the table. The `Evidence` cell must identify an observed run, source-backed trap, or documented support condition; otherwise use a step-local `If wrong` field or omit the row.
+Order rows by the step where the signal first appears. Use the table only while each row fits `Step`, `Signal`, `Recovery`, and `Evidence` as short atomic facts; do not add separate cause and fix columns when they make the table read like prose. The `Evidence` cell must identify an observed run, maintained local trap, or documented support condition; otherwise use a step-local `If wrong` field or omit the row.
+
+Promote a trap to a record when the cause, recovery, or evidence needs more than a short cell:
+
+```markdown template
+### [N.M][UNRESOLVED_ANCHOR]
+
+Step: Step 4
+Signal: unresolved anchor appears.
+Cause: heading label changed without updating the in-repo link.
+Recovery: update the link target or restore the heading anchor, then rerun local path and anchor validation.
+Evidence: maintained trap.
+```
 
 ## [12][NEXT_STEPS]
 
-Close a tutorial with one reinforcement exercise when one can reuse the new skill without introducing a second lesson. Link adjacent documents only when maintained adjacent content exists:
-- how-to for a competent-reader variant or production procedure.
-- API for generated or callable contract truth.
-- reference for command, option, status, or non-callable lookup facts.
-- support matrix for supported-version, platform, lifecycle, or compatibility truth.
-- runbook for operational symptom response and recovery.
-- contributing for contribution workflow, pull-request evidence, and review mechanics.
-- explanation for concepts, trade-offs, and architecture.
-- onboarding only when the tutorial is part of a readiness ramp.
+Close a tutorial with one reinforcement exercise when one can reuse the new skill without introducing a second lesson. Link adjacent documents only when maintained adjacent content exists and the route changes the learner's next action.
 
-The reinforcement exercise fails when it introduces a new tool, subsystem, account, deployment surface, permission transfer, incident path, contribution workflow, or second artifact. Move that work to another tutorial, learning-path entry, how-to guide, runbook, contributing guide, or onboarding ramp, then link it only if the adjacent document exists.
+The reinforcement exercise fails when it introduces a new tool, subsystem, account, deployment surface, access grant, incident path, contribution workflow, or second artifact. Move that work to another tutorial, learning-path entry, how-to guide, runbook, contributing guide, or onboarding ramp, then link it only if the adjacent document exists.
 
-Do not invent links to satisfy a quadrant checklist. Missing adjacent content is a documentation gap, not a reason to embed another document type in the tutorial.
+Do not invent adjacent links just to cover every reader-need route. Missing adjacent content is a documentation gap, not a reason to embed another document type in the tutorial; full route ownership stays in `Boundaries`.
 
 ## [13][EXECUTION_CLOSURE]
 
@@ -311,90 +320,33 @@ Execute the primary path as written before publishing a tutorial as available. C
 
 A learning path additionally closes lesson order and composed capability: prerequisites exist, each lesson is independently testable from its own start state, no later lesson relies on unexplained state, earlier lesson results feed later lessons wherever claimed, and the final lesson demonstrates the composed skill.
 
-Use this compact tutorial shape only when it matches the real lesson; it is intentionally complete enough to copy as a pattern without becoming a second lesson:
-````markdown conceptual
-# [VALIDATE_STANDARDS_DIFF]
+Use short excerpts to prove closure shape; do not publish a complete second tutorial inside the standard.
 
-This beginner tutorial validates a standards-only Markdown change from a local checkout in 10 minutes using repository Git commands.
-
-## [1][WHAT_WE_WILL_BUILD]
-
-We will build a validation receipt for a standards-only documentation change:
-```text output-only
-Changed files: docs/standards/learning/tutorial.md
-Check: git diff --check -- docs/standards
-Result: PASS
-Next route: no path or whitespace failures
-```
-
-## [2][LEARNING_OUTCOME]
-
-- You can validate a standards-only Markdown change and record the proof gap when no configured link checker exists.
-
-## [3][PREREQUISITES]
-
-- The repository checkout has a standards diff; verify with `git status --short -- docs/standards`; review when the changed path set changes.
-- Git is available; verify with `git --version`; review when the local environment cannot run repository Git commands.
-
-## [4][START_STATE]
-
-Start from a standards-only Markdown change under `docs/standards/`.
-
-## [5][STEPS]
-
-1. List the changed standards files.
-    Operation: `git status --short -- docs/standards`
-    Expected: only Markdown files under `docs/standards/` appear.
-    Working state: the change scope is visible before validation.
-2. Check whitespace and patch safety.
-    Operation: `git diff --check -- docs/standards`
-    Expected: the command exits 0 and prints no whitespace error lines.
-    Working state: the standards diff has no whitespace or patch-application errors.
-    Notice: no output on success is the expected signal.
-3. Record the proof gap for links when no configured checker exists.
-    Operation: inspect the repository for a maintained Markdown link or anchor checker.
-    Expected: the validation command is named, or the gap is stated beside the final result.
-    Working state: the document does not claim unrun link proof.
-
-## [6][RESULT]
-
-The result is done when these gates pass:
+Accepted done checks:
 - [ ] `git diff --check -- docs/standards` exits 0
 - [ ] the changed path set is standards-only
 - [ ] any missing link or anchor checker is recorded as a proof gap.
 
-## [7][WHAT_NOTICE]
-
-Notice the lesson validates one bounded documentation path instead of teaching general Git or project contribution workflow.
-
-## [8][NEXT_STEPS]
-
-As reinforcement, fix one broken in-repo anchor in the same standards file and rerun the same validation.
-
-## [9][BOUNDARIES]
-
-Use a how-to for the repeatable docs-maintenance procedure, reference for command lookup, contributing for pull-request evidence, and proof for evidence labels.
-
-## [10][CHECKLIST]
-
-- [ ] The preview, steps, and `Done when` validation signals agree.
-- [ ] The three steps reproduce the validation receipt from the stated checkout.
-- [ ] Prerequisite commands have verify commands and drift conditions.
-````
+Accepted noticing sentence: Notice the lesson validates one bounded documentation path instead of teaching general Git or project contribution workflow.
+Rejected example shape: a full mini-tutorial repeated inside `Execution closure`.
+Reason: title, preview, steps, result, and validation already have local examples beside their rules.
 
 Learner-facing first person such as `We will build` is correct because the document tutors. Author notes, task history, interaction fragments, and local machine paths are not.
 
 ## [14][BOUNDARIES]
 
 These adjacent routes own material outside the tutorial:
-[ADJACENT_TYPES]:
+
+[LEARNING_TASK_TYPES]:
 - Document-type choice, placement, splitting, and lifecycle route to [README.md](../README.md).
 - One repeatable task for a competent reader routes to [how-to.md](../task/how-to.md).
 - Operational symptom response, mitigation, rollback, escalation, and recovery route to [runbook.md](../task/runbook.md).
-- Route readiness, shadowing, and readiness gates route to [onboarding.md](onboarding.md).
+- Agent ramps, first safe actions, and readiness gates route to [onboarding.md](onboarding.md).
 - Contribution workflow, pull-request evidence, and review mechanics route to [contributing.md](../task/contributing.md).
 - Concepts, trade-offs, and architecture route to [architecture.md](../explanation/architecture.md) or another explanation route.
 - Planned lesson sequence, milestone order, and future learning work route to [roadmap.md](../explanation/roadmap.md) when a maintained roadmap exists.
+
+[REFERENCE_TYPES]:
 - Generated or callable API contract truth routes to [api.md](../reference/api.md).
 - Lookup facts, command catalogs, option tables, and status vocabularies route to [reference.md](../reference/reference.md).
 - Supported-version, platform, lifecycle, and compatibility truth route to [support-matrix.md](../reference/support-matrix.md).
@@ -405,9 +357,10 @@ These adjacent routes own material outside the tutorial:
 - Command mechanics, terminology, and copy-safe Markdown route to [style-guide.md](../style-guide.md).
 - Claim-level evidence and preservation route to [proof.md](../proof.md).
 
-## [15][CHECKLIST]
+## [15][VALIDATION]
 
-Use this checklist by group:
+Use this verification checklist by group:
+
 [SHAPE_SETUP]:
 - [ ] One structure is chosen: single tested tutorial or learning path.
 - [ ] The lead names the artifact or skill outcome, difficulty, tested stack, and either estimated time for single tutorials or lesson count for learning paths.
@@ -425,7 +378,9 @@ Use this checklist by group:
 - [ ] Commands are copy-safe: no prompt, long flags, full paths where needed, realistic placeholders.
 - [ ] Terminology is introduced at first use, beside the step that needs it.
 - [ ] Inputs are fixed, deterministic, repeatable, or intentionally disposable.
-- [ ] The result matches the stated end-state preview, and the `Done when` gate is observable.
+
+[RESULT_SIGNAL]:
+- [ ] The result matches the stated end-state preview, and the `Done when` checks are observable.
 
 [CLOSURE_ROUTING]:
 - [ ] The published primary path was executed front to back; unverified tags appear only on draft/blocked lessons or optional side effects outside the core path.
@@ -434,4 +389,4 @@ Use this checklist by group:
 - [ ] `Next steps` includes one legitimate reinforcement exercise or states why no safe reinforcement exists.
 - [ ] Path indexes carry three or more entries, and each entry has `Availability`, `Changed fact`, `Consumed by`, `Depends`, `Evidence`, and `Estimated time`.
 - [ ] Later path lessons consume earlier results, each lesson is independently testable from its own start state, and the final lesson demonstrates the composed skill; unordered lesson hubs route to README.
-- [ ] How-to, API, reference, support matrix, runbook, contributing, onboarding, roadmap, code-documentation, and explanation material is linked after completion or from `Related`, not embedded.
+- [ ] How-to, API, reference, support matrix, runbook, contributing, onboarding, roadmap, code-documentation, and explanation material is linked after completion, not embedded.

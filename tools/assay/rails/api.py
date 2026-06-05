@@ -1,6 +1,6 @@
-"""Resolve host, package, Python, and TypeScript API metadata."""
+"""Resolve host, NuGet, Python, and TypeScript API metadata."""
 
-import annotationlib  # PEP 749 (3.14): get_annotations(format=STRING) surfaces a signature WITHOUT evaluating unresolvable forward refs
+import annotationlib  # PEP 749: STRING annotations avoid evaluating unresolvable forward refs
 from dataclasses import dataclass, replace
 import difflib
 import hashlib
@@ -15,13 +15,13 @@ import xml.etree.ElementTree as ET  # noqa: S405  # trusted local Directory.Pack
 from expression import Error, Ok, Result
 import msgspec
 from tree_sitter import Language as TSLanguage, Parser as TSParser, Query as TSQuery, QueryCursor
-import tree_sitter_typescript  # the SAME grammar binding code.py parses .d.ts with; never a second import surface
+import tree_sitter_typescript
 
 from tools.assay.composition.catalog import Capture, CAPTURE_ENCODER, CAPTURES, select
 from tools.assay.composition.settings import ArtifactScope, AssaySettings  # noqa: TC001  # registry passes both at runtime
 from tools.assay.core.engine import run_check
 from tools.assay.core.model import (
-    _RESULT_CAP,  # noqa: PLC2701  # intra-package private import: sole definition in model.py, canonical saturation site
+    _RESULT_CAP,  # noqa: PLC2701  # shared saturation site
     ApiResolution,
     ApiSurface,
     Artifact,
@@ -32,7 +32,6 @@ from tools.assay.core.model import (
     Completed,
     Fault,
     fold,
-    InprocThunk,  # noqa: TC001  # unconditional: beartype @checked resolves the thunk-builder return forward-ref under PEP 649
     Language,
     Match,
     Mode,
@@ -51,6 +50,8 @@ if TYPE_CHECKING:
 
     from tree_sitter import Node
 
+    from tools.assay.core.model import InprocThunk
+
 
 # --- [TYPES] ----------------------------------------------------------------------------
 
@@ -62,22 +63,7 @@ type _PathKind = str  # resolve kind token: all | assembly | xml | nuspec | deps
 
 @dataclass(frozen=True, slots=True, kw_only=True)
 class ApiParams(BaseParams):
-    """Parameters shared by `api` verbs.
-
-    Attributes:
-        key: Source key, package name, distribution name, or declaration package.
-        symbol: Symbol token queried by `api query`.
-        kind: Asset kind resolved by `api resolve`.
-        token: Artifact token or path read by `api show`.
-        max_lines: Maximum preview lines.
-        lines: Optional `start:end` line slice.
-        grep: Optional case-insensitive line filter.
-        full: Whether to return the full selected body.
-        latest: Whether `api show` should prefer the latest matching artifact.
-        restore: Reserved restore flag.
-        strict: Whether empty health checks promote to a fault.
-
-    """
+    """Parameters shared by `api` verbs."""
 
     key: str = "rhino-common"
     symbol: str = ""
@@ -95,31 +81,25 @@ class ApiParams(BaseParams):
     def bound(self, verb: str) -> ApiParams | Fault:
         """Project positional tokens into the slots owned by an API verb.
 
-        Args:
-            verb: API verb token.
-
         Returns:
-            Updated params or a parse fault for surplus tokens.
-
+            Bound params, or a parse fault for surplus positional tokens.
         """
         head, tail = (self.paths[0] if self.paths else ""), (self.paths[1] if len(self.paths) > 1 else "")
         match (verb, len(self.paths)):
-            case (_, n) if n > _API_ARITY.get(verb, 0):  # surplus past the verb's slot count: the variadic must not swallow it
+            case (_, n) if n > _API_ARITY.get(verb, 0):
                 return self.surplus(verb, self.paths[_API_ARITY.get(verb, 0) :])
-            case ("query", _):  # query <symbol> [--key]: the bare positional IS the symbol; the assembly rides --key
+            case ("query", _):
                 return replace(self, symbol=head or self.symbol, paths=())
-            case ("resolve", _):  # resolve <key> [kind]: owns key + kind only; symbol/token keep their keyword
+            case ("resolve", _):
                 return replace(self, key=head or self.key, kind=(tail or self.kind), paths=())
-            case ("show", _):  # show <token>: owns token only; key/symbol/kind keep their keyword
+            case ("show", _):
                 return replace(self, token=head or self.token, paths=())
-            case _:  # doctor (or any 0-arity verb): keyword defaults already carry every discriminant
+            case _:
                 return self
 
 
 @dataclass(frozen=True, slots=True)
 class _Source:
-    """Resolved API metadata source."""
-
     key: str
     kind: SourceKind
     version: str = ""
@@ -132,8 +112,6 @@ class _Source:
 
 @dataclass(frozen=True, slots=True)
 class _Surface:
-    """Parsed type and namespace roster for one source."""
-
     source: _Source
     types: tuple[str, ...]
     namespaces: tuple[str, ...]
@@ -144,8 +122,6 @@ class _Surface:
 
 @dataclass(frozen=True, slots=True)
 class _Body:
-    """Selected decompile or inspection body."""
-
     signature: str
     xml: str
     window: str
@@ -156,11 +132,7 @@ class _Body:
 
 # --- [CONSTANTS] ------------------------------------------------------------------------
 
-_API_ARITY: dict[str, int] = {
-    "query": 1,  # <symbol> only; the assembly is the --key keyword, never a second positional
-    "resolve": 2,
-    "show": 1,
-}  # positional-slot cap per verb; absent verb (doctor) takes 0 — ApiParams.bound surplus gate
+_API_ARITY: dict[str, int] = {"query": 1, "resolve": 2, "show": 1}
 _HOST_SPECS: dict[str, tuple[str, str]] = {
     "eto": ("Eto.dll", "Eto.xml"),
     "gh2": ("ManagedPlugIns/Grasshopper2Plugin.rhp/Grasshopper2.dll", "ManagedPlugIns/Grasshopper2Plugin.rhp/Grasshopper2.xml"),
@@ -176,17 +148,17 @@ _NUGET_ROOTS: tuple[str, ...] = (".cache/nuget/packages", str(Path.home() / ".nu
 _FRAMEWORK_RANK: tuple[str, ...] = ("net10.0", "net9.0", "net8.0", "net7.0", "net6.0", "netstandard2.1", "netstandard2.0")
 _ASSET_DIRS: tuple[str, ...] = ("lib", "ref", "runtimes", "build", "buildTransitive", "analyzers", "tools")
 _SURFACE_KINDS: frozenset[str] = frozenset(("Class", "Struct", "Interface", "Delegate", "Enum"))
-_PREVIEW_ROWS: int = 12  # inline preview row cap; the full listing rides the surface Artifact
-_CANDIDATE_CAP: int = 8  # ApiResolution.candidates bound on a miss: the top-N nearest matches an agent needs to retry
-# _RESULT_CAP is imported from core/model.py (the sole definition alongside fold, the saturation site)
+_PREVIEW_ROWS: int = 12
+_CANDIDATE_CAP: int = 8
+# _RESULT_CAP is imported from core/model.py alongside fold as the shared saturation site.
 _DEPS_PARTS: frozenset[str] = frozenset(("build", "buildTransitive", "analyzers", "tools", "runtimes"))
 _DECOMPILE_FLAGS: tuple[str, ...] = ("--no-dead-code", "--no-dead-stores")
-_ENCODER: msgspec.json.Encoder = msgspec.json.Encoder(order="deterministic")  # content-addressable wire order for report artifacts
+_ENCODER: msgspec.json.Encoder = msgspec.json.Encoder(order="deterministic")  # stable artifact wire order
 _NODE_MODULES: str = "node_modules"
-_PNPM_STORE: str = "node_modules/.pnpm"  # pnpm store: <mangled>@<ver>[+peer]/node_modules/<pkg>; @scope/pkg → @scope+pkg in dir name
+_PNPM_STORE: str = "node_modules/.pnpm"  # pnpm mangles @scope/pkg as @scope+pkg
 _DTS_GLOB: str = "*.d.ts"
-_DTS_ENTRY: str = "index.d.ts"  # entrypoint fallback when package.json declares no types/typings
-_TS_DECL_QUERY: str = (  # the .d.ts roster S-expr: every exported declaration name → one @type capture (INDEX/NAMESPACE/SEARCH)
+_DTS_ENTRY: str = "index.d.ts"
+_TS_DECL_QUERY: str = (  # .d.ts exported declaration names become @type captures.
     "(class_declaration name: (type_identifier) @type)"
     " (abstract_class_declaration name: (type_identifier) @type)"
     " (interface_declaration name: (type_identifier) @type)"
@@ -195,8 +167,8 @@ _TS_DECL_QUERY: str = (  # the .d.ts roster S-expr: every exported declaration n
     " (function_signature name: (identifier) @type)"
     " (module name: (identifier) @type)"
 )
-_TS_GRAMMAR: Callable[[], object] = tree_sitter_typescript.language_typescript  # shared with code.py's _GRAMMARS[Language.TYPESCRIPT]
-_DECL_NODES: frozenset[str] = frozenset(  # the .d.ts declaration node kinds a member lookup anchors a full signature on
+_TS_GRAMMAR: Callable[[], object] = tree_sitter_typescript.language_typescript  # shared with code.py
+_DECL_NODES: frozenset[str] = frozenset(  # .d.ts node kinds that anchor member signatures.
     (
         "class_declaration",
         "abstract_class_declaration",
@@ -209,12 +181,12 @@ _DECL_NODES: frozenset[str] = frozenset(  # the .d.ts declaration node kinds a m
         "public_field_definition",
     )
 )
-_INSPECT_KINDS: tuple[tuple[str, Callable[[object], bool]], ...] = (  # the pydist roster predicates: one @type capture per class/function/submodule
+_INSPECT_KINDS: tuple[tuple[str, Callable[[object], bool]], ...] = (  # pydist roster predicates
     ("type", inspect.isclass),
     ("type", inspect.isfunction),
 )
-_NAME_CAP: int = 320  # per-capture text bound, mirroring code._TEXT_CAP
-_SIG_CAP: int = 480  # signature/doc slice bound, mirroring _xml_doc's 480
+_NAME_CAP: int = 320
+_SIG_CAP: int = 480
 
 
 # --- [OPERATIONS] -----------------------------------------------------------------------
@@ -223,12 +195,8 @@ _SIG_CAP: int = 480  # signature/doc slice bound, mirroring _xml_doc's 480
 def shape_of(symbol: str) -> SymbolShape:
     """Classify an API query symbol.
 
-    Args:
-        symbol: Symbol token from the query.
-
     Returns:
-        Symbol shape used by the query dispatcher.
-
+        Symbol shape used by API query dispatch.
     """
     match symbol.strip():
         case "":
@@ -245,13 +213,12 @@ def _safe(key: str) -> str:
     return re.sub(r"[^A-Za-z0-9_.-]+", "-", key).strip("-") or "source"
 
 
-_SHA256_MEMO: dict[tuple[str, int, int], str] = {}  # (path, size, mtime_ns) → sha256 hex; process-level cache avoids re-reading unchanged assemblies
+_SHA256_MEMO: dict[tuple[str, int, int], str] = {}
 
 
 def _fingerprint(assemblies: tuple[Path, ...]) -> str:
-    # content-address: fold the byte SHA-256 in alongside (size, mtime_ns) because a RhinoWIP reinstall
-    # preserves mtime on unchanged DLLs; the digest changes iff the decompiled surface would.
-    # _SHA256_MEMO avoids re-hashing an unchanged assembly on successive queries within the same process.
+    # Content hash joins size and mtime because RhinoWIP reinstalls can preserve DLL mtimes.
+    # The memo avoids rehashing unchanged assemblies within one process.
     def _asm_digest(p: Path) -> str:
         stat = p.stat()
         key = (str(p), stat.st_size, stat.st_mtime_ns)
@@ -263,15 +230,13 @@ def _fingerprint(assemblies: tuple[Path, ...]) -> str:
 
 
 def _rhino_app(settings: AssaySettings) -> Path | None:
-    # a worktree-root rhino-app wins (CI pins a vendored bundle without env), else the first extant
-    # install; a missing bundle is None (sentinel → Option absence), folded EMPTY downstream, never a fault.
-    candidates = (Path(str(settings.root)) / "rhino-app", *(Path(b) for b in _RHINO_BUNDLES))  # bundle resolution is local-fs; UPath → Path
+    # Worktree rhino-app wins for CI; otherwise use the first installed bundle, or None for EMPTY.
+    candidates = (Path(str(settings.root)) / "rhino-app", *(Path(b) for b in _RHINO_BUNDLES))  # bundle resolution is local-fs; UPath -> Path
     return next((c for c in candidates if c.is_dir()), None)
 
 
 def _host_source(settings: AssaySettings, key: str) -> _Source | None:
-    # a key absent from _HOST_SPECS is not a host source (caller falls through to NuGet); a present key
-    # with no bundle yields an assembly-empty _Source so doctor still reports the declared-but-missing row.
+    # Missing host bundles still return an empty declared source so doctor can report the row.
     match _HOST_SPECS.get(key):
         case None:
             return None
@@ -286,7 +251,6 @@ def _host_source(settings: AssaySettings, key: str) -> _Source | None:
 
 
 def _packages(settings: AssaySettings) -> dict[str, str]:
-    # parse Directory.Packages.props into an Include → Version map (NuGet truth)
     path = settings.root / _PACKAGES_PROPS
     match path.is_file():
         case False:
@@ -305,11 +269,7 @@ def _packages(settings: AssaySettings) -> dict[str, str]:
 
 
 def _candidates(names: tuple[str, ...], needle: str, *, n: int = _CANDIDATE_CAP) -> tuple[tuple[str, int], ...]:
-    # shared miss-scorer: exact casefold 100 ▷ prefix 70 ▷ substring 40 ▷ shared-segment overlap;
-    # character-level SequenceMatcher ratio (0-30) is added as a subordinate term so a single-token
-    # typo (e.g. "languagex") surfaces the genuine near-match above 2-char noise without displacing
-    # exact/prefix/substring hits. Length bonus is subordinate: only applied when char_sim > 0, and
-    # capped so it cannot lift a zero-base name above a partial match.
+    # Miss scoring prioritizes exact, prefix, substring, then segment overlap with subordinate typo similarity.
     casefold = needle.casefold()
     segments = frozenset(casefold.replace("-", ".").split("."))
 
@@ -318,7 +278,6 @@ def _candidates(names: tuple[str, ...], needle: str, *, n: int = _CANDIDATE_CAP)
         tokens = frozenset(low.replace("-", ".").split("."))
         overlap = len(segments & tokens) * 20 // max(1, len(tokens))
         base = 100 if low == casefold else 70 if low.startswith(casefold) else 40 if casefold in low else overlap
-        # character-level similarity: compare needle against the shortest segment that contains it
         best_seg = min(tokens, key=lambda t: abs(len(t) - len(casefold)), default=low)
         char_sim = int(difflib.SequenceMatcher(None, casefold, best_seg).ratio() * 30)
         length_bonus = max(0, 20 - len(name) // 4) if char_sim > 0 else 0
@@ -329,8 +288,7 @@ def _candidates(names: tuple[str, ...], needle: str, *, n: int = _CANDIDATE_CAP)
 
 
 def _resolve_key(packages: dict[str, str], key: str) -> Result[str, ApiResolution]:
-    # fuzzy-resolve a NuGet key (exact casefold → unique prefix → unique substring) to one package id;
-    # a miss rides a typed ApiResolution carrying scored candidates + reason (unknown/ambiguous), not a string.
+    # Fuzzy NuGet misses carry typed candidates and unknown/ambiguous reason.
     casefold = key.casefold()
     exact = tuple(n for n in packages if n.casefold() == casefold)
     fuzzy = tuple(n for n in packages if n.casefold().startswith(casefold)) or tuple(n for n in packages if casefold in n.casefold())
@@ -345,16 +303,15 @@ def _resolve_key(packages: dict[str, str], key: str) -> Result[str, ApiResolutio
 
 
 def _package_root(settings: AssaySettings, package: str, version: str) -> Path:
-    # locate the restored package root across project-local + home NuGet caches (first extant wins)
+    # First extant NuGet cache root wins.
     candidates = tuple(
         Path(root) if Path(root).is_absolute() else Path(str(settings.root)) / root for root in _NUGET_ROOTS
-    )  # NuGet cache is local-fs; UPath → Path
+    )  # NuGet cache is local-fs; UPath -> Path
     targets = tuple(base / package.casefold() / version for base in candidates)
     return next((t for t in targets if t.is_dir()), targets[0])
 
 
 def _framework_dir(root: Path, asset: str) -> Path | None:
-    # pick the best target-framework dir under root/<asset> by the _FRAMEWORK_RANK preference
     base = root / asset
     frameworks = tuple(p for p in base.iterdir() if p.is_dir()) if base.is_dir() else ()
     ranked = (*(p for name in _FRAMEWORK_RANK for p in frameworks if p.name == name), *sorted(p for p in frameworks if p.name not in _FRAMEWORK_RANK))
@@ -362,8 +319,7 @@ def _framework_dir(root: Path, asset: str) -> Path | None:
 
 
 def _nuget_source(settings: AssaySettings, package: str, version: str) -> _Source:
-    # the package-stem assembly leads so its sidecar .xml wins doc lookup; an unrestored root yields an
-    # assembly-empty source so query folds EMPTY rather than faulting.
+    # Package-stem assemblies lead so sidecar XML docs win; unrestored roots fold EMPTY.
     root = _package_root(settings, package, version)
     selected = _framework_dir(root, "ref") or _framework_dir(root, "lib")
     assemblies = tuple(sorted(selected.glob("*.dll"))) if selected is not None else ()
@@ -389,9 +345,9 @@ def _pydist_names() -> tuple[str, ...]:
 
 
 def _pydist_source(key: str) -> _Source | None:
-    # no assemblies — the PYDIST roster/decompile rides the INPROC inspect thunk, not ilspycmd
+    # no assemblies: the PYDIST roster/decompile rides the INPROC inspect thunk, not ilspycmd
     try:
-        dist = importlib.metadata.distribution(key)  # codec boundary: an uninstalled key raises PackageNotFoundError → None (fall through)
+        dist = importlib.metadata.distribution(key)  # codec boundary: an uninstalled key raises PackageNotFoundError -> None (fall through)
     except importlib.metadata.PackageNotFoundError:
         return None
     root = Path(str(dist.locate_file("")))
@@ -411,7 +367,7 @@ def _pydist_source(key: str) -> _Source | None:
 
 def _pydist_modules(key: str) -> tuple[str, ...]:
     # top_level.txt first (declared truth, often absent in modern wheels), else invert
-    # packages_distributions() (module → dists) to recover the real import roots (e.g. Pygments → pygments).
+    # packages_distributions() (module -> dists) to recover the real import roots (e.g. Pygments -> pygments).
     try:
         text = importlib.metadata.distribution(key).read_text("top_level.txt")
     except importlib.metadata.PackageNotFoundError:
@@ -423,7 +379,7 @@ def _pydist_modules(key: str) -> tuple[str, ...]:
 
 
 def _tsdecl_names(settings: AssaySettings) -> tuple[str, ...]:
-    # the npm package roster under the worktree node_modules (hoisted + scoped)
+    # Hoisted and scoped npm packages form the TypeScript source roster.
     base = Path(str(settings.root)) / _NODE_MODULES
     match base.is_dir():
         case False:
@@ -441,7 +397,7 @@ def _tsdecl_names(settings: AssaySettings) -> tuple[str, ...]:
 
 
 def _tsdecl_dir(settings: AssaySettings, key: str) -> Path | None:
-    # resolve node_modules/<pkg>: hoisted first, else the pnpm store (@scope/pkg → @scope+pkg)
+    # Hoisted packages win before pnpm store fallbacks.
     base = Path(str(settings.root)) / _NODE_MODULES
     hoisted = base / key
     mangled = key.replace("/", "+")
@@ -451,7 +407,7 @@ def _tsdecl_dir(settings: AssaySettings, key: str) -> Path | None:
 
 
 def _tsdecl_source(settings: AssaySettings, key: str) -> _Source | None:
-    # a package with NO .d.ts folds to asset_paths=() so _surface yields EMPTY (exit 0), never FAULTED
+    # A package without .d.ts files yields EMPTY, not FAULTED.
     match _tsdecl_dir(settings, key):
         case None:
             return None
@@ -464,7 +420,7 @@ def _tsdecl_source(settings: AssaySettings, key: str) -> _Source | None:
 
 
 def _tsdecl_entry(pkg_dir: Path) -> Path | None:
-    # typings entrypoint: package.json types/typings else index.d.ts (extant only)
+    # package.json types/typings wins over index.d.ts.
     manifest = pkg_dir / "package.json"
     declared = _json_field(manifest, "types") or _json_field(manifest, "typings")
     target = (pkg_dir / declared) if declared else (pkg_dir / _DTS_ENTRY)
@@ -472,7 +428,7 @@ def _tsdecl_entry(pkg_dir: Path) -> Path | None:
 
 
 def _tsdecl_version(settings: AssaySettings, key: str) -> str:
-    # version off the pnpm store dir tail (<pkg>@<ver>[+peer]), else the hoisted package.json
+    # pnpm store metadata wins before hoisted package.json.
     mangled = key.replace("/", "+")
     pnpm = tuple(sorted((Path(str(settings.root)) / _PNPM_STORE).glob(f"{mangled}@*")))
     tail = next((d.name.removeprefix(f"{mangled}@").split("+", 1)[0].split("_", 1)[0] for d in pnpm), "")
@@ -481,15 +437,14 @@ def _tsdecl_version(settings: AssaySettings, key: str) -> str:
 
 def _json_field(path: Path, field: str) -> str:
     try:
-        data = msgspec.json.decode(path.read_bytes(), type=dict[str, msgspec.Raw])  # codec boundary: a missing/malformed package.json folds to ""
-        return msgspec.json.decode(data[field], type=str) if field in data else ""  # nested codec boundary: a non-string value folds to ""
-    except OSError, msgspec.DecodeError:  # `field in data` guards the access, so KeyError is unreachable
+        data = msgspec.json.decode(path.read_bytes(), type=dict[str, msgspec.Raw])
+        return msgspec.json.decode(data[field], type=str) if field in data else ""
+    except OSError, msgspec.DecodeError:
         return ""
 
 
 def _source(settings: AssaySettings, key: str) -> Result[_Source, ApiResolution]:
-    # ordered resolver fold (cheapest origins first): host bundle ▷ NuGet ▷ PYDIST ▷ TSDECL; the first
-    # non-None wins. A total miss aggregates candidates across all kinds (richer-on-failure), never a bare empty.
+    # Cheapest source wins; total misses aggregate candidates across all source kinds.
     packages = _packages(settings)
     resolvers: tuple[Callable[[], _Source | None], ...] = (
         lambda: _host_source(settings, key),
@@ -506,8 +461,7 @@ def _source(settings: AssaySettings, key: str) -> Result[_Source, ApiResolution]
 
 
 def _module_members(module: object, prefix: str, *, depth: int = 1) -> tuple[Capture, ...]:
-    # depth gates the single recursion into same-prefix submodules (1 at the import root, 0 inside one) so
-    # the roster never walks the transitive module graph — one level is the roster breadth.
+    # One recursion level finds same-prefix submodules without walking the transitive graph.
     name = getattr(module, "__name__", prefix)
     file = str(getattr(module, "__file__", "") or "")
     own = tuple(
@@ -530,14 +484,13 @@ def _module_members(module: object, prefix: str, *, depth: int = 1) -> tuple[Cap
 
 def _import(name: str) -> object | None:
     try:
-        return importlib.import_module(name)  # spawn boundary: an unresolvable transitive dep degrades to metadata-only, never crashes
-    except Exception:  # noqa: BLE001  # INPROC defensive: per-module import fault → drop that module, the thunk still surfaces the rest
+        return importlib.import_module(name)
+    except Exception:  # noqa: BLE001  # INPROC defensive: per-module import fault -> drop that module, the thunk still surfaces the rest
         return None
 
 
 def _pydist_thunk(key: str, symbol: str) -> InprocThunk:
-    # empty symbol rosters @type captures, else member @signature/@doc/@full captures (inspect / PEP 749
-    # annotationlib). Captures ride CAPTURE_ENCODER — the same wire code.py's _ts_thunk rides.
+    # Empty symbols roster @type captures; member lookups capture signature, docs, and source.
 
     def run(_check: Check) -> Completed:
         match symbol:
@@ -554,13 +507,11 @@ def _pydist_thunk(key: str, symbol: str) -> InprocThunk:
 
 
 def _inproc_thunk(source: _Source, symbol: str) -> InprocThunk:
-    # the sole kind→thunk dispatch both INPROC arms share
     return _pydist_thunk(source.key, symbol) if source.kind is SourceKind.PYDIST else _tsdecl_thunk(source, symbol)
 
 
 def _resolve_symbol(key: str, symbol: str) -> object | None:
-    # each candidate qualified name is rooted at a top_level.txt module, so an arbitrary token never
-    # imports an unrelated installed package; the longest importable module prefix wins (range descends).
+    # Candidate imports stay under declared distribution roots; the longest importable prefix wins.
     roots = _pydist_modules(key)
     qualified = tuple(dict.fromkeys((symbol, *(f"{root}.{symbol}" for root in roots if not symbol.startswith(f"{root}.") and symbol != root))))
     return next((resolved for qname in qualified for resolved in (_resolve_qualified(qname, roots),) if resolved is not None), None)
@@ -600,10 +551,9 @@ def _member_captures(obj: object, symbol: str) -> tuple[Capture, ...]:
 
 
 def _signature(obj: object) -> str:
-    # eval_str=False keeps annotations as source strings so an unresolvable forward ref never evaluates;
-    # when inspect rejects the object (C builtin), PEP 749 annotationlib STRING still surfaces the map.
+    # String annotations avoid evaluating unresolvable forward refs on inspect fallback.
     try:
-        return str(inspect.signature(obj, eval_str=False))  # type: ignore[arg-type]  # ty: ignore[invalid-argument-type]  # any resolved symbol; non-callable → TypeError arm
+        return str(inspect.signature(obj, eval_str=False))  # type: ignore[arg-type]  # ty: ignore[invalid-argument-type]  # any resolved symbol; non-callable -> TypeError arm
     except ValueError, TypeError:
         annotations = _annotations(obj)
         params = tuple(f"{name}: {kind}" for name, kind in annotations.items() if name != "return")
@@ -614,19 +564,18 @@ def _annotations(obj: object) -> dict[str, str]:
     try:
         return annotationlib.get_annotations(obj, format=annotationlib.Format.STRING)
     except TypeError, NameError:
-        return {}  # a C-builtin / unresolvable object folds to {}
+        return {}
 
 
 def _object_source(obj: object) -> str:
     try:
-        return inspect.getsource(obj)  # type: ignore[arg-type]  # ty: ignore[invalid-argument-type]  # any resolved symbol; a C-builtin / unreadable object → TypeError arm
+        return inspect.getsource(obj)  # type: ignore[arg-type]  # ty: ignore[invalid-argument-type]  # any resolved symbol; a C-builtin / unreadable object -> TypeError arm
     except OSError, TypeError:
         return ""
 
 
 def _tsdecl_thunk(source: _Source, symbol: str) -> InprocThunk:
-    # empty symbol runs the roster query over every .d.ts (@type per declaration), else anchors the matching
-    # node's @signature. REUSES code.py's TS grammar binding; captures ride the same CAPTURE_ENCODER wire.
+    # Empty symbols roster .d.ts declarations; member lookups anchor one signature capture.
 
     def run(_check: Check) -> Completed:
         ts_lang = TSLanguage(_TS_GRAMMAR())
@@ -639,7 +588,7 @@ def _tsdecl_thunk(source: _Source, symbol: str) -> InprocThunk:
 
 def _ts_captures(parser: TSParser, language: TSLanguage, path: Path, symbol: str) -> tuple[Capture, ...]:
     try:
-        src = path.read_bytes()  # FS boundary: an unreadable .d.ts drops out of the roster, never faults the thunk
+        src = path.read_bytes()
     except OSError:
         return ()
     root = parser.parse(src).root_node
@@ -656,7 +605,7 @@ def _ts_captures(parser: TSParser, language: TSLanguage, path: Path, symbol: str
 
 
 def _ts_member(root: Node, symbol: str, path: Path) -> tuple[Capture, ...]:
-    # anchor the named declaration node (name: field == the symbol tail); first match wins
+    # First declaration with a matching name field anchors the signature.
     target = symbol.rsplit(".", 1)[-1]
     match next((n for n in _walk_decls(root) if (name := n.child_by_field_name("name")) is not None and _node_text(name) == target), None):
         case None:
@@ -671,14 +620,12 @@ def _walk_decls(node: Node) -> tuple[Node, ...]:
 
 
 def _node_text(node: Node) -> str:
-    raw = node.text  # Node.text is bytes | None; an absent source folds to ""
+    raw = node.text
     return raw.decode(errors="replace") if raw is not None else ""
 
 
 def _invoke(settings: AssaySettings, scope: ArtifactScope, tool: Tool, *args: str) -> Completed:
-    # the engine spawn runs scope=None deliberately: _overlay folds the DOTNET_CLI_HOME isolation env for
-    # ANY scope, which redirects the CLI home off the real dotnet-tools.json and breaks `dotnet tool run
-    # ilspycmd` — this rail needs the real CLI home. A spawn fault degrades to a synthetic non-zero Completed.
+    # scope=None preserves the real dotnet-tools.json CLI home for `dotnet tool run ilspycmd`.
     _ = scope
     routed = Routed(language=Language.CSHARP, scope=Scope.CHANGED)
     check = Check(tool=msgspec.structs.replace(tool, command=(*tool.command, *args)))
@@ -700,8 +647,7 @@ def _surface(settings: AssaySettings, scope: ArtifactScope, source: _Source) -> 
 
 
 def _cs_surface(settings: AssaySettings, scope: ArtifactScope, source: _Source) -> Result[_Surface, Fault]:
-    # cache-first by content fingerprint, -l cisde over each assembly on a miss. A non-zero exit on a
-    # PRESENT assembly is FAULTED (exit 2) — distinct from FAILED (a check that ran and found defects).
+    # Content-fingerprint caches avoid repeat ilspy listings; non-zero ilspy exits fault the rail.
     assemblies = source.assemblies
     match next((t for t in select(Claim.API, Language.CSHARP)), None):
         case None:
@@ -718,8 +664,7 @@ def _cs_surface(settings: AssaySettings, scope: ArtifactScope, source: _Source) 
 
 
 def _inproc_check(settings: AssaySettings, source: _Source, mode: Mode, thunk: InprocThunk) -> Result[Completed, Fault]:
-    # mirrors _invoke on the INPROC splice axis (tool.thunk, not tool.command) so the in-process roster
-    # rides the same deadline, CapacityLimiter, and traced span as a subprocess spawn.
+    # INPROC thunks ride the same deadline, limiter, and trace span as subprocess rails.
     language = Language.PYTHON if source.kind is SourceKind.PYDIST else Language.TYPESCRIPT
     match next((t for t in select(Claim.API, language) if t.mode is mode), None):
         case None:
@@ -731,8 +676,7 @@ def _inproc_check(settings: AssaySettings, source: _Source, mode: Mode, thunk: I
 
 
 def _inproc_surface(settings: AssaySettings, source: _Source) -> Result[_Surface, Fault]:
-    # an empty asset_paths (dist with no importable module, npm package with no .d.ts) folds to an empty
-    # _Surface (EMPTY, exit 0) — never FAULTED
+    # Empty asset paths become an EMPTY surface, not a fault.
     cache = _cache_path(settings, source, _fingerprint(source.asset_paths))
     return _inproc_check(settings, source, Mode.QUERY, _inproc_thunk(source, "")).map(lambda done: _parse_inproc(source, cache, done))
 
@@ -743,15 +687,13 @@ def _parse_inproc(source: _Source, cache: Path, done: Completed) -> _Surface:
 
 
 def _cache_path(settings: AssaySettings, source: _Source, fingerprint: str) -> Path:
-    return Path(
-        str(settings.artifact(ArtifactKind.SCOPE, "api", f"{_safe(source.key)}.{fingerprint or 'unresolved'}.txt"))
-    )  # ilspy decompile cache is local-fs; UPath → Path
+    return Path(str(settings.artifact(ArtifactKind.SCOPE, "api", f"{_safe(source.key)}.{fingerprint or 'unresolved'}.txt")))
 
 
 def _run_surface(
     settings: AssaySettings, scope: ArtifactScope, source: _Source, tool: Tool, assemblies: tuple[Path, ...], cache: Path
 ) -> Result[_Surface, Fault]:
-    # run -l cisde over each assembly, write the deterministic cache, parse the roster
+    # Successful ilspy listings populate a deterministic roster cache.
     attempts = tuple((asm, _invoke(settings, scope, tool, str(asm))) for asm in assemblies)
     match any(done.returncode == 0 for _, done in attempts):
         case False:
@@ -765,7 +707,7 @@ def _run_surface(
 
 
 def _namespace_of(fqn: str, types: frozenset[str]) -> str:
-    # owning namespace: the longest prefix that is itself a known type's owner
+    # The longest known owner prefix becomes the namespace.
     parts = fqn.split(".")
     return next((".".join(parts[:i]) for i in range(len(parts)) if ".".join(parts[: i + 1]) in types), ".".join(parts[:-1]))
 
@@ -784,7 +726,6 @@ def _parse_surface(source: _Source, cache: Path, text: str) -> _Surface:
 
 
 def _roster(source: _Source, cache: Path, types: tuple[str, ...], raw: str) -> _Surface:
-    # the sole roster projection both the ilspy and INPROC parsers share
     type_set = frozenset(types)
     namespace_of = {fqn: _namespace_of(fqn, type_set) for fqn in types}
     namespaces = tuple(sorted({ns for ns in namespace_of.values() if ns}))
@@ -793,7 +734,7 @@ def _roster(source: _Source, cache: Path, types: tuple[str, ...], raw: str) -> _
 
 
 def _rank_type(types: tuple[str, ...], needle: str) -> str:
-    # rank a type-name needle to its FQN: exact casefold first, then the shortest matching suffix
+    # Exact type names beat the shortest matching suffix.
     casefold = needle.casefold()
     matched = tuple(fqn for fqn in types if fqn.casefold() == casefold or fqn.casefold().endswith("." + casefold))
     ranked = sorted(matched, key=lambda fqn: (fqn.casefold() != casefold, len(fqn)))
@@ -801,8 +742,7 @@ def _rank_type(types: tuple[str, ...], needle: str) -> str:
 
 
 def _xml_doc(source: _Source, symbol: str) -> str:
-    # anchor on the .NET XMLDoc member-ID grammar: strip the X: kind prefix + ( param list, then match on
-    # a dotted-segment boundary (suffix, never substring) so a sibling mentioning the name cannot steal it.
+    # XMLDoc matching strips kind and parameters, then requires a dotted-segment boundary.
     needle = symbol.casefold()
     return next(
         (
@@ -836,7 +776,7 @@ def _decompile(settings: AssaySettings, scope: ArtifactScope, surface: _Surface,
 
 
 def _cs_decompile(settings: AssaySettings, scope: ArtifactScope, surface: _Surface, symbol: str, p: ApiParams) -> Result[_Body, Fault]:
-    # ilspycmd -t <type>: anchor the member signature on the declaration line, doc from the sidecar XML
+    # ilspycmd owns C# source windows; sidecar XML owns docs.
     head, _, tail = symbol.rpartition(".")
     fqn = _rank_type(surface.types, symbol) or _rank_type(surface.types, head)
     match next((t for t in select(Claim.API, Language.CSHARP)), None):
@@ -850,7 +790,7 @@ def _cs_decompile(settings: AssaySettings, scope: ArtifactScope, surface: _Surfa
 
 
 def _inproc_decompile(settings: AssaySettings, surface: _Surface, symbol: str, p: ApiParams) -> Result[_Body, Fault]:
-    # the doc rides the thunk's captures, never _xml_doc (XMLDoc-specific); _inproc_body owns the projection
+    # Python and TypeScript docs ride thunk captures, not XMLDoc lookup.
     source = surface.source
     return _inproc_check(settings, source, Mode.LIST, _inproc_thunk(source, symbol)).map(lambda done: _inproc_body(done, p))
 
@@ -872,7 +812,7 @@ def _inproc_body(done: Completed, p: ApiParams) -> _Body:
 
 
 def _run_decompile(settings: AssaySettings, scope: ArtifactScope, tool: Tool, fqn: str, assemblies: tuple[Path, ...]) -> Completed:
-    # decompile fqn across the assemblies (ref-first), first non-empty success wins (else first attempt)
+    # Ref assemblies lead; the first non-empty decompile wins.
     ordered = sorted(assemblies, key=lambda a: ("/ref/" not in a.as_posix(), a.as_posix().casefold()))
     decompile_tool = msgspec.structs.replace(tool, command=(*(c for c in tool.command if c not in {"-l", "cisde"}), "-t", fqn, *_DECOMPILE_FLAGS))
     attempts = tuple(_invoke(settings, scope, decompile_tool, str(asm)) for asm in ordered)
@@ -880,8 +820,7 @@ def _run_decompile(settings: AssaySettings, scope: ArtifactScope, tool: Tool, fq
 
 
 def _body(done: Completed, simple: str, p: ApiParams, *, doc: str) -> _Body:
-    # doc is the pre-resolved prose the caller owns (so the XMLDoc lookup never mis-fires on a non-C#
-    # source); simple anchors the modifier-prefixed declaration line, never a /// doc-comment occurrence.
+    # Declaration-line anchors avoid matching XML doc comments as signatures.
     text = done.stdout.decode(errors="replace")
     lines = tuple(line for line in text.splitlines() if not p.grep or p.grep.casefold() in line.casefold())
     boundary = re.compile(rf"\b{re.escape(simple)}\b", re.IGNORECASE)
@@ -900,7 +839,6 @@ def _body(done: Completed, simple: str, p: ApiParams, *, doc: str) -> _Body:
 
 
 def _artifact(settings: AssaySettings, source: _Source, name: str, content: str) -> Artifact:
-    # write a content artifact under the api scope namespace, project its Artifact receipt
     path = settings.artifact(ArtifactKind.SCOPE, "api", _safe(source.key), name)
     path.parent.mkdir(parents=True, exist_ok=True)
     raw = content.encode()
@@ -910,8 +848,7 @@ def _artifact(settings: AssaySettings, source: _Source, name: str, content: str)
 
 
 def _matches(rows: tuple[str, ...], kind: ArtifactKind, pattern: str) -> tuple[Match, ...]:
-    # rank a row bag into bounded Match evidence: query-hit base + character-level similarity +
-    # shorter-name tie-break. kind is caller-supplied (type/scope) — never hardcoded SCOPE here.
+    # Caller-supplied kind keeps type and scope match evidence distinct.
     query = pattern.casefold()
 
     def score(text: str) -> int:
@@ -933,14 +870,8 @@ def _matches(rows: tuple[str, ...], kind: ArtifactKind, pattern: str) -> tuple[M
 def doctor(settings: AssaySettings, scope: ArtifactScope, p: ApiParams) -> Result[Report, Fault]:
     """Inventory API source health.
 
-    Args:
-        settings: Runtime settings.
-        scope: Artifact scope.
-        p: API params.
-
     Returns:
-        Result containing an inventory report or a strict-mode fault.
-
+        Inventory report, or a strict-mode fault when required sources are incomplete.
     """
     surface_tool = next((t for t in select(Claim.API, Language.CSHARP)), None)
     version = _invoke(settings, scope, surface_tool, "--version") if surface_tool is not None else Completed(("ilspycmd",), 1)
@@ -951,7 +882,6 @@ def doctor(settings: AssaySettings, scope: ArtifactScope, p: ApiParams) -> Resul
         status=RailStatus.OK if all(ok for _, ok, _, _ in rows) else RailStatus.EMPTY,
         notes=(f"{sum(1 for _, ok, _, _ in rows if ok)}/{len(rows)} inventory sources healthy",),
     )
-    # Detail carries one Match per inventory row; absent rows use severity="missing".
     detail = ApiSurface(
         source_kind=SourceKind.TOOL,
         source_id="ilspycmd",
@@ -973,8 +903,7 @@ def doctor(settings: AssaySettings, scope: ArtifactScope, p: ApiParams) -> Resul
 
 
 def _inventory(settings: AssaySettings, app: Path | None, version: Completed) -> tuple[tuple[str, bool, str, SourceKind], ...]:
-    # fold host bundle, ilspycmd version, central packages, Python dists, npm .d.ts into (name, ok, text, kind) rows.
-    # Include host-source rows even when a source has no assemblies, so rhino-code-remote stays visible.
+    # Include host-source rows even when a source has no assemblies.
     packages = _packages(settings)
     host_keys = tuple(k for k in _HOST_SPECS if _host_source(settings, k) is not None)
     host_present = tuple(k for k in host_keys if (src := _host_source(settings, k)) is not None and src.assemblies)
@@ -992,7 +921,7 @@ def _inventory(settings: AssaySettings, app: Path | None, version: Completed) ->
 
 
 def _strict(report: Report, p: ApiParams) -> Result[Report, Fault]:
-    # promote a folded EMPTY/SKIP report to Error(Fault(FAULTED)) under --strict
+    # Strict mode promotes incomplete inventory to a fault.
     match (p.strict, report.status):
         case (True, RailStatus.EMPTY | RailStatus.SKIP):
             return Error(Fault(("api", report.verb), status=RailStatus.FAULTED, message=f"{report.verb} inventory incomplete under --strict"))
@@ -1003,14 +932,8 @@ def _strict(report: Report, p: ApiParams) -> Result[Report, Fault]:
 def resolve(settings: AssaySettings, scope: ArtifactScope, p: ApiParams) -> Result[Report, Fault]:
     """Resolve a source key to asset paths.
 
-    Args:
-        settings: Runtime settings.
-        scope: Artifact scope.
-        p: API params.
-
     Returns:
-        Result containing asset path evidence or unsupported-source candidates.
-
+        Asset path report, or unsupported-source candidate evidence.
     """
     _ = scope
     match _source(settings, p.key):
@@ -1021,7 +944,7 @@ def resolve(settings: AssaySettings, scope: ArtifactScope, p: ApiParams) -> Resu
 
 
 def _resolve_report(settings: AssaySettings, source: _Source, p: ApiParams) -> Report:
-    # full path list → scope Artifact; ranked subset → Report.results
+    # Full paths ride an artifact; ranked previews ride results.
     targets = _resolve_targets(source, p.kind)
     existing = tuple(t for t in targets if t.exists())
     artifact = _artifact(settings, source, f"{p.kind}.paths.txt", "\n".join(str(t) for t in targets))
@@ -1033,7 +956,6 @@ def _resolve_report(settings: AssaySettings, source: _Source, p: ApiParams) -> R
 
 
 def _resolve_targets(source: _Source, kind: _PathKind) -> tuple[Path, ...]:
-    # project the resolve kind token onto its declared path set (table-driven, dedup-ordered)
     catalog: dict[_PathKind, tuple[Path, ...]] = {
         "all": (*source.assemblies, *source.xmls, *((source.nuspec,) if source.nuspec is not None else ()), *source.asset_paths),
         "assembly": source.assemblies,
@@ -1048,14 +970,8 @@ def _resolve_targets(source: _Source, kind: _PathKind) -> tuple[Path, ...]:
 def query(settings: AssaySettings, scope: ArtifactScope, p: ApiParams) -> Result[Report, Fault]:
     """Query a source for namespaces, types, members, or search hits.
 
-    Args:
-        settings: Runtime settings.
-        scope: Artifact scope.
-        p: API params.
-
     Returns:
-        Result containing API surface evidence or unsupported-source candidates.
-
+        API surface report, or unsupported-source candidate evidence.
     """
     match _source(settings, p.key):
         case Result(tag="ok", ok=source):
@@ -1065,8 +981,7 @@ def query(settings: AssaySettings, scope: ArtifactScope, p: ApiParams) -> Result
 
 
 def _resolve_namespace(settings: AssaySettings, scope: ArtifactScope, surface: _Surface, p: ApiParams) -> Result[Report, Fault]:
-    # Roster-aware namespace dispatch: type suffix-match wins over namespace listing; genuine miss → search.
-    # Extracted so _query_shape stays within the PLR0912 6-arm limit without a nested match.
+    # Type suffix matches beat namespace roster lookup; genuine misses search.
     type_fqn = _rank_type(surface.types, p.symbol)
     owned = surface.by_namespace.get(_rank_namespace(surface, p.symbol), ()) if not type_fqn else ()
     return (
@@ -1079,11 +994,9 @@ def _resolve_namespace(settings: AssaySettings, scope: ArtifactScope, surface: _
 
 
 def _query_shape(settings: AssaySettings, scope: ArtifactScope, surface: _Surface, p: ApiParams) -> Result[Report, Fault]:
-    # the single polymorphic SymbolShape dispatch: one match arm per shape, assert_never closed.
-    # The namespace arm is roster-aware via _resolve_namespace: type suffix-match before roster/miss.
+    # Closed SymbolShape dispatch keeps the namespace arm roster-aware.
     match shape_of(p.symbol):
         case SymbolShape.INDEX:
-            # a namespace-less surface (a flat .d.ts export set) rosters its types directly; a namespaced surface (C#) rosters namespaces
             rows = surface.namespaces or surface.types
             return Ok(_roster_report(settings, surface, SymbolShape.INDEX, rows, p))
         case SymbolShape.NAMESPACE:
@@ -1097,14 +1010,12 @@ def _query_shape(settings: AssaySettings, scope: ArtifactScope, surface: _Surfac
 
 
 def _rank_namespace(surface: _Surface, symbol: str) -> str:
-    # resolve a namespace token to its canonical casing (case-insensitive match against the roster)
     casefold = symbol.casefold()
     return next((ns for ns in surface.namespaces if ns.casefold() == casefold), symbol)
 
 
 def _roster_report(settings: AssaySettings, surface: _Surface, shape: SymbolShape, rows: tuple[str, ...], p: ApiParams) -> Report:
-    # INDEX/NAMESPACE roster: bounded preview + ranked Match rows + full-listing Artifact.
-    # Detail records cardinality, scope artifacts, real rank, and the INDEX surface artifact.
+    # Roster reports keep bounded previews plus a full-listing artifact.
     source = surface.source
     artifact = _artifact(settings, source, f"{shape.value}.txt", "\n".join(rows))
     done = Completed(
@@ -1132,8 +1043,7 @@ def _roster_report(settings: AssaySettings, surface: _Surface, shape: SymbolShap
 
 
 def _search_report(surface: _Surface, p: ApiParams) -> Report:
-    # ranked substring hits (OK) else a genuine miss: an UNSUPPORTED ApiResolution carrying the nearest
-    # scored type candidates + reason "partial", never a bare EMPTY (richer-on-failure)
+    # Search misses stay UNSUPPORTED with nearest candidates, not bare EMPTY.
     source = surface.source
     needle = p.symbol.casefold()
     hits = tuple(fqn for fqn in surface.types if needle in fqn.casefold())
@@ -1148,8 +1058,7 @@ def _search_report(surface: _Surface, p: ApiParams) -> Report:
 
 
 def _decompile_report(settings: AssaySettings, surface: _Surface, shape: SymbolShape, body: _Body, p: ApiParams) -> Report:
-    # TYPE/MEMBER reports reconcile shape, populate results, and always reference an artifact.
-    # On decompile miss, check if the symbol names a known namespace before falling to SEARCH (e.g. Rhino.Geometry).
+    # Decompile misses can still resolve to known namespaces before falling to search.
     match body.signature:
         case "":
             ns_key = _rank_namespace(surface, p.symbol)
@@ -1160,7 +1069,6 @@ def _decompile_report(settings: AssaySettings, surface: _Surface, shape: SymbolS
 
 
 def _decompile_body(settings: AssaySettings, surface: _Surface, shape: SymbolShape, body: _Body, p: ApiParams) -> Report:
-    # factored from _decompile_report to keep per-frame PLR0914 < 10; each assignment is load-bearing
     direct_fqn = _rank_type(surface.types, p.symbol)
     head = p.symbol.rpartition(".")[0]
     resolved_fqn = direct_fqn or (_rank_type(surface.types, head) if head else "")
@@ -1195,7 +1103,6 @@ def _api_detail(
     truncated: bool = False,
     lines: int = 0,
 ) -> ApiSurface:
-    # the rail's sole Detail: typed source provenance + symbol shape + decompile metrics, never a dict
     return ApiSurface(
         source_kind=source.kind,
         source_id=source.key,
@@ -1211,8 +1118,7 @@ def _api_detail(
 
 
 def _miss_report(verb: str, key: str, resolution: ApiResolution) -> Report:
-    # a miss is neither broken (no FAILED/Fault) nor silent (no EMPTY): UNSUPPORTED (exit 3) on the
-    # success channel carries the typed ApiResolution so the agent reads candidates + reason as next-step evidence.
+    # Missing sources stay UNSUPPORTED and carry typed next-step candidates.
     note = f"no '{key}' source; {resolution.reason}, {len(resolution.candidates)} nearest candidate(s)"
     done = Completed(("api", verb, key), 0, status=RailStatus.UNSUPPORTED, notes=(note,))
     return fold(Claim.API, verb, (done,), detail=resolution)
@@ -1221,17 +1127,11 @@ def _miss_report(verb: str, key: str, resolution: ApiResolution) -> Report:
 def show(settings: AssaySettings, scope: ArtifactScope, p: ApiParams) -> Result[Report, Fault]:
     """Preview a previously written API artifact.
 
-    Args:
-        settings: Runtime settings.
-        scope: Artifact scope.
-        p: API params.
-
     Returns:
-        Result containing the artifact preview report.
-
+        Artifact preview report, or an empty report when the artifact is absent.
     """
     _ = scope
-    match _show_target(Path(str(settings.artifact(ArtifactKind.SCOPE, "api"))), p):  # api artifact tree is local-fs; UPath → Path
+    match _show_target(Path(str(settings.artifact(ArtifactKind.SCOPE, "api"))), p):  # api artifact tree is local-fs; UPath -> Path
         case Path() as path if path.is_file():
             return Ok(_show_report(path, p))
         case _:
@@ -1246,12 +1146,12 @@ def _show_report(path: Path, p: ApiParams) -> Report:
     artifact = Artifact(id=digest, kind=ArtifactKind.SCOPE, path=str(path), bytes=path.stat().st_size, lines=text.count("\n"))
     detail = ApiSurface(source_kind=SourceKind.TOOL, source_id=p.token, shape=SymbolShape.SEARCH, preview=window)
     done = Completed(("api", "show", p.token), 0, status=RailStatus.OK, notes=(f"{total} selected lines",))
-    _ = truncated  # Envelope.truncated derives in registry._emit from the saturated results/artifacts bounds, not from Report
+    _ = truncated  # Envelope truncation derives from registry saturation, not this preview flag.
     return msgspec.structs.replace(fold(Claim.API, "show", (done,), detail=detail), artifacts=(artifact,))
 
 
 def _show_target(base: Path, p: ApiParams) -> Path | None:
-    # a direct path first, then the newest glob match under the api scope tree
+    # Direct paths win before newest artifact-tree matches.
     direct = Path(p.token).expanduser()
     globbed = sorted(base.glob(f"**/{p.token}"), key=lambda path: path.stat().st_mtime, reverse=True) if base.is_dir() else []
     candidates = ((direct,) if direct.is_file() else ()) + tuple(globbed)
@@ -1259,7 +1159,7 @@ def _show_target(base: Path, p: ApiParams) -> Path | None:
 
 
 def _slice(text: str, *, lines: str, grep: str, max_lines: int, full: bool) -> tuple[str, int, bool]:
-    # window by --lines (a:b) or --max-lines with optional --grep; report selected count + truncation
+    # --lines windows beat --max-lines after optional grep filtering.
     selected = tuple(line for line in text.splitlines() if not grep or grep.casefold() in line.casefold())
     match (full, lines.split(":", maxsplit=1)):
         case (True, _):

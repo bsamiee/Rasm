@@ -1,4 +1,4 @@
-"""Define automation trigger and action wire shapes."""
+"""Define automation trigger and action wire models."""
 
 from msgspec import json, Raw
 
@@ -9,14 +9,14 @@ from tools.assay.core.model import Base, Claim  # noqa: TC001  # tools.assay pac
 
 
 class Watch(Base, frozen=True, tag_field="kind", tag="watch", forbid_unknown_fields=True):
-    """Filesystem trigger interpreted by the watch backend.
+    """Filesystem trigger interpreted by `watchfiles`.
 
     Attributes:
         paths: Files or directories to watch.
-        filter: Watch filter name resolved by the engine.
+        filter: Engine-resolved watch filter tag.
         ignore_patterns: Glob patterns excluded from watch events.
         debounce: Watch debounce window in milliseconds.
-        cpu_threshold: Optional CPU ceiling that skips a fire when reached.
+        cpu_threshold: CPU ceiling that skips a fire when reached.
     """
 
     paths: tuple[str, ...]
@@ -27,11 +27,11 @@ class Watch(Base, frozen=True, tag_field="kind", tag="watch", forbid_unknown_fie
 
 
 class Schedule(Base, frozen=True, tag_field="kind", tag="schedule", forbid_unknown_fields=True):
-    """Cron trigger interpreted by the scheduler backend.
+    """Cron trigger interpreted by `aiocron`.
 
     Attributes:
         cron: Cron expression passed to the scheduler.
-        cpu_threshold: Optional CPU ceiling that skips a fire when reached.
+        cpu_threshold: CPU ceiling that skips a fire when reached.
     """
 
     cron: str
@@ -43,7 +43,7 @@ class Manual(Base, frozen=True, tag_field="kind", tag="manual", forbid_unknown_f
 
 
 class Rail(Base, frozen=True, tag_field="kind", tag="rail", forbid_unknown_fields=True):
-    """Rail action decoded against the registry at fire time.
+    """Rail action decoded against the registry when it fires.
 
     Attributes:
         claim: Claim that owns the rail.
@@ -57,23 +57,15 @@ class Rail(Base, frozen=True, tag_field="kind", tag="rail", forbid_unknown_field
 
 
 class Program(Base, frozen=True, tag_field="kind", tag="program", forbid_unknown_fields=True):
-    """Direct program action.
-
-    Attributes:
-        argv: Executable and arguments to run verbatim.
-    """
+    """Direct executable and arguments to run verbatim."""
 
     argv: tuple[str, ...]
 
 
 class Sequence(Base, frozen=True, tag_field="kind", tag="sequence", forbid_unknown_fields=True):
-    """Ordered action sequence.
+    """Ordered actions evaluated by the engine."""
 
-    Attributes:
-        actions: Actions evaluated in order by the engine.
-    """
-
-    actions: tuple["Action", ...]  # noqa: UP037  # forward-ref string is load-bearing: the Action alias is declared below, __future__ annotations is forbidden here, and msgspec evals this annotation at class creation
+    actions: tuple["Action", ...]  # noqa: UP037  # forward-ref string is required: the Action alias is declared below, __future__ annotations is forbidden here, and msgspec evals this annotation at class creation
 
 
 class Debounce(Base, frozen=True, tag_field="kind", tag="debounce", forbid_unknown_fields=True):
@@ -85,7 +77,7 @@ class Debounce(Base, frozen=True, tag_field="kind", tag="debounce", forbid_unkno
         collapse: Whether to keep only the trailing fire.
     """
 
-    action: "Action"  # noqa: UP037  # forward-ref string is load-bearing: the Action alias is declared below, __future__ annotations is forbidden here, and msgspec evals this annotation at class creation
+    action: "Action"  # noqa: UP037  # forward-ref string is required: the Action alias is declared below, __future__ annotations is forbidden here, and msgspec evals this annotation at class creation
     window_ms: int = 500
     collapse: bool = True
 
@@ -101,10 +93,10 @@ type Action = Rail | Program | Sequence | Debounce
 
 
 _DECODE_TRIGGER: json.Decoder[Trigger] = json.Decoder(Trigger)
-_DECODE_ACTION: json.Decoder[Action] = json.Decoder(Action)  # instantiated after the Action alias so no forward-ref string reaches msgspec early
-_ENCODE = json.Encoder(order="deterministic")  # deterministic order keeps the wire content-addressable
+_DECODE_ACTION: json.Decoder[Action] = json.Decoder(Action)  # built after Action so msgspec sees the final union
+_ENCODE = json.Encoder(order="deterministic")
 
-# exhaustiveness discipline: each frozenset holds every case's short tag, in lockstep with its union so a drifting case is a static set/union mismatch
+# Tag sets mirror the unions so drift is visible in the total projections below.
 _TRIGGER_TAGS: frozenset[str] = frozenset({"watch", "schedule", "manual"})
 _ACTION_TAGS: frozenset[str] = frozenset({"rail", "program", "sequence", "debounce"})
 
@@ -115,11 +107,8 @@ _ACTION_TAGS: frozenset[str] = frozenset({"rail", "program", "sequence", "deboun
 def describe(node: Trigger | Action) -> str:  # noqa: PLR0911, PLR0912  # one return/arm per union case is the canonical total projection; counts scale with the union, not with branching complexity
     """Render a trigger or action as a one-line label.
 
-    Args:
-        node: Trigger or action to describe.
-
     Returns:
-        Human-readable label.
+        Human-readable label for the trigger or action.
     """
     match node:
         case Watch(paths=p, debounce=d):
@@ -141,13 +130,8 @@ def describe(node: Trigger | Action) -> str:  # noqa: PLR0911, PLR0912  # one re
 def decode(blob: bytes, *, trigger: bool) -> Trigger | Action:
     """Decode one trigger or action JSON blob.
 
-    Args:
-        blob: JSON payload to decode.
-        trigger: Whether to decode the payload as a trigger instead of an action.
-
     Returns:
-        Decoded trigger or action.
-
+        Decoded trigger or action union member.
     """
     match trigger:
         case True:
@@ -159,11 +143,8 @@ def decode(blob: bytes, *, trigger: bool) -> Trigger | Action:
 def encode(node: Trigger | Action) -> bytes:
     """Encode a trigger or action to deterministic JSON.
 
-    Args:
-        node: Trigger or action to encode.
-
     Returns:
-        Encoded JSON bytes.
+        Deterministic JSON bytes for the wire model.
     """
     return _ENCODE.encode(node)
 

@@ -1,4 +1,4 @@
-"""Run static analysis, formatting, build, and plan rails."""
+"""Run static analysis, formatting, build, and routing-plan rails."""
 
 from dataclasses import dataclass
 from hashlib import sha256
@@ -44,7 +44,7 @@ if TYPE_CHECKING:
 
 @dataclass(frozen=True, slots=True, kw_only=True)
 class StaticParams(BaseParams):
-    """Parameters for static rails inherited from `BaseParams`."""
+    """Parameters shared by static rails."""
 
 
 # --- [OPERATIONS] -----------------------------------------------------------------------
@@ -65,24 +65,14 @@ def _checks(routed: Routed, mode: Mode) -> tuple[Check, ...]:
 
 
 def _routed(languages: tuple[Language, ...], paths: tuple[str, ...]) -> Result[Block[Routed], Fault]:
-    # route resolves one Language per call; the first routing Fault short-circuits the whole polyglot fan.
     return sequence(block.of_seq(route(language, paths) for language in languages))
 
 
 def thin_rail(settings: AssaySettings, scope: ArtifactScope, params: StaticParams, *, claim: Claim, verb: str, mode: Mode) -> Result[Report, Fault]:
     """Run a static rail by routing languages and fanning selected tools.
 
-    Args:
-        settings: Runtime settings.
-        scope: Artifact scope.
-        params: Static params.
-        claim: Claim to fold under.
-        verb: Verb to fold under.
-        mode: Tool mode to select.
-
     Returns:
-        Result containing the folded static report or routing fault.
-
+        Folded static report, or routing/spawn fault.
     """
     return _routed(_languages(params.language, params.paths), params.paths).bind(
         lambda routed: sequence(routed.collect(lambda r: block.of_seq(_dispatch(r, settings=settings, scope=scope, mode=mode)))).map(
@@ -92,16 +82,11 @@ def thin_rail(settings: AssaySettings, scope: ArtifactScope, params: StaticParam
 
 
 def _dispatch(routed: Routed, *, settings: AssaySettings, scope: ArtifactScope, mode: Mode) -> tuple[Result[Completed, Fault], ...]:
-    # Skip a language with no scoped content: no file/project of that language was found in the
-    # target. For glob-strategy languages (Python/TS/Bash/SQL/Docs) the signal is empty `routed.files`;
-    # for closure-strategy languages (C#) it is empty `routed.projects` AND empty `routed.files`
-    # (a full-scope escalation keeps files but may have projects). This prevents a Python-only target
-    # from fanning C# tools and vice versa.
+    # Empty scoped content means the target has no files/projects for that language.
     if routed.language.strategy == "glob" and not routed.files:
         return ()
     if routed.language.strategy == "closure" and not routed.files and not routed.projects:
         return ()
-    # One fan_out per language so each argv tail is projected from its own Routed, never a shared head.
     checks = _checks(routed, mode)
     match checks:
         case ():
@@ -116,14 +101,8 @@ def _dispatch(routed: Routed, *, settings: AssaySettings, scope: ArtifactScope, 
 def fix(settings: AssaySettings, scope: ArtifactScope, params: StaticParams) -> Result[Report, Fault]:
     """Run mutating static fixer tools.
 
-    Args:
-        settings: Runtime settings.
-        scope: Artifact scope.
-        params: Static params.
-
     Returns:
-        Result containing the fix report or routing fault.
-
+        Static fix report, or routing/spawn fault.
     """
     return thin_rail(settings, scope, params, claim=Claim.STATIC, verb="fix", mode=Mode.WRITE)
 
@@ -131,14 +110,8 @@ def fix(settings: AssaySettings, scope: ArtifactScope, params: StaticParams) -> 
 def report(settings: AssaySettings, scope: ArtifactScope, params: StaticParams) -> Result[Report, Fault]:
     """Run non-mutating static diagnostic tools.
 
-    Args:
-        settings: Runtime settings.
-        scope: Artifact scope.
-        params: Static params.
-
     Returns:
-        Result containing the diagnostic report or routing fault.
-
+        Static diagnostic report, or routing/spawn fault.
     """
     return thin_rail(settings, scope, params, claim=Claim.STATIC, verb="report", mode=Mode.CHECK)
 
@@ -146,14 +119,8 @@ def report(settings: AssaySettings, scope: ArtifactScope, params: StaticParams) 
 def build(settings: AssaySettings, scope: ArtifactScope, params: StaticParams) -> Result[Report, Fault]:
     """Run build-mode static tools.
 
-    Args:
-        settings: Runtime settings.
-        scope: Artifact scope.
-        params: Static params.
-
     Returns:
-        Result containing the build report or routing fault.
-
+        Static build report, or routing/spawn fault.
     """
     return thin_rail(settings, scope, params, claim=Claim.STATIC, verb="build", mode=Mode.BUILD)
 
@@ -161,14 +128,8 @@ def build(settings: AssaySettings, scope: ArtifactScope, params: StaticParams) -
 def full(settings: AssaySettings, scope: ArtifactScope, params: StaticParams) -> Result[Report, Fault]:
     """Run full static build parity.
 
-    Args:
-        settings: Runtime settings.
-        scope: Artifact scope.
-        params: Static params.
-
     Returns:
-        Result containing the full static report or routing fault.
-
+        Full static report, or routing/spawn fault.
     """
     return thin_rail(settings, scope, params, claim=Claim.STATIC, verb="full", mode=Mode.BUILD)
 
@@ -176,23 +137,15 @@ def full(settings: AssaySettings, scope: ArtifactScope, params: StaticParams) ->
 def plan(settings: AssaySettings, scope: ArtifactScope, params: StaticParams) -> Result[Report, Fault]:
     """Plan static routing without spawning tools.
 
-    Args:
-        settings: Runtime settings.
-        scope: Artifact scope.
-        params: Static params.
-
     Returns:
-        Result containing route facts and build-scope artifacts.
-
+        Static routing plan report, or routing fault.
     """
-    _ = scope  # plan runs zero checks: no artifact scope is spliced
+    _ = scope
     return _routed(_languages(params.language, params.paths), params.paths).map(lambda routed: _plan_report(tuple(routed), settings))
 
 
 def _plan_report(routed: tuple[Routed, ...], settings: AssaySettings) -> Report:
-    # Project per-language routing facts onto Match rows (detail=None; all per-language data rides results uniformly).
-    # sha is pre-computed once per routed entry to avoid triple _closure_sha recompute across rows/notes/artifacts.
-    # Status: OK when at least one language has a non-empty scope (files or projects); EMPTY otherwise.
+    # Route facts ride Match rows; closure shas are computed once for rows, notes, and artifacts.
     routed_sha = tuple((r, _closure_sha(r) if r.projects else "") for r in routed)
     rows = tuple(
         Match(
@@ -221,7 +174,6 @@ def _plan_report(routed: tuple[Routed, ...], settings: AssaySettings) -> Report:
 
 
 def _closure_sha(routed: Routed) -> str:
-    # projects are already sorted by routing._resolve, so the planned build-<closure> path matches build's warm tree bit-for-bit.
     return sha256("\n".join(routed.projects).encode()).hexdigest()[:16]
 
 
