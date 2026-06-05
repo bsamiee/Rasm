@@ -8,6 +8,7 @@ lock and raises ``ResourceBusyError`` → ``RailStatus.BUSY`` only on a *live* h
 """
 
 import contextlib
+from contextvars import ContextVar
 from dataclasses import dataclass
 import fcntl
 import os
@@ -36,6 +37,7 @@ from tools.assay.core.model import (
     Check,  # unconditional: @checked beartype resolves the _guarded(check: Check) forward-ref at call time
     Completed,  # unconditional: @checked beartype resolves the -> Result[Completed, Fault] forward-ref
     Fault,
+    Mode,
     receipt,
     ResourceBusyError,
     Runner,
@@ -97,23 +99,29 @@ _TRACER = trace.get_tracer("assay.engine")  # D50: the bounded fan-out parent sp
 # possibly-missing on the Windows leg, and ty narrows neither sys.platform nor `match`, so the floor is
 # one irreducible suppression carried by the single tuple-bind, never a per-member spread.
 _FLOCK, _LOCK_EX, _LOCK_NB, _LOCK_UN = fcntl.flock, fcntl.LOCK_EX, fcntl.LOCK_NB, fcntl.LOCK_UN  # ty: ignore[possibly-missing-attribute]
+# Invocation-scoped psutil resource snapshot: _diagnose seeds this contextvar before every Fault so it
+# survives the anyio.run boundary and is readable by registry._distill at envelope time — no OTLP needed.
+_RESOURCE: ContextVar[tuple[tuple[str, float], ...]] = ContextVar("assay_resource", default=())
 
 
 # --- [OPERATIONS] -----------------------------------------------------------------------
 
 
-def _splice(runner: Runner, command: tuple[str, ...], scope: ArtifactScope | None, scoped_verbs: frozenset[str]) -> tuple[str, ...]:
+def _splice(runner: Runner, command: tuple[str, ...], scope: ArtifactScope | None, scoped_verbs: frozenset[str], mode: Mode) -> tuple[str, ...]:
     """Inject dotnet ``--artifacts-path`` flags as ONE ``match`` arm.
 
     Only a ``Runner.DOTNET`` build-graph verb (``settings.scoped_verbs``) under a present ``scope``
     receives the artifact flags, spliced *before* any ``--`` argument boundary so the scope reaches
     MSBuild while the post-``--`` tail (test-runner args, msbuild props) stays untouched. Tool-driver
     verbs (``format``, ``tool``) are absent from ``scoped_verbs``, so artifact flags never reach a
-    verb that rejects them. Every other shape passes ``command`` verbatim — the single arm is the
-    whole scope axis, no per-verb branching.
+    verb that rejects them. ``Mode.QUERY`` metadata reads (e.g. ``msbuild -getProperty``) and
+    ``Mode.LIST`` test-discovery reads (``dotnet test --list-tests``) are also excluded — they are not
+    build-graph verbs and MTP rejects ``--disable-build-servers`` alongside a positional project path.
+    Every other shape passes ``command`` verbatim — the single arm is the whole scope axis, no
+    per-verb branching.
     """
     match (runner, command, scope):
-        case (Runner.DOTNET, (verb, *_), ArtifactScope() as s) if verb in scoped_verbs:
+        case (Runner.DOTNET, (verb, *_), ArtifactScope() as s) if verb in scoped_verbs and mode not in {Mode.QUERY, Mode.LIST}:
             cut = command.index("--") if "--" in command else len(command)
             return (*command[:cut], *s.dotnet_flags, *command[cut:])
         case _:
@@ -141,7 +149,7 @@ def _argv(check: Check, routed: Routed, *, settings: AssaySettings, scope: Artif
     # prefix ▷ spliced-body ▷ routed-tails: _splice is the scope axis, routing.place the input axis;
     # tails flatten in order so a fan-of-N INCLUDE/PROJECT lays its groups end to end after the body.
     tool = check.tool
-    body = _splice(tool.runner, tool.command, scope, settings.scoped_verbs)
+    body = _splice(tool.runner, tool.command, scope, settings.scoped_verbs, tool.mode)
     tails = place(routed, tool, settings=settings)
     return (*tool.runner.prefix, *body, *(part for tail in tails for part in tail))
 
@@ -285,12 +293,12 @@ async def _drain_reader(reader: asyncssh.SSHReader[bytes], *, tail_cap: int, chu
     return await _fold(b"")
 
 
-def _snapshot() -> dict[str, int | float]:
+def _snapshot() -> dict[str, float]:
     # One psutil oneshot batching rss/cpu/fd; OTel-style keys so fault.resource_snapshot reads
-    # uniformly across faults.
+    # uniformly across faults. Values are float so Diagnostic.resource (the wire slot) needs no coercion.
     proc = psutil.Process()
     with proc.oneshot():
-        return {"mem.rss_bytes": proc.memory_info().rss, "cpu.percent": proc.cpu_percent(), "proc.num_fds": _num_fds(proc)}
+        return {"mem.rss_bytes": float(proc.memory_info().rss), "cpu.percent": proc.cpu_percent(), "proc.num_fds": float(_num_fds(proc))}
 
 
 def _num_fds(proc: psutil.Process) -> int:
@@ -303,9 +311,13 @@ def _num_fds(proc: psutil.Process) -> int:
 def _diagnose(exc: BaseException) -> None:
     # Called BEFORE every Fault is built so a Fault auto-carries resource context. Span events (not
     # stdout) keep the one-Envelope wire clean; a non-recording span absorbs both calls as no-ops.
+    # Seeds _RESOURCE contextvar so registry._distill can read the snapshot at envelope time without
+    # an OTLP exporter — the value survives the anyio.run boundary via the copied contextvar ref.
+    snap = _snapshot()
+    _RESOURCE.set(tuple(snap.items()))
     span = trace.get_current_span()
     span.record_exception(exc)
-    span.add_event(_FAULT_SNAPSHOT, attributes=_snapshot())
+    span.add_event(_FAULT_SNAPSHOT, attributes=snap)
 
 
 async def _guarded(
@@ -598,4 +610,4 @@ def leased[T](
 
 # --- [EXPORTS] --------------------------------------------------------------------------
 
-__all__ = ["ResourceBusyError", "exclusive_lease", "fan_out", "leased", "run_check"]
+__all__ = ["ResourceBusyError", "_RESOURCE", "exclusive_lease", "fan_out", "leased", "run_check"]

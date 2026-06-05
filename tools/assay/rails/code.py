@@ -237,11 +237,15 @@ def _read(path: Path) -> bytes | None:
 
 
 def _artifact(settings: AssaySettings, verb: str, content: str) -> Artifact:
-    path = Path(str(settings.artifact(ArtifactKind.CODE, verb, "matches.txt")))  # code artifact tree is local-fs; UPath → Path
-    path.parent.mkdir(parents=True, exist_ok=True)
+    # run_id segments the path so concurrent/successive queries never clobber the same matches.txt and
+    # delta history replay retrieves the exact listing for any run_id. Content hash makes the id
+    # content-aware: two queries returning the same set share an id; different sets differ, so delta
+    # can distinguish them even within the same verb bucket.
     raw = content.encode()
+    digest = sha256(raw).hexdigest()[:12]
+    path = Path(str(settings.artifact(ArtifactKind.CODE, verb, settings.run_id, "matches.txt")))  # code artifact tree is local-fs; UPath → Path
+    path.parent.mkdir(parents=True, exist_ok=True)
     path.write_bytes(raw)
-    digest = sha256(f"{path}|{verb}".encode()).hexdigest()[:12]
     return Artifact(id=digest, kind=ArtifactKind.CODE, path=str(path), bytes=len(raw), lines=raw.count(b"\n"))
 
 
@@ -253,14 +257,28 @@ def _ag_normalize(completeds: tuple[Completed, ...]) -> tuple[Completed, ...]:
 
 def _report(settings: AssaySettings, verb: str, pattern: str, completeds: tuple[Completed, ...], rows: tuple[Match, ...], listing: str) -> Report:
     # A clean fold with hits promotes EMPTY to OK; the full listing rides an Artifact only when non-empty so a zero-hit query is terse.
+    # Defect rows fold projected from FAILED Completed entries (W1) are preserved as the `results` when no matching rows exist —
+    # a malformed query surfaces its QueryError/stderr tail instead of an empty results set byte-identical to a valid zero-match.
+    # The match COUNT is typed on Artifact.lines (total untruncated matches); the prose note is dropped so machine data
+    # never rides a string-parsed note. Counts.ok=1 reflects the single synthetic Completed (the slice count); Artifact.lines
+    # is the match cardinality an agent reads directly.
     base = fold(Claim.CODE, verb, completeds)
     status = RailStatus.OK if rows and base.status is RailStatus.EMPTY else base.status
-    note = f"{len(rows)} result(s) across {len(completeds)} routed slice(s)"
-    done = Completed(("code", verb, pattern), 1 if status is RailStatus.FAILED else 0, status=status, notes=(note,))
-    return msgspec.structs.replace(fold(Claim.CODE, verb, (done,)), artifacts=(_artifact(settings, verb, listing),) if listing else (), results=rows)
+    done = Completed(("code", verb, pattern), 1 if status is RailStatus.FAILED else 0, status=status)
+    final_rows = rows or base.results  # preserve fold-projected defect rows when no match rows exist
+    return msgspec.structs.replace(
+        fold(Claim.CODE, verb, (done,)), artifacts=(_artifact(settings, verb, listing),) if listing else (), results=final_rows
+    )
 
 
-def _ag_rows(completeds: tuple[Completed, ...], cap: int) -> tuple[tuple[Match, ...], str]:
+def _relevance(pattern: str, text: str) -> int:
+    # Ratio of pattern length to matched text length, clamped to [1, 100]. A tighter match (match text
+    # close to the pattern in length) scores higher; a very broad match (long line, short pattern) scores
+    # lower. The floor of 1 preserves ordering over a strict zero baseline.
+    return max(1, min(100, len(pattern) * 100 // max(len(text), 1)))
+
+
+def _ag_rows(completeds: tuple[Completed, ...], cap: int, pattern: str) -> tuple[tuple[Match, ...], str]:
     # The listing is the unbounded match set the Artifact retains while Report.results stays bounded by cap.
     matches = tuple(m for done in completeds for m in AST_MATCHES.decode(done.stdout or b"[]"))
     listing = "\n".join(f"{m.file}:{m.range.start.line + 1}: {m.text}" + (f" => {m.replacement}" if m.replacement else "") for m in matches)
@@ -270,18 +288,19 @@ def _ag_rows(completeds: tuple[Completed, ...], cap: int) -> tuple[tuple[Match, 
             kind=ArtifactKind.CODE,
             text=(f"{m.text} => {m.replacement}" if m.replacement else m.text)[:_TEXT_CAP],
             line=m.range.start.line + 1,
-            score=100,
+            score=_relevance(pattern, m.text),
         )
         for m in matches[:cap]
     )
     return rows, listing
 
 
-def _ts_rows(completeds: tuple[Completed, ...], cap: int) -> tuple[tuple[Match, ...], str]:
+def _ts_rows(completeds: tuple[Completed, ...], cap: int, pattern: str) -> tuple[tuple[Match, ...], str]:
     captures = tuple(c for done in completeds for c in CAPTURES.decode(done.stdout or b"[]"))
     listing = "\n".join(f"{c.file}:{c.line}: @{c.name} {c.text}" for c in captures)
     rows = tuple(
-        Match(id=f"{c.file}:{c.line}", kind=ArtifactKind.CODE, text=f"@{c.name} {c.text}"[:_TEXT_CAP], line=c.line, score=100) for c in captures[:cap]
+        Match(id=f"{c.file}:{c.line}", kind=ArtifactKind.CODE, text=f"@{c.name} {c.text}"[:_TEXT_CAP], line=c.line, score=_relevance(pattern, c.text))
+        for c in captures[:cap]
     )
     return rows, listing
 
@@ -305,14 +324,20 @@ def _rg_status(returncode: int, stderr: str, *, has_rows: bool) -> tuple[RailSta
             return RailStatus.FAILED, (f"ripgrep failed (exit {returncode}): {stderr[:400] or 'error'}",)
 
 
-def _rg_rows(completeds: tuple[Completed, ...], cap: int) -> tuple[tuple[Match, ...], str]:
+def _rg_rows(completeds: tuple[Completed, ...], cap: int, pattern: str) -> tuple[tuple[Match, ...], str]:
     # stdout is NDJSON; only kind == "match" events carry a hit. The listing rides the Artifact while results stays bounded by cap.
     matches = tuple(
         e.data for done in completeds for line in (done.stdout or b"").splitlines() if line for e in (RG_EVENT.decode(line),) if e.kind == "match"
     )
     listing = "\n".join(f"{d.path.text}:{d.line_number}: {d.lines.text.rstrip()}" for d in matches)
     rows = tuple(
-        Match(id=f"{d.path.text}:{d.line_number}", kind=ArtifactKind.CODE, text=d.lines.text.rstrip()[:_TEXT_CAP], line=d.line_number, score=100)
+        Match(
+            id=f"{d.path.text}:{d.line_number}",
+            kind=ArtifactKind.CODE,
+            text=d.lines.text.rstrip()[:_TEXT_CAP],
+            line=d.line_number,
+            score=_relevance(pattern, d.lines.text.rstrip()),
+        )
         for d in matches[:cap]
     )
     return rows, listing
@@ -340,7 +365,7 @@ def search(settings: AssaySettings, scope: ArtifactScope, params: CodeParams) ->
     match bool(_METAVAR.search(params.pattern)):
         case True:
             return _fan(settings, scope, params, mode=Mode.CHECK, splice=_search_splice(params, Path(str(settings.root)))).map(
-                lambda done: _report(settings, "search", params.pattern, _ag_normalize(done), *_ag_rows(done, params.max_results))
+                lambda done: _report(settings, "search", params.pattern, _ag_normalize(done), *_ag_rows(done, params.max_results, params.pattern))
             )
         case False:
             return _content_search(settings, scope, params)
@@ -359,7 +384,7 @@ def _content_search(settings: AssaySettings, scope: ArtifactScope, params: CodeP
 
 def _content_report(settings: AssaySettings, params: CodeParams, done: Completed) -> Report:
     # Distinct from _report: ripgrep's overloaded exit codes need the hit-aware interpretation _rg_status owns.
-    rows, listing = _rg_rows((done,), params.max_results)
+    rows, listing = _rg_rows((done,), params.max_results, params.pattern)
     status, notes = _rg_status(done.returncode, (done.stderr or b"").decode(errors="replace").strip(), has_rows=bool(rows))
     synthetic = Completed(("code", "search", params.pattern), 1 if status is RailStatus.FAILED else 0, status=status, notes=notes)
     return msgspec.structs.replace(
@@ -388,14 +413,14 @@ def rewrite(settings: AssaySettings, scope: ArtifactScope, params: CodeParams) -
             )
         case False:
             return _fan(settings, scope, params, mode=Mode.CHECK, splice=_rewrite_splice(params, root, apply=False)).map(
-                lambda done: _report(settings, "rewrite", params.pattern, _ag_normalize(done), *_ag_rows(done, params.max_results))
+                lambda done: _report(settings, "rewrite", params.pattern, _ag_normalize(done), *_ag_rows(done, params.max_results, params.pattern))
             )
 
 
 def query(settings: AssaySettings, scope: ArtifactScope, params: CodeParams) -> Result[Report, Fault]:
     """``code query``: tree-sitter AST query via ``Runner.INPROC``, fanning every grammar-backed language."""
     return _fan(settings, scope, params, mode=Mode.QUERY, splice=_query_splice(params, Path(str(settings.root)))).map(
-        lambda done: _report(settings, "query", params.pattern, done, *_ts_rows(done, params.max_results))
+        lambda done: _report(settings, "query", params.pattern, done, *_ts_rows(done, params.max_results, params.pattern))
     )
 
 

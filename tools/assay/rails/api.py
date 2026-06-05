@@ -8,14 +8,15 @@ reinstall preserves mtime on unchanged DLLs, so a content hash is the boundary a
 """
 
 import annotationlib  # PEP 749 (3.14): get_annotations(format=STRING) surfaces a signature WITHOUT evaluating unresolvable forward refs
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
+import difflib
 import hashlib
 import importlib
 import importlib.metadata
 import inspect
 from pathlib import Path
 import re
-from typing import assert_never, TYPE_CHECKING
+from typing import assert_never, override, TYPE_CHECKING
 import xml.etree.ElementTree as ET  # noqa: S405  # trusted local Directory.Packages.props XML, never network-sourced
 
 from expression import Error, Ok, Result
@@ -27,6 +28,7 @@ from tools.assay.composition.catalog import Capture, CAPTURE_ENCODER, CAPTURES, 
 from tools.assay.composition.settings import ArtifactScope, AssaySettings  # noqa: TC001  # registry passes both at runtime
 from tools.assay.core.engine import run_check  # intra-package import; tools.assay is the package root
 from tools.assay.core.model import (  # intra-package import; tools.assay is the package root
+    _RESULT_CAP,  # noqa: PLC2701  # intra-package private import: sole definition in model.py, canonical saturation site
     ApiResolution,
     ApiSurface,
     Artifact,
@@ -67,7 +69,19 @@ type _PathKind = str  # resolve kind token: all | assembly | xml | nuspec | deps
 
 @dataclass(frozen=True, slots=True, kw_only=True)
 class ApiParams(BaseParams):
-    """The ``api`` per-verb CLI params: one frozen dataclass covering all four verbs."""
+    """The ``api`` per-verb CLI params: one frozen dataclass covering all four verbs.
+
+    ``key``/``symbol``/``kind``/``token`` are the per-verb discriminants. They are ``kw_only`` (the
+    cyclopts flatten only positionally binds the leading non-``kw_only`` ``paths`` sink), so a bare
+    positional invocation lands its tokens in ``paths``; ``bound(verb)`` projects ONLY the slots each
+    contract owns onto that universal sink (``query <symbol> [--key]`` / ``resolve <key> [kind]`` /
+    ``show <token>`` / ``doctor`` takes none), capping the arity so a surplus token folds the canonical
+    ``parse`` Fault instead of vanishing into the variadic. The user-facing axis of ``query`` is the
+    SYMBOL (``query`` resolves the assembly off ``--key`` then dispatches on ``shape_of(symbol)``), so the
+    bare positional binds ``symbol``; the assembly rides its ``--key`` keyword. ``rail.run`` calls
+    ``p.bound(verb)`` once at entry, so every downstream read of an OWNED discriminant sees its resolved
+    value and a non-owned discriminant keeps its keyword default — no cross-contract smear.
+    """
 
     key: str = "rhino-common"
     symbol: str = ""
@@ -80,6 +94,22 @@ class ApiParams(BaseParams):
     latest: bool = False
     restore: bool = False
     strict: bool = False
+
+    @override
+    def bound(self, verb: str) -> ApiParams | Fault:
+        """Project the positional sink onto the verb's OWNED slots, capping arity (surplus → ``parse`` Fault)."""
+        head, tail = (self.paths[0] if self.paths else ""), (self.paths[1] if len(self.paths) > 1 else "")
+        match (verb, len(self.paths)):
+            case (_, n) if n > _API_ARITY.get(verb, 0):  # surplus past the verb's slot count: the variadic must not swallow it
+                return self.surplus(verb, self.paths[_API_ARITY.get(verb, 0) :])
+            case ("query", _):  # query <symbol> [--key]: the bare positional IS the symbol; the assembly rides --key
+                return replace(self, symbol=head or self.symbol, paths=())
+            case ("resolve", _):  # resolve <key> [kind]: owns key + kind only; symbol/token keep their keyword
+                return replace(self, key=head or self.key, kind=(tail or self.kind), paths=())
+            case ("show", _):  # show <token>: owns token only; key/symbol/kind keep their keyword
+                return replace(self, token=head or self.token, paths=())
+            case _:  # doctor (or any 0-arity verb): keyword defaults already carry every discriminant
+                return self
 
 
 @dataclass(frozen=True, slots=True)
@@ -126,6 +156,11 @@ class _Body:
 
 # --- [CONSTANTS] ------------------------------------------------------------------------
 
+_API_ARITY: dict[str, int] = {
+    "query": 1,  # <symbol> only; the assembly is the --key keyword, never a second positional
+    "resolve": 2,
+    "show": 1,
+}  # positional-slot cap per verb; absent verb (doctor) takes 0 — ApiParams.bound surplus gate
 _HOST_SPECS: dict[str, tuple[str, str]] = {
     "eto": ("Eto.dll", "Eto.xml"),
     "gh2": ("ManagedPlugIns/Grasshopper2Plugin.rhp/Grasshopper2.dll", "ManagedPlugIns/Grasshopper2Plugin.rhp/Grasshopper2.xml"),
@@ -142,8 +177,8 @@ _FRAMEWORK_RANK: tuple[str, ...] = ("net10.0", "net9.0", "net8.0", "net7.0", "ne
 _ASSET_DIRS: tuple[str, ...] = ("lib", "ref", "runtimes", "build", "buildTransitive", "analyzers", "tools")
 _SURFACE_KINDS: frozenset[str] = frozenset(("Class", "Struct", "Interface", "Delegate", "Enum"))
 _PREVIEW_ROWS: int = 12  # inline preview row cap; the full listing rides the surface Artifact
-_RESULT_CAP: int = 1000  # Report.results bound; over-cap sets truncated and the full set rides the cache
 _CANDIDATE_CAP: int = 8  # ApiResolution.candidates bound on a miss: the top-N nearest matches an agent needs to retry
+# _RESULT_CAP is imported from core/model.py (the sole definition alongside fold, the saturation site)
 _DEPS_PARTS: frozenset[str] = frozenset(("build", "buildTransitive", "analyzers", "tools", "runtimes"))
 _DECOMPILE_FLAGS: tuple[str, ...] = ("--no-dead-code", "--no-dead-stores")
 _ENCODER: msgspec.json.Encoder = msgspec.json.Encoder(order="deterministic")  # content-addressable wire order for report artifacts
@@ -206,10 +241,20 @@ def _safe(key: str) -> str:
     return re.sub(r"[^A-Za-z0-9_.-]+", "-", key).strip("-") or "source"
 
 
+_SHA256_MEMO: dict[tuple[str, int, int], str] = {}  # (path, size, mtime_ns) → sha256 hex; process-level cache avoids re-reading unchanged assemblies
+
+
 def _fingerprint(assemblies: tuple[Path, ...]) -> str:
     # content-address: fold the byte SHA-256 in alongside (size, mtime_ns) because a RhinoWIP reinstall
     # preserves mtime on unchanged DLLs; the digest changes iff the decompiled surface would.
-    seed = "|".join(f"{p}:{p.stat().st_size}:{p.stat().st_mtime_ns}:{hashlib.sha256(p.read_bytes()).hexdigest()}" for p in assemblies if p.is_file())
+    # _SHA256_MEMO avoids re-hashing an unchanged assembly on successive queries within the same process.
+    def _asm_digest(p: Path) -> str:
+        stat = p.stat()
+        key = (str(p), stat.st_size, stat.st_mtime_ns)
+        cached = _SHA256_MEMO.get(key)
+        return cached if cached is not None else _SHA256_MEMO.setdefault(key, hashlib.sha256(p.read_bytes()).hexdigest())
+
+    seed = "|".join(f"{p}:{stat.st_size}:{stat.st_mtime_ns}:{_asm_digest(p)}" for p in assemblies if p.is_file() for stat in (p.stat(),))
     return hashlib.sha256(seed.encode()).hexdigest()[:16]
 
 
@@ -256,8 +301,11 @@ def _packages(settings: AssaySettings) -> dict[str, str]:
 
 
 def _candidates(names: tuple[str, ...], needle: str, *, n: int = _CANDIDATE_CAP) -> tuple[tuple[str, int], ...]:
-    # the shared miss-scoring projection (key + symbol): exact casefold 100 ▷ prefix 70 ▷ substring 40 ▷
-    # shared-segment overlap, plus a shorter-name tie-break. Sorted descending, capped at n.
+    # shared miss-scorer: exact casefold 100 ▷ prefix 70 ▷ substring 40 ▷ shared-segment overlap;
+    # character-level SequenceMatcher ratio (0-30) is added as a subordinate term so a single-token
+    # typo (e.g. "languagex") surfaces the genuine near-match above 2-char noise without displacing
+    # exact/prefix/substring hits. Length bonus is subordinate: only applied when char_sim > 0, and
+    # capped so it cannot lift a zero-base name above a partial match.
     casefold = needle.casefold()
     segments = frozenset(casefold.replace("-", ".").split("."))
 
@@ -266,7 +314,11 @@ def _candidates(names: tuple[str, ...], needle: str, *, n: int = _CANDIDATE_CAP)
         tokens = frozenset(low.replace("-", ".").split("."))
         overlap = len(segments & tokens) * 20 // max(1, len(tokens))
         base = 100 if low == casefold else 70 if low.startswith(casefold) else 40 if casefold in low else overlap
-        return base + max(0, 20 - len(name) // 4)
+        # character-level similarity: compare needle against the shortest segment that contains it
+        best_seg = min(tokens, key=lambda t: abs(len(t) - len(casefold)), default=low)
+        char_sim = int(difflib.SequenceMatcher(None, casefold, best_seg).ratio() * 30)
+        length_bonus = max(0, 20 - len(name) // 4) if char_sim > 0 else 0
+        return base + char_sim + length_bonus
 
     ranked = sorted(((name, score(name)) for name in names), key=lambda row: (-row[1], row[0]))
     return tuple((name, sc) for name, sc in ranked[:n] if sc > 0)
@@ -754,7 +806,7 @@ def _xml_doc(source: _Source, symbol: str) -> str:
     needle = symbol.casefold()
     return next(
         (
-            "".join(member.itertext()).strip()[:480]
+            "".join(member.itertext()).strip()[:_SIG_CAP]
             for path in source.xmls
             if path.is_file()
             for member in (_xml_members(path))
@@ -861,16 +913,21 @@ def _artifact(settings: AssaySettings, source: _Source, name: str, content: str)
     return Artifact(id=digest, kind=ArtifactKind.SCOPE, path=str(path), bytes=len(raw), lines=raw.count(b"\n"))
 
 
-def _matches(rows: tuple[str, ...], kind: str, pattern: str) -> tuple[Match, ...]:
-    # rank a row bag into bounded Match evidence: substring score, shorter-name bonus, capped
+def _matches(rows: tuple[str, ...], kind: ArtifactKind, pattern: str) -> tuple[Match, ...]:
+    # rank a row bag into bounded Match evidence: query-hit base + character-level similarity +
+    # shorter-name tie-break. kind is caller-supplied (type/scope) — never hardcoded SCOPE here.
     query = pattern.casefold()
 
     def score(text: str) -> int:
-        return (100 if query and query in text.casefold() else 0) + max(0, 40 - len(text) // 4)
+        low = text.casefold()
+        base = 100 if query and query == low else 70 if query and low.startswith(query) else 40 if query and query in low else 0
+        char_sim = int(difflib.SequenceMatcher(None, query, low).ratio() * 30) if query else 0
+        return base + char_sim + max(0, 20 - len(text) // 4)
 
-    ranked = tuple(sorted((r for r in rows if not pattern or query in r.casefold()), key=lambda r: (-score(r), r)))
+    filtered = tuple(r for r in rows if not pattern or query in r.casefold())
+    ranked = tuple(sorted(filtered, key=lambda r: (-score(r), r)))
     return tuple(
-        Match(id=f"{kind}-{i:03d}", kind=ArtifactKind.SCOPE, text=r[:320], score=score(r)) for i, r in enumerate(ranked[:_RESULT_CAP], start=1)
+        Match(id=f"{kind.value}-{i:03d}", kind=kind, text=r[:_NAME_CAP], score=score(r)) for i, r in enumerate(ranked[:_RESULT_CAP], start=1)
     )
 
 
@@ -880,33 +937,52 @@ def _matches(rows: tuple[str, ...], kind: str, pattern: str) -> tuple[Match, ...
 def doctor(settings: AssaySettings, scope: ArtifactScope, p: ApiParams) -> Result[Report, Fault]:
     """``api doctor [--strict]``: host/NuGet/tool inventory; ``--strict`` promotes absence to ``FAULTED`` (the sole api fault promoter)."""
     surface_tool = next((t for t in select(Claim.API, Language.CSHARP)), None)
-    app = _rhino_app(settings)
     version = _invoke(settings, scope, surface_tool, "--version") if surface_tool is not None else Completed(("ilspycmd",), 1)
-    rows = _inventory(settings, app, version)
-    healthy = all(ok for ok, _ in rows)
-    done = Completed(("api", "doctor"), 0, status=RailStatus.OK if healthy else RailStatus.EMPTY, notes=tuple(text for _, text in rows))
-    return _strict(fold(Claim.API, "doctor", (done,)), p)
+    rows = _inventory(settings, _rhino_app(settings), version)
+    done = Completed(
+        ("api", "doctor"),
+        0,
+        status=RailStatus.OK if all(ok for _, ok, _, _ in rows) else RailStatus.EMPTY,
+        notes=(f"{sum(1 for _, ok, _, _ in rows if ok)}/{len(rows)} inventory sources healthy",),
+    )
+    # W4/A1: typed ApiSurface Detail + one Match per inventory row; severity="missing" on absent rows
+    detail = ApiSurface(
+        source_kind=SourceKind.TOOL,
+        source_id="ilspycmd",
+        version=version.stdout.decode(errors="replace").splitlines()[0].strip() if version.stdout else "",
+        shape=SymbolShape.INDEX,
+        preview="\n".join(f"{'[OK]' if ok else '[MISSING]'} {name}: {text}" for name, ok, text, _ in rows),
+    )
+    results = tuple(
+        Match(
+            id=f"inventory-{i:03d}",
+            kind=ArtifactKind.SCOPE,
+            text=f"{name}: {text}" if text else name,
+            score=100 if ok else 0,
+            severity=None if ok else "missing",
+        )
+        for i, (name, ok, text, _) in enumerate(rows, start=1)
+    )
+    return _strict(msgspec.structs.replace(fold(Claim.API, "doctor", (done,), detail=detail), results=results), p)
 
 
-def _inventory(settings: AssaySettings, app: Path | None, version: Completed) -> tuple[tuple[bool, str], ...]:
-    # fold host bundle, ilspycmd version, central packages, Python dists, npm .d.ts into (ok, note) rows
+def _inventory(settings: AssaySettings, app: Path | None, version: Completed) -> tuple[tuple[str, bool, str, SourceKind], ...]:
+    # fold host bundle, ilspycmd version, central packages, Python dists, npm .d.ts into (name, ok, text, kind) rows.
+    # W4/A1: all 7 host sources (not filtered by src.assemblies) so rhino-code-remote is included.
     packages = _packages(settings)
-    host_keys = tuple(k for k in _HOST_SPECS if (src := _host_source(settings, k)) is not None and src.assemblies)
+    host_keys = tuple(k for k in _HOST_SPECS if _host_source(settings, k) is not None)
+    host_present = tuple(k for k in host_keys if (src := _host_source(settings, k)) is not None and src.assemblies)
     pydists = _pydist_names()
     tsdecls = _tsdecl_names(settings)
+    ilspy_ver = (version.stdout.decode(errors="replace").splitlines()[0].strip() if version.stdout else "") or "unavailable"
     return (
-        _present("rhino-app", app is not None and app.is_dir(), str(app) if app is not None else ""),
-        _present("ilspycmd", version.returncode == 0, version.stdout.decode(errors="replace").strip() or "unavailable"),
-        _present("host-sources", bool(host_keys), ",".join(host_keys)),
-        _present("nuget-sources", bool(packages), str(len(packages))),
-        _present("python-dists", bool(pydists), str(len(pydists))),
-        _present("ts-decls", bool(tsdecls), str(len(tsdecls))),
+        ("rhino-app", app is not None and app.is_dir(), str(app) if app is not None else "", SourceKind.ASSEMBLY),
+        ("ilspycmd", version.returncode == 0, ilspy_ver, SourceKind.TOOL),
+        ("host-sources", bool(host_present), ",".join(host_present), SourceKind.ASSEMBLY),
+        ("nuget-sources", bool(packages), str(len(packages)), SourceKind.NUGET),
+        ("python-dists", bool(pydists), str(len(pydists)), SourceKind.PYDIST),
+        ("ts-decls", bool(tsdecls), str(len(tsdecls)), SourceKind.TSDECL),
     )
-
-
-def _present(name: str, ok: bool, detail: str) -> tuple[bool, str]:  # noqa: FBT001  # inventory pair: presence flag + note text
-    marker = "[OK]" if ok else "[MISSING]"
-    return ok, f"{marker} {name}: {detail}" if detail else f"{marker} {name}"
 
 
 def _strict(report: Report, p: ApiParams) -> Result[Report, Fault]:
@@ -937,7 +1013,7 @@ def _resolve_report(settings: AssaySettings, source: _Source, p: ApiParams) -> R
     done = Completed(("api", "resolve", p.key), 0, status=RailStatus.OK if existing else RailStatus.EMPTY, notes=(note,))
     detail = _api_detail(source, SymbolShape.SEARCH, preview="\n".join(str(t) for t in existing[:_PREVIEW_ROWS]))
     report = fold(Claim.API, "resolve", (done,), detail=detail)
-    return msgspec.structs.replace(report, artifacts=(artifact,), results=_matches(tuple(str(t) for t in targets), p.kind, ""))
+    return msgspec.structs.replace(report, artifacts=(artifact,), results=_matches(tuple(str(t) for t in targets), ArtifactKind.SCOPE, ""))
 
 
 def _resolve_targets(source: _Source, kind: _PathKind) -> tuple[Path, ...]:
@@ -954,7 +1030,7 @@ def _resolve_targets(source: _Source, kind: _PathKind) -> tuple[Path, ...]:
 
 
 def query(settings: AssaySettings, scope: ArtifactScope, p: ApiParams) -> Result[Report, Fault]:
-    """``api query <key> [symbol] [--max-lines|--full|--grep]``: one polymorphic ``SymbolShape`` fold.
+    """``api query <symbol> [--key|--max-lines|--full|--grep]``: one polymorphic ``SymbolShape`` fold.
 
     A decompile/search or key miss folds an ``UNSUPPORTED`` ``ApiResolution`` (richer-on-failure, exit 3);
     only a spawn fault crosses the ``Error`` channel.
@@ -966,16 +1042,30 @@ def query(settings: AssaySettings, scope: ArtifactScope, p: ApiParams) -> Result
             return Ok(_miss_report("query", p.key, resolution))
 
 
+def _resolve_namespace(settings: AssaySettings, scope: ArtifactScope, surface: _Surface, p: ApiParams) -> Result[Report, Fault]:
+    # W2 roster-aware NAMESPACE dispatch: type suffix-match wins over namespace listing; genuine miss → search.
+    # Extracted so _query_shape stays within the PLR0912 6-arm limit without a nested match.
+    type_fqn = _rank_type(surface.types, p.symbol)
+    owned = surface.by_namespace.get(_rank_namespace(surface, p.symbol), ()) if not type_fqn else ()
+    return (
+        _decompile(settings, scope, surface, type_fqn, p).map(lambda body: _decompile_report(settings, surface, SymbolShape.TYPE, body, p))
+        if type_fqn
+        else Ok(_roster_report(settings, surface, SymbolShape.NAMESPACE, owned, p))
+        if owned
+        else Ok(_search_report(surface, p))
+    )
+
+
 def _query_shape(settings: AssaySettings, scope: ArtifactScope, surface: _Surface, p: ApiParams) -> Result[Report, Fault]:
-    # the single polymorphic SymbolShape dispatch: one match arm per shape, assert_never closed
+    # the single polymorphic SymbolShape dispatch: one match arm per shape, assert_never closed.
+    # W2: NAMESPACE arm is roster-aware via _resolve_namespace (type suffix-match before roster/miss).
     match shape_of(p.symbol):
         case SymbolShape.INDEX:
             # a namespace-less surface (a flat .d.ts export set) rosters its types directly; a namespaced surface (C#) rosters namespaces
-            rows, kind = (surface.namespaces, "namespace") if surface.namespaces else (surface.types, "type")
-            return Ok(_roster_report(settings, surface, SymbolShape.INDEX, rows, kind, p))
+            rows = surface.namespaces or surface.types
+            return Ok(_roster_report(settings, surface, SymbolShape.INDEX, rows, p))
         case SymbolShape.NAMESPACE:
-            owned = surface.by_namespace.get(_rank_namespace(surface, p.symbol), ())
-            return Ok(_roster_report(settings, surface, SymbolShape.NAMESPACE, owned, "type", p))
+            return _resolve_namespace(settings, scope, surface, p)
         case SymbolShape.TYPE | SymbolShape.MEMBER as shape:
             return _decompile(settings, scope, surface, p.symbol, p).map(lambda body: _decompile_report(settings, surface, shape, body, p))
         case SymbolShape.SEARCH:  # pragma: no cover  # shape_of never emits SEARCH; the decompile-miss path routes through _decompile_report
@@ -990,16 +1080,34 @@ def _rank_namespace(surface: _Surface, symbol: str) -> str:
     return next((ns for ns in surface.namespaces if ns.casefold() == casefold), symbol)
 
 
-def _roster_report(settings: AssaySettings, surface: _Surface, shape: SymbolShape, rows: tuple[str, ...], kind: str, p: ApiParams) -> Report:
-    # INDEX/NAMESPACE roster: bounded preview + ranked Match rows + full-listing Artifact
+def _roster_report(settings: AssaySettings, surface: _Surface, shape: SymbolShape, rows: tuple[str, ...], p: ApiParams) -> Report:
+    # INDEX/NAMESPACE roster: bounded preview + ranked Match rows + full-listing Artifact.
+    # W4: cardinality on Detail (A2), correct kind via ArtifactKind.SCOPE (A3), real rank (A4),
+    # and for INDEX the global surface.txt exposed as a second artifact so full roster is reachable (A5).
     source = surface.source
-    preview = "\n".join(rows[:_PREVIEW_ROWS])
     artifact = _artifact(settings, source, f"{shape.value}.txt", "\n".join(rows))
-    status = RailStatus.OK if rows else RailStatus.EMPTY
-    note = f"{len(surface.types)} types across {len(surface.namespaces)} namespaces"
-    done = Completed(("api", "query", source.key), 0, status=status, notes=(note,))
-    report = fold(Claim.API, "query", (done,), detail=_api_detail(source, shape, preview=preview))
-    return msgspec.structs.replace(report, artifacts=(artifact,), results=_matches(rows, kind, p.grep))
+    done = Completed(
+        ("api", "query", source.key),
+        0,
+        status=RailStatus.OK if rows else RailStatus.EMPTY,
+        notes=(f"{len(surface.types)} types across {len(surface.namespaces)} namespaces",),
+    )
+    detail = _api_detail(source, shape, preview="\n".join(rows[:_PREVIEW_ROWS]), lines=len(rows))
+    extra = (
+        Artifact(
+            id=hashlib.sha256(f"{surface.cache}|surface".encode()).hexdigest()[:12],
+            kind=ArtifactKind.SCOPE,
+            path=str(surface.cache),
+            bytes=surface.cache.stat().st_size,
+            lines=surface.cache.read_text(encoding="utf-8", errors="replace").count("\n"),
+        )
+        if shape is SymbolShape.INDEX and surface.cache.is_file()
+        else None
+    )
+    artifacts = (artifact, extra) if extra is not None else (artifact,)
+    return msgspec.structs.replace(
+        fold(Claim.API, "query", (done,), detail=detail), artifacts=artifacts, results=_matches(rows, ArtifactKind.SCOPE, p.grep)
+    )
 
 
 def _search_report(surface: _Surface, p: ApiParams) -> Report:
@@ -1015,28 +1123,70 @@ def _search_report(surface: _Surface, p: ApiParams) -> Report:
         case _:
             done = Completed(("api", "query", source.key), 0, status=RailStatus.OK, notes=(f"{len(hits)} search hits",))
             detail = _api_detail(source, SymbolShape.SEARCH, preview="\n".join(hits[:_PREVIEW_ROWS]))
-            return msgspec.structs.replace(fold(Claim.API, "query", (done,), detail=detail), results=_matches(hits, "type", p.symbol))
+            return msgspec.structs.replace(fold(Claim.API, "query", (done,), detail=detail), results=_matches(hits, ArtifactKind.SCOPE, p.symbol))
 
 
 def _decompile_report(settings: AssaySettings, surface: _Surface, shape: SymbolShape, body: _Body, p: ApiParams) -> Report:
-    # TYPE/MEMBER report; an empty signature falls back to ranked SEARCH (verb stays total without a
-    # second entry point), and on truncation the full text rides a scope Artifact.
-    source = surface.source
+    # TYPE/MEMBER report: reconcile shape, populate results[], always reference artifact (A8).
+    # W3: shape reconciled via _rank_type head-fallback proof; extension by source kind; truncated/lines typed.
+    # On decompile miss, check if the symbol names a known namespace before falling to SEARCH (e.g. Rhino.Geometry).
     match body.signature:
         case "":
-            return _search_report(surface, p)
+            ns_key = _rank_namespace(surface, p.symbol)
+            owned = surface.by_namespace.get(ns_key, ()) if ns_key != p.symbol or ns_key in surface.by_namespace else ()
+            return _roster_report(settings, surface, SymbolShape.NAMESPACE, owned, p) if owned else _search_report(surface, p)
         case _:
-            detail = _api_detail(source, shape, signature=body.signature, doc=body.xml, preview=body.window)
-            artifact = _artifact(settings, source, "decompile.cs", body.full)
-            done = Completed(("api", "query", source.key), 0, status=RailStatus.OK, notes=(f"{body.selected} selected lines",))
-            report = fold(Claim.API, "query", (done,), detail=detail)
-            return msgspec.structs.replace(report, artifacts=(artifact,) if body.truncated else ())
+            return _decompile_body(settings, surface, shape, body, p)
 
 
-def _api_detail(source: _Source, shape: SymbolShape, *, signature: str = "", doc: str = "", preview: str = "") -> ApiSurface:
-    # the rail's sole Detail: typed source provenance + symbol shape, never a dict
+def _decompile_body(settings: AssaySettings, surface: _Surface, shape: SymbolShape, body: _Body, p: ApiParams) -> Report:
+    # factored from _decompile_report to keep per-frame PLR0914 < 10; each assignment is load-bearing
+    direct_fqn = _rank_type(surface.types, p.symbol)
+    head = p.symbol.rpartition(".")[0]
+    resolved_fqn = direct_fqn or (_rank_type(surface.types, head) if head else "")
+    is_member = shape is SymbolShape.MEMBER or bool(head and resolved_fqn and not direct_fqn)
+    final_shape = SymbolShape.MEMBER if is_member else SymbolShape.TYPE
+    artifact = _artifact(
+        settings, surface.source, f"decompile{ ({SourceKind.PYDIST: '.py', SourceKind.TSDECL: '.d.ts'}.get(surface.source.kind, '.cs')) }", body.full
+    )
+    detail = _api_detail(
+        surface.source,
+        final_shape,
+        signature=body.signature,
+        doc=body.xml,
+        preview=body.window,
+        member=p.symbol.rpartition(".")[2] if is_member else "",
+        truncated=body.truncated,
+        lines=body.selected,
+    )
+    done = Completed(("api", "query", surface.source.key), 0, status=RailStatus.OK, notes=(f"{body.selected} selected lines",))
+    result = Match(id=f"{final_shape.value}-001", kind=ArtifactKind.SCOPE, text=(resolved_fqn or p.symbol)[:_NAME_CAP], score=100)
+    return msgspec.structs.replace(fold(Claim.API, "query", (done,), detail=detail), artifacts=(artifact,), results=(result,))
+
+
+def _api_detail(
+    source: _Source,
+    shape: SymbolShape,
+    *,
+    signature: str = "",
+    doc: str = "",
+    preview: str = "",
+    member: str = "",
+    truncated: bool = False,
+    lines: int = 0,
+) -> ApiSurface:
+    # the rail's sole Detail: typed source provenance + symbol shape + decompile metrics, never a dict
     return ApiSurface(
-        source_kind=source.kind, source_id=source.key, version=source.version, shape=shape, signature=signature, doc=doc, preview=preview
+        source_kind=source.kind,
+        source_id=source.key,
+        version=source.version,
+        shape=shape,
+        signature=signature,
+        doc=doc,
+        preview=preview,
+        member=member,
+        truncated=truncated,
+        lines=lines,
     )
 
 

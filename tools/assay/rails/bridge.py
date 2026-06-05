@@ -9,7 +9,7 @@ from dataclasses import dataclass
 from pathlib import Path
 import shutil
 import time
-from typing import Final
+from typing import Final, override
 
 from expression import Error, Ok, Result
 import msgspec
@@ -41,9 +41,19 @@ from tools.assay.core.status import RailStatus  # intra-package import; tools.as
 
 @dataclass(frozen=True, slots=True, kw_only=True)
 class BridgeParams(BaseParams):
-    """The ``bridge`` verb params: ``BaseParams`` plus the sole ``pattern`` scenario selector."""
+    """The ``bridge`` verb params: ``BaseParams`` plus the sole ``pattern`` scenario selector.
+
+    Zero-positional contract: ``verify`` reads its ``--pattern`` keyword and the lifecycle verbs read
+    nothing positional, so a bare token is a typo — ``bound`` folds it to the canonical ``parse`` Fault.
+    """
 
     pattern: str = ""  # selects verify scenarios (path / dir / worktree glob); lifecycle verbs ignore it
+
+    @override
+    def _arity(self, verb: str) -> int:
+        """Zero positional slots: ``bridge`` is keyword-only (``--pattern``), so the base ``bound`` folds any token to ``parse``."""
+        _ = verb
+        return 0
 
 
 class _Scenario(msgspec.Struct, frozen=True, gc=False):

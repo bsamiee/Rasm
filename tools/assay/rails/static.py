@@ -7,6 +7,7 @@ success channel as ``Completed{status=FAILED}``, so the fold consumes successes 
 
 from dataclasses import dataclass
 from hashlib import sha256
+from pathlib import PurePosixPath
 from typing import TYPE_CHECKING
 
 from expression import Result  # noqa: TC002  # unconditional: beartype @checked resolves the handler forward-ref (PEP 649)
@@ -26,10 +27,15 @@ from tools.assay.core.model import (  # intra-package import; tools.assay is the
     Fault,  # noqa: TC001  # unconditional: @checked's beartype resolves the -> Result[Report, Fault] forward-ref under PEP 649
     fold,
     Language,
+    Match,
     Mode,
     Report,  # noqa: TC001  # unconditional: see Fault above (same forward-ref resolution)
 )
-from tools.assay.core.routing import route, Routed  # intra-package import; tools.assay is the package root
+from tools.assay.core.routing import (  # noqa: TC001  # unconditional: function signatures reference Routed at definition time; intra-package import
+    route,
+    Routed,
+)
+from tools.assay.core.status import RailStatus  # intra-package import; tools.assay is the package root
 
 
 if TYPE_CHECKING:
@@ -52,13 +58,22 @@ class StaticParams(BaseParams):
 # --- [OPERATIONS] -----------------------------------------------------------------------
 
 
-def _languages(selected: Language | None) -> tuple[Language, ...]:
-    # DOCS rides the fan: select(Claim.STATIC, DOCS) yields no row, so the empty slice folds to EMPTY without a guard.
+def _languages(selected: Language | None, paths: tuple[str, ...]) -> tuple[Language, ...]:
+    """Select the language fan for the static rail.
+
+    When ``selected`` is explicit, the fan is the singleton. When absent, infer from the suffix family
+    of the supplied ``paths`` — if every path suffix resolves to ONE language, return only that language
+    (avoids fanning biome/tsc/sherif on a Python-only target). Falls back to the full language set when
+    paths carry mixed or unrecognised suffixes, or when ``paths`` is empty (change-set mode).
+    DOCS rides the fan: select(Claim.STATIC, DOCS) yields no row, so the empty slice folds to EMPTY.
+    """
     match selected:
-        case None:
-            return tuple(Language)
-        case language:
+        case Language() as language:
             return (language,)
+        case None:
+            suffixes = frozenset(PurePosixPath(p).suffix for p in paths if PurePosixPath(p).suffix)
+            inferred = next((lang for lang in Language if suffixes and suffixes <= lang.suffixes), None)
+            return (inferred,) if inferred is not None else tuple(Language)
 
 
 def _checks(routed: Routed, mode: Mode) -> tuple[Check, ...]:
@@ -77,7 +92,7 @@ def thin_rail(settings: AssaySettings, scope: ArtifactScope, params: StaticParam
     routing scope is a ``CLOSURE``-arm escalation internal to ``routing``, never threaded here. A
     spawn/timeout/lease fault is the sole Error channel; an honest no-op slice folds to ``EMPTY``/``SKIP``.
     """
-    return _routed(_languages(params.language), params.paths).bind(
+    return _routed(_languages(params.language, params.paths), params.paths).bind(
         lambda routed: sequence(routed.collect(lambda r: block.of_seq(_dispatch(r, settings=settings, scope=scope, mode=mode)))).map(
             lambda done: fold(claim, verb, tuple(done))
         )
@@ -85,6 +100,15 @@ def thin_rail(settings: AssaySettings, scope: ArtifactScope, params: StaticParam
 
 
 def _dispatch(routed: Routed, *, settings: AssaySettings, scope: ArtifactScope, mode: Mode) -> tuple[Result[Completed, Fault], ...]:
+    # S2(a): skip a language with no scoped content — no file/project of that language was found in the
+    # target. For glob-strategy languages (Python/TS/Bash/SQL/Docs) the signal is empty ``routed.files``;
+    # for closure-strategy languages (C#) it is empty ``routed.projects`` AND empty ``routed.files``
+    # (a full-scope escalation keeps files but may have projects). This prevents a Python-only target
+    # from fanning C# tools and vice versa.
+    if routed.language.strategy == "glob" and not routed.files:
+        return ()
+    if routed.language.strategy == "closure" and not routed.files and not routed.projects:
+        return ()
     # One fan_out per language so each argv tail is projected from its own Routed, never a shared head.
     checks = _checks(routed, mode)
     match checks:
@@ -118,45 +142,45 @@ def full(settings: AssaySettings, scope: ArtifactScope, params: StaticParams) ->
 
 
 def plan(settings: AssaySettings, scope: ArtifactScope, params: StaticParams) -> Result[Report, Fault]:
-    """The zero-run adapter: route, fold owners/triggers/closure-sha into ``notes``/``artifacts``, never reach the Engine.
+    """The zero-run adapter: route, project routing facts onto ``Match`` rows, never reach the Engine.
 
     The closure sha is the same ``sha256(sorted-projects)[:16]`` recipe ``ArtifactScope.build`` keys its
     warm tree on, so a planned ``build-<closure>`` tree correlates with a subsequent ``build`` lease.
+    All per-language data rides ``results`` uniformly (sha/triggers/groups folded into ``Match.text``); no makedirs side-effect.
     """
     _ = scope  # plan runs zero checks: no artifact scope is spliced
-    return _routed(_languages(params.language), params.paths).map(
-        lambda routed: msgspec.structs.replace(
-            fold(Claim.STATIC, "plan", ()),  # empty outcomes seed EMPTY status + zero counts via the sole deriver
-            artifacts=_plan_artifacts(tuple(routed), settings),
-            notes=_plan_notes(tuple(routed)),
+    return _routed(_languages(params.language, params.paths), params.paths).map(lambda routed: _plan_report(tuple(routed), settings))
+
+
+def _plan_report(routed: tuple[Routed, ...], settings: AssaySettings) -> Report:
+    # Project per-language routing facts onto Match rows (detail=None; all per-language data rides results uniformly).
+    # sha is pre-computed once per routed entry to avoid triple _closure_sha recompute across rows/notes/artifacts.
+    # Status: OK when at least one language has a non-empty scope (files or projects); EMPTY otherwise.
+    routed_sha = tuple((r, _closure_sha(r) if r.projects else "") for r in routed)
+    rows = tuple(
+        Match(
+            id=str(r.language),
+            kind=ArtifactKind.SCOPE,
+            text=(
+                f"scope={r.scope!s} files={len(r.files)} projects={len(r.projects)} sha={sha} triggers={len(r.full_triggers)} groups={len(r.groups)}"
+            ),
         )
+        for r, sha in routed_sha
     )
-
-
-def _plan_artifacts(routed: tuple[Routed, ...], settings: AssaySettings) -> tuple[Artifact, ...]:
-    # Only a non-empty project closure plans a warm tree; the path is byte-identical to the one build leases.
-    return tuple(
-        Artifact(id=f"build-{(sha := _closure_sha(r))}", kind=ArtifactKind.SCOPE, path=ArtifactScope.build(settings, sha).path)
-        for r in routed
+    notes = tuple(
+        f"{r.language!s}: scope={r.scope!s} closure={sha} projects={len(r.projects)}"
+        if r.projects
+        else f"{r.language!s}: scope={r.scope!s} files={len(r.files)}"
+        for r, sha in routed_sha
+    )
+    artifacts = tuple(
+        Artifact(id=f"build-{sha}", kind=ArtifactKind.SCOPE, path=str(settings.artifact(ArtifactKind.SCOPE, "build", sha)))
+        for r, sha in routed_sha
         if r.projects
     )
-
-
-def _plan_notes(routed: tuple[Routed, ...]) -> tuple[str, ...]:
-    return tuple(note for r in routed for note in _routed_notes(r))
-
-
-def _routed_notes(routed: Routed) -> tuple[str, ...]:
-    match routed:
-        case Routed(projects=projects) if projects:
-            return (f"{routed.language.value}: scope={routed.scope.value} closure={_closure_sha(routed)} projects={len(projects)}",)
-        case Routed(full_triggers=triggers) if triggers:
-            return (
-                f"{routed.language.value}: scope={routed.scope.value} files={len(routed.files)}",
-                *(f"{routed.language.value}: full-trigger {t}" for t in triggers),
-            )
-        case _:
-            return (f"{routed.language.value}: scope={routed.scope.value} files={len(routed.files)}",)
+    base = fold(Claim.STATIC, "plan", ())
+    status = RailStatus.OK if any(r.files or r.projects for r, _ in routed_sha) else base.status
+    return msgspec.structs.replace(base, status=status, results=rows, artifacts=artifacts, notes=notes)
 
 
 def _closure_sha(routed: Routed) -> str:

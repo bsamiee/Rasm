@@ -8,7 +8,7 @@ from collections.abc import Callable
 from dataclasses import dataclass
 from enum import StrEnum
 from pathlib import Path
-from typing import Annotated, Literal, Self
+from typing import Annotated, get_args, Literal, Self
 
 from cyclopts import Parameter
 import msgspec
@@ -244,7 +244,7 @@ class Match(Base, frozen=True):
 
     id: str
     kind: ArtifactKind
-    text: str
+    text: Annotated[str, msgspec.Meta(max_length=400)]
     line: Annotated[int, msgspec.Meta(ge=0)] = 0
     score: int = 0
     severity: str | None = None
@@ -261,6 +261,9 @@ class ApiSurface(Detail, frozen=True, tag="api"):
     signature: str = ""
     doc: str = ""
     preview: str = ""
+    member: str = ""  # resolved member name when shape=MEMBER; empty for TYPE/NAMESPACE/INDEX
+    truncated: bool = False  # True when the decompile window was clipped by max_lines
+    lines: Annotated[int, msgspec.Meta(ge=0)] = 0  # total selected lines in the decompile body (0 for roster/search paths)
 
 
 class VerifySummary(Detail, frozen=True, tag="verify"):
@@ -284,12 +287,24 @@ class TestRun(Detail, frozen=True, tag="test"):
 
 
 class PackageRun(Detail, frozen=True, tag="package"):
-    """package evidence: stage/project/pattern/version of a staging or publish step."""
+    """package evidence: full yak-distribution metadata for a staging or publish step.
+
+    ``stage``/``project``/``pattern``/``version`` are the original four fields; the remaining
+    seven carry the full ``YakMeta`` projection so ``package plan`` emits every evaluated field
+    as typed machine data rather than prose ``notes``.
+    """
 
     stage: str = ""
     project: str = ""
     pattern: str = ""
     version: str = ""
+    manifest_dir: str = ""
+    target_dir: str = ""
+    package_dir: str = ""
+    target_framework: str = ""
+    platform: str = ""
+    push_source: str = ""
+    yak_path: str = ""
 
 
 class ApiResolution(Detail, frozen=True, tag="resolution"):
@@ -300,12 +315,26 @@ class ApiResolution(Detail, frozen=True, tag="resolution"):
 
 
 class Diagnostic(Detail, frozen=True, tag="diagnostic"):
-    """auto-observability evidence: rides ``Envelope.error_context`` on the Fault branch only (off the success wire)."""
+    """auto-observability evidence: rides ``Envelope.error_context`` on both the Fault and FAILED defect rail.
+
+    ``dispatched`` is the TYPED dispatch discriminant for the parse-fault class: ``True`` when a real rail
+    resolved (a surplus positional, or an unknown verb/option under a resolved sub-app), ``False`` on a bare
+    unknown root token where ``Envelope.claim``/``verb`` are placeholders. An agent reads this boolean
+    instead of substring-scraping ``recent_events[0]`` to know whether the wire ``claim`` is a dispatch fact.
+    ``omit_defaults`` drops it on the common (non-parse) fault where it stays the ``True`` default.
+
+    ``resource`` carries the psutil snapshot at fault/defect time as ``((key, value), ...)`` pairs reusing
+    OTel-style keys (``mem.rss_bytes`` / ``cpu.percent`` / ``proc.num_fds``); empty on clean runs so
+    ``omit_defaults`` keeps the success wire terse. Floats accommodate both integer byte counts and
+    fractional cpu/fd values in one homogeneous slot.
+    """
 
     failing_step: str = ""
     recent_events: tuple[str, ...] = ()
     elapsed_ms: Annotated[float, msgspec.Meta(ge=0)] = 0.0
     hint: Annotated[str, msgspec.Meta(max_length=256)] = ""
+    dispatched: bool = True
+    resource: tuple[tuple[str, float], ...] = ()
 
 
 class RunSnapshot(Base, frozen=True):
@@ -375,17 +404,86 @@ class Bind(Base, frozen=True):
     help: str = ""
 
 
+def field_cap(struct: type[msgspec.Struct], field: str, *, default: int) -> int:
+    """The SOLE msgspec ``Meta(max_length=…)`` introspection: walk ``struct``'s ``field`` Annotated metas once.
+
+    Every wire-cap literal (``Fault.message``, ``Diagnostic.hint``, and the surplus budget derived off it)
+    reads through this one projection so the clip tracks the type — a ``None``/absent constraint folds to
+    ``default``. msgspec enforces ``max_length`` on DECODE only, so a wire past the cap encodes to stdout yet
+    faults on history readback; clipping to ``field_cap`` keeps every persisted run round-tripping through ``delta``.
+    """
+    return (
+        next((m.max_length for f in msgspec.structs.fields(struct) if f.name == field for m in get_args(f.type) if isinstance(m, msgspec.Meta)), None)
+        or default
+    )
+
+
+# The surplus-token budget reserves a 76-char margin off Diagnostic.hint's cap for the fixed framing the message and hint wrap the
+# tokens in ("parse: {verb}: unexpected positional(s): " + " after {ms}ms" + a generous verb); hint's 256 cap dominates Fault.message's 1024.
+_HINT_CAP: int = field_cap(Diagnostic, "hint", default=1 << 62)
+_SURPLUS_TOKEN_CAP: int = _HINT_CAP - 76
+
+
 @Parameter(name="*")
-@dataclass(frozen=True, slots=True, kw_only=True)
+@dataclass(frozen=True, slots=True)
 class BaseParams:
     """Shared CLI-params leaf: lives here (not in a rail) so rails and registry import it without a cycle.
 
     ``@Parameter(name="*")`` is inherited by every concrete ``*Params`` subclass, flattening its fields
-    onto the CLI without a per-verb ``Annotated`` wrapper.
+    onto the CLI without a per-verb ``Annotated`` wrapper. ``paths`` is the SINGLE positional sink
+    (``kw_only`` is intentionally absent here so the inherited flatten binds the bare positional
+    ``<path>``/``<key>``/``<symbol>``/``<token>`` tokens here): the cyclopts flatten disables positionals
+    at the first keyword-only field, so ``paths`` is the only field a bare token can bind, and
+    ``language`` (the second field) NEVER captures a positional — it is itself ``kw_only`` in spirit
+    because cyclopts stops binding positionals after the first variadic, so it always reads off its
+    ``--language`` keyword. Every subclass keeps ``kw_only=True`` so its per-verb discriminant fields hold
+    OFF the positional rail; a verb whose contract carries positionals (e.g. ``api query <key> [symbol]``)
+    overrides ``bound`` to project them off this ``paths`` sink, with its keyword default as the
+    empty-slot fallback.
     """
 
     paths: tuple[str, ...] = ()
     language: Language | None = None
+
+    def _arity(self, verb: str) -> int | None:  # noqa: PLR6301  # polymorphic dispatch point: package/bridge override on self's type to declare 0
+        """Positional-slot contract as DATA: ``None`` = variadic path rail; ``0`` = keyword-only; ``N`` = bounded.
+
+        The base is the variadic rail (``static``/``code``/``test``/``docs``): every token is a legal path.
+        A keyword-only rail (``package``/``bridge``) declares ``0`` so ``bound`` rejects any positional with
+        NO copy-pasted ``if self.paths`` body. ``api`` overrides ``bound`` itself (its per-verb slot
+        PROJECTION is real logic, not a uniform reject), so it does not route through this arity gate.
+        """
+        _ = verb
+        return None
+
+    def bound(self, verb: str) -> Self | Fault:
+        """Validate/project the positional ``paths`` sink against the verb's ``_arity`` contract.
+
+        The single positional-arity boundary every verb crosses once at ``rail.run``. The surplus check is
+        computed ONCE here off ``_arity`` data: ``None`` passes the variadic record through untouched; a
+        bounded ``N`` folds any token past slot ``N`` via ``surplus`` — routed through the same ``parse``
+        taxonomy ``_failing_step`` names, never a silent black hole. A verb that PROJECTS owned slots off
+        ``paths`` (``api query``/``resolve``/``show``) overrides ``bound`` directly.
+        """
+        match self._arity(verb):
+            case int(cap) if len(self.paths) > cap:
+                return self.surplus(verb, self.paths[cap:])
+            case _:
+                return self
+
+    @staticmethod
+    def surplus(verb: str, tokens: tuple[str, ...]) -> Fault:
+        """Fold unexpected/surplus positional tokens into the canonical ``parse`` Fault the boundary names.
+
+        The joined-token segment is clipped to ``_SURPLUS_TOKEN_CAP`` so a shell-expanded glob (a bare
+        ``bridge verify <glob>`` over many ``*.verify.csx`` files) keeps the whole message under
+        ``Fault.message``'s 1024 cap AND the ``Diagnostic.hint`` it distills to under 256 — msgspec
+        enforces ``max_length`` on DECODE only, so an unclipped message persists yet faults on history
+        readback (``delta`` would silently report the run as not-found).
+        """
+        joined = " ".join(tokens)
+        clipped = joined[:_SURPLUS_TOKEN_CAP] + ("…" if len(joined) > _SURPLUS_TOKEN_CAP else "")
+        return Fault((), RailStatus.FAULTED, f"parse: {verb}: unexpected positional(s): {clipped}")
 
 
 # --- [OPERATIONS] -----------------------------------------------------------------------
@@ -421,28 +519,56 @@ def _count(done: Completed) -> tuple[int, int]:
             return 0, 0
 
 
+_RESULT_CAP: int = 1000  # Report.results saturation bound; the SOLE definition — api.py and registry.py import this, never redefine it
+_DEFECT_TAIL: int = 400  # bounded tail bytes projected from stderr‖stdout for FAILED Match rows; matches Match.text max_length(400)
+
+
 def fold(claim: Claim, verb: str, outcomes: tuple[Completed, ...], *, detail: AnyDetail | None = None) -> Report:
-    """Fold many ``Completed`` into one ``Report``: the SOLE count-derivation site."""
+    """Fold many ``Completed`` into one ``Report``: the SOLE count-derivation site.
+
+    For each ``Completed`` whose status is FAILED (``_count(o) == (0, 1)``), a bounded ``Match`` row
+    is projected from the tail of ``stderr`` (preferred) or ``stdout`` so the failing tool's actual
+    output rides the typed ``results`` surface uniformly — zero difference between subprocess and
+    INPROC modalities, zero ceremony at call sites.
+    """
     pairs = tuple(map(_count, outcomes))
     ok_n, fail_n = (sum(a) for a in zip(*pairs, strict=True)) if pairs else (0, 0)
+    defects = tuple(
+        Match(
+            id=o.argv[0] if o.argv else claim.value,
+            kind=ArtifactKind.PROCESS,
+            text=(o.stderr or o.stdout)[-_DEFECT_TAIL:].decode(errors="replace").strip(),
+            severity="failed",
+        )
+        for o in outcomes
+        if _count(o) == (0, 1)
+    )
     return Report(
         claim,
         verb,
         rail_fold(*(o.status for o in outcomes)),
         Counts(ok_n, fail_n, ok_n + fail_n),
+        results=defects,
         notes=tuple(n for o in outcomes for n in o.notes),
         detail=detail,
     )
 
 
-def envelope(payload: Report | Fault, *, claim: Claim, verb: str, error_context: Diagnostic | None = None) -> Envelope:
+def envelope(payload: Report | Fault, *, claim: Claim, verb: str, run_id: str = "", error_context: Diagnostic | None = None) -> Envelope:
     """Wrap a ``Report`` or ``Fault`` into one ``Envelope`` via statement-match; ``error_context`` rides the Fault branch only."""
     match payload:
         case Report() as r:
-            return Envelope(schema_version=1, claim=claim, verb=verb, status=r.status, exit_code=r.status.exit_code, report=r)
+            return Envelope(schema_version=1, claim=claim, verb=verb, status=r.status, exit_code=r.status.exit_code, run_id=run_id, report=r)
         case Fault() as f:
             return Envelope(
-                schema_version=1, claim=claim, verb=verb, status=f.status, exit_code=f.status.exit_code, error=f, error_context=error_context
+                schema_version=1,
+                claim=claim,
+                verb=verb,
+                status=f.status,
+                exit_code=f.status.exit_code,
+                run_id=run_id,
+                error=f,
+                error_context=error_context,
             )
 
 
@@ -488,7 +614,10 @@ __all__ = [
     "TestRun",
     "Tool",
     "VerifySummary",
+    "_HINT_CAP",
+    "_RESULT_CAP",
     "envelope",
+    "field_cap",
     "fold",
     "receipt",
     "validate_detail",

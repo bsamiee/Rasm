@@ -14,7 +14,7 @@ import os
 from pathlib import Path
 from shutil import copy2, rmtree
 from tempfile import mkdtemp
-from typing import Final, TYPE_CHECKING
+from typing import Final, override, TYPE_CHECKING
 
 from expression import Error, Ok, Result
 from expression.collections import block
@@ -25,6 +25,7 @@ from tools.assay.composition.catalog import select  # intra-package import; tool
 from tools.assay.composition.settings import ArtifactScope, AssaySettings  # noqa: TC001  # unconditional for beartype runtime
 from tools.assay.core.engine import leased, run_check  # intra-package import; tools.assay is the package root
 from tools.assay.core.model import (  # intra-package import; tools.assay is the package root
+    ArtifactKind,
     Base,
     BaseParams,
     Check,
@@ -34,6 +35,7 @@ from tools.assay.core.model import (  # intra-package import; tools.assay is the
     fold,
     Input,
     Language,
+    Match,
     Mode,
     PackageRun,
     Report,  # noqa: TC001  # unconditional: beartype @checked resolves the -> Result[Report, Fault] forward-ref under PEP 649
@@ -61,10 +63,20 @@ type _Step = tuple[str, ...]  # one resolved yak/bridge argv tail (the command m
 
 @dataclass(frozen=True, slots=True, kw_only=True)
 class PackageParams(BaseParams):
-    """Per-verb params: ``slug`` keys ``YakPackageSlug`` resolution, ``version`` stamps ``yak build --version``."""
+    """Per-verb params: ``slug`` keys ``YakPackageSlug`` resolution, ``version`` stamps ``yak build --version``.
+
+    Zero-positional contract: every ``package`` verb reads only its ``--slug``/``--version`` keywords, so a
+    bare positional is a fat-fingered token, not input — ``bound`` folds it to the canonical ``parse`` Fault.
+    """
 
     slug: str = ""  # required by stage/deploy/publish/plan; list ignores both
     version: str = ""
+
+    @override
+    def _arity(self, verb: str) -> int:
+        """Zero positional slots: ``package`` is keyword-only (``--slug``/``--version``), so the base ``bound`` folds any token to ``parse``."""
+        _ = verb
+        return 0
 
 
 class _MsbuildProps(Base, frozen=True):
@@ -511,14 +523,16 @@ def publish(settings: AssaySettings, scope: ArtifactScope, params: PackageParams
 
 
 def list(settings: AssaySettings, scope: ArtifactScope, params: PackageParams) -> Result[Report, Fault]:  # noqa: A001  # registry binds the canonical verb name "list"
-    """``package list``: a zero-side-effect read folding every ``(slug, project)`` pair into ``Report.notes``."""
+    """``package list``: a zero-side-effect read projecting every ``(slug, project)`` pair onto ``Report.results`` as typed ``Match`` rows."""
     _ = (scope, params)  # list enumerates the whole package set, not one slug
     return (
         _package_projects(settings)
         .bind(lambda projects: _slugged(settings, projects))
         .map(
             lambda pairs: msgspec.structs.replace(
-                fold(Claim.PACKAGE, "list", ()), status=RailStatus.OK, notes=tuple(f"{slug}={project}" for project, slug in pairs if slug)
+                fold(Claim.PACKAGE, "list", ()),
+                status=RailStatus.OK,
+                results=tuple(Match(id=slug, kind=ArtifactKind.SCOPE, text=project) for project, slug in pairs if slug),
             )
         )
     )
@@ -534,21 +548,21 @@ def plan(settings: AssaySettings, scope: ArtifactScope, params: PackageParams) -
 
 
 def _plan_report(meta: YakMeta, version: str) -> Report:
-    notes = (
-        f"project={meta.project}",
-        f"package_dir={meta.package_dir}",
-        f"manifest_dir={meta.manifest_dir}",
-        f"target_dir={meta.target_dir}",
-        f"pattern={meta.package_pattern}",
-        f"platform={meta.yak_platform}",
-        f"push_source={meta.yak_push_source}",
-        f"yak_path={meta.yak_path}",
-    )
     return msgspec.structs.replace(
         fold(Claim.PACKAGE, "plan", ()),
         status=RailStatus.OK,
-        notes=notes,
-        detail=PackageRun(project=meta.project, pattern=meta.package_pattern, version=version),
+        detail=PackageRun(
+            project=meta.project,
+            pattern=meta.package_pattern,
+            version=version,
+            manifest_dir=str(meta.manifest_dir),
+            target_dir=str(meta.target_dir),
+            package_dir=str(meta.package_dir),
+            target_framework=meta.target_framework,
+            platform=meta.yak_platform,
+            push_source=meta.yak_push_source,
+            yak_path=str(meta.yak_path),
+        ),
     )
 
 

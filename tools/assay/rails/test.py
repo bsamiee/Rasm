@@ -14,17 +14,21 @@ from typing import TYPE_CHECKING
 from expression import Result  # noqa: TC002  # unconditional: beartype @checked resolves the handler forward-ref (PEP 649)
 from expression.collections import block
 from expression.extra.result import sequence
+import msgspec
 import structlog
 
 from tools.assay.composition.catalog import parse_tests, select  # intra-package import; tools.assay is the package root
 from tools.assay.composition.settings import ArtifactScope, AssaySettings  # noqa: TC001  # unconditional for beartype runtime
 from tools.assay.core.engine import fan_out, leased  # intra-package import; tools.assay is the package root
 from tools.assay.core.model import (  # intra-package import; tools.assay is the package root
+    ArtifactKind,
     BaseParams,
     Check,
     Claim,
+    Completed,  # noqa: TC001  # unconditional: _roster_matches uses Completed as a runtime type in the tuple annotation
     Fault,  # noqa: TC001  # unconditional: beartype @checked resolves the rail's forward-ref (PEP 649)
     fold,
+    Match,
     Mode,
     MutationLane,
     Report,  # noqa: TC001  # unconditional: beartype @checked resolves the rail's forward-ref (PEP 649)
@@ -36,7 +40,7 @@ from tools.assay.core.routing import route  # intra-package import; tools.assay 
 if TYPE_CHECKING:
     from expression.collections import Block
 
-    from tools.assay.core.model import AnyDetail, Completed, Language, Tool  # intra-package import; tools.assay is the package root
+    from tools.assay.core.model import AnyDetail, Language, Tool  # intra-package import; tools.assay is the package root
     from tools.assay.core.routing import Routed  # intra-package import; tools.assay is the package root
 
 
@@ -127,6 +131,24 @@ def _dispatch(
             return fan_out(checks, settings=settings, scope=scope, routed=routed)
 
 
+def _roster_matches(outcomes: tuple[Completed, ...]) -> tuple[Match, ...]:
+    # Parse discovered test names from OK LIST-mode Completed stdout into typed Match rows.
+    # dotnet test --list-tests: indented names after "The following Tests are available:" header.
+    # pytest --collect-only -q: "module::class::test" lines.
+    # Skip blank lines, the dotnet header ("The following…"), and count summaries ("N test(s) found").
+    def _skip(name: str) -> bool:
+        return name.startswith("The ") or (name[:1].isdigit() and name.endswith("found"))
+
+    rows = []
+    for c in outcomes:
+        if c.returncode == 0 and c.stdout:
+            for raw in c.stdout.decode(errors="replace").splitlines():
+                name = raw.strip()
+                if name and not _skip(name):
+                    rows.append(Match(id=name, kind=ArtifactKind.PROCESS, text=name))
+    return tuple(rows)
+
+
 def _detail(done: tuple[Completed, ...], params: TestParams) -> AnyDetail | None:
     # killed/survived/coverage are Parser-derived, never fold-derived (conflating kill-ratio into Counts would re-introduce
     # the retired per-rail count struct). parse_tests decodes every receipt to a defaulted TestRun, so the verb's evidence is
@@ -135,16 +157,9 @@ def _detail(done: tuple[Completed, ...], params: TestParams) -> AnyDetail | None
         case False:
             return None
         case True:
-            return next((d for c in done if (d := parse_tests(c)) is not None and _is_mutation(d)), None)
-
-
-def _is_mutation(detail: AnyDetail) -> bool:
-    # Narrow AnyDetail to a TestRun whose mutation lane names a real runner, rejecting the OFF default and non-TestRun variants.
-    match detail:
-        case TestRun(mutation=lane) if lane is not MutationLane.OFF:
-            return True
-        case _:
-            return False
+            return next(
+                (d for c in done if (d := parse_tests(c)) is not None and isinstance(d, TestRun) and d.mutation is not MutationLane.OFF), None
+            )
 
 
 def thin_rail(settings: AssaySettings, scope: ArtifactScope, params: TestParams, *, claim: Claim, verb: str, mode: Mode) -> Result[Report, Fault]:
@@ -190,8 +205,27 @@ def run(settings: AssaySettings, scope: ArtifactScope, params: TestParams) -> Re
 
 
 def list(settings: AssaySettings, scope: ArtifactScope, params: TestParams) -> Result[Report, Fault]:  # noqa: A001  # the verb IS "list"; this is the registry-bound Handler name
-    """``Handler``: enumerate tests (``Mode.LIST``) and surface the ``--dead-fixtures``/``--dup-fixtures`` audit when ``params.fixtures`` is set."""
-    return thin_rail(settings, scope, params, claim=Claim.TEST, verb="list", mode=Mode.LIST)
+    """``Handler``: enumerate tests (``Mode.LIST``) and project discovered test names onto ``Report.results`` as typed ``Match`` rows.
+
+    ``fold``'s FAILED → Match projection already surfaces the defect path (e.g. ``pytest --dead-fixtures``
+    exit 11 carries the profile-not-found message in ``error_context``). This layer additionally parses
+    every LIST-mode ``Completed``'s stdout for test names so the primary purpose — the enumeration — is
+    machine-readable.  ``dotnet test --list-tests`` emits indented test names after a header line; pytest
+    ``--collect-only -q`` emits ``module::TestClass::test_name`` lines.
+    """
+    languages = _languages(params.language)
+
+    def _settle(done: block.Block[Completed]) -> Report:
+        outcomes = tuple(done)
+        base = fold(Claim.TEST, "list", outcomes)
+        roster = _roster_matches(outcomes)
+        return msgspec.structs.replace(base, results=(*base.results, *roster)) if roster else base
+
+    return _routed(languages, params.paths).bind(
+        lambda routed: sequence(routed.collect(lambda r: block.of_seq(_dispatch(r, params, settings=settings, scope=scope, mode=Mode.LIST)))).map(
+            _settle
+        )
+    )
 
 
 def coverage(settings: AssaySettings, scope: ArtifactScope, params: TestParams) -> Result[Report, Fault]:

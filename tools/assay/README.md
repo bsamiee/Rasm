@@ -74,7 +74,7 @@ Every invocation writes one JSON `Envelope` line to `stdout.buffer`. `Envelope` 
 | `duration_ms` | `float` | Wall time of the invocation. |
 | `report` | `Report \| None` | `{claim, verb, status, counts, artifacts, results, notes, detail}`; `None` on a Fault. |
 | `error` | `Fault \| None` | `{argv, status, message}` — no `returncode`, no `detail`, no `stderr`. Present only on the Error channel. |
-| `error_context` | `Diagnostic \| None` | Auto-diagnosis on a Fault: `{failing_step, recent_events, elapsed_ms, hint}`; absent on success. |
+| `error_context` | `Diagnostic \| None` | Auto-diagnosis on a Fault: `{failing_step, recent_events, elapsed_ms, hint, dispatched}`; absent on success. `dispatched` is `False` only on a parse fault whose `claim`/`verb` are placeholders (bare unknown root token). |
 | `truncated` | `bool` | `True` when `report.results` ≥ 1000 or `report.artifacts` ≥ 100; the full output stays in the run dir. |
 | `notes` | `tuple[str, ...]` | Operator notes (owners, closure plan, applied-changes, argv). |
 
@@ -95,7 +95,7 @@ Every invocation writes one JSON `Envelope` line to `stdout.buffer`. `Envelope` 
 | `failed` | 1 | 6 | Completed | A check ran and found defects. |
 | `faulted` | 2 | 7 | Fault | Operational failure — assay could not run the check. |
 
-`from_returncode`: `0→empty`, `5→busy`, `124→timeout`, else `failed`. `--strict` on `api`/`docs` promotes `empty`/`skip` to a `faulted` Fault — a flag, not a status member. On a Fault, `error_context.failing_step` names the stage structurally from `(status, argv, message-prefix)`: `timeout` / `lease_busy` / `strict` / `validation` / `spawn`.
+`from_returncode`: `0→empty`, `5→busy`, `124→timeout`, else `failed`. `--strict` on `api`/`docs` promotes `empty`/`skip` to a `faulted` Fault — a flag, not a status member. On a Fault, `error_context.failing_step` names the stage structurally from `(status, argv, message-prefix)`: `timeout` / `lease_busy` / `strict` / `validation` / `spawn`, plus `parse` for a CLI parse fault — an unknown command/option folded through `parse_fault` at the `meta` boundary, OR a surplus positional rejected by the verb's `BaseParams.bound` arity contract at `rail.run` (a no-positional verb like `api doctor`/`package list` takes zero; `api query`/`show` cap at 1, `resolve` at 2; the variadic `static`/`code`/`test`/`docs` path rail takes any). Both raise sites fold ONE `Diagnostic` shape via `_distill`: `recent_events=[dispatch=<claim|none>, <full command line>]` (`recent_events[1]` is the whole reconstructed `<claim> <verb> <tokens>` line at BOTH sites — a surplus reads the same shape as an unknown verb), `elapsed_ms`, a `parse: … after …ms` hint whose trailing `after …ms` framing survives any clip, and `truncated=true` whenever a byte was dropped. A `failing_step="parse"` envelope's `claim`/`verb` is a genuine dispatch fact only when a rail resolved; read the TYPED `error_context.dispatched` boolean (`False` on a bare unknown root token, `True` on a surplus or an unknown verb/option under a resolved sub-app) — never substring-scrape `recent_events[0]`.
 
 ## [4][CLAIM_VERB_MAP]
 

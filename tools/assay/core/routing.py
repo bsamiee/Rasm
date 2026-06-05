@@ -26,6 +26,7 @@ from tools.assay.core.model import (  # noqa: TC001  # msgspec needs Language/To
     Fault,
     Input,
     Language,
+    Mode,
     Tool,
 )
 from tools.assay.core.status import RailStatus  # intra-package import; tools.assay is the package root
@@ -232,8 +233,17 @@ def place(routed: Routed, tool: Tool, *, settings: AssaySettings) -> tuple[tuple
     """The sole argv-tail projector: a total projection keyed by ``Input``, never ``Language``.
 
     ``assert_never`` closes the exhaustive ``match``, so a sixth ``Input`` is a type error here, not a
-    silent empty tail. A self-walking tool (ast-grep, biome ``ci``) rides ``Input.NONE`` and splices its
-    own paths into ``tool.command`` — there is no glob projection.
+    silent empty tail.
+
+    ``Input.NONE`` self-walkers (``py-analyzer``, ``biome ci``) receive the scoped ``routed.files`` as a
+    positional tail when non-empty so the tool scans only the in-scope files instead of the whole repo;
+    an empty file set keeps the empty tail so an unscoped invocation self-walks as before. The catalog
+    rows for these tools drop their hardcoded ``"."`` / ``"--root ."`` root argument — the tail from this
+    arm IS the target.
+
+    ``Input.PROJECT`` for a ``Mode.LIST`` tool (``dotnet test --list-tests``) defaults to the configured
+    ``test_target`` when ``routed.projects`` is empty, avoiding an unscoped whole-solution discovery that
+    would degrade from ~2.6s to ~28s and consume an unnecessary build lease.
     """
     match tool.input:
         case Input.FILES:
@@ -241,11 +251,12 @@ def place(routed: Routed, tool: Tool, *, settings: AssaySettings) -> tuple[tuple
         case Input.INCLUDE:
             return tuple((project, *Input.INCLUDE.flag, *files) for project, files in routed.groups)
         case Input.PROJECT:
-            return tuple((project,) for project in routed.projects)
+            projects = routed.projects or ((str(settings.test_target),) if tool.mode is Mode.LIST else ())
+            return tuple((project,) for project in projects)
         case Input.SOLUTION:
             return ((str(settings.solution),),)
         case Input.NONE:
-            return ((),)
+            return ((*routed.files,),) if routed.files else ((),)
         case never:  # pragma: no cover
             assert_never(never)
 
