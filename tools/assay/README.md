@@ -8,7 +8,7 @@ uv run python -m tools.assay self-test                     # composition + catal
 uv run python -m tools.assay watch <paths> --on <action>   # NDJSON stream (automation arm)
 ```
 
-The **executor** (launch/capture/scope/lease/fold) is separate from the **tool** (which program, which args, which language): a program is a `Tool` data row, not a module; a language is one `Language` member + one routing arm, not a folder.
+The **executor** (launch, capture, scope, lease, and fold) is separate from the **tool** (program, args, and language): a program is a `Tool` data row, not a module; a language is one `Language` member + one routing arm, not a folder.
 
 ## [1][ARCHITECTURE]
 

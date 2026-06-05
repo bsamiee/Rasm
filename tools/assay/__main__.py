@@ -1,4 +1,4 @@
-"""CLI entrypoint: the command tree is a projection of ``REGISTRY``, owning no verb, flag, or sub-app."""
+"""Project the assay registry into the CLI command tree."""
 
 import sys
 from typing import Final, TYPE_CHECKING
@@ -7,7 +7,7 @@ from cyclopts._result_action import resolve_returncode  # noqa: PLC2701  # lazy 
 from cyclopts.exceptions import CycloptsError
 from opentelemetry.trace import get_tracer_provider
 
-from tools.assay.composition.registry import build_app, parse_fault, REGISTRY  # intra-package import; tools.assay is the package root
+from tools.assay.composition.registry import build_app, parse_fault, REGISTRY
 
 
 if TYPE_CHECKING:
@@ -22,14 +22,13 @@ app: Final = build_app(REGISTRY)  # self-test + auto attached on root inside bui
 
 @app.meta.default  # the meta app wraps EVERY command result before exit
 def meta(*tokens: str) -> int:
-    """Resolve every command's returned ``Envelope`` to its process exit code.
+    """Resolve CLI tokens to a process exit code.
 
-    ``exit_on_error=False``/``print_error=False`` make Cyclopts RAISE a ``CycloptsError`` (unknown
-    command/option) instead of printing a bare Rich panel and calling ``sys.exit(1)`` — so the boundary
-    folds it through ``parse_fault`` into the canonical Fault ``Envelope`` (with structured
-    ``error_context``) every rail emits, never a bare Rich panel. A SURPLUS POSITIONAL is NOT a Cyclopts
-    error (the variadic ``paths`` sink absorbs it); the verb's ``BaseParams.bound`` arity contract rejects
-    it inside ``rail.run`` and folds the SAME ``parse`` ``failing_step`` — one taxonomy, two raise sites.
+    Args:
+        *tokens: Command-line tokens excluding the executable name.
+
+    Returns:
+        The exit code exposed by the returned `Envelope`.
     """
     try:
         result = app(tokens, result_action="return_value", backend="asyncio", exit_on_error=False, print_error=False)
@@ -39,15 +38,13 @@ def meta(*tokens: str) -> int:
 
 
 def main(argv: list[str] | None = None) -> int:
-    """Drive ``meta`` dispatch, draining OTel spans in a ``finally`` before returning.
+    """Run the CLI and flush tracing before returning.
 
     Args:
-        argv: ``None`` forwards ``sys.argv[1:]`` (``python -m``); an explicit ``[]`` is splayed as-is
-            (root help, exit 0).
+        argv: Command tokens to dispatch. `None` forwards `sys.argv[1:]`.
 
     Returns:
-        The process exit code. A malformed token set is folded into a structured Fault ``Envelope`` by
-        ``meta`` (never a bare ``SystemExit``/Rich panel); the ``finally`` still drains spans on exit.
+        The process exit code.
     """
     # force_flush read off the provider with an identity fallback: zero-cost return when tracing is gated off.
     flush: Callable[[int], bool] = getattr(get_tracer_provider(), "force_flush", lambda _timeout_millis: True)

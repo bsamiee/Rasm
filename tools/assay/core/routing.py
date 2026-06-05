@@ -1,10 +1,4 @@
-"""Route a git change-set through a single ``Source`` into a uniform ``Routed`` per ``Language``.
-
-The strategy asymmetry is keyed by ``Language.strategy``: ``"closure"`` (C#) resolves owning-``.csproj``
-reverse-dependency closures from the project graph; ``"glob"`` resolves suffix globs from the change-set.
-A sixth ``Language`` adds no arm; a sixth filesystem is a new ``Source`` injected at ``route(..., source=)``.
-The closure arm reads ``.csproj`` through ``source.read``, so the graph algorithm is filesystem-blind.
-"""
+"""Route changed or explicit paths into per-language input projections."""
 
 from collections.abc import Mapping
 from enum import StrEnum
@@ -20,7 +14,7 @@ from expression import Error, Ok, Result
 import structlog
 from upath import UPath
 
-from tools.assay.composition.settings import AssaySettings  # intra-package import; tools.assay is the package root
+from tools.assay.composition.settings import AssaySettings
 from tools.assay.core.model import (  # noqa: TC001  # msgspec needs Language/Tool annotations at runtime; intra-package (tools.assay package root)
     Base,
     Fault,
@@ -29,7 +23,7 @@ from tools.assay.core.model import (  # noqa: TC001  # msgspec needs Language/To
     Mode,
     Tool,
 )
-from tools.assay.core.status import RailStatus  # intra-package import; tools.assay is the package root
+from tools.assay.core.status import RailStatus
 
 
 # --- [TYPES] ----------------------------------------------------------------------------
@@ -40,7 +34,7 @@ type ProjectIndex = Mapping[str, str]  # owner-dir -> root-relative .csproj
 
 
 class Scope(StrEnum):
-    """Route-scope axis (``Routed.scope``): ``CHANGED`` grows a dependents closure; ``FULL`` lists the whole target."""
+    """Route scope for a language projection."""
 
     CHANGED = "changed"
     FULL = "full"
@@ -48,29 +42,53 @@ class Scope(StrEnum):
 
 @runtime_checkable
 class Source(Protocol):
-    """Assay's sole ``Protocol``: change-set + enumeration + read provider, keeping routing filesystem-blind."""
+    """Filesystem-independent source of changed paths, enumerated paths, and file bytes."""
 
     def changed(self) -> Result[tuple[str, ...], Fault]:
-        """Yield the language-agnostic git change-set."""
+        """Return the language-agnostic change set.
+
+        Returns:
+            Result containing changed root-relative paths or a fault.
+
+        """
 
     def enumerate(self, paths: RoutePaths) -> Result[tuple[str, ...], Fault]:
-        """Expand an explicit ``paths`` selection: dir → ``fd`` scan, file verbatim, missing → ``Fault``."""
+        """Expand explicit route paths.
+
+        Args:
+            paths: Input paths to expand.
+
+        Returns:
+            Result containing root-relative files or a fault.
+
+        """
 
     def read(self, rel: str) -> Result[bytes, Fault]:
-        """Fetch one root-relative path's bytes (``.csproj`` XML for the closure arm)."""
+        """Read one root-relative file.
+
+        Args:
+            rel: Root-relative file path.
+
+        Returns:
+            Result containing bytes or a fault.
+
+        """
 
 
 # --- [MODELS] ---------------------------------------------------------------------------
 
 
 class Routed(Base, frozen=True):
-    """One uniform routed-input shape across every ``Language``; each strategy arm fills a subset.
+    """Resolved inputs for one language.
 
     Attributes:
-        files: Sorted root-relative source for the ``FILES``/``INCLUDE`` projections.
-        groups: ``owner -> changed-files`` pairing the ``dotnet format --include`` arm fans over.
-        full_triggers: Change-set rows that escalated ``scope`` to ``FULL`` on the fast path,
-            skipping closure resolution.
+        language: Language being routed.
+        scope: Route scope.
+        files: Root-relative files selected for file-based tools.
+        projects: Project paths selected for project-based tools.
+        groups: Project-to-files groups for include-based dotnet format calls.
+        full_triggers: Changed rows that escalated routing to full scope.
+
     """
 
     language: Language
@@ -218,11 +236,17 @@ def _resolve(language: Language, changed: tuple[str, ...], universe: tuple[str, 
 def route(
     language: Language, paths: RoutePaths = (), *, source: Source | None = None, settings: AssaySettings | None = None
 ) -> Result[Routed, Fault]:
-    """Fold a git change-set or explicit ``paths`` into routed inputs for one ``Language``.
+    """Resolve paths into routed inputs for one language.
 
-    Discriminates ``paths`` (explicit → ``source.enumerate``; empty → ``source.changed``), then binds the
-    rows into the strategy arm keyed by ``language.strategy`` (never ``Language`` identity, so a new
-    language adds no arm). ``source`` defaults to ``LOCAL``; ``settings`` threads the escalation vocabulary.
+    Args:
+        language: Language to route.
+        paths: Explicit paths, or empty for the git change set.
+        source: Optional source provider. Defaults to the local worktree source.
+        settings: Optional settings that provide full-scope trigger vocabulary.
+
+    Returns:
+        Result containing routed inputs or a routing fault.
+
     """
     src = source if source is not None else LOCAL
     enumerated = src.enumerate(paths) if paths else src.changed()
@@ -230,20 +254,16 @@ def route(
 
 
 def place(routed: Routed, tool: Tool, *, settings: AssaySettings) -> tuple[tuple[str, ...], ...]:
-    """The sole argv-tail projector: a total projection keyed by ``Input``, never ``Language``.
+    """Project routed inputs into command argument tails.
 
-    ``assert_never`` closes the exhaustive ``match``, so a sixth ``Input`` is a type error here, not a
-    silent empty tail.
+    Args:
+        routed: Routed inputs for one language.
+        tool: Tool whose input strategy decides the projection.
+        settings: Runtime settings used for solution and default test target paths.
 
-    ``Input.NONE`` self-walkers (``py-analyzer``, ``biome ci``) receive the scoped ``routed.files`` as a
-    positional tail when non-empty so the tool scans only the in-scope files instead of the whole repo;
-    an empty file set keeps the empty tail so an unscoped invocation self-walks as before. The catalog
-    rows for these tools drop their hardcoded ``"."`` / ``"--root ."`` root argument — the tail from this
-    arm IS the target.
+    Returns:
+        Argument-tail groups to append to tool commands.
 
-    ``Input.PROJECT`` for a ``Mode.LIST`` tool (``dotnet test --list-tests``) defaults to the configured
-    ``test_target`` when ``routed.projects`` is empty, avoiding an unscoped whole-solution discovery that
-    would degrade from ~2.6s to ~28s and consume an unnecessary build lease.
     """
     match tool.input:
         case Input.FILES:

@@ -1,11 +1,4 @@
-"""The ``api`` rail: ``doctor | resolve | query | show`` host/NuGet/PyPI/npm metadata over one ``ApiSurface``.
-
-Read-only throughout — no ``dotnet build``, no mutation, no exclusive lease. The index/namespace/type/member/search
-distinction is computed once from the symbol-token shape (``shape_of``), never from verb proliferation. A non-zero
-ilspycmd exit rides ``Completed(FAILED)``; only a spawn failure or ``doctor --strict`` promotion takes the ``Error``
-channel. The cache fingerprint hashes assembly *content* (size + mtime_ns + SHA-256), never bare mtime: a RhinoWIP
-reinstall preserves mtime on unchanged DLLs, so a content hash is the boundary against a stale surface misreporting ``[Obsolete]``.
-"""
+"""Resolve host, package, Python, and TypeScript API metadata."""
 
 import annotationlib  # PEP 749 (3.14): get_annotations(format=STRING) surfaces a signature WITHOUT evaluating unresolvable forward refs
 from dataclasses import dataclass, replace
@@ -24,10 +17,10 @@ import msgspec
 from tree_sitter import Language as TSLanguage, Parser as TSParser, Query as TSQuery, QueryCursor
 import tree_sitter_typescript  # the SAME grammar binding code.py parses .d.ts with; never a second import surface
 
-from tools.assay.composition.catalog import Capture, CAPTURE_ENCODER, CAPTURES, select  # intra-package import; tools.assay is the package root
+from tools.assay.composition.catalog import Capture, CAPTURE_ENCODER, CAPTURES, select
 from tools.assay.composition.settings import ArtifactScope, AssaySettings  # noqa: TC001  # registry passes both at runtime
-from tools.assay.core.engine import run_check  # intra-package import; tools.assay is the package root
-from tools.assay.core.model import (  # intra-package import; tools.assay is the package root
+from tools.assay.core.engine import run_check
+from tools.assay.core.model import (
     _RESULT_CAP,  # noqa: PLC2701  # intra-package private import: sole definition in model.py, canonical saturation site
     ApiResolution,
     ApiSurface,
@@ -49,8 +42,8 @@ from tools.assay.core.model import (  # intra-package import; tools.assay is the
     SymbolShape,
     Tool,
 )
-from tools.assay.core.routing import Routed, Scope  # intra-package import; tools.assay is the package root
-from tools.assay.core.status import RailStatus  # intra-package import; tools.assay is the package root
+from tools.assay.core.routing import Routed, Scope
+from tools.assay.core.status import RailStatus
 
 
 if TYPE_CHECKING:
@@ -69,18 +62,21 @@ type _PathKind = str  # resolve kind token: all | assembly | xml | nuspec | deps
 
 @dataclass(frozen=True, slots=True, kw_only=True)
 class ApiParams(BaseParams):
-    """The ``api`` per-verb CLI params: one frozen dataclass covering all four verbs.
+    """Parameters shared by `api` verbs.
 
-    ``key``/``symbol``/``kind``/``token`` are the per-verb discriminants. They are ``kw_only`` (the
-    cyclopts flatten only positionally binds the leading non-``kw_only`` ``paths`` sink), so a bare
-    positional invocation lands its tokens in ``paths``; ``bound(verb)`` projects ONLY the slots each
-    contract owns onto that universal sink (``query <symbol> [--key]`` / ``resolve <key> [kind]`` /
-    ``show <token>`` / ``doctor`` takes none), capping the arity so a surplus token folds the canonical
-    ``parse`` Fault instead of vanishing into the variadic. The user-facing axis of ``query`` is the
-    SYMBOL (``query`` resolves the assembly off ``--key`` then dispatches on ``shape_of(symbol)``), so the
-    bare positional binds ``symbol``; the assembly rides its ``--key`` keyword. ``rail.run`` calls
-    ``p.bound(verb)`` once at entry, so every downstream read of an OWNED discriminant sees its resolved
-    value and a non-owned discriminant keeps its keyword default — no cross-contract smear.
+    Attributes:
+        key: Source key, package name, distribution name, or declaration package.
+        symbol: Symbol token queried by `api query`.
+        kind: Asset kind resolved by `api resolve`.
+        token: Artifact token or path read by `api show`.
+        max_lines: Maximum preview lines.
+        lines: Optional `start:end` line slice.
+        grep: Optional case-insensitive line filter.
+        full: Whether to return the full selected body.
+        latest: Whether `api show` should prefer the latest matching artifact.
+        restore: Reserved restore flag.
+        strict: Whether empty health checks promote to a fault.
+
     """
 
     key: str = "rhino-common"
@@ -97,7 +93,15 @@ class ApiParams(BaseParams):
 
     @override
     def bound(self, verb: str) -> ApiParams | Fault:
-        """Project the positional sink onto the verb's OWNED slots, capping arity (surplus → ``parse`` Fault)."""
+        """Project positional tokens into the slots owned by an API verb.
+
+        Args:
+            verb: API verb token.
+
+        Returns:
+            Updated params or a parse fault for surplus tokens.
+
+        """
         head, tail = (self.paths[0] if self.paths else ""), (self.paths[1] if len(self.paths) > 1 else "")
         match (verb, len(self.paths)):
             case (_, n) if n > _API_ARITY.get(verb, 0):  # surplus past the verb's slot count: the variadic must not swallow it
@@ -114,7 +118,7 @@ class ApiParams(BaseParams):
 
 @dataclass(frozen=True, slots=True)
 class _Source:
-    """The resolved metadata origin: typed provenance plus the on-disk asset projection (every verb reads this shape)."""
+    """Resolved API metadata source."""
 
     key: str
     kind: SourceKind
@@ -128,7 +132,7 @@ class _Source:
 
 @dataclass(frozen=True, slots=True)
 class _Surface:
-    """The parsed ilspycmd ``-l cisde`` roster: the INDEX/NAMESPACE/SEARCH evidence (FQ types + namespace index)."""
+    """Parsed type and namespace roster for one source."""
 
     source: _Source
     types: tuple[str, ...]
@@ -140,11 +144,7 @@ class _Surface:
 
 @dataclass(frozen=True, slots=True)
 class _Body:
-    """The decompiled type/member projection: anchored signature, xml doc, bounded window.
-
-    ``signature`` anchors on the modifier-prefixed declaration line, never a ``///`` doc-comment line: a bare
-    word boundary on the simple name over-matches the doc-comment occurrence and returns a sibling overload.
-    """
+    """Selected decompile or inspection body."""
 
     signature: str
     xml: str
@@ -221,10 +221,14 @@ _SIG_CAP: int = 480  # signature/doc slice bound, mirroring _xml_doc's 480
 
 
 def shape_of(symbol: str) -> SymbolShape:
-    """Discriminate the request token into one ``SymbolShape``, computed once to drive one ``match``.
+    """Classify an API query symbol.
 
-    Empty → INDEX; dotless → NAMESPACE; dotted with an uppercase-initial final segment and no call syntax → TYPE;
-    else → MEMBER. SEARCH is never produced here — it is the decompile-miss fallback the ``query`` fold derives.
+    Args:
+        symbol: Symbol token from the query.
+
+    Returns:
+        Symbol shape used by the query dispatcher.
+
     """
     match symbol.strip():
         case "":
@@ -686,10 +690,6 @@ def _invoke(settings: AssaySettings, scope: ArtifactScope, tool: Tool, *args: st
 
 
 def _surface(settings: AssaySettings, scope: ArtifactScope, source: _Source) -> Result[_Surface, Fault]:
-    """Resolve the type/namespace roster, polymorphic on ``source.kind``: ilspycmd for C#, INPROC for PYDIST/TSDECL.
-
-    Both arms decode into the SAME ``_Surface`` shape. An empty source folds ``EMPTY`` (off-host / no ``.d.ts``).
-    """
     match source.kind:
         case SourceKind.ASSEMBLY | SourceKind.NUGET:
             return _cs_surface(settings, scope, source)
@@ -826,10 +826,6 @@ def _xml_members(path: Path) -> tuple[ET.Element, ...]:
 
 
 def _decompile(settings: AssaySettings, scope: ArtifactScope, surface: _Surface, symbol: str, p: ApiParams) -> Result[_Body, Fault]:
-    """Project one type/member to a ``_Body``, polymorphic on ``source.kind``: ilspycmd ``-t`` for C#, INPROC for PYDIST/TSDECL.
-
-    An unresolvable symbol yields an empty ``signature`` so the ``query`` fold falls through to SEARCH.
-    """
     match surface.source.kind:
         case SourceKind.ASSEMBLY | SourceKind.NUGET:
             return _cs_decompile(settings, scope, surface, symbol, p)
@@ -935,7 +931,17 @@ def _matches(rows: tuple[str, ...], kind: ArtifactKind, pattern: str) -> tuple[M
 
 
 def doctor(settings: AssaySettings, scope: ArtifactScope, p: ApiParams) -> Result[Report, Fault]:
-    """``api doctor [--strict]``: host/NuGet/tool inventory; ``--strict`` promotes absence to ``FAULTED`` (the sole api fault promoter)."""
+    """Inventory API source health.
+
+    Args:
+        settings: Runtime settings.
+        scope: Artifact scope.
+        p: API params.
+
+    Returns:
+        Result containing an inventory report or a strict-mode fault.
+
+    """
     surface_tool = next((t for t in select(Claim.API, Language.CSHARP)), None)
     version = _invoke(settings, scope, surface_tool, "--version") if surface_tool is not None else Completed(("ilspycmd",), 1)
     rows = _inventory(settings, _rhino_app(settings), version)
@@ -945,7 +951,7 @@ def doctor(settings: AssaySettings, scope: ArtifactScope, p: ApiParams) -> Resul
         status=RailStatus.OK if all(ok for _, ok, _, _ in rows) else RailStatus.EMPTY,
         notes=(f"{sum(1 for _, ok, _, _ in rows if ok)}/{len(rows)} inventory sources healthy",),
     )
-    # W4/A1: typed ApiSurface Detail + one Match per inventory row; severity="missing" on absent rows
+    # Detail carries one Match per inventory row; absent rows use severity="missing".
     detail = ApiSurface(
         source_kind=SourceKind.TOOL,
         source_id="ilspycmd",
@@ -968,7 +974,7 @@ def doctor(settings: AssaySettings, scope: ArtifactScope, p: ApiParams) -> Resul
 
 def _inventory(settings: AssaySettings, app: Path | None, version: Completed) -> tuple[tuple[str, bool, str, SourceKind], ...]:
     # fold host bundle, ilspycmd version, central packages, Python dists, npm .d.ts into (name, ok, text, kind) rows.
-    # W4/A1: all 7 host sources (not filtered by src.assemblies) so rhino-code-remote is included.
+    # Include host-source rows even when a source has no assemblies, so rhino-code-remote stays visible.
     packages = _packages(settings)
     host_keys = tuple(k for k in _HOST_SPECS if _host_source(settings, k) is not None)
     host_present = tuple(k for k in host_keys if (src := _host_source(settings, k)) is not None and src.assemblies)
@@ -995,7 +1001,17 @@ def _strict(report: Report, p: ApiParams) -> Result[Report, Fault]:
 
 
 def resolve(settings: AssaySettings, scope: ArtifactScope, p: ApiParams) -> Result[Report, Fault]:
-    """``api resolve <key> [kind]``: fuzzy-resolve a source and list its ``kind`` asset paths (a key miss folds ``UNSUPPORTED``)."""
+    """Resolve a source key to asset paths.
+
+    Args:
+        settings: Runtime settings.
+        scope: Artifact scope.
+        p: API params.
+
+    Returns:
+        Result containing asset path evidence or unsupported-source candidates.
+
+    """
     _ = scope
     match _source(settings, p.key):
         case Result(tag="ok", ok=source):
@@ -1030,10 +1046,16 @@ def _resolve_targets(source: _Source, kind: _PathKind) -> tuple[Path, ...]:
 
 
 def query(settings: AssaySettings, scope: ArtifactScope, p: ApiParams) -> Result[Report, Fault]:
-    """``api query <symbol> [--key|--max-lines|--full|--grep]``: one polymorphic ``SymbolShape`` fold.
+    """Query a source for namespaces, types, members, or search hits.
 
-    A decompile/search or key miss folds an ``UNSUPPORTED`` ``ApiResolution`` (richer-on-failure, exit 3);
-    only a spawn fault crosses the ``Error`` channel.
+    Args:
+        settings: Runtime settings.
+        scope: Artifact scope.
+        p: API params.
+
+    Returns:
+        Result containing API surface evidence or unsupported-source candidates.
+
     """
     match _source(settings, p.key):
         case Result(tag="ok", ok=source):
@@ -1043,7 +1065,7 @@ def query(settings: AssaySettings, scope: ArtifactScope, p: ApiParams) -> Result
 
 
 def _resolve_namespace(settings: AssaySettings, scope: ArtifactScope, surface: _Surface, p: ApiParams) -> Result[Report, Fault]:
-    # W2 roster-aware NAMESPACE dispatch: type suffix-match wins over namespace listing; genuine miss → search.
+    # Roster-aware namespace dispatch: type suffix-match wins over namespace listing; genuine miss → search.
     # Extracted so _query_shape stays within the PLR0912 6-arm limit without a nested match.
     type_fqn = _rank_type(surface.types, p.symbol)
     owned = surface.by_namespace.get(_rank_namespace(surface, p.symbol), ()) if not type_fqn else ()
@@ -1058,7 +1080,7 @@ def _resolve_namespace(settings: AssaySettings, scope: ArtifactScope, surface: _
 
 def _query_shape(settings: AssaySettings, scope: ArtifactScope, surface: _Surface, p: ApiParams) -> Result[Report, Fault]:
     # the single polymorphic SymbolShape dispatch: one match arm per shape, assert_never closed.
-    # W2: NAMESPACE arm is roster-aware via _resolve_namespace (type suffix-match before roster/miss).
+    # The namespace arm is roster-aware via _resolve_namespace: type suffix-match before roster/miss.
     match shape_of(p.symbol):
         case SymbolShape.INDEX:
             # a namespace-less surface (a flat .d.ts export set) rosters its types directly; a namespaced surface (C#) rosters namespaces
@@ -1082,8 +1104,7 @@ def _rank_namespace(surface: _Surface, symbol: str) -> str:
 
 def _roster_report(settings: AssaySettings, surface: _Surface, shape: SymbolShape, rows: tuple[str, ...], p: ApiParams) -> Report:
     # INDEX/NAMESPACE roster: bounded preview + ranked Match rows + full-listing Artifact.
-    # W4: cardinality on Detail (A2), correct kind via ArtifactKind.SCOPE (A3), real rank (A4),
-    # and for INDEX the global surface.txt exposed as a second artifact so full roster is reachable (A5).
+    # Detail records cardinality, scope artifacts, real rank, and the INDEX surface artifact.
     source = surface.source
     artifact = _artifact(settings, source, f"{shape.value}.txt", "\n".join(rows))
     done = Completed(
@@ -1127,8 +1148,7 @@ def _search_report(surface: _Surface, p: ApiParams) -> Report:
 
 
 def _decompile_report(settings: AssaySettings, surface: _Surface, shape: SymbolShape, body: _Body, p: ApiParams) -> Report:
-    # TYPE/MEMBER report: reconcile shape, populate results[], always reference artifact (A8).
-    # W3: shape reconciled via _rank_type head-fallback proof; extension by source kind; truncated/lines typed.
+    # TYPE/MEMBER reports reconcile shape, populate results, and always reference an artifact.
     # On decompile miss, check if the symbol names a known namespace before falling to SEARCH (e.g. Rhino.Geometry).
     match body.signature:
         case "":
@@ -1199,7 +1219,17 @@ def _miss_report(verb: str, key: str, resolution: ApiResolution) -> Report:
 
 
 def show(settings: AssaySettings, scope: ArtifactScope, p: ApiParams) -> Result[Report, Fault]:
-    """``api show <token> [--lines|--grep|--full|--latest]``: preview a prior artifact's text (a missing token folds ``EMPTY``)."""
+    """Preview a previously written API artifact.
+
+    Args:
+        settings: Runtime settings.
+        scope: Artifact scope.
+        p: API params.
+
+    Returns:
+        Result containing the artifact preview report.
+
+    """
     _ = scope
     match _show_target(Path(str(settings.artifact(ArtifactKind.SCOPE, "api"))), p):  # api artifact tree is local-fs; UPath → Path
         case Path() as path if path.is_file():

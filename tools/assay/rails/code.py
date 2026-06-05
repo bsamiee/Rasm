@@ -1,10 +1,4 @@
-"""Code arm: structural search/rewrite (ast-grep) + AST query (tree-sitter), one polyglot fold over ``Claim.CODE``.
-
-``query`` runs tree-sitter in-process (``Runner.INPROC``) folded through the SAME ``Completed`` -> ``fold``
-rail as every subprocess tool — the thunk encodes captures onto ``Completed.stdout`` and the rail decodes
-them back. The supported language set is data-driven off ``select(Claim.CODE)``, so a new grammar's rows
-auto-extend the fan. Only ``rewrite --apply`` takes the ``code`` lease so concurrent in-place edits never race.
-"""
+"""Run structural search, rewrite, and tree-sitter query code rails."""
 
 from dataclasses import dataclass
 from functools import reduce
@@ -21,17 +15,10 @@ from tree_sitter import Language as TSLanguage, Parser as TSParser, Query as TSQ
 import tree_sitter_python
 import tree_sitter_typescript
 
-from tools.assay.composition.catalog import (  # intra-package import; tools.assay is the package root
-    AST_MATCHES,
-    Capture,
-    CAPTURE_ENCODER,
-    CAPTURES,
-    RG_EVENT,
-    select,
-)
+from tools.assay.composition.catalog import AST_MATCHES, Capture, CAPTURE_ENCODER, CAPTURES, RG_EVENT, select
 from tools.assay.composition.settings import ArtifactScope, AssaySettings  # noqa: TC001  # unconditional for beartype runtime
-from tools.assay.core.engine import fan_out, leased, run_check  # intra-package import; tools.assay is the package root
-from tools.assay.core.model import (  # intra-package import; tools.assay is the package root
+from tools.assay.core.engine import fan_out, leased, run_check
+from tools.assay.core.model import (
     Artifact,
     ArtifactKind,
     BaseParams,
@@ -47,8 +34,8 @@ from tools.assay.core.model import (  # intra-package import; tools.assay is the
     Report,  # noqa: TC001  # unconditional: see Fault above (same forward-ref resolution)
     Tool,
 )
-from tools.assay.core.routing import route, Routed, Scope  # intra-package import; tools.assay is the package root
-from tools.assay.core.status import RailStatus  # intra-package import; tools.assay is the package root
+from tools.assay.core.routing import route, Routed, Scope
+from tools.assay.core.status import RailStatus
 
 
 if TYPE_CHECKING:
@@ -57,7 +44,7 @@ if TYPE_CHECKING:
     from expression.collections import Block
     from tree_sitter import Node
 
-    from tools.assay.core.model import InprocThunk  # intra-package import; tools.assay is the package root
+    from tools.assay.core.model import InprocThunk
 
 
 # --- [MODELS] ---------------------------------------------------------------------------
@@ -65,11 +52,14 @@ if TYPE_CHECKING:
 
 @dataclass(frozen=True, slots=True, kw_only=True)
 class CodeParams(BaseParams):
-    """code arm CLI params shared across ``search``/``rewrite``/``query``: a structural ``pattern`` plus rewrite/apply.
+    """Parameters shared by code verbs.
 
-    ``pattern`` is the ast-grep pattern (``search``/``rewrite``) or the tree-sitter S-expression query
-    (``query``); ``apply`` promotes a rewrite preview to an in-place ``Mode.WRITE`` apply under the ``code``
-    lease. ``language=None`` fans every grammar-backed language and ``paths=()`` enumerates the whole worktree.
+    Attributes:
+        pattern: ast-grep pattern, tree-sitter query, or literal search text.
+        rewrite: Replacement pattern for rewrite previews and applies.
+        apply: Whether rewrite should mutate files under the code lease.
+        max_results: Maximum inline match rows.
+
     """
 
     pattern: str = ""
@@ -257,7 +247,7 @@ def _ag_normalize(completeds: tuple[Completed, ...]) -> tuple[Completed, ...]:
 
 def _report(settings: AssaySettings, verb: str, pattern: str, completeds: tuple[Completed, ...], rows: tuple[Match, ...], listing: str) -> Report:
     # A clean fold with hits promotes EMPTY to OK; the full listing rides an Artifact only when non-empty so a zero-hit query is terse.
-    # Defect rows fold projected from FAILED Completed entries (W1) are preserved as the `results` when no matching rows exist —
+    # Defect rows projected from FAILED Completed entries are preserved as `results` when no matching rows exist —
     # a malformed query surfaces its QueryError/stderr tail instead of an empty results set byte-identical to a valid zero-match.
     # The match COUNT is typed on Artifact.lines (total untruncated matches); the prose note is dropped so machine data
     # never rides a string-parsed note. Counts.ok=1 reflects the single synthetic Completed (the slice count); Artifact.lines
@@ -356,11 +346,16 @@ def _apply_report(verb: str, pattern: str, completeds: tuple[Completed, ...]) ->
 
 
 def search(settings: AssaySettings, scope: ArtifactScope, params: CodeParams) -> Result[Report, Fault]:
-    """``code search``: ONE verb, two modalities discriminated by the ast-grep ``$``-metavar.
+    """Search code structurally or by literal content.
 
-    A pattern carrying a ``$``-metavar routes to the grammar-aware ast-grep structural search; a literal
-    pattern routes to the grammar-blind ripgrep content search over the SAME tree. The metavar IS the
-    discriminator, so ``query`` and ``rewrite`` stay distinct verbs with no S-expression auto-detection.
+    Args:
+        settings: Runtime settings.
+        scope: Artifact scope.
+        params: Code params.
+
+    Returns:
+        Result containing match rows, artifacts, or an operational fault.
+
     """
     match bool(_METAVAR.search(params.pattern)):
         case True:
@@ -393,11 +388,16 @@ def _content_report(settings: AssaySettings, params: CodeParams, done: Completed
 
 
 def rewrite(settings: AssaySettings, scope: ArtifactScope, params: CodeParams) -> Result[Report, Fault]:
-    """``code rewrite``: ast-grep rewrite preview, or in-place apply under the ``code`` lease.
+    """Preview or apply an ast-grep rewrite.
 
-    Preview (``--apply`` absent) folds ``--json=compact`` matches into ``Match`` rows. Apply (``--apply``)
-    runs ``-U`` under the exclusive ``code`` lease — a busy lease short-circuits to ``Fault(BUSY)`` so
-    concurrent in-place edits never race a file.
+    Args:
+        settings: Runtime settings.
+        scope: Artifact scope.
+        params: Code params.
+
+    Returns:
+        Result containing rewrite preview, apply summary, or an operational fault.
+
     """
     root = Path(str(settings.root))
     match params.apply:
@@ -418,7 +418,17 @@ def rewrite(settings: AssaySettings, scope: ArtifactScope, params: CodeParams) -
 
 
 def query(settings: AssaySettings, scope: ArtifactScope, params: CodeParams) -> Result[Report, Fault]:
-    """``code query``: tree-sitter AST query via ``Runner.INPROC``, fanning every grammar-backed language."""
+    """Run a tree-sitter query over grammar-backed languages.
+
+    Args:
+        settings: Runtime settings.
+        scope: Artifact scope.
+        params: Code params.
+
+    Returns:
+        Result containing capture rows, artifacts, or an operational fault.
+
+    """
     return _fan(settings, scope, params, mode=Mode.QUERY, splice=_query_splice(params, Path(str(settings.root)))).map(
         lambda done: _report(settings, "query", params.pattern, done, *_ts_rows(done, params.max_results, params.pattern))
     )

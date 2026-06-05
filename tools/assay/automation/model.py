@@ -1,9 +1,4 @@
-"""Automation arm shapes: two ``msgspec``-tagged unions — ``Trigger`` (what re-fires) and ``Action`` (what each fire runs).
-
-Inert data only — every backend choice (``watchfiles``/``aiocron``/``psutil``, the per-verb
-``Params``) stays in ``engine.py``, which interprets these shapes under one ``anyio`` task group and
-emits one ``Envelope`` per fire (the documented exception to the one-Envelope invariant).
-"""
+"""Define automation trigger and action wire shapes."""
 
 from msgspec import json, Raw
 
@@ -14,12 +9,14 @@ from tools.assay.core.model import Base, Claim  # noqa: TC001  # tools.assay pac
 
 
 class Watch(Base, frozen=True, tag_field="kind", tag="watch", forbid_unknown_fields=True):
-    """Filesystem-driven re-fire over the ``watchfiles.awatch`` seam.
+    """Filesystem trigger interpreted by the watch backend.
 
-    ``filter`` is a vocabulary tag the interpreter resolves to a ``BaseFilter`` (the wire stays a string
-    so no ``watchfiles`` type leaks); ``ignore_patterns`` adds rejection globs folded into that filter.
-    ``cpu_threshold`` is the optional governor gate — when ``psutil.cpu_percent`` meets it at the fire
-    boundary the engine emits ``SKIP`` and elides the fire; ``None`` disables it.
+    Attributes:
+        paths: Files or directories to watch.
+        filter: Watch filter name resolved by the engine.
+        ignore_patterns: Glob patterns excluded from watch events.
+        debounce: Watch debounce window in milliseconds.
+        cpu_threshold: Optional CPU ceiling that skips a fire when reached.
     """
 
     paths: tuple[str, ...]
@@ -30,22 +27,28 @@ class Watch(Base, frozen=True, tag_field="kind", tag="watch", forbid_unknown_fie
 
 
 class Schedule(Base, frozen=True, tag_field="kind", tag="schedule", forbid_unknown_fields=True):
-    """Cron-driven re-fire over the ``aiocron.crontab`` seam; ``cron`` is a parser-agnostic spec, ``cpu_threshold`` mirrors ``Watch``."""
+    """Cron trigger interpreted by the scheduler backend.
+
+    Attributes:
+        cron: Cron expression passed to the scheduler.
+        cpu_threshold: Optional CPU ceiling that skips a fire when reached.
+    """
 
     cron: str
     cpu_threshold: float | None = None
 
 
 class Manual(Base, frozen=True, tag_field="kind", tag="manual", forbid_unknown_fields=True):
-    """Immediate single fire: no re-fire machinery, no governor — the degenerate trigger."""
+    """Immediate trigger that fires once."""
 
 
 class Rail(Base, frozen=True, tag_field="kind", tag="rail", forbid_unknown_fields=True):
-    """A quality-rail fire over the ``composition/registry.rail`` seam.
+    """Rail action decoded against the registry at fire time.
 
-    ``params`` is zero-copy ``msgspec.Raw``: the registry decodes it late at dispatch against
-    ``Bind.params``, so an invalid payload surfaces as a ``FAULTED`` ``Fault`` at the fire boundary,
-    not at trigger-config decode.
+    Attributes:
+        claim: Claim that owns the rail.
+        verb: Verb within the claim.
+        params: Raw JSON payload decoded against the bound params type.
     """
 
     claim: Claim
@@ -54,22 +57,32 @@ class Rail(Base, frozen=True, tag_field="kind", tag="rail", forbid_unknown_field
 
 
 class Program(Base, frozen=True, tag_field="kind", tag="program", forbid_unknown_fields=True):
-    """A direct program fire: ``argv`` binds to a DIRECT-runner ``Check`` via ``run_check``."""
+    """Direct program action.
+
+    Attributes:
+        argv: Executable and arguments to run verbatim.
+    """
 
     argv: tuple[str, ...]
 
 
 class Sequence(Base, frozen=True, tag_field="kind", tag="sequence", forbid_unknown_fields=True):
-    """A recursive action fold nesting ``tuple[Action, ...]``; the short-circuit policy is owned by ``engine``, never the data."""
+    """Ordered action sequence.
+
+    Attributes:
+        actions: Actions evaluated in order by the engine.
+    """
 
     actions: tuple["Action", ...]  # noqa: UP037  # forward-ref string is load-bearing: the Action alias is declared below, __future__ annotations is forbidden here, and msgspec evals this annotation at class creation
 
 
 class Debounce(Base, frozen=True, tag_field="kind", tag="debounce", forbid_unknown_fields=True):
-    """A coalescing wrapper that throttles a trigger storm to one delayed ``action`` fire per ``window_ms`` quiescence window.
+    """Action wrapper that coalesces trigger storms.
 
-    ``collapse=True`` drops every coalesced trigger to a single trailing fire (storm -> one run);
-    ``collapse=False`` keeps the leading fire and suppresses only the trailing tail.
+    Attributes:
+        action: Wrapped action to fire.
+        window_ms: Quiescence window in milliseconds.
+        collapse: Whether to keep only the trailing fire.
     """
 
     action: "Action"  # noqa: UP037  # forward-ref string is load-bearing: the Action alias is declared below, __future__ annotations is forbidden here, and msgspec evals this annotation at class creation
@@ -100,7 +113,14 @@ _ACTION_TAGS: frozenset[str] = frozenset({"rail", "program", "sequence", "deboun
 
 
 def describe(node: Trigger | Action) -> str:  # noqa: PLR0911, PLR0912  # one return/arm per union case is the canonical total projection; counts scale with the union, not with branching complexity
-    """Render a trigger or action as a one-line human label, recursing over ``Sequence.actions``."""
+    """Render a trigger or action as a one-line label.
+
+    Args:
+        node: Trigger or action to describe.
+
+    Returns:
+        Human-readable label.
+    """
     match node:
         case Watch(paths=p, debounce=d):
             return f"watch[{len(p)} paths @ {d}ms]"
@@ -119,7 +139,16 @@ def describe(node: Trigger | Action) -> str:  # noqa: PLR0911, PLR0912  # one re
 
 
 def decode(blob: bytes, *, trigger: bool) -> Trigger | Action:
-    """Recover a ``Trigger`` (``trigger=True``) or ``Action`` from one JSON blob, the ``kind`` tag selecting the case."""
+    """Decode one trigger or action JSON blob.
+
+    Args:
+        blob: JSON payload to decode.
+        trigger: Whether to decode the payload as a trigger instead of an action.
+
+    Returns:
+        Decoded trigger or action.
+
+    """
     match trigger:
         case True:
             return _DECODE_TRIGGER.decode(blob)
@@ -128,7 +157,14 @@ def decode(blob: bytes, *, trigger: bool) -> Trigger | Action:
 
 
 def encode(node: Trigger | Action) -> bytes:
-    """Encode a trigger or action to deterministic-order JSON via the sole cached ``Encoder``."""
+    """Encode a trigger or action to deterministic JSON.
+
+    Args:
+        node: Trigger or action to encode.
+
+    Returns:
+        Encoded JSON bytes.
+    """
     return _ENCODE.encode(node)
 
 

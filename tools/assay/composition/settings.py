@@ -1,8 +1,4 @@
-"""Config surface: ``AssaySettings``, the ``artifact`` path fold, the ``ArtifactStore``, and the dotnet ``ArtifactScope``.
-
-Env/flags validate through ``pydantic`` once at ``__init__``; ``frozen=True`` keeps the instance
-hashable and STM-safe so ``model_copy(update=...)`` threads a fresh config through ``fan_out``.
-"""
+"""Define settings, artifact storage, and dotnet artifact scopes."""
 
 from dataclasses import dataclass
 from datetime import datetime, UTC
@@ -22,21 +18,21 @@ if TYPE_CHECKING:
     from fsspec.spec import AbstractFileSystem  # type: ignore[import-untyped]  # fsspec ships no py.typed marker
     from pydantic_settings import PydanticBaseSettingsSource
 
-    from tools.assay.core.model import ArtifactKind, Claim  # intra-package import; tools.assay is the package root
+    from tools.assay.core.model import ArtifactKind, Claim
 
 
 # --- [TYPES] ----------------------------------------------------------------------------
 
 
 class Configuration(StrEnum):
-    """MSBuild ``-c`` axis: the member IS the verbatim configuration value (Cyclopts token, wire value, discriminant)."""
+    """MSBuild configuration value."""
 
     DEBUG = "Debug"
     RELEASE = "Release"
 
 
 class LogFormat(StrEnum):
-    """structlog renderer axis: console (``HUMAN``) or JSON (``CI``); default derives from ``sys.stderr.isatty()``."""
+    """Structured-log renderer format."""
 
     HUMAN = "human"
     CI = "ci"
@@ -67,11 +63,30 @@ type ExpandedPath = Annotated[UPath, BeforeValidator(lambda v: UPath(v).expandus
 
 
 class AssaySettings(BaseSettings):
-    """The sole ``pydantic-settings`` surface: env-only host/infra scalars, validated once.
+    """Validated assay runtime settings.
 
-    ``settings_customise_sources`` collapses the ingress to ``(init_settings, env_settings)`` (init
-    kwargs beat ``ASSAY_*`` env; CLI/dotenv/secrets dropped — Cyclopts is the CLI boundary). ``frozen``
-    makes the instance hashable and STM-safe under ``fan_out``.
+    Attributes:
+        root: Repository root anchored to `Workspace.slnx` when present.
+        configuration: Release-style configuration for runtime and package operations.
+        static_configuration: Debug-style configuration for static compile operations.
+        dotnet_max_cpu: Maximum dotnet build parallelism.
+        mutation_max_cpu: Maximum mutation-test parallelism.
+        max_checks: Maximum concurrent checks in fan-out.
+        stream_tail_bytes: Retained byte tail for child process streams.
+        stream_chunk_bytes: Byte chunk size for stream reads.
+        lease_drift_tolerance: Process start-time tolerance for stale lease detection.
+        artifact_retention: Number of persisted run-history entries to keep.
+        scoped_verbs: Dotnet verbs that receive scoped artifact flags.
+        trigger_files: Files that escalate C# routing to full scope.
+        trigger_prefixes: Path prefixes that escalate C# routing to full scope.
+        test_target: Default C# test project.
+        mutation_project: Default C# mutation target project.
+        log_format: Renderer format for structlog.
+        run_id: Correlation identifier for the current invocation.
+        agent_task_id: Optional fleet or agent task identifier.
+        exec_target: Local or SSH execution target.
+        exec_known_hosts: Optional AsyncSSH known-hosts path.
+
     """
 
     model_config = SettingsConfigDict(env_prefix="ASSAY_", case_sensitive=False, frozen=True, extra="forbid", populate_by_name=True)
@@ -149,36 +164,63 @@ class AssaySettings(BaseSettings):
         dotenv_settings: PydanticBaseSettingsSource,  # dotenv source dropped at the boundary
         file_secret_settings: PydanticBaseSettingsSource,  # secrets source dropped at the boundary
     ) -> tuple[PydanticBaseSettingsSource, ...]:
-        """Precedence ``init > ASSAY_* env``; drop CLI, dotenv, and secrets entirely (validate once)."""
+        """Use init values and `ASSAY_*` environment variables as the only settings sources.
+
+        Args:
+            settings_cls: Settings class supplied by pydantic-settings.
+            init_settings: Values passed to the constructor.
+            env_settings: Values loaded from the environment.
+            dotenv_settings: Dotenv source, intentionally ignored.
+            file_secret_settings: Secret-file source, intentionally ignored.
+
+        Returns:
+            Ordered settings sources.
+
+        """
         return (init_settings, env_settings)
 
     @computed_field  # type: ignore[prop-decorator]  # pydantic computed_field over a property
     @property
     def solution(self) -> UPath:
-        """The ``Workspace.slnx`` the SOLUTION arm resolves against.
+        """Resolve the workspace solution path.
 
-        Construction NEVER hard-fails on a missing ``Workspace.slnx`` (``_anchor`` falls back to ``cwd``)
-        per the point-and-go contract; an absent solution is a per-operation C# concern that exits into a
-        clean ``Completed(FAILED)``/Fault, never a settings-construction crash.
+        Returns:
+            The `Workspace.slnx` path under `root`.
+
         """
         return self.root / _MARKER
 
     @computed_field  # type: ignore[prop-decorator]  # pydantic computed_field over a property
     @property
     def agent_context(self) -> dict[str, str]:
-        """The ``{run.id, agent.task.id}`` fleet-correlation tags, folded from the canonical fields once at the boundary (never ``os.environ``)."""
+        """Build log and trace correlation tags.
+
+        Returns:
+            Mapping of run and agent task identifiers.
+
+        """
         return {"run.id": self.run_id, "agent.task.id": self.agent_task_id}
 
     @property
     def store_root(self) -> UPath:
-        """The ``.artifacts/assay`` tree root; every ``artifact`` path and local ``store`` share it."""
+        """Resolve the assay artifact root path.
+
+        Returns:
+            The `.artifacts/assay` path under `root`.
+
+        """
         return self.root / _ARTIFACTS / _ASSAY
 
     def store(self, *, protocol: str = "file", **opts: object) -> ArtifactStore:
-        """The backend-agnostic ``.artifacts`` I/O surface: ``file`` local, ``memory`` for tests.
+        """Create an artifact store backend.
 
-        ``protocol="memory"`` roots at the ``run_id``-keyed relative path so concurrent suites sharing the
-        class-global ``MemoryFileSystem`` partition the dict; ``protocol="file"`` roots at ``store_root``.
+        Args:
+            protocol: fsspec protocol, such as `file` or `memory`.
+            **opts: Backend options forwarded to fsspec.
+
+        Returns:
+            Artifact store rooted for this run.
+
         """
         match protocol:
             case "file":
@@ -188,10 +230,15 @@ class AssaySettings(BaseSettings):
         return ArtifactStore(fs=fsspec.filesystem(protocol, **opts), root=target)
 
     def artifact(self, kind: ArtifactKind, *parts: str | UPath) -> UPath:
-        """The sole path projector: fold ``kind`` plus ``parts`` onto ``store_root``.
+        """Project an artifact path from kind and path parts.
 
-        The path namespace is exactly the ``ArtifactKind`` member set; a closure build tree lives in the
-        ``SCOPE`` namespace (``artifact(ArtifactKind.SCOPE, "build", closure)``) — there is no ``BUILD`` kind.
+        Args:
+            kind: Artifact namespace.
+            *parts: Additional path components.
+
+        Returns:
+            Path under the assay artifact root.
+
         """
         return self.store_root.joinpath(kind.value, *(str(p) for p in parts))
 
@@ -201,38 +248,65 @@ class AssaySettings(BaseSettings):
 
 @dataclass(frozen=True, slots=True)
 class ArtifactStore:
-    """The ``fsspec`` ``.artifacts`` backend (the sole writer for every ``.artifacts/`` tree): a ``Store`` is *where* bytes go.
+    """Artifact filesystem backend.
 
-    ``ensure`` is the only directory creator — explicit ``makedirs`` is required because
-    ``LocalFileSystem.auto_mkdir=False`` by default, so lazy ``open(mode="w")`` parent creation cannot
-    be relied upon.
+    Attributes:
+        fs: fsspec filesystem used for artifact I/O.
+        root: Backend-relative artifact root.
+
     """
 
     fs: AbstractFileSystem
     root: str
 
     def ensure(self, *parts: str) -> str:
-        """Create and return the ``root``-relative directory path; the sole ``makedirs`` site."""
+        """Create and return a directory under the store root.
+
+        Args:
+            *parts: Path components under the store root.
+
+        Returns:
+            Backend path to the ensured directory.
+
+        """
         path = "/".join((self.root, *parts))
         self.fs.makedirs(path, exist_ok=True)
         return path
 
     def glob(self, pattern: str) -> tuple[str, ...]:
-        """Expand a glob under ``root`` to a tuple — the immutable shape rails fold over."""
+        """Expand a glob under the store root.
+
+        Args:
+            pattern: Glob pattern relative to the store root.
+
+        Returns:
+            Matching backend paths.
+
+        """
         return tuple(self.fs.glob(f"{self.root}/{pattern}"))
 
     def exists(self, *parts: str) -> bool:
-        """Report whether the ``root``-relative path exists; backs lease/staleness probes."""
+        """Check whether a store-relative path exists.
+
+        Args:
+            *parts: Path components under the store root.
+
+        Returns:
+            Whether the path exists.
+
+        """
         return bool(self.fs.exists("/".join((self.root, *parts))))
 
 
 @dataclass(frozen=True, slots=True)
 class ArtifactScope:
-    """The dotnet-isolated tree ``run_check`` takes as ``scope``: a ``Scope`` is *which* tree (vs ``Store`` = the I/O backend).
+    """Dotnet artifact scope for one run or build closure.
 
-    Pairs the scoped ``path`` with the ``--artifacts-path`` ``dotnet_flags`` ``engine._splice`` splices
-    into a ``Runner.DOTNET`` argv. ``open`` yields the per-run scope; ``build`` yields the *stable*
-    per-closure scope (never run-scoped) so the warm MSBuild/analyzer tree survives across runs.
+    Attributes:
+        store: Store that owns the scope directory.
+        path: Backend path of the scope directory.
+        dotnet_flags: Dotnet flags that route artifacts into this scope.
+
     """
 
     store: ArtifactStore
@@ -241,21 +315,44 @@ class ArtifactScope:
 
     @classmethod
     def open(cls, settings: AssaySettings, claim: Claim) -> ArtifactScope:
-        """Per-run scope ``.artifacts/assay/<claim>/<run_id>/`` — disjoint per invocation."""
+        """Open a per-run artifact scope.
+
+        Args:
+            settings: Runtime settings.
+            claim: Claim namespace for the run.
+
+        Returns:
+            Artifact scope under `.artifacts/assay/<claim>/<run_id>`.
+
+        """
         store = settings.store()
         path = store.ensure(claim.value, settings.run_id)
         return cls(store, path, (_ARTIFACTS_PATH_FLAG, path, _DISABLE_BUILD_SERVERS))
 
     @classmethod
     def build(cls, settings: AssaySettings, closure: str) -> ArtifactScope:
-        """Stable per-closure scope ``.artifacts/assay/build/<closure>/`` — survives across runs."""
+        """Open a stable build-closure artifact scope.
+
+        Args:
+            settings: Runtime settings.
+            closure: Closure identifier.
+
+        Returns:
+            Artifact scope under `.artifacts/assay/build/<closure>`.
+
+        """
         store = settings.store()
         path = store.ensure(_BUILD, closure)
         return cls(store, path, (_ARTIFACTS_PATH_FLAG, path, _DISABLE_BUILD_SERVERS))
 
     @property
     def dotnet_env(self) -> dict[str, str]:
-        """The MSBuild isolation overlay: per-scope CLI home + disabled node reuse."""
+        """Build dotnet environment isolation variables.
+
+        Returns:
+            Environment overlay for dotnet commands in this scope.
+
+        """
         return {"DOTNET_CLI_HOME": f"{self.path}/dotnet-cli", "MSBUILDDISABLENODEREUSE": "1"}
 
 

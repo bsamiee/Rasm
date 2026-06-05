@@ -1,10 +1,4 @@
-"""The ``Claim.PACKAGE`` yak lifecycle rail: ``stage``/``deploy``/``publish``/``list``/``plan`` of ``.yak`` distributions.
-
-Stages under a per-dir lease (keyed on the package directory, never the slug) and commits atomically (temp → rotate → swap,
-restore-on-``OSError``). The ``rasm-bridge`` slug is the lone special-case — its ``deploy``/``publish`` brackets the steps
-with ``quit``/``refresh`` inside the shared ``bridge.lock`` so host-quit, install, and refresh are atomic under one lease. A
-metadata mismatch faults ``FAULTED`` *before* the lease; a ``yak build`` defect rides the success channel as ``Completed(FAILED)``.
-"""
+"""Run yak package stage, deploy, publish, list, and plan rails."""
 
 from dataclasses import dataclass
 import fnmatch
@@ -21,10 +15,10 @@ from expression.collections import block
 from expression.extra.result import sequence
 import msgspec
 
-from tools.assay.composition.catalog import select  # intra-package import; tools.assay is the package root
+from tools.assay.composition.catalog import select
 from tools.assay.composition.settings import ArtifactScope, AssaySettings  # noqa: TC001  # unconditional for beartype runtime
-from tools.assay.core.engine import leased, run_check  # intra-package import; tools.assay is the package root
-from tools.assay.core.model import (  # intra-package import; tools.assay is the package root
+from tools.assay.core.engine import leased, run_check
+from tools.assay.core.model import (
     ArtifactKind,
     Base,
     BaseParams,
@@ -42,11 +36,11 @@ from tools.assay.core.model import (  # intra-package import; tools.assay is the
     Runner,
     Tool,
 )
-from tools.assay.core.routing import Routed, Scope  # intra-package import; tools.assay is the package root
-from tools.assay.core.status import RailStatus  # intra-package import; tools.assay is the package root
+from tools.assay.core.routing import Routed, Scope
+from tools.assay.core.status import RailStatus
 
 # canonical Claim.BRIDGE Mode.CLIENT seam for the rasm-bridge quit/refresh lifecycle steps
-from tools.assay.rails.bridge import _client_run as _bridge_client_run  # noqa: PLC2701  # intra-package import; tools.assay is the package root
+from tools.assay.rails.bridge import _client_run as _bridge_client_run  # noqa: PLC2701
 
 
 if TYPE_CHECKING:
@@ -63,10 +57,12 @@ type _Step = tuple[str, ...]  # one resolved yak/bridge argv tail (the command m
 
 @dataclass(frozen=True, slots=True, kw_only=True)
 class PackageParams(BaseParams):
-    """Per-verb params: ``slug`` keys ``YakPackageSlug`` resolution, ``version`` stamps ``yak build --version``.
+    """Parameters shared by package verbs.
 
-    Zero-positional contract: every ``package`` verb reads only its ``--slug``/``--version`` keywords, so a
-    bare positional is a fat-fingered token, not input — ``bound`` folds it to the canonical ``parse`` Fault.
+    Attributes:
+        slug: Yak package slug.
+        version: Yak package version passed to build and plan operations.
+
     """
 
     slug: str = ""  # required by stage/deploy/publish/plan; list ignores both
@@ -74,22 +70,33 @@ class PackageParams(BaseParams):
 
     @override
     def _arity(self, verb: str) -> int:
-        """Zero positional slots: ``package`` is keyword-only (``--slug``/``--version``), so the base ``bound`` folds any token to ``parse``."""
         _ = verb
         return 0
 
 
 class _MsbuildProps(Base, frozen=True):
-    """The ``dotnet msbuild -getProperty:… -nologo`` JSON envelope: a ``Properties`` dict of evaluated yak metadata."""
+    """MSBuild property query JSON envelope."""
 
     Properties: dict[str, str] = {}  # noqa: RUF012  # MSBuild wire key is PascalCase; default-empty so a missing block decodes total
 
 
 class YakMeta(Base, frozen=True, gc=False):
-    """The validated yak-distribution carrier: a typed ``Path``/``str`` projection of the MSBuild ``Properties`` map.
+    """Validated yak package metadata.
 
-    Validation runs in ``evaluate_meta`` *before* the stage lease so a misconfigured project fails fast at exit 2
-    without ever stealing the lease or rotating a live package dir.
+    Attributes:
+        project: Package project path.
+        manifest_dir: Directory containing yak manifest assets.
+        target_dir: Build output directory.
+        assembly_name: Primary assembly name.
+        target_ext: Primary artifact extension.
+        yak_path: Yak executable path.
+        yak_platform: Yak platform token.
+        yak_push_source: Optional yak push source.
+        package_dir: Committed package directory.
+        package_pattern: Expected package filename pattern.
+        target_framework: Target framework.
+        project_dir: Project directory.
+
     """
 
     project: str
@@ -107,7 +114,18 @@ class YakMeta(Base, frozen=True, gc=False):
 
     @classmethod
     def from_props(cls, project: str, props: dict[str, str], settings: AssaySettings, slug: str) -> Result[YakMeta, Fault]:
-        """Project the MSBuild ``Properties`` map onto the typed carrier, faulting on any required-property gap."""
+        """Build validated package metadata from MSBuild properties.
+
+        Args:
+            project: Project path.
+            props: Evaluated MSBuild properties.
+            settings: Runtime settings.
+            slug: Requested package slug.
+
+        Returns:
+            Result containing validated metadata or a precondition fault.
+
+        """
         # YakPushSource is optional (server push target); every other _META_PROPS member must be present + non-empty
         missing = tuple(name for name in _META_PROPS if name != "YakPushSource" and not props.get(name))
         match missing:
@@ -130,10 +148,16 @@ class YakMeta(Base, frozen=True, gc=False):
                 return Error(Fault(("dotnet", "msbuild", project), message=f"missing MSBuild properties: {', '.join(names)}"))
 
     def validate(self, settings: AssaySettings, slug: str, evaluated_slug: str) -> Result[YakMeta, Fault]:
-        """Affirm every staging precondition before the lease: slug/``.rhp``/output-containment/platform/glob/executable.
+        """Validate package staging preconditions.
 
-        The first failing row short-circuits to ``Fault(FAULTED)`` (exit 2) so a misconfigured project never steals the
-        stage lease nor rotates a live package directory.
+        Args:
+            settings: Runtime settings.
+            slug: Requested package slug.
+            evaluated_slug: Slug evaluated by MSBuild.
+
+        Returns:
+            Result containing this metadata or a precondition fault.
+
         """
         root = Path(str(settings.root)).resolve()  # output-dir containment guard is local-fs; UPath → Path
         expected = (self.project_dir / "bin" / settings.configuration.value / self.target_framework).resolve()
@@ -241,9 +265,18 @@ def _run_yak(meta: YakMeta, command: _Step, mode: Mode, *, cwd: Path, settings: 
 
 
 def evaluate_meta(settings: AssaySettings, scope: ArtifactScope, project: str, slug: str, version: str) -> Result[YakMeta, Fault]:
-    """Evaluate and validate the yak metadata under one ``dotnet msbuild`` ``Mode.QUERY`` row (fail-fast before any lease).
+    """Evaluate and validate yak metadata for one project.
 
-    Validation precedes any lease so a metadata mismatch faults at exit 2 before a live package directory is touched.
+    Args:
+        settings: Runtime settings.
+        scope: Artifact scope.
+        project: Project path.
+        slug: Requested package slug.
+        version: Requested package version.
+
+    Returns:
+        Result containing validated metadata or an evaluation fault.
+
     """
     query: _Step = (
         "msbuild",
@@ -508,22 +541,62 @@ def _lifecycle(settings: AssaySettings, scope: ArtifactScope, params: PackagePar
 
 
 def stage(settings: AssaySettings, scope: ArtifactScope, params: PackageParams) -> Result[Report, Fault]:
-    """``package stage``: build + atomically commit one yak distribution under the per-dir stage lease."""
+    """Stage one yak distribution.
+
+    Args:
+        settings: Runtime settings.
+        scope: Artifact scope.
+        params: Package params.
+
+    Returns:
+        Result containing the stage report or operational fault.
+
+    """
     return _lifecycle(settings, scope, params, "stage")
 
 
 def deploy(settings: AssaySettings, scope: ArtifactScope, params: PackageParams) -> Result[Report, Fault]:
-    """``package deploy``: ``stage`` then ``yak install`` the committed ``.yak`` into the live host."""
+    """Stage and install one yak distribution.
+
+    Args:
+        settings: Runtime settings.
+        scope: Artifact scope.
+        params: Package params.
+
+    Returns:
+        Result containing the deploy report or operational fault.
+
+    """
     return _lifecycle(settings, scope, params, "deploy")
 
 
 def publish(settings: AssaySettings, scope: ArtifactScope, params: PackageParams) -> Result[Report, Fault]:
-    """``package publish``: ``stage`` then ``yak install`` + ``yak push`` to the configured server source."""
+    """Stage, install, and publish one yak distribution.
+
+    Args:
+        settings: Runtime settings.
+        scope: Artifact scope.
+        params: Package params.
+
+    Returns:
+        Result containing the publish report or operational fault.
+
+    """
     return _lifecycle(settings, scope, params, "publish")
 
 
 def list(settings: AssaySettings, scope: ArtifactScope, params: PackageParams) -> Result[Report, Fault]:  # noqa: A001  # registry binds the canonical verb name "list"
-    """``package list``: a zero-side-effect read projecting every ``(slug, project)`` pair onto ``Report.results`` as typed ``Match`` rows."""
+    """List package projects and slugs.
+
+    Args:
+        settings: Runtime settings.
+        scope: Artifact scope.
+        params: Package params.
+
+    Returns:
+        Result containing package match rows or an enumeration fault.
+
+    """
     _ = (scope, params)  # list enumerates the whole package set, not one slug
     return (
         _package_projects(settings)
@@ -539,7 +612,17 @@ def list(settings: AssaySettings, scope: ArtifactScope, params: PackageParams) -
 
 
 def plan(settings: AssaySettings, scope: ArtifactScope, params: PackageParams) -> Result[Report, Fault]:
-    """``package plan``: a zero-side-effect read emitting the evaluated ``YakMeta`` into ``notes`` (no lease, no build)."""
+    """Evaluate package metadata without staging.
+
+    Args:
+        settings: Runtime settings.
+        scope: Artifact scope.
+        params: Package params.
+
+    Returns:
+        Result containing package metadata detail or an evaluation fault.
+
+    """
     return (
         _resolve_project(settings, params.slug)
         .bind(lambda project: evaluate_meta(settings, scope, project, params.slug, params.version))

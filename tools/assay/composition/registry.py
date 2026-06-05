@@ -1,11 +1,4 @@
-"""Composition root: one ``Bind`` table, one ``rail`` runner, one ``_emit_envelope`` stdout writer.
-
-The runner stack is ``checked ▷ logged ▷ traced`` (no ``@retried`` — a rail is a ``Hom``, not a
-``Spawn``), folded by ``Slot`` rank in ``compose`` so a ``Slot`` inversion is a decoration-time
-``TypeError``. ``_emit_envelope`` is the SOLE stdout writer — ``_emit`` (rail), ``delta``, ``self_test``,
-and ``parse_fault`` all route their one Envelope through it (``persist`` toggles the run-history side
-write, which only the rail wire and root self-test claim); structlog lines and truncation notes ride stderr.
-"""
+"""Compose registry binds, rail runners, envelopes, and run-history commands."""
 
 from collections import deque
 from collections.abc import Callable
@@ -23,11 +16,11 @@ from expression import Error, Ok, Result
 import msgspec
 import structlog
 
-from tools.assay.composition.catalog import select, TOOLS  # intra-package import; tools.assay is the package root
-from tools.assay.composition.settings import ArtifactScope, AssaySettings  # intra-package import; tools.assay is the package root
-from tools.assay.core.aspect import _RING, checked, compose, logged, traced  # noqa: PLC2701  # intra-package import; tools.assay is the package root
-from tools.assay.core.engine import _RESOURCE, _snapshot, fan_out  # noqa: PLC2701  # intra-package import; tools.assay is the package root
-from tools.assay.core.model import (  # intra-package import; tools.assay is the package root
+from tools.assay.composition.catalog import select, TOOLS
+from tools.assay.composition.settings import ArtifactScope, AssaySettings
+from tools.assay.core.aspect import _RING, checked, compose, logged, traced  # noqa: PLC2701
+from tools.assay.core.engine import _RESOURCE, _snapshot, fan_out  # noqa: PLC2701
+from tools.assay.core.model import (
     _HINT_CAP,  # noqa: PLC2701  # intra-package private import: sole definition in model.py, canonical clip site
     _RESULT_CAP,  # noqa: PLC2701  # intra-package private import: sole definition in model.py, canonical saturation site
     ArtifactKind,
@@ -54,9 +47,9 @@ from tools.assay.core.model import (  # intra-package import; tools.assay is the
     Tool,
     validate_detail,
 )
-from tools.assay.core.routing import Routed, Scope  # intra-package import; tools.assay is the package root
-from tools.assay.core.status import RailStatus  # intra-package import; tools.assay is the package root
-from tools.assay.rails import (  # intra-package import; tools.assay is the package root
+from tools.assay.core.routing import Routed, Scope
+from tools.assay.core.status import RailStatus
+from tools.assay.rails import (
     api as api_rail,
     bridge as bridge_rail,
     code as code_rail,
@@ -65,26 +58,25 @@ from tools.assay.rails import (  # intra-package import; tools.assay is the pack
     static as static_rail,
     test as test_rail,
 )
-from tools.assay.rails.api import ApiParams  # intra-package import; tools.assay is the package root
-from tools.assay.rails.bridge import BridgeParams  # intra-package import; tools.assay is the package root
-from tools.assay.rails.code import CodeParams  # intra-package import; tools.assay is the package root
-from tools.assay.rails.docs import DocsParams, FaultedPromotion  # intra-package import; tools.assay is the package root
-from tools.assay.rails.package import PackageParams  # intra-package import; tools.assay is the package root
-from tools.assay.rails.static import StaticParams  # intra-package import; tools.assay is the package root
-from tools.assay.rails.test import TestParams  # intra-package import; tools.assay is the package root
+from tools.assay.rails.api import ApiParams
+from tools.assay.rails.bridge import BridgeParams
+from tools.assay.rails.code import CodeParams
+from tools.assay.rails.docs import DocsParams, FaultedPromotion
+from tools.assay.rails.package import PackageParams
+from tools.assay.rails.static import StaticParams
+from tools.assay.rails.test import TestParams
 
 
 if TYPE_CHECKING:
     from collections.abc import Iterator, Mapping
 
-    from tools.assay.composition.settings import ArtifactStore  # intra-package import; tools.assay is the package root
-    from tools.assay.core.aspect import Layer  # intra-package import; tools.assay is the package root
+    from tools.assay.composition.settings import ArtifactStore
+    from tools.assay.core.aspect import Layer
 
 
 # --- [TYPES] ----------------------------------------------------------------------------
 
-# The per-verb 3-arg adapter the registry binds. ``P`` is the verb's Params type — a single TypeVar,
-# never a ParamSpec: the third positional is one value, not a call signature, so ``Callable[[S, A, P], R]`` holds.
+# The per-verb 3-arg adapter the registry binds. `P` is the verb's Params type, not a ParamSpec.
 type Handler[P] = Callable[[AssaySettings, ArtifactScope, P], Result[Report, Fault]]
 
 
@@ -244,7 +236,7 @@ def _failing_step(fault: Fault) -> str:
 
 def _ok_envelope(bind: Bind, settings: AssaySettings, ms: float, report: Report) -> Envelope:
     # Build the success Envelope: on FAILED, distill error_context from the fold-projected defect rows
-    # so the agent sees which/why identically to the Fault rail (W1 + W5). omit_defaults keeps OK/EMPTY terse.
+    # so the agent sees which/why identically to the Fault rail. omit_defaults keeps OK/EMPTY terse.
     truncated = len(report.results) >= _RESULT_CAP or len(report.artifacts) >= _ARTIFACT_CAP
     truncated and sys.stderr.write(f"assay: {bind.claim.value} {bind.verb} output truncated; full results under {settings.run_id}\n")
     failed = tuple(m for m in report.results if m.severity == "failed")
@@ -317,11 +309,14 @@ def _emit(bind: Bind, settings: AssaySettings, started: float, outcome: Result[R
 
 
 def rail(bind: Bind) -> Callable[[object], Envelope]:
-    """Build the per-verb runner — weaves ``checked ▷ logged ▷ traced`` once over the bound ``Handler``.
+    """Build the registry runner for one bound verb.
 
-    ``_strict`` and the docs ``FaultedPromotion`` catch sit between the handler and ``_emit``; the
-    runner is named for the verb so structlog/trace correlation and the Cyclopts leaf read a stable
-    identity.
+    Args:
+        bind: Registry row containing the claim, verb, handler, params type, and help text.
+
+    Returns:
+        Callable that accepts decoded params and emits one `Envelope`.
+
     """
     handler: Handler[object] = compose(*_RAIL_LAYERS)(_narrow(bind.handler))
 
@@ -330,7 +325,7 @@ def rail(bind: Bind) -> Callable[[object], Envelope]:
         started = time.perf_counter()
         scope = ArtifactScope.open(settings, bind.claim)
         # invocation-scoped ring + one-Envelope counter, reset in finally so the automation loop reuses
-        # rail() per fire. The W5 resource snapshot is NOT seeded here — _diagnose seeds it at fault time
+        # rail() per fire. The resource snapshot is NOT seeded here — _diagnose seeds it at fault time
         # and _distill takes it lazily on the defect path, so the psutil oneshot never costs the happy wire.
         ring_token, writes_token = _RING.set(deque(maxlen=16)), _WRITES.set(count())
         try:
@@ -463,10 +458,15 @@ def _delta_report(before_id: str, after_id: str, before: Envelope | None, after:
 
 
 def delta(run_id: str, *, against: str = "") -> Envelope:
-    """Root verb ``delta <run-id> [--against <id>]``: diff two persisted run Envelopes into a ``RunDelta`` Detail.
+    """Diff two persisted run envelopes.
 
-    Sibling to ``self-test`` (a ROOT command, NOT a Claim); ``--against`` defaults to the chronologically
-    prior persisted run. A run absent from history folds to EMPTY. Read-only — no rail params, no lease.
+    Args:
+        run_id: Run identifier to inspect.
+        against: Optional baseline run identifier. When empty, the previous persisted run is used.
+
+    Returns:
+        Envelope containing a `RunDelta` report or an empty report when a run is missing.
+
     """
     settings = AssaySettings()
     store = settings.store()
@@ -478,27 +478,15 @@ def delta(run_id: str, *, against: str = "") -> Envelope:
 
 
 def parse_fault(tokens: tuple[str, ...], message: str) -> Envelope:
-    """Fold a Cyclopts parse error (unknown command/option, unused token) into the canonical Fault envelope.
+    """Convert a Cyclopts parse failure into the canonical fault envelope.
 
-    The single pre-dispatch fault writer: a malformed token set never reaches ``rail.run`` (no ``Bind``,
-    no lease, no ``_RING``), so the boundary maps it to ``Fault((), FAULTED, …)`` and routes it through
-    the SAME ``envelope()`` builder + ``_emit_envelope`` stdout writer the rails use — the parse fault
-    rides the canonical Fault Envelope with structured ``error_context`` instead of a bare Rich panel.
-    It is NOT persisted (``persist=False``): a typo'd token set must never enter the diffable run-history
-    ring that ``_prior``/``delta`` walk, nor burn an ``artifact_retention`` slot.
+    Args:
+        tokens: Command tokens that failed to parse.
+        message: Parser error message.
 
-    ``claim``/``verb`` are a DISPATCH FACT only when ``head`` is a real ``Claim`` (the sub-app resolved but
-    its verb/option was malformed). On a bare/unknown root token NO rail dispatched, so ``claim`` folds to a
-    ``STATIC`` PLACEHOLDER (the enum is required + we never invent a member) and ``verb`` carries the raw
-    bogus token. An agent reads the TYPED ``error_context.dispatched`` discriminant (``False`` here) — no
-    substring-scraping ``recent_events[0]`` — to know the wire ``claim``/``verb`` are placeholders, not facts.
+    Returns:
+        Fault envelope written through the same stdout path as rail results.
 
-    This shares ONE Diagnostic builder (``_distill``) and ONE wire shape with the surplus-positional parse
-    Fault (``BaseParams.surplus`` → ``_bound`` → ``_emit``): the boundary seeds ``_RING`` with the
-    ``dispatch=…`` + full-command-line rows the rail path also seeds, prefixes the Fault message with
-    ``parse:`` so ``_failing_step`` names it structurally, then distills — both raise sites carry
-    ``recent_events`` + ``elapsed_ms`` + a ``parse: … after …ms`` hint + the typed ``dispatched`` +
-    ``truncated`` honesty signal identically (zero-surprise across the two sites).
     """
     settings = AssaySettings()
     match tokens:
@@ -518,15 +506,14 @@ def parse_fault(tokens: tuple[str, ...], message: str) -> Envelope:
 
 
 def self_test(*, rhino: bool = False) -> Envelope:
-    """Root preflight: affirm the composition is wired + the catalog is unrotted; ``--rhino`` gates status on Rhino availability.
+    """Run the assay composition preflight.
 
-    Folds the structural invariants plus a ``REGISTRY``+``TOOLS`` census into one ``Report`` (every row
-    binds a callable ``Handler``, every claim resolves a non-empty verb set, the rail seam composes
-    without a ``Slot`` inversion, every catalog row is routable via ``select()`` and parses an empty
-    ``Completed``), folded to ``FAILED`` on the first broken row. ``_health`` deepens it with a concurrent
-    toolchain/git probe whose findings ride typed ``Match`` rows (kind=PROCESS) — surfaced-but-not-fatal.
-    When ``--rhino`` is set and no yak executable is available, status gates to ``FAILED``.
-    A root command, not a bound rail.
+    Args:
+        rhino: Whether missing Rhino packaging tooling should fail the preflight.
+
+    Returns:
+        Envelope containing registry, catalog, and toolchain health evidence.
+
     """
     settings = AssaySettings()
     claims = frozenset(b.claim for b in REGISTRY)
@@ -674,11 +661,14 @@ def _leaf(bind: Bind) -> Callable[..., Envelope]:
 
 
 def build_app(registry: tuple[Bind, ...]) -> App:
-    """Fold ``registry`` into the Cyclopts ``App`` tree: ``groupby(claim)`` sub-apps, ``self-test`` on root.
+    """Build the Cyclopts command tree from registry rows.
 
-    Pre-sorts on ``b.claim.value`` (the ``StrEnum`` wire token) so each ``groupby`` run is contiguous and
-    a future enum reorder can never fragment a claim into two sub-apps. ``result_action="return_value"``
-    makes each command return its ``Envelope`` so ``__main__`` resolves the exit code.
+    Args:
+        registry: Bind rows to expose as claim subcommands.
+
+    Returns:
+        Root Cyclopts application with claim commands and root utility commands.
+
     """
     root = App(name="assay", help="Rasm polyglot quality operator.", default_parameter=Parameter(show_default=False), result_action="return_value")
     keyed = sorted(registry, key=lambda b: b.claim.value)

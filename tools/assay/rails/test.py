@@ -1,11 +1,4 @@
-"""The ``test`` rail: three thin folds over one Engine, distinguished only by ``Mode`` + ``Params``.
-
-Polyglot over ``Claim.TEST`` (C#/Python/TS runner families): ``language=None`` fans each language through
-its OWN ``route``, so eligible rows bind to that language's routed files. The mutation eligibility guard
-runs before any ``Check`` is built so an overridden-target row never strands the global lane on a
-guaranteed-reject lease acquire (busy-storm avoidance). The TS mutation gap is structural — no ``vitest``
-row carries ``Mode.MUTATION``, so ``--mutation`` on a TS-only request folds to ``EMPTY`` with a parity note.
-"""
+"""Run test, list, coverage, and mutation rails."""
 
 from dataclasses import dataclass
 from pathlib import Path  # noqa: TC003  # unconditional: cyclopts resolves TestParams.target's `Path | None` at CLI-build (PEP 649)
@@ -17,10 +10,10 @@ from expression.extra.result import sequence
 import msgspec
 import structlog
 
-from tools.assay.composition.catalog import parse_tests, select  # intra-package import; tools.assay is the package root
+from tools.assay.composition.catalog import parse_tests, select
 from tools.assay.composition.settings import ArtifactScope, AssaySettings  # noqa: TC001  # unconditional for beartype runtime
-from tools.assay.core.engine import fan_out, leased  # intra-package import; tools.assay is the package root
-from tools.assay.core.model import (  # intra-package import; tools.assay is the package root
+from tools.assay.core.engine import fan_out, leased
+from tools.assay.core.model import (
     ArtifactKind,
     BaseParams,
     Check,
@@ -34,14 +27,14 @@ from tools.assay.core.model import (  # intra-package import; tools.assay is the
     Report,  # noqa: TC001  # unconditional: beartype @checked resolves the rail's forward-ref (PEP 649)
     TestRun,
 )
-from tools.assay.core.routing import route  # intra-package import; tools.assay is the package root
+from tools.assay.core.routing import route
 
 
 if TYPE_CHECKING:
     from expression.collections import Block
 
-    from tools.assay.core.model import AnyDetail, Language, Tool  # intra-package import; tools.assay is the package root
-    from tools.assay.core.routing import Routed  # intra-package import; tools.assay is the package root
+    from tools.assay.core.model import AnyDetail, Language, Tool
+    from tools.assay.core.routing import Routed
 
 
 # --- [MODELS] ---------------------------------------------------------------------------
@@ -49,11 +42,18 @@ if TYPE_CHECKING:
 
 @dataclass(frozen=True, slots=True, kw_only=True)
 class TestParams(BaseParams):
-    """The ``Claim.TEST`` params leaf: ``BaseParams{paths, language}`` plus eight test fields.
+    """Parameters shared by test verbs.
 
-    ``target`` overrides the default test project; ``all`` widens to the whole workspace; ``no_build``
-    reuses warm binaries; ``mutation`` selects Stryker/``mutmut`` (unsupported on TS); ``benchmark``,
-    ``coverage``, and ``fixtures`` gate their respective runner tails; ``filter`` is the runner filter expr.
+    Attributes:
+        target: Optional test project override.
+        all: Whether to widen to the whole workspace.
+        no_build: Whether to skip restore and build rows.
+        mutation: Whether to select mutation rows.
+        benchmark: Whether to select benchmark rows.
+        coverage: Whether to select coverage rows.
+        fixtures: Whether to include fixture checks.
+        filter: Runner-specific test filter expression.
+
     """
 
     target: Path | None = None
@@ -163,12 +163,19 @@ def _detail(done: tuple[Completed, ...], params: TestParams) -> AnyDetail | None
 
 
 def thin_rail(settings: AssaySettings, scope: ArtifactScope, params: TestParams, *, claim: Claim, verb: str, mode: Mode) -> Result[Report, Fault]:
-    """The one fold every ``test`` verb shares: gate, route per language, fan out per language, fold.
+    """Run the shared test route, eligibility, fan-out, and fold body.
 
-    The eligible slice is mutation-gated before any ``Check`` is built (the parity note is logged when a
-    requested mutation lane was structurally inapplicable). When any eligible row carries ``Mode.MUTATION``
-    the whole multi-language weave runs under the single global-exclusive ``mutation.lock`` lease: a busy
-    lock short-circuits to ``Fault(BUSY)`` (exit 5) without spawning. ``fold`` carries the ``_detail`` evidence.
+    Args:
+        settings: Runtime settings.
+        scope: Artifact scope.
+        params: Test params.
+        claim: Claim to fold under.
+        verb: Verb to fold under.
+        mode: Tool mode to select.
+
+    Returns:
+        Result containing the folded test report or routing fault.
+
     """
     languages = _languages(params.language)
     eligible = tuple(t for language in languages for t in _rows(language, params, mode))
@@ -200,18 +207,31 @@ def thin_rail(settings: AssaySettings, scope: ArtifactScope, params: TestParams,
 
 
 def run(settings: AssaySettings, scope: ArtifactScope, params: TestParams) -> Result[Report, Fault]:
-    """``Handler``: execute the test suite (``Mode.RUN``) for the routed languages."""
+    """Run eligible test suites.
+
+    Args:
+        settings: Runtime settings.
+        scope: Artifact scope.
+        params: Test params.
+
+    Returns:
+        Result containing the test report or routing fault.
+
+    """
     return thin_rail(settings, scope, params, claim=Claim.TEST, verb="run", mode=Mode.RUN)
 
 
 def list(settings: AssaySettings, scope: ArtifactScope, params: TestParams) -> Result[Report, Fault]:  # noqa: A001  # the verb IS "list"; this is the registry-bound Handler name
-    """``Handler``: enumerate tests (``Mode.LIST``) and project discovered test names onto ``Report.results`` as typed ``Match`` rows.
+    """List discovered tests.
 
-    ``fold``'s FAILED → Match projection already surfaces the defect path (e.g. ``pytest --dead-fixtures``
-    exit 11 carries the profile-not-found message in ``error_context``). This layer additionally parses
-    every LIST-mode ``Completed``'s stdout for test names so the primary purpose — the enumeration — is
-    machine-readable.  ``dotnet test --list-tests`` emits indented test names after a header line; pytest
-    ``--collect-only -q`` emits ``module::TestClass::test_name`` lines.
+    Args:
+        settings: Runtime settings.
+        scope: Artifact scope.
+        params: Test params.
+
+    Returns:
+        Result containing discovered test rows or routing fault.
+
     """
     languages = _languages(params.language)
 
@@ -229,7 +249,17 @@ def list(settings: AssaySettings, scope: ArtifactScope, params: TestParams) -> R
 
 
 def coverage(settings: AssaySettings, scope: ArtifactScope, params: TestParams) -> Result[Report, Fault]:
-    """``Handler``: run the suite under coverage (``Mode.RUN`` + the Coverlet/``coverage.py`` tail); percentage rides ``TestRun.coverage``."""
+    """Run eligible suites under coverage.
+
+    Args:
+        settings: Runtime settings.
+        scope: Artifact scope.
+        params: Test params.
+
+    Returns:
+        Result containing the coverage report or routing fault.
+
+    """
     return thin_rail(settings, scope, params, claim=Claim.TEST, verb="coverage", mode=Mode.RUN)
 
 

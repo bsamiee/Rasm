@@ -1,4 +1,4 @@
-"""Status algebra: one ``StrEnum`` carrying wire token, exit code, and severity fold rank."""
+"""Define rail status values and severity folding."""
 
 from enum import StrEnum
 from functools import reduce
@@ -9,11 +9,12 @@ from typing import Self
 
 
 class RailStatus(StrEnum):
-    """Status algebra: wire token, exit code, and severity fold rank.
+    """Rail status with wire token, exit code, and severity rank.
 
-    ``FAULTED`` (severity 7) is the absorbing fold top; ``EMPTY`` (severity 1) is the seed.
-    Members are ``str`` subclasses (``RailStatus.OK == "ok"``), so dispatch on
-    ``case RailStatus.OK:`` (never ``case "ok":``) and close with ``assert_never``.
+    Attributes:
+        exit_code: Process exit code for the status.
+        severity: Rank used by status joins.
+
     """
 
     exit_code: int  # annotation-only: the metaclass skips it as a member, __new__ sets it
@@ -28,8 +29,7 @@ class RailStatus(StrEnum):
     FAILED = "failed", 1, 6
     FAULTED = "faulted", 2, 7
 
-    def __new__(cls, value: str, exit_code: int, severity: int, *aliases: str) -> Self:
-        """Bind the wire string as member identity and attach the exit-code/severity payloads."""
+    def __new__(cls, value: str, exit_code: int, severity: int, *aliases: str) -> Self:  # noqa: D102  # enum payload binder
         member = str.__new__(cls, value)
         member._value_ = value
         member.exit_code = exit_code
@@ -40,7 +40,15 @@ class RailStatus(StrEnum):
 
     @classmethod
     def from_returncode(cls, rc: int) -> RailStatus:
-        """Project a process return code onto a status (never ``OK``/``UNSUPPORTED``: those are non-process)."""
+        """Project a process return code onto a rail status.
+
+        Args:
+            rc: Process return code.
+
+        Returns:
+            `EMPTY` for zero, `BUSY` for 5, `TIMEOUT` for 124, otherwise `FAILED`.
+
+        """
         match rc:
             case 0:
                 return cls.EMPTY
@@ -56,12 +64,29 @@ class RailStatus(StrEnum):
 
 
 def join(left: RailStatus, right: RailStatus) -> RailStatus:
-    """Binary max-by-severity (ties keep left); module-scoped because ``str.join`` owns the method name."""
+    """Join two statuses by severity.
+
+    Args:
+        left: Left status.
+        right: Right status.
+
+    Returns:
+        Higher-severity status, keeping the left value on ties.
+
+    """
     return left if left.severity >= right.severity else right
 
 
 def fold(*members: RailStatus) -> RailStatus:
-    """Reduce members under ``join`` seeded at ``EMPTY`` (rank 1, not ``SKIP``: a no-check rail stays distinct)."""
+    """Reduce statuses under `join`.
+
+    Args:
+        *members: Statuses to fold.
+
+    Returns:
+        Joined status seeded at `EMPTY`.
+
+    """
     return reduce(join, members, RailStatus.EMPTY)
 
 

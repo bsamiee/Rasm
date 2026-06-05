@@ -1,10 +1,4 @@
-"""Package marker: a stderr-bound structlog pipeline and an endpoint-gated OTel provider, installed at import.
-
-The sole package-marker file (every other directory is a PEP 420 namespace package), running three
-import-time boundary actions in order: the optional ``ASSAY_CLAW`` beartype claw gate, the once-only
-structlog configure, and the endpoint-gated OTel ``TracerProvider`` install. Install only — the
-``BatchSpanProcessor`` drain is owned by ``__main__``.
-"""
+"""Configure import-time logging, tracing, and optional beartype package checks."""
 
 # ruff: noqa: RUF067, E402  # executable package boundary: the claw gate is the FIRST statement so every import legitimately follows it (E402), and the module runs import-time side effects rather than re-exporting (RUF067)
 
@@ -37,7 +31,7 @@ from structlog.contextvars import bind_contextvars, merge_contextvars
 from structlog.dev import ConsoleRenderer
 from structlog.processors import add_log_level, dict_tracebacks, JSONRenderer, TimeStamper
 
-from tools.assay.composition.settings import AssaySettings, LogFormat  # intra-package import; tools.assay is the package root
+from tools.assay.composition.settings import AssaySettings, LogFormat
 from tools.assay.core.aspect import ring_processor  # intra-package import; recent-events ring seam
 
 

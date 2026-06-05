@@ -1,9 +1,4 @@
-"""The sole live-Rhino lane: one ``bridge.lock`` lease, seven verbs, one ``VerifySummary``.
-
-The seven verbs serialize on one exclusive ``bridge.lock`` so the fleet runs exactly one live-Rhino
-proof lane; ``build`` alone is lease-free. A non-zero client exit is a ``Completed(FAILED)`` value,
-never a ``Fault`` — only a held lease, spawn failure, or timeout rides the ``Error(Fault)`` channel.
-"""
+"""Run live Rhino bridge lifecycle and verification commands."""
 
 from dataclasses import dataclass
 from pathlib import Path
@@ -15,8 +10,8 @@ from expression import Error, Ok, Result
 import msgspec
 
 from tools.assay.composition.settings import ArtifactScope, AssaySettings  # noqa: TC001  # unconditional for beartype runtime
-from tools.assay.core.engine import leased, run_check  # intra-package import; tools.assay is the package root
-from tools.assay.core.model import (  # intra-package import; tools.assay is the package root
+from tools.assay.core.engine import leased, run_check
+from tools.assay.core.model import (
     BaseParams,
     Check,
     Claim,
@@ -32,8 +27,8 @@ from tools.assay.core.model import (  # intra-package import; tools.assay is the
     Tool,
     VerifySummary,
 )
-from tools.assay.core.routing import Routed, Scope  # intra-package import; tools.assay is the package root
-from tools.assay.core.status import RailStatus  # intra-package import; tools.assay is the package root
+from tools.assay.core.routing import Routed, Scope
+from tools.assay.core.status import RailStatus
 
 
 # --- [MODELS] ---------------------------------------------------------------------------
@@ -41,23 +36,23 @@ from tools.assay.core.status import RailStatus  # intra-package import; tools.as
 
 @dataclass(frozen=True, slots=True, kw_only=True)
 class BridgeParams(BaseParams):
-    """The ``bridge`` verb params: ``BaseParams`` plus the sole ``pattern`` scenario selector.
+    """Parameters shared by bridge verbs.
 
-    Zero-positional contract: ``verify`` reads its ``--pattern`` keyword and the lifecycle verbs read
-    nothing positional, so a bare token is a typo — ``bound`` folds it to the canonical ``parse`` Fault.
+    Attributes:
+        pattern: Scenario path, directory, or glob used by `bridge verify`.
+
     """
 
     pattern: str = ""  # selects verify scenarios (path / dir / worktree glob); lifecycle verbs ignore it
 
     @override
     def _arity(self, verb: str) -> int:
-        """Zero positional slots: ``bridge`` is keyword-only (``--pattern``), so the base ``bound`` folds any token to ``parse``."""
         _ = verb
         return 0
 
 
 class _Scenario(msgspec.Struct, frozen=True, gc=False):
-    """One folded per-``*.verify.csx`` row: the throwaway carrier ``verify`` reduces into a summary."""
+    """Per-scenario bridge verification row."""
 
     # stem/fault_phase/fault_output are ordering facts the order-insensitive status fold erases, so
     # the fold lifts them off the first non-zero-exit scenario without re-decoding the report dir.
@@ -70,7 +65,7 @@ class _Scenario(msgspec.Struct, frozen=True, gc=False):
 
 
 class _BridgeFault(msgspec.Struct, frozen=True, gc=False, omit_defaults=True, rename="camel"):
-    """One in-Rhino exception report (``BridgeResult.exceptionReports``): camel-cased C# JSON."""
+    """Bridge exception report from the C# client JSON."""
 
     category: str = ""
     message: str = ""
@@ -79,14 +74,14 @@ class _BridgeFault(msgspec.Struct, frozen=True, gc=False, omit_defaults=True, re
 
 
 class _BridgeDiagnostics(msgspec.Struct, frozen=True, gc=False, omit_defaults=True, rename="camel"):
-    """The runtime-diagnostics block of a ``BridgeResult.execute`` phase: the exception roster."""
+    """Bridge diagnostics block from the execute phase."""
 
     command_window: tuple[str, ...] = ()
     exception_reports: tuple[_BridgeFault, ...] = ()
 
 
 class _BridgeOutput(msgspec.Struct, frozen=True, gc=False, omit_defaults=True, rename="camel"):
-    """One captured phase output stream (stdout/stderr): the facts/captures evidence carrier."""
+    """Captured bridge phase output stream."""
 
     source: str = ""
     text: str = ""
@@ -94,7 +89,7 @@ class _BridgeOutput(msgspec.Struct, frozen=True, gc=False, omit_defaults=True, r
 
 
 class _BridgePhase(msgspec.Struct, frozen=True, gc=False, omit_defaults=True, rename="camel"):
-    """One bridge lifecycle phase row (``launch``/``execute``/…): outputs plus optional diagnostics."""
+    """Bridge lifecycle phase row."""
 
     phase: str
     status: RailStatus = RailStatus.FAILED
@@ -103,11 +98,7 @@ class _BridgePhase(msgspec.Struct, frozen=True, gc=False, omit_defaults=True, re
 
 
 class _BridgeResult(msgspec.Struct, frozen=True, gc=False, omit_defaults=True, rename="camel"):
-    """The per-scenario ``--result`` JSON the C# client streams (camel-cased wire).
-
-    Decoded with ``forbid_unknown_fields`` off: the external bridge JSON carries fields this rail does
-    not model. A malformed payload degrades to a ``FAILED`` row — a defect, not an operational ``Fault``.
-    """
+    """Per-scenario bridge result JSON."""
 
     command: str = ""
     status: RailStatus = RailStatus.FAILED
@@ -321,10 +312,16 @@ def _ensure_dir(report_dir: Path) -> Result[None, Fault]:
 
 
 def verify(settings: AssaySettings, scope: ArtifactScope, params: BridgeParams) -> Result[Report, Fault]:
-    """Fold every routed ``*.verify.csx`` into one ``Report`` carrying a ``VerifySummary``.
+    """Verify bridge scenarios under the live Rhino lease.
 
-    Acquires ``bridge.lock`` (a busy lock short-circuits to ``Fault(BUSY)``), expires stale reports,
-    builds the closure, launches Rhino, then folds each scenario. Zero scenarios → ``UNSUPPORTED``.
+    Args:
+        settings: Runtime settings.
+        scope: Artifact scope.
+        params: Bridge params.
+
+    Returns:
+        Result containing a verification report or operational fault.
+
     """
     argv = ("bridge", "verify", params.pattern)
     return leased("bridge", lambda _held: _verify_locked(settings, scope, params, argv), settings=settings, run_id=settings.run_id, project="bridge")
@@ -400,37 +397,97 @@ def _lifecycle(settings: AssaySettings, verb: str, *args: str) -> Result[Report,
 
 
 def doctor(settings: AssaySettings, scope: ArtifactScope, params: BridgeParams) -> Result[Report, Fault]:
-    """Bridge host health probe: ``dotnet run … -- doctor`` under the live-Rhino lease."""
+    """Run the bridge host health probe.
+
+    Args:
+        settings: Runtime settings.
+        scope: Artifact scope.
+        params: Bridge params.
+
+    Returns:
+        Result containing the bridge lifecycle report or operational fault.
+
+    """
     _ = (scope, params)
     return _lifecycle(settings, "doctor")
 
 
 def launch(settings: AssaySettings, scope: ArtifactScope, params: BridgeParams) -> Result[Report, Fault]:
-    """Start ``RhinoWIP.app`` under the lease: ``dotnet run … -- launch``."""
+    """Launch the bridge host under the live Rhino lease.
+
+    Args:
+        settings: Runtime settings.
+        scope: Artifact scope.
+        params: Bridge params.
+
+    Returns:
+        Result containing the launch report or operational fault.
+
+    """
     _ = (scope, params)
     return _lifecycle(settings, "launch")
 
 
 def quit(settings: AssaySettings, scope: ArtifactScope, params: BridgeParams) -> Result[Report, Fault]:  # noqa: A001  # registry verb name; the rail surface mirrors the CLI token, never the builtin
-    """Clean Cocoa terminate of the live host: ``dotnet run … -- quit``."""
+    """Terminate the bridge host under the live Rhino lease.
+
+    Args:
+        settings: Runtime settings.
+        scope: Artifact scope.
+        params: Bridge params.
+
+    Returns:
+        Result containing the quit report or operational fault.
+
+    """
     _ = (scope, params)
     return _lifecycle(settings, "quit")
 
 
 def check(settings: AssaySettings, scope: ArtifactScope, params: BridgeParams) -> Result[Report, Fault]:
-    """Liveness probe of the running host: ``dotnet run … -- check``."""
+    """Probe bridge host liveness.
+
+    Args:
+        settings: Runtime settings.
+        scope: Artifact scope.
+        params: Bridge params.
+
+    Returns:
+        Result containing the liveness report or operational fault.
+
+    """
     _ = (scope, params)
     return _lifecycle(settings, "check")
 
 
 def clean(settings: AssaySettings, scope: ArtifactScope, params: BridgeParams) -> Result[Report, Fault]:
-    """Clear crash markers + autosave docs: ``dotnet run … -- clean``."""
+    """Clean bridge crash and autosave state.
+
+    Args:
+        settings: Runtime settings.
+        scope: Artifact scope.
+        params: Bridge params.
+
+    Returns:
+        Result containing the clean report or operational fault.
+
+    """
     _ = (scope, params)
     return _lifecycle(settings, "clean")
 
 
 def build(settings: AssaySettings, scope: ArtifactScope, params: BridgeParams) -> Result[Report, Fault]:
-    """Compile the ``rasm-bridge`` plugin + client closure (the sole lease-free verb)."""
+    """Build the bridge plugin and client closure.
+
+    Args:
+        settings: Runtime settings.
+        scope: Artifact scope.
+        params: Bridge params.
+
+    Returns:
+        Result containing the build report or operational fault.
+
+    """
     _ = (scope, params)
     return _build_closure(settings).map(lambda _: fold(Claim.BRIDGE, "build", (receipt(("bridge", "build"), 0),)))
 

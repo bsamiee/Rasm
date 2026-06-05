@@ -1,11 +1,4 @@
-"""The sole process executor: one weave folds any ``Check`` into ``Result[Completed, Fault]``.
-
-Public surface is two sync façades (``run_check``, ``fan_out``), each calling ``anyio.run`` once
-over the ``compose_spawn(retried()) ▷ compose(checked, traced)`` weave on ``_guarded``. A non-zero
-exit is an ``Ok(Completed)`` value, never a ``Fault``; only spawn failure / timeout / lease
-contention take the ``Error`` channel. The ``exclusive_lease`` / ``leased`` seam steals a stale
-lock and raises ``ResourceBusyError`` → ``RailStatus.BUSY`` only on a *live* holder.
-"""
+"""Execute checks, subprocesses, remote commands, in-process tools, and leases."""
 
 import contextlib
 from contextvars import ContextVar
@@ -56,7 +49,7 @@ if TYPE_CHECKING:
 
 # --- [TYPES] ----------------------------------------------------------------------------
 
-# The shared woven spawn: checked ▷ traced over the retried-wrapped async ``_guarded``.
+# The shared woven spawn: checked ▷ traced over the retried-wrapped async `_guarded`.
 type _Woven = Callable[[Check, AssaySettings, ArtifactScope | None, Routed, float | None], Coroutine[None, None, Result[Completed, Fault]]]
 
 
@@ -64,7 +57,7 @@ type _Woven = Callable[[Check, AssaySettings, ArtifactScope | None, Routed, floa
 
 
 class _LeaseOwner(msgspec.Struct, frozen=True, gc=False, omit_defaults=True):
-    """The fcntl-locked owner block: msgspec-JSON wire identity of a held resource lease."""
+    """Lease owner block persisted in the lock file."""
 
     resource: str
     run_id: str
@@ -81,7 +74,7 @@ class _LeaseOwner(msgspec.Struct, frozen=True, gc=False, omit_defaults=True):
 
 @dataclass(frozen=True, slots=True)
 class _Held:
-    """The value ``leased`` yields inside its ``with`` block: the resolved owner block."""
+    """Resolved lease value yielded after acquisition."""
 
     owner: _LeaseOwner
 
@@ -108,18 +101,6 @@ _RESOURCE: ContextVar[tuple[tuple[str, float], ...]] = ContextVar("assay_resourc
 
 
 def _splice(runner: Runner, command: tuple[str, ...], scope: ArtifactScope | None, scoped_verbs: frozenset[str], mode: Mode) -> tuple[str, ...]:
-    """Inject dotnet ``--artifacts-path`` flags as ONE ``match`` arm.
-
-    Only a ``Runner.DOTNET`` build-graph verb (``settings.scoped_verbs``) under a present ``scope``
-    receives the artifact flags, spliced *before* any ``--`` argument boundary so the scope reaches
-    MSBuild while the post-``--`` tail (test-runner args, msbuild props) stays untouched. Tool-driver
-    verbs (``format``, ``tool``) are absent from ``scoped_verbs``, so artifact flags never reach a
-    verb that rejects them. ``Mode.QUERY`` metadata reads (e.g. ``msbuild -getProperty``) and
-    ``Mode.LIST`` test-discovery reads (``dotnet test --list-tests``) are also excluded — they are not
-    build-graph verbs and MTP rejects ``--disable-build-servers`` alongside a positional project path.
-    Every other shape passes ``command`` verbatim — the single arm is the whole scope axis, no
-    per-verb branching.
-    """
     match (runner, command, scope):
         case (Runner.DOTNET, (verb, *_), ArtifactScope() as s) if verb in scoped_verbs and mode not in {Mode.QUERY, Mode.LIST}:
             cut = command.index("--") if "--" in command else len(command)
@@ -129,14 +110,6 @@ def _splice(runner: Runner, command: tuple[str, ...], scope: ArtifactScope | Non
 
 
 def _overlay(scope: ArtifactScope | None) -> Mapping[str, str]:
-    """Build the per-spawn ``env`` overlay: inherited environment plus scope isolation vars.
-
-    Never mutates the host environment: clones the read-only parent ``os.environ`` mapping into a
-    fresh dict at this marked spawn boundary, then folds the ``ArtifactScope.dotnet_env`` isolation
-    overlay (``DOTNET_CLI_HOME`` + ``MSBUILDDISABLENODEREUSE``) on top when a scope is present.
-    ``PATH`` and the rest of the host environment ride through unchanged so the resolved launcher
-    (``uv``/``dotnet``/``pnpm``) is still found; the overlay only *adds* scope keys, never strips them.
-    """
     base: MutableMapping[str, str] = dict(os.environ)  # noqa: TID251  # marked spawn boundary: clone (never mutate) the host launch environment
     match scope:
         case ArtifactScope() as s:
@@ -155,14 +128,6 @@ def _argv(check: Check, routed: Routed, *, settings: AssaySettings, scope: Artif
 
 
 async def _drain(stream: ByteReceiveStream | None, *, tail_cap: int, chunk: int) -> bytes:
-    """Tee a process byte stream to a bounded tail (streaming ``Mode.stream`` rows).
-
-    Folds successive ``receive`` chunks into a rolling bytestring capped at ``tail_cap``
-    (``settings.stream_tail_bytes``) so a chatty child (dotnet restore, Stryker) cannot exhaust
-    memory. The fold recurses on the ``EndOfStream`` sentinel rather than looping — the no-``while``
-    rule makes recursion the loop vehicle. A ``None`` stream (the child inherited the parent fd)
-    short-circuits to empty bytes.
-    """
     match stream:
         case None:
             return b""
@@ -323,15 +288,6 @@ def _diagnose(exc: BaseException) -> None:
 async def _guarded(
     check: Check, settings: AssaySettings, scope: ArtifactScope | None, routed: Routed, deadline: float | None
 ) -> Result[Completed, Fault]:
-    """The inner async spawn and the SOLE ``try/except`` boundary of the executor.
-
-    The ``traced`` layer wraps this with a ``tool.name`` child span; ``retried`` wraps the spawn for
-    transient-OSError recovery. A ``fail_after`` budget elapse becomes ``Fault(TIMEOUT)``; an
-    ``OSError`` (spawn failure after ``retried`` exhausts) becomes ``Fault(FAULTED)``. Both Fault
-    paths run ``_diagnose`` first so the Fault auto-carries a resource snapshot. Every other outcome —
-    including a non-zero process exit — rides the ``Ok`` channel as a ``Completed`` (via ``receipt`` +
-    ``from_returncode``), so ``_into`` never raises and the fan-out exits clean.
-    """
     argv = _argv(check, routed, settings=settings, scope=scope)
     budget = deadline - time.monotonic() if deadline is not None else check.tool.timeout
     cwd = str(UPath(check.cwd or settings.root).path)  # LOCAL path: the child always roots in the real local FS regardless of settings.root protocol
@@ -387,14 +343,14 @@ def _spawn(check: Check, settings: AssaySettings) -> _Woven:
         attrs=lambda *_a, **_k: {"assay.run_id": settings.run_id, "assay.tool": check.tool.name},
         agent=lambda *_a, **_k: settings.agent_context,  # {run.id, agent.task.id}: agent_task_id into _on_retry + child spans
     )
-    # mypy eagerly binds ``retried()``'s **P/T to Never (a no-arg generic factory offers no argument to
-    # solve from), so the woven spawn types as ``(*Never) -> Coroutine[None, None, Never]``; the two-step
-    # form is ty-clean (ty specializes at the ``_guarded`` apply) but mypy cannot, so this lone [arg-type]
-    # is the floor — an explicit ``compose_spawn(layer, fn)`` only relocates it (ty then rejects instead).
+    # mypy eagerly binds `retried()`'s **P/T to Never (a no-arg generic factory offers no argument to
+    # solve from), so the woven spawn types as `(*Never) -> Coroutine[None, None, Never]`; the two-step
+    # form is ty-clean (ty specializes at the `_guarded` apply) but mypy cannot, so this lone [arg-type]
+    # is the floor — an explicit `compose_spawn(layer, fn)` only relocates it (ty then rejects instead).
     layered: Spawn[..., Result[Completed, Fault]] = compose_spawn(retried())(_guarded)  # type: ignore[arg-type]  # mypy-only: retried() infers Never; _guarded binds **P/T at the apply
-    # ``compose`` is Hom-typed (sync ``Result`` return); threading the async ``_Woven`` through it is the one
-    # irreducible re-scope — the same @wraps-induced Hom view ``logged``/``traced`` carry — because ``Hom``'s
-    # ``Result[T, Fault]`` return can never unify with ``_Woven``'s ``Coroutine``. One suppression per checker.
+    # `compose` is Hom-typed (sync `Result` return); threading the async `_Woven` through it is the one
+    # irreducible re-scope — the same @wraps-induced Hom view `logged`/`traced` carry — because `Hom`'s
+    # `Result[T, Fault]` return can never unify with `_Woven`'s `Coroutine`. One suppression per checker.
     weave: Callable[[_Woven], _Woven] = compose(checked(), span)  # type: ignore[assignment]  # ty: ignore[invalid-assignment]
     return weave(layered)
 
@@ -402,7 +358,19 @@ def _spawn(check: Check, settings: AssaySettings) -> _Woven:
 def run_check(
     check: Check, *, settings: AssaySettings, scope: ArtifactScope | None, routed: Routed, deadline: float | None = None
 ) -> Result[Completed, Fault]:
-    """Execute one ``Check`` under exactly one event loop: the single-spawn sync façade."""
+    """Run one check under a single event loop.
+
+    Args:
+        check: Check to execute.
+        settings: Runtime settings.
+        scope: Optional artifact scope.
+        routed: Routed input projection.
+        deadline: Optional absolute monotonic deadline.
+
+    Returns:
+        Result containing a completed receipt or operational fault.
+
+    """
     # Calling this inside a fan_out task would nest anyio.run and RuntimeError; the fan path awaits _spawn directly.
     return anyio.run(_spawn(check, settings), check, settings, scope, routed, deadline)
 
@@ -410,13 +378,18 @@ def run_check(
 def fan_out(
     checks: tuple[Check, ...], *, settings: AssaySettings, scope: ArtifactScope | None, routed: Routed, deadline: float | None = None
 ) -> tuple[Result[Completed, Fault], ...]:
-    """Capacity-bounded fan-out under one event loop: ordered, total-on-exit slots.
+    """Run checks concurrently and preserve input order.
 
-    ``CapacityLimiter`` bounds concurrency (a mid-flight kill auto-returns its token, unlike
-    ``Semaphore``); pre-sized ``slots`` keep the return total and in input order. A group-level
-    ``move_on_after`` silently cancels in-flight spawns on elapse (never raises, so ``__aexit__`` runs
-    and slots stay total) and any ``None`` slot back-fills to ``Fault(TIMEOUT)``. Per-tool child spans
-    nest under the one ``assay.fan_out`` parent (D50) via anyio's context copy at ``start_soon``.
+    Args:
+        checks: Checks to execute.
+        settings: Runtime settings.
+        scope: Optional artifact scope shared by the checks.
+        routed: Routed input projection.
+        deadline: Optional absolute monotonic deadline for the group.
+
+    Returns:
+        One result per input check, backfilled with timeout faults for unfinished slots.
+
     """
     spawn = _spawn
 
@@ -555,13 +528,18 @@ def _write_owner(fd: int, resource: str, *, run_id: str, target: str) -> _LeaseO
 def exclusive_lease(
     resource: str, run_id: str, *, settings: AssaySettings, project: str = "", mode: str = "exclusive"
 ) -> Generator[Result[_Held, Fault]]:
-    """Non-blocking fcntl lease with psutil staleness-steal: never blocks, never raises across the rail.
+    """Acquire a non-blocking process lease.
 
-    A dead-or-reused holder is stolen (``_stale`` validates ``(pid, create_time)``); the owner block is
-    truncated on release so a crashed holder leaves an empty, immediately-stealable file.
+    Args:
+        resource: Lease resource name.
+        run_id: Current run identifier.
+        settings: Runtime settings.
+        project: Optional project label written into the owner block.
+        mode: Lease mode label written into the owner block.
 
     Yields:
-        ``Ok(_Held(owner))`` on acquisition; ``Error(Fault(BUSY))`` on *live* contention (exit 5).
+        Result containing the held lease or a busy fault.
+
     """
     path = settings.artifact(ArtifactKind.LOCKS, f"{resource}.lock")
     path.parent.mkdir(parents=True, exist_ok=True)
@@ -589,10 +567,19 @@ def exclusive_lease(
 def leased[T](
     resource: str, action: Callable[[_Held], Result[T, Fault]], *, settings: AssaySettings, run_id: str, project: str = "", mode: str = "exclusive"
 ) -> Result[T, Fault]:
-    """The one lease boundary every rail folds through: busy → ``Fault(BUSY)``, else run ``action``.
+    """Run an action only after acquiring a lease.
 
-    ``action`` is evaluated *only* under an ``Ok`` lease; live contention short-circuits to
-    ``Error(Fault(BUSY))`` (exit 5) without evaluating it, and an ``OSError`` at the lock fd → ``Fault(FAULTED)``.
+    Args:
+        resource: Lease resource name.
+        action: Function evaluated with the held lease.
+        settings: Runtime settings.
+        run_id: Current run identifier.
+        project: Optional project label written into the owner block.
+        mode: Lease mode label written into the owner block.
+
+    Returns:
+        Action result, busy fault, or lock I/O fault.
+
     """
     try:
         with exclusive_lease(resource, run_id, settings=settings, project=project, mode=mode) as held:

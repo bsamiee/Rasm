@@ -1,9 +1,4 @@
-"""Static rail: five verbs as one Mode-filtered, language-routed fold over ``Claim.STATIC``.
-
-The four executing adapters delegate to ``thin_rail``; ``plan`` short-circuits before the Engine.
-A timeout/spawn fault short-circuits to the registry seam, while a non-zero exit already rode the
-success channel as ``Completed{status=FAILED}``, so the fold consumes successes only.
-"""
+"""Run static analysis, formatting, build, and plan rails."""
 
 from dataclasses import dataclass
 from hashlib import sha256
@@ -15,10 +10,10 @@ from expression.collections import block
 from expression.extra.result import sequence
 import msgspec
 
-from tools.assay.composition.catalog import select  # intra-package import; tools.assay is the package root
+from tools.assay.composition.catalog import select
 from tools.assay.composition.settings import ArtifactScope, AssaySettings  # noqa: TC001  # unconditional for beartype runtime
-from tools.assay.core.engine import fan_out  # intra-package import; tools.assay is the package root
-from tools.assay.core.model import (  # intra-package import; tools.assay is the package root
+from tools.assay.core.engine import fan_out
+from tools.assay.core.model import (
     Artifact,
     ArtifactKind,
     BaseParams,
@@ -35,13 +30,13 @@ from tools.assay.core.routing import (  # noqa: TC001  # unconditional: function
     route,
     Routed,
 )
-from tools.assay.core.status import RailStatus  # intra-package import; tools.assay is the package root
+from tools.assay.core.status import RailStatus
 
 
 if TYPE_CHECKING:
     from expression.collections import Block
 
-    from tools.assay.core.model import Completed  # intra-package import; tools.assay is the package root
+    from tools.assay.core.model import Completed
 
 
 # --- [MODELS] ---------------------------------------------------------------------------
@@ -49,24 +44,13 @@ if TYPE_CHECKING:
 
 @dataclass(frozen=True, slots=True, kw_only=True)
 class StaticParams(BaseParams):
-    """Static rail CLI params: inherits ``paths``/``language`` from ``BaseParams``, adds nothing.
-
-    No ``strict`` field, so an empty static slice can never be hardened into a fault.
-    """
+    """Parameters for static rails inherited from `BaseParams`."""
 
 
 # --- [OPERATIONS] -----------------------------------------------------------------------
 
 
 def _languages(selected: Language | None, paths: tuple[str, ...]) -> tuple[Language, ...]:
-    """Select the language fan for the static rail.
-
-    When ``selected`` is explicit, the fan is the singleton. When absent, infer from the suffix family
-    of the supplied ``paths`` — if every path suffix resolves to ONE language, return only that language
-    (avoids fanning biome/tsc/sherif on a Python-only target). Falls back to the full language set when
-    paths carry mixed or unrecognised suffixes, or when ``paths`` is empty (change-set mode).
-    DOCS rides the fan: select(Claim.STATIC, DOCS) yields no row, so the empty slice folds to EMPTY.
-    """
     match selected:
         case Language() as language:
             return (language,)
@@ -86,11 +70,19 @@ def _routed(languages: tuple[Language, ...], paths: tuple[str, ...]) -> Result[B
 
 
 def thin_rail(settings: AssaySettings, scope: ArtifactScope, params: StaticParams, *, claim: Claim, verb: str, mode: Mode) -> Result[Report, Fault]:
-    """The shared body the four executing adapters parameterize: route -> fan_out -> fold.
+    """Run a static rail by routing languages and fanning selected tools.
 
-    ``full`` differs from ``build`` by ``verb="full"`` only (both pass ``mode=Mode.BUILD``); the FULL
-    routing scope is a ``CLOSURE``-arm escalation internal to ``routing``, never threaded here. A
-    spawn/timeout/lease fault is the sole Error channel; an honest no-op slice folds to ``EMPTY``/``SKIP``.
+    Args:
+        settings: Runtime settings.
+        scope: Artifact scope.
+        params: Static params.
+        claim: Claim to fold under.
+        verb: Verb to fold under.
+        mode: Tool mode to select.
+
+    Returns:
+        Result containing the folded static report or routing fault.
+
     """
     return _routed(_languages(params.language, params.paths), params.paths).bind(
         lambda routed: sequence(routed.collect(lambda r: block.of_seq(_dispatch(r, settings=settings, scope=scope, mode=mode)))).map(
@@ -100,9 +92,9 @@ def thin_rail(settings: AssaySettings, scope: ArtifactScope, params: StaticParam
 
 
 def _dispatch(routed: Routed, *, settings: AssaySettings, scope: ArtifactScope, mode: Mode) -> tuple[Result[Completed, Fault], ...]:
-    # S2(a): skip a language with no scoped content — no file/project of that language was found in the
-    # target. For glob-strategy languages (Python/TS/Bash/SQL/Docs) the signal is empty ``routed.files``;
-    # for closure-strategy languages (C#) it is empty ``routed.projects`` AND empty ``routed.files``
+    # Skip a language with no scoped content: no file/project of that language was found in the
+    # target. For glob-strategy languages (Python/TS/Bash/SQL/Docs) the signal is empty `routed.files`;
+    # for closure-strategy languages (C#) it is empty `routed.projects` AND empty `routed.files`
     # (a full-scope escalation keeps files but may have projects). This prevents a Python-only target
     # from fanning C# tools and vice versa.
     if routed.language.strategy == "glob" and not routed.files:
@@ -122,31 +114,76 @@ def _dispatch(routed: Routed, *, settings: AssaySettings, scope: ArtifactScope, 
 
 
 def fix(settings: AssaySettings, scope: ArtifactScope, params: StaticParams) -> Result[Report, Fault]:
-    """The ``Mode.WRITE`` adapter: fan the mutating formatter/fixer rows for ``static fix``."""
+    """Run mutating static fixer tools.
+
+    Args:
+        settings: Runtime settings.
+        scope: Artifact scope.
+        params: Static params.
+
+    Returns:
+        Result containing the fix report or routing fault.
+
+    """
     return thin_rail(settings, scope, params, claim=Claim.STATIC, verb="fix", mode=Mode.WRITE)
 
 
 def report(settings: AssaySettings, scope: ArtifactScope, params: StaticParams) -> Result[Report, Fault]:
-    """The ``Mode.CHECK`` adapter: fan the non-mutating diagnostic ladder for ``static report``."""
+    """Run non-mutating static diagnostic tools.
+
+    Args:
+        settings: Runtime settings.
+        scope: Artifact scope.
+        params: Static params.
+
+    Returns:
+        Result containing the diagnostic report or routing fault.
+
+    """
     return thin_rail(settings, scope, params, claim=Claim.STATIC, verb="report", mode=Mode.CHECK)
 
 
 def build(settings: AssaySettings, scope: ArtifactScope, params: StaticParams) -> Result[Report, Fault]:
-    """The ``Mode.BUILD`` adapter: fan the compile rows under the closure-leased artifact scope for ``static build``."""
+    """Run build-mode static tools.
+
+    Args:
+        settings: Runtime settings.
+        scope: Artifact scope.
+        params: Static params.
+
+    Returns:
+        Result containing the build report or routing fault.
+
+    """
     return thin_rail(settings, scope, params, claim=Claim.STATIC, verb="build", mode=Mode.BUILD)
 
 
 def full(settings: AssaySettings, scope: ArtifactScope, params: StaticParams) -> Result[Report, Fault]:
-    """The ``.slnx``-parity adapter for ``static full``: ``build`` whose trigger-file edits route ``Scope.FULL`` inside ``routing``."""
+    """Run full static build parity.
+
+    Args:
+        settings: Runtime settings.
+        scope: Artifact scope.
+        params: Static params.
+
+    Returns:
+        Result containing the full static report or routing fault.
+
+    """
     return thin_rail(settings, scope, params, claim=Claim.STATIC, verb="full", mode=Mode.BUILD)
 
 
 def plan(settings: AssaySettings, scope: ArtifactScope, params: StaticParams) -> Result[Report, Fault]:
-    """The zero-run adapter: route, project routing facts onto ``Match`` rows, never reach the Engine.
+    """Plan static routing without spawning tools.
 
-    The closure sha is the same ``sha256(sorted-projects)[:16]`` recipe ``ArtifactScope.build`` keys its
-    warm tree on, so a planned ``build-<closure>`` tree correlates with a subsequent ``build`` lease.
-    All per-language data rides ``results`` uniformly (sha/triggers/groups folded into ``Match.text``); no makedirs side-effect.
+    Args:
+        settings: Runtime settings.
+        scope: Artifact scope.
+        params: Static params.
+
+    Returns:
+        Result containing route facts and build-scope artifacts.
+
     """
     _ = scope  # plan runs zero checks: no artifact scope is spliced
     return _routed(_languages(params.language, params.paths), params.paths).map(lambda routed: _plan_report(tuple(routed), settings))

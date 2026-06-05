@@ -1,12 +1,4 @@
-"""The automation spine: one ``anyio`` loop hosts watch + schedule over a shared stop, emitting one ``Envelope`` per fire.
-
-``drive`` is the single public surface, discriminating the ``Trigger`` union and hosting the
-``watchfiles.awatch`` loop and the ``aiocron.crontab`` tasklet under one task group sharing one
-``anyio.Event`` stop, running each fire through the same ``composition/registry`` + ``core/engine`` rails
-the CLI uses. The per-drive ``CapacityLimiter(1)`` serializes fires (a fire slower than its trigger cadence
-queues rather than re-entering a leased ``Action`` into spurious ``BUSY``), and the CPU governor emits a
-``SKIP`` and elides the fire rather than blocking on contention.
-"""
+"""Run automation triggers through the assay rail and program execution spine."""
 
 from collections.abc import Callable, Coroutine
 import hashlib
@@ -21,34 +13,13 @@ import psutil  # typed via the types-psutil stub (psutil ships no py.typed marke
 import structlog
 from watchfiles import awatch, DefaultFilter, PythonFilter
 
-from tools.assay.automation.model import (  # intra-package import; tools.assay is the package root
-    Debounce,
-    Manual,
-    Program,
-    Rail,
-    Schedule,
-    Sequence,
-    Watch,
-)
-from tools.assay.composition.registry import rail, REGISTRY  # intra-package import; tools.assay is the package root
-from tools.assay.composition.settings import ArtifactScope  # intra-package import; tools.assay is the package root
+from tools.assay.automation.model import Debounce, Manual, Program, Rail, Schedule, Sequence, Watch
+from tools.assay.composition.registry import rail, REGISTRY
+from tools.assay.composition.settings import ArtifactScope
 from tools.assay.core.engine import _spawn  # noqa: PLC2701  # intra-package woven spawn; run_check's anyio.run would nest under drive's
-from tools.assay.core.model import (  # intra-package import; tools.assay is the package root
-    Check,
-    Claim,
-    Counts,
-    envelope,
-    Fault,
-    fold,
-    Input,
-    Language,
-    Mode,
-    Report,
-    Runner,
-    Tool,
-)
-from tools.assay.core.routing import Routed, Scope  # intra-package import; tools.assay is the package root
-from tools.assay.core.status import join, RailStatus  # intra-package import; tools.assay is the package root
+from tools.assay.core.model import Check, Claim, Counts, envelope, Fault, fold, Input, Language, Mode, Report, Runner, Tool
+from tools.assay.core.routing import Routed, Scope
+from tools.assay.core.status import join, RailStatus
 
 
 if TYPE_CHECKING:
@@ -56,9 +27,9 @@ if TYPE_CHECKING:
     from anyio.streams.memory import MemoryObjectReceiveStream  # annotation-only (TC002): the _quiesce recv type from create_memory_object_stream
     from watchfiles import BaseFilter  # annotation-only (TC002): the _FILTERS value type, never constructed by name
 
-    from tools.assay.automation.model import Action, Trigger  # intra-package import; tools.assay is the package root — annotation-only (TC001)
-    from tools.assay.composition.settings import AssaySettings  # intra-package import; tools.assay is the package root — annotation-only (TC001)
-    from tools.assay.core.model import Bind, Envelope  # intra-package import; tools.assay is the package root — annotation-only (TC001)
+    from tools.assay.automation.model import Action, Trigger  # annotation-only (TC001)
+    from tools.assay.composition.settings import AssaySettings  # annotation-only (TC001)
+    from tools.assay.core.model import Bind, Envelope  # annotation-only (TC001)
 
 
 # --- [TYPES] ----------------------------------------------------------------------------
@@ -80,11 +51,11 @@ class _RunState(msgspec.Struct, frozen=True, gc=False):
 
 # --- [CONSTANTS] ------------------------------------------------------------------------
 
-# The wire carries a string filter tag and ``engine`` resolves the ``BaseFilter`` here, so the model
-# never imports ``watchfiles``; a drifting tag degrades to ``DefaultFilter`` rather than raising.
+# The wire carries a string filter tag and `engine` resolves the `BaseFilter` here, so the model
+# never imports `watchfiles`; a drifting tag degrades to `DefaultFilter` rather than raising.
 _FILTERS: dict[str, BaseFilter] = {"default": DefaultFilter(), "python": PythonFilter()}
 
-_PROGRAM_ROUTED: Routed = Routed(language=Language.PYTHON, scope=Scope.FULL)  # NONE-route seed: ``place`` emits one empty tail
+_PROGRAM_ROUTED: Routed = Routed(language=Language.PYTHON, scope=Scope.FULL)  # NONE-route seed: `place` emits one empty tail
 
 _ENCODER = msgspec.json.Encoder(order="deterministic")  # the sole automation stdout codec, cached once
 _LOG: structlog.stdlib.BoundLogger = structlog.get_logger("assay.automation")  # scheduling operational-event rail (coalesced-tick recovery)
@@ -363,14 +334,12 @@ def _armed(action: Action, settings: AssaySettings, *, limiter: anyio.CapacityLi
 
 
 async def drive(trigger: Trigger, action: Action, settings: AssaySettings) -> None:
-    """The single public surface: host one ``Trigger`` over a shared stop, firing one ``Action`` per event.
+    """Host a trigger and run its action for each fire.
 
-    ``Manual`` bypasses both loops and awaits ``fire()`` once (ungoverned); ``Watch`` hosts ``awatch`` and
-    ``Schedule`` hosts the ``aiocron.crontab`` tasklet, each reading its own ``cpu_threshold`` ceiling off the
-    trigger spec (never a settings knob). The ``stop`` and per-drive ``CapacityLimiter(1)`` are constructed
-    once before the match so a single ``stop.set()`` collapses either trigger and every ``Sequence`` leaf
-    shares one re-entrancy token. A top-level ``Debounce`` is armed via ``_armed``, its co-resident ``worker``
-    running under the same ``tg``/``stop``.
+    Args:
+        trigger: Trigger that decides when the action runs.
+        action: Rail, program, sequence, or debounce action to execute.
+        settings: Runtime settings shared by every fire.
     """
     limiter = anyio.CapacityLimiter(1)
     stop = anyio.Event()

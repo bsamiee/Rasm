@@ -1,9 +1,4 @@
-"""Leaseless docs rail: a thin fold over ``thin_rail`` driving ``mmdc`` render-as-validation.
-
-Rendering a diagram via ``mmdc`` *is* its validation, so a parse/layout failure is a non-zero exit, never
-a ``Fault``. ``mmdc`` has no affirmative success signal, so a clean run yields ``EMPTY``; ``--strict``
-promotes that ambiguous ``EMPTY``/``SKIP`` to a hard ``FAULTED`` via the ``FaultedPromotion`` sentinel.
-"""
+"""Validate Markdown diagrams through the docs rail."""
 
 from dataclasses import dataclass
 from typing import TYPE_CHECKING
@@ -11,10 +6,10 @@ from typing import TYPE_CHECKING
 from expression import Result
 import msgspec
 
-from tools.assay.composition.catalog import select  # intra-package import; tools.assay is the package root
+from tools.assay.composition.catalog import select
 from tools.assay.composition.settings import ArtifactScope, AssaySettings  # noqa: TC001  # unconditional for beartype runtime
-from tools.assay.core.engine import fan_out  # intra-package import; tools.assay is the package root
-from tools.assay.core.model import (  # intra-package import; tools.assay is the package root
+from tools.assay.core.engine import fan_out
+from tools.assay.core.model import (
     BaseParams,
     Check,
     Claim,
@@ -24,13 +19,13 @@ from tools.assay.core.model import (  # intra-package import; tools.assay is the
     Mode,
     Report,  # noqa: TC001  # unconditional so beartype @checked resolves the rail's -> Result[Report, Fault] forward-ref under PEP 649
 )
-from tools.assay.core.routing import route  # intra-package import; tools.assay is the package root
-from tools.assay.core.status import RailStatus  # intra-package import; tools.assay is the package root
+from tools.assay.core.routing import route
+from tools.assay.core.status import RailStatus
 
 
 if TYPE_CHECKING:
-    from tools.assay.core.model import Completed  # intra-package import; tools.assay is the package root
-    from tools.assay.core.routing import Routed  # intra-package import; tools.assay is the package root
+    from tools.assay.core.model import Completed
+    from tools.assay.core.routing import Routed
 
 
 # --- [MODELS] ---------------------------------------------------------------------------
@@ -38,10 +33,11 @@ if TYPE_CHECKING:
 
 @dataclass(frozen=True, slots=True, kw_only=True)
 class DocsParams(BaseParams):
-    """The ``docs check`` CLI params: the ``BaseParams`` leaf plus the ``--strict`` flag.
+    """Parameters for `docs check`.
 
-    ``strict`` is a rail-level flag (never a catalog-row field nor a ``RailStatus`` member): it promotes an
-    ``EMPTY``/``SKIP`` fold to a ``FAULTED`` ``Fault`` at the registry seam (exit 2).
+    Attributes:
+        strict: Whether empty or skipped docs checks promote to a fault.
+
     """
 
     strict: bool = False
@@ -51,11 +47,7 @@ class DocsParams(BaseParams):
 
 
 class FaultedPromotion(Exception):  # noqa: N818  # sentinel, not an *Error condition: caught at the registry seam, mapped to Fault
-    """The ``--strict`` promotion sentinel: its message IS the ``Fault`` the registry seam emits.
-
-    A sentinel, not a domain error: the seam maps it to ``Fault{status=FAULTED}`` (exit 2) via
-    ``str(promoted)`` and never reads a payload, so it carries none and never crosses a seam into domain logic.
-    """
+    """Strict-mode promotion raised before registry fault wrapping."""
 
     def __init__(self) -> None:
         super().__init__("no docs changed")  # the `_guard` seam prefixes the canonical `strict:` failing-step tag
@@ -65,15 +57,34 @@ class FaultedPromotion(Exception):  # noqa: N818  # sentinel, not an *Error cond
 
 
 def check(settings: AssaySettings, scope: ArtifactScope, params: DocsParams) -> Result[Report, Fault]:
-    """Bind ``Claim.DOCS`` over ``thin_rail`` as the lone ``docs check`` verb (``Mode.CHECK``: render-to-validate is read-only fan-out)."""
+    """Run docs validation.
+
+    Args:
+        settings: Runtime settings.
+        scope: Artifact scope.
+        params: Docs params.
+
+    Returns:
+        Result containing a docs report or routing fault.
+
+    """
     return thin_rail(settings, scope, params, claim=Claim.DOCS, verb="check", mode=Mode.CHECK)
 
 
 def thin_rail(settings: AssaySettings, scope: ArtifactScope, params: DocsParams, *, claim: Claim, verb: str, mode: Mode) -> Result[Report, Fault]:
-    """Run the shared fold ``route -> select -> fan_out -> fold -> _strict`` -> ``Result[Report, Fault]``.
+    """Run the shared docs route, fan-out, fold, and strict promotion body.
 
-    A route ``Fault`` short-circuits on the Error channel; only the ``Ok`` change-set flows into
-    ``_outcomes``. ``select`` is sliced by ``mode``, so the same ``thin_rail`` serves every rail unchanged.
+    Args:
+        settings: Runtime settings.
+        scope: Artifact scope.
+        params: Docs params.
+        claim: Claim to fold under.
+        verb: Verb to fold under.
+        mode: Tool mode to select.
+
+    Returns:
+        Result containing a docs report or routing fault.
+
     """
     return route(Language.DOCS, params.paths).map(
         lambda routed: _strict(_outcomes(routed, settings=settings, scope=scope, claim=claim, verb=verb, mode=mode), strict=params.strict)

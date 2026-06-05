@@ -1,7 +1,7 @@
 # [H1][ASSAY_AGENTS]
 
-`tools/assay` methodology + standards for every future agent editing this tree.
-Root `AGENTS.md`/`CLAUDE.md` own universal policy; this file is assay-specific.
+`tools/assay` methodology and standards for every future agent editing this tree.
+Root `AGENTS.md` and `CLAUDE.md` own universal policy; this file is assay-specific.
 `coding-python` skill is required before any `.py` edit.
 
 ## [1][ARCHITECTURE_IN_ONE_BREATH]

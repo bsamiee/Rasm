@@ -1,8 +1,4 @@
-"""Wire/evidence spine: axis enums, the ``Base`` policy, and the bounded ``Detail`` union.
-
-Owns every non-config ``msgspec`` struct that crosses a rail; each axis ``StrEnum`` is at once
-the Cyclopts token, the wire value, and the ``match`` key.
-"""
+"""Define assay axes, wire structs, evidence details, and report folds."""
 
 from collections.abc import Callable
 from dataclasses import dataclass
@@ -13,14 +9,19 @@ from typing import Annotated, get_args, Literal, Self
 from cyclopts import Parameter
 import msgspec
 
-from tools.assay.core.status import fold as rail_fold, RailStatus  # intra-package import; tools.assay is the package root
+from tools.assay.core.status import fold as rail_fold, RailStatus
 
 
 # --- [TYPES] ----------------------------------------------------------------------------
 
 
 class Runner(StrEnum):
-    """Launch axis: ``prefix`` is the argv head every routed command is splayed onto."""
+    """Launch axis for a tool.
+
+    Attributes:
+        prefix: Argument prefix prepended before the tool command.
+
+    """
 
     prefix: tuple[str, ...]
     DIRECT = "direct", ()
@@ -30,15 +31,20 @@ class Runner(StrEnum):
     PNPM = "pnpm", ("pnpm", "exec")
     INPROC = "inproc", ()  # in-process executor: no launcher; _guarded runs the thunk on a worker thread under the same fail_after deadline
 
-    def __new__(cls, value: str, prefix: tuple[str, ...]) -> Self:
-        """Bind the wire value as member identity and attach the launch ``prefix`` payload."""
+    def __new__(cls, value: str, prefix: tuple[str, ...]) -> Self:  # noqa: D102  # enum payload binder
         m = str.__new__(cls, value)
         m._value_, m.prefix = value, prefix
         return m
 
 
 class Input(StrEnum):
-    """Input axis: ``flag`` precedes the path tail; ``scoped`` selects project closure."""
+    """Input placement axis for a tool.
+
+    Attributes:
+        flag: Flag inserted before path arguments.
+        scoped: Whether the input is project or solution scoped.
+
+    """
 
     flag: tuple[str, ...]
     scoped: bool
@@ -48,15 +54,20 @@ class Input(StrEnum):
     SOLUTION = "solution", (), True
     NONE = "none", (), True
 
-    def __new__(cls, value: str, flag: tuple[str, ...], scoped: bool) -> Self:  # noqa: FBT001  # StrEnum payload unpack
-        """Bind the wire value as member identity and attach the ``flag``/``scoped`` payloads."""
+    def __new__(cls, value: str, flag: tuple[str, ...], scoped: bool) -> Self:  # noqa: D102, FBT001  # enum payload binder
         m = str.__new__(cls, value)
         m._value_, m.flag, m.scoped = value, flag, scoped
         return m
 
 
 class Language(StrEnum):
-    """Language axis: ``strategy`` (``closure``/``glob``) is the sole route discriminant."""
+    """Language axis for routing.
+
+    Attributes:
+        strategy: Routing strategy for the language.
+        suffixes: File suffixes owned by the language.
+
+    """
 
     strategy: Literal["closure", "glob"]  # the SOLE route discriminant — a closed vocabulary, not an open str (a typo would silently route glob)
     suffixes: frozenset[str]
@@ -67,15 +78,20 @@ class Language(StrEnum):
     SQL = "sql", "glob", frozenset((".sql",))
     DOCS = "docs", "glob", frozenset((".md", ".mmd"))
 
-    def __new__(cls, value: str, strategy: Literal["closure", "glob"], suffixes: frozenset[str]) -> Self:
-        """Bind the wire value as member identity and attach the ``strategy``/``suffixes`` payloads."""
+    def __new__(cls, value: str, strategy: Literal["closure", "glob"], suffixes: frozenset[str]) -> Self:  # noqa: D102  # enum payload binder
         m = str.__new__(cls, value)
         m._value_, m.strategy, m.suffixes = value, strategy, suffixes
         return m
 
 
 class Mode(StrEnum):
-    """Operation axis: ``stream`` enables live byte forwarding; ``writes`` flags mutation."""
+    """Operation mode for a catalog row.
+
+    Attributes:
+        stream: Whether child process streams are tailed live.
+        writes: Whether the row may mutate files.
+
+    """
 
     stream: bool
     writes: bool
@@ -94,15 +110,14 @@ class Mode(StrEnum):
     DEPLOY = "deploy", False, False
     PUBLISH = "publish", False, False
 
-    def __new__(cls, value: str, stream: bool, writes: bool) -> Self:  # noqa: FBT001  # StrEnum payload unpack
-        """Bind the wire value as member identity and attach the ``stream``/``writes`` payloads."""
+    def __new__(cls, value: str, stream: bool, writes: bool) -> Self:  # noqa: D102, FBT001  # enum payload binder
         m = str.__new__(cls, value)
         m._value_, m.stream, m.writes = value, stream, writes
         return m
 
 
 class Claim(StrEnum):
-    """Proof axis: the rail a verb belongs to; the wire ``claim`` discriminant."""
+    """Proof claim that owns a rail."""
 
     STATIC = "static"
     CODE = "code"
@@ -114,7 +129,7 @@ class Claim(StrEnum):
 
 
 class ArtifactKind(StrEnum):
-    """Path-lease namespace; ``Match.kind`` reuses a subset so file and match share one namespace."""
+    """Artifact and match namespace."""
 
     LOCKS = "locks"
     PROCESS = "process"
@@ -127,7 +142,7 @@ class ArtifactKind(StrEnum):
 
 
 class SourceKind(StrEnum):
-    """api source provenance: typed origin of an ``ApiSurface`` symbol, never ``str``."""
+    """Source provenance for API evidence."""
 
     ASSEMBLY = "assembly"
     NUGET = "nuget"
@@ -137,7 +152,7 @@ class SourceKind(StrEnum):
 
 
 class MutationLane(StrEnum):
-    """test mutation lane: typed Stryker/``mutmut`` selection, never ``str``; a decode miss is loud (no ``UNKNOWN``)."""
+    """Mutation runner lane for test evidence."""
 
     OFF = "off"
     STRYKER = "stryker"
@@ -145,7 +160,7 @@ class MutationLane(StrEnum):
 
 
 class SymbolShape(StrEnum):
-    """api symbol shape: typed resolution granularity of an ``ApiSurface``, never ``str``."""
+    """API symbol resolution shape."""
 
     INDEX = "index"
     NAMESPACE = "namespace"
@@ -161,22 +176,36 @@ type InprocThunk = Callable[[Check], Completed]  # Runner.INPROC: a bound sync c
 
 
 class ResourceBusyError(Exception):
-    """Lease contention from ``exclusive_lease``; mapped to ``RailStatus.BUSY``, never retried (held ≠ transient)."""
+    """Lease contention signal that is mapped to `RailStatus.BUSY`."""
 
 
 # --- [MODELS] ---------------------------------------------------------------------------
 
 
 class Base(msgspec.Struct, frozen=True, gc=False, omit_defaults=True, repr_omit_defaults=True):
-    """Root wire policy: frozen, GC-isolated, default-omitting; inherited by all structs."""
+    """Base msgspec wire policy shared by assay structs."""
 
 
 class Detail(Base, frozen=True, forbid_unknown_fields=True, tag_field="kind"):
-    """Tagged-union base; variants carry algorithm-specific evidence only, never fold-derived counts."""
+    """Tagged-union base for algorithm-specific evidence."""
 
 
 class Tool(Base, frozen=True, cache_hash=True):
-    """Catalog row: a program plus its launch/route/proof discriminants; ``cache_hash`` makes it a key."""
+    """Catalog row describing one executable or in-process program.
+
+    Attributes:
+        name: Program name.
+        runner: Launch strategy.
+        command: Program command body.
+        input: Input projection strategy.
+        language: Language slice for the row.
+        claim: Claim that owns the row.
+        mode: Operation mode.
+        timeout: Optional per-check timeout in seconds.
+        parser: Optional stdout parser for detail evidence.
+        thunk: Optional in-process callable for `Runner.INPROC` rows.
+
+    """
 
     name: str
     runner: Runner
@@ -191,7 +220,17 @@ class Tool(Base, frozen=True, cache_hash=True):
 
 
 class Check(Base, frozen=True, cache_hash=True):
-    """A ``Tool`` bound to a concrete scope; ``paths`` flow as a field — ``scope``/``routed`` stay engine parameters."""
+    """Tool bound to a concrete input scope.
+
+    Attributes:
+        tool: Tool to execute.
+        paths: File paths passed through file-based projections.
+        owner: Optional owner label.
+        solution: Optional solution label.
+        glob: Optional glob label.
+        cwd: Optional child-process working directory.
+
+    """
 
     tool: Tool
     paths: tuple[str, ...] = ()
@@ -202,7 +241,18 @@ class Check(Base, frozen=True, cache_hash=True):
 
 
 class Completed(Base, frozen=True):
-    """Success receipt: a process ran; ``status`` derives from ``returncode`` via ``from_returncode``."""
+    """Receipt for a process or in-process tool that ran.
+
+    Attributes:
+        argv: Executed argument vector.
+        returncode: Process-style return code.
+        stdout: Captured stdout tail.
+        stderr: Captured stderr tail.
+        duration_ms: Execution duration in milliseconds.
+        status: Rail status derived from the return code unless overridden.
+        notes: Human-readable notes from the check.
+
+    """
 
     argv: tuple[str, ...]
     returncode: int
@@ -214,7 +264,14 @@ class Completed(Base, frozen=True):
 
 
 class Fault(Base, frozen=True):
-    """Error receipt: assay could not run the check (spawn/lease/timeout/strict), not that a check found defects."""
+    """Operational failure that prevented assay from running a check.
+
+    Attributes:
+        argv: Argument vector associated with the failure.
+        status: Fault status.
+        message: Bounded fault message.
+
+    """
 
     argv: tuple[str, ...]
     status: RailStatus = RailStatus.FAULTED
@@ -222,7 +279,14 @@ class Fault(Base, frozen=True):
 
 
 class Counts(Base, frozen=True):
-    """Fold-derived rollup: lives on ``Report`` only; computed solely in ``fold`` via ``_count`` — never on a ``Detail``."""
+    """Fold-derived report counts.
+
+    Attributes:
+        ok: Successful or non-defect receipts.
+        failed: Defect receipts.
+        total: Total counted receipts.
+
+    """
 
     ok: int = 0
     failed: int = 0
@@ -230,7 +294,16 @@ class Counts(Base, frozen=True):
 
 
 class Artifact(Base, frozen=True):
-    """A produced file under a path lease, namespaced by ``ArtifactKind``."""
+    """Produced artifact record.
+
+    Attributes:
+        id: Stable artifact identifier.
+        kind: Artifact namespace.
+        path: Artifact path.
+        bytes: Artifact byte count.
+        lines: Artifact line count.
+
+    """
 
     id: str
     kind: ArtifactKind
@@ -240,7 +313,18 @@ class Artifact(Base, frozen=True):
 
 
 class Match(Base, frozen=True):
-    """A ranked result row; ``kind`` reuses ``ArtifactKind`` so file and match share one namespace."""
+    """Ranked evidence row.
+
+    Attributes:
+        id: Stable match identifier.
+        kind: Match namespace.
+        text: Bounded display text.
+        line: Source line when available.
+        score: Ranking score.
+        severity: Optional severity label.
+        confidence: Confidence percentage.
+
+    """
 
     id: str
     kind: ArtifactKind
@@ -252,7 +336,21 @@ class Match(Base, frozen=True):
 
 
 class ApiSurface(Detail, frozen=True, tag="api"):
-    """api evidence: typed source provenance and symbol shape, never ``dict``/``str``."""
+    """API surface detail.
+
+    Attributes:
+        source_kind: Source provenance kind.
+        source_id: Source identifier.
+        version: Source version.
+        shape: Symbol shape returned by the query.
+        signature: Selected signature text.
+        doc: Selected documentation text.
+        preview: Bounded preview body.
+        member: Resolved member name for member queries.
+        truncated: Whether the preview was clipped.
+        lines: Total selected line count.
+
+    """
 
     source_kind: SourceKind = SourceKind.TOOL
     source_id: str = ""
@@ -267,7 +365,16 @@ class ApiSurface(Detail, frozen=True, tag="api"):
 
 
 class VerifySummary(Detail, frozen=True, tag="verify"):
-    """bridge evidence: scenario exception telemetry and the report-dir capture pointer."""
+    """Bridge verification summary detail.
+
+    Attributes:
+        exceptions: Exception count reported by Rhino.
+        report_dir: Directory containing per-scenario reports.
+        first_failure: First failing scenario name.
+        first_fault_phase: First failing bridge phase.
+        first_fault_output: Bounded diagnostic output for the first fault.
+
+    """
 
     exceptions: int = 0
     report_dir: str = ""
@@ -277,7 +384,16 @@ class VerifySummary(Detail, frozen=True, tag="verify"):
 
 
 class TestRun(Detail, frozen=True, tag="test"):
-    """test evidence: raw mutation telemetry; ``killed``/``survived``/``selected`` are flat scalars, not a rollup."""
+    """Test run detail.
+
+    Attributes:
+        mutation: Mutation lane represented by the detail.
+        coverage: Optional coverage percentage.
+        killed: Killed mutant count.
+        survived: Survived mutant count.
+        selected: Selected test or mutant count.
+
+    """
 
     mutation: MutationLane = MutationLane.OFF
     coverage: Annotated[float, msgspec.Meta(ge=0, le=100)] | None = None
@@ -287,11 +403,21 @@ class TestRun(Detail, frozen=True, tag="test"):
 
 
 class PackageRun(Detail, frozen=True, tag="package"):
-    """package evidence: full yak-distribution metadata for a staging or publish step.
+    """Package lifecycle detail.
 
-    ``stage``/``project``/``pattern``/``version`` are the original four fields; the remaining
-    seven carry the full ``YakMeta`` projection so ``package plan`` emits every evaluated field
-    as typed machine data rather than prose ``notes``.
+    Attributes:
+        stage: Staged package directory.
+        project: Package project path.
+        pattern: Yak package filename pattern.
+        version: Package version.
+        manifest_dir: Manifest directory.
+        target_dir: Build output directory.
+        package_dir: Committed package directory.
+        target_framework: Target framework.
+        platform: Yak platform.
+        push_source: Yak push source.
+        yak_path: Yak executable path.
+
     """
 
     stage: str = ""
@@ -308,25 +434,29 @@ class PackageRun(Detail, frozen=True, tag="package"):
 
 
 class ApiResolution(Detail, frozen=True, tag="resolution"):
-    """api resolution evidence: ranked ``candidates`` and a bounded ``reason`` for agent disambiguation."""
+    """API resolution miss detail.
+
+    Attributes:
+        candidates: Ranked candidate names and scores.
+        reason: Reason the requested source or symbol did not resolve.
+
+    """
 
     candidates: tuple[tuple[str, int], ...] = ()
     reason: str = ""
 
 
 class Diagnostic(Detail, frozen=True, tag="diagnostic"):
-    """auto-observability evidence: rides ``Envelope.error_context`` on both the Fault and FAILED defect rail.
+    """Fault and defect diagnostic detail.
 
-    ``dispatched`` is the TYPED dispatch discriminant for the parse-fault class: ``True`` when a real rail
-    resolved (a surplus positional, or an unknown verb/option under a resolved sub-app), ``False`` on a bare
-    unknown root token where ``Envelope.claim``/``verb`` are placeholders. An agent reads this boolean
-    instead of substring-scraping ``recent_events[0]`` to know whether the wire ``claim`` is a dispatch fact.
-    ``omit_defaults`` drops it on the common (non-parse) fault where it stays the ``True`` default.
+    Attributes:
+        failing_step: Structural step where the fault or defect surfaced.
+        recent_events: Recent log or parse events.
+        elapsed_ms: Elapsed invocation time in milliseconds.
+        hint: Bounded human-readable hint.
+        dispatched: Whether the envelope claim and verb reflect a real dispatch.
+        resource: Resource snapshot pairs captured at diagnosis time.
 
-    ``resource`` carries the psutil snapshot at fault/defect time as ``((key, value), ...)`` pairs reusing
-    OTel-style keys (``mem.rss_bytes`` / ``cpu.percent`` / ``proc.num_fds``); empty on clean runs so
-    ``omit_defaults`` keeps the success wire terse. Floats accommodate both integer byte counts and
-    fractional cpu/fd values in one homogeneous slot.
     """
 
     failing_step: str = ""
@@ -338,7 +468,14 @@ class Diagnostic(Detail, frozen=True, tag="diagnostic"):
 
 
 class RunSnapshot(Base, frozen=True):
-    """One side of a ``delta``: a persisted run's ``(id, status, counts)`` endpoint, bundled so ``RunDelta`` pairs two."""
+    """Persisted run endpoint for delta details.
+
+    Attributes:
+        id: Run identifier.
+        status: Run status.
+        counts: Run report counts.
+
+    """
 
     id: str = ""
     status: RailStatus = RailStatus.EMPTY
@@ -346,10 +483,14 @@ class RunSnapshot(Base, frozen=True):
 
 
 class RunDelta(Detail, frozen=True, tag="delta"):
-    """``delta`` evidence: two persisted-run endpoints plus the symmetric-difference drift of their ``Match`` sets.
+    """Delta detail comparing two persisted runs.
 
-    ``before``/``after`` carry each run's full ``(id, status, counts)`` so count drift derives off the wire
-    (``after.counts - before.counts``); ``added``/``removed`` are the result-set cardinalities keyed by ``(id, line)``.
+    Attributes:
+        before: Baseline run snapshot.
+        after: Compared run snapshot.
+        added: Added result count.
+        removed: Removed result count.
+
     """
 
     before: RunSnapshot = RunSnapshot()
@@ -362,7 +503,19 @@ type AnyDetail = ApiSurface | VerifySummary | TestRun | PackageRun | ApiResoluti
 
 
 class Report(Base, frozen=True):
-    """One report crosses every rail: ``counts`` derive in ``fold``; algorithm evidence rides ``detail``."""
+    """Rail report.
+
+    Attributes:
+        claim: Claim that produced the report.
+        verb: Verb that produced the report.
+        status: Folded rail status.
+        counts: Fold-derived counts.
+        artifacts: Produced artifacts.
+        results: Ranked result rows.
+        notes: Human-readable notes.
+        detail: Optional algorithm-specific detail.
+
+    """
 
     claim: Claim
     verb: str
@@ -375,7 +528,23 @@ class Report(Base, frozen=True):
 
 
 class Envelope(Base, frozen=True, kw_only=True):
-    """Wire root: ``omit_defaults`` keeps the success wire terse; ``schema_version`` is required so it always emits."""
+    """Top-level assay wire envelope.
+
+    Attributes:
+        schema_version: Required wire schema version.
+        claim: Claim associated with the invocation.
+        verb: Verb associated with the invocation.
+        status: Envelope status.
+        exit_code: Process exit code.
+        run_id: Run identifier.
+        duration_ms: Invocation duration in milliseconds.
+        report: Success-channel report.
+        error: Fault-channel error.
+        error_context: Optional diagnostic detail.
+        truncated: Whether inline envelope data was clipped.
+        notes: Top-level human-readable notes.
+
+    """
 
     schema_version: int
     claim: Claim
@@ -395,7 +564,16 @@ class Envelope(Base, frozen=True, kw_only=True):
 
 
 class Bind(Base, frozen=True):
-    """Registry row: binds a verb to its handler and per-verb frozen ``@dataclass`` params."""
+    """Registry binding from claim and verb to a handler.
+
+    Attributes:
+        claim: Claim that owns the verb.
+        verb: Verb token.
+        handler: Handler callable.
+        params: Params type decoded by the CLI layer.
+        help: Short CLI help text.
+
+    """
 
     claim: Claim
     verb: str
@@ -405,12 +583,16 @@ class Bind(Base, frozen=True):
 
 
 def field_cap(struct: type[msgspec.Struct], field: str, *, default: int) -> int:
-    """The SOLE msgspec ``Meta(max_length=…)`` introspection: walk ``struct``'s ``field`` Annotated metas once.
+    """Read a msgspec string max-length constraint.
 
-    Every wire-cap literal (``Fault.message``, ``Diagnostic.hint``, and the surplus budget derived off it)
-    reads through this one projection so the clip tracks the type — a ``None``/absent constraint folds to
-    ``default``. msgspec enforces ``max_length`` on DECODE only, so a wire past the cap encodes to stdout yet
-    faults on history readback; clipping to ``field_cap`` keeps every persisted run round-tripping through ``delta``.
+    Args:
+        struct: msgspec struct type to inspect.
+        field: Field name to inspect.
+        default: Value returned when no max length is declared.
+
+    Returns:
+        Declared max length or the default.
+
     """
     return (
         next((m.max_length for f in msgspec.structs.fields(struct) if f.name == field for m in get_args(f.type) if isinstance(m, msgspec.Meta)), None)
@@ -427,43 +609,30 @@ _SURPLUS_TOKEN_CAP: int = _HINT_CAP - 76
 @Parameter(name="*")
 @dataclass(frozen=True, slots=True)
 class BaseParams:
-    """Shared CLI-params leaf: lives here (not in a rail) so rails and registry import it without a cycle.
+    """Shared CLI params base.
 
-    ``@Parameter(name="*")`` is inherited by every concrete ``*Params`` subclass, flattening its fields
-    onto the CLI without a per-verb ``Annotated`` wrapper. ``paths`` is the SINGLE positional sink
-    (``kw_only`` is intentionally absent here so the inherited flatten binds the bare positional
-    ``<path>``/``<key>``/``<symbol>``/``<token>`` tokens here): the cyclopts flatten disables positionals
-    at the first keyword-only field, so ``paths`` is the only field a bare token can bind, and
-    ``language`` (the second field) NEVER captures a positional — it is itself ``kw_only`` in spirit
-    because cyclopts stops binding positionals after the first variadic, so it always reads off its
-    ``--language`` keyword. Every subclass keeps ``kw_only=True`` so its per-verb discriminant fields hold
-    OFF the positional rail; a verb whose contract carries positionals (e.g. ``api query <key> [symbol]``)
-    overrides ``bound`` to project them off this ``paths`` sink, with its keyword default as the
-    empty-slot fallback.
+    Attributes:
+        paths: Variadic positional token sink.
+        language: Optional language filter.
+
     """
 
     paths: tuple[str, ...] = ()
     language: Language | None = None
 
     def _arity(self, verb: str) -> int | None:  # noqa: PLR6301  # polymorphic dispatch point: package/bridge override on self's type to declare 0
-        """Positional-slot contract as DATA: ``None`` = variadic path rail; ``0`` = keyword-only; ``N`` = bounded.
-
-        The base is the variadic rail (``static``/``code``/``test``/``docs``): every token is a legal path.
-        A keyword-only rail (``package``/``bridge``) declares ``0`` so ``bound`` rejects any positional with
-        NO copy-pasted ``if self.paths`` body. ``api`` overrides ``bound`` itself (its per-verb slot
-        PROJECTION is real logic, not a uniform reject), so it does not route through this arity gate.
-        """
         _ = verb
         return None
 
     def bound(self, verb: str) -> Self | Fault:
-        """Validate/project the positional ``paths`` sink against the verb's ``_arity`` contract.
+        """Validate positional tokens against the verb arity.
 
-        The single positional-arity boundary every verb crosses once at ``rail.run``. The surplus check is
-        computed ONCE here off ``_arity`` data: ``None`` passes the variadic record through untouched; a
-        bounded ``N`` folds any token past slot ``N`` via ``surplus`` — routed through the same ``parse``
-        taxonomy ``_failing_step`` names, never a silent black hole. A verb that PROJECTS owned slots off
-        ``paths`` (``api query``/``resolve``/``show``) overrides ``bound`` directly.
+        Args:
+            verb: Verb token.
+
+        Returns:
+            The params instance or a parse fault for surplus tokens.
+
         """
         match self._arity(verb):
             case int(cap) if len(self.paths) > cap:
@@ -473,13 +642,15 @@ class BaseParams:
 
     @staticmethod
     def surplus(verb: str, tokens: tuple[str, ...]) -> Fault:
-        """Fold unexpected/surplus positional tokens into the canonical ``parse`` Fault the boundary names.
+        """Build a parse fault for surplus positional tokens.
 
-        The joined-token segment is clipped to ``_SURPLUS_TOKEN_CAP`` so a shell-expanded glob (a bare
-        ``bridge verify <glob>`` over many ``*.verify.csx`` files) keeps the whole message under
-        ``Fault.message``'s 1024 cap AND the ``Diagnostic.hint`` it distills to under 256 — msgspec
-        enforces ``max_length`` on DECODE only, so an unclipped message persists yet faults on history
-        readback (``delta`` would silently report the run as not-found).
+        Args:
+            verb: Verb token.
+            tokens: Surplus positional tokens.
+
+        Returns:
+            Fault describing the unexpected tokens.
+
         """
         joined = " ".join(tokens)
         clipped = joined[:_SURPLUS_TOKEN_CAP] + ("…" if len(joined) > _SURPLUS_TOKEN_CAP else "")
@@ -499,12 +670,34 @@ def receipt(
     status: RailStatus | None = None,
     notes: tuple[str, ...] = (),
 ) -> Completed:
-    """Build a ``Completed`` success receipt; ``status`` defaults to ``from_returncode(rc)``."""
+    """Build a completed receipt.
+
+    Args:
+        argv: Executed argument vector.
+        rc: Process return code.
+        stdout: Captured stdout tail.
+        stderr: Captured stderr tail.
+        duration_ms: Execution duration in milliseconds.
+        status: Optional status override.
+        notes: Human-readable notes.
+
+    Returns:
+        Completed receipt.
+
+    """
     return Completed(argv, rc, stdout, stderr, duration_ms, status or RailStatus.from_returncode(rc), notes)
 
 
 def validate_detail(detail: AnyDetail | None) -> AnyDetail | None:
-    """Round-trip a parser ``Detail`` through the cached tagged-union codec so malformity fails loud at fold."""
+    """Validate detail through the tagged-union codec.
+
+    Args:
+        detail: Detail value to validate.
+
+    Returns:
+        Decoded detail value.
+
+    """
     return _DETAIL_DECODER.decode(_ENCODER.encode(detail))
 
 
@@ -524,12 +717,17 @@ _DEFECT_TAIL: int = 400  # bounded tail bytes projected from stderr‖stdout for
 
 
 def fold(claim: Claim, verb: str, outcomes: tuple[Completed, ...], *, detail: AnyDetail | None = None) -> Report:
-    """Fold many ``Completed`` into one ``Report``: the SOLE count-derivation site.
+    """Fold completed receipts into one report.
 
-    For each ``Completed`` whose status is FAILED (``_count(o) == (0, 1)``), a bounded ``Match`` row
-    is projected from the tail of ``stderr`` (preferred) or ``stdout`` so the failing tool's actual
-    output rides the typed ``results`` surface uniformly — zero difference between subprocess and
-    INPROC modalities, zero ceremony at call sites.
+    Args:
+        claim: Claim that owns the report.
+        verb: Verb that owns the report.
+        outcomes: Completed receipts to fold.
+        detail: Optional algorithm-specific detail.
+
+    Returns:
+        Folded report.
+
     """
     pairs = tuple(map(_count, outcomes))
     ok_n, fail_n = (sum(a) for a in zip(*pairs, strict=True)) if pairs else (0, 0)
@@ -555,7 +753,19 @@ def fold(claim: Claim, verb: str, outcomes: tuple[Completed, ...], *, detail: An
 
 
 def envelope(payload: Report | Fault, *, claim: Claim, verb: str, run_id: str = "", error_context: Diagnostic | None = None) -> Envelope:
-    """Wrap a ``Report`` or ``Fault`` into one ``Envelope`` via statement-match; ``error_context`` rides the Fault branch only."""
+    """Wrap a report or fault in an envelope.
+
+    Args:
+        payload: Report or fault payload.
+        claim: Claim for the envelope.
+        verb: Verb for the envelope.
+        run_id: Optional run identifier.
+        error_context: Optional diagnostic detail for fault envelopes.
+
+    Returns:
+        Envelope representing the payload.
+
+    """
     match payload:
         case Report() as r:
             return Envelope(schema_version=1, claim=claim, verb=verb, status=r.status, exit_code=r.status.exit_code, run_id=run_id, report=r)

@@ -1,36 +1,21 @@
-"""The polyglot program table: one dense ``Tool`` row per program, one ``select`` fold.
-
-Parsers attach as the literal ``Callable[[Completed], AnyDetail | None]`` identity, so a renamed
-decoder is an import-time type error, never a silent miss; ``parser=None`` rows fold via
-``RailStatus.from_returncode``.
-"""
+"""Define program catalog rows and parser adapters for assay rails."""
 
 from typing import TYPE_CHECKING
 
 import msgspec
 
-from tools.assay.core.model import (  # intra-package import; tools.assay is the package root
-    ApiSurface,
-    Claim,
-    Input,
-    Language,
-    Mode,
-    Runner,
-    TestRun,
-    Tool,
-    VerifySummary,
-)
+from tools.assay.core.model import ApiSurface, Claim, Input, Language, Mode, Runner, TestRun, Tool, VerifySummary
 
 
 if TYPE_CHECKING:
-    from tools.assay.core.model import AnyDetail, Completed  # intra-package import; tools.assay is the package root
+    from tools.assay.core.model import AnyDetail, Completed
 
 
 # --- [MODELS] ---------------------------------------------------------------------------
 
 
 class _Finding(msgspec.Struct, frozen=True, gc=False):
-    """One py-analyzer diagnostic (``parse_findings``)."""
+    """Py-analyzer diagnostic row."""
 
     rule_id: str
     message: str = ""
@@ -39,7 +24,7 @@ class _Finding(msgspec.Struct, frozen=True, gc=False):
 
 
 class _ShellMessage(msgspec.Struct, frozen=True, gc=False):
-    """One ShellCheck JSON1 ``comments`` row (``parse_shellcheck``)."""
+    """ShellCheck JSON comment row."""
 
     code: int = 0
     message: str = ""
@@ -49,30 +34,34 @@ class _ShellMessage(msgspec.Struct, frozen=True, gc=False):
 
 
 class _Shellcheck(msgspec.Struct, frozen=True, gc=False):
-    """The ShellCheck JSON1 envelope (``-f json1``): a ``comments`` array of ``_ShellMessage`` rows."""
+    """ShellCheck JSON envelope."""
 
     comments: tuple[_ShellMessage, ...] = ()
 
 
 class _Point(msgspec.Struct, frozen=True, gc=False):
-    """One ast-grep ``range`` endpoint: zero-based ``{line, column}`` (``byteOffset`` tolerated)."""
+    """Ast-grep range endpoint."""
 
     line: int = 0
     column: int = 0
 
 
 class _Range(msgspec.Struct, frozen=True, gc=False):
-    """The ast-grep match ``range`` ``start``/``end`` points; other keys ride through as unknowns."""
+    """Ast-grep match range."""
 
     start: _Point = msgspec.field(default_factory=_Point)
     end: _Point = msgspec.field(default_factory=_Point)
 
 
 class AstMatch(msgspec.Struct, frozen=True, gc=False):
-    """One ast-grep ``run --json=compact`` row the ``code`` rail folds into ``Match``.
+    """Ast-grep compact JSON match.
 
-    No ``forbid_unknown_fields`` — ast-grep emits extra keys (``charCount``/``language``/
-    ``metaVariables``, and ``replacement`` in rewrite mode) that ride one struct, extras ignored.
+    Attributes:
+        text: Matched text.
+        file: Matched file path.
+        lines: Source lines reported by ast-grep.
+        replacement: Rewrite replacement preview when present.
+        range: Source range of the match.
     """
 
     text: str = ""
@@ -83,7 +72,7 @@ class AstMatch(msgspec.Struct, frozen=True, gc=False):
 
 
 class Capture(msgspec.Struct, frozen=True, gc=False):
-    """One tree-sitter query capture the ``Runner.INPROC`` thunk emits and the ``code query`` fold reads back."""
+    """Tree-sitter capture emitted by an in-process query."""
 
     name: str = ""
     text: str = ""
@@ -92,13 +81,13 @@ class Capture(msgspec.Struct, frozen=True, gc=False):
 
 
 class _RgText(msgspec.Struct, frozen=True, gc=False):
-    """One ripgrep ``path``/``lines`` payload: the UTF-8 ``text`` branch (a ``bytes`` branch rides through)."""
+    """Ripgrep UTF-8 text payload."""
 
     text: str = ""
 
 
 class _RgData(msgspec.Struct, frozen=True, gc=False):
-    """The ripgrep ``--json`` event ``data`` block; other keys ride through as unknowns."""
+    """Ripgrep JSON event data."""
 
     path: _RgText = msgspec.field(default_factory=_RgText)
     lines: _RgText = msgspec.field(default_factory=_RgText)
@@ -106,11 +95,11 @@ class _RgData(msgspec.Struct, frozen=True, gc=False):
 
 
 class RgEvent(msgspec.Struct, frozen=True, gc=False):
-    """One ripgrep ``--json`` NDJSON event the ``code search`` rail folds into ``Match``.
+    """Ripgrep NDJSON event.
 
-    No ``forbid_unknown_fields`` — ripgrep emits ``begin``/``end``/``summary``/``context`` events that
-    ride one struct; the rail keeps only ``kind == "match"`` rows. ``kind`` is renamed off the JSON
-    ``type`` key (away from the ``type`` builtin).
+    Attributes:
+        kind: Event type from ripgrep's `type` field.
+        data: Event payload for match rows.
     """
 
     kind: str = msgspec.field(default="", name="type")
@@ -134,24 +123,26 @@ RG_EVENT = msgspec.json.Decoder(RgEvent)  # ripgrep --json is NDJSON, decoded on
 
 
 def parse_findings(done: Completed) -> AnyDetail | None:
-    """Decode-validate py-analyzer ``--format json`` as a catalog schema guard (yields no ``Detail``)."""
+    """Validate py-analyzer JSON output without emitting detail."""
     # Claim.STATIC is a pass/fail gate; the decode is the census schema guard, not a Detail source.
     _FINDINGS.decode(done.stdout or b"[]")
     return None
 
 
 def parse_build(done: Completed) -> AnyDetail | None:
-    """Surface the cs-analyzer MSBuild pass: ``CSP####`` are exit-code evidence, not JSON (yields no ``Detail``)."""
+    """Accept cs-analyzer build output without emitting detail."""
     _ = done
     return None
 
 
 def parse_tests(done: Completed) -> AnyDetail | None:
-    """Decode ``dotnet test`` telemetry into a ``TestRun`` evidence variant.
+    """Decode test telemetry into a `TestRun` detail when present.
 
-    Probed over EVERY receipt on a ``--mutation`` run, including non-JSON stdout; a decode miss is a
-    defaulted ``TestRun`` (``mutation=off``) that ``_is_mutation`` rejects, so the first real mutation
-    lane still wins — not a FAULTED rail.
+    Args:
+        done: Completed process receipt.
+
+    Returns:
+        Parsed test detail, or a default detail when stdout is not telemetry.
     """
     try:
         return _TESTS.decode(done.stdout or b"{}")  # codec boundary: a non-JSON / off-shape receipt is a defaulted no-op, not a fault
@@ -160,45 +151,36 @@ def parse_tests(done: Completed) -> AnyDetail | None:
 
 
 def parse_verify(done: Completed) -> AnyDetail | None:
-    """Decode the bridge ``verify`` JSON into a ``VerifySummary`` evidence variant.
-
-    Decoding straight into the ``Detail`` subclass enforces its ``max_length=256`` bound on
-    ``first_fault_output`` at the msgspec C boundary (an intermediate struct bypassed it) and rejects
-    unknown fields — safe because the bridge ``verify`` JSON is Rasm-owned.
-    """
+    """Decode bridge verify JSON into `VerifySummary` detail."""
     return _VERIFY.decode(done.stdout or b"{}")
 
 
 def parse_search(done: Completed) -> AnyDetail | None:
-    """Decode-validate ast-grep ``run --json=compact`` as a catalog schema guard (yields no ``Detail``)."""
+    """Validate ast-grep compact JSON without emitting detail."""
     # Match evidence rides Report.results; the code rail re-decodes the same array for the ranked set.
     AST_MATCHES.decode(done.stdout or b"[]")
     return None
 
 
 def parse_query(done: Completed) -> AnyDetail | None:
-    """Decode-validate the tree-sitter capture array the ``Runner.INPROC`` thunk emits (schema guard, no ``Detail``)."""
+    """Validate tree-sitter capture JSON without emitting detail."""
     CAPTURES.decode(done.stdout or b"[]")
     return None
 
 
 def parse_content(done: Completed) -> AnyDetail | None:
-    """Decode-validate ripgrep ``--json`` NDJSON as a catalog schema guard (yields no ``Detail``)."""
+    """Validate ripgrep NDJSON without emitting detail."""
     tuple(RG_EVENT.decode(line) for line in (done.stdout or b"").splitlines() if line)  # NDJSON: one object per line, decoded line-by-line
     return None
 
 
 def parse_surface(done: Completed) -> AnyDetail | None:
-    """Decode the ``ilspycmd`` surface roster into an ``ApiSurface`` evidence variant.
-
-    Decoding into the ``Detail`` subclass enforces its field bounds at the msgspec C boundary and
-    rejects unknown fields (``forbid_unknown_fields``).
-    """
+    """Decode ilspy surface JSON into `ApiSurface` detail."""
     return _SURFACE.decode(done.stdout or b"{}")
 
 
 def parse_shellcheck(done: Completed) -> AnyDetail | None:
-    """Decode-validate ShellCheck ``-f json1`` as a catalog schema guard (yields no ``Detail``)."""
+    """Validate ShellCheck JSON without emitting detail."""
     # Claim.STATIC is a pass/fail gate; the decode is the census schema guard, FAILED rides Completed.
     _SHELLCHECK.decode(done.stdout or b'{"comments":[]}')
     return None
@@ -318,11 +300,14 @@ TOOLS: tuple[Tool, ...] = (
 
 
 def select(claim: Claim, language: Language | None = None) -> tuple[Tool, ...]:
-    """Filter ``TOOLS`` to one rail's slice, deterministically sorted (independent of authoring order).
+    """Select catalog rows for a claim and optional language.
 
-    The ``(language.value, mode.value, name, command)`` key groups by language for fan-out, sorts the
-    write/check twins adjacently, and makes execution order stable. ``language=None`` is the polyglot
-    request; a C#-only rail (``bridge``/``package``/``api``) passes ``Language.CSHARP``.
+    Args:
+        claim: Claim whose tools should run.
+        language: Optional language slice.
+
+    Returns:
+        Deterministically ordered matching tools.
     """
     return tuple(
         sorted(
