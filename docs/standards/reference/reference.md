@@ -122,14 +122,14 @@ Source model records use proof fields only when the source proves drift-prone fa
 Source model: `<maintained source, generated artifact, command output, manifest, source map, or package/tool corpus>`
 Evidence: `<source path, command output, generated artifact, maintained source, or proof gap>`
 Generated from: `<command, schema, generator, or omitted when manually sourced>`
-Source of truth: `<controlling path, manifest, generated contract, package source, or upstream source>`
+Controlling source: `<controlling path, manifest, generated contract, package source, or upstream source>`
 Proof gap: `<missing source, unrun generator, unavailable command, or omitted when proved>`
 Last verified: YYYY-MM-DD
 Review trigger: `<source, command, generated artifact, package, support, or route change>`
 Refresh command: `<exact command; omit when no command refreshes the facts>`
 ```
 
-Use a compact source-truth table only when every row shares the same update trigger. Otherwise promote each source or fact set to a definition block.
+Use a compact controlling-source table only when every row shares the same update trigger. Otherwise promote each source or fact set to a definition block.
 
 ## [4][REFERENCE_BASELINES]
 
@@ -174,7 +174,7 @@ Constraint: `<allowed values, unit, default, or lifecycle; omit when unconstrain
 Use: `<one sentence naming the reader action this fact changes>`
 Evidence: `<source, command, generated artifact, or maintained reference>`
 Generated from: `<generator, command, or schema; omit when manually sourced>`
-Source of truth: `<controlling path, schema, manifest, generated contract, or upstream source>`
+Controlling source: `<controlling path, schema, manifest, generated contract, or upstream source>`
 Proof gap: `<missing source, unrun generator, unsupported current claim, or omitted when proved>`
 Last verified: YYYY-MM-DD
 Review trigger: `<event that makes this fact stale>`
@@ -329,9 +329,9 @@ A reference example illustrates one fact, runs at most 12 lines, and never becom
 Use this command fact entry:
 
 ```text template
-Invocation: `uv run python -m tools.quality static report libs/csharp/Rasm`
+Invocation: `<tool> report <scope>`
 Flag: `report`
-Effect: reports static diagnostics for the scoped C# project closure.
+Effect: reports diagnostics for the scoped project closure.
 Side effect: does not intentionally mutate tracked source.
 ```
 

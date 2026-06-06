@@ -1,6 +1,6 @@
 # [LANGUAGEEXT_PRELUDE]
 
-[IMPORTANT] Pin **`LanguageExt.Core`** at the version pinned in `Directory.Packages.props`. When global usings include `static LanguageExt.Prelude`, per-file `using static` is redundant.
+[IMPORTANT] When global usings include `static LanguageExt.Prelude`, per-file `using static` is redundant.
 
 Advanced Prelude surfaces — not basic `Map`/`Bind`.
 

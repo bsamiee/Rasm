@@ -25,25 +25,25 @@ Execute Tavily AI web operations through unified Python CLI.
 
 ```bash
 # Search
-uv run .claude/skills/tavily-tools/scripts/tavily.py search --query "Vite latest features"
-uv run .claude/skills/tavily-tools/scripts/tavily.py search --query "React 19" --topic news
-uv run .claude/skills/tavily-tools/scripts/tavily.py search --query "Effect-TS" --search-depth advanced --max-results 20
+uv run $CLAUDE_HOME/skills/tavily-tools/scripts/tavily.py search --query "Vite latest features"
+uv run $CLAUDE_HOME/skills/tavily-tools/scripts/tavily.py search --query "React 19" --topic news
+uv run $CLAUDE_HOME/skills/tavily-tools/scripts/tavily.py search --query "Effect-TS" --search-depth advanced --max-results 20
 
 # Extract content from URLs
-uv run .claude/skills/tavily-tools/scripts/tavily.py extract --urls "https://example.com"
-uv run .claude/skills/tavily-tools/scripts/tavily.py extract --urls "https://a.com,https://b.com" --format text
+uv run $CLAUDE_HOME/skills/tavily-tools/scripts/tavily.py extract --urls "https://example.com"
+uv run $CLAUDE_HOME/skills/tavily-tools/scripts/tavily.py extract --urls "https://a.com,https://b.com" --format text
 
 # Crawl website
-uv run .claude/skills/tavily-tools/scripts/tavily.py crawl --url "https://docs.effect.website"
-uv run .claude/skills/tavily-tools/scripts/tavily.py crawl --url "https://nx.dev" --max-depth 3 --max-breadth 50
+uv run $CLAUDE_HOME/skills/tavily-tools/scripts/tavily.py crawl --url "https://docs.effect.website"
+uv run $CLAUDE_HOME/skills/tavily-tools/scripts/tavily.py crawl --url "https://nx.dev" --max-depth 3 --max-breadth 50
 
 # Map site structure
-uv run .claude/skills/tavily-tools/scripts/tavily.py map --url "https://nx.dev"
-uv run .claude/skills/tavily-tools/scripts/tavily.py map --url "https://effect.website" --max-depth 2 --limit 200
+uv run $CLAUDE_HOME/skills/tavily-tools/scripts/tavily.py map --url "https://nx.dev"
+uv run $CLAUDE_HOME/skills/tavily-tools/scripts/tavily.py map --url "https://effect.website" --max-depth 2 --limit 200
 
 # Deep research (multi-step, structured report)
-uv run .claude/skills/tavily-tools/scripts/tavily.py research --query "Nx 22 migration strategies"
-uv run .claude/skills/tavily-tools/scripts/tavily.py research --query "Effect vs RxJS comparison" --model pro
+uv run $CLAUDE_HOME/skills/tavily-tools/scripts/tavily.py research --query "Nx 22 migration strategies"
+uv run $CLAUDE_HOME/skills/tavily-tools/scripts/tavily.py research --query "Effect vs RxJS comparison" --model pro
 ```
 
 ## [3][ARGUMENTS]

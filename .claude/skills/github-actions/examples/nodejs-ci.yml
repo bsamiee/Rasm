@@ -87,7 +87,7 @@ jobs:
       - uses: actions/setup-node@6044e13b5dc448c55e2357c09f80417699197238 # v6.2.0
         with: { node-version: '${{ matrix.node-version }}', cache: pnpm }
       - run: corepack enable && pnpm install --frozen-lockfile
-      - run: pnpm check:ts
+      - run: pnpm exec nx run-many -t typecheck,test
       - if: always()
         uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6.0.0
         with:

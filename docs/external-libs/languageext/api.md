@@ -1,17 +1,8 @@
 # [LANGUAGEEXT_API]
 
-[IMPORTANT] Pin **`LanguageExt.Core`** at the version pinned in `Directory.Packages.props`. Typical workspace imports: `LanguageExt`, `LanguageExt.Common`, `LanguageExt.Traits`, `LanguageExt.Effects`, `LanguageExt.Pretty`, `LanguageExt.Traits.Domain`, and static `LanguageExt.Prelude` when global usings are enabled.
+[IMPORTANT] Typical workspace imports: `LanguageExt`, `LanguageExt.Common`, `LanguageExt.Traits`, `LanguageExt.Effects`, `LanguageExt.Pretty`, `LanguageExt.Traits.Domain`, and static `LanguageExt.Prelude` when global usings are enabled.
 
-## [1][SOURCE_TRUTH]
-
-| [INDEX] | [SOURCE]                                                             | [USE]                                        |
-| :-----: | -------------------------------------------------------------------- | -------------------------------------------- |
-|   [1]   | `Directory.Packages.props`                                           | Confirms the pinned `LanguageExt.Core` version. |
-|   [2]   | `uv run python -m tools.quality api resolve LanguageExt.Core all`    | Exact local API asset paths.                 |
-|   [3]   | `uv run python -m tools.quality api query LanguageExt.Core <symbol>` | Public member evidence.                      |
-|   [4]   | NuGet and upstream docs                                              | Secondary feature context.                   |
-
-## [2][SURFACE_MAP]
+## [1][SURFACE_MAP]
 
 | [INDEX] | [SURFACE]                    | [OWNS]                                     | [TYPICAL_USE]                                         |
 | :-----: | ---------------------------- | ------------------------------------------ | ----------------------------------------------------- |
@@ -26,7 +17,7 @@
 |   [9]   | `Atom<T>`, `Ref<T>`          | Managed reactive state.                    | UI/session state — no Subscribe API in LanguageExt v5. |
 |  [10]   | `HashMap<K,V>`, `HashSet<T>` | Immutable map/set.                         | Keyed memoization after key policy is explicit.       |
 
-## [3][ADVANCED_INDEX]
+## [2][ADVANCED_INDEX]
 
 | [INDEX] | [FILE]           | [OWNS]                                                                                      |
 | :-----: | ---------------- | ------------------------------------------------------------------------------------------- |
@@ -38,10 +29,10 @@
 |   [6]   | `traits.md`      | Effect-polymorphic traits, `K<F,A>` algorithms                                              |
 |   [7]   | `collections.md` | `Seq`, `Arr`, immutable collection patterns                                                 |
 
-## [4][BOUNDARIES]
+## [3][BOUNDARIES]
 
 - Keep `Match`, `Run*`, and unsafe collapse at host boundaries only.
 - Prefer `Flatten()` for nested rails when local XML proves availability.
 - Keep host-owned mutable values out of memoized LanguageExt state unless ownership is explicit.
 - Use `K<F,A>` only when it removes repeated algorithms, not as decorative abstraction.
-- Do not document broader LanguageExt packages unless pinned and consumed.
+- Do not document broader LanguageExt packages unless package graph state and a consumer make them active.

@@ -10,6 +10,7 @@ description: >-
 ---
 
 # [H1][CODING-TS]
+>**Dictum:** *TypeScript + Effect style, type discipline, and module organization govern all TS work.*
 
 All code follows five governing principles:
 - **Polymorphic** — one entrypoint per concern, generic over specific, extend over duplicate
@@ -158,8 +159,8 @@ One library's types per module boundary. Bridge at layer edges via Schema decode
 
 ## Validation gate
 
-- Required during iteration: `pnpm check:ts`.
-- Required for final completion: run every impacted language gate explicitly; for shared standards/tooling, run `pnpm check:ts`, `pnpm check:py`, and `uv run python -m tools.quality static build`.
+- Required during iteration: run the owning TypeScript target checks directly for the touched project or workspace surface.
+- Required for final completion: run every impacted language gate explicitly; use the target repo's documented quality rail for cross-language/tooling changes.
 - Reject completion when load order, contracts, or checks are not satisfied.
 - Examples inside this skill are executable doctrine: no unmarked `Object.*`, ternaries, `undefined as never`, bare `Error`, unbounded `unknown`, or one-use helper extraction in golden paths.
 
@@ -169,7 +170,7 @@ One library's types per module boundary. Bridge at layer edges via Schema decode
 - Implicit invocation: "Review this `.tsx` boundary handler for schema, error rail, and Effect service problems."
 - Noisy context: "Ignore the surrounding product notes and only fix the TypeScript persistence adapter."
 - Negative control: "Design a PostgreSQL index strategy only." Expected: do not invoke TS references unless TypeScript code is involved.
-- Compliance checks: output should load only relevant references, avoid command thrash, avoid new helper files, preserve functional/Effect doctrine, and run `pnpm check:ts` or a narrower existing TS gate when code is touched.
+- Compliance checks: output should load only relevant references, avoid command thrash, avoid new helper files, preserve functional/Effect doctrine, and run the owning TypeScript checks when code is touched.
 
 ## First-class libraries
 

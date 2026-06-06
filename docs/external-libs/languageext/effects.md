@@ -1,6 +1,6 @@
 # [LANGUAGEEXT_EFFECTS]
 
-[IMPORTANT] Pin **`LanguageExt.Core`** at the version pinned in `Directory.Packages.props`. Runtime effects use concrete runtime records and `Eff.runtime<RT>()`. Boundary adapters may use statement control flow only with an explicit boundary marker in code.
+[IMPORTANT] Runtime effects use concrete runtime records and `Eff.runtime<RT>()`. Boundary adapters may use statement control flow only with an explicit boundary marker in code.
 
 ## [1][RAILS]
 
@@ -8,7 +8,7 @@
 | :-----: | --------------------- | ---------------------------------- | --------------------------------------------------------- |
 |   [1]   | `Fin<T>`              | Did one operation succeed or fail? | Native calls, value admission, projection.                |
 |   [2]   | `Validation<Error,T>` | Which inputs failed?               | Multi-input forms, symbols, requirement sets.             |
-|   [3]   | `Eff<RT,T>`           | Which runtime context is needed?   | Document, filesystem, clock, bridge.                      |
+|   [3]   | `Eff<RT,T>`           | Which runtime context is needed?   | Runtime context, filesystem, clock, external service.     |
 |   [4]   | `IO<T>`               | Which side-effect is deferred?     | Resource, file, process, and host execution descriptions. |
 
 ## [2][RUNTIME_RECORD]
@@ -43,7 +43,7 @@ Never use LanguageExt state to hide native object lifetime, host tree mutation, 
 
 ## [6][V5_DELTAS]
 
-`Directory.Packages.props` pins the `LanguageExt.Core` version. Verify deltas from v4 surface with `uv run python -m tools.quality api query LanguageExt.Core <symbol>`:
+V5 deltas from the v4 surface:
 
 | [INDEX] | [V4_SURFACE]                                 | [V5_REPLACEMENT]                                                            |
 | :-----: | -------------------------------------------- | --------------------------------------------------------------------------- |
@@ -55,6 +55,6 @@ Never use LanguageExt state to hide native object lifetime, host tree mutation, 
 |   [6]   | `Sequence(...)` extension                    | `seq.Traverse(identity) >> lower` or unary `+`; use `.As()` for `Eff`/`IO`. |
 |   [7]   | Sequential `.Traverse`                       | `TraverseM` → `K<F, Seq<B>>`; lower via `>> lower`, unary `+`, or `.As()`.  |
 
-**Validation monoid requirement (v5):** `Validation<E, A>` requires `E : Monoid<E>`. `Validation<Error, T>` works (`Error.Combine`); `Validation<string, T>` does NOT compile — use `StringM` or `Error`. Rasm forbids `Validation<Seq<Error>,T>` (`CSP0703`); GH UI uses `Validation<Seq<UiFault>,T>` — see `rasm.md`.
+**Validation monoid requirement (v5):** `Validation<E, A>` requires `E : Monoid<E>`. `Validation<Error, T>` works when `Error` implements the required monoid; `Validation<string, T>` does NOT compile — use `StringM` or a monoidal error type. Consumer validation error policies belong in the local posture file.
 **Atom surface (v5):** `Atom<T>.Swap`/`SwapMaybe`/`SwapIO`/`SwapMaybeIO`. **No `Subscribe`/`OnChange`/`Reset`** — react-to-state patterns use the host paint loop or polling. `Atom<TMetadata, T>` two-arg form threads metadata through swap functions without closure allocation.
 **Pattern matching:** Record-case patterns are faster than `.Match` and prefer-able for hot paths: `fin switch { Fin.Succ<int>(var x) => x, Fin.Fail<int>(var e) => 0 }`.

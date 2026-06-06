@@ -90,9 +90,9 @@ Add these conditional sections only when their trigger applies:
 
 Required sections are required because agents need them in order: read the current tree first, decide whether the scope applies, locate project truth, follow work through entrypoints, understand dependency constraints, preserve invariants, handle current status, verify drift-prone claims, and route adjacent concerns.
 
-Accepted title: `# [EVENT_PIPELINE_ARCHITECTURE]`
-Accepted lead: This architecture explains `src/EventPipeline/` as the `EventPipeline.csproj` package that carries host event admission, generated event contracts, worker execution, and persistence boundaries. The codemap was refreshed from repository paths and the project file; ADRs own why the public schema exists, and the roadmap carries unfinished contract-freeze work.
-Rejected title: `# [EVENT_SYSTEM]`
+Accepted title: `# [PACKAGE_ARCHITECTURE]`
+Accepted lead: This architecture explains `<package-root>/` as the `<project-manifest>` package that carries external input admission, generated contracts, worker execution, and persistence boundaries. The codemap was refreshed from repository paths and the project file; ADRs own why the public schema exists, and the roadmap carries unfinished contract-freeze work.
+Rejected title: `# [SYSTEM_OVERVIEW]`
 Rejected lead: This document describes the event system at a high level.
 Reason: the accepted lead is concrete enough to start work; the rejected lead describes a system without code anchors.
 
@@ -119,10 +119,10 @@ Do not add a section for a concern that has no current reader action. Do not kee
 `Scope boundary` states what this architecture covers and what it refuses to cover. Name real paths, project files, package manifests, generated directories, public contracts, commands, host references, adjacent routes, and exclusions.
 
 ```text template
-Included: `src/EventPipeline/`, `EventPipeline.csproj`, `Contracts/events.schema.json`, generated event reference.
+Included: `<package-root>/`, `<project-manifest>`, `<contract-artifact>`, generated contract reference.
 Excluded: legacy export retirement after the compatibility window; support matrix carries timing.
-Adjacent routes: `src/HostAdapter/` admits host callbacks; `docs/reference/api/` carries generated contract reference.
-Reader rule: edits under `Admission/`, `Execution/`, or `Contracts/` must check this architecture first.
+Adjacent routes: `<adapter-root>/` admits external callbacks; `<api-reference-route>/` carries generated contract reference.
+Reader rule: edits under `<entrypoint-folder>/`, `<execution-folder>/`, or `<contract-folder>/` must check this architecture first.
 ```
 
 ## [6][PROJECT_IDENTITY]
@@ -130,12 +130,12 @@ Reader rule: edits under `Admission/`, `Execution/`, or `Contracts/` must check 
 `Project identity` lets an agent locate the build/package truth before editing. Include only identities that exist for the scope.
 
 ```text template
-Project file: `src/EventPipeline/EventPipeline.csproj`
-Package or export surface: `EventPipeline` public contract API
-Build target: `EventPipeline.csproj`
-Generated outputs: `Contracts/events.schema.json`, generated reference page
+Project file: `<package-root>/<project-manifest>`
+Package or export surface: `<package-name>` public contract API
+Build target: `<project-manifest>`
+Generated outputs: `<contract-artifact>`, generated reference page
 Primary commands: `<exact build/test/doc command when this architecture carries one>`
-Host or runtime boundary: host callback enters through `Admission/EventIngress.cs`
+Host or runtime boundary: external callback enters through `<entrypoint>`
 ```
 
 Do not invent a manifest, command, export, or generated output to fill the section. Absence is useful only when it changes behavior, such as "this folder has no project file; build proof comes from the parent project."
@@ -145,15 +145,15 @@ Do not invent a manifest, command, export, or generated output to fill the secti
 `Contracts and generated truth` is required when the scope exposes a public contract, generated file, generated reference, command output contract, host metadata surface, schema, or source-generated public symbol family. It prevents architecture from becoming an API catalog while still showing which generated artifacts make the code safe to edit.
 
 ```text template
-Surface: `EventPipeline` event contract.
-Public contract: `Contracts/events.schema.json`.
-Generated artifact: generated event reference page.
+Surface: `<package-name>` public contract.
+Public contract: `<contract-artifact>`.
+Generated artifact: generated contract reference page.
 API/reference route: generated API page under the reference route.
-Code-documentation route: public `EventEnvelope` comments.
+Code-documentation route: public `<contract-type>` comments.
 Edit rule: edit the source contract and regenerate; do not hand-edit generated output.
 Evidence: generated contract path or generation proof.
 Generated from: contract generator command or build target.
-Source of truth: schema source and contract generator configuration.
+Controlling source: schema source and contract generator configuration.
 Last verified: YYYY-MM-DD
 Review trigger: schema, generator, public envelope type, generated artifact path, or API reference route changes.
 Route-away: operation details, parameters, fields, and generated symbol catalog stay in [api.md](../reference/api.md) and [code-documentation.md](../reference/code-documentation.md).
@@ -190,27 +190,27 @@ When a marker needs a local source reference, append the source key inside the s
 A useful codemap shows structure, route, project identity, and status in one place:
 
 ```text conceptual
-src/EventPipeline/
-├── EventPipeline.csproj                            package boundary; exports event contract API
-├── Directory.Packages.props                        package version truth when package carries it
+<package-root>/
+├── <project-manifest>                              package boundary; exports public contract API
+├── <package-manifest>                              package dependency control when package carries it
 ├── Contracts/                                      generated contract boundary
-│   ├── events.schema.json                          public contract; ADR-0007 controls shape
-│   ├── EventEnvelope.cs                            typed envelope; code docs own caller semantics
+│   ├── <contract-schema>                           public contract; ADR controls shape
+│   ├── <contract-type>                             typed envelope; code docs own caller semantics
 │   └── Generated/                                  generated API route
-│       └── EventReference.md                       generated reference; regenerate from schema source
-├── Admission/                                      host admission boundary
-│   ├── EventIngress.cs                             host callback entrypoint into validation
-│   └── EventValidator.cs                           rejects schema drift before queue admission
-├── Execution/                                      accepted-event runtime route
-│   ├── EventWorker.cs             [ACTIVE M2] executes accepted events
-│   ├── RetryPolicy.cs                              transient host-failure policy
+│       └── <reference-artifact>                    generated reference; regenerate from schema source
+├── Admission/                                      external input boundary
+│   ├── <entrypoint>                                callback entrypoint into validation
+│   └── <validator>                                 rejects schema drift before queue admission
+├── Execution/                                      accepted-input runtime route
+│   ├── <worker>                   [ACTIVE M2]      executes accepted inputs
+│   ├── <retry-policy>                              transient external-failure policy
 │   └── Handlers/                                   worker-owned execution adapters
-│       └── TransientFailure/                       host-failure branch
-│           └── BackoffPolicy.cs                    retry delay algorithm; no storage writes
+│       └── TransientFailure/                       external-failure branch
+│           └── <backoff-policy>                    retry delay algorithm; no storage writes
 ├── Storage/                                        persistence boundary
-│   └── EventStore.cs                               no direct caller writes
+│   └── <store>                                     no direct caller writes
 └── Legacy/                                         support-controlled compatibility route
-    └── LegacyEventReader.cs          [DEPRECATED]  migration reads only; support row controls removal
+    └── <legacy-reader>             [DEPRECATED]    migration reads only; support row controls removal
 ```
 
 Align codemap annotations to one fixed rail; when a path carries a status marker, start the annotation with that marker, and omit leaves that are not entrypoints, contracts, generated artifacts, central algorithms, adapters, invariants, or status-bearing paths.
@@ -219,14 +219,14 @@ When status appears in the tree, add a path-state table and codemap source block
 
 | [INDEX] | [PATH]                        | [STATE]      | [READ_AS]       | [SOURCE]    | [UPDATE]    | [REMOVE]             |
 | :-----: | :---------------------------- | :----------- | :-------------- | :---------- | :---------- | :------------------- |
-|   [1]   | `Execution/EventWorker.cs`    | [ACTIVE]     | moving route    | roadmap M2  | M2 or path  | M2 is `COMPLETE`     |
-|   [2]   | `Legacy/LegacyEventReader.cs` | [DEPRECATED] | migration reads | support row | support row | support is `Retired` |
+|   [1]   | `<execution-worker>`          | [ACTIVE]     | moving route    | roadmap M2  | M2 or path  | M2 is `COMPLETE`     |
+|   [2]   | `<legacy-reader>`             | [DEPRECATED] | migration reads | support row | support row | support is `Retired` |
 
 ```text template
 Representation: codemap
 Evidence: repository path inspection, project file, manifest, generated artifact, review, or proof gap.
 Generated from: <tree command, manifest query, generated output, or omitted when hand-reviewed>
-Source of truth: repository paths, project files, package manifests, generated contract, and host references.
+Controlling source: repository paths, project files, package manifests, generated contract, and host references.
 Last verified: YYYY-MM-DD
 Review trigger: path, project, manifest, generated contract, support row, or roadmap status changes.
 ```
@@ -239,8 +239,8 @@ Entrypoints name how work enters the code scope. Use records or a table when the
 
 | [INDEX] | [ENTRYPOINT]                | [KIND]   | [INPUT]                | [FAILURE]  | [NEXT]                        | [EFFECT]      |
 | :-----: | :-------------------------- | :------- | :--------------------- | :--------- | :---------------------------- | :------------ |
-|   [1]   | `Admission/EventIngress.cs` | callback | schema plus host event | validation | `Admission/EventValidator.cs` | reject input  |
-|   [2]   | `Execution/EventWorker.cs`  | worker   | envelope               | fault      | `Storage/EventStore.cs`       | persist event |
+|   [1]   | `<entrypoint>`              | callback | schema plus external input | validation | `<validator>`               | reject input  |
+|   [2]   | `<worker>`                  | worker   | envelope                  | fault      | `<store>`                   | persist event |
 
 For record-shaped entrypoints, keep fields in this order:
 
@@ -269,17 +269,17 @@ config:
     cycleBreakingStrategy: GREEDY_MODEL_ORDER
 ---
 flowchart LR
-    accTitle: Event pipeline code flow
-    accDescr: Host events enter the admission file, validate against the generated contract, execute through the in-progress worker, and persist through the storage boundary while deprecated legacy reads remain isolated.
-    Host["host callback"] --> Ingress["Admission/EventIngress.cs"]
-    Ingress --> Validator["Admission/EventValidator.cs"]
-    Validator --> Contract["Contracts/events.schema.json"]
-    Validator --> Worker["Execution/EventWorker.cs [ACTIVE M2]"]
-    Worker --> Store["Storage/EventStore.cs"]
-    Legacy["Legacy/LegacyEventReader.cs [DEPRECATED]"] -. "migration reads only" .-> Store
+    accTitle: Package code flow
+    accDescr: External inputs enter the admission file, validate against the generated contract, execute through the in-progress worker, and persist through the storage boundary while deprecated legacy reads remain isolated.
+    Host["external callback"] --> Ingress["<entrypoint>"]
+    Ingress --> Validator["<validator>"]
+    Validator --> Contract["<contract-artifact>"]
+    Validator --> Worker["<worker> [ACTIVE M2]"]
+    Worker --> Store["<store>"]
+    Legacy["<legacy-reader> [DEPRECATED]"] -. "migration reads only" .-> Store
 ```
 
-Text equivalent: host callbacks enter `Admission/EventIngress.cs`, validation checks the generated contract, accepted events move through `Execution/EventWorker.cs`, persisted state passes through `Storage/EventStore.cs`, and deprecated legacy reads remain isolated from the admission path.
+Text equivalent: external callbacks enter `<entrypoint>`, validation checks the generated contract, accepted inputs move through `<worker>`, persisted state passes through `<store>`, and deprecated legacy reads remain isolated from the admission path.
 
 Reject diagrams that redraw folders:
 
@@ -298,8 +298,8 @@ config:
 ---
 flowchart TB
     accTitle: Rejected folder-box diagram
-    accDescr: The diagram redraws EventPipeline folders as boxes without showing flow, dependency, boundary, state, or proof.
-    Root["src/EventPipeline"] --> Contracts["Contracts"]
+    accDescr: The diagram redraws package folders as boxes without showing flow, dependency, boundary, state, or proof.
+    Root["<package-root>"] --> Contracts["Contracts"]
     Root --> Admission["Admission"]
     Root --> Execution["Execution"]
 ```
@@ -344,8 +344,8 @@ Write invariants as records when the rule has a forbidden shape, proof gate, or 
 ```markdown template
 ### [N.M][NO_DIRECT_STORAGE_WRITES]
 
-Rule: event writes pass through `Execution/EventWorker.cs`.
-Forbids: `Admission/` calling `Storage/EventStore.cs` write APIs directly.
+Rule: accepted writes pass through `<worker>`.
+Forbids: `Admission/` calling `<store>` write APIs directly.
 Check: dependency gate or review check rejects `Admission/ -> Storage/` write paths.
 Adjacent relation:
     Changed fact: M2 moves execution routing while the dependency gate is being wired.
@@ -384,7 +384,7 @@ Architecture proof is representation-level. Place proof beside each drift-prone 
 Representation: <codemap, entrypoint table, flow diagram, dependency matrix, invariant, or status record>
 Evidence: <repo paths, project file, package manifest, generated contract, command, review, or proof gap>
 Generated from: <tree, manifest query, model, generated contract, or command; omit when hand-reviewed>
-Source of truth: <repo paths, project files, manifests, generated outputs, public contracts, or host references>
+Controlling source: <repo paths, project files, manifests, generated outputs, public contracts, or host references>
 Last verified: YYYY-MM-DD
 Review trigger: <path, project, manifest, contract, roadmap, support, or gate change>
 Element match: <how represented nodes, paths, edges, or records map to repository truth>
@@ -418,7 +418,7 @@ Do not claim a representation reflects code unless its paths, manifests, contrac
 - [ ] `Codemap` is the first produced H2 after the H1 lead.
 - [ ] `Scope boundary` names included paths, generated directories, project files, package manifests, host references, adjacent routes, and exclusions.
 - [ ] `Project identity` names manifests, build targets, package surfaces, generated outputs, commands, and public exports when they exist.
-- [ ] Contracts and generated truth name public contract, source of truth, generated artifact, edit rule, API/reference route, and update trigger.
+- [ ] Contracts and generated truth name public contract, controlling source, generated artifact, edit rule, API/reference route, and update trigger.
 
 [REPRESENTATIONS]:
 - [ ] The codemap is the primary representation and derives from current repository paths and manifests.

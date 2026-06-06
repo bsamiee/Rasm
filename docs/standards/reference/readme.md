@@ -28,26 +28,26 @@ README conventions come from platform rendering, local routing policy, and repos
 
 Use platform-visible rendering, discovery, and recognized file placement only when a maintained route or current platform behavior proves it. Repository source, manifests, lockfiles, generated contracts, runnable command output, and source documents outrank generic README advice.
 
-When a README would restate a fact another document carries, link the route and avoid a second copy. Local Rasm routing intentionally keeps API catalogs, contribution workflow bodies, roadmap sequences, runbook procedures, and architecture rationale out of README files even when a generic README baseline lists adjacent sections.
+When a README would restate a fact another document carries, link the route and avoid a second copy. Local routing policy keeps API catalogs, contribution workflow bodies, roadmap sequences, runbook procedures, and architecture rationale out of README files even when a generic README baseline lists adjacent sections.
 
 README heading modes are:
 
 | [INDEX] | [SURFACE]                                  | [HEADING_MODE]  | [RULE]                                                 |
 | :-----: | :----------------------------------------- | :-------------- | :----------------------------------------------------- |
-|   [1]   | public or registry surface                 | plain H1/H2     | use names such as `# Rasm`, `## Install`, `## Usage`   |
+|   [1]   | public or registry surface                 | plain H1/H2     | use names such as `# <Repository display name>`, `## Install`, `## Usage` |
 |   [2]   | repo-internal standards-controlled surface | bracketed H1/H2 | use `# [PACKAGE_OR_DIRECTORY_NAME]`, not `# [H1][...]` |
 |   [3]   | mixed mode                                 | rejected        | choose one mode and migrate when touched               |
 
 Rejected repo-internal H1:
 
 ```markdown rejected
-# [H1][ASSAY_OPERATOR]
+# [H1][TOOL_OPERATOR]
 ```
 
 Use the boundary name directly:
 
 ```markdown conceptual
-# [ASSAY_OPERATOR]
+# [TOOL_OPERATOR]
 ```
 
 ## [4][PROFILES]
@@ -234,7 +234,7 @@ README files do not use invocation markers such as `[CRITICAL]`, `[ALWAYS]`, or 
 ## [9][STRUCTURE_RULES]
 
 Use structure where it improves scanning:
-- Status, maturity, and support: status-tagged record with `Surface`, `Status`, `Reader action`, `Exit`, `Evidence` or `Source of truth`, and `Review trigger` when the claim can drift. `Phase N`, `in progress`, and similar progress labels are invalid README status unless the row names an exit condition and routes implementation sequence to roadmap.
+- Status, maturity, and support: status-tagged record with `Surface`, `Status`, `Reader action`, `Exit`, `Evidence` or `Controlling source`, and `Review trigger` when the claim can drift. `Phase N`, `in progress`, and similar progress labels are invalid README status unless the row names an exit condition and routes implementation sequence to roadmap.
 - Entrypoints, import surfaces, and first-run command cards: lookup table or definition block, never prose that hides a key-to-effect map. Entrypoints are import surfaces, commands, executable files, public type families, or scope-local API names a reader can use or edit first; adjacent files are `Documents`, not entrypoints.
 - README tables: table use is conditional, not the default. Before a README table, name the warrant in prose: either `This table is a lookup by <key>` or `This table compares <row set> across <attributes>`. If no warrant can be stated plainly, use a definition block, grouped records, or a package/tool card.
 - Curated command surfaces: start with a compact lookup table only when the family-to-verbs map is the reader question. Put flags, examples, caveats, mutation behavior, and semantic notes in grouped command records or H3 command cards; route exhaustive generated help away.
@@ -280,10 +280,10 @@ Route-away: `<deep body content that stays out of the README>`
 The card may satisfy the profile-required fields for a small package or tool when it is denser than separate headings. It does not replace `Architecture`, `Roadmap`, `Support`, API/reference, or task documents. It gives the README one dense path into those documents without copying their bodies:
 
 ```text conceptual
-Entrypoints: `uv run python -m tools.quality`
-First command: `uv run python -m tools.quality api doctor`
-Verify: command emits one JSON Envelope and does not launch Rhino.
-Route-away: full command catalog, envelope fields, status exits, rail architecture, and operational recovery stay in reference, API, architecture, and runbook documents.
+Entrypoints: `<tool invocation>`
+First command: `<tool> <health-check-command>`
+Verify: command emits the declared machine envelope and does not touch runtime state unless stated.
+Route-away: full command catalog, envelope fields, status exits, tool architecture, and operational recovery stay in reference, API, architecture, and runbook documents.
 ```
 
 The card above is valid because the fields decide first use. Instruction files may appear in a README map only as agent instruction targets; do not list `AGENTS.md` as a package, corpus, or tool entrypoint.
@@ -348,16 +348,16 @@ Read by what you are doing, then open one child.
 
 The example is conceptual because the child set does not need a separate maintenance note. It keeps one link per child and gives each child a reason that separates it from siblings.
 
-Use this local hub-index pattern:
+Use this hub-index pattern:
 
 ```markdown conceptual
 ## [1][CHOOSE]
 
 | [INDEX] | [READ_FOR]                                                | [OPEN]                          |
 | :-----: | :-------------------------------------------------------- | :------------------------------ |
-|   [1]   | BCL, package, and host-reference posture                  | `docs/system-api-map/README.md` |
-|   [2]   | external product-library facts and local adoption posture | `docs/external-libs/README.md`  |
-|   [3]   | test-tool API facts and local rail routing                | `docs/testing-libs/README.md`   |
+|   [1]   | standard-library, runtime, and package posture            | `<runtime-reference>`           |
+|   [2]   | external dependency facts and local adoption posture      | `<dependency-reference>`        |
+|   [3]   | test-tool API facts and local gate routing                | `<test-tool-reference>`         |
 ```
 
 The row labels are reader questions, not just filenames. File-only lists route poorly when the corpus mixes API, reference, support, and strategy facts.
@@ -368,41 +368,41 @@ Reason: the rejected shape buries the route and duplicates the child page's cont
 Use this root first-path example:
 
 ````markdown conceptual
-# Rasm
+# <Repository display name>
 
-Rasm provides Rhino/GH2-aware geometry libraries and local quality rails; architecture, support, and contribution workflow live in source documents linked below.
+<Repository display name> provides one primary product surface; architecture, support, and contribution workflow live in source documents linked below.
 
 ## Install
 
 ```bash copy-safe
-uv sync
+<install command>
 ```
 
 
 ## Usage
 
 ```bash copy-safe
-uv run python -m tools.quality api doctor
+<first-use command>
 ```
 
-Verify: command prints one JSON `Envelope` and does not launch Rhino.
+Verify: command prints the declared machine envelope and leaves runtime state unchanged unless stated.
 
 ## Documentation
 
-Need: inspect local quality/API rail behavior.
-Go to: `tools/quality/README.md`
-Use when: the first command succeeds and the reader needs the command family or Envelope contract.
-Route-away: command catalog, Envelope fields, recovery, and support policy stay in tool/API/reference/runbook routes.
+Need: inspect the local tool or API behavior.
+Go to: `<tool-reference>`
+Use when: the first command succeeds and the reader needs the command family or machine contract.
+Route-away: command catalog, machine-contract fields, recovery, and support policy stay in tool/API/reference/runbook routes.
 
-Need: verify host-reference or package source truth.
-Go to: `docs/system-api-map/README.md`
-Use when: code touches `System.*`, host references, package state, or replacement APIs.
-Route-away: BCL/package tables and host API lookup stay in system-api-map routes.
+Need: inspect runtime, host, or dependency owner evidence.
+Go to: `<runtime-or-dependency-reference>`
+Use when: code touches standard-library APIs, host references, package state, or replacement APIs.
+Route-away: runtime, package, and host API lookup stay in reference routes.
 ````
 
 The example is conceptual: it shows the minimum root README path with command proof and route selection, not a universal public section set.
 
-Root README correction: a root `## Commands` section that copies static, bridge, package, deploy, publish, and verify verbs is rejected. The root may show one first command and one verification signal; command inventories belong to API/reference routes, recovery to runbook, and execution rules to `AGENTS.md`.
+Root README correction: a root `## Commands` section that copies build, runtime, packaging, deployment, publishing, and verification verbs is rejected. The root may show one first command and one verification signal; command inventories belong to API/reference routes, recovery to runbook, and execution rules to `AGENTS.md`.
 
 ## [11][BOUNDARIES]
 
@@ -448,7 +448,7 @@ Use this verification checklist by group:
 - [ ] Replacement/adoption records name the retired surface, current policy, use-now route, migration blocker, update trigger, and deeper route.
 - [ ] Route cards and package or tool entry cards appear only when they make maintained routes denser than prose.
 - [ ] Tool README command coverage stays curated; deeper generated help, API, runbook, architecture, source, and maintenance bodies are linked to their routes.
-- [ ] Package README status rows name reader action, exit, evidence or source truth, and review trigger.
+- [ ] Package README status rows name reader action, exit, evidence or controlling source, and review trigger.
 
 [FIRST_PATH_PROOF]:
 - [ ] Troubleshooting stays limited to first-run setup; operational recovery links to a runbook.

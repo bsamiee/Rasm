@@ -1,21 +1,10 @@
 # [CSCHECK_API]
 
-[IMPORTANT] Rasm pins `CsCheck` at the version pinned in `Directory.Packages.props`. Specs use `Rasm.TestKit.Spec` first; raw `Check.*` calls move into `_testkit` only after at least two specs need the same rail.
+[IMPORTANT] Specs use the project testkit first; raw `Check.*` calls move into the shared testkit only after at least two specs need the same rail.
 
-## [1][PACKAGE_TRUTH]
+## [1][CHECK_SURFACE]
 
-| [INDEX] | [FACT]                   | [VALUE]                                             |
-| :-----: | ------------------------ | --------------------------------------------------- |
-|   [1]   | Current pin              | `Directory.Packages.props`                          |
-|   [2]   | Package TFM              | `net8.0`, compatible with Rasm `net10.0` projects   |
-|   [3]   | Notable current addition | `SampleModelBasedAsync`                             |
-|   [4]   | Rasm policy              | `Spec.ForAll` owns seed/iter/time/thread precedence |
-
-[SOURCE] NuGet package page: https://www.nuget.org/packages/CsCheck
-
-## [2][CHECK_SURFACE]
-
-| [INDEX] | [API]                            | [USE]                                     | [RASM]                                          |
+| [INDEX] | [API]                            | [USE]                                     | [PROJECT_USE]                                   |
 | :-----: | -------------------------------- | ----------------------------------------- | ----------------------------------------------- |
 |   [1]   | `Check.Sample`(+Async)           | Action/predicate/classifier checks        | `Spec.ForAll`; async after consumer             |
 |   [2]   | `Check.SampleModelBased`(+Async) | Actual vs smaller model                   | Two stateful specs min.                         |
@@ -25,9 +14,9 @@
 |   [6]   | `Check.ChiSquared`               | Generator distribution audit              | Testkit gen validation only                     |
 |   [7]   | `Check.Faster`(+Async)           | Statistical perf comparison               | BenchmarkDotNet on benchmark rail               |
 
-## [3][GEN_SURFACE]
+## [2][GEN_SURFACE]
 
-| [INDEX] | [API]                                                       | [RASM_USE]                                                |
+| [INDEX] | [API]                                                       | [PROJECT_USE]                                             |
 | :-----: | ----------------------------------------------------------- | --------------------------------------------------------- |
 |   [1]   | `Gen.Select`, `SelectMany`                                  | Product axes and dependent generation.                    |
 |   [2]   | `Gen.OneOfConst`, `OneOf`, `Frequency`                      | Case tables and edge bias.                                |
@@ -38,7 +27,7 @@
 |   [7]   | `Gen.Enum<T>`, `FrequencyConst`, nullable/null generators   | Closed-set and edge-bias domains.                         |
 |   [8]   | `Gen.Operation`, `GenOperationAsync`, `GenMetamorphic`      | Stateful, async, and paired-operation laws.               |
 
-## [4][RASM_POLICY]
+## [3][PROJECT_POLICY]
 
 - `Spec.ForAll` precedence: explicit args, then `CsCheck_Seed`, `CsCheck_Iter`, `CsCheck_Time`, `CsCheck_Threads`, then package defaults.
 - `Spec.Metamorphic` currently means one generated input checked by path/oracle equality; it is not CsCheck `SampleMetamorphic`.
@@ -47,7 +36,7 @@
 - Do not promote spec-local generators until two specs share the same domain shape.
 - Use `Check.Hash` only for stable tool artifacts. Treat cache location and key shape as package-owned details unless current source inspection proves them.
 
-## [5][SHRINKING_DISCIPLINE]
+## [4][SHRINKING_DISCIPLINE]
 
 CsCheck shrinking finds the minimal counterexample by repeatedly narrowing failed inputs. Two generator patterns break shrinking:
 
@@ -74,7 +63,7 @@ public static readonly Gen<Dimension> Dimension =
 
 [SOURCE] CsCheck README on `Where` shrinking: https://github.com/AnthonyLloyd/CsCheck
 
-## [6][ENV_KNOBS]
+## [5][ENV_KNOBS]
 
 | [INDEX] | [VAR]                | [DEFAULT]       | [USE]                                                                                            |
 | :-----: | -------------------- | --------------- | ------------------------------------------------------------------------------------------------ |
@@ -85,12 +74,12 @@ public static readonly Gen<Dimension> Dimension =
 |   [5]   | `CsCheck_Replay`     | 100             | Number of times to replay a failing seed for parallel reproduction.                              |
 |   [6]   | `CsCheck_Sigma`      | 6.0             | Statistical significance for `Check.Faster`.                                                     |
 |   [7]   | `CsCheck_Timeout`    | 60              | Per-sample timeout (seconds).                                                                    |
-|   [8]   | `CsCheck_Ulps`       | 4               | Package floating equality slack; Rasm tolerance lives in `Spec.Equal` and `Approx.Equal`.        |
+|   [8]   | `CsCheck_Ulps`       | 4               | Package floating equality slack; project tolerance lives in project assertion wrappers.           |
 |   [9]   | `CsCheck_WhereLimit` | 100             | Filter rejection cap; lower → fail faster, higher → tolerate sparse-acceptance generators.       |
 
 `Spec.ForAll` precedence: explicit args > env vars > package defaults. CI policy: tune `CsCheck_Iter=1000` and `CsCheck_Time=60` for nightly extended runs; keep PR validation at defaults. `CsCheck_Replay=10` for CI, default 100 for local repro.
 
-## [7][MODEL_BASED]
+## [6][MODEL_BASED]
 
 `Check.SampleModelBased` takes `Gen<(Actual, Model)>` plus `GenOperation<Actual, Model>` operations, applies a generated operation sequence, and asserts actual/model equivalence after transitions. `SampleModelBasedAsync` uses `Gen<Task<(Actual, Model)>>` plus `GenOperationAsync<Actual, Model>`. Use when:
 
@@ -108,7 +97,7 @@ public static GenOperation<Atom<HashMap<int, int>>, Dictionary<int, int>> SetOp(
         dict => dict[key] = value);
 ```
 
-## [8][DISTRIBUTION_AUDIT]
+## [7][DISTRIBUTION_AUDIT]
 
 `Check.ChiSquared(expected, actual, sigma)` audits a generator's distribution against expected frequencies. Expected bucket counts must all be greater than `5`; expected and actual arrays must have the same length. Sigma defaults to `6`. Use when:
 
@@ -116,9 +105,9 @@ public static GenOperation<Atom<HashMap<int, int>>, Dictionary<int, int>> SetOp(
 - A factory-routed generator filters >20% of inputs — verify the surviving distribution isn't skewed away from the boundary cases the test depends on.
 - A SmartEnum case sweep with case-specific frequencies — verify rarely-fired cases still fire often enough to exercise their per-case oracle in `Spec.Cases`.
 
-Audit lives in `tests/csharp/libs/Rasm/TestKit/Gens.spec.cs` (a generator self-test), not in product spec files.
+Audit lives in the project testkit generator self-test, not in product spec files.
 
-## [9][PARALLEL_CHECKS]
+## [8][PARALLEL_CHECKS]
 
 `Gen<T>.SampleParallel` runs generated operations concurrently and asserts a linearizable history exists. `Spec.ConcurrentProfiled` wraps this and emits `Causal.Profile` output to `ITestOutputHelper`. Use for:
 
@@ -130,7 +119,7 @@ Replay `SampleParallel` failures with the emitted parallel seed, including any t
 
 [SOURCE] CsCheck causal profiling: https://github.com/AnthonyLloyd/CsCheck#parallel-sampling
 
-## [10][PERFORMANCE_ASSERTIONS]
+## [9][PERFORMANCE_ASSERTIONS]
 
 `Check.Faster(faster, slower, sigma)` compares two implementations across generated inputs and reports confidence that the first implementation is faster. Use only for:
 

@@ -220,11 +220,11 @@ The table above is a shape example. Produced ramps replace each row with local s
 
 ## [11][GENERATED_SURFACES]
 
-Add this section only when generated files, mirrors, or contracts affect the first safe action or readiness gate. Generated-surface records state the source of truth and the action boundary; they do not explain the generated format.
+Add this section only when generated files, mirrors, or contracts affect the first safe action or readiness gate. Generated-surface records state the controlling source and the action boundary; they do not explain the generated format.
 
 ```markdown template
 Surface: `<generated path, mirror, or contract>`
-Source of truth: `<generator, source path, manifest, or command>`
+Controlling source: `<generator, source path, manifest, or command>`
 Refresh route: `<command or adjacent generated-contract document>`
 Edit rule: `<read-only, regenerate only, or source-owned edits only>`
 Stop when: `<source missing, generator unavailable, output drift, or proof gap>`

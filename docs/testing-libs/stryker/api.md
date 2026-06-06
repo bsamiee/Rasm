@@ -1,38 +1,38 @@
 # [STRYKER_API]
 
-[IMPORTANT] Rasm uses `dotnet-stryker` (version pinned in `.config/dotnet-tools.json`) through `tools.quality test run --mutation changed|full`. Default `tools.quality test run` is unit-only. Stryker runs with the MTP runner against the `Rasm` project/test pair, and zero-test discovery fails the rail.
+[IMPORTANT] Use `dotnet-stryker` through the project mutation rail. The default test run stays unit-only unless the local quality router enables mutation. Zero-test discovery fails the mutation rail.
 
 ## [1][LOCAL_RAIL]
 
 | [INDEX] | [FACT]                 | [VALUE]                                                                                  |
 | :-----: | ---------------------- | ---------------------------------------------------------------------------------------- |
-|   [1]   | Tool                   | `dotnet-stryker` (version pinned in `.config/dotnet-tools.json`)                         |
+|   [1]   | Tool                   | `dotnet-stryker`                                                                         |
 |   [2]   | Tool restore           | `.config/dotnet-tools.json` through `dotnet tool restore`                                |
-|   [3]   | Project under mutation | `libs/csharp/Rasm/Rasm.csproj`                                                           |
-|   [4]   | Test project           | `tests/csharp/libs/Rasm/Rasm.Tests.csproj`                                               |
+|   [3]   | Project under mutation | `<project-under-mutation>`                                                               |
+|   [4]   | Test project           | `<test-project>`                                                                         |
 |   [5]   | Runner                 | `mtp`                                                                                    |
 |   [6]   | Output                 | `.artifacts/mutation/<slice>/<run-id>`                                                   |
 |   [7]   | Lock                   | `.artifacts/locks/mutation.lock`; live advisory contention fails fast                    |
-|   [8]   | Timeout                | `1200s` whole-process guard in `tools.quality`; Stryker owns per-mutant execution timing |
+|   [8]   | Timeout                | whole-process guard in the local quality router; Stryker owns per-mutant execution timing |
 
 ## [2][MUTATION_MODES]
 
 | [INDEX] | [MODE]    | [COMMAND]                                                    | [POLICY]                                               |
 | :-----: | --------- | ------------------------------------------------------------ | ------------------------------------------------------ |
-|   [1]   | `off`     | `uv run python -m tools.quality test run`                    | Unit-only default.                                     |
-|   [2]   | `changed` | `uv run python -m tools.quality test run --mutation changed` | Mutate changed managed files under `libs/csharp/Rasm`. |
-|   [3]   | `full`    | `uv run python -m tools.quality test run --mutation full`    | Full managed mutation with strict thresholds.          |
+|   [1]   | `off`     | `<test-runner>`                                | Unit-only default.                            |
+|   [2]   | `changed` | `<test-runner> --mutation changed`             | Mutate changed eligible managed files.        |
+|   [3]   | `full`    | `<test-runner> --mutation full`                | Full managed mutation with strict thresholds. |
 
-`list` and `coverage` do not mutate. Focused `--target` runs are unit-only unless mutation remains on the default managed Rasm pair.
+`list` and `coverage` do not mutate. Focused `--target` runs are unit-only unless mutation remains on the configured managed pair.
 
 ## [3][PARALLELISM]
 
 | [INDEX] | [RAIL]                   | [POLICY]                                         |
 | :-----: | ------------------------ | ------------------------------------------------ |
 |   [1]   | `quality static`         | Concurrent-safe through run-scoped artifacts.    |
-|   [2]   | `tools.quality test run` | MTP unit execution through run-scoped artifacts. |
+|   [2]   | local test runner        | MTP unit execution through run-scoped artifacts. |
 |   [3]   | `--mutation changed \| full`                                            | One mutation process; fail fast when advisory lock is held. |
-|   [4]   | `tools.quality bridge`   | Serial — one live Rhino endpoint.                |
+|   [4]   | runtime scenario rail    | Serial when the host exposes one live endpoint.  |
 
 Unlocked lock files are stale and reusable. The quality tool rewrites them before launching Stryker.
 
@@ -41,8 +41,8 @@ Unlocked lock files are stale and reusable. The quality tool rewrites them befor
 - Mutation score is meaningful only after non-zero test discovery; zero Stryker discovery fails the rail.
 - Target `95%` on the eligible managed slice after runner proof.
 - Enforced thresholds are `high 95 / low 90 / break 85`.
-- Classify every survivor as missing oracle, equivalent mutant, bridge-owned path, or product bug.
-- Do not mutate `libs/csharp/Rasm.Rhino`, `libs/csharp/Rasm.Grasshopper`, plugin apps, bridge tools, or `*.verify.csx`.
+- Classify every survivor as missing oracle, equivalent mutant, runtime-owned path, or product bug.
+- Do not mutate host-runtime projects, plugin apps, runtime bridge tools, or runtime scenario scripts.
 - Treat slow runs with selected mutants, timeouts, and non-zero discovery as real mutation results, not hangs.
 
 ## [5][CONFIG]
@@ -67,7 +67,7 @@ Do not convert when the cases share oracle logic and the PBT body is the more ho
 | :-----: | ----------------- | ---------------------------------------------------------------------- |
 |   [1]   | Missing oracle    | Add a Grade A/B oracle that distinguishes the mutant.                  |
 |   [2]   | Equivalent mutant | Document; do not weaken oracle.                                        |
-|   [3]   | Bridge-owned path | Add or strengthen `*.verify.csx` scenario; static spec cannot kill it. |
+|   [3]   | Runtime-owned path | Add or strengthen the runtime scenario; static spec cannot kill it.   |
 |   [4]   | Product bug       | Fix the production code; mutation revealed a real defect.              |
 
 Do not chase a survivor by adding an assertion on the mutant's behavior.

@@ -105,12 +105,12 @@ Treat reader, difficulty, tool family, and concept depth as entry context and pr
 Lead the title with the observable artifact or skill outcome, not an internal abstraction:
 
 ```markdown template
-# [VALIDATE_STANDARDS_DIFF]
+# [VALIDATE_MARKDOWN_DIFF]
 ```
 
-Accepted title: `# [VALIDATE_STANDARDS_DIFF]`
-Rejected title: `# [UNDERSTANDING_DOCUMENTATION_STANDARDS]`
-Reason: the accepted title names an artifact the lesson can produce; the rejected title names cognition, which routes to explanation. State the learning outcome as a specific capability the learner can perform: `you can validate a standards-only Markdown diff`, never `understand documentation standards`.
+Accepted title: `# [VALIDATE_MARKDOWN_DIFF]`
+Rejected title: `# [UNDERSTANDING_DOCUMENTATION_RULES]`
+Reason: the accepted title names an artifact the lesson can produce; the rejected title names cognition, which routes to explanation. State the learning outcome as a specific capability the learner can perform: `you can validate a scoped Markdown diff`, never `understand documentation rules`.
 
 ## [6][LEARNING_PATHS]
 
@@ -179,8 +179,8 @@ Order entries so each later lesson consumes a prior lesson's result. If entries 
 An end-state preview must show the final artifact, not decorate the opening. Exact output is enough when the result is textual:
 
 ```text conceptual
-Changed files: docs/standards/learning/tutorial.md
-Check: git diff --check -- docs/standards
+Changed files: <changed-document>
+Check: <validation-command>
 Result: PASS
 Next route: no path or whitespace failures
 ```
@@ -199,15 +199,15 @@ config:
     cycleBreakingStrategy: GREEDY_MODEL_ORDER
 ---
 flowchart LR
-    accTitle: EventPipeline route
-    accDescr: The completed lesson builds one EventPipeline route that validates an incoming event, writes the accepted receipt, and rejects invalid payloads before storage.
-    Event["Incoming event"] --> Validate{"Payload valid?"}
+    accTitle: Request route
+    accDescr: The completed lesson builds one request route that validates an input, writes the accepted receipt, and rejects invalid payloads before storage.
+    Input["Incoming request"] --> Validate{"Payload valid?"}
     Validate -->|yes| Receipt["accepted receipt"]
     Validate -->|no| Reject["rejected response"]
     Receipt --> Store["receipt store"]
 ```
 
-Text equivalent: the completed EventPipeline route validates an incoming event, writes an accepted receipt to storage only when the payload is valid, and returns a rejected response for invalid payloads.
+Text equivalent: the completed request route validates an incoming payload, writes an accepted receipt to storage only when the payload is valid, and returns a rejected response for invalid payloads.
 
 Reject a generic success diagram that does not prove the learner's final artifact.
 
@@ -227,10 +227,10 @@ Step records use these fields:
 State each term in the step that first needs it. Use fixed inputs, deterministic commands, and realistic unambiguous placeholder data. Defer variants to adjacent how-to or reference documents linked after completion.
 
 ```markdown conceptual
-3. Validate the standards diff.
-    Operation: `git diff --check -- docs/standards`
+3. Validate the scoped diff.
+    Operation: `<validation-command> <changed-paths>`
     Expected: the command exits 0 and prints no whitespace error lines.
-    Working state: changed standards have no whitespace errors.
+    Working state: changed Markdown has no whitespace errors.
     Notice: no output on success is the expected signal for this command.
     If wrong: a `trailing whitespace` line names the file and line to fix before continuing.
 ```
@@ -252,7 +252,7 @@ The tag rides in the step record's optional `Execution` field. Define the set in
 7. Run the configured link and anchor validation.
     Operation: `<repo-local Markdown path and anchor validation command>`
     Expected: unresolved paths or anchors are listed, or the command exits 0.
-    Working state: `git diff --check -- docs/standards` still exits 0.
+    Working state: `<validation-command>` still exits 0.
     Execution: UNVERIFIED-REQUIRES-CONFIGURED-LINK-CHECK
     If wrong: no configured checker means the proof gap stays visible instead of claiming link proof.
 ```
@@ -266,11 +266,11 @@ State `Result` as the final artifact compared against the end-state preview: ref
 ```markdown template
 ## [6][RESULT]
 
-The standards diff passes the stated end-state preview: changed Markdown has no whitespace errors and the validation gap is explicit.
+The scoped diff passes the stated end-state preview: changed Markdown has no whitespace errors and the validation gap is explicit.
 
 The result is done when these checks pass:
 - [ ] the validation result matches `What we will build`
-- [ ] `git diff --check -- docs/standards` exits 0
+- [ ] `<validation-command>` exits 0
 - [ ] another agent can reproduce the same check without the author present.
 ```
 
@@ -325,11 +325,11 @@ A learning path additionally closes lesson order and composed capability: prereq
 Use short excerpts to prove closure shape; do not publish a complete second tutorial inside the standard.
 
 Accepted done checks:
-- [ ] `git diff --check -- docs/standards` exits 0
-- [ ] the changed path set is standards-only
+- [ ] `<validation-command>` exits 0
+- [ ] the changed path set is scoped to the lesson artifact
 - [ ] any missing link or anchor checker is recorded as a proof gap.
 
-Accepted noticing sentence: Notice the lesson validates one bounded documentation path instead of teaching general Git or project contribution workflow.
+Accepted noticing sentence: Notice the lesson validates one bounded documentation path instead of teaching general Git or contribution workflow.
 Rejected example shape: a full mini-tutorial repeated inside `Execution closure`.
 Reason: title, preview, steps, result, and validation already have local examples beside their rules.
 

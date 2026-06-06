@@ -26,28 +26,28 @@ Execute Exa AI search queries via Python CLI. API key auto-injected via 1Passwor
 
 ```bash
 # Web search (default: auto type, 8 results)
-uv run .claude/skills/exa-tools/scripts/exa.py search "Vite latest features"
+uv run $CLAUDE_HOME/skills/exa-tools/scripts/exa.py search "Vite latest features"
 
 # Neural search for concepts
-uv run .claude/skills/exa-tools/scripts/exa.py search "Effect-TS best practices" neural
+uv run $CLAUDE_HOME/skills/exa-tools/scripts/exa.py search "Effect-TS best practices" neural
 
 # Fast search for quick lookups
-uv run .claude/skills/exa-tools/scripts/exa.py search "React 19 release notes" fast 15
+uv run $CLAUDE_HOME/skills/exa-tools/scripts/exa.py search "React 19 release notes" fast 15
 
 # Deep search for highest quality
-uv run .claude/skills/exa-tools/scripts/exa.py search "Nx workspace optimization" deep
+uv run $CLAUDE_HOME/skills/exa-tools/scripts/exa.py search "Nx workspace optimization" deep
 
 # Code context search (GitHub)
-uv run .claude/skills/exa-tools/scripts/exa.py code "React useState hook examples"
+uv run $CLAUDE_HOME/skills/exa-tools/scripts/exa.py code "React useState hook examples"
 
 # Code search with custom results
-uv run .claude/skills/exa-tools/scripts/exa.py code "Effect pipe examples" 20
+uv run $CLAUDE_HOME/skills/exa-tools/scripts/exa.py code "Effect pipe examples" 20
 
 # Find similar pages
-uv run .claude/skills/exa-tools/scripts/exa.py find-similar "https://effect.website/docs/guides/essentials/pipeline"
+uv run $CLAUDE_HOME/skills/exa-tools/scripts/exa.py find-similar "https://effect.website/docs/guides/essentials/pipeline"
 
 # AI answer with citations
-uv run .claude/skills/exa-tools/scripts/exa.py answer "What are the latest Vite migration considerations?"
+uv run $CLAUDE_HOME/skills/exa-tools/scripts/exa.py answer "What are the latest Vite migration considerations?"
 ```
 
 ## [3][ARGUMENTS]

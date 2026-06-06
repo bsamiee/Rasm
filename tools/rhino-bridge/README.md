@@ -302,7 +302,6 @@ Never queue live Rhino commands behind each other; a busy lease means retry late
 
 ```bash copy-safe
 uv run python -m tools.quality self-test
-pnpm check:py
 uv run pytest tests/tools/quality/test_quality.py -q
 uv run python -m tools.quality api doctor
 uv run python -m tools.quality api doctor --restore never

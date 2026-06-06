@@ -1,26 +1,15 @@
 """Command implementations for SonarCloud CLI."""
-
 from collections import Counter
-from collections.abc import Callable
-from os import environ
 from typing import Any, Final
 
-
-type JsonValue = Any
-type JsonMap = dict[str, JsonValue]
-type GetFn = Callable[[str, JsonMap], tuple[bool, JsonMap]]
-
 BASE_URL: Final = "https://sonarcloud.io/api"
-ORG: Final = environ.get("SONARCLOUD_ORG", "")
-PROJECT: Final = environ.get("SONARCLOUD_PROJECT", "")
-DEFAULT_METRICS: Final = (
-    "ncloc,coverage,bugs,vulnerabilities,code_smells,duplicated_lines_density,security_hotspots,reliability_rating,security_rating,sqale_rating"
-)
+ORG: Final = "bsamiee"
+PROJECT: Final = "bsamiee_Parametric_Portal"
+DEFAULT_METRICS: Final = "ncloc,coverage,bugs,vulnerabilities,code_smells,duplicated_lines_density,security_hotspots,reliability_rating,security_rating,sqale_rating"
 DEFAULT_STATUSES: Final = "OPEN,CONFIRMED,REOPENED"
 
-
 # --- [FUNCTIONS] --------------------------------------------------------------
-def _parse_conditions(conditions: list[JsonMap]) -> list[JsonMap]:
+def _parse_conditions(conditions: list[dict]) -> list[dict]:
     """Transform quality gate conditions into normalized format."""
     return [
         {
@@ -33,7 +22,7 @@ def _parse_conditions(conditions: list[JsonMap]) -> list[JsonMap]:
     ]
 
 
-def _summarize_issues(issues: list[JsonMap]) -> dict[str, dict[str, int]]:
+def _summarize_issues(issues: list[dict]) -> dict[str, dict[str, int]]:
     """Group issues by severity and type via Counter (no mutable accumulators)."""
     return {
         "by_severity": dict(Counter(issue.get("severity", "UNKNOWN") for issue in issues)),
@@ -41,17 +30,8 @@ def _summarize_issues(issues: list[JsonMap]) -> dict[str, dict[str, int]]:
     }
 
 
-def _config_error() -> JsonMap | None:
-    """Require explicit SonarCloud project configuration."""
-    match (bool(ORG), bool(PROJECT)):
-        case (True, True):
-            return None
-        case _:
-            return {"status": "error", "message": "Set SONARCLOUD_ORG and SONARCLOUD_PROJECT before running SonarCloud commands."}
-
-
 # --- [COMMANDS] ---------------------------------------------------------------
-def quality_gate(arg1: str, arg2: str, get_fn: GetFn) -> JsonMap:
+def quality_gate(arg1: str, arg2: str, get_fn) -> dict:
     """Quality gate status.
 
     Args:
@@ -62,12 +42,7 @@ def quality_gate(arg1: str, arg2: str, get_fn: GetFn) -> JsonMap:
     Returns:
         Quality gate result dict.
     """
-    match _config_error():
-        case dict() as error:
-            return error
-        case None:
-            pass
-    params: JsonMap = {"projectKey": PROJECT, "organization": ORG}
+    params: dict[str, Any] = {"projectKey": PROJECT, "organization": ORG}
     match (arg1, arg2):
         case ("pr", number) if number:
             params["pullRequest"] = number
@@ -88,7 +63,7 @@ def quality_gate(arg1: str, arg2: str, get_fn: GetFn) -> JsonMap:
     }
 
 
-def issues(severities: str, types: str, get_fn: GetFn) -> JsonMap:
+def issues(severities: str, types: str, get_fn) -> dict:
     """Search issues by severity and type.
 
     Args:
@@ -99,12 +74,7 @@ def issues(severities: str, types: str, get_fn: GetFn) -> JsonMap:
     Returns:
         Issues result dict with summary.
     """
-    match _config_error():
-        case dict() as error:
-            return error
-        case None:
-            pass
-    params: JsonMap = {
+    params: dict[str, Any] = {
         "componentKeys": PROJECT,
         "organization": ORG,
         "statuses": DEFAULT_STATUSES,
@@ -136,7 +106,7 @@ def issues(severities: str, types: str, get_fn: GetFn) -> JsonMap:
     }
 
 
-def measures(metrics: str, get_fn: GetFn) -> JsonMap:
+def measures(metrics: str, get_fn) -> dict:
     """Project metrics.
 
     Args:
@@ -146,12 +116,11 @@ def measures(metrics: str, get_fn: GetFn) -> JsonMap:
     Returns:
         Metrics result dict.
     """
-    match _config_error():
-        case dict() as error:
-            return error
-        case None:
-            pass
-    params = {"component": PROJECT, "organization": ORG, "metricKeys": metrics or DEFAULT_METRICS}
+    params = {
+        "component": PROJECT,
+        "organization": ORG,
+        "metricKeys": metrics or DEFAULT_METRICS,
+    }
     ok, data = get_fn("/measures/component", params)
     if not ok:
         return {"status": "error", "message": data.get("error", str(data))}
@@ -160,12 +129,13 @@ def measures(metrics: str, get_fn: GetFn) -> JsonMap:
         "project": data["component"]["key"],
         "name": data["component"]["name"],
         "metrics": {
-            measure["metric"]: measure.get("value", measure.get("period", {}).get("value", "N/A")) for measure in data["component"]["measures"]
+            measure["metric"]: measure.get("value", measure.get("period", {}).get("value", "N/A"))
+            for measure in data["component"]["measures"]
         },
     }
 
 
-def analyses(page_size: str, get_fn: GetFn) -> JsonMap:
+def analyses(page_size: str, get_fn) -> dict:
     """Analysis history.
 
     Args:
@@ -175,11 +145,6 @@ def analyses(page_size: str, get_fn: GetFn) -> JsonMap:
     Returns:
         Analysis history dict.
     """
-    match _config_error():
-        case dict() as error:
-            return error
-        case None:
-            pass
     size = int(page_size) if page_size else 10
     params = {"project": PROJECT, "organization": ORG, "ps": min(size, 100)}
     ok, data = get_fn("/project_analyses/search", params)
@@ -200,7 +165,7 @@ def analyses(page_size: str, get_fn: GetFn) -> JsonMap:
     }
 
 
-def projects(page_size: str, get_fn: GetFn) -> JsonMap:
+def projects(page_size: str, get_fn) -> dict:
     """List organization projects.
 
     Args:
@@ -210,11 +175,6 @@ def projects(page_size: str, get_fn: GetFn) -> JsonMap:
     Returns:
         Projects result dict.
     """
-    match _config_error():
-        case dict() as error:
-            return error
-        case None:
-            pass
     size = int(page_size) if page_size else 100
     params = {"organization": ORG, "ps": min(size, 500)}
     ok, data = get_fn("/projects/search", params)
@@ -228,7 +188,7 @@ def projects(page_size: str, get_fn: GetFn) -> JsonMap:
     }
 
 
-def hotspots(status: str, get_fn: GetFn) -> JsonMap:
+def hotspots(status: str, get_fn) -> dict:
     """Security hotspots.
 
     Args:
@@ -238,12 +198,12 @@ def hotspots(status: str, get_fn: GetFn) -> JsonMap:
     Returns:
         Hotspots result dict.
     """
-    match _config_error():
-        case dict() as error:
-            return error
-        case None:
-            pass
-    params: JsonMap = {"projectKey": PROJECT, "organization": ORG, "ps": 100, **({"status": status} if status else {})}
+    params: dict[str, Any] = {
+        "projectKey": PROJECT,
+        "organization": ORG,
+        "ps": 100,
+        **({"status": status} if status else {}),
+    }
     ok, data = get_fn("/hotspots/search", params)
     if not ok:
         return {"status": "error", "message": data.get("error", str(data))}

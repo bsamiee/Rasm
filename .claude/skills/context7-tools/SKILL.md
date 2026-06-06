@@ -24,19 +24,19 @@ Query Context7 library documentation. Matches MCP tool structure (resolve-librar
 
 ```bash
 # Resolve library -> see options
-uv run .claude/skills/context7-tools/scripts/context7.py resolve effect
+uv run $CLAUDE_HOME/skills/context7-tools/scripts/context7.py resolve effect
 
 # Resolve with query filter
-uv run .claude/skills/context7-tools/scripts/context7.py resolve react "server components"
+uv run $CLAUDE_HOME/skills/context7-tools/scripts/context7.py resolve react "server components"
 
 # Fetch docs for specific ID
-uv run .claude/skills/context7-tools/scripts/context7.py docs /effect-ts/effect "Services"
+uv run $CLAUDE_HOME/skills/context7-tools/scripts/context7.py docs /effect-ts/effect "Services"
 
 # Unified: resolve + docs
-uv run .claude/skills/context7-tools/scripts/context7.py lookup react "hooks"
+uv run $CLAUDE_HOME/skills/context7-tools/scripts/context7.py lookup react "hooks"
 
 # Unified: with version-specific query
-uv run .claude/skills/context7-tools/scripts/context7.py lookup vite "v7 migration guide"
+uv run $CLAUDE_HOME/skills/context7-tools/scripts/context7.py lookup vite "v7 migration guide"
 ```
 
 ## [3][ARGUMENTS]

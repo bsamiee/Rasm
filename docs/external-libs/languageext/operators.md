@@ -1,6 +1,6 @@
 # [LANGUAGEEXT_OPERATORS]
 
-[IMPORTANT] Pin **`LanguageExt.Core`** at the version pinned in `Directory.Packages.props`. Verify overload semantics in local package XML.
+[IMPORTANT] LanguageExt operator semantics come from the active `LanguageExt.Core` surface.
 
 Hand-written domain `operator +`/`|` on application types are **not** LanguageExt operators.
 
@@ -17,7 +17,7 @@ Hand-written domain `operator +`/`|` on application types are **not** LanguageEx
 
 Prefer tuple `.Apply(f)` with explicit lowering, or `Validation` `&`, when independent fields compose.
 
-`Validation<string,T>` is **not supported** — error type needs `Semigroup`/`Monoid` (use `StringM` or `Error`). Rasm forbids `Validation<Seq<Error>,T>` (`CSP0703`); see `rasm.md`.
+`Validation<string,T>` is **not supported** — error type needs `Semigroup`/`Monoid` (use `StringM` or a monoidal error type). Consumer validation error policies belong in the local posture file.
 
 ## [2][CHOICE_CATCH_FINALLY]
 
@@ -28,7 +28,7 @@ Prefer tuple `.Apply(f)` with explicit lowering, or `Validation` `&`, when indep
 |   [3]   | `Eff<RT,A>` + `Finally` | `\|`     | Run finally after main effect         |
 |   [4]   | `[Flags]` enum          | `\|`     | Bitwise OR — unrelated to LanguageExt |
 
-**Not documented as bare `Option<T> | Option<T>` alternative** in pinned XML — use `Choose`, `IfNone`, `Match`, or `Alternative` trait methods.
+**Not documented as bare `Option<T> | Option<T>` alternative** in local XML — use `Choose`, `IfNone`, `Match`, or `Alternative` trait methods.
 
 Eff recovery: **`Prelude.catch(...)`**, **`IfFailEff`**, **`IfFail`** — not unconstrained `eff1 | eff2`.
 
@@ -46,7 +46,7 @@ Schedule intersect uses **`intersect(...)`** or documented fullwidth intersect g
 
 Pair with `IO<T>.Retry(Schedule)`, `Prelude.retry` / `repeat`, or `@catch` at effect boundaries.
 
-## [4][NOT_IN_PINNED_XML]
+## [4][ABSENT_SURFACES]
 
 | [INDEX] | [CLAIM]                                              | [STATUS]                         |
 | :-----: | ---------------------------------------------------- | -------------------------------- |
@@ -58,5 +58,5 @@ Use LINQ `from..in..select` for monadic composition. **`Next.Loop`** exists for 
 
 ## [5][RULES]
 
-- Verify every operator claim against pinned `LanguageExt.Core.xml`.
+- Ground every operator claim in `LanguageExt.Core.xml`.
 - Disambiguate hand domain operators from LanguageExt and from `[Flags]`.

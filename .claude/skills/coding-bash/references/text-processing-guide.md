@@ -30,7 +30,7 @@ _require_tool rg grep && _search() { rg "$@"; } || _search() { grep -rn "$@"; }
 _require_tool fd find && _find() { fd "$@"; } || _find() { find "$@"; }
 ```
 
-**macOS (Darwin) caveats** — this repo always targets Darwin:
+**macOS (Darwin) caveats** — use when the active environment targets Darwin:
 
 | [INDEX] | [ISSUE]         | [CONSEQUENCE]                  | [FIX]                     |
 | :-----: | :-------------- | :----------------------------- | :------------------------ |

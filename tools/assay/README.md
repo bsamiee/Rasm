@@ -1,19 +1,19 @@
 # [ASSAY_OPERATOR]
 
-`tools.assay` is the new Rasm polyglot quality-operator implementation for C#, Python, TypeScript, Bash, SQL, docs, bridge, package, and API proof. It is intended to replace `tools.quality`, but current root policy still names `tools.quality` as the canonical quality route until repo manifests, aliases, and bridge/docs policy migrate.
+`tools.assay` is the new Rasm polyglot quality-operator implementation for C#, Python, TypeScript, Bash, SQL, docs, bridge, package, and API proof. It is intended to replace `tools.quality`, but current root policy still names `tools.quality` as the canonical quality route until repo manifests and bridge/docs policy migrate.
 
 ## [1][STATUS]
 
 Assay is the intended successor implementation, but it is not yet the root-canonical quality route. Treat that adoption state as the controlling constraint for every command and migration note in this README.
 
 Status: intended successor to `tools.quality`; not yet root-canonical.
-Replaces: `tools.quality` quality families and package-script quality aliases after root policy migrates.
-Current policy: `CLAUDE.md`, root `AGENTS.md`, and package aliases still route general quality work through `tools.quality`.
+Replaces: `tools.quality` quality families after root policy migrates.
+Current policy: `CLAUDE.md` and root `AGENTS.md` still route general quality work through `tools.quality`.
 Use now: use assay when working on assay itself or when explicitly validating the new operator.
 Machine contract: normal CLI invocations emit one JSON `Envelope` on stdout; diagnostics ride stderr.
 Automation: programmatic arm through `drive(trigger, action, settings)`; no registered root `watch` CLI.
-Update when: root policy, package aliases, bridge routes, or docs routes switch to `tools.assay`.
-Route-away: root migration, package-script changes, and bridge policy edits stay outside this README until explicitly in scope.
+Update when: root policy, bridge routes, or docs routes switch to `tools.assay`.
+Route-away: root migration and bridge policy edits stay outside this README until explicitly in scope.
 
 Migration from `tools.quality` is semantic, not a blind command rename:
 
@@ -368,7 +368,7 @@ Maintainer flow for surgical additions:
 
 1. Start from the operator action, then trace the existing path through `REGISTRY`, the rail params, routing, `Tool`, `Check`, engine execution, fold, envelope, and artifacts.
 2. Extend the first owner in that path that actually owns the new behavior. Examples: argv-tail placement belongs in routing, process/cwd/env/staging belongs in the engine plus `Tool`, cache and artifact roots belong in settings/store, and output shape belongs in model/fold/envelope.
-3. Keep the behavior in one reusable shape. Do not add a per-tool process wrapper, package-script alias, rail-local cwd patch, or parallel config object when the existing row, model, rail, or engine can express it.
+3. Keep the behavior in one reusable shape. Do not add a per-tool process wrapper, rail-local cwd patch, or parallel config object when the existing row, model, rail, or engine can express it.
 4. Prove the owner boundary directly: catalog rows prove selection, engine tests prove execution policy, rail tests prove eligibility/routing, and README updates prove operator action only when the command surface changes.
 
 README validation for this document:

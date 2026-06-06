@@ -1,6 +1,6 @@
 # [DOCUMENTATION_STANDARDS]
 
-This folder is the active standards library and router for Rasm documentation. Start here to classify the reader need, pick the document type, and route each rule to its owner. This index is the root route map for the library. Standards link back only at boundaries or when a neighboring rule changes author action.
+This folder is the active standards library and router for documentation. Start here to classify the reader need, pick the document type, and route each rule to its owner. This index is the root route map for the library. Standards link back only at boundaries or when a neighboring rule changes author action.
 
 ## [1][USE_WHEN]
 
@@ -25,7 +25,7 @@ Separate rule authority from claim evidence.
 [CLAIM_EVIDENCE]:
 - [proof.md](proof.md) controls evidence strength, freshness, conflict handling, proof gaps, and docs-as-code gates.
 - Current repository source, manifests, generated contracts, and runnable tool output prove present-tense repository claims.
-- [../usage.md](../usage.md) applies only when the change involves cross-stack owner precedence, implementation proof, host-library routing, or command/tooling claims outside this standards corpus.
+- The project-declared implementation-proof owner applies only when the change involves cross-stack owner precedence, implementation proof, host-library routing, or command/tooling claims outside this standards corpus.
 - Maintained upstream, product, provider, or specification sources apply only where the owning standard requires them.
 
 Current repository truth proves current facts; it does not weaken future-facing standards.
@@ -202,7 +202,7 @@ These anti-patterns fall into three groups:
 
 - Shared standards carry cross-cutting rules; this README only routes readers to them.
 - Type standards carry artifact-specific structure; this README only chooses the primary type.
-- [../usage.md](../usage.md) carries cross-stack implementation precedence and proof order outside the standards library.
+- The project-declared implementation-proof owner carries cross-stack implementation precedence and proof order outside the standards library.
 - [AGENTS.md](AGENTS.md) carries local agent routing, read scope, audit contracts, and close checks for edits inside this folder.
 
 ## [14][VALIDATION]
@@ -224,7 +224,7 @@ Use this verification checklist by axis. Command, link, anchor, renderer, and do
 
 [EVIDENCE]:
 - [ ] Claim evidence and rule authority stay separate.
-- [ ] Cross-stack proof routes to [../usage.md](../usage.md) only for its scoped cases.
+- [ ] Cross-stack proof routes to the project-declared implementation-proof owner only for its scoped cases.
 
 [NOTATION]:
 - [ ] Shared-standard counts, route labels, and folder inventories use consistent notation.

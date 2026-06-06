@@ -243,7 +243,7 @@ Status check: <artifact or check location from repository truth>
 Escalation path: <source, command, artifact, or procedure required for triage>
 Residual risk if deferred: <risk left unproven>
 Evidence: <status check, report artifact, generated receipt, or review record>
-Source of truth: <runner config, workflow, quality tool, generated contract, or maintained policy>
+Controlling source: <runner config, workflow, quality tool, generated contract, or maintained policy>
 Review trigger: <gate, runner, status check, support target, risk tier, or contract change>
 ```
 
@@ -438,7 +438,7 @@ Use this verification checklist by group:
 - [ ] The risk model states the scoring scale in use, tier buckets, tier-to-gate mapping, and risk-register link.
 - [ ] Each High or Extreme register risk back-links to the level or gate that covers it.
 - [ ] Each test level carries purpose, risk, size, scope, hermeticity and CI eligibility, diagnosis path, budget, isolation, artifacts, and trigger.
-- [ ] Each gate carries closed-vocabulary trigger, selection rule, blocking behavior, status check or artifact, escalation path, residual risk, evidence, source of truth, and review trigger.
+- [ ] Each gate carries closed-vocabulary trigger, selection rule, blocking behavior, status check or artifact, escalation path, residual risk, evidence, controlling source, and review trigger.
 - [ ] Deferred gates state the risk that remains unproven.
 
 [PROOF_REPAIR]:

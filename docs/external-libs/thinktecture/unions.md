@@ -17,7 +17,7 @@ Use generated `Switch` and `Map` directly. Prefer state-threaded overloads and `
 
 State-threaded dispatch: `[Union(SwitchMapStateParameterName = "…")]` — see `union-attributes.md` §1.
 
-Project-specific union SelfOp policy: see `rasm.md` §4.
+Local union SelfOp policy: see `rasm.md` §4.
 
 ## [3][BOUNDARIES]
 

@@ -9,6 +9,7 @@ description: >-
 ---
 
 # [H1][CODING-PYTHON]
+>**Dictum:** *Python expression style, type discipline, and module organization govern all Python work.*
 
 All code follows six governing principles:
 - **Polymorphic** — one entrypoint per concern, generic over specific, extend over duplicate
@@ -61,7 +62,7 @@ All code follows six governing principles:
 - `@effect.result` / `@effect.async_result` generators for branching compositions.
 - `.or_else_with(fn)` for error recovery at composition boundaries — never inside `@effect.result` generators.
 - Boundary adapters may use required statement forms only with analyzer-governed metadata:
-  `# RASM_BOUNDARY_EXEMPTION: rule=PYS0001 reason=<reason> ticket=<ID> expires=<YYYY-MM-DD> rationale=<text>`.
+  `# NOESIS_BOUNDARY_EXEMPTION: rule=PYS0001 reason=<reason> ticket=<ID> expires=<YYYY-MM-DD> rationale=<text>`.
 
 **Error handling**
 - `@tagged_union` error variants for file-internal errors — never exported, never cross module boundaries.
@@ -124,9 +125,9 @@ All code follows six governing principles:
 
 ## PEP Enforcement Map
 
-Rasm treats PEP 8 and PEP 257 as a floor, not the house style. Ruff format/check enforces mechanical consistency, while repo doctrine intentionally diverges where the local standard is stricter or more explicit: 120-column code, semantic section separators, Google docstrings, typed `Result`/`Option` error channels, and expression-first domain transforms.
+Noesis treats PEP 8 and PEP 257 as a floor, not the house style. Ruff format/check enforces mechanical consistency, while repo doctrine intentionally diverges where the local standard is stricter or more explicit: 120-column code, semantic section separators, Google docstrings, typed `Result`/`Option` error channels, and expression-first domain transforms.
 
-| PEP                 | Rasm position                                           | Enforcement surface                                                     |
+| PEP                 | Noesis position                                           | Enforcement surface                                                     |
 | ------------------- | --------------------------------------------------------- | ----------------------------------------------------------------------- |
 | PEP 484 / 544       | Static typing and Protocol-first ports are mandatory      | ty all-error, strict mypy, Ruff `ANN`/`TCH`/banned `ABC` APIs           |
 | PEP 585 / 604       | Built-in generics and `T \| None` syntax only for absence | Ruff modernization rules, banned `typing.Optional` APIs                 |
@@ -135,20 +136,20 @@ Rasm treats PEP 8 and PEP 257 as a floor, not the house style. Ruff format/check
 | PEP 649 / 749       | Deferred annotation semantics are respected               | ast-grep bans direct `__annotations__` access                            |
 | PEP 695 / 696       | `type` aliases and type parameter defaults are canonical  | Ruff bans `TypeAlias`, `TypeVar`, `ParamSpec`, `TypeVarTuple`           |
 | PEP 742             | `TypeIs` required for complement-safe boundary narrowing  | Ruff bans `TypeGuard`; type gates and review validate predicates        |
-| PEP 517/518/621/639 | Packaging metadata stays standards-valid                  | `validate-pyproject[all]` in `check:py`                                  |
+| PEP 517/518/621/639 | Packaging metadata stays standards-valid                  | `uv run validate-pyproject pyproject.toml`                                |
 
-Python 3.15-only PEPs remain non-enforced until the baseline moves beyond 3.14: PEP 728, PEP 747, PEP 800, PEP 810, and PEP 814. Do not enforce these in Ruff, ty, mypy, py-analyzer, or ast-grep while `target-version = "py314"`.
+Python 3.15-only PEPs remain non-enforced until the baseline moves beyond 3.14: PEP 728, PEP 747, PEP 800, PEP 810, and PEP 814. Do not enforce these in Ruff, ty, mypy, repo semantic analyzers, or ast-grep while `target-version = "py314"`.
 
-Semantic enforcement uses the LibCST `tools.py_analyzer` gate for `PYS0001`-`PYS0010`: domain imperative flow, boundary exemption metadata, primitive public signatures, fallible return rails, single-use private functions, duplicate model shapes, rail escape, model immutability, mutable model fields, and recovery inside effect builders. ast-grep remains syntax-only: direct `__annotations__`, `typing.no_type_check`, helper imports, and helper filenames.
+Semantic enforcement uses the repo-configured LibCST gate for domain imperative flow, boundary exemption metadata, primitive public signatures, fallible return rails, single-use private functions, duplicate model shapes, rail escape, model immutability, mutable model fields, and recovery inside effect builders. ast-grep remains syntax-only: direct `__annotations__`, `typing.no_type_check`, helper imports, and helper filenames.
 
 
 ## Validation gate
 
-- Required during iteration: `pnpm check:py`.
-- Required for final completion: run every impacted language gate explicitly; for shared standards/tooling, run `pnpm check:ts`, `pnpm check:py`, and `uv run python -m tools.quality static build`.
+- Required during iteration: run the scoped Python gate directly: Ruff format/check, ty, mypy where configured, semantic analyzer, and focused pytest for touched Python surfaces.
+- Required for final completion: run every impacted language gate explicitly; use the target repo's documented quality rail for cross-language/tooling changes.
 - Reject completion when load order, contracts, or checks are not satisfied.
-- Python tool posture is Ruff + ty first; mypy is a configured secondary gate in this repo.
-- Repo-specific semantic posture is `uv run python -m tools.py_analyzer check --root . --format text`.
+- Python tool posture is Ruff + ty first; mypy is a configured secondary gate when declared.
+- Local semantic posture comes from the declared semantic analyzer, when configured.
 - Examples inside this skill are executable doctrine: no unjustified `type: ignore`, no unmarked `cast`, no `.or_else_with` recovery inside `@effect.result` generators, and `case _ as unreachable: assert_never(unreachable)` for closed domains.
 
 ## Skill eval prompts
@@ -157,7 +158,7 @@ Semantic enforcement uses the LibCST `tools.py_analyzer` gate for `PYS0001`-`PYS
 - Implicit invocation: "Review this Python service for ty/Ruff issues, monadic error handling, and helper drift."
 - Noisy context: "Ignore the product notes and only audit the Python serialization boundary."
 - Negative control: "Write only SQL DDL." Expected: do not invoke Python references unless Python code appears.
-- Compliance checks: output should load only relevant references, avoid command thrash, avoid new helper files, preserve Result/Option doctrine, and run `pnpm check:py` or narrower Ruff/ty gates when code is touched.
+- Compliance checks: output should load only relevant references, avoid command thrash, avoid new helper files, preserve Result/Option doctrine, and run scoped Ruff/ty/mypy/analyzer/pytest gates when code is touched.
 
 
 ## First-class libraries

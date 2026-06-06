@@ -29,8 +29,8 @@
 
 - Distinguish in-box BCL from platform packages that still need an explicit `PackageReference` on first consumer (`packages.md` §1).
 - Keep unadopted packages out of active guidance until a measured consumer lands.
-- Verify RhinoWIP/GH2 APIs with local XML or decompile before public docs.
-- Reconcile package graph edits with `packages.md` and affected `docs/external-libs/**/api.md` version pins.
+- Use local XML or decompile evidence for RhinoWIP/GH2 API claims in public docs.
+- Reconcile package graph edits with `packages.md` and affected `docs/external-libs/**/api.md` guidance.
 
 ## [4][TEST_CONSUMERS]
 

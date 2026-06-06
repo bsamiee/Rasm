@@ -25,22 +25,22 @@ Execute Perplexity AI queries via Python CLI. API key auto-injected via 1Passwor
 
 ```bash
 # Quick question with citations (lightweight)
-uv run .claude/skills/perplexity-tools/scripts/perplexity.py ask "What is Effect-TS?"
+uv run $CLAUDE_HOME/skills/perplexity-tools/scripts/perplexity.py ask "What is Effect-TS?"
 
 # Pro question with deeper retrieval
-uv run .claude/skills/perplexity-tools/scripts/perplexity.py pro "Compare the current Vite release with Turbopack bundling strategies"
+uv run $CLAUDE_HOME/skills/perplexity-tools/scripts/perplexity.py pro "Compare the current Vite release with Turbopack bundling strategies"
 
 # Deep research (10min timeout)
-uv run .claude/skills/perplexity-tools/scripts/perplexity.py research "React 19 new features"
+uv run $CLAUDE_HOME/skills/perplexity-tools/scripts/perplexity.py research "React 19 new features"
 
 # Deep research, strip thinking tags
-uv run .claude/skills/perplexity-tools/scripts/perplexity.py research "Vite migration guide" strip
+uv run $CLAUDE_HOME/skills/perplexity-tools/scripts/perplexity.py research "Vite migration guide" strip
 
 # Reasoning task
-uv run .claude/skills/perplexity-tools/scripts/perplexity.py reason "Compare Effect vs RxJS"
+uv run $CLAUDE_HOME/skills/perplexity-tools/scripts/perplexity.py reason "Compare Effect vs RxJS"
 
 # Web search with max results
-uv run .claude/skills/perplexity-tools/scripts/perplexity.py search "Nx 22 features" 5
+uv run $CLAUDE_HOME/skills/perplexity-tools/scripts/perplexity.py search "Nx 22 features" 5
 ```
 
 ## [3][ARGUMENTS]

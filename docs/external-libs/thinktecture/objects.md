@@ -7,7 +7,7 @@
 | [INDEX] | [CAPABILITY]             | [RULE]                                                                                 |
 | :-----: | ------------------------ | -------------------------------------------------------------------------------------- |
 |   [1]   | Factory generation       | Use generated `Create`, `TryCreate`, `Validate`, or configured factory names directly. |
-|   [2]   | Custom validation errors | Convert generator errors once into Rasm `Error` or `Fault`.                            |
+|   [2]   | Custom validation errors | Convert generator errors once into the domain error rail.                              |
 |   [3]   | Comparers                | Put string comparison policy on the generated declaration.                             |
 |   [4]   | Conversion operators     | Enable only when interop removes boundary noise.                                       |
 |   [5]   | Arithmetic operators     | Use only where failure cannot be hidden.                                               |
@@ -28,7 +28,7 @@ Use complex value objects for normalized ranges, sample windows, tolerance bundl
 
 ## [3][DANGEROUS_OPTIONS]
 
-| [INDEX] | [OPTION]                                | [RASM_POLICY]                                             |
+| [INDEX] | [OPTION]                                | [DOMAIN_RULE]                                             |
 | :-----: | --------------------------------------- | --------------------------------------------------------- |
 |   [1]   | `SkipFactoryMethods`                    | Rare custom-rail choice; document lost generated surface. |
 |   [2]   | `AllowDefaultStructs`                   | Boundary-only; default values often hide invalid state.   |
@@ -39,12 +39,12 @@ Use complex value objects for normalized ranges, sample windows, tolerance bundl
 
 - Generated validation admits or rejects raw values.
 - LanguageExt carries failure through `Fin<T>` or `Validation<Error,T>`.
-- Rhino/GH/MathNet projections preserve native validity and tolerance in error detail.
+- Native projections preserve validity and tolerance in error detail.
 - Do not wrap generated factories in single-call helpers.
 
 ## [5][V10_SHAPE]
 
-`Directory.Packages.props` pins the `Thinktecture.Runtime.Extensions` version. Verify hard shape constraints with `uv run python -m tools.quality api query Thinktecture.Runtime.Extensions <symbol>`:
+Hard shape constraints:
 
 - `[ComplexValueObject]` requires `partial class` OR `partial struct` — **never** `record` or `record struct` (generator doubles emitted members).
 - Properties are `{ get; }` only — no `{ get; init; }`, no positional record params.

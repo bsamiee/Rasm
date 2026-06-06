@@ -78,30 +78,30 @@ Omit a conditional section when the condition is absent. Do not publish empty pl
 A minimal how-to still carries the full outcome path. Use a compact skeleton when the task is small rather than adding placeholder sections:
 
 ```markdown conceptual
-# [VALIDATE_STANDARDS_MARKDOWN]
+# [VALIDATE_MARKDOWN_CHANGE]
 
 ## [1][GOAL]
 
-Validate a standards-only Markdown change so the proof record names whitespace safety and any link-check gap.
+Validate one scoped Markdown change so the proof record names whitespace safety and any link-check gap.
 
 ## [2][PROCEDURE]
 
-1. In the repository root, list the standards changes.
-    Operation: `git status --short -- docs/standards`
+1. In the repository root, list the scoped changes.
+    Operation: `git status --short -- <changed-paths>`
     Expected result: only intended Markdown standards files appear.
     If code files appear, stop and split the change before validating it as docs-only.
 2. Check patch safety and whitespace.
-    Operation: `git diff --check -- docs/standards`
+    Operation: `git diff --check -- <changed-paths>`
     Expected result: the command exits 0 and prints no whitespace error lines.
     If the command reports a file and line, fix that line and rerun the check.
 
 ## [3][VERIFICATION]
 
-- [ ] `git status --short -- docs/standards` shows only the intended standards files.
-- [ ] `git diff --check -- docs/standards` exits 0.
+- [ ] `git status --short -- <changed-paths>` shows only the intended files.
+- [ ] `git diff --check -- <changed-paths>` exits 0.
 - [ ] Any missing configured link or anchor checker is stated as a proof gap.
 
-Evidence: `git diff --check -- docs/standards`; local path and anchor validation result or explicit proof gap.
+Evidence: `git diff --check -- <changed-paths>`; local path and anchor validation result or explicit proof gap.
 ```
 
 The skeleton uses a checklist because two independent outcome conditions must hold. A single-condition `Verification` may be a short proof statement with `Evidence:` beside it; do not force a one-item checklist.
@@ -141,8 +141,8 @@ State what the reader confirms, not how they obtain it; route environment setup 
 ```markdown conceptual
 Access: repository checkout with docs-edit permission
 Target context: repository root at `<repo-root>`
-Tools: Git plus repository Python environment for `uv run python -m tools.quality`
-Prepared artifact: standards-only Markdown diff under `docs/standards/`
+Tools: Git plus repository-local validation environment
+Prepared artifact: document-only diff under `<docs-path>`
 ```
 
 ## [8][PROCEDURE_RULES]
@@ -166,15 +166,15 @@ A step that uses a command should bind operation, expected result, and next cond
 
 ```markdown conceptual
 1. In the repository root, check the reviewed diff.
-    Operation: `git diff --check -- docs/standards`
+    Operation: `git diff --check -- <changed-paths>`
     Expected result: the command exits 0 and prints no whitespace error lines.
     If a file and line are reported, fix that line before rerunning.
 ```
 
 Use a fenced command only when the command is multi-line, copy-safe as written, or clearer outside the step record. Include a rejected near-miss only when it prevents a likely material error:
-Accepted command: `git diff --check -- docs/standards`
+Accepted command: `git diff --check -- <changed-paths>`
 Rejected near-miss: `git diff --check`
-Reason: the accepted command scopes validation to the reviewed standards path; the rejected command can report unrelated workspace drift.
+Reason: the accepted command scopes validation to the reviewed path; the rejected command can report unrelated workspace drift.
 
 For a forking procedure, use prose or a numbered branch first. Use a decision table when independent conditions jointly choose an action; use Mermaid only when branch sequence and rejoin are harder to follow as steps or a decision table.
 
@@ -195,7 +195,7 @@ Render `Verification` as a checklist when the outcome carries several independen
 ```markdown conceptual
 ## [3][VERIFICATION]
 
-- [ ] `git diff --check -- docs/standards` exits 0.
+- [ ] `git diff --check -- <changed-paths>` exits 0.
 - [ ] Local path and anchor validation passes, or the missing checker is recorded as a proof gap.
 ```
 
@@ -209,7 +209,7 @@ For a state-changing task, give `Rollback` the reverse action, its expected resu
 ```markdown conceptual
 Reverse action: revert the edited Markdown section in the same patch.
 Expected result: the previous rendered section text and links are restored.
-Verification: `git diff --check -- docs/standards` exits 0 after the revert.
+Verification: `<validation-command>` exits 0 after the revert.
 ```
 
 ```markdown conceptual
@@ -220,7 +220,7 @@ Recovery route: use the publication rollback runbook if the published artifact i
 A how-to guide claims a path works, so the path must have been run or its gaps stated. Use the proof labels from [proof.md](../proof.md) beside the affected step or outcome:
 
 ```markdown conceptual
-Evidence: `git diff --check -- docs/standards` ran against the documented path set; local path and anchor validation passed or the proof gap was recorded.
+Evidence: `<validation-command>` ran against the documented path set; local path and anchor validation passed or the proof gap was recorded.
 Last verified: 2026-06-04
 ```
 
@@ -238,7 +238,7 @@ Render each entry as a `### [N.M][SYMPTOM]` H3 whose body carries the fields one
 ```markdown conceptual
 ### [N.M][TARGET_NOT_FOUND]
 
-Signal: unresolved anchor is reported for `docs/standards/reference/api.md#generated-library-reference`
+Signal: unresolved anchor is reported for `<doc-path>#<expected-anchor>`
 Cause: the heading label changed without updating the in-repo link.
 Recovery: update the link target or restore the heading anchor, then rerun local path and anchor validation.
 ```

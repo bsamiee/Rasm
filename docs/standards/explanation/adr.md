@@ -235,7 +235,7 @@ Confirmation surface: <accepted-status diagram, codemap, generated contract, man
 Disposition evidence: <rejection rationale, retirement proof, or supersession link>
 Evidence: <source path, generated artifact, command, review record, or maintained policy>
 Generated from: <generator, command, or source model>
-Source of truth: <contract, manifest, ADR, design, support row, or architecture path>
+Controlling source: <contract, manifest, ADR, design, support row, or architecture path>
 Last verified: YYYY-MM-DD
 Review trigger: <contract, manifest, architecture, support, gate, or supersession change that makes the receipt stale>
 ```

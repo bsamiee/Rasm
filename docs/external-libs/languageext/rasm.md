@@ -61,4 +61,4 @@ GH extensions (`AcceptPoint`, `AcceptRect`, `Attempt`) live in `Rasm.Grasshopper
 - Do not create helper wrappers around `Fin`, `Validation`, `Eff`, `Seq`, or `Schedule`.
 - Do not add service-location or container doctrine to Rasm effect code.
 - Do not make current implementation symbols canonical doc truth.
-- Do not document unused LanguageExt package families without a pinned consumer.
+- Do not document unused LanguageExt package families without an active consumer.

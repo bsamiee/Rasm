@@ -14,7 +14,7 @@
 |   [6]   | Shared framework         | API in-box on net10.0; no `PackageReference` required.                                 |
 |   [7]   | Platform package         | API ships as a platform package; explicit `PackageReference` only on first consumer.   |
 |   [8]   | Local tool manifest      | Version lives in `.config/dotnet-tools.json`; not an MSBuild package.                  |
-|   [9]   | Central pre-consumer pin | Central version exists, but no project references the package yet.                     |
+|   [9]   | Central pre-consumer entry | Central package state exists, but no project references the package yet.             |
 
 ## [2][CURRENT]
 
@@ -56,7 +56,7 @@ Owner-local platform manuals may name future package candidates, but `Directory.
 |   [3]   | `Rasm.Persistence` | Microsoft.Data.Sqlite, EF Core SQLite, MessagePack compact snapshots.                                           |
 |   [4]   | `Rasm.Compute`     | System.Numerics.Tensors, ML.NET named-model lane, gRPC client for companion compute.                            |
 
-[CRITICAL] Candidate does not mean pinned, restored, loaded, or runtime-proven. Central pre-consumer pins are pinned but not active in a project until a project references them. AppUi package references restore/build, but runtime embedding still needs host evidence.
+[CRITICAL] Candidate does not mean restored, loaded, or runtime-proven. Central pre-consumer entries are not active in a project until a project references them. AppUi package references restore/build, but runtime embedding still needs host evidence.
 
 ## [4][BUILD_AND_ANALYZERS]
 

@@ -104,44 +104,44 @@ Invokes gh CLI commands through Python wrapper.
 
 ```bash
 # Zero-arg commands
-uv run .claude/skills/github-tools/scripts/gh.py issue-list
-uv run .claude/skills/github-tools/scripts/gh.py pr-list
-uv run .claude/skills/github-tools/scripts/gh.py run-list
-uv run .claude/skills/github-tools/scripts/gh.py workflow-list
-uv run .claude/skills/github-tools/scripts/gh.py label-list
-uv run .claude/skills/github-tools/scripts/gh.py release-list
-uv run .claude/skills/github-tools/scripts/gh.py repo-view
-uv run .claude/skills/github-tools/scripts/gh.py discussion-category-list
+uv run $CLAUDE_HOME/skills/github-tools/scripts/gh.py issue-list
+uv run $CLAUDE_HOME/skills/github-tools/scripts/gh.py pr-list
+uv run $CLAUDE_HOME/skills/github-tools/scripts/gh.py run-list
+uv run $CLAUDE_HOME/skills/github-tools/scripts/gh.py workflow-list
+uv run $CLAUDE_HOME/skills/github-tools/scripts/gh.py label-list
+uv run $CLAUDE_HOME/skills/github-tools/scripts/gh.py release-list
+uv run $CLAUDE_HOME/skills/github-tools/scripts/gh.py repo-view
+uv run $CLAUDE_HOME/skills/github-tools/scripts/gh.py discussion-category-list
 
 # With positional args
-uv run .claude/skills/github-tools/scripts/gh.py issue-list closed 50
-uv run .claude/skills/github-tools/scripts/gh.py issue-view 42
-uv run .claude/skills/github-tools/scripts/gh.py issue-create "Bug report" "Details here"
-uv run .claude/skills/github-tools/scripts/gh.py issue-comment 42 "This is a comment"
-uv run .claude/skills/github-tools/scripts/gh.py issue-close 42
-uv run .claude/skills/github-tools/scripts/gh.py issue-pin 42
+uv run $CLAUDE_HOME/skills/github-tools/scripts/gh.py issue-list closed 50
+uv run $CLAUDE_HOME/skills/github-tools/scripts/gh.py issue-view 42
+uv run $CLAUDE_HOME/skills/github-tools/scripts/gh.py issue-create "Bug report" "Details here"
+uv run $CLAUDE_HOME/skills/github-tools/scripts/gh.py issue-comment 42 "This is a comment"
+uv run $CLAUDE_HOME/skills/github-tools/scripts/gh.py issue-close 42
+uv run $CLAUDE_HOME/skills/github-tools/scripts/gh.py issue-pin 42
 
-uv run .claude/skills/github-tools/scripts/gh.py pr-view 99
-uv run .claude/skills/github-tools/scripts/gh.py pr-create "Feature" "Description" main
-uv run .claude/skills/github-tools/scripts/gh.py pr-merge 99
-uv run .claude/skills/github-tools/scripts/gh.py pr-review 99 APPROVE "LGTM"
-uv run .claude/skills/github-tools/scripts/gh.py pr-edit 99 "New Title"
+uv run $CLAUDE_HOME/skills/github-tools/scripts/gh.py pr-view 99
+uv run $CLAUDE_HOME/skills/github-tools/scripts/gh.py pr-create "Feature" "Description" main
+uv run $CLAUDE_HOME/skills/github-tools/scripts/gh.py pr-merge 99
+uv run $CLAUDE_HOME/skills/github-tools/scripts/gh.py pr-review 99 APPROVE "LGTM"
+uv run $CLAUDE_HOME/skills/github-tools/scripts/gh.py pr-edit 99 "New Title"
 
-uv run .claude/skills/github-tools/scripts/gh.py run-list 10
-uv run .claude/skills/github-tools/scripts/gh.py run-view 12345
-uv run .claude/skills/github-tools/scripts/gh.py run-logs 12345 failed
-uv run .claude/skills/github-tools/scripts/gh.py workflow-run ci.yml main
+uv run $CLAUDE_HOME/skills/github-tools/scripts/gh.py run-list 10
+uv run $CLAUDE_HOME/skills/github-tools/scripts/gh.py run-view 12345
+uv run $CLAUDE_HOME/skills/github-tools/scripts/gh.py run-logs 12345 failed
+uv run $CLAUDE_HOME/skills/github-tools/scripts/gh.py workflow-run ci.yml main
 
-uv run .claude/skills/github-tools/scripts/gh.py search-repos "nx monorepo" 10
-uv run .claude/skills/github-tools/scripts/gh.py search-code "dispatch table" 10
+uv run $CLAUDE_HOME/skills/github-tools/scripts/gh.py search-repos "nx monorepo" 10
+uv run $CLAUDE_HOME/skills/github-tools/scripts/gh.py search-code "dispatch table" 10
 
-uv run .claude/skills/github-tools/scripts/gh.py project-view 1
-uv run .claude/skills/github-tools/scripts/gh.py project-item-list 1
+uv run $CLAUDE_HOME/skills/github-tools/scripts/gh.py project-view 1
+uv run $CLAUDE_HOME/skills/github-tools/scripts/gh.py project-item-list 1
 
-uv run .claude/skills/github-tools/scripts/gh.py discussion-list
-uv run .claude/skills/github-tools/scripts/gh.py discussion-view 5
+uv run $CLAUDE_HOME/skills/github-tools/scripts/gh.py discussion-list
+uv run $CLAUDE_HOME/skills/github-tools/scripts/gh.py discussion-view 5
 
-uv run .claude/skills/github-tools/scripts/gh.py api "/repos/{owner}/{repo}/issues" GET
+uv run $CLAUDE_HOME/skills/github-tools/scripts/gh.py api "/repos/{owner}/{repo}/issues" GET
 ```
 
 ## [3][OUTPUT]

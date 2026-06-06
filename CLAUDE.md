@@ -147,7 +147,7 @@ Three orthogonal rails: static analysis, unit tests, runtime verification. Each 
 
 ## [6][FILE_ORGANIZATION]
 
-[IMPORTANT] **Section separators**: language comment marker + space + `---` + bracketed UPPERCASE label with spaces replaced by `_` + dash fill to 90 columns.
+[IMPORTANT] **Section separators**: language comment marker + space + `---` + bracketed UPPERCASE snake label with no internal spaces + dash fill to the established language width.
 
 ```typescript
 // --- [TYPES] ---------------------------------------------------------------------------
@@ -161,12 +161,14 @@ Three orthogonal rails: static analysis, unit tests, runtime verification. Each 
 // --- [SERVICES] ------------------------------------------------------------------------
 ```
 
-**Canonical order** (omit unused): `TYPES` -> `MODELS` -> `CONSTANTS` -> `ERRORS` -> `SERVICES` -> `OPERATIONS` -> `COMPOSITION` -> `EXPORTS`.
+**Canonical order** (omit unused): `TYPES` -> `CONSTANTS` -> `MODELS` -> `ERRORS` -> `SERVICES` -> `OPERATIONS` -> `COMPOSITION` -> `EXPORTS` 
+
+`[RUNTIME_PRELUDE]` may precede the canonical order only for imports, shebangs, strict modes, session setup, and load gates.
 
 **Core Sections**:
-- `[TYPES]`: type aliases, inferred types, protocols/interfaces, discriminated unions.
-- `[MODELS]`: runtime schemas, records/classes, value objects, DTOs, table/domain models.
-- `[CONSTANTS]`: immutable vocabularies, policies, schedules, config anchors, lookup tables.
+- `[TYPES]`: type aliases, inferred types, protocols/interfaces, enums, discriminated unions, generated algebraic owners, value-object declarations.
+- `[CONSTANTS]`: dependency-free immutable anchors, caps, suffixes, primitive policies, schedules, and static literals.
+- `[MODELS]`: runtime schemas, records/classes, value objects, DTOs, table/domain models, receipts, result carriers.
 - `[ERRORS]`: typed error rails, tagged failures, domain failure policies.
 - `[SERVICES]`: service contracts, dependency surfaces, application/service classes.
 - `[OPERATIONS]`: pure transforms, effect/result pipelines, algorithms, repository operations.
@@ -174,8 +176,24 @@ Three orthogonal rails: static analysis, unit tests, runtime verification. Each 
 - `[EXPORTS]`: named exports, `__all__`, or language-equivalent public surface declarations.
 
 [IMPORTANT]:
-- [ALWAYS] Prefer concept discovery order from stable declarations to composition.
+- [ALWAYS] Apply ordering as `section` -> `owner block` -> `runtime/declaration dependency` -> `semantic rank` -> `smaller-to-larger` -> `alphabetical`.
+- [ALWAYS] Prefer concept discovery order from stable declarations to composition: vocabulary, constants, models, failures, services, operations, wiring, exports.
+- [ALWAYS] Treat one generated type, smart enum, value object, schema/model family, wire model family, kernel, registry, catalog, table, dispatcher, query family, or composition root as an owner block; sort inside the owner instead of flattening its members into unrelated top-level sections.
+- [ALWAYS] Keep dependency clusters intact when a declaration must follow the symbol it imports, inspects, derives from, registers, decodes, wraps, statically initializes, traps, migrates, or composes.
+- [ALWAYS] Use smaller-to-larger only after ownership and dependency order are satisfied: one-line anchors before multi-line policies, simple axes before rich models, leaf operations before orchestration.
+- [ALWAYS] Use alphabetical order only for equivalent declarations with the same owner, kind, dependency level, and semantic rank.
+- [ALWAYS] Keep semantically ordered sequences in domain order, not alphabetical order: severity, lifecycle, routing, key, protocol, generated-case, table-row, migration-step, and public API order are load-bearing when the owner defines them.
 - [ALWAYS] Co-locate tightly coupled symbols when strict section order would obscure ownership or violate language/runtime constraints.
-- [ALWAYS] Insert domain extensions immediately after the closest core section, using stable labels such as `[TABLES]`, `[REPOSITORIES]`, `[GROUPS]`, or `[MIDDLEWARE]`.
+- [ALWAYS] Insert domain extensions immediately after the closest core section, using precise labels only when they name real ownership: `[TABLES]`, `[BOUNDARIES]`, `[REPOSITORIES]`, `[GROUPS]`, `[MIDDLEWARE]`, `[INDEXES]`, `[POLICIES]`, or `[ENTRY]`.
+- [ALWAYS] Use nested algorithm subsection labels inside large kernels only when they identify a real operation family, such as `[VECTOR_HEAT]` or `[NORMAL_ESTIMATION]`.
+- [NEVER] Put derived codecs, decoders, registries, lookup tables, generated maps, dispatch rows, callable row catalogs, or DDL-dependent objects in top-level `[CONSTANTS]` when they depend on later models, functions, owners, or migration state; place them in the owning later section or a precise extension such as `[TABLES]` or `[COMPOSITION]`.
+- [NEVER] Split source-generated owners, delegate-backed enum behavior, validation partials, private operation-local state, resource/disposal boundaries, dispatch tables, SQL invariants, or migration units to satisfy mechanical section order.
 - [NEVER] Rename recurring categories per file; use canonical labels unless a domain extension is materially clearer.
-- [NEVER] Use semantic drift labels: `HELPERS`, `UTILS`, `HANDLERS`, `MISC`, `COMMON`, `CONFIG`, `DISPATCH_TABLES`.
+- [NEVER] Use alias or drift labels that merely rename core categories or hide complexity: `SCHEMA`, `FUNCTIONS`, `LAYERS`, `IMPORTS`, `INTERFACES`, `ENUMS`, `DTO`, `QUERIES`, `HELPERS`, `UTILS`, `COMMON`, `MISC`.
+
+**Language Overlays**:
+- C#: `[Union]`, `[SmartEnum]`, `[ValueObject]`, generated case families, static entries, delegate partials, validation partials, factories, and projections stay inside the declaring owner block. Static construction order inside a type is semantic when later fields derive from earlier fields.
+- Python: module docstring, `__future__`, imports, `TYPE_CHECKING`, and import-time gates precede ordinary sections. Runtime decoders, encoders, registries, and tables follow the models/functions they inspect because module-level assignments execute immediately and runtime annotation consumers such as `msgspec` and `beartype` resolve real objects.
+- TypeScript: side-effect/value imports preserve runtime order, and `import type`/`export type` stay explicit. Runtime schemas/classes are `[MODELS]`, `Effect.Service` owners are `[SERVICES]`, `Layer`/runtime wiring is `[COMPOSITION]`, and catalog or registry rows that reference functions/classes stay after their referenced owners.
+- Bash: shebang, ShellCheck directives, `set`/`shopt`, and environment/path gates are `[RUNTIME_PRELUDE]`; `readonly` values are `[CONSTANTS]`; `declare -Ar` maps are `[TABLES]`; traps, dispatch, source guards, and `_main` are late `[COMPOSITION]` or `[ENTRY]`.
+- PostgreSQL: extensions, schemas, and search-path guards are `[RUNTIME_PRELUDE]`; domains and types are `[TYPES]`; tables, constraints, generated columns, and partitions are `[MODELS]`; functions split by service boundary or query operation; indexes, triggers, row-level security, and policies are `[COMPOSITION]`; grants and comments are late `[EXPORTS]`.

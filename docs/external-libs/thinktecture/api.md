@@ -1,19 +1,10 @@
 # [THINKTECTURE_API]
 
-[IMPORTANT] Rasm pins `Thinktecture.Runtime.Extensions` at the version pinned in `Directory.Packages.props`. `Directory.Build.props` supplies the package reference and global `Thinktecture` using.
+[IMPORTANT] Thinktecture source generation belongs to the project package graph. Active package and global-using facts live in package-state docs.
 
-## [1][SOURCE_TRUTH]
+## [1][SURFACES]
 
-| [INDEX] | [SOURCE]                                                                         | [USE]                                                    |
-| :-----: | -------------------------------------------------------------------------------- | -------------------------------------------------------- |
-|   [1]   | `Directory.Packages.props`                                                       | Confirms the pinned `Thinktecture.Runtime.Extensions` version. |
-|   [2]   | `uv run python -m tools.quality api resolve Thinktecture.Runtime.Extensions all` | Public generated support API assets.                     |
-|   [3]   | Package nuspec                                                                   | Analyzer, refactoring, source-generator package closure. |
-|   [4]   | Official wiki and Context7                                                       | Secondary source for generator behavior.                 |
-
-## [2][SURFACES]
-
-| [INDEX] | [SURFACE]                          | [OWNS]                                 | [RASM_USE]                                                |
+| [INDEX] | [SURFACE]                          | [OWNS]                                 | [DOMAIN_USE]                                              |
 | :-----: | ---------------------------------- | -------------------------------------- | --------------------------------------------------------- |
 |   [1]   | `[ValueObject<T>]`                 | Primitive value admission.             | Tolerances, identifiers, names, scalar boundaries.        |
 |   [2]   | `[ComplexValueObject]`             | Composite equality identity.           | Ranges, sample windows, boundary descriptors.             |
@@ -24,7 +15,7 @@
 
 Attribute property detail: `objects.md` (value objects), `union-attributes.md` (union dispatch and operator policy), `enums.md` (`UseDelegateFromConstructor`).
 
-## [3][PUBLIC_CONTRACTS]
+## [2][PUBLIC_CONTRACTS]
 
 | [INDEX] | [CONTRACT]                                  | [USE]                                                   |
 | :-----: | ------------------------------------------- | ------------------------------------------------------- |
@@ -34,9 +25,9 @@ Attribute property detail: `objects.md` (value objects), `union-attributes.md` (
 |   [4]   | `ISmartEnum<T,TKey,TValidationError>`       | Generic smart-enum contract with validation error type. |
 |   [5]   | `IValidationError<T>`, `ValidationError`    | Generator validation error shape.                       |
 
-## [4][RULES]
+## [3][RULES]
 
 - Prefer generated factories, `Items`, `Get`, `TryGet`, `Switch`, and `Map` directly.
-- Bridge generator validation once into LanguageExt `Error`, `Fin`, or `Validation`.
-- Keep optional integration packages out of active docs until Rasm pins and consumes them.
+- Bridge generator validation once into the domain error rail.
+- Keep optional integration packages out of active docs until package graph state and a consumer make them active.
 - Keep partial dispatch opt-in and explicit; default to exhaustive generated dispatch.

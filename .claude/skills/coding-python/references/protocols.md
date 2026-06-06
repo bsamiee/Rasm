@@ -15,39 +15,34 @@ from typing import Concatenate, Protocol, TypeIs, runtime_checkable
 from expression import Ok, Result, curry_flip, pipe
 from expression.collections import Block, block
 
-
 @runtime_checkable
 class Emitter[T](Protocol):
     def sample(self) -> T: ...
     def weight(self) -> float: ...
 
-
-def structural[C, **P, R](
-    cap: type[C],
-) -> Callable[[Callable[Concatenate[C, P], R]], Callable[Concatenate[object, P], Result[R, tuple[type[C], type]]]]:
+def structural[C, **P, R](cap: type[C]) -> Callable[
+    [Callable[Concatenate[C, P], R]], Callable[Concatenate[object, P], Result[R, tuple[type[C], type]]]]:
     def narrows(obj: object) -> TypeIs[C]:
         return isinstance(obj, cap)
-
     def dec(fn: Callable[Concatenate[C, P], R]) -> Callable[Concatenate[object, P], Result[R, tuple[type[C], type]]]:
         @wraps(fn)
         def go(obj: object, /, *args: P.args, **kwargs: P.kwargs) -> Result[R, tuple[type[C], type]]:
             return Ok(obj).filter_with(lambda o: narrows(o), lambda o: (cap, type(o))).map(lambda c: fn(c, *args, **kwargs))
-
         return go
-
     return dec
-
 
 @structural(Emitter)
 @curry_flip(1)
 def fuse(ref: Emitter[float], readings: Block[Emitter[float]]) -> float:
-    sw, w = pipe(
-        readings, block.fold(lambda acc, s: (fma(s.sample(), s.weight(), acc[0]), acc[1] + s.weight()), (ref.sample() * ref.weight(), ref.weight()))
-    )
+    sw, w = pipe(readings, block.fold(
+        lambda acc, s: (fma(s.sample(), s.weight(), acc[0]), acc[1] + s.weight()),
+        (ref.sample() * ref.weight(), ref.weight())))
     return sw / w
 ```
 
 `narrows` is nested because `TypeIs[C]` requires a named function with return annotation — lambdas cannot carry it — and `C` binds from the enclosing PEP 695 scope, precluding module-level placement. `filter_with` threads PEP 742 complement narrowing: `narrows(o)` gates conformance, the `Error` branch carries `(cap, type(o))` as rejection evidence without a dedicated error class. PEP 695 infers `T` covariant in `Emitter[T]` from `sample(self) -> T` (output-only); adding `T` to an input position flips to invariant — a compile-time contract change invisible with manual annotations. Stack composition is right-to-left: `@curry_flip(1)` flips `ref` to data position for pipeability, `@structural(Emitter)` wraps the first positional in conformance verification — the body sees only typed `Emitter[float]` because `.map` threads the narrowed value post-gate. `block.fold` accumulates `(weighted_sum, total_weight)` single-pass; `fma` fuses multiply-add with extended precision — the information-filter where `sw/w` yields the minimum-variance estimate.
+
+---
 
 ## Protocol Design: Capability Slicing and AOP Authorization
 
@@ -65,64 +60,46 @@ from expression.collections import Block, Map, block
 Token = NewType("Token", str)
 type Cap = Literal["r", "w", "x"]
 
-
 @tagged_union
 class PortFault:
     absent: str
     denied: tuple[Cap, frozenset[Cap]]
-
     @property
-    def recoverable(self) -> bool:
-        return isinstance(self, PortFault.absent)
-
+    def recoverable(self) -> bool: return isinstance(self, PortFault.absent)
 
 @runtime_checkable
 class Readable[T](Protocol):
     def read(self, key: str) -> Result[T, PortFault]: ...
 
-
 class Writable[T](Protocol):
     def write(self, key: str, val: T) -> Result[None, PortFault]: ...
 
-
 class Dual[T](Readable[T], Writable[T], Protocol): ...
-
 
 _ctx: ContextVar[tuple[Token, frozenset[Cap]]] = ContextVar("_ctx")
 
-
 def gated[**P, T, E](*caps: Cap) -> Callable[[Callable[P, Result[T, E]]], Callable[P, Result[T, E | PortFault]]]:
     req = frozenset(caps)
-
     def dec(fn: Callable[P, Result[T, E]]) -> Callable[P, Result[T, E | PortFault]]:
         @wraps(fn)
         def w(*a: P.args, **kw: P.kwargs) -> Result[T, E | PortFault]:
-            return (
-                Ok(_ctx.get())
-                .filter_with(lambda c: req <= c[1], lambda c: PortFault.denied((next(iter(req - c[1])), c[1])))
-                .bind(lambda _: fn(*a, **kw))
-            )
-
+            return Ok(_ctx.get()).filter_with(
+                lambda c: req <= c[1], lambda c: PortFault.denied((next(iter(req - c[1])), c[1]))
+            ).bind(lambda _: fn(*a, **kw))
         return w
-
     return dec
-
 
 @curry_flip(1)
 @gated("r")
 def collect[T](port: Readable[T], keys: Block[str]) -> Result[Map[str, T], PortFault]:
-    return pipe(
-        keys,
-        block.fold(
-            lambda acc, k: acc.bind(
-                lambda m: port.read(k).map(lambda v: m.add(k, v)).or_else_with(lambda f: Ok(m).filter_with(lambda _: f.recoverable, lambda _: f))
-            ),
-            Ok(Map.empty()),
-        ),
-    )
+    return pipe(keys, block.fold(lambda acc, k: acc.bind(lambda m: port.read(k).map(
+        lambda v: m.add(k, v)).or_else_with(
+        lambda f: Ok(m).filter_with(lambda _: f.recoverable, lambda _: f))), Ok(Map.empty())))
 ```
 
 `filter_with` on `Ok(_ctx.get())` gates authorization as a single expression — `req <= c[1]` performs subset membership on `frozenset[Cap]`; the failure branch constructs `PortFault.denied` with `next(iter(req - c[1]))` extracting the first missing capability from the set difference (safe because `req <= held` was False, guaranteeing non-empty difference). Protocol intersection composes via multiple inheritance (`Dual[T]` = `Readable[T]` x `Writable[T]`); `collect` demands only `Readable[T]`, so bidirectional adapters satisfy structurally while `Writable`-only fails at the type level. The fold's `or_else_with` chain implements severity-gated accumulation: `.recoverable` routes `PortFault.absent` through `Ok(m)` preserving the map unchanged, while `PortFault.denied` propagates via `filter_with(lambda _: f.recoverable, lambda _: f)` — terminal authorization failures make all subsequent reads structurally unauthorized, so short-circuit IS the correct domain semantics, not a limitation.
+
+---
 
 ## Variance Discipline and Severity-Routed Recovery
 
@@ -137,51 +114,34 @@ from expression import Error, Ok, Result, effect
 
 type Arrow[A, B, E] = Callable[[A], Result[B, E]]
 
-
 @dataclass(frozen=True, slots=True, kw_only=True)
 class Soft:
-    raw: bytes
-    offset: int
-    sev: Literal[0] = 0
-
+    raw: bytes; offset: int; sev: Literal[0] = 0
 
 @dataclass(frozen=True, slots=True, kw_only=True)
 class Hard[T]:
-    origin: T
-    stage: str
-    metric: float
-    sev: Literal[1] = 1
-
+    origin: T; stage: str; metric: float; sev: Literal[1] = 1
 
 type Fault[T] = Soft | Hard[T]
-
 
 class Decode[T](Protocol):
     def parse(self, raw: bytes) -> Result[T, Soft]: ...
 
-
 class Refine[T, U](Protocol):
     def apply(self, val: T) -> Result[U, Hard[T]]: ...
-
 
 class Store[T](Protocol):
     def put(self, key: str, val: T) -> Result[None, Hard[T]]: ...
     def get(self, key: str) -> Result[T, Soft]: ...
 
-
 def compose[A, B, C, E, F](f: Arrow[A, B, E], g: Arrow[B, C, F]) -> Arrow[A, C, E | F]:
     return lambda a: f(a).bind(g)
 
-
 def recover[T](fault: Fault[T], fb: T) -> Result[T, Hard[T]]:
     match fault:
-        case Soft(sev=0):
-            return Ok(fb)
-        case Hard(sev=1) as h:
-            return Error(h)
-        case _ as u:
-            assert_never(u)
-
+        case Soft(sev=0): return Ok(fb)
+        case Hard(sev=1) as h: return Error(h)
+        case _ as u: assert_never(u)
 
 @effect.result[float, Fault[str]]()
 def ingest(dec: Decode[str], xf: Refine[str, float], store: Store[float], raw: bytes, fb: str, key: str):
@@ -190,14 +150,14 @@ def ingest(dec: Decode[str], xf: Refine[str, float], store: Store[float], raw: b
     yield from store.put(key, refined)
     return refined
 
-
 def ingest_or_fallback(dec: Decode[str], xf: Refine[str, float], store: Store[float], raw: bytes, fb: str, key: str) -> Result[float, Fault[str]]:
-    return ingest(dec, xf, store, raw, fb, key).or_else_with(
-        lambda e: recover(e, fb).bind(lambda parsed: xf.apply(parsed).bind(lambda refined: store.put(key, refined).map(lambda _: refined)))
-    )
+    return ingest(dec, xf, store, raw, fb, key).or_else_with(lambda e: recover(e, fb).bind(
+        lambda parsed: xf.apply(parsed).bind(lambda refined: store.put(key, refined).map(lambda _: refined))))
 ```
 
 `Arrow[A, B, E]` is the Kleisli category for `Result` — `compose` threads `E | F` union accumulation through `bind`, and `recover` is an arrow from `Fault[T]` to `Result[T, Hard[T]]` that eliminates `Soft` by `Literal` discriminant match. The `@effect.result` generator binds only happy-path values; recovery stays in `ingest_or_fallback` at the composition boundary via `.or_else_with(...)`. Error type parameterization tracks provenance: `Refine[T, U]` returns `Hard[T]` (not `Hard[U]`), preserving pre-refinement input for upstream retry context, while `Soft` carries `raw: bytes` (original wire payload). Adding a third severity level without a match arm triggers `assert_never` — exhaustive dispatch is structural, not policy-based.
+
+---
 
 ## Reader-Threaded Capability Composition
 
@@ -215,26 +175,24 @@ from expression.collections import Map, block
 type Scope = Map[type, object]
 _scope: Final[ContextVar[Scope]] = ContextVar("_scope", default=Map.empty())
 
-
 @dataclass(frozen=True, slots=True)
 class Missing[C]:
     capability: type[C]
-
 
 @runtime_checkable
 class Sensor(Protocol):
     def sample(self, ch: int) -> Result[float, str]: ...
 
-
 @curry_flip(1)
 def ask[C](cap: type[C], scope: Scope) -> Result[C, Missing[C]]:
     return scope.try_find(cap).to_result(Missing(cap))
 
-
 @curry_flip(1)
 def scoped[T](caps: tuple[object, ...], thunk: Callable[[], T]) -> T:
-    return copy_context().run(lambda: (_scope.set(pipe(block.of_seq(caps), block.fold(lambda s, c: s.add(type(c), c), _scope.get()))), thunk())[1])
-
+    return copy_context().run(lambda: (
+        _scope.set(pipe(block.of_seq(caps), block.fold(
+            lambda s, c: s.add(type(c), c), _scope.get()))),
+        thunk())[1])
 
 @effect.result[float, Missing[Sensor] | str]()
 def acquire(channel: int):
@@ -243,6 +201,8 @@ def acquire(channel: int):
 ```
 
 `ask(Sensor)` returns `Callable[[Scope], Result[Sensor, Missing[Sensor]]]` — the partially applied function IS the Reader value, produced by `curry_flip(1)` flipping the scope parameter to data position. `reader_bind` is eliminated entirely: inside the `@effect.result` generator, `yield from ask(Sensor)(_scope.get())` performs monadic bind through the generator protocol, and chaining two `yield from` calls composes Readers sequentially with cross-step references as local variables rather than witness data. `scoped(caps)` returns `Callable[[Callable[[], T]], T]` — a pipeable context injector that forks `ContextVar` snapshot via `copy_context().run`, walrus-assigns the built scope inside the tuple expression, and returns `thunk()` at index `[1]` — capability mutations within the forked context are invisible to sibling tasks without explicit scope threading via `Concatenate`. `block.fold(lambda s, c: s.add(type(c), c), ...)` replaces `singledispatch` registration, explicit dispatch tables, and decorator-based registries with a single fold that projects runtime type as the `Map` key.
+
+---
 
 ## Conformance Algebra with TypeIs Narrowing
 
@@ -259,32 +219,30 @@ Attestation = NewType("Attestation", str)
 type Tier = Literal["primary", "secondary", "fallback"]
 type Rejection[C] = tuple[type[C], type, Tier]
 
-
 @dataclass(frozen=True, slots=True)
 class Certified[C]:
-    inner: C
-    attestation: Attestation
-    tier: Tier
-
+    inner: C; attestation: Attestation; tier: Tier
 
 def conform[C](
-    obj: object, lattice: Block[tuple[Tier, type[C]]], pred: Callable[[C], bool], attest: Attestation
+    obj: object, lattice: Block[tuple[Tier, type[C]]],
+    pred: Callable[[C], bool], attest: Attestation,
 ) -> Result[Certified[C], Rejection[C]]:
     match lattice.head().to_list():
-        case []:
-            raise ValueError("conform requires non-empty lattice; no capability tiers defined")
-        case _:
-            pass
-
+        case []: raise ValueError("conform requires non-empty lattice; no capability tiers defined")
+        case _: pass
     def narrows(candidate: object, cap: type[C]) -> TypeIs[C]:
         return isinstance(candidate, cap) and pred(candidate)
-
-    gate = lambda tc: Ok(Certified(obj, attest, tc[0])).filter_with(lambda _: narrows(obj, tc[1]), lambda _: (tc[1], type(obj), tc[0]))
+    gate = lambda tc: Ok(Certified(obj, attest, tc[0])).filter_with(
+        lambda _: narrows(obj, tc[1]), lambda _: (tc[1], type(obj), tc[0]))
     head = lattice.head().value  # safe: non-empty guard above
-    return pipe(lattice, block.fold(lambda acc, tc: acc.or_else_with(lambda _: gate(tc)), Error((head[1], type(obj), head[0]))))
+    return pipe(lattice, block.fold(
+        lambda acc, tc: acc.or_else_with(lambda _: gate(tc)),
+        Error((head[1], type(obj), head[0]))))
 ```
 
 `narrows` is nested because `TypeIs[C]` requires a named function with return annotation — lambdas cannot carry `TypeIs` — yet the semantic predicate `pred` closes over `conform`'s scope, making module-level placement impossible without partial application ceremony. `gate` speculatively constructs `Certified(obj, attest, tc[0])` inside `Ok`, then `filter_with` validates through `narrows` — PEP 742 complement narrowing means the negative path provably excludes `C`, a guarantee `TypeGuard` cannot provide. `block.fold` with `or_else_with` implements the conformance lattice as a short-circuiting join: `or_else_with` evaluates `gate(tc)` only when the accumulator holds `Error`, so the first successful tier becomes the supremum and all weaker tiers are skipped. `Rejection[C]` as a tuple alias eliminates a dedicated error dataclass while preserving structured context — the triple `(expected_cap, actual_type, tier)` suffices for both pattern matching and diagnostics.
+
+---
 
 ## Async Fan-Out and Recursive Retry Composition
 
@@ -299,54 +257,38 @@ from anyio import Semaphore, create_memory_object_stream, create_task_group, mov
 from expression import Error, Ok, Option, Result, pipe
 from expression.collections import Block, block
 
+@dataclass(frozen=True, slots=True)
+class Timeout: elapsed: float; budget: float
 
 @dataclass(frozen=True, slots=True)
-class Timeout:
-    elapsed: float
-    budget: float
-
-
-@dataclass(frozen=True, slots=True)
-class Exhausted[E]:
-    remaining: int
-    last: E
-
+class Exhausted[E]: remaining: int; last: E
 
 type Fault[E] = Timeout | Exhausted[E]
 type Task[T, E] = Callable[[], Coroutine[None, None, Result[T, E]]]
 
-
 async def dispatch[T, E](
-    arrows: Block[Task[T, E]], sem: Semaphore, budget: float, retries: int, pred: Callable[[E], bool]
+    arrows: Block[Task[T, E]], sem: Semaphore,
+    budget: float, retries: int, pred: Callable[[E], bool],
 ) -> Result[Block[T], Block[Fault[E]]]:
     async def _k(fn: Task[T, E]) -> Result[T, Fault[E]]:
         n, d, w = retries, 0.1, 0.0
-        phi = (1 + 5**0.5) / 2
+        phi = (1 + 5 ** 0.5) / 2
         while True:
             r: Result[T, E] | None = None
             with move_on_after(budget - w):
-                async with sem:
-                    r = await fn()
+                async with sem: r = await fn()
             match r:
-                case None:
-                    return Error(Timeout(w, budget))
-                case Ok() as ok:
-                    return ok
-                case Error(e) if n <= 0 or not pred(e):
-                    return Error(Exhausted(n, e))
+                case None: return Error(Timeout(w, budget))
+                case Ok() as ok: return ok
+                case Error(e) if n <= 0 or not pred(e): return Error(Exhausted(n, e))
                 case _:
                     await anyio.sleep(d)
                     w += d
                     d *= phi
                     n -= 1
-
     tx, rx = create_memory_object_stream[Result[T, Fault[E]]](arrows.length)
-
-    async def _emit(f: Task[T, E]) -> None:
-        await tx.send(await _k(f))
-
-    async with create_task_group() as tg:
-        pipe(arrows, block.fold(lambda _, f: tg.start_soon(_emit, f), None))
+    async def _emit(f: Task[T, E]) -> None: await tx.send(await _k(f))
+    async with create_task_group() as tg: pipe(arrows, block.fold(lambda _, f: tg.start_soon(_emit, f), None))
     await tx.aclose()
     rs = block.of_seq(map(lambda _: rx.receive_nowait(), range(arrows.length)))
     oks, errs = pipe(rs, block.choose(Result.to_option)), pipe(rs, block.choose(lambda r: r.swap().to_option()))
@@ -354,6 +296,8 @@ async def dispatch[T, E](
 ```
 
 The recursive tail call scales delay by $(1 + \sqrt{5})/2$ — irrational spacing prevents harmonic resonance with power-of-two rate limiters — while `w + d` accumulates elapsed time as recursion state. `match r` discriminates a three-constructor variant space (`None | Ok | Error`): `None` absorbs cancellation into `Timeout`, `Ok` short-circuits success, guarded `Error` partitions retriable failures via `pred` from exhausted ones via `n <= 0`. `block.fold(lambda _, f: tg.start_soon(_emit, f), None)` drives task registration as a void fold; memory stream sized to arrow count collects via `receive_nowait` after `TaskGroup` exit guarantees all sends complete. `Option.Some(errs).filter(lambda b: b.length > 0).to_result(oks).swap()` inverts rail polarity without conditional logic — empty errors yields `Ok(oks)`, non-empty yields `Error(errs)`.
+
+---
 
 ## Version-Gated Protocol Surfaces
 
@@ -372,68 +316,43 @@ from expression.collections import Map, Seq, block, seq
 
 type Ver = Literal[1, 2, 3]
 
-
 @runtime_checkable
 class Versioned(Protocol):
     @property
     def version(self) -> Ver: ...
 
+@dataclass(frozen=True, slots=True)
+class Unsupported: offered: Ver; known: tuple[Ver, ...]
 
 @dataclass(frozen=True, slots=True)
-class Unsupported:
-    offered: Ver
-    known: tuple[Ver, ...]
-
-
-@dataclass(frozen=True, slots=True)
-class Sunsetted[M]:
-    method: M
-    since: Ver
-    removal: Ver
-
+class Sunsetted[M]: method: M; since: Ver; removal: Ver
 
 type Skew[M] = Unsupported | Sunsetted[M]
 
-
 def gate[M: StrEnum, **P, T, E](
-    routes: Map[Ver, Callable[P, Result[T, E]]], sunsets: Map[M, tuple[Ver, Ver]], method: M
+    routes: Map[Ver, Callable[P, Result[T, E]]], sunsets: Map[M, tuple[Ver, Ver]], method: M,
 ) -> Callable[[Callable[P, Result[T, E]]], Callable[P, Result[T, E | Skew[M]]]]:
     known = tuple(pipe(routes.to_seq(), seq.map(itemgetter(0))))
     match known:
-        case ():
-            raise ValueError("gate requires non-empty routes; cannot determine default version")
-        case (default, *_):
-            pass
-
+        case (): raise ValueError("gate requires non-empty routes; cannot determine default version")
+        case (default, *_): pass
     def dec(fn: Callable[P, Result[T, E]]) -> Callable[P, Result[T, E | Skew[M]]]:
         @wraps(fn)
         def guarded(*args: P.args, **kw: P.kwargs) -> Result[T, E | Skew[M]]:
-            v = pipe(
-                block.of_seq(args),
-                block.try_find(lambda a: isinstance(a, Versioned)),
-                lambda opt: opt.map(lambda a: a.version).default_value(default),
-            )
-            return (
-                routes
-                .try_find(v)
-                .to_result(Unsupported(v, known))
-                .bind(
-                    lambda adapter: (
-                        sunsets
-                        .try_find(method)
-                        .map(lambda sr: Ok(adapter).filter_with(lambda _: v < sr[0], lambda _: Sunsetted(method, sr[0], sr[1])))
-                        .default_value(Ok(adapter))
-                    )
-                )
-                .bind(lambda adapter: adapter(*args, **kw))
-            )
-
+            v = pipe(block.of_seq(args), block.try_find(lambda a: isinstance(a, Versioned)),
+                lambda opt: opt.map(lambda a: a.version).default_value(default))
+            return (routes.try_find(v).to_result(Unsupported(v, known))
+                .bind(lambda adapter: sunsets.try_find(method).map(
+                    lambda sr: Ok(adapter).filter_with(lambda _: v < sr[0], lambda _: Sunsetted(method, sr[0], sr[1]))
+                ).default_value(Ok(adapter)))
+                .bind(lambda adapter: adapter(*args, **kw)))
         return guarded
-
     return dec
 ```
 
 `routes: Map[Ver, Callable]` provides O(log N) keyed lookup where `Literal[1, 2, 3]` constrains the vocabulary at the type level — adding a version extends the `Map` without `@singledispatch` ceremony, making this the categorical dual of open extension: closed versions, open implementations per version. `block.try_find(lambda a: isinstance(a, Versioned))` extracts the versioned adapter from positional args as `Option[Versioned]`, defaulting to the first known version for unversioned call sites. The deprecation gate `sunsets.try_find(method).map(lambda sr: Ok(adapter).filter_with(...)).default_value(Ok(adapter))` is a three-layer monad transformation: `Option.map` lifts `Option[tuple]` into `Option[Result]`, `.default_value` discharges the `Option` (no sunset entry -> `Ok`), and `filter_with` inside the map provides the threshold gate `v < sr[0]` — the adapter closure capture threads through all three layers without intermediate bindings.
+
+---
 
 ## Rules
 

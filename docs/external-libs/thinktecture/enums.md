@@ -17,9 +17,9 @@ Use delegate-backed constructor members when each item owns behavior such as met
 
 `[UseDelegateFromConstructor]` on SmartEnum items injects constructor-selected delegates (e.g. `MatrixNormKind`, `MeshLaplacian`, wire traversal policy). Prefer `static` factory helpers + initializer expressions for dense case tables — see `objects.md` §5.2.
 
-## [3][RASM_POLICY]
+## [3][RULES]
 
 - Use smart enums for stable bounded protocol vocabularies.
-- Keep Rhino/GH native names at boundary mapping only.
+- Keep external or native protocol names at boundary mapping only.
 - Derive lookup tables from generated `Items`.
 - Do not mirror a smart enum with parallel constants or dictionaries.

@@ -1,6 +1,6 @@
 # [LANGUAGEEXT_COMBINATORS]
 
-[IMPORTANT] Pin **`LanguageExt.Core`** at the version pinned in `Directory.Packages.props`. Verify members in local package XML before documenting new combinators.
+[IMPORTANT] LanguageExt combinators use the active `LanguageExt.Core` surface.
 
 ## [1][LOWERING]
 
@@ -11,7 +11,7 @@
 |   [3]   | `Option`     | `.TraverseM(f) >> lower`              |
 |   [4]   | `Eff` / `IO` | `.TraverseM(f).As()`                  |
 
-`Prelude.lower` and `k >> lower` are documented downcast operators in pinned XML.
+`Prelude.lower` and `k >> lower` are documented downcast operators in package XML.
 
 ## [2][RAIL_TRANSFORMS]
 
@@ -33,7 +33,7 @@
 |   [2]   | `v1 & v2`                               | Validation product via operator |
 |   [3]   | `Validation<E,T>` where `E : Monoid<E>` | Parallel error accumulation     |
 
-`Validation<string,T>` is **not supported** — use `StringM` or `Error`. Rasm forbids `Validation<Seq<Error>,T>` (`CSP0703`); see `rasm.md`.
+`Validation<string,T>` is **not supported** — use `StringM` or a monoidal error type. Consumer validation error policies belong in the local posture file.
 
 ## [4][COLLECTION_TRAVERSAL]
 
@@ -83,9 +83,9 @@
 
 | [INDEX] | [SURFACE]                         | [NOTES]                      |
 | :-----: | --------------------------------- | ---------------------------- |
-|   [1]   | `Next.Loop` / `Next.Done`         | Trampolining — in pinned XML |
+|   [1]   | `Next.Loop` / `Next.Done`         | Trampolining                 |
 |   [2]   | `K<F,A>` + traits                 | Higher-kinded algorithms     |
-|   [3]   | `ComposeK`, `HyloM`, `FoldArrows` | Absent from pinned XML       |
+|   [3]   | `ComposeK`, `HyloM`, `FoldArrows` | Absent from local XML        |
 
 Use file-local `from..in` unless measured duplication proves trait abstraction. See `traits.md`.
 

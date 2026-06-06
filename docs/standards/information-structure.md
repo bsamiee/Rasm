@@ -233,7 +233,7 @@ Use literal and machine-consumed carriers only after deciding what the reader or
 - Required shape: headings, fields, row order, or fence grammar the consumer reads.
 - Fields validated: fields or rows the local consumer actually checks.
 - Fields not validated: adjacent source shape that remains human convention or upstream behavior.
-- Source of truth: source, manifest, generator, or maintained provider route.
+- Controlling source: source, manifest, generator, or maintained provider route.
 - Validation command: exact command or `Proof gap:`.
 - Exception: no-normalize rule that keeps the parser-owned shape intact.
 - Review trigger: consumer, parser, generator, source schema, or upstream release-shape change.

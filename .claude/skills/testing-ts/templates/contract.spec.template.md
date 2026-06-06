@@ -26,7 +26,7 @@ import { expect } from 'vitest';
 
 // --- [CONSTANTS] -------------------------------------------------------------
 // Schema-derived arbitraries from the exporting package.
-// No hand-rolled arbitraries -- schemas are the source of truth.
+// No hand-rolled arbitraries -- schemas are the controlling definition.
 ${ARBITRARIES}
 
 // --- [LAYER] -----------------------------------------------------------------

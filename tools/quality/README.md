@@ -289,7 +289,7 @@ Python edits:
 
 ```bash copy-safe
 uv run pytest tests/tools/quality/test_quality.py -q
-pnpm check:py
+uv run python -m tools.py_analyzer check --root . --format text
 ```
 
 README or Mermaid edits:

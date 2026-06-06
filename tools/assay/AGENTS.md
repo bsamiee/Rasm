@@ -30,7 +30,7 @@ Add functionality by deepening the existing polymorphic shape that owns the beha
 - In-process tool: add one catalog row with a thunk folded through the same engine rail.
 - Runtime backend or storage behavior: extend settings, store/scope, engine execution, history persistence, and envelope/artifact rows before adding a command, flag, helper module, wrapper service, or parallel store type.
 - External tool, backend, filesystem, subprocess, and provider names convert at registry, settings, store, engine, and envelope boundaries. Internal Assay code uses canonical axis values, typed details, artifact rows, and result rails; public output does not expose provider selectors, backend modes, or wrapper service names unless `README.md` proves operator action changes.
-- Execution environment, cache, staging, cwd, and subprocess policy extend `AssaySettings`, `Tool`, `Check`, and `core/engine.py`; they do not live in package scripts, rail call-site patches, catalog-local process wrappers, or per-tool helper functions.
+- Execution environment, cache, staging, cwd, and subprocess policy extend `AssaySettings`, `Tool`, `Check`, and `core/engine.py`; they do not live in rail call-site patches, catalog-local process wrappers, or per-tool helper functions.
 - Before adding a row, flag, setting, detail, or file operation, trace the full flow from registry or rail params through routing, `Check`, engine execution, fold, envelope, artifacts, and tests. If the change only works by bypassing one of those owners, refactor the owner instead.
 
 ## [4][ENGINEERING_RULES]
@@ -70,7 +70,7 @@ Add functionality by deepening the existing polymorphic shape that owns the beha
 - No backend-branded command, storage helper, provider selector, cloud-mode flag, or parallel artifact/report shape when the existing settings, store, engine, history, envelope, and artifact owners can absorb the behavior.
 - No catalog-level subprocess reimplementation for a normal external tool; use `Runner`, `Input`, `Tool`, `Check`, routing, and the engine process backend.
 - No rail-local cwd, cache, environment, or artifact patches for one tool; encode reusable execution policy in settings, `Tool`, `Check`, engine, store/scope, or artifact rows.
-- No package-script storage fixes for Python tooling; package metadata does not own Python runtime policy.
+- No package-metadata storage fixes for Python tooling; package metadata does not own Python runtime policy.
 
 ## [7][STOP_RULES]
 

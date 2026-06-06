@@ -1,8 +1,11 @@
 # [H1][PERFORMANCE]
+>**Dictum:** *Performance is structural; align types with the JIT; make allocation-freedom normal-form.*
 
 Value-typed domain atoms align with JIT struct promotion, span-based APIs eliminate allocation, SIMD intrinsics replace branching, NativeAOT makes trimming a first-class constraint. Span kernels and `Fin<T>` lifting are owned by [7][SPAN_ALGORITHMS] and [7A][CHARSET_VALIDATION] below. Smart constructors in `types.md` own `DomainType<TSelf, TScalar>.From` plus `guard`-based admission. Transform-level traversal and static-resolution rules live in `transforms.md`. Performance characteristics: zero allocation via method-group delegate binding.
 
+---
 ## [1][SIMD_TENSOR]
+>**Dictum:** *TensorPrimitives map hardware math to functional wrappers.*
 
 `TensorPrimitives` provides hardware-accelerated math over `ReadOnlySpan<T>`. The caller owns the `Memory<double>` buffer; the function writes in-place and returns the same memory -- zero intermediate allocation.
 
@@ -35,7 +38,9 @@ public readonly struct VectorizedTransducer {
 
 [IMPORTANT]: `Multiply` dispatches to AVX-512/AVX2/SSE automatically. Computation is zero-heap; `Memory<double>` input avoids the span-to-array copy at the capture boundary.
 
+---
 ## [2][BRANCHLESS_VECTOR]
+>**Dictum:** *SIMD masks replace conditional logic; CPU pipelines never stall.*
 
 `Vector<double>` auto-sizes to the widest available SIMD register (AVX-512/AVX2/SSE). `GreaterThan` generates bit masks; `ConditionalSelect` merges without branching. Iterative loop handles arbitrary lengths with bounded stack depth.
 
@@ -74,7 +79,7 @@ public static class QuantitativeRiskEngine {
 }
 ```
 
-[CRITICAL]: Zero branching in the vectorized pass. `Vector<double>` auto-selects hardware width. Scalar tail handles arbitrary alignment. For AVX-512: gate with `Vector512.IsHardwareAccelerated` (JIT-intrinsic constant -- eliminated at compile time on non-AVX-512), then fall back to `Vector<T>` auto-width, then scalar tail. Same `[BoundaryImperativeExemption]` applies to all loops.
+[CRITICAL]: Zero branching in the vectorized pass. `Vector<double>` auto-selects hardware width. Scalar tail handles arbitrary alignment. For AVX-512: gate with `Vector512.IsHardwareAccelerated` (JIT-intrinsic constant -- eliminated at compile time on non-AVX-512), then fall back to `Vector<T>` auto-width, then scalar tail. Same `[BoundaryImperativeExemption]` applies to all loops.<br>
 [CRITICAL]: The `while` loops trigger CSP0001 (ImperativeControlFlow). SIMD loops use `ProtocolRequired`. Annotate with `[BoundaryImperativeExemption]`:
 
 ```csharp
@@ -89,10 +94,12 @@ public static double CalculateTotalExposure(
 
 Reason enum values: `CancellationGuard`, `AsyncIteratorYieldGate`, `CleanupFinally`, `ProtocolRequired`. Ticket ID and expiry are mandatory -- CSP0901 validates metadata, CSP0902 flags expired exemptions.
 
-**Hot-path scope** -- CSP0601 (HotPathLinq), CSP0602 (HotPathNonStaticLambda), CSP0017 (NonStaticHotPathClosure) are scope-gated via `ScopeInfo.IsHotPath`. Activate by placing code in a `.Performance` namespace (e.g., `Domain.Performance.Pricing`). Without this signal, SIMD code gets zero hot-path rule coverage. CSP0013 (ClosureCapture) fires in ALL domain/application namespaces regardless. Boundary namespaces are never hot-path scoped.
+**Hot-path scope** -- CSP0601 (HotPathLinq), CSP0602 (HotPathNonStaticLambda), CSP0017 (NonStaticHotPathClosure) are scope-gated via `ScopeInfo.IsHotPath`. Activate by placing code in a `.Performance` namespace (e.g., `Domain.Performance.Pricing`). Without this signal, SIMD code gets zero hot-path rule coverage. CSP0013 (ClosureCapture) fires in ALL domain/application namespaces regardless. Boundary namespaces are never hot-path scoped.<br>
 **Zero-copy reinterpretation** -- `MemoryMarshal.Cast<TFrom, TTo>` reinterprets a `Span<TFrom>` as `Span<TTo>` without copying. `AsBytes` projects any unmanaged struct span as raw bytes. Both types must be unmanaged value types -- `Cast` bypasses constructors (raw bit patterns).
 
+---
 ## [3][BUFFER_HYBRID]
+>**Dictum:** *Stack for small buffers; pool for large; switch selects allocation path.*
 
 `stackalloc` for buffers under 256 bytes; `ArrayPool.Rent/Return` for larger. The `try/finally` is an intentional hardware-boundary exception -- pooled buffers must be returned even when downstream processing throws.
 
@@ -122,7 +129,7 @@ public static class BufferProcessing {
 }
 ```
 
-[IMPORTANT]: `try/finally` guarantees `ArrayPool.Return` regardless of exceptions -- the one justified exception to zero-try/catch.
+[IMPORTANT]: `try/finally` guarantees `ArrayPool.Return` regardless of exceptions -- the one justified exception to zero-try/catch.<br>
 [CRITICAL]: The `try/finally` above triggers CSP0009 (ExceptionControlFlow). Buffer lifecycle requires deterministic cleanup. Annotate with `[BoundaryImperativeExemption]`:
 
 ```csharp
@@ -136,7 +143,9 @@ public static string ProcessBuffer(ReadOnlySpan<byte> input) { ... }
 
 `CleanupFinally` is the designated reason for `try/finally` resource cleanup. CSP0101 fires when the exemption attribute is missing; CSP0102 fires when the reason enum does not match the construct.
 
+---
 ## [4][VALUETASK]
+>**Dictum:** *ValueTask avoids Task allocation on synchronous cache hits.*
 
 `ValueTask<T>` returns synchronously via `FromResult` on cache hits. Async fallback allocates only when needed. Consume exactly once; never await concurrently.
 
@@ -168,7 +177,9 @@ public sealed class LayeredCache<TKey, TValue>(
 
 [IMPORTANT]: `Deserialize` null handled via pattern match, not `!` operator. `IDistributedCache` is the boundary dependency; swap for your concrete cache provider.
 
+---
 ## [5][NATIVEAOT]
+>**Dictum:** *AOT is a first-class constraint; source generators replace reflection.*
 
 NativeAOT in .NET 10 produces trimmed binaries with faster cold starts (target: measured with `PublishAot`; results vary by feature usage). `JsonSerializerContext` eliminates reflection. No `Reflection.Emit`, no dynamic assembly loading.
 
@@ -196,7 +207,9 @@ public static class Serialization {
 
 **P/Invoke AOT migration** -- `[LibraryImport]` replaces `[DllImport]` for AOT-safe native interop. Source generator produces marshalling at compile time (no runtime IL stub). Migration: `CharSet` becomes `StringMarshalling`, `CallingConvention` becomes `[UnmanagedCallConv]`, ANSI removed (UTF-8 first-class).
 
+---
 ## [6][STATIC_LAMBDAS]
+>**Dictum:** *Static lambdas prove zero capture; tuple threading replaces closures.*
 
 `static` on lambdas prevents implicit variable capture. State threaded via `ValueTuple` through monadic `Bind`/`Map`. Zero closure bytes on hot paths. The inner `Map` references `state` from its enclosing `Bind` parameter (same frame), so it CANNOT be `static`.
 
@@ -233,7 +246,9 @@ public static class HotPath<T> where T : notnull {
 - **CSP0602** (HotPathNonStaticLambda) -- fires in hot-path scope (see [2]) when any lambda is non-static, even without captures
 - `.editorconfig` `csharp_prefer_static_anonymous_function = true:error` -- IDE/build enforcement across all scopes
 
+---
 ## [7][SPAN_ALGORITHMS]
+>**Dictum:** *MemoryExtensions bring allocation-free sorting and search to span-based pipelines.*
 
 `MemoryExtensions.Sort` + `BinarySearch` over `Span<T>` give ordered-set semantics without heap collections, eliminating `SortedSet<T>` on hot paths. `SeparateEither` uses a fold over `Either` -- no meaningless switch arms.
 
@@ -266,7 +281,9 @@ public static class SpanAlgorithms {
 
 [IMPORTANT]: `SeparateEither` uses `.Cons` (O(1) prepend) + `.Rev()` at the fold boundary -- never `.Add` which is O(N) array-double-and-copy inside fold accumulators. Static lambda on the fold body prevents closure capture. `transforms.md` owns the traversal-fusion rule for `.Cons` + `.Rev()` folds. For zero-copy reinterpretation (`MemoryMarshal.Cast`), see [2].
 
+---
 ## [7A][CHARSET_VALIDATION]
+>**Dictum:** *For `length + allowed-chars` constraints, `SearchValues<char>` beats regex state machines.*
 
 When a validator is strictly `length + allowed chars`, cache `SearchValues<char>` once, then validate the candidate span with a length gate plus `ContainsAnyExcept` (or `IndexOfAnyExcept` when index is required). This path is vectorized, allocation-free, and avoids regex state-machine overhead.
 
@@ -299,14 +316,14 @@ public static partial class SemVerValidation {
 
 **Enforcement**: CSP0607 (GeneratedRegexCharsetValidation) fires when `[GeneratedRegex]` is reducible to `SearchValues<char>`. Pair charset scans with `MemoryExtensions.ContainsAnyExcept` / `IndexOfAnyExcept` on spans — not `SearchValues` instance methods alone.
 
-| [INDEX] | [ANALYZER] | [SURFACE]                                                        |
-| :-----: | ---------- | ---------------------------------------------------------------- |
-|   [1]   | CA1862     | `string.Equals` with explicit `StringComparison` on identifiers  |
-|   [2]   | CA1863     | Cached `CompositeFormat` for repeated format strings             |
-|   [3]   | CA1870     | Cached `SearchValues<T>` instance                                |
-|   [4]   | CA1872     | `Convert.ToHexString` / `ToHexStringLower`                       |
-|   [5]   | CA1874     | `Regex.IsMatch` for boolean presence — not `Regex.Matches` count |
-|   [6]   | CA1875     | `Regex.Count` instead of `MatchCollection` allocation            |
+| [INDEX] | [ANALYZER] | [SURFACE] |
+| :-----: | ---------- | --------- |
+| [1] | CA1862 | `string.Equals` with explicit `StringComparison` on identifiers |
+| [2] | CA1863 | Cached `CompositeFormat` for repeated format strings |
+| [3] | CA1870 | Cached `SearchValues<T>` instance |
+| [4] | CA1872 | `Convert.ToHexString` / `ToHexStringLower` |
+| [5] | CA1874 | `Regex.IsMatch` for boolean presence — not `Regex.Matches` count |
+| [6] | CA1875 | `Regex.Count` instead of `MatchCollection` allocation |
 
 **Fin<T> hot-path escape** -- `Fin<T>` wraps `Either<Error, T>` with heap-allocated `Error`. On innermost loops (millions of iterations), use raw `bool` + `out T` for the kernel; lift to `Fin<T>` at the public surface. Pre-allocate `static readonly Error` fields for error messages:
 
@@ -326,7 +343,9 @@ public static class HotLoopEscape {
 }
 ```
 
+---
 ## [8][BENCHMARK_GATE]
+>**Dictum:** *Performance claims require evidence; benchmark before codifying.*
 
 .NET 10 JIT auto stack-allocates delegates, small arrays, and span-backed buffers that do not escape (target: delegate throughput over virtual dispatch for hot paths; validate via `[MemoryDiagnoser]`). Escape analysis does NOT eliminate closure allocations -- static lambda discipline (see [6]) remains necessary. Profile before manually converting LINQ to loops.
 
@@ -374,10 +393,12 @@ public static class PerfGate {
 }
 ```
 
-[CRITICAL]: Every performance claim in this file uses "target:" framing. Validate with BenchmarkDotNet before standardizing micro-optimizations. Pin runtime version + hardware in benchmark reports. The benchmarks above validate the core claims: SIMD uplift ([1]), closure cost ([6]), and charset validation ([7A]).
-[IMPORTANT]: .NET 10 JIT escape analysis covers struct fields, delegates, small arrays, and span-backed buffers (e.g., `BitConverter.GetBytes(...).AsSpan().CopyTo(dest)` is zero-alloc in .NET 10, was 32B in .NET 9). Validate with `[MemoryDiagnoser]` -- escape analysis is heuristic and can regress across JIT updates.
+[CRITICAL]: Every performance claim in this file uses "target:" framing. Use BenchmarkDotNet before standardizing micro-optimizations. Record runtime and hardware in benchmark reports. The benchmarks above cover SIMD uplift ([1]), closure cost ([6]), and charset validation ([7A]).<br>
+[IMPORTANT]: JIT escape analysis covers struct fields, delegates, small arrays, and span-backed buffers. Use `[MemoryDiagnoser]` for allocation-sensitive claims.
 
+---
 ## [9][RULES]
+>**Dictum:** *Rules compress into constraints.*
 
 - [ALWAYS] `ReadOnlySpan<T>` for hot-path input; `Span<T>` for output workspace.
 - [ALWAYS] `static` on every lambda in hot paths -- zero closure bytes.
@@ -396,6 +417,7 @@ public static class PerfGate {
 - [ALLOW] `bool switch { true => ..., false => ... }` as functional conditional -- preferred over `if/else` per project constraints.
 - [ALWAYS] `[LibraryImport]` over `[DllImport]` for native interop -- source-generated marshalling is AOT-safe and inlineable; `[DllImport]` generates IL stubs at runtime (incompatible with NativeAOT).
 
+---
 ## [10][QUICK_REFERENCE]
 
 | [INDEX] | [PATTERN]                 | [WHEN]                                     | [KEY_TRAIT]                                   |

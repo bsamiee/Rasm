@@ -43,11 +43,11 @@ Plans, documentation, and implementation target the newest objectively stronger 
 
 Present-tense claims about current behavior require current repository proof: source, manifests, generated contracts, runnable tool output, maintained provider documentation, or a route owner named here. Missing proof is a proof gap, not a reason to preserve legacy wording or compatibility policy.
 
-When Rasm owns both sides of a surface, preserve capability through direct replacement: update callers, tests, scenarios, docs, and generated/source-truth surfaces through the canonical owner. Do not preserve stale names through shims, deprecation windows, compatibility aliases, wrapper-only adapters, or baseline caveats.
+When Rasm owns both sides of a surface, preserve capability through direct replacement: update callers, tests, scenarios, docs, and generated contract surfaces through the canonical owner. Do not preserve stale names through shims, deprecation windows, compatibility aliases, wrapper-only adapters, or baseline caveats.
 
 Minimize shape count, not capability. Preserve behavior by deepening the canonical owner with cases, rows, folds, projections, typed receipts, scenarios, or boundary adapters; do not delete capability, split helper files, or add shallow sibling surfaces to make the system look simpler.
 
-Every repo tool must route generated storage, caches, benchmark output, mutation workdirs, coverage files, snapshots, and scratch artifacts through the owning language/tool configuration or the owning repo tool surface. Do not rely on package scripts, ambient CLI defaults, or gitignore-only tolerance for root litter; configure the tool in `pyproject.toml`, `Directory.Build.props`, tool manifests, test conftests, or the canonical tool engine so outputs land under `.cache`, `.artifacts`, or another owner-declared path.
+Every repo tool must route generated storage, caches, benchmark output, mutation workdirs, coverage files, snapshots, and scratch artifacts through the owning language/tool configuration or the owning repo tool surface. Do not rely on ambient CLI defaults or gitignore-only tolerance for root litter; configure the tool in `pyproject.toml`, `Directory.Build.props`, tool manifests, test conftests, or the canonical tool engine so outputs land under `.cache`, `.artifacts`, or another owner-declared path.
 
 Nested overlays inherit this target/current split; they only add local owner rails, proof stops, and route-away records that parent guidance cannot infer.
 
@@ -76,7 +76,9 @@ Host SDK boundaries use local RhinoWIP/GH2 XML, decompile evidence when XML is a
 
 Route README, ADR, architecture, roadmap, test strategy, API, reference, code documentation, support matrix, how-to, runbook, contributing, tutorial, onboarding, and instruction-file work through `docs/standards/README.md`; instruction-surface behavior routes through `docs/standards/agents-md.md`.
 
-Keep present-tense documentation factual: current paths, commands, support, generated artifacts, provider behavior, source-truth order, and package or host-reference claims need current source, tool output, generated contract proof, maintained provider documentation, or an explicit proof route.
+Keep generated documentation, prompts, skills, standards, examples, templates, and reusable guidance project-agnostic by default. Do not mention Rasm, repository-specific paths, local commands, local package names, project functions, concrete source files, or project-only docs unless the target file explicitly exists to describe this repository's own usage, routing, or implementation. Generic examples must use neutral names and abstract shapes that transfer to any project.
+
+Keep present-tense documentation factual: current paths, commands, support, generated artifacts, provider behavior, controlling-source order, and package or host-reference claims need current source, tool output, generated contract proof, maintained provider documentation, or an explicit proof route.
 
 Future-facing standards, plans, and target designs do not inherit current drift; remove stale paths, stale commands, compatibility prose, old-baseline caveats, partial-adoption apologies, and invented routes instead of preserving them.
 
@@ -84,6 +86,7 @@ Future-facing standards, plans, and target designs do not inherit current drift;
 
 - This file carries no command catalogs, validation ladders, package tables, API member catalogs, host SDK member claims, generated contract bodies, runtime artifact paths, roadmap state, provider manuals, bridge transcripts, research summaries, fixed sub-agent counts, or subtree implementation maps; route those facts to the owner table, tool READMEs, source files, maintained docs, or nearest nested overlay.
 - No subtree-local implementation facts when a nested `AGENTS.md`, README, architecture, roadmap, API/reference file, source file, or generated contract owns the behavior.
+- No project-coupled examples in generic docs, prompts, skills, templates, or standards. If the page is not explicitly project-specific, replace local names, paths, functions, tools, and packages with universal placeholders or neutral sample domains.
 - No compatibility prose that preserves old paths, aliases, deprecation windows, wrapper facades, partial adoption, current-baseline caveats, or stale public names as root policy; if compatibility is operationally required, route it to the owner with current proof, otherwise delete it.
 - No copied provider manuals, fallback-name tutorials, memory-derived policy, prompt-source narration, generated report bodies, or session transcripts.
 - No static, test, bridge, docs build, renderer, provider, CI, package, deploy, publish, or tool-pass claims for docs-only instruction edits unless the exact command was run in this change and the changed surface owns that gate.

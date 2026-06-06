@@ -1,18 +1,21 @@
 # [H1][CSHARP_UNIT_PBT_SPEC_TEMPLATE]
+>**Dictum:** *One generated law should hit many independent axes.*
 
-[IMPORTANT] Replace placeholders, keep normal specs near 175 LOC (225 with grace, 300 exceptional only when every line buys an oracle), and move native Rhino/GH behavior to `*.verify.csx`. Lead with polymorphic patterns from [density-axes.md `[4]`](../references/density-axes.md); fall back to per-case Facts only when oracle differs per case.
+<br>
 
+[IMPORTANT] Replace placeholders, keep normal specs near 175 LOC (225 with grace, 300 exceptional only when every line buys an oracle), and move host-native behavior to the repo runtime scenario rail. Lead with polymorphic patterns from [density-axes.md `[4]`](../references/density-axes.md); fall back to per-case Facts only when oracle differs per case.
+
+---
 ## [VARIANT_1] Polymorphic-first spec (the default)
 
 For source owners with a SmartEnum / Union case set:
 
 ```csharp
-using Rasm.Domain;
-using Rasm.TestKit;
-using Rasm.Vectors;
-using Rhino.Geometry;
+using <DomainNamespace>;
+using <TestKitNamespace>;
+using <MathNamespace>;
 
-namespace Rasm.Tests.Vectors;
+namespace <TestNamespace>;
 
 // --- [CONSTANTS] ----------------------------------------------------------------------------
 internal static class <Source>Gens {
@@ -71,6 +74,7 @@ public sealed class <Concept>Laws {
 }
 ```
 
+---
 ## [VARIANT_2] Theory-cased spec (per-case oracle differs)
 
 When each case has a fundamentally different closed-form, use `[Theory]` + `MemberData` from `SmartEnum.Items`. Stryker treats each row as a separately-killable target.
@@ -94,6 +98,7 @@ public sealed class <Concept>ClosedFormLaws {
 }
 ```
 
+---
 ## [VARIANT_3] Single-fixture / N-invariant spec (expensive construction)
 
 When fixture construction dominates per-test cost:
@@ -111,13 +116,14 @@ public sealed class <Concept>SpdMatrixInvariants {
             Spec.Holds(m.Determinant() > 0.0, "positive det");
             // Invariant 4: all eigenvalues > 0
             EigenPair[] pairs = m.DecomposeEigen();
-            Spec.Holds(pairs.All(p => p.Eigenvalue > -RhinoMath.SqrtEpsilon), "eigenvalues positive");
+            Spec.Holds(pairs.All(p => p.Eigenvalue > -<numeric-epsilon>), "eigenvalues positive");
             // Invariant 5: Cholesky succeeds
             Spec.Succ(m.DecomposeCholesky());
         });
 }
 ```
 
+---
 ## [VARIANT_4] Receipt-invariant spec (avoid stub-receipt anti-pattern)
 
 When a receipt type encodes N conjunctive invariants, build the invariant table as `TheoryData<Receipt, bool>` — one valid row, each invariant individually broken. Avoid hand-constructing a receipt then asserting its own fields (Grade D mirror).
@@ -141,6 +147,7 @@ public sealed class <Receipt>IsValidLaws {
 }
 ```
 
+---
 ## [GENERATOR_RULES]
 
 - Use `Gen.Where(predicate).Select(transform)` for filtered generators. Never `Select+throw` — `throw` breaks CsCheck shrinking (see [testkit.md `[5]`](../references/testkit.md)).

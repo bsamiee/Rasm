@@ -118,7 +118,7 @@ Do not invent local lifecycle semantics where maintained policy carries phase, d
 Support regime: `<rolling, fixed-term, intersection, skew-governed, entitlement-gated, or local generated>`
 Evidence: `<source path, generated check, manifest, lockfile, maintained policy, or proof gap>`
 Generated from: `<compatibility check, lifecycle import, manifest query, or omitted when manually sourced>`
-Source of truth: `<maintained policy, manifest, lockfile, generated contract, support row, or maintained source>`
+Controlling source: `<maintained policy, manifest, lockfile, generated contract, support row, or maintained source>`
 Proof gap: `<missing policy, unrun generated check, unavailable source, or omitted when proved>`
 Last verified: YYYY-MM-DD
 Review trigger: `<policy, lifecycle source, generated check, manifest, package, host, or support document changes>`
@@ -177,21 +177,21 @@ Use these common lifecycle fields:
 - Unknown or undecided: encode explicitly as `still supported, date undecided`, `not announced`, or the source's own literal; never leave a blank cell.
 
 ```text conceptual
-Release line: `Rasm net10.0 target framework`
+Release line: `<runtime or framework line>`
 Status: Supported
-Source phase: .NET 10 SDK compiler surface.
+Source phase: compiler or runtime support source.
 Phase grants: compile target for repository projects; no package-level runtime support claim.
-Released: not recorded in repository support truth.
+Released: not recorded in repository support policy.
 End of active support: not announced in this matrix.
 End of life: not announced in this matrix.
 End of extended support: n/a
-Evidence: `Directory.Build.props`
-Source of truth: repository target-framework configuration.
+Evidence: `<manifest or support policy>`
+Controlling source: repository target-framework configuration or support policy.
 Last verified: YYYY-MM-DD
 Review trigger: target framework, SDK pin, or support policy changes.
 ```
 
-The record is source-verified against `Directory.Build.props`; publish upstream lifecycle dates only when a support document verifies the maintained lifecycle source beside the row.
+The record is source-verified against the controlling manifest or support policy; publish upstream lifecycle dates only when a support document verifies the maintained lifecycle source beside the row.
 
 Use a lifecycle or deprecation diagram only when transitions change reader action and cannot be scanned as clearly from records. The diagram below is conceptual; keep records as controlling source and place a text equivalent after every real diagram.
 
@@ -249,9 +249,9 @@ An accepted matrix shows the comparison axis, support condition, explicit unknow
 ```markdown conceptual
 | [INDEX] | [SURFACE]              | [SCOPE]   | [STATUS]  | [CONDITION]                  | [KEY_DATE]      | [BASIS]                   |
 | :-----: | :--------------------- | :-------- | :-------- | :--------------------------- | :-------------- | :------------------------ |
-|   [1]   | `Rasm` projects        | `net10.0` | Supported | repository-wide target       | not announced   | `Directory.Build.props`   |
-|   [2]   | RhinoWIP host refs     | WIP app   | Limited   | `/Applications/RhinoWIP.app` | still supported | `Directory.Build.props`   |
-|   [3]   | RhinoCommon API lookup | local XML | Supported | `rhino-common` source key    | not announced   | `tools.quality api query` |
+|   [1]   | Library projects       | runtime target | Supported | repository-wide target | not announced   | `<build manifest>`        |
+|   [2]   | Host runtime refs      | host app       | Limited   | host manifest          | still supported | `<host manifest>`         |
+|   [3]   | Generated API lookup   | local metadata | Supported | API source key         | not announced   | `<api metadata command>`  |
 ```
 
 Notes: `not announced` and `still supported` are explicit values, not blank cells. Row-level proof belongs beside the row note or promoted record: `Evidence: <policy, generated check, or command>` and `Review trigger: <release line, policy, entitlement, or generated-check change>`.
@@ -268,7 +268,7 @@ Key date: `<date, not announced, still supported, or n/a>`
 Requirement: `<dependency, certification, or entitlement; omit when unconditional>`
 Replacement: `<replacement surface; omit when no replacement exists>`
 Evidence: `<source path, generated check, command, contract, or maintained policy>`
-Source of truth: `<source path, manifest, generated contract, or maintained policy>`
+Controlling source: `<source path, manifest, generated contract, or maintained policy>`
 Proof gap: `<missing source, unrun check, unavailable policy, or omitted when proved>`
 Review trigger: `<release, policy, compatibility, entitlement, or generated-check change>`
 Route-away: `<README, API, roadmap, migration how-to, runbook, or support document body; omit untriggered routes>`
@@ -319,10 +319,10 @@ State dependency floors where support depends on an upstream runtime, OS, toolch
 Enumerate unsupported configurations explicitly. The absence of a row is not proof of support or lack of support.
 
 ```text conceptual
-Unsupported: treating `System.Drawing.Common` as a runtime dependency for Rasm host plugins; using GH2 tree behavior as plain lists; resolving RhinoCommon symbols without local RhinoWIP XML or `tools.quality api query`.
+Unsupported: treating an unsupported platform package as a runtime dependency; using host-specific collection semantics as generic lists; resolving host API symbols without maintained metadata.
 ```
 
-The examples are maintained-source exclusion shapes. Publish only exclusions proven by maintained docs such as `docs/system-api-map`, `docs/usage.md`, or generated API metadata.
+The examples are maintained-source exclusion shapes. Publish only exclusions proven by a support map, usage guide, or generated API metadata.
 
 ## [13][DEPRECATIONS]
 
@@ -338,15 +338,15 @@ Distinguish `Deprecated`, `End of support`, `Retired`, and `Unsupported`; they a
 - source or policy behind the removal decision.
 
 ```text conceptual
-Surface: former `tools.quality api sources` split command.
+Surface: former split inventory command.
 Status: Deprecated
-Available: replaced by `tools.quality api doctor`.
-Warning signal: command documentation routes source inventory through `api doctor`.
-Replacement: `uv run python -m tools.quality api doctor`.
+Available: replaced by `<replacement health-check command>`.
+Warning signal: command documentation routes source inventory through the replacement command.
+Replacement: `<tool> <replacement-command>`.
 Removal: remove stale references when the active command surface no longer exposes the split command.
-Behavior change: source inventory and tool health now return through one `Envelope`.
+Behavior change: source inventory and tool health now return through one declared response envelope.
 Evidence: current command surface reference or proof gap.
-Source of truth: source tool/API contract.
+Controlling source: source tool/API contract.
 Proof gap: missing command-surface source or omitted when proved.
 Last verified: YYYY-MM-DD
 Review trigger: command surface, generated API contract, support policy, or migration route changes.

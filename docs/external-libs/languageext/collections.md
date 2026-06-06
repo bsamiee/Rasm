@@ -1,6 +1,6 @@
 # [LANGUAGEEXT_COLLECTIONS]
 
-[IMPORTANT] Rasm uses `Seq<T>` as the default cross-module sequence. Convert Rhino/GH arrays and host collections at the adapter edge.
+[IMPORTANT] Use `Seq<T>` as the default domain sequence. Convert external mutable host collections at adapter edges.
 
 ## [1][SELECTION]
 
@@ -29,14 +29,14 @@ Full combinator inventory: `combinators.md`.
 
 | [INDEX] | [HOST]                   | [RULE]                                                                |
 | :-----: | ------------------------ | --------------------------------------------------------------------- |
-|   [1]   | Rhino arrays/lists       | Convert immediately, validate native sentinels, then use `Seq<T>`.    |
-|   [2]   | GH2 `Pear`/`Twig`/`Tree` | Preserve tree semantics at GH2 boundary; project values into rails.   |
-|   [3]   | MathNet vectors/matrices | Keep internal to algorithm execution; project into Rasm result types. |
+|   [1]   | Host arrays/lists        | Convert immediately, validate native sentinels, then use `Seq<T>`.    |
+|   [2]   | Host tree structures     | Preserve tree semantics at host boundary; project values into rails.  |
+|   [3]   | Numeric vectors/matrices | Keep internal to algorithm execution; project into owned result types. |
 |   [4]   | BCL spans                | Use only inside measured primitive kernels or boundary adapters.      |
 
 ## [4][RULES]
 
 - Do not hand-roll mutable accumulation for domain transforms.
-- Do not expose MathNet or Rhino mutable storage as public collection identity.
+- Do not expose mutable external storage as public collection identity.
 - Do not convert back and forth between BCL and LanguageExt collections inside one pipeline.
 - Keep hot-path span work isolated and benchmark-gated.

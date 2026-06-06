@@ -1,6 +1,6 @@
 # [THINKTECTURE_SOURCEGEN]
 
-[IMPORTANT] Rasm consumes the core runtime package. Optional framework integration packages are not active unless pinned and consumed.
+[IMPORTANT] Core runtime package adoption belongs in the package graph. Optional framework integration packages are not active unless package graph state and a consumer make them active.
 
 ## [1][PACKAGE_CLOSURE]
 
@@ -13,15 +13,15 @@
 
 ## [2][CONFIG]
 
-Keep source-generator configuration names only when verified from official docs, local XML, or package source. Do not preserve unverified MSBuild property names. Treat generated diagnostics as architectural pressure, not warning noise.
+Keep source-generator configuration names only when official docs, local XML, or package source expose them. Do not preserve unsupported MSBuild property names. Treat generated diagnostics as architectural pressure, not warning noise.
 
 ## [3][BOUNDARY_PACKAGES]
 
-JSON, Newtonsoft, MessagePack, ASP.NET, EF, OpenAPI, and similar integration packages are not active Rasm guidance unless they appear in central package truth and a project consumes them. Document them as not in graph or omit them.
+JSON, Newtonsoft, MessagePack, ASP.NET, EF, OpenAPI, and similar integration packages are not active guidance unless package graph state and a project consumer make them active. Document them as not in graph or omit them.
 
 ## [4][RULES]
 
-- Verify generated member names before documenting them.
+- Use generated member names from sourcegen output.
 - Keep sourcegen examples tiny and compilable.
 - Do not claim span, serialization, or model-binding behavior without a compiled fixture or source proof.
 - Keep analyzer/sourcegen detail in this file; keep domain usage in `rasm.md`.

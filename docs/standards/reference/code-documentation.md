@@ -15,7 +15,7 @@ Omit comments that restate source-owned facts: signatures, obvious accessors, pr
 
 [AUTHORING_CONTRACT]:
 - Agent use: decide whether a caller-visible surface needs source documentation, which semantic fields the declaration omits, and which adjacent routes change.
-- Produced structure: opening lead, `Use when`, decision router, produced shape, source truth, surface model, language capsules, lifecycle references, anti-patterns, boundaries, and validation.
+- Produced structure: opening lead, `Use when`, decision router, produced shape, generated handoff, surface model, language capsules, lifecycle references, anti-patterns, boundaries, and validation.
 - Cardinality: one public-surface decision per comment, one generated-reference handoff only when adjacent output changes, and one language capsule only where the source language applies.
 - Adjacent checks: API for generated reference, README for public entrypoints, reference for lookup facts, architecture for invariants, support matrix for lifecycle, runbook for operational failure response, and how-to or tutorial for usage paths.
 - Maintenance triggers: public surface added, removed, renamed, retyped, made visible, given a new failure carrier, changed side effect, changed generated-reference anchor, changed schema catalog comment, changed script command, or changed caller-visible invariant.
@@ -67,32 +67,13 @@ Omit when: `<signature, annotation, schema, catalog, shell declaration, or SQL o
 ```
 
 [SECTION_CARDINALITY]:
-- Opening lead, `Use when`, `Decision router`, `Produced shape`, `Source truth`, `Surface model`, `Language capsules`, `Lifecycle references`, `Anti-patterns`, `Boundaries`, and `Validation`: required, single.
+- Opening lead, `Use when`, `Decision router`, `Produced shape`, `Surface model`, `Language capsules`, `Lifecycle references`, `Anti-patterns`, `Boundaries`, and `Validation`: required, single.
 - Language capsule: required for C# 14, TypeScript 7, Python 3.15, Bash 5.3+, and PostgreSQL 18.4 when the source language applies.
 - Generated-reference handoff: conditional; include only when a source-comment fact changes a generated mirror or adjacent maintained route.
 - Lifecycle-tag record: conditional; include only when an external support contract consumes a lifecycle marker.
 - Example: conditional; include only beside non-obvious misuse where prose alone is likely to fail.
 
-## [4][SOURCE_TRUTH]
-
-Use the closest maintained source for each claim. Source declarations carry shape; comments carry semantic contract; generated references mirror source truth and expose anchors; README, reference, architecture, support, runbook, how-to, and tutorial documents consume only routed facts.
-
-| [INDEX] | [TIER]               | [OWNER]          | [CARRIES]          |
-| :-----: | :------------------- | :--------------- | :----------------- |
-|   [1]   | Machine shape        | source shape     | declaration facts  |
-|   [2]   | Semantic contract    | source comments  | caller semantics   |
-|   [3]   | Generated reference  | generated mirror | mirrored anchors   |
-|   [4]   | Routed documentation | adjacent docs    | routed reader work |
-
-[CARRIER_EXAMPLES]:
-- Machine shape: types, arity, nullability, generic bounds, TypeScript signatures, Python annotations, C# declarations, Bash parameter expansion, ShellCheck directives, SQL object identity, and PostgreSQL catalog objects.
-- Semantic contract: caller obligation, result meaning, effect and failure channels, side effects, cancellation, resources, lifecycle, security boundaries, data exposure, and non-obvious rationale.
-- Generated reference: compiler XML, DocFX, API Extractor, TypeDoc, Griffe, mkdocstrings, PostgreSQL catalog comments, description functions, and `psql` describe output.
-- Routed documentation: README entrypoints, generated API pages, curated reference leaves, architecture codemaps, support matrices, runbooks, how-to guides, and tutorials.
-
-Semantic overlays come from language standards, language skills, this standard, and generated contracts. Source-comment standards name the generator profile that owns each generated-reference surface without turning generated output into a second source of truth.
-
-Machine-consumed Markdown may preserve parser-required heading, row, and field shapes when the consumer is named before the first record. Roslyn analyzer release ledgers, generated API mirrors, and generated catalog fragments are exempt from ordinary prose reshaping only for the fields the consumer reads; surrounding human guidance still follows the shared standards.
+## [4][GENERATED_HANDOFF]
 
 Use a generated-reference handoff only when a public comment changes contract behavior, generated output, or an adjacent reader action. When an API page already carries `Generation command` or proof fields, this handoff links the generated anchor and avoids duplicating those fields; when a clarity fix preserves behavior, no adjacent document changes are required.
 
@@ -103,7 +84,7 @@ Use a generated-reference handoff only when a public comment changes contract be
 - `Update when`: public symbol, source comment, generated output, catalog comment, failure carrier, script command, or adjacent route changes.
 - `Close when`: generated reference and consuming route are updated, or route-away explicitly declines the fact.
 - `Route-away`: README, api, reference, architecture, roadmap, runbook, how-to, tutorial, or support body that stays in its route.
-- Optional local fields: `Public surface`, `Source paths`, `Generated reference`, `Generation command`, `Failure carriers`, `Evidence`, `Generated from`, `Source of truth`, `Last verified`, and `Review trigger`; proof and freshness label meanings stay in [proof.md](../proof.md).
+- Optional local fields: `Public surface`, `Source paths`, `Generated reference`, `Generation command`, `Failure carriers`, `Evidence`, `Generated from`, `Controlling source`, and `Review trigger`; proof and freshness label meanings stay in [proof.md](../proof.md).
 
 ## [5][SURFACE_MODEL]
 
@@ -151,7 +132,7 @@ Language-version claims are target standards and route freshness through [proof.
 
 ### [6.1][C_SHARP_14]
 
-Toolchain: XML documentation comments for C# 14 public API contracts; XML comments in `.cs` are semantic source truth, compiler XML is the generated mirror, and DocFX is the generated-reference profile.
+Toolchain: XML documentation comments for C# 14 public API contracts; XML comments in `.cs` are the semantic owner, compiler XML is the generated mirror, and DocFX is the generated-reference profile.
 Generated profile: compiler XML and DocFX; `cref` routes compiler-verifiable internal references.
 Comment owns:
     - `<summary>` purpose.
@@ -364,7 +345,7 @@ Source comments carry no proof details unless a language-specific generator cons
 Use this verification checklist by group:
 
 [STRUCTURE_ROUTE]:
-- [ ] The standard keeps the comment decision, produced shape, source truth, adjacent checks, maintenance triggers, and stale-prevention rules before language mechanics.
+- [ ] The standard keeps the comment decision, produced shape, generated handoff, adjacent checks, maintenance triggers, and stale-prevention rules before language mechanics.
 - [ ] The decision router repairs declaration, annotation, schema, catalog, ShellCheck, or generated-route ownership before adding prose.
 - [ ] Route-away rules are visible before generated handoffs and language capsules.
 - [ ] Generated-reference handoffs omit absent optional fields, keep relation fields before proof fields, and route proof/freshness semantics to [proof.md](../proof.md).

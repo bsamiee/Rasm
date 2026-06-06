@@ -29,23 +29,23 @@ Query Nx workspace with unified Python CLI. Wraps `pnpm exec nx` commands.
 
 ```bash
 # Zero-arg commands
-uv run .claude/skills/nx-tools/scripts/nx.py workspace
-uv run .claude/skills/nx-tools/scripts/nx.py path
-uv run .claude/skills/nx-tools/scripts/nx.py generators
+uv run $CLAUDE_HOME/skills/nx-tools/scripts/nx.py workspace
+uv run $CLAUDE_HOME/skills/nx-tools/scripts/nx.py path
+uv run $CLAUDE_HOME/skills/nx-tools/scripts/nx.py generators
 
 # Required-arg commands
-uv run .claude/skills/nx-tools/scripts/nx.py project workspace-project
-uv run .claude/skills/nx-tools/scripts/nx.py run build
-uv run .claude/skills/nx-tools/scripts/nx.py run typecheck
-uv run .claude/skills/nx-tools/scripts/nx.py schema @nx/react:component
+uv run $CLAUDE_HOME/skills/nx-tools/scripts/nx.py project workspace-project
+uv run $CLAUDE_HOME/skills/nx-tools/scripts/nx.py run build
+uv run $CLAUDE_HOME/skills/nx-tools/scripts/nx.py run typecheck
+uv run $CLAUDE_HOME/skills/nx-tools/scripts/nx.py schema @nx/react:component
 
 # Optional-arg commands (defaults shown)
-uv run .claude/skills/nx-tools/scripts/nx.py affected            # base=main
-uv run .claude/skills/nx-tools/scripts/nx.py affected HEAD~5
-uv run .claude/skills/nx-tools/scripts/nx.py graph               # output=.nx/graph.json
-uv run .claude/skills/nx-tools/scripts/nx.py graph custom.json
-uv run .claude/skills/nx-tools/scripts/nx.py docs                # topic=general
-uv run .claude/skills/nx-tools/scripts/nx.py docs affected
+uv run $CLAUDE_HOME/skills/nx-tools/scripts/nx.py affected            # base=main
+uv run $CLAUDE_HOME/skills/nx-tools/scripts/nx.py affected HEAD~5
+uv run $CLAUDE_HOME/skills/nx-tools/scripts/nx.py graph               # output=.nx/graph.json
+uv run $CLAUDE_HOME/skills/nx-tools/scripts/nx.py graph custom.json
+uv run $CLAUDE_HOME/skills/nx-tools/scripts/nx.py docs                # topic=general
+uv run $CLAUDE_HOME/skills/nx-tools/scripts/nx.py docs affected
 ```
 
 ## [3][ARGUMENTS]

@@ -1,4 +1,7 @@
 # [H1][ORACLES_LAWS]
+>**Dictum:** *The expected value must come from a different idea than the implementation.*
+
+<br>
 
 ## [1][ORACLE_ORDER]
 
@@ -9,10 +12,11 @@
 | [3] | Smaller reference model | `HashSet<T>` for custom set, array loops for matrix multiply, scalar ODE for streamline. |
 | [4] | Metamorphic relation | Translate/scale/permute input and assert invariant or transformed output. |
 | [5] | Typed receipt invariant | Stop kind, unsupported output, residual budget, convergence metadata. |
-| [6] | Bridge runtime observation | Rhino/GH native validity, UI marshaling, document/canvas side effects. |
+| [6] | Runtime observation | Host-native validity, UI marshaling, document/canvas side effects. |
 
 [CRITICAL] Do not use production `Matrix.operator *`, `Matrix.Determinant`, `CloudKernel.*`, or the same projection method as the expected-value engine for the method under test.
 
+---
 ## [2][ORACLE_GRADE]
 
 | [GRADE] | [ORACLE] | [USE] |
@@ -30,6 +34,7 @@
 - Product generators should carry distinct values through every field or output channel under test. This turns transport/dispatch tests into swap detectors instead of presence checks.
 - Category rails are real value when the category is contractual: `Input`, `Tolerance`, `Result`, `Unsupported`, and `Operation` catch exception-shaped failures without overfitting exact prose.
 
+---
 ## [3][LAW_MATRIX]
 
 | [AXIS] | [LAW] | [BUGS_CAUGHT] |
@@ -43,6 +48,7 @@
 | Stateful | Attach/detach, LIFO/FIFO, idempotence or named non-idempotence, rollback double fault. | Lifecycle leaks and false monoids. |
 | Runtime | Static-vs-bridge classification, native validity, host/UI thread behavior. | Tests that pass outside the only runtime that matters. |
 
+---
 ## [4][ANTI_PATTERNS]
 
 - Snapshotting the current implementation output and asserting it later.
@@ -51,7 +57,7 @@
 - Testing only happy-path construction while projection/unsupported rails remain untouched.
 - Using broad `Assert.True` labels that hide the generated input and law.
 - Adding a shared helper for one file instead of inlining or promoting a universal testkit primitive.
-- Counting coverage from static specs by calling native Rhino geometry methods that require RhinoWIP host initialization.
+- Counting coverage from static specs by calling host-native methods that require host initialization.
 - Reusing production projection/operators as expected-value engines under a different name.
 - **Generator-mirror**: a generator-side filter that re-encodes a production predicate (e.g., `Gen.Where(v => MyEnum.Items.Contains(v))` when production `MyEnum.Items` is the catalog). The generator becomes the oracle's twin; mutations to the catalog are invisible.
 - **Placeholder-fixture swap blindness**: single-value or symmetric fixtures (`(0, 0, 0)`, `UnitTriangle3` for X/Y transport) cannot detect swaps between channels. Use distinct-value product generators.
@@ -61,6 +67,7 @@
 - **`throw` inside `Select`**: `Gen.Int.Select(v => v > 0 ? T(v) : throw ...)` breaks CsCheck shrinking. Use `Gen.Int.Where(v => v > 0).Select(v => T(v))`.
 - **Hoisted `Op key` across `Switch` arms**: every `[Union].Switch` arm constructs `Op.Of(name: nameof(CaseName))` for diagnostic provenance.
 
+---
 ## [5][POLYMORPHIC_ORACLE_RULES]
 
 Cross-reference [density-axes.md `[4]`](density-axes.md) for the pattern catalog. Oracle-side rules that govern polymorphic specs:

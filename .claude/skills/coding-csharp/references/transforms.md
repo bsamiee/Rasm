@@ -2,6 +2,8 @@
 
 Compositional logic substrate for C# 14 / .NET 10. Every code body across all reference files is written in this style — transforms.md defines what "algorithmic, functional, ROP-driven code" means at the logic level. All snippets assume `using static LanguageExt.Prelude;` and `using LanguageExt;`.
 
+---
+
 ## Discriminant Projection
 
 Push all branching into data shape; compute with invariant functions. A closed domain maps each discriminant to exactly one projection — generated dispatch enforces totality at compile time where pattern matching only warns. Project to functions, not values, when the discriminant selects a computation — same projections compose monadically (short-circuit) or applicatively (accumulation).
@@ -50,6 +52,8 @@ public static class AdjustmentProjection {
 - `ApplyAll` composes through monadic `Bind` (short-circuits on failure); `ValidateAll` reuses the same `Project` under applicative `Traverse(identity)` — `.ToValidation()` bridges `Fin` to error accumulation.
 - Fold lambda `static` — `acc` and `transform` are both parameters. Adding a fourth variant breaks all `Switch` call sites at compile time.
 
+---
+
 ## Recursion Schemes
 
 Pack expansion worklist and fold accumulator into one compound state — trampolining drives coalgebra and algebra simultaneously without materializing intermediate structure. Coalgebra returns zero or more successors per seed: singleton for linear recursion, multiple children for tree traversal, empty for leaf/prune. Both operate in the effect layer: coalgebra can fail mid-expansion, algebra can reject mid-accumulation, with short-circuit propagating through bind. Trampolining mechanism is effect-determined — synchronous loop or async state machine with cancellation per iteration.
@@ -84,6 +88,8 @@ public static class Schemes {
 - `(Seq(seed), identity)` compound worklist fuses pending seeds and fold accumulator — `Next.Loop`/`Next.Done` controls iteration via trampoline, not recursive calls, bypassing .NET's ~1,500-frame closure stack limit.
 - `step` dual-use in LINQ: `Match` extracts monadic accumulation (algebra on `Some`, identity on leaf), `Map`/`IfNone` extracts worklist management (children prepended for DFS, tail on leaf) — single `Next.Loop` unifies both branches.
 - Worklist empty (`Head → None`) is the sole structural termination via `Next.Done`. Inner `None` (leaf/prune) feeds through `IfNone(state.Pending.Tail)` and `Monad.pure` identity — no separate loop construction.
+
+---
 
 ## Traversal Fusion
 
@@ -121,7 +127,8 @@ public static class Fusion {
 - `FuseWhile` signature captures the five decisions any fused traversal must make — the body is a single `Choose` → `FoldWhile` → `project` expression.
 - `CollectUnder` hoists `cap` into the seed tuple, making all three lambdas `static` — the predicate reads `Cap` from `State` instead of closing over it.
 - `.Cons` accumulates in reverse; `.Rev()` in the projection restores insertion order — `.Add` (Snoc) forces evaluation on every element.
-- Pinned LanguageExt exposes indexed `Seq<T>.Map(Func<T,int,B>)` but not indexed `TraverseM`. When an effectful traversal needs the index, use indexed `Map` into the effect and then `.TraverseM(identity).As()`; do not hand-thread `(Index, Accumulator)` folds unless the fold owns additional state beyond indexing.
+
+---
 
 ## Static Resolution
 
@@ -168,6 +175,8 @@ public static class Resolution {
 - `Locus` forbids `TPos + TPos` — the gross fold accumulates `TDist` offsets from an arbitrary origin, then translates by mean displacement. `CreateChecked` over `CreateSaturating`: a silently clamped divisor corrupts arithmetic.
 - `guard(maxDeviation > TDist.AdditiveIdentity)` precedes both folds — `/ acc.MaxDev.To()` in the outlier weight divides by zero without it.
 - Outlier fold nests four type-class ops in one switch binding: `dev.To()` (`DomainType`), `TScalar.Abs` (`INumberBase`), `/ acc.MaxDev.To()` (`INumber`), `dev * w` (`VectorSpace`). Both fold seeds hoist invariants → both lambdas `static`.
+
+---
 
 ## Expression Scoping
 
@@ -230,6 +239,8 @@ public static class Scoping {
 - Each arm's scoped binding serves dual use: `mag` as guard and `Some` value (Deviation), `ratio` as bound check and `Some` value (Ratio), `range` as degenerate guard before `offset` computes (Normalized). All three arms depth 3.
 - Post-fold switch `(TScalar sum, TScalar count) when count > TScalar.Zero` scopes both values simultaneously — guard and named bindings stay in expression form.
 - Choose selector captures `metric` (single allocation per call, not per element); Fold lambda `static` with `Sum` and `Count` in the seed.
+
+---
 
 ## Effectful Composition
 
@@ -298,6 +309,8 @@ public static class Composition {
 - `TraverseM(ComposeK(extract, FoldArrows(stages)))` nests three composition levels — `.As()` downcasts `K<Fin, Seq<TScalar>>` to concrete. Weighted fold: six `INumber` ops in one switch binding, `Center` and `Ceil` hoisted into seed → `static`.
 - Error routing: outer C# `switch` narrows `Error → Fault` (necessary type test); inner `f.Switch(ceiling, ...)` threads `ceiling` as `TState` → all three branch lambdas `static`. `FinFail(m)` passes typed `Malformed` instead of generic `err`.
 - `Fault : Expected` — `[Union]` on `partial record` generates `Switch`/`Map` alongside base class inheritance. Adding a fourth variant breaks the inner `Switch` at compile time; the wildcard catches non-`Fault` errors.
+
+---
 
 ## Rules
 

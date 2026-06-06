@@ -1,10 +1,17 @@
 # [H1][OBJECTS]
+>**Dictum:** *Object topology is a proof surface; one canonical shape per concept.*
 
-Object-focused reference for C# 14 / .NET 10 with LanguageExt v5 and Thinktecture Runtime Extensions v10.
+<br>
+
+Object-focused reference for modern C# with LanguageExt and Thinktecture Runtime Extensions.
 This document standardizes object-family selection, invariant construction, variant modeling, and aggregate transitions.
 Effect orchestration lives in `effects.md`; polymorphic compression lives in `composition.md`; low-level tuning lives in `performance.md`.
 
+---
 ## [1][TOPOLOGY_SELECTION]
+>**Dictum:** *Choose by semantic contract, then commit to one canonical form.*
+
+<br>
 
 | [INDEX] | [DOMAIN_SHAPE]                                   | [CANONICAL_FORM]          |
 | :-----: | ------------------------------------------------ | ------------------------- |
@@ -27,11 +34,15 @@ Effect orchestration lives in `effects.md`; polymorphic compression lives in `co
 - Raw primitives terminate at adapters.
 - If a second "canonical" shape appears, the model has already drifted.
 
+---
 ## [2][VALUE_OBJECT_CANONICAL]
+>**Dictum:** *Value objects terminate primitive obsession at ingestion boundaries.*
+
+<br>
 
 Thinktecture v10 source-generates construction APIs; LanguageExt provides typed error channels.
 Use `TryCreate` for untrusted input and project to `Fin<T>` / `Validation<Error,T>` at the boundary. A generic bridge is acceptable only when it serves multiple boundary types; single-call bridges are inlined into the owning adapter.
-Boundary adapters when Thinktecture integration packages are pinned at the host (**`[NOT_IN_GRAPH]`** until pinned): `UseThinktectureValueConverters()`, ASP.NET model binders, JSON factories. **Default without those packages:** hand-rolled EF `ValueConverter` / `OwnsOne` in persistence boundary code (`persistence.md` §3).
+Boundary adapters when Thinktecture integration packages are part of the host surface: `UseThinktectureValueConverters()`, ASP.NET model binders, JSON factories. Without those packages, use EF `ValueConverter` / `OwnsOne` in persistence boundary code (`persistence.md` §3).
 
 ```csharp
 namespace Domain.Objects;
@@ -111,7 +122,11 @@ public readonly partial struct DampingConfig {
 }
 ```
 
+---
 ## [3][DOMAIN_BRIDGE]
+>**Dictum:** *One generic bridge projects Thinktecture construction into `Fin<T>`; derive `Validation` at call site.*
+
+<br>
 
 Single bridge unifies value object and smart enum parsing into the `Fin<T>` error channel when the module has multiple boundary value types. Callers needing `Validation<Error,T>` compose via `.ToValidation()` -- no separate `Validate` wrapper and no one-use bridge.
 
@@ -145,7 +160,11 @@ public static class DomainBridge {
 - `ParseValueObject` for `[ValueObject<T>]` types; `ParseSmartEnum` for `[SmartEnum<T>]` types.
 - Never create separate `Validate` wrappers -- compose `.ToValidation()` at call site.
 
+---
 ## [4][SMART_ENUM_CANONICAL]
+>**Dictum:** *Closed behavioral sets belong in SmartEnums, not primitive enums plus detached switch maps.*
+
+<br>
 
 Thinktecture SmartEnums provide typed lookup (`Get`/`TryGet`), validation, and exhaustive `Switch`/`Map`.
 Prefer context overloads + `static` lambdas on hot paths to avoid closure allocation.
@@ -189,7 +208,11 @@ public static class OrderStateRole {
 - Never model SmartEnum behavior in external switch tables.
 - Boundary parse uses `TryGet` via DomainBridge; reserve throwing `Get` for trusted paths.
 
+---
 ## [5][UNION_CANONICAL]
+>**Dictum:** *Variant payloads require unions, not nullable field choreography.*
+
+<br>
 
 Use union modeling for outcomes where each case owns distinct payload semantics.
 Generated `Switch`/`Map` methods enforce exhaustiveness at compile time.
@@ -228,8 +251,8 @@ public static class PaymentResultRole {
 }
 ```
 
-Thinktecture `Switch`/`Map` unifies to the common return type of all branches — when each branch returns `Fin<T>`, the expression becomes `Fin<T>` and composes directly into LanguageExt `Bind`/`Map` chains or `Eff` pipelines.
-All case branches **must** return the same type (identical generic parameters) so the overall expression unifies to a single result type.
+Thinktecture `Switch`/`Map` unifies to the common return type of all branches — when each branch returns `Fin<T>`, the expression becomes `Fin<T>` and composes directly into LanguageExt `Bind`/`Map` chains or `Eff` pipelines.<br>
+All case branches **must** return the same type (identical generic parameters) so the overall expression unifies to a single result type.<br>
 Mixing return types across branches (e.g., `Fin<string>` in one arm and `Fin<Unit>` in another) prevents composition and produces compilation errors.
 
 ```csharp
@@ -278,19 +301,19 @@ public static class PaymentAdapter {
 ```
 
 [IMPORTANT]:
-- Bind to generated nested case names (Thinktecture 10.2.0); do not introduce parallel type aliases that shadow codegen symbols.
+- Bind to generated nested case names; do not introduce parallel type aliases that shadow codegen symbols.
 - Regular unions are best serialized with polymorphic metadata (`JsonDerivedType`); ad-hoc unions use `[ObjectFactory<T>]` projection.
 - `Fin<T>.ToEff<RT>()` lifts dispatch results into effectful pipelines when host context is required.
 - Ad-hoc `Union<T1,...>` is for boundary adapter scenarios; regular `[Union]` is for domain variant hierarchies.
 
 ### [5.1][UNION_ADVANCED_ATTRIBUTES]
 
-| Attribute                                        | Use                                           |
-| ------------------------------------------------ | --------------------------------------------- |
-| `[Union(SwitchMapStateParameterName = "…")]`     | State-threaded `.Switch(ctx, …)`              |
-| `SwitchMethods` / `MapMethods`                   | Control generated switch/map overload set     |
-| `[UnionSwitchMapOverload(StopAt = typeof(...))]` | Partial overload generation                   |
-| `[UseDelegateFromConstructor]`                   | SmartEnum delegate from ctor — see `enums.md` |
+| Attribute | Use |
+| --------- | --- |
+| `[Union(SwitchMapStateParameterName = "…")]` | State-threaded `.Switch(ctx, …)` |
+| `SwitchMethods` / `MapMethods` | Control generated switch/map overload set |
+| `[UnionSwitchMapOverload(StopAt = typeof(...))]` | Partial overload generation |
+| `[UseDelegateFromConstructor]` | SmartEnum delegate from ctor — see `enums.md` |
 
 Union `operator +`/`|` are not generated by Thinktecture — use hand-written operators only when laws are explicit for the type.
 
@@ -310,7 +333,9 @@ Hand-written domain operators (separate from Thinktecture codegen):
 
 Read the operator body before composing; laws differ per type. Thinktecture does not generate these on `[Union]` types.
 
+---
 ## [6][AGGREGATE_OBJECT_SHAPE]
+>**Dictum:** *Aggregates own transitions; callers consume typed constructors and `with`-expression codomains.*
 
 Aggregate state is immutable; transitions use `with`-expression mutation and return typed codomains (`Fin<T>` / `Validation<Error,T>`).
 No external mutation channels; no primitive re-validation in downstream code.
@@ -348,7 +373,9 @@ public sealed record PurchaseOrder(
 - Transitions produce new state via `with`-expressions -- never reconstruct manually.
 - Applicative tuple gathers all validation errors; `Apply` runs only when all succeed.
 
+---
 ## [7][STACK_ONLY_OBJECT_BOUNDARY]
+>**Dictum:** *`ref struct` belongs to parsing/workspace layers, then exits into durable canonical objects.*
 
 `readonly ref struct` is infrastructure-local for span workflows.
 Project to canonical value objects before crossing boundaries.
@@ -370,7 +397,9 @@ public readonly ref struct Utf8Window(ReadOnlySpan<byte> source) {
 }
 ```
 
+---
 ## [8][RULES]
+>**Dictum:** *Rules are optimization constraints for correctness and density.*
 
 - One concept, one canonical object form.
 - Construction paths are typed (`Fin`/`Validation`) and exception-free for expected invalid input.
@@ -381,15 +410,16 @@ public readonly ref struct Utf8Window(ReadOnlySpan<byte> source) {
 - `ref struct` remains infrastructure-local.
 - `with`-expressions are the sole mechanism for record state transitions.
 
+---
 ## [9][QUICK_REFERENCE]
 
-| [INDEX] | [SYMPTOM]                                     | [PRIMARY_FIX]                                             | [SECTION] |
-| :-----: | :-------------------------------------------- | --------------------------------------------------------- | :-------- |
-|   [1]   | Primitive obsession in signatures             | Value object canonicalization + DomainBridge              | [2], [3]  |
-|   [2]   | Enum/switch sprawl                            | SmartEnum + exhaustive generated behavior                 | [4]       |
-|   [3]   | Variant ambiguity via nullable fields         | Union + exhaustive `Switch`/`Map`                         | [5]       |
-|   [4]   | Multi-field VO without scalar key             | `[ComplexValueObject]` + `[ValidationError<T>]`           | [2.1]     |
-|   [5]   | Union SelfOp analyzer policy                  | `[SkipUnionOps]` / `[GenerateUnionOps]` on project unions | [5.1]     |
-|   [6]   | Mutable aggregate drift                       | Sealed record + `with`-expression transitions             | [6]       |
-|   [7]   | Stack-only type leaking into domain contracts | `ref struct` isolation + conversion bridge                | [7]       |
-|   [8]   | Dual object representations per concept       | Collapse to one canonical shape                           | [1], [8]  |
+| [INDEX] | [SYMPTOM]                                     | [PRIMARY_FIX]                                 | [SECTION] |
+| :-----: | :-------------------------------------------- | --------------------------------------------- | :-------- |
+|   [1]   | Primitive obsession in signatures             | Value object canonicalization + DomainBridge  | [2], [3]  |
+|   [2]   | Enum/switch sprawl                            | SmartEnum + exhaustive generated behavior     | [4]       |
+|   [3]   | Variant ambiguity via nullable fields         | Union + exhaustive `Switch`/`Map`             | [5]       |
+|   [4]   | Multi-field VO without scalar key             | `[ComplexValueObject]` + `[ValidationError<T>]` | [2.1]   |
+|   [5]   | Union SelfOp analyzer policy              | `[SkipUnionOps]` / `[GenerateUnionOps]` on project unions | [5.1]     |
+|   [6]   | Mutable aggregate drift                       | Sealed record + `with`-expression transitions | [6]       |
+|   [7]   | Stack-only type leaking into domain contracts | `ref struct` isolation + conversion bridge    | [7]       |
+|   [8]   | Dual object representations per concept       | Collapse to one canonical shape               | [1], [8]  |

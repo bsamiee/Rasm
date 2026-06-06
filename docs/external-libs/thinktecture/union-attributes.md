@@ -1,6 +1,6 @@
 # [THINKTECTURE_UNION_ATTRIBUTES]
 
-[IMPORTANT] Pin **`Thinktecture.Runtime.Extensions`** at the version pinned in `Directory.Packages.props`. Verify attribute properties in local package XML.
+[IMPORTANT] Thinktecture attributes control generated value objects, smart enums, unions, dispatch, factories, and conversion operators.
 
 Thinktecture `[Union]` generates case types, `.Switch()`, `.Map()` — **not** `operator +`/`|` on the union type in Thinktecture v10.
 
@@ -56,7 +56,7 @@ Ad-hoc unions: `[Union<T1,T2,...>]` and `[AdHocUnion(typeof(...))]` — up to fi
 
 Bridge Thinktecture validation once into LanguageExt rails at the boundary — see `objects.md`.
 
-Set **`SerializationFrameworks = SerializationFrameworks.None`** on VOs and SmartEnums when JSON/MessagePack integration packages are not pinned — core generator defaults to `All`.
+Set **`SerializationFrameworks = SerializationFrameworks.None`** on VOs and SmartEnums when JSON/MessagePack integration packages are not active — core generator defaults to `All`.
 
 ## [3][SMART_ENUM_ATTRIBUTES]
 

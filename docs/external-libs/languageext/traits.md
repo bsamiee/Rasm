@@ -32,5 +32,5 @@ Use `OptionT`, `EitherT`, `FinT`, `ValidationT`, `ReaderT`, `StateT`, `WriterT`,
 ## [5][RULES]
 
 - Introduce trait-polymorphism only after repeated carrier-specific algorithms exist.
-- Keep Rhino/GH2 ownership outside trait constraints; native semantics stay at boundary projections.
+- Keep host/runtime ownership outside trait constraints; native semantics stay at boundary projections.
 - Do not use trait vocabulary to hide runtime dependencies or host object lifetime.

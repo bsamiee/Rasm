@@ -1,6 +1,6 @@
 # [TESTING_LIBS]
 
-[IMPORTANT] Package injection and versions: `Directory.Build.props`, `Directory.Packages.props`, and `docs/system-api-map/packages.md` §6. Cross-stack proof: `../usage.md` §5.
+[IMPORTANT] Package injection and versions are owned by the local package map. Shared testkit guidance belongs to the local test instruction owner.
 
 ## [1][INDEX]
 
@@ -21,4 +21,4 @@
 - `_tooling` — Verify snapshots
 - `_benchmarks` — BenchmarkDotNet measurement
 - `_fuzz` — SharpFuzz harnesses
-- `_testkit` — shared Spec/Gens/Numeric (see `tests/csharp/AGENTS.md`)
+- `_testkit` — shared Spec/Gens/Numeric from the local test instruction owner

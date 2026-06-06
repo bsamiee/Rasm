@@ -16,7 +16,7 @@
 
 [OWNS]
 - [1] Target framework, language version, analyzer posture, global usings, project classification, RhinoWIP/GH2 host references, generated assembly metadata.
-- [2] Central package versions and transitive pins.
+- [2] Central package versions and transitive package state.
 - [3] Late build behavior only.
 - [4] Analyzer/style severity and code formatting policy.
 - [5] Broad solution graph.
@@ -34,11 +34,11 @@
 |   [3]   | Local analyzer        | `tools/cs-analyzer/CsAnalyzer.csproj`                               | Project analyzer ref; CSP#### catalog |
 |   [4]   | Roslyn authoring      | `Microsoft.CodeAnalysis.CSharp`, `Microsoft.CodeAnalysis.Analyzers` | `CsAnalyzer` and tests only           |
 
-C# 14 feature catalog: `../external-libs/csharp/language.md`. Compiler pin state: `packages.md` §3. Treat analyzer failures as architecture pressure unless the owning policy explicitly permits an exception.
+C# 14 feature catalog: `../external-libs/csharp/language.md`. Compiler package state: `packages.md` §3. Treat analyzer failures as architecture pressure unless the owning policy explicitly permits an exception.
 
 ## [3][HOST_REFERENCES]
 
-`Directory.Build.props` owns RhinoWIP app paths, `RhinoCommon`, `Rhino.UI`, `Grasshopper2`, `GrasshopperIO`, `Eto`, RhinoCode references, `System.Drawing.Common` host assembly, and conditioned compile package metadata. Verify host assemblies with `uv run python -m tools.quality api doctor` before changing references or host docs.
+`Directory.Build.props` owns RhinoWIP app paths, `RhinoCommon`, `Rhino.UI`, `Grasshopper2`, `GrasshopperIO`, `Eto`, RhinoCode references, `System.Drawing.Common` host assembly, and conditioned compile package metadata. Host-reference edits use `uv run python -m tools.quality api doctor`.
 
 ## [4][GENERATED_METADATA]
 
@@ -46,7 +46,7 @@ Use centralized generated `InternalsVisibleTo`, plugin description attributes, p
 
 ## [5][PACKAGE_GRAPH]
 
-Add central versions only with active consumer proof, transitive pin need, or a conditioned compile surface. For graph changes, validate restore/build state and update lockfiles intentionally. Build/analyzer packages: `packages.md` §3. Local analyzer refs are not central-package entries.
+Add central versions only with active consumer proof, transitive package need, or a conditioned compile surface. For graph changes, validate restore/build state and update lockfiles intentionally. Build/analyzer packages: `packages.md` §3. Local analyzer refs are not central-package entries.
 
 ## [6][GLOBAL_USINGS]
 

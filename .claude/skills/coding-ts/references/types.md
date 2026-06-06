@@ -2,6 +2,8 @@
 
 Type-level computation as algebraic discipline — conditional distribution, mapped projection, template literal algebra, recursive transformation, variance exploitation, and compression strategies that make 1 type replace 5-7 declarations. Schema/Model derivation lives in objects.md; this file owns pure TS type mechanics.
 
+---
+
 ## [1] Derivation & Polymorphic Dispatch
 
 Inference primitives compose as operators over runtime anchors. `typeof` lifts values into types, `keyof` projects to key union, indexed access selects by key. `satisfies` validates structure while preserving literal narrowing. `ReturnType`/`Parameters` decompose function shapes. One vocabulary drives both derivation and polymorphic dispatch — the keys determine valid inputs, indexed access determines output types, eliminating overloads entirely.
@@ -41,6 +43,8 @@ const _buildPredicate = (filters: { status?: string; zone?: string }, limit: num
     ({ filters, limit, offset: 0 }) as const
 type _PredicateShape = ReturnType<typeof _buildPredicate>
 ```
+
+---
 
 ## [2] Type Parameter Mechanics
 
@@ -89,6 +93,8 @@ type _Resolve<T> = T extends { readonly _tag: string }
     : { readonly tag: "unknown"; readonly value: T }
 ```
 
+---
+
 ## [3] Mapped & Template Algebra
 
 Mapped types iterate `keyof T` and transform each entry. Template literals perform string algebra in key remapping position. Together they project vocabularies into accessor signatures, event names, filtered subsets, and permission matrices — replacing N manual declarations with one parameterized mapped type.
@@ -134,6 +140,8 @@ type _EventNames<T> = { [K in keyof T & string as `on${Capitalize<K>}Changed`]: 
 // → { onStatusChanged: string; onPriorityChanged: number }
 ```
 
+---
+
 ## [4] Recursive Transformation
 
 Recursive types walk arbitrary-depth structures via self-reference in conditional branches. One parameterized recursive type replaces `DeepPartial`, `DeepReadonly`, `DeepRequired` as special cases of a general transform.
@@ -169,6 +177,8 @@ type _Join<T extends ReadonlyArray<string>, Sep extends string, Acc extends stri
 
 When recursive depth exceeds ~50, quarantine the type in `types/internal/` and consider `ts-toolbelt` (`O.Merge`, `L.Concat`) which uses pre-computed lookup tables instead of runtime recursion.
 
+---
+
 ## [5] Compression Algebra
 
 Utility types are set-theoretic operators over type structures: `Pick` projects, `Omit` eliminates, `Partial` lifts to optional, `Extract`/`Exclude` filter unions by assignability. One canonical type + projection operators replaces N standalone declarations.
@@ -195,6 +205,8 @@ type _Terminal = Exclude<_Entity["status"], _Visible>                 // "purgin
 ```
 
 **Compression economics**: if a type derives via 1 utility application on an existing type, never declare it standalone unless 3+ consumers reference it — below that threshold, inline the projection at the call site. When the canonical type has a Schema/Model anchor, prefer `S.pick`/`S.omit`/`S.partial` over TS utility types (objects.md owns that boundary).
+
+---
 
 ## [6] Anti-Patterns
 

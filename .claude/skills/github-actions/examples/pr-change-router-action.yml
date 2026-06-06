@@ -14,7 +14,7 @@ inputs:
     required: false
     default: ${{ github.event.pull_request.head.sha }}
   path-mapping:
-    description: 'JSON glob->config map: {"packages/api/**":{"project":"api","check-cmd":"pnpm check:ts","runner":"ubuntu-latest","timeout":15}}'
+    description: 'JSON glob->config map: {"packages/api/**":{"project":"api","check-cmd":"pnpm exec nx run api:typecheck","runner":"ubuntu-latest","timeout":15}}'
     required: true
   fallback-project:
     description: 'Project to include when no patterns match (empty = skip CI entirely)'

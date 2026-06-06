@@ -19,7 +19,7 @@ Route normal repeatable work, contribution workflow, severity and command policy
 - Required produced structure: `Trigger`, `Impact`, `Safety prerequisites`, read-only `Triage`, `Mitigation`, `Escalation`, `Verification`, `Evidence capture`, and `Boundaries`.
 - Section cardinality: required response sections appear once; rollback/abort, communication, and follow-up cleanup appear only when they change responder action.
 - Adjacent checks: check architecture, API/code documentation, support matrix, reference, test strategy, how-to, contributing, onboarding, README, roadmap, and incident-process docs only when they change triage, safe mutation, escalation, verification, or evidence capture.
-- Maintenance triggers: update the runbook when trigger, impact surface, permission, dashboard, command, endpoint, support target, API behavior, bridge/runtime behavior, rollback path, escalation route, communication cadence, or evidence location changes.
+- Maintenance triggers: update the runbook when trigger, impact surface, permission, dashboard, command, endpoint, support target, API behavior, runtime adapter behavior, rollback path, escalation route, communication cadence, or evidence location changes.
 
 Opening order is fixed for task standards: route and use contract first, produced structure second, cardinality third, then baselines, examples, and local patterns. Do not let response diagrams or profile examples define section order implicitly.
 
@@ -46,7 +46,7 @@ Evidence requirement: <artifacts to preserve for handoff, audit, or review>
 
 The literal value `none` is allowed only for runbook fields where the domain truly permits no obligation: communication requirement, safe mutation, rollback route, follow-up cleanup, or a local profile field whose maintained incident-process source defines `none`. Do not use `none` as filler for unknown escalation, missing evidence, absent proof, or unverified permission; use a proof gap or blocker instead.
 
-If the responder cannot choose between local profiles from the observable impact, apply the maintained local incident-process tie-breaker. If no maintained tie-breaker exists, stop mutation and escalate for profile assignment with captured evidence; do not import PagerDuty's or another provider's severity default as local policy.
+If the responder cannot choose between local profiles from the observable impact, apply the maintained local incident-process tie-breaker. If no maintained tie-breaker exists, stop mutation and escalate for profile assignment with captured evidence; do not import a provider severity default as local policy.
 
 When no maintained incident-process source exists, publish the gap as a profile blocker, not as an invented local profile:
 
@@ -173,18 +173,18 @@ State a concrete metric and threshold wherever recovery, impact, escalation, or 
 Triage and mitigation steps carry command, expected signal, and branch or verification in the step body. This density prevents command-only instructions that hide the recovery condition:
 
 ```markdown conceptual
-1. Confirm the trigger: `uv run python -m tools.quality bridge doctor`.
-    Expected signal: the returned `Envelope` reports a bridge, endpoint, or host-runtime failure instead of `status: ok`.
-    If the bridge is healthy, close this runbook as the wrong symptom and capture the `run_id`; if the failure remains, proceed to step 2.
+1. Confirm the trigger: `<health-check-command>`.
+    Expected signal: the returned machine envelope reports a runtime adapter, endpoint, or host-runtime failure instead of the healthy status.
+    If the adapter is healthy, close this runbook as the wrong symptom and capture the run identifier; if the failure remains, proceed to step 2.
 ```
 
 ```markdown conceptual
-1. Re-run the smallest affected Rhino scenario after the bridge reconnects.
+1. Re-run the smallest affected runtime scenario after the adapter reconnects.
     Class: verification after mitigation.
-    Known-good target: the scenario path recorded in the failing bridge evidence.
-    Command: `uv run python -m tools.quality bridge verify tests/csharp/libs/Rasm.Rhino/UI/scenarios/ui-paint.verify.csx`
-    Expected result: the returned `Envelope` names the scenario report directory and no first failure.
-    Verify: the same scenario passes twice without a stale `~/.rasm/rhino-bridge.json` endpoint warning.
+    Known-good target: the scenario path recorded in the failing runtime evidence.
+    Command: `<verify-command> <scenario-or-replay-path>`
+    Expected result: the returned machine envelope names the scenario report directory and no first failure.
+    Verify: the same scenario passes twice without a stale endpoint-state warning.
 ```
 
 When the only safe response is escalation, keep `Mitigation` explicit and non-invented:
@@ -304,9 +304,9 @@ Choose the smallest response form that preserves responder action:
 - Do not duplicate the same branch as prose, decision table, and diagram. Assign one representation to carry the decision and let nearby prose state the invariant or consequence.
 
 Show one step record that carries the accepted command and the rejected near-miss when the near-miss is a likely destructive error. The command alone is not the runbook step; the known-good target, expected result, and verification are part of the safety contract:
-Command: `uv run python -m tools.quality bridge verify tests/csharp/libs/Rasm.Rhino/UI/scenarios/ui-paint.verify.csx`
-Rejected near-miss: `uv run python -m tools.quality bridge verify`
-Reason: no scenario target, so the responder cannot prove which runtime behavior was checked.
+Command: `<verify-command> <specific-target>`
+Rejected near-miss: `<verify-command>`
+Reason: no target, so the responder cannot prove which runtime behavior was checked.
 
 ## [13][MAINTENANCE]
 

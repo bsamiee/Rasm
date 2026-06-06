@@ -19,7 +19,7 @@ Scope: composition roots, external I/O boundaries, app runtime, persistence, com
 |   [2]   | Companion process, test host, bridge service |      No      | `IServiceCollection`, optional Generic Host, optional Scrutor |
 |   [3]   | Domain, analysis, geometry kernel            | No container | LanguageExt effects and direct constructors                   |
 
-Scrutor, Generic Host, logging providers, telemetry exporters, HTTP resilience, EF Core, and validation packages are `[NOT_IN_GRAPH]` until a concrete bootstrap consumer exists. The AppUi package matrix is active direct through `Rasm.AppUi.csproj`. `Directory.Packages.props` is graph truth; owner-local manuals are intent and adoption guidance.
+Scrutor, Generic Host, logging providers, telemetry exporters, HTTP resilience, EF Core, and validation packages wait for a concrete bootstrap consumer. The AppUi package matrix is active direct through `Rasm.AppUi.csproj`. `Directory.Packages.props` carries graph evidence; owner-local manuals carry intent and adoption guidance.
 
 ## [2][FIRST_CONSUMER_CANDIDATES]
 
@@ -34,7 +34,7 @@ Scrutor, Generic Host, logging providers, telemetry exporters, HTTP resilience, 
 |   [7]   | EF Core SQLite / SQLite        | Local durable app state outside GH solve paths               | `Rasm.Persistence` |
 |   [8]   | MessagePack                    | Compact snapshots after binary round-trip proof              | `Rasm.Persistence` |
 |   [9]   | ImGui.NET debug overlay        | Debug overlay proof plan after product UI rail exists        | `Rasm.AppUi`       |
-|  [10]   | AppUi pinned matrix            | Active direct project references; runtime proof pending      | `Rasm.AppUi`       |
+|  [10]   | AppUi active matrix            | Active direct project references; runtime proof pending      | `Rasm.AppUi`       |
 |  [11]   | System.Numerics.Tensors        | Measured span/TensorPrimitives kernel consumer               | `Rasm.Compute`     |
 |  [12]   | ML.NET / gRPC client           | Named model or out-of-process compute companion              | `Rasm.Compute`     |
 

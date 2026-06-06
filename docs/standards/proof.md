@@ -21,7 +21,7 @@ Use the strongest source that directly proves the claim:
 1. Machine-readable repository truth: source, manifests, lockfiles, schemas, generated contracts, generated API reference, checked-in diagram models, or symbol documentation generated from source.
 2. Executed local verification: the exact command, check, test, build, render, scenario run, link check, or docs build captured during the change.
 3. Maintained upstream source when repository truth is silent: versioned specifications, release notes, support policies, API references, or standards documents.
-4. Source-controlled secondary material: project examples, migration guides, known limitations, issue records, or controlling-project discussions.
+4. Source-controlled secondary material: documented-system examples, migration guides, known limitations, issue records, or controlling-source discussions. Use these as claim evidence, not as reusable standards examples.
 
 Repository truth and generated contracts outrank prose. Local command output outranks a copied transcript. Maintained upstream source outranks examples for actively changing tools.
 
@@ -42,7 +42,7 @@ This standard is the single route for proof, source, freshness, proof-gap, and g
 | :-----: | :-------------------------- | :--------------------------------------------------------- | :----------------------------------- |
 |   [1]   | `Evidence:`                 | source, command, output, render, or policy proves it       | no drift-prone proof field is needed |
 |   [2]   | `Generated from:`           | artifact is generated or mirrored                          | artifact is handwritten source       |
-|   [3]   | `Source of truth:`          | one contract, manifest, model, path, or route owns it      | `Evidence:` names the only source    |
+|   [3]   | `Controlling source:`          | one contract, manifest, model, path, or route owns it      | `Evidence:` names the only source    |
 |   [4]   | `Proof gap:`                | source, command, render, or validation is missing          | claim is proved                      |
 |   [5]   | `Last verified: YYYY-MM-DD` | observed or external behavior can drift                    | event trigger is enough              |
 |   [6]   | `Review trigger:`           | source, route, renderer, generator, or policy can stale it | claim cannot drift or is deleted     |
@@ -51,20 +51,20 @@ Use these labels exactly when a human-readable field is needed. Machine-consumed
 
 Footnotes may attach short provenance to a sentence, but they never replace visible proof fields for drift-prone claims. If a command, renderer, package, support state, generated artifact, or provider behavior can drift, put the proof field beside the claim, table row, diagram caption, record, or procedure.
 
-Local identity or context fields such as `Gate:`, `Surface:`, `Representation:`, or `Proof route:` may precede the proof fields. The proof-local labels then appear contiguously in this order: `Evidence:`, `Generated from:`, `Source of truth:`, `Proof gap:`, `Last verified:`, `Review trigger:`. Local result, match, disposition, or close fields follow that proof field run unless a named evaluation receipt declares its own order.
+Local identity or context fields such as `Gate:`, `Surface:`, `Representation:`, or `Proof route:` may precede the proof fields. The proof-local labels then appear contiguously in this order: `Evidence:`, `Generated from:`, `Controlling source:`, `Proof gap:`, `Last verified:`, `Review trigger:`. Local result, match, disposition, or close fields follow that proof field run unless a named evaluation receipt declares its own order.
 
 Prefer an event trigger over a calendar review date. Use a calendar date only when a maintained policy changes on a schedule or no better trigger exists.
 
 Attach the fields as a definition block beside the claim, one `label: value` per line, so each field is independently scannable and updatable:
 
 ```markdown template
-Command: `uv run python -m tools.quality static build`
-Evidence: `tools/quality/__main__.py` `static build` verb; restore + build + analyzers, no tests.
+Command: `<configured-docs-or-build-gate>`
+Evidence: `<owning tool source and checked behavior>`.
 Last verified: 2026-06-04
-Review trigger: static rail verbs or routing change in `tools/quality`.
+Review trigger: `<gate route or owner change>`.
 ```
 
-Carry only the fields the claim needs. A generated artifact adds `Generated from:` and `Source of truth:`. A settled command may need only `Evidence:`. A missing check uses `Proof gap:` plus `Review trigger:` when the gap can be closed. When several claims share one schema, follow the definition-block rules in [information-structure.md](information-structure.md).
+Carry only the fields the claim needs. A generated artifact adds `Generated from:` and `Controlling source:`. A settled command may need only `Evidence:`. A missing check uses `Proof gap:` plus `Review trigger:` when the gap can be closed. When several claims share one schema, follow the definition-block rules in [information-structure.md](information-structure.md).
 
 ## [5][EVIDENCE_PLACEMENT]
 
@@ -263,9 +263,9 @@ Source provenance is not semantic validation. Provenance proves origin and refre
 A compliant note names the command, the source path, and a freshness marker and summarizes the outcome rather than reproducing it:
 
 ```markdown template
-Claim: `static full` parity covers `Workspace.slnx`.
-Evidence: `uv run python -m tools.quality static full`; restore, build, and analyzer checks passed across the solution closure.
-Source of truth: `Workspace.slnx`; routing in `tools/quality/__main__.py`.
+Claim: `<workspace-gate>` covers `<workspace-manifest>`.
+Evidence: `<configured command>`; restore, build, and analyzer checks passed across the declared workspace closure.
+Controlling source: `<workspace-manifest>`; routing in `<tool route>`.
 Last verified: 2026-06-04
 ```
 

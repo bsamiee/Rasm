@@ -13,27 +13,25 @@ Commands:
     projects [page_size]            List organization projects (default: 100)
     hotspots [status]               Security hotspots (e.g., TO_REVIEW)
 """
+# LOC: 150
 
 import json
 import os
 import sys
 from typing import Any, Final
 
-from _commands import analyses, hotspots, issues, measures, projects, quality_gate
 import httpx
 
+from _commands import quality_gate, issues, measures, analyses, projects, hotspots
 
 # --- [CONSTANTS] --------------------------------------------------------------
 BASE_URL: Final = "https://sonarcloud.io/api"
 KEY_ENV: Final = "SONAR_TOKEN"
 TIMEOUT: Final = 30
-HELP: Final = __doc__ or ""
-type JsonValue = Any
-type JsonMap = dict[str, JsonValue]
 
 
 # --- [FUNCTIONS] --------------------------------------------------------------
-def _get(path: str, params: JsonMap) -> tuple[bool, JsonMap]:
+def _get(path: str, params: dict[str, Any]) -> tuple[bool, dict]:
     """GET request with bearer auth.
 
     Args:
@@ -52,8 +50,7 @@ def _get(path: str, params: JsonMap) -> tuple[bool, JsonMap]:
     with httpx.Client(timeout=TIMEOUT) as client:
         response = client.get(f"{BASE_URL}{path}", headers=headers, params=params)
         response.raise_for_status()
-        data: JsonMap = response.json()
-        return True, data
+        return True, response.json()
 
 
 # --- [ENTRY_POINT] ------------------------------------------------------------
@@ -142,11 +139,11 @@ def main() -> int:
 
         case [cmd_name, *_]:
             sys.stdout.write(f"[ERROR] Unknown command '{cmd_name}'\n\n")
-            sys.stdout.write(HELP + "\n")
+            sys.stdout.write(__doc__ + "\n")
             return 1
 
         case _:
-            sys.stdout.write(HELP + "\n")
+            sys.stdout.write(__doc__ + "\n")
             return 1
 
 

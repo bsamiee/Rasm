@@ -2,6 +2,8 @@
 
 Three-tier codec boundary for Python 3.14+: Pydantic `TypeAdapter` validates ingress, `dataclass(frozen=True, slots=True)` anchors domain, msgspec `Struct(frozen=True, gc=False)` serializes egress, Suitkaise `cucumber` crosses process boundaries for unpicklable resources. Domain models never import wire libraries.
 
+---
+
 ## Codec Architecture
 
 A polymorphic `capture` combinator eliminates all boundary `try/except` repetition -- parameterized on exception type for Pydantic vs cucumber vs arbitrary boundaries. `async_capture` is the async counterpart -- sole `try/except` site for coroutine boundaries. `pipe(raw, validate(adapter), result.bind(transform), result.map(encode))` is the canonical pipeline. `result.bind` and `result.map` are module-level curried functions from `expression` -- never `Result.bind` (unbound instance method).
@@ -16,19 +18,17 @@ from pydantic import TypeAdapter, ValidationError
 
 # --- [ERRORS] -----------------------------------------------------------------
 
-
 @dataclass(frozen=True, slots=True)
 class CodecFault:
     origin: Literal["parse", "transport", "settings"]
     violations: tuple[str, ...]
 
-
 # --- [FUNCTIONS] --------------------------------------------------------------
 
-
 def _pydantic_extract(exc: ValidationError) -> tuple[str, ...]:
-    return tuple(f"{'.'.join(str(p) for p in e['loc'])}: {e['msg']}" for e in exc.errors())
-
+    return tuple(
+        f"{'.'.join(str(p) for p in e['loc'])}: {e['msg']}" for e in exc.errors()
+    )
 
 @curry_flip(1)
 def capture[T, E: Exception](
@@ -44,7 +44,6 @@ def capture[T, E: Exception](
     except catch as exc:
         return Error(CodecFault(origin, extract(exc)))
 
-
 async def async_capture[T, E: Exception](
     origin: Literal["parse", "transport", "settings"],
     thunk: Callable[[], Awaitable[T]],
@@ -58,19 +57,29 @@ async def async_capture[T, E: Exception](
     except catch as exc:
         return Error(CodecFault(origin, extract(exc)))
 
-
 @curry_flip(1)
 def validate[T](adapter: TypeAdapter[T], raw: bytes, *, source: str = "") -> Result[T, CodecFault]:
-    return capture("parse")(lambda: adapter.validate_json(raw), catch=ValidationError, extract=_pydantic_extract)
-
+    return capture("parse")(
+        lambda: adapter.validate_json(raw),
+        catch=ValidationError,
+        extract=_pydantic_extract,
+    )
 
 def ingest[I, D, W](
-    adapter: TypeAdapter[I], transform: Callable[[I], Result[D, CodecFault]], project: Callable[[D], W], encoder: "msgspec.json.Encoder"
+    adapter: TypeAdapter[I],
+    transform: Callable[[I], Result[D, CodecFault]],
+    project: Callable[[D], W],
+    encoder: "msgspec.json.Encoder",
 ) -> Callable[[bytes], Result[bytes, CodecFault]]:
-    return lambda raw: pipe(raw, validate(adapter), result.bind(transform), result.map(lambda d: encoder.encode(project(d))))
+    return lambda raw: pipe(
+        raw, validate(adapter),
+        result.bind(transform),
+        result.map(lambda d: encoder.encode(project(d))))
 ```
 
 `capture` generalizes over exception type via `catch` parameter -- Pydantic boundaries pass `catch=ValidationError, extract=_pydantic_extract`; cucumber boundaries pass `catch=Exception`. `async_capture` mirrors the signature for coroutine boundaries -- the `thunk` returns an `Awaitable[T]` that is `await`ed inside the sole async `try/except`. `ingest` wires the full decode-validate-transform-project-encode pipeline. `_pydantic_extract` is a named function (not lambda assignment per PEP 8 E731) extracting structured violation paths from Pydantic `ValidationError`.
+
+---
 
 ## Inbound Validation
 
@@ -79,34 +88,35 @@ Functional validators via `Annotated` compose per-field without `model_validator
 ```python
 from typing import Annotated, Final, Literal, Self
 
-from pydantic import AliasChoices, AliasPath, BaseModel, ConfigDict, Discriminator, Field, TypeAdapter, model_serializer, model_validator
+from pydantic import (
+    AliasChoices, AliasPath, BaseModel, ConfigDict, Discriminator,
+    Field, TypeAdapter, model_serializer, model_validator,
+)
 from pydantic.functional_validators import BeforeValidator
 
 # --- [SCHEMA:INGRESS] --------------------------------------------------------
 
 type Trimmed = Annotated[str, BeforeValidator(str.strip), Field(min_length=1)]
 
-
 class _PaymentBase(BaseModel, frozen=True):
     model_config = ConfigDict(strict=True)
     amount: Trimmed
 
-
 class CardPayment(_PaymentBase, frozen=True):
     method: Literal["card"]
     last_four: Annotated[str, Field(min_length=4, max_length=4)]
-    label: str = Field(default="", validation_alias=AliasChoices("label", AliasPath("meta", "display_name")))
-
+    label: str = Field(
+        default="",
+        validation_alias=AliasChoices("label", AliasPath("meta", "display_name")),
+    )
 
 class BankPayment(_PaymentBase, frozen=True):
     method: Literal["bank"]
     iban: Annotated[str, Field(min_length=1)]
 
-
 type Payment = Annotated[CardPayment | BankPayment, Discriminator("method")]
 
 # --- [SCHEMA:ENVELOPE] -------------------------------------------------------
-
 
 class Envelope(BaseModel, frozen=True):
     source: str
@@ -117,24 +127,19 @@ class Envelope(BaseModel, frozen=True):
     def _normalize(cls, data: object) -> object:
         """Wire-shape normalization only -- NOT cross-field validation."""
         match data:
-            case {"src": str() as src, **rest}:
-                return {"source": src, **rest}
-            case _:
-                return data
+            case {"src": str() as src, **rest}: return {"source": src, **rest}
+            case _: return data
 
     @model_validator(mode="after")
     def _cross_validate(self) -> Self:
         """Pydantic contract: raise ValueError for cross-field violations."""
         match bool(self.payload):
-            case False:
-                raise ValueError("payload must not be empty")
-            case True:
-                return self
+            case False: raise ValueError("payload must not be empty")
+            case True: return self
 
     @model_serializer(mode="wrap")
     def _serialize(self, handler) -> dict[str, object]:
         return {**handler(self), "version": 1}
-
 
 # --- [CONSTANTS] --------------------------------------------------------------
 
@@ -142,6 +147,8 @@ PaymentAdapter: Final[TypeAdapter[Payment]] = TypeAdapter(Payment)
 ```
 
 `_PaymentBase` hoists shared `ConfigDict(strict=True)` and `amount: Trimmed` -- subclasses inherit config and common fields without duplication. `ConfigDict` resolves via MRO: when multiple bases define `model_config`, Pydantic merges them silently without warning -- restrict Pydantic base hierarchies to single-inheritance chains to avoid ambiguous config resolution. `Discriminator("method")` resolves the correct subclass when the discriminant is a direct `Literal` field present on all union members -- no callable, no `Tag()` wrappers needed. Reserve the manual `Discriminator(callable)` + `Tag()` pattern for cases where the discriminant requires computation (nested field access, derived value, heterogeneous field names across variants). `Trimmed` collapses strip + nonblank into a single `Annotated` composition -- `str.strip` as `BeforeValidator` (method reference, zero wrapper), `Field(min_length=1)` as structural constraint. `_cross_validate` uses `match bool(self.payload)` since `case {}` in PEP 636 matches ANY mapping (not just empty) -- `bool({})` is `False`, providing the correct emptiness check. `_normalize` accepts `object` (not `dict[str, object] | object` -- `dict` is already a subtype of `object`, so the union is redundant).
+
+---
 
 ## Wire Serialization & Schema Evolution
 
@@ -161,80 +168,57 @@ from suitkaise.timing import Sktimer, timethis
 
 # --- [TYPES] ------------------------------------------------------------------
 
-
 class WireCodec(Protocol):
     """Structural contract for wire format codecs -- extensible to third-party encoders."""
-
     def encode(self, obj: object) -> bytes: ...
-
 
 class WireDecoder(Protocol):
     """Structural contract for wire format decoders."""
-
     def decode(self, data: bytes) -> object: ...
-
 
 # --- [SCHEMA:EVENTS] ---------------------------------------------------------
 
-
 class EventBase(Struct, frozen=True, gc=False, tag_field="t"):
-    ts: str
-    cid: str
-
+    ts: str; cid: str
 
 class UserCreated(EventBase, tag="user.created"):
-    uid: int
-    email: str
-
+    uid: int; email: str
 
 class UserDeleted(EventBase, tag="user.deleted"):
-    uid: int
-    reason: str
-
+    uid: int; reason: str
 
 type DomainEvent = UserCreated | UserDeleted
 
 # --- [SCHEMA:VERSIONS] -------------------------------------------------------
 
-
 class ResponseV1(Struct, frozen=True, gc=False, tag_field="v", tag="1"):
     amount: str
 
-
 class ResponseV2(ResponseV1, tag="2"):
     precision: int
-
 
 type VersionedResponse = ResponseV1 | ResponseV2
 
 # --- [SCHEMA:ENVELOPE] -------------------------------------------------------
 
-
 class WireEnvelope(Struct, frozen=True, gc=False):
-    version: int
-    payload: Raw
-
+    version: int; payload: Raw
 
 # --- [CONSTANTS] --------------------------------------------------------------
-
 
 def _unsupported(label: str) -> Never:
     raise NotImplementedError(label)
 
-
 _ENC_HOOKS: Final[dict[type, Callable]] = {Decimal: str, datetime: datetime.isoformat}
 _DEC_HOOKS: Final[dict[type, Callable]] = {Decimal: lambda _, v: Decimal(v), datetime: lambda _, v: datetime.fromisoformat(v)}
-
 
 def _enc_hook(obj: object) -> object:
     """BOUNDARY ADAPTER -- msgspec contract: raise NotImplementedError for unknown."""
     return _ENC_HOOKS.get(type(obj), lambda o: _unsupported(f"enc:{type(o).__name__}"))(obj)
 
-
 def _dec_hook(tp: type, obj: object) -> object:
     """BOUNDARY ADAPTER -- msgspec contract: raise NotImplementedError for unknown."""
     return _DEC_HOOKS.get(tp, lambda t, o: _unsupported(f"dec:{t.__name__}"))(tp, obj)
-
 
 _WIRE_ENC: Final[dict[type, WireCodec]] = {
     msgspec.json.Encoder: msgspec.json.Encoder(enc_hook=_enc_hook),
@@ -244,40 +228,43 @@ _WIRE_DEC: Final[dict[type, Callable[[bytes, type], object]]] = {
     msgspec.json.Encoder: lambda data, tp: msgspec.json.decode(data, type=tp, dec_hook=_dec_hook),
     msgspec.msgpack.Encoder: lambda data, tp: msgspec.msgpack.decode(data, type=tp, dec_hook=_dec_hook),
 }
-_VERSION_REGISTRY: Final[Map[int, type[VersionedResponse]]] = Map.of_list([(1, ResponseV1), (2, ResponseV2)])
+_VERSION_REGISTRY: Final[Map[int, type[VersionedResponse]]] = Map.of_list([
+    (1, ResponseV1), (2, ResponseV2),
+])
 
 # --- [FUNCTIONS] --------------------------------------------------------------
 
 _encode_perf: Final[Sktimer] = Sktimer(max_times=1000)
 
-
 @timethis(_encode_perf)
 def encode_event(event: EventBase, *, wire: type = msgspec.json.Encoder) -> bytes:
     return _WIRE_ENC[wire].encode(event)
 
-
 def decode_event(data: bytes, *, wire: type = msgspec.json.Encoder) -> Result[DomainEvent, CodecFault]:
     return capture("parse")(lambda: _WIRE_DEC[wire](data, DomainEvent))
-
 
 def materialize[T: Struct](envelope: WireEnvelope, target: type[T]) -> T:
     return msgspec.json.decode(envelope.payload, type=target)
 
-
 def coerce[S: Struct, T: Struct](source: S, target: type[T]) -> T:
     return msgspec.convert(source, target)
 
-
 @curry_flip(1)
-def decode_versioned(registry: Map[int, type[VersionedResponse]], raw: bytes) -> Result[VersionedResponse, CodecFault]:
+def decode_versioned(
+    registry: Map[int, type[VersionedResponse]],
+    raw: bytes,
+) -> Result[VersionedResponse, CodecFault]:
     envelope = msgspec.json.decode(raw, type=WireEnvelope)
     return pipe(
-        registry.try_find(envelope.version).to_result(CodecFault("parse", (f"unknown version: {envelope.version}",))),
-        result.bind(lambda target: capture("parse")(lambda: msgspec.json.decode(envelope.payload, type=target))),
-    )
+        registry.try_find(envelope.version)
+        .to_result(CodecFault("parse", (f"unknown version: {envelope.version}",))),
+        result.bind(lambda target: capture("parse")(
+            lambda: msgspec.json.decode(envelope.payload, type=target))))
 ```
 
 `WireCodec` and `WireDecoder` are structural `Protocol`s -- any object with `.encode(obj) -> bytes` or `.decode(data) -> object` satisfies the contract, enabling third-party encoder extensions without class-identity coupling. `_WIRE_ENC` and `_WIRE_DEC` dispatch tables map wire format types to codec/decoder instances symmetrically -- `_WIRE_DEC` wires `_dec_hook` through `msgspec.json.decode`/`msgspec.msgpack.decode` at call site (module-level decoder allocation eliminated for decoders, reserved for hot-path encoders only). `decode_event` consumes `_WIRE_DEC` and wraps in `capture("parse")` for `Result` error rail -- symmetric counterpart to `encode_event`. `_unsupported` returns `Never` (`typing.Never`) -- the type checker proves all code paths through the fallback raise unconditionally, enabling dead-code elimination in downstream branches. `_WIRE_ENC` dispatch table replaces the boolean-index tuple hack -- `KeyError` on unknown wire types vs silent fallback. `_encode_perf: Final[Sktimer]` tracks the last 1000 encode latencies on a rolling window -- access `_encode_perf.mean`, `.percentile(99)`, `.stdev` for production profiling. `@timethis(_encode_perf)` injects start/stop around every `encode_event` call with zero ceremony. `decode_versioned` composes `Map.try_find` (returns `Option`) with `capture` for deferred `msgspec.json.decode` -- each version's Struct inherits from the previous, adding fields with defaults for forward compatibility.
+
+---
 
 ## Transport & Process Boundaries
 
@@ -293,7 +280,10 @@ from typing import ClassVar, Final, Literal, Protocol, Self, runtime_checkable
 
 from expression import Error, Ok, Result, pipe, result
 import structlog
-from suitkaise import BreakingCircuit, Circuit, Pool, Share, blocking, sk, serialize, deserialize, reconnect_all
+from suitkaise import (
+    BreakingCircuit, Circuit, Pool, Share, blocking, sk,
+    serialize, deserialize, reconnect_all,
+)
 from suitkaise.cucumber import Reconnector, serialize_ir, ir_to_jsonable, to_json
 from suitkaise.timing import Sktimer, TimeThis, timethis
 
@@ -301,56 +291,47 @@ _transport_log: Final = structlog.get_logger("transport.circuit")
 
 # --- [PROTOCOL] ---------------------------------------------------------------
 
-
 @runtime_checkable
 class Transportable(Protocol):
     """Priority 1 in cucumber's 53-handler strategy hierarchy.
     Implement for domain objects needing deterministic serialization."""
-
     def __serialize__(self) -> object: ...
     @classmethod
     def __deserialize__(cls, state: object) -> Self: ...
 
-
 # --- [IR INSPECTION] ----------------------------------------------------------
-
 
 def inspect_ir(obj: object, *, verbose: bool = False) -> dict:
     """Intermediate representation without pickling -- handler dispatch, circular refs visible."""
     return serialize_ir(obj, verbose=verbose)
 
-
 def to_debug_json(obj: object, *, indent: int = 2) -> str:
     """Full IR -> JSON string for transport debugging / logging."""
     return to_json(obj, indent=indent, sort_keys=True)
-
 
 def to_portable_dict(obj: object) -> object:
     """IR -> JSON-safe dict for cross-language boundaries.
     Handles: bytes (base64), complex, Decimal, UUID, Path, datetime, deque, Counter."""
     return ir_to_jsonable(serialize_ir(obj))
 
-
 # --- [BLOCKING MARKERS] -------------------------------------------------------
-
 
 @blocking
 def _serialize_blocking(obj: object) -> bytes:
     """cucumber.serialize is opaque to sk AST analysis -- @blocking forces detection."""
     return serialize(obj)
 
-
 @blocking
 def _deserialize_blocking(data: bytes) -> object:
     """cucumber.deserialize is opaque to sk AST analysis -- @blocking forces detection."""
     return deserialize(data)
 
-
 # --- [TRANSPORT CORE] ---------------------------------------------------------
 
-_transport_circuit: Final[BreakingCircuit] = BreakingCircuit(5, sleep_time_after_trip=2.0, backoff_factor=2.0, max_sleep_time=30.0, jitter=0.5)
+_transport_circuit: Final[BreakingCircuit] = BreakingCircuit(
+    5, sleep_time_after_trip=2.0, backoff_factor=2.0, max_sleep_time=30.0, jitter=0.5,
+)
 _transport_perf: Final[Sktimer] = Sktimer(max_times=500)
-
 
 @timethis(_transport_perf)
 def freeze(obj: object) -> Result[bytes, CodecFault]:
@@ -363,8 +344,7 @@ def freeze(obj: object) -> Result[bytes, CodecFault]:
             match outcome:
                 case Error(value=fault):
                     _transport_circuit.short()
-                    _transport_log.warning(
-                        "transport_fault",
+                    _transport_log.warning("transport_fault",
                         total_trips=_transport_circuit.total_trips,
                         sleep_time=_transport_circuit.current_sleep_time,
                         p99_latency=_transport_perf.percentile(99),
@@ -376,45 +356,47 @@ def freeze(obj: object) -> Result[bytes, CodecFault]:
                     pass
             return outcome
 
-
-_thaw_sk = sk(_deserialize_blocking).retry(times=3, delay=0.5, backoff_factor=2.0, exceptions=(Exception,)).timeout(10)
-
+_thaw_sk = sk(_deserialize_blocking).retry(
+    times=3, delay=0.5, backoff_factor=2.0, exceptions=(Exception,),
+).timeout(10)
 
 def thaw(data: bytes) -> Result[object, CodecFault]:
     """Deserialize with retry (3x, 0.5s exponential backoff) and 10s hard timeout."""
     return capture("transport")(lambda: _thaw_sk(data), catch=Exception)
 
-
 # --- [ASYNC TRANSPORT] --------------------------------------------------------
 
 _freeze_async = sk(_serialize_blocking).asynced()
-_thaw_async = sk(_deserialize_blocking).asynced().retry(times=3, delay=0.5, backoff_factor=2.0).timeout(10)
-
+_thaw_async = sk(_deserialize_blocking).asynced().retry(
+    times=3, delay=0.5, backoff_factor=2.0,
+).timeout(10)
 
 async def freeze_async(obj: object) -> Result[bytes, CodecFault]:
     """Async serialize via asyncio.to_thread -- use anyio.to_thread.run_sync under TaskGroup."""
     return await async_capture("transport", lambda: _freeze_async(obj))
 
-
 async def thaw_async(data: bytes) -> Result[object, CodecFault]:
     """Async deserialize with retry + timeout -- use anyio.to_thread.run_sync under TaskGroup."""
     return await async_capture("transport", lambda: _thaw_async(data))
 
-
 # --- [RECONNECTION] -----------------------------------------------------------
 
-_RECONNECT_AUTH: Final[dict[str, object]] = {"db_host": "localhost", "db_port": 5432, "db_user": "app", "socket_addr": ("0.0.0.0", 8080)}
+_RECONNECT_AUTH: Final[dict[str, object]] = {
+    "db_host": "localhost", "db_port": 5432, "db_user": "app",
+    "socket_addr": ("0.0.0.0", 8080),
+}
 """Auth dict is kwarg-keyed: DbReconnector consumes db_*, SocketReconnector consumes socket_*,
 ThreadReconnector consumes target/daemon, SubprocessReconnector consumes args/cwd/env.
 Each Reconnector subclass picks its own kwargs -- unrecognized keys are ignored."""
-
 
 def reconnect(obj: object, *, start_threads: bool = False) -> Result[object, CodecFault]:
     """Resolve all Reconnector stubs post-deserialization.
     DbReconnector, SocketReconnector, ThreadReconnector, PipeReconnector, SubprocessReconnector.
     reconnect_all traverses the full object graph recursively."""
-    return capture("transport")(lambda: reconnect_all(obj, start_threads=start_threads, **_RECONNECT_AUTH), catch=Exception)
-
+    return capture("transport")(
+        lambda: reconnect_all(obj, start_threads=start_threads, **_RECONNECT_AUTH),
+        catch=Exception,
+    )
 
 def verify_reconnected[T](obj: T) -> Result[T, CodecFault]:
     """Guard: reconnect_all returns Reconnector stubs unchanged on individual failure.
@@ -425,34 +407,33 @@ def verify_reconnected[T](obj: T) -> Result[T, CodecFault]:
         case _:
             return Ok(obj)
 
-
 def full_transport_pipeline(data: bytes, *, start_threads: bool = False) -> Result[object, CodecFault]:
     """Thaw -> reconnect -> verify -- complete deserialization with reconnection guarantee."""
-    return pipe(data, thaw, result.bind(lambda obj: reconnect(obj, start_threads=start_threads)), result.bind(verify_reconnected))
-
+    return pipe(
+        data, thaw,
+        result.bind(lambda obj: reconnect(obj, start_threads=start_threads)),
+        result.bind(verify_reconnected),
+    )
 
 # --- [CUSTOM TRANSPORTABLE] ---------------------------------------------------
-
 
 @dataclass(frozen=True, slots=True)
 class SessionState:
     """Domain object implementing Transportable for deterministic cucumber serialization.
     __serialize__ extracts picklable state; __deserialize__ reconstructs from IR."""
-
     user_id: int
     token_hash: str
     permissions: tuple[str, ...]
 
     def __serialize__(self) -> dict[str, object]:
-        return {"user_id": self.user_id, "token_hash": self.token_hash, "permissions": list(self.permissions)}
+        return {"user_id": self.user_id, "token_hash": self.token_hash,
+                "permissions": list(self.permissions)}
 
     @classmethod
     def __deserialize__(cls, state: dict[str, object]) -> Self:
         return cls(state["user_id"], state["token_hash"], tuple(state["permissions"]))
 
-
 # --- [CROSS-PROCESS STATE] ----------------------------------------------------
-
 
 def shared_transport_state() -> Share:
     """Share wraps coordinator-proxy pattern with cucumber backbone for IPC.
@@ -466,10 +447,11 @@ def shared_transport_state() -> Share:
     reads/writes, causing silent state desync across processes."""
     shared = Share()
     shared.processed_count = 0
-    shared.circuit = Circuit(3, sleep_time_after_trip=1.0, backoff_factor=1.5)
+    shared.circuit = Circuit(
+        3, sleep_time_after_trip=1.0, backoff_factor=1.5,
+    )
     shared.perf = Sktimer(max_times=200)
     return shared
-
 
 def batch_freeze(objects: list[object], *, workers: int = 4) -> list[bytes]:
     """Parallel serialization via Pool -- cucumber handles cross-process transfer."""
@@ -482,6 +464,8 @@ def batch_freeze(objects: list[object], *, workers: int = 4) -> list[bytes]:
 
 `verify_reconnected` uses structural `match/case` on the `Reconnector` base class (class pattern) instead of `hasattr`/`getattr` probing -- adhering to the [NEVER] rule. `SessionState.__deserialize__` returns `Self` (PEP 673) instead of a string forward reference. `_RECONNECT_AUTH` is typed `dict[str, object]` reflecting the heterogeneous kwargs consumed by different Reconnector subclasses. `Share` synchronization depends on `_shared_meta` generated by `@sk` AST analysis -- classes using `__getattr__`-based delegation, descriptor protocols, or dynamically-constructed methods must provide manual `_shared_meta` dicts for accurate cross-process attribute synchronization.
 
+---
+
 ## Settings
 
 `BaseSettings(frozen=True)` loaded once at bootstrap via `capture`, injected as immutable dependency. `SecretStr` redacts from logs/repr.
@@ -491,20 +475,23 @@ from expression import Result
 from pydantic import Field, SecretStr
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
-
 class AppSettings(BaseSettings):
-    model_config = SettingsConfigDict(env_prefix="APP_", env_file=".env", env_nested_delimiter="__", secrets_dir="/run/secrets", frozen=True)
+    model_config = SettingsConfigDict(
+        env_prefix="APP_", env_file=".env",
+        env_nested_delimiter="__", secrets_dir="/run/secrets", frozen=True,
+    )
     service_name: str = Field(min_length=1, default="app")
     debug: bool = False
     db_url: SecretStr = Field(default=SecretStr("postgresql://localhost/app"))
     max_connections: int = Field(ge=1, le=1000, default=50)
-
 
 def load_settings() -> Result[AppSettings, CodecFault]:
     return capture("settings")(AppSettings, catch=ValidationError, extract=_pydantic_extract)
 ```
 
 `load_settings` reuses `capture` with `catch=ValidationError` -- zero standalone `try/except`. Settings class demonstrates `SecretStr`, `SettingsConfigDict`, and constraint validators in 10 lines.
+
+---
 
 ## Rules
 
@@ -553,6 +540,8 @@ def load_settings() -> Result[AppSettings, CodecFault]:
 - [NEVER] `.asynced()` on functions without detected blocking calls -- `sk` raises `SkModifierError`. Use `@blocking` marker for opaque calls.
 - [NEVER] Lambda assignment to identifiers -- use `def` (PEP 8 E731). Lambda in default args and dispatch table values is acceptable.
 - [NEVER] `sk.asynced()` under `anyio.create_task_group()` -- `asyncio.to_thread` escapes anyio structured concurrency.
+
+---
 
 ## Quick Reference
 

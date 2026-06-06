@@ -57,9 +57,9 @@
 
 | [INDEX] | [SOURCE]                                    | [OWNS]                                                           |
 | :-----: | ------------------------------------------- | ---------------------------------------------------------------- |
-|   [1]   | `Directory.Packages.props`                  | Pinned versions and central package state.                       |
+|   [1]   | `Directory.Packages.props`                  | Central package versions and package state.                      |
 |   [2]   | `Directory.Build.props`                     | Package references, global usings, RhinoWIP/GH2 host references. |
-|   [3]   | Local NuGet XML / lockfiles                 | Exact API surface for pinned assets.                             |
+|   [3]   | Local NuGet XML / lockfiles                 | Exact API surface for local package assets.                      |
 |   [4]   | RhinoWIP XML / decompile                    | RhinoCommon, GH2, Rhino.UI, Eto compile truth.                   |
 |   [5]   | `docs/system-api-map`, `docs/external-libs` | BCL and product-library policy after local proof.                |
 |   [6]   | `docs/testing-libs`                         | Test-rail API surfaces (xUnit, CsCheck, Verify, …).              |

@@ -292,7 +292,7 @@ Gate: <gate name>
 Proof route: <route required for access, proof, or escalation>
 Evidence: <command, status check, generated contract, check record, or proof gap>
 Generated from: <generator, command, fixture, or check process>
-Source of truth: <path, contract, manifest, source document, or status check>
+Controlling source: <path, contract, manifest, source document, or status check>
 Last verified: YYYY-MM-DD
 Review trigger: <gate, contract, check source, or route-boundary change>
 Result: <accepted signal or remaining gap>

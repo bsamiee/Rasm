@@ -1,7 +1,7 @@
 ---
 name: coding-csharp
 description: >-
-  Enforces C# 14 + LanguageExt v5 functional/ROP style. Use when writing, editing,
+  Enforces modern C# + LanguageExt functional/ROP style. Use when writing, editing,
   reviewing, or refactoring .cs modules. Drives polymorphic collapse (Thinktecture
   [Union]/[SmartEnum]/[ValueObject]), greenfield API breaking over shims, dense
   algorithmic logic, singular OOP boundary capsules, and unified Fin/Validation/Eff
@@ -10,6 +10,7 @@ description: >-
 ---
 
 # [H1][CODING-CSHARP]
+>**Dictum:** *C# + LanguageExt style, type discipline, and module organization govern all C# work.*
 
 All code follows six governing principles:
 - **Polymorphic** — one entrypoint per concern, generic over specific, extend over duplicate
@@ -55,20 +56,19 @@ When the analyzer rejects, treat the rejection as architectural pressure, not as
 
 ## Conventions
 
-| Layer                 | Library                                 | Owns                                                                                   |
-| --------------------- | --------------------------------------- | -------------------------------------------------------------------------------------- |
-| ROP / Effects         | LanguageExt                             | `Fin<T>`, `Validation<Error,T>`, `Eff<RT,T>`, `IO<A>`, `K<F,A>`, `Option<T>`, `Seq<T>` |
-| Value objects / DUs   | Thinktecture                            | `[ValueObject<T>]`, `[SmartEnum<T>]`, `[Union]`, generated dispatch                    |
-| Numerics / Symbolics  | MathNet, CSparse                        | Linear algebra, symbolic formulas, sparse SPD factorization                            |
-| App UI                | Avalonia / ReactiveUI / DynamicData     | Active `Rasm.AppUi` direct package surface                                             |
-| Scheduling            | LanguageExt                             | `Schedule.exponential` / `spaced` / `jitter` / `recurs` / `upto` algebra               |
-| State                 | LanguageExt                             | `Atom<T>` validators, `Ref<T>` + `atomic` STM, `Bracket` resource scope                |
-| Composition (host)    | Scrutor 7 `[NOT_IN_GRAPH]`              | `Scan`, `Decorate`/`TryDecorate`, keyed registration — composition root only           |
-| Persistence (host)    | EF Core `[NOT_IN_GRAPH]`                | `DbContext`, repositories, value converters — effectful shell only                     |
-| Time (boundary)       | NodaTime `[NOT_IN_GRAPH]`               | `Instant`, `IClock`, zones — inject clock; no wall-clock in domain                     |
-| Validation (boundary) | FluentValidation `[NOT_IN_GRAPH]`       | DTO/rule sets — bridge to `Validation<Error,T>` before domain                          |
-| Observability (host)  | Serilog, OpenTelemetry `[NOT_IN_GRAPH]` | Logs, traces, metrics — host registration only                                         |
-| HTTP (host)           | Http.Resilience `[NOT_IN_GRAPH]`        | Outbound client resilience handlers — composition root only                            |
+| Layer | Library | Owns |
+| ----- | ------- | ---- |
+| ROP / Effects | LanguageExt | `Fin<T>`, `Validation<Error,T>`, `Eff<RT,T>`, `IO<A>`, `K<F,A>`, `Option<T>`, `Seq<T>` |
+| Value objects / DUs | Thinktecture | `[ValueObject<T>]`, `[SmartEnum<T>]`, `[Union]`, generated dispatch |
+| Numerics / Symbolics | MathNet, CSparse | Linear algebra, symbolic formulas, sparse SPD factorization |
+| Scheduling | LanguageExt | `Schedule.exponential` / `spaced` / `jitter` / `recurs` / `upto` algebra |
+| State | LanguageExt | `Atom<T>` validators, `Ref<T>` + `atomic` STM, `Bracket` resource scope |
+| Composition (host) | Scrutor | `Scan`, `Decorate`/`TryDecorate`, keyed registration — composition root only |
+| Persistence (host) | EF Core | `DbContext`, repositories, value converters — effectful shell only |
+| Time (boundary) | NodaTime | `Instant`, `IClock`, zones — inject clock; no wall-clock in domain |
+| Validation (boundary) | FluentValidation | DTO/rule sets — bridge to `Validation<Error,T>` before domain |
+| Observability (host) | Serilog, OpenTelemetry | Logs, traces, metrics — host registration only |
+| HTTP (host) | Http.Resilience | Outbound client resilience handlers — composition root only |
 
 - One library's error/option type per module — no mixing across libraries in same file.
 - Domain retry/backoff: LanguageExt `Schedule` + `Prelude.retry` on `Eff<RT,T>` and `IO<A>` — lift pure `Fin` retry via re-invocation or boundary lift; not raw Polly in domain.
@@ -83,7 +83,6 @@ When the analyzer rejects, treat the rejection as architectural pressure, not as
 - `readonly record struct` for domain primitives with `Fin<T>` smart constructors.
 - `sealed abstract record` base + `sealed record` cases for DUs. Static factories on abstract base.
 - One canonical type per concept; derive projections, never parallel types.
-- Receipt and proof payloads keep semantic ownership: algorithm receipts remain typed evidence records; operational mutation receipts collapse to fact streams with slot/kind metadata and fold-derived projections.
 - File-scoped namespaces only. Explicit accessibility on every member.
 
 **Control flow**
@@ -105,9 +104,6 @@ When the analyzer rejects, treat the rejection as architectural pressure, not as
 - Internal logic integrates INTO exports — `private` nested classes, closures inside methods, `private static` composed pipelines inside the owning class. Not defined alongside as standalone file-level declarations consumed by a single caller.
 - No helper files, no single-caller extracted functions, no one-use file-level declarations.
 - No convenience wrappers that rename or forward external APIs.
-- Operational mutation receipts collapse to one owner rail. Use `Seq<Fact>` + `SmartEnum` slot metadata + computed projections only when 3+ mutation buckets or repeated slot families share construction, count, or status semantics; keep compact one- or two-bucket receipts direct with owner factories. Algorithm proof receipts remain typed and owner-local when fields carry route, status, solver, topology, sampling, spectral, SDF, mesh, or native evidence. Never add generic `IReceipt`, `ReceiptLog`, or `Reported<T>` ledgers.
-- Analyzer-backed standards live in `tools/cs-analyzer`. Add or refine a CSP rule when a high-value collapse pattern recurs across production code, but keep rules semantic and agnostic: no project namespace/path coupling, no one-off symbol names, positive and negative tests, and LOC/diff checks proving the rule improves code rather than forcing ceremony.
-- Treat CSP diagnostics as hypotheses. If the lowest-LOC correct fix is larger, less clear, or less native to an approved library, tighten the rule instead of reshaping production code around a false positive.
 - **Pressure-point signals** (concept density, not byte count): ≥3 parallel types/records modeling overlapping concepts; ≥3 sibling factory methods sharing a prefix; ≥3 near-identical switch arms; ≥3 single-call private helpers. Each signal triggers IN-PLACE polymorphic collapse — merge the cases into one `[Union]`, one `SmartEnum<T>`, one fold algebra, or one data table. NEVER extract to a new file. NEVER delete functionality to reduce LOC. The goal is denser polymorphic capability in fewer surfaces, not less code.
 - Expression-bodied members where body is a single expression. Primary constructors preferred.
 
@@ -125,30 +121,30 @@ When the analyzer rejects, treat the rejection as architectural pressure, not as
 
 **Foundation** (always):
 
-| Reference                                             | Focus                                                       |
-| ----------------------------------------------------- | ----------------------------------------------------------- |
-| [validation.md](references/validation.md)             | Compliance checklist                                        |
-| [patterns.md](references/patterns.md)                 | Anti-pattern detection heuristics                           |
+| Reference | Focus |
+| --------- | ----- |
+| [validation.md](references/validation.md) | Compliance checklist |
+| [patterns.md](references/patterns.md) | Anti-pattern detection heuristics |
 | [advanced-surface.md](references/advanced-surface.md) | Operators, Thinktecture attrs, combinators, numerics, C# 14 |
 
 **Task-routed references**:
 
-| Reference                                       | Load when                                          |
-| ----------------------------------------------- | -------------------------------------------------- |
-| [effects.md](references/effects.md)             | Fin/Validation/Eff/IO pipelines, Schedule boundary |
-| [transforms.md](references/transforms.md)       | Folds, LINQ composition, K<F,A>                    |
-| [types.md](references/types.md)                 | C# types, generics, keyed-service keys             |
-| [objects.md](references/objects.md)             | Records, DU hierarchies, value objects             |
-| [composition.md](references/composition.md)     | Runtime-record wiring, hosted scope                |
-| [scrutor.md](references/scrutor.md)             | Scrutor scan/decorator composition                 |
-| [persistence.md](references/persistence.md)     | EF Core, repositories                              |
-| [concurrency.md](references/concurrency.md)     | Channels, cancellation, periodic work              |
-| [observability.md](references/observability.md) | Serilog, OpenTelemetry                             |
-| [performance.md](references/performance.md)     | SIMD, Span, hot paths                              |
-| [diagnostics.md](references/diagnostics.md)     | Debugging, profiling                               |
+| Reference | Load when |
+| --------- | --------- |
+| [effects.md](references/effects.md) | Fin/Validation/Eff/IO pipelines, Schedule boundary |
+| [transforms.md](references/transforms.md) | Folds, LINQ composition, K<F,A> |
+| [types.md](references/types.md) | C# types, generics, keyed-service keys |
+| [objects.md](references/objects.md) | Records, DU hierarchies, value objects |
+| [composition.md](references/composition.md) | Runtime-record wiring, hosted scope |
+| [scrutor.md](references/scrutor.md) | Scrutor scan/decorator composition |
+| [persistence.md](references/persistence.md) | EF Core, repositories |
+| [concurrency.md](references/concurrency.md) | Channels, cancellation, periodic work |
+| [observability.md](references/observability.md) | Serilog, OpenTelemetry |
+| [performance.md](references/performance.md) | SIMD, Span, hot paths |
+| [diagnostics.md](references/diagnostics.md) | Debugging, profiling |
 
 
-## Validation gate
+## Project Proof
 
 - Apply project static analysis and tests when C# code changes.
 - Reject completion when contracts or checks are not satisfied.
@@ -159,48 +155,46 @@ When the analyzer rejects, treat the rejection as architectural pressure, not as
 
 Use over BCL/stdlib equivalents where applicable.
 
-### In graph (domain)
+### Domain
 
-| Package                                    | Provides                                                      | Scope           |
-| ------------------------------------------ | ------------------------------------------------------------- | --------------- |
-| LanguageExt.Core 5.0.0-beta-77             | FP primitives, ROP, `Eff`/`Fin`/`Validation`, `Schedule`, STM | Domain + host   |
-| Thinktecture.Runtime.Extensions 10.2.0     | Value objects, smart enums, `[Union]` dispatch                | Domain + host   |
-| MathNet.Numerics 6.0.0-beta2               | Linear algebra, solvers, statistics, optimization             | Domain numerics |
-| MathNet.Symbolics 0.25.0                   | Symbolic parse, transform, calculus, evaluation               | Domain numerics |
-| CSparse 4.3.0                              | Sparse direct factorization (with MathNet iterative paths)    | Domain numerics |
-| Meziantou.Analyzer                         | Static analysis enforcement                                   | Build           |
-| Microsoft.VisualStudio.Threading.Analyzers | Threading-correctness diagnostics                             | Build           |
+| Package | Provides | Scope |
+| ------- | -------- | ----- |
+| LanguageExt.Core | FP primitives, ROP, `Eff`/`Fin`/`Validation`, `Schedule`, STM | Domain + host |
+| Thinktecture.Runtime.Extensions | Value objects, smart enums, `[Union]` dispatch | Domain + host |
+| MathNet.Numerics | Linear algebra, solvers, statistics, optimization | Domain numerics |
+| MathNet.Symbolics | Symbolic parse, transform, calculus, evaluation | Domain numerics |
+| CSparse | Sparse direct factorization with MathNet iterative paths | Domain numerics |
+| Meziantou.Analyzer | Static analysis enforcement | Build |
+| Microsoft.VisualStudio.Threading.Analyzers | Threading-correctness diagnostics | Build |
 
-### `[NOT_IN_GRAPH]` host (composition root only)
+### Host
 
-Adopt only when a bootstrap consumer pins the package.
+| Package | Provides | Scope |
+| ------- | -------- | ----- |
+| Scrutor | `Scan`, `Decorate`/`TryDecorate`, `WithServiceKey`, keyed registration | Composition root |
+| FluentValidation | Boundary DTO validation — bridge to `Validation<Error,T>` | HTTP/API/config boundary |
+| NodaTime | `Instant`, `IClock`, time zones | Boundary + persistence adapters |
+| EF Core | Relational persistence, `IQueryable`, value converters | Persistence host projects |
+| Serilog | Structured logging, enrichers, sinks | Generic host |
+| OpenTelemetry | Traces, metrics, exporters | Generic host |
+| Microsoft.Extensions.Http.Resilience | Outbound `HttpClient` resilience | Composition root |
 
-| Package                                   | Provides                                                               | Scope                           |
-| ----------------------------------------- | ---------------------------------------------------------------------- | ------------------------------- |
-| Scrutor 7.0.0                             | `Scan`, `Decorate`/`TryDecorate`, `WithServiceKey`, keyed registration | Composition root                |
-| FluentValidation 11.x                     | Boundary DTO validation — bridge to `Validation<Error,T>`              | HTTP/API/config boundary        |
-| NodaTime 3.x                              | `Instant`, `IClock`, time zones                                        | Boundary + persistence adapters |
-| EF Core 10.x                              | Relational persistence, `IQueryable`, value converters                 | Persistence host projects       |
-| Serilog 4.x                               | Structured logging, enrichers, sinks                                   | Generic host                    |
-| OpenTelemetry 1.x                         | Traces, metrics, exporters                                             | Generic host                    |
-| Microsoft.Extensions.Http.Resilience 10.x | Outbound `HttpClient` resilience                                       | Composition root                |
-
-AppUi package truth lives in `Directory.Packages.props`, `libs/csharp/Rasm.AppUi/Rasm.AppUi.csproj`, and `docs/system-api-map/packages.md`; Scrutor, EF, NodaTime, FluentValidation, Serilog, OTel, and HTTP resilience remain candidates until directly consumed. Polly raw is intentionally absent from domain guidance. BenchmarkDotNet belongs to dedicated measurement rails only — not domain hot-path doctrine. Domain retry: LanguageExt `Schedule` + `Prelude.retry` on `Eff`/`IO`; domain validation: `Validation<Error,T>`; domain time: `IClock`; container wiring: Scrutor when `IServiceCollection` exists, else runtime records.
+Polly raw is intentionally absent from domain guidance. BenchmarkDotNet belongs to dedicated measurement rails only — not domain hot-path doctrine. Domain retry: LanguageExt `Schedule` + `Prelude.retry` on `Eff`/`IO`; domain validation: `Validation<Error,T>`; domain time: `IClock`; container wiring: Scrutor when `IServiceCollection` exists, else runtime records.
 
 
 ## Advanced surface index
 
 Load [advanced-surface.md](references/advanced-surface.md) when prompts mention operators, codegen attributes, or non-basic library sugar:
 
-| Concern                         | Primary symbols / attrs                                            |
-| ------------------------------- | ------------------------------------------------------------------ |
-| Kleisli / applicative operators | `>>`, `>>>`, `*`, `Validation &`, `Error +`                        |
-| Option / effect recovery        | `.Choose`, `IfNone`, `Match`; `Prelude.catch`, `Prelude.retry`     |
-| Schedule algebra                | `\|`, `union`, `intersect`, transformer `+`                        |
-| State-threaded union dispatch   | `[Union(SwitchMapStateParameterName = …)]`                         |
+| Concern | Primary symbols / attrs |
+| ------- | ----------------------- |
+| Kleisli / applicative operators | `>>`, `>>>`, `*`, `Validation &`, `Error +` |
+| Option / effect recovery | `.Choose`, `IfNone`, `Match`; `Prelude.catch`, `Prelude.retry` |
+| Schedule algebra | `\|`, `union`, `intersect`, transformer `+` |
+| State-threaded union dispatch | `[Union(SwitchMapStateParameterName = …)]` |
 | VO / complex VO / custom faults | `[ValueObject<T>]`, `[ComplexValueObject]`, `[ValidationError<T>]` |
-| SmartEnum dispatch              | `[SmartEnum]`, `[SmartEnum<TKey>]`, `[UseDelegateFromConstructor]` |
-| Traverse v5 lowering            | `.TraverseM(f).As()`, `.Choose`, `.BiBind`                         |
-| Atoms and guards                | `Atom.Swap`, `guard`, `Optional(…).ToFin`                          |
-| Sparse numerics                 | `BiCgStab`, CSparse `SparseCholesky`, CSR/CSC hybrid               |
-| C# 14 expression substrate      | extension blocks, collection expressions, `params ReadOnlySpan`    |
+| SmartEnum dispatch | `[SmartEnum]`, `[SmartEnum<TKey>]`, `[UseDelegateFromConstructor]` |
+| Traverse v5 lowering | `.TraverseM(f).As()`, `.Choose`, `.BiBind` |
+| Atoms and guards | `Atom.Swap`, `guard`, `Optional(…).ToFin` |
+| Sparse numerics | `BiCgStab`, CSparse `SparseCholesky`, CSR/CSC hybrid |
+| C# 14 expression substrate | extension blocks, collection expressions, `params ReadOnlySpan` |

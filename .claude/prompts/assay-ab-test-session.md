@@ -1,76 +1,71 @@
-# [PROMPT] Assay — A/B Parity, Concurrency Stress, and the Full Test Suite
+# [PROMPT] Tool — A/B Parity, Concurrency Stress, and Test Suite
 
-Paste to start the next `assay` session. **Ultracode**: author and run a workflow per phase; correctness/exhaustiveness over cost; the orchestrator holds architectural authority and the value filter, and **independently re-verifies every agent/workflow "green" with a live invocation** — a workflow's self-reported pass covers only the calls it ran, not the calls it skipped (a whole `api` modality once hid behind FQN-only smokes). This session has ONE job: **prove `tools/assay` is strictly ≥ `tools/quality` on every overlapping verb, prove it is resilient under hundreds of concurrent agents, then build the dense, algorithmic, 90-95%-coverage test suite** — A/B first, infrastructure second, adversarial third.
+Use this for the next `<target-tool>` session. The job is to prove `<target-tool>` is at least as capable as `<predecessor-tool>` on every overlapping verb, prove resilience under heavy concurrent use, then build the dense algorithmic test suite. Work in this order: A/B parity, stress, non-parity exercise, adversarial hardening, tests.
 
 ## [1] WHERE / WHAT / STATE
 
-- **New tool (live, Phases 1-3 done):** `tools/assay/` — the agent-first polyglot quality keychain. `core/{status,model,engine,routing,aspect}.py`, `composition/{settings,catalog,registry}.py`, `rails/{static,code,test,docs,bridge,package,api}.py`, `automation/{model,engine}.py`, `__init__.py`, `__main__.py`. Invoke: `uv run python -m tools.assay <claim> <verb> [args]`. Claims `static|code|test|bridge|package|api|docs` + root verbs `self-test`/`delta` + an `automation` watch/schedule arm.
-- **Phase-3 capabilities WITHOUT a `tools/quality` analog (must be live-tested in full here, no A/B baseline):** polyglot `api` (C# ilspycmd + Python `importlib.metadata`/`inspect`/`annotationlib` + TypeScript `.d.ts` via tree-sitter, auto-detected by key shape — one `SourceKind` fold); `code search` dual-modality (`$`-metavar→ast-grep / literal→ripgrep) + `code query` (tree-sitter) + `code rewrite`; run-history auto-persist + `delta` root verb + `artifact_retention`; toolchain-doctor (`self-test` fan_out version+git census); schedule hardening (in-flight gate + coalesced-tick recovery + `run_id`-hash jitter); transparent remote-exec (`ASSAY_EXEC_TARGET=ssh://…`).
-- **A/B target (the predecessor, still on disk):** `tools/quality/` — C#-only. Read `README.md`, `__main__.py`, `process.py`, `settings.py`, `rails/*`. Overlapping verbs: `static report|build|fix|full|plan`, `test run|list|coverage`, `docs check`, `api doctor|resolve|query|show`, host-gated `bridge`/`package`. **The quality test suite is the pattern to learn from** — `tests/tools/quality/conftest.py` (340 LOC) + `tests/tools/quality/test_quality.py` (702 LOC): dense, single-file, law-based, ~1 conftest + ~1 spec. Match that density; do NOT spam files or bloat one file.
-- **Test scaffold (assay):** `tests/tools/assay/conftest.py` (`AssayHarness`/`RailProbe`/`SshLoopback`/`BridgeResult`/`YakShape`/`AbDelta`/`ab_diff`; 7 smoke laws pass) + `test_harness_smoke.py`. The A/B matrix, wire laws, automation, stress, and adversarial specs are NOT yet written — that is this session. `pyproject.toml` `[tool.coverage.run] source` + `[tool.mutmut]` already point at `tools/assay`.
-- **Rhino bridge (host-gated):** `tools/rhino-bridge/` (`client/`/`plugin/`/`protocol/`/`AGENTS.md`) — the live-RhinoWIP lane the `bridge` claim drives; the honest ceiling for headless test infra.
-- **Gate commands (PIN EVERY RUN TO THE REPO ROOT):**
-  ```bash
-  uv run ruff check --no-cache tools/assay && uv run ruff format --check tools/assay
-  uv run ty check --python-platform all tools/assay
-  uv run mypy --strict --explicit-package-bases tools/assay
-  uv run python -m tools.assay self-test                 # composition + catalog + toolchain census; one Envelope
-  uv run pytest tests/tools/assay                        # the suite this session builds
-  uv run pytest tests/tools/assay --cov=tools/assay --cov-report=term-missing   # coverage gate (target 90-95%)
-  ```
+- **New tool:** `<target-tool>` — the agent-first polyglot quality keychain. Claims `<capability-arms>`, root verbs `<root-verbs>`, and optional automation arms.
+- **Non-parity capabilities:** polyglot `api`; dual-modality `code search`; `code query`; `code rewrite`; run history and `delta`; toolchain-doctor; automation watch/schedule; transparent remote execution.
+- **A/B target:** `<predecessor-tool>` — predecessor or reference surface. Overlapping verbs: `<overlapping-verbs>`.
+- **Test scaffold:** `<test-scaffold>` exists; the A/B matrix, wire laws, automation, stress, and adversarial specs are the missing suite.
+- **Host boundary:** `<host-boundary>` remains the host-gated lane for live host behavior.
 
-## [2] DOCTRINE (every test + every hardening change is judged against this)
+## [2] DOCTRINE
 
-- **A/B is OUTPUT-LEVEL and adversarial, not vibes.** For every overlapping verb, run BOTH tools in-process under isolated settings (zero host mutation) and diff **exact content**: field-by-field, shapes, exit codes, status sets, `truncated` behavior, lock/lease behavior, ordering, artifact pointers. Truthfully score which is better per dimension; integrate ONLY genuine, focused wins from the old tool (no big ports). Gate on **zero REGRESSION**: a capped list carrying `truncated=true` + an on-disk artifact is NOT loss; a capped list with neither IS a regression — fail it.
-- **No-info-loss baseline (proven on `self-test`; validate LIVE per verb):** `rail`→`claim` RENAMED; `data`→`report` RESTRUCTURED (untyped tree → typed `Report{counts,artifacts,results,detail}`); `evidence`+`error.returncode`+`error.stderr` DROPPED-INTENTIONAL (evidence was always empty; stderr → artifact logs + the NEW `error_context:Diagnostic`); everything else IDENTICAL.
-- **Agent ergonomics are a HARD requirement, fixed INTERNALLY (never a new flag/function).** No noise or spam in returns; never truncate silently; rich, domain-appropriate evidence so an agent is never left in the dark; automatic diagnostics on every fault (`error_context`); commands self-route, self-describe, self-correct so an agent cannot mis-invoke; no flag spam, no multi-step ceremony (one command does the job). Verb names encode cost/mutability (`fix` mutates, `report` never does, `full` is expensive) so safety is predictable from the verb. **Where a command is hard to use, fix the command, not the test** — harden inherently.
-- **Resilience under concurrency is the headline.** The tool must survive dozens-to-hundreds of simultaneous agents: leases fail-fast on a live holder and steal a dead one (never block, never nest `anyio.run`), the dotnet `--artifacts-path` per-closure isolation prevents MSBuild cross-talk, scratch is run-id-partitioned, and NO unusual dotnet/lock/file-races appear. **Compare the old tool's behavior under the same storm** — does quality serialize, deadlock, or corrupt where assay coalesces cleanly?
-- **Tests are DENSE, ALGORITHMIC, LAW-DRIVEN — never flat spam.** One property/law covers a family via parametrization, generators, and `SmartEnum`-style sweeps over the catalog/claims/verbs/languages; reach for `hypothesis` + the `Items`/product-generator patterns before a second near-duplicate `def test_`. Refine the conftest CONTINUOUSLY to kill bloat — fixtures are polymorphic, one harness per concern, no trash. The appropriate FILE SET, not a file per verb; no single file bloated. **Functional/ROP in test bodies too** where it reads cleanly; assertions are exact, not approximate-by-default.
-- **Live, real, no-mock-where-real-works.** Run the actual tools against real trees; mock ONLY the genuinely un-reachable (ssh/cloud remote-exec via `SshLoopback`, the live-Rhino `bridge`/`package` host lane). Document the honest ceiling (a real remote command, live dotnet build contention, multiprocess lease contention, the Rhino scenario) — never fake a pass.
+- **A/B is output-level and adversarial.** For every overlapping verb, run both tools against the same isolated tree and diff exact content: fields, shapes, exit codes, statuses, truncation, lock behavior, ordering, artifact pointers, and diagnostics.
+- **No regression.** A capped list with `truncated=true` and an artifact is acceptable; a capped list with neither is a regression. Integrate only focused wins from the predecessor surface.
+- **Agent ergonomics are internal behavior.** Commands self-route, self-describe, and self-correct; failures carry actionable diagnostics; hardening lands inside the command, not as new flags or ceremony.
+- **Concurrency resilience is a primary deliverable.** Lease contention, dotnet artifacts, scratch space, mutation locks, rewrite locks, package staging, and read-only fans must behave cleanly under dozens to hundreds of simultaneous invocations.
+- **Tests are dense, algorithmic, and law-driven.** Use parametrization, generators, and catalog/member sweeps over flat file spam. Keep the file set minimal and split only by real concern.
+- **Live where reachable.** Use real tool invocations and real trees. Mock only unreachable host or remote boundaries, and record the honest ceiling.
 
-## [3] STEP 0 — EXHAUSTIVE READING (before any planning workflow)
+## [3] SURFACE MAP
 
-Read in full, line by line: every module under `tools/assay/`; `tools/assay/README.md` (the 9 invariants + Envelope contract) + `tools/assay/AGENTS.md` (the one-touch-per-concern discipline); the ENTIRE `tools/quality/` tree (the A/B target) + its `README.md`; **`tests/tools/quality/conftest.py` + `tests/tools/quality/test_quality.py` IN FULL (the density/law pattern to learn from and beat)**; the existing `tests/tools/assay/conftest.py` + `test_harness_smoke.py`; `tools/rhino-bridge/` + `AGENTS.md`; the repo-root `CLAUDE.md` quality-gate section; `pyproject.toml` (the lint wall, the coverage/mutmut config, the pytest/hypothesis profiles, the banned-API surface). Confirm the cold-cache green baseline yourself. Map the assay capability surface to the quality capability surface to produce the exact overlapping-verb matrix and the non-parity capability list.
+Map the current `<target-tool>` capability surface against `<predecessor-tool>` and produce:
 
-## [4] PHASE A — EXHAUSTIVE A/B (dozens of agents running BOTH tools)
+1. The overlapping-verb matrix.
+2. The non-parity capability list.
+3. The existing assay test scaffold and missing law families.
+4. The host-gated cases that cannot run headlessly.
 
-Run a workflow that fans **many agents, each owning one (verb × scenario) cell**, executing OURS and `tools/quality` on the SAME isolated tree and cataloguing, per cell: the two raw outputs, the field-by-field delta + the canonical field-map, exit-code/status correspondence, truncation behavior, lock/lease behavior, ordering/structure, **any value or quality the old tool has that we should integrate**, **any new-tool bug / truncated or unusual return / broken functionality / missing diagnostic**, and a per-dimension better/worse verdict. Cover every overlapping verb across every applicable language; host-gate `bridge`/`package`. A dedicated lane force-faults each verb and confirms the single Envelope's `error_context` carries the distilled `Diagnostic` (`failing_step`/`recent_events`/`hint`). Synthesize one A/B report: the proven-no-regression matrix + the short, justified list of old-tool wins to integrate inherently. **Do not proceed to stress/tests until OURS is proven strictly ≥ quality on every cell (or a regression is fixed).**
+## [4] PHASE A — A/B PARITY
 
-## [5] PHASE B — CONCURRENCY STRESS (the resilience headline)
+Run a workflow that assigns each verb-scenario cell to an isolated comparison. Capture raw outputs, canonical field maps, exit-code/status correspondence, truncation behavior, lock behavior, ordering, old-tool wins worth integrating, new-tool bugs, missing diagnostics, and a better/worse verdict per dimension.
 
-Build a stress harness that launches **dozens-to-hundreds of concurrent invocations** (real subprocesses and/or a `parallel`/`anyio` fan) hammering the lease-bearing and dotnet-bearing paths: many `static build` against the same closure (per-closure `--artifacts-path` isolation + warm-tree lease), many `test run --mutation` (the global `mutation.lock`), many `code rewrite --apply` (the `code` lease), many `package stage` (the per-dir stage lease), many read-only fans (the `CapacityLimiter`). Assert: no deadlock, no `anyio.run` nesting, no corrupted artifacts/locks, every loser gets a clean `Fault(BUSY)` (exit 5) — never a hang or a crash — and a dead holder is stolen (psutil `(pid, create_time)`), and NO unusual dotnet/MSBuild node-reuse cross-talk. **Run the SAME storm against `tools/quality`** and record how it copes (serialize? deadlock? corrupt?) — this is the comparative resilience evidence. Capture lock-file stability, fd/memory footprint (psutil), and wall-time scaling.
+Do not move to stress/tests until every overlapping cell is proven non-regressive or the regression has been fixed.
 
-## [6] PHASE C — FULL LIVE EXERCISE OF NON-PARITY CAPABILITIES
+## [5] PHASE B — CONCURRENCY STRESS
 
-Live-run, for real, every capability the old tool lacks (no A/B baseline → exhaustive standalone proof): the full polyglot `api` shape matrix (C#/Python/TS × INDEX/NAMESPACE/TYPE/MEMBER/SEARCH, incl. a flat namespace-less `.d.ts`, a member resolve, the fuzzy-miss `ApiResolution`); `code search` both modalities + `query` (incl. the `#eq?` candidate pre-filter) + `rewrite` preview/apply; run-history persist→`delta <id>`→retention prune (and the `--against` form); toolchain-doctor census notes (versions + git head/dirty); the automation arm (fire a `Manual`/`Program`/`Sequence`, the `Watch`/`Schedule` loop, the coalesced-tick recovery + jitter, the CPU governor `SKIP`); transparent remote-exec via `SshLoopback`. Confirm each surfaces RICH, domain-appropriate evidence and never an empty/opaque return where data exists.
+Build a stress harness that launches many concurrent invocations across lease-bearing and build-bearing paths: `<build-command>`, mutation runs, rewrite apply, package stage, and read-only fans. Assert no deadlock, nested run loop, corrupted lock, artifact collision, or opaque failure. Compare the same storm against `<predecessor-tool>` and record the resilience delta.
 
-## [7] PHASE D — ADVERSARIAL / EDGE-CASE / AGGRESSIVE BUG-FINDING
+## [6] PHASE C — NON-PARITY EXERCISE
 
-Run an adversarial workflow (loop-until-dry, perspective-diverse refuters) that feeds every command malformed, hostile, and boundary inputs — bad patterns/regexes/S-exprs, missing/typo'd/permission-denied paths, corrupt lock files, corrupt persisted Envelopes, malformed ssh URIs, oversized outputs (truncation invariant), unicode/encoding edges, empty/degenerate trees, concurrent steal races, a thunk that raises — and proves each degrades to a CLEAN, diagnostic `Fault`/`EMPTY`/`FAILED`, NEVER an uncaught traceback or a silent wrong answer. Every confirmed bug is fixed INHERENTLY (internal hardening, not a flag). Mock the un-reachable (ssh via `SshLoopback`, cloud/remote, live-Rhino) cleanly and integrate those mocks into the suite.
+Exercise every capability without a `<predecessor-tool>` analog: polyglot API indexing/querying, code search/query/rewrite, run-history delta, retention pruning, automation triggers, schedule recovery, resource governance, and remote execution loopback. Each result should expose domain-appropriate structured evidence.
 
-## [8] PHASE E — THE TEST SUITE (90-95% coverage, dense + algorithmic)
+## [7] PHASE D — ADVERSARIAL HARDENING
 
-Build the suite as the **minimal dense file set** (mirror quality's ~1 conftest + ~1-few specs; split only by genuine concern, e.g. `test_ab_parity.py` / `test_wire_laws.py` / `test_automation.py` / `test_concurrency.py` / `test_adversarial.py` — NOT a file per verb), each file law-driven and under control (no bloat):
-- **Wire laws:** `encode(decode(x))==x` for `Envelope`/`Report`/`Detail`; `RailStatus.join` associativity/identity(`EMPTY`)/idempotence/max-severity; `fold` count derivation; `Detail` `forbid_unknown_fields` drift; `omit_defaults` terse-wire; one-Envelope/`exit_code==status.exit_code` invariants. Parametrize over the FULL `RailStatus`/`Claim`/`Language`/`Mode`/`AnyDetail` member sets — algorithmic sweeps, not hand-rolled cases. Use `hypothesis` for the algebra.
-- **A/B parity:** per-verb in-process OURS vs quality, field-by-field + exit codes + the truncation invariant (capped list without `truncated`+artifact = fail), driven off the `ab_diff` fixture extended to every overlapping verb.
-- **Automation:** mocked triggers + the coalesced/missed-fire recovery path + the deterministic jitter + the CPU governor + the `Sequence` halt-on-FAILED fold.
-- **Concurrency:** the Phase-B storm as deterministic laws (lease steal, BUSY fast-fail, no-nest, artifact isolation).
-- **Adversarial:** the Phase-D edges as laws (every command's degenerate input → typed `Fault`/`EMPTY`, never a raise).
-Refine `conftest.py` continuously — polymorphic fixtures, one harness per concern, kill every duplicated/trash helper; the conftest must SHRINK as laws share fixtures. Re-point any remaining `tools/quality` test config; achieve **90-95% line+branch coverage** (`exclude_also` already covers the unreachable arms) — driven by dense laws, not coverage-chasing filler. Run mutmut on the changed surface to prove the laws actually kill mutants.
+Feed malformed, hostile, and boundary inputs through every command: bad patterns, missing paths, permission failures, corrupt locks, corrupt history, malformed SSH URIs, oversized output, Unicode/encoding edges, empty trees, concurrent steal races, and raising thunks. Confirm every reachable failure degrades to typed structured output instead of an uncaught traceback or silent wrong answer.
 
-## [9] AGENT-ERGONOMICS HARDENING (internal, woven through every phase)
+## [8] PHASE E — TEST SUITE
 
-As A/B + adversarial findings land, harden every command INTERNALLY (no new flag/function): positional acceptance for the primary field (`pattern`/`key`/`symbol`/`token`) without dropping `kw_only` on the inherited `paths`/`language`; the `shape_of` UX trap (a bare `--symbol Struct` silently resolves as a nonexistent NAMESPACE, not the type — auto-disambiguate or richen the miss `ApiResolution` so the agent is never misled); optimize every command's speed (profile; fastest correct primitive); ensure the rich return per domain (`Match`/`Detail`/`notes`) is appropriate and never truncated-without-pointer. Gate green cold after every change.
+Build the minimal dense suite, split only by concern:
 
-## [10] CONSTRAINTS
+- Wire laws for `Envelope`, `Report`, `Detail`, `RailStatus`, one-envelope output, exit-code/status mapping, terse wire shape, and closed variant spaces.
+- A/B parity laws for every overlapping verb, driven from the comparison fixture.
+- Automation laws for triggers, missed-fire recovery, jitter, resource governance, and sequence halting.
+- Concurrency laws for lease steal, fast-fail busy behavior, artifact isolation, and no nested run loop.
+- Adversarial laws for degenerate inputs and typed degradation.
 
-Gates green from the repo root (cold cache) after every change; a static-green claim is a HYPOTHESIS until a real runtime invocation (D72 beartype × `TYPE_CHECKING` forward-ref invariant — verify every arm with a live call). Lint wall holds (no stdlib `json`/`asyncio`/`logging`/`abc`/env-reads/`cast`/`Any`/`typing.Optional`-for-fallibility). Functional/ROP — `match`/folds, no `if`/`for`/`while`/`try` in domain or test-helper logic (`try` only at marked seams). `Fault` stays `{argv, status, message}`. One Envelope per invocation; never truncate silently. Hardening is INHERENT — no new agent-facing flag/function/multi-step. Tests are dense/algorithmic, the file set minimal, the conftest lean. Persist the A/B deltas, the integrated old-tool wins, the resilience findings, and the locked test decisions to project memory so they are not re-chased.
+Refine `conftest.py` as shared laws emerge; shrink duplicate fixtures instead of spreading helper files.
 
-## [11] START HERE
+## [9] ERGONOMICS HARDENING
 
-1. Step 0 ([3]): exhaustive read of both tools, the quality test suite, the assay scaffold, `pyproject`; confirm the cold-cache green baseline; produce the overlapping-verb matrix + the non-parity list.
-2. Phase A ([4]): the output-level A/B workflow → prove OURS strictly ≥ quality (fix any regression) → the justified old-tool wins.
-3. Phase B ([5]): the concurrency stress harness on BOTH tools → the comparative resilience evidence.
-4. Phases C-D ([6]-[7]): full live exercise of non-parity capabilities + adversarial bug-hunt → fix every bug inherently.
-5. Phase E ([8]) + ergonomics hardening ([9]): the dense 90-95%-coverage suite, lean conftest, minimal file set, mutmut-proven.
-6. `git add -A && git commit` at the end with a precise message; persist decisions/deltas/findings to memory.
+As A/B and adversarial findings land, harden command behavior internally: primary-field positional acceptance, better ambiguity resolution, richer misses, faster primitives, domain-appropriate `Detail`, and no truncation without an artifact pointer.
+
+## [10] START HERE
+
+1. Build the surface map.
+2. Run A/B parity and integrate focused old-tool wins.
+3. Run concurrency stress on both tools.
+4. Exercise non-parity capabilities and adversarial cases.
+5. Build the dense suite and harden command ergonomics.

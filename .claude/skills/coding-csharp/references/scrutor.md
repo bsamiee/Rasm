@@ -1,8 +1,15 @@
 # [H1][SCRUTOR]
+>**Dictum:** *Scrutor turns DI composition into algebra: bounded discovery, explicit policy, deterministic decorator topology.*
 
-Verified baseline: `Scrutor` **7.0.0** (**`[NOT_IN_GRAPH]`** until a bootstrap consumer pins it). TFMs: net462, netstandard2.0, net8.0, **net10.0**. Extends the built-in Microsoft container via `Scan` + `Decorate`/`TryDecorate` on `IServiceCollection`.
+<br>
 
+Scrutor extends the built-in Microsoft container via `Scan` + `Decorate`/`TryDecorate` on `IServiceCollection`.
+
+---
 ## [1][BOUNDED_DISCOVERY]
+>**Dictum:** *Assembly predicates and type filters are the first defense against registration drift.*
+
+<br>
 
 `FromDependencyContext(context, predicate)` is the strict path -- explicit context, no silent fallback. `FromApplicationDependencies()` falls back to entry-assembly dependency walking when `DependencyContext.Default` is unavailable, silently narrowing the scan and swallowing assembly load failures. Filter methods chain intersectively (AND semantics); use `AssignableToAny(...)` for union semantics. `WithLifetime(Func<Type, ServiceLifetime>)` enables per-type lifetime resolution without multiple scan blocks.
 
@@ -38,7 +45,11 @@ public static class ModuleDiscovery {
 
 [CRITICAL]: `AssignableTo<T>().AssignableTo<U>()` yields types implementing BOTH (intersective `IntersectWith`). Use `AssignableToAny(typeof(T), typeof(U))` for types implementing EITHER. `InNamespaces` uses prefix matching (hierarchical); `InExactNamespaces` uses exact matching only.
 
+---
 ## [2][REGISTRATION_STRATEGY]
+>**Dictum:** *Default append is drift-prone; explicit strategy is the only deterministic path.*
+
+<br>
 
 | [INDEX] | [STRATEGY]     | [MECHANISM]                          | [WHEN]                                              |
 | :-----: | :------------- | :----------------------------------- | :-------------------------------------------------- |
@@ -76,7 +87,11 @@ public static class StrategyExamples {
 }
 ```
 
+---
 ## [3][DECORATOR_TOPOLOGY]
+>**Dictum:** *Decoration order is architecture; the last Decorate call wraps outermost.*
+
+<br>
 
 Decoration reads bottom-up: the final `Decorate` call produces the outermost wrapper. `Decorate` throws `DecorationException` when no matching registration exists; `TryDecorate` returns `false` for optional modules. Capture `DecoratedService<T>` via `out` parameter to verify topology at runtime -- internally backed by .NET 8+ keyed services with `+Decorated` suffix keys. `GetRequiredDecoratedService` resolves the pre-decoration inner; `GetDecoratedServices` yields all layers.
 
@@ -117,7 +132,11 @@ public static class OpenGenericDecoration {
 
 [IMPORTANT]: Open generic decoration targets closed registrations compatible with the open definition. Decorators with type constraints (e.g., `where TCmd : IAccessRestricted`) silently skip non-matching closed types via `MakeGenericType` catch -- correct since v4.0.0 but allocates `ArgumentException` per mismatch at startup. Open generic registrations are excluded from `ValidateOnBuild`. Use `DecorationStrategy` or factory decorate overloads when type-based match is insufficient.
 
+---
 ## [4][EFF_DECORATOR]
+>**Dictum:** *Eff-wrapping decorators compose within the effect pipeline -- never collapse via Match and re-lift.*
+
+<br>
 
 When domain services return `Eff<RT,T>`, decorators must compose via `Map`/`MapFail`/`Bind` within the pipeline. The runtime-record pattern threads dependencies via `Eff.runtime<RT>()` and property selection; do not introduce legacy capability-marker interfaces. Retry uses `Prelude.retry(schedule, eff)` per `effects.md` [8].
 
@@ -183,7 +202,11 @@ public static class EffDecoratorGraph {
 
 [CRITICAL]: Decoration order: `OrderPipeline` -> `RetryOrderDecorator` -> `TracingOrderDecorator` (outermost observes retried result). Decorators compose within `Eff` via `Map`/`MapFail` -- collapsing via `Match` and re-lifting destroys monadic context and violates PREMATURE_MATCH_COLLAPSE (see `patterns.md`).
 
+---
 ## [5][KEYED_REGISTRATION]
+>**Dictum:** *Service keys encode variant routing structurally; keyed decoration requires explicit key matching.*
+
+<br>
 
 `ServiceDescriptorAttribute<TService>` enables attribute-driven keyed registration with compile-time service type validation. `UsingAttributes()` reads metadata, validates assignability, and rejects duplicate `(ServiceType, ServiceKey)` tuples. `AsSelfWithInterfaces()` registers the concrete type as itself AND forwards all interface resolutions to the same instance -- true singleton behavior across multiple interface resolves (unlike `AsImplementedInterfaces()` which creates independent registrations). Non-keyed decorators do NOT affect keyed services -- `CanDecorate` checks `ServiceKey` equality.
 
@@ -227,7 +250,11 @@ public static class KeyedDiscovery {
 
 [CRITICAL]: `RegistrationStrategy.Throw` with multiple keyed registrations sharing the same `ServiceType` throws on the second key — `HasRegistration` ignores keys. Use `Append` or separate scan blocks for multi-key same-interface registration. Public `Decorate<T>()` wraps only non-keyed registrations (`ServiceKey == null`); enum/object keyed services require manual decorate fold per key.
 
+---
 ## [6][RULES]
+>**Dictum:** *Scrutor quality is determinism under change.*
+
+<br>
 
 - [ALWAYS] Bound scanning to explicit assemblies/namespaces via `FromDependencyContext` with predicates.
 - [ALWAYS] Choose `RegistrationStrategy` explicitly per `Scan` block -- every `Scan` in composition-root and boundary scopes must call `UsingRegistrationStrategy`.

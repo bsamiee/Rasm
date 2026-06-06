@@ -1,8 +1,8 @@
 # [MATHNET_LINEAR]
 
-[IMPORTANT] Pin **`MathNet.Numerics`** at the version pinned in `Directory.Packages.props`. Verify solver and factorization names against local XML before documenting new call sites.
+[IMPORTANT] MathNet owns linear algebra after external-domain validity projection.
 
-Spatial geometry semantics belong to the host (RhinoCommon, etc.) — MathNet receives explicit coordinates, dimensions, and tolerance policy after validity projection.
+Spatial geometry semantics belong to the owning host SDK; MathNet receives explicit coordinates, dimensions, and tolerance policy after validity projection.
 
 ## [1][DENSE_SURFACES]
 
@@ -13,7 +13,7 @@ Spatial geometry semantics belong to the host (RhinoCommon, etc.) — MathNet re
 |   [3]   | Direct `Solve`                                            | Simple systems where factorization policy is not exposed |
 |   [4]   | User-defined factorizations (`UserCholesky`, `UserLU`, …) | Custom storage layouts                                   |
 
-**Dense factorization families:** standard and `User*` variants for specialized storage — verify availability in pinned XML.
+**Dense factorization families:** standard and `User*` variants for specialized storage.
 
 ## [2][SPARSE_SURFACES]
 
@@ -49,10 +49,10 @@ Document solver family, preconditioner, stop criteria, iteration count, residual
 |   [1]   | Symmetric / general EVD     | `Evd`, dense eigen APIs                                                                       |
 |   [2]   | Partial eigen               | Application-layer block iterative methods on sparse operators — no LOBPCG type in MathNet XML |
 |   [3]   | Statistics                  | `Statistics.*`, `SortedArrayStatistics`                                                       |
-|   [4]   | Optimization                | `FindMinimum.*`, `BfgsMinimizer`, `NelderMeadSimplex`, trust-region family — verify XML       |
-|   [5]   | Integration / interpolation | `Integrate`, spline APIs — verify XML                                                         |
+|   [4]   | Optimization                | `FindMinimum.*`, `BfgsMinimizer`, `NelderMeadSimplex`, trust-region family                    |
+|   [5]   | Integration / interpolation | `Integrate`, spline APIs                                                                      |
 
-MathNet.Symbolics is pinned separately in `Directory.Packages.props` — see `symbolics.md`.
+MathNet.Symbolics is a separate package graph entry; see `symbolics.md`.
 
 ## [5][SCALAR_NAMESPACES]
 
@@ -74,7 +74,7 @@ Do not mix scalar namespaces within one transform pipeline without explicit conv
 
 ## [7][PERFORMANCE]
 
-Use MathNet vector and matrix operations for algorithmic linear algebra. Use BCL spans or tensor primitives only behind `docs/system-api-map/packages.md` adoption and measured proof. Do not replace MathNet solvers with primitive reductions without profiling.
+Use MathNet vector and matrix operations for algorithmic linear algebra. Use standard-library span or tensor primitives only behind project package adoption and measured proof. Do not replace MathNet solvers with primitive reductions without profiling.
 
 ## [8][RULES]
 

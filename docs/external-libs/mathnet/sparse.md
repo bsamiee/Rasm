@@ -1,17 +1,10 @@
 # [MATHNET_SPARSE]
 
-[IMPORTANT] Pin **`MathNet.Numerics`** and co-primary **`CSparse`** (NuGet id **`CSparse`**, not `CSparse.NET`) at the versions pinned in `Directory.Packages.props`. Verify MathNet names against `MathNet.Numerics.xml`; verify CSparse against `CSparse.xml` under `lib/{tfm}/`.
+[IMPORTANT] MathNet and co-primary `CSparse` (NuGet id `CSparse`, not `CSparse.NET`) split sparse iterative and direct factorization ownership.
 
-## [1][SOURCE_TRUTH]
+MathNet.Numerics has no CSparse API surface; hybrid routing is integrator-authored.
 
-| [INDEX] | [PACKAGE]          |          [VERSION]           | [XML]                                           |
-| :-----: | ------------------ | :--------------------------: | ----------------------------------------------- |
-|   [1]   | `MathNet.Numerics` | `Directory.Packages.props`   | `MathNet.Numerics.xml`                          |
-|   [2]   | `CSparse`          | `Directory.Packages.props`   | `CSparse.xml` — zero deps on `net10.0`/`net8.0` |
-
-The pinned `MathNet.Numerics` XML contains **zero** CSparse references — hybrid routing is integrator-authored.
-
-## [2][ROLE_SPLIT]
+## [1][ROLE_SPLIT]
 
 | [INDEX] | [CONCERN]                                                  | [OWNER]                                           |
 | :-----: | ---------------------------------------------------------- | ------------------------------------------------- |
@@ -24,7 +17,7 @@ The pinned `MathNet.Numerics` XML contains **zero** CSparse references — hybri
 |   [7]   | Partial / block eigen algorithms                           | Application layer — no LOBPCG type in MathNet XML |
 |   [8]   | Solver path/stop/residual vocabulary                       | Application layer                                 |
 
-## [3][FORMAT_STRATEGY]
+## [2][FORMAT_STRATEGY]
 
 | [INDEX] | [FORMAT]                       | [NATIVE]                                                  | [BEST_FOR]                                |
 | :-----: | ------------------------------ | --------------------------------------------------------- | ----------------------------------------- |
@@ -44,7 +37,7 @@ Triplets -> dedupe/sum -> CSC (CSparse direct path)
 - Require square `n × n`.
 - Pin or shift semidefinite operators before Cholesky.
 
-## [4][DECISION_FLOW]
+## [3][DECISION_FLOW]
 
 | [INDEX] | [SCENARIO]                        | [PRIMARY]                   | [SECONDARY]                       |
 | :-----: | --------------------------------- | --------------------------- | --------------------------------- |
@@ -62,7 +55,7 @@ Triplets -> dedupe/sum -> CSC (CSparse direct path)
 
 **Direct fallback:** when iterative residual fails policy, `Matrix<T>.Solve(b)` — provider-dependent; validate residuals explicitly.
 
-## [5][MATHNET_ITERATIVE]
+## [4][MATHNET_ITERATIVE]
 
 | [INDEX] | [SURFACE]                                                                                                 | [ROLE]                      |
 | :-----: | --------------------------------------------------------------------------------------------------------- | --------------------------- |
@@ -76,7 +69,7 @@ Triplets -> dedupe/sum -> CSC (CSparse direct path)
 
 Solvers: `MathNet.Numerics.LinearAlgebra.{Double|Single|Complex|Complex32}.Solvers.*`. Shared: `MathNet.Numerics.LinearAlgebra.Solvers.*`.
 
-## [6][HYBRID_PATTERNS]
+## [5][HYBRID_PATTERNS]
 
 | [INDEX] | [PATTERN]                          | [SHAPE]                                                                 |
 | :-----: | ---------------------------------- | ----------------------------------------------------------------------- |
@@ -86,7 +79,7 @@ Solvers: `MathNet.Numerics.LinearAlgebra.{Double|Single|Complex|Complex32}.Solve
 |   [4]   | Residual validation                | Post-solve residual via MathNet SpMV on CSR even when factor is CSparse |
 |   [5]   | Eigen outer / solve inner          | Block iterative layer on MathNet; inner SPD shifts via CSparse Cholesky |
 
-## [7][CSPARSE_SURFACE]
+## [6][CSPARSE_SURFACE]
 
 | [INDEX] | [NAMESPACE]                               | [OWNS]                                                                          |
 | :-----: | ----------------------------------------- | ------------------------------------------------------------------------------- |
@@ -99,7 +92,7 @@ Solvers: `MathNet.Numerics.LinearAlgebra.{Double|Single|Complex|Complex32}.Solve
 **Storage:** COO assembly via `CoordinateStorage.At`; CSC fields `ColumnPointers`, `RowIndices`, `Values`. Factories: `Converter`, `CompressedColumnStorage.OfIndexed`, `OfRowMajor`, `OfColumnMajor`, etc.
 **Matvec:** `Multiply`, `TransposeMultiply` with optional `α, β` scaling.
 
-## [8][CSPARSE_ORDERING]
+## [7][CSPARSE_ORDERING]
 
 | [INDEX] | [ORDERING]             | [SYMBOLIC_GRAPH]        | [CHOL_LDL] |       [LU_QR]       |
 | :-----: | ---------------------- | ----------------------- | :--------: | :-----------------: |
@@ -114,7 +107,7 @@ Rectangular QR + `MinimumDegreeAtPlusA`: AMD requires square `A` — prefer `Min
 
 `Permutation`: `Apply`, `ApplyInverse`, `Create`, `Invert`, `IsValid`.
 
-## [9][CSPARSE_FACTORIZATION]
+## [8][CSPARSE_FACTORIZATION]
 
 | [INDEX] | [CLASS]          | [MATRIX]                         | [ORDERING]                            |
 | :-----: | ---------------- | -------------------------------- | ------------------------------------- |
@@ -136,7 +129,7 @@ Rectangular QR + `MinimumDegreeAtPlusA`: AMD requires square `A` — prefer `Min
 
 All implement `ISparseFactorization<T>` → `ISolver<T>` with Span-based `Solve`.
 
-## [10][CSPARSE_SOLVE]
+## [9][CSPARSE_SOLVE]
 
 Use `Permutation.Apply` / `ApplyInverse` and `SolverHelper` kernels — not abstract `P`/`Q` alone.
 
@@ -149,7 +142,7 @@ Use `Permutation.Apply` / `ApplyInverse` and `SolverHelper` kernels — not abst
 
 **Advanced:** `SymbolicFactorization` + split `SymbolicAnalysis`/`Factorize`; `SparseCholesky.UpDown`; Matrix Market I/O.
 
-## [11][RULES]
+## [10][RULES]
 
 - Do not convert CSR->CSC every step without caching factorization.
 - Profile fill-in (factor nnz / input nnz) before choosing direct over iterative.

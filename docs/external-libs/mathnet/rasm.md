@@ -1,6 +1,6 @@
 # [MATHNET_RASM]
 
-[IMPORTANT] Production numerics: `libs/csharp/Rasm/Vectors/Matrix.cs`, `Cloud.cs`, `Mesh.cs` (CSparse hybrid). `MathNet.Symbolics`, Optimization, Integration, and Interpolation are pinned but **not referenced** in production `.cs` files.
+[IMPORTANT] Production numerics: `libs/csharp/Rasm/Vectors/Matrix.cs`, `Cloud.cs`, `Mesh.cs` (CSparse hybrid). `MathNet.Symbolics`, Optimization, Integration, and Interpolation have zero production `.cs` references.
 
 ## [1][PUBLIC_SURFACES]
 
@@ -49,12 +49,12 @@ Document non-convergence and non-finite scalars as typed `Fin` failures at bound
 - Wrap native/MathNet throws in `op.Catch` or `Try.lift` at Vectors boundary.
 - Project GH2/Rhino outputs from Rasm receipts — never expose MathNet matrix types on public API.
 
-## [5][NOT_IN_GRAPH]
+## [5][ADOPTION_CANDIDATES]
 
-| [INDEX] | [SURFACE]                                  | [STATUS]                                 |
+| [INDEX] | [SURFACE]                                  | [ADOPTION_STATE]                         |
 | :-----: | ------------------------------------------ | ---------------------------------------- |
-|   [1]   | `MathNet.Symbolics`                        | Pinned; zero production `.cs` references |
-|   [2]   | Optimization / Integration / Interpolation | Named in `api.md`; unused in `libs/`     |
-|   [3]   | Control providers                          | Named; unused until measured adoption    |
+|   [1]   | `MathNet.Symbolics`                        | No production `.cs` references           |
+|   [2]   | Optimization / Integration / Interpolation | Named in `api.md`; not consumed by libs  |
+|   [3]   | Control providers                          | Named; waits for measured adoption       |
 
 Mark future consumers explicitly when first call site lands.

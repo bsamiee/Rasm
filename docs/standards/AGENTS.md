@@ -12,14 +12,14 @@ Reports, critique passes, memory notes, prompt assets, session history, external
 
 ## [2][READ_ORDER]
 
-Before every `docs/standards/**` file change, read `CLAUDE.md`, root `AGENTS.md`, [README.md](README.md), the full target file, its routed owner standard, linked adjacent standards, and the affected folder or type family. The table adds mode-specific sources; for root audits, include [agents-md.md](agents-md.md) unless the task excludes it.
+Before every `docs/standards/**` file change, use the active instruction chain, [README.md](README.md), the full target file, its routed owner standard, linked adjacent standards, and the affected folder or type family. The table adds mode-specific sources; for root audits, include [agents-md.md](agents-md.md) unless the task excludes it.
 
 | [INDEX] | [MODE]              | [EXTRA_READ]                            | [TRIGGER]                                               |
 | :-----: | :------------------ | :-------------------------------------- | :------------------------------------------------------ |
 |   [1]   | Root audit or edit  | active root standards                   | routing, boundaries, provider behavior, audit rules     |
 |   [2]   | Narrow type edit    | needed shared owners, type family       | adjacent status, proof, produced-structure behavior     |
 |   [3]   | Named `_reports/**` | `_reports/AGENTS.md`, named reports     | reusable report promotion                               |
-|   [4]   | Cross-stack claim   | [../usage.md](../usage.md), proof route | owner precedence, source truth, implementation, tooling |
+|   [4]   | Cross-stack claim   | project-declared implementation-proof owner, proof route | owner precedence, source evidence, implementation, tooling |
 
 Before rewriting, identify poor information representation: prose hiding lookup data, prose-like tables, one-row tables, duplicated table or diagram bodies, decorative diagrams, missing relation records, empty conditional headings, stale links, and decorative proof fields. Fix the problem in scope or route it away explicitly.
 
@@ -60,7 +60,7 @@ Standards files are executable guidance for future agents. Start with scope, rea
 
 Future-facing standards use the strongest verified target standard. Current implementation drift does not weaken the target rule, but present-tense current claims still require repository proof or a proof gap.
 
-Treat older paradigms as replacement targets, not baselines. Prefer direct replacement language over deprecation, compatibility, migration-preservation, or "current project still uses" qualifiers.
+Treat older paradigms as replacement targets, not baselines. Prefer direct replacement language over deprecation, compatibility, migration-preservation, or local-implementation qualifiers.
 
 Every type standard states the opening contract before examples, taxonomies, or background:
 1. Purpose and boundary in the lead.
@@ -77,7 +77,7 @@ Use adjacent-document relation records only when the adjacent fact changes reade
 ## [6][EDIT_INVARIANTS]
 
 [PRESERVATION]:
-- Preserve every load-bearing current command, path, version, flag, field, qualifier, status value, route pointer, proof field, invariant, and source-truth claim.
+- Preserve every load-bearing current command, path, version, flag, field, qualifier, status value, route pointer, proof field, invariant, and source-backed claim.
 - Delete or replace stale facts only when current repository truth, owner routing, or proof evidence shows they are obsolete.
 - Account for routed, deleted, or replaced facts before removal.
 
@@ -97,9 +97,9 @@ Use adjacent-document relation records only when the adjacent fact changes reade
 
 [NEVER]:
 - Publish live task instructions, chat excerpts, critique summaries, prompt-source narration, rewrite rationale, fixed sub-agent counts, session state, secrets, or nonpublic machine paths.
-- Claim a local linter, link checker, docs build, renderer, CI gate, static rail, test rail, or bridge rail exists or passed unless repository source, configured tooling, local command output, current CI proof, or current status-check output proves it.
+- Claim a local linter, link checker, docs build, renderer, CI gate, static gate, test gate, runtime gate, host-verification gate, or deployment gate exists or passed unless repository source, configured tooling, local command output, current CI proof, or current status-check output proves it.
 - Claim provider behavior exists unless maintained provider documentation or local provider-surface output proves it.
-- Use current project baseline, older code, older manifests, older configs, partial adoption, or compatibility pressure as a reason to weaken a future-facing standard.
+- Use current baseline, older code, older manifests, older configs, partial adoption, or compatibility pressure as a reason to weaken a future-facing standard.
 - Preserve stale commands, removed tool names, legacy aliases, or unsupported progress markers.
 - Publish empty conditional headings, decorative diagrams, duplicated table or diagram bodies, `Consumed by: none`, or generic metadata whitelists.
 - Hand-maintain generated catalogs, mirrors, or provider claims as independent truth.

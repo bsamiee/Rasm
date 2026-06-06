@@ -2,7 +2,7 @@
 
 ## Discriminant projection
 
-Bounded domains with N discriminants and M consumers produce N×M branches when each consumer reimplements dispatch. A vocabulary object compresses this to N entries looked up M times. The vocabulary is the single source of truth — the discriminant type derives from it via `keyof typeof`, not the other way around.
+Bounded domains with N discriminants and M consumers produce N×M branches when each consumer reimplements dispatch. A vocabulary object compresses this to N entries looked up M times. The vocabulary is the controlling definition — the discriminant type derives from it via `keyof typeof`, not the other way around.
 
 Vocabulary values are pipeline-composable constructs — `Effect.logWarning` over `"warn"`, `Duration.seconds(5)` over `5000` — so one lookup resolves every downstream axis simultaneously and the discriminant disappears from the pipeline.
 

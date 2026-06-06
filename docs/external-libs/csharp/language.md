@@ -1,21 +1,13 @@
 # [CSHARP_LANGUAGE]
 
-[IMPORTANT] Pin C# 14.0 on net10.0 (`LangVersion`, `TargetFramework`, `Nullable=enable`, `ImplicitUsings=enable`).
+[IMPORTANT] C# 14.0 on net10.0 is the active language surface (`LangVersion`, `TargetFramework`, `Nullable=enable`, `ImplicitUsings=enable`).
 Compiler toolset: .NET 10 SDK compiler (global compile).
-Analyzer authoring: `Microsoft.CodeAnalysis.CSharp` and `Microsoft.CodeAnalysis.Analyzers` at the versions pinned in `Directory.Packages.props`.
+Analyzer authoring uses `Microsoft.CodeAnalysis.CSharp` and `Microsoft.CodeAnalysis.Analyzers`.
 Do not use `LangVersion=preview` / `latest`.
 
-Route BCL and host-reference policy through `docs/system-api-map`. Owns language features at the pinned version.
+Route BCL and host-reference policy through `docs/system-api-map`. This page owns C# 14 feature selection.
 
-## [1][SOURCE_TRUTH]
-
-| [INDEX] | [SOURCE]                   | [OWNS]                                                               |
-| :-----: | -------------------------- | -------------------------------------------------------------------- |
-|   [1]   | `Directory.Build.props`    | `net10.0`, `LangVersion=14.0`, nullable, implicit usings, analyzers. |
-|   [2]   | Central package manifest   | Analyzer and Roslyn analyzer-authoring packages                      |
-|   [3]   | .NET 10 SDK / Roslyn       | Compiler feature set for C# 14.                                      |
-
-## [2][C14_NEW]
+## [1][C14_NEW]
 
 | [INDEX] | [FEATURE]                         | [FUNCTIONAL_USE]                                                        |
 | :-----: | --------------------------------- | ----------------------------------------------------------------------- |
@@ -38,7 +30,7 @@ Route BCL and host-reference policy through `docs/system-api-map`. Owns language
 - [7] Primary constructor syntax allowed on only one partial declaration.
 - [8] Custom `+=`/`-=` on domain types without imperative unpack/repack.
 
-## [3][C13_BASELINE]
+## [2][C13_BASELINE]
 
 | [INDEX] | [FEATURE]                               | [FUNCTIONAL_USE]                                                   |
 | :-----: | --------------------------------------- | ------------------------------------------------------------------ |
@@ -59,7 +51,7 @@ Route BCL and host-reference policy through `docs/system-api-map`. Owns language
 - [6] `[OverloadResolutionPriority(n)]` on preferred overload.
 - [7] .NET 9+ BCL type.
 
-## [4][C12_BASELINE]
+## [3][C12_BASELINE]
 
 | [INDEX] | [FEATURE]                 | [FUNCTIONAL_USE]                                           |
 | :-----: | ------------------------- | ---------------------------------------------------------- |
@@ -76,7 +68,7 @@ Route BCL and host-reference policy through `docs/system-api-map`. Owns language
 - [4] Same rules as method default parameters.
 - [5] Reduces noise in dense generic signatures.
 
-## [5][EXPRESSION_BASELINE]
+## [4][EXPRESSION_BASELINE]
 
 | [INDEX] | [FEATURE]                         | [FUNCTIONAL_USE]                                               |
 | :-----: | --------------------------------- | -------------------------------------------------------------- |
@@ -90,7 +82,7 @@ Route BCL and host-reference policy through `docs/system-api-map`. Owns language
 |   [8]   | Raw string literals               | Multi-line DSL/JSON without escape noise.                      |
 |   [9]   | Nullable reference types          | `Nullable=enable`; lift host nulls at boundary only.           |
 
-## [6][FUNCTIONAL_RULES]
+## [5][FUNCTIONAL_RULES]
 
 [RULES]
 - [1] Prefer switch expressions and patterns over nested statement branching for value-returning transforms.
@@ -102,10 +94,10 @@ Route BCL and host-reference policy through `docs/system-api-map`. Owns language
 - [7] Treat null-conditional assignment as boundary ergonomics; domain logic should remain on typed option/result rails, not nullable mutation chains.
 - [8] Audit overload sets where `T[]`, `IEnumerable<T>`, and `ReadOnlySpan<T>` coexist—implicit span conversions can change overload winners.
 
-## [7][OUT_OF_SCOPE]
+## [6][OUT_OF_SCOPE]
 
 | [INDEX] | [FEATURE]                              | [STATUS]                                       |
 | :-----: | -------------------------------------- | ---------------------------------------------- |
 |   [1]   | Interceptors                           | Experimental; not production baseline.         |
 |   [2]   | File-based app preprocessor directives | C# 14 app model; not general library baseline. |
-|   [3]   | `LangVersion=preview` / `latest`       | Avoid; pin explicit `14.0`.                    |
+|   [3]   | `LangVersion=preview` / `latest`       | Avoid; use explicit `14.0`.                    |

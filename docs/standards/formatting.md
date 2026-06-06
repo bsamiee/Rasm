@@ -243,7 +243,7 @@ Reject heading theater such as `# [H1][NAME]`, bracket tokens outside the allowe
 
 ## [7][ANCHORS_COMMENTS]
 
-Treat heading anchors and hidden Markdown comments as source-level notation. Anchor rules below are this repository's local validation convention for in-repo links; external renderers may apply different duplicate-suffix or punctuation rules.
+Treat heading anchors and hidden Markdown comments as source-level notation. Anchor rules below are the local validation convention for in-repo links; external renderers may apply different duplicate-suffix or punctuation rules.
 
 Use these source-notation rules:
 - Anchor stability: a bracketed heading slug is the lowercased heading text with brackets, punctuation, dots, and underscores removed; `## [10][FOLDER_LAYOUT]` becomes `#10folderlayout`. When a heading number or label changes, update every in-repo link to that anchor in the same change.
