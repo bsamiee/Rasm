@@ -117,7 +117,7 @@ Validate table integrity before publication: every row in one table has the same
 
 ## [4][RECORDS_LISTS]
 
-Render a finite enumerable set whose items carry state as structured records, never as flat prose. Milestones, decisions, requirements, risks, tasks, and gates need status, dependency, and completion evidence. Use a table while items stay homogeneous and short-celled; switch to a per-item record block once any field needs more than a cell.
+Render a finite enumerable set whose items carry state as structured records, never as flat prose. State earns status: add `Status`, availability, lifecycle, or progress only when a maintained actor filters, updates, removes, or proves the item by that state. Milestones, decisions, requirements, risks, tasks, and gates need status, dependency, and completion evidence only when those fields change reader action. Use a table while items stay homogeneous and short-celled; switch to a per-item record block once any field needs more than a cell.
 
 [STATUS_VOCABULARY]:
 
@@ -179,7 +179,7 @@ Concrete status values stay in the type standard that validates the produced doc
 - Per-item record block: H3 item identifier plus fields, one `label: value` per line.
 - Escalate from record table to per-item record blocks when any item has more than 5 fields, any field needs a list or code block, or items are updated independently over the document's life.
 - Adjacent-document relation record: use only when another maintained document changes reader action, proof, status interpretation, validation, or maintenance; put it beside the section that consumes the adjacent fact and delete it when the fact no longer affects this document.
-- Task ID: use only when another task, milestone, proof receipt, dependency edge, or adjacent document references the item. Put the stable ID at the front of the item, such as `[M2]` or `[ADR-0007]`; do not issue IDs merely because a list is numbered.
+- Task ID: use only when another task, milestone, proof receipt, dependency edge, or adjacent document references the item. Put the stable ID at the front of the item, such as `[M<N>]` or `[ADR-NNNN]`; do not issue IDs merely because a list is numbered.
 - Progress: represent progress only when the document states the numerator, denominator, closure rule, and proof surface before the marker. The rendered progress marker uses [formatting.md](formatting.md); counts, closure units, and proof details stay in surrounding fields. Percentages, bars, phases, and complexity values are valid only when the document defines the calculation or decision rule they measure.
 
 Use this relation-record field order exactly:

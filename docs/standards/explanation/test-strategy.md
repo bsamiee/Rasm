@@ -217,17 +217,17 @@ Reason: the rejected form names a framework and omits source, risk, tier, size, 
 
 Local rail classes stay distinct from test levels. Use this table as a selection checklist, then replace every row a produced strategy uses with the repository's current gate name, status check, or generated artifact:
 
-| [INDEX] | [RAIL_CLASS]                | [TYPICAL_LOCAL_SOURCE]                              | [PROOF_FUNCTION]                                  |
-| :-----: | :-------------------------- | :-------------------------------------------------- | :------------------------------------------------ |
-|   [1]   | static/type/build           | analyzer, formatter, compiler, MTP build            | source-shape and compilation evidence             |
-|   [2]   | unit and property           | xUnit/MTP, CsCheck, local testkit                   | small deterministic behavior evidence             |
-|   [3]   | coverage                    | coverlet or maintained coverage report              | exercised-line signal, never correctness proof    |
-|   [4]   | mutation                    | Stryker or maintained mutation receipt              | assertion strength for selected behavior          |
-|   [5]   | snapshot or manual artifact | Verify or maintained artifact diff                  | stable rendered or serialized artifact comparison |
-|   [6]   | architecture                | ArchUnitNET or maintained architecture gate         | dependency and layering invariant evidence        |
-|   [7]   | fuzz                        | SharpFuzz or maintained fuzz harness                | crash and parser robustness evidence              |
-|   [8]   | benchmark                   | BenchmarkDotNet or maintained budget gate           | performance-budget evidence                       |
-|   [9]   | host/runtime scenario       | bridge runtime, simulator, device, or host scenario | integration with external host behavior           |
+| [INDEX] | [RAIL_CLASS]                | [TYPICAL_LOCAL_SOURCE]                                  | [PROOF_FUNCTION]                                  |
+| :-----: | :-------------------------- | :------------------------------------------------------ | :------------------------------------------------ |
+|   [1]   | static/type/build           | maintained analyzer, formatter, compiler, or build gate | source-shape and compilation evidence             |
+|   [2]   | unit and property           | maintained unit/property runner or local testkit        | small deterministic behavior evidence             |
+|   [3]   | coverage                    | maintained coverage report                              | exercised-line signal, never correctness proof    |
+|   [4]   | mutation                    | maintained mutation receipt                             | assertion strength for selected behavior          |
+|   [5]   | snapshot or manual artifact | maintained artifact diff                                | stable rendered or serialized artifact comparison |
+|   [6]   | architecture                | maintained architecture gate                            | dependency and layering invariant evidence        |
+|   [7]   | fuzz                        | maintained fuzz harness                                 | crash and parser robustness evidence              |
+|   [8]   | benchmark                   | maintained budget gate                                  | performance-budget evidence                       |
+|   [9]   | host/runtime scenario       | simulator, device, or host scenario                     | integration with external host behavior           |
 
 ## [11][GATE_MAPPING]
 

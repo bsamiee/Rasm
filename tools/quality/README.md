@@ -54,31 +54,31 @@ flowchart LR
   class slnx,csproj,mtp,bundle proof
   class mutation,rhino,yak exclusive
 ```
-| [INDEX] | [MODULE]           | [OWNERSHIP]                                      |
-| :-----: | ------------------ | ------------------------------------------------ |
+| [INDEX] | [MODULE]           | [OWNERSHIP]                                               |
+| :-----: | ------------------ | --------------------------------------------------------- |
 |   [1]   | `__main__.py`      | Cyclopts tree, `rail()`, single-Envelope stdout contract. |
-|   [2]   | `settings.py`      | `QualitySettings`, root anchor, artifact paths.  |
-|   [3]   | `process.py`       | Subprocess, dotnet args, nonblocking leases.     |
-|   [4]   | `rails/static.py`  | C# fix/report/build planning.                    |
-|   [5]   | `rails/test.py`    | MTP, coverage, explicit Stryker mutation.        |
-|   [6]   | `rails/bridge.py`  | Bridge client, verify reports, Rhino lease.      |
-|   [7]   | `rails/package.py` | Yak metadata, atomic stage, stage lease.         |
-|   [8]   | `rails/api.py`     | Host and NuGet API resolver; ilspy surface + decompile. |
+|   [2]   | `settings.py`      | `QualitySettings`, root anchor, artifact paths.           |
+|   [3]   | `process.py`       | Subprocess, dotnet args, nonblocking leases.              |
+|   [4]   | `rails/static.py`  | C# fix/report/build planning.                             |
+|   [5]   | `rails/test.py`    | MTP, coverage, explicit Stryker mutation.                 |
+|   [6]   | `rails/bridge.py`  | Bridge client, verify reports, Rhino lease.               |
+|   [7]   | `rails/package.py` | Yak metadata, atomic stage, stage lease.                  |
+|   [8]   | `rails/api.py`     | Host and NuGet API resolver; ilspy surface + decompile.   |
 
 ## [2][COMMAND_SURFACE]
 
 Run from any path under the worktree. `QualitySettings.anchor()` walks parents until `Workspace.slnx`.
 
-| [INDEX] | [RAIL]   | [COMMANDS]                                           | [CLAIM]                    |
-| :-----: | -------- | ---------------------------------------------------- | -------------------------- |
-|   [1]   | `static` | `fix`, `report`, `build`, `full`, `plan`.            | C# cleanup and build proof. |
-|   [2]   | `test`   | `run`, `list`, `coverage`.                           | Unit, coverage, mutation.  |
-|   [3]   | `bridge` | `build-bridge`, `doctor`.                            | Bridge build and preflight. |
-|   [4]   | `bridge` | `launch`, `quit`, `check`, `clean`, `verify`.        | Live Rhino evidence.       |
-|   [5]   | `bridge` | `package`, `package plan`, `package list`.           | Yak staging.               |
-|   [6]   | `bridge` | `deploy`, `publish`.                                 | Yak install and release.   |
-|   [7]   | `api`    | `doctor`, `resolve`, `query`, `show`.                | Host and package API truth. |
-|   [8]   | root     | `self-test`.                                         | Tool/path preflight.       |
+| [INDEX] | [RAIL]   | [COMMANDS]                                    | [CLAIM]                     |
+| :-----: | -------- | --------------------------------------------- | --------------------------- |
+|   [1]   | `static` | `fix`, `report`, `build`, `full`, `plan`.     | C# cleanup and build proof. |
+|   [2]   | `test`   | `run`, `list`, `coverage`.                    | Unit, coverage, mutation.   |
+|   [3]   | `bridge` | `build-bridge`, `doctor`.                     | Bridge build and preflight. |
+|   [4]   | `bridge` | `launch`, `quit`, `check`, `clean`, `verify`. | Live Rhino evidence.        |
+|   [5]   | `bridge` | `package`, `package plan`, `package list`.    | Yak staging.                |
+|   [6]   | `bridge` | `deploy`, `publish`.                          | Yak install and release.    |
+|   [7]   | `api`    | `doctor`, `resolve`, `query`, `show`.         | Host and package API truth. |
+|   [8]   | root     | `self-test`.                                  | Tool/path preflight.        |
 
 Use the Python module entrypoint directly. Do not add package-manager aliases for this operator.
 
@@ -87,13 +87,13 @@ Use the Python module entrypoint directly. Do not add package-manager aliases fo
 > [!CAUTION]
 > `static fix` mutates files. `static report`, `static build`, `static full`, and `static plan` do not intentionally mutate tracked source.
 
-| [INDEX] | [MODE]   | [BEHAVIOR]                                                                                 |
-| :-----: | -------- | ------------------------------------------------------------------------------------------ |
-|   [1]   | `fix`    | Runs one bare `dotnet format <csproj> --include <files> --severity error` per project.     |
-|   [2]   | `report` | Runs same bare format pass with `--verify-no-changes` and `--report`.                      |
+| [INDEX] | [MODE]   | [BEHAVIOR]                                                                                                                       |
+| :-----: | -------- | -------------------------------------------------------------------------------------------------------------------------------- |
+|   [1]   | `fix`    | Runs one bare `dotnet format <csproj> --include <files> --severity error` per project.                                           |
+|   [2]   | `report` | Runs same bare format pass with `--verify-no-changes` and `--report`.                                                            |
 |   [3]   | `build`  | Restores/builds owner closure in `Debug` under stable per-closure `--artifacts-path`; full-trigger plans build `Workspace.slnx`. |
-|   [4]   | `full`   | Verifies `.slnx` parity; restores/builds `Workspace.slnx` in `Debug` and `Release` under the `solution` closure. |
-|   [5]   | `plan`   | Emits JSON: inputs, owners, closure, full triggers, exact dotnet commands.                 |
+|   [4]   | `full`   | Verifies `.slnx` parity; restores/builds `Workspace.slnx` in `Debug` and `Release` under the `solution` closure.                 |
+|   [5]   | `plan`   | Emits JSON: inputs, owners, closure, full triggers, exact dotnet commands.                                                       |
 
 Routing:
 - No paths: read unstaged diff, staged diff, and untracked files.
@@ -127,10 +127,10 @@ Closure isolation:
 
 MTP source: `global.json` uses `"runner": "Microsoft.Testing.Platform"`.
 
-| [INDEX] | [MODE]     | [BEHAVIOR]                                                    |
-| :-----: | ---------- | ------------------------------------------------------------- |
-|   [1]   | `run`      | `dotnet test` with `--minimum-expected-tests 1`.              |
-|   [2]   | `list`     | MTP `--list-tests`.                                           |
+| [INDEX] | [MODE]     | [BEHAVIOR]                                                     |
+| :-----: | ---------- | -------------------------------------------------------------- |
+|   [1]   | `run`      | `dotnet test` with `--minimum-expected-tests 1`.               |
+|   [2]   | `list`     | MTP `--list-tests`.                                            |
 |   [3]   | `coverage` | Coverlet JSON + Cobertura with includes/excludes in `test.py`. |
 
 Targeting:
@@ -177,23 +177,23 @@ Package commands:
 
 Bridge `Envelope.status` → `exit_code`:
 
-| [INDEX] | [STATUS]          | [EXIT] | [INTERPRETATION]                             |
-| :-----: | ----------------- | -----: | -------------------------------------------- |
-|   [1]   | `ok`, `skip`      |      0 | Valid or intentionally skipped scenario.     |
+| [INDEX] | [STATUS]          | [EXIT] | [INTERPRETATION]                              |
+| :-----: | ----------------- | -----: | --------------------------------------------- |
+|   [1]   | `ok`, `skip`      |      0 | Valid or intentionally skipped scenario.      |
 |   [2]   | `failed`          |      1 | Build, connect, execute, or scenario failure. |
 |   [3]   | `unsupported`     |      3 | Build proof valid; no scenario path supplied. |
-|   [4]   | `busy`, `timeout` |      5 | Exclusive resource busy or scenario timeout. |
+|   [4]   | `busy`, `timeout` |      5 | Exclusive resource busy or scenario timeout.  |
 
 ## [6][API_RAIL]
 
 API evidence root: `.artifacts/quality/api/<run-id>/`. Default commands emit compact JSON only. Full raw stdout/stderr, type and namespace surfaces, decompiled source, and `report.json` stay in the run artifact directory.
 
-| [INDEX] | [VERB]    | [CLAIM]                   |
-| :-----: | --------- | ------------------------- |
+| [INDEX] | [VERB]    | [CLAIM]                    |
+| :-----: | --------- | -------------------------- |
 |   [1]   | `doctor`  | Inventory and tool health. |
-|   [2]   | `resolve` | Asset path resolution.    |
+|   [2]   | `resolve` | Asset path resolution.     |
 |   [3]   | `query`   | Surface and source lookup. |
-|   [4]   | `show`    | Artifact inspection.      |
+|   [4]   | `show`    | Artifact inspection.       |
 
 Command forms define runnable syntax and return shape:
 - `doctor`
@@ -213,13 +213,13 @@ Command forms define runnable syntax and return shape:
 
 `query` shapes (discriminated by `symbol`):
 
-| [INDEX] | [SHAPE]     | [TRIGGER]                | [RETURN]                    |
-| :-----: | ----------- | ------------------------ | --------------------------- |
-|   [1]   | `index`     | Empty `symbol`.          | Namespaces and type count.  |
-|   [2]   | `namespace` | Namespace match.         | Types under the namespace.  |
+| [INDEX] | [SHAPE]     | [TRIGGER]                 | [RETURN]                    |
+| :-----: | ----------- | ------------------------- | --------------------------- |
+|   [1]   | `index`     | Empty `symbol`.           | Namespaces and type count.  |
+|   [2]   | `namespace` | Namespace match.          | Types under the namespace.  |
 |   [3]   | `type`      | Exact or suffix type FQN. | Signature and bounded body. |
-|   [4]   | `member`    | `Type.Member` symbol.    | Signature and body window.  |
-|   [5]   | `search`    | No symbol match.         | Ranked surface/XML results. |
+|   [4]   | `member`    | `Type.Member` symbol.     | Signature and body window.  |
+|   [5]   | `search`    | No symbol match.          | Ranked surface/XML results. |
 
 The surface engine uses these rules:
 - Type resolution ranks exact FQN above suffix match.

@@ -8,6 +8,8 @@ Scope: `docs/standards/_reports/**`. Parent standards instructions remain in for
 
 This folder does not own active instructions, documentation standards, architecture, roadmap state, command behavior, proof vocabulary, generated contracts, package facts, or validation gates. Promote durable findings to the nearest trusted owner.
 
+When the user names another report path or asks for a one-off audit, use the named path and do not import this folder's session, track, manifest, or report-shape mechanics into that artifact.
+
 ## [2][READ_BEHAVIOR]
 
 When a task names `_reports/**`, read the session manifest first, then prior synthesis, correction, promotion, or pruning records before individual lane reports. If no manifest exists, inventory folder names and report headings first, then treat the missing manifest as an archive-maintenance gap.
@@ -155,6 +157,6 @@ A report kept after promotion must still answer why a future agent would read it
 ## [11][REJECTIONS]
 
 - Do not turn this folder into a second docs corpus, standards library, README index, command catalog, provider manual, validation ledger, transcript store, or instruction source.
-- Do not copy report headings, confidence labels, wave names, worker roles, prompt wording, task narration, local machine paths, worktree status chatter, draft patch plans, or fixed agent counts into active owners.
+- Do not copy report headings, confidence labels, wave names, worker roles, prompt wording, task narration, local machine paths, worktree status chatter, draft patch plans, fixed agent counts, session folders, track names, report types, report fields, or archive vocabulary into active owners or non-report artifacts.
 - Do not publish table-stakes reports that only say the folder was read, the task was performed, active files were untouched, or no validation was needed.
 - Do not copy active folder policy, command gates, README content, architecture summaries, or standards bodies into `_reports/AGENTS.md`.

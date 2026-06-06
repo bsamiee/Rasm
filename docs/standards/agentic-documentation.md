@@ -1,16 +1,16 @@
 # [AGENTIC_DOCUMENTATION]
 
-This standard carries position and agent cognition: where controlling rules, constraints, proof routes, source provenance, and access boundaries sit inside a unit. It also governs how machine-facing surfaces publish repository truth so agents can inspect and refresh it. It does not decide container form, sentence craft, or evidence strength. Documentation can reduce ambiguity. It cannot make model output trustworthy, authorize access, or sanitize untrusted content.
+This standard optimizes prose, documentation, prompts, and machine-readable documentation surfaces for agentic reading performance. It controls where rules, constraints, proof routes, source provenance, and access boundaries sit so an agent can find, weight, and act on them correctly. It is not a standard for building agentic tools, implementing agent runtimes, designing MCP servers, or claiming provider capability. Documentation can reduce ambiguity. It cannot make model output trustworthy, authorize access, or sanitize untrusted content.
 
 ## [1][USE_WHEN]
 
-Apply this standard when a document or surface places controlling content for an agent reader, or when you publish a machine-facing surface:
+Apply this standard when prose, documentation, prompt text, or a documentation-derived machine surface places controlling content for an agent reader:
 - ordering a unit so the controlling rule leads and the binding constraint closes
 - writing or revising local instruction files such as `AGENTS.md`
-- publishing `llms.txt`, generated mirrors, or machine-readable indexes
-- defining retrieval stores, chunk provenance, or access boundaries
-- cataloging MCP resources, prompts, and tools
-- specifying structured-output contracts
+- publishing maintained `llms.txt`, generated mirrors, or machine-readable indexes
+- defining deployed retrieval stores, chunk provenance, or access boundaries
+- documenting maintained MCP resources, prompts, and tools for agent readers
+- specifying structured-output contracts for a surface that validates them
 - separating durable documentation from task prompts and state artifacts
 
 Route the surface before applying detailed rules:
@@ -22,7 +22,6 @@ Route the surface before applying detailed rules:
 |   [3]   | task prompts and structured outputs                             | `[7][TASK_OUTPUT_CONTRACTS]`    |
 |   [4]   | `AGENTS.md` positioning behavior                                | `[8][AGENTS_MD_AUTHORING]`      |
 |   [5]   | indexes, retrieval, MCP catalogs, generated mirrors             | `[9]` through `[12]`            |
-|   [6]   | provider authoring defaults                                     | `[13][PROVIDER_BEHAVIOR]`       |
 
 Container choice belongs to [information-structure.md](information-structure.md). Sentence mechanics belong to [style-guide.md](style-guide.md). Evidence strength belongs to [proof.md](proof.md). Document-type routing belongs to [README.md](README.md).
 
@@ -44,7 +43,7 @@ Salience is relative, not a hard cutoff. The middle down-weights content; it doe
 
 Use bracketed headings, table rubrics, `[INDEX]` rows, and compact status markers as salience aids, not as decoration. They help an agent find boundaries, compare rows, and filter state; they do not replace the front-and-close rule, claim-level evidence, or precise prose.
 
-This corpus uses the position ring as its normative placement rule. Provider-behavior claims are proved only through the evidence labels and freshness rules defined by [proof.md](proof.md).
+This corpus uses the position ring as its normative placement rule. Claims about model, provider, tool, or runtime behavior are evidence questions handled through [proof.md](proof.md), not prose-position rules.
 
 ## [3][CONTEXT_INVARIANCE]
 
@@ -133,9 +132,9 @@ Source provenance proves origin and refresh route only. Shape enforcement proves
 
 ## [8][AGENTS_MD_AUTHORING]
 
-Write `AGENTS.md` as a durable, behavioral overlay for one directory. [agents-md.md](agents-md.md) owns structure and anti-fragility; this file owns salience and provider behavior for instruction surfaces.
+Write `AGENTS.md` as a durable, behavioral overlay for one directory. [agents-md.md](agents-md.md) owns structure and anti-fragility; this file owns salience and proof-route positioning for instruction surfaces.
 
-This standard still controls salience and provider behavior: keep the highest-risk invariant at the lead, close with the binding proof or route, layer files by scope, and prove provider-loading claims through [proof.md](proof.md). `AGENTS.md` files complement README files; they do not duplicate them, summarize them, carry process notes, or publish session state.
+This standard still controls salience: keep the highest-risk invariant at the lead, close with the binding proof or route, layer files by scope, and route provider-loading claims through [proof.md](proof.md). `AGENTS.md` files complement README files; they do not duplicate them, summarize them, carry process notes, or publish session state.
 
 Iterate instruction files from observed agent failures and durable local behavior. Speculative rules, fixed subagent counts, provider manuals, and copied command catalogs belong outside the overlay unless they are local invariants with a maintained proof route.
 
@@ -163,7 +162,7 @@ Document a retrieval surface with the provenance an agent needs to inspect and r
 
 Carry provenance fields only in the schema or header shape the deployed retrieval store consumes. When the provenance includes proof, source, freshness, or generation facts, use the label meanings defined by [proof.md](proof.md) instead of defining a parallel vocabulary here.
 
-Each retrievable chunk should carry enough context to stand alone because retrieval strips surrounding structure. Claim hybrid retrieval, reranking, or provider-specific search only where the deployed stack supports it and the proof names the configured provider, command, or controlling source. Split chunk tables and records that exceed the size limits in [information-structure.md](information-structure.md).
+Each retrievable chunk should carry enough context to stand alone because retrieval strips surrounding structure. Claim hybrid retrieval, reranking, or provider-specific search only where the deployed stack supports it and the proof names the configured source. Split chunk tables and records that exceed the size limits in [information-structure.md](information-structure.md).
 
 ## [11][MCP_TOOL_CATALOGS]
 
@@ -205,49 +204,7 @@ A generated or mirrored file uses a field packet:
 
 Access-class separation belongs to retrieval and generated-surface boundaries. Documentation can describe an access class; it cannot enforce one.
 
-## [13][PROVIDER_BEHAVIOR]
-
-Provider-specific guidance is a local authoring default, not proof of current provider behavior. Keep the portable contract stable: outcome, constraints, evidence boundary, output shape, and stop rule. Adapt delimiter, long-context placement, and schema mechanics only to the provider surface that will run the prompt. Use one delimiter family in a prompt, either XML-style tags or Markdown sectioning, unless an external template requires otherwise.
-
-### [13.1][OPENAI_CODEX]
-
-Preferred structure: outcome, success criteria, constraints, available evidence, and final-answer shape before process detail.
-Delimiter: Markdown sectioning is the default for durable instruction files; use another delimiter only when the target surface or template requires it.
-Long context: keep critical constraints at the opening and closing edge; use compact restatement near the final ask when bulky source material sits in the middle.
-Structured output: put machine-consumed contracts in structured outputs or strict tool schemas where the API supports them; prose may steer JSON shape, but it does not enforce it.
-State: keep `AGENTS.md` lean and scoped; loading behavior requires provider or local proof before it is stated as current capability.
-Caching: use prompt caching only for stable prefixes and treat it as latency and cost optimization, not state or correctness proof.
-Output control: control answer length with explicit word, section, or verbosity contracts; do not treat verbosity as hidden reasoning control.
-
-### [13.2][CLAUDE_CODE]
-
-Preferred structure: separate instructions, context, examples, documents, and variable inputs when the prompt mixes those concerns.
-Delimiter: use XML-style tags for complex prompts, with descriptive names and nesting only where hierarchy is real.
-Long context: place source documents near the top and the query or task at the end; identify each source and content block explicitly.
-Structured output: state the exact output fields, formats, and missing-data behavior; use schema enforcement where the surface supplies it.
-File format: `CLAUDE.md`, skills, commands, and task prompts use Markdown structure.
-XML tags: XML tags are a prompt-clarity tool inside complex prompt content, not a Claude Code file-format requirement.
-`AGENTS.md` loading: `AGENTS.md` affects Claude Code only when `CLAUDE.md` imports or links it.
-Output control: ask for evidence, quoted or cited source spans within access and copyright limits, and final answer shape before synthesis when factual grounding matters.
-
-### [13.3][GEMINI]
-
-Preferred structure: direct task instruction with explicit constraints, accepted values, output format, missing-data behavior, and validation rule.
-Delimiter: use one delimiter family, Markdown or XML-style tags, and keep the same family across instructions, context, and examples.
-Long context: place source material before the specific question or instruction and use a bridge phrase such as `Based on the information above` to bind the final ask to the supplied material.
-Structured output: prefer schema-backed structured output for extraction, classification, JSON payloads, and agent-to-agent exchange, but keep semantic validation in application or review logic.
-Verification split: when source availability or capability is uncertain, verify the relevant information exists first, then answer only inside the verified scope.
-Output control: state the desired length, sections, and refusal or missing-data behavior explicitly.
-
-Do not require exposed chain-of-thought in published prompt standards. Ask for evidence, checks, summaries, or a decision trail the consumer can inspect, and rely on provider reasoning controls where the runtime exposes them. Use examples only when they materially teach format, tone, edge handling, or tool choice; remove examples that merely repeat the rule.
-
-Provider-specific rules are local authoring defaults, not proof of current provider behavior. Treat a capability, loading, delimiter, schema, state, or output-control claim as provisional until current primary documentation or local tool output proves it, then record freshness through [proof.md](proof.md).
-
-Provider-specific guidance may define preferred defaults only within a proven surface. It must not claim universal model behavior, guaranteed loading, tool safety, renderer support, or answer correctness without the proof route. When current provider proof is absent, state the default as a local authoring convention and leave capability proof to [proof.md](proof.md).
-
-Source-map and reference-catalog retrieval rules live in `[10][RETRIEVAL_PROVENANCE]`.
-
-## [14][BOUNDARIES]
+## [13][BOUNDARIES]
 
 - [information-structure.md](information-structure.md) carries container form, diagrams, page anatomy, and chunk shape; this standard carries where controlling rules, constraints, proof routes, and source provenance sit within them.
 - [style-guide.md](style-guide.md) carries sentence and word craft; this standard carries the cognition rationale for positive, imperative framing.
@@ -256,7 +213,7 @@ Source-map and reference-catalog retrieval rules live in `[10][RETRIEVAL_PROVENA
 - [agents-md.md](agents-md.md) carries the produced structure and anti-fragility rules for `AGENTS.md` files.
 - [README.md](README.md) carries document-type routing and is the single index that links across standards.
 
-## [15][VALIDATION]
+## [14][VALIDATION]
 
 Use this verification checklist by group:
 
@@ -268,19 +225,13 @@ Use this verification checklist by group:
 - [ ] Contradictory instructions are removed or the controlling rule is named.
 - [ ] Factual tasks require evidence extraction before synthesis.
 
-[PROVIDER_PROOF]:
-- [ ] Provider claims carry current maintained-source or local-output proof when they can drift.
-- [ ] Machine-facing contracts separate shape enforcement, source provenance, semantic validation, and runtime safety.
-- [ ] Provider-specific prompt rules remain preferred patterns and do not claim enforcement, correctness, or universal superiority.
-- [ ] Prompt-only JSON names parser or validator, repair behavior, and proof gap when tooling does not enforce shape.
-
 [AGENT_SURFACES]:
 - [ ] Indexes link to canonical docs; `llms.txt` is treated as a map.
 - [ ] Retrieval chunks carry source, heading path, route, access, and freshness.
 - [ ] MCP resources, prompts, and tools are separated before schemas.
 - [ ] Generated mirrors identify source and generation status.
-- [ ] Agent surfaces carry deterministic proof receipts through [proof.md](proof.md) and add rigor fields when stochastic, ranking, tool-selection, latency, or provider behavior is claimed.
-- [ ] `AGENTS.md` files preserve salience, provider-loading proof, scope layering, and artifact separation without duplicating README bodies or session state.
+- [ ] Agent surfaces carry deterministic proof receipts through [proof.md](proof.md) and add stochastic fields only when the claim requires them.
+- [ ] `AGENTS.md` files preserve salience, scope layering, and artifact separation without duplicating README bodies or session state.
 
 [ROOT_AUDIT]:
 - [ ] A reviewer can identify the document lead rule, section closes, and final route boundary.

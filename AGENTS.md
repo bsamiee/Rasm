@@ -78,6 +78,8 @@ Route README, ADR, architecture, roadmap, test strategy, API, reference, code do
 
 Keep generated documentation, prompts, skills, standards, examples, templates, and reusable guidance project-agnostic by default. Do not mention Rasm, repository-specific paths, local commands, local package names, project functions, concrete source files, or project-only docs unless the target file explicitly exists to describe this repository's own usage, routing, or implementation. Generic examples must use neutral names and abstract shapes that transfer to any project.
 
+For docs under `docs/`, use placeholder values in reusable, generic, standard, template, and example content: `<folder>`, `<file>`, `<surface>`, `<command>`, `<contract>`, `YYYY-MM-DD`, `HH:MM`, `NNNN`, `M<N>`, `ADR-NNNN`, and equivalent neutral forms. Use concrete repository names, paths, functions, commands, versions, dates, IDs, or package facts only when the document's job is to describe that exact source-backed repository surface.
+
 Keep present-tense documentation factual: current paths, commands, support, generated artifacts, provider behavior, controlling-source order, and package or host-reference claims need current source, tool output, generated contract proof, maintained provider documentation, or an explicit proof route.
 
 Future-facing standards, plans, and target designs do not inherit current drift; remove stale paths, stale commands, compatibility prose, old-baseline caveats, partial-adoption apologies, and invented routes instead of preserving them.

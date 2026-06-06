@@ -42,7 +42,7 @@ This standard is the single route for proof, source, freshness, proof-gap, and g
 | :-----: | :-------------------------- | :--------------------------------------------------------- | :----------------------------------- |
 |   [1]   | `Evidence:`                 | source, command, output, render, or policy proves it       | no drift-prone proof field is needed |
 |   [2]   | `Generated from:`           | artifact is generated or mirrored                          | artifact is handwritten source       |
-|   [3]   | `Controlling source:`          | one contract, manifest, model, path, or route owns it      | `Evidence:` names the only source    |
+|   [3]   | `Controlling source:`       | one contract, manifest, model, path, or route owns it      | `Evidence:` names the only source    |
 |   [4]   | `Proof gap:`                | source, command, render, or validation is missing          | claim is proved                      |
 |   [5]   | `Last verified: YYYY-MM-DD` | observed or external behavior can drift                    | event trigger is enough              |
 |   [6]   | `Review trigger:`           | source, route, renderer, generator, or policy can stale it | claim cannot drift or is deleted     |
@@ -60,7 +60,7 @@ Attach the fields as a definition block beside the claim, one `label: value` per
 ```markdown template
 Command: `<configured-docs-or-build-gate>`
 Evidence: `<owning tool source and checked behavior>`.
-Last verified: 2026-06-04
+Last verified: YYYY-MM-DD
 Review trigger: `<gate route or owner change>`.
 ```
 
@@ -211,14 +211,16 @@ Declare evaluation receipt fields before examples.
 - Last verified: date of observed behavior.
 - Review trigger: event that makes the receipt stale.
 
-[RIGOR_FIELDS]:
-- Questions: 20–50 representative questions or tasks drawn from real maintenance failures, not invented happy paths.
-- Trials: 3–5 runs per case when the claim is stochastic output, retrieval ranking, or tool selection.
-- Statistics: Wilson score 95% confidence interval for binary rates and paired comparison against the baseline on the same task set.
-- Trace: model or provider version, configured tool set, token or context budget, latency, and tool errors when the surface carries them.
-- Reviews: format, link correctness, source-trace, unsupported-claim, and tool-call-failure reviews.
+[STOCHASTIC_EVALUATION]:
+- Trigger: retrieval quality, ranking, tool selection, latency, or provider-behavior claims that cannot be proven by one deterministic check.
+- Protocol: maintained evaluation route or explicit proof gap.
+- Case set: representative questions or tasks drawn from real maintenance failures.
+- Repeat rule: repeated runs only when the claim is stochastic.
+- Statistics: maintained comparison method, or proof gap when none exists.
+- Trace: configured surface, tool set, context budget class, latency, and tool errors when the surface carries them.
+- Reviews: format, link correctness, source trace, unsupported claims, and tool-call failures when those reviews change acceptance.
 
-Record the evaluation as a definition block beside the surface it proves. Keep the minimum receipt visible for deterministic surfaces:
+Record the evaluation as a definition block beside the surface it proves. Keep deterministic surfaces on the deterministic receipt; add stochastic fields only when the trigger above holds:
 
 ```markdown template
 Surface: `<retrieval-index-path>` retrieval index.
@@ -226,21 +228,21 @@ Baseline: prior flat README link list.
 Checks: exact file links and heading-anchor validity.
 Evidence: local link and anchor validation.
 Result: index links resolve and no orphan target remains.
-Last verified: 2026-06-04
+Last verified: YYYY-MM-DD
 Review trigger: standard filename, heading label, route map, or index-generation change.
 ```
 
 Add rigor fields to the same receipt only when the surface carries stochastic output, ranking, tool selection, latency, or provider behavior. This fragment extends the deterministic receipt; it does not replace it:
 
 ```markdown template
-Questions: 24 drawn from real "which standard carries X" maintenance misses.
-Baseline: prior flat README link list; new index resolves 22/24 vs 14/24.
-Trials: 3 runs per question; ranking stable across runs.
+Questions: `<question-count>` drawn from real maintenance misses.
+Baseline: prior route; new route resolves `<new-count>/<question-count>` vs `<old-count>/<question-count>`.
+Trials: repeated runs only when the claim is stochastic.
 Checks: exact link and heading-anchor validity; judge review of top-1 source trace.
 Evidence: trace and reviewed source spans.
-Trace: model or provider version, tool set `{search, read}`, token budget 8k, p50 latency 1.4s, 0 tool errors.
+Trace: configured surface, tool set, context budget class, latency class, and tool errors.
 Reviews: unsupported-claim review clean; tool-call-failure review clean.
-Last verified: 2026-06-04
+Last verified: YYYY-MM-DD
 ```
 
 State `Proof gap:` when a contract is reviewed by a human rather than enforced by tooling.
@@ -266,7 +268,7 @@ A compliant note names the command, the source path, and a freshness marker and 
 Claim: `<workspace-gate>` covers `<workspace-manifest>`.
 Evidence: `<configured command>`; restore, build, and analyzer checks passed across the declared workspace closure.
 Controlling source: `<workspace-manifest>`; routing in `<tool route>`.
-Last verified: 2026-06-04
+Last verified: YYYY-MM-DD
 ```
 
 The next note is `rejected`: it pastes an unbounded transcript, names no command or source, and asserts success the next maintenance route cannot reproduce.

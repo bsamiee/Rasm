@@ -126,7 +126,7 @@ Review trigger: `<field, source, schema, parser, or generated output changes>`
 Profile rules split by API surface:
 
 [LOCAL_HTTP]:
-- Use OpenAPI 3.2.0 for new local HTTP contracts unless a named consumer toolchain requires another supported line.
+- Use the project-declared OpenAPI or HTTP contract baseline for new local HTTP contracts unless a named consumer toolchain requires another supported line.
 - Link generated operations instead of hand-copying endpoint tables.
 - Curate only caller constraints that the controlling source cannot make obvious: preconditions, authorization constraints, valid state transitions, idempotency, skip conditions, units, ranges, null-or-absent semantics, unsafe values, repairability, and retry-or-abort guidance.
 - HTTP mechanics appear only when the contract proves them: authorization, pagination, filtering, sorting, expansion, rate limiting, idempotency, async/long-running operations, schemas, and errors.
@@ -220,7 +220,7 @@ Use this verification checklist by group:
 
 [HTTP_ERRORS_VERSIONING]:
 - [ ] HTTP-only sections appear only for HTTP surfaces that expose the concern.
-- [ ] OpenAPI pages use OpenAPI 3.2.0 or name the consumer/toolchain pin.
+- [ ] OpenAPI pages use the project-declared contract baseline or name the consumer/toolchain pin.
 - [ ] Error documentation carries status mapping, body shape, problem identifier or local error code, repairability, and retry guidance.
 - [ ] Versioning distinguishes deprecation notice, sunset or removal signal, migration target, and support lifecycle dates.
 

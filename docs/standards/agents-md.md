@@ -134,13 +134,7 @@ Use trigger-owner-action wording:
 When <change class>, read <owner source> and extend <owner rail> by <case, row, fold, projection, receipt, boundary adapter, scenario, or envelope field>. Do not add <specific rejected substitute>; route <non-owned fact> to <README, architecture, roadmap, source, manifest, generated contract, tool README, or proof owner>.
 ```
 
-[OWNER_RAIL_CHOOSER]:
-- C#: operation algebra, generated union, smart enum, value object, typed receipt, `Fin`/`Validation`/`Eff` rail, or host boundary capsule.
-- TypeScript: discriminated union, schema authority, `satisfies` table, Effect service/layer, or exhaustive match surface.
-- Python: behavior-bearing enum, msgspec message model, catalog row, registry bind, tagged detail union, `Result`/`Option` rail, or aspect slot.
-- Bash: dispatch table, option metadata table, nameref output contract, stdout/stderr rail, or typed exit receipt.
-- SQL: domain, composite type, enum, range type, SQLSTATE rail, generated column/view, catalog extraction query, or set-based query algebra.
-- Tests/bridge: law matrix, generator/oracle owner, source-owned scenario, fact bag, bridge evidence marker, or mutation-survivor classification.
+Choose the local owner rail from the active folder's source, manifest, generated contract, tool documentation, or nearest overlay. If no local canonical owner exists, route the fact away instead of inventing one. Language-specific rail names belong in language skills or local overlays, not in the generic `AGENTS.md` standard.
 
 [INTERNALIZATION_BEFORE_EXPOSURE]:
 When a dependency, backend, runtime, host API, storage layer, provider, or tool integration adds capability, first bind it into the existing local owner: operation algebra, typed case, row table, registry bind, tagged union case, receipt fold, aspect slot, service/layer requirement, boundary adapter, artifact/store shape, runtime record, query algebra, source-owned scenario, or envelope field. Expose a new command, flag, setting, public API, wrapper, package facade, compatibility alias, or provider-branded surface only when the owner route proves reader action changes.
@@ -172,7 +166,7 @@ Route away body content that does not directly change local agent behavior:
 - Tool README files own command syntax, operator workflows, and public wire behavior.
 - Test strategy owns gate taxonomy; an `AGENTS.md` file names only local selector or stop behavior when needed.
 - `proof.md` owns evidence labels, freshness, proof gaps, docs-as-code gate selection, and preservation under refactor.
-- `agentic-documentation.md` owns salience, provider behavior, artifact separation, and machine-facing cognition.
+- `agentic-documentation.md` owns salience, artifact separation, instruction positioning, and machine-facing documentation.
 - `_reports/AGENTS.md` owns report session naming, session README shape, manifests, lanes, prior-pass reads, correction records, promotion maps, and pruning for `_reports/**`.
 
 Delete stale compatibility prose instead of preserving it as a route. A route is useful only when the target exists, is conditionalized with `where present`, or is named as a proof gap.
@@ -200,7 +194,7 @@ Do not promote task prompts, retrieved text, generated mirrors, memory notes, to
 
 When `_reports/` material is explicitly named, extract only the durable rule, source route, proof gap, correction, new avenue, or rejection replacement. Strip wave names, task framing, transcript order, confidence labels, fixed agent counts, and report structure before any active wording is written. Leave `_reports/` material out of active corpus links unless the task explicitly asks for report navigation.
 
-When a task asks for investigation, critique, audit, planning, or multi-pass agent output that may be reused later, create or update a report session under `_reports/<top-slug>-<ddmmyy>/`, verify the nearest non-root `AGENTS.md` has the report-companion trigger, and read `_reports/AGENTS.md` before writing. Treat reports as source material only; promote durable rules, source routes, proof gaps, corrections, new avenues, and rejection replacements into the active owner file instead of making the report authoritative.
+Create or update `_reports/<top-slug>-<ddmmyy>/` only when the user explicitly asks for reusable report material, the task names an existing `_reports/**` target, or a trusted owner directs durable promotion work into that folder. When the user names another output path or asks for a one-off audit, use that path and keep `_reports/` mechanics out of the artifact. Treat reports as source material only; promote durable rules, source routes, proof gaps, corrections, new avenues, and rejection replacements into the active owner file instead of making the report authoritative.
 
 ## [11][CORPUS_REBUILD]
 
@@ -229,7 +223,7 @@ Use examples only beside high-risk distinctions. Do not add language tutorials, 
 
 ## [13][BOUNDARIES]
 
-- [agentic-documentation.md](agentic-documentation.md) owns salience, provider behavior, and artifact separation.
+- [agentic-documentation.md](agentic-documentation.md) owns salience, artifact separation, instruction positioning, and machine-facing documentation.
 - [information-structure.md](information-structure.md) owns containers, page anatomy, examples, and cardinality.
 - [style-guide.md](style-guide.md) owns prose, terminology, punctuation, links, and code-safe Markdown.
 - [proof.md](proof.md) owns evidence, freshness, proof gaps, and preservation.

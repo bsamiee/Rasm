@@ -68,7 +68,7 @@ Token use is separate from the closed set so the table remains scannable:
 [USE_RULES]:
 - Prefer the most specific family. Do not use two tokens that mean the same thing in one column.
 - Keep domain status vocabularies in their declared casing as field values; bracketed inline lifecycle markers uppercase the canonical token and replace spaces with hyphens. A type-local marker such as `[PROVISIONAL]` or `[DEPRECATED]` is valid only when the type standard declares that marker's closed vocabulary, meaning, and removal behavior before the first rendered example or production use.
-- Suffix forms such as `[ACTIVE M2]` are allowed only as codemap or source-key projections where the suffix identifies a source route, milestone, path, or row key. The base token must still come from a declared vocabulary, and the suffix must not create lifecycle meaning.
+- Suffix forms such as `[ACTIVE M<N>]` are allowed only as codemap or source-key projections where the suffix identifies a source route, milestone, path, or row key. The base token must still come from a declared vocabulary, and the suffix must not create lifecycle meaning.
 - Use compact glyphs only where density matters, such as validation lists, delta summaries, or table cells, and only with the global meanings above.
 - Use explicit states when clarity matters more than width.
 - Reserve these tokens for status, result, change, and state reporting; do not scatter bracketed tokens through ordinary prose or duplicate a definition-block field or checkbox state.
@@ -76,7 +76,7 @@ Token use is separate from the closed set so the table remains scannable:
 
 Bracketed tokens have distinct jobs. Invocation markers (`[IMPORTANT]`, `[CRITICAL]`, `[ALWAYS]`, `[NEVER]`) belong only to instruction surfaces. Group labels (`[SOURCE_FACTS]:`) introduce a list or table. GitHub alerts (`> [!WARNING]`) interrupt the rendered reading path. Compact glyphs (`[o]`, `[x]`) are dense table or list cells. Lifecycle tokens (`[ACTIVE]`) mirror the default record `Status` vocabulary inline. Do not use one family as a substitute for another.
 
-Render progress as a bar only after [information-structure.md](information-structure.md) defines the numerator, denominator, closure rule, and proof surface. The rendered line is only the label, bracketed bar, and percentage.
+Render progress as a bar only after [information-structure.md](information-structure.md) defines the maintained actor, numerator, denominator, closure rule, and proof surface. The rendered line is only the label, bracketed bar, and percentage.
 
 [PROGRESS_BASIS]:
 - Cells: exactly 20 cells inside `[...]`.

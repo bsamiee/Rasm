@@ -2,7 +2,7 @@
 
 A tutorial teaches one learner outcome by guiding the learner through concrete action, visible results, and a primary path the author executed end to end before publication. The author carries reliability: a published lesson must be reproducible from the stated start state, and any unverified dependency must stay outside the core success path or mark the lesson as draft or blocked.
 
-A learning path orders three or more tested lessons so later lessons reuse skill, vocabulary, or artifacts established earlier. The three-lesson threshold is a local taxonomy rule. This standard carries lesson shape, learner-path ordering, and execution proof; it does not own competent-reader procedures, readiness, incident recovery, lookup facts, API contract truth, support policy, contribution workflow, or conceptual explanation.
+A learning path orders multiple tested lessons so later lessons reuse skill, vocabulary, or artifacts established earlier. This standard carries lesson shape, learner-path ordering, and execution proof; it does not own competent-reader procedures, readiness, incident recovery, lookup facts, API contract truth, support policy, contribution workflow, or conceptual explanation.
 
 ## [1][USE_WHEN]
 
@@ -12,7 +12,7 @@ Use a tutorial when every condition holds:
 - one document can carry a complete first success.
 - the exercise is repeatable, reversible, or disposable.
 
-Use a learning path when three or more tested lessons build toward one broader skill and later lessons depend on earlier completion proof. Two related lessons may link to each other, but they are not a learning-path index until a third tested lesson makes ordered path maintenance useful.
+Use a learning path when multiple tested lessons build toward one broader skill and later lessons depend on earlier completion proof. Related lessons may link to each other, but they are not a learning-path index until ordered path maintenance changes learner action.
 
 Route elsewhere by topic when the reader is a competent operator completing a known task, a person becoming ready for a route, an operator recovering from an incident trigger, a reader looking up facts, a contributor following PR workflow, or a reader seeking concepts and trade-offs.
 
@@ -20,7 +20,7 @@ Route elsewhere by topic when the reader is a competent operator completing a kn
 - Agent use: choose single tutorial or learning path, prove the start state, then write the executed learner path with visible working-state checkpoints.
 - Tutorial structure: `What we will build`, `Learning outcome`, `Prerequisites`, `Start state`, `Steps`, `Result`, `What to notice`, `Next steps`, `Boundaries`, and `Validation`.
 - Learning-path structure: `Reader`, `Outcome`, `Prerequisites`, `Path`, `Completion`, `Boundaries`, and `Validation`.
-- Section cardinality: one observable outcome; 3 to 12 local-rule checkpoint steps for a lesson; at least three tested lessons for a learning path; conditional recovery appears only for observed or locally maintained learner traps.
+- Section cardinality: one observable outcome; enough checkpoint steps to prove the result without adding a second lesson; multiple tested lessons for a learning path; conditional recovery appears only for observed or locally maintained learner traps.
 - Adjacent checks: check how-to, API, reference, support matrix, runbook, contributing, onboarding, roadmap, architecture, code documentation, and README only when a lesson consumes their fact after or inside the learning path.
 - Maintenance triggers: update the tutorial when start state, fixture, command, tested stack, generated artifact, support target, lesson order, learner trap, result gate, or adjacent learning route changes.
 
@@ -63,7 +63,7 @@ Section cardinality uses these groups:
 - `Start state`: required; exact repository state, branch, commit, sample data, account state, or fixture the learner begins from, reproducible without the author present.
 
 [EXECUTION_CLOSURE]:
-- `Steps`: required by local rule as 3 to 12 numbered checkpoint records with indented `label: value` continuation lines.
+- `Steps`: required as numbered checkpoint records with indented `label: value` continuation lines.
 - `Result`: required; final observable artifact compared against the preview, plus `Done when` checks.
 - `What to notice`: required; 1 to 5 observations the learner should register after key results.
 - `Learner-trap recovery`: conditional; add after `What to notice` only for observed recoverable failures or documented traps that cannot fit step-local `If wrong`.
@@ -87,7 +87,7 @@ Tutorial rules split into these groups:
 - Flag known learner traps inline at the step where they happen; consolidate only observed or locally maintained recoverable failures into learner-trap recovery.
 - Minimize explanation and options: one concrete path, with branches linked out after completion.
 - Keep inputs reproducible, repeatable, and disposable so a learner can rerun from a clean start.
-- Keep short lessons compact by local rule: when a lesson is under about 15 minutes, keep entry sections to short blocks unless proof requires more.
+- Keep short lessons compact: keep entry sections to short blocks unless proof requires more.
 
 ## [4][STRUCTURAL_CHOICES]
 
@@ -105,16 +105,16 @@ Treat reader, difficulty, tool family, and concept depth as entry context and pr
 Lead the title with the observable artifact or skill outcome, not an internal abstraction:
 
 ```markdown template
-# [VALIDATE_MARKDOWN_DIFF]
+# [BUILD_ARTIFACT]
 ```
 
-Accepted title: `# [VALIDATE_MARKDOWN_DIFF]`
+Accepted title: `# [BUILD_ARTIFACT]`
 Rejected title: `# [UNDERSTANDING_DOCUMENTATION_RULES]`
 Reason: the accepted title names an artifact the lesson can produce; the rejected title names cognition, which routes to explanation. State the learning outcome as a specific capability the learner can perform: `you can validate a scoped Markdown diff`, never `understand documentation rules`.
 
 ## [6][LEARNING_PATHS]
 
-A learning path index uses this spine when three or more tested lessons compose one broader skill:
+A learning path index uses this spine when multiple tested lessons compose one broader skill:
 
 ```markdown template
 # [SKILL_OUTCOME_LEARNING]
@@ -249,12 +249,12 @@ Use this closed execution-tag vocabulary:
 The tag rides in the step record's optional `Execution` field. Define the set inline at first use and apply no tag beyond this closed set. A tutorial with a tagged primary-path step is not publishable as `AVAILABLE`; the path entry stays `DRAFT` or `BLOCKED` until the primary path runs front to back.
 
 ```markdown conceptual
-7. Run the configured link and anchor validation.
-    Operation: `<repo-local Markdown path and anchor validation command>`
-    Expected: unresolved paths or anchors are listed, or the command exits 0.
+7. Run the configured result validation.
+    Operation: `<validation-command> <target>`
+    Expected: unresolved result gaps are listed, or the command exits 0.
     Working state: `<validation-command>` still exits 0.
-    Execution: UNVERIFIED-REQUIRES-CONFIGURED-LINK-CHECK
-    If wrong: no configured checker means the proof gap stays visible instead of claiming link proof.
+    Execution: UNVERIFIED-REQUIRES-CONFIGURED-CHECK
+    If wrong: no configured checker means the proof gap stays visible instead of claiming proof.
 ```
 
 This shape is valid only when the link checker is outside the core success path or the lesson is not published as available.
@@ -373,7 +373,7 @@ Use this verification checklist by group:
 - [ ] Learning-path sections define reader, composed outcome, shared prerequisites, ordered path entries, and completion gate.
 
 [STEP_QUALITY]:
-- [ ] `Steps` holds 3 to 12 local-rule checkpoint records, with H3 milestone sets only when they improve skimming.
+- [ ] `Steps` holds enough checkpoint records to prove the result, with H3 milestone sets only when they improve skimming.
 - [ ] Each step record carries `Operation`, exact `Expected` signal, and verified `Working state`, with `Action` only where the numbered checkpoint title cannot carry the imperative.
 - [ ] `Notice` appears when the learner must observe a result before the next step makes sense.
 - [ ] Known learner traps are captured as `If wrong` fields or evidence-backed learner-trap recovery rows.
@@ -389,6 +389,6 @@ Use this verification checklist by group:
 - [ ] Path-level `Availability` agrees with lesson-level execution proof and any `Execution` tags.
 - [ ] Shared stack, support, account, toolchain, or fixture checks are grouped in entry context, and unique drift-prone step facts carry local checks.
 - [ ] `Next steps` includes one legitimate reinforcement exercise or states why no safe reinforcement exists.
-- [ ] Path indexes carry three or more entries, and each entry has `Availability`, `Changed fact`, `Consumed by`, `Depends`, `Evidence`, and `Estimated time`.
+- [ ] Path indexes carry multiple entries, and each entry has `Availability`, `Changed fact`, `Consumed by`, `Depends`, `Evidence`, and `Estimated time`.
 - [ ] Later path lessons consume earlier results, each lesson is independently testable from its own start state, and the final lesson demonstrates the composed skill; unordered lesson hubs route to README.
 - [ ] How-to, API, reference, support matrix, runbook, contributing, onboarding, roadmap, code-documentation, and explanation material is linked after completion, not embedded.

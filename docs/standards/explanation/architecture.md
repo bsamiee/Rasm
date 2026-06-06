@@ -120,7 +120,7 @@ Do not add a section for a concern that has no current reader action. Do not kee
 
 ```text template
 Included: `<package-root>/`, `<project-manifest>`, `<contract-artifact>`, generated contract reference.
-Excluded: legacy export retirement after the compatibility window; support matrix carries timing.
+Excluded: `<retained-surface>` support timing; support matrix carries live-support proof.
 Adjacent routes: `<adapter-root>/` admits external callbacks; `<api-reference-route>/` carries generated contract reference.
 Reader rule: edits under `<entrypoint-folder>/`, `<execution-folder>/`, or `<contract-folder>/` must check this architecture first.
 ```
@@ -177,50 +177,50 @@ Route-away: `<body that stays in the consuming route>`
 
 The codemap is the controlling representation. Derive it from repository paths, project files, package manifests, generated artifacts, public contracts, and host references. Include two or three directory levels by default. Include a leaf only when it is an entrypoint, public contract, manifest, generated source, central algorithm, public export, adapter, invariant route, or status-bearing path.
 
-Path routes should be compact and current: package boundary, public contract, generated artifact, entrypoint, adapter, invariant route, public export, central algorithm, or support-controlled legacy path. A planned, dropped, or deleted path never appears in the codemap; represent it only as a status relation when it changes how current paths are read.
+Path routes should be compact and current: package boundary, public contract, generated artifact, entrypoint, adapter, invariant route, public export, central algorithm, or support-controlled retained path. A planned, dropped, or deleted path never appears in the codemap; represent it only as a status relation when it changes how current paths are read.
 
 Architecture path-state markers use this closed vocabulary when bracketed inline markers change editing behavior:
 - `[ACTIVE]`: path exists or is moving and current edits must check the linked roadmap or design.
 - `[BLOCKED]`: path or surface cannot become current until a named dependency, decision, or proof gap closes.
 - `[PROVISIONAL]`: path is current but not yet stable enough to treat as ordinary structure.
-- `[DEPRECATED]`: path remains readable or callable only under a support, migration, or compatibility rule.
+- `[DEPRECATED]`: path remains readable or callable only under a source-backed support rule.
 
-When a marker needs a local source reference, append the source key inside the same brackets after the base token: `[ACTIVE M2]`, `[BLOCKED ADR-0007]`, or `[DEPRECATED SUPPORT-LEGACY]`. Status table cells keep only the base token so filtering stays exact; the adjacent source column carries the reference.
+When a marker needs a local source reference, append the source key inside the same brackets after the base token: `[ACTIVE M<N>]`, `[BLOCKED ADR-NNNN]`, or `[DEPRECATED SUPPORT-<KEY>]`. Status table cells keep only the base token so filtering stays exact; the adjacent source column carries the reference.
 
 A useful codemap shows structure, route, project identity, and status in one place:
 
 ```text conceptual
-<package-root>/
-├── <project-manifest>                              package boundary; exports public contract API
-├── <package-manifest>                              package dependency control when package carries it
-├── Contracts/                                      generated contract boundary
-│   ├── <contract-schema>                           public contract; ADR controls shape
-│   ├── <contract-type>                             typed envelope; code docs own caller semantics
-│   └── Generated/                                  generated API route
-│       └── <reference-artifact>                    generated reference; regenerate from schema source
-├── Admission/                                      external input boundary
-│   ├── <entrypoint>                                callback entrypoint into validation
-│   └── <validator>                                 rejects schema drift before queue admission
-├── Execution/                                      accepted-input runtime route
-│   ├── <worker>                   [ACTIVE M2]      executes accepted inputs
-│   ├── <retry-policy>                              transient external-failure policy
-│   └── Handlers/                                   worker-owned execution adapters
-│       └── TransientFailure/                       external-failure branch
-│           └── <backoff-policy>                    retry delay algorithm; no storage writes
-├── Storage/                                        persistence boundary
-│   └── <store>                                     no direct caller writes
-└── Legacy/                                         support-controlled compatibility route
-    └── <legacy-reader>             [DEPRECATED]    migration reads only; support row controls removal
+<folder>/                                          # ROOT NOTES
+├── <file-a>                                       # FILE NOTES
+├── <file-b>                                       # FILE NOTES
+├── <folder-a>/                                    # FOLDER NOTES
+│   ├── <file-c>                                   # FILE NOTES
+│   ├── <file-d>                                   # FILE NOTES
+│   └── <nested-folder-a>/                         # NESTED FOLDER NOTES
+│       └── <file-e>                               # FILE NOTES
+├── <folder-b>/                                    # FOLDER NOTES
+│   ├── <file-f>                                   # FILE NOTES
+│   └── <file-g>                                   # FILE NOTES
+├── <folder-c>/                                    # FOLDER NOTES
+│   ├── <file-h>                  [ACTIVE M<N>]    # STATUS NOTES
+│   ├── <file-i>                                   # FILE NOTES
+│   └── <nested-folder-b>/                         # NESTED FOLDER NOTES
+│       └── <nested-folder-c>/                     # NESTED FOLDER NOTES
+│           └── <file-j>                           # FILE NOTES
+├── <folder-d>/                                    # FOLDER NOTES
+│   └── <file-k>                                   # FILE NOTES
+└── <folder-e>/                                    # FOLDER NOTES
+    └── <file-l>                  [DEPRECATED]     # STATUS NOTES
 ```
 
 Align codemap annotations to one fixed rail; when a path carries a status marker, start the annotation with that marker, and omit leaves that are not entrypoints, contracts, generated artifacts, central algorithms, adapters, invariants, or status-bearing paths.
 
 When status appears in the tree, add a path-state table and codemap source block beside the codemap. `READ_AS` states the edit consequence; source, update, and removal columns keep the status from becoming stale.
 
-| [INDEX] | [PATH]                        | [STATE]      | [READ_AS]       | [SOURCE]    | [UPDATE]    | [REMOVE]             |
-| :-----: | :---------------------------- | :----------- | :-------------- | :---------- | :---------- | :------------------- |
-|   [1]   | `<execution-worker>`          | [ACTIVE]     | moving route    | roadmap M2  | M2 or path  | M2 is `COMPLETE`     |
-|   [2]   | `<legacy-reader>`             | [DEPRECATED] | migration reads | support row | support row | support is `Retired` |
+| [INDEX] | [PATH]               | [STATE]      | [READ_AS]     | [SOURCE]     | [UPDATE]     | [REMOVE]             |
+| :-----: | :------------------- | :----------- | :------------ | :----------- | :----------- | :------------------- |
+|   [1]   | `<execution-worker>` | [ACTIVE]     | moving route  | roadmap M<N> | M<N> or path | M<N> is `COMPLETE`   |
+|   [2]   | `<retained-reader>`  | [DEPRECATED] | support reads | support row  | support row  | support is `Retired` |
 
 ```text template
 Representation: codemap
@@ -237,10 +237,10 @@ Use path-state markers only for facts that change editing behavior. Remove them 
 
 Entrypoints name how work enters the code scope. Use records or a table when the reader must compare kind, input, failure rail, next route, effect, and proof.
 
-| [INDEX] | [ENTRYPOINT]                | [KIND]   | [INPUT]                | [FAILURE]  | [NEXT]                        | [EFFECT]      |
-| :-----: | :-------------------------- | :------- | :--------------------- | :--------- | :---------------------------- | :------------ |
-|   [1]   | `<entrypoint>`              | callback | schema plus external input | validation | `<validator>`               | reject input  |
-|   [2]   | `<worker>`                  | worker   | envelope                  | fault      | `<store>`                   | persist event |
+| [INDEX] | [ENTRYPOINT]   | [KIND]   | [INPUT]                    | [FAILURE]  | [NEXT]        | [EFFECT]      |
+| :-----: | :------------- | :------- | :------------------------- | :--------- | :------------ | :------------ |
+|   [1]   | `<entrypoint>` | callback | schema plus external input | validation | `<validator>` | reject input  |
+|   [2]   | `<worker>`     | worker   | envelope                   | fault      | `<store>`     | persist event |
 
 For record-shaped entrypoints, keep fields in this order:
 
@@ -274,7 +274,7 @@ flowchart LR
     Host["external callback"] --> Ingress["<entrypoint>"]
     Ingress --> Validator["<validator>"]
     Validator --> Contract["<contract-artifact>"]
-    Validator --> Worker["<worker> [ACTIVE M2]"]
+    Validator --> Worker["<worker> [ACTIVE M<N>]"]
     Worker --> Store["<store>"]
     Legacy["<legacy-reader> [DEPRECATED]"] -. "migration reads only" .-> Store
 ```
@@ -348,10 +348,10 @@ Rule: accepted writes pass through `<worker>`.
 Forbids: `Admission/` calling `<store>` write APIs directly.
 Check: dependency gate or review check rejects `Admission/ -> Storage/` write paths.
 Adjacent relation:
-    Changed fact: M2 moves execution routing while the dependency gate is being wired.
-    Consumed by: roadmap M2 and test-strategy dependency gate.
+    Changed fact: M<N> moves execution routing while the dependency gate is being wired.
+    Consumed by: roadmap M<N> and test-strategy dependency gate.
     Use in this document: the invariant is enforced as a current architecture boundary while work is in progress.
-    Update when: M2 closes, defers, or the dependency gate changes.
+    Update when: M<N> closes, defers, or the dependency gate changes.
     Close when: the architecture invariant no longer depends on roadmap or test-strategy status.
     Route-away: milestone tasks and gate taxonomy stay in roadmap and test strategy.
 ```

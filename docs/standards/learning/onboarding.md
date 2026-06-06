@@ -8,7 +8,7 @@ Use an agent ramp when a source area needs a repeatable preparation path before 
 - a complex package, tool, bridge, generated surface, or host integration has local hazards;
 - the first safe action must be constrained before broader edits;
 - validation gates, generated artifacts, or source maps must be read in a fixed order;
-- a future agent needs durable local preparation without replaying chat history.
+- a future agent needs durable local preparation before edits.
 
 Route first-success teaching to [tutorial.md](tutorial.md), normal repeatable work to [how-to.md](../task/how-to.md), operational recovery to [runbook.md](../task/runbook.md), contribution workflow to [contributing.md](../task/contributing.md), gate-portfolio policy to [test-strategy.md](../explanation/test-strategy.md), and lookup facts to [reference.md](../reference/reference.md).
 
@@ -293,4 +293,4 @@ Use these validation checks before publishing an agent ramp:
 [DENSITY_PROOF]:
 - [ ] Generated-surface, drift-trigger, and availability sections appear only when their triggers hold.
 - [ ] No status, progress, owner, role, shadowing, escalation, or permission metadata appears unless a local tool output uses that literal field.
-- [ ] The page follows the strict agent-only metadata ban in [AGENTS.md](../AGENTS.md).
+- [ ] The page omits generic role, team, owner, shadowing, progress, permission, and escalation metadata unless a literal local tool output uses that field.

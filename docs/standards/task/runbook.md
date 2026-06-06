@@ -75,17 +75,17 @@ config:
 flowchart TB
     accTitle: Runbook response path
     accDescr: A runbook starts from a trigger, states impact and safety, runs read-only triage, chooses mitigation, rollback, or escalation, verifies recovery or containment, and captures evidence.
-    Trigger["Trigger"] --> Impact["Impact"]
-    Impact --> Safety["Safety and permission"]
-    Safety --> Triage["Read-only triage"]
-    Triage --> Decision{"Response route?"}
-    Decision -->|mitigate| Mitigation["Mitigation"]
-    Decision -->|rollback or abort| Rollback["Rollback or abort"]
-    Decision -->|escalate| Escalation["Escalation"]
-    Mitigation --> Verification["Verification"]
-    Rollback --> Verification
-    Escalation --> Evidence["Evidence capture"]
-    Verification --> Evidence
+    A["<trigger>"] --> B["<impact>"]
+    B --> C["<safety-and-permission>"]
+    C --> D["<read-only-triage>"]
+    D --> E{"<response-route>"}
+    E -->|<mitigate>| F["<mitigation>"]
+    E -->|<rollback-or-abort>| G["<rollback-or-abort>"]
+    E -->|<escalate>| H["<escalation>"]
+    F --> I["<verification>"]
+    G --> I
+    H --> J["<evidence-capture>"]
+    I --> J
 ```
 
 Text equivalent: start from the observable trigger, state impact, confirm safety and permission, run read-only triage, choose mitigation, rollback, or escalation from local profile rules, verify recovery or containment, and capture evidence for handoff or review. `Escalation` is always present; only its triggering criteria vary by local profile.

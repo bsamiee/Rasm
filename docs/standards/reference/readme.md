@@ -32,11 +32,11 @@ When a README would restate a fact another document carries, link the route and 
 
 README heading modes are:
 
-| [INDEX] | [SURFACE]                                  | [HEADING_MODE]  | [RULE]                                                 |
-| :-----: | :----------------------------------------- | :-------------- | :----------------------------------------------------- |
+| [INDEX] | [SURFACE]                                  | [HEADING_MODE]  | [RULE]                                                                    |
+| :-----: | :----------------------------------------- | :-------------- | :------------------------------------------------------------------------ |
 |   [1]   | public or registry surface                 | plain H1/H2     | use names such as `# <Repository display name>`, `## Install`, `## Usage` |
-|   [2]   | repo-internal standards-controlled surface | bracketed H1/H2 | use `# [PACKAGE_OR_DIRECTORY_NAME]`, not `# [H1][...]` |
-|   [3]   | mixed mode                                 | rejected        | choose one mode and migrate when touched               |
+|   [2]   | repo-internal standards-controlled surface | bracketed H1/H2 | use `# [PACKAGE_OR_DIRECTORY_NAME]`, not `# [H1][...]`                    |
+|   [3]   | mixed mode                                 | rejected        | choose one mode and migrate when touched                                  |
 
 Rejected repo-internal H1:
 
@@ -353,11 +353,11 @@ Use this hub-index pattern:
 ```markdown conceptual
 ## [1][CHOOSE]
 
-| [INDEX] | [READ_FOR]                                                | [OPEN]                          |
-| :-----: | :-------------------------------------------------------- | :------------------------------ |
-|   [1]   | standard-library, runtime, and package posture            | `<runtime-reference>`           |
-|   [2]   | external dependency facts and local adoption posture      | `<dependency-reference>`        |
-|   [3]   | test-tool API facts and local gate routing                | `<test-tool-reference>`         |
+| [INDEX] | [READ_FOR]          | [OPEN]              |
+| :-----: | :------------------ | :------------------ |
+|   [1]   | `<reader question>` | `<reference-route>` |
+|   [2]   | `<reader question>` | `<reference-route>` |
+|   [3]   | `<reader question>` | `<reference-route>` |
 ```
 
 The row labels are reader questions, not just filenames. File-only lists route poorly when the corpus mixes API, reference, support, and strategy facts.

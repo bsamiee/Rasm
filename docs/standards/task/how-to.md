@@ -78,30 +78,29 @@ Omit a conditional section when the condition is absent. Do not publish empty pl
 A minimal how-to still carries the full outcome path. Use a compact skeleton when the task is small rather than adding placeholder sections:
 
 ```markdown conceptual
-# [VALIDATE_MARKDOWN_CHANGE]
+# [COMPLETE_TASK]
 
 ## [1][GOAL]
 
-Validate one scoped Markdown change so the proof record names whitespace safety and any link-check gap.
+Complete one scoped task so the result and any proof gap are visible.
 
 ## [2][PROCEDURE]
 
-1. In the repository root, list the scoped changes.
-    Operation: `git status --short -- <changed-paths>`
-    Expected result: only intended Markdown standards files appear.
-    If code files appear, stop and split the change before validating it as docs-only.
-2. Check patch safety and whitespace.
-    Operation: `git diff --check -- <changed-paths>`
-    Expected result: the command exits 0 and prints no whitespace error lines.
-    If the command reports a file and line, fix that line and rerun the check.
+1. Prepare the target surface.
+    Operation: `<preparation action>`
+    Expected result: `<target surface>` is ready for the task.
+    If the target is unavailable, stop and record the access or source gap.
+2. Apply the task action.
+    Operation: `<task action>`
+    Expected result: `<observable result>` is present.
+    If the result is absent, restore the prior state or route to troubleshooting.
 
 ## [3][VERIFICATION]
 
-- [ ] `git status --short -- <changed-paths>` shows only the intended files.
-- [ ] `git diff --check -- <changed-paths>` exits 0.
-- [ ] Any missing configured link or anchor checker is stated as a proof gap.
+- [ ] `<observable result>` matches the goal.
+- [ ] `<verification check>` proves the result or the proof gap is stated.
 
-Evidence: `git diff --check -- <changed-paths>`; local path and anchor validation result or explicit proof gap.
+Evidence: `<verification check>` result or explicit proof gap.
 ```
 
 The skeleton uses a checklist because two independent outcome conditions must hold. A single-condition `Verification` may be a short proof statement with `Evidence:` beside it; do not force a one-item checklist.
@@ -165,16 +164,16 @@ Procedure rules split into step order and step wording:
 A step that uses a command should bind operation, expected result, and next condition in the same record so an agent does not leave the reader with a command-only instruction:
 
 ```markdown conceptual
-1. In the repository root, check the reviewed diff.
-    Operation: `git diff --check -- <changed-paths>`
-    Expected result: the command exits 0 and prints no whitespace error lines.
-    If a file and line are reported, fix that line before rerunning.
+1. Check the produced result.
+    Operation: `<verification-command> <target>`
+    Expected result: the command exits 0 and reports `<expected signal>`.
+    If `<failure signal>` appears, fix the named target before rerunning.
 ```
 
 Use a fenced command only when the command is multi-line, copy-safe as written, or clearer outside the step record. Include a rejected near-miss only when it prevents a likely material error:
-Accepted command: `git diff --check -- <changed-paths>`
-Rejected near-miss: `git diff --check`
-Reason: the accepted command scopes validation to the reviewed path; the rejected command can report unrelated workspace drift.
+Accepted command: `<command> --scope <target>`
+Rejected near-miss: `<command>`
+Reason: the accepted command scopes the check to the documented target; the rejected command can report unrelated state.
 
 For a forking procedure, use prose or a numbered branch first. Use a decision table when independent conditions jointly choose an action; use Mermaid only when branch sequence and rejoin are harder to follow as steps or a decision table.
 
@@ -195,13 +194,13 @@ Render `Verification` as a checklist when the outcome carries several independen
 ```markdown conceptual
 ## [3][VERIFICATION]
 
-- [ ] `git diff --check -- <changed-paths>` exits 0.
-- [ ] Local path and anchor validation passes, or the missing checker is recorded as a proof gap.
+- [ ] `<observable result>` matches the goal.
+- [ ] `<verification check>` proves the result, or the missing checker is recorded as a proof gap.
 ```
 
 Rejected verification:
     ## [3][VERIFICATION]
-    - [ ] `git diff --check` exited 0.
+    - [ ] `<command>` exited 0.
 Reason: the rejected form omits the requested revision, target state, and readiness outcome, so it cannot prove the `Goal`.
 
 For a state-changing task, give `Rollback` the reverse action, its expected result, and its own check. When no reverse exists, say so and route recovery to a runbook by topic:
@@ -221,7 +220,7 @@ A how-to guide claims a path works, so the path must have been run or its gaps s
 
 ```markdown conceptual
 Evidence: `<validation-command>` ran against the documented path set; local path and anchor validation passed or the proof gap was recorded.
-Last verified: 2026-06-04
+Last verified: YYYY-MM-DD
 ```
 
 State an unrun step honestly: mark it provisional and name the gate that would prove it, rather than asserting a path that was not executed.

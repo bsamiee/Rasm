@@ -25,7 +25,7 @@ Separate rule authority from claim evidence.
 [CLAIM_EVIDENCE]:
 - [proof.md](proof.md) controls evidence strength, freshness, conflict handling, proof gaps, and docs-as-code gates.
 - Current repository source, manifests, generated contracts, and runnable tool output prove present-tense repository claims.
-- The project-declared implementation-proof owner applies only when the change involves cross-stack owner precedence, implementation proof, host-library routing, or command/tooling claims outside this standards corpus.
+- The active repository instruction route applies only when the change involves cross-stack owner precedence, implementation proof, host-library routing, or command/tooling claims outside this standards corpus.
 - Maintained upstream, product, provider, or specification sources apply only where the owning standard requires them.
 
 Current repository truth proves current facts; it does not weaken future-facing standards.
@@ -41,13 +41,13 @@ Read order is workflow order; owner routing and claim evidence still decide conf
 
 [NON_TYPE_ROUTES]:
 
-| [INDEX] | [SURFACE]                         | [OWNER_ROUTE]                                               |
-| :-----: | :-------------------------------- | :---------------------------------------------------------- |
-|   [1]   | instructions and provider posture | [agentic](agentic-documentation.md), [AGENTS](agents-md.md) |
-|   [2]   | mirrors, indexes, retrieval, MCP  | [agentic-documentation.md](agentic-documentation.md)        |
-|   [3]   | structured output and checks      | [agentic](agentic-documentation.md), [proof](proof.md)      |
-|   [4]   | proof fields and gates            | [proof.md](proof.md)                                        |
-|   [5]   | containers and examples           | [information-structure.md](information-structure.md)        |
+| [INDEX] | [SURFACE]                        | [OWNER_ROUTE]                                               |
+| :-----: | :------------------------------- | :---------------------------------------------------------- |
+|   [1]   | instructions and agentic prose   | [agentic](agentic-documentation.md), [AGENTS](agents-md.md) |
+|   [2]   | mirrors, indexes, retrieval, MCP | [agentic-documentation.md](agentic-documentation.md)        |
+|   [3]   | structured output and checks     | [agentic](agentic-documentation.md), [proof](proof.md)      |
+|   [4]   | proof fields and gates           | [proof.md](proof.md)                                        |
+|   [5]   | containers and examples          | [information-structure.md](information-structure.md)        |
 
 ## [4][READER_NEED_MAP]
 
@@ -88,13 +88,13 @@ Map the reader need to the artifact. Route-away cells name the standards that sh
 
 Each cross-cutting rule routes to exactly one owner:
 
-| [INDEX] | [AXIS]   | [OWNER]                                              | [CONTROLS]                                      |
-| :-----: | :------- | :--------------------------------------------------- | :---------------------------------------------- |
-|   [1]   | position | [agentic-documentation.md](agentic-documentation.md) | salience, artifacts, provider posture, catalogs |
-|   [2]   | form     | [information-structure.md](information-structure.md) | containers, diagrams, chunks, examples          |
-|   [3]   | craft    | [style-guide.md](style-guide.md)                     | prose, terms, links, accessibility              |
-|   [4]   | evidence | [proof.md](proof.md)                                 | proof, freshness, conflicts, preservation       |
-|   [5]   | notation | [formatting.md](formatting.md)                       | markers, tables, whitespace, headings           |
+| [INDEX] | [AXIS]   | [OWNER]                                              | [CONTROLS]                                         |
+| :-----: | :------- | :--------------------------------------------------- | :------------------------------------------------- |
+|   [1]   | position | [agentic-documentation.md](agentic-documentation.md) | salience, artifacts, machine-facing docs, catalogs |
+|   [2]   | form     | [information-structure.md](information-structure.md) | containers, diagrams, chunks, examples             |
+|   [3]   | craft    | [style-guide.md](style-guide.md)                     | prose, terms, links, accessibility                 |
+|   [4]   | evidence | [proof.md](proof.md)                                 | proof, freshness, conflicts, preservation          |
+|   [5]   | notation | [formatting.md](formatting.md)                       | markers, tables, whitespace, headings              |
 
 Audit root standards against position, form, craft, evidence, and notation only. If a finding does not fit those 5 axes, route it to the owning standard instead of creating a local audit category.
 
@@ -202,7 +202,7 @@ These anti-patterns fall into three groups:
 
 - Shared standards carry cross-cutting rules; this README only routes readers to them.
 - Type standards carry artifact-specific structure; this README only chooses the primary type.
-- The project-declared implementation-proof owner carries cross-stack implementation precedence and proof order outside the standards library.
+- The active repository instruction route carries cross-stack implementation precedence and proof order outside the standards library.
 - [AGENTS.md](AGENTS.md) carries local agent routing, read scope, audit contracts, and close checks for edits inside this folder.
 
 ## [14][VALIDATION]
@@ -224,7 +224,7 @@ Use this verification checklist by axis. Command, link, anchor, renderer, and do
 
 [EVIDENCE]:
 - [ ] Claim evidence and rule authority stay separate.
-- [ ] Cross-stack proof routes to the project-declared implementation-proof owner only for its scoped cases.
+- [ ] Cross-stack proof routes to the active repository instruction route only for its scoped cases.
 
 [NOTATION]:
 - [ ] Shared-standard counts, route labels, and folder inventories use consistent notation.

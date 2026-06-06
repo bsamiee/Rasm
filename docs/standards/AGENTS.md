@@ -14,12 +14,12 @@ Reports, critique passes, memory notes, prompt assets, session history, external
 
 Before every `docs/standards/**` file change, use the active instruction chain, [README.md](README.md), the full target file, its routed owner standard, linked adjacent standards, and the affected folder or type family. The table adds mode-specific sources; for root audits, include [agents-md.md](agents-md.md) unless the task excludes it.
 
-| [INDEX] | [MODE]              | [EXTRA_READ]                            | [TRIGGER]                                               |
-| :-----: | :------------------ | :-------------------------------------- | :------------------------------------------------------ |
-|   [1]   | Root audit or edit  | active root standards                   | routing, boundaries, provider behavior, audit rules     |
-|   [2]   | Narrow type edit    | needed shared owners, type family       | adjacent status, proof, produced-structure behavior     |
-|   [3]   | Named `_reports/**` | `_reports/AGENTS.md`, named reports     | reusable report promotion                               |
-|   [4]   | Cross-stack claim   | project-declared implementation-proof owner, proof route | owner precedence, source evidence, implementation, tooling |
+| [INDEX] | [MODE]              | [EXTRA_READ]                                     | [TRIGGER]                                                  |
+| :-----: | :------------------ | :----------------------------------------------- | :--------------------------------------------------------- |
+|   [1]   | Root audit or edit  | active root standards                            | routing, boundaries, agentic prose, audit rules            |
+|   [2]   | Narrow type edit    | needed shared owners, type family                | adjacent status, proof, produced-structure behavior        |
+|   [3]   | Named `_reports/**` | `_reports/AGENTS.md`, named reports              | reusable report promotion                                  |
+|   [4]   | Cross-stack claim   | active repository instruction route, proof route | owner precedence, source evidence, implementation, tooling |
 
 Before rewriting, identify poor information representation: prose hiding lookup data, prose-like tables, one-row tables, duplicated table or diagram bodies, decorative diagrams, missing relation records, empty conditional headings, stale links, and decorative proof fields. Fix the problem in scope or route it away explicitly.
 
@@ -29,16 +29,16 @@ When standards work creates or updates a reusable `_reports/` session, update or
 
 Use the owner that controls the changed rule; do not copy that owner's body into this file.
 
-| [INDEX] | [OWNER]                    | [CONTROLS]                                                                     |
-| :-----: | :------------------------- | :----------------------------------------------------------------------------- |
-|   [1]   | `README.md`                | reader need, type choice, corpus placement, split/link, lifecycle              |
-|   [2]   | `agentic-documentation.md` | agent salience, artifact separation, provider posture, instruction positioning |
-|   [3]   | `agents-md.md`             | `AGENTS.md` semantic slots, profiles, route-away, anti-fragility               |
-|   [4]   | `information-structure.md` | containers, records, tables, diagrams, checklists, cardinality                 |
-|   [5]   | `style-guide.md`           | prose, sentence mechanics, terminology, links, code-safe Markdown              |
-|   [6]   | `proof.md`                 | evidence, preservation, proof gaps, docs-as-code gate selection                |
-|   [7]   | `formatting.md`            | bracketed headings, invocation markers, table styling, whitespace              |
-|   [8]   | type standards             | artifact-specific structure, status vocabulary, local proof slots              |
+| [INDEX] | [OWNER]                    | [CONTROLS]                                                                                 |
+| :-----: | :------------------------- | :----------------------------------------------------------------------------------------- |
+|   [1]   | `README.md`                | reader need, type choice, corpus placement, split/link, lifecycle                          |
+|   [2]   | `agentic-documentation.md` | agent salience, artifact separation, instruction positioning, machine-facing documentation |
+|   [3]   | `agents-md.md`             | `AGENTS.md` semantic slots, profiles, route-away, anti-fragility                           |
+|   [4]   | `information-structure.md` | containers, records, tables, diagrams, checklists, cardinality                             |
+|   [5]   | `style-guide.md`           | prose, sentence mechanics, terminology, links, code-safe Markdown                          |
+|   [6]   | `proof.md`                 | evidence, preservation, proof gaps, docs-as-code gate selection                            |
+|   [7]   | `formatting.md`            | bracketed headings, invocation markers, table styling, whitespace                          |
+|   [8]   | type standards             | artifact-specific structure, status vocabulary, local proof slots                          |
 
 ## [4][ROOT_FILE_AUDITS]
 

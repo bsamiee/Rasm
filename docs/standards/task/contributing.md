@@ -190,10 +190,10 @@ Required gate fields are `Change`, `Gate`, `Report`, and `Gap`. Point every gate
 Show a gap in the row or record where the contributor reports a result, not in a separate apology paragraph:
 
 ```markdown conceptual
-| [INDEX] | [CHANGE]        | [GATE]                        | [REPORT]                       | [GAP]                            |
-| :-----: | :-------------- | :---------------------------- | :----------------------------- | :------------------------------- |
-|   [1]   | Markdown update | `git diff --check -- <paths>` | [PASS] no whitespace drift     | —                                |
-|   [2]   | Runtime change  | maintained integration review | [SKIP] validator access needed | unrun: runtime route unavailable |
+| [INDEX] | [CHANGE]          | [GATE]                  | [REPORT]                       | [GAP]                            |
+| :-----: | :---------------- | :---------------------- | :----------------------------- | :------------------------------- |
+|   [1]   | `<change family>` | `<maintained gate>`     | [PASS] `<reported signal>`     | —                                |
+|   [2]   | `<change family>` | maintained review route | [SKIP] validator access needed | unrun: runtime route unavailable |
 ```
 
 Delete the gate mapping when no maintained gate or review route exists. A polished list of unproved commands is filler, not contributor guidance.

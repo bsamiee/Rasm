@@ -127,8 +127,8 @@ Missing-value rule: `<how null, false, omitted, not announced, and unknown value
 ```
 
 When importing lifecycle data, preserve upstream field names before mapping them to local display labels:
-- Boolean/date pairs: `isEoas`/`eoasFrom`, `isEol`/`eolFrom`, `isEoes`/`eoesFrom`, and `isDiscontinued`/`discontinuedFrom`.
-- Related fields: `isLts`, `ltsFrom`, `isMaintained`, `latest`, and `custom` when they affect a row.
+- Boolean/date pairs: preserve every source boolean/date pair before local mapping.
+- Related fields: preserve every source support, maintenance, latest, or custom field when it affects a row.
 - Missing-value rule: preserve omitted fields, explicit `null`, false booleans, not-announced dates, and not-applicable facts as distinct values. Use `—` for absent table cells, source literal `null` only for actual null, `false` only for actual false, `not announced` or source literal wording for unknown dates, and `n/a` only when the domain says the field does not apply.
 
 In support matrices, `n/a` is support-specific: it means the support field does not apply to that surface, version, platform, entitlement, or derived cell. It is not a general synonym for domain `none`, blank data, unknown support, or an unrun proof gate.
@@ -247,11 +247,11 @@ Do not copy a large generated or source-maintained matrix when a maintained sour
 An accepted matrix shows the comparison axis, support condition, explicit unknowns, and proof stub without turning cells into paragraphs. Use `[CONDITION]` for the shortest support condition; promote the row to a record when source phase, phase grants, requirement, replacement, or proof needs separate fields.
 
 ```markdown conceptual
-| [INDEX] | [SURFACE]              | [SCOPE]   | [STATUS]  | [CONDITION]                  | [KEY_DATE]      | [BASIS]                   |
-| :-----: | :--------------------- | :-------- | :-------- | :--------------------------- | :-------------- | :------------------------ |
-|   [1]   | Library projects       | runtime target | Supported | repository-wide target | not announced   | `<build manifest>`        |
-|   [2]   | Host runtime refs      | host app       | Limited   | host manifest          | still supported | `<host manifest>`         |
-|   [3]   | Generated API lookup   | local metadata | Supported | API source key         | not announced   | `<api metadata command>`  |
+| [INDEX] | [SURFACE]             | [SCOPE]         | [STATUS]  | [CONDITION]           | [KEY_DATE]      | [BASIS]               |
+| :-----: | :-------------------- | :-------------- | :-------- | :-------------------- | :-------------- | :-------------------- |
+|   [1]   | `<surface>`           | `<scope>`       | Supported | `<support condition>` | not announced   | `<maintained source>` |
+|   [2]   | `<integration>`       | `<environment>` | Limited   | `<source condition>`  | still supported | `<source manifest>`   |
+|   [3]   | `<generated surface>` | `<metadata>`    | Supported | `<source key>`        | not announced   | `<generated check>`   |
 ```
 
 Notes: `not announced` and `still supported` are explicit values, not blank cells. Row-level proof belongs beside the row note or promoted record: `Evidence: <policy, generated check, or command>` and `Review trigger: <release line, policy, entitlement, or generated-check change>`.
@@ -338,16 +338,16 @@ Distinguish `Deprecated`, `End of support`, `Retired`, and `Unsupported`; they a
 - source or policy behind the removal decision.
 
 ```text conceptual
-Surface: former split inventory command.
+Surface: `<deprecated surface>`.
 Status: Deprecated
-Available: replaced by `<replacement health-check command>`.
-Warning signal: command documentation routes source inventory through the replacement command.
-Replacement: `<tool> <replacement-command>`.
-Removal: remove stale references when the active command surface no longer exposes the split command.
-Behavior change: source inventory and tool health now return through one declared response envelope.
-Evidence: current command surface reference or proof gap.
-Controlling source: source tool/API contract.
-Proof gap: missing command-surface source or omitted when proved.
+Available: replaced by `<replacement surface>`.
+Warning signal: maintained support policy or contract marks the surface deprecated.
+Replacement: `<replacement surface>`.
+Removal: remove stale references when the maintained support source marks the surface retired.
+Behavior change: callers use the replacement surface for the same reader action.
+Evidence: current support policy, API contract, or proof gap.
+Controlling source: maintained support or API contract.
+Proof gap: missing support source or omitted when proved.
 Last verified: YYYY-MM-DD
 Review trigger: command surface, generated API contract, support policy, or migration route changes.
 ```

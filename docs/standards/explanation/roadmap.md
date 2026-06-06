@@ -8,7 +8,7 @@ The controlling rule: a roadmap exists to help agents decide what to build next,
 
 Use a roadmap when a code scope has a coordinated sequence that cannot be understood from architecture, ADRs, or an issue tracker alone:
 - building a new package, project, tool, feature folder, generated contract, integration, or runtime surface;
-- sequencing a refactor, collapse, migration, removal, compatibility window, or stabilization effort;
+- sequencing a refactor, collapse, migration, removal, source-backed support window, or stabilization effort;
 - coordinating architecture changes with implementation milestones and proof gates;
 - tracking which documentation routes must update as code surfaces become real;
 - defining binary exit criteria and progress for a milestone before it is complete.
@@ -138,10 +138,10 @@ Required sections are required because agents need them in order: understand mis
 - `Current status`, `Constraints`, `Dependencies and blockers`, `Documentation handoffs`, `Work register`, and `Deferred/dropped/canceled work`: conditional.
 - Handoff, blocker, issue, risk, task, and proof-gap records: repeatable only when referenced by a milestone, dependency, proof rule, or adjacent document.
 
-Accepted title: `# [EVENT_PIPELINE_ROADMAP]`
-Accepted lead: Roadmap state: ACTIVE. Sequence type: Package build. This roadmap sequences `src/EventPipeline/` from contract admission to worker execution and generated reference readiness. The live planner carries mutable task status; this file carries milestone IDs, exit criteria, dependency edges, documentation handoffs, and proof links.
-Rejected title: `# [EVENT_ROADMAP]`
-Rejected lead: This roadmap lists future improvements for the event system.
+Accepted title: `# [PACKAGE_ROADMAP]`
+Accepted lead: Roadmap state: ACTIVE. Sequence type: Package build. This roadmap sequences `<package-root>/` from contract admission to execution and generated reference readiness. The live planner carries mutable task status; this file carries milestone IDs, exit criteria, dependency edges, documentation handoffs, and proof links.
+Rejected title: `# [SURFACE_ROADMAP]`
+Rejected lead: This roadmap lists future improvements for `<surface>`.
 Reason: the accepted lead is implementation-specific; the rejected lead makes a vague commitment.
 
 ## [6][SCOPE]
@@ -158,11 +158,11 @@ The `Scope` section names:
 This example shows a scope mission and boundary record:
 
 ```markdown conceptual
-Mission: make `src/EventPipeline/` a standalone package with stable generated contracts, one worker execution path, and documented public caller semantics.
-Included: `src/EventPipeline/EventPipeline.csproj`, `Contracts/`, `Admission/`, `Execution/`, generated reference page.
-Excluded: legacy export retirement after the compatibility support row ends.
-Live planner: project board `event-pipeline`.
-Architecture: `src/EventPipeline/_ARCHITECTURE.md`.
+Mission: make `<package-root>/` a standalone package with stable generated contracts, one execution path, and documented public caller semantics.
+Included: `<project-manifest>`, `<contract-folder>/`, `<input-folder>/`, `<execution-folder>/`, generated reference page.
+Excluded: `<retained-surface>` retirement after the support row ends.
+Live planner: `<live-planner-route>`.
+Architecture: `<architecture-route>`.
 Release history: package release notes.
 ```
 
@@ -170,10 +170,10 @@ Release history: package release notes.
 
 Use `Current status` only when the roadmap is a useful snapshot over several milestones. The opening sentence states why the snapshot adds value over the live planner. Each row links the live source and avoids copying mutable details that the live source already displays. Do not include progress, dates, blockers, or assignments in this table unless the cell links the live source that carries the mutable fact.
 
-| [INDEX] | [MILESTONE] | [STATUS] | [LIVE_SOURCE] | [CURRENT_READER_ACTION]                            |
-| :-----: | :---------- | :------- | :------------ | :------------------------------------------------- |
-|   [1]   | M1          | COMPLETE | issue/101     | build M2 on frozen schema                          |
-|   [2]   | M2          | ACTIVE   | issue/112     | do not edit worker API without architecture update |
+| [INDEX] | [MILESTONE] | [STATUS] | [LIVE_SOURCE]   | [CURRENT_READER_ACTION]                               |
+| :-----: | :---------- | :------- | :-------------- | :---------------------------------------------------- |
+|   [1]   | M<N>        | COMPLETE | `<live-source>` | build M<N> on frozen contract                         |
+|   [2]   | M<N>        | ACTIVE   | `<live-source>` | do not edit execution API without architecture update |
 
 Omit this section when the live planner already provides the same scan.
 
@@ -277,40 +277,40 @@ Milestone records split fields into required and conditional sets:
 Use this accepted milestone record shape:
 
 ```markdown template
-### [7.1][M2_WORKER_EXECUTION]
+### [7.1][M_N_EXECUTION]
 
-ID: M2
+ID: M<N>
 Status: ACTIVE
 Progress: [██████░░░░░░░░░░░░░░] 33%
-Goal: move validated events through one worker execution path.
-Mission contribution: replaces split execution paths with one package-local worker boundary.
-Code scope: `Execution/EventWorker.cs`, `Execution/RetryPolicy.cs`, `EventPipeline.csproj`.
-Deliverables: worker execution path, retry policy, architecture flow update.
-Live task source: issue/112
+Goal: move validated inputs through one execution path.
+Mission contribution: replaces split execution paths with one package-local execution boundary.
+Code scope: `<execution-entrypoint>`, `<policy-source>`, `<project-manifest>`.
+Deliverables: execution path, policy source, architecture flow update.
+Live task source: `<live-source>`
 Exit criteria:
-    - [x] worker entrypoint compiles inside `EventPipeline.csproj`
-    - [ ] direct `Admission/ -> Storage/` writes are absent
-    - [ ] generated contract still validates accepted event envelopes
+    - [x] execution entrypoint compiles inside `<project-manifest>`
+    - [ ] direct `<input-folder>/ -> <store-folder>/` writes are absent
+    - [ ] generated contract still validates accepted payloads
 Proof surface: build output, dependency gate, generated contract diff, and code-documentation review.
 Proof map:
     - Progress basis: 1/3 top-level exit criteria proven by matching proof surfaces.
-    - worker entrypoint compiles: build output from `EventPipeline.csproj`.
-Depends: M1: COMPLETE; support row: compatibility window open.
-Architecture link: `Execution/EventWorker.cs [ACTIVE M2]` and flow node.
+    - execution entrypoint compiles: build output from `<project-manifest>`.
+Depends: M<N>: COMPLETE; support row: retained surface still supported.
+Architecture link: `<execution-entrypoint> [ACTIVE M<N>]` and flow node.
 Documentation handoff: architecture flow, code documentation, generated reference.
 ```
 
-Rejected milestone: `M2 worker`; `Status: vague`; `Goal: finish worker`; `Progress signal: uncalculated`; `Proof surface: unverified`.
+Rejected milestone: `M<N> work`; `Status: vague`; `Goal: finish work`; `Progress signal: uncalculated`; `Proof surface: unverified`.
 Reason: the rejected record has no stable ID, no calculation rule, no binary exit criteria, no code scope, and no proof.
 
 ## [12][DEPENDENCIES_AND_BLOCKERS]
 
 Dependencies are sequencing edges, not task lists. Use the edge table when dependent work cannot start, complete, or prove exit until the required fact changes.
 
-| [INDEX] | [EDGE]  | [DEPENDENT] | [REQUIRES]  | [RELATION]          | [ROUTE]            | [LIVE]      | [RULE]                      |
-| :-----: | :------ | :---------- | :---------- | :------------------ | :----------------- | :---------- | :-------------------------- |
-|   [1]   | E-M2-M1 | M2          | M1          | blocked by          | internal milestone | issue/101   | start after schema approval |
-|   [2]   | E-M4-S1 | M4          | support row | external dependency | support matrix     | support row | remove after window closes  |
+| [INDEX] | [EDGE]      | [DEPENDENT] | [REQUIRES]  | [RELATION]          | [ROUTE]            | [LIVE]          | [RULE]                        |
+| :-----: | :---------- | :---------- | :---------- | :------------------ | :----------------- | :-------------- | :---------------------------- |
+|   [1]   | E-M<N>-M<N> | M<N>        | M<N>        | blocked by          | internal milestone | `<live-source>` | start after contract approval |
+|   [2]   | E-M<N>-S<N> | M<N>        | support row | external dependency | support matrix     | support row     | remove after support closes   |
 
 Use relationship names from this set: `blocks`, `blocked by`, `prerequisite`, `external dependency`, `go/no-go`, or `supersedes`. Link the route that controls the live dependency. Move tactical subtasks to the live planner, milestone `Tasks`, or design slices.
 
@@ -319,9 +319,9 @@ Use Mermaid only when three or more edges are easier to scan visually than the t
 Blocker records cover access blockers, proof blockers, decision blockers, and support blockers that are not clean milestone-to-milestone edges:
 
 ```text template
-ID: B-M2-1
+ID: B-M<N>-N
 Status: BLOCKED
-Blocks: M2 exit criterion `<criterion name>`
+Blocks: M<N> exit criterion `<criterion name>`
 Blocked by: <decision, access, proof gate, support row, or external contract>
 Source route: <path, ADR, design, support row, live issue, or gate route>
 Go/no-go rule: <binary rule>
@@ -335,14 +335,14 @@ Route-away: <discussion, procedure, or support body that belongs elsewhere>
 Use a handoff record when milestone completion changes another document route. Omit absent routes; do not write `none`.
 
 ```text template
-ID: H-M2-1
+ID: H-M<N>-N
 Status: QUEUED | ACTIVE | BLOCKED | COMPLETE | DROPPED | CANCELED
-Milestone: M2
+Milestone: M<N>
 Destination path: <architecture, ADR, design, API, reference, code documentation, README, how-to, tutorial, runbook, support, or test-strategy path>
-Changed fact: `Execution/EventWorker.cs` becomes the single execution path.
+Changed fact: `<execution-entrypoint>` becomes the single execution path.
 Consumed by: architecture codemap, code-documentation public semantics, and test-strategy gate mapping.
-Use in this document: M2 cannot close until linked document routes consume or route away the fact.
-Update when: worker entrypoint, flow, generated contract, or proof gate changes.
+Use in this document: M<N> cannot close until linked document routes consume or route away the fact.
+Update when: execution entrypoint, flow, generated contract, or proof gate changes.
 Close when: linked documents are updated or explicitly route the fact away.
 Route-away: architecture body, source-comment content, and gate taxonomy stay in their routes.
 ```
@@ -360,7 +360,7 @@ Use these common handoff triggers:
 |   [5]   | public symbol, caller semantics, failure mode, or extension point changes    | code documentation          |
 |   [6]   | adoption path, setup command, or navigation changes                          | README, how-to, or tutorial |
 |   [7]   | recovery, rollback, operator action, or incident path changes                | runbook                     |
-|   [8]   | supported version, compatibility window, or lifecycle changes                | support matrix              |
+|   [8]   | supported version, support window, or lifecycle changes                      | support matrix              |
 |   [9]   | proof gate, flake policy, or test taxonomy changes                           | test strategy               |
 
 ## [14][WORK_REGISTER]
@@ -377,16 +377,16 @@ Field order is fixed: `ID`, `Kind`, `Status`, `Changed fact`, `Consumed by`, `Us
 ```markdown template
 ### [N.1][RISK_CONTRACT_DRIFT]
 
-ID: R-M2-1
+ID: R-M<N>-N
 Kind: risk
 Status: OPEN
-Changed fact: generated event contract may change after M2 worker code lands.
-Consumed by: M2 exit criteria and M3 generated-reference milestone.
-Use in this document: M2 cannot close until contract drift is either proven absent or routed to M3.
-Exit: contract drift is proven absent, mitigated, or accepted by M3.
+Changed fact: generated contract may change after M<N> execution code lands.
+Consumed by: M<N> exit criteria and M<N> generated-reference milestone.
+Use in this document: M<N> cannot close until contract drift is either proven absent or routed to M<N>.
+Exit: contract drift is proven absent, mitigated, or accepted by M<N>.
 Evidence: generated contract diff or stated unrun gap.
 Update when: contract generator, schema source, or consumer compatibility gate changes.
-Close when: contract diff is reviewed or M3 accepts the remaining work.
+Close when: contract diff is reviewed or M<N> accepts the remaining work.
 Route-away: design discussion and issue comments stay in the live planner.
 ```
 
@@ -394,7 +394,7 @@ Route-away: design discussion and issue comments stay in the live planner.
 
 Use this section only when exclusions are not clear enough inside milestone records.
 
-Deferred work record: `Status: DEFERRED`; `Reason: compatibility window is controlled by support matrix`; `Successor: M4 after support row closes`; `Return event: support row changes from maintained to retired`.
+Deferred work record: `Status: DEFERRED`; `Reason: support window is controlled by support matrix`; `Successor: M<N> after support row closes`; `Return event: support row changes from maintained to retired`.
 
 CANCELED work states the successor, rollback, or retired need. DEFERRED work states the event that can return it to the sequence. DROPPED work states why the item no longer belongs in this roadmap and removes dependency references to it.
 
@@ -405,7 +405,7 @@ CANCELED work states the successor, rollback, or retired need. DEFERRED work sta
 - [adr.md](adr.md) carries durable decisions and their confirmation.
 - [design-doc.md](design-doc.md) carries pre-code proposals, risks, validation slices, and accepted approach.
 - [test-strategy.md](test-strategy.md) carries gate taxonomy, flake policy, and proof vocabulary.
-- [support-matrix.md](../reference/support-matrix.md) carries supported versions, compatibility windows, and lifecycle status.
+- [support-matrix.md](../reference/support-matrix.md) carries supported versions, support windows, and lifecycle status.
 
 [TASK_HISTORY_ROUTES]:
 - [reference.md](../reference/reference.md) carries lookup facts; release history belongs to the project release mechanism.

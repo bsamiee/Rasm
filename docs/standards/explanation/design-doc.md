@@ -148,9 +148,9 @@ Use this lifecycle/profile decision table:
 
 The H1 names the proposed outcome only. The lead carries lifecycle and source facts:
 
-Accepted title: `# [FREEZE_EVENT_CONTRACT]`
-Accepted fields: `Status: DISCUSSION`; `Profile: Public-contract`; `Date: 2026-06-04`; `Source: API contract design path`; `Check scopes: platform, event consumers, release route`.
-Accepted lead: This design proposes freezing the public event contract so downstream consumers can validate integration before release. It compares generator-backed and hand-maintained contracts, records change slices, and, if accepted, hands durable policy to an ADR and current boundary changes to architecture.
+Accepted title: `# [FREEZE_CONTRACT]`
+Accepted fields: `Status: DISCUSSION`; `Profile: Public-contract`; `Date: YYYY-MM-DD`; `Source: <design-source>`; `Check scopes: <platform>, <consumers>, <release-route>`.
+Accepted lead: This design proposes freezing `<contract>` so downstream consumers can validate integration before release. It compares generated and maintained contract options, records change slices, and, if accepted, hands durable policy to an ADR and current boundary changes to architecture.
 
 ## [5][SECTION_RULES]
 
@@ -182,7 +182,7 @@ Render `Goals` as a checklist of measurable conditions. A bare prose goal with n
 ```markdown template
 ## [2][GOALS]
 
-- [ ] Generated event contract accepts the seeded envelope — proven by `<contract validation command or status check>`.
+- [ ] Generated contract accepts the seeded payload — proven by `<contract-validation command or status check>`.
 - [ ] No direct `Admission/ -> Storage/` writes remain — proven by `<dependency gate or manual check>`.
 - [ ] Rollback stays inside one change slice — proven by `<rollback boundary or feature flag check>`.
 ```
@@ -223,7 +223,7 @@ Kind: contract
 Depends: —
 Check focus: breaking-change shape
 Rollback boundary: revert generated schema diff
-Roadmap milestone: roadmap M2 when this slice becomes dated work
+Roadmap milestone: roadmap M<N> when this slice becomes dated work
 Proof gate: contract gate evidence, or proof gap
 ```
 
@@ -309,7 +309,7 @@ Strategy gate route: <test strategy path and gate anchor>
 
 | [INDEX] | [CHECK_SCOPE] | [STATE]   |     [DATE] |
 | :-----: | :------------ | :-------- | ---------: |
-|   [1]   | runtime route | satisfied | 2026-06-01 |
+|   [1]   | runtime route | satisfied | YYYY-MM-DD |
 |   [2]   | storage route | pending   |          — |
 
 The design is ready to accept only when every required check reads `satisfied`, every objection reads `RESOLVED` or `ACCEPTED-AS-RISK`, and no live risk remains `OPEN`.

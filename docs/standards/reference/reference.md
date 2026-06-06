@@ -330,8 +330,9 @@ Use this command fact entry:
 
 ```text template
 Invocation: `<tool> report <scope>`
-Flag: `report`
-Effect: reports diagnostics for the scoped project closure.
+Subcommand: `report`
+Flag: `<flag-name>; omit when no flag applies`
+Effect: returns the declared report for `<scope>`.
 Side effect: does not intentionally mutate tracked source.
 ```
 

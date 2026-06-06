@@ -130,7 +130,7 @@ Language-version claims are target standards and route freshness through [proof.
 |   [4]   | Bash 5.3+       | contract comments          | none by default                      |
 |   [5]   | PostgreSQL 18.4 | `COMMENT ON`               | catalog comments and describe output |
 
-### [6.1][C_SHARP_14]
+### [6.1][C_SHARP]
 
 Toolchain: XML documentation comments for C# 14 public API contracts; XML comments in `.cs` are the semantic owner, compiler XML is the generated mirror, and DocFX is the generated-reference profile.
 Generated profile: compiler XML and DocFX; `cref` routes compiler-verifiable internal references.
@@ -160,7 +160,7 @@ Special shapes:
 Reject: missing-comment churn where declarations already carry caller truth, unresolved `cref`, fake `<exception>` tags for typed rails, Markdown-heavy XML unless the generated renderer is the only consumer, generated-member catalogs, `<include>` files without maintained source, and lifecycle wrappers for internal surfaces that should be deleted or replaced.
 Syntax cue: `/// <summary>Builds one cancellable geometry import effect.</summary>`.
 
-### [6.2][TYPESCRIPT_7]
+### [6.2][TYPESCRIPT]
 
 Toolchain: TSDoc for exported TypeScript 7 `.ts` APIs that form a package, module, service, schema, model, runner, or testkit contract. TypeScript syntax, exported schemas, models, and `Effect<A, E, R>` carry machine shape; API Extractor is the strict package-API canon, and TypeDoc is the browsing renderer.
 Generated profile: API Extractor for strict package API and TypeDoc for browsing.
@@ -194,7 +194,7 @@ Special shapes:
 Reject: JSDoc type-expression syntax in `.ts`, closure-style type comments, duplicate type info in `@param`, broad `@throws` for typed `E`, bare `@inheritDoc`, `@see SomeSymbol` without a link route, TSDoc on local implementation details, generated package catalogs, release tags on internal greenfield surfaces, `@internal` as a security boundary, copied TypeDoc output, and Promise-return comments that hide the terminal `Effect` boundary.
 Syntax cue: `/** Imports one artifact; returns an Effect with committed receipt, ImportFailure, and required services. @public */`.
 
-### [6.3][PYTHON_3_15]
+### [6.3][PYTHON]
 
 Toolchain: Google docstrings for Python 3.15 public modules, classes, functions, methods, properties, protocols, and package entrypoints; PEP 257 supplies docstring placement and layout, while signatures, annotations, strict type checkers, and annotation introspection own type shape.
 Generated profile: Griffe and mkdocstrings.
@@ -229,7 +229,7 @@ Reject:
     - Schema drift: schema fields documented only in prose when metadata owns them and field examples with sensitive data.
 Syntax cue: `"""Import one validated plan artifact."""`.
 
-### [6.4][BASH_5_3]
+### [6.4][BASH]
 
 Toolchain: Bash 5.3+ has no docstrings; use contract comments only where callers, analyzers, or maintainers need stdout, stderr, exit-status, state, trap, cleanup, environment, nameref, stream, durable-write, current-shell substitution, or ShellCheck rationale. POSIX.1-2024 appears only when a script explicitly claims portable shell semantics.
 Generated profile: no generated-reference profile by default; help metadata owns command catalogs and ShellCheck directives own analyzer-control comments.
@@ -261,7 +261,7 @@ Reject:
     - Durability drift: durable-write claims backed only by temp write plus `mv`.
 Syntax cue: `# shellcheck shell=bash`.
 
-### [6.5][POSTGRESQL_18_4]
+### [6.5][POSTGRESQL]
 
 Toolchain: PostgreSQL 18.4 `COMMENT ON` is durable schema and catalog documentation visible through catalog access; SQL source comments are local rationale only because PostgreSQL treats them as whitespace before syntax analysis. Catalog comments apply to every object kind supported by PostgreSQL `COMMENT ON`; do not turn the standard into an object grammar catalog.
 Generated profile: durable generated references extract object comments from `pg_description` or `pg_shdescription`; `psql` describe output is a human smoke route.

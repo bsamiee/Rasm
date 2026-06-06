@@ -49,10 +49,10 @@ Use one decision corpus per repository unless a scope-local decision log already
 
 The decision-log index is a finite enumerable set of trackable records, so render it as a status-tagged record table. One row per ADR, ordered by number, each carrying the fields below. Use conceptual examples in standards files; project decisions belong only in the actual decision log.
 
-| [INDEX] | [NUMBER] | [TITLE]                 | [STATUS]     | [CLASS]    |     [DATE] | [SUPERSEDES] | [SUPERSEDED_BY] |
-| :-----: | :------- | :---------------------- | :----------- | :--------- | ---------: | :----------- | :-------------- |
-|   [1]   | `0001`   | Adopt event envelope    | `accepted`   | contract   | 2026-01-12 | —            | —               |
-|   [2]   | `0007`   | Replace plugin boundary | `superseded` | structural | 2026-03-04 | —            | `0023`          |
+| [INDEX] | [NUMBER] | [TITLE]              | [STATUS]     | [CLASS]    |     [DATE] | [SUPERSEDES] | [SUPERSEDED_BY] |
+| :-----: | :------- | :------------------- | :----------- | :--------- | ---------: | :----------- | :-------------- |
+|   [1]   | `NNNN`   | Adopt `<contract>`   | `accepted`   | contract   | YYYY-MM-DD | —            | —               |
+|   [2]   | `NNNN`   | Replace `<boundary>` | `superseded` | structural | YYYY-MM-DD | —            | `NNNN`          |
 
 Keep ADR status in the lowercase vocabulary below. Use bracketed lifecycle markers only in compact indexes when filtering helps: `accepted` maps to `[COMPLETE]`. `rejected`, `deprecated`, and `superseded` may render as terminal compact markers only when the row still carries the original lowercase `Status` value; never collapse those three dispositions into one lifecycle meaning.
 
@@ -165,17 +165,17 @@ ADR cardinality splits into these groups:
 
 The H1 names the decision only; the lead carries the lifecycle facts and top-level reader promise.
 
-Accepted title: `# [ADOPT_EVENT_ENVELOPE]`
+Accepted title: `# [ADOPT_CONTRACT]`
 Accepted fields:
     Status: accepted
     Class: contract
-    Date: 2026-01-12
+    Date: YYYY-MM-DD
     Supersedes: none
     Superseded by: none
-    Decision source: accepted design `docs/design/event-envelope.md`
-    Evidence: generated event contract diff and release gate receipt
-Accepted lead: This ADR accepts the shared event envelope as the durable cross-scope contract for outbound event payloads. It records the trade-off, rejected alternatives, accepted downside, and contract confirmation evidence; implementation sequencing stays in the roadmap.
-Rejected title: `# [EVENT_ENVELOPE]`
+    Decision source: accepted design `<design-doc>`
+    Evidence: generated contract diff and release gate receipt
+Accepted lead: This ADR accepts `<contract>` as the durable cross-scope contract. It records the trade-off, rejected alternatives, accepted downside, and contract confirmation evidence; implementation sequencing stays in the roadmap.
+Rejected title: `# [CONTRACT]`
 Rejected lead: This document discusses whether we should probably standardize events and lists some implementation steps.
 Reason: the rejected lead hides lifecycle facts and mixes proposal work into the ADR.
 
@@ -246,9 +246,9 @@ The next examples are complete because the fields match the status:
 
 ```text template
 Status: accepted
-Confirmation surface: generated event schema diff.
-Evidence: `contracts/events.schema.json` generated output and compatibility gate.
-Review trigger: event schema generator, consumer contract, or compatibility gate change.
+Confirmation surface: generated contract diff.
+Evidence: `<contract-artifact>` generated output and contract gate.
+Review trigger: contract generator, consumer contract, or contract gate change.
 ```
 
 ```text template
@@ -266,8 +266,8 @@ Review trigger: support, architecture, or replacement-policy change.
 
 ```text template
 Status: superseded
-Disposition evidence: ADR `0023` replaces this boundary decision and names this ADR in `Supersedes`.
-Evidence: `Superseded by: 0023` in this record and `Supersedes: <this ADR>` in ADR `0023`.
+Disposition evidence: ADR `NNNN` replaces this boundary decision and names this ADR in `Supersedes`.
+Evidence: `Superseded by: NNNN` in this record and `Supersedes: <this ADR>` in ADR `NNNN`.
 Review trigger: replacing ADR status, title, or link changes.
 ```
 
