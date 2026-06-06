@@ -1,32 +1,59 @@
 # ruff: noqa: ARG005
 """Command dispatch table for GitHub CLI commands and output formatters."""
 
-from collections.abc import Callable
+from collections.abc import Callable, Mapping
 import json
 import os
-from typing import Any, Final
+from typing import Final
 
 
-type JsonValue = Any
+type JsonValue = object
 type JsonMap = dict[str, JsonValue]
 type Env = dict[str, str]
-type Handler = tuple[Callable[[JsonMap], tuple[str, ...]], Callable[[str, JsonMap], JsonMap]]
+type Args = dict[str, str]
+type Handler = tuple[Callable[[Args], tuple[str, ...]], Callable[[str, Args], JsonMap]]
 
 
 # --- [FUNCTIONS] --------------------------------------------------------------
 def _json(output: str) -> JsonValue:
-    """Parse JSON output, returning empty dict for empty strings."""
-    return json.loads(output) if output else {}
+    """Parse JSON output, returning an empty object for empty strings.
+
+    Returns:
+        Parsed JSON value.
+    """
+    data: object = json.loads(output) if output else {}
+    return data
+
+
+def _json_map(output: str) -> JsonMap:
+    """Parse JSON output as an object.
+
+    Returns:
+        Parsed JSON object, or an empty object when output is not an object.
+    """
+    match _json(output):
+        case Mapping() as data:
+            return {str(key): value for key, value in data.items()}
+        case _:
+            return {}
 
 
 def project_env() -> Env | None:
-    """Get env with GH_PROJECTS_TOKEN if available."""
+    """Get env with GH_PROJECTS_TOKEN if available.
+
+    Returns:
+        Environment override for project commands, when configured.
+    """
     token = os.environ.get("GH_PROJECTS_TOKEN")
     return {**os.environ, "GH_TOKEN": token} if token else None
 
 
-def _edit_flags(args: JsonMap) -> tuple[str, ...]:
-    """Build edit flags for title/body/labels."""
+def _edit_flags(args: Args) -> tuple[str, ...]:
+    """Build edit flags for title/body/labels.
+
+    Returns:
+        CLI flags for present editable fields.
+    """
     return tuple(
         f"--{key}={value}" for key, value in (("title", args.get("title")), ("body", args.get("body")), ("add-label", args.get("labels"))) if value
     )
@@ -137,7 +164,10 @@ CMDS: dict[str, tuple[tuple[str, ...], tuple[str, ...], Handler]] = {
     "pr-files": (
         ("number",),
         (),
-        (lambda a: ("gh", "pr", "view", str(a["number"]), "--json=files"), lambda o, a: {"number": a["number"], "files": _json(o).get("files", [])}),
+        (
+            lambda a: ("gh", "pr", "view", str(a["number"]), "--json=files"),
+            lambda o, a: {"number": a["number"], "files": _json_map(o).get("files", [])},
+        ),
     ),
     "pr-checks": (
         ("number",),

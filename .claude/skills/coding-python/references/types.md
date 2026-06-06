@@ -22,13 +22,16 @@ type Unit = Literal["C", "F", "K"]
 type Rejection = tuple[Unit, float]
 type Convert[A, B] = Callable[[float], Result[float, Rejection]]
 
+
 @dataclass(frozen=True, slots=True)
 class Measurement[U: Unit = "K"]:
     value: float
     unit: U
 
+
 def is_absolute(m: Measurement) -> TypeIs[Measurement["K"]]:
     return m.unit == "K" and m.value >= 0
+
 
 @overload
 def to_kelvin(m: Measurement["C"]) -> Result[Kelvin, Rejection]: ...
@@ -36,19 +39,26 @@ def to_kelvin(m: Measurement["C"]) -> Result[Kelvin, Rejection]: ...
 def to_kelvin(m: Measurement["F"]) -> Result[Kelvin, Rejection]: ...
 def to_kelvin(m: Measurement) -> Result[Kelvin, Rejection]:
     match m.unit:
-        case "C": k = m.value + 273.15
-        case "F": k = fma(m.value - 32, 5 / 9, 273.15)
-        case "K": k = m.value
-        case _ as u: assert_never(u)
+        case "C":
+            k = m.value + 273.15
+        case "F":
+            k = fma(m.value - 32, 5 / 9, 273.15)
+        case "K":
+            k = m.value
+        case _ as u:
+            assert_never(u)
     return Ok(Kelvin(k)).filter_with(lambda v: v >= 0 and isfinite(v), lambda _: (m.unit, m.value))
+
 
 @curry_flip(1)
 def energy(readings: Block[Measurement], ref: Kelvin) -> Result[float, Rejection]:
     @effect.result[float, Rejection]()
     def _run():
-        kelvins = yield from pipe(readings, block.map(to_kelvin), block.fold(
-            lambda acc, r: acc.bind(lambda vs: r.map(lambda v: vs + block.of(v))), Ok(block.empty())))
+        kelvins = yield from pipe(
+            readings, block.map(to_kelvin), block.fold(lambda acc, r: acc.bind(lambda vs: r.map(lambda v: vs + block.of(v))), Ok(block.empty()))
+        )
         return pipe(kelvins, block.fold(lambda a, k: fma(k - ref, k - ref, a), 0.0)) / max(kelvins.length, 1)
+
     return _run()
 ```
 
@@ -70,37 +80,52 @@ from expression.collections import Block, block
 Hertz, Radian = NewType("Hertz", float), NewType("Radian", float)
 type Stage = Literal["raw", "cal"]
 
+
 @dataclass(frozen=True, slots=True)
 class Signal[P: Stage = "raw"]:
-    frequency: Hertz; phase: Radian; samples: Block[float]
+    frequency: Hertz
+    phase: Radian
+    samples: Block[float]
+
 
 @dataclass(frozen=True, slots=True)
 class RmsNorm:
     floor: float
 
+
 @dataclass(frozen=True, slots=True)
 class PhaseAlign:
     modulus: float = tau
+
 
 type Transition = RmsNorm | PhaseAlign
 type Rejection[P: Stage] = tuple[Transition, Signal[P]]
 type Morph[A: Stage, B: Stage] = Callable[[Signal[A]], Result[Signal[B], Rejection[A]]]
 type Transform = Morph["raw", "cal"]
 
+
 def is_calibrated(sig: Signal) -> TypeIs[Signal["cal"]]:
     rms = pipe(sig.samples, block.fold(lambda a, x: fma(x, x, a), 0.0), lambda s: sqrt(s / max(sig.samples.length, 1)))
     return 0 <= sig.phase < tau and sig.samples.length > 0 and abs(rms - 1.0) < 1e-9
 
+
 def project(t: Transition) -> Transform:
     match t:
         case RmsNorm(floor=f):
-            return lambda sig: pipe(sig.samples,
+            return lambda sig: pipe(
+                sig.samples,
                 block.fold(lambda sn, x: (fma(x, x, sn[0]), sn[1] + 1), (0.0, 0)),
                 lambda sn: sqrt(sn[0] / max(sn[1], 1)),
-                lambda rms: Ok(rms).filter_with(lambda r: r > f, lambda _: (t, sig)).map(lambda r: Signal["cal"](
-                    sig.frequency, Radian(sig.phase % tau), pipe(sig.samples, block.map(lambda x: x / r)))))
-        case PhaseAlign(modulus=m): return lambda sig: Ok(Signal["cal"](sig.frequency, Radian(sig.phase % m), sig.samples))
-        case _ as unreachable: assert_never(unreachable)
+                lambda rms: (
+                    Ok(rms)
+                    .filter_with(lambda r: r > f, lambda _: (t, sig))
+                    .map(lambda r: Signal["cal"](sig.frequency, Radian(sig.phase % tau), pipe(sig.samples, block.map(lambda x: x / r))))
+                ),
+            )
+        case PhaseAlign(modulus=m):
+            return lambda sig: Ok(Signal["cal"](sig.frequency, Radian(sig.phase % m), sig.samples))
+        case _ as unreachable:
+            assert_never(unreachable)
 ```
 
 - `Literal["raw", "cal"]` phantom tags via PEP 695 `type` alias eliminate sentinel class declarations — `Signal["cal"]` reads identically to `Signal[Cal]` with zero class definitions. PEP 696 default `P: Stage = "raw"` bounds the phantom parameter to the vocabulary while defaulting to uncalibrated state.
@@ -122,32 +147,48 @@ from expression import Ok, Result, effect
 
 PhaseAngle, Amplitude, SampleRate = NewType("PhaseAngle", float), NewType("Amplitude", float), NewType("SampleRate", int)
 
+
 @dataclass(frozen=True, slots=True)
 class Modular:
     period: float
 
+
 @dataclass(frozen=True, slots=True)
 class Bounded:
-    lo: float; hi: float
+    lo: float
+    hi: float
+
 
 type Constraint = Modular | Bounded | Literal["bit_aligned"]
 type ViolationField = Literal["phase", "amplitude", "rate"]
 
+
 @dataclass(frozen=True, slots=True)
 class Violation:
-    field: ViolationField; raw: float; constraint: Constraint
+    field: ViolationField
+    raw: float
+    constraint: Constraint
+
 
 @dataclass(frozen=True, slots=True, kw_only=True)
 class Tone:
-    phase: PhaseAngle; amplitude: Amplitude; rate: SampleRate
+    phase: PhaseAngle
+    amplitude: Amplitude
+    rate: SampleRate
+
 
 def refine(field: ViolationField, con: Constraint, v: float) -> Result[float, Violation]:
     err = lambda _: Violation(field, v, con)
     match con:
-        case Modular(period=p): return Ok(v % p)
-        case Bounded(lo=lo, hi=hi): return Ok(v).filter_with(lambda x: lo <= x <= hi and isfinite(x) and frexp(x)[1] > -1022, err)
-        case "bit_aligned": return Ok(v).filter_with(lambda x: x == int(x) and int(x) > 0 and int(x) & (int(x) - 1) == 0, err)
-        case _ as u: assert_never(u)
+        case Modular(period=p):
+            return Ok(v % p)
+        case Bounded(lo=lo, hi=hi):
+            return Ok(v).filter_with(lambda x: lo <= x <= hi and isfinite(x) and frexp(x)[1] > -1022, err)
+        case "bit_aligned":
+            return Ok(v).filter_with(lambda x: x == int(x) and int(x) > 0 and int(x) & (int(x) - 1) == 0, err)
+        case _ as u:
+            assert_never(u)
+
 
 def mk_tone(p: float, a: float, r: float) -> Result[Tone, Violation]:
     @effect.result[Tone, Violation]()
@@ -156,6 +197,7 @@ def mk_tone(p: float, a: float, r: float) -> Result[Tone, Violation]:
         am = yield from refine("amplitude", Bounded(0.0, 1.0), a)
         rt = yield from refine("rate", "bit_aligned", r)
         return Tone(phase=PhaseAngle(ph), amplitude=Amplitude(am), rate=SampleRate(int(rt)))
+
     return _build()
 ```
 
@@ -175,38 +217,54 @@ from typing import assert_never
 from expression import Ok, Result, pipe
 from expression.collections import Block, seq
 
+
 @dataclass(frozen=True, slots=True)
 class Sink:
     weight: float
 
+
 @dataclass(frozen=True, slots=True)
 class Transient:
-    target: int; rate: float
+    target: int
+    rate: float
+
 
 @dataclass(frozen=True, slots=True)
 class Emitting:
     coeffs: tuple[float, ...]
 
+
 type Phase = Sink | Transient | Emitting
+
 
 @dataclass(frozen=True, slots=True)
 class Deadlock:
-    phase: Phase; target: int
+    phase: Phase
+    target: int
+
 
 def adjacency(phase: Phase) -> Result[Block[tuple[int, float]], Deadlock]:
     match phase:
-        case Sink(weight=w): return Ok(Block.of_seq([(0, w)]))
+        case Sink(weight=w):
+            return Ok(Block.of_seq([(0, w)]))
         case Transient(target=t, rate=r):
             return Ok(Block.of_seq([(t, r)])).filter_with(lambda _: r > 0, lambda _: Deadlock(phase, t))
-        case Emitting(coeffs=cs): return Ok(Block(pipe(enumerate(cs), seq.filter(lambda iv: iv[1] > 0))))
-        case _ as unreachable: assert_never(unreachable)
+        case Emitting(coeffs=cs):
+            return Ok(Block(pipe(enumerate(cs), seq.filter(lambda iv: iv[1] > 0))))
+        case _ as unreachable:
+            assert_never(unreachable)
+
 
 def entropy(phase: Phase) -> float:
     match phase:
-        case Transient(): return 0.0
-        case Sink(weight=w): cs = (w,)
-        case Emitting(coeffs=cs): pass
-        case _ as unreachable: assert_never(unreachable)
+        case Transient():
+            return 0.0
+        case Sink(weight=w):
+            cs = (w,)
+        case Emitting(coeffs=cs):
+            pass
+        case _ as unreachable:
+            assert_never(unreachable)
     return pipe(cs, seq.filter(bool), tuple, lambda ps: -sumprod(ps, tuple(map(log2, ps))))
 ```
 
@@ -227,25 +285,32 @@ from expression.collections import Block, Map, block
 
 type Metric = tuple[float, ...]
 
+
 class Axis(StrEnum):
-    T = auto(); X = auto(); Y = auto()
+    T = auto()
+    X = auto()
+    Y = auto()
+
 
 def contract(u: Map[Axis, float], v: Map[Axis, float], metric: Metric = (-1.0, 1.0, 1.0)) -> Result[float, Block[Axis]]:
     match len(Axis) == len(metric):
-        case False: return Error(Block.of_seq(tuple(Axis)))
-        case True: pass
+        case False:
+            return Error(Block.of_seq(tuple(Axis)))
+        case True:
+            pass
     resolved, gaps = pipe(
         Block(zip(Axis, metric)),
         block.fold(
-            lambda acc, am: u.try_find(am[0]).map2(
-                lambda ui, vi: ((*acc[0], (am[1], ui * vi)), acc[1]),
-                v.try_find(am[0])
-            ).default_value((acc[0], (*acc[1], am[0]))),
-            ((), ())))
-    return (Option.Some(resolved)
-        .filter(lambda r: len(r) == len(metric))
-        .map(lambda r: sumprod(*zip(*r)))
-        .to_result(Block(gaps)))
+            lambda acc, am: (
+                u
+                .try_find(am[0])
+                .map2(lambda ui, vi: ((*acc[0], (am[1], ui * vi)), acc[1]), v.try_find(am[0]))
+                .default_value((acc[0], (*acc[1], am[0])))
+            ),
+            ((), ()),
+        ),
+    )
+    return Option.Some(resolved).filter(lambda r: len(r) == len(metric)).map(lambda r: sumprod(*zip(*r))).to_result(Block(gaps))
 ```
 
 `zip(Axis, metric)` makes the zipped iterator the controlling definition versus parallel `ClassVar` lookups. `map2` expresses independent combination (both `Some` required) versus `bind`'s sequential dependency — the applicative/monadic distinction matters for reasoning about failure independence.
@@ -266,6 +331,7 @@ from expression.collections import Block, block
 
 type Vec = tuple[float, ...]
 
+
 @dataclass(frozen=True, slots=True)
 class Span[T]:
     head: T
@@ -281,15 +347,12 @@ class Span[T]:
     def fmap[R](self, f: Callable[[T], R]) -> Span[R]:
         return Span(f(self.head), pipe(self.tail, block.map(f)))
 
+
 def gram(basis: Span[Vec]) -> tuple[Span[Vec], float]:
     norms = basis.fmap(lambda v: hypot(*v))
-    lo, hi = pipe(norms.tail, block.fold(
-        lambda acc, x: (min(acc[0], x), max(acc[1], x)),
-        (norms.head, norms.head)))
-    kappa = Option.Some(lo).filter(lambda lo: lo > 0.0).map(
-        lambda lo: hi / lo).default_value(float('inf'))
-    row = lambda u: (sumprod(u, basis.head), *pipe(
-        basis.tail, block.map(lambda v: sumprod(u, v))))
+    lo, hi = pipe(norms.tail, block.fold(lambda acc, x: (min(acc[0], x), max(acc[1], x)), (norms.head, norms.head)))
+    kappa = Option.Some(lo).filter(lambda lo: lo > 0.0).map(lambda lo: hi / lo).default_value(float("inf"))
+    row = lambda u: (sumprod(u, basis.head), *pipe(basis.tail, block.map(lambda v: sumprod(u, v))))
     return basis.fmap(row), kappa
 ```
 
@@ -312,47 +375,67 @@ type Version = Literal[1, 2]
 
 _I32_LIMIT: Final[int] = 2**31
 
+
 @dataclass(frozen=True, slots=True)
 class QOverflow:
-    version: Version; raw: float; quantized: int
+    version: Version
+    raw: float
+    quantized: int
+
 
 @dataclass(frozen=True, slots=True, kw_only=True)
 class Sample:
-    epoch_ns: int; magnitude: float; phase: float; uncertainty: float; source_id: int
+    epoch_ns: int
+    magnitude: float
+    phase: float
+    uncertainty: float
+    source_id: int
+
 
 class _EgressBase(msgspec.Struct, frozen=True, gc=False, tag_field="v", forbid_unknown_fields=True):
-    epoch_ns: int; source_id: int
+    epoch_ns: int
+    source_id: int
+
 
 class EgressV1(_EgressBase, frozen=True):
-    mag_e4: int; phase_e4: int
+    mag_e4: int
+    phase_e4: int
+
 
 class EgressV2(_EgressBase, frozen=True):
-    mag_e6: int; phase_e6: int; unc_e6: int
+    mag_e6: int
+    phase_e6: int
+    unc_e6: int
+
 
 type Egress = EgressV1 | EgressV2
+
 
 @curry_flip(1)
 def quantize(scale: float, value: float) -> int:
     return round(value * scale)
 
+
 @overload
 def project(version: Literal[1], s: Sample) -> Result[EgressV1, QOverflow]: ...
 @overload
 def project(version: Literal[2], s: Sample) -> Result[EgressV2, QOverflow]: ...
-def project(version: Version,    s: Sample) -> Result[Egress, QOverflow]:
+def project(version: Version, s: Sample) -> Result[Egress, QOverflow]:
     match version:
         case 1:
             m, p = (q := quantize(1e4))(s.magnitude), q(s.phase)
-            return Ok(s).filter_with(
-                lambda _: max(abs(m), abs(p)) < _I32_LIMIT,
-                lambda _: QOverflow(version, s.magnitude, m)).map(
-                lambda s: EgressV1(s.epoch_ns, s.source_id, m, p))
+            return (
+                Ok(s)
+                .filter_with(lambda _: max(abs(m), abs(p)) < _I32_LIMIT, lambda _: QOverflow(version, s.magnitude, m))
+                .map(lambda s: EgressV1(s.epoch_ns, s.source_id, m, p))
+            )
         case 2:
             m, p, u = (q := quantize(1e6))(s.magnitude), q(s.phase), q(s.uncertainty)
-            return Ok(s).filter_with(
-                lambda _: max(abs(m), abs(p), abs(u)) < _I32_LIMIT,
-                lambda _: QOverflow(version, s.magnitude, m)).map(
-                lambda s: EgressV2(s.epoch_ns, s.source_id, m, p, u))
+            return (
+                Ok(s)
+                .filter_with(lambda _: max(abs(m), abs(p), abs(u)) < _I32_LIMIT, lambda _: QOverflow(version, s.magnitude, m))
+                .map(lambda s: EgressV2(s.epoch_ns, s.source_id, m, p, u))
+            )
         case _ as unreachable:
             assert_never(unreachable)
 ```
@@ -375,38 +458,50 @@ from typing import Never, assert_never
 from expression import Ok, Option, Result, curry_flip, pipe
 from expression.collections import Block, block
 
+
 @dataclass(frozen=True, slots=True)
 class Budget:
     limit: float
 
+
 @dataclass(frozen=True, slots=True)
 class Quota:
-    capacity: float; cost: float
+    capacity: float
+    cost: float
+
 
 @dataclass(frozen=True, slots=True)
 class Breach[C]:
-    concern: C; measured: float
+    concern: C
+    measured: float
+
 
 type Wrapped[**P, T, E = Never] = Callable[P, Result[T, E]]
 type Concern = Budget | Quota
 
+
 def with_concern[**P, T, E, C: Concern](concern: C, fn: Wrapped[P, T, E]) -> Wrapped[P, T, E | Breach[C]]:
     match concern:
         case Budget(limit=lim):
+
             @wraps(fn)
             def timed(*args: P.args, **kwargs: P.kwargs) -> Result[T, E | Breach[Budget]]:
                 t0 = monotonic()
-                return fn(*args, **kwargs).bind(lambda v: Ok(v).filter_with(
-                    lambda _: monotonic() - t0 < lim, lambda _: Breach(concern, monotonic() - t0)))
+                return fn(*args, **kwargs).bind(
+                    lambda v: Ok(v).filter_with(lambda _: monotonic() - t0 < lim, lambda _: Breach(concern, monotonic() - t0))
+                )
+
             return timed
         case Quota(capacity=cap, cost=c):
+
             @wraps(fn)
             def gated(*args: P.args, **kwargs: P.kwargs) -> Result[T, E | Breach[Quota]]:
-                return Option.Some(rem := cap - c).filter(lambda r: r >= 0).to_result(
-                    Breach(concern, rem)).bind(lambda _: fn(*args, **kwargs))
+                return Option.Some(rem := cap - c).filter(lambda r: r >= 0).to_result(Breach(concern, rem)).bind(lambda _: fn(*args, **kwargs))
+
             return gated
         case _ as unreachable:
             assert_never(unreachable)
+
 
 @curry_flip(1)
 def apply_concerns[**P, T, E](concerns: Block[Concern], fn: Wrapped[P, T, E]) -> Wrapped[P, T, E | Breach[Concern]]:

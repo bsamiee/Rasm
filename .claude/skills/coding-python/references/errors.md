@@ -19,24 +19,36 @@ from expression.collections import Block, block
 
 Hertz = NewType("Hertz", float)
 
+
 class Policy(StrEnum):
-    retry = auto(); degrade = auto(); abort = auto()
+    retry = auto()
+    degrade = auto()
+    abort = auto()
+
 
 @dataclass(frozen=True, slots=True)
 class Leakage:
-    sidelobe_ratio: float; windowed: Block[float]
+    sidelobe_ratio: float
+    windowed: Block[float]
+
 
 @dataclass(frozen=True, slots=True)
 class Aliasing:
-    detected: Hertz; nyquist: Hertz
+    detected: Hertz
+    nyquist: Hertz
+
 
 @dataclass(frozen=True, slots=True, kw_only=True)
 class Stall:
-    residual: float; coeffs: tuple[float, ...]; prior_energy: float
+    residual: float
+    coeffs: tuple[float, ...]
+    prior_energy: float
+
 
 type SpectralFault = Leakage | Aliasing | Stall
 
 _EPS: Final[float] = 1e-15
+
 
 @curry_flip(1)
 def triage(faults: Block[SpectralFault], signal: Block[float]) -> Result[Block[float], tuple[SpectralFault, Policy, float]]:
@@ -51,6 +63,7 @@ def triage(faults: Block[SpectralFault], signal: Block[float]) -> Result[Block[f
             case _ as unreachable:
                 assert_never(unreachable)
         return lambda s: Ok(s).filter_with(lambda _: policy is not Policy.abort, lambda _: (f, policy, severity))
+
     return pipe(faults, block.fold(lambda acc, f: acc.bind(gate(f)), Ok(signal)))
 ```
 
@@ -74,34 +87,56 @@ Ratio = NewType("Ratio", float)
 Count = NewType("Count", float)
 Threshold = NewType("Threshold", float)
 
+
 class Severity(StrEnum):
-    critical = auto(); major = auto(); minor = auto()
+    critical = auto()
+    major = auto()
+    minor = auto()
+
 
 class Reason(StrEnum):
-    drift = auto(); saturation = auto(); noise = auto()
+    drift = auto()
+    saturation = auto()
+    noise = auto()
+
 
 class Dim(StrEnum):
-    ratio = auto(); threshold = auto(); count = auto()
+    ratio = auto()
+    threshold = auto()
+    count = auto()
+
 
 @dataclass(frozen=True, slots=True, kw_only=True)
 class SensorFault:
-    reason: Reason; value: Ratio; reference: Threshold; count: Count
+    reason: Reason
+    value: Ratio
+    reference: Threshold
+    count: Count
+
 
 @dataclass(frozen=True, slots=True, kw_only=True)
 class Envelope:
-    cid: CorrId; severity: Severity; reason: Reason
-    safe: Map[Dim, float]; redacted: Map[Dim, float]
+    cid: CorrId
+    severity: Severity
+    reason: Reason
+    safe: Map[Dim, float]
+    redacted: Map[Dim, float]
+
 
 _EPS: Final[float] = 1e-15
-_SEVERITY: Final[Map[Reason, Severity]] = Map.empty().add(
-    Reason.drift, Severity.major).add(
-    Reason.saturation, Severity.critical).add(
-    Reason.noise, Severity.minor)
+_SEVERITY: Final[Map[Reason, Severity]] = (
+    Map.empty().add(Reason.drift, Severity.major).add(Reason.saturation, Severity.critical).add(Reason.noise, Severity.minor)
+)
+
 
 def project(fault: SensorFault, cid: CorrId) -> Envelope:
-    return Envelope(cid=cid, severity=_SEVERITY[fault.reason], reason=fault.reason,
+    return Envelope(
+        cid=cid,
+        severity=_SEVERITY[fault.reason],
+        reason=fault.reason,
         safe=Map.empty().add(Dim.ratio, fault.value / max(fault.reference, _EPS)).add(Dim.count, float(fault.count)),
-        redacted=Map.empty().add(Dim.threshold, float(fault.reference)))
+        redacted=Map.empty().add(Dim.threshold, float(fault.reference)),
+    )
 ```
 
 Three isomorphic variants carrying identical `(Ratio, Threshold, Count)` structure collapse into one `SensorFault` with `Reason` as its discriminant — the match that previously extracted uniform locals is eliminated because the fields are already uniform. `_SEVERITY: Final[Map[Reason, Severity]]` pre-computes the `Reason → Severity` mapping at module scope; `project` is a direct field-access pipeline with zero branching. `NewType` wrappers (`Ratio`, `Count`, `Threshold`) prevent cross-dimensional assignment at the call site, while `kw_only=True` on both `SensorFault` and `Envelope` forces named construction, blocking positional mis-ordering. `safe` carries only derived `ratio` and `count` dimensions; `redacted` carries the absolute `threshold` — the redaction boundary is structural, not policy-based, so adding a `Dim` variant without updating `project` produces a missing-key gap visible at the consumption site rather than a silent zero.
@@ -122,35 +157,62 @@ import msgspec
 from expression import Option, Result, pipe
 from expression.collections import Block, block
 
+
 class Axis(Enum):
-    GAIN = auto(); BIAS = auto(); RESIDUAL = auto()
+    GAIN = auto()
+    BIAS = auto()
+    RESIDUAL = auto()
+
 
 @dataclass(frozen=True, slots=True)
 class Bound:
-    lo: float; hi: float
+    lo: float
+    hi: float
+
 
 @dataclass(frozen=True, slots=True, kw_only=True)
 class Defect:
-    axis: Axis; measured: float; bound: Bound
+    axis: Axis
+    measured: float
+    bound: Bound
+
 
 class DiagPayload(msgspec.Struct, frozen=True):
-    axes: tuple[str, ...]; count: int
+    axes: tuple[str, ...]
+    count: int
+
 
 _EMPTY: Final[Block[Defect]] = Block(())
 
+
 def calibrate(stim: Block[float], resp: Block[float], bounds: tuple[Bound, Bound, Bound]) -> Result[tuple[float, float, float], DiagPayload]:
-    n, sx, sy, sxy, sxx, syy = pipe(Block(zip(stim, resp)), block.fold(
-        lambda a, xy: (a[0] + 1, a[1] + xy[0], a[2] + xy[1], fma(xy[0], xy[1], a[3]), fma(xy[0], xy[0], a[4]), fma(xy[1], xy[1], a[5])),
-        (0, 0.0, 0.0, 0.0, 0.0, 0.0)))
+    n, sx, sy, sxy, sxx, syy = pipe(
+        Block(zip(stim, resp)),
+        block.fold(
+            lambda a, xy: (a[0] + 1, a[1] + xy[0], a[2] + xy[1], fma(xy[0], xy[1], a[3]), fma(xy[0], xy[0], a[4]), fma(xy[1], xy[1], a[5])),
+            (0, 0.0, 0.0, 0.0, 0.0, 0.0),
+        ),
+    )
     det = sumprod((n, -sx), (sxx, sx))
     gain, bias = sumprod((n, -sx), (sxy, sy)) / det, sumprod((sxx, -sx), (sy, sxy)) / det
     resid = syy - sumprod((gain, bias), (sxy, sy))
-    gate = lambda ax, v, bnd: Option.Some(v).filter(lambda x: bnd.lo <= x <= bnd.hi).map(
-        lambda _: _EMPTY).default_value(Block.of_seq([Defect(axis=ax, measured=v, bound=bnd)]))
-    faults = pipe(Block(((Axis.GAIN, gain, bounds[0]), (Axis.BIAS, bias, bounds[1]), (Axis.RESIDUAL, resid, bounds[2]))),
-        block.fold(lambda acc, t: Block((*acc, *gate(*t))), _EMPTY))
-    return Option.Some((gain, bias, resid)).filter(lambda _: len(faults) == 0).to_result(
-        DiagPayload(axes=pipe(faults, block.map(lambda d: d.axis.name), tuple), count=len(faults)))
+    gate = lambda ax, v, bnd: (
+        Option
+        .Some(v)
+        .filter(lambda x: bnd.lo <= x <= bnd.hi)
+        .map(lambda _: _EMPTY)
+        .default_value(Block.of_seq([Defect(axis=ax, measured=v, bound=bnd)]))
+    )
+    faults = pipe(
+        Block(((Axis.GAIN, gain, bounds[0]), (Axis.BIAS, bias, bounds[1]), (Axis.RESIDUAL, resid, bounds[2]))),
+        block.fold(lambda acc, t: Block((*acc, *gate(*t))), _EMPTY),
+    )
+    return (
+        Option
+        .Some((gain, bias, resid))
+        .filter(lambda _: len(faults) == 0)
+        .to_result(DiagPayload(axes=pipe(faults, block.map(lambda d: d.axis.name), tuple), count=len(faults)))
+    )
 ```
 
 Single-pass `block.fold` accumulates six sufficient statistics $(n, \Sigma x, \Sigma y, \Sigma xy, \Sigma x^2, \Sigma y^2)$ with `fma` for fused precision; the normal-equations residual $\text{SSR} = \Sigma y^2 - \hat\beta_1 \Sigma xy - \hat\beta_0 \Sigma y$ via `sumprod` eliminates the second data traversal. `gate` returns `_EMPTY` (the `Final` monoid identity, zero allocation per passing check) on success or a singleton `Block[Defect]` on failure — `block.fold` over the three-element `Block` with `(*acc, *gate(*t))` accumulates unconditionally because monoid concatenation does not short-circuit; `gate(*t)` star-unpacks each `(Axis, value, Bound)` triple. `Option.Some(...).filter(lambda _: len(faults) == 0).to_result(DiagPayload(...))` pivots the accumulated count as the sole `Ok`/`Error` discriminant — `block.map(lambda d: d.axis.name)` projects typed `Axis` members to boundary-safe strings, constituting the redacted transport form with internal `Bound` constraints and measured values stripped.
@@ -173,60 +235,98 @@ from expression.collections import Map, seq
 MilliVolt, CalGain = NewType("MilliVolt", float), NewType("CalGain", float)
 EpochNs, Channel = NewType("EpochNs", int), NewType("Channel", int)
 
+
 class FaultKind(Enum):
-    DIVERGENCE = auto(); SATURATION = auto(); DROPOUT = auto()
+    DIVERGENCE = auto()
+    SATURATION = auto()
+    DROPOUT = auto()
+
 
 @dataclass(frozen=True, slots=True, kw_only=True)
 class Fault:
-    kind: FaultKind; channel: Channel; raw_mv: MilliVolt; cal_gain: CalGain; epoch_ns: EpochNs
+    kind: FaultKind
+    channel: Channel
+    raw_mv: MilliVolt
+    cal_gain: CalGain
+    epoch_ns: EpochNs
+
 
 @dataclass(frozen=True, slots=True)
 class Http:
     version: Literal[1, 2]
 
+
 @dataclass(frozen=True, slots=True)
 class Cli: ...
+
 
 @dataclass(frozen=True, slots=True)
 class Msg:
     prefix: str
 
+
 class Problem(msgspec.Struct, frozen=True):
-    type_uri: str; status: int; title: str
+    type_uri: str
+    status: int
+    title: str
+
 
 class ProblemExt(Problem, frozen=True):
-    channel: Channel; epoch_ns: EpochNs
+    channel: Channel
+    epoch_ns: EpochNs
+
 
 class Exit(msgspec.Struct, frozen=True):
-    code: int; message: str
+    code: int
+    message: str
+
 
 class Envelope(msgspec.Struct, frozen=True):
-    key: str; reason: str; channel: Channel; epoch_ns: EpochNs
+    key: str
+    reason: str
+    channel: Channel
+    epoch_ns: EpochNs
+
 
 @dataclass(frozen=True, slots=True, kw_only=True)
 class _Spec:
-    uri: str; status: int; exit_code: int; title: str; key: str
+    uri: str
+    status: int
+    exit_code: int
+    title: str
+    key: str
+
 
 type Surface = Http | Cli | Msg
 type Egress = Problem | ProblemExt | Exit | Envelope
 
 _EGRESS: Final[Map[FaultKind, _Spec]] = pipe(
-    ((FaultKind.DIVERGENCE, _Spec(uri="urn:sensor:divergence", status=502, exit_code=70, title="DIVERGENCE", key="divergence")),
-     (FaultKind.SATURATION, _Spec(uri="urn:sensor:saturation", status=503, exit_code=71, title="SATURATION", key="saturation")),
-     (FaultKind.DROPOUT, _Spec(uri="urn:sensor:dropout", status=504, exit_code=72, title="DROPOUT", key="dropout"))),
-    seq.fold(lambda m, kv: m.add(kv[0], kv[1]), Map.empty()))
+    (
+        (FaultKind.DIVERGENCE, _Spec(uri="urn:sensor:divergence", status=502, exit_code=70, title="DIVERGENCE", key="divergence")),
+        (FaultKind.SATURATION, _Spec(uri="urn:sensor:saturation", status=503, exit_code=71, title="SATURATION", key="saturation")),
+        (FaultKind.DROPOUT, _Spec(uri="urn:sensor:dropout", status=504, exit_code=72, title="DROPOUT", key="dropout")),
+    ),
+    seq.fold(lambda m, kv: m.add(kv[0], kv[1]), Map.empty()),
+)
+
 
 def translate(surface: Surface, fault: Fault) -> Egress:
     s = _EGRESS[fault.kind]
     match surface:
         case Http(version=v):
             match v:
-                case 1: return Problem(s.uri, s.status, s.title)
-                case 2: return ProblemExt(s.uri, s.status, s.title, fault.channel, fault.epoch_ns)
-                case _ as uv: assert_never(uv)
-        case Cli(): return Exit(code=s.exit_code, message=s.title)
-        case Msg(prefix=pfx): return Envelope(".".join((pfx, s.key)), s.title, fault.channel, fault.epoch_ns)
-        case _ as unreachable: assert_never(unreachable)
+                case 1:
+                    return Problem(s.uri, s.status, s.title)
+                case 2:
+                    return ProblemExt(s.uri, s.status, s.title, fault.channel, fault.epoch_ns)
+                case _ as uv:
+                    assert_never(uv)
+        case Cli():
+            return Exit(code=s.exit_code, message=s.title)
+        case Msg(prefix=pfx):
+            return Envelope(".".join((pfx, s.key)), s.title, fault.channel, fault.epoch_ns)
+        case _ as unreachable:
+            assert_never(unreachable)
 ```
 
 `_EGRESS[fault.kind]` yields every protocol-specific field — URI, status, exit code, title, routing key — in one `Map` lookup with zero runtime derivation; `_Spec(kw_only=True)` prevents swap risk across its five fields and `Final` forbids rebinding. Nested `match/case` exhausts two orthogonal closed vocabularies — `Surface` via `assert_never(unreachable)` and `Literal[1, 2]` via `assert_never(uv)` — with `ProblemExt(Problem, frozen=True)` using `msgspec.Struct` inheritance to extend V2 without duplicating the base triple. Redaction is structural omission: `Fault` carries `raw_mv: MilliVolt` and `cal_gain: CalGain` but no egress type includes either field — `NewType` scalars enforce nominal distinction at zero runtime cost; `translate` is a pure function with zero inline logging (boundary observability is a trace decorator concern per decorators.md).
@@ -244,17 +344,23 @@ from typing import Final, assert_never
 
 from expression import Error, Ok, Result, effect
 
+
 @dataclass(frozen=True, slots=True)
 class State:
-    x: float; p: float
+    x: float
+    p: float
+
 
 @dataclass(frozen=True, slots=True)
 class Diverged:
-    variance: float; prior: State
+    variance: float
+    prior: State
+
 
 @dataclass(frozen=True, slots=True)
 class Rejected:
     nis: float
+
 
 type Fault = Diverged | Rejected
 
@@ -262,20 +368,23 @@ _COV_CEILING: Final[float] = 1e6
 _COV_FLOOR: Final[float] = 1e-6
 _INFLATION: Final[int] = 100
 
+
 @effect.result[State, Fault]()
 def step(f: float, q: float, h: float, r: float, chi2: float, prior: State, z: float):
-    pred = yield from Ok(State(x=f * prior.x, p=fma(f * f, prior.p, q))).filter_with(
-        lambda r: r.p < _COV_CEILING, lambda r: Diverged(r.p, prior))
+    pred = yield from Ok(State(x=f * prior.x, p=fma(f * f, prior.p, q))).filter_with(lambda r: r.p < _COV_CEILING, lambda r: Diverged(r.p, prior))
     y, S = z - h * pred.x, fma(h * h, pred.p, r)
     K, nis = pred.p * h / S, y * y / S
-    return (yield from Ok(State(x=fma(K, y, pred.x), p=(1 - K * h) * pred.p)).filter_with(
-        lambda _: nis < chi2, lambda _: Rejected(nis)))
+    return (yield from Ok(State(x=fma(K, y, pred.x), p=(1 - K * h) * pred.p)).filter_with(lambda _: nis < chi2, lambda _: Rejected(nis)))
+
 
 def compensate(fault: Fault) -> Result[State, Fault]:
     match fault:
-        case Diverged(prior=s): return Ok(State(x=s.x, p=max(s.p, _COV_FLOOR) * _INFLATION))
-        case Rejected() as terminal: return Error(terminal)
-        case _ as unreachable: assert_never(unreachable)
+        case Diverged(prior=s):
+            return Ok(State(x=s.x, p=max(s.p, _COV_FLOOR) * _INFLATION))
+        case Rejected() as terminal:
+            return Error(terminal)
+        case _ as unreachable:
+            assert_never(unreachable)
 ```
 
 Predict and update are inlined as `yield from` expressions inside the `@effect.result` generator — covariance prediction via `fma(f * f, prior.p, q)` feeds `filter_with` against `_COV_CEILING`, and the measurement-update Kalman gain/NIS computation feeds a second `filter_with` against `chi2`, with the generator widening disjoint error types (`Diverged`, `Rejected`) into `Fault` via covariant `yield from`. `step(...).or_else_with(compensate)` is the sole recovery site at the composition boundary — `compensate` eliminates `Diverged` at the value level by destructuring `prior: State` to produce an inflated-covariance reset where `max(s.p, _COV_FLOOR)` guards degenerate priors before $_\text{INFLATION}\times$ scaling, while `Rejected` passes through as `Error`, ensuring the post-recovery error space is a strict subset of the pre-recovery union. `Diverged` carries `prior: State` making it structurally recoverable; `Rejected` carries only `nis: float` making it structurally terminal — recoverability is field presence, not a boolean flag.

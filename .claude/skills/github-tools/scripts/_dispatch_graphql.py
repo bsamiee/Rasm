@@ -1,36 +1,82 @@
 # ruff: noqa: ARG005
 """GraphQL dispatch handlers for GitHub CLI discussion workflows."""
 
-from collections.abc import Callable
+from collections.abc import Callable, Mapping
 import json
-from typing import Any, Final
+from typing import Final
 
 
-type JsonValue = Any
+type JsonValue = object
 type JsonMap = dict[str, JsonValue]
-type Handler = tuple[Callable[[JsonMap], tuple[str, ...]], Callable[[str, JsonMap], JsonMap]]
+type Args = dict[str, str]
+type Handler = tuple[Callable[[Args], tuple[str, ...]], Callable[[str, Args], JsonMap]]
 
 
 def _json(output: str) -> JsonValue:
-    """Parse JSON output, returning empty dict for empty strings."""
-    return json.loads(output) if output else {}
+    """Parse JSON output, returning an empty object for empty strings.
+
+    Returns:
+        Parsed JSON value.
+    """
+    data: object = json.loads(output) if output else {}
+    return data
+
+
+def _json_map(output: str) -> JsonMap:
+    """Parse JSON output as an object.
+
+    Returns:
+        Parsed JSON object, or an empty object when output is not an object.
+    """
+    match _json(output):
+        case Mapping() as data:
+            return {str(key): value for key, value in data.items()}
+        case _:
+            return {}
+
+
+def _path(value: object, *keys: str) -> object:
+    """Project a nested JSON object path.
+
+    Returns:
+        Nested value, or an empty object when the path is absent.
+    """
+    match keys:
+        case ():
+            return value
+        case (head, *tail):
+            match value:
+                case Mapping() as data:
+                    return _path(data.get(head, {}), *tail)
+                case _:
+                    return {}
+        case _:
+            return {}
 
 
 def _repo_vars() -> tuple[str, ...]:
-    """Get GraphQL owner/repo vars for current repo."""
+    """Get GraphQL owner/repo vars for current repo.
+
+    Returns:
+        `gh api graphql` variable flags for owner and repo.
+    """
     from gh import run_command
 
     ok, out = run_command(("gh", "repo", "view", "--json=owner,name"))
-    data = _json(out) if ok else {}
-    return ("-f", f"owner={data.get('owner', {}).get('login', '')}", "-f", f"repo={data.get('name', '')}")
+    data = _json_map(out) if ok else {}
+    return ("-f", f"owner={_path(data, 'owner', 'login')}", "-f", f"repo={data.get('name', '')}")
 
 
 def _repo_id() -> str:
-    """Get repository node ID."""
+    """Get repository node ID.
+
+    Returns:
+        Repository GraphQL node ID, or an empty string.
+    """
     from gh import run_command
 
     ok, out = run_command(("gh", "repo", "view", "--json=id"))
-    return _json(out).get("id", "") if ok else ""
+    return str(_json_map(out).get("id", "")) if ok else ""
 
 
 DISCUSSION_LIST_QUERY: Final = (
@@ -65,7 +111,7 @@ GRAPHQL_CMDS: Final[dict[str, tuple[tuple[str, ...], tuple[str, ...], Handler]]]
         ("limit",),
         (
             lambda a: ("gh", "api", "graphql", "-f", DISCUSSION_LIST_QUERY, *_repo_vars(), "-F", f"limit={a.get('limit', '30')}"),
-            lambda o, a: {"discussions": _json(o).get("data", {}).get("repository", {}).get("discussions", {}).get("nodes", [])},
+            lambda o, a: {"discussions": _path(_json_map(o), "data", "repository", "discussions", "nodes")},
         ),
     ),
     "discussion-view": (
@@ -73,7 +119,7 @@ GRAPHQL_CMDS: Final[dict[str, tuple[tuple[str, ...], tuple[str, ...], Handler]]]
         (),
         (
             lambda a: ("gh", "api", "graphql", "-f", DISCUSSION_VIEW_QUERY, *_repo_vars(), "-F", f"num={a['number']}"),
-            lambda o, a: {"number": a["number"], "discussion": _json(o).get("data", {}).get("repository", {}).get("discussion", {})},
+            lambda o, a: {"number": a["number"], "discussion": _path(_json_map(o), "data", "repository", "discussion")},
         ),
     ),
     "discussion-category-list": (
@@ -81,7 +127,7 @@ GRAPHQL_CMDS: Final[dict[str, tuple[tuple[str, ...], tuple[str, ...], Handler]]]
         (),
         (
             lambda a: ("gh", "api", "graphql", "-f", DISCUSSION_CATEGORY_LIST_QUERY, *_repo_vars()),
-            lambda o, a: {"categories": _json(o).get("data", {}).get("repository", {}).get("discussionCategories", {}).get("nodes", [])},
+            lambda o, a: {"categories": _path(_json_map(o), "data", "repository", "discussionCategories", "nodes")},
         ),
     ),
     "discussion-create": (
@@ -103,7 +149,7 @@ GRAPHQL_CMDS: Final[dict[str, tuple[tuple[str, ...], tuple[str, ...], Handler]]]
                 "-f",
                 f"body={a['body']}",
             ),
-            lambda o, a: {"created": _json(o).get("data", {}).get("createDiscussion", {}).get("discussion", {})},
+            lambda o, a: {"created": _path(_json_map(o), "data", "createDiscussion", "discussion")},
         ),
     ),
     "discussion-comment": (

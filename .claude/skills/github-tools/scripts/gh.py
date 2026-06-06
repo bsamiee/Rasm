@@ -69,7 +69,11 @@ type Env = dict[str, str]
 
 # --- [FUNCTIONS] --------------------------------------------------------------
 def run_command(command: tuple[str, ...], env: Env | None = None, timeout_seconds: int = 30) -> tuple[bool, str]:
-    """Run gh command, return (success, output)."""
+    """Run gh command.
+
+    Returns:
+        Pair of command success and captured output.
+    """
     try:
         result = subprocess.run(command, capture_output=True, text=True, env=env, timeout=timeout_seconds)
     except subprocess.TimeoutExpired:
@@ -79,7 +83,11 @@ def run_command(command: tuple[str, ...], env: Env | None = None, timeout_second
 
 # --- [ENTRY_POINT] ------------------------------------------------------------
 def main() -> int:
-    """Dispatch command and print JSON output."""
+    """Dispatch command and print JSON output.
+
+    Returns:
+        Process exit code.
+    """
     all_cmds = {**CMDS, **GRAPHQL_CMDS}
     match sys.argv[1:]:
         case [cmd_name, *cmd_args] if cmd_name in all_cmds:
@@ -91,7 +99,7 @@ def main() -> int:
                 sys.stdout.write(f"Usage: gh.py {cmd_name} {usage_args}\n")
                 return 1
 
-            opts = dict(zip(all_params, cmd_args))
+            opts = {param: cmd_args[index] for index, param in enumerate(all_params) if index < len(cmd_args)}
             env = project_env() if cmd_name.startswith("project-") else None
             ok, out = run_command(builder(opts), env)
 

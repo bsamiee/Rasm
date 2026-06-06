@@ -1,24 +1,34 @@
 """Billing and hosting dispatch handlers for Hostinger API."""
 # LOC: 49
 
-from collections.abc import Callable
-from typing import Any, Final
+from collections.abc import Callable, Mapping
+from typing import Final
 
 
-type Args = dict[str, Any]
-type CmdBuilder = Callable[[Args], tuple[str, str, dict[str, Any] | None]]
-type OutputFormatter = Callable[[Any, Args], dict[str, Any]]
+type ArgValue = str | bool
+type Args = dict[str, ArgValue]
+type JsonMap = dict[str, object]
+type CmdBuilder = Callable[[Args], tuple[str, str, Mapping[str, object] | None]]
+type OutputFormatter = Callable[[JsonMap, Args], JsonMap]
 type Handler = tuple[CmdBuilder, OutputFormatter]
 
 
 # --- [FORMATTERS] -------------------------------------------------------------
 def _list_fmt(key: str) -> OutputFormatter:
-    """Create list formatter extracting array from response."""
-    return lambda response, _: {key: response if isinstance(response, list) else response.get("data", response.get(key, response))}
+    """Create list formatter extracting array from response.
+
+    Returns:
+        Formatter for list-style API responses.
+    """
+    return lambda response, _: {key: response.get("data", response.get(key, response))}
 
 
 def _action_fmt(action: str) -> OutputFormatter:
-    """Create action formatter for mutations."""
+    """Create action formatter for mutations.
+
+    Returns:
+        Formatter for mutation-style API responses.
+    """
     return lambda response, args: {"id": args.get("id"), action: "error" not in response}
 
 
@@ -26,7 +36,7 @@ def _action_fmt(action: str) -> OutputFormatter:
 BILLING_HANDLERS: Final[dict[str, Handler]] = {
     # --- BILLING ---
     "billing-catalog": (
-        lambda args: ("GET", f"/api/billing/v1/catalog{'?category=' + args['category'] if args.get('category') else ''}", None),
+        lambda args: ("GET", f"/api/billing/v1/catalog{'?category=' + str(args['category']) if args.get('category') else ''}", None),
         _list_fmt("items"),
     ),
     "billing-payment-methods": (lambda _: ("GET", "/api/billing/v1/payment-methods", None), _list_fmt("methods")),

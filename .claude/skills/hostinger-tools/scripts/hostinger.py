@@ -6,13 +6,13 @@
 """Hostinger API CLI -- polymorphic interface with zero-arg defaults."""
 
 # --- [IMPORTS] ----------------------------------------------------------------
-from collections.abc import Callable
+from collections.abc import Callable, Mapping
 from dataclasses import dataclass
 from functools import reduce
 import json
 import os
 import sys
-from typing import Any, Final
+from typing import Final
 from urllib.error import HTTPError, URLError
 from urllib.request import Request, urlopen
 
@@ -23,9 +23,11 @@ from _vps_dispatch import VPS_HANDLERS
 
 
 # --- [TYPES] ------------------------------------------------------------------
-type Args = dict[str, Any]
-type CmdBuilder = Callable[[Args], tuple[str, str, dict[str, Any] | None]]
-type OutputFormatter = Callable[[dict[str, Any], Args], dict[str, Any]]
+type ArgValue = str | bool
+type Args = dict[str, ArgValue]
+type JsonMap = dict[str, object]
+type CmdBuilder = Callable[[Args], tuple[str, str, Mapping[str, object] | None]]
+type OutputFormatter = Callable[[JsonMap, Args], JsonMap]
 type Handler = tuple[CmdBuilder, OutputFormatter]
 
 
@@ -236,8 +238,12 @@ REQUIRED: Final[dict[str, tuple[str, ...]]] = {
 
 
 # --- [FUNCTIONS] --------------------------------------------------------------
-def _api(method: str, path: str, body: dict[str, Any] | None = None) -> dict[str, Any]:
-    """Execute Hostinger API request with token auth."""
+def _api(method: str, path: str, body: Mapping[str, object] | None = None) -> JsonMap:
+    """Execute Hostinger API request with token auth.
+
+    Returns:
+        API response object, with non-object JSON wrapped under `data`.
+    """
     token = os.environ.get(DEFAULTS.token_env, "")
     url = f"{DEFAULTS.base_url}{path}"
     headers = {
@@ -246,19 +252,30 @@ def _api(method: str, path: str, body: dict[str, Any] | None = None) -> dict[str
         "User-Agent": DEFAULTS.user_agent,
         "Accept": "application/json",
     }
-    data = json.dumps(body).encode(DEFAULTS.encoding) if body else None
-    request = Request(url, data=data, headers=headers, method=method)
+    request_data = json.dumps(body).encode(DEFAULTS.encoding) if body else None
+    request = Request(url, data=request_data, headers=headers, method=method)
     try:
         with urlopen(request, timeout=DEFAULTS.timeout) as response:
-            return json.loads(response.read().decode(DEFAULTS.encoding)) if response.status == 200 else {}
+            if response.status != 200:
+                return {}
+            payload: object = json.loads(response.read().decode(DEFAULTS.encoding))
+            match payload:
+                case Mapping() as payload_data:
+                    return {str(key): value for key, value in payload_data.items()}
+                case _:
+                    return {"data": payload}
     except HTTPError as error:
         return {"error": error.reason, "code": error.code, "body": error.read().decode(DEFAULTS.encoding)}
     except URLError as error:
         return {"error": str(error.reason), "code": None, "body": ""}
 
 
-def _usage_error(message: str, command: str | None = None) -> dict[str, Any]:
-    """Generate usage error with correct syntax."""
+def _usage_error(message: str, command: str | None = None) -> JsonMap:
+    """Generate usage error with correct syntax.
+
+    Returns:
+        JSON error envelope.
+    """
     lines = (
         (
             f"[ERROR] {message}",
@@ -290,7 +307,11 @@ def _validate_args(command: str, args: Args) -> tuple[str, ...]:
 
 
 def _normalize_key(raw: str) -> str:
-    """Normalize a CLI flag key, handling --from/--to date aliases."""
+    """Normalize a CLI flag key, handling --from/--to date aliases.
+
+    Returns:
+        Normalized argument key.
+    """
     key = raw.replace("-", "_")
     return "from_date" if key == "from" else "to_date" if key == "to" else key
 
@@ -299,15 +320,23 @@ def _normalize_key(raw: str) -> str:
 class _ParseState:
     """Immutable accumulator for CLI flag parsing."""
 
-    opts: dict[str, Any]
+    opts: Args
     skip_next: bool
 
 
 def _parse_flags(args: tuple[str, ...]) -> Args:
-    """Parse CLI flags into args dict via functional fold."""
+    """Parse CLI flags into an args object via functional fold.
+
+    Returns:
+        Parsed argument map.
+    """
 
     def _fold(state: _ParseState, indexed: tuple[int, str]) -> _ParseState:
-        """Process a single argument, accumulating into immutable state."""
+        """Process a single argument, accumulating into immutable state.
+
+        Returns:
+            Updated parse state.
+        """
         index, arg = indexed
         match (state.skip_next, arg.startswith("--")):
             case (True, _):
@@ -326,7 +355,11 @@ def _parse_flags(args: tuple[str, ...]) -> Args:
 
 # --- [ENTRY_POINT] ------------------------------------------------------------
 def main() -> int:
-    """CLI entry point -- zero-arg defaults with optional args."""
+    """CLI entry point -- zero-arg defaults with optional args.
+
+    Returns:
+        Process exit code.
+    """
     handlers = {**VPS_HANDLERS, **DOCKER_HANDLERS, **SNAPSHOT_HANDLERS, **DNS_HANDLERS, **BILLING_HANDLERS}
 
     match sys.argv[1:]:

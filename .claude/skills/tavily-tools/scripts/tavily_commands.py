@@ -1,13 +1,23 @@
 """Command implementations for Tavily CLI."""
 # LOC: 120
 
-from collections.abc import Callable
-from typing import Any, Final
+from typing import Final, Protocol
 
 
-type JsonValue = Any
-type JsonMap = dict[str, JsonValue]
-type PostFn = Callable[..., JsonMap]
+type JsonMap = dict[str, object]
+
+
+class PostFn(Protocol):
+    """HTTP POST boundary used by Tavily command rows."""
+
+    def __call__(self, path: str, body: JsonMap, timeout: int = 120) -> JsonMap:
+        """Send one Tavily request.
+
+        Returns:
+            JSON object returned by Tavily.
+        """
+        ...
+
 
 DEFAULTS: Final[JsonMap] = {
     "topic": "general",
@@ -24,13 +34,21 @@ DEFAULTS: Final[JsonMap] = {
 
 # --- [FUNCTIONS] --------------------------------------------------------------
 def _split(value: str) -> list[str]:
-    """Split comma-separated string, strip whitespace, filter empty."""
+    """Split comma-separated string, strip whitespace, filter empty.
+
+    Returns:
+        Non-empty comma-separated segments.
+    """
     return [segment.strip() for segment in value.split(",") if segment.strip()] if value else []
 
 
 # --- [COMMANDS] ---------------------------------------------------------------
 def search(opts: JsonMap, post_fn: PostFn) -> JsonMap:
-    """Web search with AI-powered results."""
+    """Web search with AI-powered results.
+
+    Returns:
+        Search result envelope.
+    """
     body: JsonMap = {
         "query": opts["query"],
         "topic": opts.get("topic") or DEFAULTS["topic"],
@@ -40,8 +58,8 @@ def search(opts: JsonMap, post_fn: PostFn) -> JsonMap:
         "include_image_descriptions": opts.get("include_image_descriptions", False),
         "include_raw_content": opts.get("include_raw_content", False),
         "include_favicon": opts.get("include_favicon", False),
-        **({"include_domains": _split(opts["include_domains"])} if opts.get("include_domains") else {}),
-        **({"exclude_domains": _split(opts["exclude_domains"])} if opts.get("exclude_domains") else {}),
+        **({"include_domains": _split(str(opts["include_domains"]))} if opts.get("include_domains") else {}),
+        **({"exclude_domains": _split(str(opts["exclude_domains"]))} if opts.get("exclude_domains") else {}),
         **{key: opts[key] for key in ("time_range", "days", "country", "start_date", "end_date") if opts.get(key)},
     }
     response = post_fn("/search", body)
@@ -55,8 +73,12 @@ def search(opts: JsonMap, post_fn: PostFn) -> JsonMap:
 
 
 def extract(opts: JsonMap, post_fn: PostFn) -> JsonMap:
-    """Extract content from URLs."""
-    url_list = _split(opts["urls"])
+    """Extract content from URLs.
+
+    Returns:
+        Extraction result envelope.
+    """
+    url_list = _split(str(opts["urls"]))
     body = {
         "urls": url_list,
         "extract_depth": opts.get("extract_depth") or DEFAULTS["extract_depth"],
@@ -69,7 +91,11 @@ def extract(opts: JsonMap, post_fn: PostFn) -> JsonMap:
 
 
 def crawl(opts: JsonMap, post_fn: PostFn) -> JsonMap:
-    """Crawl website from base URL."""
+    """Crawl website from base URL.
+
+    Returns:
+        Crawl result envelope.
+    """
     body: JsonMap = {
         "url": opts["url"],
         "max_depth": opts.get("max_depth") or DEFAULTS["max_depth"],
@@ -79,34 +105,44 @@ def crawl(opts: JsonMap, post_fn: PostFn) -> JsonMap:
         "format": opts.get("format") or DEFAULTS["format"],
         "allow_external": opts.get("allow_external", False),
         "include_favicon": opts.get("include_favicon", False),
-        **({"select_paths": _split(opts["select_paths"])} if opts.get("select_paths") else {}),
-        **({"select_domains": _split(opts["select_domains"])} if opts.get("select_domains") else {}),
+        **({"select_paths": _split(str(opts["select_paths"]))} if opts.get("select_paths") else {}),
+        **({"select_domains": _split(str(opts["select_domains"]))} if opts.get("select_domains") else {}),
         **({"instructions": opts["instructions"]} if opts.get("instructions") else {}),
     }
     response = post_fn("/crawl", body)
     results = response.get("results", [])
-    return {"status": "success", "base_url": opts["url"], "results": results, "urls_crawled": len(results)}
+    crawled = len(results) if isinstance(results, list) else 0
+    return {"status": "success", "base_url": opts["url"], "results": results, "urls_crawled": crawled}
 
 
 def map_site(opts: JsonMap, post_fn: PostFn) -> JsonMap:
-    """Map website structure."""
+    """Map website structure.
+
+    Returns:
+        Site-map result envelope.
+    """
     body: JsonMap = {
         "url": opts["url"],
         "max_depth": opts.get("max_depth") or DEFAULTS["max_depth"],
         "max_breadth": opts.get("max_breadth") or DEFAULTS["max_breadth"],
         "limit": opts.get("limit") or DEFAULTS["limit"],
         "allow_external": opts.get("allow_external", False),
-        **({"select_paths": _split(opts["select_paths"])} if opts.get("select_paths") else {}),
-        **({"select_domains": _split(opts["select_domains"])} if opts.get("select_domains") else {}),
+        **({"select_paths": _split(str(opts["select_paths"]))} if opts.get("select_paths") else {}),
+        **({"select_domains": _split(str(opts["select_domains"]))} if opts.get("select_domains") else {}),
         **({"instructions": opts["instructions"]} if opts.get("instructions") else {}),
     }
     response = post_fn("/map", body)
     urls = response.get("urls", [])
-    return {"status": "success", "base_url": opts["url"], "urls": urls, "total_mapped": len(urls)}
+    mapped = len(urls) if isinstance(urls, list) else 0
+    return {"status": "success", "base_url": opts["url"], "urls": urls, "total_mapped": mapped}
 
 
 def research(opts: JsonMap, post_fn: PostFn) -> JsonMap:
-    """Multi-step deep research with structured report."""
+    """Multi-step deep research with structured report.
+
+    Returns:
+        Research result envelope.
+    """
     body: JsonMap = {"query": opts["query"], "model": opts.get("model") or DEFAULTS["model"]}
     response = post_fn("/research", body, timeout=300)
     return {

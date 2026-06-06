@@ -1,5 +1,4 @@
 """Configure Assay import-time logging, tracing, and beartype checks."""
-
 # ruff: noqa: RUF067, E402  # executable boundary: the claw gate runs before Assay imports.
 
 # --- [COMPOSITION] ----------------------------------------------------------------------

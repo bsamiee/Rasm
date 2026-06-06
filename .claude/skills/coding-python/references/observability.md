@@ -21,18 +21,15 @@ from opentelemetry import trace
 from opentelemetry.trace import StatusCode
 from expression import Error, Ok, Result
 from structlog.contextvars import merge_contextvars
-from structlog.processors import (
-    CallsiteParameter, CallsiteParameterAdder, TimeStamper, add_log_level,
-)
+from structlog.processors import CallsiteParameter, CallsiteParameterAdder, TimeStamper, add_log_level
 from structlog.stdlib import BoundLogger, LoggerFactory, ProcessorFormatter
 
 # --- [CODE] -------------------------------------------------------------------
 
 _correlation_id: ContextVar[str] = ContextVar("correlation_id", default="none")
 
-def _record_outcome[R](
-    span: trace.Span, log: BoundLogger, name: str, result: Result[R, Exception],
-) -> None:
+
+def _record_outcome[R](span: trace.Span, log: BoundLogger, name: str, result: Result[R, Exception]) -> None:
     match result:
         case Ok(_):
             span.set_status(StatusCode.OK)
@@ -42,11 +39,11 @@ def _record_outcome[R](
             span.set_status(StatusCode.ERROR, str(error))
             log.error("op_failure", operation=name, error_type=type(error).__name__)
 
-def instrument[**P, R](
-    func: Callable[P, Result[R, Exception]],
-) -> Callable[P, Result[R, Exception]]:
+
+def instrument[**P, R](func: Callable[P, Result[R, Exception]]) -> Callable[P, Result[R, Exception]]:
     """Fused observability: span + structured log + outcome projection."""
     operation: str = f"{func.__module__}.{func.__qualname__}"
+
     @wraps(func)
     def wrapper(*args: P.args, **kwargs: P.kwargs) -> Result[R, Exception]:
         tracer: trace.Tracer = trace.get_tracer("pinnacle.observability")
@@ -56,38 +53,32 @@ def instrument[**P, R](
             result: Result[R, Exception] = func(*args, **kwargs)
             _record_outcome(span, log, operation, result)
             return result
+
     return wrapper
 
-def _inject_trace_identifiers(
-    _logger: object, _method_name: str, event_dict: dict[str, object],
-) -> dict[str, object]:
+
+def _inject_trace_identifiers(_logger: object, _method_name: str, event_dict: dict[str, object]) -> dict[str, object]:
     """Inject OTel trace/span IDs + correlation ID."""
     ctx: trace.SpanContext = trace.get_current_span().get_span_context()
     return {
-        **event_dict, "correlation_id": _correlation_id.get(),
-        **({"trace_id": format(ctx.trace_id, "032x"),
-            "span_id": format(ctx.span_id, "016x")} if ctx.is_valid else {}),
+        **event_dict,
+        "correlation_id": _correlation_id.get(),
+        **({"trace_id": format(ctx.trace_id, "032x"), "span_id": format(ctx.span_id, "016x")} if ctx.is_valid else {}),
     }
+
 
 def configure_structlog() -> None:
     processors: tuple[Processor, ...] = (
         merge_contextvars,
-        CallsiteParameterAdder(
-            {CallsiteParameter.MODULE, CallsiteParameter.FUNC_NAME, CallsiteParameter.LINENO},
-        ),
+        CallsiteParameterAdder({CallsiteParameter.MODULE, CallsiteParameter.FUNC_NAME, CallsiteParameter.LINENO}),
         add_log_level,
         TimeStamper(fmt="iso", utc=True),
         _inject_trace_identifiers,
         ProcessorFormatter.wrap_for_formatter,
     )
-    structlog.configure(
-        processors=processors, logger_factory=LoggerFactory(),
-        wrapper_class=BoundLogger, cache_logger_on_first_use=True,
-    )
+    structlog.configure(processors=processors, logger_factory=LoggerFactory(), wrapper_class=BoundLogger, cache_logger_on_first_use=True)
     handler: logging.StreamHandler = logging.StreamHandler()
-    handler.setFormatter(ProcessorFormatter(
-        processor=structlog.processors.JSONRenderer(),
-    ))
+    handler.setFormatter(ProcessorFormatter(processor=structlog.processors.JSONRenderer()))
     root: logging.Logger = logging.getLogger()  # noqa: TID251 -- bootstrap wires stdlib root
     root.handlers = [handler]
     root.setLevel(logging.INFO)
@@ -129,9 +120,11 @@ from structlog.contextvars import bind_contextvars, bound_contextvars, clear_con
 
 _correlation_id: ContextVar[str] = ContextVar("correlation_id", default="none")
 
+
 def set_correlation_id(value: str) -> None:
     """Thread correlation ID into ContextVar for downstream log injection."""
     _correlation_id.set(value)
+
 
 async def handle_request(request_id: str, tasks: tuple[str, ...]) -> None:
     """Bind context at entry; child tasks inherit; scoped binds for sub-ops."""
@@ -144,6 +137,7 @@ async def handle_request(request_id: str, tasks: tuple[str, ...]) -> None:
         for name in tasks:
             task_group.start_soon(_process_task, name)
     clear_contextvars()
+
 
 async def _process_task(task_name: str) -> None:
     with bound_contextvars(task_name=task_name):
@@ -183,13 +177,10 @@ from opentelemetry.sdk.trace.export import BatchSpanProcessor, ConsoleSpanExport
 
 # --- [FUNCTIONS] --------------------------------------------------------------
 
-def bootstrap_telemetry(
-    service_name: str, service_version: str = "0.0.0",
-) -> tuple[TracerProvider, LoggerProvider]:
+
+def bootstrap_telemetry(service_name: str, service_version: str = "0.0.0") -> tuple[TracerProvider, LoggerProvider]:
     """Wire OTel TracerProvider + LoggerProvider + structlog processor chain."""
-    resource: Resource = Resource.create({
-        "service.name": service_name, "service.version": service_version,
-    })
+    resource: Resource = Resource.create({"service.name": service_name, "service.version": service_version})
     trace_provider: TracerProvider = TracerProvider(resource=resource)
     trace_provider.add_span_processor(BatchSpanProcessor(ConsoleSpanExporter()))
     trace.set_tracer_provider(trace_provider)
@@ -198,7 +189,7 @@ def bootstrap_telemetry(
     log_provider.add_log_record_processor(BatchLogRecordProcessor(InMemoryLogRecordExporter()))
     set_logger_provider(log_provider)
     logging.getLogger().addHandler(  # noqa: TID251 -- OTel handler must attach to stdlib root
-        LoggingHandler(level=logging.NOTSET, logger_provider=log_provider),
+        LoggingHandler(level=logging.NOTSET, logger_provider=log_provider)
     )
     LoggingInstrumentor().instrument(set_logging_format=False)
     configure_structlog()
@@ -233,23 +224,19 @@ from expression import Error, Ok, Result
 
 _meter: metrics.Meter = metrics.get_meter("pinnacle.service")
 _request_counter: metrics.Counter = _meter.create_counter(
-    name="service.requests.total", unit="requests",
-    description="Total request outcomes by operation and status.",
+    name="service.requests.total", unit="requests", description="Total request outcomes by operation and status."
 )
 _error_counter: metrics.Counter = _meter.create_counter(
-    name="service.errors.total", unit="errors",
-    description="Total error outcomes by operation and error type.",
+    name="service.errors.total", unit="errors", description="Total error outcomes by operation and error type."
 )
 _duration_histogram: metrics.Histogram = _meter.create_histogram(
-    name="service.request.duration", unit="s",
-    description="Request duration in seconds.",
+    name="service.request.duration", unit="s", description="Request duration in seconds."
 )
 
 # --- [FUNCTIONS] --------------------------------------------------------------
 
-def _record_outcome_with_metrics[R](
-    span: trace.Span, name: str, result: Result[R, Exception], elapsed: float,
-) -> None:
+
+def _record_outcome_with_metrics[R](span: trace.Span, name: str, result: Result[R, Exception], elapsed: float) -> None:
     _request_counter.add(1, {"operation": name, "outcome": "total"})
     _duration_histogram.record(elapsed, {"operation": name})
     match result:
@@ -261,11 +248,11 @@ def _record_outcome_with_metrics[R](
             span.set_status(StatusCode.ERROR, str(error))
             _error_counter.add(1, {"operation": name, "error_type": type(error).__name__})
 
-def instrument_with_metrics[**P, R](
-    func: Callable[P, Result[R, Exception]],
-) -> Callable[P, Result[R, Exception]]:
+
+def instrument_with_metrics[**P, R](func: Callable[P, Result[R, Exception]]) -> Callable[P, Result[R, Exception]]:
     """Fused: span + RED metrics projected from Result outcome."""
     operation: str = f"{func.__module__}.{func.__qualname__}"
+
     @wraps(func)
     def wrapper(*args: P.args, **kwargs: P.kwargs) -> Result[R, Exception]:
         tracer: trace.Tracer = trace.get_tracer("pinnacle.observability")
@@ -275,6 +262,7 @@ def instrument_with_metrics[**P, R](
             elapsed: float = time.monotonic() - start
             _record_outcome_with_metrics(span, operation, result, elapsed)
             return result
+
     return wrapper
 ```
 

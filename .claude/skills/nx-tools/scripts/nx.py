@@ -21,7 +21,7 @@ import json
 import os
 import subprocess
 import sys
-from typing import Any, Final
+from typing import Final
 
 
 # --- [CONSTANTS] --------------------------------------------------------------
@@ -30,23 +30,9 @@ GRAPH_OUTPUT: Final = ".nx/graph.json"
 HELP: Final = __doc__ or ""
 
 # --- [TYPES] ------------------------------------------------------------------
-type JsonValue = Any
-type JsonMap = dict[str, JsonValue]
-type CommandEntry = tuple[Callable[..., JsonMap], int]
+type JsonMap = dict[str, object]
+type CommandEntry = tuple[Callable[[tuple[str, ...]], JsonMap], int]
 type CommandRegistry = dict[str, CommandEntry]
-
-# --- [DISPATCH] ---------------------------------------------------------------
-CMDS: Final[CommandRegistry] = {}
-
-
-def cmd(name: str, argc: int) -> Callable[[Callable[..., JsonMap]], Callable[..., JsonMap]]:
-    """Register command with required argument count."""
-
-    def register(fn: Callable[..., JsonMap]) -> Callable[..., JsonMap]:
-        CMDS[name] = (fn, argc)
-        return fn
-
-    return register
 
 
 # --- [FUNCTIONS] --------------------------------------------------------------
@@ -64,90 +50,135 @@ def _run(*args: str) -> tuple[bool, str]:
     return result.returncode == 0, (result.stdout or result.stderr).strip()
 
 
-def _parse_or_error(ok: bool, out: str, success_fn: Callable[[JsonValue], JsonMap]) -> JsonMap:
-    """Parse JSON output on success, return error dict on failure.
+def _parse_or_error(ok: bool, out: str, success_fn: Callable[[object], JsonMap]) -> JsonMap:
+    """Parse JSON output on success, return an error object on failure.
 
     Args:
         ok: Whether the command succeeded.
         out: Raw command output.
-        success_fn: Function to build success dict from parsed JSON.
+        success_fn: Function to build success object from parsed JSON.
 
     Returns:
-        Success dict via success_fn or error dict.
+        Success object via success_fn or error object.
     """
     return success_fn(json.loads(out)) if ok else {"status": "error", "message": out}
 
 
 # --- [COMMANDS] ---------------------------------------------------------------
-@cmd("workspace", 0)
 def workspace() -> JsonMap:
-    """List all projects in workspace."""
+    """List all projects in workspace.
+
+    Returns:
+        Workspace project envelope.
+    """
     ok, out = _run("show", "projects", "--json")
     return _parse_or_error(ok, out, lambda data: {"status": "success", "projects": data})
 
 
-@cmd("path", 0)
 def path() -> JsonMap:
-    """Get workspace root path."""
+    """Get workspace root path.
+
+    Returns:
+        Workspace path envelope.
+    """
     workspace_path = os.environ.get("CLAUDE_PROJECT_DIR", os.getcwd())
     return {"status": "success", "path": workspace_path}
 
 
-@cmd("generators", 0)
 def generators() -> JsonMap:
-    """List available generators."""
+    """List available generators.
+
+    Returns:
+        Generator listing envelope.
+    """
     ok, out = _run("list")
     return {"status": "success", "generators": out} if ok else {"status": "error", "message": out}
 
 
-@cmd("project", 1)
 def project(name: str) -> JsonMap:
-    """View project configuration."""
+    """View project configuration.
+
+    Returns:
+        Project configuration envelope.
+    """
     ok, out = _run("show", "project", name, "--json")
     return _parse_or_error(ok, out, lambda data: {"status": "success", "name": name, "project": data})
 
 
-@cmd("run", 1)
 def run(target: str) -> JsonMap:
-    """Run target across projects."""
+    """Run target across projects.
+
+    Returns:
+        Target run envelope.
+    """
     ok, out = _run("run-many", "-t", target)
     return {"status": "success", "target": target, "output": out} if ok else {"status": "error", "message": out}
 
 
-@cmd("schema", 1)
 def schema(generator: str) -> JsonMap:
-    """View generator schema."""
+    """View generator schema.
+
+    Returns:
+        Generator schema envelope.
+    """
     ok, out = _run("g", generator, "--help")
     return {"status": "success", "generator": generator, "schema": out} if ok else {"status": "error", "message": out}
 
 
-@cmd("affected", 0)
 def affected(base: str = "") -> JsonMap:
-    """List affected projects."""
+    """List affected projects.
+
+    Returns:
+        Affected project envelope.
+    """
     branch = base or BASE_BRANCH
     ok, out = _run("show", "projects", "--affected", f"--base={branch}", "--json")
     return _parse_or_error(ok, out, lambda data: {"status": "success", "base": branch, "affected": data})
 
 
-@cmd("graph", 0)
 def graph(output: str = "") -> JsonMap:
-    """Generate dependency graph."""
+    """Generate dependency graph.
+
+    Returns:
+        Graph generation envelope.
+    """
     output_path = output or GRAPH_OUTPUT
     ok, out = _run("graph", f"--file={output_path}")
     return {"status": "success", "file": output_path} if ok else {"status": "error", "message": out}
 
 
-@cmd("docs", 0)
 def docs(topic: str = "") -> JsonMap:
-    """View Nx command documentation."""
+    """View Nx command documentation.
+
+    Returns:
+        Documentation envelope.
+    """
     args = (topic, "--help") if topic else ("--help",)
     ok, out = _run(*args)
     return {"status": "success", "topic": topic or "general", "docs": out} if ok else {"status": "error", "message": out}
 
 
+# --- [DISPATCH] ---------------------------------------------------------------
+CMDS: Final[CommandRegistry] = {
+    "workspace": (lambda _: workspace(), 0),
+    "path": (lambda _: path(), 0),
+    "generators": (lambda _: generators(), 0),
+    "project": (lambda args: project(args[0]), 1),
+    "run": (lambda args: run(args[0]), 1),
+    "schema": (lambda args: schema(args[0]), 1),
+    "affected": (lambda args: affected(args[0] if args else ""), 0),
+    "graph": (lambda args: graph(args[0] if args else ""), 0),
+    "docs": (lambda args: docs(args[0] if args else ""), 0),
+}
+
+
 # --- [ENTRY_POINT] ------------------------------------------------------------
 def main() -> int:
-    """Dispatch command and print JSON output."""
+    """Dispatch command and print JSON output.
+
+    Returns:
+        Process exit code.
+    """
     match sys.argv[1:]:
         case [cmd_name, *cmd_args] if entry := CMDS.get(cmd_name):
             fn, argc = entry
@@ -157,7 +188,7 @@ def main() -> int:
                     return 1
                 case _:
                     try:
-                        result = fn(*cmd_args[: argc + 1])
+                        result = fn(tuple(cmd_args[: argc + 1]))
                         sys.stdout.write(json.dumps(result, indent=2) + "\n")
                         return 0 if result["status"] == "success" else 1
                     except json.JSONDecodeError as error:

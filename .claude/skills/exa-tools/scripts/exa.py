@@ -12,11 +12,11 @@ Commands:
     answer <query>                AI-generated answer with citations
 """
 
-from collections.abc import Callable
+from collections.abc import Callable, Mapping
 import json
 import os
 import sys
-from typing import Any, Final
+from typing import Final
 
 import httpx
 
@@ -31,46 +31,46 @@ VALID_TYPES: Final = frozenset({"auto", "neural", "keyword", "fast", "deep"})
 HELP: Final = __doc__ or ""
 
 # --- [TYPES] ------------------------------------------------------------------
-type JsonValue = Any
-type JsonMap = dict[str, JsonValue]
-type CommandEntry = tuple[Callable[..., JsonMap], int]
+type JsonMap = dict[str, object]
+type CommandEntry = tuple[Callable[[tuple[str, ...]], JsonMap], int]
 type CommandRegistry = dict[str, CommandEntry]
-
-# --- [DISPATCH] ---------------------------------------------------------------
-CMDS: Final[CommandRegistry] = {}
-
-
-def cmd(name: str, argc: int) -> Callable[[Callable[..., JsonMap]], Callable[..., JsonMap]]:
-    """Register command with required argument count."""
-
-    def register(fn: Callable[..., JsonMap]) -> Callable[..., JsonMap]:
-        CMDS[name] = (fn, argc)
-        return fn
-
-    return register
 
 
 # --- [FUNCTIONS] --------------------------------------------------------------
 def _post(path: str, body: JsonMap, timeout: int = TIMEOUT) -> JsonMap:
-    """POST JSON with API key auth."""
+    """POST JSON with API key auth.
+
+    Returns:
+        JSON object returned by the Exa API.
+    """
     headers = {"x-api-key": os.environ.get(KEY_ENV, ""), "Content-Type": "application/json"}
     with httpx.Client(timeout=timeout) as client:
         response = client.post(f"{BASE}{path}", headers=headers, json=body)
         response.raise_for_status()
-        data: JsonMap = response.json()
-        return data
+        match response.json():
+            case Mapping() as data:
+                return {str(key): value for key, value in data.items()}
+            case _:
+                return {}
 
 
 def _search_body(query: str, num: int, type_: str, category: str | None = None) -> JsonMap:
-    """Build search request body."""
+    """Build search request body.
+
+    Returns:
+        Request JSON body.
+    """
     body: JsonMap = {"query": query, "numResults": num, "type": type_, "contents": {"text": True}}
     return {**body, "category": category} if category else body
 
 
 # --- [COMMANDS] ---------------------------------------------------------------
-@cmd("search", 1)
 def search(query: str, type_: str = "auto", num: str = "8") -> JsonMap:
-    """Web search with text content retrieval."""
+    """Web search with text content retrieval.
+
+    Returns:
+        Search result envelope.
+    """
     match type_:
         case t if t in VALID_TYPES:
             data = _post("/search", _search_body(query, int(num), t))
@@ -79,32 +79,54 @@ def search(query: str, type_: str = "auto", num: str = "8") -> JsonMap:
             return {"status": "error", "message": f"Invalid type '{invalid}'. Use: {', '.join(sorted(VALID_TYPES))}"}
 
 
-@cmd("code", 1)
 def code(query: str, num: str = "10") -> JsonMap:
-    """Code context search via GitHub category."""
+    """Code context search via GitHub category.
+
+    Returns:
+        Code search result envelope.
+    """
     data = _post("/search", _search_body(query, int(num), "auto", "github"))
     return {"status": "success", "query": query, "context": data.get("results", [])}
 
 
-@cmd("find-similar", 1)
 def find_similar(url: str, num: str = "10") -> JsonMap:
-    """Find pages similar in meaning to the given URL."""
-    body = {"url": url, "numResults": int(num), "contents": {"text": True}}
+    """Find pages similar in meaning to the given URL.
+
+    Returns:
+        Similar-page result envelope.
+    """
+    body: JsonMap = {"url": url, "numResults": int(num), "contents": {"text": True}}
     data = _post("/findSimilar", body)
     return {"status": "success", "url": url, "results": data.get("results", [])}
 
 
-@cmd("answer", 1)
 def answer(query: str) -> JsonMap:
-    """AI-generated answer with web sources."""
-    body = {"query": query, "text": True}
+    """AI-generated answer with web sources.
+
+    Returns:
+        Answer result envelope.
+    """
+    body: JsonMap = {"query": query, "text": True}
     data = _post("/answer", body, TIMEOUT_ANSWER)
     return {"status": "success", "query": query, "answer": data.get("answer", ""), "sources": data.get("results", [])}
 
 
+# --- [DISPATCH] ---------------------------------------------------------------
+CMDS: Final[CommandRegistry] = {
+    "search": (lambda args: search(args[0], args[1] if len(args) > 1 else "auto", args[2] if len(args) > 2 else "8"), 1),
+    "code": (lambda args: code(args[0], args[1] if len(args) > 1 else "10"), 1),
+    "find-similar": (lambda args: find_similar(args[0], args[1] if len(args) > 1 else "10"), 1),
+    "answer": (lambda args: answer(args[0]), 1),
+}
+
+
 # --- [ENTRY_POINT] ------------------------------------------------------------
 def main() -> int:
-    """Dispatch command and print JSON output."""
+    """Dispatch command and print JSON output.
+
+    Returns:
+        Process exit code.
+    """
     match sys.argv[1:]:
         case [cmd_name, *cmd_args] if entry := CMDS.get(cmd_name):
             fn, argc = entry
@@ -114,7 +136,7 @@ def main() -> int:
                     return 1
                 case _:
                     try:
-                        result = fn(*cmd_args[: argc + 2])
+                        result = fn(tuple(cmd_args[: argc + 2]))
                         sys.stdout.write(json.dumps(result, indent=2) + "\n")
                         return 0 if result["status"] == "success" else 1
                     except httpx.HTTPStatusError as error:

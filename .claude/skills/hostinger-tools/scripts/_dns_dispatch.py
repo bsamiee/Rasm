@@ -1,30 +1,44 @@
 """DNS and domain dispatch handlers for Hostinger API."""
 # LOC: 82
 
-from collections.abc import Callable
+from collections.abc import Callable, Mapping
 import json
-from typing import Any, Final
+from typing import Final
 
 
-type Args = dict[str, Any]
-type CmdBuilder = Callable[[Args], tuple[str, str, dict[str, Any] | None]]
-type OutputFormatter = Callable[[Any, Args], dict[str, Any]]
+type ArgValue = str | bool
+type Args = dict[str, ArgValue]
+type JsonMap = dict[str, object]
+type CmdBuilder = Callable[[Args], tuple[str, str, Mapping[str, object] | None]]
+type OutputFormatter = Callable[[JsonMap, Args], JsonMap]
 type Handler = tuple[CmdBuilder, OutputFormatter]
 
 
 # --- [FORMATTERS] -------------------------------------------------------------
 def _list_fmt(key: str) -> OutputFormatter:
-    """Create list formatter extracting array from response."""
-    return lambda response, _: {key: response if isinstance(response, list) else response.get("data", response.get(key, response))}
+    """Create list formatter extracting array from response.
+
+    Returns:
+        Formatter for list-style API responses.
+    """
+    return lambda response, _: {key: response.get("data", response.get(key, response))}
 
 
 def _item_fmt(key: str) -> OutputFormatter:
-    """Create item formatter for single resource."""
+    """Create item formatter for single resource.
+
+    Returns:
+        Formatter for single-resource API responses.
+    """
     return lambda response, args: {"id": args.get("id"), key: response}
 
 
 def _action_fmt(action: str) -> OutputFormatter:
-    """Create action formatter for mutations."""
+    """Create action formatter for mutations.
+
+    Returns:
+        Formatter for mutation-style API responses.
+    """
     return lambda response, args: {"id": args.get("id"), action: "error" not in response}
 
 
@@ -33,11 +47,11 @@ DNS_HANDLERS: Final[dict[str, Handler]] = {
     # --- DNS ---
     "dns-records": (
         lambda args: ("GET", f"/api/dns/v1/zones/{args['domain']}", None),
-        lambda response, args: {"domain": args["domain"], "records": response if isinstance(response, list) else response.get("zone", response)},
+        lambda response, args: {"domain": args["domain"], "records": response.get("zone", response)},
     ),
     "dns-snapshots": (
         lambda args: ("GET", f"/api/dns/v1/snapshots/{args['domain']}", None),
-        lambda response, args: {"domain": args["domain"], "snapshots": response if isinstance(response, list) else response.get("data", response)},
+        lambda response, args: {"domain": args["domain"], "snapshots": response.get("data", response)},
     ),
     # --- DOMAINS ---
     "domain-list": (lambda _: ("GET", "/api/domains/v1/portfolio", None), _list_fmt("domains")),
@@ -47,10 +61,7 @@ DNS_HANDLERS: Final[dict[str, Handler]] = {
     ),
     "domain-check": (
         lambda args: ("POST", "/api/domains/v1/availability", {"domain": args["domain"], "tlds": str(args["tlds"]).split(",")}),
-        lambda response, args: {
-            "domain": args["domain"],
-            "availability": response if isinstance(response, list) else response.get("results", response),
-        },
+        lambda response, args: {"domain": args["domain"], "availability": response.get("results", response)},
     ),
     # --- DOMAIN_EXTENDED ---
     "domain-lock-enable": (
@@ -99,7 +110,10 @@ DNS_HANDLERS: Final[dict[str, Handler]] = {
         lambda response, args: {"domain": args["domain"], "nameservers_set": "error" not in str(response)},
     ),
     # --- WHOIS ---
-    "whois-list": (lambda args: ("GET", f"/api/domains/v1/whois{'?tld=' + args['tld'] if args.get('tld') else ''}", None), _list_fmt("profiles")),
+    "whois-list": (
+        lambda args: ("GET", f"/api/domains/v1/whois{'?tld=' + str(args['tld']) if args.get('tld') else ''}", None),
+        _list_fmt("profiles"),
+    ),
     "whois-view": (lambda args: ("GET", f"/api/domains/v1/whois/{args['id']}", None), _item_fmt("profile")),
     "whois-create": (
         lambda args: (
@@ -117,6 +131,6 @@ DNS_HANDLERS: Final[dict[str, Handler]] = {
     "whois-delete": (lambda args: ("DELETE", f"/api/domains/v1/whois/{args['id']}", None), _action_fmt("deleted")),
     "whois-usage": (
         lambda args: ("GET", f"/api/domains/v1/whois/{args['id']}/usage", None),
-        lambda response, args: {"id": args["id"], "domains": response if isinstance(response, list) else response.get("domains", response)},
+        lambda response, args: {"id": args["id"], "domains": response.get("domains", response)},
     ),
 }

@@ -14,13 +14,19 @@ Commands:
 """
 # LOC: 191
 
-from collections.abc import Callable
+from __future__ import annotations
+
+from collections.abc import Mapping
 from dataclasses import dataclass
 from functools import reduce
 import json
 import os
 import sys
-from typing import Any, Final
+from typing import Final, Protocol, TYPE_CHECKING
+
+
+if TYPE_CHECKING:
+    from collections.abc import Callable
 
 import httpx
 from tavily_commands import crawl, extract, map_site, research, search
@@ -31,9 +37,20 @@ BASE: Final = "https://api.tavily.com"
 KEY_ENV: Final = "TAVILY_API_KEY"
 TIMEOUT: Final = 120
 HELP: Final = __doc__ or ""
-type JsonValue = Any
-type JsonMap = dict[str, JsonValue]
-type PostFn = Callable[..., JsonMap]
+type JsonMap = dict[str, object]
+
+
+class PostFn(Protocol):
+    """HTTP POST boundary used by Tavily command rows."""
+
+    def __call__(self, path: str, body: JsonMap, timeout: int = TIMEOUT) -> JsonMap:
+        """Send one Tavily request.
+
+        Returns:
+            JSON object returned by Tavily.
+        """
+        ...
+
 
 BOOL_FLAGS: Final = frozenset({"include_images", "include_image_descriptions", "include_raw_content", "include_favicon", "allow_external"})
 
@@ -44,13 +61,20 @@ REQUIRED: Final[dict[str, str]] = {"search": "query", "extract": "urls", "crawl"
 
 # --- [FUNCTIONS] --------------------------------------------------------------
 def _post(path: str, body: JsonMap, timeout: int = TIMEOUT) -> JsonMap:
-    """POST JSON with API key."""
+    """POST JSON with API key.
+
+    Returns:
+        JSON object returned by Tavily.
+    """
     body["api_key"] = os.environ.get(KEY_ENV, "")
     with httpx.Client(timeout=timeout) as client:
         response = client.post(f"{BASE}{path}", json=body)
         response.raise_for_status()
-        data: JsonMap = response.json()
-        return data
+        match response.json():
+            case Mapping() as data:
+                return {str(key): value for key, value in data.items()}
+            case _:
+                return {}
 
 
 @dataclass(frozen=True, slots=True, kw_only=True)
@@ -62,10 +86,18 @@ class _FlagState:
 
 
 def _parse_flags(args: tuple[str, ...]) -> JsonMap:
-    """Parse --flag value and --flag=value patterns via functional fold."""
+    """Parse --flag value and --flag=value patterns via functional fold.
+
+    Returns:
+        Parsed flag map.
+    """
 
     def _fold(state: _FlagState, indexed: tuple[int, str]) -> _FlagState:
-        """Process a single argument in the fold."""
+        """Process a single argument in the fold.
+
+        Returns:
+            Updated flag parse state.
+        """
         index, arg = indexed
         match (state.skip_next, arg.startswith("--")):
             case (True, _):
@@ -103,7 +135,11 @@ COMMAND_TABLE: Final[dict[str, Callable[[JsonMap, PostFn], JsonMap]]] = {
 
 # --- [ENTRY_POINT] ------------------------------------------------------------
 def main() -> int:
-    """Dispatch command and print JSON output."""
+    """Dispatch command and print JSON output.
+
+    Returns:
+        Process exit code.
+    """
     match sys.argv[1:]:
         case [command, *rest] if command in COMMAND_TABLE:
             opts = _parse_flags(tuple(rest))

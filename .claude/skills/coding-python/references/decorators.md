@@ -18,20 +18,26 @@ from typing import Concatenate, Never
 from expression import Result, curry_flip, pipe
 from expression.collections import Block, block
 
+
 @dataclass(frozen=True, slots=True)
 class Fault[C, Ctx]:
-    source: C; snapshot: Ctx; magnitude: float
+    source: C
+    snapshot: Ctx
+    magnitude: float
+
 
 type Hom[**P, T, E = Never] = Callable[P, Result[T, E]]
 
+
 def absorb[Ctx, **P, T, E, C](
-    ctx: ContextVar[Ctx], source: C, gate: Callable[[Ctx, C], Result[Ctx, Fault[C, Ctx]]],
-    fn: Callable[Concatenate[Ctx, P], Result[T, E]],
+    ctx: ContextVar[Ctx], source: C, gate: Callable[[Ctx, C], Result[Ctx, Fault[C, Ctx]]], fn: Callable[Concatenate[Ctx, P], Result[T, E]]
 ) -> Hom[P, T, E | Fault[C, Ctx]]:
     @wraps(fn)
     def closed(*args: P.args, **kwargs: P.kwargs) -> Result[T, E | Fault[C, Ctx]]:
         return gate(ctx.get(), source).bind(lambda c: (ctx.set(c), fn(c, *args, **kwargs))[1])
+
     return closed
+
 
 @curry_flip(1)
 def stack[**P, T, E](layers: Block[Callable[[Hom[P, T, E]], Hom[P, T, E]]], fn: Hom[P, T, E]) -> Hom[P, T, E]:
@@ -55,27 +61,37 @@ from typing import Never
 from expression import Ok, Result, curry_flip, pipe
 from expression.collections import Block, block
 
+
 class Slot(IntEnum):
-    trace = 0; authorize = 1; validate = 2; cache = 3; govern = 4; retry = 5
+    trace = 0
+    authorize = 1
+    validate = 2
+    cache = 3
+    govern = 4
+    retry = 5
+
 
 @dataclass(frozen=True, slots=True)
 class Inversion:
-    outer: Slot; inner: Slot; depth: int
+    outer: Slot
+    inner: Slot
+    depth: int
+
 
 type Hom[**P, T, E = Never] = Callable[P, Result[T, E]]
 type Layer[**P, T, E] = tuple[Slot, Callable[[Hom[P, T, E]], Hom[P, T, E]]]
+
 
 @curry_flip(1)
 def assemble[**P, T, E](layers: Block[Layer[P, T, E]], fn: Hom[P, T, E]) -> Result[Hom[P, T, E], Inversion]:
     return pipe(
         layers,
         block.fold(
-            lambda acc, l: acc.bind(lambda st:
-                Ok((l[0], st[1] + 1, l[1](st[2])))
-                .filter_with(lambda _: l[0] >= st[0], lambda _: Inversion(st[0], l[0], st[1]))
+            lambda acc, l: acc.bind(
+                lambda st: Ok((l[0], st[1] + 1, l[1](st[2]))).filter_with(lambda _: l[0] >= st[0], lambda _: Inversion(st[0], l[0], st[1]))
             ),
-            Ok((Slot(-1), 0, fn))
-        )
+            Ok((Slot(-1), 0, fn)),
+        ),
     ).map(lambda st: st[2])
 ```
 
@@ -98,31 +114,48 @@ from expression.collections import Block, Map, block
 
 type Scope = Map[str, float]
 
+
 @dataclass(frozen=True, slots=True)
 class Impulse:
-    channel: str; magnitude: float
+    channel: str
+    magnitude: float
+
 
 _propagation: ContextVar[Scope] = ContextVar("_propagation", default=Map.empty())
 
-def scoped[S, **P, T, E, F](var: ContextVar[S], project: Callable[[S], Result[S, F]]) -> Callable[[Callable[P, Result[T, E]]], Callable[P, Result[T, E | F]]]:
+
+def scoped[S, **P, T, E, F](
+    var: ContextVar[S], project: Callable[[S], Result[S, F]]
+) -> Callable[[Callable[P, Result[T, E]]], Callable[P, Result[T, E | F]]]:
     def decorator(fn: Callable[P, Result[T, E]]) -> Callable[P, Result[T, E | F]]:
         @wraps(fn)
         def wrapper(*args: P.args, **kwargs: P.kwargs) -> Result[T, E | F]:
             return project(var.get()).map(lambda s: var.set(s)).bind(lambda token: (res := fn(*args, **kwargs), var.reset(token), res)[2])
+
         return wrapper
+
     return decorator
+
 
 def isolated[**P, T, E](fn: Callable[P, Result[T, E]]) -> Callable[P, Result[T, E]]:
     @wraps(fn)
     def wrapper(*args: P.args, **kwargs: P.kwargs) -> Result[T, E]:
         return copy_context().run(fn, *args, **kwargs)
+
     return wrapper
+
 
 @curry_flip(1)
 def apply_impulses[**P, T, E](impulses: Block[Impulse], fn: Callable[P, Result[T, E]]) -> Callable[P, Result[T, E]]:
-    return pipe(impulses, block.fold(lambda f, imp: scoped(_propagation, lambda s: Ok(s.add(
-        imp.channel, s.try_find(imp.channel).map(lambda v: v + imp.magnitude).default_value(imp.magnitude)
-    )))(f), fn))
+    return pipe(
+        impulses,
+        block.fold(
+            lambda f, imp: scoped(
+                _propagation, lambda s: Ok(s.add(imp.channel, s.try_find(imp.channel).map(lambda v: v + imp.magnitude).default_value(imp.magnitude)))
+            )(f),
+            fn,
+        ),
+    )
 ```
 
 `project(var.get()).map(var.set).bind(...)` chains through the Result rail: failed projection produces no `Token`, propagating without scope corruption. `var.reset(token)` targets the operation — concurrent `set` calls are unaffected. `scoped[S, ...]` parameterizes over any `ContextVar[S]`, not just `Map`-backed scopes — `apply_impulses` specializes to `Scope` via the projection lambda. `block.fold` stacking $n$ impulses produces $n$ independently-reversible layers unwinding innermost-first. `isolated` via `copy_context().run` forks a snapshot for task boundaries; structured-concurrency scoping: concurrency.md.
@@ -143,12 +176,16 @@ from expression import Ok, Result, pipe
 
 type Wrapped[**P, T, E = Never] = Callable[P, Result[T, E]]
 
+
 @dataclass(frozen=True, slots=True)
 class Breach[C]:
-    decorator_id: int; source: C
+    decorator_id: int
+    source: C
+
 
 def once[**P, T, E, F](dec: Callable[[Wrapped[P, T, E]], Wrapped[P, T, E | F]]) -> Callable[[Wrapped[P, T, E]], Wrapped[P, T, E | F]]:
     tag = id(dec)
+
     @wraps(dec)
     def guard(fn: Wrapped[P, T, E]) -> Wrapped[P, T, E | F]:
         ids: frozenset[int] = getattr(fn, "_applied_ids", frozenset())
@@ -158,6 +195,7 @@ def once[**P, T, E, F](dec: Callable[[Wrapped[P, T, E]], Wrapped[P, T, E | F]]) 
             .map(lambda f: pipe(dec(f), lambda w: (wraps(fn)(w), setattr(w, "_applied_ids", ids | {tag}), w)[-1]))
             .default_value(fn)
         )
+
     return guard
 ```
 
@@ -181,24 +219,29 @@ from expression.collections import Map
 type Hom[**P, T, E = Never] = Callable[P, Result[T, E]]
 type Rail[T, E, F] = Callable[[Result[T, E]], Result[T, E | F]]
 
+
 def memoize_ok[**P, T, E, K: Hashable](extract: Callable[..., K]) -> Callable[[Hom[P, T, E]], Hom[P, T, E]]:
     _store: ContextVar[Map[K, T]] = ContextVar("_memo", default=Map.empty())
+
     def decorator(fn: Hom[P, T, E]) -> Hom[P, T, E]:
         @wraps(fn)
         def wrapper(*args: P.args, **kwargs: P.kwargs) -> Result[T, E]:
             key, cache = extract(*args, **kwargs), _store.get()
-            return cache.try_find(key).map(Ok).default_with(
-                lambda: fn(*args, **kwargs).map(lambda v: (_store.set(cache.add(key, v)), v)[1])
-            )
+            return cache.try_find(key).map(Ok).default_with(lambda: fn(*args, **kwargs).map(lambda v: (_store.set(cache.add(key, v)), v)[1]))
+
         return wrapper
+
     return decorator
+
 
 def convolve[**P, T, E, F](transform: Rail[T, E, F]) -> Callable[[Hom[P, T, E]], Hom[P, T, E | F]]:
     def decorator(fn: Hom[P, T, E]) -> Hom[P, T, E | F]:
         @wraps(fn)
         def wrapper(*args: P.args, **kwargs: P.kwargs) -> Result[T, E | F]:
             return transform(fn(*args, **kwargs))
+
         return wrapper
+
     return decorator
 ```
 
@@ -222,13 +265,19 @@ from expression import Error, Ok, Result
 
 type AsyncHom[**P, T, E = Never] = Callable[P, Coroutine[None, None, Result[T, E]]]
 
+
 @dataclass(frozen=True, slots=True)
 class Timeout:
-    elapsed: float; budget: float
+    elapsed: float
+    budget: float
+
 
 @dataclass(frozen=True, slots=True)
 class Exhausted[E]:
-    attempts: int; last: E; total_wait: float
+    attempts: int
+    last: E
+    total_wait: float
+
 
 def deadline[**P, T, E](budget: float) -> Callable[[AsyncHom[P, T, E]], AsyncHom[P, T, E | Timeout]]:
     def decorator(fn: AsyncHom[P, T, E]) -> AsyncHom[P, T, E | Timeout]:
@@ -238,21 +287,32 @@ def deadline[**P, T, E](budget: float) -> Callable[[AsyncHom[P, T, E]], AsyncHom
             with anyio.move_on_after(budget):
                 return await fn(*args, **kwargs)
             return Error(Timeout(monotonic() - t0, budget))
+
         return wrapper
+
     return decorator
 
-def bounded_retry[**P, T, E](max_n: int, base: float, retryable: Callable[[E], bool]) -> Callable[[AsyncHom[P, T, E]], AsyncHom[P, T, E | Exhausted[E]]]:
+
+def bounded_retry[**P, T, E](
+    max_n: int, base: float, retryable: Callable[[E], bool]
+) -> Callable[[AsyncHom[P, T, E]], AsyncHom[P, T, E | Exhausted[E]]]:
     def decorator(fn: AsyncHom[P, T, E]) -> AsyncHom[P, T, E | Exhausted[E]]:
         @wraps(fn)  # BOUNDARY ADAPTER — structured retry requires imperative iteration
         async def wrapper(*args: P.args, **kwargs: P.kwargs) -> Result[T, E | Exhausted[E]]:
             err, delay, waited = None, base, 0.0
             for i in range(max_n):
                 match await fn(*args, **kwargs):
-                    case Ok() as ok: return ok
-                    case Error(e) if retryable(e): err, delay, waited = e, delay * 1.618, waited + delay * 1.618; await anyio.sleep(delay)
-                    case Error(e): return Error(Exhausted(i + 1, e, waited))
+                    case Ok() as ok:
+                        return ok
+                    case Error(e) if retryable(e):
+                        err, delay, waited = e, delay * 1.618, waited + delay * 1.618
+                        await anyio.sleep(delay)
+                    case Error(e):
+                        return Error(Exhausted(i + 1, e, waited))
             return Error(Exhausted(max_n, err, waited))
+
         return wrapper
+
     return decorator
 ```
 
@@ -275,17 +335,16 @@ from expression.collections import Block, block
 
 type Hom[**P, T, E = Never] = Callable[P, Result[T, E]]
 
+
 def lift_dispatch[**P, T, E](dec: Callable[[Hom[P, T, E]], Hom[P, T, E]]) -> Callable[[Hom[P, T, E]], Hom[P, T, E]]:
     @wraps(dec)
     def safe(fn: Hom[P, T, E]) -> Hom[P, T, E]:
         wrapped, base = dec(fn), unwrap(fn, stop=lambda f: hasattr(f, "registry"))
         return pipe(
             Block(("register", "dispatch", "registry")),
-            block.fold(
-                lambda w, a: (setattr(w, a, getattr(base, a)), w)[-1] if hasattr(base, a) else w,
-                update_wrapper(wrapped, fn)
-            )
+            block.fold(lambda w, a: (setattr(w, a, getattr(base, a)), w)[-1] if hasattr(base, a) else w, update_wrapper(wrapped, fn)),
         )
+
     return safe
 ```
 

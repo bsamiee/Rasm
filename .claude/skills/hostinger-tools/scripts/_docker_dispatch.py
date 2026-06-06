@@ -1,22 +1,28 @@
 """Docker and snapshot dispatch handlers for Hostinger API."""
 
-from collections.abc import Callable
-from typing import Any, Final
+from collections.abc import Callable, Mapping
+from typing import Final
 
 
-type Args = dict[str, Any]
-type CmdBuilder = Callable[[Args], tuple[str, str, dict[str, Any] | None]]
-type OutputFormatter = Callable[[Any, Args], dict[str, Any]]
+type ArgValue = str | bool
+type Args = dict[str, ArgValue]
+type JsonMap = dict[str, object]
+type CmdBuilder = Callable[[Args], tuple[str, str, Mapping[str, object] | None]]
+type OutputFormatter = Callable[[JsonMap, Args], JsonMap]
 type Handler = tuple[CmdBuilder, OutputFormatter]
 
 
-def is_successful_response(response: Any) -> bool:
-    """Inspect API response for error indicators."""
+def is_successful_response(response: object) -> bool:
+    """Inspect API response for error indicators.
+
+    Returns:
+        Whether the response represents success.
+    """
     match response:
         case (status_code, _) if isinstance(status_code, int):
             return 200 <= status_code < 300
-        case dict():
-            return response.get("error") is None and response.get("errors") is None and response.get("status") not in ("error", "failed")
+        case Mapping() as data:
+            return "error" not in data and "errors" not in data and ("status" not in data or data["status"] not in ("error", "failed"))
         case str():
             return "error" not in response.lower()
         case None:
@@ -28,7 +34,7 @@ def is_successful_response(response: Any) -> bool:
 DOCKER_HANDLERS: Final[dict[str, Handler]] = {
     "docker-list": (
         lambda args: ("GET", f"/api/vps/v1/virtual-machine/{args['id']}/docker-compose/project?page=1", None),
-        lambda response, _: {"projects": response if isinstance(response, list) else response.get("data", response.get("projects", response))},
+        lambda response, _: {"projects": response.get("data", response.get("projects", response))},
     ),
     "docker-view": (
         lambda args: ("GET", f"/api/vps/v1/virtual-machine/{args['id']}/docker-compose/project/{args['project']}", None),
@@ -36,7 +42,7 @@ DOCKER_HANDLERS: Final[dict[str, Handler]] = {
     ),
     "docker-containers": (
         lambda args: ("GET", f"/api/vps/v1/virtual-machine/{args['id']}/docker-compose/project/{args['project']}/containers", None),
-        lambda response, args: {"project": args["project"], "containers": response if isinstance(response, list) else response.get("data", response)},
+        lambda response, args: {"project": args["project"], "containers": response.get("data", response)},
     ),
     "docker-logs": (
         lambda args: ("GET", f"/api/vps/v1/virtual-machine/{args['id']}/docker-compose/project/{args['project']}/logs", None),
@@ -91,7 +97,7 @@ SNAPSHOT_HANDLERS: Final[dict[str, Handler]] = {
     ),
     "backup-list": (
         lambda args: ("GET", f"/api/vps/v1/virtual-machines/{args['id']}/backups", None),
-        lambda response, _: {"backups": response if isinstance(response, list) else response.get("data", response.get("backups", response))},
+        lambda response, _: {"backups": response.get("data", response.get("backups", response))},
     ),
     "backup-restore": (
         lambda args: ("POST", f"/api/vps/v1/virtual-machines/{args['id']}/backups/{args['backup_id']}/restore", None),
