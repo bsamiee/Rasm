@@ -12,6 +12,18 @@ namespace Foundation.CSharp.Analyzers.Kernel;
 // --- [TYPES] -------------------------------------------------------------------
 
 internal sealed class ScopeKind {
+    // --- [SINGLETONS] ----------------------------------------------------------
+
+    internal static readonly ScopeKind Generated = new(key: "Generated", isAnalyzable: false, isBoundary: false, isDomainOrApplication: false, isComposition: false);
+    internal static readonly ScopeKind Test = new(key: "Test", isAnalyzable: false, isBoundary: false, isDomainOrApplication: false, isComposition: false);
+    internal static readonly ScopeKind Boundary = new(key: "Boundary", isAnalyzable: true, isBoundary: true, isDomainOrApplication: false, isComposition: false);
+    internal static readonly ScopeKind Domain = new(key: "Domain", isAnalyzable: true, isBoundary: false, isDomainOrApplication: true, isComposition: false);
+    internal static readonly ScopeKind Application = new(key: "Application", isAnalyzable: true, isBoundary: false, isDomainOrApplication: true, isComposition: false);
+    internal static readonly ScopeKind Shared = new(key: "Shared", isAnalyzable: true, isBoundary: false, isDomainOrApplication: true, isComposition: false);
+    internal static readonly ScopeKind Analysis = new(key: "Analysis", isAnalyzable: true, isBoundary: false, isDomainOrApplication: false, isComposition: false);
+    internal static readonly ScopeKind Composition = new(key: "Composition", isAnalyzable: true, isBoundary: false, isDomainOrApplication: false, isComposition: true);
+    internal static readonly ScopeKind Other = new(key: "Other", isAnalyzable: false, isBoundary: false, isDomainOrApplication: false, isComposition: false);
+
     // --- [CONSTRUCTORS] --------------------------------------------------------
 
     private ScopeKind(string key, bool isAnalyzable, bool isBoundary, bool isDomainOrApplication, bool isComposition) {
@@ -30,22 +42,15 @@ internal sealed class ScopeKind {
     internal bool IsDomainOrApplication { get; }
     internal bool IsComposition { get; }
 
-    // --- [SINGLETONS] ----------------------------------------------------------
-
-    internal static readonly ScopeKind Generated = new(key: "Generated", isAnalyzable: false, isBoundary: false, isDomainOrApplication: false, isComposition: false);
-    internal static readonly ScopeKind Test = new(key: "Test", isAnalyzable: false, isBoundary: false, isDomainOrApplication: false, isComposition: false);
-    internal static readonly ScopeKind Boundary = new(key: "Boundary", isAnalyzable: true, isBoundary: true, isDomainOrApplication: false, isComposition: false);
-    internal static readonly ScopeKind Domain = new(key: "Domain", isAnalyzable: true, isBoundary: false, isDomainOrApplication: true, isComposition: false);
-    internal static readonly ScopeKind Application = new(key: "Application", isAnalyzable: true, isBoundary: false, isDomainOrApplication: true, isComposition: false);
-    internal static readonly ScopeKind Shared = new(key: "Shared", isAnalyzable: true, isBoundary: false, isDomainOrApplication: true, isComposition: false);
-    internal static readonly ScopeKind Analysis = new(key: "Analysis", isAnalyzable: true, isBoundary: false, isDomainOrApplication: false, isComposition: false);
-    internal static readonly ScopeKind Composition = new(key: "Composition", isAnalyzable: true, isBoundary: false, isDomainOrApplication: false, isComposition: true);
-    internal static readonly ScopeKind Other = new(key: "Other", isAnalyzable: false, isBoundary: false, isDomainOrApplication: false, isComposition: false);
 }
 
 // --- [CONSTANTS] ---------------------------------------------------------------
 
 internal static class Markers {
+    internal static readonly string[] GeneratedPath = [".g.cs", ".designer.cs", "/obj/", "\\obj\\"];
+    internal static readonly string[] TestPath = ["/tests/", "\\tests\\", ".Tests", "Test.cs", "Tests.cs"];
+    internal static readonly string[] BoundaryNamespace = [".Boundary", ".Rhino", ".Grasshopper", ".Adapter", ".Adapters", ".Routes", ".Endpoints", ".Controllers"];
+    internal static readonly string[] BoundaryPath = ["/Rhino/", "\\Rhino\\", "/grasshopper/", "\\grasshopper\\", "/Rasm.Grasshopper/", "\\Rasm.Grasshopper\\", "Adapter.cs", "Boundary.cs", "Endpoint.cs", "Controller.cs"];
     internal const string DomainNamespace = "Domain";
     internal const string DomainPrefix = ".Domain";
     internal const string ApplicationNamespace = "Application";
@@ -54,18 +59,14 @@ internal static class Markers {
     internal const string SharedPrefix = ".Shared";
     internal const string SharedKernelNamespace = "SharedKernel";
     internal const string SharedKernelPrefix = ".SharedKernel";
+    internal static readonly string[] SharedPath = ["/Shared/", "\\Shared\\", "/SharedKernel/", "\\SharedKernel\\"];
     internal const string AnalysisNamespace = "Rasm.Analysis";
     internal const string AnalysisPrefix = "Rasm.Analysis.";
-    internal const string LanguageExtNamespace = "LanguageExt";
-    internal const string MatchMethodName = "Match";
-    internal static readonly string[] BoundaryNamespace = [".Boundary", ".Rhino", ".Grasshopper", ".Adapter", ".Adapters", ".Routes", ".Endpoints", ".Controllers"];
-    internal static readonly string[] BoundaryPath = ["/Rhino/", "\\Rhino\\", "/grasshopper/", "\\grasshopper\\", "/Rasm.Grasshopper/", "\\Rasm.Grasshopper\\", "Adapter.cs", "Boundary.cs", "Endpoint.cs", "Controller.cs"];
+    internal static readonly string[] AnalysisPath = ["/libs/csharp/Rasm/Analysis/", "\\libs\\csharp\\Rasm\\Analysis\\"];
     internal static readonly string[] CompositionNamespace = [".Bootstrap", ".Composition", ".DependencyInjection", ".Infrastructure"];
     internal static readonly string[] CompositionPath = ["Composition", "Bootstrap", "DependencyInjection", "Infrastructure"];
-    internal static readonly string[] SharedPath = ["/Shared/", "\\Shared\\", "/SharedKernel/", "\\SharedKernel\\"];
-    internal static readonly string[] AnalysisPath = ["/libs/csharp/Rasm/Analysis/", "\\libs\\csharp\\Rasm\\Analysis\\"];
-    internal static readonly string[] GeneratedPath = [".g.cs", ".designer.cs", "/obj/", "\\obj\\"];
-    internal static readonly string[] TestPath = ["/tests/", "\\tests\\", ".Tests", "Test.cs", "Tests.cs"];
+    internal const string LanguageExtNamespace = "LanguageExt";
+    internal const string MatchMethodName = "Match";
     internal static readonly string[] ObservabilityParts = ["Observability", "Telemetry"];
 }
 
@@ -230,86 +231,17 @@ internal static class SymbolFacts {
         | (int)RegexOptions.Compiled
         | RegexOptionNonBacktrackingBit;
 
-    // --- [FLOW_FACTS] ----------------------------------------------------------
+    // --- [ATTRIBUTE_FACTS] -----------------------------------------------------
 
-    internal static bool IsLanguageExtMatch(IInvocationOperation invocation, INamespaceSymbol? languageExtNamespace) {
-        bool typeNamespaceMatch = invocation.TargetMethod.ContainingType?.ContainingNamespace is INamespaceSymbol ns
-            && languageExtNamespace is not null
-            && (SymbolEqualityComparer.Default.Equals(ns, languageExtNamespace)
-                || ns.ToDisplayString().StartsWith(value: languageExtNamespace.ToDisplayString(), comparisonType: StringComparison.Ordinal));
-        return invocation.TargetMethod.Name == Markers.MatchMethodName && typeNamespaceMatch;
-    }
-    internal static bool IsRegexMatchCall(IInvocationOperation invocation) =>
-        invocation.TargetMethod.Name == Markers.MatchMethodName
-        && invocation.TargetMethod.ContainingType?.OriginalDefinition.ToDisplayString() == "System.Text.RegularExpressions.Regex";
-    internal static bool TryGetGeneratedRegexPattern(IMethodSymbol method, out string pattern, out RegexOptions options) {
-        AttributeData? generatedRegex = method
-            .GetAttributes()
-            .FirstOrDefault(attribute => IsGeneratedRegexAttribute(attribute.AttributeClass));
-        ImmutableArray<TypedConstant> constructorArguments = generatedRegex?.ConstructorArguments ?? [];
-        pattern = constructorArguments.Length switch {
-            > 0 when constructorArguments[0].Value is string text => text,
-            _ => string.Empty,
-        };
-        options = ReadGeneratedRegexOptions(constructorArguments);
-        return pattern.Length > 0;
-    }
-    internal static bool IsSearchValuesFriendlyRegexOptions(RegexOptions options) =>
-        ((int)options & ~SearchValuesFriendlyRegexOptionMask) == 0;
-    internal static bool IsSimpleCharsetLengthRegex(string pattern) {
-        bool anchored = pattern.StartsWith(value: "^[", comparisonType: StringComparison.Ordinal)
-            && pattern.EndsWith(value: "$", comparisonType: StringComparison.Ordinal);
-        int closeBracket = anchored ? pattern.IndexOf(']') : -1;
-        bool hasBracket = closeBracket > 2;
-        int openBrace = hasBracket ? closeBracket + 1 : -1;
-        bool hasBrace = openBrace >= 0 && openBrace < pattern.Length && pattern[openBrace] == '{';
-        int closeBrace = hasBrace ? pattern.IndexOf('}', openBrace + 1) : -1;
-        bool quantifierAtEnd = closeBrace == pattern.Length - 2;
-        bool singleClass = hasBracket
-            && pattern.IndexOf('[', 2) < 0
-            && pattern.IndexOf(']', closeBracket + 1) < 0;
-        bool singleQuantifier = hasBrace
-            && pattern.IndexOf('{', openBrace + 1) < 0
-            && pattern.IndexOf('}', closeBrace + 1) < 0;
-        string charSet = hasBracket
-            ? pattern.Substring(startIndex: 2, length: closeBracket - 2)
-            : string.Empty;
-        string quantifier = quantifierAtEnd && hasBrace
-            ? pattern.Substring(startIndex: openBrace + 1, length: closeBrace - openBrace - 1)
-            : string.Empty;
-        bool literalCharSet = charSet.Length > 0
-            && !HasPotentialRange(charSet)
-            && charSet.All(IsSearchValuesLiteralChar);
-        bool fixedQuantifier = IsFixedLengthQuantifier(quantifier);
-        return anchored && hasBracket && hasBrace && quantifierAtEnd && singleClass && singleQuantifier && literalCharSet && fixedQuantifier;
-    }
+    internal static bool HasAnyAttribute(ISymbol symbol, params string[] names) =>
+        AllAttributes(symbol).Any(attribute => names.Contains(attribute.AttributeClass?.Name ?? string.Empty, StringComparer.Ordinal));
+    internal static IEnumerable<AttributeData> AllAttributes(ISymbol symbol) =>
+        symbol.GetAttributes()
+            .Concat(symbol is IMethodSymbol { AssociatedSymbol: ISymbol associatedSymbol } ? associatedSymbol.GetAttributes() : [])
+            .Concat(symbol.ContainingType?.GetAttributes() ?? []);
 
-    // --- [ASYNC_FACTS] ---------------------------------------------------------
+    // --- [OPERATION_FACTS] -----------------------------------------------------
 
-    internal static bool IsTaskRun(IInvocationOperation invocation) =>
-        (invocation.TargetMethod.ContainingType?.OriginalDefinition?.ToDisplayString() == "System.Threading.Tasks.Task"
-            && invocation.TargetMethod.Name == "Run")
-        || (invocation.TargetMethod.ContainingType?.OriginalDefinition?.ToDisplayString() == "System.Threading.Tasks.TaskFactory"
-            && invocation.TargetMethod.Name == "StartNew")
-        || (invocation.TargetMethod.ContainingType?.ToDisplayString() == "System.Threading.ThreadPool"
-            && invocation.TargetMethod.Name == "QueueUserWorkItem");
-    internal static bool IsTaskWhenAllUnbounded(IInvocationOperation invocation) {
-        bool isWhenAll = invocation.TargetMethod.Name == "WhenAll"
-            && invocation.TargetMethod.ContainingType.OriginalDefinition.ToDisplayString() == "System.Threading.Tasks.Task";
-        ITypeSymbol? argumentType = (isWhenAll, invocation.Arguments.Length) switch {
-            (true, 1) => invocation.Arguments[0].Value.Type,
-            _ => null,
-        };
-        return argumentType is not null
-            && argumentType is not IArrayTypeSymbol
-            && ((argumentType is INamedTypeSymbol directType && IsGenericIEnumerableTaskLike(directType))
-                || argumentType.AllInterfaces.Any(static interfaceSymbol => IsGenericIEnumerableTaskLike(interfaceSymbol)));
-    }
-    internal static bool IsLanguageExtRunCollapse(IInvocationOperation invocation) =>
-        invocation.TargetMethod.Name is "Run" or "RunAsync"
-        && (invocation.TargetMethod.ContainingType?.ContainingNamespace?.ToDisplayString() ?? string.Empty)
-            .StartsWith(value: Markers.LanguageExtNamespace, comparisonType: StringComparison.Ordinal)
-        && (invocation.TargetMethod.ContainingType?.Name ?? string.Empty) is "Eff" or "IO" or "Fin" or "Try" or "TryOption" or "Option" or "Validation";
     // Fluent-pipeline receiver walk: extension methods carry their receiver in Arguments[0], not Instance.
     // Use ExtractReceiver to obtain the receiver of any invocation regardless of extension-vs-instance shape;
     // chain with UnwrapReceiver to peel implicit IConversionOperation wrappers (boxing, generic constraints).
@@ -341,6 +273,142 @@ internal static class SymbolFacts {
             IConversionOperation { Operand: IOperation inner } => UnwrapLambda(inner),
             _ => null,
         };
+    private static SyntaxNode UnwrapTransparentExpression(SyntaxNode node) =>
+        node switch {
+            ParenthesizedExpressionSyntax parenthesized => UnwrapTransparentExpression(parenthesized.Expression),
+            CastExpressionSyntax castExpression => UnwrapTransparentExpression(castExpression.Expression),
+            CheckedExpressionSyntax checkedExpression => UnwrapTransparentExpression(checkedExpression.Expression),
+            AwaitExpressionSyntax awaitExpression => UnwrapTransparentExpression(awaitExpression.Expression),
+            PostfixUnaryExpressionSyntax { RawKind: (int)SyntaxKind.SuppressNullableWarningExpression } suppressNullable
+                => UnwrapTransparentExpression(suppressNullable.Operand),
+            _ => node,
+        };
+    private static IOperation? CollapseTransparentParents(IOperation operation) =>
+        operation.Parent switch {
+            IConversionOperation or IParenthesizedOperation => CollapseTransparentParents(operation.Parent),
+            IOperation parent => parent,
+            _ => null,
+        };
+
+    // --- [FLOW_FACTS] ----------------------------------------------------------
+
+    internal static bool IsLanguageExtMatch(IInvocationOperation invocation, INamespaceSymbol? languageExtNamespace) {
+        bool typeNamespaceMatch = invocation.TargetMethod.ContainingType?.ContainingNamespace is INamespaceSymbol ns
+            && languageExtNamespace is not null
+            && (SymbolEqualityComparer.Default.Equals(ns, languageExtNamespace)
+                || ns.ToDisplayString().StartsWith(value: languageExtNamespace.ToDisplayString(), comparisonType: StringComparison.Ordinal));
+        return invocation.TargetMethod.Name == Markers.MatchMethodName && typeNamespaceMatch;
+    }
+    internal static bool IsLanguageExtInvocation(IInvocationOperation invocation, params string[] names) =>
+        names.Contains(invocation.TargetMethod.Name, StringComparer.Ordinal)
+        && (invocation.TargetMethod.ContainingType?.ContainingNamespace?.ToDisplayString() ?? string.Empty)
+            .StartsWith(value: Markers.LanguageExtNamespace, comparisonType: StringComparison.Ordinal);
+    internal static bool IsRegexMatchCall(IInvocationOperation invocation) =>
+        invocation.TargetMethod.Name == Markers.MatchMethodName
+        && invocation.TargetMethod.ContainingType?.OriginalDefinition.ToDisplayString() == "System.Text.RegularExpressions.Regex";
+    internal static bool TryGetGeneratedRegexPattern(IMethodSymbol method, out string pattern, out RegexOptions options) {
+        AttributeData? generatedRegex = method
+            .GetAttributes()
+            .FirstOrDefault(attribute => IsGeneratedRegexAttribute(attribute.AttributeClass));
+        ImmutableArray<TypedConstant> constructorArguments = generatedRegex?.ConstructorArguments ?? [];
+        pattern = constructorArguments.Length switch {
+            > 0 when constructorArguments[0].Value is string text => text,
+            _ => string.Empty,
+        };
+        options = ReadGeneratedRegexOptions(constructorArguments);
+        return pattern.Length > 0;
+    }
+    private static bool IsGeneratedRegexAttribute(INamedTypeSymbol? attributeType) =>
+        attributeType?.ToDisplayString() == "System.Text.RegularExpressions.GeneratedRegexAttribute";
+    private static RegexOptions ReadGeneratedRegexOptions(ImmutableArray<TypedConstant> constructorArguments) =>
+        constructorArguments.Length switch {
+            > 1 when constructorArguments[1].Value is int raw => (RegexOptions)raw,
+            _ => RegexOptions.None,
+        };
+    internal static bool IsSearchValuesFriendlyRegexOptions(RegexOptions options) =>
+        ((int)options & ~SearchValuesFriendlyRegexOptionMask) == 0;
+    internal static bool IsSimpleCharsetLengthRegex(string pattern) {
+        bool anchored = pattern.StartsWith(value: "^[", comparisonType: StringComparison.Ordinal)
+            && pattern.EndsWith(value: "$", comparisonType: StringComparison.Ordinal);
+        int closeBracket = anchored ? pattern.IndexOf(']') : -1;
+        bool hasBracket = closeBracket > 2;
+        int openBrace = hasBracket ? closeBracket + 1 : -1;
+        bool hasBrace = openBrace >= 0 && openBrace < pattern.Length && pattern[openBrace] == '{';
+        int closeBrace = hasBrace ? pattern.IndexOf('}', openBrace + 1) : -1;
+        bool quantifierAtEnd = closeBrace == pattern.Length - 2;
+        bool singleClass = hasBracket
+            && pattern.IndexOf('[', 2) < 0
+            && pattern.IndexOf(']', closeBracket + 1) < 0;
+        bool singleQuantifier = hasBrace
+            && pattern.IndexOf('{', openBrace + 1) < 0
+            && pattern.IndexOf('}', closeBrace + 1) < 0;
+        string charSet = hasBracket
+            ? pattern.Substring(startIndex: 2, length: closeBracket - 2)
+            : string.Empty;
+        string quantifier = quantifierAtEnd && hasBrace
+            ? pattern.Substring(startIndex: openBrace + 1, length: closeBrace - openBrace - 1)
+            : string.Empty;
+        bool literalCharSet = charSet.Length > 0
+            && !HasPotentialRange(charSet)
+            && charSet.All(IsSearchValuesLiteralChar);
+        bool fixedQuantifier = IsFixedLengthQuantifier(quantifier);
+        return anchored && hasBracket && hasBrace && quantifierAtEnd && singleClass && singleQuantifier && literalCharSet && fixedQuantifier;
+    }
+    private static bool IsSearchValuesLiteralChar(char value) =>
+        char.IsLetterOrDigit(value) || value is '_' or ':' or '-';
+    private static bool HasPotentialRange(string charSet) =>
+        charSet.Length > 2 && charSet.AsSpan(start: 1, length: charSet.Length - 2).IndexOf('-') >= 0;
+    private static bool IsFixedLengthQuantifier(string value) {
+        int separator = value.IndexOf(',');
+        return separator switch {
+            < 0 => int.TryParse(value, NumberStyles.None, CultureInfo.InvariantCulture, out int exact) && exact > 0,
+            > 0 when separator < value.Length - 1 && value.IndexOf(',', separator + 1) < 0
+                => int.TryParse(value.Substring(startIndex: 0, length: separator), NumberStyles.None, CultureInfo.InvariantCulture, out int min)
+                    && int.TryParse(value.Substring(startIndex: separator + 1), NumberStyles.None, CultureInfo.InvariantCulture, out int max)
+                    && min > 0
+                    && max >= min,
+            _ => false,
+        };
+    }
+    internal static bool IsEarlyReturnGuard(IConditionalOperation conditional) =>
+        conditional.Syntax is IfStatementSyntax {
+            Else: null,
+            Condition: PrefixUnaryExpressionSyntax { RawKind: (int)SyntaxKind.LogicalNotExpression },
+            Statement: StatementSyntax statement,
+        }
+        && statement.DescendantNodesAndSelf().Any(node => node.IsKind(SyntaxKind.ReturnStatement));
+
+    // --- [ASYNC_FACTS] ---------------------------------------------------------
+
+    internal static bool IsTaskRun(IInvocationOperation invocation) =>
+        (invocation.TargetMethod.ContainingType?.OriginalDefinition?.ToDisplayString() == "System.Threading.Tasks.Task"
+            && invocation.TargetMethod.Name == "Run")
+        || (invocation.TargetMethod.ContainingType?.OriginalDefinition?.ToDisplayString() == "System.Threading.Tasks.TaskFactory"
+            && invocation.TargetMethod.Name == "StartNew")
+        || (invocation.TargetMethod.ContainingType?.ToDisplayString() == "System.Threading.ThreadPool"
+            && invocation.TargetMethod.Name == "QueueUserWorkItem");
+    internal static bool IsTaskWhenAllUnbounded(IInvocationOperation invocation) {
+        bool isWhenAll = invocation.TargetMethod.Name == "WhenAll"
+            && invocation.TargetMethod.ContainingType.OriginalDefinition.ToDisplayString() == "System.Threading.Tasks.Task";
+        ITypeSymbol? argumentType = (isWhenAll, invocation.Arguments.Length) switch {
+            (true, 1) => invocation.Arguments[0].Value.Type,
+            _ => null,
+        };
+        return argumentType is not null
+            && argumentType is not IArrayTypeSymbol
+            && ((argumentType is INamedTypeSymbol directType && IsGenericIEnumerableTaskLike(directType))
+                || argumentType.AllInterfaces.Any(static interfaceSymbol => IsGenericIEnumerableTaskLike(interfaceSymbol)));
+    }
+    private static bool IsGenericIEnumerableTaskLike(INamedTypeSymbol namedType) =>
+        namedType.MetadataName == "IEnumerable`1"
+        && namedType.ContainingNamespace.ToDisplayString() == "System.Collections.Generic"
+        && namedType.TypeArguments.Length == 1
+        && IsTaskLikeType(namedType.TypeArguments[0]);
+    internal static bool IsLanguageExtRunCollapse(IInvocationOperation invocation) =>
+        invocation.TargetMethod.Name is "Run" or "RunAsync"
+        && (invocation.TargetMethod.ContainingType?.ContainingNamespace?.ToDisplayString() ?? string.Empty)
+            .StartsWith(value: Markers.LanguageExtNamespace, comparisonType: StringComparison.Ordinal)
+        && (invocation.TargetMethod.ContainingType?.Name ?? string.Empty) is "Eff" or "IO" or "Fin" or "Try" or "TryOption" or "Option" or "Validation";
     internal static bool IsBlockingInvocation(IInvocationOperation invocation) =>
         BlockingMethods.Contains(invocation.TargetMethod.Name)
         && invocation.TargetMethod.ContainingType is INamedTypeSymbol containingType
@@ -408,21 +476,6 @@ internal static class SymbolFacts {
         operation is ISimpleAssignmentOperation { Target: IDiscardOperation, Parent: IExpressionStatementOperation statement }
         && statement.Parent is IBlockOperation block
         && block.Operations.LastOrDefault() == statement;
-    internal static bool IsEarlyReturnGuard(IConditionalOperation conditional) =>
-        conditional.Syntax is IfStatementSyntax {
-            Else: null,
-            Condition: PrefixUnaryExpressionSyntax { RawKind: (int)SyntaxKind.LogicalNotExpression },
-            Statement: StatementSyntax statement,
-        }
-        && statement.DescendantNodesAndSelf().Any(node => node.IsKind(SyntaxKind.ReturnStatement));
-    internal static bool IsSelfReassignment(ISimpleAssignmentOperation assignment) =>
-        assignment.Target switch {
-            ILocalReferenceOperation targetLocal => assignment.Value
-                .DescendantsAndSelf()
-                .OfType<ILocalReferenceOperation>()
-                .Any(local => SymbolEqualityComparer.Default.Equals(local.Local, targetLocal.Local)),
-            _ => false,
-        };
 
     // --- [DOMAIN_FACTS] --------------------------------------------------------
 
@@ -463,6 +516,14 @@ internal static class SymbolFacts {
                 => localRef.Local.Name,
             _ => string.Empty,
         };
+    internal static bool IsSelfReassignment(ISimpleAssignmentOperation assignment) =>
+        assignment.Target switch {
+            ILocalReferenceOperation targetLocal => assignment.Value
+                .DescendantsAndSelf()
+                .OfType<ILocalReferenceOperation>()
+                .Any(local => SymbolEqualityComparer.Default.Equals(local.Local, targetLocal.Local)),
+            _ => false,
+        };
     private static bool IsLocalDeclaredOutsideLoop(ILoopOperation loop, ILocalSymbol local) =>
         local.DeclaringSyntaxReferences switch {
             { IsDefaultOrEmpty: true } => false,
@@ -496,6 +557,11 @@ internal static class SymbolFacts {
         type is INamedTypeSymbol errorType
         && errorType.Name == "Error"
         && errorType.ContainingNamespace.ToDisplayString().StartsWith(value: "LanguageExt.Common", comparisonType: StringComparison.Ordinal);
+    private static IEnumerable<INamedTypeSymbol> TypeAndBases(INamedTypeSymbol type) {
+        for (INamedTypeSymbol? current = type; current is not null; current = current.BaseType) {
+            yield return current;
+        }
+    }
     internal static bool IsLanguageExtCommonErrorAssignableType(ITypeSymbol? type, INamedTypeSymbol? commonErrorType = null) =>
         type is INamedTypeSymbol candidate
         && TypeAndBases(candidate).Any(baseType => commonErrorType switch {
@@ -505,6 +571,20 @@ internal static class SymbolFacts {
     internal static bool IsLanguageExtValidationType(ITypeSymbol type) =>
         type is INamedTypeSymbol { OriginalDefinition.MetadataName: "Validation`2", TypeArguments.Length: 2 } validation
         && validation.ContainingNamespace.ToDisplayString().StartsWith(value: Markers.LanguageExtNamespace, comparisonType: StringComparison.Ordinal);
+    internal static bool IsLanguageExtUnitType(ITypeSymbol? type) =>
+        type is INamedTypeSymbol unitType
+        && unitType.Name == "Unit"
+        && unitType.ContainingNamespace.ToDisplayString().StartsWith(value: Markers.LanguageExtNamespace, comparisonType: StringComparison.Ordinal);
+    internal static bool IsLanguageExtUnitValue(IOperation? operation) =>
+        operation switch {
+            IFieldReferenceOperation { Field.Name: "unit", Field.ContainingType.Name: "Prelude" } field =>
+                IsLanguageExtUnitType(field.Type)
+                && field.Field.ContainingType.ContainingNamespace.ToDisplayString().StartsWith(value: Markers.LanguageExtNamespace, comparisonType: StringComparison.Ordinal),
+            IPropertyReferenceOperation { Property.Name: "unit", Property.ContainingType.Name: "Prelude" } property =>
+                IsLanguageExtUnitType(property.Type)
+                && property.Property.ContainingType.ContainingNamespace.ToDisplayString().StartsWith(value: Markers.LanguageExtNamespace, comparisonType: StringComparison.Ordinal),
+            _ => false,
+        };
     internal static bool IsLanguageExtFinUnitType(ITypeSymbol? type) =>
         type is INamedTypeSymbol { OriginalDefinition.MetadataName: "Fin`1", TypeArguments.Length: 1 } fin
         && fin.ContainingNamespace.ToDisplayString().StartsWith(value: Markers.LanguageExtNamespace, comparisonType: StringComparison.Ordinal)
@@ -539,39 +619,45 @@ internal static class SymbolFacts {
         int unsupportedArms = switchExpression.Arms.Count(arm => ContainsUnsupportedFailure(operation: arm.Value, parameter: parameter));
         return projectionArms == 1 && unsupportedArms == 1;
     }
-    internal static bool IsLanguageExtUnitType(ITypeSymbol? type) =>
-        type is INamedTypeSymbol unitType
-        && unitType.Name == "Unit"
-        && unitType.ContainingNamespace.ToDisplayString().StartsWith(value: Markers.LanguageExtNamespace, comparisonType: StringComparison.Ordinal);
-    internal static bool IsLanguageExtUnitValue(IOperation? operation) =>
-        operation switch {
-            IFieldReferenceOperation { Field.Name: "unit", Field.ContainingType.Name: "Prelude" } field =>
-                IsLanguageExtUnitType(field.Type)
-                && field.Field.ContainingType.ContainingNamespace.ToDisplayString().StartsWith(value: Markers.LanguageExtNamespace, comparisonType: StringComparison.Ordinal),
-            IPropertyReferenceOperation { Property.Name: "unit", Property.ContainingType.Name: "Prelude" } property =>
-                IsLanguageExtUnitType(property.Type)
-                && property.Property.ContainingType.ContainingNamespace.ToDisplayString().StartsWith(value: Markers.LanguageExtNamespace, comparisonType: StringComparison.Ordinal),
-            _ => false,
-        };
+    private static bool TryProjectionTypeParameter(ITypeSymbol? type, out ITypeParameterSymbol parameter) {
+        parameter = null!;
+        if (type is INamedTypeSymbol { OriginalDefinition.MetadataName: "Fin`1", TypeArguments.Length: 1 } fin
+            && fin.ContainingNamespace.ToDisplayString().StartsWith(value: Markers.LanguageExtNamespace, comparisonType: StringComparison.Ordinal)
+            && fin.TypeArguments[0] is ITypeParameterSymbol typeParameter) {
+            parameter = typeParameter;
+            return true;
+        }
+        return false;
+    }
+    private static bool IsProjectionOwner(ISymbol? symbol) =>
+        symbol is IMethodSymbol method
+        && (method.ContainingType?.Name is "AtomProjection" or "OpAcceptance"
+            || method.Name is "Self" or "Value" or "Values" or "Custom" or "AcceptResults");
+    private static bool HasProjectionAndUnsupported(IOperation success, IOperation failure, ITypeParameterSymbol parameter) =>
+        (ContainsObjectMediatedCast(operation: success, parameter: parameter) && ContainsUnsupportedFailure(operation: failure, parameter: parameter))
+        || (ContainsObjectMediatedCast(operation: failure, parameter: parameter) && ContainsUnsupportedFailure(operation: success, parameter: parameter));
+    private static bool ContainsTypeof(IOperation operation, ITypeParameterSymbol parameter) =>
+        operation.DescendantsAndSelf()
+            .OfType<ITypeOfOperation>()
+            .Any(typeOf => SymbolEqualityComparer.Default.Equals(typeOf.TypeOperand, parameter));
+    private static bool ContainsObjectMediatedCast(IOperation operation, ITypeParameterSymbol parameter) =>
+        operation.DescendantsAndSelf()
+            .OfType<IConversionOperation>()
+            .Any(conversion => SymbolEqualityComparer.Default.Equals(conversion.Type, parameter) && IsObjectBridge(operation: conversion.Operand));
+    private static bool IsObjectBridge(IOperation operation) =>
+        operation.Type?.SpecialType == SpecialType.System_Object
+        || (operation is IConversionOperation conversion && IsObjectBridge(operation: conversion.Operand));
+    private static bool ContainsUnsupportedFailure(IOperation operation, ITypeParameterSymbol parameter) =>
+        operation.DescendantsAndSelf()
+            .OfType<IInvocationOperation>()
+            .Any(invocation => IsLanguageExtFinFailureInvocation(invocation)
+                && invocation.DescendantsAndSelf().OfType<IInvocationOperation>().Any(static nested => nested.TargetMethod.Name == "Unsupported")
+                && ContainsTypeof(operation: invocation, parameter: parameter));
     internal static bool IsManualOpAdmissionGate(SemanticModel model, ConditionalExpressionSyntax conditional) =>
         IsNonUnitFinExpression(model: model, expression: conditional)
         && TryFinSuccessValue(model: model, expression: conditional.WhenTrue, value: out ExpressionSyntax? successValue)
         && IsFinInvalidResultFailure(model: model, expression: conditional.WhenFalse)
         && IsKnownValidityProbe(model: model, condition: conditional.Condition, successValue: successValue);
-    internal static bool IsManualOpConfirmGate(SemanticModel model, ConditionalExpressionSyntax conditional) {
-        if (!IsFinUnitExpression(model: model, expression: conditional)) {
-            return false;
-        }
-        bool trueSuccess = IsFinUnitSuccess(model: model, expression: conditional.WhenTrue);
-        bool falseSuccess = IsFinUnitSuccess(model: model, expression: conditional.WhenFalse);
-        bool trueFailure = IsFinInvalidResultFailure(model: model, expression: conditional.WhenTrue);
-        bool falseFailure = IsFinInvalidResultFailure(model: model, expression: conditional.WhenFalse);
-        return (trueSuccess, falseFailure, trueFailure, falseSuccess) switch {
-            (true, true, _, _) => IsConfirmableNativeStatusCondition(model: model, condition: conditional.Condition, successWhenTrue: true),
-            (_, _, true, true) => IsConfirmableNativeStatusCondition(model: model, condition: conditional.Condition, successWhenTrue: false),
-            _ => false,
-        };
-    }
     internal static bool IsManualOpAdmissionGate(SemanticModel model, SwitchExpressionSyntax switchExpression) {
         if (!IsNonUnitFinExpression(model: model, expression: switchExpression) || switchExpression.Arms.Count != 2) {
             return false;
@@ -590,6 +676,20 @@ internal static class SymbolFacts {
             && failureArms.Length == 1
             && IsKnownSwitchValidityProbe(model: model, switchExpression: switchExpression, arm: successArms[0].Arm, successValue: successArms[0].Value);
     }
+    internal static bool IsManualOpConfirmGate(SemanticModel model, ConditionalExpressionSyntax conditional) {
+        if (!IsFinUnitExpression(model: model, expression: conditional)) {
+            return false;
+        }
+        bool trueSuccess = IsFinUnitSuccess(model: model, expression: conditional.WhenTrue);
+        bool falseSuccess = IsFinUnitSuccess(model: model, expression: conditional.WhenFalse);
+        bool trueFailure = IsFinInvalidResultFailure(model: model, expression: conditional.WhenTrue);
+        bool falseFailure = IsFinInvalidResultFailure(model: model, expression: conditional.WhenFalse);
+        return (trueSuccess, falseFailure, trueFailure, falseSuccess) switch {
+            (true, true, _, _) => IsConfirmableNativeStatusCondition(model: model, condition: conditional.Condition, successWhenTrue: true),
+            (_, _, true, true) => IsConfirmableNativeStatusCondition(model: model, condition: conditional.Condition, successWhenTrue: false),
+            _ => false,
+        };
+    }
     internal static bool IsManualOpConfirmGate(SemanticModel model, SwitchExpressionSyntax switchExpression) {
         if (!IsFinUnitExpression(model: model, expression: switchExpression) || switchExpression.Arms.Count != 2) {
             return false;
@@ -604,6 +704,12 @@ internal static class SymbolFacts {
             && failureArms.Length == 1
             && IsConfirmableNativeStatusSwitchArm(model: model, switchExpression: switchExpression, arm: successArms[0]);
     }
+    private static ExpressionSyntax UnwrapExpression(ExpressionSyntax expression) =>
+        expression switch {
+            ParenthesizedExpressionSyntax parenthesized => UnwrapExpression(parenthesized.Expression),
+            CastExpressionSyntax cast => UnwrapExpression(cast.Expression),
+            _ => expression,
+        };
     private static bool IsNonUnitFinExpression(SemanticModel model, ExpressionSyntax expression) =>
         model.GetTypeInfo(expression).ConvertedType switch {
             INamedTypeSymbol fin => IsLanguageExtFinType(fin) && !IsLanguageExtUnitType(fin.TypeArguments[0]),
@@ -634,6 +740,11 @@ internal static class SymbolFacts {
         && model.GetSymbolInfo(invocation).Symbol is IMethodSymbol { Name: "Fail" } method
         && IsLanguageExtFinType(method.ReturnType)
         && invocation.ArgumentList.Arguments.Any(argument => ContainsPlainInvalidResult(model: model, expression: argument.Expression));
+    private static bool IsLanguageExtUnitExpression(SemanticModel model, ExpressionSyntax expression) =>
+        (model.GetTypeInfo(UnwrapExpression(expression)).ConvertedType ?? model.GetTypeInfo(UnwrapExpression(expression)).Type) switch {
+            ITypeSymbol type => IsLanguageExtUnitType(type),
+            _ => false,
+        };
     private static bool IsFinUnitSuccess(SemanticModel model, ExpressionSyntax expression) =>
         UnwrapExpression(expression) is InvocationExpressionSyntax invocation
         && model.GetSymbolInfo(invocation).Symbol is IMethodSymbol { Name: "Succ" } method
@@ -650,6 +761,30 @@ internal static class SymbolFacts {
         operation.DescendantsAndSelf()
             .OfType<IInvocationOperation>()
             .Any(static invocation => invocation.TargetMethod.Name == "InvalidResult" && invocation.Arguments.Length == 0);
+    private static bool SameReference(SemanticModel model, ExpressionSyntax left, ExpressionSyntax right) =>
+        (ReferencedSymbol(model: model, expression: left), ReferencedSymbol(model: model, expression: right)) switch {
+            (ISymbol a, ISymbol b) => SymbolEqualityComparer.Default.Equals(a, b),
+            _ => string.Equals(
+                a: UnwrapExpression(left).ToString(),
+                b: UnwrapExpression(right).ToString(),
+                comparisonType: StringComparison.Ordinal),
+        };
+    private static ISymbol? ReferencedSymbol(SemanticModel model, ExpressionSyntax expression) =>
+        model.GetOperation(UnwrapExpression(expression)) switch {
+            ILocalReferenceOperation local => local.Local,
+            IParameterReferenceOperation parameter => parameter.Parameter,
+            IFieldReferenceOperation field => field.Field,
+            IPropertyReferenceOperation property => property.Property,
+            _ => model.GetSymbolInfo(UnwrapExpression(expression)).Symbol,
+        };
+    private static bool IsGuidEmpty(SemanticModel model, ExpressionSyntax expression) =>
+        model.GetSymbolInfo(UnwrapExpression(expression)).Symbol switch {
+            IFieldSymbol { Name: "Empty", ContainingType: INamedTypeSymbol type } when IsGuidType(type) => true,
+            IPropertySymbol { Name: "Empty", ContainingType: INamedTypeSymbol type } when IsGuidType(type) => true,
+            _ => false,
+        };
+    private static bool IsGuidType(INamedTypeSymbol type) =>
+        type.ToDisplayString(SymbolDisplayFormat.FullyQualifiedFormat) == "global::System.Guid";
     private static bool IsKnownValidityProbe(SemanticModel model, ExpressionSyntax condition, ExpressionSyntax successValue) {
         ExpressionSyntax probe = UnwrapExpression(condition);
         return probe switch {
@@ -740,11 +875,6 @@ internal static class SymbolFacts {
         (model.GetTypeInfo(UnwrapExpression(expression)).ConvertedType ?? model.GetTypeInfo(UnwrapExpression(expression)).Type)?.SpecialType == SpecialType.System_Int32;
     private static bool IsZeroLiteral(ExpressionSyntax expression) =>
         UnwrapExpression(expression) is LiteralExpressionSyntax literal && literal.Token.Value is 0;
-    private static bool IsLanguageExtUnitExpression(SemanticModel model, ExpressionSyntax expression) =>
-        (model.GetTypeInfo(UnwrapExpression(expression)).ConvertedType ?? model.GetTypeInfo(UnwrapExpression(expression)).Type) switch {
-            ITypeSymbol type => IsLanguageExtUnitType(type),
-            _ => false,
-        };
     private static bool IsKnownIsValidPattern(SemanticModel model, PatternSyntax pattern, ExpressionSyntax successValue) =>
         pattern is RecursivePatternSyntax recursive
         && PatternDesignationName(recursive.Designation) is string designation
@@ -785,11 +915,6 @@ internal static class SymbolFacts {
         AcceptValueIsValidTypeNames.Contains(type.Name)
         || type.AllInterfaces.Any(static candidate => candidate.OriginalDefinition.Name == "ISmartEnum")
         || TypeAndBases(type).Any(static candidate => candidate.Name == "GeometryBase");
-    private static IEnumerable<INamedTypeSymbol> TypeAndBases(INamedTypeSymbol type) {
-        for (INamedTypeSymbol? current = type; current is not null; current = current.BaseType) {
-            yield return current;
-        }
-    }
     private static bool IsFiniteScalarType(SemanticModel model, ExpressionSyntax expression) =>
         (model.GetTypeInfo(UnwrapExpression(expression)).ConvertedType ?? model.GetTypeInfo(UnwrapExpression(expression)).Type)?.SpecialType
             is SpecialType.System_Double or SpecialType.System_Single;
@@ -800,70 +925,6 @@ internal static class SymbolFacts {
             _ => false,
         };
     }
-    private static bool TryProjectionTypeParameter(ITypeSymbol? type, out ITypeParameterSymbol parameter) {
-        parameter = null!;
-        if (type is INamedTypeSymbol { OriginalDefinition.MetadataName: "Fin`1", TypeArguments.Length: 1 } fin
-            && fin.ContainingNamespace.ToDisplayString().StartsWith(value: Markers.LanguageExtNamespace, comparisonType: StringComparison.Ordinal)
-            && fin.TypeArguments[0] is ITypeParameterSymbol typeParameter) {
-            parameter = typeParameter;
-            return true;
-        }
-        return false;
-    }
-    private static bool IsProjectionOwner(ISymbol? symbol) =>
-        symbol is IMethodSymbol method
-        && (method.ContainingType?.Name is "AtomProjection" or "OpAcceptance"
-            || method.Name is "Self" or "Value" or "Values" or "Custom" or "AcceptResults");
-    private static bool HasProjectionAndUnsupported(IOperation success, IOperation failure, ITypeParameterSymbol parameter) =>
-        (ContainsObjectMediatedCast(operation: success, parameter: parameter) && ContainsUnsupportedFailure(operation: failure, parameter: parameter))
-        || (ContainsObjectMediatedCast(operation: failure, parameter: parameter) && ContainsUnsupportedFailure(operation: success, parameter: parameter));
-    private static bool ContainsTypeof(IOperation operation, ITypeParameterSymbol parameter) =>
-        operation.DescendantsAndSelf()
-            .OfType<ITypeOfOperation>()
-            .Any(typeOf => SymbolEqualityComparer.Default.Equals(typeOf.TypeOperand, parameter));
-    private static bool ContainsObjectMediatedCast(IOperation operation, ITypeParameterSymbol parameter) =>
-        operation.DescendantsAndSelf()
-            .OfType<IConversionOperation>()
-            .Any(conversion => SymbolEqualityComparer.Default.Equals(conversion.Type, parameter) && IsObjectBridge(operation: conversion.Operand));
-    private static bool IsObjectBridge(IOperation operation) =>
-        operation.Type?.SpecialType == SpecialType.System_Object
-        || (operation is IConversionOperation conversion && IsObjectBridge(operation: conversion.Operand));
-    private static bool ContainsUnsupportedFailure(IOperation operation, ITypeParameterSymbol parameter) =>
-        operation.DescendantsAndSelf()
-            .OfType<IInvocationOperation>()
-            .Any(invocation => IsLanguageExtFinFailureInvocation(invocation)
-                && invocation.DescendantsAndSelf().OfType<IInvocationOperation>().Any(static nested => nested.TargetMethod.Name == "Unsupported")
-                && ContainsTypeof(operation: invocation, parameter: parameter));
-    private static bool SameReference(SemanticModel model, ExpressionSyntax left, ExpressionSyntax right) =>
-        (ReferencedSymbol(model: model, expression: left), ReferencedSymbol(model: model, expression: right)) switch {
-            (ISymbol a, ISymbol b) => SymbolEqualityComparer.Default.Equals(a, b),
-            _ => string.Equals(
-                a: UnwrapExpression(left).ToString(),
-                b: UnwrapExpression(right).ToString(),
-                comparisonType: StringComparison.Ordinal),
-        };
-    private static ISymbol? ReferencedSymbol(SemanticModel model, ExpressionSyntax expression) =>
-        model.GetOperation(UnwrapExpression(expression)) switch {
-            ILocalReferenceOperation local => local.Local,
-            IParameterReferenceOperation parameter => parameter.Parameter,
-            IFieldReferenceOperation field => field.Field,
-            IPropertyReferenceOperation property => property.Property,
-            _ => model.GetSymbolInfo(UnwrapExpression(expression)).Symbol,
-        };
-    private static bool IsGuidEmpty(SemanticModel model, ExpressionSyntax expression) =>
-        model.GetSymbolInfo(UnwrapExpression(expression)).Symbol switch {
-            IFieldSymbol { Name: "Empty", ContainingType: INamedTypeSymbol type } when IsGuidType(type) => true,
-            IPropertySymbol { Name: "Empty", ContainingType: INamedTypeSymbol type } when IsGuidType(type) => true,
-            _ => false,
-        };
-    private static bool IsGuidType(INamedTypeSymbol type) =>
-        type.ToDisplayString(SymbolDisplayFormat.FullyQualifiedFormat) == "global::System.Guid";
-    private static ExpressionSyntax UnwrapExpression(ExpressionSyntax expression) =>
-        expression switch {
-            ParenthesizedExpressionSyntax parenthesized => UnwrapExpression(parenthesized.Expression),
-            CastExpressionSyntax cast => UnwrapExpression(cast.Expression),
-            _ => expression,
-        };
     private static readonly HashSet<(string From, string To)> NarrowingCasts = [
         ("Int64", "Int32"), ("Int64", "Int16"), ("Int64", "Byte"), ("Int64", "SByte"),
         ("Int32", "Int16"), ("Int32", "Byte"), ("Int32", "SByte"), ("Double", "Single"),
@@ -922,6 +983,33 @@ internal static class SymbolFacts {
             Parameters.Length: > 0,
         }
         && invocation.Arguments.Any(static argument => IsDocumentReceiptFactoryTerm(argument.Value));
+    private static INamedTypeSymbol? UnwrapNamed(ITypeSymbol? type) =>
+        type switch {
+            INamedTypeSymbol named => UnwrapNullable(named) as INamedTypeSymbol,
+            _ => null,
+        };
+    private static string ReceiptMemberName(string name) {
+        int open = name.StartsWith(value: "<", comparisonType: StringComparison.Ordinal) ? 1 : -1;
+        int close = open > 0 ? name.IndexOf('>', startIndex: open) : -1;
+        return close > open ? name.Substring(startIndex: open, length: close - open) : name;
+    }
+    private static bool IsProofReceiptType(INamedTypeSymbol receipt) =>
+        receipt.GetMembers()
+            .Where(static member => member is IFieldSymbol or IPropertySymbol)
+            .Count(static member =>
+                ContainsAnyFragment(name: member.Name, fragments: ProofReceiptFragments)
+                || ContainsAnyFragment(name: MemberTypeName(member), fragments: ProofReceiptFragments)) >= 2;
+    private static bool ContainsAnyFragment(string name, HashSet<string> fragments) =>
+        fragments.Any(fragment => name.Contains(value: fragment, comparisonType: StringComparison.Ordinal));
+    private static bool IsDocumentReceiptFactoryTerm(IOperation operation) =>
+        UnwrapReceiver(operation) switch {
+            IInvocationOperation invocation => invocation.TargetMethod is {
+                ContainingType.Name: "DocumentReceipt",
+                ReturnType: INamedTypeSymbol { Name: "DocumentReceipt" },
+            },
+            IConversionOperation { Operand: IOperation operand } => IsDocumentReceiptFactoryTerm(operand),
+            _ => false,
+        };
     internal static bool HasThinktectureGeneratedDispatch(INamedTypeSymbol? type) =>
         type is not null && HasAnyAttribute(type, "UnionAttribute", "Union", "SmartEnumAttribute", "SmartEnum");
     internal static ImmutableArray<INamedTypeSymbol> ClosedUnionCases(Compilation compilation, INamedTypeSymbol namedType) =>
@@ -930,6 +1018,10 @@ internal static class SymbolFacts {
                 .Where(caseType => SymbolEqualityComparer.Default.Equals(caseType.BaseType, namedType))
                 .Concat(compilation.GlobalNamespace.GetNamespaceMembers().SelectMany(namespaceSymbol => ClosedUnionCases(namespaceSymbol, namedType))),
         ];
+    private static IEnumerable<INamedTypeSymbol> ClosedUnionCases(INamespaceSymbol namespaceSymbol, INamedTypeSymbol namedType) =>
+        namespaceSymbol.GetTypeMembers()
+            .Where(caseType => SymbolEqualityComparer.Default.Equals(caseType.BaseType, namedType))
+            .Concat(namespaceSymbol.GetNamespaceMembers().SelectMany(childNamespace => ClosedUnionCases(childNamespace, namedType)));
     internal static bool HasSamePayloadUnionCaseSurface(INamedTypeSymbol namedType, ImmutableArray<INamedTypeSymbol> unionCases, out int caseCount) {
         ImmutableArray<string> shapes = [
             .. unionCases
@@ -951,142 +1043,6 @@ internal static class SymbolFacts {
         return candidate
             && caseCount >= 3;
     }
-    internal static bool HasExclusiveOptionalPayloadBag(Compilation compilation, INamedTypeSymbol namedType, out int slotCount, out int projectionWidth) {
-        slotCount = 0;
-        projectionWidth = 0;
-        if (IsProofOrProjectionContainer(namedType) || HasAdditiveOwnerSemantics(namedType)) {
-            return false;
-        }
-        ImmutableArray<IPropertySymbol> slots = [
-            .. namedType.GetMembers()
-                .OfType<IPropertySymbol>()
-                .Where(static property => !property.IsStatic && property.Parameters.Length == 0)
-                .Where(property => IsPrimaryConstructorProperty(namedType: namedType, property: property))
-                .Where(static property => TryOptionPayload(property.Type, out ITypeSymbol? payload) && IsComplexPayload(payload)),
-        ];
-        slotCount = slots.Length;
-        return slots.Length >= 3
-            && HasExclusivePayloadDiscriminator(namedType: namedType)
-            && HasCrossSlotProjection(compilation: compilation, namedType: namedType, slots: slots, width: out projectionWidth)
-            && projectionWidth >= 3;
-    }
-    internal static bool TryManualClosedUnionOverride(INamedTypeSymbol namedType, ImmutableHashSet<INamedTypeSymbol> derivedTypes, out ManualClosedUnionOverrideFacts facts) {
-        facts = default;
-        ImmutableArray<INamedTypeSymbol> nestedCases = [
-            .. namedType.GetTypeMembers()
-                .Where(caseType => IsManualUnionCase(baseType: namedType, caseType: caseType)),
-        ];
-        bool closedByInheritance = derivedTypes.Count > 0
-            && derivedTypes.All(derived => nestedCases.Any(caseType => SymbolEqualityComparer.Default.Equals(caseType.OriginalDefinition, derived.OriginalDefinition)));
-        bool candidate = namedType is { TypeKind: TypeKind.Class, IsAbstract: true }
-            && !HasThinktectureGeneratedDispatch(namedType)
-            && (HasPrivateConstructorBarrier(namedType) || (closedByInheritance && !IsExternallyVisible(namedType)))
-            && nestedCases.Length >= 3;
-        if (!candidate) {
-            return false;
-        }
-        ImmutableArray<ISymbol> dispatchMembers = [
-            .. ManualDispatchMembers(namedType)
-                .Where(member => nestedCases.All(caseType =>
-                    MatchingOverride(caseType: caseType, baseMember: member) is ISymbol overrideMember
-                    && IsSimpleDispatchOverride(overrideMember))),
-        ];
-        if (dispatchMembers.Length == 0 || !nestedCases.All(caseType => HasNoExtraManualBehavior(caseType: caseType, dispatchMembers: dispatchMembers))) {
-            return false;
-        }
-        facts = new ManualClosedUnionOverrideFacts(
-            memberName: DescribeDispatchMembers(dispatchMembers),
-            overrideCount: nestedCases.Length * dispatchMembers.Length);
-        return true;
-    }
-    internal static bool TryForwardingRequestCaseFamily(Compilation compilation, INamedTypeSymbol namedType, out ForwardingRequestCaseFamilyFacts facts) {
-        facts = default;
-        ImmutableArray<INamedTypeSymbol> nestedCases = [
-            .. namedType.GetTypeMembers()
-                .Where(caseType => IsForwardingRequestCase(baseType: namedType, caseType: caseType)),
-        ];
-        if (namedType is not { TypeKind: TypeKind.Class, IsAbstract: true, IsGenericType: true }
-            || HasThinktectureGeneratedDispatch(namedType)
-            || nestedCases.Length < 3) {
-            return false;
-        }
-        ImmutableArray<IMethodSymbol> abstractMethods = [
-            .. namedType.GetMembers()
-                .OfType<IMethodSymbol>()
-                .Where(static method => method is {
-                    IsStatic: false,
-                    IsAbstract: true,
-                    MethodKind: MethodKind.Ordinary,
-                    Parameters.Length: 1,
-                })
-                .Where(method => IsLanguageExtFinType(method.ReturnType)),
-        ];
-        bool forwards = abstractMethods.Any(method => nestedCases.All(caseType =>
-            MatchingOverride(caseType: caseType, baseMember: method) is IMethodSymbol overrideMethod
-            && IsTerminalRunForwarder(compilation: compilation, method: overrideMethod)
-            && HasNoExtraForwardingCaseBehavior(caseType: caseType, dispatchMethod: method)));
-        if (!forwards) {
-            return false;
-        }
-        facts = new ForwardingRequestCaseFamilyFacts(caseCount: nestedCases.Length);
-        return true;
-    }
-    internal static bool TryClosedUnionDispatch(Compilation compilation, ISymbol containingSymbol, IInvocationOperation invocation, out ClosedUnionDispatchFact fact) {
-        fact = default;
-        ImmutableArray<IAnonymousFunctionOperation> lambdas = [
-            .. invocation.Arguments
-                .Select(argument => UnwrapLambda(argument.Value))
-                .Where(static lambda => lambda is not null)
-                .Select(static lambda => lambda!),
-        ];
-        INamedTypeSymbol? union = ClosedUnionDispatchReceiver(invocation);
-        ImmutableArray<INamedTypeSymbol> cases = union is null ? [] : ClosedUnionCases(compilation: compilation, namedType: union);
-        ImmutableArray<INamedTypeSymbol> dispatchedCases = union is null ? [] : ClosedUnionDispatchCases(union: union, lambdas: lambdas);
-        ClosedUnionDispatchKind? kind = ClosedUnionDispatchKindOf(invocation: invocation, lambdas: lambdas);
-        bool complete = cases.Length >= 3
-            && dispatchedCases.Length == cases.Length
-            && CaseSetKey(cases: dispatchedCases) == CaseSetKey(cases: cases);
-        if (invocation.TargetMethod.Name != "Switch" || union is null || kind is null || !complete) {
-            return false;
-        }
-        INamedTypeSymbol? ownerType = containingSymbol.ContainingType;
-        fact = new ClosedUnionDispatchFact(
-            union: union.OriginalDefinition,
-            kind: kind.Value,
-            caseCount: cases.Length,
-            caseSetKey: CaseSetKey(cases: cases),
-            ownerKey: OwnerKey(ownerType: ownerType),
-            ownerIsUnion: ownerType is not null && SymbolEqualityComparer.Default.Equals(ownerType.OriginalDefinition, union.OriginalDefinition),
-            receiverRole: ClosedUnionReceiverRole(invocation: invocation),
-            filePath: invocation.Syntax.SyntaxTree.FilePath,
-            location: invocation.Syntax.GetLocation());
-        return true;
-    }
-    internal static bool IsLanguageExtInvocation(IInvocationOperation invocation, params string[] names) =>
-        names.Contains(invocation.TargetMethod.Name, StringComparer.Ordinal)
-        && (invocation.TargetMethod.ContainingType?.ContainingNamespace?.ToDisplayString() ?? string.Empty)
-            .StartsWith(value: Markers.LanguageExtNamespace, comparisonType: StringComparison.Ordinal);
-
-    // --- [ATTRIBUTE_FACTS] -----------------------------------------------------
-
-    internal static bool HasAnyAttribute(ISymbol symbol, params string[] names) =>
-        AllAttributes(symbol).Any(attribute => names.Contains(attribute.AttributeClass?.Name ?? string.Empty, StringComparer.Ordinal));
-    internal static IEnumerable<AttributeData> AllAttributes(ISymbol symbol) =>
-        symbol.GetAttributes()
-            .Concat(symbol is IMethodSymbol { AssociatedSymbol: ISymbol associatedSymbol } ? associatedSymbol.GetAttributes() : [])
-            .Concat(symbol.ContainingType?.GetAttributes() ?? []);
-
-    // --- [PRIVATE_OPERATIONS] --------------------------------------------------
-
-    private static bool IsGenericIEnumerableTaskLike(INamedTypeSymbol namedType) =>
-        namedType.MetadataName == "IEnumerable`1"
-        && namedType.ContainingNamespace.ToDisplayString() == "System.Collections.Generic"
-        && namedType.TypeArguments.Length == 1
-        && IsTaskLikeType(namedType.TypeArguments[0]);
-    private static IEnumerable<INamedTypeSymbol> ClosedUnionCases(INamespaceSymbol namespaceSymbol, INamedTypeSymbol namedType) =>
-        namespaceSymbol.GetTypeMembers()
-            .Where(caseType => SymbolEqualityComparer.Default.Equals(caseType.BaseType, namedType))
-            .Concat(namespaceSymbol.GetNamespaceMembers().SelectMany(childNamespace => ClosedUnionCases(childNamespace, namedType)));
     private static IMethodSymbol? PrimaryConstructor(INamedTypeSymbol type) =>
         type.InstanceConstructors
             .Where(static constructor => !constructor.IsImplicitlyDeclared)
@@ -1120,230 +1076,28 @@ internal static class SymbolFacts {
     private static bool IsRecordCopyConstructor(INamedTypeSymbol type, IMethodSymbol constructor) =>
         constructor.Parameters.Length == 1
         && SymbolEqualityComparer.Default.Equals(constructor.Parameters[0].Type, type);
-    private static bool HasPrivateConstructorBarrier(INamedTypeSymbol namedType) =>
-        namedType.InstanceConstructors
-            .Where(constructor => !constructor.IsImplicitlyDeclared)
-            .Where(constructor => !IsRecordCopyConstructor(type: namedType, constructor: constructor))
-            .Any(static constructor => constructor.DeclaredAccessibility == Accessibility.Private)
-        && !namedType.InstanceConstructors
-            .Where(constructor => !constructor.IsImplicitlyDeclared)
-            .Where(constructor => !IsRecordCopyConstructor(type: namedType, constructor: constructor))
-            .Any(static constructor => constructor.DeclaredAccessibility
-                is Accessibility.Public
-                or Accessibility.Protected
-                or Accessibility.ProtectedOrInternal
-                or Accessibility.ProtectedAndInternal);
-    private static bool IsExternallyVisible(INamedTypeSymbol namedType) =>
-        namedType.DeclaredAccessibility is Accessibility.Public or Accessibility.Protected or Accessibility.ProtectedOrInternal
-        && (namedType.ContainingType is not INamedTypeSymbol containing || IsExternallyVisible(containing));
-    private static INamedTypeSymbol? ClosedUnionDispatchReceiver(IInvocationOperation invocation) =>
-        invocation.TargetMethod.ContainingType switch {
-            INamedTypeSymbol targetType when HasAnyAttribute(targetType, "UnionAttribute", "Union") => targetType,
-            _ => UnwrapReceiver(ExtractReceiver(invocation))?.Type is INamedTypeSymbol receiverType
-                && HasAnyAttribute(receiverType, "UnionAttribute", "Union")
-                    ? receiverType
-                    : null,
-        };
-    private static ClosedUnionDispatchKind? ClosedUnionDispatchKindOf(IInvocationOperation invocation, ImmutableArray<IAnonymousFunctionOperation> lambdas) =>
-        invocation.Type switch {
-            INamedTypeSymbol type when IsMetadataLikeType(type) && lambdas.All(static lambda => !HasBehaviorInvocation(lambda)) => ClosedUnionDispatchKind.Metadata,
-            INamedTypeSymbol type when IsPlanLikeType(type) || IsErasedObjectType(type) => null,
-            { SpecialType: SpecialType.System_Boolean } => null,
-            _ when lambdas.Any(static lambda => HasBehaviorInvocation(lambda) || HasBehaviorObjectCreation(lambda)) => ClosedUnionDispatchKind.Behavior,
-            _ => null,
-        };
-    private static bool IsMetadataLikeType(INamedTypeSymbol type) =>
-        type.Name.EndsWith(value: "Meta", comparisonType: StringComparison.Ordinal)
-        || type.Name.EndsWith(value: "Metadata", comparisonType: StringComparison.Ordinal);
-    private static bool IsPlanLikeType(INamedTypeSymbol type) =>
-        type.Name.EndsWith(value: "Plan", comparisonType: StringComparison.Ordinal);
-    private static bool IsErasedObjectType(INamedTypeSymbol type) =>
-        type.SpecialType == SpecialType.System_Object;
-    private static bool HasBehaviorInvocation(IAnonymousFunctionOperation lambda) =>
-        lambda.Body.DescendantsAndSelf()
-            .OfType<IInvocationOperation>()
-            .Any(static invocation => invocation.TargetMethod.Name is not "Switch" and not "Map");
-    private static bool HasBehaviorObjectCreation(IAnonymousFunctionOperation lambda) =>
-        lambda.Body.DescendantsAndSelf()
-            .OfType<IObjectCreationOperation>()
-            .Any();
-    private static ImmutableArray<INamedTypeSymbol> ClosedUnionDispatchCases(INamedTypeSymbol union, ImmutableArray<IAnonymousFunctionOperation> lambdas) =>
-        [
-            .. lambdas
-                .Select(lambda => lambda.Symbol.Parameters
-                    .Select(static parameter => parameter.Type)
-                    .OfType<INamedTypeSymbol>()
-                    .FirstOrDefault(type => IsClosedUnionCase(union: union, type: type)))
-                .Where(static type => type is not null)
-                .Select(static type => type!),
-        ];
-    private static bool IsClosedUnionCase(INamedTypeSymbol union, INamedTypeSymbol type) =>
-        type.BaseType is INamedTypeSymbol baseType
-        && SymbolEqualityComparer.Default.Equals(baseType.OriginalDefinition, union.OriginalDefinition);
-    private static string CaseSetKey(ImmutableArray<INamedTypeSymbol> cases) =>
-        string.Join(
-            separator: "|",
-            values: cases
-                .Select(static type => type.OriginalDefinition.ToDisplayString(SymbolDisplayFormat.FullyQualifiedFormat))
-                .OrderBy(static value => value, StringComparer.Ordinal));
-    private static string OwnerKey(INamedTypeSymbol? ownerType) =>
-        ownerType?.OriginalDefinition.ToDisplayString(SymbolDisplayFormat.FullyQualifiedFormat) ?? string.Empty;
-    private static ClosedUnionDispatchReceiverRole ClosedUnionReceiverRole(IInvocationOperation invocation) =>
-        UnwrapReceiver(ExtractReceiver(invocation)) switch {
-            IInstanceReferenceOperation => ClosedUnionDispatchReceiverRole.This,
-            IParameterReferenceOperation => ClosedUnionDispatchReceiverRole.Parameter,
-            _ => ClosedUnionDispatchReceiverRole.Other,
-        };
-    private static bool IsManualUnionCase(INamedTypeSymbol baseType, INamedTypeSymbol caseType) =>
-        caseType is { TypeKind: TypeKind.Class, IsRecord: true, IsSealed: true, IsGenericType: false }
-        && caseType.BaseType is INamedTypeSymbol parent
-        && SymbolEqualityComparer.Default.Equals(parent.OriginalDefinition, baseType.OriginalDefinition);
-    private static bool IsForwardingRequestCase(INamedTypeSymbol baseType, INamedTypeSymbol caseType) =>
-        caseType is { TypeKind: TypeKind.Class, IsSealed: true }
-        && caseType.BaseType is INamedTypeSymbol parent
-        && SymbolEqualityComparer.Default.Equals(parent.OriginalDefinition, baseType.OriginalDefinition);
-    private static IEnumerable<ISymbol> ManualDispatchMembers(INamedTypeSymbol namedType) =>
-        namedType.GetMembers()
-            .Where(static member => member switch {
-                IPropertySymbol property => property is { IsStatic: false, IsAbstract: true },
-                IMethodSymbol method => method is {
-                    IsStatic: false,
-                    IsAbstract: true,
-                    MethodKind: MethodKind.Ordinary,
-                    IsImplicitlyDeclared: false,
-                },
-                _ => false,
-            });
-    private static ISymbol? MatchingOverride(INamedTypeSymbol caseType, ISymbol baseMember) =>
-        baseMember switch {
-            IPropertySymbol property => caseType.GetMembers(property.Name)
-                .OfType<IPropertySymbol>()
-                .FirstOrDefault(candidate => candidate.IsOverride
-                    && SymbolEqualityComparer.Default.Equals(candidate.OverriddenProperty?.OriginalDefinition, property.OriginalDefinition)),
-            IMethodSymbol method => caseType.GetMembers(method.Name)
-                .OfType<IMethodSymbol>()
-                .FirstOrDefault(candidate => candidate.IsOverride
-                    && SymbolEqualityComparer.Default.Equals(candidate.OverriddenMethod?.OriginalDefinition, method.OriginalDefinition)),
-            _ => null,
-        };
-    private static bool HasNoExtraManualBehavior(INamedTypeSymbol caseType, ImmutableArray<ISymbol> dispatchMembers) =>
-        caseType.GetMembers()
-            .Where(static member => !member.IsImplicitlyDeclared)
-            .All(member => IsAllowedManualUnionCaseMember(member: member, parameters: PrimaryConstructor(caseType)?.Parameters ?? [], dispatchMembers: dispatchMembers));
-    private static bool IsAllowedManualUnionCaseMember(ISymbol member, ImmutableArray<IParameterSymbol> parameters, ImmutableArray<ISymbol> dispatchMembers) =>
-        member switch {
-            IFieldSymbol { AssociatedSymbol: IPropertySymbol property } => IsAllowedManualUnionCaseMember(member: property, parameters: parameters, dispatchMembers: dispatchMembers),
-            IPropertySymbol { Name: "EqualityContract" } => true,
-            IPropertySymbol property when MatchingBaseMember(dispatchMembers: dispatchMembers, overrideMember: property) is not null => IsSimpleDispatchOverride(property),
-            IPropertySymbol property => parameters.Any(parameter =>
-                string.Equals(a: parameter.Name, b: property.Name, comparisonType: StringComparison.OrdinalIgnoreCase)
-                && SymbolEqualityComparer.Default.Equals(parameter.Type, property.Type)),
-            IMethodSymbol { MethodKind: MethodKind.PropertyGet or MethodKind.PropertySet } method => method.AssociatedSymbol is IPropertySymbol property
-                && IsAllowedManualUnionCaseMember(member: property, parameters: parameters, dispatchMembers: dispatchMembers),
-            IMethodSymbol { MethodKind: MethodKind.Constructor } => true,
-            IMethodSymbol method when MatchingBaseMember(dispatchMembers: dispatchMembers, overrideMember: method) is not null => IsSimpleDispatchOverride(method),
-            IMethodSymbol { Name: "Deconstruct" or "PrintMembers" } => true,
-            _ => false,
-        };
-    private static bool HasNoExtraForwardingCaseBehavior(INamedTypeSymbol caseType, IMethodSymbol dispatchMethod) =>
-        caseType.GetMembers()
-            .Where(static member => !member.IsImplicitlyDeclared)
-            .All(member => IsAllowedForwardingCaseMember(member: member, parameters: PrimaryConstructor(caseType)?.Parameters ?? [], dispatchMethod: dispatchMethod));
-    private static bool IsAllowedForwardingCaseMember(ISymbol member, ImmutableArray<IParameterSymbol> parameters, IMethodSymbol dispatchMethod) =>
-        member switch {
-            IFieldSymbol { AssociatedSymbol: IPropertySymbol property } => IsAllowedForwardingCaseMember(member: property, parameters: parameters, dispatchMethod: dispatchMethod),
-            IPropertySymbol { Name: "EqualityContract" } => true,
-            IPropertySymbol property when property.IsOverride => IsSimpleDispatchOverride(property),
-            IPropertySymbol property => parameters.Any(parameter =>
-                string.Equals(a: parameter.Name, b: property.Name, comparisonType: StringComparison.OrdinalIgnoreCase)
-                && SymbolEqualityComparer.Default.Equals(parameter.Type, property.Type)),
-            IMethodSymbol { MethodKind: MethodKind.PropertyGet or MethodKind.PropertySet } method => method.AssociatedSymbol is IPropertySymbol property
-                && IsAllowedForwardingCaseMember(member: property, parameters: parameters, dispatchMethod: dispatchMethod),
-            IMethodSymbol { MethodKind: MethodKind.Constructor } => true,
-            IMethodSymbol method when SymbolEqualityComparer.Default.Equals(method.OverriddenMethod?.OriginalDefinition, dispatchMethod.OriginalDefinition)
-                => IsSimpleDispatchOverride(method),
-            IMethodSymbol { Name: "Deconstruct" or "PrintMembers" } => true,
-            _ => false,
-        };
-    private static ISymbol? MatchingBaseMember(ImmutableArray<ISymbol> dispatchMembers, ISymbol overrideMember) =>
-        overrideMember switch {
-            IPropertySymbol property => dispatchMembers
-                .OfType<IPropertySymbol>()
-                .FirstOrDefault(candidate => SymbolEqualityComparer.Default.Equals(property.OverriddenProperty?.OriginalDefinition, candidate.OriginalDefinition)),
-            IMethodSymbol method => dispatchMembers
-                .OfType<IMethodSymbol>()
-                .FirstOrDefault(candidate => SymbolEqualityComparer.Default.Equals(method.OverriddenMethod?.OriginalDefinition, candidate.OriginalDefinition)),
-            _ => null,
-        };
-    private static bool IsSimpleDispatchOverride(ISymbol member) =>
-        member.DeclaringSyntaxReferences.Any(reference => reference.GetSyntax() switch {
-            MethodDeclarationSyntax method => SimpleDispatchMethod(method),
-            PropertyDeclarationSyntax property => SimpleDispatchProperty(property),
-            _ => false,
-        });
-    private static bool IsTerminalRunForwarder(Compilation compilation, IMethodSymbol method) =>
-        method.Parameters.Length == 1
-        && method.DeclaringSyntaxReferences.Any(reference => reference.GetSyntax() is MethodDeclarationSyntax syntax
-            && SingleReturnExpression(method: syntax) is ExpressionSyntax expression
-            && compilation.GetSemanticModel(syntax.SyntaxTree).GetOperation(expression) is IOperation operation
-            && IsTerminalRunForwarder(operation: operation, parameter: method.Parameters[0]));
-    private static ExpressionSyntax? SingleReturnExpression(MethodDeclarationSyntax method) =>
-        method.ExpressionBody?.Expression switch {
-            ExpressionSyntax expression => expression,
-            _ => method.Body is { Statements.Count: 1 }
-                && method.Body.Statements[0] is ReturnStatementSyntax { Expression: ExpressionSyntax returned }
-                    ? returned
-                    : null,
-        };
-    private static bool IsTerminalRunForwarder(IOperation operation, IParameterSymbol parameter) =>
-        UnwrapReceiver(operation) is IInvocationOperation invocation
-        && invocation.TargetMethod.Name == "Run"
-        && invocation.Arguments.Any(argument => IsSameParameterReference(operation: argument.Value, parameter: parameter))
-        && UnwrapReceiver(ExtractReceiver(invocation)) is IInvocationOperation;
-    private static bool IsSameParameterReference(IOperation operation, IParameterSymbol parameter) =>
-        UnwrapReceiver(operation) switch {
-            IParameterReferenceOperation parameterReference => SymbolEqualityComparer.Default.Equals(parameterReference.Parameter, parameter),
-            _ => false,
-        };
-    private static bool SimpleDispatchMethod(MethodDeclarationSyntax method) =>
-        method.ExpressionBody?.Expression is ExpressionSyntax expression
-            ? IsSimpleProjectionOrDispatchExpression(expression)
-            : method.Body is BlockSyntax body
-                && body.Statements.Count == 1
-                && body.Statements[0] is ReturnStatementSyntax { Expression: ExpressionSyntax returned }
-                && IsSimpleProjectionOrDispatchExpression(returned);
-    private static bool SimpleDispatchProperty(PropertyDeclarationSyntax property) =>
-        property.ExpressionBody?.Expression is ExpressionSyntax expression
-            ? IsSimpleProjectionOrDispatchExpression(expression)
-            : property.AccessorList?.Accessors is SyntaxList<AccessorDeclarationSyntax> accessors
-                && accessors.Count == 1
-                && accessors[0] is {
-                    Keyword.RawKind: (int)SyntaxKind.GetKeyword,
-                    Body: BlockSyntax accessorBody,
-                }
-                && accessorBody.Statements.Count == 1
-                && accessorBody.Statements[0] is ReturnStatementSyntax { Expression: ExpressionSyntax returned }
-                && IsSimpleProjectionOrDispatchExpression(returned);
-    private static bool IsSimpleProjectionOrDispatchExpression(ExpressionSyntax expression) =>
-        UnwrapTransparentExpression(expression) switch {
-            LiteralExpressionSyntax => true,
-            ThisExpressionSyntax => true,
-            IdentifierNameSyntax => true,
-            MemberAccessExpressionSyntax memberAccess => IsSimpleProjectionOrDispatchExpression(memberAccess.Expression),
-            InvocationExpressionSyntax invocation => IsSimpleInvocation(invocation),
-            _ => false,
-        };
-    private static bool IsSimpleInvocation(InvocationExpressionSyntax invocation) =>
-        invocation.Expression is IdentifierNameSyntax or MemberAccessExpressionSyntax
-        && invocation.ArgumentList.Arguments.All(argument => IsSimpleProjectionOrDispatchExpression(argument.Expression));
-    private static string DescribeDispatchMembers(ImmutableArray<ISymbol> dispatchMembers) =>
-        dispatchMembers.Length switch {
-            1 => dispatchMembers[0].Name,
-            _ => $"{dispatchMembers[0].Name} and {dispatchMembers.Length - 1} more members",
-        };
     private static bool IsErrorLike(INamedTypeSymbol type) =>
         type.Name is "Error" or "Expected"
         || (type.BaseType is INamedTypeSymbol parent && IsErrorLike(parent));
+    internal static bool HasExclusiveOptionalPayloadBag(Compilation compilation, INamedTypeSymbol namedType, out int slotCount, out int projectionWidth) {
+        slotCount = 0;
+        projectionWidth = 0;
+        if (IsProofOrProjectionContainer(namedType) || HasAdditiveOwnerSemantics(namedType)) {
+            return false;
+        }
+        ImmutableArray<IPropertySymbol> slots = [
+            .. namedType.GetMembers()
+                .OfType<IPropertySymbol>()
+                .Where(static property => !property.IsStatic && property.Parameters.Length == 0)
+                .Where(property => IsPrimaryConstructorProperty(namedType: namedType, property: property))
+                .Where(static property => TryOptionPayload(property.Type, out ITypeSymbol? payload) && IsComplexPayload(payload)),
+        ];
+        slotCount = slots.Length;
+        return slots.Length >= 3
+            && HasExclusivePayloadDiscriminator(namedType: namedType)
+            && HasCrossSlotProjection(compilation: compilation, namedType: namedType, slots: slots, width: out projectionWidth)
+            && projectionWidth >= 3;
+    }
     private static bool TryOptionPayload(ITypeSymbol type, out ITypeSymbol payload) {
         bool option = type is INamedTypeSymbol {
             OriginalDefinition.MetadataName: "Option`1",
@@ -1425,70 +1179,317 @@ internal static class SymbolFacts {
             .Where(property => slots.Any(slot => SymbolEqualityComparer.Default.Equals(slot, property)))
             .Distinct<IPropertySymbol>(SymbolEqualityComparer.Default)
             .Count();
-    private static bool IsSearchValuesLiteralChar(char value) =>
-        char.IsLetterOrDigit(value) || value is '_' or ':' or '-';
-    private static bool HasPotentialRange(string charSet) =>
-        charSet.Length > 2 && charSet.AsSpan(start: 1, length: charSet.Length - 2).IndexOf('-') >= 0;
-    private static bool IsFixedLengthQuantifier(string value) {
-        int separator = value.IndexOf(',');
-        return separator switch {
-            < 0 => int.TryParse(value, NumberStyles.None, CultureInfo.InvariantCulture, out int exact) && exact > 0,
-            > 0 when separator < value.Length - 1 && value.IndexOf(',', separator + 1) < 0
-                => int.TryParse(value.Substring(startIndex: 0, length: separator), NumberStyles.None, CultureInfo.InvariantCulture, out int min)
-                    && int.TryParse(value.Substring(startIndex: separator + 1), NumberStyles.None, CultureInfo.InvariantCulture, out int max)
-                    && min > 0
-                    && max >= min,
-            _ => false,
-        };
+    internal static bool TryManualClosedUnionOverride(INamedTypeSymbol namedType, ImmutableHashSet<INamedTypeSymbol> derivedTypes, out ManualClosedUnionOverrideFacts facts) {
+        facts = default;
+        ImmutableArray<INamedTypeSymbol> nestedCases = [
+            .. namedType.GetTypeMembers()
+                .Where(caseType => IsManualUnionCase(baseType: namedType, caseType: caseType)),
+        ];
+        bool closedByInheritance = derivedTypes.Count > 0
+            && derivedTypes.All(derived => nestedCases.Any(caseType => SymbolEqualityComparer.Default.Equals(caseType.OriginalDefinition, derived.OriginalDefinition)));
+        bool candidate = namedType is { TypeKind: TypeKind.Class, IsAbstract: true }
+            && !HasThinktectureGeneratedDispatch(namedType)
+            && (HasPrivateConstructorBarrier(namedType) || (closedByInheritance && !IsExternallyVisible(namedType)))
+            && nestedCases.Length >= 3;
+        if (!candidate) {
+            return false;
+        }
+        ImmutableArray<ISymbol> dispatchMembers = [
+            .. ManualDispatchMembers(namedType)
+                .Where(member => nestedCases.All(caseType =>
+                    MatchingOverride(caseType: caseType, baseMember: member) is ISymbol overrideMember
+                    && IsSimpleDispatchOverride(overrideMember))),
+        ];
+        if (dispatchMembers.Length == 0 || !nestedCases.All(caseType => HasNoExtraManualBehavior(caseType: caseType, dispatchMembers: dispatchMembers))) {
+            return false;
+        }
+        facts = new ManualClosedUnionOverrideFacts(
+            memberName: DescribeDispatchMembers(dispatchMembers),
+            overrideCount: nestedCases.Length * dispatchMembers.Length);
+        return true;
     }
-    private static bool IsGeneratedRegexAttribute(INamedTypeSymbol? attributeType) =>
-        attributeType?.ToDisplayString() == "System.Text.RegularExpressions.GeneratedRegexAttribute";
-    private static INamedTypeSymbol? UnwrapNamed(ITypeSymbol? type) =>
-        type switch {
-            INamedTypeSymbol named => UnwrapNullable(named) as INamedTypeSymbol,
+    private static bool HasPrivateConstructorBarrier(INamedTypeSymbol namedType) =>
+        namedType.InstanceConstructors
+            .Where(constructor => !constructor.IsImplicitlyDeclared)
+            .Where(constructor => !IsRecordCopyConstructor(type: namedType, constructor: constructor))
+            .Any(static constructor => constructor.DeclaredAccessibility == Accessibility.Private)
+        && !namedType.InstanceConstructors
+            .Where(constructor => !constructor.IsImplicitlyDeclared)
+            .Where(constructor => !IsRecordCopyConstructor(type: namedType, constructor: constructor))
+            .Any(static constructor => constructor.DeclaredAccessibility
+                is Accessibility.Public
+                or Accessibility.Protected
+                or Accessibility.ProtectedOrInternal
+                or Accessibility.ProtectedAndInternal);
+    private static bool IsExternallyVisible(INamedTypeSymbol namedType) =>
+        namedType.DeclaredAccessibility is Accessibility.Public or Accessibility.Protected or Accessibility.ProtectedOrInternal
+        && (namedType.ContainingType is not INamedTypeSymbol containing || IsExternallyVisible(containing));
+    private static bool IsManualUnionCase(INamedTypeSymbol baseType, INamedTypeSymbol caseType) =>
+        caseType is { TypeKind: TypeKind.Class, IsRecord: true, IsSealed: true, IsGenericType: false }
+        && caseType.BaseType is INamedTypeSymbol parent
+        && SymbolEqualityComparer.Default.Equals(parent.OriginalDefinition, baseType.OriginalDefinition);
+    private static IEnumerable<ISymbol> ManualDispatchMembers(INamedTypeSymbol namedType) =>
+        namedType.GetMembers()
+            .Where(static member => member switch {
+                IPropertySymbol property => property is { IsStatic: false, IsAbstract: true },
+                IMethodSymbol method => method is {
+                    IsStatic: false,
+                    IsAbstract: true,
+                    MethodKind: MethodKind.Ordinary,
+                    IsImplicitlyDeclared: false,
+                },
+                _ => false,
+            });
+    private static ISymbol? MatchingOverride(INamedTypeSymbol caseType, ISymbol baseMember) =>
+        baseMember switch {
+            IPropertySymbol property => caseType.GetMembers(property.Name)
+                .OfType<IPropertySymbol>()
+                .FirstOrDefault(candidate => candidate.IsOverride
+                    && SymbolEqualityComparer.Default.Equals(candidate.OverriddenProperty?.OriginalDefinition, property.OriginalDefinition)),
+            IMethodSymbol method => caseType.GetMembers(method.Name)
+                .OfType<IMethodSymbol>()
+                .FirstOrDefault(candidate => candidate.IsOverride
+                    && SymbolEqualityComparer.Default.Equals(candidate.OverriddenMethod?.OriginalDefinition, method.OriginalDefinition)),
             _ => null,
         };
-    private static string ReceiptMemberName(string name) {
-        int open = name.StartsWith(value: "<", comparisonType: StringComparison.Ordinal) ? 1 : -1;
-        int close = open > 0 ? name.IndexOf('>', startIndex: open) : -1;
-        return close > open ? name.Substring(startIndex: open, length: close - open) : name;
+    private static bool HasNoExtraManualBehavior(INamedTypeSymbol caseType, ImmutableArray<ISymbol> dispatchMembers) =>
+        caseType.GetMembers()
+            .Where(static member => !member.IsImplicitlyDeclared)
+            .All(member => IsAllowedManualUnionCaseMember(member: member, parameters: PrimaryConstructor(caseType)?.Parameters ?? [], dispatchMembers: dispatchMembers));
+    private static bool IsAllowedManualUnionCaseMember(ISymbol member, ImmutableArray<IParameterSymbol> parameters, ImmutableArray<ISymbol> dispatchMembers) =>
+        member switch {
+            IFieldSymbol { AssociatedSymbol: IPropertySymbol property } => IsAllowedManualUnionCaseMember(member: property, parameters: parameters, dispatchMembers: dispatchMembers),
+            IPropertySymbol { Name: "EqualityContract" } => true,
+            IPropertySymbol property when MatchingBaseMember(dispatchMembers: dispatchMembers, overrideMember: property) is not null => IsSimpleDispatchOverride(property),
+            IPropertySymbol property => parameters.Any(parameter =>
+                string.Equals(a: parameter.Name, b: property.Name, comparisonType: StringComparison.OrdinalIgnoreCase)
+                && SymbolEqualityComparer.Default.Equals(parameter.Type, property.Type)),
+            IMethodSymbol { MethodKind: MethodKind.PropertyGet or MethodKind.PropertySet } method => method.AssociatedSymbol is IPropertySymbol property
+                && IsAllowedManualUnionCaseMember(member: property, parameters: parameters, dispatchMembers: dispatchMembers),
+            IMethodSymbol { MethodKind: MethodKind.Constructor } => true,
+            IMethodSymbol method when MatchingBaseMember(dispatchMembers: dispatchMembers, overrideMember: method) is not null => IsSimpleDispatchOverride(method),
+            IMethodSymbol { Name: "Deconstruct" or "PrintMembers" } => true,
+            _ => false,
+        };
+    internal static bool TryForwardingRequestCaseFamily(Compilation compilation, INamedTypeSymbol namedType, out ForwardingRequestCaseFamilyFacts facts) {
+        facts = default;
+        ImmutableArray<INamedTypeSymbol> nestedCases = [
+            .. namedType.GetTypeMembers()
+                .Where(caseType => IsForwardingRequestCase(baseType: namedType, caseType: caseType)),
+        ];
+        if (namedType is not { TypeKind: TypeKind.Class, IsAbstract: true, IsGenericType: true }
+            || HasThinktectureGeneratedDispatch(namedType)
+            || nestedCases.Length < 3) {
+            return false;
+        }
+        ImmutableArray<IMethodSymbol> abstractMethods = [
+            .. namedType.GetMembers()
+                .OfType<IMethodSymbol>()
+                .Where(static method => method is {
+                    IsStatic: false,
+                    IsAbstract: true,
+                    MethodKind: MethodKind.Ordinary,
+                    Parameters.Length: 1,
+                })
+                .Where(method => IsLanguageExtFinType(method.ReturnType)),
+        ];
+        bool forwards = abstractMethods.Any(method => nestedCases.All(caseType =>
+            MatchingOverride(caseType: caseType, baseMember: method) is IMethodSymbol overrideMethod
+            && IsTerminalRunForwarder(compilation: compilation, method: overrideMethod)
+            && HasNoExtraForwardingCaseBehavior(caseType: caseType, dispatchMethod: method)));
+        if (!forwards) {
+            return false;
+        }
+        facts = new ForwardingRequestCaseFamilyFacts(caseCount: nestedCases.Length);
+        return true;
     }
-    private static bool IsProofReceiptType(INamedTypeSymbol receipt) =>
-        receipt.GetMembers()
-            .Where(static member => member is IFieldSymbol or IPropertySymbol)
-            .Count(static member =>
-                ContainsAnyFragment(name: member.Name, fragments: ProofReceiptFragments)
-                || ContainsAnyFragment(name: MemberTypeName(member), fragments: ProofReceiptFragments)) >= 2;
-    private static bool ContainsAnyFragment(string name, HashSet<string> fragments) =>
-        fragments.Any(fragment => name.Contains(value: fragment, comparisonType: StringComparison.Ordinal));
-    private static bool IsDocumentReceiptFactoryTerm(IOperation operation) =>
+    private static bool IsForwardingRequestCase(INamedTypeSymbol baseType, INamedTypeSymbol caseType) =>
+        caseType is { TypeKind: TypeKind.Class, IsSealed: true }
+        && caseType.BaseType is INamedTypeSymbol parent
+        && SymbolEqualityComparer.Default.Equals(parent.OriginalDefinition, baseType.OriginalDefinition);
+    private static bool HasNoExtraForwardingCaseBehavior(INamedTypeSymbol caseType, IMethodSymbol dispatchMethod) =>
+        caseType.GetMembers()
+            .Where(static member => !member.IsImplicitlyDeclared)
+            .All(member => IsAllowedForwardingCaseMember(member: member, parameters: PrimaryConstructor(caseType)?.Parameters ?? [], dispatchMethod: dispatchMethod));
+    private static bool IsAllowedForwardingCaseMember(ISymbol member, ImmutableArray<IParameterSymbol> parameters, IMethodSymbol dispatchMethod) =>
+        member switch {
+            IFieldSymbol { AssociatedSymbol: IPropertySymbol property } => IsAllowedForwardingCaseMember(member: property, parameters: parameters, dispatchMethod: dispatchMethod),
+            IPropertySymbol { Name: "EqualityContract" } => true,
+            IPropertySymbol property when property.IsOverride => IsSimpleDispatchOverride(property),
+            IPropertySymbol property => parameters.Any(parameter =>
+                string.Equals(a: parameter.Name, b: property.Name, comparisonType: StringComparison.OrdinalIgnoreCase)
+                && SymbolEqualityComparer.Default.Equals(parameter.Type, property.Type)),
+            IMethodSymbol { MethodKind: MethodKind.PropertyGet or MethodKind.PropertySet } method => method.AssociatedSymbol is IPropertySymbol property
+                && IsAllowedForwardingCaseMember(member: property, parameters: parameters, dispatchMethod: dispatchMethod),
+            IMethodSymbol { MethodKind: MethodKind.Constructor } => true,
+            IMethodSymbol method when SymbolEqualityComparer.Default.Equals(method.OverriddenMethod?.OriginalDefinition, dispatchMethod.OriginalDefinition)
+                => IsSimpleDispatchOverride(method),
+            IMethodSymbol { Name: "Deconstruct" or "PrintMembers" } => true,
+            _ => false,
+        };
+    private static bool IsTerminalRunForwarder(Compilation compilation, IMethodSymbol method) =>
+        method.Parameters.Length == 1
+        && method.DeclaringSyntaxReferences.Any(reference => reference.GetSyntax() is MethodDeclarationSyntax syntax
+            && SingleReturnExpression(method: syntax) is ExpressionSyntax expression
+            && compilation.GetSemanticModel(syntax.SyntaxTree).GetOperation(expression) is IOperation operation
+            && IsTerminalRunForwarder(operation: operation, parameter: method.Parameters[0]));
+    private static ExpressionSyntax? SingleReturnExpression(MethodDeclarationSyntax method) =>
+        method.ExpressionBody?.Expression switch {
+            ExpressionSyntax expression => expression,
+            _ => method.Body is { Statements.Count: 1 }
+                && method.Body.Statements[0] is ReturnStatementSyntax { Expression: ExpressionSyntax returned }
+                    ? returned
+                    : null,
+        };
+    private static bool IsTerminalRunForwarder(IOperation operation, IParameterSymbol parameter) =>
+        UnwrapReceiver(operation) is IInvocationOperation invocation
+        && invocation.TargetMethod.Name == "Run"
+        && invocation.Arguments.Any(argument => IsSameParameterReference(operation: argument.Value, parameter: parameter))
+        && UnwrapReceiver(ExtractReceiver(invocation)) is IInvocationOperation;
+    private static bool IsSameParameterReference(IOperation operation, IParameterSymbol parameter) =>
         UnwrapReceiver(operation) switch {
-            IInvocationOperation invocation => invocation.TargetMethod is {
-                ContainingType.Name: "DocumentReceipt",
-                ReturnType: INamedTypeSymbol { Name: "DocumentReceipt" },
-            },
-            IConversionOperation { Operand: IOperation operand } => IsDocumentReceiptFactoryTerm(operand),
+            IParameterReferenceOperation parameterReference => SymbolEqualityComparer.Default.Equals(parameterReference.Parameter, parameter),
             _ => false,
         };
-    private static RegexOptions ReadGeneratedRegexOptions(ImmutableArray<TypedConstant> constructorArguments) =>
-        constructorArguments.Length switch {
-            > 1 when constructorArguments[1].Value is int raw => (RegexOptions)raw,
-            _ => RegexOptions.None,
-        };
-    private static SyntaxNode UnwrapTransparentExpression(SyntaxNode node) =>
-        node switch {
-            ParenthesizedExpressionSyntax parenthesized => UnwrapTransparentExpression(parenthesized.Expression),
-            CastExpressionSyntax castExpression => UnwrapTransparentExpression(castExpression.Expression),
-            CheckedExpressionSyntax checkedExpression => UnwrapTransparentExpression(checkedExpression.Expression),
-            AwaitExpressionSyntax awaitExpression => UnwrapTransparentExpression(awaitExpression.Expression),
-            PostfixUnaryExpressionSyntax { RawKind: (int)SyntaxKind.SuppressNullableWarningExpression } suppressNullable
-                => UnwrapTransparentExpression(suppressNullable.Operand),
-            _ => node,
-        };
-    private static IOperation? CollapseTransparentParents(IOperation operation) =>
-        operation.Parent switch {
-            IConversionOperation or IParenthesizedOperation => CollapseTransparentParents(operation.Parent),
-            IOperation parent => parent,
+    private static ISymbol? MatchingBaseMember(ImmutableArray<ISymbol> dispatchMembers, ISymbol overrideMember) =>
+        overrideMember switch {
+            IPropertySymbol property => dispatchMembers
+                .OfType<IPropertySymbol>()
+                .FirstOrDefault(candidate => SymbolEqualityComparer.Default.Equals(property.OverriddenProperty?.OriginalDefinition, candidate.OriginalDefinition)),
+            IMethodSymbol method => dispatchMembers
+                .OfType<IMethodSymbol>()
+                .FirstOrDefault(candidate => SymbolEqualityComparer.Default.Equals(method.OverriddenMethod?.OriginalDefinition, candidate.OriginalDefinition)),
             _ => null,
+        };
+    private static bool IsSimpleDispatchOverride(ISymbol member) =>
+        member.DeclaringSyntaxReferences.Any(reference => reference.GetSyntax() switch {
+            MethodDeclarationSyntax method => SimpleDispatchMethod(method),
+            PropertyDeclarationSyntax property => SimpleDispatchProperty(property),
+            _ => false,
+        });
+    private static bool SimpleDispatchMethod(MethodDeclarationSyntax method) =>
+        method.ExpressionBody?.Expression is ExpressionSyntax expression
+            ? IsSimpleProjectionOrDispatchExpression(expression)
+            : method.Body is BlockSyntax body
+                && body.Statements.Count == 1
+                && body.Statements[0] is ReturnStatementSyntax { Expression: ExpressionSyntax returned }
+                && IsSimpleProjectionOrDispatchExpression(returned);
+    private static bool SimpleDispatchProperty(PropertyDeclarationSyntax property) =>
+        property.ExpressionBody?.Expression is ExpressionSyntax expression
+            ? IsSimpleProjectionOrDispatchExpression(expression)
+            : property.AccessorList?.Accessors is SyntaxList<AccessorDeclarationSyntax> accessors
+                && accessors.Count == 1
+                && accessors[0] is {
+                    Keyword.RawKind: (int)SyntaxKind.GetKeyword,
+                    Body: BlockSyntax accessorBody,
+                }
+                && accessorBody.Statements.Count == 1
+                && accessorBody.Statements[0] is ReturnStatementSyntax { Expression: ExpressionSyntax returned }
+                && IsSimpleProjectionOrDispatchExpression(returned);
+    private static bool IsSimpleProjectionOrDispatchExpression(ExpressionSyntax expression) =>
+        UnwrapTransparentExpression(expression) switch {
+            LiteralExpressionSyntax => true,
+            ThisExpressionSyntax => true,
+            IdentifierNameSyntax => true,
+            MemberAccessExpressionSyntax memberAccess => IsSimpleProjectionOrDispatchExpression(memberAccess.Expression),
+            InvocationExpressionSyntax invocation => IsSimpleInvocation(invocation),
+            _ => false,
+        };
+    private static bool IsSimpleInvocation(InvocationExpressionSyntax invocation) =>
+        invocation.Expression is IdentifierNameSyntax or MemberAccessExpressionSyntax
+        && invocation.ArgumentList.Arguments.All(argument => IsSimpleProjectionOrDispatchExpression(argument.Expression));
+    private static string DescribeDispatchMembers(ImmutableArray<ISymbol> dispatchMembers) =>
+        dispatchMembers.Length switch {
+            1 => dispatchMembers[0].Name,
+            _ => $"{dispatchMembers[0].Name} and {dispatchMembers.Length - 1} more members",
+        };
+    internal static bool TryClosedUnionDispatch(Compilation compilation, ISymbol containingSymbol, IInvocationOperation invocation, out ClosedUnionDispatchFact fact) {
+        fact = default;
+        ImmutableArray<IAnonymousFunctionOperation> lambdas = [
+            .. invocation.Arguments
+                .Select(argument => UnwrapLambda(argument.Value))
+                .Where(static lambda => lambda is not null)
+                .Select(static lambda => lambda!),
+        ];
+        INamedTypeSymbol? union = ClosedUnionDispatchReceiver(invocation);
+        ImmutableArray<INamedTypeSymbol> cases = union is null ? [] : ClosedUnionCases(compilation: compilation, namedType: union);
+        ImmutableArray<INamedTypeSymbol> dispatchedCases = union is null ? [] : ClosedUnionDispatchCases(union: union, lambdas: lambdas);
+        ClosedUnionDispatchKind? kind = ClosedUnionDispatchKindOf(invocation: invocation, lambdas: lambdas);
+        bool complete = cases.Length >= 3
+            && dispatchedCases.Length == cases.Length
+            && CaseSetKey(cases: dispatchedCases) == CaseSetKey(cases: cases);
+        if (invocation.TargetMethod.Name != "Switch" || union is null || kind is null || !complete) {
+            return false;
+        }
+        INamedTypeSymbol? ownerType = containingSymbol.ContainingType;
+        fact = new ClosedUnionDispatchFact(
+            union: union.OriginalDefinition,
+            kind: kind.Value,
+            caseCount: cases.Length,
+            caseSetKey: CaseSetKey(cases: cases),
+            ownerKey: OwnerKey(ownerType: ownerType),
+            ownerIsUnion: ownerType is not null && SymbolEqualityComparer.Default.Equals(ownerType.OriginalDefinition, union.OriginalDefinition),
+            receiverRole: ClosedUnionReceiverRole(invocation: invocation),
+            filePath: invocation.Syntax.SyntaxTree.FilePath,
+            location: invocation.Syntax.GetLocation());
+        return true;
+    }
+    private static INamedTypeSymbol? ClosedUnionDispatchReceiver(IInvocationOperation invocation) =>
+        invocation.TargetMethod.ContainingType switch {
+            INamedTypeSymbol targetType when HasAnyAttribute(targetType, "UnionAttribute", "Union") => targetType,
+            _ => UnwrapReceiver(ExtractReceiver(invocation))?.Type is INamedTypeSymbol receiverType
+                && HasAnyAttribute(receiverType, "UnionAttribute", "Union")
+                    ? receiverType
+                    : null,
+        };
+    private static ClosedUnionDispatchKind? ClosedUnionDispatchKindOf(IInvocationOperation invocation, ImmutableArray<IAnonymousFunctionOperation> lambdas) =>
+        invocation.Type switch {
+            INamedTypeSymbol type when IsMetadataLikeType(type) && lambdas.All(static lambda => !HasBehaviorInvocation(lambda)) => ClosedUnionDispatchKind.Metadata,
+            INamedTypeSymbol type when IsPlanLikeType(type) || IsErasedObjectType(type) => null,
+            { SpecialType: SpecialType.System_Boolean } => null,
+            _ when lambdas.Any(static lambda => HasBehaviorInvocation(lambda) || HasBehaviorObjectCreation(lambda)) => ClosedUnionDispatchKind.Behavior,
+            _ => null,
+        };
+    private static bool IsMetadataLikeType(INamedTypeSymbol type) =>
+        type.Name.EndsWith(value: "Meta", comparisonType: StringComparison.Ordinal)
+        || type.Name.EndsWith(value: "Metadata", comparisonType: StringComparison.Ordinal);
+    private static bool IsPlanLikeType(INamedTypeSymbol type) =>
+        type.Name.EndsWith(value: "Plan", comparisonType: StringComparison.Ordinal);
+    private static bool IsErasedObjectType(INamedTypeSymbol type) =>
+        type.SpecialType == SpecialType.System_Object;
+    private static bool HasBehaviorInvocation(IAnonymousFunctionOperation lambda) =>
+        lambda.Body.DescendantsAndSelf()
+            .OfType<IInvocationOperation>()
+            .Any(static invocation => invocation.TargetMethod.Name is not "Switch" and not "Map");
+    private static bool HasBehaviorObjectCreation(IAnonymousFunctionOperation lambda) =>
+        lambda.Body.DescendantsAndSelf()
+            .OfType<IObjectCreationOperation>()
+            .Any();
+    private static ImmutableArray<INamedTypeSymbol> ClosedUnionDispatchCases(INamedTypeSymbol union, ImmutableArray<IAnonymousFunctionOperation> lambdas) =>
+        [
+            .. lambdas
+                .Select(lambda => lambda.Symbol.Parameters
+                    .Select(static parameter => parameter.Type)
+                    .OfType<INamedTypeSymbol>()
+                    .FirstOrDefault(type => IsClosedUnionCase(union: union, type: type)))
+                .Where(static type => type is not null)
+                .Select(static type => type!),
+        ];
+    private static bool IsClosedUnionCase(INamedTypeSymbol union, INamedTypeSymbol type) =>
+        type.BaseType is INamedTypeSymbol baseType
+        && SymbolEqualityComparer.Default.Equals(baseType.OriginalDefinition, union.OriginalDefinition);
+    private static string CaseSetKey(ImmutableArray<INamedTypeSymbol> cases) =>
+        string.Join(
+            separator: "|",
+            values: cases
+                .Select(static type => type.OriginalDefinition.ToDisplayString(SymbolDisplayFormat.FullyQualifiedFormat))
+                .OrderBy(static value => value, StringComparer.Ordinal));
+    private static string OwnerKey(INamedTypeSymbol? ownerType) =>
+        ownerType?.OriginalDefinition.ToDisplayString(SymbolDisplayFormat.FullyQualifiedFormat) ?? string.Empty;
+    private static ClosedUnionDispatchReceiverRole ClosedUnionReceiverRole(IInvocationOperation invocation) =>
+        UnwrapReceiver(ExtractReceiver(invocation)) switch {
+            IInstanceReferenceOperation => ClosedUnionDispatchReceiverRole.This,
+            IParameterReferenceOperation => ClosedUnionDispatchReceiverRole.Parameter,
+            _ => ClosedUnionDispatchReceiverRole.Other,
         };
 }

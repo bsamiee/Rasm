@@ -16,8 +16,8 @@ internal sealed class AnalyzerState {
     // --- [FIELDS] --------------------------------------------------------------
 
     private readonly ConcurrentDictionary<ISymbol, ScopeInfo> _scopeCache = new(comparer: SymbolComparer);
-    private readonly ConcurrentDictionary<IMethodSymbol, int> _methodInvocationCounts = new(comparer: SymbolComparer);
     private readonly ConcurrentDictionary<IMethodSymbol, byte> _privateMethods = new(comparer: SymbolComparer);
+    private readonly ConcurrentDictionary<IMethodSymbol, int> _methodInvocationCounts = new(comparer: SymbolComparer);
     private readonly ConcurrentDictionary<INamedTypeSymbol, byte> _namedTypes = new(comparer: NamedTypeComparer);
     private readonly ConcurrentDictionary<INamedTypeSymbol, ImmutableHashSet<INamedTypeSymbol>> _derivedTypes = new(comparer: NamedTypeComparer);
     private readonly ConcurrentDictionary<INamedTypeSymbol, ImmutableHashSet<INamedTypeSymbol>> _interfaceImplementations = new(comparer: NamedTypeComparer);
@@ -33,12 +33,6 @@ internal sealed class AnalyzerState {
         LanguageExtCommonErrorType = languageExtCommonErrorType;
     }
 
-    // --- [PROPERTIES] ----------------------------------------------------------
-
-    internal Compilation Compilation { get; }
-    internal INamespaceSymbol? LanguageExtNamespace { get; }
-    internal INamedTypeSymbol? LanguageExtCommonErrorType { get; }
-
     // --- [FACTORIES] -----------------------------------------------------------
 
     internal static AnalyzerState Create(Compilation compilation) {
@@ -46,6 +40,12 @@ internal sealed class AnalyzerState {
         INamedTypeSymbol? languageExtCommonErrorType = compilation.GetTypeByMetadataName("LanguageExt.Common.Error");
         return new AnalyzerState(compilation: compilation, languageExtNamespace: languageExtNamespace, languageExtCommonErrorType: languageExtCommonErrorType);
     }
+
+    // --- [PROPERTIES] ----------------------------------------------------------
+
+    internal Compilation Compilation { get; }
+    internal INamespaceSymbol? LanguageExtNamespace { get; }
+    internal INamedTypeSymbol? LanguageExtCommonErrorType { get; }
 
     // --- [OPERATIONS] ----------------------------------------------------------
 
@@ -59,16 +59,6 @@ internal sealed class AnalyzerState {
             (Accessibility.Private, MethodKind.Ordinary) => _privateMethods.TryAdd(key: method, value: 0),
             _ => false,
         };
-    internal void TrackNamedType(INamedTypeSymbol namedType) {
-        _ = _namedTypes.TryAdd(key: namedType, value: 0);
-        _ = namedType.BaseType switch {
-            INamedTypeSymbol baseType => _derivedTypes.AddOrUpdate(
-                key: baseType.OriginalDefinition,
-                addValueFactory: _ => ImmutableHashSet.Create<INamedTypeSymbol>(SymbolEqualityComparer.Default, namedType),
-                updateValueFactory: (_, current) => current.Add(namedType)),
-            _ => [],
-        };
-    }
     internal void TrackMethodInvocation(IMethodSymbol? method) =>
         _ = method switch {
             IMethodSymbol calledMethod
@@ -78,14 +68,15 @@ internal sealed class AnalyzerState {
                 => _methodInvocationCounts.AddOrUpdate(key: calledMethod, addValueFactory: static _ => 1, updateValueFactory: static (_, current) => current + 1),
             _ => 0,
         };
-    internal void TrackFlagsEnum(INamedTypeSymbol enumType) =>
-        _ = _flagsEnums.TryAdd(key: enumType, value: 0);
-    internal void TrackFlagsEnumCompositionSite(INamedTypeSymbol enumType) =>
-        _ = _flagsEnumCompositionSites.TryAdd(key: enumType, value: 0);
-    internal void TrackClosedUnionDispatch(ISymbol containingSymbol, IInvocationOperation invocation) {
-        if (SymbolFacts.TryClosedUnionDispatch(compilation: Compilation, containingSymbol: containingSymbol, invocation: invocation, fact: out ClosedUnionDispatchFact fact)) {
-            _closedUnionDispatches.Add(item: fact);
-        }
+    internal void TrackNamedType(INamedTypeSymbol namedType) {
+        _ = _namedTypes.TryAdd(key: namedType, value: 0);
+        _ = namedType.BaseType switch {
+            INamedTypeSymbol baseType => _derivedTypes.AddOrUpdate(
+                key: baseType.OriginalDefinition,
+                addValueFactory: _ => ImmutableHashSet.Create<INamedTypeSymbol>(SymbolEqualityComparer.Default, namedType),
+                updateValueFactory: (_, current) => current.Add(namedType)),
+            _ => [],
+        };
     }
     internal void TrackInterfaceImplementations(INamedTypeSymbol namedType) {
         // Roslyn API enumeration -- not domain code
@@ -99,6 +90,15 @@ internal sealed class AnalyzerState {
                 updateValueFactory: (_, current) => current.Add(namedType));
         }
     }
+    internal void TrackFlagsEnum(INamedTypeSymbol enumType) =>
+        _ = _flagsEnums.TryAdd(key: enumType, value: 0);
+    internal void TrackFlagsEnumCompositionSite(INamedTypeSymbol enumType) =>
+        _ = _flagsEnumCompositionSites.TryAdd(key: enumType, value: 0);
+    internal void TrackClosedUnionDispatch(ISymbol containingSymbol, IInvocationOperation invocation) {
+        if (SymbolFacts.TryClosedUnionDispatch(compilation: Compilation, containingSymbol: containingSymbol, invocation: invocation, fact: out ClosedUnionDispatchFact fact)) {
+            _closedUnionDispatches.Add(item: fact);
+        }
+    }
 
     // --- [REPORTS] -------------------------------------------------------------
 
@@ -108,11 +108,6 @@ internal sealed class AnalyzerState {
                 .Where(entry => entry.Value.Count == 1)
                 .Select(entry => (Interface: entry.Key, Implementation: entry.Value.Single())),
         ];
-    internal ImmutableArray<INamedTypeSymbol> NamedTypes() => [.. _namedTypes.Keys];
-    internal ImmutableHashSet<INamedTypeSymbol> DerivedTypes(INamedTypeSymbol baseType) =>
-        _derivedTypes.TryGetValue(key: baseType.OriginalDefinition, value: out ImmutableHashSet<INamedTypeSymbol> derived)
-            ? derived
-            : [];
     internal ImmutableArray<IMethodSymbol> SingleUsePrivateMethods() =>
         [
             .. _privateMethods.Keys
@@ -123,6 +118,11 @@ internal sealed class AnalyzerState {
             .. _flagsEnums.Keys
                 .Where(enumType => !_flagsEnumCompositionSites.ContainsKey(key: enumType)),
         ];
+    internal ImmutableArray<INamedTypeSymbol> NamedTypes() => [.. _namedTypes.Keys];
+    internal ImmutableHashSet<INamedTypeSymbol> DerivedTypes(INamedTypeSymbol baseType) =>
+        _derivedTypes.TryGetValue(key: baseType.OriginalDefinition, value: out ImmutableHashSet<INamedTypeSymbol> derived)
+            ? derived
+            : [];
     internal ImmutableArray<ClosedUnionDispatchFact> ClosedUnionDispatches() => [.. _closedUnionDispatches];
 
     // --- [OPERATIONS] ----------------------------------------------------------

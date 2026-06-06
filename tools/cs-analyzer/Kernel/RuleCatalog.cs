@@ -170,6 +170,14 @@ internal static class RuleCatalog {
     internal static readonly DiagnosticDescriptor CSP0719 = Err("CSP0719", "UnsafeNumericConversion", "Unsafe numeric conversion '{0}' in domain code is forbidden; use checked arithmetic or SafeConvert", "TypeDiscipline");
     internal static readonly DiagnosticDescriptor CSP0720 = Err("CSP0720", "InitOnlyBypassOnValidated", "Init-only property '{0}' on validated type enables with-expression bypass; use {{ get; }} only", "TypeDiscipline");
     /// <summary>
+    /// CSP0723 RhinoActiveDocLeak — fires on accesses to ambient Rhino runtime state from non-boundary code:
+    /// RhinoDoc.ActiveDoc (static singleton), RhinoApp.* (any static property or method on RhinoApp), or
+    /// any other static member on a Rhino.* containing type. Such accesses leak host-process global state
+    /// into otherwise-pure code; route the document/app handle through a parameter or composition-root injection.
+    /// Suppressed inside [BoundaryAdapter]-marked types or members.
+    /// </summary>
+    internal static readonly DiagnosticDescriptor CSP0723 = Err("CSP0723", "RhinoActiveDocLeak", "Ambient Rhino state '{0}' accessed outside boundary adapter; pass RhinoDoc/runtime via parameter", "FunctionalDiscipline");
+    /// <summary>
     /// CSP0724 FlagsEnumOveruse — fires when a [Flags] enum has zero callsites performing bitwise composition
     /// (|, &amp;, ^, ~) across the compilation. Such an enum is acting as a closed vocabulary, not a bitmask, and
     /// should be replaced with a Thinktecture [SmartEnum&lt;T&gt;] (closed vocabulary with named items) or [Union]
@@ -184,14 +192,6 @@ internal static class RuleCatalog {
     /// a targeted remediation when the imperative shape is specifically an accumulator.
     /// </summary>
     internal static readonly DiagnosticDescriptor CSP0725 = Err("CSP0725", "ImperativeAccumulator", "Loop body mutates outer-scope variable '{0}'; use Seq<T>.Fold or TraverseFin/TraverseValidation", "FunctionalDiscipline");
-    /// <summary>
-    /// CSP0723 RhinoActiveDocLeak — fires on accesses to ambient Rhino runtime state from non-boundary code:
-    /// RhinoDoc.ActiveDoc (static singleton), RhinoApp.* (any static property or method on RhinoApp), or
-    /// any other static member on a Rhino.* containing type. Such accesses leak host-process global state
-    /// into otherwise-pure code; route the document/app handle through a parameter or composition-root injection.
-    /// Suppressed inside [BoundaryAdapter]-marked types or members.
-    /// </summary>
-    internal static readonly DiagnosticDescriptor CSP0723 = Err("CSP0723", "RhinoActiveDocLeak", "Ambient Rhino state '{0}' accessed outside boundary adapter; pass RhinoDoc/runtime via parameter", "FunctionalDiscipline");
 
     // --- [UNION_OPS_RULES] -----------------------------------------------------
 

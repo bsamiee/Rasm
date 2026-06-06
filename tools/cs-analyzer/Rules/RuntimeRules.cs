@@ -28,6 +28,9 @@ internal static class RuntimeRules {
             _ => null,
         });
     }
+
+    // --- [HOT_PATH_RULES] ------------------------------------------------------
+
     internal static void CheckHotPathNonStaticLambda(OperationAnalysisContext context, ScopeInfo scope, IAnonymousFunctionOperation anonymousFunction) {
         ImmutableArray<string> capturedSymbols = CapturedOuterSymbols(anonymousFunction);
         string captureList = string.Join(separator: ", ", values: capturedSymbols);
@@ -37,14 +40,34 @@ internal static class RuntimeRules {
             _ => null,
         });
     }
-
-    // --- [RESOURCE_RULES] -----------------------------------------------------
-
     internal static void CheckHotPathLinq(OperationAnalysisContext context, ScopeInfo scope, IInvocationOperation invocation) =>
         AnalyzerState.Report(context.ReportDiagnostic, (scope.IsHotPath, invocation.TargetMethod.ContainingNamespace?.ToDisplayString()?.StartsWith(value: "System.Linq", comparisonType: StringComparison.Ordinal) == true) switch {
             (true, true) => Diagnostic.Create(RuleCatalog.CSP0601, context.Operation.Syntax.GetLocation(), invocation.TargetMethod.Name),
             _ => null,
         });
+    private static bool IsStaticLambda(IAnonymousFunctionOperation lambda) =>
+        lambda.Syntax switch {
+            LambdaExpressionSyntax { Modifiers: { } modifiers } => modifiers.Any(modifier => modifier.IsKind(SyntaxKind.StaticKeyword)),
+            _ => false,
+        };
+    private static bool IsQueryExpressionLambda(IAnonymousFunctionOperation lambda) =>
+        lambda.Syntax.Ancestors().OfType<QueryExpressionSyntax>().Any();
+    private static ImmutableArray<string> CapturedOuterSymbols(IAnonymousFunctionOperation anonymousFunction) {
+        IMethodSymbol lambdaSymbol = anonymousFunction.Symbol;
+        IEnumerable<string> captured = anonymousFunction.Body.DescendantsAndSelf().SelectMany(operation =>
+            operation switch {
+                ILocalReferenceOperation localReference when !SymbolEqualityComparer.Default.Equals(localReference.Local.ContainingSymbol, lambdaSymbol)
+                    => [localReference.Local.Name],
+                IParameterReferenceOperation parameterReference when !SymbolEqualityComparer.Default.Equals(parameterReference.Parameter.ContainingSymbol, lambdaSymbol)
+                    => [parameterReference.Parameter.Name],
+                IInstanceReferenceOperation { ReferenceKind: InstanceReferenceKind.ContainingTypeInstance } => ["this"],
+                _ => Array.Empty<string>(),
+            });
+        return [.. captured.Where(name => !string.IsNullOrWhiteSpace(name)).Distinct(StringComparer.Ordinal)];
+    }
+
+    // --- [RESOURCE_RULES] -----------------------------------------------------
+
     internal static void CheckWallClock(OperationAnalysisContext context, ScopeInfo scope, IPropertyReferenceOperation propertyReference) {
         bool wallClock = SymbolFacts.IsDateTimeType(propertyReference.Property.ContainingType.OriginalDefinition)
             && (propertyReference.Property.Name is "Now" or "UtcNow" or "Today");
@@ -63,14 +86,14 @@ internal static class RuntimeRules {
             (true, true) => Diagnostic.Create(RuleCatalog.CSP0401, context.Operation.Syntax.GetLocation(), objectCreation.Type?.Name ?? string.Empty),
             _ => null,
         });
+
+    // --- [REGEX_RULES] --------------------------------------------------------
+
     internal static void CheckRegexRuntimeConstruction(OperationAnalysisContext context, ScopeInfo scope, IObjectCreationOperation objectCreation) =>
         AnalyzerState.Report(context.ReportDiagnostic, (scope.IsDomainOrApplication, objectCreation.Type?.OriginalDefinition.ToDisplayString() == "System.Text.RegularExpressions.Regex") switch {
             (true, true) => Diagnostic.Create(RuleCatalog.CSP0704, context.Operation.Syntax.GetLocation(), objectCreation.Type?.Name ?? string.Empty),
             _ => null,
         });
-
-    // --- [REGEX_RULES] --------------------------------------------------------
-
     internal static void CheckRegexStaticMethod(OperationAnalysisContext context, ScopeInfo scope, IInvocationOperation invocation) {
         bool regexStatic = invocation.TargetMethod.IsStatic
             && invocation.TargetMethod.ContainingType.OriginalDefinition.ToDisplayString() == "System.Text.RegularExpressions.Regex"
@@ -142,6 +165,9 @@ internal static class RuntimeRules {
             _ => null,
         });
     }
+
+    // --- [COMPOSITION_RULES] -------------------------------------------------
+
     internal static void CheckScrutorScanRegistrationStrategy(OperationAnalysisContext context, ScopeInfo scope, IInvocationOperation invocation) {
         bool compositionRootOrBoundary = scope.IsBoundary || scope.IsComposition || IsCompositionRootScope(scope);
         bool scanCall = invocation.TargetMethod.Name == "Scan" && invocation.TargetMethod.Parameters.Any(IsScrutorTypeSourceSelectorParameter);
@@ -152,6 +178,17 @@ internal static class RuntimeRules {
             _ => null,
         });
     }
+    private static bool IsScrutorTypeSourceSelectorParameter(IParameterSymbol parameter) =>
+        parameter.Type is INamedTypeSymbol { OriginalDefinition.MetadataName: "Action`1", TypeArguments.Length: 1 } actionType
+        && actionType.TypeArguments[0] is INamedTypeSymbol selector
+        && selector.Name == "ITypeSourceSelector"
+        && (selector.ContainingNamespace?.ToDisplayString() == "Scrutor"
+            || selector.ContainingAssembly?.Name == "Scrutor");
+    private static bool IsCompositionRootScope(ScopeInfo scope) =>
+        scope.NamespaceName.Contains(value: ".Bootstrap", comparisonType: StringComparison.Ordinal)
+        || scope.NamespaceName.Contains(value: ".Composition", comparisonType: StringComparison.OrdinalIgnoreCase)
+        || scope.NamespaceName.Contains(value: ".DependencyInjection", comparisonType: StringComparison.OrdinalIgnoreCase)
+        || scope.FilePath.Contains(value: "Composition", comparisonType: StringComparison.OrdinalIgnoreCase);
 
     // --- [P_INVOKE_RULES] -----------------------------------------------------
 
@@ -183,31 +220,6 @@ internal static class RuntimeRules {
                     && (literalText.Contains("otlp") || literalText.Contains("grpc"))));
         AnalyzerState.Report(context.ReportDiagnostic, (scope.IsDomainOrApplication, hardcoded, compositionRoot) switch {
             (true, true, false) => Diagnostic.Create(RuleCatalog.CSP0605, context.Operation.Syntax.GetLocation(), literalOperation.ConstantValue.Value?.ToString() ?? string.Empty),
-            _ => null,
-        });
-    }
-
-    // --- [RHINO_AMBIENT_RULES] ------------------------------------------------
-
-    internal static void CheckRhinoAmbientPropertyAccess(OperationAnalysisContext context, ScopeInfo scope, IPropertyReferenceOperation propertyReference) {
-        bool ambientLeak = IsRhinoAmbientStateMember(
-            isStatic: propertyReference.Property.IsStatic,
-            containingType: propertyReference.Property.ContainingType,
-            memberName: propertyReference.Property.Name);
-        bool boundaryAccess = IsBoundaryScopeForAmbient(scope: scope, symbol: context.ContainingSymbol);
-        AnalyzerState.Report(context.ReportDiagnostic, (scope.IsAnalyzable, ambientLeak, boundaryAccess) switch {
-            (true, true, false) => Diagnostic.Create(RuleCatalog.CSP0723, context.Operation.Syntax.GetLocation(), $"{propertyReference.Property.ContainingType?.Name}.{propertyReference.Property.Name}"),
-            _ => null,
-        });
-    }
-    internal static void CheckRhinoAmbientInvocation(OperationAnalysisContext context, ScopeInfo scope, IInvocationOperation invocation) {
-        bool ambientLeak = IsRhinoAmbientStateMember(
-            isStatic: invocation.TargetMethod.IsStatic,
-            containingType: invocation.TargetMethod.ContainingType,
-            memberName: invocation.TargetMethod.Name);
-        bool boundaryAccess = IsBoundaryScopeForAmbient(scope: scope, symbol: context.ContainingSymbol);
-        AnalyzerState.Report(context.ReportDiagnostic, (scope.IsAnalyzable, ambientLeak, boundaryAccess) switch {
-            (true, true, false) => Diagnostic.Create(RuleCatalog.CSP0723, context.Operation.Syntax.GetLocation(), $"{invocation.TargetMethod.ContainingType?.Name}.{invocation.TargetMethod.Name}"),
             _ => null,
         });
     }
@@ -258,47 +270,38 @@ internal static class RuntimeRules {
             _ => null,
         });
     }
-
-    // --- [PRIVATE_OPERATIONS] -------------------------------------------------
-
-    private static bool IsStaticLambda(IAnonymousFunctionOperation lambda) =>
-        lambda.Syntax switch {
-            LambdaExpressionSyntax { Modifiers: { } modifiers } => modifiers.Any(modifier => modifier.IsKind(SyntaxKind.StaticKeyword)),
-            _ => false,
-        };
-    private static bool IsQueryExpressionLambda(IAnonymousFunctionOperation lambda) =>
-        lambda.Syntax.Ancestors().OfType<QueryExpressionSyntax>().Any();
-    private static ImmutableArray<string> CapturedOuterSymbols(IAnonymousFunctionOperation anonymousFunction) {
-        IMethodSymbol lambdaSymbol = anonymousFunction.Symbol;
-        IEnumerable<string> captured = anonymousFunction.Body.DescendantsAndSelf().SelectMany(operation =>
-            operation switch {
-                ILocalReferenceOperation localReference when !SymbolEqualityComparer.Default.Equals(localReference.Local.ContainingSymbol, lambdaSymbol)
-                    => [localReference.Local.Name],
-                IParameterReferenceOperation parameterReference when !SymbolEqualityComparer.Default.Equals(parameterReference.Parameter.ContainingSymbol, lambdaSymbol)
-                    => [parameterReference.Parameter.Name],
-                IInstanceReferenceOperation { ReferenceKind: InstanceReferenceKind.ContainingTypeInstance } => ["this"],
-                _ => Array.Empty<string>(),
-            });
-        return [.. captured.Where(name => !string.IsNullOrWhiteSpace(name)).Distinct(StringComparer.Ordinal)];
-    }
-    private static bool IsScrutorTypeSourceSelectorParameter(IParameterSymbol parameter) =>
-        parameter.Type is INamedTypeSymbol { OriginalDefinition.MetadataName: "Action`1", TypeArguments.Length: 1 } actionType
-        && actionType.TypeArguments[0] is INamedTypeSymbol selector
-        && selector.Name == "ITypeSourceSelector"
-        && (selector.ContainingNamespace?.ToDisplayString() == "Scrutor"
-            || selector.ContainingAssembly?.Name == "Scrutor");
-    private static bool IsBoundedChannelOptions(ITypeSymbol? type) =>
-        type?.OriginalDefinition.ToDisplayString() == "System.Threading.Channels.BoundedChannelOptions";
-    private static bool IsCompositionRootScope(ScopeInfo scope) =>
-        scope.NamespaceName.Contains(value: ".Bootstrap", comparisonType: StringComparison.Ordinal)
-        || scope.NamespaceName.Contains(value: ".Composition", comparisonType: StringComparison.OrdinalIgnoreCase)
-        || scope.NamespaceName.Contains(value: ".DependencyInjection", comparisonType: StringComparison.OrdinalIgnoreCase)
-        || scope.FilePath.Contains(value: "Composition", comparisonType: StringComparison.OrdinalIgnoreCase);
     private static bool IsChannelFactoryCall(IInvocationOperation invocation, string methodName) =>
         (invocation.TargetMethod.Name, invocation.TargetMethod.ContainingType.ToDisplayString()) switch {
             (string name, "System.Threading.Channels.Channel") when string.Equals(name, methodName, StringComparison.Ordinal) => true,
             _ => false,
         };
+    private static bool IsBoundedChannelOptions(ITypeSymbol? type) =>
+        type?.OriginalDefinition.ToDisplayString() == "System.Threading.Channels.BoundedChannelOptions";
+
+    // --- [RHINO_AMBIENT_RULES] ------------------------------------------------
+
+    internal static void CheckRhinoAmbientPropertyAccess(OperationAnalysisContext context, ScopeInfo scope, IPropertyReferenceOperation propertyReference) {
+        bool ambientLeak = IsRhinoAmbientStateMember(
+            isStatic: propertyReference.Property.IsStatic,
+            containingType: propertyReference.Property.ContainingType,
+            memberName: propertyReference.Property.Name);
+        bool boundaryAccess = IsBoundaryScopeForAmbient(scope: scope, symbol: context.ContainingSymbol);
+        AnalyzerState.Report(context.ReportDiagnostic, (scope.IsAnalyzable, ambientLeak, boundaryAccess) switch {
+            (true, true, false) => Diagnostic.Create(RuleCatalog.CSP0723, context.Operation.Syntax.GetLocation(), $"{propertyReference.Property.ContainingType?.Name}.{propertyReference.Property.Name}"),
+            _ => null,
+        });
+    }
+    internal static void CheckRhinoAmbientInvocation(OperationAnalysisContext context, ScopeInfo scope, IInvocationOperation invocation) {
+        bool ambientLeak = IsRhinoAmbientStateMember(
+            isStatic: invocation.TargetMethod.IsStatic,
+            containingType: invocation.TargetMethod.ContainingType,
+            memberName: invocation.TargetMethod.Name);
+        bool boundaryAccess = IsBoundaryScopeForAmbient(scope: scope, symbol: context.ContainingSymbol);
+        AnalyzerState.Report(context.ReportDiagnostic, (scope.IsAnalyzable, ambientLeak, boundaryAccess) switch {
+            (true, true, false) => Diagnostic.Create(RuleCatalog.CSP0723, context.Operation.Syntax.GetLocation(), $"{invocation.TargetMethod.ContainingType?.Name}.{invocation.TargetMethod.Name}"),
+            _ => null,
+        });
+    }
     private static bool IsRhinoAmbientStateMember(bool isStatic, INamedTypeSymbol? containingType, string memberName) {
         string namespaceName = containingType?.ContainingNamespace?.ToDisplayString() ?? string.Empty;
         bool rhinoNamespace = namespaceName.Equals(value: "Rhino", comparisonType: StringComparison.Ordinal)

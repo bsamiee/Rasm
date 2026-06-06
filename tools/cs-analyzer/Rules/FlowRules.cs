@@ -35,6 +35,11 @@ internal static class FlowRules {
             (true, false) => Diagnostic.Create(RuleCatalog.CSP0009, context.Operation.Syntax.GetLocation(), "throw"),
             _ => null,
         });
+    internal static void CheckEarlyReturnGuardChain(OperationAnalysisContext context, ScopeInfo scope, IConditionalOperation conditional) =>
+        AnalyzerState.Report(context.ReportDiagnostic, (scope.IsFunctional, SymbolFacts.IsEarlyReturnGuard(conditional)) switch {
+            (true, true) => Diagnostic.Create(RuleCatalog.CSP0706, context.Operation.Syntax.GetLocation()),
+            _ => null,
+        });
 
     // --- [MATCH_RULES] --------------------------------------------------------
 
@@ -48,39 +53,6 @@ internal static class FlowRules {
             (true, true, false, false) => Diagnostic.Create(RuleCatalog.CSP0705, context.Operation.Syntax.GetLocation()),
             _ => null,
         });
-    internal static void CheckRunInTransform(OperationAnalysisContext context, ScopeInfo scope, IInvocationOperation invocation) =>
-        AnalyzerState.Report(context.ReportDiagnostic, (scope.IsFunctional, SymbolFacts.IsLanguageExtRunCollapse(invocation), invocation.TargetMethod.Name) switch {
-            (true, true, string method) => Diagnostic.Create(RuleCatalog.CSP0303, context.Operation.Syntax.GetLocation(), method),
-            _ => null,
-        });
-    // CSP0728: detect Try.lift(...).Run().MapFail(_ => ...) chain that discards the captured exception.
-    // Receiver walk uses SymbolFacts.ExtractReceiver/UnwrapReceiver/UnwrapLambda — see [SymbolFacts.cs] for shared helpers.
-    internal static void CheckMapFailDiscardsException(OperationAnalysisContext context, ScopeInfo scope, IInvocationOperation invocation) {
-        bool isMapFail = invocation.TargetMethod.Name == "MapFail"
-            && (invocation.TargetMethod.ContainingType?.ContainingNamespace?.ToDisplayString() ?? string.Empty)
-                .StartsWith(value: Markers.LanguageExtNamespace, comparisonType: StringComparison.Ordinal);
-        bool capturedException = isMapFail && ReceiverIsRunOfTryLift(SymbolFacts.UnwrapReceiver(SymbolFacts.ExtractReceiver(invocation)));
-        IAnonymousFunctionOperation? lambda = (invocation.Arguments.Length > 0, capturedException) switch {
-            (true, true) => SymbolFacts.UnwrapLambda(invocation.Arguments[invocation.Arguments.Length - 1].Value),
-            _ => null,
-        };
-        bool singleDiscard = lambda?.Symbol.Parameters switch {
-            { Length: 1 } parameters => parameters[0].Name == "_",
-            _ => false,
-        };
-        AnalyzerState.Report(context.ReportDiagnostic, (scope.IsAnalyzable, capturedException, singleDiscard) switch {
-            (true, true, true) => Diagnostic.Create(RuleCatalog.CSP0728, context.Operation.Syntax.GetLocation()),
-            _ => null,
-        });
-    }
-    private static bool ReceiverIsRunOfTryLift(IOperation? receiver) =>
-        receiver is IInvocationOperation runCall
-        && runCall.TargetMethod.Name is "Run" or "RunAsync"
-        && (runCall.TargetMethod.ContainingType?.ContainingNamespace?.ToDisplayString() ?? string.Empty)
-            .StartsWith(value: Markers.LanguageExtNamespace, comparisonType: StringComparison.Ordinal)
-        && SymbolFacts.UnwrapReceiver(SymbolFacts.ExtractReceiver(runCall)) is IInvocationOperation liftCall
-        && liftCall.TargetMethod.Name == "lift"
-        && (liftCall.TargetMethod.ContainingType?.Name == "Try" || liftCall.TargetMethod.ContainingType?.Name == "TryExtensions");
 
     // --- [NULL_RULES] ---------------------------------------------------------
 
@@ -102,26 +74,6 @@ internal static class FlowRules {
             (true, true) => Diagnostic.Create(RuleCatalog.CSP0709, context.Operation.Syntax.GetLocation(), "ReferenceEquals"),
             _ => null,
         });
-    internal static void CheckEarlyReturnGuardChain(OperationAnalysisContext context, ScopeInfo scope, IConditionalOperation conditional) =>
-        AnalyzerState.Report(context.ReportDiagnostic, (scope.IsFunctional, SymbolFacts.IsEarlyReturnGuard(conditional)) switch {
-            (true, true) => Diagnostic.Create(RuleCatalog.CSP0706, context.Operation.Syntax.GetLocation()),
-            _ => null,
-        });
-    internal static void CheckGuardableFinConditional(OperationAnalysisContext context, AnalyzerState state, ScopeInfo scope, IConditionalOperation conditional) =>
-        AnalyzerState.Report(context.ReportDiagnostic, (scope.IsFunctional, SymbolFacts.IsLanguageExtFinType(conditional.Type), IsGuardableFinGate(conditional, state.LanguageExtCommonErrorType), IsConfirmOwner(context.ContainingSymbol), IsDemandOwner(context.ContainingSymbol), IsManualConfirmGate(conditional)) switch {
-            (true, true, true, false, false, false) => Diagnostic.Create(RuleCatalog.CSP0739, context.Operation.Syntax.GetLocation()),
-            _ => null,
-        });
-    internal static void CheckManualGenericProjectionGate(OperationAnalysisContext context, ScopeInfo scope, IConditionalOperation conditional) =>
-        AnalyzerState.Report(context.ReportDiagnostic, (scope.IsAnalyzable, SymbolFacts.IsManualGenericProjectionGate(conditional, context.ContainingSymbol)) switch {
-            (true, true) => Diagnostic.Create(RuleCatalog.CSP0743, context.Operation.Syntax.GetLocation()),
-            _ => null,
-        });
-    internal static void CheckManualGenericProjectionGate(OperationAnalysisContext context, ScopeInfo scope, ISwitchExpressionOperation switchExpression) =>
-        AnalyzerState.Report(context.ReportDiagnostic, (scope.IsAnalyzable, SymbolFacts.IsManualGenericProjectionGate(switchExpression, context.ContainingSymbol)) switch {
-            (true, true) => Diagnostic.Create(RuleCatalog.CSP0743, context.Operation.Syntax.GetLocation()),
-            _ => null,
-        });
 
     // --- [PRECEDENCE_RULES] ---------------------------------------------------
 
@@ -133,39 +85,12 @@ internal static class FlowRules {
                 => Diagnostic.Create(RuleCatalog.CSP0727, @switch.SwitchKeyword.GetLocation(), binary.OperatorToken.Text),
             _ => null,
         });
-    internal static void CheckGuardableFinConditional(SyntaxNodeAnalysisContext context, AnalyzerState state, ScopeInfo scope, SwitchExpressionSyntax switchExpression) =>
-        AnalyzerState.Report(context.ReportDiagnostic, (
-            scope.IsFunctional,
-            context.SemanticModel.GetOperation(switchExpression, context.CancellationToken) is ISwitchExpressionOperation switchOperation && IsGuardableFinGate(switchOperation, state.LanguageExtCommonErrorType),
-            IsConfirmOwner(context.ContainingSymbol),
-            IsDemandOwner(context.ContainingSymbol),
-            SymbolFacts.IsManualOpConfirmGate(model: context.SemanticModel, switchExpression: switchExpression)) switch {
-                (true, true, false, false, false) => Diagnostic.Create(RuleCatalog.CSP0739, switchExpression.SwitchKeyword.GetLocation()),
-                _ => null,
-            });
-    internal static void CheckManualOpAdmissionGate(SyntaxNodeAnalysisContext context, ScopeInfo scope, ConditionalExpressionSyntax conditional) =>
-        AnalyzerState.Report(context.ReportDiagnostic, (scope.IsAnalyzable, SymbolFacts.IsManualOpAdmissionGate(model: context.SemanticModel, conditional: conditional) || SymbolFacts.IsManualOpConfirmGate(model: context.SemanticModel, conditional: conditional), IsConfirmOwner(context.ContainingSymbol), IsDemandOwner(context.ContainingSymbol)) switch {
-            (true, true, false, false) => Diagnostic.Create(RuleCatalog.CSP0742, conditional.QuestionToken.GetLocation(), "conditional"),
-            _ => null,
-        });
-    internal static void CheckManualOpAdmissionGate(SyntaxNodeAnalysisContext context, ScopeInfo scope, SwitchExpressionSyntax switchExpression) =>
-        AnalyzerState.Report(context.ReportDiagnostic, (scope.IsAnalyzable, SymbolFacts.IsManualOpAdmissionGate(model: context.SemanticModel, switchExpression: switchExpression) || SymbolFacts.IsManualOpConfirmGate(model: context.SemanticModel, switchExpression: switchExpression), IsConfirmOwner(context.ContainingSymbol), IsDemandOwner(context.ContainingSymbol)) switch {
-            (true, true, false, false) => Diagnostic.Create(RuleCatalog.CSP0742, switchExpression.SwitchKeyword.GetLocation(), "switch"),
-            _ => null,
-        });
     private static bool IsArithmeticBinary(SyntaxKind kind) =>
         kind is SyntaxKind.MultiplyExpression
             or SyntaxKind.DivideExpression
             or SyntaxKind.ModuloExpression
             or SyntaxKind.AddExpression
             or SyntaxKind.SubtractExpression;
-    internal static void CheckVariableReassignment(OperationAnalysisContext context, ScopeInfo scope, ISimpleAssignmentOperation assignment) {
-        string targetName = assignment.Target is ILocalReferenceOperation local ? local.Local.Name : string.Empty;
-        AnalyzerState.Report(context.ReportDiagnostic, (scope.IsFunctional, SymbolFacts.IsSelfReassignment(assignment), targetName.Length > 0) switch {
-            (true, true, true) => Diagnostic.Create(RuleCatalog.CSP0707, context.Operation.Syntax.GetLocation(), targetName),
-            _ => null,
-        });
-    }
 
     // --- [ASYNC_RULES] --------------------------------------------------------
 
@@ -174,6 +99,17 @@ internal static class FlowRules {
             (true, true, true, > 0) => Diagnostic.Create(RuleCatalog.CSP0010, method.Locations[0], method.Name),
             _ => null,
         });
+    internal static void CheckAsyncAwaitInEff(OperationAnalysisContext context, ScopeInfo scope) {
+        bool effReturning = context.ContainingSymbol is IMethodSymbol method
+            && method.ReturnType.OriginalDefinition.MetadataName is "Eff`1" or "Eff`2"
+            && (method.ReturnType.ContainingNamespace?.ToDisplayString() ?? string.Empty)
+                .StartsWith(value: Markers.LanguageExtNamespace, comparisonType: StringComparison.Ordinal);
+        string methodName = context.ContainingSymbol?.Name ?? string.Empty;
+        AnalyzerState.Report(context.ReportDiagnostic, (scope.IsFunctional, effReturning) switch {
+            (true, true) => Diagnostic.Create(RuleCatalog.CSP0711, context.Operation.Syntax.GetLocation(), methodName),
+            _ => null,
+        });
+    }
     internal static void CheckAsyncBlocking(OperationAnalysisContext context, ScopeInfo scope, IInvocationOperation invocation) =>
         AnalyzerState.Report(context.ReportDiagnostic, (scope.IsFunctional, SymbolFacts.IsBlockingInvocation(invocation)) switch {
             (true, true) => Diagnostic.Create(RuleCatalog.CSP0006, context.Operation.Syntax.GetLocation(), invocation.TargetMethod.Name),
@@ -208,6 +144,31 @@ internal static class FlowRules {
 
     // --- [FUNCTIONAL_RULES] ---------------------------------------------------
 
+    internal static void CheckRunInTransform(OperationAnalysisContext context, ScopeInfo scope, IInvocationOperation invocation) =>
+        AnalyzerState.Report(context.ReportDiagnostic, (scope.IsFunctional, SymbolFacts.IsLanguageExtRunCollapse(invocation), invocation.TargetMethod.Name) switch {
+            (true, true, string method) => Diagnostic.Create(RuleCatalog.CSP0303, context.Operation.Syntax.GetLocation(), method),
+            _ => null,
+        });
+    // CSP0728: detect Try.lift(...).Run().MapFail(_ => ...) chain that discards the captured exception.
+    // Receiver walk uses SymbolFacts.ExtractReceiver/UnwrapReceiver/UnwrapLambda — see [SymbolFacts.cs] for shared helpers.
+    internal static void CheckMapFailDiscardsException(OperationAnalysisContext context, ScopeInfo scope, IInvocationOperation invocation) {
+        bool isMapFail = invocation.TargetMethod.Name == "MapFail"
+            && (invocation.TargetMethod.ContainingType?.ContainingNamespace?.ToDisplayString() ?? string.Empty)
+                .StartsWith(value: Markers.LanguageExtNamespace, comparisonType: StringComparison.Ordinal);
+        bool capturedException = isMapFail && ReceiverIsRunOfTryLift(SymbolFacts.UnwrapReceiver(SymbolFacts.ExtractReceiver(invocation)));
+        IAnonymousFunctionOperation? lambda = (invocation.Arguments.Length > 0, capturedException) switch {
+            (true, true) => SymbolFacts.UnwrapLambda(invocation.Arguments[invocation.Arguments.Length - 1].Value),
+            _ => null,
+        };
+        bool singleDiscard = lambda?.Symbol.Parameters switch {
+            { Length: 1 } parameters => parameters[0].Name == "_",
+            _ => false,
+        };
+        AnalyzerState.Report(context.ReportDiagnostic, (scope.IsAnalyzable, capturedException, singleDiscard) switch {
+            (true, true, true) => Diagnostic.Create(RuleCatalog.CSP0728, context.Operation.Syntax.GetLocation()),
+            _ => null,
+        });
+    }
     internal static void CheckFilterMapChain(OperationAnalysisContext context, ScopeInfo scope, IInvocationOperation invocation) {
         bool filterMapChain = invocation.TargetMethod.Name == "Map"
             && invocation.Instance is IInvocationOperation receiver
@@ -252,14 +213,45 @@ internal static class FlowRules {
             _ => null,
         });
     }
-    internal static void CheckAsyncAwaitInEff(OperationAnalysisContext context, ScopeInfo scope) {
-        bool effReturning = context.ContainingSymbol is IMethodSymbol method
-            && method.ReturnType.OriginalDefinition.MetadataName is "Eff`1" or "Eff`2"
-            && (method.ReturnType.ContainingNamespace?.ToDisplayString() ?? string.Empty)
-                .StartsWith(value: Markers.LanguageExtNamespace, comparisonType: StringComparison.Ordinal);
-        string methodName = context.ContainingSymbol?.Name ?? string.Empty;
-        AnalyzerState.Report(context.ReportDiagnostic, (scope.IsFunctional, effReturning) switch {
-            (true, true) => Diagnostic.Create(RuleCatalog.CSP0711, context.Operation.Syntax.GetLocation(), methodName),
+    internal static void CheckGuardableFinConditional(OperationAnalysisContext context, AnalyzerState state, ScopeInfo scope, IConditionalOperation conditional) =>
+        AnalyzerState.Report(context.ReportDiagnostic, (scope.IsFunctional, SymbolFacts.IsLanguageExtFinType(conditional.Type), IsGuardableFinGate(conditional, state.LanguageExtCommonErrorType), IsConfirmOwner(context.ContainingSymbol), IsDemandOwner(context.ContainingSymbol), IsManualConfirmGate(conditional)) switch {
+            (true, true, true, false, false, false) => Diagnostic.Create(RuleCatalog.CSP0739, context.Operation.Syntax.GetLocation()),
+            _ => null,
+        });
+    internal static void CheckGuardableFinConditional(SyntaxNodeAnalysisContext context, AnalyzerState state, ScopeInfo scope, SwitchExpressionSyntax switchExpression) =>
+        AnalyzerState.Report(context.ReportDiagnostic, (
+            scope.IsFunctional,
+            context.SemanticModel.GetOperation(switchExpression, context.CancellationToken) is ISwitchExpressionOperation switchOperation && IsGuardableFinGate(switchOperation, state.LanguageExtCommonErrorType),
+            IsConfirmOwner(context.ContainingSymbol),
+            IsDemandOwner(context.ContainingSymbol),
+            SymbolFacts.IsManualOpConfirmGate(model: context.SemanticModel, switchExpression: switchExpression)) switch {
+                (true, true, false, false, false) => Diagnostic.Create(RuleCatalog.CSP0739, switchExpression.SwitchKeyword.GetLocation()),
+                _ => null,
+            });
+    internal static void CheckManualOpAdmissionGate(SyntaxNodeAnalysisContext context, ScopeInfo scope, ConditionalExpressionSyntax conditional) =>
+        AnalyzerState.Report(context.ReportDiagnostic, (scope.IsAnalyzable, SymbolFacts.IsManualOpAdmissionGate(model: context.SemanticModel, conditional: conditional) || SymbolFacts.IsManualOpConfirmGate(model: context.SemanticModel, conditional: conditional), IsConfirmOwner(context.ContainingSymbol), IsDemandOwner(context.ContainingSymbol)) switch {
+            (true, true, false, false) => Diagnostic.Create(RuleCatalog.CSP0742, conditional.QuestionToken.GetLocation(), "conditional"),
+            _ => null,
+        });
+    internal static void CheckManualOpAdmissionGate(SyntaxNodeAnalysisContext context, ScopeInfo scope, SwitchExpressionSyntax switchExpression) =>
+        AnalyzerState.Report(context.ReportDiagnostic, (scope.IsAnalyzable, SymbolFacts.IsManualOpAdmissionGate(model: context.SemanticModel, switchExpression: switchExpression) || SymbolFacts.IsManualOpConfirmGate(model: context.SemanticModel, switchExpression: switchExpression), IsConfirmOwner(context.ContainingSymbol), IsDemandOwner(context.ContainingSymbol)) switch {
+            (true, true, false, false) => Diagnostic.Create(RuleCatalog.CSP0742, switchExpression.SwitchKeyword.GetLocation(), "switch"),
+            _ => null,
+        });
+    internal static void CheckManualGenericProjectionGate(OperationAnalysisContext context, ScopeInfo scope, IConditionalOperation conditional) =>
+        AnalyzerState.Report(context.ReportDiagnostic, (scope.IsAnalyzable, SymbolFacts.IsManualGenericProjectionGate(conditional, context.ContainingSymbol)) switch {
+            (true, true) => Diagnostic.Create(RuleCatalog.CSP0743, context.Operation.Syntax.GetLocation()),
+            _ => null,
+        });
+    internal static void CheckManualGenericProjectionGate(OperationAnalysisContext context, ScopeInfo scope, ISwitchExpressionOperation switchExpression) =>
+        AnalyzerState.Report(context.ReportDiagnostic, (scope.IsAnalyzable, SymbolFacts.IsManualGenericProjectionGate(switchExpression, context.ContainingSymbol)) switch {
+            (true, true) => Diagnostic.Create(RuleCatalog.CSP0743, context.Operation.Syntax.GetLocation()),
+            _ => null,
+        });
+    internal static void CheckVariableReassignment(OperationAnalysisContext context, ScopeInfo scope, ISimpleAssignmentOperation assignment) {
+        string targetName = assignment.Target is ILocalReferenceOperation local ? local.Local.Name : string.Empty;
+        AnalyzerState.Report(context.ReportDiagnostic, (scope.IsFunctional, SymbolFacts.IsSelfReassignment(assignment), targetName.Length > 0) switch {
+            (true, true, true) => Diagnostic.Create(RuleCatalog.CSP0707, context.Operation.Syntax.GetLocation(), targetName),
             _ => null,
         });
     }
@@ -271,6 +263,20 @@ internal static class FlowRules {
         bool insideLoop = SymbolFacts.IsInsideLoop(context.Operation);
         AnalyzerState.Report(context.ReportDiagnostic, (scope.IsFunctional, mutableAdd, insideLoop) switch {
             (true, true, true) => Diagnostic.Create(RuleCatalog.CSP0718, context.Operation.Syntax.GetLocation(), invocation.TargetMethod.ContainingType?.Name ?? string.Empty),
+            _ => null,
+        });
+    }
+    internal static void CheckImperativeAccumulator(OperationAnalysisContext context, ScopeInfo scope, ILoopOperation loopOperation) {
+        ImmutableArray<string> outerVariableAssignments = [
+            .. loopOperation.Body
+                .DescendantsAndSelf()
+                .OfType<ISimpleAssignmentOperation>()
+                .Select(assignment => SymbolFacts.OuterAccumulatorTarget(loop: loopOperation, assignment: assignment))
+                .Where(name => name.Length > 0)
+                .Distinct(StringComparer.Ordinal),
+        ];
+        AnalyzerState.Report(context.ReportDiagnostic, (scope.IsFunctional, outerVariableAssignments.Length) switch {
+            (true, > 0) => Diagnostic.Create(RuleCatalog.CSP0725, context.Operation.Syntax.GetLocation(), outerVariableAssignments[0]),
             _ => null,
         });
     }
@@ -295,26 +301,49 @@ internal static class FlowRules {
             _ => null,
         });
     }
-    internal static void CheckImperativeAccumulator(OperationAnalysisContext context, ScopeInfo scope, ILoopOperation loopOperation) {
-        ImmutableArray<string> outerVariableAssignments = [
-            .. loopOperation.Body
-                .DescendantsAndSelf()
-                .OfType<ISimpleAssignmentOperation>()
-                .Select(assignment => SymbolFacts.OuterAccumulatorTarget(loop: loopOperation, assignment: assignment))
-                .Where(name => name.Length > 0)
-                .Distinct(StringComparer.Ordinal),
-        ];
-        AnalyzerState.Report(context.ReportDiagnostic, (scope.IsFunctional, outerVariableAssignments.Length) switch {
-            (true, > 0) => Diagnostic.Create(RuleCatalog.CSP0725, context.Operation.Syntax.GetLocation(), outerVariableAssignments[0]),
-            _ => null,
-        });
-    }
+
+    private static bool ReceiverIsRunOfTryLift(IOperation? receiver) =>
+        receiver is IInvocationOperation runCall
+        && runCall.TargetMethod.Name is "Run" or "RunAsync"
+        && (runCall.TargetMethod.ContainingType?.ContainingNamespace?.ToDisplayString() ?? string.Empty)
+            .StartsWith(value: Markers.LanguageExtNamespace, comparisonType: StringComparison.Ordinal)
+        && SymbolFacts.UnwrapReceiver(SymbolFacts.ExtractReceiver(runCall)) is IInvocationOperation liftCall
+        && liftCall.TargetMethod.Name == "lift"
+        && (liftCall.TargetMethod.ContainingType?.Name == "Try" || liftCall.TargetMethod.ContainingType?.Name == "TryExtensions");
     private static bool IsIdentityProjection(IOperation operation) =>
         SymbolFacts.UnwrapLambda(operation) switch {
             IAnonymousFunctionOperation { Symbol.Parameters.Length: 1 } lambda
                 => UnwrapOperation(lambda.Body) is IParameterReferenceOperation parameter
                     && SymbolEqualityComparer.Default.Equals(parameter.Parameter, lambda.Symbol.Parameters[0]),
             _ => operation.Syntax.ToString() is "identity" or "Prelude.identity",
+        };
+    private static bool IsFusibleMapProjection(IInvocationOperation mapCall) {
+        bool languageExtMap = mapCall.TargetMethod.Name == "Map"
+            && (mapCall.TargetMethod.ContainingType?.ContainingNamespace?.ToDisplayString() ?? string.Empty)
+                .StartsWith(value: Markers.LanguageExtNamespace, comparisonType: StringComparison.Ordinal);
+        IAnonymousFunctionOperation? projection = mapCall.Arguments
+            .Select(argument => SymbolFacts.UnwrapLambda(argument.Value))
+            .FirstOrDefault(static lambda => lambda is not null);
+        return languageExtMap && projection is { Symbol.Parameters.Length: 1 };
+    }
+    private static ImmutableArray<ISymbol> CapturedSymbols(IAnonymousFunctionOperation lambda) {
+        ImmutableHashSet<ISymbol> parameters = lambda.Symbol.Parameters.ToImmutableHashSet<ISymbol>(SymbolEqualityComparer.Default);
+        return [
+            .. lambda.Descendants()
+                .Select(reference => reference switch {
+                    IParameterReferenceOperation parameter when !parameters.Contains(parameter.Parameter) => (ISymbol)parameter.Parameter,
+                    ILocalReferenceOperation local when !IsDeclaredWithin(operation: lambda, local: local.Local) => local.Local,
+                    _ => null,
+                })
+                .Where(static symbol => symbol is not null)
+                .Select(static symbol => symbol!)
+                .Distinct(SymbolEqualityComparer.Default),
+        ];
+    }
+    private static bool IsDeclaredWithin(IOperation operation, ILocalSymbol local) =>
+        local.DeclaringSyntaxReferences switch {
+            { IsDefaultOrEmpty: true } => false,
+            ImmutableArray<SyntaxReference> refs => refs.Any(reference => operation.Syntax.Span.Contains(reference.GetSyntax().Span)),
         };
     private static bool IsGuardableFinGate(IConditionalOperation conditional, INamedTypeSymbol? commonErrorType) {
         IOperation? whenTrue = UnwrapOperation(conditional.WhenTrue);
@@ -389,29 +418,9 @@ internal static class FlowRules {
     private static bool BindsPatternVariable(IOperation condition) =>
         condition.DescendantsAndSelf().Any(static node =>
             node is IDeclarationPatternOperation or IRecursivePatternOperation);
-    private static bool IsFusibleMapProjection(IInvocationOperation mapCall) {
-        bool languageExtMap = mapCall.TargetMethod.Name == "Map"
-            && (mapCall.TargetMethod.ContainingType?.ContainingNamespace?.ToDisplayString() ?? string.Empty)
-                .StartsWith(value: Markers.LanguageExtNamespace, comparisonType: StringComparison.Ordinal);
-        IAnonymousFunctionOperation? projection = mapCall.Arguments
-            .Select(argument => SymbolFacts.UnwrapLambda(argument.Value))
-            .FirstOrDefault(static lambda => lambda is not null);
-        return languageExtMap && projection is { Symbol.Parameters.Length: 1 };
-    }
-    private static ImmutableArray<ISymbol> CapturedSymbols(IAnonymousFunctionOperation lambda) {
-        ImmutableHashSet<ISymbol> parameters = lambda.Symbol.Parameters.ToImmutableHashSet<ISymbol>(SymbolEqualityComparer.Default);
-        return [
-            .. lambda.Descendants()
-                .Select(reference => reference switch {
-                    IParameterReferenceOperation parameter when !parameters.Contains(parameter.Parameter) => (ISymbol)parameter.Parameter,
-                    ILocalReferenceOperation local when !IsDeclaredWithin(operation: lambda, local: local.Local) => local.Local,
-                    _ => null,
-                })
-                .Where(static symbol => symbol is not null)
-                .Select(static symbol => symbol!)
-                .Distinct(SymbolEqualityComparer.Default),
-        ];
-    }
+    private static bool IsLanguageExtSeq(ITypeSymbol? type) =>
+        type is INamedTypeSymbol { OriginalDefinition.MetadataName: "Seq`1", ContainingNamespace: { } ns }
+        && ns.ToDisplayString().StartsWith(value: Markers.LanguageExtNamespace, comparisonType: StringComparison.Ordinal);
     private static bool ReferencesFoldAccumulator(IOperation operation, out string name) {
         name = string.Empty;
         IAnonymousFunctionOperation? lambda = EnclosingLambda(operation);
@@ -450,14 +459,6 @@ internal static class FlowRules {
             IAnonymousFunctionOperation lambda => lambda,
             _ => EnclosingLambda(operation.Parent),
         };
-    private static bool IsDeclaredWithin(IOperation operation, ILocalSymbol local) =>
-        local.DeclaringSyntaxReferences switch {
-            { IsDefaultOrEmpty: true } => false,
-            ImmutableArray<SyntaxReference> refs => refs.Any(reference => operation.Syntax.Span.Contains(reference.GetSyntax().Span)),
-        };
-    private static bool IsLanguageExtSeq(ITypeSymbol? type) =>
-        type is INamedTypeSymbol { OriginalDefinition.MetadataName: "Seq`1", ContainingNamespace: { } ns }
-        && ns.ToDisplayString().StartsWith(value: Markers.LanguageExtNamespace, comparisonType: StringComparison.Ordinal);
     private static IOperation? UnwrapOperation(IOperation? operation) =>
         operation switch {
             IConversionOperation conversion => UnwrapOperation(conversion.Operand),

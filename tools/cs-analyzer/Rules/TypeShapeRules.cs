@@ -168,6 +168,18 @@ internal static class TypeShapeRules {
 
     // --- [PASSIVE_SIBLING_SURFACE_FAMILY] -----------------------------------
 
+    private readonly struct PassiveMemberFact {
+        internal PassiveMemberFact(string groupKey, Location location, int sortStart) {
+            GroupKey = groupKey;
+            Location = location;
+            SortStart = sortStart;
+        }
+
+        internal string GroupKey { get; }
+        internal Location Location { get; }
+        internal int SortStart { get; }
+    }
+
     internal static void CheckPassiveSiblingSurfaceFamily(SymbolAnalysisContext context, ScopeInfo scope, INamedTypeSymbol namedType) {
         if (!scope.IsAnalyzable
             || namedType.Locations.Length == 0
@@ -279,18 +291,6 @@ internal static class TypeShapeRules {
             _ => false,
         };
 
-    private readonly struct PassiveMemberFact {
-        internal PassiveMemberFact(string groupKey, Location location, int sortStart) {
-            GroupKey = groupKey;
-            Location = location;
-            SortStart = sortStart;
-        }
-
-        internal string GroupKey { get; }
-        internal Location Location { get; }
-        internal int SortStart { get; }
-    }
-
     // --- [DATETIME_FIELD] -----------------------------------------------------
 
     internal static void CheckDateTimeFieldInDomain(SymbolAnalysisContext context, ScopeInfo scope, INamedTypeSymbol namedType) {
@@ -343,6 +343,7 @@ internal static class TypeShapeRules {
             (true, true, > 0) => Diagnostic.Create(RuleCatalog.CSP0712, property.Locations[0], property.Name),
             _ => null,
         });
+    private static ITypeSymbol UnwrapNullable(ITypeSymbol type) => SymbolFacts.UnwrapNullable(type);
 
     // --- [WITH_EXPRESSION_BYPASS] ---------------------------------------------
 
@@ -433,8 +434,6 @@ internal static class TypeShapeRules {
         AnalyzerState.ReportEach(context.ReportDiagnostic, diagnostics);
     }
 
-    // --- [PRIVATE_OPERATIONS] -------------------------------------------------
-
     private static int RegisterFlags(AnalyzerState state, INamedTypeSymbol enumType) {
         state.TrackFlagsEnum(enumType: enumType);
         return 0;
@@ -448,6 +447,4 @@ internal static class TypeShapeRules {
             INamedTypeSymbol named when named.TypeKind == TypeKind.Enum => named,
             _ => null,
         };
-
-    private static ITypeSymbol UnwrapNullable(ITypeSymbol type) => SymbolFacts.UnwrapNullable(type);
 }
