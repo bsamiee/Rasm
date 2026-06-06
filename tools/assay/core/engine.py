@@ -9,7 +9,7 @@ from pathlib import Path
 import shlex
 import shutil
 import time
-from typing import TYPE_CHECKING
+from typing import Protocol, runtime_checkable, TYPE_CHECKING
 from urllib.parse import urlsplit
 
 import anyio
@@ -17,7 +17,7 @@ from anyio import to_thread  # explicit submodule import; ty mis-resolves anyio.
 import asyncssh
 from expression import Error, Ok, Result
 import msgspec
-from opentelemetry import trace
+from opentelemetry import propagate, trace
 import psutil
 import structlog
 from upath import UPath
@@ -32,7 +32,7 @@ from tools.assay.core.status import RailStatus
 if TYPE_CHECKING:
     from collections.abc import Callable, Coroutine, Generator, Mapping, MutableMapping
 
-    from anyio.abc import ByteReceiveStream, Process
+    from anyio.abc import ByteReceiveStream, ObjectReceiveStream, Process
 
 
 # --- [TYPES] ----------------------------------------------------------------------------
@@ -46,6 +46,7 @@ _LOCKS_OPEN_FLAGS: int = os.O_RDWR | os.O_CREAT
 _LOCK_MODE: int = 0o644
 _FAULT_SNAPSHOT: str = "fault.resource_snapshot"
 _SSH_CONNECT_TIMEOUT: float = 15.0
+_SSH_SIGNAL_STATUS: int = 255
 _LOG = structlog.get_logger("assay.engine")
 _TRACER = trace.get_tracer("assay.engine")
 
@@ -74,6 +75,11 @@ class _LeaseOwner(msgspec.Struct, frozen=True, gc=False, omit_defaults=True):
 @dataclass(frozen=True, slots=True)
 class _Held:
     owner: _LeaseOwner
+
+
+@runtime_checkable
+class _Nullary(Protocol):
+    def __call__(self) -> float | int | str: ...
 
 
 # --- [TABLES] ---------------------------------------------------------------------------
@@ -119,20 +125,43 @@ def _materialize(check: Check, settings: AssaySettings) -> Result[Check, Fault]:
     if settings.exec_target:
         return Error(Fault((check.tool.name, "stage"), status=RailStatus.UNSUPPORTED, message="staged tools require local execution"))
     root = Path(str(settings.root)).resolve()
-    work = root / stage.root
+    work = _contained(root, stage.root)
+    if isinstance(work, ValueError):
+        return Error(Fault((check.tool.name, "stage"), message=str(work)))
     shutil.rmtree(work, ignore_errors=True)
     work.mkdir(parents=True, exist_ok=True)
     for rel in stage.inputs:
-        src = root / rel
-        dst = work / rel
-        if not src.exists():
-            return Error(Fault((check.tool.name, "stage", rel), message=f"missing stage input: {rel}"))
-        if src.is_dir():
-            shutil.copytree(src, dst)
-        else:
-            dst.parent.mkdir(parents=True, exist_ok=True)
-            shutil.copy2(src, dst)
+        if (fault := _copy_stage_input(check, root, work, rel)) is not None:
+            return Error(fault)
     return Ok(msgspec.structs.replace(check, cwd=work))
+
+
+def _copy_stage_input(check: Check, root: Path, work: Path, rel: str) -> Fault | None:
+    src = _contained(root, rel)
+    if isinstance(src, ValueError):
+        return Fault((check.tool.name, "stage", rel), message=str(src))
+    dst = _contained(work, rel)
+    if isinstance(dst, ValueError):
+        return Fault((check.tool.name, "stage", rel), message=str(dst))
+    if not src.exists():
+        return Fault((check.tool.name, "stage", rel), message=f"missing stage input: {rel}")
+    if src.is_dir():
+        shutil.copytree(src, dst)
+    else:
+        dst.parent.mkdir(parents=True, exist_ok=True)
+        shutil.copy2(src, dst)
+    return None
+
+
+def _contained(root: Path, rel: str) -> Path | ValueError:
+    text = rel.replace("\\", "/")
+    parts = text.split("/")
+    match text.startswith("/") or text in {"", ".", ".."} or "\x00" in text or any(p in {"", ".", ".."} for p in parts):
+        case True:
+            return ValueError(f"unsafe stage path: {rel!r}")
+        case False:
+            target = (root / text).resolve()
+            return target if target.is_relative_to(root) else ValueError(f"stage path escaped root: {rel!r}")
 
 
 async def _drain(stream: ByteReceiveStream | None, *, tail_cap: int, chunk: int) -> bytes:
@@ -140,16 +169,10 @@ async def _drain(stream: ByteReceiveStream | None, *, tail_cap: int, chunk: int)
         case None:
             return b""
         case _:
-
-            async def _fold(acc: bytes) -> bytes:
-                read = await _next_chunk(stream, chunk=chunk)
-                match read:
-                    case None:
-                        return acc
-                    case _:
-                        return await _fold((acc + read)[-tail_cap:])
-
-            return await _fold(b"")
+            acc = b""
+            while (read := await _next_chunk(stream, chunk=chunk)) is not None:
+                acc = (acc + read)[-tail_cap:]
+            return acc
 
 
 async def _next_chunk(stream: ByteReceiveStream, *, chunk: int) -> bytes | None:
@@ -164,10 +187,26 @@ async def _reap(proc: Process) -> None:
     with anyio.CancelScope(shield=True):
         match proc.returncode:
             case None:
+                await to_thread.run_sync(_reap_tree, proc.pid)
                 proc.kill()
             case _:
                 pass
         await proc.wait()
+
+
+def _reap_tree(pid: int) -> None:
+    try:
+        root = psutil.Process(pid)
+        tree = (root, *root.children(recursive=True))
+        for proc in reversed(tree):
+            if proc.is_running():
+                proc.terminate()
+        _, alive = psutil.wait_procs(tree, timeout=1.0)
+        for proc in alive:
+            if proc.is_running():
+                proc.kill()
+    except psutil.Error, ValueError:
+        return
 
 
 async def _run_process_backend(
@@ -196,7 +235,9 @@ async def _run_process_backend(
                     done = await anyio.run_process(list(argv), cwd=cwd, env=env, check=False)
                     return receipt(argv, done.returncode, stdout=done.stdout, stderr=done.stderr)
         case target:
-            return await _run_remote(argv, target, cwd=cwd, env=env, settings=settings, streaming=streaming, tail_cap=tail_cap, chunk=chunk)
+            return await _run_remote(
+                argv, target, cwd=cwd, env=settings.remote_env(dict(env)), settings=settings, streaming=streaming, tail_cap=tail_cap, chunk=chunk
+            )
 
 
 async def _run_remote(
@@ -204,12 +245,11 @@ async def _run_remote(
 ) -> Completed:
     # encoding=None keeps remote stdout/stderr as bytes, matching local Completed receipts.
     parts = urlsplit(target)
-    port = parts.port if parts.port is not None else ()
     command = _remote_command(argv, cwd=cwd, env=env)
     async with asyncssh.connect(
         parts.hostname or "",
-        port,
-        username=parts.username or (),
+        parts.port,
+        username=parts.username,
         known_hosts=settings.exec_known_hosts,
         connect_timeout=_SSH_CONNECT_TIMEOUT,
         login_timeout=_SSH_CONNECT_TIMEOUT,
@@ -227,14 +267,24 @@ async def _run_remote(
                         tg.start_soon(_tee, "out", proc.stdout)
                         tg.start_soon(_tee, "err", proc.stderr)
                         await proc.wait()
-                    return receipt(argv, proc.exit_status or 0, stdout=tails.get("out", b""), stderr=tails.get("err", b""))
+                    return receipt(
+                        argv,
+                        _ssh_status(proc.exit_status, getattr(proc, "exit_signal", None)),
+                        stdout=tails.get("out", b""),
+                        stderr=tails.get("err", b""),
+                    )
                 finally:
                     with anyio.CancelScope(shield=True):
                         proc.close()
                         await proc.wait_closed()
             case False:
                 done = await conn.run(command, encoding=None, check=False)
-                return receipt(argv, done.exit_status or 0, stdout=_as_bytes(done.stdout), stderr=_as_bytes(done.stderr))
+                return receipt(
+                    argv,
+                    _ssh_status(done.exit_status, getattr(done, "exit_signal", None)),
+                    stdout=_as_bytes(done.stdout),
+                    stderr=_as_bytes(done.stderr),
+                )
 
 
 def _remote_command(argv: tuple[str, ...], *, cwd: str, env: Mapping[str, str]) -> str:
@@ -242,6 +292,10 @@ def _remote_command(argv: tuple[str, ...], *, cwd: str, env: Mapping[str, str]) 
     exports = tuple(f"{shlex.quote(k)}={shlex.quote(v)}" for k, v in env.items())
     body = " ".join((*exports, *(shlex.quote(part) for part in argv)))
     return f"cd {shlex.quote(cwd)} && {body}"
+
+
+def _ssh_status(status: int | None, signal: object | None) -> int:
+    return status if status is not None else _SSH_SIGNAL_STATUS if signal else 0
 
 
 def _as_bytes(data: bytes | str | None) -> bytes:
@@ -256,22 +310,64 @@ def _as_bytes(data: bytes | str | None) -> bytes:
 
 async def _drain_reader(reader: asyncssh.SSHReader[bytes], *, tail_cap: int, chunk: int) -> bytes:
     # Remote analogue of _drain; an empty read is EOF.
-    async def _fold(acc: bytes) -> bytes:
-        read = await reader.read(chunk)
-        match read:
-            case b"":
-                return acc
-            case _:
-                return await _fold((acc + read)[-tail_cap:])
-
-    return await _fold(b"")
+    acc = b""
+    while (read := await reader.read(chunk)) != b"":
+        acc = (acc + read)[-tail_cap:]
+    return acc
 
 
 def _snapshot() -> dict[str, float]:
     # psutil oneshot batches resource facts into the Diagnostic wire shape.
     proc = psutil.Process()
     with proc.oneshot():
-        return {"mem.rss_bytes": float(proc.memory_info().rss), "cpu.percent": proc.cpu_percent(), "proc.num_fds": float(_num_fds(proc))}
+        info = proc.memory_info()
+        base = {
+            "mem.rss_bytes": float(info.rss),
+            "mem.vms_bytes": _float_attr(info, "vms"),
+            "cpu.percent": _float_call(proc.cpu_percent),
+            "proc.num_fds": float(_num_fds(proc)),
+            "proc.num_threads": _float_call(proc.num_threads),
+        }
+    return {**base, **_memory_pressure(), **_children(proc)}
+
+
+def _float_attr(obj: object, name: str) -> float:
+    try:
+        return float(getattr(obj, name))
+    except TypeError, ValueError, AttributeError:
+        return -1.0
+
+
+def _float_call(fn: object) -> float:
+    try:
+        match fn:
+            case _Nullary() as call:
+                return float(call())
+            case _:
+                return -1.0
+    except psutil.Error, TypeError, ValueError, AttributeError:
+        return -1.0
+
+
+def _memory_pressure() -> dict[str, float]:
+    try:
+        mem = psutil.virtual_memory()
+        swap = psutil.swap_memory()
+        return {
+            "sys.mem_available_bytes": _float_attr(mem, "available"),
+            "sys.mem_percent": _float_attr(mem, "percent"),
+            "sys.swap_percent": _float_attr(swap, "percent"),
+        }
+    except psutil.Error, TypeError, ValueError, AttributeError:
+        return {}
+
+
+def _children(proc: psutil.Process) -> dict[str, float]:
+    try:
+        kids = tuple(proc.children(recursive=True))
+        return {"proc.children": float(len(kids)), "proc.children_rss_bytes": float(sum(getattr(child.memory_info(), "rss", 0) for child in kids))}
+    except psutil.Error, TypeError, ValueError, AttributeError:
+        return {}
 
 
 def _num_fds(proc: psutil.Process) -> int:
@@ -299,11 +395,12 @@ async def _guarded(
     check = prepared.ok
     argv = _argv(check, routed, settings=settings, scope=scope)
     budget = deadline - time.monotonic() if deadline is not None else check.tool.timeout
-    cwd = str(UPath(check.cwd or settings.root).path)
-    env = _overlay(settings, scope)
-    trace.get_current_span().set_attribute("exec.target", settings.exec_target)
     started = time.monotonic()
     try:
+        cwd = str(UPath(check.cwd or settings.local_root).path)
+        env = _overlay(settings, scope)
+        propagate.inject(env)
+        trace.get_current_span().set_attribute("exec.target", settings.exec_target)
         with anyio.fail_after(budget):
             match check.tool.runner:
                 case Runner.INPROC:
@@ -378,25 +475,50 @@ def fan_out(
     Returns:
         One completed-or-fault result per input check.
     """
-    spawn = _spawn
 
     async def _run() -> tuple[Result[Completed, Fault], ...]:
-        limiter = anyio.CapacityLimiter(_governed(settings))
+        limit = _governed(settings, checks)
         slots: list[Result[Completed, Fault] | None] = [None] * len(checks)
-
-        async def _into(i: int, check: Check) -> None:
-            async with limiter:
-                slots[i] = await spawn(check, settings)(check, settings, scope, routed, deadline)
-
         with _TRACER.start_as_current_span("assay.fan_out") as parent:
             parent.set_attribute("assay.checks_total", len(checks))
+            parent.set_attribute("assay.checks_concurrency", limit)
             with anyio.move_on_after(deadline - time.monotonic() if deadline is not None else None):
-                async with anyio.create_task_group() as tg:
-                    for i, check in enumerate(checks):
-                        tg.start_soon(_into, i, check)
+                await _fan_schedule(checks, settings=settings, scope=scope, routed=routed, deadline=deadline, limit=limit, slots=slots)
         return tuple(_total(slot) for slot in slots)
 
     return anyio.run(_run)
+
+
+async def _fan_schedule(
+    checks: tuple[Check, ...],
+    *,
+    settings: AssaySettings,
+    scope: ArtifactScope | None,
+    routed: Routed,
+    deadline: float | None,
+    limit: int,
+    slots: list[Result[Completed, Fault] | None],
+) -> None:
+    send, recv = anyio.create_memory_object_stream[tuple[int, Check]](limit)
+    async with anyio.create_task_group() as tg:
+        for _ in range(limit):
+            tg.start_soon(_fan_worker, recv.clone(), slots, settings, scope, routed, deadline)
+        async with send:
+            for item in enumerate(checks):
+                await send.send(item)
+
+
+async def _fan_worker(
+    recv: ObjectReceiveStream[tuple[int, Check]],
+    slots: list[Result[Completed, Fault] | None],
+    settings: AssaySettings,
+    scope: ArtifactScope | None,
+    routed: Routed,
+    deadline: float | None,
+) -> None:
+    async with recv:
+        async for i, check in recv:
+            slots[i] = await _spawn(check, settings)(check, settings, scope, routed, deadline)
 
 
 def _total(slot: Result[Completed, Fault] | None) -> Result[Completed, Fault]:
@@ -407,8 +529,18 @@ def _total(slot: Result[Completed, Fault] | None) -> Result[Completed, Fault]:
             return r
 
 
-def _governed(settings: AssaySettings) -> int:
-    return min(settings.max_checks, psutil.cpu_count(logical=True) or settings.max_checks)
+def _governed(settings: AssaySettings, checks: tuple[Check, ...] = ()) -> int:
+    usable = _usable_cpu(settings.max_checks)
+    runner_cap = settings.dotnet_max_cpu if any(c.tool.runner is Runner.DOTNET for c in checks) else settings.max_checks
+    mode_cap = settings.mutation_max_cpu if any(c.tool.mode is Mode.MUTATION for c in checks) else runner_cap
+    return max(1, min(settings.max_checks, mode_cap, usable))
+
+
+def _usable_cpu(default: int) -> int:
+    try:
+        return len(psutil.Process().cpu_affinity())  # type: ignore[attr-defined]  # ty: ignore[possibly-missing-attribute]  # Linux/cgroup-aware when present
+    except psutil.Error, AttributeError, NotImplementedError:
+        return psutil.cpu_count(logical=True) or default
 
 
 # --- [COMPOSITION] ----------------------------------------------------------------------

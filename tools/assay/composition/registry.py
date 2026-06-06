@@ -12,6 +12,7 @@ from types import FunctionType
 from typing import Final, TYPE_CHECKING
 
 from beartype import beartype
+from beartype.roar import BeartypeCallHintViolation
 from cyclopts import App, Parameter
 from expression import Error, Ok, Result
 import msgspec
@@ -25,6 +26,7 @@ from tools.assay.core.engine import _RESOURCE, _snapshot, fan_out  # noqa: PLC27
 from tools.assay.core.model import (
     _HINT_CAP,  # noqa: PLC2701  # intra-package private import: shared model cap, canonical clip site
     _RESULT_CAP,  # noqa: PLC2701  # intra-package private import: shared model cap, canonical saturation site
+    Artifact,
     ArtifactKind,
     BaseParams,
     Bind,
@@ -114,7 +116,7 @@ _ENVELOPE_DECODER: Final[msgspec.json.Decoder[Envelope]] = msgspec.json.Decoder(
 
 
 def _identity_hom(*_a: object, **_k: object) -> Result[Report, Fault]:
-    return Ok(None)  # type: ignore[arg-type]  # ty: ignore[invalid-return-type]  # the probe never inspects the value; Ok(None) stands in for any Report
+    return Ok(fold(Claim.STATIC, "self-test", ()))
 
 
 def _correlate(settings: AssaySettings, _scope: ArtifactScope, params: object) -> Mapping[str, object]:
@@ -185,15 +187,19 @@ def _failing_step(fault: Fault) -> str:
         case (RailStatus.BUSY, _):
             return "lease_busy"
         case (_, ()):
-            return next((step for step in ("strict", "validation", "parse") if fault.message.startswith(f"{step}:")), "spawn")
+            return next((step for step in ("strict", "validation", "config", "dispatch", "parse") if fault.message.startswith(f"{step}:")), "spawn")
         case _:
             return "spawn"
 
 
 def _ok_envelope(bind: Bind, settings: AssaySettings, ms: float, report: Report) -> Envelope:
     # FAILED reports get the same Diagnostic shape as Fault rails, sourced from defect rows.
-    truncated = len(report.results) >= _RESULT_CAP or len(report.artifacts) >= _ARTIFACT_CAP
-    truncated and sys.stderr.write(f"assay: {bind.claim.value} {bind.verb} output truncated; full results under {settings.run_id}\n")
+    truncated = len(report.results) > _RESULT_CAP or len(report.artifacts) > _ARTIFACT_CAP
+    if truncated:
+        artifact = _full_report_artifact(settings, bind, report)
+        artifacts = ((*artifact, *report.artifacts) if artifact else report.artifacts)[:_ARTIFACT_CAP]
+        report = msgspec.structs.replace(report, results=report.results[:_RESULT_CAP], artifacts=artifacts)
+        sys.stderr.write(f"assay: {bind.claim.value} {bind.verb} output truncated; full report artifact under {settings.run_id}\n")
     failed = tuple(m for m in report.results if m.severity == "failed")
     ctx = (
         _distill(
@@ -215,6 +221,17 @@ def _ok_envelope(bind: Bind, settings: AssaySettings, ms: float, report: Report)
         truncated=truncated,
         notes=report.notes,
     )
+
+
+def _full_report_artifact(settings: AssaySettings, bind: Bind, report: Report) -> tuple[Artifact, ...]:
+    payload = _ENCODER.encode(report)
+    name = f"{bind.claim.value}-{bind.verb}.full-report.json"
+    try:
+        path = settings.store().write_bytes(payload, ArtifactKind.HISTORY.value, settings.run_id, name)
+    except OSError as exc:
+        _LOG.warning("history.full_report_failed", run_id=settings.run_id, error=str(exc)[:200])
+        return ()
+    return (Artifact(id="full-report", kind=ArtifactKind.HISTORY, path=path, bytes=len(payload), lines=payload.count(b"\n")),)
 
 
 def _emit(bind: Bind, settings: AssaySettings, started: float, outcome: Result[Report, Fault]) -> Envelope:
@@ -257,7 +274,7 @@ def _emit(bind: Bind, settings: AssaySettings, started: float, outcome: Result[R
             return doubled
 
 
-def rail(bind: Bind) -> Callable[[object], Envelope]:
+def rail(bind: Bind, settings: AssaySettings | None = None) -> Callable[[object], Envelope]:
     """Build the registry runner for one bound verb.
 
     Returns:
@@ -266,18 +283,18 @@ def rail(bind: Bind) -> Callable[[object], Envelope]:
     handler: Handler[object] = compose(*_RAIL_LAYERS)(_narrow(bind.handler))
 
     def run(params: object) -> Envelope:
-        settings = AssaySettings()
+        active = settings or AssaySettings()
         started = time.perf_counter()
         # Ring and write count are invocation-scoped so automation can reuse rail() across fires.
         # Resource snapshots stay lazy and only run on Fault or defect paths.
         ring_token, writes_token = _RING.set(deque(maxlen=16)), _WRITES.set(count())
         try:
             # An unwritable .artifacts root makes ArtifactScope.open escape _guard; fold that OSError into one FAULTED Envelope here.
-            scope = ArtifactScope.open(settings, bind.claim)
-            outcome = _guard(lambda: _bound(params, bind.claim, bind.verb).bind(lambda p: _validated(_strict(handler(settings, scope, p), p))))
-            return _emit(bind, settings, started, outcome)
+            scope = ArtifactScope.open(active, bind.claim)
+            outcome = _guard(lambda: _bound(params, bind.claim, bind.verb).bind(lambda p: _validated(_strict(handler(active, scope, p), p))))
+            return _emit(bind, active, started, outcome)
         except OSError as exc:
-            return _emit(bind, settings, started, Error(Fault((), RailStatus.FAULTED, f"scope: {exc}")))
+            return _emit(bind, active, started, Error(Fault((), RailStatus.FAULTED, f"scope: {exc}")))
         finally:
             _WRITES.reset(writes_token)
             _RING.reset(ring_token)
@@ -311,6 +328,8 @@ def _guard(thunk: Callable[[], Result[Report, Fault]]) -> Result[Report, Fault]:
         return thunk()
     except FaultedPromotion as promoted:
         return Error(Fault((), RailStatus.FAULTED, f"strict: {promoted}"))
+    except BeartypeCallHintViolation as violation:
+        return Error(Fault((), RailStatus.FAULTED, f"validation: {violation}"))
     except msgspec.MsgspecError as malformed:
         return Error(Fault((), RailStatus.FAULTED, f"validation: {malformed}"))
 
@@ -396,8 +415,7 @@ def _persist(settings: AssaySettings, envelope: Envelope) -> None:
     # History writes are best-effort and use the same bytes delta decodes later.
     try:
         store = settings.store()
-        directory = store.ensure(ArtifactKind.HISTORY.value, settings.run_id)
-        store.fs.pipe_file(f"{directory}/envelope.json", _encode(envelope))
+        store.write_bytes(_encode(envelope), ArtifactKind.HISTORY.value, settings.run_id, "envelope.json")
         _retain(store, settings.artifact_retention)
     except OSError as exc:
         _LOG.warning("history.persist_failed", run_id=settings.run_id, error=str(exc)[:200])
@@ -408,7 +426,7 @@ def _retain(store: ArtifactStore, keep: int) -> None:
     def _rm_quiet(path: str) -> str:
         # A concurrent pruner may already have removed `path`; only that race is silent — EACCES and other OSErrors still surface.
         try:
-            store.fs.rm(path, recursive=True)
+            store.remove_path(path, recursive=True)
         except FileNotFoundError:
             return path
         return path
@@ -433,7 +451,7 @@ def _load_run(store: ArtifactStore, run_id: str) -> Envelope | None:
             return None
         case _:
             try:
-                return _ENVELOPE_DECODER.decode(store.fs.cat_file(f"{store.root}/{ArtifactKind.HISTORY.value}/{run_id}/envelope.json"))
+                return _ENVELOPE_DECODER.decode(store.read_bytes(ArtifactKind.HISTORY.value, run_id, "envelope.json"))
             except OSError, msgspec.MsgspecError:
                 return None
 
@@ -472,40 +490,34 @@ def delta(run_id: str, *, against: str = "") -> Envelope:
     return _emit_envelope(settings, env, persist=False)
 
 
-def _safe_settings() -> AssaySettings:
-    """Construct settings, falling back to validation-bypass defaults on a malformed ASSAY_* env.
-
-    The emitter always needs a usable settings to write one Envelope; the config validation error rides the
-    caller's ``config:`` fault message rather than crashing the wire.
-
-    Returns:
-        Validated settings, or model_construct defaults when the environment fails validation.
-    """
-    try:
-        return AssaySettings()
-    except ValidationError:
-        return AssaySettings.model_construct()
-
-
-def parse_fault(tokens: tuple[str, ...], message: str) -> Envelope:
+def parse_fault(tokens: tuple[str, ...], message: str, *, step: str = "parse") -> Envelope:
     """Convert a Cyclopts parse failure into the canonical fault Envelope.
 
     Returns:
         Emitted parse-fault Envelope.
     """
-    settings = _safe_settings()
-    match tokens:
-        case (head, *rest) if head in Claim._value2member_map_:
-            claim, verb, dispatch = Claim(head), (rest[0] if rest else ""), head
-        case (head, *_):
-            claim, verb, dispatch = Claim.STATIC, head, "none"
-        case _:
-            claim, verb, dispatch = Claim.STATIC, "", "none"
-    fault = Fault((), RailStatus.FAULTED, f"parse: {message}"[:_MESSAGE_CAP])
+    try:
+        settings = AssaySettings()
+        fault_message = f"{step}: {message}"
+    except ValidationError as config_error:
+        settings = AssaySettings.model_construct()
+        fault_message = f"config: {config_error}"
+    claim, verb, dispatch = _parse_dispatch(tokens)
+    fault = Fault((), RailStatus.FAULTED, fault_message[:_MESSAGE_CAP])
     _seed_parse_ring(dispatch, tokens)
     diagnostic, truncated = _distill(fault, 0.0)
     env = msgspec.structs.replace(envelope(fault, claim=claim, verb=verb, run_id=settings.run_id, error_context=diagnostic), truncated=truncated)
     return _emit_envelope(settings, env, persist=False)
+
+
+def _parse_dispatch(tokens: tuple[str, ...]) -> tuple[Claim, str, str]:
+    match tokens:
+        case (head, *rest) if head in Claim._value2member_map_:
+            return Claim(head), (rest[0] if rest else ""), head
+        case (head, *_):
+            return Claim.STATIC, head, "none"
+        case _:
+            return Claim.STATIC, "", "none"
 
 
 def self_test(*, rhino: bool = False) -> Envelope:
@@ -609,7 +621,7 @@ def _probe_cache_load(settings: AssaySettings) -> Mapping[str, object]:
     # Absent or malformed cache folds to empty so probes fall back to live process checks.
     try:
         store = settings.store()
-        raw = store.fs.cat_file(f"{store.root}/{ArtifactKind.HISTORY.value}/{_PROBE_CACHE_FILE}")
+        raw = store.read_bytes("cache", _PROBE_CACHE_FILE)
         match msgspec.json.decode(raw):
             case dict() as parsed:
                 return parsed
@@ -632,8 +644,7 @@ def _probe_cache_store(
     }
     try:
         store = settings.store()
-        directory = store.ensure(ArtifactKind.HISTORY.value)
-        store.fs.pipe_file(f"{directory}/{_PROBE_CACHE_FILE}", msgspec.json.encode({**prior, **entries}))
+        store.write_bytes(msgspec.json.encode({**prior, **entries}), "cache", _PROBE_CACHE_FILE)
     except OSError as exc:
         _LOG.warning("probe_cache.store_failed", run_id=settings.run_id, error=str(exc)[:200])
 
@@ -681,23 +692,8 @@ def _probe_note(check: Check, result: Result[Completed, Fault]) -> tuple[str, bo
 
 
 def _census() -> bool:
-    # Catch catalog rot: every row must select back to itself and parse an empty Completed when it has a parser.
-    return all(t in select(t.claim, t.language) for t in TOOLS) and all(_parses(t.parser) for t in TOOLS)
-
-
-def _parses(parser: object) -> bool:
-    # Parser smoke test for degenerate receipts.
-    match parser:
-        case None:
-            return True
-        case fn if callable(fn):
-            try:
-                fn(Completed((), 0))
-            except Exception:  # noqa: BLE001  # census probe: any parser raise on the empty receipt is a rotted row, folded to False
-                return False
-            return True
-        case _:
-            return False
+    # Catch catalog rot: every row must select back to itself through the claim/language axes.
+    return all(t in select(t.claim, t.language) for t in TOOLS)
 
 
 def _yak_ready() -> bool:

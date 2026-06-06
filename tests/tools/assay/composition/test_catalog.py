@@ -11,7 +11,7 @@ def test_python_storage_rows_are_catalog_owned() -> None:
     mutation = next(t for t in rows if t.name == "mutmut" and t.mode is Mode.MUTATION)
 
     assert "--benchmark-storage=file://.artifacts/python/benchmarks" in benchmark.command
-    assert (mutation.runner, mutation.input, mutation.thunk) == (Runner.UV, Input.FILES, None)
+    assert (mutation.runner, mutation.input, mutation.thunk) == (Runner.UV, Input.NONE, None)
     assert mutation.stage.root == ".artifacts/python/mutmut/work"
     assert mutation.stage.project is True
     assert mutation.stage.inputs == ("pyproject.toml", ".gitignore", "tools/assay", "tests/conftest.py", "tests/tools/assay")

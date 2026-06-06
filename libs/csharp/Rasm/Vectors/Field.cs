@@ -336,6 +336,14 @@ public abstract partial record ScalarField {
         from activePolicy in policy.HasValue ? policy.Value.Admit(key: key.OrDefault()) : TetSignedHeatPolicy.Of(key: key)
         from solved in SolveTetSignedHeat(domain: activeDomain, policy: activePolicy, key: key.OrDefault())
         select (ScalarField)new TetSignedHeatCase(Domain: activeDomain, Policy: activePolicy, Values: solved.Values, Receipt: solved.Receipt);
+    public static Fin<ScalarField> Periodic(ScalarField source, Vector3d period, Op? key = null) =>
+        from active in Optional(source).ToFin(key.OrDefault().InvalidInput())
+        from validPeriod in FieldNabla.Period(period: period, key: key.OrDefault())
+        select (ScalarField)new PeriodicCase(Source: active, Period: validPeriod);
+    public static Fin<ScalarField> StrainMagnitude(VectorField source, double epsilon, Op? key = null) =>
+        FieldNabla.WithSourceEpsilon<VectorField, ScalarField>(source, epsilon, static (s, e) => new StrainMagnitudeCase(Source: s, Epsilon: e), key);
+    public static Fin<ScalarField> Clamp(ScalarField source, double minimum, double maximum, Op? key = null) =>
+        from active in Optional(source).ToFin(key.OrDefault().InvalidInput()) from _ in FieldNabla.FiniteRange(minimum: minimum, maximum: maximum, key: key.OrDefault()) select (ScalarField)new ClampCase(Source: active, Minimum: minimum, Maximum: maximum);
     public static Fin<ReconstructionResult> RbfDetailed(Seq<(Point3d Position, double Value)> samples, KernelKind kernel, double radius, double smoothing = 0.0, Op? key = null) =>
         ReconstructCore(mode: smoothing <= RhinoMath.ZeroTolerance ? ReconstructionMode.RbfInterpolation : ReconstructionMode.RbfApproximation, scalarSamples: samples, orientedSamples: Seq<MlsSample>(), kernel: kernel, radius: radius, smoothing: smoothing, context: null, key: key.OrDefault());
     public static Fin<ReconstructionResult> MlsDetailed(Seq<MlsSample> samples, KernelKind kernel, double radius, Context context, Op? key = null) =>
@@ -349,258 +357,6 @@ public abstract partial record ScalarField {
             : Fin.Succ(new ReconstructionAttempt(
                 Result: Option<ReconstructionResult>.None,
                 Failure: Some(new ReconstructionFailureReceipt(Mode: active, Kind: ReconstructionFailureKind.UnsupportedMode, SampleCount: samples.Count, RequiresNormals: active.RequiresNormals, RequiresSparseSystem: active.RequiresSparseSystem, RhinoCommonGeneratorAvailable: false)))));
-    private static Fin<ReconstructionResult> ReconstructCore(ReconstructionMode mode, Seq<(Point3d Position, double Value)> scalarSamples, Seq<MlsSample> orientedSamples, KernelKind kernel, double radius, double smoothing, Context? context, Op key) =>
-        from activeMode in Optional(mode).ToFin(key.InvalidInput())
-        from active in Optional(kernel).ToFin(key.InvalidInput())
-        from r in key.AcceptValidated<PositiveMagnitude>(candidate: radius)
-        from supported in activeMode.Executable ? Fin.Succ(unit) : Fin.Fail<Unit>(key.Unsupported(geometryType: typeof(ReconstructionMode), outputType: typeof(ReconstructionResult)))
-        from result in activeMode switch {
-            ReconstructionMode m when m.Equals(ReconstructionMode.RbfInterpolation) || m.Equals(ReconstructionMode.RbfApproximation) =>
-                BuildRbf(mode: m, samples: scalarSamples, kernel: active, radius: r, smoothing: smoothing, key: key),
-            ReconstructionMode m when m.Equals(ReconstructionMode.MovingLeastSquares) =>
-                from model in Optional(context).ToFin(key.MissingContext())
-                from admittedSamples in FieldNabla.MlsInput(samples: orientedSamples, context: model, key: key)
-                let receipt = new ReconstructionReceipt(Mode: m, Kernel: active, Radius: r.Value, Smoothing: 0.0, Interpolation: false, SampleCount: admittedSamples.Count, CenterCount: admittedSamples.Count, PolynomialDegree: m.PolynomialDegree, Solve: Option<SolveReceipt>.None)
-                select new ReconstructionResult(Field: new MlsCase(Samples: admittedSamples, Kernel: active, Radius: r, Receipt: receipt), Receipt: receipt),
-            _ => Fin.Fail<ReconstructionResult>(key.Unsupported(geometryType: typeof(ReconstructionMode), outputType: typeof(ReconstructionResult))),
-        }
-        select result;
-    private static Fin<ReconstructionResult> BuildRbf(ReconstructionMode mode, Seq<(Point3d Position, double Value)> samples, KernelKind kernel, PositiveMagnitude radius, double smoothing, Op key) =>
-        from admittedSamples in FieldNabla.ReconstructionSamples(samples: samples, key: key)
-        from admittedSmoothing in FieldNabla.NonnegativeFinite(value: smoothing, key: key)
-        let interpolation = mode.Equals(ReconstructionMode.RbfInterpolation)
-        from modeSmoothing in interpolation ? guard(admittedSmoothing <= RhinoMath.ZeroTolerance, key.InvalidInput()).ToFin() : guard(admittedSmoothing > RhinoMath.ZeroTolerance, key.InvalidInput()).ToFin()
-        let n = admittedSamples.Count
-        let sampleArray = admittedSamples.AsIterable().ToArray()
-        let rhs = new Arr<double>([.. sampleArray.Select(static sample => sample.Value)])
-        let cols = Dimension.Create(value: n)
-        from kernelEntries in KernelWeights(left: sampleArray.Select(static sample => sample.Position), right: sampleArray.Select(static sample => sample.Position), kernel: kernel, radius: radius.Value, key: key)
-        from matrix in Matrix.Of(
-            rows: Dimension.Create(value: interpolation ? n : 2 * n), cols: cols,
-            entries: interpolation ? kernelEntries : new Arr<double>([.. kernelEntries.AsIterable().Concat(Enumerable.Range(start: 0, count: n * n).Select(i => i / n == i % n ? Math.Sqrt(d: admittedSmoothing) : 0.0))]), key: key)
-        from solved in interpolation
-            ? matrix.SolveDetailed(rhs: rhs, key: key)
-            : matrix.LeastSquaresDetailed(rhs: new Arr<double>([.. rhs.AsIterable().Concat(Enumerable.Repeat(element: 0.0, count: n))]), key: key)
-        let receipt = new ReconstructionReceipt(Mode: mode, Kernel: kernel, Radius: radius.Value, Smoothing: admittedSmoothing, Interpolation: interpolation, SampleCount: admittedSamples.Count, CenterCount: admittedSamples.Count, PolynomialDegree: mode.PolynomialDegree, Solve: Some(solved))
-        select new ReconstructionResult(Field: new RbfCase(Samples: admittedSamples, Kernel: kernel, Radius: radius, Coefficients: solved.Solution, Receipt: receipt), Receipt: receipt);
-    [StructLayout(LayoutKind.Auto)] private readonly record struct TetSignedHeatSolution(Arr<double> Values, TetSignedHeatReceipt Receipt);
-    [StructLayout(LayoutKind.Auto)] private readonly record struct TetAssembly(SparseMatrix Mass, SparseMatrix Stiffness, SparseMatrix HeatOperator, Arr<double> HeatRhs, int GaugeVertex, double HeatTime);
-    [StructLayout(LayoutKind.Auto)] private readonly record struct TetDivergence(Arr<double> Rhs, int NonZeros, int RejectedGradientCellCount);
-    [StructLayout(LayoutKind.Auto)] private readonly record struct TetCalibration(Arr<double> Values, double BoundaryShift, double InteriorMean);
-    [StructLayout(LayoutKind.Auto)] private readonly record struct TetInterpolated(double Value, TetInterpolationReceipt Receipt);
-    private static Fin<TetSignedHeatSolution> SolveTetSignedHeat(TetMeshDomain domain, TetSignedHeatPolicy policy, Op key) =>
-        from activeDomain in domain.Admit(key: key)
-        from activePolicy in policy.Admit(key: key)
-        from _ in activeDomain.InteriorVertexCount > 0 ? Fin.Succ(unit) : Fin.Fail<Unit>(key.InvalidInput())
-        from assembly in AssembleTetFem(domain: activeDomain, policy: activePolicy, key: key)
-        from heatSolve in CholeskySparse.Of(symmetric: assembly.HeatOperator, key: key).Bind(factor => factor.SolveDetailed(rhs: assembly.HeatRhs, key: key))
-        from heatResidual in heatSolve.Residual <= activePolicy.Solver.ResidualTolerance.Value ? Fin.Succ(unit) : Fin.Fail<Unit>(key.InvalidResult())
-        from divergence in TetDivergenceOf(domain: activeDomain, heat: heatSolve.Solution, key: key)
-        from poisson in PinTetGauge(stiffness: assembly.Stiffness, gauge: assembly.GaugeVertex, rhs: divergence.Rhs, key: key)
-        from poissonSolve in CholeskySparse.Of(symmetric: poisson.Matrix, key: key).Bind(factor => factor.SolveDetailed(rhs: poisson.Rhs, key: key))
-        from poissonResidual in poissonSolve.Residual <= activePolicy.Solver.ResidualTolerance.Value ? Fin.Succ(unit) : Fin.Fail<Unit>(key.InvalidResult())
-        from calibrated in CalibrateTetSignedHeat(domain: activeDomain, raw: poissonSolve.Solution, key: key)
-        let fem = new TetFemReceipt(
-            VertexCount: activeDomain.Vertices.Count, CellCount: activeDomain.Cells.Count, BoundaryVertexCount: activeDomain.BoundaryVertices.Count,
-            BoundaryFaceCount: activeDomain.BoundaryFaceCount, InteriorVertexCount: activeDomain.InteriorVertexCount, IncidenceCount: activeDomain.Cells.Count * 16,
-            TotalVolume: activeDomain.TotalVolume, MinCellVolume: Enumerable.Min(activeDomain.CellVolumes.AsIterable()), MaxCellVolume: Enumerable.Max(activeDomain.CellVolumes.AsIterable()),
-            MassNonZeros: assembly.Mass.NonZeros, StiffnessNonZeros: assembly.Stiffness.NonZeros, HeatOperatorNonZeros: assembly.HeatOperator.NonZeros,
-            DivergenceNonZeros: divergence.NonZeros, RejectedGradientCellCount: divergence.RejectedGradientCellCount)
-        let receipt = new TetSignedHeatReceipt(Fem: fem, Heat: activePolicy.Heat, Solver: activePolicy.Solver, SignConvention: activePolicy.SignConvention, Gauge: activePolicy.Gauge, Interpolation: activePolicy.Interpolation, GaugeVertex: assembly.GaugeVertex, HeatTime: assembly.HeatTime, BoundaryShift: calibrated.BoundaryShift, InteriorMean: calibrated.InteriorMean, HeatSolve: heatSolve, PoissonSolve: poissonSolve)
-        select new TetSignedHeatSolution(Values: calibrated.Values, Receipt: receipt);
-    private static Fin<TetAssembly> AssembleTetFem(TetMeshDomain domain, TetSignedHeatPolicy policy, Op key) {
-        Point3d[] points = [.. domain.Vertices.AsIterable()];
-        TetCell[] cells = [.. domain.Cells.AsIterable()];
-        System.Collections.Generic.HashSet<int> boundary = [.. domain.BoundaryVertices.AsIterable()];
-        double heatTime = policy.Heat.Resolve(cellSize: Math.Pow(x: domain.TotalVolume / cells.Length, y: 1.0 / 3.0));
-        if (!RhinoMath.IsValidDouble(x: heatTime) || heatTime <= RhinoMath.ZeroTolerance || domain.BoundaryVertices.IsEmpty) return Fin.Fail<TetAssembly>(key.InvalidInput());
-        int vertexCount = points.Length;
-        double[] heatRhs = new double[vertexCount];
-        List<(int Row, int Col, double Value)> massTriplets = new(capacity: cells.Length * 16), stiffnessTriplets = new(capacity: cells.Length * 16);
-        for (int c = 0; c < cells.Length; c++) {
-            TetCell cell = cells[c];
-            int[] ids = cell.Indices;
-            TetCellMetric metric = TetMeshDomain.MetricOf(points: points, cell: cell, key: key).Match(Succ: static value => value, Fail: _ => default);
-            if (metric.Gradients is null) return Fin.Fail<TetAssembly>(key.InvalidResult());
-            for (int i = 0; i < 4; i++)
-                for (int j = 0; j < 4; j++) {
-                    double mass = metric.Volume * (i == j ? 2.0 : 1.0) / 20.0;
-                    double stiffness = metric.Volume * (metric.Gradients[i] * metric.Gradients[j]);
-                    massTriplets.Add(item: (ids[i], ids[j], mass));
-                    stiffnessTriplets.Add(item: (ids[i], ids[j], stiffness));
-                    heatRhs[ids[i]] += boundary.Contains(item: ids[j]) ? mass : 0.0;
-                }
-        }
-        Dimension dim = Dimension.Create(value: vertexCount);
-        return from mass in SparseMatrix.FromTriplets(rows: dim, cols: dim, triplets: massTriplets, key: key)
-               from stiffness in SparseMatrix.FromTriplets(rows: dim, cols: dim, triplets: stiffnessTriplets, key: key)
-               from heat in SparseMatrix.FromTriplets(rows: dim, cols: dim, triplets: massTriplets.Concat(stiffnessTriplets.Select(t => (t.Row, t.Col, Value: heatTime * t.Value))), key: key)
-               select new TetAssembly(Mass: mass, Stiffness: stiffness, HeatOperator: heat, HeatRhs: new Arr<double>(heatRhs), GaugeVertex: domain.BoundaryVertices[0], HeatTime: heatTime);
-    }
-    private static Fin<TetDivergence> TetDivergenceOf(TetMeshDomain domain, Arr<double> heat, Op key) {
-        Point3d[] points = [.. domain.Vertices.AsIterable()];
-        TetCell[] cells = [.. domain.Cells.AsIterable()];
-        if (heat.Count != points.Length || !heat.ForAll(RhinoMath.IsValidDouble)) return Fin.Fail<TetDivergence>(key.InvalidResult());
-        double[] rhs = new double[points.Length];
-        int rejected = 0;
-        for (int c = 0; c < cells.Length; c++) {
-            TetCell cell = cells[c];
-            int[] ids = cell.Indices;
-            TetCellMetric metric = TetMeshDomain.MetricOf(points: points, cell: cell, key: key).Match(Succ: static value => value, Fail: _ => default);
-            if (metric.Gradients is null) return Fin.Fail<TetDivergence>(key.InvalidResult());
-            Vector3d gradient = Vector3d.Zero;
-            for (int i = 0; i < 4; i++) gradient += heat[ids[i]] * metric.Gradients[i];
-            if (!gradient.Unitize()) { rejected++; continue; }
-            for (int i = 0; i < 4; i++) rhs[ids[i]] += -metric.Volume * (metric.Gradients[i] * gradient);
-        }
-        int nonZeros = rhs.Count(static value => Math.Abs(value: value) > RhinoMath.SqrtEpsilon);
-        return nonZeros > 0 && rejected < cells.Length
-            ? Fin.Succ(new TetDivergence(Rhs: new Arr<double>(rhs), NonZeros: nonZeros, RejectedGradientCellCount: rejected))
-            : Fin.Fail<TetDivergence>(key.InvalidResult());
-    }
-    private static Fin<(SparseMatrix Matrix, Arr<double> Rhs)> PinTetGauge(SparseMatrix stiffness, int gauge, Arr<double> rhs, Op key) {
-        if (!stiffness.IsValid || stiffness.Rows.Value != stiffness.Cols.Value || rhs.Count != stiffness.Rows.Value || gauge < 0 || gauge >= stiffness.Rows.Value) return Fin.Fail<(SparseMatrix, Arr<double>)>(key.InvalidInput());
-        List<(int Row, int Col, double Value)> triplets = new(capacity: stiffness.NonZeros + 1);
-        for (int row = 0; row < stiffness.Rows.Value; row++)
-            for (int k = stiffness.RowPtr[row]; k < stiffness.RowPtr[row + 1]; k++) {
-                int col = stiffness.ColInd[k];
-                if (row != gauge && col != gauge) triplets.Add(item: (row, col, stiffness.Values[k]));
-            }
-        triplets.Add(item: (gauge, gauge, 1.0));
-        double[] pinned = [.. rhs.AsIterable()];
-        pinned[gauge] = 0.0;
-        return SparseMatrix.FromTriplets(rows: stiffness.Rows, cols: stiffness.Cols, triplets: triplets, key: key).Map(matrix => (Matrix: matrix, Rhs: new Arr<double>(pinned)));
-    }
-    private static Fin<TetCalibration> CalibrateTetSignedHeat(TetMeshDomain domain, Arr<double> raw, Op key) {
-        System.Collections.Generic.HashSet<int> boundary = [.. domain.BoundaryVertices.AsIterable()];
-        if (raw.Count != domain.Vertices.Count || domain.InteriorVertexCount <= 0 || !raw.ForAll(RhinoMath.IsValidDouble)) return Fin.Fail<TetCalibration>(key.InvalidResult());
-        double boundaryShift = domain.BoundaryVertices.Fold(initialState: 0.0, f: (sum, index) => sum + raw[index]) / domain.BoundaryVertices.Count;
-        double interiorMean = toSeq(Enumerable.Range(start: 0, count: raw.Count))
-            .Filter(index => !boundary.Contains(item: index))
-            .Fold(initialState: 0.0, f: (sum, index) => sum + raw[index] - boundaryShift) / domain.InteriorVertexCount;
-        double sign = interiorMean > 0.0 ? -1.0 : 1.0;
-        Arr<double> values = new([.. raw.AsIterable().Select(value => sign * (value - boundaryShift))]);
-        double signedInterior = toSeq(Enumerable.Range(start: 0, count: raw.Count))
-            .Filter(index => !boundary.Contains(item: index))
-            .Fold(initialState: 0.0, f: (sum, index) => sum + values[index]) / domain.InteriorVertexCount;
-        return values.ForAll(RhinoMath.IsValidDouble) && RhinoMath.IsValidDouble(x: boundaryShift) && RhinoMath.IsValidDouble(x: signedInterior)
-            ? Fin.Succ(new TetCalibration(Values: values, BoundaryShift: boundaryShift, InteriorMean: signedInterior))
-            : Fin.Fail<TetCalibration>(key.InvalidResult());
-    }
-    private static Fin<TetSignedHeatSample> SampleTetSignedHeat(TetSignedHeatCase source, Point3d sample, Context context, Op key) =>
-        from model in Optional(context).ToFin(key.MissingContext())
-        from interpolated in InterpolateTet(domain: source.Domain, values: source.Values, sample: sample, tolerance: Math.Max(val1: model.Absolute.Value, val2: source.Domain.Context.Absolute.Value), key: key)
-        select new TetSignedHeatSample(Value: source.Policy.SignConvention.Multiplier * interpolated.Value, Receipt: source.Receipt, Interpolation: interpolated.Receipt);
-    private static Fin<TetInterpolated> InterpolateTet(TetMeshDomain domain, Arr<double> values, Point3d sample, double tolerance, Op key) {
-        Point3d[] points = [.. domain.Vertices.AsIterable()];
-        TetCell[] cells = [.. domain.Cells.AsIterable()];
-        if (values.Count != points.Length || !FieldNabla.Finite(point: sample) || !RhinoMath.IsValidDouble(x: tolerance) || tolerance < 0.0) return Fin.Fail<TetInterpolated>(key.InvalidInput());
-        for (int c = 0; c < cells.Length; c++) {
-            TetCell cell = cells[c];
-            TetCellMetric metric = TetMeshDomain.MetricOf(points: points, cell: cell, key: key).Match(Succ: static value => value, Fail: _ => default);
-            if (metric.Gradients is null) return Fin.Fail<TetInterpolated>(key.InvalidResult());
-            Vector3d offset = sample - points[cell.A];
-            double b1 = metric.Gradients[1] * offset, b2 = metric.Gradients[2] * offset, b3 = metric.Gradients[3] * offset, b0 = 1.0 - b1 - b2 - b3;
-            double[] barycentric = [b0, b1, b2, b3];
-            if (barycentric.All(value => RhinoMath.IsValidDouble(x: value) && value >= -tolerance && value <= 1.0 + tolerance)) {
-                int[] ids = cell.Indices;
-                double interpolated = toSeq(Enumerable.Range(start: 0, count: 4)).Fold(initialState: 0.0, f: (sum, i) => sum + (barycentric[i] * values[ids[i]]));
-                return RhinoMath.IsValidDouble(x: interpolated)
-                    ? Fin.Succ(new TetInterpolated(Value: interpolated, Receipt: new TetInterpolationReceipt(Interpolation: TetInterpolation.Barycentric, CellIndex: c, Barycentric: new Arr<double>(barycentric), Inside: true)))
-                    : Fin.Fail<TetInterpolated>(key.InvalidResult());
-            }
-        }
-        return Fin.Fail<TetInterpolated>(key.InvalidInput());
-    }
-    private static Fin<double> EvaluateRbf(Seq<(Point3d Position, double Value)> samples, KernelKind kernel, double radius, Arr<double> coefficients, Point3d sample, Op key) =>
-        coefficients.Count != samples.Count
-            ? Fin.Fail<double>(key.InvalidResult())
-            : from weights in KernelWeights(left: [sample], right: samples.AsIterable().Select(static s => s.Position), kernel: kernel, radius: radius, key: key)
-              from value in key.AcceptValue(value: Enumerable.Zip(first: weights.AsIterable(), second: coefficients.AsIterable(), resultSelector: static (double w, double c) => w * c).Sum())
-              select value;
-    private static Fin<Arr<double>> KernelWeights(IEnumerable<Point3d> left, IEnumerable<Point3d> right, KernelKind kernel, double radius, Op key) =>
-        toSeq(left.SelectMany(l => right.Select(r => l.DistanceTo(other: r))))
-            .TraverseM(distance => kernel.Profile(distance: distance, radius: radius, key: key).Map(static profile => profile.Value)).As()
-            .Map(static values => new Arr<double>([.. values.AsIterable()]));
-    private static Fin<ReconstructionSample> EvaluateMls(Seq<MlsSample> samples, KernelKind kernel, double radius, Point3d sample, Context context, Op key) {
-        return (FieldNabla.Finite(point: sample) ? Fin.Succ(unit) : Fin.Fail<Unit>(key.InvalidInput())).Bind(_ => {
-            (MlsSample Sample, Vector3d Offset, KernelProfile Profile)[] neighborhood = [.. toSeq(samples.AsIterable().Select(candidate => (Sample: candidate, Offset: sample - candidate.Position))
-                .Select(candidate => (candidate.Sample, candidate.Offset, Profile: kernel.Profile(distance: candidate.Offset.Length, radius: radius, key: key))))
-                .Choose(static candidate => candidate.Profile.Match(Succ: profile => Some((candidate.Sample, candidate.Offset, Profile: profile)), Fail: _ => Option<(MlsSample Sample, Vector3d Offset, KernelProfile Profile)>.None))
-                .Filter(candidate => candidate.Profile.Value > Math.Max(val1: context.Relative.Value, val2: RhinoMath.SqrtEpsilon)).AsIterable()];
-            int rejected = samples.Count - neighborhood.Length;
-            double weightSum = neighborhood.Sum(static candidate => candidate.Profile.Value);
-            return guard(neighborhood.Length >= 3 && RhinoMath.IsValidDouble(x: weightSum) && weightSum > RhinoMath.ZeroTolerance, key.InvalidInput())
-            .Bind(_ => {
-                Arr<double> rhs = new([.. neighborhood.SelectMany(static candidate => {
-                    double root = Math.Sqrt(d: candidate.Profile.Value);
-                    return new[] { root * candidate.Sample.Value, root * candidate.Sample.Normal.X, root * candidate.Sample.Normal.Y, root * candidate.Sample.Normal.Z };
-                })]);
-                Arr<double> entries = new([.. neighborhood.SelectMany(static candidate => {
-                    double root = Math.Sqrt(d: candidate.Profile.Value);
-                    return new[] {
-                        root, -root * candidate.Offset.X, -root * candidate.Offset.Y, -root * candidate.Offset.Z,
-                        0.0, root, 0.0, 0.0,
-                        0.0, 0.0, root, 0.0,
-                        0.0, 0.0, 0.0, root,
-                    };
-                })]);
-                return Matrix.Of(rows: Dimension.Create(value: 4 * neighborhood.Length), cols: Dimension.Create(value: 4), entries: entries, key: key).Bind(design =>
-                    design.LeastSquaresDetailed(rhs: rhs, key: key).Bind(solve => design.DecomposeSvd(key: key).Bind(svd => {
-                        int rank = svd.Rank;
-                        double[] positive = [.. svd.Sigma.AsIterable().Where(static s => s > RhinoMath.SqrtEpsilon)];
-                        Option<double> condition = positive.Length == 0 ? Option<double>.None : Some(Enumerable.Max(source: positive) / Enumerable.Min(source: positive));
-                        double value = solve.Solution.Count > 0 ? solve.Solution[index: 0] : double.NaN;
-                        Vector3d weightedNormal = neighborhood.Aggregate(seed: Vector3d.Zero, func: static (sum, candidate) => sum + (candidate.Profile.Value * candidate.Sample.Normal));
-                        Vector3d gradient = solve.Solution.Count >= 4 ? new Vector3d(x: solve.Solution[index: 1], y: solve.Solution[index: 2], z: solve.Solution[index: 3]) : weightedNormal / weightSum;
-                        double gradientNorm = gradient.Length;
-                        double weightedNorm = weightedNormal.Length;
-                        Vector3d direction = gradientNorm > RhinoMath.ZeroTolerance ? gradient / gradientNorm : weightedNorm > RhinoMath.ZeroTolerance ? weightedNormal / weightedNorm : Vector3d.Zero;
-                        double normalAgreement = neighborhood.Average(candidate => Math.Abs(value: candidate.Sample.Normal * direction));
-                        return rank >= 4 && RhinoMath.IsValidDouble(x: value) && RhinoMath.IsValidDouble(x: gradientNorm) && normalAgreement >= 0.5
-                            ? Fin.Succ(new ReconstructionSample(Value: value, Receipt: new ReconstructionSampleReceipt(Mode: ReconstructionMode.MovingLeastSquares, Status: ReconstructionStatus.ApproximateSdf, Kernel: kernel, Radius: radius, SampleCount: samples.Count, NeighborhoodCount: neighborhood.Length, RejectedWeightCount: rejected, WeightSum: weightSum, Rank: rank, Condition: condition, NormalAgreement: normalAgreement, GradientNorm: gradientNorm, Solve: solve)))
-                            : Fin.Fail<ReconstructionSample>(key.InvalidResult());
-                    })));
-            });
-        });
-    }
-    private static Fin<SdfSample> SampleProfileExtrusion(ProfileExtrusionCase source, Point3d sample, Context context, Op key) =>
-        source.Plane.RemapToPlaneSpace(ptSample: sample, ptPlane: out Point3d local) switch {
-            false => Fin.Fail<SdfSample>(key.InvalidResult()),
-            true when source.Plane.PointAt(u: local.X, v: local.Y) is Point3d planar => source.Profile.ClosestPoint(testPoint: planar, t: out double curveParameter) switch {
-                false => Fin.Fail<SdfSample>(key.InvalidResult()),
-                true => source.Profile.Contains(testPoint: planar, plane: source.Plane, tolerance: context.Absolute.Value) switch {
-                    PointContainment.Unset => Fin.Fail<SdfSample>(key.InvalidResult()),
-                    PointContainment containment when planar.DistanceTo(other: source.Profile.PointAt(t: curveParameter)) is double dxy
-                        && (containment switch { PointContainment.Inside => -dxy, PointContainment.Coincident => 0.0, _ => dxy }, Math.Abs(value: local.Z) - source.HalfHeight.Value) is (double profile, double cap)
-                        && (Math.Max(val1: profile, val2: 0.0), Math.Max(val1: cap, val2: 0.0)) is (double px, double pz) =>
-                        key.AcceptValue(value: Math.Sqrt(d: (px * px) + (pz * pz)) + Math.Min(val1: Math.Max(val1: profile, val2: cap), val2: 0.0))
-                            .Map(distance => new SdfSample(Value: distance, Receipt: SdfReceiptOf(field: source, status: SdfStatus.NativeProfile, mesh: Option<SdfMeshReceipt>.None) with {
-                                NativeProfile = true,
-                                ToleranceSource = Some(ToleranceSource.Context),
-                                Tolerance = Some(context.Absolute.Value),
-                                ClosestAccepted = true,
-                                ProfileContainment = Some(containment),
-                                ProfileFeature = Some((Math.Abs(value: profile) <= context.Absolute.Value, Math.Abs(value: cap) <= context.Absolute.Value) switch {
-                                    (true, true) => ProfileExtrusionFeature.Rim,
-                                    (true, false) => ProfileExtrusionFeature.ProfileBoundary,
-                                    (false, true) => ProfileExtrusionFeature.Cap,
-                                    _ => ProfileExtrusionFeature.Interior,
-                                }),
-                            })),
-                    _ => Fin.Fail<SdfSample>(key.InvalidResult()),
-                },
-            },
-            _ => Fin.Fail<SdfSample>(key.InvalidResult()),
-        };
-    public static Fin<ScalarField> Periodic(ScalarField source, Vector3d period, Op? key = null) =>
-        from active in Optional(source).ToFin(key.OrDefault().InvalidInput())
-        from validPeriod in FieldNabla.Period(period: period, key: key.OrDefault())
-        select (ScalarField)new PeriodicCase(Source: active, Period: validPeriod);
-    public static Fin<ScalarField> StrainMagnitude(VectorField source, double epsilon, Op? key = null) =>
-        FieldNabla.WithSourceEpsilon<VectorField, ScalarField>(source, epsilon, static (s, e) => new StrainMagnitudeCase(Source: s, Epsilon: e), key);
-    public static Fin<ScalarField> Clamp(ScalarField source, double minimum, double maximum, Op? key = null) =>
-        from active in Optional(source).ToFin(key.OrDefault().InvalidInput()) from _ in FieldNabla.FiniteRange(minimum: minimum, maximum: maximum, key: key.OrDefault()) select (ScalarField)new ClampCase(Source: active, Minimum: minimum, Maximum: maximum);
     public Option<double> LipschitzBound() => this switch {
         PrimitiveCase p => Some(p.Kind.Lipschitz),
         ProfileExtrusionCase => Some(1.0),
@@ -625,8 +381,6 @@ public abstract partial record ScalarField {
                                          select new SdfSample(Value: signed.Value, Receipt: new SdfReceipt(Status: SdfStatus.TetSignedHeat, LipschitzBound: Option<double>.None, AnalyticPrimitive: false, MeshBacked: false, WatertightPreflight: Some(value: true), LossyFallback: false, Mesh: Option<SdfMeshReceipt>.None, TetSignedHeat: Some(value: signed.Receipt), TetInterpolation: Some(value: signed.Interpolation))),
             _ => from _ in LipschitzBound().ToFin(key.OrDefault().Unsupported(geometryType: GetType(), outputType: typeof(SdfSample))) from value in SampleScalar(sample: sample, context: model, key: key.OrDefault()) select new SdfSample(Value: value, Receipt: SdfReceiptOf(field: this, status: SdfStatus.ComposedAnalytic, mesh: Option<SdfMeshReceipt>.None)),
         });
-    private static SdfReceipt SdfReceiptOf(ScalarField field, SdfStatus status, Option<SdfMeshReceipt> mesh) =>
-        new(Status: status, LipschitzBound: field.LipschitzBound(), AnalyticPrimitive: field is PrimitiveCase, MeshBacked: field is SignedDistanceFromMeshCase, WatertightPreflight: mesh.Map(static receipt => receipt.Topology.IsWatertight), LossyFallback: status.Equals(SdfStatus.LossyFallback), Mesh: mesh);
     public Fin<IsoSurfaceResult> IsoSurfaceDetailed(BoundingBox bounds, int resolution, int maxRootSteps, Context context, Op? key = null) {
         Op op = key.OrDefault();
         return IsoSurfaceAttemptDetailed(bounds: bounds, resolution: resolution, maxRootSteps: maxRootSteps, context: context, key: op)
@@ -1100,6 +854,252 @@ public abstract partial record ScalarField {
     private static Fin<double> SampleMapped<T>(ScalarField source, (Point3d Sample, Context Context, Op Key) state, T data, Func<T, double, double> map) =>
         source.SampleScalar(sample: state.Sample, context: state.Context, key: state.Key)
             .Bind(value => state.Key.AcceptValue(value: map(arg1: data, arg2: value)));
+    private static Fin<ReconstructionResult> ReconstructCore(ReconstructionMode mode, Seq<(Point3d Position, double Value)> scalarSamples, Seq<MlsSample> orientedSamples, KernelKind kernel, double radius, double smoothing, Context? context, Op key) =>
+        from activeMode in Optional(mode).ToFin(key.InvalidInput())
+        from active in Optional(kernel).ToFin(key.InvalidInput())
+        from r in key.AcceptValidated<PositiveMagnitude>(candidate: radius)
+        from supported in activeMode.Executable ? Fin.Succ(unit) : Fin.Fail<Unit>(key.Unsupported(geometryType: typeof(ReconstructionMode), outputType: typeof(ReconstructionResult)))
+        from result in activeMode switch {
+            ReconstructionMode m when m.Equals(ReconstructionMode.RbfInterpolation) || m.Equals(ReconstructionMode.RbfApproximation) =>
+                BuildRbf(mode: m, samples: scalarSamples, kernel: active, radius: r, smoothing: smoothing, key: key),
+            ReconstructionMode m when m.Equals(ReconstructionMode.MovingLeastSquares) =>
+                from model in Optional(context).ToFin(key.MissingContext())
+                from admittedSamples in FieldNabla.MlsInput(samples: orientedSamples, context: model, key: key)
+                let receipt = new ReconstructionReceipt(Mode: m, Kernel: active, Radius: r.Value, Smoothing: 0.0, Interpolation: false, SampleCount: admittedSamples.Count, CenterCount: admittedSamples.Count, PolynomialDegree: m.PolynomialDegree, Solve: Option<SolveReceipt>.None)
+                select new ReconstructionResult(Field: new MlsCase(Samples: admittedSamples, Kernel: active, Radius: r, Receipt: receipt), Receipt: receipt),
+            _ => Fin.Fail<ReconstructionResult>(key.Unsupported(geometryType: typeof(ReconstructionMode), outputType: typeof(ReconstructionResult))),
+        }
+        select result;
+    private static Fin<ReconstructionResult> BuildRbf(ReconstructionMode mode, Seq<(Point3d Position, double Value)> samples, KernelKind kernel, PositiveMagnitude radius, double smoothing, Op key) =>
+        from admittedSamples in FieldNabla.ReconstructionSamples(samples: samples, key: key)
+        from admittedSmoothing in FieldNabla.NonnegativeFinite(value: smoothing, key: key)
+        let interpolation = mode.Equals(ReconstructionMode.RbfInterpolation)
+        from modeSmoothing in interpolation ? guard(admittedSmoothing <= RhinoMath.ZeroTolerance, key.InvalidInput()).ToFin() : guard(admittedSmoothing > RhinoMath.ZeroTolerance, key.InvalidInput()).ToFin()
+        let n = admittedSamples.Count
+        let sampleArray = admittedSamples.AsIterable().ToArray()
+        let rhs = new Arr<double>([.. sampleArray.Select(static sample => sample.Value)])
+        let cols = Dimension.Create(value: n)
+        from kernelEntries in KernelWeights(left: sampleArray.Select(static sample => sample.Position), right: sampleArray.Select(static sample => sample.Position), kernel: kernel, radius: radius.Value, key: key)
+        from matrix in Matrix.Of(
+            rows: Dimension.Create(value: interpolation ? n : 2 * n), cols: cols,
+            entries: interpolation ? kernelEntries : new Arr<double>([.. kernelEntries.AsIterable().Concat(Enumerable.Range(start: 0, count: n * n).Select(i => i / n == i % n ? Math.Sqrt(d: admittedSmoothing) : 0.0))]), key: key)
+        from solved in interpolation
+            ? matrix.SolveDetailed(rhs: rhs, key: key)
+            : matrix.LeastSquaresDetailed(rhs: new Arr<double>([.. rhs.AsIterable().Concat(Enumerable.Repeat(element: 0.0, count: n))]), key: key)
+        let receipt = new ReconstructionReceipt(Mode: mode, Kernel: kernel, Radius: radius.Value, Smoothing: admittedSmoothing, Interpolation: interpolation, SampleCount: admittedSamples.Count, CenterCount: admittedSamples.Count, PolynomialDegree: mode.PolynomialDegree, Solve: Some(solved))
+        select new ReconstructionResult(Field: new RbfCase(Samples: admittedSamples, Kernel: kernel, Radius: radius, Coefficients: solved.Solution, Receipt: receipt), Receipt: receipt);
+    [StructLayout(LayoutKind.Auto)] private readonly record struct TetSignedHeatSolution(Arr<double> Values, TetSignedHeatReceipt Receipt);
+    [StructLayout(LayoutKind.Auto)] private readonly record struct TetAssembly(SparseMatrix Mass, SparseMatrix Stiffness, SparseMatrix HeatOperator, Arr<double> HeatRhs, int GaugeVertex, double HeatTime);
+    [StructLayout(LayoutKind.Auto)] private readonly record struct TetDivergence(Arr<double> Rhs, int NonZeros, int RejectedGradientCellCount);
+    [StructLayout(LayoutKind.Auto)] private readonly record struct TetCalibration(Arr<double> Values, double BoundaryShift, double InteriorMean);
+    [StructLayout(LayoutKind.Auto)] private readonly record struct TetInterpolated(double Value, TetInterpolationReceipt Receipt);
+    private static Fin<TetSignedHeatSolution> SolveTetSignedHeat(TetMeshDomain domain, TetSignedHeatPolicy policy, Op key) =>
+        from activeDomain in domain.Admit(key: key)
+        from activePolicy in policy.Admit(key: key)
+        from _ in activeDomain.InteriorVertexCount > 0 ? Fin.Succ(unit) : Fin.Fail<Unit>(key.InvalidInput())
+        from assembly in AssembleTetFem(domain: activeDomain, policy: activePolicy, key: key)
+        from heatSolve in CholeskySparse.Of(symmetric: assembly.HeatOperator, key: key).Bind(factor => factor.SolveDetailed(rhs: assembly.HeatRhs, key: key))
+        from heatResidual in heatSolve.Residual <= activePolicy.Solver.ResidualTolerance.Value ? Fin.Succ(unit) : Fin.Fail<Unit>(key.InvalidResult())
+        from divergence in TetDivergenceOf(domain: activeDomain, heat: heatSolve.Solution, key: key)
+        from poisson in PinTetGauge(stiffness: assembly.Stiffness, gauge: assembly.GaugeVertex, rhs: divergence.Rhs, key: key)
+        from poissonSolve in CholeskySparse.Of(symmetric: poisson.Matrix, key: key).Bind(factor => factor.SolveDetailed(rhs: poisson.Rhs, key: key))
+        from poissonResidual in poissonSolve.Residual <= activePolicy.Solver.ResidualTolerance.Value ? Fin.Succ(unit) : Fin.Fail<Unit>(key.InvalidResult())
+        from calibrated in CalibrateTetSignedHeat(domain: activeDomain, raw: poissonSolve.Solution, key: key)
+        let fem = new TetFemReceipt(
+            VertexCount: activeDomain.Vertices.Count, CellCount: activeDomain.Cells.Count, BoundaryVertexCount: activeDomain.BoundaryVertices.Count,
+            BoundaryFaceCount: activeDomain.BoundaryFaceCount, InteriorVertexCount: activeDomain.InteriorVertexCount, IncidenceCount: activeDomain.Cells.Count * 16,
+            TotalVolume: activeDomain.TotalVolume, MinCellVolume: Enumerable.Min(activeDomain.CellVolumes.AsIterable()), MaxCellVolume: Enumerable.Max(activeDomain.CellVolumes.AsIterable()),
+            MassNonZeros: assembly.Mass.NonZeros, StiffnessNonZeros: assembly.Stiffness.NonZeros, HeatOperatorNonZeros: assembly.HeatOperator.NonZeros,
+            DivergenceNonZeros: divergence.NonZeros, RejectedGradientCellCount: divergence.RejectedGradientCellCount)
+        let receipt = new TetSignedHeatReceipt(Fem: fem, Heat: activePolicy.Heat, Solver: activePolicy.Solver, SignConvention: activePolicy.SignConvention, Gauge: activePolicy.Gauge, Interpolation: activePolicy.Interpolation, GaugeVertex: assembly.GaugeVertex, HeatTime: assembly.HeatTime, BoundaryShift: calibrated.BoundaryShift, InteriorMean: calibrated.InteriorMean, HeatSolve: heatSolve, PoissonSolve: poissonSolve)
+        select new TetSignedHeatSolution(Values: calibrated.Values, Receipt: receipt);
+    private static Fin<TetAssembly> AssembleTetFem(TetMeshDomain domain, TetSignedHeatPolicy policy, Op key) {
+        Point3d[] points = [.. domain.Vertices.AsIterable()];
+        TetCell[] cells = [.. domain.Cells.AsIterable()];
+        System.Collections.Generic.HashSet<int> boundary = [.. domain.BoundaryVertices.AsIterable()];
+        double heatTime = policy.Heat.Resolve(cellSize: Math.Pow(x: domain.TotalVolume / cells.Length, y: 1.0 / 3.0));
+        if (!RhinoMath.IsValidDouble(x: heatTime) || heatTime <= RhinoMath.ZeroTolerance || domain.BoundaryVertices.IsEmpty) return Fin.Fail<TetAssembly>(key.InvalidInput());
+        int vertexCount = points.Length;
+        double[] heatRhs = new double[vertexCount];
+        List<(int Row, int Col, double Value)> massTriplets = new(capacity: cells.Length * 16), stiffnessTriplets = new(capacity: cells.Length * 16);
+        for (int c = 0; c < cells.Length; c++) {
+            TetCell cell = cells[c];
+            int[] ids = cell.Indices;
+            TetCellMetric metric = TetMeshDomain.MetricOf(points: points, cell: cell, key: key).Match(Succ: static value => value, Fail: _ => default);
+            if (metric.Gradients is null) return Fin.Fail<TetAssembly>(key.InvalidResult());
+            for (int i = 0; i < 4; i++)
+                for (int j = 0; j < 4; j++) {
+                    double mass = metric.Volume * (i == j ? 2.0 : 1.0) / 20.0;
+                    double stiffness = metric.Volume * (metric.Gradients[i] * metric.Gradients[j]);
+                    massTriplets.Add(item: (ids[i], ids[j], mass));
+                    stiffnessTriplets.Add(item: (ids[i], ids[j], stiffness));
+                    heatRhs[ids[i]] += boundary.Contains(item: ids[j]) ? mass : 0.0;
+                }
+        }
+        Dimension dim = Dimension.Create(value: vertexCount);
+        return from mass in SparseMatrix.FromTriplets(rows: dim, cols: dim, triplets: massTriplets, key: key)
+               from stiffness in SparseMatrix.FromTriplets(rows: dim, cols: dim, triplets: stiffnessTriplets, key: key)
+               from heat in SparseMatrix.FromTriplets(rows: dim, cols: dim, triplets: massTriplets.Concat(stiffnessTriplets.Select(t => (t.Row, t.Col, Value: heatTime * t.Value))), key: key)
+               select new TetAssembly(Mass: mass, Stiffness: stiffness, HeatOperator: heat, HeatRhs: new Arr<double>(heatRhs), GaugeVertex: domain.BoundaryVertices[0], HeatTime: heatTime);
+    }
+    private static Fin<TetDivergence> TetDivergenceOf(TetMeshDomain domain, Arr<double> heat, Op key) {
+        Point3d[] points = [.. domain.Vertices.AsIterable()];
+        TetCell[] cells = [.. domain.Cells.AsIterable()];
+        if (heat.Count != points.Length || !heat.ForAll(RhinoMath.IsValidDouble)) return Fin.Fail<TetDivergence>(key.InvalidResult());
+        double[] rhs = new double[points.Length];
+        int rejected = 0;
+        for (int c = 0; c < cells.Length; c++) {
+            TetCell cell = cells[c];
+            int[] ids = cell.Indices;
+            TetCellMetric metric = TetMeshDomain.MetricOf(points: points, cell: cell, key: key).Match(Succ: static value => value, Fail: _ => default);
+            if (metric.Gradients is null) return Fin.Fail<TetDivergence>(key.InvalidResult());
+            Vector3d gradient = Vector3d.Zero;
+            for (int i = 0; i < 4; i++) gradient += heat[ids[i]] * metric.Gradients[i];
+            if (!gradient.Unitize()) { rejected++; continue; }
+            for (int i = 0; i < 4; i++) rhs[ids[i]] += -metric.Volume * (metric.Gradients[i] * gradient);
+        }
+        int nonZeros = rhs.Count(static value => Math.Abs(value: value) > RhinoMath.SqrtEpsilon);
+        return nonZeros > 0 && rejected < cells.Length
+            ? Fin.Succ(new TetDivergence(Rhs: new Arr<double>(rhs), NonZeros: nonZeros, RejectedGradientCellCount: rejected))
+            : Fin.Fail<TetDivergence>(key.InvalidResult());
+    }
+    private static Fin<(SparseMatrix Matrix, Arr<double> Rhs)> PinTetGauge(SparseMatrix stiffness, int gauge, Arr<double> rhs, Op key) {
+        if (!stiffness.IsValid || stiffness.Rows.Value != stiffness.Cols.Value || rhs.Count != stiffness.Rows.Value || gauge < 0 || gauge >= stiffness.Rows.Value) return Fin.Fail<(SparseMatrix, Arr<double>)>(key.InvalidInput());
+        List<(int Row, int Col, double Value)> triplets = new(capacity: stiffness.NonZeros + 1);
+        for (int row = 0; row < stiffness.Rows.Value; row++)
+            for (int k = stiffness.RowPtr[row]; k < stiffness.RowPtr[row + 1]; k++) {
+                int col = stiffness.ColInd[k];
+                if (row != gauge && col != gauge) triplets.Add(item: (row, col, stiffness.Values[k]));
+            }
+        triplets.Add(item: (gauge, gauge, 1.0));
+        double[] pinned = [.. rhs.AsIterable()];
+        pinned[gauge] = 0.0;
+        return SparseMatrix.FromTriplets(rows: stiffness.Rows, cols: stiffness.Cols, triplets: triplets, key: key).Map(matrix => (Matrix: matrix, Rhs: new Arr<double>(pinned)));
+    }
+    private static Fin<TetCalibration> CalibrateTetSignedHeat(TetMeshDomain domain, Arr<double> raw, Op key) {
+        System.Collections.Generic.HashSet<int> boundary = [.. domain.BoundaryVertices.AsIterable()];
+        if (raw.Count != domain.Vertices.Count || domain.InteriorVertexCount <= 0 || !raw.ForAll(RhinoMath.IsValidDouble)) return Fin.Fail<TetCalibration>(key.InvalidResult());
+        double boundaryShift = domain.BoundaryVertices.Fold(initialState: 0.0, f: (sum, index) => sum + raw[index]) / domain.BoundaryVertices.Count;
+        double interiorMean = toSeq(Enumerable.Range(start: 0, count: raw.Count))
+            .Filter(index => !boundary.Contains(item: index))
+            .Fold(initialState: 0.0, f: (sum, index) => sum + raw[index] - boundaryShift) / domain.InteriorVertexCount;
+        double sign = interiorMean > 0.0 ? -1.0 : 1.0;
+        Arr<double> values = new([.. raw.AsIterable().Select(value => sign * (value - boundaryShift))]);
+        double signedInterior = toSeq(Enumerable.Range(start: 0, count: raw.Count))
+            .Filter(index => !boundary.Contains(item: index))
+            .Fold(initialState: 0.0, f: (sum, index) => sum + values[index]) / domain.InteriorVertexCount;
+        return values.ForAll(RhinoMath.IsValidDouble) && RhinoMath.IsValidDouble(x: boundaryShift) && RhinoMath.IsValidDouble(x: signedInterior)
+            ? Fin.Succ(new TetCalibration(Values: values, BoundaryShift: boundaryShift, InteriorMean: signedInterior))
+            : Fin.Fail<TetCalibration>(key.InvalidResult());
+    }
+    private static Fin<TetSignedHeatSample> SampleTetSignedHeat(TetSignedHeatCase source, Point3d sample, Context context, Op key) =>
+        from model in Optional(context).ToFin(key.MissingContext())
+        from interpolated in InterpolateTet(domain: source.Domain, values: source.Values, sample: sample, tolerance: Math.Max(val1: model.Absolute.Value, val2: source.Domain.Context.Absolute.Value), key: key)
+        select new TetSignedHeatSample(Value: source.Policy.SignConvention.Multiplier * interpolated.Value, Receipt: source.Receipt, Interpolation: interpolated.Receipt);
+    private static Fin<TetInterpolated> InterpolateTet(TetMeshDomain domain, Arr<double> values, Point3d sample, double tolerance, Op key) {
+        Point3d[] points = [.. domain.Vertices.AsIterable()];
+        TetCell[] cells = [.. domain.Cells.AsIterable()];
+        if (values.Count != points.Length || !FieldNabla.Finite(point: sample) || !RhinoMath.IsValidDouble(x: tolerance) || tolerance < 0.0) return Fin.Fail<TetInterpolated>(key.InvalidInput());
+        for (int c = 0; c < cells.Length; c++) {
+            TetCell cell = cells[c];
+            TetCellMetric metric = TetMeshDomain.MetricOf(points: points, cell: cell, key: key).Match(Succ: static value => value, Fail: _ => default);
+            if (metric.Gradients is null) return Fin.Fail<TetInterpolated>(key.InvalidResult());
+            Vector3d offset = sample - points[cell.A];
+            double b1 = metric.Gradients[1] * offset, b2 = metric.Gradients[2] * offset, b3 = metric.Gradients[3] * offset, b0 = 1.0 - b1 - b2 - b3;
+            double[] barycentric = [b0, b1, b2, b3];
+            if (barycentric.All(value => RhinoMath.IsValidDouble(x: value) && value >= -tolerance && value <= 1.0 + tolerance)) {
+                int[] ids = cell.Indices;
+                double interpolated = toSeq(Enumerable.Range(start: 0, count: 4)).Fold(initialState: 0.0, f: (sum, i) => sum + (barycentric[i] * values[ids[i]]));
+                return RhinoMath.IsValidDouble(x: interpolated)
+                    ? Fin.Succ(new TetInterpolated(Value: interpolated, Receipt: new TetInterpolationReceipt(Interpolation: TetInterpolation.Barycentric, CellIndex: c, Barycentric: new Arr<double>(barycentric), Inside: true)))
+                    : Fin.Fail<TetInterpolated>(key.InvalidResult());
+            }
+        }
+        return Fin.Fail<TetInterpolated>(key.InvalidInput());
+    }
+    private static Fin<double> EvaluateRbf(Seq<(Point3d Position, double Value)> samples, KernelKind kernel, double radius, Arr<double> coefficients, Point3d sample, Op key) =>
+        coefficients.Count != samples.Count
+            ? Fin.Fail<double>(key.InvalidResult())
+            : from weights in KernelWeights(left: [sample], right: samples.AsIterable().Select(static s => s.Position), kernel: kernel, radius: radius, key: key)
+              from value in key.AcceptValue(value: Enumerable.Zip(first: weights.AsIterable(), second: coefficients.AsIterable(), resultSelector: static (double w, double c) => w * c).Sum())
+              select value;
+    private static Fin<Arr<double>> KernelWeights(IEnumerable<Point3d> left, IEnumerable<Point3d> right, KernelKind kernel, double radius, Op key) =>
+        toSeq(left.SelectMany(l => right.Select(r => l.DistanceTo(other: r))))
+            .TraverseM(distance => kernel.Profile(distance: distance, radius: radius, key: key).Map(static profile => profile.Value)).As()
+            .Map(static values => new Arr<double>([.. values.AsIterable()]));
+    private static Fin<ReconstructionSample> EvaluateMls(Seq<MlsSample> samples, KernelKind kernel, double radius, Point3d sample, Context context, Op key) {
+        return (FieldNabla.Finite(point: sample) ? Fin.Succ(unit) : Fin.Fail<Unit>(key.InvalidInput())).Bind(_ => {
+            (MlsSample Sample, Vector3d Offset, KernelProfile Profile)[] neighborhood = [.. toSeq(samples.AsIterable().Select(candidate => (Sample: candidate, Offset: sample - candidate.Position))
+                .Select(candidate => (candidate.Sample, candidate.Offset, Profile: kernel.Profile(distance: candidate.Offset.Length, radius: radius, key: key))))
+                .Choose(static candidate => candidate.Profile.Match(Succ: profile => Some((candidate.Sample, candidate.Offset, Profile: profile)), Fail: _ => Option<(MlsSample Sample, Vector3d Offset, KernelProfile Profile)>.None))
+                .Filter(candidate => candidate.Profile.Value > Math.Max(val1: context.Relative.Value, val2: RhinoMath.SqrtEpsilon)).AsIterable()];
+            int rejected = samples.Count - neighborhood.Length;
+            double weightSum = neighborhood.Sum(static candidate => candidate.Profile.Value);
+            return guard(neighborhood.Length >= 3 && RhinoMath.IsValidDouble(x: weightSum) && weightSum > RhinoMath.ZeroTolerance, key.InvalidInput())
+            .Bind(_ => {
+                Arr<double> rhs = new([.. neighborhood.SelectMany(static candidate => {
+                    double root = Math.Sqrt(d: candidate.Profile.Value);
+                    return new[] { root * candidate.Sample.Value, root * candidate.Sample.Normal.X, root * candidate.Sample.Normal.Y, root * candidate.Sample.Normal.Z };
+                })]);
+                Arr<double> entries = new([.. neighborhood.SelectMany(static candidate => {
+                    double root = Math.Sqrt(d: candidate.Profile.Value);
+                    return new[] {
+                        root, -root * candidate.Offset.X, -root * candidate.Offset.Y, -root * candidate.Offset.Z,
+                        0.0, root, 0.0, 0.0,
+                        0.0, 0.0, root, 0.0,
+                        0.0, 0.0, 0.0, root,
+                    };
+                })]);
+                return Matrix.Of(rows: Dimension.Create(value: 4 * neighborhood.Length), cols: Dimension.Create(value: 4), entries: entries, key: key).Bind(design =>
+                    design.LeastSquaresDetailed(rhs: rhs, key: key).Bind(solve => design.DecomposeSvd(key: key).Bind(svd => {
+                        int rank = svd.Rank;
+                        double[] positive = [.. svd.Sigma.AsIterable().Where(static s => s > RhinoMath.SqrtEpsilon)];
+                        Option<double> condition = positive.Length == 0 ? Option<double>.None : Some(Enumerable.Max(source: positive) / Enumerable.Min(source: positive));
+                        double value = solve.Solution.Count > 0 ? solve.Solution[index: 0] : double.NaN;
+                        Vector3d weightedNormal = neighborhood.Aggregate(seed: Vector3d.Zero, func: static (sum, candidate) => sum + (candidate.Profile.Value * candidate.Sample.Normal));
+                        Vector3d gradient = solve.Solution.Count >= 4 ? new Vector3d(x: solve.Solution[index: 1], y: solve.Solution[index: 2], z: solve.Solution[index: 3]) : weightedNormal / weightSum;
+                        double gradientNorm = gradient.Length;
+                        double weightedNorm = weightedNormal.Length;
+                        Vector3d direction = gradientNorm > RhinoMath.ZeroTolerance ? gradient / gradientNorm : weightedNorm > RhinoMath.ZeroTolerance ? weightedNormal / weightedNorm : Vector3d.Zero;
+                        double normalAgreement = neighborhood.Average(candidate => Math.Abs(value: candidate.Sample.Normal * direction));
+                        return rank >= 4 && RhinoMath.IsValidDouble(x: value) && RhinoMath.IsValidDouble(x: gradientNorm) && normalAgreement >= 0.5
+                            ? Fin.Succ(new ReconstructionSample(Value: value, Receipt: new ReconstructionSampleReceipt(Mode: ReconstructionMode.MovingLeastSquares, Status: ReconstructionStatus.ApproximateSdf, Kernel: kernel, Radius: radius, SampleCount: samples.Count, NeighborhoodCount: neighborhood.Length, RejectedWeightCount: rejected, WeightSum: weightSum, Rank: rank, Condition: condition, NormalAgreement: normalAgreement, GradientNorm: gradientNorm, Solve: solve)))
+                            : Fin.Fail<ReconstructionSample>(key.InvalidResult());
+                    })));
+            });
+        });
+    }
+    private static Fin<SdfSample> SampleProfileExtrusion(ProfileExtrusionCase source, Point3d sample, Context context, Op key) =>
+        source.Plane.RemapToPlaneSpace(ptSample: sample, ptPlane: out Point3d local) switch {
+            false => Fin.Fail<SdfSample>(key.InvalidResult()),
+            true when source.Plane.PointAt(u: local.X, v: local.Y) is Point3d planar => source.Profile.ClosestPoint(testPoint: planar, t: out double curveParameter) switch {
+                false => Fin.Fail<SdfSample>(key.InvalidResult()),
+                true => source.Profile.Contains(testPoint: planar, plane: source.Plane, tolerance: context.Absolute.Value) switch {
+                    PointContainment.Unset => Fin.Fail<SdfSample>(key.InvalidResult()),
+                    PointContainment containment when planar.DistanceTo(other: source.Profile.PointAt(t: curveParameter)) is double dxy
+                        && (containment switch { PointContainment.Inside => -dxy, PointContainment.Coincident => 0.0, _ => dxy }, Math.Abs(value: local.Z) - source.HalfHeight.Value) is (double profile, double cap)
+                        && (Math.Max(val1: profile, val2: 0.0), Math.Max(val1: cap, val2: 0.0)) is (double px, double pz) =>
+                        key.AcceptValue(value: Math.Sqrt(d: (px * px) + (pz * pz)) + Math.Min(val1: Math.Max(val1: profile, val2: cap), val2: 0.0))
+                            .Map(distance => new SdfSample(Value: distance, Receipt: SdfReceiptOf(field: source, status: SdfStatus.NativeProfile, mesh: Option<SdfMeshReceipt>.None) with {
+                                NativeProfile = true,
+                                ToleranceSource = Some(ToleranceSource.Context),
+                                Tolerance = Some(context.Absolute.Value),
+                                ClosestAccepted = true,
+                                ProfileContainment = Some(containment),
+                                ProfileFeature = Some((Math.Abs(value: profile) <= context.Absolute.Value, Math.Abs(value: cap) <= context.Absolute.Value) switch {
+                                    (true, true) => ProfileExtrusionFeature.Rim,
+                                    (true, false) => ProfileExtrusionFeature.ProfileBoundary,
+                                    (false, true) => ProfileExtrusionFeature.Cap,
+                                    _ => ProfileExtrusionFeature.Interior,
+                                }),
+                            })),
+                    _ => Fin.Fail<SdfSample>(key.InvalidResult()),
+                },
+            },
+            _ => Fin.Fail<SdfSample>(key.InvalidResult()),
+        };
+    private static SdfReceipt SdfReceiptOf(ScalarField field, SdfStatus status, Option<SdfMeshReceipt> mesh) =>
+        new(Status: status, LipschitzBound: field.LipschitzBound(), AnalyticPrimitive: field is PrimitiveCase, MeshBacked: field is SignedDistanceFromMeshCase, WatertightPreflight: mesh.Map(static receipt => receipt.Topology.IsWatertight), LossyFallback: status.Equals(SdfStatus.LossyFallback), Mesh: mesh);
 }
 
 [SmartEnum<int>]
@@ -1282,32 +1282,38 @@ public abstract partial record VectorField {
     public sealed record GeodesicTangentCase : VectorField { internal GeodesicTangentCase(MeshSpace Space, Seq<int> Sources) { this.Space = Space; this.Sources = Sources; } public MeshSpace Space { get; } public Seq<int> Sources { get; } }
     public sealed record TangentLogMapCase : VectorField { internal TangentLogMapCase(MeshSpace Space, int Source, PositiveMagnitude Time) { this.Space = Space; this.Source = Source; this.Time = Time; } public MeshSpace Space { get; } public int Source { get; } public PositiveMagnitude Time { get; } }
     public static VectorField Constant(Vector3d value) => new ConstantCase(Value: value);
-    public static Fin<VectorField> Hit(SupportSpace source, SupportProjection projection, BoundarySense? sense = null, Op? key = null) =>
-        from active in Optional(source).ToFin(key.OrDefault().InvalidInput()) from selected in Optional(projection).ToFin(key.OrDefault().InvalidInput()) from _ in guard(selected.CanProjectVector(space: active), key.OrDefault().Unsupported(active.SourceType, typeof(Vector3d))) select (VectorField)new HitFieldCase(Source: active, Projection: selected, Sense: sense ?? BoundarySense.Toward);
-    public static Fin<VectorField> Shell(SupportSpace source, double radius, Falloff? falloff = null, BoundarySense? sense = null, Op? key = null) =>
-        FieldNabla.WithPositive(candidate: radius, make: value => (VectorField)new InfluenceCase(Source: source, Falloff: falloff ?? Falloff.Constant, Sense: sense ?? BoundarySense.Toward, Radius: Some(value)), key: key);
     public static VectorField Blend(Seq<VectorField> fields, FieldBlend? blend = null) =>
         new BlendCase(Fields: fields, Mode: blend ?? FieldBlend.Sum);
+    public static Fin<VectorField> Divide(VectorField source, double divisor, Op? key = null) =>
+        FieldNabla.WithDivisor(divisor: divisor, make: scale => (VectorField)new ScaledCase(Source: source, Scale: scale), key: key);
+    public static Fin<VectorField> Shell(SupportSpace source, double radius, Falloff? falloff = null, BoundarySense? sense = null, Op? key = null) =>
+        FieldNabla.WithPositive(candidate: radius, make: value => (VectorField)new InfluenceCase(Source: source, Falloff: falloff ?? Falloff.Constant, Sense: sense ?? BoundarySense.Toward, Radius: Some(value)), key: key);
+    public static Fin<VectorField> Hit(SupportSpace source, SupportProjection projection, BoundarySense? sense = null, Op? key = null) =>
+        from active in Optional(source).ToFin(key.OrDefault().InvalidInput()) from selected in Optional(projection).ToFin(key.OrDefault().InvalidInput()) from _ in guard(selected.CanProjectVector(space: active), key.OrDefault().Unsupported(active.SourceType, typeof(Vector3d))) select (VectorField)new HitFieldCase(Source: active, Projection: selected, Sense: sense ?? BoundarySense.Toward);
+    public static Fin<VectorField> Ring(Point3d center, Direction axis, double radius, Falloff? falloff = null, Op? key = null) =>
+        from r in key.OrDefault().AcceptValidated<PositiveMagnitude>(candidate: radius) from f in falloff is null ? Falloff.Gaussian(spread: radius / 3.0, key: key) : Fin.Succ(falloff) select (VectorField)new RingCase(Center: center, Axis: axis, Radius: r, Falloff: f);
     public static Fin<VectorField> Cluster(VectorCloud cluster, double radius, Falloff? falloff = null, BoundarySense? sense = null, Op? key = null) =>
         cluster switch { VectorCloud.ClusterCase c => from r in key.OrDefault().AcceptValidated<PositiveMagnitude>(candidate: radius) from f in falloff is null ? Falloff.Gaussian(spread: r.Value / 3.0, key: key) : Fin.Succ(falloff) select (VectorField)new ClusterFieldCase(Source: c, Falloff: f, Radius: r, Sense: sense ?? BoundarySense.Toward), _ => Fin.Fail<VectorField>(key.OrDefault().Unsupported(geometryType: cluster.GetType(), outputType: typeof(VectorField))) };
     public static Fin<VectorField> Dipole(Point3d origin, Direction moment, double strength, Op? key = null) =>
         FieldNabla.WithPositive(candidate: strength, make: s => (VectorField)new DipoleCase(Origin: origin, Moment: moment, Strength: s), key: key);
     public static Fin<VectorField> ClampMagnitude(VectorField source, double min, double max, Op? key = null) =>
         from low in key.OrDefault().AcceptValidated<PositiveMagnitude>(candidate: min) from high in key.OrDefault().AcceptValidated<PositiveMagnitude>(candidate: max) from _ in guard(low.Value <= high.Value, key.OrDefault().InvalidInput()) select (VectorField)new ClampMagnitudeCase(Source: source, Min: low, Max: high);
-    public static Fin<VectorField> Divide(VectorField source, double divisor, Op? key = null) =>
-        FieldNabla.WithDivisor(divisor: divisor, make: scale => (VectorField)new ScaledCase(Source: source, Scale: scale), key: key);
     public static Fin<VectorField> Gradient(ScalarField source, double epsilon, Op? key = null) =>
         FieldNabla.WithSourceEpsilon<ScalarField, VectorField>(source, epsilon, static (s, e) => new GradientCase(Source: s, Epsilon: e), key);
     public static Fin<VectorField> Curl(VectorField source, double epsilon, Op? key = null) =>
         FieldNabla.WithSourceEpsilon<VectorField, VectorField>(source, epsilon, static (s, e) => new CurlCase(Source: s, Epsilon: e), key);
-    public static Fin<VectorField> Ring(Point3d center, Direction axis, double radius, Falloff? falloff = null, Op? key = null) =>
-        from r in key.OrDefault().AcceptValidated<PositiveMagnitude>(candidate: radius) from f in falloff is null ? Falloff.Gaussian(spread: radius / 3.0, key: key) : Fin.Succ(falloff) select (VectorField)new RingCase(Center: center, Axis: axis, Radius: r, Falloff: f);
+    public static Fin<VectorField> CurlNoise(ScalarField potential, double epsilon, Op? key = null) =>
+        potential is ScalarField.NoiseCase { Kind: var kind } && kind == NoiseKind.Worley
+            ? Fin.Fail<VectorField>(key.OrDefault().Unsupported(geometryType: typeof(ScalarField.NoiseCase), outputType: typeof(VectorField)))
+            : from active in Optional(potential).ToFin(key.OrDefault().InvalidInput()) from eps in key.OrDefault().AcceptValidated<PositiveMagnitude>(candidate: epsilon) select (VectorField)new CurlNoiseCase(Potential: active, Epsilon: eps, RaisesCaution: potential is ScalarField.NoiseCase nc && nc.Kind.RaisesCaution);
     public static Fin<VectorField> BiotSavart(Point3d start, Point3d end, double current, Op? key = null) =>
         from a in key.OrDefault().AcceptValue(value: start) from b in key.OrDefault().AcceptValue(value: end) from i in key.OrDefault().AcceptValue(value: current) from _ in guard(!(a - b).IsTiny(), key.OrDefault().InvalidInput()) select (VectorField)new BiotSavartCase(Start: a, End: b, Current: i);
     public static Fin<VectorField> Saddle(Point3d anchor, Plane basis, double strength, Op? key = null) =>
         FieldNabla.Plane(basis: basis, key: key.OrDefault()).Map(validBasis => (VectorField)new SaddleCase(Anchor: anchor, Basis: validBasis, Strength: strength));
     public static Fin<VectorField> CrossField(MeshSpace space, int symmetry, Option<Seq<(int Vertex, Direction Hint)>> constraints = default, Option<Seq<(int Vertex, double HolonomyDeficit)>> cones = default, Op? key = null) =>
         from active in FieldNabla.MeshOf(space: space, key: key.OrDefault()) from __ in guard(symmetry is 1 or 2 or 4 or 6, key.OrDefault().InvalidInput()) let vertexCount = active.Vertices.Count from ___ in guard(constraints.Match(Some: values => values.ForAll(item => item.Vertex >= 0 && item.Vertex < vertexCount), None: static () => true) && cones.Match(Some: values => values.ForAll(item => item.Vertex >= 0 && item.Vertex < vertexCount && RhinoMath.IsValidDouble(x: item.HolonomyDeficit)), None: static () => true), key.OrDefault().InvalidInput()) select (VectorField)new CrossFieldCase(Space: space, Symmetry: symmetry, Constraints: constraints, Cones: cones);
+    public static Fin<VectorField> Hodge(VectorField source, MeshSpace space, BoundarySense? sense = null, Op? key = null) =>
+        from active in Optional(source).ToFin(key.OrDefault().InvalidInput()) from _ in FieldNabla.MeshOf(space: space, key: key.OrDefault()) select (VectorField)new HodgeCase(Source: active, Space: space, Sense: sense ?? BoundarySense.Toward);
     public static Fin<VectorField> VectorHeat(MeshSpace space, Seq<(int Vertex, Vector3d Direction)> sources, double time, Op? key = null) =>
         from _ in FieldNabla.MeshVertices(space: space, vertices: sources.Map(static s => s.Vertex), allowEmpty: false, key: key.OrDefault()) from t in key.OrDefault().AcceptValidated<PositiveMagnitude>(candidate: time) select (VectorField)new VectorHeatCase(Space: space, Sources: sources, Time: t);
     public static Fin<VectorField> GeodesicTangent(MeshSpace space, Seq<int> sources, Op? key = null) =>
@@ -1316,12 +1322,6 @@ public abstract partial record VectorField {
         from _ in FieldNabla.MeshVertices(space: space, vertices: Seq(source), allowEmpty: false, key: key.OrDefault())
         from t in key.OrDefault().AcceptValidated<PositiveMagnitude>(candidate: time)
         select (VectorField)new TangentLogMapCase(Space: space, Source: source, Time: t);
-    public static Fin<VectorField> Hodge(VectorField source, MeshSpace space, BoundarySense? sense = null, Op? key = null) =>
-        from active in Optional(source).ToFin(key.OrDefault().InvalidInput()) from _ in FieldNabla.MeshOf(space: space, key: key.OrDefault()) select (VectorField)new HodgeCase(Source: active, Space: space, Sense: sense ?? BoundarySense.Toward);
-    public static Fin<VectorField> CurlNoise(ScalarField potential, double epsilon, Op? key = null) =>
-        potential is ScalarField.NoiseCase { Kind: var kind } && kind == NoiseKind.Worley
-            ? Fin.Fail<VectorField>(key.OrDefault().Unsupported(geometryType: typeof(ScalarField.NoiseCase), outputType: typeof(VectorField)))
-            : from active in Optional(potential).ToFin(key.OrDefault().InvalidInput()) from eps in key.OrDefault().AcceptValidated<PositiveMagnitude>(candidate: epsilon) select (VectorField)new CurlNoiseCase(Potential: active, Epsilon: eps, RaisesCaution: potential is ScalarField.NoiseCase nc && nc.Kind.RaisesCaution);
     public static VectorField operator +(VectorField left, VectorField right) =>
         new BlendCase(Fields: (left is BlendCase lb && lb.Mode.Equals(FieldBlend.Sum) ? lb.Fields : Seq(left)).Concat(right is BlendCase rb && rb.Mode.Equals(FieldBlend.Sum) ? rb.Fields : Seq(right)).ToSeq(), Mode: FieldBlend.Sum);
     public static VectorField operator -(VectorField left, VectorField right) => left + (-right);
@@ -1490,40 +1490,6 @@ public readonly record struct ReconstructionSample(double Value, ReconstructionS
 
 [BoundaryAdapter, StructLayout(LayoutKind.Auto)] public readonly record struct ReconstructionSampleReceipt(ReconstructionMode Mode, ReconstructionStatus Status, KernelKind Kernel, double Radius, int SampleCount, int NeighborhoodCount, int RejectedWeightCount, double WeightSum, int Rank, Option<double> Condition, double NormalAgreement, double GradientNorm, SolveReceipt Solve);
 
-[BoundaryAdapter, StructLayout(LayoutKind.Auto)]
-public readonly record struct SdfMeshPolicy(SdfMeshMethod Method, SdfSignConvention SignConvention, Option<VolumeGridPolicy> Grid, SignedHeatTime Heat, VolumeSolverPolicy Solver, VolumeInterpolation Interpolation, VolumeBoundaryCondition BoundaryCondition) {
-    public static Fin<SdfMeshPolicy> GeneralizedWinding(SdfSignConvention? signConvention = null, Op? key = null) =>
-        Defaults(method: SdfMeshMethod.GeneralizedWindingNumber, signConvention: signConvention, grid: Option<VolumeGridPolicy>.None, key: key.OrDefault());
-    public static Fin<SdfMeshPolicy> BoundarySignedHeat(SignedHeatTime? heat = null, VolumeSolverPolicy? solver = null, SdfSignConvention? signConvention = null, Op? key = null) =>
-        Defaults(method: SdfMeshMethod.BoundarySignedHeat, signConvention: signConvention, grid: Option<VolumeGridPolicy>.None, heat: heat, solver: solver, key: key.OrDefault());
-    public static Fin<SdfMeshPolicy> ClosedSignedHeat(VolumeGridPolicy grid, SignedHeatTime? heat = null, VolumeSolverPolicy? solver = null, SdfSignConvention? signConvention = null, Op? key = null) =>
-        Defaults(method: SdfMeshMethod.ClosedSurfaceSignedHeat, signConvention: signConvention, grid: Some(grid), heat: heat, solver: solver, key: key.OrDefault());
-    internal Fin<SdfMeshPolicy> Admit(Op key) {
-        SdfMeshPolicy self = this;
-        SdfMeshMethod method = Method; SdfSignConvention signConvention = SignConvention; VolumeInterpolation interpolation = Interpolation; VolumeBoundaryCondition boundaryCondition = BoundaryCondition;
-        SignedHeatTime heat = Heat; VolumeSolverPolicy solver = Solver; Option<VolumeGridPolicy> grid = Grid;
-        return from active in Optional(method).ToFin(key.InvalidInput())
-               from sign in Optional(signConvention).ToFin(key.InvalidInput())
-               from interp in Optional(interpolation).ToFin(key.InvalidInput())
-               from boundary in Optional(boundaryCondition).ToFin(key.InvalidInput())
-               from _ in guard(sign.Equals(SdfSignConvention.NegativeInsidePositiveOutside) || sign.Equals(SdfSignConvention.PositiveInsideNegativeOutside), key.InvalidInput())
-               from __ in guard(interp.Equals(VolumeInterpolation.Trilinear) && boundary.Equals(VolumeBoundaryCondition.NeumannGaugePinned) && heat.IsValid && solver.IsValid, key.InvalidInput())
-               from ___ in active.Equals(SdfMeshMethod.ClosedSurfaceSignedHeat)
-                   ? grid.Filter(static policy => policy.IsValid).ToFin(key.InvalidInput()).Map(static _ => unit)
-                   : guard(grid.IsNone, key.InvalidInput()).ToFin()
-               select self;
-    }
-    private static Fin<SdfMeshPolicy> Defaults(SdfMeshMethod method, SdfSignConvention? signConvention, Option<VolumeGridPolicy> grid, Op key, SignedHeatTime? heat = null, VolumeSolverPolicy? solver = null, VolumeInterpolation? interpolation = null, VolumeBoundaryCondition? boundaryCondition = null) =>
-        from active in Optional(method).ToFin(key.InvalidInput())
-        from sign in Optional(signConvention ?? SdfSignConvention.NegativeInsidePositiveOutside).ToFin(key.InvalidInput())
-        from time in heat.HasValue ? Fin.Succ(heat.Value) : SignedHeatTime.Scaled(key: key)
-        from solve in solver.HasValue ? Fin.Succ(solver.Value) : VolumeSolverPolicy.SparseCholesky(key: key)
-        from interp in Optional(interpolation ?? VolumeInterpolation.Trilinear).ToFin(key.InvalidInput())
-        from boundary in Optional(boundaryCondition ?? VolumeBoundaryCondition.NeumannGaugePinned).ToFin(key.InvalidInput())
-        from policy in new SdfMeshPolicy(Method: active, SignConvention: sign, Grid: grid, Heat: time, Solver: solve, Interpolation: interp, BoundaryCondition: boundary).Admit(key: key)
-        select policy;
-}
-
 [BoundaryAdapter, StructLayout(LayoutKind.Auto)] public readonly record struct SdfReceipt(SdfStatus Status, Option<double> LipschitzBound, bool AnalyticPrimitive, bool MeshBacked, Option<bool> WatertightPreflight, bool LossyFallback, Option<SdfMeshReceipt> Mesh, bool NativeProfile = false, Option<ToleranceSource> ToleranceSource = default, Option<double> Tolerance = default, bool ClosestAccepted = false, Option<PointContainment> ProfileContainment = default, Option<ProfileExtrusionFeature> ProfileFeature = default, Option<TetSignedHeatReceipt> TetSignedHeat = default, Option<TetInterpolationReceipt> TetInterpolation = default);
 
 [BoundaryAdapter, StructLayout(LayoutKind.Auto)]
@@ -1634,26 +1600,6 @@ public readonly record struct TetMeshDomain(Seq<Point3d> Vertices, Seq<TetCell> 
 }
 
 [BoundaryAdapter, StructLayout(LayoutKind.Auto)]
-public readonly record struct TetSignedHeatPolicy(SignedHeatTime Heat, VolumeSolverPolicy Solver, SdfSignConvention SignConvention, TetGaugePolicy Gauge, TetInterpolation Interpolation) {
-    public static Fin<TetSignedHeatPolicy> Of(SignedHeatTime? heat = null, VolumeSolverPolicy? solver = null, SdfSignConvention? signConvention = null, TetGaugePolicy? gauge = null, TetInterpolation? interpolation = null, Op? key = null) =>
-        from time in heat.HasValue ? Fin.Succ(heat.Value) : SignedHeatTime.Scaled(key: key)
-        from solve in solver.HasValue ? Fin.Succ(solver.Value) : VolumeSolverPolicy.SparseCholesky(key: key)
-        from sign in Optional(signConvention ?? SdfSignConvention.NegativeInsidePositiveOutside).ToFin(key.OrDefault().InvalidInput())
-        from activeGauge in Optional(gauge ?? TetGaugePolicy.PinnedFirstBoundary).ToFin(key.OrDefault().InvalidInput())
-        from activeInterpolation in Optional(interpolation ?? TetInterpolation.Barycentric).ToFin(key.OrDefault().InvalidInput())
-        from admitted in new TetSignedHeatPolicy(Heat: time, Solver: solve, SignConvention: sign, Gauge: activeGauge, Interpolation: activeInterpolation).Admit(key: key.OrDefault())
-        select admitted;
-    internal Fin<TetSignedHeatPolicy> Admit(Op key) =>
-        Heat.IsValid && Solver.IsValid && SignConvention is not null && Gauge is not null && Interpolation is not null && Gauge.Equals(TetGaugePolicy.PinnedFirstBoundary) && Interpolation.Equals(TetInterpolation.Barycentric)
-            ? Fin.Succ(this)
-            : Fin.Fail<TetSignedHeatPolicy>(key.InvalidInput());
-}
-
-[BoundaryAdapter, StructLayout(LayoutKind.Auto)] public readonly record struct TetSignedHeatReceipt(TetFemReceipt Fem, SignedHeatTime Heat, VolumeSolverPolicy Solver, SdfSignConvention SignConvention, TetGaugePolicy Gauge, TetInterpolation Interpolation, int GaugeVertex, double HeatTime, double BoundaryShift, double InteriorMean, SolveReceipt HeatSolve, SolveReceipt PoissonSolve);
-
-[BoundaryAdapter, StructLayout(LayoutKind.Auto)] public readonly record struct TetSignedHeatSample(double Value, TetSignedHeatReceipt Receipt, TetInterpolationReceipt Interpolation);
-
-[BoundaryAdapter, StructLayout(LayoutKind.Auto)]
 public readonly record struct VolumeGridPolicy(Option<Dimension> Resolution, Option<PositiveMagnitude> CellSize, PositiveMagnitude Padding) {
     public static Fin<VolumeGridPolicy> ByResolution(int resolution = 16, double padding = 1.0, Op? key = null) =>
         from count in key.OrDefault().AcceptValidated<Dimension>(candidate: resolution)
@@ -1674,6 +1620,60 @@ public readonly record struct VolumeSolverPolicy(VolumeSolverKind Kind, Positive
         select new VolumeSolverPolicy(Kind: kind, ResidualTolerance: tolerance);
     internal bool IsValid => Kind is not null && Kind.Equals(VolumeSolverKind.SparseCholeskyPinned) && ResidualTolerance.Value > 0.0;
 }
+
+[BoundaryAdapter, StructLayout(LayoutKind.Auto)]
+public readonly record struct SdfMeshPolicy(SdfMeshMethod Method, SdfSignConvention SignConvention, Option<VolumeGridPolicy> Grid, SignedHeatTime Heat, VolumeSolverPolicy Solver, VolumeInterpolation Interpolation, VolumeBoundaryCondition BoundaryCondition) {
+    public static Fin<SdfMeshPolicy> GeneralizedWinding(SdfSignConvention? signConvention = null, Op? key = null) =>
+        Defaults(method: SdfMeshMethod.GeneralizedWindingNumber, signConvention: signConvention, grid: Option<VolumeGridPolicy>.None, key: key.OrDefault());
+    public static Fin<SdfMeshPolicy> BoundarySignedHeat(SignedHeatTime? heat = null, VolumeSolverPolicy? solver = null, SdfSignConvention? signConvention = null, Op? key = null) =>
+        Defaults(method: SdfMeshMethod.BoundarySignedHeat, signConvention: signConvention, grid: Option<VolumeGridPolicy>.None, heat: heat, solver: solver, key: key.OrDefault());
+    public static Fin<SdfMeshPolicy> ClosedSignedHeat(VolumeGridPolicy grid, SignedHeatTime? heat = null, VolumeSolverPolicy? solver = null, SdfSignConvention? signConvention = null, Op? key = null) =>
+        Defaults(method: SdfMeshMethod.ClosedSurfaceSignedHeat, signConvention: signConvention, grid: Some(grid), heat: heat, solver: solver, key: key.OrDefault());
+    internal Fin<SdfMeshPolicy> Admit(Op key) {
+        SdfMeshPolicy self = this;
+        SdfMeshMethod method = Method; SdfSignConvention signConvention = SignConvention; VolumeInterpolation interpolation = Interpolation; VolumeBoundaryCondition boundaryCondition = BoundaryCondition;
+        SignedHeatTime heat = Heat; VolumeSolverPolicy solver = Solver; Option<VolumeGridPolicy> grid = Grid;
+        return from active in Optional(method).ToFin(key.InvalidInput())
+               from sign in Optional(signConvention).ToFin(key.InvalidInput())
+               from interp in Optional(interpolation).ToFin(key.InvalidInput())
+               from boundary in Optional(boundaryCondition).ToFin(key.InvalidInput())
+               from _ in guard(sign.Equals(SdfSignConvention.NegativeInsidePositiveOutside) || sign.Equals(SdfSignConvention.PositiveInsideNegativeOutside), key.InvalidInput())
+               from __ in guard(interp.Equals(VolumeInterpolation.Trilinear) && boundary.Equals(VolumeBoundaryCondition.NeumannGaugePinned) && heat.IsValid && solver.IsValid, key.InvalidInput())
+               from ___ in active.Equals(SdfMeshMethod.ClosedSurfaceSignedHeat)
+                   ? grid.Filter(static policy => policy.IsValid).ToFin(key.InvalidInput()).Map(static _ => unit)
+                   : guard(grid.IsNone, key.InvalidInput()).ToFin()
+               select self;
+    }
+    private static Fin<SdfMeshPolicy> Defaults(SdfMeshMethod method, SdfSignConvention? signConvention, Option<VolumeGridPolicy> grid, Op key, SignedHeatTime? heat = null, VolumeSolverPolicy? solver = null, VolumeInterpolation? interpolation = null, VolumeBoundaryCondition? boundaryCondition = null) =>
+        from active in Optional(method).ToFin(key.InvalidInput())
+        from sign in Optional(signConvention ?? SdfSignConvention.NegativeInsidePositiveOutside).ToFin(key.InvalidInput())
+        from time in heat.HasValue ? Fin.Succ(heat.Value) : SignedHeatTime.Scaled(key: key)
+        from solve in solver.HasValue ? Fin.Succ(solver.Value) : VolumeSolverPolicy.SparseCholesky(key: key)
+        from interp in Optional(interpolation ?? VolumeInterpolation.Trilinear).ToFin(key.InvalidInput())
+        from boundary in Optional(boundaryCondition ?? VolumeBoundaryCondition.NeumannGaugePinned).ToFin(key.InvalidInput())
+        from policy in new SdfMeshPolicy(Method: active, SignConvention: sign, Grid: grid, Heat: time, Solver: solve, Interpolation: interp, BoundaryCondition: boundary).Admit(key: key)
+        select policy;
+}
+
+[BoundaryAdapter, StructLayout(LayoutKind.Auto)]
+public readonly record struct TetSignedHeatPolicy(SignedHeatTime Heat, VolumeSolverPolicy Solver, SdfSignConvention SignConvention, TetGaugePolicy Gauge, TetInterpolation Interpolation) {
+    public static Fin<TetSignedHeatPolicy> Of(SignedHeatTime? heat = null, VolumeSolverPolicy? solver = null, SdfSignConvention? signConvention = null, TetGaugePolicy? gauge = null, TetInterpolation? interpolation = null, Op? key = null) =>
+        from time in heat.HasValue ? Fin.Succ(heat.Value) : SignedHeatTime.Scaled(key: key)
+        from solve in solver.HasValue ? Fin.Succ(solver.Value) : VolumeSolverPolicy.SparseCholesky(key: key)
+        from sign in Optional(signConvention ?? SdfSignConvention.NegativeInsidePositiveOutside).ToFin(key.OrDefault().InvalidInput())
+        from activeGauge in Optional(gauge ?? TetGaugePolicy.PinnedFirstBoundary).ToFin(key.OrDefault().InvalidInput())
+        from activeInterpolation in Optional(interpolation ?? TetInterpolation.Barycentric).ToFin(key.OrDefault().InvalidInput())
+        from admitted in new TetSignedHeatPolicy(Heat: time, Solver: solve, SignConvention: sign, Gauge: activeGauge, Interpolation: activeInterpolation).Admit(key: key.OrDefault())
+        select admitted;
+    internal Fin<TetSignedHeatPolicy> Admit(Op key) =>
+        Heat.IsValid && Solver.IsValid && SignConvention is not null && Gauge is not null && Interpolation is not null && Gauge.Equals(TetGaugePolicy.PinnedFirstBoundary) && Interpolation.Equals(TetInterpolation.Barycentric)
+            ? Fin.Succ(this)
+            : Fin.Fail<TetSignedHeatPolicy>(key.InvalidInput());
+}
+
+[BoundaryAdapter, StructLayout(LayoutKind.Auto)] public readonly record struct TetSignedHeatReceipt(TetFemReceipt Fem, SignedHeatTime Heat, VolumeSolverPolicy Solver, SdfSignConvention SignConvention, TetGaugePolicy Gauge, TetInterpolation Interpolation, int GaugeVertex, double HeatTime, double BoundaryShift, double InteriorMean, SolveReceipt HeatSolve, SolveReceipt PoissonSolve);
+
+[BoundaryAdapter, StructLayout(LayoutKind.Auto)] public readonly record struct TetSignedHeatSample(double Value, TetSignedHeatReceipt Receipt, TetInterpolationReceipt Interpolation);
 
 internal readonly record struct TetCellMetric(double Volume, Vector3d[] Gradients);
 

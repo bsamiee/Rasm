@@ -79,9 +79,68 @@ public abstract partial record RemeshKind {
 [SmartEnum<int>] public sealed partial class TangentLogMapAlgorithm { public static readonly TangentLogMapAlgorithm VectorHeatApproximate = new(key: 0); }
 
 // --- [MODELS] -----------------------------------------------------------------------------
+[BoundaryAdapter, StructLayout(LayoutKind.Auto)]
+public readonly record struct MeshSpace {
+    private MeshSpace(Mesh native, Context tolerance) { Native = native; Tolerance = tolerance; }
+    internal Mesh Native { get; }
+    public Context Tolerance { get; }
+    public Mesh DuplicateNative() => Native.DuplicateMesh();
+    public static Fin<MeshSpace> Of(Mesh native, Context context, Op? key = null) {
+        Op op = key.OrDefault();
+        return from active in Optional(native).ToFin(op.InvalidInput())
+               from ctx in Optional(context).ToFin(op.MissingContext())
+               from _ in guard(active.IsValid, op.InvalidInput())
+               let snapshot = active.DuplicateMesh()
+               select new MeshSpace(native: snapshot, tolerance: ctx);
+    }
+    internal LaplacianCache Cache => LaplacianCache.For(space: this);
+    public Fin<SparseLaplacian> Laplacian(MeshLaplacian kind, Op? key = null) =>
+        MeshKernel.LaplacianOf(space: this, kind: kind, key: key.OrDefault());
+}
+
+[BoundaryAdapter, StructLayout(LayoutKind.Auto)]
+public readonly record struct TopologyReceipt(int Vertices, int TopologyVertices, int TopologyEdges, int Faces, int Triangles, int Quads, int Ngons, int VisiblePolygons, int BoundaryComponents, int NonManifoldEdges, bool HasBoundary, bool IsClosed, bool IsSolid, bool IsWatertight, bool IsManifold, bool IsOriented, int EulerCharacteristic, Option<int> Genus, bool EulerValidated) {
+    internal Fin<TOut> Project<TOut>(Op key) {
+        int euler = EulerCharacteristic, boundaryComponents = BoundaryComponents;
+        Option<int> genusOption = Genus;
+        return typeof(TOut) switch {
+            Type t when t == typeof(TopologyReceipt) => Fin.Succ((TOut)(object)this),
+            Type t when t == typeof((int Euler, int Genus, int BoundaryComponents)) && genusOption.IsSome => Fin.Succ((TOut)(object)(euler, genusOption.IfNone(noneValue: 0), boundaryComponents)),
+            Type t when t == typeof((int Euler, int Genus, int BoundaryComponents)) => Fin.Fail<TOut>(key.InvalidResult()),
+            _ => Fin.Fail<TOut>(key.Unsupported(geometryType: typeof(TopologyReceipt), outputType: typeof(TOut))),
+        };
+    }
+}
+
+[BoundaryAdapter, StructLayout(LayoutKind.Auto)]
+public readonly record struct SparseLaplacian(SparseMatrix Stiffness, SparseMatrix MassConsistent, Arr<double> MassLumped, int SkippedDegenerateFaces = 0, Option<TuftedLaplacianReceipt> Tufted = default) {
+    public bool IsValid => Stiffness.IsValid && MassConsistent.IsValid && Stiffness.Rows.Value == MassConsistent.Rows.Value && Stiffness.Cols.Value == MassConsistent.Cols.Value && Stiffness.Rows.Value == Stiffness.Cols.Value && MassLumped.Count == Stiffness.Rows.Value && MassLumped.All(static v => RhinoMath.IsValidDouble(x: v) && v >= 0.0) && Tufted.Map(static receipt => receipt.IsValid).IfNone(noneValue: true);
+}
+
+[BoundaryAdapter, StructLayout(LayoutKind.Auto)]
+public readonly record struct TuftedLaplacianReceipt(MeshLaplacian Kind, int OriginalVertices, int OriginalFaces, int IntrinsicVertices, int IntrinsicEdges, int IntrinsicFaces, int LogicalCoverFaces, int LogicalCoverEdges, int BoundaryEdges, int NonManifoldEdges, int MollifiedEdges, double MaxMollification, int IntrinsicFlips, bool DelaunaySatisfied, int StiffnessNonZeros, int MassNonZeros, int PositiveMassCount, int SkippedDegenerateFaces, bool CoverAware, bool CollapsedToOriginalVertices) {
+    public bool IsValid =>
+        Kind is not null
+        && new[] { OriginalVertices, OriginalFaces, IntrinsicVertices, IntrinsicEdges, IntrinsicFaces, LogicalCoverFaces, LogicalCoverEdges, BoundaryEdges, NonManifoldEdges, MollifiedEdges, IntrinsicFlips, StiffnessNonZeros, MassNonZeros, PositiveMassCount, SkippedDegenerateFaces }.All(static value => value >= 0)
+        && RhinoMath.IsValidDouble(x: MaxMollification)
+        && MaxMollification >= 0.0
+        && (!CoverAware || LogicalCoverFaces >= IntrinsicFaces)
+        && (!CoverAware || LogicalCoverEdges >= IntrinsicEdges)
+        && (!CollapsedToOriginalVertices || IntrinsicVertices == OriginalVertices)
+        && PositiveMassCount <= OriginalVertices
+        && DelaunaySatisfied;
+}
+
+[BoundaryAdapter, StructLayout(LayoutKind.Auto)] public readonly record struct SpectralBasisBundle(SpectralBasis Basis, EigenSolveReceipt<double, Arr<double>> Eigen, bool CacheHit = false, int SkippedDegenerateFaces = 0, Option<int> FactorNonZeros = default);
+
 [BoundaryAdapter, StructLayout(LayoutKind.Auto)] public readonly record struct DescriptorReceipt(SpectralDescriptorReceipt Spectral, EigenSolveReceipt<double, Arr<double>> Eigen, int RequestedEigenpairs, int ReturnedEigenpairs, bool SpectralCacheHit = false, int SkippedDegenerateFaces = 0, Option<int> FactorNonZeros = default, Option<SpectralAssemblyReceipt> Assembly = default);
 
 [BoundaryAdapter, StructLayout(LayoutKind.Auto)] public readonly record struct DescriptorResult(Arr<double> Values, DescriptorReceipt Receipt);
+
+[BoundaryAdapter, StructLayout(LayoutKind.Auto)]
+public readonly record struct MeshSamplingSpectrumReceipt(int VertexCount, int SampleCount, int EigenpairCount, double LowFrequencyEnergy, double TotalEnergy, double SuppressionRatio, double ValidationThreshold, bool Validated, MeshSamplingSpectrumAlgorithm? Algorithm = null) {
+    internal bool IsValid => VertexCount > 0 && SampleCount > 0 && EigenpairCount > 0 && new[] { LowFrequencyEnergy, TotalEnergy, SuppressionRatio, ValidationThreshold }.All(RhinoMath.IsValidDouble) && TotalEnergy > 0.0 && SuppressionRatio is >= 0.0 and <= 1.0 && ValidationThreshold is >= 0.0 and <= 1.0 && Validated == (SuppressionRatio <= ValidationThreshold);
+}
 
 [BoundaryAdapter, StructLayout(LayoutKind.Auto)] public readonly record struct FeatureEdge(int A, int B, MeshFeatureKind Kind, Option<double> DihedralRadians, Option<double> SignedDihedralRadians = default, Option<double> CurvatureSignal = default);
 
@@ -95,20 +154,6 @@ public readonly record struct FeatureReceipt(Seq<FeatureEdge> Edges, int Boundar
                 .Where(static edge => !edge.Kind.Equals(MeshFeatureKind.NgonInteriorSkipped))
                 .Select(static edge => (edge.A, edge.B)))),
             _ => Fin.Fail<TOut>(key.Unsupported(geometryType: typeof(FeatureReceipt), outputType: typeof(TOut))),
-        };
-}
-
-[BoundaryAdapter, StructLayout(LayoutKind.Auto)] public readonly record struct FlattenReceipt(int VertexCount, int UvCount, int TextureCoordinateCount, int BoundaryComponents, bool NativeUnwrap, bool Valid, Option<double> EdgeLengthDistortionRms);
-
-[BoundaryAdapter, StructLayout(LayoutKind.Auto)]
-public readonly record struct FlattenResult(Arr<Point2d> Uvs, Mesh Mesh, FlattenReceipt Receipt) {
-    internal Fin<TOut> Project<TOut>(Op key) =>
-        typeof(TOut) switch {
-            Type t when t == typeof(Arr<Point2d>) => Fin.Succ((TOut)(object)Uvs),
-            Type t when t == typeof(FlattenResult) => Fin.Succ((TOut)(object)this),
-            Type t when t == typeof(FlattenReceipt) => Fin.Succ((TOut)(object)Receipt),
-            Type t when t == typeof(Mesh) => key.AcceptValue(value: Mesh).Map(static value => (TOut)(object)value),
-            _ => Fin.Fail<TOut>(key.Unsupported(geometryType: typeof(FlattenResult), outputType: typeof(TOut))),
         };
 }
 
@@ -137,33 +182,23 @@ public readonly record struct MeshFeaturePolicy(VectorAngle DihedralThreshold, P
     }
 }
 
+[BoundaryAdapter, StructLayout(LayoutKind.Auto)] public readonly record struct FlattenReceipt(int VertexCount, int UvCount, int TextureCoordinateCount, int BoundaryComponents, bool NativeUnwrap, bool Valid, Option<double> EdgeLengthDistortionRms);
+
 [BoundaryAdapter, StructLayout(LayoutKind.Auto)]
-public readonly record struct MeshSamplingSpectrumReceipt(int VertexCount, int SampleCount, int EigenpairCount, double LowFrequencyEnergy, double TotalEnergy, double SuppressionRatio, double ValidationThreshold, bool Validated, MeshSamplingSpectrumAlgorithm? Algorithm = null) {
-    internal bool IsValid => VertexCount > 0 && SampleCount > 0 && EigenpairCount > 0 && new[] { LowFrequencyEnergy, TotalEnergy, SuppressionRatio, ValidationThreshold }.All(RhinoMath.IsValidDouble) && TotalEnergy > 0.0 && SuppressionRatio is >= 0.0 and <= 1.0 && ValidationThreshold is >= 0.0 and <= 1.0 && Validated == (SuppressionRatio <= ValidationThreshold);
+public readonly record struct FlattenResult(Arr<Point2d> Uvs, Mesh Mesh, FlattenReceipt Receipt) {
+    internal Fin<TOut> Project<TOut>(Op key) =>
+        typeof(TOut) switch {
+            Type t when t == typeof(Arr<Point2d>) => Fin.Succ((TOut)(object)Uvs),
+            Type t when t == typeof(FlattenResult) => Fin.Succ((TOut)(object)this),
+            Type t when t == typeof(FlattenReceipt) => Fin.Succ((TOut)(object)Receipt),
+            Type t when t == typeof(Mesh) => key.AcceptValue(value: Mesh).Map(static value => (TOut)(object)value),
+            _ => Fin.Fail<TOut>(key.Unsupported(geometryType: typeof(FlattenResult), outputType: typeof(TOut))),
+        };
 }
 
 [BoundaryAdapter, StructLayout(LayoutKind.Auto)] public readonly record struct MeshSegmentationReceipt(MeshSegmentationAlgorithm Algorithm, MeshSegmentationStatus Status, int RequestedRegionCount, int RegionCount, int SeedCount, int AssignedFaceCount, int UnassignedFaceCount, int SkippedDegenerateFaces, int SkippedNonFiniteValues, Option<int> Iterations, Option<int> MaxIterations, Option<double> Tolerance, Option<double> Threshold, Option<DescriptorReceipt> Descriptor, Option<SolveReceipt> Solve, Option<bool> SpectralCacheHit, Option<bool> FactorCacheHit, Option<int> FactorNonZeros, Option<double> NormalizedCutValue = default, Option<int> AffinityNonZeros = default, Option<int> WatershedSaddleCount = default, Option<EigenSolveReceipt<double, Arr<double>>> Eigen = default);
 
 [BoundaryAdapter, StructLayout(LayoutKind.Auto)] public readonly record struct MeshSegmentationResult(Arr<int> FaceRegions, Arr<int> VertexRegions, MeshSegmentationReceipt Receipt);
-
-[BoundaryAdapter, StructLayout(LayoutKind.Auto)]
-public readonly record struct MeshSpace {
-    private MeshSpace(Mesh native, Context tolerance) { Native = native; Tolerance = tolerance; }
-    internal Mesh Native { get; }
-    public Context Tolerance { get; }
-    public Mesh DuplicateNative() => Native.DuplicateMesh();
-    public static Fin<MeshSpace> Of(Mesh native, Context context, Op? key = null) {
-        Op op = key.OrDefault();
-        return from active in Optional(native).ToFin(op.InvalidInput())
-               from ctx in Optional(context).ToFin(op.MissingContext())
-               from _ in guard(active.IsValid, op.InvalidInput())
-               let snapshot = active.DuplicateMesh()
-               select new MeshSpace(native: snapshot, tolerance: ctx);
-    }
-    internal LaplacianCache Cache => LaplacianCache.For(space: this);
-    public Fin<SparseLaplacian> Laplacian(MeshLaplacian kind, Op? key = null) =>
-        MeshKernel.LaplacianOf(space: this, kind: kind, key: key.OrDefault());
-}
 
 [BoundaryAdapter, StructLayout(LayoutKind.Auto)] public readonly record struct RemeshReceipt(RemeshKind Kind, RemeshStatus Status, Option<double> TargetLength, Option<int> DesiredPolygonCount, int PreVertexCount, int PreFaceCount, int PostVertexCount, int PostFaceCount, double ReductionRatio, bool Valid, bool HardEdgePreservationRequested, bool TopologyChanged);
 
@@ -185,6 +220,8 @@ public readonly record struct SdfMeshReceipt(SdfMeshMethod Method, SdfMeshStatus
 
 [BoundaryAdapter, StructLayout(LayoutKind.Auto)] public readonly record struct SignedHeatReceipt(int BoundarySourceVertexCount, int BoundaryEncodedEdgeSourceCount, int BoundaryRejectedPointCount, int BoundaryUnmatchedSegmentCount, Option<SolveReceipt> HeatSolve, SolveReceipt PoissonSolve, Option<SpectralAssemblyReceipt> EdgeAssembly = default);
 
+[BoundaryAdapter, StructLayout(LayoutKind.Auto)] public readonly record struct VolumeGridReceipt(BoundingBox Bounds, int Resolution, int XNodes, int YNodes, int ZNodes, double CellSize, double Padding, int NodeCount, int CellCount, int SourceTriangleCount, int DegenerateTriangleCount, double SourceArea, int InsideNodeCount, int OutsideNodeCount, int NearSurfaceNodeCount, int RejectedVectorCount, double HeatTime, int GaugeNode, double SurfaceShift, VolumeInterpolation Interpolation, VolumeBoundaryCondition BoundaryCondition, VolumeSolverPolicy Solver, int OperatorNonZeros, Option<int> FactorNonZeros, double Residual);
+
 [BoundaryAdapter, StructLayout(LayoutKind.Auto)]
 public readonly record struct SignpostTransportReceipt(int VertexCount, int IntrinsicEdgeCount, int TransportedEdgeCount, int IntrinsicFlipCount, int ChordFallbackEdges, int MissingFrameEdges, int CommonSubdivisionSegments, bool IntrinsicSnapshot, bool ExactCommonSubdivision, double MaxAngleRadians, double MaxLengthResidual) {
     public bool IsValid =>
@@ -199,55 +236,14 @@ public readonly record struct SignpostTransportReceipt(int VertexCount, int Intr
         && IntrinsicSnapshot;
 }
 
-[BoundaryAdapter, StructLayout(LayoutKind.Auto)]
-public readonly record struct SparseLaplacian(SparseMatrix Stiffness, SparseMatrix MassConsistent, Arr<double> MassLumped, int SkippedDegenerateFaces = 0, Option<TuftedLaplacianReceipt> Tufted = default) {
-    public bool IsValid => Stiffness.IsValid && MassConsistent.IsValid && Stiffness.Rows.Value == MassConsistent.Rows.Value && Stiffness.Cols.Value == MassConsistent.Cols.Value && Stiffness.Rows.Value == Stiffness.Cols.Value && MassLumped.Count == Stiffness.Rows.Value && MassLumped.All(static v => RhinoMath.IsValidDouble(x: v) && v >= 0.0) && Tufted.Map(static receipt => receipt.IsValid).IfNone(noneValue: true);
-}
-
-[BoundaryAdapter, StructLayout(LayoutKind.Auto)] public readonly record struct SpectralBasisBundle(SpectralBasis Basis, EigenSolveReceipt<double, Arr<double>> Eigen, bool CacheHit = false, int SkippedDegenerateFaces = 0, Option<int> FactorNonZeros = default);
-
 [BoundaryAdapter, StructLayout(LayoutKind.Auto)] public readonly record struct TangentLogMapReceipt(int SourceVertex, int TargetCount, double HeatTime, bool VectorHeatBacked, bool RejectsFlippedIntrinsic, int FiniteLogCount, double MaxMagnitudeResidual, TangentLogMapAlgorithm? Algorithm = null);
 
 [BoundaryAdapter, StructLayout(LayoutKind.Auto)] public readonly record struct TangentLogMapResult(Vector3d Tangent, TangentLogMapReceipt Receipt);
 
-[BoundaryAdapter, StructLayout(LayoutKind.Auto)]
-public readonly record struct TopologyReceipt(int Vertices, int TopologyVertices, int TopologyEdges, int Faces, int Triangles, int Quads, int Ngons, int VisiblePolygons, int BoundaryComponents, int NonManifoldEdges, bool HasBoundary, bool IsClosed, bool IsSolid, bool IsWatertight, bool IsManifold, bool IsOriented, int EulerCharacteristic, Option<int> Genus, bool EulerValidated) {
-    internal Fin<TOut> Project<TOut>(Op key) {
-        int euler = EulerCharacteristic, boundaryComponents = BoundaryComponents;
-        Option<int> genusOption = Genus;
-        return typeof(TOut) switch {
-            Type t when t == typeof(TopologyReceipt) => Fin.Succ((TOut)(object)this),
-            Type t when t == typeof((int Euler, int Genus, int BoundaryComponents)) && genusOption.IsSome => Fin.Succ((TOut)(object)(euler, genusOption.IfNone(noneValue: 0), boundaryComponents)),
-            Type t when t == typeof((int Euler, int Genus, int BoundaryComponents)) => Fin.Fail<TOut>(key.InvalidResult()),
-            _ => Fin.Fail<TOut>(key.Unsupported(geometryType: typeof(TopologyReceipt), outputType: typeof(TOut))),
-        };
-    }
-}
-
-[BoundaryAdapter, StructLayout(LayoutKind.Auto)]
-public readonly record struct TuftedLaplacianReceipt(MeshLaplacian Kind, int OriginalVertices, int OriginalFaces, int IntrinsicVertices, int IntrinsicEdges, int IntrinsicFaces, int LogicalCoverFaces, int LogicalCoverEdges, int BoundaryEdges, int NonManifoldEdges, int MollifiedEdges, double MaxMollification, int IntrinsicFlips, bool DelaunaySatisfied, int StiffnessNonZeros, int MassNonZeros, int PositiveMassCount, int SkippedDegenerateFaces, bool CoverAware, bool CollapsedToOriginalVertices) {
-    public bool IsValid =>
-        Kind is not null
-        && new[] { OriginalVertices, OriginalFaces, IntrinsicVertices, IntrinsicEdges, IntrinsicFaces, LogicalCoverFaces, LogicalCoverEdges, BoundaryEdges, NonManifoldEdges, MollifiedEdges, IntrinsicFlips, StiffnessNonZeros, MassNonZeros, PositiveMassCount, SkippedDegenerateFaces }.All(static value => value >= 0)
-        && RhinoMath.IsValidDouble(x: MaxMollification)
-        && MaxMollification >= 0.0
-        && (!CoverAware || LogicalCoverFaces >= IntrinsicFaces)
-        && (!CoverAware || LogicalCoverEdges >= IntrinsicEdges)
-        && (!CollapsedToOriginalVertices || IntrinsicVertices == OriginalVertices)
-        && PositiveMassCount <= OriginalVertices
-        && DelaunaySatisfied;
-}
-
-[BoundaryAdapter, StructLayout(LayoutKind.Auto)] public readonly record struct VolumeGridReceipt(BoundingBox Bounds, int Resolution, int XNodes, int YNodes, int ZNodes, double CellSize, double Padding, int NodeCount, int CellCount, int SourceTriangleCount, int DegenerateTriangleCount, double SourceArea, int InsideNodeCount, int OutsideNodeCount, int NearSurfaceNodeCount, int RejectedVectorCount, double HeatTime, int GaugeNode, double SurfaceShift, VolumeInterpolation Interpolation, VolumeBoundaryCondition BoundaryCondition, VolumeSolverPolicy Solver, int OperatorNonZeros, Option<int> FactorNonZeros, double Residual);
-
 // --- [OPERATIONS] -------------------------------------------------------------------------
 internal readonly record struct BoundarySignedHeatKey(SignedHeatTime Heat, VolumeSolverPolicy Solver);
 
-internal readonly record struct BoundarySignedHeatSource(Arr<double> Rhs, Seq<int> SourceVertices, int EncodedEdgeSourceCount, int RejectedBoundaryPointCount, int UnmatchedBoundarySegmentCount);
-
 internal readonly record struct ClosedSignedHeatKey(VolumeGridPolicy Grid, SignedHeatTime Heat, VolumeSolverPolicy Solver, VolumeInterpolation Interpolation, VolumeBoundaryCondition BoundaryCondition);
-
-internal readonly record struct ClosedSignedHeatSolution(VolumeGridDomain Domain, Arr<double> Values, SignedHeatReceipt Receipt, TopologyReceipt Topology);
 
 [StructLayout(LayoutKind.Auto)]
 internal readonly record struct CrossFieldKey(int Symmetry, Option<Arr<(int Vertex, Direction Hint)>> Constraints, Option<Arr<(int Vertex, double HolonomyDeficit)>> Cones) {
@@ -258,11 +254,27 @@ internal readonly record struct CrossFieldKey(int Symmetry, Option<Arr<(int Vert
             Cones: cones.Map(static values => new Arr<(int Vertex, double HolonomyDeficit)>([.. values.AsIterable().OrderBy(static row => row.Vertex).ThenBy(static row => row.HolonomyDeficit)])));
 }
 
-internal readonly record struct EdgeConnectionFactor(CholeskySparse Factor, SpectralAssemblyReceipt Receipt);
-
 internal readonly record struct GeodesicKey(Seq<int> Sources);
 
 internal readonly record struct HodgeKey(VectorField Source);
+
+[StructLayout(LayoutKind.Auto)] internal readonly record struct McfKey(double TimeStep, int Iterations);
+
+[StructLayout(LayoutKind.Auto)] internal readonly record struct VectorHeatKey(double Time, Seq<(int Vertex, Vector3d Direction)> Sources);
+
+internal readonly record struct EdgeConnectionFactor(CholeskySparse Factor, SpectralAssemblyReceipt Receipt);
+
+internal readonly record struct BoundarySignedHeatSource(Arr<double> Rhs, Seq<int> SourceVertices, int EncodedEdgeSourceCount, int RejectedBoundaryPointCount, int UnmatchedBoundarySegmentCount);
+
+internal readonly record struct SignedHeatSolution(Arr<double> Values, SignedHeatReceipt Receipt, TopologyReceipt Topology);
+
+internal readonly record struct ClosedSignedHeatSolution(VolumeGridDomain Domain, Arr<double> Values, SignedHeatReceipt Receipt, TopologyReceipt Topology);
+
+internal readonly record struct VolumeGridDomain(BoundingBox Bounds, int Resolution, int XCells, int YCells, int ZCells, double CellSize, double Padding, VolumeGridReceipt Receipt) {
+    internal int XNodes => XCells + 1; internal int YNodes => YCells + 1; internal int ZNodes => ZCells + 1; internal int NodeCount => XNodes * YNodes * ZNodes; internal int CellCount => XCells * YCells * ZCells;
+    internal int Index(int x, int y, int z) => x + (XNodes * (y + (YNodes * z)));
+    internal Point3d PointAt(int x, int y, int z) => new(x: Bounds.Min.X + (x * CellSize), y: Bounds.Min.Y + (y * CellSize), z: Bounds.Min.Z + (z * CellSize));
+}
 
 internal sealed class LaplacianCache {
     internal const int DefaultSpectralCount = 32;
@@ -371,18 +383,6 @@ internal sealed class LaplacianCache {
     internal Fin<Complex[]> CrossField(CrossFieldKey probe, Func<Fin<Complex[]>> compute) => crossFieldCache.Of(probe, compute);
     internal Fin<MeshKernel.HodgeBundle> Hodge(HodgeKey probe, Func<Fin<MeshKernel.HodgeBundle>> compute) => hodgeCache.Of(probe, compute);
     internal Fin<Complex[]> VectorHeat(VectorHeatKey probe, Func<Fin<Complex[]>> compute) => vectorHeatCache.Of(probe, compute);
-}
-
-[StructLayout(LayoutKind.Auto)] internal readonly record struct McfKey(double TimeStep, int Iterations);
-
-internal readonly record struct SignedHeatSolution(Arr<double> Values, SignedHeatReceipt Receipt, TopologyReceipt Topology);
-
-[StructLayout(LayoutKind.Auto)] internal readonly record struct VectorHeatKey(double Time, Seq<(int Vertex, Vector3d Direction)> Sources);
-
-internal readonly record struct VolumeGridDomain(BoundingBox Bounds, int Resolution, int XCells, int YCells, int ZCells, double CellSize, double Padding, VolumeGridReceipt Receipt) {
-    internal int XNodes => XCells + 1; internal int YNodes => YCells + 1; internal int ZNodes => ZCells + 1; internal int NodeCount => XNodes * YNodes * ZNodes; internal int CellCount => XCells * YCells * ZCells;
-    internal int Index(int x, int y, int z) => x + (XNodes * (y + (YNodes * z)));
-    internal Point3d PointAt(int x, int y, int z) => new(x: Bounds.Min.X + (x * CellSize), y: Bounds.Min.Y + (y * CellSize), z: Bounds.Min.Z + (z * CellSize));
 }
 
 internal static class MeshKernel {
@@ -1342,6 +1342,12 @@ internal static class MeshKernel {
             _ => Fin.Fail<TOut>(error: key.Unsupported(geometryType: typeof(MeshDescriptor.SpectralCase), outputType: typeof(TOut))),
         };
 
+    internal static Fin<double> SpectralDistanceAt(MeshSpace space, SpectralFilter filter, Seq<int> sources, int pairs, Point3d sample, Op key) =>
+        from bundle in space.Cache.SpectralBasisBundleOf(k: pairs, key: key)
+        from descriptor in filter.ApplyDetailed(basis: bundle.Basis, sources: sources.IsEmpty ? Option<Seq<int>>.None : Some(sources), key: key)
+        from interpolated in InterpolateOnMesh(space: space, sample: sample, perVertex: descriptor.Values, key: key)
+        select interpolated;
+
     // --- [SEGMENTATION] ---------------------------------------------------------------------
     internal static Fin<TOut> Segment<TOut>(MeshSpace space, MeshSegmentation kind, Op key) =>
         Optional(kind).ToFin(key.InvalidInput()).Bind(active =>
@@ -1690,12 +1696,6 @@ internal static class MeshKernel {
         }
         return new Arr<int>([.. mutable.Select(static regions => regions.Count == 0 ? UnassignedRegion : regions.GroupBy(static r => r).OrderByDescending(static g => g.Count()).ThenBy(static g => g.Key).First().Key)]);
     }
-
-    internal static Fin<double> SpectralDistanceAt(MeshSpace space, SpectralFilter filter, Seq<int> sources, int pairs, Point3d sample, Op key) =>
-        from bundle in space.Cache.SpectralBasisBundleOf(k: pairs, key: key)
-        from descriptor in filter.ApplyDetailed(basis: bundle.Basis, sources: sources.IsEmpty ? Option<Seq<int>>.None : Some(sources), key: key)
-        from interpolated in InterpolateOnMesh(space: space, sample: sample, perVertex: descriptor.Values, key: key)
-        select interpolated;
 
     // --- [MESH_SPECTRUM_SAMPLING] ----------------------------------------------------------
     internal static Fin<SampleResult> ValidateSamplingSpectrum(MeshSpace space, SampleResult result, Op key) =>

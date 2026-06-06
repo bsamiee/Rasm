@@ -19,6 +19,13 @@ public sealed class RhinoCommandContext {
         Blocks = BlocksApi.RhinoBlocks.Live(document: document, mode: mode);
     }
 
+    public static Fin<RhinoCommandContext> Of(RhinoDoc doc, RunMode mode) =>
+        Optional(doc)
+            .ToFin(Fail: Op.Of(name: nameof(RhinoCommandContext)).MissingContext())
+            .Bind(document => document.IsReady()
+                ? Context.Of(doc: document).ToFin().Map(domain => new RhinoCommandContext(document: document, mode: mode, domain: domain))
+                : Fin.Fail<RhinoCommandContext>(error: Op.Of(name: nameof(RhinoCommandContext)).MissingContext()));
+
     public RhinoDoc Document { get; }
     public RunMode Mode { get; }
     public Context Domain { get; }
@@ -29,13 +36,6 @@ public sealed class RhinoCommandContext {
     public RhinoCamera Camera { get; }
     public Exchange.RhinoFiles Files { get; }
     public BlocksApi.RhinoBlocks Blocks { get; }
-
-    public static Fin<RhinoCommandContext> Of(RhinoDoc doc, RunMode mode) =>
-        Optional(doc)
-            .ToFin(Fail: Op.Of(name: nameof(RhinoCommandContext)).MissingContext())
-            .Bind(document => document.IsReady()
-                ? Context.Of(doc: document).ToFin().Map(domain => new RhinoCommandContext(document: document, mode: mode, domain: domain))
-                : Fin.Fail<RhinoCommandContext>(error: Op.Of(name: nameof(RhinoCommandContext)).MissingContext()));
 
 }
 

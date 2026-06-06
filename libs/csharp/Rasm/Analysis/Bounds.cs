@@ -21,21 +21,6 @@ public partial record Bounds : IAspect {
     public sealed record EnclosingSphereCase(int Count = 64) : Bounds;
     public sealed record EnclosingCircleCase(Plane Plane, int Count = 64) : Bounds;
     public sealed record EnclosingCylinderCase(Vector3d Axis, int Count = 64) : Bounds;
-    public static Bounds AxisAligned => new AxisAlignedCase();
-    public static Bounds Oriented(Plane plane) => new InPlaneCase(Plane: plane);
-    public static Bounds Transformed(Transform transform) => new TransformedCase(Xform: transform);
-    public static Bounds Principal => new PrincipalFrameCase();
-    public static Bounds Center => new CenterCase();
-    public static Bounds Corners(bool unique = false) => new CornersCase(Unique: unique);
-    public static Bounds Edges => new EdgesCase();
-    public static Bounds Area => new AreaCase();
-    public static Bounds Volume => new VolumeCase();
-    public static Bounds Diagonal => new DiagonalCase();
-    public static Bounds AspectRatio => new AspectRatioCase();
-    public static Bounds Tightness => new TightnessCase();
-    public static Bounds EnclosingSphere(int count = 64) => new EnclosingSphereCase(Count: count);
-    public static Bounds EnclosingCircle(Plane plane, int count = 64) => new EnclosingCircleCase(Plane: plane, Count: count);
-    public static Bounds EnclosingCylinder(Vector3d axis, int count = 64) => new EnclosingCylinderCase(Axis: axis, Count: count);
     internal static readonly Op BoundsKey = Op.Of(name: nameof(Bounds));
     internal static readonly Op OrientedKey = Op.Of(name: "OrientedBounds");
     internal static readonly Op TransformedKey = Op.Of(name: "TransformedBounds");
@@ -51,6 +36,21 @@ public partial record Bounds : IAspect {
     internal static readonly Op EnclosingSphereKey = Op.Of(name: "EnclosingSphere");
     internal static readonly Op EnclosingCircleKey = Op.Of(name: "EnclosingCircle");
     internal static readonly Op EnclosingCylinderKey = Op.Of(name: "EnclosingCylinder");
+    public static Bounds AxisAligned => new AxisAlignedCase();
+    public static Bounds Oriented(Plane plane) => new InPlaneCase(Plane: plane);
+    public static Bounds Transformed(Transform transform) => new TransformedCase(Xform: transform);
+    public static Bounds Principal => new PrincipalFrameCase();
+    public static Bounds Center => new CenterCase();
+    public static Bounds Corners(bool unique = false) => new CornersCase(Unique: unique);
+    public static Bounds Edges => new EdgesCase();
+    public static Bounds Area => new AreaCase();
+    public static Bounds Volume => new VolumeCase();
+    public static Bounds Diagonal => new DiagonalCase();
+    public static Bounds AspectRatio => new AspectRatioCase();
+    public static Bounds Tightness => new TightnessCase();
+    public static Bounds EnclosingSphere(int count = 64) => new EnclosingSphereCase(Count: count);
+    public static Bounds EnclosingCircle(Plane plane, int count = 64) => new EnclosingCircleCase(Plane: plane, Count: count);
+    public static Bounds EnclosingCylinder(Vector3d axis, int count = 64) => new EnclosingCylinderCase(Axis: axis, Count: count);
     public Operation<TGeometry, TOut> Operation<TGeometry, TOut>() where TGeometry : notnull => Switch(
         axisAlignedCase: static _ => (typeof(TOut) == typeof(BoundingBox) && GeometryKernel.CanBound(typeof(TGeometry), includeSphere: true))
             ? Analysis.Operation<TGeometry, BoundingBox>.Build(
@@ -149,12 +149,23 @@ public partial record Bounds : IAspect {
                     from result in state.Key.Accept(value: new Cylinder(baseCircle: new Circle(plane: new Plane(origin: disc.Center + (axis * extent.Min), normal: axis), radius: disc.Radius), height: extent.Max - extent.Min)).ToEff()
                     select result).As<TGeometry, TOut>(key: EnclosingCylinderKey)
             : EnclosingCylinderKey.Unsupported<TGeometry, TOut>());
+    private static double AspectOf(Vector3d extents) {
+        double ax = Math.Abs(extents.X), ay = Math.Abs(extents.Y), az = Math.Abs(extents.Z);
+        return Math.Max(Math.Max(ax, ay), az) / Math.Max(Math.Min(Math.Min(ax, ay), az), RhinoMath.ZeroTolerance);
+    }
     private static Fin<Seq<Point3d>> EnclosingSamples<TGeometry>(TGeometry geometry, int count, Context context, Op key) where TGeometry : notnull =>
         GeometryKernel.SamplePoints(source: geometry, count: count, context: context, key: key)
             .BindFail(error => error switch {
                 Fault.Unsupported => geometry.BoundsOf(op: key).Bind(box => guard(box.IsValid, key.InvalidInput()).ToFin().Map(_ => toSeq(box.GetCorners()))),
                 _ => Fin.Fail<Seq<Point3d>>(error),
             });
+    private static Point3d FarthestFrom(Seq<Point3d> samples, Point3d anchor) =>
+        samples.Fold(
+            initialState: (Best: anchor, Anchor: anchor, SqDist: 0.0),
+            f: static (state, p) => ((p - state.Anchor) * (p - state.Anchor)) switch {
+                double sq when sq > state.SqDist => state with { Best = p, SqDist = sq },
+                _ => state,
+            }).Best;
     private static Fin<T> RitterFit<T>(Seq<Point3d> samples, Op key, Func<Point3d, double, T> construct, Func<T, bool> isValid) =>
         (samples.Count switch {
             0 => Fin.Fail<(Point3d Center, double Radius)>(key.InvalidResult()),
@@ -173,17 +184,6 @@ public partial record Bounds : IAspect {
             T fit when isValid(arg: fit) => Fin.Succ(fit),
             _ => Fin.Fail<T>(key.InvalidResult()),
         });
-    private static Point3d FarthestFrom(Seq<Point3d> samples, Point3d anchor) =>
-        samples.Fold(
-            initialState: (Best: anchor, Anchor: anchor, SqDist: 0.0),
-            f: static (state, p) => ((p - state.Anchor) * (p - state.Anchor)) switch {
-                double sq when sq > state.SqDist => state with { Best = p, SqDist = sq },
-                _ => state,
-            }).Best;
-    private static double AspectOf(Vector3d extents) {
-        double ax = Math.Abs(extents.X), ay = Math.Abs(extents.Y), az = Math.Abs(extents.Z);
-        return Math.Max(Math.Max(ax, ay), az) / Math.Max(Math.Min(Math.Min(ax, ay), az), RhinoMath.ZeroTolerance);
-    }
 }
 
 // --- [OPERATIONS] -------------------------------------------------------------------------

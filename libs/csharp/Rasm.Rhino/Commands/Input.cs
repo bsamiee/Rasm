@@ -66,11 +66,24 @@ public readonly record struct CommandGet<T>(
     public bool IsUndo => Raw.Map(static raw => raw == GetResult.Undo).IfNone(noneValue: false);
 }
 
-public readonly record struct CommandInputKind<T>(
-    Seq<Type> Types,
-    Func<CommandInputPolicy, Seq<CommandInputPolicy>, CommandInputRequest<T>> Create) {
-    internal bool Accepts(Type type) =>
-        Types.Exists(candidate => candidate == type);
+public readonly record struct CommandSnapshot(
+    Option<RhinoView> View,
+    Option<DrawingPoint> WindowPoint,
+    Option<double> Number,
+    Option<string> Text,
+    Option<object> CustomMessage,
+    Option<Point3d> Point,
+    Option<Vector3d> Vector,
+    Option<Color> Color,
+    Option<DrawingRectangle> PickRectangle,
+    Option<DrawingRectangle> Rectangle2d,
+    Seq<DrawingPoint> Line2d) {
+    internal static CommandSnapshot Empty { get; } = new(default, default, default, default, default, default, default, default, default, default, Seq<DrawingPoint>());
+
+    internal static CommandSnapshot Of(GetBaseClass getter, GetResult raw) =>
+        new(View: Optional(getter.View()), WindowPoint: raw is GetResult.Point or GetResult.Point2d ? Some(getter.Point2d()) : Option<DrawingPoint>.None, Number: raw is GetResult.Number ? Some(getter.Number()) : Option<double>.None, Text: raw is GetResult.String ? Optional(getter.StringResult()) : Option<string>.None, CustomMessage: raw is GetResult.CustomMessage ? Optional(getter.CustomMessage()) : Option<object>.None, Point: raw is GetResult.Point ? Some(getter.Point()) : Option<Point3d>.None, Vector: (raw, getter.Vector()) switch { (GetResult.Point, Vector3d vector) when vector.IsValid && !vector.IsTiny() => Some(vector), _ => Option<Vector3d>.None }, Color: raw is GetResult.Color ? Some(getter.Color()) : Option<Color>.None, PickRectangle: raw is GetResult.Object ? Some(getter.PickRectangle()) : Option<DrawingRectangle>.None, Rectangle2d: raw is GetResult.Rectangle2d ? Some(getter.Rectangle2d()) : Option<DrawingRectangle>.None, Line2d: raw is GetResult.Line2d ? toSeq(getter.Line2d()) : Seq<DrawingPoint>());
+
+    internal bool Has(GetResult raw) => raw switch { GetResult.Number => Number.IsSome, GetResult.String => Text.IsSome, GetResult.CustomMessage => CustomMessage.IsSome, GetResult.Point => Point.IsSome || WindowPoint.IsSome || Vector.IsSome, GetResult.Point2d => WindowPoint.IsSome, GetResult.Color => Color.IsSome, GetResult.Object => PickRectangle.IsSome, GetResult.Rectangle2d => Rectangle2d.IsSome, GetResult.Line2d => !Line2d.IsEmpty, _ => false };
 }
 
 public readonly record struct CommandInputOutcome<T>(CommandInputOutcomeKind Kind, Option<CommandGet<T>> Result) {
@@ -102,6 +115,66 @@ public readonly record struct CommandInputOutcome<T>(CommandInputOutcomeKind Kin
             CommandInputOutcomeKind.Cancel => Fin.Fail<CommandGet<T>>(error: new Fault.Cancelled()),
             _ => Result.ToFin(Fail: Op.Of(name: nameof(CommandInputOutcome<>)).InvalidResult()),
         };
+}
+
+public sealed record CommandObjectSelection(
+    int Minimum = 1,
+    int Maximum = 1,
+    ObjectType Types = ObjectType.AnyObject,
+    GeometryAttributeFilter Attributes = default,
+    Option<GetObjectGeometryFilter> Filter = default,
+    bool PreSelect = true,
+    bool IgnoreUnacceptablePreselected = true,
+    bool PostSelect = true,
+    bool SubObjects = true,
+    bool Groups = true,
+    bool References = true,
+    bool Locked = false,
+    bool AlreadySelected = false,
+    bool SelectPrevious = true,
+    bool Highlight = true,
+    bool IgnoreGrips = true,
+    bool ClearOnEntry = true,
+    bool UnselectOnExit = true,
+    bool DeselectAllBeforePostSelect = false,
+    bool OneByOnePostSelect = false,
+    bool PressEnterWhenDonePrompt = true,
+    Option<string> PressEnterWhenDoneText = default,
+    bool ChooseOneQuestion = false,
+    bool BottomObjectPreference = false,
+    bool ProxyBrepFromSubD = false,
+    bool InactiveDetailPickEnabled = false) {
+    public static CommandObjectSelection Default { get; } = new();
+
+    internal Fin<Unit> Apply(GetObject getter) =>
+        Optional(getter)
+            .ToFin(Fail: Op.Of(name: nameof(CommandObjectSelection)).InvalidInput())
+            .Map(valid => {
+                valid.GeometryFilter = Types;
+                valid.GeometryAttributeFilter = Attributes;
+                _ = Filter.Iter(active => valid.SetCustomGeometryFilter(active));
+                valid.EnablePreSelect(enable: PreSelect, ignoreUnacceptablePreselectedObjects: IgnoreUnacceptablePreselected);
+                valid.EnablePostSelect(enable: PostSelect);
+                valid.SubObjectSelect = SubObjects;
+                valid.GroupSelect = Groups;
+                valid.ReferenceObjectSelect = References;
+                valid.LockedObjectSelect = Locked;
+                valid.AlreadySelectedObjectSelect = AlreadySelected;
+                valid.EnableSelPrevious(enable: SelectPrevious);
+                valid.EnableHighlight(enable: Highlight);
+                valid.EnableIgnoreGrips(enable: IgnoreGrips);
+                valid.EnableClearObjectsOnEntry(enable: ClearOnEntry);
+                valid.EnableUnselectObjectsOnExit(enable: UnselectOnExit);
+                valid.DeselectAllBeforePostSelect = DeselectAllBeforePostSelect;
+                valid.OneByOnePostSelect = OneByOnePostSelect;
+                valid.EnablePressEnterWhenDonePrompt(enable: PressEnterWhenDonePrompt);
+                _ = PressEnterWhenDoneText.Iter(valid.SetPressEnterWhenDonePrompt);
+                valid.ChooseOneQuestion = ChooseOneQuestion;
+                valid.BottomObjectPreference = BottomObjectPreference;
+                valid.ProxyBrepFromSubD = ProxyBrepFromSubD;
+                valid.InactiveDetailPickEnabled = InactiveDetailPickEnabled;
+                return unit;
+            });
 }
 
 public sealed record CommandInputPolicy {
@@ -225,6 +298,50 @@ public sealed record CommandInputPolicy {
                 AcceptModes: left.AcceptModes | right.AcceptModes);
     }
 
+    internal enum ScalarKind { Number, Length, Angle }
+    internal sealed record Scalar(ScalarKind Kind, Option<UnitSystem> LengthUnits, Option<AngleUnitSystem> AngleUnits);
+
+    public sealed record PointSpec(bool OnMouseUp, bool TwoDimensional, Option<global::Rhino.UI.CursorStyle> Cursor, Option<bool> ObjectSnapCursors, Option<Point3d> BasePoint, bool DrawLineFromBasePoint, bool SnapToCurves, bool PermitConstraintOptions, bool NoRedrawOnExit, bool PermitFromOption, bool PermitTabMode, int PermitElevatorMode, Seq<Point3d> SnapPoints, Seq<Point3d> ConstructionPoints, Seq<CommandPointConstraint> Constraints, Option<double> DistanceFromBasePoint, Option<bool> PermitOrthoSnap, Option<bool> PermitObjectSnap, Option<Color> DynamicDrawColor, Option<(bool Enabled, bool Ends)> CurveSnapTangent, Option<(bool Enabled, bool Ends)> CurveSnapPerp, Option<(bool Enabled, bool Reverse)> CurveSnapArrow, bool ClearConstraints);
+    public static PointSpec DefaultPointSpec { get; } = new(OnMouseUp: false, TwoDimensional: false, Cursor: Option<global::Rhino.UI.CursorStyle>.None, ObjectSnapCursors: Option<bool>.None, BasePoint: Option<Point3d>.None, DrawLineFromBasePoint: false, SnapToCurves: false, PermitConstraintOptions: true, NoRedrawOnExit: false, PermitFromOption: true, PermitTabMode: true, PermitElevatorMode: 0, SnapPoints: Seq<Point3d>(), ConstructionPoints: Seq<Point3d>(), Constraints: Seq<CommandPointConstraint>(), DistanceFromBasePoint: Option<double>.None, PermitOrthoSnap: Option<bool>.None, PermitObjectSnap: Option<bool>.None, DynamicDrawColor: Option<Color>.None, CurveSnapTangent: Option<(bool Enabled, bool Ends)>.None, CurveSnapPerp: Option<(bool Enabled, bool Ends)>.None, CurveSnapArrow: Option<(bool Enabled, bool Reverse)>.None, ClearConstraints: false);
+
+    public sealed record LimitSpec(Option<object> Lower, Option<object> Upper, bool StrictlyLower, bool StrictlyUpper) {
+        internal Fin<(Option<TValue> Lower, Option<TValue> Upper)> Project<TValue>(Op op) where TValue : IComparable<TValue> => (Lower.Bind(ScalarBound<TValue>), Upper.Bind(ScalarBound<TValue>)) switch { (Option<TValue> lower, _) when Lower.IsSome && !lower.IsSome => Fin.Fail<(Option<TValue> Lower, Option<TValue> Upper)>(error: op.InvalidInput()), (_, Option<TValue> upper) when Upper.IsSome && !upper.IsSome => Fin.Fail<(Option<TValue> Lower, Option<TValue> Upper)>(error: op.InvalidInput()), (Option<TValue> lower, Option<TValue> upper) when lower.Case is TValue left && upper.Case is TValue right && left.CompareTo(other: right) > 0 => Fin.Fail<(Option<TValue> Lower, Option<TValue> Upper)>(error: op.InvalidInput()), (Option<TValue> lower, Option<TValue> upper) when lower.Case is TValue left && upper.Case is TValue right && left.CompareTo(other: right) == 0 && (StrictlyLower || StrictlyUpper) => Fin.Fail<(Option<TValue> Lower, Option<TValue> Upper)>(error: op.InvalidInput()), (Option<TValue> lower, Option<TValue> upper) => Fin.Succ(value: (Lower: lower, Upper: upper)) };
+        internal Option<TValue> Accept<TValue>(TValue value) where TValue : IComparable<TValue> =>
+            Project<TValue>(op: Op.Of(name: nameof(LimitSpec))).ToOption().Bind(bounds => bounds switch {
+                (Option<TValue> lower, _) when lower.Case is TValue lo && (StrictlyLower ? value.CompareTo(other: lo) <= 0 : value.CompareTo(other: lo) < 0) => Option<TValue>.None,
+                (_, Option<TValue> upper) when upper.Case is TValue hi && (StrictlyUpper ? value.CompareTo(other: hi) >= 0 : value.CompareTo(other: hi) > 0) => Option<TValue>.None,
+                _ => Some(value),
+            });
+
+        private static Option<TValue> ScalarBound<TValue>(object value) where TValue : IComparable<TValue> =>
+            value switch {
+                TValue typed => Some(typed),
+                double d when typeof(TValue) == typeof(double) && RhinoMath.IsValidDouble(x: d) => Some((TValue)(object)d),
+                double d when typeof(TValue) == typeof(int) && RhinoMath.IsValidDouble(x: d) && Math.Truncate(d) == d && d >= int.MinValue && d <= int.MaxValue => Some((TValue)(object)(int)d),
+                int i when typeof(TValue) == typeof(double) => Some((TValue)(object)(double)i),
+                _ => Option<TValue>.None,
+            };
+    }
+
+    public static LimitSpec Limit<T>(Option<T> lower = default, Option<T> upper = default, bool strictlyLower = false, bool strictlyUpper = false) where T : IComparable<T> =>
+        new(Lower: lower.Map(static value => (object)value), Upper: upper.Map(static value => (object)value), StrictlyLower: strictlyLower, StrictlyUpper: strictlyUpper);
+
+    internal sealed record BoxSpec(
+        GetBoxMode Mode,
+        Option<Point3d> BasePoint,
+        Option<string> Prompt1,
+        Option<string> Prompt2,
+        Option<string> Prompt3) {
+        internal static BoxSpec Default { get; } = new(
+            Mode: GetBoxMode.All,
+            BasePoint: Option<Point3d>.None,
+            Prompt1: Option<string>.None,
+            Prompt2: Option<string>.None,
+            Prompt3: Option<string>.None);
+        internal bool IsDefault =>
+            Mode == GetBoxMode.All && BasePoint.IsNone && Prompt1.IsNone && Prompt2.IsNone && Prompt3.IsNone;
+    }
+
     public static CommandInputPolicy Configure<TGetter>(Action<TGetter> apply) where TGetter : GetBaseClass =>
         (typeof(TGetter), Optional(apply).Case) switch {
             (Type type, Action<TGetter> action) when type == typeof(GetObject) => new(cases: Seq(Case.Object(action: getter => action((TGetter)(GetBaseClass)getter)))),
@@ -259,12 +376,12 @@ public sealed record CommandInputPolicy {
                 (CommandInputAccept.Nothing, static getter => getter.AcceptNothing(enable: true)),
                 (CommandInputAccept.Undo, static getter => getter.AcceptUndo(enable: true)),
                 (CommandInputAccept.EnterWhenDone, static getter => getter.AcceptEnterWhenDone(enable: true)),
+                (CommandInputAccept.Number, getter => getter.AcceptNumber(enable: true, acceptZero: acceptZero)),
                 (CommandInputAccept.Point, static getter => getter.AcceptPoint(enable: true)),
                 (CommandInputAccept.Color, static getter => getter.AcceptColor(enable: true)),
                 (CommandInputAccept.Text, static getter => getter.AcceptString(enable: true)),
                 (CommandInputAccept.CustomMessage, static getter => getter.AcceptCustomMessage(enable: true)),
                 (CommandInputAccept.TransparentCommands, static getter => getter.EnableTransparentCommands(enable: true)),
-                (CommandInputAccept.Number, getter => getter.AcceptNumber(enable: true, acceptZero: acceptZero)),
             }).Filter(row => (modes & row.Mode) == row.Mode).Map(static row => new Case(Apply: Some(row.Apply), AcceptModes: row.Mode)));
     public static CommandInputPolicy TransparentCommands(bool enabled = true) => Configure<GetBaseClass>(apply: getter => getter.EnableTransparentCommands(enable: enabled));
     public static CommandInputPolicy Options(params CommandOption[] values) => new(cases: Seq(new Case(OptionList: toSeq(values))));
@@ -332,46 +449,6 @@ public sealed record CommandInputPolicy {
 
     private bool Accepts(CommandInputAccept mode) => (AcceptModes & mode) == mode;
     private static Option<T> Pick<T>(Option<T> left, Option<T> right) => right | left;
-    internal enum ScalarKind { Number, Length, Angle }
-    public sealed record PointSpec(bool OnMouseUp, bool TwoDimensional, Option<global::Rhino.UI.CursorStyle> Cursor, Option<bool> ObjectSnapCursors, Option<Point3d> BasePoint, bool DrawLineFromBasePoint, bool SnapToCurves, bool PermitConstraintOptions, bool NoRedrawOnExit, bool PermitFromOption, bool PermitTabMode, int PermitElevatorMode, Seq<Point3d> SnapPoints, Seq<Point3d> ConstructionPoints, Seq<CommandPointConstraint> Constraints, Option<double> DistanceFromBasePoint, Option<bool> PermitOrthoSnap, Option<bool> PermitObjectSnap, Option<Color> DynamicDrawColor, Option<(bool Enabled, bool Ends)> CurveSnapTangent, Option<(bool Enabled, bool Ends)> CurveSnapPerp, Option<(bool Enabled, bool Reverse)> CurveSnapArrow, bool ClearConstraints);
-    public static PointSpec DefaultPointSpec { get; } = new(OnMouseUp: false, TwoDimensional: false, Cursor: Option<global::Rhino.UI.CursorStyle>.None, ObjectSnapCursors: Option<bool>.None, BasePoint: Option<Point3d>.None, DrawLineFromBasePoint: false, SnapToCurves: false, PermitConstraintOptions: true, NoRedrawOnExit: false, PermitFromOption: true, PermitTabMode: true, PermitElevatorMode: 0, SnapPoints: Seq<Point3d>(), ConstructionPoints: Seq<Point3d>(), Constraints: Seq<CommandPointConstraint>(), DistanceFromBasePoint: Option<double>.None, PermitOrthoSnap: Option<bool>.None, PermitObjectSnap: Option<bool>.None, DynamicDrawColor: Option<Color>.None, CurveSnapTangent: Option<(bool Enabled, bool Ends)>.None, CurveSnapPerp: Option<(bool Enabled, bool Ends)>.None, CurveSnapArrow: Option<(bool Enabled, bool Reverse)>.None, ClearConstraints: false);
-    internal sealed record Scalar(ScalarKind Kind, Option<UnitSystem> LengthUnits, Option<AngleUnitSystem> AngleUnits);
-    public static LimitSpec Limit<T>(Option<T> lower = default, Option<T> upper = default, bool strictlyLower = false, bool strictlyUpper = false) where T : IComparable<T> =>
-        new(Lower: lower.Map(static value => (object)value), Upper: upper.Map(static value => (object)value), StrictlyLower: strictlyLower, StrictlyUpper: strictlyUpper);
-
-    public sealed record LimitSpec(Option<object> Lower, Option<object> Upper, bool StrictlyLower, bool StrictlyUpper) {
-        internal Fin<(Option<TValue> Lower, Option<TValue> Upper)> Project<TValue>(Op op) where TValue : IComparable<TValue> => (Lower.Bind(ScalarBound<TValue>), Upper.Bind(ScalarBound<TValue>)) switch { (Option<TValue> lower, _) when Lower.IsSome && !lower.IsSome => Fin.Fail<(Option<TValue> Lower, Option<TValue> Upper)>(error: op.InvalidInput()), (_, Option<TValue> upper) when Upper.IsSome && !upper.IsSome => Fin.Fail<(Option<TValue> Lower, Option<TValue> Upper)>(error: op.InvalidInput()), (Option<TValue> lower, Option<TValue> upper) when lower.Case is TValue left && upper.Case is TValue right && left.CompareTo(other: right) > 0 => Fin.Fail<(Option<TValue> Lower, Option<TValue> Upper)>(error: op.InvalidInput()), (Option<TValue> lower, Option<TValue> upper) when lower.Case is TValue left && upper.Case is TValue right && left.CompareTo(other: right) == 0 && (StrictlyLower || StrictlyUpper) => Fin.Fail<(Option<TValue> Lower, Option<TValue> Upper)>(error: op.InvalidInput()), (Option<TValue> lower, Option<TValue> upper) => Fin.Succ(value: (Lower: lower, Upper: upper)) };
-        internal Option<TValue> Accept<TValue>(TValue value) where TValue : IComparable<TValue> =>
-            Project<TValue>(op: Op.Of(name: nameof(LimitSpec))).ToOption().Bind(bounds => bounds switch {
-                (Option<TValue> lower, _) when lower.Case is TValue lo && (StrictlyLower ? value.CompareTo(other: lo) <= 0 : value.CompareTo(other: lo) < 0) => Option<TValue>.None,
-                (_, Option<TValue> upper) when upper.Case is TValue hi && (StrictlyUpper ? value.CompareTo(other: hi) >= 0 : value.CompareTo(other: hi) > 0) => Option<TValue>.None,
-                _ => Some(value),
-            });
-
-        private static Option<TValue> ScalarBound<TValue>(object value) where TValue : IComparable<TValue> =>
-            value switch {
-                TValue typed => Some(typed),
-                double d when typeof(TValue) == typeof(double) && RhinoMath.IsValidDouble(x: d) => Some((TValue)(object)d),
-                double d when typeof(TValue) == typeof(int) && RhinoMath.IsValidDouble(x: d) && Math.Truncate(d) == d && d >= int.MinValue && d <= int.MaxValue => Some((TValue)(object)(int)d),
-                int i when typeof(TValue) == typeof(double) => Some((TValue)(object)(double)i),
-                _ => Option<TValue>.None,
-            };
-    }
-    internal sealed record BoxSpec(
-        GetBoxMode Mode,
-        Option<Point3d> BasePoint,
-        Option<string> Prompt1,
-        Option<string> Prompt2,
-        Option<string> Prompt3) {
-        internal static BoxSpec Default { get; } = new(
-            Mode: GetBoxMode.All,
-            BasePoint: Option<Point3d>.None,
-            Prompt1: Option<string>.None,
-            Prompt2: Option<string>.None,
-            Prompt3: Option<string>.None);
-        internal bool IsDefault =>
-            Mode == GetBoxMode.All && BasePoint.IsNone && Prompt1.IsNone && Prompt2.IsNone && Prompt3.IsNone;
-    }
 
     private Fin<Unit> ApplyPoint(GetPoint getter) {
         return PointMode.Map(spec => {
@@ -441,66 +518,6 @@ public sealed record CommandInputRequest<T> {
         rebind(arg: policies);
 }
 
-public sealed record CommandObjectSelection(
-    int Minimum = 1,
-    int Maximum = 1,
-    ObjectType Types = ObjectType.AnyObject,
-    GeometryAttributeFilter Attributes = default,
-    Option<GetObjectGeometryFilter> Filter = default,
-    bool PreSelect = true,
-    bool IgnoreUnacceptablePreselected = true,
-    bool PostSelect = true,
-    bool SubObjects = true,
-    bool Groups = true,
-    bool References = true,
-    bool Locked = false,
-    bool AlreadySelected = false,
-    bool SelectPrevious = true,
-    bool Highlight = true,
-    bool IgnoreGrips = true,
-    bool ClearOnEntry = true,
-    bool UnselectOnExit = true,
-    bool DeselectAllBeforePostSelect = false,
-    bool OneByOnePostSelect = false,
-    bool PressEnterWhenDonePrompt = true,
-    Option<string> PressEnterWhenDoneText = default,
-    bool ChooseOneQuestion = false,
-    bool BottomObjectPreference = false,
-    bool ProxyBrepFromSubD = false,
-    bool InactiveDetailPickEnabled = false) {
-    public static CommandObjectSelection Default { get; } = new();
-
-    internal Fin<Unit> Apply(GetObject getter) =>
-        Optional(getter)
-            .ToFin(Fail: Op.Of(name: nameof(CommandObjectSelection)).InvalidInput())
-            .Map(valid => {
-                valid.GeometryFilter = Types;
-                valid.GeometryAttributeFilter = Attributes;
-                _ = Filter.Iter(active => valid.SetCustomGeometryFilter(active));
-                valid.EnablePreSelect(enable: PreSelect, ignoreUnacceptablePreselectedObjects: IgnoreUnacceptablePreselected);
-                valid.EnablePostSelect(enable: PostSelect);
-                valid.SubObjectSelect = SubObjects;
-                valid.GroupSelect = Groups;
-                valid.ReferenceObjectSelect = References;
-                valid.LockedObjectSelect = Locked;
-                valid.AlreadySelectedObjectSelect = AlreadySelected;
-                valid.EnableSelPrevious(enable: SelectPrevious);
-                valid.EnableHighlight(enable: Highlight);
-                valid.EnableIgnoreGrips(enable: IgnoreGrips);
-                valid.EnableClearObjectsOnEntry(enable: ClearOnEntry);
-                valid.EnableUnselectObjectsOnExit(enable: UnselectOnExit);
-                valid.DeselectAllBeforePostSelect = DeselectAllBeforePostSelect;
-                valid.OneByOnePostSelect = OneByOnePostSelect;
-                valid.EnablePressEnterWhenDonePrompt(enable: PressEnterWhenDonePrompt);
-                _ = PressEnterWhenDoneText.Iter(valid.SetPressEnterWhenDonePrompt);
-                valid.ChooseOneQuestion = ChooseOneQuestion;
-                valid.BottomObjectPreference = BottomObjectPreference;
-                valid.ProxyBrepFromSubD = ProxyBrepFromSubD;
-                valid.InactiveDetailPickEnabled = InactiveDetailPickEnabled;
-                return unit;
-            });
-}
-
 public readonly record struct CommandPoint(
     Option<Point3d> Point,
     Option<DrawingPoint> WindowPoint,
@@ -541,11 +558,6 @@ public readonly record struct CommandPointConstraint {
                 .TraverseM(value => value.Apply(getter: getter))
                 .As()
             select unit);
-
-    internal Fin<Unit> Apply(GetPoint getter) =>
-        Optional(apply)
-            .ToFin(Fail: Op.Of(name: nameof(CommandPointConstraint)).InvalidInput())
-            .Bind(valid => valid(arg: getter));
 
     public static CommandPointConstraint Of(Func<GetPoint, bool> apply) =>
         new(getter => Optional(apply).ToFin(Fail: Op.Of(name: nameof(CommandPointConstraint)).InvalidInput())
@@ -596,6 +608,29 @@ public readonly record struct CommandPointConstraint {
 
     public static CommandPointConstraint VirtualCPlaneIntersection(Plane plane) =>
         Of(apply: getter => getter.ConstrainToVirtualCPlaneIntersection(plane: plane));
+
+    internal Fin<Unit> Apply(GetPoint getter) =>
+        Optional(apply)
+            .ToFin(Fail: Op.Of(name: nameof(CommandPointConstraint)).InvalidInput())
+            .Bind(valid => valid(arg: getter));
+}
+
+[StructLayout(LayoutKind.Auto)]
+public readonly record struct PointerState(PointerButtons Buttons, PointerModifiers Modifiers) {
+    public bool IsDrag => Buttons != PointerButtons.None;
+}
+
+[Union]
+public abstract partial record CommandPointPayload {
+    private CommandPointPayload() { }
+    public sealed record Mouse(GetPointMouseEventArgs Value) : CommandPointPayload;
+    public sealed record Draw(GetPointDrawEventArgs Value) : CommandPointPayload;
+    public sealed record PostDraw(DrawEventArgs Value) : CommandPointPayload;
+    public Option<Point3d> Point => Switch(mouse: static args => Some(args.Value.Point), draw: static args => Some(args.Value.CurrentPoint), postDraw: static _ => Option<Point3d>.None);
+    public Option<DrawingPoint> WindowPoint => Switch(mouse: static args => Some(args.Value.WindowPoint), draw: static _ => Option<DrawingPoint>.None, postDraw: static _ => Option<DrawingPoint>.None);
+    public Option<RhinoViewport> Viewport => Switch(mouse: static args => Some(args.Value.Viewport), draw: static args => Some(args.Value.Viewport), postDraw: static args => Some(args.Value.Viewport));
+    public Option<DisplayPipeline> Display => Switch(mouse: static _ => Option<DisplayPipeline>.None, draw: static args => Some(args.Value.Display), postDraw: static args => Some(args.Value.Display));
+    public Option<PointerState> Pointer => Switch(mouse: static args => Some(new PointerState(Buttons: (args.Value.LeftButtonDown ? PointerButtons.Left : PointerButtons.None) | (args.Value.RightButtonDown ? PointerButtons.Right : PointerButtons.None) | (args.Value.MiddleButtonDown ? PointerButtons.Middle : PointerButtons.None), Modifiers: (args.Value.ShiftKeyDown ? PointerModifiers.Shift : PointerModifiers.None) | (args.Value.ControlKeyDown ? PointerModifiers.Control : PointerModifiers.None))), draw: static _ => Option<PointerState>.None, postDraw: static _ => Option<PointerState>.None);
 }
 
 public readonly record struct CommandPointEvent(
@@ -612,9 +647,6 @@ public readonly record struct CommandPointEvent(
 
     public Option<UiGumballSnapshot> GumballSnapshot =>
         Gumball.Map(static value => value.Snapshot);
-
-    private Fin<UiGumball> ActiveGumball(string op) =>
-        Gumball.ToFin(Fail: Op.Of(name: op).InvalidInput());
 
     public Fin<bool> PickGumball(PickContext pick) {
         CommandPointEvent current = this;
@@ -646,44 +678,9 @@ public readonly record struct CommandPointEvent(
                from _ in validPreview.Draw(context: new UI.UiPreviewContext(Document: current.Document, Phase: current.Phase is CommandPointEventPhase.DynamicDraw ? UI.OverlayPhase.Overlay : UI.OverlayPhase.PostDraw, Viewport: viewport, Display: display, Gumball: current.GumballSnapshot))
                select unit;
     }
-}
 
-[Union]
-public abstract partial record CommandPointPayload {
-    private CommandPointPayload() { }
-    public sealed record Mouse(GetPointMouseEventArgs Value) : CommandPointPayload;
-    public sealed record Draw(GetPointDrawEventArgs Value) : CommandPointPayload;
-    public sealed record PostDraw(DrawEventArgs Value) : CommandPointPayload;
-    public Option<Point3d> Point => Switch(mouse: static args => Some(args.Value.Point), draw: static args => Some(args.Value.CurrentPoint), postDraw: static _ => Option<Point3d>.None);
-    public Option<DrawingPoint> WindowPoint => Switch(mouse: static args => Some(args.Value.WindowPoint), draw: static _ => Option<DrawingPoint>.None, postDraw: static _ => Option<DrawingPoint>.None);
-    public Option<RhinoViewport> Viewport => Switch(mouse: static args => Some(args.Value.Viewport), draw: static args => Some(args.Value.Viewport), postDraw: static args => Some(args.Value.Viewport));
-    public Option<DisplayPipeline> Display => Switch(mouse: static _ => Option<DisplayPipeline>.None, draw: static args => Some(args.Value.Display), postDraw: static args => Some(args.Value.Display));
-    public Option<PointerState> Pointer => Switch(mouse: static args => Some(new PointerState(Buttons: (args.Value.LeftButtonDown ? PointerButtons.Left : PointerButtons.None) | (args.Value.RightButtonDown ? PointerButtons.Right : PointerButtons.None) | (args.Value.MiddleButtonDown ? PointerButtons.Middle : PointerButtons.None), Modifiers: (args.Value.ShiftKeyDown ? PointerModifiers.Shift : PointerModifiers.None) | (args.Value.ControlKeyDown ? PointerModifiers.Control : PointerModifiers.None))), draw: static _ => Option<PointerState>.None, postDraw: static _ => Option<PointerState>.None);
-}
-
-public readonly record struct CommandSnapshot(
-    Option<RhinoView> View,
-    Option<DrawingPoint> WindowPoint,
-    Option<double> Number,
-    Option<string> Text,
-    Option<object> CustomMessage,
-    Option<Point3d> Point,
-    Option<Vector3d> Vector,
-    Option<Color> Color,
-    Option<DrawingRectangle> PickRectangle,
-    Option<DrawingRectangle> Rectangle2d,
-    Seq<DrawingPoint> Line2d) {
-    internal static CommandSnapshot Empty { get; } = new(default, default, default, default, default, default, default, default, default, default, Seq<DrawingPoint>());
-
-    internal static CommandSnapshot Of(GetBaseClass getter, GetResult raw) =>
-        new(View: Optional(getter.View()), WindowPoint: raw is GetResult.Point or GetResult.Point2d ? Some(getter.Point2d()) : Option<DrawingPoint>.None, Number: raw is GetResult.Number ? Some(getter.Number()) : Option<double>.None, Text: raw is GetResult.String ? Optional(getter.StringResult()) : Option<string>.None, CustomMessage: raw is GetResult.CustomMessage ? Optional(getter.CustomMessage()) : Option<object>.None, Point: raw is GetResult.Point ? Some(getter.Point()) : Option<Point3d>.None, Vector: (raw, getter.Vector()) switch { (GetResult.Point, Vector3d vector) when vector.IsValid && !vector.IsTiny() => Some(vector), _ => Option<Vector3d>.None }, Color: raw is GetResult.Color ? Some(getter.Color()) : Option<Color>.None, PickRectangle: raw is GetResult.Object ? Some(getter.PickRectangle()) : Option<DrawingRectangle>.None, Rectangle2d: raw is GetResult.Rectangle2d ? Some(getter.Rectangle2d()) : Option<DrawingRectangle>.None, Line2d: raw is GetResult.Line2d ? toSeq(getter.Line2d()) : Seq<DrawingPoint>());
-
-    internal bool Has(GetResult raw) => raw switch { GetResult.Number => Number.IsSome, GetResult.String => Text.IsSome, GetResult.CustomMessage => CustomMessage.IsSome, GetResult.Point => Point.IsSome || WindowPoint.IsSome || Vector.IsSome, GetResult.Point2d => WindowPoint.IsSome, GetResult.Color => Color.IsSome, GetResult.Object => PickRectangle.IsSome, GetResult.Rectangle2d => Rectangle2d.IsSome, GetResult.Line2d => !Line2d.IsEmpty, _ => false };
-}
-
-[StructLayout(LayoutKind.Auto)]
-public readonly record struct PointerState(PointerButtons Buttons, PointerModifiers Modifiers) {
-    public bool IsDrag => Buttons != PointerButtons.None;
+    private Fin<UiGumball> ActiveGumball(string op) =>
+        Gumball.ToFin(Fail: Op.Of(name: op).InvalidInput());
 }
 
 // --- [SERVICES] ---------------------------------------------------------------------------
@@ -722,6 +719,13 @@ public static class CommandInputs {
             runEvent: request.RunEvent,
             rebind: static values => Get<T>(policies: [.. values]),
             scripted: request.Script);
+    }
+
+    private readonly record struct CommandInputKind<T>(
+        Seq<Type> Types,
+        Func<CommandInputPolicy, Seq<CommandInputPolicy>, CommandInputRequest<T>> Create) {
+        internal bool Accepts(Type type) =>
+            Types.Exists(candidate => candidate == type);
     }
 
     private static CommandInputRequest<T> Request<T>(CommandInputPolicy policy, Seq<CommandInputPolicy> policies) =>
@@ -797,12 +801,6 @@ public static class CommandInputs {
             ? Number<GetNumber, double, T>(policy: policy, create: static () => new GetNumber(), receive: static getter => getter.Get(), current: static getter => getter.Number(), setLower: static (getter, value, strict) => getter.SetLowerLimit(lowerLimit: value, strictlyGreaterThan: strict), setUpper: static (getter, value, strict) => getter.SetUpperLimit(upperLimit: value, strictlyLessThan: strict))
             : Text<T>(policy: policy);
 
-    private sealed class CommandTransformGetter(Func<RhinoViewport, Point3d, Transform> calculate) : GetTransform {
-        public override Transform CalculateTransform(RhinoViewport viewport, Point3d point) => Optional(calculate).Map(project => project(arg1: viewport, arg2: point)).IfNone(Transform.Identity);
-    }
-
-    private delegate Result NativeGetter<TNative>(out TNative value);
-
     private static CommandInputRequest<T> Objects<T>(CommandInputPolicy policy, Seq<CommandInputPolicy> policies) =>
         policy.ObjectSelection.IfNone(CommandObjectSelection.Default) switch { { Minimum: < 0 } or { Maximum: < -1 } => Invalid<T>(name: nameof(Get)),
             CommandObjectSelection selection when selection.Maximum > 0 && selection.Maximum < selection.Minimum => Invalid<T>(name: nameof(Get)),
@@ -827,6 +825,10 @@ public static class CommandInputs {
             create: static () => new GetPoint(),
             receive: getter => getter.Get(onMouseUp: spec.OnMouseUp, get2DPoint: twoDimensional),
             project: static (_, getter, raw) => (raw is GetResult.Point or GetResult.Point2d ? PointValue<T>(getter: getter, raw: raw) : Option<T>.None, Option<CommandSelection.TrimResult>.None));
+    }
+
+    private sealed class CommandTransformGetter(Func<RhinoViewport, Point3d, Transform> calculate) : GetTransform {
+        public override Transform CalculateTransform(RhinoViewport viewport, Point3d point) => Optional(calculate).Map(project => project(arg1: viewport, arg2: point)).IfNone(Transform.Identity);
     }
 
     private static CommandInputRequest<T> Transform<T>(CommandInputPolicy policy) =>
@@ -965,6 +967,8 @@ public static class CommandInputs {
             (Result.Failure or Result.UnknownCommand, _) => Fin.Fail<CommandGet<T>>(error: Op.Of(name: nameof(Native)).InvalidResult()),
             (Result result, _) => Fin.Succ(value: CommandGet<T>.Native(result: result, value: Option<T>.None)),
         })), scripted: (input, token) => Script<T>(input: input, token: token));
+
+    private delegate Result NativeGetter<TNative>(out TNative value);
 
     private static CommandInputRequest<T> Native<T, TNative>(NativeGetter<TNative> get) =>
         Native(run: () => {

@@ -64,6 +64,13 @@ public abstract partial record WatchPayload {
     public Option<TCase> As<TCase>() where TCase : WatchPayload => Optional(this as TCase);
 }
 
+[Union]
+public abstract partial record WatchTarget {
+    private WatchTarget() { }
+    public sealed record Document(RhinoDoc Value) : WatchTarget;
+    public sealed record AllDocuments : WatchTarget;
+}
+
 [SmartEnum<int>]
 public sealed partial class WatchPhase {
     public static readonly WatchPhase
@@ -197,13 +204,6 @@ public sealed partial class WatchPhase {
             NewActiveDetailId: Option<Guid>.None));
 }
 
-[Union]
-public abstract partial record WatchTarget {
-    private WatchTarget() { }
-    public sealed record Document(RhinoDoc Value) : WatchTarget;
-    public sealed record AllDocuments : WatchTarget;
-}
-
 // --- [MODELS] -----------------------------------------------------------------------------
 [StructLayout(LayoutKind.Auto)]
 public readonly record struct WatchEvent(WatchPhase Phase, uint DocumentSerialNumber, Option<RhinoDoc> Document, WatchPayload Payload) {
@@ -304,18 +304,6 @@ public sealed class Subscription : IDisposable {
         new(detach: () => detachers.Iter(static run =>
             _ = UI.RhinoUi.Protect(valid: () => { run(); return Fin.Succ(value: unit); })));
 
-    public static Subscription operator |(Subscription a, Subscription b) {
-        ArgumentNullException.ThrowIfNull(a);
-        ArgumentNullException.ThrowIfNull(b);
-        return ReferenceEquals(objA: a, objB: Nothing) ? b
-            : ReferenceEquals(objA: b, objB: Nothing) ? a
-            : Of(Seq(a.Dispose, b.Dispose));
-    }
-
-    public void Dispose() {
-        Action? captured = Interlocked.Exchange(location1: ref detach, value: null);
-        _ = captured is null ? unit : UI.RhinoUi.Protect(valid: () => { captured(); return Fin.Succ(value: unit); });
-    }
     public static Subscription Attach<TArgs>(bool active, Action<EventHandler<TArgs>> subscribe, Action<EventHandler<TArgs>> unsubscribe, Func<TArgs, Fin<Unit>> handle) {
         void Handle(object? sender, TArgs args) => _ = UI.RhinoUi.Protect(valid: () => handle(arg: args));
         EventHandler<TArgs> handler = Handle;   // single delegate instance for symmetric +=/-=
@@ -329,6 +317,19 @@ public sealed class Subscription : IDisposable {
             watcher.EnableRaisingEvents = false;
             watcher.Dispose();
         }));
+
+    public static Subscription operator |(Subscription a, Subscription b) {
+        ArgumentNullException.ThrowIfNull(a);
+        ArgumentNullException.ThrowIfNull(b);
+        return ReferenceEquals(objA: a, objB: Nothing) ? b
+            : ReferenceEquals(objA: b, objB: Nothing) ? a
+            : Of(Seq(a.Dispose, b.Dispose));
+    }
+
+    public void Dispose() {
+        Action? captured = Interlocked.Exchange(location1: ref detach, value: null);
+        _ = captured is null ? unit : UI.RhinoUi.Protect(valid: () => { captured(); return Fin.Succ(value: unit); });
+    }
 }
 
 internal sealed class EventDispatcher<TRaw, TEvent> {

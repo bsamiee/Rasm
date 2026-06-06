@@ -11,12 +11,7 @@ namespace Rasm.Rhino.Blocks;
 
 // --- [OPERATIONS] -------------------------------------------------------------------------
 public static class Archive {
-    public readonly record struct DefinitionWalkFrame(
-        Transform Composed,
-        ImmutableArray<DefinitionId> Path,
-        int Depth,
-        Option<Guid> InstanceId,
-        Option<Guid> MemberId);
+    internal const int LinkedArchiveClosureMaxDepth = 64;
 
     public sealed record Graph(
         ImmutableArray<Definition> Definitions,
@@ -30,6 +25,13 @@ public static class Archive {
     public readonly record struct LinkedArchiveEdge(ArchivePath FromPath, ArchiveLink Link, ArchivePath ToPath, int Depth);
     [StructLayout(LayoutKind.Auto)]
     public readonly record struct UnitEdge(ArchivePath Path, UnitSystem Units, double ScaleToHost);
+
+    public readonly record struct DefinitionWalkFrame(
+        Transform Composed,
+        ImmutableArray<DefinitionId> Path,
+        int Depth,
+        Option<Guid> InstanceId,
+        Option<Guid> MemberId);
 
     internal readonly record struct DefinitionWalkNode(
         Option<ReachInsert> Reach,
@@ -56,19 +58,12 @@ public static class Archive {
                 UnitEdges: UnitEdges);
     }
 
-    internal const int LinkedArchiveClosureMaxDepth = 64;
-
     public static Fin<Graph> From(File3dm model, Op? key = null, Option<string> archivePath = default) {
         Op op = key.OrDefault();
         Option<string> anchor = archivePath.Bind(static path => BlockPaths.ArchiveAnchor(archivePath: Some(path)));
         return Optional(model).ToFin(Fail: op.InvalidInput())
             .Bind(active => op.Catch(() => Build(active: active, anchorDirectory: anchor, op: op)));
     }
-    private static Fin<Graph> Build(File3dm active, Option<string> anchorDirectory, Op op) =>
-        from defs in Rows(() => active.AllInstanceDefinitions)
-            .Map(geo => Definition.From(definition: geo, anchorDirectory: anchorDirectory, key: op))
-            .TraverseM(identity).As()
-        select Compose(active: active, definitions: defs, anchorDirectory: anchorDirectory, key: op);
     public static Fin<Seq<LinkedArchiveEdge>> LinkedArchiveClosure(
         File3dm root,
         string rootPath,
@@ -101,6 +96,325 @@ public static class Archive {
                    key: op))
                select state.Report(policy: validPolicy);
     }
+    public static Graph ComposeLive(InstanceDefinitionTable table, Seq<Definition> definitions) =>
+        ComposeFrom(
+            definitions: definitions,
+            source: _ => definitions.Bind(def =>
+                Optional(table.Find(instanceId: def.Id.Value, ignoreDeletedInstanceDefinitions: true))
+                    .Map(active => Operations.NestedReferences(def: active))
+                    .IfNone(Seq<(Guid ObjectId, InstanceReferenceGeometry Reference)>())),
+            linkedArchives: LinkedArchives(definitions: definitions));
+
+    internal static Seq<DefinitionWalkNode> WalkDefinitions(
+        InstanceDefinitionTable table,
+        InstanceObject seed,
+        Transform parent,
+        ImmutableArray<DefinitionId> path,
+        int depth,
+        DepthPolicy policy,
+        bool flatLeaves,
+        Op key) =>
+        (flatLeaves && depth >= policy.MaxDepth, seed.InstanceDefinition) switch {
+            (true, _) or (_, null) => Seq<DefinitionWalkNode>(),
+            (_, InstanceDefinition def) => ExpandDefinitions(
+                table: table,
+                def: def,
+                frame: new DefinitionWalkFrame(
+                    Composed: parent * seed.InstanceXform,
+                    Path: path,
+                    Depth: flatLeaves ? depth + 1 : depth,
+                    InstanceId: Some(seed.Id),
+                    MemberId: Option<Guid>.None),
+                policy: policy,
+                flatLeaves: flatLeaves,
+                key: key),
+        };
+    private static Seq<DefinitionWalkNode> ExpandDefinitions(
+        InstanceDefinitionTable table,
+        InstanceDefinition def,
+        DefinitionWalkFrame frame,
+        DepthPolicy policy,
+        bool flatLeaves,
+        Op key) =>
+        DefinitionId.From(value: def.Id, key: key).ToOption().Map(defId => {
+            ImmutableArray<DefinitionId> nextPath = frame.Path.Add(item: defId);
+            Seq<DefinitionWalkNode> prefix = flatLeaves
+                ? Seq<DefinitionWalkNode>()
+                : Seq(new DefinitionWalkNode(
+                    Reach: Some(new ReachInsert(
+                        InstanceId: frame.InstanceId.IfNone(noneValue: frame.MemberId.IfNone(noneValue: Guid.Empty)),
+                        DefId: defId,
+                        WorldXform: frame.Composed,
+                        Depth: frame.Depth,
+                        Path: nextPath)),
+                    Flat: Option<FlatPiece>.None));
+            bool stop = flatLeaves
+                ? frame.Depth >= policy.MaxDepth
+                : (policy.StopOnCycle && frame.Path.Contains(defId)) || frame.Depth >= policy.MaxDepth;
+            return stop
+                ? prefix
+                : prefix + Operations.BindDefinitionMembers(
+                    def: def,
+                    composed: frame.Composed,
+                    onInstance: (nested, parentXform) => WalkDefinitions(
+                        table: table,
+                        seed: nested,
+                        parent: parentXform,
+                        path: nextPath,
+                        depth: frame.Depth + 1,
+                        policy: policy,
+                        flatLeaves: flatLeaves,
+                        key: key),
+                    onReference: (reference, memberId, parentXform) =>
+                        Optional(table.Find(instanceId: reference.ParentIdefId, ignoreDeletedInstanceDefinitions: true))
+                            .Map(nestedDef => ExpandDefinitions(
+                                table: table,
+                                def: nestedDef,
+                                frame: new DefinitionWalkFrame(
+                                    Composed: parentXform * reference.Xform,
+                                    Path: nextPath,
+                                    Depth: frame.Depth + 1,
+                                    InstanceId: frame.InstanceId,
+                                    MemberId: Some(memberId)),
+                                policy: policy,
+                                flatLeaves: flatLeaves,
+                                key: key))
+                            .IfNone(Seq<DefinitionWalkNode>()),
+                    onLeaf: flatLeaves
+                        ? (leaf, parentXform) => leaf.Geometry is GeometryBase g
+                            ? Seq(new DefinitionWalkNode(
+                                Reach: Option<ReachInsert>.None,
+                                Flat: Some(new FlatPiece(Geometry: g, Composed: parentXform, Path: nextPath))))
+                            : Seq<DefinitionWalkNode>()
+                        : null);
+        }).IfNone(Seq<DefinitionWalkNode>());
+    public static Graph Subgraph(InstanceDefinitionTable table, Seq<Definition> definitions, Definition anchor) {
+        ArgumentNullException.ThrowIfNull(argument: anchor);
+        HashMap<Guid, Definition> lookup = Lookup(definitions: definitions);
+        LanguageExt.HashSet<Guid> reachable = Reachable(defId: anchor.Id.Value, lookup: lookup, table: table);
+        return ComposeLive(table: table, definitions: definitions.Filter(def => reachable.Contains(key: def.Id.Value)));
+    }
+    public static Fin<AuditGraph> Audit(InstanceDefinitionTable table, Op key) {
+        ArgumentNullException.ThrowIfNull(argument: table);
+        Option<string> anchor = BlockPaths.DocAnchor(document: table.Document);
+        Seq<InstanceDefinition> definitions = Definition.List(table: table);
+        (Seq<AuditGraph.Node> nodes, Seq<AuditGraph.Edge> edges) = definitions
+            .Choose(d => ProjectAudit(definition: d, anchorDirectory: anchor, key: key))
+            .Fold((Nodes: Seq<AuditGraph.Node>(), Edges: Seq<AuditGraph.Edge>()), static (acc, pair) =>
+                (Nodes: acc.Nodes + pair.Node, Edges: acc.Edges + pair.Edges));
+        return Fin.Succ(value: new AuditGraph(Nodes: [.. nodes], Edges: [.. edges]));
+    }
+    public static Fin<Graph> LiveGraph(InstanceDefinitionTable table, Option<Definition> anchor, Op key) {
+        ArgumentNullException.ThrowIfNull(argument: table);
+        return Definition.List(table: table)
+            .Map(d => Definition.From(definition: d, anchorDirectory: BlockPaths.DocAnchor(document: table.Document), key: key))
+            .TraverseM(identity).As()
+            .Map(definitions => anchor.Case switch {
+                Definition a => Subgraph(table: table, definitions: definitions, anchor: a),
+                _ => ComposeLive(table: table, definitions: definitions),
+            });
+    }
+    public static Fin<Seq<InstanceDefinition>> LinkedRefreshOrder(InstanceDefinitionTable table, Seq<InstanceDefinition> candidates, Op key) {
+        ArgumentNullException.ThrowIfNull(argument: table);
+        return LiveGraph(table: table, anchor: Option<Definition>.None, key: key)
+            .Map(graph => {
+                Dictionary<Guid, int> rank = BakePlan(graph: graph)
+                    .Select((definition, index) => (definition.Id.Value, index))
+                    .ToDictionary(pair => pair.Value, pair => pair.index);
+                return toSeq(candidates.OrderBy(d => rank.GetValueOrDefault(key: d.Id, defaultValue: int.MaxValue)));
+            });
+    }
+    internal static Seq<ArchiveLink> LinkedSources(File3dm model, Option<string> anchorDirectory, Op key) =>
+        Rows(() => model.AllInstanceDefinitions)
+            .Choose(def => Definition.NonBlank(value: def.SourceArchive)
+                .Bind(raw => ArchiveLink.Resolve(raw: raw, anchorDirectory: anchorDirectory, key: key).ToOption()));
+
+    public static Seq<Definition> BakePlan(Graph graph) {
+        ArgumentNullException.ThrowIfNull(argument: graph);
+        FrozenDictionary<Guid, DefinitionId> instanceByObject = graph.Instances.Length == 0
+            ? FrozenDictionary<Guid, DefinitionId>.Empty
+            : graph.Instances.ToFrozenDictionary(static i => i.ObjectId, static i => i.ParentDefId);
+        HashMap<Guid, ImmutableArray<Guid>> nestedDefs = toSeq(graph.Definitions).Fold(
+            initialState: HashMap<Guid, ImmutableArray<Guid>>(),
+            f: (acc, def) => acc.AddOrUpdate(key: def.Id.Value, value: NestedDefsOf(def: def, instanceByObject: instanceByObject)));
+        HashMap<Guid, int> resolved = toSeq(graph.Definitions).Fold(
+            initialState: HashMap<Guid, int>(),
+            f: (acc, def) => acc.ContainsKey(key: def.Id.Value)
+                ? acc
+                : acc.AddOrUpdate(key: def.Id.Value, value: ComputeDepth(defId: def.Id.Value, nestedDefs: nestedDefs, visiting: LxHashSet.empty<Guid>(), memo: acc)));
+        return toSeq(graph.Definitions.OrderBy(d => resolved.Find(key: d.Id.Value).IfNone(noneValue: 0)));
+    }
+    // strongly-connected components of the definition-nesting graph: two defs share a group iff each is reachable from the other via ≥1 nesting edge; singletons survive only as self-loops. Reuses ExpandReachable so cycle detection rides the same functional reach primitive as BakePlan's depth fold.
+    public static Seq<Seq<DefinitionId>> FindCircularLinks(Graph graph) {
+        ArgumentNullException.ThrowIfNull(argument: graph);
+        FrozenDictionary<Guid, DefinitionId> instanceByObject = graph.Instances.Length == 0
+            ? FrozenDictionary<Guid, DefinitionId>.Empty
+            : graph.Instances.ToFrozenDictionary(static i => i.ObjectId, static i => i.ParentDefId);
+        HashMap<Guid, Seq<Guid>> adjacency = toSeq(graph.Definitions).Fold(
+            initialState: HashMap<Guid, Seq<Guid>>(),
+            f: (acc, def) => acc.AddOrUpdate(key: def.Id.Value, value: toSeq(NestedDefsOf(def: def, instanceByObject: instanceByObject))));
+        HashMap<Guid, DefinitionId> idByGuid = toSeq(graph.Definitions).Fold(
+            initialState: HashMap<Guid, DefinitionId>(),
+            f: static (acc, def) => acc.AddOrUpdate(key: def.Id.Value, value: def.Id));
+        Seq<Guid> Neighbours(Guid id) => adjacency.Find(key: id).IfNone(Seq<Guid>());
+        LanguageExt.HashSet<Guid> Reach(Guid id) =>
+            ExpandReachable(frontier: Neighbours(id: id), seen: Neighbours(id: id).Fold(LanguageExt.HashSet<Guid>.Empty, static (acc, g) => acc.Add(key: g)), nested: Neighbours);
+        HashMap<Guid, LanguageExt.HashSet<Guid>> reachable = toSeq(graph.Definitions).Fold(
+            initialState: HashMap<Guid, LanguageExt.HashSet<Guid>>(),
+            f: (acc, def) => acc.AddOrUpdate(key: def.Id.Value, value: Reach(id: def.Id.Value)));
+        bool Mutual(Guid a, Guid b) =>
+            reachable.Find(key: a).Map(set => set.Contains(key: b)).IfNone(noneValue: false)
+            && reachable.Find(key: b).Map(set => set.Contains(key: a)).IfNone(noneValue: false);
+        Seq<Guid> cyclic = toSeq(graph.Definitions)
+            .Choose(d => reachable.Find(key: d.Id.Value)
+                .Filter(set => set.Contains(key: d.Id.Value))
+                .Map(_ => d.Id.Value));
+        return cyclic
+            .Map(id => toSeq(cyclic.Filter(other => Mutual(a: id, b: other)).Order()))
+            .Distinct()
+            .Map(group => group.Choose(guid => idByGuid.Find(key: guid)));
+    }
+    public static Seq<FileResourceEntry> ToFileResourceEntries(Graph graph) {
+        ArgumentNullException.ThrowIfNull(argument: graph);
+        return toSeq(graph.Definitions).Map(static d => new FileResourceEntry(
+            Kind: DocumentResourceKind.Block,
+            Name: Some(value: d.Name.Value),
+            Path: d.Source.Map(static link => link.Stored),
+            Id: Some(value: d.Id.Value),
+            Source: Some(value: d.IsLinked ? "linked-block" : "block")));
+    }
+    public static Seq<FileResourceEdge> ToFileResourceEdges(Graph graph) {
+        ArgumentNullException.ThrowIfNull(argument: graph);
+        Seq<FileResourceEdge> linked = toSeq(graph.Definitions).Bind(static d => d.Source.Match(
+            Some: link => Seq(new FileResourceEdge(
+                FromKind: DocumentResourceKind.Block, FromId: Some(value: d.Id.Value),
+                ToKind: DocumentResourceKind.FileReference, ToId: Option<Guid>.None,
+                Role: FileResourceRole.Linked, Path: Some(value: link.Stored))),
+            None: static () => Seq<FileResourceEdge>()));
+        Seq<FileResourceEdge> members = toSeq(graph.Definitions).Bind(static d => toSeq(d.MemberIds)
+            .Map(memberId => new FileResourceEdge(
+                FromKind: DocumentResourceKind.Block, FromId: Some(value: d.Id.Value),
+                ToKind: DocumentResourceKind.Object, ToId: Some(value: memberId),
+                Role: FileResourceRole.Member)));
+        Seq<FileResourceEdge> instances = toSeq(graph.Instances).Map(static i => new FileResourceEdge(
+            FromKind: DocumentResourceKind.Object, FromId: Some(value: i.ObjectId),
+            ToKind: DocumentResourceKind.Block, ToId: Some(value: i.ParentDefId.Value),
+            Role: FileResourceRole.Instance));
+        return linked + members + instances;
+    }
+
+    private static Fin<Graph> Build(File3dm active, Option<string> anchorDirectory, Op op) =>
+        from defs in Rows(() => active.AllInstanceDefinitions)
+            .Map(geo => Definition.From(definition: geo, anchorDirectory: anchorDirectory, key: op))
+            .TraverseM(identity).As()
+        select Compose(active: active, definitions: defs, anchorDirectory: anchorDirectory, key: op);
+
+    private static Graph ComposeFrom(
+        Seq<Definition> definitions,
+        Func<HashMap<Guid, Definition>, Seq<(Guid ObjectId, InstanceReferenceGeometry Reference)>> source,
+        ImmutableArray<ArchiveLink> linkedArchives) {
+        HashMap<Guid, Definition> lookup = Lookup(definitions: definitions);
+        return Compose(definitions: definitions, instances: ProjectInstances(lookup: lookup, source: source(arg: lookup)), linkedArchives: linkedArchives);
+    }
+
+    private static Graph Compose(Seq<Definition> definitions, ImmutableArray<Instance> instances, ImmutableArray<ArchiveLink> linkedArchives) {
+        ImmutableArray<Definition> defArray = [.. definitions];
+        return new Graph(Definitions: defArray, Instances: instances, LinkedArchives: linkedArchives);
+    }
+
+    private static Graph Compose(File3dm active, Seq<Definition> definitions, Option<string> anchorDirectory, Op key) {
+        Seq<(Guid ObjectId, InstanceReferenceGeometry Reference)> topLevel = Rows(() => active.Objects)
+            .Choose(o => Native(() => o.Geometry).Bind(geometry => geometry switch {
+                InstanceReferenceGeometry { ParentIdefId: var parentId } r when parentId != Guid.Empty =>
+                    Native(() => o.Attributes).Map(attributes => (attributes.ObjectId, Reference: r)),
+                _ => Option<(Guid ObjectId, InstanceReferenceGeometry Reference)>.None,
+            }));
+        Seq<(Guid ObjectId, InstanceReferenceGeometry Reference)> memberRefs = definitions.Bind((Definition snap) =>
+            toSeq(snap.MemberIds).Bind((Guid memberId) =>
+                Native(() => active.Objects)
+                    .Bind(objects => Native(() => objects.FindId(id: memberId))).Case switch {
+                        File3dmObject member when Native(() => member.Geometry).Case is InstanceReferenceGeometry reference =>
+                            Seq((ObjectId: memberId, Reference: (InstanceReferenceGeometry)reference.Duplicate())),
+                        _ => Seq<(Guid ObjectId, InstanceReferenceGeometry Reference)>(),
+                    }));
+        LanguageExt.HashSet<Guid> memberIds = definitions
+            .Bind(static definition => toSeq(definition.MemberIds))
+            .Fold(LanguageExt.HashSet<Guid>.Empty, static (ids, id) => ids.Add(key: id));
+        return ComposeFrom(
+            definitions: definitions,
+            source: _ => topLevel.Filter(instance => !memberIds.Contains(key: instance.ObjectId)) + memberRefs,
+            linkedArchives: LinkedArchives(definitions: definitions, model: Some(active), anchorDirectory: anchorDirectory, key: key));
+    }
+
+    private static ImmutableArray<ArchiveLink> LinkedArchives(
+        Seq<Definition> definitions,
+        Option<File3dm> model = default,
+        Option<string> anchorDirectory = default,
+        Op? key = null) {
+        Op op = key.OrDefault();
+        Seq<ArchiveLink> fromModel = model.Case switch {
+            File3dm active => LinkedSources(model: active, anchorDirectory: anchorDirectory, key: op),
+            _ => Seq<ArchiveLink>(),
+        };
+        return [.. toSeq(definitions).Choose(static d => d.Source)
+            .Concat(fromModel)
+            .Fold(HashMap<string, ArchiveLink>(), static (acc, link) => acc.AddOrUpdate(key: link.Full.Value, value: link))
+            .Values
+            .ToSeq()];
+    }
+
+    private static HashMap<Guid, Definition> Lookup(Seq<Definition> definitions) =>
+        definitions.Fold(
+            initialState: HashMap<Guid, Definition>(),
+            f: (acc, def) => acc.AddOrUpdate(key: def.Id.Value, value: def));
+
+    private static ImmutableArray<Instance> ProjectInstances(
+        HashMap<Guid, Definition> lookup,
+        Seq<(Guid ObjectId, InstanceReferenceGeometry Reference)> source) =>
+        [.. source.Choose(pair =>
+            lookup.Find(key: pair.Reference.ParentIdefId).Map(parent => new Instance(
+                ObjectId: pair.ObjectId,
+                ParentDefId: parent.Id,
+                Xform: pair.Reference.Xform)))];
+
+    private static Option<(AuditGraph.Node Node, Seq<AuditGraph.Edge> Edges)> ProjectAudit(
+        InstanceDefinition definition,
+        Option<string> anchorDirectory,
+        Op key) =>
+        Definition.From(definition: definition, anchorDirectory: anchorDirectory, key: key).ToOption().Map(def => {
+            Seq<MemberVisit> visits = Operations.VisitDefinitionMembers(def: definition, composed: Transform.Identity);
+            return (
+                Node: def.ToAuditNode(),
+                Edges: visits.Map(visit => new AuditGraph.Edge(From: def.Id, Kind: BlockEdgeKind.Member, To: new EdgeTarget.ObjectId(Id: visit.ObjectId)))
+                    + def.Source.Map(link => Seq(new AuditGraph.Edge(From: def.Id, Kind: BlockEdgeKind.LinkedArchive, To: new EdgeTarget.ArchiveTarget(Path: link.Full)))).IfNone(Seq<AuditGraph.Edge>())
+                    + toSeq(definition.GetReferences(wheretoLook: ReferenceScope.TopAndNested.Native) ?? [])
+                        .Filter(static inst => inst is not null)
+                        .Map(inst => new AuditGraph.Edge(From: def.Id, Kind: BlockEdgeKind.InstanceInsert, To: new EdgeTarget.ObjectId(Id: inst!.Id))));
+        });
+
+    private static LanguageExt.HashSet<Guid> Reachable(Guid defId, HashMap<Guid, Definition> lookup, InstanceDefinitionTable table) {
+        Seq<Guid> Nested(Guid id) =>
+            Optional(table.Find(instanceId: id, ignoreDeletedInstanceDefinitions: true))
+                .Map(def => Operations.NestedReferences(def: def)
+                    .Map(pair => pair.Reference.ParentIdefId)
+                    .Filter(parent => lookup.ContainsKey(key: parent)))
+                .IfNone(Seq<Guid>());
+        return ExpandReachable(frontier: Seq(defId), seen: LanguageExt.HashSet<Guid>.Empty.Add(defId), nested: Nested);
+    }
+
+    private static LanguageExt.HashSet<Guid> ExpandReachable(
+        Seq<Guid> frontier,
+        LanguageExt.HashSet<Guid> seen,
+        Func<Guid, Seq<Guid>> nested) {
+        Seq<Guid> next = frontier.Bind(nested).Filter(id => !seen.Contains(key: id));
+        return next.IsEmpty
+            ? seen
+            : ExpandReachable(
+                frontier: next,
+                seen: next.Fold(seen, static (acc, id) => acc.Add(key: id)),
+                nested: nested);
+    }
+
     private static Fin<ClosureState> WalkClosure(
         File3dm model,
         string path,
@@ -223,256 +537,7 @@ public static class Archive {
             .Choose(item => ArchivePath.From(value: item, key: key).ToOption());
         return closed.IsEmpty ? Seq<Seq<ArchivePath>>() : Seq(closed);
     }
-    private static Graph ComposeFrom(
-        Seq<Definition> definitions,
-        Func<HashMap<Guid, Definition>, Seq<(Guid ObjectId, InstanceReferenceGeometry Reference)>> source,
-        ImmutableArray<ArchiveLink> linkedArchives) {
-        HashMap<Guid, Definition> lookup = Lookup(definitions: definitions);
-        return Compose(definitions: definitions, instances: ProjectInstances(lookup: lookup, source: source(arg: lookup)), linkedArchives: linkedArchives);
-    }
-    public static Graph ComposeLive(InstanceDefinitionTable table, Seq<Definition> definitions) =>
-        ComposeFrom(
-            definitions: definitions,
-            source: _ => definitions.Bind(def =>
-                Optional(table.Find(instanceId: def.Id.Value, ignoreDeletedInstanceDefinitions: true))
-                    .Map(active => Operations.NestedReferences(def: active))
-                    .IfNone(Seq<(Guid ObjectId, InstanceReferenceGeometry Reference)>())),
-            linkedArchives: LinkedArchives(definitions: definitions));
-    private static ImmutableArray<ArchiveLink> LinkedArchives(
-        Seq<Definition> definitions,
-        Option<File3dm> model = default,
-        Option<string> anchorDirectory = default,
-        Op? key = null) {
-        Op op = key.OrDefault();
-        Seq<ArchiveLink> fromModel = model.Case switch {
-            File3dm active => LinkedSources(model: active, anchorDirectory: anchorDirectory, key: op),
-            _ => Seq<ArchiveLink>(),
-        };
-        return [.. toSeq(definitions).Choose(static d => d.Source)
-            .Concat(fromModel)
-            .Fold(HashMap<string, ArchiveLink>(), static (acc, link) => acc.AddOrUpdate(key: link.Full.Value, value: link))
-            .Values
-            .ToSeq()];
-    }
-    private static HashMap<Guid, Definition> Lookup(Seq<Definition> definitions) =>
-        definitions.Fold(
-            initialState: HashMap<Guid, Definition>(),
-            f: (acc, def) => acc.AddOrUpdate(key: def.Id.Value, value: def));
-    internal static Seq<DefinitionWalkNode> WalkDefinitions(
-        InstanceDefinitionTable table,
-        InstanceObject seed,
-        Transform parent,
-        ImmutableArray<DefinitionId> path,
-        int depth,
-        DepthPolicy policy,
-        bool flatLeaves,
-        Op key) =>
-        (flatLeaves && depth >= policy.MaxDepth, seed.InstanceDefinition) switch {
-            (true, _) or (_, null) => Seq<DefinitionWalkNode>(),
-            (_, InstanceDefinition def) => ExpandDefinitions(
-                table: table,
-                def: def,
-                frame: new DefinitionWalkFrame(
-                    Composed: parent * seed.InstanceXform,
-                    Path: path,
-                    Depth: flatLeaves ? depth + 1 : depth,
-                    InstanceId: Some(seed.Id),
-                    MemberId: Option<Guid>.None),
-                policy: policy,
-                flatLeaves: flatLeaves,
-                key: key),
-        };
-    private static Seq<DefinitionWalkNode> ExpandDefinitions(
-        InstanceDefinitionTable table,
-        InstanceDefinition def,
-        DefinitionWalkFrame frame,
-        DepthPolicy policy,
-        bool flatLeaves,
-        Op key) =>
-        DefinitionId.From(value: def.Id, key: key).ToOption().Map(defId => {
-            ImmutableArray<DefinitionId> nextPath = frame.Path.Add(item: defId);
-            Seq<DefinitionWalkNode> prefix = flatLeaves
-                ? Seq<DefinitionWalkNode>()
-                : Seq(new DefinitionWalkNode(
-                    Reach: Some(new ReachInsert(
-                        InstanceId: frame.InstanceId.IfNone(noneValue: frame.MemberId.IfNone(noneValue: Guid.Empty)),
-                        DefId: defId,
-                        WorldXform: frame.Composed,
-                        Depth: frame.Depth,
-                        Path: nextPath)),
-                    Flat: Option<FlatPiece>.None));
-            bool stop = flatLeaves
-                ? frame.Depth >= policy.MaxDepth
-                : (policy.StopOnCycle && frame.Path.Contains(defId)) || frame.Depth >= policy.MaxDepth;
-            return stop
-                ? prefix
-                : prefix + Operations.BindDefinitionMembers(
-                    def: def,
-                    composed: frame.Composed,
-                    onInstance: (nested, parentXform) => WalkDefinitions(
-                        table: table,
-                        seed: nested,
-                        parent: parentXform,
-                        path: nextPath,
-                        depth: frame.Depth + 1,
-                        policy: policy,
-                        flatLeaves: flatLeaves,
-                        key: key),
-                    onReference: (reference, memberId, parentXform) =>
-                        Optional(table.Find(instanceId: reference.ParentIdefId, ignoreDeletedInstanceDefinitions: true))
-                            .Map(nestedDef => ExpandDefinitions(
-                                table: table,
-                                def: nestedDef,
-                                frame: new DefinitionWalkFrame(
-                                    Composed: parentXform * reference.Xform,
-                                    Path: nextPath,
-                                    Depth: frame.Depth + 1,
-                                    InstanceId: frame.InstanceId,
-                                    MemberId: Some(memberId)),
-                                policy: policy,
-                                flatLeaves: flatLeaves,
-                                key: key))
-                            .IfNone(Seq<DefinitionWalkNode>()),
-                    onLeaf: flatLeaves
-                        ? (leaf, parentXform) => leaf.Geometry is GeometryBase g
-                            ? Seq(new DefinitionWalkNode(
-                                Reach: Option<ReachInsert>.None,
-                                Flat: Some(new FlatPiece(Geometry: g, Composed: parentXform, Path: nextPath))))
-                            : Seq<DefinitionWalkNode>()
-                        : null);
-        }).IfNone(Seq<DefinitionWalkNode>());
-    private static ImmutableArray<Instance> ProjectInstances(
-        HashMap<Guid, Definition> lookup,
-        Seq<(Guid ObjectId, InstanceReferenceGeometry Reference)> source) =>
-        [.. source.Choose(pair =>
-            lookup.Find(key: pair.Reference.ParentIdefId).Map(parent => new Instance(
-                ObjectId: pair.ObjectId,
-                ParentDefId: parent.Id,
-                Xform: pair.Reference.Xform)))];
-    private static Graph Compose(Seq<Definition> definitions, ImmutableArray<Instance> instances, ImmutableArray<ArchiveLink> linkedArchives) {
-        ImmutableArray<Definition> defArray = [.. definitions];
-        return new Graph(Definitions: defArray, Instances: instances, LinkedArchives: linkedArchives);
-    }
-    private static Graph Compose(File3dm active, Seq<Definition> definitions, Option<string> anchorDirectory, Op key) {
-        Seq<(Guid ObjectId, InstanceReferenceGeometry Reference)> topLevel = Rows(() => active.Objects)
-            .Choose(o => Native(() => o.Geometry).Bind(geometry => geometry switch {
-                InstanceReferenceGeometry { ParentIdefId: var parentId } r when parentId != Guid.Empty =>
-                    Native(() => o.Attributes).Map(attributes => (attributes.ObjectId, Reference: r)),
-                _ => Option<(Guid ObjectId, InstanceReferenceGeometry Reference)>.None,
-            }));
-        Seq<(Guid ObjectId, InstanceReferenceGeometry Reference)> memberRefs = definitions.Bind((Definition snap) =>
-            toSeq(snap.MemberIds).Bind((Guid memberId) =>
-                Native(() => active.Objects)
-                    .Bind(objects => Native(() => objects.FindId(id: memberId))).Case switch {
-                        File3dmObject member when Native(() => member.Geometry).Case is InstanceReferenceGeometry reference =>
-                            Seq((ObjectId: memberId, Reference: (InstanceReferenceGeometry)reference.Duplicate())),
-                        _ => Seq<(Guid ObjectId, InstanceReferenceGeometry Reference)>(),
-                    }));
-        LanguageExt.HashSet<Guid> memberIds = definitions
-            .Bind(static definition => toSeq(definition.MemberIds))
-            .Fold(LanguageExt.HashSet<Guid>.Empty, static (ids, id) => ids.Add(key: id));
-        return ComposeFrom(
-            definitions: definitions,
-            source: _ => topLevel.Filter(instance => !memberIds.Contains(key: instance.ObjectId)) + memberRefs,
-            linkedArchives: LinkedArchives(definitions: definitions, model: Some(active), anchorDirectory: anchorDirectory, key: key));
-    }
-    public static Graph Subgraph(InstanceDefinitionTable table, Seq<Definition> definitions, Definition anchor) {
-        ArgumentNullException.ThrowIfNull(argument: anchor);
-        HashMap<Guid, Definition> lookup = Lookup(definitions: definitions);
-        LanguageExt.HashSet<Guid> reachable = Reachable(defId: anchor.Id.Value, lookup: lookup, table: table);
-        return ComposeLive(table: table, definitions: definitions.Filter(def => reachable.Contains(key: def.Id.Value)));
-    }
-    public static Fin<AuditGraph> Audit(InstanceDefinitionTable table, Op key) {
-        ArgumentNullException.ThrowIfNull(argument: table);
-        Option<string> anchor = BlockPaths.DocAnchor(document: table.Document);
-        Seq<InstanceDefinition> definitions = Definition.List(table: table);
-        (Seq<AuditGraph.Node> nodes, Seq<AuditGraph.Edge> edges) = definitions
-            .Choose(d => ProjectAudit(definition: d, anchorDirectory: anchor, key: key))
-            .Fold((Nodes: Seq<AuditGraph.Node>(), Edges: Seq<AuditGraph.Edge>()), static (acc, pair) =>
-                (Nodes: acc.Nodes + pair.Node, Edges: acc.Edges + pair.Edges));
-        return Fin.Succ(value: new AuditGraph(Nodes: [.. nodes], Edges: [.. edges]));
-    }
-    private static Option<(AuditGraph.Node Node, Seq<AuditGraph.Edge> Edges)> ProjectAudit(
-        InstanceDefinition definition,
-        Option<string> anchorDirectory,
-        Op key) =>
-        Definition.From(definition: definition, anchorDirectory: anchorDirectory, key: key).ToOption().Map(def => {
-            Seq<MemberVisit> visits = Operations.VisitDefinitionMembers(def: definition, composed: Transform.Identity);
-            return (
-                Node: def.ToAuditNode(),
-                Edges: visits.Map(visit => new AuditGraph.Edge(From: def.Id, Kind: BlockEdgeKind.Member, To: new EdgeTarget.ObjectId(Id: visit.ObjectId)))
-                    + def.Source.Map(link => Seq(new AuditGraph.Edge(From: def.Id, Kind: BlockEdgeKind.LinkedArchive, To: new EdgeTarget.ArchiveTarget(Path: link.Full)))).IfNone(Seq<AuditGraph.Edge>())
-                    + toSeq(definition.GetReferences(wheretoLook: ReferenceScope.TopAndNested.Native) ?? [])
-                        .Filter(static inst => inst is not null)
-                        .Map(inst => new AuditGraph.Edge(From: def.Id, Kind: BlockEdgeKind.InstanceInsert, To: new EdgeTarget.ObjectId(Id: inst!.Id))));
-        });
-    public static Fin<Graph> LiveGraph(InstanceDefinitionTable table, Option<Definition> anchor, Op key) {
-        ArgumentNullException.ThrowIfNull(argument: table);
-        return Definition.List(table: table)
-            .Map(d => Definition.From(definition: d, anchorDirectory: BlockPaths.DocAnchor(document: table.Document), key: key))
-            .TraverseM(identity).As()
-            .Map(definitions => anchor.Case switch {
-                Definition a => Subgraph(table: table, definitions: definitions, anchor: a),
-                _ => ComposeLive(table: table, definitions: definitions),
-            });
-    }
-    public static Fin<Seq<InstanceDefinition>> LinkedRefreshOrder(InstanceDefinitionTable table, Seq<InstanceDefinition> candidates, Op key) {
-        ArgumentNullException.ThrowIfNull(argument: table);
-        return LiveGraph(table: table, anchor: Option<Definition>.None, key: key)
-            .Map(graph => {
-                Dictionary<Guid, int> rank = BakePlan(graph: graph)
-                    .Select((definition, index) => (definition.Id.Value, index))
-                    .ToDictionary(pair => pair.Value, pair => pair.index);
-                return toSeq(candidates.OrderBy(d => rank.GetValueOrDefault(key: d.Id, defaultValue: int.MaxValue)));
-            });
-    }
-    private static LanguageExt.HashSet<Guid> Reachable(Guid defId, HashMap<Guid, Definition> lookup, InstanceDefinitionTable table) {
-        Seq<Guid> Nested(Guid id) =>
-            Optional(table.Find(instanceId: id, ignoreDeletedInstanceDefinitions: true))
-                .Map(def => Operations.NestedReferences(def: def)
-                    .Map(pair => pair.Reference.ParentIdefId)
-                    .Filter(parent => lookup.ContainsKey(key: parent)))
-                .IfNone(Seq<Guid>());
-        return ExpandReachable(frontier: Seq(defId), seen: LanguageExt.HashSet<Guid>.Empty.Add(defId), nested: Nested);
-    }
-    private static LanguageExt.HashSet<Guid> ExpandReachable(
-        Seq<Guid> frontier,
-        LanguageExt.HashSet<Guid> seen,
-        Func<Guid, Seq<Guid>> nested) {
-        Seq<Guid> next = frontier.Bind(nested).Filter(id => !seen.Contains(key: id));
-        return next.IsEmpty
-            ? seen
-            : ExpandReachable(
-                frontier: next,
-                seen: next.Fold(seen, static (acc, id) => acc.Add(key: id)),
-                nested: nested);
-    }
-    internal static Seq<ArchiveLink> LinkedSources(File3dm model, Option<string> anchorDirectory, Op key) =>
-        Rows(() => model.AllInstanceDefinitions)
-            .Choose(def => Definition.NonBlank(value: def.SourceArchive)
-                .Bind(raw => ArchiveLink.Resolve(raw: raw, anchorDirectory: anchorDirectory, key: key).ToOption()));
 
-    private static Seq<T> Rows<T>(Func<IEnumerable<T>?> read) where T : class =>
-        Optional(read()).Map(static src => toSeq(src).Filter(static item => item is not null)).IfNone(Seq<T>());
-
-    private static Option<T> Native<T>(Func<T?> read)
-        where T : class =>
-        Optional(read());
-    public static Seq<Definition> BakePlan(Graph graph) {
-        ArgumentNullException.ThrowIfNull(argument: graph);
-        FrozenDictionary<Guid, DefinitionId> instanceByObject = graph.Instances.Length == 0
-            ? FrozenDictionary<Guid, DefinitionId>.Empty
-            : graph.Instances.ToFrozenDictionary(static i => i.ObjectId, static i => i.ParentDefId);
-        HashMap<Guid, ImmutableArray<Guid>> nestedDefs = toSeq(graph.Definitions).Fold(
-            initialState: HashMap<Guid, ImmutableArray<Guid>>(),
-            f: (acc, def) => acc.AddOrUpdate(key: def.Id.Value, value: NestedDefsOf(def: def, instanceByObject: instanceByObject)));
-        HashMap<Guid, int> resolved = toSeq(graph.Definitions).Fold(
-            initialState: HashMap<Guid, int>(),
-            f: (acc, def) => acc.ContainsKey(key: def.Id.Value)
-                ? acc
-                : acc.AddOrUpdate(key: def.Id.Value, value: ComputeDepth(defId: def.Id.Value, nestedDefs: nestedDefs, visiting: LxHashSet.empty<Guid>(), memo: acc)));
-        return toSeq(graph.Definitions.OrderBy(d => resolved.Find(key: d.Id.Value).IfNone(noneValue: 0)));
-    }
     private static ImmutableArray<Guid> NestedDefsOf(Definition def, FrozenDictionary<Guid, DefinitionId> instanceByObject) =>
         [.. toSeq(def.MemberIds).Choose(memberId =>
             instanceByObject.TryGetValue(key: memberId, value: out DefinitionId nested) ? Some(value: nested.Value) : Option<Guid>.None).Distinct()];
@@ -485,62 +550,11 @@ public static class Archive {
                     .DefaultIfEmpty(defaultValue: 0)
                     .Max(),
         };
-    // strongly-connected components of the definition-nesting graph: two defs share a group iff each is reachable from the other via ≥1 nesting edge; singletons survive only as self-loops. Reuses ExpandReachable so cycle detection rides the same functional reach primitive as BakePlan's depth fold.
-    public static Seq<Seq<DefinitionId>> FindCircularLinks(Graph graph) {
-        ArgumentNullException.ThrowIfNull(argument: graph);
-        FrozenDictionary<Guid, DefinitionId> instanceByObject = graph.Instances.Length == 0
-            ? FrozenDictionary<Guid, DefinitionId>.Empty
-            : graph.Instances.ToFrozenDictionary(static i => i.ObjectId, static i => i.ParentDefId);
-        HashMap<Guid, Seq<Guid>> adjacency = toSeq(graph.Definitions).Fold(
-            initialState: HashMap<Guid, Seq<Guid>>(),
-            f: (acc, def) => acc.AddOrUpdate(key: def.Id.Value, value: toSeq(NestedDefsOf(def: def, instanceByObject: instanceByObject))));
-        HashMap<Guid, DefinitionId> idByGuid = toSeq(graph.Definitions).Fold(
-            initialState: HashMap<Guid, DefinitionId>(),
-            f: static (acc, def) => acc.AddOrUpdate(key: def.Id.Value, value: def.Id));
-        Seq<Guid> Neighbours(Guid id) => adjacency.Find(key: id).IfNone(Seq<Guid>());
-        LanguageExt.HashSet<Guid> Reach(Guid id) =>
-            ExpandReachable(frontier: Neighbours(id: id), seen: Neighbours(id: id).Fold(LanguageExt.HashSet<Guid>.Empty, static (acc, g) => acc.Add(key: g)), nested: Neighbours);
-        HashMap<Guid, LanguageExt.HashSet<Guid>> reachable = toSeq(graph.Definitions).Fold(
-            initialState: HashMap<Guid, LanguageExt.HashSet<Guid>>(),
-            f: (acc, def) => acc.AddOrUpdate(key: def.Id.Value, value: Reach(id: def.Id.Value)));
-        bool Mutual(Guid a, Guid b) =>
-            reachable.Find(key: a).Map(set => set.Contains(key: b)).IfNone(noneValue: false)
-            && reachable.Find(key: b).Map(set => set.Contains(key: a)).IfNone(noneValue: false);
-        Seq<Guid> cyclic = toSeq(graph.Definitions)
-            .Choose(d => reachable.Find(key: d.Id.Value)
-                .Filter(set => set.Contains(key: d.Id.Value))
-                .Map(_ => d.Id.Value));
-        return cyclic
-            .Map(id => toSeq(cyclic.Filter(other => Mutual(a: id, b: other)).Order()))
-            .Distinct()
-            .Map(group => group.Choose(guid => idByGuid.Find(key: guid)));
-    }
-    public static Seq<FileResourceEntry> ToFileResourceEntries(Graph graph) {
-        ArgumentNullException.ThrowIfNull(argument: graph);
-        return toSeq(graph.Definitions).Map(static d => new FileResourceEntry(
-            Kind: DocumentResourceKind.Block,
-            Name: Some(value: d.Name.Value),
-            Path: d.Source.Map(static link => link.Stored),
-            Id: Some(value: d.Id.Value),
-            Source: Some(value: d.IsLinked ? "linked-block" : "block")));
-    }
-    public static Seq<FileResourceEdge> ToFileResourceEdges(Graph graph) {
-        ArgumentNullException.ThrowIfNull(argument: graph);
-        Seq<FileResourceEdge> linked = toSeq(graph.Definitions).Bind(static d => d.Source.Match(
-            Some: link => Seq(new FileResourceEdge(
-                FromKind: DocumentResourceKind.Block, FromId: Some(value: d.Id.Value),
-                ToKind: DocumentResourceKind.FileReference, ToId: Option<Guid>.None,
-                Role: FileResourceRole.Linked, Path: Some(value: link.Stored))),
-            None: static () => Seq<FileResourceEdge>()));
-        Seq<FileResourceEdge> members = toSeq(graph.Definitions).Bind(static d => toSeq(d.MemberIds)
-            .Map(memberId => new FileResourceEdge(
-                FromKind: DocumentResourceKind.Block, FromId: Some(value: d.Id.Value),
-                ToKind: DocumentResourceKind.Object, ToId: Some(value: memberId),
-                Role: FileResourceRole.Member)));
-        Seq<FileResourceEdge> instances = toSeq(graph.Instances).Map(static i => new FileResourceEdge(
-            FromKind: DocumentResourceKind.Object, FromId: Some(value: i.ObjectId),
-            ToKind: DocumentResourceKind.Block, ToId: Some(value: i.ParentDefId.Value),
-            Role: FileResourceRole.Instance));
-        return linked + members + instances;
-    }
+
+    private static Seq<T> Rows<T>(Func<IEnumerable<T>?> read) where T : class =>
+        Optional(read()).Map(static src => toSeq(src).Filter(static item => item is not null)).IfNone(Seq<T>());
+
+    private static Option<T> Native<T>(Func<T?> read)
+        where T : class =>
+        Optional(read());
 }

@@ -1,6 +1,6 @@
 """Run static analysis, formatting, build, and routing-plan rails."""
 
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from hashlib import sha256
 from pathlib import PurePosixPath
 from typing import TYPE_CHECKING
@@ -12,7 +12,7 @@ import msgspec
 
 from tools.assay.composition.catalog import select
 from tools.assay.composition.settings import ArtifactScope, AssaySettings  # noqa: TC001  # unconditional for beartype runtime
-from tools.assay.core.engine import fan_out
+from tools.assay.core.engine import _argv, fan_out  # noqa: PLC2701  # plan preview must share the engine argv projection
 from tools.assay.core.model import (
     Artifact,
     ArtifactKind,
@@ -27,7 +27,6 @@ from tools.assay.core.model import (
     Report,  # noqa: TC001  # unconditional: see Fault above (same forward-ref resolution)
 )
 from tools.assay.core.routing import (  # noqa: TC001  # unconditional: function signatures reference Routed at definition time; intra-package import
-    place,
     route,
     Routed,
 )
@@ -57,8 +56,8 @@ def _languages(selected: Language | None, paths: tuple[str, ...]) -> tuple[Langu
             return (language,)
         case None:
             suffixes = frozenset(PurePosixPath(p).suffix for p in paths if PurePosixPath(p).suffix)
-            inferred = next((lang for lang in Language if suffixes and suffixes <= lang.suffixes), None)
-            return (inferred,) if inferred is not None else tuple(Language)
+            inferred = tuple(language for language in Language if suffixes & language.suffixes)
+            return inferred or tuple(Language)
 
 
 def _checks(routed: Routed, mode: Mode) -> tuple[Check, ...]:
@@ -137,7 +136,8 @@ def full(settings: AssaySettings, scope: ArtifactScope, params: StaticParams) ->
     Returns:
         Full static report, or routing/spawn fault.
     """
-    return thin_rail(settings, scope, params, claim=Claim.STATIC, verb="full", mode=Mode.BUILD)
+    routed_params = replace(params, paths=params.paths or ("Workspace.slnx",))
+    return thin_rail(settings, scope, routed_params, claim=Claim.STATIC, verb="full", mode=Mode.BUILD)
 
 
 def plan(settings: AssaySettings, scope: ArtifactScope, params: StaticParams) -> Result[Report, Fault]:
@@ -147,10 +147,10 @@ def plan(settings: AssaySettings, scope: ArtifactScope, params: StaticParams) ->
         Static routing plan report, or routing fault.
     """
     _ = scope
-    return _routed(_languages(params.language, params.paths), params.paths, settings).map(lambda routed: _plan_report(tuple(routed), settings))
+    return _routed(_languages(params.language, params.paths), params.paths, settings).map(lambda routed: _plan_report(tuple(routed), settings, scope))
 
 
-def _plan_report(routed: tuple[Routed, ...], settings: AssaySettings) -> Report:
+def _plan_report(routed: tuple[Routed, ...], settings: AssaySettings, scope: ArtifactScope) -> Report:
     # Route facts ride Match rows; closure shas are computed once for rows, notes, and artifacts.
     # The build artifact previews the real per-run scope the build rail opens: ArtifactScope.open(Claim.STATIC).path.
     build_scope = "/".join((str(settings.store_root), Claim.STATIC.value, settings.run_id))
@@ -172,7 +172,7 @@ def _plan_report(routed: tuple[Routed, ...], settings: AssaySettings) -> Report:
             else f"{r.language!s}: scope={r.scope!s} files={len(r.files)}"
             for r, sha in routed_sha
         ),
-        *(_preview(r, verb, mode, settings) for r, _ in routed_sha for verb, mode in _PREVIEW_MODES),
+        *(_preview(r, verb, mode, settings, scope) for r, _ in routed_sha for verb, mode in _PREVIEW_MODES),
     )
     artifacts = tuple(Artifact(id=f"build-{sha}", kind=ArtifactKind.SCOPE, path=build_scope) for r, sha in routed_sha if r.projects)
     base = fold(Claim.STATIC, "plan", ())
@@ -180,12 +180,10 @@ def _plan_report(routed: tuple[Routed, ...], settings: AssaySettings) -> Report:
     return msgspec.structs.replace(base, status=status, results=rows, artifacts=artifacts, notes=notes)
 
 
-def _preview(routed: Routed, verb: str, mode: Mode, settings: AssaySettings) -> str:
+def _preview(routed: Routed, verb: str, mode: Mode, settings: AssaySettings, scope: ArtifactScope) -> str:
     # Materialize the dotnet/tool argv each rail verb would spawn so plan previews commands without re-expanding per item.
     argvs = tuple(
-        (*tool.runner.prefix, *tool.command, *(part for tail in place(routed, tool, settings=settings) for part in tail))
-        for tool in select(Claim.STATIC, routed.language)
-        if tool.mode is mode
+        _argv(Check(tool=tool), routed, settings=settings, scope=scope) for tool in select(Claim.STATIC, routed.language) if tool.mode is mode
     )
     bodies = " ; ".join(" ".join(argv) for argv in argvs) or "(no rows)"
     return f"{routed.language!s} {verb}: {bodies}"

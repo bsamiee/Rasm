@@ -103,27 +103,6 @@ public static partial class Analyze {
                     .Bind(value => value is TOut typed ? s.Key.Accept(value: typed) : Fin.Fail<Seq<TOut>>(s.Key.Unsupported(geometryType: value.GetType(), outputType: typeof(TOut)))))
             : key.Unsupported<TGeometry, TOut>();
     }
-    private static Operation<TGeometry, TValue> KernelLift<TGeometry, TValue, TState>(Op key, TState state, Func<TState, TGeometry, Context, Fin<Seq<TValue>>> extract, Requirement? requirement = null, bool requiresContext = true) where TGeometry : notnull =>
-        Operation<TGeometry, TValue>.Build(
-            key: key, requirement: requirement, requiresContext: requiresContext, state: (State: state, Extract: extract),
-            evaluator: static (s, geometry) =>
-                from context in Env.Asks
-                from result in s.Extract(arg1: s.State, arg2: geometry, arg3: context).ToEff()
-                select result);
-    private static Fin<TResult> OnGeometry<TGeometry, TResult>(TGeometry geometry, Op op, Func<Mesh, Fin<TResult>> onMesh, Func<Brep, Fin<TResult>> onBrep) where TGeometry : notnull =>
-        Optional(geometry).ToFin(op.InvalidInput()).Bind(g => g switch {
-            Mesh mesh => onMesh(arg: mesh),
-            Brep brep => onBrep(arg: brep),
-            GeometryBase { HasBrepForm: true } native => GeometryKernel.BrepForm(source: native, op: op).Bind(lease => lease.Use(project: onBrep)),
-            object brepLike when GeometryKernel.CanCoerce(source: brepLike.GetType(), target: typeof(Brep)) => GeometryKernel.BrepForm(source: brepLike, op: op).Bind(lease => lease.Use(project: onBrep)),
-            _ => Fin.Fail<TResult>(op.Unsupported(g.GetType(), typeof(TResult))),
-        });
-    private static Fin<object> ExtractTopologyScalar<TGeometry>(TGeometry geometry, TopologyScalar scalar, Op op) where TGeometry : notnull =>
-        OnGeometry(
-            geometry: geometry,
-            op: op,
-            onMesh: mesh => scalar.Extract(geometry: mesh, op: op),
-            onBrep: brep => scalar.Extract(geometry: brep, op: op));
     internal static Fin<Seq<Interval>> DomainsOf<TGeometry>(TGeometry geometry, Op op) where TGeometry : notnull =>
         Optional(geometry).ToFin(op.InvalidInput()).Bind(g => g switch {
             Curve curve => Fin.Succ(Seq(curve.Domain)),
@@ -154,15 +133,6 @@ public static partial class Analyze {
             GeometryBase { HasBrepForm: true } native => GeometryKernel.BrepForm(source: native, op: op).Bind(lease => lease.Use(brep => BrepComponentsOf(brep: brep, op: op))),
             _ => Fin.Fail<Seq<GeometryBase>>(op.Unsupported(g.GetType(), typeof(Seq<GeometryBase>))),
         });
-    private static Fin<Seq<GeometryBase>> BrepComponentsOf(Brep brep, Op op) =>
-        brep.GetConnectedComponents() switch {
-            Brep[] cs when cs.Length > 0 => Fin.Succ(toSeq(cs.Cast<GeometryBase>())),
-            _ when brep.IsValid => op.AcceptValue(brep).Map(static v => Seq((GeometryBase)v.DuplicateBrep())),
-            _ => Fin.Fail<Seq<GeometryBase>>(op.InvalidResult()),
-        };
-    private static Fin<Seq<TOut>> ProjectComponents<TOut>(Seq<GeometryBase> components, Op op) =>
-        components.TraverseM(component => component is TOut typed ? Fin.Succ(typed) : Fin.Fail<TOut>(op.Unsupported(geometryType: component.GetType(), outputType: typeof(TOut)))).As()
-            .BindFail(error => components.Iter(static component => component.Dispose()) switch { _ => Fin.Fail<Seq<TOut>>(error) });
     internal static Fin<bool> ManifoldOf<TG>(TG geometry, Op op) where TG : notnull =>
         OnGeometry(geometry: geometry, op: op,
             onMesh: static m => Fin.Succ(m.IsManifold(topologicalTest: true, isOriented: out bool _, hasBoundary: out bool _)),
@@ -189,6 +159,36 @@ public static partial class Analyze {
             onBrep: b => (BoundaryLoopsOf(geometry: b, op: op), ComponentCountOf(geometry: b, op: op)).Apply(static (boundaries, components) => Math.Max(val1: 0, val2: boundaries - components)).As());
     internal static Fin<int> ElementCountOf<TG>(TG geometry, Op op, Func<Mesh, int> meshCount, Func<Brep, int> brepCount) where TG : notnull =>
         OnGeometry(geometry: geometry, op: op, onMesh: m => Fin.Succ(meshCount(arg: m)), onBrep: b => Fin.Succ(brepCount(arg: b)));
+    private static Operation<TGeometry, TValue> KernelLift<TGeometry, TValue, TState>(Op key, TState state, Func<TState, TGeometry, Context, Fin<Seq<TValue>>> extract, Requirement? requirement = null, bool requiresContext = true) where TGeometry : notnull =>
+        Operation<TGeometry, TValue>.Build(
+            key: key, requirement: requirement, requiresContext: requiresContext, state: (State: state, Extract: extract),
+            evaluator: static (s, geometry) =>
+                from context in Env.Asks
+                from result in s.Extract(arg1: s.State, arg2: geometry, arg3: context).ToEff()
+                select result);
+    private static Fin<TResult> OnGeometry<TGeometry, TResult>(TGeometry geometry, Op op, Func<Mesh, Fin<TResult>> onMesh, Func<Brep, Fin<TResult>> onBrep) where TGeometry : notnull =>
+        Optional(geometry).ToFin(op.InvalidInput()).Bind(g => g switch {
+            Mesh mesh => onMesh(arg: mesh),
+            Brep brep => onBrep(arg: brep),
+            GeometryBase { HasBrepForm: true } native => GeometryKernel.BrepForm(source: native, op: op).Bind(lease => lease.Use(project: onBrep)),
+            object brepLike when GeometryKernel.CanCoerce(source: brepLike.GetType(), target: typeof(Brep)) => GeometryKernel.BrepForm(source: brepLike, op: op).Bind(lease => lease.Use(project: onBrep)),
+            _ => Fin.Fail<TResult>(op.Unsupported(g.GetType(), typeof(TResult))),
+        });
+    private static Fin<object> ExtractTopologyScalar<TGeometry>(TGeometry geometry, TopologyScalar scalar, Op op) where TGeometry : notnull =>
+        OnGeometry(
+            geometry: geometry,
+            op: op,
+            onMesh: mesh => scalar.Extract(geometry: mesh, op: op),
+            onBrep: brep => scalar.Extract(geometry: brep, op: op));
+    private static Fin<Seq<GeometryBase>> BrepComponentsOf(Brep brep, Op op) =>
+        brep.GetConnectedComponents() switch {
+            Brep[] cs when cs.Length > 0 => Fin.Succ(toSeq(cs.Cast<GeometryBase>())),
+            _ when brep.IsValid => op.AcceptValue(brep).Map(static v => Seq((GeometryBase)v.DuplicateBrep())),
+            _ => Fin.Fail<Seq<GeometryBase>>(op.InvalidResult()),
+        };
+    private static Fin<Seq<TOut>> ProjectComponents<TOut>(Seq<GeometryBase> components, Op op) =>
+        components.TraverseM(component => component is TOut typed ? Fin.Succ(typed) : Fin.Fail<TOut>(op.Unsupported(geometryType: component.GetType(), outputType: typeof(TOut)))).As()
+            .BindFail(error => components.Iter(static component => component.Dispose()) switch { _ => Fin.Fail<Seq<TOut>>(error) });
     private static int BrepBoundaryCount(Brep brep, Func<BrepLoop, bool> predicate) =>
         toSeq(brep.Loops).Filter(loop => predicate(arg: loop) && toSeq(loop.Trims).Exists(static trim => trim.Edge is { Valence: EdgeAdjacency.Naked })).Count;
     private static Fin<int> ComponentCountOf<TGeometry>(TGeometry geometry, Op op) where TGeometry : notnull =>

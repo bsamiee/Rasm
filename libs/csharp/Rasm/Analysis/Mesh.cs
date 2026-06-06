@@ -14,6 +14,13 @@ public partial record Meshes : IAspect {
     public sealed record VisiblePolygonCountCase : Meshes;
     public sealed record NakedEdgesCase : Meshes;
     public sealed record OutlineCase(Plane Plane) : Meshes;
+    private static readonly Op SamplesKey = Op.Of(name: "MeshSamples");
+    private static readonly Op FaceQualityKey = Op.Of(name: "MeshFaceQuality");
+    private static readonly Op FaceShapeKey = Op.Of(name: "MeshFaceShape");
+    private static readonly Op AtVisiblePolygonKey = Op.Of(name: "MeshAtVisiblePolygon");
+    private static readonly Op VisiblePolygonCountKey = Op.Of(name: "MeshVisiblePolygonCount");
+    private static readonly Op NakedEdgesKey = Op.Of(name: "MeshNakedEdges");
+    private static readonly Op OutlineKey = Op.Of(name: "MeshOutline");
     public static Meshes Validity => new SamplesCase(Group: MeshSampleGroup.Validity);
     public static Meshes Counts => new SamplesCase(Group: MeshSampleGroup.Count);
     public static Meshes Defects => new SamplesCase(Group: MeshSampleGroup.Defect);
@@ -24,13 +31,6 @@ public partial record Meshes : IAspect {
     public static Meshes VisiblePolygonCount => new VisiblePolygonCountCase();
     public static Meshes NakedEdges => new NakedEdgesCase();
     public static Meshes Outline(Plane plane) => new OutlineCase(Plane: plane);
-    private static readonly Op SamplesKey = Op.Of(name: "MeshSamples");
-    private static readonly Op FaceQualityKey = Op.Of(name: "MeshFaceQuality");
-    private static readonly Op FaceShapeKey = Op.Of(name: "MeshFaceShape");
-    private static readonly Op AtVisiblePolygonKey = Op.Of(name: "MeshAtVisiblePolygon");
-    private static readonly Op VisiblePolygonCountKey = Op.Of(name: "MeshVisiblePolygonCount");
-    private static readonly Op NakedEdgesKey = Op.Of(name: "MeshNakedEdges");
-    private static readonly Op OutlineKey = Op.Of(name: "MeshOutline");
     public Operation<TGeometry, TOut> Operation<TGeometry, TOut>() where TGeometry : notnull => Switch(
         samplesCase: static s => Analyze.MeshLift<TGeometry, TOut, MeshSample>(key: SamplesKey, source: Analyze.MeshSamples(group: s.Group)),
         faceQualityCase: static fq => fq.Metric.Equals(MeshMetric.None)
@@ -103,10 +103,10 @@ public sealed partial class MeshSampleKind {
     private static readonly Op VisiblePolygonKey = Op.Of(name: "MeshVisiblePolygons");
     private static readonly Op BoundaryLoopsKey = Op.Of(name: "MeshBoundaryLoops");
     private static readonly Op GenusKey = Op.Of(name: "MeshGenus");
-    private static Seq<int> Valences(Mesh mesh) =>
-        toSeq(Enumerable.Range(0, mesh.TopologyVertices.Count).Select(mesh.TopologyVertices.ConnectedEdgesCount));
     internal MeshSampleGroup Group { get; }
     [UseDelegateFromConstructor] internal partial Fin<int> Sample(Mesh mesh, MeshCheckParameters parameters);
+    private static Seq<int> Valences(Mesh mesh) =>
+        toSeq(Enumerable.Range(0, mesh.TopologyVertices.Count).Select(mesh.TopologyVertices.ConnectedEdgesCount));
 }
 
 [BoundaryAdapter, SmartEnum<int>]
@@ -198,10 +198,10 @@ public sealed partial class MeshMetric {
 
 // --- [MODELS] -----------------------------------------------------------------------------
 [BoundaryAdapter, StructLayout(LayoutKind.Auto)]
-public readonly record struct MeshMetricSample(ComponentIndex Source, double Value);
+public readonly record struct MeshSample(MeshSampleKind Kind, int Value);
 
 [BoundaryAdapter, StructLayout(LayoutKind.Auto)]
-public readonly record struct MeshSample(MeshSampleKind Kind, int Value);
+public readonly record struct MeshMetricSample(ComponentIndex Source, double Value);
 
 [BoundaryAdapter, StructLayout(LayoutKind.Auto)]
 public readonly record struct MeshFaceShape(ComponentIndex Source, VectorCloudShape Shape);
@@ -209,6 +209,8 @@ public readonly record struct MeshFaceShape(ComponentIndex Source, VectorCloudSh
 // --- [OPERATIONS] -------------------------------------------------------------------------
 public static partial class Analyze {
     public static Operation<TGeometry, TOut> Meshes<TGeometry, TOut>(Meshes aspect) where TGeometry : notnull => Aspect<Meshes, TGeometry, TOut>(aspect: aspect);
+    internal static Operation<TGeometry, TOut> MeshLift<TGeometry, TOut, TValue>(Op key, Operation<Mesh, TValue> source) where TGeometry : notnull =>
+        Native<TGeometry, TOut, Mesh, TValue, Operation<Mesh, TValue>>(key: key, state: source, requirement: source.Requirement, requiresContext: source.RequiresContext, project: static (q, mesh) => q.Apply(geometry: Seq(mesh)));
     internal static Operation<Mesh, MeshCheckParameters> MeshCheck {
         get {
             Op key = Op.Of();
@@ -218,6 +220,18 @@ public static partial class Analyze {
                                                     from result in op.Accept(value: parameters).ToEff()
                                                     select result);
         }
+    }
+    internal static Operation<Mesh, MeshSample> MeshSamples(MeshSampleGroup group) {
+        Op key = Op.Of(name: $"Mesh{group.Label}");
+        return Operation<Mesh, MeshSample>.Build(
+            key: key, state: (Key: key, group.Kinds, group.Inspect),
+            evaluator: static (state, geometry) => state.Inspect switch {
+                true => from parameters in MeshCheck.Apply(geometry: Seq(geometry))
+                        from head in parameters.Head.ToFin(state.Key.InvalidResult()).ToEff()
+                        from samples in state.Kinds.TraverseM(kind => kind.Sample(mesh: geometry, parameters: head).Map(value => new MeshSample(Kind: kind, Value: value))).As().ToEff()
+                        select samples,
+                false => state.Kinds.TraverseM(kind => kind.Sample(mesh: geometry, parameters: default).Map(value => new MeshSample(Kind: kind, Value: value))).As().ToEff(),
+            });
     }
     internal static Operation<Mesh, MeshMetricSample> MeshMetricSamplesOp(MeshMetric metric, Op key) =>
         Operation<Mesh, MeshMetricSample>.Build(
@@ -239,35 +253,6 @@ public static partial class Analyze {
             evaluator: static (op, geometry) => from context in Env.Asks
                                                 from shapes in MeshFaceShapes(mesh: geometry, context: context, key: op).ToEff()
                                                 select shapes);
-    internal static Operation<Mesh, MeshSample> MeshSamples(MeshSampleGroup group) {
-        Op key = Op.Of(name: $"Mesh{group.Label}");
-        return Operation<Mesh, MeshSample>.Build(
-            key: key, state: (Key: key, group.Kinds, group.Inspect),
-            evaluator: static (state, geometry) => state.Inspect switch {
-                true => from parameters in MeshCheck.Apply(geometry: Seq(geometry))
-                        from head in parameters.Head.ToFin(state.Key.InvalidResult()).ToEff()
-                        from samples in state.Kinds.TraverseM(kind => kind.Sample(mesh: geometry, parameters: head).Map(value => new MeshSample(Kind: kind, Value: value))).As().ToEff()
-                        select samples,
-                false => state.Kinds.TraverseM(kind => kind.Sample(mesh: geometry, parameters: default).Map(value => new MeshSample(Kind: kind, Value: value))).As().ToEff(),
-            });
-    }
-    internal static Operation<Mesh, Polyline> MeshNakedEdges {
-        get {
-            Op key = Op.Of(name: "MeshNakedEdges");
-            return Operation<Mesh, Polyline>.Build(
-                key: key, state: key,
-                evaluator: static (op, mesh) => Optional(mesh.GetNakedEdges()).Map(seq => op.Accept(values: seq)).IfNone(Fin.Succ(Seq<Polyline>())).ToEff());
-        }
-    }
-    internal static Operation<Mesh, Polyline> MeshOutline(Plane plane) {
-        Op key = Op.Of(name: "MeshOutline");
-        return plane.IsValid switch {
-            true => Operation<Mesh, Polyline>.Build(
-                key: key, state: (Key: key, Plane: plane),
-                evaluator: static (state, mesh) => state.Key.Accept(values: mesh.GetOutlines(plane: state.Plane)).ToEff()),
-            false => Operation<Mesh, Polyline>.Reject(key: key, fault: key.InvalidInput()),
-        };
-    }
     internal static Operation<Mesh, TopologyProjection> MeshAtVisiblePolygon(Option<int> index = default) {
         Op key = Op.Of();
         return Operation<Mesh, TopologyProjection>.Build(
@@ -288,12 +273,23 @@ public static partial class Analyze {
                 evaluator: static (op, mesh) => VisiblePolygonCountOf(mesh: mesh, key: op).Bind(count => op.Accept(value: count)).ToEff());
         }
     }
-    internal static Operation<TGeometry, TOut> MeshLift<TGeometry, TOut, TValue>(Op key, Operation<Mesh, TValue> source) where TGeometry : notnull =>
-        Native<TGeometry, TOut, Mesh, TValue, Operation<Mesh, TValue>>(key: key, state: source, requirement: source.Requirement, requiresContext: source.RequiresContext, project: static (q, mesh) => q.Apply(geometry: Seq(mesh)));
-    private static Fin<Seq<MeshMetricSample>> MeshMetricSamples(Mesh mesh, MeshMetric metric, Context context, Op key) =>
-        VisiblePolygonsOf(mesh: mesh, key: key).Bind(polygons => polygons.TraverseM(polygon => metric.Sample(mesh: mesh, polygon: polygon, context: context, key: key)).As());
-    private static Fin<Seq<MeshFaceShape>> MeshFaceShapes(Mesh mesh, Context context, Op key) =>
-        VisiblePolygonsOf(mesh: mesh, key: key).Bind(polygons => polygons.TraverseM(polygon => MeshMetric.Shape(mesh: mesh, polygon: polygon, context: context, key: key)).As());
+    internal static Operation<Mesh, Polyline> MeshNakedEdges {
+        get {
+            Op key = Op.Of(name: "MeshNakedEdges");
+            return Operation<Mesh, Polyline>.Build(
+                key: key, state: key,
+                evaluator: static (op, mesh) => Optional(mesh.GetNakedEdges()).Map(seq => op.Accept(values: seq)).IfNone(Fin.Succ(Seq<Polyline>())).ToEff());
+        }
+    }
+    internal static Operation<Mesh, Polyline> MeshOutline(Plane plane) {
+        Op key = Op.Of(name: "MeshOutline");
+        return plane.IsValid switch {
+            true => Operation<Mesh, Polyline>.Build(
+                key: key, state: (Key: key, Plane: plane),
+                evaluator: static (state, mesh) => state.Key.Accept(values: mesh.GetOutlines(plane: state.Plane)).ToEff()),
+            false => Operation<Mesh, Polyline>.Reject(key: key, fault: key.InvalidInput()),
+        };
+    }
     internal static Fin<int> VisiblePolygonCountOf(Mesh mesh, Op key) =>
         Fin.Succ(mesh.GetNgonAndFacesCount());
     internal static Fin<ComponentIndex> VisiblePolygonSourceOf(Mesh mesh, MeshNgon polygon, Op key) =>
@@ -303,6 +299,10 @@ public static partial class Analyze {
                 uint[] values when values.Length > 0 && values[0] <= int.MaxValue && mesh.Ngons.NgonIndexFromFaceIndex((int)values[0]) is >= 0 and int ngon => Fin.Succ(new ComponentIndex(ComponentIndexType.MeshNgon, ngon)),
                 _ => Fin.Fail<ComponentIndex>(key.InvalidInput()),
             }));
+    private static Fin<Seq<MeshMetricSample>> MeshMetricSamples(Mesh mesh, MeshMetric metric, Context context, Op key) =>
+        VisiblePolygonsOf(mesh: mesh, key: key).Bind(polygons => polygons.TraverseM(polygon => metric.Sample(mesh: mesh, polygon: polygon, context: context, key: key)).As());
+    private static Fin<Seq<MeshFaceShape>> MeshFaceShapes(Mesh mesh, Context context, Op key) =>
+        VisiblePolygonsOf(mesh: mesh, key: key).Bind(polygons => polygons.TraverseM(polygon => MeshMetric.Shape(mesh: mesh, polygon: polygon, context: context, key: key)).As());
     private static Fin<Seq<MeshNgon>> VisiblePolygonsOf(Mesh mesh, Op key) =>
         Optional(mesh.GetNgonAndFacesEnumerable()).ToFin(key.InvalidResult())
             .Map(static polygons => toSeq(polygons));

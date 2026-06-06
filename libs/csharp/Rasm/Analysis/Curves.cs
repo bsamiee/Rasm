@@ -21,6 +21,7 @@ public partial record Curves : IAspect {
     public sealed record SilhouetteCase(Vector3d? Direction, Option<double> DraftAngle) : Curves;
     public sealed record AtCase(int? Value) : Curves;
     public sealed record FormCase(int? Index = null) : Curves;
+    internal static readonly Op Key = Op.Of(name: nameof(Curves));
     public static Curves All => new EdgesCase(Kind: Option<CurveFeature>.None);
     public static Curves Boundary => new EdgesCase(Kind: Some(CurveFeature.Boundary));
     public static Curves NakedOuter => new EdgesCase(Kind: Some(CurveFeature.NakedOuter));
@@ -35,7 +36,6 @@ public partial record Curves : IAspect {
     public static Curves Draft(Vector3d? direction = null, double? angle = null) => new SilhouetteCase(Direction: direction, DraftAngle: Some(Optional(angle).IfNone(0.0)));
     public static Curves At(int? index = null) => new AtCase(Value: index);
     public static Curves Form(int? index = null) => new FormCase(Index: index);
-    internal static readonly Op Key = Op.Of(name: nameof(Curves));
     public Operation<TGeometry, TOut> Operation<TGeometry, TOut>() where TGeometry : notnull =>
         CanProject(type: typeof(TGeometry)) switch {
             false => Key.Unsupported<TGeometry, TOut>(),
@@ -48,6 +48,27 @@ public partial record Curves : IAspect {
                 _ => Key.Unsupported<TGeometry, TOut>(),
             },
         };
+    internal bool CanProject(Type type) =>
+        type == typeof(object)
+        || type == typeof(GeometryBase)
+        || Kind.Of(type: type).Map(kind => CanProject(topology: kind.Topology, type: type)).IfNone(noneValue: false);
+    private bool CanProject(Topology topology, Type type) => Switch(
+        state: (Topology: topology, Type: type),
+        edgesCase: static (state, e) => e.Kind.Case switch {
+            null => GeometryKernel.CanCurveForm(type: state.Type) || GeometryKernel.CanCoerce(source: state.Type, target: typeof(Brep)) || (state.Topology == Topology.Mesh && typeof(Mesh).IsAssignableFrom(state.Type)) || (state.Topology == Topology.SubD && typeof(SubD).IsAssignableFrom(state.Type)),
+            CurveFeature.Boundary => GeometryKernel.CanCurveForm(type: state.Type) || GeometryKernel.CanCoerce(source: state.Type, target: typeof(Brep)) || (state.Topology == Topology.Mesh && typeof(Mesh).IsAssignableFrom(state.Type)),
+            CurveFeature.NakedOuter or CurveFeature.NakedInner or CurveFeature.OuterLoop or CurveFeature.InnerLoop => state.Topology == Topology.Brep && typeof(Brep).IsAssignableFrom(state.Type),
+            CurveFeature.Interior or CurveFeature.NonManifold => (state.Topology == Topology.Brep && typeof(Brep).IsAssignableFrom(state.Type)) || (state.Topology == Topology.Mesh && typeof(Mesh).IsAssignableFrom(state.Type)),
+            _ => false,
+        },
+        atCase: static (state, _) =>
+            GeometryKernel.CanCurveForm(type: state.Type) || GeometryKernel.CanSurfaceForm(type: state.Type) || (state.Topology == Topology.Brep && typeof(Brep).IsAssignableFrom(state.Type)) || (state.Topology == Topology.Mesh && typeof(Mesh).IsAssignableFrom(state.Type)) || (state.Topology == Topology.SubD && typeof(SubD).IsAssignableFrom(state.Type)),
+        segmentsCase: static (state, _) => GeometryKernel.CanCurveForm(type: state.Type) || (state.Topology == Topology.SubD && typeof(SubD).IsAssignableFrom(state.Type)),
+        isoCase: static (state, _) => (state.Topology == Topology.Brep && typeof(Brep).IsAssignableFrom(state.Type)) || GeometryKernel.CanSurfaceForm(type: state.Type),
+        silhouetteCase: static (state, _) =>
+            GeometryKernel.CanSurfaceForm(type: state.Type) || typeof(Extrusion).IsAssignableFrom(state.Type) || (state.Topology == Topology.Brep && typeof(Brep).IsAssignableFrom(state.Type)) || (state.Topology == Topology.Mesh && typeof(Mesh).IsAssignableFrom(state.Type)) || (state.Topology == Topology.SubD && typeof(SubD).IsAssignableFrom(state.Type)) || (state.Topology == Topology.Extrusion && typeof(Extrusion).IsAssignableFrom(state.Type)),
+        formCase: static (state, _) =>
+            GeometryKernel.CanCurveForm(type: state.Type) || (state.Topology == Topology.Brep && typeof(Brep).IsAssignableFrom(state.Type)) || (state.Topology == Topology.Mesh && typeof(Mesh).IsAssignableFrom(state.Type)) || (state.Topology == Topology.SubD && typeof(SubD).IsAssignableFrom(state.Type)));
     internal Fin<Seq<TopologyProjection>> Select(Seq<TopologyProjection> curves) =>
         (this, curves.Count) switch {
             (_, 0) => Fin.Succ(Seq<TopologyProjection>()),
@@ -81,27 +102,6 @@ public partial record Curves : IAspect {
             (EdgesCase { Kind.Case: CurveFeature.InnerLoop }, EdgeDescriptor.OfLoop { LoopType: BrepLoopType.Inner }) => true,
             _ => false,
         };
-    internal bool CanProject(Type type) =>
-        type == typeof(object)
-        || type == typeof(GeometryBase)
-        || Kind.Of(type: type).Map(kind => CanProject(topology: kind.Topology, type: type)).IfNone(noneValue: false);
-    private bool CanProject(Topology topology, Type type) => Switch(
-        state: (Topology: topology, Type: type),
-        edgesCase: static (state, e) => e.Kind.Case switch {
-            null => GeometryKernel.CanCurveForm(type: state.Type) || GeometryKernel.CanCoerce(source: state.Type, target: typeof(Brep)) || (state.Topology == Topology.Mesh && typeof(Mesh).IsAssignableFrom(state.Type)) || (state.Topology == Topology.SubD && typeof(SubD).IsAssignableFrom(state.Type)),
-            CurveFeature.Boundary => GeometryKernel.CanCurveForm(type: state.Type) || GeometryKernel.CanCoerce(source: state.Type, target: typeof(Brep)) || (state.Topology == Topology.Mesh && typeof(Mesh).IsAssignableFrom(state.Type)),
-            CurveFeature.NakedOuter or CurveFeature.NakedInner or CurveFeature.OuterLoop or CurveFeature.InnerLoop => state.Topology == Topology.Brep && typeof(Brep).IsAssignableFrom(state.Type),
-            CurveFeature.Interior or CurveFeature.NonManifold => (state.Topology == Topology.Brep && typeof(Brep).IsAssignableFrom(state.Type)) || (state.Topology == Topology.Mesh && typeof(Mesh).IsAssignableFrom(state.Type)),
-            _ => false,
-        },
-        atCase: static (state, _) =>
-            GeometryKernel.CanCurveForm(type: state.Type) || GeometryKernel.CanSurfaceForm(type: state.Type) || (state.Topology == Topology.Brep && typeof(Brep).IsAssignableFrom(state.Type)) || (state.Topology == Topology.Mesh && typeof(Mesh).IsAssignableFrom(state.Type)) || (state.Topology == Topology.SubD && typeof(SubD).IsAssignableFrom(state.Type)),
-        segmentsCase: static (state, _) => GeometryKernel.CanCurveForm(type: state.Type) || (state.Topology == Topology.SubD && typeof(SubD).IsAssignableFrom(state.Type)),
-        isoCase: static (state, _) => (state.Topology == Topology.Brep && typeof(Brep).IsAssignableFrom(state.Type)) || GeometryKernel.CanSurfaceForm(type: state.Type),
-        silhouetteCase: static (state, _) =>
-            GeometryKernel.CanSurfaceForm(type: state.Type) || typeof(Extrusion).IsAssignableFrom(state.Type) || (state.Topology == Topology.Brep && typeof(Brep).IsAssignableFrom(state.Type)) || (state.Topology == Topology.Mesh && typeof(Mesh).IsAssignableFrom(state.Type)) || (state.Topology == Topology.SubD && typeof(SubD).IsAssignableFrom(state.Type)) || (state.Topology == Topology.Extrusion && typeof(Extrusion).IsAssignableFrom(state.Type)),
-        formCase: static (state, _) =>
-            GeometryKernel.CanCurveForm(type: state.Type) || (state.Topology == Topology.Brep && typeof(Brep).IsAssignableFrom(state.Type)) || (state.Topology == Topology.Mesh && typeof(Mesh).IsAssignableFrom(state.Type)) || (state.Topology == Topology.SubD && typeof(SubD).IsAssignableFrom(state.Type)));
     private static CurveFeature EdgeFeatureFor(Topology topology) =>
         topology == Topology.Curve ? CurveFeature.Input : topology == Topology.Surface ? CurveFeature.Boundary : CurveFeature.Edge;
 }
@@ -109,8 +109,6 @@ public partial record Curves : IAspect {
 // --- [OPERATIONS] -------------------------------------------------------------------------
 public static partial class Analyze {
     public static Operation<TGeometry, TOut> Curves<TGeometry, TOut>(Curves aspect) where TGeometry : notnull => Aspect<Curves, TGeometry, TOut>(aspect: aspect);
-    internal static Operation<TGeometry, TOut> Segments<TGeometry, TOut>() where TGeometry : notnull =>
-        Curves<TGeometry, TOut>(aspect: Analysis.Curves.Segments());
     public static Operation<Surface, Curve> Iso(IsoStatus iso, double normalized = 0.5) {
         Op key = Op.Of();
         return Operation<Surface, Curve>.Build(
@@ -120,6 +118,8 @@ public static partial class Analyze {
                 from result in state.Key.Accept(values: curves).ToEff()
                 select result);
     }
+    internal static Operation<TGeometry, TOut> Segments<TGeometry, TOut>() where TGeometry : notnull =>
+        Curves<TGeometry, TOut>(aspect: Analysis.Curves.Segments());
     internal static Operation<TGeometry, TOut> CurveProject<TGeometry, TOut, TValue>(Op key, Curves aspect, Func<TopologyProjection, Context, Op, Fin<Option<TValue>>> project) where TGeometry : notnull =>
         Operation<TGeometry, TValue>.Build(
             key: key, state: (Key: key, Aspect: aspect, Project: project), requiresContext: true,
@@ -171,6 +171,10 @@ public static partial class Analyze {
                 : Optional(surface.IsoCurve(iso, d.ParameterAt(normalized))).ToFin(op.InvalidResult()).Map(static c => Seq(c)),
         _ => Fin.Fail<Seq<Curve>>(op.InvalidInput()),
     };
+    internal static Fin<Option<CurveForm>> ClassifyCurveForm(TopologyProjection projection, Context context, Op op) =>
+        projection.As<Curve>()
+            .ToFin(op.InvalidResult())
+            .Bind(curve => GeometryKernel.CurveFormOf(curve: curve, context: context, op: op).Map(static form => Some(form)));
     private static Fin<Seq<TopologyProjection>> CurveInput(object source, Curves aspect, CurveFeature feature, Op op) =>
         GeometryKernel.CurveForm(source: source, op: op).Bind(lease => lease.Use(native => aspect switch {
             Curves.EdgesCase { Kind.Case: null or CurveFeature.Boundary } when native.TryGetPolyline(polyline: out Polyline polyline) && polyline.SegmentCount > 0 =>
@@ -193,10 +197,6 @@ public static partial class Analyze {
         _ = subd.UpdateSurfaceMeshCache(lazyUpdate: true);
         return Fin.Succ(toSeq(subd.DuplicateEdgeCurves().Select((c, i) => TopologyProjection.Of(c, feature, new ComponentIndex(type: ComponentIndexType.SubdEdge, index: i)))));
     }
-    internal static Fin<Option<CurveForm>> ClassifyCurveForm(TopologyProjection projection, Context context, Op op) =>
-        projection.As<Curve>()
-            .ToFin(op.InvalidResult())
-            .Bind(curve => GeometryKernel.CurveFormOf(curve: curve, context: context, op: op).Map(static form => Some(form)));
     private static Fin<Seq<TopologyProjection>> SilhouettesOf(GeometryBase geometry, Curves.SilhouetteCase silhouette, CurveFeature feature, Context context, Op op, CancellationToken cancel) =>
         cancel.IsCancellationRequested
             ? Fin.Fail<Seq<TopologyProjection>>(new Fault.Cancelled())

@@ -1,7 +1,7 @@
 """Run test, list, coverage, and mutation rails."""
 
-from dataclasses import dataclass
-from pathlib import Path  # noqa: TC003  # unconditional: cyclopts resolves TestParams.target's `Path | None` at CLI-build (PEP 649)
+from dataclasses import dataclass, replace
+from pathlib import Path  # unconditional: cyclopts resolves TestParams.target's `Path | None` at CLI-build (PEP 649)
 from typing import TYPE_CHECKING
 
 from expression import Result  # noqa: TC002  # unconditional: beartype @checked resolves the handler forward-ref (PEP 649)
@@ -10,7 +10,7 @@ from expression.extra.result import sequence
 import msgspec
 import structlog
 
-from tools.assay.composition.catalog import parse_tests, select
+from tools.assay.composition.catalog import select
 from tools.assay.composition.settings import ArtifactScope, AssaySettings  # noqa: TC001  # unconditional for beartype runtime
 from tools.assay.core.engine import fan_out, leased
 from tools.assay.core.model import (
@@ -43,6 +43,12 @@ if TYPE_CHECKING:
 # --- [CONSTANTS] ------------------------------------------------------------------------
 
 _GAP_NOTE: str = "mutation requested but no eligible lane (typescript has no mutation runner; or target/all overrides the default)"
+_COVERAGE_OUTPUTS: tuple[tuple[str, tuple[str, ...]], ...] = (
+    ("coverage.json", ("uv", "run", "coverage", "json")),
+    ("coverage.xml", ("uv", "run", "coverage", "xml")),
+    ("coverage.lcov", ("uv", "run", "coverage", "lcov")),
+)
+_TESTS = msgspec.json.Decoder(TestRun)
 
 
 # --- [MODELS] ---------------------------------------------------------------------------
@@ -58,7 +64,6 @@ class TestParams(BaseParams):
     mutation: bool = False
     benchmark: bool = False
     coverage: bool = False
-    fixtures: bool = False
     filter: str = ""
     limit: int = 0
     grep: str = ""
@@ -91,16 +96,18 @@ def _eligible(tool: Tool, params: TestParams) -> bool:
             return not params.no_build
         case _:
             return (
-                (tool.name != "pytest" or not params.benchmark)
+                (tool.name != "pytest" or not (params.benchmark or params.coverage))
                 and (tool.name != "coverage" or params.coverage)
+                and (not tool.name.startswith("coverage-") or params.coverage)
                 and (tool.name != "pytest-benchmark" or params.benchmark)
             )
 
 
 def _rows(language: Language, params: TestParams, mode: Mode) -> tuple[Tool, ...]:
-    return tuple(
-        t for t in select(Claim.TEST, language) if (t.mode is mode or t.mode in {Mode.RESTORE, Mode.BUILD, Mode.MUTATION}) and _eligible(t, params)
+    modes = {Mode.MUTATION: frozenset((Mode.MUTATION,)), Mode.CLIENT: frozenset((Mode.CLIENT,))}.get(
+        mode, frozenset((mode, Mode.RESTORE, Mode.BUILD))
     )
+    return tuple(t for t in select(Claim.TEST, language) if t.mode in modes and _eligible(t, params))
 
 
 def _mutation_gap(params: TestParams, rows: tuple[Tool, ...]) -> bool:
@@ -168,19 +175,57 @@ def _roster_matches(outcomes: tuple[Completed, ...]) -> tuple[Match, ...]:
 
 
 def _detail(done: tuple[Completed, ...], params: TestParams) -> AnyDetail | None:
-    # Mutation evidence is parser-derived; choose the first decoded receipt with a real mutation lane.
-    match params.mutation:
-        case False:
+    # Mutation evidence is stdout-derived; choose the first decoded receipt with a real mutation lane.
+    mutation = next(
+        (d for c in done if (d := _test_detail(c)) is not None and isinstance(d, TestRun) and d.mutation is not MutationLane.OFF), TestRun()
+    )
+    coverage = _coverage_percent(done)
+    match (params.mutation, params.coverage, coverage):
+        case (False, False, _):
             return None
-        case True:
-            return next(
-                (d for c in done if (d := parse_tests(c)) is not None and isinstance(d, TestRun) and d.mutation is not MutationLane.OFF), None
-            )
+        case (_, True, float() as total):
+            return msgspec.structs.replace(mutation, coverage=total)
+        case (True, _, _):
+            return mutation if mutation.mutation is not MutationLane.OFF else None
+        case _:
+            return None
+
+
+def _test_detail(done: Completed) -> TestRun:
+    try:
+        return _TESTS.decode(done.stdout or b"{}")
+    except msgspec.DecodeError:
+        return TestRun()
+
+
+def _coverage_percent(done: tuple[Completed, ...]) -> float | None:
+    return next(
+        (
+            float(text)
+            for c in done
+            if c.argv[:4] == ("uv", "run", "coverage", "report")
+            for text in (c.stdout.decode(errors="replace").strip(),)
+            if text.replace(".", "", 1).isdigit()
+        ),
+        None,
+    )
 
 
 def _results_artifact(scope: ArtifactScope) -> Artifact:
     # The per-run scope directory is where dotnet --results-directory writes; surface it as the test results artifact.
     return Artifact(id="results", kind=ArtifactKind.TEST, path=str(scope.path))
+
+
+def _coverage_artifacts(settings: AssaySettings, done: tuple[Completed, ...]) -> tuple[Artifact, ...]:
+    root = Path(str(settings.root)) / ".artifacts/python/coverage"
+    produced = frozenset(name for name, head in _COVERAGE_OUTPUTS if any(c.argv[: len(head)] == head and c.returncode == 0 for c in done))
+    paths = tuple(p for name in produced for p in (root / name,) if p.is_file())
+    return tuple(
+        Artifact(
+            id=path.name, kind=ArtifactKind.TEST, path=str(path), bytes=path.stat().st_size, lines=len(path.read_text(errors="replace").splitlines())
+        )
+        for path in paths
+    )
 
 
 def thin_rail(settings: AssaySettings, scope: ArtifactScope, params: TestParams, *, claim: Claim, verb: str, mode: Mode) -> Result[Report, Fault]:
@@ -190,8 +235,9 @@ def thin_rail(settings: AssaySettings, scope: ArtifactScope, params: TestParams,
         Folded test report, or routing/spawn/lease fault.
     """
     languages = _languages(params.language)
-    eligible = tuple(t for language in languages for t in _rows(language, params, mode))
-    match _mutation_gap(params, eligible):
+    eligible = tuple(t for language in languages for t in _rows(language, params, Mode.MUTATION if params.mutation else mode))
+    gap = _mutation_gap(params, eligible)
+    match gap:
         case True:
             _LOG.warning(_GAP_NOTE, claim=claim.value, verb=verb, language=params.language)
         case False:
@@ -201,10 +247,14 @@ def thin_rail(settings: AssaySettings, scope: ArtifactScope, params: TestParams,
         def _settle(done: Block[Completed]) -> Report:
             outcomes = tuple(done)
             base = fold(claim, verb, outcomes, detail=_detail(outcomes, params))
-            return msgspec.structs.replace(base, artifacts=(*base.artifacts, _results_artifact(scope)))
+            return msgspec.structs.replace(
+                base,
+                artifacts=(*base.artifacts, _results_artifact(scope), *_coverage_artifacts(settings, outcomes)),
+                notes=(*base.notes, *((_GAP_NOTE,) if gap else ())),
+            )
 
         return _routed(languages, params.paths, settings).bind(
-            lambda routed: sequence(routed.collect(lambda r: block.of_seq(_dispatch(r, params, settings=settings, scope=scope, mode=mode)))).map(
+            lambda routed: sequence(routed.collect(lambda r: block.of_seq(_dispatch_all(r, params, settings=settings, scope=scope, mode=mode)))).map(
                 _settle
             )
         )
@@ -268,7 +318,16 @@ def coverage(settings: AssaySettings, scope: ArtifactScope, params: TestParams) 
     Returns:
         Coverage test report, or routing/spawn fault.
     """
-    return thin_rail(settings, scope, params, claim=Claim.TEST, verb="coverage", mode=Mode.RUN)
+    return thin_rail(settings, scope, replace(params, coverage=True, benchmark=False), claim=Claim.TEST, verb="coverage", mode=Mode.RUN)
+
+
+def _dispatch_all(
+    routed: Routed, params: TestParams, *, settings: AssaySettings, scope: ArtifactScope, mode: Mode
+) -> tuple[Result[Completed, Fault], ...]:
+    run = _dispatch(routed, params, settings=settings, scope=scope, mode=mode)
+    mutation = _dispatch(routed, params, settings=settings, scope=scope, mode=Mode.MUTATION) if params.mutation and mode is Mode.RUN else ()
+    coverage = _dispatch(routed, params, settings=settings, scope=scope, mode=Mode.CLIENT) if params.coverage and mode is Mode.RUN else ()
+    return (*run, *mutation, *coverage)
 
 
 # --- [EXPORTS] --------------------------------------------------------------------------

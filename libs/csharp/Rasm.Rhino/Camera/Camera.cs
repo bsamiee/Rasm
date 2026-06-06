@@ -111,12 +111,6 @@ public sealed class RhinoCamera {
     public static RhinoCamera Live(RhinoDoc document, RunMode mode = RunMode.Interactive) =>
         new(document: document, mode: mode);
 
-    private Fin<RhinoDoc> ActiveDocument =>
-        Document switch {
-            { IsAvailable: true, IsClosing: false, IsInitializing: false, IsOpening: false } doc => Fin.Succ(value: doc),
-            _ => Fin.Fail<RhinoDoc>(error: ScopeKey.MissingContext()),
-        };
-
     public Fin<CameraScope> Scope(ViewportTarget target) =>
         from active in ActiveDocument
         from valid in Optional(target).ToFin(Fail: ScopeKey.InvalidInput())
@@ -166,6 +160,20 @@ public sealed class RhinoCamera {
     public static UiIntent<CameraOutcome<T>> Intent<T>(CameraOp<T> operation, ViewportTarget target) =>
         UiIntent.Operation(run: (doc, mode) => Live(document: doc, mode: mode).Run(operation: operation, target: target));
 
+    internal static Fin<CameraScope> SingleScope(Seq<CameraScope> scopes, Op op) =>
+        guard(scopes.Count == 1, op.InvalidInput()).ToFin().Map(_ => scopes[0]);
+
+    private Fin<RhinoDoc> ActiveDocument =>
+        Document switch {
+            { IsAvailable: true, IsClosing: false, IsInitializing: false, IsOpening: false } doc => Fin.Succ(value: doc),
+            _ => Fin.Fail<RhinoDoc>(error: ScopeKey.MissingContext()),
+        };
+
+    private static Fin<CameraOutcome<T>> ExecuteRunOnScope<T>(CameraOp<T> operation, CameraScope scope) =>
+        from outcome in operation.Run(arg: scope)
+        from _ in outcome.Redraw.ApplyTo(scope: scope)
+        select outcome with { Redraw = RedrawRequest.Empty };
+
     private Fin<CameraOutcome<T>> ExecuteRun<T>(CameraOp<T> operation, ViewportTarget target) =>
         from scope in Scope(target: target)
         from outcome in ExecuteRunOnScope(operation: operation, scope: scope)
@@ -195,11 +203,4 @@ public sealed class RhinoCamera {
                 select folded,
         };
 
-    private static Fin<CameraOutcome<T>> ExecuteRunOnScope<T>(CameraOp<T> operation, CameraScope scope) =>
-        from outcome in operation.Run(arg: scope)
-        from _ in outcome.Redraw.ApplyTo(scope: scope)
-        select outcome with { Redraw = RedrawRequest.Empty };
-
-    internal static Fin<CameraScope> SingleScope(Seq<CameraScope> scopes, Op op) =>
-        guard(scopes.Count == 1, op.InvalidInput()).ToFin().Map(_ => scopes[0]);
 }

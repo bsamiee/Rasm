@@ -323,11 +323,70 @@ internal static class SampleKernel {
     [StructLayout(LayoutKind.Auto)] private readonly record struct DworkCell(long X, long Y, long Z);
     [StructLayout(LayoutKind.Auto)] private readonly record struct DworkSurfacePoint(Point3d Point, double Radius);
     [StructLayout(LayoutKind.Auto)] private readonly record struct DworkTriangle(Point3d A, Point3d B, Point3d C, double CumulativeArea);
+    [StructLayout(LayoutKind.Auto)] private readonly record struct DworkCandidate(int Index, double Radius);
     private static Fin<SampleSelection> DworkVariableDensityMeshSelection(MeshSpace domain, ScalarField radius, int count, double minRadius, int attempts, int seed, Context context, Op key) {
         using Mesh mesh = domain.Native.DuplicateMesh();
         if (mesh.Faces.QuadCount > 0 && !mesh.Faces.ConvertQuadsToTriangles()) return Fin.Fail<SampleSelection>(key.InvalidResult());
         _ = mesh.FaceNormals.ComputeFaceNormals();
         return new DworkMeshRun(mesh: mesh, radius: radius, count: count, minRadius: minRadius, attempts: attempts, seed: seed, context: context, key: key).Run();
+    }
+    private static Fin<SampleSelection> DworkVariableDensitySelection(Seq<SampleCandidate> candidates, ScalarField radius, int count, double minRadius, int attempts, int seed, Context context, Op key) {
+        DworkCandidate[] admitted = new DworkCandidate[candidates.Count];
+        return toSeq(Enumerable.Range(start: 0, count: candidates.Count)).Fold(
+            initialState: Fin.Succ((Accepted: 0, Rejected: 0, MinRadius: double.PositiveInfinity, MaxRadius: 0.0)),
+            f: (state, i) => state.Bind(current => radius.SampleScalar(sample: candidates[index: i].Point, context: context, key: key)
+                .Bind(value => RhinoMath.IsValidDouble(x: value) && value > 0.0
+                    ? key.AcceptValue(value: Math.Max(val1: minRadius, val2: value)).Map(local => {
+                        admitted[current.Accepted] = new DworkCandidate(Index: i, Radius: local);
+                        return (Accepted: current.Accepted + 1, current.Rejected, MinRadius: Math.Min(val1: current.MinRadius, val2: local), MaxRadius: Math.Max(val1: current.MaxRadius, val2: local));
+                    })
+                    : Fin.Succ((current.Accepted, Rejected: current.Rejected + 1, current.MinRadius, current.MaxRadius)))))
+            .Bind(stats => stats.Accepted > 0
+                ? DworkVariableDensitySelection(candidates: candidates, admitted: [.. admitted.Take(count: stats.Accepted)], count: count, attempts: attempts, seed: seed, radiusMin: stats.MinRadius, radiusMax: stats.MaxRadius, rejectedDomain: stats.Rejected, key: key)
+                : Fin.Fail<SampleSelection>(key.InvalidResult()));
+    }
+    private static Fin<SampleSelection> DworkVariableDensitySelection(Seq<SampleCandidate> candidates, DworkCandidate[] admitted, int count, int attempts, int seed, double radiusMin, double radiusMax, int rejectedDomain, Op key) {
+        DworkCandidate[] ordered = [.. admitted.OrderBy(item => CandidateOrderKey(point: candidates[index: item.Index].Point, seed: seed))];
+        List<DworkCandidate> chosen = ordered.Length > 0 ? [ordered[0]] : [];
+        List<DworkCandidate> active = ordered.Length > 0 ? [ordered[0]] : [];
+        int activePops = 0;
+        int tooClose = 0;
+        int outside = 0;
+        while (active.Count > 0 && chosen.Count < count) {
+            int activeOffset = (int)(CandidateOrderKey(point: candidates[index: active[0].Index].Point, seed: seed + activePops) % (ulong)active.Count);
+            DworkCandidate parent = active[activeOffset];
+            bool accepted = false;
+            for (int attempt = 0; attempt < attempts && !accepted; attempt++) {
+                DworkCandidate candidate = ordered[(int)(CandidateOrderKey(point: candidates[index: parent.Index].Point, seed: seed + activePops + attempt + 1) % (ulong)ordered.Length)];
+                if (chosen.Exists(item => item.Index == candidate.Index)) { tooClose++; continue; }
+                double distance = candidates[index: parent.Index].Point.DistanceTo(other: candidates[index: candidate.Index].Point);
+                if (distance < parent.Radius || distance > 2.0 * parent.Radius) { outside++; continue; }
+                bool conflict = chosen.Exists(item => candidates[index: item.Index].Point.DistanceTo(other: candidates[index: candidate.Index].Point) < Math.Max(val1: item.Radius, val2: candidate.Radius));
+                if (conflict) { tooClose++; continue; }
+                chosen.Add(item: candidate);
+                active.Add(item: candidate);
+                accepted = true;
+            }
+            if (!accepted) active.RemoveAt(index: activeOffset);
+            activePops++;
+        }
+        DworkReceipt dwork = new(
+            Domain: DworkSamplingDomain.CandidateSet,
+            RMin: radiusMin,
+            BackgroundCellSize: Option<double>.None,
+            BackgroundGridCells: Option<int>.None,
+            AttemptsPerActive: attempts,
+            GeneratedCandidates: chosen.Count + tooClose + outside + rejectedDomain,
+            ActivePops: activePops,
+            RejectedTooClose: tooClose,
+            RejectedDomain: rejectedDomain + outside,
+            LocalRadiusMin: radiusMin,
+            LocalRadiusMax: radiusMax,
+            ActiveListAnnulusSampling: false,
+            LocalRadiusConflictChecks: true,
+            DeterministicSeed: true);
+        SampleAlgorithmReceipt algorithm = AlgorithmFacts(kind: SampleAlgorithmKind.DworkVariableDensity, seed: Some(seed), targetCount: Some(count), oversampleCount: Some(admitted.Length), attempts: Some(attempts), activePops: Some(activePops), rejectedTooClose: Some(tooClose), rejectedDomain: Some(rejectedDomain + outside), localRadiusMin: Some(radiusMin), localRadiusMax: Some(radiusMax), dwork: Some(dwork));
+        return SelectionOf(candidates: candidates, indices: [.. chosen.Select(static item => item.Index)], algorithm: Some(algorithm), key: key);
     }
     private sealed class DworkMeshRun {
         private readonly Mesh mesh;
@@ -513,65 +572,6 @@ internal static class SampleKernel {
             SampleAlgorithmReceipt algorithm = AlgorithmFacts(kind: SampleAlgorithmKind.DworkVariableDensity, seed: Some(seed), targetCount: Some(count), oversampleCount: Some(proposals), attempts: Some(attempts), activePops: Some(activePops), rejectedTooClose: Some(rejectedTooClose), rejectedDomain: Some(rejectedDomain), localRadiusMin: Some(radiusMin), localRadiusMax: Some(radiusMax), dwork: Some(dwork));
             return Fin.Succ(new SampleSelection(Points: [.. chosen.Select(static sample => sample.Point)], Mass: Option<Arr<double>>.None, DensityAccepted: Option<int>.None, DensityRejected: Option<int>.None, Algorithm: Some(algorithm)));
         }
-    }
-    [StructLayout(LayoutKind.Auto)] private readonly record struct DworkCandidate(int Index, double Radius);
-    private static Fin<SampleSelection> DworkVariableDensitySelection(Seq<SampleCandidate> candidates, ScalarField radius, int count, double minRadius, int attempts, int seed, Context context, Op key) {
-        DworkCandidate[] admitted = new DworkCandidate[candidates.Count];
-        return toSeq(Enumerable.Range(start: 0, count: candidates.Count)).Fold(
-            initialState: Fin.Succ((Accepted: 0, Rejected: 0, MinRadius: double.PositiveInfinity, MaxRadius: 0.0)),
-            f: (state, i) => state.Bind(current => radius.SampleScalar(sample: candidates[index: i].Point, context: context, key: key)
-                .Bind(value => RhinoMath.IsValidDouble(x: value) && value > 0.0
-                    ? key.AcceptValue(value: Math.Max(val1: minRadius, val2: value)).Map(local => {
-                        admitted[current.Accepted] = new DworkCandidate(Index: i, Radius: local);
-                        return (Accepted: current.Accepted + 1, current.Rejected, MinRadius: Math.Min(val1: current.MinRadius, val2: local), MaxRadius: Math.Max(val1: current.MaxRadius, val2: local));
-                    })
-                    : Fin.Succ((current.Accepted, Rejected: current.Rejected + 1, current.MinRadius, current.MaxRadius)))))
-            .Bind(stats => stats.Accepted > 0
-                ? DworkVariableDensitySelection(candidates: candidates, admitted: [.. admitted.Take(count: stats.Accepted)], count: count, attempts: attempts, seed: seed, radiusMin: stats.MinRadius, radiusMax: stats.MaxRadius, rejectedDomain: stats.Rejected, key: key)
-                : Fin.Fail<SampleSelection>(key.InvalidResult()));
-    }
-    private static Fin<SampleSelection> DworkVariableDensitySelection(Seq<SampleCandidate> candidates, DworkCandidate[] admitted, int count, int attempts, int seed, double radiusMin, double radiusMax, int rejectedDomain, Op key) {
-        DworkCandidate[] ordered = [.. admitted.OrderBy(item => CandidateOrderKey(point: candidates[index: item.Index].Point, seed: seed))];
-        List<DworkCandidate> chosen = ordered.Length > 0 ? [ordered[0]] : [];
-        List<DworkCandidate> active = ordered.Length > 0 ? [ordered[0]] : [];
-        int activePops = 0;
-        int tooClose = 0;
-        int outside = 0;
-        while (active.Count > 0 && chosen.Count < count) {
-            int activeOffset = (int)(CandidateOrderKey(point: candidates[index: active[0].Index].Point, seed: seed + activePops) % (ulong)active.Count);
-            DworkCandidate parent = active[activeOffset];
-            bool accepted = false;
-            for (int attempt = 0; attempt < attempts && !accepted; attempt++) {
-                DworkCandidate candidate = ordered[(int)(CandidateOrderKey(point: candidates[index: parent.Index].Point, seed: seed + activePops + attempt + 1) % (ulong)ordered.Length)];
-                if (chosen.Exists(item => item.Index == candidate.Index)) { tooClose++; continue; }
-                double distance = candidates[index: parent.Index].Point.DistanceTo(other: candidates[index: candidate.Index].Point);
-                if (distance < parent.Radius || distance > 2.0 * parent.Radius) { outside++; continue; }
-                bool conflict = chosen.Exists(item => candidates[index: item.Index].Point.DistanceTo(other: candidates[index: candidate.Index].Point) < Math.Max(val1: item.Radius, val2: candidate.Radius));
-                if (conflict) { tooClose++; continue; }
-                chosen.Add(item: candidate);
-                active.Add(item: candidate);
-                accepted = true;
-            }
-            if (!accepted) active.RemoveAt(index: activeOffset);
-            activePops++;
-        }
-        DworkReceipt dwork = new(
-            Domain: DworkSamplingDomain.CandidateSet,
-            RMin: radiusMin,
-            BackgroundCellSize: Option<double>.None,
-            BackgroundGridCells: Option<int>.None,
-            AttemptsPerActive: attempts,
-            GeneratedCandidates: chosen.Count + tooClose + outside + rejectedDomain,
-            ActivePops: activePops,
-            RejectedTooClose: tooClose,
-            RejectedDomain: rejectedDomain + outside,
-            LocalRadiusMin: radiusMin,
-            LocalRadiusMax: radiusMax,
-            ActiveListAnnulusSampling: false,
-            LocalRadiusConflictChecks: true,
-            DeterministicSeed: true);
-        SampleAlgorithmReceipt algorithm = AlgorithmFacts(kind: SampleAlgorithmKind.DworkVariableDensity, seed: Some(seed), targetCount: Some(count), oversampleCount: Some(admitted.Length), attempts: Some(attempts), activePops: Some(activePops), rejectedTooClose: Some(tooClose), rejectedDomain: Some(rejectedDomain + outside), localRadiusMin: Some(radiusMin), localRadiusMax: Some(radiusMax), dwork: Some(dwork));
-        return SelectionOf(candidates: candidates, indices: [.. chosen.Select(static item => item.Index)], algorithm: Some(algorithm), key: key);
     }
     private static double VariableDensitySpacing(Seq<SampleCandidate> candidates, int count) {
         (int dimensions, double measure) = BoundingMeasure(candidates: candidates);

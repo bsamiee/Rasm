@@ -303,6 +303,11 @@ public readonly record struct CaptureRecipe(
             : Some(active.ActiveViewport));
     }
 
+    private readonly record struct Policy(
+        Option<double> FallbackDpi = default,
+        Option<CaptureDecor> FallbackDecor = default,
+        Option<Func<CaptureDecor, RhinoView, CaptureDecor>> DecorRewrite = default);
+
     private ViewCaptureSettings Create(RhinoView view, Option<RhinoViewport> viewport, double dpi) {
         ViewCaptureSettings settings = view is RhinoPageView page && viewport.IsNone && Size.IsNone
             ? new ViewCaptureSettings(sourcePageView: page, dpi: dpi)
@@ -331,11 +336,6 @@ public readonly record struct CaptureRecipe(
 
     private static Fin<Unit> AcceptTransparent(RhinoView view, CaptureDecor decor, Op op) =>
         guard(view is not RhinoPageView && decor.SupportsTransparentBitmap, op.InvalidInput()).ToFin();
-
-    private readonly record struct Policy(
-        Option<double> FallbackDpi = default,
-        Option<CaptureDecor> FallbackDecor = default,
-        Option<Func<CaptureDecor, RhinoView, CaptureDecor>> DecorRewrite = default);
 }
 
 [StructLayout(LayoutKind.Auto)]

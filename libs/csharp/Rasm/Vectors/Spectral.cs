@@ -69,27 +69,17 @@ public sealed partial class SpectralZeroModePolicy { public static readonly Spec
 
 // --- [MODELS] -----------------------------------------------------------------------------
 [BoundaryAdapter, StructLayout(LayoutKind.Auto)]
-public readonly record struct DiscreteCalculus(SparseMatrix D0, SparseMatrix D1, Arr<double> Star0, Arr<double> Star1, Arr<double> Star2, SpectralAssemblyReceipt Receipt, Option<SignpostTransportReceipt> Transport = default, Option<HarmonicOneFormBasis> Harmonic = default) {
-    public bool IsValid => D0.IsValid && D1.IsValid && Receipt.IsValid && Star0.Count == D0.Cols.Value && Star1.Count == D0.Rows.Value && Star2.Count == D1.Rows.Value && Star0.ForAll(static v => RhinoMath.IsValidDouble(x: v) && v > 0.0) && Star1.ForAll(static v => RhinoMath.IsValidDouble(x: v) && v >= 0.0) && Star2.ForAll(static v => RhinoMath.IsValidDouble(x: v) && v > 0.0) && Transport.Map(static receipt => receipt.IsValid).IfNone(noneValue: true) && Harmonic.Map(static basis => basis.IsValid).IfNone(noneValue: true);
-    internal Fin<TOut> Project<TOut>(Op key) =>
-        typeof(TOut) switch {
-            Type t when t == typeof(DiscreteCalculus) => Fin.Succ((TOut)(object)this),
-            Type t when t == typeof(SpectralAssemblyReceipt) => Fin.Succ((TOut)(object)Receipt),
-            Type t when t == typeof(SignpostTransportReceipt) => Transport.Map(static receipt => (TOut)(object)receipt).ToFin(key.InvalidResult()),
-            Type t when t == typeof(HarmonicOneFormBasis) => Harmonic.Map(static basis => (TOut)(object)basis).ToFin(key.InvalidResult()),
-            Type t when t == typeof(HarmonicOneFormReceipt) => Harmonic.Map(static basis => (TOut)(object)basis.Receipt).ToFin(key.InvalidResult()),
-            _ => Fin.Fail<TOut>(key.Unsupported(geometryType: typeof(DiscreteCalculus), outputType: typeof(TOut))),
-        };
-}
-
-[BoundaryAdapter, StructLayout(LayoutKind.Auto)]
-public readonly record struct HarmonicOneFormBasis(Arr<Arr<double>> Forms, HarmonicOneFormReceipt Receipt) {
-    public bool IsValid {
-        get {
-            HarmonicOneFormReceipt receipt = Receipt;
-            return receipt.IsValid && Forms.Count == receipt.BasisCount && Forms.ForAll(form => form.Count == receipt.EdgeCount && form.ForAll(RhinoMath.IsValidDouble));
-        }
-    }
+public readonly record struct SpectralAssemblyReceipt(int VertexCount, int EdgeCount, int FaceCount, int AdmittedFaceCount, int SkippedDegenerateFaces, int SkippedMissingEdges, int SkippedInvalidNormals, int SkippedInvalidTangents, bool FlippedIntrinsicRejected, int MatrixRows, int MatrixCols, int NonZeros, int PositiveStar0Count, int PositiveStar1Count, int PositiveStar2Count, double BoundaryCompositionResidual, Option<int> Genus, int HarmonicDimension, SpectralAssemblyKind Kind, int BoundaryEdgeCount = 0, int BoundaryComponentCount = 0, int NonManifoldEdgeCount = 0, int EulerCharacteristic = 0, bool TopologyEulerValidated = false, int ComponentCount = 1, int PositiveMassCount = 0, double SymmetryResidual = 0.0, Option<int> FactorNonZeros = default) {
+    internal bool IsValid =>
+        Kind is SpectralAssemblyKind kind
+        && new[] { VertexCount, EdgeCount, FaceCount, AdmittedFaceCount, SkippedDegenerateFaces, SkippedMissingEdges, SkippedInvalidNormals, SkippedInvalidTangents, MatrixRows, MatrixCols, NonZeros, PositiveStar0Count, PositiveStar1Count, PositiveStar2Count, HarmonicDimension, BoundaryEdgeCount, BoundaryComponentCount, NonManifoldEdgeCount, ComponentCount, PositiveMassCount }.All(static count => count >= 0)
+        && AdmittedFaceCount + SkippedDegenerateFaces + SkippedMissingEdges <= FaceCount
+        && RhinoMath.IsValidDouble(x: BoundaryCompositionResidual)
+        && RhinoMath.IsValidDouble(x: SymmetryResidual)
+        && FactorNonZeros.Map(static value => value > 0).IfNone(noneValue: true)
+        && (kind.Equals(SpectralAssemblyKind.EdgeConnection)
+            ? ComponentCount == 2 && MatrixRows == EdgeCount * ComponentCount && MatrixCols == MatrixRows && PositiveMassCount <= EdgeCount
+            : ComponentCount == 1 && PositiveStar0Count <= VertexCount && PositiveStar1Count <= EdgeCount && PositiveStar2Count <= FaceCount && (Genus is { IsSome: true, Case: int genus } ? genus >= 0 && HarmonicDimension == 2 * genus : HarmonicDimension == 0));
 }
 
 [BoundaryAdapter, StructLayout(LayoutKind.Auto)]
@@ -117,17 +107,27 @@ public readonly record struct HarmonicOneFormReceipt(Option<int> Genus, int Expe
 }
 
 [BoundaryAdapter, StructLayout(LayoutKind.Auto)]
-public readonly record struct SpectralAssemblyReceipt(int VertexCount, int EdgeCount, int FaceCount, int AdmittedFaceCount, int SkippedDegenerateFaces, int SkippedMissingEdges, int SkippedInvalidNormals, int SkippedInvalidTangents, bool FlippedIntrinsicRejected, int MatrixRows, int MatrixCols, int NonZeros, int PositiveStar0Count, int PositiveStar1Count, int PositiveStar2Count, double BoundaryCompositionResidual, Option<int> Genus, int HarmonicDimension, SpectralAssemblyKind Kind, int BoundaryEdgeCount = 0, int BoundaryComponentCount = 0, int NonManifoldEdgeCount = 0, int EulerCharacteristic = 0, bool TopologyEulerValidated = false, int ComponentCount = 1, int PositiveMassCount = 0, double SymmetryResidual = 0.0, Option<int> FactorNonZeros = default) {
-    internal bool IsValid =>
-        Kind is SpectralAssemblyKind kind
-        && new[] { VertexCount, EdgeCount, FaceCount, AdmittedFaceCount, SkippedDegenerateFaces, SkippedMissingEdges, SkippedInvalidNormals, SkippedInvalidTangents, MatrixRows, MatrixCols, NonZeros, PositiveStar0Count, PositiveStar1Count, PositiveStar2Count, HarmonicDimension, BoundaryEdgeCount, BoundaryComponentCount, NonManifoldEdgeCount, ComponentCount, PositiveMassCount }.All(static count => count >= 0)
-        && AdmittedFaceCount + SkippedDegenerateFaces + SkippedMissingEdges <= FaceCount
-        && RhinoMath.IsValidDouble(x: BoundaryCompositionResidual)
-        && RhinoMath.IsValidDouble(x: SymmetryResidual)
-        && FactorNonZeros.Map(static value => value > 0).IfNone(noneValue: true)
-        && (kind.Equals(SpectralAssemblyKind.EdgeConnection)
-            ? ComponentCount == 2 && MatrixRows == EdgeCount * ComponentCount && MatrixCols == MatrixRows && PositiveMassCount <= EdgeCount
-            : ComponentCount == 1 && PositiveStar0Count <= VertexCount && PositiveStar1Count <= EdgeCount && PositiveStar2Count <= FaceCount && (Genus is { IsSome: true, Case: int genus } ? genus >= 0 && HarmonicDimension == 2 * genus : HarmonicDimension == 0));
+public readonly record struct HarmonicOneFormBasis(Arr<Arr<double>> Forms, HarmonicOneFormReceipt Receipt) {
+    public bool IsValid {
+        get {
+            HarmonicOneFormReceipt receipt = Receipt;
+            return receipt.IsValid && Forms.Count == receipt.BasisCount && Forms.ForAll(form => form.Count == receipt.EdgeCount && form.ForAll(RhinoMath.IsValidDouble));
+        }
+    }
+}
+
+[BoundaryAdapter, StructLayout(LayoutKind.Auto)]
+public readonly record struct DiscreteCalculus(SparseMatrix D0, SparseMatrix D1, Arr<double> Star0, Arr<double> Star1, Arr<double> Star2, SpectralAssemblyReceipt Receipt, Option<SignpostTransportReceipt> Transport = default, Option<HarmonicOneFormBasis> Harmonic = default) {
+    public bool IsValid => D0.IsValid && D1.IsValid && Receipt.IsValid && Star0.Count == D0.Cols.Value && Star1.Count == D0.Rows.Value && Star2.Count == D1.Rows.Value && Star0.ForAll(static v => RhinoMath.IsValidDouble(x: v) && v > 0.0) && Star1.ForAll(static v => RhinoMath.IsValidDouble(x: v) && v >= 0.0) && Star2.ForAll(static v => RhinoMath.IsValidDouble(x: v) && v > 0.0) && Transport.Map(static receipt => receipt.IsValid).IfNone(noneValue: true) && Harmonic.Map(static basis => basis.IsValid).IfNone(noneValue: true);
+    internal Fin<TOut> Project<TOut>(Op key) =>
+        typeof(TOut) switch {
+            Type t when t == typeof(DiscreteCalculus) => Fin.Succ((TOut)(object)this),
+            Type t when t == typeof(SpectralAssemblyReceipt) => Fin.Succ((TOut)(object)Receipt),
+            Type t when t == typeof(SignpostTransportReceipt) => Transport.Map(static receipt => (TOut)(object)receipt).ToFin(key.InvalidResult()),
+            Type t when t == typeof(HarmonicOneFormBasis) => Harmonic.Map(static basis => (TOut)(object)basis).ToFin(key.InvalidResult()),
+            Type t when t == typeof(HarmonicOneFormReceipt) => Harmonic.Map(static basis => (TOut)(object)basis.Receipt).ToFin(key.InvalidResult()),
+            _ => Fin.Fail<TOut>(key.Unsupported(geometryType: typeof(DiscreteCalculus), outputType: typeof(TOut))),
+        };
 }
 
 [BoundaryAdapter, StructLayout(LayoutKind.Auto)]
@@ -139,12 +139,24 @@ public readonly record struct SpectralBasis(Arr<double> Eigenvalues, Arr<Arr<dou
 }
 
 [BoundaryAdapter, StructLayout(LayoutKind.Auto)]
-public readonly record struct SpectralDescriptor(Arr<double> Values, SpectralDescriptorReceipt Receipt) {
-    public bool IsValid => Receipt.IsValid && Values.Count == Receipt.VertexCount && Values.ForAll(RhinoMath.IsValidDouble);
-    public Fin<SpectralDescriptor> Normalize(SpectralDescriptorPolicy policy, Op? key = null) =>
-        SpectralCore.NormalizeDescriptor(descriptor: this, policy: policy, key: key.OrDefault());
-    public Fin<SpectralRanking> Rank(Seq<SpectralDescriptor> candidates, SpectralRankingPolicy policy, Op? key = null) =>
-        SpectralCore.RankDescriptors(query: this, candidates: candidates, policy: policy, key: key.OrDefault());
+public readonly record struct SpectralWaveReceipt(double Energy, double Bandwidth, Option<double> FirstNonZeroScale, int ZeroModeCount, int CroppedEigenpairCount, int NonZeroEigenpairCount, double RawWeightSum, double NormalizedWeightSum, Option<double> MinLogEigenvalue, Option<double> MaxLogEigenvalue, bool WksNormalized) {
+    internal bool IsValid {
+        get {
+            Option<double> first = FirstNonZeroScale, minLog = MinLogEigenvalue, maxLog = MaxLogEigenvalue;
+            bool firstValid = first.IsNone || (RhinoMath.IsValidDouble(x: first.IfNone(0.0)) && first.IfNone(0.0) > 0.0);
+            bool rangeValid = minLog.IsNone || maxLog.IsNone || (RhinoMath.IsValidDouble(x: minLog.IfNone(0.0)) && RhinoMath.IsValidDouble(x: maxLog.IfNone(0.0)) && minLog.IfNone(0.0) <= maxLog.IfNone(0.0));
+            return new[] { Energy, Bandwidth, RawWeightSum, NormalizedWeightSum }.All(RhinoMath.IsValidDouble)
+                && Energy > 0.0
+                && Bandwidth > 0.0
+                && ZeroModeCount >= 0
+                && CroppedEigenpairCount >= NonZeroEigenpairCount
+                && NonZeroEigenpairCount > 0
+                && RawWeightSum > 0.0
+                && (!WksNormalized || Math.Abs(value: NormalizedWeightSum - 1.0) <= 1.0e-9)
+                && firstValid
+                && rangeValid;
+        }
+    }
 }
 
 [BoundaryAdapter, StructLayout(LayoutKind.Auto)]
@@ -174,10 +186,13 @@ public readonly record struct SpectralDescriptorReceipt(SpectralFilter Filter, i
 }
 
 [BoundaryAdapter, StructLayout(LayoutKind.Auto)]
-public readonly record struct SpectralRank(int Index, double Distance, SpectralDescriptor Descriptor);
-
-[BoundaryAdapter, StructLayout(LayoutKind.Auto)]
-public readonly record struct SpectralRanking(SpectralDescriptor Query, Seq<SpectralRank> Items, SpectralRankingPolicy Policy);
+public readonly record struct SpectralDescriptor(Arr<double> Values, SpectralDescriptorReceipt Receipt) {
+    public bool IsValid => Receipt.IsValid && Values.Count == Receipt.VertexCount && Values.ForAll(RhinoMath.IsValidDouble);
+    public Fin<SpectralDescriptor> Normalize(SpectralDescriptorPolicy policy, Op? key = null) =>
+        SpectralCore.NormalizeDescriptor(descriptor: this, policy: policy, key: key.OrDefault());
+    public Fin<SpectralRanking> Rank(Seq<SpectralDescriptor> candidates, SpectralRankingPolicy policy, Op? key = null) =>
+        SpectralCore.RankDescriptors(query: this, candidates: candidates, policy: policy, key: key.OrDefault());
+}
 
 [BoundaryAdapter, StructLayout(LayoutKind.Auto)]
 public readonly record struct SpectralRankingPolicy(SpectralDescriptorPolicy Descriptor, SpectralDistanceKind Distance, SpectralTieBreak TieBreak) {
@@ -186,25 +201,10 @@ public readonly record struct SpectralRankingPolicy(SpectralDescriptorPolicy Des
 }
 
 [BoundaryAdapter, StructLayout(LayoutKind.Auto)]
-public readonly record struct SpectralWaveReceipt(double Energy, double Bandwidth, Option<double> FirstNonZeroScale, int ZeroModeCount, int CroppedEigenpairCount, int NonZeroEigenpairCount, double RawWeightSum, double NormalizedWeightSum, Option<double> MinLogEigenvalue, Option<double> MaxLogEigenvalue, bool WksNormalized) {
-    internal bool IsValid {
-        get {
-            Option<double> first = FirstNonZeroScale, minLog = MinLogEigenvalue, maxLog = MaxLogEigenvalue;
-            bool firstValid = first.IsNone || (RhinoMath.IsValidDouble(x: first.IfNone(0.0)) && first.IfNone(0.0) > 0.0);
-            bool rangeValid = minLog.IsNone || maxLog.IsNone || (RhinoMath.IsValidDouble(x: minLog.IfNone(0.0)) && RhinoMath.IsValidDouble(x: maxLog.IfNone(0.0)) && minLog.IfNone(0.0) <= maxLog.IfNone(0.0));
-            return new[] { Energy, Bandwidth, RawWeightSum, NormalizedWeightSum }.All(RhinoMath.IsValidDouble)
-                && Energy > 0.0
-                && Bandwidth > 0.0
-                && ZeroModeCount >= 0
-                && CroppedEigenpairCount >= NonZeroEigenpairCount
-                && NonZeroEigenpairCount > 0
-                && RawWeightSum > 0.0
-                && (!WksNormalized || Math.Abs(value: NormalizedWeightSum - 1.0) <= 1.0e-9)
-                && firstValid
-                && rangeValid;
-        }
-    }
-}
+public readonly record struct SpectralRank(int Index, double Distance, SpectralDescriptor Descriptor);
+
+[BoundaryAdapter, StructLayout(LayoutKind.Auto)]
+public readonly record struct SpectralRanking(SpectralDescriptor Query, Seq<SpectralRank> Items, SpectralRankingPolicy Policy);
 
 // --- [OPERATIONS] -------------------------------------------------------------------------
 internal static class SpectralCore {
@@ -224,6 +224,9 @@ internal static class SpectralCore {
         internal (int I, int J, double Sign, double LA, double LB, double LOpp) CrouzeixPair(MeshKernel.IntrinsicMesh imesh, int side) => (Edge(side), Edge(side: (side + 1) % 3), Orientation(imesh: imesh, side: side) * Orientation(imesh: imesh, side: (side + 1) % 3), Length(side: (side + 1) % 3), Length(side: side), Length(side: (side + 2) % 3));
         internal double Angle(int side) => AngleFromLengths(opposite: Length(side: (side + 1) % 3), adjacent1: Length(side: side == 0 ? 0 : side - 1), adjacent2: Length(side: side == 0 ? 2 : side));
     }
+
+    private static double AngleFromLengths(double opposite, double adjacent1, double adjacent2) =>
+        Math.Acos(d: Math.Min(val1: 1.0, val2: Math.Max(val1: -1.0, val2: ((adjacent1 * adjacent1) + (adjacent2 * adjacent2) - (opposite * opposite)) / (2.0 * adjacent1 * adjacent2))));
 
     // BOUNDARY ADAPTER -- dense mesh buffer avoids Seq materialisation churn.
     internal static Fin<SpectralDescriptor> EvaluateFilteredDetailed(SpectralBasis basis, Option<Seq<int>> sources, SpectralFilter filter, SpectralDescriptorPolicy policy, Op key) {
@@ -338,132 +341,26 @@ internal static class SpectralCore {
         double sigma = Math.Sqrt(d: variance);
         return sigma > RhinoMath.SqrtEpsilon ? Fin.Succ<double[]>([.. result.Select(value => (value - mean) / sigma)]) : Fin.Fail<double[]>(key.InvalidResult());
     }
-    // --- [CROUZEIX_RAVIART] -----------------------------------------------------------------
-    internal static Fin<(SparseMatrix Matrix, SpectralAssemblyReceipt Receipt)> BuildCrouzeixRaviartHeatSystemDetailed(MeshKernel.IntrinsicMesh mesh, double time, Op key) {
-        if (!RhinoMath.IsValidDouble(x: time) || time <= 0.0) return Fin.Fail<(SparseMatrix Matrix, SpectralAssemblyReceipt Receipt)>(error: key.InvalidInput());
-        if (!mesh.IsFrozen) return Fin.Fail<(SparseMatrix Matrix, SpectralAssemblyReceipt Receipt)>(error: key.InvalidInput());
-        if (mesh.HasFlips) return Fin.Fail<(SparseMatrix Matrix, SpectralAssemblyReceipt Receipt)>(error: key.Unsupported(geometryType: typeof(MeshKernel.IntrinsicMesh), outputType: typeof(SparseMatrix)));
-        int eCount = mesh.EdgeCount;
-        if (eCount == 0) return Fin.Fail<(SparseMatrix Matrix, SpectralAssemblyReceipt Receipt)>(error: key.InvalidInput());
-        List<(int Row, int Col, double Value)> triplets = new(capacity: (2 * eCount) + (mesh.Triangles.Count * 36));
-        double[] mass = new double[eCount];
-        int admitted = 0;
-        int skippedDegenerate = 0;
-        int skippedMissing = 0;
-        foreach (int f in mesh.LiveFaceIndices()) {
-            if (IntrinsicTriangleOf(imesh: mesh, faceIdx: f, missingEdges: out bool missingEdges, degenerate: out _) is not { } face) {
-                skippedMissing += missingEdges ? 1 : 0;
-                skippedDegenerate += missingEdges ? 0 : 1;
-                continue;
-            }
-            admitted++;
-            double contribution = face.Area / 3.0;
-            for (int k = 0; k < 3; k++) mass[face.Edge(side: k)] += contribution;
-            for (int side = 0; side < 3; side++)
-                EmitCrouzeixRaviartPair(triplets: triplets, eCount: eCount, pair: face.CrouzeixPair(imesh: mesh, side: side), area: face.Area, time: time);
-        }
-        for (int e = 0; e < eCount; e++) triplets.AddRange([(e, e, mass[e]), (e + eCount, e + eCount, mass[e])]);
-        return SparseMatrix.FromTriplets(rows: Dimension.Create(value: 2 * eCount), cols: Dimension.Create(value: 2 * eCount), triplets: triplets, key: key)
-            .Map(matrix => (Matrix: matrix, Receipt: new SpectralAssemblyReceipt(VertexCount: 0, EdgeCount: eCount, FaceCount: mesh.Triangles.Count, AdmittedFaceCount: admitted, SkippedDegenerateFaces: skippedDegenerate, SkippedMissingEdges: skippedMissing, SkippedInvalidNormals: 0, SkippedInvalidTangents: 0, FlippedIntrinsicRejected: mesh.HasFlips, MatrixRows: matrix.Rows.Value, MatrixCols: matrix.Cols.Value, NonZeros: matrix.Values.Count, PositiveStar0Count: 0, PositiveStar1Count: 0, PositiveStar2Count: admitted, BoundaryCompositionResidual: 0.0, Genus: Option<int>.None, HarmonicDimension: 0, ComponentCount: 2, PositiveMassCount: mass.Count(static value => value > RhinoMath.ZeroTolerance), SymmetryResidual: 0.0, FactorNonZeros: Option<int>.None, Kind: SpectralAssemblyKind.EdgeConnection)));
+    // --- [DEC_ASSEMBLY] ---------------------------------------------------------------------
+    private static IntrinsicTriangle? IntrinsicTriangleOf(MeshKernel.IntrinsicMesh imesh, int faceIdx) =>
+        IntrinsicTriangleOf(imesh: imesh, faceIdx: faceIdx, missingEdges: out _, degenerate: out _);
+    private static IntrinsicTriangle? IntrinsicTriangleOf(MeshKernel.IntrinsicMesh imesh, int faceIdx, out bool missingEdges, out bool degenerate) {
+        (int A, int B, int C)? slot = imesh.Triangles[index: faceIdx];
+        int[] edges = imesh.EdgesOfFace(faceIdx: faceIdx);
+        double area = imesh.AreaOfFace(faceIdx: faceIdx);
+        missingEdges = edges.Length != 3 || edges.Any(static edge => edge < 0);
+        degenerate = slot is null || area < DegenerateTriangleArea;
+        return slot is null || missingEdges || degenerate
+            ? null
+            : new IntrinsicTriangle(A: slot.Value.A, B: slot.Value.B, C: slot.Value.C, Edges: edges, Area: area, LAb: imesh.EdgeAt(index: edges[0]).Length, LBc: imesh.EdgeAt(index: edges[1]).Length, LCa: imesh.EdgeAt(index: edges[2]).Length);
     }
-    private static void EmitCrouzeixRaviartPair(List<(int Row, int Col, double Value)> triplets, int eCount, (int I, int J, double Sign, double LA, double LB, double LOpp) pair, double area, double time) {
-        double dot = (pair.LA * pair.LA) + (pair.LB * pair.LB) - (pair.LOpp * pair.LOpp);
-        double weight = dot / (2.0 * area);
-        double cosTheta = dot / (2.0 * pair.LA * pair.LB);
-        double sinTheta = 2.0 * area / (pair.LA * pair.LB);
-        MatrixKernel.AddHermitianRealBlockTriplets(triplets: triplets, order: eCount, i: pair.I, j: pair.J, real: weight * pair.Sign * cosTheta * time, imaginary: -weight * pair.Sign * sinTheta * time, diagonal: weight * time);
-    }
-    internal static Vector3d[] SampleCrouzeixRaviartFaceField(Mesh mesh, MeshKernel.IntrinsicMesh imesh, Arr<double> stacked) {
-        int eCount = imesh.EdgeCount;
-        Vector3d[] field = new Vector3d[imesh.Triangles.Count];
-        foreach (int f in imesh.LiveFaceIndices()) {
-            if (IntrinsicTriangleOf(imesh: imesh, faceIdx: f) is not { } face) continue;
-            (Point3d pa, Point3d pb, Point3d pc) = face.Points(mesh: mesh);
-            Vector3d normal = Vector3d.CrossProduct(a: pb - pa, b: pc - pa);
-            if (!normal.Unitize()) continue;
-            Vector3d acc = Vector3d.Zero;
-            for (int k = 0; k < 3; k++) {
-                int e = face.Edges[k];
-                MeshKernel.IntrinsicEdge edge = imesh.EdgeAt(index: e);
-                Vector3d tangent = (Vector3d)(mesh.Vertices[index: edge.Hi] - mesh.Vertices[index: edge.Lo]);
-                if (!tangent.Unitize()) continue;
-                Vector3d perp = Vector3d.CrossProduct(a: normal, b: tangent);
-                acc += (stacked[index: e] * tangent) + (stacked[index: e + eCount] * perp);
-            }
-            double mag = acc.Length;
-            field[f] = mag > RhinoMath.ZeroTolerance ? acc / mag : Vector3d.Zero;
-        }
-        return field;
-    }
-    internal static Arr<double> ComputeIntrinsicVertexDivergence(Mesh mesh, MeshKernel.IntrinsicMesh imesh, Vector3d[] faceFields) {
-        int n = mesh.Vertices.Count;
-        double[] div = new double[n];
-        foreach (int f in imesh.LiveFaceIndices()) {
-            if (IntrinsicTriangleOf(imesh: imesh, faceIdx: f) is not { } face) continue;
-            (double cotA, double cotB, double cotC) = face.Cotangents;
-            (Point3d pa, Point3d pb, Point3d pc) = face.Points(mesh: mesh);
-            ScatterCotangentDivergence(div: div, a: face.A, b: face.B, c: face.C, ab: pb - pa, bc: pc - pb, ca: pa - pc, cot: (A: cotA, B: cotB, C: cotC), g: faceFields[f]);
-        }
-        return new Arr<double>(div);
-    }
-    private static void ScatterCotangentDivergence(double[] div, int a, int b, int c, Vector3d ab, Vector3d bc, Vector3d ca, (double A, double B, double C) cot, Vector3d g) {
-        div[a] += 0.5 * ((cot.B * (ab * g)) + (cot.C * (-ca * g)));
-        div[b] += 0.5 * ((cot.C * (bc * g)) + (cot.A * (-ab * g)));
-        div[c] += 0.5 * ((cot.A * (ca * g)) + (cot.B * (-bc * g)));
-    }
-
-    // --- [CDS_HOLONOMY] ---------------------------------------------------------------------
-    internal static Arr<double> ComputeIntrinsicAngleDefects(MeshKernel.IntrinsicMesh imesh) {
-        int n = imesh.VertexCount;
-        double[] defect = new double[n];
-        for (int v = 0; v < n; v++) defect[v] = 2.0 * Math.PI;
-        foreach (int f in imesh.LiveFaceIndices()) {
-            if (IntrinsicTriangleOf(imesh: imesh, faceIdx: f) is not { } face) continue;
-            for (int side = 0; side < 3; side++) defect[face.Vertex(side: side)] -= face.Angle(side: side);
-        }
-        return new Arr<double>(defect);
-    }
-    private static double AngleFromLengths(double opposite, double adjacent1, double adjacent2) =>
-        Math.Acos(d: Math.Min(val1: 1.0, val2: Math.Max(val1: -1.0, val2: ((adjacent1 * adjacent1) + (adjacent2 * adjacent2) - (opposite * opposite)) / (2.0 * adjacent1 * adjacent2))));
-
-    internal static Fin<Arr<double>> DistributeHolonomy(MeshSpace space, MeshKernel.IntrinsicMesh imesh, Seq<(int Vertex, double ConeIndex)> cones, Op key) {
-        Arr<double> defects = ComputeIntrinsicAngleDefects(imesh: imesh);
-        return from topology in MeshKernel.TopologyDetailed(space: space, key: key)
-               from _ in topology.Genus.Match(
-                   Some: genus => genus > 0
-                       ? Fin.Fail<Unit>(key.Unsupported(geometryType: typeof(MeshSpace), outputType: typeof(Arr<double>)))
-                       : Fin.Succ(unit),
-                   None: () => Fin.Succ(unit))
-               from __ in ValidateGaussBonnet(mesh: space.Native, imesh: imesh, defects: defects, cones: cones, key: key) let u = BuildConePrimalOneForm(imesh: imesh, defects: defects, cones: cones) let star1 = ComputeIntrinsicStar1(imesh: imesh) let rhs = IntrinsicCoexactRhs(imesh: imesh, star1: star1, u: u) from beta in space.Cache.Cholesky(key: key).Bind(factor => factor.Solve(rhs: rhs, key: key)) let dBeta = IntrinsicEdgeGradient(imesh: imesh, beta: beta) select new Arr<double>([.. dBeta.AsIterable().Select(static value => -value)]);
-    }
-    private static Fin<Unit> ValidateGaussBonnet(Mesh mesh, MeshKernel.IntrinsicMesh imesh, Arr<double> defects, Seq<(int Vertex, double ConeIndex)> cones, Op key) {
-        bool valid = mesh.GetNakedEdges() is null && defects.Count == imesh.VertexCount && defects.ForAll(RhinoMath.IsValidDouble) && !cones.Exists(c => c.Vertex < 0 || c.Vertex >= imesh.VertexCount || !RhinoMath.IsValidDouble(x: c.ConeIndex));
-        double sumK = Enumerable.Sum(defects.AsIterable());
-        double euler = sumK / (2.0 * Math.PI);
-        double sumPrescribed = Enumerable.Sum(cones.AsIterable(), static c => c.ConeIndex);
-        return !valid || Math.Abs(value: sumPrescribed - euler) > 1.0e-6
-            ? Fin.Fail<Unit>(error: key.InvalidInput())
-            : Fin.Succ(unit);
-    }
-    private static Arr<double> BuildConePrimalOneForm(MeshKernel.IntrinsicMesh imesh, Arr<double> defects, Seq<(int Vertex, double ConeIndex)> cones) {
-        int n = imesh.VertexCount;
-        int eCount = imesh.EdgeCount;
-        double[] target = new double[n];
-        for (int v = 0; v < n; v++) target[v] = -defects[index: v];
-        for (int c = 0; c < cones.Count; c++) {
-            (int v, double k) = cones[index: c];
-            target[v] += 2.0 * Math.PI * k;
-        }
-        double[] u = new double[eCount];
-        for (int v = 0; v < n; v++) {
-            if (Math.Abs(value: target[v]) < RhinoMath.ZeroTolerance) continue;
-            int e = imesh.FirstIncidentEdge(vertexIdx: v);
-            if (e < 0) continue;
-            MeshKernel.IntrinsicEdge edge = imesh.EdgeAt(index: e);
-            double sign = v == edge.Hi ? 1.0 : -1.0;
-            u[e] += target[v] * sign;
-        }
-        return new Arr<double>(u);
+    private static double BoundaryCompositionResidual(List<(int Row, int Col, double Value)> d0, List<(int Row, int Col, double Value)> d1) {
+        ILookup<int, (int Row, int Col, double Value)> d0ByEdge = d0.ToLookup(static row => row.Row);
+        return d1
+            .SelectMany(row => d0ByEdge[key: row.Col].Select(e => (Face: row.Row, Vertex: e.Col, Value: row.Value * e.Value)))
+            .GroupBy(static e => (e.Face, e.Vertex))
+            .DefaultIfEmpty()
+            .Max(static group => group is null ? 0.0 : Math.Abs(value: group.Sum(static e => e.Value)));
     }
     internal static Arr<double> ComputeIntrinsicStar1(MeshKernel.IntrinsicMesh imesh) {
         int eCount = imesh.EdgeCount;
@@ -486,76 +383,6 @@ internal static class SpectralCore {
             ? 0.0
             : ((imesh.EdgeAt(index: eOppLo).Length * imesh.EdgeAt(index: eOppLo).Length) + (imesh.EdgeAt(index: eOppHi).Length * imesh.EdgeAt(index: eOppHi).Length) - (edge.Length * edge.Length)) / (4.0 * face.Area);
     }
-    private static Arr<double> IntrinsicCoexactRhs(MeshKernel.IntrinsicMesh imesh, Arr<double> star1, Arr<double> u) {
-        int n = imesh.VertexCount;
-        int eCount = imesh.EdgeCount;
-        double[] rhs = new double[n];
-        for (int e = 0; e < eCount; e++) {
-            MeshKernel.IntrinsicEdge edge = imesh.EdgeAt(index: e);
-            double weighted = star1[index: e] * u[index: e];
-            rhs[edge.Lo] += -weighted;
-            rhs[edge.Hi] += +weighted;
-        }
-        return new Arr<double>(rhs);
-    }
-    private static Arr<double> IntrinsicEdgeGradient(MeshKernel.IntrinsicMesh imesh, Arr<double> beta) {
-        int eCount = imesh.EdgeCount;
-        double[] grad = new double[eCount];
-        for (int e = 0; e < eCount; e++) {
-            MeshKernel.IntrinsicEdge edge = imesh.EdgeAt(index: e);
-            grad[e] = beta[index: edge.Hi] - beta[index: edge.Lo];
-        }
-        return new Arr<double>(grad);
-    }
-
-    // --- [HEAT_SCAFFOLD] --------------------------------------------------------------------
-    internal static Arr<double> BuildSourceDelta(int n, Seq<int> sources, Arr<double> mass) {
-        double[] delta = new double[n];
-        for (int s = 0; s < sources.Count; s++) delta[sources[index: s]] = mass[index: sources[index: s]];
-        return new Arr<double>(delta);
-    }
-    internal static List<(int Row, int Col, double Value)> PoissonTriplets(SparseLaplacian L, Seq<int> sources) {
-        List<(int Row, int Col, double Value)> result = [];
-        for (int i = 0; i < L.Stiffness.Rows.Value; i++)
-            for (int k = L.Stiffness.RowPtr[index: i]; k < L.Stiffness.RowPtr[index: i + 1]; k++)
-                result.Add(item: (i, L.Stiffness.ColInd[index: k], L.Stiffness.Values[index: k]));
-        for (int i = 0; i < sources.Count; i++) result.Add(item: (sources[index: i], sources[index: i], 1.0e10));
-        return result;
-    }
-    internal static Vector3d[] ComputeTriangleGradients(Mesh mesh, Arr<double> u) {
-        Vector3d[] gradients = new Vector3d[mesh.Faces.Count];
-        for (int f = 0; f < mesh.Faces.Count; f++) {
-            MeshFace face = mesh.Faces[index: f];
-            if (!face.IsTriangle) continue;
-            Point3d pa = mesh.Vertices[index: face.A]; Point3d pb = mesh.Vertices[index: face.B]; Point3d pc = mesh.Vertices[index: face.C];
-            Vector3d n = Vector3d.CrossProduct(a: pb - pa, b: pc - pa); double twoArea = n.Length;
-            if (twoArea < RhinoMath.ZeroTolerance) continue;
-            Vector3d nUnit = n / twoArea;
-            Vector3d ua = Vector3d.CrossProduct(a: nUnit, b: pc - pb) * u[index: face.A];
-            Vector3d ub = Vector3d.CrossProduct(a: nUnit, b: pa - pc) * u[index: face.B];
-            Vector3d uc = Vector3d.CrossProduct(a: nUnit, b: pb - pa) * u[index: face.C];
-            Vector3d g = (ua + ub + uc) / twoArea;
-            double len = g.Length;
-            gradients[f] = len > RhinoMath.ZeroTolerance ? -g / len : Vector3d.Zero;
-        }
-        return gradients;
-    }
-    internal static Arr<double> ComputeVertexDivergence(Mesh mesh, Vector3d[] gradients) {
-        int n = mesh.Vertices.Count;
-        double[] div = new double[n];
-        for (int f = 0; f < mesh.Faces.Count; f++) {
-            MeshFace face = mesh.Faces[index: f];
-            if (!face.IsTriangle) continue;
-            Point3d pa = mesh.Vertices[index: face.A]; Point3d pb = mesh.Vertices[index: face.B]; Point3d pc = mesh.Vertices[index: face.C];
-            Vector3d ab = pb - pa; Vector3d bc = pc - pb; Vector3d ca = pa - pc;
-            double twoArea = Vector3d.CrossProduct(a: ab, b: pc - pa).Length;
-            if (twoArea < RhinoMath.ZeroTolerance) continue;
-            ScatterCotangentDivergence(div: div, a: face.A, b: face.B, c: face.C, ab: ab, bc: bc, ca: ca, cot: (A: -ab * ca / twoArea, B: ab * -bc / twoArea, C: bc * ca / twoArea), g: gradients[f]);
-        }
-        return new Arr<double>(div);
-    }
-
-    // --- [DEC_ASSEMBLY] ---------------------------------------------------------------------
     internal static Fin<DiscreteCalculus> Build(MeshSpace space, Op key) =>
         Build(space: space, kind: MeshLaplacian.IntrinsicDelaunay, key: key);
     internal static Fin<DiscreteCalculus> Build(MeshSpace space, MeshLaplacian kind, Op key) =>
@@ -717,24 +544,198 @@ internal static class SpectralCore {
               let receipt = new SpectralAssemblyReceipt(VertexCount: vertCount, EdgeCount: edgeCount, FaceCount: faceCount, AdmittedFaceCount: admitted, SkippedDegenerateFaces: skippedDegenerate, SkippedMissingEdges: skippedMissing, SkippedInvalidNormals: 0, SkippedInvalidTangents: 0, FlippedIntrinsicRejected: imesh.HasFlips, MatrixRows: D0.Rows.Value + D1.Rows.Value, MatrixCols: D0.Cols.Value + D1.Cols.Value, NonZeros: D0.Values.Count + D1.Values.Count, PositiveStar0Count: mass.Count(static value => value > RhinoMath.ZeroTolerance), PositiveStar1Count: star1.Count(static value => value > RhinoMath.ZeroTolerance), PositiveStar2Count: star2.Count(static value => value > RhinoMath.ZeroTolerance), BoundaryCompositionResidual: boundaryResidual, Genus: topology.Genus, HarmonicDimension: harmonicDimension, BoundaryEdgeCount: boundaryEdgeCount, BoundaryComponentCount: topology.BoundaryComponents, NonManifoldEdgeCount: topology.NonManifoldEdges, EulerCharacteristic: topology.EulerCharacteristic, TopologyEulerValidated: topology.EulerValidated, Kind: SpectralAssemblyKind.Dec)
               select new DiscreteCalculus(D0: D0, D1: D1, Star0: mass, Star1: star1, Star2: new Arr<double>(star2), Receipt: receipt);
     }
-    private static IntrinsicTriangle? IntrinsicTriangleOf(MeshKernel.IntrinsicMesh imesh, int faceIdx) =>
-        IntrinsicTriangleOf(imesh: imesh, faceIdx: faceIdx, missingEdges: out _, degenerate: out _);
-    private static IntrinsicTriangle? IntrinsicTriangleOf(MeshKernel.IntrinsicMesh imesh, int faceIdx, out bool missingEdges, out bool degenerate) {
-        (int A, int B, int C)? slot = imesh.Triangles[index: faceIdx];
-        int[] edges = imesh.EdgesOfFace(faceIdx: faceIdx);
-        double area = imesh.AreaOfFace(faceIdx: faceIdx);
-        missingEdges = edges.Length != 3 || edges.Any(static edge => edge < 0);
-        degenerate = slot is null || area < DegenerateTriangleArea;
-        return slot is null || missingEdges || degenerate
-            ? null
-            : new IntrinsicTriangle(A: slot.Value.A, B: slot.Value.B, C: slot.Value.C, Edges: edges, Area: area, LAb: imesh.EdgeAt(index: edges[0]).Length, LBc: imesh.EdgeAt(index: edges[1]).Length, LCa: imesh.EdgeAt(index: edges[2]).Length);
+    // --- [CROUZEIX_RAVIART] -----------------------------------------------------------------
+    internal static Fin<(SparseMatrix Matrix, SpectralAssemblyReceipt Receipt)> BuildCrouzeixRaviartHeatSystemDetailed(MeshKernel.IntrinsicMesh mesh, double time, Op key) {
+        if (!RhinoMath.IsValidDouble(x: time) || time <= 0.0) return Fin.Fail<(SparseMatrix Matrix, SpectralAssemblyReceipt Receipt)>(error: key.InvalidInput());
+        if (!mesh.IsFrozen) return Fin.Fail<(SparseMatrix Matrix, SpectralAssemblyReceipt Receipt)>(error: key.InvalidInput());
+        if (mesh.HasFlips) return Fin.Fail<(SparseMatrix Matrix, SpectralAssemblyReceipt Receipt)>(error: key.Unsupported(geometryType: typeof(MeshKernel.IntrinsicMesh), outputType: typeof(SparseMatrix)));
+        int eCount = mesh.EdgeCount;
+        if (eCount == 0) return Fin.Fail<(SparseMatrix Matrix, SpectralAssemblyReceipt Receipt)>(error: key.InvalidInput());
+        List<(int Row, int Col, double Value)> triplets = new(capacity: (2 * eCount) + (mesh.Triangles.Count * 36));
+        double[] mass = new double[eCount];
+        int admitted = 0;
+        int skippedDegenerate = 0;
+        int skippedMissing = 0;
+        foreach (int f in mesh.LiveFaceIndices()) {
+            if (IntrinsicTriangleOf(imesh: mesh, faceIdx: f, missingEdges: out bool missingEdges, degenerate: out _) is not { } face) {
+                skippedMissing += missingEdges ? 1 : 0;
+                skippedDegenerate += missingEdges ? 0 : 1;
+                continue;
+            }
+            admitted++;
+            double contribution = face.Area / 3.0;
+            for (int k = 0; k < 3; k++) mass[face.Edge(side: k)] += contribution;
+            for (int side = 0; side < 3; side++)
+                EmitCrouzeixRaviartPair(triplets: triplets, eCount: eCount, pair: face.CrouzeixPair(imesh: mesh, side: side), area: face.Area, time: time);
+        }
+        for (int e = 0; e < eCount; e++) triplets.AddRange([(e, e, mass[e]), (e + eCount, e + eCount, mass[e])]);
+        return SparseMatrix.FromTriplets(rows: Dimension.Create(value: 2 * eCount), cols: Dimension.Create(value: 2 * eCount), triplets: triplets, key: key)
+            .Map(matrix => (Matrix: matrix, Receipt: new SpectralAssemblyReceipt(VertexCount: 0, EdgeCount: eCount, FaceCount: mesh.Triangles.Count, AdmittedFaceCount: admitted, SkippedDegenerateFaces: skippedDegenerate, SkippedMissingEdges: skippedMissing, SkippedInvalidNormals: 0, SkippedInvalidTangents: 0, FlippedIntrinsicRejected: mesh.HasFlips, MatrixRows: matrix.Rows.Value, MatrixCols: matrix.Cols.Value, NonZeros: matrix.Values.Count, PositiveStar0Count: 0, PositiveStar1Count: 0, PositiveStar2Count: admitted, BoundaryCompositionResidual: 0.0, Genus: Option<int>.None, HarmonicDimension: 0, ComponentCount: 2, PositiveMassCount: mass.Count(static value => value > RhinoMath.ZeroTolerance), SymmetryResidual: 0.0, FactorNonZeros: Option<int>.None, Kind: SpectralAssemblyKind.EdgeConnection)));
     }
-    private static double BoundaryCompositionResidual(List<(int Row, int Col, double Value)> d0, List<(int Row, int Col, double Value)> d1) {
-        ILookup<int, (int Row, int Col, double Value)> d0ByEdge = d0.ToLookup(static row => row.Row);
-        return d1
-            .SelectMany(row => d0ByEdge[key: row.Col].Select(e => (Face: row.Row, Vertex: e.Col, Value: row.Value * e.Value)))
-            .GroupBy(static e => (e.Face, e.Vertex))
-            .DefaultIfEmpty()
-            .Max(static group => group is null ? 0.0 : Math.Abs(value: group.Sum(static e => e.Value)));
+    private static void EmitCrouzeixRaviartPair(List<(int Row, int Col, double Value)> triplets, int eCount, (int I, int J, double Sign, double LA, double LB, double LOpp) pair, double area, double time) {
+        double dot = (pair.LA * pair.LA) + (pair.LB * pair.LB) - (pair.LOpp * pair.LOpp);
+        double weight = dot / (2.0 * area);
+        double cosTheta = dot / (2.0 * pair.LA * pair.LB);
+        double sinTheta = 2.0 * area / (pair.LA * pair.LB);
+        MatrixKernel.AddHermitianRealBlockTriplets(triplets: triplets, order: eCount, i: pair.I, j: pair.J, real: weight * pair.Sign * cosTheta * time, imaginary: -weight * pair.Sign * sinTheta * time, diagonal: weight * time);
     }
+    internal static Vector3d[] SampleCrouzeixRaviartFaceField(Mesh mesh, MeshKernel.IntrinsicMesh imesh, Arr<double> stacked) {
+        int eCount = imesh.EdgeCount;
+        Vector3d[] field = new Vector3d[imesh.Triangles.Count];
+        foreach (int f in imesh.LiveFaceIndices()) {
+            if (IntrinsicTriangleOf(imesh: imesh, faceIdx: f) is not { } face) continue;
+            (Point3d pa, Point3d pb, Point3d pc) = face.Points(mesh: mesh);
+            Vector3d normal = Vector3d.CrossProduct(a: pb - pa, b: pc - pa);
+            if (!normal.Unitize()) continue;
+            Vector3d acc = Vector3d.Zero;
+            for (int k = 0; k < 3; k++) {
+                int e = face.Edges[k];
+                MeshKernel.IntrinsicEdge edge = imesh.EdgeAt(index: e);
+                Vector3d tangent = (Vector3d)(mesh.Vertices[index: edge.Hi] - mesh.Vertices[index: edge.Lo]);
+                if (!tangent.Unitize()) continue;
+                Vector3d perp = Vector3d.CrossProduct(a: normal, b: tangent);
+                acc += (stacked[index: e] * tangent) + (stacked[index: e + eCount] * perp);
+            }
+            double mag = acc.Length;
+            field[f] = mag > RhinoMath.ZeroTolerance ? acc / mag : Vector3d.Zero;
+        }
+        return field;
+    }
+    internal static Arr<double> ComputeIntrinsicVertexDivergence(Mesh mesh, MeshKernel.IntrinsicMesh imesh, Vector3d[] faceFields) {
+        int n = mesh.Vertices.Count;
+        double[] div = new double[n];
+        foreach (int f in imesh.LiveFaceIndices()) {
+            if (IntrinsicTriangleOf(imesh: imesh, faceIdx: f) is not { } face) continue;
+            (double cotA, double cotB, double cotC) = face.Cotangents;
+            (Point3d pa, Point3d pb, Point3d pc) = face.Points(mesh: mesh);
+            ScatterCotangentDivergence(div: div, a: face.A, b: face.B, c: face.C, ab: pb - pa, bc: pc - pb, ca: pa - pc, cot: (A: cotA, B: cotB, C: cotC), g: faceFields[f]);
+        }
+        return new Arr<double>(div);
+    }
+    private static void ScatterCotangentDivergence(double[] div, int a, int b, int c, Vector3d ab, Vector3d bc, Vector3d ca, (double A, double B, double C) cot, Vector3d g) {
+        div[a] += 0.5 * ((cot.B * (ab * g)) + (cot.C * (-ca * g)));
+        div[b] += 0.5 * ((cot.C * (bc * g)) + (cot.A * (-ab * g)));
+        div[c] += 0.5 * ((cot.A * (ca * g)) + (cot.B * (-bc * g)));
+    }
+
+    // --- [CDS_HOLONOMY] ---------------------------------------------------------------------
+    internal static Arr<double> ComputeIntrinsicAngleDefects(MeshKernel.IntrinsicMesh imesh) {
+        int n = imesh.VertexCount;
+        double[] defect = new double[n];
+        for (int v = 0; v < n; v++) defect[v] = 2.0 * Math.PI;
+        foreach (int f in imesh.LiveFaceIndices()) {
+            if (IntrinsicTriangleOf(imesh: imesh, faceIdx: f) is not { } face) continue;
+            for (int side = 0; side < 3; side++) defect[face.Vertex(side: side)] -= face.Angle(side: side);
+        }
+        return new Arr<double>(defect);
+    }
+    internal static Fin<Arr<double>> DistributeHolonomy(MeshSpace space, MeshKernel.IntrinsicMesh imesh, Seq<(int Vertex, double ConeIndex)> cones, Op key) {
+        Arr<double> defects = ComputeIntrinsicAngleDefects(imesh: imesh);
+        return from topology in MeshKernel.TopologyDetailed(space: space, key: key)
+               from _ in topology.Genus.Match(
+                   Some: genus => genus > 0
+                       ? Fin.Fail<Unit>(key.Unsupported(geometryType: typeof(MeshSpace), outputType: typeof(Arr<double>)))
+                       : Fin.Succ(unit),
+                   None: () => Fin.Succ(unit))
+               from __ in ValidateGaussBonnet(mesh: space.Native, imesh: imesh, defects: defects, cones: cones, key: key) let u = BuildConePrimalOneForm(imesh: imesh, defects: defects, cones: cones) let star1 = ComputeIntrinsicStar1(imesh: imesh) let rhs = IntrinsicCoexactRhs(imesh: imesh, star1: star1, u: u) from beta in space.Cache.Cholesky(key: key).Bind(factor => factor.Solve(rhs: rhs, key: key)) let dBeta = IntrinsicEdgeGradient(imesh: imesh, beta: beta) select new Arr<double>([.. dBeta.AsIterable().Select(static value => -value)]);
+    }
+    private static Fin<Unit> ValidateGaussBonnet(Mesh mesh, MeshKernel.IntrinsicMesh imesh, Arr<double> defects, Seq<(int Vertex, double ConeIndex)> cones, Op key) {
+        bool valid = mesh.GetNakedEdges() is null && defects.Count == imesh.VertexCount && defects.ForAll(RhinoMath.IsValidDouble) && !cones.Exists(c => c.Vertex < 0 || c.Vertex >= imesh.VertexCount || !RhinoMath.IsValidDouble(x: c.ConeIndex));
+        double sumK = Enumerable.Sum(defects.AsIterable());
+        double euler = sumK / (2.0 * Math.PI);
+        double sumPrescribed = Enumerable.Sum(cones.AsIterable(), static c => c.ConeIndex);
+        return !valid || Math.Abs(value: sumPrescribed - euler) > 1.0e-6
+            ? Fin.Fail<Unit>(error: key.InvalidInput())
+            : Fin.Succ(unit);
+    }
+    private static Arr<double> BuildConePrimalOneForm(MeshKernel.IntrinsicMesh imesh, Arr<double> defects, Seq<(int Vertex, double ConeIndex)> cones) {
+        int n = imesh.VertexCount;
+        int eCount = imesh.EdgeCount;
+        double[] target = new double[n];
+        for (int v = 0; v < n; v++) target[v] = -defects[index: v];
+        for (int c = 0; c < cones.Count; c++) {
+            (int v, double k) = cones[index: c];
+            target[v] += 2.0 * Math.PI * k;
+        }
+        double[] u = new double[eCount];
+        for (int v = 0; v < n; v++) {
+            if (Math.Abs(value: target[v]) < RhinoMath.ZeroTolerance) continue;
+            int e = imesh.FirstIncidentEdge(vertexIdx: v);
+            if (e < 0) continue;
+            MeshKernel.IntrinsicEdge edge = imesh.EdgeAt(index: e);
+            double sign = v == edge.Hi ? 1.0 : -1.0;
+            u[e] += target[v] * sign;
+        }
+        return new Arr<double>(u);
+    }
+    private static Arr<double> IntrinsicCoexactRhs(MeshKernel.IntrinsicMesh imesh, Arr<double> star1, Arr<double> u) {
+        int n = imesh.VertexCount;
+        int eCount = imesh.EdgeCount;
+        double[] rhs = new double[n];
+        for (int e = 0; e < eCount; e++) {
+            MeshKernel.IntrinsicEdge edge = imesh.EdgeAt(index: e);
+            double weighted = star1[index: e] * u[index: e];
+            rhs[edge.Lo] += -weighted;
+            rhs[edge.Hi] += +weighted;
+        }
+        return new Arr<double>(rhs);
+    }
+    private static Arr<double> IntrinsicEdgeGradient(MeshKernel.IntrinsicMesh imesh, Arr<double> beta) {
+        int eCount = imesh.EdgeCount;
+        double[] grad = new double[eCount];
+        for (int e = 0; e < eCount; e++) {
+            MeshKernel.IntrinsicEdge edge = imesh.EdgeAt(index: e);
+            grad[e] = beta[index: edge.Hi] - beta[index: edge.Lo];
+        }
+        return new Arr<double>(grad);
+    }
+
+    // --- [HEAT_SCAFFOLD] --------------------------------------------------------------------
+    internal static Arr<double> BuildSourceDelta(int n, Seq<int> sources, Arr<double> mass) {
+        double[] delta = new double[n];
+        for (int s = 0; s < sources.Count; s++) delta[sources[index: s]] = mass[index: sources[index: s]];
+        return new Arr<double>(delta);
+    }
+    internal static List<(int Row, int Col, double Value)> PoissonTriplets(SparseLaplacian L, Seq<int> sources) {
+        List<(int Row, int Col, double Value)> result = [];
+        for (int i = 0; i < L.Stiffness.Rows.Value; i++)
+            for (int k = L.Stiffness.RowPtr[index: i]; k < L.Stiffness.RowPtr[index: i + 1]; k++)
+                result.Add(item: (i, L.Stiffness.ColInd[index: k], L.Stiffness.Values[index: k]));
+        for (int i = 0; i < sources.Count; i++) result.Add(item: (sources[index: i], sources[index: i], 1.0e10));
+        return result;
+    }
+    internal static Vector3d[] ComputeTriangleGradients(Mesh mesh, Arr<double> u) {
+        Vector3d[] gradients = new Vector3d[mesh.Faces.Count];
+        for (int f = 0; f < mesh.Faces.Count; f++) {
+            MeshFace face = mesh.Faces[index: f];
+            if (!face.IsTriangle) continue;
+            Point3d pa = mesh.Vertices[index: face.A]; Point3d pb = mesh.Vertices[index: face.B]; Point3d pc = mesh.Vertices[index: face.C];
+            Vector3d n = Vector3d.CrossProduct(a: pb - pa, b: pc - pa); double twoArea = n.Length;
+            if (twoArea < RhinoMath.ZeroTolerance) continue;
+            Vector3d nUnit = n / twoArea;
+            Vector3d ua = Vector3d.CrossProduct(a: nUnit, b: pc - pb) * u[index: face.A];
+            Vector3d ub = Vector3d.CrossProduct(a: nUnit, b: pa - pc) * u[index: face.B];
+            Vector3d uc = Vector3d.CrossProduct(a: nUnit, b: pb - pa) * u[index: face.C];
+            Vector3d g = (ua + ub + uc) / twoArea;
+            double len = g.Length;
+            gradients[f] = len > RhinoMath.ZeroTolerance ? -g / len : Vector3d.Zero;
+        }
+        return gradients;
+    }
+    internal static Arr<double> ComputeVertexDivergence(Mesh mesh, Vector3d[] gradients) {
+        int n = mesh.Vertices.Count;
+        double[] div = new double[n];
+        for (int f = 0; f < mesh.Faces.Count; f++) {
+            MeshFace face = mesh.Faces[index: f];
+            if (!face.IsTriangle) continue;
+            Point3d pa = mesh.Vertices[index: face.A]; Point3d pb = mesh.Vertices[index: face.B]; Point3d pc = mesh.Vertices[index: face.C];
+            Vector3d ab = pb - pa; Vector3d bc = pc - pb; Vector3d ca = pa - pc;
+            double twoArea = Vector3d.CrossProduct(a: ab, b: pc - pa).Length;
+            if (twoArea < RhinoMath.ZeroTolerance) continue;
+            ScatterCotangentDivergence(div: div, a: face.A, b: face.B, c: face.C, ab: ab, bc: bc, ca: ca, cot: (A: -ab * ca / twoArea, B: ab * -bc / twoArea, C: bc * ca / twoArea), g: gradients[f]);
+        }
+        return new Arr<double>(div);
+    }
+
+
 }

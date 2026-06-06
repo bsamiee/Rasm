@@ -108,6 +108,27 @@ public readonly record struct Stat(int Count, double Minimum, double Maximum, do
 }
 
 [BoundaryAdapter, StructLayout(LayoutKind.Auto)]
+public readonly record struct Distribution(Stat Summary, double Median, double Iqr, Seq<(double Percentile, double Value)> Percentiles) {
+    internal static Fin<Distribution> Of(Seq<double> values, Seq<double> percentiles, Op key, StatContext? context = null) =>
+        percentiles.TraverseM(p => guard(RhinoMath.IsValidDouble(x: p) && p is >= 0.0 and <= 100.0, key.InvalidInput()).ToFin().Map(_ => p)).As()
+            .Bind(valid => Stat.Of(values: values, key: key, context: context).Map(stat =>
+                values.Order().AsIterable().ToSeq() switch {
+                    Seq<double> sorted => new Distribution(
+                        Summary: stat,
+                        Median: Quantile(sorted: sorted, fraction: 0.5),
+                        Iqr: Quantile(sorted: sorted, fraction: 0.75) - Quantile(sorted: sorted, fraction: 0.25),
+                        Percentiles: valid.Map(p => (Percentile: p, Value: Quantile(sorted: sorted, fraction: p / 100.0)))),
+                }))
+            .Bind(distribution => key.AcceptValue(value: distribution));
+    private static double Quantile(Seq<double> sorted, double fraction) =>
+        ((sorted.Count - 1) * Math.Clamp(value: fraction, min: 0.0, max: 1.0)) switch {
+            double idx when Math.Abs(value: idx - Math.Floor(d: idx)) <= RhinoMath.ZeroTolerance => sorted[(int)Math.Floor(d: idx)],
+            double idx when Math.Abs(value: Math.Ceiling(a: idx) - idx) <= RhinoMath.ZeroTolerance => sorted[(int)Math.Ceiling(a: idx)],
+            double idx => sorted[(int)Math.Floor(d: idx)] + ((sorted[(int)Math.Ceiling(a: idx)] - sorted[(int)Math.Floor(d: idx)]) * (idx - Math.Floor(d: idx))),
+        };
+}
+
+[BoundaryAdapter, StructLayout(LayoutKind.Auto)]
 internal readonly record struct SampleMoment(int Dimension, Arr<double> Mean, Arr<double> UpperCovariance) {
     internal static Fin<SampleMoment> Of(Seq<Arr<double>> rows, int dimension, Op key, Option<Arr<double>> weights = default) =>
         new Arr<Arr<double>>([.. rows.AsIterable()]) switch {
@@ -141,25 +162,4 @@ internal readonly record struct SampleMoment(int Dimension, Arr<double> Mean, Ar
             _ => Fin.Fail<SampleMoment>(key.InvalidResult()),
         };
     }
-}
-
-[BoundaryAdapter, StructLayout(LayoutKind.Auto)]
-public readonly record struct Distribution(Stat Summary, double Median, double Iqr, Seq<(double Percentile, double Value)> Percentiles) {
-    internal static Fin<Distribution> Of(Seq<double> values, Seq<double> percentiles, Op key, StatContext? context = null) =>
-        percentiles.TraverseM(p => guard(RhinoMath.IsValidDouble(x: p) && p is >= 0.0 and <= 100.0, key.InvalidInput()).ToFin().Map(_ => p)).As()
-            .Bind(valid => Stat.Of(values: values, key: key, context: context).Map(stat =>
-                values.Order().AsIterable().ToSeq() switch {
-                    Seq<double> sorted => new Distribution(
-                        Summary: stat,
-                        Median: Quantile(sorted: sorted, fraction: 0.5),
-                        Iqr: Quantile(sorted: sorted, fraction: 0.75) - Quantile(sorted: sorted, fraction: 0.25),
-                        Percentiles: valid.Map(p => (Percentile: p, Value: Quantile(sorted: sorted, fraction: p / 100.0)))),
-                }))
-            .Bind(distribution => key.AcceptValue(value: distribution));
-    private static double Quantile(Seq<double> sorted, double fraction) =>
-        ((sorted.Count - 1) * Math.Clamp(value: fraction, min: 0.0, max: 1.0)) switch {
-            double idx when Math.Abs(value: idx - Math.Floor(d: idx)) <= RhinoMath.ZeroTolerance => sorted[(int)Math.Floor(d: idx)],
-            double idx when Math.Abs(value: Math.Ceiling(a: idx) - idx) <= RhinoMath.ZeroTolerance => sorted[(int)Math.Ceiling(a: idx)],
-            double idx => sorted[(int)Math.Floor(d: idx)] + ((sorted[(int)Math.Ceiling(a: idx)] - sorted[(int)Math.Floor(d: idx)]) * (idx - Math.Floor(d: idx))),
-        };
 }

@@ -3,7 +3,6 @@
 import sys
 from typing import Final, TYPE_CHECKING
 
-from cyclopts._result_action import resolve_returncode  # noqa: PLC2701  # lazy cyclopts re-export is untyped; concrete module is typed -> int
 from cyclopts.exceptions import CycloptsError
 from opentelemetry.trace import get_tracer_provider
 from pydantic import ValidationError
@@ -33,7 +32,7 @@ def meta(*tokens: str) -> int:
     Returns:
         Process exit code derived from the emitted Envelope.
     """
-    return resolve_returncode(_dispatch(tokens))
+    return _returncode(_dispatch(tokens))
 
 
 def _dispatch(tokens: tuple[str, ...]) -> object:
@@ -49,7 +48,19 @@ def _dispatch(tokens: tuple[str, ...]) -> object:
                 return parse_fault(tokens, str(parse_error))
             except ValidationError as config_error:
                 # A malformed ASSAY_* env raises when a verb constructs AssaySettings(); fold it to one config: Envelope.
-                return parse_fault(tokens, f"config: {config_error}")
+                return parse_fault(tokens, str(config_error), step="config")
+            except Exception as exc:  # noqa: BLE001  # final CLI boundary: preserve the one-Envelope stdout contract for unexpected dispatch faults
+                return parse_fault(tokens, f"{type(exc).__name__}: {exc}", step="dispatch")
+
+
+def _returncode(result: object) -> int:
+    match result:
+        case int() as code:
+            return code
+        case _ if callable(hook := getattr(result, "__cyclopts_returncode__", None)):
+            return int(hook())
+        case _:
+            return 0
 
 
 def _no_command(tokens: tuple[str, ...]) -> bool:

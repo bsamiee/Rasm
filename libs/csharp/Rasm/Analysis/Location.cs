@@ -8,10 +8,10 @@ namespace Rasm.Analysis;
 [Union]
 public partial record Locator {
     public sealed record CurveParameter(double T) : Locator;
-    public sealed record SurfaceParameter(Point2d Uv) : Locator;
     public sealed record ArcLength(double Distance) : Locator;
-    public sealed record ClosestTo(Point3d Probe) : Locator;
     public sealed record NormalizedMid : Locator;
+    public sealed record SurfaceParameter(Point2d Uv) : Locator;
+    public sealed record ClosestTo(Point3d Probe) : Locator;
     public sealed record PerpendicularParameters(Seq<double> Ts) : Locator;
 }
 
@@ -60,14 +60,6 @@ public partial record Location : IAspect {
     public sealed record OrientationCase(Plane Plane) : LocationAspect;
     public sealed record ContainsCase(Point3d Probe, Plane Frame) : LocationAspect;
     public sealed record ShortPathCase(Point2d Start, Point2d End) : LocationAspect;
-    public static LocationAspect At(Locator at, LocationValue value) => new AtCase(Locator: at, Value: value);
-    public static LocationAspect Curvature(int count, CurvatureMode mode) => new CurvatureSamplesCase(Count: count, Mode: mode);
-    public static LocationAspect CurvatureExtrema(int count, CurvatureMode mode, ExtremumDirection direction) => new CurvatureExtremaCase(Count: count, Mode: mode, Direction: direction);
-    public static LocationAspect DivideByCount(int count) => new DivideCase(By: new Division.ByCount(Count: count));
-    public static LocationAspect DivideByLength(double length) => new DivideCase(By: new Division.ByLength(Length: length));
-    public static LocationAspect Orientation(Plane plane) => new OrientationCase(Plane: plane);
-    public static LocationAspect Contains(Point3d point, Plane plane) => new ContainsCase(Probe: point, Frame: plane);
-    public static LocationAspect ShortPath(Point2d start, Point2d end) => new ShortPathCase(Start: start, End: end);
     internal static readonly Op TangentKey = Op.Of(name: "Tangent");
     internal static readonly Op PointAtKey = Op.Of(name: "PointAt");
     internal static readonly Op ClosestKey = Op.Of(name: "Closest");
@@ -83,6 +75,14 @@ public partial record Location : IAspect {
     internal static readonly Op NormalAtKey = Op.Of(name: "NormalAt");
     internal static readonly Op ShortPathKey = Op.Of(name: "ShortPath");
     internal static readonly Op LengthAtKey = Op.Of(name: "LengthAt");
+    public static LocationAspect At(Locator at, LocationValue value) => new AtCase(Locator: at, Value: value);
+    public static LocationAspect Curvature(int count, CurvatureMode mode) => new CurvatureSamplesCase(Count: count, Mode: mode);
+    public static LocationAspect CurvatureExtrema(int count, CurvatureMode mode, ExtremumDirection direction) => new CurvatureExtremaCase(Count: count, Mode: mode, Direction: direction);
+    public static LocationAspect DivideByCount(int count) => new DivideCase(By: new Division.ByCount(Count: count));
+    public static LocationAspect DivideByLength(double length) => new DivideCase(By: new Division.ByLength(Length: length));
+    public static LocationAspect Orientation(Plane plane) => new OrientationCase(Plane: plane);
+    public static LocationAspect Contains(Point3d point, Plane plane) => new ContainsCase(Probe: point, Frame: plane);
+    public static LocationAspect ShortPath(Point2d start, Point2d end) => new ShortPathCase(Start: start, End: end);
     public Operation<TGeometry, TOut> Operation<TGeometry, TOut>() where TGeometry : notnull => Switch(
         atCase: static at => Analyze.LocatedValue<TGeometry, TOut>(locator: at.Locator, value: at.Value),
         curvatureSamplesCase: static cs => Analyze.CurvatureOp<TGeometry, TOut>(count: cs.Count, mode: cs.Mode, agg: new CurvatureAggregation.SamplesCase()),
@@ -113,6 +113,14 @@ public partial record Location : IAspect {
 // --- [OPERATIONS] -------------------------------------------------------------------------
 public static partial class Analyze {
     public static Operation<TGeometry, TOut> Location<TGeometry, TOut>(LocationAspect aspect) where TGeometry : notnull => Aspect<LocationAspect, TGeometry, TOut>(aspect: aspect);
+    internal static Operation<TGeometry, TOut> Located<TGeometry, TOut, TNative, TValue>(Op key, Func<Operation<TGeometry, TValue>> operation) where TGeometry : notnull =>
+        (((typeof(TNative) == typeof(Curve) && GeometryKernel.CanCurveForm(type: typeof(TGeometry)))
+            || (typeof(TNative) == typeof(Surface) && GeometryKernel.CanSurfaceForm(type: typeof(TGeometry)))
+            || typeof(TNative).IsAssignableFrom(c: typeof(TGeometry))
+            || typeof(TGeometry) == typeof(object)
+            || typeof(TGeometry) == typeof(GeometryBase)) && typeof(TOut) == typeof(TValue))
+            ? operation().As<TGeometry, TOut>(key: key)
+            : key.Unsupported<TGeometry, TOut>();
     internal static Operation<TGeometry, TOut> LocatedValue<TGeometry, TOut>(Locator locator, LocationValue value) where TGeometry : notnull =>
         (value, locator) switch {
             (LocationValue.PointCase, Locator.CurveParameter or Locator.ArcLength or Locator.NormalizedMid) =>
@@ -162,27 +170,6 @@ public static partial class Analyze {
             (LocationValue.LengthCase, _) => LocationAspect.LengthAtKey.Unsupported<TGeometry, TOut>(),
             _ => LocationAspect.PointAtKey.Unsupported<TGeometry, TOut>(),
         };
-    internal static Operation<TGeometry, TOut> ClosestOp<TGeometry, TOut>(Op key, Point3d target, SupportProjection projection) where TGeometry : notnull =>
-        (target.IsValid, GeometryKernel.CanClosest(type: typeof(TGeometry))) switch {
-            (false, _) => Operation<TGeometry, TOut>.Reject(key: key, fault: key.InvalidInput()),
-            (true, true) => Operation<TGeometry, TOut>.Build(
-                key: key, state: (Key: key, Target: target, Projection: projection),
-                evaluator: static (state, geometry) =>
-                    from context in Env.Asks
-                    from space in SupportSpace.Of(value: geometry, key: state.Key).ToEff()
-                    from intent in VectorIntent.Support(space: space, sample: state.Target, projection: state.Projection, key: state.Key).ToEff()
-                    from result in intent.Project<TOut>(context: context, key: state.Key).Map(value => Seq(value)).ToEff()
-                    select result),
-            _ => key.Unsupported<TGeometry, TOut>(),
-        };
-    internal static Operation<TGeometry, TOut> Located<TGeometry, TOut, TNative, TValue>(Op key, Func<Operation<TGeometry, TValue>> operation) where TGeometry : notnull =>
-        (((typeof(TNative) == typeof(Curve) && GeometryKernel.CanCurveForm(type: typeof(TGeometry)))
-            || (typeof(TNative) == typeof(Surface) && GeometryKernel.CanSurfaceForm(type: typeof(TGeometry)))
-            || typeof(TNative).IsAssignableFrom(c: typeof(TGeometry))
-            || typeof(TGeometry) == typeof(object)
-            || typeof(TGeometry) == typeof(GeometryBase)) && typeof(TOut) == typeof(TValue))
-            ? operation().As<TGeometry, TOut>(key: key)
-            : key.Unsupported<TGeometry, TOut>();
     internal static Operation<TGeometry, TOut> CurveLocatedOp<TGeometry, TOut>(Op key, Locator locator, Func<Curve, double, Context, Fin<Seq<TOut>>> project, Requirement? requirement = null) where TGeometry : notnull =>
         Operation<TGeometry, TOut>.Build(
             key: key, requirement: requirement ?? (locator switch { Locator.ArcLength or Locator.NormalizedMid => Requirement.CurveLength, _ => Requirement.Basic }), state: (Key: key, Locator: locator, Project: project),
@@ -205,6 +192,19 @@ public static partial class Analyze {
                     .Bind(lease => lease.Use(surface => GeometryKernel.SurfaceUv(surface: surface, uv: state.Uv, context: context, key: state.Key)
                         .Bind(parameter => state.Project(arg1: surface, arg2: parameter)))).ToEff()
                 select result);
+    internal static Operation<TGeometry, TOut> ClosestOp<TGeometry, TOut>(Op key, Point3d target, SupportProjection projection) where TGeometry : notnull =>
+        (target.IsValid, GeometryKernel.CanClosest(type: typeof(TGeometry))) switch {
+            (false, _) => Operation<TGeometry, TOut>.Reject(key: key, fault: key.InvalidInput()),
+            (true, true) => Operation<TGeometry, TOut>.Build(
+                key: key, state: (Key: key, Target: target, Projection: projection),
+                evaluator: static (state, geometry) =>
+                    from context in Env.Asks
+                    from space in SupportSpace.Of(value: geometry, key: state.Key).ToEff()
+                    from intent in VectorIntent.Support(space: space, sample: state.Target, projection: state.Projection, key: state.Key).ToEff()
+                    from result in intent.Project<TOut>(context: context, key: state.Key).Map(value => Seq(value)).ToEff()
+                    select result),
+            _ => key.Unsupported<TGeometry, TOut>(),
+        };
     internal static Operation<TGeometry, Plane> PerpendicularFrameOp<TGeometry>(Op key, Seq<double> parameters) where TGeometry : notnull =>
         Operation<TGeometry, Plane>.Build(
             key: key, requirement: Requirement.CurveLength, state: (Key: key, Parameters: parameters),
@@ -283,6 +283,19 @@ public static partial class Analyze {
                 from result in state.Native(arg1: geometry, arg2: state.Key)
                     .Bind(lease => lease.Use((State: state, Context: context), static (s, native) => s.State.Project(arg1: s.State.Key, arg2: native, arg3: s.State.Count, arg4: s.Context))).ToEff()
                 select result);
+    private static Fin<Seq<Vector3d>> CurveCurvaturesOf(Op key, Curve curve, int count, Context model) =>
+        GeometryKernel.CurveSampleParameters(curve: curve, count: count, context: model, key: key)
+            .Bind(parameters => key.Accept(values: parameters.Map(parameter => curve.CurvatureAt(t: parameter))));
+    private static Fin<Seq<double>> CurveMagnitudesOf(Op key, Curve curve, int count, Context model) =>
+        CurveCurvaturesOf(key: key, curve: curve, count: count, model: model).Bind(vectors => vectors.TraverseM(vector => ScalarMetric.Magnitude.Of(value: vector, key: key)).As());
+    [StructLayout(LayoutKind.Auto)]
+    private readonly record struct CurvatureSample(Point3d Point, double Curvature);
+    private static Fin<Seq<CurvatureSample>> CurveCurvatureSamples(Op op, Curve curve, int count, Context ctx) =>
+        GeometryKernel.CurveSampleParameters(curve: curve, count: count, context: ctx, key: op)
+            .Map(parameters => parameters.Map(t => new CurvatureSample(Point: curve.PointAt(t: t), Curvature: curve.CurvatureAt(t: t).Length)));
+    private static Fin<Seq<SurfaceCurvature>> SurfaceCurvaturesOf(Op key, Surface surface, int count, Context model) =>
+        GeometryKernel.SurfaceSampleUv(surface: surface, count: count, context: model, key: key)
+            .Bind(samples => samples.TraverseM(uv => Optional(surface.CurvatureAt(u: uv.X, v: uv.Y)).ToFin(key.InvalidResult())).As());
     private static Fin<Seq<double>> SurfaceScalarsOf(Op key, Seq<SurfaceCurvature> curvatures, ScalarMetric metric) =>
         curvatures.TraverseM(curvature => metric.Of(value: curvature, key: key)).As();
     private static Fin<Seq<Stat>> SurfaceStatsOf(Op key, Seq<SurfaceCurvature> curvatures, CurvatureMode mode) =>
@@ -294,19 +307,6 @@ public static partial class Analyze {
         _ = curvatures.Iter(static curvature => curvature.Dispose());
         return result;
     }
-    private static Fin<Seq<Vector3d>> CurveCurvaturesOf(Op key, Curve curve, int count, Context model) =>
-        GeometryKernel.CurveSampleParameters(curve: curve, count: count, context: model, key: key)
-            .Bind(parameters => key.Accept(values: parameters.Map(parameter => curve.CurvatureAt(t: parameter))));
-    private static Fin<Seq<double>> CurveMagnitudesOf(Op key, Curve curve, int count, Context model) =>
-        CurveCurvaturesOf(key: key, curve: curve, count: count, model: model).Bind(vectors => vectors.TraverseM(vector => ScalarMetric.Magnitude.Of(value: vector, key: key)).As());
-    private static Fin<Seq<SurfaceCurvature>> SurfaceCurvaturesOf(Op key, Surface surface, int count, Context model) =>
-        GeometryKernel.SurfaceSampleUv(surface: surface, count: count, context: model, key: key)
-            .Bind(samples => samples.TraverseM(uv => Optional(surface.CurvatureAt(u: uv.X, v: uv.Y)).ToFin(key.InvalidResult())).As());
-    [StructLayout(LayoutKind.Auto)]
-    private readonly record struct CurvatureSample(Point3d Point, double Curvature);
-    private static Fin<Seq<CurvatureSample>> CurveCurvatureSamples(Op op, Curve curve, int count, Context ctx) =>
-        GeometryKernel.CurveSampleParameters(curve: curve, count: count, context: ctx, key: op)
-            .Map(parameters => parameters.Map(t => new CurvatureSample(Point: curve.PointAt(t: t), Curvature: curve.CurvatureAt(t: t).Length)));
     private static Fin<Seq<CurvatureSample>> SurfaceCurvatureSamples(Op op, Surface surface, int count, Context ctx, ScalarMetric metric) =>
         GeometryKernel.SurfaceSampleUv(surface: surface, count: count, context: ctx, key: op)
             .Bind(uvs => uvs.TraverseM(uv => Optional(surface.CurvatureAt(u: uv.X, v: uv.Y)).ToFin(op.InvalidResult())

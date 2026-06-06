@@ -11,7 +11,7 @@ from expression import Error, Result  # noqa: TC002  # Result unconditional: @ch
 from expression.collections import block
 from expression.extra.result import sequence
 import msgspec
-from tree_sitter import Language as TSLanguage, Parser as TSParser, Query as TSQuery, QueryCursor
+from tree_sitter import Language as TSLanguage, Parser as TSParser, Query as TSQuery, QueryCursor, QueryError
 import tree_sitter_python
 import tree_sitter_typescript
 
@@ -19,6 +19,7 @@ from tools.assay.composition.catalog import AST_MATCHES, Capture, CAPTURE_ENCODE
 from tools.assay.composition.settings import ArtifactScope, AssaySettings  # noqa: TC001  # unconditional for beartype runtime
 from tools.assay.core.engine import fan_out, leased, run_check
 from tools.assay.core.model import (
+    _RESULT_CAP,  # noqa: PLC2701  # shared saturation site for in-process tree-sitter match limiting
     Artifact,
     ArtifactKind,
     BaseParams,
@@ -99,6 +100,7 @@ _GRAMMARS: dict[Language, Callable[[], object]] = {
     Language.PYTHON: tree_sitter_python.language,
     Language.TYPESCRIPT: tree_sitter_typescript.language_typescript,
 }
+_TSX_GRAMMAR: Callable[[], object] = tree_sitter_typescript.language_tsx
 
 
 # --- [OPERATIONS] -----------------------------------------------------------------------
@@ -175,7 +177,7 @@ def _rewrite_splice(params: CodeParams, root: Path, *, apply: bool) -> Callable[
 
 
 def _query_splice(params: CodeParams, root: Path) -> Callable[[Tool, Routed], Tool]:
-    return lambda tool, routed: msgspec.structs.replace(tool, thunk=_ts_thunk(params.pattern, routed.language, root))
+    return lambda tool, routed: msgspec.structs.replace(tool, thunk=_ts_thunk(params.pattern, routed.language, root, limit=params.max_results))
 
 
 def _top_level_patterns(query_src: str) -> int:
@@ -206,25 +208,68 @@ def _eq_needles(query_src: str) -> frozenset[bytes] | None:
             return None
 
 
-def _ts_thunk(query_src: str, language: Language, root: Path) -> InprocThunk:
+def _ts_thunk(query_src: str, language: Language, root: Path, *, limit: int) -> InprocThunk:
     # Captures ride Completed.stdout like subprocess output; literal needles reduce GIL-bound parsing.
     needles = _eq_needles(query_src)
+    cap = limit if limit > 0 else _RESULT_CAP
 
     def run(check: Check) -> Completed:
-        ts_lang = TSLanguage(_GRAMMARS[language]())
-        parser = TSParser(ts_lang)
-        query = TSQuery(ts_lang, query_src)
-        captures = tuple(
-            Capture(name=name, text=_node_text(node)[:_TEXT_CAP], file=rel, line=node.start_point.row + 1)
+        rows = tuple(
+            cap_row
             for rel in check.paths
             for src in (_read(root / rel),)
             if src is not None and (needles is None or all(needle in src for needle in needles))
-            for name, nodes in QueryCursor(query).captures(parser.parse(src).root_node).items()
-            for node in nodes
+            for cap_row in _ts_file_captures(query_src, language, rel, src, cap=cap)
         )
-        return receipt(("tree-sitter", "query", language, *check.paths), 0, stdout=CAPTURE_ENCODER.encode(captures))
+        captures = tuple(rows[:cap])
+        status = RailStatus.FAILED if any(c.parse_error for c in captures) else RailStatus.OK if captures else RailStatus.EMPTY
+        return receipt(
+            ("tree-sitter", "query", language, *check.paths),
+            1 if status is RailStatus.FAILED else 0,
+            stdout=CAPTURE_ENCODER.encode(captures),
+            status=status,
+        )
 
     return run
+
+
+def _ts_language(language: Language, rel: str) -> TSLanguage:
+    grammar = _TSX_GRAMMAR if language is Language.TYPESCRIPT and rel.endswith(".tsx") else _GRAMMARS[language]
+    return TSLanguage(grammar())
+
+
+def _ts_file_captures(query_src: str, language: Language, rel: str, src: bytes, *, cap: int) -> tuple[Capture, ...]:
+    ts_lang = _ts_language(language, rel)
+    root_node = TSParser(ts_lang).parse(src).root_node
+    try:
+        cursor = QueryCursor(TSQuery(ts_lang, query_src))
+    except QueryError as exc:
+        return (Capture(name="query_error", text=str(exc)[:_TEXT_CAP], file=rel, line=1, parse_error=True),)
+    cursor.match_limit = cap
+    raw_matches = tuple(cursor.matches(root_node))
+    matches = raw_matches[:cap]
+    truncated = cursor.did_exceed_match_limit or len(raw_matches) > cap
+    parse_error = (Capture(name="parse_error", text="tree-sitter parse error", file=rel, line=1, parse_error=True, truncated=truncated),)
+    captures = tuple(
+        Capture(
+            name=name,
+            text=_node_text(node)[:_TEXT_CAP],
+            file=rel,
+            line=node.start_point.row + 1,
+            column=node.start_point.column + 1,
+            end_line=node.end_point.row + 1,
+            end_column=node.end_point.column + 1,
+            start_byte=node.start_byte,
+            end_byte=node.end_byte,
+            pattern=pattern,
+            ordinal=ordinal,
+            truncated=truncated,
+        )
+        for ordinal, (pattern, grouped) in enumerate(matches)
+        for name, nodes in grouped.items()
+        for node in nodes
+    )
+    return (*parse_error, *captures) if root_node.has_error else captures
 
 
 def _node_text(node: Node) -> str:
@@ -243,10 +288,8 @@ def _artifact(settings: AssaySettings, verb: str, content: str) -> Artifact:
     # run_id prevents listing clobber; content hash lets delta distinguish changed match sets.
     raw = content.encode()
     digest = sha256(raw).hexdigest()[:12]
-    path = Path(str(settings.artifact(ArtifactKind.CODE, verb, settings.run_id, "matches.txt")))
-    path.parent.mkdir(parents=True, exist_ok=True)
-    path.write_bytes(raw)
-    return Artifact(id=digest, kind=ArtifactKind.CODE, path=str(path), bytes=len(raw), lines=raw.count(b"\n"))
+    path = settings.store().write_bytes(raw, ArtifactKind.CODE.value, verb, settings.run_id, "matches.txt")
+    return Artifact(id=digest, kind=ArtifactKind.CODE, path=str(path), bytes=len(raw), lines=len(content.splitlines()))
 
 
 def _safe_decode[T, E](decoder: msgspec.json.Decoder[T], raw: bytes, empty: E) -> T | E:
@@ -312,9 +355,16 @@ def _ag_rows(completeds: tuple[Completed, ...], cap: int, pattern: str) -> tuple
 
 def _ts_rows(completeds: tuple[Completed, ...], cap: int, pattern: str) -> tuple[tuple[Match, ...], str]:
     captures = tuple(c for done in completeds for c in _safe_decode(CAPTURES, done.stdout or b"[]", ()))
-    listing = "\n".join(f"{c.file}:{c.line}: @{c.name} {c.text}" for c in captures)
+    listing = "\n".join(f"{c.file}:{c.line}:{c.column}: @{c.name}#{c.ordinal}/{c.pattern} {c.text}" for c in captures)
     rows = tuple(
-        Match(id=f"{c.file}:{c.line}", kind=ArtifactKind.CODE, text=f"@{c.name} {c.text}"[:_TEXT_CAP], line=c.line, score=_relevance(pattern, c.text))
+        Match(
+            id=f"{c.file}:{c.line}:{c.column}:{c.name}:{c.ordinal}",
+            kind=ArtifactKind.CODE,
+            text=f"{'parse-error ' if c.parse_error else ''}@{c.name} {c.text}"[:_TEXT_CAP],
+            line=c.line,
+            score=_relevance(pattern, c.text),
+            severity="failed" if c.parse_error else None,
+        )
         for c in captures[:cap]
     )
     return rows, listing

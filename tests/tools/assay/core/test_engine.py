@@ -224,6 +224,21 @@ def test_staged_process_materializes_workdir_and_env(assay_root: AssayHarness, m
     assert not (assay_root.root / "mutants").exists()
 
 
+def test_staged_process_rejects_escaping_paths(assay_root: AssayHarness) -> None:
+    """Stage workdirs and inputs are contained before any destructive materialization."""
+    for stage in (Stage(root="../outside"), Stage(root=".artifacts/python/work", inputs=("../pyproject.toml",))):
+        outcome = run_check(
+            Check(tool=Tool("stage-law", Runner.DIRECT, ("true",), Input.NONE, Language.PYTHON, Claim.TEST, mode=Mode.RUN, stage=stage)),
+            settings=assay_root.settings,
+            scope=None,
+            routed=Routed(language=Language.PYTHON, scope=Scope.CHANGED),
+        )
+
+        assert outcome.is_error()
+        assert "unsafe stage path" in outcome.error.message
+    assert not (assay_root.root.parent / "outside").exists()
+
+
 # --- [INPROC] --------------------------------------------------------------------------
 
 

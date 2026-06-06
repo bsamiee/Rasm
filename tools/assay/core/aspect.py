@@ -8,7 +8,7 @@ from enum import IntEnum
 from functools import wraps
 import inspect
 from operator import itemgetter
-from typing import assert_never, Protocol, TYPE_CHECKING
+from typing import assert_never, Protocol, runtime_checkable, TYPE_CHECKING
 
 from beartype import beartype, BeartypeConf, BeartypeStrategy
 from expression import Ok, Result
@@ -51,6 +51,7 @@ class Slot(IntEnum):
     retried = 3
 
 
+@runtime_checkable
 class _AssayLogger(Protocol):
     def info(self, event: str, **kw: object) -> object: ...
 
@@ -111,8 +112,16 @@ def ring_processor(logger: object, method_name: str, event_dict: EventDict) -> E
     """
     match _RING.get():
         case deque() as ring:
-            ring.append(f"{event_dict.get('log_level', method_name)}:{event_dict.get('event', '')}")
+            ring.append(f"{event_dict.get('level', method_name)}:{event_dict.get('event', '')}")
         case None:
+            pass
+    span = trace.get_current_span()
+    ctx = span.get_span_context()
+    match ctx.is_valid:
+        case True:
+            event_dict["trace_id"] = f"{ctx.trace_id:032x}"
+            event_dict["span_id"] = f"{ctx.span_id:016x}"
+        case False:
             pass
     return event_dict
 
@@ -132,6 +141,11 @@ def ring_recent() -> tuple[str, ...]:
 
 def _on_retry(details: RetryDetails) -> None:
     # Retry hooks read context bound outside the retried loop, including seams where logged is forbidden.
+    wait_for = float(getattr(details.wait_for, "total_seconds", lambda: details.wait_for)())
+    trace.get_current_span().add_event(
+        "retry.scheduled",
+        attributes={"retry.attempt": details.retry_num, "retry.wait_for": wait_for, "retry.cause": type(details.caused_by).__name__},
+    )
     _log().warning(
         "retry.scheduled", attempt=details.retry_num, wait_for=details.wait_for, caused_by=type(details.caused_by).__name__, **get_contextvars()
     )
@@ -253,8 +267,12 @@ def _stamp[T](s: Span, res: Result[T, Fault]) -> Result[T, Fault]:
             s.set_attribute("assay.status", str(getattr(done, "status", RailStatus.OK)))
             s.set_status(Status(StatusCode.OK))
         case Result(error=f):
-            s.set_attributes({"assay.status": f.status, "assay.message": f.message[:_ATTR_CAP]})
-            s.set_status(Status(StatusCode.ERROR, f.status))
+            s.set_attributes({"assay.status": f.status.value, "assay.message": f.message[:_ATTR_CAP]})
+            s.add_event(
+                "assay.fault",
+                attributes={"assay.status": f.status.value, "assay.message": f.message[:_ATTR_CAP], "assay.argv": " ".join(f.argv)[:_ATTR_CAP]},
+            )
+            s.set_status(Status(StatusCode.ERROR, f.status.value))
     return res
 
 

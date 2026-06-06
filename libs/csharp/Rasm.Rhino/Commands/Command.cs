@@ -124,15 +124,6 @@ public sealed record CommandStageContext<TState>(
     int Index,
     Seq<TState> History,
     CommandGraphEvents<TState> Events) {
-    internal Fin<CommandStageContext<TState>> Run() =>
-        (Index >= Stages.Count) switch {
-            true => Fin.Succ(value: this),
-            false => Stages[Index].Run(context: this).Bind(Apply),
-        };
-
-    private Fin<CommandStageContext<TState>> Apply(PromptTransition<TState> transition) =>
-        Optional(transition).ToFin(Fail: Op.Of(name: nameof(Apply)).InvalidInput()).Bind(valid => valid.Apply(context: this));
-
     public Fin<Seq<FileEndpoint>> Files(FilePrompt prompt) =>
         Context.Mode switch {
             RunMode.Scripted => Events.Files(context: this, prompt: prompt),
@@ -147,6 +138,15 @@ public sealed record CommandStageContext<TState>(
         from run in Optional(scripted).ToFin(Fail: Op.Of(name: nameof(Use)).InvalidInput())
         from result in Context.Ui.Use(intent: validIntent.WithScripted(fallback: (_, _) => run(arg: this)))
         select result;
+
+    internal Fin<CommandStageContext<TState>> Run() =>
+        (Index >= Stages.Count) switch {
+            true => Fin.Succ(value: this),
+            false => Stages[Index].Run(context: this).Bind(Apply),
+        };
+
+    private Fin<CommandStageContext<TState>> Apply(PromptTransition<TState> transition) =>
+        Optional(transition).ToFin(Fail: Op.Of(name: nameof(Apply)).InvalidInput()).Bind(valid => valid.Apply(context: this));
 }
 
 public readonly record struct PromptEventContext<TState>(CommandStageContext<TState> Stage, CommandPointEvent Event) {
@@ -160,9 +160,6 @@ public readonly record struct PromptEventContext<TState>(CommandStageContext<TSt
         _ => Option<CommandSelection.Reference>.None,
     };
     public Option<UiGumballSnapshot> Snapshot => Event.GumballSnapshot;
-    public Fin<bool> Pick(PickContext pick) => Event.PickGumball(pick: pick);
-    public Fin<bool> Update(Line worldLine) => Event.UpdateGumball(worldLine: worldLine);
-    public Fin<bool> Update(Plane frame) => Event.UpdateGumball(frame: frame);
 
     // surfaced from the partially-typed number buffer on the active GetPoint so AcceptsNumber drags read the preview without casting Event.Getter; PostDraw carries no getter buffer
     public Option<double> NumberPreview =>
@@ -170,6 +167,10 @@ public readonly record struct PromptEventContext<TState>(CommandStageContext<TSt
             mouse: static args => args.Value.Source.NumberPreview(number: out double mn) ? Some(mn) : Option<double>.None,
             draw: static args => args.Value.Source.NumberPreview(number: out double dn) ? Some(dn) : Option<double>.None,
             postDraw: static _ => Option<double>.None);
+
+    public Fin<bool> Pick(PickContext pick) => Event.PickGumball(pick: pick);
+    public Fin<bool> Update(Line worldLine) => Event.UpdateGumball(worldLine: worldLine);
+    public Fin<bool> Update(Plane frame) => Event.UpdateGumball(frame: frame);
 }
 
 public sealed record PromptStage<TState, TValue>(

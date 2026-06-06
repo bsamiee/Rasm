@@ -3,7 +3,9 @@
 from dataclasses import dataclass
 from typing import TYPE_CHECKING
 
-from expression import Result
+from expression import Result  # noqa: TC002  # unconditional: registry beartype resolves handler return annotations at runtime
+from expression.collections import block
+from expression.extra.result import sequence
 import msgspec
 
 from tools.assay.composition.catalog import select
@@ -24,7 +26,6 @@ from tools.assay.core.status import RailStatus
 
 
 if TYPE_CHECKING:
-    from tools.assay.core.model import Completed
     from tools.assay.core.routing import Routed
 
 
@@ -58,14 +59,15 @@ def thin_rail(settings: AssaySettings, scope: ArtifactScope, params: DocsParams,
     Returns:
         Folded docs report, or strict-mode/spawn fault.
     """
-    return route(Language.DOCS, params.paths, settings=settings).map(
-        lambda routed: _strict(_outcomes(routed, settings=settings, scope=scope, claim=claim, verb=verb, mode=mode), strict=params.strict)
+    return route(Language.DOCS, params.paths, settings=settings).bind(
+        lambda routed: _outcomes(routed, settings=settings, scope=scope, claim=claim, verb=verb, mode=mode).map(
+            lambda report: _strict(report, strict=params.strict)
+        )
     )
 
 
-def _outcomes(routed: Routed, *, settings: AssaySettings, scope: ArtifactScope, claim: Claim, verb: str, mode: Mode) -> Report:
+def _outcomes(routed: Routed, *, settings: AssaySettings, scope: ArtifactScope, claim: Claim, verb: str, mode: Mode) -> Result[Report, Fault]:
     # `mmdc` takes one `-i` input per command, so each routed file is spliced into tool.command.
-    # Only Completed slots enter the fold; lease or timeout faults cannot mask clean diagrams.
     checks = tuple(
         Check(tool=msgspec.structs.replace(t, command=(*t.command, "-i", f)))
         for t in select(claim, routed.language)
@@ -73,15 +75,7 @@ def _outcomes(routed: Routed, *, settings: AssaySettings, scope: ArtifactScope, 
         for f in routed.files
     )
     slots = fan_out(checks, settings=settings, scope=scope, routed=routed)
-    return fold(claim, verb, tuple(done for slot in slots if (done := _done(slot)) is not None))
-
-
-def _done(slot: Result[Completed, Fault]) -> Completed | None:
-    match slot:
-        case Result(tag="ok", ok=done):
-            return done
-        case _:
-            return None
+    return sequence(block.of_seq(slots)).map(lambda done: fold(claim, verb, tuple(done)))
 
 
 def _strict(report: Report, *, strict: bool) -> Report:

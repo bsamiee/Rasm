@@ -3,30 +3,23 @@
 A ``msgspec.inspect``-driven strategy resolver registers every wire struct with bounded leaf strategies
 (reading ``Meta`` constraints generically, so ``from_type(Fault)`` yields non-empty bounded messages and
 adding a model field over the supported JSON leaf taxonomy needs zero conftest change), a single
-``pytest_generate_tests`` axis-matrix hook
-composes the protocol/exec/clock/census ``Capsule`` over an ``@axes`` marker, the polymorphic ``cli``
-fixture runs the CLI in-process (or as a real subprocess under ``isolate=True``), the ``AssayMachine``
-base wires RBSM scaffolding for W3's lease/tick/history machines, and the promoted oracles
+the polymorphic ``cli`` fixture runs the CLI in-process (or as a real subprocess under ``isolate=True``),
+and the promoted oracles
 (``assert_wire_roundtrip``/``expect_ok``/``assert_counts_consistent``/``make_history_envelope``) let
 laws read as one-liners. Plus the socket-free ``RailProbe`` host, the loopback ``SshLoopback`` network
 seam, the ``BridgeResult``/``YakShape`` materializers, and the table-driven ``ab_delta`` A/B fixture.
 
-W3 discipline: prefer ``@precondition`` over ``assume``, ``data()`` over nested ``@given``, and the
-shared oracles over hand-rolled ``assert x.is_ok()``.
+Prefer ``data()`` over nested ``@given`` and the shared oracles over hand-rolled ``assert x.is_ok()``.
 """
 
 # --- [RUNTIME_PRELUDE] ------------------------------------------------------------------------
 
-import contextlib
 from dataclasses import dataclass, field
 import datetime as dt
 import functools
-import importlib.util
-from itertools import product
 import os
 from pathlib import Path
 import shutil
-import tempfile
 from types import SimpleNamespace
 from typing import get_args, override, Protocol, TYPE_CHECKING
 from unittest.mock import create_autospec, MagicMock
@@ -34,18 +27,14 @@ from unittest.mock import create_autospec, MagicMock
 import anyio
 from expression import Ok, Result  # noqa: TC002  # Result used as runtime annotation in diff() closure
 from hypothesis import given, settings as hyp_settings, strategies as st
-from hypothesis.stateful import initialize, invariant, RuleBasedStateMachine
 import msgspec
 import msgspec.inspect as msgspec_inspect
 import psutil as _psutil
 import pytest
-import time_machine
 from upath import UPath
 
 from tools.assay.composition.registry import REGISTRY
 from tools.assay.composition.settings import ArtifactScope, ArtifactStore, AssaySettings  # noqa: TC001
-from tools.assay.core import engine as engine_mod
-from tools.assay.core.engine import _LeaseOwner  # noqa: PLC2701  # RBSM scaffolding draws the engine lease block
 from tools.assay.core.model import (
     AnyDetail,
     ApiResolution,
@@ -97,36 +86,11 @@ class VerbRunner(Protocol):
 
 # --- [CONSTANTS] -----------------------------------------------------------------------
 
-# Host-gated skipif markers — computed once at collection so xdist workers share the result.
-_DOTNET = shutil.which("dotnet")
-_YAK = shutil.which("yak")
-_ILSPYCMD = shutil.which("ilspycmd")
 _UV = shutil.which("uv")
-_RHINOWIP = next(
-    (p for p in ("/Applications/RhinoWIP.app", "/Applications/Rhino WIP.app", "/Applications/Rhino 8 WIP.app") if Path(p).is_dir()), None
-)
-_TREE_SITTER_PY: bool = importlib.util.find_spec("tree_sitter_python") is not None
-_EPOCH = dt.datetime(2026, 1, 1, tzinfo=dt.UTC)
 _REPO_ROOT = Path(__file__).resolve().parents[3]  # subprocess CWD so `python -m tools.assay` resolves the package
-
-skip_no_dotnet = pytest.mark.skipif(_DOTNET is None, reason="dotnet not on PATH")
-skip_no_rhino = pytest.mark.skipif(_RHINOWIP is None, reason="RhinoWIP.app not installed")
-skip_no_yak = pytest.mark.skipif(_YAK is None, reason="yak not on PATH")
-skip_no_ilspycmd = pytest.mark.skipif(_ILSPYCMD is None, reason="ilspycmd not on PATH")
-skip_no_tree_sitter_py = pytest.mark.skipif(not _TREE_SITTER_PY, reason="tree-sitter-python grammar absent")
 
 # Deterministic codec pair shared by the wire-roundtrip oracle (mirrors model._ENCODER order policy).
 _ENCODER = msgspec.json.Encoder(order="deterministic")
-
-# Axis vocabulary for the capsule matrix — the (proto, exec_mode, clock, census) cartesian.
-_AXES: dict[str, tuple[str, ...]] = {
-    "proto": ("file", "memory"),
-    "exec_mode": ("local", "remote"),
-    "clock": ("real", "frozen"),
-    "census": ("live", "double"),
-}
-_AXIS_DEFAULT = ("file", "local", "real", "live")
-
 
 # --- [OPERATIONS] -----------------------------------------------------------------------
 # A msgspec.inspect-driven resolver maps each wire struct field to a bounded leaf strategy reading its
@@ -139,8 +103,8 @@ def _leaf(node: msgspec_inspect.Type) -> st.SearchStrategy[object]:  # noqa: C90
 
     Reads ``ge``/``gt``/``le``/``lt``/``max_length`` so generated values satisfy the wire ``Meta`` and
     survive an encode/decode round-trip; strings draw ``min_size=1`` so faults carry real messages.
-    ``CustomType`` (``Parser``/``InprocThunk``/``Path``) forces ``None`` — the registered resolver routes
-    every ``Tool``/``Check`` callable + ``cwd`` field through here, so drawn instances are encode-clean.
+    ``CustomType`` (``InprocThunk``/``Path``) forces ``None`` — the registered resolver routes
+    every ``Tool`` callable + ``Check.cwd`` field through here, so drawn instances are encode-clean.
     Covers the JSON-codec leaf taxonomy a future ``Detail``/``Report`` field could introduce
     (datetime/date/dict/list/set/literal); only msgspec nodes with no JSON-stable projection raise.
 
@@ -192,7 +156,7 @@ def _leaf(node: msgspec_inspect.Type) -> st.SearchStrategy[object]:  # noqa: C90
         case msgspec_inspect.StructType(cls=cls):
             return _resolver(cls)
         case msgspec_inspect.CustomType():
-            return st.none()  # Parser / InprocThunk / Path: no JSON-stable projection -> draw None (round-trip clean)
+            return st.none()  # InprocThunk / Path: no JSON-stable projection -> draw None (round-trip clean)
         case _:
             raise AssertionError(f"unhandled msgspec node {type(node).__name__}")
 
@@ -209,7 +173,7 @@ def _resolver(cls: type[msgspec.Struct]) -> st.SearchStrategy[object]:
 
 
 # Every struct W3 draws under @given (incl. Tool/Check). Registering Tool/Check via _resolver routes
-# their CustomType fields (parser/thunk callables, cwd: Path) through _leaf -> st.none(), so from_type
+# their CustomType fields (thunk callable, cwd: Path) through _leaf -> st.none(), so from_type
 # yields encode-clean instances; OMITTING them lets hypothesis resolve the union natively, which both
 # emits SmallSearchSpaceWarning (hard error under filterwarnings=['error']) for Path and generates live
 # lambdas that crash msgspec.encode. Order is irrelevant: detail_st derives from AnyDetail, not a slice.
@@ -233,23 +197,10 @@ run_snapshot_st: st.SearchStrategy[RunSnapshot] = st.from_type(RunSnapshot)
 report_st: st.SearchStrategy[Report] = st.from_type(Report)
 # Derive the Detail variants from the AnyDetail alias itself — self-tracking, no positional [6:13] coupling.
 detail_st: st.SearchStrategy[AnyDetail] = st.one_of(*(st.from_type(v) for v in get_args(AnyDetail.__value__)))
-# The resolver forces Tool.parser/Tool.thunk (Callable) and Check.cwd (Path) to None via _leaf(CustomType),
+# The resolver forces Tool.thunk (Callable) and Check.cwd (Path) to None via _leaf(CustomType),
 # so from_type sweeps the engine Runner x Input x Mode x Language cartesian with encode-clean instances.
 tool_st: st.SearchStrategy[Tool] = st.from_type(Tool)
 check_st: st.SearchStrategy[Check] = st.from_type(Check)
-
-# RBSM entity strategies the W3 machines draw from.
-lease_owner_st: st.SearchStrategy[_LeaseOwner] = st.builds(
-    _LeaseOwner,
-    resource=st.text(min_size=1, max_size=32),
-    run_id=st.text(min_size=1, max_size=32),
-    pid=st.sampled_from((os.getpid(), -1, 0, 99999)),  # live self + dead/adversarial sentinels for _stale laws
-    create_time=st.floats(min_value=0.0, max_value=2e9, allow_nan=False, allow_infinity=False),
-)
-# ISO-8601 timestamps are lexically monotonic, so run_id sorting == chronology for delta/retention order.
-_ISO_RUN_ID = r"\A20[2-9][0-9]-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9])T([01][0-9]|2[0-3]):[0-5][0-9]:[0-5][0-9]\.[0-9]{6}Z\Z"
-run_id_st: st.SearchStrategy[str] = st.from_regex(_ISO_RUN_ID, fullmatch=True)
-tick_delta_st: st.SearchStrategy[float] = st.floats(min_value=0.0, max_value=5_000.0, allow_nan=False, allow_infinity=False)
 
 
 @st.composite
@@ -271,10 +222,10 @@ st.register_type_strategy(Envelope, envelope_st)
 # instead of inside a later property.
 _VALIDATED_STRATEGIES: tuple[st.SearchStrategy[object], ...] = (
     rail_status_st, completed_st, fault_st, counts_st, artifact_st, match_st, run_snapshot_st,
-    report_st, detail_st, tool_st, check_st, lease_owner_st, run_id_st, tick_delta_st, envelope_st,
+    report_st, detail_st, tool_st, check_st, envelope_st,
 )  # fmt: skip
 # Wire strategies whose drawn instance must survive the deterministic codec — the encode step is what
-# catches a live Tool.parser/thunk Callable (a TypeError validate() alone never reaches). Tool/Check
+# catches a live Tool.thunk Callable (a TypeError validate() alone never reaches). Tool/Check
 # encode-clean only because the resolver forced their callable/Path fields to None.
 _ENCODE_PROBE: tuple[tuple[st.SearchStrategy[object], type[object]], ...] = (
     (completed_st, Completed), (fault_st, Fault), (counts_st, Counts), (artifact_st, Artifact),
@@ -313,37 +264,6 @@ class AssayHarness:
     @staticmethod
     def envelope_of(payload: Report | Fault, *, claim: Claim, verb: str) -> Envelope:
         return wrap_envelope(payload, claim=claim, verb=verb)
-
-
-@dataclass(frozen=True, slots=True)
-class Capsule:
-    """Composed capability over the four axes; delegates tmp-tree ops to the harness.
-
-    Built by the ``capsule`` fixture from a ``(proto, exec_mode, clock, census)`` tuple the
-    ``pytest_generate_tests`` hook parametrizes via the ``@axes`` marker. ``store`` is
-    protocol-dispatched, ``settings`` is local or remote, ``census`` is the patched psutil
-    module-double (or ``None`` under live census) and ``clock`` records the active wall-clock mode.
-    ``clock='frozen'`` freezes the wall clock at ``_EPOCH``; ``time_machine`` cannot freeze
-    ``time.monotonic`` (automation jitter/governor stay live).
-    """
-
-    harness: AssayHarness
-    store: ArtifactStore
-    settings: AssaySettings
-    proto: str
-    exec_mode: str
-    clock: str
-    census: MagicMock | None
-
-    def write(self, rel: str | Path, text: str = "") -> Path:
-        return self.harness.write(rel, text)
-
-    def scope(self, claim: Claim = Claim.PACKAGE) -> ArtifactScope:
-        return ArtifactScope.open(self.settings, claim)
-
-    @property
-    def root(self) -> Path:
-        return self.harness.root
 
 
 @dataclass(frozen=True, slots=True)
@@ -612,8 +532,7 @@ def make_history_envelope(run_id: str, *, claim: Claim = Claim.STATIC, status: R
 def pipe_history(store: ArtifactStore, run_ids: tuple[str, ...]) -> None:
     """Write a canned Envelope into the history tree for each run_id (delta/retention setup)."""
     for run_id in run_ids:
-        directory = store.ensure("history", run_id)
-        store.fs.pipe_file(f"{directory}/envelope.json", _ENCODER.encode(make_history_envelope(run_id)))
+        store.write_bytes(_ENCODER.encode(make_history_envelope(run_id)), "history", run_id, "envelope.json")
 
 
 # --- [TABLES] ---------------------------------------------------------------------------
@@ -642,65 +561,7 @@ VERB_MATRIX: tuple[AbCell, ...] = (
 _CELLS: dict[tuple[Claim, str], AbCell] = {(c.claim, c.verb): c for c in VERB_MATRIX}
 
 
-# --- [RBSM] -----------------------------------------------------------------------------
-# Shared RuleBasedStateMachine base so W3's LeaseMachine/TickMachine/HistoryMachine are trivial: an
-# @initialize wires the tmp ArtifactStore; subclasses bind the rasm-stateful profile via
-# ``TestCase = AssayMachine.TestCase`` then ``settings`` on the class (never assign Machine.settings).
-
-
-class AssayMachine(RuleBasedStateMachine):
-    """Base RBSM wiring an isolated tmp ``ArtifactStore`` and shared invariant helpers for W3 machines.
-
-    Subclasses add ``@rule``/``@invariant``/``@precondition`` and select the profile with
-    ``@hyp_settings(hyp_settings.get_profile('rasm-stateful'))`` on the generated ``TestCase``.
-    """
-
-    @initialize()
-    def _open_store(self) -> None:
-        base = Path(tempfile.mkdtemp(prefix="assay-rbsm-"))
-        (base / "Workspace.slnx").write_text("", encoding="utf-8")
-        self.settings = AssaySettings(root=UPath(base), exec_target="", exec_known_hosts=None)
-        self.store = self.settings.store(protocol="file")
-
-    @invariant()
-    def _store_namespaced(self) -> None:
-        if hasattr(self, "store"):
-            assert self.store.root, "ArtifactStore root must be namespaced"
-
-
-# Bind the rasm-stateful profile (200-step traces, shared example DB) onto the base TestCase so every
-# W3 subclass inherits it through ``class LeaseMachine(AssayMachine)`` without re-declaring settings.
-AssayMachine.TestCase.settings = hyp_settings.get_profile("rasm-stateful")
-
-
-def at_most_one_holder(store: ArtifactStore, resource: str) -> bool:
-    """Lease invariant: at most one live owner block exists for a resource in the store.
-
-    Returns:
-        True when zero or one non-empty owner block is present.
-    """
-    held = tuple(p for p in store.fs.glob(f"/{store.root}/locks/{resource}*.lock") if store.fs.cat_file(p))
-    return len(held) <= 1
-
-
 # --- [COMPOSITION] ---------------------------------------------------------------------
-
-
-def pytest_generate_tests(metafunc: pytest.Metafunc) -> None:
-    """Parametrize the ``capsule`` fixture from an ``@pytest.mark.axes(...)`` marker.
-
-    ``@axes('proto', 'census')`` sweeps the cartesian of the named axes (others pinned to canonical
-    default); ``@axes()`` sweeps all four. A test that requests ``capsule`` with no marker runs the lone
-    canonical ``(file, local, real, live)`` cell. Densest native axis-matrix idiom — one hook + one
-    fixture replaces four indirect-parametrize axis fixtures.
-    """
-    marker = metafunc.definition.get_closest_marker("axes")
-    if "capsule" not in metafunc.fixturenames or marker is None:
-        return
-    names = marker.args or tuple(_AXES)
-    choices = tuple(_AXES[n] if n in names else (_AXIS_DEFAULT[i],) for i, n in enumerate(_AXES))
-    cells = tuple(product(*choices))
-    metafunc.parametrize("capsule", cells, indirect=True, ids=["-".join(c) for c in cells])
 
 
 @pytest.fixture
@@ -726,32 +587,6 @@ def assay_root(tmp_path: Path) -> AssayHarness:
 
 
 @pytest.fixture
-def capsule(request: pytest.FixtureRequest, assay_root: AssayHarness, monkeypatch: pytest.MonkeyPatch) -> Generator[Capsule]:
-    """Compose the four axes (parametrized by the ``@axes`` marker) into one capability.
-
-    ``request.param`` is the ``(proto, exec_mode, clock, census)`` tuple; unmarked tests get the
-    canonical default. Performs the protocol store dispatch, local/remote settings derivation, frozen
-    wall-clock travel, and psutil module-double monkeypatch inline, then tears the memory namespace down.
-
-    Yields:
-        A ``Capsule`` carrying the protocol store, local/remote settings, clock mode, and census double.
-    """
-    proto, exec_mode, clock, census = getattr(request, "param", _AXIS_DEFAULT)
-    store = assay_root.settings.store(protocol=proto)
-    settings = assay_root.remote("ssh://probe@127.0.0.1:22") if exec_mode == "remote" else assay_root.settings
-    double: MagicMock | None = None
-    if census == "double":
-        self_proc = _proc(pid=os.getpid())
-        double = _make_psutil_module({None: self_proc, os.getpid(): self_proc, 99999: _proc(pid=99999, raise_no_such=True)})
-        monkeypatch.setattr(engine_mod, "psutil", double)
-    cell = Capsule(harness=assay_root, store=store, settings=settings, proto=proto, exec_mode=exec_mode, clock=clock, census=double)
-    with time_machine.travel(_EPOCH, tick=False) if clock == "frozen" else contextlib.nullcontext():
-        yield cell
-    if proto == "memory" and store.fs.exists(f"/{store.root}"):
-        store.fs.rm(f"/{store.root}", recursive=True)
-
-
-@pytest.fixture
 def mem_store(assay_root: AssayHarness) -> Generator[ArtifactStore]:
     """Isolated fsspec ``memory://`` ArtifactStore partitioned by ``run_id`` (direct store-function seam).
 
@@ -760,8 +595,8 @@ def mem_store(assay_root: AssayHarness) -> Generator[ArtifactStore]:
     """
     store = assay_root.settings.store(protocol="memory")
     yield store
-    if store.fs.exists(f"/{store.root}"):
-        store.fs.rm(f"/{store.root}", recursive=True)
+    if store.fs.exists(store.root):
+        store.remove_path(store.root, recursive=True)
 
 
 @pytest.fixture
@@ -905,14 +740,6 @@ def ab_delta(assay_root: AssayHarness) -> Callable[[Claim, str], AbDelta]:
         return AbDelta(assay=assay_env, quality=quality_decoded, mapping=cell.mapping)
 
     return run
-
-
-def pytest_configure(config: pytest.Config) -> None:
-    """Register the ``axes`` marker for the capsule matrix hook.
-
-    Keeps ``--strict-markers`` green and documents the axis-sweep contract W3 inherits.
-    """
-    config.addinivalue_line("markers", "axes(*names): sweep the named capsule axes (proto/exec_mode/clock/census); empty sweeps all four")
 
 
 @pytest.fixture(scope="session", autouse=True)

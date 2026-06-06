@@ -335,6 +335,8 @@ public abstract partial record DocumentTarget {
                 from result in ctx.S(arg: picked)
                 select result);
 
+    internal static Fin<Guid> IdResult(Guid id, Op op) => op.AcceptValue(value: id);
+
     private static ObjectEnumeratorSettings QuerySettings(Action<ObjectEnumeratorSettings>? configure = null) {
         ObjectEnumeratorSettings settings = new() { NormalObjects = true, LockedObjects = true, HiddenObjects = true };
         configure?.Invoke(obj: settings);
@@ -371,8 +373,6 @@ public abstract partial record DocumentTarget {
                         }))
                     .Map(static _ => unit),
             });
-
-    internal static Fin<Guid> IdResult(Guid id, Op op) => op.AcceptValue(value: id);
 
     private static Fin<Unit> ReplaceGeometry(object replacement, Op op, Func<GeometryBase, bool> use) =>
         from valid in Optional(use).ToFin(Fail: op.InvalidInput())
@@ -440,6 +440,29 @@ public readonly record struct DocumentCustomUndo(string Name, EventHandler<Custo
     }
 }
 
+[SmartEnum<int>]
+public sealed partial class DocumentReceiptSlot {
+    public static readonly DocumentReceiptSlot Created = new(key: 0, label: "created");
+    public static readonly DocumentReceiptSlot Replaced = new(key: 1, label: "replaced");
+    public static readonly DocumentReceiptSlot Deleted = new(key: 2, label: "deleted");
+    public static readonly DocumentReceiptSlot Transformed = new(key: 3, label: "transformed");
+    public static readonly DocumentReceiptSlot Selected = new(key: 4, label: "selected");
+    public static readonly DocumentReceiptSlot Unselected = new(key: 5, label: "unselected");
+    public static readonly DocumentReceiptSlot Hidden = new(key: 6, label: "hidden");
+    public static readonly DocumentReceiptSlot Locked = new(key: 7, label: "locked");
+    public static readonly DocumentReceiptSlot Flashed = new(key: 8, label: "flashed");
+    public static readonly DocumentReceiptSlot Attributes = new(key: 9, label: "attributes");
+    public static readonly DocumentReceiptSlot Lifecycle = new(key: 10, label: "lifecycle");
+    public static readonly DocumentReceiptSlot Resources = new(key: 11, label: "resources");
+    public static readonly DocumentReceiptSlot Undo = new(key: 12, label: "undo");
+    public static readonly DocumentReceiptSlot CustomUndo = new(key: 13, label: "custom undo");
+
+    public string Label { get; }
+    public bool TracksObjects => this != Resources && this != Undo && this != CustomUndo;
+}
+
+public readonly record struct DocumentResourceChange(DocumentResourceKind Kind, string Name);
+
 public readonly record struct DocumentReceipt {
     private readonly Seq<Change> changes;
     private Seq<Change> Changes => changes;
@@ -494,10 +517,6 @@ public readonly record struct DocumentReceipt {
     public static DocumentReceipt CustomUndoRecords(Seq<string> names) =>
         From(changes: names.Map(static name => Change.CustomUndo(name: name)));
 
-    internal static DocumentReceipt SelectionDelta(Seq<Guid> before, Seq<Guid> after) =>
-        Objects(slot: DocumentReceiptSlot.Selected, ids: after.Filter(id => !before.Exists(item => item == id)))
-        + Objects(slot: DocumentReceiptSlot.Unselected, ids: before.Filter(id => !after.Exists(item => item == id)));
-
     public Seq<Guid> Ids(DocumentReceiptSlot slot) =>
         Changes.Filter(change => change.Slot == slot).Choose(static change => change.ObjectId);
 
@@ -512,6 +531,10 @@ public readonly record struct DocumentReceipt {
             false => $"{verb}: {string.Join(separator: ", ", values: rows.Map(static change => $"{change.Name} {change.Count}").AsIterable())}",
         });
     }
+
+    internal static DocumentReceipt SelectionDelta(Seq<Guid> before, Seq<Guid> after) =>
+        Objects(slot: DocumentReceiptSlot.Selected, ids: after.Filter(id => !before.Exists(item => item == id)))
+        + Objects(slot: DocumentReceiptSlot.Unselected, ids: before.Filter(id => !after.Exists(item => item == id)));
 
     private static DocumentReceipt From(Seq<Change> changes) =>
         new(changes: changes);
@@ -533,33 +556,10 @@ public readonly record struct DocumentReceipt {
     }
 }
 
-[SmartEnum<int>]
-public sealed partial class DocumentReceiptSlot {
-    public static readonly DocumentReceiptSlot Created = new(key: 0, label: "created");
-    public static readonly DocumentReceiptSlot Replaced = new(key: 1, label: "replaced");
-    public static readonly DocumentReceiptSlot Deleted = new(key: 2, label: "deleted");
-    public static readonly DocumentReceiptSlot Transformed = new(key: 3, label: "transformed");
-    public static readonly DocumentReceiptSlot Selected = new(key: 4, label: "selected");
-    public static readonly DocumentReceiptSlot Unselected = new(key: 5, label: "unselected");
-    public static readonly DocumentReceiptSlot Hidden = new(key: 6, label: "hidden");
-    public static readonly DocumentReceiptSlot Locked = new(key: 7, label: "locked");
-    public static readonly DocumentReceiptSlot Flashed = new(key: 8, label: "flashed");
-    public static readonly DocumentReceiptSlot Attributes = new(key: 9, label: "attributes");
-    public static readonly DocumentReceiptSlot Lifecycle = new(key: 10, label: "lifecycle");
-    public static readonly DocumentReceiptSlot Resources = new(key: 11, label: "resources");
-    public static readonly DocumentReceiptSlot Undo = new(key: 12, label: "undo");
-    public static readonly DocumentReceiptSlot CustomUndo = new(key: 13, label: "custom undo");
-
-    public string Label { get; }
-    public bool TracksObjects => this != Resources && this != Undo && this != CustomUndo;
-}
-
 public readonly record struct DocumentRedraw(bool Enabled, bool SuppressDuringCommit = false) {
     public static DocumentRedraw After { get; } = new(Enabled: true);
     public static DocumentRedraw None { get; } = new(Enabled: false);
 }
-
-public readonly record struct DocumentResourceChange(DocumentResourceKind Kind, string Name);
 
 public readonly record struct DocumentSelectionPolicy(bool Highlight, bool IgnoreGrips, bool Persistent, bool IgnoreLayerLocking, bool IgnoreLayerVisibility) {
     public static DocumentSelectionPolicy Default { get; } = new(Highlight: true, IgnoreGrips: true, Persistent: true, IgnoreLayerLocking: false, IgnoreLayerVisibility: false);
@@ -630,6 +630,48 @@ public sealed record DocumentEdit {
                 return unit;
             });
 
+    internal static Fin<string> NonBlank(string value, Op op) =>
+        op.AcceptText(value: value).MapFail(_ => op.InvalidInput());
+
+    internal static Fin<Seq<Guid>> SelectedIds(RhinoDoc document, Op op) =>
+        Optional(document.Objects.GetSelectedObjects(includeLights: true, includeGrips: true)).ToFin(Fail: op.InvalidInput()).Map(static values => toSeq(values).Map(static native => native.Id).Distinct());
+
+    internal static Fin<Seq<Guid>> LiveObjectIds(RhinoDoc document) =>
+        Optional(document).ToFin(Fail: Op.Of(name: nameof(LiveObjectIds)).InvalidInput()).Map(static value => toSeq(value.Objects.GetObjectIdList(settings: new ObjectEnumeratorSettings { NormalObjects = true, LockedObjects = true, HiddenObjects = true })).Distinct());
+
+    internal static Fin<Seq<Guid>> ApplyState(Seq<Guid> ids, RhinoDoc document, Op op, Func<RhinoObject, bool> ready, Func<RhinoObject, bool> done, Func<Guid, bool> apply) =>
+        ids.TraverseM(id => Optional(document.Objects.FindId(id))
+            .ToFin(Fail: op.InvalidResult())
+            .Bind(native => (ready(arg: native), done(arg: native)) switch {
+                (false, _) => Fin.Fail<Option<Guid>>(error: op.InvalidInput()),
+                (_, true) => Fin.Succ(value: Option<Guid>.None),
+                _ => apply(arg: id) switch {
+                    true => Fin.Succ(value: Some(id)),
+                    false => Fin.Fail<Option<Guid>>(error: op.InvalidResult()),
+                },
+            })).As().Map(static result => result.Somes());
+
+    internal static Fin<Seq<Guid>> AddRaw(RhinoDoc document, Context domain, IEnumerable<object> sources, ObjectAttributes? attributes, HistoryRecord? history, bool reference, Op op) =>
+        from validDocument in Optional(document).ToFin(Fail: op.InvalidInput())
+        from validDomain in Optional(domain).ToFin(Fail: op.InvalidInput())
+        from source in Optional(sources).ToFin(Fail: op.InvalidInput())
+        from values in toSeq(source) switch {
+            Seq<object> items when !items.IsEmpty => Fin.Succ(value: items),
+            _ => Fin.Fail<Seq<object>>(error: op.InvalidInput()),
+        }
+        from ids in values.TraverseM(value =>
+            from geometry in GeometrySource.From(source: value)
+            from id in geometry.Use(op: op, use: native =>
+                from _ in Requirement.Basic.Apply(context: validDomain, value: native, cancel: CancellationToken.None).ToFin()
+                from created in DocumentTarget.IdResult(id: (attributes, history) switch {
+                    (ObjectAttributes attrs, HistoryRecord record) => validDocument.Objects.Add(native, attrs, record, reference),
+                    (ObjectAttributes attrs, _) => validDocument.Objects.Add(native, attrs),
+                    _ => validDocument.Objects.Add(native),
+                }, op: op)
+                select created)
+            select id).As()
+        select ids;
+
     private Fin<RhinoDoc> Available(Op op) =>
         Document.IsReady() ? Fin.Succ(value: Document) : Fin.Fail<RhinoDoc>(error: op.InvalidInput());
 
@@ -674,46 +716,4 @@ public sealed record DocumentEdit {
                     ? undo.Seal(receipt: inner.IfFail(DocumentReceipt.Empty), op: op)
                     : inner;
             }));
-
-    internal static Fin<Seq<Guid>> ApplyState(Seq<Guid> ids, RhinoDoc document, Op op, Func<RhinoObject, bool> ready, Func<RhinoObject, bool> done, Func<Guid, bool> apply) =>
-        ids.TraverseM(id => Optional(document.Objects.FindId(id))
-            .ToFin(Fail: op.InvalidResult())
-            .Bind(native => (ready(arg: native), done(arg: native)) switch {
-                (false, _) => Fin.Fail<Option<Guid>>(error: op.InvalidInput()),
-                (_, true) => Fin.Succ(value: Option<Guid>.None),
-                _ => apply(arg: id) switch {
-                    true => Fin.Succ(value: Some(id)),
-                    false => Fin.Fail<Option<Guid>>(error: op.InvalidResult()),
-                },
-            })).As().Map(static result => result.Somes());
-
-    internal static Fin<Seq<Guid>> AddRaw(RhinoDoc document, Context domain, IEnumerable<object> sources, ObjectAttributes? attributes, HistoryRecord? history, bool reference, Op op) =>
-        from validDocument in Optional(document).ToFin(Fail: op.InvalidInput())
-        from validDomain in Optional(domain).ToFin(Fail: op.InvalidInput())
-        from source in Optional(sources).ToFin(Fail: op.InvalidInput())
-        from values in toSeq(source) switch {
-            Seq<object> items when !items.IsEmpty => Fin.Succ(value: items),
-            _ => Fin.Fail<Seq<object>>(error: op.InvalidInput()),
-        }
-        from ids in values.TraverseM(value =>
-            from geometry in GeometrySource.From(source: value)
-            from id in geometry.Use(op: op, use: native =>
-                from _ in Requirement.Basic.Apply(context: validDomain, value: native, cancel: CancellationToken.None).ToFin()
-                from created in DocumentTarget.IdResult(id: (attributes, history) switch {
-                    (ObjectAttributes attrs, HistoryRecord record) => validDocument.Objects.Add(native, attrs, record, reference),
-                    (ObjectAttributes attrs, _) => validDocument.Objects.Add(native, attrs),
-                    _ => validDocument.Objects.Add(native),
-                }, op: op)
-                select created)
-            select id).As()
-        select ids;
-
-    internal static Fin<Seq<Guid>> LiveObjectIds(RhinoDoc document) =>
-        Optional(document).ToFin(Fail: Op.Of(name: nameof(LiveObjectIds)).InvalidInput()).Map(static value => toSeq(value.Objects.GetObjectIdList(settings: new ObjectEnumeratorSettings { NormalObjects = true, LockedObjects = true, HiddenObjects = true })).Distinct());
-
-    internal static Fin<Seq<Guid>> SelectedIds(RhinoDoc document, Op op) =>
-        Optional(document.Objects.GetSelectedObjects(includeLights: true, includeGrips: true)).ToFin(Fail: op.InvalidInput()).Map(static values => toSeq(values).Map(static native => native.Id).Distinct());
-
-    internal static Fin<string> NonBlank(string value, Op op) =>
-        op.AcceptText(value: value).MapFail(_ => op.InvalidInput());
 }

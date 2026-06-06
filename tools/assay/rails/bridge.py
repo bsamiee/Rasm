@@ -218,6 +218,7 @@ def _run_scenario(settings: AssaySettings, report_dir: Path, scenario: Path) -> 
                 completed=receipt(fault.argv, 1, status=RailStatus.FAILED),
             )
 
+
 def _discover(settings: AssaySettings, pattern: str) -> tuple[Path, ...]:
     # Discover by direct file, directory scan, then worktree glob; empty is UNSUPPORTED, not Faulted.
     root = Path(str(settings.root))  # scenario discovery globs the local worktree; UPath -> Path at the boundary
@@ -240,6 +241,7 @@ def _glob(root: Path, pattern: str) -> tuple[Path, ...]:
     # Bare tokens expand to recursive worktree globs.
     normalized = pattern if any(glyph in pattern for glyph in _PATH_GLYPHS) else f"**/{pattern}"
     return tuple(sorted(p.resolve() for p in root.glob(normalized) if p.is_file() and p.name.endswith(_SCENARIO_SUFFIX)))
+
 
 def _expire_stale(report_dir: Path, ttl_s: float) -> None:
     # Expire before launch so housekeeping cannot race freshly written scenario JSON.
@@ -321,7 +323,7 @@ def _build_closure(settings: AssaySettings) -> Result[None, Fault]:
     # One stable build tree keeps the live host and --no-build client on the same output.
     scope = ArtifactScope.build(settings, "bridge")
     projects = (_PROTOCOL_PROJECT, _PLUGIN_PROJECT, _CLIENT_PROJECT)
-    check = Check(tool=_BUILD_TOOL, owner="bridge", cwd=Path(str(settings.root)))
+    check = Check(tool=_BUILD_TOOL, cwd=Path(str(settings.root)))
     routed = Routed(language=Language.CSHARP, scope=Scope.CHANGED, projects=tuple(str(settings.root / p) for p in projects))
     return _affirm(run_check(check, settings=settings, scope=scope, routed=routed, deadline=None))
 

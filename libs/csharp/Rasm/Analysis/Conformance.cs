@@ -40,15 +40,12 @@ public sealed partial class ConformanceMetric {
 
 // --- [MODELS] -----------------------------------------------------------------------------
 public sealed record Conformance {
+    internal static readonly Op Key = Op.Of(name: nameof(Conformance));
     private Conformance(ConformanceMetric metric, int count, Seq<double> percentiles) {
         Metric = metric;
         Count = count;
         Percentiles = percentiles;
     }
-    internal static readonly Op Key = Op.Of(name: nameof(Conformance));
-    public ConformanceMetric Metric { get; }
-    public int Count { get; }
-    internal Seq<double> Percentiles { get; }
     public static Conformance Of(ConformanceMetric metric, int count, params double[] percentiles) {
         ArgumentNullException.ThrowIfNull(argument: metric);
         return new(
@@ -56,6 +53,9 @@ public sealed record Conformance {
             count: count,
             percentiles: metric.Equals(ConformanceMetric.Distribution) ? toSeq(percentiles) : Seq<double>());
     }
+    public ConformanceMetric Metric { get; }
+    public int Count { get; }
+    internal Seq<double> Percentiles { get; }
     public Operation<(TGeometry Geometry, TTarget Target), TOut> Operation<TGeometry, TTarget, TOut>() where TGeometry : notnull where TTarget : notnull =>
         (Count, CanConform(aspect: this, geometry: typeof(TGeometry), target: typeof(TTarget)), typeof(TOut) == Metric.Output) switch {
             ( <= 0, _, _) => Operation<(TGeometry Geometry, TTarget Target), TOut>.Reject(key: Key, fault: Key.InvalidInput()),
@@ -68,6 +68,38 @@ public sealed record Conformance {
         geometry == typeof(object) || target == typeof(object)
         || (GeometryKernel.CanCurveForm(type: geometry) && aspect.Metric.AcceptsTarget(target: target, curveSource: true))
         || (GeometryKernel.CanSurfaceForm(type: geometry) && aspect.Metric.AcceptsTarget(target: target, curveSource: false));
+    private static Fin<double> DistanceFor(ConformanceMetric metric, object target, Point3d point, Context context) =>
+        from space in SupportSpace.Of(value: target, key: Key)
+        let projection = (metric.IsContainment, metric.IsSigned) switch {
+            (true, _) => SupportProjection.ContainmentDistance,
+            (_, true) => SupportProjection.SignedDistance,
+            _ => SupportProjection.Distance,
+        }
+        from intent in VectorIntent.Support(space: space, sample: point, projection: projection, key: Key)
+        from distance in intent.Project<double>(context: context, key: Key)
+        select distance;
+    private static Fin<Seq<ResidualSample>> SampleResiduals<TGeometry, TPrimitive>(TGeometry geometry, TPrimitive primitive, int count, Context context, Func<TGeometry, int, Context, Op, Fin<Seq<Point3d>>> sampler, Func<TPrimitive, Point3d, Context, Fin<double>> distance) where TGeometry : notnull where TPrimitive : notnull =>
+        sampler(arg1: geometry, arg2: count, arg3: context, arg4: Key)
+            .Bind(points => points.Map((p, i) => distance(arg1: primitive, arg2: p, arg3: context).Map(d => new ResidualSample(i, p, d, context.Absolute.Value, Math.Abs(d) <= context.Absolute.Value))).TraverseM(identity).As());
+    private static Fin<Seq<ResidualSample>> CurveCurveSamples(Conformance aspect, object curveLike, object targetCurveLike, Context context) =>
+        GeometryKernel.CurveForm(source: curveLike, op: Key)
+            .Bind(leftLease => GeometryKernel.CurveForm(source: targetCurveLike, op: Key)
+                .Bind(rightLease => leftLease.Use(left => rightLease.Use(right => aspect.Metric.ExactCurveDeviation switch {
+                    true => Analyze.CurveDeviationOf(left: left, right: right, context: context, op: Key)
+                        .Map(static d => Seq(new ResidualSample(Index: 0, Location: d.MaximumA, Distance: d.MaximumDistance, Tolerance: d.Tolerance, WithinTolerance: d.WithinTolerance))),
+                    false => SampleResiduals(left, right, aspect.Count, context, sampler: GeometryKernel.SamplePoints, distance: (c, pt, model) => DistanceFor(metric: aspect.Metric, target: c, point: pt, context: model)),
+                }))));
+    private static Fin<Seq<ResidualSample>> Samples<TGeometry, TTarget>(Conformance aspect, TGeometry geometry, TTarget target, Context context) where TGeometry : notnull where TTarget : notnull =>
+        (geometry, target) switch {
+            (object curveLike, object targetCurveLike) when GeometryKernel.CanCurveForm(type: curveLike.GetType()) && GeometryKernel.CanCurveForm(type: targetCurveLike.GetType()) => CurveCurveSamples(aspect, curveLike, targetCurveLike, context),
+            (object curveLike, _) when GeometryKernel.CanCurveForm(type: curveLike.GetType()) =>
+                GeometryKernel.CurveForm(source: curveLike, op: Key).Bind(lease => lease.Use(curve =>
+                    SampleResiduals(curve, target, aspect.Count, context, sampler: GeometryKernel.SamplePoints, distance: (t, pt, model) => DistanceFor(metric: aspect.Metric, target: t, point: pt, context: model)))),
+            (object surfaceLike, _) when GeometryKernel.CanSurfaceForm(type: surfaceLike.GetType()) =>
+                GeometryKernel.SurfaceForm(source: surfaceLike, op: Key).Bind(lease => lease.Use(surface =>
+                    SampleResiduals(surface, target, aspect.Count, context, GeometryKernel.SamplePoints, distance: (t, pt, model) => DistanceFor(metric: aspect.Metric, target: t, point: pt, context: model)))),
+            _ => Fin.Fail<Seq<ResidualSample>>(Key.Unsupported(typeof(TGeometry), typeof(ResidualSample))),
+        };
     private static Operation<(TGeometry Geometry, TTarget Target), TValue> Pair<TGeometry, TTarget, TValue>(Conformance aspect) where TGeometry : notnull where TTarget : notnull =>
         Operation<(TGeometry Geometry, TTarget Target), TValue>.Build(
             key: Key, requiresContext: true,
@@ -80,38 +112,6 @@ public sealed record Conformance {
                 from residuals in Samples(aspect: state, geometry: resolved.A, target: resolved.B, context: runtime.Context).ToEff()
                 from result in state.Project<TValue>(residuals: residuals, context: runtime.Context).ToEff()
                 select result);
-    private static Fin<Seq<ResidualSample>> Samples<TGeometry, TTarget>(Conformance aspect, TGeometry geometry, TTarget target, Context context) where TGeometry : notnull where TTarget : notnull =>
-        (geometry, target) switch {
-            (object curveLike, object targetCurveLike) when GeometryKernel.CanCurveForm(type: curveLike.GetType()) && GeometryKernel.CanCurveForm(type: targetCurveLike.GetType()) => CurveCurveSamples(aspect, curveLike, targetCurveLike, context),
-            (object curveLike, _) when GeometryKernel.CanCurveForm(type: curveLike.GetType()) =>
-                GeometryKernel.CurveForm(source: curveLike, op: Key).Bind(lease => lease.Use(curve =>
-                    SampleResiduals(curve, target, aspect.Count, context, sampler: GeometryKernel.SamplePoints, distance: (t, pt, model) => DistanceFor(metric: aspect.Metric, target: t, point: pt, context: model)))),
-            (object surfaceLike, _) when GeometryKernel.CanSurfaceForm(type: surfaceLike.GetType()) =>
-                GeometryKernel.SurfaceForm(source: surfaceLike, op: Key).Bind(lease => lease.Use(surface =>
-                    SampleResiduals(surface, target, aspect.Count, context, GeometryKernel.SamplePoints, distance: (t, pt, model) => DistanceFor(metric: aspect.Metric, target: t, point: pt, context: model)))),
-            _ => Fin.Fail<Seq<ResidualSample>>(Key.Unsupported(typeof(TGeometry), typeof(ResidualSample))),
-        };
-    private static Fin<Seq<ResidualSample>> CurveCurveSamples(Conformance aspect, object curveLike, object targetCurveLike, Context context) =>
-        GeometryKernel.CurveForm(source: curveLike, op: Key)
-            .Bind(leftLease => GeometryKernel.CurveForm(source: targetCurveLike, op: Key)
-                .Bind(rightLease => leftLease.Use(left => rightLease.Use(right => aspect.Metric.ExactCurveDeviation switch {
-                    true => Analyze.CurveDeviationOf(left: left, right: right, context: context, op: Key)
-                        .Map(static d => Seq(new ResidualSample(Index: 0, Location: d.MaximumA, Distance: d.MaximumDistance, Tolerance: d.Tolerance, WithinTolerance: d.WithinTolerance))),
-                    false => SampleResiduals(left, right, aspect.Count, context, sampler: GeometryKernel.SamplePoints, distance: (c, pt, model) => DistanceFor(metric: aspect.Metric, target: c, point: pt, context: model)),
-                }))));
-    private static Fin<Seq<ResidualSample>> SampleResiduals<TGeometry, TPrimitive>(TGeometry geometry, TPrimitive primitive, int count, Context context, Func<TGeometry, int, Context, Op, Fin<Seq<Point3d>>> sampler, Func<TPrimitive, Point3d, Context, Fin<double>> distance) where TGeometry : notnull where TPrimitive : notnull =>
-        sampler(arg1: geometry, arg2: count, arg3: context, arg4: Key)
-            .Bind(points => points.Map((p, i) => distance(arg1: primitive, arg2: p, arg3: context).Map(d => new ResidualSample(i, p, d, context.Absolute.Value, Math.Abs(d) <= context.Absolute.Value))).TraverseM(identity).As());
-    private static Fin<double> DistanceFor(ConformanceMetric metric, object target, Point3d point, Context context) =>
-        from space in SupportSpace.Of(value: target, key: Key)
-        let projection = (metric.IsContainment, metric.IsSigned) switch {
-            (true, _) => SupportProjection.ContainmentDistance,
-            (_, true) => SupportProjection.SignedDistance,
-            _ => SupportProjection.Distance,
-        }
-        from intent in VectorIntent.Support(space: space, sample: point, projection: projection, key: Key)
-        from distance in intent.Project<double>(context: context, key: Key)
-        select distance;
 }
 
 // --- [OPERATIONS] -------------------------------------------------------------------------

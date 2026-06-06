@@ -3,8 +3,10 @@
 from collections.abc import Callable, Coroutine
 import hashlib
 from itertools import count
+from operator import itemgetter
 import sys
 from typing import TYPE_CHECKING
+from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
 import aiocron  # type: ignore[import-untyped]  # aiocron ships no py.typed marker
 import anyio
@@ -114,6 +116,8 @@ async def _program_outcome(action: Program, settings: AssaySettings) -> Result[R
     # Process exit codes stay on the Completed channel; only spawn and timeout failures become Faults.
     # The trailing None deadline selects _guarded's run-to-completion budget (check.tool.timeout), so a
     # catalog tool with no timeout (dotnet build, stryker) runs unbounded by design here, not capped per fire.
+    if not action.argv:
+        return Error(Fault(("program",), RailStatus.FAULTED, "program argv must be non-empty"))
     check = _program_check(action.argv)
     scope = ArtifactScope.open(settings, Claim.STATIC)
     outcome = await _spawn(check, settings)(check, settings, scope, _PROGRAM_ROUTED, None)
@@ -129,7 +133,7 @@ def _emitted(line: Envelope) -> Envelope:
     return line
 
 
-def _rail_outcome(action: Rail) -> Envelope:
+def _rail_outcome(action: Rail, settings: AssaySettings) -> Envelope:
     # Registry rails write their own Envelope, so this branch returns it instead of emitting twice.
     # Binding and Raw decode failures fold to a FAULTED Envelope at the automation boundary.
     bind = _resolve(action)
@@ -143,7 +147,7 @@ def _rail_outcome(action: Rail) -> Envelope:
                 params = msgspec.json.decode(bytes(action.params), type=bind.params) if action.params else bind.params()
             except msgspec.DecodeError as exc:
                 return _emitted(envelope(Fault((), RailStatus.FAULTED, str(exc)[:1024]), claim=action.claim, verb=action.verb))
-            return rail(bind)(params)
+            return rail(bind, settings)(params)
 
 
 async def _program_envelope(action: Program, settings: AssaySettings) -> Envelope:
@@ -170,7 +174,7 @@ async def _emit_leaf(leaf: Action, settings: AssaySettings, limiter: anyio.Capac
             match leaf:
                 case Rail() as r:
                     async with limiter:
-                        return _rail_outcome(r).status
+                        return _rail_outcome(r, settings).status
                 case Program() as p:
                     async with limiter:
                         return (await _program_envelope(p, settings)).status
@@ -261,14 +265,29 @@ def _debounce(inner: Fire, window_ms: int, *, collapse: bool) -> tuple[Fire, Fir
 
 async def _watch(spec: Watch, fire: Fire, stop: anyio.Event) -> None:
     # awatch honors the shared stop_event directly.
-    match spec.ignore_patterns:
-        case ():
-            watch_filter: BaseFilter = _FILTERS.get(spec.filter, DefaultFilter())
-        # Ignore globs require DefaultFilter; the wire still stays a string tag plus glob tuple.
-        case patterns:
-            watch_filter = DefaultFilter(ignore_entity_patterns=patterns)
-    async for _changes in awatch(*spec.paths, watch_filter=watch_filter, debounce=spec.debounce, stop_event=stop):
+    async for changes in awatch(
+        *spec.paths,
+        watch_filter=_watch_filter(spec),
+        debounce=spec.debounce,
+        step=spec.step,
+        stop_event=stop,
+        force_polling=spec.force_polling,
+        poll_delay_ms=spec.poll_delay_ms,
+        recursive=spec.recursive,
+        ignore_permission_denied=spec.ignore_permission_denied,
+    ):
+        _LOG.info("watch.fire", changes=len(changes), paths=tuple(path for _, path in sorted(changes, key=itemgetter(1))[:8]))
         await fire()
+
+
+def _watch_filter(spec: Watch) -> BaseFilter:
+    if spec.ignore_patterns:
+        if spec.filter != "default":
+            raise ValueError(f"unknown watch filter: {spec.filter}")
+        return DefaultFilter(ignore_entity_patterns=spec.ignore_patterns)
+    if spec.filter in _FILTERS:
+        return _FILTERS[spec.filter]
+    raise ValueError(f"unknown watch filter: {spec.filter}")
 
 
 def _hardened_fire(fire: Fire, settings: AssaySettings) -> Fire:
@@ -282,26 +301,31 @@ def _hardened_fire(fire: Fire, settings: AssaySettings) -> Fire:
                 state[0] = msgspec.structs.replace(state[0], missed=state[0].missed + 1)
             case False:
                 state[0] = msgspec.structs.replace(state[0], running=True)
-                await anyio.sleep((int.from_bytes(hashlib.sha256(settings.run_id.encode()).digest()[:4], "big") % _JITTER_MS) / 1000.0)
-                await fire()
-                match state[0].missed:
-                    case missed if missed:
-                        _LOG.warning("schedule.coalesced", missed=missed)
-                        state[0] = msgspec.structs.replace(state[0], missed=0)
-                        await fire()
-                    case _:
-                        pass
-                state[0] = msgspec.structs.replace(state[0], running=False)
+                try:
+                    await anyio.sleep((int.from_bytes(hashlib.sha256(settings.run_id.encode()).digest()[:4], "big") % _JITTER_MS) / 1000.0)
+                    await fire()
+                    match state[0].missed:
+                        case missed if missed:
+                            _LOG.warning("schedule.coalesced", missed=missed)
+                            state[0] = msgspec.structs.replace(state[0], missed=0)
+                            await fire()
+                        case _:
+                            pass
+                finally:
+                    state[0] = msgspec.structs.replace(state[0], running=False)
 
     return hardened
 
 
-async def _schedule(spec: str, fire: Fire, stop: anyio.Event) -> None:
+async def _schedule(spec: Schedule, fire: Fire, stop: anyio.Event) -> None:
     # aiocron has no stop_event; a shared stop waiter parks the task and cron.stop cancels the armed callback.
-    cron = aiocron.crontab(spec, func=fire, start=False)
-    cron.start()
-    await stop.wait()
-    cron.stop()
+    tz = ZoneInfo(spec.timezone) if spec.timezone else None
+    cron = aiocron.crontab(spec.cron, func=fire, start=False, tz=tz)
+    try:
+        cron.start()
+        await stop.wait()
+    finally:
+        cron.stop()
 
 
 def _armed(action: Action, settings: AssaySettings, *, limiter: anyio.CapacityLimiter, ceiling: float | None) -> tuple[Fire, Fire | None]:
@@ -326,21 +350,26 @@ async def drive(trigger: Trigger, action: Action, settings: AssaySettings) -> No
                 await stop.wait()
                 tg.cancel_scope.cancel()
 
-    match trigger:
-        case Manual():
-            await _fire(action, settings, limiter=limiter, cpu_threshold=None)()
-        case Watch(cpu_threshold=ceiling) as spec:
-            fire, worker = _armed(action, settings, limiter=limiter, ceiling=ceiling)
-            async with anyio.create_task_group() as tg:
-                tg.start_soon(_watch, spec, fire, stop)
-                await _co_resident(tg, worker)
-        case Schedule(cron=cron_spec, cpu_threshold=ceiling):
-            fire, worker = _armed(action, settings, limiter=limiter, ceiling=ceiling)
-            # Top-level Debounce already coalesces via its worker, so only direct scheduled fires need hardening.
-            scheduled = _hardened_fire(fire, settings) if worker is None else fire
-            async with anyio.create_task_group() as tg:
-                tg.start_soon(_schedule, cron_spec, scheduled, stop)
-                await _co_resident(tg, worker)
+    try:
+        match trigger:
+            case Manual():
+                await _fire(action, settings, limiter=limiter, cpu_threshold=None)()
+            case Watch(cpu_threshold=ceiling) as spec:
+                fire, worker = _armed(action, settings, limiter=limiter, ceiling=ceiling)
+                async with anyio.create_task_group() as tg:
+                    tg.start_soon(_watch, spec, fire, stop)
+                    await _co_resident(tg, worker)
+            case Schedule(cpu_threshold=ceiling) as spec:
+                fire, worker = _armed(action, settings, limiter=limiter, ceiling=ceiling)
+                # Top-level Debounce already coalesces via its worker, so only direct scheduled fires need hardening.
+                scheduled = _hardened_fire(fire, settings) if worker is None else fire
+                async with anyio.create_task_group() as tg:
+                    tg.start_soon(_schedule, spec, scheduled, stop)
+                    await _co_resident(tg, worker)
+    except* (OSError, ValueError, ZoneInfoNotFoundError) as errors:
+        claim, verb = _label(action)
+        message = "; ".join(str(exc) for exc in errors.exceptions)
+        _emit(envelope(Fault((), RailStatus.FAULTED, f"automation setup: {message}"), claim=claim, verb=verb, run_id=settings.run_id))
 
 
 # --- [EXPORTS] --------------------------------------------------------------------------

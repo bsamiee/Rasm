@@ -84,6 +84,7 @@ _DECOMPILE_FLAGS: tuple[str, ...] = ("--no-dead-code", "--no-dead-stores")
 _ENCODER: msgspec.json.Encoder = msgspec.json.Encoder(order="deterministic")  # stable artifact wire order
 _NODE_MODULES: str = "node_modules"
 _PNPM_STORE: str = "node_modules/.pnpm"  # pnpm mangles @scope/pkg as @scope+pkg
+_PATH_KINDS: frozenset[_PathKind] = frozenset(("all", "assembly", "xml", "nuspec", "deps", "package-root"))
 _DTS_GLOB: str = "*.d.ts"
 _DTS_ENTRY: str = "index.d.ts"
 _TS_DECL_QUERY: str = (  # .d.ts exported declaration names become @type captures.
@@ -132,8 +133,6 @@ class ApiParams(BaseParams):
     lines: str = ""
     grep: str = ""
     full: bool = False
-    latest: bool = False
-    restore: bool = False
     strict: bool = False
 
     @override
@@ -600,16 +599,27 @@ def _ts_captures(parser: TSParser, language: TSLanguage, path: Path, symbol: str
     except OSError:
         return ()
     root = parser.parse(src).root_node
+    parse_fault = (Capture(name="parse_error", text="tree-sitter parse error", file=path.name, line=1, parse_error=True),) if root.has_error else ()
     match symbol:
         case "":
             query = TSQuery(language, _TS_DECL_QUERY)
-            return tuple(
-                Capture(name="type", text=_node_text(node)[:_NAME_CAP], file=path.name, line=node.start_point.row + 1)
+            declared = tuple(
+                Capture(
+                    name="type",
+                    text=_node_text(node)[:_NAME_CAP],
+                    file=path.name,
+                    line=node.start_point.row + 1,
+                    column=node.start_point.column + 1,
+                    start_byte=node.start_byte,
+                    end_byte=node.end_byte,
+                )
                 for nodes in QueryCursor(query).captures(root).values()
                 for node in nodes
+                if _exported(node)
             )
+            return (*parse_fault, *declared, *_export_aliases(root, path))
         case _:
-            return _ts_member(root, symbol, path)
+            return (*parse_fault, *_ts_member(root, symbol, path))
 
 
 def _ts_member(root: Node, symbol: str, path: Path) -> tuple[Capture, ...]:
@@ -617,9 +627,73 @@ def _ts_member(root: Node, symbol: str, path: Path) -> tuple[Capture, ...]:
     target = symbol.rsplit(".", 1)[-1]
     match next((n for n in _walk_decls(root) if (name := n.child_by_field_name("name")) is not None and _node_text(name) == target), None):
         case None:
-            return ()
+            return _export_member(root, target, path)
         case node:
-            return (Capture(name="signature", text=_node_text(node)[:_SIG_CAP], file=path.name, line=node.start_point.row + 1),)
+            return (
+                Capture(
+                    name="signature",
+                    text=_node_text(node)[:_SIG_CAP],
+                    file=path.name,
+                    line=node.start_point.row + 1,
+                    column=node.start_point.column + 1,
+                    start_byte=node.start_byte,
+                    end_byte=node.end_byte,
+                ),
+            )
+
+
+def _exported(node: Node) -> bool:
+    return any(parent.type == "export_statement" for parent in _parents(node))
+
+
+def _parents(node: Node) -> tuple[Node, ...]:
+    match node.parent:
+        case None:
+            return ()
+        case parent:
+            return (parent, *_parents(parent))
+
+
+def _export_aliases(root: Node, path: Path) -> tuple[Capture, ...]:
+    return tuple(
+        Capture(
+            name="type",
+            text=_export_name(spec)[:_NAME_CAP],
+            file=path.name,
+            line=spec.start_point.row + 1,
+            column=spec.start_point.column + 1,
+            start_byte=spec.start_byte,
+            end_byte=spec.end_byte,
+        )
+        for spec in _walk(root, "export_specifier")
+        if _export_name(spec)
+    )
+
+
+def _export_member(root: Node, target: str, path: Path) -> tuple[Capture, ...]:
+    return tuple(
+        Capture(
+            name="signature",
+            text=_node_text(spec)[:_SIG_CAP],
+            file=path.name,
+            line=spec.start_point.row + 1,
+            column=spec.start_point.column + 1,
+            start_byte=spec.start_byte,
+            end_byte=spec.end_byte,
+        )
+        for spec in _walk(root, "export_specifier")
+        if _export_name(spec) == target
+    )[:1]
+
+
+def _export_name(node: Node) -> str:
+    names = tuple(child for child in node.children if child.type in {"identifier", "type_identifier"})
+    return _node_text(names[-1]) if names else ""
+
+
+def _walk(node: Node, kind: str) -> tuple[Node, ...]:
+    own = (node,) if node.type == kind else ()
+    return (*own, *(d for child in node.children for d in _walk(child, kind)))
 
 
 def _walk_decls(node: Node) -> tuple[Node, ...]:
@@ -847,12 +921,10 @@ def _body(done: Completed, simple: str, p: ApiParams, *, doc: str) -> _Body:
 
 
 def _artifact(settings: AssaySettings, source: _Source, name: str, content: str) -> Artifact:
-    path = settings.artifact(ArtifactKind.SCOPE, "api", _safe(source.key), name)
-    path.parent.mkdir(parents=True, exist_ok=True)
     raw = content.encode()
-    path.write_bytes(raw)
+    path = settings.store().write_bytes(raw, ArtifactKind.SCOPE.value, "api", _safe(source.key), name)
     digest = hashlib.sha256(f"{path}|{name}".encode()).hexdigest()[:12]
-    return Artifact(id=digest, kind=ArtifactKind.SCOPE, path=str(path), bytes=len(raw), lines=raw.count(b"\n"))
+    return Artifact(id=digest, kind=ArtifactKind.SCOPE, path=str(path), bytes=len(raw), lines=len(content.splitlines()))
 
 
 def _matches(rows: tuple[str, ...], kind: ArtifactKind, pattern: str) -> tuple[Match, ...]:
@@ -953,6 +1025,11 @@ def resolve(settings: AssaySettings, scope: ArtifactScope, p: ApiParams) -> Resu
 
 def _resolve_report(settings: AssaySettings, source: _Source, p: ApiParams) -> Report:
     # Full paths ride an artifact; ranked previews ride results.
+    if p.kind not in _PATH_KINDS:
+        done = Completed(("api", "resolve", p.key, p.kind), 0, status=RailStatus.UNSUPPORTED, notes=(f"unknown kind: {p.kind}",))
+        return fold(
+            Claim.API, "resolve", (done,), detail=ApiResolution(candidates=tuple((kind, 100) for kind in sorted(_PATH_KINDS)), reason="unknown-kind")
+        )
     targets = _resolve_targets(source, p.kind)
     existing = tuple(t for t in targets if t.exists())
     artifact = _artifact(settings, source, f"{p.kind}.paths.txt", "\n".join(str(t) for t in targets))
@@ -972,7 +1049,7 @@ def _resolve_targets(source: _Source, kind: _PathKind) -> tuple[Path, ...]:
         "deps": tuple(p for p in source.asset_paths if any(part in _DEPS_PARTS for part in p.parts)),
         "package-root": (source.package_root,) if source.package_root is not None else (),
     }
-    return tuple(dict.fromkeys(catalog.get(kind, catalog["all"])))
+    return tuple(dict.fromkeys(catalog[kind]))
 
 
 def query(settings: AssaySettings, scope: ArtifactScope, p: ApiParams) -> Result[Report, Fault]:
@@ -1032,14 +1109,14 @@ def _roster_report(settings: AssaySettings, surface: _Surface, shape: SymbolShap
         status=RailStatus.OK if rows else RailStatus.EMPTY,
         notes=(f"{len(surface.types)} types across {len(surface.namespaces)} namespaces",),
     )
-    detail = _api_detail(source, shape, preview="\n".join(rows[:_PREVIEW_ROWS]), lines=len(rows))
+    detail = _api_detail(source, shape, preview="\n".join(rows[:_PREVIEW_ROWS]), truncated=len(rows) > _PREVIEW_ROWS, lines=len(rows))
     extra = (
         Artifact(
             id=hashlib.sha256(f"{surface.cache}|surface".encode()).hexdigest()[:12],
             kind=ArtifactKind.SCOPE,
             path=str(surface.cache),
             bytes=surface.cache.stat().st_size,
-            lines=surface.cache.read_text(encoding="utf-8", errors="replace").count("\n"),
+            lines=len(surface.cache.read_text(encoding="utf-8", errors="replace").splitlines()),
         )
         if shape is SymbolShape.INDEX and surface.cache.is_file()
         else None
@@ -1061,7 +1138,9 @@ def _search_report(settings: AssaySettings, surface: _Surface, p: ApiParams) -> 
             return fold(Claim.API, "query", (done,), detail=ApiResolution(candidates=_candidates(surface.types, p.symbol), reason="partial"))
         case _:
             done = Completed(("api", "query", source.key), 0, status=RailStatus.OK, notes=(f"{len(hits)} search hits",))
-            detail = _api_detail(source, SymbolShape.SEARCH, preview="\n".join(hits[:_PREVIEW_ROWS]))
+            detail = _api_detail(
+                source, SymbolShape.SEARCH, preview="\n".join(hits[:_PREVIEW_ROWS]), truncated=len(hits) > _PREVIEW_ROWS, lines=len(hits)
+            )
             # _matches caps at _RESULT_CAP; the artifact carries the full hit set so the "full results under run_id" breadcrumb holds.
             artifact = _artifact(settings, source, "search.txt", "\n".join(hits))
             return msgspec.structs.replace(
@@ -1086,9 +1165,8 @@ def _decompile_body(settings: AssaySettings, surface: _Surface, shape: SymbolSha
     resolved_fqn = direct_fqn or (_rank_type(surface.types, head) if head else "")
     is_member = shape is SymbolShape.MEMBER or bool(head and resolved_fqn and not direct_fqn)
     final_shape = SymbolShape.MEMBER if is_member else SymbolShape.TYPE
-    artifact = _artifact(
-        settings, surface.source, f"decompile{ ({SourceKind.PYDIST: '.py', SourceKind.TSDECL: '.d.ts'}.get(surface.source.kind, '.cs')) }", body.full
-    )
+    suffix = {SourceKind.PYDIST: ".py", SourceKind.TSDECL: ".d.ts"}.get(surface.source.kind, ".cs")
+    artifact = _artifact(settings, surface.source, f"decompile{suffix}", body.full)
     detail = _api_detail(
         surface.source,
         final_shape,
@@ -1155,10 +1233,9 @@ def _show_report(path: Path, p: ApiParams) -> Report:
     text = path.read_text(encoding="utf-8", errors="replace")
     window, total, truncated = _slice(text, lines=p.lines, grep=p.grep, max_lines=p.max_lines, full=p.full)
     digest = hashlib.sha256(f"{path}|{path.name}".encode()).hexdigest()[:12]
-    artifact = Artifact(id=digest, kind=ArtifactKind.SCOPE, path=str(path), bytes=path.stat().st_size, lines=text.count("\n"))
-    detail = ApiSurface(source_kind=SourceKind.TOOL, source_id=p.token, shape=SymbolShape.SEARCH, preview=window)
+    artifact = Artifact(id=digest, kind=ArtifactKind.SCOPE, path=str(path), bytes=path.stat().st_size, lines=len(text.splitlines()))
+    detail = ApiSurface(source_kind=SourceKind.TOOL, source_id=p.token, shape=SymbolShape.SEARCH, preview=window, truncated=truncated, lines=total)
     done = Completed(("api", "show", p.token), 0, status=RailStatus.OK, notes=(f"{total} selected lines",))
-    _ = truncated  # Envelope truncation derives from registry saturation, not this preview flag.
     return msgspec.structs.replace(fold(Claim.API, "show", (done,), detail=detail), artifacts=(artifact,))
 
 

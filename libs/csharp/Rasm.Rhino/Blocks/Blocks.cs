@@ -18,12 +18,12 @@ public sealed class RhinoBlocks {
         EventBridge.EnsureHook();
     }
 
+    public static RhinoBlocks Live(RhinoDoc document, RunMode mode = RunMode.Interactive) =>
+        new(document: document, mode: mode);
+
     public RhinoDoc Document { get; }
     public RunMode Mode { get; }
     internal bool RunScriptEcho => Mode == RunMode.Interactive;
-
-    public static RhinoBlocks Live(RhinoDoc document, RunMode mode = RunMode.Interactive) =>
-        new(document: document, mode: mode);
 
     public Fin<BlockOutcome> Run(BlockOp op, Op? key = null) {
         Op runKey = key.OrDefault();
@@ -88,12 +88,6 @@ internal sealed class RefCache<TKey, TValue>(
     private readonly Atom<State> atom = Atom(value: new State(Entries: HashMap<TKey, Entry>(), Versions: HashMap<Guid, uint>()));
 
     internal uint VersionOf(Guid id) => atom.Value.Versions.Find(key: id).IfNone(noneValue: 0u);
-
-    private bool Fresh(TKey key, Entry entry, State state) =>
-        !entry.Stale && CurrentVersion(key: key, state: state) == entry.VersionAtInsert;
-
-    private uint CurrentVersion(TKey key, State state) =>
-        state.Versions.Find(key: versionId(arg: key)).IfNone(noneValue: 0u);
 
     internal Option<TValue> Find(TKey key) {
         State s = atom.Value;
@@ -171,6 +165,12 @@ internal sealed class RefCache<TKey, TValue>(
         return unit;
     }
 
+    private uint CurrentVersion(TKey key, State state) =>
+        state.Versions.Find(key: versionId(arg: key)).IfNone(noneValue: 0u);
+
+    private bool Fresh(TKey key, Entry entry, State state) =>
+        !entry.Stale && CurrentVersion(key: key, state: state) == entry.VersionAtInsert;
+
     private Unit HardInvalidate(Guid defId) {
         Func<TKey, Guid> vid = versionId;
         _ = atom.Swap(f: s => s with {
@@ -208,6 +208,15 @@ internal static class PreviewVault {
         docSerial: static k => k.Serial,
         dispose: static bmp => bmp.Dispose());
 
+    // Offline archive previews survive document close; mtime is part of the cache key, so a changed
+    // file mints a fresh key (miss) — no version channel is needed and docSerial eviction does not apply.
+    private static readonly RefCache<(ulong PathHash, ulong Mtime, ulong Spec), Bitmap> offlineStore = new(
+        mode: RefCacheMode.Preview,
+        versionId: static _ => Guid.Empty,
+        versionTag: null,
+        docSerial: null,
+        dispose: static bmp => bmp.Dispose());
+
     [SuppressMessage(category: "Reliability", checkId: "CA2000", Justification = "PreviewHandle release path disposes the bitmap.")]
     internal static Fin<PreviewHandle> Acquire(RhinoDoc doc, InstanceDefinition def, PreviewSpec spec, Op key) {
         (uint Serial, Guid DefId, ulong Spec, uint Version) cacheKey = Key(doc: doc, def: def, spec: spec);
@@ -216,6 +225,18 @@ internal static class PreviewVault {
             _ => Render(def: def, spec: spec, key: cacheKey, op: key),
         };
     }
+
+    [SuppressMessage(category: "Reliability", checkId: "CA2000", Justification = "PreviewHandle release path disposes the bitmap.")]
+    internal static Fin<PreviewHandle> AcquireOffline(ArchivePath path, PreviewSpec spec, Op key) {
+        (ulong PathHash, ulong Mtime, ulong Spec) cacheKey = OfflineKey(path: path, spec: spec);
+        return offlineStore.Borrow(key: cacheKey) switch {
+            { IsSome: true, Case: Bitmap bmp } => Fin.Succ(value: OfflineHandle(key: cacheKey, bitmap: bmp)),
+            _ => RenderOffline(path: path, cacheKey: cacheKey, op: key),
+        };
+    }
+
+    internal static Unit Invalidate(Guid defId) => store.InvalidateDef(defId: defId);
+    internal static Unit EvictDoc(uint serial) => store.EvictDoc(serial: serial);
 
     private static (uint Serial, Guid DefId, ulong Spec, uint Version) Key(RhinoDoc doc, InstanceDefinition def, PreviewSpec spec) =>
         (Serial: doc.RuntimeSerialNumber, DefId: def.Id, Spec: spec.Fingerprint.Value, Version: store.VersionOf(id: def.Id));
@@ -262,27 +283,6 @@ internal static class PreviewVault {
 
     private static PreviewHandle Handle((uint Serial, Guid DefId, ulong Spec, uint Version) key, Bitmap bitmap) =>
         new(bitmap: bitmap, release: _ => store.Release(key: key));
-
-    internal static Unit Invalidate(Guid defId) => store.InvalidateDef(defId: defId);
-    internal static Unit EvictDoc(uint serial) => store.EvictDoc(serial: serial);
-
-    // Offline archive previews survive document close; mtime is part of the cache key, so a changed
-    // file mints a fresh key (miss) — no version channel is needed and docSerial eviction does not apply.
-    private static readonly RefCache<(ulong PathHash, ulong Mtime, ulong Spec), Bitmap> offlineStore = new(
-        mode: RefCacheMode.Preview,
-        versionId: static _ => Guid.Empty,
-        versionTag: null,
-        docSerial: null,
-        dispose: static bmp => bmp.Dispose());
-
-    [SuppressMessage(category: "Reliability", checkId: "CA2000", Justification = "PreviewHandle release path disposes the bitmap.")]
-    internal static Fin<PreviewHandle> AcquireOffline(ArchivePath path, PreviewSpec spec, Op key) {
-        (ulong PathHash, ulong Mtime, ulong Spec) cacheKey = OfflineKey(path: path, spec: spec);
-        return offlineStore.Borrow(key: cacheKey) switch {
-            { IsSome: true, Case: Bitmap bmp } => Fin.Succ(value: OfflineHandle(key: cacheKey, bitmap: bmp)),
-            _ => RenderOffline(path: path, cacheKey: cacheKey, op: key),
-        };
-    }
 
     private static (ulong PathHash, ulong Mtime, ulong Spec) OfflineKey(ArchivePath path, PreviewSpec spec) =>
         (PathHash: Fnv64.HashText(value: path.Value.ToUpperInvariant()),
@@ -339,6 +339,11 @@ internal static class EventBridge {
             .Iter(doc => IdlePump.Enqueue(document: doc, work: _ => { work(); return Fin.Succ(value: DocumentReceipt.Empty); })));
     private static int closeHooked;
 
+    internal static void EnsureHook() {
+        _ = Dispatcher;
+        if (Interlocked.CompareExchange(location1: ref closeHooked, value: 1, comparand: 0) != 0) return;
+        RhinoDoc.CloseDocument += static (_, args) => OnDocClose(serial: args.DocumentSerialNumber);
+    }
     internal static Subscription Attach(RhinoDoc doc, Action<BlockTableEvent> handler, BlockSubscriptionPolicy policy) {
         EnsureHook();
         return Dispatcher.Register(
@@ -348,19 +353,12 @@ internal static class EventBridge {
             deferral: policy.DeferToIdle ? DeferralPolicy.Idle : DeferralPolicy.Immediate);
     }
 
-    internal static void EnsureHook() {
-        _ = Dispatcher;
-        if (Interlocked.CompareExchange(location1: ref closeHooked, value: 1, comparand: 0) != 0) return;
-        RhinoDoc.CloseDocument += static (_, args) => OnDocClose(serial: args.DocumentSerialNumber);
-    }
-
     private static Unit OnDocClose(uint serial) {
         _ = SnapshotVault.EvictDoc(serial: serial);
         _ = PreviewVault.EvictDoc(serial: serial);
         _ = ContentIndex.EvictDoc(serial: serial);
         return Dispatcher.DropSerial(serial: serial);
     }
-
     private static Unit Invalidate(uint serial, BlockTableEvent snapshot) {
         if (snapshot.Kind == InstanceDefinitionTableEventType.Sorted) return unit;
         RhinoDoc? document = RhinoDoc.FromRuntimeSerialNumber(serialNumber: serial);
@@ -374,24 +372,20 @@ internal static class EventBridge {
 }
 
 internal static class IdlePump {
+    private static readonly TimeSpan DefaultBudget = TimeSpan.FromMilliseconds(value: 8);
     private static readonly Atom<Seq<(RhinoDoc Document, Func<RhinoDoc, Fin<DocumentReceipt>> Work)>> queue =
         Atom(value: Seq<(RhinoDoc, Func<RhinoDoc, Fin<DocumentReceipt>>)>());
-    private static int hooked;
-
-    private static readonly TimeSpan DefaultBudget = TimeSpan.FromMilliseconds(value: 8);
     private static TimeProvider clock = TimeProvider.System;
     private static TimeSpan budget = DefaultBudget;
+    private static int hooked;
 
     internal static void ConfigureClock(TimeProvider provider) => clock = provider ?? TimeProvider.System;
-
     internal static void ConfigureBudget(TimeSpan value) => budget = value > TimeSpan.Zero ? value : DefaultBudget;
-
     internal static Unit Enqueue(RhinoDoc document, Func<RhinoDoc, Fin<DocumentReceipt>> work) {
         EnsureHook();
         _ = queue.Swap(f: current => current.Add(value: (document, work)));
         return unit;
     }
-
     internal static void EnsureHook() {
         if (Interlocked.CompareExchange(location1: ref hooked, value: 1, comparand: 0) != 0) return;
         RhinoApp.Idle += static (_, _) => Drain();

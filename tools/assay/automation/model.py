@@ -1,6 +1,8 @@
 """Define automation trigger and action wire models."""
 
-from msgspec import json, Raw
+from typing import Annotated
+
+from msgspec import json, Meta, Raw
 
 from tools.assay.core.model import Base, Claim  # noqa: TC001  # tools.assay package; Claim is a runtime msgspec field type
 
@@ -22,7 +24,12 @@ class Watch(Base, frozen=True, tag_field="kind", tag="watch", forbid_unknown_fie
     paths: tuple[str, ...]
     filter: str = "default"
     ignore_patterns: tuple[str, ...] = ()
-    debounce: int = 1600
+    debounce: Annotated[int, Meta(ge=1)] = 1600
+    step: Annotated[int, Meta(ge=1)] = 50
+    force_polling: bool | None = None
+    poll_delay_ms: Annotated[int, Meta(ge=1)] = 300
+    recursive: bool = True
+    ignore_permission_denied: bool | None = None
     cpu_threshold: float | None = None
 
 
@@ -35,6 +42,7 @@ class Schedule(Base, frozen=True, tag_field="kind", tag="schedule", forbid_unkno
     """
 
     cron: str
+    timezone: str = ""
     cpu_threshold: float | None = None
 
 
@@ -59,7 +67,7 @@ class Rail(Base, frozen=True, tag_field="kind", tag="rail", forbid_unknown_field
 class Program(Base, frozen=True, tag_field="kind", tag="program", forbid_unknown_fields=True):
     """Direct executable and arguments to run verbatim."""
 
-    argv: tuple[str, ...]
+    argv: Annotated[tuple[str, ...], Meta(min_length=1)]
 
 
 class Sequence(Base, frozen=True, tag_field="kind", tag="sequence", forbid_unknown_fields=True):
@@ -93,11 +101,6 @@ _DECODE_TRIGGER: json.Decoder[Trigger] = json.Decoder(Trigger)
 _DECODE_ACTION: json.Decoder[Action] = json.Decoder(Action)  # built after Action so msgspec sees the final union
 _ENCODE = json.Encoder(order="deterministic")
 
-# Tag sets mirror the unions so drift is visible in the total projections below.
-_TRIGGER_TAGS: frozenset[str] = frozenset({"watch", "schedule", "manual"})
-_ACTION_TAGS: frozenset[str] = frozenset({"rail", "program", "sequence", "debounce"})
-
-
 # --- [OPERATIONS] -----------------------------------------------------------------------
 
 
@@ -110,8 +113,8 @@ def describe(node: Trigger | Action) -> str:  # noqa: PLR0911, PLR0912  # one re
     match node:
         case Watch(paths=p, debounce=d):
             return f"watch[{len(p)} paths @ {d}ms]"
-        case Schedule(cron=spec):
-            return f"schedule[{spec}]"
+        case Schedule(cron=spec, timezone=tz):
+            return f"schedule[{spec}{' @ ' + tz if tz else ''}]"
         case Manual():
             return "manual"
         case Rail(claim=c, verb=v):

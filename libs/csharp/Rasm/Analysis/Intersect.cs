@@ -85,28 +85,10 @@ public static partial class Analyze {
                                                     select typed)
             : key.Unsupported<TGeometry, TOut>();
     }
-    private static Operation<(TA A, TB B), TOut> PairOp<TA, TB, TOut>(Op key, bool supported, Func<TA, TB, Context, Op, IProgress<double>?, CancellationToken, Fin<IntersectionResult>> compute) where TA : notnull where TB : notnull =>
-        supported switch {
-            true => Operation<(TA A, TB B), TOut>.Build(
-                key: key, requiresContext: true, state: (Key: key, Compute: compute),
-                evaluator: static (state, pair) =>
-                    from runtime in Env.EnvAsks
-                    from resolved in ((pair.A, pair.B) switch {
-                        (RayQuery ray, GeometryBase geometry) =>
-                            (state.Key.AcceptValue(value: ray), Requirement.Basic.Apply(context: runtime.Context, value: geometry, cancel: runtime.Cancellation).ToFin())
-                                .Apply(static (query, target) => (A: (TA)(object)query, B: (TB)(object)target)).As(),
-                        (GeometryBase geometry, RayQuery ray) =>
-                            (Requirement.Basic.Apply(context: runtime.Context, value: geometry, cancel: runtime.Cancellation).ToFin(), state.Key.AcceptValue(value: ray))
-                                .Apply(static (target, query) => (A: (TA)(object)target, B: (TB)(object)query)).As(),
-                        _ => runtime.Context.Pair(a: pair.A, b: pair.B, op: state.Key, requirements: static (_, _, _) => Fin.Succ((A: Requirement.Basic, B: Requirement.Basic)), cancel: runtime.Cancellation)
-                            .ToFin()
-                            .Map(static pair => (pair.A, pair.B)),
-                    }).ToEff()
-                    from result in state.Compute(resolved.A, resolved.B, runtime.Context, state.Key, runtime.Progress, runtime.Cancellation).ToEff()
-                    from typed in result.Project<TOut>(key: state.Key).ToEff()
-                    select typed),
-            false => key.Unsupported<(TA A, TB B), TOut>(),
-        };
+    internal static Option<IntersectionResult> IntersectionShape(Type left, Type right, Type output, bool unordered) =>
+        IntersectionShapeOrdered(left: left, right: right, output: output) | (unordered ? IntersectionShapeOrdered(left: right, right: left, output: output) : Option<IntersectionResult>.None);
+    private static Option<IntersectionResult> IntersectionShapeOrdered(Type left, Type right, Type output) =>
+        IntersectionCases.Find(predicate: c => c.CanProject(left: left, right: right, output: output)).Map(static c => c.Shape);
     private readonly record struct IntersectionCase(
         Func<Type, Type, bool> Supports,
         IntersectionResult Shape,
@@ -123,10 +105,6 @@ public static partial class Analyze {
                     _ => Option<Fin<IntersectionResult>>.None,
                 });
     }
-    internal static Option<IntersectionResult> IntersectionShape(Type left, Type right, Type output, bool unordered) =>
-        IntersectionShapeOrdered(left: left, right: right, output: output) | (unordered ? IntersectionShapeOrdered(left: right, right: left, output: output) : Option<IntersectionResult>.None);
-    private static Option<IntersectionResult> IntersectionShapeOrdered(Type left, Type right, Type output) =>
-        IntersectionCases.Find(predicate: c => c.CanProject(left: left, right: right, output: output)).Map(static c => c.Shape);
     private static readonly Seq<IntersectionCase> IntersectionCases = Seq(
         IntersectionCase.Pair<Line, Line>(IntersectionResult.PointsShape, static (a, b, context, _, _, _) =>
             Fin.Succ((IntersectionResult)new IntersectionResult.Points(Intersection.LineLine(lineA: a, lineB: b, a: out double ta, b: out double _, tolerance: context.Absolute.Value, finiteSegments: true) ? Seq(a.PointAt(t: ta)) : Seq<Point3d>()))),
@@ -216,6 +194,13 @@ public static partial class Analyze {
             Compute: static (left, right, context, op, cancel, progress) => right is not Curve && GeometryKernel.CanCurveForm(type: right.GetType())
                 ? Some(GeometryKernel.CurveForm(source: right, op: op).Bind(lease => lease.Use(curve => IntersectOrdered(left: left, right: curve, context: context, op: op, cancel: cancel, progress: progress))))
                 : Option<Fin<IntersectionResult>>.None));
+    internal static Fin<IntersectionResult> IntersectionOf<TL, TR>(TL left, TR right, Context context, Op op, IProgress<double>? progress, bool unordered, CancellationToken cancel) where TL : notnull where TR : notnull =>
+        (Optional(left).ToFin(op.InvalidInput()), Optional(right).ToFin(op.InvalidInput())).Apply((l, r) => (L: (object)l, R: (object)r)).As()
+            .Bind(pair => IntersectOrdered(left: pair.L, right: pair.R, context: context, op: op, cancel: cancel, progress: progress)
+                .BindFail(error => (unordered, error) switch {
+                    (true, Fault.Unsupported) => IntersectOrdered(left: pair.R, right: pair.L, context: context, op: op, cancel: cancel, progress: progress),
+                    _ => Fin.Fail<IntersectionResult>(error),
+                }));
     internal static Fin<IntersectionResult> ClassifiedIntersectionOf<TL, TR>(TL left, TR right, Context context, Op op, IProgress<double>? progress, CancellationToken cancel) where TL : notnull where TR : notnull =>
         IntersectionOf(left: left, right: right, context: context, op: op, progress: progress, unordered: true, cancel: cancel)
             .Bind(result => (result, GeometryKernel.CanCurveForm(type: typeof(TL)) && GeometryKernel.CanCurveForm(type: typeof(TR))) switch {
@@ -223,25 +208,22 @@ public static partial class Analyze {
                     .Map(static enriched => (IntersectionResult)new IntersectionResult.Hits(enriched)),
                 _ => Fin.Succ(result),
             });
-    private static Fin<Seq<IntersectionHit>> EnrichTangency<TL, TR>(Seq<IntersectionHit> hits, TL left, TR right, Context context, Op op) where TL : notnull where TR : notnull =>
-        GeometryKernel.CurveForm(source: left, op: op).Bind(leftLease =>
-            GeometryKernel.CurveForm(source: right, op: op).Bind(rightLease =>
-                leftLease.Use(lc => rightLease.Use(rc =>
-                    hits.TraverseM(hit => hit switch {
-                        IntersectionHit.PointCase pc when pc.Tangency == IntersectionTangency.Unknown =>
-                            TangencyAt(left: lc, right: rc, point: pc.Point, context: context)
-                                .Map(tangency => IntersectionHit.At(point: pc.Point, tangency: tangency)),
-                        _ => Fin.Succ(hit),
-                    }).As()))));
-    private static Fin<IntersectionTangency> TangencyAt(Curve left, Curve right, Point3d point, Context context) =>
-        (left.ClosestPoint(testPoint: point, t: out double tl), right.ClosestPoint(testPoint: point, t: out double tr)) switch {
-            (true, true) => VectorIntent.Relation(a: left.TangentAt(t: tl), b: right.TangentAt(t: tr))
-                .Project<VectorRelation>(context: context, key: Op.Of(name: nameof(TangencyAt)))
-                .Map(static relation => relation.Equals(VectorRelation.Parallel) || relation.Equals(VectorRelation.AntiParallel)
-                    ? IntersectionTangency.Tangent
-                    : IntersectionTangency.Transversal)
-                .BindFail(static _ => Fin.Succ(IntersectionTangency.Unknown)),
-            _ => Fin.Succ(IntersectionTangency.Unknown),
+    internal static bool CanDeviation(Type left, Type right) =>
+        GeometryKernel.CanCurveForm(type: left) && GeometryKernel.CanCurveForm(type: right);
+    internal static Fin<CurveDeviation> DeviationOf<TL, TR>(TL left, TR right, Context context, Op op) where TL : notnull where TR : notnull =>
+        GeometryKernel.CurveForm(source: left, op: op)
+            .Bind(leftLease => leftLease.Use(leftCurve => GeometryKernel.CurveForm(source: right, op: op)
+                .Bind(rightLease => rightLease.Use(rightCurve => CurveDeviationOf(left: leftCurve, right: rightCurve, context: context, op: op)))));
+    internal static Fin<CurveDeviation> CurveDeviationOf(Curve left, Curve right, Context context, Op op) =>
+        Curve.GetDistancesBetweenCurves(curveA: left, curveB: right, tolerance: context.Absolute.Value, maxDistance: out double maxDist, maxDistanceParameterA: out double maxA, maxDistanceParameterB: out double maxB, minDistance: out double minDist, minDistanceParameterA: out double minA, minDistanceParameterB: out double minB) switch {
+            true => (op.AcceptValue(value: minDist), op.AcceptValue(value: maxDist), op.AcceptValue(value: left.PointAt(t: minA)), op.AcceptValue(value: right.PointAt(t: minB)), op.AcceptValue(value: left.PointAt(t: maxA)), op.AcceptValue(value: right.PointAt(t: maxB)))
+                .Apply((minD, maxD, mA, mB, xA, xB) => new CurveDeviation(MinimumDistance: minD, MinimumA: mA, MinimumB: mB, MaximumDistance: maxD, MaximumA: xA, MaximumB: xB, Tolerance: context.Absolute.Value, WithinTolerance: maxD <= context.Absolute.Value))
+                .As()
+                .Bind(deviation => (deviation.MinimumDistance >= 0.0, deviation.MaximumDistance >= deviation.MinimumDistance) switch {
+                    (true, true) => Fin.Succ(deviation),
+                    _ => Fin.Fail<CurveDeviation>(op.InvalidResult()),
+                }),
+            false => Fin.Fail<CurveDeviation>(op.InvalidResult()),
         };
     internal static bool CanSelfIntersect(Type geometry) =>
         geometry == typeof(object) || typeof(Curve).IsAssignableFrom(c: geometry) || typeof(Mesh).IsAssignableFrom(c: geometry);
@@ -259,46 +241,33 @@ public static partial class Analyze {
                 }),
             _ => Fin.Fail<IntersectionResult>(op.Unsupported(g.GetType(), typeof(IntersectionResult))),
         });
-    internal static bool CanDeviation(Type left, Type right) =>
-        GeometryKernel.CanCurveForm(type: left) && GeometryKernel.CanCurveForm(type: right);
-    internal static Fin<IntersectionResult> IntersectionOf<TL, TR>(TL left, TR right, Context context, Op op, IProgress<double>? progress, bool unordered, CancellationToken cancel) where TL : notnull where TR : notnull =>
-        (Optional(left).ToFin(op.InvalidInput()), Optional(right).ToFin(op.InvalidInput())).Apply((l, r) => (L: (object)l, R: (object)r)).As()
-            .Bind(pair => IntersectOrdered(left: pair.L, right: pair.R, context: context, op: op, cancel: cancel, progress: progress)
-                .BindFail(error => (unordered, error) switch {
-                    (true, Fault.Unsupported) => IntersectOrdered(left: pair.R, right: pair.L, context: context, op: op, cancel: cancel, progress: progress),
-                    _ => Fin.Fail<IntersectionResult>(error),
-                }));
-    internal static Fin<CurveDeviation> DeviationOf<TL, TR>(TL left, TR right, Context context, Op op) where TL : notnull where TR : notnull =>
-        GeometryKernel.CurveForm(source: left, op: op)
-            .Bind(leftLease => leftLease.Use(leftCurve => GeometryKernel.CurveForm(source: right, op: op)
-                .Bind(rightLease => rightLease.Use(rightCurve => CurveDeviationOf(left: leftCurve, right: rightCurve, context: context, op: op)))));
+    private static Operation<(TA A, TB B), TOut> PairOp<TA, TB, TOut>(Op key, bool supported, Func<TA, TB, Context, Op, IProgress<double>?, CancellationToken, Fin<IntersectionResult>> compute) where TA : notnull where TB : notnull =>
+        supported switch {
+            true => Operation<(TA A, TB B), TOut>.Build(
+                key: key, requiresContext: true, state: (Key: key, Compute: compute),
+                evaluator: static (state, pair) =>
+                    from runtime in Env.EnvAsks
+                    from resolved in ((pair.A, pair.B) switch {
+                        (RayQuery ray, GeometryBase geometry) =>
+                            (state.Key.AcceptValue(value: ray), Requirement.Basic.Apply(context: runtime.Context, value: geometry, cancel: runtime.Cancellation).ToFin())
+                                .Apply(static (query, target) => (A: (TA)(object)query, B: (TB)(object)target)).As(),
+                        (GeometryBase geometry, RayQuery ray) =>
+                            (Requirement.Basic.Apply(context: runtime.Context, value: geometry, cancel: runtime.Cancellation).ToFin(), state.Key.AcceptValue(value: ray))
+                                .Apply(static (target, query) => (A: (TA)(object)target, B: (TB)(object)query)).As(),
+                        _ => runtime.Context.Pair(a: pair.A, b: pair.B, op: state.Key, requirements: static (_, _, _) => Fin.Succ((A: Requirement.Basic, B: Requirement.Basic)), cancel: runtime.Cancellation)
+                            .ToFin()
+                            .Map(static pair => (pair.A, pair.B)),
+                    }).ToEff()
+                    from result in state.Compute(resolved.A, resolved.B, runtime.Context, state.Key, runtime.Progress, runtime.Cancellation).ToEff()
+                    from typed in result.Project<TOut>(key: state.Key).ToEff()
+                    select typed),
+            false => key.Unsupported<(TA A, TB B), TOut>(),
+        };
     private static Fin<IntersectionResult> IntersectOrdered(object left, object right, Context context, Op op, CancellationToken cancel, IProgress<double>? progress) =>
         cancel.IsCancellationRequested switch {
             true => Fin.Fail<IntersectionResult>(new Fault.Cancelled()),
             false => IntersectionCases.Choose(c => c.TryCompute(left: left, right: right, context: context, op: op, cancel: cancel, progress: progress)).Head.ToFin(op.Unsupported(left.GetType(), right.GetType())).Bind(static result => result),
         };
-    private static Fin<IntersectionResult> RayShoot(RayQuery query, GeometryBase geometry, Op op) =>
-        guard(query.IsValid, op.InvalidInput()).ToFin()
-            .Map(_ => (IntersectionResult)new IntersectionResult.Hits(toSeq(Intersection.RayShoot(Seq(geometry).AsIterable(), query.Ray, query.MaxReflections) ?? []).Map(static e => IntersectionHit.At(e.Point))));
-    private static Fin<IntersectionResult> TrimAwareRayBrep(RayQuery query, Brep brep, Context context, Op op, CancellationToken cancel) {
-        BoundingBox box = brep.GetBoundingBox(accurate: true);
-        using LineCurve ray = new(line: new Line(
-            start: query.Ray.Position,
-            direction: query.Ray.Direction,
-            length: query.Ray.Position.DistanceTo(other: box.Center) + box.Diagonal.Length));
-        return (query.IsValid, box) switch {
-            (true, { IsValid: true }) => HitsFromSolved(
-                solved: Intersection.CurveBrep(ray, brep, context.Absolute.Value, out Curve[] cs, out Point3d[] ps),
-                curves: cs,
-                points: [.. ps.Where(p => (p - query.Ray.Position) * query.Ray.Direction >= 0.0)],
-                kind: IntersectionKind.Overlap,
-                op: op,
-                cancel: cancel,
-                partial: true),
-            (true, _) => Fin.Fail<IntersectionResult>(op.InvalidResult()),
-            _ => Fin.Fail<IntersectionResult>(op.InvalidInput()),
-        };
-    }
     private static bool OnFiniteLine(Line line, Point3d point, double tolerance) => point.IsValid && point.DistanceTo(other: line.ClosestPoint(testPoint: point, limitToFiniteSegment: true)) <= tolerance;
     private static Seq<Interval> SegmentInterval(Interval interval) =>
         (Math.Min(interval.T0, interval.T1), Math.Max(interval.T0, interval.T1)) switch {
@@ -332,15 +301,47 @@ public static partial class Analyze {
         using CurveIntersections? hits = intersect(arg1: a, arg2: b, arg3: context.Absolute.Value);
         return HitsFromEvents(hits: hits, source: a, finiteLine: finiteLine, tolerance: finiteLine.IsSome ? context.Absolute.Value : 0.0);
     }
-    internal static Fin<CurveDeviation> CurveDeviationOf(Curve left, Curve right, Context context, Op op) =>
-        Curve.GetDistancesBetweenCurves(curveA: left, curveB: right, tolerance: context.Absolute.Value, maxDistance: out double maxDist, maxDistanceParameterA: out double maxA, maxDistanceParameterB: out double maxB, minDistance: out double minDist, minDistanceParameterA: out double minA, minDistanceParameterB: out double minB) switch {
-            true => (op.AcceptValue(value: minDist), op.AcceptValue(value: maxDist), op.AcceptValue(value: left.PointAt(t: minA)), op.AcceptValue(value: right.PointAt(t: minB)), op.AcceptValue(value: left.PointAt(t: maxA)), op.AcceptValue(value: right.PointAt(t: maxB)))
-                .Apply((minD, maxD, mA, mB, xA, xB) => new CurveDeviation(MinimumDistance: minD, MinimumA: mA, MinimumB: mB, MaximumDistance: maxD, MaximumA: xA, MaximumB: xB, Tolerance: context.Absolute.Value, WithinTolerance: maxD <= context.Absolute.Value))
-                .As()
-                .Bind(deviation => (deviation.MinimumDistance >= 0.0, deviation.MaximumDistance >= deviation.MinimumDistance) switch {
-                    (true, true) => Fin.Succ(deviation),
-                    _ => Fin.Fail<CurveDeviation>(op.InvalidResult()),
-                }),
-            false => Fin.Fail<CurveDeviation>(op.InvalidResult()),
+    private static Fin<Seq<IntersectionHit>> EnrichTangency<TL, TR>(Seq<IntersectionHit> hits, TL left, TR right, Context context, Op op) where TL : notnull where TR : notnull =>
+        GeometryKernel.CurveForm(source: left, op: op).Bind(leftLease =>
+            GeometryKernel.CurveForm(source: right, op: op).Bind(rightLease =>
+                leftLease.Use(lc => rightLease.Use(rc =>
+                    hits.TraverseM(hit => hit switch {
+                        IntersectionHit.PointCase pc when pc.Tangency == IntersectionTangency.Unknown =>
+                            TangencyAt(left: lc, right: rc, point: pc.Point, context: context)
+                                .Map(tangency => IntersectionHit.At(point: pc.Point, tangency: tangency)),
+                        _ => Fin.Succ(hit),
+                    }).As()))));
+    private static Fin<IntersectionTangency> TangencyAt(Curve left, Curve right, Point3d point, Context context) =>
+        (left.ClosestPoint(testPoint: point, t: out double tl), right.ClosestPoint(testPoint: point, t: out double tr)) switch {
+            (true, true) => VectorIntent.Relation(a: left.TangentAt(t: tl), b: right.TangentAt(t: tr))
+                .Project<VectorRelation>(context: context, key: Op.Of(name: nameof(TangencyAt)))
+                .Map(static relation => relation.Equals(VectorRelation.Parallel) || relation.Equals(VectorRelation.AntiParallel)
+                    ? IntersectionTangency.Tangent
+                    : IntersectionTangency.Transversal)
+                .BindFail(static _ => Fin.Succ(IntersectionTangency.Unknown)),
+            _ => Fin.Succ(IntersectionTangency.Unknown),
         };
+    private static Fin<IntersectionResult> RayShoot(RayQuery query, GeometryBase geometry, Op op) =>
+        guard(query.IsValid, op.InvalidInput()).ToFin()
+            .Map(_ => (IntersectionResult)new IntersectionResult.Hits(toSeq(Intersection.RayShoot(Seq(geometry).AsIterable(), query.Ray, query.MaxReflections) ?? []).Map(static e => IntersectionHit.At(e.Point))));
+    private static Fin<IntersectionResult> TrimAwareRayBrep(RayQuery query, Brep brep, Context context, Op op, CancellationToken cancel) {
+        BoundingBox box = brep.GetBoundingBox(accurate: true);
+        using LineCurve ray = new(line: new Line(
+            start: query.Ray.Position,
+            direction: query.Ray.Direction,
+            length: query.Ray.Position.DistanceTo(other: box.Center) + box.Diagonal.Length));
+        return (query.IsValid, box) switch {
+            (true, { IsValid: true }) => HitsFromSolved(
+                solved: Intersection.CurveBrep(ray, brep, context.Absolute.Value, out Curve[] cs, out Point3d[] ps),
+                curves: cs,
+                points: [.. ps.Where(p => (p - query.Ray.Position) * query.Ray.Direction >= 0.0)],
+                kind: IntersectionKind.Overlap,
+                op: op,
+                cancel: cancel,
+                partial: true),
+            (true, _) => Fin.Fail<IntersectionResult>(op.InvalidResult()),
+            _ => Fin.Fail<IntersectionResult>(op.InvalidInput()),
+        };
+    }
+
 }

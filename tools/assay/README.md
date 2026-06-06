@@ -107,9 +107,9 @@ Example:
 
 Verbs: `run`, `list`, `coverage`
 Inputs: `[paths...]`, `--language`, `--no-build`, `--mutation`, `--benchmark`, `--coverage`
-Source-exposed params: `--target`, `--all`, `--filter`, `--fixtures`
+Source-exposed params: `--target`, `--all`, `--filter`
 Output: `TestRun` detail, or `Match` rows for `list`.
-Use: mutation is boolean; `target`, `all`, `filter`, and `fixtures` exist on params but are not promoted here as behavior-driving operator guidance until source uses them.
+Use: mutation is boolean; `target` and `all` constrain mutation eligibility, while `filter` narrows .NET list/run invocations.
 Example:
     `uv run python -m tools.assay test run --language csharp tests/csharp`
 
@@ -135,7 +135,6 @@ Example:
 
 Verbs: `doctor`, `resolve`, `query`, `show`
 Inputs: `--key`, `--symbol`, `--kind`, `--token`, `--max-lines`, `--lines`, `--grep`, `--full`, `--strict`
-Defined but not promoted as operator guidance: `--latest`, `--restore`
 Output: `ApiSurface` or `ApiResolution` detail.
 Use: sources include host assemblies, NuGet packages, Python distributions, and TypeScript declarations.
 Example:
@@ -195,7 +194,7 @@ Strictness: flags such as `--strict` can promote otherwise non-error states into
 Report detail: rail-specific evidence under `report.detail`.
 Rows: bounded row output under `report.results`.
 Artifacts: durable files under `report.artifacts`.
-Truncation: inline lists may set `truncated=true`; full-output persistence is rail-owned, not universal.
+Truncation: inline lists may set `truncated=true`; envelope-level caps attach a full-report artifact before clipping rows.
 Result locations are the Assay contract; older tool payload shapes do not define this operator.
 
 ## [6][INTEGRATIONS]

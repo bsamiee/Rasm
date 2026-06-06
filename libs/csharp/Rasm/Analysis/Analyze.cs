@@ -10,12 +10,20 @@ public interface IAspect {
 // --- [MODELS] -----------------------------------------------------------------------------
 [BoundaryAdapter]
 public sealed record Env(Context Context, IProgress<double>? Progress, CancellationToken Cancellation) {
-    public static readonly Eff<Env, Context> Asks = Eff.runtime<Env>().Map(static env => env.Context).As();
     public static readonly Eff<Env, Env> EnvAsks = Eff.runtime<Env>().As();
+    public static readonly Eff<Env, Context> Asks = Eff.runtime<Env>().Map(static env => env.Context).As();
 }
 
 // --- [SERVICES] ---------------------------------------------------------------------------
 public sealed partial record Operation<TGeometry, TOut> where TGeometry : notnull {
+    [SkipUnionOps]
+    [Union]
+    private abstract partial record Body {
+        private Body() { }
+        internal sealed record Rejected(Error Fault) : Body;
+        internal sealed record PerItem(Func<TGeometry, Eff<Env, Seq<TOut>>> Evaluate) : Body;
+        internal sealed record Aggregate(Func<Seq<TGeometry>, Eff<Env, Seq<TOut>>> Evaluate) : Body;
+    }
     private Operation(Op key, Requirement requirement, bool requiresContext, Body body) {
         Key = key;
         Requirement = requirement;
@@ -29,11 +37,6 @@ public sealed partial record Operation<TGeometry, TOut> where TGeometry : notnul
     internal bool IsSupported => Execution is not Body.Rejected;
     internal bool IsAggregate => Execution is Body.Aggregate;
     internal bool NeedsContext => RequiresContext || !Requirement.IsEmpty;
-    public Eff<Env, Seq<TOut>> Apply(Seq<TGeometry> geometry) =>
-        Execution.Switch(
-            rejected: r => Fin.Fail<Seq<TOut>>(r.Fault).ToEff(),
-            perItem: i => geometry.TraverseM(i.Evaluate).As().Map(static chunks => chunks.Bind(static chunk => chunk)),
-            aggregate: a => a.Evaluate(arg: geometry));
     internal static Operation<TGeometry, TOut> Build(Op key, Func<TGeometry, Eff<Env, Seq<TOut>>> evaluator, Requirement? requirement = null, bool requiresContext = false, Option<Func<Seq<TGeometry>, Eff<Env, Seq<TOut>>>> aggregate = default) =>
         Build(key: key, state: Unit.Default, evaluator: (_, geometry) => evaluator(arg: geometry), requirement: requirement, requiresContext: requiresContext, aggregate: aggregate);
     internal static Operation<TGeometry, TOut> Build<TState>(Op key, TState state, Func<TState, TGeometry, Eff<Env, Seq<TOut>>> evaluator, Requirement? requirement = null, bool requiresContext = false, Option<Func<Seq<TGeometry>, Eff<Env, Seq<TOut>>>> aggregate = default) {
@@ -58,6 +61,11 @@ public sealed partial record Operation<TGeometry, TOut> where TGeometry : notnul
     }
     internal static Operation<TGeometry, TOut> Reject(Op key, Error fault) =>
         new(key: key, requirement: Requirement.None, requiresContext: false, body: new Body.Rejected(Fault: fault));
+    public Eff<Env, Seq<TOut>> Apply(Seq<TGeometry> geometry) =>
+        Execution.Switch(
+            rejected: r => Fin.Fail<Seq<TOut>>(r.Fault).ToEff(),
+            perItem: i => geometry.TraverseM(i.Evaluate).As().Map(static chunks => chunks.Bind(static chunk => chunk)),
+            aggregate: a => a.Evaluate(arg: geometry));
     internal Fin<Operation<TGeometry, TOut>> Supported() =>
         Execution switch {
             Body.Rejected rejected => Fin.Fail<Operation<TGeometry, TOut>>(rejected.Fault),
@@ -77,30 +85,10 @@ public sealed partial record Operation<TGeometry, TOut> where TGeometry : notnul
                  select ready,
         }
         select validated;
-    [SkipUnionOps]
-    [Union]
-    private abstract partial record Body {
-        private Body() { }
-        internal sealed record Rejected(Error Fault) : Body;
-        internal sealed record PerItem(Func<TGeometry, Eff<Env, Seq<TOut>>> Evaluate) : Body;
-        internal sealed record Aggregate(Func<Seq<TGeometry>, Eff<Env, Seq<TOut>>> Evaluate) : Body;
-    }
 }
 
 // --- [OPERATIONS] -------------------------------------------------------------------------
 public static partial class Analyze {
-    public static Validation<Error, Seq<TOut>> Run<TGeometry, TOut>(
-        Operation<TGeometry, TOut>? operation,
-        params ReadOnlySpan<TGeometry> input) where TGeometry : notnull =>
-        Run(
-            operation: operation,
-            scope: Option<Scope>.None,
-            input: input);
-    public static Scope From(RhinoDoc? doc) => new(context: Context.Of(doc: doc).ToFin());
-    public static Scope In(UnitSystem units) => new(context: Context.Of(units: units).ToFin());
-    public static Scope In(double absolute, double relative, double angle, UnitSystem units) =>
-        new(context: Context.Of(absolute: absolute, relative: relative, angle: angle, units: units).ToFin());
-    public static Scope In(Context context) => new(context: Optional(context).ToFin(Op.Of(name: nameof(Scope)).MissingContext()));
     public sealed record Scope {
         public Fin<Context> Context { get; }
         public IProgress<double>? Progress { get; init; }
@@ -115,6 +103,35 @@ public static partial class Analyze {
                 scope: Some(this),
                 input: input);
     }
+    public static Validation<Error, Seq<TOut>> Run<TGeometry, TOut>(
+        Operation<TGeometry, TOut>? operation,
+        params ReadOnlySpan<TGeometry> input) where TGeometry : notnull =>
+        Run(
+            operation: operation,
+            scope: Option<Scope>.None,
+            input: input);
+    public static Scope From(RhinoDoc? doc) => new(context: Context.Of(doc: doc).ToFin());
+    public static Scope In(UnitSystem units) => new(context: Context.Of(units: units).ToFin());
+    public static Scope In(double absolute, double relative, double angle, UnitSystem units) =>
+        new(context: Context.Of(absolute: absolute, relative: relative, angle: angle, units: units).ToFin());
+    public static Scope In(Context context) => new(context: Optional(context).ToFin(Op.Of(name: nameof(Scope)).MissingContext()));
+    public static Operation<TGeometry, TOut> Aspect<TAspect, TGeometry, TOut>(TAspect? aspect, [CallerMemberName] string callerMember = "")
+        where TAspect : class, IAspect
+        where TGeometry : notnull =>
+        aspect?.Operation<TGeometry, TOut>() ?? Operation<TGeometry, TOut>.Reject(key: Op.Of(name: callerMember), fault: Op.Of(name: callerMember).InvalidInput());
+    internal static Operation<TGeometry, TOut> Unsupported<TGeometry, TOut>(this Op key) where TGeometry : notnull =>
+        Operation<TGeometry, TOut>.Reject(key: key, fault: key.Unsupported(geometryType: typeof(TGeometry), outputType: typeof(TOut)));
+    internal static Operation<TGeometry, TOut> As<TGeometry, TOut>(this object operation, Op key) where TGeometry : notnull => operation switch {
+        Operation<TGeometry, TOut> typed => typed,
+        _ => Operation<TGeometry, TOut>.Reject(key: key, fault: key.Unsupported(geometryType: typeof(TGeometry), outputType: typeof(TOut))),
+    };
+    internal static Operation<TGeometry, TOut> Native<TGeometry, TOut, TNative, TValue, TState>(Op key, TState state, Func<TState, TNative, Eff<Env, Seq<TValue>>> project, Requirement? requirement = null, bool requiresContext = false) where TGeometry : notnull where TNative : notnull =>
+        Operation<TGeometry, TValue>.Build(
+            key: key, requirement: requirement, requiresContext: requiresContext, state: (Key: key, State: state, Project: project),
+            evaluator: static (state, geometry) => geometry switch {
+                TNative native => state.Project(arg1: state.State, arg2: native),
+                _ => Fin.Fail<Seq<TValue>>(state.Key.Unsupported(geometryType: geometry.GetType(), outputType: typeof(TValue))).ToEff(),
+            }).As<TGeometry, TOut>(key: key);
     private static Validation<Error, Seq<TOut>> Run<TGeometry, TOut>(
         Operation<TGeometry, TOut>? operation,
         Option<Scope> scope,
@@ -137,23 +154,6 @@ public static partial class Analyze {
             from result in accepted.Apply(geometry: inputValues.AsIterable().ToSeq()).Run(env: new Env(Context: context, Progress: progress, Cancellation: cancellation))
             select result).ToValidation();
     }
-    public static Operation<TGeometry, TOut> Aspect<TAspect, TGeometry, TOut>(TAspect? aspect, [CallerMemberName] string callerMember = "")
-        where TAspect : class, IAspect
-        where TGeometry : notnull =>
-        aspect?.Operation<TGeometry, TOut>() ?? Operation<TGeometry, TOut>.Reject(key: Op.Of(name: callerMember), fault: Op.Of(name: callerMember).InvalidInput());
-    internal static Operation<TGeometry, TOut> Unsupported<TGeometry, TOut>(this Op key) where TGeometry : notnull =>
-        Operation<TGeometry, TOut>.Reject(key: key, fault: key.Unsupported(geometryType: typeof(TGeometry), outputType: typeof(TOut)));
-    internal static Operation<TGeometry, TOut> As<TGeometry, TOut>(this object operation, Op key) where TGeometry : notnull => operation switch {
-        Operation<TGeometry, TOut> typed => typed,
-        _ => Operation<TGeometry, TOut>.Reject(key: key, fault: key.Unsupported(geometryType: typeof(TGeometry), outputType: typeof(TOut))),
-    };
-    internal static Operation<TGeometry, TOut> Native<TGeometry, TOut, TNative, TValue, TState>(Op key, TState state, Func<TState, TNative, Eff<Env, Seq<TValue>>> project, Requirement? requirement = null, bool requiresContext = false) where TGeometry : notnull where TNative : notnull =>
-        Operation<TGeometry, TValue>.Build(
-            key: key, requirement: requirement, requiresContext: requiresContext, state: (Key: key, State: state, Project: project),
-            evaluator: static (state, geometry) => geometry switch {
-                TNative native => state.Project(arg1: state.State, arg2: native),
-                _ => Fin.Fail<Seq<TValue>>(state.Key.Unsupported(geometryType: geometry.GetType(), outputType: typeof(TValue))).ToEff(),
-            }).As<TGeometry, TOut>(key: key);
 }
 
 internal static class ValidationLifts {

@@ -23,20 +23,6 @@ public abstract partial record FileArchiveSource {
     public sealed record Bytes(ReadOnlyMemory<byte> Value) : FileArchiveSource;
 }
 
-[SmartEnum<string>]
-public sealed partial class FileResourceRole {
-    public static readonly FileResourceRole Layer = new(key: "layer");
-    public static readonly FileResourceRole Material = new(key: "material");
-    public static readonly FileResourceRole Linetype = new(key: "linetype");
-    public static readonly FileResourceRole Group = new(key: "group");
-    public static readonly FileResourceRole Block = new(key: "block");
-    public static readonly FileResourceRole Instance = new(key: "instance");
-    public static readonly FileResourceRole Member = new(key: "member");
-    public static readonly FileResourceRole Linked = new(key: "linked");
-    public static readonly FileResourceRole Texture = new(key: "texture");
-    public static readonly FileResourceRole Child = new(key: "child");
-}
-
 [Union(SwitchMapStateParameterName = "ctx")]
 public abstract partial record FileArchiveQuery {
     private FileArchiveQuery() { }
@@ -53,31 +39,21 @@ public abstract partial record FileQueryResult {
     public sealed record MetadataResult(FileArchiveMetadata Metadata) : FileQueryResult;
 }
 
+[SmartEnum<string>]
+public sealed partial class FileResourceRole {
+    public static readonly FileResourceRole Layer = new(key: "layer");
+    public static readonly FileResourceRole Material = new(key: "material");
+    public static readonly FileResourceRole Linetype = new(key: "linetype");
+    public static readonly FileResourceRole Group = new(key: "group");
+    public static readonly FileResourceRole Block = new(key: "block");
+    public static readonly FileResourceRole Instance = new(key: "instance");
+    public static readonly FileResourceRole Member = new(key: "member");
+    public static readonly FileResourceRole Linked = new(key: "linked");
+    public static readonly FileResourceRole Texture = new(key: "texture");
+    public static readonly FileResourceRole Child = new(key: "child");
+}
+
 // --- [MODELS] -----------------------------------------------------------------------------
-public sealed record FileArchive(FileArchiveSource Source, FileArchiveMetadata Metadata, FileResourceGraph Resources, Seq<FileObjectManifest> Objects);
-
-public readonly record struct FileArchiveMetadata(
-    int ArchiveVersion,
-    Option<string> Notes,
-    Option<string> ApplicationName,
-    Option<string> ApplicationUrl,
-    Option<string> ApplicationDetails,
-    Option<int> Revision,
-    Option<string> CreatedBy,
-    Option<string> LastEditedBy,
-    Option<DateTime> CreatedOn,
-    Option<DateTime> LastEditedOn,
-    Option<int> PageViews,
-    bool Preview,
-    Option<UnitSystem> ModelUnits = default,
-    Option<UnitSystem> PageUnits = default,
-    Option<double> ModelAbsoluteTolerance = default,
-    Option<double> ModelAngleToleranceRadians = default,
-    Option<string> ModelUrl = default,
-    Option<Point3d> ModelBasePoint = default,
-    Option<FileGeoLocation> EarthAnchor = default,
-    Option<string> StartComments = default);
-
 public readonly partial record struct FileGeoLocation(
     Option<double> Latitude,
     Option<double> Longitude,
@@ -114,13 +90,28 @@ public readonly partial record struct FileGeoLocation(
         });
 
 }
-public readonly record struct FileResourceEdge(
-    DocumentResourceKind FromKind,
-    Option<Guid> FromId,
-    DocumentResourceKind ToKind,
-    Option<Guid> ToId,
-    FileResourceRole Role,
-    Option<string> Path = default);
+
+public readonly record struct FileArchiveMetadata(
+    int ArchiveVersion,
+    Option<string> Notes,
+    Option<string> ApplicationName,
+    Option<string> ApplicationUrl,
+    Option<string> ApplicationDetails,
+    Option<int> Revision,
+    Option<string> CreatedBy,
+    Option<string> LastEditedBy,
+    Option<DateTime> CreatedOn,
+    Option<DateTime> LastEditedOn,
+    Option<int> PageViews,
+    bool Preview,
+    Option<UnitSystem> ModelUnits = default,
+    Option<UnitSystem> PageUnits = default,
+    Option<double> ModelAbsoluteTolerance = default,
+    Option<double> ModelAngleToleranceRadians = default,
+    Option<string> ModelUrl = default,
+    Option<Point3d> ModelBasePoint = default,
+    Option<FileGeoLocation> EarthAnchor = default,
+    Option<string> StartComments = default);
 
 public readonly record struct FileResourceEntry(
     DocumentResourceKind Kind,
@@ -134,6 +125,14 @@ public readonly record struct FileResourceEntry(
     Option<Guid> RenderEngineId = default,
     Option<Guid> GroupId = default,
     Option<string> Source = default);
+
+public readonly record struct FileResourceEdge(
+    DocumentResourceKind FromKind,
+    Option<Guid> FromId,
+    DocumentResourceKind ToKind,
+    Option<Guid> ToId,
+    FileResourceRole Role,
+    Option<string> Path = default);
 
 public readonly record struct FileResourceGraph(
     int Objects,
@@ -192,7 +191,8 @@ public readonly record struct FileResourceGraph(
     }
 }
 
-// --- [OPERATIONS] -------------------------------------------------------------------------
+public sealed record FileArchive(FileArchiveSource Source, FileArchiveMetadata Metadata, FileResourceGraph Resources, Seq<FileObjectManifest> Objects);
+
 public readonly record struct FileArchiveDiff(
     Seq<FileResourceEntry> Added,
     Seq<FileResourceEntry> Removed,
@@ -215,6 +215,7 @@ public readonly record struct FileArchiveDiff(
     }
 }
 
+// --- [OPERATIONS] -------------------------------------------------------------------------
 internal static class FileArchiveOps {
     internal static Fin<FileReport> Read(FileArchiveSource source, ArchiveProfile profile) =>
         from archive in UseArchive(source: source, profile: profile, op: Op.Of(name: nameof(Read)), use: (endpoint, model, log) => Snapshot(source: source, model: model, profile: profile).Map(result => (Endpoint: endpoint, result.Archive, result.Issues, Log: log)))
@@ -305,6 +306,93 @@ internal static class FileArchiveOps {
             archive: Some(result.Archive),
             receipt: Some(result.Receipt));
 
+    internal static Fin<byte[]> Bytes(FileArchiveSource source, ArchiveProfile profile) =>
+        UseArchive(source: source, profile: profile, op: Op.Of(name: nameof(Bytes)), use: (_, model, _) =>
+            Optional(model.ToByteArray(options: FileFormat.ArchiveWriteOptions(profile: profile)))
+                .Filter(static value => value.Length > 0)
+                .ToFin(Fail: Op.Of(name: nameof(Bytes)).InvalidResult()));
+
+    internal static Fin<FileReport> Validate(FileArchiveSource source, ArchiveProfile profile, IoScheduler scheduler) =>
+        from result in UseArchive(source: source, profile: profile with { Slice = ArchiveSlice.Resources, Projection = FileArchiveProjection.Graph }, op: Op.Of(name: nameof(Validate)), use: (endpoint, model, log) =>
+            from snapshot in Snapshot(source: source, model: model, profile: profile with { Slice = ArchiveSlice.Resources, Projection = FileArchiveProjection.Graph })
+            from resourceIssues in snapshot.Archive.Resources.Validate(source: snapshot.Archive.Source, scheduler: scheduler)
+            select (Endpoint: endpoint, snapshot.Archive, Issues: snapshot.Issues + resourceIssues, Log: log))
+        select FileReport.Of(
+            phase: FilePhase.ArchiveValidate,
+            source: result.Endpoint,
+            target: Option<FileEndpoint>.None,
+            format: FormatOf(source: result.Endpoint),
+            issues: result.Issues + IssueLog(log: result.Log),
+            nativeLog: LogOption(log: result.Log),
+            archive: Some(result.Archive));
+
+    internal static Fin<FileArchiveMetadata> Inspect(FileEndpoint source) =>
+        from path in source.Input(op: Op.Of(name: nameof(Inspect)))
+        from metadata in UseArchive(
+            source: new FileArchiveSource.Path(Value: path),
+            profile: ArchiveProfile.Full with { Projection = FileArchiveProjection.Metadata },
+            op: Op.Of(name: nameof(Inspect)),
+            use: (_, model, _) => Metadata(source: new FileArchiveSource.Path(Value: path), model: model, layouts: ReadLayouts(source: new FileArchiveSource.Path(Value: path))))
+        select metadata;
+
+    internal static Fin<FileArchiveDiff> Diff(FileEndpoint source, FileEndpoint other) =>
+        from before in GraphOf(endpoint: source, op: Op.Of(name: nameof(Diff)))
+        from after in GraphOf(endpoint: other, op: Op.Of(name: nameof(Diff)))
+        select FileArchiveDiff.Of(before: before.Entries, after: after.Entries);
+
+    internal static Fin<FileQueryResult> Query(FileArchiveSource source, FileArchiveQuery query, Op op) =>
+        query.Switch(
+            (Source: source, Op: op),
+            layers: static (ctx, _) => EntryQuery(source: ctx.Source, slice: ArchiveSlice.LayerTable, kind: DocumentResourceKind.Layer, op: ctx.Op, project: static model =>
+                Rows(() => model.AllLayers).Map(layer => new FileResourceEntry(
+                    Kind: DocumentResourceKind.Layer,
+                    Name: TextOption(value: layer.FullPath),
+                    Path: Option<string>.None,
+                    Id: GuidOption(value: layer.Id),
+                    Source: Some("layer")))),
+            layoutPages: static (ctx, _) => ctx.Source is FileArchiveSource.Path
+                ? Fin.Succ<FileQueryResult>(value: new FileQueryResult.EntryResult(Kind: DocumentResourceKind.Layout, Entries: LayoutEntries(layouts: ReadLayouts(source: ctx.Source))))
+                : Fin.Fail<FileQueryResult>(error: ctx.Op.InvalidInput()),
+            archiveMetadata: static (ctx, _) => ctx.Source switch {
+                FileArchiveSource.Path path => ArchiveMetadataOf(path: path.Value.Path, op: ctx.Op).Map(static metadata => (FileQueryResult)new FileQueryResult.MetadataResult(Metadata: metadata)),
+                _ => Fin.Fail<FileQueryResult>(error: ctx.Op.InvalidInput()),
+            },
+            strings: static (ctx, _) => EntryQuery(source: ctx.Source, slice: ArchiveSlice.StringTable, kind: DocumentResourceKind.Text, op: ctx.Op, project: static model =>
+                Native(read: () => model.Strings).Map(table =>
+                    Rows(() => table.GetSectionNames()).Bind(section =>
+                        Rows(() => table.GetEntryNames(section: section)).Map(entry => new FileResourceEntry(
+                            Kind: DocumentResourceKind.Text,
+                            Name: TextOption(value: entry),
+                            Path: TextOption(value: section),
+                            Id: Option<Guid>.None,
+                            Value: TextOption(value: table.GetValue(section: section, entry: entry)),
+                            Source: Some("section"))))).IfNone(Seq<FileResourceEntry>())));
+
+    internal static Fin<T> UseArchive<T>(FileArchiveSource source, ArchiveProfile profile, Op op, Func<Option<FileEndpoint>, File3dmModel, string, Fin<T>> use) =>
+        from active in Optional(source).ToFin(Fail: op.InvalidInput())
+        from valid in Optional(use).ToFin(Fail: op.InvalidInput())
+        from result in active.Switch(
+            (Profile: profile, Op: op, Use: valid),
+            path: static (ctx, source) =>
+                from endpoint in source.Value.Input(op: ctx.Op)
+                from value in ctx.Op.Catch(() => {
+                    ArchiveSlice slice = ctx.Profile.Slice;
+                    (File3dmModel? model, string log) = slice.Filtered
+                        ? (File3dmModel.ReadWithLog(path: endpoint.Path, tableTypeFilterFilter: slice.Tables, objectTypeFilter: slice.ObjectFilter, errorLog: out string filteredLog), filteredLog)
+                        : (File3dmModel.ReadWithLog(endpoint.Path, out string fullLog), fullLog);
+                    using File3dmModel? owned = model;
+                    return Optional(owned).ToFin(Fail: ctx.Op.InvalidResult(detail: $"File3dm read failed: '{endpoint.Path}'{(string.IsNullOrEmpty(value: log) ? string.Empty : $" — {log}")}")).Bind(active => ctx.Use(arg1: Some(endpoint), arg2: active, arg3: log));
+                })
+                select value,
+            bytes: static (ctx, source) =>
+                from memory in guard(!source.Value.IsEmpty, ctx.Op.InvalidInput()).ToFin().Map(_ => source.Value)
+                from value in ctx.Op.Catch(() => {
+                    using File3dmModel? model = File3dmModel.FromByteArray(bytes: memory.ToArray());
+                    return Optional(model).ToFin(Fail: ctx.Op.InvalidResult()).Bind(active => ctx.Use(arg1: Option<FileEndpoint>.None, arg2: active, arg3: string.Empty));
+                })
+                select value)
+        select result;
+
     private static Fin<Option<DocumentResourceChange>> ApplyNamedViewPatch(File3dmViewTable table, FileNamedViewPatch patch, Op op) =>
         from name in FileEndpoint.NonBlank(value: patch.Name, op: op)
         from index in NamedViewIndex(table: table, name: name).ToFin(Fail: op.MissingContext())
@@ -346,40 +434,6 @@ internal static class FileArchiveOps {
         })
         select change;
 
-    internal static Fin<byte[]> Bytes(FileArchiveSource source, ArchiveProfile profile) =>
-        UseArchive(source: source, profile: profile, op: Op.Of(name: nameof(Bytes)), use: (_, model, _) =>
-            Optional(model.ToByteArray(options: FileFormat.ArchiveWriteOptions(profile: profile)))
-                .Filter(static value => value.Length > 0)
-                .ToFin(Fail: Op.Of(name: nameof(Bytes)).InvalidResult()));
-
-    internal static Fin<FileReport> Validate(FileArchiveSource source, ArchiveProfile profile, IoScheduler scheduler) =>
-        from result in UseArchive(source: source, profile: profile with { Slice = ArchiveSlice.Resources, Projection = FileArchiveProjection.Graph }, op: Op.Of(name: nameof(Validate)), use: (endpoint, model, log) =>
-            from snapshot in Snapshot(source: source, model: model, profile: profile with { Slice = ArchiveSlice.Resources, Projection = FileArchiveProjection.Graph })
-            from resourceIssues in snapshot.Archive.Resources.Validate(source: snapshot.Archive.Source, scheduler: scheduler)
-            select (Endpoint: endpoint, snapshot.Archive, Issues: snapshot.Issues + resourceIssues, Log: log))
-        select FileReport.Of(
-            phase: FilePhase.ArchiveValidate,
-            source: result.Endpoint,
-            target: Option<FileEndpoint>.None,
-            format: FormatOf(source: result.Endpoint),
-            issues: result.Issues + IssueLog(log: result.Log),
-            nativeLog: LogOption(log: result.Log),
-            archive: Some(result.Archive));
-
-    internal static Fin<FileArchiveMetadata> Inspect(FileEndpoint source) =>
-        from path in source.Input(op: Op.Of(name: nameof(Inspect)))
-        from metadata in UseArchive(
-            source: new FileArchiveSource.Path(Value: path),
-            profile: ArchiveProfile.Full with { Projection = FileArchiveProjection.Metadata },
-            op: Op.Of(name: nameof(Inspect)),
-            use: (_, model, _) => Metadata(source: new FileArchiveSource.Path(Value: path), model: model, layouts: ReadLayouts(source: new FileArchiveSource.Path(Value: path))))
-        select metadata;
-
-    internal static Fin<FileArchiveDiff> Diff(FileEndpoint source, FileEndpoint other) =>
-        from before in GraphOf(endpoint: source, op: Op.Of(name: nameof(Diff)))
-        from after in GraphOf(endpoint: other, op: Op.Of(name: nameof(Diff)))
-        select FileArchiveDiff.Of(before: before.Entries, after: after.Entries);
-
     private static Fin<FileResourceGraph> GraphOf(FileEndpoint endpoint, Op op) =>
         from path in endpoint.Input(op: op)
         from graph in UseArchive(
@@ -391,34 +445,6 @@ internal static class FileArchiveOps {
                 model: model,
                 profile: ArchiveProfile.Full with { Slice = ArchiveSlice.Resources, Projection = FileArchiveProjection.Graph }).Map(static result => result.Archive.Resources))
         select graph;
-
-    internal static Fin<FileQueryResult> Query(FileArchiveSource source, FileArchiveQuery query, Op op) =>
-        query.Switch(
-            (Source: source, Op: op),
-            layers: static (ctx, _) => EntryQuery(source: ctx.Source, slice: ArchiveSlice.LayerTable, kind: DocumentResourceKind.Layer, op: ctx.Op, project: static model =>
-                Rows(() => model.AllLayers).Map(layer => new FileResourceEntry(
-                    Kind: DocumentResourceKind.Layer,
-                    Name: TextOption(value: layer.FullPath),
-                    Path: Option<string>.None,
-                    Id: GuidOption(value: layer.Id),
-                    Source: Some("layer")))),
-            layoutPages: static (ctx, _) => ctx.Source is FileArchiveSource.Path
-                ? Fin.Succ<FileQueryResult>(value: new FileQueryResult.EntryResult(Kind: DocumentResourceKind.Layout, Entries: LayoutEntries(layouts: ReadLayouts(source: ctx.Source))))
-                : Fin.Fail<FileQueryResult>(error: ctx.Op.InvalidInput()),
-            archiveMetadata: static (ctx, _) => ctx.Source switch {
-                FileArchiveSource.Path path => ArchiveMetadataOf(path: path.Value.Path, op: ctx.Op).Map(static metadata => (FileQueryResult)new FileQueryResult.MetadataResult(Metadata: metadata)),
-                _ => Fin.Fail<FileQueryResult>(error: ctx.Op.InvalidInput()),
-            },
-            strings: static (ctx, _) => EntryQuery(source: ctx.Source, slice: ArchiveSlice.StringTable, kind: DocumentResourceKind.Text, op: ctx.Op, project: static model =>
-                Native(read: () => model.Strings).Map(table =>
-                    Rows(() => table.GetSectionNames()).Bind(section =>
-                        Rows(() => table.GetEntryNames(section: section)).Map(entry => new FileResourceEntry(
-                            Kind: DocumentResourceKind.Text,
-                            Name: TextOption(value: entry),
-                            Path: TextOption(value: section),
-                            Id: Option<Guid>.None,
-                            Value: TextOption(value: table.GetValue(section: section, entry: entry)),
-                            Source: Some("section"))))).IfNone(Seq<FileResourceEntry>())));
 
     private static Fin<FileQueryResult> EntryQuery(FileArchiveSource source, ArchiveSlice slice, DocumentResourceKind kind, Op op, Func<File3dmModel, Seq<FileResourceEntry>> project) =>
         UseArchive(
@@ -446,31 +472,6 @@ internal static class FileArchiveOps {
                 PageViews: Option<int>.None,
                 Preview: false));
         });
-
-    internal static Fin<T> UseArchive<T>(FileArchiveSource source, ArchiveProfile profile, Op op, Func<Option<FileEndpoint>, File3dmModel, string, Fin<T>> use) =>
-        from active in Optional(source).ToFin(Fail: op.InvalidInput())
-        from valid in Optional(use).ToFin(Fail: op.InvalidInput())
-        from result in active.Switch(
-            (Profile: profile, Op: op, Use: valid),
-            path: static (ctx, source) =>
-                from endpoint in source.Value.Input(op: ctx.Op)
-                from value in ctx.Op.Catch(() => {
-                    ArchiveSlice slice = ctx.Profile.Slice;
-                    (File3dmModel? model, string log) = slice.Filtered
-                        ? (File3dmModel.ReadWithLog(path: endpoint.Path, tableTypeFilterFilter: slice.Tables, objectTypeFilter: slice.ObjectFilter, errorLog: out string filteredLog), filteredLog)
-                        : (File3dmModel.ReadWithLog(endpoint.Path, out string fullLog), fullLog);
-                    using File3dmModel? owned = model;
-                    return Optional(owned).ToFin(Fail: ctx.Op.InvalidResult(detail: $"File3dm read failed: '{endpoint.Path}'{(string.IsNullOrEmpty(value: log) ? string.Empty : $" — {log}")}")).Bind(active => ctx.Use(arg1: Some(endpoint), arg2: active, arg3: log));
-                })
-                select value,
-            bytes: static (ctx, source) =>
-                from memory in guard(!source.Value.IsEmpty, ctx.Op.InvalidInput()).ToFin().Map(_ => source.Value)
-                from value in ctx.Op.Catch(() => {
-                    using File3dmModel? model = File3dmModel.FromByteArray(bytes: memory.ToArray());
-                    return Optional(model).ToFin(Fail: ctx.Op.InvalidResult()).Bind(active => ctx.Use(arg1: Option<FileEndpoint>.None, arg2: active, arg3: string.Empty));
-                })
-                select value)
-        select result;
 
     private static Fin<(FileArchive Archive, Seq<FileIssue> Issues)> Snapshot(FileArchiveSource source, File3dmModel model, ArchiveProfile profile) =>
         profile.Projection switch {
@@ -506,6 +507,7 @@ internal static class FileArchiveOps {
             // "3dm" is a guaranteed builtin key; the fail rail is unreachable but keeps FormatOf total.
             _ => FileFormat.KnownFormat(key: "3dm", op: Op.Of(name: nameof(FormatOf))).ToOption(),
         };
+
     private static Fin<(FileResourceGraph Graph, Seq<FileIssue> Issues)> Resources(File3dmModel model, FileArchiveSource source, Seq<(string Name, Guid Id)> layouts) {
         Op key = Op.Of(name: nameof(Resources));
         Option<string> archivePath = source switch {
@@ -538,6 +540,7 @@ internal static class FileArchiveOps {
                     Issues: Seq(FileIssue.Native(message: error.Message)) + LayoutIssues(source: source)))))
             .BindFail(static error => Fin.Succ(value: (Graph: default(FileResourceGraph), Issues: Seq(FileIssue.Native(message: error.Message)))));
     }
+
     private static FileResourceGraph ResourceGraphOf(File3dmModel model, Blocks.Archive.Graph blockGraph, Seq<string> linked, Seq<(string Name, Guid Id)> layouts) {
         Seq<File3dmObject> objects = Rows(() => model.Objects);
         Seq<Layer> layers = Rows(() => model.AllLayers);

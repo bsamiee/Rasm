@@ -26,6 +26,17 @@ public sealed partial class ArchiveStatus {
 
     public InstanceDefinitionArchiveFileStatus Native { get; }
 
+    public static ArchiveStatus FromNative(InstanceDefinitionArchiveFileStatus native) =>
+        native switch {
+            InstanceDefinitionArchiveFileStatus.LinkedFileNotReadable => LinkedFileNotReadable,
+            InstanceDefinitionArchiveFileStatus.LinkedFileNotFound => LinkedFileNotFound,
+            InstanceDefinitionArchiveFileStatus.LinkedFileIsUpToDate => LinkedFileIsUpToDate,
+            InstanceDefinitionArchiveFileStatus.LinkedFileIsNewer => LinkedFileIsNewer,
+            InstanceDefinitionArchiveFileStatus.LinkedFileIsOlder => LinkedFileIsOlder,
+            InstanceDefinitionArchiveFileStatus.LinkedFileIsDifferent => LinkedFileIsDifferent,
+            _ => NotALinked,
+        };
+
     public bool RequiresRefresh =>
         Native is not InstanceDefinitionArchiveFileStatus.LinkedFileIsUpToDate
             and not InstanceDefinitionArchiveFileStatus.NotALinkedInstanceDefinition;
@@ -39,25 +50,21 @@ public sealed partial class ArchiveStatus {
     public bool IsBroken =>
         Native is InstanceDefinitionArchiveFileStatus.LinkedFileNotReadable
             or InstanceDefinitionArchiveFileStatus.LinkedFileNotFound;
+}
 
-    public static ArchiveStatus FromNative(InstanceDefinitionArchiveFileStatus native) =>
-        native switch {
-            InstanceDefinitionArchiveFileStatus.LinkedFileNotReadable => LinkedFileNotReadable,
-            InstanceDefinitionArchiveFileStatus.LinkedFileNotFound => LinkedFileNotFound,
-            InstanceDefinitionArchiveFileStatus.LinkedFileIsUpToDate => LinkedFileIsUpToDate,
-            InstanceDefinitionArchiveFileStatus.LinkedFileIsNewer => LinkedFileIsNewer,
-            InstanceDefinitionArchiveFileStatus.LinkedFileIsOlder => LinkedFileIsOlder,
-            InstanceDefinitionArchiveFileStatus.LinkedFileIsDifferent => LinkedFileIsDifferent,
-            _ => NotALinked,
-        };
+[Union(SwitchMapStateParameterName = "policy")]
+public abstract partial record BasePointPolicy {
+    private BasePointPolicy() { }
+    public sealed record Preserve() : BasePointPolicy;
+    public sealed record Compensate() : BasePointPolicy;
+    public sealed record StripScale() : BasePointPolicy;
+    public static BasePointPolicy Default { get; } = new Preserve();
 }
 
 [Union]
 public abstract partial record BlockDiagnostic {
     private BlockDiagnostic() { }
 
-    public static BlockDiagnostic SilentUserStrings(DefinitionId id) =>
-        new SilentUserStringMutation(Id: id);
     public sealed record NotFound(DefinitionRef Ref) : BlockDiagnostic;
     public sealed record DuplicateName(DefinitionName Name, DefinitionId Existing) : BlockDiagnostic;
     public sealed record ConflictFailed(DefinitionName Name, DefinitionId Existing) : BlockDiagnostic;
@@ -69,6 +76,9 @@ public abstract partial record BlockDiagnostic {
     public sealed record SilentUserStringMutation(DefinitionId Id) : BlockDiagnostic;
     public sealed record InvalidLayerStyle(DefinitionId Id, UpdatePolicy Update, LayerStyle Layer) : BlockDiagnostic;
     public sealed record LinkedArchiveIssue(DefinitionId Id, ArchiveStatus Status) : BlockDiagnostic;
+
+    public static BlockDiagnostic SilentUserStrings(DefinitionId id) =>
+        new SilentUserStringMutation(Id: id);
 }
 
 [SmartEnum<int>]
@@ -180,14 +190,14 @@ public abstract partial record DefinitionRef {
             byPath: static (_, _) => false);
 }
 
+public enum DependencyProbeUsage { Layer, Linetype, InUse }
+
 [Union]
 public abstract partial record DependencyProbe {
     private DependencyProbe() { }
     public sealed record DefinitionDepth(int Depth) : DependencyProbe;
     public sealed record Usage(DependencyProbeUsage Kind, bool Used) : DependencyProbe;
 }
-
-public enum DependencyProbeUsage { Layer, Linetype, InUse }
 
 [Union]
 public abstract partial record DependencyTarget {
@@ -212,6 +222,14 @@ public abstract partial record DisplayModeRef {
     public sealed record ById(Guid Id) : DisplayModeRef;
     public sealed record ByName(string Name) : DisplayModeRef;
 
+    // Native ids P/Invoke rhcommon_c; defer the table build so touching DisplayModeRef statics never loads the native layer.
+    private static readonly Lazy<FrozenDictionary<Guid, DisplayMode>> NativeModes =
+        new(static () => new Dictionary<Guid, DisplayMode> {
+            [DisplayModeDescription.WireframeId] = DisplayMode.Wireframe,
+            [DisplayModeDescription.ShadedId] = DisplayMode.Shaded,
+            [DisplayModeDescription.RenderedId] = DisplayMode.RenderPreview,
+        }.ToFrozenDictionary());
+
     public static readonly DisplayModeRef Wireframe = new WireframeCase();
     public static DisplayModeRef Of(Guid id) => new ById(Id: id);
     public static DisplayModeRef Of(string name) => new ByName(Name: name);
@@ -223,14 +241,6 @@ public abstract partial record DisplayModeRef {
             byName: static (k, r) => Optional(DisplayModeDescription.FindByName(englishName: r.Name))
                 .Map(static desc => desc.Id)
                 .ToFin(Fail: k.InvalidInput()));
-
-    // Native ids P/Invoke rhcommon_c; defer the table build so touching DisplayModeRef statics never loads the native layer.
-    private static readonly Lazy<FrozenDictionary<Guid, DisplayMode>> NativeModes =
-        new(static () => new Dictionary<Guid, DisplayMode> {
-            [DisplayModeDescription.WireframeId] = DisplayMode.Wireframe,
-            [DisplayModeDescription.ShadedId] = DisplayMode.Shaded,
-            [DisplayModeDescription.RenderedId] = DisplayMode.RenderPreview,
-        }.ToFrozenDictionary());
 
     internal static Fin<DisplayMode> NativeMode(Guid displayId, Op op) =>
         NativeModes.Value.TryGetValue(key: displayId, value: out DisplayMode mode)
@@ -297,18 +307,18 @@ public sealed partial class LayerStyle {
 
     public InstanceDefinitionLayerStyle Native { get; }
 
-    internal bool AppliesTo(UpdatePolicy policy) =>
-        Key switch {
-            0 => policy != UpdatePolicy.Linked,
-            1 or 2 => policy == UpdatePolicy.Linked,
-            _ => false,
-        };
-
     public static LayerStyle FromNative(InstanceDefinitionLayerStyle native) =>
         native switch {
             InstanceDefinitionLayerStyle.Active => Active,
             InstanceDefinitionLayerStyle.Reference => Reference,
             _ => None,
+        };
+
+    internal bool AppliesTo(UpdatePolicy policy) =>
+        Key switch {
+            0 => policy != UpdatePolicy.Linked,
+            1 or 2 => policy == UpdatePolicy.Linked,
+            _ => false,
         };
 }
 
@@ -335,12 +345,6 @@ public abstract partial record Members {
     public sealed record FromDocument(Seq<Guid> Sources) : Members;
     public sealed record FromConstruction(Seq<GeometryBase> Geometry, Seq<ObjectAttributes> Attributes) : Members;
 
-    internal static ObjectAttributes SanitizeAttributes(ObjectAttributes attributes) {
-        ObjectAttributes copy = attributes.Duplicate();
-        copy.ObjectId = Guid.Empty;
-        return copy;
-    }
-
     public static Fin<Provided> OfProvided(Seq<GeometryBase> geometry, Seq<ObjectAttributes>? attributes = null, Op? key = null) {
         Op op = key.OrDefault();
         Seq<ObjectAttributes> attrs = (attributes ?? geometry.Map(static _ => new ObjectAttributes()))
@@ -355,6 +359,12 @@ public abstract partial record Members {
         OfProvided(geometry: geometry, attributes: attributes, key: key).Map(static p => (Members)p);
 
     public static Members From(Seq<Guid> sources) => new FromDocument(Sources: sources);
+
+    internal static ObjectAttributes SanitizeAttributes(ObjectAttributes attributes) {
+        ObjectAttributes copy = attributes.Duplicate();
+        copy.ObjectId = Guid.Empty;
+        return copy;
+    }
 }
 
 [SmartEnum<int>]
@@ -402,13 +412,6 @@ public sealed partial class UpdatePolicy {
 #pragma warning restore CS0618
 
     public InstanceDefinitionUpdateType Native { get; }
-    public bool IsLinked => this == Linked || this == LinkedAndEmbedded || this == Embedded;
-
-    public Fin<Unit> RequireLinked(Op key) =>
-        guard(IsLinked, key.InvalidInput()).ToFin();
-
-    public Fin<Unit> RejectLinkedModify(Op key) =>
-        guard(!IsLinked, key.InvalidInput()).ToFin();
 
     public static UpdatePolicy FromNative(InstanceDefinitionUpdateType native) =>
         native switch {
@@ -419,6 +422,14 @@ public sealed partial class UpdatePolicy {
 #pragma warning restore CS0618
             _ => Static,
         };
+
+    public bool IsLinked => this == Linked || this == LinkedAndEmbedded || this == Embedded;
+
+    public Fin<Unit> RequireLinked(Op key) =>
+        guard(IsLinked, key.InvalidInput()).ToFin();
+
+    public Fin<Unit> RejectLinkedModify(Op key) =>
+        guard(!IsLinked, key.InvalidInput()).ToFin();
 }
 
 // --- [MODELS] -----------------------------------------------------------------------------
@@ -535,6 +546,12 @@ public sealed record AuthorSpec(
     MetadataPatch Metadata,
     Option<FileEndpoint> Source = default) {
 
+    private static readonly (Func<AuthorSpec, InstanceDefinition, DefinitionId, bool> When, Func<DefinitionId, AuthorSpec, InstanceDefinition, BlockDiagnostic> Make)[] CreateDiagnosticRules = [
+        (static (spec, _, _) => !spec.Metadata.UserStrings.IsEmpty, static (id, _, _) => BlockDiagnostic.SilentUserStrings(id: id)),
+        (static (spec, live, _) => spec.Update.IsLinked && Definition.NonBlank(value: live.SourceArchive).IsNone, static (id, spec, _) => new BlockDiagnostic.SourceArchiveRequired(Id: id, Requested: spec.Update)),
+        (static (spec, live, _) => live.LayerStyle != spec.Layer.Native, static (id, _, live) => new BlockDiagnostic.LinkedSetterIgnored(Id: id, Actual: UpdatePolicy.FromNative(native: live.UpdateType))),
+    ];
+
     public static Fin<AuthorSpec> Of(
         DefinitionName name,
         Point3d basePoint,
@@ -560,12 +577,6 @@ public sealed record AuthorSpec(
 
     public Fin<AuthorSpec> Admit(Op key) =>
         Of(name: Name, basePoint: BasePoint, update: Update, layer: Layer, source: Source, metadata: Metadata, key: key);
-
-    private static readonly (Func<AuthorSpec, InstanceDefinition, DefinitionId, bool> When, Func<DefinitionId, AuthorSpec, InstanceDefinition, BlockDiagnostic> Make)[] CreateDiagnosticRules = [
-        (static (spec, _, _) => !spec.Metadata.UserStrings.IsEmpty, static (id, _, _) => BlockDiagnostic.SilentUserStrings(id: id)),
-        (static (spec, live, _) => spec.Update.IsLinked && Definition.NonBlank(value: live.SourceArchive).IsNone, static (id, spec, _) => new BlockDiagnostic.SourceArchiveRequired(Id: id, Requested: spec.Update)),
-        (static (spec, live, _) => live.LayerStyle != spec.Layer.Native, static (id, _, live) => new BlockDiagnostic.LinkedSetterIgnored(Id: id, Actual: UpdatePolicy.FromNative(native: live.UpdateType))),
-    ];
 
     public Seq<BlockDiagnostic> CreateDiagnostics(DefinitionId id, InstanceDefinition live) =>
         toSeq(CreateDiagnosticRules)
@@ -725,15 +736,6 @@ public readonly record struct BlockTableEvent(
     }
 }
 
-[Union(SwitchMapStateParameterName = "policy")]
-public abstract partial record BasePointPolicy {
-    private BasePointPolicy() { }
-    public sealed record Preserve() : BasePointPolicy;
-    public sealed record Compensate() : BasePointPolicy;
-    public sealed record StripScale() : BasePointPolicy;
-    public static BasePointPolicy Default { get; } = new Preserve();
-}
-
 public readonly record struct BoundsPolicy(bool Accurate = true, BoundsSpace? Space = null) {
     public static BoundsPolicy Default { get; } = new(Accurate: true);
     private BoundsSpace EffectiveSpace => Space ?? BoundsSpace.Definition;
@@ -771,27 +773,6 @@ public sealed record Definition(
     ImmutableArray<Guid> MemberIds,
     Option<LiveStats> Live) {
 
-    public bool IsArchiveOnly => Live.IsNone;
-    public bool IsLinked => Source.IsSome;
-
-    public AuditGraph.Node ToAuditNode() => new(
-        Id: Id,
-        Name: Name,
-        Members: MemberIds,
-        Update: Live.Map(static live => live.Update).IfNone(UpdatePolicy.Static),
-        Archive: Live.Map(static live => live.Archive).IfNone(ArchiveStatus.NotALinked),
-        Source: Source);
-
-    internal static Seq<InstanceDefinition> List(InstanceDefinitionTable table, bool ignoreDeleted = true) {
-        ArgumentNullException.ThrowIfNull(argument: table);
-        return toSeq(table.GetList(ignoreDeleted: ignoreDeleted)).Choose(static d => Optional(d));
-    }
-    public Option<LinkedHealth> ToLinkedHealth() =>
-        Live.Map(live => new LinkedHealth(
-            Id: Id, Name: Name, Source: Source,
-            Update: live.Update, Layer: live.Layer, Archive: live.Archive, Live: live,
-            Diagnostics: (live.Layer.AppliesTo(policy: live.Update) ? Seq<BlockDiagnostic>() : Seq<BlockDiagnostic>(new BlockDiagnostic.InvalidLayerStyle(Id: Id, Update: live.Update, Layer: live.Layer)))
-                + (Source.IsNone || live.Archive.IsBroken ? Seq<BlockDiagnostic>(new BlockDiagnostic.LinkedArchiveIssue(Id: Id, Status: live.Archive)) : Seq<BlockDiagnostic>())));
     public static Fin<Definition> From(InstanceDefinitionGeometry definition, Option<string> anchorDirectory = default, Op? key = null) {
         Op op = key.OrDefault();
         InstanceDefinition? active = definition as InstanceDefinition;
@@ -812,6 +793,29 @@ public sealed record Definition(
                                .Bind(v => ArchiveLink.Resolve(raw: v, anchorDirectory: anchorDirectory, key: op).ToOption()),
                            MemberIds: d.GetObjectIds() is Guid[] ids ? [.. ids] : [],
                            Live: active is null ? Option<LiveStats>.None : Some(value: LiveStats.From(active: active))));
+    }
+
+    public bool IsArchiveOnly => Live.IsNone;
+    public bool IsLinked => Source.IsSome;
+
+    public AuditGraph.Node ToAuditNode() => new(
+        Id: Id,
+        Name: Name,
+        Members: MemberIds,
+        Update: Live.Map(static live => live.Update).IfNone(UpdatePolicy.Static),
+        Archive: Live.Map(static live => live.Archive).IfNone(ArchiveStatus.NotALinked),
+        Source: Source);
+
+    public Option<LinkedHealth> ToLinkedHealth() =>
+        Live.Map(live => new LinkedHealth(
+            Id: Id, Name: Name, Source: Source,
+            Update: live.Update, Layer: live.Layer, Archive: live.Archive, Live: live,
+            Diagnostics: (live.Layer.AppliesTo(policy: live.Update) ? Seq<BlockDiagnostic>() : Seq<BlockDiagnostic>(new BlockDiagnostic.InvalidLayerStyle(Id: Id, Update: live.Update, Layer: live.Layer)))
+                + (Source.IsNone || live.Archive.IsBroken ? Seq<BlockDiagnostic>(new BlockDiagnostic.LinkedArchiveIssue(Id: Id, Status: live.Archive)) : Seq<BlockDiagnostic>())));
+
+    internal static Seq<InstanceDefinition> List(InstanceDefinitionTable table, bool ignoreDeleted = true) {
+        ArgumentNullException.ThrowIfNull(argument: table);
+        return toSeq(table.GetList(ignoreDeleted: ignoreDeleted)).Choose(static d => Optional(d));
     }
 
     internal static Option<string> NonBlank(string? value) =>
@@ -1019,8 +1023,6 @@ public sealed record MetadataPatch(
 public sealed record MutationReceipt(DocumentReceipt Document, Seq<BlockDiagnostic> Diagnostics) : Monoid<MutationReceipt> {
     public static MutationReceipt Empty { get; } = new(Document: DocumentReceipt.Empty, Diagnostics: Seq<BlockDiagnostic>());
 
-    public MutationReceipt Combine(MutationReceipt rhs) => this + rhs;
-
     public static MutationReceipt Of(DocumentReceipt receipt) => new(Document: receipt, Diagnostics: Seq<BlockDiagnostic>());
     public static MutationReceipt Of(DocumentReceipt receipt, Seq<BlockDiagnostic> diagnostics) => new(Document: receipt, Diagnostics: diagnostics);
     public static MutationReceipt Resources(Seq<DocumentResourceChange> changes) =>
@@ -1048,6 +1050,8 @@ public sealed record MutationReceipt(DocumentReceipt Document, Seq<BlockDiagnost
         Of(receipt: DocumentReceipt.Resource(kind: DocumentResourceKind.Block, name: name));
 
     public bool HasDiagnostics => !Diagnostics.IsEmpty;
+
+    public MutationReceipt Combine(MutationReceipt rhs) => this + rhs;
 
     public static MutationReceipt operator +(MutationReceipt a, MutationReceipt b) {
         ArgumentNullException.ThrowIfNull(argument: a);
@@ -1096,13 +1100,6 @@ public sealed record PreviewSpec(
 
     public static PreviewSpec Default { get; } = new(Width: DefaultSize, Height: DefaultSize);
 
-    public DisplayModeRef ResolvedMode => DisplayMode ?? DisplayModeRef.Wireframe;
-
-    public PreviewFingerprint Fingerprint => new(Value: FingerprintParts().Fold(initialState: Fnv64.Offset, f: Fnv64.Mix));
-
-    public Fin<PreviewSpec> Admit(Op key) =>
-        Of(Width, Height, DisplayMode, Projection, Camera, DrawDecorations, ApplyDpiScaling, HighlightMemberId, key);
-
     public static Fin<PreviewSpec> Of(
         int width, int height,
         DisplayModeRef? displayMode = null,
@@ -1120,6 +1117,13 @@ public sealed record PreviewSpec(
                 HighlightMemberId: highlightMemberId)),
             _ => Fin.Fail<PreviewSpec>(error: key.OrDefault().InvalidInput()),
         };
+
+    public DisplayModeRef ResolvedMode => DisplayMode ?? DisplayModeRef.Wireframe;
+
+    public PreviewFingerprint Fingerprint => new(Value: FingerprintParts().Fold(initialState: Fnv64.Offset, f: Fnv64.Mix));
+
+    public Fin<PreviewSpec> Admit(Op key) =>
+        Of(Width, Height, DisplayMode, Projection, Camera, DrawDecorations, ApplyDpiScaling, HighlightMemberId, key);
 
     private static ulong DisplayHash(DisplayModeRef mode) =>
         mode.Switch(
@@ -1173,13 +1177,16 @@ public readonly record struct WatchPolicy(TimeSpan Debounce, TimeProvider? Clock
     public static readonly TimeSpan DefaultDebounce = TimeSpan.FromMilliseconds(value: 500);
     public static readonly TimeSpan MaxDebounce = TimeSpan.FromMinutes(value: 5);
     public static WatchPolicy Default { get; } = new(Debounce: DefaultDebounce);
+
+    public static Fin<WatchPolicy> Of(TimeSpan debounce, Op? key = null) =>
+        new WatchPolicy(Debounce: debounce).Admit(key: key.OrDefault());
+
     public TimeProvider EffectiveClock => Clock ?? TimeProvider.System;
+
     public Fin<WatchPolicy> Admit(Op key) =>
         Debounce > TimeSpan.Zero && Debounce <= MaxDebounce
             ? Fin.Succ(value: this)
             : Fin.Fail<WatchPolicy>(error: key.InvalidInput());
-    public static Fin<WatchPolicy> Of(TimeSpan debounce, Op? key = null) =>
-        new WatchPolicy(Debounce: debounce).Admit(key: key.OrDefault());
 }
 
 [StructLayout(LayoutKind.Auto)]
@@ -1232,12 +1239,12 @@ internal static class Fnv64 {
             : value.ToByteArray().Aggregate(seed: seed, func: static (acc, b) => Mix(acc: acc, v: b));
     }
 
+    internal static ulong HashText(string value, ulong seed = Offset) =>
+        value.Aggregate(seed: seed, func: static (acc, ch) => Mix(acc: acc, v: ch));
+
     private static ulong HashBytes(ReadOnlySpan<byte> values, ulong seed) {
         ulong acc = seed;
         foreach (byte b in values) acc = Mix(acc: acc, v: b); // BOUNDARY ADAPTER — span foreach is zero-alloc value-type enumeration; no LanguageExt combinator exists for ReadOnlySpan<byte>.
         return acc;
     }
-
-    internal static ulong HashText(string value, ulong seed = Offset) =>
-        value.Aggregate(seed: seed, func: static (acc, ch) => Mix(acc: acc, v: ch));
 }

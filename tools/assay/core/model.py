@@ -150,7 +150,6 @@ class SymbolShape(StrEnum):
     SEARCH = "search"
 
 
-type Parser = Callable[[Completed], AnyDetail | None]
 type InprocThunk = Callable[[Check], Completed]
 
 
@@ -170,7 +169,7 @@ class ResourceBusyError(Exception):
 # --- [MODELS] ---------------------------------------------------------------------------
 
 
-class Base(msgspec.Struct, frozen=True, gc=False, omit_defaults=True, repr_omit_defaults=True):
+class Base(msgspec.Struct, frozen=True, gc=False, omit_defaults=True, repr_omit_defaults=True, forbid_unknown_fields=True):
     """Base msgspec wire policy shared by assay structs."""
 
 
@@ -197,7 +196,6 @@ class Tool(Base, frozen=True, cache_hash=True):
     claim: Claim
     mode: Mode = Mode.CHECK
     timeout: Annotated[float, msgspec.Meta(gt=0)] | None = None
-    parser: Parser | None = None
     thunk: InprocThunk | None = None
     stage: Stage = Stage()
 
@@ -207,9 +205,6 @@ class Check(Base, frozen=True, cache_hash=True):
 
     tool: Tool
     paths: tuple[str, ...] = ()
-    owner: str = ""
-    solution: str = ""
-    glob: str = ""
     cwd: Path | None = None
 
 
@@ -579,7 +574,6 @@ __all__ = [
     "Mode",
     "MutationLane",
     "PackageRun",
-    "Parser",
     "Report",
     "ResourceBusyError",
     "RunDelta",

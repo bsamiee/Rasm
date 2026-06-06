@@ -105,156 +105,6 @@ public sealed partial record CommandSelection {
     internal Seq<Reference> ObjectTargets =>
         toSeq(Items.DistinctBy(static item => (item.ObjectId, item.RuntimeSerialNumber)));
 
-    public Fin<Seq<T>> Project<T>(Func<Reference, Fin<T>> project) => Optional(project).ToFin(Fail: Op.Of(name: nameof(Project)).InvalidInput()).Bind(valid => Items.TraverseM(reference => valid(arg: reference)).As());
-
-    public Fin<Seq<T>> Project<T>(CommandObjectSelection policy, Func<Reference, Fin<T>> project) =>
-        from trimmed in Trim(policy: policy)
-        from values in trimmed.Project(project: project)
-        select values;
-
-    public Fin<Seq<TGeometry>> Geometry<TGeometry>() where TGeometry : GeometryBase =>
-        Project(project: reference => reference.Geometry<TGeometry>(document: Document));
-
-    public Fin<Reference> Single() =>
-        Items.Count switch {
-            1 => Fin.Succ(value: Items[0]),
-            _ => Fin.Fail<Reference>(error: Op.Of(name: nameof(Single)).InvalidInput()),
-        };
-
-    public Fin<CommandSelection> Trim(CommandObjectSelection policy) =>
-        from trimmed in Trimmed(policy: policy)
-        from selection in trimmed.Require(policy: policy)
-        select selection;
-
-    public Fin<TrimResult> Trimmed(CommandObjectSelection policy) =>
-        from active in Optional(policy).ToFin(Fail: Op.Of(name: nameof(Trimmed)).InvalidInput())
-        let values = toSeq(Items
-            .Filter(item => active.SubObjects || !item.IsSubObject)
-            .Filter(item => item.Preselected || active.AlreadySelected || !item.Selected)
-            .Filter(item => active.References || !item.IsReference)
-            .Filter(item => active.Locked || !item.IsLocked)
-            .Filter(item => !active.IgnoreGrips || !item.IsGrip)
-            .DistinctBy(static item => (item.ObjectId, item.RuntimeSerialNumber, item.ComponentIndex.ComponentIndexType, item.ComponentIndex.Index)))
-        select new TrimResult(Selection: new CommandSelection(document: Document, items: values), Accepted: values.Count, Rejected: Math.Max(0, Items.Count - values.Count));
-
-    public readonly record struct TrimResult(CommandSelection Selection, int Accepted, int Rejected) {
-        public Fin<CommandSelection> Require(CommandObjectSelection policy) {
-            int accepted = Accepted;
-            CommandSelection selection = Selection;
-            return
-            from active in Optional(policy).ToFin(Fail: Op.Of(name: nameof(TrimResult)).InvalidInput())
-            from _ in guard(accepted >= active.Minimum && (active.Maximum < 0 || accepted <= active.Maximum), Op.Of(name: nameof(TrimResult)).InvalidInput())
-            select selection;
-        }
-
-        public Fin<CommandSelection> RequireAny() {
-            int accepted = Accepted;
-            CommandSelection selection = Selection;
-            return accepted switch {
-                > 0 => Fin.Succ(value: selection),
-                _ => Fin.Fail<CommandSelection>(error: Op.Of(name: nameof(TrimResult)).InvalidResult()),
-            };
-        }
-    }
-
-    public static Fin<CommandSelection> Pick(RhinoDoc document, CommandPickPolicy policy) =>
-        new SelectionSource.PickPolicy(policy).Read(document: document);
-
-    public static Fin<CommandSelection> Pick(RhinoDoc document, PickContext context) =>
-        new SelectionSource.Context(Value: context, UpdateClippingPlanes: true).Read(document: document);
-
-    internal static Fin<CommandSelection> FromGetter(RhinoDoc document, GetObject getter, GetResult raw) =>
-        new SelectionSource.Getter(Source: getter, Raw: raw).Read(document: document);
-
-    [Union(SwitchMapStateParameterName = "document")]
-    private abstract partial record SelectionSource {
-        private SelectionSource() { }
-        public sealed record PickPolicy(CommandPickPolicy Policy) : SelectionSource;
-        public sealed record Context(PickContext Value, bool UpdateClippingPlanes) : SelectionSource;
-        public sealed record Getter(GetObject Source, GetResult Raw) : SelectionSource;
-
-        internal Fin<CommandSelection> Read(RhinoDoc document) =>
-            Switch(
-                document,
-                pickPolicy: static (doc, source) =>
-                    from valid in Optional(source.Policy).ToFin(Fail: Op.Of(name: nameof(Pick)).InvalidInput())
-                    from selection in valid.Use(document: doc, use: context => new Context(Value: context, UpdateClippingPlanes: valid.UpdateClippingPlanes).Read(document: doc))
-                    select selection,
-                context: static (doc, source) => PickWith(document: doc, context: source.Value, updateClippingPlanes: source.UpdateClippingPlanes),
-                getter: static (doc, source) =>
-                    source.Raw is GetResult.Object && source.Source.Objects() is ObjRef[] references
-                    ? Fin.Succ(value: From(
-                        document: doc,
-                        references: toSeq(references),
-                        preselected: source.Source.ObjectsWerePreselected
-                            ? toSeq(references)
-                                .Filter(static reference => Optional(reference.Object()).Map(static item => item.IsSelected(checkSubObjects: true) > 0).IfNone(noneValue: false))
-                                .Map(static reference => (reference.ObjectId, reference.GeometryComponentIndex))
-                            : Seq<(Guid ObjectId, ComponentIndex ComponentIndex)>()))
-                    : Fin.Fail<CommandSelection>(error: Op.Of(name: nameof(FromGetter)).InvalidResult()));
-
-        private static Fin<CommandSelection> PickWith(RhinoDoc document, PickContext context, bool updateClippingPlanes) =>
-        from validDocument in Optional(document).ToFin(Fail: Op.Of(name: nameof(Pick)).InvalidInput())
-        from validContext in Optional(context).ToFin(Fail: Op.Of(name: nameof(Pick)).InvalidInput())
-        from _view in updateClippingPlanes && validContext.View is null
-            ? Optional(validDocument.Views.ActiveView)
-                .ToFin(Fail: Op.Of(name: nameof(Pick)).MissingContext())
-                .Map(view => { validContext.View = view; return unit; })
-            : Fin.Succ(value: unit)
-        from selection in UI.RhinoUi.Protect(valid: () => {
-            _ = Op.SideWhen(updateClippingPlanes, validContext.UpdateClippingPlanes);
-            return Optional(validDocument.Objects.PickObjects(pickContext: validContext)).ToFin(Fail: Op.Of(name: nameof(Pick)).InvalidResult()).Bind(references => references switch { { Length: > 0 } values => Fin.Succ(value: From(document: validDocument, references: toSeq(values), preselected: Seq<(Guid ObjectId, ComponentIndex ComponentIndex)>())), _ => Fin.Fail<CommandSelection>(error: Op.Of(name: nameof(Pick)).InvalidResult()) });
-        })
-        select selection;
-    }
-
-    private readonly ref struct ObjRefs {
-        private ObjRefs(Seq<ObjRef> refs) => Values = refs;
-        public static ObjRefs FromReferences(Seq<Reference> items, RhinoDoc document) =>
-            new(items.Map(r => r.ObjRef(document: document)));
-        public static ObjRefs FromObjRefs(Seq<ObjRef> source) => new(source);
-        public Seq<ObjRef> Values { get; }
-        public void Dispose() => Values.Iter(static r => r.Dispose());
-    }
-
-    internal static CommandSelection From(RhinoDoc document, Seq<ObjRef> references, Seq<(Guid ObjectId, ComponentIndex ComponentIndex)> preselected) {
-        ArgumentNullException.ThrowIfNull(argument: document);
-        using ObjRefs source = ObjRefs.FromObjRefs(references);
-        Reference[] snapshots = [.. source.Values.Map(reference => Reference.Of(
-            document: document,
-            reference: reference,
-            preselected: preselected.Exists(item => item.ObjectId == reference.ObjectId && item.ComponentIndex == reference.GeometryComponentIndex)))];
-        return new(document: document, items: toSeq(snapshots));
-    }
-
-    internal static Fin<CommandSelection> FromObjects(RhinoDoc document, IEnumerable<Guid> objectIds, CommandObjectSelection policy) =>
-        from validDocument in Optional(document).ToFin(Fail: Op.Of(name: nameof(FromObjects)).InvalidInput())
-        from active in Optional(policy).ToFin(Fail: Op.Of(name: nameof(FromObjects)).InvalidInput())
-        from target in DocumentTarget.Objects(objectIds: objectIds)
-        from ids in target.Ids(document: validDocument, op: Op.Of(name: nameof(FromObjects)))
-        from references in ids.TraverseM(id => Optional(validDocument.Objects.FindId(id)).ToFin(Fail: Op.Of(name: nameof(FromObjects)).InvalidResult()).Map(native => new ObjRef(rhinoObject: native))).As()
-        from selection in Fin.Succ(value: From(document: validDocument, references: references, preselected: Seq<(Guid ObjectId, ComponentIndex ComponentIndex)>()))
-        from trimmed in selection.Trim(policy: active)
-        select trimmed;
-
-    internal Fin<int> SelectInto(RhinoDoc document, bool selected, DocumentSelectionPolicy policy, Op op) {
-        CommandSelection self = this;
-        return op.Catch(() => self.SelectNative(document: document, selected: selected, policy: policy, op: op));
-    }
-
-    private Fin<int> SelectNative(RhinoDoc document, bool selected, DocumentSelectionPolicy policy, Op op) {
-        ArgumentNullException.ThrowIfNull(argument: document);
-        using ObjRefs refs = ObjRefs.FromReferences(Items, document);
-        return refs.Values.TraverseM(reference => (selected, policy.Select(
-            (highlight, persistent, ignoreGrips, ignoreLayerLocking, ignoreLayerVisibility) =>
-                document.Objects.Select(reference, selected, highlight, persistent, ignoreGrips, ignoreLayerLocking, ignoreLayerVisibility))) switch {
-                    // ObjRef.Select returns rhinoObject.Select(on) != 0: true confirms select, but successful deselect returns 0 -> false. Treat the non-throwing dispatch as success for the requested direction.
-                    (true, true) => Fin.Succ(value: 1),
-                    (false, _) => Fin.Succ(value: 0),
-                    _ => Fin.Fail<int>(error: op.InvalidResult()),
-                }).As().Map(static values => values.Fold(initialState: 0, f: static (state, value) => state + value));
-    }
-
     public readonly record struct Reference(
         Guid ObjectId,
         uint DocumentRuntimeSerialNumber,
@@ -411,4 +261,155 @@ public sealed partial record CommandSelection {
         private static Option<TPart> Cast<TPart>(object? value) where TPart : class =>
             value is TPart typed ? Some(typed) : Option<TPart>.None;
     }
+
+    public static Fin<CommandSelection> Pick(RhinoDoc document, CommandPickPolicy policy) =>
+        new SelectionSource.PickPolicy(policy).Read(document: document);
+
+    public static Fin<CommandSelection> Pick(RhinoDoc document, PickContext context) =>
+        new SelectionSource.Context(Value: context, UpdateClippingPlanes: true).Read(document: document);
+
+    internal static Fin<CommandSelection> FromGetter(RhinoDoc document, GetObject getter, GetResult raw) =>
+        new SelectionSource.Getter(Source: getter, Raw: raw).Read(document: document);
+
+    [Union(SwitchMapStateParameterName = "document")]
+    private abstract partial record SelectionSource {
+        private SelectionSource() { }
+        public sealed record PickPolicy(CommandPickPolicy Policy) : SelectionSource;
+        public sealed record Context(PickContext Value, bool UpdateClippingPlanes) : SelectionSource;
+        public sealed record Getter(GetObject Source, GetResult Raw) : SelectionSource;
+
+        internal Fin<CommandSelection> Read(RhinoDoc document) =>
+            Switch(
+                document,
+                pickPolicy: static (doc, source) =>
+                    from valid in Optional(source.Policy).ToFin(Fail: Op.Of(name: nameof(Pick)).InvalidInput())
+                    from selection in valid.Use(document: doc, use: context => new Context(Value: context, UpdateClippingPlanes: valid.UpdateClippingPlanes).Read(document: doc))
+                    select selection,
+                context: static (doc, source) => PickWith(document: doc, context: source.Value, updateClippingPlanes: source.UpdateClippingPlanes),
+                getter: static (doc, source) =>
+                    source.Raw is GetResult.Object && source.Source.Objects() is ObjRef[] references
+                    ? Fin.Succ(value: From(
+                        document: doc,
+                        references: toSeq(references),
+                        preselected: source.Source.ObjectsWerePreselected
+                            ? toSeq(references)
+                                .Filter(static reference => Optional(reference.Object()).Map(static item => item.IsSelected(checkSubObjects: true) > 0).IfNone(noneValue: false))
+                                .Map(static reference => (reference.ObjectId, reference.GeometryComponentIndex))
+                            : Seq<(Guid ObjectId, ComponentIndex ComponentIndex)>()))
+                    : Fin.Fail<CommandSelection>(error: Op.Of(name: nameof(FromGetter)).InvalidResult()));
+
+        private static Fin<CommandSelection> PickWith(RhinoDoc document, PickContext context, bool updateClippingPlanes) =>
+        from validDocument in Optional(document).ToFin(Fail: Op.Of(name: nameof(Pick)).InvalidInput())
+        from validContext in Optional(context).ToFin(Fail: Op.Of(name: nameof(Pick)).InvalidInput())
+        from _view in updateClippingPlanes && validContext.View is null
+            ? Optional(validDocument.Views.ActiveView)
+                .ToFin(Fail: Op.Of(name: nameof(Pick)).MissingContext())
+                .Map(view => { validContext.View = view; return unit; })
+            : Fin.Succ(value: unit)
+        from selection in UI.RhinoUi.Protect(valid: () => {
+            _ = Op.SideWhen(updateClippingPlanes, validContext.UpdateClippingPlanes);
+            return Optional(validDocument.Objects.PickObjects(pickContext: validContext)).ToFin(Fail: Op.Of(name: nameof(Pick)).InvalidResult()).Bind(references => references switch { { Length: > 0 } values => Fin.Succ(value: From(document: validDocument, references: toSeq(values), preselected: Seq<(Guid ObjectId, ComponentIndex ComponentIndex)>())), _ => Fin.Fail<CommandSelection>(error: Op.Of(name: nameof(Pick)).InvalidResult()) });
+        })
+        select selection;
+    }
+
+    private readonly ref struct ObjRefs {
+        private ObjRefs(Seq<ObjRef> refs) => Values = refs;
+        public static ObjRefs FromReferences(Seq<Reference> items, RhinoDoc document) =>
+            new(items.Map(r => r.ObjRef(document: document)));
+        public static ObjRefs FromObjRefs(Seq<ObjRef> source) => new(source);
+        public Seq<ObjRef> Values { get; }
+        public void Dispose() => Values.Iter(static r => r.Dispose());
+    }
+
+    internal static CommandSelection From(RhinoDoc document, Seq<ObjRef> references, Seq<(Guid ObjectId, ComponentIndex ComponentIndex)> preselected) {
+        ArgumentNullException.ThrowIfNull(argument: document);
+        using ObjRefs source = ObjRefs.FromObjRefs(references);
+        Reference[] snapshots = [.. source.Values.Map(reference => Reference.Of(
+            document: document,
+            reference: reference,
+            preselected: preselected.Exists(item => item.ObjectId == reference.ObjectId && item.ComponentIndex == reference.GeometryComponentIndex)))];
+        return new(document: document, items: toSeq(snapshots));
+    }
+
+    internal static Fin<CommandSelection> FromObjects(RhinoDoc document, IEnumerable<Guid> objectIds, CommandObjectSelection policy) =>
+        from validDocument in Optional(document).ToFin(Fail: Op.Of(name: nameof(FromObjects)).InvalidInput())
+        from active in Optional(policy).ToFin(Fail: Op.Of(name: nameof(FromObjects)).InvalidInput())
+        from target in DocumentTarget.Objects(objectIds: objectIds)
+        from ids in target.Ids(document: validDocument, op: Op.Of(name: nameof(FromObjects)))
+        from references in ids.TraverseM(id => Optional(validDocument.Objects.FindId(id)).ToFin(Fail: Op.Of(name: nameof(FromObjects)).InvalidResult()).Map(native => new ObjRef(rhinoObject: native))).As()
+        from selection in Fin.Succ(value: From(document: validDocument, references: references, preselected: Seq<(Guid ObjectId, ComponentIndex ComponentIndex)>()))
+        from trimmed in selection.Trim(policy: active)
+        select trimmed;
+
+    public Fin<Seq<T>> Project<T>(Func<Reference, Fin<T>> project) => Optional(project).ToFin(Fail: Op.Of(name: nameof(Project)).InvalidInput()).Bind(valid => Items.TraverseM(reference => valid(arg: reference)).As());
+
+    public Fin<Seq<T>> Project<T>(CommandObjectSelection policy, Func<Reference, Fin<T>> project) =>
+        from trimmed in Trim(policy: policy)
+        from values in trimmed.Project(project: project)
+        select values;
+
+    public Fin<Seq<TGeometry>> Geometry<TGeometry>() where TGeometry : GeometryBase =>
+        Project(project: reference => reference.Geometry<TGeometry>(document: Document));
+
+    public Fin<Reference> Single() =>
+        Items.Count switch {
+            1 => Fin.Succ(value: Items[0]),
+            _ => Fin.Fail<Reference>(error: Op.Of(name: nameof(Single)).InvalidInput()),
+        };
+
+    public Fin<CommandSelection> Trim(CommandObjectSelection policy) =>
+        from trimmed in Trimmed(policy: policy)
+        from selection in trimmed.Require(policy: policy)
+        select selection;
+
+    public Fin<TrimResult> Trimmed(CommandObjectSelection policy) =>
+        from active in Optional(policy).ToFin(Fail: Op.Of(name: nameof(Trimmed)).InvalidInput())
+        let values = toSeq(Items
+            .Filter(item => active.SubObjects || !item.IsSubObject)
+            .Filter(item => item.Preselected || active.AlreadySelected || !item.Selected)
+            .Filter(item => active.References || !item.IsReference)
+            .Filter(item => active.Locked || !item.IsLocked)
+            .Filter(item => !active.IgnoreGrips || !item.IsGrip)
+            .DistinctBy(static item => (item.ObjectId, item.RuntimeSerialNumber, item.ComponentIndex.ComponentIndexType, item.ComponentIndex.Index)))
+        select new TrimResult(Selection: new CommandSelection(document: Document, items: values), Accepted: values.Count, Rejected: Math.Max(0, Items.Count - values.Count));
+
+    public readonly record struct TrimResult(CommandSelection Selection, int Accepted, int Rejected) {
+        public Fin<CommandSelection> Require(CommandObjectSelection policy) {
+            int accepted = Accepted;
+            CommandSelection selection = Selection;
+            return
+            from active in Optional(policy).ToFin(Fail: Op.Of(name: nameof(TrimResult)).InvalidInput())
+            from _ in guard(accepted >= active.Minimum && (active.Maximum < 0 || accepted <= active.Maximum), Op.Of(name: nameof(TrimResult)).InvalidInput())
+            select selection;
+        }
+
+        public Fin<CommandSelection> RequireAny() {
+            int accepted = Accepted;
+            CommandSelection selection = Selection;
+            return accepted switch {
+                > 0 => Fin.Succ(value: selection),
+                _ => Fin.Fail<CommandSelection>(error: Op.Of(name: nameof(TrimResult)).InvalidResult()),
+            };
+        }
+    }
+
+    internal Fin<int> SelectInto(RhinoDoc document, bool selected, DocumentSelectionPolicy policy, Op op) {
+        CommandSelection self = this;
+        return op.Catch(() => self.SelectNative(document: document, selected: selected, policy: policy, op: op));
+    }
+
+    private Fin<int> SelectNative(RhinoDoc document, bool selected, DocumentSelectionPolicy policy, Op op) {
+        ArgumentNullException.ThrowIfNull(argument: document);
+        using ObjRefs refs = ObjRefs.FromReferences(Items, document);
+        return refs.Values.TraverseM(reference => (selected, policy.Select(
+            (highlight, persistent, ignoreGrips, ignoreLayerLocking, ignoreLayerVisibility) =>
+                document.Objects.Select(reference, selected, highlight, persistent, ignoreGrips, ignoreLayerLocking, ignoreLayerVisibility))) switch {
+                    // ObjRef.Select returns rhinoObject.Select(on) != 0: true confirms select, but successful deselect returns 0 -> false. Treat the non-throwing dispatch as success for the requested direction.
+                    (true, true) => Fin.Succ(value: 1),
+                    (false, _) => Fin.Succ(value: 0),
+                    _ => Fin.Fail<int>(error: op.InvalidResult()),
+                }).As().Map(static values => values.Fold(initialState: 0, f: static (state, value) => state + value));
+    }
+
 }

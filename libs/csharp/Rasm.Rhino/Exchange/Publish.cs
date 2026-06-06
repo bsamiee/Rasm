@@ -15,6 +15,129 @@ using IOFileInfo = System.IO.FileInfo;
 namespace Rasm.Rhino.Exchange;
 
 // --- [TYPES] ------------------------------------------------------------------------------
+[SmartEnum<int>]
+public sealed partial class FileRasterEncoding {
+    public static readonly FileRasterEncoding Png = new(
+        key: 0,
+        format: FileFormat.KnownFormat(key: "png", op: Op.Of(name: nameof(FileRasterEncoding))).ThrowIfFail(),
+        image: DrawingImageFormat.Png,
+        supportsAlpha: true,
+        compression: FileTiffCompression.Default,
+        encode: static (_, settings) =>
+            settings.PngDepth.Map(d => Seq<(Encoder, long)>((Encoder.ColorDepth, d))).IfNone(Seq<(Encoder, long)>()));
+
+    public static readonly FileRasterEncoding Jpeg = new(
+        key: 1,
+        format: FileFormat.KnownFormat(key: "jpeg", op: Op.Of(name: nameof(FileRasterEncoding))).ThrowIfFail(),
+        image: DrawingImageFormat.Jpeg,
+        supportsAlpha: false,
+        compression: FileTiffCompression.Default,
+        encode: static (_, settings) => Seq<(Encoder, long)>((Encoder.Quality, settings.JpegQuality)));
+
+    public static readonly FileRasterEncoding Tiff = new(
+        key: 2,
+        format: FileFormat.KnownFormat(key: "tiff", op: Op.Of(name: nameof(FileRasterEncoding))).ThrowIfFail(),
+        image: DrawingImageFormat.Tiff,
+        supportsAlpha: true,
+        compression: FileTiffCompression.Lzw,
+        encode: static (enc, settings) => Seq<(Encoder, long)>((Encoder.Compression, settings.TiffCompression.IfNone(noneValue: enc.Compression) switch {
+            FileTiffCompression value when value == FileTiffCompression.None => (long)EncoderValue.CompressionNone,
+            FileTiffCompression value when value == FileTiffCompression.Ccitt3 => (long)EncoderValue.CompressionCCITT3,
+            FileTiffCompression value when value == FileTiffCompression.Ccitt4 => (long)EncoderValue.CompressionCCITT4,
+            FileTiffCompression value when value == FileTiffCompression.Rle => (long)EncoderValue.CompressionRle,
+            _ => (long)EncoderValue.CompressionLZW,
+        })));
+
+    public static readonly FileRasterEncoding Bitmap = new(
+        key: 3,
+        format: FileFormat.KnownFormat(key: "bmp", op: Op.Of(name: nameof(FileRasterEncoding))).ThrowIfFail(),
+        image: DrawingImageFormat.Bmp,
+        supportsAlpha: false,
+        compression: FileTiffCompression.Default,
+        encode: static (_, _) => Seq<(Encoder, long)>());
+
+    private readonly Func<FileRasterEncoding, FileRasterSettings, Seq<(Encoder, long)>> encode;
+
+    public FileFormat Format { get; }
+
+    public DrawingImageFormat Image { get; }
+
+    public bool SupportsAlpha { get; }
+
+    public FileTiffCompression Compression { get; }
+
+    internal Seq<(Encoder Key, long Value)> Parameters(FileRasterSettings settings) =>
+        encode(arg1: this, arg2: settings);
+}
+
+[Union(SwitchMapStateParameterName = "ctx")]
+public abstract partial record PdfStamp {
+    private PdfStamp() { }
+    public sealed record Text(string Value, double X, double Y, float HeightPoints, Font Font, DrawingColor Fill,
+        Option<(DrawingColor Color, float Width)> Stroke = default, float AngleDegrees = 0f,
+        TextHorizontalAlignment Horizontal = TextHorizontalAlignment.Left, TextVerticalAlignment Vertical = TextVerticalAlignment.Top) : PdfStamp;
+    public sealed record Polyline(Seq<DrawingPointF> Points, Option<DrawingColor> Fill, DrawingColor Stroke, float Width) : PdfStamp;
+    public sealed record Line(DrawingPointF From, DrawingPointF To, DrawingColor Stroke, float Width) : PdfStamp;
+    public sealed record Image(DrawingBitmap Bitmap, float X, float Y, float Width, float Height, float AngleDegrees = 0f) : PdfStamp;
+
+    internal Fin<Unit> Draw(FilePdf pdf, int page, PdfStampContext context, Op op) =>
+        Switch((Pdf: pdf, Page: page, Context: context, Op: op),
+            text: static (ctx, s) => ctx.Op.Catch(() => Fin.Succ(value: Op.Side(() => ctx.Pdf.DrawText(
+                pageNumber: ctx.Page, text: ctx.Context.Format(value: s.Value), x: s.X, y: s.Y, heightPoints: s.HeightPoints, onfont: s.Font, fillColor: s.Fill,
+                strokeColor: s.Stroke.Case switch { (DrawingColor c, _) => c, _ => DrawingColor.Empty },
+                strokeWidth: s.Stroke.Case switch { (_, float w) => w, _ => 0f },
+                angleDegrees: s.AngleDegrees, horizontalAlignment: s.Horizontal, verticalAlignment: s.Vertical)))),
+            polyline: static (ctx, s) => ctx.Op.Catch(() => Fin.Succ(value: Op.Side(() => ctx.Pdf.DrawPolyline(
+                pageNumber: ctx.Page, polyline: [.. s.Points], fillColor: s.Fill.IfNone(DrawingColor.Empty), strokeColor: s.Stroke, strokeWidth: s.Width)))),
+            line: static (ctx, s) => ctx.Op.Catch(() => Fin.Succ(value: Op.Side(() => ctx.Pdf.DrawLine(
+                pageNumber: ctx.Page, from: s.From, to: s.To, strokeColor: s.Stroke, strokeWidth: s.Width)))),
+            image: static (ctx, s) => ctx.Op.Catch(() => Fin.Succ(value: Op.Side(() => ctx.Pdf.DrawBitmap(
+                pageNumber: ctx.Page, bitmap: s.Bitmap, left: s.X, top: s.Y, width: s.Width, height: s.Height, rotationInDegrees: s.AngleDegrees)))));
+
+    internal static Fin<Unit> DrawAll(Seq<PdfStamp> stamps, FilePdf pdf, int page, PdfStampContext context, Op op) =>
+        stamps.TraverseM(stamp => stamp.Draw(pdf: pdf, page: page, context: context, op: op)).As().Map(static _ => unit);
+}
+
+[Union(SwitchMapStateParameterName = "ctx")]
+public abstract partial record FileViewSource {
+    private FileViewSource() { }
+    public sealed record Pages(SheetQuery Query = default) : FileViewSource;
+    public sealed record Named(
+        Seq<string> Names,
+        ViewportTarget Target,
+        Option<CameraPath> Path = default,
+        NamedRestorePolicy Restore = default) : FileViewSource;
+    public sealed record Viewport(ViewportTarget Target) : FileViewSource;
+
+    internal Fin<Seq<FileViewPage>> Resolve(RhinoDoc document, FileView spec, Op op) =>
+        Switch(
+            (Doc: document, Spec: spec, Op: op),
+            pages: static (ctx, source) => ResolvePages(document: ctx.Doc, source: source, spec: ctx.Spec, op: ctx.Op),
+            named: static (ctx, source) => ResolveNamed(document: ctx.Doc, source: source, spec: ctx.Spec, op: ctx.Op),
+            viewport: static (ctx, source) => source.Target.Resolve(document: ctx.Doc, op: ctx.Op)
+                .Map(scopes => scopes.Map(scope => FileViewPage.Model(view: scope.View, viewport: Some(scope.Viewport), spec: ctx.Spec))));
+
+    private static Fin<Seq<FileViewPage>> ResolvePages(RhinoDoc document, Pages source, FileView spec, Op op) =>
+        from pages in source.Query.Resolve(document: document, op: op)
+        from matched in guard(!pages.IsEmpty, op.InvalidInput()).ToFin().Map(_ => pages)
+        select matched.Map(page => FileViewPage.Layout(page: page, spec: spec));
+    private static Fin<Seq<FileViewPage>> ResolveNamed(RhinoDoc document, Named source, FileView spec, Op op) =>
+        from _ in guard(!source.Names.IsEmpty, op.InvalidInput())
+        from scopes in source.Target.Resolve(document: document, op: op)
+        from scope in RhinoCamera.SingleScope(scopes: scopes, op: op)
+        from path in source.Path.Case switch {
+            CameraPath restore => restore.RequireSynchronous(op: op).Map(Some),
+            _ => Fin.Succ(Option<CameraPath>.None),
+        }
+        from pages in source.Names.TraverseM(name => FileEndpoint.NonBlank(value: name, op: op).Map(valid =>
+            FileViewPage.Model(
+                view: scope.View,
+                viewport: Some(scope.Viewport),
+                spec: spec,
+                named: Some(new FileNamedViewCapture(Scope: scope, Name: valid, Path: path, Restore: source.Restore))))).As()
+        select pages;
+}
+
 [Union(SwitchMapStateParameterName = "ctx")]
 public abstract partial record FilePublishTarget {
     private FilePublishTarget() { }
@@ -195,123 +318,6 @@ public abstract partial record FilePublishTarget {
         });
 }
 
-[SmartEnum<int>]
-public sealed partial class FileRasterEncoding {
-    public static readonly FileRasterEncoding Png = new(
-        key: 0,
-        format: FileFormat.KnownFormat(key: "png", op: Op.Of(name: nameof(FileRasterEncoding))).ThrowIfFail(),
-        image: DrawingImageFormat.Png,
-        supportsAlpha: true,
-        compression: FileTiffCompression.Default,
-        encode: static (_, settings) =>
-            settings.PngDepth.Map(d => Seq<(Encoder, long)>((Encoder.ColorDepth, d))).IfNone(Seq<(Encoder, long)>()));
-    public static readonly FileRasterEncoding Jpeg = new(
-        key: 1,
-        format: FileFormat.KnownFormat(key: "jpeg", op: Op.Of(name: nameof(FileRasterEncoding))).ThrowIfFail(),
-        image: DrawingImageFormat.Jpeg,
-        supportsAlpha: false,
-        compression: FileTiffCompression.Default,
-        encode: static (_, settings) => Seq<(Encoder, long)>((Encoder.Quality, settings.JpegQuality)));
-    public static readonly FileRasterEncoding Tiff = new(
-        key: 2,
-        format: FileFormat.KnownFormat(key: "tiff", op: Op.Of(name: nameof(FileRasterEncoding))).ThrowIfFail(),
-        image: DrawingImageFormat.Tiff,
-        supportsAlpha: true,
-        compression: FileTiffCompression.Lzw,
-        encode: static (enc, settings) => Seq<(Encoder, long)>((Encoder.Compression, settings.TiffCompression.IfNone(noneValue: enc.Compression) switch {
-            FileTiffCompression value when value == FileTiffCompression.None => (long)EncoderValue.CompressionNone,
-            FileTiffCompression value when value == FileTiffCompression.Ccitt3 => (long)EncoderValue.CompressionCCITT3,
-            FileTiffCompression value when value == FileTiffCompression.Ccitt4 => (long)EncoderValue.CompressionCCITT4,
-            FileTiffCompression value when value == FileTiffCompression.Rle => (long)EncoderValue.CompressionRle,
-            _ => (long)EncoderValue.CompressionLZW,
-        })));
-    public static readonly FileRasterEncoding Bitmap = new(
-        key: 3,
-        format: FileFormat.KnownFormat(key: "bmp", op: Op.Of(name: nameof(FileRasterEncoding))).ThrowIfFail(),
-        image: DrawingImageFormat.Bmp,
-        supportsAlpha: false,
-        compression: FileTiffCompression.Default,
-        encode: static (_, _) => Seq<(Encoder, long)>());
-
-    public FileFormat Format { get; }
-    public DrawingImageFormat Image { get; }
-    public FileTiffCompression Compression { get; }
-    public bool SupportsAlpha { get; }
-
-    internal Seq<(Encoder Key, long Value)> Parameters(FileRasterSettings settings) =>
-        encode(arg1: this, arg2: settings);
-
-    private readonly Func<FileRasterEncoding, FileRasterSettings, Seq<(Encoder, long)>> encode;
-}
-
-[Union(SwitchMapStateParameterName = "ctx")]
-public abstract partial record FileViewSource {
-    private FileViewSource() { }
-    public sealed record Pages(SheetQuery Query = default) : FileViewSource;
-    public sealed record Named(
-        Seq<string> Names,
-        ViewportTarget Target,
-        Option<CameraPath> Path = default,
-        NamedRestorePolicy Restore = default) : FileViewSource;
-    public sealed record Viewport(ViewportTarget Target) : FileViewSource;
-
-    internal Fin<Seq<FileViewPage>> Resolve(RhinoDoc document, FileView spec, Op op) =>
-        Switch(
-            (Doc: document, Spec: spec, Op: op),
-            pages: static (ctx, source) => ResolvePages(document: ctx.Doc, source: source, spec: ctx.Spec, op: ctx.Op),
-            named: static (ctx, source) => ResolveNamed(document: ctx.Doc, source: source, spec: ctx.Spec, op: ctx.Op),
-            viewport: static (ctx, source) => source.Target.Resolve(document: ctx.Doc, op: ctx.Op)
-                .Map(scopes => scopes.Map(scope => FileViewPage.Model(view: scope.View, viewport: Some(scope.Viewport), spec: ctx.Spec))));
-
-    private static Fin<Seq<FileViewPage>> ResolvePages(RhinoDoc document, Pages source, FileView spec, Op op) =>
-        from pages in source.Query.Resolve(document: document, op: op)
-        from matched in guard(!pages.IsEmpty, op.InvalidInput()).ToFin().Map(_ => pages)
-        select matched.Map(page => FileViewPage.Layout(page: page, spec: spec));
-    private static Fin<Seq<FileViewPage>> ResolveNamed(RhinoDoc document, Named source, FileView spec, Op op) =>
-        from _ in guard(!source.Names.IsEmpty, op.InvalidInput())
-        from scopes in source.Target.Resolve(document: document, op: op)
-        from scope in RhinoCamera.SingleScope(scopes: scopes, op: op)
-        from path in source.Path.Case switch {
-            CameraPath restore => restore.RequireSynchronous(op: op).Map(Some),
-            _ => Fin.Succ(Option<CameraPath>.None),
-        }
-        from pages in source.Names.TraverseM(name => FileEndpoint.NonBlank(value: name, op: op).Map(valid =>
-            FileViewPage.Model(
-                view: scope.View,
-                viewport: Some(scope.Viewport),
-                spec: spec,
-                named: Some(new FileNamedViewCapture(Scope: scope, Name: valid, Path: path, Restore: source.Restore))))).As()
-        select pages;
-}
-
-[Union(SwitchMapStateParameterName = "ctx")]
-public abstract partial record PdfStamp {
-    private PdfStamp() { }
-    public sealed record Text(string Value, double X, double Y, float HeightPoints, Font Font, DrawingColor Fill,
-        Option<(DrawingColor Color, float Width)> Stroke = default, float AngleDegrees = 0f,
-        TextHorizontalAlignment Horizontal = TextHorizontalAlignment.Left, TextVerticalAlignment Vertical = TextVerticalAlignment.Top) : PdfStamp;
-    public sealed record Polyline(Seq<DrawingPointF> Points, Option<DrawingColor> Fill, DrawingColor Stroke, float Width) : PdfStamp;
-    public sealed record Line(DrawingPointF From, DrawingPointF To, DrawingColor Stroke, float Width) : PdfStamp;
-    public sealed record Image(DrawingBitmap Bitmap, float X, float Y, float Width, float Height, float AngleDegrees = 0f) : PdfStamp;
-
-    internal Fin<Unit> Draw(FilePdf pdf, int page, PdfStampContext context, Op op) =>
-        Switch((Pdf: pdf, Page: page, Context: context, Op: op),
-            text: static (ctx, s) => ctx.Op.Catch(() => Fin.Succ(value: Op.Side(() => ctx.Pdf.DrawText(
-                pageNumber: ctx.Page, text: ctx.Context.Format(value: s.Value), x: s.X, y: s.Y, heightPoints: s.HeightPoints, onfont: s.Font, fillColor: s.Fill,
-                strokeColor: s.Stroke.Case switch { (DrawingColor c, _) => c, _ => DrawingColor.Empty },
-                strokeWidth: s.Stroke.Case switch { (_, float w) => w, _ => 0f },
-                angleDegrees: s.AngleDegrees, horizontalAlignment: s.Horizontal, verticalAlignment: s.Vertical)))),
-            polyline: static (ctx, s) => ctx.Op.Catch(() => Fin.Succ(value: Op.Side(() => ctx.Pdf.DrawPolyline(
-                pageNumber: ctx.Page, polyline: [.. s.Points], fillColor: s.Fill.IfNone(DrawingColor.Empty), strokeColor: s.Stroke, strokeWidth: s.Width)))),
-            line: static (ctx, s) => ctx.Op.Catch(() => Fin.Succ(value: Op.Side(() => ctx.Pdf.DrawLine(
-                pageNumber: ctx.Page, from: s.From, to: s.To, strokeColor: s.Stroke, strokeWidth: s.Width)))),
-            image: static (ctx, s) => ctx.Op.Catch(() => Fin.Succ(value: Op.Side(() => ctx.Pdf.DrawBitmap(
-                pageNumber: ctx.Page, bitmap: s.Bitmap, left: s.X, top: s.Y, width: s.Width, height: s.Height, rotationInDegrees: s.AngleDegrees)))));
-
-    internal static Fin<Unit> DrawAll(Seq<PdfStamp> stamps, FilePdf pdf, int page, PdfStampContext context, Op op) =>
-        stamps.TraverseM(stamp => stamp.Draw(pdf: pdf, page: page, context: context, op: op)).As().Map(static _ => unit);
-}
-
 // --- [MODELS] -----------------------------------------------------------------------------
 public readonly record struct FilePdfPage(
     int WidthDots,
@@ -322,11 +328,6 @@ public readonly record struct FilePdfPage(
         WidthDots > 0 && HeightDots > 0 && Dpi > 0
             ? Fin.Succ(value: this)
             : Fin.Fail<FilePdfPage>(error: op.InvalidInput());
-}
-
-public sealed record FilePublish(FilePublishTarget Target, Seq<FileView> Views, bool Layers = true, Option<string> Snapshot = default) {
-    public FilePublish WithSnapshot(string name) =>
-        this with { Snapshot = string.IsNullOrWhiteSpace(value: name) ? Option<string>.None : Some(name.Trim()) };
 }
 
 public readonly record struct FileRasterSettings(
@@ -365,6 +366,7 @@ public sealed partial record FileView(
     FileViewSource Source,
     CaptureRecipe Recipe = default) {
     internal const double DefaultDpi = 300.0;
+
     private CaptureRecipe Policy =>
         Recipe.WithPolicy(fallbackDpi: DefaultDpi, fallbackDecor: CaptureDecor.Publish, rewrite: RewriteDecor);
 
@@ -385,17 +387,17 @@ public sealed partial record FileView(
             op: op)
         select result;
 
-    private Option<RhinoViewport> ViewportFor(RhinoView view, Option<RhinoViewport> viewport) =>
-        viewport.Case switch {
-            RhinoViewport active => Some(active),
-            _ => Recipe.Viewport(view: view),
-        };
-
     internal Fin<DrawingBitmap> TransparentBitmap(RhinoView view, ViewCaptureSettings settings, Op op) =>
         Recipe.WithPolicy(fallbackDpi: DefaultDpi, fallbackDecor: CaptureDecor.Publish with { UsePrintWidths = false }, rewrite: RewriteDecor).TransparentBitmap(
             view: view,
             settings: settings,
             op: op);
+
+    private Option<RhinoViewport> ViewportFor(RhinoView view, Option<RhinoViewport> viewport) =>
+        viewport.Case switch {
+            RhinoViewport active => Some(active),
+            _ => Recipe.Viewport(view: view),
+        };
 
     private static CaptureDecor RewriteDecor(CaptureDecor decor, RhinoView target) =>
         decor with {
@@ -420,6 +422,11 @@ public sealed partial record FileView(
     }
 }
 
+public sealed record FilePublish(FilePublishTarget Target, Seq<FileView> Views, bool Layers = true, Option<string> Snapshot = default) {
+    public FilePublish WithSnapshot(string name) =>
+        this with { Snapshot = string.IsNullOrWhiteSpace(value: name) ? Option<string>.None : Some(name.Trim()) };
+}
+
 public readonly record struct FileViewReport(
     string Name,
     Option<string> Scale,
@@ -432,11 +439,20 @@ public readonly record struct FileViewReport(
     bool ScaleToFit = false,
     Option<double> ModelScale = default);
 
-internal sealed record FileNamedViewCapture(CameraScope Scope, string Name, Option<CameraPath> Path, NamedRestorePolicy Restore) {
-    internal Fin<T> Use<T>(Func<Fin<T>> body) =>
-        CameraOps.RestoreThen(name: Name, capture: CameraOps.Query(_ => body()), path: Path, restore: Some(Restore))
-            .Run(arg: Scope)
-            .Bind(outcome => outcome.Redraw.ApplyTo(scope: Scope).Map(_ => outcome.Value));
+internal readonly partial record struct PdfStampContext(int PageIndex, int PageCount, Option<FileViewReport> View) {
+    internal string Format(string value) {
+        int pageIndex = PageIndex;
+        int pageCount = PageCount;
+        Option<FileViewReport> view = View;
+        return PublishTokens.Pattern.Replace(input: value, evaluator: match => match.Groups["key"].Value switch {
+            "index" => pageIndex.ToString(provider: CultureInfo.InvariantCulture),
+            "total" => pageCount.ToString(provider: CultureInfo.InvariantCulture),
+            "page" => view.Map(static report => report.Name).IfNone(string.Empty),
+            "scale" => view.Bind(static report => report.Scale).IfNone(string.Empty),
+            "details" => view.Map(static report => report.DetailCount.ToString(provider: CultureInfo.InvariantCulture)).IfNone("0"),
+            string => string.Empty,
+        });
+    }
 }
 
 internal readonly record struct FilePublishResult(
@@ -447,17 +463,19 @@ internal readonly record struct FilePublishResult(
     Seq<FileIssue> Issues = default,
     Option<string> NativeLog = default);
 
+internal sealed record FileNamedViewCapture(CameraScope Scope, string Name, Option<CameraPath> Path, NamedRestorePolicy Restore) {
+    internal Fin<T> Use<T>(Func<Fin<T>> body) =>
+        CameraOps.RestoreThen(name: Name, capture: CameraOps.Query(_ => body()), path: Path, restore: Some(Restore))
+            .Run(arg: Scope)
+            .Bind(outcome => outcome.Redraw.ApplyTo(scope: Scope).Map(_ => outcome.Value));
+}
+
 internal sealed record FileViewPage(RhinoView Target, Option<RhinoViewport> Viewport, FileView Spec, Option<FileNamedViewCapture> Named = default) {
     internal static FileViewPage Layout(RhinoPageView page, FileView spec) =>
         new(Target: page, Viewport: Option<RhinoViewport>.None, Spec: spec);
 
     internal static FileViewPage Model(RhinoView view, Option<RhinoViewport> viewport, FileView spec, Option<FileNamedViewCapture> named = default) =>
         new(Target: view, Viewport: viewport, Spec: spec, Named: named);
-    private Fin<T> UseMaybe<T>(Func<Fin<T>> body) =>
-        Named.Case switch {
-            FileNamedViewCapture named => named.Use(body: body),
-            _ => body(),
-        };
 
     internal Fin<ViewCaptureSettings> Settings(Op op) =>
         UseMaybe(body: () => Spec.Open(view: Target, viewport: Viewport, op: op));
@@ -501,22 +519,12 @@ internal sealed record FileViewPage(RhinoView Target, Option<RhinoViewport> View
             _ => Build(name: string.Empty, scale: Option<string>.None, detailCount: 0, s: settings, raw: Option<double>.None),
         };
     }
-}
 
-internal readonly partial record struct PdfStampContext(int PageIndex, int PageCount, Option<FileViewReport> View) {
-    internal string Format(string value) {
-        int pageIndex = PageIndex;
-        int pageCount = PageCount;
-        Option<FileViewReport> view = View;
-        return PublishTokens.Pattern.Replace(input: value, evaluator: match => match.Groups["key"].Value switch {
-            "index" => pageIndex.ToString(provider: CultureInfo.InvariantCulture),
-            "total" => pageCount.ToString(provider: CultureInfo.InvariantCulture),
-            "page" => view.Map(static report => report.Name).IfNone(string.Empty),
-            "scale" => view.Bind(static report => report.Scale).IfNone(string.Empty),
-            "details" => view.Map(static report => report.DetailCount.ToString(provider: CultureInfo.InvariantCulture)).IfNone("0"),
-            string => string.Empty,
-        });
-    }
+    private Fin<T> UseMaybe<T>(Func<Fin<T>> body) =>
+        Named.Case switch {
+            FileNamedViewCapture named => named.Use(body: body),
+            _ => body(),
+        };
 }
 
 // --- [OPERATIONS] -------------------------------------------------------------------------

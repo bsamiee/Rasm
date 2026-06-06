@@ -140,14 +140,14 @@ public static class Spatial {
             .Apply(static (hay, operation, valid) => (Hay: hay, Operation: operation, Probe: valid))
             .As()
             .Bind(static state => Tree.PointPairs(values: Neighbors(state: state)));
-    private static IEnumerable<int[]> Neighbors((Point3d[] Hay, Point3d[] Operation, Probe Probe) state) => state.Probe switch {
-        Probe.NearestCase k => RTree.Point3dKNeighbors(hayPoints: state.Hay, needlePts: state.Operation, amount: k.Count),
-        Probe.WithinCase w => RTree.Point3dClosestPoints(hayPoints: state.Hay, needlePts: state.Operation, limitDistance: w.Distance),
-        _ => [],
-    };
     private static Fin<Probe> ValidateProbe(Probe probe) => probe switch {
         Probe.NearestCase { Count: > 0 } => Fin.Succ(probe),
         Probe.WithinCase w when RhinoMath.IsValidDouble(x: w.Distance) && w.Distance > 0.0 => Fin.Succ(probe),
         _ => Fin.Fail<Probe>(Tree.Key.InvalidInput()),
+    };
+    private static IEnumerable<int[]> Neighbors((Point3d[] Hay, Point3d[] Operation, Probe Probe) state) => state.Probe switch {
+        Probe.NearestCase k => RTree.Point3dKNeighbors(hayPoints: state.Hay, needlePts: state.Operation, amount: k.Count),
+        Probe.WithinCase w => RTree.Point3dClosestPoints(hayPoints: state.Hay, needlePts: state.Operation, limitDistance: w.Distance),
+        _ => [],
     };
 }

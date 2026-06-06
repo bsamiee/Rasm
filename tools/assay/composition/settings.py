@@ -45,6 +45,8 @@ _ASSAY: Final[str] = "assay"
 _BUILD: Final[str] = "build"
 _DISABLE_BUILD_SERVERS: Final[str] = "--disable-build-servers"
 _ARTIFACTS_PATH_FLAG: Final[str] = "--artifacts-path"
+_RUN_ID_PATTERN: Final[str] = r"^[A-Za-z0-9_.-]+$"
+_SAFE_ENV_PREFIXES: Final[tuple[str, ...]] = ("ASSAY_", "OTEL_", "PYTHON", "UV_")
 _PYTHON_TOOL_ENV: Final[dict[str, str]] = {
     "UV_CACHE_DIR": ".cache/uv",
     "HYPOTHESIS_STORAGE_DIRECTORY": ".cache/hypothesis",
@@ -63,10 +65,36 @@ def _anchor(value: str | UPath) -> UPath:
     return next((p for p in (cursor, *cursor.parents) if (p / _MARKER).is_file()), cursor)
 
 
+def _expand_or_none(value: str | UPath | None) -> str | None:
+    match value:
+        case None | "":
+            return None
+        case _:
+            return str(UPath(value).expanduser())
+
+
+def _safe_segment(part: str | UPath) -> str:
+    text = str(part).replace("\\", "/")
+    pieces = tuple(p for p in text.split("/") if p)
+    match (
+        text.startswith("/"),
+        text in {"", ".", ".."},
+        any(p in {".", ".."} for p in pieces),
+        len(pieces) == 1 and text == pieces[0],
+        "\x00" in text,
+    ):
+        case (False, False, False, True, False):
+            return text
+        case _:
+            raise ValueError(f"unsafe artifact path segment: {text!r}")
+
+
 # --- [TYPES] ----------------------------------------------------------------------------
 
 type AnchoredRoot = Annotated[UPath, BeforeValidator(_anchor)]
 type ExpandedPath = Annotated[UPath, BeforeValidator(lambda v: UPath(v).expanduser())]
+type ExpandedKnownHosts = Annotated[str | None, BeforeValidator(_expand_or_none)]
+type RunId = Annotated[str, Field(min_length=1, max_length=160, pattern=_RUN_ID_PATTERN)]
 
 
 @runtime_checkable
@@ -118,11 +146,12 @@ class ArtifactFileSystem(Protocol):
 class AssaySettings(BaseSettings):
     """Validated Assay runtime settings."""
 
-    model_config = SettingsConfigDict(env_prefix="ASSAY_", case_sensitive=False, frozen=True, extra="forbid", populate_by_name=True)
+    model_config = SettingsConfigDict(
+        env_prefix="ASSAY_", case_sensitive=False, frozen=True, extra="forbid", populate_by_name=True, env_ignore_empty=True, env_parse_enums=True
+    )
 
     root: AnchoredRoot = Field(default_factory=UPath.cwd)
     configuration: Configuration = Configuration.RELEASE
-    static_configuration: Configuration = Configuration.DEBUG
     dotnet_max_cpu: Annotated[int, Field(ge=1, le=64)] = 4
     mutation_max_cpu: Annotated[int, Field(ge=1, le=64)] = 2
     max_checks: Annotated[int, Field(ge=1, le=64)] = 8
@@ -142,20 +171,20 @@ class AssaySettings(BaseSettings):
     ))
     trigger_prefixes: tuple[str, ...] = ("tools/cs-analyzer/",)
     test_target: ExpandedPath = UPath("tests/csharp/libs/Rasm/Rasm.Tests.csproj")
-    mutation_project: ExpandedPath = UPath("libs/csharp/Rasm/Rasm.csproj")
     log_format: LogFormat = Field(default_factory=lambda: LogFormat.HUMAN if sys.stderr.isatty() else LogFormat.CI)
-    run_id: str = Field(
+    run_id: RunId = Field(
         default_factory=lambda: f"{datetime.now(tz=UTC):%Y-%m-%dT%H-%M-%S.%f}-{os.getpid()}", validation_alias=AliasChoices("ASSAY_RUN_ID")
     )
     agent_task_id: str = Field(default="", validation_alias=AliasChoices("ASSAY_AGENT_TASK_ID"))
     exec_target: str = Field(
         default="", validation_alias=AliasChoices("ASSAY_EXEC_TARGET"), description="execution target; '' = local, ssh://[user@]host[:port] = remote"
     )
-    exec_known_hosts: str | None = Field(
-        default=None,
+    exec_known_hosts: ExpandedKnownHosts = Field(
+        default=str(UPath("~/.ssh/known_hosts").expanduser()),
         validation_alias=AliasChoices("ASSAY_EXEC_KNOWN_HOSTS"),
-        description="asyncssh known_hosts path for ssh:// exec_target; None disables the host-key check",
+        description="asyncssh known_hosts path for ssh:// exec_target; empty disables the host-key check",
     )
+    otel_endpoint: str = Field(default="", validation_alias=AliasChoices("OTEL_EXPORTER_OTLP_ENDPOINT", "OTEL_EXPORTER_OTLP_TRACES_ENDPOINT"))
 
     @field_validator("run_id", "agent_task_id")
     @classmethod
@@ -174,15 +203,15 @@ class AssaySettings(BaseSettings):
                 return value
             case _:
                 parts = urlsplit(value)
-                match (parts.scheme, parts.hostname):
-                    case ("ssh", str() as host) if host:
+                match (parts.scheme, parts.hostname, parts.path, parts.query, parts.fragment):
+                    case ("ssh", str() as host, "" | "/", "", "") if host:
                         try:
                             _ = parts.port
                         except ValueError as exc:
                             raise ValueError(f"exec_target has a non-numeric ssh port: {value!r}") from exc
                         return value
                     case _:
-                        raise ValueError(f"exec_target must be '' (local) or 'ssh://[user@]host[:port]' (remote): {value!r}")
+                        raise ValueError(f"exec_target must be '' (local) or 'ssh://[user@]host[:port]' without path/query/fragment: {value!r}")
 
     @override
     @classmethod
@@ -219,6 +248,19 @@ class AssaySettings(BaseSettings):
         """Resolve the `.artifacts/assay` root path."""
         return self.root / _ARTIFACTS / _ASSAY
 
+    @property
+    def local_root(self) -> UPath:
+        """Return the local workspace root usable as a subprocess cwd.
+
+        Raises:
+            ValueError: When `root` is not a local file path.
+        """
+        match self.root.protocol:
+            case "" | "file":
+                return self.root
+            case protocol:
+                raise ValueError(f"root must use file protocol for process execution, got {protocol!r}")
+
     def store(self, *, protocol: str = "file", **opts: object) -> ArtifactStore:
         """Create an artifact store backend.
 
@@ -238,7 +280,20 @@ class AssaySettings(BaseSettings):
         Returns:
             Store-rooted artifact path.
         """
-        return self.store_root.joinpath(kind.value, *(str(p) for p in parts))
+        return self.store_root.joinpath(kind.value, *(_safe_segment(p) for p in parts))
+
+    def remote_env(self, env: dict[str, str]) -> dict[str, str]:
+        """Project the environment subset safe to export through an SSH command string.
+
+        Returns:
+            Environment variables allowed to cross the SSH execution boundary.
+        """
+        safe_names = frozenset(self.python_tool_env)
+        return {
+            key: value
+            for key, value in env.items()
+            if key in safe_names or key in {"PATH", "HOME", "LANG", "LC_ALL"} or key.startswith(_SAFE_ENV_PREFIXES)
+        }
 
 
 # --- [SERVICES] -------------------------------------------------------------------------
@@ -251,13 +306,21 @@ class ArtifactStore:
     fs: ArtifactFileSystem
     root: str
 
+    def path(self, *parts: str | UPath) -> str:
+        """Build a validated store-relative backend path.
+
+        Returns:
+            Backend path under the store root.
+        """
+        return "/".join((self.root, *(_safe_segment(p) for p in parts)))
+
     def ensure(self, *parts: str) -> str:
         """Create and return a directory under the store root.
 
         Returns:
             Store-relative directory path.
         """
-        path = "/".join((self.root, *parts))
+        path = self.path(*parts)
         self.fs.makedirs(path, exist_ok=True)
         return path
 
@@ -267,11 +330,72 @@ class ArtifactStore:
         Returns:
             Matching store paths.
         """
-        return tuple(self.fs.glob(f"{self.root}/{pattern}"))
+        return tuple(path.removeprefix("/") if not self.root.startswith("/") else path for path in self.fs.glob(f"{self.root}/{pattern}"))
+
+    def backend_path(self, path: str | UPath) -> str:
+        """Validate and normalize a backend path previously emitted by this store.
+
+        Returns:
+            Backend path under this store root.
+
+        Raises:
+            ValueError: When the path is outside this store root.
+        """
+        text = str(path).replace("\\", "/")
+        normalized = text.removeprefix("/") if not self.root.startswith("/") else text
+        match normalized == self.root or normalized.startswith(f"{self.root}/"):
+            case True:
+                return normalized
+            case False:
+                raise ValueError(f"artifact path escaped store root: {text!r}")
 
     def exists(self, *parts: str) -> bool:
         """Return whether a store-relative path exists."""
-        return bool(self.fs.exists("/".join((self.root, *parts))))
+        return bool(self.fs.exists(self.path(*parts)))
+
+    def read_bytes(self, *parts: str | UPath) -> bytes:
+        """Read bytes from a validated store-relative path.
+
+        Returns:
+            File payload bytes.
+        """
+        return self.fs.cat_file(self.path(*parts))
+
+    def read_path(self, path: str | UPath) -> bytes:
+        """Read bytes from a validated backend path returned by the store.
+
+        Returns:
+            File payload bytes.
+        """
+        return self.fs.cat_file(self.backend_path(path))
+
+    def write_bytes(self, payload: bytes, *parts: str | UPath) -> str:
+        """Write bytes to a validated store-relative path and return the backend path.
+
+        Returns:
+            Backend path that received the payload.
+        """
+        path = self.path(*parts)
+        parent = path.rsplit("/", 1)[0] if "/" in path else self.root
+        self.fs.makedirs(parent, exist_ok=True)
+        self.fs.pipe_file(path, payload)
+        return path
+
+    def remove(self, *parts: str | UPath, recursive: bool = False) -> object:
+        """Remove a validated store-relative path.
+
+        Returns:
+            Backend-specific removal result.
+        """
+        return self.fs.rm(self.path(*parts), recursive=recursive)
+
+    def remove_path(self, path: str | UPath, *, recursive: bool = False) -> object:
+        """Remove a validated backend path returned by the store.
+
+        Returns:
+            Backend-specific removal result.
+        """
+        return self.fs.rm(self.backend_path(path), recursive=recursive)
 
 
 @dataclass(frozen=True, slots=True)

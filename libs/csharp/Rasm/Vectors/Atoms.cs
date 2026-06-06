@@ -3,19 +3,6 @@ using Foundation.CSharp.Analyzers.Contracts;
 namespace Rasm.Vectors;
 
 // --- [TYPES] ------------------------------------------------------------------------------
-[Union]
-public abstract partial record AnglePivot {
-    private AnglePivot() { }
-    public sealed record WorldCase : AnglePivot; public sealed record FrameCase(Plane Value) : AnglePivot; public sealed record NormalCase(Direction Value) : AnglePivot;
-    public static AnglePivot World { get; } = new WorldCase(); public static AnglePivot Frame(Plane frame) => new FrameCase(Value: frame); public static AnglePivot Normal(Direction normal) => new NormalCase(Value: normal);
-    internal Fin<AnglePivot> Admit(Op key) => Switch(
-        state: key,
-        worldCase: static (op, pivot) => Fin.Succ<AnglePivot>(pivot),
-        frameCase: static (op, pivot) => FieldNabla.Plane(basis: pivot.Value, key: op).Map(_ => (AnglePivot)pivot),
-        normalCase: static (op, pivot) => FieldNabla.Direction(value: pivot.Value, key: op).Map(_ => (AnglePivot)pivot));
-    internal double Compute(Vector3d a, Vector3d b) => Switch(state: (A: a, B: b), worldCase: static (state, _) => Vector3d.VectorAngle(a: state.A, b: state.B), frameCase: static (state, frame) => Vector3d.VectorAngle(a: state.A, b: state.B, plane: frame.Value), normalCase: static (state, normal) => Vector3d.VectorAngle(v1: state.A, v2: state.B, vNormal: normal.Value.Value));
-}
-
 [BoundaryAdapter, SmartEnum<int>]
 public sealed partial class BoundarySense { public static readonly BoundarySense Toward = new(key: 1, sign: 1.0), Away = new(key: -1, sign: -1.0); public double Sign { get; } }
 
@@ -38,6 +25,19 @@ public sealed partial class SignedAxis {
 
 [ValueObject<double>(KeyMemberName = "Value", KeyMemberAccessModifier = AccessModifier.Public)]
 public readonly partial struct UnitInterval { [BoundaryAdapter] static partial void ValidateFactoryArguments(ref ValidationError? validationError, ref double value) => validationError = RhinoMath.IsValidDouble(x: value) && value is >= 0.0 and <= 1.0 ? null : new ValidationError(message: string.Create(CultureInfo.InvariantCulture, $"UnitInterval must be in [0,1] (got {value:R}).")); }
+
+[Union]
+public abstract partial record AnglePivot {
+    private AnglePivot() { }
+    public sealed record WorldCase : AnglePivot; public sealed record FrameCase(Plane Value) : AnglePivot; public sealed record NormalCase(Direction Value) : AnglePivot;
+    public static AnglePivot World { get; } = new WorldCase(); public static AnglePivot Frame(Plane frame) => new FrameCase(Value: frame); public static AnglePivot Normal(Direction normal) => new NormalCase(Value: normal);
+    internal Fin<AnglePivot> Admit(Op key) => Switch(
+        state: key,
+        worldCase: static (op, pivot) => Fin.Succ<AnglePivot>(pivot),
+        frameCase: static (op, pivot) => FieldNabla.Plane(basis: pivot.Value, key: op).Map(_ => (AnglePivot)pivot),
+        normalCase: static (op, pivot) => FieldNabla.Direction(value: pivot.Value, key: op).Map(_ => (AnglePivot)pivot));
+    internal double Compute(Vector3d a, Vector3d b) => Switch(state: (A: a, B: b), worldCase: static (state, _) => Vector3d.VectorAngle(a: state.A, b: state.B), frameCase: static (state, frame) => Vector3d.VectorAngle(a: state.A, b: state.B, plane: frame.Value), normalCase: static (state, normal) => Vector3d.VectorAngle(v1: state.A, v2: state.B, vNormal: normal.Value.Value));
+}
 
 [ValueObject<double>(KeyMemberName = "Value", KeyMemberAccessModifier = AccessModifier.Public)]
 public readonly partial struct VectorAngle {
@@ -108,60 +108,6 @@ public readonly record struct Direction {
 }
 
 [BoundaryAdapter, StructLayout(LayoutKind.Auto)]
-public readonly record struct VectorCone {
-    private VectorCone(Point3d apex, Direction axis, VectorAngle halfAngle) { Apex = apex; Axis = axis; HalfAngle = halfAngle; }
-    public Point3d Apex { get; }
-    public Direction Axis { get; }
-    public VectorAngle HalfAngle { get; }
-    public double SolidAngle => RhinoMath.TwoPI * (1.0 - Math.Cos(d: HalfAngle.Value));
-    public static Fin<VectorCone> Of(Point3d apex, Vector3d axis, double halfAngleRadians, Context context, Op? key = null) =>
-        from anchor in key.OrDefault().AcceptValue(value: apex)
-        from direction in Direction.Of(value: axis, context: context, key: key.OrDefault())
-        from angle in key.OrDefault().AcceptValidated<VectorAngle>(candidate: halfAngleRadians)
-        from _ in guard(angle.Value <= Math.PI, key.OrDefault().InvalidInput())
-        select new VectorCone(apex: anchor, axis: direction, halfAngle: angle);
-    public Fin<bool> Contains(Vector3d query, Context context, Op? key = null) {
-        VectorCone cone = this;
-        return from probe in Direction.Of(value: query, context: context, key: key.OrDefault())
-               from angle in VectorAngle.Of(a: cone.Axis, b: probe, pivot: AnglePivot.World, key: key.OrDefault())
-               select angle.Value <= cone.HalfAngle.Value;
-    }
-    public static Fin<VectorCone> Enclose(VectorCone left, VectorCone right, Context context, Op? key = null) {
-        Op op = key.OrDefault();
-        return from model in Optional(context).ToFin(op.MissingContext())
-               from _ in guard(left.Apex.DistanceTo(other: right.Apex) <= model.Absolute.Value, op.InvalidInput())
-               from between in VectorAngle.Of(a: left.Axis, b: right.Axis, pivot: AnglePivot.World, key: op)
-               let envelope = (Theta: between.Value, A: left.HalfAngle.Value, B: right.HalfAngle.Value, Tolerance: model.Angle.Value, Half: (between.Value + left.HalfAngle.Value + right.HalfAngle.Value) * 0.5)
-               let cross = Vector3d.CrossProduct(a: left.Axis.Value, b: right.Axis.Value)
-               let rotationAxis = cross.IsTiny(model.Absolute.Value) switch { true => VectorFrame.SeedPerpendicular(axis: left.Axis.Value), false => cross }
-               from result in (envelope.Theta + envelope.B <= envelope.A + envelope.Tolerance, envelope.Theta + envelope.A <= envelope.B + envelope.Tolerance, envelope.Theta <= envelope.Tolerance) switch {
-                   (true, _, _) => Fin.Succ(left),
-                   (_, true, _) => Fin.Succ(right),
-                   (_, _, true) => Of(apex: left.Apex, axis: (envelope.A >= envelope.B ? left : right).Axis.Value, halfAngleRadians: Math.Max(val1: envelope.A, val2: envelope.B), context: model, key: op),
-                   _ => guard(envelope.Half <= Math.PI + envelope.Tolerance, op.InvalidInput())
-                       .Bind(_ => Direction.Of(value: Transform.Rotation(angleRadians: envelope.Half - envelope.A, rotationAxis: rotationAxis, rotationCenter: Point3d.Origin) * left.Axis.Value, context: model, key: op))
-                       .Bind(axis => Of(apex: left.Apex, axis: axis.Value, halfAngleRadians: Math.Min(val1: Math.PI, val2: envelope.Half), context: model, key: op)),
-               }
-               select result;
-    }
-    public Fin<Seq<Direction>> PartitionBy(int sectors, Context context, Op? key = null) {
-        Op op = key.OrDefault();
-        VectorCone cone = this;
-        return from sectorCount in op.AcceptValidated<Dimension>(candidate: sectors)
-               from rim in Direction.Of(value: VectorFrame.SeedPerpendicular(axis: cone.Axis.Value), context: context, key: op)
-               let stepAngle = RhinoMath.TwoPI / sectorCount.Value
-               let lateral = Math.Sin(a: cone.HalfAngle.Value)
-               let coaxial = Math.Cos(d: cone.HalfAngle.Value) * cone.Axis.Value
-               from rays in toSeq(Enumerable.Range(start: 0, count: sectorCount.Value)).TraverseM(i =>
-                   Direction.Of(
-                       value: coaxial + (lateral * (Transform.Rotation(angleRadians: stepAngle * i, rotationAxis: cone.Axis.Value, rotationCenter: Point3d.Origin) * rim.Value)),
-                       context: context,
-                       key: op)).As()
-               select rays;
-    }
-}
-
-[BoundaryAdapter, StructLayout(LayoutKind.Auto)]
 public readonly record struct VectorFrame {
     private VectorFrame(Plane value) => Value = value;
     public Plane Value { get; }
@@ -218,6 +164,60 @@ public readonly record struct VectorSpan {
         Type t when t == typeof(double) => AtomProjection.Value<double, TOut>(value: Magnitude.Value, key: key),
         _ => AtomProjection.Self<VectorSpan, TOut>(value: this, key: key),
     };
+}
+
+[BoundaryAdapter, StructLayout(LayoutKind.Auto)]
+public readonly record struct VectorCone {
+    private VectorCone(Point3d apex, Direction axis, VectorAngle halfAngle) { Apex = apex; Axis = axis; HalfAngle = halfAngle; }
+    public Point3d Apex { get; }
+    public Direction Axis { get; }
+    public VectorAngle HalfAngle { get; }
+    public double SolidAngle => RhinoMath.TwoPI * (1.0 - Math.Cos(d: HalfAngle.Value));
+    public static Fin<VectorCone> Of(Point3d apex, Vector3d axis, double halfAngleRadians, Context context, Op? key = null) =>
+        from anchor in key.OrDefault().AcceptValue(value: apex)
+        from direction in Direction.Of(value: axis, context: context, key: key.OrDefault())
+        from angle in key.OrDefault().AcceptValidated<VectorAngle>(candidate: halfAngleRadians)
+        from _ in guard(angle.Value <= Math.PI, key.OrDefault().InvalidInput())
+        select new VectorCone(apex: anchor, axis: direction, halfAngle: angle);
+    public Fin<bool> Contains(Vector3d query, Context context, Op? key = null) {
+        VectorCone cone = this;
+        return from probe in Direction.Of(value: query, context: context, key: key.OrDefault())
+               from angle in VectorAngle.Of(a: cone.Axis, b: probe, pivot: AnglePivot.World, key: key.OrDefault())
+               select angle.Value <= cone.HalfAngle.Value;
+    }
+    public static Fin<VectorCone> Enclose(VectorCone left, VectorCone right, Context context, Op? key = null) {
+        Op op = key.OrDefault();
+        return from model in Optional(context).ToFin(op.MissingContext())
+               from _ in guard(left.Apex.DistanceTo(other: right.Apex) <= model.Absolute.Value, op.InvalidInput())
+               from between in VectorAngle.Of(a: left.Axis, b: right.Axis, pivot: AnglePivot.World, key: op)
+               let envelope = (Theta: between.Value, A: left.HalfAngle.Value, B: right.HalfAngle.Value, Tolerance: model.Angle.Value, Half: (between.Value + left.HalfAngle.Value + right.HalfAngle.Value) * 0.5)
+               let cross = Vector3d.CrossProduct(a: left.Axis.Value, b: right.Axis.Value)
+               let rotationAxis = cross.IsTiny(model.Absolute.Value) switch { true => VectorFrame.SeedPerpendicular(axis: left.Axis.Value), false => cross }
+               from result in (envelope.Theta + envelope.B <= envelope.A + envelope.Tolerance, envelope.Theta + envelope.A <= envelope.B + envelope.Tolerance, envelope.Theta <= envelope.Tolerance) switch {
+                   (true, _, _) => Fin.Succ(left),
+                   (_, true, _) => Fin.Succ(right),
+                   (_, _, true) => Of(apex: left.Apex, axis: (envelope.A >= envelope.B ? left : right).Axis.Value, halfAngleRadians: Math.Max(val1: envelope.A, val2: envelope.B), context: model, key: op),
+                   _ => guard(envelope.Half <= Math.PI + envelope.Tolerance, op.InvalidInput())
+                       .Bind(_ => Direction.Of(value: Transform.Rotation(angleRadians: envelope.Half - envelope.A, rotationAxis: rotationAxis, rotationCenter: Point3d.Origin) * left.Axis.Value, context: model, key: op))
+                       .Bind(axis => Of(apex: left.Apex, axis: axis.Value, halfAngleRadians: Math.Min(val1: Math.PI, val2: envelope.Half), context: model, key: op)),
+               }
+               select result;
+    }
+    public Fin<Seq<Direction>> PartitionBy(int sectors, Context context, Op? key = null) {
+        Op op = key.OrDefault();
+        VectorCone cone = this;
+        return from sectorCount in op.AcceptValidated<Dimension>(candidate: sectors)
+               from rim in Direction.Of(value: VectorFrame.SeedPerpendicular(axis: cone.Axis.Value), context: context, key: op)
+               let stepAngle = RhinoMath.TwoPI / sectorCount.Value
+               let lateral = Math.Sin(a: cone.HalfAngle.Value)
+               let coaxial = Math.Cos(d: cone.HalfAngle.Value) * cone.Axis.Value
+               from rays in toSeq(Enumerable.Range(start: 0, count: sectorCount.Value)).TraverseM(i =>
+                   Direction.Of(
+                       value: coaxial + (lateral * (Transform.Rotation(angleRadians: stepAngle * i, rotationAxis: cone.Axis.Value, rotationCenter: Point3d.Origin) * rim.Value)),
+                       context: context,
+                       key: op)).As()
+               select rays;
+    }
 }
 
 // --- [OPERATIONS] -------------------------------------------------------------------------

@@ -8,7 +8,6 @@ public sealed partial class SupportProjection {
     public static readonly SupportProjection Closest = Hit(key: 0, accepts: static output => output == typeof(Point3d) || output == typeof(ClosestHit), projectRaw: s => s.Output == typeof(Point3d) ? Accept(state: s, value: s.Hit.Point) : Accept(state: s, value: s.Hit));
     public static readonly SupportProjection Direction = new(key: 1, capability: static (_, _) => true, accepts: static output => output == typeof(Direction) || output == typeof(Vector3d), projectRaw: s => DirectionOf(vector: s.Hit.Point - s.Sample, state: s));
     public static readonly SupportProjection Span = SpanOf(key: 2, sign: 1.0);
-    public static readonly SupportProjection SignedSpanAway = SpanOf(key: 13, sign: -1.0);
     public static readonly SupportProjection Normal = new(key: 3, capability: static (space, _) => space.CanClosestNormal, accepts: DirectionOrVector, projectRaw: s => s.Hit.Normal.ToFin(Fail: s.Key.InvalidResult()).Bind(normal => DirectionOf(vector: normal, state: s)));
     public static readonly SupportProjection Distance = HitValue(key: 4, choose: static hit => hit.Distance);
     public static readonly SupportProjection Parameter = HitValue(key: 5, choose: static hit => hit.Parameter);
@@ -19,6 +18,7 @@ public sealed partial class SupportProjection {
     public static readonly SupportProjection ContainmentDistance = new(key: 10, capability: static (space, hit) => space.AdmitsContainmentDistance(hit: hit), accepts: static output => output == typeof(double), projectRaw: s => s.Space.ContainmentDistance(hit: s.Hit, sample: s.Sample, context: s.Context, key: s.Key).Bind(distance => Accept(state: s, value: distance)));
     public static readonly SupportProjection Tangent = new(key: 11, capability: static (space, _) => GeometryKernel.CanClosestTangent(type: space.SourceType), accepts: DirectionOrVector, projectRaw: s => s.Hit.Tangent.ToFin(Fail: s.Key.InvalidResult()).Bind(tangent => DirectionOf(vector: tangent, state: s)));
     public static readonly SupportProjection Frame = HitValue(key: 12, choose: static hit => hit.Frame, capability: static (space, _) => GeometryKernel.CanClosestFrame(type: space.SourceType));
+    public static readonly SupportProjection SignedSpanAway = SpanOf(key: 13, sign: -1.0);
     [UseDelegateFromConstructor] private partial bool Capability(SupportSpace space, ClosestHit hit);
     [UseDelegateFromConstructor] private partial bool Accepts(Type output);
     [UseDelegateFromConstructor] private partial Fin<object> ProjectRaw(SupportProjectionState state);

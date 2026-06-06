@@ -65,6 +65,21 @@ public sealed partial class AlignmentStopKind {
 
 // --- [MODELS] -----------------------------------------------------------------------------
 [BoundaryAdapter, StructLayout(LayoutKind.Auto)]
+public readonly record struct AlignmentPolicy(Dimension MaxIterations, PositiveMagnitude ConvergenceTolerance, PositiveMagnitude RobustScale) {
+    internal static AlignmentPolicy Default => new(MaxIterations: Dimension.Create(value: 30), ConvergenceTolerance: PositiveMagnitude.Create(value: 1.0e-6), RobustScale: PositiveMagnitude.Create(value: 0.1));
+    internal Fin<AlignmentPolicy> Admit(Op key) {
+        AlignmentPolicy self = this;
+        return from iterations in FieldNabla.Dimension(value: self.MaxIterations, key: key)
+               from tolerance in FieldNabla.Positive(value: self.ConvergenceTolerance, key: key)
+               from scale in FieldNabla.Positive(value: self.RobustScale, key: key)
+               select self;
+    }
+}
+
+[BoundaryAdapter, StructLayout(LayoutKind.Auto)]
+public readonly record struct AlignmentRobustReceipt(double Scale, double MinWeight, double MaxWeight);
+
+[BoundaryAdapter, StructLayout(LayoutKind.Auto)]
 public readonly record struct AlignmentOptimizerReceipt(AlignmentOptimizerStopKind Stop, int LineSearchSteps, double InitialCost, double FinalCost, double StepNorm, double StepScale, double MeanMahalanobis, double MaxMahalanobis, Option<SolveReceipt> Solve, CloudNeighborhoodPcaReceipt SourcePca, CloudNeighborhoodPcaReceipt TargetPca) {
     internal bool IsValid =>
         Stop is not null
@@ -82,18 +97,6 @@ public readonly record struct AlignmentOptimizerReceipt(AlignmentOptimizerStopKi
 }
 
 [BoundaryAdapter, StructLayout(LayoutKind.Auto)]
-public readonly record struct AlignmentPolicy(Dimension MaxIterations, PositiveMagnitude ConvergenceTolerance, PositiveMagnitude RobustScale) {
-    internal static AlignmentPolicy Default => new(MaxIterations: Dimension.Create(value: 30), ConvergenceTolerance: PositiveMagnitude.Create(value: 1.0e-6), RobustScale: PositiveMagnitude.Create(value: 0.1));
-    internal Fin<AlignmentPolicy> Admit(Op key) {
-        AlignmentPolicy self = this;
-        return from iterations in FieldNabla.Dimension(value: self.MaxIterations, key: key)
-               from tolerance in FieldNabla.Positive(value: self.ConvergenceTolerance, key: key)
-               from scale in FieldNabla.Positive(value: self.RobustScale, key: key)
-               select self;
-    }
-}
-
-[BoundaryAdapter, StructLayout(LayoutKind.Auto)]
 public readonly record struct AlignmentReceipt(Transform Transform, AlignKind Kind, AlignmentApproximationStatus Approximation, AlignmentStopKind Stop, int Iterations, double FinalDelta, Option<AlignmentRobustReceipt> Robust, CloudCorrespondenceSet Correspondences, Option<SolveReceipt> Solve, Option<AlignmentOptimizerReceipt> Optimizer) {
     internal Fin<TOut> Project<TOut>(Op key) =>
         typeof(TOut) switch {
@@ -103,9 +106,6 @@ public readonly record struct AlignmentReceipt(Transform Transform, AlignKind Ki
             _ => Fin.Fail<TOut>(key.Unsupported(geometryType: typeof(AlignmentReceipt), outputType: typeof(TOut))),
         };
 }
-
-[BoundaryAdapter, StructLayout(LayoutKind.Auto)]
-public readonly record struct AlignmentRobustReceipt(double Scale, double MinWeight, double MaxWeight);
 
 // --- [OPERATIONS] -------------------------------------------------------------------------
 internal readonly record struct AlignmentMatch(CloudCorrespondenceSet Correspondences, Point3d[] Targets, Vector3d[] Normals, double[] Distances, double[] RowMass, int[] TargetIndices, Option<CloudNeighborhoodPcaResult> SourcePca = default, Option<CloudNeighborhoodPcaResult> TargetPca = default);
@@ -212,8 +212,65 @@ internal static class AlignKernel {
                 _ = combined.Unitize();
                 return (Normal: combined, Weight: 1.0);
             }));
-    private static Fin<Vector3d[]> EstimateSourceNormals(Seq<Point3d> source, Transform current, Op key) =>
-        CloudKernel.EstimateNormalsFromPoints(points: [.. source.Map(p => current * p).AsIterable()], key: key);
+    internal static Fin<AlignmentStep> SolveRobustProcrustes(Seq<Point3d> source, Point3d[] target, double[] residuals, double[] rowMass, Transform current, double robustScale = 0.1, Op? key = null) {
+        Op op = key.OrDefault();
+        int n = source.Count;
+        Fin<int> admitted = from count in AdmitAlignmentRows(source: source, target: target, weights: rowMass, minimum: 3, key: op)
+                            from residualCount in FieldNabla.SameCount(expected: count, key: op, counts: [residuals.Length])
+                            from finiteResiduals in guard(residuals.All(static residual => RhinoMath.IsValidDouble(x: residual)) && RhinoMath.IsValidDouble(x: robustScale) && robustScale > 0.0, op.InvalidInput())
+                            select count;
+        return admitted.Bind(_ => {
+            double[] weights = new double[n];
+            double[] sortedResiduals = [.. residuals.Select(static residual => Math.Abs(value: residual)).Order()];
+            double median = sortedResiduals.Length == 0 ? 1.0 : sortedResiduals[sortedResiduals.Length / 2];
+            double nu = Math.Max(val1: 1.4826 * median * robustScale, val2: RhinoMath.SqrtEpsilon);
+            double[] logs = [.. residuals.Select(residual => -(residual * residual) / (2.0 * nu * nu))];
+            double offset = logs.Max();
+            for (int i = 0; i < n; i++) weights[i] = rowMass[i] * Math.Exp(d: logs[i] - offset);
+            return from aligned in SolveProcrustes(source: source, target: target, weights: weights, current: current, key: op)
+                   select new AlignmentStep(Delta: aligned, Robust: Some(new AlignmentRobustReceipt(Scale: nu, MinWeight: weights.Min(), MaxWeight: weights.Max())));
+        });
+    }
+    private static Fin<Transform> SolveProcrustes(Seq<Point3d> source, Point3d[] target, double[] weights, Transform current, Op key) {
+        Seq<Point3d> transformedSource = toSeq(source.AsIterable().Select(p => current * p));
+        Seq<Point3d> targetSeq = toSeq(target);
+        return from rows in AdmitAlignmentRows(source: transformedSource, target: target, weights: weights, minimum: 3, key: key)
+               from srcCentroid in WeightedCentroidOf(points: transformedSource, weights: weights, key: key)
+               from tgtCentroid in WeightedCentroidOf(points: targetSeq, weights: weights, key: key)
+               from aligned in AlignViaCrossCovariance(source: transformedSource, target: targetSeq, srcCentroid: srcCentroid, tgtCentroid: tgtCentroid, weights: weights, key: key)
+               select aligned;
+    }
+    private static Fin<Point3d> WeightedCentroidOf(Seq<Point3d> points, double[] weights, Op key) {
+        Vector3d sum = Vector3d.Zero; double totalW = 0.0;
+        for (int i = 0; i < points.Count; i++) { sum += weights[i] * (Vector3d)points[index: i]; totalW += weights[i]; }
+        return totalW > RhinoMath.ZeroTolerance && RhinoMath.IsValidDouble(x: totalW)
+            ? key.AcceptValue(value: Point3d.Origin + (sum / totalW))
+            : Fin.Fail<Point3d>(key.InvalidResult());
+    }
+    // Cross-covariance H = Σ w_i (s_i − ȳ)(t_i − ȳ)ᵀ → SVD → R = V·diag(1,1,det(VUᵀ))·Uᵀ;
+    // post-rotation translation = ȳ − R x̄ assembles the full rigid transform.
+    private static Fin<Transform> AlignViaCrossCovariance(Seq<Point3d> source, Seq<Point3d> target, Point3d srcCentroid, Point3d tgtCentroid, double[]? weights, Op key) {
+        Dimension dim3 = Dimension.Create(value: 3);
+        double[] cross = new double[9];
+        for (int i = 0; i < source.Count; i++) {
+            double w = weights is null ? 1.0 : weights[i];
+            Vector3d sv = source[index: i] - srcCentroid; Vector3d tv = target[index: i] - tgtCentroid;
+            cross[0] += w * sv.X * tv.X; cross[1] += w * sv.X * tv.Y; cross[2] += w * sv.X * tv.Z;
+            cross[3] += w * sv.Y * tv.X; cross[4] += w * sv.Y * tv.Y; cross[5] += w * sv.Y * tv.Z;
+            cross[6] += w * sv.Z * tv.X; cross[7] += w * sv.Z * tv.Y; cross[8] += w * sv.Z * tv.Z;
+        }
+        return from h in Matrix.Of(rows: dim3, cols: dim3, entries: new Arr<double>(cross), key: key)
+               from svd in h.DecomposeSvd(key: key)
+               from vu in svd.V.Multiply(other: svd.U.Transpose(), key: key)
+               from det in vu.Determinant(key: key)
+               let diag = new[] { 1.0, 1.0, det >= 0.0 ? 1.0 : -1.0 }
+               let d = new Matrix(Rows: Dimension.Create(value: 3), Cols: Dimension.Create(value: 3),
+                   Entries: [.. Enumerable.Range(start: 0, count: 9).Select(idx => (idx / 3) == (idx % 3) ? diag[idx / 3] : 0.0)])
+               from vd in svd.V.Multiply(other: d, key: key)
+               from rot in vd.Multiply(other: svd.U.Transpose(), key: key)
+               let rotation = RotationTransformOf(rotation: rot)
+               select WithTranslation(rotation: rotation, translation: tgtCentroid - (rotation * srcCentroid));
+    }
     internal static Fin<AlignmentStep> SolveNormalWeightedPointToPlane(Seq<Point3d> source, Point3d[] target, Vector3d[] targetNormals, double[] rowMass, Transform current, Op key) =>
         EstimateSourceNormals(source: source, current: current, key: key).Bind(sourceNormals => SolveLinearizedRows(
             source: source,
@@ -223,6 +280,8 @@ internal static class AlignKernel {
             current: current,
             key: key,
             rowNormal: (i, normal) => (Normal: normal, Weight: Math.Sqrt(d: Math.Max(val1: Math.Abs(value: sourceNormals[i] * normal), val2: RhinoMath.SqrtEpsilon)))));
+    private static Fin<Vector3d[]> EstimateSourceNormals(Seq<Point3d> source, Transform current, Op key) =>
+        CloudKernel.EstimateNormalsFromPoints(points: [.. source.Map(p => current * p).AsIterable()], key: key);
     [StructLayout(LayoutKind.Auto)]
     private readonly record struct GicpObjective(double Cost, double MeanMahalanobis, double MaxMahalanobis);
     internal static Fin<AlignmentStep> SolveGeneralizedIcp(Seq<Point3d> source, AlignmentMatch match, Transform current, AlignmentPolicy policy, Op key) =>
@@ -385,65 +444,6 @@ internal static class AlignKernel {
         });
     }
 
-    internal static Fin<AlignmentStep> SolveRobustProcrustes(Seq<Point3d> source, Point3d[] target, double[] residuals, double[] rowMass, Transform current, double robustScale = 0.1, Op? key = null) {
-        Op op = key.OrDefault();
-        int n = source.Count;
-        Fin<int> admitted = from count in AdmitAlignmentRows(source: source, target: target, weights: rowMass, minimum: 3, key: op)
-                            from residualCount in FieldNabla.SameCount(expected: count, key: op, counts: [residuals.Length])
-                            from finiteResiduals in guard(residuals.All(static residual => RhinoMath.IsValidDouble(x: residual)) && RhinoMath.IsValidDouble(x: robustScale) && robustScale > 0.0, op.InvalidInput())
-                            select count;
-        return admitted.Bind(_ => {
-            double[] weights = new double[n];
-            double[] sortedResiduals = [.. residuals.Select(static residual => Math.Abs(value: residual)).Order()];
-            double median = sortedResiduals.Length == 0 ? 1.0 : sortedResiduals[sortedResiduals.Length / 2];
-            double nu = Math.Max(val1: 1.4826 * median * robustScale, val2: RhinoMath.SqrtEpsilon);
-            double[] logs = [.. residuals.Select(residual => -(residual * residual) / (2.0 * nu * nu))];
-            double offset = logs.Max();
-            for (int i = 0; i < n; i++) weights[i] = rowMass[i] * Math.Exp(d: logs[i] - offset);
-            return from aligned in SolveProcrustes(source: source, target: target, weights: weights, current: current, key: op)
-                   select new AlignmentStep(Delta: aligned, Robust: Some(new AlignmentRobustReceipt(Scale: nu, MinWeight: weights.Min(), MaxWeight: weights.Max())));
-        });
-    }
-    private static Fin<Transform> SolveProcrustes(Seq<Point3d> source, Point3d[] target, double[] weights, Transform current, Op key) {
-        Seq<Point3d> transformedSource = toSeq(source.AsIterable().Select(p => current * p));
-        Seq<Point3d> targetSeq = toSeq(target);
-        return from rows in AdmitAlignmentRows(source: transformedSource, target: target, weights: weights, minimum: 3, key: key)
-               from srcCentroid in WeightedCentroidOf(points: transformedSource, weights: weights, key: key)
-               from tgtCentroid in WeightedCentroidOf(points: targetSeq, weights: weights, key: key)
-               from aligned in AlignViaCrossCovariance(source: transformedSource, target: targetSeq, srcCentroid: srcCentroid, tgtCentroid: tgtCentroid, weights: weights, key: key)
-               select aligned;
-    }
-    private static Fin<Point3d> WeightedCentroidOf(Seq<Point3d> points, double[] weights, Op key) {
-        Vector3d sum = Vector3d.Zero; double totalW = 0.0;
-        for (int i = 0; i < points.Count; i++) { sum += weights[i] * (Vector3d)points[index: i]; totalW += weights[i]; }
-        return totalW > RhinoMath.ZeroTolerance && RhinoMath.IsValidDouble(x: totalW)
-            ? key.AcceptValue(value: Point3d.Origin + (sum / totalW))
-            : Fin.Fail<Point3d>(key.InvalidResult());
-    }
-    // Cross-covariance H = Σ w_i (s_i − ȳ)(t_i − ȳ)ᵀ → SVD → R = V·diag(1,1,det(VUᵀ))·Uᵀ;
-    // post-rotation translation = ȳ − R x̄ assembles the full rigid transform.
-    private static Fin<Transform> AlignViaCrossCovariance(Seq<Point3d> source, Seq<Point3d> target, Point3d srcCentroid, Point3d tgtCentroid, double[]? weights, Op key) {
-        Dimension dim3 = Dimension.Create(value: 3);
-        double[] cross = new double[9];
-        for (int i = 0; i < source.Count; i++) {
-            double w = weights is null ? 1.0 : weights[i];
-            Vector3d sv = source[index: i] - srcCentroid; Vector3d tv = target[index: i] - tgtCentroid;
-            cross[0] += w * sv.X * tv.X; cross[1] += w * sv.X * tv.Y; cross[2] += w * sv.X * tv.Z;
-            cross[3] += w * sv.Y * tv.X; cross[4] += w * sv.Y * tv.Y; cross[5] += w * sv.Y * tv.Z;
-            cross[6] += w * sv.Z * tv.X; cross[7] += w * sv.Z * tv.Y; cross[8] += w * sv.Z * tv.Z;
-        }
-        return from h in Matrix.Of(rows: dim3, cols: dim3, entries: new Arr<double>(cross), key: key)
-               from svd in h.DecomposeSvd(key: key)
-               from vu in svd.V.Multiply(other: svd.U.Transpose(), key: key)
-               from det in vu.Determinant(key: key)
-               let diag = new[] { 1.0, 1.0, det >= 0.0 ? 1.0 : -1.0 }
-               let d = new Matrix(Rows: Dimension.Create(value: 3), Cols: Dimension.Create(value: 3),
-                   Entries: [.. Enumerable.Range(start: 0, count: 9).Select(idx => (idx / 3) == (idx % 3) ? diag[idx / 3] : 0.0)])
-               from vd in svd.V.Multiply(other: d, key: key)
-               from rot in vd.Multiply(other: svd.U.Transpose(), key: key)
-               let rotation = RotationTransformOf(rotation: rot)
-               select WithTranslation(rotation: rotation, translation: tgtCentroid - (rotation * srcCentroid));
-    }
     private static Transform RotationTransformOf(Matrix rotation) {
         Transform xform = Transform.Identity;
         for (int i = 0; i < 3; i++)

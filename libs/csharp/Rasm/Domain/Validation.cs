@@ -51,19 +51,48 @@ public sealed partial record Requirement {
     private readonly Seq<Check> checks;
     private Requirement(Seq<Check> checks) => this.checks = checks;
     internal bool IsEmpty => checks.IsEmpty;
+    private static Requirement Single(Check check) => new(checks: Seq(check));
+    public static readonly Requirement None = new(checks: Seq<Check>());
+    public static readonly Requirement Basic = new(checks: Seq(Check.Validity, Check.UsableBounds));
+    public static readonly Requirement CurveLength = Basic + Single(check: Check.CurveLengthReadiness);
+    public static readonly Requirement AreaMass = Basic + Single(check: Check.CurveAreaReadiness) + Single(check: Check.CurveSelfIntersection);
+    public static readonly Requirement MeshCheck = Basic + Single(check: Check.MeshRhinoCheck);
+    public static readonly Requirement SolidTopology = Basic + Single(check: Check.BrepIntegrity) + Single(check: Check.MeshManifoldReadiness) + Single(check: Check.BrepSolidReadiness) + Single(check: Check.MeshRhinoCheck);
+    public static readonly Requirement VolumeMass = SolidTopology + Single(check: Check.SurfaceSolidReadiness);
+    public static readonly Requirement SurfaceEvaluation = Basic + Single(check: Check.SurfaceDomainReadiness);
+    public static readonly Requirement Strict = new(checks: toSeq(Check.Items));
     public static Requirement operator +(Requirement left, Requirement right) => Add(left: left, right: right);
     public static Requirement Add(Requirement left, Requirement right) {
         ArgumentNullException.ThrowIfNull(argument: left);
         ArgumentNullException.ThrowIfNull(argument: right);
         return new(checks: left.checks.Concat(right.checks).Distinct().ToSeq());
     }
-    private static Requirement Single(Check check) => new(checks: Seq(check));
     public Validation<Error, T> Apply<T>(Context context, T? value, CancellationToken cancel = default) where T : notnull =>
         (value, context, this) switch {
             (T candidate, _, Requirement { IsEmpty: true }) => Operand.AcceptValue(value: candidate).ToValidation(),
             (T candidate, Context ctx, Requirement req) => RunChecks(checks: req.checks, context: ctx, original: candidate, cancel: cancel),
             _ => Fin.Fail<T>(error: new Fault.MissingGeometry()).ToValidation(),
         };
+    public static Requirement ForKind(Kind kind) {
+        ArgumentNullException.ThrowIfNull(argument: kind);
+        return kind.Topology == Topology.Curve ? CurveLength
+            : kind.Topology == Topology.Surface ? SurfaceEvaluation
+            : kind.Topology == Topology.Brep || kind.Topology == Topology.Extrusion ? SolidTopology
+            : kind.Topology == Topology.Mesh || kind.Topology == Topology.SubD ? MeshCheck
+            : kind.Topology == Topology.Point || kind.Topology == Topology.PointCloud || kind.Topology == Topology.Hatch ? None
+            : Basic;
+    }
+    private static bool HasUsableDomain(Surface surface, Context context) =>
+        (surface.Domain(direction: 0), surface.Domain(direction: 1)) is (Interval u, Interval v)
+        && u.IsValid && v.IsValid && u.Length > context.Absolute.Value && v.Length > context.Absolute.Value;
+    [BoundaryAdapter]
+    internal static Fin<MeshCheckParameters> MeshReport(Mesh mesh, string check) {
+        using TextLog textLog = new();
+        MeshCheckParameters parameters = MeshCheckParameters.Defaults();
+        return guard(mesh.Check(textLog: textLog, parameters: ref parameters), () => (Error)new Fault.InvalidGeometry(Geometry: mesh, Check: check, Log: textLog.ToString()))
+            .ToFin()
+            .Map(_ => parameters);
+    }
     private static Validation<Error, T> RunChecks<T>(Seq<Check> checks, Context context, T original, CancellationToken cancel) where T : notnull =>
         original switch {
             GeometryBase geometry => RunChecks(checks: checks, context: context, geometry: geometry, original: original, cancel: cancel),
@@ -90,35 +119,6 @@ public sealed partial record Requirement {
                 project: static (state, geometry) => RunChecks(checks: state.Checks, context: state.Context, geometry: geometry, original: state.Original, cancel: state.Cancel)))
             .Bind(static validation => validation)
             .As();
-    public static readonly Requirement None = new(checks: Seq<Check>());
-    public static readonly Requirement Basic = new(checks: Seq(Check.Validity, Check.UsableBounds));
-    public static readonly Requirement CurveLength = Basic + Single(check: Check.CurveLengthReadiness);
-    public static readonly Requirement AreaMass = Basic + Single(check: Check.CurveAreaReadiness) + Single(check: Check.CurveSelfIntersection);
-    public static readonly Requirement MeshCheck = Basic + Single(check: Check.MeshRhinoCheck);
-    public static readonly Requirement SolidTopology = Basic + Single(check: Check.BrepIntegrity) + Single(check: Check.MeshManifoldReadiness) + Single(check: Check.BrepSolidReadiness) + Single(check: Check.MeshRhinoCheck);
-    public static readonly Requirement VolumeMass = SolidTopology + Single(check: Check.SurfaceSolidReadiness);
-    public static readonly Requirement SurfaceEvaluation = Basic + Single(check: Check.SurfaceDomainReadiness);
-    public static readonly Requirement Strict = new(checks: toSeq(Check.Items));
-    public static Requirement ForKind(Kind kind) {
-        ArgumentNullException.ThrowIfNull(argument: kind);
-        return kind.Topology == Topology.Curve ? CurveLength
-            : kind.Topology == Topology.Surface ? SurfaceEvaluation
-            : kind.Topology == Topology.Brep || kind.Topology == Topology.Extrusion ? SolidTopology
-            : kind.Topology == Topology.Mesh || kind.Topology == Topology.SubD ? MeshCheck
-            : kind.Topology == Topology.Point || kind.Topology == Topology.PointCloud || kind.Topology == Topology.Hatch ? None
-            : Basic;
-    }
-    private static bool HasUsableDomain(Surface surface, Context context) =>
-        (surface.Domain(direction: 0), surface.Domain(direction: 1)) is (Interval u, Interval v)
-        && u.IsValid && v.IsValid && u.Length > context.Absolute.Value && v.Length > context.Absolute.Value;
-    [BoundaryAdapter]
-    internal static Fin<MeshCheckParameters> MeshReport(Mesh mesh, string check) {
-        using TextLog textLog = new();
-        MeshCheckParameters parameters = MeshCheckParameters.Defaults();
-        return guard(mesh.Check(textLog: textLog, parameters: ref parameters), () => (Error)new Fault.InvalidGeometry(Geometry: mesh, Check: check, Log: textLog.ToString()))
-            .ToFin()
-            .Map(_ => parameters);
-    }
     [BoundaryAdapter]
     private static Fin<Unit> CurveSelfIntersectionReport(Check check, Curve curve, double tolerance) {
         using CurveIntersections? hits = Intersection.CurveSelf(curve: curve, tolerance: tolerance);
@@ -223,38 +223,6 @@ public static partial class FaultExtensions {
     };
 }
 
-public static partial class OpExtensions {
-    [BoundaryAdapter]
-    public static Op OrDefault(this Op? key, [CallerMemberName] string name = "") =>
-        key ?? Op.Of(name: name);
-    [BoundaryAdapter]
-    public static Fin<TVO> AcceptValidated<TVO>(this Op op, double candidate) where TVO : IObjectFactory<TVO, double, ValidationError> =>
-        OpAcceptance.TryCreateValidated<TVO>(candidate: candidate).ToFin();
-    [BoundaryAdapter]
-    public static Fin<TVO> AcceptValidated<TVO>(this Op op, int candidate) where TVO : IObjectFactory<TVO, int, ValidationError> =>
-        OpAcceptance.TryCreateValidated<TVO>(candidate: candidate).ToFin();
-}
-
-internal static class RequirementContext {
-    private static Validation<Error, (TA A, TB B)> Validate<TA, TB>(this Context context, TA a, TB b, Requirement requirementA, Requirement requirementB, CancellationToken cancel = default) where TA : notnull where TB : notnull =>
-        (requirementA.Apply(context: context, value: a, cancel: cancel),
-         requirementB.Apply(context: context, value: b, cancel: cancel))
-            .Apply(static (left, right) => (A: left, B: right)).As();
-    internal static Validation<Error, (TA A, TB B, Kind KindA, Kind KindB)> Pair<TA, TB>(
-        this Context context,
-        TA a,
-        TB b,
-        Op op,
-        Func<Op, Kind, Kind, Fin<(Requirement A, Requirement B)>> requirements,
-        CancellationToken cancel = default) where TA : notnull where TB : notnull =>
-        (from pair in context.Validate(a: a, b: b, requirementA: Requirement.None, requirementB: Requirement.None, cancel: cancel)
-         from kindA in pair.A.KindOf(context: context).ToValidation()
-         from kindB in pair.B.KindOf(context: context).ToValidation()
-         from required in requirements(arg1: op, arg2: kindA, arg3: kindB).ToValidation()
-         from validated in context.Validate(a: pair.A, b: pair.B, requirementA: required.A, requirementB: required.B, cancel: cancel)
-         select (validated.A, validated.B, KindA: kindA, KindB: kindB)).As();
-}
-
 [BoundaryAdapter]
 internal static class OpAcceptance {
     private static readonly FrozenDictionary<Type, Func<object, bool>> ValueValidity = new Type[] {
@@ -324,4 +292,36 @@ internal static class OpAcceptance {
         };
     private static Fin<T> Demand<T>(this Op key, bool condition, T value) =>
         condition ? Fin.Succ(value) : Fin.Fail<T>(error: new Fault.InvalidResult(Key: key));
+}
+
+public static partial class OpExtensions {
+    [BoundaryAdapter]
+    public static Op OrDefault(this Op? key, [CallerMemberName] string name = "") =>
+        key ?? Op.Of(name: name);
+    [BoundaryAdapter]
+    public static Fin<TVO> AcceptValidated<TVO>(this Op op, double candidate) where TVO : IObjectFactory<TVO, double, ValidationError> =>
+        OpAcceptance.TryCreateValidated<TVO>(candidate: candidate).ToFin();
+    [BoundaryAdapter]
+    public static Fin<TVO> AcceptValidated<TVO>(this Op op, int candidate) where TVO : IObjectFactory<TVO, int, ValidationError> =>
+        OpAcceptance.TryCreateValidated<TVO>(candidate: candidate).ToFin();
+}
+
+internal static class RequirementContext {
+    internal static Validation<Error, (TA A, TB B, Kind KindA, Kind KindB)> Pair<TA, TB>(
+        this Context context,
+        TA a,
+        TB b,
+        Op op,
+        Func<Op, Kind, Kind, Fin<(Requirement A, Requirement B)>> requirements,
+        CancellationToken cancel = default) where TA : notnull where TB : notnull =>
+        (from pair in context.Validate(a: a, b: b, requirementA: Requirement.None, requirementB: Requirement.None, cancel: cancel)
+         from kindA in pair.A.KindOf(context: context).ToValidation()
+         from kindB in pair.B.KindOf(context: context).ToValidation()
+         from required in requirements(arg1: op, arg2: kindA, arg3: kindB).ToValidation()
+         from validated in context.Validate(a: pair.A, b: pair.B, requirementA: required.A, requirementB: required.B, cancel: cancel)
+         select (validated.A, validated.B, KindA: kindA, KindB: kindB)).As();
+    private static Validation<Error, (TA A, TB B)> Validate<TA, TB>(this Context context, TA a, TB b, Requirement requirementA, Requirement requirementB, CancellationToken cancel = default) where TA : notnull where TB : notnull =>
+        (requirementA.Apply(context: context, value: a, cancel: cancel),
+         requirementB.Apply(context: context, value: b, cancel: cancel))
+            .Apply(static (left, right) => (A: left, B: right)).As();
 }

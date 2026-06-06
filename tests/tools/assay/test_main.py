@@ -1,7 +1,33 @@
-"""Main entrypoint: parse-fault Envelope E2, exit-code contract, CycloptsError handling."""
+"""Main entrypoint laws."""
 
-import pytest
+from typing import TYPE_CHECKING
+
+from tools.assay.core.model import Claim
+from tools.assay.core.status import RailStatus
 
 
-def test_assay_law_coverage_pending() -> None:
-    pytest.xfail("TODO: replace scaffold with executable Assay law coverage.")
+if TYPE_CHECKING:
+    from tests.tools.assay.conftest import VerbRunner
+
+
+def test_no_command_emits_parse_fault(cli: VerbRunner) -> None:
+    """Empty argv emits one FAULTED envelope instead of stdout help."""
+    env, code = cli()
+
+    assert code == RailStatus.FAULTED.exit_code
+    assert env.status is RailStatus.FAULTED
+    assert env.error is not None
+    assert env.error.message.startswith("parse: no command")
+    assert env.error_context is not None
+    assert env.error_context.failing_step == "parse"
+
+
+def test_incomplete_claim_emits_parse_fault(cli: VerbRunner) -> None:
+    """A bare claim is incomplete command input, not a help page."""
+    env, code = cli("static")
+
+    assert code == RailStatus.FAULTED.exit_code
+    assert env.claim is Claim.STATIC
+    assert not env.verb
+    assert env.error is not None
+    assert "incomplete command" in env.error.message

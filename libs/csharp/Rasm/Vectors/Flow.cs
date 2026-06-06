@@ -436,6 +436,13 @@ internal readonly record struct DenseOutputState(Point3d Start, Point3d End, dou
             f: static (sum, pair) => sum + (pair.First * pair.Second));
 }
 
+[Union]
+internal abstract partial record StreamlineStep {
+    private StreamlineStep() { }
+    public sealed record AcceptedCase(Point3d Next, double SuggestedStep, Option<double> Error, DenseOutputState Dense) : StreamlineStep;
+    public sealed record RejectedCase(double SuggestedStep, Option<double> Error) : StreamlineStep;
+}
+
 internal readonly record struct StreamlineState(Seq<Point3d> Trail, Point3d Current, double H, double Arc, int Steps, int Rejects, int RejectedSteps, double MinStep, double MaxStep, Option<double> LastError, double MaxError, Option<DenseOutputState> Dense, Option<TraceEvent> Event, Option<StreamlineStopKind> Stop) {
     internal static StreamlineState Start(Point3d seed, double h) =>
         new(Trail: Seq(seed), Current: seed, H: h, Arc: 0.0, Steps: 0, Rejects: 0, RejectedSteps: 0, MinStep: h, MaxStep: h, LastError: Option<double>.None, MaxError: 0.0, Dense: Option<DenseOutputState>.None, Event: Option<TraceEvent>.None, Stop: Option<StreamlineStopKind>.None);
@@ -463,13 +470,6 @@ internal readonly record struct StreamlineState(Seq<Point3d> Trail, Point3d Curr
             LastError = error,
             MaxError = Math.Max(val1: MaxError, val2: error.IfNone(0.0)),
         };
-}
-
-[Union]
-internal abstract partial record StreamlineStep {
-    private StreamlineStep() { }
-    public sealed record AcceptedCase(Point3d Next, double SuggestedStep, Option<double> Error, DenseOutputState Dense) : StreamlineStep;
-    public sealed record RejectedCase(double SuggestedStep, Option<double> Error) : StreamlineStep;
 }
 
 internal static class ButcherDenseOutput {

@@ -41,8 +41,14 @@ Add functionality by deepening the existing polymorphic shape that owns the beha
 - Keep stdout writes behind the one emitter and keep diagnostics on stderr.
 - Improve tools through deeper internal behavior, resilience, routing, and typed failure, not agent-facing knobs, backend-branded commands, or provider selectors.
 - Cap inline collections only when the wire marks truncation and points to the persisted full artifact.
+- Persist the full report or listing before clipping rows, artifacts, previews, or stderr breadcrumbs; the compact envelope may point at the artifact, but it must not be the only copy.
+- Sequence `Result` values from `fan_out`; never filter out `Error` slots to manufacture an empty or clean report.
+- Keep output parsing at the owning rail boundary. Catalog rows select execution; they do not carry parser callbacks, census-only adapters, or dead validation hooks.
+- Route artifact writes, reads, globs, and removals through `ArtifactStore`; raw filesystem access belongs only at local tool boundaries that consume files directly.
+- Validate cwd, stage roots, stage inputs, and backend paths before deletion, copy, spawn, or remote execution. Empty local UPath protocol and `file` are both local; absolute, empty, trailing-slash, dot, and dot-dot stage paths are not.
 - Refactor as if the capability was present from the first design: collapse duplicated branches into the owner rail, update tests at that owner boundary, and delete obsolete wrong-placement code in the same change.
 - Do not build a rat-nest where strings feed constants, constants feed free unions, unions feed wrapper models, and wrappers feed special-case branches. Promote one canonical shape only when it carries reusable behavior across future commands.
+- Delete behaviorless scaffolds. A benchmark, state machine, fixture axis, params field, setting, or test helper is kept only when current executable tests consume it and assert behavior.
 
 ## [5][BOUNDARY_RULES]
 
@@ -62,6 +68,7 @@ Add functionality by deepening the existing polymorphic shape that owns the beha
 ## [6][REJECTIONS]
 
 - No parallel type, params, rail shape, status enum, report struct, parser protocol, tool module, helper file, or wrapper object for one concept.
+- No catalog parser callback, parse smoke hook, or parser field unless the engine/fold path consumes it as behavior.
 - No free `typing.Literal` aliases for vocabularies already owned by an enum.
 - No pydantic model for wire shapes owned by the message model.
 - No stdout writes outside the emitter.
@@ -70,6 +77,8 @@ Add functionality by deepening the existing polymorphic shape that owns the beha
 - No backend-branded command, storage helper, provider selector, cloud-mode flag, or parallel artifact/report shape when the existing settings, store, engine, history, envelope, and artifact owners can absorb the behavior.
 - No catalog-level subprocess reimplementation for a normal external tool; use `Runner`, `Input`, `Tool`, `Check`, routing, and the engine process backend.
 - No rail-local cwd, cache, environment, or artifact patches for one tool; encode reusable execution policy in settings, `Tool`, `Check`, engine, store/scope, or artifact rows.
+- No direct `store.fs` read/write/remove from production code outside `ArtifactStore`; add a store method when backend-path behavior is missing.
+- No skipped empty benchmark, unused state-machine scaffold, or fixture matrix that is not consumed by a current test.
 - No package-metadata storage fixes for Python tooling; package metadata does not own Python runtime policy.
 
 ## [7][STOP_RULES]

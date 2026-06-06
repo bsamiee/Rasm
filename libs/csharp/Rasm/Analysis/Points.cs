@@ -22,17 +22,17 @@ public partial record Points : IAspect {
     public sealed record VerticesCase : Points;
     public sealed record ControlPointsCase : Points;
     public sealed record SpreadCase(SpreadAspect Aspect) : Points;
+    private static readonly Op ExtremaKey = Op.Of(name: nameof(Extrema));
+    private static readonly Op EdgeMidpointsKey = Op.Of(name: nameof(EdgeMidpoints));
+    private static readonly Op VerticesKey = Op.Of(name: nameof(Vertices));
+    private static readonly Op ControlPointsKey = Op.Of(name: nameof(ControlPoints));
+    private static readonly Op SpreadKey = Op.Of(name: nameof(Spread));
     public static Points Quadrants => new ExtremaCase(Directions: Option<Seq<Vector3d>>.None);
     public static Points Extrema(Seq<Vector3d> directions) => new ExtremaCase(Directions: Some(value: directions));
     public static Points EdgeMidpoints => new EdgeMidpointsCase();
     public static Points Vertices => new VerticesCase();
     public static Points ControlPoints => new ControlPointsCase();
     public static Points Spread(SpreadAspect aspect) => new SpreadCase(Aspect: aspect);
-    private static readonly Op ExtremaKey = Op.Of(name: nameof(Extrema));
-    private static readonly Op EdgeMidpointsKey = Op.Of(name: nameof(EdgeMidpoints));
-    private static readonly Op VerticesKey = Op.Of(name: nameof(Vertices));
-    private static readonly Op ControlPointsKey = Op.Of(name: nameof(ControlPoints));
-    private static readonly Op SpreadKey = Op.Of(name: nameof(Spread));
     public Operation<TGeometry, TOut> Operation<TGeometry, TOut>() where TGeometry : notnull => Switch(
         extremaCase: static c => typeof(TOut) == typeof(Point3d) && GeometryKernel.CanCurveForm(type: typeof(TGeometry))
             ? Analysis.Operation<TGeometry, Point3d>.Build(
@@ -121,19 +121,6 @@ public static partial class Analyze {
                 _ when (aspect.Equals(SpreadAspect.Coplanar) || aspect.Equals(SpreadAspect.Collinear)) && points.Count <= 2 => op.AcceptResults<bool, TOut>(values: Seq(value: true)),
                 _ => Fin.Fail<Seq<TOut>>(op.InvalidResult()),
             };
-    private static Fin<Plane> OrientedFrame(Plane fit, Seq<Point3d> points, Context context, Op op) =>
-        from angle in PrincipalAngle(points: points, fit: fit, context: context, op: op)
-        from xAxis in VectorIntent.Direction(value: (fit.XAxis * Math.Cos(d: angle)) + (fit.YAxis * Math.Sin(a: angle))).Project<Vector3d>(context: context, key: op)
-        from yAxis in VectorIntent.Direction(value: Vector3d.CrossProduct(a: fit.ZAxis, b: xAxis)).Project<Vector3d>(context: context, key: op)
-        from plane in op.AcceptValue(value: new Plane(origin: fit.Origin, xDirection: xAxis, yDirection: yAxis))
-        select plane;
-    private static Fin<double> MinorSpread(Plane fit, Seq<Point3d> points, Context context, Op op) =>
-        from angle in PrincipalAngle(points: points, fit: fit, context: context, op: op)
-        from spread in points.TraverseM(point => VectorIntent.Components(anchor: fit.Origin, value: point - fit.Origin, frame: fit)
-                .Project<(double X, double Y)>(context: context, key: op)
-            .Map(components => Math.Abs(value: (components.X * -Math.Sin(a: angle)) + (components.Y * Math.Cos(d: angle))))
-            .BindFail(static _ => Fin.Succ(0.0))).As()
-        select spread.Fold(initialState: 0.0, f: Math.Max);
     // Principal angle of the 2D point cloud in `fit` plane coordinates. Domain owns raw
     // covariance moments; Vectors owns the 2x2 symmetric eigen decomposition, where the
     // first eigenvector encodes the principal axis directly via atan2.
@@ -149,4 +136,17 @@ public static partial class Analyze {
             .Bind(covariance => covariance.DecomposeEigen(key: op))
             .Map(static eigen => Math.Atan2(y: eigen[0].Eigenvector[1], x: eigen[0].Eigenvector[0]));
     }
+    private static Fin<Plane> OrientedFrame(Plane fit, Seq<Point3d> points, Context context, Op op) =>
+        from angle in PrincipalAngle(points: points, fit: fit, context: context, op: op)
+        from xAxis in VectorIntent.Direction(value: (fit.XAxis * Math.Cos(d: angle)) + (fit.YAxis * Math.Sin(a: angle))).Project<Vector3d>(context: context, key: op)
+        from yAxis in VectorIntent.Direction(value: Vector3d.CrossProduct(a: fit.ZAxis, b: xAxis)).Project<Vector3d>(context: context, key: op)
+        from plane in op.AcceptValue(value: new Plane(origin: fit.Origin, xDirection: xAxis, yDirection: yAxis))
+        select plane;
+    private static Fin<double> MinorSpread(Plane fit, Seq<Point3d> points, Context context, Op op) =>
+        from angle in PrincipalAngle(points: points, fit: fit, context: context, op: op)
+        from spread in points.TraverseM(point => VectorIntent.Components(anchor: fit.Origin, value: point - fit.Origin, frame: fit)
+                .Project<(double X, double Y)>(context: context, key: op)
+            .Map(components => Math.Abs(value: (components.X * -Math.Sin(a: angle)) + (components.Y * Math.Cos(d: angle))))
+            .BindFail(static _ => Fin.Succ(0.0))).As()
+        select spread.Fold(initialState: 0.0, f: Math.Max);
 }

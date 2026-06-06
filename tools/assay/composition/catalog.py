@@ -1,36 +1,11 @@
-"""Define Assay tool catalog rows and parser adapters."""
-
-from typing import TYPE_CHECKING
+"""Define Assay tool catalog rows and rail wire decoders."""
 
 import msgspec
 
-from tools.assay.core.model import ApiSurface, Claim, Input, Language, Mode, Runner, Stage, TestRun, Tool, VerifySummary
-
-
-if TYPE_CHECKING:
-    from tools.assay.core.model import AnyDetail, Completed
+from tools.assay.core.model import Claim, Input, Language, Mode, Runner, Stage, Tool
 
 
 # --- [MODELS] ---------------------------------------------------------------------------
-
-
-class _Finding(msgspec.Struct, frozen=True, gc=False):
-    rule_id: str
-    message: str = ""
-    path: str = ""
-    line: int = 0
-
-
-class _ShellMessage(msgspec.Struct, frozen=True, gc=False):
-    code: int = 0
-    message: str = ""
-    file: str = ""
-    line: int = 0
-    level: str = ""
-
-
-class _Shellcheck(msgspec.Struct, frozen=True, gc=False):
-    comments: tuple[_ShellMessage, ...] = ()
 
 
 class _Point(msgspec.Struct, frozen=True, gc=False):
@@ -60,6 +35,15 @@ class Capture(msgspec.Struct, frozen=True, gc=False):
     text: str = ""
     file: str = ""
     line: int = 0
+    column: int = 0
+    end_line: int = 0
+    end_column: int = 0
+    start_byte: int = 0
+    end_byte: int = 0
+    pattern: int = 0
+    ordinal: int = 0
+    parse_error: bool = False
+    truncated: bool = False
 
 
 class _RgText(msgspec.Struct, frozen=True, gc=False):
@@ -81,111 +65,10 @@ class RgEvent(msgspec.Struct, frozen=True, gc=False):
 
 # --- [TABLES] ---------------------------------------------------------------------------
 
-_FINDINGS = msgspec.json.Decoder(tuple[_Finding, ...])
-_SURFACE = msgspec.json.Decoder(ApiSurface)
-_VERIFY = msgspec.json.Decoder(VerifySummary)
-_TESTS = msgspec.json.Decoder(TestRun)
-_SHELLCHECK = msgspec.json.Decoder(_Shellcheck)
 AST_MATCHES = msgspec.json.Decoder(tuple[AstMatch, ...])
 CAPTURES = msgspec.json.Decoder(tuple[Capture, ...])
 CAPTURE_ENCODER = msgspec.json.Encoder()
 RG_EVENT = msgspec.json.Decoder(RgEvent)
-
-
-# --- [OPERATIONS] -----------------------------------------------------------------------
-
-
-def parse_findings(done: Completed) -> AnyDetail | None:
-    """Validate py-analyzer JSON and return no detail.
-
-    Returns:
-        Always `None` after schema validation.
-    """
-    # Static findings are pass/fail evidence; schema decode is the census guard.
-    _FINDINGS.decode(done.stdout or b"[]")
-    return None
-
-
-def parse_build(done: Completed) -> AnyDetail | None:
-    """Accept cs-analyzer build output and return no detail.
-
-    Returns:
-        Always `None`.
-    """
-    _ = done
-    return None
-
-
-def parse_tests(done: Completed) -> AnyDetail | None:
-    """Decode test telemetry, defaulting when stdout is not telemetry.
-
-    Returns:
-        Test detail decoded from stdout, or an empty test detail.
-    """
-    try:
-        return _TESTS.decode(done.stdout or b"{}")
-    except msgspec.DecodeError:
-        return TestRun()
-
-
-def parse_verify(done: Completed) -> AnyDetail | None:
-    """Decode bridge verify JSON into `VerifySummary`.
-
-    Returns:
-        Bridge verification summary detail.
-    """
-    return _VERIFY.decode(done.stdout or b"{}")
-
-
-def parse_search(done: Completed) -> AnyDetail | None:
-    """Validate ast-grep compact JSON and return no detail.
-
-    Returns:
-        Always `None` after schema validation.
-    """
-    # Match evidence rides Report.results; the code rail re-decodes it for ranking.
-    AST_MATCHES.decode(done.stdout or b"[]")
-    return None
-
-
-def parse_query(done: Completed) -> AnyDetail | None:
-    """Validate tree-sitter capture JSON and return no detail.
-
-    Returns:
-        Always `None` after schema validation.
-    """
-    CAPTURES.decode(done.stdout or b"[]")
-    return None
-
-
-def parse_content(done: Completed) -> AnyDetail | None:
-    """Validate ripgrep NDJSON and return no detail.
-
-    Returns:
-        Always `None` after schema validation.
-    """
-    tuple(RG_EVENT.decode(line) for line in (done.stdout or b"").splitlines() if line)
-    return None
-
-
-def parse_surface(done: Completed) -> AnyDetail | None:
-    """Decode ilspy surface JSON into `ApiSurface`.
-
-    Returns:
-        API surface detail decoded from stdout.
-    """
-    return _SURFACE.decode(done.stdout or b"{}")
-
-
-def parse_shellcheck(done: Completed) -> AnyDetail | None:
-    """Validate ShellCheck JSON and return no detail.
-
-    Returns:
-        Always `None` after schema validation.
-    """
-    # ShellCheck is a pass/fail gate; schema decode only guards the census.
-    _SHELLCHECK.decode(done.stdout or b'{"comments":[]}')
-    return None
 
 
 # --- [TABLES] ---------------------------------------------------------------------------
@@ -202,7 +85,14 @@ TOOLS: tuple[Tool, ...] = (
     Tool("ruff-format", UV, ("ruff", "format", "--check"), FILES, PY, Claim.STATIC),
     Tool("ruff-format", UV, ("ruff", "format"), FILES, PY, Claim.STATIC, mode=Mode.WRITE),
     Tool("ty", UV, ("ty", "check", "--no-progress"), FILES, PY, Claim.STATIC),
-    Tool("mypy", UV, ("mypy", "--explicit-package-bases"), FILES, PY, Claim.STATIC),
+    Tool(
+        "mypy",
+        UV,
+        ("mypy", "--explicit-package-bases", "--no-error-summary", "--hide-error-context", "--show-error-codes", "--no-pretty"),
+        FILES,
+        PY,
+        Claim.STATIC,
+    ),
     Tool("ast-grep-py", PNPM, ("ast-grep", "scan", "--config", "sgconfig.yml", "--filter", "^no-", "--error"), FILES, PY, Claim.STATIC),
     Tool(
         "ast-grep-py",
@@ -213,8 +103,9 @@ TOOLS: tuple[Tool, ...] = (
         Claim.TEST,
         mode=Mode.VERIFY,
     ),
-    Tool("py-analyzer", MODULE, ("tools.py_analyzer", "check", "--format", "json"), NONE, PY, Claim.STATIC, parser=parse_findings),
-    Tool("pytest", UV, ("pytest",), INCLUDE, PY, Claim.TEST, mode=Mode.RUN),
+    Tool("py-analyzer", MODULE, ("tools.py_analyzer", "check", "--format", "json"), NONE, PY, Claim.STATIC),
+    Tool("pytest", UV, ("pytest", "-m", "not benchmark"), INCLUDE, PY, Claim.TEST, mode=Mode.RUN),
+    Tool("pytest", UV, ("pytest", "--collect-only", "-q"), INCLUDE, PY, Claim.TEST, mode=Mode.LIST),
     Tool(
         "pytest-benchmark",
         UV,
@@ -224,12 +115,14 @@ TOOLS: tuple[Tool, ...] = (
         Claim.TEST,
         mode=Mode.RUN,
     ),
-    Tool("coverage", UV, ("coverage", "run", "-m", "pytest"), INCLUDE, PY, Claim.TEST, mode=Mode.RUN),
+    Tool("coverage", UV, ("coverage", "run", "-m", "pytest", "-m", "not benchmark"), INCLUDE, PY, Claim.TEST, mode=Mode.RUN),
+    Tool("coverage-json", UV, ("coverage", "json"), NONE, PY, Claim.TEST, mode=Mode.CLIENT),
+    Tool("coverage-report", UV, ("coverage", "report", "--format=total"), NONE, PY, Claim.TEST, mode=Mode.CLIENT),
     Tool(
         "mutmut",
         UV,
         ("mutmut", "run"),
-        FILES,
+        NONE,
         PY,
         Claim.TEST,
         mode=Mode.MUTATION,
@@ -259,18 +152,9 @@ TOOLS: tuple[Tool, ...] = (
     Tool("dotnet-format", DOTNET, ("format", "--severity", "error", "--verify-no-changes"), INCLUDE, CS, Claim.STATIC),
     Tool("dotnet-format", DOTNET, ("format", "--severity", "error"), INCLUDE, CS, Claim.STATIC, mode=Mode.WRITE),
     Tool("dotnet-restore", DOTNET, ("restore", "--locked-mode"), PROJECT, CS, Claim.STATIC, mode=Mode.RESTORE),
-    Tool(
-        "dotnet-build",
-        DOTNET,
-        ("build", "--no-restore", "-v:quiet", "/clp:ErrorsOnly"),
-        PROJECT,
-        CS,
-        Claim.STATIC,
-        mode=Mode.BUILD,
-        parser=parse_build,
-    ),
+    Tool("dotnet-build", DOTNET, ("build", "--no-restore", "-v:quiet", "/clp:ErrorsOnly"), PROJECT, CS, Claim.STATIC, mode=Mode.BUILD),
     Tool("dotnet-test", DOTNET, ("test", "--minimum-expected-tests", "1"), PROJECT, CS, Claim.TEST, mode=Mode.RUN),
-    Tool("dotnet-test", DOTNET, ("test", "--list-tests"), PROJECT, CS, Claim.TEST, mode=Mode.LIST, parser=parse_tests),
+    Tool("dotnet-test", DOTNET, ("test", "--list-tests"), PROJECT, CS, Claim.TEST, mode=Mode.LIST),
     Tool(
         "dotnet-stryker",
         DOTNET,
@@ -281,16 +165,16 @@ TOOLS: tuple[Tool, ...] = (
         mode=Mode.MUTATION,
         timeout=3600.0,
     ),
-    Tool("rasm-bridge", DOTNET, ("run", "--no-build", "--", "verify"), PROJECT, CS, Claim.BRIDGE, mode=Mode.VERIFY, parser=parse_verify),
-    Tool("ilspycmd", DOTNET, ("tool", "run", "ilspycmd", "--", "-l", "cisde"), NONE, CS, Claim.API, mode=Mode.QUERY, parser=parse_surface),
+    Tool("rasm-bridge", DOTNET, ("run", "--no-build", "--", "verify"), PROJECT, CS, Claim.BRIDGE, mode=Mode.VERIFY),
+    Tool("ilspycmd", DOTNET, ("tool", "run", "ilspycmd", "--", "-l", "cisde"), NONE, CS, Claim.API, mode=Mode.QUERY),
     # Python/TypeScript API thunks emit Capture arrays like tree-sitter, not ApiSurface JSON.
-    Tool("py-api", INPROC, ("py-api", "surface"), NONE, PY, Claim.API, mode=Mode.QUERY, parser=parse_query),
-    Tool("py-api", INPROC, ("py-api", "member"), NONE, PY, Claim.API, mode=Mode.LIST, parser=parse_query),
-    Tool("ts-api", INPROC, ("ts-api", "surface"), NONE, TS, Claim.API, mode=Mode.QUERY, parser=parse_query),
-    Tool("ts-api", INPROC, ("ts-api", "member"), NONE, TS, Claim.API, mode=Mode.LIST, parser=parse_query),
+    Tool("py-api", INPROC, ("py-api", "surface"), NONE, PY, Claim.API, mode=Mode.QUERY),
+    Tool("py-api", INPROC, ("py-api", "member"), NONE, PY, Claim.API, mode=Mode.LIST),
+    Tool("ts-api", INPROC, ("ts-api", "surface"), NONE, TS, Claim.API, mode=Mode.QUERY),
+    Tool("ts-api", INPROC, ("ts-api", "member"), NONE, TS, Claim.API, mode=Mode.LIST),
     Tool("yak", DIRECT, ("yak", "build"), NONE, CS, Claim.PACKAGE, mode=Mode.STAGE),
     # -- Bash (configured when the tools are available on the executing host) ----------------
-    Tool("shellcheck", DIRECT, ("shellcheck", "-f", "json1"), FILES, BASH, Claim.STATIC, parser=parse_shellcheck),
+    Tool("shellcheck", DIRECT, ("shellcheck", "-f", "json1"), FILES, BASH, Claim.STATIC),
     Tool("shfmt", DIRECT, ("shfmt", "-d"), FILES, BASH, Claim.STATIC),
     Tool("shfmt", DIRECT, ("shfmt", "-w"), FILES, BASH, Claim.STATIC, mode=Mode.WRITE),
     # -- SQL (configured when the tools are available on the executing host) -----------------
@@ -300,22 +184,15 @@ TOOLS: tuple[Tool, ...] = (
     # -- Docs --------------------------------------------------------------------------------
     Tool("mmdc", PNPM, ("mmdc", "-a", ".artifacts/mermaid", "-q"), INCLUDE, DOCS, Claim.DOCS),
     # -- Code (`ast-grep run` self-walks; tree-sitter queries receive routed files) ----------
-    Tool("ast-grep", PNPM, ("ast-grep", "run"), NONE, PY, Claim.CODE, parser=parse_search),
-    Tool("ast-grep", PNPM, ("ast-grep", "run"), NONE, PY, Claim.CODE, mode=Mode.WRITE, parser=parse_search),
-    Tool("ast-grep", PNPM, ("ast-grep", "run"), NONE, TS, Claim.CODE, parser=parse_search),
-    Tool("ast-grep", PNPM, ("ast-grep", "run"), NONE, TS, Claim.CODE, mode=Mode.WRITE, parser=parse_search),
-    Tool("tree-sitter", INPROC, ("tree-sitter", "query"), FILES, PY, Claim.CODE, mode=Mode.QUERY, parser=parse_query),
-    Tool("tree-sitter", INPROC, ("tree-sitter", "query"), FILES, TS, Claim.CODE, mode=Mode.QUERY, parser=parse_query),
+    Tool("ast-grep", PNPM, ("ast-grep", "run"), NONE, PY, Claim.CODE),
+    Tool("ast-grep", PNPM, ("ast-grep", "run"), NONE, PY, Claim.CODE, mode=Mode.WRITE),
+    Tool("ast-grep", PNPM, ("ast-grep", "run"), NONE, TS, Claim.CODE),
+    Tool("ast-grep", PNPM, ("ast-grep", "run"), NONE, TS, Claim.CODE, mode=Mode.WRITE),
+    Tool("tree-sitter", INPROC, ("tree-sitter", "query"), FILES, PY, Claim.CODE, mode=Mode.QUERY),
+    Tool("tree-sitter", INPROC, ("tree-sitter", "query"), FILES, TS, Claim.CODE, mode=Mode.QUERY),
     # Ripgrep self-walks once; the Python tag is census-only and --language refines through rail globs.
     Tool(
-        "ripgrep",
-        DIRECT,
-        ("rg", "--json", "-U", "--multiline-dotall", "-P", "--hidden", "--glob", "!.git"),
-        NONE,
-        PY,
-        Claim.CODE,
-        mode=Mode.CONTENT,
-        parser=parse_content,
+        "ripgrep", DIRECT, ("rg", "--json", "-U", "--multiline-dotall", "-P", "--hidden", "--glob", "!.git"), NONE, PY, Claim.CODE, mode=Mode.CONTENT
     ),
 )
 
@@ -336,23 +213,4 @@ def select(claim: Claim, language: Language | None = None) -> tuple[Tool, ...]:
 
 # --- [EXPORTS] --------------------------------------------------------------------------
 
-__all__ = [
-    "AST_MATCHES",
-    "CAPTURES",
-    "CAPTURE_ENCODER",
-    "RG_EVENT",
-    "AstMatch",
-    "Capture",
-    "RgEvent",
-    "TOOLS",
-    "parse_build",
-    "parse_content",
-    "parse_findings",
-    "parse_query",
-    "parse_search",
-    "parse_shellcheck",
-    "parse_surface",
-    "parse_tests",
-    "parse_verify",
-    "select",
-]
+__all__ = ["AST_MATCHES", "CAPTURES", "CAPTURE_ENCODER", "RG_EVENT", "AstMatch", "Capture", "RgEvent", "TOOLS", "select"]

@@ -107,6 +107,8 @@ public abstract partial record HeadlessExchange {
 }
 
 // --- [MODELS] -----------------------------------------------------------------------------
+public readonly record struct FilePositionReport(string Name, Guid Id, Seq<Guid> Objects);
+
 public readonly partial record struct FileGeoLocation {
     public static Fin<Option<FileGeoLocation>> Read(RhinoDoc document) {
         Op op = Op.Of(name: nameof(Read));
@@ -133,6 +135,24 @@ public readonly partial record struct FileGeoLocation {
             return Fin.Succ(value: DocumentReceipt.Resource(kind: DocumentResourceKind.EarthAnchor, name: location.Name.IfNone(noneValue: "earth-anchor")));
         }));
     }
+
+    public static Fin<Plane> AnchorPlane(RhinoDoc document) =>
+        UseAnchor(document: document, op: Op.Of(name: nameof(AnchorPlane)), requireModel: true, use: static (anchor, op) =>
+            op.AcceptValue(value: anchor.GetEarthAnchorPlane(anchorNorth: out _)));
+
+    public static Fin<Plane> Compass(RhinoDoc document) =>
+        UseAnchor(document: document, op: Op.Of(name: nameof(Compass)), requireModel: true, use: static (anchor, op) =>
+            op.AcceptValue(value: anchor.GetModelCompass()));
+
+    public static Fin<Transform> OrientPlane(RhinoDoc document, Plane source) =>
+        UseAnchor(document: document, op: Op.Of(name: nameof(OrientPlane)), requireModel: true, use: (anchor, op) => {
+            Plane target = anchor.GetEarthAnchorPlane(anchorNorth: out _);
+            return (source.IsValid, target.IsValid) switch {
+                (true, true) => Fin.Succ(value: Transform.PlaneToPlane(plane0: source, plane1: target)),
+                _ => Fin.Fail<Transform>(error: op.InvalidInput()),
+            };
+        });
+
     public static Fin<Seq<(double Latitude, double Longitude, double Elevation)>> ProjectToEarth(RhinoDoc document, Seq<Point3d> points, LengthUnit modelUnits) =>
         UseAnchor(document: document, op: Op.Of(name: nameof(ProjectToEarth)), requireEarth: true, use: (anchor, op) => {
             Transform xform = anchor.GetModelToEarthTransform(modelUnits: modelUnits);
@@ -159,22 +179,6 @@ public readonly partial record struct FileGeoLocation {
             };
         });
 
-    public static Fin<Plane> Compass(RhinoDoc document) =>
-        UseAnchor(document: document, op: Op.Of(name: nameof(Compass)), requireModel: true, use: static (anchor, op) =>
-            op.AcceptValue(value: anchor.GetModelCompass()));
-
-    public static Fin<Plane> AnchorPlane(RhinoDoc document) =>
-        UseAnchor(document: document, op: Op.Of(name: nameof(AnchorPlane)), requireModel: true, use: static (anchor, op) =>
-            op.AcceptValue(value: anchor.GetEarthAnchorPlane(anchorNorth: out _)));
-
-    public static Fin<Transform> OrientPlane(RhinoDoc document, Plane source) =>
-        UseAnchor(document: document, op: Op.Of(name: nameof(OrientPlane)), requireModel: true, use: (anchor, op) => {
-            Plane target = anchor.GetEarthAnchorPlane(anchorNorth: out _);
-            return (source.IsValid, target.IsValid) switch {
-                (true, true) => Fin.Succ(value: Transform.PlaneToPlane(plane0: source, plane1: target)),
-                _ => Fin.Fail<Transform>(error: op.InvalidInput()),
-            };
-        });
     public static Fin<DocumentReceipt> SyncSun(RhinoDoc document) =>
         UseAnchor(document: document, op: Op.Of(name: nameof(SyncSun)), requireEarth: true, requireModel: true, use: (anchor, op) => op.Catch(() => {
             global::Rhino.Render.Sun sun = document.RenderSettings.Sun;
@@ -196,16 +200,8 @@ public readonly partial record struct FileGeoLocation {
         }));
 }
 
-public readonly record struct FilePositionReport(string Name, Guid Id, Seq<Guid> Objects);
-
 // --- [OPERATIONS] -------------------------------------------------------------------------
 public static class FileOp {
-    internal static Eff<FileRuntime, T> Lift<T>(Func<FileRuntime, Fin<T>> run) =>
-        Eff<FileRuntime, T>.Lift(runtime =>
-            Optional(run)
-                .ToFin(Fail: Op.Of(name: nameof(Lift)).InvalidInput())
-                .Bind(valid => valid(arg: runtime)));
-
     public static Eff<FileRuntime, FileReport> Do(FileExchange exchange) =>
         Lift(run: runtime =>
             from active in Optional(exchange).ToFin(Fail: Op.Of(name: nameof(Do)).InvalidInput())
@@ -236,20 +232,6 @@ public static class FileOp {
 
     public static Eff<FileRuntime, byte[]> ArchiveBytes(FileArchiveSource source, ArchiveProfile profile) =>
         Lift(run: _ => FileArchiveOps.Bytes(source: source, profile: profile));
-
-    public static Eff<FileRuntime, FileReport> Batch(Seq<Eff<FileRuntime, FileReport>> items, FileBatchPolicy policy) =>
-        Lift(run: runtime => items switch {
-            Seq<Eff<FileRuntime, FileReport>> values when !values.IsEmpty => values.TraverseM(operation =>
-                operation.Run(runtime).BindFail(error => guard(policy.ContinueOnError, error).ToFin()
-                    .Map(_ => FileReport.Empty(phase: FilePhase.Batch) with { Issues = Seq(FileIssue.Of(code: FileIssueCode.BatchFailure, message: error.Message)) }))).As()
-                    .Map(reports => FileReport.Of(phase: FilePhase.Batch, issues: reports.Bind(static report => report.Issues), children: reports)),
-            _ => Fin.Fail<FileReport>(error: Op.Of(name: nameof(Batch)).InvalidInput()),
-        });
-    public static Eff<FileRuntime, T> Headless<T>(HeadlessExchange scope, Eff<FileRuntime, T> body) =>
-        Lift(run: runtime =>
-            from active in Optional(scope).ToFin(Fail: Op.Of(name: nameof(Headless)).InvalidInput())
-            from result in HeadlessScope(scope: active, body: body, scheduler: runtime.Scheduler)
-            select result);
 
     public static Eff<FileRuntime, Seq<FileEndpoint>> Prompt(FilePrompt prompt) =>
         Lift(run: runtime =>
@@ -283,6 +265,7 @@ public static class FileOp {
                 issues: meta.Issues,
                 nativeLog: Some(string.Create(CultureInfo.InvariantCulture, $"publish-plan;views:{pages.Count};layers:{active.Layers};snapshot:{active.Snapshot.IsSome}")),
                 views: reports));
+
     public static Eff<FileRuntime, Seq<FileSheetReport>> Sheets(SheetQuery query, DetailQuery detail = default) =>
         Lift(run: runtime =>
             Live(runtime: runtime, op: Op.Of(name: nameof(Sheets)))
@@ -298,6 +281,69 @@ public static class FileOp {
                     Name: live.Document.NamedPositions.Name(id: id) ?? string.Empty,
                     Id: id,
                     Objects: toSeq(live.Document.NamedPositions.ObjectIds(id: id))))));
+
+    public static Eff<FileRuntime, T> Headless<T>(HeadlessExchange scope, Eff<FileRuntime, T> body) =>
+        Lift(run: runtime =>
+            from active in Optional(scope).ToFin(Fail: Op.Of(name: nameof(Headless)).InvalidInput())
+            from result in HeadlessScope(scope: active, body: body, scheduler: runtime.Scheduler)
+            select result);
+
+    public static Eff<FileRuntime, FileReport> Batch(Seq<Eff<FileRuntime, FileReport>> items, FileBatchPolicy policy) =>
+        Lift(run: runtime => items switch {
+            Seq<Eff<FileRuntime, FileReport>> values when !values.IsEmpty => values.TraverseM(operation =>
+                operation.Run(runtime).BindFail(error => guard(policy.ContinueOnError, error).ToFin()
+                    .Map(_ => FileReport.Empty(phase: FilePhase.Batch) with { Issues = Seq(FileIssue.Of(code: FileIssueCode.BatchFailure, message: error.Message)) }))).As()
+                    .Map(reports => FileReport.Of(phase: FilePhase.Batch, issues: reports.Bind(static report => report.Issues), children: reports)),
+            _ => Fin.Fail<FileReport>(error: Op.Of(name: nameof(Batch)).InvalidInput()),
+        });
+
+    internal static Eff<FileRuntime, T> Lift<T>(Func<FileRuntime, Fin<T>> run) =>
+        Eff<FileRuntime, T>.Lift(runtime =>
+            Optional(run)
+                .ToFin(Fail: Op.Of(name: nameof(Lift)).InvalidInput())
+                .Bind(valid => valid(arg: runtime)));
+
+    private static Fin<(RhinoDoc Document, Context Domain, DocumentEdit Edit)> Live(FileRuntime runtime, Op op) =>
+        (runtime.Document.Case, runtime.Domain.Case, runtime.Edit.Case) switch {
+            (RhinoDoc document, Context domain, DocumentEdit edit) => Fin.Succ(value: (document, domain, edit)),
+            _ => Fin.Fail<(RhinoDoc Document, Context Domain, DocumentEdit Edit)>(error: op.MissingContext()),
+        };
+
+    private static Fin<T> HeadlessScope<T>(HeadlessExchange scope, Eff<FileRuntime, T> body, IoScheduler scheduler) =>
+        Op.Of(name: nameof(Headless)).Catch(() => {
+            // BOUNDARY ADAPTER — RhinoDoc.CreateHeadless/OpenHeadless yields an unmanaged document; the finally disposes it even when body fails.
+            RhinoDoc? headless = null;
+            try {
+                Fin<RhinoDoc> opened = scope.Switch(
+                    create: static _ =>
+                        Optional(RhinoDoc.CreateHeadless(file3dmTemplatePath: null)).ToFin(Fail: Op.Of(name: nameof(Headless)).InvalidResult()),
+                    createFromTemplate: static create =>
+                        from template in create.Template.Input(op: Op.Of(name: nameof(Headless)))
+                        from document in Optional(RhinoDoc.CreateHeadless(file3dmTemplatePath: template.Path)).ToFin(Fail: Op.Of(name: nameof(Headless)).InvalidResult())
+                        select document,
+                    open: static open =>
+                        from source in open.Source.Input(op: Op.Of(name: nameof(Headless)))
+                        from options in FileFormat.Dictionary(endpoint: source, profile: open.Profile, phase: FilePhase.Headless, op: Op.Of(name: nameof(Headless)))
+                            .BindFail(error => (source.Format.Case, open.Profile.Scale.IsSome) switch {
+                                (FileFormat, _) or (_, true) => Fin.Fail<ArchivableDictionary>(error: error),
+                                _ => Fin.Succ(value: new ArchivableDictionary()),
+                            })
+                        from document in Optional(RhinoDoc.OpenHeadless(filePath: source.Path, options: options)).ToFin(Fail: Op.Of(name: nameof(Headless)).InvalidResult())
+                        select document);
+                return opened.Bind(document => {
+                    headless = document;
+                    return Context.Of(doc: document).ToFin().Bind(domain => body.Run(new FileRuntime(
+                        document: Some(document),
+                        mode: RunMode.Scripted,
+                        domain: Some(domain),
+                        edit: Some(new DocumentEdit(document: document, domain: domain)),
+                        ui: Some(new RhinoUi(document: document, mode: RunMode.Scripted)),
+                        scheduler: scheduler)));
+                });
+            } finally {
+                headless?.Dispose();
+            }
+        });
 
     private static Fin<FileReport> OpenCore(FileEndpoint source, FileProfile profile) =>
         from endpoint in source.Input(op: Op.Of(name: nameof(FileExchange.Open)))
@@ -359,6 +405,40 @@ public static class FileOp {
                    receipt: Some(receipt));
     }
 
+    private static Fin<DocumentReceipt> ExportTarget(RhinoDoc document, DocumentTarget target, FileEndpoint endpoint, FileProfile profile, Op op) =>
+        op.Catch(() => DocumentEdit.SelectedIds(document: document, op: op).Bind(before => {
+            // BOUNDARY ADAPTER — ExportSelected mutates global selection state; the finally eagerly relocks the prior persistent/transient partition even on export failure.
+            const int persistentSelectionState = 2;
+            static bool Persistent(RhinoObject native) => native.IsSelected(checkSubObjects: false) == persistentSelectionState;
+            Seq<Guid> persistent = before.Filter(id => Optional(document.Objects.FindId(id)).Map(Persistent).IfNone(noneValue: false));
+            Seq<Guid> transient = before.Filter(id => !persistent.Exists(item => item == id));
+            Seq<(Seq<Guid> Ids, bool Persistent)> restore = Seq((transient, false), (persistent, true));
+            Fin<Unit> restored = Fin.Succ(value: unit);
+            Fin<DocumentReceipt> exported = Fin.Fail<DocumentReceipt>(error: op.InvalidResult());
+            try {
+                exported = from ids in target.Ids(document: document, op: op)
+                           from _ in op.Confirm(success: document.Objects.UnselectAll(ignorePersistentSelections: false) >= 0)
+                           from __ in op.Confirm(success: document.Objects.SetSelectedObjects(objectIds: ids.AsIterable(), syncHighlight: true, persistentSelect: false, ignoreGripsState: true, ignoreLayerLocking: false, ignoreLayerVisibility: false) == ids.Count)
+                           from ___ in FileFormat.Write(document: document, target: Some(endpoint), profile: profile, phase: FilePhase.Export, selected: true, op: op)
+                           select DocumentReceipt.Objects(slot: DocumentReceiptSlot.Selected, ids: ids);
+            } finally {
+                restored =
+                    op.Catch(() => op.Confirm(success: document.Objects.UnselectAll(ignorePersistentSelections: false) >= 0))
+                        .Bind(_ => restore.Filter(static item => !item.Ids.IsEmpty).TraverseM(item => op.Catch(() => {
+                            int count = document.Objects.Select(
+                                objectIds: item.Ids.AsIterable(),
+                                select: true,
+                                syncHighlight: true,
+                                persistentSelect: item.Persistent,
+                                ignoreGripsState: true,
+                                ignoreLayerLocking: false,
+                                ignoreLayerVisibility: false);
+                            return guard(count == item.Ids.Count, op.InvalidResult()).ToFin();
+                        })).As().Map(static _ => unit));
+            }
+            return exported.Bind(receipt => restored.Map(_ => receipt));
+        }));
+
     private static Fin<FileReport> PublishCore(FileRuntime runtime, FilePublish publish) {
         Op op = Op.Of(name: nameof(FileExchange.Publish));
         return from live in Live(runtime: runtime, op: op)
@@ -399,6 +479,7 @@ public static class FileOp {
                 Issues: Seq<FileIssue>()),
             _ => (Target: Option<FileEndpoint>.None, Format: Option<FileFormat>.None, Issues: Seq<FileIssue>()),
         };
+
     private static Fin<T> InSnapshot<T>(RhinoDoc document, string snapshotName, Op op, Func<Fin<T>> body) =>
         from target in FileEndpoint.NonBlank(value: snapshotName, op: op)
         from _exists in guard(toSeq(document.Snapshots.Names).Exists(name => string.Equals(a: name, b: target, comparisonType: StringComparison.Ordinal)), op.InvalidInput())
@@ -419,85 +500,10 @@ public static class FileOp {
 
     private static Fin<Unit> SnapshotScript(uint serial, string verb, string name, Op op) =>
         op.Catch(() => op.Confirm(success: RhinoApp.RunScript(documentSerialNumber: serial, script: $"-_Snapshot {verb} _Name \"{name.Replace(oldValue: "\"", newValue: "\\\"", comparisonType: StringComparison.Ordinal)}\" _Enter", echo: false)));
+
     private static Fin<FileReport> Commit<T>(FileRuntime runtime, FilePhase phase, string name, T change, Func<RhinoDoc, T, Op, Fin<DocumentReceipt>> apply) where T : class =>
         from live in Live(runtime: runtime, op: Op.Of(name: name))
         from active in Optional(change).ToFin(Fail: Op.Of(name: name).InvalidInput())
         from receipt in live.Edit.Commit(name: name, redraw: DocumentRedraw.After, undoRecorded: true, run: (document, _, op) => apply(arg1: document, arg2: active, arg3: op))
         select FileReport.Of(phase: phase, receipt: Some(receipt));
-
-    private static Fin<T> HeadlessScope<T>(HeadlessExchange scope, Eff<FileRuntime, T> body, IoScheduler scheduler) =>
-        Op.Of(name: nameof(Headless)).Catch(() => {
-            // BOUNDARY ADAPTER — RhinoDoc.CreateHeadless/OpenHeadless yields an unmanaged document; the finally disposes it even when body fails.
-            RhinoDoc? headless = null;
-            try {
-                Fin<RhinoDoc> opened = scope.Switch(
-                    create: static _ =>
-                        Optional(RhinoDoc.CreateHeadless(file3dmTemplatePath: null)).ToFin(Fail: Op.Of(name: nameof(Headless)).InvalidResult()),
-                    createFromTemplate: static create =>
-                        from template in create.Template.Input(op: Op.Of(name: nameof(Headless)))
-                        from document in Optional(RhinoDoc.CreateHeadless(file3dmTemplatePath: template.Path)).ToFin(Fail: Op.Of(name: nameof(Headless)).InvalidResult())
-                        select document,
-                    open: static open =>
-                        from source in open.Source.Input(op: Op.Of(name: nameof(Headless)))
-                        from options in FileFormat.Dictionary(endpoint: source, profile: open.Profile, phase: FilePhase.Headless, op: Op.Of(name: nameof(Headless)))
-                            .BindFail(error => (source.Format.Case, open.Profile.Scale.IsSome) switch {
-                                (FileFormat, _) or (_, true) => Fin.Fail<ArchivableDictionary>(error: error),
-                                _ => Fin.Succ(value: new ArchivableDictionary()),
-                            })
-                        from document in Optional(RhinoDoc.OpenHeadless(filePath: source.Path, options: options)).ToFin(Fail: Op.Of(name: nameof(Headless)).InvalidResult())
-                        select document);
-                return opened.Bind(document => {
-                    headless = document;
-                    return Context.Of(doc: document).ToFin().Bind(domain => body.Run(new FileRuntime(
-                        document: Some(document),
-                        mode: RunMode.Scripted,
-                        domain: Some(domain),
-                        edit: Some(new DocumentEdit(document: document, domain: domain)),
-                        ui: Some(new RhinoUi(document: document, mode: RunMode.Scripted)),
-                        scheduler: scheduler)));
-                });
-            } finally {
-                headless?.Dispose();
-            }
-        });
-
-    private static Fin<DocumentReceipt> ExportTarget(RhinoDoc document, DocumentTarget target, FileEndpoint endpoint, FileProfile profile, Op op) =>
-        op.Catch(() => DocumentEdit.SelectedIds(document: document, op: op).Bind(before => {
-            // BOUNDARY ADAPTER — ExportSelected mutates global selection state; the finally eagerly relocks the prior persistent/transient partition even on export failure.
-            const int persistentSelectionState = 2;
-            static bool Persistent(RhinoObject native) => native.IsSelected(checkSubObjects: false) == persistentSelectionState;
-            Seq<Guid> persistent = before.Filter(id => Optional(document.Objects.FindId(id)).Map(Persistent).IfNone(noneValue: false));
-            Seq<Guid> transient = before.Filter(id => !persistent.Exists(item => item == id));
-            Seq<(Seq<Guid> Ids, bool Persistent)> restore = Seq((transient, false), (persistent, true));
-            Fin<Unit> restored = Fin.Succ(value: unit);
-            Fin<DocumentReceipt> exported = Fin.Fail<DocumentReceipt>(error: op.InvalidResult());
-            try {
-                exported = from ids in target.Ids(document: document, op: op)
-                           from _ in op.Confirm(success: document.Objects.UnselectAll(ignorePersistentSelections: false) >= 0)
-                           from __ in op.Confirm(success: document.Objects.SetSelectedObjects(objectIds: ids.AsIterable(), syncHighlight: true, persistentSelect: false, ignoreGripsState: true, ignoreLayerLocking: false, ignoreLayerVisibility: false) == ids.Count)
-                           from ___ in FileFormat.Write(document: document, target: Some(endpoint), profile: profile, phase: FilePhase.Export, selected: true, op: op)
-                           select DocumentReceipt.Objects(slot: DocumentReceiptSlot.Selected, ids: ids);
-            } finally {
-                restored =
-                    op.Catch(() => op.Confirm(success: document.Objects.UnselectAll(ignorePersistentSelections: false) >= 0))
-                        .Bind(_ => restore.Filter(static item => !item.Ids.IsEmpty).TraverseM(item => op.Catch(() => {
-                            int count = document.Objects.Select(
-                                objectIds: item.Ids.AsIterable(),
-                                select: true,
-                                syncHighlight: true,
-                                persistentSelect: item.Persistent,
-                                ignoreGripsState: true,
-                                ignoreLayerLocking: false,
-                                ignoreLayerVisibility: false);
-                            return guard(count == item.Ids.Count, op.InvalidResult()).ToFin();
-                        })).As().Map(static _ => unit));
-            }
-            return exported.Bind(receipt => restored.Map(_ => receipt));
-        }));
-
-    private static Fin<(RhinoDoc Document, Context Domain, DocumentEdit Edit)> Live(FileRuntime runtime, Op op) =>
-        (runtime.Document.Case, runtime.Domain.Case, runtime.Edit.Case) switch {
-            (RhinoDoc document, Context domain, DocumentEdit edit) => Fin.Succ(value: (document, domain, edit)),
-            _ => Fin.Fail<(RhinoDoc Document, Context Domain, DocumentEdit Edit)>(error: op.MissingContext()),
-        };
 }

@@ -9,6 +9,43 @@ public sealed partial class Topology {
     public static readonly Topology Unknown = new(0), Point = new(1), Curve = new(2), Surface = new(3), Brep = new(4), Mesh = new(5), SubD = new(6), PointCloud = new(7), Hatch = new(8), Extrusion = new(9);
 }
 [SmartEnum<int>]
+public sealed partial class Kind {
+    public static readonly Kind Point = new(0, typeof(Point3d), Topology.Point), Line = new(1, typeof(Line), Topology.Curve), Polyline = new(2, typeof(Polyline), Topology.Curve), Circle = new(3, typeof(Circle), Topology.Curve), Arc = new(4, typeof(Arc), Topology.Curve), Ellipse = new(5, typeof(Ellipse), Topology.Curve);
+    public static readonly Kind Curve = new(6, typeof(Curve), Topology.Curve), Surface = new(7, typeof(Surface), Topology.Surface), Plane = new(8, typeof(Plane), Topology.Surface), Sphere = new(9, typeof(Sphere), Topology.Surface), Cylinder = new(10, typeof(Cylinder), Topology.Surface), Cone = new(11, typeof(Cone), Topology.Surface), Torus = new(12, typeof(Torus), Topology.Surface);
+    public static readonly Kind Brep = new(13, typeof(Brep), Topology.Brep), Box = new(14, typeof(Box), Topology.Brep), BoundingBox = new(15, typeof(BoundingBox), Topology.Brep), Mesh = new(16, typeof(Mesh), Topology.Mesh), SubD = new(17, typeof(SubD), Topology.SubD), PointCloud = new(18, typeof(PointCloud), Topology.PointCloud), Extrusion = new(19, typeof(Extrusion), Topology.Extrusion), Hatch = new(20, typeof(Hatch), Topology.Hatch);
+    private static readonly FrozenSet<Type> CurvePrimitives = new[] { typeof(Line), typeof(Circle), typeof(Arc), typeof(Ellipse), typeof(Polyline) }.ToFrozenSet();
+    private static readonly FrozenSet<Type> SurfacePrimitives = new[] { typeof(Plane), typeof(Sphere), typeof(Cylinder), typeof(Cone), typeof(Torus) }.ToFrozenSet();
+    private static readonly FrozenSet<Type> BrepSources = new[] { typeof(Brep), typeof(Surface), typeof(Box), typeof(BoundingBox), typeof(Sphere), typeof(Cylinder), typeof(Cone), typeof(Torus), typeof(Extrusion), typeof(SubD) }.ToFrozenSet();
+    private static readonly FrozenSet<Topology> TopologyVertexReadable = new[] { Topology.Point, Topology.Brep, Topology.Mesh, Topology.PointCloud, Topology.SubD, Topology.Extrusion }.ToFrozenSet();
+    private static readonly FrozenSet<Topology> TopologyControlReadable = new[] { Topology.Curve, Topology.Surface, Topology.Brep }.ToFrozenSet();
+    private static readonly FrozenSet<Topology> TopologyEdgeReadable = new[] { Topology.Brep, Topology.Mesh, Topology.SubD }.ToFrozenSet();
+    private static readonly FrozenSet<Topology> TopologyPrincipal = new[] { Topology.Curve, Topology.Brep, Topology.Mesh, Topology.Surface, Topology.Extrusion }.ToFrozenSet();
+    private static readonly Lazy<FrozenDictionary<Type, Kind>> ByType = new(static () => Items.ToFrozenDictionary(static k => k.Type));
+    internal static readonly FrozenDictionary<Rhino.DocObjects.ObjectType, Kind> ByObjectType = new (Rhino.DocObjects.ObjectType Key, Kind Value)[] { (Rhino.DocObjects.ObjectType.Point, Point), (Rhino.DocObjects.ObjectType.Curve, Curve), (Rhino.DocObjects.ObjectType.Surface, Surface), (Rhino.DocObjects.ObjectType.Brep, Brep), (Rhino.DocObjects.ObjectType.Mesh, Mesh), (Rhino.DocObjects.ObjectType.SubD, SubD), (Rhino.DocObjects.ObjectType.PointSet, PointCloud), (Rhino.DocObjects.ObjectType.Hatch, Hatch), (Rhino.DocObjects.ObjectType.Extrusion, Extrusion) }.ToFrozenDictionary(keySelector: static p => p.Key, elementSelector: static p => p.Value);
+    public Type Type { get; }
+    public Topology Topology { get; }
+    internal bool CanBound(bool includeSphere) => Type != typeof(Plane) && (includeSphere || Type != typeof(Sphere));
+    internal bool CanReadVertices =>
+        Type == typeof(Point3d) || Type == typeof(Curve) || Type == typeof(Line) || Type == typeof(Polyline) || Type == typeof(Arc) || TopologyVertexReadable.Contains(Topology);
+    internal bool CanReadControlPoints => TopologyControlReadable.Contains(Topology);
+    internal bool CanReadEdges =>
+        Type == typeof(Line) || Type == typeof(Polyline) || Type == typeof(BoundingBox) || Type == typeof(Box) || TopologyEdgeReadable.Contains(Topology);
+    internal bool CanPrincipal => TopologyPrincipal.Contains(Topology);
+    internal bool CanCoerceTo(Type target) =>
+        target.IsAssignableFrom(Type)
+        || (target == typeof(Box) && Type == typeof(Brep))
+        || (target == typeof(Curve) && Topology == Topology.Curve)
+        || (CurvePrimitives.Contains(target) && Type == typeof(Curve))
+        || (SurfacePrimitives.Contains(target) && (Type == typeof(Brep) || Type == typeof(Surface)))
+        || (target == typeof(Brep) && BrepSources.Contains(Type));
+    public static Option<Kind> Of(Type type) {
+        ArgumentNullException.ThrowIfNull(argument: type);
+        return type == typeof(Rhino.Geometry.Point) ? Some(Point) : Optional(ByType.Value.GetValueOrDefault(key: type)) | (InheritsBase(type: type) is Type bt ? Optional(ByType.Value.GetValueOrDefault(key: bt)) : Option<Kind>.None);
+    }
+    private static Type? InheritsBase(Type type) => type.BaseType is Type b ? (ByType.Value.ContainsKey(key: b) ? b : InheritsBase(type: b)) : null;
+}
+
+[SmartEnum<int>]
 public sealed partial class IntersectionKind {
     public static readonly IntersectionKind Unknown = new(0), Point = new(1), Overlap = new(2), Curve = new(3);
 }
@@ -25,21 +62,6 @@ public partial record CurveForm {
     public sealed record NurbsCase(int Degree, bool IsClosed, bool IsPlanar, bool IsPeriodic, int SpanCount, int Dimension) : CurveForm;
 }
 
-[SkipUnionOps]
-[Union]
-internal abstract partial record Lease<T> where T : class, IDisposable {
-    private Lease() { }
-    public sealed record Owned(T Value) : Lease<T> {
-        internal TResult Project<TResult>(Func<T, TResult> project) { using T owned = Value; return project(arg: owned); }
-        internal TResult Project<TState, TResult>(TState state, Func<TState, T, TResult> project) { using T owned = Value; return project(arg1: state, arg2: owned); }
-    }
-    public sealed record Borrowed(T Value) : Lease<T>;
-    internal TResult Use<TResult>(Func<T, TResult> project) => Switch(state: project, owned: static (use, owned) => owned.Project(project: use), borrowed: static (use, borrowed) => use(arg: borrowed.Value));
-    internal TResult Use<TState, TResult>(TState state, Func<TState, T, TResult> project) =>
-        Switch(state: (State: state, Project: project), owned: static (use, owned) => owned.Project(state: use.State, project: use.Project), borrowed: static (use, borrowed) => use.Project(arg1: use.State, arg2: borrowed.Value));
-    internal T Resource => Switch(owned: static owned => owned.Value, borrowed: static borrowed => borrowed.Value);
-    internal Unit Dispose() => Switch(owned: static owned => { owned.Value.Dispose(); return unit; }, borrowed: static _ => unit);
-}
 [BoundaryAdapter]
 [SkipUnionOps]
 [Union]
@@ -52,6 +74,9 @@ public abstract partial record IntersectionHit {
     public Seq<Curve> Curves => Switch(pointCase: static _ => Seq<Curve>(), curveCase: static c => Seq(c.Curve), overlapCase: static o => o.Curve.ToSeq());
     public Seq<Point3d> Points => Switch(pointCase: static p => Seq(p.Point), curveCase: static _ => Seq<Point3d>(), overlapCase: static o => Seq(o.Start, o.End));
     public Seq<Interval> Intervals => Switch(pointCase: static _ => Seq<Interval>(), curveCase: static _ => Seq<Interval>(), overlapCase: static o => Seq(o.OverlapA, o.OverlapB));
+    public static IntersectionHit At(Point3d point, IntersectionTangency tangency = IntersectionTangency.Unknown) => new PointCase(point, tangency);
+    public static IntersectionHit Along(Curve curve, IntersectionKind kind) => new CurveCase(curve, kind);
+    public static IntersectionHit Overlap(Point3d start, Point3d end, Interval overlapA, Interval overlapB, Option<Curve> curve = default) => new OverlapCase(start, end, overlapA, overlapB, curve);
     internal bool IsValid => Switch(
         pointCase: static p => p.Point.IsValid,
         curveCase: static c => (c.CurveKind == IntersectionKind.Curve || c.CurveKind == IntersectionKind.Overlap) && Optional(c.Curve).Map(static curve => curve.IsValid).IfNone(noneValue: false),
@@ -76,48 +101,23 @@ public abstract partial record IntersectionHit {
         _ = hits.Iter(static value => value.Dispose());
         return result;
     }
-    public static IntersectionHit At(Point3d point, IntersectionTangency tangency = IntersectionTangency.Unknown) => new PointCase(point, tangency);
-    public static IntersectionHit Along(Curve curve, IntersectionKind kind) => new CurveCase(curve, kind);
-    public static IntersectionHit Overlap(Point3d start, Point3d end, Interval overlapA, Interval overlapB, Option<Curve> curve = default) => new OverlapCase(start, end, overlapA, overlapB, curve);
 }
 
-[SmartEnum<int>]
-public sealed partial class Kind {
-    public static readonly Kind Point = new(0, typeof(Point3d), Topology.Point), Line = new(1, typeof(Line), Topology.Curve), Polyline = new(2, typeof(Polyline), Topology.Curve), Circle = new(3, typeof(Circle), Topology.Curve), Arc = new(4, typeof(Arc), Topology.Curve), Ellipse = new(5, typeof(Ellipse), Topology.Curve);
-    public static readonly Kind Curve = new(6, typeof(Curve), Topology.Curve), Surface = new(7, typeof(Surface), Topology.Surface), Plane = new(8, typeof(Plane), Topology.Surface), Sphere = new(9, typeof(Sphere), Topology.Surface), Cylinder = new(10, typeof(Cylinder), Topology.Surface), Cone = new(11, typeof(Cone), Topology.Surface), Torus = new(12, typeof(Torus), Topology.Surface);
-    public static readonly Kind Brep = new(13, typeof(Brep), Topology.Brep), Box = new(14, typeof(Box), Topology.Brep), BoundingBox = new(15, typeof(BoundingBox), Topology.Brep), Mesh = new(16, typeof(Mesh), Topology.Mesh), SubD = new(17, typeof(SubD), Topology.SubD), PointCloud = new(18, typeof(PointCloud), Topology.PointCloud), Extrusion = new(19, typeof(Extrusion), Topology.Extrusion), Hatch = new(20, typeof(Hatch), Topology.Hatch);
-    public Type Type { get; }
-    public Topology Topology { get; }
-    internal bool CanBound(bool includeSphere) => Type != typeof(Plane) && (includeSphere || Type != typeof(Sphere));
-    internal bool CanReadVertices =>
-        Type == typeof(Point3d) || Type == typeof(Curve) || Type == typeof(Line) || Type == typeof(Polyline) || Type == typeof(Arc) || TopologyVertexReadable.Contains(Topology);
-    internal bool CanReadControlPoints => TopologyControlReadable.Contains(Topology);
-    internal bool CanReadEdges =>
-        Type == typeof(Line) || Type == typeof(Polyline) || Type == typeof(BoundingBox) || Type == typeof(Box) || TopologyEdgeReadable.Contains(Topology);
-    internal bool CanPrincipal => TopologyPrincipal.Contains(Topology);
-    internal bool CanCoerceTo(Type target) =>
-        target.IsAssignableFrom(Type)
-        || (target == typeof(Box) && Type == typeof(Brep))
-        || (target == typeof(Curve) && Topology == Topology.Curve)
-        || (CurvePrimitives.Contains(target) && Type == typeof(Curve))
-        || (SurfacePrimitives.Contains(target) && (Type == typeof(Brep) || Type == typeof(Surface)))
-        || (target == typeof(Brep) && BrepSources.Contains(Type));
-    private static readonly FrozenSet<Type> CurvePrimitives = new[] { typeof(Line), typeof(Circle), typeof(Arc), typeof(Ellipse), typeof(Polyline) }.ToFrozenSet();
-    private static readonly FrozenSet<Type> SurfacePrimitives = new[] { typeof(Plane), typeof(Sphere), typeof(Cylinder), typeof(Cone), typeof(Torus) }.ToFrozenSet();
-    private static readonly FrozenSet<Type> BrepSources = new[] { typeof(Brep), typeof(Surface), typeof(Box), typeof(BoundingBox), typeof(Sphere), typeof(Cylinder), typeof(Cone), typeof(Torus), typeof(Extrusion), typeof(SubD) }.ToFrozenSet();
-    private static readonly FrozenSet<Topology> TopologyVertexReadable = new[] { Topology.Point, Topology.Brep, Topology.Mesh, Topology.PointCloud, Topology.SubD, Topology.Extrusion }.ToFrozenSet();
-    private static readonly FrozenSet<Topology> TopologyControlReadable = new[] { Topology.Curve, Topology.Surface, Topology.Brep }.ToFrozenSet();
-    private static readonly FrozenSet<Topology> TopologyEdgeReadable = new[] { Topology.Brep, Topology.Mesh, Topology.SubD }.ToFrozenSet();
-    private static readonly FrozenSet<Topology> TopologyPrincipal = new[] { Topology.Curve, Topology.Brep, Topology.Mesh, Topology.Surface, Topology.Extrusion }.ToFrozenSet();
-    private static readonly Lazy<FrozenDictionary<Type, Kind>> ByType = new(static () => Items.ToFrozenDictionary(static k => k.Type));
-    internal static readonly FrozenDictionary<Rhino.DocObjects.ObjectType, Kind> ByObjectType = new (Rhino.DocObjects.ObjectType Key, Kind Value)[] { (Rhino.DocObjects.ObjectType.Point, Point), (Rhino.DocObjects.ObjectType.Curve, Curve), (Rhino.DocObjects.ObjectType.Surface, Surface), (Rhino.DocObjects.ObjectType.Brep, Brep), (Rhino.DocObjects.ObjectType.Mesh, Mesh), (Rhino.DocObjects.ObjectType.SubD, SubD), (Rhino.DocObjects.ObjectType.PointSet, PointCloud), (Rhino.DocObjects.ObjectType.Hatch, Hatch), (Rhino.DocObjects.ObjectType.Extrusion, Extrusion) }.ToFrozenDictionary(keySelector: static p => p.Key, elementSelector: static p => p.Value);
-    private static Type? InheritsBase(Type type) => type.BaseType is Type b ? (ByType.Value.ContainsKey(key: b) ? b : InheritsBase(type: b)) : null;
-    public static Option<Kind> Of(Type type) {
-        ArgumentNullException.ThrowIfNull(argument: type);
-        return type == typeof(Rhino.Geometry.Point) ? Some(Point) : Optional(ByType.Value.GetValueOrDefault(key: type)) | (InheritsBase(type: type) is Type bt ? Optional(ByType.Value.GetValueOrDefault(key: bt)) : Option<Kind>.None);
+[SkipUnionOps]
+[Union]
+internal abstract partial record Lease<T> where T : class, IDisposable {
+    private Lease() { }
+    public sealed record Owned(T Value) : Lease<T> {
+        internal TResult Project<TResult>(Func<T, TResult> project) { using T owned = Value; return project(arg: owned); }
+        internal TResult Project<TState, TResult>(TState state, Func<TState, T, TResult> project) { using T owned = Value; return project(arg1: state, arg2: owned); }
     }
+    public sealed record Borrowed(T Value) : Lease<T>;
+    internal TResult Use<TResult>(Func<T, TResult> project) => Switch(state: project, owned: static (use, owned) => owned.Project(project: use), borrowed: static (use, borrowed) => use(arg: borrowed.Value));
+    internal TResult Use<TState, TResult>(TState state, Func<TState, T, TResult> project) =>
+        Switch(state: (State: state, Project: project), owned: static (use, owned) => owned.Project(state: use.State, project: use.Project), borrowed: static (use, borrowed) => use.Project(arg1: use.State, arg2: borrowed.Value));
+    internal T Resource => Switch(owned: static owned => owned.Value, borrowed: static borrowed => borrowed.Value);
+    internal Unit Dispose() => Switch(owned: static owned => { owned.Value.Dispose(); return unit; }, borrowed: static _ => unit);
 }
-
 // --- [MODELS] -----------------------------------------------------------------------------
 [BoundaryAdapter, StructLayout(LayoutKind.Auto)]
 public readonly record struct RayQuery(Ray3d Ray, int MaxReflections = 1) {
@@ -130,11 +130,18 @@ public sealed record TopologyProjection {
     private readonly Lease<GeometryBase> value;
     private readonly bool detachedSingleFace;
     private Option<Lease<Brep>> faceBrep;
+    private TopologyProjection(Lease<GeometryBase> value, CurveFeature feature, ComponentIndex source, bool reversed = false, bool detachedSingleFace = false) { this.value = value; this.detachedSingleFace = detachedSingleFace; Feature = feature; Source = source; Reversed = reversed; }
+    public static TopologyProjection Of(Curve curve, CurveFeature feature, ComponentIndex source) { ArgumentNullException.ThrowIfNull(curve); return new(value: new Lease<GeometryBase>.Owned(Value: curve), feature: feature, source: source); }
+    public static TopologyProjection Of(BrepFace face, bool copy = false) {
+        ArgumentNullException.ThrowIfNull(face);
+        return new(value: copy ? new Lease<GeometryBase>.Owned(face.DuplicateFace(duplicateMeshes: false)) : new Lease<GeometryBase>.Borrowed(face), feature: CurveFeature.Input, source: new ComponentIndex(type: ComponentIndexType.BrepFace, index: face.FaceIndex), reversed: face.OrientationIsReversed, detachedSingleFace: copy);
+    }
+    public static Fin<TopologyProjection> FromMesh(Mesh? mesh, ComponentIndex source) =>
+        Optional(mesh).ToFin(Key.InvalidInput()).Bind(native => new TopologyProjection(value: new Lease<GeometryBase>.Borrowed(Value: native), feature: CurveFeature.Input, source: source) switch { { HasValidSource: true } projection => Fin.Succ(projection), _ => Fin.Fail<TopologyProjection>(Key.InvalidInput()) });
     public GeometryBase Value => value.Resource;
     public CurveFeature Feature { get; }
     public ComponentIndex Source { get; }
     public bool Reversed { get; }
-    private TopologyProjection(Lease<GeometryBase> value, CurveFeature feature, ComponentIndex source, bool reversed = false, bool detachedSingleFace = false) { this.value = value; this.detachedSingleFace = detachedSingleFace; Feature = feature; Source = source; Reversed = reversed; }
     internal bool HasValidSource => (Value, Source) switch {
         (Curve { IsValid: true }, _) => true,
         (Brep { IsValid: true, Faces.Count: int count }, { ComponentIndexType: ComponentIndexType.BrepFace, Index: int f }) => f >= 0 && (f < count || (detachedSingleFace && count == 1)),
@@ -156,13 +163,6 @@ public sealed record TopologyProjection {
                 _ => Optional(face.DuplicateFace(duplicateMeshes: false)).Map(brep => { faceBrep = new Lease<Brep>.Owned(Value: brep); return (T)(object)brep; }),
             }
             : Option<T>.None;
-    public static TopologyProjection Of(Curve curve, CurveFeature feature, ComponentIndex source) { ArgumentNullException.ThrowIfNull(curve); return new(value: new Lease<GeometryBase>.Owned(Value: curve), feature: feature, source: source); }
-    public static TopologyProjection Of(BrepFace face, bool copy = false) {
-        ArgumentNullException.ThrowIfNull(face);
-        return new(value: copy ? new Lease<GeometryBase>.Owned(face.DuplicateFace(duplicateMeshes: false)) : new Lease<GeometryBase>.Borrowed(face), feature: CurveFeature.Input, source: new ComponentIndex(type: ComponentIndexType.BrepFace, index: face.FaceIndex), reversed: face.OrientationIsReversed, detachedSingleFace: copy);
-    }
-    public static Fin<TopologyProjection> FromMesh(Mesh? mesh, ComponentIndex source) =>
-        Optional(mesh).ToFin(Key.InvalidInput()).Bind(native => new TopologyProjection(value: new Lease<GeometryBase>.Borrowed(Value: native), feature: CurveFeature.Input, source: source) switch { { HasValidSource: true } projection => Fin.Succ(projection), _ => Fin.Fail<TopologyProjection>(Key.InvalidInput()) });
     public Unit Dispose() {
         _ = value.Dispose();
         return faceBrep.Iter(static owned => owned.Dispose());
@@ -176,7 +176,6 @@ public sealed record TopologyProjection {
             _ => this,
         };
     }
-    private bool SameAs(TopologyProjection? other) => other switch { TopologyProjection p => ReferenceEquals(Value, p.Value) && Source.Equals(p.Source), _ => false };
     public bool Transfers(Type outputType) {
         ArgumentNullException.ThrowIfNull(outputType);
         return outputType.IsAssignableFrom(typeof(TopologyProjection))
@@ -195,6 +194,7 @@ public sealed record TopologyProjection {
             },
             _ => false,
         };
+    private bool SameAs(TopologyProjection? other) => other switch { TopologyProjection p => ReferenceEquals(Value, p.Value) && Source.Equals(p.Source), _ => false };
     internal static Fin<Seq<TValue>> Project<TValue>(Seq<TopologyProjection> all, Seq<TopologyProjection> chosen, Func<Seq<TopologyProjection>, Fin<Seq<TValue>>> project) {
         Fin<Seq<TValue>> result = project(chosen);
         _ = all.Filter(v => !result.IsSucc || !chosen.Exists(c => c.SameAs(v) && c.Transfers(typeof(TValue)))).Iter(static v => v.Dispose());

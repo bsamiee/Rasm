@@ -43,12 +43,6 @@ public sealed record Context {
         Angle = angle;
         Units = units;
     }
-    public AbsoluteTolerance Absolute { get; }
-    public RelativeTolerance Relative { get; }
-    public AngleTolerance Angle { get; }
-    public UnitSystem Units { get; }
-    internal double Fractional => Relative.Value > 0.0 ? Relative.Value : DefaultFractionalTolerance;
-    internal double MeshIntersectionTolerance => Absolute.Value * Intersection.MeshIntersectionsTolerancesCoefficient;
     internal static Validation<Error, Context> Of(double absolute, double relative, double angle, UnitSystem units) =>
         (absolute.TryCreateValidated<AbsoluteTolerance>(),
          relative.TryCreateValidated<RelativeTolerance>(),
@@ -79,4 +73,10 @@ public sealed record Context {
                 relative: candidate.ModelRelativeTolerance,
                 angle: candidate.ModelAngleToleranceRadians,
                 units: candidate.ModelUnitSystem));
+    public AbsoluteTolerance Absolute { get; }
+    public RelativeTolerance Relative { get; }
+    public AngleTolerance Angle { get; }
+    public UnitSystem Units { get; }
+    internal double Fractional => Relative.Value > 0.0 ? Relative.Value : DefaultFractionalTolerance;
+    internal double MeshIntersectionTolerance => Absolute.Value * Intersection.MeshIntersectionsTolerancesCoefficient;
 }

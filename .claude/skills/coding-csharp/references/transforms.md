@@ -1,6 +1,6 @@
 # Transforms
 
-Compositional logic substrate for C# 14 / .NET 10. Every code body across all reference files is written in this style — transforms.md defines what "algorithmic, functional, ROP-driven code" means at the logic level. All snippets assume `using static LanguageExt.Prelude;` and `using LanguageExt;`.
+Compositional logic substrate, every code body across all reference files is written in this style — transforms.md defines what "algorithmic, functional, ROP-driven code" means at the logic level. All snippets assume `using static LanguageExt.Prelude;` and `using LanguageExt;`.
 
 ---
 

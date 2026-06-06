@@ -37,136 +37,6 @@ public abstract partial record VectorIntent {
     public sealed record DescriptorCase : VectorIntent { internal DescriptorCase(MeshSpace Space, MeshDescriptor Kind, Dimension Pairs) { this.Space = Space; this.Kind = Kind; this.Pairs = Pairs; } public MeshSpace Space { get; } public MeshDescriptor Kind { get; } public Dimension Pairs { get; } }
     public sealed record DiscreteCalculusCase : VectorIntent { internal DiscreteCalculusCase(MeshSpace Space, MeshLaplacian Kind) { this.Space = Space; this.Kind = Kind; } public MeshSpace Space { get; } public MeshLaplacian Kind { get; } }
     public sealed record SegmentationCase : VectorIntent { internal SegmentationCase(MeshSpace Space, MeshSegmentation Kind) { this.Space = Space; this.Kind = Kind; } public MeshSpace Space { get; } public MeshSegmentation Kind { get; } }
-    public Fin<TOut> Project<TOut>(Context context, Op? key = null) {
-        Op op = key.OrDefault();
-        return from model in FieldNabla.NotNull(value: context, error: op.MissingContext())
-               from result in Dispatch<TOut>(context: model, op: op)
-               select result;
-    }
-    private Fin<TOut> Dispatch<TOut>(Context context, Op op) => Switch(
-        state: (Context: context, Key: op),
-        axisCase: static (state, axis) =>
-            from direction in Vectors.Direction.Of(value: axis.Value.Of(frame: axis.Basis), context: state.Context, key: state.Key)
-            from output in direction.Project<TOut>(key: state.Key)
-            select output,
-        directionCase: static (state, intent) =>
-            from direction in Vectors.Direction.Of(value: intent.Value, context: state.Context, key: state.Key)
-            from output in direction.Project<TOut>(key: state.Key)
-            select output,
-        axesCase: static (state, intent) =>
-            from axes in intent.Values.IfNone(SignedAxis.Cardinal(planar: intent.Planar).Map(static axis => axis.World))
-                .TraverseM(axis => Vectors.Direction.Of(value: axis, context: state.Context, key: state.Key).Map(static direction => direction.Value))
-                .As()
-            from _ in guard(!axes.IsEmpty, state.Key.InvalidInput())
-            from output in AtomProjection.Self<Seq<Vector3d>, TOut>(value: axes, key: state.Key, owner: typeof(AxesCase))
-            select output,
-        angularCase: static (state, intent) =>
-            from angle in VectorAngle.Of(a: intent.A, b: intent.B, context: state.Context, pivot: intent.Pivot, key: state.Key)
-            from output in angle.Project<TOut>(key: state.Key)
-            select output,
-        supportCase: static (state, intent) =>
-            from hit in intent.Space.Closest(sample: intent.Query, key: state.Key)
-            from output in intent.Projection.Project<TOut>(space: intent.Space, hit: hit, sample: intent.Query, context: state.Context, key: state.Key)
-            select output,
-        extractionCase: static (state, intent) => intent.Value.Project<TOut>(context: state.Context, key: state.Key),
-        rayCase: static (state, intent) => intent.Policy.Project<TOut>(origin: intent.Origin, direction: intent.RayDirection, context: state.Context, key: state.Key),
-        frameCase: static (state, intent) =>
-            from frame in VectorFrame.Of(origin: intent.Origin, normal: intent.Normal, xHint: intent.XHint, context: state.Context, key: state.Key)
-            from output in frame.Project<TOut>(key: state.Key)
-            select output,
-        curveCase: static (state, intent) => intent.Mode.Project<TOut>(curve: intent.Source, parameter: intent.Parameter, context: state.Context, key: state.Key),
-        cloudCase: static (state, intent) => intent.Metric.Project<TOut>(cloud: intent.Value, policy: intent.Policy, key: state.Key),
-        windingCase: static (state, intent) => CloudKernel.Winding<TOut>(cloud: intent.Value, query: intent.Query, key: state.Key),
-        coneCase: static (state, intent) => intent.Mode.Project<TOut>(cone: intent.Value, key: state.Key),
-        componentsCase: static (state, intent) =>
-            from span in VectorSpan.Of(anchor: intent.Anchor, vector: intent.Value, context: state.Context, key: state.Key)
-            from components in span.Components(frame: intent.Basis, key: state.Key)
-            from output in AtomProjection.Self<ValueTuple<double, double>, TOut>(value: components, key: state.Key, owner: typeof(VectorSpan))
-            select output,
-        relationCase: static (state, intent) =>
-            from relation in VectorRelation.Of(a: intent.A, b: intent.B, context: state.Context, key: state.Key)
-            from output in relation.Project<TOut>(key: state.Key)
-            select output,
-        bounceCase: static (state, intent) =>
-            from hit in intent.Target.Closest(sample: intent.Query, key: state.Key)
-            from rawNormal in hit.Normal.ToFin(Fail: state.Key.InvalidResult())
-            from normal in Vectors.Direction.Of(value: rawNormal, context: state.Context, key: state.Key)
-            from reflected in intent.Policy.Apply(incident: intent.Incident, normal: normal, key: state.Key)
-            from output in reflected.Project<TOut>(key: state.Key)
-            select output,
-        streamlineCase: static (state, intent) => FlowKernel.Trace<TOut>(source: intent.Source, seed: intent.Seed, initialStep: intent.InitialStep, integrator: intent.Integrator, termination: intent.Termination, context: state.Context, key: state.Key),
-        lerpCase: static (state, intent) =>
-            from direction in Vectors.Direction.Of(
-                value: ((1.0 - intent.Parameter.Value) * intent.A) + (intent.Parameter.Value * intent.B),
-                context: state.Context, key: state.Key)
-            from output in direction.Project<TOut>(key: state.Key)
-            select output,
-        slerpCase: static (state, intent) =>
-            from rotation in intent.A.Value.IsParallelTo(other: intent.B.Value, angleTolerance: state.Context.Angle.Value) switch {
-                -1 => Fin.Succ(Quaternion.Rotation(Math.PI, VectorFrame.SeedPerpendicular(axis: intent.A.Value))),
-                _ => Transform.Rotation(startDirection: intent.A.Value, endDirection: intent.B.Value, rotationCenter: Point3d.Origin).GetQuaternion(quaternion: out Quaternion target)
-                    ? Fin.Succ(target)
-                    : Fin.Fail<Quaternion>(state.Key.InvalidResult()),
-            }
-            from direction in Vectors.Direction.Of(
-                value: Quaternion.Slerp(a: Quaternion.Identity, b: rotation, t: intent.Parameter.Value).Rotate(v: intent.A.Value),
-                context: state.Context,
-                key: state.Key)
-            from output in direction.Project<TOut>(key: state.Key)
-            select output,
-        projectOntoCase: static (state, intent) =>
-            from target in FieldNabla.Plane(basis: intent.Target, key: state.Key)
-            from direction in Vectors.Direction.Of(
-                value: Transform.PlanarProjection(plane: target) * intent.Value,
-                context: state.Context, key: state.Key)
-            from output in direction.Project<TOut>(key: state.Key)
-            select output,
-        mirrorCase: static (state, intent) =>
-            from across in FieldNabla.Plane(basis: intent.Across, key: state.Key)
-            from direction in Vectors.Direction.Of(
-                value: Transform.Mirror(mirrorPlane: across) * intent.Value,
-                context: state.Context, key: state.Key)
-            from output in direction.Project<TOut>(key: state.Key)
-            select output,
-        surfaceCase: static (state, intent) => intent.Source.Sample<TOut>(projection: intent.Mode, u: intent.Uv.X, v: intent.Uv.Y, key: state.Key),
-        poseCase: static (state, intent) =>
-            from pose in intent.Mode.Interpolate(a: intent.From, b: intent.To, t: intent.Parameter, key: state.Key)
-            from output in FieldNabla.Plane(basis: pose, key: state.Key)
-                .Bind(plane => AtomProjection.Self<Plane, TOut>(value: plane, key: state.Key, owner: typeof(PoseCase)))
-            select output,
-        flattenCase: static (state, intent) =>
-            from result in MeshKernel.ParameterizeFlattenDetailed(space: intent.Space, key: state.Key)
-            from output in result.Project<TOut>(key: state.Key)
-            select output,
-        hullCase: static (state, intent) =>
-            from result in CloudKernel.ComputeHullDetailed(source: intent.Source, kind: intent.Kind, policy: intent.Policy, key: state.Key)
-            from output in result.Project<TOut>(context: state.Context, key: state.Key)
-            select output,
-        sampleCase: static (state, intent) =>
-            intent.Kind.Project<TOut>(domain: intent.Domain, context: state.Context, key: state.Key),
-        alignCase: static (state, intent) =>
-            from receipt in intent.Kind.AlignDetailed(source: intent.Source, target: intent.Target, policy: intent.Policy, key: state.Key)
-            from output in receipt.Project<TOut>(key: state.Key)
-            select output,
-        remeshCase: static (state, intent) =>
-            from result in MeshKernel.ApplyRemeshDetailed(kind: intent.Kind, space: intent.Space, key: state.Key)
-            from output in result.Project<TOut>(key: state.Key)
-            select output,
-        transportCase: static (state, intent) => CloudKernel.Sinkhorn<TOut>(source: intent.Source, target: intent.Target, policy: intent.Policy, key: state.Key),
-        topologyCase: static (state, intent) =>
-            from topology in MeshKernel.TopologyDetailed(space: intent.Space, key: state.Key)
-            from output in topology.Project<TOut>(key: state.Key)
-            select output,
-        featuresCase: static (state, intent) =>
-            from receipt in MeshKernel.DetectFeatureEdgesDetailed(space: intent.Space, policy: intent.Policy, key: state.Key)
-            from output in receipt.Project<TOut>(key: state.Key)
-            select output,
-        descriptorCase: static (state, intent) => MeshKernel.DescribeShape<TOut>(space: intent.Space, kind: intent.Kind, eigenpairs: intent.Pairs.Value, key: state.Key),
-        discreteCalculusCase: static (state, intent) =>
-            from calculus in SpectralCore.Build(space: intent.Space, kind: intent.Kind, key: state.Key)
-            from output in calculus.Project<TOut>(key: state.Key)
-            select output,
-        segmentationCase: static (state, intent) => MeshKernel.Segment<TOut>(space: intent.Space, kind: intent.Kind, key: state.Key));
     public static Fin<VectorIntent> Axis(SignedAxis axis, Plane? frame = null, Op? key = null) {
         Op op = key.OrDefault();
         return from active in FieldNabla.NotNull(value: axis, key: op)
@@ -359,4 +229,134 @@ public abstract partial record VectorIntent {
                from active in FieldNabla.NotNull(value: kind, key: op)
                select (VectorIntent)new SegmentationCase(Space: space, Kind: active);
     }
+    public Fin<TOut> Project<TOut>(Context context, Op? key = null) {
+        Op op = key.OrDefault();
+        return from model in FieldNabla.NotNull(value: context, error: op.MissingContext())
+               from result in Dispatch<TOut>(context: model, op: op)
+               select result;
+    }
+    private Fin<TOut> Dispatch<TOut>(Context context, Op op) => Switch(
+        state: (Context: context, Key: op),
+        axisCase: static (state, axis) =>
+            from direction in Vectors.Direction.Of(value: axis.Value.Of(frame: axis.Basis), context: state.Context, key: state.Key)
+            from output in direction.Project<TOut>(key: state.Key)
+            select output,
+        directionCase: static (state, intent) =>
+            from direction in Vectors.Direction.Of(value: intent.Value, context: state.Context, key: state.Key)
+            from output in direction.Project<TOut>(key: state.Key)
+            select output,
+        axesCase: static (state, intent) =>
+            from axes in intent.Values.IfNone(SignedAxis.Cardinal(planar: intent.Planar).Map(static axis => axis.World))
+                .TraverseM(axis => Vectors.Direction.Of(value: axis, context: state.Context, key: state.Key).Map(static direction => direction.Value))
+                .As()
+            from _ in guard(!axes.IsEmpty, state.Key.InvalidInput())
+            from output in AtomProjection.Self<Seq<Vector3d>, TOut>(value: axes, key: state.Key, owner: typeof(AxesCase))
+            select output,
+        angularCase: static (state, intent) =>
+            from angle in VectorAngle.Of(a: intent.A, b: intent.B, context: state.Context, pivot: intent.Pivot, key: state.Key)
+            from output in angle.Project<TOut>(key: state.Key)
+            select output,
+        supportCase: static (state, intent) =>
+            from hit in intent.Space.Closest(sample: intent.Query, key: state.Key)
+            from output in intent.Projection.Project<TOut>(space: intent.Space, hit: hit, sample: intent.Query, context: state.Context, key: state.Key)
+            select output,
+        extractionCase: static (state, intent) => intent.Value.Project<TOut>(context: state.Context, key: state.Key),
+        rayCase: static (state, intent) => intent.Policy.Project<TOut>(origin: intent.Origin, direction: intent.RayDirection, context: state.Context, key: state.Key),
+        frameCase: static (state, intent) =>
+            from frame in VectorFrame.Of(origin: intent.Origin, normal: intent.Normal, xHint: intent.XHint, context: state.Context, key: state.Key)
+            from output in frame.Project<TOut>(key: state.Key)
+            select output,
+        curveCase: static (state, intent) => intent.Mode.Project<TOut>(curve: intent.Source, parameter: intent.Parameter, context: state.Context, key: state.Key),
+        cloudCase: static (state, intent) => intent.Metric.Project<TOut>(cloud: intent.Value, policy: intent.Policy, key: state.Key),
+        windingCase: static (state, intent) => CloudKernel.Winding<TOut>(cloud: intent.Value, query: intent.Query, key: state.Key),
+        coneCase: static (state, intent) => intent.Mode.Project<TOut>(cone: intent.Value, key: state.Key),
+        componentsCase: static (state, intent) =>
+            from span in VectorSpan.Of(anchor: intent.Anchor, vector: intent.Value, context: state.Context, key: state.Key)
+            from components in span.Components(frame: intent.Basis, key: state.Key)
+            from output in AtomProjection.Self<ValueTuple<double, double>, TOut>(value: components, key: state.Key, owner: typeof(VectorSpan))
+            select output,
+        relationCase: static (state, intent) =>
+            from relation in VectorRelation.Of(a: intent.A, b: intent.B, context: state.Context, key: state.Key)
+            from output in relation.Project<TOut>(key: state.Key)
+            select output,
+        bounceCase: static (state, intent) =>
+            from hit in intent.Target.Closest(sample: intent.Query, key: state.Key)
+            from rawNormal in hit.Normal.ToFin(Fail: state.Key.InvalidResult())
+            from normal in Vectors.Direction.Of(value: rawNormal, context: state.Context, key: state.Key)
+            from reflected in intent.Policy.Apply(incident: intent.Incident, normal: normal, key: state.Key)
+            from output in reflected.Project<TOut>(key: state.Key)
+            select output,
+        streamlineCase: static (state, intent) => FlowKernel.Trace<TOut>(source: intent.Source, seed: intent.Seed, initialStep: intent.InitialStep, integrator: intent.Integrator, termination: intent.Termination, context: state.Context, key: state.Key),
+        lerpCase: static (state, intent) =>
+            from direction in Vectors.Direction.Of(
+                value: ((1.0 - intent.Parameter.Value) * intent.A) + (intent.Parameter.Value * intent.B),
+                context: state.Context, key: state.Key)
+            from output in direction.Project<TOut>(key: state.Key)
+            select output,
+        slerpCase: static (state, intent) =>
+            from rotation in intent.A.Value.IsParallelTo(other: intent.B.Value, angleTolerance: state.Context.Angle.Value) switch {
+                -1 => Fin.Succ(Quaternion.Rotation(Math.PI, VectorFrame.SeedPerpendicular(axis: intent.A.Value))),
+                _ => Transform.Rotation(startDirection: intent.A.Value, endDirection: intent.B.Value, rotationCenter: Point3d.Origin).GetQuaternion(quaternion: out Quaternion target)
+                    ? Fin.Succ(target)
+                    : Fin.Fail<Quaternion>(state.Key.InvalidResult()),
+            }
+            from direction in Vectors.Direction.Of(
+                value: Quaternion.Slerp(a: Quaternion.Identity, b: rotation, t: intent.Parameter.Value).Rotate(v: intent.A.Value),
+                context: state.Context,
+                key: state.Key)
+            from output in direction.Project<TOut>(key: state.Key)
+            select output,
+        projectOntoCase: static (state, intent) =>
+            from target in FieldNabla.Plane(basis: intent.Target, key: state.Key)
+            from direction in Vectors.Direction.Of(
+                value: Transform.PlanarProjection(plane: target) * intent.Value,
+                context: state.Context, key: state.Key)
+            from output in direction.Project<TOut>(key: state.Key)
+            select output,
+        mirrorCase: static (state, intent) =>
+            from across in FieldNabla.Plane(basis: intent.Across, key: state.Key)
+            from direction in Vectors.Direction.Of(
+                value: Transform.Mirror(mirrorPlane: across) * intent.Value,
+                context: state.Context, key: state.Key)
+            from output in direction.Project<TOut>(key: state.Key)
+            select output,
+        surfaceCase: static (state, intent) => intent.Source.Sample<TOut>(projection: intent.Mode, u: intent.Uv.X, v: intent.Uv.Y, key: state.Key),
+        poseCase: static (state, intent) =>
+            from pose in intent.Mode.Interpolate(a: intent.From, b: intent.To, t: intent.Parameter, key: state.Key)
+            from output in FieldNabla.Plane(basis: pose, key: state.Key)
+                .Bind(plane => AtomProjection.Self<Plane, TOut>(value: plane, key: state.Key, owner: typeof(PoseCase)))
+            select output,
+        flattenCase: static (state, intent) =>
+            from result in MeshKernel.ParameterizeFlattenDetailed(space: intent.Space, key: state.Key)
+            from output in result.Project<TOut>(key: state.Key)
+            select output,
+        hullCase: static (state, intent) =>
+            from result in CloudKernel.ComputeHullDetailed(source: intent.Source, kind: intent.Kind, policy: intent.Policy, key: state.Key)
+            from output in result.Project<TOut>(context: state.Context, key: state.Key)
+            select output,
+        sampleCase: static (state, intent) =>
+            intent.Kind.Project<TOut>(domain: intent.Domain, context: state.Context, key: state.Key),
+        alignCase: static (state, intent) =>
+            from receipt in intent.Kind.AlignDetailed(source: intent.Source, target: intent.Target, policy: intent.Policy, key: state.Key)
+            from output in receipt.Project<TOut>(key: state.Key)
+            select output,
+        remeshCase: static (state, intent) =>
+            from result in MeshKernel.ApplyRemeshDetailed(kind: intent.Kind, space: intent.Space, key: state.Key)
+            from output in result.Project<TOut>(key: state.Key)
+            select output,
+        transportCase: static (state, intent) => CloudKernel.Sinkhorn<TOut>(source: intent.Source, target: intent.Target, policy: intent.Policy, key: state.Key),
+        topologyCase: static (state, intent) =>
+            from topology in MeshKernel.TopologyDetailed(space: intent.Space, key: state.Key)
+            from output in topology.Project<TOut>(key: state.Key)
+            select output,
+        featuresCase: static (state, intent) =>
+            from receipt in MeshKernel.DetectFeatureEdgesDetailed(space: intent.Space, policy: intent.Policy, key: state.Key)
+            from output in receipt.Project<TOut>(key: state.Key)
+            select output,
+        descriptorCase: static (state, intent) => MeshKernel.DescribeShape<TOut>(space: intent.Space, kind: intent.Kind, eigenpairs: intent.Pairs.Value, key: state.Key),
+        discreteCalculusCase: static (state, intent) =>
+            from calculus in SpectralCore.Build(space: intent.Space, kind: intent.Kind, key: state.Key)
+            from output in calculus.Project<TOut>(key: state.Key)
+            select output,
+        segmentationCase: static (state, intent) => MeshKernel.Segment<TOut>(space: intent.Space, kind: intent.Kind, key: state.Key));
 }
