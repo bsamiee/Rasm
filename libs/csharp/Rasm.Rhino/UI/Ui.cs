@@ -20,6 +20,22 @@ public readonly record struct UiProgressStep(
         new(Position: Some(delta), Label: Optional(label), Absolute: false);
 }
 
+public readonly record struct UiToast(RhinoView View, string Message, Option<int> TextHeight = default, Option<System.Drawing.PointF> Location = default) {
+    internal Fin<Unit> Apply() {
+        RhinoView? target = View;
+        string text = Message;
+        Option<int> textHeight = TextHeight;
+        Option<System.Drawing.PointF> location = Location;
+        return from view in Op.Of(name: nameof(Apply)).Need(target)
+               from message in guard(!string.IsNullOrWhiteSpace(value: text), Op.Of(name: nameof(Apply)).InvalidInput()).ToFin().Map(_ => text.Trim())
+               select (textHeight.Case, location.Case) switch {
+                   (int height, System.Drawing.PointF point) when height > 0 => Op.Side(() => view.ShowToast(message, height, point)),
+                   (int height, _) when height > 0 => Op.Side(() => view.ShowToast(message, height)),
+                   _ => Op.Side(() => view.ShowToast(message)),
+               };
+    }
+}
+
 public readonly record struct UiStatus(
     Option<string> Prompt = default,
     Option<string> PromptDefault = default,
@@ -31,7 +47,6 @@ public readonly record struct UiStatus(
     Seq<UiToast> Toasts = default,
     bool ClearMessage = false,
     bool HideProgress = false) {
-    public static UiStatus operator +(UiStatus left, UiStatus right) => Combine(Seq(left, right));
     public static UiStatus Combine(Seq<UiStatus> statuses) =>
         statuses.Fold(new UiStatus(), static (acc, value) => new(
             Prompt: value.Prompt | acc.Prompt,
@@ -44,6 +59,7 @@ public readonly record struct UiStatus(
             Toasts: acc.Toasts + value.Toasts,
             ClearMessage: acc.ClearMessage || value.ClearMessage,
             HideProgress: acc.HideProgress || value.HideProgress));
+    public static UiStatus operator +(UiStatus left, UiStatus right) => Combine(Seq(left, right));
 
     public static UiStatus Script(string message) =>
         string.IsNullOrWhiteSpace(value: message) switch {
@@ -71,22 +87,6 @@ public readonly record struct UiStatus(
                 .TraverseM(static value => value.Apply() | Fin.Succ(value: unit))
                 .As().Map(static _ => unit);
         });
-    }
-}
-
-public readonly record struct UiToast(RhinoView View, string Message, Option<int> TextHeight = default, Option<System.Drawing.PointF> Location = default) {
-    internal Fin<Unit> Apply() {
-        RhinoView? target = View;
-        string text = Message;
-        Option<int> textHeight = TextHeight;
-        Option<System.Drawing.PointF> location = Location;
-        return from view in Op.Of(name: nameof(Apply)).Need(target)
-               from message in guard(!string.IsNullOrWhiteSpace(value: text), Op.Of(name: nameof(Apply)).InvalidInput()).ToFin().Map(_ => text.Trim())
-               select (textHeight.Case, location.Case) switch {
-                   (int height, System.Drawing.PointF point) when height > 0 => Op.Side(() => view.ShowToast(message, height, point)),
-                   (int height, _) when height > 0 => Op.Side(() => view.ShowToast(message, height)),
-                   _ => Op.Side(() => view.ShowToast(message)),
-               };
     }
 }
 
@@ -120,9 +120,6 @@ public sealed partial record RhinoUi {
             return DispatchThread(uiBound: valid.Interactive, mode: mode, run: work, name: nameof(Use));
         });
 
-    internal Seq<T> Windows<T>() where T : Window =>
-        toSeq(global::Rhino.UI.EtoExtensions.WindowsFromDocument<T>(document));
-
     internal static Fin<T> Protect<T>(Func<Fin<T>> valid, [CallerMemberName] string name = "") =>
         Op.Of(name: name).Need(valid).Bind(work => RhinoApp.IsOnMainThread ? Op.Of(name: name).Catch(work) : Invoke(valid: work, name: name));
     internal static Fin<T> DispatchThread<T>(
@@ -155,6 +152,18 @@ public sealed partial record RhinoUi {
                 return unit;
             });
 
+    internal static Fin<Unit> Enqueue(Action run, string name) =>
+        Op.Of(name: name).Need(run)
+            .Map(valid => {
+                RhinoApp.InvokeOnUiThread(method: () => _ = Op.Of(name: name).Catch(() => {
+                    valid();
+                    return Fin.Succ(value: unit);
+                }).IfFail(error => RhinoApp.WriteLine($"Rasm UI enqueue failed: {error.Message}")), args: []);
+                return unit;
+            });
+    internal Seq<T> Windows<T>() where T : Window =>
+        toSeq(global::Rhino.UI.EtoExtensions.WindowsFromDocument<T>(document));
+
     private static Fin<T> Invoke<T>(Func<Fin<T>> valid, string name) {
         Op op = Op.Of(name: name);
         return op.Catch(() => {
@@ -171,16 +180,6 @@ public sealed partial record RhinoUi {
             };
         });
     }
-
-    internal static Fin<Unit> Enqueue(Action run, string name) =>
-        Op.Of(name: name).Need(run)
-            .Map(valid => {
-                RhinoApp.InvokeOnUiThread(method: () => _ = Op.Of(name: name).Catch(() => {
-                    valid();
-                    return Fin.Succ(value: unit);
-                }).IfFail(error => RhinoApp.WriteLine($"Rasm UI enqueue failed: {error.Message}")), args: []);
-                return unit;
-            });
 }
 
 public sealed class UiProgress : IDisposable {
@@ -196,6 +195,14 @@ public sealed class UiProgress : IDisposable {
         this.upper = upper;
         current = lower;
     }
+
+    internal static Fin<T> Use<T>(RhinoDoc document, UiProgressSpec spec, Func<UiProgress, Fin<T>> run) =>
+        from validRun in Op.Of(name: nameof(UiProgress)).Need(run)
+        from scope in Start(document: document, spec: spec)
+        from result in RhinoUi.Protect(valid: () => {
+            try { return validRun(arg: scope); } finally { scope.Dispose(); }
+        })
+        select result;
 
     public Fin<int> Update(UiProgressStep step) {
         int Commit(int value) { current = value; return value; }
@@ -243,14 +250,6 @@ public sealed class UiProgress : IDisposable {
         disposed = true;
         GC.SuppressFinalize(obj: this);
     }
-
-    internal static Fin<T> Use<T>(RhinoDoc document, UiProgressSpec spec, Func<UiProgress, Fin<T>> run) =>
-        from validRun in Op.Of(name: nameof(UiProgress)).Need(run)
-        from scope in Start(document: document, spec: spec)
-        from result in RhinoUi.Protect(valid: () => {
-            try { return validRun(arg: scope); } finally { scope.Dispose(); }
-        })
-        select result;
 
     private static Fin<UiProgress> Start(RhinoDoc document, UiProgressSpec spec) =>
         from validDocument in Op.Of(name: nameof(UiProgress)).Need(document)

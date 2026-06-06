@@ -5,22 +5,15 @@ namespace Rasm.Rhino.UI;
 // --- [MODELS] -----------------------------------------------------------------------------
 [Union]
 public abstract partial record UiGridColumn<TRow> {
-    private UiGridColumn() { }
     public sealed record Text(string Header, Func<TRow, string> Value, int Width = 120) : UiGridColumn<TRow>;
     public sealed record Check(string Header, Func<TRow, bool> Value, int Width = 40) : UiGridColumn<TRow>;
     public sealed record Number(string Header, Func<TRow, double> Value, string Format = "G", int Width = 80) : UiGridColumn<TRow>;
     public sealed record Custom(string Header, Func<TRow, Action<Eto.Drawing.Graphics, Eto.Drawing.RectangleF>> Paint, int Width = 120) : UiGridColumn<TRow>;
     public sealed record Children(Func<TRow, Seq<TRow>> Get) : UiGridColumn<TRow>;
 
-    internal bool IsTree => this is Children;
-    internal object? CellValue(TRow row) => Switch(   // GridItem.Values is index-addressed; project each visible column to its display value
-        state: row,
-        text: static (r, t) => (object?)t.Value(arg: r),
-        check: static (r, c) => c.Value(arg: r),
-        number: static (r, n) => n.Value(arg: r).ToString(n.Format, System.Globalization.CultureInfo.InvariantCulture),
-        custom: static (_, _) => null,
-        children: static (_, _) => null);
+    private UiGridColumn() { }
 
+    internal bool IsTree => this is Children;
     internal Option<GridColumn> ToColumn(int index) => Switch(   // BOUNDARY ADAPTER — Eto cell wiring is structural OOP; columns bind by index against GridItem.Values
         state: index,
         text: static (i, t) => Some(new GridColumn { HeaderText = t.Header, Width = t.Width, DataCell = new TextBoxCell(i) }),
@@ -32,142 +25,13 @@ public abstract partial record UiGridColumn<TRow> {
             return Some(new GridColumn { HeaderText = cc.Header, Width = cc.Width, DataCell = cell });
         },
         children: static (_, _) => Option<GridColumn>.None);
-}
-
-public abstract record UiElement<TState> {
-    private UiElement() { }
-
-    internal abstract Fin<Control> Build(Atom<TState> state);
-
-    public sealed record Native(Func<Atom<TState>, Fin<Control>> Create) : UiElement<TState> {
-        internal override Fin<Control> Build(Atom<TState> state) =>
-            Op.Of(name: nameof(Native)).Need(Create).Bind(create => create(arg: state));
-    }
-
-    public sealed record ControlCase(Control Value) : UiElement<TState> {
-        internal override Fin<Control> Build(Atom<TState> state) =>
-            Op.Of(name: nameof(ControlCase)).Need(Value);
-    }
-
-    public sealed record Field<T>(UiField<TState, T> Spec) : UiElement<TState> {
-        internal override Fin<Control> Build(Atom<TState> state) =>
-            Op.Of(name: nameof(Field<>)).Need(Spec).Bind(spec => spec.Build(state: state));
-    }
-
-    public sealed record Group(Orientation Orientation, Seq<UiElement<TState>> Children, int Spacing = 6) : UiElement<TState> {
-        internal override Fin<Control> Build(Atom<TState> state) =>
-            Children.TraverseM(child => child.Build(state: state)).As().Map(controls => {
-                StackLayout layout = new() { Orientation = Orientation, Spacing = Spacing };
-                foreach (Control control in controls) layout.Items.Add(control);
-                return (Control)layout;
-            });
-    }
-
-    public sealed record Dynamic(Seq<UiElement<TState>> Rows, int Spacing = 6) : UiElement<TState> {
-        internal override Fin<Control> Build(Atom<TState> state) =>
-            Rows.TraverseM(row => row.Build(state: state)).As().Map(rows => {
-                DynamicLayout layout = new() { Spacing = new Eto.Drawing.Size(Spacing, Spacing) };
-                foreach (Control row in rows) _ = layout.AddRow(row);
-                return (Control)layout;
-            });
-    }
-
-    public sealed record Table(Seq<Seq<UiElement<TState>>> Rows, int Spacing = 6) : UiElement<TState> {
-        internal override Fin<Control> Build(Atom<TState> state) =>
-            Rows.TraverseM(row => row.TraverseM(cell => cell.Build(state: state)).As()).As().Map(rows => {
-                TableLayout layout = new() { Spacing = new Eto.Drawing.Size(Spacing, Spacing) };
-                foreach (Seq<Control> row in rows) {
-                    layout.Rows.Add(new TableRow([.. row.Map(static control => new TableCell(control, scaleWidth: true))]));
-                }
-                return (Control)layout;
-            });
-    }
-
-    public sealed record Section(string Title, UiElement<TState> Body) : UiElement<TState> {
-        internal override Fin<Control> Build(Atom<TState> state) =>
-            Body.Build(state: state).Map(body => (Control)new GroupBox { Text = Title, Content = body });
-    }
-
-    public sealed record Canvas(Func<TState, Eto.Drawing.Size, Fin<UiHud>> Paint, UiRenderHint Hint = default) : UiElement<TState> {
-        internal override Fin<Control> Build(Atom<TState> state) =>
-            Op.Of(name: nameof(Canvas)).Need(Paint)
-                .Map(paint => (Control)new UiCanvas<TState>(state: state, paint: paint, hint: Hint));   // share the window atom so sibling field commits repaint the canvas
-    }
-
-    public sealed record Split(Orientation Orientation, UiElement<TState> Primary, UiElement<TState> Secondary, int Position = 200, SplitterFixedPanel Fixed = SplitterFixedPanel.None, Option<Func<TState, int, TState>> OnPosition = default) : UiElement<TState> {
-        internal override Fin<Control> Build(Atom<TState> state) =>
-            from primary in Primary.Build(state: state)
-            from secondary in Secondary.Build(state: state)
-            select ((Func<Control>)(() => {   // BOUNDARY ADAPTER — Eto Splitter construction + event subscription is structural OOP
-                Splitter splitter = new() { Orientation = Orientation, Panel1 = primary, Panel2 = secondary, Position = Position, FixedPanel = Fixed };
-                _ = OnPosition.Iter(sink => splitter.PositionChanged += (_, _) => _ = state.Swap(current => sink(arg1: current, arg2: splitter.Position)));
-                return splitter;
-            }))();
-    }
-
-    public sealed record Collapse(string Header, UiElement<TState> Body, Func<TState, bool> Expanded, Func<TState, bool, TState> Toggle) : UiElement<TState> {
-        internal override Fin<Control> Build(Atom<TState> state) =>
-            Body.Build(state: state).Map(body => (Control)((Func<Expander>)(() => {   // BOUNDARY ADAPTER — Eto Expander construction + event subscription is structural OOP
-                Expander expander = new() { Header = new Label { Text = Header }, Content = body, Expanded = Expanded(arg: state.Value) };
-                expander.ExpandedChanged += (_, _) => _ = state.Swap(current => Toggle(arg1: current, arg2: expander.Expanded));
-                return expander;
-            }))());
-    }
-
-    public sealed record Tabs(Seq<(string Title, UiElement<TState> Body)> Pages, Func<TState, int> Selected, Func<TState, int, TState> OnSelect) : UiElement<TState> {
-        internal override Fin<Control> Build(Atom<TState> state) =>
-            Pages.TraverseM(page => page.Body.Build(state: state).Map(control => new DocumentPage(control) { Text = page.Title })).As().Map(pages => (Control)((Func<DocumentControl>)(() => {   // BOUNDARY ADAPTER — Eto DocumentControl construction + two-way SelectedIndex binding is structural OOP
-                DocumentControl tabs = new();
-                _ = pages.Iter(tabs.Pages.Add);
-                tabs.SelectedIndex = Math.Clamp(value: Selected(arg: state.Value), min: 0, max: Math.Max(val1: 0, val2: pages.Count - 1));
-                tabs.SelectedIndexChanged += (_, _) => _ = state.Swap(current => OnSelect(arg1: current, arg2: tabs.SelectedIndex));
-                return tabs;
-            }))());
-    }
-
-    public sealed record Absolute(Seq<(UiElement<TState> Child, Eto.Drawing.Point At)> Children) : UiElement<TState> {
-        internal override Fin<Control> Build(Atom<TState> state) =>
-            Children.TraverseM(placed => placed.Child.Build(state: state).Map(control => (Control: control, placed.At))).As().Map(placed => (Control)((Func<PixelLayout>)(() => {   // BOUNDARY ADAPTER — Eto PixelLayout absolute placement is structural OOP
-                PixelLayout layout = new();
-                _ = placed.Iter(item => layout.Add(item.Control, item.At));
-                return layout;
-            }))());
-    }
-
-    public sealed record Browser(Func<TState, Option<Uri>> Url, Option<Func<TState, string>> Html = default, Option<Func<TState, Uri, TState>> OnLoaded = default) : UiElement<TState> {
-        internal override Fin<Control> Build(Atom<TState> state) =>
-            Op.Of(name: nameof(Browser)).Need(Url).Map(_url => (Control)((Func<WebView>)(() => {   // BOUNDARY ADAPTER — Eto WebView construction + DocumentLoaded projection is structural OOP
-                WebView view = new();
-                _ = Url(arg: state.Value).Case switch { Uri address => Op.Side(() => view.Url = address), _ => Html.Iter(html => view.LoadHtml(html(arg: state.Value))) };
-                _ = OnLoaded.Iter(sink => view.DocumentLoaded += (_, args) => _ = Optional(args.Uri).Iter(address => _ = state.Swap(current => sink(arg1: current, arg2: address))));
-                return view;
-            }))());
-    }
-
-    public sealed record Grid<TRow>(Seq<UiGridColumn<TRow>> Columns, Func<TState, Seq<TRow>> GetRows, Option<Func<TState, Seq<TRow>, TState>> OnSelection = default) : UiElement<TState> {
-        internal override Fin<Control> Build(Atom<TState> state) =>
-            Op.Of(name: nameof(Grid<>)).Catch(() => {   // BOUNDARY ADAPTER — Eto Grid/TreeGrid construction binds visible columns by index against GridItem.Values + Tag carries the row
-                Seq<UiGridColumn<TRow>> visible = Columns.Filter(static column => !column.IsTree);
-                object?[] Values(TRow row) => [.. visible.Map(column => column.CellValue(row: row))];
-                Unit Configure(Grid grid) {
-                    _ = visible.Map(static (column, index) => column.ToColumn(index: index)).Iter(eto => _ = eto.Iter(grid.Columns.Add));
-                    return OnSelection.Iter(sink => grid.SelectionChanged += (_, _) => _ = state.Swap(current => sink(arg1: current, arg2: toSeq(grid.SelectedItems).Choose(static row => Optional((row as GridItem)?.Tag).Bind(static tag => tag is TRow value ? Some(value) : Option<TRow>.None)))));
-                }
-                return Columns.Find(static column => column.IsTree).Bind(static column => column is UiGridColumn<TRow>.Children tree ? Some(tree) : Option<UiGridColumn<TRow>.Children>.None).Case switch {
-                    UiGridColumn<TRow>.Children tree => Fin.Succ<Control>(value: ((Func<TreeGridView>)(() => {
-                        TreeGridItem Node(TRow row) => new(children: tree.Get(arg: row).Map(Node).Cast<ITreeGridItem>(), values: Values(row: row)) { Tag = row };
-                        TreeGridView grid = new() { DataStore = new TreeGridItemCollection(items: GetRows(arg: state.Value).Map(Node).Cast<ITreeGridItem>()) };
-                        _ = Configure(grid: grid);
-                        return grid;
-                    }))()),
-                    _ => Fin.Succ<Control>(value: ((Func<GridView>)(() => {
-                        GridView grid = new() { DataStore = GetRows(arg: state.Value).Map(row => (object)new GridItem(values: Values(row: row)) { Tag = row }).AsIterable() };
-                        _ = Configure(grid: grid);
-                        return grid;
-                    }))()),
-                };
-            });
-    }
+    internal object? CellValue(TRow row) => Switch(   // GridItem.Values is index-addressed; project each visible column to its display value
+        state: row,
+        text: static (r, t) => (object?)t.Value(arg: r),
+        check: static (r, c) => c.Value(arg: r),
+        number: static (r, n) => n.Value(arg: r).ToString(n.Format, System.Globalization.CultureInfo.InvariantCulture),
+        custom: static (_, _) => null,
+        children: static (_, _) => null);
 }
 
 public sealed record UiField<TState, T>(
@@ -222,6 +86,142 @@ public sealed record UiField<TState, T>(
             from valid in Op.Of(name: nameof(UiField<,>)).Need(editor)
             select WireEvents(control: MakeRow(editor: valid), editor: valid);
     }
+}
+
+public abstract record UiElement<TState> {
+    public sealed record Native(Func<Atom<TState>, Fin<Control>> Create) : UiElement<TState> {
+        internal override Fin<Control> Build(Atom<TState> state) =>
+            Op.Of(name: nameof(Native)).Need(Create).Bind(create => create(arg: state));
+    }
+
+    public sealed record ControlCase(Control Value) : UiElement<TState> {
+        internal override Fin<Control> Build(Atom<TState> state) =>
+            Op.Of(name: nameof(ControlCase)).Need(Value);
+    }
+
+    public sealed record Field<T>(UiField<TState, T> Spec) : UiElement<TState> {
+        internal override Fin<Control> Build(Atom<TState> state) =>
+            Op.Of(name: nameof(Field<>)).Need(Spec).Bind(spec => spec.Build(state: state));
+    }
+
+    public sealed record Group(Orientation Orientation, Seq<UiElement<TState>> Children, int Spacing = 6) : UiElement<TState> {
+        internal override Fin<Control> Build(Atom<TState> state) =>
+            Children.TraverseM(child => child.Build(state: state)).As().Map(controls => {
+                StackLayout layout = new() { Orientation = Orientation, Spacing = Spacing };
+                foreach (Control control in controls) layout.Items.Add(control);
+                return (Control)layout;
+            });
+    }
+
+    public sealed record Dynamic(Seq<UiElement<TState>> Rows, int Spacing = 6) : UiElement<TState> {
+        internal override Fin<Control> Build(Atom<TState> state) =>
+            Rows.TraverseM(row => row.Build(state: state)).As().Map(rows => {
+                DynamicLayout layout = new() { Spacing = new Eto.Drawing.Size(Spacing, Spacing) };
+                foreach (Control row in rows) _ = layout.AddRow(row);
+                return (Control)layout;
+            });
+    }
+
+    public sealed record Table(Seq<Seq<UiElement<TState>>> Rows, int Spacing = 6) : UiElement<TState> {
+        internal override Fin<Control> Build(Atom<TState> state) =>
+            Rows.TraverseM(row => row.TraverseM(cell => cell.Build(state: state)).As()).As().Map(rows => {
+                TableLayout layout = new() { Spacing = new Eto.Drawing.Size(Spacing, Spacing) };
+                foreach (Seq<Control> row in rows) {
+                    layout.Rows.Add(new TableRow([.. row.Map(static control => new TableCell(control, scaleWidth: true))]));
+                }
+                return (Control)layout;
+            });
+    }
+
+    public sealed record Absolute(Seq<(UiElement<TState> Child, Eto.Drawing.Point At)> Children) : UiElement<TState> {
+        internal override Fin<Control> Build(Atom<TState> state) =>
+            Children.TraverseM(placed => placed.Child.Build(state: state).Map(control => (Control: control, placed.At))).As().Map(placed => (Control)((Func<PixelLayout>)(() => {   // BOUNDARY ADAPTER — Eto PixelLayout absolute placement is structural OOP
+                PixelLayout layout = new();
+                _ = placed.Iter(item => layout.Add(item.Control, item.At));
+                return layout;
+            }))());
+    }
+
+    public sealed record Section(string Title, UiElement<TState> Body) : UiElement<TState> {
+        internal override Fin<Control> Build(Atom<TState> state) =>
+            Body.Build(state: state).Map(body => (Control)new GroupBox { Text = Title, Content = body });
+    }
+
+    public sealed record Canvas(Func<TState, Eto.Drawing.Size, Fin<UiHud>> Paint, UiRenderHint Hint = default) : UiElement<TState> {
+        internal override Fin<Control> Build(Atom<TState> state) =>
+            Op.Of(name: nameof(Canvas)).Need(Paint)
+                .Map(paint => (Control)new UiCanvas<TState>(state: state, paint: paint, hint: Hint));   // share the window atom so sibling field commits repaint the canvas
+    }
+
+    public sealed record Split(Orientation Orientation, UiElement<TState> Primary, UiElement<TState> Secondary, int Position = 200, SplitterFixedPanel Fixed = SplitterFixedPanel.None, Option<Func<TState, int, TState>> OnPosition = default) : UiElement<TState> {
+        internal override Fin<Control> Build(Atom<TState> state) =>
+            from primary in Primary.Build(state: state)
+            from secondary in Secondary.Build(state: state)
+            select ((Func<Control>)(() => {   // BOUNDARY ADAPTER — Eto Splitter construction + event subscription is structural OOP
+                Splitter splitter = new() { Orientation = Orientation, Panel1 = primary, Panel2 = secondary, Position = Position, FixedPanel = Fixed };
+                _ = OnPosition.Iter(sink => splitter.PositionChanged += (_, _) => _ = state.Swap(current => sink(arg1: current, arg2: splitter.Position)));
+                return splitter;
+            }))();
+    }
+
+    public sealed record Collapse(string Header, UiElement<TState> Body, Func<TState, bool> Expanded, Func<TState, bool, TState> Toggle) : UiElement<TState> {
+        internal override Fin<Control> Build(Atom<TState> state) =>
+            Body.Build(state: state).Map(body => (Control)((Func<Expander>)(() => {   // BOUNDARY ADAPTER — Eto Expander construction + event subscription is structural OOP
+                Expander expander = new() { Header = new Label { Text = Header }, Content = body, Expanded = Expanded(arg: state.Value) };
+                expander.ExpandedChanged += (_, _) => _ = state.Swap(current => Toggle(arg1: current, arg2: expander.Expanded));
+                return expander;
+            }))());
+    }
+
+    public sealed record Tabs(Seq<(string Title, UiElement<TState> Body)> Pages, Func<TState, int> Selected, Func<TState, int, TState> OnSelect) : UiElement<TState> {
+        internal override Fin<Control> Build(Atom<TState> state) =>
+            Pages.TraverseM(page => page.Body.Build(state: state).Map(control => new DocumentPage(control) { Text = page.Title })).As().Map(pages => (Control)((Func<DocumentControl>)(() => {   // BOUNDARY ADAPTER — Eto DocumentControl construction + two-way SelectedIndex binding is structural OOP
+                DocumentControl tabs = new();
+                _ = pages.Iter(tabs.Pages.Add);
+                tabs.SelectedIndex = Math.Clamp(value: Selected(arg: state.Value), min: 0, max: Math.Max(val1: 0, val2: pages.Count - 1));
+                tabs.SelectedIndexChanged += (_, _) => _ = state.Swap(current => OnSelect(arg1: current, arg2: tabs.SelectedIndex));
+                return tabs;
+            }))());
+    }
+
+    public sealed record Browser(Func<TState, Option<Uri>> Url, Option<Func<TState, string>> Html = default, Option<Func<TState, Uri, TState>> OnLoaded = default) : UiElement<TState> {
+        internal override Fin<Control> Build(Atom<TState> state) =>
+            Op.Of(name: nameof(Browser)).Need(Url).Map(_url => (Control)((Func<WebView>)(() => {   // BOUNDARY ADAPTER — Eto WebView construction + DocumentLoaded projection is structural OOP
+                WebView view = new();
+                _ = Url(arg: state.Value).Case switch { Uri address => Op.Side(() => view.Url = address), _ => Html.Iter(html => view.LoadHtml(html(arg: state.Value))) };
+                _ = OnLoaded.Iter(sink => view.DocumentLoaded += (_, args) => _ = Optional(args.Uri).Iter(address => _ = state.Swap(current => sink(arg1: current, arg2: address))));
+                return view;
+            }))());
+    }
+
+    public sealed record Grid<TRow>(Seq<UiGridColumn<TRow>> Columns, Func<TState, Seq<TRow>> GetRows, Option<Func<TState, Seq<TRow>, TState>> OnSelection = default) : UiElement<TState> {
+        internal override Fin<Control> Build(Atom<TState> state) =>
+            Op.Of(name: nameof(Grid<>)).Catch(() => {   // BOUNDARY ADAPTER — Eto Grid/TreeGrid construction binds visible columns by index against GridItem.Values + Tag carries the row
+                Seq<UiGridColumn<TRow>> visible = Columns.Filter(static column => !column.IsTree);
+                object?[] Values(TRow row) => [.. visible.Map(column => column.CellValue(row: row))];
+                Unit Configure(Grid grid) {
+                    _ = visible.Map(static (column, index) => column.ToColumn(index: index)).Iter(eto => _ = eto.Iter(grid.Columns.Add));
+                    return OnSelection.Iter(sink => grid.SelectionChanged += (_, _) => _ = state.Swap(current => sink(arg1: current, arg2: toSeq(grid.SelectedItems).Choose(static row => Optional((row as GridItem)?.Tag).Bind(static tag => tag is TRow value ? Some(value) : Option<TRow>.None)))));
+                }
+                return Columns.Find(static column => column.IsTree).Bind(static column => column is UiGridColumn<TRow>.Children tree ? Some(tree) : Option<UiGridColumn<TRow>.Children>.None).Case switch {
+                    UiGridColumn<TRow>.Children tree => Fin.Succ<Control>(value: ((Func<TreeGridView>)(() => {
+                        TreeGridItem Node(TRow row) => new(children: tree.Get(arg: row).Map(Node).Cast<ITreeGridItem>(), values: Values(row: row)) { Tag = row };
+                        TreeGridView grid = new() { DataStore = new TreeGridItemCollection(items: GetRows(arg: state.Value).Map(Node).Cast<ITreeGridItem>()) };
+                        _ = Configure(grid: grid);
+                        return grid;
+                    }))()),
+                    _ => Fin.Succ<Control>(value: ((Func<GridView>)(() => {
+                        GridView grid = new() { DataStore = GetRows(arg: state.Value).Map(row => (object)new GridItem(values: Values(row: row)) { Tag = row }).AsIterable() };
+                        _ = Configure(grid: grid);
+                        return grid;
+                    }))()),
+                };
+            });
+    }
+
+    private UiElement() { }
+
+    internal abstract Fin<Control> Build(Atom<TState> state);
 }
 
 public sealed record UiRequest<T> {
@@ -286,14 +286,14 @@ public static class UiElement {
     public static UiElement<TState> Form<TState>(params ReadOnlySpan<UiElement<TState>> rows) => new UiElement<TState>.Dynamic(Rows: toSeq(rows.ToArray()));
     public static UiElement<TState> Column<TState>(params ReadOnlySpan<UiElement<TState>> children) => new UiElement<TState>.Group(Orientation: Orientation.Vertical, Children: toSeq(children.ToArray()));
     public static UiElement<TState> Row<TState>(params ReadOnlySpan<UiElement<TState>> children) => new UiElement<TState>.Group(Orientation: Orientation.Horizontal, Children: toSeq(children.ToArray()));
+    public static UiElement<TState> Absolute<TState>(params ReadOnlySpan<(UiElement<TState> Child, Eto.Drawing.Point At)> children) =>
+        new UiElement<TState>.Absolute(Children: toSeq(children.ToArray()));
     public static UiElement<TState> Split<TState>(Orientation orientation, UiElement<TState> primary, UiElement<TState> secondary, int position = 200, SplitterFixedPanel fixedPanel = SplitterFixedPanel.None, Option<Func<TState, int, TState>> onPosition = default) =>
         new UiElement<TState>.Split(Orientation: orientation, Primary: primary, Secondary: secondary, Position: position, Fixed: fixedPanel, OnPosition: onPosition);
     public static UiElement<TState> Collapse<TState>(string header, UiElement<TState> body, Func<TState, bool> expanded, Func<TState, bool, TState> toggle) =>
         new UiElement<TState>.Collapse(Header: header, Body: body, Expanded: expanded, Toggle: toggle);
     public static UiElement<TState> Tabs<TState>(Func<TState, int> selected, Func<TState, int, TState> onSelect, params ReadOnlySpan<(string Title, UiElement<TState> Body)> pages) =>
         new UiElement<TState>.Tabs(Pages: toSeq(pages.ToArray()), Selected: selected, OnSelect: onSelect);
-    public static UiElement<TState> Absolute<TState>(params ReadOnlySpan<(UiElement<TState> Child, Eto.Drawing.Point At)> children) =>
-        new UiElement<TState>.Absolute(Children: toSeq(children.ToArray()));
     public static UiElement<TState> Browser<TState>(Func<TState, Option<Uri>> url, Option<Func<TState, string>> html = default, Option<Func<TState, Uri, TState>> onLoaded = default) =>
         new UiElement<TState>.Browser(Url: url, Html: html, OnLoaded: onLoaded);
     public static UiElement<TState> Grid<TState, TRow>(Seq<UiGridColumn<TRow>> columns, Func<TState, Seq<TRow>> rows, Option<Func<TState, Seq<TRow>, TState>> onSelection = default) =>

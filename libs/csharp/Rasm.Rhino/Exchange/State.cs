@@ -196,49 +196,11 @@ public readonly record struct FileWritePolicy(
     internal FileWritePolicy Normalized => this == default ? Default : this;
 }
 
-public readonly record struct FileUserString(string Key, Option<string> Section = default, Option<string> Value = default);
-
-public readonly record struct FileArchiveSettingsPatch(
-    Option<UnitSystem> ModelUnitSystem = default,
-    Option<UnitSystem> PageUnitSystem = default,
-    Option<double> ModelAbsoluteTolerance = default,
-    Option<double> ModelAngleToleranceRadians = default,
-    Option<string> ModelUrl = default);
-
-public readonly record struct FileArchiveMetadataPatch(
-    Option<string> Notes,
-    Option<string> ApplicationName,
-    Option<string> ApplicationUrl,
-    Option<string> ApplicationDetails,
-    Option<string> StartComments = default,
-    Seq<FileUserString> UserStrings = default);
-
-public sealed record FileNamedViewPatch(
-    string Name,
-    Option<string> Rename = default,
-    bool Delete = false);
-
-public readonly record struct FileBatchPolicy(bool ContinueOnError = false) {
-    public static FileBatchPolicy StopOnFirstError { get; } = new(ContinueOnError: false);
-}
-
 public sealed record FileEndpoint {
     private const int MaxCollisionAttempts = 9999;
 
     private FileEndpoint(string path, Option<FileFormat> format, FileNamePolicy name, FileWritePolicy write, Option<string> relative) =>
         (Path, Format, Name, Write, Relative) = (path, format, name, write.Normalized, relative);
-
-    public string Path { get; }
-
-    public Option<FileFormat> Format { get; }
-
-    public FileNamePolicy Name { get; }
-
-    public FileWritePolicy Write { get; }
-
-    public Option<string> Relative { get; }
-
-    public string StoredLinkPath => Relative.IfNone(noneValue: Path);
 
     public static Fin<FileEndpoint> From(
         string path,
@@ -261,6 +223,28 @@ public sealed record FileEndpoint {
             write: write,
             relative: rel);
 
+    public string Path { get; }
+
+    public Option<FileFormat> Format { get; }
+
+    public FileNamePolicy Name { get; }
+
+    public FileWritePolicy Write { get; }
+
+    public Option<string> Relative { get; }
+
+    public string StoredLinkPath => Relative.IfNone(noneValue: Path);
+
+    internal Fin<T> WithReference<T>(Op key, Func<FileReference, Fin<T>> use) =>
+        key.Catch(() => {
+            using FileReference? reference = Relative.Case switch {
+                string relative => FileReference.CreateFromFullAndRelativePaths(fullPath: Path, relativePath: relative),
+                _ => FileReference.CreateFromFullPath(fullPath: Path),
+            };
+            return Optional(reference).ToFin(Fail: key.InvalidInput())
+                .Bind(valid => use(arg: valid));
+        });
+
     internal FileEndpoint WithPath(string path) =>
         new(path: path, format: Format, name: Name, write: Write, relative: Relative);
 
@@ -277,16 +261,6 @@ public sealed record FileEndpoint {
 
     internal FileEndpoint WithRelative(Option<string> relative) =>
         new(path: Path, format: Format, name: Name, write: Write, relative: relative);
-
-    internal Fin<T> WithReference<T>(Op key, Func<FileReference, Fin<T>> use) =>
-        key.Catch(() => {
-            using FileReference? reference = Relative.Case switch {
-                string relative => FileReference.CreateFromFullAndRelativePaths(fullPath: Path, relativePath: relative),
-                _ => FileReference.CreateFromFullPath(fullPath: Path),
-            };
-            return Optional(reference).ToFin(Fail: key.InvalidInput())
-                .Bind(valid => use(arg: valid));
-        });
 
     internal Fin<FileEndpoint> Input(Op op) =>
         guard(IOFile.Exists(path: Path), op.InvalidInput()).ToFin().Map(_ => this);
@@ -367,16 +341,29 @@ public sealed record FileEndpoint {
                 _ => path,
             },
         };
-
 }
 
-public readonly record struct FileIssue(FileIssueCode Code, string Message) {
-    public static FileIssue Native(string message) =>
-        new(Code: FileIssueCode.Native, Message: string.IsNullOrWhiteSpace(value: message) ? "No native log." : message);
+public readonly record struct FileUserString(string Key, Option<string> Section = default, Option<string> Value = default);
 
-    internal static FileIssue Of(FileIssueCode code, string message) =>
-        new(Code: code, Message: string.IsNullOrWhiteSpace(value: message) ? code.Key : message);
-}
+public readonly record struct FileArchiveMetadataPatch(
+    Option<string> Notes,
+    Option<string> ApplicationName,
+    Option<string> ApplicationUrl,
+    Option<string> ApplicationDetails,
+    Option<string> StartComments = default,
+    Seq<FileUserString> UserStrings = default);
+
+public readonly record struct FileArchiveSettingsPatch(
+    Option<UnitSystem> ModelUnitSystem = default,
+    Option<UnitSystem> PageUnitSystem = default,
+    Option<double> ModelAbsoluteTolerance = default,
+    Option<double> ModelAngleToleranceRadians = default,
+    Option<string> ModelUrl = default);
+
+public sealed record FileNamedViewPatch(
+    string Name,
+    Option<string> Rename = default,
+    bool Delete = false);
 
 public readonly record struct FileObjectManifest(
     Guid Id,
@@ -385,80 +372,6 @@ public readonly record struct FileObjectManifest(
     ObjectType ObjectType,
     Option<string> Material,
     Seq<string> UserStrings);
-
-[StructLayout(LayoutKind.Auto)]
-public readonly record struct FileOverride<T>(Option<T> Value = default, bool Inherit = false) {
-    public static FileOverride<T> operator |(FileOverride<T> left, FileOverride<T> right) =>
-        right.IsActive ? right : left;
-
-    internal Unit Apply(Action<T> set, Action inherit) =>
-        (Inherit, Value.Case) switch {
-            (true, _) => Op.Side(inherit),
-            (_, T value) => Op.Side(() => set(obj: value)),
-            _ => unit,
-        };
-
-    internal Option<T> Patch(Option<T> current) =>
-        (Inherit, Value.Case) switch {
-            (true, _) => Option<T>.None,
-            (_, T value) => Some(value),
-            _ => current,
-        };
-
-    internal bool IsActive => Inherit || Value.IsSome;
-}
-
-public static class FileOverride {
-    public static FileOverride<T> Keep<T>() => default;
-    public static FileOverride<T> Set<T>(T value) => new(Value: Some(value));
-    public static FileOverride<T> Clear<T>() => new(Inherit: true);
-}
-
-[StructLayout(LayoutKind.Auto)]
-public readonly record struct FileVectorScale(
-    Option<FileVectorUnit> Units = default,
-    Option<double> Source = default,
-    Option<double> Rhino = default,
-    Option<bool> Preserve = default) {
-    internal Fin<FileVectorScale> Validate(Op op) {
-        FileVectorScale self = this;
-        return from mode in guard(!(self.Preserve.Case is true && self.HasExplicit), op.InvalidInput())
-               from source in self.Source.Map(value => guard(RhinoMath.IsValidDouble(x: value) && value > 0.0, op.InvalidInput()).ToFin()).IfNone(Fin.Succ(value: unit))
-               from rhino in self.Rhino.Map(value => guard(RhinoMath.IsValidDouble(x: value) && value > 0.0, op.InvalidInput()).ToFin()).IfNone(Fin.Succ(value: unit))
-               select self;
-    }
-
-    internal FilePdfReadOptions Apply(FilePdfReadOptions options) =>
-        options
-            .Set(PreserveMode, static (o, v) => o.PreserveModelScale = v)
-            .Set(Rhino, static (o, v) => o.RhinoScale = v)
-            .Set(Source, static (o, v) => o.PDFScale = v)
-            .Set(Units, static u => u.Pdf, static (o, v) => o.PdfUnits = v);
-
-    internal FileAiReadOptions Apply(FileAiReadOptions options) =>
-        options
-            .Set(PreserveMode, static (o, v) => o.PreserveModelScale = v)
-            .Set(Rhino, static (o, v) => o.RhinoScale = v)
-            .Set(Source, static (o, v) => o.AiScale = v)
-            .Set(Units, static u => u.AiRead, static (o, v) => o.AiUnits = v);
-
-    internal FileAiWriteOptions Apply(FileAiWriteOptions options) =>
-        options
-            .Set(PreserveMode, static (o, v) => o.PreserveModelScale = v)
-            .Set(Rhino, static (o, v) => o.RhinoScale = v)
-            .Set(Source, static (o, v) => o.AIScale = v)
-            .Set(Units, static u => u.AiWrite, static (o, v) => o.AiUnits = v);
-
-    internal FileEpsReadOptions Apply(FileEpsReadOptions options) =>
-        options
-            .Set(PreserveMode, static (o, v) => o.PreserveModelScale = v)
-            .Set(Rhino, static (o, v) => o.RhinoScale = v)
-            .Set(Source, static (o, v) => o.EpsScale = v)
-            .Set(Units, static u => u.Eps, static (o, v) => o.EpsUnits = v);
-
-    private bool HasExplicit => Source.IsSome || Rhino.IsSome || Units.IsSome;
-    private Option<bool> PreserveMode => Preserve | (HasExplicit ? Some(value: false) : Option<bool>.None);
-}
 
 public sealed record ArchiveProfile(ArchiveSlice Slice, FileArchiveProjection Projection, FileWritePolicy Write, Seq<string> Embedded = default) {
     public static ArchiveProfile Full { get; } = new(Slice: ArchiveSlice.Full, Projection: FileArchiveProjection.Full, Write: FileWritePolicy.Default);
@@ -477,9 +390,108 @@ public sealed record ArchiveUpdate(
     Option<FileArchiveSettingsPatch> Settings = default,
     Option<FileEndpoint> PreviewImage = default);
 
+public readonly record struct FileIssue(FileIssueCode Code, string Message) {
+    public static FileIssue Native(string message) =>
+        new(Code: FileIssueCode.Native, Message: string.IsNullOrWhiteSpace(value: message) ? "No native log." : message);
+
+    internal static FileIssue Of(FileIssueCode code, string message) =>
+        new(Code: code, Message: string.IsNullOrWhiteSpace(value: message) ? code.Key : message);
+}
+
+public readonly record struct FileBatchPolicy(bool ContinueOnError = false) {
+    public static FileBatchPolicy StopOnFirstError { get; } = new(ContinueOnError: false);
+}
+
+[StructLayout(LayoutKind.Auto)]
+public readonly record struct FileOverride<T>(Option<T> Value = default, bool Inherit = false) {
+    internal bool IsActive => Inherit || Value.IsSome;
+
+    public static FileOverride<T> operator |(FileOverride<T> left, FileOverride<T> right) =>
+        right.IsActive ? right : left;
+
+    internal Unit Apply(Action<T> set, Action inherit) =>
+        (Inherit, Value.Case) switch {
+            (true, _) => Op.Side(inherit),
+            (_, T value) => Op.Side(() => set(obj: value)),
+            _ => unit,
+        };
+
+    internal Option<T> Patch(Option<T> current) =>
+        (Inherit, Value.Case) switch {
+            (true, _) => Option<T>.None,
+            (_, T value) => Some(value),
+            _ => current,
+        };
+}
+
+public static class FileOverride {
+    public static FileOverride<T> Keep<T>() => default;
+    public static FileOverride<T> Set<T>(T value) => new(Value: Some(value));
+    public static FileOverride<T> Clear<T>() => new(Inherit: true);
+}
+
+[StructLayout(LayoutKind.Auto)]
+public readonly record struct FileVectorScale(
+    Option<FileVectorUnit> Units = default,
+    Option<double> Source = default,
+    Option<double> Rhino = default,
+    Option<bool> Preserve = default) {
+    private bool HasExplicit => Source.IsSome || Rhino.IsSome || Units.IsSome;
+
+    private Option<bool> PreserveMode => Preserve | (HasExplicit ? Some(value: false) : Option<bool>.None);
+
+    internal FilePdfReadOptions Apply(FilePdfReadOptions options) {
+        FilePdfReadOptions active = Set(options: options, source: PreserveMode, setter: static (o, v) => o.PreserveModelScale = v);
+        active = Set(options: active, source: Rhino, setter: static (o, v) => o.RhinoScale = v);
+        active = Set(options: active, source: Source, setter: static (o, v) => o.PDFScale = v);
+        return Set(options: active, source: Units, project: static u => u.Pdf, setter: static (o, v) => o.PdfUnits = v);
+    }
+
+    internal FileAiReadOptions Apply(FileAiReadOptions options) {
+        FileAiReadOptions active = Set(options: options, source: PreserveMode, setter: static (o, v) => o.PreserveModelScale = v);
+        active = Set(options: active, source: Rhino, setter: static (o, v) => o.RhinoScale = v);
+        active = Set(options: active, source: Source, setter: static (o, v) => o.AiScale = v);
+        return Set(options: active, source: Units, project: static u => u.AiRead, setter: static (o, v) => o.AiUnits = v);
+    }
+
+    internal FileAiWriteOptions Apply(FileAiWriteOptions options) {
+        FileAiWriteOptions active = Set(options: options, source: PreserveMode, setter: static (o, v) => o.PreserveModelScale = v);
+        active = Set(options: active, source: Rhino, setter: static (o, v) => o.RhinoScale = v);
+        active = Set(options: active, source: Source, setter: static (o, v) => o.AIScale = v);
+        return Set(options: active, source: Units, project: static u => u.AiWrite, setter: static (o, v) => o.AiUnits = v);
+    }
+
+    internal FileEpsReadOptions Apply(FileEpsReadOptions options) {
+        FileEpsReadOptions active = Set(options: options, source: PreserveMode, setter: static (o, v) => o.PreserveModelScale = v);
+        active = Set(options: active, source: Rhino, setter: static (o, v) => o.RhinoScale = v);
+        active = Set(options: active, source: Source, setter: static (o, v) => o.EpsScale = v);
+        return Set(options: active, source: Units, project: static u => u.Eps, setter: static (o, v) => o.EpsUnits = v);
+    }
+
+    internal Fin<FileVectorScale> Validate(Op op) {
+        FileVectorScale self = this;
+        return from mode in guard(!(self.Preserve.Case is true && self.HasExplicit), op.InvalidInput())
+               from source in self.Source.Map(value => guard(RhinoMath.IsValidDouble(x: value) && value > 0.0, op.InvalidInput()).ToFin()).IfNone(Fin.Succ(value: unit))
+               from rhino in self.Rhino.Map(value => guard(RhinoMath.IsValidDouble(x: value) && value > 0.0, op.InvalidInput()).ToFin()).IfNone(Fin.Succ(value: unit))
+               select self;
+    }
+
+    private static TOptions Set<TOptions, T>(TOptions options, Option<T> source, Action<TOptions, T> setter) where TOptions : class {
+        _ = source.Iter(value => setter(arg1: options, arg2: value));
+        return options;
+    }
+
+    private static TOptions Set<TOptions, T, TProjected>(TOptions options, Option<T> source, Func<T, TProjected> project, Action<TOptions, TProjected> setter) where TOptions : class {
+        _ = source.Iter(value => setter(arg1: options, arg2: project(arg: value)));
+        return options;
+    }
+}
+
 public sealed record FileProfile {
     private FileProfile(FileFidelity fidelity, FileResourcePolicy resources, FileAxis group, FileAxis order, Option<FileFormat> format, Option<FileVectorScale> scale) =>
         (Fidelity, Resources, Group, Order, Format, Scale) = (fidelity, resources, group, order, format, scale);
+
+    public static FileProfile Model { get; } = new(fidelity: FileFidelity.Model, resources: FileResourcePolicy.Reference, group: FileAxis.Document, order: FileAxis.Stable, format: Option<FileFormat>.None, scale: Option<FileVectorScale>.None);
 
     public FileFidelity Fidelity { get; }
     public FileResourcePolicy Resources { get; }
@@ -487,8 +499,6 @@ public sealed record FileProfile {
     public FileAxis Order { get; }
     public Option<FileFormat> Format { get; }
     public Option<FileVectorScale> Scale { get; }
-
-    public static FileProfile Model { get; } = new(fidelity: FileFidelity.Model, resources: FileResourcePolicy.Reference, group: FileAxis.Document, order: FileAxis.Stable, format: Option<FileFormat>.None, scale: Option<FileVectorScale>.None);
 
     public FileProfile With(FileFidelity? fidelity = null, FileResourcePolicy? resources = null, FileAxis? group = null, FileAxis? order = null, FileOverride<FileFormat> format = default, FileOverride<FileVectorScale> scale = default) =>
         new(
@@ -512,15 +522,6 @@ public sealed record FilePrompt {
     private FilePrompt(FilePromptMode mode, string title, string filter, Option<string> fileName, Option<string> initialDirectory, Option<string> defaultExtension, FileNamePolicy name, FileWritePolicy write) =>
         (Mode, Title, Filter, FileName, InitialDirectory, DefaultExtension, Name, Write) = (mode, title, filter, fileName, initialDirectory, defaultExtension, PromptName(name: name, defaultExtension: defaultExtension), write.Normalized);
 
-    public FilePromptMode Mode { get; }
-    public string Title { get; }
-    public string Filter { get; }
-    public Option<string> FileName { get; }
-    public Option<string> InitialDirectory { get; }
-    public Option<string> DefaultExtension { get; }
-    public FileNamePolicy Name { get; }
-    public FileWritePolicy Write { get; }
-
     public static Fin<FilePrompt> Open(string title, string filter = "", bool multiple = false, Option<string> fileName = default, Option<string> initialDirectory = default, Option<string> defaultExtension = default) =>
         Create(mode: multiple ? FilePromptMode.OpenMultiple : FilePromptMode.OpenSingle, title: title, filter: string.IsNullOrWhiteSpace(value: filter) ? FileFormat.Filter(phase: FilePhase.Import) : filter, fileName: fileName, initialDirectory: initialDirectory, defaultExtension: defaultExtension);
 
@@ -539,6 +540,15 @@ public sealed record FilePrompt {
 
     public static Fin<FilePrompt> Folder(string title, Option<string> initialDirectory = default) =>
         Create(mode: FilePromptMode.Folder, title: title, filter: string.Empty, initialDirectory: initialDirectory);
+
+    public FilePromptMode Mode { get; }
+    public string Title { get; }
+    public string Filter { get; }
+    public Option<string> FileName { get; }
+    public Option<string> InitialDirectory { get; }
+    public Option<string> DefaultExtension { get; }
+    public FileNamePolicy Name { get; }
+    public FileWritePolicy Write { get; }
 
     internal Fin<Seq<FileEndpoint>> Defaults(Op op) =>
         DefaultPath().Case switch {
@@ -610,17 +620,4 @@ public sealed record FileReport(
 
     internal static FileReport Of(FilePhase phase, Option<FileEndpoint> source = default, Option<FileEndpoint> target = default, Option<FileFormat> format = default, Option<DocumentReceipt> receipt = default, Seq<FileIssue> issues = default, Option<string> nativeLog = default, Option<FileArchive> archive = default, Seq<FileReport> children = default, Seq<FileViewReport> views = default, Option<FileArchiveDiff> diff = default) =>
         new(Source: source, Target: target, Format: format, Phase: phase, Receipt: receipt, Issues: issues.IsEmpty ? Seq<FileIssue>() : issues, NativeLog: nativeLog, Archive: archive, Children: children.IsEmpty ? Seq<FileReport>() : children, Views: views.IsEmpty ? Seq<FileViewReport>() : views, Diff: diff);
-}
-
-// --- [OPERATIONS] -------------------------------------------------------------------------
-internal static class OptionsProjection {
-    internal static TOptions Set<TOptions, T>(this TOptions options, Option<T> source, Action<TOptions, T> setter) where TOptions : class {
-        _ = source.Iter(value => setter(arg1: options, arg2: value));
-        return options;
-    }
-
-    internal static TOptions Set<TOptions, T, TProjected>(this TOptions options, Option<T> source, Func<T, TProjected> project, Action<TOptions, TProjected> setter) where TOptions : class {
-        _ = source.Iter(value => setter(arg1: options, arg2: project(arg: value)));
-        return options;
-    }
 }

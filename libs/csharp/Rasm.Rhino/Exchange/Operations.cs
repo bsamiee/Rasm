@@ -7,25 +7,6 @@ using Rhino.DocObjects.Tables;
 namespace Rasm.Rhino.Exchange;
 
 // --- [TYPES] ------------------------------------------------------------------------------
-[Union(SwitchMapStateParameterName = "runtime")]
-public abstract partial record FileExchange {
-    private FileExchange() { }
-    public sealed record Open(FileEndpoint Source, FileProfile Profile) : FileExchange;
-    public sealed record Import(FileEndpoint Source, FileProfile Profile) : FileExchange;
-    public sealed record Export(FileEndpoint Target, Option<DocumentTarget> Objects, FileProfile Profile) : FileExchange;
-    public sealed record Save : FileExchange;
-    public sealed record Write(FilePhase Phase, FileEndpoint Target, FileProfile Profile) : FileExchange;
-    public sealed record Publish(FilePublish Spec) : FileExchange;
-    public sealed record NativeTable(FileNativeTable Change) : FileExchange;
-    public sealed record ArchiveRead(FileArchiveSource Source, ArchiveProfile Profile) : FileExchange;
-    public sealed record ArchiveExtract(FileArchiveSource Source, FileEndpoint Target, ArchiveProfile Profile) : FileExchange;
-    public sealed record ArchiveUpdate(FileArchiveSource Source, FileEndpoint Target, Exchange.ArchiveUpdate Update, ArchiveProfile Profile) : FileExchange;
-    public sealed record ArchiveInspect(FileEndpoint Source) : FileExchange;
-    public sealed record ArchiveDiff(FileEndpoint Source, FileEndpoint Other) : FileExchange;
-    public sealed record ArchiveValidate(FileArchiveSource Source, ArchiveProfile Profile) : FileExchange;
-    public sealed record SheetEdit(FileSheetEdit Edit) : FileExchange;
-}
-
 [SmartEnum<int>]
 public sealed partial class FileNativePositionKind {
     public static readonly FileNativePositionKind Restore = new(key: 0, apply: static (table, name) => table.Restore(name: name));
@@ -98,6 +79,25 @@ public abstract partial record FileNativeTable {
     private static DocumentResourceChange Changed(DocumentResourceKind kind, string name) => new(Kind: kind, Name: name);
 }
 
+[Union(SwitchMapStateParameterName = "runtime")]
+public abstract partial record FileExchange {
+    private FileExchange() { }
+    public sealed record Open(FileEndpoint Source, FileProfile Profile) : FileExchange;
+    public sealed record Import(FileEndpoint Source, FileProfile Profile) : FileExchange;
+    public sealed record Export(FileEndpoint Target, Option<DocumentTarget> Objects, FileProfile Profile) : FileExchange;
+    public sealed record Save : FileExchange;
+    public sealed record Write(FilePhase Phase, FileEndpoint Target, FileProfile Profile) : FileExchange;
+    public sealed record Publish(FilePublish Spec) : FileExchange;
+    public sealed record NativeTable(FileNativeTable Change) : FileExchange;
+    public sealed record ArchiveRead(FileArchiveSource Source, ArchiveProfile Profile) : FileExchange;
+    public sealed record ArchiveExtract(FileArchiveSource Source, FileEndpoint Target, ArchiveProfile Profile) : FileExchange;
+    public sealed record ArchiveUpdate(FileArchiveSource Source, FileEndpoint Target, Exchange.ArchiveUpdate Update, ArchiveProfile Profile) : FileExchange;
+    public sealed record ArchiveInspect(FileEndpoint Source) : FileExchange;
+    public sealed record ArchiveDiff(FileEndpoint Source, FileEndpoint Other) : FileExchange;
+    public sealed record ArchiveValidate(FileArchiveSource Source, ArchiveProfile Profile) : FileExchange;
+    public sealed record SheetEdit(FileSheetEdit Edit) : FileExchange;
+}
+
 [Union]
 public abstract partial record HeadlessExchange {
     private HeadlessExchange() { }
@@ -109,6 +109,7 @@ public abstract partial record HeadlessExchange {
 // --- [MODELS] -----------------------------------------------------------------------------
 public readonly record struct FilePositionReport(string Name, Guid Id, Seq<Guid> Objects);
 
+// --- [OPERATIONS] -------------------------------------------------------------------------
 public readonly partial record struct FileGeoLocation {
     public static Fin<Option<FileGeoLocation>> Read(RhinoDoc document) {
         Op op = Op.Of(name: nameof(Read));
@@ -200,7 +201,6 @@ public readonly partial record struct FileGeoLocation {
         }));
 }
 
-// --- [OPERATIONS] -------------------------------------------------------------------------
 public static class FileOp {
     public static Eff<FileRuntime, FileReport> Do(FileExchange exchange) =>
         Lift(run: runtime =>
@@ -230,15 +230,27 @@ public static class FileOp {
                 sheetEdit: static (runtime, sheet) => Commit(runtime: runtime, phase: FilePhase.SheetEdit, name: nameof(FileExchange.SheetEdit), change: sheet.Edit, apply: SheetOps.Apply))
             select result);
 
-    public static Eff<FileRuntime, byte[]> ArchiveBytes(FileArchiveSource source, ArchiveProfile profile) =>
-        Lift(run: _ => FileArchiveOps.Bytes(source: source, profile: profile));
-
     public static Eff<FileRuntime, Seq<FileEndpoint>> Prompt(FilePrompt prompt) =>
         Lift(run: runtime =>
             from active in Optional(prompt).ToFin(Fail: Op.Of(name: nameof(Prompt)).InvalidInput())
             from ui in runtime.Ui.ToFin(Fail: Op.Of(name: nameof(Prompt)).MissingContext())
             from result in ui.Use(intent: UiIntent.ExchangeFile(prompt: active))
             select result);
+
+    public static Eff<FileRuntime, T> Headless<T>(HeadlessExchange scope, Eff<FileRuntime, T> body) =>
+        Lift(run: runtime =>
+            from active in Optional(scope).ToFin(Fail: Op.Of(name: nameof(Headless)).InvalidInput())
+            from result in HeadlessScope(scope: active, body: body, scheduler: runtime.Scheduler)
+            select result);
+
+    public static Eff<FileRuntime, FileReport> Batch(Seq<Eff<FileRuntime, FileReport>> items, FileBatchPolicy policy) =>
+        Lift(run: runtime => items switch {
+            Seq<Eff<FileRuntime, FileReport>> values when !values.IsEmpty => values.TraverseM(operation =>
+                operation.Run(runtime).BindFail(error => guard(policy.ContinueOnError, error).ToFin()
+                    .Map(_ => FileReport.Empty(phase: FilePhase.Batch) with { Issues = Seq(FileIssue.Of(code: FileIssueCode.BatchFailure, message: error.Message)) }))).As()
+                    .Map(reports => FileReport.Of(phase: FilePhase.Batch, issues: reports.Bind(static report => report.Issues), children: reports)),
+            _ => Fin.Fail<FileReport>(error: Op.Of(name: nameof(Batch)).InvalidInput()),
+        });
 
     public static Eff<FileRuntime, FileReport> PublishPlan(FilePublish publish) =>
         Lift(run: runtime =>
@@ -266,6 +278,9 @@ public static class FileOp {
                 nativeLog: Some(string.Create(CultureInfo.InvariantCulture, $"publish-plan;views:{pages.Count};layers:{active.Layers};snapshot:{active.Snapshot.IsSome}")),
                 views: reports));
 
+    public static Eff<FileRuntime, byte[]> ArchiveBytes(FileArchiveSource source, ArchiveProfile profile) =>
+        Lift(run: _ => FileArchiveOps.Bytes(source: source, profile: profile));
+
     public static Eff<FileRuntime, Seq<FileSheetReport>> Sheets(SheetQuery query, DetailQuery detail = default) =>
         Lift(run: runtime =>
             Live(runtime: runtime, op: Op.Of(name: nameof(Sheets)))
@@ -281,33 +296,6 @@ public static class FileOp {
                     Name: live.Document.NamedPositions.Name(id: id) ?? string.Empty,
                     Id: id,
                     Objects: toSeq(live.Document.NamedPositions.ObjectIds(id: id))))));
-
-    public static Eff<FileRuntime, T> Headless<T>(HeadlessExchange scope, Eff<FileRuntime, T> body) =>
-        Lift(run: runtime =>
-            from active in Optional(scope).ToFin(Fail: Op.Of(name: nameof(Headless)).InvalidInput())
-            from result in HeadlessScope(scope: active, body: body, scheduler: runtime.Scheduler)
-            select result);
-
-    public static Eff<FileRuntime, FileReport> Batch(Seq<Eff<FileRuntime, FileReport>> items, FileBatchPolicy policy) =>
-        Lift(run: runtime => items switch {
-            Seq<Eff<FileRuntime, FileReport>> values when !values.IsEmpty => values.TraverseM(operation =>
-                operation.Run(runtime).BindFail(error => guard(policy.ContinueOnError, error).ToFin()
-                    .Map(_ => FileReport.Empty(phase: FilePhase.Batch) with { Issues = Seq(FileIssue.Of(code: FileIssueCode.BatchFailure, message: error.Message)) }))).As()
-                    .Map(reports => FileReport.Of(phase: FilePhase.Batch, issues: reports.Bind(static report => report.Issues), children: reports)),
-            _ => Fin.Fail<FileReport>(error: Op.Of(name: nameof(Batch)).InvalidInput()),
-        });
-
-    internal static Eff<FileRuntime, T> Lift<T>(Func<FileRuntime, Fin<T>> run) =>
-        Eff<FileRuntime, T>.Lift(runtime =>
-            Optional(run)
-                .ToFin(Fail: Op.Of(name: nameof(Lift)).InvalidInput())
-                .Bind(valid => valid(arg: runtime)));
-
-    private static Fin<(RhinoDoc Document, Context Domain, DocumentEdit Edit)> Live(FileRuntime runtime, Op op) =>
-        (runtime.Document.Case, runtime.Domain.Case, runtime.Edit.Case) switch {
-            (RhinoDoc document, Context domain, DocumentEdit edit) => Fin.Succ(value: (document, domain, edit)),
-            _ => Fin.Fail<(RhinoDoc Document, Context Domain, DocumentEdit Edit)>(error: op.MissingContext()),
-        };
 
     private static Fin<T> HeadlessScope<T>(HeadlessExchange scope, Eff<FileRuntime, T> body, IoScheduler scheduler) =>
         Op.Of(name: nameof(Headless)).Catch(() => {
@@ -344,6 +332,18 @@ public static class FileOp {
                 headless?.Dispose();
             }
         });
+
+    internal static Eff<FileRuntime, T> Lift<T>(Func<FileRuntime, Fin<T>> run) =>
+        Eff<FileRuntime, T>.Lift(runtime =>
+            Optional(run)
+                .ToFin(Fail: Op.Of(name: nameof(Lift)).InvalidInput())
+                .Bind(valid => valid(arg: runtime)));
+
+    private static Fin<(RhinoDoc Document, Context Domain, DocumentEdit Edit)> Live(FileRuntime runtime, Op op) =>
+        (runtime.Document.Case, runtime.Domain.Case, runtime.Edit.Case) switch {
+            (RhinoDoc document, Context domain, DocumentEdit edit) => Fin.Succ(value: (document, domain, edit)),
+            _ => Fin.Fail<(RhinoDoc Document, Context Domain, DocumentEdit Edit)>(error: op.MissingContext()),
+        };
 
     private static Fin<FileReport> OpenCore(FileEndpoint source, FileProfile profile) =>
         from endpoint in source.Input(op: Op.Of(name: nameof(FileExchange.Open)))

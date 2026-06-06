@@ -65,12 +65,6 @@ public sealed partial record FileFormat {
         new(key: "tiff", extensions: Seq(".tif", ".tiff"), capability: FileCapability.Raster, scale: FileCapability.None, read: null, write: null, directRead: null, directWrite: null, directWriteOptions: false),
         new(key: "bmp", extensions: Seq(".bmp"), capability: FileCapability.Raster, scale: FileCapability.None, read: null, write: null, directRead: null, directWrite: null, directWriteOptions: false));
 
-    private static readonly Atom<HashMap<string, FileFormat>> CustomCell = Atom(HashMap<string, FileFormat>());
-
-    private static readonly FrozenSet<string> ReservedKeys = new[] { "JSON" }.ToFrozenSet(comparer: StringComparer.OrdinalIgnoreCase);
-
-    private static readonly FrozenSet<string> ReservedExtensions = new[] { ".json" }.ToFrozenSet(comparer: StringComparer.OrdinalIgnoreCase);
-
     private static FrozenDictionary<string, FileFormat> ByKey { get; } =
         BuiltIn.AsIterable().ToFrozenDictionary(keySelector: static format => format.Key, elementSelector: static format => format, comparer: StringComparer.OrdinalIgnoreCase);
 
@@ -78,6 +72,12 @@ public sealed partial record FileFormat {
         BuiltIn.Bind(static format => format.Extensions.Map(extension => (Extension: extension, Format: format)))
             .AsIterable()
             .ToFrozenDictionary(keySelector: static item => item.Extension, elementSelector: static item => item.Format, comparer: StringComparer.OrdinalIgnoreCase);
+
+    private static readonly FrozenSet<string> ReservedKeys = new[] { "JSON" }.ToFrozenSet(comparer: StringComparer.OrdinalIgnoreCase);
+
+    private static readonly FrozenSet<string> ReservedExtensions = new[] { ".json" }.ToFrozenSet(comparer: StringComparer.OrdinalIgnoreCase);
+
+    private static readonly Atom<HashMap<string, FileFormat>> CustomCell = Atom(HashMap<string, FileFormat>());
 
     private readonly Func<FileProfile, ArchivableDictionary>? readBuilder;
 
@@ -108,6 +108,39 @@ public sealed partial record FileFormat {
         this.directWriteOptions = directWriteOptions;
     }
 
+    private static FileFormat Native(
+        string key,
+        Seq<string> extensions,
+        bool import = true,
+        bool export = true,
+        bool archive = false,
+        FileCapability scale = FileCapability.None,
+        Func<FileProfile, ArchivableDictionary>? read = null,
+        Func<FileProfile, ArchivableDictionary>? write = null,
+        Func<FileProfile, FileReadOptions, RhinoDoc, FileEndpoint, Fin<Unit>>? directRead = null,
+        Func<FileProfile, FileWriteOptions, RhinoDoc, FileEndpoint, Fin<Unit>>? directWrite = null,
+        bool directWriteOptions = false) =>
+        new(key: key, extensions: extensions,
+            capability: archive
+                ? FileCapability.File3dm
+                : (import ? FileCapability.Import : FileCapability.None) | (export ? FileCapability.Export : FileCapability.None),
+            scale: scale, read: read, write: write, directRead: directRead, directWrite: directWrite, directWriteOptions: directWriteOptions);
+
+    private static Func<FileProfile, FileReadOptions, TOptions> NewRead<TOptions>() where TOptions : new() =>
+        static (_, _) => new TOptions();
+
+    private static Func<FileProfile, FileWriteOptions, TOptions> NewWrite<TOptions>() where TOptions : new() =>
+        static (_, _) => new TOptions();
+
+    private static Func<FileProfile, FileReadOptions, RhinoDoc, FileEndpoint, Fin<Unit>> DirectRead<TOptions>(Func<FileProfile, FileReadOptions, TOptions> options, Func<string, RhinoDoc, TOptions, bool> read, string name) =>
+        (profile, readOptions, document, source) => NativeBool(run: () => read(arg1: source.Path, arg2: document, arg3: options(arg1: profile, arg2: readOptions)), op: Op.Of(name: name));
+
+    private static Func<FileProfile, FileWriteOptions, RhinoDoc, FileEndpoint, Fin<Unit>> DirectWrite<TOptions>(Func<FileProfile, FileWriteOptions, TOptions> options, Func<string, RhinoDoc, TOptions, bool> write, string name) =>
+        (profile, writeOptions, document, target) => NativeBool(run: () => write(arg1: target.Path, arg2: document, arg3: options(arg1: profile, arg2: writeOptions)), op: Op.Of(name: name));
+
+    private static Func<FileProfile, FileWriteOptions, RhinoDoc, FileEndpoint, Fin<Unit>> DirectWriteResult<TOptions>(Func<FileProfile, FileWriteOptions, TOptions> options, Func<string, RhinoDoc, TOptions, WriteFileResult> write, string name) =>
+        (profile, writeOptions, document, target) => NativeWrite(result: write(arg1: target.Path, arg2: document, arg3: options(arg1: profile, arg2: writeOptions)), op: Op.Of(name: name));
+
     public string Key { get; }
 
     public Seq<string> Extensions { get; }
@@ -115,10 +148,7 @@ public sealed partial record FileFormat {
     internal FileCapability Capability { get; }
 
     public static Seq<FileFormat> Known => BuiltIn + toSeq(CustomCell.Value.Values);
-}
 
-// --- [OPERATIONS] -------------------------------------------------------------------------
-public sealed partial record FileFormat {
     public static Option<FileFormat> Detect(string path) =>
         Optional(IOPath.GetExtension(path: path))
             .Bind(extension => ByExtension.TryGetValue(key: extension, value: out FileFormat? format)
@@ -284,6 +314,19 @@ public sealed partial record FileFormat {
         return options;
     }
 
+    internal bool Is(string key) =>
+        string.Equals(a: Key, b: NormalizeKey(value: key), comparisonType: StringComparison.OrdinalIgnoreCase);
+
+    internal static Fin<Unit> NativeBool(Func<bool> run, Op op) =>
+        op.Catch(() => op.Confirm(success: run()));
+
+    internal static Fin<Unit> NativeWrite(WriteFileResult result, Op op) =>
+        result switch {
+            WriteFileResult.Success => Fin.Succ(value: unit),
+            WriteFileResult.Cancel => Fin.Fail<Unit>(error: new Fault.Cancelled()),
+            _ => Fin.Fail<Unit>(error: op.InvalidResult()),
+        };
+
     private static FileReadOptions ReadOptions(FileEndpoint endpoint, FileProfile profile) {
         FileReadOptions options = new() {
             ImportMode = true,
@@ -331,52 +374,6 @@ public sealed partial record FileFormat {
     private static string NormalizeExtension(string value) =>
         (value.StartsWith('.') ? value : $".{value}").ToLowerInvariant();
 
-    internal bool Is(string key) =>
-        string.Equals(a: Key, b: NormalizeKey(value: key), comparisonType: StringComparison.OrdinalIgnoreCase);
-
-    internal static Fin<Unit> NativeBool(Func<bool> run, Op op) =>
-        op.Catch(() => op.Confirm(success: run()));
-
-    internal static Fin<Unit> NativeWrite(WriteFileResult result, Op op) =>
-        result switch {
-            WriteFileResult.Success => Fin.Succ(value: unit),
-            WriteFileResult.Cancel => Fin.Fail<Unit>(error: new Fault.Cancelled()),
-            _ => Fin.Fail<Unit>(error: op.InvalidResult()),
-        };
-
-    private static FileFormat Native(
-        string key,
-        Seq<string> extensions,
-        bool import = true,
-        bool export = true,
-        bool archive = false,
-        FileCapability scale = FileCapability.None,
-        Func<FileProfile, ArchivableDictionary>? read = null,
-        Func<FileProfile, ArchivableDictionary>? write = null,
-        Func<FileProfile, FileReadOptions, RhinoDoc, FileEndpoint, Fin<Unit>>? directRead = null,
-        Func<FileProfile, FileWriteOptions, RhinoDoc, FileEndpoint, Fin<Unit>>? directWrite = null,
-        bool directWriteOptions = false) =>
-        new(key: key, extensions: extensions,
-            capability: archive
-                ? FileCapability.File3dm
-                : (import ? FileCapability.Import : FileCapability.None) | (export ? FileCapability.Export : FileCapability.None),
-            scale: scale, read: read, write: write, directRead: directRead, directWrite: directWrite, directWriteOptions: directWriteOptions);
-
-    private static Func<FileProfile, FileReadOptions, TOptions> NewRead<TOptions>() where TOptions : new() =>
-        static (_, _) => new TOptions();
-
-    private static Func<FileProfile, FileWriteOptions, TOptions> NewWrite<TOptions>() where TOptions : new() =>
-        static (_, _) => new TOptions();
-
-    private static Func<FileProfile, FileReadOptions, RhinoDoc, FileEndpoint, Fin<Unit>> DirectRead<TOptions>(Func<FileProfile, FileReadOptions, TOptions> options, Func<string, RhinoDoc, TOptions, bool> read, string name) =>
-        (profile, readOptions, document, source) => NativeBool(run: () => read(arg1: source.Path, arg2: document, arg3: options(arg1: profile, arg2: readOptions)), op: Op.Of(name: name));
-
-    private static Func<FileProfile, FileWriteOptions, RhinoDoc, FileEndpoint, Fin<Unit>> DirectWrite<TOptions>(Func<FileProfile, FileWriteOptions, TOptions> options, Func<string, RhinoDoc, TOptions, bool> write, string name) =>
-        (profile, writeOptions, document, target) => NativeBool(run: () => write(arg1: target.Path, arg2: document, arg3: options(arg1: profile, arg2: writeOptions)), op: Op.Of(name: name));
-
-    private static Func<FileProfile, FileWriteOptions, RhinoDoc, FileEndpoint, Fin<Unit>> DirectWriteResult<TOptions>(Func<FileProfile, FileWriteOptions, TOptions> options, Func<string, RhinoDoc, TOptions, WriteFileResult> write, string name) =>
-        (profile, writeOptions, document, target) => NativeWrite(result: write(arg1: target.Path, arg2: document, arg3: options(arg1: profile, arg2: writeOptions)), op: Op.Of(name: name));
-
     private static File3dsWriteOptions ThreeDsWriteOptions(FileProfile profile) =>
         new() { SaveViews = profile.Fidelity.IsModel, SaveLights = profile.Fidelity.IsModel };
 
@@ -392,6 +389,33 @@ public sealed partial record FileFormat {
         };
         return profile.Scale.Map(scale => scale.Apply(options: options)).IfNone(options);
     }
+
+    private static FileObjWriteOptions ObjWriteOptions(FileProfile profile, FileWriteOptions options) =>
+        new(options) {
+            ObjectType = profile.Fidelity.IsModel && !options.WriteGeometryOnly ? FileObjWriteOptions.GeometryType.Nurbs : FileObjWriteOptions.GeometryType.Mesh,
+            ExportObjectNames = profile.Group == FileAxis.ObjectName ? FileObjWriteOptions.ObjObjectNames.ObjectAsObject : FileObjWriteOptions.ObjObjectNames.NoObjects,
+            ExportGroupNameLayerNames = profile.Group switch {
+                FileAxis.Layer => FileObjWriteOptions.ObjGroupNames.LayerAsGroup,
+                FileAxis.Block => FileObjWriteOptions.ObjGroupNames.GroupAsGroup,
+                _ => FileObjWriteOptions.ObjGroupNames.NoGroups,
+            },
+            ExportMaterialDefinitions = ShouldExportMaterials(profile.Resources) && options.WriteUserData,
+            UseDisplayColorForMaterial = ShouldExportMaterials(profile.Resources),
+            ExportTcs = ShouldExportMaterials(profile.Resources),
+            ExportNormals = profile.Fidelity.IncludeMeasurements,
+            UseRenderMeshes = profile.Fidelity == FileFidelity.Small || options.IncludeRenderMeshes,
+            SortObjGroups = profile.Order is FileAxis.Layer or FileAxis.Block,
+            MergeNestedGroupingNames = profile.Group == FileAxis.Layer,
+        };
+
+    private static FilePlyWriteOptions PlyWriteOptions(FileProfile profile, FileWriteOptions options) =>
+        new(options) {
+            ExportASCII = profile.Fidelity != FileFidelity.Small,
+            ExportDoubles = profile.Fidelity.IsModel,
+            ExportNormals = profile.Fidelity.IncludeMeasurements,
+            ExportColors = ShouldExportMaterials(profile.Resources),
+            ExportMaterial = profile.Resources == FileResourcePolicy.Embed,
+        };
 
     private static FileDwgWriteOptions DwgWriteOptions(FileProfile profile) =>
         new() {
@@ -426,33 +450,6 @@ public sealed partial record FileFormat {
 
     private static FileX3dvWriteOptions X3dvWriteOptions(FileProfile profile) =>
         new() { ExportTextureCoordinates = ShouldExportMaterials(profile.Resources), ExportVertexNormals = profile.Fidelity.IsModel };
-
-    private static FileObjWriteOptions ObjWriteOptions(FileProfile profile, FileWriteOptions options) =>
-        new(options) {
-            ObjectType = profile.Fidelity.IsModel && !options.WriteGeometryOnly ? FileObjWriteOptions.GeometryType.Nurbs : FileObjWriteOptions.GeometryType.Mesh,
-            ExportObjectNames = profile.Group == FileAxis.ObjectName ? FileObjWriteOptions.ObjObjectNames.ObjectAsObject : FileObjWriteOptions.ObjObjectNames.NoObjects,
-            ExportGroupNameLayerNames = profile.Group switch {
-                FileAxis.Layer => FileObjWriteOptions.ObjGroupNames.LayerAsGroup,
-                FileAxis.Block => FileObjWriteOptions.ObjGroupNames.GroupAsGroup,
-                _ => FileObjWriteOptions.ObjGroupNames.NoGroups,
-            },
-            ExportMaterialDefinitions = ShouldExportMaterials(profile.Resources) && options.WriteUserData,
-            UseDisplayColorForMaterial = ShouldExportMaterials(profile.Resources),
-            ExportTcs = ShouldExportMaterials(profile.Resources),
-            ExportNormals = profile.Fidelity.IncludeMeasurements,
-            UseRenderMeshes = profile.Fidelity == FileFidelity.Small || options.IncludeRenderMeshes,
-            SortObjGroups = profile.Order is FileAxis.Layer or FileAxis.Block,
-            MergeNestedGroupingNames = profile.Group == FileAxis.Layer,
-        };
-
-    private static FilePlyWriteOptions PlyWriteOptions(FileProfile profile, FileWriteOptions options) =>
-        new(options) {
-            ExportASCII = profile.Fidelity != FileFidelity.Small,
-            ExportDoubles = profile.Fidelity.IsModel,
-            ExportNormals = profile.Fidelity.IncludeMeasurements,
-            ExportColors = ShouldExportMaterials(profile.Resources),
-            ExportMaterial = profile.Resources == FileResourcePolicy.Embed,
-        };
 
     private static FileTxtWriteOptions TxtWriteOptions(FileProfile profile) =>
         new() { SurroundWithDoubleQuotes = profile.Group != FileAxis.Document };

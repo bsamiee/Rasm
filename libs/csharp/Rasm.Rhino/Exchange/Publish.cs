@@ -166,7 +166,7 @@ public abstract partial record FilePublishTarget {
         from pdf in Optional(FilePdf.Create()).ToFin(Fail: op.InvalidResult())
         let totalPages = target.Prefix.Count + pages.Count + target.Suffix.Count
         from _prefix in target.Prefix.Map((spec, index) => (Spec: spec, Index: index + 1)).TraverseM(item => AddBlankPdfPage(pdf: pdf, spec: item.Spec, pageIndex: item.Index, pageCount: totalPages, op: op)
-            .Bind(page => AnnotatePage(pdf: pdf, page: page, stamps: target.Annotate, context: new PdfStampContext(PageIndex: item.Index, PageCount: totalPages, View: Option<FileViewReport>.None), op: op))).As()
+            .Bind(page => PdfStamp.DrawAll(stamps: target.Annotate, pdf: pdf, page: page, context: new PdfStampContext(PageIndex: item.Index, PageCount: totalPages, View: Option<FileViewReport>.None), op: op))).As()
         from sheets in pages.TraverseM(page =>
             from rendered in page.Render(render: owned => op.Catch(() => {
                 bool prior = pdf.LayersAsOptionalContentGroups;
@@ -176,16 +176,25 @@ public abstract partial record FilePublishTarget {
                 return index >= 0 ? Fin.Succ(value: index) : Fin.Fail<int>(error: op.InvalidResult());
             }), op: op)
             let pageIndex = rendered.Value + 1
-            from annotated in AnnotatePage(pdf: pdf, page: rendered.Value, stamps: target.Annotate, context: new PdfStampContext(PageIndex: pageIndex, PageCount: totalPages, View: Some(rendered.Report)), op: op)
+            from annotated in PdfStamp.DrawAll(stamps: target.Annotate, pdf: pdf, page: rendered.Value, context: new PdfStampContext(PageIndex: pageIndex, PageCount: totalPages, View: Some(rendered.Report)), op: op)
             select rendered.Report).As()
         from _suffix in target.Suffix.Map((spec, index) => (Spec: spec, Index: target.Prefix.Count + pages.Count + index + 1)).TraverseM(item => AddBlankPdfPage(pdf: pdf, spec: item.Spec, pageIndex: item.Index, pageCount: totalPages, op: op)
-            .Bind(page => AnnotatePage(pdf: pdf, page: page, stamps: target.Annotate, context: new PdfStampContext(PageIndex: item.Index, PageCount: totalPages, View: Option<FileViewReport>.None), op: op))).As()
+            .Bind(page => PdfStamp.DrawAll(stamps: target.Annotate, pdf: pdf, page: page, context: new PdfStampContext(PageIndex: item.Index, PageCount: totalPages, View: Option<FileViewReport>.None), op: op))).As()
         from _verify in Flush(pdf: pdf, path: endpoint.Path, finalStamps: target.FinalStamps, totalPages: totalPages, op: op)
         select new FilePublishResult(
             Target: Some(endpoint),
             Format: Some(fmtPdf),
             Receipt: DocumentReceipt.Empty,
             Views: sheets);
+
+    private static Fin<int> AddBlankPdfPage(FilePdf pdf, FilePdfPage spec, int pageIndex, int pageCount, Op op) =>
+        from valid in spec.Validate(op: op)
+        from index in op.Catch(() => pdf.AddPage(widthInDots: valid.WidthDots, heightInDots: valid.HeightDots, dotsPerInch: valid.Dpi) switch {
+            int value when value >= 0 => Fin.Succ(value: value),
+            _ => Fin.Fail<int>(error: op.InvalidResult()),
+        })
+        from annotated in PdfStamp.DrawAll(stamps: valid.Stamps, pdf: pdf, page: index, context: new PdfStampContext(PageIndex: pageIndex, PageCount: pageCount, View: Option<FileViewReport>.None), op: op)
+        select index;
 
     private static Fin<Unit> Flush(FilePdf pdf, string path, Seq<PdfStamp> finalStamps, int totalPages, Op op) =>
         finalStamps.IsEmpty
@@ -208,18 +217,6 @@ public abstract partial record FilePublishTarget {
                     FilePdf.PreWrite -= Stamp;
                 }
             });
-
-    private static Fin<int> AddBlankPdfPage(FilePdf pdf, FilePdfPage spec, int pageIndex, int pageCount, Op op) =>
-        from valid in spec.Validate(op: op)
-        from index in op.Catch(() => pdf.AddPage(widthInDots: valid.WidthDots, heightInDots: valid.HeightDots, dotsPerInch: valid.Dpi) switch {
-            int value when value >= 0 => Fin.Succ(value: value),
-            _ => Fin.Fail<int>(error: op.InvalidResult()),
-        })
-        from annotated in AnnotatePage(pdf: pdf, page: index, stamps: valid.Stamps, context: new PdfStampContext(PageIndex: pageIndex, PageCount: pageCount, View: Option<FileViewReport>.None), op: op)
-        select index;
-
-    private static Fin<Unit> AnnotatePage(FilePdf pdf, int page, Seq<PdfStamp> stamps, PdfStampContext context, Op op) =>
-        PdfStamp.DrawAll(stamps: stamps, pdf: pdf, page: page, context: context, op: op);
 
     private static Fin<FilePublishResult> WritePrinter(Printer target, Seq<FileViewPage> pages, Op op) =>
         from name in FileEndpoint.NonBlank(value: target.Name, op: op)
@@ -362,6 +359,42 @@ public readonly record struct FileRasterSettings(
     }
 }
 
+public readonly record struct FileViewReport(
+    string Name,
+    Option<string> Scale,
+    int DetailCount,
+    DrawingSize MediaSize = default,
+    DrawingRectangle CropRectangle = default,
+    double Resolution = 0.0,
+    ViewCaptureSettings.ViewAreaMapping ViewArea = default,
+    bool Raster = false,
+    bool ScaleToFit = false,
+    Option<double> ModelScale = default);
+
+internal readonly partial record struct PdfStampContext(int PageIndex, int PageCount, Option<FileViewReport> View) {
+    internal string Format(string value) {
+        int pageIndex = PageIndex;
+        int pageCount = PageCount;
+        Option<FileViewReport> view = View;
+        return PublishTokens.Pattern.Replace(input: value, evaluator: match => match.Groups["key"].Value switch {
+            "index" => pageIndex.ToString(provider: CultureInfo.InvariantCulture),
+            "total" => pageCount.ToString(provider: CultureInfo.InvariantCulture),
+            "page" => view.Map(static report => report.Name).IfNone(string.Empty),
+            "scale" => view.Bind(static report => report.Scale).IfNone(string.Empty),
+            "details" => view.Map(static report => report.DetailCount.ToString(provider: CultureInfo.InvariantCulture)).IfNone("0"),
+            string => string.Empty,
+        });
+    }
+}
+
+internal readonly record struct FilePublishResult(
+    Option<FileEndpoint> Target,
+    Option<FileFormat> Format,
+    DocumentReceipt Receipt,
+    Seq<FileViewReport> Views = default,
+    Seq<FileIssue> Issues = default,
+    Option<string> NativeLog = default);
+
 public sealed partial record FileView(
     FileViewSource Source,
     CaptureRecipe Recipe = default) {
@@ -426,42 +459,6 @@ public sealed record FilePublish(FilePublishTarget Target, Seq<FileView> Views, 
     public FilePublish WithSnapshot(string name) =>
         this with { Snapshot = string.IsNullOrWhiteSpace(value: name) ? Option<string>.None : Some(name.Trim()) };
 }
-
-public readonly record struct FileViewReport(
-    string Name,
-    Option<string> Scale,
-    int DetailCount,
-    DrawingSize MediaSize = default,
-    DrawingRectangle CropRectangle = default,
-    double Resolution = 0.0,
-    ViewCaptureSettings.ViewAreaMapping ViewArea = default,
-    bool Raster = false,
-    bool ScaleToFit = false,
-    Option<double> ModelScale = default);
-
-internal readonly partial record struct PdfStampContext(int PageIndex, int PageCount, Option<FileViewReport> View) {
-    internal string Format(string value) {
-        int pageIndex = PageIndex;
-        int pageCount = PageCount;
-        Option<FileViewReport> view = View;
-        return PublishTokens.Pattern.Replace(input: value, evaluator: match => match.Groups["key"].Value switch {
-            "index" => pageIndex.ToString(provider: CultureInfo.InvariantCulture),
-            "total" => pageCount.ToString(provider: CultureInfo.InvariantCulture),
-            "page" => view.Map(static report => report.Name).IfNone(string.Empty),
-            "scale" => view.Bind(static report => report.Scale).IfNone(string.Empty),
-            "details" => view.Map(static report => report.DetailCount.ToString(provider: CultureInfo.InvariantCulture)).IfNone("0"),
-            string => string.Empty,
-        });
-    }
-}
-
-internal readonly record struct FilePublishResult(
-    Option<FileEndpoint> Target,
-    Option<FileFormat> Format,
-    DocumentReceipt Receipt,
-    Seq<FileViewReport> Views = default,
-    Seq<FileIssue> Issues = default,
-    Option<string> NativeLog = default);
 
 internal sealed record FileNamedViewCapture(CameraScope Scope, string Name, Option<CameraPath> Path, NamedRestorePolicy Restore) {
     internal Fin<T> Use<T>(Func<Fin<T>> body) =>

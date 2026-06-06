@@ -14,8 +14,8 @@ namespace Rasm.Rhino.UI;
 [SmartEnum<int>]
 public sealed partial class Easing {
     private const double BackC1 = 1.70158;
-    private const double BackC3 = BackC1 + 1.0;
     private const double BackC2 = BackC1 * 1.525;
+    private const double BackC3 = BackC1 + 1.0;
     private const double BounceN1 = 7.5625;
     private const double BounceD1 = 2.75;
 
@@ -175,17 +175,6 @@ public readonly record struct SpringConfig(float Stiffness, float Damping, float
     }
 }
 
-internal readonly record struct DecayRunnerState<TValue, TVelocity>(TValue Value, TVelocity Velocity, double Friction, IMotionVector<TValue, TVelocity> Vector, Action<TValue> Sink, TimeProvider Clock, long Timestamp) : IMotionState<DecayRunnerState<TValue, TVelocity>> {
-    public DecayRunnerState<TValue, TVelocity> Step() {
-        long now = Clock.GetTimestamp();
-        double dt = Math.Min(val1: Clock.GetElapsedTime(startingTimestamp: Timestamp, endingTimestamp: now).TotalSeconds, val2: SpringConfig.MaxDt);
-        TVelocity velocity = Vector.Scale(Velocity, Math.Exp(-Friction * dt));
-        return this with { Value = Vector.Move(value: Value, delta: Vector.Scale(velocity, dt)), Velocity = velocity, Timestamp = now };
-    }
-    public Unit Emit() { Sink(Value); return unit; }
-    public bool IsActive => Vector.Norm(Velocity) >= Vector.RestEpsilon;
-}
-
 internal readonly record struct SpringRunnerState<TValue, TVelocity>(TValue Value, TVelocity Velocity, TValue Target, SpringConfig Config, IMotionVector<TValue, TVelocity> Vector, Action<TValue> Sink, TimeProvider Clock, long Timestamp) : IMotionState<SpringRunnerState<TValue, TVelocity>> {
     public SpringRunnerState<TValue, TVelocity> Step() {
         long now = Clock.GetTimestamp();
@@ -217,6 +206,17 @@ internal readonly record struct TimedRunnerState<TValue, TVelocity>(TValue From,
     private bool Elapsed => Clock.GetElapsedTime(startingTimestamp: Start).TotalSeconds >= Duration.TotalSeconds;
 }
 
+internal readonly record struct DecayRunnerState<TValue, TVelocity>(TValue Value, TVelocity Velocity, double Friction, IMotionVector<TValue, TVelocity> Vector, Action<TValue> Sink, TimeProvider Clock, long Timestamp) : IMotionState<DecayRunnerState<TValue, TVelocity>> {
+    public DecayRunnerState<TValue, TVelocity> Step() {
+        long now = Clock.GetTimestamp();
+        double dt = Math.Min(val1: Clock.GetElapsedTime(startingTimestamp: Timestamp, endingTimestamp: now).TotalSeconds, val2: SpringConfig.MaxDt);
+        TVelocity velocity = Vector.Scale(Velocity, Math.Exp(-Friction * dt));
+        return this with { Value = Vector.Move(value: Value, delta: Vector.Scale(velocity, dt)), Velocity = velocity, Timestamp = now };
+    }
+    public Unit Emit() { Sink(Value); return unit; }
+    public bool IsActive => Vector.Norm(Velocity) >= Vector.RestEpsilon;
+}
+
 // --- [SERVICES] ---------------------------------------------------------------------------
 public sealed class MotionHandle<TValue, TVelocity> : IDisposable {
     internal readonly record struct Steering(Func<TValue, Option<TVelocity>, Fin<Unit>> Retarget, Func<TVelocity> Velocity);
@@ -235,6 +235,18 @@ public sealed class MotionHandle<TValue, TVelocity> : IDisposable {
     public Fin<Unit> Retarget(TValue target, Option<TVelocity> velocity = default) =>
         steering.Retarget(arg1: target, arg2: velocity).Bind(_ => wake());
     public void Dispose() => disposer.Dispose();
+}
+
+internal sealed class MotionRotationVector : IMotionVector<Quaternion> {
+    public Quaternion ZeroVelocity { get; } = Quaternion.Zero;
+    public double RestEpsilon => 1e-4;
+    public Quaternion Delta(Quaternion from, Quaternion target) => target - from;
+    public Quaternion Add(Quaternion a, Quaternion b) => a + b;
+    public Quaternion Scale(Quaternion v, double s) => v * s;
+    public Quaternion Move(Quaternion v, Quaternion d) => Unit(v + d);
+    public double Norm(Quaternion v) => v.Length;
+    public Quaternion Lerp(Quaternion a, Quaternion b, double t) => Quaternion.Slerp(a, b, t);
+    private static Quaternion Unit(Quaternion q) { Quaternion r = q; _ = r.Unitize(); return r; }
 }
 
 internal sealed class MotionPoseVector : IMotionVector<Transform, (Quaternion R, Vector3d T)> {
@@ -262,23 +274,11 @@ internal sealed class MotionPoseVector : IMotionVector<Transform, (Quaternion R,
     private static Transform Compose(Quaternion r, Vector3d t) { Transform m = r.MatrixForm(); m[0, 3] = t.X; m[1, 3] = t.Y; m[2, 3] = t.Z; return m; }
 }
 
-internal sealed class MotionRotationVector : IMotionVector<Quaternion> {
-    public Quaternion ZeroVelocity { get; } = Quaternion.Zero;
-    public double RestEpsilon => 1e-4;
-    public Quaternion Delta(Quaternion from, Quaternion target) => target - from;
-    public Quaternion Add(Quaternion a, Quaternion b) => a + b;
-    public Quaternion Scale(Quaternion v, double s) => v * s;
-    public Quaternion Move(Quaternion v, Quaternion d) => Unit(v + d);
-    public double Norm(Quaternion v) => v.Length;
-    public Quaternion Lerp(Quaternion a, Quaternion b, double t) => Quaternion.Slerp(a, b, t);
-    private static Quaternion Unit(Quaternion q) { Quaternion r = q; _ = r.Unitize(); return r; }
-}
-
 internal sealed class MotionVectorImpl<T>(T zero, double restEpsilon, Func<T, T, T> add, Func<T, T, T> subtract, Func<T, double, T> scale, Func<T, double> norm, Func<T, T, double, T> lerp) : IMotionVector<T> {
     public T ZeroVelocity { get; } = zero;
     public double RestEpsilon { get; } = restEpsilon;
-    public T Add(T a, T b) => add(arg1: a, arg2: b);
     public T Delta(T from, T target) => subtract(arg1: target, arg2: from);
+    public T Add(T a, T b) => add(arg1: a, arg2: b);
     public T Scale(T value, double scalar) => scale(arg1: value, arg2: scalar);
     public T Move(T value, T delta) => add(arg1: value, arg2: delta);
     public double Norm(T value) => norm(arg: value);
@@ -461,14 +461,6 @@ internal static class Motion {
                 steering: cell => new MotionHandle<TValue, TVelocity>.Steering(
                     Retarget: (toValue, velocity) => Fin.Succ(value: Op.Side(() => cell.Swap(state => state with { Target = toValue, Velocity = velocity.IfNone(state.Velocity) }))),
                     Velocity: () => cell.Value.Velocity)),
-            decay: static (state, d) => Drive(
-                initial: new DecayRunnerState<TValue, TVelocity>(
-                    Value: d.From, Velocity: d.Velocity, Friction: d.Friction, Vector: d.Vector,
-                    Sink: state.Sink, Clock: state.Resolved, Timestamp: state.Resolved.GetTimestamp()),
-                target: state.Target, clock: state.Clock, vsync: state.Vsync,
-                steering: cell => new MotionHandle<TValue, TVelocity>.Steering(
-                    Retarget: (_, velocity) => Fin.Succ(value: Op.Side(() => cell.Swap(state => state with { Velocity = velocity.IfNone(state.Velocity) }))),
-                    Velocity: () => cell.Value.Velocity)),
             tween: static (state, t) => Drive(
                 initial: MakeTimed(from: t.From, to: t.To, duration: t.Duration, easing: t.Easing, rest: Seq<(TValue, TimeSpan, Easing)>(), yoyo: false, infinite: false, cycles: 0, vector: t.Vector, sink: state.Sink, clock: state.Resolved), target: state.Target, clock: state.Clock, vsync: state.Vsync, steering: ReseedTimed(vector: t.Vector)),
             pulse: static (state, p) => Drive(
@@ -481,7 +473,15 @@ internal static class Motion {
                     : MakeTimed(from: q.Start, to: q.Steps[0].Target, duration: q.Steps[0].Duration,
                         easing: q.Steps[0].Easing, rest: q.Steps.Tail, yoyo: false, infinite: false, cycles: 0,
                         vector: q.Vector, sink: state.Sink, clock: state.Resolved),
-                target: state.Target, clock: state.Clock, vsync: state.Vsync, steering: ReseedTimed(vector: q.Vector)));
+                target: state.Target, clock: state.Clock, vsync: state.Vsync, steering: ReseedTimed(vector: q.Vector)),
+            decay: static (state, d) => Drive(
+                initial: new DecayRunnerState<TValue, TVelocity>(
+                    Value: d.From, Velocity: d.Velocity, Friction: d.Friction, Vector: d.Vector,
+                    Sink: state.Sink, Clock: state.Resolved, Timestamp: state.Resolved.GetTimestamp()),
+                target: state.Target, clock: state.Clock, vsync: state.Vsync,
+                steering: cell => new MotionHandle<TValue, TVelocity>.Steering(
+                    Retarget: (_, velocity) => Fin.Succ(value: Op.Side(() => cell.Swap(state => state with { Velocity = velocity.IfNone(state.Velocity) }))),
+                    Velocity: () => cell.Value.Velocity)));
 
     // Over-sampling waste: a slow spring (Sluggish naturalHz≈1Hz) drove DisplayLink at preferred=max (120Hz). Derive preferred from physics so the link samples ~4× the natural period — only when the caller left Rate unset.
     private static MotionClock SpringClock(MotionClock clock, SpringConfig config, RedrawTarget target) =>
@@ -741,18 +741,18 @@ internal static class Motion {
             EnsureObserver();
         }
 
+        internal static Pacer Start(NSView view, Action onTick, Option<CAFrameRateRange> rate) {
+            Pacer pacer = new(view: view, onTick: onTick, explicitRate: rate.Case as CAFrameRateRange?);
+            using (PoolGate.EnterScope()) { Pool.AddOrUpdate(view, pacer); }
+            return pacer;
+        }
+
         // AppDomain-lifetime observer (RhinoWIP never tears down plugins). No Pacer refs held; the live pool is walked on each parameter change.
         private static void EnsureObserver() {
             using (ObserverGate.EnterScope()) {
                 screenChangeObserver ??= NSApplication.Notifications.ObserveDidChangeScreenParameters(
                     static (_, _) => { using (PoolGate.EnterScope()) { _ = toSeq(Pool).Iter(static entry => entry.Value.RebindLink()); } });
             }
-        }
-
-        internal static Pacer Start(NSView view, Action onTick, Option<CAFrameRateRange> rate) {
-            Pacer pacer = new(view: view, onTick: onTick, explicitRate: rate.Case as CAFrameRateRange?);
-            using (PoolGate.EnterScope()) { Pool.AddOrUpdate(view, pacer); }
-            return pacer;
         }
 
         [Export("tick:")]

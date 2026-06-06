@@ -52,6 +52,18 @@ public sealed partial class PagePhase {
 }
 
 // --- [MODELS] -----------------------------------------------------------------------------
+[StructLayout(LayoutKind.Auto)]
+public readonly record struct PageObjectContext(global::Rhino.UI.ObjectPropertiesPageEventArgs Args);
+
+[StructLayout(LayoutKind.Auto)]
+public readonly record struct PageParentContext(IntPtr Handle);
+
+[StructLayout(LayoutKind.Auto)]
+public readonly record struct PageScriptContext(RhinoDoc Document, RunMode Mode);
+
+[StructLayout(LayoutKind.Auto)]
+public readonly record struct PageSizeContext(int Width, int Height);
+
 [Union]
 public abstract partial record PageEvent {
     private PageEvent() { }
@@ -65,6 +77,14 @@ public abstract partial record PageEvent {
     public sealed record Help : PageEvent { public override PagePhase Phase => PagePhase.Help; }
     public sealed record Parent(PageParentContext Context) : PageEvent { public override PagePhase Phase => PagePhase.CreateParent; }
     public sealed record Size(PageSizeContext Context) : PageEvent { public override PagePhase Phase => PagePhase.SizeParent; }
+
+    public static PageEvent Scripted(RhinoDoc document, RunMode mode) =>
+        new Script(Context: new PageScriptContext(Document: document, Mode: mode));
+
+    public static PageEvent ObjectPage(PagePhase phase, global::Rhino.UI.ObjectPropertiesPageEventArgs args, RunMode mode = RunMode.Interactive) {
+        ArgumentNullException.ThrowIfNull(args);
+        return new ObjectEvent(Kind: phase, Context: new PageObjectContext(Args: args), ObjectScript: Optional(args.Document).Map(document => new PageScriptContext(Document: document, Mode: mode)));
+    }
 
     public Option<global::Rhino.UI.ObjectPropertiesPageEventArgs> Args =>
         this is ObjectEvent { Context.Args: var args } ? Some(args) : Option<global::Rhino.UI.ObjectPropertiesPageEventArgs>.None;
@@ -85,14 +105,6 @@ public abstract partial record PageEvent {
     public ObjectType ObjectTypes => Args.Map(static args => (ObjectType)args.ObjectTypes).IfNone(ObjectType.None);
     public Option<IntPtr> ParentHandle => this is Parent parent ? Some(parent.Context.Handle) : Option<IntPtr>.None;
     public Option<(int Width, int Height)> ParentSize => this is Size size ? Some((size.Context.Width, size.Context.Height)) : Option<(int Width, int Height)>.None;
-
-    public static PageEvent Scripted(RhinoDoc document, RunMode mode) =>
-        new Script(Context: new PageScriptContext(Document: document, Mode: mode));
-
-    public static PageEvent ObjectPage(PagePhase phase, global::Rhino.UI.ObjectPropertiesPageEventArgs args, RunMode mode = RunMode.Interactive) {
-        ArgumentNullException.ThrowIfNull(args);
-        return new ObjectEvent(Kind: phase, Context: new PageObjectContext(Args: args), ObjectScript: Optional(args.Document).Map(document => new PageScriptContext(Document: document, Mode: mode)));
-    }
 
     public Fin<RhinoDoc> RequireDocument() =>
         (ScriptContext.Map(static context => context.Document).Bind(Optional) | Args.Bind(static args => Optional(args.Document)))
@@ -118,12 +130,6 @@ public readonly record struct PageMetadata(
         new(LocalTitle: localTitle, IconResource: iconResource, Index: index, PageType: Some(pageType));
 }
 
-[StructLayout(LayoutKind.Auto)]
-public readonly record struct PageObjectContext(global::Rhino.UI.ObjectPropertiesPageEventArgs Args);
-
-[StructLayout(LayoutKind.Auto)]
-public readonly record struct PageParentContext(IntPtr Handle);
-
 public sealed record PageRegistration<TPage>(TPage Page, PageHost Host) where TPage : class {
     public Fin<Unit> Add(ICollection<TPage> pages) =>
         from page in Op.Of(name: nameof(Add)).Need(Page)
@@ -146,12 +152,6 @@ public sealed record PageRegistration<TPage>(TPage Page, PageHost Host) where TP
             _ => Fin.Fail<Unit>(error: Op.Of(name: nameof(Add)).InvalidInput()),
         };
 }
-
-[StructLayout(LayoutKind.Auto)]
-public readonly record struct PageScriptContext(RhinoDoc Document, RunMode Mode);
-
-[StructLayout(LayoutKind.Auto)]
-public readonly record struct PageSizeContext(int Width, int Height);
 
 // --- [SERVICES] ---------------------------------------------------------------------------
 public abstract class RasmOptionsPage : global::Rhino.UI.OptionsDialogPage {
@@ -180,15 +180,16 @@ public abstract class RasmOptionsPage : global::Rhino.UI.OptionsDialogPage {
     public sealed override void OnCreateParent(IntPtr hwndParent) => _ = ResultOf(pageEvent: new PageEvent.Parent(Context: new PageParentContext(Handle: hwndParent)));
     public sealed override void OnSizeParent(int width, int height) => _ = ResultOf(pageEvent: new PageEvent.Size(Context: new PageSizeContext(Width: width, Height: height)));
 
-    protected virtual Fin<Result> Change(PageEvent pageEvent) => Fin.Succ(value: Result.Success);
     public Fin<Unit> Navigate(PageNav nav) => Op.Of(name: nameof(Navigate)).Need(nav).Bind(valid => valid.Apply(page: this));
+
+    protected virtual Fin<Result> Change(PageEvent pageEvent) => Fin.Succ(value: Result.Success);
 
     private Result ResultOf(PageEvent pageEvent) => RhinoUi.Protect(valid: () => Change(pageEvent: pageEvent)).Match(Succ: static result => result, Fail: static _ => Result.Failure);
 }
 
 public abstract class RasmPropertiesPage : global::Rhino.UI.ObjectPropertiesPage {
-    private readonly Control control;
     private readonly string englishTitle;
+    private readonly Control control;
     private readonly ObjectType supportedTypes;
     private readonly bool allObjectsMustBeSupported;
     private readonly bool supportsSubObjects;

@@ -29,39 +29,6 @@ public sealed partial class FileDetailAnchor {
 
 [Union(SwitchMapStateParameterName = "ctx")]
 public abstract partial record FileScale {
-    internal Fin<DetailViewObject> Apply(DetailViewObject detail, RhinoDoc document, Op op) =>
-        from spec in Resolve(document: document, op: op)
-        from parallel in Optional(detail).ToFin(Fail: op.InvalidInput())
-        from _projection in guard(parallel.DetailGeometry is { IsParallelProjection: true }, op.InvalidInput())
-        from _ in op.Confirm(success:
-            parallel.DetailGeometry.SetScale(modelLength: spec.ModelLength, modelUnits: spec.ModelUnit, pageLength: spec.PageLength, pageUnits: spec.PageUnit)
-            && parallel.CommitChanges())
-        select parallel;
-
-    internal static Option<string> Format(DetailViewObject detail) =>
-        detail.GetFormattedScale(format: DetailViewObject.ScaleFormat.OneToModelLength, value: out string formatted)
-            ? FileArchiveOps.TextOption(value: formatted) : Option<string>.None;
-
-    private static Fin<(double, LengthUnit, double, LengthUnit)> ParseNamed(string value, LengthUnit modelFallback, LengthUnit pageFallback, Op op) =>
-        from text in FileEndpoint.NonBlank(value: value, op: op)
-        from tuple in op.Catch(() => {
-            using ScaleValue scale = ScaleValue.Create(s: text, ps: StringParserSettings.DefaultParseSettings);
-            return scale is { } sv && !sv.IsUnset()
-                ? op.Catch(() => {
-                    using LengthValue page = sv.LeftLengthValue();
-                    using LengthValue model = sv.RightLengthValue();
-                    return Fin.Succ(value: (model.Length(units: model.Units), UnitOr(unit: model.Units, fallback: modelFallback), page.Length(units: page.Units), UnitOr(unit: page.Units, fallback: pageFallback)));
-                })
-                : Fin.Fail<(double, LengthUnit, double, LengthUnit)>(error: op.InvalidInput());
-        })
-        from valid in guard(RhinoMath.IsValidDouble(x: tuple.Item1) && tuple.Item1 > 0.0 && RhinoMath.IsValidDouble(x: tuple.Item3) && tuple.Item3 > 0.0, op.InvalidResult())
-        select tuple;
-
-    private static LengthUnit UnitOr(LengthUnit unit, LengthUnit fallback) =>
-        LengthUnit.IsNone(unit: unit) || LengthUnit.IsUnset(unit: unit) ? fallback : unit;
-
-    private static bool Defined(LengthUnit unit) => !LengthUnit.IsNone(unit: unit) && !LengthUnit.IsUnset(unit: unit);
-
     private FileScale() { }
 
     public sealed record Ratio(double Model, double Page) : FileScale;
@@ -89,6 +56,39 @@ public abstract partial record FileScale {
                 modelFallback: LengthUnit.FromKnownUnitSystem(knownUnitSystem: ctx.Doc.ModelUnitSystem),
                 pageFallback: LengthUnit.FromKnownUnitSystem(knownUnitSystem: ctx.Doc.PageUnitSystem),
                 op: ctx.Op));
+
+    internal Fin<DetailViewObject> Apply(DetailViewObject detail, RhinoDoc document, Op op) =>
+        from spec in Resolve(document: document, op: op)
+        from parallel in Optional(detail).ToFin(Fail: op.InvalidInput())
+        from _projection in guard(parallel.DetailGeometry is { IsParallelProjection: true }, op.InvalidInput())
+        from _ in op.Confirm(success:
+            parallel.DetailGeometry.SetScale(modelLength: spec.ModelLength, modelUnits: spec.ModelUnit, pageLength: spec.PageLength, pageUnits: spec.PageUnit)
+            && parallel.CommitChanges())
+        select parallel;
+
+    internal static Option<string> Format(DetailViewObject detail) =>
+        detail.GetFormattedScale(format: DetailViewObject.ScaleFormat.OneToModelLength, value: out string formatted)
+            ? FileArchiveOps.TextOption(value: formatted) : Option<string>.None;
+
+    private static bool Defined(LengthUnit unit) => !LengthUnit.IsNone(unit: unit) && !LengthUnit.IsUnset(unit: unit);
+
+    private static LengthUnit UnitOr(LengthUnit unit, LengthUnit fallback) =>
+        LengthUnit.IsNone(unit: unit) || LengthUnit.IsUnset(unit: unit) ? fallback : unit;
+
+    private static Fin<(double, LengthUnit, double, LengthUnit)> ParseNamed(string value, LengthUnit modelFallback, LengthUnit pageFallback, Op op) =>
+        from text in FileEndpoint.NonBlank(value: value, op: op)
+        from tuple in op.Catch(() => {
+            using ScaleValue scale = ScaleValue.Create(s: text, ps: StringParserSettings.DefaultParseSettings);
+            return scale is { } sv && !sv.IsUnset()
+                ? op.Catch(() => {
+                    using LengthValue page = sv.LeftLengthValue();
+                    using LengthValue model = sv.RightLengthValue();
+                    return Fin.Succ(value: (model.Length(units: model.Units), UnitOr(unit: model.Units, fallback: modelFallback), page.Length(units: page.Units), UnitOr(unit: page.Units, fallback: pageFallback)));
+                })
+                : Fin.Fail<(double, LengthUnit, double, LengthUnit)>(error: op.InvalidInput());
+        })
+        from valid in guard(RhinoMath.IsValidDouble(x: tuple.Item1) && tuple.Item1 > 0.0 && RhinoMath.IsValidDouble(x: tuple.Item3) && tuple.Item3 > 0.0, op.InvalidResult())
+        select tuple;
 }
 
 [Union(SwitchMapStateParameterName = "ctx")]
@@ -126,36 +126,6 @@ public abstract partial record FileSheetEdit {
 }
 
 // --- [MODELS] -----------------------------------------------------------------------------
-public readonly record struct DetailQuery(Option<Guid> Id = default, Option<string> Name = default, Option<Func<DetailViewObject, bool>> Where = default) {
-    public static DetailQuery All => default;
-    public static DetailQuery Named(string name) => new(Name: Some(name));
-    public static DetailQuery Parallel => new(Where: Some<Func<DetailViewObject, bool>>(value: static detail => detail.DetailGeometry is { IsParallelProjection: true }));
-    public static DetailQuery Perspective => new(Where: Some<Func<DetailViewObject, bool>>(value: static detail => detail.DetailGeometry is not { IsParallelProjection: true }));
-    internal bool IsAll => Id.IsNone && Name.IsNone && Where.IsNone;
-
-    internal Fin<Seq<DetailViewObject>> Resolve(RhinoPageView page, Op op) {
-        DetailQuery self = this;
-        return from name in self.Name.Map(value => FileEndpoint.NonBlank(value: value, op: op).Map(Some)).IfNone(Fin.Succ(value: Option<string>.None))
-               from details in op.Catch(() => Fin.Succ(value: toSeq(page.GetDetailViews()).Filter(detail =>
-                   self.Id.Map(id => detail.Id == id || detail.Viewport.Id == id).IfNone(noneValue: true)
-                   && name.Map(value => NameOf(detail: detail).Map(found => string.Equals(a: found, b: value, comparisonType: StringComparison.OrdinalIgnoreCase)).IfNone(noneValue: false)).IfNone(noneValue: true)
-                   && self.Where.Map(predicate => predicate(arg: detail)).IfNone(noneValue: true))))
-               from _any in guard(!details.IsEmpty, op.InvalidResult())
-               select details;
-    }
-
-    internal Fin<DetailViewObject> Single(RhinoPageView page, Op op) =>
-        from details in Resolve(page: page, op: op)
-        from _one in guard(details.Count == 1, op.InvalidInput())
-        select details[0];
-
-    internal static Option<string> NameOf(DetailViewObject detail) =>
-        Optional(detail.Attributes?.Name).Filter(static value => !string.IsNullOrEmpty(value: value)).Case switch {
-            string name => Some(name),
-            _ => Optional(detail.Viewport?.Name).Filter(static value => !string.IsNullOrEmpty(value: value)),
-        };
-}
-
 public readonly record struct SheetQuery(Option<Guid> Id = default, Option<string> Name = default, Option<string> Group = default, Option<Func<RhinoPageView, bool>> Where = default) {
     public static SheetQuery All => default;
 
@@ -173,6 +143,36 @@ public readonly record struct SheetQuery(Option<Guid> Id = default, Option<strin
             };
         });
     }
+}
+
+public readonly record struct DetailQuery(Option<Guid> Id = default, Option<string> Name = default, Option<Func<DetailViewObject, bool>> Where = default) {
+    public static DetailQuery All => default;
+    public static DetailQuery Named(string name) => new(Name: Some(name));
+    public static DetailQuery Parallel => new(Where: Some<Func<DetailViewObject, bool>>(value: static detail => detail.DetailGeometry is { IsParallelProjection: true }));
+    public static DetailQuery Perspective => new(Where: Some<Func<DetailViewObject, bool>>(value: static detail => detail.DetailGeometry is not { IsParallelProjection: true }));
+    internal bool IsAll => Id.IsNone && Name.IsNone && Where.IsNone;
+
+    internal static Option<string> NameOf(DetailViewObject detail) =>
+        Optional(detail.Attributes?.Name).Filter(static value => !string.IsNullOrEmpty(value: value)).Case switch {
+            string name => Some(name),
+            _ => Optional(detail.Viewport?.Name).Filter(static value => !string.IsNullOrEmpty(value: value)),
+        };
+
+    internal Fin<Seq<DetailViewObject>> Resolve(RhinoPageView page, Op op) {
+        DetailQuery self = this;
+        return from name in self.Name.Map(value => FileEndpoint.NonBlank(value: value, op: op).Map(Some)).IfNone(Fin.Succ(value: Option<string>.None))
+               from details in op.Catch(() => Fin.Succ(value: toSeq(page.GetDetailViews()).Filter(detail =>
+                   self.Id.Map(id => detail.Id == id || detail.Viewport.Id == id).IfNone(noneValue: true)
+                   && name.Map(value => NameOf(detail: detail).Map(found => string.Equals(a: found, b: value, comparisonType: StringComparison.OrdinalIgnoreCase)).IfNone(noneValue: false)).IfNone(noneValue: true)
+                   && self.Where.Map(predicate => predicate(arg: detail)).IfNone(noneValue: true))))
+               from _any in guard(!details.IsEmpty, op.InvalidResult())
+               select details;
+    }
+
+    internal Fin<DetailViewObject> Single(RhinoPageView page, Op op) =>
+        from details in Resolve(page: page, op: op)
+        from _one in guard(details.Count == 1, op.InvalidInput())
+        select details[0];
 }
 
 public readonly record struct FileSheetSize(UnitSystem Units, Option<double> Width = default, Option<double> Height = default) {
@@ -198,11 +198,6 @@ public readonly record struct FileSheetSize(UnitSystem Units, Option<double> Wid
                select (Width: resolvedWidth, Height: resolvedHeight);
     }
 
-    private static Fin<(double Width, double Height)> Resolve((double Width, double Height) value, UnitSystem units, RhinoDoc document, Op op) =>
-        from resolvedWidth in Resolve(value: value.Width, units: units, document: document, op: op)
-        from resolvedHeight in Resolve(value: value.Height, units: units, document: document, op: op)
-        select (Width: resolvedWidth, Height: resolvedHeight);
-
     private static Fin<double> Resolve(double value, UnitSystem units, RhinoDoc document, Op op) =>
         from active in Optional(document).ToFin(Fail: op.InvalidInput())
         from valid in guard(
@@ -216,6 +211,11 @@ public readonly record struct FileSheetSize(UnitSystem Units, Option<double> Wid
             RhinoMath.IsValidDouble(x: scale) && scale > 0.0 && RhinoMath.IsValidDouble(x: resolved) && resolved > 0.0,
             op.InvalidResult())
         select resolved;
+
+    private static Fin<(double Width, double Height)> Resolve((double Width, double Height) value, UnitSystem units, RhinoDoc document, Op op) =>
+        from resolvedWidth in Resolve(value: value.Width, units: units, document: document, op: op)
+        from resolvedHeight in Resolve(value: value.Height, units: units, document: document, op: op)
+        select (Width: resolvedWidth, Height: resolvedHeight);
 }
 
 public readonly record struct FileSheetSpec(
@@ -256,9 +256,9 @@ public readonly record struct FileLayerOverrideSpec(
     bool ResetAll = false) {
     public static FileLayerOverrideSpec Reset => new(ResetAll: true);
 
-    internal bool Applies => ResetAll || HasFieldOperation;
-
     internal bool HasFieldOperation => Color.IsActive || Visible.IsActive || PersistentVisible.IsActive || PlotColor.IsActive || PlotWeight.IsActive;
+
+    internal bool Applies => ResetAll || HasFieldOperation;
 
     public static FileLayerOverrideSpec operator |(FileLayerOverrideSpec left, FileLayerOverrideSpec right) =>
         right.ResetAll ? right : right.HasFieldOperation ? new(
@@ -271,8 +271,6 @@ public readonly record struct FileLayerOverrideSpec(
 
 public readonly record struct FileLayerOverride(string LayerPath, FileLayerOverrideSpec Spec);
 
-public readonly record struct FileNumbering(string SheetPattern, int Start = 1, Option<string> DetailPattern = default);
-
 public readonly record struct FileSheetConfig(
     Option<FileSheetSize> Size = default,
     Option<string> Group = default,
@@ -281,6 +279,8 @@ public readonly record struct FileSheetConfig(
     Option<UnitSystem> DocumentPageUnits = default,
     Seq<FileUserString> UserStrings = default,
     Option<string> GroupDescription = default);
+
+public readonly record struct FileNumbering(string SheetPattern, int Start = 1, Option<string> DetailPattern = default);
 
 public readonly record struct FileClipReport(
     Guid Id,
@@ -321,6 +321,9 @@ public readonly record struct FileSheetReport(
 
 // --- [OPERATIONS] -------------------------------------------------------------------------
 internal static partial class SheetOps {
+    [GeneratedRegex(pattern: "\\{n(?::(?<fmt>[^{}]+))?\\}", options: RegexOptions.CultureInvariant | RegexOptions.ExplicitCapture, matchTimeoutMilliseconds: 250)]
+    private static partial Regex NumberPattern { get; }
+
     private static readonly Seq<(Vector3d Direction, DefinedViewportProjection Projection)> AxisTable = Seq(
         (new Vector3d(0.0, 0.0, -1.0), DefinedViewportProjection.Top),
         (new Vector3d(0.0, 0.0, 1.0), DefinedViewportProjection.Bottom),
@@ -328,18 +331,6 @@ internal static partial class SheetOps {
         (new Vector3d(0.0, -1.0, 0.0), DefinedViewportProjection.Back),
         (new Vector3d(-1.0, 0.0, 0.0), DefinedViewportProjection.Right),
         (new Vector3d(1.0, 0.0, 0.0), DefinedViewportProjection.Left));
-
-    [GeneratedRegex(pattern: "\\{n(?::(?<fmt>[^{}]+))?\\}", options: RegexOptions.CultureInvariant | RegexOptions.ExplicitCapture, matchTimeoutMilliseconds: 250)]
-    private static partial Regex NumberPattern { get; }
-
-    // BOUNDARY ADAPTER: binds positionally to both TryGetPaperLength (first param "paper") and TryGetModelLength (first param "model"); "input" names the shared model-domain source neutrally.
-    private delegate bool TryLength(double input, out double result);
-
-    [StructLayout(LayoutKind.Auto)]
-    private readonly record struct DetailMove(Guid SourceId, Guid TargetId, bool Duplicate);
-
-    [StructLayout(LayoutKind.Auto)]
-    private readonly record struct FitGrid(int Columns, int Rows, double Width, double Height);
 
     internal static Fin<DocumentReceipt> Apply(RhinoDoc document, FileSheetEdit edit, Op op) =>
         edit.Switch(
@@ -970,6 +961,15 @@ internal static partial class SheetOps {
             ? AxisTable.Find(entry => entry.Direction * look > 0.9995).Map(static entry => entry.Projection).IfNone(DefinedViewportProjection.None)
             : DefinedViewportProjection.None;
     }
+
+    // BOUNDARY ADAPTER: binds positionally to both TryGetPaperLength (first param "paper") and TryGetModelLength (first param "model"); "input" names the shared model-domain source neutrally.
+    private delegate bool TryLength(double input, out double result);
+
+    [StructLayout(LayoutKind.Auto)]
+    private readonly record struct DetailMove(Guid SourceId, Guid TargetId, bool Duplicate);
+
+    [StructLayout(LayoutKind.Auto)]
+    private readonly record struct FitGrid(int Columns, int Rows, double Width, double Height);
 
     [StructLayout(LayoutKind.Auto)]
     private readonly record struct DetailFrame(double X, double Y, double Width, double Height) {

@@ -306,11 +306,19 @@ internal static class FileArchiveOps {
             archive: Some(result.Archive),
             receipt: Some(result.Receipt));
 
-    internal static Fin<byte[]> Bytes(FileArchiveSource source, ArchiveProfile profile) =>
-        UseArchive(source: source, profile: profile, op: Op.Of(name: nameof(Bytes)), use: (_, model, _) =>
-            Optional(model.ToByteArray(options: FileFormat.ArchiveWriteOptions(profile: profile)))
-                .Filter(static value => value.Length > 0)
-                .ToFin(Fail: Op.Of(name: nameof(Bytes)).InvalidResult()));
+    internal static Fin<FileArchiveMetadata> Inspect(FileEndpoint source) =>
+        from path in source.Input(op: Op.Of(name: nameof(Inspect)))
+        from metadata in UseArchive(
+            source: new FileArchiveSource.Path(Value: path),
+            profile: ArchiveProfile.Full with { Projection = FileArchiveProjection.Metadata },
+            op: Op.Of(name: nameof(Inspect)),
+            use: (_, model, _) => Metadata(source: new FileArchiveSource.Path(Value: path), model: model, layouts: ReadLayouts(source: new FileArchiveSource.Path(Value: path))))
+        select metadata;
+
+    internal static Fin<FileArchiveDiff> Diff(FileEndpoint source, FileEndpoint other) =>
+        from before in GraphOf(endpoint: source, op: Op.Of(name: nameof(Diff)))
+        from after in GraphOf(endpoint: other, op: Op.Of(name: nameof(Diff)))
+        select FileArchiveDiff.Of(before: before.Entries, after: after.Entries);
 
     internal static Fin<FileReport> Validate(FileArchiveSource source, ArchiveProfile profile, IoScheduler scheduler) =>
         from result in UseArchive(source: source, profile: profile with { Slice = ArchiveSlice.Resources, Projection = FileArchiveProjection.Graph }, op: Op.Of(name: nameof(Validate)), use: (endpoint, model, log) =>
@@ -326,19 +334,11 @@ internal static class FileArchiveOps {
             nativeLog: LogOption(log: result.Log),
             archive: Some(result.Archive));
 
-    internal static Fin<FileArchiveMetadata> Inspect(FileEndpoint source) =>
-        from path in source.Input(op: Op.Of(name: nameof(Inspect)))
-        from metadata in UseArchive(
-            source: new FileArchiveSource.Path(Value: path),
-            profile: ArchiveProfile.Full with { Projection = FileArchiveProjection.Metadata },
-            op: Op.Of(name: nameof(Inspect)),
-            use: (_, model, _) => Metadata(source: new FileArchiveSource.Path(Value: path), model: model, layouts: ReadLayouts(source: new FileArchiveSource.Path(Value: path))))
-        select metadata;
-
-    internal static Fin<FileArchiveDiff> Diff(FileEndpoint source, FileEndpoint other) =>
-        from before in GraphOf(endpoint: source, op: Op.Of(name: nameof(Diff)))
-        from after in GraphOf(endpoint: other, op: Op.Of(name: nameof(Diff)))
-        select FileArchiveDiff.Of(before: before.Entries, after: after.Entries);
+    internal static Fin<byte[]> Bytes(FileArchiveSource source, ArchiveProfile profile) =>
+        UseArchive(source: source, profile: profile, op: Op.Of(name: nameof(Bytes)), use: (_, model, _) =>
+            Optional(model.ToByteArray(options: FileFormat.ArchiveWriteOptions(profile: profile)))
+                .Filter(static value => value.Length > 0)
+                .ToFin(Fail: Op.Of(name: nameof(Bytes)).InvalidResult()));
 
     internal static Fin<FileQueryResult> Query(FileArchiveSource source, FileArchiveQuery query, Op op) =>
         query.Switch(
@@ -393,6 +393,10 @@ internal static class FileArchiveOps {
                 select value)
         select result;
 
+    private static Option<int> NamedViewIndex(File3dmViewTable table, string name) =>
+        toSeq(Enumerable.Range(start: 0, count: Native(read: () => table.Count).IfNone(0)))
+            .Find(index => string.Equals(a: table[index].Name, b: name, comparisonType: StringComparison.OrdinalIgnoreCase));
+
     private static Fin<Option<DocumentResourceChange>> ApplyNamedViewPatch(File3dmViewTable table, FileNamedViewPatch patch, Op op) =>
         from name in FileEndpoint.NonBlank(value: patch.Name, op: op)
         from index in NamedViewIndex(table: table, name: name).ToFin(Fail: op.MissingContext())
@@ -410,10 +414,6 @@ internal static class FileArchiveOps {
             _ => Fin.Succ(value: Option<DocumentResourceChange>.None),
         }
         select change;
-
-    private static Option<int> NamedViewIndex(File3dmViewTable table, string name) =>
-        toSeq(Enumerable.Range(start: 0, count: Native(read: () => table.Count).IfNone(0)))
-            .Find(index => string.Equals(a: table[index].Name, b: name, comparisonType: StringComparison.OrdinalIgnoreCase));
 
     private static Fin<Seq<DocumentResourceChange>> ApplySettingsPatch(File3dmSettings settings, FileArchiveSettingsPatch patch, Op op) =>
         op.Catch(() => {

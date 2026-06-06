@@ -8,6 +8,8 @@ using DrawingSize = System.Drawing.Size;
 namespace Rasm.Rhino.UI;
 
 // --- [TYPES] ------------------------------------------------------------------------------
+public enum UiWindowMode { Modal, SemiModal }
+
 [Union(SwitchMapStateParameterName = "scope")]
 public abstract partial record UiLayerRequest {
     private UiLayerRequest(string title, Option<Seq<int>> selected, bool showNewLayer) =>
@@ -35,11 +37,7 @@ public abstract partial record UiLayerRequest {
         bool ShowNewLayer = false) : UiLayerRequest(Title, Selected, ShowNewLayer);
 }
 
-public enum UiWindowMode { Modal, SemiModal }
-
 // --- [MODELS] -----------------------------------------------------------------------------
-public readonly record struct UiColorSpec(Color4f Initial, Option<global::Rhino.UI.NamedColorList> Named = default, global::Rhino.UI.Dialogs.OnColorChangedEvent? Changed = null, bool AllowAlpha = false);
-
 public sealed record UiIntent<T> {
     private readonly Func<RhinoUi.Scope, Fin<T>> run;
 
@@ -48,8 +46,6 @@ public sealed record UiIntent<T> {
 
     internal bool Interactive { get; }
     internal Option<Func<RhinoUi.Scope, Fin<T>>> Scripted { get; }
-
-    internal Fin<T> Run(RhinoUi.Scope scope) => run(arg: scope);
 
     public UiIntent<TNext> Map<TNext>(Func<T, TNext> project) =>
         new(
@@ -65,7 +61,11 @@ public sealed record UiIntent<T> {
 
     public UiIntent<T> WithScripted(Func<RhinoDoc, Fin<T>> fallback) =>
         WithScripted(fallback: (document, _) => Op.Of(name: nameof(WithScripted)).Need(fallback).Bind(project => project(arg: document)));
+
+    internal Fin<T> Run(RhinoUi.Scope scope) => run(arg: scope);
 }
+
+public readonly record struct UiColorSpec(Color4f Initial, Option<global::Rhino.UI.NamedColorList> Named = default, global::Rhino.UI.Dialogs.OnColorChangedEvent? Changed = null, bool AllowAlpha = false);
 
 public readonly record struct UiLayerResult(Seq<int> LayerIndices, bool SetCurrent, bool MaterialAccepted) {
     public Option<int> LayerIndex => LayerIndices.Find(static index => index >= 0);
@@ -85,9 +85,6 @@ public static partial class UiIntent {
             run: scope => Op.Of(name: nameof(Operation)).Need(run).Bind(valid => valid(arg1: scope.Document, arg2: scope.Mode)),
             interactive: false);
 
-    internal static UiIntent<T> OfScope<T>(Func<RhinoUi.Scope, Fin<T>> run, bool interactive = false, Option<Func<RhinoUi.Scope, Fin<T>>> scripted = default) =>
-        new(run: run, interactive: interactive, scripted: scripted);
-
     public static UiIntent<T> Request<T>(UiRequest<T> request) =>
         OfScope(
             run: scope => Op.Of(name: nameof(Request)).Need(request).Bind(valid => valid.Run(scope: scope)),
@@ -95,9 +92,6 @@ public static partial class UiIntent {
 
     public static UiIntent<Unit> Enqueue(Action run, string name = nameof(Enqueue)) =>
         OfScope(_ => RhinoUi.Enqueue(run: run, name: name), interactive: false);
-
-    internal static UiIntent<T> Dialog<T>(Func<Window?, RhinoDoc, Fin<T>> show) =>
-        Request(name: nameof(Dialog), run: scope => Op.Of(name: nameof(Dialog)).Need(show).Bind(valid => valid(arg1: scope.Parent, arg2: scope.Document)));
 
     public static UiIntent<T> Window<T>(Dialog<T> dialog, UiWindowMode mode = UiWindowMode.Modal) =>
         Request(name: nameof(Window), run: scope => Op.Of(name: nameof(Window)).Need(dialog).Bind(valid => mode switch {
@@ -222,27 +216,6 @@ public static partial class UiIntent {
             },
         }));
 
-    internal static UiIntent<Seq<FileEndpoint>> ExchangeFile(FilePrompt prompt) =>
-        Request(name: nameof(ExchangeFile), run: scope =>
-            from spec in Op.Of(name: nameof(ExchangeFile)).Need(prompt)
-            from paths in spec.Mode switch {
-                FilePromptMode.Save => new global::Rhino.UI.SaveFileDialog { Title = spec.Title, Filter = spec.Filter, FileName = spec.FileName.IfNone(string.Empty), InitialDirectory = spec.InitialDirectory.IfNone(string.Empty), DefaultExt = spec.DefaultExtension.IfNone(string.Empty) } switch {
-                    global::Rhino.UI.SaveFileDialog dialog => Picked(dialog.ShowSaveDialog(), Seq(dialog.FileName)),
-                },
-                FilePromptMode.OpenSingle or FilePromptMode.OpenMultiple => new global::Rhino.UI.OpenFileDialog { Title = spec.Title, Filter = spec.Filter, FileName = spec.FileName.IfNone(string.Empty), InitialDirectory = spec.InitialDirectory.IfNone(string.Empty), DefaultExt = spec.DefaultExtension.IfNone(string.Empty), MultiSelect = spec.Mode == FilePromptMode.OpenMultiple } switch {
-                    global::Rhino.UI.OpenFileDialog dialog => Picked(dialog.ShowOpenDialog(), spec.Mode == FilePromptMode.OpenMultiple ? toSeq(dialog.FileNames) : Seq(dialog.FileName)),
-                },
-                FilePromptMode.Folder => new SelectFolderDialog { Title = spec.Title, Directory = spec.InitialDirectory.IfNone(string.Empty) } switch {
-                    SelectFolderDialog dialog => dialog.ShowDialog(parent: scope.Parent) switch {
-                        DialogResult.Ok => Picked(dialog.Directory).Map(static value => Seq(value)),
-                        _ => Fin.Fail<Seq<string>>(error: new Fault.Cancelled()),
-                    },
-                },
-                _ => Fin.Fail<Seq<string>>(error: Op.Of(name: nameof(ExchangeFile)).InvalidInput()),
-            }
-            from endpoints in paths.TraverseM(path => FileEndpoint.From(path: path, name: spec.Name, write: spec.Write)).As()
-            select endpoints);
-
     public static UiIntent<string> Edit(string title, string message, string value = "", bool expanded = false) =>
         Request(name: nameof(Edit), run: _ => Picked(global::Rhino.UI.Dialogs.ShowEditBox(title: title, message: message, defaultText: value, multiline: expanded, text: out string result), result));
 
@@ -266,40 +239,6 @@ public static partial class UiIntent {
 
     public static UiIntent<Unit> Sun() =>
         Request(name: nameof(Sun), run: scope => Picked(global::Rhino.UI.Dialogs.ShowSunDialog(sun: scope.Document.Lights.Sun), unit));
-    private static Fin<T> Picked<T>(bool ok, T value) => ok ? Fin.Succ(value: value) : Fin.Fail<T>(error: new Fault.Cancelled());
-    private static Fin<T> Picked<T>(T? value) where T : class => Optional(value).ToFin(Fail: new Fault.Cancelled());
-
-    private static UiIntent<T> Request<T>(string name, Func<RhinoUi.Scope, Fin<T>> run, bool interactive = true) =>
-        OfScope(
-            run: scope => Op.Of(name: name).Need(run).Bind(valid => valid(arg: scope)),
-            interactive: interactive);
-
-    private static Fin<Seq<T>> Items<T>(IEnumerable<T> values, string name) =>
-        Op.Of(name: name).Need(values).Bind(source => toSeq(source) switch {
-            Seq<T> items when !items.IsEmpty => Fin.Succ(value: items),
-            _ => Fin.Fail<Seq<T>>(error: Op.Of(name: name).InvalidInput()),
-        });
-
-    private static Fin<Seq<int>> MultipleLayers(UiLayerRequest request) =>
-        global::Rhino.UI.Dialogs.ShowSelectMultipleLayersDialog(defaultLayerIndices: request.Selected.IfNone(Seq<int>()).AsIterable(), dialogTitle: request.Title, showNewLayerButton: request.ShowNewLayer, layerIndices: out int[] indices) switch {
-            true => LayerIndices(values: toSeq(indices)),
-            false => Fin.Fail<Seq<int>>(error: new Fault.Cancelled()),
-        };
-
-    private static Fin<Seq<int>> LayerIndices(Seq<int> values) =>
-        values.Filter(static index => index >= 0).Distinct() switch {
-            Seq<int> indices when !indices.IsEmpty => Fin.Succ(value: indices),
-            _ => Fin.Fail<Seq<int>>(error: Op.Of(name: nameof(Layer)).InvalidResult()),
-        };
-}
-
-public static partial class UiIntent {
-    private static UiIntent<T> Of<T>(string name, Func<RhinoDoc, RunMode, Fin<T>> run, bool interactive = false) {
-        Op operation = Op.Of(name: string.IsNullOrWhiteSpace(value: name) ? nameof(UiIntent) : name);
-        return OfScope(
-            run: scope => operation.Need(run).Bind(valid => valid(arg1: scope.Document, arg2: scope.Mode)),
-            interactive: interactive);
-    }
 
     public static UiIntent<DrawingBitmap> Mesh(IEnumerable<Mesh> meshes, DrawingSize size, IEnumerable<DrawingColor>? colors = null) =>
         Of(
@@ -364,7 +303,6 @@ public static partial class UiIntent {
         Of(
             name: nameof(NamedColors),
             run: (_, _) => Fin.Succ(value: toSeq(source.IfNone(global::Rhino.UI.NamedColorList.Default))));
-    private static Fin<T> Project<T>(Op op, Func<T?> native) where T : class => Optional(native()).ToFin(Fail: op.InvalidResult());
 
     public static UiIntent<CaptureResult> CaptureFrame(RhinoView view, CaptureFormat format, CaptureRecipe recipe = default) =>
         Of(name: nameof(CaptureFrame), run: (_, _) => recipe.WithPolicy(
@@ -383,4 +321,66 @@ public static partial class UiIntent {
             return global::Rhino.UI.Dialogs.ShowColorDialog(parent: parent, color: ref color, allowAlpha: spec.AllowAlpha, namedColorList: named, colorCallback: spec.Changed)
                 switch { true => Fin.Succ(value: color), false => Fin.Fail<Color4f>(error: new Fault.Cancelled()) };
         }));
+
+    internal static UiIntent<T> OfScope<T>(Func<RhinoUi.Scope, Fin<T>> run, bool interactive = false, Option<Func<RhinoUi.Scope, Fin<T>>> scripted = default) =>
+        new(run: run, interactive: interactive, scripted: scripted);
+
+    internal static UiIntent<T> Dialog<T>(Func<Window?, RhinoDoc, Fin<T>> show) =>
+        Request(name: nameof(Dialog), run: scope => Op.Of(name: nameof(Dialog)).Need(show).Bind(valid => valid(arg1: scope.Parent, arg2: scope.Document)));
+
+    internal static UiIntent<Seq<FileEndpoint>> ExchangeFile(FilePrompt prompt) =>
+        Request(name: nameof(ExchangeFile), run: scope =>
+            from spec in Op.Of(name: nameof(ExchangeFile)).Need(prompt)
+            from paths in spec.Mode switch {
+                FilePromptMode.Save => new global::Rhino.UI.SaveFileDialog { Title = spec.Title, Filter = spec.Filter, FileName = spec.FileName.IfNone(string.Empty), InitialDirectory = spec.InitialDirectory.IfNone(string.Empty), DefaultExt = spec.DefaultExtension.IfNone(string.Empty) } switch {
+                    global::Rhino.UI.SaveFileDialog dialog => Picked(dialog.ShowSaveDialog(), Seq(dialog.FileName)),
+                },
+                FilePromptMode.OpenSingle or FilePromptMode.OpenMultiple => new global::Rhino.UI.OpenFileDialog { Title = spec.Title, Filter = spec.Filter, FileName = spec.FileName.IfNone(string.Empty), InitialDirectory = spec.InitialDirectory.IfNone(string.Empty), DefaultExt = spec.DefaultExtension.IfNone(string.Empty), MultiSelect = spec.Mode == FilePromptMode.OpenMultiple } switch {
+                    global::Rhino.UI.OpenFileDialog dialog => Picked(dialog.ShowOpenDialog(), spec.Mode == FilePromptMode.OpenMultiple ? toSeq(dialog.FileNames) : Seq(dialog.FileName)),
+                },
+                FilePromptMode.Folder => new SelectFolderDialog { Title = spec.Title, Directory = spec.InitialDirectory.IfNone(string.Empty) } switch {
+                    SelectFolderDialog dialog => dialog.ShowDialog(parent: scope.Parent) switch {
+                        DialogResult.Ok => Picked(dialog.Directory).Map(static value => Seq(value)),
+                        _ => Fin.Fail<Seq<string>>(error: new Fault.Cancelled()),
+                    },
+                },
+                _ => Fin.Fail<Seq<string>>(error: Op.Of(name: nameof(ExchangeFile)).InvalidInput()),
+            }
+            from endpoints in paths.TraverseM(path => FileEndpoint.From(path: path, name: spec.Name, write: spec.Write)).As()
+            select endpoints);
+
+    private static UiIntent<T> Of<T>(string name, Func<RhinoDoc, RunMode, Fin<T>> run, bool interactive = false) {
+        Op operation = Op.Of(name: string.IsNullOrWhiteSpace(value: name) ? nameof(UiIntent) : name);
+        return OfScope(
+            run: scope => operation.Need(run).Bind(valid => valid(arg1: scope.Document, arg2: scope.Mode)),
+            interactive: interactive);
+    }
+
+    private static Fin<T> Project<T>(Op op, Func<T?> native) where T : class => Optional(native()).ToFin(Fail: op.InvalidResult());
+
+    private static Fin<T> Picked<T>(bool ok, T value) => ok ? Fin.Succ(value: value) : Fin.Fail<T>(error: new Fault.Cancelled());
+    private static Fin<T> Picked<T>(T? value) where T : class => Optional(value).ToFin(Fail: new Fault.Cancelled());
+
+    private static UiIntent<T> Request<T>(string name, Func<RhinoUi.Scope, Fin<T>> run, bool interactive = true) =>
+        OfScope(
+            run: scope => Op.Of(name: name).Need(run).Bind(valid => valid(arg: scope)),
+            interactive: interactive);
+
+    private static Fin<Seq<T>> Items<T>(IEnumerable<T> values, string name) =>
+        Op.Of(name: name).Need(values).Bind(source => toSeq(source) switch {
+            Seq<T> items when !items.IsEmpty => Fin.Succ(value: items),
+            _ => Fin.Fail<Seq<T>>(error: Op.Of(name: name).InvalidInput()),
+        });
+
+    private static Fin<Seq<int>> MultipleLayers(UiLayerRequest request) =>
+        global::Rhino.UI.Dialogs.ShowSelectMultipleLayersDialog(defaultLayerIndices: request.Selected.IfNone(Seq<int>()).AsIterable(), dialogTitle: request.Title, showNewLayerButton: request.ShowNewLayer, layerIndices: out int[] indices) switch {
+            true => LayerIndices(values: toSeq(indices)),
+            false => Fin.Fail<Seq<int>>(error: new Fault.Cancelled()),
+        };
+
+    private static Fin<Seq<int>> LayerIndices(Seq<int> values) =>
+        values.Filter(static index => index >= 0).Distinct() switch {
+            Seq<int> indices when !indices.IsEmpty => Fin.Succ(value: indices),
+            _ => Fin.Fail<Seq<int>>(error: Op.Of(name: nameof(Layer)).InvalidResult()),
+        };
 }
