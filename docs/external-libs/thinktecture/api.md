@@ -1,4 +1,4 @@
-# [H1][THINKTECTURE_API]
+# [THINKTECTURE_API]
 
 [IMPORTANT] Rasm pins `Thinktecture.Runtime.Extensions` at the version pinned in `Directory.Packages.props`. `Directory.Build.props` supplies the package reference and global `Thinktecture` using.
 

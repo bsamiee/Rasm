@@ -1,4 +1,4 @@
-# [H1][SHARPFUZZ_API]
+# [SHARPFUZZ_API]
 
 [IMPORTANT] `SharpFuzz` (version pinned in `Directory.Packages.props`) is isolated in `tests/csharp/_fuzz` behind harness proof and does not run in the normal managed test gate.
 

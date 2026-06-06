@@ -70,6 +70,14 @@ Use this conditional-addition template:
 - Conditional sections appear only when their decision-table trigger holds.
 - Produced ramps contain no generic role, team, owner, shadowing, progress, permission, or escalation metadata unless a local tool output uses that literal field.
 
+Ramp-local availability is a readiness axis, not a roadmap lifecycle. Use it only for independently tracked readings, generated surfaces, or actions, before the first record that carries `Status`:
+- `READY`: source path, first action, and readiness gate are current.
+- `PROVISIONAL`: usable only with a stated proof gap.
+- `BLOCKED`: required source, generated artifact, or readiness gate is unavailable.
+- `DROPPED`: no longer part of the ramp.
+
+Shared lifecycle states omitted here are intentional: ramps do not use `QUEUED`, `ACTIVE`, `DEFERRED`, `COMPLETE`, or `CANCELED`. A ramp either allows the next action, blocks it, records a proof gap, or routes away. Do not use progress percentages, phase names, or completion bars in learning ramp docs.
+
 Produced ramps must replace every placeholder with local truth. A ramp is incomplete if it contains `<...>` fields, broad source areas, unnamed gates, unowned stop routes, or source records that do not change the first safe action or readiness gate.
 
 ## [3][RAMP_CHOOSER]
@@ -239,13 +247,7 @@ Events beat calendar dates unless a maintained policy requires a scheduled revie
 
 ## [13][AVAILABILITY_VOCABULARY]
 
-Use this closed availability set only when the ramp contains independently tracked readings, generated surfaces, or actions:
-- `READY`: source path, first action, and readiness gate are current.
-- `PROVISIONAL`: usable only with a stated proof gap.
-- `BLOCKED`: required source, generated artifact, or readiness gate is unavailable.
-- `DROPPED`: no longer part of the ramp.
-
-Do not use progress percentages, phase names, or completion bars. A ramp either allows the next action, blocks it, or routes away.
+The closed availability set is declared before first record use in `Required structure`. This section exists only to route extended availability explanation when a produced ramp needs it; do not restate the vocabulary after records.
 
 ## [14][BOUNDARIES]
 

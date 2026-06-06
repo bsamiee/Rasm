@@ -1,4 +1,4 @@
-# [H1][BCL]
+# [BCL]
 
 [IMPORTANT] BCL APIs do not replace LanguageExt rails, Thinktecture shape, MathNet algorithms, Rhino geometry, or GH2 data semantics. C# 14 language features live in `../external-libs/csharp/language.md`; this file owns BCL/shared-framework API surfaces. SDK implicit usings and workspace globals — see `meta.md` §6.
 

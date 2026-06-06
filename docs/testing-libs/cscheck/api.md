@@ -1,4 +1,4 @@
-# [H1][CSCHECK_API]
+# [CSCHECK_API]
 
 [IMPORTANT] Rasm pins `CsCheck` at the version pinned in `Directory.Packages.props`. Specs use `Rasm.TestKit.Spec` first; raw `Check.*` calls move into `_testkit` only after at least two specs need the same rail.
 

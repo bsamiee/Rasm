@@ -1,4 +1,4 @@
-# [H1][RASM_USAGE]
+# [RASM_USAGE]
 
 [IMPORTANT] Cross-stack implementation surface for new work. Leaf docs own package and member detail.
 

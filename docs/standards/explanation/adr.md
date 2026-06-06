@@ -54,7 +54,7 @@ The decision-log index is a finite enumerable set of trackable records, so rende
 |   [1]   | `0001`   | Adopt event envelope    | `accepted`   | contract   | 2026-01-12 | —            | —               |
 |   [2]   | `0007`   | Replace plugin boundary | `superseded` | structural | 2026-03-04 | —            | `0023`          |
 
-Keep ADR status in the lowercase vocabulary below. Use bracketed lifecycle markers only in compact indexes when filtering helps: `accepted` maps to `[DONE]`, and `rejected`, `deprecated`, and `superseded` map to `[DROPPED]`.
+Keep ADR status in the lowercase vocabulary below. Use bracketed lifecycle markers only in compact indexes when filtering helps: `accepted` maps to `[COMPLETE]`. `rejected`, `deprecated`, and `superseded` may render as terminal compact markers only when the row still carries the original lowercase `Status` value; never collapse those three dispositions into one lifecycle meaning.
 
 ## [4][STATUS_LIFECYCLE]
 
@@ -65,6 +65,8 @@ Set `Status` to exactly one lowercase value from the fixed set below:
 - `superseded`: replaced by a newer ADR named in `Superseded by`.
 
 Lifecycle categories: `accepted` is the only active/binding state. ADRs have no blocked or returnable status because proposal uncertainty belongs in design documents. `rejected`, `deprecated`, and `superseded` are terminal except for link repair and non-semantic clarification. Canonical ADR records stay in the decision log; only duplicate index rows or generated mirrors may be removed after the canonical ADR and supersession links remain discoverable.
+
+ADR disposition is type-local vocabulary, not the shared roadmap lifecycle. `rejected` preserves a declined option, `deprecated` retires an accepted decision without a replacement, and `superseded` points to the replacing ADR. A compact marker may help filtering, but the lowercase status remains the semantic source.
 
 The lifecycle is intentionally post-review. Drafts and proposed options belong in design documents; ADRs begin when a decision has a durable disposition. The conceptual diagram shows the permitted status transitions.
 

@@ -1,4 +1,4 @@
-# [H1][LANGUAGEEXT_COMBINATORS]
+# [LANGUAGEEXT_COMBINATORS]
 
 [IMPORTANT] Pin **`LanguageExt.Core`** at the version pinned in `Directory.Packages.props`. Verify members in local package XML before documenting new combinators.
 

@@ -1,4 +1,4 @@
-# [H1][PACKAGES]
+# [PACKAGES]
 
 [IMPORTANT] Central package management lives in `Directory.Packages.props`. Project files declare usage without versions. Local .NET CLI tools live in `.config/dotnet-tools.json` because `dotnet tool restore` owns executable tool restore.
 

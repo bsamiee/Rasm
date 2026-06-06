@@ -19,6 +19,8 @@ Route a first-success learning path, an operational symptom response, a contribu
 - Adjacent checks: check API, code documentation, README, architecture, roadmap, reference, runbook, tutorial, onboarding, contributing, test strategy, and support matrix only when their fact controls a target, branch, artifact, input, safety boundary, or verification.
 - Maintenance triggers: update the how-to when a command, tool version, path, target, UI label, prerequisite, artifact, rollback path, troubleshooting signal, adjacent fact, proof gate, or verification result changes.
 
+Opening order is fixed for task standards: route and use contract first, produced structure second, cardinality third, then baselines, examples, and local patterns. Do not let examples define section order implicitly.
+
 ## [2][HOW_TO_BASELINE]
 
 This standard operationalizes the local how-to route. A how-to is goal-oriented action for an already-competent user who knows what they want to achieve. Its structure follows the user's work, keeps focus on one goal, links explanation and reference instead of embedding them, and phrases unavoidable branches as conditional imperatives.
@@ -66,6 +68,8 @@ Add these conditional sections only when their trigger applies:
 ```
 
 Required sections carry one purpose each: `Goal` names the single task outcome in the reader's terms; `Procedure` gives a logical sequence ordered by dependency, reader flow, setup context, or judgment sequence; `Verification` proves the `Goal` outcome, records consumed verification gates when a configured workflow requires them, and states whether the path ran or which check remains unrun. Conditional sections carry only the fact their trigger requires: prerequisites are checkable records, rollback is the reverse path or recovery route, troubleshooting is task-local recovery, boundaries route adjacent routes, and maintenance names drift triggers.
+
+Task result grammar is outcome-first: `Goal` names the intended observable state, each procedure step carries `Operation`, `Expected result`, and optional `If wrong`, and `Verification` records the final observable checks. Use contrast labels only for compact value pairs: `Accepted`, `Rejected`, `Before`, `After`, `Near miss`, and `Reason`. Do not introduce ad hoc labels such as `Good`, `Bad`, `Better`, or `Wrong`.
 
 Omit a conditional section when the condition is absent. Do not publish empty placeholders, generic readiness text, reference inventories, broad recovery branches, or author scaffolding to make the template look complete.
 

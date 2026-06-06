@@ -1,4 +1,4 @@
-# [H1][LANGUAGEEXT_PRELUDE]
+# [LANGUAGEEXT_PRELUDE]
 
 [IMPORTANT] Pin **`LanguageExt.Core`** at the version pinned in `Directory.Packages.props`. When global usings include `static LanguageExt.Prelude`, per-file `using static` is redundant.
 

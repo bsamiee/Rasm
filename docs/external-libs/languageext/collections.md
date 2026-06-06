@@ -1,4 +1,4 @@
-# [H1][LANGUAGEEXT_COLLECTIONS]
+# [LANGUAGEEXT_COLLECTIONS]
 
 [IMPORTANT] Rasm uses `Seq<T>` as the default cross-module sequence. Convert Rhino/GH arrays and host collections at the adapter edge.
 

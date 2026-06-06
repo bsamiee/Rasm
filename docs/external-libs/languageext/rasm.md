@@ -1,4 +1,4 @@
-# [H1][LANGUAGEEXT_RASM]
+# [LANGUAGEEXT_RASM]
 
 [IMPORTANT] This file states repo posture only. API detail belongs in sibling reference files.
 

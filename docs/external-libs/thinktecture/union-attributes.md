@@ -1,4 +1,4 @@
-# [H1][THINKTECTURE_UNION_ATTRIBUTES]
+# [THINKTECTURE_UNION_ATTRIBUTES]
 
 [IMPORTANT] Pin **`Thinktecture.Runtime.Extensions`** at the version pinned in `Directory.Packages.props`. Verify attribute properties in local package XML.
 

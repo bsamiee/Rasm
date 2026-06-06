@@ -140,6 +140,8 @@ Reference prose ranks below machine-readable truth:
 
 This standard carries local term statuses such as `preferred`, `admitted`, `deprecated`, and `rejected`. When a generated contract or maintained source changes, re-derive the local summary from the source rather than editing prose in isolation.
 
+Every reference-local status vocabulary must declare exact casing, active values, blocked or unavailable values when present, returnable values when present, terminal values, omitted shared lifecycle states, and removal behavior before the first table or record that uses it. Title-case support or capability labels are display terms; they are not shared lifecycle values unless the record explicitly maps them.
+
 ## [5][FACT_ENTRIES]
 
 State only fields a reader needs to use the fact:
@@ -239,6 +241,18 @@ Output shape: `<stdout, JSON schema, files, artifacts, or external state>`
 Mutation: `<none, filesystem, network, service state, or other>`
 Exit behavior: `<exit codes or status contract>`
 Route-away: `<how-to for normal task or runbook for recovery; omit when absent>`
+```
+
+When a command emits a machine-consumed envelope, add a CLI envelope record before examples:
+
+```text template
+Stdout: `<payload, schema, or empty>`
+Stderr: `<diagnostics, progress, or empty>`
+Exit status: `<success and failure codes>`
+Artifacts: `<files, reports, captures, or omit when absent>`
+External state: `<service, filesystem, network, runtime, or none when the domain truly allows none>`
+Failure reading: `<how an agent distinguishes usage, validation, runtime, and transport failures>`
+Review trigger: `<command, output shape, exit status, artifact, or failure behavior changes>`
 ```
 
 ```markdown conceptual

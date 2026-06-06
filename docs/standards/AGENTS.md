@@ -1,68 +1,136 @@
 # [STANDARDS_AGENT_ROUTER]
 
-This file governs edits inside `docs/standards/**`. Keep it a compact behavioral overlay for agent-only standards work: read the active corpus, route each rule to its owner, preserve load-bearing facts, and never turn this file into a second standards library.
+This file governs edits inside `docs/standards/**`. It is a behavioral overlay for standards work: read the active corpus, route each rule to its owner, preserve load-bearing current facts, and close every change with the required representation and proof checks.
 
 ## [1][SCOPE]
 
 These instructions extend `CLAUDE.md` and the root `AGENTS.md`; they do not replace them. They apply only to the standards authoring corpus under `docs/standards/**`.
 
-The active corpus is the Markdown set discovered by `fd -H . docs/standards -t f -e md`. Treat prompt notes, session history, deprecated source material, external research, and sub-agent critiques as inputs only when the task explicitly names them; promote only durable rules into the owning standard.
+The active corpus is the current root, shared, and type standards listed by [README.md](README.md). Exclude `_reports/**` and any folder explicitly marked deprecated by a trusted local instruction or route owner unless the task names that source material.
+
+Reports, critique passes, memory notes, prompt assets, session history, external research, and deprecated source material are source material only. Promote only durable rules into the owning standard, and do not copy report transcripts, roles, confidence, task framing, fixed wave counts, or report structure into the active standards corpus.
 
 ## [2][READ_ORDER]
 
-[ALWAYS]:
-- For any standards edit, read `CLAUDE.md`, root `AGENTS.md`, and `docs/standards/README.md` before changing files.
-- For edits to `AGENTS.md`, `README.md`, any shared standard, cross-type routing, boundary language, provider behavior, or `agents-md.md`, read every active standards file before editing.
-- For a narrow type-standard edit, use `README.md` to classify the reader need, read the shared owner files needed by the change, read every affected type standard, and then read the full target file.
-- Read `docs/usage.md` only when the edit changes cross-stack owner precedence, source-truth order, implementation proof, host-library routing, or command/tooling claims outside this standards corpus.
+Choose the read set by task mode:
+
+| [INDEX] | [TASK_MODE]             | [READ_SET]                                                                                                                                       | [ESCALATE_WHEN]                                                                                  |
+| :-----: | :---------------------- | :----------------------------------------------------------------------------------------------------------------------------------------------- | :------------------------------------------------------------------------------------------------ |
+|   [1]   | Any standards edit      | `CLAUDE.md`, root `AGENTS.md`, [README.md](README.md), full target file                                                                          | Always before changing files                                                                      |
+|   [2]   | Root-file audit or edit | Every active root standards file except [agents-md.md](agents-md.md) when the task excludes it                                                   | `AGENTS.md`, `README.md`, shared standards, routing, boundaries, provider behavior, or audit rules |
+|   [3]   | Narrow type edit        | [README.md](README.md), shared owner files needed by the change, every affected type standard, then the full target file                         | Adjacent type standards share status, proof, or produced-structure behavior                       |
+|   [4]   | Named `_reports/**` task | `docs/standards/_reports/AGENTS.md`, the named report files, and only active standards needed to promote durable rules                           | Creating or updating a reusable reports session                                                   |
+|   [5]   | Cross-stack claim       | [../usage.md](../usage.md) plus the owner standard and proof route                                                                               | Cross-stack owner precedence, source-truth order, implementation proof, host-library routing, or command/tooling claims outside this corpus |
+
+For every `docs/standards/**` edit, inspect the target file, its routed owner standard, linked adjacent standards, and the affected folder or type family before editing. Identify poor information representation before rewriting: prose hiding lookup data, prose-like tables, one-row tables, duplicated table or diagram bodies, decorative diagrams, missing relation records, empty conditional headings, stale links, and proof fields used as decoration. Fix the problem in scope or route it away explicitly.
+
+When standards work creates or updates a reusable `_reports/` session, update or verify the nearest non-root `AGENTS.md` for that folder and keep report naming, track numbering, correction, promotion, and pruning mechanics in that `_reports/AGENTS.md` leaf.
 
 ## [3][RULE_OWNERS]
 
 Use the owner that controls the changed rule; do not copy that owner's body into this file.
 
-| [INDEX] | [OWNER]                    | [CONTROLS]                                                        |
-| :-----: | :------------------------- | :---------------------------------------------------------------- |
-|   [1]   | `README.md`                | reader need, type choice, placement, split/link, lifecycle        |
-|   [2]   | `agentic-documentation.md` | agent salience, instruction files, artifact separation, providers |
-|   [3]   | `agents-md.md`             | `AGENTS.md` semantic slots, profiles, route-away, anti-fragility  |
-|   [4]   | `information-structure.md` | containers, records, tables, diagrams, checklists, cardinality    |
-|   [5]   | `style-guide.md`           | prose, sentence mechanics, terminology, links, code-safe Markdown |
-|   [6]   | `proof.md`                 | evidence, preservation, proof gaps, docs-as-code gate selection   |
-|   [7]   | `formatting.md`            | bracketed headings, invocation markers, table styling, whitespace |
-|   [8]   | type standards             | artifact-specific structure, status vocabulary, local proof slots |
+| [INDEX] | [OWNER]                    | [CONTROLS]                                                                  |
+| :-----: | :------------------------- | :-------------------------------------------------------------------------- |
+|   [1]   | `README.md`                | reader need, type choice, corpus placement, split/link, lifecycle           |
+|   [2]   | `agentic-documentation.md` | agent salience, artifact separation, provider posture, instruction positioning |
+|   [3]   | `agents-md.md`             | `AGENTS.md` semantic slots, profiles, route-away, anti-fragility            |
+|   [4]   | `information-structure.md` | containers, records, tables, diagrams, checklists, cardinality              |
+|   [5]   | `style-guide.md`           | prose, sentence mechanics, terminology, links, code-safe Markdown           |
+|   [6]   | `proof.md`                 | evidence, preservation, proof gaps, docs-as-code gate selection             |
+|   [7]   | `formatting.md`            | bracketed headings, invocation markers, table styling, whitespace           |
+|   [8]   | type standards             | artifact-specific structure, status vocabulary, local proof slots           |
 
-## [4][ARTIFACT_CONTRACT]
+## [4][ROOT_FILE_AUDITS]
 
-Produced standards are executable guidance for future agents. Put scope, reader action, controlling source or status, highest-risk constraint, and route-away at the opening edge; close with boundaries, proof, or the next safe route.
+Audit root standards files against exactly 5 shared axes: position, form, craft, evidence, and notation. Do not invent a sixth audit axis. Instruction-surface specifics may route to [agents-md.md](agents-md.md), but root-file quality scoring stays on the 5 shared standards.
 
-Every type standard must define agent use, required produced structure, section cardinality, adjacent checks, maintenance triggers, and stale-source events before examples, taxonomies, or background. Required, conditional, optional, and repeatable sections must be distinguishable before an agent can copy the shape.
+Each finding must carry:
+- `Path + line/section`
+- `Axis`
+- `Issue`
+- `Correction task`
+- `Rule/standard to tighten`
+- `Proof gap` when the audit depends on an unrun command, renderer, link checker, source check, or provider claim
 
-Use adjacent-document relation records only when the adjacent fact changes reader action, proof, status interpretation, validation, or maintenance. Ordinary background links stay ordinary, and missing adjacent content routes away instead of being embedded.
+Read-only audits state that no files were edited and no validation gate ran. Edit audits name exact commands only when they ran in the current change or a current status check proves them.
 
-## [5][EDIT_INVARIANTS]
+## [5][ARTIFACT_CONTRACT]
 
-[ALWAYS]:
-- Preserve every command, path, version, flag, field, qualifier, status value, route pointer, proof field, invariant, and source-truth claim.
-- Pick one primary reader need before rewriting; split or route mixed concept, task, reference, process, proof, and status bodies.
-- Use `information-structure.md` as law for section form: prose for one idea, lists for peer or ordered facts, records for independently maintained state, tables only for real comparison or lookup, and diagrams only when rendered topology or flow adds meaning.
-- Use `style-guide.md` and `agentic-documentation.md` as law for prose: front-and-close paragraphs, condition-before-action instructions, direct present-tense wording, exact source names, and no prompt/session/process narration.
-- Use `agents-md.md` as law for `AGENTS.md` semantic slots, route-away decisions, anti-fragility, trust boundaries, root profile, and corpus rebuild rules.
+Standards files are executable guidance for future agents. Start with scope, reader action, controlling owner or status, highest-risk constraint, and route-away. End with boundaries, proof, validation, or the next safe route.
+
+Future-facing standards use the strongest verified target standard. Current implementation drift does not weaken the target rule, but present-tense current claims still require repository proof or a proof gap.
+
+Treat older paradigms as replacement targets, not baselines. Prefer direct replacement language over deprecation, compatibility, migration-preservation, or "current project still uses" qualifiers.
+
+Every type standard states the opening contract before examples, taxonomies, or background:
+1. Purpose and boundary in the lead.
+2. `Use when`.
+3. Route-away rule.
+4. Agent use.
+5. Required produced-document structure.
+6. Section cardinality.
+7. Adjacent checks and relation-record rule.
+8. Maintenance triggers and stale-source events.
+
+Use adjacent-document relation records only when the adjacent fact changes reader action, proof, status interpretation, validation, or maintenance. Use normal Markdown links for background. Route missing owned content to its owner instead of embedding it.
+
+## [6][EDIT_INVARIANTS]
+
+[PRESERVATION]:
+- Preserve every load-bearing current command, path, version, flag, field, qualifier, status value, route pointer, proof field, invariant, and source-truth claim.
+- Delete or replace stale facts only when current repository truth, owner routing, or proof evidence shows they are obsolete.
+- Account for routed, deleted, or replaced facts before removal.
+
+[ROUTING]:
+- Pick one primary reader need before rewriting.
+- Split or route mixed concept, task, reference, process, proof, and status bodies.
+- Choose section containers through [information-structure.md](information-structure.md); do not restate its container matrix here.
+- Use [style-guide.md](style-guide.md) and [agentic-documentation.md](agentic-documentation.md) for prose, position, direct present-tense wording, exact source names, and no prompt, session, or process narration.
+- Use [agents-md.md](agents-md.md) for `AGENTS.md` semantic slots, route-away decisions, anti-fragility, trust boundaries, root profile, and corpus rebuild rules.
+
+[FIELDS]:
 - Omit absent fields instead of filling them with `none`, `n/a`, placeholders, or filler records.
+- People or process metadata fields such as `Owner:`, `Role:`, `Team:`, `Maintainer:`, `Reviewer:`, `Stakeholder:`, `Audience:`, `PM:`, `RACI:`, approval ladders, or organizational accountability are forbidden unless a literal local tool output or source standard consumes that exact field.
+- Route-owner or source-owner language is allowed when it identifies the standard or path that controls a rule.
 
-## [6][FORBIDDEN_PATTERNS]
+## [7][FORBIDDEN_PATTERNS]
 
 [NEVER]:
-- Add people/process metadata such as `owner`, `role`, `team`, `maintainer`, `reviewer`, `stakeholder`, `audience`, `business`, `enterprise`, `PM`, `RACI`, approval ladder, or organizational accountability unless a literal local tool output or source standard consumes that exact field.
 - Publish live task instructions, chat excerpts, critique summaries, prompt-source narration, rewrite rationale, fixed sub-agent counts, session state, secrets, or nonpublic machine paths.
-- Claim a linter, link checker, docs build, renderer, CI gate, provider behavior, static rail, test rail, or bridge rail exists or passed unless current repository tooling, current primary documentation, or current command output proves it.
-- Preserve stale commands, removed tool names, legacy aliases, empty conditional headings, decorative diagrams, duplicated table/diagram bodies, unsupported progress markers, `Consumed by: none`, or generic metadata whitelists.
+- Claim a local linter, link checker, docs build, renderer, CI gate, static rail, test rail, or bridge rail exists or passed unless repository source, configured tooling, local command output, current CI proof, or current status-check output proves it.
+- Claim provider behavior exists unless maintained provider documentation or local provider-surface output proves it.
+- Use current project baseline, older code, older manifests, older configs, partial adoption, or compatibility pressure as a reason to weaken a future-facing standard.
+- Preserve stale commands, removed tool names, legacy aliases, or unsupported progress markers.
+- Publish empty conditional headings, decorative diagrams, duplicated table or diagram bodies, `Consumed by: none`, or generic metadata whitelists.
 - Hand-maintain generated catalogs, mirrors, or provider claims as independent truth.
 
-## [7][CLOSE_CHECK]
+## [8][BOUNDARIES]
 
-Before finishing a standards edit, verify:
-- [ ] Required read scope was satisfied.
-- [ ] Each changed rule routes to its owner instead of a duplicate body.
-- [ ] Load-bearing facts, qualifiers, proof fields, and route pointers survived.
-- [ ] Links, anchors, diagrams, and provider/tooling claims are proved or gapped when those surfaces changed.
-- [ ] No forbidden people/process metadata, session commentary, placeholder fields, stale commands, decorative markers, or invented tooling claims remain.
+This file routes standards-folder work and enforces local close checks. It does not define document types, prose craft, proof labels, container forms, status vocabularies, or `AGENTS.md` semantic slots.
+
+When this file and a shared standard appear to overlap, keep the durable rule in the shared standard and keep only the local read, routing, or close-check behavior here.
+
+## [9][VALIDATION]
+
+Use this verification checklist by group:
+
+[READ_SCOPE]:
+- [ ] The task mode selected the correct read set before edits.
+- [ ] `_reports/**` stayed excluded unless the task named it.
+- [ ] Root-file audits or edits read every active root standards file in scope, excluding [agents-md.md](agents-md.md) only when the task explicitly excludes it.
+
+[ROOT_AUDIT]:
+- [ ] Root-file findings use the 5 shared axes: position, form, craft, evidence, notation.
+- [ ] Each finding names path plus line or section, axis, issue, correction task, rule or standard to tighten, and proof gap when applicable.
+- [ ] Poor information representation was identified before rewriting, then fixed in scope or routed away.
+
+[ROUTING_PRESERVATION]:
+- [ ] Each changed rule routes to one owner.
+- [ ] Load-bearing current facts were preserved, routed, or deleted only with current proof.
+- [ ] Type-standard openings follow the required route-away and produced-structure order.
+
+[PROOF_CLOSE]:
+- [ ] Local gates and provider claims use the correct proof source class.
+- [ ] Unrun gates and unsupported renderer, provider, link, anchor, or docs-build claims are reported as proof gaps.
+- [ ] The edited standard closes on boundaries, proof, validation, or the next safe route, not on a negative pattern list.

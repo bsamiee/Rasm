@@ -1,4 +1,4 @@
-# [H1][MATHNET_SYMBOLICS]
+# [MATHNET_SYMBOLICS]
 
 [IMPORTANT] Runtime safety requires assembly identity proof. RhinoWIP/GH2 may carry older Symbolics assemblies, so copy-local presence is not enough.
 

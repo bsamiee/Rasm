@@ -1,4 +1,4 @@
-# [H1][XUNIT_API]
+# [XUNIT_API]
 
 [IMPORTANT] Rasm uses xUnit v3 through .NET 10 Microsoft Testing Platform. Root `global.json` selects the MTP runner; `Directory.Build.props` injects `xunit.v3.mtp-v2` and generates per-project `obj/xunit.runner.json`. There is no root runner file and no retired adapter.
 

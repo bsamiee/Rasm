@@ -21,6 +21,8 @@ Route normal repeatable work, contribution workflow, severity and command policy
 - Adjacent checks: check architecture, API/code documentation, support matrix, reference, test strategy, how-to, contributing, onboarding, README, roadmap, and incident-process docs only when they change triage, safe mutation, escalation, verification, or evidence capture.
 - Maintenance triggers: update the runbook when trigger, impact surface, permission, dashboard, command, endpoint, support target, API behavior, bridge/runtime behavior, rollback path, escalation route, communication cadence, or evidence location changes.
 
+Opening order is fixed for task standards: route and use contract first, produced structure second, cardinality third, then baselines, examples, and local patterns. Do not let response diagrams or profile examples define section order implicitly.
+
 ## [2][RESPONSE_BASELINES]
 
 Use local operational truth for the values a responder invokes during an incident. A runbook must provide a clear response path, communication route, working record, impact assessment, mitigation path, and verification rule. A local incident process must map any provider terms into local response profiles before a runbook can use them.
@@ -41,6 +43,8 @@ Escalation threshold: <observable condition that raises profile, changes respons
 Communication requirement: <reader, channel, cadence, and status fields, or `none`>
 Evidence requirement: <artifacts to preserve for handoff, audit, or review>
 ```
+
+The literal value `none` is allowed only for runbook fields where the domain truly permits no obligation: communication requirement, safe mutation, rollback route, follow-up cleanup, or a local profile field whose maintained incident-process source defines `none`. Do not use `none` as filler for unknown escalation, missing evidence, absent proof, or unverified permission; use a proof gap or blocker instead.
 
 If the responder cannot choose between local profiles from the observable impact, apply the maintained local incident-process tie-breaker. If no maintained tie-breaker exists, stop mutation and escalate for profile assignment with captured evidence; do not import PagerDuty's or another provider's severity default as local policy.
 
@@ -137,6 +141,8 @@ Add these conditional sections only when their trigger applies:
 ```
 
 Required sections carry response-critical facts: `Trigger` names the observable signal, escalation path, response profile, and incident-process source; `Impact` names the affected surface and user-visible, data-integrity, security, support, or operator-visible effect; `Safety prerequisites` names response-critical access, mutation permission, tools, restore points, and evidence-preservation constraints only; `Triage` is ordered read-only observation; `Mitigation` carries bounded response actions or `Safe mutation: none`; `Escalation` states observable thresholds and path; `Verification` proves recovery or containment; `Evidence capture` preserves handoff artifacts; `Boundaries` routes adjacent standards.
+
+Runbook trigger/profile fields are stable: `Trigger`, `Impact class`, `Response clock`, `Mutation permission`, `Escalation threshold`, `Communication requirement`, and `Evidence requirement`. Use those exact labels before local fields, and do not rename `Trigger` to symptom, signal, incident, or alert in the record surface.
 
 Conditional sections appear only when they change responder action: `Rollback or abort` is required when any action changes state, increases risk, is irreversible, the response profile requires an abort point, or rollback failure changes escalation; `Communication` is required when the local profile demands reader updates; `Follow-up cleanup` restores safe steady state after recovery and is not a postmortem. Omit an optional section rather than publishing it empty.
 

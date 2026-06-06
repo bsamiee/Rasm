@@ -1,4 +1,4 @@
-# [H1][THINKTECTURE_OBJECTS]
+# [THINKTECTURE_OBJECTS]
 
 [IMPORTANT] Value objects define admission and equality. They do not replace LanguageExt rails.
 

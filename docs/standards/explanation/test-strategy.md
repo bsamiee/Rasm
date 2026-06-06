@@ -141,6 +141,8 @@ Testing vocabulary supplies these concepts:
 - `Blocking`: `blocks merge`, `blocks release`, `blocks acceptance`, `reports only`.
 - `Quarantine status`: active `suspected`, `quarantined`, `repairing`; returnable `re-enabled`; terminal `deleted`. There is no blocked quarantine status: if repair is blocked, the record carries the blocker as evidence and remains `quarantined` or `repairing`. A deleted test is removed from the strategy only when duplicate coverage or retired behavior is proven and the deletion evidence remains in the controlling change record.
 
+These field-value vocabularies are not lifecycle `Status` unless the record explicitly carries lifecycle. `Trigger` names when a gate runs, `Blocking` names merge or release effect, and quarantine terms name test-row handling. If a strategy also tracks lifecycle work, use the shared record vocabulary or declare a separate lifecycle family before the first record.
+
 ## [6][PLACEMENT]
 
 Place test strategies at the nearest scope that owns the policy:

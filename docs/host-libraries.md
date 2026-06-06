@@ -1,4 +1,4 @@
-# [H1][HOST_LIBRARIES]
+# [HOST_LIBRARIES]
 
 Scope: composition roots, external I/O boundaries, app runtime, persistence, compute, and product UI surfaces. Domain modules stay on LanguageExt rails, Thinktecture shapes, MathNet/CSparse numerics, and host SDK boundaries.
 

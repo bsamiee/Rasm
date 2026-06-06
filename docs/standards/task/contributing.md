@@ -27,6 +27,8 @@ Route away adjacent concerns before authoring the workflow:
 - Adjacent checks: check onboarding, how-to, runbook, test strategy, support matrix, proof, README, API, code documentation, roadmap, architecture, and maintained security or repository-policy sources only when the contributor workflow or evidence changes.
 - Maintenance triggers: update the guide when accepted paths, host discovery, templates, branch protection, required checks, command gates, sign-off, security route, review policy, help route, or documentation-travel rule changes.
 
+Opening order is fixed for task standards: route and use contract first, produced structure second, cardinality third, then baselines, examples, and local patterns. Do not let contribution-path examples define section order implicitly.
+
 ## [2][SOURCE_PRECEDENCE]
 
 Anchor contribution obligations to project truth first. A guide may mention a host surface, commit format, sign-off, code of conduct, license, contribution location, review route, or security route only when repository configuration, host settings, workflow files, templates, CODEOWNERS, or maintained policy proves the project uses it.
@@ -131,6 +133,8 @@ Rejected intent: quick fixes
 Rejected prerequisite: unspecified
 Rejected scope bound: broad and unbounded
 Reason: the accepted fields constrain the contributor path; the rejected fields leave the path broad and unbounded.
+
+Use the same compact contrast labels in every contributing example: `Accepted`, `Rejected`, `Near miss`, and `Reason`. Do not substitute `Good`, `Bad`, or project-local taste labels; the contrast record exists to show the action difference.
 
 ## [6][BEFORE_YOU_START]
 

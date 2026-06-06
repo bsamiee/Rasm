@@ -1,4 +1,4 @@
-# [H1][CSHARP_LANGUAGE]
+# [CSHARP_LANGUAGE]
 
 [IMPORTANT] Pin C# 14.0 on net10.0 (`LangVersion`, `TargetFramework`, `Nullable=enable`, `ImplicitUsings=enable`).
 Compiler toolset: .NET 10 SDK compiler (global compile).

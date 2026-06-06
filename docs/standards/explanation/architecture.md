@@ -180,10 +180,12 @@ The codemap is the controlling representation. Derive it from repository paths, 
 Path routes should be compact and current: package boundary, public contract, generated artifact, entrypoint, adapter, invariant route, public export, central algorithm, or support-controlled legacy path. A planned, dropped, or deleted path never appears in the codemap; represent it only as a status relation when it changes how current paths are read.
 
 Architecture path-state markers use this closed vocabulary when bracketed inline markers change editing behavior:
-- `[IN-PROGRESS]`: path exists or is moving and current edits must check the linked roadmap or design.
+- `[ACTIVE]`: path exists or is moving and current edits must check the linked roadmap or design.
 - `[BLOCKED]`: path or surface cannot become current until a named dependency, decision, or proof gap closes.
 - `[PROVISIONAL]`: path is current but not yet stable enough to treat as ordinary structure.
 - `[DEPRECATED]`: path remains readable or callable only under a support, migration, or compatibility rule.
+
+When a marker needs a local source reference, append the source key inside the same brackets after the base token: `[ACTIVE M2]`, `[BLOCKED ADR-0007]`, or `[DEPRECATED SUPPORT-LEGACY]`. Status table cells keep only the base token so filtering stays exact; the adjacent source column carries the reference.
 
 A useful codemap shows structure, route, project identity, and status in one place:
 
@@ -200,11 +202,11 @@ src/EventPipeline/
 │   ├── EventIngress.cs                             host callback entrypoint into validation
 │   └── EventValidator.cs                           rejects schema drift before queue admission
 ├── Execution/                                      accepted-event runtime route
-│   ├── EventWorker.cs             [IN-PROGRESS M2] executes accepted events
+│   ├── EventWorker.cs             [ACTIVE M2] executes accepted events
 │   ├── RetryPolicy.cs                              transient host-failure policy
 │   └── Handlers/                                   worker-owned execution adapters
 │       └── TransientFailure/                       host-failure branch
-│           └── BackoffPolicy.cs.                   retry delay algorithm; no storage writes
+│           └── BackoffPolicy.cs                    retry delay algorithm; no storage writes
 ├── Storage/                                        persistence boundary
 │   └── EventStore.cs                               no direct caller writes
 └── Legacy/                                         support-controlled compatibility route
@@ -217,7 +219,7 @@ When status appears in the tree, add a path-state record and codemap source bloc
 
 | [INDEX] | [PATH]                         | [STATE]       | [WHY_IT_CHANGES_READING]       | [ADJACENT_SOURCE] | [UPDATE_WHEN]                     | [REMOVAL_TRIGGER]             |
 | :-----: | :----------------------------- | :------------ | :----------------------------- | :---------------- | :-------------------------------- | :---------------------------- |
-|   [1]   | `Execution/EventWorker.cs`     | [IN-PROGRESS] | M2 still moves execution route | roadmap M2        | M2 status or worker path changes  | M2 reaches `DONE`             |
+|   [1]   | `Execution/EventWorker.cs`     | [ACTIVE]      | M2 still moves execution route | roadmap M2        | M2 status or worker path changes  | M2 reaches `COMPLETE`         |
 |   [2]   | `Legacy/LegacyEventReader.cs`  | [DEPRECATED]  | migration reads remain allowed | support row       | compatibility support row changes | support row reaches `Retired` |
 
 ```markdown template
@@ -272,7 +274,7 @@ flowchart LR
     Host["host callback"] --> Ingress["Admission/EventIngress.cs"]
     Ingress --> Validator["Admission/EventValidator.cs"]
     Validator --> Contract["Contracts/events.schema.json"]
-    Validator --> Worker["Execution/EventWorker.cs [IN-PROGRESS M2]"]
+Validator --> Worker["Execution/EventWorker.cs [ACTIVE M2]"]
     Worker --> Store["Storage/EventStore.cs"]
     Legacy["Legacy/LegacyEventReader.cs [DEPRECATED]"] -. "migration reads only" .-> Store
 ```

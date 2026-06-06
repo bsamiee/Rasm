@@ -1,4 +1,4 @@
-# [H1][EXTERNAL_LIBS]
+# [EXTERNAL_LIBS]
 
 [IMPORTANT] Scope: approved non-`System.*` library APIs. BCL, packages, host policy: `../system-api-map/README.md`. Cross-stack owner order and proof: `../usage.md` §1 and §5.
 

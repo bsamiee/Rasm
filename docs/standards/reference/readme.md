@@ -41,7 +41,7 @@ README heading modes are:
 Rejected repo-internal H1:
 
 ```markdown rejected
-# [H1][ASSAY_OPERATOR]
+# [ASSAY_OPERATOR]
 ```
 
 Use the boundary name directly:
@@ -246,6 +246,8 @@ Use structure where it improves scanning:
 - First-run troubleshooting: decision table only when more than one setup symptom maps to a distinct response; otherwise use one short paragraph.
 - Commands: fenced blocks with an info string and intent label.
 - License: closing section for published repositories.
+
+README-local `Status` values are allowed only when they are declared before the first status row or package/tool card. The declaration names casing, active values, blocked values, terminal values, omitted shared lifecycle states, removal behavior, and source/proof field use. If a README consumes roadmap lifecycle, support status, package maturity, or tool health, keep those as separate record families rather than mixing the terms in one `Status` column.
 
 Troubleshooting in a README is limited to reaching the first successful path. Ongoing incidents, triage, rollback, and recovery belong to a runbook.
 

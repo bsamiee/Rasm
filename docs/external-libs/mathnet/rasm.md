@@ -1,4 +1,4 @@
-# [H1][MATHNET_RASM]
+# [MATHNET_RASM]
 
 [IMPORTANT] Production numerics: `libs/csharp/Rasm/Vectors/Matrix.cs`, `Cloud.cs`, `Mesh.cs` (CSparse hybrid). `MathNet.Symbolics`, Optimization, Integration, and Interpolation are pinned but **not referenced** in production `.cs` files.
 

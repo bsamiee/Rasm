@@ -1,4 +1,4 @@
-# [H1][REPLACEMENTS]
+# [REPLACEMENTS]
 
 [IMPORTANT] Replacement means moving behavior to the owning API, not adding wrappers. BCL surface catalog: `bcl.md`. Language features: `../external-libs/csharp/language.md`.
 

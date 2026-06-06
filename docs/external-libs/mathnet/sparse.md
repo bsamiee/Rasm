@@ -1,4 +1,4 @@
-# [H1][MATHNET_SPARSE]
+# [MATHNET_SPARSE]
 
 [IMPORTANT] Pin **`MathNet.Numerics`** and co-primary **`CSparse`** (NuGet id **`CSparse`**, not `CSparse.NET`) at the versions pinned in `Directory.Packages.props`. Verify MathNet names against `MathNet.Numerics.xml`; verify CSparse against `CSparse.xml` under `lib/{tfm}/`.
 

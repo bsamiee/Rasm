@@ -1,4 +1,4 @@
-# [H1][CSHARP_META]
+# [CSHARP_META]
 
 [IMPORTANT] Scope: language version, central package graph, analyzer posture, RhinoWIP/GH2 host references, generated assembly metadata, global usings. BCL surfaces: `bcl.md`. Package state: `packages.md`. Language catalog: `../external-libs/csharp/language.md`.
 

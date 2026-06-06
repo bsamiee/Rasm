@@ -1,4 +1,4 @@
-# [H1][ARCHUNIT_API]
+# [ARCHUNIT_API]
 
 [IMPORTANT] Rasm uses `TngTech.ArchUnitNET.xUnitV3` (version pinned in `Directory.Packages.props`) in `tests/csharp/_architecture` for compiled assembly boundary laws that the local analyzer does not own.
 

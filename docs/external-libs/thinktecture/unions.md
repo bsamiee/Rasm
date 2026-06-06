@@ -1,4 +1,4 @@
-# [H1][THINKTECTURE_UNIONS]
+# [THINKTECTURE_UNIONS]
 
 [IMPORTANT] Prefer named regular unions for domain variants. Use ad-hoc unions only for compact local alternatives.
 

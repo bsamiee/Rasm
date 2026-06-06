@@ -128,7 +128,7 @@ Missing-value rule: `<how null, false, omitted, not announced, and unknown value
 When importing lifecycle data, preserve upstream field names before mapping them to local display labels:
 - Boolean/date pairs: `isEoas`/`eoasFrom`, `isEol`/`eolFrom`, `isEoes`/`eoesFrom`, and `isDiscontinued`/`discontinuedFrom`.
 - Related fields: `isLts`, `ltsFrom`, `isMaintained`, `latest`, and `custom` when they affect a row.
-- Missing-value rule: preserve omitted fields, explicit `null`, false booleans, and not-announced dates as distinct facts.
+- Missing-value rule: preserve omitted fields, explicit `null`, false booleans, not-announced dates, and not-applicable facts as distinct values. Use `—` for absent table cells, source literal `null` only for actual null, `false` only for actual false, `not announced` or source literal wording for unknown dates, and `n/a` only when the domain says the field does not apply.
 
 ## [6][STATUS_VOCABULARY]
 
@@ -160,6 +160,8 @@ Review trigger: `<policy, lifecycle, support channel, generated check, or compat
 ```
 
 Support-display states: `Supported`, `Maintenance`, `Limited`, and `Deprecated` are active reader-decision states. `End of support`, `Retired`, and `Unsupported` are terminal reader-decision states. Remove a terminal row only when no README, architecture path-state row, API deprecation, roadmap dependency, migration how-to, runbook, or reference fact still consumes it.
+
+These display states are support policy terms, not shared lifecycle tokens. Do not render them as `[ACTIVE]` or `[COMPLETE]`; use the exact support label in support rows and map to lifecycle only in an adjacent roadmap, README, or architecture record that declares the projection.
 
 ## [7][LIFECYCLE_DATES]
 

@@ -1,4 +1,4 @@
-# [H1][MATHNET_API]
+# [MATHNET_API]
 
 [IMPORTANT] Rasm directly consumes `MathNet.Numerics` and `MathNet.Symbolics` at the versions pinned in `Directory.Packages.props`. Treat supporting MathNet/F# package closure as load-context evidence, not an API surface for Rasm C# guidance.
 

@@ -1,4 +1,4 @@
-# [H1][VERIFY_API]
+# [VERIFY_API]
 
 [IMPORTANT] Rasm uses `Verify.XunitV3` (version pinned in `Directory.Packages.props`) in `tests/csharp/_tooling` only with concrete snapshot-worthy tests. Do not use Verify for algebraic laws, numeric behavior, or Rhino/GH native truth.
 

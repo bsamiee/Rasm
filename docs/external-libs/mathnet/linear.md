@@ -1,4 +1,4 @@
-# [H1][MATHNET_LINEAR]
+# [MATHNET_LINEAR]
 
 [IMPORTANT] Pin **`MathNet.Numerics`** at the version pinned in `Directory.Packages.props`. Verify solver and factorization names against local XML before documenting new call sites.
 

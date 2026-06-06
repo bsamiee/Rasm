@@ -58,6 +58,8 @@ Every design document states lifecycle facts where they route source and proof o
 
 Replacement behavior: keep a replaced or dropped design when it preserves rationale an agent still needs; delete only when the accepted ADR, roadmap, replacement design, or implementation evidence preserves the rationale and links back to the replaced design. There is no design-level blocked status; blockers stay in risk/open-question records with `Depends`.
 
+Multiple status vocabularies are allowed only when they are scoped to separate record families. Design `Status`, final-check disposition, change-slice state, risk disposition, and handoff lifecycle must each declare casing, active or returnable values, terminal values, omitted shared states, and removal behavior before the first record that uses that family. Do not mix values from two families in one `Status` field.
+
 [LIFECYCLE_FACTS]:
 - `Status`, `Profile`, `Date`, and `Source` are required in the lead.
 - `Check scopes` is required at `DISCUSSION` and later.
@@ -358,7 +360,7 @@ Use this record when any handoff target exists. Omit untriggered fields; keep sh
 
 ```markdown template
 ID: <handoff id only when another record references it>
-Status: <PLANNED | IN-PROGRESS | BLOCKED | DEFERRED | DONE | DROPPED | CANCELED>
+Status: <QUEUED | ACTIVE | BLOCKED | DEFERRED | COMPLETE | DROPPED | CANCELED>
 Changed fact: <accepted policy, current-structure change, public contract, gate policy, support fact, or reader route>
 Consumed by: <ADR, architecture, roadmap, test strategy, support matrix, API, reference, README, tutorial, how-to, runbook, contributing, onboarding, or code-documentation path>
 Use in this document: <why this design cannot close without the consuming route>

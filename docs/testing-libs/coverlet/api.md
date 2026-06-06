@@ -1,4 +1,4 @@
-# [H1][COVERLET_API]
+# [COVERLET_API]
 
 [IMPORTANT] Rasm uses `coverlet.MTP` (version pinned in `Directory.Packages.props`) through the .NET 10 Microsoft Testing Platform runner. It is injected only for runnable test projects; `Rasm.TestKit`, benchmarks, fuzz harnesses, and bridge scenarios are not coverage targets.
 

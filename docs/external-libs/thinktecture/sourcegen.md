@@ -1,4 +1,4 @@
-# [H1][THINKTECTURE_SOURCEGEN]
+# [THINKTECTURE_SOURCEGEN]
 
 [IMPORTANT] Rasm consumes the core runtime package. Optional framework integration packages are not active unless pinned and consumed.
 

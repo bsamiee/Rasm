@@ -1,19 +1,19 @@
 # [PROOF]
 
-Proof is a claim-level obligation. Each command, contract, status, version, support statement, generated artifact, diagram, procedure, or provider claim must point to evidence strong enough to refresh it. This standard carries evidence strength, freshness, conflict resolution, and verification, and it does not own where a claim sits, which container presents it, or the words that phrase it.
+Proof is a claim-level obligation. Each command, contract, status, version, support statement, generated artifact, diagram, procedure, or provider claim must point to reproducible evidence that lets the next maintainer refresh it. This standard carries evidence strength, freshness, conflict resolution, proof fields, proof gaps, preservation, and verification. It does not own where a claim sits, which container presents it, or the words that phrase it.
 
 ## [1][USE_WHEN]
 
 Apply this standard when documentation states:
-- commands, flags, outputs, quality gates, or expected success signals;
-- package, platform, runtime, language, host, API, or support versions;
-- generated contracts, schemas, public API surfaces, diagrams, or codemaps;
-- support status, deprecation, security posture, and end-of-life facts;
-- operational procedures, rollback, escalation, and recovery checks;
-- machine-facing indexes, retrieval metadata, generated mirrors, tool catalogs, or other agent surfaces whose behavior is the claim;
-- current external-provider behavior.
+- commands, flags, outputs, quality gates, or expected success signals
+- package, platform, runtime, language, host, API, or support versions
+- generated contracts, schemas, public API surfaces, diagrams, or codemaps
+- support status, deprecation, security posture, and end-of-life facts
+- operational procedures, rollback, escalation, and recovery checks
+- machine-facing indexes, retrieval metadata, generated mirrors, tool catalogs, or machine-facing surfaces whose behavior is the claim
+- current external-provider behavior
 
-Add metadata or proof fields only when the project has an actual need: a drift-prone claim, a reader trust need, or a named tool, renderer, generator, retrieval index, or review workflow that consumes the field. Never use evidence fields as page decoration.
+Add proof fields only for a drift-prone claim, a named reader trust need, or a named tool, renderer, generator, retrieval index, or review workflow that consumes the field. Add non-proof machine-consumed fields only when the consumer names the exact schema it reads. Never use evidence fields as page decoration.
 
 ## [2][EVIDENCE_HIERARCHY]
 
@@ -27,53 +27,102 @@ Repository truth and generated contracts outrank prose. Local command output out
 
 ## [3][CONFLICT_HANDLING]
 
-When sources disagree, use the source closest to the executing system:
-- generated contracts beat hand-written prose;
-- manifests and lockfiles beat install instructions;
-- source and generated symbol docs beat architecture summaries;
-- local command output beats a copied result;
-- maintained upstream source beats examples;
-- newer maintained source beats older maintained source for changing tools.
+When sources disagree, use the source closest to the executing system. The hierarchy above already decides most conflicts; this section states only disagreement behavior:
+- If generated output and handwritten prose disagree, use the generated output and fix or route the prose.
+- If local command output and copied transcripts disagree, use the local command output.
+- If maintained upstream sources disagree, use the newer maintained source for changing tools and record the dated source.
 
 If a lower source remains useful, cite it as background and state which higher source controls the claim.
 
 ## [4][PROOF_FIELDS]
 
-This standard is the single route of proof, source, freshness, and generated-artifact field labels. Use the smallest field set that keeps the claim maintainable, and keep the fields in this order when more than one is present:
-- `Evidence:` names the source or command that proves the claim.
-- `Generated from:` names the source model, contract, command, or workflow.
-- `Source of truth:` names the controlling contract, manifest, model, or path.
-- `Last verified: YYYY-MM-DD` records observed behavior.
-- `Review trigger:` names the event that makes the claim stale.
+This standard is the single route for proof, source, freshness, proof-gap, and generated-artifact field labels. Use the smallest field set that keeps the claim maintainable.
 
-Use these labels exactly when a human-readable field is needed. Machine-consumed metadata may map to these facts only when the consuming tool, renderer, generator, retrieval index, or review workflow names the exact shape it reads; the machine schema carries its own field casing, and this standard carries the human-facing labels and proof meaning.
+| [INDEX] | [FIELD] | [USE_WHEN] | [OMIT_WHEN] |
+| :-----: | :------ | :--------- | :---------- |
+|   [1]   | `Evidence:` | source, command, local output, renderer proof, or maintained source proves the claim | the claim is not drift-prone and needs no proof field |
+|   [2]   | `Generated from:` | an artifact is generated or mirrored | the artifact is handwritten source |
+|   [3]   | `Source of truth:` | a controlling contract, manifest, model, path, or route owns the claim | `Evidence:` already names the only source needed |
+|   [4]   | `Proof gap:` | the source, command, render, or validation was unavailable or intentionally unrun | the claim is proved |
+|   [5]   | `Last verified: YYYY-MM-DD` | observed behavior or external behavior can drift | an event trigger is enough and no observed behavior is claimed |
+|   [6]   | `Review trigger:` | a source, route, renderer, generator, or policy event makes the claim stale | the claim cannot drift or is deleted on change |
 
-Local identity or context fields such as `Gate`, `Surface`, `Representation`, or `Proof route` may precede `Evidence`. The proof-local labels then appear contiguously in this order: `Evidence`, `Generated from`, `Source of truth`, `Last verified`, `Review trigger`. Local result, match, disposition, or close fields follow that proof field run.
+Use these labels exactly when a human-readable field is needed. Machine-consumed fields may map to these facts only when the consuming tool, renderer, generator, retrieval index, or review workflow names the exact shape it reads; the machine schema carries its own field casing, and this standard carries the human-facing labels and proof meaning.
+
+Footnotes may attach short provenance to a sentence, but they never replace visible proof fields for drift-prone claims. If a command, renderer, package, support state, generated artifact, or provider behavior can drift, put the proof field beside the claim, table row, diagram caption, record, or procedure.
+
+Local identity or context fields such as `Gate:`, `Surface:`, `Representation:`, or `Proof route:` may precede the proof fields. The proof-local labels then appear contiguously in this order: `Evidence:`, `Generated from:`, `Source of truth:`, `Proof gap:`, `Last verified:`, `Review trigger:`. Local result, match, disposition, or close fields follow that proof field run unless a named evaluation receipt declares its own order.
 
 Prefer an event trigger over a calendar review date. Use a calendar date only when a maintained policy changes on a schedule or no better trigger exists.
 
 Attach the fields as a definition block beside the claim, one `label: value` per line, so each field is independently scannable and updatable:
 
 ```markdown template
-`uv run python -m tools.quality static build`
+Command: `uv run python -m tools.quality static build`
 Evidence: `tools/quality/__main__.py` `static build` verb; restore + build + analyzers, no tests.
 Last verified: 2026-06-04
 Review trigger: static rail verbs or routing change in `tools/quality`.
 ```
 
-Carry only the fields the claim needs: a generated artifact adds `Generated from:` and `Source of truth:`, and a settled command may need only `Evidence:`. When several claims share one schema, set them per the definition-block rules [information-structure.md](information-structure.md) carries.
+Carry only the fields the claim needs. A generated artifact adds `Generated from:` and `Source of truth:`. A settled command may need only `Evidence:`. A missing check uses `Proof gap:` plus `Review trigger:` when the gap can be closed. When several claims share one schema, follow the definition-block rules in [information-structure.md](information-structure.md).
 
 ## [5][EVIDENCE_PLACEMENT]
 
-Place evidence close to the claim it proves. A source inventory at the top or bottom of a page does not prove individual commands, versions, statuses, or provider behaviors unless each claim clearly maps back to that source. Use page-level proof only when every material claim shares one source and one freshness trigger; otherwise, attach claim-level evidence beside the drift-prone fact, table row, diagram caption, procedure, or generated artifact. Legacy page-level labels such as `[SOURCE]` are not sufficient proof for drift-prone API, package, support, generated, or test-tool facts unless every material fact on the page shares that exact source and freshness trigger.
+Place evidence close to the claim it proves.
+
+| [INDEX] | [CLAIM_SHAPE] | [PLACEMENT] | [REJECT] |
+| :-----: | :------------ | :---------- | :------- |
+|   [1]   | one drift-prone claim | beside the claim, row, caption, record, procedure, or generated artifact | page-level source inventory |
+|   [2]   | table row | row-owned note, footnote, or record immediately after the table | unrelated page footer |
+|   [3]   | diagram or renderer claim | caption or adjacent proof record | hidden comment |
+|   [4]   | all material claims share one source and trigger | page-level proof record | mixed-source page proof |
+
+[PAGE_LEVEL_PROOF]:
+- Scope: claims covered by the shared source.
+- Shared source: one source, command, generated contract, or maintained policy.
+- Shared freshness: one `Last verified:` value or `Review trigger:`.
+- Exclusions: commands, versions, statuses, provider behaviors, generated artifacts, or test-tool facts that do not share the source.
+- Rule: any exception gets claim-level proof.
+
+Legacy page-level labels such as `[SOURCE]` are not sufficient proof for drift-prone API, package, support, generated, or test-tool facts unless every material fact on the page shares that exact source and freshness trigger.
 
 ## [6][ASSERTION_UNCERTAINTY]
 
-State a verified fact plainly, and mark a genuine gap explicitly. A qualifier is load-bearing only when evidence is genuinely uncertain; in that case, keep it and name the missing source, the unrun check, or the provisional status. When no evidence basis for doubt exists, the hedge is noise and the phrasing standard removes it. An existence, optionality, or scope qualifier on a fact — `optional`, `if present`, `where supported` — is part of the fact, so preserve it when you relocate the fact, because flattening a hedged claim into an unconditional one loses information. Never present training-data recall or assumption as verified fact; if a claim cannot be checked against a current source during the change, state that gap and mark the claim provisional rather than asserting it.
+State a verified fact plainly. Mark a genuine gap explicitly.
+
+[VERIFIED]:
+- Use direct prose.
+- Attach `Evidence:` where the fact can drift.
+
+[PROOF_GAP]:
+- Use `Proof gap:` to name the missing source, unrun check, unsupported renderer proof, or provisional status.
+- Add `Review trigger:` when a future event can close the gap.
+
+[LOAD_BEARING_QUALIFIER]:
+- Preserve `optional`, `if present`, `where supported`, and similar scope qualifiers when they are part of the fact.
+- Do not flatten a scoped claim into an unconditional one.
+
+[UNSUPPORTED_RECALL]:
+- Never present training-data recall or assumption as verified fact.
+- If a claim cannot be checked against a current source during the change, state the proof gap and mark the claim provisional.
 
 ## [7][PRESERVATION_REFACTOR]
 
-A refactor relocates content; it never drops it. Restructuring a document, merging sections, or moving a rule to its route must preserve every load-bearing fact — each command, version, flag, path, invariant, routing pointer, field, and qualifier survives somewhere in the result. Before replacing a document, diff the new version's content coverage against the prior one and confirm nothing material disappeared; a dropped fact is a regression, not a simplification. When a leaner rewrite would remove a concrete proof command, a dependency, or a non-derivable constraint, the rewrite is wrong, not the original. Treat a vanished load-bearing item as a blocker that fails verification, exactly as a broken link or an unrun gate does.
+A refactor relocates content; it never drops load-bearing current facts.
+
+1. Inventory commands, versions, flags, paths, invariants, routing pointers, fields, and qualifiers before replacement.
+2. Map each load-bearing fact to its new location, route-away owner, or deletion proof.
+3. Compare the replacement against the prior content coverage.
+4. Treat a vanished load-bearing fact as a verification failure.
+
+[PRESERVATION_RECEIPT]:
+- Prior source: file or section replaced.
+- Replacement scope: file or section that now carries the content.
+- Preserved facts: load-bearing facts retained.
+- Routed facts: facts moved to an owner standard or adjacent document.
+- Deleted facts: stale facts removed with proof.
+- Comparison method: diff, checklist, table, or reviewer pass.
+- Result: preserved, routed, deleted with proof, or blocked.
 
 ## [8][SOURCE_RESEARCH]
 
@@ -86,7 +135,9 @@ If current source is unavailable, state the gap and mark the claim provisional.
 
 ## [9][DOCS_CODE_VERIFICATION]
 
-This is the canonical docs-as-code gate ladder for this standards library; the source-research, evidence-format, and agent-surface sections defer here for which gate a changed claim requires. Match the changed-claim condition to the required gate:
+This is the canonical docs-as-code gate ladder for this standards library. Source research, evidence format, and agent-surface sections use this ladder to choose the required gate.
+
+Hit policy: run every configured gate whose row matches the changed claim. If no configured gate exists, state `Proof gap: no configured <gate class> exists` rather than inventing one.
 
 | [INDEX] | [CLAIM_CHANGED]                           | [GATE]                                           |
 | :-----: | :---------------------------------------- | :----------------------------------------------- |
@@ -95,69 +146,93 @@ This is the canonical docs-as-code gate ladder for this standards library; the s
 |   [3]   | Links or anchors                          | link checker or local path/anchor validation     |
 |   [4]   | Navigation, diagrams, config, docs output | docs build                                       |
 |   [5]   | Generated contract claim                  | regenerate or compare generated output to source |
-|   [6]   | Operational procedure                     | run steps or mark manual-only                    |
+|   [6]   | Operational procedure                     | run steps or state proof gap                     |
 |   [7]   | Visual layout claim                       | render screenshots, diagrams, PDFs, or pages     |
 
 The link-or-anchor row includes added, removed, renamed, or generated links and heading anchors.
 
-Do not claim a gate passed unless it ran in the current change or a current status check proves it — knowing a gate would pass is not proof it did. If no configured gate exists, state that rather than inventing one; a local validation script is a local check, not a configured repository gate.
+[RENDERER_CLAIMS]:
+- Mermaid render behavior.
+- Mermaid `config:` support.
+- GitHub alert support.
+- `<details>` rendering.
+- Footnote rendering.
+- Diagram accessibility text.
+- Generated diagram output.
+
+Renderer-dependent documentation claims require proof from the renderer or `Proof gap:`. Mermaid, GitHub, and `mmdc` support claims need local render proof when the repository depends on that rendering.
+
+Do not claim a gate passed unless it ran in the current change or a current status check proves it. Knowing a gate would pass is not proof it did. A local validation script is a local check, not a configured repository gate.
 
 ## [10][AGENT_SURFACE_EVALUATION]
 
 Treat a machine-facing surface as a contract when it affects retrieval, generated mirrors, tool use, or structured output. Prove that contract with evaluation rather than assertion.
 
-A deterministic surface needs a minimum receipt: surface, baseline or prior behavior, checks, result, and freshness trigger. Add the rigor fields below only when the claim depends on stochastic output, ranking, tool selection, latency, or provider behavior:
-- 20–50 representative questions or tasks drawn from real maintenance failures, not invented happy paths;
-- a baseline comparison against the previous surface, manual route, or known failure;
-- 3–5 trials per case when the claim is about stochastic output, retrieval ranking, or tool selection;
-- a Wilson score 95% confidence interval for binary rates — task pass, valid JSON, instruction-following — and a paired comparison against the baseline on the same task set;
-- exact checks for format and link correctness, plus a judge or source-trace review for retrieved or generated answers;
-- a transcript or trace, with model or provider version, configured tool set, token or context budget, latency, and tool errors when the surface carries them;
-- an unsupported-claim review and a tool-call failure review.
+Machine-facing contract semantics are defined in [agentic-documentation.md](agentic-documentation.md): shape enforcement, source provenance, semantic validation, and runtime safety. This section defines the evidence and receipt fields for those checks.
+
+Declare evaluation receipt fields before examples.
+
+[DETERMINISTIC_RECEIPT]:
+- Surface: machine-facing surface being proved.
+- Baseline: prior behavior, manual route, or known failure.
+- Checks: exact checks run.
+- Evidence: source, command, trace, or review proof.
+- Result: observed outcome.
+- Last verified: date of observed behavior.
+- Review trigger: event that makes the receipt stale.
+
+[RIGOR_FIELDS]:
+- Questions: 20–50 representative questions or tasks drawn from real maintenance failures, not invented happy paths.
+- Trials: 3–5 runs per case when the claim is stochastic output, retrieval ranking, or tool selection.
+- Statistics: Wilson score 95% confidence interval for binary rates and paired comparison against the baseline on the same task set.
+- Trace: model or provider version, configured tool set, token or context budget, latency, and tool errors when the surface carries them.
+- Reviews: format, link correctness, source-trace, unsupported-claim, and tool-call-failure reviews.
 
 Record the evaluation as a definition block beside the surface it proves. Keep the minimum receipt visible for deterministic surfaces:
 
 ```markdown template
-Surface: `docs/standards/_index.json` retrieval index.
+Surface: `<retrieval-index-path>` retrieval index.
 Baseline: prior flat README link list.
 Checks: exact file links and heading-anchor validity.
+Evidence: local link and anchor validation.
 Result: index links resolve and no orphan target remains.
 Last verified: 2026-06-04
 Review trigger: standard filename, heading label, route map, or index-generation change.
 ```
 
-Add rigor fields only when the surface carries stochastic output, ranking, tool selection, latency, or provider behavior:
+Add rigor fields to the same receipt only when the surface carries stochastic output, ranking, tool selection, latency, or provider behavior. This fragment extends the deterministic receipt; it does not replace it:
 
 ```markdown template
 Questions: 24 drawn from real "which standard carries X" maintenance misses.
 Baseline: prior flat README link list; new index resolves 22/24 vs 14/24.
 Trials: 3 runs per question; ranking stable across runs.
 Checks: exact link and heading-anchor validity; judge review of top-1 source trace.
+Evidence: trace and reviewed source spans.
 Trace: model or provider version, tool set `{search, read}`, token budget 8k, p50 latency 1.4s, 0 tool errors.
 Reviews: unsupported-claim review clean; tool-call-failure review clean.
 Last verified: 2026-06-04
 ```
 
-State the proof gap when a contract is reviewed by a human rather than enforced by tooling.
+State `Proof gap:` when a contract is reviewed by a human rather than enforced by tooling.
 
 ## [11][EVIDENCE_FORMAT]
 
 Keep evidence short and reproducible:
-- the exact command as run;
-- the source path plus field, heading, symbol, or contract name;
-- the versioned source, specification, or maintained policy link;
-- the generated contract path and generation command;
-- the rendered artifact path when visual output matters;
-- the status-check name and result when CI is the proof;
-- the known gap when proof is intentionally unavailable.
+- the exact command as run
+- the source path plus field, heading, symbol, or contract name
+- the versioned source, specification, or maintained policy link
+- the generated contract path and generation command
+- the rendered artifact path when visual output matters
+- the status-check name and result when CI is the proof
+- the known gap when proof is intentionally unavailable
 
 Do not paste long transcripts. Summarize the result and keep enough source detail for the next maintenance route to reproduce the proof.
 
-A compliant note names the command, the source path, and a freshness marker, and summarizes the outcome rather than reproducing it:
+A compliant note names the command, the source path, and a freshness marker and summarizes the outcome rather than reproducing it:
 
 ```markdown template
 Claim: `static full` parity covers `Workspace.slnx`.
-Evidence: `uv run python -m tools.quality static full`; restore/build/analyzers green across the solution closure.
+Evidence: `uv run python -m tools.quality static full`; restore, build, and analyzer checks passed across the solution closure.
 Source of truth: `Workspace.slnx`; routing in `tools/quality/__main__.py`.
 Last verified: 2026-06-04
 ```
@@ -170,15 +245,15 @@ Ran the build and it works.
 > [hundreds of lines of MSBuild output]
 ```
 
-The contrast is the rule: a note is reproducible when a maintenance route can re-run the exact command against the named source, not when it shows that it once ran.
+The contrast is the rule: a note is reproducible when a maintenance route can re-run the exact command against the named source, not when it preserves only a past transcript.
 
 ## [12][PROOF_DOCUMENT_TYPE]
 
-The evidence hierarchy, freshness fields, proof labels, preservation rule, and docs-as-code gates above govern every document. Do not restate generic proof per type. Type standards may name type-distinct proof surfaces only where the shared hierarchy is not specific enough for an authoring agent. This standard carries evidence hierarchy, proof field labels, freshness, conflicts, preservation, and gate selection; type standards own only artifact-specific proof slots, examples, and route-away rules.
+The evidence hierarchy, freshness fields, proof labels, preservation rule, and docs-as-code gates govern every document. Type standards may name artifact-specific proof slots, examples, and route-away rules where the shared hierarchy is not specific enough. Do not restate generic proof per type.
 
 ## [13][BOUNDARIES]
 
-- [agentic-documentation.md](agentic-documentation.md) carries machine-facing surface placement and evaluation posture; this standard carries proof field labels and proof meaning.
+- [agentic-documentation.md](agentic-documentation.md) carries machine-facing placement and contract separation; this standard carries evidence strength, receipt fields, freshness, and evaluation proof.
 - [information-structure.md](information-structure.md) carries the container that presents an evidence table, caption, or labeled block.
 - [style-guide.md](style-guide.md) carries the phrasing of a claim and the removal of filler hedging.
 - [formatting.md](formatting.md) carries the markers and styling that present an evidence table or status field.
@@ -199,9 +274,11 @@ Use this verification checklist by group:
 [GENERATED_AGENT]:
 - [ ] Generated content is linked or regenerated, not manually forked.
 - [ ] Provider-specific behavior has current maintained proof.
-- [ ] Agent surfaces carry deterministic receipt fields, and add baseline trials, source trace, and review fields where stochastic, ranking, tool-selection, latency, or provider behavior is the claim.
+- [ ] Renderer-dependent claims have local render proof, maintained renderer proof, or an explicit gap.
+- [ ] Schema or structured-output proof is separated from semantic source-trace, validation, application, and runtime-safety proof.
+- [ ] Agent surfaces carry deterministic receipt fields and add rigor fields where stochastic, ranking, tool-selection, latency, or provider behavior is the claim.
 
 [GAPS_PRESERVATION]:
 - [ ] Genuine uncertainty is marked; unrun gates and proof gaps are stated.
 - [ ] A refactor preserved every load-bearing fact; no command, version, field, or invariant was dropped.
-- [ ] A 1-10 validity score is backed by stated evidence, not by confidence, taste, or session memory.
+- [ ] A refactor has a preservation receipt when content was replaced or relocated.

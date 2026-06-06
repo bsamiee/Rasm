@@ -1,4 +1,4 @@
-# [H1][STRYKER_API]
+# [STRYKER_API]
 
 [IMPORTANT] Rasm uses `dotnet-stryker` (version pinned in `.config/dotnet-tools.json`) through `tools.quality test run --mutation changed|full`. Default `tools.quality test run` is unit-only. Stryker runs with the MTP runner against the `Rasm` project/test pair, and zero-test discovery fails the rail.
 
@@ -31,7 +31,7 @@
 | :-----: | ------------------------ | ------------------------------------------------ |
 |   [1]   | `quality static`         | Concurrent-safe through run-scoped artifacts.    |
 |   [2]   | `tools.quality test run` | MTP unit execution through run-scoped artifacts. |
-|   [3]   | `--mutation changed      | full`                                            | One mutation process; fail fast when advisory lock is held. |
+|   [3]   | `--mutation changed \| full`                                            | One mutation process; fail fast when advisory lock is held. |
 |   [4]   | `tools.quality bridge`   | Serial — one live Rhino endpoint.                |
 
 Unlocked lock files are stale and reusable. The quality tool rewrites them before launching Stryker.

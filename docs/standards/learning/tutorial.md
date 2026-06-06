@@ -143,6 +143,15 @@ Learning-path sections are authorable, not prose placeholders:
 - `Path`: holds three or more ordered lesson records.
 - `Completion`: states the composed capability gate: all available lessons pass, later lessons consume earlier results where claimed, and the final lesson demonstrates the broader skill rather than only its local artifact.
 
+Path `Availability` is a learning-publication axis, not a roadmap lifecycle. Declare it before the first path record and use only these values:
+- `AVAILABLE`: the lesson's primary path ran front to back.
+- `DRAFT`: the lesson has unverified primary-path steps or incomplete fixture support.
+- `BLOCKED`: a required fixture, access grant, generated contract, support target, or source route prevents verification.
+- `DEFERRED`: the lesson is intentionally out of the current path until a named return trigger fires.
+- `DROPPED`: the lesson is removed from the path and retained only when another record still references it.
+
+Shared lifecycle states omitted here are intentional: learning paths do not use `QUEUED`, `ACTIVE`, `COMPLETE`, or `CANCELED`. Removal behavior is record-local: drop unavailable lessons when no later lesson, proof receipt, onboarding ramp, or adjacent route references them. Do not use progress bars in tutorials or learning paths; completion is proven by the result and validation checks.
+
 Each `Path` entry is a subsection-per-record block because entries are updated independently and order is load-bearing:
 
 ```markdown template
@@ -160,13 +169,6 @@ Update when: `<lesson result, fixture, command, stack, support target, or genera
 Close when: `<lesson is available, deferred with return trigger, or dropped from the path>`
 Route-away: `<branch lesson, how-to, reference, or adjacent document that holds non-core variants>`
 ```
-
-Path `Availability` is the publication axis:
-- `AVAILABLE`: the lesson's primary path ran front to back.
-- `DRAFT`: the lesson has unverified primary-path steps or incomplete fixture support.
-- `BLOCKED`: a required fixture, access grant, generated contract, support target, or source route prevents verification.
-- `DEFERRED`: the lesson is intentionally out of the current path until a named return trigger fires.
-- `DROPPED`: the lesson is removed from the path and retained only when another record still references it.
 
 Step-level `Execution` tags explain the concrete unverified dependency inside a lesson. Path-level `Availability` summarizes whether that lesson may be used in the path.
 

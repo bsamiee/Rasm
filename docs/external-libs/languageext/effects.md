@@ -1,4 +1,4 @@
-# [H1][LANGUAGEEXT_EFFECTS]
+# [LANGUAGEEXT_EFFECTS]
 
 [IMPORTANT] Pin **`LanguageExt.Core`** at the version pinned in `Directory.Packages.props`. Runtime effects use concrete runtime records and `Eff.runtime<RT>()`. Boundary adapters may use statement control flow only with an explicit boundary marker in code.
 

@@ -1,4 +1,4 @@
-# [H1][SYSTEM_API_MAP]
+# [SYSTEM_API_MAP]
 
 [IMPORTANT] Scope: BCL, shared-framework surfaces, package state, host references, build metadata. Cross-stack owner order: `../usage.md` §1. Product libraries: `../external-libs/README.md`. Test tools: `../testing-libs/xunit/api.md`. C# 14 language: `../external-libs/csharp/language.md`.
 

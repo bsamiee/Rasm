@@ -1,4 +1,4 @@
-# [H1][BENCHMARKDOTNET_API]
+# [BENCHMARKDOTNET_API]
 
 [IMPORTANT] Rasm uses `BenchmarkDotNet` (version pinned in `Directory.Packages.props`) only in `tests/csharp/_benchmarks`. Benchmarks are executable measurement rails, not xUnit specs and not part of `tools.quality test run`.
 

@@ -1,4 +1,4 @@
-# [H1][LANGUAGEEXT_API]
+# [LANGUAGEEXT_API]
 
 [IMPORTANT] Pin **`LanguageExt.Core`** at the version pinned in `Directory.Packages.props`. Typical workspace imports: `LanguageExt`, `LanguageExt.Common`, `LanguageExt.Traits`, `LanguageExt.Effects`, `LanguageExt.Pretty`, `LanguageExt.Traits.Domain`, and static `LanguageExt.Prelude` when global usings are enabled.
 

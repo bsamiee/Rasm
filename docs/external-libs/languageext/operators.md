@@ -1,4 +1,4 @@
-# [H1][LANGUAGEEXT_OPERATORS]
+# [LANGUAGEEXT_OPERATORS]
 
 [IMPORTANT] Pin **`LanguageExt.Core`** at the version pinned in `Directory.Packages.props`. Verify overload semantics in local package XML.
 

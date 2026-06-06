@@ -72,15 +72,15 @@ Name the sequence type in the lead because it tells the reader which proof matte
 - `ARCHIVED`: the roadmap is not active and points to release history, architecture, ADRs, or the live planner that replaced it.
 
 Milestone `Status` uses this closed set unless a live planner controls a different vocabulary and the roadmap maps it before first use:
-- `PLANNED`: accepted for sequencing, not yet executing.
-- `IN-PROGRESS`: active inside milestone scope.
+- `QUEUED`: accepted for sequencing, not yet executing.
+- `ACTIVE`: active inside milestone scope.
 - `BLOCKED`: a named dependency, decision, access gap, or proof gap prevents progress.
 - `DEFERRED`: moved outside the current sequence with a return event.
-- `DONE`: all exit criteria are checked, proof agrees, and required handoffs are closed.
+- `COMPLETE`: all exit criteria are checked, proof agrees, and required handoffs are closed.
 - `DROPPED`: removed before accepted execution because it is duplicate, invalid, superseded outside this roadmap, or has no remaining dependency or handoff reference.
 - `CANCELED`: accepted work stopped; successor, rollback, or retired need is stated.
 
-Lifecycle categories: active states are `PLANNED` and `IN-PROGRESS`; the blocked state is `BLOCKED`; the returnable state is `DEFERRED`, and it keeps the original ID if a return event moves it back into sequence; terminal states are `DONE`, `DROPPED`, and `CANCELED`. Keep a terminal record while any milestone, dependency, proof receipt, documentation handoff, README status, architecture overlay, or support row references its ID. Delete or archive it only after the live planner, release route, or replacement roadmap preserves the needed history.
+Lifecycle categories: queued state is `QUEUED`; active state is `ACTIVE`; blocked state is `BLOCKED`; returnable state is `DEFERRED`, and it keeps the original ID if a return event moves it back into sequence; terminal states are `COMPLETE`, `DROPPED`, and `CANCELED`. Keep a terminal record while any milestone, dependency, proof receipt, documentation handoff, README status, architecture overlay, or support row references its ID. Delete or archive it only after the live planner, release route, or replacement roadmap preserves the needed history.
 
 Avoid vague status labels such as `ongoing`, `soon`, `almost complete`, `waiting`, or `docs later`. If the status cannot be mapped to one value, split the milestone or move mutable task detail to the live planner.
 
@@ -172,8 +172,8 @@ Use `Current status` only when the roadmap is a useful snapshot over several mil
 
 | [INDEX] | [MILESTONE] | [STATUS]    | [LIVE_SOURCE] | [CURRENT_READER_ACTION]                            |
 | :-----: | :---------- | :---------- | :------------ | :------------------------------------------------- |
-|   [1]   | M1          | DONE        | issue/101     | build M2 on frozen schema                          |
-|   [2]   | M2          | IN-PROGRESS | issue/112     | do not edit worker API without architecture update |
+|   [1]   | M1          | COMPLETE    | issue/101     | build M2 on frozen schema                          |
+|   [2]   | M2          | ACTIVE      | issue/112     | do not edit worker API without architecture update |
 
 Omit this section when the live planner already provides the same scan.
 
@@ -181,7 +181,7 @@ Omit this section when the live planner already provides the same scan.
 
 IDs exist so milestones, dependencies, architecture notes, ADRs, designs, proof receipts, and documentation handoffs can reference the same implementation unit without copying text.
 
-- Milestone IDs are stable `M<N>` anchors. Do not assign a completed, deferred, dropped, or canceled ID to unrelated work; a `DEFERRED` item keeps its ID when its return event moves it back into sequence.
+- Milestone IDs are stable `M<N>` anchors. Do not assign a complete, deferred, dropped, or canceled ID to unrelated work; a `DEFERRED` item keeps its ID when its return event moves it back into sequence.
 - Task IDs use `M<N>.T<N>` only when Markdown is the controlling task planner and the task needs a dependency, proof, milestone, or handoff reference.
 - Issue and risk IDs exist only when dependencies, proof, milestones, tasks, or adjacent documents reference them.
 - If a live planner carries tasks, link the live source from the milestone and keep task breakdown out of Markdown.
@@ -194,7 +194,7 @@ Progress defaults to unweighted checked exit criteria with proof agreement:
 Progress: [██████████░░░░░░░░░░] 50%
 ```
 
-The numerator is checked exit criteria whose proof surface agrees. The denominator is total exit criteria for that milestone. The count and closure unit stay in the calculation basis or proof map, not in the rendered progress line. Nested checklist items are proof subchecks and do not enter the progress denominator unless the roadmap explicitly promotes them to top-level exit criteria. Adding, deleting, or rewriting an exit criterion after a milestone enters `IN-PROGRESS` is a scope change; recalculate progress, state the changed denominator, and link the source that changed the exit rule. Percentages, weights, complexity points, cross-milestone rollups, and date-based bars require a named calculation route and rule before first use. A progress marker without a calculation rule is unsupported and must be removed.
+The numerator is checked exit criteria whose proof surface agrees. The denominator is total exit criteria for that milestone. The count and closure unit stay in the calculation basis or proof map, not in the rendered progress line. Nested checklist items are proof subchecks and do not enter the progress denominator unless the roadmap explicitly promotes them to top-level exit criteria. Adding, deleting, or rewriting an exit criterion after a milestone enters `ACTIVE` is a scope change; recalculate progress, state the changed denominator, and link the source that changed the exit rule. Percentages, weights, complexity points, cross-milestone rollups, and date-based bars require a named calculation route and rule before first use. A progress marker without a calculation rule is unsupported and must be removed.
 
 ### [8.1][WORK_RECORD_MODEL]
 
@@ -220,7 +220,7 @@ Route-away: <architecture, support matrix, test strategy, README, or runbook bod
 
 ## [10][EXIT_PROOF_RULES]
 
-A milestone reaches `DONE` only when every exit criterion is checked, the proof surface agrees, and adjacent handoffs required for that milestone are closed or explicitly routed away.
+A milestone reaches `COMPLETE` only when every exit criterion is checked, the proof surface agrees, and adjacent handoffs required for that milestone are closed or explicitly routed away.
 
 Exit criteria are binary GFM task-list items. Each item is independently true or false. Nested checklists are allowed only as proof subchecks for a single exit criterion.
 
@@ -280,7 +280,7 @@ Use this accepted milestone record shape:
 ### [7.1][M2_WORKER_EXECUTION]
 
 ID: M2
-Status: IN-PROGRESS
+Status: ACTIVE
 Progress: [██████░░░░░░░░░░░░░░] 33%
 Goal: move validated events through one worker execution path.
 Mission contribution: replaces split execution paths with one package-local worker boundary.
@@ -295,8 +295,8 @@ Proof surface: build output, dependency gate, generated contract diff, and code-
 Proof map:
     - Progress basis: 1/3 top-level exit criteria proven by matching proof surfaces.
     - worker entrypoint compiles: build output from `EventPipeline.csproj`.
-Depends: M1: DONE; support row: compatibility window open.
-Architecture link: `Execution/EventWorker.cs [IN-PROGRESS M2]` and flow node.
+Depends: M1: COMPLETE; support row: compatibility window open.
+Architecture link: `Execution/EventWorker.cs [ACTIVE M2]` and flow node.
 Documentation handoff: architecture flow, code documentation, generated reference.
 ```
 
@@ -336,7 +336,7 @@ Use a handoff record when milestone completion changes another document route. O
 
 ```markdown template
 ID: H-M2-1
-Status: PLANNED | IN-PROGRESS | BLOCKED | DONE | DROPPED | CANCELED
+Status: QUEUED | ACTIVE | BLOCKED | COMPLETE | DROPPED | CANCELED
 Milestone: M2
 Destination path: <architecture, ADR, design, API, reference, code documentation, README, how-to, tutorial, runbook, support, or test-strategy path>
 Changed fact: `Execution/EventWorker.cs` becomes the single execution path.
@@ -441,5 +441,5 @@ CANCELED work states the successor, rollback, or retired need. DEFERRED work sta
 - [ ] Deferred work states the return event; dropped work removes dependency references; canceled work states successor, rollback, or retired need.
 
 [CLOSURE]:
-- [ ] A milestone is `DONE` only when exit criteria, proof surface, and required handoffs agree.
+- [ ] A milestone is `COMPLETE` only when exit criteria, proof surface, and required handoffs agree.
 - [ ] Shipped history is moved to the release route instead of kept as roadmap tail.

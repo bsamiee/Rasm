@@ -84,6 +84,8 @@ Curated prose must not fork generated contracts, generated reference models, loc
 
 Use [proof.md](../proof.md) for evidence strength, freshness, source conflicts, and proof-field mechanics. API records use proof-local fields in this order when a claim needs them: `Evidence`, `Generated from`, `Source of truth`, `Last verified`, `Review trigger`.
 
+Keep source and proof fields distinct. `Contract source` and `Source of truth` identify controlling artifacts; `Evidence` identifies the observed check or source span that proves the current claim. Do not put a command transcript in `Source of truth`, and do not let a source path stand in for verification when the claim is about generated output, parser behavior, or renderer behavior.
+
 ## [5][CONTRACT_RECORDS]
 
 Use one contract record per callable surface or surface family. Omit fields that do not apply; do not replace omitted fields with `n/a`.
@@ -133,6 +135,8 @@ Profile rules split by API surface:
 - Document invocation prefix, stdout/stderr or return envelope, status values, exit codes, side effects, artifact paths, source truth, and review triggers.
 - Route flags, command inventory, and runnable recipes to reference or task routes.
 - Keep stdout/stderr, typed return, artifacts, and diagnostics separate when agents parse them differently.
+- Use a command card for each callable family that needs independent proof: `Command`, `Invocation`, `Preconditions`, `Inputs`, `Outputs`, `Side effects`, `Exit behavior`, `Evidence`, `Source of truth`, and `Review trigger`.
+- Use a CLI envelope record when agents or automation consume channels: `Stdout`, `Stderr`, `Exit status`, `Artifacts`, `External state`, `Diagnostics`, `Failure reading`, and `Close signal`. Do not merge stdout payload, stderr diagnostics, and durable artifacts into one prose field.
 
 [MCP_TOOL]:
 - Document catalog/schema source, authorization or connector setup, preconditions, input field cards, output field cards, side effects, failure carrier, evidence, source of truth, and review trigger.
