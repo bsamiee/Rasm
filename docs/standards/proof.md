@@ -145,56 +145,7 @@ If current source is unavailable, state the gap and mark the claim provisional.
 - Terms such as `latest`, `current`, `supported`, `deprecated`, `obsolete`, `legacy`, `experimental`, `beta`, `soon`, and `future` require a source-specific definition plus `Last verified:` or `Review trigger:` when they describe present behavior.
 - Rewrite the claim as a source-independent target standard when current availability is not the point.
 
-## [9][DOCS_CODE_VERIFICATION]
-
-This is the canonical docs-as-code gate ladder for this standards library. Source research, evidence format, and agent-surface sections use this ladder to choose the required gate.
-
-Hit policy: run every configured gate whose row matches the changed claim. If no configured gate exists, state `Proof gap: no configured <gate class> exists` rather than inventing one. A final validation line uses one of 3 states: `ran <exact command>`, `not applicable because <claim class did not change>`, or `Proof gap: no configured <gate class> command named`.
-
-| [INDEX] | [CLAIM_CHANGED]                           | [GATE]                                           |
-| :-----: | :---------------------------------------- | :----------------------------------------------- |
-|   [1]   | Markdown content only                     | `git diff --check` on changed Markdown           |
-|   [2]   | Structure, tables, examples, generated MD | configured formatter or linter                   |
-|   [3]   | Links or anchors                          | link checker or local path/anchor validation     |
-|   [4]   | Navigation, diagrams, config, docs output | docs build                                       |
-|   [5]   | Generated contract claim                  | regenerate or compare generated output to source |
-|   [6]   | Operational procedure                     | run steps or state proof gap                     |
-|   [7]   | Visual layout claim                       | render screenshots, diagrams, PDFs, or pages     |
-
-The link-or-anchor row includes added, removed, renamed, or generated links and heading anchors.
-
-[RENDERER_CLAIMS]:
-- Mermaid render behavior.
-- Mermaid `config:` support.
-- GitHub alert support.
-- `<details>` rendering.
-- Footnote rendering.
-- Diagram accessibility text.
-- Generated diagram output.
-
-Renderer-dependent documentation claims require proof from the renderer or `Proof gap:`. Mermaid, GitHub, and `mmdc` support claims need local render proof when the repository depends on that rendering. Tool availability proves a route exists; it does not prove a changed diagram rendered.
-
-[CONFIGURED_GATE_RECORD]:
-- Gate class: whitespace, link, anchor, docs build, renderer, generated contract, procedure, visual layout, provider behavior, or custom class.
-- Configured command or source: exact command, status check, maintained source, or `Proof gap:`.
-- Applies to: changed claim class.
-- Proves: what the gate verifies.
-- Does not prove: nearby claim class the gate cannot verify.
-- Review trigger: command, renderer, source, or claim-class change.
-
-[RENDERER_SOURCE_RECORD]:
-- Source class: CommonMark/GFM syntax, GitHub product behavior, official Mermaid syntax/config, local `mmdc` availability, local render output, or generated SVG accessibility output.
-- Applies to: syntax, renderer support, local output, accessibility, or visual layout claim.
-- Configured command or source: exact command or maintained source.
-- Proves: the bounded renderer behavior checked.
-- Does not prove: unrendered local diagrams, GitHub-hosted behavior, SVG accessibility, or visual layout unless the row names that proof.
-- Proof gap: missing renderer proof where applicable.
-- Last verified: date when observed behavior can drift.
-- Review trigger: renderer, Mermaid version, GitHub behavior, diagram source, or command route change.
-
-Do not claim a gate passed unless it ran in the current change or a current status check proves it. Knowing a gate would pass is not proof it did. A local validation script is a local check, not a configured repository gate.
-
-## [10][AGENT_SURFACE_EVALUATION]
+## [9][AGENT_SURFACE_EVALUATION]
 
 Treat a machine-facing surface as a contract when it affects retrieval, generated mirrors, tool use, or structured output. Prove that contract with evaluation rather than assertion.
 
@@ -247,7 +198,7 @@ Last verified: YYYY-MM-DD
 
 State `Proof gap:` when a contract is reviewed by a human rather than enforced by tooling.
 
-## [11][EVIDENCE_FORMAT]
+## [10][EVIDENCE_FORMAT]
 
 Keep evidence short and reproducible:
 - the exact command as run
@@ -281,11 +232,11 @@ Ran the build and it works.
 
 The contrast is the rule: a note is reproducible when a maintenance route can re-run the exact command against the named source, not when it preserves only a past transcript.
 
-## [12][PROOF_DOCUMENT_TYPE]
+## [11][PROOF_DOCUMENT_TYPE]
 
 The evidence hierarchy, freshness fields, proof labels, preservation rule, and docs-as-code gates govern every document. Type standards may name artifact-specific proof slots, examples, and route-away rules where the shared hierarchy is not specific enough. Do not restate generic proof per type.
 
-## [13][BOUNDARIES]
+## [12][BOUNDARIES]
 
 - [agentic-documentation.md](agentic-documentation.md) carries machine-facing placement and contract separation; this standard carries evidence strength, receipt fields, freshness, and evaluation proof.
 - [information-structure.md](information-structure.md) carries the container that presents an evidence table, caption, or labeled block.
@@ -293,7 +244,7 @@ The evidence hierarchy, freshness fields, proof labels, preservation rule, and d
 - [formatting.md](formatting.md) carries the markers and styling that present an evidence table or status field.
 - [README.md](README.md) carries document-type routing and cross-standard links.
 
-## [14][VALIDATION]
+## [13][VALIDATION]
 
 Use this verification checklist by group:
 

@@ -22,12 +22,10 @@ If reviewing, refining, editing, creating, or modifying X file type, use skill Y
 |   [5]   | Python (`.py`)                      | `coding-python`             |
 |   [6]   | Bash/sh (`.sh`, `.bash`)            | `coding-bash`               |
 |   [7]   | SQL (`.sql`)                        | `coding-pg`                 |
-|   [8]   | Markdown/docs (`.md`)               | `docs/standards`            |
 
 [IMPORTANT]:
 - [ALWAYS] Language-specific mechanics come from the required `coding-*` skill.
 - [ALWAYS] Treat `.claude/skills/*` as project skill context and `/Users/bardiasamiee/.codex/skills/*` as Codex runtime skill context; keep overlapping standards mirrored when they govern this repo.
-- [ALWAYS] Documentation mechanics, structure, prose, and evidence rules come from `docs/standards`.
 
 ## [2][BEHAVIOR]
 
