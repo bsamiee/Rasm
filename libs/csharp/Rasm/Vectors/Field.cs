@@ -244,13 +244,7 @@ public sealed partial class ReconstructionFailureKind { public static readonly R
 
 [SmartEnum<int>]
 public sealed partial class ReconstructionMode {
-    public static readonly ReconstructionMode RbfInterpolation = new(key: 0, executable: true, requiresNormals: false, requiresSparseSystem: false, polynomialDegree: 0);
-    public static readonly ReconstructionMode RbfApproximation = new(key: 1, executable: true, requiresNormals: false, requiresSparseSystem: false, polynomialDegree: 0);
-    public static readonly ReconstructionMode MovingLeastSquares = new(key: 2, executable: true, requiresNormals: true, requiresSparseSystem: false, polynomialDegree: 1);
-    public static readonly ReconstructionMode LevinMovingLeastSquares = new(key: 3, executable: false, requiresNormals: true, requiresSparseSystem: false, polynomialDegree: 2);
-    public static readonly ReconstructionMode AlgebraicPointSetSurfaces = new(key: 4, executable: false, requiresNormals: true, requiresSparseSystem: false, polynomialDegree: 2);
-    public static readonly ReconstructionMode Poisson = new(key: 5, executable: false, requiresNormals: true, requiresSparseSystem: true, polynomialDegree: 0);
-    public static readonly ReconstructionMode ScreenedPoisson = new(key: 6, executable: false, requiresNormals: true, requiresSparseSystem: true, polynomialDegree: 0);
+    public static readonly ReconstructionMode RbfInterpolation = new(key: 0, executable: true, requiresNormals: false, requiresSparseSystem: false, polynomialDegree: 0), RbfApproximation = new(key: 1, executable: true, requiresNormals: false, requiresSparseSystem: false, polynomialDegree: 0), MovingLeastSquares = new(key: 2, executable: true, requiresNormals: true, requiresSparseSystem: false, polynomialDegree: 1), LevinMovingLeastSquares = new(key: 3, executable: false, requiresNormals: true, requiresSparseSystem: false, polynomialDegree: 2), AlgebraicPointSetSurfaces = new(key: 4, executable: false, requiresNormals: true, requiresSparseSystem: false, polynomialDegree: 2), Poisson = new(key: 5, executable: false, requiresNormals: true, requiresSparseSystem: true, polynomialDegree: 0), ScreenedPoisson = new(key: 6, executable: false, requiresNormals: true, requiresSparseSystem: true, polynomialDegree: 0);
     public bool Executable { get; }
     public bool RequiresNormals { get; }
     public bool RequiresSparseSystem { get; }
