@@ -51,7 +51,7 @@ Nested `AGENTS.md` files would be technically justified in several large subtree
 
 | [INDEX] | [SUBTREE]                            | [WHY_NESTED_COULD_HELP]                                                                                                           |
 | :-----: | :----------------------------------- | :-------------------------------------------------------------------------------------------------------------------------------- |
-|   [1]   | `libs/csharp/Rasm/Vectors/`          | Dense projection, sampling, spectral, receipt, and native-proof rail with its own `_ARCHITECTURE.md`.                             |
+|   [1]   | `libs/csharp/Rasm/Vectors/`          | Dense projection, sampling, spectral, receipt, and native-proof rail with its own `Vectors/_ARCHITECTURE.md`.                    |
 |   [2]   | `libs/csharp/Rasm/Analysis/`         | Singular execution rail around `IAspect`, `Operation<TGeometry,TOut>`, and `Analyze.Run`.                                         |
 |   [3]   | `libs/csharp/Rasm.Rhino/Commands/`   | Command input, point event, document transaction, mutation, and receipt rail are high-risk and locally specific.                  |
 |   [4]   | `libs/csharp/Rasm.Rhino/UI/`         | Rhino/Eto dispatch, panels, overlays, motion, callbacks, and retained state form a full boundary family.                          |
@@ -116,7 +116,7 @@ In `[2][READ_ORDER]`, replace or extend the analysis and vector bullets:
 In `[3][EXTENSION_GRAMMAR]`, replace broad analysis/vector bullets with exact trigger grammar:
 
 - Analysis behavior: extend `IAspect`, `Operation<TGeometry,TOut>`, and `Analyze.Run`; import `Domain` validation, statistics, coercion, and kind logic instead of adding analysis-local copies.
-- Vector capability: extend `VectorIntent` factories and `Project<TOut>` dispatch unless `_ARCHITECTURE.md` names a narrower owner rail such as field, cloud, mesh, matrix, sampling, flow, alignment, spectral, or atom projection.
+- Vector capability: extend `VectorIntent` factories and `Project<TOut>` dispatch unless `Vectors/_ARCHITECTURE.md` names a narrower owner rail such as field, cloud, mesh, matrix, sampling, flow, alignment, spectral, or atom projection.
 - New numerical or symbolic behavior: use approved MathNet/CSparse/native BCL numeric surfaces directly inside the owning algorithm rail; do not expose library knobs or wrapper-only numeric APIs.
 - Future concern category: create one category with one consumer surface and one typed rail over `Domain`; do not start with helper folders, caller-side switches, or parameter bags.
 
@@ -136,17 +136,13 @@ Target: `libs/csharp/Rasm.Rhino/AGENTS.md`.
 ### [CURRENT_SECTION_ASSESSMENT]
 
 - Scope correctly identifies `Rasm.Rhino` as the canonical RhinoWIP boundary.
-- Read order has host API proof routing, but no condition-driven trigger for `Construction/ROADMAP.md`.
+- Read order has host API proof routing.
 - Extension grammar says "case-row rail" and "existing receipt vocabulary"; those are too memory-dependent.
 - Routing table is useful but close to inventory; project-root overlay should turn it into action grammar.
 - UI rules are directionally correct but do not name the root UI rails.
 - Rejections ban stale public names but need an exact native-boundary exception for native obsolete values emitted by Rhino documents.
 
 ### [PATCH_RECOMMENDATION]
-
-In `[2][READ_ORDER]`, add a construction trigger:
-
-- When adding geometry creation, annotation, framed-bounds, transform/frame, block-ready, document-ready, preview-ready, or construction-output behavior, read `Construction/ROADMAP.md` and route through the intended construction operation rail until production code supersedes the roadmap.
 
 In `[3][EXTENSION_GRAMMAR]`, replace the command/mutation bullets with named rails:
 
@@ -161,7 +157,6 @@ In `[4][ROUTING]`, keep the table but make the command owner cells more exact, o
 - Commands: `Commands/` command input, point events, `DocumentOp`, transactions, and document receipts.
 - UI: `UI/` `UiIntent<T>`, Rhino/Eto dispatch, panels, overlays, motion, callbacks, and drawing lifetimes.
 - Blocks: `Blocks/` `BlockOp`, lifecycle, archive/link, attributes, graph, preview, native boundary projection.
-- Construction: `Construction/ROADMAP.md` owner until production construction rail lands.
 
 In `[5][UI_RULES]`, add exact rails:
 
@@ -243,7 +238,7 @@ In `[3][EXTENSION_GRAMMAR]`, add package internalization:
 
 Add `[6][STOP_RULES]`:
 
-- If proceeding requires in-process Generic Host, public `IServiceProvider`, OTel SDK/exporter, Serilog sink, raw host SDK call, unproved shutdown/drain behavior, or companion package adoption without architecture and host proof, stop and route to `_ARCHITECTURE.md`, `docs/host-libraries.md`, and manifest proof.
+- If proceeding requires in-process Generic Host, public `IServiceProvider`, OTel SDK/exporter, Serilog sink, raw host SDK call, unproved shutdown/drain behavior, or companion package adoption without architecture and host proof, stop and route to `ARCHITECTURE.md`, `docs/host-libraries.md`, and manifest proof.
 
 ### [CONFIDENCE]
 
@@ -278,7 +273,7 @@ In `[5][REJECTIONS]`, add:
 
 Add `[6][STOP_RULES]`:
 
-- If SkiaSharp native-major proof, GH2 panel-host API proof, Avalonia app-delegate disabling, embeddable top-level creation, native focus/disposal ordering, or software-rendering embedding proof is missing, stop and route to `_ARCHITECTURE.md`, `ROADMAP.md`, manifest proof, or host runtime proof before expanding AppUi.
+- If SkiaSharp native-major proof, GH2 panel-host API proof, Avalonia app-delegate disabling, embeddable top-level creation, native focus/disposal ordering, or software-rendering embedding proof is missing, stop and route to `ARCHITECTURE.md`, `ROADMAP.md`, manifest proof, or host runtime proof before expanding AppUi.
 
 ### [CONFIDENCE]
 

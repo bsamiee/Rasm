@@ -41,7 +41,7 @@ For C# variation, prefer generated union or smart-enum dispatch, value-object sm
 |   [7]   | `Rasm.Compute`     | `Rasm.Compute/AGENTS.md`     | measured execution platform          |
 |   [8]   | `Rasm.Persistence` | `Rasm.Persistence/AGENTS.md` | local durable state                  |
 
-Use co-located `README.md`, `_ARCHITECTURE.md`, and `ROADMAP.md` files where present for project state, package adoption, file architecture, and implementation sequence. This parent overlay carries only family-level invariants.
+Use co-located `README.md`, `ARCHITECTURE.md`, and `ROADMAP.md` files where present for project state, package adoption, file architecture, and implementation sequence. This parent overlay carries only family-level invariants.
 
 ## [5][BOUNDARY_RULES]
 

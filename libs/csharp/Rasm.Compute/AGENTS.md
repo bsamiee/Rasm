@@ -1,10 +1,10 @@
 # [RASM_COMPUTE_AGENTS]
 
-Scope: `libs/csharp/Rasm.Compute/` only. Root policy and `libs/csharp/AGENTS.md` own universal C# and library-family rules; local README, `_ARCHITECTURE.md`, and `ROADMAP.md` own platform state, substrate details, package facts, and implementation sequence.
+Scope: `libs/csharp/Rasm.Compute/` only. Root policy and `libs/csharp/AGENTS.md` own universal C# and library-family rules; local README, `ARCHITECTURE.md`, and `ROADMAP.md` own platform state, substrate details, package facts, and implementation sequence.
 
 ## [1][READ_ORDER]
 
-- Before production work, read `README.md`, `_ARCHITECTURE.md`, and `ROADMAP.md` to decide scaffold state, substrate policy, and proof categories.
+- Before production work, read `README.md`, `ARCHITECTURE.md`, and `ROADMAP.md` to decide scaffold state, substrate policy, and proof categories.
 - Before changing algorithm, tensor, mesh, spectral, sampling, or projection behavior, read `Rasm/Vectors/_ARCHITECTURE.md`.
 - Before changing scheduling, channels, runtime records, retry, or drain contracts, read `Rasm.AppHost/AGENTS.md`.
 - Before changing progress-observable delivery, read `Rasm.AppUi/AGENTS.md`.
@@ -23,7 +23,7 @@ Call `Rasm.Vectors` for tensor, numeric, spectral, mesh, sampling, and projectio
 - New algorithm execution path: call the Vectors owner and wrap timing, allocation, cancellation, and progress.
 - New benchmark or cache behavior: route persisted artifacts to Persistence and keep benchmark proof in the architecture route.
 - New progress surface: keep progress cold, single-shot, typed, and fault-reporting through receipts rather than observable errors.
-- Package-backed execution behavior: read `_ARCHITECTURE.md` and central manifests, then internalize approved package capability as substrate, model, remote, progress, allocation, tolerance, and execution-receipt behavior inside `ComputeIntent` and `ExecutionReceipt` before exposing provider APIs, remote knobs, benchmark claims, or compatibility aliases.
+- Package-backed execution behavior: read `ARCHITECTURE.md` and central manifests, then internalize approved package capability as substrate, model, remote, progress, allocation, tolerance, and execution-receipt behavior inside `ComputeIntent` and `ExecutionReceipt` before exposing provider APIs, remote knobs, benchmark claims, or compatibility aliases.
 
 ## [4][BOUNDARY_RULES]
 

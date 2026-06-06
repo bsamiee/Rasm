@@ -4,7 +4,7 @@ Scope: `libs/csharp/Rasm.Rhino/` only. Root policy and `libs/csharp/AGENTS.md` o
 
 ## [1][SCOPE]
 
-`Rasm.Rhino` is the canonical RhinoWIP boundary library for command, UI, camera, viewport, document, exchange, block, construction, and future Rhino concern categories.
+`Rasm.Rhino` is the canonical RhinoWIP boundary library for command, UI, camera, viewport, document, exchange, block, and future Rhino concern categories.
 
 Each category folder owns one full Rhino concern. Capture native API capability deeply, then expose a smaller, stronger, value-adding boundary with FP/ROP internals. Downstream code should read like product logic, not RhinoCommon sequencing, option plumbing, or ceremony.
 
@@ -14,7 +14,6 @@ Each category folder owns one full Rhino concern. Capture native API capability 
 - When naming risky Rhino behavior, verify against local RhinoWIP XML, decompile evidence when XML is absent, and the repo API rail.
 - When changing `System.*`, package/reference, raster, filesystem, or host-provided assembly decisions, read `docs/system-api-map`.
 - When adding numerical or symbolic algorithms, read `docs/external-libs/mathnet`.
-- When adding construction-output behavior, extend the production `Construction` owner where present; otherwise read `Construction/ROADMAP.md`, route through `RhinoConstruction.Project<TOut>` / `ConstructionOp`, and stop before exposing a public rail that the roadmap cannot prove.
 - When authoring runtime scenarios, read `tests/csharp/AGENTS.md`, `tests/csharp/libs/AGENTS.md`, and `tools/rhino-bridge/AGENTS.md` first.
 
 ## [3][EXTENSION_GRAMMAR]
@@ -39,7 +38,6 @@ Each category folder owns one full Rhino concern. Capture native API capability 
 |   [5]   | Camera       | `Camera/` viewport, named-view, projection, capture                                            |
 |   [6]   | Blocks       | `Blocks/` ops, lifecycle, archive/link, graph, preview                                         |
 |   [7]   | Exchange     | `Exchange/` import/export, sheet/detail, publish                                               |
-|   [8]   | Construction | production `Construction` owner where present; otherwise `Construction/ROADMAP.md` proof route |
 
 ## [5][UI_RULES]
 

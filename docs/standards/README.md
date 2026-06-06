@@ -41,13 +41,13 @@ Read order is workflow order; owner routing and claim evidence still decide conf
 
 [NON_TYPE_ROUTES]:
 
-| [INDEX] | [SURFACE]                        | [OWNER_ROUTE]                                               |
-| :-----: | :------------------------------- | :---------------------------------------------------------- |
-|   [1]   | instructions and overlay prose     | [AGENTS](agents-md.md)                                              |
-|   [2]   | mirrors, indexes, retrieval, MCP   | [proof](proof.md), [information-structure](information-structure.md) |
-|   [3]   | structured output and checks       | [proof](proof.md)                                                   |
-|   [4]   | proof fields and gates           | [proof.md](proof.md)                                        |
-|   [5]   | containers and examples          | [information-structure.md](information-structure.md)        |
+| [INDEX] | [SURFACE]                        | [OWNER_ROUTE]                                                        |
+| :-----: | :------------------------------- | :------------------------------------------------------------------- |
+|   [1]   | instructions and overlay prose   | [AGENTS](agents-md.md)                                               |
+|   [2]   | mirrors, indexes, retrieval, MCP | [proof](proof.md), [information-structure](information-structure.md) |
+|   [3]   | structured output and checks     | [proof](proof.md)                                                    |
+|   [4]   | proof fields and gates           | [proof.md](proof.md)                                                 |
+|   [5]   | containers and examples          | [information-structure.md](information-structure.md)                 |
 
 ## [4][READER_NEED_MAP]
 
@@ -88,12 +88,12 @@ Map the reader need to the artifact. Route-away cells name the standards that sh
 
 Each cross-cutting rule routes to exactly one owner:
 
-| [INDEX] | [AXIS]   | [OWNER]                                              | [CONTROLS]                                 |
-| :-----: | :------- | :--------------------------------------------------- | :----------------------------------------- |
-|   [1]   | form     | [information-structure.md](information-structure.md) | containers, diagrams, chunks, examples     |
-|   [2]   | craft    | [style-guide.md](style-guide.md)                     | prose, terms, links, accessibility         |
-|   [3]   | evidence | [proof.md](proof.md)                                 | proof, freshness, conflicts, preservation  |
-|   [4]   | notation | [formatting.md](formatting.md)                       | markers, tables, whitespace, headings      |
+| [INDEX] | [AXIS]   | [OWNER]                                              | [CONTROLS]                                |
+| :-----: | :------- | :--------------------------------------------------- | :---------------------------------------- |
+|   [1]   | form     | [information-structure.md](information-structure.md) | containers, diagrams, chunks, examples    |
+|   [2]   | craft    | [style-guide.md](style-guide.md)                     | prose, terms, links, accessibility        |
+|   [3]   | evidence | [proof.md](proof.md)                                 | proof, freshness, conflicts, preservation |
+|   [4]   | notation | [formatting.md](formatting.md)                       | markers, tables, whitespace, headings     |
 
 Audit root standards against form, craft, evidence, and notation only. If a finding does not fit those 4 axes, route it to the owning standard instead of creating a local audit category.
 

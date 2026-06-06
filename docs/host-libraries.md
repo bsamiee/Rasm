@@ -6,10 +6,10 @@ This file owns adoption policy, not package manuals. Owner-local platform stubs 
 
 | [INDEX] | [OWNER]            | [MANUAL]                                           |
 | :-----: | ------------------ | -------------------------------------------------- |
-|   [1]   | `Rasm.AppUi`       | `../libs/csharp/Rasm.AppUi/_ARCHITECTURE.md`       |
-|   [2]   | `Rasm.AppHost`     | `../libs/csharp/Rasm.AppHost/_ARCHITECTURE.md`     |
-|   [3]   | `Rasm.Persistence` | `../libs/csharp/Rasm.Persistence/_ARCHITECTURE.md` |
-|   [4]   | `Rasm.Compute`     | `../libs/csharp/Rasm.Compute/_ARCHITECTURE.md`     |
+|   [1]   | `Rasm.AppUi`       | `../libs/csharp/Rasm.AppUi/ARCHITECTURE.md`       |
+|   [2]   | `Rasm.AppHost`     | `../libs/csharp/Rasm.AppHost/ARCHITECTURE.md`     |
+|   [3]   | `Rasm.Persistence` | `../libs/csharp/Rasm.Persistence/ARCHITECTURE.md` |
+|   [4]   | `Rasm.Compute`     | `../libs/csharp/Rasm.Compute/ARCHITECTURE.md`     |
 
 ## [1][COMPOSITION_MODES]
 

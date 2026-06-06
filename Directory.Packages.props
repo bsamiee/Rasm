@@ -25,7 +25,7 @@
     <!-- App UI: SkiaSharp 3.119.4 == Avalonia.Skia's exact dependency, unified across LiveCharts2,
          Svg.Skia, and the HarfBuzz shaper. RhinoWIP 9 ships NO managed SkiaSharp; libSkiaSharp.dylib is
          C++-only inside RhCore. macOS dlopen coalesces by install name and SkiaSharp has no symbol
-         isolation, so two different-major copies cannot co-load. Phase-0 gate (AppUi _ARCHITECTURE §4.3):
+         isolation, so two different-major copies cannot co-load. Phase-0 gate (AppUi ARCHITECTURE §4.3):
          confirm Rhino's bundled libSkiaSharp major; if it matches, reference SkiaSharp.NativeAssets.macOS
          with <ExcludeAssets>native</ExcludeAssets> to share Rhino's copy (a mismatch is a hard build gate).
          HarfBuzzSharp.NativeAssets.macOS is carried unconditionally. Versions are Phase-0 restore-verified. -->

@@ -225,7 +225,7 @@ Use this surface-split selector. Rows name ownership routes, not inventories:
 | :-----: | :--------------------------- | :----------------------------------- | :--------------------------------- |
 |   [1]   | `README.md`                  | boundary, first path, status, routes | exhaustive catalogs and workflows  |
 |   [2]   | `AGENTS.md`                  | agent route link                     | read order, invariants, gates      |
-|   [3]   | `_ARCHITECTURE.md`           | current-structure link               | codemaps, matrices, invariants     |
+|   [3]   | `ARCHITECTURE.md`           | current-structure link               | codemaps, matrices, invariants     |
 |   [4]   | API/reference/code docs      | generated or lookup route link       | commands, schemas, symbols, fields |
 |   [5]   | runbook/contributing/roadmap | recovery, PR, or sequence route link | workflows, blockers, deferred work |
 

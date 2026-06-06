@@ -21,7 +21,7 @@ Build the compute rail with cancellation, measurement, and equivalence integrate
 
 | [INDEX] | [SURFACE]                                | [BASIS]                                                                                     |
 | :-----: | ---------------------------------------- | ------------------------------------------------------------------------------------------- |
-|   [1]   | Substrate selection predicate            | `SelectSubstrate(intent)` — ordered rule table in `_ARCHITECTURE.md`                        |
+|   [1]   | Substrate selection predicate            | `SelectSubstrate(intent)` — ordered rule table in `ARCHITECTURE.md`                        |
 |   [2]   | Vectors boundary                         | Call `Rasm.Vectors`; wrap in `Eff<RT,ExecutionReceipt>`; zero kernel duplication            |
 |   [3]   | Cancellation / deadline / progress       | `RT.Token` → `RunOptions.Terminate`; `RT.Time` → elapsed; cold `Subject<ComputeProgress>`   |
 |   [4]   | Span/TensorPrimitives kernels            | `System.Numerics.Tensors`; stage via `MemoryOwner<T>` / `ArrayPoolBufferWriter<T>`          |

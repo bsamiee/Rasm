@@ -40,7 +40,7 @@ Finding 3
     Proof gap/question: If a named parser consumes any field order, proof must cite that parser; otherwise the packet should stay human-facing and omit absent fields.
 
 Finding 4
-    File/line/heading: `docs/standards/information-structure.md:306` `## [12][MONOSPACE_TEXT]`; `docs/standards/information-structure.md:314`; sample `libs/csharp/Rasm.AppHost/_ARCHITECTURE.md:64`, `libs/csharp/Rasm.AppHost/_ARCHITECTURE.md:86`, `libs/csharp/Rasm.AppHost/_ARCHITECTURE.md:100`, `libs/csharp/Rasm.AppHost/_ARCHITECTURE.md:116`.
+    File/line/heading: `docs/standards/information-structure.md:306` `## [12][MONOSPACE_TEXT]`; `docs/standards/information-structure.md:314`; sample `libs/csharp/Rasm.AppHost/ARCHITECTURE.md:64`, `libs/csharp/Rasm.AppHost/ARCHITECTURE.md:86`, `libs/csharp/Rasm.AppHost/ARCHITECTURE.md:100`, `libs/csharp/Rasm.AppHost/ARCHITECTURE.md:116`.
     Evidence snippet: AppHost architecture contains type shapes as prose, a short bare code block for records, a table of DU cases, and a field list for `ObservabilitySlot`.
     Weakness: The standard names `Type-shape block` and `Edge list` as source structures, but examples only cover file trees, stacked boxes, and small matrices. It does not show how to carry type relationships without a full Mermaid diagram or a wide table.
     Proposed correction: Add accepted examples for `type-shape block` and `edge list`. Use them for compact ownership/type/data-flow relationships, such as `Boot -> RasmRuntime -> DrainHandle` or `Producer -> Consumer: fact`, when rendering would add no information. State when to upgrade to Mermaid: multiple branches, rejoin points, lifecycles, or cross-cluster topology.
@@ -80,7 +80,7 @@ Finding 7
     Proof gap/question: The target should not create a new table type if `classification table` can be expressed as a lookup table profile; promotion should choose the lowest-shape wording.
 
 Finding 8
-    File/line/heading: `docs/standards/information-structure.md:113` `## [5][TABLES_PROSE]`; `docs/standards/information-structure.md:452`; sample `tools/assay/README.md:40`, `tools/assay/README.md:42`, `tools/assay/README.md:79`, `libs/csharp/Rasm.AppHost/_ARCHITECTURE.md:7`, `libs/csharp/Rasm.AppHost/_ARCHITECTURE.md:17`.
+    File/line/heading: `docs/standards/information-structure.md:113` `## [5][TABLES_PROSE]`; `docs/standards/information-structure.md:452`; sample `tools/assay/README.md:40`, `tools/assay/README.md:42`, `tools/assay/README.md:79`, `libs/csharp/Rasm.AppHost/ARCHITECTURE.md:7`, `libs/csharp/Rasm.AppHost/ARCHITECTURE.md:17`.
     Evidence snippet: Assay flow carries a Mermaid diagram plus a text equivalent; AppHost build status carries a diagram plus a status table.
     Weakness: The standard says each representation must have a distinct reader job, but it does not provide a co-location test for diagram/table/prose triples. That leaves authors without a simple way to decide whether the text equivalent, table, and diagram are complementary or duplicative.
     Proposed correction: Add a `representation co-location test`: name each container's job in a lead or caption; keep both only if deleting one removes a unique reader action; put the proof/status/update carrier in records or tables; put topology/sequence in diagrams; put accessibility text equivalent beside the diagram but do not let it become a second source of status facts.
@@ -90,7 +90,7 @@ Finding 8
     Proof gap/question: None for the rule. Active diagram edits would need renderer or accessibility proof only when claiming rendered behavior.
 
 Finding 9
-    File/line/heading: `docs/standards/information-structure.md:266` `## [11][CODE_BLOCKS]`; `docs/standards/information-structure.md:272`; sample `libs/csharp/Rasm.AppHost/_ARCHITECTURE.md:86`; `tools/rhino-bridge/README.md:205`.
+    File/line/heading: `docs/standards/information-structure.md:266` `## [11][CODE_BLOCKS]`; `docs/standards/information-structure.md:272`; sample `libs/csharp/Rasm.AppHost/ARCHITECTURE.md:86`; `tools/rhino-bridge/README.md:205`.
     Evidence snippet: The AppHost type-shape block uses a bare fence, while bridge uses a `csharp conceptual` fence for a sample return line.
     Weakness: The standards corpus declares language-intent pairs, but the target's practical toolbelt does not say what to do with source-like snippets that are not copy-safe source and not ordinary output. This is where authors drift into bare fences.
     Proposed correction: Add a fence-selection note: `text conceptual` for source-neutral shape, `<language> conceptual` for language-shaped illustration, `<language> template` for copyable structure with placeholders, `<language> copy-safe` only for exact runnable input, and `text output-only` for observed or expected output. Mention CommonMark's info-string convention only as capability support, not a local renderer guarantee.
@@ -134,7 +134,7 @@ Sampled non-standards Markdown outside `docs/standards/**` and `.claude/**`:
 - `tools/quality/README.md`
 - `tools/rhino-bridge/README.md`
 - `tools/assay/README.md`
-- `libs/csharp/Rasm.AppHost/_ARCHITECTURE.md`
+- `libs/csharp/Rasm.AppHost/ARCHITECTURE.md`
 - `libs/csharp/Rasm.AppHost/README.md`
 - `libs/csharp/Rasm.AppHost/ROADMAP.md`
 - `libs/csharp/Rasm/Vectors/_ARCHITECTURE.md`

@@ -1,10 +1,10 @@
 # [RASM_APPUI_AGENTS]
 
-Scope: `libs/csharp/Rasm.AppUi/` only. Root policy and `libs/csharp/AGENTS.md` own universal C# and library-family rules; local README, `_ARCHITECTURE.md`, and `ROADMAP.md` own UI platform state, package facts, and implementation sequence.
+Scope: `libs/csharp/Rasm.AppUi/` only. Root policy and `libs/csharp/AGENTS.md` own universal C# and library-family rules; local README, `ARCHITECTURE.md`, and `ROADMAP.md` own UI platform state, package facts, and implementation sequence.
 
 ## [1][READ_ORDER]
 
-- Before production work, read `README.md`, `_ARCHITECTURE.md`, and `ROADMAP.md` to decide package state, embedding proof, and sequence.
+- Before production work, read `README.md`, `ARCHITECTURE.md`, and `ROADMAP.md` to decide package state, embedding proof, and sequence.
 - Before changing runtime boot, inbound observables, scheduler handoff, or diagnostics contracts, read `Rasm.AppHost/AGENTS.md`.
 - Before changing host UI dispatch, panels, repaint, undo, canvas, or editor behavior, read `Rasm.Rhino/AGENTS.md` and `Rasm.Grasshopper/AGENTS.md`.
 - Before package or host-reference changes, read `docs/system-api-map` and `docs/host-libraries.md`.
@@ -15,15 +15,15 @@ Scope: `libs/csharp/Rasm.AppUi/` only. Root policy and `libs/csharp/AGENTS.md` o
 
 Keep one typed app-surface operation rail for shell, screen, command, live-view, chart, visual, and diagnostic concerns.
 
-Package-backed UI behavior: read `_ARCHITECTURE.md` and central manifests, then internalize approved package capability into product shell, screen, command, live-view, chart, visual, diagnostic, scheduler, and receipt rails before exposing package-shaped APIs, toolkit settings, provider selectors, or compatibility aliases.
+Package-backed UI behavior: read `ARCHITECTURE.md` and central manifests, then internalize approved package capability into product shell, screen, command, live-view, chart, visual, diagnostic, scheduler, and receipt rails before exposing package-shaped APIs, toolkit settings, provider selectors, or compatibility aliases.
 
 ## [3][EXTENSION_GRAMMAR]
 
 - New product UI case: extend typed product intent, `Screen<T>`, scheduler, command, live-view, chart, visual, diagnostic, or receipt rails before adding a screen-specific helper or package-shaped API.
-- Host embedding behavior: extend rendering, native focus, panel lifecycle, scheduler, and disposal owners only after `_ARCHITECTURE.md` or runtime proof covers the relevant host API gap.
+- Host embedding behavior: extend rendering, native focus, panel lifecycle, scheduler, and disposal owners only after `ARCHITECTURE.md` or runtime proof covers the relevant host API gap.
 - Runtime observation: extend scheduler handoff and typed observable contracts before adding direct host calls.
 - Diagnostic or chart behavior: add product-level receipt or projection data; keep package-specific types internal.
-- Native UI proof: route proof gaps through `_ARCHITECTURE.md`, host-boundary overlays, central manifests, or runtime proof before changing product rails.
+- Native UI proof: route proof gaps through `ARCHITECTURE.md`, host-boundary overlays, central manifests, or runtime proof before changing product rails.
 
 ## [4][BOUNDARY_RULES]
 
@@ -48,4 +48,4 @@ Package-backed UI behavior: read `_ARCHITECTURE.md` and central manifests, then 
 
 ## [6][STOP_RULES]
 
-If SkiaSharp native-major, Avalonia embedding, Rhino/GH2 panel-host API, focus/disposal ordering, software-rendering, or scheduler-handoff proof is missing, stop before expanding UI surface; route the gap to `_ARCHITECTURE.md`, host-boundary overlays, central manifests, or runtime proof.
+If SkiaSharp native-major, Avalonia embedding, Rhino/GH2 panel-host API, focus/disposal ordering, software-rendering, or scheduler-handoff proof is missing, stop before expanding UI surface; route the gap to `ARCHITECTURE.md`, host-boundary overlays, central manifests, or runtime proof.

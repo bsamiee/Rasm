@@ -36,11 +36,11 @@ Choose the narrowest code scope that lets the reader make a safe edit. This is p
 | [INDEX] | [CODE_SCOPE]                                  | [PLACE_ARCHITECTURE_HERE]  | [MUST_EXPLAIN]                                              |
 | :-----: | :-------------------------------------------- | :------------------------- | :---------------------------------------------------------- |
 |   [1]   | repository or solution                        | root `ARCHITECTURE.md`     | project graph, package families, shared build/runtime flow  |
-|   [2]   | package, app, library, tool, host integration | route `_ARCHITECTURE.md`   | project identity, public surface, entrypoints, dependencies |
-|   [3]   | module or feature folder                      | folder `_ARCHITECTURE.md`  | local codemap, local flow, adjacent folders, invariants     |
+|   [2]   | package, app, library, tool, host integration | route `ARCHITECTURE.md`    | project identity, public surface, entrypoints, dependencies |
+|   [3]   | module or feature folder                      | folder `ARCHITECTURE.md`   | local codemap, local flow, adjacent folders, invariants     |
 |   [4]   | small directory with one entrypoint           | parent `README.md` section | compact codemap and one invariant record                    |
 
-Keep one architecture route per code scope. If two documents explain the same package or folder, merge them or route one to the other. Promote a README section to `_ARCHITECTURE.md` when the directory gains a project file, package manifest, generated contract, more than one entrypoint, nontrivial flow, dependency rule, or roadmap-status overlay.
+Keep one architecture route per code scope. If two documents explain the same package or folder, merge them or route one to the other. Promote a README section to `ARCHITECTURE.md` when the directory gains a project file, package manifest, generated contract, more than one entrypoint, nontrivial flow, dependency rule, or roadmap-status overlay.
 
 ## [3][REQUIRED_STRUCTURE]
 
@@ -49,7 +49,7 @@ Use this heading order for a standalone architecture file. Embedded architecture
 This standard explains scope and identity before the codemap rule so authors know what the codemap must carry; produced architecture files still place `Codemap` first.
 
 ```markdown template
-# [<CODE_SCOPE>_ARCHITECTURE]
+# [<CODE_SCOPE>ARCHITECTURE]
 
 <Lead: name the code scope, current route promise, project or package identity, codemap proof, and route-away for decisions and future sequence.>
 

@@ -130,7 +130,7 @@ All route targets checked by path exist: `docs/usage.md`, `docs/host-libraries.m
 
 [README_OR_ARCHITECTURE_OWNS]:
 - Tool command syntax, operator workflows, and public wire behavior (`docs/standards/agents-md.md:104-110`).
-- Project state, package adoption, file architecture, and implementation sequence where co-located README, `_ARCHITECTURE.md`, and `ROADMAP.md` exist (`libs/csharp/AGENTS.md:40`).
+- Project state, package adoption, file architecture, and implementation sequence where co-located README, `ARCHITECTURE.md`, and `ROADMAP.md` exist (`libs/csharp/AGENTS.md:40`).
 - Future sequence, phase state, blockers, deferred work, and scaffold status (`docs/standards/agents-md.md:97-103`).
 
 ## [RECOMMENDED_CHANGES]

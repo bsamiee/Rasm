@@ -25,7 +25,7 @@ Add packages centrally at newest viable versions during Phase 0; no version numb
 
 | [INDEX] | [FILE]             | [READ_FOR]                                                                                                       |
 | :-----: | ------------------ | ---------------------------------------------------------------------------------------------------------------- |
-|   [1]   | `_ARCHITECTURE.md` | Type shapes, provider split, operation algebra, bridge, PRAGMA init, migration policy, compaction, failure model |
+|   [1]   | `ARCHITECTURE.md` | Type shapes, provider split, operation algebra, bridge, PRAGMA init, migration policy, compaction, failure model |
 |   [2]   | `AGENTS.md`        | Build rules, integration corrections, and hot-path rejections                                                    |
 |   [3]   | `ROADMAP.md`       | Build sequence and scoped lanes                                                                                  |
 

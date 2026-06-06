@@ -25,7 +25,6 @@ I inspected folder shape and representative owner files rather than running vali
 - `libs/csharp/Rasm.Rhino/Blocks/Operations.cs`
 - `libs/csharp/Rasm.Rhino/UI/Intent.cs`
 - `libs/csharp/Rasm.Rhino/UI/Overlay.cs`
-- `libs/csharp/Rasm.Rhino/Construction/ROADMAP.md`
 - `libs/csharp/Rasm.Grasshopper/Rasm.Grasshopper.csproj`
 - `libs/csharp/Rasm.Grasshopper/Components/Component.cs`
 - `libs/csharp/Rasm.Grasshopper/Components/Port.cs`
@@ -61,7 +60,7 @@ The source already uses the future-forward implementation posture the overlays s
 
 - `Rasm.Analysis` has a singular aspect/execution rail: `IAspect` returns `Operation<TGeometry,TOut>` in `Analysis/Analyze.cs:5-17`, `Operation<TGeometry,TOut>` owns rejected/per-item/aggregate execution in `Analysis/Analyze.cs:31-86`, and `Analyze.Run` converts that rail into `Validation<Error, Seq<TOut>>` in `Analysis/Analyze.cs:89-160`.
 - `Rasm.Domain` owns reusable geometry shape and coercion truth: `Kind` maps native geometry families in `Domain/Geometry.cs:84-119`, `GeometryKernel` centralizes capability predicates in `Domain/Geometry.cs:241-265`, and owned/borrowed curve/surface/brep coercion lives in `Domain/Geometry.cs:330-405`.
-- `Rasm.Vectors` has a single consumer rail: `VectorIntent` owns many capability cases and dispatches through `Project<TOut>` in `Vectors/Intent.cs:3-80`; `_ARCHITECTURE.md` states `VectorIntent.Project<TOut>(Context, Op?)` is the only consumer projection rail and `ExtractionDomain + SampleKind` is the only sampling/extraction rail in `Vectors/_ARCHITECTURE.md:217-220`.
+- `Rasm.Vectors` has a single consumer rail: `VectorIntent` owns many capability cases and dispatches through `Project<TOut>` in `Vectors/Intent.cs:3-80`; `ARCHITECTURE.md` states `VectorIntent.Project<TOut>(Context, Op?)` is the only consumer projection rail and `ExtractionDomain + SampleKind` is the only sampling/extraction rail in `Vectors/_ARCHITECTURE.md:217-220`.
 - `Rasm.Rhino` root owners are real, not just prose: `Events.cs` owns `WatchPayload`, `WatchPhase`, `EventDispatcher`, and `WatchIdle` in `Events.cs:8-120` and `Events.cs:334-428`; `Capture.cs` owns `CaptureArea`, `CaptureCodec`, `CaptureResult`, and `CaptureRecipe` configuration in `Capture.cs:9-120` and `Capture.cs:300-368`.
 - `Rasm.Rhino.Commands` is not just "commands": `CommandInputPolicy`, `CommandPointConstraint`, point-event binding, script/native input, and read-loop behavior are in `Commands/Input.cs:107-120`, `Commands/Input.cs:527-599`, and `Commands/Input.cs:880-1040`; document mutations and receipts are in `Commands/Document.cs:6-148` and `Commands/Document.cs:536-707`.
 - `Rasm.Rhino.Blocks` is a full operation algebra: `BlockOp`, `BlockInstanceTask`, `LinkLifecycle`, and `TableMutation` are in `Blocks/Operations.cs:12-120`; native definition mutation, content indexing, linked archive placeholder creation, and attribute field operations live in `Blocks/Operations.cs:438-540` and `Blocks/Operations.cs:1420-1568`.
@@ -76,12 +75,6 @@ The source already uses the future-forward implementation posture the overlays s
 The overlay says analysis behavior should extend "the analysis owner, operation rail, and aspects" in `libs/csharp/Rasm/AGENTS.md:21-24`, but it does not name the actual rail: `IAspect`, `Operation<TGeometry,TOut>`, and `Analyze.Run`. The source shows these are the stable extension points in `Analysis/Analyze.cs:5-17`, `Analysis/Analyze.cs:31-86`, and `Analysis/Analyze.cs:89-160`. The same issue exists for Vectors: `libs/csharp/Rasm/AGENTS.md:23` lists many vector concern nouns, but the folder architecture says `VectorIntent.Project<TOut>(Context, Op?)` is the only consumer projection rail and `ExtractionDomain + SampleKind` is the only sampling/extraction rail in `Vectors/_ARCHITECTURE.md:217-220`.
 
 Why this matters: future agents can add a new analysis convenience API or a parallel vector projection type while technically following the current broad wording. The overlay should make the correct extension rail explicit.
-
-[HIGH] `libs/csharp/Rasm.Rhino/AGENTS.md` passively lists `Construction/ROADMAP.md` but does not trigger-read it for the work it owns.
-
-The routing table says `Construction` is `Construction/ROADMAP.md` until production code lands in `libs/csharp/Rasm.Rhino/AGENTS.md:37-40`. The roadmap is much stronger than a placeholder: it defines `RhinoConstruction.Project<TOut>(ConstructionOp op, Context context)` as the future public rail in `Construction/ROADMAP.md:49-62`, names the three-file target shape in `Construction/ROADMAP.md:75-88`, and routes existing command/document/overlay/block/camera facts through that future owner in `Construction/ROADMAP.md:102-114`.
-
-Why this matters: an agent adding geometry factory, annotation, framed-bounds, block-ready, document-ready, or preview-ready behavior could stay in `Commands/Document.cs`, `UI/Overlay.cs`, or `Blocks` because the overlay does not state a condition-driven read rule. That is a likely source of duplicated native construction adapters.
 
 [HIGH] `libs/csharp/Rasm.Rhino/AGENTS.md` needs concrete command/document mutation rails, not just category labels.
 
@@ -127,7 +120,7 @@ Why this matters: nearest overlays stop at project root. For these large folders
 
 [LOW] Some overlay route-away wording could unintentionally preserve implementation facts in `AGENTS.md`.
 
-`libs/csharp/AGENTS.md:40` says use co-located `README.md`, `_ARCHITECTURE.md`, and `ROADMAP.md` for project state, package adoption, file architecture, and implementation sequence. That is correct route-away behavior. However, `libs/csharp/Rasm.Rhino/AGENTS.md:28-40` and `libs/csharp/Rasm.Grasshopper/AGENTS.md:27-35` still contain category tables that are close to architecture summaries. They are not wrong, but they should stay action-oriented: "When changing X, extend Y first" beats category inventory.
+`libs/csharp/AGENTS.md:40` says use co-located `README.md`, `ARCHITECTURE.md`, and `ROADMAP.md` for project state, package adoption, file architecture, and implementation sequence. That is correct route-away behavior. However, `libs/csharp/Rasm.Rhino/AGENTS.md:28-40` and `libs/csharp/Rasm.Grasshopper/AGENTS.md:27-35` still contain category tables that are close to architecture summaries. They are not wrong, but they should stay action-oriented: "When changing X, extend Y first" beats category inventory.
 
 ## [RECOMMENDED_OVERLAY_CHANGES]
 
@@ -141,11 +134,10 @@ Why this matters: nearest overlays stop at project root. For these large folders
 - Add to read order: when changing `Analysis/`, read `Analysis/Analyze.cs` first to preserve `IAspect`, `Operation<TGeometry,TOut>`, and `Analyze.Run` as the singular execution rail.
 - Add to read order: when changing `Vectors/`, read `Vectors/_ARCHITECTURE.md` plus `Vectors/Intent.cs` before adding projection, sampling, receipt, or algorithm entrypoints.
 - Replace the broad vector extension bullet with a concrete rule: new vector capability extends `VectorIntent` factories and `Project<TOut>` dispatch unless the architecture names an owner-local rail such as `FieldNabla`, `SampleKind`, `CloudKernel.MassOf`, `LaplacianCache`, `SpectralFilter`, or `AtomProjection`.
-- Add a rejection: no `Rasm.Vectors` UI, preview, command, GH2 parameter, bake, or product receipt surface; `_ARCHITECTURE.md:231-234` and `_ARCHITECTURE.md:346` already carry the product-boundary truth.
+- Add a rejection: no `Rasm.Vectors` UI, preview, command, GH2 parameter, bake, or product receipt surface; `ARCHITECTURE.md:231-234` and `ARCHITECTURE.md:346` already carry the product-boundary truth.
 
 `libs/csharp/Rasm.Rhino/AGENTS.md`:
 
-- Add a condition-driven construction read rule: when adding geometry creation, annotation, framed-bounds, transform/frame, block-ready, document-ready, or preview-ready output, read `Construction/ROADMAP.md` and route through its intended `RhinoConstruction.Project<TOut>` / `ConstructionOp` shape until production code supersedes the roadmap.
 - Replace "case-row rail" with named command rails: `CommandInputPolicy`, `CommandInputRequest<T>`, `CommandPointEventPhase`, `CommandOption`, `DocumentOp`, `DocumentTransaction`, `DocumentEdit.Commit`, and `DocumentReceiptSlot`.
 - Add a blocks rule: new block definition, instance, link, archive, attribute, graph, or preview behavior extends `BlockOp`, `BlockInstanceTask`, `LinkLifecycle`, `BlockAttributeTask`, `MutationReceipt`, and the existing snapshot/cache owners before adding another facade.
 - Add a native-obsolete exception rule: preserve obsolete native values only as boundary projections when live Rhino documents can emit them; do not expose them as compatibility aliases or stale public vocabulary.

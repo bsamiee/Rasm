@@ -10,7 +10,6 @@ The right finalizer move is stronger project-root trigger grammar, because the w
 
 Use this future rule for nested overlays:
 
-- Add `libs/csharp/Rasm.Rhino/Construction/AGENTS.md` only after production `Construction/*.cs` lands and the folder owns `RhinoConstruction.Project<TOut>` / `ConstructionOp` beyond the roadmap route.
 - Add `libs/csharp/Rasm.Grasshopper/UI/AGENTS.md` only if UI splits into independently maintained sub-surfaces with conflicting stop rules; until then, keep `WireOp`, `DocumentMutation`, `GrasshopperUiIntent<T>`, and motion rules in the project overlay.
 - Add material-family nested overlays only when a material folder introduces a distinct generator, source-proof, or non-catalogue boundary; ordinary material catalogues stay governed by `Rasm.Materials/AGENTS.md`.
 - Never add nested overlays merely because a folder is large. Size triggers exact owner rails in the project overlay, not another instruction file.
@@ -66,8 +65,6 @@ Edit spec:
 
 - Replace `case-row rail` with exact command/document rails:
   `Command input, option, prompt, selection, point event, gumball, text mode, or transform behavior extends `CommandInputPolicy`, `CommandInputRequest<T>`, `CommandPointEventPhase`, `CommandOption`, and the staged input rail in `Commands/Input.cs`; document mutation extends `DocumentOp`, `DocumentTransaction`, `DocumentEdit.Commit`, and `DocumentReceiptSlot` in `Commands/Document.cs`.`
-- Add a construction read trigger:
-  `When adding geometry creation, annotation, framed-bounds, transform/frame, block-ready, document-ready, or preview-ready output, read `Construction/ROADMAP.md` and route through the intended `RhinoConstruction.Project<TOut>` / `ConstructionOp` shape until production construction code supersedes the roadmap.`
 - Add a Blocks owner rule:
   `Block definition, instance, linked archive, attribute, graph, preview, or cache behavior extends `BlockOp`, `BlockInstanceTask`, `LinkLifecycle`, `BlockAttributeTask`, `MutationReceipt`, and the existing snapshot/cache owners before adding another facade.`
 - Add a UI owner rule:
@@ -121,7 +118,7 @@ Edit spec:
 - Add package internalization:
   `Channels, LanguageExt schedules, TimeProvider/NodaTime clocks, logging abstractions, OpenTelemetry API signals, HTTP resilience, and configuration binding are internalized into `RasmRuntime`, lifecycle rails, scheduler/drain policy, and typed receipts before any config knob, service registry, or facade method is added.`
 - Add stop rule:
-  `If a change requires in-process `IServiceProvider`, Generic Host boot, exporter SDKs, raw host SDK calls, or unproved shutdown/drain behavior, stop and route to `_ARCHITECTURE.md` plus host proof before expanding the runtime rail.`
+  `If a change requires in-process `IServiceProvider`, Generic Host boot, exporter SDKs, raw host SDK calls, or unproved shutdown/drain behavior, stop and route to `ARCHITECTURE.md` plus host proof before expanding the runtime rail.`
 
 Weak formulations to reject:
 
@@ -138,7 +135,7 @@ Edit spec:
 - Add package internalization after owner contract:
   `Avalonia, ReactiveUI, DynamicData, LiveCharts, Skia, DialogHost, icons, and behavior packages are internal implementation surfaces for product rails. Public API exposes product shell, screen, command, live-view, chart, visual, diagnostic, scheduler, and receipt concepts only.`
 - Add native stop rules:
-  `Stop before expanding UI surface when SkiaSharp native-major proof, GH2/Rhino panel-host API proof, `DisableAvaloniaAppDelegate`, `CreateEmbeddableTopLevel`, focus/disposal ordering, or software-rendering embedding proof is missing; route the gap to `_ARCHITECTURE.md` or runtime proof.`
+  `Stop before expanding UI surface when SkiaSharp native-major proof, GH2/Rhino panel-host API proof, `DisableAvaloniaAppDelegate`, `CreateEmbeddableTopLevel`, focus/disposal ordering, or software-rendering embedding proof is missing; route the gap to `ARCHITECTURE.md` or runtime proof.`
 - Add rejection:
   `No public toolkit settings bag, package option mirror, or floating-window fallback rail; encode behavior as typed product intent, `Screen<T>`, `CommandReceipt`, `DiagnosticReceipt`, or `RasmUiScheduler`.`
 

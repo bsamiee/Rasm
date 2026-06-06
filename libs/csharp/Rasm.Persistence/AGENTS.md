@@ -1,10 +1,10 @@
 # [RASM_PERSISTENCE_AGENTS]
 
-Scope: `libs/csharp/Rasm.Persistence/` only. Root policy and `libs/csharp/AGENTS.md` own universal C# and library-family rules; local README, `_ARCHITECTURE.md`, and `ROADMAP.md` own store state, package facts, and implementation sequence.
+Scope: `libs/csharp/Rasm.Persistence/` only. Root policy and `libs/csharp/AGENTS.md` own universal C# and library-family rules; local README, `ARCHITECTURE.md`, and `ROADMAP.md` own store state, package facts, and implementation sequence.
 
 ## [1][READ_ORDER]
 
-- Before production work, read `README.md`, `_ARCHITECTURE.md`, and `ROADMAP.md` to decide store state, provider proof, and sequence.
+- Before production work, read `README.md`, `ARCHITECTURE.md`, and `ROADMAP.md` to decide store state, provider proof, and sequence.
 - Before changing durable-work scheduling or runtime receipts, read `Rasm.AppHost/AGENTS.md`.
 - Before changing live-state observables, read `Rasm.AppUi/AGENTS.md`.
 - Before changing benchmark, cache, model-result, or execution-artifact storage, read `Rasm.Compute/AGENTS.md`.
@@ -20,10 +20,10 @@ Keep storage operations as typed lifecycle operations and typed query algebras. 
 
 - New store operation: extend `StoreLifecycleOp`, `StoreQuery<TResult>`, `StoreDispatch`, `AppState`, `SnapshotEnvelope`, or `StoreReceipt` before adding a repository wrapper.
 - New durable receipt: extend store receipt fields when the fields carry route, status, count, checksum, compression, snapshot, or migration proof.
-- New provider-specific behavior: extend `StoreLifecycleOp`, `StoreQuery<TResult>`, `StoreDispatch`, `AppState`, `SnapshotEnvelope`, or `StoreReceipt`, and route provider, native asset, encryption, or recovery proof to `_ARCHITECTURE.md`; do not expose provider selectors, repository abstractions, or provider APIs.
+- New provider-specific behavior: extend `StoreLifecycleOp`, `StoreQuery<TResult>`, `StoreDispatch`, `AppState`, `SnapshotEnvelope`, or `StoreReceipt`, and route provider, native asset, encryption, or recovery proof to `ARCHITECTURE.md`; do not expose provider selectors, repository abstractions, or provider APIs.
 - New live-state emission: serialize emission inside the owner rail before AppUi observes it.
 - New support artifact: route request ownership through AppHost; Persistence stores, redacts, exports, and cleans.
-- Package-backed storage behavior: read `_ARCHITECTURE.md` and central manifests, then internalize approved package capability inside lifecycle, query, snapshot, live-state, support-artifact, and receipt rails before exposing provider selectors, serializer knobs, repository abstractions, or compatibility aliases.
+- Package-backed storage behavior: read `ARCHITECTURE.md` and central manifests, then internalize approved package capability inside lifecycle, query, snapshot, live-state, support-artifact, and receipt rails before exposing provider selectors, serializer knobs, repository abstractions, or compatibility aliases.
 
 ## [4][BOUNDARY_RULES]
 

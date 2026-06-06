@@ -2,11 +2,11 @@
 
 Scope: `libs/csharp/Rasm.AppHost/` only. `Rasm.AppHost` is the in-process runtime-record rail; Generic Host, DI roots, Scrutor, Serilog sinks, OpenTelemetry SDK/exporters, and companion service roots stay companion/test/bridge concerns unless architecture and manifest proof move them into a composition root.
 
-Root policy and `libs/csharp/AGENTS.md` own universal C# and library-family rules; local README, `_ARCHITECTURE.md`, and `ROADMAP.md` own platform state and implementation sequence.
+Root policy and `libs/csharp/AGENTS.md` own universal C# and library-family rules; local README, `ARCHITECTURE.md`, and `ROADMAP.md` own platform state and implementation sequence.
 
 ## [1][READ_ORDER]
 
-- Before production work, read `README.md`, `_ARCHITECTURE.md`, and `ROADMAP.md` to decide platform state, package adoption, and sequence.
+- Before production work, read `README.md`, `ARCHITECTURE.md`, and `ROADMAP.md` to decide platform state, package adoption, and sequence.
 - Before moving package guidance into graph, read `docs/host-libraries.md`.
 - Before changing cross-project runtime contracts, read AppUi, Compute, and Persistence local overlays.
 - Before creating project files, solution membership, central package entries, or directory-prop changes, read root quality policy and `docs/system-api-map`.
@@ -24,7 +24,7 @@ It coordinates boot, lifecycle, degradation policy, scheduling, diagnostics, and
 - Scheduling or drain behavior: extend the runtime scheduler owner and route execution to Compute.
 - Telemetry or logging: keep API-level in-process signals here; SDK/exporter adoption belongs at the companion or composition root.
 - Configuration: pass bound value data into boot; do not introduce configuration pipes inside the runtime core.
-- Package-backed runtime behavior: read `_ARCHITECTURE.md` and central manifests, then internalize approved package capability into `RasmRuntime`, lifecycle rails, scheduler/drain policy, and typed receipts before adding config knobs, service registries, facade methods, or compatibility aliases.
+- Package-backed runtime behavior: read `ARCHITECTURE.md` and central manifests, then internalize approved package capability into `RasmRuntime`, lifecycle rails, scheduler/drain policy, and typed receipts before adding config knobs, service registries, facade methods, or compatibility aliases.
 
 ## [4][BOUNDARY_RULES]
 
@@ -50,4 +50,4 @@ It coordinates boot, lifecycle, degradation policy, scheduling, diagnostics, and
 
 ## [6][STOP_RULES]
 
-If a change requires in-process `IServiceProvider`, Generic Host boot, exporter SDKs, raw host SDK calls, unproved shutdown/drain behavior, or companion package adoption without architecture and host proof, stop and route to `_ARCHITECTURE.md`, `docs/host-libraries.md`, and manifest proof.
+If a change requires in-process `IServiceProvider`, Generic Host boot, exporter SDKs, raw host SDK calls, unproved shutdown/drain behavior, or companion package adoption without architecture and host proof, stop and route to `ARCHITECTURE.md`, `docs/host-libraries.md`, and manifest proof.
