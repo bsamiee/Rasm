@@ -22,7 +22,6 @@ Local instruction and target files read fully:
 
 Shared governing standards read fully:
 
-- `docs/standards/agentic-documentation.md`
 - `docs/standards/information-structure.md`
 - `docs/standards/proof.md`
 - `docs/standards/style-guide.md`

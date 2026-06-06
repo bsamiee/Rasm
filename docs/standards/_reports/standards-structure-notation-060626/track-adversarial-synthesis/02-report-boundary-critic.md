@@ -139,7 +139,7 @@ Issue: The task list correctly blocks broad ripple, but several owner-file rows 
 
 Proposed correction:
 - For `Promote source-scan record principles without prompt wave choreography`, route report-specific field order only to `_reports/AGENTS.md`.
-- Route generic task-output provenance principles to `agentic-documentation.md` without naming `.claude` prompts.
+- Route generic task-output provenance principles to without naming `.claude` prompts.
 - Route carrier shape to `information-structure.md` only as a generic field-packet rule, not a report contract copied from `.claude/prompts/fix-standards-docs.md`.
 - Keep `.claude/**` and targeted repo Markdown as source material until the blocked user-choice tasks resolve.
 

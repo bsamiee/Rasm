@@ -13,7 +13,6 @@ Local source reads:
 - `docs/standards/AGENTS.md`
 - `docs/standards/reference/code-documentation.md`
 - `docs/standards/style-guide.md`
-- `docs/standards/agentic-documentation.md`
 - adjacent checks: `docs/standards/reference/api.md`, `docs/standards/proof.md`
 
 Local searches:

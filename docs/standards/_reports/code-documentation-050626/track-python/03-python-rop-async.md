@@ -10,7 +10,6 @@ Read scope:
 - `docs/standards/README.md`
 - `docs/standards/AGENTS.md`
 - `docs/standards/reference/code-documentation.md`
-- `docs/standards/agentic-documentation.md`
 - `docs/standards/information-structure.md`
 - `docs/standards/proof.md`
 - `pyproject.toml`

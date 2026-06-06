@@ -26,7 +26,7 @@ Prior lane extension: extends `track-synthesis/01-review-owner-order.md` by chec
 - `track-adversarial-synthesis/04-formatting-critic.md`
 - `track-adversarial-synthesis/05-style-guide-critic.md`
 - `track-adversarial-synthesis/06-proof-critic.md`
-- `track-adversarial-synthesis/07-agentic-documentation-critic.md`
+- `track-adversarial-synthesis/`
 - `track-adversarial-synthesis/08-transcript-boundary-critic.md`
 - `track-external-research/01-gfm-github-markdown-capabilities.md`
 - `track-external-research/02-mermaid-renderer-proof.md`
@@ -57,7 +57,7 @@ Prior lane extension: extends `track-synthesis/01-review-owner-order.md` by chec
 - `docs/standards/formatting.md`: compact glyphs and bracket tokens remain ambiguous at lines 17-50 and 94-115; contrast-record shape still lives in formatting at lines 175-180; heading idiom is broad at lines 206-215.
 - `docs/standards/proof.md`: proof gaps and gate claims route through proof fields and docs-code verification at lines 41-67 and 136-165.
 - `docs/standards/style-guide.md`: prose-to-structure decisions and process-language rejection route through lines 43-58 and 183-206.
-- `docs/standards/agentic-documentation.md`: accepted/rejected mini-table, provider-proof split, and prompt/process containment remain active concerns at lines 79-84, 120-133, and 211-247.
+- ``: accepted/rejected mini-table, provider-proof split, and prompt/process containment remain active concerns at lines 79-84, 120-133, and 211-247.
 - `docs/standards/agents-md.md`: provider-loading behavior and report-boundary claims remain proof-sensitive at lines 38-52, 91, 123-127, and 195-203.
 - Type-standard spot checks: `reference/readme.md` has the H1 contradiction at lines 41-51; `reference/support-matrix.md` has imported lifecycle field names at lines 117-131; `reference/code-documentation.md` has target language baselines at lines 68-72 and 169-305; `learning/tutorial.md` routes status vocabularies at lines 340-355; `explanation/architecture.md` has the Mermaid indentation defect at lines 260-280.
 

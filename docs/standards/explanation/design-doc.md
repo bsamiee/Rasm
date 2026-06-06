@@ -395,7 +395,7 @@ Use lowercase `must`, `should`, and `may` with the local craft standard's ordina
 Source order decides a wording or scope question when sources disagree:
 1. Current repository source, manifests, generated contracts, and accepted decisions the proposal must respect.
 2. This design-document standard for proposal shape, lifecycle, change slices, and final check.
-3. The five shared standards for position, form, craft, evidence, and notation.
+3. The four shared standards for form, craft, evidence, and notation.
 
 A design document proposes; it never overrides an accepted decision. When a slice contradicts an accepted ADR, the design must either narrow scope or plan the ADR supersession handoff.
 

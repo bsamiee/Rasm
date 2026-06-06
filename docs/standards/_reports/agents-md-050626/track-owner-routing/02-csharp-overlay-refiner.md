@@ -10,7 +10,6 @@ I acted as refinement / CSharp Overlay Refiner for Rasm `AGENTS.md` work. I did 
 - `docs/standards/agents-md.md`
 - `docs/standards/AGENTS.md`
 - `docs/standards/proof.md`
-- `docs/standards/agentic-documentation.md`
 - runtime `coding-csharp` skill summary
 - memory registry entries for recent Rasm C# overlay, AppUi/package, Rhino, Grasshopper, Vectors, tests/bridge, and docs-standards context
 - context reports:

@@ -3,7 +3,7 @@ Type: gap-critique
 Lane: track-adversarial-synthesis
 Merge key: docs/standards/style-guide.md :: prose-to-structure conversion and example placement :: refine
 Target owner: docs/standards/style-guide.md; docs/standards/information-structure.md
-Source basis: mandatory instruction files, session manifest, collective task list, active `style-guide.md`, `information-structure.md`, `agentic-documentation.md`, and style/prose-cited reports
+Source basis: mandatory instruction files, session manifest, collective task list, active `style-guide.md`, `information-structure.md`, and style/prose-cited reports
 Promotion target: docs/standards/style-guide.md; docs/standards/information-structure.md
 Outcome: MERGE
 
@@ -70,7 +70,7 @@ Finding 8
 Active standards:
 - `style-guide.md` permits isolated sentences only for specific reader jobs and rejects sentence-to-label conversion when the sentence remains a complete thought.
 - `information-structure.md` already says sentence islands must introduce the next container, close the previous one, or become structured data.
-- `agentic-documentation.md` requires controlling content at unit edges but still routes sentence craft to `style-guide.md`.
+- requires controlling content at unit edges but still routes sentence craft to `style-guide.md`.
 
 Cited reports:
 - `track-information-structure/01-information-structure-container-toolbelt.md` identifies real missing carriers: command packets, field packets, type-shape blocks, decomposition recipes, co-location tests, and alert demotion.

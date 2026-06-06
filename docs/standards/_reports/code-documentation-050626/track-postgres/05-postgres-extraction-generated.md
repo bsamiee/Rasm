@@ -16,7 +16,6 @@ Governing standards read:
 - `AGENTS.md`
 - `docs/standards/README.md`
 - `docs/standards/AGENTS.md`
-- `docs/standards/agentic-documentation.md`
 - `docs/standards/agents-md.md`
 - `docs/standards/information-structure.md`
 - `docs/standards/proof.md`

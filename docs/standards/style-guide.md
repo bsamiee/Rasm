@@ -148,7 +148,7 @@ Notation rules use these groups:
 
 - Use link text that describes the destination, and avoid bare URLs unless the URL is the example value.
 - Prefer canonical repo docs, generated contracts, manifests, or maintained source routes, and avoid deep links when a stable top-level reference carries the same truth.
-- Route generated, mirrored, or version-sensitive target freshness to [proof.md](proof.md); route generated mirror behavior to [agentic-documentation.md](agentic-documentation.md).
+- Route generated, mirrored, or version-sensitive target freshness and generated mirror behavior to [proof.md](proof.md).
 
 ## [10][EXAMPLES]
 
@@ -182,7 +182,6 @@ Review craft in 4 passes before publication:
 
 ## [13][BOUNDARIES]
 
-- [agentic-documentation.md](agentic-documentation.md) carries content placement and the cognition rationale behind positive, imperative framing.
 - [information-structure.md](information-structure.md) carries container form, example placement, and the code-block intent-label vocabulary.
 - [proof.md](proof.md) carries evidence strength and when a hedge is a load-bearing uncertainty marker rather than filler.
 - [formatting.md](formatting.md) carries status and invocation markers, table styling, and whitespace; this standard carries the words.
@@ -199,7 +198,7 @@ Use this verification checklist by group:
 - [ ] Sentences are direct, concrete, and free of needless words.
 - [ ] Conditions appear before the actions they control.
 - [ ] Root-file audit prose states the score basis directly and avoids praise, blame, and session-process narration.
-- [ ] Root-file audit prose uses the 5 shared axes from [README.md](README.md) and does not invent a local grading vocabulary.
+- [ ] Root-file audit prose uses the 4 shared axes from [README.md](README.md) and does not invent a local grading vocabulary.
 
 [MECHANICS_SOURCES]:
 - [ ] Commands, paths, flags, symbols, and placeholders use backticks.

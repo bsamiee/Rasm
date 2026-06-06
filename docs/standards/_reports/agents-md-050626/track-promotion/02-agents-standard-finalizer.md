@@ -1,6 +1,6 @@
 # [AGENTS_STANDARD_FINALIZER]
 
-Files read: `CLAUDE.md`, `docs/standards/README.md`, `docs/standards/agents-md.md`, `docs/standards/information-structure.md`, `docs/standards/agentic-documentation.md`, `docs/standards/proof.md`, all `track-owner-routing/*.md` reports present in `docs/standards/_reports/agents-md-050626/`, and the requested context reports `track-source-scans/04-docs-standards-context.md`, `track-source-scans/05-frontier-instruction-practice.md`, `track-source-scans/12-tests-bridge-context.md`, `track-source-scans/01-assay-context.md`, and `poly-*.md`.
+Files read: `CLAUDE.md`, `docs/standards/README.md`, `docs/standards/agents-md.md`, `docs/standards/information-structure.md`, ``, `docs/standards/proof.md`, all `track-owner-routing/*.md` reports present in `docs/standards/_reports/agents-md-050626/`, and the requested context reports `track-source-scans/04-docs-standards-context.md`, `track-source-scans/05-frontier-instruction-practice.md`, `track-source-scans/12-tests-bridge-context.md`, `track-source-scans/01-assay-context.md`, and `poly-*.md`.
 
 ## [1][FINAL_DIRECTION]
 
@@ -50,7 +50,7 @@ Exact wording block:
 Root routes, parent deduplicates, and leaf specializes. Write only the action-changing delta from parent guidance. State target standards as normative rules; state present behavior only with proof or an explicit proof gap.
 ```
 
-`[3][LOAD_SEMANTICS]`: Keep only provider-loading facts that change author action. Codex load behavior belongs here because it affects root-to-leaf authoring. Provider prompt-shape comparisons stay in `agentic-documentation.md`.
+`[3][LOAD_SEMANTICS]`: Keep only provider-loading facts that change author action. Codex load behavior belongs here because it affects root-to-leaf authoring. Provider prompt-shape comparisons stay in .
 
 Exact wording block:
 ```markdown conceptual

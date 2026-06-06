@@ -13,7 +13,6 @@ Local source reads:
 - `docs/standards/README.md`
 - `docs/standards/reference/code-documentation.md`
 - `docs/standards/style-guide.md`
-- `docs/standards/agentic-documentation.md`
 - `pyproject.toml`
 - adjacent temporary input: `docs/standards/_reports/code-documentation-050626/track-general/02-general-generation.md`
 
@@ -22,7 +21,7 @@ Local searches:
 - `rg -n "docs/standards|code-documentation|docstring|mkdocstrings|Griffe|PEP 257|Google" /Users/bardiasamiee/.codex/memories/MEMORY.md`
 - `rg -n "mkdocstrings|griffe|docstring|pydocstyle|ruff|pydantic|msgspec|beartype|python" pyproject.toml docs tools -g '*.toml' -g '*.md' -g '*.py'`
 - `fd -a 'mkdocs|docs|pyproject|ruff|ty|pydocstyle' . -t f`
-- `git status --short -- docs/standards/_reports/code-documentation-050626 docs/standards/reference/code-documentation.md docs/standards/style-guide.md docs/standards/agentic-documentation.md docs/standards/README.md docs/standards/AGENTS.md`
+- `git status --short -- docs/standards/_reports/code-documentation-050626 docs/standards/reference/code-documentation.md docs/standards/style-guide.md docs/standards/README.md docs/standards/AGENTS.md`
 
 Local configured truth:
 - `pyproject.toml` sets `requires-python = ">=3.14"`, `tool.ty.environment.python-version = "3.14"`, `tool.mypy.python_version = "3.14"`, and `tool.ruff.target-version = "py314"`.

@@ -118,7 +118,7 @@ Move down or route away these categories:
 
 3. `track-source-scans/11-root-integration.md` says "Approved dependencies and host SDKs are implementation owners" as a root candidate. That risks flattening the cross-stack ladder. Root must preserve that `docs/usage.md` decides precedence; RhinoCommon/GH2/host SDK facts can outrank generic external-lib-first behavior where host semantics own the concern.
 
-4. `track-source-scans/05-frontier-instruction-practice.md` is correct that provider behavior must be current and provider-specific, but root should not import Claude/Gemini behavior. Current root `AGENTS.md` should state only Codex behavior that changes local authoring plus the route that fallback/provider behavior is configuration fact unless proven. Broader provider comparison belongs in `agents-md.md` or `agentic-documentation.md`, not root.
+4. `track-source-scans/05-frontier-instruction-practice.md` is correct that provider behavior must be current and provider-specific, but root should not import Claude/Gemini behavior. Current root `AGENTS.md` should state only Codex behavior that changes local authoring plus the route that fallback/provider behavior is configuration fact unless proven. Broader provider comparison belongs in `agents-md.md` or, not root.
 
 5. `track-source-scans/05-frontier-instruction-practice.md` usefully separates behavioral guidance from enforcement. Root should import that as a rejection against false proof/enforcement claims, but not as a long explanation. Root can say prose routes behavior; tool/CI/hook/sandbox surfaces enforce.
 

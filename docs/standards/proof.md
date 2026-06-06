@@ -149,7 +149,7 @@ If current source is unavailable, state the gap and mark the claim provisional.
 
 Treat a machine-facing surface as a contract when it affects retrieval, generated mirrors, tool use, or structured output. Prove that contract with evaluation rather than assertion.
 
-Machine-facing contract semantics are defined in [agentic-documentation.md](agentic-documentation.md): shape enforcement, source provenance, semantic validation, and runtime safety. This section defines the evidence and receipt fields for those checks.
+Machine-facing contract semantics separate shape enforcement, source provenance, semantic validation, and runtime safety. This section defines the evidence and receipt fields for those checks.
 
 Declare evaluation receipt fields before examples.
 
@@ -238,7 +238,6 @@ The evidence hierarchy, freshness fields, proof labels, preservation rule, and d
 
 ## [12][BOUNDARIES]
 
-- [agentic-documentation.md](agentic-documentation.md) carries machine-facing placement and contract separation; this standard carries evidence strength, receipt fields, freshness, and evaluation proof.
 - [information-structure.md](information-structure.md) carries the container that presents an evidence table, caption, or labeled block.
 - [style-guide.md](style-guide.md) carries the phrasing of a claim and the removal of filler hedging.
 - [formatting.md](formatting.md) carries the markers and styling that present an evidence table or status field.

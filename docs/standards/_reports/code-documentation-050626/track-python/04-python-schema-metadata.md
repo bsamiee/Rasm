@@ -39,7 +39,7 @@ Context7 lookup used official or source-backed documentation for `/pydantic/pyda
 
 `docs/standards/proof.md:78-85` requires maintained current sources for changing tools and says unavailable current source must be marked as a gap.
 
-`docs/standards/agentic-documentation.md:131-135` requires generated or mirrored files to exclude secrets, personal data, task notes, and private machine details, and it separates public, internal, restricted, and secret material.
+`:131-135` requires generated or mirrored files to exclude secrets, personal data, task notes, and private machine details, and it separates public, internal, restricted, and secret material.
 
 ## [3][FINDINGS]
 
@@ -180,7 +180,7 @@ No Python, static, generated-schema, test, bridge, or API-generation rail is req
 
 Primary owner: `docs/standards/reference/code-documentation.md` `[6.3][PYTHON_3_15]`.
 
-Supporting owner: `docs/standards/agentic-documentation.md` already owns generated or mirrored artifact separation and exclusion of secrets, personal data, task notes, and private machine details.
+Supporting owner: `` already owns generated or mirrored artifact separation and exclusion of secrets, personal data, task notes, and private machine details.
 
 Proof owner: `docs/standards/proof.md` owns current-source, generated-artifact, and proof-gap labels.
 
@@ -208,7 +208,7 @@ Do not edit for this finding:
 
 1. Read memory routing for recent `docs/standards` work and treated `_reports/` as report-only source material.
 2. Discovered instruction and standards files with `fd`.
-3. Read `CLAUDE.md`, root `AGENTS.md`, `docs/standards/AGENTS.md`, `docs/standards/README.md`, `docs/standards/reference/code-documentation.md`, `docs/standards/agentic-documentation.md`, `docs/standards/information-structure.md`, `docs/standards/proof.md`, `docs/standards/style-guide.md`, `docs/standards/formatting.md`, and `docs/standards/agents-md.md`.
+3. Read `CLAUDE.md`, root `AGENTS.md`, `docs/standards/AGENTS.md`, `docs/standards/README.md`, `docs/standards/reference/code-documentation.md`, ``, `docs/standards/information-structure.md`, `docs/standards/proof.md`, `docs/standards/style-guide.md`, `docs/standards/formatting.md`, and `docs/standards/agents-md.md`.
 4. Checked existing `_reports/` report style and confirmed `docs/standards/reference/code-documentation.md` was already modified before this report write.
 5. Queried Context7 for Pydantic, msgspec, and beartype documentation.
 6. Queried current primary web sources for Pydantic, msgspec, beartype, Python dataclasses, JSON Schema annotations, and OWASP API data-exposure guidance.

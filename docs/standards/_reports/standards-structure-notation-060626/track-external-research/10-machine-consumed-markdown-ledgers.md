@@ -43,8 +43,8 @@ Proof gap: no generic Markdown parser or table validator exists in the bounded r
 ### [4][GENERATED_AND_TEMPLATE_SURFACES]
 
 Recommendation: MERGE.
-Owner route: `docs/standards/agentic-documentation.md` should keep generated mirrors and retrieval surfaces in its generated-surface lane, while `docs/standards/information-structure.md` owns the carrier shape for machine-consumed Markdown blocks.
-Evidence: `docs/standards/agentic-documentation.md` already separates generated mirrors, retrieval provenance, structured-output contracts, and MCP catalogs. `docs/standards/proof.md` already requires generated artifacts to name `Generated from:` and `Source of truth:`. Existing report `track-external-research/01-gfm-github-markdown-capabilities.md` covers renderer capabilities but does not cover Roslyn release ledger parser ownership.
+Owner route: `` should keep generated mirrors and retrieval surfaces in its generated-surface lane, while `docs/standards/information-structure.md` owns the carrier shape for machine-consumed Markdown blocks.
+Evidence: `` already separates generated mirrors, retrieval provenance, structured-output contracts, and MCP catalogs. `docs/standards/proof.md` already requires generated artifacts to name `Generated from:` and `Source of truth:`. Existing report `track-external-research/01-gfm-github-markdown-capabilities.md` covers renderer capabilities but does not cover Roslyn release ledger parser ownership.
 Correction: generated Markdown and parser-owned Markdown should share the same first fields only where useful: `Consumer`, `Required shape`, `Source of truth`, `Validation command` or `Proof gap`, and `Review trigger`. Generated mirrors additionally need `Generated from`, `Omissions`, and `Edit rule`; hand-maintained ledgers need `No-normalize rule` and release movement behavior.
 Validation route: generated mirrors use regeneration or generated-output comparison; parser-owned hand-maintained ledgers use the consumer/parser test. Do not validate generated mirrors by hand-editing table shape.
 Proof gap: no generated contract docs were exhaustively inspected in this pass; this finding merges prior generated-surface rules with the local analyzer ledger evidence only.
@@ -87,7 +87,7 @@ Proof gap: no generated contract docs were exhaustively inspected in this pass; 
 - Add a Roslyn release-ledger example as a named exception: preserve `AnalyzerReleases.Shipped.md`, `AnalyzerReleases.Unshipped.md`, `### New Rules`, optional release sections in shipped files, and the `Rule ID | Category | Severity | Notes` table shape.
 
 [MERGE]:
-- Merge generated-mirror wording with `agentic-documentation.md` and `proof.md` instead of creating a second generated-surface vocabulary in `information-structure.md`.
+- Merge generated-mirror wording with and `proof.md` instead of creating a second generated-surface vocabulary in `information-structure.md`.
 - Merge row-level proof with `proof.md`: shape validation proves only parse shape; semantic validation proves descriptor/category/severity match; build wiring proves official analyzer integration.
 - Merge notation exceptions into `formatting.md`: bracketed headings and `[INDEX]` tables are default notation, not parser-owned ledger notation.
 

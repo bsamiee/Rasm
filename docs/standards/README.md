@@ -18,7 +18,7 @@ Separate rule authority from claim evidence.
 [RULE_AUTHORITY]:
 - Active instruction files control work order and local constraints.
 - This README controls reader need, document-type choice, corpus placement, split/link rules, and lifecycle routing.
-- Shared standards control position, form, craft, evidence, and notation.
+- Shared standards control form, craft, evidence, and notation.
 - Type standards control artifact-specific structure, status vocabulary, local proof slots, and examples.
 - `AGENTS.md` and `_reports/**` are instruction/source overlays, not standards bodies in the active document-type corpus.
 
@@ -37,15 +37,15 @@ Read order is workflow order; owner routing and claim evidence still decide conf
 1. For standards-library edits, follow [AGENTS.md](AGENTS.md) first.
 2. Use the reader-need matrix and type chooser below to pick one primary document type when the artifact serves a reader-need document type.
 3. For document-type standards, apply the page-anatomy and opening-contract rules in [information-structure.md](information-structure.md), then apply the chosen type standard.
-4. Apply the 5 shared standards: position, form, craft, evidence, and notation.
+4. Apply the 4 shared standards: form, craft, evidence, and notation.
 
 [NON_TYPE_ROUTES]:
 
 | [INDEX] | [SURFACE]                        | [OWNER_ROUTE]                                               |
 | :-----: | :------------------------------- | :---------------------------------------------------------- |
-|   [1]   | instructions and agentic prose   | [agentic](agentic-documentation.md), [AGENTS](agents-md.md) |
-|   [2]   | mirrors, indexes, retrieval, MCP | [agentic-documentation.md](agentic-documentation.md)        |
-|   [3]   | structured output and checks     | [agentic](agentic-documentation.md), [proof](proof.md)      |
+|   [1]   | instructions and overlay prose     | [AGENTS](agents-md.md)                                              |
+|   [2]   | mirrors, indexes, retrieval, MCP   | [proof](proof.md), [information-structure](information-structure.md) |
+|   [3]   | structured output and checks       | [proof](proof.md)                                                   |
 |   [4]   | proof fields and gates           | [proof.md](proof.md)                                        |
 |   [5]   | containers and examples          | [information-structure.md](information-structure.md)        |
 
@@ -88,15 +88,14 @@ Map the reader need to the artifact. Route-away cells name the standards that sh
 
 Each cross-cutting rule routes to exactly one owner:
 
-| [INDEX] | [AXIS]   | [OWNER]                                              | [CONTROLS]                                         |
-| :-----: | :------- | :--------------------------------------------------- | :------------------------------------------------- |
-|   [1]   | position | [agentic-documentation.md](agentic-documentation.md) | salience, artifacts, machine-facing docs, catalogs |
-|   [2]   | form     | [information-structure.md](information-structure.md) | containers, diagrams, chunks, examples             |
-|   [3]   | craft    | [style-guide.md](style-guide.md)                     | prose, terms, links, accessibility                 |
-|   [4]   | evidence | [proof.md](proof.md)                                 | proof, freshness, conflicts, preservation          |
-|   [5]   | notation | [formatting.md](formatting.md)                       | markers, tables, whitespace, headings              |
+| [INDEX] | [AXIS]   | [OWNER]                                              | [CONTROLS]                                 |
+| :-----: | :------- | :--------------------------------------------------- | :----------------------------------------- |
+|   [1]   | form     | [information-structure.md](information-structure.md) | containers, diagrams, chunks, examples     |
+|   [2]   | craft    | [style-guide.md](style-guide.md)                     | prose, terms, links, accessibility         |
+|   [3]   | evidence | [proof.md](proof.md)                                 | proof, freshness, conflicts, preservation  |
+|   [4]   | notation | [formatting.md](formatting.md)                       | markers, tables, whitespace, headings      |
 
-Audit root standards against position, form, craft, evidence, and notation only. If a finding does not fit those 5 axes, route it to the owning standard instead of creating a local audit category.
+Audit root standards against form, craft, evidence, and notation only. If a finding does not fit those 4 axes, route it to the owning standard instead of creating a local audit category.
 
 ## [7][PLACEMENT]
 
@@ -151,7 +150,6 @@ docs/standards/
 ├── learning/                  # tutorial, onboarding
 ├── README.md                  # this router
 ├── AGENTS.md                  # local instruction overlay
-├── agentic-documentation.md   # position
 ├── information-structure.md   # form
 ├── style-guide.md             # craft
 ├── proof.md                   # evidence
@@ -209,10 +207,6 @@ These anti-patterns fall into three groups:
 
 Use this verification checklist by axis. Command, link, anchor, renderer, and docs-build gates are selected through [proof.md](proof.md); unrun gates are proof gaps.
 
-[POSITION]:
-- [ ] Active standards are linked by current filename.
-- [ ] Root-file audits use only the 5 shared axes.
-
 [FORM]:
 - [ ] The reader-need map and type chooser route to a single primary type.
 - [ ] Each type standard appears in exactly one family.
@@ -227,5 +221,7 @@ Use this verification checklist by axis. Command, link, anchor, renderer, and do
 - [ ] Cross-stack proof routes to the active repository instruction route only for its scoped cases.
 
 [NOTATION]:
+- [ ] Active standards are linked by current filename.
 - [ ] Shared-standard counts, route labels, and folder inventories use consistent notation.
+- [ ] Root-file audits use only the 4 shared axes.
 - [ ] Router targets are links when the path is an action route and code spans only when the literal path is the fact.

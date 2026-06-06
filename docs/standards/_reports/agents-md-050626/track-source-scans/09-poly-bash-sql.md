@@ -10,7 +10,7 @@ Local standards read:
 - `docs/standards/README.md`: standards routing, proof/source precedence, and placement rules.
 - `docs/standards/AGENTS.md`: active standards corpus rules, research-as-input boundary, future-standard posture, and close checks.
 - `docs/standards/agents-md.md`: `AGENTS.md` semantic slots, root profile, local extension grammar, route-away, anti-fragility, and trust boundaries.
-- `docs/standards/agentic-documentation.md`, `information-structure.md`, `proof.md`, `style-guide.md`, and `formatting.md`: salience, container, evidence, prose, and bracketed-heading rules.
+- ``, `information-structure.md`, `proof.md`, `style-guide.md`, and `formatting.md`: salience, container, evidence, prose, and bracketed-heading rules.
 - `tools/assay/AGENTS.md`: tool-folder pattern for one engine over data rows, catalog rows, registry binds, tagged detail variants, and no helper or wrapper rails.
 - `tools/rhino-bridge/AGENTS.md`: tool-operator delta pattern, source-only scenario boundary, marker scanning, and no durable links to run-local artifacts.
 - `libs/csharp/Rasm.Persistence/AGENTS.md`: storage-owner language for query algebra, migrations, typed receipts, provider-proof route, and no repository wrapper.

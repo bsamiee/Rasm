@@ -27,7 +27,7 @@ Next action: edit active standards in owner order.
 4. `docs/standards/proof.md`: proof-gap marker exclusivity, renderer/source-class packet, configured-gate records, generated-ledger proof comparison fields, stale-source claim verification, source-trace versus semantic-pass boundary, and final validation-state wording.
 5. `docs/standards/formatting.md`: heading scope, rendering-only contrast label rules, absence rendering boundaries, text-graphic fallback rules, and status-token registry pointer excluding held glyph/suffix choices.
 6. `docs/standards/style-guide.md`: keep-or-convert prose test and anti-formulaic packet guard.
-7. `docs/standards/agentic-documentation.md`: accepted/rejected compact contrast example and provider-independent contract-strength split.
+7. ``: accepted/rejected compact contrast example and provider-independent contract-strength split.
 8. `docs/standards/agents-md.md`: provider-behavior proof-gap boundary only; do not add unproved provider mechanics.
 9. Type-standard exact fixes after shared rules land: README H1 contradiction, runbook `Reason:` label, architecture Mermaid indentation, pure field-packet fence labels, and path-specific relation/status edits proved by active-source scan.
 
@@ -158,7 +158,7 @@ Status: COMPLETE
 ### [3.1][AGENTIC_DOCUMENTATION]
 
 Task: Replace the accepted/rejected mini-table with a compact contrast record.
-Owner file: `docs/standards/agentic-documentation.md`.
+Owner file: ``.
 Section: instruction precision example near line 79.
 Axis: form.
 Source basis: current two-row table compares one accepted and one rejected sentence; `formatting.md` and `information-structure.md` prefer compact contrast records for one-attribute contrasts.
@@ -172,7 +172,7 @@ Validation: `git diff --check`.
 Status: COMPLETE
 
 Task: Split provider-independent contract guidance from provider-specific schema mechanics.
-Owner file: `docs/standards/agents-md.md`; `docs/standards/agentic-documentation.md`; `docs/standards/proof.md`.
+Owner file: `docs/standards/agents-md.md`; ``; `docs/standards/proof.md`.
 Section: provider-loading facts and strict schema guidance.
 Axis: evidence.
 Source basis: active standards contain provider/current-behavior claims without proof fields.
@@ -190,7 +190,7 @@ Owner file: `docs/standards/proof.md`; `docs/standards/agents-md.md`; provider-s
 Section: provider capability proof.
 Axis: evidence.
 Source basis: active standards contain provider-current claims, while review reports split provider proof from local authoring convention and `.claude` governance.
-Source reports: `track-root-corpus/01-root-shared-corpus.md`; `track-repo-markdown/01-claude-markdown-patterns.md`; `track-adversarial-synthesis/07-agentic-documentation-critic.md`; `track-synthesis/01-review-owner-order.md`; `track-synthesis/02-review-gap-critique.md`.
+Source reports: `track-root-corpus/01-root-shared-corpus.md`; `track-repo-markdown/01-claude-markdown-patterns.md`; `track-adversarial-synthesis/`; `track-synthesis/01-review-owner-order.md`; `track-synthesis/02-review-gap-critique.md`.
 Decision: HOLD.
 Correction: do not add provider-specific schema keywords, delimiter behavior, loading guarantees, skill-format rules, renderer behavior, or enforcement availability without current provider documentation or local provider-surface output.
 Correction shape: held research record.
@@ -564,7 +564,7 @@ Source reports: `track-type-corpus/02-reference-type-corpus.md`; `track-repo-mar
 Decision: PROMOTE.
 Correction: add `Proof gap:` after `Source of truth:` in proof-bearing templates that may claim generated, current, renderer, support, command-output, or upstream behavior; omit it in produced docs when proved.
 Correction shape: proof-field insertion in examples/templates.
-Ripple files: `docs/standards/reference/api.md`; `docs/standards/reference/reference.md`; `docs/standards/reference/support-matrix.md`; `docs/standards/reference/code-documentation.md`; `docs/standards/agentic-documentation.md` where generated artifacts are discussed.
+Ripple files: `docs/standards/reference/api.md`; `docs/standards/reference/reference.md`; `docs/standards/reference/support-matrix.md`; `docs/standards/reference/code-documentation.md`; `` where generated artifacts are discussed.
 Proof gap: closed for structure; source-specific claims still need proof.
 Validation: proof-field order scan.
 Status: COMPLETE
@@ -578,13 +578,13 @@ Source reports: `track-external-research/07-proof-uncertainty-stale-sources.md`;
 Decision: PROMOTE.
 Correction: add `CLAIM_VERIFICATION` and `STALE_SOURCE_RULE`: declaration, provenance, expectation, verification, and failure state are separate; freshness/lifecycle/support terms require a source-specific definition plus `Last verified:` or `Review trigger:`, or must be rewritten as source-independent invariants.
 Correction shape: proof-owned rule blocks.
-Ripple files: `docs/standards/agentic-documentation.md`; `docs/standards/reference/api.md`; `docs/standards/reference/reference.md`; `docs/standards/reference/support-matrix.md`; `docs/standards/agents-md.md`.
+Ripple files: ``; `docs/standards/reference/api.md`; `docs/standards/reference/reference.md`; `docs/standards/reference/support-matrix.md`; `docs/standards/agents-md.md`.
 Proof gap: exact product lifecycle labels remain type-local; proof owns the evidence obligation only.
 Validation: source scan for freshness terms after edit.
 Status: COMPLETE
 
 Task: Merge source-trace versus semantic-pass wording into agentic documentation.
-Owner file: `docs/standards/agentic-documentation.md`.
+Owner file: ``.
 Section: task output contracts and retrieval provenance.
 Axis: evidence.
 Source basis: provenance sources support the existing split between source trace, semantic validation, and runtime safety.
@@ -796,7 +796,7 @@ Status: DROPPED_EVIDENCE_ONLY.
 ## [6][CLAUDE_MARKDOWN]
 
 Task: Keep `.claude/prompts/**` and `.claude/skills/**` out of this implementation.
-Owner file: `.claude/README.md`; `docs/standards/agentic-documentation.md`; `docs/standards/formatting.md`.
+Owner file: `.claude/README.md`; ``; `docs/standards/formatting.md`.
 Section: prompt and skill governance.
 Axis: cross-owner.
 Source basis: `.claude` contains useful prompt contracts and older heading/table/fence notation, but it is source material, not active standards authority.
@@ -810,7 +810,7 @@ Validation: link/anchor checks if headings change.
 Status: DROPPED_OUT_OF_SCOPE_BY_USER_CHOICE.
 
 Task: Correct source-scan record principles without prompt process choreography.
-Owner file: `docs/standards/agentic-documentation.md`; `docs/standards/information-structure.md`; `docs/standards/_reports/AGENTS.md`.
+Owner file: ``; `docs/standards/information-structure.md`; `docs/standards/_reports/AGENTS.md`.
 Section: task-output contracts and report shape.
 Axis: craft.
 Source basis: `.claude/prompts/fix-standards-docs.md` has a strong finding/report field contract but includes transient process choreography.

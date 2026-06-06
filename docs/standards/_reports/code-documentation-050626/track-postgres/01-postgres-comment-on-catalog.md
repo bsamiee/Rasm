@@ -27,7 +27,7 @@ Mutation boundary: no active standards edited; this report is the only assigned 
 - `docs/standards/proof.md`: full file read with line numbers.
 - `docs/standards/style-guide.md`: full file read with line numbers.
 - `docs/standards/formatting.md`: full file read with line numbers.
-- `docs/standards/agentic-documentation.md`: full file read with line numbers.
+- ``: full file read with line numbers.
 
 [GOVERNING_INSTRUCTIONS_READ]:
 - `CLAUDE.md`: confirms Markdown routes through `docs/standards`, current source verification for research, and docs-only proof boundaries.
@@ -214,7 +214,7 @@ No C#, TypeScript, Python, Bash, SQL runtime, static, test, bridge, or generated
 Commands run from `/Users/bardiasamiee/Documents/99.Github/Rasm`:
 - `rg` over `/Users/bardiasamiee/.codex/memories/MEMORY.md` for recent `docs/standards` context.
 - `fd` for instruction and standards file discovery.
-- `nl -ba` full reads of `CLAUDE.md`, root `AGENTS.md`, `docs/standards/AGENTS.md`, `docs/standards/README.md`, `docs/standards/reference/code-documentation.md`, `docs/standards/information-structure.md`, `docs/standards/proof.md`, `docs/standards/style-guide.md`, `docs/standards/formatting.md`, and `docs/standards/agentic-documentation.md`.
+- `nl -ba` full reads of `CLAUDE.md`, root `AGENTS.md`, `docs/standards/AGENTS.md`, `docs/standards/README.md`, `docs/standards/reference/code-documentation.md`, `docs/standards/information-structure.md`, `docs/standards/proof.md`, `docs/standards/style-guide.md`, `docs/standards/formatting.md`, and ``.
 - `git status --short -- docs/standards/_reports/code-documentation-050626 docs/standards/reference/code-documentation.md docs/standards/README.md docs/standards/AGENTS.md` before writing; pre-existing active-standard modification and sibling untracked reports were observed.
 - Web primary-source checks for PostgreSQL 18.4 docs, `COMMENT`, `pg_description`, `pg_shdescription`, comment-information functions, and the system catalog overview.
 

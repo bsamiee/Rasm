@@ -22,7 +22,7 @@ Mutation boundary: no active standards edited; this report is the only assigned 
 [REQUESTED_FILES_READ]:
 - `docs/standards/reference/code-documentation.md`: full file read with line numbers.
 - `docs/standards/style-guide.md`: full file read with line numbers.
-- `docs/standards/agentic-documentation.md`: full file read with line numbers.
+- ``: full file read with line numbers.
 - `docs/standards/README.md`: full file read with line numbers.
 - `docs/standards/AGENTS.md`: full file read with line numbers.
 
@@ -34,8 +34,8 @@ Mutation boundary: no active standards edited; this report is the only assigned 
 - `docs/standards/README.md:16-23`: current repo source and runnable tool output outrank prior notes; drift-prone claims must be proved with repository truth.
 - `docs/standards/README.md:83-90`: source files own public symbol documentation and rationale that names and types cannot express; prefer one source for a claim.
 - `docs/standards/AGENTS.md:54-58`: forbids publishing session state, secrets, nonpublic machine paths, invented tooling claims, and generic metadata whitelists.
-- `docs/standards/agentic-documentation.md:133-135`: generated or mirrored files must exclude secrets, personal data, task notes, and private machine details; public, internal, restricted, and secret material must be separated or filtered.
-- `docs/standards/agentic-documentation.md:206-207`: validation already checks no secrets, nonpublic local paths, or unverified provider claims are exposed.
+- `:133-135`: generated or mirrored files must exclude secrets, personal data, task notes, and private machine details; public, internal, restricted, and secret material must be separated or filtered.
+- `:206-207`: validation already checks no secrets, nonpublic local paths, or unverified provider claims are exposed.
 - `docs/standards/style-guide.md:41-45`: remove transient interaction language and preserve only load-bearing uncertainty.
 - `docs/standards/style-guide.md:124-130`: code-safe Markdown rules preserve copyability of paths, commands, symbols, and placeholders.
 - `docs/standards/reference/code-documentation.md:3-14`: comments own omitted caller-visible semantics, security exposure, lifecycle signals, and inline rationale; generated/reference/task/operation routes leave comments.
@@ -179,7 +179,7 @@ No change recommended to the `AGENTS.md` ban on people/process metadata and nonp
 - `docs/standards/reference/code-documentation.md` owns source comments, docstrings, catalog comments, inline rationale comments, generated-reference handoffs, and language capsules.
 
 [SUPPORTING_OWNER]:
-- `docs/standards/agentic-documentation.md` already owns generated/mirrored artifact separation and access-class boundaries.
+- `` already owns generated/mirrored artifact separation and access-class boundaries.
 
 [STYLE_OWNER]:
 - `docs/standards/style-guide.md` already owns prose mechanics and should not duplicate security-comment policy.
@@ -208,7 +208,7 @@ No change recommended to the `AGENTS.md` ban on people/process metadata and nonp
 1. Read memory routing for recent `docs/standards` work. Memory established that active standards files outrank `_reports/` and that `_reports/` is source material only.
 2. Discovered requested files and instruction files with `fd`.
 3. Read `CLAUDE.md` and root `AGENTS.md`.
-4. Read requested standards in full with `nl -ba`: `README.md`, `AGENTS.md`, `agentic-documentation.md`, `style-guide.md`, and `reference/code-documentation.md`.
+4. Read requested standards in full with `nl -ba`: `README.md`, `AGENTS.md`, `style-guide.md`, and `reference/code-documentation.md`.
 5. Re-read truncated `code-documentation.md` language-capsule ranges with line-numbered `sed`.
 6. Checked current worktree status for assigned scope and requested active files. Found pre-existing modification to `docs/standards/reference/code-documentation.md`.
 7. Queried current primary sources and official docs for C# XML comments, API Extractor/TSDoc, TypeScript package version, Python docstrings, Bash 5.3, PostgreSQL comments/catalog metadata, OWASP logging and secrets guidance, GitHub push protection and secret scanning detection scope, and CWE-615.

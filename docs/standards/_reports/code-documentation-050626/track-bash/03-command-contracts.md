@@ -20,7 +20,6 @@ Research scope: `docs/standards/reference/code-documentation.md` with emphasis o
    - `docs/standards/information-structure.md`
    - `docs/standards/style-guide.md`
    - `docs/standards/proof.md`
-   - `docs/standards/agentic-documentation.md`
    - `docs/standards/formatting.md`
 7. Checked the active standards corpus with `fd -t f . docs/standards | sort`.
 8. Checked current worktree status for `docs/standards/_reports` and the active governing files.
@@ -44,7 +43,7 @@ Research scope: `docs/standards/reference/code-documentation.md` with emphasis o
 - `docs/standards/proof.md`: evidence hierarchy, maintained-source preference, proof-field ownership, and docs-only gate selection.
 - `docs/standards/information-structure.md`: record, table, definition-block, and code-block shape for recommendations.
 - `docs/standards/style-guide.md`: front-and-close prose, direct wording, code-safe Markdown, examples, links, and final proofing.
-- `docs/standards/agentic-documentation.md`: salience, durable artifact separation, evidence-before-synthesis, and provider-claim proof.
+- ``: salience, durable artifact separation, evidence-before-synthesis, and provider-claim proof.
 - `docs/standards/formatting.md`: bracketed headings, table rubrics, status markers, and whitespace.
 - `coding-bash` skill: local Bash doctrine for strict mode, dispatch-table routing, stdout/stderr separation, nameref return channels, structured logging, env contracts, traps, cleanup, and ShellCheck compliance.
 

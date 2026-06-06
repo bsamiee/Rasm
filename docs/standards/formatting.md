@@ -257,7 +257,7 @@ Use these source-notation rules:
 
 - [information-structure.md](information-structure.md) carries container choice, table construction, code-block intent labels, progress eligibility, and structured-record fields; this standard styles what it builds.
 - [style-guide.md](style-guide.md) carries sentence mechanics, terminology, and requirement modals.
-- [agentic-documentation.md](agentic-documentation.md) carries salience and where a marked constraint sits in a unit.
+- [style-guide.md](style-guide.md) carries salience and where a marked constraint sits in a unit.
 - [proof.md](proof.md) carries evidence strength, freshness, and proof label meanings; this standard renders the result and status markers that present evidence or status.
 - [README.md](README.md) carries document-type routing and cross-standard links.
 

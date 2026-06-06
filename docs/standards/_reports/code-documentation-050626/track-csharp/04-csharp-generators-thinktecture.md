@@ -178,7 +178,7 @@ Rasm treats warnings as errors, but `CS1591` is suppressed. Unresolved `cref` re
 
 Read and verification sequence:
 1. Read `CLAUDE.md`, root `AGENTS.md` from the prompt, `docs/standards/README.md`, `docs/standards/AGENTS.md`, and the full `docs/standards/reference/code-documentation.md`.
-2. Read shared governing standards: `proof.md`, `information-structure.md`, `style-guide.md`, `agentic-documentation.md`, and `formatting.md`.
+2. Read shared governing standards: `proof.md`, `information-structure.md`, `style-guide.md`, and `formatting.md`.
 3. Searched memory for docs-standards context and used it only to confirm active-corpus and proof-owner expectations.
 4. Searched local repo for `Thinktecture`, `GenerateDocumentationFile`, `CS1591`, `Obsolete`, `DocFX`, generated-file exclusions, and generated-source settings.
 5. Read existing Rasm Thinktecture source-map docs: `docs/external-libs/thinktecture/api.md`, `objects.md`, `enums.md`, `unions.md`, and `union-attributes.md`.

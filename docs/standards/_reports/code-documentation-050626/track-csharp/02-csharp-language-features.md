@@ -17,7 +17,6 @@ Read scope:
 - `docs/standards/AGENTS.md`
 - `docs/standards/README.md`
 - `docs/standards/reference/code-documentation.md`
-- `docs/standards/agentic-documentation.md`
 - `docs/standards/information-structure.md`
 - `docs/standards/style-guide.md`
 - `docs/standards/proof.md`
@@ -162,7 +161,7 @@ Local governing read:
 - `sed -n '1,260p' docs/standards/AGENTS.md`
 - `sed -n '1,260p' docs/standards/reference/code-documentation.md`
 - `sed -n '220,520p' docs/standards/reference/code-documentation.md`
-- `sed -n '1,260p' docs/standards/agentic-documentation.md`
+- `sed -n '1,260p' `
 - `sed -n '1,300p' docs/standards/information-structure.md`
 - `sed -n '301,520p' docs/standards/information-structure.md`
 - `sed -n '1,300p' docs/standards/style-guide.md`

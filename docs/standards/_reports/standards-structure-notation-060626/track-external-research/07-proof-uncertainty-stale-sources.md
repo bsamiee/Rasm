@@ -4,7 +4,7 @@ Lane: track-external-research
 Merge key: docs/standards/proof.md :: proof uncertainty and stale source handling :: promote owner-routed wording
 Target owner: `docs/standards/proof.md`
 Source basis: active standards and session reads; official GitLab Docs, Kubernetes Docs, W3C PROV, SLSA, C2PA 2.2, Google developer style, Cloudflare style, and MDN writing guidance accessed 2026-06-06
-Promotion target: `docs/standards/proof.md`, with owner-routed changes to `docs/standards/information-structure.md`, `docs/standards/agentic-documentation.md`, `docs/standards/reference/api.md`, `docs/standards/reference/reference.md`, and `docs/standards/reference/support-matrix.md`
+Promotion target: `docs/standards/proof.md`, with owner-routed changes to `docs/standards/information-structure.md`, ``, `docs/standards/reference/api.md`, `docs/standards/reference/reference.md`, and `docs/standards/reference/support-matrix.md`
 Outcome: PROMOTE
 
 ## [FINDINGS]
@@ -16,7 +16,7 @@ Finding 1
     Weakness/inconsistency: Rasm already has strong evidence fields, but the current wording can still let `Evidence:` read like "a source exists" rather than "this claim was verified against an expectation." Generated and provider claims need a visible split between declaration, expected value, verification method, and failure class.
     Proposed correction: Add a proof-owned rule: evidence records for generated, provider, renderer, support, and machine-facing claims must name the claimed fact, the controlling source, the verification or comparison performed, and the failure state when the check cannot prove the claim.
     Active owner: `docs/standards/proof.md`.
-    Ripple files: `docs/standards/agentic-documentation.md`; `docs/standards/reference/api.md`; `docs/standards/reference/reference.md`; `docs/standards/reference/support-matrix.md`.
+ Ripple files: ``; `docs/standards/reference/api.md`; `docs/standards/reference/reference.md`; `docs/standards/reference/support-matrix.md`.
     Decision: PROMOTE.
     Proof gap/question: This report did not test any local generated ledger. Promotion should stay generic unless a local parser, generator, or validator is sourced.
 
@@ -54,12 +54,12 @@ Finding 4
     Proof gap/question: Wider local tool inventory may find a link or anchor checker, but this report only proves the pattern and the already requested `git diff --check` gate.
 
 Finding 5
-    Active owner/section: `docs/standards/agentic-documentation.md` `[7][TASK_OUTPUT_CONTRACTS]`, `[10][RETRIEVAL_PROVENANCE]`; `docs/standards/proof.md` `[10][AGENT_SURFACE_EVALUATION]`.
+ Active owner/section: `` `[7][TASK_OUTPUT_CONTRACTS]`, `[10][RETRIEVAL_PROVENANCE]`; `docs/standards/proof.md` `[10][AGENT_SURFACE_EVALUATION]`.
     Evidence source URLs: https://www.w3.org/TR/prov-overview/; https://slsa.dev/spec/v1.2/verifying-artifacts.
     Finding: PROV and SLSA both support the current Rasm split between source provenance, semantic validation, and runtime safety. Provenance records identify where something came from and how it was produced; they do not by themselves prove correctness, safety, authorization, or current applicability.
     Weakness/inconsistency: The active agent-surface standard already separates shape enforcement, source provenance, semantic validation, and runtime safety. The report should strengthen that rule for claim-level provenance: a cited source path proves origin only, while a validation check proves agreement with expectation.
-    Proposed correction: Add candidate wording to `agentic-documentation.md`: "A source trace is not a semantic pass. Pair claim provenance with the validation that checks the claim, or mark `Proof gap:`."
-    Active owner: `docs/standards/agentic-documentation.md`.
+ Proposed correction: Add candidate wording to : "A source trace is not a semantic pass. Pair claim provenance with the validation that checks the claim, or mark `Proof gap:`."
+ Active owner: ``.
     Ripple files: `docs/standards/proof.md`; retrieval indexes, generated mirrors, and MCP catalog standards if promoted later.
     Decision: MERGE.
     Proof gap/question: Do not imply probabilistic retrieval quality without evaluation receipts; that remains governed by `proof.md`.
@@ -98,7 +98,6 @@ Finding 7
 - `docs/standards/proof.md`
 - `docs/standards/information-structure.md`
 - `docs/standards/formatting.md`
-- `docs/standards/agentic-documentation.md`
 - `docs/standards/agents-md.md`
 - `docs/standards/reference/api.md`
 - `docs/standards/reference/reference.md`
@@ -175,7 +174,7 @@ Last verified: YYYY-MM-DD
 Review trigger: `<source, generator, schema, command, package, provider, or renderer changes>`
 ```
 
-For `docs/standards/agentic-documentation.md`:
+For ``:
 
 ```markdown conceptual
 A source trace is not a semantic pass. Pair claim provenance with the validation that checks the claim, or mark `Proof gap:`.

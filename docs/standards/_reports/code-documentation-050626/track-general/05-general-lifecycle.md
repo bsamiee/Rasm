@@ -18,7 +18,6 @@ Local instruction and target files read fully:
 - `AGENTS.md`
 - `docs/standards/reference/code-documentation.md`
 - `docs/standards/style-guide.md`
-- `docs/standards/agentic-documentation.md`
 - `docs/standards/README.md`
 - `docs/standards/AGENTS.md`
 
@@ -194,7 +193,7 @@ Recommendation: no change to the closed `supported`, `preview`, `deprecated`, `r
 - Keep `README.md` as the owner for document-type routing, placement, lifecycle, and stale documentation deletion.
 - Keep `proof.md` as the owner for freshness, evidence fields, and current-source requirements.
 - Keep `style-guide.md` as the owner for wording and code-safe Markdown.
-- Keep `agentic-documentation.md` as the owner for placement, salience, artifact separation, and provider behavior.
+- Keep as the owner for placement, salience, artifact separation, and provider behavior.
 - Keep code comments limited to caller-visible semantics, generator-visible marker text, failure channels, resource contracts, and non-obvious rationale.
 - Keep greenfield internal stale surfaces on the delete-or-replace path.
 

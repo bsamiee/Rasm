@@ -2,7 +2,7 @@
 
 ## [TRANSCRIPT]
 
-I loaded the Rasm instruction chain for this docs research pass: `CLAUDE.md`, the root `AGENTS.md` supplied in the task, `docs/standards/README.md`, `docs/standards/AGENTS.md`, `docs/standards/agents-md.md`, `docs/standards/agentic-documentation.md`, and `docs/standards/proof.md`. The local standard already defines `AGENTS.md` as a scoped behavioral overlay, not a README, command catalog, provider manual, session record, or research summary.
+I loaded the Rasm instruction chain for this docs research pass: `CLAUDE.md`, the root `AGENTS.md` supplied in the task, `docs/standards/README.md`, `docs/standards/AGENTS.md`, `docs/standards/agents-md.md`, ``, and `docs/standards/proof.md`. The local standard already defines `AGENTS.md` as a scoped behavioral overlay, not a README, command catalog, provider manual, session record, or research summary.
 
 I used the current OpenAI Codex manual through the `openai-docs` skill helper on 2026-06-05. The relevant OpenAI pages were Codex best practices, prompting, custom instructions with `AGENTS.md`, and rules. I treated OpenAI's loading and precedence behavior as current provider behavior, not as a portable truth for every agent.
 

@@ -25,7 +25,6 @@ Shared governing standards read for routing, proof, form, prose, and notation:
 - `docs/standards/proof.md`
 - `docs/standards/information-structure.md`
 - `docs/standards/style-guide.md`
-- `docs/standards/agentic-documentation.md`
 - `docs/standards/formatting.md`
 
 Temporary sibling report checked for output shape:

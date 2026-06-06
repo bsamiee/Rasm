@@ -85,7 +85,7 @@ Task-list target: `track-synthesis/00-collective-task-list.md:442-454`.
 Axis: evidence.
 Issue: the source-trace versus semantic-pass task is good, but its ripple back to `proof.md` should prevent a second overclaim: a cited source trace also does not prove retrieval quality, tool-selection quality, or agent-surface effectiveness. `proof.md:167-216` requires deterministic or rigor receipts for machine-facing surfaces, including checks, result, trace, and review fields where stochastic output or ranking is claimed. `track-external-research/07-proof-uncertainty-stale-sources.md:56-65` already warns not to imply probabilistic retrieval quality without evaluation receipts.
 Correction task: add a negative sentence to the promotion packet: source provenance can prove origin, and semantic validation can prove claim agreement, but retrieval/ranking/tool-selection claims require the evaluation receipt in `proof.md`; otherwise mark `Proof gap:`.
-Rule or standard to tighten: `docs/standards/agentic-documentation.md` source trace wording; `docs/standards/proof.md` agent-surface evaluation.
+Rule or standard to tighten: `` source trace wording; `docs/standards/proof.md` agent-surface evaluation.
 Proof gap: no retrieval evaluation, ranking trial set, or provider/tool-selection trace was collected in this session.
 Disposition: MERGE.
 

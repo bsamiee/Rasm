@@ -17,7 +17,6 @@ Repository instructions and standards read:
 - `AGENTS.md`
 - `docs/standards/README.md`
 - `docs/standards/AGENTS.md`
-- `docs/standards/agentic-documentation.md`
 - `docs/standards/information-structure.md`
 - `docs/standards/style-guide.md`
 - `docs/standards/proof.md`

@@ -2,7 +2,7 @@ Question: Which transcript and session-process shapes in the current synthesis w
 Type: gap-critique
 Lane: track-adversarial-synthesis
 Merge key: docs/standards/_reports boundary :: transcript and process leakage :: correct promotion boundary
-Target owner: `docs/standards/_reports/AGENTS.md`; `docs/standards/agentic-documentation.md`; `docs/standards/information-structure.md`; `docs/standards/proof.md`
+Target owner: `docs/standards/_reports/AGENTS.md`; ``; `docs/standards/information-structure.md`; `docs/standards/proof.md`
 Source basis: `docs/standards/_reports/AGENTS.md`; session `README.md`; `track-synthesis/00-collective-task-list.md`; `.claude/prompts/fix-standards-docs.md`; `track-external-research/09-code-fence-intent-labels.md`; active `agents-md.md`, `information-structure.md`, and `proof.md`
 Promotion target: `docs/standards/_reports/AGENTS.md` only if the report-boundary rejection needs tighter wording; active standards should receive only the durable field-packet and fence-boundary rules named below.
 Outcome: CORRECT
@@ -22,7 +22,7 @@ Path/section: `.claude/prompts/fix-standards-docs.md:68-134`, `track-synthesis/0
 Axis: craft.
 Issue: the prompt's waves, named critique roles, and sub-agent choreography are valid task orchestration, not durable standards content. The collective task list correctly recognizes this by asking to promote only the source-scan record principle while excluding wave counts. The correction remains too easy to misapply because it names active owners and `_reports/AGENTS.md` together; a later implementation pass could accidentally standardize prompt process language instead of the field packet.
 Correction task: treat this item as `CORRECT`, not a blanket `PROMOTE`, unless the accepted wording explicitly says the durable rule is the field packet only: source basis, exact span, weakness, correction route, ripple files, decision, and proof gap. Drop wave count, worker role, critique-role list, launch order, and "review agent" choreography from active standards.
-Rule/standard to tighten: `docs/standards/agentic-documentation.md` can own artifact separation; `docs/standards/information-structure.md` can own the report or source-scan record shape; `_reports/AGENTS.md` already owns report mechanics.
+Rule/standard to tighten: `` can own artifact separation; `docs/standards/information-structure.md` can own the report or source-scan record shape; `_reports/AGENTS.md` already owns report mechanics.
 Proof gap: none for the boundary; the prompt and task-list lines are enough to prove the leakage risk.
 
 Finding 3

@@ -6,7 +6,7 @@ Scope: context standards-context read for `docs/standards` and `agents-md.md`. I
 
 Read sequence:
 - Loaded the repo instruction chain relevant to Markdown standards work: `CLAUDE.md`, root `AGENTS.md`, and `docs/standards/AGENTS.md`.
-- Read the requested standards with line numbers: `docs/standards/AGENTS.md`, `docs/standards/agents-md.md`, `docs/standards/README.md`, `docs/standards/agentic-documentation.md`, `docs/standards/information-structure.md`, `docs/standards/style-guide.md`, `docs/standards/proof.md`, and `docs/standards/formatting.md`.
+- Read the requested standards with line numbers: `docs/standards/AGENTS.md`, `docs/standards/agents-md.md`, `docs/standards/README.md`, ``, `docs/standards/information-structure.md`, `docs/standards/style-guide.md`, `docs/standards/proof.md`, and `docs/standards/formatting.md`.
 - Ran a focused search for baseline, current-state, compatibility, proof, and future-standard language across those files.
 - Ran `fd -H . docs/standards -t f -e md` and confirmed that the current command includes `_reports/` research files.
 - Ran `fd -H . docs/standards -t f -e md | wc -l` and got `53`.
@@ -54,7 +54,7 @@ Reason: the rejected form converts current drift into a standard; the accepted f
 
 [G4] Add a parent overlay extraction rule to `CORPUS_REBUILD_RULES`. `docs/standards/agents-md.md:135-142` already says repeated sibling rules move to the nearest parent and broad grouped reads become trigger-driven reads. Add that a parent overlay must not become a second root: it carries only subtree-wide deltas that at least 3 siblings share or that a shared runtime, generated surface, host boundary, or trust boundary requires.
 
-[G5] Tighten provider/load semantics proof. `docs/standards/agents-md.md:26` currently states Codex load behavior directly; `docs/standards/agentic-documentation.md:170` and `docs/standards/proof.md:201-202` require current proof for drift-prone provider behavior. Keep the facts, but add a maintenance trigger beside the rule or route it explicitly through `proof.md` so future provider changes do not leave stale load semantics embedded in `agents-md.md`.
+[G5] Tighten provider/load semantics proof. `docs/standards/agents-md.md:26` currently states Codex load behavior directly; `:170` and `docs/standards/proof.md:201-202` require current proof for drift-prone provider behavior. Keep the facts, but add a maintenance trigger beside the rule or route it explicitly through `proof.md` so future provider changes do not leave stale load semantics embedded in `agents-md.md`.
 
 ## [DOCS_OVERLAY_RECOMMENDATIONS]
 

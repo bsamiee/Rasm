@@ -60,7 +60,7 @@ Repository reads:
 - Read root `AGENTS.md` from the user-provided instruction payload.
 - Read `docs/standards/README.md`.
 - Read `docs/standards/AGENTS.md`.
-- Read `docs/standards/agentic-documentation.md`.
+- Read ``.
 - Read `docs/standards/information-structure.md`.
 - Read `docs/standards/proof.md`.
 - Read `docs/standards/style-guide.md`.

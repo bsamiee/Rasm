@@ -63,8 +63,8 @@ Proof gap: Need a current source check of the exact tutorial boundary sentence b
 
 Task reference: `track-synthesis/00-collective-task-list.md:668-680`.
 Cited report read: `track-repo-markdown/01-claude-markdown-patterns.md`.
-Problem: The task promotes a `.claude` prompt report contract into `agentic-documentation.md`, `information-structure.md`, and `_reports/AGENTS.md`. The durable report-shape mechanics already have a trusted owner in `_reports/AGENTS.md`; copying prompt/report fields into active standards would promote source material and report structure beyond its route.
-Stronger owner route: `_reports/AGENTS.md` owns report-specific field order, lane contract, merge keys, outcomes, corrections, promotion maps, and pruning. `agentic-documentation.md` may merge only the generic source-trace principle for task-output contracts. `information-structure.md` should receive only a generic source-scan carrier if produced active documentation needs it outside reports.
+Problem: The task promotes a `.claude` prompt report contract into, `information-structure.md`, and `_reports/AGENTS.md`. The durable report-shape mechanics already have a trusted owner in `_reports/AGENTS.md`; copying prompt/report fields into active standards would promote source material and report structure beyond its route.
+Stronger owner route: `_reports/AGENTS.md` owns report-specific field order, lane contract, merge keys, outcomes, corrections, promotion maps, and pruning. may merge only the generic source-trace principle for task-output contracts. `information-structure.md` should receive only a generic source-scan carrier if produced active documentation needs it outside reports.
 Decision: MERGE.
 Missing ripple files: none. The current task should split into a report-mechanics correction for `_reports/AGENTS.md` and a separate HOLD item for any non-report source-scan carrier.
 Proof gap: No active non-report consumer for the full source-scan field packet is proved. Keep wave counts and prompt choreography out of active standards.

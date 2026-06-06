@@ -6,7 +6,7 @@ This report defines the rebuilt content model for `docs/standards/agents-md.md`.
 
 Read sequence:
 - Loaded repo instruction chain: `CLAUDE.md`, root `AGENTS.md`, `docs/standards/README.md`, and `docs/standards/AGENTS.md`.
-- Read current `docs/standards/agents-md.md`, `agentic-documentation.md`, `information-structure.md`, `style-guide.md`, `formatting.md`, and `proof.md`.
+- Read current `docs/standards/agents-md.md`, `information-structure.md`, `style-guide.md`, `formatting.md`, and `proof.md`.
 - Read every context report under `docs/standards/_reports/agents-md-050626`: `track-source-scans/01-assay-context.md`, `track-source-scans/02-csharp-large-context.md`, `track-source-scans/03-csharp-platform-context.md`, `track-source-scans/04-docs-standards-context.md`, `track-source-scans/05-frontier-instruction-practice.md`, `track-source-scans/06-poly-csharp.md`, `track-source-scans/07-poly-typescript.md`, `track-source-scans/08-poly-python.md`, `track-source-scans/09-poly-bash-sql.md`, `track-source-scans/10-root-layering.md`, `track-source-scans/11-root-integration.md`, and `track-source-scans/12-tests-bridge-context.md`.
 - Used memory only as orientation for the prior `docs/standards` rebuild doctrine; source decisions below come from current repository files and context reports.
 - Wrote only this `_reports/` report. No active standards file was edited.
@@ -58,7 +58,7 @@ Add a conditional produced slot for folders that own tests, specs, scenarios, te
 This slot is conditional. Ordinary overlays do not need test language, and test overlays should not become command catalogs.
 
 [EXTERNAL_PROVIDER_RESEARCH_BOUNDARY]:
-External research and provider docs are evidence, not instruction authority. `agents-md.md` may state provider loading behavior only when it changes author action and has current proof or a proof route. Detailed provider manuals stay in maintained provider docs or `agentic-documentation.md`. Community examples and Wave reports can contribute patterns, but only durable rules promoted through the trusted repo route enter an active `AGENTS.md`.
+External research and provider docs are evidence, not instruction authority. `agents-md.md` may state provider loading behavior only when it changes author action and has current proof or a proof route. Detailed provider manuals stay in maintained provider docs or . Community examples and Wave reports can contribute patterns, but only durable rules promoted through the trusted repo route enter an active `AGENTS.md`.
 
 [ANTI_FRAGILITY]:
 Exact facts are allowed only when they are route targets, local owner identifiers, forbidden tokens, proof selectors, trust-boundary names, or invariants with a refresh trigger. Ban exact versions, member lists, generated paths, provider claims, host SDK details, package IDs, local machine paths, fixed sub-agent counts, and run-local artifact paths unless the overlay owns the fact or routes it to a maintained source.
@@ -80,7 +80,7 @@ Recommended wording:
 Root routes, parent deduplicates, and leaf specializes. Write only the action-changing delta from parent guidance. State target standards as normative rules; state present behavior only with proof or an explicit proof gap.
 ```
 
-`## [3][OFFICIAL_LOAD_SEMANTICS]`: keep but trim. State only Codex facts that change authoring behavior and add a maintenance/proof route sentence. Do not expand into Claude/Gemini manuals; `agentic-documentation.md` owns provider prompt-shape comparisons.
+`## [3][OFFICIAL_LOAD_SEMANTICS]`: keep but trim. State only Codex facts that change authoring behavior and add a maintenance/proof route sentence. Do not expand into Claude/Gemini manuals; owns provider prompt-shape comparisons.
 
 Recommended addition:
 
@@ -164,7 +164,7 @@ Remove any impulse to add a language-by-language doctrine section. C#, TypeScrip
 
 Avoid a root/parent/leaf table. A short grouped list is enough and avoids the wide-table failure mode.
 
-Avoid provider comparison tables. Provider behavior belongs in `agentic-documentation.md` unless `AGENTS.md` load semantics directly affect authoring behavior.
+Avoid provider comparison tables. Provider behavior belongs in unless `AGENTS.md` load semantics directly affect authoring behavior.
 
 Avoid fixed sub-agent counts, fixed report shapes, `_reports/` source names, run-local artifact paths, or memory-derived policy in the active standard.
 

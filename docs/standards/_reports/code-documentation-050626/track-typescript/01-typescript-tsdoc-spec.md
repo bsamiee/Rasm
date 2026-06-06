@@ -11,7 +11,7 @@ Assigned output: `docs/standards/_reports/code-documentation-050626/track-typesc
 Active standard inspected:
 - `docs/standards/reference/code-documentation.md`: current TypeScript capsule and cross-language anti-patterns.
 - `docs/standards/style-guide.md`: prose, links, code-safe Markdown, examples, and final proofing.
-- `docs/standards/agentic-documentation.md`: edge placement, evidence-before-synthesis, artifact separation, and provider/tooling proof.
+- ``: edge placement, evidence-before-synthesis, artifact separation, and provider/tooling proof.
 - `docs/standards/README.md`: reader-need routing, source precedence, placement, lifecycle, and mixed-file routing.
 - `docs/standards/AGENTS.md`: read scope, rule owners, active-corpus constraints, and close checks.
 
@@ -47,8 +47,8 @@ No active standard was edited.
 - `docs/standards/reference/code-documentation.md:383-417`: validation rules for syntax, generation, references, and docs-only proof.
 - `docs/standards/style-guide.md:15-24`: wording precedence.
 - `docs/standards/style-guide.md:124-136`: code-safe Markdown and link rules.
-- `docs/standards/agentic-documentation.md:52-57`: evidence-before-synthesis rule.
-- `docs/standards/agentic-documentation.md:58-70`: artifact separation.
+- `:52-57`: evidence-before-synthesis rule.
+- `:58-70`: artifact separation.
 - `docs/standards/README.md:14-23`: source precedence.
 - `docs/standards/README.md:48-59`: code documentation route as source-symbol reference.
 - `docs/standards/AGENTS.md:42-50`: edit invariants and omit-absent-fields rule.
@@ -385,7 +385,7 @@ Low-risk conclusion:
 Read scope completed:
 - `docs/standards/reference/code-documentation.md`: full file read.
 - `docs/standards/style-guide.md`: full file read.
-- `docs/standards/agentic-documentation.md`: full file read.
+- ``: full file read.
 - `docs/standards/README.md`: full file read.
 - `docs/standards/AGENTS.md`: full file read.
 - `CLAUDE.md` and root `AGENTS.md`: read for repo instruction chain.

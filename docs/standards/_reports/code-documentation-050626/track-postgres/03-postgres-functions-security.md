@@ -25,7 +25,7 @@ Mutation boundary: no active standards edited; this report is the only assigned 
 - `docs/standards/reference/code-documentation.md`: full target standard read.
 - `docs/standards/README.md`: source precedence, reader-need routing, shared standards, placement, and lifecycle read.
 - `docs/standards/AGENTS.md`: standards-folder read scope, rule owners, artifact contract, edit invariants, forbidden patterns, and close check read.
-- `docs/standards/agentic-documentation.md`: salience, artifact separation, generated mirrors, provider claims, and safety validation read.
+- ``: salience, artifact separation, generated mirrors, provider claims, and safety validation read.
 - `docs/standards/information-structure.md`: tables, records, code blocks, heading form, and checklist form read.
 - `docs/standards/style-guide.md`: prose, terminology, code-safe Markdown, links, examples, and final proofing pass read.
 - `docs/standards/proof.md`: evidence hierarchy, source research, proof fields, and docs-only gate ladder read.
@@ -286,7 +286,7 @@ Do not run PostgreSQL, SQL, static, test, bridge, generated-reference, or applic
 [SUPPORTING_OWNER]:
 - `docs/standards/proof.md`: evidence field labels, source hierarchy, and docs-only gate ladder; no PostgreSQL-specific proof schema needed.
 - `docs/standards/information-structure.md`: any future matrix or grouped record form used to keep the PostgreSQL capsule compact.
-- `docs/standards/agentic-documentation.md`: generated catalog and mirror boundaries; no PostgreSQL-specific duplication needed.
+- ``: generated catalog and mirror boundaries; no PostgreSQL-specific duplication needed.
 
 [DO_NOT_EDIT_FOR_THIS]:
 - `docs/standards/README.md`: already routes code documentation and source comments correctly.

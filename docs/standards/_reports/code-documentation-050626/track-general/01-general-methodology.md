@@ -11,7 +11,6 @@ Assigned output: `docs/standards/_reports/code-documentation-050626/track-genera
 Active standards read fully:
 - `docs/standards/reference/code-documentation.md`
 - `docs/standards/style-guide.md`
-- `docs/standards/agentic-documentation.md`
 - `docs/standards/README.md`
 - `docs/standards/AGENTS.md`
 
@@ -38,7 +37,7 @@ The main weakness is not missing language syntax. The universal methodology is p
 [LOCAL_REPO]:
 - `docs/standards/reference/code-documentation.md`: current target standard and active source-comment doctrine.
 - `docs/standards/style-guide.md`: prose shape, noise removal, examples, code-safe Markdown, final proofing pass.
-- `docs/standards/agentic-documentation.md`: salience, evidence-before-synthesis, artifact separation, provider claims, retrieval and generated mirrors.
+- ``: salience, evidence-before-synthesis, artifact separation, provider claims, retrieval and generated mirrors.
 - `docs/standards/README.md`: reader-need routing, placement, split/link, lifecycle, shared standard ownership.
 - `docs/standards/AGENTS.md`: standards-folder read scope, rule owners, forbidden metadata/process patterns, close checks.
 - `CLAUDE.md` and root `AGENTS.md`: project-level Markdown/docs routing, source precedence, no active-code validation rails for docs-only report work.
@@ -61,7 +60,7 @@ The main weakness is not missing language syntax. The universal methodology is p
 
 [RESEARCH_CONTEXT]:
 - Rani et al., `A decade of code comment quality assessment`: comment quality lacks one universal definition; research commonly studies consistency, completeness, readability, and language/tool-specific comment types; much evidence is Java-heavy and not automatically generalizable. Source: <https://www.sciencedirect.com/science/article/pii/S0164121222001911>.
-- IBM Research, `Markdown Mayhem`: agent-facing Markdown proliferation can create ambiguity, redundancy, and erosion of authoritative truth. Source: <https://research.ibm.com/publications/markdown-mayhem-taming-the-agentic-documentation-explosion>.
+- IBM Research, `Markdown Mayhem`: agent-facing Markdown proliferation can create ambiguity, redundancy, and erosion of authoritative truth. Source: <https://research.ibm.com/publications/markdown-mayhem-taming-the--explosion>.
 - `Documentation-Guided Agentic Codebase Migration from C to Rust`: recent agentic migration work treats repository documentation as architecture/API/design-rationale blueprint and compares output documentation against source documentation for repair signals. Source: <https://arxiv.org/abs/2605.14634>.
 - Fantino et al., `Beyond syntax: enhancing automated documentation with data differences`: code comments often need signals beyond static syntax; execution-derived effects can reduce unnecessary or speculative detail in neutral cases but remain sensitive to comment-code alignment. Source: <https://link.springer.com/article/10.1007/s10515-026-00623-y>.
 
@@ -128,7 +127,7 @@ Candidate stronger rule:
 - A generated page that is wrong because of generator configuration is fixed at the generator or API standard route.
 - A generated page must not receive hand-written patch prose that forks from the source comment.
 
-Confidence: high. This is supported by `agentic-documentation.md` generated mirror rules, Microsoft XML docs, TSDoc parser guarantees, Go doc extraction, PostgreSQL `COMMENT` extraction, and the current `api.md` route.
+Confidence: high. This is supported by generated mirror rules, Microsoft XML docs, TSDoc parser guarantees, Go doc extraction, PostgreSQL `COMMENT` extraction, and the current `api.md` route.
 
 ### [4.6][SECURITY_AND_VISIBILITY_NEED_A_COMMENT_PRIVACY_TEST]
 
@@ -139,7 +138,7 @@ PostgreSQL makes this concrete: object comments can be viewed by any connected u
 
 The current PostgreSQL capsule contains this rule, but the privacy test is universal. Source comments often leak through generated docs and search indexes even when authors think they are "inside code."
 
-Confidence: high. Supported by PostgreSQL docs, local `AGENTS.md` forbidden-pattern rules, and `agentic-documentation.md` generated mirror/access boundary rules.
+Confidence: high. Supported by PostgreSQL docs, local `AGENTS.md` forbidden-pattern rules, and generated mirror/access boundary rules.
 
 ### [4.7][LIFECYCLE_TAGS_NEED_EXTERNAL_CONSUMER PROOF]
 
@@ -168,7 +167,7 @@ Recent agentic documentation work reinforces the local standard's existing direc
 - Comments should not carry prompt-era rationale, generated critique, task stage labels, or proof transcripts.
 - If an agent needs repository context, route it to README, architecture, reference, generated API docs, or state artifacts instead of copying context into source comments.
 
-Confidence: high for the local recommendation; medium for external generality because the IBM item is a position paper. It matches current `agentic-documentation.md` and `AGENTS.md`.
+Confidence: high for the local recommendation; medium for external generality because the IBM item is a position paper. It matches current and `AGENTS.md`.
 
 ### [4.10][VOLATILE VERSION MICRODETAILS ARE DILUTING THE UNIVERSAL METHOD]
 
@@ -289,7 +288,7 @@ Medium-confidence recommendations:
 - Add an `Omit proof` field. It could improve reviews, but it may feel like metadata if applied too mechanically. Use it as an authoring review field, not as source-comment text.
 
 Low-confidence or deferred:
-- Adding a separate agentic-source-comment subsection. The current `agentic-documentation.md` already owns artifact separation and provider behavior; `code-documentation.md` should only include agentic concerns when they affect source-comment ownership.
+- Adding a separate agentic-source-comment subsection. The current already owns artifact separation and provider behavior; `code-documentation.md` should only include agentic concerns when they affect source-comment ownership.
 
 ## [10][NEXT_PASS_PACKET]
 

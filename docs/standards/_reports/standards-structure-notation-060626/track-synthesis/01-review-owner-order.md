@@ -26,7 +26,7 @@ Prior lane extension: extends `track-adversarial-synthesis/01-owner-routing-crit
 - `track-adversarial-synthesis/04-formatting-critic.md`
 - `track-adversarial-synthesis/05-style-guide-critic.md`
 - `track-adversarial-synthesis/06-proof-critic.md`
-- `track-adversarial-synthesis/07-agentic-documentation-critic.md`
+- `track-adversarial-synthesis/`
 - `track-adversarial-synthesis/08-transcript-boundary-critic.md`
 - `track-external-research/01-gfm-github-markdown-capabilities.md`
 - `track-external-research/02-mermaid-renderer-proof.md`
@@ -57,7 +57,7 @@ Prior lane extension: extends `track-adversarial-synthesis/01-owner-routing-crit
 - `docs/standards/information-structure.md`: carrier choice, record field order, relation records, machine-consumed Markdown, representation job split, and page anatomy at lines 15-71, 122-180, 438-454, 481-488, and 498-562.
 - `docs/standards/formatting.md`: marker rendering, invocation markers, field-line contrast records, heading idiom, and notation boundaries at lines 1-15, 17-50, 101-115, 175-180, 206-215, and 229-257.
 - `docs/standards/proof.md`: proof fields, proof gaps, evidence hierarchy, docs-code gate selection, and renderer/provider proof at lines 1-16, 18-67, 136-165, and 262-284.
-- `docs/standards/agentic-documentation.md`: artifact separation, task-output contracts, provider-proof split, and prompt/process containment at lines 90-133, 209-247, and 260-289.
+- ``: artifact separation, task-output contracts, provider-proof split, and prompt/process containment at lines 90-133, 209-247, and 260-289.
 - `docs/standards/agents-md.md`: `_reports/**` trust boundary, report companion route, provider-loading proof, and no process metadata at lines 38-52, 91, 123-127, 195-203, 238-245, and 263-266.
 - `docs/standards/style-guide.md`: transient process language and example/prose ownership at lines 43-47, 145-157, and 183-206.
 - Type standards checked for current route examples: `reference/readme.md` lines 33-51 and 405-457; `learning/tutorial.md` lines 146-153 and 340-360; `task/runbook.md` lines 32-49, 209-220, and 296-310.
@@ -77,12 +77,12 @@ Owner route: `track-synthesis/00-collective-task-list.md`; proof semantics route
 [M3][PROMPT_PROCESS_LEAK_SCAN_MISSING]:
 Finding: the task list now avoids most wave and worker wording, but it still references `track-adversarial-synthesis/08-transcript-boundary-critic.md` at `00-collective-task-list.md:345` and carries prompt-process source material in the source-scan task at `00-collective-task-list.md:724-736`. There is no close check that active standards remain free of prompt/process terms after implementation.
 Correction: add a final active-standard source scan for `wave`, `review-agent`, `sub-agent`, `transcript-boundary`, `prompt choreography`, `worker role`, and `confidence` under `docs/standards --glob '!_reports/**'`. Any hit must be a report path, rejected archival example, or explicit source-material boundary.
-Owner route: `style-guide.md` carries transient process-language rejection; `agentic-documentation.md` carries artifact separation; `_reports/AGENTS.md` carries report-frame rejection.
+Owner route: `style-guide.md` carries transient process-language rejection; carries artifact separation; `_reports/AGENTS.md` carries report-frame rejection.
 
 [M4][PROVIDER_SPLIT_IS_NOT_SEQUENCED]:
 Finding: `Split provider-independent contract guidance from provider-specific schema mechanics` at `00-collective-task-list.md:100-112` combines an implementable contract-strength boundary with held provider-specific mechanics. Its status is `OPEN_WITH_HELD_PROVIDER_MECHANICS`, which is not enough to stop a later edit from inserting unproved provider behavior.
 Correction: split into two tasks: one `READY_NOW` task for contract-strength separation without provider-current claims, and one `HOLD_RESEARCH` task for supported schema keywords, delimiter behavior, provider loading, and enforcement availability.
-Owner route: `agentic-documentation.md` owns the contract split; `proof.md` owns provider proof and freshness; `agents-md.md` owns `AGENTS.md` loading claims only when current proof exists.
+Owner route: owns the contract split; `proof.md` owns provider proof and freshness; `agents-md.md` owns `AGENTS.md` loading claims only when current proof exists.
 
 ## [DUPLICATE_OR_OVER_BROAD_TASKS]
 
@@ -120,8 +120,8 @@ Correct owner route: `information-structure.md` owns the vocabulary-card carrier
 
 [O2][SOURCE_SCAN_RECORD_OVERPROMOTES_REPORT_SHAPE]:
 Task: `Correct source-scan record principles without prompt process choreography` at `00-collective-task-list.md:724-736`.
-Problem: it names `agentic-documentation.md`, `information-structure.md`, and `_reports/AGENTS.md` together as owners. That can copy a `.claude` prompt/report field contract into active standards.
-Correct owner route: `_reports/AGENTS.md` owns report identity fields, merge keys, outcomes, corrections, promotion maps, and pruning. `agentic-documentation.md` may receive generic source-provenance guidance. `information-structure.md` should receive a generic field-packet carrier only if a non-report active consumer is proved.
+Problem: it names, `information-structure.md`, and `_reports/AGENTS.md` together as owners. That can copy a `.claude` prompt/report field contract into active standards.
+Correct owner route: `_reports/AGENTS.md` owns report identity fields, merge keys, outcomes, corrections, promotion maps, and pruning. may receive generic source-provenance guidance. `information-structure.md` should receive a generic field-packet carrier only if a non-report active consumer is proved.
 
 [O3][INVOCATION_MARKER_SURFACE_DEPENDS_ON_GOVERNANCE]:
 Task: `Add .claude/skills/** to invocation-marker surface only if governed as agent instructions` at `00-collective-task-list.md:398-410`.
@@ -168,7 +168,7 @@ Recommended sequence after task-list correction:
 3. `information-structure.md` carrier chooser, packet-promotion test, control-record subchooser, command/output subchooser, table-spam guard, machine-consumed exception, and page-anatomy split, excluding blocked glyph, sidecar, and provider-specific semantics.
 4. `proof.md` proof-field, gate-class, renderer/provider proof, stale-source, and command-output evidence rules.
 5. `formatting.md` rendering-only edits for headings, contrast labels, absence values, and invocation markers, excluding compact glyph and `.claude` skill governance until user choice closes.
-6. `agentic-documentation.md` and `agents-md.md` only for artifact separation, contract-strength split, and provider-proof gaps without unverified provider behavior.
+6. and `agents-md.md` only for artifact separation, contract-strength split, and provider-proof gaps without unverified provider behavior.
 7. Type-standard exact fixes: README H1 contradiction, runbook `Reason:` label, architecture Mermaid indentation, pure field-packet fence labels, and only path-specific relation/status edits proved by active-source scan.
 8. Non-standards repo Markdown ripple only after shared standards land and user choices close.
 

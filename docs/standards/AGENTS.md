@@ -16,7 +16,7 @@ Before every `docs/standards/**` file change, use the active instruction chain, 
 
 | [INDEX] | [MODE]              | [EXTRA_READ]                                     | [TRIGGER]                                                  |
 | :-----: | :------------------ | :----------------------------------------------- | :--------------------------------------------------------- |
-|   [1]   | Root audit or edit  | active root standards                            | routing, boundaries, agentic prose, audit rules            |
+|   [1]   | Root audit or edit  | active root standards                            | routing, boundaries, instruction prose, audit rules        |
 |   [2]   | Narrow type edit    | needed shared owners, type family                | adjacent status, proof, produced-structure behavior        |
 |   [3]   | Named `_reports/**` | `_reports/AGENTS.md`, named reports              | reusable report promotion                                  |
 |   [4]   | Cross-stack claim   | active repository instruction route, proof route | owner precedence, source evidence, implementation, tooling |
@@ -29,20 +29,19 @@ When standards work creates or updates a reusable `_reports/` session, update or
 
 Use the owner that controls the changed rule; do not copy that owner's body into this file.
 
-| [INDEX] | [OWNER]                    | [CONTROLS]                                                                                 |
-| :-----: | :------------------------- | :----------------------------------------------------------------------------------------- |
-|   [1]   | `README.md`                | reader need, type choice, corpus placement, split/link, lifecycle                          |
-|   [2]   | `agentic-documentation.md` | agent salience, artifact separation, instruction positioning, machine-facing documentation |
-|   [3]   | `agents-md.md`             | `AGENTS.md` semantic slots, profiles, route-away, anti-fragility                           |
-|   [4]   | `information-structure.md` | containers, records, tables, diagrams, checklists, cardinality                             |
-|   [5]   | `style-guide.md`           | prose, sentence mechanics, terminology, links, code-safe Markdown                          |
-|   [6]   | `proof.md`                 | evidence, preservation, proof gaps, docs-as-code gate selection                            |
-|   [7]   | `formatting.md`            | bracketed headings, invocation markers, table styling, whitespace                          |
-|   [8]   | type standards             | artifact-specific structure, status vocabulary, local proof slots                          |
+| [INDEX] | [OWNER]                    | [CONTROLS]                                                                            |
+| :-----: | :------------------------- | :------------------------------------------------------------------------------------ |
+|   [1]   | `README.md`                | reader need, type choice, corpus placement, split/link, lifecycle                     |
+|   [2]   | `agents-md.md`             | `AGENTS.md` semantic slots, profiles, route-away, anti-fragility, artifact separation |
+|   [3]   | `information-structure.md` | containers, records, tables, diagrams, checklists, cardinality                        |
+|   [4]   | `style-guide.md`           | prose, sentence mechanics, terminology, links, code-safe Markdown                     |
+|   [5]   | `proof.md`                 | evidence, preservation, proof gaps, docs-as-code gate selection                       |
+|   [6]   | `formatting.md`            | bracketed headings, invocation markers, table styling, whitespace                     |
+|   [7]   | type standards             | artifact-specific structure, status vocabulary, local proof slots                     |
 
 ## [4][ROOT_FILE_AUDITS]
 
-Audit root standards files against exactly 5 shared axes: position, form, craft, evidence, and notation. Do not invent a sixth audit axis. Instruction-surface specifics may route to [agents-md.md](agents-md.md), but root-file quality scoring stays on the 5 shared standards.
+Audit root standards files against exactly 4 shared axes: form, craft, evidence, and notation. Do not invent a fifth audit axis. Instruction-surface specifics may route to [agents-md.md](agents-md.md), but root-file quality scoring stays on the 4 shared standards.
 
 Each finding must carry:
 - `Path + line/section`
@@ -85,7 +84,7 @@ Use adjacent-document relation records only when the adjacent fact changes reade
 - Pick one primary reader need before rewriting.
 - Split or route mixed concept, task, reference, process, proof, and status bodies.
 - Choose section containers through [information-structure.md](information-structure.md); do not restate its container matrix here.
-- Use [style-guide.md](style-guide.md) and [agentic-documentation.md](agentic-documentation.md) for prose, position, direct present-tense wording, exact source names, and no prompt, session, or process narration.
+- Use [style-guide.md](style-guide.md) and [agents-md.md](agents-md.md) for prose, salience, direct present-tense wording, exact source names, and no prompt, session, or process narration.
 - Use [agents-md.md](agents-md.md) for `AGENTS.md` semantic slots, route-away decisions, anti-fragility, trust boundaries, root profile, and corpus rebuild rules.
 
 [FIELDS]:
@@ -120,7 +119,7 @@ Use this verification checklist by group:
 - [ ] Root-file audits or edits read every active root standards file in scope, excluding [agents-md.md](agents-md.md) only when the task explicitly excludes it.
 
 [ROOT_AUDIT]:
-- [ ] Root-file findings use the 5 shared axes: position, form, craft, evidence, notation.
+- [ ] Root-file findings use the 4 shared axes: form, craft, evidence, notation.
 - [ ] Each finding names path plus line or section, axis, issue, correction task, rule or standard to tighten, and proof gap when applicable.
 - [ ] Poor information representation was identified before rewriting, then fixed in scope or routed away.
 

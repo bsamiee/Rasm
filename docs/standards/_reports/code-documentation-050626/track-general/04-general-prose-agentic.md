@@ -17,11 +17,10 @@ Research scope: `docs/standards/reference/code-documentation.md` with emphasis o
 4. Read the requested active standards fully:
    - `docs/standards/reference/code-documentation.md`
    - `docs/standards/style-guide.md`
-   - `docs/standards/agentic-documentation.md`
    - `docs/standards/README.md`
    - `docs/standards/AGENTS.md`
 5. Checked active standards corpus with `fd -a . docs/standards -t f -e md | sort`.
-6. Checked current worktree state for the requested files with `git status --short -- docs/standards/_reports docs/standards/reference/code-documentation.md docs/standards/style-guide.md docs/standards/agentic-documentation.md docs/standards/README.md docs/standards/AGENTS.md`.
+6. Checked current worktree state for the requested files with `git status --short -- docs/standards/_reports docs/standards/reference/code-documentation.md docs/standards/style-guide.md docs/standards/README.md docs/standards/AGENTS.md`.
 7. Reviewed the current diff for `docs/standards/reference/code-documentation.md` to understand the live baseline without editing it.
 8. Used current primary style-guide sources for drift-prone external claims.
 9. Created only the assigned `_reports/` report path.
@@ -33,7 +32,7 @@ Research scope: `docs/standards/reference/code-documentation.md` with emphasis o
 - `docs/standards/AGENTS.md`: active corpus definition, read order, owner routing, artifact contract, omission rules, and close checks.
 - `docs/standards/README.md`: reader-need routing, source precedence, shared-standard owners, placement, lifecycle, split-link, boundaries, and validation.
 - `docs/standards/style-guide.md`: prose shape, front-and-close paragraphs, condition-before-action ordering, wording precedence, examples, links, code-safe Markdown, and final proofreading.
-- `docs/standards/agentic-documentation.md`: serial-position salience, task/durable artifact separation, constraint stacking, evidence-before-synthesis, provider behavior, retrieval provenance, and agent-surface validation.
+- ``: serial-position salience, task/durable artifact separation, constraint stacking, evidence-before-synthesis, provider behavior, retrieval provenance, and agent-surface validation.
 - `docs/standards/reference/code-documentation.md`: evaluated target.
 
 ## [4][EXTERNAL_SOURCES]
@@ -64,7 +63,7 @@ Use these only as supporting evidence. Repo standards and local source truth con
 
 [SOURCE_CHECKS]:
 - Drift-prone external style claims were checked against current primary pages where possible.
-- Stable editorial rules were used only when they added value beyond existing `style-guide.md` and `agentic-documentation.md`.
+- Stable editorial rules were used only when they added value beyond existing `style-guide.md` and .
 - No secondary blog, Reddit, or copied PDF source was used for recommendations.
 
 ## [6][CURRENT_STRENGTHS]
@@ -72,7 +71,7 @@ Use these only as supporting evidence. Repo standards and local source truth con
 [PROSE_ORDERING]:
 - The target already leads with the core omission rule: comments exist only for caller-visible semantics that declarations cannot express.
 - The high-risk route-away rule appears in the lead and again before language capsules.
-- The file now puts decision, produced shape, source truth, and surface model before language-specific mechanics. This matches `docs/standards/AGENTS.md` and `agentic-documentation.md`.
+- The file now puts decision, produced shape, source truth, and surface model before language-specific mechanics. This matches `docs/standards/AGENTS.md` and .
 
 [COMMENT_STRUCTURE]:
 - The comment decision is a review problem, not a blanket public-symbol mandate.
@@ -209,7 +208,7 @@ Confidence: high.
 - No change recommended to route-away placement. It appears early enough to prevent source comments from becoming mini READMEs, generated API catalogs, support pages, or runbooks.
 
 [EXTERNAL_STYLE]:
-- No broad style-guide import recommended. The shared `style-guide.md` and `agentic-documentation.md` already cover general prose mechanics.
+- No broad style-guide import recommended. The shared `style-guide.md` and already cover general prose mechanics.
 
 [VALIDATION]:
 - No C#, TypeScript, Python, Bash, SQL, static, test, bridge, or generated-reference validation should run for this report-only work.

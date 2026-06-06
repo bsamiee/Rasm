@@ -2,7 +2,7 @@ Question: Which root and shared documentation standards need structural, formatt
 Type: gap-critique
 Lane: track-root-corpus
 Merge key: root-shared standards corpus :: structure notation evidence representation :: audit
-Target owner: docs/standards/README.md; docs/standards/AGENTS.md; docs/standards/agentic-documentation.md; docs/standards/agents-md.md; docs/standards/proof.md; docs/standards/style-guide.md
+Target owner: docs/standards/README.md; docs/standards/AGENTS.md; docs/standards/agents-md.md; docs/standards/proof.md; docs/standards/style-guide.md
 Source basis: full local source read plus bounded renderer-source research where renderer capability claims are directly at issue
 Promotion target: active owner files named per finding
 Outcome: PROMOTE
@@ -21,12 +21,12 @@ Decision recommendation: PROMOTE.
 Proof gap or question: local `mmdc` render was not run during this report; GitHub-rendered behavior was checked through maintained GitHub docs only, not through a local rendered artifact.
 
 [F2][PROVIDER_LOADING_PROOF]
-Path and line/heading: docs/standards/agents-md.md:38-52 and docs/standards/agentic-documentation.md:213-247.
+Path and line/heading: docs/standards/agents-md.md:38-52 and :213-247.
 Axis: evidence and position.
-Evidence snippet/source id: agents-md.md lists Codex loading facts such as root-to-current-directory loading, `AGENTS.override.md` precedence, opt-in fallback filenames, empty-file skipping, and project-doc budget truncation. agentic-documentation.md names OpenAI Codex, Claude Code, and Gemini authoring defaults and states that provider-specific rules are local defaults, not proof of current behavior.
+Evidence snippet/source id: agents-md.md lists Codex loading facts such as root-to-current-directory loading, `AGENTS.override.md` precedence, opt-in fallback filenames, empty-file skipping, and project-doc budget truncation. names OpenAI Codex, Claude Code, and Gemini authoring defaults and states that provider-specific rules are local defaults, not proof of current behavior.
 Weakness or inconsistency: the files correctly warn that provider-loading facts need proof, but the current behavior list is presented without a proof field, source route, last-verified date, or explicit proof gap. The result is a high-value current-state claim embedded in a target standard.
 Proposed correction: keep the authoring defaults, but attach a provider-surface proof record or mark the unverified items as `Proof gap:`. The record should separate local Codex loading behavior from Claude Code and Gemini authoring defaults so each claim can refresh independently.
-Active owner file: docs/standards/agents-md.md for `AGENTS.md` load semantics; docs/standards/agentic-documentation.md for provider authoring defaults; docs/standards/proof.md for field meanings.
+Active owner file: docs/standards/agents-md.md for `AGENTS.md` load semantics; for provider authoring defaults; docs/standards/proof.md for field meanings.
 Ripple files: root AGENTS.md; docs/standards/AGENTS.md.
 Decision recommendation: HOLD.
 Proof gap or question: no current provider documentation or local provider-output proof was collected for this report because the task limited current-source research to renderer or Markdown capability claims.
@@ -54,12 +54,12 @@ Decision recommendation: PROMOTE.
 Proof gap or question: no link or anchor checker was found during this bounded inspection; a wider tool inventory could confirm whether another route exists outside tools/assay.
 
 [F5][STRICT_SCHEMA_CLAIM]
-Path and line/heading: docs/standards/agentic-documentation.md:120-123.
+Path and line/heading: :120-123.
 Axis: evidence and form.
-Evidence snippet/source id: agentic-documentation.md says strict JSON object schemas use `additionalProperties: false`, every property required, and explicit nullable values only where the provider or validator supports that shape, then says schema proves shape, not truth.
+Evidence snippet/source id: says strict JSON object schemas use `additionalProperties: false`, every property required, and explicit nullable values only where the provider or validator supports that shape, then says schema proves shape, not truth.
 Weakness or inconsistency: the rule is directionally strong but packs provider mechanics, schema shape, tool-schema behavior, and semantic validation into one paragraph. The sentence can be misapplied as a universal JSON Schema requirement outside a strict provider or validator surface.
 Proposed correction: convert the paragraph into a short decision table or field packet that separates `Strict JSON-schema surface`, `Typed tool input`, `Prompt-only JSON`, and `Human-reviewed field list`. Each row should name shape proof, semantic proof, and proof gap behavior.
-Active owner file: docs/standards/agentic-documentation.md.
+Active owner file: .
 Ripple files: docs/standards/proof.md; docs/standards/information-structure.md.
 Decision recommendation: HOLD.
 Proof gap or question: no current provider schema documentation was collected for this report; promote only after provider-specific mechanics are source-backed or the wording is reduced to local authoring convention.
@@ -137,7 +137,7 @@ Source set read line by line:
 - docs/standards/README.md.
 - docs/standards/AGENTS.md.
 - docs/standards/_reports/AGENTS.md.
-- docs/standards/agentic-documentation.md.
+- .
 - docs/standards/agents-md.md.
 - docs/standards/proof.md.
 - docs/standards/style-guide.md.

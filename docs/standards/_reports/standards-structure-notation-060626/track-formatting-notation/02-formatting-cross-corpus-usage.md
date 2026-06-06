@@ -27,7 +27,7 @@ Full active standards corpus read line by line, excluding `_reports/**`:
 | :---: | :--- |
 | [1] | `docs/standards/AGENTS.md` |
 | [2] | `docs/standards/README.md` |
-| [3] | `docs/standards/agentic-documentation.md` |
+| [3] | `` |
 | [4] | `docs/standards/agents-md.md` |
 | [5] | `docs/standards/formatting.md` |
 | [6] | `docs/standards/information-structure.md` |
@@ -129,7 +129,7 @@ Path and line: `[3][INVOCATION_MARKERS]`, lines 101-115.
 Evidence snippet/source id: `formatting.md:103` reserves invocation markers for instruction files such as `AGENTS.md`, `CLAUDE.md`, and prompt files; `CLAUDE.md:27-30` treats `.claude/skills/*` as project skill context; `.claude/skills/coding-bash/SKILL.md:10` uses `[CRITICAL]`; `.claude/skills/coding-csharp/references/concurrency.md:321` uses `[CRITICAL]` and later `[IMPORTANT]`, `[ALWAYS]`, and `[NEVER]` markers.
 Weakness/inconsistency: The repo uses `.claude/skills/**` as agent instruction material, but formatting's allowed invocation-marker surface does not name skill files or skill references. The omission makes existing skill instructions look like violations even when they are semantically instruction surfaces.
 Proposed correction: Add skill files and skill reference files that govern agent behavior to the allowed invocation-marker surface, or route `.claude/skills/**` out of invocation markers and into plain modal prose. Promotion is preferable because the project manifest already treats skill context as load-bearing.
-Active owner: `docs/standards/formatting.md`, with instruction-surface context in `docs/standards/agentic-documentation.md` and `docs/standards/agents-md.md`.
+Active owner: `docs/standards/formatting.md`, with instruction-surface context in `` and `docs/standards/agents-md.md`.
 Ripple files: `.claude/skills/**`; prompt and skill review guidance; future instruction-surface scans.
 Decision: PROMOTE.
 Proof gap/question: Should generated or third-party skill reference files inherit the same marker allowance, or only repo-authored skill files?

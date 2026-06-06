@@ -122,7 +122,7 @@ Do not add the conceptual block directly without reconciling it against the full
 
 ## [8][VALIDATION]
 
-- [x] Read `CLAUDE.md`, root `AGENTS.md`, `docs/standards/AGENTS.md`, `docs/standards/README.md`, the five shared standards, and `docs/standards/reference/code-documentation.md`.
+- [x] Read `CLAUDE.md`, root `AGENTS.md`, `docs/standards/AGENTS.md`, `docs/standards/README.md`, the four shared standards, and `docs/standards/reference/code-documentation.md`.
 - [x] Used current primary sources for PEP status and canonical runtime or typing behavior.
 - [x] Edited only `docs/standards/_reports/code-documentation-050626/track-python/02-python-peps.md`.
 - [x] Run `git diff --check -- docs/standards/_reports/code-documentation-050626/track-python/02-python-peps.md`.

@@ -462,7 +462,7 @@ Tag each produced-document heading `required | conditional | optional | repeatab
 
 ## [9][BOUNDARIES]
 
-- [agentic-documentation.md](agentic-documentation.md) carries salience and the placement of content within the containers this standard shapes.
+- [style-guide.md](style-guide.md) carries salience and the placement of content within the containers this standard shapes.
 - [formatting.md](formatting.md) carries visual styling of these containers: table alignment, status and invocation markers, whitespace, and the heading-label idiom.
 - [style-guide.md](style-guide.md) carries the words inside every container.
 - [proof.md](proof.md) carries evidence strength and freshness for the facts a table, record, diagram, or block presents.
@@ -476,7 +476,7 @@ Use this verification checklist by group:
 - [ ] The page follows the prescribed anatomy: lead, use when, rules, boundaries, validation, and examples only where misuse is likely.
 - [ ] One primary container carries each section, and mixed blocks assign disjoint routes.
 - [ ] Lists nest no deeper than 2 levels and sets past 7 items use standalone bracketed set labels that do not render inside the preceding paragraph.
-- [ ] Root-file audits can be recorded against the 5 shared-standard axes without adding a one-off grading container.
+- [ ] Root-file audits can be recorded against the 4 shared-standard axes without adding a one-off grading container.
 - [ ] Chooser tables stay narrow, avoid prose-heavy cells, and route broad rows to a named subchooser.
 - [ ] Prose is not hard-wrapped; manual breaks are structural only.
 - [ ] Headings form standalone retrievable H2 units and carry no links.

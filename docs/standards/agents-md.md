@@ -166,7 +166,7 @@ Route away body content that does not directly change local agent behavior:
 - Tool README files own command syntax, operator workflows, and public wire behavior.
 - Test strategy owns gate taxonomy; an `AGENTS.md` file names only local selector or stop behavior when needed.
 - `proof.md` owns evidence labels, freshness, proof gaps, docs-as-code gate selection, and preservation under refactor.
-- `agentic-documentation.md` owns salience, artifact separation, instruction positioning, and machine-facing documentation.
+- [style-guide.md](style-guide.md) owns salience and imperative framing for produced documentation; this standard owns instruction positioning and artifact separation for `AGENTS.md` overlays; [proof.md](proof.md) owns machine-facing contract evidence.
 - `_reports/AGENTS.md` owns report session naming, session README shape, manifests, lanes, prior-pass reads, correction records, promotion maps, and pruning for `_reports/**`.
 
 Delete stale compatibility prose instead of preserving it as a route. A route is useful only when the target exists, is conditionalized with `where present`, or is named as a proof gap.
@@ -223,7 +223,6 @@ Use examples only beside high-risk distinctions. Do not add language tutorials, 
 
 ## [13][BOUNDARIES]
 
-- [agentic-documentation.md](agentic-documentation.md) owns salience, artifact separation, instruction positioning, and machine-facing documentation.
 - [information-structure.md](information-structure.md) owns containers, page anatomy, examples, and cardinality.
 - [style-guide.md](style-guide.md) owns prose, terminology, punctuation, links, and code-safe Markdown.
 - [proof.md](proof.md) owns evidence, freshness, proof gaps, and preservation.
@@ -235,7 +234,7 @@ Update this standard when official instruction-loading semantics change, the rep
 
 Before changing one existing overlay, classify each edited rule as keep local, raise to parent, route away, delete, or mark as proof gap. Preserve removed paths, commands, routes, qualifiers, triggers, provider-loading claims, proof selectors, false-proof rejections, and owner pointers by restoring them, delegating them, or deleting them only when current repo truth proves them obsolete.
 
-For produced overlays, maintenance guidance is clear only when it names the source event, owning route, update action, cleanup condition, and stop rule. If a folder owns `_reports/`, keep report guidance bounded: exclude it from active corpus, read the manifest first where present, require later passes to extend or correct earlier findings, promote only durable rules through the owning standard, prune transcript-only noise after promotion, and route reusable report shape to `agentic-documentation.md` or `information-structure.md`.
+For produced overlays, maintenance guidance is clear only when it names the source event, owning route, update action, cleanup condition, and stop rule. If a folder owns `_reports/`, keep report guidance bounded: exclude it from active corpus, read the manifest first where present, require later passes to extend or correct earlier findings, promote only durable rules through the owning standard, prune transcript-only noise after promotion, and route reusable report shape to [information-structure.md](information-structure.md).
 
 ## [15][REVIEW]
 

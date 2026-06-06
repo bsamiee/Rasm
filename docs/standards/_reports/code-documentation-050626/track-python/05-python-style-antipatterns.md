@@ -15,7 +15,6 @@ Active standards read fully:
 - `docs/standards/style-guide.md`
 - `docs/standards/information-structure.md`
 - `docs/standards/proof.md`
-- `docs/standards/agentic-documentation.md`
 - `docs/standards/formatting.md`
 
 Repo instruction context checked:
@@ -45,7 +44,7 @@ The main gap is operational sharpness. The capsule names anti-patterns, but a la
 - `docs/standards/style-guide.md`: prose shape, examples, code-safe Markdown, and final proofing.
 - `docs/standards/information-structure.md`: tables, definition blocks, examples, and record shape.
 - `docs/standards/proof.md`: source freshness, evidence fields, and docs-only gate selection.
-- `docs/standards/agentic-documentation.md`: salience, artifact separation, generated mirrors, and provider-proof discipline.
+- ``: salience, artifact separation, generated mirrors, and provider-proof discipline.
 - `docs/standards/formatting.md`: heading idiom, table surface, section markers, and whitespace.
 - `CLAUDE.md` and root `AGENTS.md`: repo-level docs routing and the instruction to avoid static, test, or bridge proof claims for docs-only work.
 

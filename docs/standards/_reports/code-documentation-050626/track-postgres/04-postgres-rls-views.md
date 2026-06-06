@@ -24,7 +24,7 @@ Mutation boundary: no active standards edited; this report is the only assigned 
 - `AGENTS.md`: docs work routes through `docs/standards/README.md`; no static, test, or bridge proof claims for docs-only instruction edits.
 - `docs/standards/README.md`: source precedence, reader-need routing, placement, lifecycle, and active standards boundaries.
 - `docs/standards/AGENTS.md`: local overlay for `docs/standards/**`; `_reports/` is source material, not active standard text.
-- `docs/standards/agentic-documentation.md`: salience, artifact separation, generated mirrors, and access-boundary rules.
+- ``: salience, artifact separation, generated mirrors, and access-boundary rules.
 - `docs/standards/information-structure.md`: report containers, definition blocks, tables, code fences, and heading shape.
 - `docs/standards/proof.md`: evidence hierarchy, freshness, proof-field labels, docs-only gate selection.
 - `docs/standards/style-guide.md`: current-source terminology, code-safe Markdown, and prose mechanics.
@@ -328,7 +328,7 @@ Reason: official PostgreSQL docs say comments have no security mechanism for con
 ## [10][TRANSCRIPT]
 
 1. Searched memory for current `docs/standards` guidance and confirmed `_reports/` is source material only.
-2. Read `CLAUDE.md`, root `AGENTS.md`, `docs/standards/README.md`, `docs/standards/AGENTS.md`, `agentic-documentation.md`, `information-structure.md`, `proof.md`, `style-guide.md`, `formatting.md`, and the full target `reference/code-documentation.md`.
+2. Read `CLAUDE.md`, root `AGENTS.md`, `docs/standards/README.md`, `docs/standards/AGENTS.md`, `information-structure.md`, `proof.md`, `style-guide.md`, `formatting.md`, and the full target `reference/code-documentation.md`.
 3. Read sibling research reports to match local `_reports/` report shape.
 4. Queried current official PostgreSQL documentation for RLS, policies, views, materialized views, comments, catalogs, functions, roles, system information functions, and `psql` describe routes.
 5. Checked `psql --version`; local command failed because `psql` is unavailable.

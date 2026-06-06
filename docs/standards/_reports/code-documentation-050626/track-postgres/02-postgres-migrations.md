@@ -17,7 +17,6 @@ Active standards read fully:
 - `docs/standards/proof.md`
 - `docs/standards/information-structure.md`
 - `docs/standards/style-guide.md`
-- `docs/standards/agentic-documentation.md`
 - `docs/standards/formatting.md`
 
 Repo instruction context checked:

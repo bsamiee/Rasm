@@ -29,7 +29,7 @@ Mutation boundary: no active standards edited; this report is the only assigned 
 - `docs/standards/AGENTS.md`: full file read with line numbers.
 - `docs/standards/information-structure.md`: full file read with line numbers.
 - `docs/standards/proof.md`: full file read with line numbers.
-- `docs/standards/agentic-documentation.md`: full file read with line numbers.
+- ``: full file read with line numbers.
 - `docs/standards/style-guide.md`: full file read with line numbers.
 - `docs/standards/formatting.md`: full file read with line numbers.
 
@@ -47,7 +47,7 @@ Mutation boundary: no active standards edited; this report is the only assigned 
 - `docs/standards/reference/code-documentation.md:357-367`: cross-language anti-patterns already reject type-restating parameters, name-echo summaries, profile leakage, line narration, and generated catalogs.
 - `docs/standards/reference/code-documentation.md:393-411`: validation checks that Bash surfaces name stdout, stderr, exit status, traps, resources, state, and ShellCheck rationale, and that inline comments state reasons instead of narration.
 - `docs/standards/proof.md:78-85`: maintained upstream sources and current sources are required for changing tools, security guidance, support status, and provider behavior.
-- `docs/standards/agentic-documentation.md:133-135`: generated or mirrored files must exclude secrets, personal data, task notes, and private machine details; public, internal, restricted, and secret material must be separated or filtered.
+- `:133-135`: generated or mirrored files must exclude secrets, personal data, task notes, and private machine details; public, internal, restricted, and secret material must be separated or filtered.
 - `docs/standards/style-guide.md:41-46`: remove filler, transient language, and non-load-bearing hedges; preserve real uncertainty through proof.
 - `docs/standards/formatting.md:151-161`: hidden comments are source notation only and cannot be the only carrier of safety, proof, intent, or required constraints.
 
@@ -212,7 +212,7 @@ Do not add a long Bash-only secret blacklist. Use the cross-language security-co
 
 [SUPPORTING_OWNER]:
 - `docs/standards/proof.md` owns current-source proof and freshness for Bash/ShellCheck/shfmt version claims.
-- `docs/standards/agentic-documentation.md` owns generated mirror separation, access classes, and exclusion of secrets from generated surfaces.
+- `` owns generated mirror separation, access classes, and exclusion of secrets from generated surfaces.
 - `docs/standards/style-guide.md` owns sentence mechanics and hedge removal; it should not duplicate Bash-specific comment rules.
 
 [DO_NOT_EDIT_FOR_THIS]:
@@ -239,7 +239,7 @@ Do not add a long Bash-only secret blacklist. Use the cross-language security-co
 1. Read memory routing for recent `docs/standards` work; memory established that active standards outrank `_reports/`, and `_reports/` is source material only.
 2. Discovered requested files and instruction files with `fd`.
 3. Read `CLAUDE.md`, root `AGENTS.md`, and `docs/standards/AGENTS.md`.
-4. Read requested active standards in full with `nl -ba`: `README.md`, `reference/code-documentation.md`, `information-structure.md`, `proof.md`, `agentic-documentation.md`, `style-guide.md`, and `formatting.md`.
+4. Read requested active standards in full with `nl -ba`: `README.md`, `reference/code-documentation.md`, `information-structure.md`, `proof.md`, `style-guide.md`, and `formatting.md`.
 5. Re-read `code-documentation.md` Bash capsule lines `266-292` after the full file output truncated neighboring language capsules.
 6. Loaded `/Users/bardiasamiee/.codex/skills/coding-bash/SKILL.md` because the task focuses on Bash 5 comment/style rules.
 7. Checked current worktree status for assigned scope and target active standard. Found pre-existing modification to `docs/standards/reference/code-documentation.md`.
