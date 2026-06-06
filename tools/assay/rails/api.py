@@ -58,6 +58,65 @@ if TYPE_CHECKING:
 type _PathKind = str  # resolve kind token: all | assembly | xml | nuspec | deps | package-root
 
 
+# --- [CONSTANTS] ------------------------------------------------------------------------
+
+_API_ARITY: dict[str, int] = {"query": 1, "resolve": 2, "show": 1}
+_HOST_SPECS: dict[str, tuple[str, str]] = {
+    "eto": ("Eto.dll", "Eto.xml"),
+    "gh2": ("ManagedPlugIns/Grasshopper2Plugin.rhp/Grasshopper2.dll", "ManagedPlugIns/Grasshopper2Plugin.rhp/Grasshopper2.xml"),
+    "gh2-io": ("ManagedPlugIns/Grasshopper2Plugin.rhp/GrasshopperIO.dll", "ManagedPlugIns/Grasshopper2Plugin.rhp/GrasshopperIO.xml"),
+    "rhino-code": ("Rhino.Runtime.Code.dll", ""),
+    "rhino-common": ("RhinoCommon.dll", "RhinoCommon.xml"),
+    "rhino-ui": ("Rhino.UI.dll", "Rhino.UI.xml"),
+}
+_RHINO_BUNDLES: tuple[str, ...] = ("/Applications/RhinoWIP.app", "/Applications/Rhino 8.app")
+_RESOURCE_ROOT: str = "Contents/Frameworks/RhCore.framework/Versions/Current/Resources"
+_PACKAGES_PROPS: str = "Directory.Packages.props"
+_NUGET_ROOTS: tuple[str, ...] = (".cache/nuget/packages", str(Path.home() / ".nuget/packages"))
+_FRAMEWORK_RANK: tuple[str, ...] = ("net10.0", "net9.0", "net8.0", "net7.0", "net6.0", "netstandard2.1", "netstandard2.0")
+_ASSET_DIRS: tuple[str, ...] = ("lib", "ref", "runtimes", "build", "buildTransitive", "analyzers", "tools")
+_SURFACE_KINDS: frozenset[str] = frozenset(("Class", "Struct", "Interface", "Delegate", "Enum"))
+_PREVIEW_ROWS: int = 12
+_CANDIDATE_CAP: int = 8
+# _RESULT_CAP is imported from core/model.py alongside fold as the shared saturation site.
+_DEPS_PARTS: frozenset[str] = frozenset(("build", "buildTransitive", "analyzers", "tools", "runtimes"))
+_DECOMPILE_FLAGS: tuple[str, ...] = ("--no-dead-code", "--no-dead-stores")
+_ENCODER: msgspec.json.Encoder = msgspec.json.Encoder(order="deterministic")  # stable artifact wire order
+_NODE_MODULES: str = "node_modules"
+_PNPM_STORE: str = "node_modules/.pnpm"  # pnpm mangles @scope/pkg as @scope+pkg
+_DTS_GLOB: str = "*.d.ts"
+_DTS_ENTRY: str = "index.d.ts"
+_TS_DECL_QUERY: str = (  # .d.ts exported declaration names become @type captures.
+    "(class_declaration name: (type_identifier) @type)"
+    " (abstract_class_declaration name: (type_identifier) @type)"
+    " (interface_declaration name: (type_identifier) @type)"
+    " (type_alias_declaration name: (type_identifier) @type)"
+    " (enum_declaration name: (identifier) @type)"
+    " (function_signature name: (identifier) @type)"
+    " (module name: (identifier) @type)"
+)
+_TS_GRAMMAR: Callable[[], object] = tree_sitter_typescript.language_typescript  # shared with code.py
+_DECL_NODES: frozenset[str] = frozenset(  # .d.ts node kinds that anchor member signatures.
+    (
+        "class_declaration",
+        "abstract_class_declaration",
+        "interface_declaration",
+        "type_alias_declaration",
+        "enum_declaration",
+        "function_signature",
+        "method_signature",
+        "property_signature",
+        "public_field_definition",
+    )
+)
+_INSPECT_KINDS: tuple[tuple[str, Callable[[object], bool]], ...] = (  # pydist roster predicates
+    ("type", inspect.isclass),
+    ("type", inspect.isfunction),
+)
+_NAME_CAP: int = 320
+_SIG_CAP: int = 480
+
+
 # --- [MODELS] ---------------------------------------------------------------------------
 
 
@@ -128,65 +187,6 @@ class _Body:
     full: str
     selected: int
     truncated: bool
-
-
-# --- [CONSTANTS] ------------------------------------------------------------------------
-
-_API_ARITY: dict[str, int] = {"query": 1, "resolve": 2, "show": 1}
-_HOST_SPECS: dict[str, tuple[str, str]] = {
-    "eto": ("Eto.dll", "Eto.xml"),
-    "gh2": ("ManagedPlugIns/Grasshopper2Plugin.rhp/Grasshopper2.dll", "ManagedPlugIns/Grasshopper2Plugin.rhp/Grasshopper2.xml"),
-    "gh2-io": ("ManagedPlugIns/Grasshopper2Plugin.rhp/GrasshopperIO.dll", "ManagedPlugIns/Grasshopper2Plugin.rhp/GrasshopperIO.xml"),
-    "rhino-code": ("Rhino.Runtime.Code.dll", ""),
-    "rhino-common": ("RhinoCommon.dll", "RhinoCommon.xml"),
-    "rhino-ui": ("Rhino.UI.dll", "Rhino.UI.xml"),
-}
-_RHINO_BUNDLES: tuple[str, ...] = ("/Applications/RhinoWIP.app", "/Applications/Rhino 8.app")
-_RESOURCE_ROOT: str = "Contents/Frameworks/RhCore.framework/Versions/Current/Resources"
-_PACKAGES_PROPS: str = "Directory.Packages.props"
-_NUGET_ROOTS: tuple[str, ...] = (".cache/nuget/packages", str(Path.home() / ".nuget/packages"))
-_FRAMEWORK_RANK: tuple[str, ...] = ("net10.0", "net9.0", "net8.0", "net7.0", "net6.0", "netstandard2.1", "netstandard2.0")
-_ASSET_DIRS: tuple[str, ...] = ("lib", "ref", "runtimes", "build", "buildTransitive", "analyzers", "tools")
-_SURFACE_KINDS: frozenset[str] = frozenset(("Class", "Struct", "Interface", "Delegate", "Enum"))
-_PREVIEW_ROWS: int = 12
-_CANDIDATE_CAP: int = 8
-# _RESULT_CAP is imported from core/model.py alongside fold as the shared saturation site.
-_DEPS_PARTS: frozenset[str] = frozenset(("build", "buildTransitive", "analyzers", "tools", "runtimes"))
-_DECOMPILE_FLAGS: tuple[str, ...] = ("--no-dead-code", "--no-dead-stores")
-_ENCODER: msgspec.json.Encoder = msgspec.json.Encoder(order="deterministic")  # stable artifact wire order
-_NODE_MODULES: str = "node_modules"
-_PNPM_STORE: str = "node_modules/.pnpm"  # pnpm mangles @scope/pkg as @scope+pkg
-_DTS_GLOB: str = "*.d.ts"
-_DTS_ENTRY: str = "index.d.ts"
-_TS_DECL_QUERY: str = (  # .d.ts exported declaration names become @type captures.
-    "(class_declaration name: (type_identifier) @type)"
-    " (abstract_class_declaration name: (type_identifier) @type)"
-    " (interface_declaration name: (type_identifier) @type)"
-    " (type_alias_declaration name: (type_identifier) @type)"
-    " (enum_declaration name: (identifier) @type)"
-    " (function_signature name: (identifier) @type)"
-    " (module name: (identifier) @type)"
-)
-_TS_GRAMMAR: Callable[[], object] = tree_sitter_typescript.language_typescript  # shared with code.py
-_DECL_NODES: frozenset[str] = frozenset(  # .d.ts node kinds that anchor member signatures.
-    (
-        "class_declaration",
-        "abstract_class_declaration",
-        "interface_declaration",
-        "type_alias_declaration",
-        "enum_declaration",
-        "function_signature",
-        "method_signature",
-        "property_signature",
-        "public_field_definition",
-    )
-)
-_INSPECT_KINDS: tuple[tuple[str, Callable[[object], bool]], ...] = (  # pydist roster predicates
-    ("type", inspect.isclass),
-    ("type", inspect.isfunction),
-)
-_NAME_CAP: int = 320
-_SIG_CAP: int = 480
 
 
 # --- [OPERATIONS] -----------------------------------------------------------------------

@@ -37,6 +37,9 @@ public abstract partial record RedrawRequest {
             deferred: static (ctx, _) => Fin.Succ(value: Op.Side(() => ctx.Document.Views.Redraw(deferred: true))));
 }
 
+// --- [CONSTANTS] --------------------------------------------------------------------------
+internal static class CameraDefaults { internal const double LensLength = 50.0, FramePadding = 1.1; internal const int DetailCacheDocuments = 8; }
+
 // --- [MODELS] -----------------------------------------------------------------------------
 public readonly record struct CameraOutcome<T>(
     T Value,
@@ -91,9 +94,6 @@ public readonly record struct CameraSyncPolicy(
             resources: receipts.Bind(static receipt => receipt.Resources));
     }
 }
-
-// --- [CONSTANTS] --------------------------------------------------------------------------
-internal static class CameraDefaults { internal const double LensLength = 50.0, FramePadding = 1.1; internal const int DetailCacheDocuments = 8; }
 
 // --- [SERVICES] ---------------------------------------------------------------------------
 public sealed class RhinoCamera {

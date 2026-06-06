@@ -7,17 +7,17 @@ using Microsoft.CodeAnalysis.Diagnostics;
 
 namespace Foundation.CSharp.Analyzers;
 
-// --- [ANALYZER] --------------------------------------------------------------
+// --- [SERVICES] ----------------------------------------------------------------
 
 /// <summary>Analyzes C# code for Rasm functional-domain standards.</summary>
 [DiagnosticAnalyzer(LanguageNames.CSharp)]
 public sealed class DomainStandardsAnalyzer : DiagnosticAnalyzer {
-    // --- [DIAGNOSTICS] --------------------------------------------------------
+    // --- [EXPORTS] -------------------------------------------------------------
 
     /// <inheritdoc />
     public override ImmutableArray<DiagnosticDescriptor> SupportedDiagnostics => RuleCatalog.All;
 
-    // --- [ENTRY_POINT] --------------------------------------------------------
+    // --- [ENTRY] ---------------------------------------------------------------
 
     /// <inheritdoc />
     public override void Initialize(AnalysisContext context) {

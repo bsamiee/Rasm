@@ -1,7 +1,7 @@
 """Configure Assay import-time logging, tracing, and beartype checks."""
 # ruff: noqa: RUF067, E402  # executable boundary: the claw gate runs before Assay imports.
 
-# --- [COMPOSITION] ----------------------------------------------------------------------
+# --- [RUNTIME_PRELUDE] ------------------------------------------------------------------
 # ASSAY_CLAW must run before the first Assay import because beartype rewrites submodules while msgspec resolves annotations lazily.
 import os
 import sys
@@ -42,6 +42,9 @@ _SERVICE: dict[str, str] = {"service.name": "assay"}
 _ENDPOINT_ENV: str = "OTEL_EXPORTER_OTLP_TRACES_ENDPOINT"
 
 
+# --- [COMPOSITION] ----------------------------------------------------------------------
+
+
 def _configure(log_format: LogFormat, agent_context: dict[str, str]) -> None:
     match log_format:
         # msgspec keeps CI logs compatible with Assay structs and datetimes.
@@ -52,7 +55,7 @@ def _configure(log_format: LogFormat, agent_context: dict[str, str]) -> None:
     structlog.configure(
         processors=[
             merge_contextvars,  # first so @logged binds and agent context stay isolated per ContextVar
-            ring_processor,  # captures contextualized events into the recent-events ring
+            ring_processor,     # captures contextualized events into the recent-events ring
             add_log_level,
             dict_tracebacks,
             TimeStamper(fmt="iso", utc=True),
@@ -68,7 +71,7 @@ def _configure(log_format: LogFormat, agent_context: dict[str, str]) -> None:
 def _install_tracing(endpoint: str, agent_context: dict[str, str]) -> None:
     # Deferred: the OTLP exporter import chain (requests/urllib3/charset_normalizer) costs ~50ms and is reached only on the endpoint-set path.
     from opentelemetry.exporter.otlp.proto.http.trace_exporter import OTLPSpanExporter  # noqa: PLC0415
-    from opentelemetry.sdk.trace.export import BatchSpanProcessor  # noqa: PLC0415
+    from opentelemetry.sdk.trace.export import BatchSpanProcessor                       # noqa: PLC0415
 
     # The exporter connects on force_flush, not construction, so stale endpoints fail after CLI work has emitted its Envelope.
     # Resource.create must see `_SERVICE | agent_context`; a later merge would collapse service.name to unknown_service.
@@ -77,7 +80,6 @@ def _install_tracing(endpoint: str, agent_context: dict[str, str]) -> None:
     set_tracer_provider(provider)
 
 
-# --- [COMPOSITION] ----------------------------------------------------------------------
 # Configure logging once, and leave the default NoOpTracer when no endpoint is configured.
 try:
     _SETTINGS = AssaySettings()

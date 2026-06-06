@@ -95,7 +95,6 @@ public abstract partial record Capability {
     }
 }
 
-// --- [MODELS] -----------------------------------------------------------------------------
 [SmartEnum<string>]
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
 [KeyMemberComparer<ComparerAccessors.StringOrdinalIgnoreCase, string>]
@@ -275,6 +274,7 @@ public sealed partial class PortKind {
         Optional(EnumDefaultMethod.MakeGenericMethod(typeArguments: [type]).Invoke(obj: null, parameters: null) as PortKind);
 }
 
+// --- [MODELS] -----------------------------------------------------------------------------
 public abstract class Port {
     private protected Port(string name, string code, string info, PortKind kind, Access access, Requirement requirement, Capability policy) {
         Name = name;

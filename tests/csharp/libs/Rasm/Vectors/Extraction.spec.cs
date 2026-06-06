@@ -6,14 +6,14 @@ using Dimension = Rasm.Vectors.Dimension;
 
 namespace Rasm.Tests.Vectors;
 
-// --- [CONSTANTS] ----------------------------------------------------------------------------
+// --- [MODELS] ----------------------------------------------------------------------------
 internal static class ExtractionGens {
     public static readonly Op Key = Op.Of(name: "extraction-test");
     public static readonly Context Model = Spec.SuccValue(Context.Of(absolute: 0.001, relative: 1.0e-8, angle: 0.01, units: Rhino.UnitSystem.Millimeters).ToFin(), label: "extraction context");
     public static readonly Seq<Point3d> Samples = Gens.UnitSegment3;
 }
 
-// --- [ALGEBRAIC] ----------------------------------------------------------------------------
+// --- [OPERATIONS] ----------------------------------------------------------------------------
 public sealed class ExtractionProjectionLaws {
     [Fact]
     public void DomainAdmissionRoutesManagedInputsThroughCanonicalOwners() {

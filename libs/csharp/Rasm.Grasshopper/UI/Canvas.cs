@@ -472,7 +472,6 @@ internal static partial class UiRail {
             .ToFin(Fail: UiFault.MutationRejected(op: op, detail: "requires a realized canvas window"))
             .Map(static _ => unit);
 
-    // --- [OPERATIONS] -------------------------------------------------------------------------
     internal static GrasshopperUiIntent<CanvasResult> CanvasPlan(CanvasOp op) =>
         op.Switch(
             snapshotCase: static s => GhUi.Canvas(
@@ -1202,4 +1201,3 @@ internal static partial class UiRail {
             Bounds: obj.Attributes.Bounds, Pivot: obj.Attributes.Pivot);
 
 }
-

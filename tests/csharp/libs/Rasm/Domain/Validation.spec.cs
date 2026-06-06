@@ -4,7 +4,7 @@ using Rhino.Geometry;
 
 namespace Rasm.Tests.Domain;
 
-// --- [CONSTANTS] ----------------------------------------------------------------------------
+// --- [MODELS] ----------------------------------------------------------------------------
 internal static class ValidationGens {
     public static readonly Op Key = Op.Of(name: "validation-test");
     public static readonly Gen<string> Token = Gen.Int[start: 1, finish: 100_000].Select(static value => $"token-{value}");
@@ -23,7 +23,7 @@ internal static class ValidationGens {
     ];
 }
 
-// --- [ALGEBRAIC] ----------------------------------------------------------------------------
+// --- [OPERATIONS] ----------------------------------------------------------------------------
 public sealed class OpAcceptanceLaws {
     [Fact]
     public void AcceptValueAdmitsKnownValidDomainsAndRejectsKnownInvalidDomains() =>

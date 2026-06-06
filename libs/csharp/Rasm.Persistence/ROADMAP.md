@@ -32,17 +32,17 @@ Build the store rail with lifecycle, query, and live projection integrated:
 
 ## [3][SCOPED_LANES]
 
-| [INDEX] | [LANE]                            | [INTEGRATES_WITH]                                                              |
-| :-----: | --------------------------------- | ------------------------------------------------------------------------------ |
-|   [1]   | `SnapshotEnvelope` + codecs       | Json (default) or MessagePack (`K4os.Compression.LZ4` payload compression)    |
-|   [2]   | Support bundle export             | AppHost support collection; Brotli/Deflate via `System.IO.Compression`         |
-|   [3]   | Redaction                         | `Microsoft.Extensions.Compliance.Redaction` — named concern, no active mechanism |
-|   [4]   | `EFCore.BulkExtensions`           | Conditional cache-import lane; prove on bulk-insert benchmark before activating |
-|   [5]   | FTS5 + JSON1                      | Compiled INTO SQLite native; use `FromSqlRaw`; no extra package                |
-|   [6]   | Online backup                     | `SqliteConnection.BackupDatabase`; never file copy (WAL shadow race)           |
-|   [7]   | Compaction                        | `VACUUM INTO` (online) + `wal_checkpoint(TRUNCATE)` or `auto_vacuum=INCREMENTAL` |
-|   [8]   | Raw `Microsoft.Data.Sqlite` bypass | Native-load probe or EF bypass slice                                          |
-|   [9]   | Companion-service database        | Separate out-of-process only; Npgsql never in-process                         |
+| [INDEX] | [LANE]                             | [INTEGRATES_WITH]                                                                |
+| :-----: | ---------------------------------- | -------------------------------------------------------------------------------- |
+|   [1]   | `SnapshotEnvelope` + codecs        | Json (default) or MessagePack (`K4os.Compression.LZ4` payload compression)       |
+|   [2]   | Support bundle export              | AppHost support collection; Brotli/Deflate via `System.IO.Compression`           |
+|   [3]   | Redaction                          | `Microsoft.Extensions.Compliance.Redaction` — named concern, no active mechanism |
+|   [4]   | `EFCore.BulkExtensions`            | Conditional cache-import lane; prove on bulk-insert benchmark before activating  |
+|   [5]   | FTS5 + JSON1                       | Compiled INTO SQLite native; use `FromSqlRaw`; no extra package                  |
+|   [6]   | Online backup                      | `SqliteConnection.BackupDatabase`; never file copy (WAL shadow race)             |
+|   [7]   | Compaction                         | `VACUUM INTO` (online) + `wal_checkpoint(TRUNCATE)` or `auto_vacuum=INCREMENTAL` |
+|   [8]   | Raw `Microsoft.Data.Sqlite` bypass | Native-load probe or EF bypass slice                                             |
+|   [9]   | Companion-service database         | Separate out-of-process only; Npgsql never in-process                            |
 
 ## [4][STORE_EVIDENCE]
 

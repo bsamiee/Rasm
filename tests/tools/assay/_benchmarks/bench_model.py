@@ -5,7 +5,7 @@ Linearity: fold(2N) / fold(N) mean ratio <= 2.5 (benchmark.pedantic, rounds=200 
 Codec: 100-row Report Envelope; encode rounds=500, warmup_rounds=10. len(result) > 0.
 """
 
-# --- [IMPORTS] ------------------------------------------------------------------------
+# --- [RUNTIME_PRELUDE] ------------------------------------------------------------------------
 
 from statistics import median
 import time

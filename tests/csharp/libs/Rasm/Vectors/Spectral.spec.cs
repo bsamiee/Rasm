@@ -4,7 +4,7 @@ using Rasm.Vectors;
 
 namespace Rasm.Tests.Vectors;
 
-// --- [CONSTANTS] ----------------------------------------------------------------------------
+// --- [MODELS] ----------------------------------------------------------------------------
 internal static class SpectralGens {
     public static readonly Op Key = Op.Of(name: "spectral-test");
     public static readonly SpectralBasis Basis = new(
@@ -23,7 +23,7 @@ internal static class SpectralGens {
         new(Values: new Arr<double>(values), Receipt: new SpectralDescriptorReceipt(Filter: SpectralFilter.Identity, VertexCount: values.Length, EigenpairCount: values.Length, SourceCount: 0, ComparisonReady: false, Pairwise: false, EnergyNormalized: false, ScaleNormalized: false, Policy: SpectralDescriptorPolicy.Raw, CroppedEigenpairCount: values.Length));
 }
 
-// --- [ALGEBRAIC] ----------------------------------------------------------------------------
+// --- [OPERATIONS] ----------------------------------------------------------------------------
 public sealed class SpectralBasisLaws {
     [Fact]
     public void BasisValidityRejectsEmptyOrRaggedEigenRails() {

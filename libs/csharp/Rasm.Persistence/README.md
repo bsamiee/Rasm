@@ -10,24 +10,24 @@ It is not a repository wrapper, EF wrapper, serializer wrapper, solve-path cache
 
 ## [2][STATUS]
 
-| [INDEX] | [SURFACE]             | [STATE]                  |
-| :-----: | --------------------- | ------------------------ |
-|   [1]   | Project file          | Create in Phase 0        |
-|   [2]   | Production API        | In progress              |
-|   [3]   | Package references    | Add centrally in Phase 0 |
-|   [4]   | Local store           | SQLite-first             |
-|   [5]   | Solve-path behavior   | Forbidden                |
-|   [6]   | Encryption-at-rest    | Deferred; `NativeEncryptionUnavailable` receipt case |
+| [INDEX] | [SURFACE]           | [STATE]                                              |
+| :-----: | ------------------- | ---------------------------------------------------- |
+|   [1]   | Project file        | Create in Phase 0                                    |
+|   [2]   | Production API      | In progress                                          |
+|   [3]   | Package references  | Add centrally in Phase 0                             |
+|   [4]   | Local store         | SQLite-first                                         |
+|   [5]   | Solve-path behavior | Forbidden                                            |
+|   [6]   | Encryption-at-rest  | Deferred; `NativeEncryptionUnavailable` receipt case |
 
 Add packages centrally at newest viable versions during Phase 0; no version numbers in `.csproj`.
 
 ## [3][MANUAL]
 
-| [INDEX] | [FILE]             | [READ_FOR]                                                                                                         |
-| :-----: | ------------------ | ------------------------------------------------------------------------------------------------------------------ |
-|   [1]   | `_ARCHITECTURE.md` | Type shapes, provider split, operation algebra, bridge, PRAGMA init, migration policy, compaction, failure model   |
-|   [2]   | `AGENTS.md`        | Build rules, integration corrections, and hot-path rejections                                                      |
-|   [3]   | `ROADMAP.md`       | Build sequence and scoped lanes                                                                                     |
+| [INDEX] | [FILE]             | [READ_FOR]                                                                                                       |
+| :-----: | ------------------ | ---------------------------------------------------------------------------------------------------------------- |
+|   [1]   | `_ARCHITECTURE.md` | Type shapes, provider split, operation algebra, bridge, PRAGMA init, migration policy, compaction, failure model |
+|   [2]   | `AGENTS.md`        | Build rules, integration corrections, and hot-path rejections                                                    |
+|   [3]   | `ROADMAP.md`       | Build sequence and scoped lanes                                                                                  |
 
 ## [4][CONSTRAINTS]
 

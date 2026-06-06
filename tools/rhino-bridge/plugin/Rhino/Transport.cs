@@ -2,7 +2,7 @@ using System.Collections.Concurrent;
 
 namespace Rasm.RhinoBridge.Rhino;
 
-// --- [MODELS] ---------------------------------------------------------------------------
+// --- [TYPES] ----------------------------------------------------------------------------
 internal abstract record BridgeCommand {
     internal sealed record Hello : BridgeCommand {
         internal override BridgeReply Dispatch(BridgeServer server, RhinoDoc? document) => server.Hello();
@@ -46,6 +46,7 @@ internal abstract record BridgeCommand {
     }
 }
 
+// --- [MODELS] ---------------------------------------------------------------------------
 internal sealed record BridgeCommandParse(BridgeCommand? Command, BridgeReply? Failure) {
     internal static BridgeCommandParse Ok(BridgeCommand command) => new(Command: command, Failure: null);
     internal static BridgeCommandParse Fail(string command, string message) =>

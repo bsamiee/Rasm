@@ -5,13 +5,27 @@
 ## [1][BUILD_STATUS]
 
 ```mermaid
+---
+config:
+  layout: elk
+  look: neo
+  theme: base
+  elk:
+    mergeEdges: false
+    nodePlacementStrategy: BRANDES_KOEPF
+    cycleBreakingStrategy: GREEDY_MODEL_ORDER
+---
 flowchart LR
+    accTitle: Rasm AppUi product UI boundary
+    accDescr: Product and plugin intent enters Rasm AppUi, which delegates host UI behavior to Rhino and Grasshopper rails while routing runtime and durable-state work through AppHost and Persistence.
     Product["Plugin/app intent"] --> AppUi["Rasm.AppUi"]
     AppUi --> RhinoUi["Rasm.Rhino/UI (host rail)"]
     AppUi --> GhUi["Rasm.Grasshopper/UI (host rail)"]
     AppUi --> Host["Rasm.AppHost"]
     AppUi --> Store["Rasm.Persistence"]
 ```
+
+Text equivalent: plugin and app intent enters `Rasm.AppUi`; AppUi delegates host UI behavior to `Rasm.Rhino/UI` and `Rasm.Grasshopper/UI`, routes runtime work through `Rasm.AppHost`, and routes durable-state work through `Rasm.Persistence`.
 
 | [INDEX] | [ITEM]                | [STATE]                                                 |
 | :-----: | --------------------- | ------------------------------------------------------- |

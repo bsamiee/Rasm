@@ -19,16 +19,16 @@ Phase 0 is complete when restore and build pass clean and the native dylib probe
 
 Build the compute rail with cancellation, measurement, and equivalence integrated:
 
-| [INDEX] | [SURFACE]                                   | [BASIS]                                                         |
-| :-----: | ------------------------------------------- | --------------------------------------------------------------- |
-|   [1]   | Substrate selection predicate               | `SelectSubstrate(intent)` — ordered rule table in `_ARCHITECTURE.md` |
-|   [2]   | Vectors boundary                            | Call `Rasm.Vectors`; wrap in `Eff<RT,ExecutionReceipt>`; zero kernel duplication |
-|   [3]   | Cancellation / deadline / progress          | `RT.Token` → `RunOptions.Terminate`; `RT.Time` → elapsed; cold `Subject<ComputeProgress>` |
-|   [4]   | Span/TensorPrimitives kernels               | `System.Numerics.Tensors`; stage via `MemoryOwner<T>` / `ArrayPoolBufferWriter<T>` |
-|   [5]   | Allocation budget measurement               | `GC.GetAllocatedBytesForCurrentThread()` diff; overrun → `AllocationBudgetExceeded` receipt |
-|   [6]   | Physical scalars                            | `UnitsNet` for all dimension-bearing inputs and outputs         |
-|   [7]   | Baseline timing and equivalence receipts    | `BenchmarkReceipt` with `BenchmarkDotNet` evidence              |
-|   [8]   | Failure taxonomy                            | Typed `ExecutionReceipt.Failure` discriminant                   |
+| [INDEX] | [SURFACE]                                | [BASIS]                                                                                     |
+| :-----: | ---------------------------------------- | ------------------------------------------------------------------------------------------- |
+|   [1]   | Substrate selection predicate            | `SelectSubstrate(intent)` — ordered rule table in `_ARCHITECTURE.md`                        |
+|   [2]   | Vectors boundary                         | Call `Rasm.Vectors`; wrap in `Eff<RT,ExecutionReceipt>`; zero kernel duplication            |
+|   [3]   | Cancellation / deadline / progress       | `RT.Token` → `RunOptions.Terminate`; `RT.Time` → elapsed; cold `Subject<ComputeProgress>`   |
+|   [4]   | Span/TensorPrimitives kernels            | `System.Numerics.Tensors`; stage via `MemoryOwner<T>` / `ArrayPoolBufferWriter<T>`          |
+|   [5]   | Allocation budget measurement            | `GC.GetAllocatedBytesForCurrentThread()` diff; overrun → `AllocationBudgetExceeded` receipt |
+|   [6]   | Physical scalars                         | `UnitsNet` for all dimension-bearing inputs and outputs                                     |
+|   [7]   | Baseline timing and equivalence receipts | `BenchmarkReceipt` with `BenchmarkDotNet` evidence                                          |
+|   [8]   | Failure taxonomy                         | Typed `ExecutionReceipt.Failure` discriminant                                               |
 
 ## [3][SCOPED_LANES]
 

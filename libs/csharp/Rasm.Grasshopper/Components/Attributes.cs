@@ -21,7 +21,6 @@ namespace Rasm.Grasshopper.Components;
 // --- [MODELS] -----------------------------------------------------------------------------
 [StructLayout(LayoutKind.Auto)]
 public readonly partial record struct ComponentUi {
-    // --- [TYPES] ------------------------------------------------------------------------------
     public enum MouseKind { Down, Move, Up, SingleClick, DoubleClick }
 
     [SmartEnum<int>]
@@ -120,7 +119,6 @@ public readonly partial record struct ComponentUi {
     [StructLayout(LayoutKind.Auto)]
     private readonly record struct StepOp(Option<Phase> Phase, Func<Callback, Fin<Decision>> Run);
 
-    // --- [OPERATIONS] -------------------------------------------------------------------------
     private readonly Seq<StepOp> ops;
 
     private ComponentUi(Seq<StepOp> ops) => this.ops = ops;
@@ -175,7 +173,6 @@ public readonly partial record struct ComponentUi {
     private bool Supports(Phase phase) =>
         ops.Exists(op => op.Phase.Match(Some: candidate => candidate == phase, None: () => false));
 
-    // --- [COMPOSITION] ------------------------------------------------------------------------
     [BoundaryAdapter]
     private class RasmAttributes :
         ComponentAttributes,

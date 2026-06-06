@@ -944,7 +944,6 @@ internal static partial class Wire {
                 what: "graph walk")
             select result);
 
-    // --- [OPERATIONS] -------------------------------------------------------------------------
     internal static GraphIntegrity IntegrityOf(GhObjectList objects, GhDocument document, Seq<Guid> seeds) {
         Seq<WireSnapshot.ConnectedCase> wires = SafeWires(source: AllWireEnds(objects: objects), objects: objects, document: Some(document));
         Seq<WireSnapshot.ConnectedCase> dangling = wires.Filter(static wire => !wire.Connected);
@@ -1136,7 +1135,7 @@ internal static partial class Wire {
     }
 }
 
-// --- [BOUNDARY] ---------------------------------------------------------------------------
+// --- [BOUNDARIES] -------------------------------------------------------------------------
 [BoundaryAdapter]
 internal static class WireRepositoryRail {
     private static readonly Op RailOp = Op.Of(name: nameof(WireRepositoryRail));
@@ -1320,7 +1319,7 @@ file static class WireShapeParams {
     [ThreadStatic] internal static float SplitRatio;
 }
 
-// --- [CACHE] ------------------------------------------------------------------------------
+// --- [OPERATIONS] -------------------------------------------------------------------------
 // Shared MRU-bounded cache: Order tracks recency (tail = most recent), Map holds entries; Record promotes the
 // key and evicts the oldest past capacity. WireDrawnCache and WireIndexCache parameterize key/value over it.
 file sealed class MruCache<TKey, TVal>(int capacity = 8) where TKey : notnull {

@@ -7,7 +7,7 @@ using Dimension = Rasm.Vectors.Dimension;
 
 namespace Rasm.Tests.Vectors;
 
-// --- [CONSTANTS] ----------------------------------------------------------------------------
+// --- [MODELS] ----------------------------------------------------------------------------
 // BRIDGE-DEFERRED: ring/polyline native metrics; static owns metadata, cluster admission/projection, mass normalization, Sinkhorn receipts.
 internal static class CloudMetricGens {
     public static readonly Context Model = Spec.SuccValue(Context.Of(absolute: 0.001, relative: 1.0e-8, angle: 0.01, units: UnitSystem.Millimeters).ToFin(), label: "cloud context");
@@ -48,7 +48,7 @@ internal static class CloudMetricGens {
         Spec.SuccValue(VectorCloud.Cluster(points: points, context: Model, key: Op.Of(name: "cloud-test")), label: "cluster");
 }
 
-// --- [ALGEBRAIC] ----------------------------------------------------------------------------
+// --- [OPERATIONS] ----------------------------------------------------------------------------
 public sealed class VectorCloudMetricLaws {
     [Fact]
     public void MetadataCasesAreDistinctAndUseKnownOutputs() =>

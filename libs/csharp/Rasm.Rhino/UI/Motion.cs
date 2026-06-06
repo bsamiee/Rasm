@@ -20,16 +20,36 @@ public sealed partial class Easing {
     private const double BounceD1 = 2.75;
 
     public static readonly Easing Linear = new(key: 0, apply: static t => t);
-    public static readonly Easing SineIn = new(key: 1, apply: static t => 1.0 - Math.Cos(t * Math.PI / 2.0)), SineOut = new(key: 2, apply: static t => Math.Sin(t * Math.PI / 2.0)), SineInOut = new(key: 3, apply: static t => -(Math.Cos(Math.PI * t) - 1.0) / 2.0);
-    public static readonly Easing QuadIn = new(key: 4, apply: static t => t * t), QuadOut = new(key: 5, apply: static t => 1.0 - ((1.0 - t) * (1.0 - t))), QuadInOut = new(key: 6, apply: static t => t < 0.5 ? 2.0 * t * t : 1.0 - (Math.Pow((-2.0 * t) + 2.0, 2.0) / 2.0));
-    public static readonly Easing CubicIn = new(key: 7, apply: static t => t * t * t), CubicOut = new(key: 8, apply: static t => 1.0 - Math.Pow(1.0 - t, 3.0)), CubicInOut = new(key: 9, apply: static t => t < 0.5 ? 4.0 * t * t * t : 1.0 - (Math.Pow((-2.0 * t) + 2.0, 3.0) / 2.0));
-    public static readonly Easing QuartIn = new(key: 10, apply: static t => t * t * t * t), QuartOut = new(key: 11, apply: static t => 1.0 - Math.Pow(1.0 - t, 4.0)), QuartInOut = new(key: 12, apply: static t => t < 0.5 ? 8.0 * t * t * t * t : 1.0 - (Math.Pow((-2.0 * t) + 2.0, 4.0) / 2.0));
-    public static readonly Easing QuintIn = new(key: 13, apply: static t => t * t * t * t * t), QuintOut = new(key: 14, apply: static t => 1.0 - Math.Pow(1.0 - t, 5.0)), QuintInOut = new(key: 15, apply: static t => t < 0.5 ? 16.0 * t * t * t * t * t : 1.0 - (Math.Pow((-2.0 * t) + 2.0, 5.0) / 2.0));
-    public static readonly Easing ExpoIn = new(key: 16, apply: static t => t == 0.0 ? 0.0 : Math.Pow(2.0, (10.0 * t) - 10.0)), ExpoOut = new(key: 17, apply: static t => t == 1.0 ? 1.0 : 1.0 - Math.Pow(2.0, -10.0 * t)), ExpoInOut = new(key: 18, apply: static t => t == 0.0 ? 0.0 : t == 1.0 ? 1.0 : t < 0.5 ? Math.Pow(2.0, (20.0 * t) - 10.0) / 2.0 : (2.0 - Math.Pow(2.0, (-20.0 * t) + 10.0)) / 2.0);
-    public static readonly Easing CircIn = new(key: 19, apply: static t => 1.0 - Math.Sqrt(1.0 - (t * t))), CircOut = new(key: 20, apply: static t => Math.Sqrt(1.0 - ((t - 1.0) * (t - 1.0)))), CircInOut = new(key: 21, apply: static t => t < 0.5 ? (1.0 - Math.Sqrt(1.0 - (4.0 * t * t))) / 2.0 : (Math.Sqrt(1.0 - (((-2.0 * t) + 2.0) * ((-2.0 * t) + 2.0))) + 1.0) / 2.0);
-    public static readonly Easing BackIn = new(key: 22, apply: static t => (BackC3 * t * t * t) - (BackC1 * t * t)), BackOut = new(key: 23, apply: static t => 1.0 + (BackC3 * Math.Pow(t - 1.0, 3.0)) + (BackC1 * Math.Pow(t - 1.0, 2.0))), BackInOut = new(key: 24, apply: static t => t < 0.5 ? Math.Pow(2.0 * t, 2.0) * (((BackC2 + 1.0) * 2.0 * t) - BackC2) / 2.0 : ((Math.Pow((2.0 * t) - 2.0, 2.0) * (((BackC2 + 1.0) * ((t * 2.0) - 2.0)) + BackC2)) + 2.0) / 2.0);
-    public static readonly Easing ElasticIn = new(key: 25, apply: static t => t == 0.0 ? 0.0 : t == 1.0 ? 1.0 : -Math.Pow(2.0, (10.0 * t) - 10.0) * Math.Sin(((t * 10.0) - 10.75) * (2.0 * Math.PI / 3.0))), ElasticOut = new(key: 26, apply: static t => t == 0.0 ? 0.0 : t == 1.0 ? 1.0 : (Math.Pow(2.0, -10.0 * t) * Math.Sin(((t * 10.0) - 0.75) * (2.0 * Math.PI / 3.0))) + 1.0), ElasticInOut = new(key: 27, apply: static t => t == 0.0 ? 0.0 : t == 1.0 ? 1.0 : t < 0.5 ? -(Math.Pow(2.0, (20.0 * t) - 10.0) * Math.Sin(((20.0 * t) - 11.125) * (2.0 * Math.PI / 4.5))) / 2.0 : (Math.Pow(2.0, (-20.0 * t) + 10.0) * Math.Sin(((20.0 * t) - 11.125) * (2.0 * Math.PI / 4.5)) / 2.0) + 1.0);
-    public static readonly Easing BounceIn = new(key: 28, apply: static t => 1.0 - BounceOutFormula(1.0 - t)), BounceOut = new(key: 29, apply: static t => BounceOutFormula(t)), BounceInOut = new(key: 30, apply: static t => t < 0.5 ? (1.0 - BounceOutFormula(1.0 - (2.0 * t))) / 2.0 : (1.0 + BounceOutFormula((2.0 * t) - 1.0)) / 2.0);
+    public static readonly Easing SineIn = new(key: 1, apply: static t => 1.0 - Math.Cos(t * Math.PI / 2.0));
+    public static readonly Easing SineOut = new(key: 2, apply: static t => Math.Sin(t * Math.PI / 2.0));
+    public static readonly Easing SineInOut = new(key: 3, apply: static t => -(Math.Cos(Math.PI * t) - 1.0) / 2.0);
+    public static readonly Easing QuadIn = new(key: 4, apply: static t => t * t);
+    public static readonly Easing QuadOut = new(key: 5, apply: static t => 1.0 - ((1.0 - t) * (1.0 - t)));
+    public static readonly Easing QuadInOut = new(key: 6, apply: static t => t < 0.5 ? 2.0 * t * t : 1.0 - (Math.Pow((-2.0 * t) + 2.0, 2.0) / 2.0));
+    public static readonly Easing CubicIn = new(key: 7, apply: static t => t * t * t);
+    public static readonly Easing CubicOut = new(key: 8, apply: static t => 1.0 - Math.Pow(1.0 - t, 3.0));
+    public static readonly Easing CubicInOut = new(key: 9, apply: static t => t < 0.5 ? 4.0 * t * t * t : 1.0 - (Math.Pow((-2.0 * t) + 2.0, 3.0) / 2.0));
+    public static readonly Easing QuartIn = new(key: 10, apply: static t => t * t * t * t);
+    public static readonly Easing QuartOut = new(key: 11, apply: static t => 1.0 - Math.Pow(1.0 - t, 4.0));
+    public static readonly Easing QuartInOut = new(key: 12, apply: static t => t < 0.5 ? 8.0 * t * t * t * t : 1.0 - (Math.Pow((-2.0 * t) + 2.0, 4.0) / 2.0));
+    public static readonly Easing QuintIn = new(key: 13, apply: static t => t * t * t * t * t);
+    public static readonly Easing QuintOut = new(key: 14, apply: static t => 1.0 - Math.Pow(1.0 - t, 5.0));
+    public static readonly Easing QuintInOut = new(key: 15, apply: static t => t < 0.5 ? 16.0 * t * t * t * t * t : 1.0 - (Math.Pow((-2.0 * t) + 2.0, 5.0) / 2.0));
+    public static readonly Easing ExpoIn = new(key: 16, apply: static t => t == 0.0 ? 0.0 : Math.Pow(2.0, (10.0 * t) - 10.0));
+    public static readonly Easing ExpoOut = new(key: 17, apply: static t => t == 1.0 ? 1.0 : 1.0 - Math.Pow(2.0, -10.0 * t));
+    public static readonly Easing ExpoInOut = new(key: 18, apply: static t => t == 0.0 ? 0.0 : t == 1.0 ? 1.0 : t < 0.5 ? Math.Pow(2.0, (20.0 * t) - 10.0) / 2.0 : (2.0 - Math.Pow(2.0, (-20.0 * t) + 10.0)) / 2.0);
+    public static readonly Easing CircIn = new(key: 19, apply: static t => 1.0 - Math.Sqrt(1.0 - (t * t)));
+    public static readonly Easing CircOut = new(key: 20, apply: static t => Math.Sqrt(1.0 - ((t - 1.0) * (t - 1.0))));
+    public static readonly Easing CircInOut = new(key: 21, apply: static t => t < 0.5 ? (1.0 - Math.Sqrt(1.0 - (4.0 * t * t))) / 2.0 : (Math.Sqrt(1.0 - (((-2.0 * t) + 2.0) * ((-2.0 * t) + 2.0))) + 1.0) / 2.0);
+    public static readonly Easing BackIn = new(key: 22, apply: static t => (BackC3 * t * t * t) - (BackC1 * t * t));
+    public static readonly Easing BackOut = new(key: 23, apply: static t => 1.0 + (BackC3 * Math.Pow(t - 1.0, 3.0)) + (BackC1 * Math.Pow(t - 1.0, 2.0)));
+    public static readonly Easing BackInOut = new(key: 24, apply: static t => t < 0.5 ? Math.Pow(2.0 * t, 2.0) * (((BackC2 + 1.0) * 2.0 * t) - BackC2) / 2.0 : ((Math.Pow((2.0 * t) - 2.0, 2.0) * (((BackC2 + 1.0) * ((t * 2.0) - 2.0)) + BackC2)) + 2.0) / 2.0);
+    public static readonly Easing ElasticIn = new(key: 25, apply: static t => t == 0.0 ? 0.0 : t == 1.0 ? 1.0 : -Math.Pow(2.0, (10.0 * t) - 10.0) * Math.Sin(((t * 10.0) - 10.75) * (2.0 * Math.PI / 3.0)));
+    public static readonly Easing ElasticOut = new(key: 26, apply: static t => t == 0.0 ? 0.0 : t == 1.0 ? 1.0 : (Math.Pow(2.0, -10.0 * t) * Math.Sin(((t * 10.0) - 0.75) * (2.0 * Math.PI / 3.0))) + 1.0);
+    public static readonly Easing ElasticInOut = new(key: 27, apply: static t => t == 0.0 ? 0.0 : t == 1.0 ? 1.0 : t < 0.5 ? -(Math.Pow(2.0, (20.0 * t) - 10.0) * Math.Sin(((20.0 * t) - 11.125) * (2.0 * Math.PI / 4.5))) / 2.0 : (Math.Pow(2.0, (-20.0 * t) + 10.0) * Math.Sin(((20.0 * t) - 11.125) * (2.0 * Math.PI / 4.5)) / 2.0) + 1.0);
+    public static readonly Easing BounceIn = new(key: 28, apply: static t => 1.0 - BounceOutFormula(1.0 - t));
+    public static readonly Easing BounceOut = new(key: 29, apply: static t => BounceOutFormula(t));
+    public static readonly Easing BounceInOut = new(key: 30, apply: static t => t < 0.5 ? (1.0 - BounceOutFormula(1.0 - (2.0 * t))) / 2.0 : (1.0 + BounceOutFormula((2.0 * t) - 1.0)) / 2.0);
 
     [UseDelegateFromConstructor]
     public partial double Apply(double t);

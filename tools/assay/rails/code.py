@@ -47,6 +47,13 @@ if TYPE_CHECKING:
     from tools.assay.core.model import InprocThunk
 
 
+# --- [CONSTANTS] ------------------------------------------------------------------------
+
+_TEXT_CAP: int = 320
+_DEFAULT_TARGET: tuple[str, ...] = (".",)
+_METAVAR: re.Pattern[str] = re.compile(r"\$[A-Z_$]")
+
+
 # --- [MODELS] ---------------------------------------------------------------------------
 
 
@@ -85,16 +92,13 @@ class CodeParams(BaseParams):
                 return projected
 
 
-# --- [CONSTANTS] ------------------------------------------------------------------------
+# --- [TABLES] ---------------------------------------------------------------------------
 
 # Query catalog rows exist only for grammars listed here.
 _GRAMMARS: dict[Language, Callable[[], object]] = {
     Language.PYTHON: tree_sitter_python.language,
     Language.TYPESCRIPT: tree_sitter_typescript.language_typescript,
 }
-_TEXT_CAP: int = 320
-_DEFAULT_TARGET: tuple[str, ...] = (".",)
-_METAVAR: re.Pattern[str] = re.compile(r"\$[A-Z_$]")
 
 
 # --- [OPERATIONS] -----------------------------------------------------------------------

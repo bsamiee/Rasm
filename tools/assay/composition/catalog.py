@@ -79,7 +79,7 @@ class RgEvent(msgspec.Struct, frozen=True, gc=False):
     data: _RgData = msgspec.field(default_factory=_RgData)
 
 
-# --- [CONSTANTS] ------------------------------------------------------------------------
+# --- [TABLES] ---------------------------------------------------------------------------
 
 _FINDINGS = msgspec.json.Decoder(tuple[_Finding, ...])
 _SURFACE = msgspec.json.Decoder(ApiSurface)

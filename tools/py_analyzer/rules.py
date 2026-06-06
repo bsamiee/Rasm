@@ -120,7 +120,7 @@ class Diagnostic:
         }
 
 
-# --- [CONSTANTS] -----------------------------------------------------------------------
+# --- [TABLES] --------------------------------------------------------------------------
 
 RULES: Final[Mapping[RuleId, Rule]] = MappingProxyType({
     RuleId.parse: Rule("AnalyzerInput", RuleCategory.infrastructure, "Analyzer could not parse or read this Python file."),
@@ -172,3 +172,19 @@ def diagnostic(rule_id: RuleId, path: Path, line: int, column: int, detail: str)
     """
     rule = RULES[rule_id]
     return Diagnostic(rule_id, Severity.error, path.resolve(), line, column, rule.title, f"{rule.message} {detail}", rule.category)
+
+
+# --- [EXPORTS] -------------------------------------------------------------------------
+
+__all__ = (
+    "Diagnostic",
+    "JsonValue",
+    "OutputFormat",
+    "Rule",
+    "RULES",
+    "RuleCategory",
+    "RuleId",
+    "Scope",
+    "Severity",
+    "diagnostic",
+)

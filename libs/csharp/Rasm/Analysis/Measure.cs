@@ -2,7 +2,7 @@ using Foundation.CSharp.Analyzers.Contracts;
 
 namespace Rasm.Analysis;
 
-// --- [MODELS] -----------------------------------------------------------------------------
+// --- [TYPES] ------------------------------------------------------------------------------
 [SkipUnionOps]
 [Union]
 public partial record Measure : IAspect {

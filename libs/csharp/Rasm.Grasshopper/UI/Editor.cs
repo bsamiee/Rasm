@@ -97,7 +97,6 @@ internal static partial class Editor {
                 DefinedLayouts: defined)));
     }
 
-    // --- [OPERATIONS] -------------------------------------------------------------------------
     private static Fin<EditorResult> DispatchState() =>
         Fin.Succ<EditorResult>(value: new EditorResult.StateResult(Snapshot: SnapshotEditor(editor: Optional(GhEditor.Instance))));
 

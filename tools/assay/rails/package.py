@@ -52,6 +52,48 @@ if TYPE_CHECKING:
 type _Step = tuple[str, ...]
 
 
+# --- [CONSTANTS] ------------------------------------------------------------------------
+
+_RHP: Final[str] = ".rhp"
+_YAK_PLATFORM: Final[str] = "mac"
+_YAK_DISTRIBUTION_GLOB: Final[str] = "*-rh9_*-mac.yak"
+_RASM_BRIDGE_SLUG: Final[str] = "rasm-bridge"
+_PACKAGE_STAGE: Final[str] = "package-stage"
+_BRIDGE_LOCK: Final[str] = "bridge"
+_PACKAGE_ROOTS: Final[tuple[str, ...]] = ("apps", "tools")
+_CSPROJ: Final[str] = ".csproj"
+_YAK_SLUG_PROP: Final[str] = "YakPackageSlug"
+
+_META_PROPS: Final[tuple[str, ...]] = (
+    "AssemblyName",
+    "MSBuildProjectDirectory",
+    "TargetDir",
+    "TargetExt",
+    "TargetFramework",
+    "YakManifestDirectory",
+    "YakPackageDirectory",
+    "YakPackagePattern",
+    "YakPackageSlug",
+    "YakPath",
+    "YakPlatform",
+    "YakPushSource",
+)
+_MANIFEST_FILES: Final[tuple[str, ...]] = ("icon.png", "manifest.yml")
+_ARTIFACT_SUFFIXES: Final[frozenset[str]] = frozenset({".dll", ".json", _RHP})
+_HOST_EXCLUDES: Final[tuple[str, ...]] = (
+    "Eto.*",
+    "Eto.macOS.*",
+    "Grasshopper.*",
+    "Grasshopper2.*",
+    "GrasshopperIO.*",
+    "Microsoft.macOS.*",
+    "Rhino.Runtime.Code.*",
+    "Rhino.UI.*",
+    "RhinoCodePlatform.Rhino3D.*",
+    "RhinoCommon.*",
+    "System.Drawing.Common.*",
+)
+
 # --- [MODELS] ---------------------------------------------------------------------------
 
 
@@ -138,47 +180,9 @@ class YakMeta(Base, frozen=True, gc=False):
         return next((Error(Fault(("yak", slug), message=detail)) for ok, detail in checks if not ok), Ok(self))
 
 
-# --- [CONSTANTS] ------------------------------------------------------------------------
+# --- [TABLES] ---------------------------------------------------------------------------
 
-_RHP: Final[str] = ".rhp"
-_YAK_PLATFORM: Final[str] = "mac"
-_YAK_DISTRIBUTION_GLOB: Final[str] = "*-rh9_*-mac.yak"
-_RASM_BRIDGE_SLUG: Final[str] = "rasm-bridge"
-_PACKAGE_STAGE: Final[str] = "package-stage"
-_BRIDGE_LOCK: Final[str] = "bridge"
-_PACKAGE_ROOTS: Final[tuple[str, ...]] = ("apps", "tools")
-_CSPROJ: Final[str] = ".csproj"
-_YAK_SLUG_PROP: Final[str] = "YakPackageSlug"
-
-_META_PROPS: Final[tuple[str, ...]] = (
-    "AssemblyName",
-    "MSBuildProjectDirectory",
-    "TargetDir",
-    "TargetExt",
-    "TargetFramework",
-    "YakManifestDirectory",
-    "YakPackageDirectory",
-    "YakPackagePattern",
-    "YakPackageSlug",
-    "YakPath",
-    "YakPlatform",
-    "YakPushSource",
-)
-_MANIFEST_FILES: Final[tuple[str, ...]] = ("icon.png", "manifest.yml")
-_ARTIFACT_SUFFIXES: Final[frozenset[str]] = frozenset({".dll", ".json", _RHP})
-_HOST_EXCLUDES: Final[tuple[str, ...]] = (
-    "Eto.*",
-    "Eto.macOS.*",
-    "Grasshopper.*",
-    "Grasshopper2.*",
-    "GrasshopperIO.*",
-    "Microsoft.macOS.*",
-    "Rhino.Runtime.Code.*",
-    "Rhino.UI.*",
-    "RhinoCodePlatform.Rhino3D.*",
-    "RhinoCommon.*",
-    "System.Drawing.Common.*",
-)
+_DECODER: Final[msgspec.json.Decoder[_MsbuildProps]] = msgspec.json.Decoder(_MsbuildProps)
 
 # Ordered post-stage step policy keyed by verb and rasm-bridge slug match.
 _STEP_POLICY: Final[dict[tuple[str, bool], tuple[str, ...]]] = {
@@ -187,8 +191,6 @@ _STEP_POLICY: Final[dict[tuple[str, bool], tuple[str, ...]]] = {
     ("publish", False): ("install", "push"),
     ("publish", True): ("quit", "install", "refresh", "push"),
 }
-
-_DECODER: Final[msgspec.json.Decoder[_MsbuildProps]] = msgspec.json.Decoder(_MsbuildProps)
 
 
 # --- [OPERATIONS] -----------------------------------------------------------------------

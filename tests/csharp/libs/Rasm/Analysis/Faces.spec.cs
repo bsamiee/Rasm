@@ -5,7 +5,7 @@ using Rhino.Geometry;
 
 namespace Rasm.Tests.Analysis;
 
-// --- [CONSTANTS] ----------------------------------------------------------------------------
+// --- [MODELS] ----------------------------------------------------------------------------
 // BRIDGE-DEFERRED: native Brep face decomposition, centroid, frame, and domain reads; static owns Faces union and dispatch support.
 internal static class FacesGens {
     public static readonly Vector3d Axis = new(x: -2.0, y: 3.0, z: 5.0);
@@ -13,7 +13,7 @@ internal static class FacesGens {
         [("All", Faces.All), ("Top", Faces.Top(axis: Axis)), ("Bottom", Faces.Bottom(axis: Axis)), ("At", Faces.At(index: 4))];
 }
 
-// --- [ALGEBRAIC] ----------------------------------------------------------------------------
+// --- [OPERATIONS] ----------------------------------------------------------------------------
 public sealed class FacesUnionCatalogLaws {
     [Fact]
     public void FactoriesProjectBoundedCasesAndCarryPayloads() {
@@ -54,7 +54,7 @@ public sealed class FacesDispatchLaws {
             ("Top Brep→double", static () => Faces.Top(axis: FacesGens.Axis).Operation<Brep, double>().IsSupported, false));
 }
 
-// --- [EDGE_CASES] ---------------------------------------------------------------------------
+// --- [OPERATIONS] ---------------------------------------------------------------------------
 public sealed class FacesRejectionRailLaws {
     [Fact]
     public void NullAspectAndUnsupportedOutputRejectBeforeNativeEvaluation() {

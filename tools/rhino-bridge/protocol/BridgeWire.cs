@@ -232,6 +232,8 @@ public sealed record BridgeDocumentReport(bool Active, uint? RuntimeSerialNumber
 public sealed record BridgeReturnValue(JsonElement Value, string Source);
 public sealed record BridgeOutput(string Source, string Text, bool Truncated, int Length, int Limit);
 public sealed record BridgeDiagnostic(string Severity, string Message, string? Source = null, string? Code = null, string? File = null, int? Line = null, int? Column = null, string? Category = null);
+
+// --- [ERRORS] ---------------------------------------------------------------------------
 public sealed record BridgeFault(string Category, string Message, string? Type = null, string? StackTrace = null, IReadOnlyList<BridgeFault>? Causes = null) {
     public static BridgeFault MessageOnly(string category, string message) => new(Category: category, Message: message);
     public static BridgeFault FromException(string category, Exception error) {
@@ -255,7 +257,7 @@ public sealed record BridgeFault(string Category, string Message, string? Type =
     }
 }
 
-// --- [CONSTANTS] ------------------------------------------------------------------------
+// --- [POLICIES] -------------------------------------------------------------------------
 // All bridge timeouts scale via RASM_BRIDGE_TIMEOUT_SCALE (>0, default 1.0) instead of per-timeout env knobs.
 public sealed record TimeoutPolicy(TimeSpan Hello, TimeSpan Connect, TimeSpan Transport, TimeSpan QuitWait, TimeSpan Handshake, TimeSpan IdleDispatch, TimeSpan LivenessSettle) {
     public static TimeoutPolicy Default { get; } = Scaled(scale: EnvScale());
@@ -277,6 +279,7 @@ public sealed record TimeoutPolicy(TimeSpan Hello, TimeSpan Connect, TimeSpan Tr
             : 1.0;
 }
 
+// --- [OPERATIONS] -----------------------------------------------------------------------
 public static class BridgeWire {
     public const string ReturnPrefix = BridgeMarker.Prefix + "return=";
     public const string Hello = "hello";
@@ -497,7 +500,7 @@ public static class BridgeWire {
     }
 }
 
-// --- [SERVICES] -------------------------------------------------------------------------
+// --- [OPERATIONS] -----------------------------------------------------------------------
 public sealed class PhaseStatusConverter : JsonConverter<PhaseStatus> {
     public override PhaseStatus Read(ref Utf8JsonReader reader, Type typeToConvert, JsonSerializerOptions options) =>
         reader.TokenType is JsonTokenType.String

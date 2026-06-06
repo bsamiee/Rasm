@@ -30,15 +30,15 @@ Each category folder owns one full Rhino concern. Capture native API capability 
 
 ## [4][ROUTING]
 
-| [INDEX] | [CONCERN]    | [OWNER]                                               |
-| :-----: | :----------- | :---------------------------------------------------- |
-|   [1]   | Watches      | root `Events.cs` and `WatchBus`                       |
-|   [2]   | Capture      | root `Capture.cs` and `CaptureRecipe`                 |
-|   [3]   | Commands     | `Commands/` input rails, `DocumentOp`, transactions   |
-|   [4]   | UI           | `UI/` intents, dispatch, overlays, motion, callbacks  |
-|   [5]   | Camera       | `Camera/` viewport, named-view, projection, capture   |
-|   [6]   | Blocks       | `Blocks/` ops, lifecycle, archive/link, graph, preview |
-|   [7]   | Exchange     | `Exchange/` import/export, sheet/detail, publish      |
+| [INDEX] | [CONCERN]    | [OWNER]                                                                                        |
+| :-----: | :----------- | :--------------------------------------------------------------------------------------------- |
+|   [1]   | Watches      | root `Events.cs` and `WatchBus`                                                                |
+|   [2]   | Capture      | root `Capture.cs` and `CaptureRecipe`                                                          |
+|   [3]   | Commands     | `Commands/` input rails, `DocumentOp`, transactions                                            |
+|   [4]   | UI           | `UI/` intents, dispatch, overlays, motion, callbacks                                           |
+|   [5]   | Camera       | `Camera/` viewport, named-view, projection, capture                                            |
+|   [6]   | Blocks       | `Blocks/` ops, lifecycle, archive/link, graph, preview                                         |
+|   [7]   | Exchange     | `Exchange/` import/export, sheet/detail, publish                                               |
 |   [8]   | Construction | production `Construction` owner where present; otherwise `Construction/ROADMAP.md` proof route |
 
 ## [5][UI_RULES]

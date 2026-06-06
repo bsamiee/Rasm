@@ -10,23 +10,23 @@ It is not a tensor wrapper, ONNX Runtime wrapper, gRPC wrapper, job framework, a
 
 ## [2][STATUS]
 
-| [INDEX] | [SURFACE]            | [STATE]                                                          |
-| :-----: | -------------------- | ---------------------------------------------------------------- |
-|   [1]   | Project file         | Create in Phase 0                                                |
-|   [2]   | Production API       | In progress                                                      |
-|   [3]   | Package references   | Add centrally in Phase 0                                         |
-|   [4]   | Compute substrate    | Rasm.Vectors default; ONNX Runtime model lane; gRPC remote lane  |
-|   [5]   | Performance evidence | Per measured input class                                         |
+| [INDEX] | [SURFACE]            | [STATE]                                                         |
+| :-----: | -------------------- | --------------------------------------------------------------- |
+|   [1]   | Project file         | Create in Phase 0                                               |
+|   [2]   | Production API       | In progress                                                     |
+|   [3]   | Package references   | Add centrally in Phase 0                                        |
+|   [4]   | Compute substrate    | Rasm.Vectors default; ONNX Runtime model lane; gRPC remote lane |
+|   [5]   | Performance evidence | Per measured input class                                        |
 
 Add packages centrally at the newest viable versions during Phase 0. Do not pin version numbers in documentation.
 
 ## [3][MANUAL]
 
-| [INDEX] | [FILE]             | [READ_FOR]                                                                              |
-| :-----: | ------------------ | --------------------------------------------------------------------------------------- |
-|   [1]   | `_ARCHITECTURE.md` | Type shapes, substrate selection, packages, boundary rules, failure model, measurement  |
-|   [2]   | `AGENTS.md`        | Build rules, boundary enforcement, and package rejections                               |
-|   [3]   | `ROADMAP.md`       | Build sequence and scoped lanes                                                         |
+| [INDEX] | [FILE]             | [READ_FOR]                                                                             |
+| :-----: | ------------------ | -------------------------------------------------------------------------------------- |
+|   [1]   | `_ARCHITECTURE.md` | Type shapes, substrate selection, packages, boundary rules, failure model, measurement |
+|   [2]   | `AGENTS.md`        | Build rules, boundary enforcement, and package rejections                              |
+|   [3]   | `ROADMAP.md`       | Build sequence and scoped lanes                                                        |
 
 ## [4][CONSTRAINTS]
 

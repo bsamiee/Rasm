@@ -493,6 +493,7 @@ public readonly record struct StreamBundlePolicy {
     }
 }
 
+// --- [OPERATIONS] -------------------------------------------------------------------------
 internal readonly record struct CurveBatch(Seq<Curve> Curves, Option<ScalarIsolineResult> ScalarIsoline, ExtractionReceipt Receipt);
 
 [StructLayout(LayoutKind.Auto)] internal readonly record struct ScalarIsolinePointKey(long X, long Y, long Z) { internal int Compare(ScalarIsolinePointKey other) => (X, Y, Z).CompareTo((other.X, other.Y, other.Z)); }

@@ -9,7 +9,7 @@ namespace Rasm.Rhino.Tests.Exchange;
 // pure-managed projections the walk feeds into: link validation, the count summary, and the sentinel->Option
 // rail (the same TextOption/GuidOption guards that absorb null File3dmObject members in the walk).
 
-// --- [CONSTANTS] ------------------------------------------------------------------------
+// --- [MODELS] ------------------------------------------------------------------------
 file static class Fixtures {
     internal static readonly FileArchiveSource Source = new FileArchiveSource.Path(
         Value: FileEndpoint.From(path: Path.Combine(Path.GetTempPath(), "rasm-archive-spec.3dm"))
@@ -23,7 +23,7 @@ file static class Fixtures {
             FileReferences: references, Entries: Seq<FileResourceEntry>(), Edges: Seq<FileResourceEdge>());
 }
 
-// --- [ALGEBRAIC] ------------------------------------------------------------------------
+// --- [OPERATIONS] ------------------------------------------------------------------------
 public sealed class FileResourceGraphLaws {
     [Fact]
     public void ValidateReportsOneBrokenLinkPerDistinctMissingResourceAcrossAllThreeChannels() {

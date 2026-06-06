@@ -3,7 +3,7 @@ using Rhino.Geometry;
 
 namespace Rasm.Tests.TestKit;
 
-// --- [LAWS] ---------------------------------------------------------------------------------
+// --- [OPERATIONS] ---------------------------------------------------------------------------------
 public sealed class ApproxLaws {
     [Fact]
     public void HybridToleranceCombinesAbsoluteAndRelativeMargins() {

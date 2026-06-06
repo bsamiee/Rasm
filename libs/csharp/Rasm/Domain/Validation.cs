@@ -45,18 +45,6 @@ public readonly partial struct Op {
     [BoundaryAdapter] public static Unit SideWhen(bool condition, Action action) => condition ? Side(action: action) : unit;
 }
 
-public static partial class OpExtensions {
-    [BoundaryAdapter]
-    public static Op OrDefault(this Op? key, [CallerMemberName] string name = "") =>
-        key ?? Op.Of(name: name);
-    [BoundaryAdapter]
-    public static Fin<TVO> AcceptValidated<TVO>(this Op op, double candidate) where TVO : IObjectFactory<TVO, double, ValidationError> =>
-        OpAcceptance.TryCreateValidated<TVO>(candidate: candidate).ToFin();
-    [BoundaryAdapter]
-    public static Fin<TVO> AcceptValidated<TVO>(this Op op, int candidate) where TVO : IObjectFactory<TVO, int, ValidationError> =>
-        OpAcceptance.TryCreateValidated<TVO>(candidate: candidate).ToFin();
-}
-
 // --- [MODELS] -----------------------------------------------------------------------------
 public sealed partial record Requirement {
     private static readonly Op Operand = Op.Of(name: nameof(Operand));
@@ -233,6 +221,18 @@ public static partial class FaultExtensions {
         Expected expected => expected.Category,
         _ => "Fault",
     };
+}
+
+public static partial class OpExtensions {
+    [BoundaryAdapter]
+    public static Op OrDefault(this Op? key, [CallerMemberName] string name = "") =>
+        key ?? Op.Of(name: name);
+    [BoundaryAdapter]
+    public static Fin<TVO> AcceptValidated<TVO>(this Op op, double candidate) where TVO : IObjectFactory<TVO, double, ValidationError> =>
+        OpAcceptance.TryCreateValidated<TVO>(candidate: candidate).ToFin();
+    [BoundaryAdapter]
+    public static Fin<TVO> AcceptValidated<TVO>(this Op op, int candidate) where TVO : IObjectFactory<TVO, int, ValidationError> =>
+        OpAcceptance.TryCreateValidated<TVO>(candidate: candidate).ToFin();
 }
 
 internal static class RequirementContext {

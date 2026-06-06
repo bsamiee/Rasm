@@ -7,15 +7,25 @@ namespace Rasm.Analysis;
 [SkipUnionOps]
 [Union]
 public partial record Locator {
-    public sealed record CurveParameter(double T) : Locator; public sealed record SurfaceParameter(Point2d Uv) : Locator; public sealed record ArcLength(double Distance) : Locator;
-    public sealed record ClosestTo(Point3d Probe) : Locator; public sealed record NormalizedMid : Locator; public sealed record PerpendicularParameters(Seq<double> Ts) : Locator;
+    public sealed record CurveParameter(double T) : Locator;
+    public sealed record SurfaceParameter(Point2d Uv) : Locator;
+    public sealed record ArcLength(double Distance) : Locator;
+    public sealed record ClosestTo(Point3d Probe) : Locator;
+    public sealed record NormalizedMid : Locator;
+    public sealed record PerpendicularParameters(Seq<double> Ts) : Locator;
 }
 
 [SkipUnionOps]
 [Union]
 public partial record LocationValue {
-    public sealed record PointCase : LocationValue; public sealed record FrameCase : LocationValue; public sealed record NormalCase : LocationValue; public sealed record TangentCase : LocationValue;
-    public sealed record CurvatureCase : LocationValue; public sealed record DerivativeCase(int Order) : LocationValue; public sealed record ParameterCase : LocationValue; public sealed record LengthCase : LocationValue;
+    public sealed record PointCase : LocationValue;
+    public sealed record FrameCase : LocationValue;
+    public sealed record NormalCase : LocationValue;
+    public sealed record TangentCase : LocationValue;
+    public sealed record CurvatureCase : LocationValue;
+    public sealed record DerivativeCase(int Order) : LocationValue;
+    public sealed record ParameterCase : LocationValue;
+    public sealed record LengthCase : LocationValue;
     public static LocationValue Point => new PointCase();
     public static LocationValue Frame => new FrameCase();
     public static LocationValue Normal => new NormalCase();
@@ -29,7 +39,8 @@ public partial record LocationValue {
 [SkipUnionOps]
 [Union]
 public partial record Division {
-    public sealed record ByCount(int Count) : Division; public sealed record ByLength(double Length) : Division;
+    public sealed record ByCount(int Count) : Division;
+    public sealed record ByLength(double Length) : Division;
 }
 
 [SkipUnionOps]
@@ -39,13 +50,16 @@ internal partial record CurvatureAggregation {
     public sealed record ExtremaCase(ExtremumDirection Direction) : CurvatureAggregation;
 }
 
-// --- [MODELS] -----------------------------------------------------------------------------
 [SkipUnionOps]
 [Union]
 public partial record Location : IAspect {
     public sealed record AtCase(Locator Locator, LocationValue Value) : LocationAspect;
-    public sealed record CurvatureSamplesCase(int Count, CurvatureMode Mode) : LocationAspect; public sealed record CurvatureExtremaCase(int Count, CurvatureMode Mode, ExtremumDirection Direction) : LocationAspect;
-    public sealed record DivideCase(Division By) : LocationAspect; public sealed record OrientationCase(Plane Plane) : LocationAspect; public sealed record ContainsCase(Point3d Probe, Plane Frame) : LocationAspect; public sealed record ShortPathCase(Point2d Start, Point2d End) : LocationAspect;
+    public sealed record CurvatureSamplesCase(int Count, CurvatureMode Mode) : LocationAspect;
+    public sealed record CurvatureExtremaCase(int Count, CurvatureMode Mode, ExtremumDirection Direction) : LocationAspect;
+    public sealed record DivideCase(Division By) : LocationAspect;
+    public sealed record OrientationCase(Plane Plane) : LocationAspect;
+    public sealed record ContainsCase(Point3d Probe, Plane Frame) : LocationAspect;
+    public sealed record ShortPathCase(Point2d Start, Point2d End) : LocationAspect;
     public static LocationAspect At(Locator at, LocationValue value) => new AtCase(Locator: at, Value: value);
     public static LocationAspect Curvature(int count, CurvatureMode mode) => new CurvatureSamplesCase(Count: count, Mode: mode);
     public static LocationAspect CurvatureExtrema(int count, CurvatureMode mode, ExtremumDirection direction) => new CurvatureExtremaCase(Count: count, Mode: mode, Direction: direction);
@@ -54,11 +68,21 @@ public partial record Location : IAspect {
     public static LocationAspect Orientation(Plane plane) => new OrientationCase(Plane: plane);
     public static LocationAspect Contains(Point3d point, Plane plane) => new ContainsCase(Probe: point, Frame: plane);
     public static LocationAspect ShortPath(Point2d start, Point2d end) => new ShortPathCase(Start: start, End: end);
-    internal static readonly Op TangentKey = Op.Of(name: "Tangent"); internal static readonly Op PointAtKey = Op.Of(name: "PointAt");
-    internal static readonly Op ClosestKey = Op.Of(name: "Closest"); internal static readonly Op ParameterAtKey = Op.Of(name: "ParameterAt");
-    internal static readonly Op FrameAtKey = Op.Of(name: "FrameAt"); internal static readonly Op PerpendicularFrameAtKey = Op.Of(name: "PerpendicularFrameAt"); internal static readonly Op CurvatureAtKey = Op.Of(name: "CurvatureAt"); internal static readonly Op DerivativeAtKey = Op.Of(name: "DerivativeAt");
-    internal static readonly Op DivideByCountKey = Op.Of(name: "DivideByCount"); internal static readonly Op DivideByLengthKey = Op.Of(name: "DivideByLength"); internal static readonly Op OrientationKey = Op.Of(name: "Orientation"); internal static readonly Op ContainsKey = Op.Of(name: "Contains");
-    internal static readonly Op NormalAtKey = Op.Of(name: "NormalAt"); internal static readonly Op ShortPathKey = Op.Of(name: "ShortPath"); internal static readonly Op LengthAtKey = Op.Of(name: "LengthAt");
+    internal static readonly Op TangentKey = Op.Of(name: "Tangent");
+    internal static readonly Op PointAtKey = Op.Of(name: "PointAt");
+    internal static readonly Op ClosestKey = Op.Of(name: "Closest");
+    internal static readonly Op ParameterAtKey = Op.Of(name: "ParameterAt");
+    internal static readonly Op FrameAtKey = Op.Of(name: "FrameAt");
+    internal static readonly Op PerpendicularFrameAtKey = Op.Of(name: "PerpendicularFrameAt");
+    internal static readonly Op CurvatureAtKey = Op.Of(name: "CurvatureAt");
+    internal static readonly Op DerivativeAtKey = Op.Of(name: "DerivativeAt");
+    internal static readonly Op DivideByCountKey = Op.Of(name: "DivideByCount");
+    internal static readonly Op DivideByLengthKey = Op.Of(name: "DivideByLength");
+    internal static readonly Op OrientationKey = Op.Of(name: "Orientation");
+    internal static readonly Op ContainsKey = Op.Of(name: "Contains");
+    internal static readonly Op NormalAtKey = Op.Of(name: "NormalAt");
+    internal static readonly Op ShortPathKey = Op.Of(name: "ShortPath");
+    internal static readonly Op LengthAtKey = Op.Of(name: "LengthAt");
     public Operation<TGeometry, TOut> Operation<TGeometry, TOut>() where TGeometry : notnull => Switch(
         atCase: static at => Analyze.LocatedValue<TGeometry, TOut>(locator: at.Locator, value: at.Value),
         curvatureSamplesCase: static cs => Analyze.CurvatureOp<TGeometry, TOut>(count: cs.Count, mode: cs.Mode, agg: new CurvatureAggregation.SamplesCase()),

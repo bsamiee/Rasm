@@ -5,7 +5,7 @@ using Requirement = Grasshopper2.Parameters.Requirement;
 
 namespace Rasm.Grasshopper.Tests.Components;
 
-// --- [CONSTANTS] ----------------------------------------------------------------------------
+// --- [MODELS] ----------------------------------------------------------------------------
 internal enum SampleEnum { First = 0, Second = 1 }
 [Flags]
 internal enum SampleFlagsEnum { First = 1, Second = 2 }

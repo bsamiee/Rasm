@@ -27,13 +27,13 @@ Call `Rasm.Vectors` for tensor, numeric, spectral, mesh, sampling, and projectio
 
 ## [4][BOUNDARY_RULES]
 
-| [INDEX] | [BOUNDARY]         | [RULE]                                                   |
-| :-----: | :----------------- | :------------------------------------------------------- |
-|   [1]   | `Rasm.Vectors`     | Owns algorithm bodies; Compute wraps and measures        |
-|   [2]   | `Rasm.AppHost`     | Owns scheduling, channel writer, retry, and drain        |
-|   [3]   | `Rasm.Compute`     | Owns substrate selection, receipts, and progress         |
-|   [4]   | `Rasm.AppUi`       | Owns UI observation and scheduling                       |
-|   [5]   | `Rasm.Persistence` | Owns persisted benchmarks, caches, and snapshots         |
+| [INDEX] | [BOUNDARY]         | [RULE]                                                                  |
+| :-----: | :----------------- | :---------------------------------------------------------------------- |
+|   [1]   | `Rasm.Vectors`     | Owns algorithm bodies; Compute wraps and measures                       |
+|   [2]   | `Rasm.AppHost`     | Owns scheduling, channel writer, retry, and drain                       |
+|   [3]   | `Rasm.Compute`     | Owns substrate selection, receipts, and progress                        |
+|   [4]   | `Rasm.AppUi`       | Owns UI observation and scheduling                                      |
+|   [5]   | `Rasm.Persistence` | Owns persisted benchmarks, caches, and snapshots                        |
 |   [6]   | Remote service     | Read shared-contracts owner where present; otherwise record a proof gap |
 
 ## [5][REJECTIONS]

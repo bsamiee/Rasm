@@ -30,13 +30,13 @@ Downstream code declares intent, ports, outputs, component specs, and UI request
 
 ## [4][BOUNDARY_RULES]
 
-| [INDEX] | [CONCERN]        | [RULE]                                                                                                             |
-| :-----: | :--------------- | :----------------------------------------------------------------------------------------------------------------- |
-|   [1]   | Components       | Own `ComponentSpec`, ports, output binding, conversion, diagnostics, and ownership transfer                        |
-|   [2]   | UI               | Own `IUiOp<TResult>`, intents, `DocumentMutation`, `WireOp`, undo, repaint, and snapshots                          |
-|   [3]   | `Rasm`           | Own computation kernel and analysis semantics                                                                      |
-|   [4]   | Bridge scenarios | Own successful GH2 runtime behavior                                                                                |
-|   [5]   | App code         | Stays a thin caller of component and UI rails                                                                      |
+| [INDEX] | [CONCERN]        | [RULE]                                                                                      |
+| :-----: | :--------------- | :------------------------------------------------------------------------------------------ |
+|   [1]   | Components       | Own `ComponentSpec`, ports, output binding, conversion, diagnostics, and ownership transfer |
+|   [2]   | UI               | Own `IUiOp<TResult>`, intents, `DocumentMutation`, `WireOp`, undo, repaint, and snapshots   |
+|   [3]   | `Rasm`           | Own computation kernel and analysis semantics                                               |
+|   [4]   | Bridge scenarios | Own successful GH2 runtime behavior                                                         |
+|   [5]   | App code         | Stays a thin caller of component and UI rails                                               |
 
 ## [5][REJECTIONS]
 

@@ -23,20 +23,6 @@ using ZoomThreshold = Grasshopper2.UI.ZoomThreshold;
 namespace Rasm.Grasshopper.UI;
 
 // --- [TYPES] ------------------------------------------------------------------------------
-internal static class MotionAccessibility {
-    internal static bool ShouldReduceMotion =>
-        NSWorkspace.SharedWorkspace.AccessibilityDisplayShouldReduceMotion;
-
-    internal static bool ShouldDifferentiateWithoutColor =>
-        NSWorkspace.SharedWorkspace.AccessibilityDisplayShouldDifferentiateWithoutColor;
-
-    internal static bool ShouldReduceTransparency =>
-        NSWorkspace.SharedWorkspace.AccessibilityDisplayShouldReduceTransparency;
-
-    internal static bool ShouldSkipDecorativeMotion =>
-        ShouldReduceMotion || ShouldDifferentiateWithoutColor || ShouldReduceTransparency;
-}
-
 // MessageLoop = Eto coalesced ~60Hz (default). DisplayLink = CADisplayLink vsync (macOS 14+).
 [SkipUnionOps]
 [Union]
@@ -758,7 +744,7 @@ public static class MotionVector {
             alpha: aMix);
     }
 
-    // --- [OKLAB CONVERSION] ----------------------------------------------------------------
+    // --- [OKLAB_CONVERSION] ----------------------------------------------------------------
     // Ottosson 2020 with CSS premultiplied alpha: transparent endpoints contribute no colour.
     private static Color OklabInterpolate(Color a, Color b, double factor) {
         (float la, float aa, float ba) = SrgbToOklab(a);
@@ -889,6 +875,20 @@ public static class Glyph {
 }
 
 // --- [SERVICES] ---------------------------------------------------------------------------
+internal static class MotionAccessibility {
+    internal static bool ShouldReduceMotion =>
+        NSWorkspace.SharedWorkspace.AccessibilityDisplayShouldReduceMotion;
+
+    internal static bool ShouldDifferentiateWithoutColor =>
+        NSWorkspace.SharedWorkspace.AccessibilityDisplayShouldDifferentiateWithoutColor;
+
+    internal static bool ShouldReduceTransparency =>
+        NSWorkspace.SharedWorkspace.AccessibilityDisplayShouldReduceTransparency;
+
+    internal static bool ShouldSkipDecorativeMotion =>
+        ShouldReduceMotion || ShouldDifferentiateWithoutColor || ShouldReduceTransparency;
+}
+
 public static class Motion {
     // Default retina backing scale when a screen cannot be resolved.
     private const float RetinaScaleDefault = 2f;

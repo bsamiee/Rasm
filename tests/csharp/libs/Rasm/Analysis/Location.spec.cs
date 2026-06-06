@@ -6,7 +6,7 @@ using LocationAspect = Rasm.Analysis.Location;
 
 namespace Rasm.Tests.Analysis;
 
-// --- [CONSTANTS] ----------------------------------------------------------------------------
+// --- [MODELS] ----------------------------------------------------------------------------
 // BRIDGE-DEFERRED: native curve/surface point, frame, curvature, division, and short-path evaluation; static owns locator/value union dispatch.
 internal static class LocationGens {
     public static readonly Point2d Uv = new(x: 0.25, y: 0.75);
@@ -24,7 +24,7 @@ internal static class LocationGens {
          ("ShortPath", LocationAspect.ShortPath(start: Uv, end: new Point2d(x: 0.8, y: 0.2)))];
 }
 
-// --- [ALGEBRAIC] ----------------------------------------------------------------------------
+// --- [OPERATIONS] ----------------------------------------------------------------------------
 public sealed class LocationUnionCatalogLaws {
     [Fact]
     public void LocatorFactoriesCarryDistinctPayloads() {
@@ -73,7 +73,7 @@ public sealed class LocationDispatchLaws {
             ("DivideByCount Mesh→Point3d", static () => LocationAspect.DivideByCount(count: 3).Operation<Mesh, Point3d>().IsSupported, false));
 }
 
-// --- [EDGE_CASES] ---------------------------------------------------------------------------
+// --- [OPERATIONS] ---------------------------------------------------------------------------
 public sealed class LocationRejectionRailLaws {
     [Fact]
     public void InvalidDerivativeAndNullAspectRejectBeforeNativeEvaluation() {

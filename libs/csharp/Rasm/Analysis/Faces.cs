@@ -2,11 +2,13 @@ using Rasm.Vectors;
 
 namespace Rasm.Analysis;
 
-// --- [MODELS] -----------------------------------------------------------------------------
+// --- [TYPES] ------------------------------------------------------------------------------
 [SkipUnionOps]
 [Union]
 public partial record Faces : IAspect {
-    public sealed record AllCase : Faces; public sealed record RankedCase(Vector3d Axis, ExtremumDirection Direction) : Faces; public sealed record AtCase(int? Value) : Faces;
+    public sealed record AllCase : Faces;
+    public sealed record RankedCase(Vector3d Axis, ExtremumDirection Direction) : Faces;
+    public sealed record AtCase(int? Value) : Faces;
     public static Faces All => new AllCase();
     public static Faces Top(Vector3d? axis = null) => new RankedCase(Axis: axis ?? Vector3d.ZAxis, Direction: ExtremumDirection.Maximum);
     public static Faces Bottom(Vector3d? axis = null) => new RankedCase(Axis: axis ?? Vector3d.ZAxis, Direction: ExtremumDirection.Minimum);

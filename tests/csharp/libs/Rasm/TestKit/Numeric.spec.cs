@@ -4,7 +4,7 @@ using Xunit.Sdk;
 
 namespace Rasm.Tests.TestKit;
 
-// --- [LAWS] ---------------------------------------------------------------------------------
+// --- [OPERATIONS] ---------------------------------------------------------------------------------
 public sealed class NumericLaws {
     [Fact]
     public void CentroidEqualsClosedFormAverageForAsymmetricTriangle() {

@@ -8,7 +8,7 @@ using Microsoft.CodeAnalysis.Operations;
 
 namespace Foundation.CSharp.Analyzers.Rules;
 
-// --- [TYPE_SHAPE_RULES] ------------------------------------------------------
+// --- [OPERATIONS] ------------------------------------------------------
 
 internal static class TypeShapeRules {
     // --- [PRIMITIVE_SHAPE] ----------------------------------------------------
@@ -433,7 +433,7 @@ internal static class TypeShapeRules {
         AnalyzerState.ReportEach(context.ReportDiagnostic, diagnostics);
     }
 
-    // --- [PRIVATE_FUNCTIONS] --------------------------------------------------
+    // --- [PRIVATE_OPERATIONS] -------------------------------------------------
 
     private static int RegisterFlags(AnalyzerState state, INamedTypeSymbol enumType) {
         state.TrackFlagsEnum(enumType: enumType);

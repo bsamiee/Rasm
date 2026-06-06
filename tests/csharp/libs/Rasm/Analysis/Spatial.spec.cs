@@ -5,7 +5,7 @@ using Rhino.Geometry;
 
 namespace Rasm.Tests.Analysis;
 
-// --- [CONSTANTS] ----------------------------------------------------------------------------
+// --- [MODELS] ----------------------------------------------------------------------------
 // BRIDGE-DEFERRED: native Tree.*; static owns Probe catalog, ValidatePoints, and PointPairs vs an independent sorted oracle.
 internal static class SpatialGens {
     public static readonly Op Key = Op.Of(name: "spatial-test");
@@ -21,7 +21,7 @@ internal static class SpatialGens {
             .OrderBy(static c => c.A).ThenBy(static c => c.B));
 }
 
-// --- [ALGEBRAIC] ----------------------------------------------------------------------------
+// --- [OPERATIONS] ----------------------------------------------------------------------------
 public sealed class ProbeUnionCatalogLaws {
     public static readonly (string Label, Probe Case)[] Cases =
         [("Nearest", Probe.Nearest(count: 5)), ("Within", Probe.Within(distance: 2.5))];

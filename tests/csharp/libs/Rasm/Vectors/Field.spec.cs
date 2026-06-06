@@ -6,7 +6,7 @@ using Rhino.Geometry;
 
 namespace Rasm.Tests.Vectors;
 
-// --- [CONSTANTS] ----------------------------------------------------------------------------
+// --- [MODELS] ----------------------------------------------------------------------------
 internal static class FieldGens {
     public static readonly Context Model = Spec.SuccValue(Context.Of(absolute: 0.001, relative: 1.0e-8, angle: 0.01, units: Rhino.UnitSystem.Millimeters).ToFin(), label: "field context");
     public static readonly Op Key = Op.Of(name: "field-test");
@@ -16,7 +16,7 @@ internal static class FieldGens {
     public static double Sum(Seq<double> xs) => xs.Fold(initialState: 0.0, f: static (acc, x) => acc + x);
 }
 
-// --- [ALGEBRAIC] ----------------------------------------------------------------------------
+// --- [OPERATIONS] ----------------------------------------------------------------------------
 public sealed class FieldBlendLaws {
     [Fact]
     public void KeysAreDistinct() =>

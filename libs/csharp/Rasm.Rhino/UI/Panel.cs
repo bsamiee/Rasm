@@ -9,8 +9,6 @@ using RhinoControls = Rhino.UI.Controls;
 namespace Rasm.Rhino.UI;
 
 // --- [TYPES] ------------------------------------------------------------------------------
-public readonly record struct PanelEvent(PanelEventKind Kind, Guid Id, Option<uint> DocumentSerial = default);
-
 [SmartEnum<int>]
 public sealed partial class PanelEventKind {
     public static readonly PanelEventKind None = new(key: 0, emit: static (_, _) => Fin.Fail<Unit>(error: Op.Of(name: nameof(PanelEventKind)).InvalidInput()));
@@ -200,6 +198,8 @@ public abstract record UiChromeOp<T> {
 }
 
 // --- [MODELS] -----------------------------------------------------------------------------
+public readonly record struct PanelEvent(PanelEventKind Kind, Guid Id, Option<uint> DocumentSerial = default);
+
 public readonly record struct PanelChromeSnapshot(
     Seq<(Guid Id, string Name, string Path, int GroupCount, int ToolbarCount)> Files,
     Seq<(Guid FileId, Guid GroupId, string Name, bool Visible, bool IsDocked)> Groups,

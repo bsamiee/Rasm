@@ -37,7 +37,7 @@ Context context = Probe.Expect(Context.Of(units: Rhino.UnitSystem.Millimeters).T
 static T Project<T>(Fin<VectorIntent> intent, Context context, Op key, string label) =>
     Probe.Expect(Probe.Expect(intent, $"{label}: intent").Project<T>(context: context, key: key), $"{label}: project");
 
-// --- [SCENARIO: vectors-spectral-dec] ---------------------------------------------------
+// --- [VECTORS_SPECTRAL_DEC] ---------------------------------------------------
 Scenario.Run("vectors-spectral-dec", CAPTURE_PATH, (key, facts) => {
     static Mesh DegenerateFaceMesh() {
         Mesh mesh = new();
@@ -163,7 +163,7 @@ Scenario.Run("vectors-spectral-dec", CAPTURE_PATH, (key, facts) => {
     facts.Add("log.vectorHeatBacked", logReceipt.VectorHeatBacked);
 });
 
-// --- [SCENARIO: vectors-spectral-descriptor] --------------------------------------------
+// --- [VECTORS_SPECTRAL_DESCRIPTOR] --------------------------------------------
 Scenario.Run("vectors-spectral-descriptor", CAPTURE_PATH, (key, facts) => {
     using Mesh native = Tetrahedron();
     MeshSpace space = Probe.Expect(MeshSpace.Of(native: native, context: context, key: key), "space");
@@ -202,7 +202,7 @@ Scenario.Run("vectors-spectral-descriptor", CAPTURE_PATH, (key, facts) => {
     facts.Add("spectral.waveWeightSum", wave.NormalizedWeightSum);
 });
 
-// --- [SCENARIO: vectors-spectral-edge-connection] ---------------------------------------
+// --- [VECTORS_SPECTRAL_EDGE_CONNECTION] ---------------------------------------
 Scenario.Run("vectors-spectral-edge-connection", CAPTURE_PATH, (key, facts) => {
     using Mesh native = OpenSquare();
     MeshSpace space = Probe.Expect(MeshSpace.Of(native: native, context: context, key: key), "space");

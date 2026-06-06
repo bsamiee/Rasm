@@ -6,7 +6,7 @@ using GhMotion = Grasshopper2.UI.Animation.Motion;
 
 namespace Rasm.Grasshopper.Tests.UI;
 
-// --- [CONSTANTS] ----------------------------------------------------------------------------
+// --- [MODELS] ----------------------------------------------------------------------------
 internal static class HandleGens {
     public static SpringHandle<float> Spring(float value, float velocity, float target) =>
         new(cell: Atom(new SpringRunnerState<float>(
@@ -25,7 +25,7 @@ internal static class HandleGens {
             wake: static () => { });
 }
 
-// --- [ALGEBRAIC] ----------------------------------------------------------------------------
+// --- [OPERATIONS] ----------------------------------------------------------------------------
 public sealed class SpringHandleConvergenceLaws {
     // Hand-classified rest oracle: convergence is physical rest — displacement AND velocity inside RestEpsilon.
     public static TheoryData<float, float, float, bool> Cases => new() {

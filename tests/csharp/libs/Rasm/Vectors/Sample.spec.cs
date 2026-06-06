@@ -5,7 +5,7 @@ using Rhino.Geometry;
 
 namespace Rasm.Tests.Vectors;
 
-// --- [CONSTANTS] ----------------------------------------------------------------------------
+// --- [MODELS] ----------------------------------------------------------------------------
 internal static class SampleGens {
     public static readonly Op Key = Op.Of(name: "sample-test");
     public static readonly Gen<int> PositiveInt = Gen.Int[start: 1, finish: 64];
@@ -37,7 +37,7 @@ internal static class SampleGens {
         Spec.SuccValue(VectorIntent.Sample(domain: Domain(cloud: cloud), kind: kind, key: Key), label: "sample intent");
 }
 
-// --- [ALGEBRAIC] ----------------------------------------------------------------------------
+// --- [OPERATIONS] ----------------------------------------------------------------------------
 public sealed class SampleKindFactoryLaws {
     [Fact]
     public void FactoriesGatePositiveDimensionsAndPreservePayloads() {

@@ -6,7 +6,7 @@ using Microsoft.CodeAnalysis.Text;
 
 namespace Foundation.CSharp.Analyzers.Generators;
 
-// --- [GENERATOR] --------------------------------------------------------------
+// --- [SERVICES] ----------------------------------------------------------------
 
 [Generator]
 public sealed class UnionOpsGenerator : IIncrementalGenerator {

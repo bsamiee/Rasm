@@ -5,7 +5,7 @@ using Rhino.Geometry;
 
 namespace Rasm.Tests.Analysis;
 
-// --- [CONSTANTS] ----------------------------------------------------------------------------
+// --- [MODELS] ----------------------------------------------------------------------------
 // BRIDGE-DEFERRED: native Intersection.* / Analyze.*; static owns result construction, CanProject, unordered:true Supports/Shape, CanSelfIntersect, CanDeviation.
 internal static class IntersectGens {
     public static readonly Op Key = Op.Of(name: "intersect-test");
@@ -31,7 +31,7 @@ internal static class IntersectGens {
     public static readonly IntersectionResult HitsCase = new IntersectionResult.Hits(Values: Hits);
 }
 
-// --- [ALGEBRAIC] ----------------------------------------------------------------------------
+// --- [OPERATIONS] ----------------------------------------------------------------------------
 public sealed class IntersectionResultProjectionLaws {
     [Fact]
     public void EachValuePayloadCaseProjectsItsNativeOutputVerbatimAndInOrder() {

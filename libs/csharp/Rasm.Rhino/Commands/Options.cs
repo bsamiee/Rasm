@@ -311,6 +311,7 @@ public abstract record CommandOption {
     }
 }
 
+// --- [MODELS] -----------------------------------------------------------------------------
 public readonly record struct CommandToken(string Raw) {
     public string Text => Optional(Raw).Map(static value => value.Trim()).IfNone(string.Empty);
 
@@ -384,7 +385,6 @@ public readonly record struct CommandToken(string Raw) {
         };
 }
 
-// --- [MODELS] -----------------------------------------------------------------------------
 public readonly record struct CommandOptionPolicy(
     string? ValueName = null,
     string? LocalName = null,

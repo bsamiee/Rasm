@@ -1,6 +1,6 @@
 namespace Foundation.CSharp.Analyzers.Contracts;
 
-// --- [ATTRIBUTES] ------------------------------------------------------------
+// --- [TYPES] ------------------------------------------------------------
 
 /// <summary>Marks a type or member as an imperative host/runtime boundary.</summary>
 [AttributeUsage(validOn: AttributeTargets.Class | AttributeTargets.Struct | AttributeTargets.Interface | AttributeTargets.Method, AllowMultiple = false, Inherited = false)]

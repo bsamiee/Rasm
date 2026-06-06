@@ -28,13 +28,28 @@ Avoid it for:
 ## [2][ARCHITECTURE]
 
 ```mermaid
-graph LR
+---
+config:
+  layout: elk
+  look: neo
+  theme: base
+  elk:
+    mergeEdges: false
+    nodePlacementStrategy: BRANDES_KOEPF
+    cycleBreakingStrategy: GREEDY_MODEL_ORDER
+---
+flowchart LR
+    accTitle: Rhino bridge command architecture
+    accDescr: The tools.quality bridge operator routes commands through the client, protocol, plugin, and RhinoWIP with RhinoCode; the client also owns dotnet build and MSBuild projection.
     Operator["tools.quality bridge"] --> Client["client"]
     Client --> Protocol["protocol"]
     Protocol --> Plugin["plugin"]
     Plugin --> Rhino["RhinoWIP + RhinoCode"]
     Client --> DotNet["dotnet build / MSBuild projection"]
 ```
+
+Text equivalent: `tools.quality bridge` routes commands into `client/`, then through `protocol/`, `plugin/`, and RhinoWIP with RhinoCode; the client also owns `dotnet build` and MSBuild projection.
+
 | [INDEX] | [LAYER]  | [PATH]                      | [ROLE]                                      |
 | :-----: | -------- | --------------------------- | ------------------------------------------- |
 |   [1]   | Operator | `tools.quality bridge`      | Route commands; build client; stage Yak txn |

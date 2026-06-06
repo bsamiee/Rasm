@@ -3,7 +3,7 @@ using Xunit.Sdk;
 
 namespace Rasm.Tests.TestKit;
 
-// --- [LAWS] ---------------------------------------------------------------------------------
+// --- [OPERATIONS] ---------------------------------------------------------------------------------
 public sealed class SpecHarnessLaws {
     [Fact]
     public void SupportMatrixReportsFalsePositiveAndFalseNegativeRows() {

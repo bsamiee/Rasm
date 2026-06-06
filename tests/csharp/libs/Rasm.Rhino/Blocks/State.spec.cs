@@ -11,7 +11,7 @@ using Rhino.Geometry;
 
 namespace Rasm.Rhino.Tests.Blocks;
 
-// --- [CONSTANTS] ------------------------------------------------------------------------
+// --- [MODELS] ------------------------------------------------------------------------
 internal static class BlockStateCases {
     public static readonly Op Key = Op.Of(name: "blocks-state-test");
     public static readonly (LayerStyle Layer, UpdatePolicy Update, bool Applies)[] LayerMatrix =
@@ -42,7 +42,7 @@ internal static class BlockStateCases {
             UseCountNested: 0);
 }
 
-// --- [ALGEBRAIC] ------------------------------------------------------------------------
+// --- [OPERATIONS] ------------------------------------------------------------------------
 public sealed class BlockPolicyLaws {
     [Fact]
     public void UpdateLayerAndLifecyclePoliciesAdmitOnlyNativeStates() {

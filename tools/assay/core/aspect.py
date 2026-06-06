@@ -59,6 +59,14 @@ class _AssayLogger(Protocol):
     def error(self, event: str, **kw: object) -> object: ...
 
 
+# --- [CONSTANTS] ------------------------------------------------------------------------
+
+_CONF = BeartypeConf(is_pep484_tower=True, strategy=BeartypeStrategy.O1)
+_TRACER = trace.get_tracer("assay.core")
+_ATTR_CAP = 256
+_RING: ContextVar[deque[str] | None] = ContextVar("assay_ring", default=None)
+
+
 # --- [ERRORS] ---------------------------------------------------------------------------
 
 
@@ -69,14 +77,6 @@ class Inversion(Exception):  # noqa: N818  # surfaced via TypeError, not an *Err
     outer: Slot
     inner: Slot
     depth: int
-
-
-# --- [CONSTANTS] ------------------------------------------------------------------------
-
-_CONF = BeartypeConf(is_pep484_tower=True, strategy=BeartypeStrategy.O1)
-_TRACER = trace.get_tracer("assay.core")
-_ATTR_CAP = 256
-_RING: ContextVar[deque[str] | None] = ContextVar("assay_ring", default=None)
 
 
 # --- [OPERATIONS] -----------------------------------------------------------------------
@@ -135,9 +135,6 @@ def _on_retry(details: RetryDetails) -> None:
     _log().warning(
         "retry.scheduled", attempt=details.retry_num, wait_for=details.wait_for, caused_by=type(details.caused_by).__name__, **get_contextvars()
     )
-
-
-set_on_retry_hooks([_on_retry])
 
 
 def _once[**P, T](dec: Callable[[Callable[P, T]], Callable[P, T]]) -> Callable[[Callable[P, T]], Callable[P, T]]:
@@ -312,6 +309,11 @@ def retried[**P, T](*, on: Hook = _transient, attempts: int = 3, timeout: float 
         Spawn layer tuple for the retried slot.
     """
     return (Slot.retried, _once(stamina.retry(on=on, attempts=attempts, timeout=timeout)))
+
+
+# --- [COMPOSITION] ----------------------------------------------------------------------
+
+set_on_retry_hooks([_on_retry])
 
 
 # --- [EXPORTS] --------------------------------------------------------------------------

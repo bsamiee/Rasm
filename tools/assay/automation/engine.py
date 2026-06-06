@@ -41,15 +41,6 @@ if TYPE_CHECKING:
 type Fire = Callable[[], Coroutine[None, None, None]]
 
 
-# --- [MODELS] ---------------------------------------------------------------------------
-
-
-class _RunState(msgspec.Struct, frozen=True, gc=False):
-    # Cron re-entry cell: ticks coalesce into `missed`, and single-task updates keep it lock-free.
-    running: bool = False
-    missed: int = 0
-
-
 # --- [CONSTANTS] ------------------------------------------------------------------------
 
 # The wire carries a string tag; this boundary resolves watchfiles filters and degrades unknown tags to DefaultFilter.
@@ -60,6 +51,15 @@ _PROGRAM_ROUTED: Routed = Routed(language=Language.PYTHON, scope=Scope.FULL)
 _ENCODER = msgspec.json.Encoder(order="deterministic")
 _LOG: structlog.stdlib.BoundLogger = structlog.get_logger("assay.automation")
 _JITTER_MS: int = 100
+
+
+# --- [MODELS] ---------------------------------------------------------------------------
+
+
+class _RunState(msgspec.Struct, frozen=True, gc=False):
+    # Cron re-entry cell: ticks coalesce into `missed`, and single-task updates keep it lock-free.
+    running: bool = False
+    missed: int = 0
 
 
 # --- [OPERATIONS] -----------------------------------------------------------------------

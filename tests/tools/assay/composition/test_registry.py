@@ -1,6 +1,6 @@
 """Registry: _emit one-Envelope guard, _distill Diagnostic, delta algebra, self_test bypass, parse_fault Envelope."""
 
-# --- [IMPORTS] ------------------------------------------------------------------------
+# --- [RUNTIME_PRELUDE] ------------------------------------------------------------------------
 
 from typing import TYPE_CHECKING
 
@@ -27,7 +27,7 @@ if TYPE_CHECKING:
 _WIRE = msgspec.json.Encoder(order="deterministic")
 
 
-# --- [HELPERS] -------------------------------------------------------------------------
+# --- [OPERATIONS] -------------------------------------------------------------------------
 
 
 def _make_envelope(run_id: str, claim: Claim = Claim.STATIC) -> Envelope:
@@ -47,7 +47,7 @@ def _pipe(store: ArtifactStore, run_ids: tuple[str, ...]) -> None:
         store.fs.pipe_file(f"{directory}/envelope.json", _WIRE.encode(_make_envelope(run_id)))
 
 
-# --- [PRIOR ORACLE] --------------------------------------------------------------------
+# --- [PRIOR_ORACLE] --------------------------------------------------------------------
 
 
 def test_prior_lexicographic_oracle() -> None:
@@ -59,7 +59,7 @@ def test_prior_lexicographic_oracle() -> None:
     assert not _prior((), "anything")
 
 
-# --- [LOAD_RUN ORACLE] -----------------------------------------------------------------
+# --- [LOAD_RUN_ORACLE] -----------------------------------------------------------------
 
 
 def test_load_run_corrupt_returns_none(mem_store: ArtifactStore) -> None:
@@ -79,7 +79,7 @@ def test_load_run_absent_returns_none(mem_store: ArtifactStore) -> None:
     assert _load_run(mem_store, "nonexistent-run-id") is None
 
 
-# --- [PERSIST / RETAIN / RELOAD / DELTA] -----------------------------------------------
+# --- [PERSIST_RETAIN_RELOAD_DELTA] -----------------------------------------------
 # E11: the full persist->retain(prune)->reload->delta round-trip over mem_store.
 
 

@@ -6,7 +6,7 @@ using Rhino.Geometry;
 
 namespace Rasm.Tests.Vectors;
 
-// --- [CONSTANTS] ----------------------------------------------------------------------------
+// --- [MODELS] ----------------------------------------------------------------------------
 // BRIDGE-DEFERRED: Vector3d native paths; static covers pure-managed surfaces below.
 internal static class AtomGens {
     public static readonly Op Key = Op.Of(name: "atoms-test");
@@ -21,7 +21,7 @@ internal static class AtomGens {
     public static readonly SignedAxis[] Axes = [SignedAxis.NegativeX, SignedAxis.PositiveX, SignedAxis.NegativeY, SignedAxis.PositiveY, SignedAxis.NegativeZ, SignedAxis.PositiveZ];
 }
 
-// --- [ALGEBRAIC] ----------------------------------------------------------------------------
+// --- [OPERATIONS] ----------------------------------------------------------------------------
 public sealed class VectorAngleProps {
     [Fact]
     public void ClosureRejectsOutsideUnitCircle() =>

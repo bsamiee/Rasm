@@ -7,6 +7,7 @@ public interface IAspect {
     public Operation<TGeometry, TOut> Operation<TGeometry, TOut>() where TGeometry : notnull;
 }
 
+// --- [MODELS] -----------------------------------------------------------------------------
 [BoundaryAdapter]
 public sealed record Env(Context Context, IProgress<double>? Progress, CancellationToken Cancellation) {
     public static readonly Eff<Env, Context> Asks = Eff.runtime<Env>().Map(static env => env.Context).As();

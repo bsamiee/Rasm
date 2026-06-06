@@ -10,13 +10,13 @@ It is not an Avalonia wrapper, ReactiveUI wrapper, Skia wrapper, charting wrappe
 
 ## [2][STATUS]
 
-| [INDEX] | [SURFACE]          | [STATE]                                          |
-| :-----: | ------------------ | ------------------------------------------------ |
-|   [1]   | Project file       | Present and in `Workspace.slnx`                  |
-|   [2]   | Production API     | In progress                                      |
+| [INDEX] | [SURFACE]          | [STATE]                                              |
+| :-----: | ------------------ | ---------------------------------------------------- |
+|   [1]   | Project file       | Present and in `Workspace.slnx`                      |
+|   [2]   | Production API     | In progress                                          |
 |   [3]   | Package references | Active direct; every pinned AppUi package referenced |
-|   [4]   | Runtime behavior   | Per host scenario                                |
-|   [5]   | Host evidence      | Owner-local receipts                             |
+|   [4]   | Runtime behavior   | Per host scenario                                    |
+|   [5]   | Host evidence      | Owner-local receipts                                 |
 
 `Rasm.AppUi.csproj` now anchors the folder for restore/build routing and references the AppUi matrix versionlessly. No package versions appear in AppUi docs; versions live exclusively in `Directory.Packages.props`.
 

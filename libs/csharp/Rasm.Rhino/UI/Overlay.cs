@@ -48,21 +48,32 @@ public abstract record InteractionStep<TState> {
 
 [SmartEnum<int>]
 public sealed partial class MousePhase {
-    public static readonly MousePhase
-        Move = new(key: 0, viewportNative: true, cancellable: true), MoveEnd = new(key: 1, viewportNative: true, cancellable: false), Down = new(key: 2, viewportNative: true, cancellable: true), DownEnd = new(key: 3, viewportNative: true, cancellable: false),
-        Up = new(key: 4, viewportNative: true, cancellable: true), UpEnd = new(key: 5, viewportNative: true, cancellable: false), DoubleClick = new(key: 6, viewportNative: true, cancellable: true), Enter = new(key: 7, viewportNative: true, cancellable: false),
-        Hover = new(key: 8, viewportNative: true, cancellable: false), Leave = new(key: 9, viewportNative: true, cancellable: false), Wheel = new(key: 10, viewportNative: false, cancellable: false);
+    public static readonly MousePhase Move = new(key: 0, viewportNative: true, cancellable: true);
+    public static readonly MousePhase MoveEnd = new(key: 1, viewportNative: true, cancellable: false);
+    public static readonly MousePhase Down = new(key: 2, viewportNative: true, cancellable: true);
+    public static readonly MousePhase DownEnd = new(key: 3, viewportNative: true, cancellable: false);
+    public static readonly MousePhase Up = new(key: 4, viewportNative: true, cancellable: true);
+    public static readonly MousePhase UpEnd = new(key: 5, viewportNative: true, cancellable: false);
+    public static readonly MousePhase DoubleClick = new(key: 6, viewportNative: true, cancellable: true);
+    public static readonly MousePhase Enter = new(key: 7, viewportNative: true, cancellable: false);
+    public static readonly MousePhase Hover = new(key: 8, viewportNative: true, cancellable: false);
+    public static readonly MousePhase Leave = new(key: 9, viewportNative: true, cancellable: false);
+    public static readonly MousePhase Wheel = new(key: 10, viewportNative: false, cancellable: false);
     public bool ViewportNative { get; }
     public bool Cancellable { get; }
 }
 
 [SmartEnum<int>]
 public sealed partial class OverlayPhase {
-    public static readonly OverlayPhase
-        Enabled = new(key: 0, draws: false, bounding: false), Cull = new(key: 1, draws: false, bounding: false),
-        PreDrawObjects = new(key: 2, draws: false, bounding: false), PreDrawObject = new(key: 3, draws: false, bounding: false),
-        Foreground = new(key: 4, draws: true, bounding: false), Overlay = new(key: 5, draws: true, bounding: false), PostDraw = new(key: 6, draws: true, bounding: false),
-        Bounds = new(key: 7, draws: false, bounding: true), ZoomBounds = new(key: 8, draws: false, bounding: true);
+    public static readonly OverlayPhase Enabled = new(key: 0, draws: false, bounding: false);
+    public static readonly OverlayPhase Cull = new(key: 1, draws: false, bounding: false);
+    public static readonly OverlayPhase PreDrawObjects = new(key: 2, draws: false, bounding: false);
+    public static readonly OverlayPhase PreDrawObject = new(key: 3, draws: false, bounding: false);
+    public static readonly OverlayPhase Foreground = new(key: 4, draws: true, bounding: false);
+    public static readonly OverlayPhase Overlay = new(key: 5, draws: true, bounding: false);
+    public static readonly OverlayPhase PostDraw = new(key: 6, draws: true, bounding: false);
+    public static readonly OverlayPhase Bounds = new(key: 7, draws: false, bounding: true);
+    public static readonly OverlayPhase ZoomBounds = new(key: 8, draws: false, bounding: true);
     public bool Draws { get; }
     public bool Bounding { get; }
 }

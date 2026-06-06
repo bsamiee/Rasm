@@ -5,7 +5,7 @@ using Rhino.Geometry;
 
 namespace Rasm.Tests.Analysis;
 
-// --- [CONSTANTS] ----------------------------------------------------------------------------
+// --- [MODELS] ----------------------------------------------------------------------------
 // BRIDGE-DEFERRED: native topology scalars; static owns Topologies/TopologyScalar catalogs, Operation dispatch, Euler V-E+F over MeshFixture.
 internal static class TopologyGens {
     public static readonly Op Key = Op.Of(name: "topology-test");
@@ -20,7 +20,7 @@ internal static class TopologyGens {
             .Distinct().Count;
 }
 
-// --- [ALGEBRAIC] ----------------------------------------------------------------------------
+// --- [OPERATIONS] ----------------------------------------------------------------------------
 public sealed class TopologyScalarCatalogLaws {
     [Fact]
     public void KeysAreContiguousAndOutputTypesArePinned() =>
@@ -117,7 +117,7 @@ public sealed class TopologyAspectDispatchLaws {
     }
 }
 
-// --- [EDGE_CASES] ---------------------------------------------------------------------------
+// --- [OPERATIONS] ---------------------------------------------------------------------------
 public sealed class EulerCharacteristicOracleLaws {
     // Independent Euler V-E+F over MeshFixture index data (production EulerOf is bridge-deferred).
     [Theory]

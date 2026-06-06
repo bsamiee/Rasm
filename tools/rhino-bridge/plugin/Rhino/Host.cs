@@ -1,5 +1,12 @@
 namespace Rasm.RhinoBridge.Rhino;
 
+// --- [MODELS] ---------------------------------------------------------------------------
+internal sealed record BridgeHostState(BridgeEndpoint? Endpoint, BridgeFault? Fault) {
+    internal bool IsOk => Endpoint is not null && Fault is null;
+    internal static BridgeHostState Ok(BridgeEndpoint endpoint) => new(Endpoint: endpoint, Fault: null);
+    internal static BridgeHostState Fail(string message) => new(Endpoint: null, Fault: BridgeFault.MessageOnly(category: "host", message: message));
+}
+
 // --- [COMPOSITION] ----------------------------------------------------------------------
 public sealed class Host : PlugIn {
     private static readonly Lock Sync = new();
@@ -60,12 +67,7 @@ public sealed class Host : PlugIn {
     }
 }
 
-internal sealed record BridgeHostState(BridgeEndpoint? Endpoint, BridgeFault? Fault) {
-    internal bool IsOk => Endpoint is not null && Fault is null;
-    internal static BridgeHostState Ok(BridgeEndpoint endpoint) => new(Endpoint: endpoint, Fault: null);
-    internal static BridgeHostState Fail(string message) => new(Endpoint: null, Fault: BridgeFault.MessageOnly(category: "host", message: message));
-}
-
+// --- [ENTRY] ----------------------------------------------------------------------------
 [System.Runtime.InteropServices.Guid("3A865BB4-0A47-4B4B-96BB-AE8B5E4ACDC1")]
 public sealed class RasmBridgeStart : Command {
     public override string EnglishName => nameof(RasmBridgeStart);

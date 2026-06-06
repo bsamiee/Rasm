@@ -3,7 +3,7 @@ using Rasm.Vectors;
 
 namespace Rasm.Analysis;
 
-// --- [MODELS] -----------------------------------------------------------------------------
+// --- [TYPES] ------------------------------------------------------------------------------
 [BoundaryAdapter, SmartEnum<int>]
 public sealed partial class ConformanceMetric {
     public static readonly ConformanceMetric Distance = new(key: 0, output: typeof(double), isSigned: false, isContainment: false, exactCurveDeviation: false);
@@ -38,6 +38,7 @@ public sealed partial class ConformanceMetric {
         };
 }
 
+// --- [MODELS] -----------------------------------------------------------------------------
 public sealed record Conformance {
     private Conformance(ConformanceMetric metric, int count, Seq<double> percentiles) {
         Metric = metric;

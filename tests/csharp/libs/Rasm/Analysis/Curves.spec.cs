@@ -5,7 +5,7 @@ using Rhino.Geometry;
 
 namespace Rasm.Tests.Analysis;
 
-// --- [CONSTANTS] ----------------------------------------------------------------------------
+// --- [MODELS] ----------------------------------------------------------------------------
 // BRIDGE-DEFERRED: native edge/iso/silhouette extraction; static owns Curves union, output dispatch, and unsupported rails.
 internal static class CurvesGens {
     public static readonly Vector3d Direction = new(x: 1.0, y: -2.0, z: 3.0);
@@ -17,7 +17,7 @@ internal static class CurvesGens {
          ("At", Curves.At(index: 2)), ("Form", Curves.Form(index: 3))];
 }
 
-// --- [ALGEBRAIC] ----------------------------------------------------------------------------
+// --- [OPERATIONS] ----------------------------------------------------------------------------
 public sealed class CurvesUnionCatalogLaws {
     [Fact]
     public void FactoriesProjectBoundedCasesAndCarryDistinctPayloads() {
@@ -65,7 +65,7 @@ public sealed class CurvesDispatchLaws {
             ("All Mesh→CurveForm", static () => Curves.All.Operation<Mesh, CurveForm>().IsSupported, false));
 }
 
-// --- [EDGE_CASES] ---------------------------------------------------------------------------
+// --- [OPERATIONS] ---------------------------------------------------------------------------
 public sealed class CurvesRejectionRailLaws {
     [Fact]
     public void NullAspectAndForeignOutputRejectBeforeNativeEvaluation() {

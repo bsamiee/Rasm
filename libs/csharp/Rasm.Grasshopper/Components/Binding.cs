@@ -154,12 +154,10 @@ internal readonly record struct Hints(Seq<(Port Port, int Slot)> Inputs) {
         Inputs.Find(predicate: input => string.Equals(a: input.Port.Code, b: port.Code, comparisonType: StringComparison.Ordinal) && input.Port.Kind == port.Kind).Map(static input => input.Slot);
 }
 
-// --- [SERVICES] ---------------------------------------------------------------------------
+// --- [OPERATIONS] -------------------------------------------------------------------------
 internal static class Output {
-    // --- [MODELS] -----------------------------------------------------------------------------
     private readonly record struct Projection<T>(Seq<Flow<T>> Values, Seq<Fault.Unsupported> Unsupported);
 
-    // --- [OPERATIONS] -------------------------------------------------------------------------
     internal static Unit Write(IDataAccess access, GrasshopperRuntime runtime, Seq<OutputBinding> bindings, Hints outputs) {
         Seq<OutputBinding> active = bindings.Filter(binding => outputs.Slot(port: binding.Port).IsSome);
         Seq<Port> inputs = active.Map(static binding => binding.Input).Distinct().ToSeq();

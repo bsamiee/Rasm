@@ -8,7 +8,7 @@ using ArchitectureGraph = ArchUnitNET.Domain.Architecture;
 
 namespace Rasm.Architecture.Tests;
 
-// --- [CONSTANTS] --------------------------------------------------------------------------
+// --- [MODELS] --------------------------------------------------------------------------
 internal static class ArchitectureModel {
     public const string CoreAssembly = "^Rasm,";
     public const string MaterialsAssembly = "^Rasm\\.Materials,";
@@ -24,7 +24,7 @@ internal static class ArchitectureModel {
         .Build();
 }
 
-// --- [ALGEBRAIC] --------------------------------------------------------------------------
+// --- [OPERATIONS] --------------------------------------------------------------------------
 public sealed class AssemblyBoundaryLaws {
     [Fact]
     public void CoreDoesNotDependOnBoundaryLibraries() =>

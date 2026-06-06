@@ -1,6 +1,6 @@
 namespace Rasm.TestingTools.Tests;
 
-// --- [ALGEBRAIC] --------------------------------------------------------------------------
+// --- [OPERATIONS] --------------------------------------------------------------------------
 public sealed class TestingRailSnapshotLaws {
     [Fact]
     public Task TestingRailManifestIsStableAsync() =>

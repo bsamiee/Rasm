@@ -8,11 +8,11 @@ using Microsoft.CodeAnalysis.Operations;
 
 namespace Foundation.CSharp.Analyzers.Dispatch;
 
-// --- [DISPATCH] --------------------------------------------------------------
+// --- [OPERATIONS] --------------------------------------------------------------
 
 internal static class AnalyzerDispatcher {
 
-    // --- [SYMBOL_DISPATCH] ----------------------------------------------------
+    // --- [SYMBOL_DISPATCH] -----------------------------------------------------
     internal static void Run(SymbolAnalysisContext context, AnalyzerState state) {
         ScopeInfo scope = state.ScopeFor(symbol: context.Symbol);
         switch ((scope.IsAnalyzable, context.Symbol)) {
@@ -64,7 +64,7 @@ internal static class AnalyzerDispatcher {
         }
     }
 
-    // --- [OPERATION_DISPATCH] -------------------------------------------------
+    // --- [OPERATION_DISPATCH] --------------------------------------------------
 
     internal static void Run(OperationAnalysisContext context, AnalyzerState state) {
         ScopeInfo scope = state.ScopeFor(symbol: context.ContainingSymbol);
@@ -163,7 +163,7 @@ internal static class AnalyzerDispatcher {
         }
     }
 
-    // --- [SYNTAX_DISPATCH] ---------------------------------------------------
+    // --- [SYNTAX_DISPATCH] -----------------------------------------------------
 
     internal static void Run(SyntaxNodeAnalysisContext context, AnalyzerState state) {
         ScopeInfo scope = context.ContainingSymbol switch {
@@ -185,7 +185,7 @@ internal static class AnalyzerDispatcher {
         }
     }
 
-    // --- [COMPILATION_DISPATCH] ----------------------------------------------
+    // --- [COMPILATION_DISPATCH] ------------------------------------------------
 
     internal static void Run(CompilationAnalysisContext context, AnalyzerState state) {
         ShapeRules.ReportInterfacePollution(context, state);

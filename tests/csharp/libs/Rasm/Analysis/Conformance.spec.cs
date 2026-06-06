@@ -5,7 +5,7 @@ using Rhino.Geometry;
 
 namespace Rasm.Tests.Analysis;
 
-// --- [CONSTANTS] ----------------------------------------------------------------------------
+// --- [MODELS] ----------------------------------------------------------------------------
 // BRIDGE-DEFERRED: native Conformance apply; static owns metric catalog, AcceptsTarget oracle, factory dispatch, Project over ResidualSamples.
 internal static class ConformanceGens {
     public static readonly Op Key = Op.Of(name: "conformance-test");
@@ -31,7 +31,7 @@ internal static class ConformanceGens {
     public static readonly bool[] CurveSources = [true, false];
 }
 
-// --- [ALGEBRAIC] ----------------------------------------------------------------------------
+// --- [OPERATIONS] ----------------------------------------------------------------------------
 public sealed class ConformanceMetricCatalogLaws {
     [Fact]
     public void KeysAreContiguousAndOutputTypesAreNonUniformPerCase() =>
@@ -119,7 +119,7 @@ public sealed class ConformanceRejectCategoryLaws {
     }
 }
 
-// --- [EDGE_CASES] ---------------------------------------------------------------------------
+// --- [OPERATIONS] ---------------------------------------------------------------------------
 public sealed class ConformanceProjectionOracleLaws {
     // INDEPENDENT ORACLE over hand-built ResidualSamples (purely managed Stat.Residuals fold; no native).
     [Fact]

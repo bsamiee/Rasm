@@ -31,6 +31,21 @@ from tools.assay.core.routing import Routed, Scope
 from tools.assay.core.status import RailStatus
 
 
+# --- [CONSTANTS] ------------------------------------------------------------------------
+
+_CLIENT_PROJECT: Final[str] = "tools/rhino-bridge/client/Rasm.RhinoBridge.Client.csproj"
+_PLUGIN_PROJECT: Final[str] = "tools/rhino-bridge/plugin/Rasm.RhinoBridge.Plugin.csproj"
+_PROTOCOL_PROJECT: Final[str] = "tools/rhino-bridge/protocol/Rasm.RhinoBridge.Protocol.csproj"
+_SCENARIO_SUFFIX: Final[str] = ".verify.csx"
+_SCENARIO_TIMEOUT_S: Final[float] = 180.0
+_VERIFY_TTL_S: Final[float] = 300.0
+_VERIFY_DIR: Final[str] = "verify"
+_PATH_GLYPHS: Final[str] = "/*?["
+_EXECUTE_PHASE: Final[str] = "execute"
+_STDOUT_SOURCE: Final[str] = "stdout"
+_STDERR_SOURCE: Final[str] = "stderr"
+
+
 # --- [MODELS] ---------------------------------------------------------------------------
 
 
@@ -88,19 +103,7 @@ class _BridgeResult(msgspec.Struct, frozen=True, gc=False, omit_defaults=True, r
     phases: tuple[_BridgePhase, ...] = ()
 
 
-# --- [CONSTANTS] ------------------------------------------------------------------------
-
-_CLIENT_PROJECT: Final[str] = "tools/rhino-bridge/client/Rasm.RhinoBridge.Client.csproj"
-_PLUGIN_PROJECT: Final[str] = "tools/rhino-bridge/plugin/Rasm.RhinoBridge.Plugin.csproj"
-_PROTOCOL_PROJECT: Final[str] = "tools/rhino-bridge/protocol/Rasm.RhinoBridge.Protocol.csproj"
-_SCENARIO_SUFFIX: Final[str] = ".verify.csx"
-_SCENARIO_TIMEOUT_S: Final[float] = 180.0
-_VERIFY_TTL_S: Final[float] = 300.0
-_VERIFY_DIR: Final[str] = "verify"
-_PATH_GLYPHS: Final[str] = "/*?["
-_EXECUTE_PHASE: Final[str] = "execute"
-_STDOUT_SOURCE: Final[str] = "stdout"
-_STDERR_SOURCE: Final[str] = "stderr"
+# --- [TABLES] ---------------------------------------------------------------------------
 
 _RESULT_DECODER: Final[msgspec.json.Decoder[_BridgeResult]] = msgspec.json.Decoder(_BridgeResult, strict=False)
 
@@ -145,9 +148,6 @@ def _client_run(settings: AssaySettings, *args: str, timeout: float | None = Non
     check = _client_check(settings, *args)
     deadline = time.monotonic() + timeout if timeout is not None else None
     return run_check(check, settings=settings, scope=None, routed=_routed(), deadline=deadline)
-
-
-# --- [GROUPS] ---------------------------------------------------------------------------
 
 
 def _exceptions(result: _BridgeResult) -> int:
@@ -218,10 +218,6 @@ def _run_scenario(settings: AssaySettings, report_dir: Path, scenario: Path) -> 
                 completed=receipt(fault.argv, 1, status=RailStatus.FAILED),
             )
 
-
-# --- [DISCOVERY] ------------------------------------------------------------------------
-
-
 def _discover(settings: AssaySettings, pattern: str) -> tuple[Path, ...]:
     # Discover by direct file, directory scan, then worktree glob; empty is UNSUPPORTED, not Faulted.
     root = Path(str(settings.root))  # scenario discovery globs the local worktree; UPath -> Path at the boundary
@@ -244,10 +240,6 @@ def _glob(root: Path, pattern: str) -> tuple[Path, ...]:
     # Bare tokens expand to recursive worktree globs.
     normalized = pattern if any(glyph in pattern for glyph in _PATH_GLYPHS) else f"**/{pattern}"
     return tuple(sorted(p.resolve() for p in root.glob(normalized) if p.is_file() and p.name.endswith(_SCENARIO_SUFFIX)))
-
-
-# --- [RETENTION] ------------------------------------------------------------------------
-
 
 def _expire_stale(report_dir: Path, ttl_s: float) -> None:
     # Expire before launch so housekeeping cannot race freshly written scenario JSON.

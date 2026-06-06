@@ -240,6 +240,7 @@ public readonly record struct TuftedLaplacianReceipt(MeshLaplacian Kind, int Ori
 
 [BoundaryAdapter, StructLayout(LayoutKind.Auto)] public readonly record struct VolumeGridReceipt(BoundingBox Bounds, int Resolution, int XNodes, int YNodes, int ZNodes, double CellSize, double Padding, int NodeCount, int CellCount, int SourceTriangleCount, int DegenerateTriangleCount, double SourceArea, int InsideNodeCount, int OutsideNodeCount, int NearSurfaceNodeCount, int RejectedVectorCount, double HeatTime, int GaugeNode, double SurfaceShift, VolumeInterpolation Interpolation, VolumeBoundaryCondition BoundaryCondition, VolumeSolverPolicy Solver, int OperatorNonZeros, Option<int> FactorNonZeros, double Residual);
 
+// --- [OPERATIONS] -------------------------------------------------------------------------
 internal readonly record struct BoundarySignedHeatKey(SignedHeatTime Heat, VolumeSolverPolicy Solver);
 
 internal readonly record struct BoundarySignedHeatSource(Arr<double> Rhs, Seq<int> SourceVertices, int EncodedEdgeSourceCount, int RejectedBoundaryPointCount, int UnmatchedBoundarySegmentCount);
@@ -384,7 +385,6 @@ internal readonly record struct VolumeGridDomain(BoundingBox Bounds, int Resolut
     internal Point3d PointAt(int x, int y, int z) => new(x: Bounds.Min.X + (x * CellSize), y: Bounds.Min.Y + (y * CellSize), z: Bounds.Min.Z + (z * CellSize));
 }
 
-// --- [OPERATIONS] -------------------------------------------------------------------------
 internal static class MeshKernel {
     private const double DegenerateTriangleArea = 1e-14;
     private const double AspectRatioCeiling = 11.5;

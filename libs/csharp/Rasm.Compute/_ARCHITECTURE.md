@@ -5,13 +5,27 @@
 ## [1][BUILD_STATUS]
 
 ```mermaid
+---
+config:
+  layout: elk
+  look: neo
+  theme: base
+  elk:
+    mergeEdges: false
+    nodePlacementStrategy: BRANDES_KOEPF
+    cycleBreakingStrategy: GREEDY_MODEL_ORDER
+---
 flowchart LR
+    accTitle: Rasm Compute measured execution boundary
+    accDescr: Compute intent enters Rasm Compute, which wraps Rasm.Vectors algorithms, model execution, and companion remote compute while AppHost owns the channel and executor.
     Request["Compute intent"] --> Compute["Rasm.Compute"]
     Compute --> Vectors["Rasm.Vectors (TensorPrimitives, algorithms)"]
     Compute --> Model["ONNX Runtime, CoreML EP (model lane)"]
     Compute --> Remote["gRPC companion compute (remote lane)"]
     AppHost["Rasm.AppHost (Channel + executor)"] --> Compute
 ```
+
+Text equivalent: compute intent enters `Rasm.Compute`; Compute wraps `Rasm.Vectors` algorithms, model execution, and companion remote compute, while `Rasm.AppHost` owns the channel and executor that call into Compute.
 
 | [INDEX] | [ITEM]             | [STATE]                  |
 | :-----: | ------------------ | ------------------------ |

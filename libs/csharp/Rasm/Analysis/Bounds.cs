@@ -2,7 +2,7 @@ using Rasm.Vectors;
 
 namespace Rasm.Analysis;
 
-// --- [MODELS] -----------------------------------------------------------------------------
+// --- [TYPES] ------------------------------------------------------------------------------
 [SkipUnionOps]
 [Union]
 public partial record Bounds : IAspect {

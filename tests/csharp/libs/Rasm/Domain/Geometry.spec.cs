@@ -4,13 +4,15 @@ using Rhino.Geometry;
 
 namespace Rasm.Tests.Domain;
 
-// --- [CONSTANTS] ----------------------------------------------------------------------------
+// --- [MODELS] ----------------------------------------------------------------------------
 // BRIDGE-DEFERRED: native GeometryKernel/coercion/closest; static owns Kind/Topology catalogs, capability lattice, IntersectionHit construction.
 internal static class GeometryGens {
     public static readonly Op Key = Op.Of(name: "geometry-test");
     // Distinct per-channel values so a Start<->End or OverlapA<->OverlapB swap is observable.
-    public static readonly Point3d Start = new(x: 2.0, y: 3.0, z: 5.0), End = new(x: 7.0, y: 11.0, z: 13.0);
-    public static readonly Interval OverlapA = new(t0: 17.0, t1: 19.0), OverlapB = new(t0: 23.0, t1: 29.0);
+    public static readonly Point3d Start = new(x: 2.0, y: 3.0, z: 5.0);
+    public static readonly Point3d End = new(x: 7.0, y: 11.0, z: 13.0);
+    public static readonly Interval OverlapA = new(t0: 17.0, t1: 19.0);
+    public static readonly Interval OverlapB = new(t0: 23.0, t1: 29.0);
     public static readonly Gen<IntersectionHit> PointHit = Gens.Point.Where(static p => p.IsValid).Select(
         Gen.OneOfConst(IntersectionTangency.Transversal, IntersectionTangency.Tangent, IntersectionTangency.Unknown),
         static (Point3d p, IntersectionTangency t) => IntersectionHit.At(point: p, tangency: t));
@@ -41,7 +43,7 @@ internal static class GeometryGens {
         type == typeof(Line) || type == typeof(Polyline) || type == typeof(BoundingBox) || type == typeof(Box) || type == typeof(Brep) || type == typeof(Mesh) || type == typeof(SubD);
 }
 
-// --- [ALGEBRAIC] ----------------------------------------------------------------------------
+// --- [OPERATIONS] ----------------------------------------------------------------------------
 public sealed class KindCatalogLaws {
     [Fact]
     public void CatalogKeysAreUniqueAndDenselyCoverZeroToTwenty() {

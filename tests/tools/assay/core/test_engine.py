@@ -1,6 +1,6 @@
 """Core executor laws: lease algebra, _stale PID-reuse, _decode_owner tamper, _drain tail cap, INPROC thunk."""
 
-# --- [IMPORTS] ------------------------------------------------------------------------
+# --- [RUNTIME_PRELUDE] ------------------------------------------------------------------------
 
 from contextlib import aclosing
 import os
@@ -77,7 +77,7 @@ _STALE_CASES: tuple[tuple[_ProcKw, bool], ...] = (
 )
 
 
-# --- [DRAIN HELPERS] -------------------------------------------------------------------
+# --- [DRAIN_ADAPTERS] -------------------------------------------------------------------
 # ByteReceiveStream adapter for anyio.create_memory_object_stream[bytes]: bridges the ObjectReceiveStream
 # (no max_bytes arg) to the ByteReceiveStream protocol that _drain requires. No cursor hand-rolling —
 # backing store is fully owned by anyio's memory channel.
@@ -122,7 +122,7 @@ async def _byte_stream(chunks: list[bytes]) -> _MemBytesStream:
     return _MemBytesStream(recv)
 
 
-# --- [ALGEBRAIC] -----------------------------------------------------------------------
+# --- [OPERATIONS] -----------------------------------------------------------------------
 
 
 @given(binary(max_size=512))
@@ -144,7 +144,7 @@ def test_decode_owner_malformed_is_none() -> None:
     assert _decode_owner(b'{"resource": "x", "pid": "not-an-int"}') is None
 
 
-# --- [PSUTIL ORACLE] -------------------------------------------------------------------
+# --- [PSUTIL_ORACLE] -------------------------------------------------------------------
 
 
 @pytest.mark.parametrize("proc_kw,expected", _STALE_CASES)
@@ -157,7 +157,7 @@ def test_stale_oracle(proc_kw: _ProcKw, expected: bool, monkeypatch: pytest.Monk
     assert _stale(owner, tolerance=1.0) is expected
 
 
-# --- [SPLICE ORACLE] -------------------------------------------------------------------
+# --- [SPLICE_ORACLE] -------------------------------------------------------------------
 
 
 @pytest.mark.parametrize(
@@ -261,7 +261,7 @@ def test_inproc_successful_thunk_yields_rc0() -> None:
     assert done.stdout == b"ok"
 
 
-# --- [TOTAL SLOT] ----------------------------------------------------------------------
+# --- [TOTAL_SLOT] ----------------------------------------------------------------------
 
 
 def test_total_none_slot_yields_timeout_fault() -> None:
@@ -307,7 +307,7 @@ def test_governed_cpu_cap(cpu_count: int, max_checks: int, expected: int, monkey
     assert _governed(settings) == expected
 
 
-# --- [DRAIN TAIL CAP] ------------------------------------------------------------------
+# --- [DRAIN_TAIL_CAP] ------------------------------------------------------------------
 
 
 @given(binary(min_size=0, max_size=4096))
@@ -341,7 +341,7 @@ def test_drain_none_stream_returns_empty() -> None:
     assert result == b""
 
 
-# --- [OTEL SPAN RESOURCE] --------------------------------------------------------------
+# --- [OTEL_SPAN_RESOURCE] --------------------------------------------------------------
 
 
 def test_otel_span_carries_mem_rss_attribute(assay_root: AssayHarness, otel_spans: InMemorySpanExporter, monkeypatch: pytest.MonkeyPatch) -> None:
@@ -419,7 +419,7 @@ def test_exclusive_lease_stale_steal(assay_root: AssayHarness, monkeypatch: pyte
         assert result.is_ok(), f"stale-steal should succeed, got: {result}"
 
 
-# --- [SSH STREAMING] -------------------------------------------------------------------
+# --- [SSH_STREAMING] -------------------------------------------------------------------
 
 
 @pytest.mark.anyio

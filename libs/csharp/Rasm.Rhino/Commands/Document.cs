@@ -535,9 +535,20 @@ public readonly record struct DocumentReceipt {
 
 [SmartEnum<int>]
 public sealed partial class DocumentReceiptSlot {
-    public static readonly DocumentReceiptSlot Created = new(key: 0, label: "created"), Replaced = new(key: 1, label: "replaced"), Deleted = new(key: 2, label: "deleted"), Transformed = new(key: 3, label: "transformed");
-    public static readonly DocumentReceiptSlot Selected = new(key: 4, label: "selected"), Unselected = new(key: 5, label: "unselected"), Hidden = new(key: 6, label: "hidden"), Locked = new(key: 7, label: "locked"), Flashed = new(key: 8, label: "flashed");
-    public static readonly DocumentReceiptSlot Attributes = new(key: 9, label: "attributes"), Lifecycle = new(key: 10, label: "lifecycle"), Resources = new(key: 11, label: "resources"), Undo = new(key: 12, label: "undo"), CustomUndo = new(key: 13, label: "custom undo");
+    public static readonly DocumentReceiptSlot Created = new(key: 0, label: "created");
+    public static readonly DocumentReceiptSlot Replaced = new(key: 1, label: "replaced");
+    public static readonly DocumentReceiptSlot Deleted = new(key: 2, label: "deleted");
+    public static readonly DocumentReceiptSlot Transformed = new(key: 3, label: "transformed");
+    public static readonly DocumentReceiptSlot Selected = new(key: 4, label: "selected");
+    public static readonly DocumentReceiptSlot Unselected = new(key: 5, label: "unselected");
+    public static readonly DocumentReceiptSlot Hidden = new(key: 6, label: "hidden");
+    public static readonly DocumentReceiptSlot Locked = new(key: 7, label: "locked");
+    public static readonly DocumentReceiptSlot Flashed = new(key: 8, label: "flashed");
+    public static readonly DocumentReceiptSlot Attributes = new(key: 9, label: "attributes");
+    public static readonly DocumentReceiptSlot Lifecycle = new(key: 10, label: "lifecycle");
+    public static readonly DocumentReceiptSlot Resources = new(key: 11, label: "resources");
+    public static readonly DocumentReceiptSlot Undo = new(key: 12, label: "undo");
+    public static readonly DocumentReceiptSlot CustomUndo = new(key: 13, label: "custom undo");
 
     public string Label { get; }
     public bool TracksObjects => this != Resources && this != Undo && this != CustomUndo;

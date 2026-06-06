@@ -4,7 +4,7 @@ using Rasm.Vectors;
 
 namespace Rasm.Tests.Vectors;
 
-// --- [CONSTANTS] ----------------------------------------------------------------------------
+// --- [MODELS] ----------------------------------------------------------------------------
 internal static class MatrixGens {
     public static readonly Op Key = Op.Of(name: "matrix-test");
     public static readonly Func<double, double, bool> Approx = Gens.Approx(relativeTolerance: 1.0e-7);
@@ -42,7 +42,7 @@ internal static class MatrixGens {
     });
 }
 
-// --- [ALGEBRAIC] ----------------------------------------------------------------------------
+// --- [OPERATIONS] ----------------------------------------------------------------------------
 public sealed class MatrixCoreLaws {
     [Fact]
     public void OfRejectsCountMismatchAndNonFinite() {

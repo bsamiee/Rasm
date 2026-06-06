@@ -14,7 +14,7 @@ Context context = Probe.Expect(Context.Of(units: Rhino.UnitSystem.Millimeters).T
 static T Project<T>(Fin<VectorIntent> intent, Context context, Op key, string label) =>
     Probe.Expect(Probe.Expect(intent, $"{label}: intent").Project<T>(context: context, key: key), $"{label}: project");
 
-// --- [SCENARIO: vectors-field-sdf-isosurface] -------------------------------------------
+// --- [VECTORS_FIELD_SDF_ISOSURFACE] -------------------------------------------
 Scenario.Run("vectors-field-sdf-isosurface", CAPTURE_PATH, (key, facts) => {
     BoundingBox isoBounds = new(min: new Point3d(-6.0, -6.0, -6.0), max: new Point3d(6.0, 6.0, 6.0));
     BoundingBox nonCubicBounds = new(min: new Point3d(-4.0, -2.0, -1.0), max: new Point3d(4.0, 2.0, 1.0));
@@ -140,7 +140,7 @@ Scenario.Run("vectors-field-sdf-isosurface", CAPTURE_PATH, (key, facts) => {
     facts.Add("sampleCount", sampleCount);
 });
 
-// --- [SCENARIO: vectors-atoms-frame] ----------------------------------------------------
+// --- [VECTORS_ATOMS_FRAME] ----------------------------------------------------
 Scenario.Run("vectors-atoms-frame", CAPTURE_PATH, (key, facts) => {
     Direction x = Probe.Expect(Direction.Of(value: new Vector3d(x: 4.0, y: 0.0, z: 0.0), context: context, key: key), "direction x");
     Vector3d axisX = Probe.Expect(Probe.Expect(VectorIntent.Axis(axis: SignedAxis.PositiveX, key: key), "axis intent").Project<Vector3d>(context: context, key: key), "axis x");
@@ -178,7 +178,7 @@ Scenario.Run("vectors-atoms-frame", CAPTURE_PATH, (key, facts) => {
     facts.Add("contourPlaneAccepted", contourPlaneAccepted);
 });
 
-// --- [SCENARIO: vectors-space-projection] -----------------------------------------------
+// --- [VECTORS_SPACE_PROJECTION] -----------------------------------------------
 Scenario.Run("vectors-space-projection", CAPTURE_PATH, (key, facts) => {
     SupportSpace sphere = Probe.Expect(SupportSpace.Of(value: new Sphere(Point3d.Origin, 5.0), key: key), "sphere support");
     Point3d sample = new(x: 7.0, y: 0.0, z: 0.0);

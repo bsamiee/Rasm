@@ -1,6 +1,6 @@
 """RailStatus algebra: join/fold oracle, severity ordering, from_returncode table, alias contract."""
 
-# --- [IMPORTS] ------------------------------------------------------------------------
+# --- [RUNTIME_PRELUDE] ------------------------------------------------------------------------
 
 from hypothesis import given
 from hypothesis.strategies import lists, sampled_from
@@ -25,7 +25,7 @@ _FROM_RC: tuple[tuple[int, RailStatus], ...] = (
 )
 
 
-# --- [ALGEBRAIC] -----------------------------------------------------------------------
+# --- [OPERATIONS] -----------------------------------------------------------------------
 
 
 @given(sampled_from(_ALL), sampled_from(_ALL))
@@ -91,7 +91,7 @@ def test_fold_associativity(members: list[RailStatus]) -> None:
     assert fold(*members).severity == join(left_half, right_half).severity
 
 
-# --- [EDGE_CASES] -----------------------------------------------------------------------
+# --- [OPERATIONS] -----------------------------------------------------------------------
 
 
 @pytest.mark.parametrize("rc,expected", _FROM_RC)

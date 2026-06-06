@@ -3,7 +3,7 @@ using Rhino.Geometry;
 
 namespace Rasm.Tests.TestKit;
 
-// --- [LAWS] ---------------------------------------------------------------------------------
+// --- [OPERATIONS] ---------------------------------------------------------------------------------
 public sealed class GeometrySerializerLaws {
     private static readonly GeometrySerializer Serializer = new();
 

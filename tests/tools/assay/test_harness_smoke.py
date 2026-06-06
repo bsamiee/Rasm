@@ -6,7 +6,7 @@ engine's ``_run_remote`` (the lone network-marked / ``socket_enabled`` law), the
 JSON decodes defensively, and ``ab_diff`` returns both operator Envelopes.
 """
 
-# --- [IMPORTS] ------------------------------------------------------------------------
+# --- [RUNTIME_PRELUDE] ------------------------------------------------------------------------
 
 from pathlib import Path
 from typing import TYPE_CHECKING

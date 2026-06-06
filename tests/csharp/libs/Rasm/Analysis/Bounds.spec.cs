@@ -5,7 +5,7 @@ using Rhino.Geometry;
 
 namespace Rasm.Tests.Analysis;
 
-// --- [CONSTANTS] ----------------------------------------------------------------------------
+// --- [MODELS] ----------------------------------------------------------------------------
 // Runtime boundary: native Bounds evaluation belongs to scenarios; static owns catalog, factories, and pre-Apply rejection.
 internal static class BoundsGens {
     // Copy a World basis + managed Origin setter; new Plane(origin, normal) axis derivation P/Invokes.
@@ -16,7 +16,7 @@ internal static class BoundsGens {
     public const int Count = 137;
 }
 
-// --- [ALGEBRAIC] ----------------------------------------------------------------------------
+// --- [OPERATIONS] ----------------------------------------------------------------------------
 public sealed class BoundsUnionCatalogLaws {
     public static readonly (string Label, Bounds Aspect)[] Cases =
         [("AxisAligned", Bounds.AxisAligned), ("Oriented", Bounds.Oriented(plane: BoundsGens.Pose)),
@@ -149,7 +149,7 @@ public sealed class BoundsManagedProjectionLaws {
     }
 }
 
-// --- [EDGE_CASES] ---------------------------------------------------------------------------
+// --- [OPERATIONS] ---------------------------------------------------------------------------
 public sealed class BoundsRejectionRailLaws {
     // Reject rail pre-native: foreign output -> Unsupported pair; null aspect -> Input via Reject(InvalidInput).
     [Fact]

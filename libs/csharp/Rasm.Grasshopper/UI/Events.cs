@@ -848,7 +848,6 @@ internal static partial class Events {
     private static GrasshopperUiIntent<Subscription> SubscribePaint(CanvasPaintPhase phase, Func<PaintScope, Fin<Unit>> handler, MotionClock? clock) =>
         Paint.Hook(phase: phase, paint: handler, clock: clock ?? MotionClock.MessageLoop);
 
-    // --- [OPERATIONS] -------------------------------------------------------------------------
     private static GrasshopperUiIntent<Subscription> SubscribeCanvas(CanvasEvent kind, Func<CanvasEventSnapshot, Fin<Unit>> handler) =>
         GhUi.Canvas(run: scope =>
             from canvas in scope.NeedCanvas()

@@ -110,6 +110,9 @@ _PROBE_LOCKED: Final[tuple[tuple[tuple[str, ...], str], ...]] = (
 _ENVELOPE_DECODER: Final[msgspec.json.Decoder[Envelope]] = msgspec.json.Decoder(Envelope)
 
 
+# --- [OPERATIONS] -----------------------------------------------------------------------
+
+
 def _identity_hom(*_a: object, **_k: object) -> Result[Report, Fault]:
     return Ok(None)  # type: ignore[arg-type]  # ty: ignore[invalid-return-type]  # the probe never inspects the value; Ok(None) stands in for any Report
 
@@ -120,48 +123,6 @@ def _correlate(settings: AssaySettings, _scope: ArtifactScope, params: object) -
 
 def _checked_rail(fn: Handler[object]) -> Handler[object]:
     return beartype(conf=_CONF)(fn)
-
-
-# compose sorts by Slot; rails use checked/logged/traced without spawn retry.
-_RAIL_LAYERS: Final[tuple[Layer[[AssaySettings, ArtifactScope, object], Report], ...]] = (
-    (Slot.checked, _checked_rail),
-    logged(event="rail", keys=_correlate),
-    traced(span="assay.rail", attrs=_correlate),
-)
-
-REGISTRY: Final[tuple[Bind, ...]] = (
-    Bind(Claim.STATIC, "fix", static_rail.fix, StaticParams, "Format, style, analyzer autofix."),
-    Bind(Claim.STATIC, "report", static_rail.report, StaticParams, "Non-mutating diagnostics."),
-    Bind(Claim.STATIC, "build", static_rail.build, StaticParams, "Closure-leased restore + build + analyzers."),
-    Bind(Claim.STATIC, "full", static_rail.full, StaticParams, "Workspace.slnx parity; Debug+Release."),
-    Bind(Claim.STATIC, "plan", static_rail.plan, StaticParams, "Owners, triggers, closure into notes."),
-    Bind(Claim.CODE, "search", code_rail.search, CodeParams, "Search: $-metavar -> ast-grep structural; literal -> ripgrep content."),
-    Bind(Claim.CODE, "rewrite", code_rail.rewrite, CodeParams, "Structural rewrite preview; --apply writes under lease."),
-    Bind(Claim.CODE, "query", code_rail.query, CodeParams, "AST query via tree-sitter (in-process)."),
-    Bind(Claim.TEST, "run", test_rail.run, TestParams, "Unit + coverage + mutation fold."),
-    Bind(Claim.TEST, "list", test_rail.list, TestParams, "Bounded discovery JSON."),
-    Bind(Claim.TEST, "coverage", test_rail.coverage, TestParams, "Coverlet json + cobertura."),
-    Bind(Claim.BRIDGE, "verify", bridge_rail.verify, BridgeParams, "Live RhinoWIP scenario fold."),
-    Bind(Claim.BRIDGE, "doctor", bridge_rail.doctor, BridgeParams, "Bridge host health."),
-    Bind(Claim.BRIDGE, "launch", bridge_rail.launch, BridgeParams, "Start RhinoWIP under lease."),
-    Bind(Claim.BRIDGE, "quit", bridge_rail.quit, BridgeParams, "Clean Cocoa terminate."),
-    Bind(Claim.BRIDGE, "check", bridge_rail.check, BridgeParams, "Liveness probe."),
-    Bind(Claim.BRIDGE, "clean", bridge_rail.clean, BridgeParams, "Clear crash markers + autosave."),
-    Bind(Claim.BRIDGE, "build", bridge_rail.build, BridgeParams, "Compile rasm-bridge plugin."),
-    Bind(Claim.PACKAGE, "stage", package_rail.stage, PackageParams, "Yak stage commit under lease."),
-    Bind(Claim.PACKAGE, "deploy", package_rail.deploy, PackageParams, "Yak install to live host."),
-    Bind(Claim.PACKAGE, "publish", package_rail.publish, PackageParams, "Yak push to server."),
-    Bind(Claim.PACKAGE, "list", package_rail.list, PackageParams, "Staged + published manifests."),
-    Bind(Claim.PACKAGE, "plan", package_rail.plan, PackageParams, "Stage plan into notes."),
-    Bind(Claim.API, "doctor", api_rail.doctor, ApiParams, "Host/NuGet/tool health; --strict -> FAULTED."),
-    Bind(Claim.API, "resolve", api_rail.resolve, ApiParams, "Asset path resolution."),
-    Bind(Claim.API, "query", api_rail.query, ApiParams, "Polymorphic ilspy surface; fingerprint cache."),
-    Bind(Claim.API, "show", api_rail.show, ApiParams, "Artifact preview."),
-    Bind(Claim.DOCS, "check", docs_rail.check, DocsParams, "Markdown + Mermaid validation."),
-)
-
-
-# --- [OPERATIONS] -----------------------------------------------------------------------
 
 
 def _bound(params: object, claim: Claim, verb: str) -> Result[object, Fault]:
@@ -355,6 +316,44 @@ def _guard(thunk: Callable[[], Result[Report, Fault]]) -> Result[Report, Fault]:
 
 
 # --- [COMPOSITION] ----------------------------------------------------------------------
+
+# compose sorts by Slot; rails use checked/logged/traced without spawn retry.
+_RAIL_LAYERS: Final[tuple[Layer[[AssaySettings, ArtifactScope, object], Report], ...]] = (
+    (Slot.checked, _checked_rail),
+    logged(event="rail", keys=_correlate),
+    traced(span="assay.rail", attrs=_correlate),
+)
+
+REGISTRY: Final[tuple[Bind, ...]] = (
+    Bind(Claim.STATIC, "fix", static_rail.fix, StaticParams, "Format, style, analyzer autofix."),
+    Bind(Claim.STATIC, "report", static_rail.report, StaticParams, "Non-mutating diagnostics."),
+    Bind(Claim.STATIC, "build", static_rail.build, StaticParams, "Closure-leased restore + build + analyzers."),
+    Bind(Claim.STATIC, "full", static_rail.full, StaticParams, "Workspace.slnx parity; Debug+Release."),
+    Bind(Claim.STATIC, "plan", static_rail.plan, StaticParams, "Owners, triggers, closure into notes."),
+    Bind(Claim.CODE, "search", code_rail.search, CodeParams, "Search: $-metavar -> ast-grep structural; literal -> ripgrep content."),
+    Bind(Claim.CODE, "rewrite", code_rail.rewrite, CodeParams, "Structural rewrite preview; --apply writes under lease."),
+    Bind(Claim.CODE, "query", code_rail.query, CodeParams, "AST query via tree-sitter (in-process)."),
+    Bind(Claim.TEST, "run", test_rail.run, TestParams, "Unit + coverage + mutation fold."),
+    Bind(Claim.TEST, "list", test_rail.list, TestParams, "Bounded discovery JSON."),
+    Bind(Claim.TEST, "coverage", test_rail.coverage, TestParams, "Coverlet json + cobertura."),
+    Bind(Claim.BRIDGE, "verify", bridge_rail.verify, BridgeParams, "Live RhinoWIP scenario fold."),
+    Bind(Claim.BRIDGE, "doctor", bridge_rail.doctor, BridgeParams, "Bridge host health."),
+    Bind(Claim.BRIDGE, "launch", bridge_rail.launch, BridgeParams, "Start RhinoWIP under lease."),
+    Bind(Claim.BRIDGE, "quit", bridge_rail.quit, BridgeParams, "Clean Cocoa terminate."),
+    Bind(Claim.BRIDGE, "check", bridge_rail.check, BridgeParams, "Liveness probe."),
+    Bind(Claim.BRIDGE, "clean", bridge_rail.clean, BridgeParams, "Clear crash markers + autosave."),
+    Bind(Claim.BRIDGE, "build", bridge_rail.build, BridgeParams, "Compile rasm-bridge plugin."),
+    Bind(Claim.PACKAGE, "stage", package_rail.stage, PackageParams, "Yak stage commit under lease."),
+    Bind(Claim.PACKAGE, "deploy", package_rail.deploy, PackageParams, "Yak install to live host."),
+    Bind(Claim.PACKAGE, "publish", package_rail.publish, PackageParams, "Yak push to server."),
+    Bind(Claim.PACKAGE, "list", package_rail.list, PackageParams, "Staged + published manifests."),
+    Bind(Claim.PACKAGE, "plan", package_rail.plan, PackageParams, "Stage plan into notes."),
+    Bind(Claim.API, "doctor", api_rail.doctor, ApiParams, "Host/NuGet/tool health; --strict -> FAULTED."),
+    Bind(Claim.API, "resolve", api_rail.resolve, ApiParams, "Asset path resolution."),
+    Bind(Claim.API, "query", api_rail.query, ApiParams, "Polymorphic ilspy surface; fingerprint cache."),
+    Bind(Claim.API, "show", api_rail.show, ApiParams, "Artifact preview."),
+    Bind(Claim.DOCS, "check", docs_rail.check, DocsParams, "Markdown + Mermaid validation."),
+)
 
 _ENCODER: Final = msgspec.json.Encoder(order="deterministic")
 

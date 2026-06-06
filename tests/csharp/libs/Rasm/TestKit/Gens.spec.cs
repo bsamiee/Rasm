@@ -3,7 +3,7 @@ using Rhino;
 
 namespace Rasm.Tests.TestKit;
 
-// --- [LAWS] ---------------------------------------------------------------------------------
+// --- [OPERATIONS] ---------------------------------------------------------------------------------
 public sealed class GeneratorLaws {
     [Fact]
     public void PlaneGeneratorsUseManagedOrthonormalBases() =>

@@ -3,14 +3,14 @@ using Rasm.TestKit;
 
 namespace Rasm.Grasshopper.Tests.UI;
 
-// --- [CONSTANTS] ----------------------------------------------------------------------------
+// --- [MODELS] ----------------------------------------------------------------------------
 internal static class SubscriptionGens {
     public static readonly Op Key = Op.Of(name: "subscription-test");
     public static readonly Gen<int> Tag = Gen.Int[0, 1000];
     public static Subscription Of(int tag, IList<int> log) => Subscription.Atom(detach: () => log.Add(item: tag));
 }
 
-// --- [ALGEBRAIC] ----------------------------------------------------------------------------
+// --- [OPERATIONS] ----------------------------------------------------------------------------
 public sealed class SubscriptionMonoidLaws {
     [Fact]
     public void LeftIdentity() =>

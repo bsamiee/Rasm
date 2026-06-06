@@ -12,15 +12,23 @@ internal abstract partial record EdgeDescriptor {
     public sealed record OfLoop(BrepLoopType LoopType) : EdgeDescriptor;
 }
 
-// --- [MODELS] -----------------------------------------------------------------------------
 [SkipUnionOps]
 [Union]
 public partial record Curves : IAspect {
-    public sealed record EdgesCase(Option<CurveFeature> Kind) : Curves; public sealed record SegmentsCase(bool Smooth) : Curves; public sealed record IsoCase(IsoStatus Direction, double Normalized) : Curves; public sealed record SilhouetteCase(Vector3d? Direction, Option<double> DraftAngle) : Curves; public sealed record AtCase(int? Value) : Curves; public sealed record FormCase(int? Index = null) : Curves;
-    public static Curves All => new EdgesCase(Kind: Option<CurveFeature>.None); public static Curves Boundary => new EdgesCase(Kind: Some(CurveFeature.Boundary));
-    public static Curves NakedOuter => new EdgesCase(Kind: Some(CurveFeature.NakedOuter)); public static Curves NakedInner => new EdgesCase(Kind: Some(CurveFeature.NakedInner));
-    public static Curves Interior => new EdgesCase(Kind: Some(CurveFeature.Interior)); public static Curves NonManifold => new EdgesCase(Kind: Some(CurveFeature.NonManifold));
-    public static Curves OuterLoop => new EdgesCase(Kind: Some(CurveFeature.OuterLoop)); public static Curves InnerLoop => new EdgesCase(Kind: Some(CurveFeature.InnerLoop));
+    public sealed record EdgesCase(Option<CurveFeature> Kind) : Curves;
+    public sealed record SegmentsCase(bool Smooth) : Curves;
+    public sealed record IsoCase(IsoStatus Direction, double Normalized) : Curves;
+    public sealed record SilhouetteCase(Vector3d? Direction, Option<double> DraftAngle) : Curves;
+    public sealed record AtCase(int? Value) : Curves;
+    public sealed record FormCase(int? Index = null) : Curves;
+    public static Curves All => new EdgesCase(Kind: Option<CurveFeature>.None);
+    public static Curves Boundary => new EdgesCase(Kind: Some(CurveFeature.Boundary));
+    public static Curves NakedOuter => new EdgesCase(Kind: Some(CurveFeature.NakedOuter));
+    public static Curves NakedInner => new EdgesCase(Kind: Some(CurveFeature.NakedInner));
+    public static Curves Interior => new EdgesCase(Kind: Some(CurveFeature.Interior));
+    public static Curves NonManifold => new EdgesCase(Kind: Some(CurveFeature.NonManifold));
+    public static Curves OuterLoop => new EdgesCase(Kind: Some(CurveFeature.OuterLoop));
+    public static Curves InnerLoop => new EdgesCase(Kind: Some(CurveFeature.InnerLoop));
     public static Curves Segments(bool smooth = false) => new SegmentsCase(Smooth: smooth);
     public static Curves Iso(IsoStatus direction, double normalized = 0.5) => new IsoCase(Direction: direction, Normalized: normalized);
     public static Curves Silhouette(Vector3d? direction = null) => new SilhouetteCase(Direction: direction, DraftAngle: Option<double>.None);

@@ -5,13 +5,13 @@ using Rhino.Geometry;
 
 namespace Rasm.Tests.Analysis;
 
-// --- [CONSTANTS] ----------------------------------------------------------------------------
+// --- [MODELS] ----------------------------------------------------------------------------
 // BRIDGE-DEFERRED: native MeshSample/Metric; static owns Meshes catalog, sample/metric metadata, Group partition oracle, Operation dispatch pre-native.
 internal static class MeshGens {
     public static readonly Op Key = Op.Of(name: "mesh-test");
 }
 
-// --- [ALGEBRAIC] ----------------------------------------------------------------------------
+// --- [OPERATIONS] ----------------------------------------------------------------------------
 public sealed class MeshSampleGroupCatalogLaws {
     [Fact]
     public void KeysArePinnedLabelsMatchAndOnlyDefectInspects() {

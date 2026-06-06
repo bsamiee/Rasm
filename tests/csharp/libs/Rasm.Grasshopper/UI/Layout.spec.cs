@@ -3,7 +3,7 @@ using Rasm.TestKit;
 
 namespace Rasm.Grasshopper.Tests.UI;
 
-// --- [CONSTANTS] ----------------------------------------------------------------------------
+// --- [MODELS] ----------------------------------------------------------------------------
 internal static class LayoutGens {
     public static readonly Gen<float> Coord = Gen.Double[start: -1.0e4, finish: 1.0e4].Select(static (double d) => (float)d);
     public static readonly Gen<float> Extent = Gen.Double[start: 0.0, finish: 1.0e4].Select(static (double d) => (float)d);
@@ -13,7 +13,7 @@ internal static class LayoutGens {
     public static readonly Gen<Guid> Id = Gen.Int.Select(static (int _) => Guid.NewGuid());
 }
 
-// --- [ALGEBRAIC] ----------------------------------------------------------------------------
+// --- [OPERATIONS] ----------------------------------------------------------------------------
 // LayoutAxis is the projection both ComputeCursor and ComputeStretch fold over. Oracle: the geometric
 // definition of each axis (origin = leading edge, span = extent, delta = single-axis move to the cursor).
 public sealed class LayoutAxisLaws {

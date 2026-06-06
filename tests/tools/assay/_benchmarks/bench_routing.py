@@ -4,7 +4,7 @@ Perf mandate: routing a single .py path fans <= py-language tools (correctness, 
 Proportionality: place() over k=10 and k=20 synthetic .py files; ratio large/small <= 3.0.
 """
 
-# --- [IMPORTS] ------------------------------------------------------------------------
+# --- [RUNTIME_PRELUDE] ------------------------------------------------------------------------
 
 import time
 from typing import Protocol, TYPE_CHECKING

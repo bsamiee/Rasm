@@ -38,7 +38,17 @@ public abstract partial record PageNav {
 
 [SmartEnum<int>]
 public sealed partial class PagePhase {
-    public static readonly PagePhase Apply = new(0), Cancel = new(1), Activate = new(2), Script = new(3), Display = new(4), Update = new(5), Modify = new(6), Defaults = new(7), Help = new(8), CreateParent = new(9), SizeParent = new(10);
+    public static readonly PagePhase Apply = new(0);
+    public static readonly PagePhase Cancel = new(1);
+    public static readonly PagePhase Activate = new(2);
+    public static readonly PagePhase Script = new(3);
+    public static readonly PagePhase Display = new(4);
+    public static readonly PagePhase Update = new(5);
+    public static readonly PagePhase Modify = new(6);
+    public static readonly PagePhase Defaults = new(7);
+    public static readonly PagePhase Help = new(8);
+    public static readonly PagePhase CreateParent = new(9);
+    public static readonly PagePhase SizeParent = new(10);
 }
 
 // --- [MODELS] -----------------------------------------------------------------------------

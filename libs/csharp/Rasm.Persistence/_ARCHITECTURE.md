@@ -5,7 +5,19 @@
 ## [1][BUILD_STATUS]
 
 ```mermaid
+---
+config:
+  layout: elk
+  look: neo
+  theme: base
+  elk:
+    mergeEdges: false
+    nodePlacementStrategy: BRANDES_KOEPF
+    cycleBreakingStrategy: GREEDY_MODEL_ORDER
+---
 flowchart LR
+    accTitle: Rasm Persistence durable-state boundary
+    accDescr: AppHost schedules durable work and AppUi observes state through Rasm Persistence, which owns the SQLite store and support artifacts while the kernel and GH2 solve paths stay isolated from store calls.
     AppHost["Rasm.AppHost (scheduler)"] --> Persistence["Rasm.Persistence (store)"]
     AppUi["Rasm.AppUi (UI)"] --> Persistence
     Persistence --> SQLite["SQLite local store"]
@@ -13,6 +25,8 @@ flowchart LR
     Rasm["Rasm kernel"] -. "no EF/SQLite refs" .- Persistence
     GH["GH2 solve paths"] -. "no store calls" .- Persistence
 ```
+
+Text equivalent: `Rasm.AppHost` schedules durable work and `Rasm.AppUi` observes state through `Rasm.Persistence`; Persistence owns the SQLite local store and support artifacts, while the `Rasm` kernel and GH2 solve paths stay isolated from EF, SQLite, and store calls.
 
 | [INDEX] | [ITEM]        | [STATE]                  |
 | :-----: | ------------- | ------------------------ |

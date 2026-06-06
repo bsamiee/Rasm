@@ -14,14 +14,6 @@ using IOFileInfo = System.IO.FileInfo;
 
 namespace Rasm.Rhino.Exchange;
 
-internal static partial class PublishTokens {
-    [GeneratedRegex(
-        pattern: "\\{(?<key>[^{}]+)\\}",
-        options: RegexOptions.CultureInvariant | RegexOptions.ExplicitCapture,
-        matchTimeoutMilliseconds: 250)]
-    internal static partial Regex Pattern { get; }
-}
-
 // --- [TYPES] ------------------------------------------------------------------------------
 [Union(SwitchMapStateParameterName = "ctx")]
 public abstract partial record FilePublishTarget {
@@ -525,4 +517,13 @@ internal readonly partial record struct PdfStampContext(int PageIndex, int PageC
             string => string.Empty,
         });
     }
+}
+
+// --- [OPERATIONS] -------------------------------------------------------------------------
+internal static partial class PublishTokens {
+    [GeneratedRegex(
+        pattern: "\\{(?<key>[^{}]+)\\}",
+        options: RegexOptions.CultureInvariant | RegexOptions.ExplicitCapture,
+        matchTimeoutMilliseconds: 250)]
+    internal static partial Regex Pattern { get; }
 }

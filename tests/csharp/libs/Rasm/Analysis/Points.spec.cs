@@ -5,7 +5,7 @@ using Rhino.Geometry;
 
 namespace Rasm.Tests.Analysis;
 
-// --- [CONSTANTS] ----------------------------------------------------------------------------
+// --- [MODELS] ----------------------------------------------------------------------------
 // BRIDGE-DEFERRED: native point extraction/spread; static owns SpreadAspect/Points catalogs and (case x geometry x output) oracle.
 internal static class PointsGens {
     public static readonly Op Key = Op.Of(name: "points-test");
@@ -16,7 +16,7 @@ internal static class PointsGens {
          ("Vertices", Points.Vertices), ("ControlPoints", Points.ControlPoints), ("Spread", Points.Spread(aspect: SpreadAspect.Frame))];
 }
 
-// --- [ALGEBRAIC] ----------------------------------------------------------------------------
+// --- [OPERATIONS] ----------------------------------------------------------------------------
 public sealed class SpreadAspectCatalogLaws {
     [Fact]
     public void KeysAreContiguousAndOutputTypesArePinnedPerCase() =>
@@ -94,7 +94,7 @@ public sealed class PointsSpreadDispatchLaws {
             ("Collinear→Stat", static () => Points.Spread(aspect: SpreadAspect.Collinear).Operation<Mesh, Stat>().IsSupported, false));
 }
 
-// --- [EDGE_CASES] ---------------------------------------------------------------------------
+// --- [OPERATIONS] ---------------------------------------------------------------------------
 public sealed class PointsUnsupportedRailLaws {
     [Fact]
     public void UnsupportedOperationCarriesStableCategoryAndExactTypePair() =>

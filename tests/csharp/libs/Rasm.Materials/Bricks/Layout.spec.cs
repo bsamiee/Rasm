@@ -3,7 +3,7 @@ using Rasm.TestKit;
 
 namespace Rasm.Materials.Tests.Bricks;
 
-// --- [CONSTANTS] --------------------------------------------------------------------------
+// --- [MODELS] --------------------------------------------------------------------------
 internal static class BrickGens {
     public static readonly BondName[] TemplateBonds = [BondName.Running, BondName.Stack, BondName.Header, BondName.English];
     public static readonly Gen<double> Length = Gen.Double[start: 250.0, finish: 5000.0];
@@ -18,7 +18,7 @@ internal static class BrickGens {
         BedJointMm: Option<double>.None));
 }
 
-// --- [ALGEBRAIC] --------------------------------------------------------------------------
+// --- [OPERATIONS] --------------------------------------------------------------------------
 public sealed class BrickCatalogLaws {
     [Fact]
     public void CatalogKeysAreDistinctAndTemplateBondsExposeCourses() =>

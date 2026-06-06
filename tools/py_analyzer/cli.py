@@ -19,31 +19,7 @@ if TYPE_CHECKING:
     from tools.py_analyzer.rules import Diagnostic
 
 
-# --- [COMPOSITION] ---------------------------------------------------------------------
-
-
-def main(argv: Sequence[str] | None = None) -> int:
-    """Run the analyzer CLI.
-
-    Returns:
-        Process exit code for the analyzer invocation.
-    """
-    args = _parser().parse_args(argv)
-    match args.command:
-        case "check":
-            root = Path(args.root).resolve()
-            paths = tuple(Path(path) for path in args.paths)
-            errors = _invocation_errors(root, paths)
-            match errors:
-                case ():
-                    diagnostics = analyze_paths(root, paths)
-                    emit(diagnostics, root, OutputFormat(args.format))
-                    return int(bool(diagnostics))
-                case _:
-                    sys.stderr.write("".join(f"{error}\n" for error in errors))
-                    return 2
-        case _:
-            return 2
+# --- [OPERATIONS] ----------------------------------------------------------------------
 
 
 def emit(diagnostics: Sequence[Diagnostic], root: Path, output_format: OutputFormat) -> None:
@@ -100,3 +76,30 @@ def _invocation_errors(root: Path, paths: Sequence[Path]) -> tuple[str, ...]:
 
 def _anchor(root: Path, path: Path) -> Path:
     return path.resolve() if path.is_absolute() else (root / path).resolve()
+
+
+# --- [ENTRY] ----------------------------------------------------------------------------
+
+
+def main(argv: Sequence[str] | None = None) -> int:
+    """Run the analyzer CLI.
+
+    Returns:
+        Process exit code for the analyzer invocation.
+    """
+    args = _parser().parse_args(argv)
+    match args.command:
+        case "check":
+            root = Path(args.root).resolve()
+            paths = tuple(Path(path) for path in args.paths)
+            errors = _invocation_errors(root, paths)
+            match errors:
+                case ():
+                    diagnostics = analyze_paths(root, paths)
+                    emit(diagnostics, root, OutputFormat(args.format))
+                    return int(bool(diagnostics))
+                case _:
+                    sys.stderr.write("".join(f"{error}\n" for error in errors))
+                    return 2
+        case _:
+            return 2

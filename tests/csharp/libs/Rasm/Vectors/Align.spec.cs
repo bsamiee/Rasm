@@ -7,7 +7,7 @@ using Dimension = Rasm.Vectors.Dimension;
 
 namespace Rasm.Tests.Vectors;
 
-// --- [CONSTANTS] ----------------------------------------------------------------------------
+// --- [MODELS] ----------------------------------------------------------------------------
 internal static class AlignGens {
     public static readonly Op Key = Op.Of(name: "align-test");
     public static readonly Seq<Point3d> Tetra = Seq(
@@ -45,7 +45,7 @@ internal static class AlignGens {
             label: "alignment policy");
 }
 
-// --- [ALGEBRAIC] ----------------------------------------------------------------------------
+// --- [OPERATIONS] ----------------------------------------------------------------------------
 public sealed class AlignKindLaws {
     [Fact]
     public void KeysAreDistinctAndNonClusterInputsFail() {

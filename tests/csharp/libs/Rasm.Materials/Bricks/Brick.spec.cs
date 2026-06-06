@@ -3,7 +3,7 @@ using Rasm.TestKit;
 
 namespace Rasm.Materials.Tests.Bricks;
 
-// --- [CONSTANTS] ----------------------------------------------------------------------------
+// --- [MODELS] ----------------------------------------------------------------------------
 internal static class BrickCatalogGens {
     public static readonly (BrickRegion Region, int Count)[] RegionCounts =
         [(BrickRegion.Us, 15), (BrickRegion.Uk, 1), (BrickRegion.Din, 4), (BrickRegion.Au, 1), (BrickRegion.Is, 2)];
@@ -21,7 +21,7 @@ internal static class BrickCatalogGens {
         };
 }
 
-// --- [ALGEBRAIC] ----------------------------------------------------------------------------
+// --- [OPERATIONS] ----------------------------------------------------------------------------
 public sealed class BrickSmartEnumCatalogLaws {
     [Fact]
     public void ClosedCatalogKeysAreUniqueAcrossEveryVocabulary() {

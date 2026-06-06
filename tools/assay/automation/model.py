@@ -82,14 +82,11 @@ class Debounce(Base, frozen=True, tag_field="kind", tag="debounce", forbid_unkno
     collapse: bool = True
 
 
-# --- [TYPES] ----------------------------------------------------------------------------
-
-
 type Trigger = Watch | Schedule | Manual
 type Action = Rail | Program | Sequence | Debounce
 
 
-# --- [CONSTANTS] ------------------------------------------------------------------------
+# --- [TABLES] ---------------------------------------------------------------------------
 
 
 _DECODE_TRIGGER: json.Decoder[Trigger] = json.Decoder(Trigger)

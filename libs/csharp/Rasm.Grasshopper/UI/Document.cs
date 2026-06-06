@@ -1318,7 +1318,6 @@ internal static class SnapshotFormatExtensions {
     internal static string Inv<T>(this T value) => $"{value}";
 }
 
-// --- [SERVICES] ---------------------------------------------------------------------------
 internal static partial class Document {
     internal static GrasshopperUiIntent<DocumentResult> Plan(DocumentOp op) =>
         op.Switch(

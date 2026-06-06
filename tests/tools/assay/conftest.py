@@ -15,7 +15,7 @@ W3 discipline: prefer ``@precondition`` over ``assume``, ``data()`` over nested 
 shared oracles over hand-rolled ``assert x.is_ok()``.
 """
 
-# --- [IMPORTS] ------------------------------------------------------------------------
+# --- [RUNTIME_PRELUDE] ------------------------------------------------------------------------
 
 import contextlib
 from dataclasses import dataclass, field
@@ -82,6 +82,19 @@ if TYPE_CHECKING:
     from collections.abc import AsyncGenerator, Callable, Generator, Mapping
 
 
+# --- [TYPES] ----------------------------------------------------------------------------
+
+
+class VerbRunner(Protocol):
+    """In-process / subprocess CLI runner fixture surface.
+
+    Synchronous so the in-process default (which spawns its own ``anyio`` event loop inside ``main``)
+    is callable from any test; ``isolate=True`` drives the subprocess via ``anyio.run`` internally.
+    """
+
+    def __call__(self, *argv: str, isolate: bool = False, extra_env: dict[str, str] | None = None) -> tuple[Envelope, int]: ...
+
+
 # --- [CONSTANTS] -----------------------------------------------------------------------
 
 # Host-gated skipif markers — computed once at collection so xdist workers share the result.
@@ -115,20 +128,7 @@ _AXES: dict[str, tuple[str, ...]] = {
 _AXIS_DEFAULT = ("file", "local", "real", "live")
 
 
-# --- [TYPES] ----------------------------------------------------------------------------
-
-
-class VerbRunner(Protocol):
-    """In-process / subprocess CLI runner fixture surface.
-
-    Synchronous so the in-process default (which spawns its own ``anyio`` event loop inside ``main``)
-    is callable from any test; ``isolate=True`` drives the subprocess via ``anyio.run`` internally.
-    """
-
-    def __call__(self, *argv: str, isolate: bool = False, extra_env: dict[str, str] | None = None) -> tuple[Envelope, int]: ...
-
-
-# --- [GENERATORS] -----------------------------------------------------------------------
+# --- [OPERATIONS] -----------------------------------------------------------------------
 # A msgspec.inspect-driven resolver maps each wire struct field to a bounded leaf strategy reading its
 # Meta constraints, so from_type(X) round-trips through the deterministic codec and yields non-empty
 # bounded strings. register_type_strategy each struct; StrEnum resolves natively (no enum registration).
@@ -505,7 +505,7 @@ class YakShape:
         )
 
 
-# --- [PSUTIL DOUBLES] ------------------------------------------------------------------
+# --- [PSUTIL_DOUBLES] ------------------------------------------------------------------
 # ``_proc`` builds a create_autospec(psutil.Process) double from keyword fields — no hand-rolled API.
 # ``_make_psutil_module`` wraps N pid->proc mappings into a MagicMock(spec=psutil) module double.
 

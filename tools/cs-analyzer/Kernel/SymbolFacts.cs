@@ -9,10 +9,10 @@ using Microsoft.CodeAnalysis.Operations;
 
 namespace Foundation.CSharp.Analyzers.Kernel;
 
-// --- [SCOPE_KIND] -------------------------------------------------------------
+// --- [TYPES] -------------------------------------------------------------------
 
 internal sealed class ScopeKind {
-    // --- [CONSTRUCTORS] -------------------------------------------------------
+    // --- [CONSTRUCTORS] --------------------------------------------------------
 
     private ScopeKind(string key, bool isAnalyzable, bool isBoundary, bool isDomainOrApplication, bool isComposition) {
         Key = key;
@@ -22,7 +22,7 @@ internal sealed class ScopeKind {
         IsComposition = isComposition;
     }
 
-    // --- [PROPERTIES] ---------------------------------------------------------
+    // --- [PROPERTIES] ----------------------------------------------------------
 
     internal string Key { get; }
     internal bool IsAnalyzable { get; }
@@ -30,7 +30,7 @@ internal sealed class ScopeKind {
     internal bool IsDomainOrApplication { get; }
     internal bool IsComposition { get; }
 
-    // --- [SINGLETONS] ---------------------------------------------------------
+    // --- [SINGLETONS] ----------------------------------------------------------
 
     internal static readonly ScopeKind Generated = new(key: "Generated", isAnalyzable: false, isBoundary: false, isDomainOrApplication: false, isComposition: false);
     internal static readonly ScopeKind Test = new(key: "Test", isAnalyzable: false, isBoundary: false, isDomainOrApplication: false, isComposition: false);
@@ -43,10 +43,36 @@ internal sealed class ScopeKind {
     internal static readonly ScopeKind Other = new(key: "Other", isAnalyzable: false, isBoundary: false, isDomainOrApplication: false, isComposition: false);
 }
 
-// --- [SCOPE_MODEL] -----------------------------------------------------------
+// --- [CONSTANTS] ---------------------------------------------------------------
+
+internal static class Markers {
+    internal const string DomainNamespace = "Domain";
+    internal const string DomainPrefix = ".Domain";
+    internal const string ApplicationNamespace = "Application";
+    internal const string ApplicationPrefix = ".Application";
+    internal const string SharedNamespace = "Shared";
+    internal const string SharedPrefix = ".Shared";
+    internal const string SharedKernelNamespace = "SharedKernel";
+    internal const string SharedKernelPrefix = ".SharedKernel";
+    internal const string AnalysisNamespace = "Rasm.Analysis";
+    internal const string AnalysisPrefix = "Rasm.Analysis.";
+    internal const string LanguageExtNamespace = "LanguageExt";
+    internal const string MatchMethodName = "Match";
+    internal static readonly string[] BoundaryNamespace = [".Boundary", ".Rhino", ".Grasshopper", ".Adapter", ".Adapters", ".Routes", ".Endpoints", ".Controllers"];
+    internal static readonly string[] BoundaryPath = ["/Rhino/", "\\Rhino\\", "/grasshopper/", "\\grasshopper\\", "/Rasm.Grasshopper/", "\\Rasm.Grasshopper\\", "Adapter.cs", "Boundary.cs", "Endpoint.cs", "Controller.cs"];
+    internal static readonly string[] CompositionNamespace = [".Bootstrap", ".Composition", ".DependencyInjection", ".Infrastructure"];
+    internal static readonly string[] CompositionPath = ["Composition", "Bootstrap", "DependencyInjection", "Infrastructure"];
+    internal static readonly string[] SharedPath = ["/Shared/", "\\Shared\\", "/SharedKernel/", "\\SharedKernel\\"];
+    internal static readonly string[] AnalysisPath = ["/libs/csharp/Rasm/Analysis/", "\\libs\\csharp\\Rasm\\Analysis\\"];
+    internal static readonly string[] GeneratedPath = [".g.cs", ".designer.cs", "/obj/", "\\obj\\"];
+    internal static readonly string[] TestPath = ["/tests/", "\\tests\\", ".Tests", "Test.cs", "Tests.cs"];
+    internal static readonly string[] ObservabilityParts = ["Observability", "Telemetry"];
+}
+
+// --- [MODELS] ------------------------------------------------------------------
 
 internal sealed class ScopeInfo {
-    // --- [CONSTRUCTORS] -------------------------------------------------------
+    // --- [CONSTRUCTORS] --------------------------------------------------------
 
     internal ScopeInfo(ScopeKind kind, string namespaceName, string filePath) {
         Kind = kind;
@@ -54,7 +80,7 @@ internal sealed class ScopeInfo {
         FilePath = filePath;
     }
 
-    // --- [PROPERTIES] ---------------------------------------------------------
+    // --- [PROPERTIES] ----------------------------------------------------------
 
     internal ScopeKind Kind { get; }
     internal string NamespaceName { get; }
@@ -129,36 +155,10 @@ internal readonly struct ClosedUnionDispatchFact {
     internal Location Location { get; }
 }
 
-// --- [MARKERS] ---------------------------------------------------------------
-
-internal static class Markers {
-    internal const string DomainNamespace = "Domain";
-    internal const string DomainPrefix = ".Domain";
-    internal const string ApplicationNamespace = "Application";
-    internal const string ApplicationPrefix = ".Application";
-    internal const string SharedNamespace = "Shared";
-    internal const string SharedPrefix = ".Shared";
-    internal const string SharedKernelNamespace = "SharedKernel";
-    internal const string SharedKernelPrefix = ".SharedKernel";
-    internal const string AnalysisNamespace = "Rasm.Analysis";
-    internal const string AnalysisPrefix = "Rasm.Analysis.";
-    internal const string LanguageExtNamespace = "LanguageExt";
-    internal const string MatchMethodName = "Match";
-    internal static readonly string[] BoundaryNamespace = [".Boundary", ".Rhino", ".Grasshopper", ".Adapter", ".Adapters", ".Routes", ".Endpoints", ".Controllers"];
-    internal static readonly string[] BoundaryPath = ["/Rhino/", "\\Rhino\\", "/grasshopper/", "\\grasshopper\\", "/Rasm.Grasshopper/", "\\Rasm.Grasshopper\\", "Adapter.cs", "Boundary.cs", "Endpoint.cs", "Controller.cs"];
-    internal static readonly string[] CompositionNamespace = [".Bootstrap", ".Composition", ".DependencyInjection", ".Infrastructure"];
-    internal static readonly string[] CompositionPath = ["Composition", "Bootstrap", "DependencyInjection", "Infrastructure"];
-    internal static readonly string[] SharedPath = ["/Shared/", "\\Shared\\", "/SharedKernel/", "\\SharedKernel\\"];
-    internal static readonly string[] AnalysisPath = ["/libs/csharp/Rasm/Analysis/", "\\libs\\csharp\\Rasm\\Analysis\\"];
-    internal static readonly string[] GeneratedPath = [".g.cs", ".designer.cs", "/obj/", "\\obj\\"];
-    internal static readonly string[] TestPath = ["/tests/", "\\tests\\", ".Tests", "Test.cs", "Tests.cs"];
-    internal static readonly string[] ObservabilityParts = ["Observability", "Telemetry"];
-}
-
-// --- [CLASSIFICATION] --------------------------------------------------------
+// --- [OPERATIONS] --------------------------------------------------------------
 
 internal static class ScopeModel {
-    // --- [FUNCTIONS] ----------------------------------------------------------
+    // --- [OPERATIONS] ----------------------------------------------------------
 
     internal static ScopeInfo Classify(ISymbol symbol) {
         string namespaceName = symbol.ContainingNamespace?.ToDisplayString() ?? string.Empty;
@@ -204,10 +204,10 @@ internal static class ScopeModel {
         || Markers.TestPath.Any(marker => filePath.Contains(value: marker, comparisonType: StringComparison.OrdinalIgnoreCase));
 }
 
-// --- [SYNTAX_FACTS] ----------------------------------------------------------
+// --- [SYNTAX_FACTS] ------------------------------------------------------------
 
 internal static class SymbolFacts {
-    // --- [CONSTANTS] ----------------------------------------------------------
+    // --- [CONSTANTS] -----------------------------------------------------------
 
     private static readonly HashSet<string> BlockingMethods = new(["Wait", "WaitAll", "WaitAny", "GetResult", "Sleep"], StringComparer.Ordinal);
     private static readonly HashSet<string> OperationalReceiptNames = new([
@@ -229,7 +229,9 @@ internal static class SymbolFacts {
         (int)RegexOptions.CultureInvariant
         | (int)RegexOptions.Compiled
         | RegexOptionNonBacktrackingBit;
-    // --- [FLOW_FACTS] ---------------------------------------------------------
+
+    // --- [FLOW_FACTS] ----------------------------------------------------------
+
     internal static bool IsLanguageExtMatch(IInvocationOperation invocation, INamespaceSymbol? languageExtNamespace) {
         bool typeNamespaceMatch = invocation.TargetMethod.ContainingType?.ContainingNamespace is INamespaceSymbol ns
             && languageExtNamespace is not null
@@ -282,7 +284,8 @@ internal static class SymbolFacts {
         return anchored && hasBracket && hasBrace && quantifierAtEnd && singleClass && singleQuantifier && literalCharSet && fixedQuantifier;
     }
 
-    // --- [ASYNC_FACTS] --------------------------------------------------------
+    // --- [ASYNC_FACTS] ---------------------------------------------------------
+
     internal static bool IsTaskRun(IInvocationOperation invocation) =>
         (invocation.TargetMethod.ContainingType?.OriginalDefinition?.ToDisplayString() == "System.Threading.Tasks.Task"
             && invocation.TargetMethod.Name == "Run")
@@ -365,7 +368,7 @@ internal static class SymbolFacts {
         return knownTaskLike || awaiterByContract;
     }
 
-    // --- [RUNTIME_FACTS] ------------------------------------------------------
+    // --- [RUNTIME_FACTS] -------------------------------------------------------
 
     internal static bool IsNullComparison(IBinaryOperation binary) =>
         binary.OperatorKind is BinaryOperatorKind.Equals or BinaryOperatorKind.NotEquals
@@ -385,7 +388,7 @@ internal static class SymbolFacts {
         throwOperation.Exception is IObjectCreationOperation { Type: INamedTypeSymbol type }
         && type.OriginalDefinition.ToDisplayString() == "System.Diagnostics.UnreachableException";
 
-    // --- [BOUNDARY_FACTS] -----------------------------------------------------
+    // --- [BOUNDARY_FACTS] ------------------------------------------------------
 
     internal static bool IsBoundaryMatchUsage(IInvocationOperation invocation) =>
         CollapseTransparentParents(invocation) is IReturnOperation
@@ -421,7 +424,7 @@ internal static class SymbolFacts {
             _ => false,
         };
 
-    // --- [DOMAIN_FACTS] -------------------------------------------------------
+    // --- [DOMAIN_FACTS] --------------------------------------------------------
 
     internal static bool IsDomainNamespace(string namespaceName) =>
         namespaceName.StartsWith(value: Markers.DomainNamespace, comparisonType: StringComparison.OrdinalIgnoreCase)
@@ -444,7 +447,7 @@ internal static class SymbolFacts {
             Markers.ObservabilityParts.Any(marker => string.Equals(part, marker, StringComparison.Ordinal)))
         || HasAnyAttribute(symbol, "ObservabilitySurfaceAttribute", "ObservabilitySurface");
 
-    // --- [TYPE_SHAPE_FACTS] ---------------------------------------------------
+    // --- [TYPE_SHAPE_FACTS] ----------------------------------------------------
 
     internal static readonly HashSet<string> MutableCollectionNames =
         new(["List`1", "Dictionary`2", "HashSet`1", "Queue`1", "Stack`1", "SortedDictionary`2", "SortedSet`1"], StringComparer.Ordinal);
@@ -1064,7 +1067,7 @@ internal static class SymbolFacts {
         && (invocation.TargetMethod.ContainingType?.ContainingNamespace?.ToDisplayString() ?? string.Empty)
             .StartsWith(value: Markers.LanguageExtNamespace, comparisonType: StringComparison.Ordinal);
 
-    // --- [ATTRIBUTE_FACTS] ----------------------------------------------------
+    // --- [ATTRIBUTE_FACTS] -----------------------------------------------------
 
     internal static bool HasAnyAttribute(ISymbol symbol, params string[] names) =>
         AllAttributes(symbol).Any(attribute => names.Contains(attribute.AttributeClass?.Name ?? string.Empty, StringComparer.Ordinal));
@@ -1073,7 +1076,7 @@ internal static class SymbolFacts {
             .Concat(symbol is IMethodSymbol { AssociatedSymbol: ISymbol associatedSymbol } ? associatedSymbol.GetAttributes() : [])
             .Concat(symbol.ContainingType?.GetAttributes() ?? []);
 
-    // --- [PRIVATE_FUNCTIONS] --------------------------------------------------
+    // --- [PRIVATE_OPERATIONS] --------------------------------------------------
 
     private static bool IsGenericIEnumerableTaskLike(INamedTypeSymbol namedType) =>
         namedType.MetadataName == "IEnumerable`1"

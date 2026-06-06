@@ -5,7 +5,19 @@
 ## [1][BUILD_STATUS]
 
 ```mermaid
+---
+config:
+  layout: elk
+  look: neo
+  theme: base
+  elk:
+    mergeEdges: false
+    nodePlacementStrategy: BRANDES_KOEPF
+    cycleBreakingStrategy: GREEDY_MODEL_ORDER
+---
 flowchart LR
+    accTitle: Rasm AppHost runtime boundary
+    accDescr: Rasm AppHost connects the host boundaries, product UI, durable state, execution platform, and kernel through one runtime-record boundary.
     Host["Rasm.AppHost"] --> Rhino["Rasm.Rhino (host boundary)"]
     Host --> Gh["Rasm.Grasshopper (host boundary)"]
     Host --> Ui["Rasm.AppUi"]
@@ -13,6 +25,8 @@ flowchart LR
     Host --> Compute["Rasm.Compute"]
     Host --> Domain["Rasm (kernel)"]
 ```
+
+Text equivalent: `Rasm.AppHost` is the runtime-record boundary for `Rasm.Rhino`, `Rasm.Grasshopper`, `Rasm.AppUi`, `Rasm.Persistence`, `Rasm.Compute`, and the `Rasm` kernel.
 
 | [INDEX] | [ITEM]           | [STATE]                  |
 | :-----: | ---------------- | ------------------------ |

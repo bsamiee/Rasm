@@ -276,7 +276,7 @@ public readonly record struct ContextMenuSnapshot(ContextMenu Menu, MouseEventAr
 [StructLayout(LayoutKind.Auto)]
 public readonly record struct GestureSnapshot(NSGestureRecognizer Recognizer, NSGestureRecognizerState State, PointF Location);
 
-// --- [BOUNDARY] ---------------------------------------------------------------------------
+// --- [BOUNDARIES] -------------------------------------------------------------------------
 [BoundaryAdapter]
 internal static class TooltipRail {
     private static readonly Op RailOp = Op.Of(name: nameof(TooltipRail));

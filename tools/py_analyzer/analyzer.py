@@ -28,6 +28,46 @@ if TYPE_CHECKING:
 type ModelShape = tuple[tuple[str, str], ...]
 
 
+# --- [CONSTANTS] -----------------------------------------------------------------------
+
+EXCLUDED_DIRS = frozenset({".artifacts", ".cache", ".git", ".nx", ".venv", "coverage", "node_modules", "test-results", "tmp"})
+EXCLUDED_PREFIXES = (("tests", "tools", "ast-grep"),)
+BOUNDARY_EXEMPTION = re.compile(
+    r"#\s*RASM_BOUNDARY_EXEMPTION:\s+"
+    r"rule=(?P<rule>PYS\d{4})\s+"
+    r"reason=(?P<reason>[a-z][a-z0-9-]*)\s+"
+    r"ticket=(?P<ticket>[A-Z][A-Z0-9]+-\d+)\s+"
+    r"expires=(?P<expires>\d{4}-\d{2}-\d{2})\s+"
+    r"rationale=(?P<rationale>\S.+)"
+)
+BOUNDARY_REASONS = frozenset({"protocol-required", "cleanup-finally", "cancellation-guard", "adapter-normalization"})
+FALLIBLE_PREFIXES = ("try_", "parse_", "load_", "fetch_", "read_", "decode_", "validate_", "ensure_", "resolve_", "find_")
+MODEL_DECORATORS = frozenset({"dataclass", "pydantic.dataclasses.dataclass"})
+PYDANTIC_MODEL_BASES = frozenset({
+    "BaseModel",
+    "pydantic.BaseModel",
+    "RootModel",
+    "pydantic.RootModel",
+    "BaseSettings",
+    "pydantic_settings.BaseSettings",
+})
+MSGSPEC_MODEL_BASES = frozenset({"Struct", "msgspec.Struct"})
+MODEL_BASES = PYDANTIC_MODEL_BASES | MSGSPEC_MODEL_BASES
+PYDANTIC_CONFIG_CALLS = frozenset({"ConfigDict", "pydantic.ConfigDict", "SettingsConfigDict", "pydantic_settings.SettingsConfigDict"})
+CLASSVAR_NAMES = frozenset({"ClassVar"})
+EFFECT_BUILDER_DECORATORS = frozenset({"effect.result", "effect.async_result", "result", "async_result"})
+ERASED_NAMES = frozenset({"Any", "object"})
+MUTABLE_FIELD_NAMES = frozenset({"dict", "list", "set", "Dict", "List", "Set", "MutableMapping", "MutableSequence", "MutableSet"})
+PRIMITIVE_NAMES = frozenset({"bool", "float", "int", "str", "tuple"})
+RAIL_NAMES = frozenset({"Option", "Result"})
+RAIL_ESCAPE_METHODS = frozenset({"unwrap", "value_or"})
+PY_ANALYZER_ROOT = ("tools", "py_analyzer")
+QUALITY_ROOT = ("tools", "quality")
+TOOLING_ROOTS = ((".claude", "hooks"), (".claude", "skills"), PY_ANALYZER_ROOT, QUALITY_ROOT)
+DOMAIN_SCOPES = frozenset({Scope.domain, Scope.application})
+PUBLIC_SIGNATURE_BANNED_NAMES = ERASED_NAMES | MUTABLE_FIELD_NAMES | PRIMITIVE_NAMES
+
+
 # --- [MODELS] --------------------------------------------------------------------------
 
 
@@ -70,46 +110,6 @@ class ModuleFacts:
     private_functions: tuple[FunctionFact, ...]
     private_calls: tuple[str, ...]
     models: tuple[ModelFact, ...]
-
-
-# --- [CONSTANTS] -----------------------------------------------------------------------
-
-EXCLUDED_DIRS = frozenset({".artifacts", ".cache", ".git", ".nx", ".venv", "coverage", "node_modules", "test-results", "tmp"})
-EXCLUDED_PREFIXES = (("tests", "tools", "ast-grep"),)
-BOUNDARY_EXEMPTION = re.compile(
-    r"#\s*RASM_BOUNDARY_EXEMPTION:\s+"
-    r"rule=(?P<rule>PYS\d{4})\s+"
-    r"reason=(?P<reason>[a-z][a-z0-9-]*)\s+"
-    r"ticket=(?P<ticket>[A-Z][A-Z0-9]+-\d+)\s+"
-    r"expires=(?P<expires>\d{4}-\d{2}-\d{2})\s+"
-    r"rationale=(?P<rationale>\S.+)"
-)
-BOUNDARY_REASONS = frozenset({"protocol-required", "cleanup-finally", "cancellation-guard", "adapter-normalization"})
-FALLIBLE_PREFIXES = ("try_", "parse_", "load_", "fetch_", "read_", "decode_", "validate_", "ensure_", "resolve_", "find_")
-MODEL_DECORATORS = frozenset({"dataclass", "pydantic.dataclasses.dataclass"})
-PYDANTIC_MODEL_BASES = frozenset({
-    "BaseModel",
-    "pydantic.BaseModel",
-    "RootModel",
-    "pydantic.RootModel",
-    "BaseSettings",
-    "pydantic_settings.BaseSettings",
-})
-MSGSPEC_MODEL_BASES = frozenset({"Struct", "msgspec.Struct"})
-MODEL_BASES = PYDANTIC_MODEL_BASES | MSGSPEC_MODEL_BASES
-PYDANTIC_CONFIG_CALLS = frozenset({"ConfigDict", "pydantic.ConfigDict", "SettingsConfigDict", "pydantic_settings.SettingsConfigDict"})
-CLASSVAR_NAMES = frozenset({"ClassVar"})
-EFFECT_BUILDER_DECORATORS = frozenset({"effect.result", "effect.async_result", "result", "async_result"})
-ERASED_NAMES = frozenset({"Any", "object"})
-MUTABLE_FIELD_NAMES = frozenset({"dict", "list", "set", "Dict", "List", "Set", "MutableMapping", "MutableSequence", "MutableSet"})
-PRIMITIVE_NAMES = frozenset({"bool", "float", "int", "str", "tuple"})
-RAIL_NAMES = frozenset({"Option", "Result"})
-RAIL_ESCAPE_METHODS = frozenset({"unwrap", "value_or"})
-PY_ANALYZER_ROOT = ("tools", "py_analyzer")
-QUALITY_ROOT = ("tools", "quality")
-TOOLING_ROOTS = ((".claude", "hooks"), (".claude", "skills"), PY_ANALYZER_ROOT, QUALITY_ROOT)
-DOMAIN_SCOPES = frozenset({Scope.domain, Scope.application})
-PUBLIC_SIGNATURE_BANNED_NAMES = ERASED_NAMES | MUTABLE_FIELD_NAMES | PRIMITIVE_NAMES
 
 
 # --- [SERVICES] ------------------------------------------------------------------------

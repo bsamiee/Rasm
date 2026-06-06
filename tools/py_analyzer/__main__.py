@@ -3,4 +3,6 @@
 from tools.py_analyzer.cli import main
 
 
+# --- [ENTRY] ----------------------------------------------------------------------------
+
 raise SystemExit(main())

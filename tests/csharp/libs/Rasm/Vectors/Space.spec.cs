@@ -5,7 +5,7 @@ using Rhino.Geometry;
 
 namespace Rasm.Tests.Vectors;
 
-// --- [CONSTANTS] ----------------------------------------------------------------------------
+// --- [MODELS] ----------------------------------------------------------------------------
 internal static class SpaceGens {
     public static readonly Op Key = Op.Of(name: "space-test");
     public static readonly Context Model = Spec.SuccValue(Context.Of(absolute: 0.001, relative: 1.0e-8, angle: 0.01, units: Rhino.UnitSystem.Millimeters).ToFin(), label: "space context");
@@ -21,7 +21,7 @@ internal static class SpaceGens {
         ClosestHit.At(target: new Point3d(x: 10.0, y: 0.0, z: 0.0), point: point.IfNone(new Point3d(x: 1.0, y: 0.0, z: 0.0)), parameter: parameter, uv: uv, component: component);
 }
 
-// --- [ALGEBRAIC] ----------------------------------------------------------------------------
+// --- [OPERATIONS] ----------------------------------------------------------------------------
 // BRIDGE-DEFERRED: Brep/Mesh containment and sampling; static owns typed admission and pre-native option-gated failures.
 public sealed class SupportProjectionLaws {
     [Fact]

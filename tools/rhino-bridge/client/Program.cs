@@ -9,6 +9,76 @@ using Rasm.RhinoBridge.Protocol;
 
 namespace Rasm.RhinoBridge.Client;
 
+// --- [MODELS] ---------------------------------------------------------------------------
+[SmartEnum<int>]
+internal sealed partial class PhaseClassification {
+    public static readonly PhaseClassification Decisive = new(key: 0);
+    public static readonly PhaseClassification Lifecycle = new(key: 1);
+    public bool IsDecisive(PhaseStatus status) {
+        ArgumentNullException.ThrowIfNull(argument: status);
+        return Key switch {
+            0 => true,
+            _ => status.IsDecisive,
+        };
+    }
+    internal static PhaseClassification Of(string phaseName) =>
+        phaseName switch {
+            Program.PhaseLifecycle => Lifecycle,
+            _ => Decisive,
+        };
+}
+
+// Classify scenario lines: preamble hoisted; BodyMarker or first Body line starts body (`using var`/`using (` stay Body).
+[SmartEnum<int>]
+internal sealed partial class ScenarioLine {
+    public static readonly ScenarioLine Blank = new(key: 0);
+    public static readonly ScenarioLine LineComment = new(key: 1);
+    public static readonly ScenarioLine ImportUsing = new(key: 2);
+    public static readonly ScenarioLine ReferenceDirective = new(key: 3);
+    public static readonly ScenarioLine BodyMarker = new(key: 4);
+    public static readonly ScenarioLine Body = new(key: 5);
+
+    internal bool IsPreamble => Key <= ReferenceDirective.Key;
+
+    internal static ScenarioLine Classify(string line) {
+        string trimmed = line.TrimStart();
+        return trimmed switch {
+            "" => Blank,
+            _ when trimmed.StartsWith(value: BridgeWire.ScenarioBodyMarker, comparisonType: StringComparison.Ordinal) => BodyMarker,
+            _ when trimmed.StartsWith(value: "//", comparisonType: StringComparison.Ordinal) => LineComment,
+            _ when trimmed.StartsWith(value: "#r ", comparisonType: StringComparison.Ordinal) || trimmed.StartsWith(value: "#load ", comparisonType: StringComparison.Ordinal) => ReferenceDirective,
+            _ when IsImportUsing(trimmed: trimmed) => ImportUsing,
+            _ => Body,
+        };
+    }
+
+    private static bool IsImportUsing(string trimmed) =>
+        (trimmed.StartsWith(value: "using static ", comparisonType: StringComparison.Ordinal) || trimmed.StartsWith(value: "using ", comparisonType: StringComparison.Ordinal))
+        && !trimmed.StartsWith(value: "using var ", comparisonType: StringComparison.Ordinal)
+        && !trimmed.StartsWith(value: "using (", comparisonType: StringComparison.Ordinal);
+}
+
+internal readonly record struct PhaseAggregate(PhaseStatus Status, BridgeFault? Fault) {
+    internal static readonly PhaseAggregate Identity = new(Status: PhaseStatus.Ok, Fault: null);
+    internal PhaseAggregate Combine(BridgePhase phase) =>
+        PhaseClassification.Of(phaseName: phase.Phase).IsDecisive(status: phase.Status)
+            ? new(Status: Status.Worst(other: phase.Status), Fault: Fault ?? phase.Fault)
+            : this;
+}
+
+internal sealed record BridgeResult(string Command, PhaseStatus Status, string? ReportPath, IReadOnlyList<BridgePhase> Phases, BridgeFault? Fault) {
+    internal static BridgeResult From(string command, IReadOnlyList<BridgePhase> phases) {
+        BridgePhase? execute = phases.FirstOrDefault(predicate: static phase => string.Equals(a: phase.Phase, b: Program.PhaseExecute, comparisonType: StringComparison.Ordinal));
+        PhaseAggregate aggregate = phases.Aggregate(seed: PhaseAggregate.Identity, func: static (acc, phase) => acc.Combine(phase: phase));
+        return new(
+            Command: command,
+            Status: aggregate.Status,
+            ReportPath: null,
+            Phases: phases,
+            Fault: execute is { Fault: not null } && !execute.Status.IsOk ? execute.Fault : aggregate.Fault);
+    }
+}
+
 // --- [COMPOSITION] ----------------------------------------------------------------------
 internal static class Program {
     internal const string PhaseBuild = "build";
@@ -634,75 +704,5 @@ internal static class Program {
             0 => git.Stdout.Split(Environment.NewLine, StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries).FirstOrDefault() ?? directory,
             _ => directory,
         };
-    }
-}
-
-// --- [MODELS] ---------------------------------------------------------------------------
-[SmartEnum<int>]
-internal sealed partial class PhaseClassification {
-    public static readonly PhaseClassification Decisive = new(key: 0);
-    public static readonly PhaseClassification Lifecycle = new(key: 1);
-    public bool IsDecisive(PhaseStatus status) {
-        ArgumentNullException.ThrowIfNull(argument: status);
-        return Key switch {
-            0 => true,
-            _ => status.IsDecisive,
-        };
-    }
-    internal static PhaseClassification Of(string phaseName) =>
-        phaseName switch {
-            Program.PhaseLifecycle => Lifecycle,
-            _ => Decisive,
-        };
-}
-
-// Classify scenario lines: preamble hoisted; BodyMarker or first Body line starts body (`using var`/`using (` stay Body).
-[SmartEnum<int>]
-internal sealed partial class ScenarioLine {
-    public static readonly ScenarioLine Blank = new(key: 0);
-    public static readonly ScenarioLine LineComment = new(key: 1);
-    public static readonly ScenarioLine ImportUsing = new(key: 2);
-    public static readonly ScenarioLine ReferenceDirective = new(key: 3);
-    public static readonly ScenarioLine BodyMarker = new(key: 4);
-    public static readonly ScenarioLine Body = new(key: 5);
-
-    internal bool IsPreamble => Key <= ReferenceDirective.Key;
-
-    internal static ScenarioLine Classify(string line) {
-        string trimmed = line.TrimStart();
-        return trimmed switch {
-            "" => Blank,
-            _ when trimmed.StartsWith(value: BridgeWire.ScenarioBodyMarker, comparisonType: StringComparison.Ordinal) => BodyMarker,
-            _ when trimmed.StartsWith(value: "//", comparisonType: StringComparison.Ordinal) => LineComment,
-            _ when trimmed.StartsWith(value: "#r ", comparisonType: StringComparison.Ordinal) || trimmed.StartsWith(value: "#load ", comparisonType: StringComparison.Ordinal) => ReferenceDirective,
-            _ when IsImportUsing(trimmed: trimmed) => ImportUsing,
-            _ => Body,
-        };
-    }
-
-    private static bool IsImportUsing(string trimmed) =>
-        (trimmed.StartsWith(value: "using static ", comparisonType: StringComparison.Ordinal) || trimmed.StartsWith(value: "using ", comparisonType: StringComparison.Ordinal))
-        && !trimmed.StartsWith(value: "using var ", comparisonType: StringComparison.Ordinal)
-        && !trimmed.StartsWith(value: "using (", comparisonType: StringComparison.Ordinal);
-}
-
-internal readonly record struct PhaseAggregate(PhaseStatus Status, BridgeFault? Fault) {
-    internal static readonly PhaseAggregate Identity = new(Status: PhaseStatus.Ok, Fault: null);
-    internal PhaseAggregate Combine(BridgePhase phase) =>
-        PhaseClassification.Of(phaseName: phase.Phase).IsDecisive(status: phase.Status)
-            ? new(Status: Status.Worst(other: phase.Status), Fault: Fault ?? phase.Fault)
-            : this;
-}
-
-internal sealed record BridgeResult(string Command, PhaseStatus Status, string? ReportPath, IReadOnlyList<BridgePhase> Phases, BridgeFault? Fault) {
-    internal static BridgeResult From(string command, IReadOnlyList<BridgePhase> phases) {
-        BridgePhase? execute = phases.FirstOrDefault(predicate: static phase => string.Equals(a: phase.Phase, b: Program.PhaseExecute, comparisonType: StringComparison.Ordinal));
-        PhaseAggregate aggregate = phases.Aggregate(seed: PhaseAggregate.Identity, func: static (acc, phase) => acc.Combine(phase: phase));
-        return new(
-            Command: command,
-            Status: aggregate.Status,
-            ReportPath: null,
-            Phases: phases,
-            Fault: execute is { Fault: not null } && !execute.Status.IsOk ? execute.Fault : aggregate.Fault);
     }
 }

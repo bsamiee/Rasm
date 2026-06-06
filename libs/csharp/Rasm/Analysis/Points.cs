@@ -6,15 +6,21 @@ namespace Rasm.Analysis;
 // --- [TYPES] ------------------------------------------------------------------------------
 [BoundaryAdapter, SmartEnum<int>]
 public sealed partial class SpreadAspect {
-    public static readonly SpreadAspect Frame = new(key: 0, output: typeof(Plane)), PrincipalFrame = new(key: 1, output: typeof(Plane)), Distribution = new(key: 2, output: typeof(Stat)), Collinear = new(key: 3, output: typeof(bool)), Coplanar = new(key: 4, output: typeof(bool));
+    public static readonly SpreadAspect Frame = new(key: 0, output: typeof(Plane));
+    public static readonly SpreadAspect PrincipalFrame = new(key: 1, output: typeof(Plane));
+    public static readonly SpreadAspect Distribution = new(key: 2, output: typeof(Stat));
+    public static readonly SpreadAspect Collinear = new(key: 3, output: typeof(bool));
+    public static readonly SpreadAspect Coplanar = new(key: 4, output: typeof(bool));
     public Type Output { get; }
 }
 
-// --- [MODELS] -----------------------------------------------------------------------------
 [SkipUnionOps]
 [Union]
 public partial record Points : IAspect {
-    public sealed record ExtremaCase(Option<Seq<Vector3d>> Directions) : Points; public sealed record EdgeMidpointsCase : Points; public sealed record VerticesCase : Points; public sealed record ControlPointsCase : Points;
+    public sealed record ExtremaCase(Option<Seq<Vector3d>> Directions) : Points;
+    public sealed record EdgeMidpointsCase : Points;
+    public sealed record VerticesCase : Points;
+    public sealed record ControlPointsCase : Points;
     public sealed record SpreadCase(SpreadAspect Aspect) : Points;
     public static Points Quadrants => new ExtremaCase(Directions: Option<Seq<Vector3d>>.None);
     public static Points Extrema(Seq<Vector3d> directions) => new ExtremaCase(Directions: Some(value: directions));

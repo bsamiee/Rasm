@@ -1,4 +1,5 @@
 ```mermaid
+---
 config:
   layout: elk
   look: neo
@@ -36,6 +37,7 @@ config:
     cScaleLabel2: "#f8f8f2"
     cScaleLabel3: "#f8f8f2"
     cScaleLabel4: "#f8f8f2"
+---
 C4Container
     accTitle: E-Commerce Platform Architecture
     accDescr: Production microservices with logical positioning, NETWORK_SIMPLEX layout, POLYLINE routing for clean edges, Inter font, and optimized component placement for zero crossing lines.

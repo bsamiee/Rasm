@@ -40,6 +40,21 @@ if TYPE_CHECKING:
 type _Woven = Callable[[Check, AssaySettings, ArtifactScope | None, Routed, float | None], Coroutine[None, None, Result[Completed, Fault]]]
 
 
+# --- [CONSTANTS] ------------------------------------------------------------------------
+
+_LOCKS_OPEN_FLAGS: int = os.O_RDWR | os.O_CREAT
+_LOCK_MODE: int = 0o644
+_FAULT_SNAPSHOT: str = "fault.resource_snapshot"
+_SSH_CONNECT_TIMEOUT: float = 15.0
+_LOG = structlog.get_logger("assay.engine")
+_TRACER = trace.get_tracer("assay.engine")
+
+# POSIX-only fcntl members bind once because ty checks all platforms and cannot narrow this module to POSIX.
+_FLOCK, _LOCK_EX, _LOCK_NB, _LOCK_UN = fcntl.flock, fcntl.LOCK_EX, fcntl.LOCK_NB, fcntl.LOCK_UN  # ty: ignore[possibly-missing-attribute]
+# Fault-time resource snapshots cross the anyio.run boundary through this ContextVar.
+_RESOURCE: ContextVar[tuple[tuple[str, float], ...]] = ContextVar("assay_resource", default=())
+
+
 # --- [MODELS] ---------------------------------------------------------------------------
 
 
@@ -61,19 +76,9 @@ class _Held:
     owner: _LeaseOwner
 
 
-# --- [CONSTANTS] ------------------------------------------------------------------------
+# --- [TABLES] ---------------------------------------------------------------------------
 
-_LOCKS_OPEN_FLAGS: int = os.O_RDWR | os.O_CREAT
-_LOCK_MODE: int = 0o644
-_FAULT_SNAPSHOT: str = "fault.resource_snapshot"
 _DECODER: msgspec.json.Decoder[_LeaseOwner] = msgspec.json.Decoder(_LeaseOwner)
-_LOG = structlog.get_logger("assay.engine")
-_TRACER = trace.get_tracer("assay.engine")
-
-# POSIX-only fcntl members bind once because ty checks all platforms and cannot narrow this module to POSIX.
-_FLOCK, _LOCK_EX, _LOCK_NB, _LOCK_UN = fcntl.flock, fcntl.LOCK_EX, fcntl.LOCK_NB, fcntl.LOCK_UN  # ty: ignore[possibly-missing-attribute]
-# Fault-time resource snapshots cross the anyio.run boundary through this ContextVar.
-_RESOURCE: ContextVar[tuple[tuple[str, float], ...]] = ContextVar("assay_resource", default=())
 
 
 # --- [OPERATIONS] -----------------------------------------------------------------------
@@ -192,11 +197,6 @@ async def _run_process_backend(
                     return receipt(argv, done.returncode, stdout=done.stdout, stderr=done.stderr)
         case target:
             return await _run_remote(argv, target, cwd=cwd, env=env, settings=settings, streaming=streaming, tail_cap=tail_cap, chunk=chunk)
-
-
-# Bounds the SSH connect + login so a routable-but-unreachable exec_target (TCP black-hole) cannot deadlock the
-# rail: catalog tools carry no timeout, so the outer anyio.fail_after(None) is a no-op for remote spawns.
-_SSH_CONNECT_TIMEOUT: float = 15.0
 
 
 async def _run_remote(

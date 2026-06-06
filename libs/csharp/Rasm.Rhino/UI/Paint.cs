@@ -48,18 +48,17 @@ public sealed partial class SystemFontKind {
     [UseDelegateFromConstructor]
     public partial Eto.Drawing.Font Resolve(float? size, Eto.Drawing.FontDecoration decoration);
 
-    public static readonly SystemFontKind
-        Default = new(key: 0, resolve: Eto.Drawing.SystemFonts.Default),
-        Bold = new(key: 1, resolve: Eto.Drawing.SystemFonts.Bold),
-        Label = new(key: 2, resolve: Eto.Drawing.SystemFonts.Label),
-        Menu = new(key: 3, resolve: Eto.Drawing.SystemFonts.Menu),
-        MenuBar = new(key: 4, resolve: Eto.Drawing.SystemFonts.MenuBar),
-        Message = new(key: 5, resolve: Eto.Drawing.SystemFonts.Message),
-        Palette = new(key: 6, resolve: Eto.Drawing.SystemFonts.Palette),
-        Status = new(key: 7, resolve: Eto.Drawing.SystemFonts.StatusBar),   // StatusBar is the native name
-        TitleBar = new(key: 8, resolve: Eto.Drawing.SystemFonts.TitleBar),
-        ToolTip = new(key: 9, resolve: Eto.Drawing.SystemFonts.ToolTip),
-        User = new(key: 10, resolve: Eto.Drawing.SystemFonts.User);
+    public static readonly SystemFontKind Default = new(key: 0, resolve: Eto.Drawing.SystemFonts.Default);
+    public static readonly SystemFontKind Bold = new(key: 1, resolve: Eto.Drawing.SystemFonts.Bold);
+    public static readonly SystemFontKind Label = new(key: 2, resolve: Eto.Drawing.SystemFonts.Label);
+    public static readonly SystemFontKind Menu = new(key: 3, resolve: Eto.Drawing.SystemFonts.Menu);
+    public static readonly SystemFontKind MenuBar = new(key: 4, resolve: Eto.Drawing.SystemFonts.MenuBar);
+    public static readonly SystemFontKind Message = new(key: 5, resolve: Eto.Drawing.SystemFonts.Message);
+    public static readonly SystemFontKind Palette = new(key: 6, resolve: Eto.Drawing.SystemFonts.Palette);
+    public static readonly SystemFontKind Status = new(key: 7, resolve: Eto.Drawing.SystemFonts.StatusBar);   // StatusBar is the native name
+    public static readonly SystemFontKind TitleBar = new(key: 8, resolve: Eto.Drawing.SystemFonts.TitleBar);
+    public static readonly SystemFontKind ToolTip = new(key: 9, resolve: Eto.Drawing.SystemFonts.ToolTip);
+    public static readonly SystemFontKind User = new(key: 10, resolve: Eto.Drawing.SystemFonts.User);
 }
 
 public enum UiAnchor { TopLeft, TopCenter, TopRight, MiddleLeft, Center, MiddleRight, BottomLeft, BottomCenter, BottomRight }

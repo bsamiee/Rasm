@@ -5,7 +5,7 @@ using Rhino.Geometry;
 
 namespace Rasm.Tests.Vectors;
 
-// --- [CONSTANTS] ----------------------------------------------------------------------------
+// --- [MODELS] ----------------------------------------------------------------------------
 internal static class FlowGens {
     public static readonly Context Model = Spec.SuccValue(Context.Of(absolute: 0.001, relative: 1.0e-8, angle: 0.01, units: Rhino.UnitSystem.Millimeters).ToFin(), label: "flow context");
     public static readonly Op Key = Op.Of(name: "flow-test");
@@ -50,7 +50,7 @@ internal static class FlowGens {
             Event: Option<TraceEvent>.None);
 }
 
-// --- [ALGEBRAIC] ----------------------------------------------------------------------------
+// --- [OPERATIONS] ----------------------------------------------------------------------------
 public sealed class TerminationLaws {
     [Fact]
     public void FactoriesRejectInvalidBudgets() {

@@ -5,7 +5,7 @@ using Color = System.Drawing.Color;
 
 namespace Rasm.Rhino.Tests.Commands;
 
-// --- [ALGEBRAIC] --------------------------------------------------------------------------
+// --- [OPERATIONS] --------------------------------------------------------------------------
 public sealed class CommandOptionScriptLaws {
     [Fact]
     public void ScriptedToggleTextColorAndNumberProjectTypedValues() {

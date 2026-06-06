@@ -96,6 +96,11 @@ def _dispatch(routed: Routed, *, settings: AssaySettings, scope: ArtifactScope, 
             return fan_out(checks, settings=settings, scope=scope, routed=routed)
 
 
+# --- [TABLES] ---------------------------------------------------------------------------
+
+_PREVIEW_MODES: tuple[tuple[str, Mode], ...] = (("fix", Mode.WRITE), ("report", Mode.CHECK), ("build", Mode.BUILD))
+
+
 # --- [COMPOSITION] ----------------------------------------------------------------------
 
 
@@ -173,9 +178,6 @@ def _plan_report(routed: tuple[Routed, ...], settings: AssaySettings) -> Report:
     base = fold(Claim.STATIC, "plan", ())
     status = RailStatus.OK if any(r.files or r.projects for r, _ in routed_sha) else base.status
     return msgspec.structs.replace(base, status=status, results=rows, artifacts=artifacts, notes=notes)
-
-
-_PREVIEW_MODES: tuple[tuple[str, Mode], ...] = (("fix", Mode.WRITE), ("report", Mode.CHECK), ("build", Mode.BUILD))
 
 
 def _preview(routed: Routed, verb: str, mode: Mode, settings: AssaySettings) -> str:

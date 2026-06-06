@@ -5,15 +5,15 @@ using Microsoft.CodeAnalysis.Operations;
 
 namespace Foundation.CSharp.Analyzers.Kernel;
 
-// --- [STATE] -----------------------------------------------------------------
+// --- [SERVICES] ----------------------------------------------------------------
 
 internal sealed class AnalyzerState {
-    // --- [CONSTANTS] ----------------------------------------------------------
+    // --- [CONSTANTS] -----------------------------------------------------------
 
     private static readonly IEqualityComparer<ISymbol> SymbolComparer = SymbolEqualityComparer.Default;
     private static readonly IEqualityComparer<INamedTypeSymbol> NamedTypeComparer = SymbolEqualityComparer.Default;
 
-    // --- [FIELDS] -------------------------------------------------------------
+    // --- [FIELDS] --------------------------------------------------------------
 
     private readonly ConcurrentDictionary<ISymbol, ScopeInfo> _scopeCache = new(comparer: SymbolComparer);
     private readonly ConcurrentDictionary<IMethodSymbol, int> _methodInvocationCounts = new(comparer: SymbolComparer);
@@ -25,7 +25,7 @@ internal sealed class AnalyzerState {
     private readonly ConcurrentDictionary<INamedTypeSymbol, byte> _flagsEnumCompositionSites = new(comparer: NamedTypeComparer);
     private readonly ConcurrentBag<ClosedUnionDispatchFact> _closedUnionDispatches = [];
 
-    // --- [CONSTRUCTORS] -------------------------------------------------------
+    // --- [CONSTRUCTORS] --------------------------------------------------------
 
     private AnalyzerState(Compilation compilation, INamespaceSymbol? languageExtNamespace, INamedTypeSymbol? languageExtCommonErrorType) {
         Compilation = compilation;
@@ -33,13 +33,13 @@ internal sealed class AnalyzerState {
         LanguageExtCommonErrorType = languageExtCommonErrorType;
     }
 
-    // --- [PROPERTIES] ---------------------------------------------------------
+    // --- [PROPERTIES] ----------------------------------------------------------
 
     internal Compilation Compilation { get; }
     internal INamespaceSymbol? LanguageExtNamespace { get; }
     internal INamedTypeSymbol? LanguageExtCommonErrorType { get; }
 
-    // --- [FACTORIES] ----------------------------------------------------------
+    // --- [FACTORIES] -----------------------------------------------------------
 
     internal static AnalyzerState Create(Compilation compilation) {
         INamespaceSymbol? languageExtNamespace = compilation.GetTypeByMetadataName("LanguageExt.Option`1")?.ContainingNamespace;
@@ -47,12 +47,12 @@ internal sealed class AnalyzerState {
         return new AnalyzerState(compilation: compilation, languageExtNamespace: languageExtNamespace, languageExtCommonErrorType: languageExtCommonErrorType);
     }
 
-    // --- [QUERIES] ------------------------------------------------------------
+    // --- [OPERATIONS] ----------------------------------------------------------
 
     internal ScopeInfo ScopeFor(ISymbol symbol) =>
         _scopeCache.GetOrAdd(key: symbol, valueFactory: ScopeModel.Classify);
 
-    // --- [TRACKING] -----------------------------------------------------------
+    // --- [TRACKING] ------------------------------------------------------------
 
     internal void TrackPrivateMethod(IMethodSymbol method) =>
         _ = (method.DeclaredAccessibility, method.MethodKind) switch {
@@ -100,7 +100,7 @@ internal sealed class AnalyzerState {
         }
     }
 
-    // --- [REPORTS] ------------------------------------------------------------
+    // --- [REPORTS] -------------------------------------------------------------
 
     internal ImmutableArray<(INamedTypeSymbol Interface, INamedTypeSymbol Implementation)> SingleImplementationInterfaces() =>
         [
@@ -125,7 +125,7 @@ internal sealed class AnalyzerState {
         ];
     internal ImmutableArray<ClosedUnionDispatchFact> ClosedUnionDispatches() => [.. _closedUnionDispatches];
 
-    // --- [DIAGNOSTICS] --------------------------------------------------------
+    // --- [OPERATIONS] ----------------------------------------------------------
 
     internal static void Report(Action<Diagnostic> report, Diagnostic? diagnostic) {
         switch (diagnostic) {

@@ -3,7 +3,7 @@ using Rasm.TestKit;
 
 namespace Rasm.Grasshopper.Tests.Components;
 
-// --- [ALGEBRAIC] --------------------------------------------------------------------------
+// --- [OPERATIONS] --------------------------------------------------------------------------
 public sealed class ComponentUiRunLaws {
     [Fact]
     public void PhaseSpecificCallbacksOnlyRunForMatchingPhase() {

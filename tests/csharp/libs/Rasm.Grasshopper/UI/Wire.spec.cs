@@ -3,7 +3,7 @@ using Rasm.TestKit;
 
 namespace Rasm.Grasshopper.Tests.UI;
 
-// --- [CONSTANTS] ----------------------------------------------------------------------------
+// --- [MODELS] ----------------------------------------------------------------------------
 internal static class WireGens {
     public static readonly Gen<int> Caps = Gen.Int[start: 0, finish: 1024];
     public static readonly (WireEdit Edit, bool Connected, bool Source, bool Target)[] EditFlags =
@@ -23,7 +23,7 @@ internal static class WireGens {
     public static int[] Bounded(int[] walk, WireObjectLimit cap) => [.. walk.Take(count: cap.Value).Distinct()];
 }
 
-// --- [ALGEBRAIC] ----------------------------------------------------------------------------
+// --- [OPERATIONS] ----------------------------------------------------------------------------
 public sealed class WireObjectLimitLaws {
     [Fact]
     public void AcceptsNonNegative() =>

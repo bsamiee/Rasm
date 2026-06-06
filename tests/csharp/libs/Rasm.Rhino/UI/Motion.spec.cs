@@ -4,7 +4,7 @@ using DrawingColor = System.Drawing.Color;
 
 namespace Rasm.Rhino.Tests.UI;
 
-// --- [CONSTANTS] --------------------------------------------------------------------------
+// --- [MODELS] --------------------------------------------------------------------------
 internal static class MotionCases {
     internal const double EndpointTolerance = 2e-3;   // Bounce/Elastic anchor endpoints within ~3e-5; poly/sine are exact
     internal const int ChannelTolerance = 2;          // 8-bit sRGB<->OKLab round-trip rounding
@@ -24,7 +24,7 @@ internal static class MotionCases {
     }
 }
 
-// --- [ALGEBRAIC] --------------------------------------------------------------------------
+// --- [OPERATIONS] --------------------------------------------------------------------------
 public sealed class EasingCurveLaws {
     [Fact]
     public void LinearIsIdentityOnTheUnitInterval() =>

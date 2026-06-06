@@ -7,7 +7,7 @@ using Microsoft.CodeAnalysis.Operations;
 
 namespace Foundation.CSharp.Analyzers.Rules;
 
-// --- [SHAPE_RULES] -----------------------------------------------------------
+// --- [OPERATIONS] -----------------------------------------------------------
 
 internal static class ShapeRules {
     // --- [CONSTANTS] ----------------------------------------------------------
@@ -341,7 +341,7 @@ internal static class ShapeRules {
         AnalyzerState.ReportEach(context.ReportDiagnostic, varUsages.Select(usage =>
             Diagnostic.Create(RuleCatalog.CSP0015, usage.Location, usage.Name)));
     }
-    // --- [PRIVATE_FUNCTIONS] --------------------------------------------------
+    // --- [PRIVATE_OPERATIONS] -------------------------------------------------
 
     private static bool IsExemptInterface(INamedTypeSymbol interfaceSymbol) {
         // Exempt Has<RT,Trait> pattern interfaces

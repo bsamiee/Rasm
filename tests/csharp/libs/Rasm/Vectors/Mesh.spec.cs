@@ -7,7 +7,7 @@ using Dimension = Rasm.Vectors.Dimension;
 
 namespace Rasm.Tests.Vectors;
 
-// --- [CONSTANTS] ----------------------------------------------------------------------------
+// --- [MODELS] ----------------------------------------------------------------------------
 internal static class MeshGens {
     public static readonly Op Key = Op.Of(name: "mesh-test");
     public static readonly Dimension Dim2 = Dimension.Create(value: 2);
@@ -19,7 +19,7 @@ internal static class MeshGens {
     public static readonly MeshLaplacian[] Laplacians = [MeshLaplacian.Cotangent, MeshLaplacian.IntrinsicDelaunay];
 }
 
-// --- [ALGEBRAIC] ----------------------------------------------------------------------------
+// --- [OPERATIONS] ----------------------------------------------------------------------------
 public sealed class MeshCatalogLaws {
     [Fact]
     public void LaplacianCatalogKeysAreDistinctAndExecutable() {

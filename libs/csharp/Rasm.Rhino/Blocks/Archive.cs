@@ -11,7 +11,6 @@ namespace Rasm.Rhino.Blocks;
 
 // --- [OPERATIONS] -------------------------------------------------------------------------
 public static class Archive {
-    // --- [MODELS] -----------------------------------------------------------------------------
     public readonly record struct DefinitionWalkFrame(
         Transform Composed,
         ImmutableArray<DefinitionId> Path,
@@ -57,10 +56,8 @@ public static class Archive {
                 UnitEdges: UnitEdges);
     }
 
-    // --- [CONSTANTS] --------------------------------------------------------------------------
     internal const int LinkedArchiveClosureMaxDepth = 64;
 
-    // --- [OPERATIONS] -------------------------------------------------------------------------
     public static Fin<Graph> From(File3dm model, Op? key = null, Option<string> archivePath = default) {
         Op op = key.OrDefault();
         Option<string> anchor = archivePath.Bind(static path => BlockPaths.ArchiveAnchor(archivePath: Some(path)));

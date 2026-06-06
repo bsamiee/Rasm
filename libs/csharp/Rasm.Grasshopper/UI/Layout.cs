@@ -488,7 +488,6 @@ internal static partial class Layout {
             ? unit
             : Motion.Cosmetic(intent: new CosmeticIntent.HapticCase(Pattern: HapticPattern.Alignment)).Run(scope: scope).Ignore();
 
-    // --- [OPERATIONS] -------------------------------------------------------------------------
     private static SnapRun SnapPlan(SnapProbe probe) =>
         probe.Switch(
             pointCase: static point => new SnapRun(

@@ -153,6 +153,13 @@ class SymbolShape(StrEnum):
 type Parser = Callable[[Completed], AnyDetail | None]
 type InprocThunk = Callable[[Check], Completed]
 
+
+# --- [CONSTANTS] ------------------------------------------------------------------------
+
+_RESULT_CAP: int = 1000
+_DEFECT_TAIL: int = 400
+
+
 # --- [ERRORS] ---------------------------------------------------------------------------
 
 
@@ -389,6 +396,9 @@ class Bind(Base, frozen=True):
     help: str = ""
 
 
+# --- [OPERATIONS] -----------------------------------------------------------------------
+
+
 def field_cap(struct: type[msgspec.Struct], field: str, *, default: int) -> int:
     """Read a msgspec string max-length constraint.
 
@@ -401,9 +411,14 @@ def field_cap(struct: type[msgspec.Struct], field: str, *, default: int) -> int:
     )
 
 
+# --- [TABLES] ---------------------------------------------------------------------------
+
 # Reserve hint space for parse framing so surplus tokens do not sever the diagnostic suffix.
 _HINT_CAP: int = field_cap(Diagnostic, "hint", default=1 << 62)
 _SURPLUS_TOKEN_CAP: int = _HINT_CAP - 76
+
+
+# --- [MODELS] ---------------------------------------------------------------------------
 
 
 @Parameter(name="*")
@@ -480,10 +495,6 @@ def _count(done: Completed) -> tuple[int, int]:
             return 0, 1
         case _:
             return 0, 0
-
-
-_RESULT_CAP: int = 1000
-_DEFECT_TAIL: int = 400
 
 
 def fold(claim: Claim, verb: str, outcomes: tuple[Completed, ...], *, detail: AnyDetail | None = None) -> Report:

@@ -5,7 +5,7 @@ using Rhino.Geometry;
 
 namespace Rasm.Tests.Vectors;
 
-// --- [CONSTANTS] ----------------------------------------------------------------------------
+// --- [MODELS] ----------------------------------------------------------------------------
 internal static class IntentGens {
     public static readonly Op Key = Op.Of(name: "intent-test");
     public static readonly Context Model = Spec.SuccValue(Context.Of(absolute: 0.001, relative: 1.0e-8, angle: 0.01, units: Rhino.UnitSystem.Millimeters).ToFin(), label: "intent context");
@@ -22,7 +22,7 @@ internal static class IntentGens {
     public static MeshSpace Space => default;
 }
 
-// --- [ALGEBRAIC] ----------------------------------------------------------------------------
+// --- [OPERATIONS] ----------------------------------------------------------------------------
 public sealed class VectorIntentFactoryLaws {
     [Fact]
     public void InterpolationFactoriesValidateUnitInterval() {

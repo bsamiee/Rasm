@@ -1128,7 +1128,6 @@ public static partial class Input {
                 ? Seq(new InputClipboardDataEntry(Type: type, Bytes: Optional(clipboard.GetData(type: type))))
                 : Seq<InputClipboardDataEntry>()));
 
-    // --- [OPERATIONS] -------------------------------------------------------------------------
     internal static InputModifierSnapshot ModifierOf(Keys keys) =>
         new(Shift: keys.HasShift(), Command: keys.HasCommand(), Option: keys.HasOption());
 

@@ -5,7 +5,7 @@ using Rhino.Geometry;
 
 namespace Rasm.Tests.Domain;
 
-// --- [CONSTANTS] ----------------------------------------------------------------------------
+// --- [MODELS] ----------------------------------------------------------------------------
 // LOC overage (~213) is a justified multi-concept owner: Stat (Welford) + Distribution (quantile) + SampleMoment (covariance) + ScalarMetric/CurvatureMode/StatContext/ExtremumDirection/ResidualAggregate dispatch.
 internal static class StatGens {
     public static readonly Op Key = Op.Of(name: "stats-test");
@@ -19,7 +19,7 @@ internal static class StatGens {
         new ResidualSample(Index: i, Location: Point3d.Origin, Distance: Math.Abs(d), Tolerance: 0.5, WithinTolerance: Math.Abs(d) <= 0.5)), max: 24).Select(static rows => toSeq(rows));
 }
 
-// --- [ALGEBRAIC] ----------------------------------------------------------------------------
+// --- [OPERATIONS] ----------------------------------------------------------------------------
 public sealed class StatComputationLaws {
     [Fact]
     public void EmptyInputFails() => Spec.Fail(Stat.Of(values: Seq<double>(), key: StatGens.Key));

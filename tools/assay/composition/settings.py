@@ -54,11 +54,16 @@ _PYTHON_TOOL_ENV: Final[dict[str, str]] = {
 }
 
 
+# --- [BOUNDARIES] -----------------------------------------------------------------------
+
+
 def _anchor(value: str | UPath) -> UPath:
     # Normalize once at ingress so all readers see an absolute UPath anchored to the nearest workspace marker.
     cursor = UPath(value).expanduser().resolve()
     return next((p for p in (cursor, *cursor.parents) if (p / _MARKER).is_file()), cursor)
 
+
+# --- [TYPES] ----------------------------------------------------------------------------
 
 type AnchoredRoot = Annotated[UPath, BeforeValidator(_anchor)]
 type ExpandedPath = Annotated[UPath, BeforeValidator(lambda v: UPath(v).expanduser())]

@@ -1,6 +1,6 @@
 """Wire/evidence spine: StrEnum payloads, fold count oracle, field_cap, validate_detail, envelope branches."""
 
-# --- [IMPORTS] ------------------------------------------------------------------------
+# --- [RUNTIME_PRELUDE] ------------------------------------------------------------------------
 
 from hypothesis import given
 from hypothesis.strategies import integers, lists, text
@@ -41,7 +41,7 @@ _ENCODER = msgspec.json.Encoder(order="deterministic")
 _DECODER: msgspec.json.Decoder[AnyDetail | None] = msgspec.json.Decoder(AnyDetail | None)
 
 
-# --- [ALGEBRAIC] -----------------------------------------------------------------------
+# --- [OPERATIONS] -----------------------------------------------------------------------
 
 
 @given(lists(completed_st, min_size=0, max_size=20))
@@ -144,7 +144,7 @@ def test_fault_json_round_trip(fault: Fault) -> None:
     assert restored.message == fault.message
 
 
-# --- [ENUM PAYLOADS] -------------------------------------------------------------------
+# --- [ENUM_PAYLOADS] -------------------------------------------------------------------
 
 
 @pytest.mark.parametrize("member", list(Language))

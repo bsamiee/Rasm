@@ -5,7 +5,7 @@ using Rhino.Geometry;
 
 namespace Rasm.Rhino.Tests.Blocks;
 
-// --- [ALGEBRAIC] ------------------------------------------------------------------------
+// --- [OPERATIONS] ------------------------------------------------------------------------
 public sealed class BlockArchivePlanLaws {
     [Fact]
     public void BakePlanOrdersNestedDefinitionsBeforeContainersAndSurvivesCycles() {

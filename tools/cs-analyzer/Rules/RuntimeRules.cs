@@ -9,7 +9,7 @@ using Microsoft.CodeAnalysis.Operations;
 
 namespace Foundation.CSharp.Analyzers.Rules;
 
-// --- [RUNTIME_RULES] ---------------------------------------------------------
+// --- [OPERATIONS] ---------------------------------------------------------
 
 internal static class RuntimeRules {
     // --- [CONSTANTS] ----------------------------------------------------------
@@ -259,7 +259,7 @@ internal static class RuntimeRules {
         });
     }
 
-    // --- [PRIVATE_FUNCTIONS] --------------------------------------------------
+    // --- [PRIVATE_OPERATIONS] -------------------------------------------------
 
     private static bool IsStaticLambda(IAnonymousFunctionOperation lambda) =>
         lambda.Syntax switch {

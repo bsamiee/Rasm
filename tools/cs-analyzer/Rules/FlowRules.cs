@@ -8,7 +8,7 @@ using Microsoft.CodeAnalysis.Operations;
 
 namespace Foundation.CSharp.Analyzers.Rules;
 
-// --- [FLOW_RULES] ------------------------------------------------------------
+// --- [OPERATIONS] ------------------------------------------------------------
 
 internal static class FlowRules {
     // --- [CONTROL_RULES] ------------------------------------------------------

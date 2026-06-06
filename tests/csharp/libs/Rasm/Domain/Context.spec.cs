@@ -4,7 +4,7 @@ using Rhino;
 
 namespace Rasm.Tests.Domain;
 
-// --- [CONSTANTS] ----------------------------------------------------------------------------
+// --- [MODELS] ----------------------------------------------------------------------------
 // BRIDGE-DEFERRED: Context.Of(UnitSystem/RhinoDoc); static owns tolerance validation and Custom/Unset/None reject before UnitScale.
 internal static class ContextGens {
     public static readonly Op Key = Op.Of(name: "context-test");
@@ -22,7 +22,7 @@ internal static class ContextGens {
     public static readonly UnitSystem[] RejectedUnits = [UnitSystem.CustomUnits, UnitSystem.Unset, UnitSystem.None];
 }
 
-// --- [ALGEBRAIC] ----------------------------------------------------------------------------
+// --- [OPERATIONS] ----------------------------------------------------------------------------
 public sealed class AbsoluteToleranceLaws {
     [Fact]
     public void AcceptsAboveZeroToleranceAndBoundary() {

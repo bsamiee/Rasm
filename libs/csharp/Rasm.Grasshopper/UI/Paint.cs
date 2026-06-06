@@ -296,110 +296,6 @@ public readonly partial struct PaintStyle {
 [StructLayout(LayoutKind.Auto)]
 public readonly record struct PaintTextMeasurement(string Text, SizeF Size);
 
-// Canonical LRU: Dictionary + doubly-linked list. All ops O(1) — head is LRU, tail is MRU.
-internal sealed class BoundedCache<TKey, TValue> where TKey : notnull {
-    private readonly Dictionary<TKey, LinkedListNode<KeyValuePair<TKey, TValue>>> entries;
-    private readonly LinkedList<KeyValuePair<TKey, TValue>> order = new();
-    private readonly Lock gate = new();
-    private readonly int capacity;
-
-    internal BoundedCache(int capacity, IEqualityComparer<TKey>? comparer = null) {
-        this.capacity = capacity;
-        entries = new Dictionary<TKey, LinkedListNode<KeyValuePair<TKey, TValue>>>(capacity: capacity, comparer: comparer);
-    }
-
-    // BOUNDARY ADAPTER -- double-checked compute-outside-lock: the Dictionary/LinkedList backing is not concurrent, so
-    // every structural access stays gated, but valueFactory runs UNLOCKED between the two checks. The second check
-    // discards the speculatively computed value when a racing caller already inserted the key.
-    internal TValue GetOrAdd(TKey key, Func<TKey, TValue> valueFactory) {
-        using (gate.EnterScope()) {
-            if (Touch(key: key, value: out TValue? cached)) {
-                return cached;
-            }
-        }
-        TValue fresh = valueFactory(arg: key);
-        using (gate.EnterScope()) {
-            if (Touch(key: key, value: out TValue? raced)) {
-                return raced;
-            }
-            if (entries.Count >= capacity && order.First is LinkedListNode<KeyValuePair<TKey, TValue>> evict) {
-                order.RemoveFirst();
-                _ = entries.Remove(key: evict.Value.Key);
-            }
-            LinkedListNode<KeyValuePair<TKey, TValue>> node = new(value: new KeyValuePair<TKey, TValue>(key: key, value: fresh));
-            order.AddLast(node: node);
-            entries.Add(key: key, value: node);
-            return fresh;
-        }
-    }
-
-    // BOUNDARY ADAPTER -- gated LRU touch: caller holds the lock; promotes a hit to MRU and surfaces its value, else miss.
-    private bool Touch(TKey key, [MaybeNullWhen(returnValue: false)] out TValue value) {
-        if (entries.TryGetValue(key: key, value: out LinkedListNode<KeyValuePair<TKey, TValue>>? hit)) {
-            order.Remove(node: hit);
-            order.AddLast(node: hit);
-            value = hit.Value.Value;
-            return true;
-        }
-        value = default;
-        return false;
-    }
-
-}
-
-// Key includes FontDecoration explicitly — Eto.Drawing.Font equality excludes it. AppKit text APIs
-// are main-thread-only; [ThreadStatic] scratch FormattedText avoids cross-thread reuse.
-file static class TextMeasure {
-    private readonly record struct Key(Font Font, string Text, FormattedTextWrapMode Wrap, FormattedTextAlignment Alignment, FormattedTextTrimming Trimming, float MaxWidth, float MaxHeight, FontDecoration Decoration);
-
-    private static readonly BoundedCache<Key, SizeF> Cache = new(capacity: 1024);
-    [ThreadStatic] private static FormattedText? scratch;
-
-    private static FormattedText Scratch() => scratch ??= new FormattedText();
-
-    internal static SizeF Single(Font font, string text) =>
-        Measure(font: font, text: text,
-            wrap: FormattedTextWrapMode.None,
-            alignment: FormattedTextAlignment.Left,
-            trimming: FormattedTextTrimming.None,
-            maxSize: new SizeF(float.MaxValue, float.MaxValue));
-
-    internal static SizeF Measure(Font font, string text,
-        FormattedTextWrapMode wrap, FormattedTextAlignment alignment, FormattedTextTrimming trimming,
-        SizeF maxSize) =>
-        Cache.GetOrAdd(
-            key: new Key(Font: font, Text: text, Wrap: wrap, Alignment: alignment, Trimming: trimming,
-                MaxWidth: maxSize.Width, MaxHeight: maxSize.Height, Decoration: font.FontDecoration),
-            valueFactory: static k => {
-                FormattedText ft = Scratch();
-                ft.Font = k.Font;
-                ft.Text = k.Text;
-                ft.Wrap = k.Wrap;
-                ft.Alignment = k.Alignment;
-                ft.Trimming = k.Trimming;
-                ft.MaximumSize = new SizeF(width: k.MaxWidth, height: k.MaxHeight);
-                return ft.Measure();
-            });
-}
-
-// Dedupes by (dashes array identity, quantized offset). Quantum 0.01 matches DashStyle.Equals
-// tolerance and is perceptually identical at any pen thickness.
-file static class DashStyleIntern {
-    private const float Quantum = 0.01f;
-    private static readonly BoundedCache<(int DashesRef, int Bucket), DashStyle> Cache = new(capacity: 4096);
-
-    internal static DashStyle WithOffset(DashStyle baseline, float offset) {
-        int bucket = (int)MathF.Round(offset / Quantum, MidpointRounding.ToEven);
-        if (bucket == 0) {
-            return baseline;
-        }
-        int dashesRef = baseline.Dashes is float[] dashes ? RuntimeHelpers.GetHashCode(dashes) : 0;
-        return Cache.GetOrAdd(
-            key: (DashesRef: dashesRef, Bucket: bucket),
-            valueFactory: key => new DashStyle(offset: key.Bucket * Quantum, dashes: baseline.Dashes));
-    }
-}
-
 [SkipUnionOps]
 [Union]
 public partial record UiFont {
@@ -841,6 +737,110 @@ public readonly record struct DrawPlan(Seq<DrawMark> Marks, Option<CanvasPaintPh
 public readonly record struct PaintSkinSnapshot(Option<CanvasSkin> Appearance) {
     public bool HasSkin => Appearance.IsSome;
     public Option<Skin> Skin => Appearance.Map(static a => a.Effective);
+}
+
+// --- [OPERATIONS] -------------------------------------------------------------------------
+// Canonical LRU: Dictionary + doubly-linked list. All ops O(1) -- head is LRU, tail is MRU.
+internal sealed class BoundedCache<TKey, TValue> where TKey : notnull {
+    private readonly Dictionary<TKey, LinkedListNode<KeyValuePair<TKey, TValue>>> entries;
+    private readonly LinkedList<KeyValuePair<TKey, TValue>> order = new();
+    private readonly Lock gate = new();
+    private readonly int capacity;
+
+    internal BoundedCache(int capacity, IEqualityComparer<TKey>? comparer = null) {
+        this.capacity = capacity;
+        entries = new Dictionary<TKey, LinkedListNode<KeyValuePair<TKey, TValue>>>(capacity: capacity, comparer: comparer);
+    }
+
+    // BOUNDARY ADAPTER -- double-checked compute-outside-lock: the Dictionary/LinkedList backing is not concurrent, so
+    // every structural access stays gated, but valueFactory runs UNLOCKED between the two checks. The second check
+    // discards the speculatively computed value when a racing caller already inserted the key.
+    internal TValue GetOrAdd(TKey key, Func<TKey, TValue> valueFactory) {
+        using (gate.EnterScope()) {
+            if (Touch(key: key, value: out TValue? cached)) {
+                return cached;
+            }
+        }
+        TValue fresh = valueFactory(arg: key);
+        using (gate.EnterScope()) {
+            if (Touch(key: key, value: out TValue? raced)) {
+                return raced;
+            }
+            if (entries.Count >= capacity && order.First is LinkedListNode<KeyValuePair<TKey, TValue>> evict) {
+                order.RemoveFirst();
+                _ = entries.Remove(key: evict.Value.Key);
+            }
+            LinkedListNode<KeyValuePair<TKey, TValue>> node = new(value: new KeyValuePair<TKey, TValue>(key: key, value: fresh));
+            order.AddLast(node: node);
+            entries.Add(key: key, value: node);
+            return fresh;
+        }
+    }
+
+    // BOUNDARY ADAPTER -- gated LRU touch: caller holds the lock; promotes a hit to MRU and surfaces its value, else miss.
+    private bool Touch(TKey key, [MaybeNullWhen(returnValue: false)] out TValue value) {
+        if (entries.TryGetValue(key: key, value: out LinkedListNode<KeyValuePair<TKey, TValue>>? hit)) {
+            order.Remove(node: hit);
+            order.AddLast(node: hit);
+            value = hit.Value.Value;
+            return true;
+        }
+        value = default;
+        return false;
+    }
+}
+
+// Key includes FontDecoration explicitly -- Eto.Drawing.Font equality excludes it. AppKit text APIs
+// are main-thread-only; [ThreadStatic] scratch FormattedText avoids cross-thread reuse.
+file static class TextMeasure {
+    private readonly record struct Key(Font Font, string Text, FormattedTextWrapMode Wrap, FormattedTextAlignment Alignment, FormattedTextTrimming Trimming, float MaxWidth, float MaxHeight, FontDecoration Decoration);
+
+    private static readonly BoundedCache<Key, SizeF> Cache = new(capacity: 1024);
+    [ThreadStatic] private static FormattedText? scratch;
+
+    private static FormattedText Scratch() => scratch ??= new FormattedText();
+
+    internal static SizeF Single(Font font, string text) =>
+        Measure(font: font, text: text,
+            wrap: FormattedTextWrapMode.None,
+            alignment: FormattedTextAlignment.Left,
+            trimming: FormattedTextTrimming.None,
+            maxSize: new SizeF(float.MaxValue, float.MaxValue));
+
+    internal static SizeF Measure(Font font, string text,
+        FormattedTextWrapMode wrap, FormattedTextAlignment alignment, FormattedTextTrimming trimming,
+        SizeF maxSize) =>
+        Cache.GetOrAdd(
+            key: new Key(Font: font, Text: text, Wrap: wrap, Alignment: alignment, Trimming: trimming,
+                MaxWidth: maxSize.Width, MaxHeight: maxSize.Height, Decoration: font.FontDecoration),
+            valueFactory: static k => {
+                FormattedText ft = Scratch();
+                ft.Font = k.Font;
+                ft.Text = k.Text;
+                ft.Wrap = k.Wrap;
+                ft.Alignment = k.Alignment;
+                ft.Trimming = k.Trimming;
+                ft.MaximumSize = new SizeF(width: k.MaxWidth, height: k.MaxHeight);
+                return ft.Measure();
+            });
+}
+
+// Dedupes by (dashes array identity, quantized offset). Quantum 0.01 matches DashStyle.Equals
+// tolerance and is perceptually identical at any pen thickness.
+file static class DashStyleIntern {
+    private const float Quantum = 0.01f;
+    private static readonly BoundedCache<(int DashesRef, int Bucket), DashStyle> Cache = new(capacity: 4096);
+
+    internal static DashStyle WithOffset(DashStyle baseline, float offset) {
+        int bucket = (int)MathF.Round(offset / Quantum, MidpointRounding.ToEven);
+        if (bucket == 0) {
+            return baseline;
+        }
+        int dashesRef = baseline.Dashes is float[] dashes ? RuntimeHelpers.GetHashCode(dashes) : 0;
+        return Cache.GetOrAdd(
+            key: (DashesRef: dashesRef, Bucket: bucket),
+            valueFactory: key => new DashStyle(offset: key.Bucket * Quantum, dashes: baseline.Dashes));
+    }
 }
 
 // --- [SERVICES] ---------------------------------------------------------------------------

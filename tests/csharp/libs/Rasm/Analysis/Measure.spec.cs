@@ -5,7 +5,7 @@ using Rhino.Geometry;
 
 namespace Rasm.Tests.Analysis;
 
-// --- [CONSTANTS] ----------------------------------------------------------------------------
+// --- [MODELS] ----------------------------------------------------------------------------
 // BRIDGE-DEFERRED: native mass/centroid paths; static owns Measure catalog, MassProperty/MassKind metadata, moment oracle, Operation dispatch pre-native.
 internal static class MeasureGens {
     public static readonly Op Key = Op.Of(name: "measure-test");
@@ -22,7 +22,7 @@ internal static class MeasureGens {
         Spec.SuccValue(Context.Of(absolute: 0.001, relative: 1.0e-8, angle: 0.01, units: Rhino.UnitSystem.Millimeters).ToFin(), label: "measure context");
 }
 
-// --- [ALGEBRAIC] ----------------------------------------------------------------------------
+// --- [OPERATIONS] ----------------------------------------------------------------------------
 public sealed class MassPropertyCatalogLaws {
     [Fact]
     public void KeysAreContiguousAndOutputTypesArePinned() =>

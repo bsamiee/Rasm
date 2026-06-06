@@ -7,7 +7,7 @@ using GumballMode = Rhino.UI.Gumball.GumballMode;
 
 namespace Rasm.Rhino.Tests.UI;
 
-// --- [CONSTANTS] --------------------------------------------------------------------------
+// --- [MODELS] --------------------------------------------------------------------------
 internal static class OverlayFilterCases {
     // Unbind=false generator: pure right-biased Option-or is a clean monoid with the empty filter as identity.
     internal static readonly Gen<OverlayFilter> Filter =
@@ -27,7 +27,7 @@ internal static class OverlayFilterCases {
         OptEq(a.Geometry, b.Geometry) && OptEq(a.Space, b.Space) && a.Unbind == b.Unbind;
 }
 
-// --- [ALGEBRAIC] --------------------------------------------------------------------------
+// --- [OPERATIONS] --------------------------------------------------------------------------
 public sealed class OverlayFilterMonoidLaws {
     [Fact]
     public void CompositionIsAssociative() =>

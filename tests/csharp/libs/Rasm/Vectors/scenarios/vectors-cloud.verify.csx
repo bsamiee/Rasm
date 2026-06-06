@@ -11,7 +11,7 @@ Context context = Probe.Expect(Context.Of(units: Rhino.UnitSystem.Millimeters).T
 static T Project<T>(Fin<VectorIntent> intent, Context context, Op key, string label) =>
     Probe.Expect(Probe.Expect(intent, $"{label}: intent").Project<T>(context: context, key: key), $"{label}: project");
 
-// --- [SCENARIO: vectors-cloud-shapes] ---------------------------------------------------
+// --- [VECTORS_CLOUD_SHAPES] ---------------------------------------------------
 Scenario.Run("vectors-cloud-shapes", CAPTURE_PATH, (key, facts) => {
     Seq<Point3d> ringPoints = Seq(
         new Point3d(x: 0.0, y: 0.0, z: 0.0),
@@ -47,7 +47,7 @@ Scenario.Run("vectors-cloud-shapes", CAPTURE_PATH, (key, facts) => {
     facts.Add("transport.coveredTarget", transport.Correspondences.CoveredTargetCount);
 });
 
-// --- [SCENARIO: vectors-cloud-neighborhood] ---------------------------------------------
+// --- [VECTORS_CLOUD_NEIGHBORHOOD] ---------------------------------------------
 Scenario.Run("vectors-cloud-neighborhood", CAPTURE_PATH, (key, facts) => {
     static Seq<Point3d> Grid(double step, Func<double, double, double> z) =>
         toSeq(from ix in Enumerable.Range(start: -2, count: 5) from iy in Enumerable.Range(start: -2, count: 5) let x = ix * step let y = iy * step select new Point3d(x: x, y: y, z: z(x, y)));
@@ -116,7 +116,7 @@ Scenario.Run("vectors-cloud-neighborhood", CAPTURE_PATH, (key, facts) => {
     facts.Add("sphere.mean", sphereMean);
 });
 
-// --- [SCENARIO: vectors-cloud-hull] -----------------------------------------------------
+// --- [VECTORS_CLOUD_HULL] -----------------------------------------------------
 Scenario.Run("vectors-cloud-hull", CAPTURE_PATH, (key, facts) => {
     VectorCloud tooFew = Probe.Expect(VectorCloud.Cluster(
         points: Seq(

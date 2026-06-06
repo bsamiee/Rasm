@@ -40,6 +40,11 @@ if TYPE_CHECKING:
     from tools.assay.core.routing import Routed
 
 
+# --- [CONSTANTS] ------------------------------------------------------------------------
+
+_GAP_NOTE: str = "mutation requested but no eligible lane (typescript has no mutation runner; or target/all overrides the default)"
+
+
 # --- [MODELS] ---------------------------------------------------------------------------
 
 
@@ -59,9 +64,8 @@ class TestParams(BaseParams):
     grep: str = ""
 
 
-# --- [CONSTANTS] ------------------------------------------------------------------------
+# --- [SERVICES] -------------------------------------------------------------------------
 
-_GAP_NOTE: str = "mutation requested but no eligible lane (typescript has no mutation runner; or target/all overrides the default)"
 _LOG: structlog.stdlib.BoundLogger = structlog.get_logger("assay.test")
 
 

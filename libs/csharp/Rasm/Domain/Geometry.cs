@@ -238,7 +238,7 @@ public readonly record struct ClosestHit(Point3d Point, Option<double> Distance,
 [BoundaryAdapter, StructLayout(LayoutKind.Auto)] public readonly record struct Couple(int A, int B);
 [BoundaryAdapter, StructLayout(LayoutKind.Auto)] public readonly record struct CurveDeviation(double MinimumDistance, Point3d MinimumA, Point3d MinimumB, double MaximumDistance, Point3d MaximumA, Point3d MaximumB, double Tolerance, bool WithinTolerance);
 
-// --- [SERVICES] ---------------------------------------------------------------------------
+// --- [OPERATIONS] -------------------------------------------------------------------------
 [BoundaryAdapter]
 internal static class GeometryKernel {
     private static bool Universal(Type type) => type == typeof(object) || type == typeof(GeometryBase);

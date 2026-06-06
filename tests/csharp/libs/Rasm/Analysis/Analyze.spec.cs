@@ -5,7 +5,7 @@ using Rhino;
 
 namespace Rasm.Tests.Analysis;
 
-// --- [CONSTANTS] ----------------------------------------------------------------------------
+// --- [MODELS] ----------------------------------------------------------------------------
 internal static class AnalyzeGens {
     public static readonly Op Key = Op.Of(name: "analyze-spec");
     public static readonly Gen<int[]> Inputs = Gen.Int[start: -1_000, finish: 1_000].Array[1, 24];
@@ -29,7 +29,7 @@ internal static class AnalyzeGens {
             evaluator: static value => Fin.Succ(value: Seq(value.Length)).ToEff());
 }
 
-// --- [ALGEBRAIC] ----------------------------------------------------------------------------
+// --- [OPERATIONS] ----------------------------------------------------------------------------
 public sealed class AnalyzeExecutionLaws {
     [Fact]
     public void PerItemOperationsTraverseEveryInputAndFlattenChunks() =>
@@ -55,7 +55,7 @@ public sealed class AnalyzeExecutionLaws {
             then: static actual => Assert.Equal(expected: Seq(250), actual: actual));
 }
 
-// --- [EDGE_CASES] ---------------------------------------------------------------------------
+// --- [OPERATIONS] ---------------------------------------------------------------------------
 public sealed class AnalyzeRailLaws {
     [Fact]
     public void MissingOperationAndMissingContextStayOnOperationRail() {
