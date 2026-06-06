@@ -1,6 +1,6 @@
 # [THINKTECTURE_RASM]
 
-[IMPORTANT] Thinktecture owns domain shape. LanguageExt owns error and execution rails.
+Thinktecture owns domain shape. LanguageExt owns error and execution rails.
 
 ## [1][OWNERSHIP]
 

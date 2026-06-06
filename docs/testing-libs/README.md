@@ -1,6 +1,6 @@
 # [TESTING_LIBS]
 
-[IMPORTANT] Package injection and versions are owned by the local package map. Shared testkit guidance belongs to the local test instruction owner.
+Package injection and versions are owned by the local package map. Shared testkit guidance belongs to the local test instruction owner.
 
 ## [1][INDEX]
 

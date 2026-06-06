@@ -1,6 +1,6 @@
 # [XUNIT_API]
 
-[IMPORTANT] Use xUnit v3 through Microsoft Testing Platform when the project configures that runner. Runner selection and generated runner config are project package-map facts, not generic xUnit API facts.
+Use xUnit v3 through Microsoft Testing Platform when the project configures that runner. Runner selection and generated runner config are project package-map facts, not generic xUnit API facts.
 
 ## [1][PACKAGE_MODE]
 
@@ -12,7 +12,7 @@
 |   [4]   | `xunit.v3.extensibility.core` | Shared (testkit) | Pipeline startup and extensibility APIs    |
 |   [5]   | `xunit.analyzers`             | Transitive       | xUnit analyzer diagnostics through package |
 
-[SOURCE] xUnit MTP docs: https://xunit.net/docs/getting-started/v3/microsoft-testing-platform
+Project runner behavior comes from the package map and runner configuration; xUnit MTP API detail belongs to the maintained xUnit documentation.
 
 ## [2][DISCOVERY]
 
@@ -47,12 +47,12 @@ Assembly fixtures use public parameterless constructors, initialize before assem
 
 ## [5][MTP_FILTERS]
 
-| [INDEX] | [INPUT]            | [MTP_FLAG]          | [PROJECT_ROUTE]                    |
-| :-----: | ------------------ | ------------------- | ---------------------------------- |
-|   [1]   | `/assembly/...`    | `--filter-query`    | xUnit query language               |
-|   [2]   | `Category=Algebra` | `--filter-trait`    | Trait filter when traits exist     |
-|   [3]   | `SomeSpec`         | `--filter-class`    | Class-shaped spec/law names        |
-|   [4]   | `SomeLaw`          | `--filter-method`   | Method-shaped focused law names    |
+| [INDEX] | [INPUT]            | [MTP_FLAG]        | [PROJECT_ROUTE]                 |
+| :-----: | ------------------ | ----------------- | ------------------------------- |
+|   [1]   | `/assembly/...`    | `--filter-query`  | xUnit query language            |
+|   [2]   | `Category=Algebra` | `--filter-trait`  | Trait filter when traits exist  |
+|   [3]   | `SomeSpec`         | `--filter-class`  | Class-shaped spec/law names     |
+|   [4]   | `SomeLaw`          | `--filter-method` | Method-shaped focused law names |
 
 The local test runner maps single filter text to MTP-native query, trait, class, or method flags when configured.
 

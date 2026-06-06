@@ -1,33 +1,14 @@
 # [ASSAY_OPERATOR]
 
-`tools.assay` is the new Rasm polyglot quality-operator implementation for C#, Python, TypeScript, Bash, SQL, docs, bridge, package, and API proof. It is intended to replace `tools.quality`, but current root policy still names `tools.quality` as the canonical quality route until repo manifests and bridge/docs policy migrate.
+`tools.assay` is the Rasm polyglot quality-operator implementation for C#, Python, TypeScript, Bash, SQL, docs, bridge, package, and API proof. Root quality routing still names `tools.quality`; use Assay for Assay-owned work and explicit operator validation.
 
 ## [1][STATUS]
 
-Assay is the intended successor implementation, but it is not yet the root-canonical quality route. Treat that adoption state as the controlling constraint for every command and migration note in this README.
-
-Status: intended successor to `tools.quality`; not yet root-canonical.
-Replaces: `tools.quality` quality families after root policy migrates.
-Current policy: `CLAUDE.md` and root `AGENTS.md` still route general quality work through `tools.quality`.
-Use now: use assay when working on assay itself or when explicitly validating the new operator.
+Status: active Assay operator; not the root-canonical quality route.
+Use: Assay-owned development and explicit Assay validation.
 Machine contract: normal CLI invocations emit one JSON `Envelope` on stdout; diagnostics ride stderr.
 Automation: programmatic arm through `drive(trigger, action, settings)`; no registered root `watch` CLI.
-Update when: root policy, bridge routes, or docs routes switch to `tools.assay`.
-Route-away: root migration and bridge policy edits stay outside this README until explicitly in scope.
-
-Migration from `tools.quality` is semantic, not a blind command rename:
-
-Exact replacement intent
-    Assay surface: `static report`, `static build`, `test run`, `bridge verify`, `api doctor`.
-    Reader action: treat these as same-family replacements only after root policy migrates.
-
-Changed semantics
-    Assay surface: `static full`, `test --mutation`, `api query`, `bridge verify`, `package stage`.
-    Reader action: check current assay syntax before translating old commands; `static full` is currently build-shaped, mutation is boolean, `api query` uses `--key` plus symbol, and bridge/package operands are flags.
-
-New capability
-    Assay surface: `code search`, `code rewrite`, `code query`, `delta`, automation, polyglot API sources.
-    Reader action: use these for structural search/rewrite, tree-sitter query, retained-run comparison, programmatic fire streams, and host/NuGet/Python/TypeScript API surfaces.
+Root quality policy, bridge routing, and repo-wide command ownership stay outside this README.
 
 ## [2][FIRST_COMMAND]
 
@@ -109,7 +90,7 @@ Example:
 Verbs: `fix`, `report`, `build`, `full`, `plan`
 Inputs: `[paths...]`, `--language`
 Output: shared `Report`; `plan` emits route/build-scope artifacts.
-Use: `fix` mutates; `report` diagnoses; `build` compiles the routed closure; `full` is currently build-shaped, not old Debug/Release parity.
+Use: `fix` mutates; `report` diagnoses; `build` compiles the routed closure; `full` runs the build-shaped closure rail.
 Example:
     `uv run python -m tools.assay static plan --language csharp libs/csharp/Rasm`
 
@@ -148,13 +129,13 @@ Inputs: `--slug`, `--version`
 Output: `PackageRun` detail.
 Use: slug and version are flags, not positionals; stage/deploy/publish are Yak/Rhino-package operations.
 Example:
-    `uv run python -m tools.assay package plan --slug rasm-bridge --version 0.4.0`
+    `uv run python -m tools.assay package plan --slug <yak-slug> --version <version>`
 
 ### [4.7][API_COMMANDS]
 
 Verbs: `doctor`, `resolve`, `query`, `show`
 Inputs: `--key`, `--symbol`, `--kind`, `--token`, `--max-lines`, `--lines`, `--grep`, `--full`, `--strict`
-Defined but not behavior-driving today: `--latest`, `--restore`
+Defined but not promoted as operator guidance: `--latest`, `--restore`
 Output: `ApiSurface` or `ApiResolution` detail.
 Use: sources include host assemblies, NuGet packages, Python distributions, and TypeScript declarations.
 Example:
@@ -215,7 +196,7 @@ Report detail: rail-specific evidence under `report.detail`.
 Rows: bounded row output under `report.results`.
 Artifacts: durable files under `report.artifacts`.
 Truncation: inline lists may set `truncated=true`; full-output persistence is rail-owned, not universal.
-Migration note: these locations replace the old `tools.quality` `data` convention.
+Result locations are the Assay contract; older tool payload shapes do not define this operator.
 
 ## [6][INTEGRATIONS]
 
@@ -299,85 +280,44 @@ Important behavior:
 
 ## [8][ARTIFACTS_OBSERVABILITY_REMOTE]
 
-Artifacts, logs, tracing, and remote execution are operator surfaces because they change how agents consume proof. They are not a promise that every rail persists every byte or that assay is cloud-native.
+Artifacts, logs, tracing, and remote execution are operator surfaces. They do not imply that every rail persists every byte or that Assay is a cloud-native workspace.
 
-[STORAGE_HISTORY]:
+Storage and history:
 
 Artifact root
-    Current truth: default local root is `.artifacts/assay`.
-    Caveat: individual rails decide which full outputs become artifacts.
-    Reader action: inspect `report.artifacts` before assuming a file exists.
+    Default local root is `.artifacts/assay`.
+    Individual rails decide which full outputs become artifacts.
+    Inspect `report.artifacts` before assuming a file exists.
 
 History
-    Current truth: registry invocations persist envelope JSON by `run_id`; `delta` reads retained history.
-    Caveat: parse faults and automation program envelopes are thinner than normal rail history.
-    Reader action: use retained history for comparisons, not as a substitute for rerunning a proof.
+    Registry invocations persist envelope JSON by `run_id`; `delta` reads retained history.
+    Parse faults and automation program envelopes are thinner than normal rail history.
+    Use retained history for comparisons, not as a substitute for rerunning the rail.
 
 Run scopes
-    Current truth: per-run scopes live under the claim/run id; stable build scopes exist for build-like closures.
-    Caveat: static closure build does not currently use every stable-scope or lease promise.
-    Reader action: trust emitted artifact paths over inferred directory shapes.
+    Per-run scopes live under the claim/run id; stable build scopes exist for build-like closures.
+    Trust emitted artifact paths over inferred directory shapes.
 
-[OBSERVABILITY]:
+Observability:
 
 Logs
-    Current truth: structlog writes stderr; stdout remains the machine contract.
-    Caveat: stderr is diagnostic context only.
-    Reader action: do not scrape stderr for results.
+    structlog writes stderr; stdout remains the machine contract.
+    stderr is diagnostic context only.
 
 Tracing
-    Current truth: OTel is endpoint-gated through environment configuration.
-    Caveat: no endpoint means no tracing export.
-    Reader action: configure tracing explicitly before expecting spans.
+    OTel is endpoint-gated through environment configuration.
+    No endpoint means no tracing export.
 
-[ENVIRONMENT_REMOTE]:
+Environment and remote execution:
 
 Environment
-    Current truth: README-worthy env vars are `ASSAY_RUN_ID`, `ASSAY_AGENT_TASK_ID`, `ASSAY_ARTIFACT_RETENTION`, `ASSAY_EXEC_TARGET`, and `ASSAY_EXEC_KNOWN_HOSTS`.
-    Caveat: durable requirements must come from source/settings, not task System Information.
-    Reader action: use env vars for correlation, retention, and execution target control only where source confirms behavior.
+    README-worthy env vars are `ASSAY_RUN_ID`, `ASSAY_AGENT_TASK_ID`, `ASSAY_ARTIFACT_RETENTION`, `ASSAY_EXEC_TARGET`, and `ASSAY_EXEC_KNOWN_HOSTS`.
+    Use env vars for correlation, retention, and execution target control only where settings expose the behavior.
 
 Remote execution
-    Current truth: `ASSAY_EXEC_TARGET=ssh://...` runs processes over SSH.
-    Caveat: routing, locks, package staging, bridge discovery, API discovery, and many artifacts still assume local or shared paths.
-    Reader action: treat SSH as process execution relocation, not full remote workspace sync.
+    `ASSAY_EXEC_TARGET=ssh://...` runs processes over SSH.
+    Routing, locks, package staging, bridge discovery, API discovery, and many artifacts still need local or shared paths.
 
 fsspec
-    Current truth: `ArtifactStore` is fsspec-shaped.
-    Caveat: normal CLI use is local file storage.
-    Reader action: do not market assay as cloud-native execution.
-
-## [9][SOURCE_TRUTH_AND_VALIDATE]
-
-Source owners:
-
-| [NEED]                                                    | [SOURCE]                              |
-| --------------------------------------------------------- | ------------------------------------- |
-| Edit behavior, invariants, anti-patterns, full gates      | `tools/assay/AGENTS.md`               |
-| Wire structs, status carriers, detail variants            | `tools/assay/core/model.py`           |
-| Status fold and exit projections                          | `tools/assay/core/status.py`          |
-| Engine execution, leases, fan-out, remote process backend | `tools/assay/core/engine.py`          |
-| Routing and argv-tail projection                          | `tools/assay/core/routing.py`         |
-| Settings, artifact roots, env aliases                     | `tools/assay/composition/settings.py` |
-| Tool catalog and language/program rows                    | `tools/assay/composition/catalog.py`  |
-| CLI registry, emit, history, diagnostics                  | `tools/assay/composition/registry.py` |
-| Claim behavior                                            | `tools/assay/rails/*.py`              |
-| Automation unions and drive loop                          | `tools/assay/automation/*.py`         |
-
-Maintainer flow for surgical additions:
-
-1. Start from the operator action, then trace the existing path through `REGISTRY`, the rail params, routing, `Tool`, `Check`, engine execution, fold, envelope, and artifacts.
-2. Extend the first owner in that path that actually owns the new behavior. Examples: argv-tail placement belongs in routing, process/cwd/env/staging belongs in the engine plus `Tool`, cache and artifact roots belong in settings/store, and output shape belongs in model/fold/envelope.
-3. Keep the behavior in one reusable shape. Do not add a per-tool process wrapper, rail-local cwd patch, or parallel config object when the existing row, model, rail, or engine can express it.
-4. Prove the owner boundary directly: catalog rows prove selection, engine tests prove execution policy, rail tests prove eligibility/routing, and README updates prove operator action only when the command surface changes.
-
-README validation for this document:
-
-```bash copy-safe
-git diff --check -- tools/assay/README.md docs/standards/reference/readme.md
-pnpm exec mmdc -i tools/assay/README.md -a .artifacts/mermaid -q
-uv run python -m tools.assay docs check tools/assay/README.md
-uv run python -m tools.assay self-test
-```
-
-If Python runtime checks fail from unrelated dirty source state, keep this README scoped to the current source truth and record the blocker instead of editing Python.
+    `ArtifactStore` is fsspec-shaped.
+    Normal CLI use is local file storage.

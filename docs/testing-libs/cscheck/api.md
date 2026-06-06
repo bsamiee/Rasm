@@ -1,6 +1,6 @@
 # [CSCHECK_API]
 
-[IMPORTANT] Specs use the project testkit first; raw `Check.*` calls move into the shared testkit only after at least two specs need the same rail.
+Specs use the project testkit first; raw `Check.*` calls move into the shared testkit only after at least two specs need the same rail.
 
 ## [1][CHECK_SURFACE]
 
@@ -16,16 +16,21 @@
 
 ## [2][GEN_SURFACE]
 
-| [INDEX] | [API]                                                       | [PROJECT_USE]                                             |
-| :-----: | ----------------------------------------------------------- | --------------------------------------------------------- |
-|   [1]   | `Gen.Select`, `SelectMany`                                  | Product axes and dependent generation.                    |
-|   [2]   | `Gen.OneOfConst`, `OneOf`, `Frequency`                      | Case tables and edge bias.                                |
-|   [3]   | `Gen.Array`, `ArrayUnique`, `Array2D`, `List`, `Dictionary`, `HashSet`, `SortedDictionary` | Collection domains before `Seq<T>` projection. |
-|   [4]   | `Gen.Shuffle`, `ShuffleSelect`                              | Permutation and selection metamorphic laws.               |
-|   [5]   | `Gen.Recursive`                                             | Recursive structures only with explicit depth discipline. |
-|   [6]   | `Gen.Clone`                                                 | Identical streams for two-path comparisons.               |
-|   [7]   | `Gen.Enum<T>`, `FrequencyConst`, nullable/null generators   | Closed-set and edge-bias domains.                         |
-|   [8]   | `Gen.Operation`, `GenOperationAsync`, `GenMetamorphic`      | Stateful, async, and paired-operation laws.               |
+| [INDEX] | [API]                                                     | [PROJECT_USE]                                             |
+| :-----: | --------------------------------------------------------- | --------------------------------------------------------- |
+|   [1]   | `Gen.Select`, `SelectMany`                                | Product axes and dependent generation.                    |
+|   [2]   | `Gen.OneOfConst`, `OneOf`, `Frequency`                    | Case tables and edge bias.                                |
+|   [3]   | `Gen.Shuffle`, `ShuffleSelect`                            | Permutation and selection metamorphic laws.               |
+|   [4]   | `Gen.Recursive`                                           | Recursive structures only with explicit depth discipline. |
+|   [5]   | `Gen.Clone`                                               | Identical streams for two-path comparisons.               |
+|   [6]   | `Gen.Enum<T>`, `FrequencyConst`, nullable/null generators | Closed-set and edge-bias domains.                         |
+|   [7]   | `Gen.Operation`, `GenOperationAsync`, `GenMetamorphic`    | Stateful, async, and paired-operation laws.               |
+
+Note: Collection domains before `Seq<T>` projection
+- `HashSet`
+- `List` 
+- `Gen.Array`, `ArrayUnique`, `Array2D`
+- `Dictionary`, `SortedDictionary`
 
 ## [3][PROJECT_POLICY]
 
@@ -45,7 +50,7 @@ CsCheck shrinking finds the minimal counterexample by repeatedly narrowing faile
 |   [1]   | `throw` inside `Select`          | Use `Where` then `Select` — see code block below      |
 |   [2]   | `throw` inside optional `Select` | Use `Where(opt => opt.IsSome)` — see code block below |
 
-[DETAIL]
+Generator repair patterns:
 - [1] `Gen.Int.Select(i => i > 0 ? new T(i) : throw …)` → `Gen.Int.Where(i => i > 0).Select(i => new T(i))`
 - [2] `Gen.Select(Factory).Select(opt => opt.IfNone(() => throw …))` → `Gen.Select(Factory).Where(opt => opt.IsSome).Select(opt => opt.IfNone(default!))`
 
@@ -61,21 +66,21 @@ public static readonly Gen<Dimension> Dimension =
         .Select(opt => opt.IfNone(default(Vectors.Dimension)));
 ```
 
-[SOURCE] CsCheck README on `Where` shrinking: https://github.com/AnthonyLloyd/CsCheck
+CsCheck `Where` semantics are package API behavior; project generators keep predicates broad enough to preserve shrinkable satisfying values.
 
 ## [5][ENV_KNOBS]
 
-| [INDEX] | [VAR]                | [DEFAULT]       | [USE]                                                                                            |
-| :-----: | -------------------- | --------------- | ------------------------------------------------------------------------------------------------ |
-|   [1]   | `CsCheck_Iter`       | 100             | Per-property iteration count.                                                                    |
-|   [2]   | `CsCheck_Time`       | -1              | Wall-clock budget in seconds; package default disables time override.                            |
-|   [3]   | `CsCheck_Threads`    | processor count | Parallel sample workers.                                                                         |
-|   [4]   | `CsCheck_Seed`       | unset           | Fixed seed for reproducible runs.                                                                |
-|   [5]   | `CsCheck_Replay`     | 100             | Number of times to replay a failing seed for parallel reproduction.                              |
-|   [6]   | `CsCheck_Sigma`      | 6.0             | Statistical significance for `Check.Faster`.                                                     |
-|   [7]   | `CsCheck_Timeout`    | 60              | Per-sample timeout (seconds).                                                                    |
-|   [8]   | `CsCheck_Ulps`       | 4               | Package floating equality slack; project tolerance lives in project assertion wrappers.           |
-|   [9]   | `CsCheck_WhereLimit` | 100             | Filter rejection cap; lower → fail faster, higher → tolerate sparse-acceptance generators.       |
+| [INDEX] | [VAR]                | [DEFAULT]       | [USE]                                                                                      |
+| :-----: | -------------------- | --------------- | ------------------------------------------------------------------------------------------ |
+|   [1]   | `CsCheck_Iter`       | 100             | Per-property iteration count.                                                              |
+|   [2]   | `CsCheck_Time`       | -1              | Wall-clock budget in seconds; package default disables time override.                      |
+|   [3]   | `CsCheck_Threads`    | processor count | Parallel sample workers.                                                                   |
+|   [4]   | `CsCheck_Seed`       | unset           | Fixed seed for reproducible runs.                                                          |
+|   [5]   | `CsCheck_Replay`     | 100             | Number of times to replay a failing seed for parallel reproduction.                        |
+|   [6]   | `CsCheck_Sigma`      | 6.0             | Statistical significance for `Check.Faster`.                                               |
+|   [7]   | `CsCheck_Timeout`    | 60              | Per-sample timeout (seconds).                                                              |
+|   [8]   | `CsCheck_Ulps`       | 4               | Package floating equality slack; project tolerance lives in project assertion wrappers.    |
+|   [9]   | `CsCheck_WhereLimit` | 100             | Filter rejection cap; lower → fail faster, higher → tolerate sparse-acceptance generators. |
 
 `Spec.ForAll` precedence: explicit args > env vars > package defaults. CI policy: tune `CsCheck_Iter=1000` and `CsCheck_Time=60` for nightly extended runs; keep PR validation at defaults. `CsCheck_Replay=10` for CI, default 100 for local repro.
 
@@ -117,13 +122,13 @@ Audit lives in the project testkit generator self-test, not in product spec file
 
 Replay `SampleParallel` failures with the emitted parallel seed, including any thread-id bracket suffix. Do not translate a parallel failure into a plain `Check.Sample` seed unless the package output says the sequential sample also fails.
 
-[SOURCE] CsCheck causal profiling: https://github.com/AnthonyLloyd/CsCheck#parallel-sampling
+CsCheck causal profiling output is replay material for the parallel check that emitted it.
 
 ## [9][PERFORMANCE_ASSERTIONS]
 
 `Check.Faster(faster, slower, sigma)` compares two implementations across generated inputs and reports confidence that the first implementation is faster. Use only for:
 
-- Regression detection (e.g., Yuksel WSE O(n²) allocation regression on Sample.cs at `n ≥ candidate_count × MeshScale`).
-- A/B-style algorithmic choice during refactor (e.g., Cholesky vs LU on the same SPD generator).
+- Regression detection for an allocation or complexity path where the input size is part of the oracle.
+- A/B-style algorithmic choice during refactor on the same generator and project-owned tolerance policy.
 
 Never use for absolute performance claims — those belong in `tests/csharp/_benchmarks` with BenchmarkDotNet (see `docs/testing-libs/benchmarkdotnet/api.md`).

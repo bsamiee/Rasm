@@ -1,6 +1,6 @@
 # [LANGUAGEEXT_OPERATORS]
 
-[IMPORTANT] LanguageExt operator semantics come from the active `LanguageExt.Core` surface.
+LanguageExt operator semantics come from the active `LanguageExt.Core` surface.
 
 Hand-written domain `operator +`/`|` on application types are **not** LanguageExt operators.
 

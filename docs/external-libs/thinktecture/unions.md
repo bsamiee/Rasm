@@ -1,6 +1,6 @@
 # [THINKTECTURE_UNIONS]
 
-[IMPORTANT] Prefer named regular unions for domain variants. Use ad-hoc unions only for compact local alternatives.
+Prefer named regular unions for domain variants. Use ad-hoc unions only for compact local alternatives.
 
 ## [1][UNION_TYPES]
 

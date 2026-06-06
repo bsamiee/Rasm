@@ -1,6 +1,6 @@
 # [THINKTECTURE_ENUMS]
 
-[IMPORTANT] Use smart enums where a bounded vocabulary carries lookup, metadata, and behavior.
+Use smart enums where a bounded vocabulary carries lookup, metadata, and behavior.
 
 ## [1][REGISTRIES]
 

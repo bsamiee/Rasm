@@ -1,10 +1,4 @@
-"""Wire/evidence spine: StrEnum payloads, fold count oracle, field_cap, validate_detail, envelope branches.
-
-Source surface: ``tools/assay/core/model.py`` — all StrEnum classes, ``receipt``, ``fold``,
-``validate_detail``, ``field_cap``, ``envelope``, ``BaseParams.bound``/``surplus``/``_arity``, ``Counts``.
-Laws: fold count oracle, fold defect row, field_cap introspection, surplus cap arithmetic, codec
-round-trips for all 7 AnyDetail variants, envelope projection consistency, StrEnum payload invariants.
-"""
+"""Wire/evidence spine: StrEnum payloads, fold count oracle, field_cap, validate_detail, envelope branches."""
 
 # --- [IMPORTS] ------------------------------------------------------------------------
 

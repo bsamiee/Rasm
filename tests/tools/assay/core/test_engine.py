@@ -1,12 +1,4 @@
-"""Core executor laws: lease algebra, _stale PID-reuse, _decode_owner tamper, _drain tail cap, INPROC thunk.
-
-Source surface: ``tools/assay/core/engine.py`` — ``_splice``, ``_drain``, ``_decode_owner``, ``_stale``,
-``exclusive_lease``, ``leased``, ``_inproc``, ``fan_out``, ``_total``, ``_governed``, ``_diagnose``.
-Laws: _decode_owner totality, _stale NoSuchProcess→True, _stale live→False, _stale staleness oracle,
-_splice dotnet injection, _splice uv passthrough, INPROC thunk-less→rc1, INPROC raising→rc1+exc-name,
-exclusive_lease BUSY path, exclusive_lease stale-steal, fan_out None-slot→FAULT(TIMEOUT),
-SSH streaming round-trip, OTel span resource snapshot, _drain tail-cap property law, _governed CPU cap.
-"""
+"""Core executor laws: lease algebra, _stale PID-reuse, _decode_owner tamper, _drain tail cap, INPROC thunk."""
 
 # --- [IMPORTS] ------------------------------------------------------------------------
 

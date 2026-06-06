@@ -1,6 +1,6 @@
 # [REPLACEMENTS]
 
-[IMPORTANT] Replacement means moving behavior to the owning API, not adding wrappers. BCL surface catalog: `bcl.md`. Language features: `../external-libs/csharp/language.md`.
+Replacement means moving behavior to the owning API, not adding wrappers. BCL surface catalog: `bcl.md`. Language features: `../external-libs/csharp/language.md`.
 
 ## [1][TEXT_AND_LOOKUP]
 
@@ -22,7 +22,7 @@
 |  [14]   | Manual hex encode loops.                                         |
 |  [15]   | Line iteration via `string.Split('\n')`.                         |
 
-[OWNER]
+Owner API:
 - [1] `[GeneratedRegex]` with optional timeout and culture; omit `Compiled`.
 - [2] Cached `SearchValues<char>` + `MemoryExtensions.ContainsAnyExcept` / `IndexOfAnyExcept`.
 - [3] `FrozenDictionary`/`FrozenSet` with explicit `comparer:` or Thinktecture smart-enum `Items`.
@@ -60,7 +60,7 @@
 |  [15]   | String-key frozen lookup from `ReadOnlySpan<char>` wire tokens.                  |
 |  [16]   | Static frozen catalog plus runtime registration.                                 |
 
-[OWNER]
+Owner API:
 - [1] LanguageExt `HashMap` / `Seq`.
 - [2] `Atom<HashMap<K,V>>` at boundary; `ConcurrentDictionary` only for measured boundary caches.
 - [3] `ToLookup` once, pre-index `FrozenDictionary`, or `DistinctBy` with explicit comparer.
@@ -90,7 +90,7 @@
 |   [6]   | Manual field guard chains on wire DTOs.                   |
 |   [7]   | `GroupJoin` + `SelectMany` + `DefaultIfEmpty` outer join. |
 
-[OWNER]
+Owner API:
 - [1] Thinktecture value object plus LanguageExt rail.
 - [2] Thinktecture smart enum with item-owned behavior.
 - [3] Thinktecture union `Switch`/`Map`.
@@ -115,7 +115,7 @@
 |  [10]   | `OrderBy(_ => Guid.NewGuid())` shuffle.     |
 |  [11]   | Non-cryptographic content fingerprint.      |
 
-[OWNER]
+Owner API:
 - [1] MathNet factorization/solver API.
 - [2] CSparse Cholesky + MathNet residual check — see `../external-libs/mathnet/sparse.md`.
 - [3] RhinoCommon.
@@ -158,7 +158,7 @@
 |  [24]   | Polling for filesystem changes.                           |
 |  [25]   | `new HttpClient()` in domain/application.                 |
 
-[OWNER]
+Owner API:
 - [1] `TimeProvider.GetTimestamp` + `GetElapsedTime`.
 - [2] Injected `TimeProvider` monotonic pair; static `Stopwatch.GetElapsedTime` at tool boundary only.
 - [3] `TimeProvider.GetElapsedTime(start)`.
@@ -193,7 +193,7 @@
 |   [2]   | Rhino tolerance constants copied locally. |
 |   [3]   | Runtime package assumptions.              |
 
-[OWNER]
+Owner API:
 - [1] GH2 `Garden`, `Tree`, `Coverage`, `WithPathPrefix`.
 - [2] `RhinoMath` and document context.
 - [3] Host load evidence and `meta.md` host-reference policy.

@@ -1,9 +1,4 @@
-"""RailStatus algebra: join/fold oracle, severity ordering, from_returncode table, alias contract.
-
-Source surface: ``tools/assay/core/status.py`` — ``RailStatus``, ``join``, ``fold``, ``from_returncode``.
-Laws: max-by-severity oracle, left-identity, right-identity, absorbing-element, fold seed, StrEnum alias,
-from_returncode closed table, exit_code non-negative, StrEnum round-trip.
-"""
+"""RailStatus algebra: join/fold oracle, severity ordering, from_returncode table, alias contract."""
 
 # --- [IMPORTS] ------------------------------------------------------------------------
 

@@ -1,6 +1,6 @@
 # [BENCHMARKDOTNET_API]
 
-[IMPORTANT] Use `BenchmarkDotNet` only in the project benchmark rail. Benchmarks are executable measurement rails, not unit specs and not part of the default test run.
+Use `BenchmarkDotNet` only in the project benchmark rail. Benchmarks are executable measurement rails, not unit specs and not part of the default test run.
 
 ## [1][CONFIG]
 
@@ -13,7 +13,7 @@
 |   [5]   | `ExecutionValidator`, `JitOptimizationsValidator` | Fail invalid benchmark runs.                           |
 |   [6]   | `BenchmarkSwitcher`                               | CLI selection without extra scripts.                   |
 
-[SOURCE] BenchmarkDotNet config docs: https://benchmarkdotnet.org/articles/configs/configs.html
+BenchmarkDotNet configuration detail belongs to the maintained package documentation; this page owns the project benchmark rail posture.
 
 ## [2][PROJECT_SCOPE]
 

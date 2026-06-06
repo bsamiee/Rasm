@@ -1,6 +1,6 @@
 # [CSHARP_META]
 
-[IMPORTANT] Scope: language version, central package graph, analyzer posture, RhinoWIP/GH2 host references, generated assembly metadata, global usings. BCL surfaces: `bcl.md`. Package state: `packages.md`. Language catalog: `../external-libs/csharp/language.md`.
+Scope: language version, central package graph, analyzer posture, RhinoWIP/GH2 host references, generated assembly metadata, global usings. BCL surfaces: `bcl.md`. Package state: `packages.md`. Language catalog: `../external-libs/csharp/language.md`.
 
 ## [1][CONTROL_PLANES]
 
@@ -29,7 +29,7 @@
 
 | [INDEX] | [LAYER]               | [PACKAGE / SURFACE]                                                 | [SCOPE]                               |
 | :-----: | --------------------- | ------------------------------------------------------------------- | ------------------------------------- |
-|   [1]   | Compile toolset       | .NET 10 SDK compiler                                                 | All projects                          |
+|   [1]   | Compile toolset       | .NET 10 SDK compiler                                                | All projects                          |
 |   [2]   | Third-party analyzers | `Meziantou.Analyzer`, `Microsoft.VisualStudio.Threading.Analyzers`  | All projects except analyzer island   |
 |   [3]   | Local analyzer        | `tools/cs-analyzer/CsAnalyzer.csproj`                               | Project analyzer ref; CSP#### catalog |
 |   [4]   | Roslyn authoring      | `Microsoft.CodeAnalysis.CSharp`, `Microsoft.CodeAnalysis.Analyzers` | `CsAnalyzer` and tests only           |

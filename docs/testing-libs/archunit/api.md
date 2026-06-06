@@ -1,6 +1,6 @@
 # [ARCHUNIT_API]
 
-[IMPORTANT] Use `TngTech.ArchUnitNET.xUnitV3` in the architecture test project for compiled assembly boundary laws that the local analyzer does not own.
+Use `TngTech.ArchUnitNET.xUnitV3` in the architecture test project for compiled assembly boundary laws that the local analyzer does not own.
 
 ## [1][SURFACE]
 
@@ -24,13 +24,13 @@ Run architecture laws in Debug so dependency metadata is not optimized away:
 
 ## [3][CROSS_LAYER_INTERFACE_COVERAGE]
 
-When a closed-world dispatch must recognize an open set of types from downstream layers, the canonical extension hook is a marker interface or admission protocol. The architecture test enumerates all implementers and asserts each is reachable through the dispatch:
+When a closed-world dispatch must recognize an open set of types from downstream layers, the canonical extension hook is a marker interface or admission protocol. The architecture test enumerates implementers and asserts each is reachable through the dispatch:
 
 ```csharp
 [Fact]
 public void EveryBoundaryAdapterImplementsAdmissionHookOrIsRegisteredInDispatch() {
     var arch = new ArchLoader()
-        .LoadAssemblies(typeof(DomainRoot).Assembly, typeof(DownstreamRoot).Assembly /*, ...*/)
+        .LoadAssemblies(typeof(ProjectRoot).Assembly, typeof(DownstreamRoot).Assembly)
         .Build();
     var adapters = arch.Types().That().HaveAttribute<BoundaryAdapterAttribute>();
     foreach (var adapter in adapters) {
@@ -48,8 +48,8 @@ Catches the downstream-adapter admission gap regression class once and forever.
 
 Use namespace-slice cycle detection only for stable namespaces, not for in-flight refactor namespaces or test/testkit surfaces. Slice patterns:
 
-| [INDEX] | [PATTERN]            | [SCOPE]                                                |
-| :-----: | -------------------- | ------------------------------------------------------ |
+| [INDEX] | [PATTERN]             | [SCOPE]                                                |
+| :-----: | --------------------- | ------------------------------------------------------ |
 |   [1]   | `<Root>.Domain.(*)..` | Domain internal slices must not cycle.                 |
 |   [2]   | `<Root>.Module.(*)..` | Module slices must not cycle.                          |
 |   [3]   | `<Root>.(*)..`        | Top-level module slices must not cycle across modules. |

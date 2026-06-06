@@ -1,7 +1,7 @@
 # [RHINO_BRIDGE]
 
 > [!IMPORTANT]
-> Use this bridge when static .NET validation is insufficient. It launches or connects to RhinoWIP, executes RhinoCode inside Rhino, and returns structured JSON that coding agents can parse for build, reference, runtime, host, and diagnostic evidence.
+> Use this bridge when static .NET validation is insufficient. It launches or connects to RhinoWIP, executes RhinoCode inside Rhino, and returns structured JSON for build, reference, runtime, host, and diagnostic evidence.
 
 > [!CAUTION]
 > Do not treat this bridge as a unit-test framework. Do not create artificial tests to prove code paths. Use it to validate real project files, source files, assemblies, and scripts against the Rhino coding environment.
@@ -15,7 +15,7 @@ Use it for:
 - Source ownership checks for `*.cs` files through evaluated SDK projects.
 - Explicit RhinoCode scripts that exercise current code through real Rhino APIs.
 - Assembly freshness evidence for plugin and dependency resolution problems.
-- Bridge health checks when agents need Rhino runtime facts before editing code.
+- Bridge health checks when runtime host facts are required.
 
 Scripts are transient diagnostic entrypoints for current code and real Rhino APIs. They are not test cases, suites, or coverage probes.
 
@@ -29,8 +29,7 @@ Avoid it for:
 
 ```mermaid
 graph LR
-    Agent["Coding Agent"] --> Script["tools.quality bridge"]
-    Script --> Client["client"]
+    Operator["tools.quality bridge"] --> Client["client"]
     Client --> Protocol["protocol"]
     Protocol --> Plugin["plugin"]
     Plugin --> Rhino["RhinoWIP + RhinoCode"]
@@ -76,7 +75,7 @@ Run commands from repository root. Prefix: `uv run python -m tools.quality`.
 Validate real Grasshopper project:
 
 ```bash copy-safe
-uv run python -m tools.quality bridge check apps/grasshopper/Radyab/Radyab.csproj
+uv run python -m tools.quality bridge check apps/grasshopper/<Plugin>/<Plugin>.csproj
 ```
 
 Expected result: JSON with top-level `"status": "ok"` and successful `resolve`, `build`, `connect`, and `execute` phases. The in-process `execute` phase is the authoritative Rhino evidence.
@@ -84,7 +83,7 @@ Expected result: JSON with top-level `"status": "ok"` and successful `resolve`, 
 Validate source ownership without runtime script:
 
 ```bash copy-safe
-uv run python -m tools.quality bridge check apps/grasshopper/Radyab/Components/ExtractPoints.cs
+uv run python -m tools.quality bridge check apps/grasshopper/<Plugin>/<SourceFile>.cs
 ```
 
 Expected result: exit code `3`, top-level `"status": "unsupported"`, `build` phase `"ok"`, and message `Source build validated; no runtime script supplied.`
@@ -225,16 +224,14 @@ Marker kinds:
 |   [3]   | `rasm.rhino-bridge.capture=`  | `Capture(Path, W, H)`   | PNG path + dimensions                        |
 |   [4]   | `rasm.rhino-bridge.nonce=`    | `Nonce(Value)`          | Smoke-probe handshake nonce                  |
 
-**Fact emission contract (current).** `Rasm.TestKit.Scenarios.Scenario.Run(theme, capturePath, body)` emits per scenario:
+Fact emission contract. `Rasm.TestKit.Scenarios.Scenario.Run(theme, capturePath, body)` emits per scenario:
 
 1. One `scenario={theme}` plain line (no prefix).
 2. One `capture={capturePath}` plain line (no prefix).
 3. The scenario body populates a `FactBag` via `facts.Add(string key, object value)` (statement form, no return value).
 4. On scope exit the harness emits exactly one `facts={json}` plain line **AND** one `rasm.rhino-bridge.evidence=facts={json}` prefixed marker. Both carry the same JSON-serialized `IReadOnlyDictionary<string, object>` payload.
 
-**Agent guidance.** Parse the prefixed `Evidence("facts", json)` marker — it is the structured, canonical, single source of truth. The plain `facts={json}` line is for human-readable agent logs only and is redundant with the marker. Do **not** parse individual `key=value` plain lines: that legacy emission style is removed. Use `BridgeMarker.Scan(stdout)` and filter on `Evidence` cases; deserialize `Evidence.Value` as a `Dictionary<string, JsonElement>` for typed fact access.
-
-**Wire format migration.** Before this revision, scenarios emitted N × `key=value` plain lines per scenario (one per fact). Agents parsing line-by-line for `key=` would see N entries. After the migration, scenarios emit **one** `facts={json}` plain line + **one** `rasm.rhino-bridge.evidence=facts={json}` marker carrying the full dictionary. Agents must switch to JSON parsing — there are no per-fact plain lines anymore.
+Marker consumption. The prefixed `Evidence("facts", json)` marker is the structured source of truth. The plain `facts={json}` line is human-readable duplicate output. Use `BridgeMarker.Scan(stdout)`, filter on `Evidence` cases, and deserialize `Evidence.Value` as a `Dictionary<string, JsonElement>` for typed fact access.
 
 ## [5][REFERENCE_POLICY]
 
@@ -243,7 +240,7 @@ Host assemblies (`RhinoCommon`, `Rhino.UI`, `Eto`, `Grasshopper2`, `GrasshopperI
 The client emits runtime reference projections from one evaluated project build, then applies them by prepending `#r` directives to the generated RhinoCode script before submission — references are client-applied, not plugin-applied. References are ordered dependency-first: `FSharp.Core`, `LanguageExt.Core`, `Thinktecture.Runtime.Extensions`, transitive packages, `Rasm.dll`, scenario kit assemblies, then the target assembly last. Scenario scripts also receive a bridge-owned base using-set (`ScenarioBaseUsings`: `LanguageExt`, `static LanguageExt.Prelude`, `Rasm.TestKit.Scenarios`) so authors drop that repeated preamble, plus a LanguageExt `HashMap` bootstrap so trait resolution completes before staged Rasm code touches custom `HashMap` keys under RhinoCode's isolated resolver. **Grasshopper-aware projects** (`IsGrasshopperAwareProject` or a `Grasshopper2.dll` reference) additionally receive bridge-owned `ScenarioHostUsings` (`Eto.Drawing`) after the scenario preamble, and the bridge pre-loads Grasshopper2 (`BridgeWire.GrasshopperPluginId`, via `PlugIn.LoadPlugIn` on the UI thread before execution) into the default ALC so GH2-backed `Rasm.Grasshopper.UI` rails resolve at runtime — host assemblies stay off `#r`. **Drive GH2 through `Rasm.Grasshopper.UI` wrapper types, not raw `Grasshopper2.*` types in scenario bodies**: a direct `using Grasshopper2.*` needs GH2 as a compile reference, and supplying it (`#r "Grasshopper2"`) forces the isolated resolver to bind a *separate* GH2 instance whose editor/canvas singletons differ from the host's, breaking runtime state. Scenarios that must construct raw GH2 input types cannot run under the isolated resolver. **Rasm.Rhino HashMap policy:** use primitive, `string`, `Guid`, `uint`/`ulong`, or built-in value-tuple keys only in bridge-hot assemblies; do not use custom record-struct keys (for example `PreviewFingerprint`) inside `HashMap<,>` — they fail under isolated resolver trait warmup even when reference order is correct. Project/source scenario references are shadow-copied into artifact `refs/<content-hash>/` folders so repeated checks see fresh assembly paths without scenario-owned machine paths. The `#r`-applied set is echoed in `BridgeExecuteRequest.References` and the execute report as provenance metadata; the plugin does not re-resolve that field independently during execution.
 
 API metadata lookup uses local sources in this order:
-1. RhinoWIP app-bundle XML when present. Current local evidence includes RhinoCommon, GH2, and GH2-IO XML; Eto and Rhino.UI XML report `missing`.
+1. RhinoWIP app-bundle XML when present. RhinoCommon, GH2, and GH2-IO XML are the ordinary XML-backed surfaces; assemblies without XML route through decompile.
 2. `api query` decompiles via `ilspycmd` for assemblies without XML, for example `Rhino.UI.dll` and `Eto.dll`.
 3. `api doctor` reports `rhinocode` CLI availability as environment evidence only; the in-process `execute` rail, not the CLI, is the runtime authority.
 
@@ -288,39 +285,8 @@ API metadata lookup uses local sources in this order:
 > - Never add temp-only scripts, generated tests, or fake probes as bridge purpose.
 - Never automate Rhino settings or templates from this repository.
 
-## [8][VALIDATION]
+## [8][RUNTIME_BOUNDARIES]
 
-Run after bridge changes. Keep live Rhino commands fail-fast exclusive.
+Live Rhino commands, `bridge verify`, bridge package live steps, and package staging are fail-fast exclusive. Never queue live Rhino commands behind each other; a busy lease means retry later or pick another proof.
 
-| [INDEX] | [RAIL]                                                                   | [PARALLELISM]                                          |
-| :-----: | ------------------------------------------------------------------------ | ------------------------------------------------------ |
-|   [1]   | `quality static fix` or `quality static report`, `quality static build`, focused `test run --target ...` tests | Concurrent; MSBuild under `.artifacts/quality/<rail>/<run-id>/` |
-|   [2]   | live bridge commands, `bridge verify`, bridge package live steps, package stage commit | Fail-fast exclusive leases |
-|   [3]   | Default `quality test run` (managed `Rasm`)                              | MTP unit tests only; explicit mutation fails fast on `.artifacts/locks/mutation.lock` |
-
-Never queue live Rhino commands behind each other; a busy lease means retry later or pick another proof.
-
-```bash copy-safe
-uv run python -m tools.quality self-test
-uv run pytest tests/tools/quality/test_quality.py -q
-uv run python -m tools.quality api doctor
-uv run python -m tools.quality api doctor --restore never
-uv run python -m tools.quality api query rhino-common Rhino.Geometry.Mesh
-uv run python -m tools.quality api query gh2 Document
-uv run python -m tools.quality api query rhino-ui Rhino.UI.DataSerializer
-uv run python -m tools.quality bridge build-bridge
-uv run python -m tools.quality static fix
-uv run python -m tools.quality static build
-uv run python -m tools.quality bridge doctor
-uv run python -m tools.quality bridge check apps/grasshopper/Radyab/Radyab.csproj
-rc=0
-uv run python -m tools.quality bridge check apps/grasshopper/Radyab/Components/ExtractPoints.cs || rc=$?
-[[ "${rc}" == 3 ]]
-uv run python -m tools.quality bridge clean apps/grasshopper/Radyab/Radyab.csproj
-```
-
-Add focused live checks for bridge implementation changes:
-- Reference projection changes: run `check <source.cs> <scenario.verify.csx>` that imports affected assemblies.
-- Reference isolation policy changes: verify known same-name package collisions do not poison isolated RhinoCode checks (use `bridge check <project.csproj>` without scenario — the internal smoke probe reports `returnValue.kind = "assemblyFreshness"`).
-- Packaging changes: run `uv run python -m tools.quality bridge package rasm-bridge <version>`, then `uv run python -m tools.quality bridge deploy rasm-bridge <version>` to validate the staged `.yak`.
-- Transport changes: run `bridge doctor` and `bridge check <source.cs> <scenario.verify.csx>`.
+Focused bridge implementation changes route through the matching runtime owner: reference projection, reference isolation, packaging, or transport. Use the command table above to select the narrow bridge/API/package command that owns the runtime fact.

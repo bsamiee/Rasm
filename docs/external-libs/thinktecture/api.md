@@ -1,6 +1,6 @@
 # [THINKTECTURE_API]
 
-[IMPORTANT] Thinktecture source generation belongs to the project package graph. Active package and global-using facts live in package-state docs.
+Thinktecture source generation belongs to the project package graph. Active package and global-using facts live in package-state docs.
 
 ## [1][SURFACES]
 

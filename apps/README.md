@@ -5,15 +5,16 @@ Top-level layout for shippable plugins. The host platform (Rhino-only vs Grassho
 ```
 apps/
 ├── grasshopper/        # Grasshopper 2 plugins (component libraries)
-│   └── <Plugin>/<Plugin>.csproj
+│   ├── Radyab/          # current exemplar
+│   └── <new Grasshopper plugin>/<Plugin>.csproj
 └── rhino/              # Rhino-only plugins (commands, UI, no GH components)
-    └── <Plugin>/<Plugin>.csproj
+    └── <new Rhino plugin>/<Plugin>.csproj
 ```
 
-| [INDEX] | [HOST]        | [WHEN_TO_USE]                                                        | [EXAMPLES]                 |
-| :-----: | ------------- | -------------------------------------------------------------------- | -------------------------- |
-|   [1]   | `grasshopper` | Plugin exposes Grasshopper2 components, parameter ports, IDataAccess | `apps/grasshopper/Radyab/` |
-|   [2]   | `rhino`       | Plugin exposes Rhino commands, panels, overlays — no GH components   | *(to be populated)*        |
+| [INDEX] | [HOST]        | [WHEN_TO_USE]                                                        | [EXAMPLES]                                             |
+| :-----: | ------------- | -------------------------------------------------------------------- | ------------------------------------------------------ |
+|   [1]   | `grasshopper` | Plugin exposes Grasshopper2 components, parameter ports, IDataAccess | `apps/grasshopper/Radyab/`; `<new Grasshopper plugin>` |
+|   [2]   | `rhino`       | Plugin exposes Rhino commands, panels, overlays — no GH components   | `<new Rhino plugin>`                                   |
 
 ## [1][CSPROJ_CONVENTIONS]
 
@@ -38,7 +39,7 @@ To add a new plugin:
 
 ## [2][REFERENCE_PLUGIN]
 
-`apps/grasshopper/Radyab/Radyab.csproj` is the live exemplar of the Grasshopper-host convention. Match its layout when adding new plugins:
+`apps/grasshopper/Radyab/Radyab.csproj` is the current Grasshopper-host exemplar, not the only plugin shape. Match the host folder convention when adding new plugins:
 
 ```
 apps/grasshopper/Radyab/

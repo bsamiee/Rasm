@@ -1,6 +1,6 @@
 # [LANGUAGEEXT_TRAITS]
 
-[IMPORTANT] Use traits only when they remove real duplication. Runtime-record `Eff<RT,T>` remains the default host effect shape.
+Use traits only when they remove real duplication. Runtime-record `Eff<RT,T>` remains the default host effect shape.
 
 ## [1][CORE]
 

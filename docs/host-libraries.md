@@ -2,7 +2,7 @@
 
 Scope: composition roots, external I/O boundaries, app runtime, persistence, compute, and product UI surfaces. Domain modules stay on LanguageExt rails, Thinktecture shapes, MathNet/CSparse numerics, and host SDK boundaries.
 
-[IMPORTANT] This file owns adoption policy, not package manuals. Owner-local platform stubs carry candidate rationale:
+This file owns adoption policy, not package manuals. Owner-local platform stubs carry candidate rationale:
 
 | [INDEX] | [OWNER]            | [MANUAL]                                           |
 | :-----: | ------------------ | -------------------------------------------------- |
@@ -38,7 +38,7 @@ Scrutor, Generic Host, logging providers, telemetry exporters, HTTP resilience, 
 |  [11]   | System.Numerics.Tensors        | Measured span/TensorPrimitives kernel consumer               | `Rasm.Compute`     |
 |  [12]   | ML.NET / gRPC client           | Named model or out-of-process compute companion              | `Rasm.Compute`     |
 
-Refresh latest stable package versions immediately before the first concrete consumer. Do not record exact candidate versions in owner docs.
+Resolve package versions from the current package graph and maintained package source when the first concrete consumer lands. Do not record exact candidate versions in owner docs.
 
 ## [3][BOUNDARIES]
 

@@ -1,6 +1,6 @@
 # [MATHNET_SPARSE]
 
-[IMPORTANT] MathNet and co-primary `CSparse` (NuGet id `CSparse`, not `CSparse.NET`) split sparse iterative and direct factorization ownership.
+MathNet and co-primary `CSparse` (NuGet id `CSparse`, not `CSparse.NET`) split sparse iterative and direct factorization ownership.
 
 MathNet.Numerics has no CSparse API surface; hybrid routing is integrator-authored.
 

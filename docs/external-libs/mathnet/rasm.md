@@ -1,6 +1,6 @@
 # [MATHNET_RASM]
 
-[IMPORTANT] Production numerics: `libs/csharp/Rasm/Vectors/Matrix.cs`, `Cloud.cs`, `Mesh.cs` (CSparse hybrid). `MathNet.Symbolics`, Optimization, Integration, and Interpolation have zero production `.cs` references.
+Production numerics: `libs/csharp/Rasm/Vectors/Matrix.cs`, `Cloud.cs`, `Mesh.cs` (CSparse hybrid). `MathNet.Symbolics`, Optimization, Integration, and Interpolation have zero production `.cs` references.
 
 ## [1][PUBLIC_SURFACES]
 
@@ -51,10 +51,10 @@ Document non-convergence and non-finite scalars as typed `Fin` failures at bound
 
 ## [5][ADOPTION_CANDIDATES]
 
-| [INDEX] | [SURFACE]                                  | [ADOPTION_STATE]                         |
-| :-----: | ------------------------------------------ | ---------------------------------------- |
-|   [1]   | `MathNet.Symbolics`                        | No production `.cs` references           |
-|   [2]   | Optimization / Integration / Interpolation | Named in `api.md`; not consumed by libs  |
-|   [3]   | Control providers                          | Named; waits for measured adoption       |
+| [INDEX] | [SURFACE]                                  | [ADOPTION_STATE]                        |
+| :-----: | ------------------------------------------ | --------------------------------------- |
+|   [1]   | `MathNet.Symbolics`                        | No production `.cs` references          |
+|   [2]   | Optimization / Integration / Interpolation | Named in `api.md`; not consumed by libs |
+|   [3]   | Control providers                          | Named; waits for measured adoption      |
 
 Mark future consumers explicitly when first call site lands.

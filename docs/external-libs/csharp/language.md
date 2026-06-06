@@ -1,9 +1,8 @@
 # [CSHARP_LANGUAGE]
 
-[IMPORTANT] C# 14.0 on net10.0 is the active language surface (`LangVersion`, `TargetFramework`, `Nullable=enable`, `ImplicitUsings=enable`).
+C# 14.0 on net10.0 is the active language surface (`LangVersion`, `TargetFramework`, `Nullable=enable`, `ImplicitUsings=enable`).
 Compiler toolset: .NET 10 SDK compiler (global compile).
 Analyzer authoring uses `Microsoft.CodeAnalysis.CSharp` and `Microsoft.CodeAnalysis.Analyzers`.
-Do not use `LangVersion=preview` / `latest`.
 
 Route BCL and host-reference policy through `docs/system-api-map`. This page owns C# 14 feature selection.
 
@@ -100,4 +99,4 @@ Route BCL and host-reference policy through `docs/system-api-map`. This page own
 | :-----: | -------------------------------------- | ---------------------------------------------- |
 |   [1]   | Interceptors                           | Experimental; not production baseline.         |
 |   [2]   | File-based app preprocessor directives | C# 14 app model; not general library baseline. |
-|   [3]   | `LangVersion=preview` / `latest`       | Avoid; use explicit `14.0`.                    |
+|   [3]   | Floating `LangVersion` values          | Use explicit `14.0`.                           |

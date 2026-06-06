@@ -1,38 +1,38 @@
 # [STRYKER_API]
 
-[IMPORTANT] Use `dotnet-stryker` through the project mutation rail. The default test run stays unit-only unless the local quality router enables mutation. Zero-test discovery fails the mutation rail.
+Use `dotnet-stryker` through the project mutation rail. The default test run stays unit-only unless the local quality router enables mutation. Zero-test discovery fails the mutation rail.
 
 ## [1][LOCAL_RAIL]
 
-| [INDEX] | [FACT]                 | [VALUE]                                                                                  |
-| :-----: | ---------------------- | ---------------------------------------------------------------------------------------- |
-|   [1]   | Tool                   | `dotnet-stryker`                                                                         |
-|   [2]   | Tool restore           | `.config/dotnet-tools.json` through `dotnet tool restore`                                |
-|   [3]   | Project under mutation | `<project-under-mutation>`                                                               |
-|   [4]   | Test project           | `<test-project>`                                                                         |
-|   [5]   | Runner                 | `mtp`                                                                                    |
-|   [6]   | Output                 | `.artifacts/mutation/<slice>/<run-id>`                                                   |
-|   [7]   | Lock                   | `.artifacts/locks/mutation.lock`; live advisory contention fails fast                    |
+| [INDEX] | [FACT]                 | [VALUE]                                                                                   |
+| :-----: | ---------------------- | ----------------------------------------------------------------------------------------- |
+|   [1]   | Tool                   | `dotnet-stryker`                                                                          |
+|   [2]   | Tool restore           | `.config/dotnet-tools.json` through `dotnet tool restore`                                 |
+|   [3]   | Project under mutation | `<project-under-mutation>`                                                                |
+|   [4]   | Test project           | `<test-project>`                                                                          |
+|   [5]   | Runner                 | `mtp`                                                                                     |
+|   [6]   | Output                 | `.artifacts/mutation/<slice>/<run-id>`                                                    |
+|   [7]   | Lock                   | `.artifacts/locks/mutation.lock`; live advisory contention fails fast                     |
 |   [8]   | Timeout                | whole-process guard in the local quality router; Stryker owns per-mutant execution timing |
 
 ## [2][MUTATION_MODES]
 
-| [INDEX] | [MODE]    | [COMMAND]                                                    | [POLICY]                                               |
-| :-----: | --------- | ------------------------------------------------------------ | ------------------------------------------------------ |
-|   [1]   | `off`     | `<test-runner>`                                | Unit-only default.                            |
-|   [2]   | `changed` | `<test-runner> --mutation changed`             | Mutate changed eligible managed files.        |
-|   [3]   | `full`    | `<test-runner> --mutation full`                | Full managed mutation with strict thresholds. |
+| [INDEX] | [MODE]    | [COMMAND]                          | [POLICY]                                      |
+| :-----: | --------- | ---------------------------------- | --------------------------------------------- |
+|   [1]   | `off`     | `<test-runner>`                    | Unit-only default.                            |
+|   [2]   | `changed` | `<test-runner> --mutation changed` | Mutate changed eligible managed files.        |
+|   [3]   | `full`    | `<test-runner> --mutation full`    | Full managed mutation with strict thresholds. |
 
 `list` and `coverage` do not mutate. Focused `--target` runs are unit-only unless mutation remains on the configured managed pair.
 
 ## [3][PARALLELISM]
 
-| [INDEX] | [RAIL]                   | [POLICY]                                         |
-| :-----: | ------------------------ | ------------------------------------------------ |
-|   [1]   | `quality static`         | Concurrent-safe through run-scoped artifacts.    |
-|   [2]   | local test runner        | MTP unit execution through run-scoped artifacts. |
-|   [3]   | `--mutation changed \| full`                                            | One mutation process; fail fast when advisory lock is held. |
-|   [4]   | runtime scenario rail    | Serial when the host exposes one live endpoint.  |
+| [INDEX] | [RAIL]                       | [POLICY]                                                    |
+| :-----: | ---------------------------- | ----------------------------------------------------------- |
+|   [1]   | `quality static`             | Concurrent-safe through run-scoped artifacts.               |
+|   [2]   | local test runner            | MTP unit execution through run-scoped artifacts.            |
+|   [3]   | `--mutation changed \| full` | One mutation process; fail fast when advisory lock is held. |
+|   [4]   | runtime scenario rail        | Serial when the host exposes one live endpoint.             |
 
 Unlocked lock files are stale and reusable. The quality tool rewrites them before launching Stryker.
 
@@ -49,7 +49,7 @@ Unlocked lock files are stale and reusable. The quality tool rewrites them befor
 
 Keep Python operator-owned settings while mutation targets one project. Add `stryker-config.*` only when config-only options such as coverage analysis, executable excludes, or multi-project orchestration become necessary.
 
-[SOURCE] Stryker config docs: https://stryker-mutator.io/docs/stryker-net/configuration/
+Stryker configuration detail belongs to the maintained Stryker.NET documentation; this page owns the project mutation rail posture.
 
 ## [6][THEORY_AS_STRYKER_ENABLER]
 
@@ -63,11 +63,11 @@ Do not convert when the cases share oracle logic and the PBT body is the more ho
 
 ## [7][SURVIVOR_TAXONOMY]
 
-| [INDEX] | [CLASS]           | [ACTION]                                                               |
-| :-----: | ----------------- | ---------------------------------------------------------------------- |
-|   [1]   | Missing oracle    | Add a Grade A/B oracle that distinguishes the mutant.                  |
-|   [2]   | Equivalent mutant | Document; do not weaken oracle.                                        |
-|   [3]   | Runtime-owned path | Add or strengthen the runtime scenario; static spec cannot kill it.   |
-|   [4]   | Product bug       | Fix the production code; mutation revealed a real defect.              |
+| [INDEX] | [CLASS]            | [ACTION]                                                            |
+| :-----: | ------------------ | ------------------------------------------------------------------- |
+|   [1]   | Missing oracle     | Add a Grade A/B oracle that distinguishes the mutant.               |
+|   [2]   | Equivalent mutant  | Document; do not weaken oracle.                                     |
+|   [3]   | Runtime-owned path | Add or strengthen the runtime scenario; static spec cannot kill it. |
+|   [4]   | Product bug        | Fix the production code; mutation revealed a real defect.           |
 
 Do not chase a survivor by adding an assertion on the mutant's behavior.

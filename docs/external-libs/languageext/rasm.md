@@ -1,6 +1,6 @@
 # [LANGUAGEEXT_RASM]
 
-[IMPORTANT] This file states repo posture only. API detail belongs in sibling reference files.
+This file states repo posture only. API detail belongs in sibling reference files.
 
 ## [1][RAIL_POLICY]
 

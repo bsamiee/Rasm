@@ -1,12 +1,4 @@
-"""Registry: _emit one-Envelope guard, _distill Diagnostic, delta algebra, self_test bypass, parse_fault Envelope.
-
-Source surface: ``tools/assay/composition/registry.py`` — ``_emit_envelope``, ``_distill``, ``rail``,
-``delta``, ``self_test``, ``parse_fault``, ``_persist``, ``_retain``, ``_load_run``, ``_prior``,
-``_delta_report``.
-Laws: one-stdout-line guard, _prior lexicographic oracle, _retain newest-N, _load_run corrupt→None,
-_delta_report set-difference oracle, _distill Diagnostic projection, self_test no-write bypass.
-E11: persist->retain(prune)->reload->delta round-trip law over mem_store.
-"""
+"""Registry: _emit one-Envelope guard, _distill Diagnostic, delta algebra, self_test bypass, parse_fault Envelope."""
 
 # --- [IMPORTS] ------------------------------------------------------------------------
 

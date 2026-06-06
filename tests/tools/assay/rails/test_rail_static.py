@@ -1,15 +1,7 @@
-"""Static rail: report/plan routing, S1 splice guard law, S2 language-fan scope.
-
-Source surface: ``tools/assay/rails/static.py`` — ``thin_rail``, ``StaticParams``, ``plan``, ``report``,
-``_languages``.
-Laws: S1 splice guard (xfail strict — non-scoped verbs receive --artifacts-path), S2 language fan
-(xfail strict — py-only --paths fans whole-repo), plan with --paths=a.cs escalates CSHARP only,
-report with empty change-set → Report(EMPTY), _languages(None) returns all Language members,
-StaticParams.bound('fix') with no extra positionals → returns self.
-"""
+"""Static rail: report/plan routing, S1 splice guard law, S2 language-fan scope."""
 
 import pytest
 
 
-def test_bedrock_placeholder() -> None:
-    pytest.skip("bedrock: coverage pending")
+def test_assay_law_coverage_pending() -> None:
+    pytest.xfail("TODO: replace scaffold with executable Assay law coverage.")

@@ -1,6 +1,6 @@
 # [THINKTECTURE_SOURCEGEN]
 
-[IMPORTANT] Core runtime package adoption belongs in the package graph. Optional framework integration packages are not active unless package graph state and a consumer make them active.
+Core runtime package adoption belongs in the package graph. Optional framework integration packages are not active unless package graph state and a consumer make them active.
 
 ## [1][PACKAGE_CLOSURE]
 
@@ -26,9 +26,9 @@ JSON, Newtonsoft, MessagePack, ASP.NET, EF, OpenAPI, and similar integration pac
 - Do not claim span, serialization, or model-binding behavior without a compiled fixture or source proof.
 - Keep analyzer/sourcegen detail in this file; keep domain usage in `rasm.md`.
 
-## [5][V10_GENERATED_NAMES]
+## [5][GENERATED_CASE_NAMES]
 
-In v10 the generator simplified nested union case type names. Hand-authored aliases that duplicated the generated case name are no longer needed and silently shadow the generated symbol. Cite the generated form directly:
+Use the generated nested union case names directly. Hand-authored aliases that duplicate the generated case name shadow the generated symbol:
 
 ```csharp
 [Union]

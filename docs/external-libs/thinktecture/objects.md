@@ -1,6 +1,6 @@
 # [THINKTECTURE_OBJECTS]
 
-[IMPORTANT] Value objects define admission and equality. They do not replace LanguageExt rails.
+Value objects define admission and equality. They do not replace LanguageExt rails.
 
 ## [1][VALUE_OBJECTS]
 
@@ -14,13 +14,14 @@
 
 ### [1.1][ATTRIBUTE_PROPERTIES]
 
-| [INDEX] | [PROPERTY]                                                  | [USE]                                                |
-| :-----: | ----------------------------------------------------------- | ---------------------------------------------------- |
-|   [1]   | `KeyMemberName = "Value"`                                   | Branded scalar key field for equality and parsing    |
-|   [2]   | `KeyMemberAccessModifier = AccessModifier.Public`           | Expose key when boundary protocol requires it        |
-|   [3]   | `[KeyMemberEqualityComparer<TAccessor,TKey>]` / `[KeyMemberComparer<TAccessor,TKey>]` | Ordinal or ignore-case key comparison (arity source: `union-attributes.md §2`) |
-|   [4]   | `SkipFactoryMethods`                                        | Custom `Fin` construction rail — rare                |
-|   [5]   | `EqualityComparisonOperators` / `ComparisonOperators`       | `[ValueObject<T>]` only — not `[ComplexValueObject]` |
+| [INDEX] | [PROPERTY]                                            | [USE]                                                |
+| :-----: | ----------------------------------------------------- | ---------------------------------------------------- |
+|   [1]   | `KeyMemberName = "Value"`                             | Branded scalar key field for equality and parsing    |
+|   [2]   | `KeyMemberAccessModifier = AccessModifier.Public`     | Expose key when boundary protocol requires it        |
+|   [3]   | `[KeyMemberEqualityComparer<TAccessor,TKey>]`         | Ordinal or ignore-case key comparison                |
+|   [4]   | `[KeyMemberComparer<TAccessor,TKey>]`                 | Ordinal or ignore-case key comparison                |
+|   [5]   | `SkipFactoryMethods`                                  | Custom `Fin` construction rail — rare                |
+|   [6]   | `EqualityComparisonOperators` / `ComparisonOperators` | `[ValueObject<T>]` only — not `[ComplexValueObject]` |
 
 ## [2][COMPLEX_OBJECTS]
 

@@ -1,6 +1,6 @@
 # [VERIFY_API]
 
-[IMPORTANT] Use `Verify.XunitV3` only with concrete snapshot-worthy tests. Do not use Verify for algebraic laws, numeric behavior, or host-native truth.
+Use `Verify.XunitV3` only with concrete snapshot-worthy tests. Do not use Verify for algebraic laws, numeric behavior, or host-native truth.
 
 ## [1][SETTINGS]
 
@@ -26,12 +26,12 @@ Use Verify for analyzer diagnostics, generated manifests, normalized runtime evi
 |   [4]   | Generated source files               |
 |   [5]   | Package/config reports               |
 
-[WHY_VERIFY_FITS]
+Why Verify fits:
 - [1] Per-rule fixture produces deterministic diagnostic text; drift catches wording changes that break IDE quick-fix UX.
 - [2] When a public catalog is API surface, snapshotting the list catches accidental case reorder/rename in code review. Pair with `Spec.SmartEnumKeysUnique`.
 - [3] Normalized runtime evidence JSON under the project artifact root after the runtime rail stabilizes.
-- [4] Snapshot select Thinktecture `*.g.cs` under `obj/` to catch source-generator behavior changes on upgrade.
-- [5] Normalized output of `dotnet list package --vulnerable`, `dotnet restore --locked-mode` reports.
+- [4] Snapshot select Thinktecture generated source to catch source-generator behavior changes when the package graph changes.
+- [5] Normalized package/config reports from the owning tool rail.
 
 Anti-uses (Grade F):
 - Snapshotting `Matrix.spec.cs` SVD reconstruction output is not a law; the math IS the oracle.
@@ -39,7 +39,7 @@ Anti-uses (Grade F):
 
 ## [4][SCRUBBER_RAIL]
 
-Module initializer in `tests/csharp/_tooling/ModuleInitializers.cs`:
+Central tooling module initializer:
 
 ```csharp
 [ModuleInitializer]

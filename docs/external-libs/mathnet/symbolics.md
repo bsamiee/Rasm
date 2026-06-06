@@ -1,6 +1,6 @@
 # [MATHNET_SYMBOLICS]
 
-[IMPORTANT] Runtime safety follows the active assembly load context, not copy-local presence.
+Runtime safety follows the active assembly load context, not copy-local presence.
 
 ## [1][PARSE]
 

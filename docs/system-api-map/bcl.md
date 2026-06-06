@@ -1,6 +1,6 @@
 # [BCL]
 
-[IMPORTANT] BCL APIs do not replace LanguageExt rails, Thinktecture shape, MathNet algorithms, Rhino geometry, or GH2 data semantics. C# 14 language features live in `../external-libs/csharp/language.md`; this file owns BCL/shared-framework API surfaces. SDK implicit usings and workspace globals — see `meta.md` §6.
+BCL APIs do not replace LanguageExt rails, Thinktecture shape, MathNet algorithms, Rhino geometry, or GH2 data semantics. C# 14 language features live in `../external-libs/csharp/language.md`; this file owns BCL/shared-framework API surfaces. SDK implicit usings and workspace globals — see `meta.md` §6.
 
 ## [1][TEXT]
 
@@ -25,7 +25,7 @@
 |  [17]   | `System.Net`                     | `IPAddress.TryParse(ReadOnlySpan<char>)`, `IsValidUtf8`                        |
 |  [18]   | `System.Text.Unicode`            | `UnicodeRanges`                                                                |
 
-[USE]
+Use:
 - [1] Stable structural grammar; partial method or property; optional `MatchTimeoutMilliseconds` and `CultureName`; `RegexOptions.Compiled` ignored by generator.
 - [2] Linear-time/ReDoS policy on plain `Regex`; source generator falls back to cached runtime `Regex`, not custom IL.
 - [3] Match count or boolean check without `MatchCollection` allocation; CA1875 / CA1874.
@@ -59,7 +59,7 @@
 |   [7]   | `System.Runtime.InteropServices` | `CollectionsMarshal.GetValueRefOrAddDefault`                                                                   |
 |   [8]   | LanguageExt                      | `HashMap`, `Seq`, `HashSet`                                                                                    |
 
-[USE]
+Use:
 - [1] Process-static read-mostly lookup; explicit `comparer:`; span alternate keys for string catalogs.
 - [2] Snapshot or boundary payload outside LanguageExt rails; not default domain public identity.
 - [3] Insertion-ordered boundary map — not LRU eviction.
@@ -82,7 +82,7 @@ Collection expressions (`[]`, spread) are a C# owner (`../external-libs/csharp/l
 |   [5]   | `System.Runtime.CompilerServices` | `RuntimeHelpers.GetHashCode(object)`                 |
 |   [6]   | Thinktecture                      | `[KeyMemberEqualityComparer]`, `[KeyMemberComparer]` |
 
-[USE]
+Use:
 - [1] Default typed equality for non-branded types.
 - [2] Ad-hoc comparer without subclassing — non-branded tooling only.
 - [3] Custom `GetHashCode`; `Add(value, IEqualityComparer<T>)` when hash must match comparer.
@@ -106,7 +106,7 @@ Collection expressions (`[]`, spread) are a C# owner (`../external-libs/csharp/l
 |   [8]   | `System.Numerics.Tensors`   | `TensorPrimitives`, `Tensor<T>`, `TensorSpan<T>`                                                       |
 |   [9]   | MathNet                     | Matrices, solvers, statistics, symbolic math                                                           |
 
-[USE]
+Use:
 - [1] Model-space truth — see `../usage.md` §1 and local RhinoWIP XML.
 - [2] Scalar math; `Half` for compact wire/GPU interchange at boundary.
 - [3] Double complex scalar; bridge to MathNet at algorithm boundary.
@@ -138,7 +138,7 @@ Do not adopt `System.Numerics.Tensors` in production until `packages.md` records
 |  [11]   | `System.Collections.Generic`    | `IAsyncEnumerable<T>` + `[EnumeratorCancellation]`                 |
 |  [12]   | `System.Threading.RateLimiting` | `TokenBucketRateLimiter`, `PartitionedRateLimiter`                 |
 
-[USE]
+Use:
 - [1] Injectable clock and async tick loops at boundaries; `PeriodicTimer` not in domain (CSP0401).
 - [2] Allocation-free monotonic timing when injection is unnecessary.
 - [3] Distributed spans; W3C trace context; bracket-disposed lifecycle; CSP0604 centralization.
@@ -152,7 +152,7 @@ Do not adopt `System.Numerics.Tensors` in production until `packages.md` records
 - [11] Streaming boundary APIs; CSP0608.
 - [12] Throttle bridge/operator traffic — not domain timers.
 
-Reject for new code: `DiagnosticSource`, `TraceSource` (legacy spans), `Debug.Assert` for domain invariants (use typed rails or `UnreachableException`).
+Do not use `DiagnosticSource`, `TraceSource`, or `Debug.Assert` for new domain invariants. Use `ActivitySource`, typed rails, or `UnreachableException` according to the owning boundary.
 
 ## [6][IO_AND_BUFFERS]
 
@@ -171,7 +171,7 @@ Reject for new code: `DiagnosticSource`, `TraceSource` (legacy spans), `Debug.As
 |  [11]   | `System.IO`                   | `FileSystemWatcher`                                            |
 |  [12]   | `System.IO.MemoryMappedFiles` | `MemoryMappedFile`                                             |
 
-[USE]
+Use:
 - [1] Canonical path algebra; explicit `StringComparison` on macOS.
 - [2] Offset-based binary I/O via `Read`/`ReadAsync`/`Write`/`WriteAsync` — not `ReadAtOffsetAsync`.
 - [3] Explicit buffer size, async, sequential/random scan, preallocation.
@@ -196,7 +196,7 @@ Validate length-from-wire against a bounded cap before any pool rent or allocati
 |   [3]   | `System.IO.Hashing`            | `XxHash3`, `XxHash64`, `Crc32`                                                  |
 |   [4]   | `System.Formats.Asn1`          | `AsnReader`, `AsnWriter`                                                        |
 
-[USE]
+Use:
 - [1] Content fingerprints and tamper-evident bundles; bridge `ContentFingerprint` pattern.
 - [2] Cryptographic random bytes — not `System.Random`.
 - [3] Non-cryptographic cache keys and content IDs — not `SHA256`.
@@ -210,7 +210,7 @@ Validate length-from-wire against a bounded cap before any pool rent or allocati
 |   [2]   | `System.Diagnostics.CodeAnalysis`       | `StringSyntax`, `DynamicallyAccessedMembers`                                |
 |   [3]   | `System.ComponentModel.DataAnnotations` | `ValidationContext`, `Validator.TryValidateObject`, `[Required]`, `[Range]` |
 
-[USE]
+Use:
 - [1] NRT flow after `Try*` / guard methods on GH/Rhino boundaries.
 - [2] Regex/JSON syntax hints; trim annotations only when pursuing NativeAOT.
 - [3] Sync DTO validation at boundary — not Thinktecture/LanguageExt domain admission.
@@ -224,7 +224,7 @@ Validate length-from-wire against a bounded cap before any pool rent or allocati
 |   [3]   | `System.Linq`       | `Chunk`, `Index`, `TryGetNonEnumeratedCount` |
 |   [4]   | `System.Linq`       | `Shuffle`                                    |
 
-[USE]
+Use:
 - [1] Outer joins without `GroupJoin` ceremony.
 - [2] Argmin/argmax without full sort.
 - [3] Batching, indexed enumeration, avoid forced full counts.

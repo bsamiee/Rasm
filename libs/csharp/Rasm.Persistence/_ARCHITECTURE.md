@@ -32,18 +32,18 @@ flowchart LR
 |   [4]   | System.Text.Json source generation | Default serialization, now | Config, interchange, support payloads                |
 |   [5]   | MessagePack                        | Compact-snapshot lane      | Compact snapshots after binary proof                 |
 
-Postgres/Npgsql examples in `.claude/skills/coding-csharp` are service/companion guidance, not the default in-process plugin store. Npgsql never appears in the Persistence `.csproj`.
+Postgres/Npgsql is a companion-service lane, not the default in-process plugin store. Npgsql never appears in the Persistence `.csproj`.
 
-**Core packages (newest viable, no version pins in text):** `Microsoft.EntityFrameworkCore.Sqlite` + `Microsoft.Data.Sqlite` (aligned EF SQLite stack), `Microsoft.EntityFrameworkCore.Design` (`PrivateAssets=all`) with an in-project `IDesignTimeDbContextFactory<T>` for migration authoring. `LanguageExt.Core` (v5 `Eff<RT,T>` shell), `System.Reactive` (observable contract), `DynamicData` (internal projection only). `NodaTime` + `NodaTime.Serialization.SystemTextJson`; store `Instant` as `long` (Unix ticks) via a typed `ValueConverter` using provider type `long` → `INTEGER` column — not the Npgsql `DateTimeOffset`/`TEXT` pattern, which SQLite orders only client-side. `FluentValidation` (boundary validation). `MessagePack` + `MessagePack.Generator` (compact-snapshot lane). `EFCore.NamingConventions` (snake_case column names). `EFCore.BulkExtensions` (conditional cache-import lane). `K4os.Compression.LZ4` (snapshot payload compression, speed lane). `Microsoft.Extensions.Compliance.Redaction` (support-bundle redaction — named concern, no active mechanism today).
+**Core packages:** `Microsoft.EntityFrameworkCore.Sqlite` + `Microsoft.Data.Sqlite` (aligned EF SQLite stack), `Microsoft.EntityFrameworkCore.Design` (`PrivateAssets=all`) with an in-project `IDesignTimeDbContextFactory<T>` for migration authoring. `LanguageExt.Core` (`Eff<RT,T>` shell), `System.Reactive` (observable contract), `DynamicData` (internal projection only). `NodaTime` + `NodaTime.Serialization.SystemTextJson`; store `Instant` as `long` (Unix ticks) via a typed `ValueConverter` using provider type `long` -> `INTEGER` column. `FluentValidation` (boundary validation). `MessagePack` + `MessagePack.Generator` (compact-snapshot lane). `EFCore.NamingConventions` (snake_case column names). `EFCore.BulkExtensions` (conditional cache-import lane). `K4os.Compression.LZ4` (snapshot payload compression, speed lane). `Microsoft.Extensions.Compliance.Redaction` (support-bundle redaction).
 
 **In-box (no package pin required):** `System.IO.Hashing` (`XxHash3` snapshot checksums), `System.IO.Compression` (Brotli/Deflate support-bundle export), FTS5 + JSON1 (compiled INTO the SQLite native library — no extra package; reachable via `FromSqlRaw`). `System.Text.Json` source generation (default serialization).
 
 > [!CAUTION]
-> macOS-arm64 native chain: `SQLitePCLRaw.bundle_e_sqlite3` (meta-bundle) transitively carrying `SQLitePCLRaw.lib.e_sqlite3` (the macOS-arm64 native asset), newest viable. The `e_sqlite3` symbol prefix is the isolation guard against RhinoWIP's own bundled SQLite — verify at integration time that RhinoWIP does not shadow this symbol. `SQLitePCL.Batteries.Init()` is called (idempotent) before the first `SqliteConnection`, not merely before the first `DbContext`. A missing native asset is a runtime fault; the `StoreOpen` operation returns `MissingNativeAsset` receipt rather than throwing.
+> macOS-arm64 native chain: `SQLitePCLRaw.bundle_e_sqlite3` (meta-bundle) transitively carrying `SQLitePCLRaw.lib.e_sqlite3` (the macOS-arm64 native asset). The `e_sqlite3` symbol prefix is the isolation guard against RhinoWIP's own bundled SQLite. `SQLitePCL.Batteries.Init()` is called before the first `SqliteConnection`, not merely before the first `DbContext`. A missing native asset is a runtime fault; the `StoreOpen` operation returns `MissingNativeAsset` receipt rather than throwing.
 
-**DO NOT ADD:** MemoryPack (duplicates MessagePack; AOT warnings), `SQLitePCLRaw.bundle_e_sqlcipher` (deprecated, conflicts with `e_sqlite3` native), Npgsql (in-process plugin state only), linq2db, EF `.Proxies` (lazy-load breaks the per-operation `Bracket` lifetime model), `Microsoft.AspNetCore.DataProtection` (web hosting tax), FlexLabs.Upsert, ZstdSharp.
+**DO NOT ADD:** MemoryPack (duplicates MessagePack; AOT warnings), `SQLitePCLRaw.bundle_e_sqlcipher` (conflicts with the `e_sqlite3` native lane), Npgsql (in-process plugin state only), linq2db, EF `.Proxies` (lazy-load breaks the per-operation `Bracket` lifetime model), `Microsoft.AspNetCore.DataProtection` (web hosting tax), FlexLabs.Upsert, ZstdSharp.
 
-**Encryption-at-rest:** no viable free NuGet path exists — SqlCipher bundle is deprecated; SEE and SQLite3MC are paid. Decision: defer encryption; add `NativeEncryptionUnavailable` as a `StoreReceipt` case; file-system encryption (macOS APFS) is the accepted mitigation for presets, sessions, and cache payloads.
+**Encryption-at-rest:** no accepted in-process package lane exists. Decision: defer encryption; add `NativeEncryptionUnavailable` as a `StoreReceipt` case; file-system encryption (macOS APFS) is the accepted mitigation for presets, sessions, and cache payloads.
 
 Layout: concern folders `Store/`, `Query/`, `Snapshot/`, `Support/`, each a few cohesive files with canonical sections; unproven lanes (MessagePack, raw bypass, companion) stay conditional branches inside their owning file, never pre-built per-lane folders.
 
@@ -80,7 +80,7 @@ Expected store faults are `StoreReceipt` failure cases, not `Eff` `Error` values
 
 **`SnapshotEnvelope`** — sealed record: `Kind SnapshotKind`, `SchemaVersion int`, `Codec SnapshotCodec` (discriminant: `Json | MessagePack`), `Payload byte[]`, `Checksum ulong` (XxHash3 over payload bytes; use `System.IO.Hashing.XxHash3`), `Compatibility SnapshotCompatibility`.
 
-Compat logic: on load, compare `Envelope.SchemaVersion` against `StoreProfile.SchemaVersion`; reject if current version is below envelope version (downgrade guard); apply migration projection if current is above (forward-compat); exact-match is the happy path. Snapshot trigger: on `StoreLifecycleOp.Snapshot`, on migration completion, and on explicit `AppHost` request.
+Compatibility logic: on load, compare `Envelope.SchemaVersion` against `StoreProfile.SchemaVersion`; reject when the store profile would downgrade the envelope, apply migration projection when the store profile is ahead, and accept exact matches. Snapshot trigger: on `StoreLifecycleOp.Snapshot`, on migration completion, and on explicit `AppHost` request.
 
 Snapshot payload compression: `K4os.Compression.LZ4` (speed lane, default for MessagePack payloads); Brotli/Deflate via `System.IO.Compression` (support-bundle export only).
 
@@ -95,15 +95,15 @@ Fold semantics: for each `EntityEntry` in the change set, discriminate by entity
 
 ## [4][PUBLIC_RAIL_CONTRACT]
 
-| [INDEX] | [CONCEPT]         | [OWNS]                                                                                     | [DOES_NOT_OWN]              |
-| :-----: | ----------------- | ------------------------------------------------------------------------------------------ | --------------------------- |
-|   [1]   | Store Profile     | path via `RhinoApp.GetDataDirectory`, scope, schema version, host identity                 | global static DB path       |
-|   [2]   | Store Lifecycle   | `StoreLifecycleOp`: open, migrate, compact, export, snapshot, cleanup, backup              | `IRepository<T>` family     |
-|   [3]   | Store Query       | `StoreQuery<TResult>`: typed reads with entity kind, key, time range, page, projection     | method-per-entity API       |
-|   [4]   | Live State        | `IObservable<AppState>` read-only projection; `BehaviorSubject` internal                   | DynamicData public exposure |
-|   [5]   | Snapshot Envelope | Kind, SchemaVersion, Codec, Payload, XxHash3 Checksum, Compatibility                      | raw serializer exposure     |
-|   [6]   | Support Artifact  | redacted bundle artifact, `Microsoft.Extensions.Compliance.Redaction`, retention, export   | AppHost collection logic    |
-|   [7]   | Store Receipt     | `StoreReceipt` DU — success + typed failure cases; no generic `IReceipt` ledger            | generic receipt ledger      |
+| [INDEX] | [CONCEPT]         | [OWNS]                                                                                   | [DOES_NOT_OWN]              |
+| :-----: | ----------------- | ---------------------------------------------------------------------------------------- | --------------------------- |
+|   [1]   | Store Profile     | path via `RhinoApp.GetDataDirectory`, scope, schema version, host identity               | global static DB path       |
+|   [2]   | Store Lifecycle   | `StoreLifecycleOp`: open, migrate, compact, export, snapshot, cleanup, backup            | `IRepository<T>` family     |
+|   [3]   | Store Query       | `StoreQuery<TResult>`: typed reads with entity kind, key, time range, page, projection   | method-per-entity API       |
+|   [4]   | Live State        | `IObservable<AppState>` read-only projection; `BehaviorSubject` internal                 | DynamicData public exposure |
+|   [5]   | Snapshot Envelope | Kind, SchemaVersion, Codec, Payload, XxHash3 Checksum, Compatibility                     | raw serializer exposure     |
+|   [6]   | Support Artifact  | redacted bundle artifact, `Microsoft.Extensions.Compliance.Redaction`, retention, export | AppHost collection logic    |
+|   [7]   | Store Receipt     | `StoreReceipt` DU — success + typed failure cases; no generic `IReceipt` ledger          | generic receipt ledger      |
 
 `DbContext` belongs in an `Eff<RT,T>` `Bracket` shell — one context per operation, disposed after the operation completes; no context lives across operations. AppHost submits typed `Eff<RT, StoreReceipt>` and never holds a `DbContext`. AppUi calls `ObserveOn(RasmUiScheduler.RxScheduler)` on the exposed `IObservable<AppState>` and applies `Sample`/`Throttle` for back-pressure. DynamicData `SourceCache`/`SourceList` are internal projection only and never cross the boundary.
 
@@ -113,12 +113,12 @@ Native init: `SQLitePCL.Batteries.Init()` runs before the first `SqliteConnectio
 
 PRAGMAs set explicitly via `ExecuteSqlRaw` on each new connection open (EF does not auto-apply `busy_timeout` or `synchronous`):
 
-| [PRAGMA]             | [VALUE]      | [REASON]                                                                  |
-| -------------------- | ------------ | ------------------------------------------------------------------------- |
-| `journal_mode`       | `WAL`        | Multi-reader + single-writer; EF SQLite default, but set explicitly       |
-| `busy_timeout`       | `3000`       | 3 s wait before returning SQLITE_BUSY; EF does NOT set this automatically |
-| `synchronous`        | `NORMAL`     | Balanced durability/performance on WAL; not set by EF                     |
-| `foreign_keys`       | `ON`         | Enforce FK constraints EF generates                                       |
+| [PRAGMA]       | [VALUE]  | [REASON]                                                                  |
+| -------------- | -------- | ------------------------------------------------------------------------- |
+| `journal_mode` | `WAL`    | Multi-reader + single-writer; EF SQLite default, but set explicitly       |
+| `busy_timeout` | `3000`   | 3 s wait before returning SQLITE_BUSY; EF does NOT set this automatically |
+| `synchronous`  | `NORMAL` | Balanced durability/performance on WAL; not set by EF                     |
+| `foreign_keys` | `ON`     | Enforce FK constraints EF generates                                       |
 
 > [!CAUTION]
 > `EnableRetryOnFailure` is Npgsql-only and does NOT compile on EF SQLite. Do not use it. Rely on `busy_timeout` + app-level retry (LanguageExt `Schedule`) for transient SQLITE_BUSY.
@@ -162,17 +162,15 @@ Cross-folder spine: `Rasm.AppUi` consumes exactly one public surface — `IObser
 > [!CAUTION]
 > `__EFMigrationsLock` does not exist in EF Core SQLite (SQL Server-specific). `PartialMigration` is the correct interrupted-apply case. Migrations are append-only; rollback is a new forward migration. `EnableRetryOnFailure` is Npgsql-only — never reference it.
 
-## [9][SOURCE_ANCHORS]
+## [9][PACKAGE_REFERENCES]
 
-| [INDEX] | [SOURCE]                                                                                                                                 | [USE]                                                         |
-| :-----: | ---------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------- |
-|   [1]   | `.claude/skills/coding-csharp/references/persistence.md`                                                                                 | `Eff<RT,T>`, query algebra, append-only migrations            |
-|   [2]   | `.claude/skills/coding-csharp/references/validation.md`                                                                                  | FluentValidation boundary bridge                              |
-|   [3]   | [EF Core SQLite](https://learn.microsoft.com/ef/core/providers/sqlite/)                                                                  | local provider anchor                                         |
-|   [4]   | [EF Core SQLite limitations](https://learn.microsoft.com/en-us/ef/core/providers/sqlite/limitations)                                     | migration/failure model; no `__EFMigrationsLock`; `PRAGMA user_version` downgrade fast-path |
-|   [5]   | [System.Text.Json source generation](https://learn.microsoft.com/en-us/dotnet/standard/serialization/system-text-json/source-generation) | default serialization guidance                                |
-|   [6]   | [SQLitePCLRaw bundle_e_sqlite3](https://www.nuget.org/packages/SQLitePCLRaw.bundle_e_sqlite3)                                             | macOS-arm64 native SQLite asset chain; `e_sqlite3` symbol isolation |
-|   [7]   | [NodaTime](https://www.nuget.org/packages/NodaTime)                                                                                      | `IClock`, `Instant`; `long`/`INTEGER` converter for SQLite    |
-|   [8]   | [EFCore.NamingConventions](https://www.nuget.org/packages/EFCore.NamingConventions)                                                      | snake_case column mapping                                     |
-|   [9]   | [K4os.Compression.LZ4](https://www.nuget.org/packages/K4os.Compression.LZ4)                                                             | snapshot payload compression (speed lane)                     |
-|  [10]   | [Microsoft.Extensions.Compliance.Redaction](https://www.nuget.org/packages/Microsoft.Extensions.Compliance.Redaction)                   | support-bundle redaction                                      |
+| [INDEX] | [REFERENCE]                                                                                                                              | [USE]                                                                                       |
+| :-----: | ---------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------- |
+|   [1]   | [EF Core SQLite](https://learn.microsoft.com/ef/core/providers/sqlite/)                                                                  | local provider anchor                                                                       |
+|   [2]   | [EF Core SQLite limitations](https://learn.microsoft.com/en-us/ef/core/providers/sqlite/limitations)                                     | migration/failure model; no `__EFMigrationsLock`; `PRAGMA user_version` downgrade fast-path |
+|   [3]   | [System.Text.Json source generation](https://learn.microsoft.com/en-us/dotnet/standard/serialization/system-text-json/source-generation) | default serialization guidance                                                              |
+|   [4]   | [SQLitePCLRaw bundle_e_sqlite3](https://www.nuget.org/packages/SQLitePCLRaw.bundle_e_sqlite3)                                            | macOS-arm64 native SQLite asset chain; `e_sqlite3` symbol isolation                         |
+|   [5]   | [NodaTime](https://www.nuget.org/packages/NodaTime)                                                                                      | `IClock`, `Instant`; `long`/`INTEGER` converter for SQLite                                  |
+|   [6]   | [EFCore.NamingConventions](https://www.nuget.org/packages/EFCore.NamingConventions)                                                      | snake_case column mapping                                                                   |
+|   [7]   | [K4os.Compression.LZ4](https://www.nuget.org/packages/K4os.Compression.LZ4)                                                              | snapshot payload compression (speed lane)                                                   |
+|   [8]   | [Microsoft.Extensions.Compliance.Redaction](https://www.nuget.org/packages/Microsoft.Extensions.Compliance.Redaction)                    | support-bundle redaction                                                                    |

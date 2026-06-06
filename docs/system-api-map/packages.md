@@ -1,49 +1,49 @@
 # [PACKAGES]
 
-[IMPORTANT] Central package management lives in `Directory.Packages.props`. Project files declare usage without versions. Local .NET CLI tools live in `.config/dotnet-tools.json` because `dotnet tool restore` owns executable tool restore.
+Central package management lives in `Directory.Packages.props`. Project files declare usage without versions. Local .NET CLI tools live in `.config/dotnet-tools.json` because `dotnet tool restore` owns executable tool restore.
 
 ## [1][STATE]
 
-| [INDEX] | [STATE]                  | [MEANING]                                                                              |
-| :-----: | ------------------------ | -------------------------------------------------------------------------------------- |
-|   [1]   | Active direct            | A project references the package now.                                                  |
-|   [2]   | Active shared            | `Directory.Build.props` references the package for a project class.                    |
-|   [3]   | Transitive pin           | Central version controls a dependency required by an active package.                   |
-|   [4]   | First-consumer candidate | Approved owner-local intent; add central version only with a concrete consumer.        |
-|   [5]   | Rejected                 | Creates duplicate paradigm, unsupported host behavior, or unwanted platform direction. |
-|   [6]   | Shared framework         | API in-box on net10.0; no `PackageReference` required.                                 |
-|   [7]   | Platform package         | API ships as a platform package; explicit `PackageReference` only on first consumer.   |
-|   [8]   | Local tool manifest      | Version lives in `.config/dotnet-tools.json`; not an MSBuild package.                  |
-|   [9]   | Central pre-consumer entry | Central package state exists, but no project references the package yet.             |
+| [INDEX] | [STATE]                    | [MEANING]                                                                              |
+| :-----: | -------------------------- | -------------------------------------------------------------------------------------- |
+|   [1]   | Active direct              | A project references the package now.                                                  |
+|   [2]   | Active shared              | `Directory.Build.props` references the package for a project class.                    |
+|   [3]   | Transitive pin             | Central version controls a dependency required by an active package.                   |
+|   [4]   | First-consumer candidate   | Approved owner-local intent; add central version only with a concrete consumer.        |
+|   [5]   | Rejected                   | Creates duplicate paradigm, unsupported host behavior, or unwanted platform direction. |
+|   [6]   | Shared framework           | API in-box on net10.0; no `PackageReference` required.                                 |
+|   [7]   | Platform package           | API ships as a platform package; explicit `PackageReference` only on first consumer.   |
+|   [8]   | Local tool manifest        | Version lives in `.config/dotnet-tools.json`; not an MSBuild package.                  |
+|   [9]   | Central pre-consumer entry | Central package state exists, but no project references the package yet.               |
 
 ## [2][CURRENT]
 
-| [INDEX] | [PACKAGE]                                    | [STATE]                  | [OWNER]                                                   |
-| :-----: | -------------------------------------------- | ------------------------ | --------------------------------------------------------- |
-|   [1]   | `LanguageExt.Core`                           | Active shared/direct     | Rails, effects, immutable traversal                       |
-|   [2]   | `Thinktecture.Runtime.Extensions`            | Active shared/direct     | Value objects, smart enums, unions                        |
-|   [3]   | `MathNet.Numerics`                           | Active direct            | Numerical algorithms                                      |
-|   [4]   | `MathNet.Symbolics`                          | Active direct            | Symbolic formulas                                         |
-|   [5]   | `CSparse`                                    | Active direct            | Sparse SPD direct factorization                           |
-|   [6]   | `FParsec`                                    | Transitive pin           | Symbolics parser closure                                  |
-|   [7]   | `FSharp.Core`                                | Transitive pin           | Symbolics graph; bridge staged refs                       |
-|   [8]   | `MathNet.Numerics.FSharp`                    | Transitive pin           | Symbolics closure; not C# surface                         |
-|   [9]   | `System.Drawing.Common`                      | Active conditional       | RhinoWIP host compile surface; `ExcludeAssets=runtime`    |
-|  [10]   | `xunit.v3.mtp-v2`                            | Active shared            | xUnit v3 MTP runnable test projects                       |
-|  [11]   | `xunit.v3.assert`                            | Active shared (testkit)  | Assertions, serializer extensibility                      |
-|  [12]   | `xunit.v3.common`                            | Active shared (testkit)  | xUnit v3 common types                                     |
-|  [13]   | `xunit.v3.extensibility.core`                | Active shared (testkit)  | xUnit v3 extensibility core                               |
-|  [14]   | `Microsoft.Testing.Platform*`                | Transitive pin           | MTP runner/runtime closure                                |
-|  [15]   | `CsCheck`                                    | Active shared            | PBT generation, shrinking                                 |
-|  [16]   | `coverlet.MTP`                               | Active shared            | Opt-in managed coverage                                   |
-|  [17]   | `dotnet-stryker`                             | Local tool manifest      | Explicit managed mutation                                 |
-|  [18]   | `ilspycmd`                                   | Local tool manifest      | Host/package API decompilation surface                    |
-|  [19]   | `Verify.XunitV3`                             | Direct (`_tooling`)      | Generated/tooling snapshots only                          |
-|  [20]   | `TngTech.ArchUnitNET.xUnitV3`                | Direct (`_architecture`) | Assembly boundary laws                                    |
-|  [21]   | `BenchmarkDotNet`                            | Direct (`_benchmarks`)   | Hot-path measurement                                      |
-|  [22]   | `SharpFuzz`                                  | Direct (`_fuzz`)         | Pure managed parser/token fuzz harnesses                  |
-|  [23]   | AppUi Avalonia/ReactiveUI/DynamicData matrix | Active direct            | `Rasm.AppUi` retained product UI rail                     |
-|  [24]   | AppUi SkiaSharp/LiveCharts/SVG/text matrix   | Active direct            | `Rasm.AppUi` visuals, charts, and text shaping            |
+| [INDEX] | [PACKAGE]                                    | [STATE]                  | [OWNER]                                                |
+| :-----: | -------------------------------------------- | ------------------------ | ------------------------------------------------------ |
+|   [1]   | `LanguageExt.Core`                           | Active shared/direct     | Rails, effects, immutable traversal                    |
+|   [2]   | `Thinktecture.Runtime.Extensions`            | Active shared/direct     | Value objects, smart enums, unions                     |
+|   [3]   | `MathNet.Numerics`                           | Active direct            | Numerical algorithms                                   |
+|   [4]   | `MathNet.Symbolics`                          | Active direct            | Symbolic formulas                                      |
+|   [5]   | `CSparse`                                    | Active direct            | Sparse SPD direct factorization                        |
+|   [6]   | `FParsec`                                    | Transitive pin           | Symbolics parser closure                               |
+|   [7]   | `FSharp.Core`                                | Transitive pin           | Symbolics graph; bridge staged refs                    |
+|   [8]   | `MathNet.Numerics.FSharp`                    | Transitive pin           | Symbolics closure; not C# surface                      |
+|   [9]   | `System.Drawing.Common`                      | Active conditional       | RhinoWIP host compile surface; `ExcludeAssets=runtime` |
+|  [10]   | `xunit.v3.mtp-v2`                            | Active shared            | xUnit v3 MTP runnable test projects                    |
+|  [11]   | `xunit.v3.assert`                            | Active shared (testkit)  | Assertions, serializer extensibility                   |
+|  [12]   | `xunit.v3.common`                            | Active shared (testkit)  | xUnit v3 common types                                  |
+|  [13]   | `xunit.v3.extensibility.core`                | Active shared (testkit)  | xUnit v3 extensibility core                            |
+|  [14]   | `Microsoft.Testing.Platform*`                | Transitive pin           | MTP runner/runtime closure                             |
+|  [15]   | `CsCheck`                                    | Active shared            | PBT generation, shrinking                              |
+|  [16]   | `coverlet.MTP`                               | Active shared            | Opt-in managed coverage                                |
+|  [17]   | `dotnet-stryker`                             | Local tool manifest      | Explicit managed mutation                              |
+|  [18]   | `ilspycmd`                                   | Local tool manifest      | Host/package API decompilation surface                 |
+|  [19]   | `Verify.XunitV3`                             | Direct (`_tooling`)      | Generated/tooling snapshots only                       |
+|  [20]   | `TngTech.ArchUnitNET.xUnitV3`                | Direct (`_architecture`) | Assembly boundary laws                                 |
+|  [21]   | `BenchmarkDotNet`                            | Direct (`_benchmarks`)   | Hot-path measurement                                   |
+|  [22]   | `SharpFuzz`                                  | Direct (`_fuzz`)         | Pure managed parser/token fuzz harnesses               |
+|  [23]   | AppUi Avalonia/ReactiveUI/DynamicData matrix | Active direct            | `Rasm.AppUi` retained product UI rail                  |
+|  [24]   | AppUi SkiaSharp/LiveCharts/SVG/text matrix   | Active direct            | `Rasm.AppUi` visuals, charts, and text shaping         |
 
 ## [3][FIRST_CONSUMER_CANDIDATES]
 
@@ -56,7 +56,7 @@ Owner-local platform manuals may name future package candidates, but `Directory.
 |   [3]   | `Rasm.Persistence` | Microsoft.Data.Sqlite, EF Core SQLite, MessagePack compact snapshots.                                           |
 |   [4]   | `Rasm.Compute`     | System.Numerics.Tensors, ML.NET named-model lane, gRPC client for companion compute.                            |
 
-[CRITICAL] Candidate does not mean restored, loaded, or runtime-proven. Central pre-consumer entries are not active in a project until a project references them. AppUi package references restore/build, but runtime embedding still needs host evidence.
+Candidate does not mean restored, loaded, or runtime-proven. Central pre-consumer entries are not active in a project until a project references them. AppUi package references restore/build, but runtime embedding still needs host evidence.
 
 ## [4][BUILD_AND_ANALYZERS]
 

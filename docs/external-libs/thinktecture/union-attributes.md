@@ -1,6 +1,6 @@
 # [THINKTECTURE_UNION_ATTRIBUTES]
 
-[IMPORTANT] Thinktecture attributes control generated value objects, smart enums, unions, dispatch, factories, and conversion operators.
+Thinktecture attributes control generated value objects, smart enums, unions, dispatch, factories, and conversion operators.
 
 Thinktecture `[Union]` generates case types, `.Switch()`, `.Map()` — **not** `operator +`/`|` on the union type in Thinktecture v10.
 

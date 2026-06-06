@@ -1,6 +1,6 @@
 # [RASM_USAGE]
 
-[IMPORTANT] Cross-stack implementation surface for new work. Leaf docs own package and member detail.
+Cross-stack implementation surface for new work. Leaf docs own package and member detail.
 
 ## [1][OWNER_LADDER]
 
@@ -55,7 +55,7 @@
 
 ## [5][PROOF]
 
-| [INDEX] | [SOURCE]                                    | [OWNS]                                                           |
+| [INDEX] | [PROOF_OWNER]                               | [OWNS]                                                           |
 | :-----: | ------------------------------------------- | ---------------------------------------------------------------- |
 |   [1]   | `Directory.Packages.props`                  | Central package versions and package state.                      |
 |   [2]   | `Directory.Build.props`                     | Package references, global usings, RhinoWIP/GH2 host references. |

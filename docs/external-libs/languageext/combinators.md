@@ -1,6 +1,6 @@
 # [LANGUAGEEXT_COMBINATORS]
 
-[IMPORTANT] LanguageExt combinators use the active `LanguageExt.Core` surface.
+LanguageExt combinators use the active `LanguageExt.Core` surface.
 
 ## [1][LOWERING]
 
@@ -81,11 +81,11 @@
 
 ## [8][TRAITS]
 
-| [INDEX] | [SURFACE]                         | [NOTES]                      |
-| :-----: | --------------------------------- | ---------------------------- |
-|   [1]   | `Next.Loop` / `Next.Done`         | Trampolining                 |
-|   [2]   | `K<F,A>` + traits                 | Higher-kinded algorithms     |
-|   [3]   | `ComposeK`, `HyloM`, `FoldArrows` | Absent from local XML        |
+| [INDEX] | [SURFACE]                         | [NOTES]                  |
+| :-----: | --------------------------------- | ------------------------ |
+|   [1]   | `Next.Loop` / `Next.Done`         | Trampolining             |
+|   [2]   | `K<F,A>` + traits                 | Higher-kinded algorithms |
+|   [3]   | `ComposeK`, `HyloM`, `FoldArrows` | Absent from local XML    |
 
 Use file-local `from..in` unless measured duplication proves trait abstraction. See `traits.md`.
 

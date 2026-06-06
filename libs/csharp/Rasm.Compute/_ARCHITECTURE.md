@@ -23,15 +23,15 @@ flowchart LR
 
 ## [2][PUBLIC_RAIL_CONTRACT]
 
-| [INDEX] | [CONCEPT]           | [OWNS]                                                                      | [DOES_NOT_OWN]              |
-| :-----: | ------------------- | --------------------------------------------------------------------------- | --------------------------- |
-|   [1]   | Compute Intent      | operation kind, input contract, tolerance, deadline                         | package-specific API shape  |
-|   [2]   | Substrate Selection | Rasm.Vectors, tensor primitive, model, remote — chosen by predicate rule    | domain result semantics     |
-|   [3]   | ExecutionReceipt    | substrate, timing, allocation, cancellation, failure; optional lane subnets | generic job ledger          |
-|   [4]   | ModelReceipt        | model identity, version, load/dispose, EP, inference policy                 | unnamed ML experimentation  |
-|   [5]   | RemoteReceipt       | endpoint, deadline, payload limit, retry owner, failure                     | server hosting              |
-|   [6]   | BenchmarkReceipt    | baseline, candidate, memory, equivalence                                    | speed claim without data    |
-|   [7]   | Progress Stream     | `IObservable<ComputeProgress>` — cold, monotone, single-shot                | UI-thread scheduling        |
+| [INDEX] | [CONCEPT]           | [OWNS]                                                                      | [DOES_NOT_OWN]             |
+| :-----: | ------------------- | --------------------------------------------------------------------------- | -------------------------- |
+|   [1]   | Compute Intent      | operation kind, input contract, tolerance, deadline                         | package-specific API shape |
+|   [2]   | Substrate Selection | Rasm.Vectors, tensor primitive, model, remote — chosen by predicate rule    | domain result semantics    |
+|   [3]   | ExecutionReceipt    | substrate, timing, allocation, cancellation, failure; optional lane subnets | generic job ledger         |
+|   [4]   | ModelReceipt        | model identity, version, load/dispose, EP, inference policy                 | unnamed ML experimentation |
+|   [5]   | RemoteReceipt       | endpoint, deadline, payload limit, retry owner, failure                     | server hosting             |
+|   [6]   | BenchmarkReceipt    | baseline, candidate, memory, equivalence                                    | speed claim without data   |
+|   [7]   | Progress Stream     | `IObservable<ComputeProgress>` — cold, monotone, single-shot                | UI-thread scheduling       |
 
 Operations are `Eff<RT, ExecutionReceipt>` on the runtime record `RT` (defined by `Rasm.AppHost`). `RT` carries the `CancellationToken` and `TimeProvider`; Compute owns no executor. AppHost owns the bounded `Channel<ComputeRequest>`, drains it on its background scheduler, and calls Compute to execute each request; `ComputeRequest` is defined in the shared-contracts project, not in `Rasm.Compute`.
 
@@ -45,12 +45,12 @@ Operations are `Eff<RT, ExecutionReceipt>` on the runtime record `RT` (defined b
 
 The substrate escalation predicate is a pure function `SubstrateKind SelectSubstrate(ComputeIntent intent)` with this ordered rule:
 
-| [RANK] | [CONDITION]                                                         | [SUBSTRATE]               |
-| :----: | ------------------------------------------------------------------- | ------------------------- |
-|   1    | Operation owned by `Rasm.Vectors` and within `Rasm.Vectors` limits | `SubstrateKind.Vectors`   |
-|   2    | Dimension or tensor rank exceeds in-process threshold               | `SubstrateKind.Tensor`    |
-|   3    | Pre-trained `.onnx` asset exists and `ModelKey` is provided         | `SubstrateKind.Model`     |
-|   4    | `ComputeRequest` carries a remote endpoint and deadline             | `SubstrateKind.Remote`    |
+| [RANK] | [CONDITION]                                                        | [SUBSTRATE]             |
+| :----: | ------------------------------------------------------------------ | ----------------------- |
+|   1    | Operation owned by `Rasm.Vectors` and within `Rasm.Vectors` limits | `SubstrateKind.Vectors` |
+|   2    | Dimension or tensor rank exceeds in-process threshold              | `SubstrateKind.Tensor`  |
+|   3    | Pre-trained `.onnx` asset exists and `ModelKey` is provided        | `SubstrateKind.Model`   |
+|   4    | `ComputeRequest` carries a remote endpoint and deadline            | `SubstrateKind.Remote`  |
 
 `SubstrateKind` is a Thinktecture-generated enum discriminant on `ExecutionReceipt`. Escalation is applied at operation entry; no subsequent switch on substrate kind appears in domain logic.
 
@@ -132,12 +132,12 @@ Each operation declares an allocation category: `Minimal` (< 1 MB), `Moderate` (
 
 ## [4][SUBSTRATE_ORDER]
 
-| [INDEX] | [SUBSTRATE]               | [SCOPE]      | [BASIS]                                                          |
-| :-----: | ------------------------- | ------------ | ---------------------------------------------------------------- |
-|   [1]   | `Rasm.Vectors` algorithms | Default, now | Existing algorithm owner; Compute wraps, never duplicates        |
-|   [2]   | System.Numerics.Tensors   | Now          | In-box on net10.0; call `TensorPrimitives` directly; no pin      |
-|   [3]   | ONNX Runtime, CoreML EP   | Model lane   | Versioned `.onnx` asset; `InferenceSession` lease; macOS arm64   |
-|   [4]   | gRPC client               | Remote lane  | Out-of-process companion contract; `.proto` in shared contracts  |
+| [INDEX] | [SUBSTRATE]               | [SCOPE]      | [BASIS]                                                         |
+| :-----: | ------------------------- | ------------ | --------------------------------------------------------------- |
+|   [1]   | `Rasm.Vectors` algorithms | Default, now | Existing algorithm owner; Compute wraps, never duplicates       |
+|   [2]   | System.Numerics.Tensors   | Now          | In-box on net10.0; call `TensorPrimitives` directly; no pin     |
+|   [3]   | ONNX Runtime, CoreML EP   | Model lane   | Versioned `.onnx` asset; `InferenceSession` lease; macOS arm64  |
+|   [4]   | gRPC client               | Remote lane  | Out-of-process companion contract; `.proto` in shared contracts |
 
 `System.Numerics.Tensors` is in-box on net10.0 — call `TensorPrimitives` directly; rent input buffers from `ArrayPool<T>` (in-box) or `MemoryOwner<T>` (`CommunityToolkit.HighPerformance`). `UnitsNet` provides typed physical scalars (lengths, angles, forces) for CAD inputs and results — satisfying the no-weak-types rule for dimension-bearing values.
 
@@ -145,40 +145,40 @@ Each operation declares an allocation category: `Minimal` (< 1 MB), `Moderate` (
 
 ### [5.1][APPROVED_ADJACENT]
 
-| [INDEX] | [PACKAGE]                              | [ROLE]                                                        | [CONDITION]                                   |
-| :-----: | -------------------------------------- | ------------------------------------------------------------- | --------------------------------------------- |
-|   [1]   | `CommunityToolkit.HighPerformance`     | `Span2D`, `MemoryOwner<T>`, `ArrayPoolBufferWriter<T>` for mesh/tensor staging | Core, now      |
-|   [2]   | `UnitsNet`                             | Typed CAD physical scalars (length, angle, force, etc.)       | Core, now                                     |
-|   [3]   | `System.Reactive`                      | `Subject<ComputeProgress>`, `IObservable<ComputeProgress>`    | Core, now — Compute is the observable owner   |
-|   [4]   | `Microsoft.ML.OnnxRuntime`             | Model lane: CoreML EP bundled for `osx-arm64`                 | Model lane, scoped                            |
-|   [5]   | `Microsoft.ML.OnnxRuntime.Extensions` | Custom geometry pre/post ops                                  | Conditional: only if a custom op is proven    |
-|   [6]   | `Grpc.Net.Client`                      | Typed gRPC client                                             | Remote lane, scoped                           |
-|   [7]   | `Grpc.Net.ClientFactory`               | Typed gRPC clients via `IHttpClientFactory`                   | Conditional: only if DI bootstrap is used     |
-|   [8]   | `Microsoft.IO.RecyclableMemoryStream`  | Pooled `Stream`-shaped staging                                | Conditional: only if a `Stream` path is proven|
-|   [9]   | `Google.Protobuf`                      | Protobuf serialization for gRPC messages                      | Remote lane, scoped                           |
-|  [10]   | `Grpc.Tools`                           | `.proto` → C# codegen (in shared-contracts project only)      | Remote lane; `PrivateAssets=all`              |
+| [INDEX] | [PACKAGE]                             | [ROLE]                                                                         | [CONDITION]                                    |
+| :-----: | ------------------------------------- | ------------------------------------------------------------------------------ | ---------------------------------------------- |
+|   [1]   | `CommunityToolkit.HighPerformance`    | `Span2D`, `MemoryOwner<T>`, `ArrayPoolBufferWriter<T>` for mesh/tensor staging | Core, now                                      |
+|   [2]   | `UnitsNet`                            | Typed CAD physical scalars (length, angle, force, etc.)                        | Core, now                                      |
+|   [3]   | `System.Reactive`                     | `Subject<ComputeProgress>`, `IObservable<ComputeProgress>`                     | Core, now — Compute is the observable owner    |
+|   [4]   | `Microsoft.ML.OnnxRuntime`            | Model lane: CoreML EP bundled for `osx-arm64`                                  | Model lane, scoped                             |
+|   [5]   | `Microsoft.ML.OnnxRuntime.Extensions` | Custom geometry pre/post ops                                                   | Conditional: only if a custom op is proven     |
+|   [6]   | `Grpc.Net.Client`                     | Typed gRPC client                                                              | Remote lane, scoped                            |
+|   [7]   | `Grpc.Net.ClientFactory`              | Typed gRPC clients via `IHttpClientFactory`                                    | Conditional: only if DI bootstrap is used      |
+|   [8]   | `Microsoft.IO.RecyclableMemoryStream` | Pooled `Stream`-shaped staging                                                 | Conditional: only if a `Stream` path is proven |
+|   [9]   | `Google.Protobuf`                     | Protobuf serialization for gRPC messages                                       | Remote lane, scoped                            |
+|  [10]   | `Grpc.Tools`                          | `.proto` → C# codegen (in shared-contracts project only)                       | Remote lane; `PrivateAssets=all`               |
 
 `ArrayPool<T>` and `System.Numerics.Tensors` are in-box on net10.0 — no NuGet entry.
 
 ### [5.2][REJECTIONS]
 
-| [INDEX] | [REJECTED]                          | [REASON]                                                                                                      |
-| :-----: | ----------------------------------- | ------------------------------------------------------------------------------------------------------------- |
-|   [1]   | TorchSharp                          | ~800 MB libtorch conflicts inside the Rhino host process                                                      |
-|   [2]   | ML.NET / `MLContext`                | Training pipeline; Compute consumes pre-trained `.onnx` only                                                  |
-|   [3]   | PLINQ                               | Spawns threads bypassing AppHost executor; violates the no-thread-creation rule                               |
-|   [4]   | `System.Threading.Tasks.Dataflow`   | AppHost owns topology; Compute executes, it does not own dispatch or drain                                    |
-|   [5]   | MathNet FFT/LinAlg supplements      | Already integrated in `Rasm.Vectors`; no duplication                                                          |
-|   [6]   | Interval/robust-predicate/high-precision libs | No stated need                                                                                        |
-|   [7]   | ComputeSharp / Metal interop        | macOS/Metal direct compute lane explicitly ruled out beyond CoreML EP                                         |
-|   [8]   | `Microsoft.ML.OnnxRuntime.Gpu` / `.DirectML` | Windows-only; no target                                                                              |
-|   [9]   | `Grpc.AspNetCore` / `Grpc.HealthCheck` / `Grpc.Reflection` | Server-side packages; Compute is a client                                           |
-|  [10]   | MessagePack / MemoryPack            | No serialization boundary in Compute; Persistence owns snapshot codecs                                       |
+| [INDEX] | [REJECTED]                                                 | [REASON]                                                                        |
+| :-----: | ---------------------------------------------------------- | ------------------------------------------------------------------------------- |
+|   [1]   | TorchSharp                                                 | ~800 MB libtorch conflicts inside the Rhino host process                        |
+|   [2]   | ML.NET / `MLContext`                                       | Training pipeline; Compute consumes pre-trained `.onnx` only                    |
+|   [3]   | PLINQ                                                      | Spawns threads bypassing AppHost executor; violates the no-thread-creation rule |
+|   [4]   | `System.Threading.Tasks.Dataflow`                          | AppHost owns topology; Compute executes, it does not own dispatch or drain      |
+|   [5]   | MathNet FFT/LinAlg supplements                             | Already integrated in `Rasm.Vectors`; no duplication                            |
+|   [6]   | Interval/robust-predicate/high-precision libs              | No stated need                                                                  |
+|   [7]   | ComputeSharp / Metal interop                               | macOS/Metal direct compute lane explicitly ruled out beyond CoreML EP           |
+|   [8]   | `Microsoft.ML.OnnxRuntime.Gpu` / `.DirectML`               | Windows-only; no target                                                         |
+|   [9]   | `Grpc.AspNetCore` / `Grpc.HealthCheck` / `Grpc.Reflection` | Server-side packages; Compute is a client                                       |
+|  [10]   | MessagePack / MemoryPack                                   | No serialization boundary in Compute; Persistence owns snapshot codecs          |
 
 ## [6][MODEL_LANE_INTEGRATION]
 
 > [!CAUTION]
-> Use the current CoreML EP API: `SessionOptions.AppendExecutionProvider("CoreML", new Dictionary<string,string>{ ["ModelFormat"] = "MLProgram", ["MLComputeUnits"] = "CPUAndNeuralEngine", ["ModelCacheDirectory"] = path })`. The old `OrtSessionOptionsAppendExecutionProvider_CoreML` native P/Invoke was deprecated in ORT 1.20 and must not appear in new code.
+> Use the managed CoreML EP API: `SessionOptions.AppendExecutionProvider("CoreML", new Dictionary<string,string>{ ["ModelFormat"] = "MLProgram", ["MLComputeUnits"] = "CPUAndNeuralEngine", ["ModelCacheDirectory"] = path })`. Do not add native P/Invoke provider setup when the managed API owns the execution-provider route.
 
 > [!CAUTION]
 > `RunAsync` is crash-prone inside Rhino's process. Use synchronous `Run` + `RunOptions` with `token.Register(() => ro.Terminate = true)`. Lift the call via `liftIO`/`Eff.liftIO` into the `Eff<RT,T>` pipeline. Never use `Task.Run`.
@@ -225,14 +225,12 @@ Compute plugs into the shared spine all four folders share:
 
 Layout: five cohesive flat files — `Intent.cs`, `Substrate.cs`, `Model.cs`, `Remote.cs`, `Progress.cs` — each with canonical sections; benchmark receipts co-locate in `Substrate.cs`. No per-lane subfolders or mini-files.
 
-## [11][SOURCE_ANCHORS]
+## [11][PACKAGE_REFERENCES]
 
-| [INDEX] | [SOURCE]                                                                                                                                                                                         | [USE]                                                 |
-| :-----: | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | ----------------------------------------------------- |
-|   [1]   | `.claude/skills/coding-csharp/references/advanced-surface.md`                                                                                                                                    | MathNet/CSparse substrate order                       |
-|   [2]   | `.claude/skills/coding-csharp/references/performance.md`                                                                                                                                         | span, tensor primitive, benchmark policy              |
-|   [3]   | [System.Numerics.Tensors (in-box net10.0)](https://learn.microsoft.com/en-us/dotnet/api/system.numerics.tensors.tensorprimitives)                                                                | tensor primitive, no pin                              |
-|   [4]   | [ONNX Runtime CoreML EP](https://onnxruntime.ai/docs/execution-providers/CoreML-ExecutionProvider.html)                                                                                          | model lane on macOS arm64; current `AppendExecutionProvider` API |
-|   [5]   | [gRPC for .NET](https://learn.microsoft.com/en-us/aspnet/core/tutorials/grpc/grpc-start)                                                                                                        | companion compute lane                                |
-|   [6]   | [CommunityToolkit.HighPerformance](https://learn.microsoft.com/en-us/dotnet/communitytoolkit/high-performance/introduction)                                                                      | `Span2D`, `MemoryOwner<T>`, `ArrayPoolBufferWriter<T>`|
-|   [7]   | [UnitsNet](https://github.com/angularsen/UnitsNet)                                                                                                                                               | typed CAD physical scalars                            |
+| [INDEX] | [REFERENCE]                                                                                                                       | [USE]                                                            |
+| :-----: | --------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------- |
+|   [1]   | [System.Numerics.Tensors (in-box net10.0)](https://learn.microsoft.com/en-us/dotnet/api/system.numerics.tensors.tensorprimitives) | tensor primitive, no pin                                         |
+|   [2]   | [ONNX Runtime CoreML EP](https://onnxruntime.ai/docs/execution-providers/CoreML-ExecutionProvider.html)                           | model lane on macOS arm64; managed `AppendExecutionProvider` API |
+|   [3]   | [gRPC for .NET](https://learn.microsoft.com/en-us/aspnet/core/tutorials/grpc/grpc-start)                                          | companion compute lane                                           |
+|   [4]   | [CommunityToolkit.HighPerformance](https://learn.microsoft.com/en-us/dotnet/communitytoolkit/high-performance/introduction)       | `Span2D`, `MemoryOwner<T>`, `ArrayPoolBufferWriter<T>`           |
+|   [5]   | [UnitsNet](https://github.com/angularsen/UnitsNet)                                                                                | typed CAD physical scalars                                       |

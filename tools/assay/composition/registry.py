@@ -562,11 +562,8 @@ def _health(settings: AssaySettings) -> tuple[tuple[Match, ...], tuple[str, ...]
 
 
 def _probe_token(argv: tuple[str, ...]) -> str | None:
-    # Freshness signal over the launched program, not the launcher: resolved program path + mtime_ns, folded with the
-    # lockfile mtime for venv/node launchers (UV/MODULE/PNPM). Tokening argv[0] alone made every uv/pnpm tool share one
-    # launcher token, so a lockfile-driven in-place upgrade (ruff/ty/ast-grep) never invalidated within the TTL. DIRECT
-    # (yak) and DOTNET keep argv[0] because the launcher IS the probed tool/SDK. None on a fully unresolvable program
-    # forces a live probe rather than a stale hit.
+    # Freshness follows the launched program plus lockfile mtime for venv/node launchers. DIRECT and DOTNET keep argv[0]
+    # because the launcher is the probed tool/SDK. An unresolvable program has no token and forces a live probe.
     from pathlib import Path  # noqa: PLC0415  # stdlib: deferred import, only on the self-test probe-cache path
     import shutil  # noqa: PLC0415  # stdlib: deferred import, only on the self-test probe-cache path
 
@@ -610,7 +607,7 @@ def _cache_hit(cache: Mapping[str, object], argv: tuple[str, ...]) -> tuple[str,
 
 
 def _probe_cache_load(settings: AssaySettings) -> Mapping[str, object]:
-    # Absent/parse-error cache folds to empty so every probe falls back to a live spawn rather than a stale lie.
+    # Absent or malformed cache folds to empty so probes fall back to live process checks.
     try:
         store = settings.store()
         raw = store.fs.cat_file(f"{store.root}/{ArtifactKind.HISTORY.value}/{_PROBE_CACHE_FILE}")

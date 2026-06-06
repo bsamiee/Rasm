@@ -1,6 +1,6 @@
 # [LANGUAGEEXT_COLLECTIONS]
 
-[IMPORTANT] Use `Seq<T>` as the default domain sequence. Convert external mutable host collections at adapter edges.
+Use `Seq<T>` as the default domain sequence. Convert external mutable host collections at adapter edges.
 
 ## [1][SELECTION]
 
@@ -27,12 +27,12 @@ Full combinator inventory: `combinators.md`.
 
 ## [3][INTEROP]
 
-| [INDEX] | [HOST]                   | [RULE]                                                                |
-| :-----: | ------------------------ | --------------------------------------------------------------------- |
-|   [1]   | Host arrays/lists        | Convert immediately, validate native sentinels, then use `Seq<T>`.    |
-|   [2]   | Host tree structures     | Preserve tree semantics at host boundary; project values into rails.  |
+| [INDEX] | [HOST]                   | [RULE]                                                                 |
+| :-----: | ------------------------ | ---------------------------------------------------------------------- |
+|   [1]   | Host arrays/lists        | Convert immediately, validate native sentinels, then use `Seq<T>`.     |
+|   [2]   | Host tree structures     | Preserve tree semantics at host boundary; project values into rails.   |
 |   [3]   | Numeric vectors/matrices | Keep internal to algorithm execution; project into owned result types. |
-|   [4]   | BCL spans                | Use only inside measured primitive kernels or boundary adapters.      |
+|   [4]   | BCL spans                | Use only inside measured primitive kernels or boundary adapters.       |
 
 ## [4][RULES]
 

@@ -1,6 +1,6 @@
 # [MATHNET_LINEAR]
 
-[IMPORTANT] MathNet owns linear algebra after external-domain validity projection.
+MathNet owns linear algebra after external-domain validity projection.
 
 Spatial geometry semantics belong to the owning host SDK; MathNet receives explicit coordinates, dimensions, and tolerance policy after validity projection.
 

@@ -266,11 +266,9 @@ def _envelopes(draw: st.DrawFn) -> Envelope:
 envelope_st: st.SearchStrategy[Envelope] = _envelopes()
 st.register_type_strategy(Envelope, envelope_st)
 
-# Every module-level strategy name a foundation/W3 law draws under @given; validated once post-init (see
-# pytest_configure). .validate() is the path that raises SmallSearchSpaceWarning (-> hard error under
-# filterwarnings=['error']) which .example() silently skips — so a future wire field whose Path/Callable
-# escapes the resolver fails at session start, not deep in a W3 law. hypothesis forbids running it during
-# conftest import (HypothesisSideeffectWarning), hence the deferral to the configure hook.
+# Every module-level strategy drawn under @given is validated once post-init. .validate() raises
+# SmallSearchSpaceWarning when a wire field escapes the resolver, so strategy defects fail at session start
+# instead of inside a later property.
 _VALIDATED_STRATEGIES: tuple[st.SearchStrategy[object], ...] = (
     rail_status_st, completed_st, fault_st, counts_st, artifact_st, match_st, run_snapshot_st,
     report_st, detail_st, tool_st, check_st, lease_owner_st, run_id_st, tick_delta_st, envelope_st,
@@ -921,14 +919,9 @@ def pytest_configure(config: pytest.Config) -> None:
 def _strategy_validation_gate() -> None:
     """Validate + encode-probe every module-level strategy once per session, post-init.
 
-    Closes the methodology hole that hid the Path/Callable defects: ``.example()`` skips both
-    ``strategy.validate()`` (which raises ``SmallSearchSpaceWarning`` — a hard error under the suite's
-    ``filterwarnings=['error']`` — when a field like ``Check.cwd`` escapes the resolver to native
-    ``from_type(Path)``) AND the ``@given`` draw path. The inner ``@given`` law draws every encode-bearing
-    strategy through ``data()`` and round-trips the deterministic codec, catching a live
-    ``Tool.parser``/``thunk`` ``Callable`` that ``msgspec.encode`` rejects. A session-scoped autouse
-    fixture runs after collection, when hypothesis lifts the ``HypothesisSideeffectWarning`` init guard
-    that bans strategy materialization at conftest import.
+    The inner property draws every encode-bearing strategy through ``data()`` and round-trips the
+    deterministic codec, including callable-bearing ``Tool`` and ``Check`` rows. The autouse fixture runs
+    after collection so Hypothesis strategy materialization stays out of conftest import.
     """
     for strategy in _VALIDATED_STRATEGIES:
         strategy.validate()

@@ -1,6 +1,6 @@
 # [LANGUAGEEXT_EFFECTS]
 
-[IMPORTANT] Runtime effects use concrete runtime records and `Eff.runtime<RT>()`. Boundary adapters may use statement control flow only with an explicit boundary marker in code.
+Runtime effects use concrete runtime records and `Eff.runtime<RT>()`. Boundary adapters may use statement control flow only with an explicit boundary marker in code.
 
 ## [1][RAILS]
 
@@ -41,19 +41,17 @@ Never use LanguageExt state to hide native object lifetime, host tree mutation, 
 - Keep terminal collapse at command/component/tool edges.
 - Preserve original operation, host object, tolerance, and input name in diagnostics.
 
-## [6][V5_DELTAS]
+## [6][CURRENT_SURFACE]
 
-V5 deltas from the v4 surface:
+Current effect APIs route async and resource work through `Eff<RT,T>` and `IO<T>`:
 
-| [INDEX] | [V4_SURFACE]                                 | [V5_REPLACEMENT]                                                            |
-| :-----: | -------------------------------------------- | --------------------------------------------------------------------------- |
-|   [1]   | `Aff<T>` / `Aff<RT, T>`                      | `Eff<RT, T>` + `IO.liftAsync` inside the async leg.                         |
-|   [2]   | `Resource<T>` top-level type                 | `IO<T>.Bracket`/`BracketFail`/`Finally`, `Prelude.use`.                     |
-|   [3]   | `HasX<RT>` runtime constraints               | Concrete runtime records consumed via `Eff.runtime<RT>()`.                  |
-|   [4]   | `LanguageExt.Pipes` (Producer/Consumer/Pipe) | Removed. `Atom<T>` + paint, `Channel<T>`, or process cache.                 |
-|   [5]   | `StreamT<M, A>`                              | Removed. Same alternatives as Pipes.                                        |
-|   [6]   | `Sequence(...)` extension                    | `seq.Traverse(identity) >> lower` or unary `+`; use `.As()` for `Eff`/`IO`. |
-|   [7]   | Sequential `.Traverse`                       | `TraverseM` → `K<F, Seq<B>>`; lower via `>> lower`, unary `+`, or `.As()`.  |
+| [INDEX] | [SURFACE]          | [PROJECT_USE]                                                               |
+| :-----: | ------------------ | --------------------------------------------------------------------------- |
+|   [1]   | Async effect leg   | `Eff<RT, T>` + `IO.liftAsync`.                                              |
+|   [2]   | Resource lifetime  | `IO<T>.Bracket`/`BracketFail`/`Finally`, `Prelude.use`.                     |
+|   [3]   | Runtime dependency | Concrete runtime records consumed via `Eff.runtime<RT>()`.                  |
+|   [4]   | Stream-like state  | `Atom<T>` + paint, `Channel<T>`, or process cache.                          |
+|   [5]   | Traverse lowering  | `TraverseM` -> `K<F, Seq<B>>`; lower via `>> lower`, unary `+`, or `.As()`. |
 
 **Validation monoid requirement (v5):** `Validation<E, A>` requires `E : Monoid<E>`. `Validation<Error, T>` works when `Error` implements the required monoid; `Validation<string, T>` does NOT compile — use `StringM` or a monoidal error type. Consumer validation error policies belong in the local posture file.
 **Atom surface (v5):** `Atom<T>.Swap`/`SwapMaybe`/`SwapIO`/`SwapMaybeIO`. **No `Subscribe`/`OnChange`/`Reset`** — react-to-state patterns use the host paint loop or polling. `Atom<TMetadata, T>` two-arg form threads metadata through swap functions without closure allocation.

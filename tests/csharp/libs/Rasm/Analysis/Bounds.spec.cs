@@ -6,7 +6,7 @@ using Rhino.Geometry;
 namespace Rasm.Tests.Analysis;
 
 // --- [CONSTANTS] ----------------------------------------------------------------------------
-// BRIDGE-DEFERRED: native Bounds evaluation; static owns catalog, factories, Operation dispatch (Run rejects pre-Apply).
+// Runtime boundary: native Bounds evaluation belongs to scenarios; static owns catalog, factories, and pre-Apply rejection.
 internal static class BoundsGens {
     // Copy a World basis + managed Origin setter; new Plane(origin, normal) axis derivation P/Invokes.
     public static readonly Op Key = Op.Of(name: "bounds-test");
