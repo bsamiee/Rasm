@@ -1,6 +1,7 @@
 """Route changed or explicit paths into language-specific inputs."""
 
 from collections.abc import Mapping
+from dataclasses import dataclass
 from enum import StrEnum
 from functools import reduce
 from pathlib import PurePosixPath
@@ -193,7 +194,8 @@ def route(
     Returns:
         Routed input projection, or a fault from the source provider.
     """
-    src = source if source is not None else LOCAL
+    # Default source binds the changeset to settings.root, not ambient cwd, so ASSAY_ROOT routes its own worktree.
+    src = source if source is not None else _LocalSource(root=UPath((settings or AssaySettings()).root))
     enumerated = src.enumerate(paths) if paths else src.changed()
     return enumerated.bind(lambda files: _closure(language, files, src, settings) if language.strategy == "closure" else _glob(language, files))
 
@@ -223,28 +225,24 @@ def place(routed: Routed, tool: Tool, *, settings: AssaySettings) -> tuple[tuple
 # --- [COMPOSITION] ----------------------------------------------------------------------
 
 
+@dataclass(frozen=True, slots=True)
 class _LocalSource:
     # Default Source: git change-set, fd enumeration, and UPath reads rooted at the configured workspace.
-
-    @property
-    def _root(self) -> UPath:
-        return UPath(AssaySettings().root)
+    root: UPath
 
     def changed(self) -> Result[tuple[str, ...], Fault]:
-        root = self._root
         seed: Result[tuple[str, ...], Fault] = Ok(())
         return reduce(
-            lambda acc, argv: acc.bind(lambda seen: _git(argv, root=root).map(lambda rows: seen + rows)), (_DIFF, _CACHED, _UNTRACKED), seed
+            lambda acc, argv: acc.bind(lambda seen: _git(argv, root=self.root).map(lambda rows: seen + rows)), (_DIFF, _CACHED, _UNTRACKED), seed
         ).map(_norm)
 
     def enumerate(self, paths: RoutePaths) -> Result[tuple[str, ...], Fault]:
-        root = self._root
         seed: Result[tuple[str, ...], Fault] = Ok(())
-        return reduce(lambda acc, p: acc.bind(lambda seen: _expand(p, root=root).map(lambda rows: seen + rows)), paths, seed).map(_norm)
+        return reduce(lambda acc, p: acc.bind(lambda seen: _expand(p, root=self.root).map(lambda rows: seen + rows)), paths, seed).map(_norm)
 
     def read(self, rel: str) -> Result[bytes, Fault]:
         try:
-            return Ok((self._root / rel).read_bytes())
+            return Ok((self.root / rel).read_bytes())
         except OSError as exc:
             return Error(Fault(("read", rel), RailStatus.FAULTED, str(exc)[:1024]))
 
@@ -262,9 +260,6 @@ def _expand(target: str, *, root: UPath) -> Result[tuple[str, ...], Fault]:
             return Ok(())
 
 
-LOCAL: Source = _LocalSource()
-
-
 # --- [EXPORTS] --------------------------------------------------------------------------
 
-__all__ = ["LOCAL", "ProjectIndex", "RoutePaths", "Routed", "Scope", "Source", "place", "route"]
+__all__ = ["ProjectIndex", "RoutePaths", "Routed", "Scope", "Source", "place", "route"]

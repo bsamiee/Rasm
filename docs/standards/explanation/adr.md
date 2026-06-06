@@ -197,7 +197,7 @@ Each section carries specific facts, not generic prose:
 
 The decision-outcome field block is the safer shape when one sentence would become overloaded:
 
-```markdown template
+```text template
 Context: <force or constraint that made the decision necessary>
 Concern: <quality, boundary, contract, or risk being optimized>
 Disposition: <accepted | rejected | deprecated | superseded> <option or prior decision>
@@ -229,7 +229,7 @@ Status determines the evidence receipt. Put the receipt inside `Status evidence`
 
 Use one status-aware receipt shape. Include only fields that apply to the status, but keep proof fields when the claim can drift:
 
-```markdown template
+```text template
 Status: <accepted | rejected | deprecated | superseded>
 Confirmation surface: <accepted-status diagram, codemap, generated contract, manifest, gate, measurement, or audit>
 Disposition evidence: <rejection rationale, retirement proof, or supersession link>
@@ -244,27 +244,27 @@ Omit inapplicable fields entirely; do not write `omitted` into a produced receip
 
 The next examples are complete because the fields match the status:
 
-```markdown template
+```text template
 Status: accepted
 Confirmation surface: generated event schema diff.
 Evidence: `contracts/events.schema.json` generated output and compatibility gate.
 Review trigger: event schema generator, consumer contract, or compatibility gate change.
 ```
 
-```markdown template
+```text template
 Status: rejected
 Disposition evidence: review declined direct storage access because it bypasses the scope boundary.
 Evidence: design review record for the storage-boundary proposal.
 ```
 
-```markdown template
+```text template
 Status: deprecated
 Disposition evidence: decision retired with no replacement because the controlling architecture or support fact no longer exists.
 Evidence: retirement source or proof gap.
 Review trigger: support, architecture, or replacement-policy change.
 ```
 
-```markdown template
+```text template
 Status: superseded
 Disposition evidence: ADR `0023` replaces this boundary decision and names this ADR in `Supersedes`.
 Evidence: `Superseded by: 0023` in this record and `Supersedes: <this ADR>` in ADR `0023`.
@@ -298,7 +298,7 @@ Use this handoff record when a produced ADR is derived from an accepted design:
 
 ADR design-handoff records use local provenance fields first, then the shared relation fields in order.
 
-```markdown template
+```text template
 Origin design: <path>
 Accepted direction: <selected option from final design state>
 Changed fact: <durable policy, architecture fact, generated contract, support fact, or implementation sequence accepted by the design>

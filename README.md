@@ -1,4 +1,4 @@
-# RhinoWIP Plugin Workspace
+# [RHINOWIP_PLUGIN_WORKSPACE]
 
 RhinoWIP macOS workspace for first-party Rhino and Grasshopper products. Each app under `apps/grasshopper/<PluginName>` or `apps/rhino/<PluginName>` is a concrete plugin boundary; shared geometry capability lives in `libs/csharp` and stays product-neutral.
 
@@ -51,38 +51,38 @@ RhinoWIP currently hosts .NET 10 while installed McNeel assemblies can target ol
 
 Run C# quality gates:
 
-```bash
+```bash copy-safe
 uv run python -m tools.quality static fix
 uv run python -m tools.quality static build
 ```
 
 Build Rhino artifacts:
 
-```bash
+```bash copy-safe
 uv run python -m tools.quality bridge build-bridge
 ```
 
 Create the Mac Yak package:
 
-```bash
+```bash copy-safe
 uv run python -m tools.quality bridge package radyab 0.1.0-wip
 ```
 
 Deploy a package into RhinoWIP:
 
-```bash
+```bash copy-safe
 uv run python -m tools.quality bridge deploy radyab 0.1.0-wip
 ```
 
 Build, install locally, then push to a Yak feed (one shot):
 
-```bash
+```bash copy-safe
 uv run python -m tools.quality bridge publish radyab 0.1.0-wip
 ```
 
 Build and deploy the runtime analyzer bridge:
 
-```bash
+```bash copy-safe
 VERSION=0.1.0-wip
 uv run python -m tools.quality bridge build-bridge
 uv run python -m tools.quality bridge package rasm-bridge "$VERSION"
@@ -91,7 +91,7 @@ uv run python -m tools.quality bridge deploy rasm-bridge "$VERSION"
 
 Collect live RhinoWIP runtime evidence:
 
-```bash
+```bash copy-safe
 uv run python -m tools.quality bridge doctor
 uv run python -m tools.quality bridge check path/to/project.csproj
 uv run python -m tools.quality bridge check path/to/source.cs path/to/scenario.verify.csx

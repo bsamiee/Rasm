@@ -41,7 +41,7 @@ README heading modes are:
 Rejected repo-internal H1:
 
 ```markdown rejected
-# [ASSAY_OPERATOR]
+# [H1][ASSAY_OPERATOR]
 ```
 
 Use the boundary name directly:
@@ -221,13 +221,13 @@ When the README's first path, status, constraints, entrypoints, curated command 
 
 Use this surface-split selector. Rows name ownership routes, not inventories:
 
-| [INDEX] | [SURFACE]                    | [OWNS]                                                        | [README_ACTION]       |
-| :-----: | :--------------------------- | :------------------------------------------------------------ | :-------------------- |
-|   [1]   | `README.md`                  | boundary, first path, status, entrypoints, curated commands, key flags, output meaning, integrations, diagrams, routes | keep high-signal operating facts here |
-|   [2]   | `AGENTS.md`                  | read order, invariants, forbidden patterns, gates, precedence | link as agent route   |
-|   [3]   | `_ARCHITECTURE.md`           | rationale, deep structure, codemaps, package matrices, invariants | route deep structure away |
-|   [4]   | API/reference/code docs      | exhaustive commands, symbols, schemas, fields, lookup, generated catalogs, source signatures | route exhaustive catalogs away |
-|   [5]   | runbook/contributing/roadmap | recovery, PR workflow, sequence, blockers, deferred work      | route workflows away  |
+| [INDEX] | [SURFACE]                    | [README_KEEPS]                       | [ROUTE_AWAY]                       |
+| :-----: | :--------------------------- | :----------------------------------- | :--------------------------------- |
+|   [1]   | `README.md`                  | boundary, first path, status, routes | exhaustive catalogs and workflows  |
+|   [2]   | `AGENTS.md`                  | agent route link                     | read order, invariants, gates      |
+|   [3]   | `_ARCHITECTURE.md`           | current-structure link               | codemaps, matrices, invariants     |
+|   [4]   | API/reference/code docs      | generated or lookup route link       | commands, schemas, symbols, fields |
+|   [5]   | runbook/contributing/roadmap | recovery, PR, or sequence route link | workflows, blockers, deferred work |
 
 README files do not use invocation markers such as `[CRITICAL]`, `[ALWAYS]`, or `[NEVER]`; those belong in instruction surfaces.
 
@@ -324,7 +324,9 @@ Use in this document: everything should be updated.
 
 Reason: the rejected card mixes command, API, support, and architecture bodies.
 
-## [10][EXAMPLES]
+## [10][READER_ROUTE_EXAMPLES]
+
+These examples stay together because they show how README profile, heading mode, first-path proof, child routing, and route-away records interact. Move a misuse example beside its controlling rule when it teaches only one rule.
 
 A hub index example teaches routing by reader need rather than a flat link dump:
 

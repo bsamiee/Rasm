@@ -1,4 +1,4 @@
-# [H1][RASM_PERSISTENCE_ROADMAP]
+# [RASM_PERSISTENCE_ROADMAP]
 
 This roadmap sequences the build. The store rail, query algebra, migrations, and live-state projection are built fully from the foundation; compact-snapshot and companion lanes integrate with the concern that owns them.
 

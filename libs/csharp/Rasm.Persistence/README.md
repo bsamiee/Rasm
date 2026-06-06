@@ -1,4 +1,4 @@
-# [H1][RASM_PERSISTENCE]
+# [RASM_PERSISTENCE]
 
 `Rasm.Persistence` is the local durable-state platform for Rasm plugins and apps, built fully from the foundation: SQLite-backed state, `StoreLifecycleOp`/`StoreQuery<T>` algebra, migrations, snapshots, live-state projection, and support artifacts.
 

@@ -15,14 +15,14 @@ Apply this standard when a document or surface places controlling content for an
 
 Route the surface before applying detailed rules:
 
-| [INDEX] | [SURFACE] | [SECTION] |
-| :-----: | :-------- | :-------- |
-|   [1]   | unit ordering and salience | `[2][SERIAL_POSITION_SALIENCE]` |
-|   [2]   | durable docs, prompt assets, task instructions, state artifacts | `[6][ARTIFACT_SEPARATION]` |
-|   [3]   | task prompts and structured outputs | `[7][TASK_OUTPUT_CONTRACTS]` |
-|   [4]   | `AGENTS.md` positioning behavior | `[8][AGENTS_MD_AUTHORING]` |
-|   [5]   | indexes, retrieval, MCP catalogs, generated mirrors | `[9]` through `[12]` |
-|   [6]   | provider authoring defaults | `[13][PROVIDER_BEHAVIOR]` |
+| [INDEX] | [SURFACE]                                                       | [SECTION]                       |
+| :-----: | :-------------------------------------------------------------- | :------------------------------ |
+|   [1]   | unit ordering and salience                                      | `[2][SERIAL_POSITION_SALIENCE]` |
+|   [2]   | durable docs, prompt assets, task instructions, state artifacts | `[6][ARTIFACT_SEPARATION]`      |
+|   [3]   | task prompts and structured outputs                             | `[7][TASK_OUTPUT_CONTRACTS]`    |
+|   [4]   | `AGENTS.md` positioning behavior                                | `[8][AGENTS_MD_AUTHORING]`      |
+|   [5]   | indexes, retrieval, MCP catalogs, generated mirrors             | `[9]` through `[12]`            |
+|   [6]   | provider authoring defaults                                     | `[13][PROVIDER_BEHAVIOR]`       |
 
 Container choice belongs to [information-structure.md](information-structure.md). Sentence mechanics belong to [style-guide.md](style-guide.md). Evidence strength belongs to [proof.md](proof.md). Document-type routing belongs to [README.md](README.md).
 
@@ -32,10 +32,10 @@ Place the controlling rule first and the binding constraint last in every unit. 
 
 Apply the pattern recursively at every scale. Put controlling rules, constraints, proof routes, source provenance, and access boundaries at the unit edges.
 
-| [INDEX] | [UNIT] | [LEAD] | [CLOSE] |
-| :-----: | :----- | :----- | :------ |
-|   [1]   | Document | scope and highest-risk constraint | boundary, proof route, or next route |
-|   [2]   | Section | what the section controls | boundary or route |
+| [INDEX] | [UNIT]                 | [LEAD]                                            | [CLOSE]                                 |
+| :-----: | :--------------------- | :------------------------------------------------ | :-------------------------------------- |
+|   [1]   | Document               | scope and highest-risk constraint                 | boundary, proof route, or next route    |
+|   [2]   | Section                | what the section controls                         | boundary or route                       |
 |   [3]   | Paragraph and sentence | prose shape from [style-guide.md](style-guide.md) | consequence, proof route, or route-away |
 
 Container choice belongs to [information-structure.md](information-structure.md). Sentence craft belongs to [style-guide.md](style-guide.md).
@@ -50,11 +50,11 @@ This corpus uses the position ring as its normative placement rule. Provider-beh
 
 The position ring holds across every unit, whatever its lifetime or reader: controlling content at the edges, supporting detail in the middle. Use the three shapes below according to artifact lifetime.
 
-| [INDEX] | [ARTIFACT]        | [LEAD]                                             | [MIDDLE]              | [CLOSE] |
-| :-----: | :---------------- | :------------------------------------------------- | :-------------------- | :------ |
-|   [1]   | Durable document  | scope and highest-risk constraint                  | reusable support      | boundaries and route |
-|   [2]   | Task prompt       | objective, durable constraints, output expectation | bulky source material | immediate ask and binding constraints |
-|   [3]   | Retrieval chunk   | identity and standalone constraint                 | source detail         | omitted unless the chunk needs a refresh route |
+| [INDEX] | [ARTIFACT]       | [LEAD]                        | [BODY]                | [CLOSE]                     |
+| :-----: | :--------------- | :---------------------------- | :-------------------- | :-------------------------- |
+|   [1]   | Durable document | scope and highest-risk rule   | reusable support      | boundary or route           |
+|   [2]   | Task prompt      | objective and output contract | bulky source material | ask and binding constraints |
+|   [3]   | Retrieval chunk  | identity and standalone rule  | source detail         | refresh route when needed   |
 
 When long documents lead, anchor the final ask with a bridge phrase such as `Based on the information above`, then restate the critical constraints in compact form. An `AGENTS.md` overlay is a durable-document shape, not a task prompt.
 
@@ -64,11 +64,11 @@ Do not rewrite an ordinary durable document into task-prompt shape, and do not b
 
 Rank instructions so an agent resolves conflicts deterministically. State the rank, not just the rule.
 
-| [INDEX] | [RANK]      | [MEANING] |
-| :-----: | :---------- | :-------- |
-|   [1]   | Invariant   | rule that must not break unless a higher-ranked rule names an exception |
-|   [2]   | Preference  | default that holds unless a stated condition overrides it |
-|   [3]   | Default     | starting choice an agent may replace when evidence is stronger |
+| [INDEX] | [RANK]     | [MEANING]                                                               |
+| :-----: | :--------- | :---------------------------------------------------------------------- |
+|   [1]   | Invariant  | rule that must not break unless a higher-ranked rule names an exception |
+|   [2]   | Preference | default that holds unless a stated condition overrides it               |
+|   [3]   | Default    | starting choice an agent may replace when evidence is stronger          |
 
 Remove contradictory instructions rather than layering a caveat on top of a conflicting rule; unresolved contradiction degrades instruction-following more than any single weak rule. If two rules can both apply, name which controls.
 
@@ -76,11 +76,8 @@ Remove contradictory instructions rather than layering a caveat on top of a conf
 
 Write instructions as positive imperatives that name the action to take. Agent readers follow an explicit target more reliably than a prohibition.
 
-| [RESULT] | [INSTRUCTION] |
-| :------- | :------------ |
-| Accepted | State the constraint first. |
-| Rejected | Do not leave the constraint implicit. |
-
+Accepted: State the constraint first.
+Rejected: Do not leave the constraint implicit.
 Reason: The accepted sentence names the action; the rejected sentence only names the failure.
 
 Reserve negative form for genuine hard boundaries and pair each prohibition with the positive action that replaces it. Keep guidance clear, consistent, and in a high-salience position; vague or contradicted instructions degrade compliance.
@@ -91,12 +88,12 @@ If factual grounding matters, require evidence extraction before synthesis. Firs
 
 Keep durable documentation, task instructions, prompt assets, and state artifacts in distinct artifacts. Each has a different lifetime and reader contract.
 
-| [INDEX] | [ARTIFACT]              | [HOLDS] | [DOES_NOT_HOLD] |
-| :-----: | :---------------------- | :------ | :-------------- |
-|   [1]   | Durable documentation   | stable policy, conventions, reusable examples, canonical links, and tool contracts | single-interaction state |
-|   [2]   | Prompt assets           | reusable task shapes, input slots, constraints, output contracts, and stop rules | policy that outranks `CLAUDE.md`, `AGENTS.md`, or this standards library |
-|   [3]   | Task instructions       | one objective, done condition, current evidence, hard constraints, output contract, and stop rule | durable standards |
-|   [4]   | State artifacts         | validated facts, current status, next safe action, open questions, provenance, and proof gaps | reusable policy |
+| [INDEX] | [ARTIFACT]            | [HOLDS]                                    | [EXCLUDES]               |
+| :-----: | :-------------------- | :----------------------------------------- | :----------------------- |
+|   [1]   | Durable documentation | stable policy, examples, links, contracts  | single-interaction state |
+|   [2]   | Prompt assets         | reusable task shape and output contract    | higher-ranked policy     |
+|   [3]   | Task instructions     | one objective, evidence, constraints, stop | durable standards        |
+|   [4]   | State artifacts       | facts, status, next action, gaps           | reusable policy          |
 
 Promote only durable policy from prompt assets into the controlling instruction or standards file.
 
@@ -117,20 +114,22 @@ Order a task instruction as:
 6. Output contract and missing-evidence behavior.
 7. Validation and stop rule.
 
-Bind structured output to the narrowest contract the consumer actually validates: a schema, a typed tool input, a generated model, a catalog entry, or a documented field list. Use closed, total JSON object schemas only on strict JSON-schema or tool-schema surfaces that support those mechanics. Use `additionalProperties: false`, every property required, and explicit nullable values only where the provider or validator supports that shape.
+Bind structured output to the narrowest contract the consumer actually validates: a schema, a typed tool input, a generated model, a catalog entry, or a documented field list. The contract-strength order is strict schema, typed tool input, generated model, prompt-only JSON, then human-reviewed field list. Use closed, total JSON object schemas only on strict JSON-schema or tool-schema surfaces that support those mechanics. Use `additionalProperties: false`, every property required, and explicit nullable values only where current provider or validator proof supports that shape.
 
-Prefer provider schema enforcement over a schema described in prose where the surface supports it. Treat prompt-only JSON as a weaker fallback that requires validation and repair handling. A schema proves shape, not truth; keep semantic validation, refusal handling, and downstream suitability checks visible in the proof path. If a human reviews the contract instead of tooling enforcing it, state that proof gap.
+Prefer provider schema enforcement over a schema described in prose where the surface supports it and current proof exists. Treat prompt-only JSON as a weaker fallback that requires validation and repair handling. A schema proves shape, not truth; keep semantic validation, refusal handling, and downstream suitability checks visible in the proof path. If a human reviews the contract instead of tooling enforcing it, state that proof gap.
 
 Keep four checks separate in every machine-facing contract:
 
-| [INDEX] | [CHECK] | [PROVES] | [DOES_NOT_PROVE] |
-| :-----: | :------ | :------- | :--------------- |
-|   [1]   | Shape enforcement | schema, typed tool input, generated model, parser, or field list validates the container | truth, safety, freshness |
-|   [2]   | Source provenance | source path, heading, contract, command, or field path proves where a fact came from | semantic correctness |
-|   [3]   | Semantic validation | source trace, evaluator, application check, or human review proves the shaped output is correct for the claim | authorization or downstream safety |
-|   [4]   | Runtime safety | permissions, destructive-action guard, injection boundary, authorization, and downstream suitability prove usable boundaries | factual correctness |
+| [INDEX] | [CHECK]             | [PROVES]                           | [LIMIT]                         |
+| :-----: | :------------------ | :--------------------------------- | :------------------------------ |
+|   [1]   | Shape enforcement   | container matches schema or parser | truth, safety, freshness        |
+|   [2]   | Source provenance   | fact origin and refresh route      | semantic correctness            |
+|   [3]   | Semantic validation | shaped output matches the claim    | authorization or runtime safety |
+|   [4]   | Runtime safety      | permission and suitability bounds  | factual correctness             |
 
 Do not let a single check imply the others. A valid JSON object can still be unsupported, unsafe, stale, or semantically wrong.
+
+Source provenance proves origin and refresh route only. Shape enforcement proves the container. Semantic validation proves the claim matches the source. Evaluation receipts prove retrieval quality, ranking, tool choice, latency, or provider behavior. Runtime safety proves authorization and downstream suitability.
 
 ## [8][AGENTS_MD_AUTHORING]
 

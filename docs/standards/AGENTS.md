@@ -12,17 +12,16 @@ Reports, critique passes, memory notes, prompt assets, session history, external
 
 ## [2][READ_ORDER]
 
-Choose the read set by task mode:
+Before every `docs/standards/**` file change, read `CLAUDE.md`, root `AGENTS.md`, [README.md](README.md), the full target file, its routed owner standard, linked adjacent standards, and the affected folder or type family. The table adds mode-specific sources; for root audits, include [agents-md.md](agents-md.md) unless the task excludes it.
 
-| [INDEX] | [TASK_MODE]             | [READ_SET]                                                                                                                                       | [ESCALATE_WHEN]                                                                                  |
-| :-----: | :---------------------- | :----------------------------------------------------------------------------------------------------------------------------------------------- | :------------------------------------------------------------------------------------------------ |
-|   [1]   | Any standards edit      | `CLAUDE.md`, root `AGENTS.md`, [README.md](README.md), full target file                                                                          | Always before changing files                                                                      |
-|   [2]   | Root-file audit or edit | Every active root standards file except [agents-md.md](agents-md.md) when the task excludes it                                                   | `AGENTS.md`, `README.md`, shared standards, routing, boundaries, provider behavior, or audit rules |
-|   [3]   | Narrow type edit        | [README.md](README.md), shared owner files needed by the change, every affected type standard, then the full target file                         | Adjacent type standards share status, proof, or produced-structure behavior                       |
-|   [4]   | Named `_reports/**` task | `docs/standards/_reports/AGENTS.md`, the named report files, and only active standards needed to promote durable rules                           | Creating or updating a reusable reports session                                                   |
-|   [5]   | Cross-stack claim       | [../usage.md](../usage.md) plus the owner standard and proof route                                                                               | Cross-stack owner precedence, source-truth order, implementation proof, host-library routing, or command/tooling claims outside this corpus |
+| [INDEX] | [MODE]              | [EXTRA_READ]                            | [TRIGGER]                                               |
+| :-----: | :------------------ | :-------------------------------------- | :------------------------------------------------------ |
+|   [1]   | Root audit or edit  | active root standards                   | routing, boundaries, provider behavior, audit rules     |
+|   [2]   | Narrow type edit    | needed shared owners, type family       | adjacent status, proof, produced-structure behavior     |
+|   [3]   | Named `_reports/**` | `_reports/AGENTS.md`, named reports     | reusable report promotion                               |
+|   [4]   | Cross-stack claim   | [../usage.md](../usage.md), proof route | owner precedence, source truth, implementation, tooling |
 
-For every `docs/standards/**` edit, inspect the target file, its routed owner standard, linked adjacent standards, and the affected folder or type family before editing. Identify poor information representation before rewriting: prose hiding lookup data, prose-like tables, one-row tables, duplicated table or diagram bodies, decorative diagrams, missing relation records, empty conditional headings, stale links, and proof fields used as decoration. Fix the problem in scope or route it away explicitly.
+Before rewriting, identify poor information representation: prose hiding lookup data, prose-like tables, one-row tables, duplicated table or diagram bodies, decorative diagrams, missing relation records, empty conditional headings, stale links, and decorative proof fields. Fix the problem in scope or route it away explicitly.
 
 When standards work creates or updates a reusable `_reports/` session, update or verify the nearest non-root `AGENTS.md` for that folder and keep report naming, track numbering, correction, promotion, and pruning mechanics in that `_reports/AGENTS.md` leaf.
 
@@ -30,16 +29,16 @@ When standards work creates or updates a reusable `_reports/` session, update or
 
 Use the owner that controls the changed rule; do not copy that owner's body into this file.
 
-| [INDEX] | [OWNER]                    | [CONTROLS]                                                                  |
-| :-----: | :------------------------- | :-------------------------------------------------------------------------- |
-|   [1]   | `README.md`                | reader need, type choice, corpus placement, split/link, lifecycle           |
+| [INDEX] | [OWNER]                    | [CONTROLS]                                                                     |
+| :-----: | :------------------------- | :----------------------------------------------------------------------------- |
+|   [1]   | `README.md`                | reader need, type choice, corpus placement, split/link, lifecycle              |
 |   [2]   | `agentic-documentation.md` | agent salience, artifact separation, provider posture, instruction positioning |
-|   [3]   | `agents-md.md`             | `AGENTS.md` semantic slots, profiles, route-away, anti-fragility            |
-|   [4]   | `information-structure.md` | containers, records, tables, diagrams, checklists, cardinality              |
-|   [5]   | `style-guide.md`           | prose, sentence mechanics, terminology, links, code-safe Markdown           |
-|   [6]   | `proof.md`                 | evidence, preservation, proof gaps, docs-as-code gate selection             |
-|   [7]   | `formatting.md`            | bracketed headings, invocation markers, table styling, whitespace           |
-|   [8]   | type standards             | artifact-specific structure, status vocabulary, local proof slots           |
+|   [3]   | `agents-md.md`             | `AGENTS.md` semantic slots, profiles, route-away, anti-fragility               |
+|   [4]   | `information-structure.md` | containers, records, tables, diagrams, checklists, cardinality                 |
+|   [5]   | `style-guide.md`           | prose, sentence mechanics, terminology, links, code-safe Markdown              |
+|   [6]   | `proof.md`                 | evidence, preservation, proof gaps, docs-as-code gate selection                |
+|   [7]   | `formatting.md`            | bracketed headings, invocation markers, table styling, whitespace              |
+|   [8]   | type standards             | artifact-specific structure, status vocabulary, local proof slots              |
 
 ## [4][ROOT_FILE_AUDITS]
 

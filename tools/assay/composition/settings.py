@@ -5,7 +5,7 @@ from datetime import datetime, UTC
 from enum import StrEnum
 import os
 import sys
-from typing import Annotated, Final, override, Protocol, TYPE_CHECKING
+from typing import Annotated, Final, override, Protocol, runtime_checkable, TYPE_CHECKING
 from urllib.parse import urlsplit
 
 import fsspec  # type: ignore[import-untyped]  # fsspec ships no py.typed marker
@@ -57,6 +57,7 @@ type AnchoredRoot = Annotated[UPath, BeforeValidator(_anchor)]
 type ExpandedPath = Annotated[UPath, BeforeValidator(lambda v: UPath(v).expanduser())]
 
 
+@runtime_checkable
 class ArtifactFileSystem(Protocol):
     """Structural subset of fsspec used by Assay artifact storage."""
 
@@ -143,6 +144,14 @@ class AssaySettings(BaseSettings):
         validation_alias=AliasChoices("ASSAY_EXEC_KNOWN_HOSTS"),
         description="asyncssh known_hosts path for ssh:// exec_target; None disables the host-key check",
     )
+
+    @field_validator("run_id", "agent_task_id")
+    @classmethod
+    def _wire_safe(cls, value: str) -> str:  # pydantic field validators are class-bound
+        # Scrub lone surrogates (surrogateescape from an invalid-UTF-8 ASSAY_RUN_ID/ASSAY_AGENT_TASK_ID env): these
+        # tags flow into agent_context, the structlog CI JSONRenderer, and the Envelope wire, all of which choke on
+        # un-encodable surrogates. The default_factory value is already clean, so this only ever scrubs env input.
+        return value.encode("utf-8", "replace").decode("utf-8")
 
     @field_validator("exec_target")
     @classmethod

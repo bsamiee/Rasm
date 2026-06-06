@@ -20,29 +20,56 @@ Render an inline status, result, change, or compact state as a bracketed token s
 
 [TOKEN_FAMILIES]:
 
-| [INDEX] | [FAMILY]          | [TOKENS] | [USE] | [REJECT] |
-| :-----: | :---------------- | :------- | :---- | :------- |
-|   [1]   | Result            | `[PASS]`, `[FAIL]`, `[SKIP]`, `[PARTIAL]`, `[N/A]` | gate or check outcomes | lifecycle, boolean, or runtime state |
-|   [2]   | Change            | `[ADDED]`, `[REMOVED]`, `[CHANGED]`, `[UNCHANGED]` | delta reporting | status or proof state |
-|   [3]   | Lifecycle marker  | `[QUEUED]`, `[ACTIVE]`, `[BLOCKED]`, `[DEFERRED]`, `[COMPLETE]`, `[DROPPED]`, `[CANCELED]` | inline mirror of default `Status` values | result, check, or domain status |
-|   [4]   | Compact glyph     | `[o]`, `[x]`, `[!]`, `[?]`, `[+]`, `[-]`, `[=]`, `[/]`, `[~]`, `[$]` | dense result, change, attention, unknown, skipped, partial, or cached cells | boolean, lifecycle, or prose status |
-|   [5]   | Explicit state    | `[OK]`, `[ERROR]`, `[WARNING]`, `[CAUTION]`, `[PENDING]`, `[UNKNOWN]`, `[NEW]`, `[DELETED]`, `[SAME]`, `[NULL]`, `[APPROX]`, `[CACHED]`, `[SAVED]` | runtime or operational state | lifecycle unless locally declared |
+| [INDEX] | [FAMILY]         | [TOKENS]                                                                                   |
+| :-----: | :--------------- | :----------------------------------------------------------------------------------------- |
+|   [1]   | Result           | `[PASS]`, `[FAIL]`, `[SKIP]`, `[PARTIAL]`, `[N/A]`                                         |
+|   [2]   | Change           | `[ADDED]`, `[REMOVED]`, `[CHANGED]`, `[UNCHANGED]`                                         |
+|   [3]   | Lifecycle marker | `[QUEUED]`, `[ACTIVE]`, `[BLOCKED]`, `[DEFERRED]`, `[COMPLETE]`, `[DROPPED]`, `[CANCELED]` |
+|   [4]   | Compact glyph    | `[o]`, `[x]`, `[!]`, `[?]`, `[+]`, `[-]`, `[=]`, `[/]`, `[~]`, `[$]`                       |
+|   [5]   | Explicit state   | `[OK]`, `[ERROR]`, `[WARNING]`, `[CAUTION]`, `[PENDING]`, `[UNKNOWN]`                      |
+|   [6]   | Explicit state   | `[NEW]`, `[DELETED]`, `[SAME]`, `[NULL]`, `[APPROX]`, `[CACHED]`, `[SAVED]`                |
+
+Token use is separate from the closed set so the table remains scannable:
+
+| [INDEX] | [FAMILY]         | [USE]                      | [REJECT]                             |
+| :-----: | :--------------- | :------------------------- | :----------------------------------- |
+|   [1]   | Result           | gate or check outcome      | lifecycle, boolean, or runtime state |
+|   [2]   | Change           | delta reporting            | status or proof state                |
+|   [3]   | Lifecycle marker | inline `Status` mirror     | result, check, or domain status      |
+|   [4]   | Compact glyph    | dense cell marker          | boolean, lifecycle, or prose status  |
+|   [5]   | Explicit state   | runtime or operation state | lifecycle unless locally declared    |
+
+[COMPACT_GLYPH_MAP]:
+
+| [INDEX] | [GLYPH] | [MEANING]                                        | [TEXT_EQUIVALENT]          | [REJECT]                           |
+| :-----: | :------ | :----------------------------------------------- | :------------------------- | :--------------------------------- |
+|   [1]   | `[o]`   | passed, available, or affirmative compact result | `pass` or `available`      | lifecycle `COMPLETE`               |
+|   [2]   | `[x]`   | failed, unavailable, or negative compact result  | `fail` or `unavailable`    | checkbox completion                |
+|   [3]   | `[!]`   | attention, warning, or risk marker               | `attention`                | proof gap                          |
+|   [4]   | `[?]`   | source value unknown                             | `unknown`                  | missing evidence; use `Proof gap:` |
+|   [5]   | `[+]`   | added, new, enabled, or increased                | `added`                    | positive sentiment                 |
+|   [6]   | `[-]`   | removed, deleted, disabled, or decreased         | `removed`                  | subtraction expression             |
+|   [7]   | `[=]`   | unchanged, same, or matched                      | `unchanged`                | equality proof without evidence    |
+|   [8]   | `[/]`   | skipped, bypassed, or intentionally not run      | `skipped`                  | partial completion                 |
+|   [9]   | `[~]`   | partial, approximate, or changed-in-progress     | `partial` or `approximate` | unsupported uncertainty            |
+|  [10]   | `[$]`   | cached, saved, materialized, or stored result    | `cached` or `stored`       | cost or price                      |
 
 [ABSENCE_VALUES]:
 
-| [INDEX] | [VALUE] | [USE] | [REJECT] |
-| :-----: | :------ | :---- | :------- |
-|   [1]   | `—` | empty or absent table value | not-applicable result or skipped gate |
-|   [2]   | `n/a` | domain vocabulary requires a not-applicable term | generic missing data |
-|   [3]   | `[N/A]` | result itself is not applicable | missing source value |
-|   [4]   | `[SKIP]` | gate intentionally did not run | unknown gate result |
-|   [5]   | `[UNKNOWN]` | value should exist but is not known | literal null |
-|   [6]   | `[NULL]` | literal null value is the fact | absent value |
+| [INDEX] | [VALUE]     | [USE]                                            | [REJECT]                              |
+| :-----: | :---------- | :----------------------------------------------- | :------------------------------------ |
+|   [1]   | `—`         | empty or absent table value                      | not-applicable result or skipped gate |
+|   [2]   | `n/a`       | domain vocabulary requires a not-applicable term | generic missing data                  |
+|   [3]   | `[N/A]`     | result itself is not applicable                  | missing source value                  |
+|   [4]   | `[SKIP]`    | gate intentionally did not run                   | unknown gate result                   |
+|   [5]   | `[UNKNOWN]` | value should exist but is not known              | literal null                          |
+|   [6]   | `[NULL]`    | literal null value is the fact                   | absent value                          |
 
 [USE_RULES]:
 - Prefer the most specific family. Do not use two tokens that mean the same thing in one column.
 - Keep domain status vocabularies in their declared casing as field values; bracketed inline lifecycle markers uppercase the canonical token and replace spaces with hyphens. A type-local marker such as `[PROVISIONAL]` or `[DEPRECATED]` is valid only when the type standard declares that marker's closed vocabulary, meaning, and removal behavior before the first rendered example or production use.
-- Use compact glyphs only where density matters, such as validation lists, delta summaries, or table cells.
+- Suffix forms such as `[ACTIVE M2]` are allowed only as codemap or source-key projections where the suffix identifies a source route, milestone, path, or row key. The base token must still come from a declared vocabulary, and the suffix must not create lifecycle meaning.
+- Use compact glyphs only where density matters, such as validation lists, delta summaries, or table cells, and only with the global meanings above.
 - Use explicit states when clarity matters more than width.
 - Reserve these tokens for status, result, change, and state reporting; do not scatter bracketed tokens through ordinary prose or duplicate a definition-block field or checkbox state.
 - Use a checkbox when completion is asserted; use `[x]` only as a compact fail marker, never as a replacement for `- [x]`.
@@ -62,12 +89,12 @@ Render progress as a bar only after [information-structure.md](information-struc
 
 [PROGRESS_EDGE_CASES]:
 
-| [INDEX] | [CASE] | [PERCENT] | [FILLED_CELLS] |
-| :-----: | :----- | :-------- | :------------- |
-|   [1]   | numerator is `0` | `0%` | `0` |
-|   [2]   | nonzero incomplete value floors to `0` | `<1%` | `0` |
-|   [3]   | numerator equals denominator | `100%` | `20` |
-|   [4]   | ordinary incomplete value | floored integer | floored cell count |
+| [INDEX] | [CASE]                                 | [PERCENT]       | [FILLED_CELLS]     |
+| :-----: | :------------------------------------- | :-------------- | :----------------- |
+|   [1]   | numerator is `0`                       | `0%`            | `0`                |
+|   [2]   | nonzero incomplete value floors to `0` | `<1%`           | `0`                |
+|   [3]   | numerator equals denominator           | `100%`          | `20`               |
+|   [4]   | ordinary incomplete value              | floored integer | floored cell count |
 
 Accepted Unicode example:
 
@@ -135,14 +162,14 @@ Table styling uses these groups:
 
 [SAFETY]:
 
-| [INDEX] | [TRIGGER] | [RENDER] | [REPAIR_CONTAINER] |
-| :-----: | :-------- | :------- | :----------------- |
-|   [1]   | absent value | `—` | table cell |
-|   [2]   | not-applicable domain value | `n/a` or declared domain value | table cell |
-|   [3]   | literal pipe | escaped `\|` | same cell |
-|   [4]   | nested or multiline facts | short token in cell | definition block or subsection-per-record block |
-|   [5]   | reader-facing qualification | visible note after table | prose, note block, footnote, or record |
-|   [6]   | source-only author hint | hidden comment before block | never table row or cell |
+| [INDEX] | [TRIGGER]                   | [RENDER]                       | [REPAIR_CONTAINER]                              |
+| :-----: | :-------------------------- | :----------------------------- | :---------------------------------------------- |
+|   [1]   | absent value                | `—`                            | table cell                                      |
+|   [2]   | not-applicable domain value | `n/a` or declared domain value | table cell                                      |
+|   [3]   | literal pipe                | escaped `\|`                   | same cell                                       |
+|   [4]   | nested or multiline facts   | short token in cell            | definition block or subsection-per-record block |
+|   [5]   | reader-facing qualification | visible note after table       | prose, note block, or row-owned record          |
+|   [6]   | source-only author hint     | hidden comment before block    | never table row or cell                         |
 
 The GFM separator row encodes the four alignment classes — left-align with `:---`, right-align with `---:`, center with `:---:`. A template:
 
@@ -176,7 +203,7 @@ The index column is centered, the text column (`[ITEM]`) is left-aligned, the nu
 - Keep short checklist fields inline after an em dash. Promote larger checklist state to the record form defined by `information-structure.md`.
 - Keep definition-block labels in sentence case or verified field casing, followed by one colon and one space. Indent wrapped or list-valued field content four spaces beneath the label.
 - Keep item-scoped field labels raw by default inside bullets, checklist items, and definition blocks: `Label: value`. Use bracketed set labels only for standalone group labels. Use backticks only for literal fields, symbols, commands, paths, flags, exact tokens, or placeholders. Do not bold the label or the whole line.
-- Render short contrast examples as one compact record rather than adjacent fences. Use raw labels such as `Accepted:`, `Rejected:`, `Before:`, `After:`, `Near miss:`, and `Reason:`; keep one-line values inline, indent multi-field values four spaces, and place the reason immediately after the rejected value. Use a table only when the contrast compares three or more attributes across two or more options.
+- Render short contrast examples as one compact record rather than adjacent fences when [information-structure.md](information-structure.md) chooses that carrier. Use raw labels such as `Accepted:`, `Rejected:`, `Before:`, `After:`, `Near miss:`, and `Reason:`; keep one-line values inline, indent multi-field values four spaces, and place the reason immediately after the rejected value. Use a table only when the contrast compares three or more attributes across two or more options.
 - Let prose soft-wrap; the form standard carries the no-hard-wrap rule, and this whitespace discipline governs only the gaps between structural elements.
 
 A conceptual list example:
@@ -205,7 +232,7 @@ Section cardinality uses these groups:
 
 ## [6][HEADING_IDIOM]
 
-Use one bracketed heading format throughout documentation and instruction files:
+Use one bracketed heading format throughout repo-internal standards-controlled documentation and instruction files. Public or registry README files may use plain reader-facing headings when [reference/readme.md](reference/readme.md) declares that exception:
 - H1: `# [DOCUMENT_TITLE]`; the H1 carries only the semantic title label and never a heading-tier prefix.
 - H2: `## [N][SECTION_LABEL]`; `N` is the section number in document order.
 - H3: `### [N.M][SUBSECTION_LABEL]`; `N.M` is the parent section number plus the subsection number.
@@ -246,7 +273,7 @@ Use this verification checklist by group:
 - [ ] Glyphs, box drawing, and bitmap-style markers encode load-bearing state, progress, hierarchy, alignment, or comparison instead of decoration.
 - [ ] Invocation markers appear only in instruction files, sparingly, on real invariants.
 - [ ] Table columns are aligned by type: text left, numeric/date values right, and only indexes plus compact markers or short booleans centered.
-- [ ] Table cells escape literal pipes, stay single-line, and move long qualifications to visible notes, footnotes, or record blocks.
+- [ ] Table cells escape literal pipes, stay single-line, and move long qualifications to visible notes or row-owned records.
 - [ ] Table absence and not-applicable values use the declared absence-value ladder.
 
 [SPACING_HEADINGS]:

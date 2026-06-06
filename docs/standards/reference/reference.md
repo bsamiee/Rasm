@@ -123,6 +123,7 @@ Source model: `<maintained source, generated artifact, command output, manifest,
 Evidence: `<source path, command output, generated artifact, maintained source, or proof gap>`
 Generated from: `<command, schema, generator, or omitted when manually sourced>`
 Source of truth: `<controlling path, manifest, generated contract, package source, or upstream source>`
+Proof gap: `<missing source, unrun generator, unavailable command, or omitted when proved>`
 Last verified: YYYY-MM-DD
 Review trigger: `<source, command, generated artifact, package, support, or route change>`
 Refresh command: `<exact command; omit when no command refreshes the facts>`
@@ -174,6 +175,7 @@ Use: `<one sentence naming the reader action this fact changes>`
 Evidence: `<source, command, generated artifact, or maintained reference>`
 Generated from: `<generator, command, or schema; omit when manually sourced>`
 Source of truth: `<controlling path, schema, manifest, generated contract, or upstream source>`
+Proof gap: `<missing source, unrun generator, unsupported current claim, or omitted when proved>`
 Last verified: YYYY-MM-DD
 Review trigger: `<event that makes this fact stale>`
 Route-away: `<README | API | code documentation | support matrix | how-to | runbook | tutorial | roadmap | architecture; omit when absent>`

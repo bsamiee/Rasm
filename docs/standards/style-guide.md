@@ -56,6 +56,14 @@ Use isolated sentences deliberately. A one-sentence paragraph must be a lead, tr
 
 Use paragraph pairs when one idea needs a setup and a consequence. The first paragraph states the claim or rule; the second paragraph states the operational consequence, exception, proof route, or route-away. Do not let two short paragraphs become loose labels with periods. A prose sentence stays a sentence when it expresses a complete thought, predicate, and reader consequence; imperative sentences may use an implied subject. Do not turn a sentence into a label.
 
+[KEEP_OR_CONVERT]:
+- Keep a standalone sentence when it leads, transitions, captions, closes, states a consequence, names a route boundary, or marks a proof gap.
+- Convert it to `Label: value` only when the value is scanned, quoted, or updated independently.
+- Convert it to a note, alert, or row-owned record only when its scope is local to a row, claim, risk, or provenance point.
+- Delete or fold it when it only repeats emphasis.
+
+Use the smallest carrier that preserves the reader job. A packet with only 1 or 2 independently useful fields usually wants prose or a short definition block, not a full template. Omit absent fields rather than filling a packet to satisfy shape.
+
 ## [5][SENTENCE_MECHANICS]
 
 [CLAUSE_JOINING]:
@@ -144,7 +152,7 @@ Notation rules use these groups:
 
 ## [10][EXAMPLES]
 
-Examples must prove shape or prevent misuse. Place an example beside the rule it clarifies per [information-structure.md](information-structure.md). This guide controls example wording; the form standard controls placement.
+Examples must prove shape or prevent misuse. Place local examples beside the rule they clarify per [information-structure.md](information-structure.md). A late example section is valid only when it is a named reader-route example set that demonstrates how several rules interact. This guide controls example wording; the form standard controls placement.
 
 Use examples under these limits:
 - Prefer one positive shape and one rejected shape when the distinction matters.

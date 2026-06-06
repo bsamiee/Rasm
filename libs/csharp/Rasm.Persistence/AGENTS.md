@@ -18,11 +18,12 @@ Keep storage operations as typed lifecycle operations and typed query algebras. 
 
 ## [3][EXTENSION_GRAMMAR]
 
-- New store operation: extend the lifecycle operation rail and typed query algebra before adding a repository wrapper.
+- New store operation: extend `StoreLifecycleOp`, `StoreQuery<TResult>`, `StoreDispatch`, `AppState`, `SnapshotEnvelope`, or `StoreReceipt` before adding a repository wrapper.
 - New durable receipt: extend store receipt fields when the fields carry route, status, count, checksum, compression, snapshot, or migration proof.
-- New provider-specific behavior: put the proof in `_ARCHITECTURE.md`; keep this overlay to the owner action.
+- New provider-specific behavior: extend `StoreLifecycleOp`, `StoreQuery<TResult>`, `StoreDispatch`, `AppState`, `SnapshotEnvelope`, or `StoreReceipt`, and route provider, native asset, encryption, or recovery proof to `_ARCHITECTURE.md`; do not expose provider selectors, repository abstractions, or provider APIs.
 - New live-state emission: serialize emission inside the owner rail before AppUi observes it.
 - New support artifact: route request ownership through AppHost; Persistence stores, redacts, exports, and cleans.
+- Package-backed storage behavior: read `_ARCHITECTURE.md` and central manifests, then internalize approved package capability inside lifecycle, query, snapshot, live-state, support-artifact, and receipt rails before exposing provider selectors, serializer knobs, repository abstractions, or compatibility aliases.
 
 ## [4][BOUNDARY_RULES]
 
@@ -39,7 +40,7 @@ Keep storage operations as typed lifecycle operations and typed query algebras. 
 
 - No GH solve hot-path calls.
 - No EF, SQLite, serializer, or store references in domain projects.
-- No generic repository wrapper, generic receipt ledger, or long-lived context.
+- No public `DbContext`, `DbContextOptions`, `IQueryable`, `SqliteConnection`, EF entity type, serializer option bag, codec selector, provider selector, repository abstraction, generic receipt ledger, or long-lived context crossing the Persistence boundary.
 - No default companion database lane in the in-process plugin path.
 - No provider API, native asset, or encryption claim without architecture proof.
 - No package versions in documentation text; version truth lives in central manifests.

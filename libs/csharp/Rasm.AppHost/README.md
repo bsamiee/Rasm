@@ -1,4 +1,4 @@
-# [H1][RASM_APPHOST]
+# [RASM_APPHOST]
 
 `Rasm.AppHost` is the runtime/composition platform for Rasm plugins, apps, companion processes, and bridge-like services. It owns runtime profiles and lifecycle, built fully from the foundation.
 
@@ -8,7 +8,8 @@
 
 It is not a domain service layer, job framework, DI wrapper, telemetry wrapper, or catch-all runtime package.
 
-[CRITICAL] Generic Host is companion/test/bridge only — never in-process. The composition root is `PlugIn.OnLoad`; it constructs `RasmUiScheduler` (AppUi-owned sealed record) on the UI thread, then calls `AppHost.Boot(token, timeProvider, uiScheduler, …capabilities)`. `Boot` receives the `RasmUiScheduler` and capability handles (including `StoreDispatch` for Persistence), constructs `RasmRuntime`, and returns a `BootReceipt` containing the runtime record and `DrainHandle`. The runtime record is handed back to AppUi to activate observables.
+> [!CAUTION]
+> Generic Host is companion/test/bridge only — never in-process. The composition root is `PlugIn.OnLoad`; it constructs `RasmUiScheduler` (AppUi-owned sealed record) on the UI thread, then calls `AppHost.Boot(token, timeProvider, uiScheduler, …capabilities)`. `Boot` receives the `RasmUiScheduler` and capability handles (including `StoreDispatch` for Persistence), constructs `RasmRuntime`, and returns a `BootReceipt` containing the runtime record and `DrainHandle`. The runtime record is handed back to AppUi to activate observables.
 
 ## [2][STATUS]
 

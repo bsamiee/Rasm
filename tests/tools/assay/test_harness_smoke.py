@@ -75,9 +75,9 @@ def test_yak_shape_materializes_valid_meta(assay_root: AssayHarness, yak_shape: 
     assert all(props[name] for name in required)
 
 
-def test_ab_diff_returns_both_envelopes(ab_diff: Callable[[Claim, str], AbDelta]) -> None:
-    """``ab_diff`` runs both operators in-process and returns the assay Envelope, the quality dict, and the delta."""
-    delta = ab_diff(Claim.PACKAGE, "list")
+def test_ab_delta_returns_both_envelopes(ab_delta: Callable[[Claim, str], AbDelta]) -> None:
+    """``ab_delta`` runs both operators in-process and returns the assay Envelope, the quality dict, and the delta."""
+    delta = ab_delta(Claim.PACKAGE, "list")
     assert isinstance(delta.assay, Envelope)
     assert delta.assay.claim is Claim.PACKAGE
     assert "packages" in delta.quality

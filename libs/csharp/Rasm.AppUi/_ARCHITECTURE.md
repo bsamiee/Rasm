@@ -1,4 +1,4 @@
-# [H1][RASM_APPUI_ARCHITECTURE]
+# [RASM_APPUI_ARCHITECTURE]
 
 `Rasm.AppUi` is the platform boundary above `Rasm.Rhino/UI` and `Rasm.Grasshopper/UI`. It captures product UI intent, state, visual requests, diagnostics, and receipts through one unified rail, without duplicating Rhino/GH2 dispatch, repaint, undo, document affinity, or lifecycle policy.
 
@@ -48,9 +48,11 @@ The public entry accepts typed app-surface operations as data and returns typed 
 
 macOS support means coexistence inside RhinoWIP/GH2, not generic desktop success.
 
-[CRITICAL] Avalonia owns panel, dialog, and companion-window surfaces only. It never renders over the native viewport: native content always composites above Avalonia, so HUDs and marks over the 3D scene render through the Rhino/GH display conduit only — **AppUi SkiaSharp is thumbnails and offscreen draw only**; viewport-overlay SkiaSharp lives exclusively in the Rhino/GH display conduit.
+> [!CAUTION]
+> Avalonia owns panel, dialog, and companion-window surfaces only. It never renders over the native viewport: native content always composites above Avalonia, so HUDs and marks over the 3D scene render through the Rhino/GH display conduit only — **AppUi SkiaSharp is thumbnails and offscreen draw only**; viewport-overlay SkiaSharp lives exclusively in the Rhino/GH display conduit.
 
-[CRITICAL] Embedding rules — all mandatory, all host-fatal if violated:
+> [!CAUTION]
+> Embedding rules — all mandatory, all host-fatal if violated:
 - `MacOSPlatformOptions.DisableAvaloniaAppDelegate = true` — must be set before any Avalonia surface initializes; omission hands the `NSApplicationDelegate` slot to Avalonia and crashes the Rhino host process on load.
 - Use `CreateEmbeddableTopLevel()`, not `CreateEmbeddableWindow()` — `CreateEmbeddableWindow` is unimplemented on macOS.
 - TFM is plain `net10.0`; do not use `net10.0-macos`. NSView reparenting is an isolated P/Invoke shim: call `objc_msgSend` over Avalonia `TryGetPlatformHandle()` `IntPtr` and Eto's native handle to embed the Avalonia `TopLevel` as a child NSView — no `[SupportedOSPlatform]` attribute flood, no `net10.0-macos` TFM.
@@ -106,7 +108,8 @@ Version matrix is coupled: Avalonia ↔ ReactiveUI.Avalonia ↔ ReactiveUI ↔ D
 
 ### [4.3][NATIVE_HAZARD]
 
-[CRITICAL] SkiaSharp-native coexistence splits into one SETTLED fact and one STILL-OPEN gate; do not conflate them. SETTLED (bridge-verify of RhinoWIP 9.0): Rhino ships NO managed `SkiaSharp.dll` — `libSkiaSharp.dylib` is used only at the C++ level inside `RhCore.framework`, and RhinoCommon / Eto / Grasshopper2 carry no SkiaSharp dependency, so no managed assembly clash exists. Our `SkiaSharp` equals `Avalonia.Skia`'s exact dependency, unified across LiveCharts2 and `Svg.Skia`. STILL-OPEN (Phase-0 native gate, separate from the managed fact): macOS `dlopen` coalesces by install name (`@rpath/libSkiaSharp.dylib`) and SkiaSharp has no symbol isolation — two copies of a different native major CANNOT co-load. THE GATE: confirm Rhino's bundled `libSkiaSharp` native major (`find /Applications/RhinoWIP.app -name 'libSkiaSharp*'`, or a `bridge verify` scenario reading `SkiaSharpVersion.Native`). If it matches our major: reference `SkiaSharp.NativeAssets.macOS` with `<ExcludeAssets>native</ExcludeAssets>` and share Rhino's loaded dylib — no second copy ships. If it differs: same-named dylibs cannot co-load and Avalonia 12 cannot downgrade Skia, so this is a hard build gate (offscreen/out-of-process Skia, or escalate). `HarfBuzzSharp.NativeAssets.macOS` is carried unconditionally — not in the Rhino bundle.
+> [!CAUTION]
+> SkiaSharp-native coexistence splits into one SETTLED fact and one STILL-OPEN gate; do not conflate them. SETTLED (bridge-verify of RhinoWIP 9.0): Rhino ships NO managed `SkiaSharp.dll` — `libSkiaSharp.dylib` is used only at the C++ level inside `RhCore.framework`, and RhinoCommon / Eto / Grasshopper2 carry no SkiaSharp dependency, so no managed assembly clash exists. Our `SkiaSharp` equals `Avalonia.Skia`'s exact dependency, unified across LiveCharts2 and `Svg.Skia`. STILL-OPEN (Phase-0 native gate, separate from the managed fact): macOS `dlopen` coalesces by install name (`@rpath/libSkiaSharp.dylib`) and SkiaSharp has no symbol isolation — two copies of a different native major CANNOT co-load. THE GATE: confirm Rhino's bundled `libSkiaSharp` native major (`find /Applications/RhinoWIP.app -name 'libSkiaSharp*'`, or a `bridge verify` scenario reading `SkiaSharpVersion.Native`). If it matches our major: reference `SkiaSharp.NativeAssets.macOS` with `<ExcludeAssets>native</ExcludeAssets>` and share Rhino's loaded dylib — no second copy ships. If it differs: same-named dylibs cannot co-load and Avalonia 12 cannot downgrade Skia, so this is a hard build gate (offscreen/out-of-process Skia, or escalate). `HarfBuzzSharp.NativeAssets.macOS` is carried unconditionally — not in the Rhino bundle.
 
 Layout: cohesive flat files — `Shell.cs`, `Screen.cs`, `Command.cs`, `Live.cs`, `Visual.cs`, `Chart.cs`, `Diagnostic.cs` — each with canonical sections; UI scheduler boundary co-locates with ReactiveUI activation in `Screen.cs`. No per-concept subfolders or mini-files.
 
@@ -116,7 +119,7 @@ Layout: cohesive flat files — `Shell.cs`, `Screen.cs`, `Command.cs`, `Live.cs`
 
 `RasmUiScheduler` — sealed record; unifies Avalonia `Dispatcher` and ReactiveUI `RxApp.MainThreadScheduler`. Constructed once on the UI thread in `PlugIn.OnLoad`, before any live-projection work. Passed into `AppHost.Boot(token, timeProvider, uiScheduler, …)` so AppHost references it without owning it — non-circular.
 
-```
+```text conceptual
 RasmUiScheduler
   Dispatcher   : Avalonia.Threading.Dispatcher   // ObserveOn / InvokeAsync
   RxScheduler  : IScheduler                      // RxApp.MainThreadScheduler wrapper
@@ -126,7 +129,7 @@ RasmUiScheduler
 
 `Shell` — sealed record; product shell state, route identity, and nav-stack ownership. `AppState` (from Persistence) is an immutable point-in-time domain snapshot; `Shell` is the UI navigation and visibility layer — they do not collide.
 
-```
+```text conceptual
 Shell
   Route        : RouteId                          // discriminated union of named routes
   NavStack     : ImmutableStack<RouteId>          // activation history
@@ -140,7 +143,7 @@ Route = route identity + nav-stack owner + activation; Shell-state is not AppSta
 
 `Screen<T>` — `ReactiveValidationObject` (from `ReactiveUI.Validation`); `T` is the domain model slice the screen projects. Owns view identity, command availability, and the validation surface. Toolkit base type (`ReactiveObject`, `ReactiveValidationObject`) stays internal.
 
-```
+```text conceptual
 Screen<T>
   ViewId       : ScreenId                         // stable screen identity
   Model        : T                                // read-only domain slice
@@ -151,7 +154,7 @@ Screen<T>
 
 ### [5.4][COMMAND_AND_RECEIPT]
 
-```
+```text conceptual
 Command
   Id           : CommandId                        // stable identity
   Label        : string
@@ -169,7 +172,7 @@ CommandReceipt
 
 `LiveView<T>` — DynamicData-backed read-only projection. `T` is the projected model type. Subscriptions managed via `WhenActivated`/`CompositeDisposable`; disposal on `Screen` deactivation. Never exposes `SourceCache` or change-sets publicly.
 
-```
+```text conceptual
 LiveView<T>
   Items        : IObservable<IChangeSet<T, Guid>>  // internal; bound on UI scheduler
   Snapshot     : IObservable<IReadOnlyList<T>>     // public projection
@@ -177,7 +180,7 @@ LiveView<T>
 
 ### [5.6][CHART_DASHBOARD]
 
-```
+```text conceptual
 ChartVm
   Series       : ObservableCollection<ISeries>    // LiveCharts2 series
   Axes         : ObservableCollection<IAxis>      // X/Y axes
@@ -189,7 +192,7 @@ ChartVm
 
 `DiagnosticReceipt` is AppUi-owned; AppHost may reference/correlate it but does not define it.
 
-```
+```text conceptual
 DiagnosticReceipt
   PanelId      : PanelId
   Event        : DiagnosticEvent                  // Activated | Focused | Hidden | Disposed | Screenshot
@@ -204,7 +207,7 @@ DiagnosticReceipt
 
 `AppState` is defined and owned by `Rasm.Persistence` — a minimal read-only sealed record (point-in-time snapshot). AppUi consumes it as `IObservable<AppState>` via `ObserveOn(RasmUiScheduler.RxScheduler)`. Fields consumed by AppUi (read-only, no write-back):
 
-```
+```text conceptual
 AppState
   ActivePresets   : ImmutableList<PresetKey>
   SessionMetadata : ImmutableList<SessionSummary>
@@ -219,7 +222,8 @@ View layer: ReactiveUI (`ReactiveCommand` / `IObservable<T>` / VMs). App-surface
 
 ## [6][COMPOSITION]
 
-[CRITICAL] Bootstrap order: `PlugIn.OnLoad` is the composition root. Constructs `RasmUiScheduler` on the UI thread → calls `AppHost.Boot(token, timeProvider, uiScheduler, …capabilities)` → receives `BootReceipt` (runtime record + `DrainHandle`) → hands `RasmRuntime` to AppUi to activate inbound observables. `RasmUiScheduler` is AppUi-owned and AppHost-referenced — non-circular.
+> [!CAUTION]
+> Bootstrap order: `PlugIn.OnLoad` is the composition root. Constructs `RasmUiScheduler` on the UI thread → calls `AppHost.Boot(token, timeProvider, uiScheduler, …capabilities)` → receives `BootReceipt` (runtime record + `DrainHandle`) → hands `RasmRuntime` to AppUi to activate inbound observables. `RasmUiScheduler` is AppUi-owned and AppHost-referenced — non-circular.
 
 One canonical UI scheduler boundary (`RasmUiScheduler`) owns Avalonia `Dispatcher`, ReactiveUI scheduler, and host-thread affinity. Built in Phase 0 before any live-projection work. DynamicData change-sets observe on it before binding — off-thread observation yields cross-thread mutation. Background/runtime scheduling delegates to `Rasm.AppHost`; AppUi owns only the UI-thread boundary.
 

@@ -11,16 +11,19 @@ Scope: `libs/csharp/Rasm.AppUi/` only. Root policy and `libs/csharp/AGENTS.md` o
 
 ## [2][OWNER_CONTRACT]
 
-`Rasm.AppUi` is the unified product UI rail. It composes UI packages behind product concepts, owns product UI intent and diagnostic receipts, and delegates final host mutation to Rhino, Grasshopper, AppHost, and Persistence owner rails.
+`Rasm.AppUi` is the unified product UI rail. It composes UI packages behind product concepts, owns product UI intent and diagnostic receipts, and delegates final host mutation to Rhino and Grasshopper owner rails. Runtime and durable-state side effects route through AppHost and Persistence owner rails.
 
-Keep one typed app-surface operation rail for shell, screen, command, live-view, chart, visual, and diagnostic concerns. Package types stay internal unless exposing them carries real product semantics.
+Keep one typed app-surface operation rail for shell, screen, command, live-view, chart, visual, and diagnostic concerns.
+
+Package-backed UI behavior: read `_ARCHITECTURE.md` and central manifests, then internalize approved package capability into product shell, screen, command, live-view, chart, visual, diagnostic, scheduler, and receipt rails before exposing package-shaped APIs, toolkit settings, provider selectors, or compatibility aliases.
 
 ## [3][EXTENSION_GRAMMAR]
 
-- New product UI case: extend the app-surface operation rail and typed intent model before adding a screen-specific helper.
-- Host embedding behavior: update local architecture proof before expanding rendering, native focus, or panel lifecycle.
+- New product UI case: extend typed product intent, `Screen<T>`, scheduler, command, live-view, chart, visual, diagnostic, or receipt rails before adding a screen-specific helper or package-shaped API.
+- Host embedding behavior: extend rendering, native focus, panel lifecycle, scheduler, and disposal owners only after `_ARCHITECTURE.md` or runtime proof covers the relevant host API gap.
 - Runtime observation: extend scheduler handoff and typed observable contracts before adding direct host calls.
 - Diagnostic or chart behavior: add product-level receipt or projection data; keep package-specific types internal.
+- Native UI proof: route proof gaps through `_ARCHITECTURE.md`, host-boundary overlays, central manifests, or runtime proof before changing product rails.
 
 ## [4][BOUNDARY_RULES]
 
@@ -37,7 +40,12 @@ Keep one typed app-surface operation rail for shell, screen, command, live-view,
 
 - No AppUi-owned Rhino/GH2 dispatch, repaint, undo, or lifecycle rail.
 - No package-forwarding facade for UI libraries.
+- No public toolkit settings bag, package option mirror, or floating-window fallback rail; encode behavior as typed product intent, `Screen<T>`, `CommandReceipt`, `DiagnosticReceipt`, or `RasmUiScheduler`.
 - No floating host window path where embedded host surfaces are the invariant.
 - No mixed UI paradigms in one screen stack.
 - No package versions in documentation text; version truth lives in central manifests.
-- No deprecated or replacement package claim without current package-route proof.
+- No old package claim, replacement package claim, or package-route assertion without current package proof.
+
+## [6][STOP_RULES]
+
+If SkiaSharp native-major, Avalonia embedding, Rhino/GH2 panel-host API, focus/disposal ordering, software-rendering, or scheduler-handoff proof is missing, stop before expanding UI surface; route the gap to `_ARCHITECTURE.md`, host-boundary overlays, central manifests, or runtime proof.

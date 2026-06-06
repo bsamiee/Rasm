@@ -14,6 +14,7 @@ from tools.assay.composition.catalog import parse_tests, select
 from tools.assay.composition.settings import ArtifactScope, AssaySettings  # noqa: TC001  # unconditional for beartype runtime
 from tools.assay.core.engine import fan_out, leased
 from tools.assay.core.model import (
+    Artifact,
     ArtifactKind,
     BaseParams,
     Check,
@@ -25,9 +26,11 @@ from tools.assay.core.model import (
     Mode,
     MutationLane,
     Report,  # noqa: TC001  # unconditional: beartype @checked resolves the rail's forward-ref (PEP 649)
+    Runner,
     TestRun,
 )
 from tools.assay.core.routing import route
+from tools.assay.core.status import RailStatus
 
 
 if TYPE_CHECKING:
@@ -52,6 +55,8 @@ class TestParams(BaseParams):
     coverage: bool = False
     fixtures: bool = False
     filter: str = ""
+    limit: int = 0
+    grep: str = ""
 
 
 # --- [CONSTANTS] ------------------------------------------------------------------------
@@ -95,12 +100,37 @@ def _mutation_gap(params: TestParams, rows: tuple[Tool, ...]) -> bool:
     return params.mutation and not any(t.mode is Mode.MUTATION for t in rows)
 
 
+def _filter(expr: str) -> tuple[str, ...]:
+    # Mirror the quality MTP filter discriminant: query (/...), trait (k=v), class (suffix/+), else method.
+    match expr.strip():
+        case "":
+            return ()
+        case query if query.startswith("/"):
+            return ("--filter-query", query)
+        case trait if "=" in trait:
+            return ("--filter-trait", trait)
+        case class_name if class_name.endswith(("Tests", "Laws", "Spec")) or "+" in class_name:
+            return ("--filter-class", f"*{class_name}*")
+        case method:
+            return ("--filter-method", f"*{method}*")
+
+
 def _checks(routed: Routed, params: TestParams, mode: Mode) -> tuple[Check, ...]:
-    return tuple(Check(tool=t, paths=routed.files) for t in _rows(routed.language, params, mode))
+    # dotnet test (MTP) consumes the filter expression; non-dotnet rows ignore it.
+    filt = _filter(params.filter)
+
+    def _splice(tool: Tool) -> Tool:
+        match (bool(filt), tool.runner, tool.mode):
+            case (True, Runner.DOTNET, Mode.RUN | Mode.LIST):
+                return msgspec.structs.replace(tool, command=(*tool.command, *filt))
+            case _:
+                return tool
+
+    return tuple(Check(tool=_splice(t), paths=routed.files) for t in _rows(routed.language, params, mode))
 
 
-def _routed(languages: tuple[Language, ...], paths: tuple[str, ...]) -> Result[Block[Routed], Fault]:
-    return sequence(block.of_seq(route(language, paths) for language in languages))
+def _routed(languages: tuple[Language, ...], paths: tuple[str, ...], settings: AssaySettings) -> Result[Block[Routed], Fault]:
+    return sequence(block.of_seq(route(language, paths, settings=settings) for language in languages))
 
 
 def _dispatch(
@@ -140,6 +170,11 @@ def _detail(done: tuple[Completed, ...], params: TestParams) -> AnyDetail | None
             )
 
 
+def _results_artifact(scope: ArtifactScope) -> Artifact:
+    # The per-run scope directory is where dotnet --results-directory writes; surface it as the test results artifact.
+    return Artifact(id="results", kind=ArtifactKind.TEST, path=str(scope.path))
+
+
 def thin_rail(settings: AssaySettings, scope: ArtifactScope, params: TestParams, *, claim: Claim, verb: str, mode: Mode) -> Result[Report, Fault]:
     """Run the shared test route, eligibility, fan-out, and fold body.
 
@@ -157,9 +192,10 @@ def thin_rail(settings: AssaySettings, scope: ArtifactScope, params: TestParams,
     def _work(_held: object = None) -> Result[Report, Fault]:
         def _settle(done: Block[Completed]) -> Report:
             outcomes = tuple(done)
-            return fold(claim, verb, outcomes, detail=_detail(outcomes, params))
+            base = fold(claim, verb, outcomes, detail=_detail(outcomes, params))
+            return msgspec.structs.replace(base, artifacts=(*base.artifacts, _results_artifact(scope)))
 
-        return _routed(languages, params.paths).bind(
+        return _routed(languages, params.paths, settings).bind(
             lambda routed: sequence(routed.collect(lambda r: block.of_seq(_dispatch(r, params, settings=settings, scope=scope, mode=mode)))).map(
                 _settle
             )
@@ -191,14 +227,27 @@ def list(settings: AssaySettings, scope: ArtifactScope, params: TestParams) -> R
         Test roster report, or routing/spawn fault.
     """
     languages = _languages(params.language)
+    needle = params.grep.strip().lower()
 
     def _settle(done: block.Block[Completed]) -> Report:
         outcomes = tuple(done)
         base = fold(Claim.TEST, "list", outcomes)
-        roster = _roster_matches(outcomes)
-        return msgspec.structs.replace(base, results=(*base.results, *roster)) if roster else base
+        discovered = tuple(m for m in _roster_matches(outcomes) if not needle or needle in m.text.lower())
+        roster = discovered[: params.limit] if params.limit > 0 else discovered
+        note = (f"discovery: total={len(discovered)} returned={len(roster)}",) if discovered else ()
+        return (
+            msgspec.structs.replace(
+                base,
+                status=RailStatus.OK,
+                results=(*base.results, *roster),
+                artifacts=(*base.artifacts, _results_artifact(scope)),
+                notes=(*base.notes, *note),
+            )
+            if roster
+            else msgspec.structs.replace(base, artifacts=(*base.artifacts, _results_artifact(scope)))
+        )
 
-    return _routed(languages, params.paths).bind(
+    return _routed(languages, params.paths, settings).bind(
         lambda routed: sequence(routed.collect(lambda r: block.of_seq(_dispatch(r, params, settings=settings, scope=scope, mode=Mode.LIST)))).map(
             _settle
         )

@@ -6,8 +6,12 @@ from typing import Final, TYPE_CHECKING
 from cyclopts._result_action import resolve_returncode  # noqa: PLC2701  # lazy cyclopts re-export is untyped; concrete module is typed -> int
 from cyclopts.exceptions import CycloptsError
 from opentelemetry.trace import get_tracer_provider
+from pydantic import ValidationError
 
-from tools.assay.composition.registry import build_app, parse_fault, REGISTRY
+from tools.assay import (
+    _DRAIN_MS,  # noqa: PLC2701  # intra-package private import: one operator-chosen ~1.5s bound shared with the BatchSpanProcessor cadence
+)
+from tools.assay.composition.registry import build_app, parse_fault, REGISTRY, wire_safe
 
 
 if TYPE_CHECKING:
@@ -18,6 +22,8 @@ if TYPE_CHECKING:
 
 
 app: Final = build_app(REGISTRY)
+# Cyclopts routes no resolvable command to help_print (stdout help, return None); a flag token marks an explicit request.
+_HELP_TOKENS: Final[frozenset[str]] = frozenset((*app.help_flags, *app.version_flags))
 
 
 @app.meta.default
@@ -27,11 +33,32 @@ def meta(*tokens: str) -> int:
     Returns:
         Process exit code derived from the emitted Envelope.
     """
+    return resolve_returncode(_dispatch(tokens))
+
+
+def _dispatch(tokens: tuple[str, ...]) -> object:
+    # Peek the resolved command before executing so the no-command auto-help never reaches stdout.
+    # Explicit --help/--version carry a flag token and execute normally; a bare claim or empty argv folds to one FAULTED Envelope.
+    match _no_command(tokens):
+        case True:
+            return parse_fault(tokens, "no command" if not tokens else f"incomplete command: {' '.join(tokens)}")
+        case _:
+            try:
+                return app(tokens, result_action="return_value", backend="asyncio", exit_on_error=False, print_error=False)
+            except CycloptsError as parse_error:
+                return parse_fault(tokens, str(parse_error))
+            except ValidationError as config_error:
+                # A malformed ASSAY_* env raises when a verb constructs AssaySettings(); fold it to one config: Envelope.
+                return parse_fault(tokens, f"config: {config_error}")
+
+
+def _no_command(tokens: tuple[str, ...]) -> bool:
+    # Cyclopts routes an unresolved verb to help_print/version_print (stdout help, return None); a flag token marks intent.
     try:
-        result = app(tokens, result_action="return_value", backend="asyncio", exit_on_error=False, print_error=False)
-    except CycloptsError as parse_error:
-        result = parse_fault(tokens, str(parse_error))
-    return resolve_returncode(result)
+        command, _bound, _ignored = app.parse_args(tokens, exit_on_error=False, print_error=False)
+    except CycloptsError:
+        return False
+    return getattr(command, "__name__", "") in {"help_print", "version_print"} and not any(token in _HELP_TOKENS for token in tokens)
 
 
 def main(argv: list[str] | None = None) -> int:
@@ -42,10 +69,16 @@ def main(argv: list[str] | None = None) -> int:
     """
     # The fallback keeps tracing opt-in without branching the exit path.
     flush: Callable[[int], bool] = getattr(get_tracer_provider(), "force_flush", lambda _timeout_millis: True)
+    # Scrub lone surrogates (os.fsdecode surrogateescape from invalid-UTF-8 argv) at the boundary so untrusted
+    # tokens cannot crash the wire encoder; valid Unicode passes through unchanged.
+    tokens = tuple(wire_safe(token) for token in (sys.argv[1:] if argv is None else argv))
     try:
-        return meta(*(sys.argv[1:] if argv is None else argv))
+        return meta(*tokens)
     finally:
-        flush(5000)
+        # Under a live OTLP endpoint this caps the exit-time force_flush budget at _DRAIN_MS (~1.5s), trading
+        # worst-case CLI-exit stall for a small span-drop risk on a sluggish collector; the common no-endpoint
+        # path is a ProxyTracerProvider with no force_flush, so the identity fallback returns immediately.
+        flush(_DRAIN_MS)
 
 
 if __name__ == "__main__":

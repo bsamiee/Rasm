@@ -15,6 +15,7 @@ from beartype import beartype
 from cyclopts import App, Parameter
 from expression import Error, Ok, Result
 import msgspec
+from pydantic import ValidationError
 import structlog
 
 from tools.assay.composition.catalog import select, TOOLS
@@ -92,6 +93,20 @@ _WRITES: ContextVar[Iterator[int]] = ContextVar("assay_writes")
 _LOG: Final = structlog.get_logger("assay.registry")
 _PROBE_ROUTED: Final[Routed] = Routed(language=Language.PYTHON, scope=Scope.CHANGED)
 _PROBE_TIMEOUT: Final = 8.0
+# Warm self-test reuses --version probes within the TTL; an upgraded tool changes its (program, mtime, lockfile) token and misses.
+_PROBE_TTL: Final = 900.0
+_PROBE_CACHE_FILE: Final = "probe-cache.json"
+_PROBE_CACHE_KEY: Final = "probe:%s"
+# Launcher-prefix -> lockfile that pins the launched program; ordered longest-prefix-first so the matcher resolves MODULE
+# before UV on their shared `uv run` head. Tokens stat the launched program (argv slot after the prefix) and fold the
+# lockfile mtime, so an in-place lockfile-driven upgrade (ruff/ty/ast-grep under uv.lock, JS tools under pnpm-lock) flips
+# the token even though the uv/pnpm shim mtime is fixed. DIRECT (yak) and DOTNET (the probed SDK) carry no prefix entry:
+# argv[0] IS the tool, so they keep the launcher token with no lockfile fold.
+_PROBE_LOCKED: Final[tuple[tuple[tuple[str, ...], str], ...]] = (
+    (Runner.MODULE.prefix, "uv.lock"),
+    (Runner.UV.prefix, "uv.lock"),
+    (Runner.PNPM.prefix, "pnpm-lock.yaml"),
+)
 _ENVELOPE_DECODER: Final[msgspec.json.Decoder[Envelope]] = msgspec.json.Decoder(Envelope)
 
 
@@ -192,7 +207,8 @@ def _distill(
     step = step if step is not None else _failing_step(fault)
     reason = fault.message.removeprefix(f"{step}: ") or (ring[-1] if ring else "")
     framing = f"{step}: after {duration_ms:.1f}ms"
-    budgeted = reason[: max(_HINT_CAP - len(framing), 0)]
+    # Reserve one byte for the separator space the hint inserts between `budgeted` and `after`, so len(hint) <= _HINT_CAP.
+    budgeted = reason[: max(_HINT_CAP - len(framing) - 1, 0)]
     hint = f"{step}: {budgeted} after {duration_ms:.1f}ms"
     truncated = len(reason) > len(budgeted) or len(fault.message) >= _MESSAGE_CAP or fault.message.endswith("…")
     dispatched = not (ring and ring[0] == _DISPATCH_NONE)
@@ -291,13 +307,16 @@ def rail(bind: Bind) -> Callable[[object], Envelope]:
     def run(params: object) -> Envelope:
         settings = AssaySettings()
         started = time.perf_counter()
-        scope = ArtifactScope.open(settings, bind.claim)
         # Ring and write count are invocation-scoped so automation can reuse rail() across fires.
         # Resource snapshots stay lazy and only run on Fault or defect paths.
         ring_token, writes_token = _RING.set(deque(maxlen=16)), _WRITES.set(count())
         try:
+            # An unwritable .artifacts root makes ArtifactScope.open escape _guard; fold that OSError into one FAULTED Envelope here.
+            scope = ArtifactScope.open(settings, bind.claim)
             outcome = _guard(lambda: _bound(params, bind.claim, bind.verb).bind(lambda p: _validated(_strict(handler(settings, scope, p), p))))
             return _emit(bind, settings, started, outcome)
+        except OSError as exc:
+            return _emit(bind, settings, started, Error(Fault((), RailStatus.FAULTED, f"scope: {exc}")))
         finally:
             _WRITES.reset(writes_token)
             _RING.reset(ring_token)
@@ -340,9 +359,36 @@ def _guard(thunk: Callable[[], Result[Report, Fault]]) -> Result[Report, Fault]:
 _ENCODER: Final = msgspec.json.Encoder(order="deterministic")
 
 
+def wire_safe(text: str) -> str:
+    """Replace lone surrogates (PEP 383 surrogateescape from invalid-UTF-8 argv) with U+FFFD.
+
+    Returns:
+        A string msgspec can UTF-8 encode for the wire.
+    """
+    return text.encode("utf-8", "replace").decode("utf-8")
+
+
+def _encode(envelope: Envelope) -> bytes:
+    # The single wire encoder. Untrusted argv/paths can carry lone surrogates msgspec cannot UTF-8 encode
+    # (msgspec.to_builtins also rejects them), so that boundary failure folds to a scrubbed minimal FAULTED
+    # Envelope, holding the one-Envelope contract. Argv is scrubbed upstream in __main__ so this is the rare path.
+    try:
+        return _ENCODER.encode(envelope)
+    except UnicodeEncodeError:
+        safe = Envelope(
+            schema_version=1,
+            claim=envelope.claim,
+            verb=wire_safe(envelope.verb),
+            status=RailStatus.FAULTED,
+            exit_code=RailStatus.FAULTED.exit_code,
+            notes=("output contained invalid characters",),
+        )
+        return _ENCODER.encode(safe)
+
+
 def _emit_envelope(settings: AssaySettings, envelope: Envelope, *, persist: bool = True) -> Envelope:
     # Single stdout writer; optional history persistence happens after the wire line.
-    sys.stdout.buffer.write(_ENCODER.encode(envelope) + b"\n")
+    sys.stdout.buffer.write(_encode(envelope) + b"\n")
     persist and _persist(settings, envelope)  # type: ignore[func-returns-value]  # intentional: _persist returns None; short-circuit is the gate, not a value use
     return envelope
 
@@ -352,17 +398,25 @@ def _persist(settings: AssaySettings, envelope: Envelope) -> None:
     try:
         store = settings.store()
         directory = store.ensure(ArtifactKind.HISTORY.value, settings.run_id)
-        store.fs.pipe_file(f"{directory}/envelope.json", _ENCODER.encode(envelope))
+        store.fs.pipe_file(f"{directory}/envelope.json", _encode(envelope))
         _retain(store, settings.artifact_retention)
     except OSError as exc:
         _LOG.warning("history.persist_failed", run_id=settings.run_id, error=str(exc)[:200])
 
 
 def _retain(store: ArtifactStore, keep: int) -> None:
-    # ISO-prefixed run_id makes lexical order chronological; fsspec rm stays idempotent under concurrency.
+    # ISO-prefixed run_id makes lexical order chronological; a concurrent prune racing the same run is idempotent.
+    def _rm_quiet(path: str) -> str:
+        # A concurrent pruner may already have removed `path`; only that race is silent — EACCES and other OSErrors still surface.
+        try:
+            store.fs.rm(path, recursive=True)
+        except FileNotFoundError:
+            return path
+        return path
+
     runs = sorted(store.glob(f"{ArtifactKind.HISTORY.value}/*"))
     excess = runs[: max(0, len(runs) - keep)]
-    tuple(store.fs.rm(path, recursive=True) for path in excess)
+    tuple(_rm_quiet(path) for path in excess)
 
 
 def _run_ids(store: ArtifactStore) -> tuple[str, ...]:
@@ -419,13 +473,28 @@ def delta(run_id: str, *, against: str = "") -> Envelope:
     return _emit_envelope(settings, env, persist=False)
 
 
+def _safe_settings() -> AssaySettings:
+    """Construct settings, falling back to validation-bypass defaults on a malformed ASSAY_* env.
+
+    The emitter always needs a usable settings to write one Envelope; the config validation error rides the
+    caller's ``config:`` fault message rather than crashing the wire.
+
+    Returns:
+        Validated settings, or model_construct defaults when the environment fails validation.
+    """
+    try:
+        return AssaySettings()
+    except ValidationError:
+        return AssaySettings.model_construct()
+
+
 def parse_fault(tokens: tuple[str, ...], message: str) -> Envelope:
     """Convert a Cyclopts parse failure into the canonical fault Envelope.
 
     Returns:
         Emitted parse-fault Envelope.
     """
-    settings = AssaySettings()
+    settings = _safe_settings()
     match tokens:
         case (head, *rest) if head in Claim._value2member_map_:
             claim, verb, dispatch = Claim(head), (rest[0] if rest else ""), head
@@ -448,8 +517,11 @@ def self_test(*, rhino: bool = False) -> Envelope:
     """
     settings = AssaySettings()
     claims = frozenset(b.claim for b in REGISTRY)
-    healthy = all(callable(b.handler) for b in REGISTRY) and all(any(b.claim is c for b in REGISTRY) for c in claims) and _composes() and _census()
     health_probes, health_notes = _health(settings)
+    # Health is structural soundness only: an absent host tool cannot be distinguished from a present-but-nonzero
+    # --version via exit code (uv/dotnet/python -m all front absence as Completed(rc!=0)), so it surfaces as
+    # UNSUPPORTED at use-time (engine._guarded FileNotFoundError arm), not as a census verdict.
+    healthy = all(callable(b.handler) for b in REGISTRY) and all(any(b.claim is c for b in REGISTRY) for c in claims) and _composes() and _census()
     status = RailStatus.FAILED if (not healthy or (rhino and not _yak_ready())) else RailStatus.OK
     summary = f"rows={len(REGISTRY)} claims={len(claims)} tools={len(TOOLS)} healthy={healthy} rhino={'required' if rhino else 'skipped'}"
     report = fold(Claim.STATIC, "self-test", (receipt(("assay", "self-test"), 0 if status is RailStatus.OK else 1, status=status, notes=(summary,)),))
@@ -471,15 +543,103 @@ def self_test(*, rhino: bool = False) -> Envelope:
 
 def _health(settings: AssaySettings) -> tuple[tuple[Match, ...], tuple[str, ...]]:
     # Probe distinct tool versions and git state; missing tools surface as notes, not rail faults.
+    # Tool --version probes are cacheable by (resolved-path, mtime, TTL); git state is volatile and always live.
     probes = (*_tool_probes(), _GIT_HEAD, _GIT_DIRTY)
-    results = fan_out(probes, settings=settings, scope=None, routed=_PROBE_ROUTED)
-    noted = tuple(map(_probe_note, probes, results, strict=True))
+    volatile = frozenset(c.tool.command for c in (_GIT_HEAD, _GIT_DIRTY))
+    cache = _probe_cache_load(settings)
+    hits = {c.tool.command: hit for c in probes if c.tool.command not in volatile for hit in (_cache_hit(cache, c.tool.command),) if hit is not None}
+    misses = tuple(c for c in probes if hits.get(c.tool.command) is None)
+    results = fan_out(misses, settings=settings, scope=None, routed=_PROBE_ROUTED)
+    fresh = dict(zip((c.tool.command for c in misses), map(_probe_note, misses, results, strict=True), strict=True))
+    _probe_cache_store(settings, cache, fresh, volatile)
+    noted = tuple(hits.get(c.tool.command) or fresh[c.tool.command] for c in probes)
     probe_matches = tuple(
         Match(id=check.tool.name, kind=ArtifactKind.PROCESS, text=note, severity="failed" if not ok else None)
         for check, (note, ok) in zip(probes, noted, strict=True)
     )
     notes = tuple(note for note, _ in noted)
     return probe_matches, notes
+
+
+def _probe_token(argv: tuple[str, ...]) -> str | None:
+    # Freshness signal over the launched program, not the launcher: resolved program path + mtime_ns, folded with the
+    # lockfile mtime for venv/node launchers (UV/MODULE/PNPM). Tokening argv[0] alone made every uv/pnpm tool share one
+    # launcher token, so a lockfile-driven in-place upgrade (ruff/ty/ast-grep) never invalidated within the TTL. DIRECT
+    # (yak) and DOTNET keep argv[0] because the launcher IS the probed tool/SDK. None on a fully unresolvable program
+    # forces a live probe rather than a stale hit.
+    from pathlib import Path  # noqa: PLC0415  # stdlib: deferred import, only on the self-test probe-cache path
+    import shutil  # noqa: PLC0415  # stdlib: deferred import, only on the self-test probe-cache path
+
+    def mtime(path: str | None) -> int | None:
+        try:
+            return Path(path).stat().st_mtime_ns if path is not None else None
+        except OSError:
+            return None
+
+    def lock_path(name: str) -> str | None:
+        # Walk up from the venv interpreter dir (unresolved: the .venv shim, not its Nix-store symlink target) to the
+        # nearest dir holding the lockfile; None if no ancestor carries it (then only the program mtime tokens).
+        bases = Path(sys.executable).parents
+        return next((str(base / name) for base in bases if (base / name).exists()), None)
+
+    # Match argv head against known launcher prefixes; the launched program is the slot after the prefix. A MODULE program
+    # is a dotted module name (no PATH executable), so its program signal collapses to the venv interpreter (sys.executable).
+    matched = next(((prefix, lock) for prefix, lock in _PROBE_LOCKED if argv[: len(prefix)] == prefix), None) if argv else None
+    match matched:
+        case (prefix, lock):
+            program = argv[len(prefix)] if len(argv) > len(prefix) else ""
+            resolved = shutil.which(program) or (sys.executable if "." in program or not program else None)
+            program_mtime, lock_mtime = mtime(resolved), mtime(lock_path(lock))
+            return None if program_mtime is None and lock_mtime is None else f"{resolved}|{program_mtime}|{lock}:{lock_mtime}"
+        case _ if argv:
+            path = shutil.which(argv[0])
+            return None if (m := mtime(path)) is None else f"{path}|{m}"
+        case _:
+            return None
+
+
+def _cache_hit(cache: Mapping[str, object], argv: tuple[str, ...]) -> tuple[str, bool] | None:
+    # A hit requires a matching freshness token within TTL; any shape mismatch folds to a miss (live probe).
+    match (cache.get(_PROBE_CACHE_KEY % "\x00".join(argv)), _probe_token(argv)):
+        case ({"token": str() as stored, "ts": (int() | float()) as ts, "note": str() as note, "ok": bool() as ok}, str() as token) if (
+            stored == token and 0 <= time.time() - ts < _PROBE_TTL
+        ):
+            return note, ok
+        case _:
+            return None
+
+
+def _probe_cache_load(settings: AssaySettings) -> Mapping[str, object]:
+    # Absent/parse-error cache folds to empty so every probe falls back to a live spawn rather than a stale lie.
+    try:
+        store = settings.store()
+        raw = store.fs.cat_file(f"{store.root}/{ArtifactKind.HISTORY.value}/{_PROBE_CACHE_FILE}")
+        match msgspec.json.decode(raw):
+            case dict() as parsed:
+                return parsed
+            case _:
+                return {}
+    except OSError, msgspec.MsgspecError:
+        return {}
+
+
+def _probe_cache_store(
+    settings: AssaySettings, prior: Mapping[str, object], fresh: Mapping[tuple[str, ...], tuple[str, bool]], volatile: frozenset[tuple[str, ...]]
+) -> None:
+    # Best-effort write-back: only token-resolvable, non-volatile (non-git) probes persist; failures are silent.
+    entries = {
+        _PROBE_CACHE_KEY % "\x00".join(argv): {"token": token, "ts": time.time(), "note": note, "ok": ok}
+        for argv, (note, ok) in fresh.items()
+        if argv not in volatile
+        for token in (_probe_token(argv),)
+        if token is not None
+    }
+    try:
+        store = settings.store()
+        directory = store.ensure(ArtifactKind.HISTORY.value)
+        store.fs.pipe_file(f"{directory}/{_PROBE_CACHE_FILE}", msgspec.json.encode({**prior, **entries}))
+    except OSError as exc:
+        _LOG.warning("probe_cache.store_failed", run_id=settings.run_id, error=str(exc)[:200])
 
 
 def _probe(name: str, argv: tuple[str, ...]) -> Check:
@@ -505,7 +665,7 @@ def _tool_probes() -> tuple[Check, ...]:
 
 
 def _probe_note(check: Check, result: Result[Completed, Fault]) -> tuple[str, bool]:
-    # Project tool/git probe Results to notes; git is informational, missing tools fail self-test health.
+    # Project tool/git probe Results to notes; tool and git presence are informational and never fail structural health.
     name = check.tool.name
     match result.ok if result.is_ok() else None:
         case None:
@@ -519,6 +679,8 @@ def _probe_note(check: Check, result: Result[Completed, Fault]) -> tuple[str, bo
             lines = d.stdout.decode(errors="replace").strip().splitlines()
             return f"tool {name}: {lines[0][:80] if lines else 'present'}", True
         case Completed() as d:
+            # Exit-code cannot distinguish a present-but-nonzero --version (e.g. py-analyzer/squawk usage exit 2) from a
+            # launcher-swallowed absent tool; reported informationally, never failing structural health.
             return f"tool {name}: present (exit {d.returncode})", True
 
 
@@ -543,11 +705,12 @@ def _parses(parser: object) -> bool:
 
 
 def _yak_ready() -> bool:
-    # Rhino preflight requires a direct `yak` command that is executable on this host.
-    import os  # noqa: PLC0415  # stdlib: deferred import, only on --rhino path
+    # Rhino preflight requires a direct `yak` on PATH; the DIRECT runner uses execvp PATH lookup at spawn,
+    # so shutil.which agrees with runtime resolution where os.access(command[0]) would test the CWD-relative path.
+    import shutil  # noqa: PLC0415  # stdlib: deferred import, only on --rhino path
 
     return any(
-        t.runner is Runner.DIRECT and t.command and t.command[0] == "yak" and os.access(t.command[0], os.X_OK)
+        t.runner is Runner.DIRECT and t.command and t.command[0] == "yak" and shutil.which(t.command[0]) is not None
         for t in TOOLS
         if t.claim is Claim.PACKAGE
     )

@@ -2,6 +2,7 @@
 
 from collections.abc import Callable, Coroutine
 import hashlib
+from itertools import count
 import sys
 from typing import TYPE_CHECKING
 
@@ -23,6 +24,8 @@ from tools.assay.core.status import join, RailStatus
 
 
 if TYPE_CHECKING:
+    from collections.abc import AsyncIterator
+
     from anyio.abc import TaskGroup  # annotation-only; anyio.abc is not exposed from the root anyio import
     from anyio.streams.memory import MemoryObjectReceiveStream
     from watchfiles import BaseFilter
@@ -109,6 +112,8 @@ def _program_check(argv: tuple[str, ...]) -> Check:
 async def _program_outcome(action: Program, settings: AssaySettings) -> Result[Report, Fault]:
     # Avoid nested anyio.run by awaiting the same checked/traced/retried spawn weave that fan_out uses.
     # Process exit codes stay on the Completed channel; only spawn and timeout failures become Faults.
+    # The trailing None deadline selects _guarded's run-to-completion budget (check.tool.timeout), so a
+    # catalog tool with no timeout (dotnet build, stryker) runs unbounded by design here, not capped per fire.
     check = _program_check(action.argv)
     scope = ArtifactScope.open(settings, Claim.STATIC)
     outcome = await _spawn(check, settings)(check, settings, scope, _PROGRAM_ROUTED, None)
@@ -159,37 +164,44 @@ async def _emit_leaf(leaf: Action, settings: AssaySettings, limiter: anyio.Capac
             # SKIP bypasses fold because EMPTY has higher severity; counts still mark one governed leaf.
             skip = Report(claim, verb, RailStatus.SKIP, Counts(1, 0, 1), notes=(f"governed: cpu>={cpu_threshold or 0.0:.0%}",))
             return _emitted(envelope(skip, claim=claim, verb=verb)).status
+        # The limiter wraps ONLY true leaves (Rail/Program); Sequence/Debounce recurse OUTSIDE it so the
+        # capacity-1 token is not re-acquired by the same borrower task (anyio "already holding a token").
         case False:
-            async with limiter:
-                match leaf:
-                    case Rail() as r:
+            match leaf:
+                case Rail() as r:
+                    async with limiter:
                         return _rail_outcome(r).status
-                    case Program() as p:
+                case Program() as p:
+                    async with limiter:
                         return (await _program_envelope(p, settings)).status
-                    case Sequence() as s:
-                        return await _sequence(s.actions, settings, limiter, cpu_threshold)
-                    case Debounce(action=inner):
-                        return await _emit_leaf(inner, settings, limiter, cpu_threshold)
+                case Sequence() as s:
+                    return await _sequence(s.actions, settings, limiter, cpu_threshold)
+                case Debounce(action=inner):
+                    return await _emit_leaf(inner, settings, limiter, cpu_threshold)
 
 
-async def _sequence(
-    leaves: tuple[Action, ...],
-    settings: AssaySettings,
-    limiter: anyio.CapacityLimiter,
-    cpu_threshold: float | None,
-    folded: RailStatus = RailStatus.EMPTY,
-) -> RailStatus:
-    # Fold by severity and halt on definitive defects or Fault statuses.
-    match leaves:
-        case (head, *tail):
-            advanced = join(folded, await _emit_leaf(head, settings, limiter, cpu_threshold))
-            match advanced:
-                case RailStatus.FAILED | RailStatus.BUSY | RailStatus.TIMEOUT | RailStatus.FAULTED:
-                    return advanced
-                case _:
-                    return await _sequence(tuple(tail), settings, limiter, cpu_threshold, advanced)
-        case _:
-            return folded
+async def _forever() -> AsyncIterator[int]:  # noqa: RUF029  # async is required: callers `async for` over this inside async cycles; a sync generator is not async-iterable
+    # Constant-stack indefinite async driver: the `for` is iteration over the stdlib infinite counter, not domain branching.
+    # Callers thread their own state through the loop body and `return` on completion (sequence exhaustion, quiet window).
+    for i in count():
+        yield i
+
+
+async def _sequence(leaves: tuple[Action, ...], settings: AssaySettings, limiter: anyio.CapacityLimiter, cpu_threshold: float | None) -> RailStatus:
+    # Fold by severity across leaves at constant stack depth; halt on definitive defects or Fault statuses.
+    folded = RailStatus.EMPTY
+    async for i in _forever():
+        match i < len(leaves):
+            case False:
+                return folded
+            case True:
+                folded = join(folded, await _emit_leaf(leaves[i], settings, limiter, cpu_threshold))
+                match folded:
+                    case RailStatus.FAILED | RailStatus.BUSY | RailStatus.TIMEOUT | RailStatus.FAULTED:
+                        return folded
+                    case _:
+                        pass
+    return folded  # pragma: no cover  # _forever never terminates; the in-loop returns are the only exits
 
 
 def _fire(action: Action, settings: AssaySettings, *, limiter: anyio.CapacityLimiter, cpu_threshold: float | None) -> Fire:
@@ -207,14 +219,15 @@ def _fire(action: Action, settings: AssaySettings, *, limiter: anyio.CapacityLim
 
 
 async def _quiesce(recv: MemoryObjectReceiveStream[None], window_ms: float) -> None:
-    # Drain signals until the quiet window expires.
-    with anyio.move_on_after(window_ms / 1000.0) as scope:
-        await recv.receive()
-    match scope.cancelled_caught:
-        case True:
-            return
-        case False:
-            await _quiesce(recv, window_ms)
+    # Drain signals at constant stack depth until one quiet window elapses with no further signal.
+    async for _pass in _forever():
+        with anyio.move_on_after(window_ms / 1000.0) as scope:
+            await recv.receive()
+        match scope.cancelled_caught:
+            case True:
+                return
+            case False:
+                pass
 
 
 def _debounce(inner: Fire, window_ms: int, *, collapse: bool) -> tuple[Fire, Fire]:
@@ -229,19 +242,19 @@ def _debounce(inner: Fire, window_ms: int, *, collapse: bool) -> tuple[Fire, Fir
                 return
 
     async def worker() -> None:
-        await recv.receive()
-        match collapse:
-            case False:
-                await inner()
-            case _:
-                pass
-        await _quiesce(recv, window_ms)
-        match collapse:
-            case True:
-                await inner()
-            case _:
-                pass
-        await worker()
+        # recv is an async iterator: each yielded signal opens one debounce cycle at constant stack depth.
+        async for _signal in recv:
+            match collapse:
+                case False:
+                    await inner()
+                case _:
+                    pass
+            await _quiesce(recv, window_ms)
+            match collapse:
+                case True:
+                    await inner()
+                case _:
+                    pass
 
     return signal, worker
 

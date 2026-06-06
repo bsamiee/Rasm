@@ -38,14 +38,14 @@ If a lower source remains useful, cite it as background and state which higher s
 
 This standard is the single route for proof, source, freshness, proof-gap, and generated-artifact field labels. Use the smallest field set that keeps the claim maintainable.
 
-| [INDEX] | [FIELD] | [USE_WHEN] | [OMIT_WHEN] |
-| :-----: | :------ | :--------- | :---------- |
-|   [1]   | `Evidence:` | source, command, local output, renderer proof, or maintained source proves the claim | the claim is not drift-prone and needs no proof field |
-|   [2]   | `Generated from:` | an artifact is generated or mirrored | the artifact is handwritten source |
-|   [3]   | `Source of truth:` | a controlling contract, manifest, model, path, or route owns the claim | `Evidence:` already names the only source needed |
-|   [4]   | `Proof gap:` | the source, command, render, or validation was unavailable or intentionally unrun | the claim is proved |
-|   [5]   | `Last verified: YYYY-MM-DD` | observed behavior or external behavior can drift | an event trigger is enough and no observed behavior is claimed |
-|   [6]   | `Review trigger:` | a source, route, renderer, generator, or policy event makes the claim stale | the claim cannot drift or is deleted on change |
+| [INDEX] | [FIELD]                     | [ADD_WHEN]                                                 | [OMIT_WHEN]                          |
+| :-----: | :-------------------------- | :--------------------------------------------------------- | :----------------------------------- |
+|   [1]   | `Evidence:`                 | source, command, output, render, or policy proves it       | no drift-prone proof field is needed |
+|   [2]   | `Generated from:`           | artifact is generated or mirrored                          | artifact is handwritten source       |
+|   [3]   | `Source of truth:`          | one contract, manifest, model, path, or route owns it      | `Evidence:` names the only source    |
+|   [4]   | `Proof gap:`                | source, command, render, or validation is missing          | claim is proved                      |
+|   [5]   | `Last verified: YYYY-MM-DD` | observed or external behavior can drift                    | event trigger is enough              |
+|   [6]   | `Review trigger:`           | source, route, renderer, generator, or policy can stale it | claim cannot drift or is deleted     |
 
 Use these labels exactly when a human-readable field is needed. Machine-consumed fields may map to these facts only when the consuming tool, renderer, generator, retrieval index, or review workflow names the exact shape it reads; the machine schema carries its own field casing, and this standard carries the human-facing labels and proof meaning.
 
@@ -70,12 +70,12 @@ Carry only the fields the claim needs. A generated artifact adds `Generated from
 
 Place evidence close to the claim it proves.
 
-| [INDEX] | [CLAIM_SHAPE] | [PLACEMENT] | [REJECT] |
-| :-----: | :------------ | :---------- | :------- |
-|   [1]   | one drift-prone claim | beside the claim, row, caption, record, procedure, or generated artifact | page-level source inventory |
-|   [2]   | table row | row-owned note, footnote, or record immediately after the table | unrelated page footer |
-|   [3]   | diagram or renderer claim | caption or adjacent proof record | hidden comment |
-|   [4]   | all material claims share one source and trigger | page-level proof record | mixed-source page proof |
+| [INDEX] | [CLAIM]                   | [PLACE]                  | [REJECT]                    |
+| :-----: | :------------------------ | :----------------------- | :-------------------------- |
+|   [1]   | one drift-prone claim     | beside the claim         | page-level source inventory |
+|   [2]   | table row                 | row-owned note or record | unrelated page footer       |
+|   [3]   | diagram or renderer claim | caption or proof record  | hidden comment              |
+|   [4]   | shared source and trigger | page-level proof record  | mixed-source page proof     |
 
 [PAGE_LEVEL_PROOF]:
 - Scope: claims covered by the shared source.
@@ -97,6 +97,7 @@ State a verified fact plainly. Mark a genuine gap explicitly.
 [PROOF_GAP]:
 - Use `Proof gap:` to name the missing source, unrun check, unsupported renderer proof, or provisional status.
 - Add `Review trigger:` when a future event can close the gap.
+- Do not replace `Proof gap:` with `[?]`, `[UNKNOWN]`, `[SKIP]`, `n/a`, `—`, or any compact glyph. Those markers can describe source values, runtime states, skipped gate results, or absent table cells only under their declared families; missing evidence uses the proof field.
 
 [LOAD_BEARING_QUALIFIER]:
 - Preserve `optional`, `if present`, `where supported`, and similar scope qualifiers when they are part of the fact.
@@ -133,11 +134,22 @@ Use maintained sources first:
 
 If current source is unavailable, state the gap and mark the claim provisional.
 
+[CLAIM_VERIFICATION]:
+- Declaration: the exact claim being made.
+- Provenance: where the claim came from.
+- Expectation: value, behavior, output, support state, or contract the claim predicts.
+- Verification: source comparison, command, render, generated-output comparison, or human review that checks the claim.
+- Failure state: proof gap, stale-source marker, or correction route when verification is unavailable or fails.
+
+[STALE_SOURCE_RULE]:
+- Terms such as `latest`, `current`, `supported`, `deprecated`, `obsolete`, `legacy`, `experimental`, `beta`, `soon`, and `future` require a source-specific definition plus `Last verified:` or `Review trigger:` when they describe present behavior.
+- Rewrite the claim as a source-independent target standard when current availability is not the point.
+
 ## [9][DOCS_CODE_VERIFICATION]
 
 This is the canonical docs-as-code gate ladder for this standards library. Source research, evidence format, and agent-surface sections use this ladder to choose the required gate.
 
-Hit policy: run every configured gate whose row matches the changed claim. If no configured gate exists, state `Proof gap: no configured <gate class> exists` rather than inventing one.
+Hit policy: run every configured gate whose row matches the changed claim. If no configured gate exists, state `Proof gap: no configured <gate class> exists` rather than inventing one. A final validation line uses one of 3 states: `ran <exact command>`, `not applicable because <claim class did not change>`, or `Proof gap: no configured <gate class> command named`.
 
 | [INDEX] | [CLAIM_CHANGED]                           | [GATE]                                           |
 | :-----: | :---------------------------------------- | :----------------------------------------------- |
@@ -160,7 +172,25 @@ The link-or-anchor row includes added, removed, renamed, or generated links and 
 - Diagram accessibility text.
 - Generated diagram output.
 
-Renderer-dependent documentation claims require proof from the renderer or `Proof gap:`. Mermaid, GitHub, and `mmdc` support claims need local render proof when the repository depends on that rendering.
+Renderer-dependent documentation claims require proof from the renderer or `Proof gap:`. Mermaid, GitHub, and `mmdc` support claims need local render proof when the repository depends on that rendering. Tool availability proves a route exists; it does not prove a changed diagram rendered.
+
+[CONFIGURED_GATE_RECORD]:
+- Gate class: whitespace, link, anchor, docs build, renderer, generated contract, procedure, visual layout, provider behavior, or custom class.
+- Configured command or source: exact command, status check, maintained source, or `Proof gap:`.
+- Applies to: changed claim class.
+- Proves: what the gate verifies.
+- Does not prove: nearby claim class the gate cannot verify.
+- Review trigger: command, renderer, source, or claim-class change.
+
+[RENDERER_SOURCE_RECORD]:
+- Source class: CommonMark/GFM syntax, GitHub product behavior, official Mermaid syntax/config, local `mmdc` availability, local render output, or generated SVG accessibility output.
+- Applies to: syntax, renderer support, local output, accessibility, or visual layout claim.
+- Configured command or source: exact command or maintained source.
+- Proves: the bounded renderer behavior checked.
+- Does not prove: unrendered local diagrams, GitHub-hosted behavior, SVG accessibility, or visual layout unless the row names that proof.
+- Proof gap: missing renderer proof where applicable.
+- Last verified: date when observed behavior can drift.
+- Review trigger: renderer, Mermaid version, GitHub behavior, diagram source, or command route change.
 
 Do not claim a gate passed unless it ran in the current change or a current status check proves it. Knowing a gate would pass is not proof it did. A local validation script is a local check, not a configured repository gate.
 
@@ -227,6 +257,8 @@ Keep evidence short and reproducible:
 - the known gap when proof is intentionally unavailable
 
 Do not paste long transcripts. Summarize the result and keep enough source detail for the next maintenance route to reproduce the proof.
+
+Source provenance is not semantic validation. Provenance proves origin and refresh route, shape enforcement proves the container, semantic validation proves the claim matches the source, evaluation receipts prove retrieval quality, ranking, tool choice, latency, or provider behavior, and runtime safety proves authorization and downstream suitability.
 
 A compliant note names the command, the source path, and a freshness marker and summarizes the outcome rather than reproducing it:
 

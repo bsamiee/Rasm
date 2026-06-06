@@ -13,14 +13,16 @@ Encode material reference data and material-domain layout outputs as typed in-me
 - When editing a catalogue, layout, or query rail, read the target material folder to find its bounded context.
 - When changing brick sequence, scope, or deferred work, read `Bricks/ROADMAP.md`.
 - When changing BCL collection, source generation, or package/reference policy, read `docs/system-api-map`.
-- When changing catalogue values, read the source standards of record and preserve typed citation routes in code documentation.
+- When changing catalogue values, read the source standard named by the material folder or catalogue and extend the typed catalogue record, closed vocabulary, code documentation, and citation route; if source-standard proof is missing, stop and record a proof gap instead of adding heuristic values.
 
 ## [3][EXTENSION_GRAMMAR]
 
-- New material: add its own folder, namespace, catalogue, closed vocabularies, query rail, and typed source route.
+- New material behavior: extend the existing material folder, catalogue, closed vocabularies, query rail, and typed source route; create a new folder or namespace only when the source-standard family is a distinct bounded context with its own catalogue algebra.
 - New regional, standard, type, bond, joint, coring, shape, or layout variance: extend the owning vocabulary or union before adding parallel enum families.
 - New layout behavior: keep it scalar and host-free; downstream host modules translate layout records into document objects.
 - New source fact: put evidence in code documentation or catalogue records, not in this overlay.
+- Data-only catalogue behavior: keep it host-free and geometry-free unless a downstream composition owner exists.
+- Generated bonds, regional catalogues, or material datasets: land only through a typed generator/catalogue algebra that emits the same closed vocabulary and query rails; no JSON, SQL, schema dump, or generated file becomes public source of truth.
 
 ## [4][BOUNDARY_RULES]
 
@@ -38,4 +40,9 @@ Encode material reference data and material-domain layout outputs as typed in-me
 - No per-region duplicate enum families when one closed vocabulary owns the distinction.
 - No finder, repository, duplicate accessor, public collection-builder, or stringly typed citation surface.
 - No fabricated regional policy split without source-standard evidence.
+- No source-standard claim treated as instruction authority; source standards are evidence surfaces that enter typed catalogue records, closed vocabularies, code documentation, and citation routes.
 - No public layout method per special case when one typed constraint or modifier rail can own the variance.
+
+## [6][STOP_RULES]
+
+If source-standard proof is missing for a regional policy, catalogue value, dimensional rule, layout constraint, or citation route, stop and route to source proof or code documentation instead of adding heuristic values.

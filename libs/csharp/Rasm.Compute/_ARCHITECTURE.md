@@ -1,4 +1,4 @@
-# [H1][RASM_COMPUTE_ARCHITECTURE]
+# [RASM_COMPUTE_ARCHITECTURE]
 
 `Rasm.Compute` is the owner for measured execution beyond direct in-process `Rasm.Vectors` operations. It keeps tensor, model, remote, cancellation, benchmark, and receipt concerns explicit without turning package APIs into public platform APIs.
 
@@ -177,13 +177,17 @@ Each operation declares an allocation category: `Minimal` (< 1 MB), `Moderate` (
 
 ## [6][MODEL_LANE_INTEGRATION]
 
-[CRITICAL] Use the current CoreML EP API: `SessionOptions.AppendExecutionProvider("CoreML", new Dictionary<string,string>{ ["ModelFormat"] = "MLProgram", ["MLComputeUnits"] = "CPUAndNeuralEngine", ["ModelCacheDirectory"] = path })`. The old `OrtSessionOptionsAppendExecutionProvider_CoreML` native P/Invoke was deprecated in ORT 1.20 and must not appear in new code.
+> [!CAUTION]
+> Use the current CoreML EP API: `SessionOptions.AppendExecutionProvider("CoreML", new Dictionary<string,string>{ ["ModelFormat"] = "MLProgram", ["MLComputeUnits"] = "CPUAndNeuralEngine", ["ModelCacheDirectory"] = path })`. The old `OrtSessionOptionsAppendExecutionProvider_CoreML` native P/Invoke was deprecated in ORT 1.20 and must not appear in new code.
 
-[CRITICAL] `RunAsync` is crash-prone inside Rhino's process. Use synchronous `Run` + `RunOptions` with `token.Register(() => ro.Terminate = true)`. Lift the call via `liftIO`/`Eff.liftIO` into the `Eff<RT,T>` pipeline. Never use `Task.Run`.
+> [!CAUTION]
+> `RunAsync` is crash-prone inside Rhino's process. Use synchronous `Run` + `RunOptions` with `token.Register(() => ro.Terminate = true)`. Lift the call via `liftIO`/`Eff.liftIO` into the `Eff<RT,T>` pipeline. Never use `Task.Run`.
 
-[CRITICAL] Resolve the native dylib before the first session. Call `NativeLibrary.SetDllImportResolver(typeof(OrtEnv).Assembly, resolver)` at process startup, ensuring `runtimes/osx-arm64/native/libonnxruntime.dylib` is copied to the output. Probe before any `InferenceSession` construction; a missing native asset fails at runtime, not build.
+> [!CAUTION]
+> Resolve the native dylib before the first session. Call `NativeLibrary.SetDllImportResolver(typeof(OrtEnv).Assembly, resolver)` at process startup, ensuring `runtimes/osx-arm64/native/libonnxruntime.dylib` is copied to the output. Probe before any `InferenceSession` construction; a missing native asset fails at runtime, not build.
 
-[CRITICAL] CoreML ANE silently downcasts fp32→fp16 on ANE units — an equivalence hazard. Validate all new models against `CPUOnly` EP with `AllowLowPrecisionAccumulationOnGPU=0`. Record the downcast flag on `ModelReceipt.Fp16Downcast`. Declare the equivalence tolerance on the model configuration.
+> [!CAUTION]
+> CoreML ANE silently downcasts fp32→fp16 on ANE units — an equivalence hazard. Validate all new models against `CPUOnly` EP with `AllowLowPrecisionAccumulationOnGPU=0`. Record the downcast flag on `ModelReceipt.Fp16Downcast`. Declare the equivalence tolerance on the model configuration.
 
 `ModelCacheDirectory` is mandatory; without it ORT recompiles the MLProgram subgraph on every load. The cache directory path comes from `RasmRuntime` (the full runtime record — `IComputeRuntime` exposes only `CancellationToken` and `TimeProvider`; a model cache path is a `RasmRuntime`-level capability, not an `IComputeRuntime` concern).
 

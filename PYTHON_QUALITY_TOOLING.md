@@ -1,4 +1,4 @@
-# Python quality tooling — Rasm monorepo reference
+# [PYTHON_QUALITY_TOOLING]
 
 Look up what Rasm's Python quality gate runs, where each rule lives, what each tool can and cannot enforce, and how to add policy without duplicating rails. This is a reference leaf: a working contributor extracts one fact per scan. The two embedded procedures (decode the `pnpm check:py` gate; add a policy rule) and the doctrine explanation (why no type checker enforces `coding-python` style) carry cross-links in Boundaries.
 
@@ -83,7 +83,7 @@ Review trigger: any edit to the `check:py` script.
 
 `sgconfig.yml` at the repository root defines rule-discovery paths and TS extension mapping only — it declares no rules.
 
-```yaml
+```yaml template
 # copy-safe — sgconfig.yml; discovery config, declares no rules
 ruleDirs:
   - .rules/python
@@ -210,7 +210,7 @@ This table maps each mypy `enable_error_code` to its ty 0.0.34 equivalent.
 
 Recommended `[tool.ty.rules]` overrides — merge into `pyproject.toml`. `[tool.ty.environment]`, `[tool.ty.analysis]`, and `[tool.ty.src]` already match; bump ty before enabling `missing-override-decorator`.
 
-```toml
+```toml template
 # conceptual — recommended ty config; not yet applied to pyproject.toml
 [tool.ty.environment]
 python-version = "3.14"

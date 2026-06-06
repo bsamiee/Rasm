@@ -18,11 +18,10 @@ from beartype.claw import beartype_this_package
 )()
 
 import msgspec
-from opentelemetry.exporter.otlp.proto.http.trace_exporter import OTLPSpanExporter
 from opentelemetry.sdk.resources import Resource
 from opentelemetry.sdk.trace import TracerProvider
-from opentelemetry.sdk.trace.export import BatchSpanProcessor
 from opentelemetry.trace import set_tracer_provider
+from pydantic import ValidationError
 import structlog
 from structlog import make_filtering_bound_logger, WriteLogger
 from structlog.contextvars import bind_contextvars, merge_contextvars
@@ -39,7 +38,7 @@ if TYPE_CHECKING:
 # --- [CONSTANTS] ------------------------------------------------------------------------
 
 _INFO: int = 20
-_DRAIN_MS: int = 5000
+_DRAIN_MS: int = 1500  # single ~1.5s bound: BatchSpanProcessor schedule cadence here and the exit-time force_flush budget in __main__.main
 _SERVICE: dict[str, str] = {"service.name": "assay"}
 _ENDPOINT_ENV: str = "OTEL_EXPORTER_OTLP_TRACES_ENDPOINT"
 
@@ -68,6 +67,10 @@ def _configure(log_format: LogFormat, agent_context: dict[str, str]) -> None:
 
 
 def _install_tracing(endpoint: str, agent_context: dict[str, str]) -> None:
+    # Deferred: the OTLP exporter import chain (requests/urllib3/charset_normalizer) costs ~50ms and is reached only on the endpoint-set path.
+    from opentelemetry.exporter.otlp.proto.http.trace_exporter import OTLPSpanExporter  # noqa: PLC0415
+    from opentelemetry.sdk.trace.export import BatchSpanProcessor  # noqa: PLC0415
+
     # The exporter connects on force_flush, not construction, so stale endpoints fail after CLI work has emitted its Envelope.
     # Resource.create must see `_SERVICE | agent_context`; a later merge would collapse service.name to unknown_service.
     provider = TracerProvider(resource=Resource.create(_SERVICE | agent_context))
@@ -77,7 +80,12 @@ def _install_tracing(endpoint: str, agent_context: dict[str, str]) -> None:
 
 # --- [COMPOSITION] ----------------------------------------------------------------------
 # Configure logging once, and leave the default NoOpTracer when no endpoint is configured.
-_SETTINGS = AssaySettings()
+try:
+    _SETTINGS = AssaySettings()
+except ValidationError:
+    # A malformed ASSAY_* env must not crash package import; logging falls back to field defaults and the
+    # config fault surfaces as one FAULTED Envelope at dispatch (registry._dispatch / parse_fault).
+    _SETTINGS = AssaySettings.model_construct()
 
 match structlog.is_configured():
     case False:

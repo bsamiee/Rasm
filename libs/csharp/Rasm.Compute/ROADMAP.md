@@ -1,4 +1,4 @@
-# [H1][RASM_COMPUTE_ROADMAP]
+# [RASM_COMPUTE_ROADMAP]
 
 This roadmap sequences the build. The measured-compute core wraps `Rasm.Vectors` algorithms in `Eff<RT,ExecutionReceipt>`; model and remote lanes integrate with the concern that owns them.
 

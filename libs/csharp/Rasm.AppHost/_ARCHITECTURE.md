@@ -1,4 +1,4 @@
-# [H1][RASM_APPHOST_ARCHITECTURE]
+# [RASM_APPHOST_ARCHITECTURE]
 
 `Rasm.AppHost` is the composition/runtime boundary for Rasm application surfaces. Its default plugin mode is runtime-record `Eff.runtime<RT>()`; Generic Host and `IServiceCollection` are companion/test/bridge modes only — `[NEVER]` in-process.
 
@@ -31,7 +31,8 @@ flowchart LR
 |   [3]   | External HTTP hop             | One resilience owner, timeout, retry telemetry         | Outbound-hop scope                   |
 |   [4]   | Multi-stage in-process flow   | Channels first; Dataflow on proven topology            | Topology tool, not the default queue |
 
-[CRITICAL] Generic Host (`IHostBuilder`, `IHostedService`, `IServiceCollection`) is **companion/test/bridge only**. It owns the process in those modes and its `StartAsync`/`StopAsync` lifecycle conflicts with Rhino's `OnLoad`/`OnShutdown` cadence — latency on `OnLoad` causes Rhino to report the plugin as failed. Never start a Generic Host instance inside the in-process plugin path.
+> [!CAUTION]
+> Generic Host (`IHostBuilder`, `IHostedService`, `IServiceCollection`) is **companion/test/bridge only**. It owns the process in those modes and its `StartAsync`/`StopAsync` lifecycle conflicts with Rhino's `OnLoad`/`OnShutdown` cadence — latency on `OnLoad` causes Rhino to report the plugin as failed. Never start a Generic Host instance inside the in-process plugin path.
 
 The public rail accepts typed runtime operations as data and emits lifecycle/status/fault receipts. It does not expose `IServiceProvider` as an application API.
 
@@ -49,11 +50,14 @@ AppHost owns the shared spine all four folders integrate through. `RasmRuntime` 
 
 `AppHost.Boot(token, timeProvider, uiScheduler, …capabilities)` is the single composition entry, called from `PlugIn.OnLoad` on the UI thread after `RasmUiScheduler` is constructed. `Boot` receives the `RasmUiScheduler`, `StoreDispatch` (Persistence capability), Compute channel config, `ObservabilitySlot`, `RasmConfig`, and logger factory; constructs `RasmRuntime`; wires the root `CancellationTokenSource` to `RhinoApp.Closing`; and returns a `BootReceipt` containing a `DrainHandle`. An app using only AppHost passes empty capability slots and gets a `RasmRuntime` sufficient for any `Eff<RT,T>` not requiring siblings.
 
-[CRITICAL] `RhinoCommon` is **not thread-safe**; on macOS the runtime hard-crashes (`NSInternalInconsistencyException`) if any Rhino API is called off the main thread. Any Channel consumer that must touch `RhinoCommon` after draining a message **must** marshal via `RhinoApp.InvokeOnUiThread` / Eto `Application.Instance.Invoke`. No Channel consumer may touch RhinoCommon inline on the background thread.
+> [!CAUTION]
+> `RhinoCommon` is **not thread-safe**; on macOS the runtime hard-crashes (`NSInternalInconsistencyException`) if any Rhino API is called off the main thread. Any Channel consumer that must touch `RhinoCommon` after draining a message **must** marshal via `RhinoApp.InvokeOnUiThread` / Eto `Application.Instance.Invoke`. No Channel consumer may touch RhinoCommon inline on the background thread.
 
-[CRITICAL] Shutdown sequencing: subscribe `RhinoApp.Closing` (fires **before** the window closes) to cancel the root `CancellationTokenSource`; this is the primary drain trigger. `OnShutdown` is synchronous and fires **after** the window closes — use it for final teardown only; never use `RhinoApp.IsClosing` as the primary trigger. Drain order: (1) signal root token; (2) complete the `ChannelWriter<ComputeRequest>` and await its drain with a `TimeProvider`-based deadline (`CancellationTokenSource.CancelAfter(TimeSpan, TimeProvider)`, 3–5 s then forceful cancel — Rhino will not wait); (3) dispose Persistence so the final store/benchmark writes flush; (4) fence with `RhinoApp.InvokeOnUiThread` before calling `OnCompleted` on UI observables (`OnCompleted`, never `OnError`); (5) dispose the runtime record. Compute-before-Persistence prevents dropping the last batch; Persistence-before-UI prevents racing `OnCompleted` against a pending change-set.
+> [!CAUTION]
+> Shutdown sequencing: subscribe `RhinoApp.Closing` (fires **before** the window closes) to cancel the root `CancellationTokenSource`; this is the primary drain trigger. `OnShutdown` is synchronous and fires **after** the window closes — use it for final teardown only; never use `RhinoApp.IsClosing` as the primary trigger. Drain order: (1) signal root token; (2) complete the `ChannelWriter<ComputeRequest>` and await its drain with a `TimeProvider`-based deadline (`CancellationTokenSource.CancelAfter(TimeSpan, TimeProvider)`, 3–5 s then forceful cancel — Rhino will not wait); (3) dispose Persistence so the final store/benchmark writes flush; (4) fence with `RhinoApp.InvokeOnUiThread` before calling `OnCompleted` on UI observables (`OnCompleted`, never `OnError`); (5) dispose the runtime record. Compute-before-Persistence prevents dropping the last batch; Persistence-before-UI prevents racing `OnCompleted` against a pending change-set.
 
-[CRITICAL] GH2: `async:true` is unsupported in Grasshopper components. GH2 SDK is alpha-unstable. AppHost stays GH2-agnostic; no GH2 API crosses into AppHost code.
+> [!CAUTION]
+> GH2: `async:true` is unsupported in Grasshopper components. GH2 SDK is alpha-unstable. AppHost stays GH2-agnostic; no GH2 API crosses into AppHost code.
 
 Layout: `Runtime/` (record, lifecycle, cancellation, time), `Flow/` (channel, scheduler, drain, backpressure), with root `AppHost.cs` (Boot/Drain composition) and `Telemetry.cs` (fused observability) — cohesive files with canonical sections, never per-concern mini-files.
 

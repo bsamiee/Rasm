@@ -1,8 +1,10 @@
-# [H1][RHINO_BRIDGE]
+# [RHINO_BRIDGE]
 
-[IMPORTANT] Use this bridge when static .NET validation is insufficient. It launches or connects to RhinoWIP, executes RhinoCode inside Rhino, and returns structured JSON that coding agents can parse for build, reference, runtime, host, and diagnostic evidence.
+> [!IMPORTANT]
+> Use this bridge when static .NET validation is insufficient. It launches or connects to RhinoWIP, executes RhinoCode inside Rhino, and returns structured JSON that coding agents can parse for build, reference, runtime, host, and diagnostic evidence.
 
-[CRITICAL] Do not treat this bridge as a unit-test framework. Do not create artificial tests to prove code paths. Use it to validate real project files, source files, assemblies, and scripts against the Rhino coding environment.
+> [!CAUTION]
+> Do not treat this bridge as a unit-test framework. Do not create artificial tests to prove code paths. Use it to validate real project files, source files, assemblies, and scripts against the Rhino coding environment.
 
 ## [1][PURPOSE]
 
@@ -73,7 +75,7 @@ Run commands from repository root. Prefix: `uv run python -m tools.quality`.
 
 Validate real Grasshopper project:
 
-```bash
+```bash copy-safe
 uv run python -m tools.quality bridge check apps/grasshopper/Radyab/Radyab.csproj
 ```
 
@@ -81,7 +83,7 @@ Expected result: JSON with top-level `"status": "ok"` and successful `resolve`, 
 
 Validate source ownership without runtime script:
 
-```bash
+```bash copy-safe
 uv run python -m tools.quality bridge check apps/grasshopper/Radyab/Components/ExtractPoints.cs
 ```
 
@@ -89,7 +91,7 @@ Expected result: exit code `3`, top-level `"status": "unsupported"`, `build` pha
 
 Validate source with an existing task-relevant RhinoCode script:
 
-```bash
+```bash copy-safe
 uv run python -m tools.quality bridge check <real-source.cs> <scenario.verify.csx>
 ```
 
@@ -99,7 +101,7 @@ Library scenarios live under `tests/csharp/libs/<Project>/<MirrorPath>/scenarios
 
 Verify local API metadata:
 
-```bash
+```bash copy-safe
 uv run python -m tools.quality api doctor
 ```
 
@@ -107,7 +109,7 @@ Expected result: compact JSON for RhinoWIP app version, ILSpy host status, Rhino
 
 Inspect host/package API truth:
 
-```bash
+```bash copy-safe
 uv run python -m tools.quality api doctor --restore never
 uv run python -m tools.quality api query rhino-common Rhino.Geometry.Mesh
 uv run python -m tools.quality api query gh2 Document
@@ -117,7 +119,7 @@ Expected result: compact JSON with ranked preview records and direct artifact pa
 
 Inspect Rhino UI metadata when XML is absent:
 
-```bash
+```bash copy-safe
 uv run python -m tools.quality api resolve rhino-ui assembly --restore never
 uv run python -m tools.quality api query rhino-ui Rhino.UI.DataSerializer
 ```
@@ -200,7 +202,7 @@ Output blocks include `source`, `text`, `truncated`, `length`, and `limit`. Trea
 
 Scripts can return structured agent evidence by writing one stdout line:
 
-```csharp
+```csharp conceptual
 Console.WriteLine("rasm.rhino-bridge.return=" + JsonSerializer.Serialize(receipt));
 ```
 
@@ -251,7 +253,8 @@ API metadata lookup uses local sources in this order:
 |   [2]   | `HostFilteredRuntimeReferences`   | Project/source scripts; excl. host assemblies already in Rhino        |
 |   [3]   | `BridgeExecuteRequest.References` | Execute provenance metadata; not plugin-applied refs                  |
 
-[CRITICAL] Do not document `check <source.cs> <script.csx>` as compile-reference based until the client owns a real compile-reference projection and the plugin applies it authoritatively.
+> [!CAUTION]
+> Do not document `check <source.cs> <script.csx>` as compile-reference based until the client owns a real compile-reference projection and the plugin applies it authoritatively.
 
 ## [6][FAILURE_READING]
 
@@ -269,20 +272,20 @@ API metadata lookup uses local sources in this order:
 
 ## [7][UPDATE_RULES]
 
-[IMPORTANT]:
-1. Preserve architecture: operator script -> client -> protocol -> Rhino plugin.
-2. Keep protocol DTOs and status policy in `BridgeWire`.
-3. Keep client output concise; include raw MSBuild item JSON only for parse failures or explicit debug output.
-4. Keep RhinoCode compile diagnostics sourced from `ExecuteException.TryGetCompileException` and `CompileException.Diagnosis`.
-5. Keep `--timeout-ms` described as client transport timeout. Rhino UI-thread execution is not server-cancelable.
+> [!IMPORTANT]
+> 1. Preserve architecture: operator script -> client -> protocol -> Rhino plugin.
+> 2. Keep protocol DTOs and status policy in `BridgeWire`.
+> 3. Keep client output concise; include raw MSBuild item JSON only for parse failures or explicit debug output.
+> 4. Keep RhinoCode compile diagnostics sourced from `ExecuteException.TryGetCompileException` and `CompileException.Diagnosis`.
+> 5. Keep `--timeout-ms` described as client transport timeout. Rhino UI-thread execution is not server-cancelable.
 
-[CRITICAL]:
-- Never hardcode project discovery for packages. Use evaluated `YakPackageSlug` project metadata.
-- Never put `#r`, `#load`, or absolute build-output paths in scenarios. The bridge owns references.
-- Never imply `check <source.cs>` executes runtime behavior without an explicit scenario.
-- Never treat reported `BridgeExecuteRequest.References` as plugin-applied execution state.
-- Never run bridge RhinoCode checks without isolated C# reference resolution and cache-free execution.
-- Never add temp-only scripts, generated tests, or fake probes as bridge purpose.
+> [!CAUTION]
+> - Never hardcode project discovery for packages. Use evaluated `YakPackageSlug` project metadata.
+> - Never put `#r`, `#load`, or absolute build-output paths in scenarios. The bridge owns references.
+> - Never imply `check <source.cs>` executes runtime behavior without an explicit scenario.
+> - Never treat reported `BridgeExecuteRequest.References` as plugin-applied execution state.
+> - Never run bridge RhinoCode checks without isolated C# reference resolution and cache-free execution.
+> - Never add temp-only scripts, generated tests, or fake probes as bridge purpose.
 - Never automate Rhino settings or templates from this repository.
 
 ## [8][VALIDATION]
@@ -297,7 +300,7 @@ Run after bridge changes. Keep live Rhino commands fail-fast exclusive.
 
 Never queue live Rhino commands behind each other; a busy lease means retry later or pick another proof.
 
-```bash
+```bash copy-safe
 uv run python -m tools.quality self-test
 pnpm check:py
 uv run pytest tests/tools/quality/test_quality.py -q

@@ -50,15 +50,15 @@ Reason: current architecture and accepted ADRs already carry the active route tr
 
 ## [3][SEQUENCE_TYPE]
 
-Pick the code sequence type that matches the work. The type guides emphasis; it is not a status level and it does not add fields by itself.
+Pick the code sequence type that matches the work. The type guides proof emphasis; it is not a status level and it does not add fields by itself.
 
-| [INDEX] | [TYPE]                   | [USE_FOR]                                                                           | [PRIMARY_PROOF]                                                    |
-| :-----: | :----------------------- | :---------------------------------------------------------------------------------- | :----------------------------------------------------------------- |
-|   [1]   | Package build            | new package, app, library, tool, or generated-contract route                        | project file, package manifest, build/test gate, generated output  |
-|   [2]   | Feature build            | feature folder, user-facing capability, public command, component, or workflow      | source path, route/command, scenario, screenshot, acceptance gate  |
-|   [3]   | Refactor or collapse     | routing move, surface consolidation, dead-path removal, dependency reduction        | diff, architecture invariant, build/test gate, deleted stale paths |
-|   [4]   | Integration or migration | host integration, external contract, storage move, compatibility window             | contract proof, adapter path, support row, runtime or bridge proof |
-|   [5]   | Hardening sequence       | stabilization, performance, reliability, documentation readiness, release candidate | test strategy gate, benchmark, support evidence, release artifact  |
+| [INDEX] | [TYPE]                   | [SCOPE]                          | [PROOF]                                        |
+| :-----: | :----------------------- | :------------------------------- | :--------------------------------------------- |
+|   [1]   | Package build            | package, app, library, or tool   | project file, manifest, gate, generated output |
+|   [2]   | Feature build            | feature, command, or workflow    | source path, route, scenario, acceptance gate  |
+|   [3]   | Refactor or collapse     | route, surface, path, or edge    | diff, invariant, gate, deleted stale paths     |
+|   [4]   | Integration or migration | host, contract, storage, support | contract, adapter, support row, runtime proof  |
+|   [5]   | Hardening sequence       | stability, perf, readiness       | strategy gate, benchmark, support, release     |
 
 Name the sequence type in the lead because it tells the reader which proof matters most. Do not invent custom types when one of these covers the work; add a local subtype in prose only when the route already uses that vocabulary.
 
@@ -170,10 +170,10 @@ Release history: package release notes.
 
 Use `Current status` only when the roadmap is a useful snapshot over several milestones. The opening sentence states why the snapshot adds value over the live planner. Each row links the live source and avoids copying mutable details that the live source already displays. Do not include progress, dates, blockers, or assignments in this table unless the cell links the live source that carries the mutable fact.
 
-| [INDEX] | [MILESTONE] | [STATUS]    | [LIVE_SOURCE] | [CURRENT_READER_ACTION]                            |
-| :-----: | :---------- | :---------- | :------------ | :------------------------------------------------- |
-|   [1]   | M1          | COMPLETE    | issue/101     | build M2 on frozen schema                          |
-|   [2]   | M2          | ACTIVE      | issue/112     | do not edit worker API without architecture update |
+| [INDEX] | [MILESTONE] | [STATUS] | [LIVE_SOURCE] | [CURRENT_READER_ACTION]                            |
+| :-----: | :---------- | :------- | :------------ | :------------------------------------------------- |
+|   [1]   | M1          | COMPLETE | issue/101     | build M2 on frozen schema                          |
+|   [2]   | M2          | ACTIVE   | issue/112     | do not edit worker API without architecture update |
 
 Omit this section when the live planner already provides the same scan.
 
@@ -209,7 +209,7 @@ Roadmap-local records declare their field order before examples:
 
 Use `Constraints` only when a build, package, host, compatibility, performance, support, or runtime fact shapes sequence. `Phase 0` and similar phase labels are not statuses. They must be milestone names, milestone IDs, or live-planner labels mapped before first use.
 
-```markdown template
+```text template
 Constraint: <build, package, host, compatibility, performance, support, or runtime constraint>
 Applies to: <milestone, task, code scope, support row, or README status row>
 Sequence effect: <blocks start, blocks exit, constrains proof, or constrains handoff>
@@ -305,12 +305,12 @@ Reason: the rejected record has no stable ID, no calculation rule, no binary exi
 
 ## [12][DEPENDENCIES_AND_BLOCKERS]
 
-Dependencies are sequencing edges, not task lists. Use the edge table as the controlling text representation when one milestone cannot start, complete, or prove exit until another fact changes. Dependent work is the milestone or task that cannot start, complete, or prove exit; `Requires` is the prerequisite fact, milestone, support row, decision, gate, or external contract.
+Dependencies are sequencing edges, not task lists. Use the edge table when dependent work cannot start, complete, or prove exit until the required fact changes.
 
-| [INDEX] | [EDGE_ID] | [DEPENDENT] | [REQUIRES]  | [RELATIONSHIP]      | [SOURCE_ROUTE]     | [LIVE_SOURCE] | [GO_NO_GO_RULE]                                             |
-| :-----: | :-------- | :---------- | :---------- | :------------------ | :----------------- | :------------ | :---------------------------------------------------------- |
-|   [1]   | E-M2-M1   | M2          | M1          | blocked by          | internal milestone | issue/101     | start M2 only after generated schema diff is approved       |
-|   [2]   | E-M4-S1   | M4          | support row | external dependency | support matrix     | support row   | remove legacy reader only after compatibility window closes |
+| [INDEX] | [EDGE]  | [DEPENDENT] | [REQUIRES]  | [RELATION]          | [ROUTE]            | [LIVE]      | [RULE]                      |
+| :-----: | :------ | :---------- | :---------- | :------------------ | :----------------- | :---------- | :-------------------------- |
+|   [1]   | E-M2-M1 | M2          | M1          | blocked by          | internal milestone | issue/101   | start after schema approval |
+|   [2]   | E-M4-S1 | M4          | support row | external dependency | support matrix     | support row | remove after window closes  |
 
 Use relationship names from this set: `blocks`, `blocked by`, `prerequisite`, `external dependency`, `go/no-go`, or `supersedes`. Link the route that controls the live dependency. Move tactical subtasks to the live planner, milestone `Tasks`, or design slices.
 
@@ -318,7 +318,7 @@ Use Mermaid only when three or more edges are easier to scan visually than the t
 
 Blocker records cover access blockers, proof blockers, decision blockers, and support blockers that are not clean milestone-to-milestone edges:
 
-```markdown template
+```text template
 ID: B-M2-1
 Status: BLOCKED
 Blocks: M2 exit criterion `<criterion name>`
@@ -334,7 +334,7 @@ Route-away: <discussion, procedure, or support body that belongs elsewhere>
 
 Use a handoff record when milestone completion changes another document route. Omit absent routes; do not write `none`.
 
-```markdown template
+```text template
 ID: H-M2-1
 Status: QUEUED | ACTIVE | BLOCKED | COMPLETE | DROPPED | CANCELED
 Milestone: M2

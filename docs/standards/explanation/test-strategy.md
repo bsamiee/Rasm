@@ -361,7 +361,7 @@ Thresholds such as retry-pass rate or maximum quarantine duration are examples u
 
 Use this policy record:
 
-```markdown template
+```text template
 Detection: <signal and threshold from local gate history>
 Severity: <class and rerun policy>
 Quarantine criteria: <conditions that permit quarantine>

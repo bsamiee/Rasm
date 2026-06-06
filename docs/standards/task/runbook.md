@@ -306,7 +306,7 @@ Choose the smallest response form that preserves responder action:
 Show one step record that carries the accepted command and the rejected near-miss when the near-miss is a likely destructive error. The command alone is not the runbook step; the known-good target, expected result, and verification are part of the safety contract:
 Command: `uv run python -m tools.quality bridge verify tests/csharp/libs/Rasm.Rhino/UI/scenarios/ui-paint.verify.csx`
 Rejected near-miss: `uv run python -m tools.quality bridge verify`
-Why rejected: no scenario target, so the responder cannot prove which runtime behavior was checked.
+Reason: no scenario target, so the responder cannot prove which runtime behavior was checked.
 
 ## [13][MAINTENANCE]
 

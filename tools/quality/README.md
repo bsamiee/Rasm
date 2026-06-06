@@ -1,18 +1,21 @@
-# [H1][QUALITY_OPERATOR]
+# [QUALITY_OPERATOR]
 
-[IMPORTANT] `tools.quality` is an agent-only CLI. Run the narrowest rail that owns the claim. Report command, exit, and evidence path.
+> [!IMPORTANT]
+> `tools.quality` is an agent-only CLI. Run the narrowest rail that owns the claim. Report command, exit, and evidence path.
 
-```bash
+```bash copy-safe
 uv run python -m tools.quality <rail> <verb> [args]
 ```
 
 Rails stay orthogonal: `static` never runs tests, `test` never opens Rhino, `bridge verify` never replaces `static build`, and `api` never launches Rhino.
 
-[CRITICAL] Output contract: every verb writes exactly ONE JSON `Envelope` object to stdout — fields `rail`, `verb`, `status`, `exit_code`, `run_id`, `evidence`, `data`, `error`, `truncated`, `notes`. `status` is one of `ok | empty | skip | busy | timeout | unsupported | failed`. The per-verb payload (static plan, test summary, verify report, api query result) nests verbatim under `data`. Streamed `dotnet` build/test/run bytes and all structlog diagnostics go to STDERR only — never stdout. There is no raw-text passthrough and no World-A/World-B duality; stdout is always the single Envelope.
+> [!CAUTION]
+> Output contract: every verb writes exactly ONE JSON `Envelope` object to stdout — fields `rail`, `verb`, `status`, `exit_code`, `run_id`, `evidence`, `data`, `error`, `truncated`, `notes`. `status` is one of `ok | empty | skip | busy | timeout | unsupported | failed`. The per-verb payload (static plan, test summary, verify report, api query result) nests verbatim under `data`. Streamed `dotnet` build/test/run bytes and all structlog diagnostics go to STDERR only — never stdout. There is no raw-text passthrough and no World-A/World-B duality; stdout is always the single Envelope.
 
 ## [1][RAIL_MAP]
 
 ```mermaid
+---
 config:
   layout: elk
   look: neo
@@ -26,6 +29,7 @@ config:
     lineColor: "#8be9fd"
     clusterBkg: "#21222c"
     clusterBorder: "#6272a4"
+---
 flowchart LR
   accTitle: Quality operator routing
   accDescr: Static fixes and builds CSharp projects. Test runs MTP and explicit mutation. Bridge owns live Rhino. Package owns Yak staging. API reads host metadata.
@@ -80,7 +84,8 @@ Use the Python module entrypoint directly. Do not add package-manager aliases fo
 
 ## [3][STATIC_RAIL]
 
-[CRITICAL] `static fix` mutates files. `static report`, `static build`, `static full`, and `static plan` do not intentionally mutate tracked source.
+> [!CAUTION]
+> `static fix` mutates files. `static report`, `static build`, `static full`, and `static plan` do not intentionally mutate tracked source.
 
 | [INDEX] | [MODE]   | [BEHAVIOR]                                                                                 |
 | :-----: | -------- | ------------------------------------------------------------------------------------------ |
@@ -99,7 +104,7 @@ Routing:
 
 Modern command ladder:
 
-```bash
+```bash copy-safe
 uv run python -m tools.quality static fix libs/csharp/Rasm.Grasshopper
 uv run python -m tools.quality static build libs/csharp/Rasm.Grasshopper
 uv run python -m tools.quality static full
@@ -110,7 +115,8 @@ Direct dotnet equivalence:
 - Build: `dotnet restore <csproj> --locked-mode`; then `dotnet build <csproj> -c Debug --no-restore -v:quiet /clp:ErrorsOnly -maxcpucount:<n>`.
 - Full: same build shape against `Workspace.slnx` for both configured full configurations.
 
-[CRITICAL] `static fix` and `static report` omit `--no-restore`. Bare `dotnet format` needs a restored compilation; `--no-restore` on a cold per-run project silently skips semantic IDE rules (IDE0001 name simplification, IDE0005). Implicit restore against the warm NuGet cache resolves them. `build` keeps explicit `restore --locked-mode` then `build --no-restore`.
+> [!CAUTION]
+> `static fix` and `static report` omit `--no-restore`. Bare `dotnet format` needs a restored compilation; `--no-restore` on a cold per-run project silently skips semantic IDE rules (IDE0001 name simplification, IDE0005). Implicit restore against the warm NuGet cache resolves them. `build` keeps explicit `restore --locked-mode` then `build --no-restore`.
 
 Closure isolation:
 - `build` and `full` run under a stable `--artifacts-path .artifacts/quality/build/<closure>`; closure is the first 16 hex of `sha256` over sorted project paths, and `full` resolves to `"solution"`.
@@ -146,7 +152,8 @@ Mutation:
 
 ## [5][BRIDGE_PACKAGE_RAIL]
 
-[CRITICAL] Live Rhino and package staging never wait. Contention returns `busy` with owner text and exit `5`.
+> [!CAUTION]
+> Live Rhino and package staging never wait. Contention returns `busy` with owner text and exit `5`.
 
 Bridge commands:
 - `build-bridge` builds protocol, plugin, and client under `ArtifactScope`; it does not acquire Rhino lease.
@@ -213,7 +220,8 @@ API `data` payload (nested under the top-level `Envelope.data`):
 - `results`: small ranked preview records; no broad result stream is printed by default.
 - `preview`: inline bounded source/artifact text when the command owns a direct inspection surface.
 
-[CRITICAL] Unknown API source keys fail with a typed Envelope error. Valid source keys with no symbol/artifact match return `status: empty` and no raw fallback bytes. `api show --full` keeps full text inside `Envelope.data.content`; stdout still contains exactly one Envelope.
+> [!CAUTION]
+> Unknown API source keys fail with a typed Envelope error. Valid source keys with no symbol/artifact match return `status: empty` and no raw fallback bytes. `api show --full` keeps full text inside `Envelope.data.content`; stdout still contains exactly one Envelope.
 
 Keys:
 
@@ -279,28 +287,28 @@ Load `.claude/skills/coding-python/SKILL.md` before Python edits. Dependencies l
 
 Python edits:
 
-```bash
+```bash copy-safe
 uv run pytest tests/tools/quality/test_quality.py -q
 pnpm check:py
 ```
 
 README or Mermaid edits:
 
-```bash
+```bash copy-safe
 git diff --check
 pnpm exec mmdc -i tools/quality/README.md -a .artifacts/mermaid -q
 ```
 
 Preflight:
 
-```bash
+```bash copy-safe
 uv run python -m tools.quality self-test
 uv run python -m tools.quality self-test --rhino
 ```
 
 Dependency currency (central package + tool versions; `-pre Auto` keeps each beta-channel pin on its prerelease line while ignoring previews for stable packages):
 
-```bash
+```bash copy-safe
 dotnet outdated Workspace.slnx -r -pre Auto
 ```
 

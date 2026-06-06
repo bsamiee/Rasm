@@ -103,6 +103,7 @@ Route-away: `<command inventory, procedure, runbook, support policy, tutorial, R
 Evidence: `<status check, generated output, command result, maintained source, or proof gap>`
 Generated from: `<exact generation or query route; omit when manual or external>`
 Source of truth: `<contract, schema, source path, generated artifact, XML/decompile output, or maintained upstream source>`
+Proof gap: `<missing source, unrun generator, unsupported renderer, or omitted when proved>`
 Last verified: YYYY-MM-DD
 Review trigger: `<contract, source, generated output, field, status, side effect, toolchain, support row, or upstream source changes>`
 ```

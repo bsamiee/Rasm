@@ -2,7 +2,6 @@
 
 # --- [IMPORTS] ------------------------------------------------------------------------
 
-from dataclasses import dataclass
 from pathlib import Path
 from typing import TYPE_CHECKING
 
@@ -23,34 +22,21 @@ if TYPE_CHECKING:
     from structlog.types import EventDict
 
 
-# --- [MODELS] --------------------------------------------------------------------------
-
-
-@dataclass(frozen=True, slots=True)
-class RasmPytestPaths:
-    """Shared cache and repository paths for Python test fixtures."""
-
-    root: Path
-    pytest_cache: Path
-    hypothesis_home: Path
-    hypothesis_examples: Path
-
-
 # --- [CONSTANTS] -----------------------------------------------------------------------
+# Repo-local Hypothesis/cache anchors W3 reads directly (no fixture indirection over importable constants).
 
 
-_ROOT = Path(__file__).resolve().parents[1]
-_PYTEST_CACHE = _ROOT / ".cache" / "pytest"
-_HYPOTHESIS_HOME = _ROOT / ".cache" / "hypothesis"
-_HYPOTHESIS_EXAMPLES = _HYPOTHESIS_HOME / "examples"
-_EXAMPLE_DB = DirectoryBasedExampleDatabase(_HYPOTHESIS_EXAMPLES)
+ROOT = Path(__file__).resolve().parents[1]
+HYPOTHESIS_HOME = ROOT / ".cache" / "hypothesis"
+HYPOTHESIS_EXAMPLES = HYPOTHESIS_HOME / "examples"
+_EXAMPLE_DB = DirectoryBasedExampleDatabase(HYPOTHESIS_EXAMPLES)
 _SUPPRESSIONS = (HealthCheck.too_slow, HealthCheck.data_too_large)
 
 
 # --- [COMPOSITION] ---------------------------------------------------------------------
 
 
-set_hypothesis_home_dir(_HYPOTHESIS_HOME)
+set_hypothesis_home_dir(HYPOTHESIS_HOME)
 hyp_settings.register_profile("rasm", database=_EXAMPLE_DB, deadline=None, suppress_health_check=_SUPPRESSIONS)
 hyp_settings.register_profile("rasm-ci", database=_EXAMPLE_DB, deadline=None, max_examples=200, suppress_health_check=_SUPPRESSIONS)
 hyp_settings.register_profile(
@@ -58,7 +44,7 @@ hyp_settings.register_profile(
     database=_EXAMPLE_DB,
     deadline=None,
     max_examples=1000,
-    phases=(Phase.explicit, Phase.reuse, Phase.generate, Phase.target, Phase.shrink),
+    phases=(Phase.explicit, Phase.reuse, Phase.generate, Phase.target, Phase.shrink, Phase.explain),
     suppress_health_check=_SUPPRESSIONS,
 )
 hyp_settings.register_profile(
@@ -66,7 +52,7 @@ hyp_settings.register_profile(
     database=_EXAMPLE_DB,
     deadline=None,
     max_examples=25,
-    phases=(Phase.explicit, Phase.reuse, Phase.generate),
+    phases=(Phase.explicit, Phase.reuse, Phase.generate, Phase.explain),
     suppress_health_check=_SUPPRESSIONS,
 )
 hyp_settings.register_profile(
@@ -78,6 +64,30 @@ hyp_settings.register_profile(
     derandomize=True,
     max_examples=50,
     phases=(Phase.explicit, Phase.generate),
+    suppress_health_check=_SUPPRESSIONS,
+)
+hyp_settings.register_profile(
+    # Adversarial corpus: deep example budget to drive the hostile-input degradation laws into their corners.
+    "rasm-adversarial",
+    database=_EXAMPLE_DB,
+    deadline=None,
+    max_examples=2000,
+    suppress_health_check=_SUPPRESSIONS,
+)
+hyp_settings.register_profile(
+    # Stateful RBSMs (lease / tick / history): long step traces so interleavings shrink to a minimal counterexample.
+    "rasm-stateful",
+    database=_EXAMPLE_DB,
+    deadline=None,
+    stateful_step_count=200,
+    suppress_health_check=_SUPPRESSIONS,
+)
+hyp_settings.register_profile(
+    # A/B parity: derandomized (database=None is mandatory under derandomize) for byte-stable cross-tool comparison.
+    "rasm-parity",
+    database=None,
+    deadline=None,
+    derandomize=True,
     suppress_health_check=_SUPPRESSIONS,
 )
 
@@ -97,36 +107,6 @@ def pytest_collection_modifyitems(items: list[pytest.Item]) -> None:
 
 
 # --- [EXPORTS] -------------------------------------------------------------------------
-
-
-@pytest.fixture(scope="session")
-def rasm_pytest_paths() -> RasmPytestPaths:
-    """Return repo-local cache and Hypothesis paths.
-
-    Returns:
-        Shared pytest path bundle for repo-local Python tests.
-    """
-    return RasmPytestPaths(root=_ROOT, pytest_cache=_PYTEST_CACHE, hypothesis_home=_HYPOTHESIS_HOME, hypothesis_examples=_HYPOTHESIS_EXAMPLES)
-
-
-@pytest.fixture(scope="session")
-def hypothesis_examples_dir() -> Path:
-    """Return the persistent Hypothesis example database directory.
-
-    Returns:
-        Directory that stores reusable Hypothesis examples.
-    """
-    return _HYPOTHESIS_EXAMPLES
-
-
-@pytest.fixture(scope="session")
-def hypothesis_home_dir() -> Path:
-    """Return the repo-local Hypothesis home directory.
-
-    Returns:
-        Directory that owns Hypothesis profile state.
-    """
-    return _HYPOTHESIS_HOME
 
 
 @pytest.fixture(scope="session", autouse=True)

@@ -33,7 +33,7 @@ dependencies = [
 dev = [
     "coverage>=7.14.1",
     "dirty-equals",
-    "hypothesis>=6.155.1",
+    "hypothesis>=6.155.2",
     "inline-snapshot",
     "libcst",
     "mutmut>=3.5.0",
@@ -42,8 +42,11 @@ dev = [
     "pytest-benchmark>=5.2.3",
     "pytest-cov>=7.1.0",
     "pytest-deadfixtures>=3.1.0",
+    "pytest-instafail>=0.5.0",
     "pytest-randomly>=4.1.0",
+    "pytest-repeat>=0.9.4",
     "pytest-socket",
+    "pytest-subtests>=0.15.0",
     "pytest-timeout",
     "pytest-xdist>=3.8.0",
     "ruff",
@@ -143,6 +146,10 @@ warn_untyped_fields =           true
 
 # --- [PYTEST] --------------------------------------------------------------
 
+# Session-separation policy: under `filterwarnings = ["error"]`, loading pytest-benchmark and pytest-xdist in the
+# same session raises an xdist worker INTERNALERROR. `-n` is deliberately NOT in addopts; the main suite runs serially
+# and benchmarks run in their own session via `-m benchmark --benchmark-only`. Keep these invocations separate; do not
+# add `-n` here. Parallel runs must opt in per-invocation AND exclude benchmarks (e.g. `-n auto -m "not benchmark"`).
 [tool.pytest]
 minversion =              "9.0"
 strict =                   true
@@ -161,10 +168,12 @@ addopts = [
     "--hypothesis-profile=rasm",
 ]
 filterwarnings = ["error"]
+# pytest-timeout registers `timeout` via `addini(..., type=<string default>)`; pytest 9 TOML mode strictly enforces
+# the declared option type and raises INTERNALERROR on a native int. The string form is required here.
 timeout = "30"
 required_plugins = [
     "anyio",
-    "hypothesis>=6.155.1",
+    "hypothesis>=6.155.2",
     "inline-snapshot",
     "pytest-benchmark>=5.2.3",
     "pytest-cov>=7.1.0",
@@ -192,11 +201,14 @@ storage-dir =   ".cache/inline-snapshot"
 
 # --- [COVERAGE] ------------------------------------------------------------
 
+# Canonical coverage command: `uv run coverage run -m pytest tests/tools/assay -q && uv run coverage report`.
+# Per-test contexts are opt-in and xdist-safe via pytest-cov's hook: `uv run pytest tests/tools/assay --cov=tools/assay --cov-context=test -q`.
+# `dynamic_context = "test_function"` is intentionally absent: coverage's own dynamic context hard-errors under `pytest --cov`
+# (and blocks `-n auto`), and it mis-attributes property-test lines to the Hypothesis internal frame.
 [tool.coverage.run]
 branch =          true
 relative_files =  true
 source =          ["tools/assay"]
-dynamic_context = "test_function"
 data_file =       ".cache/coverage/.coverage"
 core =            "ctrace"
 
@@ -205,11 +217,8 @@ fail_under =    100
 show_missing =  true
 skip_covered =  true
 exclude_also = [
-    "case _ as unreachable:",
     "if TYPE_CHECKING:",
-    "raise NotImplementedError",
     "assert_never\\(",
-    "@(abc\\.)?abstractmethod",
     "\\.\\.\\.$",
     "if __name__ == .__main__.:",
 ]

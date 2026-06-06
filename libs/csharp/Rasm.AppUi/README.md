@@ -1,4 +1,4 @@
-# [H1][RASM_APPUI]
+# [RASM_APPUI]
 
 `Rasm.AppUi` is the advanced product UI platform for Rasm plugins and apps. It integrates Avalonia, ReactiveUI, ReactiveUI.Avalonia, ReactiveUI.Validation, DynamicData, SkiaSharp, LiveCharts2, and the full adjacent-package matrix as one unified surface, lowering typed product intent through the existing `Rasm.Rhino/UI` and `Rasm.Grasshopper/UI` host rails.
 

@@ -67,7 +67,7 @@ def thin_rail(settings: AssaySettings, scope: ArtifactScope, params: DocsParams,
     Returns:
         Folded docs report, or strict-mode/spawn fault.
     """
-    return route(Language.DOCS, params.paths).map(
+    return route(Language.DOCS, params.paths, settings=settings).map(
         lambda routed: _strict(_outcomes(routed, settings=settings, scope=scope, claim=claim, verb=verb, mode=mode), strict=params.strict)
     )
 

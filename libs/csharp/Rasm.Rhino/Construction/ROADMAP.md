@@ -1,6 +1,7 @@
-# [H1][RASM_RHINO_CONSTRUCTION_ROADMAP]
+# [RASM_RHINO_CONSTRUCTION_ROADMAP]
 
-[IMPORTANT] `Construction` owns 2D and 3D Rhino geometry creation for `Rasm.Rhino`. It lets downstream plugins/apps describe primitives, generated geometry, fitted forms, transforms, framed bounds, annotation output, and document/block/preview-ready projection without remembering every RhinoCommon factory overload or validity sentinel.
+> [!IMPORTANT]
+> `Construction` owns 2D and 3D Rhino geometry creation for `Rasm.Rhino`. It lets downstream plugins/apps describe primitives, generated geometry, fitted forms, transforms, framed bounds, annotation output, and document/block/preview-ready projection without remembering every RhinoCommon factory overload or validity sentinel.
 
 `Construction` is the name for this concern because `Drawing` already means UI/display drawing and `Geometry` is already a domain-level concept in `Rasm`. The folder stays Rhino-first: RhinoCommon owns geometry validity, topology, transforms, and tolerances; Rasm adds typed construction intent, policy, diagnostics, projection, and integration with Blocks, Commands, UI, and Camera.
 
@@ -111,7 +112,8 @@ Do not create one file per Rhino geometry type.
 | [6] | `Camera` cplane and viewport operations. | Preserve; consume cplane/frame/bounds specs. | Camera owns live viewport and cplane application. |
 | [7] | `Blocks` future definition creation. | Consume block-ready construction members. | Blocks should not recreate shape factories. |
 
-[IMPORTANT] Do not route construction into a facade layer that only renames Rhino factories. Value comes from canonical intent, validity, policy, diagnostics, projection, and reusable output.
+> [!IMPORTANT]
+> Do not route construction into a facade layer that only renames Rhino factories. Value comes from canonical intent, validity, policy, diagnostics, projection, and reusable output.
 
 ## [5][VALIDATION]
 

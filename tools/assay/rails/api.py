@@ -452,7 +452,15 @@ def _source(settings: AssaySettings, key: str) -> Result[_Source, ApiResolution]
         lambda: _pydist_source(key),
         lambda: _tsdecl_source(settings, key),
     )
-    match next((source for resolver in resolvers if (source := resolver()) is not None), None):
+
+    def _attempt(resolver: Callable[[], _Source | None]) -> _Source | None:
+        # Empty/blank/NUL keys make Distribution.from_name and glob scandir raise at the codec boundary; fold to a graceful miss.
+        try:
+            return resolver()
+        except ValueError, OSError:
+            return None
+
+    match next((source for resolver in resolvers if (source := _attempt(resolver)) is not None), None):
         case _Source() as source:
             return Ok(source)
         case None:
@@ -989,7 +997,7 @@ def _resolve_namespace(settings: AssaySettings, scope: ArtifactScope, surface: _
         if type_fqn
         else Ok(_roster_report(settings, surface, SymbolShape.NAMESPACE, owned, p))
         if owned
-        else Ok(_search_report(surface, p))
+        else Ok(_search_report(settings, surface, p))
     )
 
 
@@ -1004,7 +1012,7 @@ def _query_shape(settings: AssaySettings, scope: ArtifactScope, surface: _Surfac
         case SymbolShape.TYPE | SymbolShape.MEMBER as shape:
             return _decompile(settings, scope, surface, p.symbol, p).map(lambda body: _decompile_report(settings, surface, shape, body, p))
         case SymbolShape.SEARCH:  # pragma: no cover  # shape_of never emits SEARCH; the decompile-miss path routes through _decompile_report
-            return Ok(_search_report(surface, p))
+            return Ok(_search_report(settings, surface, p))
         case never:  # pragma: no cover
             assert_never(never)
 
@@ -1042,7 +1050,7 @@ def _roster_report(settings: AssaySettings, surface: _Surface, shape: SymbolShap
     )
 
 
-def _search_report(surface: _Surface, p: ApiParams) -> Report:
+def _search_report(settings: AssaySettings, surface: _Surface, p: ApiParams) -> Report:
     # Search misses stay UNSUPPORTED with nearest candidates, not bare EMPTY.
     source = surface.source
     needle = p.symbol.casefold()
@@ -1054,7 +1062,11 @@ def _search_report(surface: _Surface, p: ApiParams) -> Report:
         case _:
             done = Completed(("api", "query", source.key), 0, status=RailStatus.OK, notes=(f"{len(hits)} search hits",))
             detail = _api_detail(source, SymbolShape.SEARCH, preview="\n".join(hits[:_PREVIEW_ROWS]))
-            return msgspec.structs.replace(fold(Claim.API, "query", (done,), detail=detail), results=_matches(hits, ArtifactKind.SCOPE, p.symbol))
+            # _matches caps at _RESULT_CAP; the artifact carries the full hit set so the "full results under run_id" breadcrumb holds.
+            artifact = _artifact(settings, source, "search.txt", "\n".join(hits))
+            return msgspec.structs.replace(
+                fold(Claim.API, "query", (done,), detail=detail), artifacts=(artifact,), results=_matches(hits, ArtifactKind.SCOPE, p.symbol)
+            )
 
 
 def _decompile_report(settings: AssaySettings, surface: _Surface, shape: SymbolShape, body: _Body, p: ApiParams) -> Report:
@@ -1063,7 +1075,7 @@ def _decompile_report(settings: AssaySettings, surface: _Surface, shape: SymbolS
         case "":
             ns_key = _rank_namespace(surface, p.symbol)
             owned = surface.by_namespace.get(ns_key, ()) if ns_key != p.symbol or ns_key in surface.by_namespace else ()
-            return _roster_report(settings, surface, SymbolShape.NAMESPACE, owned, p) if owned else _search_report(surface, p)
+            return _roster_report(settings, surface, SymbolShape.NAMESPACE, owned, p) if owned else _search_report(settings, surface, p)
         case _:
             return _decompile_body(settings, surface, shape, body, p)
 

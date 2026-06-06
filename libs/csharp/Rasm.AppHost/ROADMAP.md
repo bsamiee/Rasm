@@ -1,4 +1,4 @@
-# [H1][RASM_APPHOST_ROADMAP]
+# [RASM_APPHOST_ROADMAP]
 
 This roadmap sequences the build. The runtime platform is built fully from the foundation; external-hop and companion lanes integrate with the concern that owns them.
 

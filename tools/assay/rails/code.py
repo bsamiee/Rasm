@@ -1,11 +1,11 @@
 """Run structural search, rewrite, content search, and tree-sitter query rails."""
 
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from functools import reduce
 from hashlib import sha256
 from pathlib import Path
 import re
-from typing import TYPE_CHECKING
+from typing import override, TYPE_CHECKING
 
 from expression import Error, Result  # noqa: TC002  # Result unconditional: @checked's beartype resolves the handler forward-ref (PEP 649)
 from expression.collections import block
@@ -59,6 +59,31 @@ class CodeParams(BaseParams):
     apply: bool = False
     max_results: int = 1000
 
+    @override
+    def bound(self, verb: str) -> CodeParams | Fault:
+        """Project the leading positional token(s) into the pattern (and rewrite) slots a code verb owns.
+
+        Code verbs are variadic over trailing paths, so positionals after the owned slots stay as search
+        targets; a flag-supplied pattern is never overwritten. The projected pattern is then validated
+        non-blank — a blank pattern (no positional, an explicit ``""``, or whitespace-only) is a parse fault,
+        closing the ``code search`` match-everything degeneracy.
+
+        Returns:
+            Bound params with pattern/rewrite filled from positionals, or a parse fault for a missing pattern.
+        """
+        match (verb, self.pattern, self.paths):
+            case ("rewrite", "", (pattern, rewrite, *rest)):
+                projected = replace(self, pattern=pattern, rewrite=self.rewrite or rewrite, paths=tuple(rest))
+            case (("search" | "query" | "rewrite"), "", (pattern, *rest)):
+                projected = replace(self, pattern=pattern, paths=tuple(rest))
+            case _:
+                projected = self
+        match (verb, projected.pattern.strip()):
+            case (("search" | "query" | "rewrite"), ""):
+                return Fault((), RailStatus.FAULTED, f"parse: {verb}: pattern required")
+            case _:
+                return projected
+
 
 # --- [CONSTANTS] ------------------------------------------------------------------------
 
@@ -83,9 +108,9 @@ def _languages(selected: Language | None) -> tuple[Language, ...]:
             return (language,)
 
 
-def _routed(languages: tuple[Language, ...], paths: tuple[str, ...]) -> Result[Block[Routed], Fault]:
+def _routed(languages: tuple[Language, ...], paths: tuple[str, ...], settings: AssaySettings) -> Result[Block[Routed], Fault]:
     # Code search defaults to the whole worktree, unlike changed-files quality gates.
-    return sequence(block.of_seq(route(language, paths or _DEFAULT_TARGET) for language in languages))
+    return sequence(block.of_seq(route(language, paths or _DEFAULT_TARGET, settings=settings) for language in languages))
 
 
 def _checks(routed: Routed, mode: Mode, splice: Callable[[Tool, Routed], Tool]) -> tuple[Check, ...]:
@@ -112,7 +137,7 @@ def _fan(
     settings: AssaySettings, scope: ArtifactScope, params: CodeParams, *, mode: Mode, splice: Callable[[Tool, Routed], Tool]
 ) -> Result[tuple[Completed, ...], Fault]:
     # Routing, spawn, and timeout Faults short-circuit; non-zero tool exits stay on Completed.
-    return _routed(_languages(params.language), params.paths).bind(
+    return _routed(_languages(params.language), params.paths, settings).bind(
         lambda routed: sequence(routed.collect(lambda r: block.of_seq(_dispatch(r, settings=settings, scope=scope, mode=mode, splice=splice)))).map(
             tuple
         )
@@ -120,12 +145,12 @@ def _fan(
 
 
 def _targets(paths: tuple[str, ...], root: Path) -> tuple[str, ...]:
-    # ast-grep aborts on missing explicit targets, so drop stale paths after routing has warned.
+    # ast-grep aborts on missing explicit targets and ripgrep walks cwd on an empty tail; drop stale paths, then fall back to the worktree default.
     match paths:
         case ():
             return _DEFAULT_TARGET
         case _:
-            return tuple(p for p in paths if (root / p).exists())
+            return tuple(p for p in paths if (root / p).exists()) or _DEFAULT_TARGET
 
 
 def _search_splice(params: CodeParams, root: Path) -> Callable[[Tool, Routed], Tool]:
@@ -220,9 +245,32 @@ def _artifact(settings: AssaySettings, verb: str, content: str) -> Artifact:
     return Artifact(id=digest, kind=ArtifactKind.CODE, path=str(path), bytes=len(raw), lines=raw.count(b"\n"))
 
 
+def _safe_decode[T, E](decoder: msgspec.json.Decoder[T], raw: bytes, empty: E) -> T | E:
+    # A tool that spawned but emitted non-JSON degrades to the empty projection instead of raising a DecodeError across the fan.
+    try:
+        return decoder.decode(raw)
+    except msgspec.MsgspecError:
+        return empty
+
+
 def _ag_normalize(completeds: tuple[Completed, ...]) -> tuple[Completed, ...]:
-    # ast-grep exit 1 means no match; tree-sitter exit 1 remains a real thunk fault.
-    return tuple(msgspec.structs.replace(d, status=RailStatus.EMPTY) if d.returncode == 1 else d for d in completeds)
+    # ast-grep exit 1 with parseable JSON means no match (-> EMPTY); rc==1 with garbage stdout is a tool fault that must stay FAILED.
+    def _norm(done: Completed) -> Completed:
+        match (done.returncode, _parses(done.stdout)):
+            case (1, True):
+                return msgspec.structs.replace(done, status=RailStatus.EMPTY)
+            case _:
+                return done
+
+    return tuple(_norm(d) for d in completeds)
+
+
+def _parses(stdout: bytes) -> bool:
+    try:
+        _ = AST_MATCHES.decode(stdout or b"[]")
+    except msgspec.MsgspecError:
+        return False
+    return True
 
 
 def _report(settings: AssaySettings, verb: str, pattern: str, completeds: tuple[Completed, ...], rows: tuple[Match, ...], listing: str) -> Report:
@@ -243,7 +291,7 @@ def _relevance(pattern: str, text: str) -> int:
 
 
 def _ag_rows(completeds: tuple[Completed, ...], cap: int, pattern: str) -> tuple[tuple[Match, ...], str]:
-    matches = tuple(m for done in completeds for m in AST_MATCHES.decode(done.stdout or b"[]"))
+    matches = tuple(m for done in completeds for m in _safe_decode(AST_MATCHES, done.stdout or b"[]", ()))
     listing = "\n".join(f"{m.file}:{m.range.start.line + 1}: {m.text}" + (f" => {m.replacement}" if m.replacement else "") for m in matches)
     rows = tuple(
         Match(
@@ -259,7 +307,7 @@ def _ag_rows(completeds: tuple[Completed, ...], cap: int, pattern: str) -> tuple
 
 
 def _ts_rows(completeds: tuple[Completed, ...], cap: int, pattern: str) -> tuple[tuple[Match, ...], str]:
-    captures = tuple(c for done in completeds for c in CAPTURES.decode(done.stdout or b"[]"))
+    captures = tuple(c for done in completeds for c in _safe_decode(CAPTURES, done.stdout or b"[]", ()))
     listing = "\n".join(f"{c.file}:{c.line}: @{c.name} {c.text}" for c in captures)
     rows = tuple(
         Match(id=f"{c.file}:{c.line}", kind=ArtifactKind.CODE, text=f"@{c.name} {c.text}"[:_TEXT_CAP], line=c.line, score=_relevance(pattern, c.text))
@@ -268,10 +316,10 @@ def _ts_rows(completeds: tuple[Completed, ...], cap: int, pattern: str) -> tuple
     return rows, listing
 
 
-def _content_splice(tool: Tool, params: CodeParams) -> Tool:
-    # ripgrep self-walks targets; --language narrows through suffix globs.
+def _content_splice(tool: Tool, params: CodeParams, root: Path) -> Tool:
+    # ripgrep self-walks targets; --language narrows through suffix globs. Missing paths drop to the default target (parity with ast-grep _targets).
     globs = tuple(arg for suffix in (params.language.suffixes if params.language is not None else ()) for arg in ("--glob", f"*{suffix}"))
-    return msgspec.structs.replace(tool, command=(*tool.command, *globs, "-e", params.pattern, "--", *(params.paths or _DEFAULT_TARGET)))
+    return msgspec.structs.replace(tool, command=(*tool.command, *globs, "-e", params.pattern, "--", *_targets(params.paths, root)))
 
 
 def _rg_status(returncode: int, stderr: str, *, has_rows: bool) -> tuple[RailStatus, tuple[str, ...]]:
@@ -287,9 +335,14 @@ def _rg_status(returncode: int, stderr: str, *, has_rows: bool) -> tuple[RailSta
 
 
 def _rg_rows(completeds: tuple[Completed, ...], cap: int, pattern: str) -> tuple[tuple[Match, ...], str]:
-    # Only ripgrep NDJSON match events carry hits; listing is unbounded, results are capped.
+    # Only ripgrep NDJSON match events carry hits; a non-JSON line degrades to None rather than raising. Listing unbounded, results capped.
     matches = tuple(
-        e.data for done in completeds for line in (done.stdout or b"").splitlines() if line for e in (RG_EVENT.decode(line),) if e.kind == "match"
+        e.data
+        for done in completeds
+        for line in (done.stdout or b"").splitlines()
+        if line
+        for e in (_safe_decode(RG_EVENT, line, None),)
+        if e is not None and e.kind == "match"
     )
     listing = "\n".join(f"{d.path.text}:{d.line_number}: {d.lines.text.rstrip()}" for d in matches)
     rows = tuple(
@@ -338,7 +391,7 @@ def _content_search(settings: AssaySettings, scope: ArtifactScope, params: CodeP
         case None:
             return Error(Fault(("code", "search"), status=RailStatus.FAULTED, message="no ripgrep content catalog row"))
         case Tool() as tool:
-            check = Check(tool=_content_splice(tool, params), paths=tuple(params.paths or _DEFAULT_TARGET))
+            check = Check(tool=_content_splice(tool, params, Path(str(settings.root))), paths=tuple(params.paths or _DEFAULT_TARGET))
             routed = Routed(language=tool.language, scope=Scope.CHANGED)
             return run_check(check, settings=settings, scope=scope, routed=routed).map(lambda done: _content_report(settings, params, done))
 

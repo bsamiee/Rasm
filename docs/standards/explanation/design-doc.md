@@ -287,7 +287,7 @@ Route-away: benchmark command and runtime tuning stay in test strategy or implem
 
 At `ACCEPTED` and `IMPLEMENTED`, add proof receipt fields beside completed gates rather than rewriting planned gates as if they already ran:
 
-```markdown template
+```text template
 Gate: <gate name>
 Proof route: <route required for access, proof, or escalation>
 Evidence: <command, status check, generated contract, check record, or proof gap>
@@ -300,7 +300,7 @@ Result: <accepted signal or remaining gap>
 
 When a design proof gate depends on an existing test strategy, name that route instead of restating the strategy:
 
-```markdown template
+```text template
 Gate: <gate name from test strategy>
 Strategy gate route: <test strategy path and gate anchor>
 ```
@@ -358,7 +358,7 @@ After acceptance, create an ADR when the design binds two or more routes, packag
 
 Use this record when any handoff target exists. Omit untriggered fields; keep shared relation fields in the same order so the record explains maintenance behavior instead of listing adjacent documents.
 
-```markdown template
+```text template
 ID: <handoff id only when another record references it>
 Status: <QUEUED | ACTIVE | BLOCKED | DEFERRED | COMPLETE | DROPPED | CANCELED>
 Changed fact: <accepted policy, current-structure change, public contract, gate policy, support fact, or reader route>

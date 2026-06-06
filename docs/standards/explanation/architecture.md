@@ -118,7 +118,7 @@ Do not add a section for a concern that has no current reader action. Do not kee
 
 `Scope boundary` states what this architecture covers and what it refuses to cover. Name real paths, project files, package manifests, generated directories, public contracts, commands, host references, adjacent routes, and exclusions.
 
-```markdown template
+```text template
 Included: `src/EventPipeline/`, `EventPipeline.csproj`, `Contracts/events.schema.json`, generated event reference.
 Excluded: legacy export retirement after the compatibility window; support matrix carries timing.
 Adjacent routes: `src/HostAdapter/` admits host callbacks; `docs/reference/api/` carries generated contract reference.
@@ -129,7 +129,7 @@ Reader rule: edits under `Admission/`, `Execution/`, or `Contracts/` must check 
 
 `Project identity` lets an agent locate the build/package truth before editing. Include only identities that exist for the scope.
 
-```markdown template
+```text template
 Project file: `src/EventPipeline/EventPipeline.csproj`
 Package or export surface: `EventPipeline` public contract API
 Build target: `EventPipeline.csproj`
@@ -144,7 +144,7 @@ Do not invent a manifest, command, export, or generated output to fill the secti
 
 `Contracts and generated truth` is required when the scope exposes a public contract, generated file, generated reference, command output contract, host metadata surface, schema, or source-generated public symbol family. It prevents architecture from becoming an API catalog while still showing which generated artifacts make the code safe to edit.
 
-```markdown template
+```text template
 Surface: `EventPipeline` event contract.
 Public contract: `Contracts/events.schema.json`.
 Generated artifact: generated event reference page.
@@ -161,7 +161,7 @@ Route-away: operation details, parameters, fields, and generated symbol catalog 
 
 When the architecture needs a compact routing map, use identity and routing fields first. If the record carries adjacent-document facts, append the shared relation fields in this order: `Changed fact`, `Consumed by`, `Use in this document`, `Update when`, `Close when`, `Route-away`.
 
-```markdown template
+```text template
 Path or surface: `<path, contract, command, generated output, or public surface>`
 Carries: `<current architecture responsibility>`
 Does not own: `<body routed away>`
@@ -215,14 +215,14 @@ src/EventPipeline/
 
 Align codemap annotations to one fixed rail; when a path carries a status marker, start the annotation with that marker, and omit leaves that are not entrypoints, contracts, generated artifacts, central algorithms, adapters, invariants, or status-bearing paths.
 
-When status appears in the tree, add a path-state record and codemap source block beside the codemap. The record gives agents a single place to update or delete the status, and the proof block keeps the tree from becoming decorative structure.
+When status appears in the tree, add a path-state table and codemap source block beside the codemap. `READ_AS` states the edit consequence; source, update, and removal columns keep the status from becoming stale.
 
-| [INDEX] | [PATH]                         | [STATE]       | [WHY_IT_CHANGES_READING]       | [ADJACENT_SOURCE] | [UPDATE_WHEN]                     | [REMOVAL_TRIGGER]             |
-| :-----: | :----------------------------- | :------------ | :----------------------------- | :---------------- | :-------------------------------- | :---------------------------- |
-|   [1]   | `Execution/EventWorker.cs`     | [ACTIVE]      | M2 still moves execution route | roadmap M2        | M2 status or worker path changes  | M2 reaches `COMPLETE`         |
-|   [2]   | `Legacy/LegacyEventReader.cs`  | [DEPRECATED]  | migration reads remain allowed | support row       | compatibility support row changes | support row reaches `Retired` |
+| [INDEX] | [PATH]                        | [STATE]      | [READ_AS]       | [SOURCE]    | [UPDATE]    | [REMOVE]             |
+| :-----: | :---------------------------- | :----------- | :-------------- | :---------- | :---------- | :------------------- |
+|   [1]   | `Execution/EventWorker.cs`    | [ACTIVE]     | moving route    | roadmap M2  | M2 or path  | M2 is `COMPLETE`     |
+|   [2]   | `Legacy/LegacyEventReader.cs` | [DEPRECATED] | migration reads | support row | support row | support is `Retired` |
 
-```markdown template
+```text template
 Representation: codemap
 Evidence: repository path inspection, project file, manifest, generated artifact, review, or proof gap.
 Generated from: <tree command, manifest query, generated output, or omitted when hand-reviewed>
@@ -235,16 +235,16 @@ Use path-state markers only for facts that change editing behavior. Remove them 
 
 ## [9][ENTRYPOINTS_AND_FLOWS]
 
-Entrypoints name how work enters the code scope. Use records or a table when the reader must compare entrypoint type, input contract, data carrier, failure carrier, next route, public effect, and proof.
+Entrypoints name how work enters the code scope. Use records or a table when the reader must compare kind, input, failure rail, next route, effect, and proof.
 
-| [INDEX] | [ENTRYPOINT]                | [KIND]        | [INPUT_OR_CONTRACT]  | [DATA_CARRIER]           | [FAILURE_CARRIER] | [NEXT_ROUTE]                  | [PUBLIC_EFFECT]             |
-| :-----: | :-------------------------- | :------------ | :------------------- | :----------------------- | :---------------- | :---------------------------- | :-------------------------- |
-|   [1]   | `Admission/EventIngress.cs` | host callback | `events.schema.json` | raw host event           | validation result | `Admission/EventValidator.cs` | rejects invalid event input |
-|   [2]   | `Execution/EventWorker.cs`  | worker loop   | `EventEnvelope`      | validated event envelope | worker fault      | `Storage/EventStore.cs`       | persists accepted event     |
+| [INDEX] | [ENTRYPOINT]                | [KIND]   | [INPUT]                | [FAILURE]  | [NEXT]                        | [EFFECT]      |
+| :-----: | :-------------------------- | :------- | :--------------------- | :--------- | :---------------------------- | :------------ |
+|   [1]   | `Admission/EventIngress.cs` | callback | schema plus host event | validation | `Admission/EventValidator.cs` | reject input  |
+|   [2]   | `Execution/EventWorker.cs`  | worker   | envelope               | fault      | `Storage/EventStore.cs`       | persist event |
 
 For record-shaped entrypoints, keep fields in this order:
 
-```markdown template
+```text template
 Entrypoint: `<file, command, callback, route, public type, host hook, generated surface, or worker>`
 Kind: `<command | host callback | public type | generated surface | route | worker | adapter>`
 Input or contract: `<schema, DTO, command args, callback payload, source path, or none>`
@@ -274,7 +274,7 @@ flowchart LR
     Host["host callback"] --> Ingress["Admission/EventIngress.cs"]
     Ingress --> Validator["Admission/EventValidator.cs"]
     Validator --> Contract["Contracts/events.schema.json"]
-Validator --> Worker["Execution/EventWorker.cs [ACTIVE M2]"]
+    Validator --> Worker["Execution/EventWorker.cs [ACTIVE M2]"]
     Worker --> Store["Storage/EventStore.cs"]
     Legacy["Legacy/LegacyEventReader.cs [DEPRECATED]"] -. "migration reads only" .-> Store
 ```
@@ -365,7 +365,7 @@ Architecture may include roadmap and status only when those facts change current
 
 Use this record when a status-bearing fact affects a codemap path, flow node, dependency edge, or invariant:
 
-```markdown template
+```text template
 Changed fact: <path, project, package, entrypoint, contract, flow, dependency, or invariant>
 Consumed by: <codemap, flow, dependency matrix, invariant, or proof section>
 Use in this document: <edit, avoid, preserve, route, verify, or remove once complete>
@@ -380,7 +380,7 @@ If a milestone changes both structure and flow, show it in both representations 
 
 Architecture proof is representation-level. Place proof beside each drift-prone codemap, path-state row, entrypoint table, diagram, dependency matrix, invariant, generated contract, or status record.
 
-```markdown template
+```text template
 Representation: <codemap, entrypoint table, flow diagram, dependency matrix, invariant, or status record>
 Evidence: <repo paths, project file, package manifest, generated contract, command, review, or proof gap>
 Generated from: <tree, manifest query, model, generated contract, or command; omit when hand-reviewed>

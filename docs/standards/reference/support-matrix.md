@@ -119,6 +119,7 @@ Support regime: `<rolling, fixed-term, intersection, skew-governed, entitlement-
 Evidence: `<source path, generated check, manifest, lockfile, maintained policy, or proof gap>`
 Generated from: `<compatibility check, lifecycle import, manifest query, or omitted when manually sourced>`
 Source of truth: `<maintained policy, manifest, lockfile, generated contract, support row, or maintained source>`
+Proof gap: `<missing policy, unrun generated check, unavailable source, or omitted when proved>`
 Last verified: YYYY-MM-DD
 Review trigger: `<policy, lifecycle source, generated check, manifest, package, host, or support document changes>`
 Imported fields: `<source fields preserved before local mapping; omit when not imported>`
@@ -129,6 +130,8 @@ When importing lifecycle data, preserve upstream field names before mapping them
 - Boolean/date pairs: `isEoas`/`eoasFrom`, `isEol`/`eolFrom`, `isEoes`/`eoesFrom`, and `isDiscontinued`/`discontinuedFrom`.
 - Related fields: `isLts`, `ltsFrom`, `isMaintained`, `latest`, and `custom` when they affect a row.
 - Missing-value rule: preserve omitted fields, explicit `null`, false booleans, not-announced dates, and not-applicable facts as distinct values. Use `—` for absent table cells, source literal `null` only for actual null, `false` only for actual false, `not announced` or source literal wording for unknown dates, and `n/a` only when the domain says the field does not apply.
+
+In support matrices, `n/a` is support-specific: it means the support field does not apply to that surface, version, platform, entitlement, or derived cell. It is not a general synonym for domain `none`, blank data, unknown support, or an unrun proof gate.
 
 ## [6][STATUS_VOCABULARY]
 
@@ -266,6 +269,7 @@ Requirement: `<dependency, certification, or entitlement; omit when unconditiona
 Replacement: `<replacement surface; omit when no replacement exists>`
 Evidence: `<source path, generated check, command, contract, or maintained policy>`
 Source of truth: `<source path, manifest, generated contract, or maintained policy>`
+Proof gap: `<missing source, unrun check, unavailable policy, or omitted when proved>`
 Review trigger: `<release, policy, compatibility, entitlement, or generated-check change>`
 Route-away: `<README, API, roadmap, migration how-to, runbook, or support document body; omit untriggered routes>`
 ```
@@ -277,10 +281,10 @@ State the derivation rule for two-axis, intersection, or computed matrix cells i
 ```text conceptual
 Supported window: earlier of the two component end-of-life dates.
 Incompatible pair: `n/a`.
-Conditional support: numbered note beside the affected cell.
+Conditional support: row-owned record beside the affected row.
 ```
 
-Cells stay atomic: date, status, compact marker, or `n/a`. Put conditional support in visible notes or footnotes, not prose inside a cell.
+Cells stay atomic: date, status, compact marker, or `n/a`. Put conditional support in row-owned records, not prose inside a cell.
 
 ## [10][COMPATIBILITY_BOUNDS]
 
@@ -343,6 +347,7 @@ Removal: remove stale references when the active command surface no longer expos
 Behavior change: source inventory and tool health now return through one `Envelope`.
 Evidence: current command surface reference or proof gap.
 Source of truth: source tool/API contract.
+Proof gap: missing command-surface source or omitted when proved.
 Last verified: YYYY-MM-DD
 Review trigger: command surface, generated API contract, support policy, or migration route changes.
 ```
@@ -413,7 +418,7 @@ Use this verification checklist by group:
 
 [BOUNDS_DIAGRAMS]:
 - [ ] Unknown dates or undecided statuses are encoded explicitly.
-- [ ] Conditional support uses visible notes or footnotes, never paragraph cells.
+- [ ] Conditional support uses row-owned records, never paragraph cells.
 - [ ] Lifecycle, deprecation, or compatibility diagrams appear only where transitions or edges change reader action, and each diagram has a text equivalent.
 
 [DEPRECATION_MIGRATION]:

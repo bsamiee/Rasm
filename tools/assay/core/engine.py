@@ -167,6 +167,11 @@ async def _run_process_backend(
             return await _run_remote(argv, target, cwd=cwd, env=env, settings=settings, streaming=streaming, tail_cap=tail_cap, chunk=chunk)
 
 
+# Bounds the SSH connect + login so a routable-but-unreachable exec_target (TCP black-hole) cannot deadlock the
+# rail: catalog tools carry no timeout, so the outer anyio.fail_after(None) is a no-op for remote spawns.
+_SSH_CONNECT_TIMEOUT: float = 15.0
+
+
 async def _run_remote(
     argv: tuple[str, ...], target: str, *, cwd: str, env: Mapping[str, str], settings: AssaySettings, streaming: bool, tail_cap: int, chunk: int
 ) -> Completed:
@@ -174,7 +179,14 @@ async def _run_remote(
     parts = urlsplit(target)
     port = parts.port if parts.port is not None else ()
     command = _remote_command(argv, cwd=cwd, env=env)
-    async with asyncssh.connect(parts.hostname or "", port, username=parts.username, known_hosts=settings.exec_known_hosts) as conn:
+    async with asyncssh.connect(
+        parts.hostname or "",
+        port,
+        username=parts.username or (),
+        known_hosts=settings.exec_known_hosts,
+        connect_timeout=_SSH_CONNECT_TIMEOUT,
+        login_timeout=_SSH_CONNECT_TIMEOUT,
+    ) as conn:
         match streaming:
             case True:
                 proc = await conn.create_process(command, encoding=None, stdin=asyncssh.DEVNULL)
@@ -279,7 +291,12 @@ async def _guarded(
     except TimeoutError as exc:
         _diagnose(exc)
         return Error(Fault(argv, status=RailStatus.TIMEOUT, message="deadline exceeded"))
-    except (OSError, asyncssh.Error) as exc:
+    except FileNotFoundError as exc:
+        # Absent host binary is a capability gap, not a fault: create_subprocess_exec raises FileNotFoundError at spawn.
+        _diagnose(exc)
+        return Error(Fault(argv, status=RailStatus.UNSUPPORTED, message=str(exc)))
+    except (OSError, ValueError, asyncssh.Error) as exc:
+        # ValueError covers bare NUL-in-argv from create_subprocess_exec; it is not an OSError so it must be named explicitly.
         _diagnose(exc)
         return Error(Fault(argv, status=RailStatus.FAULTED, message=str(exc)))
 
@@ -372,7 +389,8 @@ def _stale(owner: _LeaseOwner, tolerance: float) -> bool:
         proc = psutil.Process(owner.pid)
         with proc.oneshot():
             return not (proc.is_running() and abs(proc.create_time() - owner.create_time) < tolerance)
-    except psutil.NoSuchProcess, psutil.AccessDenied:
+    except psutil.NoSuchProcess, psutil.AccessDenied, ValueError:
+        # ValueError covers psutil.Process(pid<=0) from a corrupt/adversarial owner block: an unresolvable pid is dead and stealable.
         return True
 
 
@@ -383,14 +401,22 @@ def _claim(fd: int, resource: str, *, run_id: str, tolerance: float, target: str
         return _write_owner(fd, resource, run_id=run_id, target=target)
     except BlockingIOError:
         held = os.read(fd, 4096)
-        owner = _decode_owner(held)
-        _stamp_holder(owner, run_id=run_id)
-        match owner is not None and not _stale(owner, tolerance):
-            case True:
+        # b"" UNDER a contended flock can only be a live holder mid-write/mid-release (a dead holder dropped its flock,
+        # so the success path above would have won). Map it to BUSY without a steal log; only present-but-corrupt or
+        # present-but-stale blocks fall through to the decode + _stale + steal path.
+        match held:
+            case b"":
+                _stamp_holder(None, run_id=run_id)
                 return None
-            case False:
-                _LOG.warning("lease.steal", resource=resource, run_id=run_id, lost=_holder(owner))
-                return _steal(fd, resource, run_id=run_id, target=target, owner=owner)
+            case _:
+                owner = _decode_owner(held)
+                _stamp_holder(owner, run_id=run_id)
+                match owner is not None and not _stale(owner, tolerance):
+                    case True:
+                        return None
+                    case False:
+                        _LOG.warning("lease.steal", resource=resource, run_id=run_id, lost=_holder(owner))
+                        return _steal(fd, resource, run_id=run_id, target=target, owner=owner)
 
 
 def _steal(fd: int, resource: str, *, run_id: str, target: str, owner: _LeaseOwner | None) -> _LeaseOwner | None:

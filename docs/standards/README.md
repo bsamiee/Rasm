@@ -20,6 +20,7 @@ Separate rule authority from claim evidence.
 - This README controls reader need, document-type choice, corpus placement, split/link rules, and lifecycle routing.
 - Shared standards control position, form, craft, evidence, and notation.
 - Type standards control artifact-specific structure, status vocabulary, local proof slots, and examples.
+- `AGENTS.md` and `_reports/**` are instruction/source overlays, not standards bodies in the active document-type corpus.
 
 [CLAIM_EVIDENCE]:
 - [proof.md](proof.md) controls evidence strength, freshness, conflict handling, proof gaps, and docs-as-code gates.
@@ -40,23 +41,23 @@ Read order is workflow order; owner routing and claim evidence still decide conf
 
 [NON_TYPE_ROUTES]:
 
-| [INDEX] | [SURFACE]                             | [OWNER] |
-| :-----: | :------------------------------------ | :------ |
-|   [1]   | Instruction files and provider posture | [agentic-documentation.md](agentic-documentation.md) plus [agents-md.md](agents-md.md) for `AGENTS.md` semantic slots |
-|   [2]   | Generated mirrors, indexes, retrieval chunks, MCP catalogs | [agentic-documentation.md](agentic-documentation.md) |
-|   [3]   | Structured-output contracts and agent-surface checks | [agentic-documentation.md](agentic-documentation.md) plus [proof.md](proof.md) for evidence |
-|   [4]   | Proof fields, proof gaps, validation gates, and preservation | [proof.md](proof.md) |
-|   [5]   | Container, table, record, diagram, chunk, and example shape | [information-structure.md](information-structure.md) |
+| [INDEX] | [SURFACE]                         | [OWNER_ROUTE]                                               |
+| :-----: | :-------------------------------- | :---------------------------------------------------------- |
+|   [1]   | instructions and provider posture | [agentic](agentic-documentation.md), [AGENTS](agents-md.md) |
+|   [2]   | mirrors, indexes, retrieval, MCP  | [agentic-documentation.md](agentic-documentation.md)        |
+|   [3]   | structured output and checks      | [agentic](agentic-documentation.md), [proof](proof.md)      |
+|   [4]   | proof fields and gates            | [proof.md](proof.md)                                        |
+|   [5]   | containers and examples           | [information-structure.md](information-structure.md)        |
 
 ## [4][READER_NEED_MAP]
 
 Classify a document by the reader action:
 
-| [INDEX] | [PRIMARY_AXIS] | [SECOND_AXIS] | [DOCUMENT_FAMILY] | [USE] |
-| :-----: | :------------- | :------------ | :---------------- | :---- |
-|   [1]   | action         | learning      | Tutorial          | teach a tested path |
-|   [2]   | action         | work          | How-to            | complete one real task |
-|   [3]   | cognition      | work          | Reference         | look up accurate facts |
+| [INDEX] | [PRIMARY_AXIS] | [SECOND_AXIS] | [DOCUMENT_FAMILY] | [USE]                                                   |
+| :-----: | :------------- | :------------ | :---------------- | :------------------------------------------------------ |
+|   [1]   | action         | learning      | Tutorial          | teach a tested path                                     |
+|   [2]   | action         | work          | How-to            | complete one real task                                  |
+|   [3]   | cognition      | work          | Reference         | look up accurate facts                                  |
 |   [4]   | cognition      | learning      | Explanation       | understand context, trade-offs, structure, or decisions |
 
 Publish only documents that answer a real reader need. If no quadrant fits cleanly, reduce the scope until one reader outcome is primary.
@@ -65,35 +66,35 @@ Publish only documents that answer a real reader need. If no quadrant fits clean
 
 Map the reader need to the artifact. Route-away cells name the standards that should receive adjacent content instead.
 
-| [INDEX] | [READER_NEED]                            | [TYPE_PATH]                                                        | [ROUTE_AWAY] |
-| :-----: | :--------------------------------------- | :----------------------------------------------------------------- | :----------- |
-|   [1]   | Current structure and invariants         | [explanation/architecture.md](explanation/architecture.md)         | [adr](explanation/adr.md), [how-to](task/how-to.md), [runbook](task/runbook.md) |
-|   [2]   | Durable decision and consequences        | [explanation/adr.md](explanation/adr.md)                           | [design doc](explanation/design-doc.md), [architecture](explanation/architecture.md) |
-|   [3]   | Proposal or RFC-style review             | [explanation/design-doc.md](explanation/design-doc.md)             | [adr](explanation/adr.md), [architecture](explanation/architecture.md) |
-|   [4]   | Milestone sequence and exit proof        | [explanation/roadmap.md](explanation/roadmap.md)                   | release notes, [support matrix](reference/support-matrix.md) |
-|   [5]   | Test portfolio and gate policy           | [explanation/test-strategy.md](explanation/test-strategy.md)       | [how-to](task/how-to.md), [runbook](task/runbook.md) |
-|   [6]   | Entry point or local hub                 | [reference/readme.md](reference/readme.md)                         | [reference](reference/reference.md), [tutorial](learning/tutorial.md) |
-|   [7]   | Curated lookup truth                     | [reference/reference.md](reference/reference.md)                   | [how-to](task/how-to.md), [tutorial](learning/tutorial.md) |
-|   [8]   | HTTP or generated API contract           | [reference/api.md](reference/api.md)                               | symbol docs, [roadmap](explanation/roadmap.md) |
-|   [9]   | Public symbol intent and failures        | [reference/code-documentation.md](reference/code-documentation.md) | endpoint catalogs, [tutorial](learning/tutorial.md) |
-|  [10]   | Support by version, platform, or feature | [reference/support-matrix.md](reference/support-matrix.md)         | [roadmap](explanation/roadmap.md), migrations |
-|  [11]   | Repeatable competent-reader task         | [task/how-to.md](task/how-to.md)                                   | [tutorial](learning/tutorial.md), [runbook](task/runbook.md) |
-|  [12]   | Operational symptom response             | [task/runbook.md](task/runbook.md)                                 | [how-to](task/how-to.md), postmortem |
-|  [13]   | Contribution workflow and PR evidence    | [task/contributing.md](task/contributing.md)                       | [onboarding](learning/onboarding.md), incident records |
-|  [14]   | Tested learning path                     | [learning/tutorial.md](learning/tutorial.md)                       | [reference](reference/reference.md), variants |
-|  [15]   | Readiness ramp                           | [learning/onboarding.md](learning/onboarding.md)                   | [how-to](task/how-to.md), [contributing](task/contributing.md) |
+| [INDEX] | [NEED]                  | [TYPE]                                        | [ROUTE_AWAY]                                          |
+| :-----: | :---------------------- | :-------------------------------------------- | :---------------------------------------------------- |
+|   [1]   | current structure       | [architecture](explanation/architecture.md)   | [ADR](explanation/adr.md), task routes                |
+|   [2]   | durable decision        | [ADR](explanation/adr.md)                     | [design](explanation/design-doc.md), architecture     |
+|   [3]   | proposal review         | [design](explanation/design-doc.md)           | [ADR](explanation/adr.md), architecture               |
+|   [4]   | milestone exit proof    | [roadmap](explanation/roadmap.md)             | release route, [support](reference/support-matrix.md) |
+|   [5]   | gate policy             | [test strategy](explanation/test-strategy.md) | [how-to](task/how-to.md), [runbook](task/runbook.md)  |
+|   [6]   | entrypoint or hub       | [README](reference/readme.md)                 | [reference](reference/reference.md), tutorial         |
+|   [7]   | lookup truth            | [reference](reference/reference.md)           | [how-to](task/how-to.md), tutorial                    |
+|   [8]   | callable API contract   | [API](reference/api.md)                       | symbol docs, [roadmap](explanation/roadmap.md)        |
+|   [9]   | public symbol semantics | [code docs](reference/code-documentation.md)  | endpoint catalogs, tutorial                           |
+|  [10]   | support comparison      | [support matrix](reference/support-matrix.md) | [roadmap](explanation/roadmap.md), migration route    |
+|  [11]   | repeatable task         | [how-to](task/how-to.md)                      | [tutorial](learning/tutorial.md), runbook             |
+|  [12]   | symptom response        | [runbook](task/runbook.md)                    | [how-to](task/how-to.md), postmortem                  |
+|  [13]   | contribution workflow   | [contributing](task/contributing.md)          | [onboarding](learning/onboarding.md), incidents       |
+|  [14]   | tested learning path    | [tutorial](learning/tutorial.md)              | [reference](reference/reference.md), variants         |
+|  [15]   | readiness ramp          | [onboarding](learning/onboarding.md)          | [how-to](task/how-to.md), contributing                |
 
 ## [6][SHARED_STANDARDS]
 
 Each cross-cutting rule routes to exactly one owner:
 
-| [INDEX] | [AXIS]   | [OWNER] | [CONTROLS] |
-| :-----: | :------- | :------ | :--------- |
-|   [1]   | position | [agentic-documentation.md](agentic-documentation.md) | salience, artifact separation, provider posture, instruction surfaces, indexes, retrieval, catalogs |
-|   [2]   | form     | [information-structure.md](information-structure.md) | containers, tables, records, diagrams, code-block intent, page anatomy, chunks, examples |
-|   [3]   | craft    | [style-guide.md](style-guide.md) | sentence mechanics, terminology, punctuation, link wording, code-safe Markdown, accessibility wording |
-|   [4]   | evidence | [proof.md](proof.md) | evidence strength, freshness, source conflicts, verification, agent-surface evaluation, preservation |
-|   [5]   | notation | [formatting.md](formatting.md) | status and invocation markers, table styling, whitespace, heading idiom, source comments |
+| [INDEX] | [AXIS]   | [OWNER]                                              | [CONTROLS]                                      |
+| :-----: | :------- | :--------------------------------------------------- | :---------------------------------------------- |
+|   [1]   | position | [agentic-documentation.md](agentic-documentation.md) | salience, artifacts, provider posture, catalogs |
+|   [2]   | form     | [information-structure.md](information-structure.md) | containers, diagrams, chunks, examples          |
+|   [3]   | craft    | [style-guide.md](style-guide.md)                     | prose, terms, links, accessibility              |
+|   [4]   | evidence | [proof.md](proof.md)                                 | proof, freshness, conflicts, preservation       |
+|   [5]   | notation | [formatting.md](formatting.md)                       | markers, tables, whitespace, headings           |
 
 Audit root standards against position, form, craft, evidence, and notation only. If a finding does not fit those 5 axes, route it to the owning standard instead of creating a local audit category.
 
@@ -101,13 +102,13 @@ Audit root standards against position, form, craft, evidence, and notation only.
 
 Place documentation where the reader or tool first looks:
 
-| [INDEX] | [LOOKUP_TRIGGER]                         | [PLACE]               | [OWNER_ROUTE] |
-| :-----: | :--------------------------------------- | :-------------------- | :------------ |
-|   [1]   | Corpus-wide entry document               | repository root       | root README or root instruction file |
+| [INDEX] | [LOOKUP_TRIGGER]                           | [PLACE]               | [OWNER_ROUTE]                                     |
+| :-----: | :----------------------------------------- | :-------------------- | :------------------------------------------------ |
+|   [1]   | Corpus-wide entry document                 | repository root       | root README or root instruction file              |
 |   [2]   | Package, product, tool, or subsystem truth | scope-local directory | local README, architecture, reference, or runbook |
-|   [3]   | Shared cross-scope material              | `docs/`               | relevant docs route |
-|   [4]   | Authoring standards                      | `docs/standards/`     | this standards library |
-|   [5]   | Public symbol rationale                  | source files          | code documentation standard |
+|   [3]   | Shared cross-scope material                | `docs/`               | relevant docs route                               |
+|   [4]   | Authoring standards                        | `docs/standards/`     | this standards library                            |
+|   [5]   | Public symbol rationale                    | source files          | code documentation standard                       |
 
 Prefer one owner for a claim. Link across owners instead of copying the same claim into multiple pages.
 
@@ -115,16 +116,16 @@ Prefer one owner for a claim. Link across owners instead of copying the same cla
 
 When a draft serves more than one primary reader need, split it:
 
-| [INDEX] | [CONTENT_SMELL]                  | [REMOVE_FROM]       | [DESTINATION] |
-| :-----: | :------------------------------- | :------------------ | :------------ |
-|   [1]   | Background in a procedure        | tutorial or how-to  | explanation |
-|   [2]   | Catalog, option table, command inventory | how-to or explanation | reference or API |
-|   [3]   | Step-by-step work in lookup facts | reference           | how-to |
-|   [4]   | Operational response             | how-to              | runbook |
-|   [5]   | Durable decision rationale       | architecture        | ADR |
-|   [6]   | Implementation sequence          | architecture or README | roadmap |
-|   [7]   | Proposal review                  | roadmap or architecture | design doc |
-|   [8]   | Contribution workflow            | README              | contributing |
+| [INDEX] | [CONTENT_SMELL]                          | [REMOVE_FROM]           | [DESTINATION]    |
+| :-----: | :--------------------------------------- | :---------------------- | :--------------- |
+|   [1]   | Background in a procedure                | tutorial or how-to      | explanation      |
+|   [2]   | Catalog, option table, command inventory | how-to or explanation   | reference or API |
+|   [3]   | Step-by-step work in lookup facts        | reference               | how-to           |
+|   [4]   | Operational response                     | how-to                  | runbook          |
+|   [5]   | Durable decision rationale               | architecture            | ADR              |
+|   [6]   | Implementation sequence                  | architecture or README  | roadmap          |
+|   [7]   | Proposal review                          | roadmap or architecture | design doc       |
+|   [8]   | Contribution workflow                    | README                  | contributing     |
 
 After splitting, add the smallest cross-link that changes reader action, proof, or maintenance. Do not leave a summary copy that can drift.
 
@@ -143,6 +144,11 @@ Unless live product support and evidence justify them, do not preserve old paths
 
 ```text conceptual
 docs/standards/
+├── _reports/                  # source-material work reports
+├── explanation/               # architecture, ADR, design, roadmap, test strategy
+├── reference/                 # README, lookup, API, code docs, support matrix
+├── task/                      # how-to, runbook, contributing
+├── learning/                  # tutorial, onboarding
 ├── README.md                  # this router
 ├── AGENTS.md                  # local instruction overlay
 ├── agentic-documentation.md   # position
@@ -150,11 +156,7 @@ docs/standards/
 ├── style-guide.md             # craft
 ├── proof.md                   # evidence
 ├── formatting.md              # notation
-├── agents-md.md               # AGENTS.md surface standard
-├── explanation/               # architecture, ADR, design, roadmap, test strategy
-├── reference/                 # README, lookup, API, code docs, support matrix
-├── task/                      # how-to, runbook, contributing
-└── learning/                  # tutorial, onboarding
+└── agents-md.md               # AGENTS.md surface standard
 ```
 
 Active standards are the files in this layout except `_reports/**` and folders explicitly marked deprecated by a trusted local instruction or route owner. `AGENTS.md` is an instruction overlay, not a standards body.
@@ -177,15 +179,15 @@ These anti-patterns fall into three groups:
 
 [MIXED_MODULE_FILES]:
 
-| [INDEX] | [CONTENT_KIND]                  | [DESTINATION] |
-| :-----: | :------------------------------ | :------------ |
-|   [1]   | current code structure          | [architecture](explanation/architecture.md) |
-|   [2]   | callable contracts              | [API](reference/api.md) |
-|   [3]   | lookup facts                    | [reference](reference/reference.md) |
-|   [4]   | source-symbol semantics         | [code documentation](reference/code-documentation.md) |
-|   [5]   | future work and exit criteria   | [roadmap](explanation/roadmap.md) |
-|   [6]   | failure response                | [runbook](task/runbook.md) |
-|   [7]   | contribution workflow           | [contributing](task/contributing.md) |
+| [INDEX] | [CONTENT_KIND]                | [DESTINATION]                                         |
+| :-----: | :---------------------------- | :---------------------------------------------------- |
+|   [1]   | current code structure        | [architecture](explanation/architecture.md)           |
+|   [2]   | callable contracts            | [API](reference/api.md)                               |
+|   [3]   | lookup facts                  | [reference](reference/reference.md)                   |
+|   [4]   | source-symbol semantics       | [code documentation](reference/code-documentation.md) |
+|   [5]   | future work and exit criteria | [roadmap](explanation/roadmap.md)                     |
+|   [6]   | failure response              | [runbook](task/runbook.md)                            |
+|   [7]   | contribution workflow         | [contributing](task/contributing.md)                  |
 
 ## [12][MAINTENANCE_RULES]
 

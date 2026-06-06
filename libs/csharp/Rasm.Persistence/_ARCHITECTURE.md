@@ -1,4 +1,4 @@
-# [H1][RASM_PERSISTENCE_ARCHITECTURE]
+# [RASM_PERSISTENCE_ARCHITECTURE]
 
 `Rasm.Persistence` is the local durable-state owner for Rasm plugins and apps. It keeps EF/SQLite and serialization concerns out of `Rasm`, `Rasm.Rhino`, `Rasm.Grasshopper`, and GH solve paths.
 
@@ -38,7 +38,8 @@ Postgres/Npgsql examples in `.claude/skills/coding-csharp` are service/companion
 
 **In-box (no package pin required):** `System.IO.Hashing` (`XxHash3` snapshot checksums), `System.IO.Compression` (Brotli/Deflate support-bundle export), FTS5 + JSON1 (compiled INTO the SQLite native library — no extra package; reachable via `FromSqlRaw`). `System.Text.Json` source generation (default serialization).
 
-[CRITICAL] macOS-arm64 native chain: `SQLitePCLRaw.bundle_e_sqlite3` (meta-bundle) transitively carrying `SQLitePCLRaw.lib.e_sqlite3` (the macOS-arm64 native asset), newest viable. The `e_sqlite3` symbol prefix is the isolation guard against RhinoWIP's own bundled SQLite — verify at integration time that RhinoWIP does not shadow this symbol. `SQLitePCL.Batteries.Init()` is called (idempotent) before the first `SqliteConnection`, not merely before the first `DbContext`. A missing native asset is a runtime fault; the `StoreOpen` operation returns `MissingNativeAsset` receipt rather than throwing.
+> [!CAUTION]
+> macOS-arm64 native chain: `SQLitePCLRaw.bundle_e_sqlite3` (meta-bundle) transitively carrying `SQLitePCLRaw.lib.e_sqlite3` (the macOS-arm64 native asset), newest viable. The `e_sqlite3` symbol prefix is the isolation guard against RhinoWIP's own bundled SQLite — verify at integration time that RhinoWIP does not shadow this symbol. `SQLitePCL.Batteries.Init()` is called (idempotent) before the first `SqliteConnection`, not merely before the first `DbContext`. A missing native asset is a runtime fault; the `StoreOpen` operation returns `MissingNativeAsset` receipt rather than throwing.
 
 **DO NOT ADD:** MemoryPack (duplicates MessagePack; AOT warnings), `SQLitePCLRaw.bundle_e_sqlcipher` (deprecated, conflicts with `e_sqlite3` native), Npgsql (in-process plugin state only), linq2db, EF `.Proxies` (lazy-load breaks the per-operation `Bracket` lifetime model), `Microsoft.AspNetCore.DataProtection` (web hosting tax), FlexLabs.Upsert, ZstdSharp.
 
@@ -87,7 +88,8 @@ Snapshot payload compression: `K4os.Compression.LZ4` (speed lane, default for Me
 
 Bridge contract: `ISaveChangesInterceptor.SavedChangesAsync` (post-commit, on the EF write thread) posts the raw change set to the thread pool via `Task.Run`/`liftAsync`; the pool worker folds it into the current `AppState` and calls `BehaviorSubject<AppState>.OnNext`. The public surface is `Subject.AsObservable()`. Persistence never calls `ObserveOn`.
 
-[CRITICAL] This `Task.Run` is the single sanctioned carve-out from the cross-package no-`Task.Run` rule: it hands the post-commit fold off the EF write thread so `SaveChangesAsync` returns immediately, and it is internal to Persistence (the change set never crosses a package boundary). The rule still holds everywhere else — runtime/background scheduling is owned by `Rasm.AppHost` and AppUi marshals onto `RasmUiScheduler`; no other module spawns `Task.Run`.
+> [!CAUTION]
+> This `Task.Run` is the single sanctioned carve-out from the cross-package no-`Task.Run` rule: it hands the post-commit fold off the EF write thread so `SaveChangesAsync` returns immediately, and it is internal to Persistence (the change set never crosses a package boundary). The rule still holds everywhere else — runtime/background scheduling is owned by `Rasm.AppHost` and AppUi marshals onto `RasmUiScheduler`; no other module spawns `Task.Run`.
 
 Fold semantics: for each `EntityEntry` in the change set, discriminate by entity kind and update the relevant `AppState` slot. Deletions decrement counts and remove keys from immutable lists (rebuild-vs-patch: patch for single-entity deltas, full rebuild on bulk). Fold is idempotent on re-delivery (keyed by entity PK). Initial-state seed: `StoreOpen` loads `AppState` from a read query and calls `OnNext` before exposing the observable to consumers. `OnCompleted` fires exactly once on Persistence disposal (after the final `SaveChanges`); shutdown ordering matches AppHost's drain sequence — Persistence flushes before UI `OnCompleted` fires, preventing a race between the final change-set fold and consumer teardown. `OnError` is never called — faults surface via `StoreReceipt`. Back-pressure: `AppUi` applies `Sample`/`Throttle` on `RasmUiScheduler.RxScheduler`; Persistence does not throttle internally. `OnNext` serialization: `BehaviorSubject<AppState>` is not thread-safe; the thread-pool fold worker must serialize `OnNext` calls — use a `lock` or ensure all folds are dispatched through a single serial queue (e.g., `TaskScheduler` with max concurrency 1).
 
@@ -118,7 +120,8 @@ PRAGMAs set explicitly via `ExecuteSqlRaw` on each new connection open (EF does 
 | `synchronous`        | `NORMAL`     | Balanced durability/performance on WAL; not set by EF                     |
 | `foreign_keys`       | `ON`         | Enforce FK constraints EF generates                                       |
 
-[CRITICAL] `EnableRetryOnFailure` is Npgsql-only and does NOT compile on EF SQLite. Do not use it. Rely on `busy_timeout` + app-level retry (LanguageExt `Schedule`) for transient SQLITE_BUSY.
+> [!CAUTION]
+> `EnableRetryOnFailure` is Npgsql-only and does NOT compile on EF SQLite. Do not use it. Rely on `busy_timeout` + app-level retry (LanguageExt `Schedule`) for transient SQLITE_BUSY.
 
 Connection-pool strategy: one `DbContext` per `Bracket`-scoped operation; `Microsoft.Data.Sqlite` default pool size is 1 per connection string. Persistence does not pre-warm a pool; WAL + page-cache handles multi-read concurrency. The pool is sized implicitly by the per-operation bracket lifetime — no explicit `MaxPoolSize` needed.
 
@@ -156,7 +159,8 @@ Cross-folder spine: `Rasm.AppUi` consumes exactly one public surface — `IObser
 - Transient contention (`TransactionConflict`) is retried by AppHost via LanguageExt `Schedule`; after the retry budget `TransactionConflict` is returned.
 - Encryption unavailability (`NativeEncryptionUnavailable`) returns immediately; no retry; APFS encryption is the accepted mitigation.
 
-[CRITICAL] `__EFMigrationsLock` does not exist in EF Core SQLite (SQL Server-specific). `PartialMigration` is the correct interrupted-apply case. Migrations are append-only; rollback is a new forward migration. `EnableRetryOnFailure` is Npgsql-only — never reference it.
+> [!CAUTION]
+> `__EFMigrationsLock` does not exist in EF Core SQLite (SQL Server-specific). `PartialMigration` is the correct interrupted-apply case. Migrations are append-only; rollback is a new forward migration. `EnableRetryOnFailure` is Npgsql-only — never reference it.
 
 ## [9][SOURCE_ANCHORS]
 

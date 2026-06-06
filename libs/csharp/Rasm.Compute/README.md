@@ -1,4 +1,4 @@
-# [H1][RASM_COMPUTE]
+# [RASM_COMPUTE]
 
 `Rasm.Compute` is the measured-compute platform for long-running, tensor, model, and remote execution lanes. It wraps the existing `Rasm.Vectors` tensor/numeric substrate in `Eff<RT,ExecutionReceipt>` — adding timing, allocation, cancellation, substrate selection, and progress — without duplicating a single `TensorPrimitives` kernel that `Rasm.Vectors` already owns.
 

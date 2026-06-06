@@ -8,11 +8,14 @@ Scope: `tools/assay/` only. Root policy owns universal Python and docs behavior;
 - When editing a module, read the target module fully first.
 - When adding a rail, verb, tool row, wire detail, or stdout shape, read `core/model.py`, `composition/catalog.py`, and `composition/registry.py`.
 - When changing execution, aspect composition, routing, leases, or subprocess behavior, read `core/engine.py`, `core/aspect.py`, and `core/routing.py`.
+- When changing artifact storage, runtime backend, history persistence, or filesystem behavior, read `composition/settings.py` for `ArtifactStore` and `ArtifactScope`, then read `composition/registry.py` for history persistence before adding public surface.
 - When changing automation triggers, actions, or fire loops, read `automation/model.py` and `automation/engine.py`.
 
 ## [2][ARCHITECTURE_CONTRACT]
 
-Assay is one engine over data rows. Programs are catalog rows, rails select rows, the engine runs checks, and one envelope shape crosses every invocation. Cross-cutting behavior attaches only through ordered aspect seams.
+Assay is one engine over `Tool` and `Check` rows. `TOOLS` and `REGISTRY` select rows, `run_check` and `fan_out` execute them, `fold` builds `Report`, and `envelope` emits `Envelope`; cross-cutting behavior attaches through `Slot`, `Layer`, `SpawnLayer`, `compose`, `compose_spawn`, and `_RAIL_LAYERS`.
+
+Runtime backend, storage, and filesystem capability is internal behavior. It extends settings, artifact store/scope, engine execution, history persistence, envelope rows, and artifact rows before it becomes operator workflow or public wire shape.
 
 ## [3][EXTENSION_GRAMMAR]
 
@@ -20,17 +23,19 @@ Assay is one engine over data rows. Programs are catalog rows, rails select rows
 - Language: add one language axis member, routing arm, and catalog rows.
 - Verb: add one registry bind and one owning params type.
 - Detail: add one tagged detail variant and union registration.
-- Aspect: add one layer, one slot, and one seam entry.
+- Aspect: add one `Slot` value only when needed, one `Layer` or `SpawnLayer`, and one `_RAIL_LAYERS` or `_spawn` composition entry.
 - Automation trigger or action: add one tagged union case.
 - In-process tool: add one catalog row with a thunk folded through the same engine rail.
+- Runtime backend or storage behavior: extend settings, store/scope, engine execution, history persistence, and envelope/artifact rows before adding a command, flag, helper module, wrapper service, or parallel store type.
+- External tool, backend, filesystem, subprocess, and provider names convert at registry, settings, store, engine, and envelope boundaries. Internal Assay code uses canonical axis values, typed details, artifact rows, and result rails; public output does not expose provider selectors, backend modes, or wrapper service names unless `README.md` proves operator action changes.
 
 ## [4][ENGINEERING_RULES]
 
 - Axis enums carry behavior payloads; do not split vocabulary, CLI tokens, wire values, and match keys into parallel types.
 - One report, detail, envelope, artifact, match, count, bind, and params model crosses rails unless a new tagged case is the required extension.
-- Keep registration data-driven. Data rows and folds own behavior; decorators and helper modules are rejected indirection.
+- Keep registration data-driven. Data rows and folds own behavior; ad hoc decorators and helper modules are rejected indirection.
 - Keep stdout writes behind the one emitter and keep diagnostics on stderr.
-- Improve tools through deeper internal behavior, resilience, routing, and typed failure, not agent-facing knobs.
+- Improve tools through deeper internal behavior, resilience, routing, and typed failure, not agent-facing knobs, backend-branded commands, or provider selectors.
 - Cap inline collections only when the wire marks truncation and points to the persisted full artifact.
 
 ## [5][BOUNDARY_RULES]
@@ -56,7 +61,8 @@ Assay is one engine over data rows. Programs are catalog rows, rails select rows
 - No stdout writes outside the emitter.
 - No glob-as-path argument for tools that walk their own tree.
 - No runtime-shape annotations hidden under `TYPE_CHECKING` when call-time validation needs them.
+- No backend-branded command, storage helper, provider selector, cloud-mode flag, or parallel artifact/report shape when the existing settings, store, engine, history, envelope, and artifact owners can absorb the behavior.
 
 ## [7][STOP_RULES]
 
-Static checks are not enough for `.py` behavior changes. If the changed rail cannot be exercised through a runtime smoke path, state the gap instead of claiming operator readiness.
+If a `.py` behavior change cannot be exercised through its consuming rail, `REGISTRY` bind, `TOOLS` selection, `Envelope` emission, `ArtifactStore` history, or automation `Trigger`/`Action` fire, state the proof gap instead of claiming operator readiness.
