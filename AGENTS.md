@@ -32,6 +32,7 @@ Use repository-native discovery before broad scans:
 - Monorepo topology: Nx metadata and affected logic before workspace-wide edits.
 
 Read full target files before editing. Read minimal surrounding files needed to prove ownership, existing patterns, and route conflicts.
+For declaration-order passes, split dense generated entry groups by entry while preserving semantic/key bands; keep one-entry generated owners compact unless owner-local fields or dependency order need expansion.
 
 ## [4][ENGINEERING_CONTRACT]
 

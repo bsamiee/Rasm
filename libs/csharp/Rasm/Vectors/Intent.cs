@@ -58,10 +58,10 @@ public abstract partial record VectorIntent {
     }
     public static Fin<VectorIntent> Probe(ExtractionProbe source, Point3d sample, Op? key = null) =>
         Extraction.Probe(source: source, sample: sample, key: key).Map(static value => (VectorIntent)new ExtractionCase(Value: value));
-    public static Fin<VectorIntent> IsoSurface(ScalarField field, BoundingBox bounds, int resolution, int maxRootSteps, Op? key = null) =>
-        Extraction.IsoSurface(field: field, bounds: bounds, resolution: resolution, maxRootSteps: maxRootSteps, key: key).Map(static value => (VectorIntent)new ExtractionCase(Value: value));
     public static Fin<VectorIntent> Contour(ExtractionDomain domain, ContourPolicy policy, Op? key = null) =>
         Extraction.Contour(domain: domain, policy: policy, key: key).Map(static value => (VectorIntent)new ExtractionCase(Value: value));
+    public static Fin<VectorIntent> IsoSurface(ScalarField field, BoundingBox bounds, int resolution, int maxRootSteps, Op? key = null) =>
+        Extraction.IsoSurface(field: field, bounds: bounds, resolution: resolution, maxRootSteps: maxRootSteps, key: key).Map(static value => (VectorIntent)new ExtractionCase(Value: value));
     public static Fin<VectorIntent> Glyph(VectorField field, ExtractionDomain domain, GlyphPolicy policy, Op? key = null) =>
         Extraction.Glyph(field: field, domain: domain, policy: policy, key: key).Map(static value => (VectorIntent)new ExtractionCase(Value: value));
     public static Fin<VectorIntent> SampleGrid(ScalarField field, ExtractionDomain domain, GridPolicy policy, Op? key = null) =>

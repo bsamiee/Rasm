@@ -27,7 +27,9 @@ public sealed partial class EigenSolvePath {
 
 [SmartEnum<int>]
 public sealed partial class EigenSolveStop {
-    public static readonly EigenSolveStop DirectSolved = new(key: 0, isUsable: true), ResidualConverged = new(key: 1, isUsable: true), MaxIterationsExhausted = new(key: 2, isUsable: false);
+    public static readonly EigenSolveStop DirectSolved = new(key: 0, isUsable: true);
+    public static readonly EigenSolveStop ResidualConverged = new(key: 1, isUsable: true);
+    public static readonly EigenSolveStop MaxIterationsExhausted = new(key: 2, isUsable: false);
     public bool IsUsable { get; }
 }
 
@@ -55,7 +57,10 @@ public sealed partial class SolvePath {
 
 [SmartEnum<int>]
 public sealed partial class SolveStop {
-    public static readonly SolveStop DirectSolved = new(key: 0, isUsable: true), LeastSquaresSolved = new(key: 1, isUsable: true), ResidualConverged = new(key: 2, isUsable: true), DirectFallbackSolved = new(key: 3, isUsable: true);
+    public static readonly SolveStop DirectSolved = new(key: 0, isUsable: true);
+    public static readonly SolveStop LeastSquaresSolved = new(key: 1, isUsable: true);
+    public static readonly SolveStop ResidualConverged = new(key: 2, isUsable: true);
+    public static readonly SolveStop DirectFallbackSolved = new(key: 3, isUsable: true);
     public bool IsUsable { get; }
 }
 
@@ -63,9 +68,6 @@ public sealed partial class SolveStop {
 [BoundaryAdapter, StructLayout(LayoutKind.Auto)]
 public readonly record struct Matrix(Dimension Rows, Dimension Cols, Arr<double> Entries) {
     public bool IsValid => Entries.Count == Rows.Value * Cols.Value && Entries.All(RhinoMath.IsValidDouble);
-    internal double At(int i, int j) => Entries[(i * Cols.Value) + j];
-    internal Matrix With(int i, int j, double value) =>
-        this with { Entries = Entries.SetItem((i * Cols.Value) + j, value) };
     public static Fin<Matrix> Of(Dimension rows, Dimension cols, Arr<double> entries, Op? key = null) =>
         from _ in guard(entries.Count == rows.Value * cols.Value && entries.All(RhinoMath.IsValidDouble), key.OrDefault().InvalidInput()).ToFin()
         select new Matrix(Rows: rows, Cols: cols, Entries: entries);
@@ -101,15 +103,14 @@ public readonly record struct Matrix(Dimension Rows, Dimension Cols, Arr<double>
             : MatrixKernel.DenseResult(source: this, rows: Rows, cols: Cols, key: key.OrDefault(), project: static matrix => matrix.Inverse());
     public Fin<Matrix> PseudoInverse(Op? key = null) =>
         MatrixKernel.DenseResult(source: this, rows: Cols, cols: Rows, key: key.OrDefault(), project: static matrix => matrix.PseudoInverse());
+    internal double At(int i, int j) => Entries[(i * Cols.Value) + j];
+    internal Matrix With(int i, int j, double value) =>
+        this with { Entries = Entries.SetItem((i * Cols.Value) + j, value) };
 }
 
 [BoundaryAdapter, StructLayout(LayoutKind.Auto)]
 public readonly record struct SymmetricMatrix(Dimension Dimension, Arr<double> Upper) {
     public bool IsValid => Upper.Count == (Dimension.Value * (Dimension.Value + 1) / 2) && Upper.All(RhinoMath.IsValidDouble);
-    internal double At(int i, int j) => Upper[FlatIndex(n: Dimension.Value, i: Math.Min(val1: i, val2: j), j: Math.Max(val1: i, val2: j))];
-    internal SymmetricMatrix With(int i, int j, double value) =>
-        this with { Upper = Upper.SetItem(FlatIndex(n: Dimension.Value, i: Math.Min(val1: i, val2: j), j: Math.Max(val1: i, val2: j)), value) };
-    private static int FlatIndex(int n, int i, int j) => (i * n) - (i * (i - 1) / 2) + (j - i);
     public static Fin<SymmetricMatrix> Of(Dimension dim, Arr<double> upper, Op? key = null) =>
         from _ in guard(upper.Count == dim.Value * (dim.Value + 1) / 2 && upper.All(RhinoMath.IsValidDouble), key.OrDefault().InvalidInput()).ToFin()
         select new SymmetricMatrix(Dimension: dim, Upper: upper);
@@ -124,6 +125,10 @@ public readonly record struct SymmetricMatrix(Dimension Dimension, Arr<double> U
         MatrixKernel.SymmetricEigen(matrix: this, key: key.OrDefault());
     public Fin<CholeskyResult> DecomposeCholesky(Op? key = null) =>
         MatrixKernel.Cholesky(matrix: this, key: key.OrDefault());
+    internal double At(int i, int j) => Upper[FlatIndex(n: Dimension.Value, i: Math.Min(val1: i, val2: j), j: Math.Max(val1: i, val2: j))];
+    internal SymmetricMatrix With(int i, int j, double value) =>
+        this with { Upper = Upper.SetItem(FlatIndex(n: Dimension.Value, i: Math.Min(val1: i, val2: j), j: Math.Max(val1: i, val2: j)), value) };
+    private static int FlatIndex(int n, int i, int j) => (i * n) - (i * (i - 1) / 2) + (j - i);
 }
 
 [BoundaryAdapter, StructLayout(LayoutKind.Auto)]
@@ -152,6 +157,7 @@ public readonly record struct SparseMatrix(Dimension Rows, Dimension Cols, Arr<i
 
 [BoundaryAdapter, StructLayout(LayoutKind.Auto)]
 public readonly record struct SparseHermitian(Dimension Order, Arr<int> RowPtr, Arr<int> ColInd, Arr<Complex> Values) {
+    // Upper-triangular storage; Multiply reconstructs the lower triangle by conjugate transpose.
     public bool IsValid => RowPtr.Count == Order.Value + 1 && ColInd.Count == Values.Count && Values.All(static c => RhinoMath.IsValidDouble(c.Real) && RhinoMath.IsValidDouble(c.Imaginary)) && RowPtr[0] == 0 && RowPtr[Order.Value] == Values.Count && SparseMatrix.RowPointersAreMonotone(RowPtr) && SparseMatrix.RowColumnsAreStrict(rowPtr: RowPtr, colInd: ColInd, minCol: static row => row, maxCol: Order.Value) && DiagonalIsReal;
     public int NonZeros => Values.Count;
     public static Fin<SparseHermitian> FromTriplets(Dimension order, IEnumerable<(int Row, int Col, Complex Value)> upperTriplets, Op? key = null) { Op op = key.OrDefault(); return Optional(upperTriplets).ToFin(op.InvalidInput()).Bind(active => MatrixKernel.AssembleHermitian(order: order, triplets: active, op: op)); }
@@ -178,8 +184,6 @@ public readonly record struct SolveReceipt(Arr<double> Solution, SolvePath Path,
         && Solution.ForAll(RhinoMath.IsValidDouble);
 }
 
-// Upper-triangular storage; Multiply reconstructs the lower triangle by conjugate transpose.
-
 public readonly record struct EigenSolveReceipt<TEigen, TVector>(Seq<(TEigen Eigenvalue, TVector Eigenvector)> Pairs, EigenSolvePath Path, EigenSolveStop Stop, int RequestedPairs, int ReturnedPairs, Option<int> Iterations, Option<int> MaxIterations, Option<double> Tolerance, double MaxResidual, Option<int> FactorNonZeros = default) {
     public bool IsUsable =>
         Stop.IsUsable
@@ -190,47 +194,7 @@ public readonly record struct EigenSolveReceipt<TEigen, TVector>(Seq<(TEigen Eig
 }
 
 [BoundaryAdapter, StructLayout(LayoutKind.Auto)]
-public readonly record struct CholeskyResult {
-    internal CholeskyResult(Matrix l, Matrix source, MathNet.Numerics.LinearAlgebra.Factorization.Cholesky<double> factor) { L = l; Source = source; Factor = factor; }
-    public Matrix L { get; }
-    public Matrix Source { get; }
-    internal MathNet.Numerics.LinearAlgebra.Factorization.Cholesky<double> Factor { get; }
-    public bool IsValid => L.IsValid && Source.IsValid && L.Rows.Value == L.Cols.Value && Source.Rows.Value == Source.Cols.Value;
-    public Fin<SolveReceipt> SolveDetailed(Arr<double> rhs, Op? key = null) =>
-        MatrixKernel.CholeskySolve(cholesky: this, rhs: rhs, key: key.OrDefault());
-}
-
-[BoundaryAdapter]
-public sealed record CholeskySparse {
-    private CholeskySparse(SparseMatrix source, CSparse.Double.Factorization.SparseCholesky factor, Dimension order) { Source = source; Factor = factor; Order = order; }
-    public SparseMatrix Source { get; }
-    internal CSparse.Double.Factorization.SparseCholesky Factor { get; }
-    public Dimension Order { get; }
-    public int FactorNonZeros => Factor.NonZerosCount;
-    public bool IsValid => Source.IsValid && Factor.NonZerosCount > 0 && Order.Value > 0;
-    public static Fin<CholeskySparse> Of(SparseMatrix symmetric, Op? key = null) =>
-        symmetric.Rows.Value != symmetric.Cols.Value || !symmetric.IsValid
-            ? Fin.Fail<CholeskySparse>(error: key.OrDefault().InvalidInput())
-            : from csc in MatrixKernel.ToCSparseSymmetric(s: symmetric, key: key.OrDefault())
-              from factor in key.OrDefault().Catch(() => {
-                  CSparse.Double.Factorization.SparseCholesky factor = CSparse.Double.Factorization.SparseCholesky.Create(A: csc, order: CSparse.ColumnOrdering.MinimumDegreeAtPlusA);
-                  return Fin.Succ(factor);
-              })
-              select new CholeskySparse(source: symmetric, factor: factor, order: symmetric.Rows);
-    public Fin<Arr<double>> Solve(Arr<double> rhs, Op? key = null) =>
-        SolveDetailed(rhs: rhs, key: key.OrDefault()).Map(static receipt => receipt.Solution);
-    public Fin<SolveReceipt> SolveDetailed(Arr<double> rhs, Op? key = null) =>
-        !IsValid || !MatrixKernel.SolveInputIsValid(rows: Order.Value, rhs: rhs)
-            ? Fin.Fail<SolveReceipt>(error: key.OrDefault().InvalidInput())
-            : key.OrDefault().Catch(() => {
-                double[] b = [.. rhs.AsIterable()];
-                double[] x = new double[Order.Value];
-                Factor.Solve(input: b.AsSpan(), result: x.AsSpan());
-                Arr<double> solution = new(x);
-                return MatrixKernel.SparseSymmetricResidual(matrix: Source, solution: solution, rhs: rhs, key: key.OrDefault()).Bind(residual =>
-                    MatrixKernel.SolveSuccess(solution: solution, solutionLength: Order.Value, path: SolvePath.SparseCholesky, stop: SolveStop.DirectSolved, rows: Source.Rows, cols: Source.Cols, rhsLength: rhs.Count, residual: residual, key: key.OrDefault(), inputNonZeros: Some(Source.NonZeros), factorNonZeros: Some(Factor.NonZerosCount)));
-            });
-}
+public readonly record struct SvdResult(Matrix U, Arr<double> Sigma, Matrix V, int Rank) { public bool IsValid => U.IsValid && V.IsValid && Sigma.All(static value => RhinoMath.IsValidDouble(x: value) && value >= 0.0); }
 
 [BoundaryAdapter, StructLayout(LayoutKind.Auto)]
 public readonly record struct LuResult {
@@ -247,11 +211,50 @@ public readonly record struct LuResult {
 public readonly record struct QrResult(Matrix Q, Matrix R) { public bool IsValid => Q.IsValid && R.IsValid; }
 
 [BoundaryAdapter, StructLayout(LayoutKind.Auto)]
-public readonly record struct SvdResult(Matrix U, Arr<double> Sigma, Matrix V, int Rank) { public bool IsValid => U.IsValid && V.IsValid && Sigma.All(static value => RhinoMath.IsValidDouble(x: value) && value >= 0.0); }
+public readonly record struct CholeskyResult {
+    internal CholeskyResult(Matrix l, Matrix source, MathNet.Numerics.LinearAlgebra.Factorization.Cholesky<double> factor) { L = l; Source = source; Factor = factor; }
+    public Matrix L { get; }
+    public Matrix Source { get; }
+    internal MathNet.Numerics.LinearAlgebra.Factorization.Cholesky<double> Factor { get; }
+    public bool IsValid => L.IsValid && Source.IsValid && L.Rows.Value == L.Cols.Value && Source.Rows.Value == Source.Cols.Value;
+    public Fin<SolveReceipt> SolveDetailed(Arr<double> rhs, Op? key = null) =>
+        MatrixKernel.CholeskySolve(cholesky: this, rhs: rhs, key: key.OrDefault());
+}
+
+[BoundaryAdapter]
+public sealed record CholeskySparse {
+    private CholeskySparse(SparseMatrix source, CSparse.Double.Factorization.SparseCholesky factor, Dimension order) { Source = source; Factor = factor; Order = order; }
+    public static Fin<CholeskySparse> Of(SparseMatrix symmetric, Op? key = null) =>
+        symmetric.Rows.Value != symmetric.Cols.Value || !symmetric.IsValid
+            ? Fin.Fail<CholeskySparse>(error: key.OrDefault().InvalidInput())
+            : from csc in MatrixKernel.ToCSparseSymmetric(s: symmetric, key: key.OrDefault())
+              from factor in key.OrDefault().Catch(() => {
+                  CSparse.Double.Factorization.SparseCholesky factor = CSparse.Double.Factorization.SparseCholesky.Create(A: csc, order: CSparse.ColumnOrdering.MinimumDegreeAtPlusA);
+                  return Fin.Succ(factor);
+              })
+              select new CholeskySparse(source: symmetric, factor: factor, order: symmetric.Rows);
+    public SparseMatrix Source { get; }
+    internal CSparse.Double.Factorization.SparseCholesky Factor { get; }
+    public Dimension Order { get; }
+    public int FactorNonZeros => Factor.NonZerosCount;
+    public bool IsValid => Source.IsValid && Factor.NonZerosCount > 0 && Order.Value > 0;
+    public Fin<Arr<double>> Solve(Arr<double> rhs, Op? key = null) =>
+        SolveDetailed(rhs: rhs, key: key.OrDefault()).Map(static receipt => receipt.Solution);
+    public Fin<SolveReceipt> SolveDetailed(Arr<double> rhs, Op? key = null) =>
+        !IsValid || !MatrixKernel.SolveInputIsValid(rows: Order.Value, rhs: rhs)
+            ? Fin.Fail<SolveReceipt>(error: key.OrDefault().InvalidInput())
+            : key.OrDefault().Catch(() => {
+                double[] b = [.. rhs.AsIterable()];
+                double[] x = new double[Order.Value];
+                Factor.Solve(input: b.AsSpan(), result: x.AsSpan());
+                Arr<double> solution = new(x);
+                return MatrixKernel.SparseSymmetricResidual(matrix: Source, solution: solution, rhs: rhs, key: key.OrDefault()).Bind(residual =>
+                    MatrixKernel.SolveSuccess(solution: solution, solutionLength: Order.Value, path: SolvePath.SparseCholesky, stop: SolveStop.DirectSolved, rows: Source.Rows, cols: Source.Cols, rhsLength: rhs.Count, residual: residual, key: key.OrDefault(), inputNonZeros: Some(Source.NonZeros), factorNonZeros: Some(Factor.NonZerosCount)));
+            });
+}
 
 // --- [OPERATIONS] -------------------------------------------------------------------------
 internal static class MatrixKernel {
-    private const int RealInitialBasisSeed = 17, HermitianInitialBasisSeed = 19;
     private static Fin<List<(int Row, int Col, double Value)>> NormalizeSymmetricUpperEntries(SparseMatrix s, Op key) {
         if (!s.IsValid || s.Rows.Value != s.Cols.Value) return Fin.Fail<List<(int Row, int Col, double Value)>>(key.InvalidInput());
         List<(int Row, int Col, double[] Values)> grouped = [.. Enumerable.Range(start: 0, count: s.Rows.Value)
@@ -437,6 +440,13 @@ internal static class MatrixKernel {
                     .Select(i => (Eigenvalue: evd.EigenValues[i], Eigenvector: ArrFromComplexVector(evd.EigenVectors.Column(i)))));
                 return EigenReceiptOf(pairs: pairs, path: EigenSolvePath.DenseGeneralEvd, stop: EigenSolveStop.DirectSolved, requestedPairs: n, maxResidual: ComplexEigenResidual(a: mathNet, pairs: pairs), key: key);
             });
+    // --- [DENSE_INVARIANTS] ------------------------------------------------------------------
+    internal static Fin<double> Determinant(Matrix matrix, Op key) =>
+        !matrix.IsValid || matrix.Rows.Value != matrix.Cols.Value
+            ? Fin.Fail<double>(error: key.InvalidInput())
+            : key.Catch(() => key.AcceptValue(value: ToMathNet(matrix).Determinant()));
+
+    // --- [DENSE_SOLVES] ----------------------------------------------------------------------
     internal static Fin<SolveReceipt> Solve(Matrix matrix, Arr<double> rhs, Op key) =>
         DenseSolveGated(source: matrix, rhs: rhs, key: key, square: true, solve: static (source, right, op) => Lu(matrix: source, key: op).Bind(lu => LuSolve(lu: lu, rhs: right, key: op)));
     internal static Fin<SolveReceipt> LeastSquares(Matrix matrix, Arr<double> rhs, Op key) =>
@@ -449,11 +459,6 @@ internal static class MatrixKernel {
         !lu.IsValid
             ? Fin.Fail<SolveReceipt>(key.InvalidInput())
             : DenseSolveGated(source: lu.Source, rhs: rhs, key: key, square: true, solve: (_, right, op) => DenseSolve(source: lu.Source, rhs: right, key: op, path: SolvePath.DenseLu, stop: SolveStop.DirectSolved, solve: new Func<LinearVector, LinearVector>(lu.Factor.Solve), residualCap: Math.Sqrt(RhinoMath.SqrtEpsilon)));
-    internal static Fin<double> Determinant(Matrix matrix, Op key) =>
-        !matrix.IsValid || matrix.Rows.Value != matrix.Cols.Value
-            ? Fin.Fail<double>(error: key.InvalidInput())
-            : key.Catch(() => key.AcceptValue(value: ToMathNet(matrix).Determinant()));
-    // --- [DENSE_CHOLESKY_SOLVE] -------------------------------------------------------------
     internal static Fin<SolveReceipt> CholeskySolve(CholeskyResult cholesky, Arr<double> rhs, Op key) =>
         !cholesky.IsValid
             ? Fin.Fail<SolveReceipt>(key.InvalidInput())
@@ -495,6 +500,12 @@ internal static class MatrixKernel {
         SparseHermitian result = new(Order: order, RowPtr: rowPtr, ColInd: colInd, Values: values);
         return result.IsValid ? Fin.Succ(result) : Fin.Fail<SparseHermitian>(op.InvalidResult());
     }
+    internal static void AddHermitianRealBlockTriplets(List<(int Row, int Col, double Value)> triplets, int order, int i, int j, double real, double imaginary, double diagonal) =>
+        triplets.AddRange([
+            (i, i, diagonal), (j, j, diagonal), (i + order, i + order, diagonal), (j + order, j + order, diagonal),
+            (i, j, real), (j, i, real), (i + order, j + order, real), (j + order, i + order, real),
+            (i, j + order, -imaginary), (j + order, i, -imaginary), (i + order, j, imaginary), (j, i + order, imaginary),
+        ]);
     private static (Arr<int> RowPtr, Arr<int> ColInd, Arr<T> Values) CompressRows<T>(int rowCount, List<(int Row, int Col, T Value)> sorted) {
         int[] rowPtr = new int[rowCount + 1];
         int[] colInd = new int[sorted.Count];
@@ -518,12 +529,6 @@ internal static class MatrixKernel {
             Arr<double> result when result.ForAll(RhinoMath.IsValidDouble) => Fin.Succ(result),
             _ => Fin.Fail<Arr<double>>(key.InvalidResult()),
         };
-    internal static void AddHermitianRealBlockTriplets(List<(int Row, int Col, double Value)> triplets, int order, int i, int j, double real, double imaginary, double diagonal) =>
-        triplets.AddRange([
-            (i, i, diagonal), (j, j, diagonal), (i + order, i + order, diagonal), (j + order, j + order, diagonal),
-            (i, j, real), (j, i, real), (i + order, j + order, real), (j + order, i + order, real),
-            (i, j + order, -imaginary), (j + order, i, -imaginary), (i + order, j, imaginary), (j, i + order, imaginary),
-        ]);
     internal static Fin<Arr<Complex>> HermitianMatVec(SparseHermitian self, Arr<Complex> x, Op key) =>
         ArrFromComplexVector(ToMathNetHermitian(s: self).Multiply(DenseVectorC.OfArray([.. x.AsIterable()]))) switch {
             Arr<Complex> result when result.ForAll(static value => RhinoMath.IsValidDouble(x: value.Real) && RhinoMath.IsValidDouble(x: value.Imaginary)) => Fin.Succ(result),
@@ -554,6 +559,7 @@ internal static class MatrixKernel {
                 double residual = RelativeResidual(a: A, x: x, b: b);
                 return SolveSuccess(solution: ArrFromVector(x), solutionLength: matrix.Cols.Value, path: iterativeConverged ? SolvePath.SparseBiCgStabDiagonal : SolvePath.SparseMathNetDirectFallback, stop: iterativeConverged ? SolveStop.ResidualConverged : SolveStop.DirectFallbackSolved, rows: matrix.Rows, cols: matrix.Cols, rhsLength: rhs.Count, residual: residual, key: key, residualCap: Math.Sqrt(RhinoMath.SqrtEpsilon), maxIterations: Some(iterationCap), tolerance: Some(RhinoMath.SqrtEpsilon), inputNonZeros: Some(matrix.NonZeros));
             });
+    // --- [GENERALIZED_EIGEN] -----------------------------------------------------------------
     internal static Fin<EigenSolveReceipt<double, Arr<double>>> GeneralizedEigenpairsDetailed(SparseMatrix stiffness, SparseMatrix mass, int k, Op key) =>
         !stiffness.IsValid || !mass.IsValid || stiffness.Rows.Value != stiffness.Cols.Value || mass.Rows.Value != mass.Cols.Value || stiffness.Rows.Value != mass.Rows.Value || k < 1 || k >= stiffness.Rows.Value
             ? Fin.Fail<EigenSolveReceipt<double, Arr<double>>>(key.InvalidInput())
@@ -656,6 +662,7 @@ internal static class MatrixKernel {
             .OrderBy(static p => p.Eigenvalue));
 
     // --- [LOBPCG_PRIMITIVES] ----------------------------------------------------------------
+    private const int RealInitialBasisSeed = 17, HermitianInitialBasisSeed = 19;
 #pragma warning disable CA5394 // Random is sufficient for LOBPCG initial guess; not security-sensitive.
     private static double NextSignedUnit(Random rng) => (rng.NextDouble() * 2.0) - 1.0;
     private static Complex NextSignedComplexUnit(Random rng) => new(real: NextSignedUnit(rng: rng), imaginary: NextSignedUnit(rng: rng));

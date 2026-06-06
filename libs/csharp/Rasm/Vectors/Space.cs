@@ -76,9 +76,25 @@ public sealed partial class SupportProjection {
 }
 
 // --- [MODELS] -----------------------------------------------------------------------------
+internal readonly record struct SupportProjectionState(SupportSpace Space, ClosestHit Hit, Point3d Sample, Context Context, Op Key, Type Output);
+
 [BoundaryAdapter]
 public sealed record SupportSpace {
     private SupportSpace(object value) => Value = value;
+    public static Fin<SupportSpace> Of(object? value, Op? key = null) {
+        Op op = key.OrDefault();
+        return value switch {
+            VectorCloud.ClusterCase cluster =>
+                from _ in cluster.Vertices.TraverseM(point => op.AcceptValue(value: point)).As()
+                from __ in CloudKernel.MassOf(cluster: cluster, key: op)
+                select new SupportSpace(value: cluster),
+            _ => from source in Optional(value).ToFin(op.InvalidInput())
+                 let type = source.GetType()
+                 from _ in guard(type != typeof(object) && type != typeof(GeometryBase) && GeometryKernel.CanClosest(type: type), op.Unsupported(type, typeof(ClosestHit)))
+                 from __ in SupportIsValid(source: source, key: op)
+                 select new SupportSpace(value: source),
+        };
+    }
     internal object Value { get; }
     internal Type SourceType => Value.GetType();
     internal bool CanClosestNormal => GeometryKernel.CanClosestNormal(type: SourceType);
@@ -94,20 +110,6 @@ public sealed record SupportSpace {
             Brep or Mesh => false,
             _ => AdmitsSignedDistance(hit: hit),
         };
-    public static Fin<SupportSpace> Of(object? value, Op? key = null) {
-        Op op = key.OrDefault();
-        return value switch {
-            VectorCloud.ClusterCase cluster =>
-                from _ in cluster.Vertices.TraverseM(point => op.AcceptValue(value: point)).As()
-                from __ in CloudKernel.MassOf(cluster: cluster, key: op)
-                select new SupportSpace(value: cluster),
-            _ => from source in Optional(value).ToFin(op.InvalidInput())
-                 let type = source.GetType()
-                 from _ in guard(type != typeof(object) && type != typeof(GeometryBase) && GeometryKernel.CanClosest(type: type), op.Unsupported(type, typeof(ClosestHit)))
-                 from __ in SupportIsValid(source: source, key: op)
-                 select new SupportSpace(value: source),
-        };
-    }
     private static Fin<Unit> SupportIsValid(object source, Op key) =>
         source switch {
             Plane plane => FieldNabla.Plane(basis: plane, key: key).Map(static _ => unit),
@@ -134,8 +136,6 @@ public sealed record SupportSpace {
 [BoundaryAdapter, StructLayout(LayoutKind.Auto)]
 public readonly record struct SurfaceSpace {
     private SurfaceSpace(Surface native, Context tolerance) { Native = native; Tolerance = tolerance; }
-    public Surface Native { get; }
-    public Context Tolerance { get; }
     public static Fin<SurfaceSpace> Of(Surface native, Context context, Op? key = null) {
         Op op = key.OrDefault();
         return from ctx in Optional(context).ToFin(op.MissingContext())
@@ -143,12 +143,11 @@ public readonly record struct SurfaceSpace {
                from active in FieldNabla.SurfaceNative(space: candidate, key: op)
                select new SurfaceSpace(native: active, tolerance: ctx);
     }
+    public Surface Native { get; }
+    public Context Tolerance { get; }
     internal Fin<TOut> Sample<TOut>(SurfaceProjection projection, double u, double v, Op? key = null) {
         Op op = key.OrDefault();
         Surface native = Native; Context tolerance = Tolerance;
         return Optional(projection).ToFin(op.InvalidInput()).Bind(p => p.Project<TOut>(surface: native, u: u, v: v, context: tolerance, key: op));
     }
 }
-
-// --- [OPERATIONS] -------------------------------------------------------------------------
-internal readonly record struct SupportProjectionState(SupportSpace Space, ClosestHit Hit, Point3d Sample, Context Context, Op Key, Type Output);

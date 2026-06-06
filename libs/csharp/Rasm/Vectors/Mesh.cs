@@ -14,13 +14,31 @@ public abstract partial record MeshDescriptor {
     public static MeshDescriptor Spectral(SpectralFilter filter, Option<Seq<int>> sources, SpectralDescriptorPolicy policy) => new SpectralCase(Filter: filter, Sources: sources, Policy: policy);
 }
 
-[SmartEnum<int>] public sealed partial class MeshFeatureAlgorithm { public static readonly MeshFeatureAlgorithm DihedralProxy = new(key: 0); }
+[SmartEnum<int>]
+public sealed partial class MeshLaplacian {
+    public static readonly MeshLaplacian Cotangent = new(key: 0, select: static (cache, key) => cache.Cotangent(key: key));
+    public static readonly MeshLaplacian IntrinsicDelaunay = new(key: 1, select: static (cache, key) => cache.IntrinsicDelaunay(key: key));
+    public static readonly MeshLaplacian TuftedIntrinsic = new(key: 2, select: static (cache, key) => cache.TuftedIntrinsic(key: key));
+    [UseDelegateFromConstructor] internal partial Fin<SparseLaplacian> Select(LaplacianCache cache, Op key);
+}
 
-[SmartEnum<int>] public sealed partial class MeshFeatureKind { public static readonly MeshFeatureKind Boundary = new(key: 0), Crease = new(key: 1), NonManifold = new(key: 2), Unwelded = new(key: 3), NgonInteriorSkipped = new(key: 4), Ridge = new(key: 5), Valley = new(key: 6), RegionBoundary = new(key: 7); }
+[SmartEnum<int>]
+public sealed partial class MeshFeatureAlgorithm { public static readonly MeshFeatureAlgorithm DihedralProxy = new(key: 0); }
 
-[SmartEnum<int>] public sealed partial class MeshLaplacian { public static readonly MeshLaplacian Cotangent = new(key: 0, select: static (cache, key) => cache.Cotangent(key: key)), IntrinsicDelaunay = new(key: 1, select: static (cache, key) => cache.IntrinsicDelaunay(key: key)), TuftedIntrinsic = new(key: 2, select: static (cache, key) => cache.TuftedIntrinsic(key: key)); [UseDelegateFromConstructor] internal partial Fin<SparseLaplacian> Select(LaplacianCache cache, Op key); }
+[SmartEnum<int>]
+public sealed partial class MeshFeatureKind {
+    public static readonly MeshFeatureKind Boundary = new(key: 0);
+    public static readonly MeshFeatureKind Crease = new(key: 1);
+    public static readonly MeshFeatureKind NonManifold = new(key: 2);
+    public static readonly MeshFeatureKind Unwelded = new(key: 3);
+    public static readonly MeshFeatureKind NgonInteriorSkipped = new(key: 4);
+    public static readonly MeshFeatureKind Ridge = new(key: 5);
+    public static readonly MeshFeatureKind Valley = new(key: 6);
+    public static readonly MeshFeatureKind RegionBoundary = new(key: 7);
+}
 
-[SmartEnum<int>] public sealed partial class MeshSamplingSpectrumAlgorithm { public static readonly MeshSamplingSpectrumAlgorithm CandidateSpectrum = new(key: 0); }
+[SmartEnum<int>]
+public sealed partial class MeshSamplingSpectrumAlgorithm { public static readonly MeshSamplingSpectrumAlgorithm CandidateSpectrum = new(key: 0); }
 
 [Union]
 public abstract partial record MeshSegmentation {
@@ -52,9 +70,21 @@ public abstract partial record MeshSegmentation {
             : Fin.Succ(values);
 }
 
-[SmartEnum<int>] public sealed partial class MeshSegmentationAlgorithm { public static readonly MeshSegmentationAlgorithm ScalarThresholdComponents = new(key: 0), ScalarBandComponents = new(key: 1), SeededRegionGrow = new(key: 2), DescriptorScalarClusters = new(key: 3), WatershedBasins = new(key: 4), NormalizedCut = new(key: 5); }
+[SmartEnum<int>]
+public sealed partial class MeshSegmentationAlgorithm {
+    public static readonly MeshSegmentationAlgorithm ScalarThresholdComponents = new(key: 0);
+    public static readonly MeshSegmentationAlgorithm ScalarBandComponents = new(key: 1);
+    public static readonly MeshSegmentationAlgorithm SeededRegionGrow = new(key: 2);
+    public static readonly MeshSegmentationAlgorithm DescriptorScalarClusters = new(key: 3);
+    public static readonly MeshSegmentationAlgorithm WatershedBasins = new(key: 4);
+    public static readonly MeshSegmentationAlgorithm NormalizedCut = new(key: 5);
+}
 
-[SmartEnum<int>] public sealed partial class MeshSegmentationStatus { public static readonly MeshSegmentationStatus Completed = new(key: 0), MaxIterationsExhausted = new(key: 1); }
+[SmartEnum<int>]
+public sealed partial class MeshSegmentationStatus {
+    public static readonly MeshSegmentationStatus Completed = new(key: 0);
+    public static readonly MeshSegmentationStatus MaxIterationsExhausted = new(key: 1);
+}
 
 [Union]
 public abstract partial record RemeshKind {
@@ -70,13 +100,25 @@ public abstract partial record RemeshKind {
         };
 }
 
-[SmartEnum<int>] public sealed partial class RemeshStatus { public static readonly RemeshStatus Completed = new(key: 0); }
+[SmartEnum<int>]
+public sealed partial class RemeshStatus { public static readonly RemeshStatus Completed = new(key: 0); }
 
-[SmartEnum<int>] public sealed partial class SdfMeshDomain { public static readonly SdfMeshDomain SurfaceMesh = new(key: 0), BoundarySource = new(key: 1), VolumeGrid = new(key: 2); }
+[SmartEnum<int>]
+public sealed partial class SdfMeshDomain {
+    public static readonly SdfMeshDomain SurfaceMesh = new(key: 0);
+    public static readonly SdfMeshDomain BoundarySource = new(key: 1);
+    public static readonly SdfMeshDomain VolumeGrid = new(key: 2);
+}
 
-[SmartEnum<int>] public sealed partial class SdfMeshStatus { public static readonly SdfMeshStatus ApproximateSignClosestDistance = new(key: 0), BoundarySourceSignedHeat = new(key: 1), ClosedSurfaceSignedHeat = new(key: 2); }
+[SmartEnum<int>]
+public sealed partial class SdfMeshStatus {
+    public static readonly SdfMeshStatus ApproximateSignClosestDistance = new(key: 0);
+    public static readonly SdfMeshStatus BoundarySourceSignedHeat = new(key: 1);
+    public static readonly SdfMeshStatus ClosedSurfaceSignedHeat = new(key: 2);
+}
 
-[SmartEnum<int>] public sealed partial class TangentLogMapAlgorithm { public static readonly TangentLogMapAlgorithm VectorHeatApproximate = new(key: 0); }
+[SmartEnum<int>]
+public sealed partial class TangentLogMapAlgorithm { public static readonly TangentLogMapAlgorithm VectorHeatApproximate = new(key: 0); }
 
 // --- [MODELS] -----------------------------------------------------------------------------
 [BoundaryAdapter, StructLayout(LayoutKind.Auto)]

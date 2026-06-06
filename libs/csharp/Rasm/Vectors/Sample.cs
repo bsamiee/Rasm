@@ -3,11 +3,40 @@ using Foundation.CSharp.Analyzers.Contracts;
 namespace Rasm.Vectors;
 
 // --- [TYPES] ------------------------------------------------------------------------------
-[SmartEnum<int>] public sealed partial class DworkSamplingDomain { public static readonly DworkSamplingDomain ContinuousMesh = new(key: 0), CandidateSet = new(key: 1); }
+[SmartEnum<int>]
+public sealed partial class DworkSamplingDomain {
+    public static readonly DworkSamplingDomain ContinuousMesh = new(key: 0);
+    public static readonly DworkSamplingDomain CandidateSet = new(key: 1);
+}
 
-[SmartEnum<int>] public sealed partial class SampleAlgorithmKind { public static readonly SampleAlgorithmKind Explicit = new(key: 0), BridsonActiveListPoisson = new(key: 1), FarthestCandidate = new(key: 2), FarthestOptimize = new(key: 3), LloydCandidateRelaxation = new(key: 4), CapacityLimitedLloydCandidate = new(key: 5), WeightedMassPropagation = new(key: 6), VariableDensityPoisson = new(key: 7), YukselWeightedSampleElimination = new(key: 8), DworkVariableDensity = new(key: 9); }
+[SmartEnum<int>]
+public sealed partial class SampleAlgorithmKind {
+    public static readonly SampleAlgorithmKind Explicit = new(key: 0);
+    public static readonly SampleAlgorithmKind BridsonActiveListPoisson = new(key: 1);
+    public static readonly SampleAlgorithmKind FarthestCandidate = new(key: 2);
+    public static readonly SampleAlgorithmKind FarthestOptimize = new(key: 3);
+    public static readonly SampleAlgorithmKind LloydCandidateRelaxation = new(key: 4);
+    public static readonly SampleAlgorithmKind CapacityLimitedLloydCandidate = new(key: 5);
+    public static readonly SampleAlgorithmKind WeightedMassPropagation = new(key: 6);
+    public static readonly SampleAlgorithmKind VariableDensityPoisson = new(key: 7);
+    public static readonly SampleAlgorithmKind YukselWeightedSampleElimination = new(key: 8);
+    public static readonly SampleAlgorithmKind DworkVariableDensity = new(key: 9);
+}
 
-[SmartEnum<int>] public sealed partial class SampleDomainStatus { public static readonly SampleDomainStatus Projected = new(key: 0), CandidateAccepted = new(key: 1), CandidateRejected = new(key: 2); }
+[SmartEnum<int>]
+public sealed partial class SampleDomainStatus {
+    public static readonly SampleDomainStatus Projected = new(key: 0);
+    public static readonly SampleDomainStatus CandidateAccepted = new(key: 1);
+    public static readonly SampleDomainStatus CandidateRejected = new(key: 2);
+}
+
+[SmartEnum<int>]
+public sealed partial class SampleStopKind {
+    public static readonly SampleStopKind Completed = new(key: 0);
+    public static readonly SampleStopKind CapacityLimited = new(key: 1);
+    public static readonly SampleStopKind AllRejected = new(key: 2);
+    public static readonly SampleStopKind CandidateExhausted = new(key: 3);
+}
 
 [Union]
 public abstract partial record SampleKind {
@@ -41,24 +70,12 @@ public abstract partial record SampleKind {
                from tol in op.AcceptValidated<PositiveMagnitude>(candidate: tolerance)
                select (SampleKind)new CapacityCase(count: c, limit: limit, iterations: iter, tolerance: tol);
     }
-    private static Fin<SampleKind> Counted(int count, int value, Func<Dimension, Dimension, SampleKind> create, Op? key) =>
-        key.OrDefault().AcceptValidated<Dimension>(candidate: count).Bind(c => key.OrDefault().AcceptValidated<Dimension>(candidate: value).Map(v => create(arg1: c, arg2: v)));
     public static Fin<SampleKind> Weighted(Seq<(Point3d Point, double Mass)> points, Op? key = null) {
         Op op = key.OrDefault();
         return points.IsEmpty
             ? Fin.Fail<SampleKind>(op.InvalidInput())
             : CloudKernel.MassOf(mass: new Arr<double>([.. points.AsIterable().Select(static item => item.Mass)]), count: points.Count, key: op)
                 .Map(_ => (SampleKind)new WeightedCase(points: points));
-    }
-    public static Fin<SampleKind> ScalarDensity(ScalarField density, int count, Op? key = null) => Optional(density).ToFin(key.OrDefault().InvalidInput()).Bind(active => key.OrDefault().AcceptValidated<Dimension>(candidate: count).Map(c => (SampleKind)new ScalarDensityCase(density: active, count: c)));
-    public static Fin<SampleKind> Adaptive(ScalarField density, int count, double minSpacing, Op? key = null) => Optional(density).ToFin(key.OrDefault().InvalidInput()).Bind(active => key.OrDefault().AcceptValidated<Dimension>(candidate: count).Bind(c => key.OrDefault().AcceptValidated<PositiveMagnitude>(candidate: minSpacing).Map(spacing => (SampleKind)new AdaptiveCase(density: active, count: c, minSpacing: spacing))));
-    public static Fin<SampleKind> DworkVariableDensity(ScalarField radius, int count, double minRadius, int attempts = 30, int seed = 0, Op? key = null) {
-        Op op = key.OrDefault();
-        return from active in Optional(radius).ToFin(op.InvalidInput())
-               from c in op.AcceptValidated<Dimension>(candidate: count)
-               from min in op.AcceptValidated<PositiveMagnitude>(candidate: minRadius)
-               from a in op.AcceptValidated<Dimension>(candidate: attempts)
-               select (SampleKind)new DworkVariableDensityCase(radius: active, count: c, minRadius: min, attempts: a, seed: seed);
     }
     public static Fin<SampleKind> SampleElimination(int count, int oversampleFactor, double alpha, double beta, double gamma, int seed, Op? key = null) {
         Op op = key.OrDefault();
@@ -69,6 +86,16 @@ public abstract partial record SampleKind {
                from g in op.AcceptValidated<PositiveMagnitude>(candidate: gamma)
                from _ in guard(oversample.Value > 1 && b.Value <= 1.0, op.InvalidInput())
                select (SampleKind)new SampleEliminationCase(count: c, oversampleFactor: oversample, alpha: a, beta: b, gamma: g, seed: seed);
+    }
+    public static Fin<SampleKind> ScalarDensity(ScalarField density, int count, Op? key = null) => Optional(density).ToFin(key.OrDefault().InvalidInput()).Bind(active => key.OrDefault().AcceptValidated<Dimension>(candidate: count).Map(c => (SampleKind)new ScalarDensityCase(density: active, count: c)));
+    public static Fin<SampleKind> Adaptive(ScalarField density, int count, double minSpacing, Op? key = null) => Optional(density).ToFin(key.OrDefault().InvalidInput()).Bind(active => key.OrDefault().AcceptValidated<Dimension>(candidate: count).Bind(c => key.OrDefault().AcceptValidated<PositiveMagnitude>(candidate: minSpacing).Map(spacing => (SampleKind)new AdaptiveCase(density: active, count: c, minSpacing: spacing))));
+    public static Fin<SampleKind> DworkVariableDensity(ScalarField radius, int count, double minRadius, int attempts = 30, int seed = 0, Op? key = null) {
+        Op op = key.OrDefault();
+        return from active in Optional(radius).ToFin(op.InvalidInput())
+               from c in op.AcceptValidated<Dimension>(candidate: count)
+               from min in op.AcceptValidated<PositiveMagnitude>(candidate: minRadius)
+               from a in op.AcceptValidated<Dimension>(candidate: attempts)
+               select (SampleKind)new DworkVariableDensityCase(radius: active, count: c, minRadius: min, attempts: a, seed: seed);
     }
     internal Fin<SampleKind> Admit(Op key) => this switch {
         ExplicitCase c => c.Points.IsEmpty ? Fin.Fail<SampleKind>(key.InvalidInput()) : Fin.Succ(this),
@@ -127,9 +154,9 @@ public abstract partial record SampleKind {
             ? key.AcceptValue(value: Math.Max(val1: target / safeArea, val2: 1.0 / safeArea))
             : Fin.Fail<double>(key.Unsupported(geometryType: GetType(), outputType: typeof(SampleResult)));
     }
+    private static Fin<SampleKind> Counted(int count, int value, Func<Dimension, Dimension, SampleKind> create, Op? key) =>
+        key.OrDefault().AcceptValidated<Dimension>(candidate: count).Bind(c => key.OrDefault().AcceptValidated<Dimension>(candidate: value).Map(v => create(arg1: c, arg2: v)));
 }
-
-[SmartEnum<int>] public sealed partial class SampleStopKind { public static readonly SampleStopKind Completed = new(key: 0), CapacityLimited = new(key: 1), AllRejected = new(key: 2), CandidateExhausted = new(key: 3); }
 
 // --- [MODELS] -----------------------------------------------------------------------------
 [BoundaryAdapter, StructLayout(LayoutKind.Auto)]

@@ -3,34 +3,45 @@ using Foundation.CSharp.Analyzers.Contracts;
 namespace Rasm.Vectors;
 
 // --- [TYPES] ------------------------------------------------------------------------------
-[BoundaryAdapter, SmartEnum<int>]
-public sealed partial class BoundarySense { public static readonly BoundarySense Toward = new(key: 1, sign: 1.0), Away = new(key: -1, sign: -1.0); public double Sign { get; } }
-
 [ValueObject<int>(KeyMemberName = "Value", KeyMemberAccessModifier = AccessModifier.Public)]
 public readonly partial struct Dimension { [BoundaryAdapter] static partial void ValidateFactoryArguments(ref ValidationError? validationError, ref int value) => validationError = value >= 1 ? null : new ValidationError(message: string.Create(CultureInfo.InvariantCulture, $"Dimension must be >= 1 (got {value}).")); }
 
 [ValueObject<double>(KeyMemberName = "Value", KeyMemberAccessModifier = AccessModifier.Public)]
 public readonly partial struct PositiveMagnitude { [BoundaryAdapter] static partial void ValidateFactoryArguments(ref ValidationError? validationError, ref double value) => validationError = RhinoMath.IsValidDouble(x: value) && value > RhinoMath.ZeroTolerance ? null : new ValidationError(message: string.Create(CultureInfo.InvariantCulture, $"PositiveMagnitude requires a positive finite value (got {value:R}).")); }
 
+[ValueObject<double>(KeyMemberName = "Value", KeyMemberAccessModifier = AccessModifier.Public)]
+public readonly partial struct UnitInterval { [BoundaryAdapter] static partial void ValidateFactoryArguments(ref ValidationError? validationError, ref double value) => validationError = RhinoMath.IsValidDouble(x: value) && value is >= 0.0 and <= 1.0 ? null : new ValidationError(message: string.Create(CultureInfo.InvariantCulture, $"UnitInterval must be in [0,1] (got {value:R}).")); }
+
+[BoundaryAdapter, SmartEnum<int>]
+public sealed partial class BoundarySense {
+    public static readonly BoundarySense Toward = new(key: 1, sign: 1.0);
+    public static readonly BoundarySense Away = new(key: -1, sign: -1.0);
+    public double Sign { get; }
+}
+
 [SmartEnum<int>]
 public sealed partial class SignedAxis {
-    public static readonly SignedAxis NegativeX = new(key: -1, world: -Vector3d.XAxis, axis: static frame => -frame.XAxis), PositiveX = new(key: 1, world: Vector3d.XAxis, axis: static frame => frame.XAxis);
-    public static readonly SignedAxis NegativeY = new(key: -2, world: -Vector3d.YAxis, axis: static frame => -frame.YAxis), PositiveY = new(key: 2, world: Vector3d.YAxis, axis: static frame => frame.YAxis);
-    public static readonly SignedAxis NegativeZ = new(key: -3, world: -Vector3d.ZAxis, axis: static frame => -frame.ZAxis), PositiveZ = new(key: 3, world: Vector3d.ZAxis, axis: static frame => frame.ZAxis);
+    public static readonly SignedAxis NegativeX = new(key: -1, world: -Vector3d.XAxis, axis: static frame => -frame.XAxis);
+    public static readonly SignedAxis PositiveX = new(key: 1, world: Vector3d.XAxis, axis: static frame => frame.XAxis);
+    public static readonly SignedAxis NegativeY = new(key: -2, world: -Vector3d.YAxis, axis: static frame => -frame.YAxis);
+    public static readonly SignedAxis PositiveY = new(key: 2, world: Vector3d.YAxis, axis: static frame => frame.YAxis);
+    public static readonly SignedAxis NegativeZ = new(key: -3, world: -Vector3d.ZAxis, axis: static frame => -frame.ZAxis);
+    public static readonly SignedAxis PositiveZ = new(key: 3, world: Vector3d.ZAxis, axis: static frame => frame.ZAxis);
     public Vector3d World { get; }
     internal Vector3d Of(Option<Plane> frame) => frame.Map(Axis).IfNone(World);
     internal static Seq<SignedAxis> Cardinal(bool planar) => toSeq(Items).Filter(axis => !planar || Math.Abs(value: axis.Key) < PositiveZ.Key);
     [UseDelegateFromConstructor] private partial Vector3d Axis(Plane frame);
 }
 
-[ValueObject<double>(KeyMemberName = "Value", KeyMemberAccessModifier = AccessModifier.Public)]
-public readonly partial struct UnitInterval { [BoundaryAdapter] static partial void ValidateFactoryArguments(ref ValidationError? validationError, ref double value) => validationError = RhinoMath.IsValidDouble(x: value) && value is >= 0.0 and <= 1.0 ? null : new ValidationError(message: string.Create(CultureInfo.InvariantCulture, $"UnitInterval must be in [0,1] (got {value:R}).")); }
-
 [Union]
 public abstract partial record AnglePivot {
     private AnglePivot() { }
-    public sealed record WorldCase : AnglePivot; public sealed record FrameCase(Plane Value) : AnglePivot; public sealed record NormalCase(Direction Value) : AnglePivot;
-    public static AnglePivot World { get; } = new WorldCase(); public static AnglePivot Frame(Plane frame) => new FrameCase(Value: frame); public static AnglePivot Normal(Direction normal) => new NormalCase(Value: normal);
+    public sealed record WorldCase : AnglePivot;
+    public sealed record FrameCase(Plane Value) : AnglePivot;
+    public sealed record NormalCase(Direction Value) : AnglePivot;
+    public static AnglePivot World { get; } = new WorldCase();
+    public static AnglePivot Frame(Plane frame) => new FrameCase(Value: frame);
+    public static AnglePivot Normal(Direction normal) => new NormalCase(Value: normal);
     internal Fin<AnglePivot> Admit(Op key) => Switch(
         state: key,
         worldCase: static (op, pivot) => Fin.Succ<AnglePivot>(pivot),
@@ -58,7 +69,10 @@ public readonly partial struct VectorAngle {
 
 [SmartEnum<int>]
 public sealed partial class VectorRelation {
-    public static readonly VectorRelation Oblique = new(key: 0), Parallel = new(key: 1), AntiParallel = new(key: -1), Perpendicular = new(key: 2);
+    public static readonly VectorRelation Oblique = new(key: 0);
+    public static readonly VectorRelation Parallel = new(key: 1);
+    public static readonly VectorRelation AntiParallel = new(key: -1);
+    public static readonly VectorRelation Perpendicular = new(key: 2);
     public static Fin<VectorRelation> Of(Vector3d a, Vector3d b, Context context, Op? key = null) =>
         from model in Optional(context).ToFin(key.OrDefault().MissingContext())
         from left in Direction.Of(value: a, context: model, key: key.OrDefault())
@@ -87,10 +101,6 @@ public readonly record struct Direction {
     public static Vector3d operator *(Direction direction, double magnitude) => direction.Value * magnitude;
     public Direction Reflect(Direction normal) =>
         new(value: Transform.Mirror(pointOnMirrorPlane: Point3d.Origin, normalToMirrorPlane: normal.Value) * Value);
-    public Fin<Direction> ParallelTransport(Seq<Plane> frames, Op? key = null) =>
-        toSeq(Enumerable.Range(start: 1, count: Math.Max(val1: 0, val2: frames.Count - 1))).Fold(
-            initialState: Of(value: Value, tolerance: RhinoMath.ZeroTolerance, key: key.OrDefault()),
-            f: (acc, i) => acc.Bind(prev => Of(value: Transform.PlaneToPlane(plane0: frames[index: i - 1], plane1: frames[index: i]) * prev.Value, tolerance: RhinoMath.ZeroTolerance, key: key.OrDefault())));
     public static Fin<Direction> Refract(Direction incident, Direction normal, double etaIncident, double etaTransmitted, Op key) =>
         from activeIncident in key.AcceptValidated<PositiveMagnitude>(candidate: etaIncident)
         from activeTransmitted in key.AcceptValidated<PositiveMagnitude>(candidate: etaTransmitted)
@@ -104,6 +114,10 @@ public readonly record struct Direction {
             _ => Fin.Fail<Direction>(error: key.InvalidResult()),
         }
         select direction;
+    public Fin<Direction> ParallelTransport(Seq<Plane> frames, Op? key = null) =>
+        toSeq(Enumerable.Range(start: 1, count: Math.Max(val1: 0, val2: frames.Count - 1))).Fold(
+            initialState: Of(value: Value, tolerance: RhinoMath.ZeroTolerance, key: key.OrDefault()),
+            f: (acc, i) => acc.Bind(prev => Of(value: Transform.PlaneToPlane(plane0: frames[index: i - 1], plane1: frames[index: i]) * prev.Value, tolerance: RhinoMath.ZeroTolerance, key: key.OrDefault())));
     internal Fin<TOut> Project<TOut>(Op key) => AtomProjection.SelfOrValue<Direction, Vector3d, TOut>(self: this, value: Value, key: key);
 }
 
@@ -227,6 +241,7 @@ internal static class AtomProjection {
         typeof(TOut) == typeof(TValue)
             ? key.AcceptValue(value: value).Map(static accepted => (TOut)(object)accepted!)
             : Fin.Fail<TOut>(error: key.Unsupported(geometryType: owner ?? typeof(TValue), outputType: typeof(TOut)));
+    internal static Fin<TOut> SelfOrValue<TSelf, TValue, TOut>(TSelf self, TValue value, Op key) => typeof(TOut) == typeof(TValue) ? Value<TValue, TOut>(value: value, key: key) : Self<TSelf, TOut>(value: self, key: key);
     internal static Fin<TOut> Values<TValue, TOut>(IEnumerable<TValue> values, Op key, Type? owner = null) =>
         typeof(TOut) == typeof(Seq<TValue>)
             ? key.Accept(values: values).Map(static accepted => (TOut)(object)accepted!)
@@ -235,7 +250,6 @@ internal static class AtomProjection {
         typeof(TOut) == typeof(TValue)
             ? admitted ? Fin.Succ((TOut)(object)value!) : Fin.Fail<TOut>(error: key.InvalidResult())
             : Fin.Fail<TOut>(error: key.Unsupported(geometryType: owner ?? typeof(TValue), outputType: typeof(TOut)));
-    internal static Fin<TOut> SelfOrValue<TSelf, TValue, TOut>(TSelf self, TValue value, Op key) => typeof(TOut) == typeof(TValue) ? Value<TValue, TOut>(value: value, key: key) : Self<TSelf, TOut>(value: self, key: key);
     internal static Fin<TOut> Raw<TOut>(object raw, Option<Context> context, Op key, Type owner, bool admitsVectorMagnitude = false) =>
         (raw, typeof(TOut)) switch {
             (Vector3d v, Type t) when t == typeof(Vector3d) => Value<Vector3d, TOut>(value: v, key: key),

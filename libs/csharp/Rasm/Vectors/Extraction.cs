@@ -3,6 +3,28 @@ using Foundation.CSharp.Analyzers.Contracts;
 namespace Rasm.Vectors;
 
 // --- [TYPES] ------------------------------------------------------------------------------
+[SmartEnum<int>]
+public sealed partial class ExtractionRoute {
+    public static readonly ExtractionRoute Native = new(key: 0);
+    public static readonly ExtractionRoute Local = new(key: 1);
+}
+
+[SmartEnum<int>]
+public sealed partial class ExtractionStatus {
+    public static readonly ExtractionStatus Complete = new(key: 0);
+    public static readonly ExtractionStatus Approximate = new(key: 1);
+}
+
+[SmartEnum<int>]
+public sealed partial class ScalarIsolineRoute { public static readonly ScalarIsolineRoute LocalPiecewiseLinearMesh = new(key: 0, nativeRouted: false); public bool NativeRouted { get; } }
+
+[SmartEnum<int>]
+public sealed partial class ToleranceSource {
+    public static readonly ToleranceSource Context = new(key: 0);
+    public static readonly ToleranceSource RhinoDefault = new(key: 1);
+    public static readonly ToleranceSource NotApplicable = new(key: 2);
+}
+
 [Union]
 public abstract partial record ContourPolicy {
     private ContourPolicy() { }
@@ -319,14 +341,6 @@ public abstract partial record ExtractionProbe {
                 select output);
 }
 
-[SmartEnum<int>] public sealed partial class ExtractionRoute { public static readonly ExtractionRoute Native = new(key: 0), Local = new(key: 1); }
-
-[SmartEnum<int>] public sealed partial class ExtractionStatus { public static readonly ExtractionStatus Complete = new(key: 0), Approximate = new(key: 1); }
-
-[SmartEnum<int>] public sealed partial class ScalarIsolineRoute { public static readonly ScalarIsolineRoute LocalPiecewiseLinearMesh = new(key: 0, nativeRouted: false); public bool NativeRouted { get; } }
-
-[SmartEnum<int>] public sealed partial class ToleranceSource { public static readonly ToleranceSource Context = new(key: 0), RhinoDefault = new(key: 1), NotApplicable = new(key: 2); }
-
 [Union]
 internal abstract partial record Extraction {
     private Extraction() { }
@@ -436,6 +450,8 @@ internal abstract partial record Extraction {
 }
 
 // --- [MODELS] -----------------------------------------------------------------------------
+internal readonly record struct CurveBatch(Seq<Curve> Curves, Option<ScalarIsolineResult> ScalarIsoline, ExtractionReceipt Receipt);
+
 [BoundaryAdapter, StructLayout(LayoutKind.Auto)]
 public readonly record struct ExtractionReceipt(ExtractionStatus Status, int Attempted, int Emitted, int Rejected, bool NativeRouted, ToleranceSource ToleranceSource, Option<double> Tolerance, bool ParallelCallback, Option<IsoSurfaceReceipt> IsoSurface = default, Option<ScalarIsolineReceipt> ScalarIsoline = default, Option<SampleReceipt> Sample = default) {
     public ExtractionRoute Route => NativeRouted ? ExtractionRoute.Native : ExtractionRoute.Local;
@@ -494,8 +510,6 @@ public readonly record struct StreamBundlePolicy {
 }
 
 // --- [OPERATIONS] -------------------------------------------------------------------------
-internal readonly record struct CurveBatch(Seq<Curve> Curves, Option<ScalarIsolineResult> ScalarIsoline, ExtractionReceipt Receipt);
-
 [StructLayout(LayoutKind.Auto)] internal readonly record struct ScalarIsolinePointKey(long X, long Y, long Z) { internal int Compare(ScalarIsolinePointKey other) => (X, Y, Z).CompareTo((other.X, other.Y, other.Z)); }
 
 [StructLayout(LayoutKind.Auto)] internal readonly record struct ScalarIsolineSegment(Point3d A, Point3d B);

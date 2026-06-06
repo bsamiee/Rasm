@@ -79,7 +79,9 @@ public abstract partial record BouncePolicy {
 
 [SmartEnum<int>]
 public sealed partial class CsgKind {
-    public static readonly CsgKind Union = new(key: 0, combine: static (a, b, blend) => blend.Smin(a: a, b: b)), Intersect = new(key: 1, combine: static (a, b, blend) => -blend.Smin(a: -a, b: -b)), Difference = new(key: 2, combine: static (a, b, blend) => -blend.Smin(a: -a, b: b));
+    public static readonly CsgKind Union = new(key: 0, combine: static (a, b, blend) => blend.Smin(a: a, b: b));
+    public static readonly CsgKind Intersect = new(key: 1, combine: static (a, b, blend) => -blend.Smin(a: -a, b: -b));
+    public static readonly CsgKind Difference = new(key: 2, combine: static (a, b, blend) => -blend.Smin(a: -a, b: b));
     [UseDelegateFromConstructor] internal partial double Combine(double left, double right, BlendKind blend);
 }
 
@@ -144,7 +146,13 @@ public sealed partial class FieldBlend {
     [UseDelegateFromConstructor] private partial double Scale(int count);
 }
 
-[SmartEnum<int>] public sealed partial class IsoSurfaceStatus { public static readonly IsoSurfaceStatus NativeValid = new(key: 0), EvaluatorFailure = new(key: 1), NativeReturnedNull = new(key: 2), NativeInvalidMesh = new(key: 3); }
+[SmartEnum<int>]
+public sealed partial class IsoSurfaceStatus {
+    public static readonly IsoSurfaceStatus NativeValid = new(key: 0);
+    public static readonly IsoSurfaceStatus EvaluatorFailure = new(key: 1);
+    public static readonly IsoSurfaceStatus NativeReturnedNull = new(key: 2);
+    public static readonly IsoSurfaceStatus NativeInvalidMesh = new(key: 3);
+}
 
 [SmartEnum<int>]
 public sealed partial class KernelKind {
@@ -174,7 +182,13 @@ public sealed partial class KernelKind {
     }
 }
 
-[SmartEnum<int>] public sealed partial class KernelProfileStatus { public static readonly KernelProfileStatus Smooth = new(key: 0), SupportBoundary = new(key: 1), NonsmoothOrigin = new(key: 2), OutsideSupport = new(key: 3); }
+[SmartEnum<int>]
+public sealed partial class KernelProfileStatus {
+    public static readonly KernelProfileStatus Smooth = new(key: 0);
+    public static readonly KernelProfileStatus SupportBoundary = new(key: 1);
+    public static readonly KernelProfileStatus NonsmoothOrigin = new(key: 2);
+    public static readonly KernelProfileStatus OutsideSupport = new(key: 3);
+}
 
 [SmartEnum<int>]
 public sealed partial class NoiseKind {
@@ -186,7 +200,13 @@ public sealed partial class NoiseKind {
     [UseDelegateFromConstructor] internal partial double Sample(Point3d point, int seed, double frequency);
 }
 
-[SmartEnum<int>] public sealed partial class ProfileExtrusionFeature { public static readonly ProfileExtrusionFeature Interior = new(key: 0), ProfileBoundary = new(key: 1), Cap = new(key: 2), Rim = new(key: 3); }
+[SmartEnum<int>]
+public sealed partial class ProfileExtrusionFeature {
+    public static readonly ProfileExtrusionFeature Interior = new(key: 0);
+    public static readonly ProfileExtrusionFeature ProfileBoundary = new(key: 1);
+    public static readonly ProfileExtrusionFeature Cap = new(key: 2);
+    public static readonly ProfileExtrusionFeature Rim = new(key: 3);
+}
 
 [Union]
 public abstract partial record RayPolicy {
@@ -219,24 +239,29 @@ public abstract partial record RayPolicy {
         select output;
 }
 
-[SmartEnum<int>] public sealed partial class ReconstructionFailureKind { public static readonly ReconstructionFailureKind UnsupportedMode = new(key: 0); }
+[SmartEnum<int>]
+public sealed partial class ReconstructionFailureKind { public static readonly ReconstructionFailureKind UnsupportedMode = new(key: 0); }
 
 [SmartEnum<int>]
 public sealed partial class ReconstructionMode {
-    public static readonly ReconstructionMode RbfInterpolation = new(key: 0, executable: true, requiresNormals: false, requiresSparseSystem: false, polynomialDegree: 0),
-        RbfApproximation = new(key: 1, executable: true, requiresNormals: false, requiresSparseSystem: false, polynomialDegree: 0),
-        MovingLeastSquares = new(key: 2, executable: true, requiresNormals: true, requiresSparseSystem: false, polynomialDegree: 1),
-        LevinMovingLeastSquares = new(key: 3, executable: false, requiresNormals: true, requiresSparseSystem: false, polynomialDegree: 2),
-        AlgebraicPointSetSurfaces = new(key: 4, executable: false, requiresNormals: true, requiresSparseSystem: false, polynomialDegree: 2),
-        Poisson = new(key: 5, executable: false, requiresNormals: true, requiresSparseSystem: true, polynomialDegree: 0),
-        ScreenedPoisson = new(key: 6, executable: false, requiresNormals: true, requiresSparseSystem: true, polynomialDegree: 0);
+    public static readonly ReconstructionMode RbfInterpolation = new(key: 0, executable: true, requiresNormals: false, requiresSparseSystem: false, polynomialDegree: 0);
+    public static readonly ReconstructionMode RbfApproximation = new(key: 1, executable: true, requiresNormals: false, requiresSparseSystem: false, polynomialDegree: 0);
+    public static readonly ReconstructionMode MovingLeastSquares = new(key: 2, executable: true, requiresNormals: true, requiresSparseSystem: false, polynomialDegree: 1);
+    public static readonly ReconstructionMode LevinMovingLeastSquares = new(key: 3, executable: false, requiresNormals: true, requiresSparseSystem: false, polynomialDegree: 2);
+    public static readonly ReconstructionMode AlgebraicPointSetSurfaces = new(key: 4, executable: false, requiresNormals: true, requiresSparseSystem: false, polynomialDegree: 2);
+    public static readonly ReconstructionMode Poisson = new(key: 5, executable: false, requiresNormals: true, requiresSparseSystem: true, polynomialDegree: 0);
+    public static readonly ReconstructionMode ScreenedPoisson = new(key: 6, executable: false, requiresNormals: true, requiresSparseSystem: true, polynomialDegree: 0);
     public bool Executable { get; }
     public bool RequiresNormals { get; }
     public bool RequiresSparseSystem { get; }
     public int PolynomialDegree { get; }
 }
 
-[SmartEnum<int>] public sealed partial class ReconstructionStatus { public static readonly ReconstructionStatus ExactInterpolation = new(key: 0), ApproximateSdf = new(key: 1); }
+[SmartEnum<int>]
+public sealed partial class ReconstructionStatus {
+    public static readonly ReconstructionStatus ExactInterpolation = new(key: 0);
+    public static readonly ReconstructionStatus ApproximateSdf = new(key: 1);
+}
 
 [Union]
 public abstract partial record ScalarField {
@@ -1184,11 +1209,31 @@ public sealed partial class SdfKind {
         Math.Clamp(value: 0.5 * (qz - qy + s), min: 0.0, max: s) switch { double k => Math.Sqrt(d: (qx * qx) + ((qy - s + k) * (qy - s + k)) + ((qz - k) * (qz - k))) };
 }
 
-[SmartEnum<int>] public sealed partial class SdfMeshMethod { public static readonly SdfMeshMethod GeneralizedWindingNumber = new(key: 0, status: SdfMeshStatus.ApproximateSignClosestDistance, domain: SdfMeshDomain.SurfaceMesh), BoundarySignedHeat = new(key: 1, status: SdfMeshStatus.BoundarySourceSignedHeat, domain: SdfMeshDomain.BoundarySource), ClosedSurfaceSignedHeat = new(key: 2, status: SdfMeshStatus.ClosedSurfaceSignedHeat, domain: SdfMeshDomain.VolumeGrid); public SdfMeshStatus Status { get; } public SdfMeshDomain Domain { get; } }
+[SmartEnum<int>]
+public sealed partial class SdfMeshMethod {
+    public static readonly SdfMeshMethod GeneralizedWindingNumber = new(key: 0, status: SdfMeshStatus.ApproximateSignClosestDistance, domain: SdfMeshDomain.SurfaceMesh);
+    public static readonly SdfMeshMethod BoundarySignedHeat = new(key: 1, status: SdfMeshStatus.BoundarySourceSignedHeat, domain: SdfMeshDomain.BoundarySource);
+    public static readonly SdfMeshMethod ClosedSurfaceSignedHeat = new(key: 2, status: SdfMeshStatus.ClosedSurfaceSignedHeat, domain: SdfMeshDomain.VolumeGrid);
+    public SdfMeshStatus Status { get; }
+    public SdfMeshDomain Domain { get; }
+}
 
-[SmartEnum<int>] public sealed partial class SdfSignConvention { public static readonly SdfSignConvention NegativeInsidePositiveOutside = new(key: 0, multiplier: 1.0), PositiveInsideNegativeOutside = new(key: 1, multiplier: -1.0); public double Multiplier { get; } }
+[SmartEnum<int>]
+public sealed partial class SdfSignConvention {
+    public static readonly SdfSignConvention NegativeInsidePositiveOutside = new(key: 0, multiplier: 1.0);
+    public static readonly SdfSignConvention PositiveInsideNegativeOutside = new(key: 1, multiplier: -1.0);
+    public double Multiplier { get; }
+}
 
-[SmartEnum<int>] public sealed partial class SdfStatus { public static readonly SdfStatus Analytic = new(key: 0), ComposedAnalytic = new(key: 1), MeshApproximate = new(key: 2), LossyFallback = new(key: 3), NativeProfile = new(key: 4), TetSignedHeat = new(key: 5); }
+[SmartEnum<int>]
+public sealed partial class SdfStatus {
+    public static readonly SdfStatus Analytic = new(key: 0);
+    public static readonly SdfStatus ComposedAnalytic = new(key: 1);
+    public static readonly SdfStatus MeshApproximate = new(key: 2);
+    public static readonly SdfStatus LossyFallback = new(key: 3);
+    public static readonly SdfStatus NativeProfile = new(key: 4);
+    public static readonly SdfStatus TetSignedHeat = new(key: 5);
+}
 
 [Union]
 public abstract partial record TensorField {
@@ -1248,9 +1293,11 @@ public abstract partial record TensorField {
               select output;
 }
 
-[SmartEnum<int>] public sealed partial class TetGaugePolicy { public static readonly TetGaugePolicy PinnedFirstBoundary = new(key: 0); }
+[SmartEnum<int>]
+public sealed partial class TetGaugePolicy { public static readonly TetGaugePolicy PinnedFirstBoundary = new(key: 0); }
 
-[SmartEnum<int>] public sealed partial class TetInterpolation { public static readonly TetInterpolation Barycentric = new(key: 0); }
+[SmartEnum<int>]
+public sealed partial class TetInterpolation { public static readonly TetInterpolation Barycentric = new(key: 0); }
 
 [Union]
 public abstract partial record VectorField {
@@ -1443,11 +1490,14 @@ public abstract partial record VectorField {
         select direction.Value * scaled.Scale;
 }
 
-[SmartEnum<int>] public sealed partial class VolumeBoundaryCondition { public static readonly VolumeBoundaryCondition NeumannGaugePinned = new(key: 0); }
+[SmartEnum<int>]
+public sealed partial class VolumeBoundaryCondition { public static readonly VolumeBoundaryCondition NeumannGaugePinned = new(key: 0); }
 
-[SmartEnum<int>] public sealed partial class VolumeInterpolation { public static readonly VolumeInterpolation Trilinear = new(key: 0); }
+[SmartEnum<int>]
+public sealed partial class VolumeInterpolation { public static readonly VolumeInterpolation Trilinear = new(key: 0); }
 
-[SmartEnum<int>] public sealed partial class VolumeSolverKind { public static readonly VolumeSolverKind SparseCholeskyPinned = new(key: 0); }
+[SmartEnum<int>]
+public sealed partial class VolumeSolverKind { public static readonly VolumeSolverKind SparseCholeskyPinned = new(key: 0); }
 
 // --- [MODELS] -----------------------------------------------------------------------------
 [BoundaryAdapter, StructLayout(LayoutKind.Auto)] public readonly record struct IsoSurfaceGrid(BoundingBox Bounds, int Resolution, int XCells, int YCells, int ZCells, double CellSize, int HexCellCount, int CornerSampleCount, int CenterSampleCount, int InitialSampleCount);

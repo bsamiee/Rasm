@@ -4,13 +4,40 @@ namespace Rasm.Vectors;
 
 // --- [TYPES] ------------------------------------------------------------------------------
 [SmartEnum<int>]
-public sealed partial class SpectralAssemblyKind { public static readonly SpectralAssemblyKind Dec = new(key: 0), EdgeConnection = new(key: 1); }
+public sealed partial class SpectralAssemblyKind {
+    public static readonly SpectralAssemblyKind Dec = new(key: 0);
+    public static readonly SpectralAssemblyKind EdgeConnection = new(key: 1);
+}
 
 [SmartEnum<int>]
-public sealed partial class SpectralDistanceKind { public static readonly SpectralDistanceKind Euclidean = new(key: 0), Manhattan = new(key: 1), Cosine = new(key: 2); }
+public sealed partial class SpectralDistanceKind {
+    public static readonly SpectralDistanceKind Euclidean = new(key: 0);
+    public static readonly SpectralDistanceKind Manhattan = new(key: 1);
+    public static readonly SpectralDistanceKind Cosine = new(key: 2);
+}
 
 [SmartEnum<int>]
-public sealed partial class SpectralEnergyNormalization { public static readonly SpectralEnergyNormalization Raw = new(key: 0), UnitL1 = new(key: 1), UnitL2 = new(key: 2), ZScore = new(key: 3); }
+public sealed partial class SpectralEnergyNormalization {
+    public static readonly SpectralEnergyNormalization Raw = new(key: 0);
+    public static readonly SpectralEnergyNormalization UnitL1 = new(key: 1);
+    public static readonly SpectralEnergyNormalization UnitL2 = new(key: 2);
+    public static readonly SpectralEnergyNormalization ZScore = new(key: 3);
+}
+
+[SmartEnum<int>]
+public sealed partial class SpectralScaleNormalization {
+    public static readonly SpectralScaleNormalization Raw = new(key: 0);
+    public static readonly SpectralScaleNormalization FirstNonZeroEigenvalue = new(key: 1);
+}
+
+[SmartEnum<int>]
+public sealed partial class SpectralTieBreak { public static readonly SpectralTieBreak InputOrder = new(key: 0); }
+
+[SmartEnum<int>]
+public sealed partial class SpectralZeroModePolicy {
+    public static readonly SpectralZeroModePolicy Keep = new(key: 0);
+    public static readonly SpectralZeroModePolicy Drop = new(key: 1);
+}
 
 [Union]
 public abstract partial record SpectralFilter {
@@ -27,6 +54,14 @@ public abstract partial record SpectralFilter {
     public static SpectralFilter Diffusion(PositiveMagnitude time) => new DiffusionCase(Time: time);
     public static SpectralFilter CommuteTime => new CommuteTimeCase();
     public static SpectralFilter Identity => new IdentityCase();
+    public Option<SpectralFilter> Compose(SpectralFilter other) =>
+        (this, other) switch {
+            (HeatCase a, HeatCase b) => Positive(value: a.Time.Value + b.Time.Value).Map(static time => Heat(time: time)),
+            (DiffusionCase a, DiffusionCase b) => Positive(value: a.Time.Value + b.Time.Value).Map(static time => Diffusion(time: time)),
+            (IdentityCase, _) when other is not null => Some(other),
+            (_, IdentityCase) => Some(this),
+            _ => Option<SpectralFilter>.None,
+        };
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     internal double Weight(double eigenvalue) => Switch(
         state: eigenvalue,
@@ -40,32 +75,14 @@ public abstract partial record SpectralFilter {
         ApplyDetailed(basis: basis, sources: sources, policy: SpectralDescriptorPolicy.Raw, key: key);
     internal Fin<SpectralDescriptor> ApplyDetailed(SpectralBasis basis, Option<Seq<int>> sources, SpectralDescriptorPolicy policy, Op key) =>
         Optional(this).ToFin(key.InvalidInput())
-            .Bind(filter => guard(basis.IsValid, key.InvalidInput())
+                .Bind(filter => guard(basis.IsValid, key.InvalidInput())
                 .Bind(_ => SpectralDescriptorPolicy.Admit(policy: policy, key: key))
                 .Bind(activePolicy => SpectralCore.EvaluateFilteredDetailed(basis: basis, sources: sources, filter: filter, policy: activePolicy, key: key)));
-
-    public Option<SpectralFilter> Compose(SpectralFilter other) =>
-        (this, other) switch {
-            (HeatCase a, HeatCase b) => Positive(value: a.Time.Value + b.Time.Value).Map(static time => Heat(time: time)),
-            (DiffusionCase a, DiffusionCase b) => Positive(value: a.Time.Value + b.Time.Value).Map(static time => Diffusion(time: time)),
-            (IdentityCase, _) when other is not null => Some(other),
-            (_, IdentityCase) => Some(this),
-            _ => Option<SpectralFilter>.None,
-        };
     private static double RawWaveWeight(double eigenvalue, double energy, double bandwidth) =>
         eigenvalue < RhinoMath.SqrtEpsilon ? 0.0 : ((Math.Log(d: energy) - Math.Log(d: eigenvalue)) / Math.Max(val1: bandwidth, val2: SpectralCore.WaveBandwidthFloor)) switch { double ratio => Math.Exp(d: -0.5 * ratio * ratio) };
     private static Option<PositiveMagnitude> Positive(double value) =>
         PositiveMagnitude.TryCreate(value: value, obj: out PositiveMagnitude magnitude) ? Some(magnitude) : Option<PositiveMagnitude>.None;
 }
-
-[SmartEnum<int>]
-public sealed partial class SpectralScaleNormalization { public static readonly SpectralScaleNormalization Raw = new(key: 0), FirstNonZeroEigenvalue = new(key: 1); }
-
-[SmartEnum<int>]
-public sealed partial class SpectralTieBreak { public static readonly SpectralTieBreak InputOrder = new(key: 0); }
-
-[SmartEnum<int>]
-public sealed partial class SpectralZeroModePolicy { public static readonly SpectralZeroModePolicy Keep = new(key: 0), Drop = new(key: 1); }
 
 // --- [MODELS] -----------------------------------------------------------------------------
 [BoundaryAdapter, StructLayout(LayoutKind.Auto)]
@@ -228,6 +245,7 @@ internal static class SpectralCore {
     private static double AngleFromLengths(double opposite, double adjacent1, double adjacent2) =>
         Math.Acos(d: Math.Min(val1: 1.0, val2: Math.Max(val1: -1.0, val2: ((adjacent1 * adjacent1) + (adjacent2 * adjacent2) - (opposite * opposite)) / (2.0 * adjacent1 * adjacent2))));
 
+    // --- [DESCRIPTORS] ----------------------------------------------------------------------
     // BOUNDARY ADAPTER -- dense mesh buffer avoids Seq materialisation churn.
     internal static Fin<SpectralDescriptor> EvaluateFilteredDetailed(SpectralBasis basis, Option<Seq<int>> sources, SpectralFilter filter, SpectralDescriptorPolicy policy, Op key) {
         int n = basis.VertexCount;
@@ -399,6 +417,47 @@ internal static class SpectralCore {
             : Fin.Succ(Option<HarmonicOneFormBasis>.None)
         select dec with { Transport = Some(transport), Harmonic = harmonic };
 
+    private static Fin<DiscreteCalculus> AssembleDecOperators(MeshKernel.IntrinsicMesh imesh, Arr<double> mass, TopologyReceipt topology, Op key) {
+        int vertCount = imesh.VertexCount;
+        int edgeCount = imesh.EdgeCount;
+        int[] liveFaces = [.. imesh.LiveFaceIndices()];
+        int faceCount = liveFaces.Length;
+        List<(int Row, int Col, double Value)> d0 = new(capacity: 2 * edgeCount);
+        List<(int Row, int Col, double Value)> d1 = new(capacity: 3 * faceCount);
+        Arr<double> star1 = ComputeIntrinsicStar1(imesh: imesh);
+        double[] star2 = new double[faceCount];
+        int admitted = 0;
+        int skippedDegenerate = 0;
+        int skippedMissing = 0;
+        for (int e = 0; e < edgeCount; e++) {
+            MeshKernel.IntrinsicEdge edge = imesh.EdgeAt(index: e);
+            d0.AddRange([(e, edge.Lo, -1.0), (e, edge.Hi, +1.0)]);
+        }
+        for (int row = 0; row < faceCount; row++) {
+            if (IntrinsicTriangleOf(imesh: imesh, faceIdx: liveFaces[row], missingEdges: out bool missingEdges, degenerate: out _) is not { } face) {
+                skippedMissing += missingEdges ? 1 : 0;
+                skippedDegenerate += missingEdges ? 0 : 1;
+                continue;
+            }
+            admitted++;
+            star2[row] = 1.0 / face.Area;
+            for (int side = 0; side < 3; side++) {
+                d1.Add(item: (row, face.Edge(side: side), face.Orientation(imesh: imesh, side: side)));
+            }
+        }
+        double boundaryResidual = BoundaryCompositionResidual(d0: d0, d1: d1);
+        int harmonicDimension = topology.Genus.Map(static g => 2 * g).IfNone(0);
+        return mass.Count != vertCount
+            || !mass.ForAll(static value => RhinoMath.IsValidDouble(x: value) && value > 0.0)
+            || boundaryResidual > RhinoMath.SqrtEpsilon
+            ? Fin.Fail<DiscreteCalculus>(key.InvalidResult())
+            : from D0 in SparseMatrix.FromTriplets(rows: Dimension.Create(value: edgeCount), cols: Dimension.Create(value: vertCount), triplets: d0, key: key)
+              from D1 in SparseMatrix.FromTriplets(rows: Dimension.Create(value: faceCount), cols: Dimension.Create(value: edgeCount), triplets: d1, key: key)
+              let boundaryEdgeCount = Enumerable.Range(start: 0, count: imesh.EdgeCount).Count(edgeIndex => imesh.EdgeAt(index: edgeIndex).Face1 < 0)
+              let receipt = new SpectralAssemblyReceipt(VertexCount: vertCount, EdgeCount: edgeCount, FaceCount: faceCount, AdmittedFaceCount: admitted, SkippedDegenerateFaces: skippedDegenerate, SkippedMissingEdges: skippedMissing, SkippedInvalidNormals: 0, SkippedInvalidTangents: 0, FlippedIntrinsicRejected: imesh.HasFlips, MatrixRows: D0.Rows.Value + D1.Rows.Value, MatrixCols: D0.Cols.Value + D1.Cols.Value, NonZeros: D0.Values.Count + D1.Values.Count, PositiveStar0Count: mass.Count(static value => value > RhinoMath.ZeroTolerance), PositiveStar1Count: star1.Count(static value => value > RhinoMath.ZeroTolerance), PositiveStar2Count: star2.Count(static value => value > RhinoMath.ZeroTolerance), BoundaryCompositionResidual: boundaryResidual, Genus: topology.Genus, HarmonicDimension: harmonicDimension, BoundaryEdgeCount: boundaryEdgeCount, BoundaryComponentCount: topology.BoundaryComponents, NonManifoldEdgeCount: topology.NonManifoldEdges, EulerCharacteristic: topology.EulerCharacteristic, TopologyEulerValidated: topology.EulerValidated, Kind: SpectralAssemblyKind.Dec)
+              select new DiscreteCalculus(D0: D0, D1: D1, Star0: mass, Star1: star1, Star2: new Arr<double>(star2), Receipt: receipt);
+    }
+
     private static Fin<HarmonicOneFormBasis> BuildHarmonicOneForms(DiscreteCalculus calculus, TopologyReceipt topology, Op key) {
         int edgeCount = calculus.D0.Rows.Value;
         int vertexCount = calculus.D0.Cols.Value;
@@ -504,46 +563,6 @@ internal static class SpectralCore {
         return max;
     }
 
-    private static Fin<DiscreteCalculus> AssembleDecOperators(MeshKernel.IntrinsicMesh imesh, Arr<double> mass, TopologyReceipt topology, Op key) {
-        int vertCount = imesh.VertexCount;
-        int edgeCount = imesh.EdgeCount;
-        int[] liveFaces = [.. imesh.LiveFaceIndices()];
-        int faceCount = liveFaces.Length;
-        List<(int Row, int Col, double Value)> d0 = new(capacity: 2 * edgeCount);
-        List<(int Row, int Col, double Value)> d1 = new(capacity: 3 * faceCount);
-        Arr<double> star1 = ComputeIntrinsicStar1(imesh: imesh);
-        double[] star2 = new double[faceCount];
-        int admitted = 0;
-        int skippedDegenerate = 0;
-        int skippedMissing = 0;
-        for (int e = 0; e < edgeCount; e++) {
-            MeshKernel.IntrinsicEdge edge = imesh.EdgeAt(index: e);
-            d0.AddRange([(e, edge.Lo, -1.0), (e, edge.Hi, +1.0)]);
-        }
-        for (int row = 0; row < faceCount; row++) {
-            if (IntrinsicTriangleOf(imesh: imesh, faceIdx: liveFaces[row], missingEdges: out bool missingEdges, degenerate: out _) is not { } face) {
-                skippedMissing += missingEdges ? 1 : 0;
-                skippedDegenerate += missingEdges ? 0 : 1;
-                continue;
-            }
-            admitted++;
-            star2[row] = 1.0 / face.Area;
-            for (int side = 0; side < 3; side++) {
-                d1.Add(item: (row, face.Edge(side: side), face.Orientation(imesh: imesh, side: side)));
-            }
-        }
-        double boundaryResidual = BoundaryCompositionResidual(d0: d0, d1: d1);
-        int harmonicDimension = topology.Genus.Map(static g => 2 * g).IfNone(0);
-        return mass.Count != vertCount
-            || !mass.ForAll(static value => RhinoMath.IsValidDouble(x: value) && value > 0.0)
-            || boundaryResidual > RhinoMath.SqrtEpsilon
-            ? Fin.Fail<DiscreteCalculus>(key.InvalidResult())
-            : from D0 in SparseMatrix.FromTriplets(rows: Dimension.Create(value: edgeCount), cols: Dimension.Create(value: vertCount), triplets: d0, key: key)
-              from D1 in SparseMatrix.FromTriplets(rows: Dimension.Create(value: faceCount), cols: Dimension.Create(value: edgeCount), triplets: d1, key: key)
-              let boundaryEdgeCount = Enumerable.Range(start: 0, count: imesh.EdgeCount).Count(edgeIndex => imesh.EdgeAt(index: edgeIndex).Face1 < 0)
-              let receipt = new SpectralAssemblyReceipt(VertexCount: vertCount, EdgeCount: edgeCount, FaceCount: faceCount, AdmittedFaceCount: admitted, SkippedDegenerateFaces: skippedDegenerate, SkippedMissingEdges: skippedMissing, SkippedInvalidNormals: 0, SkippedInvalidTangents: 0, FlippedIntrinsicRejected: imesh.HasFlips, MatrixRows: D0.Rows.Value + D1.Rows.Value, MatrixCols: D0.Cols.Value + D1.Cols.Value, NonZeros: D0.Values.Count + D1.Values.Count, PositiveStar0Count: mass.Count(static value => value > RhinoMath.ZeroTolerance), PositiveStar1Count: star1.Count(static value => value > RhinoMath.ZeroTolerance), PositiveStar2Count: star2.Count(static value => value > RhinoMath.ZeroTolerance), BoundaryCompositionResidual: boundaryResidual, Genus: topology.Genus, HarmonicDimension: harmonicDimension, BoundaryEdgeCount: boundaryEdgeCount, BoundaryComponentCount: topology.BoundaryComponents, NonManifoldEdgeCount: topology.NonManifoldEdges, EulerCharacteristic: topology.EulerCharacteristic, TopologyEulerValidated: topology.EulerValidated, Kind: SpectralAssemblyKind.Dec)
-              select new DiscreteCalculus(D0: D0, D1: D1, Star0: mass, Star1: star1, Star2: new Arr<double>(star2), Receipt: receipt);
-    }
     // --- [CROUZEIX_RAVIART] -----------------------------------------------------------------
     internal static Fin<(SparseMatrix Matrix, SpectralAssemblyReceipt Receipt)> BuildCrouzeixRaviartHeatSystemDetailed(MeshKernel.IntrinsicMesh mesh, double time, Op key) {
         if (!RhinoMath.IsValidDouble(x: time) || time <= 0.0) return Fin.Fail<(SparseMatrix Matrix, SpectralAssemblyReceipt Receipt)>(error: key.InvalidInput());

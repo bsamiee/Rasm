@@ -3,6 +3,50 @@ using Foundation.CSharp.Analyzers.Contracts;
 namespace Rasm.Vectors;
 
 // --- [TYPES] ------------------------------------------------------------------------------
+[SmartEnum<int>]
+public sealed partial class IntegratorKind {
+    public static readonly IntegratorKind Euler = Fixed(key: 0, order: 1, coupling: [[]], weights: [1.0]);
+    public static readonly IntegratorKind Heun = Fixed(key: 1, order: 2, coupling: [[], [1.0]], weights: [0.5, 0.5]);
+    public static readonly IntegratorKind Midpoint = Fixed(key: 2, order: 2, coupling: [[], [0.5]], weights: [0.0, 1.0]);
+    public static readonly IntegratorKind Ralston = Fixed(key: 3, order: 2, coupling: [[], [2.0 / 3.0]], weights: [0.25, 0.75]);
+    public static readonly IntegratorKind RK4 = Fixed(key: 4, order: 4,
+        coupling: [[], [0.5], [0.0, 0.5], [0.0, 0.0, 1.0]],
+        weights: [1.0 / 6.0, 1.0 / 3.0, 1.0 / 3.0, 1.0 / 6.0]);
+    public static readonly IntegratorKind RK38 = Fixed(key: 5, order: 4,
+        coupling: [[], [1.0 / 3.0], [-1.0 / 3.0, 1.0], [1.0, -1.0, 1.0]],
+        weights: [1.0 / 8.0, 3.0 / 8.0, 3.0 / 8.0, 1.0 / 8.0]);
+    public static readonly IntegratorKind BogackiShampine = Adaptive(key: 6, order: 3, embeddedOrder: 2,
+        coupling: [[], [0.5], [0.0, 0.75], [2.0 / 9.0, 1.0 / 3.0, 4.0 / 9.0]],
+        weights: [2.0 / 9.0, 1.0 / 3.0, 4.0 / 9.0, 0.0],
+        errorWeights: [7.0 / 24.0, 0.25, 1.0 / 3.0, 1.0 / 8.0]);
+    public static readonly IntegratorKind CashKarp = Adaptive(key: 7, order: 5, embeddedOrder: 4,
+        coupling: [[], [0.2], [3.0 / 40.0, 9.0 / 40.0], [0.3, -0.9, 1.2],
+            [-11.0 / 54.0, 2.5, -70.0 / 27.0, 35.0 / 27.0],
+            [1631.0 / 55296.0, 175.0 / 512.0, 575.0 / 13824.0, 44275.0 / 110592.0, 253.0 / 4096.0]],
+        weights: [37.0 / 378.0, 0.0, 250.0 / 621.0, 125.0 / 594.0, 0.0, 512.0 / 1771.0],
+        errorWeights: [2825.0 / 27648.0, 0.0, 18575.0 / 48384.0, 13525.0 / 55296.0, 277.0 / 14336.0, 0.25]);
+    public static readonly IntegratorKind DormandPrince = Adaptive(key: 8, order: 5, embeddedOrder: 4,
+        coupling: [[], [1.0 / 5.0], [3.0 / 40.0, 9.0 / 40.0],
+            [44.0 / 45.0, -56.0 / 15.0, 32.0 / 9.0],
+            [19372.0 / 6561.0, -25360.0 / 2187.0, 64448.0 / 6561.0, -212.0 / 729.0],
+            [9017.0 / 3168.0, -355.0 / 33.0, 46732.0 / 5247.0, 49.0 / 176.0, -5103.0 / 18656.0],
+            [35.0 / 384.0, 0.0, 500.0 / 1113.0, 125.0 / 192.0, -2187.0 / 6784.0, 11.0 / 84.0]],
+        weights: [35.0 / 384.0, 0.0, 500.0 / 1113.0, 125.0 / 192.0, -2187.0 / 6784.0, 11.0 / 84.0, 0.0],
+        errorWeights: [5179.0 / 57600.0, 0.0, 7571.0 / 16695.0, 393.0 / 640.0, -92097.0 / 339200.0, 187.0 / 2100.0, 1.0 / 40.0]);
+    public ButcherTableau Tableau { get; }
+    internal bool IsAdaptive => Tableau.EmbeddedWeights.IsSome;
+    internal double AdaptiveExponent => Tableau.EmbeddedOrder
+        .Map(static order => 1.0 / (order + 1.0))
+        .IfNone(0.2);
+    internal const double AdaptiveSafetyFactor = 0.9;
+    internal const double AdaptiveMinScale = 0.2;
+    internal const double AdaptiveMaxScale = 10.0;
+    private static IntegratorKind Fixed(int key, int order, double[][] coupling, double[] weights) =>
+        new(key: key, tableau: new ButcherTableau(Coupling: toSeq(coupling.Select(static r => toSeq(r))), Abscissae: toSeq(coupling.Select(static r => r.Sum())), Weights: toSeq(weights), EmbeddedWeights: Option<Seq<double>>.None, MethodOrder: order, EmbeddedOrder: Option<int>.None));
+    private static IntegratorKind Adaptive(int key, int order, int embeddedOrder, double[][] coupling, double[] weights, double[] errorWeights) =>
+        new(key: key, tableau: new ButcherTableau(Coupling: toSeq(coupling.Select(static r => toSeq(r))), Abscissae: toSeq(coupling.Select(static r => r.Sum())), Weights: toSeq(weights), EmbeddedWeights: Some(toSeq(errorWeights)), MethodOrder: order, EmbeddedOrder: Some(embeddedOrder)));
+}
+
 [Union]
 public abstract partial record FieldIntegrator {
     private FieldIntegrator() { }
@@ -90,52 +134,10 @@ public abstract partial record FieldIntegrator {
 }
 
 [SmartEnum<int>]
-public sealed partial class IntegratorKind {
-    public static readonly IntegratorKind Euler = Fixed(key: 0, order: 1, coupling: [[]], weights: [1.0]);
-    public static readonly IntegratorKind Heun = Fixed(key: 1, order: 2, coupling: [[], [1.0]], weights: [0.5, 0.5]);
-    public static readonly IntegratorKind Midpoint = Fixed(key: 2, order: 2, coupling: [[], [0.5]], weights: [0.0, 1.0]);
-    public static readonly IntegratorKind Ralston = Fixed(key: 3, order: 2, coupling: [[], [2.0 / 3.0]], weights: [0.25, 0.75]);
-    public static readonly IntegratorKind RK4 = Fixed(key: 4, order: 4,
-        coupling: [[], [0.5], [0.0, 0.5], [0.0, 0.0, 1.0]],
-        weights: [1.0 / 6.0, 1.0 / 3.0, 1.0 / 3.0, 1.0 / 6.0]);
-    public static readonly IntegratorKind RK38 = Fixed(key: 5, order: 4,
-        coupling: [[], [1.0 / 3.0], [-1.0 / 3.0, 1.0], [1.0, -1.0, 1.0]],
-        weights: [1.0 / 8.0, 3.0 / 8.0, 3.0 / 8.0, 1.0 / 8.0]);
-    public static readonly IntegratorKind BogackiShampine = Adaptive(key: 6, order: 3, embeddedOrder: 2,
-        coupling: [[], [0.5], [0.0, 0.75], [2.0 / 9.0, 1.0 / 3.0, 4.0 / 9.0]],
-        weights: [2.0 / 9.0, 1.0 / 3.0, 4.0 / 9.0, 0.0],
-        errorWeights: [7.0 / 24.0, 0.25, 1.0 / 3.0, 1.0 / 8.0]);
-    public static readonly IntegratorKind CashKarp = Adaptive(key: 7, order: 5, embeddedOrder: 4,
-        coupling: [[], [0.2], [3.0 / 40.0, 9.0 / 40.0], [0.3, -0.9, 1.2],
-            [-11.0 / 54.0, 2.5, -70.0 / 27.0, 35.0 / 27.0],
-            [1631.0 / 55296.0, 175.0 / 512.0, 575.0 / 13824.0, 44275.0 / 110592.0, 253.0 / 4096.0]],
-        weights: [37.0 / 378.0, 0.0, 250.0 / 621.0, 125.0 / 594.0, 0.0, 512.0 / 1771.0],
-        errorWeights: [2825.0 / 27648.0, 0.0, 18575.0 / 48384.0, 13525.0 / 55296.0, 277.0 / 14336.0, 0.25]);
-    public static readonly IntegratorKind DormandPrince = Adaptive(key: 8, order: 5, embeddedOrder: 4,
-        coupling: [[], [1.0 / 5.0], [3.0 / 40.0, 9.0 / 40.0],
-            [44.0 / 45.0, -56.0 / 15.0, 32.0 / 9.0],
-            [19372.0 / 6561.0, -25360.0 / 2187.0, 64448.0 / 6561.0, -212.0 / 729.0],
-            [9017.0 / 3168.0, -355.0 / 33.0, 46732.0 / 5247.0, 49.0 / 176.0, -5103.0 / 18656.0],
-            [35.0 / 384.0, 0.0, 500.0 / 1113.0, 125.0 / 192.0, -2187.0 / 6784.0, 11.0 / 84.0]],
-        weights: [35.0 / 384.0, 0.0, 500.0 / 1113.0, 125.0 / 192.0, -2187.0 / 6784.0, 11.0 / 84.0, 0.0],
-        errorWeights: [5179.0 / 57600.0, 0.0, 7571.0 / 16695.0, 393.0 / 640.0, -92097.0 / 339200.0, 187.0 / 2100.0, 1.0 / 40.0]);
-    public ButcherTableau Tableau { get; }
-    internal bool IsAdaptive => Tableau.EmbeddedWeights.IsSome;
-    internal double AdaptiveExponent => Tableau.EmbeddedOrder
-        .Map(static order => 1.0 / (order + 1.0))
-        .IfNone(0.2);
-    internal const double AdaptiveSafetyFactor = 0.9;
-    internal const double AdaptiveMinScale = 0.2;
-    internal const double AdaptiveMaxScale = 10.0;
-    private static IntegratorKind Fixed(int key, int order, double[][] coupling, double[] weights) =>
-        new(key: key, tableau: new ButcherTableau(Coupling: toSeq(coupling.Select(static r => toSeq(r))), Abscissae: toSeq(coupling.Select(static r => r.Sum())), Weights: toSeq(weights), EmbeddedWeights: Option<Seq<double>>.None, MethodOrder: order, EmbeddedOrder: Option<int>.None));
-    private static IntegratorKind Adaptive(int key, int order, int embeddedOrder, double[][] coupling, double[] weights, double[] errorWeights) =>
-        new(key: key, tableau: new ButcherTableau(Coupling: toSeq(coupling.Select(static r => toSeq(r))), Abscissae: toSeq(coupling.Select(static r => r.Sum())), Weights: toSeq(weights), EmbeddedWeights: Some(toSeq(errorWeights)), MethodOrder: order, EmbeddedOrder: Some(embeddedOrder)));
-}
-
-[SmartEnum<int>]
 public sealed partial class StreamlineStopKind {
-    public static readonly StreamlineStopKind Terminated = new(key: 0), RejectBudgetExhausted = new(key: 1), MaxIterationsExhausted = new(key: 2);
+    public static readonly StreamlineStopKind Terminated = new(key: 0);
+    public static readonly StreamlineStopKind RejectBudgetExhausted = new(key: 1);
+    public static readonly StreamlineStopKind MaxIterationsExhausted = new(key: 2);
 }
 
 [Union]
@@ -285,32 +287,25 @@ public abstract partial record Termination {
 
 [SmartEnum<int>]
 public sealed partial class TraceEventKind {
-    public static readonly TraceEventKind CrossSurface = new(key: 0), RegionThresholdCrossing = new(key: 1);
-}
-
-[SmartEnum<int>]
-public sealed partial class TraceEventLocalizationKind {
-    public static readonly TraceEventLocalizationKind BoundedBisection = new(key: 0), DenseOutputRoot = new(key: 1);
+    public static readonly TraceEventKind CrossSurface = new(key: 0);
+    public static readonly TraceEventKind RegionThresholdCrossing = new(key: 1);
 }
 
 [SmartEnum<int>]
 public sealed partial class TraceEventStatus {
-    public static readonly TraceEventStatus InitialEndpointTouch = new(key: 0), PreviousEndpointTouch = new(key: 1);
-    public static readonly TraceEventStatus CurrentEndpointTouch = new(key: 2), BracketedCrossing = new(key: 3);
+    public static readonly TraceEventStatus InitialEndpointTouch = new(key: 0);
+    public static readonly TraceEventStatus PreviousEndpointTouch = new(key: 1);
+    public static readonly TraceEventStatus CurrentEndpointTouch = new(key: 2);
+    public static readonly TraceEventStatus BracketedCrossing = new(key: 3);
+}
+
+[SmartEnum<int>]
+public sealed partial class TraceEventLocalizationKind {
+    public static readonly TraceEventLocalizationKind BoundedBisection = new(key: 0);
+    public static readonly TraceEventLocalizationKind DenseOutputRoot = new(key: 1);
 }
 
 // --- [MODELS] -----------------------------------------------------------------------------
-[StructLayout(LayoutKind.Auto)]
-public readonly record struct ButcherMomentReceipt(int StageCount, int MethodOrder, Option<int> EmbeddedOrder, int CheckedConditionCount, int FailedConditionCount, double MaxResidual) {
-    internal bool IsValid =>
-        StageCount > 0
-        && MethodOrder > 0
-        && CheckedConditionCount >= 0
-        && FailedConditionCount == 0
-        && RhinoMath.IsValidDouble(x: MaxResidual)
-        && MaxResidual <= ButcherTableau.CoefficientTolerance;
-}
-
 [StructLayout(LayoutKind.Auto)]
 public readonly record struct ButcherTableau(Seq<Seq<double>> Coupling, Seq<double> Abscissae, Seq<double> Weights, Option<Seq<double>> EmbeddedWeights, int MethodOrder, Option<int> EmbeddedOrder) {
     internal const double CoefficientTolerance = 1.0e-9;
@@ -356,6 +351,17 @@ public readonly record struct ButcherTableau(Seq<Seq<double>> Coupling, Seq<doub
 }
 
 [StructLayout(LayoutKind.Auto)]
+public readonly record struct ButcherMomentReceipt(int StageCount, int MethodOrder, Option<int> EmbeddedOrder, int CheckedConditionCount, int FailedConditionCount, double MaxResidual) {
+    internal bool IsValid =>
+        StageCount > 0
+        && MethodOrder > 0
+        && CheckedConditionCount >= 0
+        && FailedConditionCount == 0
+        && RhinoMath.IsValidDouble(x: MaxResidual)
+        && MaxResidual <= ButcherTableau.CoefficientTolerance;
+}
+
+[StructLayout(LayoutKind.Auto)]
 public readonly record struct DenseOutputReceipt(int StageCount, int MethodOrder, int DenseOrder, int CheckedThetaCount, int CheckedConditionCount, int FailedConditionCount, double MaxResidual, bool UsesStageDerivatives) {
     internal bool IsValid =>
         StageCount > 0
@@ -368,21 +374,6 @@ public readonly record struct DenseOutputReceipt(int StageCount, int MethodOrder
         && RhinoMath.IsValidDouble(x: MaxResidual)
         && MaxResidual <= ButcherTableau.CoefficientTolerance
         && UsesStageDerivatives;
-}
-
-[BoundaryAdapter, StructLayout(LayoutKind.Auto)]
-public readonly record struct StreamlineTrace(Seq<Point3d> Trail, StreamlineStopKind Stop, int AcceptedSteps, int RejectedSteps, double ArcLength, double FinalStep, int MethodOrder, Option<int> EmbeddedOrder, Option<double> LastError, double MaxError, double MinStep, double MaxStep, Point3d TerminationPoint, Option<TraceEvent> Event) {
-    public bool IsComplete => Stop.Equals(StreamlineStopKind.Terminated);
-    internal bool IsValid =>
-        !Trail.IsEmpty
-        && MethodOrder > 0
-        && (EmbeddedOrder is not { IsSome: true, Case: int order } || (order > 0 && order < MethodOrder))
-        && AcceptedSteps >= 0 && RejectedSteps >= 0 && AcceptedSteps == Trail.Count - 1 && Trail.ForAll(static point => point.IsValid)
-        && RhinoMath.IsValidDouble(x: ArcLength) && RhinoMath.IsValidDouble(x: FinalStep) && RhinoMath.IsValidDouble(x: MinStep)
-        && RhinoMath.IsValidDouble(x: MaxStep) && RhinoMath.IsValidDouble(x: MaxError) && ArcLength >= 0.0 && MinStep >= 0.0 && MaxStep >= MinStep
-        && !LastError.Map(static error => !RhinoMath.IsValidDouble(x: error) || error < 0.0).IfNone(noneValue: false)
-        && (Event is not { IsSome: true, Case: TraceEvent @event } || @event.IsValidFor(terminationPoint: TerminationPoint))
-        && TerminationPoint.IsValid;
 }
 
 [BoundaryAdapter, StructLayout(LayoutKind.Auto)]
@@ -401,77 +392,22 @@ public readonly record struct TraceEvent(TraceEventKind Kind, TraceEventStatus S
         && Math.Abs(value: Residual - Math.Abs(value: Values.Localized)) <= RhinoMath.SqrtEpsilon;
 }
 
-// --- [OPERATIONS] -------------------------------------------------------------------------
-[StructLayout(LayoutKind.Auto)]
-internal readonly record struct DenseOutputState(Point3d Start, Point3d End, double Step, Seq<Vector3d> Stages, ButcherTableau Tableau, DenseOutputReceipt Receipt) {
+[BoundaryAdapter, StructLayout(LayoutKind.Auto)]
+public readonly record struct StreamlineTrace(Seq<Point3d> Trail, StreamlineStopKind Stop, int AcceptedSteps, int RejectedSteps, double ArcLength, double FinalStep, int MethodOrder, Option<int> EmbeddedOrder, Option<double> LastError, double MaxError, double MinStep, double MaxStep, Point3d TerminationPoint, Option<TraceEvent> Event) {
+    public bool IsComplete => Stop.Equals(StreamlineStopKind.Terminated);
     internal bool IsValid =>
-        Start.IsValid
-        && End.IsValid
-        && RhinoMath.IsValidDouble(x: Step)
-        && Math.Abs(value: Step) > RhinoMath.ZeroTolerance
-        && Stages.Count == Tableau.StageCount
-        && Stages.ForAll(static vector => vector.IsValid)
-        && Tableau.IsValid
-        && Receipt.IsValid;
-    internal static Fin<DenseOutputState> Of(Point3d start, Point3d end, double step, Seq<Vector3d> stages, ButcherTableau tableau, Op key) =>
-        tableau.DenseOutputReceipt(key: key).Bind(receipt =>
-            tableau.DenseWeightsAt(theta: 1.0, key: key).Bind(weights => {
-                Point3d endpoint = start + (step * Combine(coefficients: weights, vectors: stages));
-                if (endpoint.DistanceTo(other: end) > RhinoMath.SqrtEpsilon) return Fin.Fail<DenseOutputState>(key.InvalidResult());
-                DenseOutputState state = new(Start: start, End: end, Step: step, Stages: stages, Tableau: tableau, Receipt: receipt);
-                return state.IsValid ? Fin.Succ(state) : Fin.Fail<DenseOutputState>(key.InvalidResult());
-            }));
-    internal Fin<Point3d> PointAt(double theta, Op key) {
-        if (!RhinoMath.IsValidDouble(x: theta) || theta is < 0.0 or > 1.0 || !IsValid) return Fin.Fail<Point3d>(key.InvalidInput());
-        Point3d start = Start;
-        double step = Step;
-        Seq<Vector3d> stages = Stages;
-        ButcherTableau tableau = Tableau;
-        return tableau.DenseWeightsAt(theta: theta, key: key)
-            .Bind(weights => key.AcceptValue(value: start + (step * Combine(coefficients: weights, vectors: stages))));
-    }
-    private static Vector3d Combine(Seq<double> coefficients, Seq<Vector3d> vectors) =>
-        coefficients.Zip(vectors).Fold(
-            initialState: Vector3d.Zero,
-            f: static (sum, pair) => sum + (pair.First * pair.Second));
+        !Trail.IsEmpty
+        && MethodOrder > 0
+        && (EmbeddedOrder is not { IsSome: true, Case: int order } || (order > 0 && order < MethodOrder))
+        && AcceptedSteps >= 0 && RejectedSteps >= 0 && AcceptedSteps == Trail.Count - 1 && Trail.ForAll(static point => point.IsValid)
+        && RhinoMath.IsValidDouble(x: ArcLength) && RhinoMath.IsValidDouble(x: FinalStep) && RhinoMath.IsValidDouble(x: MinStep)
+        && RhinoMath.IsValidDouble(x: MaxStep) && RhinoMath.IsValidDouble(x: MaxError) && ArcLength >= 0.0 && MinStep >= 0.0 && MaxStep >= MinStep
+        && !LastError.Map(static error => !RhinoMath.IsValidDouble(x: error) || error < 0.0).IfNone(noneValue: false)
+        && (Event is not { IsSome: true, Case: TraceEvent @event } || @event.IsValidFor(terminationPoint: TerminationPoint))
+        && TerminationPoint.IsValid;
 }
 
-[Union]
-internal abstract partial record StreamlineStep {
-    private StreamlineStep() { }
-    public sealed record AcceptedCase(Point3d Next, double SuggestedStep, Option<double> Error, DenseOutputState Dense) : StreamlineStep;
-    public sealed record RejectedCase(double SuggestedStep, Option<double> Error) : StreamlineStep;
-}
-
-internal readonly record struct StreamlineState(Seq<Point3d> Trail, Point3d Current, double H, double Arc, int Steps, int Rejects, int RejectedSteps, double MinStep, double MaxStep, Option<double> LastError, double MaxError, Option<DenseOutputState> Dense, Option<TraceEvent> Event, Option<StreamlineStopKind> Stop) {
-    internal static StreamlineState Start(Point3d seed, double h) =>
-        new(Trail: Seq(seed), Current: seed, H: h, Arc: 0.0, Steps: 0, Rejects: 0, RejectedSteps: 0, MinStep: h, MaxStep: h, LastError: Option<double>.None, MaxError: 0.0, Dense: Option<DenseOutputState>.None, Event: Option<TraceEvent>.None, Stop: Option<StreamlineStopKind>.None);
-    internal StreamlineState Accept(StreamlineStep.AcceptedCase accepted) =>
-        Step(suggested: accepted.SuggestedStep, error: accepted.Error) with {
-            Trail = Trail.Add(accepted.Next),
-            Current = accepted.Next,
-            Arc = Arc + accepted.Next.DistanceTo(other: Current),
-            Steps = Steps + 1,
-            Rejects = 0,
-            Dense = Some(accepted.Dense),
-        };
-    internal StreamlineState Reject(StreamlineStep.RejectedCase rejected, int rejectBudget) =>
-        Step(suggested: rejected.SuggestedStep, error: rejected.Error) with {
-            Rejects = Rejects + 1,
-            RejectedSteps = RejectedSteps + 1,
-            Dense = Option<DenseOutputState>.None,
-            Stop = (Rejects + 1 >= rejectBudget) switch { true => Some(StreamlineStopKind.RejectBudgetExhausted), false => Stop },
-        };
-    private StreamlineState Step(double suggested, Option<double> error) =>
-        this with {
-            H = suggested,
-            MinStep = Math.Min(val1: MinStep, val2: suggested),
-            MaxStep = Math.Max(val1: MaxStep, val2: suggested),
-            LastError = error,
-            MaxError = Math.Max(val1: MaxError, val2: error.IfNone(0.0)),
-        };
-}
-
+// --- [OPERATIONS] -------------------------------------------------------------------------
 internal static class ButcherDenseOutput {
     internal static Fin<DenseOutputReceipt> Receipt(ButcherTableau tableau, Op key) =>
         ReceiptAt(tableau: tableau, theta: 0.0, key: key).Bind(zero =>
@@ -552,6 +488,76 @@ internal static class ButcherDenseOutput {
                 Max: Math.Max(val1: state.Max, val2: residual)));
 }
 
+[StructLayout(LayoutKind.Auto)]
+internal readonly record struct DenseOutputState(Point3d Start, Point3d End, double Step, Seq<Vector3d> Stages, ButcherTableau Tableau, DenseOutputReceipt Receipt) {
+    internal bool IsValid =>
+        Start.IsValid
+        && End.IsValid
+        && RhinoMath.IsValidDouble(x: Step)
+        && Math.Abs(value: Step) > RhinoMath.ZeroTolerance
+        && Stages.Count == Tableau.StageCount
+        && Stages.ForAll(static vector => vector.IsValid)
+        && Tableau.IsValid
+        && Receipt.IsValid;
+    internal static Fin<DenseOutputState> Of(Point3d start, Point3d end, double step, Seq<Vector3d> stages, ButcherTableau tableau, Op key) =>
+        tableau.DenseOutputReceipt(key: key).Bind(receipt =>
+            tableau.DenseWeightsAt(theta: 1.0, key: key).Bind(weights => {
+                Point3d endpoint = start + (step * Combine(coefficients: weights, vectors: stages));
+                if (endpoint.DistanceTo(other: end) > RhinoMath.SqrtEpsilon) return Fin.Fail<DenseOutputState>(key.InvalidResult());
+                DenseOutputState state = new(Start: start, End: end, Step: step, Stages: stages, Tableau: tableau, Receipt: receipt);
+                return state.IsValid ? Fin.Succ(state) : Fin.Fail<DenseOutputState>(key.InvalidResult());
+            }));
+    internal Fin<Point3d> PointAt(double theta, Op key) {
+        if (!RhinoMath.IsValidDouble(x: theta) || theta is < 0.0 or > 1.0 || !IsValid) return Fin.Fail<Point3d>(key.InvalidInput());
+        Point3d start = Start;
+        double step = Step;
+        Seq<Vector3d> stages = Stages;
+        ButcherTableau tableau = Tableau;
+        return tableau.DenseWeightsAt(theta: theta, key: key)
+            .Bind(weights => key.AcceptValue(value: start + (step * Combine(coefficients: weights, vectors: stages))));
+    }
+    private static Vector3d Combine(Seq<double> coefficients, Seq<Vector3d> vectors) =>
+        coefficients.Zip(vectors).Fold(
+            initialState: Vector3d.Zero,
+            f: static (sum, pair) => sum + (pair.First * pair.Second));
+}
+
+[Union]
+internal abstract partial record StreamlineStep {
+    private StreamlineStep() { }
+    public sealed record AcceptedCase(Point3d Next, double SuggestedStep, Option<double> Error, DenseOutputState Dense) : StreamlineStep;
+    public sealed record RejectedCase(double SuggestedStep, Option<double> Error) : StreamlineStep;
+}
+
+internal readonly record struct StreamlineState(Seq<Point3d> Trail, Point3d Current, double H, double Arc, int Steps, int Rejects, int RejectedSteps, double MinStep, double MaxStep, Option<double> LastError, double MaxError, Option<DenseOutputState> Dense, Option<TraceEvent> Event, Option<StreamlineStopKind> Stop) {
+    internal static StreamlineState Start(Point3d seed, double h) =>
+        new(Trail: Seq(seed), Current: seed, H: h, Arc: 0.0, Steps: 0, Rejects: 0, RejectedSteps: 0, MinStep: h, MaxStep: h, LastError: Option<double>.None, MaxError: 0.0, Dense: Option<DenseOutputState>.None, Event: Option<TraceEvent>.None, Stop: Option<StreamlineStopKind>.None);
+    internal StreamlineState Accept(StreamlineStep.AcceptedCase accepted) =>
+        Step(suggested: accepted.SuggestedStep, error: accepted.Error) with {
+            Trail = Trail.Add(accepted.Next),
+            Current = accepted.Next,
+            Arc = Arc + accepted.Next.DistanceTo(other: Current),
+            Steps = Steps + 1,
+            Rejects = 0,
+            Dense = Some(accepted.Dense),
+        };
+    internal StreamlineState Reject(StreamlineStep.RejectedCase rejected, int rejectBudget) =>
+        Step(suggested: rejected.SuggestedStep, error: rejected.Error) with {
+            Rejects = Rejects + 1,
+            RejectedSteps = RejectedSteps + 1,
+            Dense = Option<DenseOutputState>.None,
+            Stop = (Rejects + 1 >= rejectBudget) switch { true => Some(StreamlineStopKind.RejectBudgetExhausted), false => Stop },
+        };
+    private StreamlineState Step(double suggested, Option<double> error) =>
+        this with {
+            H = suggested,
+            MinStep = Math.Min(val1: MinStep, val2: suggested),
+            MaxStep = Math.Max(val1: MaxStep, val2: suggested),
+            LastError = error,
+            MaxError = Math.Max(val1: MaxError, val2: error.IfNone(0.0)),
+        };
+}
+
 internal static class FlowKernel {
     private const int MaxIterations = 100000;
 
@@ -562,6 +568,19 @@ internal static class FlowKernel {
         from state in TraceState(source: source, seed: validSeed, initialStep: initialStep, integrator: activeIntegrator, termination: activeTermination, context: context, key: key)
         let trace = ToTrace(state: state, integrator: activeIntegrator)
         from output in ProjectTrace<TOut>(trace: trace, key: key)
+        select output;
+    internal static Fin<TOut> ProjectTrace<TOut>(StreamlineTrace trace, Op key) =>
+        from valid in trace.IsValid ? Fin.Succ(trace) : Fin.Fail<StreamlineTrace>(error: key.InvalidResult())
+        from output in typeof(TOut) switch {
+            Type t when t == typeof(StreamlineTrace) => Fin.Succ((TOut)(object)valid),
+            Type t when t == typeof(Seq<Point3d>) => valid.Trail.TraverseM(point => key.AcceptValue(value: point)).As().Map(static value => (TOut)(object)value),
+            Type t when (t == typeof(Polyline) || t == typeof(Curve)) && !valid.IsComplete => Fin.Fail<TOut>(key.InvalidResult()),
+            Type t when t == typeof(Polyline) => PolylineOf(trace: valid, key: key).Map(static value => (TOut)(object)value),
+            Type t when t == typeof(Curve) => PolylineOf(trace: valid, key: key)
+                .Bind(polyline => Optional(polyline.ToPolylineCurve()).ToFin(key.InvalidResult()))
+                .Map(static value => (TOut)(object)value),
+            _ => Fin.Fail<TOut>(error: key.Unsupported(geometryType: typeof(StreamlineTrace), outputType: typeof(TOut))),
+        }
         select output;
     private static Fin<StreamlineState> TraceState(VectorField source, Point3d seed, PositiveMagnitude initialStep, FieldIntegrator integrator, Termination termination, Context context, Op key) {
         Fin<StreamlineState> state = Fin.Succ(StreamlineState.Start(seed: seed, h: initialStep.Value));
@@ -598,19 +617,6 @@ internal static class FlowKernel {
             MaxStep: state.MaxStep,
             TerminationPoint: state.Event.Map(static @event => @event.Points.Localized).IfNone(state.Current),
             Event: state.Event);
-    internal static Fin<TOut> ProjectTrace<TOut>(StreamlineTrace trace, Op key) =>
-        from valid in trace.IsValid ? Fin.Succ(trace) : Fin.Fail<StreamlineTrace>(error: key.InvalidResult())
-        from output in typeof(TOut) switch {
-            Type t when t == typeof(StreamlineTrace) => Fin.Succ((TOut)(object)valid),
-            Type t when t == typeof(Seq<Point3d>) => valid.Trail.TraverseM(point => key.AcceptValue(value: point)).As().Map(static value => (TOut)(object)value),
-            Type t when (t == typeof(Polyline) || t == typeof(Curve)) && !valid.IsComplete => Fin.Fail<TOut>(key.InvalidResult()),
-            Type t when t == typeof(Polyline) => PolylineOf(trace: valid, key: key).Map(static value => (TOut)(object)value),
-            Type t when t == typeof(Curve) => PolylineOf(trace: valid, key: key)
-                .Bind(polyline => Optional(polyline.ToPolylineCurve()).ToFin(key.InvalidResult()))
-                .Map(static value => (TOut)(object)value),
-            _ => Fin.Fail<TOut>(error: key.Unsupported(geometryType: typeof(StreamlineTrace), outputType: typeof(TOut))),
-        }
-        select output;
     private static Fin<Polyline> PolylineOf(StreamlineTrace trace, Op key) {
         Point3d[] points = trace.Event.Match(
             Some: @event => trace.Trail.AsIterable().Select((point, index) => index == trace.Trail.Count - 1 ? @event.Points.Localized : point).ToArray(),

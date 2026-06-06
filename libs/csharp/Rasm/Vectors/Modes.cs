@@ -2,14 +2,6 @@ namespace Rasm.Vectors;
 
 // --- [TYPES] ------------------------------------------------------------------------------
 [SmartEnum<int>]
-public sealed partial class ConeProjection {
-    public static readonly ConeProjection HalfAngle = new(key: 0, sample: static cone => cone.HalfAngle), SolidAngle = new(key: 1, sample: static cone => cone.SolidAngle), Axis = new(key: 2, sample: static cone => cone.Axis), Apex = new(key: 3, sample: static cone => cone.Apex);
-    [UseDelegateFromConstructor] private partial object Sample(VectorCone cone);
-    internal Fin<TOut> Project<TOut>(VectorCone cone, Op key) =>
-        AtomProjection.Raw<TOut>(raw: Sample(cone: cone), context: Option<Context>.None, key: key, owner: typeof(ConeProjection));
-}
-
-[SmartEnum<int>]
 public sealed partial class CurveProjection {
     public static readonly CurveProjection Tangent = new(key: 0,
         sample: static (curve, t, _, key) => curve.TangentAt(t: t) switch {
@@ -40,34 +32,13 @@ public sealed partial class CurveProjection {
         from raw in Sample(curve: active, parameter: parameter, context: context, key: key).BindFail(_ => Fin.Fail<object>(key.InvalidResult()))
         from output in AtomProjection.Raw<TOut>(raw: raw, context: Some(context), key: key, owner: typeof(CurveProjection), admitsVectorMagnitude: ReferenceEquals(objA: this, objB: Curvature))
         select output;
-    private static CurveProjection CurveFrameProjection(int key, bool perpendicular, Func<Plane, object> project) =>
-        new(key: key, sample: (curve, parameter, _, op) => CurveFrame(curve: curve, parameter: parameter, perpendicular: perpendicular, key: op, project: project));
     private static Fin<object> CurveFrame(Curve curve, double parameter, bool perpendicular, Op key, Func<Plane, object> project) =>
         perpendicular switch {
             true => curve.PerpendicularFrameAt(t: parameter, plane: out Plane frame) ? Fin.Succ(project(arg: frame)) : Fin.Fail<object>(key.InvalidResult()),
             false => curve.FrameAt(t: parameter, plane: out Plane frame) ? Fin.Succ(project(arg: frame)) : Fin.Fail<object>(key.InvalidResult()),
         };
-}
-
-[SmartEnum<int>]
-public sealed partial class MotionInterpolation {
-    public static readonly MotionInterpolation Linear = new(key: 0, interpolate: static (a, b, t, key) => InterpolatePlanes(a: a, b: b, t: t, spherical: false, key: key));
-    public static readonly MotionInterpolation Slerp = new(key: 1, interpolate: static (a, b, t, key) => InterpolatePlanes(a: a, b: b, t: t, spherical: true, key: key));
-    [UseDelegateFromConstructor] internal partial Fin<Plane> Interpolate(Plane a, Plane b, UnitInterval t, Op key);
-
-    private static Fin<Plane> InterpolatePlanes(Plane a, Plane b, UnitInterval t, bool spherical, Op key) =>
-        (!a.IsValid || !b.IsValid, a.EpsilonEquals(other: b, epsilon: RhinoMath.ZeroTolerance)) switch {
-            (true, _) => Fin.Fail<Plane>(key.InvalidInput()),
-            (_, true) => Fin.Succ(a),
-            _ => (Quaternion.Rotation(plane0: Plane.WorldXY, plane1: a), Quaternion.Rotation(plane0: Plane.WorldXY, plane1: b)) switch {
-                (Quaternion qa, Quaternion qb) => (spherical switch {
-                    true => Quaternion.Slerp(a: qa, b: qb, t: t.Value),
-                    false => Quaternion.Lerp(a: qa, b: qb, t: t.Value),
-                }).GetRotation(plane: out Plane oriented) && oriented.IsValid
-                    ? Fin.Succ(new Plane(origin: a.Origin + ((b.Origin - a.Origin) * t.Value), xDirection: oriented.XAxis, yDirection: oriented.YAxis))
-                    : Fin.Fail<Plane>(key.InvalidResult()),
-            },
-        };
+    private static CurveProjection CurveFrameProjection(int key, bool perpendicular, Func<Plane, object> project) =>
+        new(key: key, sample: (curve, parameter, _, op) => CurveFrame(curve: curve, parameter: parameter, perpendicular: perpendicular, key: op, project: project));
 }
 
 [SmartEnum<int>]
@@ -103,30 +74,12 @@ public sealed partial class SurfaceProjection {
         from raw in Sample(surface: active, uv: uv, context: context, key: key).BindFail(_ => Fin.Fail<object>(key.InvalidResult()))
         from output in AtomProjection.Raw<TOut>(raw: raw, context: Some(context), key: key, owner: typeof(SurfaceProjection))
         select output;
-    private static SurfaceProjection Derivatives(int key, Func<Surface, Point2d, (Point3d Point, Vector3d Du, Vector3d Dv), Context, Op, Fin<object>> project) =>
-        new(key: key, sample: (surface, uv, context, op) => SurfaceDerivatives(surface: surface, uv: uv, key: op).Bind(derivatives => project(arg1: surface, arg2: uv, arg3: derivatives, arg4: context, arg5: op)));
     private static Fin<T> WithCurvature<T>(Surface surface, Point2d uv, Op key, Func<SurfaceCurvature, Fin<T>> project) {
         using SurfaceCurvature? curvature = surface.CurvatureAt(u: uv.X, v: uv.Y);
         return curvature is { IsSet: true }
             ? project(arg: curvature)
             : Fin.Fail<T>(key.InvalidResult());
     }
-    private static Fin<(Point3d Point, Vector3d Du, Vector3d Dv)> SurfaceDerivatives(Surface surface, Point2d uv, Op key) =>
-        surface.Evaluate(u: uv.X, v: uv.Y, numberDerivatives: 1, point: out Point3d point, derivatives: out Vector3d[] derivatives)
-        && derivatives is not null
-        && derivatives.Length >= 2
-            ? from validPoint in key.AcceptValue(value: point)
-              from du in key.AcceptValue(value: derivatives[0])
-              from dv in key.AcceptValue(value: derivatives[1])
-              select (Point: validPoint, Du: du, Dv: dv)
-            : Fin.Fail<(Point3d Point, Vector3d Du, Vector3d Dv)>(key.InvalidResult());
-    private static Fin<Plane> OrientedFrame(Surface surface, Point2d uv, Plane frame, Op key) =>
-        from validFrame in FieldNabla.Plane(basis: frame, key: key)
-        from normal in GeometryKernel.NormalAt(surface: surface, uv: uv, key: key)
-        from oriented in FieldNabla.Plane(
-            basis: validFrame.ZAxis * normal >= 0.0 ? validFrame : new Plane(origin: validFrame.Origin, xDirection: validFrame.XAxis, yDirection: -validFrame.YAxis),
-            key: key)
-        select oriented;
     private static Fin<SymmetricMatrix> ShapeOperatorOf(SurfaceCurvature curvature, Context context, Op key) {
         double k0 = curvature.Kappa(direction: 0);
         double k1 = curvature.Kappa(direction: 1);
@@ -145,4 +98,54 @@ public sealed partial class SurfaceProjection {
                    key: key)
                select matrix;
     }
+    private static Fin<(Point3d Point, Vector3d Du, Vector3d Dv)> SurfaceDerivatives(Surface surface, Point2d uv, Op key) =>
+        surface.Evaluate(u: uv.X, v: uv.Y, numberDerivatives: 1, point: out Point3d point, derivatives: out Vector3d[] derivatives)
+        && derivatives is not null
+        && derivatives.Length >= 2
+            ? from validPoint in key.AcceptValue(value: point)
+              from du in key.AcceptValue(value: derivatives[0])
+              from dv in key.AcceptValue(value: derivatives[1])
+              select (Point: validPoint, Du: du, Dv: dv)
+            : Fin.Fail<(Point3d Point, Vector3d Du, Vector3d Dv)>(key.InvalidResult());
+    private static Fin<Plane> OrientedFrame(Surface surface, Point2d uv, Plane frame, Op key) =>
+        from validFrame in FieldNabla.Plane(basis: frame, key: key)
+        from normal in GeometryKernel.NormalAt(surface: surface, uv: uv, key: key)
+        from oriented in FieldNabla.Plane(
+            basis: validFrame.ZAxis * normal >= 0.0 ? validFrame : new Plane(origin: validFrame.Origin, xDirection: validFrame.XAxis, yDirection: -validFrame.YAxis),
+            key: key)
+        select oriented;
+    private static SurfaceProjection Derivatives(int key, Func<Surface, Point2d, (Point3d Point, Vector3d Du, Vector3d Dv), Context, Op, Fin<object>> project) =>
+        new(key: key, sample: (surface, uv, context, op) => SurfaceDerivatives(surface: surface, uv: uv, key: op).Bind(derivatives => project(arg1: surface, arg2: uv, arg3: derivatives, arg4: context, arg5: op)));
+}
+
+[SmartEnum<int>]
+public sealed partial class ConeProjection {
+    public static readonly ConeProjection HalfAngle = new(key: 0, sample: static cone => cone.HalfAngle);
+    public static readonly ConeProjection SolidAngle = new(key: 1, sample: static cone => cone.SolidAngle);
+    public static readonly ConeProjection Axis = new(key: 2, sample: static cone => cone.Axis);
+    public static readonly ConeProjection Apex = new(key: 3, sample: static cone => cone.Apex);
+    [UseDelegateFromConstructor] private partial object Sample(VectorCone cone);
+    internal Fin<TOut> Project<TOut>(VectorCone cone, Op key) =>
+        AtomProjection.Raw<TOut>(raw: Sample(cone: cone), context: Option<Context>.None, key: key, owner: typeof(ConeProjection));
+}
+
+[SmartEnum<int>]
+public sealed partial class MotionInterpolation {
+    public static readonly MotionInterpolation Linear = new(key: 0, interpolate: static (a, b, t, key) => InterpolatePlanes(a: a, b: b, t: t, spherical: false, key: key));
+    public static readonly MotionInterpolation Slerp = new(key: 1, interpolate: static (a, b, t, key) => InterpolatePlanes(a: a, b: b, t: t, spherical: true, key: key));
+    [UseDelegateFromConstructor] internal partial Fin<Plane> Interpolate(Plane a, Plane b, UnitInterval t, Op key);
+
+    private static Fin<Plane> InterpolatePlanes(Plane a, Plane b, UnitInterval t, bool spherical, Op key) =>
+        (!a.IsValid || !b.IsValid, a.EpsilonEquals(other: b, epsilon: RhinoMath.ZeroTolerance)) switch {
+            (true, _) => Fin.Fail<Plane>(key.InvalidInput()),
+            (_, true) => Fin.Succ(a),
+            _ => (Quaternion.Rotation(plane0: Plane.WorldXY, plane1: a), Quaternion.Rotation(plane0: Plane.WorldXY, plane1: b)) switch {
+                (Quaternion qa, Quaternion qb) => (spherical switch {
+                    true => Quaternion.Slerp(a: qa, b: qb, t: t.Value),
+                    false => Quaternion.Lerp(a: qa, b: qb, t: t.Value),
+                }).GetRotation(plane: out Plane oriented) && oriented.IsValid
+                    ? Fin.Succ(new Plane(origin: a.Origin + ((b.Origin - a.Origin) * t.Value), xDirection: oriented.XAxis, yDirection: oriented.YAxis))
+                    : Fin.Fail<Plane>(key.InvalidResult()),
+            },
+        };
 }
