@@ -47,6 +47,8 @@ When Rasm owns both sides of a surface, preserve capability through direct repla
 
 Minimize shape count, not capability. Preserve behavior by deepening the canonical owner with cases, rows, folds, projections, typed receipts, scenarios, or boundary adapters; do not delete capability, split helper files, or add shallow sibling surfaces to make the system look simpler.
 
+Every repo tool must route generated storage, caches, benchmark output, mutation workdirs, coverage files, snapshots, and scratch artifacts through the owning language/tool configuration or the owning repo tool surface. Do not rely on package scripts, ambient CLI defaults, or gitignore-only tolerance for root litter; configure the tool in `pyproject.toml`, `Directory.Build.props`, tool manifests, test conftests, or the canonical tool engine so outputs land under `.cache`, `.artifacts`, or another owner-declared path.
+
 Nested overlays inherit this target/current split; they only add local owner rails, proof stops, and route-away records that parent guidance cannot infer.
 
 ## [4][ROUTING]

@@ -9,6 +9,8 @@ Proportionality: place() over k=10 and k=20 synthetic .py files; ratio large/sma
 import time
 from typing import Protocol, TYPE_CHECKING
 
+import pytest
+
 from tools.assay.core.model import Claim, Input, Language, Mode, Runner, Tool
 from tools.assay.core.routing import place, Routed, Scope
 
@@ -20,6 +22,8 @@ if TYPE_CHECKING:
 
 
 # --- [TYPES] ----------------------------------------------------------------------------
+
+pytestmark = pytest.mark.benchmark
 
 
 class RoutingBenchmark(Protocol):

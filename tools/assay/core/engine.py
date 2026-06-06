@@ -5,7 +5,9 @@ from contextvars import ContextVar
 from dataclasses import dataclass
 import fcntl
 import os
+from pathlib import Path
 import shlex
+import shutil
 import time
 from typing import TYPE_CHECKING
 from urllib.parse import urlsplit
@@ -86,8 +88,9 @@ def _splice(runner: Runner, command: tuple[str, ...], scope: ArtifactScope | Non
             return command
 
 
-def _overlay(scope: ArtifactScope | None) -> Mapping[str, str]:
+def _overlay(settings: AssaySettings, scope: ArtifactScope | None) -> Mapping[str, str]:
     base: MutableMapping[str, str] = dict(os.environ)  # noqa: TID251  # spawn boundary clones the host environment
+    base.update(settings.python_tool_env)
     match scope:
         case ArtifactScope() as s:
             return {**base, **s.dotnet_env}
@@ -99,8 +102,32 @@ def _argv(check: Check, routed: Routed, *, settings: AssaySettings, scope: Artif
     # Runner prefix, scoped command body, then routed tails keep scope and input axes separate.
     tool = check.tool
     body = _splice(tool.runner, tool.command, scope, settings.scoped_verbs, tool.mode)
+    body = ("--project", str(settings.root), *body) if tool.runner is Runner.UV and tool.stage.project else body
     tails = place(routed, tool, settings=settings)
     return (*tool.runner.prefix, *body, *(part for tail in tails for part in tail))
+
+
+def _materialize(check: Check, settings: AssaySettings) -> Result[Check, Fault]:
+    stage = check.tool.stage
+    if not stage.root:
+        return Ok(check)
+    if settings.exec_target:
+        return Error(Fault((check.tool.name, "stage"), status=RailStatus.UNSUPPORTED, message="staged tools require local execution"))
+    root = Path(str(settings.root)).resolve()
+    work = root / stage.root
+    shutil.rmtree(work, ignore_errors=True)
+    work.mkdir(parents=True, exist_ok=True)
+    for rel in stage.inputs:
+        src = root / rel
+        dst = work / rel
+        if not src.exists():
+            return Error(Fault((check.tool.name, "stage", rel), message=f"missing stage input: {rel}"))
+        if src.is_dir():
+            shutil.copytree(src, dst)
+        else:
+            dst.parent.mkdir(parents=True, exist_ok=True)
+            shutil.copy2(src, dst)
+    return Ok(msgspec.structs.replace(check, cwd=work))
 
 
 async def _drain(stream: ByteReceiveStream | None, *, tail_cap: int, chunk: int) -> bytes:
@@ -266,10 +293,14 @@ def _diagnose(exc: BaseException) -> None:
 async def _guarded(
     check: Check, settings: AssaySettings, scope: ArtifactScope | None, routed: Routed, deadline: float | None
 ) -> Result[Completed, Fault]:
+    prepared = _materialize(check, settings)
+    if prepared.is_error():
+        return Error(prepared.error)
+    check = prepared.ok
     argv = _argv(check, routed, settings=settings, scope=scope)
     budget = deadline - time.monotonic() if deadline is not None else check.tool.timeout
     cwd = str(UPath(check.cwd or settings.root).path)
-    env = _overlay(scope)
+    env = _overlay(settings, scope)
     trace.get_current_span().set_attribute("exec.target", settings.exec_target)
     started = time.monotonic()
     try:

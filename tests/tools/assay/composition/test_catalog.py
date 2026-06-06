@@ -1,14 +1,17 @@
-"""Catalog: Tool row completeness, select(Claim, Language) non-empty, parser callable bind.
+"""Catalog laws for Python tool storage ownership."""
 
-Source surface: ``tools/assay/composition/catalog.py`` — ``TOOLS``, ``select``, parser callables
-(``parse_tests``, ``parse_findings``, ``parse_verify``).
-Laws: select(STATIC, CSHARP) → ≥1 DOTNET tool, select(STATIC, PYTHON) → ≥1 UV tool, every Tool has
-non-empty name/runner/command/input/language/claim, parse_* callables are total on malformed input,
-select over every (Claim, Language) pair returns a tuple (possibly empty, never raises).
-"""
-
-import pytest
+from tools.assay.composition.catalog import select
+from tools.assay.core.model import Claim, Input, Language, Mode, Runner
 
 
-def test_bedrock_placeholder() -> None:
-    pytest.skip("bedrock: coverage pending")
+def test_python_storage_rows_are_catalog_owned() -> None:
+    """Python benchmark and mutation storage are declared as reusable tool-row policy."""
+    rows = select(Claim.TEST, Language.PYTHON)
+    benchmark = next(t for t in rows if t.name == "pytest-benchmark")
+    mutation = next(t for t in rows if t.name == "mutmut" and t.mode is Mode.MUTATION)
+
+    assert "--benchmark-storage=file://.artifacts/python/benchmarks" in benchmark.command
+    assert (mutation.runner, mutation.input, mutation.thunk) == (Runner.UV, Input.FILES, None)
+    assert mutation.stage.root == ".artifacts/python/mutmut/work"
+    assert mutation.stage.project is True
+    assert mutation.stage.inputs == ("pyproject.toml", ".gitignore", "tools/assay", "tests/conftest.py", "tests/tools/assay")

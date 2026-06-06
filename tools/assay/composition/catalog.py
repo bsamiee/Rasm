@@ -4,7 +4,7 @@ from typing import TYPE_CHECKING
 
 import msgspec
 
-from tools.assay.core.model import ApiSurface, Claim, Input, Language, Mode, Runner, TestRun, Tool, VerifySummary
+from tools.assay.core.model import ApiSurface, Claim, Input, Language, Mode, Runner, Stage, TestRun, Tool, VerifySummary
 
 
 if TYPE_CHECKING:
@@ -215,9 +215,30 @@ TOOLS: tuple[Tool, ...] = (
     ),
     Tool("py-analyzer", MODULE, ("tools.py_analyzer", "check", "--format", "json"), NONE, PY, Claim.STATIC, parser=parse_findings),
     Tool("pytest", UV, ("pytest",), INCLUDE, PY, Claim.TEST, mode=Mode.RUN),
-    Tool("pytest-benchmark", UV, ("pytest", "-m", "benchmark", "--benchmark-only", "--benchmark-autosave"), INCLUDE, PY, Claim.TEST, mode=Mode.RUN),
+    Tool(
+        "pytest-benchmark",
+        UV,
+        ("pytest", "-m", "benchmark", "--benchmark-only", "--benchmark-autosave", "--benchmark-storage=file://.artifacts/python/benchmarks"),
+        INCLUDE,
+        PY,
+        Claim.TEST,
+        mode=Mode.RUN,
+    ),
     Tool("coverage", UV, ("coverage", "run", "-m", "pytest"), INCLUDE, PY, Claim.TEST, mode=Mode.RUN),
-    Tool("mutmut", UV, ("mutmut", "run"), PROJECT, PY, Claim.TEST, mode=Mode.MUTATION),
+    Tool(
+        "mutmut",
+        UV,
+        ("mutmut", "run"),
+        FILES,
+        PY,
+        Claim.TEST,
+        mode=Mode.MUTATION,
+        stage=Stage(
+            root=".artifacts/python/mutmut/work",
+            inputs=("pyproject.toml", ".gitignore", "tools/assay", "tests/conftest.py", "tests/tools/assay"),
+            project=True,
+        ),
+    ),
     # -- TypeScript --------------------------------------------------------------------------
     Tool("tsc", PNPM, ("tsc", "--noEmit", "-p", "tsconfig.base.json"), PROJECT, TS, Claim.STATIC, mode=Mode.BUILD),
     Tool("biome", PNPM, ("biome", "ci", "--files-ignore-unknown=true"), NONE, TS, Claim.STATIC),

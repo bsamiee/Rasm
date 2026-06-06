@@ -11,6 +11,9 @@ Use ``multiprocessing.get_context('spawn')`` workers. ``@pytest.mark.serial`` pr
 import pytest
 
 
+pytestmark = pytest.mark.benchmark
+
+
 @pytest.mark.skip(reason="bedrock: perf laws pending — multiprocessing.spawn storm requires dedicated CI lease")
 def bench_lease_storm() -> None:
     """32 spawn-contenders → exactly 1 winner; requires dedicated CI lease (skipped by default)."""

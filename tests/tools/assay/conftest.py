@@ -67,6 +67,7 @@ from tools.assay.core.model import (
     Report,
     RunDelta,
     RunSnapshot,
+    Stage,
     TestRun,
     Tool,
     VerifySummary,
@@ -215,7 +216,7 @@ def _resolver(cls: type[msgspec.Struct]) -> st.SearchStrategy[object]:
 _WIRE_STRUCTS: tuple[type[msgspec.Struct], ...] = (
     Completed, Fault, Counts, Artifact, Match, RunSnapshot,
     ApiSurface, VerifySummary, TestRun, PackageRun, ApiResolution, Diagnostic, RunDelta, Report,
-    Tool, Check,
+    Stage, Tool, Check,
 )  # fmt: skip
 for _struct in _WIRE_STRUCTS:
     st.register_type_strategy(_struct, _resolver(_struct))

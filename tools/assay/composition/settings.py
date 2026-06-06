@@ -45,6 +45,13 @@ _ASSAY: Final[str] = "assay"
 _BUILD: Final[str] = "build"
 _DISABLE_BUILD_SERVERS: Final[str] = "--disable-build-servers"
 _ARTIFACTS_PATH_FLAG: Final[str] = "--artifacts-path"
+_PYTHON_TOOL_ENV: Final[dict[str, str]] = {
+    "UV_CACHE_DIR": ".cache/uv",
+    "HYPOTHESIS_STORAGE_DIRECTORY": ".cache/hypothesis",
+    "RUFF_CACHE_DIR": ".cache/ruff",
+    "MYPY_CACHE_DIR": ".cache/mypy",
+    "COVERAGE_FILE": ".cache/coverage/.coverage",
+}
 
 
 def _anchor(value: str | UPath) -> UPath:
@@ -196,6 +203,11 @@ class AssaySettings(BaseSettings):
     def agent_context(self) -> dict[str, str]:
         """Build log and trace correlation tags."""
         return {"run.id": self.run_id, "agent.task.id": self.agent_task_id}
+
+    @property
+    def python_tool_env(self) -> dict[str, str]:
+        """Project repo-local Python tool storage variables for subprocess launches."""
+        return dict(_PYTHON_TOOL_ENV)
 
     @property
     def store_root(self) -> UPath:

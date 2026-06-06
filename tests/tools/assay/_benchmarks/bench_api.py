@@ -10,6 +10,9 @@ import pytest
 from tests.tools.assay.conftest import skip_no_ilspycmd
 
 
+pytestmark = pytest.mark.benchmark
+
+
 @pytest.mark.skip(reason="bedrock: perf laws pending — ilspycmd required")
 @skip_no_ilspycmd
 def bench_fingerprint_cache_ratio() -> None:

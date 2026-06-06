@@ -171,6 +171,14 @@ class Detail(Base, frozen=True, forbid_unknown_fields=True, tag_field="kind"):
     """Tagged-union base for algorithm-specific evidence."""
 
 
+class Stage(Base, frozen=True, cache_hash=True):
+    """Artifact-backed worktree projection for tools with root-writing behavior."""
+
+    root: str = ""
+    inputs: tuple[str, ...] = ()
+    project: bool = False
+
+
 class Tool(Base, frozen=True, cache_hash=True):
     """Catalog row describing one executable or in-process program."""
 
@@ -184,6 +192,7 @@ class Tool(Base, frozen=True, cache_hash=True):
     timeout: Annotated[float, msgspec.Meta(gt=0)] | None = None
     parser: Parser | None = None
     thunk: InprocThunk | None = None
+    stage: Stage = Stage()
 
 
 class Check(Base, frozen=True, cache_hash=True):
@@ -566,6 +575,7 @@ __all__ = [
     "RunSnapshot",
     "Runner",
     "SourceKind",
+    "Stage",
     "SymbolShape",
     "TestRun",
     "Tool",

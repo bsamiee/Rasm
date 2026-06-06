@@ -86,7 +86,11 @@ def _eligible(tool: Tool, params: TestParams) -> bool:
         case (Mode.RESTORE, _) | (Mode.BUILD, _):
             return not params.no_build
         case _:
-            return (tool.name != "coverage" or params.coverage) and (tool.name != "pytest-benchmark" or params.benchmark)
+            return (
+                (tool.name != "pytest" or not params.benchmark)
+                and (tool.name != "coverage" or params.coverage)
+                and (tool.name != "pytest-benchmark" or params.benchmark)
+            )
 
 
 def _rows(language: Language, params: TestParams, mode: Mode) -> tuple[Tool, ...]:

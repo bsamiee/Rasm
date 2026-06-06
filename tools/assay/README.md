@@ -364,6 +364,13 @@ Source owners:
 | Claim behavior                                            | `tools/assay/rails/*.py`              |
 | Automation unions and drive loop                          | `tools/assay/automation/*.py`         |
 
+Maintainer flow for surgical additions:
+
+1. Start from the operator action, then trace the existing path through `REGISTRY`, the rail params, routing, `Tool`, `Check`, engine execution, fold, envelope, and artifacts.
+2. Extend the first owner in that path that actually owns the new behavior. Examples: argv-tail placement belongs in routing, process/cwd/env/staging belongs in the engine plus `Tool`, cache and artifact roots belong in settings/store, and output shape belongs in model/fold/envelope.
+3. Keep the behavior in one reusable shape. Do not add a per-tool process wrapper, package-script alias, rail-local cwd patch, or parallel config object when the existing row, model, rail, or engine can express it.
+4. Prove the owner boundary directly: catalog rows prove selection, engine tests prove execution policy, rail tests prove eligibility/routing, and README updates prove operator action only when the command surface changes.
+
 README validation for this document:
 
 ```bash copy-safe

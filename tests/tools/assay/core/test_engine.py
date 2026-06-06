@@ -12,10 +12,12 @@ SSH streaming round-trip, OTel span resource snapshot, _drain tail-cap property 
 
 from contextlib import aclosing
 import os
+from types import SimpleNamespace
 from typing import override, TYPE_CHECKING, TypedDict
 
 import anyio
 from anyio.abc import ByteReceiveStream
+import anyio.lowlevel
 from expression import Error, Ok
 from hypothesis import given
 from hypothesis.strategies import binary
@@ -25,12 +27,14 @@ import pytest
 from tests.tools.assay.conftest import _make_psutil_module, _proc  # noqa: PLC2701
 import tools.assay.core.engine as engine_mod
 from tools.assay.core.engine import _decode_owner, _drain, _governed, _inproc, _splice, _stale, _total, exclusive_lease, run_check  # noqa: PLC2701
-from tools.assay.core.model import ArtifactKind, Check, Claim, Completed, Fault, Input, Language, Mode, receipt, Runner, Tool  # noqa: TC001
+from tools.assay.core.model import ArtifactKind, Check, Claim, Completed, Fault, Input, Language, Mode, receipt, Runner, Stage, Tool  # noqa: TC001
 from tools.assay.core.routing import Routed, Scope
 from tools.assay.core.status import RailStatus
 
 
 if TYPE_CHECKING:
+    from collections.abc import Mapping, Sequence
+
     from anyio.streams.memory import MemoryObjectReceiveStream
     from expression import Result
     from opentelemetry.sdk.trace.export.in_memory_span_exporter import InMemorySpanExporter
@@ -185,6 +189,47 @@ def test_splice_oracle(
         assert flag in result
     for flag in not_contains:
         assert flag not in result
+
+
+def test_staged_process_materializes_workdir_and_env(assay_root: AssayHarness, monkeypatch: pytest.MonkeyPatch) -> None:
+    """Staged process tools run from artifact workdirs with repo-local Python storage."""
+    seen: list[tuple[tuple[str, ...], str, dict[str, str]]] = []
+    monkeypatch.setenv("HYPOTHESIS_STORAGE_DIRECTORY", ".hypothesis")
+    for rel in ("pyproject.toml", "tools/assay/__init__.py"):
+        assay_root.write(rel)
+
+    async def fake_run_process(argv: Sequence[str], *, cwd: str, env: Mapping[str, str], check: bool) -> object:
+        _ = check
+        seen.append((tuple(argv), cwd, dict(env)))
+        await anyio.lowlevel.checkpoint()
+        return SimpleNamespace(returncode=0, stdout=b"ok", stderr=b"")
+
+    tool = Tool(
+        "stage-law",
+        Runner.UV,
+        ("mutmut", "run"),
+        Input.FILES,
+        Language.PYTHON,
+        Claim.TEST,
+        mode=Mode.RUN,
+        stage=Stage(root=".artifacts/python/mutmut/work", inputs=("pyproject.toml", "tools/assay"), project=True),
+    )
+    monkeypatch.setattr(anyio, "run_process", fake_run_process)
+    outcome = run_check(
+        Check(tool=tool),
+        settings=assay_root.settings,
+        scope=None,
+        routed=Routed(language=Language.PYTHON, scope=Scope.CHANGED, files=("tests/tools/assay",)),
+    )
+    work = assay_root.root / ".artifacts/python/mutmut/work"
+    argv, cwd, env = seen[0]
+
+    assert outcome.is_ok()
+    assert argv == ("uv", "run", "--project", str(assay_root.root), "mutmut", "run", "tests/tools/assay")
+    assert cwd == str(work)
+    assert all(env[key] == value for key, value in assay_root.settings.python_tool_env.items())
+    assert (work / "tools/assay/__init__.py").is_file()
+    assert not (assay_root.root / "mutants").exists()
 
 
 # --- [INPROC] --------------------------------------------------------------------------

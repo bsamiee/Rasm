@@ -156,6 +156,8 @@ strict =                   true
 cache_dir =                ".cache/pytest"
 testpaths =                ["tests"]
 pythonpath =               ["."]
+python_files =             ["test_*.py", "*_test.py", "bench_*.py"]
+python_functions =         ["test_*", "bench_*"]
 collect_imported_tests =   false
 empty_parameter_set_mark = "fail_at_collect"
 addopts = [
@@ -184,6 +186,7 @@ required_plugins = [
     "time-machine>=3.2.0",
 ]
 markers = [
+    "benchmark: benchmark measurement tests",
     "integration: external boundary and integration tests",
     "mutation: mutation-testing acceptance and survivor-triage tests",
     "network: tests that intentionally use external network sockets",
