@@ -101,6 +101,7 @@ _GRAMMARS: dict[Language, Callable[[], object]] = {
     Language.PYTHON: tree_sitter_python.language,
     Language.TYPESCRIPT: tree_sitter_typescript.language_typescript,
 }
+_GRAMMAR_KEY_LANGUAGE: dict[str, Language] = {Language.PYTHON.value: Language.PYTHON, Language.TYPESCRIPT.value: Language.TYPESCRIPT}
 _TSX_GRAMMAR: Callable[[], object] = tree_sitter_typescript.language_tsx
 
 
@@ -251,7 +252,7 @@ def _ts_language(grammar_key: str) -> TSLanguage:
     Returns:
         Compiled immutable TSLanguage for the grammar key.
     """
-    grammar = _TSX_GRAMMAR if grammar_key == "tsx" else _GRAMMARS[Language(grammar_key)]
+    grammar = _TSX_GRAMMAR if grammar_key == "tsx" else _GRAMMARS[_GRAMMAR_KEY_LANGUAGE[grammar_key]]
     return ts_language(grammar)
 
 

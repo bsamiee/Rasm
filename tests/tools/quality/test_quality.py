@@ -13,7 +13,6 @@ from typing import TYPE_CHECKING
 from dirty_equals import IsFloat, IsPartialDict
 from expression import Error, Ok, Result
 from hypothesis import given, strategies as st
-from inline_snapshot import snapshot
 import msgspec
 import pytest
 
@@ -30,7 +29,7 @@ from tests.tools.quality.conftest import (
 from tools.quality import __main__ as quality_cli, process as process_mod
 from tools.quality.process import Completed, dotnet_args, dotnet_build_invocations, DotnetInvocation, fold, ProcessFault, RailStatus, run, Workspace
 from tools.quality.rails import api as api_rail, bridge as bridge_rail, package as package_rail, static as static_rail, test as test_rail
-from tools.quality.settings import QualitySettings
+from tools.quality.settings import ArtifactScope, QualitySettings
 
 
 if TYPE_CHECKING:
@@ -38,6 +37,17 @@ if TYPE_CHECKING:
 
 
 # --- [OPERATIONS] ----------------------------------------------------------------------
+
+
+def test_quality_harness_scope_matches_artifact_scope_open(quality: QualityHarness) -> None:
+    """Harness scope paths mirror production ArtifactScope.open for rail/run_id layout."""
+    with ArtifactScope.open(quality.settings, "static") as opened:
+        scoped = quality.scope("static")
+
+    assert scoped.root == opened.root
+    assert scoped.rail == opened.rail
+    assert scoped.scope_path == opened.scope_path
+    assert scoped.dotnet_env == opened.dotnet_env
 
 
 def _patch_settings(monkeypatch: pytest.MonkeyPatch, quality: QualityHarness) -> None:
@@ -200,7 +210,7 @@ def test_process_stream_timeout_settings_and_dotnet_laws(quality: QualityHarness
     assert DotnetInvocation(("tool", "restore")).argv(scope) == ("dotnet", "tool", "restore")
     assert DotnetInvocation(("build", "App.csproj"), mode="stream").artifact_dir(scope) == scope.path / "process"
     assert DotnetInvocation(("build", "App.csproj")).env() is None
-    assert dotnet_args("restore", "App.csproj", disable_parallel=True) == snapshot(("restore", "App.csproj", "--locked-mode", "--disable-parallel"))
+    assert dotnet_args("restore", "App.csproj", disable_parallel=True) == ("restore", "App.csproj", "--locked-mode", "--disable-parallel")
     assert "-maxcpucount:1" in dotnet_args("build", "App.csproj", configuration="Release", serial=True, quiet=True)
     assert tuple(item.argv(scope)[1] for item in dotnet_build_invocations(quality.settings, targets=("App.csproj",), restore="App.csproj")) == (
         "restore",
@@ -285,7 +295,6 @@ def test_dotnet_tool_boundary_laws(monkeypatch: pytest.MonkeyPatch, quality: Qua
 # --- [STATIC RAIL LAWS] ----------------------------------------------------------------
 
 
-@pytest.mark.property
 @given(st.lists(st.sampled_from(("README.md", "tools/quality/process.py", "docs/usage/README.md")), max_size=8).map(tuple))
 def test_static_empty_or_irrelevant_changes_never_resolve_project_graph(rows: tuple[str, ...]) -> None:
     with tempfile.TemporaryDirectory() as raw, pytest.MonkeyPatch.context() as monkeypatch:
@@ -299,7 +308,6 @@ def test_static_empty_or_irrelevant_changes_never_resolve_project_graph(rows: tu
         assert workspace.calls["projects"] == 0
 
 
-@pytest.mark.property
 @given(rows=st.permutations(("tests/tools/py_analyzer/x.cs", "Directory.Build.props", "README.md", "README.md")))
 def test_static_plan_is_permutation_invariant_and_lazy_for_full_triggers(rows: tuple[str, ...]) -> None:
     with tempfile.TemporaryDirectory() as raw, pytest.MonkeyPatch.context() as monkeypatch:

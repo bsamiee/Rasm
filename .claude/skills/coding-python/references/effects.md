@@ -1,6 +1,6 @@
 # Effects
 
-Effect rail selection, accumulation, Kleisli composition, async cancellation, Protocol-threaded dependencies, recovery algebra, and boundary adapters for Python 3.14+. This file governs effectful computation — all other reference files assume these rail semantics. All snippets assume expression v5.6+ with `Result`, `Option`, `@effect.result`, `@effect.async_result`, `pipe`, `Block`, `Map`, `curry_flip`.
+Effect rail selection, accumulation, Kleisli composition, async cancellation, Protocol-threaded dependencies, recovery algebra, and boundary adapters for Python 3.15+. This file governs effectful computation — all other reference files assume these rail semantics. All snippets assume expression v5.6+ with `Result`, `Option`, `@effect.result`, `@effect.async_result`, `pipe`, `Block`, `Map`, `curry_flip`.
 
 ---
 

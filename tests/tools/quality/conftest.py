@@ -29,7 +29,9 @@ class QualityHarness:
     settings: QualitySettings
 
     def scope(self, rail: str = "test", path: Path | None = None) -> ArtifactScope:
-        return ArtifactScope(root=self.root, rail=rail, scope_path=path or self.root, dotnet_env={})
+        scope_path = path or self.settings.artifact_root / "quality" / rail / self.settings.run_id
+        (scope_path / "dotnet-cli").mkdir(parents=True, exist_ok=True)
+        return ArtifactScope(root=self.root, rail=rail, scope_path=scope_path, dotnet_env=self.settings.dotnet_env(scope_path))
 
     def write(self, rel: str | Path, text: str = "") -> Path:
         path = self.root / Path(rel)

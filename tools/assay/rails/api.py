@@ -265,13 +265,10 @@ def _packages_at(root_str: str, props_mtime_ns: int) -> dict[str, str]:
     _ = props_mtime_ns
     try:
         root = ET.fromstring(Path(root_str).read_bytes())  # noqa: S314  # trusted local Directory.Packages.props, never network-sourced
-    except (OSError, ET.ParseError):
+    except OSError, ET.ParseError:
         return {}
     return {
-        inc: ver
-        for node in root.iterfind(".//PackageVersion")
-        for inc, ver in ((node.get("Include", ""), node.get("Version", "")),)
-        if inc and ver
+        inc: ver for node in root.iterfind(".//PackageVersion") for inc, ver in ((node.get("Include", ""), node.get("Version", "")),) if inc and ver
     }
 
 
@@ -355,20 +352,13 @@ def _package_owner_index_at(root_str: str, fingerprint: str) -> dict[str, tuple[
         if not any(part in {".artifacts", ".cache", "bin", "obj"} for part in path.parts)
         for package in _project_references(path)
     )
-    return {
-        package: tuple(sorted(owner for _, owner in group))
-        for package, group in itertools.groupby(rows, key=operator.itemgetter(0))
-    }
+    return {package: tuple(sorted(owner for _, owner in group)) for package, group in itertools.groupby(rows, key=operator.itemgetter(0))}
 
 
 def _package_owner_index(settings: AssaySettings) -> dict[str, tuple[str, ...]]:
     root = Path(str(settings.root))
-    csproj_paths = sorted(
-        p for p in root.rglob("*.csproj") if not any(part in {".artifacts", ".cache", "bin", "obj"} for part in p.parts)
-    )
-    fingerprint = hashlib.sha256(
-        "|".join(f"{p}:{p.stat().st_mtime_ns}" for p in csproj_paths).encode()
-    ).hexdigest()[:16]
+    csproj_paths = sorted(p for p in root.rglob("*.csproj") if not any(part in {".artifacts", ".cache", "bin", "obj"} for part in p.parts))
+    fingerprint = hashlib.sha256("|".join(f"{p}:{p.stat().st_mtime_ns}" for p in csproj_paths).encode()).hexdigest()[:16]
     return _package_owner_index_at(str(root), fingerprint)
 
 
@@ -660,7 +650,12 @@ def _member_captures(obj: object, symbol: str) -> tuple[Capture, ...]:
 def _signature(obj: object) -> str:
     # String annotations avoid evaluating unresolvable forward refs on inspect fallback.
     try:
-        return str(inspect.signature(obj, eval_str=False))  # type: ignore[arg-type]  # ty: ignore[invalid-argument-type]  # any resolved symbol; non-callable -> TypeError arm
+        return str(
+            inspect.signature(
+                obj,  # type: ignore[arg-type]  # ty: ignore[invalid-argument-type]  # any resolved symbol; non-callable -> TypeError arm
+                annotation_format=annotationlib.Format.STRING,
+            )
+        )
     except ValueError, TypeError:
         annotations = _annotations(obj)
         params = tuple(f"{name}: {kind}" for name, kind in annotations.items() if name != "return")
@@ -1056,9 +1051,16 @@ def _inproc_decompile(settings: AssaySettings, surface: _Surface, symbol: str, s
         lines = tuple(line for line in full.splitlines() if not p.grep or p.grep.casefold() in line.casefold())
         window = lines if p.full else lines[: p.max_lines]
         return _decompile_report(
-            settings, surface, shape,
-            signature, captured.get("doc", ""), "\n".join(window), full,
-            len(lines), truncated=not p.full and len(lines) > len(window), p=p,
+            settings,
+            surface,
+            shape,
+            signature,
+            captured.get("doc", ""),
+            "\n".join(window),
+            full,
+            len(lines),
+            truncated=not p.full and len(lines) > len(window),
+            p=p,
         )
 
     return _inproc_check(settings, source, Mode.LIST, _inproc_thunk(source, symbol)).map(_build)
@@ -1116,9 +1118,7 @@ def _matches(rows: tuple[str, ...], kind: ArtifactKind, pattern: str) -> tuple[M
 
     filtered = tuple(r for r in rows if not pattern or query in r.casefold())
     scored = sorted(((r, score(r)) for r in filtered), key=lambda x: (-x[1], x[0]))
-    return tuple(
-        Match(id=f"{kind.value}-{i:03d}", kind=kind, text=r[:_NAME_CAP], score=s) for i, (r, s) in enumerate(scored[:_RESULT_CAP], start=1)
-    )
+    return tuple(Match(id=f"{kind.value}-{i:03d}", kind=kind, text=r[:_NAME_CAP], score=s) for i, (r, s) in enumerate(scored[:_RESULT_CAP], start=1))
 
 
 # --- [COMPOSITION] ----------------------------------------------------------------------
@@ -1245,11 +1245,7 @@ def _polyglot_inventory_sources(settings: AssaySettings) -> tuple[ApiSource, ...
 
 
 def _compact_sources(sources: tuple[ApiSource, ...]) -> tuple[ApiSource, ...]:
-    return tuple(
-        source
-        for source in sources
-        if source.source_kind in _COMPACT_VISIBLE or source.source_id in _COMPACT_SUMMARY_IDS
-    )
+    return tuple(source for source in sources if source.source_kind in _COMPACT_VISIBLE or source.source_id in _COMPACT_SUMMARY_IDS)
 
 
 def _strict(report: Report, p: ApiParams) -> Result[Report, Fault]:
@@ -1519,13 +1515,7 @@ def _show_store_report(store: ArtifactStore, path: str, p: ApiParams, *, matched
     )
     source = ApiSource(source_kind=SourceKind.TOOL, source_id=p.token, assets=(path,), status=RailStatus.OK, selected=(path,))
     detail = ApiSurface(
-        source=source,
-        shape=SymbolShape.SEARCH,
-        preview=window,
-        truncated=truncated,
-        lines=total,
-        selected=total,
-        artifact_paths=(path,),
+        source=source, shape=SymbolShape.SEARCH, preview=window, truncated=truncated, lines=total, selected=total, artifact_paths=(path,)
     )
     notes = (f"{total} selected lines", *(f"{matched} artifact matches; selected newest" for _ in range(1) if matched > 1))
     done = Completed(("api", "show", p.token), 0, status=RailStatus.OK, notes=notes)

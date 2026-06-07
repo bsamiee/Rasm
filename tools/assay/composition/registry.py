@@ -641,6 +641,14 @@ def _tool_probes() -> tuple[Check, ...]:
         match tool.runner:
             case Runner.DOTNET:
                 return "dotnet", ("dotnet", "--version")
+            case Runner.UV if tool.groups:
+                group_flags = tuple(part for group in tool.groups for part in ("--group", group))
+                return f"{tool.runner.value}:{tool.command[0]}:{','.join(tool.groups)}", (
+                    *tool.runner.prefix,
+                    *group_flags,
+                    tool.command[0],
+                    "--version",
+                )
             case _:
                 return f"{tool.runner.value}:{tool.command[0]}", (*tool.runner.prefix, tool.command[0], "--version")
 
@@ -744,7 +752,7 @@ def _read_version() -> str:
     try:
         v = tomllib.loads(_PYPROJECT.read_text(encoding="utf-8")).get("project", {}).get("version", "")
         return v if isinstance(v, str) and v else "0.0.0"
-    except (OSError, tomllib.TOMLDecodeError):
+    except OSError, tomllib.TOMLDecodeError:
         return "0.0.0"
 
 

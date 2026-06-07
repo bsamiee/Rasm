@@ -50,7 +50,7 @@ ENTRYPOINT ${ENTRYPOINT}
 | :-----: | ------------- | ------------------------- | --------------------------- |
 |   [1]   | PNPM          | `node:24-slim-trixie`     | `node:24-slim-trixie`       |
 |   [2]   | NODE          | `node:24-alpine3.23`      | `node:24-alpine3.23`        |
-|   [3]   | PYTHON_UV     | `python:3.14-slim-trixie` | `python:3.14-slim-trixie`   |
+|   [3]   | PYTHON_UV     | `python:3.15-rc-slim-trixie` | `python:3.15-rc-slim-trixie`   |
 |   [4]   | GO_DISTROLESS | `golang:1.26-alpine3.23`  | `distroless/static:nonroot` |
 |   [5]   | JAVA          | `temurin:21-jdk-alpine`   | `temurin:21-jre-alpine`     |
 

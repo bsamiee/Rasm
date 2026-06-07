@@ -1,6 +1,6 @@
 #!/usr/bin/env -S uv run --quiet --script
 # /// script
-# requires-python = ">=3.14"
+# requires-python = ">=3.15"
 # dependencies = ["httpx"]
 # ///
 """Tavily AI CLI -- web search, extraction, crawling, and research via REST API.
@@ -14,19 +14,13 @@ Commands:
 """
 # LOC: 191
 
-from __future__ import annotations
-
-from collections.abc import Mapping
+from collections.abc import Callable, Mapping
 from dataclasses import dataclass
 from functools import reduce
 import json
 import os
 import sys
-from typing import Final, Protocol, TYPE_CHECKING
-
-
-if TYPE_CHECKING:
-    from collections.abc import Callable
+from typing import Final, Protocol
 
 import httpx
 from tavily_commands import crawl, extract, map_site, research, search

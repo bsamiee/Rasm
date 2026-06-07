@@ -232,25 +232,31 @@ def _stage(settings: QualitySettings, scope: ArtifactScope, project: Path, slug:
             meta.manifest_dir / "manifest.yml",
         )
 
+        def _restore_previous_on_failure() -> None:
+            match previous.exists() and not meta.package_dir.exists():
+                case True:
+                    previous.replace(meta.package_dir)
+                case False:
+                    pass
+            shutil.rmtree(stage, ignore_errors=True)
+
+        def _promote_staged_dir() -> None:
+            shutil.rmtree(previous, ignore_errors=True)
+            match meta.package_dir.exists():
+                case True:
+                    meta.package_dir.replace(previous)
+                case False:
+                    pass
+            stage.replace(meta.package_dir)
+            shutil.rmtree(previous, ignore_errors=True)
+
         def commit() -> Result[PackageArtifact, ProcessFault]:
             # Atomic commit: rotate package_dir -> previous before replacing with the staged dir, restoring previous on OSError.
             try:
-                shutil.rmtree(previous, ignore_errors=True)
-                match meta.package_dir.exists():
-                    case True:
-                        meta.package_dir.replace(previous)
-                    case False:
-                        pass
-                stage.replace(meta.package_dir)
-                shutil.rmtree(previous, ignore_errors=True)
+                _promote_staged_dir()
                 return Ok(PackageArtifact(meta.package_dir, meta))
             except OSError as exc:
-                match previous.exists() and not meta.package_dir.exists():
-                    case True:
-                        previous.replace(meta.package_dir)
-                    case False:
-                        pass
-                shutil.rmtree(stage, ignore_errors=True)
+                _restore_previous_on_failure()
                 return Error(ProcessFault.fail("package", "stage", detail=str(exc)))
 
         return dotnet_build(

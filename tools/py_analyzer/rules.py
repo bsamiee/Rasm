@@ -2,18 +2,15 @@
 
 from __future__ import annotations
 
-from dataclasses import dataclass
 from enum import StrEnum
+from pathlib import Path
 from types import MappingProxyType
-from typing import Final, TYPE_CHECKING
+from typing import Final
+
+import msgspec
 
 
-if TYPE_CHECKING:
-    from collections.abc import Mapping
-    from pathlib import Path
-
-
-# --- [TYPES] ---------------------------------------------------------------------------
+# --- [TYPES] ----------------------------------------------------------------------------
 
 type JsonValue = bool | int | str | list[JsonValue] | dict[str, JsonValue] | None
 
@@ -68,11 +65,10 @@ class Scope(StrEnum):
     neutral = "neutral"
 
 
-# --- [MODELS] --------------------------------------------------------------------------
+# --- [MODELS] ---------------------------------------------------------------------------
 
 
-@dataclass(frozen=True, slots=True)
-class Rule:
+class Rule(msgspec.Struct, frozen=True, gc=False):
     """Static rule metadata shared by output formats."""
 
     title: str
@@ -80,8 +76,7 @@ class Rule:
     message: str
 
 
-@dataclass(frozen=True, slots=True)
-class Diagnostic:
+class Diagnostic(msgspec.Struct, frozen=True, gc=False):
     """Analyzer diagnostic with stable external wire shape."""
 
     rule_id: RuleId
@@ -120,9 +115,9 @@ class Diagnostic:
         }
 
 
-# --- [TABLES] --------------------------------------------------------------------------
+# --- [TABLES] ---------------------------------------------------------------------------
 
-RULES: Final[Mapping[RuleId, Rule]] = MappingProxyType({
+RULES: Final[MappingProxyType[RuleId, Rule]] = MappingProxyType({
     RuleId.parse: Rule("AnalyzerInput", RuleCategory.infrastructure, "Analyzer could not parse or read this Python file."),
     RuleId.domain_flow: Rule(
         "DomainImperativeFlow",
@@ -161,7 +156,7 @@ RULES: Final[Mapping[RuleId, Rule]] = MappingProxyType({
 })
 
 
-# --- [OPERATIONS] ----------------------------------------------------------------------
+# --- [OPERATIONS] -----------------------------------------------------------------------
 
 
 def diagnostic(rule_id: RuleId, path: Path, line: int, column: int, detail: str) -> Diagnostic:
@@ -174,17 +169,6 @@ def diagnostic(rule_id: RuleId, path: Path, line: int, column: int, detail: str)
     return Diagnostic(rule_id, Severity.error, path.resolve(), line, column, rule.title, f"{rule.message} {detail}", rule.category)
 
 
-# --- [EXPORTS] -------------------------------------------------------------------------
+# --- [EXPORTS] --------------------------------------------------------------------------
 
-__all__ = (
-    "Diagnostic",
-    "JsonValue",
-    "OutputFormat",
-    "Rule",
-    "RULES",
-    "RuleCategory",
-    "RuleId",
-    "Scope",
-    "Severity",
-    "diagnostic",
-)
+__all__ = ("Diagnostic", "JsonValue", "OutputFormat", "Rule", "RULES", "RuleCategory", "RuleId", "Scope", "Severity", "diagnostic")

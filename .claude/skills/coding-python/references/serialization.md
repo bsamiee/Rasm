@@ -1,6 +1,6 @@
 # Serialization
 
-Three-tier codec boundary for Python 3.14+: Pydantic `TypeAdapter` validates ingress, `dataclass(frozen=True, slots=True)` anchors domain, msgspec `Struct(frozen=True, gc=False)` serializes egress, Suitkaise `cucumber` crosses process boundaries for unpicklable resources. Domain models never import wire libraries.
+Three-tier codec boundary for Python 3.15+: Pydantic `TypeAdapter` validates ingress, `dataclass(frozen=True, slots=True)` anchors domain, msgspec `Struct(frozen=True, gc=False)` serializes egress, Suitkaise `cucumber` crosses process boundaries for unpicklable resources. Domain models never import wire libraries.
 
 ---
 

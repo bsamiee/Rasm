@@ -1,6 +1,6 @@
 # Concurrency
 
-Concurrency in Python 3.14+ is boundary architecture. `anyio.create_task_group()` is the spawn primitive, `CancelScope` owns deadlines and shielding, `CapacityLimiter` + `MemoryObjectStream` enforce backpressure, and `ContextVar[tuple]` replaces mutable globals under free-threading. All snippets target `anyio >= 4.12`, expression v5.6+ with `Result`, `Ok`, `Error`, `Option`, `@effect.async_result`, `pipe`, `Block`, `match/case` dispatch, and explicit boundary loops only.
+Concurrency in Python 3.15+ is boundary architecture. `anyio.create_task_group()` is the spawn primitive, `CancelScope` owns deadlines and shielding, `CapacityLimiter` + `MemoryObjectStream` enforce backpressure, and `ContextVar[tuple]` replaces mutable globals under free-threading. All snippets target `anyio >= 4.12`, expression v5.6+ with `Result`, `Ok`, `Error`, `Option`, `@effect.async_result`, `pipe`, `Block`, `match/case` dispatch, and explicit boundary loops only.
 
 ---
 ## Structured Concurrency Algebra
@@ -99,7 +99,7 @@ Checkpoint variants: `checkpoint()` (yield + cancel check), `checkpoint_if_cance
 ---
 ## Free Threading
 
-Under `python3.14t` (GIL disabled via PEP 779), decorator closures capturing mutable state become data races. `ContextVar[tuple[...]]` provides scoped immutable snapshots, `threading.Lock` guards genuinely shared mutable resources, and frozen models are inherently thread-safe.
+Under `python3.15t` (GIL disabled via PEP 779), decorator closures capturing mutable state become data races. `ContextVar[tuple[...]]` provides scoped immutable snapshots, `threading.Lock` guards genuinely shared mutable resources, and frozen models are inherently thread-safe.
 
 ```python
 """Free-threading: ContextVar snapshots + Lock + frozen models."""

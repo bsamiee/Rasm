@@ -188,10 +188,7 @@ def _coerce_diagnostics(raw: object) -> _BridgeDiagnostics:
 def _with_facts(done: Completed, result: _BridgeResult) -> Completed:
     # Markers ride the execute phase's decoded stdout BridgeOutput, not raw client stdout;
     # surface them as receipt notes (full VerifyScenario decoding lands in Wave E).
-    text = next(
-        (out.text for phase in result.phases if phase.phase == _EXECUTE_PHASE for out in phase.outputs if out.source == _STDOUT_SOURCE),
-        "",
-    )
+    text = next((out.text for phase in result.phases if phase.phase == _EXECUTE_PHASE for out in phase.outputs if out.source == _STDOUT_SOURCE), "")
     facts = tuple(
         f"{label}:{match.group(1)}"
         for label, pattern in (("facts", _EVIDENCE_RE), ("capture", _CAPTURE_RE))
@@ -208,8 +205,7 @@ def _first_fault(result: _BridgeResult) -> tuple[str, str]:
             return ("reply", _fault_message(fault))
         case _:
             return next(
-                ((phase.phase, _phase_diagnostic(phase)) for phase in result.phases if phase.status.severity > RailStatus.OK.severity),
-                ("", ""),
+                ((phase.phase, _phase_diagnostic(phase)) for phase in result.phases if phase.status.severity > RailStatus.OK.severity), ("", "")
             )
 
 
@@ -273,13 +269,18 @@ def _run_scenario(settings: AssaySettings, report_dir: Path, scenario: Path) -> 
     stem = scenario.name.removesuffix(_SCENARIO_SUFFIX) or scenario.stem
     result_path = report_dir / f"{stem}.json"
     project = _resolve_project(settings, scenario)
-    match _client_ready(settings):
-        case Result(error=reason):
+    ready = _client_ready(settings)
+    match ready.is_error():
+        case True:
+            reason = ready.error
             return _Scenario(
-                status=RailStatus.FAILED, stem=stem, fault_phase="client", fault_output=reason[:256],
+                status=RailStatus.FAILED,
+                stem=stem,
+                fault_phase="client",
+                fault_output=reason[:256],
                 completed=receipt((stem, "client"), 1, status=RailStatus.FAILED, notes=(reason,)),
             )
-        case _:
+        case False:
             return _run_decoded(settings, project, scenario, result_path, stem)
 
 
@@ -290,12 +291,13 @@ def _run_decoded(settings: AssaySettings, project: Path, scenario: Path, result_
             res = _decode_result(done, result_path)
             phase, output = _first_fault(res)
             return _Scenario(
-                status=res.status, stem=stem, exceptions=_exceptions(res), fault_phase=phase, fault_output=output,
-                completed=_with_facts(done, res),
+                status=res.status, stem=stem, exceptions=_exceptions(res), fault_phase=phase, fault_output=output, completed=_with_facts(done, res)
             )
         case Result(error=fault):
             return _Scenario(
-                status=RailStatus.FAILED, stem=stem, fault_phase="launch",
+                status=RailStatus.FAILED,
+                stem=stem,
+                fault_phase="launch",
                 fault_output=(fault.message or " ".join(fault.argv))[:256],
                 completed=receipt(fault.argv, 1, status=RailStatus.FAILED),
             )

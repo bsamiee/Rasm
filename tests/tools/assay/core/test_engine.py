@@ -304,6 +304,7 @@ def test_staged_process_materializes_workdir_and_env(assay_root: AssayHarness, m
         Language.PYTHON,
         Claim.TEST,
         mode=Mode.RUN,
+        groups=("mutation",),
         stage=Stage(root=".artifacts/python/mutmut/work", inputs=("pyproject.toml", "tools/assay"), project=True),
     )
     monkeypatch.setattr(anyio, "run_process", fake_run_process)
@@ -317,7 +318,7 @@ def test_staged_process_materializes_workdir_and_env(assay_root: AssayHarness, m
     argv, cwd, env = seen[0]
 
     assert outcome.is_ok()
-    assert argv == ("uv", "run", "--project", str(assay_root.root), "mutmut", "run", "tests/tools/assay")
+    assert argv == ("uv", "run", "--project", str(assay_root.root), "--group", "mutation", "mutmut", "run", "tests/tools/assay")
     assert cwd == str(work)
     expected_env = assay_root.settings.python_tool_env
     assert all(env[key] == value for key, value in expected_env.items())
@@ -714,7 +715,7 @@ class LeaseStateMachine(RuleBasedStateMachine):
 
 def test_lease_state_machine_holds_mutual_exclusion() -> None:
     """Drive the synchronous ``exclusive_lease`` RBSM: across all acquire/release interleavings, at most one Ok holder is ever live."""
-    run_state_machine_as_test(LeaseStateMachine, settings=hyp_settings(stateful_step_count=50, deadline=None))  # type: ignore[no-untyped-call]
+    run_state_machine_as_test(LeaseStateMachine, settings=hyp_settings.get_profile("rasm-stateful"))  # type: ignore[no-untyped-call]
 
 
 # --- [REMOTE_UNITS] --------------------------------------------------------------------
@@ -752,7 +753,6 @@ def test_ssh_outcome_maps_signal_none_to_sentinel(status: int | None, signal: ob
 
 
 @pytest.mark.anyio
-@pytest.mark.network
 async def test_ssh_loopback_non_streaming_round_trip(assay_root: AssayHarness, ssh_loopback: SshLoopback, socket_enabled: None) -> None:
     """The engine's ``_run_remote`` non-streaming arm returns the canned loopback reply.
 
@@ -777,7 +777,6 @@ async def test_ssh_loopback_non_streaming_round_trip(assay_root: AssayHarness, s
 
 
 @pytest.mark.anyio
-@pytest.mark.network
 async def test_ssh_streaming_round_trip(assay_root: AssayHarness, ssh_loopback: SshLoopback, socket_enabled: None) -> None:
     r"""The engine's ``_run_remote`` streaming arm drains stdout via anyio TaskGroup + ``_drain_reader``.
 

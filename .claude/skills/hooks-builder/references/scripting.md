@@ -5,7 +5,7 @@
 ```python
 #!/usr/bin/env -S uv run --quiet --script
 # /// script
-# requires-python = ">=3.14"
+# requires-python = ">=3.15"
 # dependencies = ["httpx"]
 # ///
 ```
@@ -127,13 +127,13 @@ def _format_xml(skills: list[SkillEntry], targets: frozenset[str]) -> str:
 
 ```toml
 [tool.ty.environment]
-python-version = "3.14"
+python-version = "3.15"
 
 [tool.ty.rules]
 all = "error"
 
 [tool.ruff]
-target-version = "py314"
+target-version = "py315"
 
 [tool.ruff.lint]
 select = ["E", "F", "W", "B", "I", "UP", "ANN", "S", "C90"]

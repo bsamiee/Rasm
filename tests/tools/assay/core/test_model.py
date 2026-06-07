@@ -10,7 +10,7 @@ import msgspec
 import msgspec.inspect as msgspec_inspect
 import pytest
 
-from tests.tools.assay.conftest import assert_counts_consistent, assert_wire_roundtrip, completed_st, detail_st, fault_st
+from tests.tools.assay.conftest import assert_counts_consistent, assert_wire_roundtrip, completed_st, detail_st, fault_st, WIRE_ENCODER
 from tools.assay.core.model import (
     AnyDetail,
     BaseParams,
@@ -35,7 +35,6 @@ from tools.assay.core.status import RailStatus
 # --- [CONSTANTS] -----------------------------------------------------------------------
 
 _DETAIL_VARIANTS: tuple[type, ...] = get_args(AnyDetail.__value__)  # self-tracking; matches conftest.detail_st
-_ENCODER = msgspec.json.Encoder(order="deterministic")
 
 
 # --- [OPERATIONS] -----------------------------------------------------------------------
@@ -120,9 +119,7 @@ def test_detail_variant_wire_round_trip(detail: AnyDetail) -> None:
 def test_any_detail_tags_are_injective() -> None:
     """Every AnyDetail variant carries a unique msgspec tag — wire disambiguation is injective."""
     tags = [
-        t.tag
-        for v in _DETAIL_VARIANTS
-        if isinstance(t := msgspec_inspect.type_info(v), msgspec_inspect.StructType)
+        t.tag for v in _DETAIL_VARIANTS if isinstance(t := msgspec_inspect.type_info(v), msgspec_inspect.StructType)
     ]  # StructType.tag (msgspec>=0.21)
     assert len(tags) == len(set(tags)), f"duplicate tags: {tags}"
 
@@ -130,7 +127,7 @@ def test_any_detail_tags_are_injective() -> None:
 @given(detail_st)
 def test_wire_struct_rejects_unknown_fields(detail: AnyDetail) -> None:
     """Every Detail variant carries ``forbid_unknown_fields`` — a surplus key is rejected at decode."""
-    raw: dict[str, object] = msgspec.json.decode(_ENCODER.encode(detail), type=dict)
+    raw: dict[str, object] = msgspec.json.decode(WIRE_ENCODER.encode(detail), type=dict)
     raw["__probe__"] = 1
     with pytest.raises(msgspec.ValidationError, match="__probe__"):
         msgspec.json.decode(msgspec.json.encode(raw), type=type(detail))
@@ -144,7 +141,7 @@ def test_validate_detail_none_round_trips() -> None:
 @given(completed_st)
 def test_completed_json_round_trip(done: Completed) -> None:
     """``Completed`` msgspec round-trip: encode then decode yields a structurally equal value."""
-    raw = _ENCODER.encode(done)
+    raw = WIRE_ENCODER.encode(done)
     restored = msgspec.json.decode(raw, type=Completed)
     assert restored.argv == done.argv
     assert restored.returncode == done.returncode
@@ -154,7 +151,7 @@ def test_completed_json_round_trip(done: Completed) -> None:
 @given(fault_st)
 def test_fault_json_round_trip(fault: Fault) -> None:
     """``Fault`` msgspec round-trip preserves argv, status, and the clipped message."""
-    raw = _ENCODER.encode(fault)
+    raw = WIRE_ENCODER.encode(fault)
     restored = msgspec.json.decode(raw, type=Fault)
     assert restored.status == fault.status
     assert restored.message == fault.message
@@ -231,8 +228,8 @@ def test_receipt_oracle(rc: int, explicit: RailStatus | None, expected: RailStat
 
 def test_failed_stderr_appears_in_results_text() -> None:
     """``fold`` carries FAILED ``Completed.stderr`` into ``results[0].text`` — verified against live model."""
-    sentinel = b"unique-sentinel-stderr-content"
-    done = receipt(("tool",), 1, stderr=sentinel)
+    stderr_marker = b"unique-sentinel-stderr-content"
+    done = receipt(("tool",), 1, stderr=stderr_marker)
     report = fold(Claim.STATIC, "check", (done,))
     assert report.results
-    assert sentinel.decode() in report.results[0].text
+    assert stderr_marker.decode() in report.results[0].text

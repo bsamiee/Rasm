@@ -1,6 +1,6 @@
 # Performance
 
-Performance in Python 3.14+ is structural: `__slots__` on all classes, `msgspec.Struct(gc=False)` for GC-exempt wire objects, `tuple` over `list`, frozen collections with structural sharing, free-threading via PEP 779, and copy-and-patch JIT via PEP 744. All snippets target `msgspec >= 0.20`, `anyio >= 4.12`, `expression >= 5.6`, and CPython 3.14+ free-threading build.
+Performance in Python 3.15+ is structural: `__slots__` on all classes, `msgspec.Struct(gc=False)` for GC-exempt wire objects, `tuple` over `list`, frozen collections with structural sharing, free-threading via PEP 779, and copy-and-patch JIT via PEP 744. All snippets target `msgspec >= 0.20`, `anyio >= 4.12`, `expression >= 5.6`, and CPython 3.15+ free-threading build.
 
 ---
 ## Memory and Allocation
@@ -62,10 +62,10 @@ Allocation hierarchy (prefer top):
 ---
 ## CPython Internals
 
-CPython 3.14 ships two runtime-altering features: **free-threading** (PEP 779 -- GIL disabled per-interpreter) and **copy-and-patch JIT** (PEP 744 -- template-based compilation of hot bytecode). Both change which optimizations matter.
+CPython 3.15 ships two runtime-altering features: **free-threading** (PEP 779 -- GIL disabled per-interpreter) and **copy-and-patch JIT** (PEP 744 -- template-based compilation of hot bytecode). Both change which optimizations matter.
 
 ```python
-"""CPython 3.14+ runtime introspection: GIL status + JIT awareness."""
+"""CPython 3.15+ runtime introspection: GIL status + JIT awareness."""
 
 # --- [IMPORTS] ----------------------------------------------------------------
 
@@ -75,7 +75,7 @@ from typing import Final
 # --- [CODE] -------------------------------------------------------------------
 
 # -- Free-threading detection (PEP 779) ----------------------------------------
-GIL_ENABLED: Final[bool] = sys._is_gil_enabled()  # noqa: SLF001 -- official CPython 3.14 API
+GIL_ENABLED: Final[bool] = sys._is_gil_enabled()  # noqa: SLF001 -- official CPython 3.15 API
 
 # -- JIT detection (PEP 744) ---------------------------------------------------
 # copy-and-patch JIT compiles hot bytecode traces to native code;

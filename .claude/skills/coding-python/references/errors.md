@@ -1,6 +1,6 @@
 # Errors
 
-Error taxonomy, routing, accumulation, boundary translation, and recovery ownership for Python 3.14+. Every error variant, policy projection, and observability mapping across all reference files is governed by this file — errors.md defines what "typed, bounded, exhaustively-routed error rails" means at the domain level. All snippets assume expression v5.6+ with `Result`, `Option`, `@effect.result`, `pipe`, `Block`, `Map`, `seq`.
+Error taxonomy, routing, accumulation, boundary translation, and recovery ownership for Python 3.15+. Every error variant, policy projection, and observability mapping across all reference files is governed by this file — errors.md defines what "typed, bounded, exhaustively-routed error rails" means at the domain level. All snippets assume expression v5.6+ with `Result`, `Option`, `@effect.result`, `pipe`, `Block`, `Map`, `seq`.
 
 ---
 

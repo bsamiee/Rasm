@@ -1,6 +1,6 @@
 # Decorators
 
-Decorator type algebra, stack ordering, context propagation, and AOP composition for Python 3.14+. This file is the canonical location for all decorator stack variant patterns — all other reference files delegate stack ordering and variant concerns here. All snippets assume expression v5.6+ with `Result`, `pipe`, `Block`, `Map`, `curry_flip`.
+Decorator type algebra, stack ordering, context propagation, and AOP composition for Python 3.15+. This file is the canonical location for all decorator stack variant patterns — all other reference files delegate stack ordering and variant concerns here. All snippets assume expression v5.6+ with `Result`, `pipe`, `Block`, `Map`, `curry_flip`.
 
 ---
 

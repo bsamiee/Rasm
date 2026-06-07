@@ -1,7 +1,7 @@
 [project]
 name = "workspace-foundation-python"
 version = "0.1.0"
-requires-python = ">=3.14"
+requires-python = ">=3.15"
 dependencies = [
     "anyio>=4.13.0",
     "beartype>=0.22.2",
@@ -18,6 +18,7 @@ dependencies = [
     "structlog>=25.5.0",
     "psutil>=7.2.2",
     "fsspec>=2026.4.0",
+    "httpx>=0.28.1",    # Retain; never remove regardless of consumers existing or not
     "watchfiles>=1.2.0",
     "aiocron>=2.1",
     "universal-pathlib>=0.0.22",
@@ -33,21 +34,21 @@ dev = [
     "dirty-equals",
     "hypothesis>=6.155.2",
     "inline-snapshot",
-    "libcst",
-    "mutmut>=3.5.0",
-    "mypy",
+    "mypy>=2.1.0",
     "pytest>=9.0.3",
     "pytest-benchmark>=5.2.3",
     "pytest-cov>=7.1.0",
+    "pytest-deadfixtures>=3.1.0",
     "pytest-randomly>=4.1.0",
     "pytest-socket",
     "pytest-timeout",
     "pytest-xdist>=3.8.0",
-    "ruff",
-    "ty",
+    "ruff>=0.15.12,<0.16",
+    "ty>=0.0.44",
     "types-psutil>=7.2.2",
     "validate-pyproject[all]",
 ]
+mutation = ["mutmut>=3.6.0"]
 scientific = ["dask", "numpy", "pandas", "pandas-stubs", "polars", "scipy", "scipy-stubs", "sympy", "xarray"]
 
 # --- [UV] ------------------------------------------------------------------
@@ -56,11 +57,14 @@ scientific = ["dask", "numpy", "pandas", "pandas-stubs", "polars", "scipy", "sci
 package =   false
 cache-dir = ".cache/uv"
 
+[tool.uv.sources]
+beartype = { git = "https://github.com/beartype/beartype.git", rev = "f370a0b1733413681e7a72bf36fbe839e60b3c85" }
+
 # --- [TY] ------------------------------------------------------------------
 
 [tool.ty.environment]
-python-version = "3.14"
 python-platform = "all"
+python-version = "3.15"
 
 [tool.ty.analysis]
 respect-type-ignore-comments = false
@@ -69,7 +73,6 @@ respect-type-ignore-comments = false
 exclude = [
     ".approval_tests_temp",
     ".artifacts",
-    ".benchmarks",
     ".cache",
     ".claude/skills/**/.cache",
     ".claude/worktrees",
@@ -80,6 +83,7 @@ exclude = [
     "node_modules",
     "test-results",
     "tests/tools/ast-grep/fail/**",
+    "tests/tools/ast-grep/pass/**",  # ast-grep probes; excluded from ty/mypy/ruff — negative verification is the ast-grep VERIFY catalog row
     "tmp",
 ]
 
@@ -92,7 +96,7 @@ error-on-warning = true
 # --- [MYPY] ----------------------------------------------------------------
 
 [tool.mypy]
-python_version =          "3.14"
+python_version =          "3.15"
 cache_dir =               ".cache/mypy"
 strict =                  true
 pretty =                  true
@@ -101,7 +105,7 @@ explicit_package_bases =  true
 warn_unused_configs =     true
 disallow_any_explicit =   true
 disallow_any_unimported = true
-plugins = ["pydantic.mypy"]
+plugins =                 ["pydantic.mypy"]
 enable_error_code = [
     "exhaustive-match",
     "explicit-override",
@@ -114,7 +118,6 @@ enable_error_code = [
 exclude = [
     "^\\.approval_tests_temp/",
     "^\\.artifacts/",
-    "^\\.benchmarks/",
     "^\\.cache/",
     "^\\.claude/skills/.*/\\.cache/",
     "^\\.claude/worktrees/",
@@ -128,6 +131,7 @@ exclude = [
     "^test-results/",
     "^node_modules/",
     "^tests/tools/ast-grep/fail/",
+    "^tests/tools/ast-grep/pass/",
     "^tmp/",
 ]
 
@@ -157,9 +161,11 @@ addopts = [
     "-x",
     "--tb=short",
     "--import-mode=importlib",
+    "-m",
+    "not benchmark",
     "--disable-socket",
     "--allow-unix-socket",
-    "--benchmark-storage=file://.artifacts/python/benchmarks",
+    "--benchmark-storage=file://.artifacts/python/benchmarks",  # canonical owner: tools.assay.composition.catalog.BENCHMARK_STORAGE_URI
     "--hypothesis-profile=rasm",
 ]
 filterwarnings = ["error"]
@@ -168,24 +174,24 @@ filterwarnings = ["error"]
 timeout = "30"
 required_plugins = [
     "anyio",
-    "hypothesis>=6.155.2",
+    "hypothesis",
     "inline-snapshot",
-    "pytest-benchmark>=5.2.3",
-    "pytest-cov>=7.1.0",
-    "pytest-randomly>=4.1.0",
+    "pytest-benchmark",
+    "pytest-cov",
+    "pytest-randomly",
     "pytest-socket",
     "pytest-timeout",
-    "pytest-xdist>=3.8.0",
+    "pytest-xdist",
 ]
 markers = [
     "benchmark: benchmark measurement tests",
-    "integration: external boundary and integration tests",
     "mutation: mutation-testing acceptance and survivor-triage tests",
     "network: tests that intentionally use external network sockets",
     "property: property-based tests",
-    "serial: tests that must not run concurrently",
-    "slow: long-running validation tests",
 ]
+
+[tool.anyio]
+asyncio_mode = "auto"
 
 # --- [INLINE_SNAPSHOT] -----------------------------------------------------
 
@@ -240,18 +246,11 @@ paths_to_mutate = ["tools/assay"]
 type_check_command = ["uv", "run", "ty", "check", "--output-format", "gitlab", "tools/assay"]
 pytest_add_cli_args_test_selection = ["tests/tools/assay"]
 pytest_add_cli_args = [
-    "-x",
-    "--tb=short",
-    "--disable-socket",
-    "--allow-unix-socket",
-    "--import-mode=importlib",
     "--hypothesis-profile=rasm-mutation",
     "--randomly-dont-reorganize",
     "--randomly-dont-reset-seed",
     "-p",
     "no:randomly",
-    "-p",
-    "no:random-order",
 ]
 do_not_mutate = ["tools/assay/__init__.py"]
 mutate_only_covered_lines = true
@@ -260,16 +259,14 @@ max_stack_depth = 10
 # --- [RUFF] ----------------------------------------------------------------
 
 [tool.ruff]
-cache-dir =      ".cache/ruff"
-target-version = "py314"
-preview =        true
-force-exclude =  true
-line-length =    150
+cache-dir =        ".cache/ruff"
+preview =          true
+line-length =      150
 required-version = ">=0.15.12,<0.16"
+target-version =   "py315"
 extend-exclude = [
     "**/.approval_tests_temp/**",
     "**/.artifacts/**",
-    "**/.benchmarks/**",
     "**/.cache/**",
     "**/.claude/skills/**/.cache/**",
     "**/.claude/worktrees/**",
@@ -277,10 +274,10 @@ extend-exclude = [
     "**/coverage/**",
     "**/mutants/**",
     "**/.history/**",
+    "**/tests/tools/ast-grep/**",
 ]
 
 [tool.ruff.format]
-quote-style =               "double"
 line-ending =               "lf"
 docstring-code-format =     true
 skip-magic-trailing-comma = true
@@ -318,6 +315,7 @@ ignore = [
 "tools/quality/**" = ["D101", "D102", "D103", "PLR0904", "PLR0912", "PLR0913", "PLR0914", "TC001", "TC002", "TC003", "PLW0108"]
 "tests/tools/quality/**" = ["S101", "PLR2004", "TC002"]
 "**/.claude/skills/**/scripts/**" = [
+    "TC003",
     "ANN001",
     "ANN401",
     "B905",
@@ -344,6 +342,7 @@ ignore = [
     "TID251",
     "TRY300",
 ]
+"tools/py_analyzer/**" = ["PLR0912", "TC003"]
 "tests/**"         = ["S101", "PLR2004", "PLR0913", "ARG001", "ARG002", "ANN201", "ANN401", "D101", "D102", "D103", "SLF001"]
 "**/adapters/**"   = ["ANN401"]
 "**/conftest.py"   = ["E402", "F401", "ARG001"]
@@ -388,6 +387,7 @@ extend-ignore-names = ["_validate", "_disc", "_check", "_value_"]
 [tool.ruff.lint.flake8-tidy-imports]
 ban-relative-imports =        "all"
 banned-module-level-imports = ["dask", "numpy", "pandas", "polars", "scipy", "sympy", "xarray"]
+ban-lazy =                    "all"
 
 [tool.ruff.lint.flake8-tidy-imports.banned-api]
 "concurrent.futures.ProcessPoolExecutor".msg = "Use anyio.to_process.run_sync() — structured concurrency with cancellation support."
@@ -430,7 +430,7 @@ banned-module-level-imports = ["dask", "numpy", "pandas", "polars", "scipy", "sy
 "time.sleep".msg =                     "Use anyio.sleep() — time.sleep blocks the event loop thread."
 "traceback.print_exc".msg =            "Use structlog.get_logger().exception() — traceback.print_exc leaks to stderr."
 "typing.Any".msg =                     "Use precise type parameters or object at validated boundaries; Any requires explicit boundary justification."
-"typing.ParamSpec".msg =               "Use PEP 695 decorator parameters (**P) — legacy ParamSpec imports drift from Python 3.14 type syntax."
+"typing.ParamSpec".msg =               "Use PEP 695 decorator parameters (**P) — legacy ParamSpec imports drift from current type syntax."
 "typing.TypeAlias".msg =               "Use PEP 695 type aliases (`type Name = ...`) — TypeAlias is legacy syntax."
 "typing.TypeGuard".msg =               "Use TypeIs — complement-safe narrowing in both branches is required."
 "typing.TypeVar".msg =                 "Use PEP 695 type parameters — TypeVar is legacy generic syntax."
@@ -443,7 +443,7 @@ banned-module-level-imports = ["dask", "numpy", "pandas", "polars", "scipy", "sy
 "typing_extensions.cast".msg =         "Use TypeGuard/TypeIs, validated adapters, or pattern narrowing; cast erases checker evidence."
 "typing_extensions.deprecated".msg =   "Deprecation markers are forbidden — refactor APIs immediately."
 "typing_extensions.Optional".msg =     "Use Result/Option for fallibility; use T | None only for non-fallible absence."
-"typing_extensions.ParamSpec".msg =    "Use PEP 695 decorator parameters (**P) — legacy ParamSpec imports drift from Python 3.14 type syntax."
+"typing_extensions.ParamSpec".msg =    "Use PEP 695 decorator parameters (**P) — legacy ParamSpec imports drift from current type syntax."
 "typing_extensions.TypeAlias".msg =    "Use PEP 695 type aliases (`type Name = ...`) — TypeAlias is legacy syntax."
 "typing_extensions.TypeGuard".msg =    "Use TypeIs — complement-safe narrowing in both branches is required."
 "typing_extensions.TypeVar".msg =      "Use PEP 695 type parameters — TypeVar is legacy generic syntax."

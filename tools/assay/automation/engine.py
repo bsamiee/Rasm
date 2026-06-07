@@ -75,7 +75,12 @@ def _governed(threshold: float | None) -> bool:
         case _:
             # cpu_percent(interval=None) is non-blocking but reads zeros until primed; prime lazily on first
             # governed call (a 0.1s sample) so threshold-less CLI runs pay no warm-up tax at import.
-            _ = _CPU_PRIMED or (psutil.cpu_percent(0.1), _CPU_PRIMED.add(0))
+            match len(_CPU_PRIMED):
+                case 0:
+                    psutil.cpu_percent(0.1)
+                    _CPU_PRIMED.add(0)
+                case _:
+                    pass
             return psutil.cpu_percent(interval=None) >= threshold * 100.0
 
 
@@ -200,6 +205,8 @@ async def _sequence(leaves: tuple[Action, ...], settings: AssaySettings, limiter
                 match folded:
                     case RailStatus.FAILED | RailStatus.BUSY | RailStatus.TIMEOUT | RailStatus.FAULTED:
                         return folded
+                    case _:
+                        pass
     return folded  # pragma: no cover  # _forever never terminates; the in-loop returns are the only exits
 
 
@@ -226,6 +233,8 @@ async def _quiesce(recv: MemoryObjectReceiveStream[ChangeBatch], window_ms: floa
         match scope.cancelled_caught:
             case True:
                 return latest
+            case False:
+                pass
     return latest  # pragma: no cover  # _forever returns only through quiet-window cancellation
 
 
@@ -251,10 +260,14 @@ def _debounce(inner: Fire, window_ms: int, *, collapse: bool) -> tuple[Fire, Wor
                     match collapse:
                         case False:
                             await inner(changes)
+                        case True:
+                            pass
                     latest = await _quiesce(recv, window_ms)
                     match collapse:
                         case True:
                             await inner(latest or changes)
+                        case False:
+                            pass
         finally:
             await send.aclose()
 
@@ -290,6 +303,31 @@ def _watch_filter(spec: Watch) -> BaseFilter:
             assert_never(unreachable)
 
 
+def _emit_automation_fault(exc: Exception, settings: AssaySettings, action: Action | None) -> None:
+    claim, verb = _label(action) if action is not None else (Claim.STATIC, "automation")
+    _emit(envelope(Fault((), RailStatus.FAULTED, f"automation fire: {type(exc).__name__}: {exc}"), claim=claim, verb=verb, run_id=settings.run_id))
+
+
+async def _coalesce_missed_fire(fire: Fire, missed: int) -> None:
+    _LOG.warning("schedule.coalesced", missed=missed)
+    await fire(_NO_CHANGES)
+
+
+async def _jittered_fire(fire: Fire, settings: AssaySettings, changes: ChangeBatch) -> None:
+    await anyio.sleep((int.from_bytes(hashlib.sha256(settings.run_id.encode()).digest()[:4], "big") % _JITTER_MS) / 1000.0)
+    await fire(changes)
+
+
+async def _fire_with_coalesce(fire: Fire, settings: AssaySettings, changes: ChangeBatch, missed: int) -> int:
+    await _jittered_fire(fire, settings, changes)
+    match missed:
+        case coalesced if coalesced:
+            await _coalesce_missed_fire(fire, coalesced)
+            return 0
+        case _:
+            return 0
+
+
 def _hardened_fire(fire: Fire, settings: AssaySettings, action: Action | None = None) -> Fire:
     # Cron fires are single-flight: mid-fire ticks coalesce, then one catch-up runs after the active fire.
     # A run_id hash adds deterministic start jitter; scheduling telemetry stays on structlog, not Envelope notes.
@@ -305,23 +343,9 @@ def _hardened_fire(fire: Fire, settings: AssaySettings, action: Action | None = 
             case False:
                 running = True
                 try:
-                    await anyio.sleep((int.from_bytes(hashlib.sha256(settings.run_id.encode()).digest()[:4], "big") % _JITTER_MS) / 1000.0)
-                    await fire(changes)
-                    match missed:
-                        case coalesced if coalesced:
-                            _LOG.warning("schedule.coalesced", missed=coalesced)
-                            missed = 0
-                            await fire(_NO_CHANGES)
+                    missed = await _fire_with_coalesce(fire, settings, changes, missed)
                 except Exception as exc:  # noqa: BLE001  # automation boundary: one FAULTED NDJSON row, not task-group escape
-                    claim, verb = _label(action) if action is not None else (Claim.STATIC, "automation")
-                    _emit(
-                        envelope(
-                            Fault((), RailStatus.FAULTED, f"automation fire: {type(exc).__name__}: {exc}"),
-                            claim=claim,
-                            verb=verb,
-                            run_id=settings.run_id,
-                        )
-                    )
+                    _emit_automation_fault(exc, settings, action)
                 finally:
                     running = False
 
@@ -349,36 +373,58 @@ def _armed(action: Action, settings: AssaySettings, *, limiter: anyio.CapacityLi
             return _fire(action, settings, limiter=limiter, cpu_threshold=ceiling), None
 
 
+async def _drive_watch(spec: Watch, action: Action, settings: AssaySettings, *, limiter: anyio.CapacityLimiter, stop: anyio.Event) -> None:
+    fire, worker = _armed(action, settings, limiter=limiter, ceiling=spec.cpu_threshold)
+
+    async def _co_resident(tg: TaskGroup, resident: Worker | None) -> None:
+        match resident:
+            case None:
+                return
+            case _:
+                tg.start_soon(resident)
+                await stop.wait()
+                tg.cancel_scope.cancel()
+
+    async with anyio.create_task_group() as tg:
+        tg.start_soon(_watch, spec, fire, stop)
+        await _co_resident(tg, worker)
+
+
+async def _drive_schedule(spec: Schedule, action: Action, settings: AssaySettings, *, limiter: anyio.CapacityLimiter, stop: anyio.Event) -> None:
+    fire, worker = _armed(action, settings, limiter=limiter, ceiling=spec.cpu_threshold)
+    scheduled = _hardened_fire(fire, settings, action) if worker is None else fire
+
+    async def _co_resident(tg: TaskGroup, resident: Worker | None) -> None:
+        match resident:
+            case None:
+                return
+            case _:
+                tg.start_soon(resident)
+                await stop.wait()
+                tg.cancel_scope.cancel()
+
+    async with anyio.create_task_group() as tg:
+        tg.start_soon(_schedule, spec, scheduled, stop)
+        await _co_resident(tg, worker)
+
+
+async def _run_trigger(trigger: Trigger, action: Action, settings: AssaySettings, *, limiter: anyio.CapacityLimiter, stop: anyio.Event) -> None:
+    match trigger:
+        case Manual():
+            await _fire(action, settings, limiter=limiter, cpu_threshold=None)(_NO_CHANGES)
+        case Watch() as spec:
+            await _drive_watch(spec, action, settings, limiter=limiter, stop=stop)
+        case Schedule() as spec:
+            await _drive_schedule(spec, action, settings, limiter=limiter, stop=stop)
+
+
 async def drive(trigger: Trigger, action: Action, settings: AssaySettings) -> None:
     """Run an action each time its trigger fires."""
     limiter = anyio.CapacityLimiter(1)
     stop = anyio.Event()
 
-    async def _co_resident(tg: TaskGroup, worker: Worker | None) -> None:
-        match worker:
-            case None:
-                return
-            case _:
-                tg.start_soon(worker)
-                await stop.wait()
-                tg.cancel_scope.cancel()
-
     try:
-        match trigger:
-            case Manual():
-                await _fire(action, settings, limiter=limiter, cpu_threshold=None)(_NO_CHANGES)
-            case Watch(cpu_threshold=ceiling) as spec:
-                fire, worker = _armed(action, settings, limiter=limiter, ceiling=ceiling)
-                async with anyio.create_task_group() as tg:
-                    tg.start_soon(_watch, spec, fire, stop)
-                    await _co_resident(tg, worker)
-            case Schedule(cpu_threshold=ceiling) as spec:
-                fire, worker = _armed(action, settings, limiter=limiter, ceiling=ceiling)
-                # Top-level Debounce already coalesces via its worker, so only direct scheduled fires need hardening.
-                scheduled = _hardened_fire(fire, settings, action) if worker is None else fire
-                async with anyio.create_task_group() as tg:
-                    tg.start_soon(_schedule, spec, scheduled, stop)
-                    await _co_resident(tg, worker)
+        await _run_trigger(trigger, action, settings, limiter=limiter, stop=stop)
     except* (OSError, ValueError, ZoneInfoNotFoundError, re.error) as errors:
         claim, verb = _label(action)
         message = "; ".join(str(exc) for exc in errors.exceptions)

@@ -5,6 +5,11 @@ import msgspec
 from tools.assay.core.model import Claim, Input, Language, Mode, Runner, Stage, Tool
 
 
+# --- [CONSTANTS] ------------------------------------------------------------------------
+
+BENCHMARK_STORAGE_URI = "file://.artifacts/python/benchmarks"
+
+
 # --- [MODELS] ---------------------------------------------------------------------------
 
 
@@ -82,14 +87,7 @@ TOOLS: tuple[Tool, ...] = (
     Tool("ruff-format", UV, ("ruff", "format", "--check"), FILES, PY, Claim.STATIC),
     Tool("ruff-format", UV, ("ruff", "format"), FILES, PY, Claim.STATIC, mode=Mode.WRITE),
     Tool("ty", UV, ("ty", "check", "--no-progress"), FILES, PY, Claim.STATIC),
-    Tool(
-        "mypy",
-        UV,
-        ("mypy", "--explicit-package-bases", "--no-error-summary", "--hide-error-context", "--show-error-codes", "--no-pretty"),
-        FILES,
-        PY,
-        Claim.STATIC,
-    ),
+    Tool("mypy", UV, ("mypy", "--no-error-summary", "--hide-error-context", "--no-pretty"), FILES, PY, Claim.STATIC),
     Tool("ast-grep-py", PNPM, ("ast-grep", "scan", "--config", "sgconfig.yml", "--filter", "^no-", "--error"), FILES, PY, Claim.STATIC),
     Tool(
         "ast-grep-py",
@@ -106,7 +104,7 @@ TOOLS: tuple[Tool, ...] = (
     Tool(
         "pytest-benchmark",
         UV,
-        ("pytest", "-m", "benchmark", "--benchmark-only", "--benchmark-autosave", "--benchmark-storage=file://.artifacts/python/benchmarks"),
+        ("pytest", "-m", "benchmark", "--benchmark-only", "--benchmark-autosave", f"--benchmark-storage={BENCHMARK_STORAGE_URI}"),
         INCLUDE,
         PY,
         Claim.TEST,
@@ -125,6 +123,7 @@ TOOLS: tuple[Tool, ...] = (
         PY,
         Claim.TEST,
         mode=Mode.MUTATION,
+        groups=("mutation",),
         stage=Stage(
             root=".artifacts/python/mutmut/work",
             inputs=("pyproject.toml", ".gitignore", "tools/assay", "tests/conftest.py", "tests/tools/assay"),

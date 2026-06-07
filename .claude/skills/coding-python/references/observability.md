@@ -1,6 +1,6 @@
 # Observability
 
-Observability in Python 3.14+ fuses traces, logs, and metrics behind one `@instrument` surface. `structlog` builds event dicts, `logging` transports, and `OpenTelemetry SDK >= 1.39` exports spans/logs through `ReadableLogRecord`. Correlation flows through `ContextVar` and `merge_contextvars`. All snippets target `structlog >= 25.5`, `opentelemetry-sdk >= 1.39`, expression v5.6+ with `Result`, `Ok`, `Error`, `match/case` dispatch, and explicit boundary loops only.
+Observability in Python 3.15+ fuses traces, logs, and metrics behind one `@instrument` surface. `structlog` builds event dicts, `logging` transports, and `OpenTelemetry SDK >= 1.39` exports spans/logs through `ReadableLogRecord`. Correlation flows through `ContextVar` and `merge_contextvars`. All snippets target `structlog >= 25.5`, `opentelemetry-sdk >= 1.39`, expression v5.6+ with `Result`, `Ok`, `Error`, `match/case` dispatch, and explicit boundary loops only.
 
 ---
 ## Signal Pipeline

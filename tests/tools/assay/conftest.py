@@ -33,6 +33,7 @@ import psutil as _psutil
 import pytest
 from upath import UPath
 
+from tests.conftest import REPO_ROOT
 from tools.assay.composition.registry import REGISTRY
 from tools.assay.composition.settings import ArtifactScope, ArtifactStore, AssaySettings  # noqa: TC001
 from tools.assay.core.model import (
@@ -88,10 +89,9 @@ class VerbRunner(Protocol):
 # --- [CONSTANTS] -----------------------------------------------------------------------
 
 _UV = shutil.which("uv")
-_REPO_ROOT = Path(__file__).resolve().parents[3]  # subprocess CWD so `python -m tools.assay` resolves the package
 
 # Deterministic codec pair shared by the wire-roundtrip oracle (mirrors model._ENCODER order policy).
-_ENCODER = msgspec.json.Encoder(order="deterministic")
+WIRE_ENCODER = msgspec.json.Encoder(order="deterministic")
 
 # --- [OPERATIONS] -----------------------------------------------------------------------
 # A msgspec.inspect-driven resolver maps each wire struct field to a bounded leaf strategy reading its
@@ -445,7 +445,7 @@ def _make_psutil_module(procs: dict[int | None, MagicMock], *, cpu_count: int = 
         A ``psutil`` module double with a pid-dispatching ``Process`` factory.
     """
     fake = MagicMock(spec=_psutil)
-    fake.Error = _psutil.Error  # real base class so `except (psutil.Error, ...)` stays catchable under the double
+    fake.Error = _psutil.Error  # real base class so `except psutil.Error, ...` stays catchable under the double
     fake.NoSuchProcess = _psutil.NoSuchProcess
     fake.AccessDenied = _psutil.AccessDenied
     fake.cpu_count.return_value = cpu_count
@@ -526,10 +526,10 @@ def assert_wire_roundtrip[T](value: T, typ: type[T]) -> T:
     Returns:
         The decoded value (equal to ``value``).
     """
-    raw = _ENCODER.encode(value)
+    raw = WIRE_ENCODER.encode(value)
     decoded = msgspec.json.decode(raw, type=typ)
     assert decoded == value, f"decode mismatch for {typ.__name__}"
-    assert _ENCODER.encode(decoded) == raw, f"re-encode not byte-identical for {typ.__name__}"
+    assert WIRE_ENCODER.encode(decoded) == raw, f"re-encode not byte-identical for {typ.__name__}"
     return decoded
 
 
@@ -552,35 +552,10 @@ def make_history_envelope(run_id: str, *, claim: Claim = Claim.STATIC, status: R
 def pipe_history(store: ArtifactStore, run_ids: tuple[str, ...]) -> None:
     """Write a canned Envelope into the history tree for each run_id (delta/retention setup)."""
     for run_id in run_ids:
-        store.write_bytes(_ENCODER.encode(make_history_envelope(run_id)), "history", run_id, "envelope.json")
+        store.write_bytes(WIRE_ENCODER.encode(make_history_envelope(run_id)), "history", run_id, "envelope.json")
 
 
 # --- [COMPOSITION] ---------------------------------------------------------------------
-
-
-def pytest_collection_modifyitems(items: list[pytest.Item]) -> None:
-    """Auto-mark every Hypothesis-backed assay test ``property`` so ``-m property`` selection is total.
-
-    Pytest runs BOTH this sub-conftest hook and the root-conftest network hook; markers compose. The
-    scope is the assay subtree by virtue of this conftest's directory.
-    """
-    from hypothesis import is_hypothesis_test  # noqa: PLC0415  # public surface; keep import local to the hook
-
-    property_ = pytest.mark.property
-    for item in items:
-        fn = getattr(item, "function", None)
-        if fn is not None and is_hypothesis_test(fn):
-            item.add_marker(property_, append=False)
-
-
-@pytest.fixture
-def anyio_backend() -> str:
-    """Pin the single asyncio backend (function scope) so async fixtures avoid the module-scope default.
-
-    Returns:
-        The asyncio backend name.
-    """
-    return "asyncio"
 
 
 @pytest.fixture
@@ -639,13 +614,10 @@ def cli(assay_root: AssayHarness, capsysbinary: pytest.CaptureFixture[bytes], mo
                     pytest.skip("uv not on PATH")
                 spawn_env = {**os.environ, "ASSAY_ROOT": str(assay_root.root), **(extra_env or {})}  # noqa: TID251  # test boundary: clone + override env for subprocess isolation
                 # CWD is the repo root (so `python -m tools.assay` resolves the package); ASSAY_ROOT isolates I/O to tmp.
-                spawn = functools.partial(anyio.run_process, env=spawn_env, cwd=str(_REPO_ROOT), check=False)
+                spawn = functools.partial(anyio.run_process, env=spawn_env, cwd=str(REPO_ROOT), check=False)
                 result = anyio.run(spawn, ["uv", "run", "python", "-m", "tools.assay", *argv])
                 return CliResult(
-                    envelope=read_one_envelope_from_bytes(result.stdout),
-                    exit_code=result.returncode,
-                    stdout=result.stdout,
-                    stderr=result.stderr,
+                    envelope=read_one_envelope_from_bytes(result.stdout), exit_code=result.returncode, stdout=result.stdout, stderr=result.stderr
                 )
 
     return run
@@ -713,14 +685,8 @@ def yak_shape() -> YakShape:
     return YakShape()
 
 
-@pytest.fixture(scope="session", autouse=True)
-def _strategy_validation_gate() -> None:
-    """Validate + encode-probe every module-level strategy once per session, post-init.
-
-    The inner property draws every encode-bearing strategy through ``data()`` and round-trips the
-    deterministic codec, including callable-bearing ``Tool`` and ``Check`` rows. The autouse fixture runs
-    after collection so Hypothesis strategy materialization stays out of conftest import.
-    """
+def run_strategy_validation_gate() -> None:
+    """Validate + encode-probe every module-level strategy once per session, post-init."""
     for strategy in _VALIDATED_STRATEGIES:
         strategy.validate()
 
@@ -731,3 +697,9 @@ def _strategy_validation_gate() -> None:
             assert_wire_roundtrip(data.draw(strategy), typ)
 
     _encode_law()
+
+
+@pytest.fixture(scope="session", autouse=True)
+def _strategy_validation_gate() -> None:
+    """Validate + encode-probe every module-level strategy once per session, post-collection."""
+    run_strategy_validation_gate()

@@ -125,7 +125,7 @@ Build Claude Code hooks—shell commands, prompt evaluations, or multi-turn agen
 
 ## [4]-[SCRIPTING]
 
-Python 3.14+ with strict typing. Zero imperative patterns.
+Python 3.15+ with strict typing. Zero imperative patterns.
 
 ## [5]-[VALIDATION]
 

@@ -72,9 +72,7 @@ def test_yak_shape_materializes_valid_meta(assay_root: AssayHarness, yak_shape: 
 
 
 def test_envelope_oracle_decodes_single_stdout_line(
-    assay_root: AssayHarness,
-    capsys: pytest.CaptureFixture[str],
-    monkeypatch: pytest.MonkeyPatch,
+    assay_root: AssayHarness, capsys: pytest.CaptureFixture[str], monkeypatch: pytest.MonkeyPatch
 ) -> None:
     """The real registry ``rail`` runner writes exactly one stdout Envelope; the oracle decodes it.
 

@@ -7,6 +7,7 @@ from pathlib import Path
 
 
 ROOT = Path(__file__).resolve().parents[1]
+REPO_ROOT = ROOT
 _DEFAULT_HYPOTHESIS_HOME = ROOT / ".cache" / "hypothesis"
 _hypothesis_storage_directory = os.environ.get("HYPOTHESIS_STORAGE_DIRECTORY")  # noqa: TID251  # pytest boundary: anchor Hypothesis before import
 HYPOTHESIS_HOME = Path(_hypothesis_storage_directory) if _hypothesis_storage_directory else _DEFAULT_HYPOTHESIS_HOME
@@ -16,7 +17,7 @@ os.environ.setdefault("HYPOTHESIS_STORAGE_DIRECTORY", str(HYPOTHESIS_HOME))  # n
 
 from typing import TYPE_CHECKING
 
-from hypothesis import HealthCheck, Phase, settings as hyp_settings
+from hypothesis import HealthCheck, is_hypothesis_test, Phase, settings as hyp_settings
 from hypothesis.configuration import set_hypothesis_home_dir
 from hypothesis.database import DirectoryBasedExampleDatabase
 from opentelemetry import trace as otel_trace
@@ -104,17 +105,21 @@ hyp_settings.register_profile(
 
 
 def pytest_collection_modifyitems(items: list[pytest.Item]) -> None:
-    """Auto-apply ``@pytest.mark.network`` to any test requesting the ``socket_enabled`` fixture.
+    """Auto-apply ``network`` and ``property`` markers from fixture and Hypothesis membership.
 
     Generic to every suite under this root (assay, quality, future py projects): ``pytest-socket``'s
     ``socket_enabled`` fixture lifts ``--disable-socket`` per test, but without this hook those tests
-    are invisible to ``-m network`` selection. Marking by fixture-name keeps the network contract in one
-    place instead of a per-test decorator that drifts from the fixture it gates.
+    are invisible to ``-m network`` selection. Hypothesis-backed tests gain ``property`` so ``-m property``
+    selection stays total without per-test decorators.
     """
     network = pytest.mark.network
+    property_ = pytest.mark.property
     for item in items:
         if "socket_enabled" in getattr(item, "fixturenames", ()):
             item.add_marker(network, append=False)
+        fn = getattr(item, "function", None)
+        if fn is not None and is_hypothesis_test(fn):
+            item.add_marker(property_, append=False)
 
 
 # --- [EXPORTS] -------------------------------------------------------------------------

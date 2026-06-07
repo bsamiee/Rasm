@@ -138,7 +138,7 @@ Noesis treats PEP 8 and PEP 257 as a floor, not the house style. Ruff format/che
 | PEP 742             | `TypeIs` required for complement-safe boundary narrowing  | Ruff bans `TypeGuard`; type gates and review validate predicates        |
 | PEP 517/518/621/639 | Packaging metadata stays standards-valid                  | `uv run validate-pyproject pyproject.toml`                                |
 
-Python 3.15-only PEPs remain non-enforced until the baseline moves beyond 3.14: PEP 728, PEP 747, PEP 800, PEP 810, and PEP 814. Do not enforce these in Ruff, ty, mypy, repo semantic analyzers, or ast-grep while `target-version = "py314"`.
+Python 3.15 PEPs are baseline material: PEP 728, PEP 747, PEP 800, PEP 810, and PEP 814. Enforce them in Ruff, ty, mypy, repo semantic analyzers, or ast-grep when the tool exposes a reliable rule.
 
 Semantic enforcement uses the repo-configured LibCST gate for domain imperative flow, boundary exemption metadata, primitive public signatures, fallible return rails, single-use private functions, duplicate model shapes, rail escape, model immutability, mutable model fields, and recovery inside effect builders. ast-grep remains syntax-only: direct `__annotations__`, `typing.no_type_check`, helper imports, and helper filenames.
 

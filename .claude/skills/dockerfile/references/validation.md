@@ -11,7 +11,7 @@
 |   [3]   | `gcr.io/distroless/base-debian12:nonroot`   | 20 MB  |   No    |
 |   [4]   | `alpine:3.23`                               |  7 MB  |   Yes   |
 |   [5]   | `node:24-slim-trixie`                       | 80 MB  |   Yes   |
-|   [6]   | `python:3.14-slim-trixie`                   | 50 MB  |   Yes   |
+|   [6]   | `python:3.15-rc-slim-trixie`                   | 50 MB  |   Yes   |
 |   [7]   | `golang:1.26-alpine3.23`                    | 250 MB |   Yes   |
 |   [8]   | `eclipse-temurin:{21,25}-jre-alpine`        | 190 MB |   Yes   |
 |   [9]   | `cgr.dev/chainguard/*`                      | varies |   No    |

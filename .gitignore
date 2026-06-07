@@ -54,12 +54,10 @@ coverage.xml
 htmlcov/
 test-results/
 .approval_tests_temp/
-.benchmarks/
 .vitest-reports/
 lost-pixel/
 playwright-report/
 playwright/.cache/
-.hypothesis/
 mutants/
 **/__screenshots__/
 .vitest-attachments

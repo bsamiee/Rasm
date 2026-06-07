@@ -5,6 +5,7 @@ import contextlib
 from contextvars import ContextVar
 from dataclasses import dataclass, replace
 import fcntl
+from functools import partial
 import os
 from pathlib import Path
 import shlex
@@ -61,7 +62,7 @@ _TRACER = trace.get_tracer("assay.engine")
 # cpu_affinity is Linux/cgroup-aware where present; the boundary falls back to the logical count once at import.
 try:
     _USABLE_CPU: int = len(psutil.Process().cpu_affinity())  # type: ignore[attr-defined]  # ty: ignore[possibly-missing-attribute]
-except (psutil.Error, AttributeError, NotImplementedError):
+except psutil.Error, AttributeError, NotImplementedError:
     _USABLE_CPU = psutil.cpu_count(logical=True) or 8
 
 # POSIX-only fcntl members bind once because ty checks all platforms and cannot narrow this module to POSIX.
@@ -169,6 +170,7 @@ def _argv(check: Check, routed: Routed, *, settings: AssaySettings, scope: Artif
     # Runner prefix, scoped command body, then routed tails keep scope and input axes separate.
     tool = check.tool
     body = _splice(tool.runner, tool.command, scope, settings.scoped_verbs, tool.mode)
+    body = (*(part for group in tool.groups for part in ("--group", group)), *body) if tool.runner is Runner.UV else body
     body = ("--project", str(settings.root), *body) if tool.runner is Runner.UV and tool.stage.project else body
     tails = place(routed, tool, settings=settings)
     return (*tool.runner.prefix, *body, *(part for tail in tails for part in tail))
@@ -323,19 +325,22 @@ async def _reap(proc: Process, limiter: anyio.CapacityLimiter | None = None) -> 
         await proc.wait()
 
 
+def _terminate_process_tree(tree: tuple[psutil.Process, ...]) -> None:
+    for proc in reversed(tree):
+        if proc.is_running():
+            proc.terminate()
+    _, alive = psutil.wait_procs(tree, timeout=1.0)
+    for proc in alive:
+        if proc.is_running():
+            proc.kill()
+    if alive:
+        psutil.wait_procs(alive, timeout=1.0)
+
+
 def _reap_tree(pid: int) -> None:
     try:
         root = psutil.Process(pid)
-        tree = (root, *root.children(recursive=True))
-        for proc in reversed(tree):
-            if proc.is_running():
-                proc.terminate()
-        _, alive = psutil.wait_procs(tree, timeout=1.0)
-        for proc in alive:
-            if proc.is_running():
-                proc.kill()
-        if alive:
-            psutil.wait_procs(alive, timeout=1.0)
+        _terminate_process_tree((root, *root.children(recursive=True)))
     except psutil.Error, ValueError:
         return
 
@@ -354,14 +359,10 @@ async def _run_process_backend(plan: _ExecPlan) -> Completed:
                             async def _tee(name: str, stream: ByteReceiveStream | None) -> None:
                                 path, handle = _stream_writer(plan, name)
                                 if handle is None:
-                                    streams[name] = await _drain_stream(
-                                        _recv_anyio(stream, plan.chunk), tail_cap=plan.tail_cap, path=path
-                                    )
+                                    streams[name] = await _drain_stream(_recv_anyio(stream, plan.chunk), tail_cap=plan.tail_cap, path=path)
                                     return
                                 with handle as sink:
-                                    streams[name] = await _drain_stream(
-                                        _recv_anyio(stream, plan.chunk), tail_cap=plan.tail_cap, sink=sink, path=path
-                                    )
+                                    streams[name] = await _drain_stream(_recv_anyio(stream, plan.chunk), tail_cap=plan.tail_cap, sink=sink, path=path)
 
                             tg.start_soon(_tee, "out", proc.stdout)
                             tg.start_soon(_tee, "err", proc.stderr)
@@ -411,6 +412,7 @@ def _stream_writer(plan: _ExecPlan, name: str) -> tuple[str, _WriteContext | Non
 
 async def _run_remote(plan: _ExecPlan, target: str) -> Completed:
     import asyncssh  # noqa: PLC0415  # lazy: asyncssh costs ~83ms cold start; defer past import-time
+
     # encoding=None keeps remote stdout/stderr as bytes, matching local Completed receipts.
     command = _remote_command(plan.argv, cwd=plan.cwd, env=plan.env)
     async with _ssh_connection(target, plan.settings) as conn:
@@ -424,14 +426,10 @@ async def _run_remote(plan: _ExecPlan, target: str) -> Completed:
                         async def _tee(name: str, reader: asyncssh.SSHReader[bytes]) -> None:
                             path, handle = _stream_writer(plan, name)
                             if handle is None:
-                                streams[name] = await _drain_stream(
-                                    _recv_ssh(reader, plan.chunk), tail_cap=plan.tail_cap, path=path
-                                )
+                                streams[name] = await _drain_stream(_recv_ssh(reader, plan.chunk), tail_cap=plan.tail_cap, path=path)
                                 return
                             with handle as sink:
-                                streams[name] = await _drain_stream(
-                                    _recv_ssh(reader, plan.chunk), tail_cap=plan.tail_cap, sink=sink, path=path
-                                )
+                                streams[name] = await _drain_stream(_recv_ssh(reader, plan.chunk), tail_cap=plan.tail_cap, sink=sink, path=path)
 
                         tg.start_soon(_tee, "out", proc.stdout)
                         tg.start_soon(_tee, "err", proc.stderr)
@@ -453,13 +451,7 @@ async def _run_remote(plan: _ExecPlan, target: str) -> Completed:
             case False:
                 done = await conn.run(command, encoding=None, check=False)
                 code, notes = _ssh_outcome(done.exit_status, getattr(done, "exit_signal", None))
-                return receipt(
-                    plan.argv,
-                    code,
-                    stdout=_as_bytes(done.stdout),
-                    stderr=_as_bytes(done.stderr),
-                    notes=notes,
-                )
+                return receipt(plan.argv, code, stdout=_as_bytes(done.stdout), stderr=_as_bytes(done.stderr), notes=notes)
 
 
 @contextlib.asynccontextmanager
@@ -535,7 +527,7 @@ def _as_bytes(data: bytes | str | None) -> bytes:
 def _safe_call[T](fn: Callable[[], T], default: T) -> T:
     try:
         return fn()
-    except (psutil.Error, TypeError, ValueError, AttributeError, OSError):
+    except psutil.Error, TypeError, ValueError, AttributeError, OSError:
         return default
 
 
@@ -580,13 +572,14 @@ def _load_pressure() -> dict[str, float]:
         return {}
 
 
+def _child_rss(child: psutil.Process) -> int:
+    return int(getattr(child.memory_info(), "rss", 0))
+
+
 def _children(proc: psutil.Process) -> dict[str, float]:
     try:
         kids = tuple(proc.children(recursive=True))
-        return {
-            "proc.children": float(len(kids)),
-            "proc.children_rss_bytes": float(sum(_safe_call(lambda c=child: int(getattr(c.memory_info(), "rss", 0)), 0) for child in kids)),
-        }
+        return {"proc.children": float(len(kids)), "proc.children_rss_bytes": float(sum(_safe_call(partial(_child_rss, child), 0) for child in kids))}
     except psutil.Error, TypeError, ValueError, AttributeError:
         return {}
 
@@ -632,10 +625,15 @@ async def _guarded(
         propagate.inject(env)
         trace.get_current_span().set_attribute("exec.target", settings.exec_target)
         done = await _execute_retrying(
-            check, settings, scope,
-            argv=argv, cwd=cwd, env=env,
+            check,
+            settings,
+            scope,
+            argv=argv,
+            cwd=cwd,
+            env=env,
             thread_limiter=anyio.CapacityLimiter(_governed(settings, (check,))),
-            deadline=bound, attempts=attempts,
+            deadline=bound,
+            attempts=attempts,
         )
         return Ok(msgspec.structs.replace(done, duration_ms=(time.monotonic() - t0) * 1000.0))
     except TimeoutError as exc:
@@ -646,7 +644,7 @@ async def _guarded(
         _diagnose(exc)
         return Error(Fault(argv, status=RailStatus.UNSUPPORTED, message=_stamped(str(exc))))
     except (OSError, ValueError, asyncssh.Error) as exc:
-        # ValueError covers bare NUL-in-argv from create_subprocess_exec; it is not an OSError so it must be named explicitly.
+        # Parentheses are PEP 758-required when binding with ``as``; ValueError covers bare NUL-in-argv from create_subprocess_exec.
         _diagnose(exc)
         return Error(Fault(argv, status=RailStatus.FAULTED, message=_stamped(str(exc))))
 
@@ -979,15 +977,20 @@ def _write_block(fd: int, block: _LeaseOwner) -> _LeaseOwner:
     return block
 
 
-def _write_owner(
-    fd: int, resource: str, *, run_id: str, target: str, cwd: str = "", project: str = "", mode: str = "exclusive"
-) -> _LeaseOwner:
+def _write_owner(fd: int, resource: str, *, run_id: str, target: str, cwd: str = "", project: str = "", mode: str = "exclusive") -> _LeaseOwner:
     # target records whether the holder ran locally or through ssh://; cwd/project/mode are stamped here so the block is written once.
     proc = psutil.Process(os.getpid())
     with proc.oneshot():
         block = _LeaseOwner(
-            resource=resource, run_id=run_id, pid=proc.pid, create_time=proc.create_time(),
-            cwd=cwd, project=project, mode=mode, started_at=time.time(), target=target,
+            resource=resource,
+            run_id=run_id,
+            pid=proc.pid,
+            create_time=proc.create_time(),
+            cwd=cwd,
+            project=project,
+            mode=mode,
+            started_at=time.time(),
+            target=target,
         )
     return _write_block(fd, block)
 
@@ -1018,9 +1021,14 @@ def exclusive_lease(
     owner: _LeaseOwner | None = None
     try:
         owner = _claim(
-            fd, resource, run_id=run_id,
-            tolerance=settings.lease_drift_tolerance, target=settings.exec_target,
-            cwd=str(settings.root), project=project, mode=mode,
+            fd,
+            resource,
+            run_id=run_id,
+            tolerance=settings.lease_drift_tolerance,
+            target=settings.exec_target,
+            cwd=str(settings.root),
+            project=project,
+            mode=mode,
         )
         yield Ok(_Held(owner)) if owner is not None else Error(Fault((), status=RailStatus.BUSY, message=f"{resource} held by a live process"))
     finally:

@@ -1,7 +1,6 @@
 """Aspect layer laws."""
 
 from collections import deque
-from pathlib import Path
 import sys
 from typing import Protocol
 
@@ -16,9 +15,10 @@ from pydantic import ValidationError
 import pytest
 from structlog.contextvars import get_contextvars
 
+from tests.conftest import REPO_ROOT
 import tools.assay as assay_pkg
 from tools.assay.composition.registry import _checked_report, _guard  # noqa: PLC2701
-from tools.assay.composition.settings import ArtifactScope, AssaySettings  # noqa: TC001  # beartype boundary test needs runtime annotations
+from tools.assay.composition.settings import ArtifactScope, AssaySettings  # beartype boundary test needs runtime annotations
 from tools.assay.core.aspect import _RING, compose, Inversion, logged, ring_processor, Slot, traced  # noqa: PLC2701
 from tools.assay.core.model import Claim, Fault, fold, Report  # noqa: TC001
 from tools.assay.rails.static import StaticParams
@@ -27,6 +27,19 @@ from tools.assay.rails.static import StaticParams
 class _ProcessResult(Protocol):
     returncode: int
     stdout: bytes
+
+
+def _rail_keys(settings: AssaySettings, _scope: ArtifactScope, params: StaticParams) -> dict[str, object]:
+    _ = params
+    return {"run_id": settings.run_id or "r1"}
+
+
+def _report_attrs(_settings: AssaySettings, _scope: ArtifactScope, _params: StaticParams) -> dict[str, object]:
+    return {"assay.verb": "report"}
+
+
+def _async_attrs(_settings: AssaySettings, _scope: ArtifactScope, _params: StaticParams) -> dict[str, object]:
+    return {"assay.verb": "async"}
 
 
 @pytest.fixture
@@ -61,7 +74,7 @@ def test_ring_processor_records_level_event_and_passes_dict() -> None:
 def test_compose_rejects_layer_inversion() -> None:
     """Layer slots are monotonic; a lower slot after logged raises Inversion."""
 
-    def identity() -> Result[None, Fault]:
+    def identity(*_: object, **__: object) -> Result[None, Fault]:
         return Ok(None)
 
     with pytest.raises(TypeError, match=r"Slot\.logged") as raised:
@@ -72,7 +85,7 @@ def test_compose_rejects_layer_inversion() -> None:
 
 def test_assay_claw_imports_package() -> None:
     """ASSAY_CLAW import-time beartype checking loads the package instead of failing on aspect annotations."""
-    root = Path(__file__).resolve().parents[4]
+    root = REPO_ROOT
 
     async def run() -> _ProcessResult:
         return await anyio.run_process([sys.executable, "-c", "import tools.assay"], cwd=root, env={"ASSAY_CLAW": "1"}, check=False)
@@ -151,14 +164,16 @@ def test_ring_processor_omits_trace_ids_without_active_span() -> None:
 def test_logged_layer_binds_keys_during_call_and_clears_after() -> None:
     """Logged binds the projected keys for the handler body and clears them on exit."""
     during: dict[str, object] = {}
+    settings = AssaySettings(run_id="r1", exec_target="", exec_known_hosts=None)
+    scope = ArtifactScope.open(settings, Claim.STATIC)
 
-    def handler(settings: AssaySettings, scope: object, params: StaticParams) -> Result[Report, Fault]:
-        _ = (settings, scope, params)
+    def handler(settings: AssaySettings, _scope: ArtifactScope, params: StaticParams) -> Result[Report, Fault]:
+        _ = (settings, params)
         during.update(get_contextvars())
         return Ok(fold(Claim.STATIC, "report", ()))
 
-    woven = compose(logged(event="rail", keys=lambda *a, **kw: {"run_id": "r1"}))(handler)
-    outcome = woven(AssaySettings(), None, StaticParams())
+    woven = compose(logged(event="rail", keys=_rail_keys))(handler)  # type: ignore[arg-type]  # ty: ignore[invalid-argument-type]
+    outcome = woven(settings, scope, StaticParams())  # ty: ignore[invalid-argument-type,missing-argument]
 
     assert outcome.is_ok()
     assert during.get("run_id") == "r1"
@@ -167,13 +182,14 @@ def test_logged_layer_binds_keys_during_call_and_clears_after() -> None:
 
 def test_traced_sync_stamps_status_and_records_span(traced_spans: InMemorySpanExporter) -> None:
     """A sync woven rail records one span carrying the stamped status attribute."""
+    settings = AssaySettings()
+    scope = ArtifactScope.open(settings, Claim.STATIC)
 
-    def handler(settings: AssaySettings, scope: object, params: StaticParams) -> Result[Report, Fault]:
-        _ = (settings, scope, params)
+    def handler(_settings: AssaySettings, _scope: ArtifactScope, _params: StaticParams) -> Result[Report, Fault]:
         return Ok(fold(Claim.STATIC, "report", ()))
 
-    woven = compose(traced(span="static.report", attrs=lambda *a, **kw: {"assay.verb": "report"}))(handler)
-    outcome = woven(AssaySettings(), None, StaticParams())
+    woven = compose(traced(span="static.report", attrs=_report_attrs))(handler)  # type: ignore[arg-type]  # ty: ignore[invalid-argument-type]
+    outcome = woven(settings, scope, StaticParams())  # ty: ignore[invalid-argument-type,missing-argument]
     spans = traced_spans.get_finished_spans()
 
     assert outcome.is_ok()
@@ -186,14 +202,15 @@ def test_traced_sync_stamps_status_and_records_span(traced_spans: InMemorySpanEx
 def test_traced_async_dispatches_awoven_and_stamps_fault(traced_spans: InMemorySpanExporter) -> None:
     """An async handler routes through awoven, stamping the fault status and adding a fault event."""
     fault = Fault((), message="boom")
+    settings = AssaySettings()
+    scope = ArtifactScope.open(settings, Claim.STATIC)
 
-    async def handler(settings: AssaySettings, scope: object, params: StaticParams) -> Result[Report, Fault]:
-        _ = (settings, scope, params)
+    async def handler(_settings: AssaySettings, _scope: ArtifactScope, _params: StaticParams) -> Result[Report, Fault]:
         await anyio.lowlevel.checkpoint()
         return Result.Error(fault)
 
-    woven = compose(traced(span="static.async", attrs=lambda *a, **kw: {"assay.verb": "async"}))(handler)  # ty: ignore[invalid-argument-type]  # compose returns awoven (coroutine fn) at runtime via iscoroutinefunction dispatch; ty cannot narrow the overload
-    outcome = anyio.run(lambda: woven(AssaySettings(), None, StaticParams()))  # ty: ignore[invalid-argument-type]  # woven is awoven (coroutine fn) at runtime; lambda returns Awaitable
+    woven = compose(traced(span="static.async", attrs=_async_attrs))(handler)  # type: ignore[arg-type,var-annotated]  # ty: ignore[invalid-argument-type]
+    outcome = anyio.run(lambda: woven(settings, scope, StaticParams()))  # type: ignore[arg-type,return-value,var-annotated]  # ty: ignore[invalid-argument-type,missing-argument]
     spans = traced_spans.get_finished_spans()
 
     assert outcome.is_error()

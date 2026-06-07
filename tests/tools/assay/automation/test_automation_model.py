@@ -16,11 +16,7 @@ def test_recursive_action_codec_round_trips() -> None:
 
 
 @pytest.mark.parametrize(
-    "node,trigger",
-    [
-        (Debounce(action=Rail(claim=Claim.STATIC, verb="report"), window_ms=250, collapse=False), False),
-        (Manual(), True),
-    ],
+    "node,trigger", [(Debounce(action=Rail(claim=Claim.STATIC, verb="report"), window_ms=250, collapse=False), False), (Manual(), True)]
 )
 def test_leaf_node_codec_round_trips(node: Debounce | Manual, *, trigger: bool) -> None:
     """The collapse=False debounce flag and the niladic Manual trigger survive the tagged-union codec."""

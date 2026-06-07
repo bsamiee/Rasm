@@ -32,7 +32,7 @@ Docker Engine 27+ | BuildKit 0.27+ | Dockerfile syntax 1.14 | Node 24 LTS Krypto
 - `Runtime` -- Port(s), env vars, health endpoint, image size constraints, multi-arch (amd64/arm64).
 
 **Best-Practices:**
-- **Base images (February 2026):** `node:24-slim-trixie` (pnpm), `node:24-alpine3.23` (npm), `python:3.14-slim-trixie`, `golang:1.24-alpine3.23`, `rust:1.84-slim-trixie`, `eclipse-temurin:21-jdk-alpine`
+- **Base images (February 2026):** `node:24-slim-trixie` (pnpm), `node:24-alpine3.23` (npm), `python:3.15-rc-slim-trixie`, `golang:1.24-alpine3.23`, `rust:1.84-slim-trixie`, `eclipse-temurin:21-jdk-alpine`
 - **Chainguard:** `cgr.dev/chainguard/node:latest-dev` (build) / `cgr.dev/chainguard/node:latest` (runtime) -- daily CVE rebuilds, zero known vulnerabilities
 
 [REFERENCE]: [dockerfile_knowledge.md](./references/dockerfile_knowledge.md) -- Generation patterns, language substitution, cache mounts.

@@ -12,7 +12,7 @@ from pydantic_settings import PydanticBaseSettingsSource
 import pytest
 from upath import UPath
 
-from tests.tools.assay.conftest import _ENCODER, make_history_envelope  # noqa: PLC2701  # testing internals is legitimate
+from tests.tools.assay.conftest import make_history_envelope, WIRE_ENCODER  # testing internals is legitimate
 from tools.assay.composition.settings import _mtime, ArtifactBackend, AssaySettings, Configuration  # noqa: PLC2701  # testing internals is legitimate
 from tools.assay.core.model import Artifact, ArtifactKind
 
@@ -183,8 +183,8 @@ def test_mtime_coerces_datetime_and_numeric(info: dict[str, object], expected: f
 def test_artifact_store_history_law_matrix(backend: str, assay_root: AssayHarness) -> None:
     """write_history persists, load_history round-trips known/unknown ids, and retain_history prunes oldest first."""
     store = assay_root.settings.store() if backend == "file" else assay_root.settings.store(protocol="memory", root="hist")
-    store.write_history("run-a", _ENCODER.encode(make_history_envelope("run-a")))
-    store.write_history("run-b", _ENCODER.encode(make_history_envelope("run-b")))
+    store.write_history("run-a", WIRE_ENCODER.encode(make_history_envelope("run-a")))
+    store.write_history("run-b", WIRE_ENCODER.encode(make_history_envelope("run-b")))
 
     assert store.load_history("run-a") is not None
     assert store.load_history("nope") is None
@@ -228,14 +228,8 @@ def test_dotenv_and_secrets_are_ignored(tmp_path: Path, monkeypatch: pytest.Monk
         ({"ASSAY_OTEL_ENDPOINT": "http://primary:4317"}, "http://primary:4317"),
         ({"OTEL_EXPORTER_OTLP_ENDPOINT": "http://generic:4317"}, "http://generic:4317"),
         ({"OTEL_EXPORTER_OTLP_TRACES_ENDPOINT": "http://traces:4317"}, "http://traces:4317"),
-        (
-            {"ASSAY_OTEL_ENDPOINT": "http://primary:4317", "OTEL_EXPORTER_OTLP_ENDPOINT": "http://generic:4317"},
-            "http://primary:4317",
-        ),
-        (
-            {"OTEL_EXPORTER_OTLP_ENDPOINT": "http://generic:4317", "OTEL_EXPORTER_OTLP_TRACES_ENDPOINT": "http://traces:4317"},
-            "http://generic:4317",
-        ),
+        ({"ASSAY_OTEL_ENDPOINT": "http://primary:4317", "OTEL_EXPORTER_OTLP_ENDPOINT": "http://generic:4317"}, "http://primary:4317"),
+        ({"OTEL_EXPORTER_OTLP_ENDPOINT": "http://generic:4317", "OTEL_EXPORTER_OTLP_TRACES_ENDPOINT": "http://traces:4317"}, "http://generic:4317"),
     ],
 )
 def test_otel_endpoint_alias_precedence(env: dict[str, str], expected: str, assay_root: AssayHarness, monkeypatch: pytest.MonkeyPatch) -> None:

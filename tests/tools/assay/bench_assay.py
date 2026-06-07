@@ -18,6 +18,7 @@ import msgspec
 import psutil
 import pytest
 
+from tests.tools.assay.conftest import WIRE_ENCODER
 from tools.assay.automation import engine as automation_engine
 from tools.assay.automation.engine import _debounce, _fire, _hardened_fire  # noqa: PLC2701  # benchmarking automation engine internals
 from tools.assay.automation.model import Program
@@ -50,9 +51,11 @@ class BenchmarkFixture(Protocol):
     @overload
     def pedantic[T](self, target: Callable[[], T], *, rounds: int, warmup_rounds: int) -> T: ...
     @overload
-    def pedantic[T](self, target: Callable[..., T], *, args: tuple[object, ...], rounds: int, warmup_rounds: int) -> T: ...
+    def pedantic[T, **P](self, target: Callable[P, T], *, args: tuple[object, ...], rounds: int, warmup_rounds: int) -> T: ...
     @overload
-    def pedantic[T](self, target: Callable[..., T], *, args: tuple[object, ...], kwargs: dict[str, object], rounds: int, warmup_rounds: int) -> T: ...
+    def pedantic[T, **P](
+        self, target: Callable[P, T], *, args: tuple[object, ...], kwargs: dict[str, object], rounds: int, warmup_rounds: int
+    ) -> T: ...
     @property
     def stats(self) -> dict[str, float]: ...
 
@@ -150,7 +153,7 @@ def bench_lock_contention_busy(benchmark: BenchmarkFixture, assay_root: AssayHar
     """Busy leases fail fast when another holder owns the resource (bench_engine)."""
     action: Callable[[object], Result[str, Fault]] = lambda _held: Ok("acquired")  # noqa: E731
     with exclusive_lease("bench-lock", "holder", settings=assay_root.settings):
-        result: Result[str, Fault] = benchmark.pedantic(
+        result: Result[str, Fault] = benchmark.pedantic(  # ty: ignore[invalid-assignment]
             leased, args=("bench-lock", action), kwargs={"settings": assay_root.settings, "run_id": "blocked"}, rounds=100, warmup_rounds=5
         )
     assert result.is_error()
@@ -175,7 +178,7 @@ def bench_envelope_encode(benchmark: BenchmarkFixture) -> None:
     proc = psutil.Process()
     rss_before, cpu_before = proc.memory_info().rss, sum(proc.cpu_times()[:2])
     env = envelope(fold(Claim.STATIC, "check", _HUNDRED_OK), claim=Claim.STATIC, verb="check")
-    result: bytes = benchmark.pedantic(_ENCODER.encode, args=(env,), rounds=500, warmup_rounds=10)
+    result: bytes = benchmark.pedantic(WIRE_ENCODER.encode, args=(env,), rounds=500, warmup_rounds=10)
     assert len(result) > 0
     meta = BenchMeta.record(env, rss_before=rss_before, cpu_before=cpu_before)
     benchmark.extra_info.update(rows=meta.rows, status=str(meta.status), artifact_bytes=meta.artifact_bytes)
@@ -194,7 +197,7 @@ def bench_artifact_store_history(benchmark: BenchmarkFixture, assay_root: AssayH
 def bench_artifact_store_full_report(benchmark: BenchmarkFixture, assay_root: AssayHarness, protocol: str) -> None:
     """ArtifactStore round-trips a full 100-row Report Envelope through both fsspec backends (bench_storage)."""
     store = _store(assay_root, protocol)
-    payload = _ENCODER.encode(envelope(fold(Claim.STATIC, "check", _HUNDRED_OK), claim=Claim.STATIC, verb="check"))
+    payload = WIRE_ENCODER.encode(envelope(fold(Claim.STATIC, "check", _HUNDRED_OK), claim=Claim.STATIC, verb="check"))
     keys = count()
     write_read: Callable[[], bytes] = lambda: store.read_path(store.write_bytes(payload, "benchmark", f"{next(keys)}.json"))  # noqa: E731
     assert benchmark.pedantic(write_read, rounds=100, warmup_rounds=5) == payload
@@ -290,11 +293,6 @@ def _store(assay_root: AssayHarness, protocol: str) -> ArtifactStore:
             return assay_root.settings.store()
         case _:
             return assay_root.settings.store(protocol="memory", root=f"mem-bench/{assay_root.settings.run_id}")
-
-
-# --- [COMPOSITION] ----------------------------------------------------------------------
-
-_ENCODER: Final = msgspec.json.Encoder(order="deterministic")
 
 
 # --- [EXPORTS] --------------------------------------------------------------------------

@@ -1,6 +1,6 @@
 # Types
 
-Type authority for Python 3.14+. All snippets assume expression v5.6+ and PEP 695/696 type syntax.
+Type authority for Python 3.15+. All snippets assume expression v5.6+ and PEP 695/696 type syntax.
 
 ---
 
@@ -522,7 +522,7 @@ Match outside the wrapper binds concern coefficients at decoration time — per-
 - Boundary projections derive from canonical model via field subsetting — no independent schema classes for the same concept.
 - `Result[T, E]` for fallible returns, `Option[T]` for absence — sole monadic rails. Zero `Optional[T]`; `X | None` only in Pydantic fields requiring JSON Schema nullability.
 - Error codomain widening (`E -> E | Breach[C]`) carries typed concern witness — zero stringly-typed error messages or unstructured propagation.
-- `type X = Y` (PEP 695) for aliases, PEP 696 defaults for generics — lazy evaluation in 3.14+ eliminates forward-reference quoting. Zero legacy `TypeAlias`.
+- `type X = Y` (PEP 695) for aliases, PEP 696 defaults for generics — lazy evaluation in 3.15+ eliminates forward-reference quoting. Zero legacy `TypeAlias`.
 - `TypeIs` (PEP 742) over `TypeGuard` — complement narrowing in both branches; sole mechanism for phantom parameter recovery at boundaries.
 - PEP 695 `**P` / parameter-spec preservation + `@wraps` on every decorator; `Concatenate` when prepending parameters. `block.fold(with_concern, fn)` for algebraic stacking — concern match at decoration time, not per-call.
 - `@effect.result[T, E]()` for $\geq 3$ sequential binds; `result.bind` for $\leq 2$. `compose` for deferred pipelines, `pipe` for immediate — never wrap `pipe` in a lambda when `compose` expresses intent.

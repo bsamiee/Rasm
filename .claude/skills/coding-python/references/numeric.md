@@ -1,6 +1,6 @@
 # Numeric
 
-Protocol-driven numeric abstractions for Python 3.14+. Structural subtyping replaces inheritance hierarchies. Expression `block.fold`/`seq.fold` replace imperative accumulation. All snippets assume expression v5.6+, NumPy 2.4+, Polars 1.32+.
+Protocol-driven numeric abstractions for Python 3.15+. Structural subtyping replaces inheritance hierarchies. Expression `block.fold`/`seq.fold` replace imperative accumulation. All snippets assume expression v5.6+, NumPy 2.4+, Polars 1.32+.
 
 ---
 ## Protocol Numeric Algebra

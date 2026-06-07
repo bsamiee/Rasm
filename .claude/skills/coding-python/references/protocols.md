@@ -1,6 +1,6 @@
 # Protocols
 
-Structural subtyping contracts, capability slicing, variance discipline, and protocol-threaded dependency injection for Python 3.14+. This file governs Protocol surface design — all other reference files assume these capability boundaries and variance rules. All snippets assume expression v5.6+ with `Result`, `Option`, `@effect.result`, `pipe`, `Block`, `Map`, `curry_flip`.
+Structural subtyping contracts, capability slicing, variance discipline, and protocol-threaded dependency injection for Python 3.15+. This file governs Protocol surface design — all other reference files assume these capability boundaries and variance rules. All snippets assume expression v5.6+ with `Result`, `Option`, `@effect.result`, `pipe`, `Block`, `Map`, `curry_flip`.
 
 ## Protocol for Structural Typing
 

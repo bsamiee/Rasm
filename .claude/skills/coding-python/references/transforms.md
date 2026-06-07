@@ -1,6 +1,6 @@
 # Transforms
 
-Compositional logic substrate for Python 3.14+. Every code body across all reference files is written in this style — transforms.md defines what "algorithmic, functional, AOP-driven code" means at the logic level. All snippets assume expression v5.6+ with `Result`, `@effect.result`, `pipe`, `Block`, `Map`, `Seq`.
+Compositional logic substrate for Python 3.15+. Every code body across all reference files is written in this style — transforms.md defines what "algorithmic, functional, AOP-driven code" means at the logic level. All snippets assume expression v5.6+ with `Result`, `@effect.result`, `pipe`, `Block`, `Map`, `Seq`.
 
 ---
 

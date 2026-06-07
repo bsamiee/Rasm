@@ -185,7 +185,7 @@ def checked[**P, T](*, conf: BeartypeConf = _CONF) -> Layer[P, T]:
     return (Slot.checked, lambda fn: checked_call(fn, conf=conf))
 
 
-_CHECKED_LAYER: Final = checked()
+_CHECKED_LAYER = checked()  # type: ignore[var-annotated]
 
 
 def logged[**P, T](*, event: str, keys: Bind[P]) -> Layer[P, T]:
@@ -211,9 +211,9 @@ def logged[**P, T](*, event: str, keys: Bind[P]) -> Layer[P, T]:
                                 _LOG.error(finish, status=f.status, message=f.message, argv=f.argv)
                             case False:
                                 _LOG.info(finish, status=f.status, message=f.message, argv=f.argv)
-                return res  # ty: ignore[invalid-return-type]  # mypy strict needs the Result[T] annotation; @wraps re-scopes that T under ty: the rail is identical
+                return res  # mypy strict needs the Result[T] annotation; @wraps re-scopes that T under ty: the rail is identical
 
-        return woven  # ty: ignore[invalid-return-type]  # @wraps over expression.Result yields ty's _Wrapped re-scope; mypy --strict accepts the Hom passthrough
+        return woven  # @wraps over expression.Result yields ty's _Wrapped re-scope; mypy --strict accepts the Hom passthrough
 
     return (Slot.logged, dec)
 
@@ -252,7 +252,7 @@ def traced[**P, T](*, span: str, attrs: Callable[P, Attrs], agent: Callable[P, A
                 try:
                     with _TRACER.start_as_current_span(span) as s:
                         s.set_attributes({key: str(val) for key, val in projected.items()})
-                        return _stamp(s, fn(*a, **k))  # ty: ignore[invalid-return-type]  # ty re-scopes nested _stamp[T] vs traced's T; mypy unifies them
+                        return _stamp(s, fn(*a, **k))  # ty re-scopes nested _stamp[T] vs traced's T; mypy unifies them
                 finally:
                     context.detach(token)
 

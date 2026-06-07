@@ -56,7 +56,7 @@ _TESTS = msgspec.json.Decoder(TestRun)
 _ROSTER_ENCODER = msgspec.json.Encoder(order="deterministic")
 # Per-runner changed-file mutation scope: Stryker.NET takes repeatable `--mutate <glob>`; runners absent here cannot scope (UNSUPPORTED).
 _MUTATION_SCOPE: dict[str, Callable[[tuple[str, ...]], tuple[str, ...]]] = {
-    "dotnet-stryker": lambda files: tuple(flag for f in files for flag in ("--mutate", f)),
+    "dotnet-stryker": lambda files: tuple(flag for f in files for flag in ("--mutate", f))
 }
 
 
@@ -145,7 +145,7 @@ def _scoped_mutation(tool: Tool, params: TestParams, files: tuple[str, ...]) -> 
     match (tool.mode, params.mutation, _MUTATION_SCOPE.get(tool.name)):
         case (Mode.MUTATION, MutationLane.CHANGED, None):
             return None
-        case (Mode.MUTATION, MutationLane.CHANGED, scoped):
+        case (Mode.MUTATION, MutationLane.CHANGED, scoped) if scoped is not None:
             return msgspec.structs.replace(tool, command=(*tool.command, *scoped(files)))
         case _:
             return tool
@@ -166,10 +166,7 @@ def _checks(routed: Routed, params: TestParams, mode: Mode) -> tuple[Check, ...]
                 return tool
 
     return tuple(
-        Check(tool=spliced, paths=routed.files)
-        for t in _rows(routed.language, params, mode)
-        for spliced in (_splice(t),)
-        if spliced is not None
+        Check(tool=spliced, paths=routed.files) for t in _rows(routed.language, params, mode) for spliced in (_splice(t),) if spliced is not None
     )
 
 

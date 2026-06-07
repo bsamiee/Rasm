@@ -123,6 +123,17 @@ def test_place_table(input_mode: Input, mode: Mode, routed: Routed, expected: tu
     assert place(routed, tool, settings=assay_root.settings) == expected
 
 
+def test_place_strips_typecheck_probe_fixtures_from_files_argv(assay_root: AssayHarness) -> None:
+    """Explicit FILE tails skip ast-grep/py_analyzer probes so ty/mypy excludes are not bypassed."""
+    routed = Routed(
+        language=Language.PYTHON,
+        scope=Scope.CHANGED,
+        files=("tools/assay/core/model.py", "tests/tools/ast-grep/fail/helper_import.py", "tests/tools/py_analyzer/sample.py"),
+    )
+
+    assert place(routed, _PY_TOOL, settings=assay_root.settings) == (("tools/assay/core/model.py",),)
+
+
 def test_place_solution_arm(assay_root: AssayHarness) -> None:
     """The SOLUTION arm projects the settings solution path, independent of routed inputs."""
     tool = Tool("sln", Runner.DOTNET, ("dotnet",), Input.SOLUTION, Language.CSHARP, Claim.STATIC, mode=Mode.BUILD)

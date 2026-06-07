@@ -15,6 +15,43 @@ if TYPE_CHECKING:
     from tests.tools.assay.conftest import AssayHarness, VerbRunner
 
 
+def test_signature_string_format_captures_forward_refs() -> None:
+    """PEP 749 STRING annotations render forward-ref callables for pydist member capture."""
+
+    def forward_handler(value: object) -> object:
+        return value
+
+    forward_handler.__annotations__ = {"value": "ForwardType", "return": "ForwardType"}
+    sig = api_rail._signature(forward_handler)
+
+    assert "ForwardType" in sig
+
+
+def test_signature_falls_back_for_non_callable() -> None:
+    """Non-callable symbols synthesize annotationlib fallback text instead of an empty capture."""
+
+    class Marker:
+        value: str
+
+    sig = api_rail._signature(Marker)
+
+    assert sig
+    assert "(" in sig
+
+
+def test_member_captures_signature_suffix_for_non_callable() -> None:
+    """Member capture prefixes the symbol with a non-empty signature suffix."""
+
+    class Marker:
+        value: str
+
+    signature, *_ = api_rail._member_captures(Marker, "Marker")
+
+    assert signature.name == "signature"
+    assert signature.text != "Marker"
+    assert signature.text.startswith("Marker(")
+
+
 def test_shape_of_classifies_symbols() -> None:
     """API query dispatch shape follows the public symbol string."""
     assert shape_of("") is SymbolShape.INDEX

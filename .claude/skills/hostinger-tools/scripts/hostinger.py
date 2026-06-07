@@ -1,7 +1,6 @@
 #!/usr/bin/env -S uv run --quiet --script
 # /// script
-# requires-python = ">=3.14"
-# dependencies = ["httpx"]
+# requires-python = ">=3.15"
 # ///
 """Hostinger API CLI -- polymorphic interface with zero-arg defaults."""
 
@@ -9,6 +8,7 @@
 from collections.abc import Callable, Mapping
 from dataclasses import dataclass
 from functools import reduce
+from http.client import HTTPResponse
 import json
 import os
 import sys
@@ -254,16 +254,20 @@ def _api(method: str, path: str, body: Mapping[str, object] | None = None) -> Js
     }
     request_data = json.dumps(body).encode(DEFAULTS.encoding) if body else None
     request = Request(url, data=request_data, headers=headers, method=method)
+
+    def _read_json_response(http_response: HTTPResponse) -> JsonMap:
+        if http_response.status != 200:
+            return {}
+        payload: object = json.loads(http_response.read().decode(DEFAULTS.encoding))
+        match payload:
+            case Mapping() as payload_data:
+                return {str(key): value for key, value in payload_data.items()}
+            case _:
+                return {"data": payload}
+
     try:
         with urlopen(request, timeout=DEFAULTS.timeout) as response:
-            if response.status != 200:
-                return {}
-            payload: object = json.loads(response.read().decode(DEFAULTS.encoding))
-            match payload:
-                case Mapping() as payload_data:
-                    return {str(key): value for key, value in payload_data.items()}
-                case _:
-                    return {"data": payload}
+            return _read_json_response(response)
     except HTTPError as error:
         return {"error": error.reason, "code": error.code, "body": error.read().decode(DEFAULTS.encoding)}
     except URLError as error:

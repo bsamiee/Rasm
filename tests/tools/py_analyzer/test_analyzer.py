@@ -54,6 +54,26 @@ def test_rule_catalog_has_one_entry_per_rule() -> None:
             ("PYS0001", "src/domain/flow.py", 2, 5, "DomainImperativeFlow", "FunctionalDiscipline"),
         ),
         (
+            "src/domain/for_flow.py",
+            "def run(items: Input) -> Output:\n    for item in items:\n        return Output()\n    return Output()\n",
+            ("PYS0001", "src/domain/for_flow.py", 2, 5, "DomainImperativeFlow", "FunctionalDiscipline"),
+        ),
+        (
+            "src/domain/while_flow.py",
+            "def run(flag: Input) -> Output:\n    while flag:\n        return Output()\n    return Output()\n",
+            ("PYS0001", "src/domain/while_flow.py", 2, 5, "DomainImperativeFlow", "FunctionalDiscipline"),
+        ),
+        (
+            "src/domain/try_flow.py",
+            "def run() -> Output:\n    try:\n        return Output()\n    except OSError:\n        return Output()\n",
+            ("PYS0001", "src/domain/try_flow.py", 2, 5, "DomainImperativeFlow", "FunctionalDiscipline"),
+        ),
+        (
+            "src/domain/raise_flow.py",
+            "def run() -> Output:\n    raise ValueError('x')\n",
+            ("PYS0001", "src/domain/raise_flow.py", 2, 5, "DomainImperativeFlow", "FunctionalDiscipline"),
+        ),
+        (
             "src/adapters/http.py",
             "def run(value: object) -> bool:\n    if value:\n        return True\n    return False\n",
             ("PYS0002", "src/adapters/http.py", 2, 5, "BoundaryExemptionGovernance", "Governance"),

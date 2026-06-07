@@ -188,6 +188,7 @@ class Tool(Base, frozen=True, cache_hash=True):
     language: Language
     claim: Claim
     mode: Mode = Mode.CHECK
+    groups: tuple[str, ...] = ()
     timeout: Annotated[float, msgspec.Meta(gt=0)] | None = None
     thunk: InprocThunk | None = None
     stage: Stage = Stage()
@@ -423,9 +424,7 @@ def field_cap(struct: type[msgspec.Struct], field: str, *, default: int) -> int:
                 (
                     f.type.max_length
                     for f in fields
-                    if f.name == field
-                    and isinstance(f.type, msgspec.inspect.StrType)
-                    and f.type.max_length is not None
+                    if f.name == field and isinstance(f.type, msgspec.inspect.StrType) and f.type.max_length is not None
                 ),
                 default,
             )

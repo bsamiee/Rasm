@@ -156,6 +156,7 @@ _TRACE_CONTEXT_ENV: Final[frozenset[str]] = frozenset(("traceparent", "tracestat
 _PYTHON_TOOL_ENV_REL: Final[dict[str, str]] = {
     "UV_CACHE_DIR": ".cache/uv",
     "HYPOTHESIS_STORAGE_DIRECTORY": ".cache/hypothesis",
+    "PYTEST_CACHE_DIR": ".cache/pytest",
     "RUFF_CACHE_DIR": ".cache/ruff",
     "MYPY_CACHE_DIR": ".cache/mypy",
     "COVERAGE_FILE": ".cache/coverage/.coverage",

@@ -531,9 +531,7 @@ def _merge_stage(staged: Report, steps: Report) -> Report:
         steps,
         status=join(staged.status, steps.status),
         counts=Counts(
-            ok=staged.counts.ok + steps.counts.ok,
-            failed=staged.counts.failed + steps.counts.failed,
-            total=staged.counts.total + steps.counts.total,
+            ok=staged.counts.ok + steps.counts.ok, failed=staged.counts.failed + steps.counts.failed, total=staged.counts.total + steps.counts.total
         ),
         results=(*staged.results, *steps.results),
         artifacts=(*staged.artifacts, *steps.artifacts),
