@@ -141,9 +141,9 @@ public sealed partial class VectorCloudMetric {
     public static readonly VectorCloudMetric BishopFrames = Cases(key: 15, admitsCase: static cloud => cloud is VectorCloud.PolylineCase or VectorCloud.RingCase, measure: static (cloud, k) => CloudKernel.BishopFramesOf(cloud: cloud, key: k)), TangentFlow = Poly(key: 16, measure: static (pts, k) => CloudKernel.TangentFlowOf(points: pts, key: k)), CumulativeArcLength = Poly(key: 17, measure: static (pts, k) => CloudKernel.CumulativeArcLengthOf(points: pts, key: k)), EdgeCurvatures = Poly(key: 18, measure: static (pts, k) => CloudKernel.EdgeCurvaturesOf(points: pts, key: k)), OpenLength = Poly(key: 19, measure: static (pts, k) => CloudKernel.OpenLengthOf(points: pts, key: k));
     public static readonly VectorCloudMetric Covariance = Cluster(key: 20, measure: static (cluster, k) => CloudKernel.CovarianceOf(cluster: cluster, key: k).Map(static v => v.Cov)), PrincipalDirection = Cluster(key: 21, measure: static (cluster, k) => CloudKernel.PrincipalStatsOf(cluster: cluster, key: k).Bind(stats => k.AcceptValue(value: CloudKernel.AsVector3d(v: stats.Eigen[0].Eigenvector)))), Spread = Cluster(key: 22, measure: static (cluster, k) => CloudKernel.PrincipalStatsOf(cluster: cluster, key: k).Bind(stats => k.AcceptValue(value: stats.Spread))), OrientedNormals = Cluster(key: 23, measure: static (cloud, policy, k) => CloudKernel.OrientNormalsViaMst(cloud: cloud, policy: policy.Neighborhood, key: k)), PrincipalCurvature = Cluster(key: 24, measure: static (cluster, policy, k) => CloudKernel.PrincipalCurvaturesOf(cluster: cluster, policy: policy.Neighborhood, key: k)), Curvedness = Cluster(key: 25, measure: static (cluster, policy, k) => CloudKernel.CurvednessOf(cluster: cluster, policy: policy.Neighborhood, key: k)), ShapeIndex = Cluster(key: 26, measure: static (cluster, policy, k) => CloudKernel.ShapeIndexOf(cluster: cluster, policy: policy.Neighborhood, key: k));
     public static readonly VectorCloudMetric Admission = Cluster(key: 27, measure: static (cluster, k) => Fin.Succ(cluster.Admission)), Neighborhood = Cluster(key: 28, measure: static (cluster, policy, k) => CloudKernel.NeighborhoodReceiptOf(cluster: cluster, policy: policy.Neighborhood, key: k)), CurvatureReceipt = Cluster(key: 29, measure: static (cluster, policy, k) => CloudKernel.PrincipalCurvaturesOf(cluster: cluster, policy: policy.Neighborhood, key: k).Map(static result => result.Receipt));
+    private static VectorCloudMetric All<TOut>(int key, Func<VectorCloud, Op, Fin<TOut>> measure) => new(key: key, output: typeof(TOut), admitsCase: static _ => true, measure: (cloud, _, k) => measure(cloud, k).Map(static v => (object)v!));
     private static VectorCloudMetric Ring<TOut>(int key, Func<VectorCloud.RingCase, Op, Fin<TOut>> measure) => new(key: key, output: typeof(TOut), admitsCase: static cloud => cloud is VectorCloud.RingCase, measure: (cloud, _, k) => measure((VectorCloud.RingCase)cloud, k).Map(static v => (object)v!));
     private static VectorCloudMetric Cases<TOut>(int key, Func<VectorCloud, bool> admitsCase, Func<VectorCloud, Op, Fin<TOut>> measure) => new(key: key, output: typeof(TOut), admitsCase: admitsCase, measure: (cloud, _, k) => measure(cloud, k).Map(static v => (object)v!));
-    private static VectorCloudMetric All<TOut>(int key, Func<VectorCloud, Op, Fin<TOut>> measure) => new(key: key, output: typeof(TOut), admitsCase: static _ => true, measure: (cloud, _, k) => measure(cloud, k).Map(static v => (object)v!));
     private static VectorCloudMetric Poly<TOut>(int key, Func<Seq<Point3d>, Op, Fin<TOut>> measure) => new(key: key, output: typeof(TOut), admitsCase: static cloud => cloud is VectorCloud.PolylineCase, measure: (cloud, _, k) => measure(((VectorCloud.PolylineCase)cloud).Vertices, k).Map(static v => (object)v!));
     private static VectorCloudMetric Cluster<TOut>(int key, Func<VectorCloud.ClusterCase, Op, Fin<TOut>> measure) => Cluster(key: key, measure: (cluster, _, k) => measure(cluster, k));
     private static VectorCloudMetric Cluster<TOut>(int key, Func<VectorCloud.ClusterCase, CloudMetricPolicy, Op, Fin<TOut>> measure) => new(key: key, output: typeof(TOut), admitsCase: static cloud => cloud is VectorCloud.ClusterCase, measure: (cloud, policy, k) => measure((VectorCloud.ClusterCase)cloud, policy, k).Map(static v => (object)v!));
@@ -184,6 +184,7 @@ public sealed partial class VectorCloudMetric {
 [BoundaryAdapter, StructLayout(LayoutKind.Auto)]
 public readonly record struct CloudAdmissionPolicy(bool Deduplicate, Option<PositiveMagnitude> Tolerance) {
     internal static CloudAdmissionPolicy Default => new(Deduplicate: true, Tolerance: None);
+    internal double ToleranceValue => Tolerance.Match(Some: static value => value.Value, None: static () => 0.0);
     internal Fin<CloudAdmissionPolicy> Admit(Op key) {
         CloudAdmissionPolicy self = this;
         return self.Tolerance switch {
@@ -198,7 +199,6 @@ public readonly record struct CloudAdmissionPolicy(bool Deduplicate, Option<Posi
             _ => left == right,
         };
     }
-    internal double ToleranceValue => Tolerance.Match(Some: static value => value.Value, None: static () => 0.0);
 }
 
 [BoundaryAdapter, StructLayout(LayoutKind.Auto)]

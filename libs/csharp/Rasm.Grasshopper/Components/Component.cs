@@ -60,8 +60,8 @@ public sealed record SpecBuilder {
         ArgumentNullException.ThrowIfNull(argument: binding);
         return this with { Outputs = Outputs.Add(value: new ComponentItem<OutputBinding>(Value: binding, Hidden: hidden)) };
     }
-    public SpecBuilder Threading(ThreadingState threading) => this with { ThreadingMode = threading };
     public SpecBuilder Icon(NameIconMode mode) => this with { IconMode = mode };
+    public SpecBuilder Threading(ThreadingState threading) => this with { ThreadingMode = threading };
     public SpecBuilder Behaviour(ComponentUi ui) => this with { Ui = Ui + ui };
     internal ComponentSpec Build() {
         Seq<ComponentItem<Port>> declared = Inputs
@@ -77,6 +77,57 @@ public sealed record SpecBuilder {
     }
 }
 
+// --- [ERRORS] -----------------------------------------------------------------------------
+[Union]
+public abstract partial record ComponentValidationFault : Domain.Expected {
+    private ComponentValidationFault() { }
+    public sealed record MissingDefinition : ComponentValidationFault;
+    public sealed record ClosedSelfMismatch : ComponentValidationFault;
+    public sealed record EmptyPorts(Side Side) : ComponentValidationFault;
+    public sealed record PortCountExceeded(int Found, int Max) : ComponentValidationFault;
+    public sealed record SourceNotDeclared(string Input) : ComponentValidationFault;
+    public sealed record NullPort(Side Side, int Index) : ComponentValidationFault;
+    public sealed record DuplicateCode(Side Side, string PortCode, string Ports) : ComponentValidationFault;
+    public sealed record DuplicateName(Side Side, string Name, string Ports) : ComponentValidationFault;
+    public sealed record UnsupportedKind(Side Side, string Port, string Kind) : ComponentValidationFault;
+    public sealed record CodeLength(Side Side, string Port, string PortCode) : ComponentValidationFault;
+    public sealed record IncompatibleCapability(Side Side, string Port, string Kind) : ComponentValidationFault;
+    public sealed record ComponentFault(string Component, ComponentValidationFault Fault) : ComponentValidationFault;
+    public sealed record CatalogPluginCount(string Assembly, int Found) : ComponentValidationFault;
+    public sealed record CatalogActivePluginMismatch(string Plugin) : ComponentValidationFault;
+    public sealed record CatalogPluginIdMismatch(string Plugin) : ComponentValidationFault;
+    public sealed record CatalogSatelliteNulls(string Plugin) : ComponentValidationFault;
+    public sealed record CatalogDocumentationMissing(string Plugin, string Folder) : ComponentValidationFault;
+    public sealed record CatalogMissingIoId(string Owner) : ComponentValidationFault;
+    public sealed record CatalogMissingNomen(string Component) : ComponentValidationFault;
+    public sealed record CatalogDuplicateKey(string Kind, string Value, string Owners) : ComponentValidationFault;
+    public sealed record PortKindTypeCollision(string ClrType, string Kinds) : ComponentValidationFault;
+    public override string Category => "Component";
+    public override string Message => Switch(
+        missingDefinition: static _ => "missing static ComponentSpec Definition",
+        closedSelfMismatch: static _ => "Component<TSelf> does not match concrete component type",
+        emptyPorts: static fault => $"{fault.Side} ports are empty",
+        portCountExceeded: static fault => $"output port count {fault.Found} exceeds {fault.Max}",
+        sourceNotDeclared: static fault => $"output input '{fault.Input}' is not a declared input port instance",
+        nullPort: static fault => $"{fault.Side} {fault.Index} is null",
+        duplicateCode: static fault => $"duplicate {fault.Side} port code '{fault.PortCode}' on {fault.Ports}",
+        duplicateName: static fault => $"duplicate {fault.Side} port name '{fault.Name}' on {fault.Ports}",
+        unsupportedKind: static fault => $"{fault.Side} port '{fault.Port}' kind '{fault.Kind}' cannot register on {fault.Side}",
+        codeLength: static fault => $"{fault.Side} port '{fault.Port}' code '{fault.PortCode}' must be {ComponentSpec.CodeMin}-{ComponentSpec.CodeMax} characters",
+        incompatibleCapability: static fault => $"{fault.Side} port '{fault.Port}' policy is incompatible with kind '{fault.Kind}'",
+        componentFault: static fault => $"{fault.Component}: {fault.Fault.Message}",
+        catalogPluginCount: static fault => $"{fault.Assembly}: expected one plugin type, found {fault.Found}",
+        catalogActivePluginMismatch: static fault => $"{fault.Plugin}: active plugin is not the assembly plugin type",
+        catalogPluginIdMismatch: static fault => $"{fault.Plugin}: plugin Id does not match IoId",
+        catalogSatelliteNulls: static fault => $"{fault.Plugin}: SatelliteAssemblies contains null entries",
+        catalogDocumentationMissing: static fault => $"{fault.Plugin}: DocumentationFolder does not exist: {fault.Folder}",
+        catalogMissingIoId: static fault => $"{fault.Owner}: missing IoId",
+        catalogMissingNomen: static fault => $"{fault.Component}: missing Nomen",
+        catalogDuplicateKey: static fault => $"duplicate {fault.Kind} '{fault.Value}' on {fault.Owners}",
+        portKindTypeCollision: static fault => $"PortKind CLR type collision for '{fault.ClrType}' on {fault.Kinds}; declare an explicit PortKind or add an explicit default policy");
+}
+
+// --- [SERVICES] ---------------------------------------------------------------------------
 internal readonly record struct GrasshopperRuntime(IDataAccess Access, Analyze.Scope Scope, Hints Hints, IProgress<double> Progress, CancellationToken Cancellation) {
     internal static Fin<GrasshopperRuntime> Capture(IDataAccess access, Seq<(Port Port, IParameter Parameter)> inputs, ComponentParameters parameters) {
         ArgumentNullException.ThrowIfNull(argument: access);
@@ -102,58 +153,8 @@ internal readonly record struct GrasshopperRuntime(IDataAccess Access, Analyze.S
     }
 }
 
-// --- [ERRORS] -----------------------------------------------------------------------------
-[Union]
-public abstract partial record ComponentValidationFault : Domain.Expected {
-    private ComponentValidationFault() { }
-    public sealed record MissingDefinition : ComponentValidationFault;
-    public sealed record ClosedSelfMismatch : ComponentValidationFault;
-    public sealed record EmptyPorts(Side Side) : ComponentValidationFault;
-    public sealed record NullPort(Side Side, int Index) : ComponentValidationFault;
-    public sealed record DuplicateCode(Side Side, string PortCode, string Ports) : ComponentValidationFault;
-    public sealed record DuplicateName(Side Side, string Name, string Ports) : ComponentValidationFault;
-    public sealed record UnsupportedKind(Side Side, string Port, string Kind) : ComponentValidationFault;
-    public sealed record CodeLength(Side Side, string Port, string PortCode) : ComponentValidationFault;
-    public sealed record PortCountExceeded(int Found, int Max) : ComponentValidationFault;
-    public sealed record SourceNotDeclared(string Input) : ComponentValidationFault;
-    public sealed record IncompatibleCapability(Side Side, string Port, string Kind) : ComponentValidationFault;
-    public sealed record ComponentFault(string Component, ComponentValidationFault Fault) : ComponentValidationFault;
-    public sealed record CatalogPluginCount(string Assembly, int Found) : ComponentValidationFault;
-    public sealed record CatalogActivePluginMismatch(string Plugin) : ComponentValidationFault;
-    public sealed record CatalogPluginIdMismatch(string Plugin) : ComponentValidationFault;
-    public sealed record CatalogSatelliteNulls(string Plugin) : ComponentValidationFault;
-    public sealed record CatalogDocumentationMissing(string Plugin, string Folder) : ComponentValidationFault;
-    public sealed record CatalogMissingIoId(string Owner) : ComponentValidationFault;
-    public sealed record CatalogMissingNomen(string Component) : ComponentValidationFault;
-    public sealed record CatalogDuplicateKey(string Kind, string Value, string Owners) : ComponentValidationFault;
-    public sealed record PortKindTypeCollision(string ClrType, string Kinds) : ComponentValidationFault;
-    public override string Category => "Component";
-    public override string Message => Switch(
-        missingDefinition: static _ => "missing static ComponentSpec Definition",
-        closedSelfMismatch: static _ => "Component<TSelf> does not match concrete component type",
-        emptyPorts: static fault => $"{fault.Side} ports are empty",
-        nullPort: static fault => $"{fault.Side} {fault.Index} is null",
-        duplicateCode: static fault => $"duplicate {fault.Side} port code '{fault.PortCode}' on {fault.Ports}",
-        duplicateName: static fault => $"duplicate {fault.Side} port name '{fault.Name}' on {fault.Ports}",
-        unsupportedKind: static fault => $"{fault.Side} port '{fault.Port}' kind '{fault.Kind}' cannot register on {fault.Side}",
-        codeLength: static fault => $"{fault.Side} port '{fault.Port}' code '{fault.PortCode}' must be {ComponentSpec.CodeMin}-{ComponentSpec.CodeMax} characters",
-        portCountExceeded: static fault => $"output port count {fault.Found} exceeds {fault.Max}",
-        sourceNotDeclared: static fault => $"output input '{fault.Input}' is not a declared input port instance",
-        incompatibleCapability: static fault => $"{fault.Side} port '{fault.Port}' policy is incompatible with kind '{fault.Kind}'",
-        componentFault: static fault => $"{fault.Component}: {fault.Fault.Message}",
-        catalogPluginCount: static fault => $"{fault.Assembly}: expected one plugin type, found {fault.Found}",
-        catalogActivePluginMismatch: static fault => $"{fault.Plugin}: active plugin is not the assembly plugin type",
-        catalogPluginIdMismatch: static fault => $"{fault.Plugin}: plugin Id does not match IoId",
-        catalogSatelliteNulls: static fault => $"{fault.Plugin}: SatelliteAssemblies contains null entries",
-        catalogDocumentationMissing: static fault => $"{fault.Plugin}: DocumentationFolder does not exist: {fault.Folder}",
-        catalogMissingIoId: static fault => $"{fault.Owner}: missing IoId",
-        catalogMissingNomen: static fault => $"{fault.Component}: missing Nomen",
-        catalogDuplicateKey: static fault => $"duplicate {fault.Kind} '{fault.Value}' on {fault.Owners}",
-        portKindTypeCollision: static fault => $"PortKind CLR type collision for '{fault.ClrType}' on {fault.Kinds}; declare an explicit PortKind or add an explicit default policy");
-}
-
-// --- [SERVICES] ---------------------------------------------------------------------------
 public abstract class Component<TSelf> : ModularComponent, IRasmComponent where TSelf : Component<TSelf>, IComponentDefinition<TSelf> {
+    private static Type Self => typeof(TSelf);
     private Seq<(Port Port, IParameter Parameter)> cachedInputs;
     private Seq<(Port Port, IParameter Parameter)> cachedOutputs;
     protected Component() : base(nomen: Self.GetCustomAttribute<NomenAttribute>()?.Nomen ?? new Nomen(name: Self.Name, info: string.Empty)) {
@@ -161,16 +162,15 @@ public abstract class Component<TSelf> : ModularComponent, IRasmComponent where 
         IconMode = spec.IconMode;
         Threading = spec.Threading;
     }
-    private static Type Self => typeof(TSelf);
     public ComponentSpec Spec => TSelf.Definition;
     protected override IIcon IconInternal => IconAttribute.Resolve(owner: Self, fallback: base.IconInternal);
-    // BOUNDARY ADAPTER -- GH2 asks for canvas attributes; Rasm installs the component UI rail when specified.
-    protected override IAttributes CreateAttributes() => Spec.Ui.Attributes(owner: this);
     public override void AppendToInputPanel(InputPanel panel) {
         base.AppendToInputPanel(panel: panel);
         // BOUNDARY ADAPTER -- GH2 owns the input panel; Rasm appends through the same component UI rail.
         _ = Spec.Ui.Append(owner: this, panel: panel);
     }
+    // BOUNDARY ADAPTER -- GH2 asks for canvas attributes; Rasm installs the component UI rail when specified.
+    protected override IAttributes CreateAttributes() => Spec.Ui.Attributes(owner: this);
     protected override void AddInputs(ModularInputAdder inputs) {
         ArgumentNullException.ThrowIfNull(argument: inputs);
         cachedInputs = Spec.Inputs.Map(pair => (
@@ -191,12 +191,6 @@ public abstract class Component<TSelf> : ModularComponent, IRasmComponent where 
         base.PreProcess(solution: solution);
         OnPreProcess(solution: solution);
     }
-    protected override void PostProcess(Solution solution, FleetingCustomData customData) {
-        OnPostProcess(solution: solution);
-        base.PostProcess(solution: solution, customData: customData);
-    }
-    protected override ITree PostProcessTree(ITree tree, int index, Solution solution) =>
-        OnPostProcessTree(tree: base.PostProcessTree(tree: tree, index: index, solution: solution), index: index, solution: solution);
     // BOUNDARY ADAPTER -- GH2 solve is synchronous; cancellation flows through Solution.Token, progress through Bridge.Progress.
     protected override void Process(IDataAccess access) {
         ArgumentNullException.ThrowIfNull(argument: access);
@@ -209,6 +203,12 @@ public abstract class Component<TSelf> : ModularComponent, IRasmComponent where 
                     _ => Output.Empty(access: access, bindings: bindings, outputs: outputs),
                 });
     }
+    protected override void PostProcess(Solution solution, FleetingCustomData customData) {
+        OnPostProcess(solution: solution);
+        base.PostProcess(solution: solution, customData: customData);
+    }
+    protected override ITree PostProcessTree(ITree tree, int index, Solution solution) =>
+        OnPostProcessTree(tree: base.PostProcessTree(tree: tree, index: index, solution: solution), index: index, solution: solution);
     protected virtual void OnBeforeProcess(Solution solution) { }
     protected virtual void OnPreProcess(Solution solution) { }
     protected virtual void OnPostProcess(Solution solution) { }
@@ -332,7 +332,6 @@ public abstract class Plugin : GhPlugin {
             .Select(group => make(arg1: side, arg2: group.Key, arg3: string.Join(separator: ", ", values: group.Select(label)))));
 }
 public abstract class Plugin<TSelf> : Plugin where TSelf : Plugin<TSelf> {
-    protected Plugin() : base(id: IdOf(), nomen: NomenOf(), version: Self.Assembly.GetName().Version) { }
     private static Type Self => typeof(TSelf);
     private static Guid IdOf() =>
         Optional(Self.GetCustomAttribute<IoIdAttribute>(inherit: false)).Map(static attr => attr.Id).IfNone(Guid.Empty);
@@ -342,4 +341,5 @@ public abstract class Plugin<TSelf> : Plugin where TSelf : Plugin<TSelf> {
             .IfNone(() => new Nomen(
                 name: Self.Assembly.GetName().Name ?? Self.Name,
                 info: Self.Assembly.GetCustomAttribute<AssemblyDescriptionAttribute>()?.Description ?? string.Empty));
+    protected Plugin() : base(id: IdOf(), nomen: NomenOf(), version: Self.Assembly.GetName().Version) { }
 }

@@ -20,7 +20,7 @@ RhinoWIP macOS workspace for first-party Rhino and Grasshopper products. Each ap
 | `tests/csharp`                 | Managed C# contract tests for shared libraries.                                          |
 | `tools/cs-analyzer`            | Local Roslyn analyzer project used by C# builds.                                         |
 | `tools/yak/<package>`          | Tracked Yak metadata for one package.                                                    |
-| `tools/quality`                | Typed quality operator: static, test, bridge, and API rails.                             |
+| `tools/assay`                  | Typed quality operator: static, test, bridge, package, code, docs, and API rails.        |
 | `tools/rhino-bridge`           | In-Rhino bridge plugin, client, and protocol.                                            |
 
 ## Build Policy
@@ -52,57 +52,55 @@ RhinoWIP currently hosts .NET 10 while installed McNeel assemblies can target ol
 Run C# quality gates:
 
 ```bash copy-safe
-uv run python -m tools.quality static fix
-uv run python -m tools.quality static build
+uv run python -m tools.assay static fix
+uv run python -m tools.assay static build
 ```
 
 Build Rhino artifacts:
 
 ```bash copy-safe
-uv run python -m tools.quality bridge build-bridge
+uv run python -m tools.assay bridge build
 ```
 
 Create the Mac Yak package:
 
 ```bash copy-safe
-uv run python -m tools.quality bridge package radyab 0.1.0-wip
+uv run python -m tools.assay package stage --slug radyab --version 0.1.0-wip
 ```
 
 Deploy a package into RhinoWIP:
 
 ```bash copy-safe
-uv run python -m tools.quality bridge deploy radyab 0.1.0-wip
+uv run python -m tools.assay package deploy --slug radyab --version 0.1.0-wip
 ```
 
 Build, install locally, then push to a Yak feed (one shot):
 
 ```bash copy-safe
-uv run python -m tools.quality bridge publish radyab 0.1.0-wip
+uv run python -m tools.assay package publish --slug radyab --version 0.1.0-wip
 ```
 
 Build and deploy the runtime analyzer bridge:
 
 ```bash copy-safe
 VERSION=0.1.0-wip
-uv run python -m tools.quality bridge build-bridge
-uv run python -m tools.quality bridge package rasm-bridge "$VERSION"
-uv run python -m tools.quality bridge deploy rasm-bridge "$VERSION"
+uv run python -m tools.assay bridge build
+uv run python -m tools.assay package stage --slug rasm-bridge --version "$VERSION"
+uv run python -m tools.assay package deploy --slug rasm-bridge --version "$VERSION"
 ```
 
 Collect live RhinoWIP runtime evidence:
 
 ```bash copy-safe
-uv run python -m tools.quality bridge doctor
-uv run python -m tools.quality bridge check path/to/project.csproj
-uv run python -m tools.quality bridge check path/to/source.cs path/to/scenario.verify.csx
-uv run python -m tools.quality bridge check path/to/script.csx
-uv run python -m tools.quality bridge clean path/to/project.csproj
-uv run python -m tools.quality bridge verify path/to/scenario.verify.csx
+uv run python -m tools.assay bridge doctor
+uv run python -m tools.assay bridge check
+uv run python -m tools.assay bridge clean
+uv run python -m tools.assay bridge verify --pattern path/to/scenario.verify.csx
 ```
 
 ## Artifact Flow
 
-`uv run python -m tools.quality bridge package <package> <version>` performs one path:
+`uv run python -m tools.assay package stage --slug <package> --version <version>` performs one path:
 
 1. Resolve one package project by `YakPackageSlug`.
 2. Clear configured plugin output directories for the selected package.
@@ -111,7 +109,7 @@ uv run python -m tools.quality bridge verify path/to/scenario.verify.csx
 5. Copy `tools/yak/<package>/manifest.yml` and `tools/yak/<package>/icon.png`.
 6. Run RhinoWIP Yak with `--platform mac` and the supplied version.
 
-`uv run python -m tools.quality bridge deploy <package> <version>` builds the same package, installs the local `.yak`, and refreshes RhinoWIP through the idempotent `bridge launch` path. `uv run python -m tools.quality bridge publish <package> <version>` builds the same package, installs it locally, and pushes it with `YAK_SOURCE` when that environment variable is set — install and push were merged from the prior separate routes into a single agent-facing action.
+`uv run python -m tools.assay package deploy --slug <package> --version <version>` builds the same package, installs the local `.yak`, and refreshes RhinoWIP through the idempotent bridge launch path where that package requires it. `uv run python -m tools.assay package publish --slug <package> --version <version>` builds the same package, installs it locally, and pushes it with `YAK_SOURCE` when that environment variable is set.
 
 Host assemblies stay outside package output: `RhinoCommon`, `Rhino.UI`, `Rhino.Runtime.Code`, `Grasshopper2`, `GrasshopperIO`, `Eto`, `Microsoft.macOS`, and `System.Drawing.Common`.
 
@@ -127,7 +125,7 @@ GH2 can run component work in parallel. Component code must keep execution state
 
 Automated Rhino/GH2 unit-test frameworks stay out of this foundation until Rhino.Testing exposes a current `net10.0` path. Live RhinoWIP runtime analyzer evidence flows through the installed bridge plugin, which registers RhinoCode C# scripting, runs transient scripts in-process, and returns factual build, diagnostic, stdout, stderr, exception, Rhino, document, tolerance, and bridge identity data. `rhinocode list --json`, `bridge doctor`, and endpoint metadata are discovery evidence; RhinoCode publishing remains out of scope. `bridge check <source.cs>` resolves and builds the owning project, then returns `unsupported` unless an executable scenario is supplied as the second positional argument.
 
-Scenarios are source-only diagnostics. Library scenarios live under `tests/csharp/libs/<Project>/<MirrorPath>/scenarios/`. Do not add `#r`, `#load`, or absolute build-output paths; `bridge check` owns host-filtered reference projection, fresh artifact refs, and `SCENARIO_NAME` / `CAPTURE_PATH` injection.
+Scenarios are source-only diagnostics. Library scenarios live under `tests/csharp/libs/<Project>/<MirrorPath>/scenarios/`. Do not add `#r`, `#load`, or absolute build-output paths; `bridge verify --pattern <scenario>` owns host-filtered reference projection, fresh artifact refs, and `SCENARIO_NAME` / `CAPTURE_PATH` injection.
 
 ## GH2 Foundation
 

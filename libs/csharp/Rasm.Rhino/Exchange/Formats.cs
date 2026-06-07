@@ -79,6 +79,8 @@ public sealed partial record FileFormat {
 
     private static readonly Atom<HashMap<string, FileFormat>> CustomCell = Atom(HashMap<string, FileFormat>());
 
+    private readonly FileCapability scale;
+
     private readonly Func<FileProfile, ArchivableDictionary>? readBuilder;
 
     private readonly Func<FileProfile, ArchivableDictionary>? writeBuilder;
@@ -88,8 +90,6 @@ public sealed partial record FileFormat {
     private readonly Func<FileProfile, FileWriteOptions, RhinoDoc, FileEndpoint, Fin<Unit>>? directWriteCall;
 
     private readonly bool directWriteOptions;
-
-    private readonly FileCapability scale;
 
     private FileFormat(string key, Seq<string> extensions, FileCapability capability, FileCapability scale,
         Func<FileProfile, ArchivableDictionary>? read,
@@ -206,6 +206,44 @@ public sealed partial record FileFormat {
             false => IOPath.ChangeExtension(path: path, extension: Extensions[0].TrimStart('.')),
         };
 
+    internal bool Is(string key) =>
+        string.Equals(a: Key, b: NormalizeKey(value: key), comparisonType: StringComparison.OrdinalIgnoreCase);
+
+    internal bool Supports(FilePhase phase) =>
+        phase.Allows(capability: Capability);
+
+    internal Fin<Unit> Validate(FileProfile profile, FilePhase phase, Op op) =>
+        from valid in profile.Validate(phase: phase, op: op)
+        from _ in guard(!profile.Scale.IsSome || phase.Allows(capability: scale), op.InvalidInput())
+        select unit;
+
+    internal static Fin<FileFormat> KnownFormat(string key, Op op) =>
+        ByKey.TryGetValue(key: NormalizeKey(value: key), value: out FileFormat? builtin)
+            ? Fin.Succ(value: builtin!)
+            : CustomCell.Value.Find(key: NormalizeKey(value: key)).ToFin(Fail: op.InvalidInput());
+
+    internal static Option<FileFormat> Resolve(FileEndpoint endpoint, FileProfile profile) =>
+        endpoint.Format.Case switch {
+            FileFormat value => Some(value),
+            _ => profile.Format,
+        };
+
+    internal static Fin<FileFormat> Require(FileEndpoint endpoint, FileProfile profile, FilePhase phase, Op op) =>
+        from format in Resolve(endpoint: endpoint, profile: profile).ToFin(Fail: op.InvalidInput())
+        from valid in format.Validate(profile: profile, phase: phase, op: op)
+        from supported in guard(format.Supports(phase: phase), op.InvalidInput())
+        select format;
+
+    internal static Fin<Unit> NativeBool(Func<bool> run, Op op) =>
+        op.Catch(() => op.Confirm(success: run()));
+
+    internal static Fin<Unit> NativeWrite(WriteFileResult result, Op op) =>
+        result switch {
+            WriteFileResult.Success => Fin.Succ(value: unit),
+            WriteFileResult.Cancel => Fin.Fail<Unit>(error: new Fault.Cancelled()),
+            _ => Fin.Fail<Unit>(error: op.InvalidResult()),
+        };
+
     internal Fin<Unit> Read(FileReadOptions options, RhinoDoc document, FileEndpoint source, FileProfile profile) =>
         directReadCall switch {
             Func<FileProfile, FileReadOptions, RhinoDoc, FileEndpoint, Fin<Unit>> read => read(arg1: profile, arg2: options, arg3: document, arg4: source),
@@ -274,31 +312,6 @@ public sealed partial record FileFormat {
         }
         select dictionary;
 
-    internal bool Supports(FilePhase phase) =>
-        phase.Allows(capability: Capability);
-
-    internal Fin<Unit> Validate(FileProfile profile, FilePhase phase, Op op) =>
-        from valid in profile.Validate(phase: phase, op: op)
-        from _ in guard(!profile.Scale.IsSome || phase.Allows(capability: scale), op.InvalidInput())
-        select unit;
-
-    internal static Fin<FileFormat> KnownFormat(string key, Op op) =>
-        ByKey.TryGetValue(key: NormalizeKey(value: key), value: out FileFormat? builtin)
-            ? Fin.Succ(value: builtin!)
-            : CustomCell.Value.Find(key: NormalizeKey(value: key)).ToFin(Fail: op.InvalidInput());
-
-    internal static Option<FileFormat> Resolve(FileEndpoint endpoint, FileProfile profile) =>
-        endpoint.Format.Case switch {
-            FileFormat value => Some(value),
-            _ => profile.Format,
-        };
-
-    internal static Fin<FileFormat> Require(FileEndpoint endpoint, FileProfile profile, FilePhase phase, Op op) =>
-        from format in Resolve(endpoint: endpoint, profile: profile).ToFin(Fail: op.InvalidInput())
-        from valid in format.Validate(profile: profile, phase: phase, op: op)
-        from supported in guard(format.Supports(phase: phase), op.InvalidInput())
-        select format;
-
     internal static Fin<Unit> Import(RhinoDoc document, FileEndpoint source, FileProfile profile, Op op) =>
         from format in Require(endpoint: source, profile: profile, phase: FilePhase.Import, op: op)
         from imported in op.Catch(() => {
@@ -313,19 +326,6 @@ public sealed partial record FileFormat {
         options.EnableRenderMeshes(objectType: ObjectType.AnyObject, enable: write.IncludeRenderMeshes);
         return options;
     }
-
-    internal bool Is(string key) =>
-        string.Equals(a: Key, b: NormalizeKey(value: key), comparisonType: StringComparison.OrdinalIgnoreCase);
-
-    internal static Fin<Unit> NativeBool(Func<bool> run, Op op) =>
-        op.Catch(() => op.Confirm(success: run()));
-
-    internal static Fin<Unit> NativeWrite(WriteFileResult result, Op op) =>
-        result switch {
-            WriteFileResult.Success => Fin.Succ(value: unit),
-            WriteFileResult.Cancel => Fin.Fail<Unit>(error: new Fault.Cancelled()),
-            _ => Fin.Fail<Unit>(error: op.InvalidResult()),
-        };
 
     private static FileReadOptions ReadOptions(FileEndpoint endpoint, FileProfile profile) {
         FileReadOptions options = new() {
@@ -361,18 +361,22 @@ public sealed partial record FileFormat {
         return options;
     }
 
-    private static Option<FileFormat> CustomFormat(string key, string extension) =>
-        CustomCell.Value.Find(key: key) | CustomByExtension(extension: extension);
-
-    private static Option<FileFormat> CustomByExtension(string extension) =>
-        toSeq(CustomCell.Value.Values).Find(format => format.Extensions.Exists(value => string.Equals(a: value, b: extension, comparisonType: StringComparison.OrdinalIgnoreCase)));
-
     private static string NormalizeKey(string value) =>
         value.TrimStart('.').ToUpperInvariant();
 
     [System.Diagnostics.CodeAnalysis.SuppressMessage("Globalization", "CA1308:Normalize strings to uppercase", Justification = "File extensions are public output spelling; format lookup remains case-insensitive, while generated paths use lower-invariant extensions.")]
     private static string NormalizeExtension(string value) =>
         (value.StartsWith('.') ? value : $".{value}").ToLowerInvariant();
+
+    private static Option<FileFormat> CustomByExtension(string extension) =>
+        toSeq(CustomCell.Value.Values).Find(format => format.Extensions.Exists(value => string.Equals(a: value, b: extension, comparisonType: StringComparison.OrdinalIgnoreCase)));
+
+    private static Option<FileFormat> CustomFormat(string key, string extension) =>
+        CustomCell.Value.Find(key: key) | CustomByExtension(extension: extension);
+
+    private static bool IsLayerGrouped(FileProfile profile) => profile.Group == FileAxis.Layer || profile.Order == FileAxis.Layer;
+
+    private static bool ShouldExportMaterials(FileResourcePolicy resources) => resources != FileResourcePolicy.Reference;
 
     private static File3dsWriteOptions ThreeDsWriteOptions(FileProfile profile) =>
         new() { SaveViews = profile.Fidelity.IsModel, SaveLights = profile.Fidelity.IsModel };
@@ -525,7 +529,4 @@ public sealed partial record FileFormat {
         return profile.Scale.Map(scale => scale.Apply(options: options)).IfNone(options);
     }
 
-    private static bool ShouldExportMaterials(FileResourcePolicy resources) => resources != FileResourcePolicy.Reference;
-
-    private static bool IsLayerGrouped(FileProfile profile) => profile.Group == FileAxis.Layer || profile.Order == FileAxis.Layer;
 }

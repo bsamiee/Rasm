@@ -52,10 +52,10 @@ public sealed partial class ResizeAxis {
 
 [SmartEnum<int>]
 public sealed partial class LayoutGapPolicy {
-    // Sub-pixel slack keeps marginal overflows on the fixed cursor before the stretch solver takes over.
-    internal float ContentSlack { get; }
     public static readonly LayoutGapPolicy Stretch = new(key: 0, contentSlack: 1e-4f);
     public static readonly LayoutGapPolicy Fixed = new(key: 1, contentSlack: 0f);
+    // Sub-pixel slack keeps marginal overflows on the fixed cursor before the stretch solver takes over.
+    internal float ContentSlack { get; }
 }
 
 [ValueObject<float>(KeyMemberName = "Value", KeyMemberAccessModifier = AccessModifier.Public)]
@@ -66,6 +66,15 @@ public readonly partial struct LayoutGap {
         validationError = float.IsFinite(value) && value >= 0f
             ? null
             : UiFault.Create(op: Op.Of(name: nameof(LayoutGap)), message: string.Create(CultureInfo.InvariantCulture, $"must be finite and >= 0 (got {value:R})."));
+}
+
+[SmartEnum<int>]
+public sealed partial class LayoutChainKind {
+    public static readonly LayoutChainKind Distribute = new(key: 0, arrange: static (axis, gap, ids, gapPolicy) => Layout.Distribute(axis: axis, gap: gap, gapPolicy: gapPolicy, ids: [.. ids]));
+    public static readonly LayoutChainKind Flow = new(key: 1, arrange: static (axis, gap, ids, gapPolicy) => Layout.Flow(axis: axis, gap: gap, gapPolicy: gapPolicy, ids: [.. ids]));
+
+    [UseDelegateFromConstructor]
+    internal partial GrasshopperUiIntent<Snapshot<LayoutArrangeDelta>> Arrange(LayoutAxis axis, LayoutGap gap, Seq<Guid> ids, LayoutGapPolicy gapPolicy);
 }
 
 [SkipUnionOps]
@@ -85,23 +94,14 @@ public partial record LayoutArrangement {
     public static LayoutArrangement Distribute(LayoutAxis axis, LayoutGap gap, Seq<Guid> ids, LayoutGapPolicy? gapPolicy = null) =>
         new ChainCase(Kind: LayoutChainKind.Distribute, Axis: axis, Gap: gap, Ids: ids, GapPolicy: gapPolicy ?? LayoutGapPolicy.Stretch);
 
-    public static LayoutArrangement Grid(int rows, int cols, LayoutGap gap, Seq<Guid> ids, LayoutGapPolicy gapPolicy) =>
-        new GridCase(Rows: rows, Cols: cols, Gap: gap, Ids: ids, GapPolicy: gapPolicy);
-
     public static LayoutArrangement Flow(LayoutAxis axis, LayoutGap gap, Seq<Guid> ids, LayoutGapPolicy? gapPolicy = null) =>
         new ChainCase(Kind: LayoutChainKind.Flow, Axis: axis, Gap: gap, Ids: ids, GapPolicy: gapPolicy ?? LayoutGapPolicy.Stretch);
 
+    public static LayoutArrangement Grid(int rows, int cols, LayoutGap gap, Seq<Guid> ids, LayoutGapPolicy gapPolicy) =>
+        new GridCase(Rows: rows, Cols: cols, Gap: gap, Ids: ids, GapPolicy: gapPolicy);
+
     public static LayoutArrangement Nudge(Seq<Guid> ids, float separation, SnappingPolicy policy = default) =>
         new NudgeCase(Ids: ids, Separation: separation, Policy: policy);
-}
-
-[SmartEnum<int>]
-public sealed partial class LayoutChainKind {
-    public static readonly LayoutChainKind Distribute = new(key: 0, arrange: static (axis, gap, ids, gapPolicy) => Layout.Distribute(axis: axis, gap: gap, gapPolicy: gapPolicy, ids: [.. ids]));
-    public static readonly LayoutChainKind Flow = new(key: 1, arrange: static (axis, gap, ids, gapPolicy) => Layout.Flow(axis: axis, gap: gap, gapPolicy: gapPolicy, ids: [.. ids]));
-
-    [UseDelegateFromConstructor]
-    internal partial GrasshopperUiIntent<Snapshot<LayoutArrangeDelta>> Arrange(LayoutAxis axis, LayoutGap gap, Seq<Guid> ids, LayoutGapPolicy gapPolicy);
 }
 
 // --- [MODELS] -----------------------------------------------------------------------------
@@ -148,16 +148,6 @@ public partial record SnapSetting {
         new SpaceCase(Space: SnapSpace.CreateOrthogonal(originX: origin.X, originY: origin.Y, sizeX: cell.Width, sizeY: cell.Height));
 }
 
-// Single-pass projection of a SnappingPolicy's settings: one fold replaces six independent O(N) Choose/Fold scans.
-[StructLayout(LayoutKind.Auto)]
-internal readonly record struct PolicyDecode(
-    SnappingSettings Native,
-    Option<(SnapGuideStyle X, SnapGuideStyle Y)> FeedbackStyle,
-    Seq<SnapSpace> Spaces,
-    Option<(SnapProjection Projection, double Radius)> Geometry,
-    Option<SnapSetting.SmartGapCase> SmartGap,
-    bool UseAggregateWireBounds);
-
 [StructLayout(LayoutKind.Auto)]
 public readonly record struct SnappingPolicy(bool IncludeSelected = true, bool IncludeUnselected = true, Seq<SnapSetting> Settings = default) {
     // One fold lowers all settings into a PolicyDecode: native settings accumulate while the cosmetic/spatial slots take
@@ -184,6 +174,16 @@ public readonly record struct SnappingPolicy(bool IncludeSelected = true, bool I
     internal Option<(SnapGuideStyle X, SnapGuideStyle Y)> FeedbackStyle => Decode().FeedbackStyle;
     internal bool UseAggregateWireBounds => Decode().UseAggregateWireBounds;
 }
+
+// Single-pass projection of a SnappingPolicy's settings: one fold replaces six independent O(N) Choose/Fold scans.
+[StructLayout(LayoutKind.Auto)]
+internal readonly record struct PolicyDecode(
+    SnappingSettings Native,
+    Option<(SnapGuideStyle X, SnapGuideStyle Y)> FeedbackStyle,
+    Seq<SnapSpace> Spaces,
+    Option<(SnapProjection Projection, double Radius)> Geometry,
+    Option<SnapSetting.SmartGapCase> SmartGap,
+    bool UseAggregateWireBounds);
 
 [SkipUnionOps]
 [Union]
@@ -345,6 +345,17 @@ internal static partial class Layout {
         from _ in Op.Of(name: nameof(Align)).Attempt(body: () => { actions.Add(new PivotAction(obj: targetObj)); return unit; }, what: "PivotAction")
         from aligned in AlignVia(a: anchor, b: targetObj, fix: fix)
         select MovedDelta(before: targetBefore, after: SnapshotOf(attributes: targetObj.Attributes));
+
+    // OCD.AlignObjects exposes exactly four (Component|IParameter)^2 overloads; unsupported pairs stay explicit. Each arm
+    // fences its own native call directly because static overload resolution forbids a single hoisted delegate.
+    private static Fin<Unit> AlignVia(IDocumentObject a, IDocumentObject b, OCD.Fixed fix) =>
+        (a, b) switch {
+            (Component left, Component right) => Op.Of(name: nameof(AlignVia)).Attempt(body: () => { OCD.AlignObjects(left, right, fix); return unit; }, what: "OCD.AlignObjects"),
+            (Component left, IParameter right) => Op.Of(name: nameof(AlignVia)).Attempt(body: () => { OCD.AlignObjects(left, right, fix); return unit; }, what: "OCD.AlignObjects"),
+            (IParameter left, Component right) => Op.Of(name: nameof(AlignVia)).Attempt(body: () => { OCD.AlignObjects(left, right, fix); return unit; }, what: "OCD.AlignObjects"),
+            (IParameter left, IParameter right) => Op.Of(name: nameof(AlignVia)).Attempt(body: () => { OCD.AlignObjects(left, right, fix); return unit; }, what: "OCD.AlignObjects"),
+            _ => Fin.Fail<Unit>(error: UiFault.MutationRejected(op: Op.Of(name: nameof(AlignVia)), detail: $"OCD.AlignObjects unsupported pair ({a.GetType().Name}, {b.GetType().Name})")),
+        };
 
     private static Option<LayoutMoveDelta> MovedDelta(LayoutSnapshot before, LayoutSnapshot after) =>
         before.Pivot != after.Pivot
@@ -740,16 +751,76 @@ internal static partial class Layout {
         });
     }
 
-    // OCD.AlignObjects exposes exactly four (Component|IParameter)^2 overloads; unsupported pairs stay explicit. Each arm
-    // fences its own native call directly because static overload resolution forbids a single hoisted delegate.
-    private static Fin<Unit> AlignVia(IDocumentObject a, IDocumentObject b, OCD.Fixed fix) =>
-        (a, b) switch {
-            (Component left, Component right) => Op.Of(name: nameof(AlignVia)).Attempt(body: () => { OCD.AlignObjects(left, right, fix); return unit; }, what: "OCD.AlignObjects"),
-            (Component left, IParameter right) => Op.Of(name: nameof(AlignVia)).Attempt(body: () => { OCD.AlignObjects(left, right, fix); return unit; }, what: "OCD.AlignObjects"),
-            (IParameter left, Component right) => Op.Of(name: nameof(AlignVia)).Attempt(body: () => { OCD.AlignObjects(left, right, fix); return unit; }, what: "OCD.AlignObjects"),
-            (IParameter left, IParameter right) => Op.Of(name: nameof(AlignVia)).Attempt(body: () => { OCD.AlignObjects(left, right, fix); return unit; }, what: "OCD.AlignObjects"),
-            _ => Fin.Fail<Unit>(error: UiFault.MutationRejected(op: Op.Of(name: nameof(AlignVia)), detail: $"OCD.AlignObjects unsupported pair ({a.GetType().Name}, {b.GetType().Name})")),
-        };
+    [SmartEnum<int>]
+    private sealed partial class DistributeMode {
+        public static readonly DistributeMode Cursor = new(key: 0, compute: ComputeCursor);
+        public static readonly DistributeMode Stretch = new(key: 1, compute: ComputeStretch);
+
+        [UseDelegateFromConstructor]
+        internal partial Seq<(Guid Id, float Dx, float Dy)> Compute(
+            Seq<(Guid Id, RectangleF Bounds)> sorted,
+            LayoutAxis axis,
+            float gap);
+
+        internal static DistributeMode Of(LayoutGapPolicy gapPolicy, Seq<(Guid Id, RectangleF Bounds)> sorted, LayoutAxis axis, float gap) {
+            int count = sorted.Count;
+            float extent = axis.Origin(bounds: sorted[count - 1].Bounds) + axis.Span(bounds: sorted[count - 1].Bounds) - axis.Origin(bounds: sorted[0].Bounds);
+            float content = sorted.Fold(0f, (sum, item) => sum + axis.Span(bounds: item.Bounds)) + ((count - 1) * gap);
+            return gapPolicy.Equals(LayoutGapPolicy.Fixed) || extent <= content + gapPolicy.ContentSlack ? Cursor : Stretch;
+        }
+
+        private static Seq<(Guid Id, float Dx, float Dy)> ComputeCursor(
+            Seq<(Guid Id, RectangleF Bounds)> sorted,
+            LayoutAxis axis,
+            float gap) {
+            float cursor = axis.Origin(bounds: sorted[0].Bounds);
+            return sorted
+                .Fold(
+                    (Moves: Seq<(Guid Id, float Dx, float Dy)>(), Cursor: cursor, Index: 0),
+                    (state, item) => {
+                        (float dx, float dy) = axis.Delta(cursor: state.Cursor, bounds: item.Bounds);
+                        float nextCursor = state.Cursor + axis.Span(bounds: item.Bounds) + (state.Index < sorted.Count - 1 ? gap : 0f);
+                        return (
+                            Moves: state.Moves.Add((item.Id, dx, dy)),
+                            Cursor: nextCursor,
+                            Index: state.Index + 1);
+                    })
+                .Moves;
+        }
+
+        // StretchLayoutSolver interleaves fixed object spans with stretchable gaps, keyed by SpanSlot/GapSlot.
+        private static int SpanSlot(int i) => i * 2;
+        private static int GapSlot(int i) => (i * 2) + 1;
+
+        [BoundaryAdapter]
+        private static Seq<(Guid Id, float Dx, float Dy)> ComputeStretch(
+            Seq<(Guid Id, RectangleF Bounds)> sorted,
+            LayoutAxis axis,
+            float gap) {
+            int count = sorted.Count;
+            float firstOrigin = axis.Origin(bounds: sorted[0].Bounds);
+            float lastEnd = axis.Origin(bounds: sorted[count - 1].Bounds) + axis.Span(bounds: sorted[count - 1].Bounds);
+            StretchLayoutSolver solver = new();
+            // BOUNDARY ADAPTER -- StretchLayoutSolver requires imperative Add/Solve/Round.
+            for (int index = 0; index < count; index++) {
+                float span = axis.Span(bounds: sorted[index].Bounds);
+                solver.Add(min: span, max: span, ideal: span);
+                if (index < count - 1) {
+                    solver.Add(min: gap, max: float.MaxValue, ideal: gap);
+                }
+            }
+            _ = solver.Solve(target: lastEnd - firstOrigin);
+            solver.Round();
+            return toSeq(Enumerable.Range(start: 0, count: count)).Fold(
+                (Moves: Seq<(Guid Id, float Dx, float Dy)>(), Cursor: firstOrigin),
+                (state, index) => {
+                    (Guid id, RectangleF bounds) = sorted[index];
+                    (float dx, float dy) = axis.Delta(cursor: state.Cursor, bounds: bounds);
+                    float advance = solver[SpanSlot(i: index)] + (index < count - 1 ? solver[GapSlot(i: index)] : 0f);
+                    return (Moves: state.Moves.Add((id, dx, dy)), Cursor: state.Cursor + advance);
+                }).Moves;
+        }
+    }
 
     private static Fin<Seq<(Guid Id, float Dx, float Dy)>> ComputeDistribution(
         GhObjectList objects,
@@ -840,74 +911,4 @@ internal static partial class Layout {
             _ => positions,
         };
 
-    [SmartEnum<int>]
-    private sealed partial class DistributeMode {
-        public static readonly DistributeMode Cursor = new(key: 0, compute: ComputeCursor);
-        public static readonly DistributeMode Stretch = new(key: 1, compute: ComputeStretch);
-
-        [UseDelegateFromConstructor]
-        internal partial Seq<(Guid Id, float Dx, float Dy)> Compute(
-            Seq<(Guid Id, RectangleF Bounds)> sorted,
-            LayoutAxis axis,
-            float gap);
-
-        internal static DistributeMode Of(LayoutGapPolicy gapPolicy, Seq<(Guid Id, RectangleF Bounds)> sorted, LayoutAxis axis, float gap) {
-            int count = sorted.Count;
-            float extent = axis.Origin(bounds: sorted[count - 1].Bounds) + axis.Span(bounds: sorted[count - 1].Bounds) - axis.Origin(bounds: sorted[0].Bounds);
-            float content = sorted.Fold(0f, (sum, item) => sum + axis.Span(bounds: item.Bounds)) + ((count - 1) * gap);
-            return gapPolicy.Equals(LayoutGapPolicy.Fixed) || extent <= content + gapPolicy.ContentSlack ? Cursor : Stretch;
-        }
-
-        private static Seq<(Guid Id, float Dx, float Dy)> ComputeCursor(
-            Seq<(Guid Id, RectangleF Bounds)> sorted,
-            LayoutAxis axis,
-            float gap) {
-            float cursor = axis.Origin(bounds: sorted[0].Bounds);
-            return sorted
-                .Fold(
-                    (Moves: Seq<(Guid Id, float Dx, float Dy)>(), Cursor: cursor, Index: 0),
-                    (state, item) => {
-                        (float dx, float dy) = axis.Delta(cursor: state.Cursor, bounds: item.Bounds);
-                        float nextCursor = state.Cursor + axis.Span(bounds: item.Bounds) + (state.Index < sorted.Count - 1 ? gap : 0f);
-                        return (
-                            Moves: state.Moves.Add((item.Id, dx, dy)),
-                            Cursor: nextCursor,
-                            Index: state.Index + 1);
-                    })
-                .Moves;
-        }
-
-        // StretchLayoutSolver interleaves fixed object spans with stretchable gaps, keyed by SpanSlot/GapSlot.
-        private static int SpanSlot(int i) => i * 2;
-        private static int GapSlot(int i) => (i * 2) + 1;
-
-        [BoundaryAdapter]
-        private static Seq<(Guid Id, float Dx, float Dy)> ComputeStretch(
-            Seq<(Guid Id, RectangleF Bounds)> sorted,
-            LayoutAxis axis,
-            float gap) {
-            int count = sorted.Count;
-            float firstOrigin = axis.Origin(bounds: sorted[0].Bounds);
-            float lastEnd = axis.Origin(bounds: sorted[count - 1].Bounds) + axis.Span(bounds: sorted[count - 1].Bounds);
-            StretchLayoutSolver solver = new();
-            // BOUNDARY ADAPTER -- StretchLayoutSolver requires imperative Add/Solve/Round.
-            for (int index = 0; index < count; index++) {
-                float span = axis.Span(bounds: sorted[index].Bounds);
-                solver.Add(min: span, max: span, ideal: span);
-                if (index < count - 1) {
-                    solver.Add(min: gap, max: float.MaxValue, ideal: gap);
-                }
-            }
-            _ = solver.Solve(target: lastEnd - firstOrigin);
-            solver.Round();
-            return toSeq(Enumerable.Range(start: 0, count: count)).Fold(
-                (Moves: Seq<(Guid Id, float Dx, float Dy)>(), Cursor: firstOrigin),
-                (state, index) => {
-                    (Guid id, RectangleF bounds) = sorted[index];
-                    (float dx, float dy) = axis.Delta(cursor: state.Cursor, bounds: bounds);
-                    float advance = solver[SpanSlot(i: index)] + (index < count - 1 ? solver[GapSlot(i: index)] : 0f);
-                    return (Moves: state.Moves.Add((id, dx, dy)), Cursor: state.Cursor + advance);
-                }).Moves;
-        }
-    }
 }

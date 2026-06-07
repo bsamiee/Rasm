@@ -31,25 +31,6 @@ public partial record RepaintRequest {
     public sealed record DisplayCase : RepaintRequest;
     public sealed record SolutionAndDisplayCase : RepaintRequest;
 
-    internal Unit ApplyTo(GrasshopperUi.Scope scope) =>
-        Switch(state: scope,
-            noneCase: static (_, _) => unit,
-            objectCase: static (s, o) => s.Canvas.IfSome(canvas => s.Objects.Match(
-                Some: objects => Optional(objects.Find(instanceId: o.Id))
-                    .Map(target => { canvas.Invalidate(rect: GrasshopperUi.ControlSpace(canvas: canvas, bounds: target.Attributes.AggregateBounds)); return unit; })
-                    .IfNone(() => { canvas.Invalidate(); return unit; }),
-                None: () => { canvas.Invalidate(); return unit; })),
-            regionCase: static (s, r) => s.Canvas.IfSome(canvas => canvas.Invalidate(rect: GrasshopperUi.ControlSpace(canvas: canvas, bounds: r.Bounds))),
-            canvasCase: static (s, _) => s.Canvas.IfSome(static canvas => canvas.Invalidate()),
-            scheduledCase: static (s, sc) => s.Canvas.IfSome(canvas => Redraw(canvas: canvas, delay: sc.Delay)),
-            solutionCase: static (s, op) => s.Document.IfSome(static doc => { _ = doc.Solution.Start(mode: SolutionMode.Regular); return unit; }),
-            displayCase: static (s, _) => s.Document.IfSome(static doc => { doc.Display.UpdateDisplay(); return unit; }),
-            solutionAndDisplayCase: static (s, op) => s.Document.IfSome(static doc => {
-                _ = doc.Solution.Start(mode: SolutionMode.Regular);
-                doc.Display.UpdateDisplay();
-                return unit;
-            }));
-
     public static readonly RepaintRequest None = new NoneCase();
     public static readonly RepaintRequest Canvas = new CanvasCase();
     public static readonly RepaintRequest Scheduled = new ScheduledCase(Delay: Option<TimeSpan>.None);
@@ -80,6 +61,25 @@ public partial record RepaintRequest {
             (ObjectCase l, ObjectCase r) when l.Id == r.Id => left,
             _ => Canvas,
         };
+
+    internal Unit ApplyTo(GrasshopperUi.Scope scope) =>
+        Switch(state: scope,
+            noneCase: static (_, _) => unit,
+            objectCase: static (s, o) => s.Canvas.IfSome(canvas => s.Objects.Match(
+                Some: objects => Optional(objects.Find(instanceId: o.Id))
+                    .Map(target => { canvas.Invalidate(rect: GrasshopperUi.ControlSpace(canvas: canvas, bounds: target.Attributes.AggregateBounds)); return unit; })
+                    .IfNone(() => { canvas.Invalidate(); return unit; }),
+                None: () => { canvas.Invalidate(); return unit; })),
+            regionCase: static (s, r) => s.Canvas.IfSome(canvas => canvas.Invalidate(rect: GrasshopperUi.ControlSpace(canvas: canvas, bounds: r.Bounds))),
+            canvasCase: static (s, _) => s.Canvas.IfSome(static canvas => canvas.Invalidate()),
+            scheduledCase: static (s, sc) => s.Canvas.IfSome(canvas => Redraw(canvas: canvas, delay: sc.Delay)),
+            solutionCase: static (s, op) => s.Document.IfSome(static doc => { _ = doc.Solution.Start(mode: SolutionMode.Regular); return unit; }),
+            displayCase: static (s, _) => s.Document.IfSome(static doc => { doc.Display.UpdateDisplay(); return unit; }),
+            solutionAndDisplayCase: static (s, op) => s.Document.IfSome(static doc => {
+                _ = doc.Solution.Start(mode: SolutionMode.Regular);
+                doc.Display.UpdateDisplay();
+                return unit;
+            }));
 
     private static Unit Redraw(GhCanvas canvas, Option<TimeSpan> delay) =>
         delay is { IsSome: true, Case: TimeSpan wait } && wait > TimeSpan.Zero
@@ -120,15 +120,7 @@ public partial record Subscription : IDisposable {
             Detach: GuardDetach(detach: detach, detachOnce: detachOnce),
             MarshalToUi: marshalToUi,
             Teardown: detachOnce ? SubscriptionTeardown.DetachOnce : SubscriptionTeardown.RunAlways);
-    [SuppressMessage(category: "Reliability", checkId: "CA2000:Dispose objects before losing scope", Justification = "Composite owns the pacer atom; caller disposes the returned subscription.")]
-    internal static Subscription PaintPacer(Subscription paintHook, System.Action pacerRelease) =>
-        paintHook | Atom(detach: pacerRelease, detachOnce: true, marshalToUi: true);
-    internal static Subscription DisposeOnce(Subscription inner) =>
-        inner switch {
-            EmptyCase => Empty,
-            AtomCase atom when atom.Teardown != SubscriptionTeardown.RunAlways => inner,
-            _ => Atom(detach: inner.Dispose, detachOnce: true),
-        };
+
     // Members stored LIFO so Dispose iterates in detach order without a reversed view allocation.
     public static Subscription Composite(Seq<Subscription> members) =>
         members.Count switch {
@@ -162,22 +154,22 @@ public partial record Subscription : IDisposable {
                 emptyCase: static _ => Fin.Succ(value: unit))
             : Fin.Succ(value: unit);
 
+    [SuppressMessage(category: "Reliability", checkId: "CA2000:Dispose objects before losing scope", Justification = "Composite owns the pacer atom; caller disposes the returned subscription.")]
+    internal static Subscription PaintPacer(Subscription paintHook, System.Action pacerRelease) =>
+        paintHook | Atom(detach: pacerRelease, detachOnce: true, marshalToUi: true);
+
+    internal static Subscription DisposeOnce(Subscription inner) =>
+        inner switch {
+            EmptyCase => Empty,
+            AtomCase atom when atom.Teardown != SubscriptionTeardown.RunAlways => inner,
+            _ => Atom(detach: inner.Dispose, detachOnce: true),
+        };
+
     internal static System.Action GuardDetach(System.Action detach, bool detachOnce) =>
         detachOnce switch {
             false => detach,
             true => Latch(detach: detach),
         };
-
-    // Atom.Swap is CAS-atomic: the first caller observes the prior false and fires detach, every later caller
-    // observes true and no-ops — replaces the Interlocked.Exchange(ref gate) mutable-int gate.
-    private static System.Action Latch(System.Action detach) {
-        Atom<bool> fired = Prelude.Atom(value: false);
-        return () => {
-            bool already = true;
-            _ = fired.Swap(current => (already = current, true).Item2);
-            _ = already ? unit : Op.Side(detach);
-        };
-    }
 
     internal static Fin<Subscription> Bind(
         System.Action attach,
@@ -196,6 +188,17 @@ public partial record Subscription : IDisposable {
                     Succ: _ => primary,
                     Fail: rollbackError => primary + UiFault.MutationRejected(op: Op.Of(name: nameof(Bind)), detail: $"rollback failed: {rollbackError.Message}"));
             });
+
+    // Atom.Swap is CAS-atomic: the first caller observes the prior false and fires detach, every later caller
+    // observes true and no-ops — replaces the Interlocked.Exchange(ref gate) mutable-int gate.
+    private static System.Action Latch(System.Action detach) {
+        Atom<bool> fired = Prelude.Atom(value: false);
+        return () => {
+            bool already = true;
+            _ = fired.Swap(current => (already = current, true).Item2);
+            _ = already ? unit : Op.Side(detach);
+        };
+    }
 }
 
 // --- [MODELS] -----------------------------------------------------------------------------
@@ -277,6 +280,12 @@ public readonly record struct GrasshopperUiPolicy(
 }
 
 internal readonly record struct IntentOutcome<T>(T Value, RepaintRequest Repaint);
+
+[StructLayout(LayoutKind.Auto)]
+public readonly record struct CanvasSkin(Skin Effective, Skin Lit, Skin Dim) {
+    internal static Option<CanvasSkin> Of(GhCanvas? canvas) =>
+        Optional(canvas).Map(static c => new CanvasSkin(Effective: c.Skin, Lit: c.SkinLit, Dim: c.SkinDim));
+}
 
 public sealed record GrasshopperUiIntent<T> {
     private readonly Func<GrasshopperUi.Scope, Fin<IntentOutcome<T>>> execute;
@@ -371,6 +380,206 @@ public abstract partial record UiFault : Expected, IValidationError<UiFault> {
     public static UiFault Create(Op op, string message) => InvalidInput(op: op, detail: message);
 }
 
+// --- [SERVICES] ---------------------------------------------------------------------------
+internal interface IUiOp<TResult> {
+    public GrasshopperUiIntent<TResult> Intent();
+}
+
+public static class GhUi {
+    public static GrasshopperUiIntent<CanvasResult> Canvas(CanvasOp op) => new(op: op);
+    public static GrasshopperUiIntent<DocumentResult> Document(DocumentOp op) => new(op: op);
+    public static GrasshopperUiIntent<EditorResult> Editor(EditorOp op) => new(op: op);
+    public static GrasshopperUiIntent<LayoutResult> Layout(LayoutOp op) => new(op: op);
+    public static GrasshopperUiIntent<WireResult> Wire(WireOp op) => new(op: op);
+    public static GrasshopperUiIntent<CanvasChromeResult> CanvasChrome(CanvasChromeOp op) => new(op: op);
+    public static GrasshopperUiIntent<Subscription> Event(UiEvent uiEvent) => new(op: uiEvent);
+
+    public static GrasshopperUiIntent<T> Group<T>(string verb, string noun, GrasshopperUiIntent<T> body) =>
+        Optional(body).Match(
+            Some: valid => Document(
+                repaint: valid.Policy.RepaintOrNone,
+                run: scope => scope.UndoGroup.Match(
+                    Some: bag => { _ = bag.Annotate(verb: verb, noun: noun); return valid.Run(scope: scope); },
+                    None: () => {
+                        UndoGroup bag = new(verb: verb, noun: noun);
+                        GrasshopperUi.Scope grouped = scope with { UndoGroup = Some(bag) };
+                        return from value in valid.Run(scope: grouped)
+                               from document in scope.NeedDocument()
+                               from committed in bag.Commit(document: document)
+                               select value;
+                    })),
+            None: () => Document(
+                run: _ => Fin.Fail<T>(
+                    error: UiFault.InvalidInput(op: Op.Of(name: nameof(Group)), detail: "body is required"))));
+
+    // Fans N unit intents into one undo entry via Bind-fold over the single-body Group; empty folds to a no-op.
+    public static GrasshopperUiIntent<Unit> Group(string verb, string noun, Seq<GrasshopperUiIntent<Unit>> body) =>
+        Group(
+            verb: verb,
+            noun: noun,
+            body: body.IsEmpty
+                ? Read(run: static _ => Fin.Succ(value: unit))
+                : body.Tail.Fold(
+                    initialState: body.Head.IfNone(Read(run: static _ => Fin.Succ(value: unit))),
+                    f: static (acc, next) => acc.Bind(_ => next)));
+
+    internal static GrasshopperUiIntent<T> Read<T>(Func<GrasshopperUi.Scope, Fin<T>> run) =>
+        new(run: run, policy: GrasshopperUiPolicy.Read);
+
+    internal static GrasshopperUiIntent<T> Canvas<T>(Func<GrasshopperUi.Scope, Fin<T>> run, bool openEditor = false, RepaintRequest? repaint = null) =>
+        new(run: run, policy: GrasshopperUiPolicy.Canvas(openEditor: openEditor, repaint: repaint));
+
+    internal static GrasshopperUiIntent<T> Document<T>(Func<GrasshopperUi.Scope, Fin<T>> run, RepaintRequest? repaint = null) =>
+        new(run: run, policy: GrasshopperUiPolicy.Document(repaint: repaint));
+}
+
+[BoundaryAdapter]
+public sealed partial record GrasshopperUi {
+    private static readonly Atom<Seq<Error>> HandlerFaultSink = Atom(value: Seq<Error>());
+
+    public static int HandlerFaultCount => HandlerFaultSink.Value.Count;
+
+    public static Seq<Error> HandlerFaults => HandlerFaultSink.Value;
+
+    public static Unit ClearHandlerFaults() {
+        _ = HandlerFaultSink.Swap(static _ => Seq<Error>());
+        return unit;
+    }
+
+    public Fin<T> Use<T>(GrasshopperUiIntent<T> intent, CancellationToken cancellation = default) =>
+        from valid in Optional(intent).ToFin(Fail: UiFault.InvalidInput(op: Op.Of(name: nameof(Use)), detail: "null intent"))
+        from result in OnUiThread(
+            cancellation: cancellation,
+            run: () =>
+                from scope in Scope.Resolve(policy: valid.Policy, cancellation: cancellation)
+                from outcome in valid.RunWithRepaint(scope: scope)
+                select Repaint(
+                    scope: scope,
+                    policy: GrasshopperUiPolicy.Read with { Repaint = Some(outcome.Repaint) },
+                    value: outcome.Value))
+        select result;
+
+    // Host callbacks have no return rail; keep swallowed handler faults observable.
+    internal static Fin<Unit> Handler(Func<Fin<Unit>> valid) =>
+        Protect(valid: valid).Match(
+            Succ: static _ => Fin.Succ(value: unit),
+            Fail: static error => HandlerFaultSink.Swap(faults => faults.Add(value: error)) switch {
+                _ => Fin.Succ(value: unit),
+            });
+
+    [StructLayout(LayoutKind.Auto)]
+    internal readonly record struct Scope(Option<GhEditor> Editor, Option<GhCanvas> Canvas, Option<GhDocument> Document, Option<GhDocumentMethods> Methods, Option<GhObjectList> Objects, Option<CanvasSkin> Skin, Option<UndoGroup> UndoGroup, CancellationToken Cancellation) {
+        [SuppressMessage(category: "Reliability", checkId: "CA2000:Dispose objects before losing scope", Justification = "AcquireEditor yields GH2's process-static Editor singleton (Editor.Instance); it is owned for the host lifetime and must never be disposed here — disposing would tear down the live editor and its canvas.")]
+        internal static Fin<Scope> Resolve(GrasshopperUiPolicy policy, CancellationToken cancellation, Option<UndoGroup> undo = default) =>
+            cancellation.IsCancellationRequested
+                ? Fin.Fail<Scope>(error: UiFault.Cancelled(op: Op.Of(name: nameof(Resolve))))
+                : Fin.Succ(value: AcquireEditor(openEditor: policy.OpenEditor)).Map(editor => {
+                    GhCanvas? canvas = editor?.Canvas;
+                    GhDocument? document = editor?.Documents.Current ?? canvas?.Document;
+                    return new Scope(
+                        Editor: Optional(editor),
+                        Canvas: Optional(canvas),
+                        Document: Optional(document),
+                        Methods: Optional(document?.Methods),
+                        Objects: Optional(document?.Objects),
+                        Skin: CanvasSkin.Of(canvas: canvas),
+                        UndoGroup: undo,
+                        Cancellation: cancellation);
+                }).Bind(scope => {
+                    Validation<Seq<UiFault>, Unit> reqCanvas =
+                        policy.RequireCanvas && scope.Canvas.IsNone
+                            ? Fail<Seq<UiFault>, Unit>(Seq(UiFault.MissingScope(field: nameof(Canvas))))
+                            : Success<Seq<UiFault>, Unit>(unit);
+                    Validation<Seq<UiFault>, Unit> reqDocument =
+                        policy.RequireDocument && scope.Document.IsNone
+                            ? Fail<Seq<UiFault>, Unit>(Seq(UiFault.MissingScope(field: nameof(Document))))
+                            : Success<Seq<UiFault>, Unit>(unit);
+                    return (reqCanvas & reqDocument)
+                        .ToFin()
+                        .Map(_ => scope);
+                });
+
+        internal Fin<GhCanvas> NeedCanvas([CallerMemberName] string name = "") =>
+            Canvas.ToFin(Fail: UiFault.MissingScope(field: nameof(Canvas)));
+        internal Fin<GhDocument> NeedDocument([CallerMemberName] string name = "") =>
+            Document.ToFin(Fail: UiFault.MissingScope(field: nameof(Document)));
+        internal Fin<GhDocumentMethods> NeedMethods([CallerMemberName] string name = "") =>
+            Methods.ToFin(Fail: UiFault.MissingScope(field: nameof(Methods)));
+        internal Fin<GhObjectList> NeedObjects([CallerMemberName] string name = "") =>
+            Objects.ToFin(Fail: UiFault.MissingScope(field: nameof(Objects)));
+        internal Fin<Skin> NeedSkin([CallerMemberName] string name = "") =>
+            Skin.Map(static s => s.Effective).ToFin(Fail: UiFault.MissingScope(field: nameof(Skin)));
+        internal Fin<CanvasSkin> NeedCanvasSkin([CallerMemberName] string name = "") =>
+            Skin.ToFin(Fail: UiFault.MissingScope(field: nameof(Skin)));
+
+        // ShowEditor always Form.Show()s and can SIGABRT during programmatic plugin load; headless singleton construction builds Canvas without realizing a window.
+        // GH2 owns the process-static _instance; visible ops Show the window inside their dispatch body.
+        private static GhEditor? AcquireEditor(bool openEditor) =>
+            (GhEditor.Instance, openEditor) switch {
+                (GhEditor current, _) => current,
+                (null, true) => new GhEditor(),
+                _ => null,
+            };
+    }
+
+    internal static Fin<T> OnUiThread<T>(Func<Fin<T>> run, CancellationToken cancellation = default) =>
+        Optional(run)
+            .ToFin(Fail: UiFault.InvalidInput(op: Op.Of(name: nameof(OnUiThread)), detail: "null delegate"))
+            .Bind(valid => (RhinoApp.IsOnMainThread, cancellation.IsCancellationRequested) switch {
+                (_, true) => Fin.Fail<T>(error: UiFault.Cancelled(op: Op.Of(name: nameof(OnUiThread)))),
+                (true, _) => Protect(valid: valid),
+                (false, _) => Marshal(valid: valid, cancellation: cancellation),
+            });
+
+    private static Fin<T> Marshal<T>(Func<Fin<T>> valid, CancellationToken cancellation) =>
+        from app in NeedApplication(op: Op.Of(name: nameof(Marshal)))
+        from result in Try.lift<Fin<T>>(f: () => cancellation.IsCancellationRequested
+                ? Fin.Fail<T>(error: UiFault.Cancelled(op: Op.Of(name: nameof(Marshal))))
+                : app.Invoke(func: () => Protect(valid: valid)))
+            .Run()
+            .MapFail(error => UiFault.ThreadMarshal(detail: $"Application.Invoke threw: {error.Message}"))
+            .Bind(static result => result)
+        select result;
+
+    internal static Fin<T> Protect<T>(Func<Fin<T>> valid, [CallerMemberName] string name = "") =>
+        Try.lift<Fin<T>>(f: valid).Run().MapFail(error => UiFault.ThreadMarshal(detail: $"{name}: {error.Message}")).Bind(static result => result);
+
+    internal static Fin<Unit> DetachOnUiThread(System.Action run) =>
+        Optional(run).ToFin(Fail: UiFault.InvalidInput(op: Op.Of(name: nameof(DetachOnUiThread)), detail: "null delegate"))
+            .Bind(valid =>
+                RhinoApp.IsOnMainThread
+                    ? Protect(valid: () => { valid(); return Fin.Succ(value: unit); })
+                    : from app in NeedApplication(op: Op.Of(name: nameof(DetachOnUiThread)))
+                      from result in Try.lift(f: () => {
+                          app.AsyncInvoke(action: () => Handler(valid: () => Protect(valid: () => { valid(); return Fin.Succ(value: unit); })));
+                          return unit;
+                      }).Run().MapFail(error => UiFault.ThreadMarshal(detail: $"AsyncInvoke threw: {error.Message}"))
+                      select result);
+
+    internal static Fin<Application> NeedApplication(Op op) =>
+        Optional(Application.Instance).ToFin(Fail: UiFault.ThreadMarshal(detail: $"{op}: Eto Application.Instance is not initialized"));
+
+    internal static T Repaint<T>(Scope scope, GrasshopperUiPolicy policy, T value) {
+        _ = policy.RepaintOrNone.ApplyTo(scope: scope);
+        return value;
+    }
+
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    internal static Rectangle ControlSpace(GhCanvas canvas, RectangleF bounds) =>
+        Rectangle.Ceiling(canvas.Map(rectangle: bounds, from: CoordinateSystem.Content, to: CoordinateSystem.Control));
+}
+
+// Lightweight Eto panel host for DrawPlan outside the GH canvas paint cycle.
+internal sealed class FloatingForm : Form {
+    internal FloatingForm(Application app, Option<Window> owner) {
+        ShowInTaskbar = false;
+        Resizable = false;
+        WindowStyle = WindowStyle.Default;
+        Owner = owner.IfNone(() => app.MainForm);
+    }
+}
+
+// --- [OPERATIONS] -------------------------------------------------------------------------
 public static partial class OpUiExtensions {
     [BoundaryAdapter, MethodImpl(MethodImplOptions.AggressiveInlining)]
     internal static Fin<PointF> AcceptPoint(this Op op, PointF value, string detail = "non-finite point") =>
@@ -446,209 +655,4 @@ public static partial class OpUiExtensions {
             Fail: static faults => Fin.Fail<T>(error: faults.IsEmpty
                 ? UiFault.InvalidInput(op: Op.Of(name: "Validation"), detail: "empty failure")
                 : faults.Skip(1).Fold((Error)faults[0], static (acc, fault) => acc + fault)));
-}
-
-// --- [SERVICES] ---------------------------------------------------------------------------
-internal interface IUiOp<TResult> {
-    public GrasshopperUiIntent<TResult> Intent();
-}
-
-public static class GhUi {
-    public static GrasshopperUiIntent<CanvasResult> Canvas(CanvasOp op) => new(op: op);
-    public static GrasshopperUiIntent<DocumentResult> Document(DocumentOp op) => new(op: op);
-    public static GrasshopperUiIntent<EditorResult> Editor(EditorOp op) => new(op: op);
-    public static GrasshopperUiIntent<LayoutResult> Layout(LayoutOp op) => new(op: op);
-    public static GrasshopperUiIntent<WireResult> Wire(WireOp op) => new(op: op);
-    public static GrasshopperUiIntent<CanvasChromeResult> CanvasChrome(CanvasChromeOp op) => new(op: op);
-    public static GrasshopperUiIntent<Subscription> Event(UiEvent uiEvent) => new(op: uiEvent);
-
-    public static GrasshopperUiIntent<T> Group<T>(string verb, string noun, GrasshopperUiIntent<T> body) =>
-        Optional(body).Match(
-            Some: valid => Document(
-                repaint: valid.Policy.RepaintOrNone,
-                run: scope => scope.UndoGroup.Match(
-                    Some: bag => { _ = bag.Annotate(verb: verb, noun: noun); return valid.Run(scope: scope); },
-                    None: () => {
-                        UndoGroup bag = new(verb: verb, noun: noun);
-                        GrasshopperUi.Scope grouped = scope with { UndoGroup = Some(bag) };
-                        return from value in valid.Run(scope: grouped)
-                               from document in scope.NeedDocument()
-                               from committed in bag.Commit(document: document)
-                               select value;
-                    })),
-            None: () => Document(
-                run: _ => Fin.Fail<T>(
-                    error: UiFault.InvalidInput(op: Op.Of(name: nameof(Group)), detail: "body is required"))));
-
-    // Fans N unit intents into one undo entry via Bind-fold over the single-body Group; empty folds to a no-op.
-    public static GrasshopperUiIntent<Unit> Group(string verb, string noun, Seq<GrasshopperUiIntent<Unit>> body) =>
-        Group(
-            verb: verb,
-            noun: noun,
-            body: body.IsEmpty
-                ? Read(run: static _ => Fin.Succ(value: unit))
-                : body.Tail.Fold(
-                    initialState: body.Head.IfNone(Read(run: static _ => Fin.Succ(value: unit))),
-                    f: static (acc, next) => acc.Bind(_ => next)));
-
-    internal static GrasshopperUiIntent<T> Read<T>(Func<GrasshopperUi.Scope, Fin<T>> run) =>
-        new(run: run, policy: GrasshopperUiPolicy.Read);
-
-    internal static GrasshopperUiIntent<T> Canvas<T>(Func<GrasshopperUi.Scope, Fin<T>> run, bool openEditor = false, RepaintRequest? repaint = null) =>
-        new(run: run, policy: GrasshopperUiPolicy.Canvas(openEditor: openEditor, repaint: repaint));
-
-    internal static GrasshopperUiIntent<T> Document<T>(Func<GrasshopperUi.Scope, Fin<T>> run, RepaintRequest? repaint = null) =>
-        new(run: run, policy: GrasshopperUiPolicy.Document(repaint: repaint));
-}
-
-[StructLayout(LayoutKind.Auto)]
-public readonly record struct CanvasSkin(Skin Effective, Skin Lit, Skin Dim) {
-    internal static Option<CanvasSkin> Of(GhCanvas? canvas) =>
-        Optional(canvas).Map(static c => new CanvasSkin(Effective: c.Skin, Lit: c.SkinLit, Dim: c.SkinDim));
-}
-
-[BoundaryAdapter]
-public sealed partial record GrasshopperUi {
-    private static readonly Atom<Seq<Error>> HandlerFaultSink = Atom(value: Seq<Error>());
-
-    public static int HandlerFaultCount => HandlerFaultSink.Value.Count;
-
-    public static Seq<Error> HandlerFaults => HandlerFaultSink.Value;
-
-    public static Unit ClearHandlerFaults() {
-        _ = HandlerFaultSink.Swap(static _ => Seq<Error>());
-        return unit;
-    }
-
-    // Host callbacks have no return rail; keep swallowed handler faults observable.
-    internal static Fin<Unit> Handler(Func<Fin<Unit>> valid) =>
-        Protect(valid: valid).Match(
-            Succ: static _ => Fin.Succ(value: unit),
-            Fail: static error => HandlerFaultSink.Swap(faults => faults.Add(value: error)) switch {
-                _ => Fin.Succ(value: unit),
-            });
-
-    [StructLayout(LayoutKind.Auto)]
-    internal readonly record struct Scope(Option<GhEditor> Editor, Option<GhCanvas> Canvas, Option<GhDocument> Document, Option<GhDocumentMethods> Methods, Option<GhObjectList> Objects, Option<CanvasSkin> Skin, Option<UndoGroup> UndoGroup, CancellationToken Cancellation) {
-        [SuppressMessage(category: "Reliability", checkId: "CA2000:Dispose objects before losing scope", Justification = "AcquireEditor yields GH2's process-static Editor singleton (Editor.Instance); it is owned for the host lifetime and must never be disposed here — disposing would tear down the live editor and its canvas.")]
-        internal static Fin<Scope> Resolve(GrasshopperUiPolicy policy, CancellationToken cancellation, Option<UndoGroup> undo = default) =>
-            cancellation.IsCancellationRequested
-                ? Fin.Fail<Scope>(error: UiFault.Cancelled(op: Op.Of(name: nameof(Resolve))))
-                : Fin.Succ(value: AcquireEditor(openEditor: policy.OpenEditor)).Map(editor => {
-                    GhCanvas? canvas = editor?.Canvas;
-                    GhDocument? document = editor?.Documents.Current ?? canvas?.Document;
-                    return new Scope(
-                        Editor: Optional(editor),
-                        Canvas: Optional(canvas),
-                        Document: Optional(document),
-                        Methods: Optional(document?.Methods),
-                        Objects: Optional(document?.Objects),
-                        Skin: CanvasSkin.Of(canvas: canvas),
-                        UndoGroup: undo,
-                        Cancellation: cancellation);
-                }).Bind(scope => {
-                    Validation<Seq<UiFault>, Unit> reqCanvas =
-                        policy.RequireCanvas && scope.Canvas.IsNone
-                            ? Fail<Seq<UiFault>, Unit>(Seq(UiFault.MissingScope(field: nameof(Canvas))))
-                            : Success<Seq<UiFault>, Unit>(unit);
-                    Validation<Seq<UiFault>, Unit> reqDocument =
-                        policy.RequireDocument && scope.Document.IsNone
-                            ? Fail<Seq<UiFault>, Unit>(Seq(UiFault.MissingScope(field: nameof(Document))))
-                            : Success<Seq<UiFault>, Unit>(unit);
-                    return (reqCanvas & reqDocument)
-                        .ToFin()
-                        .Map(_ => scope);
-                });
-
-        // ShowEditor always Form.Show()s and can SIGABRT during programmatic plugin load; headless singleton construction builds Canvas without realizing a window.
-        // GH2 owns the process-static _instance; visible ops Show the window inside their dispatch body.
-        private static GhEditor? AcquireEditor(bool openEditor) =>
-            (GhEditor.Instance, openEditor) switch {
-                (GhEditor current, _) => current,
-                (null, true) => new GhEditor(),
-                _ => null,
-            };
-
-        internal Fin<GhCanvas> NeedCanvas([CallerMemberName] string name = "") =>
-            Canvas.ToFin(Fail: UiFault.MissingScope(field: nameof(Canvas)));
-        internal Fin<GhDocument> NeedDocument([CallerMemberName] string name = "") =>
-            Document.ToFin(Fail: UiFault.MissingScope(field: nameof(Document)));
-        internal Fin<GhDocumentMethods> NeedMethods([CallerMemberName] string name = "") =>
-            Methods.ToFin(Fail: UiFault.MissingScope(field: nameof(Methods)));
-        internal Fin<GhObjectList> NeedObjects([CallerMemberName] string name = "") =>
-            Objects.ToFin(Fail: UiFault.MissingScope(field: nameof(Objects)));
-        internal Fin<Skin> NeedSkin([CallerMemberName] string name = "") =>
-            Skin.Map(static s => s.Effective).ToFin(Fail: UiFault.MissingScope(field: nameof(Skin)));
-        internal Fin<CanvasSkin> NeedCanvasSkin([CallerMemberName] string name = "") =>
-            Skin.ToFin(Fail: UiFault.MissingScope(field: nameof(Skin)));
-    }
-
-    public Fin<T> Use<T>(GrasshopperUiIntent<T> intent, CancellationToken cancellation = default) =>
-        from valid in Optional(intent).ToFin(Fail: UiFault.InvalidInput(op: Op.Of(name: nameof(Use)), detail: "null intent"))
-        from result in OnUiThread(
-            cancellation: cancellation,
-            run: () =>
-                from scope in Scope.Resolve(policy: valid.Policy, cancellation: cancellation)
-                from outcome in valid.RunWithRepaint(scope: scope)
-                select Repaint(
-                    scope: scope,
-                    policy: GrasshopperUiPolicy.Read with { Repaint = Some(outcome.Repaint) },
-                    value: outcome.Value))
-        select result;
-
-    internal static Fin<T> OnUiThread<T>(Func<Fin<T>> run, CancellationToken cancellation = default) =>
-        Optional(run)
-            .ToFin(Fail: UiFault.InvalidInput(op: Op.Of(name: nameof(OnUiThread)), detail: "null delegate"))
-            .Bind(valid => (RhinoApp.IsOnMainThread, cancellation.IsCancellationRequested) switch {
-                (_, true) => Fin.Fail<T>(error: UiFault.Cancelled(op: Op.Of(name: nameof(OnUiThread)))),
-                (true, _) => Protect(valid: valid),
-                (false, _) => Marshal(valid: valid, cancellation: cancellation),
-            });
-
-    private static Fin<T> Marshal<T>(Func<Fin<T>> valid, CancellationToken cancellation) =>
-        from app in NeedApplication(op: Op.Of(name: nameof(Marshal)))
-        from result in Try.lift<Fin<T>>(f: () => cancellation.IsCancellationRequested
-                ? Fin.Fail<T>(error: UiFault.Cancelled(op: Op.Of(name: nameof(Marshal))))
-                : app.Invoke(func: () => Protect(valid: valid)))
-            .Run()
-            .MapFail(error => UiFault.ThreadMarshal(detail: $"Application.Invoke threw: {error.Message}"))
-            .Bind(static result => result)
-        select result;
-
-    internal static Fin<T> Protect<T>(Func<Fin<T>> valid, [CallerMemberName] string name = "") =>
-        Try.lift<Fin<T>>(f: valid).Run().MapFail(error => UiFault.ThreadMarshal(detail: $"{name}: {error.Message}")).Bind(static result => result);
-
-    internal static Fin<Unit> DetachOnUiThread(System.Action run) =>
-        Optional(run).ToFin(Fail: UiFault.InvalidInput(op: Op.Of(name: nameof(DetachOnUiThread)), detail: "null delegate"))
-            .Bind(valid =>
-                RhinoApp.IsOnMainThread
-                    ? Protect(valid: () => { valid(); return Fin.Succ(value: unit); })
-                    : from app in NeedApplication(op: Op.Of(name: nameof(DetachOnUiThread)))
-                      from result in Try.lift(f: () => {
-                          app.AsyncInvoke(action: () => Handler(valid: () => Protect(valid: () => { valid(); return Fin.Succ(value: unit); })));
-                          return unit;
-                      }).Run().MapFail(error => UiFault.ThreadMarshal(detail: $"AsyncInvoke threw: {error.Message}"))
-                      select result);
-
-    internal static Fin<Application> NeedApplication(Op op) =>
-        Optional(Application.Instance).ToFin(Fail: UiFault.ThreadMarshal(detail: $"{op}: Eto Application.Instance is not initialized"));
-
-    internal static T Repaint<T>(Scope scope, GrasshopperUiPolicy policy, T value) {
-        _ = policy.RepaintOrNone.ApplyTo(scope: scope);
-        return value;
-    }
-
-    [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    internal static Rectangle ControlSpace(GhCanvas canvas, RectangleF bounds) =>
-        Rectangle.Ceiling(canvas.Map(rectangle: bounds, from: CoordinateSystem.Content, to: CoordinateSystem.Control));
-}
-
-// Lightweight Eto panel host for DrawPlan outside the GH canvas paint cycle.
-internal sealed class FloatingForm : Form {
-    internal FloatingForm(Application app, Option<Window> owner) {
-        ShowInTaskbar = false;
-        Resizable = false;
-        WindowStyle = WindowStyle.Default;
-        Owner = owner.IfNone(() => app.MainForm);
-    }
 }

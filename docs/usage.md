@@ -16,8 +16,8 @@ Cross-stack implementation surface for new work. Leaf docs own package and membe
 |   [8]   | Composition root   | Scrutor, EF, Serilog, OTel, Http.Resilience — bootstrap only           |
 
 [READ]
-- [1] Local RhinoWIP XML; `uv run python -m tools.quality api query rhino-common <symbol>`
-- [2] Local GH2 XML; `uv run python -m tools.quality api query gh2 <symbol>`
+- [1] Local RhinoWIP XML; `uv run python -m tools.assay api query --key rhino-common --symbol <symbol>`
+- [2] Local GH2 XML; `uv run python -m tools.assay api query --key gh2 --symbol <symbol>`
 - [3] `external-libs/mathnet/*.md`; CSparse at sparse direct boundary
 - [4] `system-api-map/bcl.md`, `replacements.md`, `meta.md`, `packages.md`
 - [5] `external-libs/languageext/*.md`

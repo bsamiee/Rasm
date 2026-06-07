@@ -3,7 +3,6 @@ namespace Rasm.Vectors;
 // --- [TYPES] ------------------------------------------------------------------------------
 [Union]
 public abstract partial record VectorIntent {
-    private VectorIntent() { }
     public sealed record AxisCase(SignedAxis Value, Option<Plane> Basis) : VectorIntent;
     public sealed record DirectionCase(Vector3d Value) : VectorIntent;
     public sealed record AxesCase(Option<Seq<Vector3d>> Values, bool Planar) : VectorIntent;
@@ -37,6 +36,7 @@ public abstract partial record VectorIntent {
     public sealed record DescriptorCase : VectorIntent { internal DescriptorCase(MeshSpace Space, MeshDescriptor Kind, Dimension Pairs) { this.Space = Space; this.Kind = Kind; this.Pairs = Pairs; } public MeshSpace Space { get; } public MeshDescriptor Kind { get; } public Dimension Pairs { get; } }
     public sealed record DiscreteCalculusCase : VectorIntent { internal DiscreteCalculusCase(MeshSpace Space, MeshLaplacian Kind) { this.Space = Space; this.Kind = Kind; } public MeshSpace Space { get; } public MeshLaplacian Kind { get; } }
     public sealed record SegmentationCase : VectorIntent { internal SegmentationCase(MeshSpace Space, MeshSegmentation Kind) { this.Space = Space; this.Kind = Kind; } public MeshSpace Space { get; } public MeshSegmentation Kind { get; } }
+    private VectorIntent() { }
     public static Fin<VectorIntent> Axis(SignedAxis axis, Plane? frame = null, Op? key = null) {
         Op op = key.OrDefault();
         return from active in FieldNabla.NotNull(value: axis, key: op)

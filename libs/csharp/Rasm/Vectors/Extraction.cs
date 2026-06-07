@@ -16,7 +16,10 @@ public sealed partial class ExtractionStatus {
 }
 
 [SmartEnum<int>]
-public sealed partial class ScalarIsolineRoute { public static readonly ScalarIsolineRoute LocalPiecewiseLinearMesh = new(key: 0, nativeRouted: false); public bool NativeRouted { get; } }
+public sealed partial class ScalarIsolineRoute {
+    public static readonly ScalarIsolineRoute LocalPiecewiseLinearMesh = new(key: 0, nativeRouted: false);
+    public bool NativeRouted { get; }
+}
 
 [SmartEnum<int>]
 public sealed partial class ToleranceSource {
@@ -133,6 +136,11 @@ public abstract partial record ExtractionDomain {
             surfaceIsoCase: static (state, _) => Fin.Fail<CurveBatch>(error: state.Key.Unsupported(geometryType: typeof(Mesh), outputType: typeof(ContourPolicy.SurfaceIsoCase)))));
     // BOUNDARY ADAPTER — scalar contouring is absent from RhinoCommon; this local PL kernel
     // follows Rhino's triangulated mesh topology and returns stitched curve candidates only.
+    [StructLayout(LayoutKind.Auto)]
+    private readonly record struct ScalarIsolinePointKey(long X, long Y, long Z) { internal int Compare(ScalarIsolinePointKey other) => (X, Y, Z).CompareTo((other.X, other.Y, other.Z)); }
+    [StructLayout(LayoutKind.Auto)]
+    private readonly record struct ScalarIsolineSegment(Point3d A, Point3d B);
+    private sealed class ScalarIsolineStats { internal int RawSegments, DedupedSegments, DegenerateRejected, PlateauRejected, StitchedCandidates, BranchStops, BranchNodes, MaxIncidentSegments, EmittedCurves; }
     private static Fin<ScalarIsolineResult> ScalarIsolinesDetailed(Mesh mesh, Arr<double> values, Seq<double> levels, Context context, Op key) {
         if (values.Count != mesh.Vertices.Count || values.Exists(static value => !RhinoMath.IsValidDouble(x: value)) || levels.IsEmpty || levels.Exists(static value => !RhinoMath.IsValidDouble(x: value)))
             return Fin.Fail<ScalarIsolineResult>(key.InvalidInput());
@@ -251,13 +259,6 @@ public abstract partial record ExtractionDomain {
             Y: (long)Math.Round(point.Y * scale, MidpointRounding.ToEven),
             Z: (long)Math.Round(point.Z * scale, MidpointRounding.ToEven));
     }
-    private static Fin<CurveBatch> CurvesFromCloud(VectorCloud.ClusterCase cloud, ContourPolicy policy, Context context, Op key) =>
-        key.Catch(() => policy.Switch(
-            state: (Cloud: cloud, Context: context, Key: key),
-            axisCase: static (state, p) => AcceptCurves(curves: state.Cloud.Indexed.CreateContourCurves(contourStart: p.Start, contourEnd: p.End, interval: p.Interval.Value, absoluteTolerance: state.Context.Absolute.Value), status: ExtractionStatus.Approximate, nativeRouted: true, tolerance: Some(state.Context.Absolute.Value), key: state.Key),
-            planeCase: static (state, p) => AcceptCurves(curves: state.Cloud.Indexed.CreateSectionCurve(plane: p.Section, absoluteTolerance: state.Context.Absolute.Value), status: ExtractionStatus.Approximate, nativeRouted: true, tolerance: Some(state.Context.Absolute.Value), key: state.Key),
-            surfaceIsoCase: static (state, _) => Fin.Fail<CurveBatch>(error: state.Key.Unsupported(geometryType: typeof(PointCloud), outputType: typeof(ContourPolicy.SurfaceIsoCase))),
-            meshScalarCase: static (state, _) => Fin.Fail<CurveBatch>(error: state.Key.Unsupported(geometryType: typeof(PointCloud), outputType: typeof(ContourPolicy.MeshScalarCase)))));
     private static Fin<CurveBatch> CurvesFromSurface(Surface surface, ContourPolicy policy, Op key) =>
         key.Catch(() => policy.Switch(
             state: (Surface: surface, Key: key),
@@ -286,6 +287,13 @@ public abstract partial record ExtractionDomain {
         RhinoMath.IsValidDouble(x: parameter)
             ? Optional(face.TrimAwareIsoCurve(direction: direction, constantParameter: parameter)).ToFin(key.InvalidResult())
             : Fin.Fail<Curve[]>(key.InvalidInput());
+    private static Fin<CurveBatch> CurvesFromCloud(VectorCloud.ClusterCase cloud, ContourPolicy policy, Context context, Op key) =>
+        key.Catch(() => policy.Switch(
+            state: (Cloud: cloud, Context: context, Key: key),
+            axisCase: static (state, p) => AcceptCurves(curves: state.Cloud.Indexed.CreateContourCurves(contourStart: p.Start, contourEnd: p.End, interval: p.Interval.Value, absoluteTolerance: state.Context.Absolute.Value), status: ExtractionStatus.Approximate, nativeRouted: true, tolerance: Some(state.Context.Absolute.Value), key: state.Key),
+            planeCase: static (state, p) => AcceptCurves(curves: state.Cloud.Indexed.CreateSectionCurve(plane: p.Section, absoluteTolerance: state.Context.Absolute.Value), status: ExtractionStatus.Approximate, nativeRouted: true, tolerance: Some(state.Context.Absolute.Value), key: state.Key),
+            surfaceIsoCase: static (state, _) => Fin.Fail<CurveBatch>(error: state.Key.Unsupported(geometryType: typeof(PointCloud), outputType: typeof(ContourPolicy.SurfaceIsoCase))),
+            meshScalarCase: static (state, _) => Fin.Fail<CurveBatch>(error: state.Key.Unsupported(geometryType: typeof(PointCloud), outputType: typeof(ContourPolicy.MeshScalarCase)))));
     private static Fin<CurveBatch> AcceptCurves(Curve[] curves, ExtractionStatus status, bool nativeRouted, Op key, Option<double> tolerance = default, ToleranceSource? toleranceSource = null) =>
         Optional(curves).ToFin(key.InvalidResult())
             .Bind(active => AcceptCurves(curves: toSeq(active), attempted: active.Length, status: status, nativeRouted: nativeRouted, key: key, tolerance: tolerance, toleranceSource: toleranceSource));
@@ -300,8 +308,12 @@ public abstract partial record ExtractionDomain {
 [Union]
 public abstract partial record ExtractionProbe {
     private ExtractionProbe() { }
-    public sealed record VectorCase(VectorField Source) : ExtractionProbe; public sealed record ScalarCase(ScalarField Source) : ExtractionProbe; public sealed record TensorCase(TensorField Source) : ExtractionProbe;
-    public static ExtractionProbe Vector(VectorField source) => new VectorCase(Source: source); public static ExtractionProbe Scalar(ScalarField source) => new ScalarCase(Source: source); public static ExtractionProbe Tensor(TensorField source) => new TensorCase(Source: source);
+    public sealed record VectorCase(VectorField Source) : ExtractionProbe;
+    public sealed record ScalarCase(ScalarField Source) : ExtractionProbe;
+    public sealed record TensorCase(TensorField Source) : ExtractionProbe;
+    public static ExtractionProbe Vector(VectorField source) => new VectorCase(Source: source);
+    public static ExtractionProbe Scalar(ScalarField source) => new ScalarCase(Source: source);
+    public static ExtractionProbe Tensor(TensorField source) => new TensorCase(Source: source);
     internal Fin<TOut> Project<TOut>(Point3d sample, Context context, Op key) =>
         Switch(
             state: (Sample: sample, Context: context, Key: key),
@@ -508,10 +520,3 @@ public readonly record struct StreamBundlePolicy {
                select new StreamBundlePolicy(kind: validKind, initialStep: initialStep, integrator: validIntegrator, termination: validTermination);
     }
 }
-
-// --- [OPERATIONS] -------------------------------------------------------------------------
-[StructLayout(LayoutKind.Auto)] internal readonly record struct ScalarIsolinePointKey(long X, long Y, long Z) { internal int Compare(ScalarIsolinePointKey other) => (X, Y, Z).CompareTo((other.X, other.Y, other.Z)); }
-
-[StructLayout(LayoutKind.Auto)] internal readonly record struct ScalarIsolineSegment(Point3d A, Point3d B);
-
-internal sealed class ScalarIsolineStats { internal int RawSegments, DedupedSegments, DegenerateRejected, PlateauRejected, StitchedCandidates, BranchStops, BranchNodes, MaxIncidentSegments, EmittedCurves; }

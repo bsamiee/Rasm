@@ -23,31 +23,6 @@ public enum GumballAxis { None, Free, X, Y, Z, XY, YZ, ZX }
 
 public enum GumballVerb { None, Menu, Translate, Scale, Rotate, Extrude, Cut }
 
-// Generic union: plain abstract record + manual switch (Thinktecture [Union] mis-generates the TState
-// parameter for generic unions — coding-csharp rule: generic/ref-struct sums use manual switch).
-public abstract record InteractionStep<TState> {
-    public sealed record PhaseGuard(InteractionGuard Guard) : InteractionStep<TState>;
-    public sealed record Snap(Plane Plane, Func<MouseContext<TState>, Point3d, TState> Project) : InteractionStep<TState>;
-    public sealed record Transition(Func<MouseContext<TState>, TState> Project) : InteractionStep<TState>;
-    public sealed record Emit(Func<MouseContext<TState>, Fin<Unit>> Effect) : InteractionStep<TState>;
-    public sealed record Debounce(TimeSpan Interval, TimeProvider Clock) : InteractionStep<TState> { internal Atom<long> Gate { get; } = Atom(0L); }   // 0L → GetElapsedTime returns uptime (passes first event); long.MinValue overflowed negative and rejected it
-
-    private InteractionStep() { }
-
-    internal Fin<MouseDecision<TState>> Apply(MouseContext<TState> context, MouseDecision<TState> current) =>
-        this switch {
-            PhaseGuard phase => phase.Guard.AdmitViewport().Bind(_ => guard(phase.Guard.Matches(context: context), (Error)new Fault.Cancelled()).ToFin().Map(_ => current)),
-            Snap snap => from point in context.Project(plane: snap.Plane) select current with { State = snap.Project(arg1: context, arg2: point) },
-            Transition transition => Fin.Succ(value: current with { State = transition.Project(arg: context) }),
-            Emit emit => emit.Effect(arg: context).Map(_ => current),
-            Debounce debounce => (debounce.Clock.GetElapsedTime(startingTimestamp: debounce.Gate.Value) >= debounce.Interval) switch {
-                true => Fin.Succ(value: (debounce.Gate.Swap(_ => debounce.Clock.GetTimestamp()), current).current),
-                false => Fin.Fail<MouseDecision<TState>>(error: new Fault.Cancelled()),
-            },
-            _ => Fin.Succ(value: current),
-        };
-}
-
 [SmartEnum<int>]
 public sealed partial class MousePhase {
     public static readonly MousePhase Move = new(key: 0, viewportNative: true, cancellable: true);
@@ -82,6 +57,31 @@ public sealed partial class OverlayPhase {
 
 public enum UiGradientAxis { LongestEdge, Diagonal, X, Y, Z }
 
+// Generic union: plain abstract record + manual switch (Thinktecture [Union] mis-generates the TState
+// parameter for generic unions — coding-csharp rule: generic/ref-struct sums use manual switch).
+public abstract record InteractionStep<TState> {
+    public sealed record PhaseGuard(InteractionGuard Guard) : InteractionStep<TState>;
+    public sealed record Snap(Plane Plane, Func<MouseContext<TState>, Point3d, TState> Project) : InteractionStep<TState>;
+    public sealed record Transition(Func<MouseContext<TState>, TState> Project) : InteractionStep<TState>;
+    public sealed record Emit(Func<MouseContext<TState>, Fin<Unit>> Effect) : InteractionStep<TState>;
+    public sealed record Debounce(TimeSpan Interval, TimeProvider Clock) : InteractionStep<TState> { internal Atom<long> Gate { get; } = Atom(0L); }   // 0L → GetElapsedTime returns uptime (passes first event); long.MinValue overflowed negative and rejected it
+
+    private InteractionStep() { }
+
+    internal Fin<MouseDecision<TState>> Apply(MouseContext<TState> context, MouseDecision<TState> current) =>
+        this switch {
+            PhaseGuard phase => phase.Guard.AdmitViewport().Bind(_ => guard(phase.Guard.Matches(context: context), (Error)new Fault.Cancelled()).ToFin().Map(_ => current)),
+            Snap snap => from point in context.Project(plane: snap.Plane) select current with { State = snap.Project(arg1: context, arg2: point) },
+            Transition transition => Fin.Succ(value: current with { State = transition.Project(arg: context) }),
+            Emit emit => emit.Effect(arg: context).Map(_ => current),
+            Debounce debounce => (debounce.Clock.GetElapsedTime(startingTimestamp: debounce.Gate.Value) >= debounce.Interval) switch {
+                true => Fin.Succ(value: (debounce.Gate.Swap(_ => debounce.Clock.GetTimestamp()), current).current),
+                false => Fin.Fail<MouseDecision<TState>>(error: new Fault.Cancelled()),
+            },
+            _ => Fin.Succ(value: current),
+        };
+}
+
 // --- [MODELS] -----------------------------------------------------------------------------
 [StructLayout(LayoutKind.Auto)]
 public readonly record struct GumballAction(GumballVerb Verb, GumballAxis Axis) {
@@ -106,12 +106,21 @@ public readonly record struct GumballAction(GumballVerb Verb, GumballAxis Axis) 
 }
 
 public readonly record struct InteractionGuard(MousePhase Phase, Option<global::Rhino.UI.MouseButton> Button = default) {
+    internal Fin<Unit> AdmitViewport() => guard(Phase.ViewportNative, Op.Of(name: nameof(AdmitViewport)).InvalidInput()).ToFin();
     internal bool Matches<TState>(MouseContext<TState> context) =>
         context.Phase == Phase && Button.Map(button => context.MouseButton == button).IfNone(noneValue: true);
-    internal Fin<Unit> AdmitViewport() => guard(Phase.ViewportNative, Op.Of(name: nameof(AdmitViewport)).InvalidInput()).ToFin();
 }
 
 public readonly record struct MouseDecision<TState>(TState State, bool Cancel, Option<string> ToolTip = default);
+
+public static class MouseDecision {
+    public static MouseDecision<TState> Pass<TState>(TState state) => new(State: state, Cancel: false);
+    public static MouseDecision<TState> Stop<TState>(TState state) => new(State: state, Cancel: true);
+    public static MouseDecision<TState> Reject<TState>(TState state) => new(State: state, Cancel: true, ToolTip: Some("Gumball active"));
+    public static MouseDecision<TState> Next<TState>(TState state, bool cancel = false, Option<string> toolTip = default) => new(State: state, Cancel: cancel, ToolTip: toolTip);
+    public static MouseDecision<TState> Hint<TState>(TState state, string value) =>
+        string.IsNullOrWhiteSpace(value: value) ? Pass(state) : new MouseDecision<TState>(State: state, Cancel: false, ToolTip: Some(value));
+}
 
 public readonly record struct MouseContext<TState>(MousePhase Phase, TState State, global::Rhino.UI.MouseCallbackEventArgs Args) {
     public bool Cancelled => Args.Cancel;
@@ -430,13 +439,13 @@ public readonly record struct UiPreviewScope(
             .Bind(valid => overlay.Transition(transition: _ => valid, document: document));
     }
 
+    public Fin<bool> PickGumball(PickContext pick, GetPoint point) => from active in Op.Of(name: nameof(PickGumball)).Need(Gumball) from validPick in Op.Of(name: nameof(PickGumball)).Need(pick) from validPoint in Op.Of(name: nameof(PickGumball)).Need(point) from picked in active.Pick(pick: validPick, point: validPoint) select picked;
+
     public Fin<bool> UpdateGumball(Point3d point, Line worldLine) =>
         from active in Op.Of(name: nameof(UpdateGumball)).Need(Gumball)
         from _ in active.CheckKeys()
         from changed in active.Update(point: point, line: worldLine)
         select changed;
-
-    public Fin<bool> PickGumball(PickContext pick, GetPoint point) => from active in Op.Of(name: nameof(PickGumball)).Need(Gumball) from validPick in Op.Of(name: nameof(PickGumball)).Need(pick) from validPoint in Op.Of(name: nameof(PickGumball)).Need(point) from picked in active.Pick(pick: validPick, point: validPoint) select picked;
 }
 
 public readonly record struct UiPreviewStyle(
@@ -809,6 +818,20 @@ public sealed record UiViewportRequest<TState, T>(Func<UiPreviewContext, Fin<T>>
         Op.Of(name: nameof(UiViewportRequest<,>)).Need(Run).Bind(run => run(arg: context));
 }
 
+public static partial class UiViewportRequest {
+    public static UiViewportRequest<TState, Unit> Paint<TState>(Func<UiPreviewContext, Fin<Unit>> draw) =>
+        new(Run: draw);
+
+    public static UiIntent<T> Preview<T>(UiViewportPreview preview, Func<UiPreviewScope, Fin<T>> run, Option<UiGumballSpec> gumball = default, bool interactive = true) =>
+        UiIntent.OfScope(run: scope => UiViewportPreview.Use(document: scope.Document, preview: preview, gumball: gumball, run: run), interactive: interactive);
+
+    public static UiIntent<T> Interaction<TState, T>(UiViewportInteraction<TState> interaction, Func<UiPreviewScope, Fin<T>> run) =>
+        UiIntent.OfScope(run: scope =>
+            from active in Op.Of(name: nameof(Interaction)).Need(interaction)
+            from result in active.Use(document: scope.Document, run: run)
+            select result, interactive: true);
+}
+
 // --- [SERVICES] ---------------------------------------------------------------------------
 public abstract class RasmOverlay<TState>(TState initial) : DisplayConduit, IDisposable {
     private readonly Atom<TState> state = Atom(initial);
@@ -1041,27 +1064,4 @@ public static class InteractionStep {   // non-generic host (CA1000): Interactio
         context => steps.Fold(
             Fin.Succ(value: context.Pass),
             (accumulator, step) => accumulator.Bind(decision => step.Apply(context: context, current: decision)));
-}
-
-public static class MouseDecision {
-    public static MouseDecision<TState> Pass<TState>(TState state) => new(State: state, Cancel: false);
-    public static MouseDecision<TState> Stop<TState>(TState state) => new(State: state, Cancel: true);
-    public static MouseDecision<TState> Reject<TState>(TState state) => new(State: state, Cancel: true, ToolTip: Some("Gumball active"));
-    public static MouseDecision<TState> Next<TState>(TState state, bool cancel = false, Option<string> toolTip = default) => new(State: state, Cancel: cancel, ToolTip: toolTip);
-    public static MouseDecision<TState> Hint<TState>(TState state, string value) =>
-        string.IsNullOrWhiteSpace(value: value) ? Pass(state) : new MouseDecision<TState>(State: state, Cancel: false, ToolTip: Some(value));
-}
-
-public static partial class UiViewportRequest {
-    public static UiViewportRequest<TState, Unit> Paint<TState>(Func<UiPreviewContext, Fin<Unit>> draw) =>
-        new(Run: draw);
-
-    public static UiIntent<T> Preview<T>(UiViewportPreview preview, Func<UiPreviewScope, Fin<T>> run, Option<UiGumballSpec> gumball = default, bool interactive = true) =>
-        UiIntent.OfScope(run: scope => UiViewportPreview.Use(document: scope.Document, preview: preview, gumball: gumball, run: run), interactive: interactive);
-
-    public static UiIntent<T> Interaction<TState, T>(UiViewportInteraction<TState> interaction, Func<UiPreviewScope, Fin<T>> run) =>
-        UiIntent.OfScope(run: scope =>
-            from active in Op.Of(name: nameof(Interaction)).Need(interaction)
-            from result in active.Use(document: scope.Document, run: run)
-            select result, interactive: true);
 }

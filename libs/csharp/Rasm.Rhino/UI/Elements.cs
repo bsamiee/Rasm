@@ -2,7 +2,7 @@ using Eto.Forms;
 
 namespace Rasm.Rhino.UI;
 
-// --- [MODELS] -----------------------------------------------------------------------------
+// --- [TYPES] ------------------------------------------------------------------------------
 [Union]
 public abstract partial record UiGridColumn<TRow> {
     public sealed record Text(string Header, Func<TRow, string> Value, int Width = 120) : UiGridColumn<TRow>;
@@ -32,60 +32,6 @@ public abstract partial record UiGridColumn<TRow> {
         number: static (r, n) => n.Value(arg: r).ToString(n.Format, System.Globalization.CultureInfo.InvariantCulture),
         custom: static (_, _) => null,
         children: static (_, _) => null);
-}
-
-public sealed record UiField<TState, T>(
-    string Label,
-    Func<TState, T> Get,
-    Func<TState, T, TState> Set,
-    Func<T, Control> Create,
-    Func<Control, T> Read,
-    Option<Func<T, Fin<Unit>>> Validate = default,
-    Option<Func<Fin<Unit>>> Admit = default,
-    Option<Func<T, Fin<T>>> Activate = default,   // modal editors (color picker) open on click, write the editor, then commit through the shared LostFocus rail
-    bool CommitOnChange = true) {
-    internal Fin<Control> Build(Atom<TState> state) {
-        Control MakeRow(Control editor) =>
-            string.IsNullOrWhiteSpace(value: Label)
-                ? editor
-                : new StackLayout {
-                    Orientation = Orientation.Horizontal, Spacing = 6,
-                    Items = { new Label { Text = Label, VerticalAlignment = VerticalAlignment.Center }, editor }
-                };
-
-        Control WireEvents(Control control, Control editor) {
-            void Commit() =>
-                _ = RhinoUi.Protect(valid: () => {
-                    T raw = Read(arg: editor);   // single capture
-                    return Validate
-                        .Map(check => check(arg: raw).Map(_ => raw))
-                        .IfNone(Fin.Succ(value: raw))
-                        .Map(value => state.Swap(current => Set(arg1: current, arg2: value)));
-                }).IfFail(error => { editor.ToolTip = error.Message; return state.Value; });
-            _ = CommitOnChange ? (editor switch {   // BOUNDARY ADAPTER — Eto event subscription is structural OOP, not domain dispatch
-                TextBox box => Op.Side(() => box.TextChanged += (_, _) => Commit()),
-                TextArea area => Op.Side(() => area.TextChanged += (_, _) => Commit()),
-                CheckBox box => Op.Side(() => box.CheckedChanged += (_, _) => Commit()),
-                NumericStepper s => Op.Side(() => s.ValueChanged += (_, _) => Commit()),
-                DropDown drop => Op.Side(() => drop.SelectedIndexChanged += (_, _) => Commit()),
-                _ => unit,
-            }) : unit;
-            _ = Activate.Iter(open => editor.MouseUp += (_, _) =>   // BOUNDARY ADAPTER — modal editor opens on click; write the editor tag, then route through Commit
-                _ = RhinoUi.Protect(valid: () => open(arg: Read(arg: editor)).Map(value => { editor.Tag = value; editor.Invalidate(); Commit(); return unit; })));
-            editor.LostFocus += (_, _) => Commit();
-            return control;
-        }
-
-        return
-            from get in Op.Of(name: nameof(UiField<,>)).Need(Get)
-            from set in Op.Of(name: nameof(UiField<,>)).Need(Set)
-            from create in Op.Of(name: nameof(UiField<,>)).Need(Create)
-            from read in Op.Of(name: nameof(UiField<,>)).Need(Read)
-            from _admit in Admit.Map(run => run()).IfNone(Fin.Succ(value: unit))
-            let editor = create(arg: get(arg: state.Value))
-            from valid in Op.Of(name: nameof(UiField<,>)).Need(editor)
-            select WireEvents(control: MakeRow(editor: valid), editor: valid);
-    }
 }
 
 public abstract record UiElement<TState> {
@@ -224,62 +170,6 @@ public abstract record UiElement<TState> {
     internal abstract Fin<Control> Build(Atom<TState> state);
 }
 
-public sealed record UiRequest<T> {
-    private readonly Func<RhinoUi.Scope, Fin<T>> run;
-
-    internal UiRequest(string name, Func<RhinoUi.Scope, Fin<T>> run, bool interactive) =>
-        (Name, this.run, Interactive) = (name, run, interactive);
-
-    public string Name { get; }
-    public bool Interactive { get; }
-
-    internal Fin<T> Run(RhinoUi.Scope scope) =>
-        Op.Of(name: Name).Need(run).Bind(valid => valid(arg: scope));
-}
-
-public sealed record UiWindowSpec<TState, TResult>(
-    string Title,
-    TState Initial,
-    UiElement<TState> Content,
-    Func<TState, TResult> Result,
-    UiWindowMode Mode = UiWindowMode.Modal,
-    bool RestoreLocation = false,
-    bool SavePosition = false,
-    Option<Eto.Drawing.Size> ClientSize = default) {
-    public UiRequest<TResult> Request(string name = nameof(UiWindowSpec<,>)) =>
-        UiRequest.OfScope(
-            name: name,
-            run: scope =>
-                from title in Op.Of(name: name).AcceptText(value: Title).MapFail(_ => Op.Of(name: name).InvalidInput())
-                from body in Op.Of(name: name).Need(Content)
-                from result in Op.Of(name: name).Need(Result)
-                let state = Atom(Initial)
-                from control in body.Build(state: state)
-                from dialog in RhinoUi.Protect(valid: () => {
-                    Dialog<TResult> window = new() { Title = title, Content = control };
-                    _ = ClientSize.Iter(size => window.ClientSize = size);
-                    global::Rhino.UI.EtoExtensions.UseRhinoStyle(window);
-                    _ = Op.SideWhen(RestoreLocation, () => global::Rhino.UI.EtoExtensions.RestorePosition(window: window));
-                    _ = Op.SideWhen(SavePosition, () => window.Closed += (_, _) => global::Rhino.UI.EtoExtensions.SavePosition(window: window));
-                    Button ok = new() { Text = "OK" };
-                    Button cancel = new() { Text = "Cancel" };
-                    ok.Click += (_, _) => window.Close(result(arg: state.Value));
-                    cancel.Click += (_, _) => window.Close();
-                    window.PositiveButtons.Add(ok);
-                    window.NegativeButtons.Add(cancel);
-                    window.DefaultButton = ok;
-                    window.AbortButton = cancel;
-                    return Fin.Succ(value: window);
-                })
-                from shown in UiIntent.Window(dialog: dialog, mode: Mode).Run(scope: scope)
-                select shown,
-            interactive: true);
-
-    public UiIntent<TResult> Intent(string name = nameof(UiWindowSpec<,>)) =>
-        UiIntent.Request(request: Request(name: name));
-}
-
-// --- [OPERATIONS] -------------------------------------------------------------------------
 public static class UiElement {
     public static UiElement<TState> Of<TState>(Control control) => new UiElement<TState>.ControlCase(Value: control);
     public static UiElement<TState> Of<TState>(Func<Atom<TState>, Fin<Control>> create) => new UiElement<TState>.Native(Create: create);
@@ -298,6 +188,61 @@ public static class UiElement {
         new UiElement<TState>.Browser(Url: url, Html: html, OnLoaded: onLoaded);
     public static UiElement<TState> Grid<TState, TRow>(Seq<UiGridColumn<TRow>> columns, Func<TState, Seq<TRow>> rows, Option<Func<TState, Seq<TRow>, TState>> onSelection = default) =>
         new UiElement<TState>.Grid<TRow>(Columns: columns, GetRows: rows, OnSelection: onSelection);
+}
+
+// --- [MODELS] -----------------------------------------------------------------------------
+public sealed record UiField<TState, T>(
+    string Label,
+    Func<TState, T> Get,
+    Func<TState, T, TState> Set,
+    Func<T, Control> Create,
+    Func<Control, T> Read,
+    Option<Func<T, Fin<Unit>>> Validate = default,
+    Option<Func<Fin<Unit>>> Admit = default,
+    Option<Func<T, Fin<T>>> Activate = default,   // modal editors (color picker) open on click, write the editor, then commit through the shared LostFocus rail
+    bool CommitOnChange = true) {
+    internal Fin<Control> Build(Atom<TState> state) {
+        Control MakeRow(Control editor) =>
+            string.IsNullOrWhiteSpace(value: Label)
+                ? editor
+                : new StackLayout {
+                    Orientation = Orientation.Horizontal, Spacing = 6,
+                    Items = { new Label { Text = Label, VerticalAlignment = VerticalAlignment.Center }, editor }
+                };
+
+        Control WireEvents(Control control, Control editor) {
+            void Commit() =>
+                _ = RhinoUi.Protect(valid: () => {
+                    T raw = Read(arg: editor);   // single capture
+                    return Validate
+                        .Map(check => check(arg: raw).Map(_ => raw))
+                        .IfNone(Fin.Succ(value: raw))
+                        .Map(value => state.Swap(current => Set(arg1: current, arg2: value)));
+                }).IfFail(error => { editor.ToolTip = error.Message; return state.Value; });
+            _ = CommitOnChange ? (editor switch {   // BOUNDARY ADAPTER — Eto event subscription is structural OOP, not domain dispatch
+                TextBox box => Op.Side(() => box.TextChanged += (_, _) => Commit()),
+                TextArea area => Op.Side(() => area.TextChanged += (_, _) => Commit()),
+                CheckBox box => Op.Side(() => box.CheckedChanged += (_, _) => Commit()),
+                NumericStepper s => Op.Side(() => s.ValueChanged += (_, _) => Commit()),
+                DropDown drop => Op.Side(() => drop.SelectedIndexChanged += (_, _) => Commit()),
+                _ => unit,
+            }) : unit;
+            _ = Activate.Iter(open => editor.MouseUp += (_, _) =>   // BOUNDARY ADAPTER — modal editor opens on click; write the editor tag, then route through Commit
+                _ = RhinoUi.Protect(valid: () => open(arg: Read(arg: editor)).Map(value => { editor.Tag = value; editor.Invalidate(); Commit(); return unit; })));
+            editor.LostFocus += (_, _) => Commit();
+            return control;
+        }
+
+        return
+            from get in Op.Of(name: nameof(UiField<,>)).Need(Get)
+            from set in Op.Of(name: nameof(UiField<,>)).Need(Set)
+            from create in Op.Of(name: nameof(UiField<,>)).Need(Create)
+            from read in Op.Of(name: nameof(UiField<,>)).Need(Read)
+            from _admit in Admit.Map(run => run()).IfNone(Fin.Succ(value: unit))
+            let editor = create(arg: get(arg: state.Value))
+            from valid in Op.Of(name: nameof(UiField<,>)).Need(editor)
+            select WireEvents(control: MakeRow(editor: valid), editor: valid);
+    }
 }
 
 public static class UiField {
@@ -370,6 +315,19 @@ public static class UiField {
             }));
 }
 
+public sealed record UiRequest<T> {
+    private readonly Func<RhinoUi.Scope, Fin<T>> run;
+
+    internal UiRequest(string name, Func<RhinoUi.Scope, Fin<T>> run, bool interactive) =>
+        (Name, this.run, Interactive) = (name, run, interactive);
+
+    public string Name { get; }
+    public bool Interactive { get; }
+
+    internal Fin<T> Run(RhinoUi.Scope scope) =>
+        Op.Of(name: Name).Need(run).Bind(valid => valid(arg: scope));
+}
+
 public static class UiRequest {
     internal static UiRequest<T> OfScope<T>(string name, Func<RhinoUi.Scope, Fin<T>> run, bool interactive = true) =>
         new(name: string.IsNullOrWhiteSpace(value: name) ? nameof(UiRequest<>) : name, run: run, interactive: interactive);
@@ -379,4 +337,45 @@ public static class UiRequest {
             name: name,
             run: scope => Op.Of(name: name).Need(run).Bind(valid => valid(arg1: scope.Document, arg2: scope.Mode)),
             interactive: interactive);
+}
+public sealed record UiWindowSpec<TState, TResult>(
+    string Title,
+    TState Initial,
+    UiElement<TState> Content,
+    Func<TState, TResult> Result,
+    UiWindowMode Mode = UiWindowMode.Modal,
+    bool RestoreLocation = false,
+    bool SavePosition = false,
+    Option<Eto.Drawing.Size> ClientSize = default) {
+    public UiRequest<TResult> Request(string name = nameof(UiWindowSpec<,>)) =>
+        UiRequest.OfScope(
+            name: name,
+            run: scope =>
+                from title in Op.Of(name: name).AcceptText(value: Title).MapFail(_ => Op.Of(name: name).InvalidInput())
+                from body in Op.Of(name: name).Need(Content)
+                from result in Op.Of(name: name).Need(Result)
+                let state = Atom(Initial)
+                from control in body.Build(state: state)
+                from dialog in RhinoUi.Protect(valid: () => {
+                    Dialog<TResult> window = new() { Title = title, Content = control };
+                    _ = ClientSize.Iter(size => window.ClientSize = size);
+                    global::Rhino.UI.EtoExtensions.UseRhinoStyle(window);
+                    _ = Op.SideWhen(RestoreLocation, () => global::Rhino.UI.EtoExtensions.RestorePosition(window: window));
+                    _ = Op.SideWhen(SavePosition, () => window.Closed += (_, _) => global::Rhino.UI.EtoExtensions.SavePosition(window: window));
+                    Button ok = new() { Text = "OK" };
+                    Button cancel = new() { Text = "Cancel" };
+                    ok.Click += (_, _) => window.Close(result(arg: state.Value));
+                    cancel.Click += (_, _) => window.Close();
+                    window.PositiveButtons.Add(ok);
+                    window.NegativeButtons.Add(cancel);
+                    window.DefaultButton = ok;
+                    window.AbortButton = cancel;
+                    return Fin.Succ(value: window);
+                })
+                from shown in UiIntent.Window(dialog: dialog, mode: Mode).Run(scope: scope)
+                select shown,
+            interactive: true);
+
+    public UiIntent<TResult> Intent(string name = nameof(UiWindowSpec<,>)) =>
+        UiIntent.Request(request: Request(name: name));
 }

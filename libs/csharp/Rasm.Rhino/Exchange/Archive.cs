@@ -217,6 +217,31 @@ public readonly record struct FileArchiveDiff(
 
 // --- [OPERATIONS] -------------------------------------------------------------------------
 internal static class FileArchiveOps {
+    internal static Fin<T> UseArchive<T>(FileArchiveSource source, ArchiveProfile profile, Op op, Func<Option<FileEndpoint>, File3dmModel, string, Fin<T>> use) =>
+        from active in Optional(source).ToFin(Fail: op.InvalidInput())
+        from valid in Optional(use).ToFin(Fail: op.InvalidInput())
+        from result in active.Switch(
+            (Profile: profile, Op: op, Use: valid),
+            path: static (ctx, source) =>
+                from endpoint in source.Value.Input(op: ctx.Op)
+                from value in ctx.Op.Catch(() => {
+                    ArchiveSlice slice = ctx.Profile.Slice;
+                    (File3dmModel? model, string log) = slice.Filtered
+                        ? (File3dmModel.ReadWithLog(path: endpoint.Path, tableTypeFilterFilter: slice.Tables, objectTypeFilter: slice.ObjectFilter, errorLog: out string filteredLog), filteredLog)
+                        : (File3dmModel.ReadWithLog(endpoint.Path, out string fullLog), fullLog);
+                    using File3dmModel? owned = model;
+                    return Optional(owned).ToFin(Fail: ctx.Op.InvalidResult(detail: $"File3dm read failed: '{endpoint.Path}'{(string.IsNullOrEmpty(value: log) ? string.Empty : $" — {log}")}")).Bind(active => ctx.Use(arg1: Some(endpoint), arg2: active, arg3: log));
+                })
+                select value,
+            bytes: static (ctx, source) =>
+                from memory in guard(!source.Value.IsEmpty, ctx.Op.InvalidInput()).ToFin().Map(_ => source.Value)
+                from value in ctx.Op.Catch(() => {
+                    using File3dmModel? model = File3dmModel.FromByteArray(bytes: memory.ToArray());
+                    return Optional(model).ToFin(Fail: ctx.Op.InvalidResult()).Bind(active => ctx.Use(arg1: Option<FileEndpoint>.None, arg2: active, arg3: string.Empty));
+                })
+                select value)
+        select result;
+
     internal static Fin<FileReport> Read(FileArchiveSource source, ArchiveProfile profile) =>
         from archive in UseArchive(source: source, profile: profile, op: Op.Of(name: nameof(Read)), use: (endpoint, model, log) => Snapshot(source: source, model: model, profile: profile).Map(result => (Endpoint: endpoint, result.Archive, result.Issues, Log: log)))
         select FileReport.Of(
@@ -368,30 +393,25 @@ internal static class FileArchiveOps {
                             Value: TextOption(value: table.GetValue(section: section, entry: entry)),
                             Source: Some("section"))))).IfNone(Seq<FileResourceEntry>())));
 
-    internal static Fin<T> UseArchive<T>(FileArchiveSource source, ArchiveProfile profile, Op op, Func<Option<FileEndpoint>, File3dmModel, string, Fin<T>> use) =>
-        from active in Optional(source).ToFin(Fail: op.InvalidInput())
-        from valid in Optional(use).ToFin(Fail: op.InvalidInput())
-        from result in active.Switch(
-            (Profile: profile, Op: op, Use: valid),
-            path: static (ctx, source) =>
-                from endpoint in source.Value.Input(op: ctx.Op)
-                from value in ctx.Op.Catch(() => {
-                    ArchiveSlice slice = ctx.Profile.Slice;
-                    (File3dmModel? model, string log) = slice.Filtered
-                        ? (File3dmModel.ReadWithLog(path: endpoint.Path, tableTypeFilterFilter: slice.Tables, objectTypeFilter: slice.ObjectFilter, errorLog: out string filteredLog), filteredLog)
-                        : (File3dmModel.ReadWithLog(endpoint.Path, out string fullLog), fullLog);
-                    using File3dmModel? owned = model;
-                    return Optional(owned).ToFin(Fail: ctx.Op.InvalidResult(detail: $"File3dm read failed: '{endpoint.Path}'{(string.IsNullOrEmpty(value: log) ? string.Empty : $" — {log}")}")).Bind(active => ctx.Use(arg1: Some(endpoint), arg2: active, arg3: log));
-                })
-                select value,
-            bytes: static (ctx, source) =>
-                from memory in guard(!source.Value.IsEmpty, ctx.Op.InvalidInput()).ToFin().Map(_ => source.Value)
-                from value in ctx.Op.Catch(() => {
-                    using File3dmModel? model = File3dmModel.FromByteArray(bytes: memory.ToArray());
-                    return Optional(model).ToFin(Fail: ctx.Op.InvalidResult()).Bind(active => ctx.Use(arg1: Option<FileEndpoint>.None, arg2: active, arg3: string.Empty));
-                })
-                select value)
-        select result;
+    internal static Option<string> TextOption(string? value) =>
+        Optional(value).Filter(static text => !string.IsNullOrWhiteSpace(value: text)).Map(static text => text.Trim());
+
+    internal static Option<Guid> GuidOption(Guid value) =>
+        value switch {
+            Guid id when id != Guid.Empty => Some(id),
+            _ => Option<Guid>.None,
+        };
+
+    internal static Option<DateTime> DateTimeOption(DateTime value) =>
+        value == DateTime.MinValue ? Option<DateTime>.None : Some(value);
+
+    internal static Option<DateTime> DateTimeOption(Func<DateTime> read) {
+        try {
+            return Optional(read).Bind(active => DateTimeOption(value: active()));
+        } catch (ArgumentOutOfRangeException) {
+            return Option<DateTime>.None;
+        }
+    }
 
     private static Option<int> NamedViewIndex(File3dmViewTable table, string name) =>
         toSeq(Enumerable.Range(start: 0, count: Native(read: () => table.Count).IfNone(0)))
@@ -433,6 +453,14 @@ internal static class FileArchiveOps {
             return Fin.Succ(value: Seq(DocumentResourceKind.Metadata.Change(name: "preview")));
         })
         select change;
+
+    private static Fin<FileEndpoint> ExtractFile(EmbeddedFile file, FileEndpoint folder, Op op) =>
+        FileEndpoint.From(path: IOPath.Combine(path1: folder.Path, path2: IOPath.GetFileName(path: file.Filename)))
+            .Bind(target => target.Output(op: op))
+            .Bind(target => file.SaveToFile(filename: target.Path) switch {
+                true => Fin.Succ(value: target),
+                false => Fin.Fail<FileEndpoint>(error: op.InvalidResult()),
+            });
 
     private static Fin<FileResourceGraph> GraphOf(FileEndpoint endpoint, Op op) =>
         from path in endpoint.Input(op: op)
@@ -652,14 +680,6 @@ internal static class FileArchiveOps {
             Edges: edges.Strict());
     }
 
-    private static Seq<FileResourceEntry> LayoutEntries(Seq<(string Name, Guid Id)> layouts) =>
-        layouts.Map(static layout => new FileResourceEntry(
-            Kind: DocumentResourceKind.Layout,
-            Name: TextOption(value: layout.Name),
-            Path: Option<string>.None,
-            Id: GuidOption(value: layout.Id),
-            Source: Some("ReadPageViews")));
-
     private static Seq<(string Name, Guid Id)> ReadLayouts(FileArchiveSource source) =>
         source switch {
             FileArchiveSource.Path path => Native(read: () => File3dmModel.ReadPageViews(path: path.Value.Path))
@@ -669,6 +689,14 @@ internal static class FileArchiveOps {
                 .IfNone(Seq<(string, Guid)>()),
             _ => Seq<(string, Guid)>(),
         };
+
+    private static Seq<FileResourceEntry> LayoutEntries(Seq<(string Name, Guid Id)> layouts) =>
+        layouts.Map(static layout => new FileResourceEntry(
+            Kind: DocumentResourceKind.Layout,
+            Name: TextOption(value: layout.Name),
+            Path: Option<string>.None,
+            Id: GuidOption(value: layout.Id),
+            Source: Some("ReadPageViews")));
 
     private static Seq<FileIssue> LayoutIssues(FileArchiveSource source) =>
         source is FileArchiveSource.Path
@@ -719,12 +747,6 @@ internal static class FileArchiveOps {
             Id: id(arg: item),
             Source: Some(label)));
 
-    private static Seq<T> Rows<T>(IEnumerable<T>? source) =>
-        source is null ? Seq<T>() : toSeq(source).Filter(static item => item is not null);
-
-    private static Seq<T> Rows<T>(Func<IEnumerable<T>?> read) =>
-        Native(read: read).Map(source => Rows(source: source)).IfNone(Seq<T>());
-
     private static Option<T> Native<T>(Func<T> read) {
         try {
             return Optional(read()).Filter(static value => value is not null);
@@ -733,9 +755,23 @@ internal static class FileArchiveOps {
         }
     }
 
+    private static Seq<T> Rows<T>(IEnumerable<T>? source) =>
+        source is null ? Seq<T>() : toSeq(source).Filter(static item => item is not null);
+
+    private static Seq<T> Rows<T>(Func<IEnumerable<T>?> read) =>
+        Native(read: read).Map(source => Rows(source: source)).IfNone(Seq<T>());
+
     private static Option<T> Component<T>(Seq<T> source, int index)
         where T : ModelComponent =>
         source.Find(item => item.Index == index);
+
+    private static Option<Material> MaterialOf(Seq<Layer> layers, Seq<Material> materials, ObjectAttributes attributes) =>
+        attributes.MaterialSource switch {
+            ObjectMaterialSource.MaterialFromObject => Component(source: materials, index: attributes.MaterialIndex),
+            ObjectMaterialSource.MaterialFromLayer => Component(source: layers, index: attributes.LayerIndex)
+                .Bind(layer => Component(source: materials, index: layer.RenderMaterialIndex)),
+            _ => Option<Material>.None,
+        };
 
     private static Seq<FileResourceEdge> ObjectEdges(File3dmObject fileObject, Seq<Layer> layers, Seq<Material> materials, Seq<Linetype> linetypes, Seq<Group> groups) =>
         Optional(fileObject.Attributes).Map(attributes => {
@@ -766,18 +802,6 @@ internal static class FileArchiveOps {
             return layerEdge + materialEdge + linetypeEdge + groupEdges;
         }).IfNone(Seq<FileResourceEdge>());
 
-    private static Option<Material> MaterialOf(Seq<Layer> layers, Seq<Material> materials, ObjectAttributes attributes) =>
-        attributes.MaterialSource switch {
-            ObjectMaterialSource.MaterialFromObject => Component(source: materials, index: attributes.MaterialIndex),
-            ObjectMaterialSource.MaterialFromLayer => Component(source: layers, index: attributes.LayerIndex)
-                .Bind(layer => Component(source: materials, index: layer.RenderMaterialIndex)),
-            _ => Option<Material>.None,
-        };
-
-    private static Seq<T> TraverseRender<T>(RenderContent content, Option<RenderContent> parent, Func<RenderContent, Option<RenderContent>, Seq<T>> project) =>
-        project(arg1: content, arg2: parent)
-        + Rows(() => content.Children).Bind(child => TraverseRender(content: child, parent: Some(content), project: project));
-
     private static DocumentResourceKind RenderKind(RenderContent content) =>
         content switch {
             RenderMaterial => DocumentResourceKind.RenderMaterial,
@@ -785,6 +809,10 @@ internal static class FileArchiveOps {
             RenderTexture => DocumentResourceKind.RenderTexture,
             _ => DocumentResourceKind.RenderContent,
         };
+
+    private static Seq<T> TraverseRender<T>(RenderContent content, Option<RenderContent> parent, Func<RenderContent, Option<RenderContent>, Seq<T>> project) =>
+        project(arg1: content, arg2: parent)
+        + Rows(() => content.Children).Bind(child => TraverseRender(content: child, parent: Some(content), project: project));
 
     private static Fin<FileArchiveMetadata> Metadata(FileArchiveSource source, File3dmModel model, Seq<(string Name, Guid Id)> layouts) =>
         Op.Of(name: nameof(Metadata)).Catch(() => {
@@ -818,28 +846,11 @@ internal static class FileArchiveOps {
                 StartComments: TextOption(value: model.StartSectionComments)));
         });
 
-    private static Fin<FileEndpoint> ExtractFile(EmbeddedFile file, FileEndpoint folder, Op op) =>
-        FileEndpoint.From(path: IOPath.Combine(path1: folder.Path, path2: IOPath.GetFileName(path: file.Filename)))
-            .Bind(target => target.Output(op: op))
-            .Bind(target => file.SaveToFile(filename: target.Path) switch {
-                true => Fin.Succ(value: target),
-                false => Fin.Fail<FileEndpoint>(error: op.InvalidResult()),
-            });
-
     private static Seq<FileIssue> IssueLog(string log) =>
         string.IsNullOrWhiteSpace(value: log) ? Seq<FileIssue>() : Seq(FileIssue.Native(message: log));
 
     private static Option<string> LogOption(string log) =>
         string.IsNullOrWhiteSpace(value: log) ? Option<string>.None : Some(log);
-
-    internal static Option<string> TextOption(string? value) =>
-        Optional(value).Filter(static text => !string.IsNullOrWhiteSpace(value: text)).Map(static text => text.Trim());
-
-    internal static Option<Guid> GuidOption(Guid value) =>
-        value switch {
-            Guid id when id != Guid.Empty => Some(id),
-            _ => Option<Guid>.None,
-        };
 
     private static Option<T> PositiveOption<T>(T value) where T : INumber<T> =>
         value > T.Zero ? Some(value) : Option<T>.None;
@@ -849,14 +860,4 @@ internal static class FileArchiveOps {
     private static Option<T> NotEqualOption<T>(T value, T sentinel) where T : struct =>
         EqualityComparer<T>.Default.Equals(x: value, y: sentinel) ? Option<T>.None : Some(value);
 
-    internal static Option<DateTime> DateTimeOption(DateTime value) =>
-        value == DateTime.MinValue ? Option<DateTime>.None : Some(value);
-
-    internal static Option<DateTime> DateTimeOption(Func<DateTime> read) {
-        try {
-            return Optional(read).Bind(active => DateTimeOption(value: active()));
-        } catch (ArgumentOutOfRangeException) {
-            return Option<DateTime>.None;
-        }
-    }
 }

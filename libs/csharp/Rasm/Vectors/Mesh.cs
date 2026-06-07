@@ -9,9 +9,9 @@ namespace Rasm.Vectors;
 public abstract partial record MeshDescriptor {
     private MeshDescriptor() { }
     public sealed record SpectralCase(SpectralFilter Filter, Option<Seq<int>> Sources, SpectralDescriptorPolicy Policy) : MeshDescriptor;
-    internal bool IsValid => this is SpectralCase { Filter: not null } spectral && spectral.Policy.IsValid;
     public static MeshDescriptor Spectral(SpectralFilter filter, Option<Seq<int>> sources = default) => Spectral(filter: filter, sources: sources, policy: SpectralDescriptorPolicy.Raw);
     public static MeshDescriptor Spectral(SpectralFilter filter, Option<Seq<int>> sources, SpectralDescriptorPolicy policy) => new SpectralCase(Filter: filter, Sources: sources, Policy: policy);
+    internal bool IsValid => this is SpectralCase { Filter: not null } spectral && spectral.Policy.IsValid;
 }
 
 [SmartEnum<int>]
@@ -124,9 +124,6 @@ public sealed partial class TangentLogMapAlgorithm { public static readonly Tang
 [BoundaryAdapter, StructLayout(LayoutKind.Auto)]
 public readonly record struct MeshSpace {
     private MeshSpace(Mesh native, Context tolerance) { Native = native; Tolerance = tolerance; }
-    internal Mesh Native { get; }
-    public Context Tolerance { get; }
-    public Mesh DuplicateNative() => Native.DuplicateMesh();
     public static Fin<MeshSpace> Of(Mesh native, Context context, Op? key = null) {
         Op op = key.OrDefault();
         return from active in Optional(native).ToFin(op.InvalidInput())
@@ -135,7 +132,10 @@ public readonly record struct MeshSpace {
                let snapshot = active.DuplicateMesh()
                select new MeshSpace(native: snapshot, tolerance: ctx);
     }
+    public Context Tolerance { get; }
+    internal Mesh Native { get; }
     internal LaplacianCache Cache => LaplacianCache.For(space: this);
+    public Mesh DuplicateNative() => Native.DuplicateMesh();
     public Fin<SparseLaplacian> Laplacian(MeshLaplacian kind, Op? key = null) =>
         MeshKernel.LaplacianOf(space: this, kind: kind, key: key.OrDefault());
 }
@@ -155,11 +155,6 @@ public readonly record struct TopologyReceipt(int Vertices, int TopologyVertices
 }
 
 [BoundaryAdapter, StructLayout(LayoutKind.Auto)]
-public readonly record struct SparseLaplacian(SparseMatrix Stiffness, SparseMatrix MassConsistent, Arr<double> MassLumped, int SkippedDegenerateFaces = 0, Option<TuftedLaplacianReceipt> Tufted = default) {
-    public bool IsValid => Stiffness.IsValid && MassConsistent.IsValid && Stiffness.Rows.Value == MassConsistent.Rows.Value && Stiffness.Cols.Value == MassConsistent.Cols.Value && Stiffness.Rows.Value == Stiffness.Cols.Value && MassLumped.Count == Stiffness.Rows.Value && MassLumped.All(static v => RhinoMath.IsValidDouble(x: v) && v >= 0.0) && Tufted.Map(static receipt => receipt.IsValid).IfNone(noneValue: true);
-}
-
-[BoundaryAdapter, StructLayout(LayoutKind.Auto)]
 public readonly record struct TuftedLaplacianReceipt(MeshLaplacian Kind, int OriginalVertices, int OriginalFaces, int IntrinsicVertices, int IntrinsicEdges, int IntrinsicFaces, int LogicalCoverFaces, int LogicalCoverEdges, int BoundaryEdges, int NonManifoldEdges, int MollifiedEdges, double MaxMollification, int IntrinsicFlips, bool DelaunaySatisfied, int StiffnessNonZeros, int MassNonZeros, int PositiveMassCount, int SkippedDegenerateFaces, bool CoverAware, bool CollapsedToOriginalVertices) {
     public bool IsValid =>
         Kind is not null
@@ -171,6 +166,11 @@ public readonly record struct TuftedLaplacianReceipt(MeshLaplacian Kind, int Ori
         && (!CollapsedToOriginalVertices || IntrinsicVertices == OriginalVertices)
         && PositiveMassCount <= OriginalVertices
         && DelaunaySatisfied;
+}
+
+[BoundaryAdapter, StructLayout(LayoutKind.Auto)]
+public readonly record struct SparseLaplacian(SparseMatrix Stiffness, SparseMatrix MassConsistent, Arr<double> MassLumped, int SkippedDegenerateFaces = 0, Option<TuftedLaplacianReceipt> Tufted = default) {
+    public bool IsValid => Stiffness.IsValid && MassConsistent.IsValid && Stiffness.Rows.Value == MassConsistent.Rows.Value && Stiffness.Cols.Value == MassConsistent.Cols.Value && Stiffness.Rows.Value == Stiffness.Cols.Value && MassLumped.Count == Stiffness.Rows.Value && MassLumped.All(static v => RhinoMath.IsValidDouble(x: v) && v >= 0.0) && Tufted.Map(static receipt => receipt.IsValid).IfNone(noneValue: true);
 }
 
 [BoundaryAdapter, StructLayout(LayoutKind.Auto)] public readonly record struct SpectralBasisBundle(SpectralBasis Basis, EigenSolveReceipt<double, Arr<double>> Eigen, bool CacheHit = false, int SkippedDegenerateFaces = 0, Option<int> FactorNonZeros = default);
@@ -255,14 +255,14 @@ public readonly record struct RemeshResult(Mesh Mesh, RemeshReceipt Receipt) {
         };
 }
 
+[BoundaryAdapter, StructLayout(LayoutKind.Auto)] public readonly record struct SignedHeatReceipt(int BoundarySourceVertexCount, int BoundaryEncodedEdgeSourceCount, int BoundaryRejectedPointCount, int BoundaryUnmatchedSegmentCount, Option<SolveReceipt> HeatSolve, SolveReceipt PoissonSolve, Option<SpectralAssemblyReceipt> EdgeAssembly = default);
+
+[BoundaryAdapter, StructLayout(LayoutKind.Auto)] public readonly record struct VolumeGridReceipt(BoundingBox Bounds, int Resolution, int XNodes, int YNodes, int ZNodes, double CellSize, double Padding, int NodeCount, int CellCount, int SourceTriangleCount, int DegenerateTriangleCount, double SourceArea, int InsideNodeCount, int OutsideNodeCount, int NearSurfaceNodeCount, int RejectedVectorCount, double HeatTime, int GaugeNode, double SurfaceShift, VolumeInterpolation Interpolation, VolumeBoundaryCondition BoundaryCondition, VolumeSolverPolicy Solver, int OperatorNonZeros, Option<int> FactorNonZeros, double Residual);
+
 [BoundaryAdapter, StructLayout(LayoutKind.Auto)]
 public readonly record struct SdfMeshReceipt(SdfMeshMethod Method, SdfMeshStatus Status, SdfMeshDomain Domain, TopologyReceipt Topology, Option<SignedHeatReceipt> SignedHeat, Option<VolumeGridReceipt> VolumeGrid = default);
 
 [BoundaryAdapter, StructLayout(LayoutKind.Auto)] public readonly record struct SdfMeshSample(double Distance, SdfMeshReceipt Receipt);
-
-[BoundaryAdapter, StructLayout(LayoutKind.Auto)] public readonly record struct SignedHeatReceipt(int BoundarySourceVertexCount, int BoundaryEncodedEdgeSourceCount, int BoundaryRejectedPointCount, int BoundaryUnmatchedSegmentCount, Option<SolveReceipt> HeatSolve, SolveReceipt PoissonSolve, Option<SpectralAssemblyReceipt> EdgeAssembly = default);
-
-[BoundaryAdapter, StructLayout(LayoutKind.Auto)] public readonly record struct VolumeGridReceipt(BoundingBox Bounds, int Resolution, int XNodes, int YNodes, int ZNodes, double CellSize, double Padding, int NodeCount, int CellCount, int SourceTriangleCount, int DegenerateTriangleCount, double SourceArea, int InsideNodeCount, int OutsideNodeCount, int NearSurfaceNodeCount, int RejectedVectorCount, double HeatTime, int GaugeNode, double SurfaceShift, VolumeInterpolation Interpolation, VolumeBoundaryCondition BoundaryCondition, VolumeSolverPolicy Solver, int OperatorNonZeros, Option<int> FactorNonZeros, double Residual);
 
 [BoundaryAdapter, StructLayout(LayoutKind.Auto)]
 public readonly record struct SignpostTransportReceipt(int VertexCount, int IntrinsicEdgeCount, int TransportedEdgeCount, int IntrinsicFlipCount, int ChordFallbackEdges, int MissingFrameEdges, int CommonSubdivisionSegments, bool IntrinsicSnapshot, bool ExactCommonSubdivision, double MaxAngleRadians, double MaxLengthResidual) {

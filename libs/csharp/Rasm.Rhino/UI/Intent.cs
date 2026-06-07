@@ -112,6 +112,7 @@ public static partial class UiIntent {
 
     public static UiIntent<Unit> Status(UiStatus status) =>
         OfScope(_ => status.Apply());
+
     public static UiIntent<Unit> Redraw(RedrawTarget target) =>
         OfScope(run: _ => RhinoUi.Protect(valid: () => Op.Of(name: nameof(Redraw)).Need(target).Map(valid => valid.Repaint())), interactive: false);
 
@@ -144,6 +145,7 @@ public static partial class UiIntent {
                     global::Rhino.UI.Dialogs.ShowTextDialog(message: body, title: title ?? string.Empty);
                     return Fin.Succ(value: unit);
                 })));
+
     public static UiIntent<T> Choice<T>(string title, string message, IEnumerable<T> items, Option<T> selected = default) =>
         Request(name: nameof(Choice), run: _ => Items(values: items, name: nameof(Choice))
             .Bind(choices => Picked(selected.Case switch {
@@ -172,6 +174,27 @@ public static partial class UiIntent {
                     Seq<string> updated when updated.Count == items.Count => Fin.Succ(value: items.Zip(updated).Map(static pair => (pair.First.Name, pair.Second))),
                     _ => Fin.Fail<Seq<(string Name, string Value)>>(error: Op.Of(name: nameof(Properties)).InvalidResult()),
                 })));
+
+    public static UiIntent<int> ContextMenu(IEnumerable<string> items, System.Drawing.Point screenPoint, IEnumerable<int>? modes = null) =>
+        Request(name: nameof(ContextMenu), run: _ => Items(values: items, name: nameof(ContextMenu)).Bind(menuItems => (menuItems, Optional(modes).Map(static value => toSeq(value)).IfNone(Seq<int>())) switch {
+            (Seq<string> entries, Seq<int> flags) when !flags.IsEmpty && flags.Count != entries.Count => Fin.Fail<int>(error: Op.Of(name: nameof(ContextMenu)).InvalidInput()),
+            (Seq<string> entries, Seq<int> flags) => global::Rhino.UI.Dialogs.ShowContextMenu(items: entries.AsIterable(), screenPoint: screenPoint, modes: (flags.IsEmpty ? entries.Map(static _ => 0) : flags).AsIterable()) switch {   // mode 0 = enabled (1 = disabled, 2 = separator) — default-1 rendered every no-modes item unclickable
+                int index when index >= 0 => Fin.Succ(value: index),
+                _ => Fin.Fail<int>(error: new Fault.Cancelled()),
+            },
+        }));
+
+    public static UiIntent<string> Edit(string title, string message, string value = "", bool expanded = false) =>
+        Request(name: nameof(Edit), run: _ => Picked(global::Rhino.UI.Dialogs.ShowEditBox(title: title, message: message, defaultText: value, multiline: expanded, text: out string result), result));
+
+    public static UiIntent<double> Number(string title, string message, double value = 0.0, Option<(double Lower, double Upper)> bounds = default) =>
+        Request(name: nameof(Number), run: _ => bounds.Case switch {
+            // native min/max constrain the spinbox, not the initial display — clamp the seed (always >= lower post-clamp) instead of rejecting an out-of-bounds value
+            (double lower, double upper) when lower <= upper && (value = Math.Clamp(value, lower, upper)) >= lower =>
+                Picked(global::Rhino.UI.Dialogs.ShowNumberBox(title: title, message: message, number: ref value, minimum: lower, maximum: upper), value),
+            (double, double) => Fin.Fail<double>(error: Op.Of(name: nameof(Number)).InvalidInput()),
+            _ => Picked(global::Rhino.UI.Dialogs.ShowNumberBox(title: title, message: message, number: ref value), value),
+        });
 
     public static UiIntent<UiLayerResult> Layer(UiLayerRequest request) =>
         Request(name: nameof(Layer), run: scope => request.Switch(scope,
@@ -207,27 +230,6 @@ public static partial class UiIntent {
             return Picked(global::Rhino.UI.Dialogs.ShowSelectLinetypeDialog(linetypeIndex: ref index, displayByLayer: displayByLayer), index);
         });
 
-    public static UiIntent<int> ContextMenu(IEnumerable<string> items, System.Drawing.Point screenPoint, IEnumerable<int>? modes = null) =>
-        Request(name: nameof(ContextMenu), run: _ => Items(values: items, name: nameof(ContextMenu)).Bind(menuItems => (menuItems, Optional(modes).Map(static value => toSeq(value)).IfNone(Seq<int>())) switch {
-            (Seq<string> entries, Seq<int> flags) when !flags.IsEmpty && flags.Count != entries.Count => Fin.Fail<int>(error: Op.Of(name: nameof(ContextMenu)).InvalidInput()),
-            (Seq<string> entries, Seq<int> flags) => global::Rhino.UI.Dialogs.ShowContextMenu(items: entries.AsIterable(), screenPoint: screenPoint, modes: (flags.IsEmpty ? entries.Map(static _ => 0) : flags).AsIterable()) switch {   // mode 0 = enabled (1 = disabled, 2 = separator) — default-1 rendered every no-modes item unclickable
-                int index when index >= 0 => Fin.Succ(value: index),
-                _ => Fin.Fail<int>(error: new Fault.Cancelled()),
-            },
-        }));
-
-    public static UiIntent<string> Edit(string title, string message, string value = "", bool expanded = false) =>
-        Request(name: nameof(Edit), run: _ => Picked(global::Rhino.UI.Dialogs.ShowEditBox(title: title, message: message, defaultText: value, multiline: expanded, text: out string result), result));
-
-    public static UiIntent<double> Number(string title, string message, double value = 0.0, Option<(double Lower, double Upper)> bounds = default) =>
-        Request(name: nameof(Number), run: _ => bounds.Case switch {
-            // native min/max constrain the spinbox, not the initial display — clamp the seed (always >= lower post-clamp) instead of rejecting an out-of-bounds value
-            (double lower, double upper) when lower <= upper && (value = Math.Clamp(value, lower, upper)) >= lower =>
-                Picked(global::Rhino.UI.Dialogs.ShowNumberBox(title: title, message: message, number: ref value, minimum: lower, maximum: upper), value),
-            (double, double) => Fin.Fail<double>(error: Op.Of(name: nameof(Number)).InvalidInput()),
-            _ => Picked(global::Rhino.UI.Dialogs.ShowNumberBox(title: title, message: message, number: ref value), value),
-        });
-
     public static UiIntent<double> PrintWidth(string title, string message, Option<double> selected = default) =>
         Request(name: nameof(PrintWidth), run: _ => {
             double width = selected.Case switch {
@@ -239,6 +241,19 @@ public static partial class UiIntent {
 
     public static UiIntent<Unit> Sun() =>
         Request(name: nameof(Sun), run: scope => Picked(global::Rhino.UI.Dialogs.ShowSunDialog(sun: scope.Document.Lights.Sun), unit));
+
+    public static UiIntent<Color4f> Color(UiColorSpec spec) =>
+        Dialog((parent, _) => Op.Of(name: nameof(Color)).Catch(() => {
+            Color4f color = spec.Initial;
+            global::Rhino.UI.NamedColorList? named = spec.Named.Case switch { global::Rhino.UI.NamedColorList v => v, _ => null };
+            return global::Rhino.UI.Dialogs.ShowColorDialog(parent: parent, color: ref color, allowAlpha: spec.AllowAlpha, namedColorList: named, colorCallback: spec.Changed)
+                switch { true => Fin.Succ(value: color), false => Fin.Fail<Color4f>(error: new Fault.Cancelled()) };
+        }));
+
+    public static UiIntent<Seq<global::Rhino.UI.NamedColor>> NamedColors(Option<global::Rhino.UI.NamedColorList> source = default) =>
+        Of(
+            name: nameof(NamedColors),
+            run: (_, _) => Fin.Succ(value: toSeq(source.IfNone(global::Rhino.UI.NamedColorList.Default))));
 
     public static UiIntent<DrawingBitmap> Mesh(IEnumerable<Mesh> meshes, DrawingSize size, IEnumerable<DrawingColor>? colors = null) =>
         Of(
@@ -271,6 +286,17 @@ public static partial class UiIntent {
                     from _ in guard(size.Width > 0 && size.Height > 0, Op.Of(name: nameof(Curve)).InvalidInput())
                     from preview in Project(op: Op.Of(name: nameof(Curve)), native: () => global::Rhino.UI.DrawingUtilities.CreateCurvePreviewGeometry(curve: values.Curve, linetype: values.Linetype, width: size.Width, height: size.Height))
                     select toSeq(preview)));
+
+    public static UiIntent<CaptureResult> CaptureFrame(RhinoView view, CaptureFormat format, CaptureRecipe recipe = default) =>
+        Of(name: nameof(CaptureFrame), run: (_, _) => recipe.WithPolicy(
+            fallbackDpi: CaptureRecipe.DefaultScreenDpi,
+            fallbackDecor: CaptureRecipe.DefaultScreenDecor,
+            rewrite: static (decor, _) => decor).Render(
+            view: view,
+            viewport: recipe.Viewport(view: view),
+            project: settings => CaptureCodec.Of(format: format).Render(settings: settings, op: Op.Of(name: nameof(CaptureFrame))),
+            op: Op.Of(name: nameof(CaptureFrame))));
+
     public static UiIntent<TOut> Resource<TOut>(string resourceName, DrawingSize size, Assembly assembly, bool scaleDown = false) where TOut : class =>
         Of(
             name: nameof(Resource),
@@ -298,29 +324,6 @@ public static partial class UiIntent {
                 from _ in guard(width > 0 && height > 0, Op.Of(name: nameof(Svg)).InvalidInput())
                 from bitmap in Project(op: Op.Of(name: nameof(Svg)), native: () => global::Rhino.UI.DrawingUtilities.BitmapFromSvg(svg: source, width: width, height: height, adjustForDarkMode: global::Rhino.Runtime.HostUtils.RunningInDarkMode))
                 select bitmap);
-
-    public static UiIntent<Seq<global::Rhino.UI.NamedColor>> NamedColors(Option<global::Rhino.UI.NamedColorList> source = default) =>
-        Of(
-            name: nameof(NamedColors),
-            run: (_, _) => Fin.Succ(value: toSeq(source.IfNone(global::Rhino.UI.NamedColorList.Default))));
-
-    public static UiIntent<CaptureResult> CaptureFrame(RhinoView view, CaptureFormat format, CaptureRecipe recipe = default) =>
-        Of(name: nameof(CaptureFrame), run: (_, _) => recipe.WithPolicy(
-            fallbackDpi: CaptureRecipe.DefaultScreenDpi,
-            fallbackDecor: CaptureRecipe.DefaultScreenDecor,
-            rewrite: static (decor, _) => decor).Render(
-            view: view,
-            viewport: recipe.Viewport(view: view),
-            project: settings => CaptureCodec.Of(format: format).Render(settings: settings, op: Op.Of(name: nameof(CaptureFrame))),
-            op: Op.Of(name: nameof(CaptureFrame))));
-
-    public static UiIntent<Color4f> Color(UiColorSpec spec) =>
-        Dialog((parent, _) => Op.Of(name: nameof(Color)).Catch(() => {
-            Color4f color = spec.Initial;
-            global::Rhino.UI.NamedColorList? named = spec.Named.Case switch { global::Rhino.UI.NamedColorList v => v, _ => null };
-            return global::Rhino.UI.Dialogs.ShowColorDialog(parent: parent, color: ref color, allowAlpha: spec.AllowAlpha, namedColorList: named, colorCallback: spec.Changed)
-                switch { true => Fin.Succ(value: color), false => Fin.Fail<Color4f>(error: new Fault.Cancelled()) };
-        }));
 
     internal static UiIntent<T> OfScope<T>(Func<RhinoUi.Scope, Fin<T>> run, bool interactive = false, Option<Func<RhinoUi.Scope, Fin<T>>> scripted = default) =>
         new(run: run, interactive: interactive, scripted: scripted);
@@ -356,15 +359,16 @@ public static partial class UiIntent {
             interactive: interactive);
     }
 
-    private static Fin<T> Project<T>(Op op, Func<T?> native) where T : class => Optional(native()).ToFin(Fail: op.InvalidResult());
-
-    private static Fin<T> Picked<T>(bool ok, T value) => ok ? Fin.Succ(value: value) : Fin.Fail<T>(error: new Fault.Cancelled());
-    private static Fin<T> Picked<T>(T? value) where T : class => Optional(value).ToFin(Fail: new Fault.Cancelled());
-
     private static UiIntent<T> Request<T>(string name, Func<RhinoUi.Scope, Fin<T>> run, bool interactive = true) =>
         OfScope(
             run: scope => Op.Of(name: name).Need(run).Bind(valid => valid(arg: scope)),
             interactive: interactive);
+
+    private static Fin<T> Project<T>(Op op, Func<T?> native) where T : class => Optional(native()).ToFin(Fail: op.InvalidResult());
+
+    private static Fin<T> Picked<T>(bool ok, T value) => ok ? Fin.Succ(value: value) : Fin.Fail<T>(error: new Fault.Cancelled());
+
+    private static Fin<T> Picked<T>(T? value) where T : class => Optional(value).ToFin(Fail: new Fault.Cancelled());
 
     private static Fin<Seq<T>> Items<T>(IEnumerable<T> values, string name) =>
         Op.Of(name: name).Need(values).Bind(source => toSeq(source) switch {
@@ -372,15 +376,16 @@ public static partial class UiIntent {
             _ => Fin.Fail<Seq<T>>(error: Op.Of(name: name).InvalidInput()),
         });
 
+    private static Fin<Seq<int>> LayerIndices(Seq<int> values) =>
+        values.Filter(static index => index >= 0).Distinct() switch {
+            Seq<int> indices when !indices.IsEmpty => Fin.Succ(value: indices),
+            _ => Fin.Fail<Seq<int>>(error: Op.Of(name: nameof(Layer)).InvalidResult()),
+        };
+
     private static Fin<Seq<int>> MultipleLayers(UiLayerRequest request) =>
         global::Rhino.UI.Dialogs.ShowSelectMultipleLayersDialog(defaultLayerIndices: request.Selected.IfNone(Seq<int>()).AsIterable(), dialogTitle: request.Title, showNewLayerButton: request.ShowNewLayer, layerIndices: out int[] indices) switch {
             true => LayerIndices(values: toSeq(indices)),
             false => Fin.Fail<Seq<int>>(error: new Fault.Cancelled()),
         };
 
-    private static Fin<Seq<int>> LayerIndices(Seq<int> values) =>
-        values.Filter(static index => index >= 0).Distinct() switch {
-            Seq<int> indices when !indices.IsEmpty => Fin.Succ(value: indices),
-            _ => Fin.Fail<Seq<int>>(error: Op.Of(name: nameof(Layer)).InvalidResult()),
-        };
 }

@@ -29,22 +29,11 @@ internal sealed partial class Severity {
 // --- [MODELS] -----------------------------------------------------------------------------
 [StructLayout(LayoutKind.Auto)]
 public readonly record struct Shape {
+    public const string Accepted = "Rhino/GH geometry convertible through native RhinoCommon or GH2 brokers";
+    private static readonly Atom<Seq<Func<object, Option<Shape>>>> Extensions = Atom(value: Seq<Func<object, Option<Shape>>>());
     private readonly Option<IDisposable> owned;
     private Shape(object inner, Option<IDisposable> owned) { Inner = inner; this.owned = owned; }
     public object Inner { get; }
-    public const string Accepted = "Rhino/GH geometry convertible through native RhinoCommon or GH2 brokers";
-    internal Unit DisposeUnlessTransferred(Seq<object> outputs) =>
-        owned.Filter(disposable => !outputs.Exists(output => ReferenceEquals(objA: output, objB: disposable) || output switch {
-            TopologyProjection projection => projection.Transfers(output: disposable),
-            BrepFace face => ReferenceEquals(objA: face.Brep, objB: disposable),
-            _ => false,
-        }))
-            .Iter(static disposable => disposable.Dispose());
-    internal Flow<TSource> Detach<TSource>(Flow<TSource> output) =>
-        (Inner, output.Item) switch {
-            (GeometryBase source, TopologyProjection projection) => output.Project(item: (TSource)(object)projection.DetachFrom(source: source)),
-            _ => output,
-        };
     internal static Fin<Shape> Create(object? value) => Create(value: value, owned: Option<IDisposable>.None);
     private static Fin<Shape> Create(object? value, Option<IDisposable> owned) =>
         Optional(value)
@@ -67,7 +56,18 @@ public readonly record struct Shape {
         _ = Extensions.Swap(brokers => brokers.Add(value: raw => raw is T typed ? convert(arg: typed).Bind(candidate => Create(value: candidate).ToOption()) : Option<Shape>.None));
         return unit;
     }
-    private static readonly Atom<Seq<Func<object, Option<Shape>>>> Extensions = Atom(value: Seq<Func<object, Option<Shape>>>());
+    internal Unit DisposeUnlessTransferred(Seq<object> outputs) =>
+        owned.Filter(disposable => !outputs.Exists(output => ReferenceEquals(objA: output, objB: disposable) || output switch {
+            TopologyProjection projection => projection.Transfers(output: disposable),
+            BrepFace face => ReferenceEquals(objA: face.Brep, objB: disposable),
+            _ => false,
+        }))
+            .Iter(static disposable => disposable.Dispose());
+    internal Flow<TSource> Detach<TSource>(Flow<TSource> output) =>
+        (Inner, output.Item) switch {
+            (GeometryBase source, TopologyProjection projection) => output.Project(item: (TSource)(object)projection.DetachFrom(source: source)),
+            _ => output,
+        };
     private static Seq<Func<object, Option<Shape>>> Brokers =>
         Seq<Func<object, Option<Shape>>>(
             static raw => AsShape(value: raw),
@@ -156,6 +156,8 @@ internal abstract partial record PortFault : Domain.Expected {
 // --- [SERVICES] ---------------------------------------------------------------------------
 [BoundaryAdapter]
 internal static partial class Bridge {
+    internal static Unit Emit(this IDataAccess access, Severity severity, string text, string details) =>
+        severity.Emit(access: access, text: text, details: details);
     internal static Fin<Analyze.Scope> Scope(this IDataAccess access) {
         ArgumentNullException.ThrowIfNull(argument: access);
         UnitPolicy units = UnitPolicy.Read(access: access);
@@ -170,14 +172,6 @@ internal static partial class Bridge {
             },
             Fail: _ => Remark(access: access, units: units.System));
     }
-    internal static Fin<Seq<Flow<Shape>>> ReadShape(this IDataAccess access, int slot, Port port) {
-        ArgumentNullException.ThrowIfNull(argument: access);
-        ArgumentNullException.ThrowIfNull(argument: port);
-        return from factor in UnitPolicy.Read(access: access).Scale
-               from values in Read<object>(access: access, slot: slot, port: port)
-               from normalized in values.TraverseM(sourced => NormalizeFlow(access: access, source: sourced, port: port, factor: factor)).As()
-               select normalized;
-    }
     internal static Fin<Seq<Flow<TVal>>> Read<TVal>(this IDataAccess access, int slot, Port port) {
         ArgumentNullException.ThrowIfNull(argument: access);
         ArgumentNullException.ThrowIfNull(argument: port);
@@ -186,22 +180,36 @@ internal static partial class Bridge {
             : Channel<TVal>.For(access: port.Access).Read(access: access, slot: slot, port: port))
             .Bind(values => Validate(values: values, port: port));
     }
+    internal static Fin<Seq<Flow<Shape>>> ReadShape(this IDataAccess access, int slot, Port port) {
+        ArgumentNullException.ThrowIfNull(argument: access);
+        ArgumentNullException.ThrowIfNull(argument: port);
+        return from factor in UnitPolicy.Read(access: access).Scale
+               from values in Read<object>(access: access, slot: slot, port: port)
+               from normalized in values.TraverseM(sourced => NormalizeFlow(access: access, source: sourced, port: port, factor: factor)).As()
+               select normalized;
+    }
     internal static Seq<object> Write<TOut>(this IDataAccess access, int slot, Port<TOut> port, Seq<Flow<TOut>> values) =>
         port.Kind.RequiresWire<TOut>()
             ? Channel<int>.For(access: port.Access).Write(access: access, slot: slot, name: port.Name, values: values.Map(static value => PortKind.Encode(value)))
             : Channel<TOut>.For(access: port.Access).Write(access: access, slot: slot, name: port.Name, values: values);
-    private static Fin<Seq<Flow<TVal>>> Validate<TVal>(Seq<Flow<TVal>> values, Port port) =>
-        port.Policy.Validators.IsEmpty
-            ? Fin.Succ(values)
-            : values.TraverseM(value => port.Policy.Validators
-                .Find(predicate: rule => !rule.Predicate(arg: value.Item!))
-                .Map(static rule => rule.Message) switch {
-                    { IsSome: true, Case: string message } => Fin.Fail<Flow<TVal>>(new PortFault.InvalidValue(Port: port.Name, Detail: message)),
-                    _ => Fin.Succ(value),
-                }).As();
+    internal sealed class Progress(IDataAccess access) : IProgress<double> {
+        public void Report(double value) => access.SetProgress(percentage: (int)Rhino.RhinoMath.Clamp(value: value * 100.0, 0.0, 100.0));
+    }
     [Union(SwitchMapStateParameterName = "context")]
     internal abstract partial record Channel<T> {
         private Channel() { }
+        internal sealed record ItemChannel : Channel<T> {
+            internal static readonly ItemChannel Instance = new();
+        }
+        internal sealed record TwigChannel : Channel<T> {
+            internal static readonly TwigChannel Instance = new();
+        }
+        internal sealed record TreeChannel : Channel<T> {
+            internal static readonly TreeChannel Instance = new();
+        }
+        internal sealed record UnsupportedChannel : Channel<T> {
+            internal static readonly UnsupportedChannel Instance = new();
+        }
         internal static Channel<T> For(Access access) => access switch {
             Access.Item => ItemChannel.Instance,
             Access.Twig => TwigChannel.Instance,
@@ -217,10 +225,10 @@ internal static partial class Bridge {
                 },
                 twigChannel: static (ctx, _) => ctx.Access.GetTwig(index: ctx.Slot, twig: out Twig<T> twig)
                     ? FlowPears(port: ctx.Port, pears: twig.Pears.Select(static pear => (Pear: pear, Site: Option<Site>.None)))
-                    : MissingFlow<T>(port: ctx.Port),
+                    : MissingFlow(port: ctx.Port),
                 treeChannel: static (ctx, _) => ctx.Access.GetTree(index: ctx.Slot, tree: out Tree<T> tree)
                     ? FlowPears(port: ctx.Port, pears: tree.EnumerateLeaves().Select(static leaf => (leaf.Pear, Site: Some(leaf.Site))))
-                    : MissingFlow<T>(port: ctx.Port),
+                    : MissingFlow(port: ctx.Port),
                 unsupportedChannel: static (ctx, _) => Fin.Fail<Seq<Flow<T>>>(new PortFault.UnsupportedAccess(Access: ctx.Port.Access.ToString())));
         internal Seq<object> Write(IDataAccess access, int slot, string name, Seq<Flow<T>> values) =>
             Switch(
@@ -245,33 +253,39 @@ internal static partial class Bridge {
             set();
             return values.Map(static value => (object)value.Item!);
         }
-        internal sealed record ItemChannel : Channel<T> {
-            internal static readonly ItemChannel Instance = new();
-        }
-        internal sealed record TwigChannel : Channel<T> {
-            internal static readonly TwigChannel Instance = new();
-        }
-        internal sealed record TreeChannel : Channel<T> {
-            internal static readonly TreeChannel Instance = new();
-        }
-        internal sealed record UnsupportedChannel : Channel<T> {
-            internal static readonly UnsupportedChannel Instance = new();
+        private static Fin<Seq<Flow<T>>> MissingFlow(Port port) =>
+            // GH2 contract: Process runs for MayBeNull/MayBeMissing even when the input is absent.
+            (port.Requirement switch {
+                Grasshopper2.Parameters.Requirement.MayBeMissing or Grasshopper2.Parameters.Requirement.MayBeNull => Fin.Succ(Seq<Pear<T>>()),
+                _ => Fin.Fail<Seq<Pear<T>>>(new PortFault.MissingInput(Port: port.Name, Hint: None)),
+            }).Map(static pears => pears.Map(static pear => new Flow<T>(Pear: pear, Site: Option<Site>.None)));
+        private static Seq<Leaf<T>> Leaves(Seq<Flow<T>> values) =>
+            values.Map((value, index) => new Leaf<T>(pear: value.Pear, site: value.Site.IfNone(new Site(path: new Grasshopper2.Data.Path(0), item: index))));
+        private static Fin<Seq<Flow<T>>> FlowPears(Port port, IEnumerable<(Pear<T> Pear, Option<Site> Site)> pears) {
+            Seq<(Pear<T> Pear, Option<Site> Site, int Index)> indexed = toSeq(pears.Select((pear, index) => (pear.Pear, pear.Site, Index: index)));
+            Pear<T>[] raw = [.. indexed.Map(static item => item.Pear).AsIterable()];
+            return (indexed.Count, ArrayEx.AnyNull(raw)) switch {
+                ( > 0, false) => Fin.Succ(indexed.Map(static item => new Flow<T>(Pear: item.Pear, Site: item.Site))),
+                ( > 0, true) => Fin.Fail<Seq<Flow<T>>>(new PortFault.InvalidValue(
+                    Port: port.Name,
+                    Detail: $"host returned null pear(s) at index {string.Join(separator: ',', values: indexed.Filter(static item => item.Pear is null).Map(static item => item.Index))}; flow cardinality was preserved by rejecting the read")),
+                _ => MissingFlow(port: port),
+            };
         }
     }
-    internal static Unit Emit(this IDataAccess access, Severity severity, string text, string details) =>
-        severity.Emit(access: access, text: text, details: details);
+    private static Fin<Seq<Flow<TVal>>> Validate<TVal>(Seq<Flow<TVal>> values, Port port) =>
+        port.Policy.Validators.IsEmpty
+            ? Fin.Succ(values)
+            : values.TraverseM(value => port.Policy.Validators
+                .Find(predicate: rule => !rule.Predicate(arg: value.Item!))
+                .Map(static rule => rule.Message) switch {
+                    { IsSome: true, Case: string message } => Fin.Fail<Flow<TVal>>(new PortFault.InvalidValue(Port: port.Name, Detail: message)),
+                    _ => Fin.Succ(value),
+                }).As();
     private static Fin<Analyze.Scope> Remark(IDataAccess access, Rhino.UnitSystem units) =>
         access.Emit(severity: Severity.Remark, text: "Tolerance", details: "Host did not supply reliable tolerance; using default tolerance with document units.") switch {
             _ => Fin.Succ(Analyze.In(units: units == Rhino.UnitSystem.CustomUnits ? Rhino.UnitSystem.Millimeters : units)),
         };
-    private static Fin<Seq<Flow<TVal>>> MissingFlow<TVal>(Port port) =>
-        // GH2 contract: Process runs for MayBeNull/MayBeMissing even when the input is absent.
-        (port.Requirement switch {
-            Grasshopper2.Parameters.Requirement.MayBeMissing or Grasshopper2.Parameters.Requirement.MayBeNull => Fin.Succ(Seq<Pear<TVal>>()),
-            _ => Fin.Fail<Seq<Pear<TVal>>>(new PortFault.MissingInput(Port: port.Name, Hint: None)),
-        }).Map(static pears => pears.Map(static pear => new Flow<TVal>(Pear: pear, Site: Option<Site>.None)));
-    private static Seq<Leaf<T>> Leaves<T>(Seq<Flow<T>> values) =>
-        values.Map((value, index) => new Leaf<T>(pear: value.Pear, site: value.Site.IfNone(new Site(path: new Grasshopper2.Data.Path(0), item: index))));
     private static Fin<Flow<Shape>> NormalizeFlow(IDataAccess access, Flow<object> source, Port port, double factor) =>
         Optional(source.Item)
             .ToFin(new PortFault.MissingInput(Port: port.Name, Hint: Some(Shape.Accepted)))
@@ -296,19 +310,5 @@ internal static partial class Bridge {
                         .ToFin(new Fault.ComputationFailed(Label: "UnitScaling")))
                     .Map(scaled => new Flow<Shape>(Pear: Pear<Shape>.Create(item: scaled, meta: transformed.Meta), Site: source.Site)),
             });
-    }
-    internal sealed class Progress(IDataAccess access) : IProgress<double> {
-        public void Report(double value) => access.SetProgress(percentage: (int)Rhino.RhinoMath.Clamp(value: value * 100.0, 0.0, 100.0));
-    }
-    private static Fin<Seq<Flow<T>>> FlowPears<T>(Port port, IEnumerable<(Pear<T> Pear, Option<Site> Site)> pears) {
-        Seq<(Pear<T> Pear, Option<Site> Site, int Index)> indexed = toSeq(pears.Select((pear, index) => (pear.Pear, pear.Site, Index: index)));
-        Pear<T>[] raw = [.. indexed.Map(static item => item.Pear).AsIterable()];
-        return (indexed.Count, ArrayEx.AnyNull(raw)) switch {
-            ( > 0, false) => Fin.Succ(indexed.Map(static item => new Flow<T>(Pear: item.Pear, Site: item.Site))),
-            ( > 0, true) => Fin.Fail<Seq<Flow<T>>>(new PortFault.InvalidValue(
-                Port: port.Name,
-                Detail: $"host returned null pear(s) at index {string.Join(separator: ',', values: indexed.Filter(static item => item.Pear is null).Map(static item => item.Index))}; flow cardinality was preserved by rejecting the read")),
-            _ => MissingFlow<T>(port: port),
-        };
     }
 }

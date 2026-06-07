@@ -199,9 +199,6 @@ public readonly record struct FileWritePolicy(
 public sealed record FileEndpoint {
     private const int MaxCollisionAttempts = 9999;
 
-    private FileEndpoint(string path, Option<FileFormat> format, FileNamePolicy name, FileWritePolicy write, Option<string> relative) =>
-        (Path, Format, Name, Write, Relative) = (path, format, name, write.Normalized, relative);
-
     public static Fin<FileEndpoint> From(
         string path,
         Option<FileFormat> format = default,
@@ -223,6 +220,9 @@ public sealed record FileEndpoint {
             write: write,
             relative: rel);
 
+    private FileEndpoint(string path, Option<FileFormat> format, FileNamePolicy name, FileWritePolicy write, Option<string> relative) =>
+        (Path, Format, Name, Write, Relative) = (path, format, name, write.Normalized, relative);
+
     public string Path { get; }
 
     public Option<FileFormat> Format { get; }
@@ -234,6 +234,14 @@ public sealed record FileEndpoint {
     public Option<string> Relative { get; }
 
     public string StoredLinkPath => Relative.IfNone(noneValue: Path);
+
+    internal static Fin<string> NonBlank(string value, Op op) =>
+        op.AcceptText(value: value).MapFail(_ => op.InvalidInput());
+
+    internal static string NumberedPath(string path, int index) =>
+        IOPath.Combine(
+            path1: IOPath.GetDirectoryName(path: path) ?? string.Empty,
+            path2: string.Create(CultureInfo.InvariantCulture, $"{IOPath.GetFileNameWithoutExtension(path: path)}-{index:000}{IOPath.GetExtension(path: path)}"));
 
     internal Fin<T> WithReference<T>(Op key, Func<FileReference, Fin<T>> use) =>
         key.Catch(() => {
@@ -282,13 +290,20 @@ public sealed record FileEndpoint {
         });
     }
 
-    internal static Fin<string> NonBlank(string value, Op op) =>
-        op.AcceptText(value: value).MapFail(_ => op.InvalidInput());
+    private static Fin<string> NormalizePath(string path, Op op) =>
+        op.Catch(() => Fin.Succ(value: IOPath.GetFullPath(path: path)));
 
-    internal static string NumberedPath(string path, int index) =>
-        IOPath.Combine(
-            path1: IOPath.GetDirectoryName(path: path) ?? string.Empty,
-            path2: string.Create(CultureInfo.InvariantCulture, $"{IOPath.GetFileNameWithoutExtension(path: path)}-{index:000}{IOPath.GetExtension(path: path)}"));
+    private static string ApplyExtension(string path, Option<FileFormat> format, FileNamePolicy name) =>
+        name.Extension.Case switch {
+            string extension => string.IsNullOrWhiteSpace(value: extension) switch {
+                false => IOPath.ChangeExtension(path: path, extension: extension.TrimStart('.')),
+                true => path,
+            },
+            _ => format.Case switch {
+                FileFormat known => known.EnsureExtension(path: path),
+                _ => path,
+            },
+        };
 
     private static Fin<Option<string>> RelativeOption(Option<string> value, Op op) =>
         value.Case switch {
@@ -326,21 +341,15 @@ public sealed record FileEndpoint {
             .Map(index => WithPath(path: NumberedPath(path: Path, index: index)))
             .Find(static endpoint => !IOPath.Exists(path: endpoint.Path))
             .ToFin(Fail: op.InvalidInput());
+}
 
-    private static Fin<string> NormalizePath(string path, Op op) =>
-        op.Catch(() => Fin.Succ(value: IOPath.GetFullPath(path: path)));
+public sealed record ArchiveProfile(ArchiveSlice Slice, FileArchiveProjection Projection, FileWritePolicy Write, Seq<string> Embedded = default) {
+    public static ArchiveProfile Full { get; } = new(Slice: ArchiveSlice.Full, Projection: FileArchiveProjection.Full, Write: FileWritePolicy.Default);
 
-    private static string ApplyExtension(string path, Option<FileFormat> format, FileNamePolicy name) =>
-        name.Extension.Case switch {
-            string extension => string.IsNullOrWhiteSpace(value: extension) switch {
-                false => IOPath.ChangeExtension(path: path, extension: extension.TrimStart('.')),
-                true => path,
-            },
-            _ => format.Case switch {
-                FileFormat known => known.EnsureExtension(path: path),
-                _ => path,
-            },
-        };
+    internal bool Includes(string file) =>
+        Embedded.IsEmpty || Embedded.Exists(name =>
+            string.Equals(a: name, b: file, comparisonType: StringComparison.OrdinalIgnoreCase)
+            || string.Equals(a: name, b: IOPath.GetFileName(path: file), comparisonType: StringComparison.OrdinalIgnoreCase));
 }
 
 public readonly record struct FileUserString(string Key, Option<string> Section = default, Option<string> Value = default);
@@ -365,23 +374,6 @@ public sealed record FileNamedViewPatch(
     Option<string> Rename = default,
     bool Delete = false);
 
-public readonly record struct FileObjectManifest(
-    Guid Id,
-    Option<string> Name,
-    Option<string> Layer,
-    ObjectType ObjectType,
-    Option<string> Material,
-    Seq<string> UserStrings);
-
-public sealed record ArchiveProfile(ArchiveSlice Slice, FileArchiveProjection Projection, FileWritePolicy Write, Seq<string> Embedded = default) {
-    public static ArchiveProfile Full { get; } = new(Slice: ArchiveSlice.Full, Projection: FileArchiveProjection.Full, Write: FileWritePolicy.Default);
-
-    internal bool Includes(string file) =>
-        Embedded.IsEmpty || Embedded.Exists(name =>
-            string.Equals(a: name, b: file, comparisonType: StringComparison.OrdinalIgnoreCase)
-            || string.Equals(a: name, b: IOPath.GetFileName(path: file), comparisonType: StringComparison.OrdinalIgnoreCase));
-}
-
 public sealed record ArchiveUpdate(
     Option<FileArchiveMetadataPatch> Metadata = default,
     Seq<FileEndpoint> Embed = default,
@@ -389,6 +381,14 @@ public sealed record ArchiveUpdate(
     Seq<FileNamedViewPatch> NamedViews = default,
     Option<FileArchiveSettingsPatch> Settings = default,
     Option<FileEndpoint> PreviewImage = default);
+
+public readonly record struct FileObjectManifest(
+    Guid Id,
+    Option<string> Name,
+    Option<string> Layer,
+    ObjectType ObjectType,
+    Option<string> Material,
+    Seq<string> UserStrings);
 
 public readonly record struct FileIssue(FileIssueCode Code, string Message) {
     public static FileIssue Native(string message) =>
@@ -488,10 +488,10 @@ public readonly record struct FileVectorScale(
 }
 
 public sealed record FileProfile {
+    public static FileProfile Model { get; } = new(fidelity: FileFidelity.Model, resources: FileResourcePolicy.Reference, group: FileAxis.Document, order: FileAxis.Stable, format: Option<FileFormat>.None, scale: Option<FileVectorScale>.None);
+
     private FileProfile(FileFidelity fidelity, FileResourcePolicy resources, FileAxis group, FileAxis order, Option<FileFormat> format, Option<FileVectorScale> scale) =>
         (Fidelity, Resources, Group, Order, Format, Scale) = (fidelity, resources, group, order, format, scale);
-
-    public static FileProfile Model { get; } = new(fidelity: FileFidelity.Model, resources: FileResourcePolicy.Reference, group: FileAxis.Document, order: FileAxis.Stable, format: Option<FileFormat>.None, scale: Option<FileVectorScale>.None);
 
     public FileFidelity Fidelity { get; }
     public FileResourcePolicy Resources { get; }
@@ -519,9 +519,6 @@ public sealed record FileProfile {
 }
 
 public sealed record FilePrompt {
-    private FilePrompt(FilePromptMode mode, string title, string filter, Option<string> fileName, Option<string> initialDirectory, Option<string> defaultExtension, FileNamePolicy name, FileWritePolicy write) =>
-        (Mode, Title, Filter, FileName, InitialDirectory, DefaultExtension, Name, Write) = (mode, title, filter, fileName, initialDirectory, defaultExtension, PromptName(name: name, defaultExtension: defaultExtension), write.Normalized);
-
     public static Fin<FilePrompt> Open(string title, string filter = "", bool multiple = false, Option<string> fileName = default, Option<string> initialDirectory = default, Option<string> defaultExtension = default) =>
         Create(mode: multiple ? FilePromptMode.OpenMultiple : FilePromptMode.OpenSingle, title: title, filter: string.IsNullOrWhiteSpace(value: filter) ? FileFormat.Filter(phase: FilePhase.Import) : filter, fileName: fileName, initialDirectory: initialDirectory, defaultExtension: defaultExtension);
 
@@ -541,20 +538,8 @@ public sealed record FilePrompt {
     public static Fin<FilePrompt> Folder(string title, Option<string> initialDirectory = default) =>
         Create(mode: FilePromptMode.Folder, title: title, filter: string.Empty, initialDirectory: initialDirectory);
 
-    public FilePromptMode Mode { get; }
-    public string Title { get; }
-    public string Filter { get; }
-    public Option<string> FileName { get; }
-    public Option<string> InitialDirectory { get; }
-    public Option<string> DefaultExtension { get; }
-    public FileNamePolicy Name { get; }
-    public FileWritePolicy Write { get; }
-
-    internal Fin<Seq<FileEndpoint>> Defaults(Op op) =>
-        DefaultPath().Case switch {
-            string value => FileEndpoint.From(path: value, name: Name, write: Write).Map(endpoint => Seq(endpoint)),
-            _ => Fin.Fail<Seq<FileEndpoint>>(error: op.InvalidInput()),
-        };
+    private FilePrompt(FilePromptMode mode, string title, string filter, Option<string> fileName, Option<string> initialDirectory, Option<string> defaultExtension, FileNamePolicy name, FileWritePolicy write) =>
+        (Mode, Title, Filter, FileName, InitialDirectory, DefaultExtension, Name, Write) = (mode, title, filter, fileName, initialDirectory, defaultExtension, PromptName(name: name, defaultExtension: defaultExtension), write.Normalized);
 
     private static Fin<FilePrompt> Create(
         FilePromptMode mode,
@@ -578,6 +563,21 @@ public sealed record FilePrompt {
             defaultExtension: validExtension,
             name: name,
             write: write);
+
+    public FilePromptMode Mode { get; }
+    public string Title { get; }
+    public string Filter { get; }
+    public Option<string> FileName { get; }
+    public Option<string> InitialDirectory { get; }
+    public Option<string> DefaultExtension { get; }
+    public FileNamePolicy Name { get; }
+    public FileWritePolicy Write { get; }
+
+    internal Fin<Seq<FileEndpoint>> Defaults(Op op) =>
+        DefaultPath().Case switch {
+            string value => FileEndpoint.From(path: value, name: Name, write: Write).Map(endpoint => Seq(endpoint)),
+            _ => Fin.Fail<Seq<FileEndpoint>>(error: op.InvalidInput()),
+        };
 
     private static Fin<Option<string>> TextOption(Option<string> value, Op op) =>
         value.Case switch {

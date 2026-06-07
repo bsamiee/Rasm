@@ -23,6 +23,30 @@ namespace Rasm.Grasshopper.Components;
 public readonly partial record struct ComponentUi {
     public enum MouseKind { Down, Move, Up, SingleClick, DoubleClick }
 
+    public abstract record Callback(GhComponent Owner) {
+        public sealed record Bounds(GhComponent Owner, UiShape Shape) : Callback(Owner: Owner);
+        public sealed record Draw(GhComponent Owner, UiContext Context, Skin Skin, Capsule Capsule, Shade Shade) : Callback(Owner: Owner);
+        public sealed record Panel(GhComponent Owner, InputPanel Value) : Callback(Owner: Owner);
+        public sealed record Menu(GhComponent Owner, ContextMenu Value) : Callback(Owner: Owner);
+
+        public abstract record Pointer(GhComponent Owner, PointF ContentPoint, Option<PointF> ControlPoint = default) : Callback(Owner: Owner) {
+            public sealed record Cursor(GhComponent Owner, PointF ContentPoint) : Pointer(Owner: Owner, ContentPoint: ContentPoint);
+            public sealed record Hover(GhComponent Owner, PointF ContentPoint, PointF Control) : Pointer(Owner: Owner, ContentPoint: ContentPoint, ControlPoint: Optional(Control));
+        }
+
+        public sealed record Mouse(GhComponent Owner, MouseKind Kind, MouseEventArgs Args) : Callback(Owner: Owner) {
+            public PointF Point => Args.Location;
+        }
+
+        public abstract record Key(GhComponent Owner, KeyEventArgs Args) : Callback(Owner: Owner) {
+            public sealed record Down(GhComponent Owner, KeyEventArgs Args) : Key(Owner: Owner, Args: Args);
+            public sealed record Up(GhComponent Owner, KeyEventArgs Args) : Key(Owner: Owner, Args: Args);
+        }
+
+        public sealed record Frame(GhComponent Owner, SizeF Current) : Callback(Owner: Owner);
+        public sealed record Tip(GhComponent Owner, PointF Point, ObjectSolutionState State) : Callback(Owner: Owner);
+    }
+
     [SmartEnum<int>]
     public sealed partial class Phase {
         public static readonly Phase Layout = new(key: 0, matches: static ctx => ctx is Callback.Bounds);
@@ -41,36 +65,6 @@ public readonly partial record struct ComponentUi {
         public static readonly Phase Resize = new(key: 13, matches: static ctx => ctx is Callback.Frame);
         public static readonly Phase Tooltip = new(key: 14, matches: static ctx => ctx is Callback.Tip);
         [UseDelegateFromConstructor] internal partial bool Matches(Callback context);
-    }
-
-    public abstract record Callback(GhComponent Owner) {
-        public sealed record Bounds(GhComponent Owner, UiShape Shape) : Callback(Owner: Owner);
-
-        public sealed record Draw(GhComponent Owner, UiContext Context, Skin Skin, Capsule Capsule, Shade Shade) : Callback(Owner: Owner);
-
-        public sealed record Panel(GhComponent Owner, InputPanel Value) : Callback(Owner: Owner);
-
-        public sealed record Menu(GhComponent Owner, ContextMenu Value) : Callback(Owner: Owner);
-
-        public abstract record Pointer(GhComponent Owner, PointF ContentPoint, Option<PointF> ControlPoint = default) : Callback(Owner: Owner) {
-            public sealed record Cursor(GhComponent Owner, PointF ContentPoint) : Pointer(Owner: Owner, ContentPoint: ContentPoint);
-
-            public sealed record Hover(GhComponent Owner, PointF ContentPoint, PointF Control) : Pointer(Owner: Owner, ContentPoint: ContentPoint, ControlPoint: Optional(Control));
-        }
-
-        public sealed record Mouse(GhComponent Owner, MouseKind Kind, MouseEventArgs Args) : Callback(Owner: Owner) {
-            public PointF Point => Args.Location;
-        }
-
-        public abstract record Key(GhComponent Owner, KeyEventArgs Args) : Callback(Owner: Owner) {
-            public sealed record Down(GhComponent Owner, KeyEventArgs Args) : Key(Owner: Owner, Args: Args);
-
-            public sealed record Up(GhComponent Owner, KeyEventArgs Args) : Key(Owner: Owner, Args: Args);
-        }
-
-        public sealed record Frame(GhComponent Owner, SizeF Current) : Callback(Owner: Owner);
-
-        public sealed record Tip(GhComponent Owner, PointF Point, ObjectSolutionState State) : Callback(Owner: Owner);
     }
 
     public readonly record struct TooltipDetail(object Native) {
@@ -98,10 +92,6 @@ public readonly partial record struct ComponentUi {
         public static Decision WithHover(bool value) => new(Bounds: None, Response: None, Cursor: None, Hover: Optional(value), Size: None, Tooltip: None, IsTerminal: false);
         public static Decision WithSize(SizeF size) => new(Bounds: None, Response: None, Cursor: None, Hover: None, Size: Optional(size), Tooltip: None, IsTerminal: false);
         public static Decision WithTooltip(TooltipDetail detail) => new(Bounds: None, Response: None, Cursor: None, Hover: None, Size: None, Tooltip: Optional(detail), IsTerminal: false);
-
-        public static Decision operator +(Decision left, Decision right) =>
-            Add(left: left, right: right);
-
         public static Decision Add(Decision left, Decision right) =>
             new(
                 Bounds: RightBiased(right: right.Bounds, left: left.Bounds),
@@ -111,7 +101,8 @@ public readonly partial record struct ComponentUi {
                 Size: RightBiased(right: right.Size, left: left.Size),
                 Tooltip: RightBiased(right: right.Tooltip, left: left.Tooltip),
                 IsTerminal: left.IsTerminal || right.IsTerminal);
-
+        public static Decision operator +(Decision left, Decision right) =>
+            Add(left: left, right: right);
         private static Option<T> RightBiased<T>(Option<T> right, Option<T> left) =>
             right.Match(Some: Some, None: () => left);
     }
@@ -124,12 +115,6 @@ public readonly partial record struct ComponentUi {
     private ComponentUi(Seq<StepOp> ops) => this.ops = ops;
 
     public static ComponentUi Empty => default;
-
-    public static ComponentUi operator +(ComponentUi left, ComponentUi right) =>
-        Add(left: left, right: right);
-
-    public static ComponentUi Add(ComponentUi left, ComponentUi right) =>
-        new(ops: left.ops + right.ops);
 
     public static ComponentUi Of(Func<Callback, Fin<Decision>> run) =>
         new(ops: Seq(new StepOp(Phase: None, Run: run)));
@@ -145,11 +130,17 @@ public readonly partial record struct ComponentUi {
         + (menu is null ? Empty : When(phase: Phase.ContextMenu, run: context => menu(arg: (Callback.Menu)context)))
         + (tooltip is null ? Empty : When(phase: Phase.Tooltip, run: context => tooltip(arg: (Callback.Tip)context)));
 
+    public static ComponentUi Editor(Func<Callback.Panel, Fin<Decision>> panel) =>
+        When(phase: Phase.InputPanel, run: context => panel(arg: (Callback.Panel)context));
+
     public static ComponentUi Resizable(Func<Callback.Frame, Fin<Decision>> resize) =>
         When(phase: Phase.Resize, run: context => resize(arg: (Callback.Frame)context));
 
-    public static ComponentUi Editor(Func<Callback.Panel, Fin<Decision>> panel) =>
-        When(phase: Phase.InputPanel, run: context => panel(arg: (Callback.Panel)context));
+    public static ComponentUi Add(ComponentUi left, ComponentUi right) =>
+        new(ops: left.ops + right.ops);
+
+    public static ComponentUi operator +(ComponentUi left, ComponentUi right) =>
+        Add(left: left, right: right);
 
     internal IAttributes Attributes(GhComponent owner) =>
         ops.IsEmpty
@@ -212,13 +203,6 @@ public readonly partial record struct ComponentUi {
                 .Map(decision => decision.Hover.IfNone(noneValue: false))
                 .IfFail(_ => false);
 
-        protected override object TooltipDetails(PointF point, ObjectSolutionState state) {
-            object fallback = base.TooltipDetails(point: point, state: state);
-            return ui.Run(context: new Callback.Tip(Owner: Owner, Point: point, State: state))
-                .Map(decision => decision.Tooltip.Match(Some: static detail => detail.Native, None: () => fallback))
-                .IfFail(_ => fallback);
-        }
-
         protected override UiResponse HandleMouseDown(MouseEventArgs e) => Respond(context: new Callback.Mouse(Owner: Owner, Kind: MouseKind.Down, Args: e));
         protected override UiResponse HandleMouseMove(MouseEventArgs e) => Respond(context: new Callback.Mouse(Owner: Owner, Kind: MouseKind.Move, Args: e));
         protected override UiResponse HandleMouseUp(MouseEventArgs e) => Respond(context: new Callback.Mouse(Owner: Owner, Kind: MouseKind.Up, Args: e));
@@ -226,6 +210,13 @@ public readonly partial record struct ComponentUi {
         protected override UiResponse HandleDoubleClick(MouseEventArgs e) => Respond(context: new Callback.Mouse(Owner: Owner, Kind: MouseKind.DoubleClick, Args: e));
         protected override UiResponse HandleKeyDown(KeyEventArgs e) => Respond(context: new Callback.Key.Down(Owner: Owner, Args: e));
         protected override UiResponse HandleKeyUp(KeyEventArgs e) => Respond(context: new Callback.Key.Up(Owner: Owner, Args: e));
+
+        protected override object TooltipDetails(PointF point, ObjectSolutionState state) {
+            object fallback = base.TooltipDetails(point: point, state: state);
+            return ui.Run(context: new Callback.Tip(Owner: Owner, Point: point, State: state))
+                .Map(decision => decision.Tooltip.Match(Some: static detail => detail.Native, None: () => fallback))
+                .IfFail(_ => fallback);
+        }
 
         private UiResponse Respond(Callback context) =>
             ui.Run(context: context)
@@ -238,6 +229,19 @@ public readonly partial record struct ComponentUi {
         RasmAttributes,
         IResizableAttributes,
         ICursorAwareAttributes {
+        [StructLayout(LayoutKind.Auto)]
+        private readonly record struct ResizePolicy(string Key, SizeF DefaultSize, SizeF Minimum, SizeF Maximum) {
+            internal static ResizePolicy Default { get; } = new(
+                Key: "Attr.Size",
+                DefaultSize: new SizeF(width: 240f, height: 120f),
+                Minimum: new SizeF(width: 64f, height: 40f),
+                Maximum: new SizeF(width: 4096f, height: 4096f));
+            internal SizeF Clamp(SizeF value) =>
+                new(
+                    width: Math.Clamp(value: MathF.Round(value.Width, MidpointRounding.ToEven), min: Minimum.Width, max: Maximum.Width),
+                    height: Math.Clamp(value: MathF.Round(value.Height, MidpointRounding.ToEven), min: Minimum.Height, max: Maximum.Height));
+        }
+
         private const int ResizeEdgeSize = ResizableAttributes<GhComponent>.EdgeSize;
         private readonly ResizePolicy resize = ResizePolicy.Default;
         private SizeF size;
@@ -381,17 +385,5 @@ public readonly partial record struct ComponentUi {
             return UiResponse.Handled;
         }
 
-        [StructLayout(LayoutKind.Auto)]
-        private readonly record struct ResizePolicy(string Key, SizeF DefaultSize, SizeF Minimum, SizeF Maximum) {
-            internal static ResizePolicy Default { get; } = new(
-                Key: "Attr.Size",
-                DefaultSize: new SizeF(width: 240f, height: 120f),
-                Minimum: new SizeF(width: 64f, height: 40f),
-                Maximum: new SizeF(width: 4096f, height: 4096f));
-            internal SizeF Clamp(SizeF value) =>
-                new(
-                    width: Math.Clamp(value: MathF.Round(value.Width, MidpointRounding.ToEven), min: Minimum.Width, max: Maximum.Width),
-                    height: Math.Clamp(value: MathF.Round(value.Height, MidpointRounding.ToEven), min: Minimum.Height, max: Maximum.Height));
-        }
     }
 }

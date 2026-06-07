@@ -23,14 +23,6 @@ public sealed class OutputBinding {
         this.release = release;
         this.empty = empty;
     }
-    internal Port Input => Inputs[0];
-    internal Seq<Port> Inputs { get; }
-    internal Port Port { get; }
-    internal Fin<Seq<Flow<object>>> Read(GrasshopperRuntime runtime) => read(arg: runtime);
-    internal Seq<object> Run(IDataAccess access, Hints outputs, GrasshopperRuntime runtime, Seq<Flow<object>> source) =>
-        run(arg1: access, arg2: outputs, arg3: runtime, arg4: source);
-    internal Unit Release(Seq<Flow<object>> source, Seq<object> transfers) => release(arg1: source, arg2: transfers);
-    internal Unit Empty(IDataAccess access, Hints outputs) => empty(arg1: access, arg2: outputs);
     public static OutputBinding Of<TOut>(
         Port<Shape> input,
         IAspect aspect,
@@ -121,6 +113,14 @@ public sealed class OutputBinding {
             detach: static (_, output) => output,
             release: static (_, _) => unit);
     }
+    internal Seq<Port> Inputs { get; }
+    internal Port Input => Inputs[0];
+    internal Port Port { get; }
+    internal Fin<Seq<Flow<object>>> Read(GrasshopperRuntime runtime) => read(arg: runtime);
+    internal Seq<object> Run(IDataAccess access, Hints outputs, GrasshopperRuntime runtime, Seq<Flow<object>> source) =>
+        run(arg1: access, arg2: outputs, arg3: runtime, arg4: source);
+    internal Unit Release(Seq<Flow<object>> source, Seq<object> transfers) => release(arg1: source, arg2: transfers);
+    internal Unit Empty(IDataAccess access, Hints outputs) => empty(arg1: access, arg2: outputs);
     private static OutputBinding Make<TOut>(
         Seq<Port> inputs,
         Port<TOut> output,
@@ -156,8 +156,6 @@ internal readonly record struct Hints(Seq<(Port Port, int Slot)> Inputs) {
 
 // --- [OPERATIONS] -------------------------------------------------------------------------
 internal static class Output {
-    private readonly record struct Projection<T>(Seq<Flow<T>> Values, Seq<Fault.Unsupported> Unsupported);
-
     internal static Unit Write(IDataAccess access, GrasshopperRuntime runtime, Seq<OutputBinding> bindings, Hints outputs) {
         Seq<OutputBinding> active = bindings.Filter(binding => outputs.Slot(port: binding.Port).IsSome);
         Seq<Port> inputs = active.Map(static binding => binding.Input).Distinct().ToSeq();
@@ -168,14 +166,6 @@ internal static class Output {
     }
     internal static Unit Empty(IDataAccess access, Seq<OutputBinding> bindings, Hints outputs) =>
         bindings.Iter(binding => binding.Empty(access: access, outputs: outputs));
-    private static Unit RunGroup(IDataAccess access, Hints outputs, GrasshopperRuntime runtime, Seq<OutputBinding> group) =>
-        group[0].Read(runtime: runtime).Match(
-            Succ: source => group.Bind(binding => binding.Run(access: access, outputs: outputs, runtime: runtime, source: source)) switch {
-                Seq<object> transfers => group[0].Release(source: source, transfers: transfers),
-            },
-            Fail: error => access.Emit(severity: PortFault.SeverityOf(error: error), text: error.Category(), details: error.Message) switch {
-                _ => group.Iter(binding => binding.Empty(access: access, outputs: outputs)),
-            });
     internal static Seq<object> Run<TOut>(
         Port<TOut> port,
         Func<GrasshopperRuntime, Fin<Operation<object, TOut>>> operation,
@@ -207,6 +197,20 @@ internal static class Output {
                 return Seq<object>();
             });
     }
+    internal static Unit Clear<TOut>(Port<TOut> port, IDataAccess access, int slot) {
+        ArgumentNullException.ThrowIfNull(argument: access);
+        return access.Write(slot: slot, port: port, values: Seq<Flow<TOut>>()) switch { _ => Unit.Default };
+    }
+    private static Unit RunGroup(IDataAccess access, Hints outputs, GrasshopperRuntime runtime, Seq<OutputBinding> group) =>
+        group[0].Read(runtime: runtime).Match(
+            Succ: source => group.Bind(binding => binding.Run(access: access, outputs: outputs, runtime: runtime, source: source)) switch {
+                Seq<object> transfers => group[0].Release(source: source, transfers: transfers),
+            },
+            Fail: error => access.Emit(severity: PortFault.SeverityOf(error: error), text: error.Category(), details: error.Message) switch {
+                _ => group.Iter(binding => binding.Empty(access: access, outputs: outputs)),
+            });
+    private readonly record struct Projection<T>(Seq<Flow<T>> Values, Seq<Fault.Unsupported> Unsupported);
+
     private static Eff<Env, Projection<TOut>> Project<TOut>(
         Seq<Flow<object>> source,
         Operation<object, TOut> operation,
@@ -235,10 +239,6 @@ internal static class Output {
         _ = values.Choose(static value => value.Item is TopologyProjection projection ? Some(projection) : Option<TopologyProjection>.None)
             .Iter(projection => _ = transfers.Exists(output => ReferenceEquals(objA: output, objB: projection) || projection.Transfers(output: output)) switch { true => unit, false => projection.Dispose() });
         return transfers;
-    }
-    internal static Unit Clear<TOut>(Port<TOut> port, IDataAccess access, int slot) {
-        ArgumentNullException.ThrowIfNull(argument: access);
-        return access.Write(slot: slot, port: port, values: Seq<Flow<TOut>>()) switch { _ => Unit.Default };
     }
     private static Unit RemarkUnsupported(Port port, IDataAccess access, Seq<Fault.Unsupported> faults) {
         Seq<Fault.Unsupported> found = faults.Distinct().ToSeq();

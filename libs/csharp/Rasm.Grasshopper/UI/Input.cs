@@ -37,6 +37,11 @@ public sealed partial class CursorKind {
     public static readonly CursorKind VerticalSplit = new(key: 5, cursor: static _ => Cursors.VerticalSplit);
     public static readonly CursorKind HorizontalSplit = new(key: 6, cursor: static _ => Cursors.HorizontalSplit);
     public static readonly CursorKind SizeAll = new(key: 7, cursor: static _ => Cursors.SizeAll);
+    public static readonly CursorKind NotAllowed = new(key: 8, cursor: static _ => Cursors.NotAllowed);
+    // GH2 wire cursor properties can be absent; item delegates fall back to stock Eto cursors.
+    public static readonly CursorKind WireIn = new(key: 9, cursor: static _ => Optional(Grasshopper2.UI.Canvas.Canvas.CursorWireIn).IfNone(Cursors.Pointer));
+    public static readonly CursorKind WireOut = new(key: 10, cursor: static _ => Optional(Grasshopper2.UI.Canvas.Canvas.CursorWireOut).IfNone(Cursors.Pointer));
+    public static readonly CursorKind WireQuestion = new(key: 11, cursor: static _ => Optional(Grasshopper2.UI.Canvas.Canvas.CursorQuestion).IfNone(Cursors.Default));
     public static readonly CursorKind SizeLeft = new(key: 12, cursor: static _ => Cursors.SizeLeft);
     public static readonly CursorKind SizeRight = new(key: 13, cursor: static _ => Cursors.SizeRight);
     public static readonly CursorKind SizeTop = new(key: 14, cursor: static _ => Cursors.SizeTop);
@@ -45,11 +50,6 @@ public sealed partial class CursorKind {
     public static readonly CursorKind SizeTopRight = new(key: 17, cursor: static _ => Cursors.SizeTopRight);
     public static readonly CursorKind SizeBottomLeft = new(key: 18, cursor: static _ => Cursors.SizeBottomLeft);
     public static readonly CursorKind SizeBottomRight = new(key: 19, cursor: static _ => Cursors.SizeBottomRight);
-    public static readonly CursorKind NotAllowed = new(key: 8, cursor: static _ => Cursors.NotAllowed);
-    // GH2 wire cursor properties can be absent; item delegates fall back to stock Eto cursors.
-    public static readonly CursorKind WireIn = new(key: 9, cursor: static _ => Optional(Grasshopper2.UI.Canvas.Canvas.CursorWireIn).IfNone(Cursors.Pointer));
-    public static readonly CursorKind WireOut = new(key: 10, cursor: static _ => Optional(Grasshopper2.UI.Canvas.Canvas.CursorWireOut).IfNone(Cursors.Pointer));
-    public static readonly CursorKind WireQuestion = new(key: 11, cursor: static _ => Optional(Grasshopper2.UI.Canvas.Canvas.CursorQuestion).IfNone(Cursors.Default));
     public static readonly CursorKind Wait = new(key: 20, cursor: static _ => Cursors.Default);
 
     [UseDelegateFromConstructor]
@@ -71,11 +71,6 @@ public sealed partial class DialogPresentation {
                 s.Dialog.DisplayMode = DialogDisplayMode.Attached;
                 return s.Dialog.ShowModal(owner: s.Parent);
             });
-}
-
-[StructLayout(LayoutKind.Auto)]
-public readonly record struct PresentationPolicy(Option<DialogPresentation> Presentation = default) {
-    internal DialogPresentation DialogPresentation => Presentation.IfNone(DialogPresentation.Modal);
 }
 
 [SmartEnum<int>]
@@ -216,56 +211,6 @@ public partial record InputClipboardOp {
         };
 }
 
-// --- [MODELS] -----------------------------------------------------------------------------
-[StructLayout(LayoutKind.Auto)]
-public readonly record struct InputModifierSnapshot(bool Shift, bool Command, bool Option);
-
-[StructLayout(LayoutKind.Auto)]
-public readonly record struct PointerSnapshot(PointF ScreenPosition, MouseButtons Buttons);
-
-[StructLayout(LayoutKind.Auto)]
-public readonly record struct InputSelectionSnapshot(SelectionMode Mode, InputModifierSnapshot Modifiers);
-
-[StructLayout(LayoutKind.Auto)]
-public readonly record struct InputPanelSnapshot(int Count, string Category);
-
-[StructLayout(LayoutKind.Auto)]
-public readonly record struct ToolbarSnapshot(int Count, bool Enabled, int MinimumWidth, int MaximumWidth, int Height);
-
-[StructLayout(LayoutKind.Auto)]
-public readonly record struct MenuSnapshot(int Count);
-
-[StructLayout(LayoutKind.Auto)]
-public readonly record struct InputClipboardDataEntry(string Type, Option<byte[]> Bytes = default);
-
-[StructLayout(LayoutKind.Auto)]
-public readonly record struct InputClipboardSnapshot(Option<string> Text, Option<string> Html, Option<Image> Image, Seq<Uri> Uris, Seq<string> Types, Seq<InputClipboardDataEntry> Data = default) {
-    public static InputClipboardSnapshot Empty => new(
-        Text: Option<string>.None,
-        Html: Option<string>.None,
-        Image: Option<Image>.None,
-        Uris: Seq<Uri>(),
-        Types: Seq<string>(),
-        Data: Seq<InputClipboardDataEntry>());
-
-    public static InputClipboardSnapshot Of(string text) => Empty with { Text = Optional(text) };
-
-    public static InputClipboardSnapshot operator |(InputClipboardSnapshot left, InputClipboardSnapshot right) =>
-        new(
-            Text: right.Text | left.Text,
-            Html: right.Html | left.Html,
-            Image: right.Image | left.Image,
-            Uris: left.Uris + right.Uris,
-            Types: left.Types + right.Types,
-            Data: toSeq(left.Data) + toSeq(right.Data));
-}
-
-[StructLayout(LayoutKind.Auto)]
-public readonly record struct TransferPayload(InputClipboardSnapshot Clipboard, Option<DragEffects> Effects = default, Option<DragEffects> AllowedEffects = default) {
-    public static TransferPayload Empty => new(Clipboard: InputClipboardSnapshot.Empty);
-    public static TransferPayload Of(InputClipboardSnapshot clipboard) => new(Clipboard: clipboard);
-}
-
 [SkipUnionOps]
 [Union]
 public partial record InputTransferOp {
@@ -353,51 +298,6 @@ public abstract partial record FormField {
     }
 }
 
-[StructLayout(LayoutKind.Auto)]
-public readonly record struct FormSnapshot(IReadOnlyDictionary<string, object> Values) {
-    public Option<T> Value<T>(string key) =>
-        Values.TryGetValue(key: key, value: out object? value) && value is T typed ? Some(typed) : Option<T>.None;
-}
-
-[StructLayout(LayoutKind.Auto)]
-public readonly record struct FormPlan<TResult>(
-    string Title,
-    Seq<FormField> Fields,
-    Func<FormSnapshot, Fin<TResult>> Submit,
-    PresentationPolicy Presentation = default,
-    CommandPlan Commands = default,
-    string AcceptText = "OK",
-    string CancelText = "Cancel");
-
-public readonly record struct FileFilter(string Name, Seq<string> Extensions);
-
-[StructLayout(LayoutKind.Auto)]
-public readonly record struct PathDialogSpec(
-    FileDialogMode Mode,
-    Option<string> InitialPath = default,
-    Seq<FileFilter> Filters = default,
-    bool MultiSelect = false,
-    Option<string> Title = default,
-    Option<int> FilterIndex = default,
-    Option<bool> CheckFileExists = default);
-
-[StructLayout(LayoutKind.Auto)]
-public readonly record struct PathDialogSnapshot(Seq<string> Paths, int FilterIndex, Option<string> FilterName, bool Accepted) {
-    public static PathDialogSnapshot Cancelled => new(Paths: Seq<string>(), FilterIndex: -1, FilterName: Option<string>.None, Accepted: false);
-}
-
-[StructLayout(LayoutKind.Auto)]
-public readonly record struct UiNumberRange(Option<double> Minimum = default, Option<double> Maximum = default) {
-    internal Option<(double Minimum, double Maximum)> Bounds {
-        get {
-            Option<double> minimum = Minimum;
-            Option<double> maximum = Maximum;
-            return minimum.Bind(min => maximum.Map(max => (Minimum: min, Maximum: max)))
-                .Filter(static bounds => double.IsFinite(bounds.Minimum) && double.IsFinite(bounds.Maximum) && bounds.Minimum <= bounds.Maximum);
-        }
-    }
-}
-
 [ComplexValueObject(DefaultStringComparison = StringComparison.Ordinal)]
 [ValidationError<UiFault>]
 public readonly partial struct UiCommand {
@@ -409,6 +309,8 @@ public readonly partial struct UiCommand {
     public Option<BarShortcut> Shortcut { get; }
     public bool Enabled { get; }
     public Option<Func<Fin<bool>>> CanExecute { get; }
+
+    private const int MenuIconExtent = 16;
 
     [BoundaryAdapter]
     static partial void ValidateFactoryArguments(
@@ -445,7 +347,6 @@ public readonly partial struct UiCommand {
     internal BarShortcut? ShortcutKey() => Shortcut.Map(static shortcut => (BarShortcut?)shortcut).IfNone((BarShortcut?)null);
 
     // GH2 IIcon rasterization can fail during programmatic plugin load; missing icons degrade to no menu image.
-    private const int MenuIconExtent = 16;
     internal Option<Image> MenuImage =>
         Image | Icon.Bind(static icon =>
             Op.Of(name: nameof(MenuImage))
@@ -495,6 +396,8 @@ public partial record ToolbarItem {
     public sealed partial record TextCase(string Name, string Value, Func<string, Fin<Unit>> Changed) : ToolbarItem;
     public sealed partial record SpectrumCase(string Name, Seq<OpenColor.Family> Palette, OpenColor.Family Initial, Func<OpenColor.Family, Fin<Unit>> Changed) : ToolbarItem;
     public sealed partial record SubmenuCase(string Name, CommandPlan Plan) : ToolbarItem;
+
+    internal static readonly System.Runtime.CompilerServices.ConditionalWeakTable<ContextMenu, RadioCommand> RadioControllers = [];
 
     public static ToolbarItem Button(UiCommand command, bool closeOnActivate = true) => new ButtonCase(Command: command, CloseOnActivate: closeOnActivate);
     public static ToolbarItem Toggle(UiCommand command, bool state, Func<bool, Fin<Unit>> changed) => new ToggleItem(Command: command, Checked: state, OnChange: changed, Kind: ToggleKind.Toggle);
@@ -619,8 +522,6 @@ public partial record ToolbarItem {
         });
     }
 
-    internal static readonly System.Runtime.CompilerServices.ConditionalWeakTable<ContextMenu, RadioCommand> RadioControllers = [];
-
     private static Fin<Unit> Reject(string item, string surface) =>
         Fin.Fail<Unit>(error: UiFault.InvalidInput(op: Op.Of(name: nameof(ToolbarItem)), detail: $"{item} cannot be projected to {surface}"));
 
@@ -668,6 +569,106 @@ public partial record ToolbarItem {
     }
 }
 
+// --- [MODELS] -----------------------------------------------------------------------------
+[StructLayout(LayoutKind.Auto)]
+public readonly record struct InputModifierSnapshot(bool Shift, bool Command, bool Option);
+
+[StructLayout(LayoutKind.Auto)]
+public readonly record struct PointerSnapshot(PointF ScreenPosition, MouseButtons Buttons);
+
+[StructLayout(LayoutKind.Auto)]
+public readonly record struct InputSelectionSnapshot(SelectionMode Mode, InputModifierSnapshot Modifiers);
+
+[StructLayout(LayoutKind.Auto)]
+public readonly record struct InputPanelSnapshot(int Count, string Category);
+
+[StructLayout(LayoutKind.Auto)]
+public readonly record struct ToolbarSnapshot(int Count, bool Enabled, int MinimumWidth, int MaximumWidth, int Height);
+
+[StructLayout(LayoutKind.Auto)]
+public readonly record struct MenuSnapshot(int Count);
+
+[StructLayout(LayoutKind.Auto)]
+public readonly record struct InputClipboardDataEntry(string Type, Option<byte[]> Bytes = default);
+
+[StructLayout(LayoutKind.Auto)]
+public readonly record struct InputClipboardSnapshot(Option<string> Text, Option<string> Html, Option<Image> Image, Seq<Uri> Uris, Seq<string> Types, Seq<InputClipboardDataEntry> Data = default) {
+    public static InputClipboardSnapshot Empty => new(
+        Text: Option<string>.None,
+        Html: Option<string>.None,
+        Image: Option<Image>.None,
+        Uris: Seq<Uri>(),
+        Types: Seq<string>(),
+        Data: Seq<InputClipboardDataEntry>());
+
+    public static InputClipboardSnapshot Of(string text) => Empty with { Text = Optional(text) };
+
+    public static InputClipboardSnapshot operator |(InputClipboardSnapshot left, InputClipboardSnapshot right) =>
+        new(
+            Text: right.Text | left.Text,
+            Html: right.Html | left.Html,
+            Image: right.Image | left.Image,
+            Uris: left.Uris + right.Uris,
+            Types: left.Types + right.Types,
+            Data: toSeq(left.Data) + toSeq(right.Data));
+}
+
+[StructLayout(LayoutKind.Auto)]
+public readonly record struct TransferPayload(InputClipboardSnapshot Clipboard, Option<DragEffects> Effects = default, Option<DragEffects> AllowedEffects = default) {
+    public static TransferPayload Empty => new(Clipboard: InputClipboardSnapshot.Empty);
+    public static TransferPayload Of(InputClipboardSnapshot clipboard) => new(Clipboard: clipboard);
+}
+
+[StructLayout(LayoutKind.Auto)]
+public readonly record struct FormSnapshot(IReadOnlyDictionary<string, object> Values) {
+    public Option<T> Value<T>(string key) =>
+        Values.TryGetValue(key: key, value: out object? value) && value is T typed ? Some(typed) : Option<T>.None;
+}
+
+[StructLayout(LayoutKind.Auto)]
+public readonly record struct PresentationPolicy(Option<DialogPresentation> Presentation = default) {
+    internal DialogPresentation DialogPresentation => Presentation.IfNone(DialogPresentation.Modal);
+}
+
+[StructLayout(LayoutKind.Auto)]
+public readonly record struct FormPlan<TResult>(
+    string Title,
+    Seq<FormField> Fields,
+    Func<FormSnapshot, Fin<TResult>> Submit,
+    PresentationPolicy Presentation = default,
+    CommandPlan Commands = default,
+    string AcceptText = "OK",
+    string CancelText = "Cancel");
+
+public readonly record struct FileFilter(string Name, Seq<string> Extensions);
+
+[StructLayout(LayoutKind.Auto)]
+public readonly record struct PathDialogSpec(
+    FileDialogMode Mode,
+    Option<string> InitialPath = default,
+    Seq<FileFilter> Filters = default,
+    bool MultiSelect = false,
+    Option<string> Title = default,
+    Option<int> FilterIndex = default,
+    Option<bool> CheckFileExists = default);
+
+[StructLayout(LayoutKind.Auto)]
+public readonly record struct PathDialogSnapshot(Seq<string> Paths, int FilterIndex, Option<string> FilterName, bool Accepted) {
+    public static PathDialogSnapshot Cancelled => new(Paths: Seq<string>(), FilterIndex: -1, FilterName: Option<string>.None, Accepted: false);
+}
+
+[StructLayout(LayoutKind.Auto)]
+public readonly record struct UiNumberRange(Option<double> Minimum = default, Option<double> Maximum = default) {
+    internal Option<(double Minimum, double Maximum)> Bounds {
+        get {
+            Option<double> minimum = Minimum;
+            Option<double> maximum = Maximum;
+            return minimum.Bind(min => maximum.Map(max => (Minimum: min, Maximum: max)))
+                .Filter(static bounds => double.IsFinite(bounds.Minimum) && double.IsFinite(bounds.Maximum) && bounds.Minimum <= bounds.Maximum);
+        }
+    }
+}
+
 public readonly record struct CommandPlan(Seq<ToolbarItem> Items) {
     public static CommandPlan Empty => new(Items: Seq<ToolbarItem>());
     public static CommandPlan operator +(CommandPlan left, CommandPlan right) => new(Items: left.Items + right.Items);
@@ -677,6 +678,7 @@ public readonly record struct CommandPlan(Seq<ToolbarItem> Items) {
         new(Items: toggles.Map(static toggle => ToolbarItem.Toggle(command: toggle.Command, state: toggle.State, changed: toggle.Changed)));
 }
 
+// --- [SERVICES] ---------------------------------------------------------------------------
 internal sealed class ScopedCursor(Grasshopper2.UI.Canvas.Canvas target, Cursor previous, IDisposable? busy = null) : IDisposable {
     // BOUNDARY ADAPTER - restore the canvas cursor and release any WaitCursor lease exactly once.
     public void Dispose() {
@@ -724,7 +726,6 @@ file static class WaitCursorLease {
     }
 }
 
-// --- [SERVICES] ---------------------------------------------------------------------------
 public static partial class Input {
     public static GrasshopperUiIntent<InputSelectionSnapshot> Selection(InputSelectionSource source, Option<Keys> modifierOverride = default) =>
         GhUi.Read(run: _scope =>

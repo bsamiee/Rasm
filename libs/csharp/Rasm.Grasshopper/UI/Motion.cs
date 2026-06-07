@@ -242,9 +242,6 @@ public partial record CosmeticIntent {
         GhMotion Easing = GhMotion.EaseInOut) : CosmeticIntent;
     // XStyle owns vertical guides; YStyle owns horizontal guides and falls back to Style.
     public sealed record SnapGuideCase(SnappingSnapshot Snapshot, SnapGuideStyle Style, Option<SnapGuideStyle> YStyle = default, int Cycles = 1, bool Yoyo = true, bool Infinite = false) : CosmeticIntent;
-    // Non-visual tactile feedback on the Force Touch trackpad — no CALayer, fired once at attach (skipped
-    // under reduce-motion). Pattern maps to the three NSHapticFeedbackPattern values.
-    public sealed record HapticCase(HapticPattern Pattern) : CosmeticIntent;
     // Live blur uses NSVisualEffectView, not CALayer, so it samples canvas content behind the view.
     public sealed record VibrancyCase(RectangleF Bounds, VibrancyMaterial Material, float CornerRadius, GhDuration Duration, int Cycles = 1, bool Yoyo = true, bool Infinite = false, GhMotion Easing = GhMotion.EaseInOut, NSVisualEffectState State = NSVisualEffectState.Active) : CosmeticIntent;
     // Core Image pipeline: Backdrop targets BackgroundFilters and arms host filters; false targets layer Filters.
@@ -256,6 +253,9 @@ public partial record CosmeticIntent {
     // PathAnimation routes through CAMediaTimingFunction, so only the four basic easings (Linear/EaseIn/EaseOut/
     // EaseInOut) map cleanly — richer Penner curves cannot be sampled on a CGPath key, so validation rejects them.
     public sealed record PathMorphCase(CGPath From, CGPath To, RectangleF Bounds, Color Tint, float Thickness, GhDuration Duration, GhMotion Easing = GhMotion.EaseInOut) : CosmeticIntent;
+    // Non-visual tactile feedback on the Force Touch trackpad — no CALayer, fired once at attach (skipped
+    // under reduce-motion). Pattern maps to the three NSHapticFeedbackPattern values.
+    public sealed record HapticCase(HapticPattern Pattern) : CosmeticIntent;
 
     // Glyph cosmetic consumes raw Glyph.* strokes; AnimatedPath factories stay on the Stroke drawer.
     public static CosmeticIntent Glyph(Seq<IAnimatedStroke> strokes, PointF origin, Color tint, float thickness, GhDuration duration, GhMotion easing = GhMotion.EaseInOut) =>
@@ -564,6 +564,30 @@ public sealed class SpringHandle<T> : MotionHandle<SpringRunnerState<T>, T> {
     }
 }
 
+[StructLayout(LayoutKind.Auto)]
+public readonly record struct PulseRunnerState<T>(Animated<T> Animated, T From, T To, GhDuration Duration, GhMotion Easing, bool Yoyo, bool Infinite, int CyclesRemaining, IMotionVector<T> Vector, Action<T> Sink, Grasshopper2.UI.Canvas.Canvas Canvas) : IMotionState<PulseRunnerState<T>> {
+    // Animated advances only through Canvas.Animate; tick first, then fold the cycle transition.
+    public PulseRunnerState<T> Advance(float frameDeltaSeconds) {
+        _ = Canvas.Animate(animated: Animated);
+        return (Animated.State == GhState.Finished, Infinite || CyclesRemaining > 0) switch {
+            (true, true) => this with {
+                Animated = Animated<T>.CreateUnfinished(
+                    value0: Yoyo ? Animated.Value1 : From,
+                    value1: Yoyo ? Animated.Value0 : To,
+                    duration: Animators.DurationToTimeSpan(duration: Duration),
+                    motion: Easing,
+                    interpolator: Vector.Interpolate),
+                CyclesRemaining = Infinite ? CyclesRemaining : CyclesRemaining - 1,
+            },
+            _ => this,
+        };
+    }
+
+    public Unit Emit() { Sink(Animated.ValueNow); return unit; }
+
+    public bool IsActive => Animated.State != GhState.Finished || Infinite || CyclesRemaining > 0;
+}
+
 // Mirror of SpringHandle<T>: an Atom-confined runner cell exposed for mid-flight Retarget. The
 // MotionRunner re-reads the cell each CAS tick, so a concurrent Retarget re-seeds the Animated curve.
 public sealed class PulseHandle<T> : MotionHandle<PulseRunnerState<T>, T> {
@@ -621,30 +645,6 @@ public sealed class PulseHandle<T> : MotionHandle<PulseRunnerState<T>, T> {
         });
         snapshot.Sink(rest);
     }
-}
-
-[StructLayout(LayoutKind.Auto)]
-public readonly record struct PulseRunnerState<T>(Animated<T> Animated, T From, T To, GhDuration Duration, GhMotion Easing, bool Yoyo, bool Infinite, int CyclesRemaining, IMotionVector<T> Vector, Action<T> Sink, Grasshopper2.UI.Canvas.Canvas Canvas) : IMotionState<PulseRunnerState<T>> {
-    // Animated advances only through Canvas.Animate; tick first, then fold the cycle transition.
-    public PulseRunnerState<T> Advance(float frameDeltaSeconds) {
-        _ = Canvas.Animate(animated: Animated);
-        return (Animated.State == GhState.Finished, Infinite || CyclesRemaining > 0) switch {
-            (true, true) => this with {
-                Animated = Animated<T>.CreateUnfinished(
-                    value0: Yoyo ? Animated.Value1 : From,
-                    value1: Yoyo ? Animated.Value0 : To,
-                    duration: Animators.DurationToTimeSpan(duration: Duration),
-                    motion: Easing,
-                    interpolator: Vector.Interpolate),
-                CyclesRemaining = Infinite ? CyclesRemaining : CyclesRemaining - 1,
-            },
-            _ => this,
-        };
-    }
-
-    public Unit Emit() { Sink(Animated.ValueNow); return unit; }
-
-    public bool IsActive => Animated.State != GhState.Finished || Infinite || CyclesRemaining > 0;
 }
 
 public static class MotionVector {
@@ -900,6 +900,11 @@ public static class Motion {
     // screen cannot report its MinimumRefreshInterval; FloorRefreshHz is the lowest preferred Hz a spring requests.
     private const float FallbackRefreshHz = 120f;
     private const float FloorRefreshHz = 30f;
+    private static readonly (CAGradientLayerType Type, CGPoint Start, CGPoint End)[] CosmeticGradientProfile = [
+        (CAGradientLayerType.Axial, CGPoint.Empty, new CGPoint(x: 1, y: 0)),
+        (CAGradientLayerType.Radial, new CGPoint(x: 0.5, y: 0.5), new CGPoint(x: 1, y: 1)),
+        (CAGradientLayerType.Conic, new CGPoint(x: 0.5, y: 0.5), new CGPoint(x: 1, y: 0.5)),
+    ];
 
     // Clock selection is internal: reduce-motion uses the message loop; DisplayLink failures demote to message loop.
     // DisplayLink rate stays None so PacerOption resolves the panel ceiling.
@@ -1218,12 +1223,6 @@ public static class Motion {
         return outcome;
     }
 
-    private static readonly (CAGradientLayerType Type, CGPoint Start, CGPoint End)[] CosmeticGradientProfile = [
-        (CAGradientLayerType.Axial, CGPoint.Empty, new CGPoint(x: 1, y: 0)),
-        (CAGradientLayerType.Radial, new CGPoint(x: 0.5, y: 0.5), new CGPoint(x: 1, y: 1)),
-        (CAGradientLayerType.Conic, new CGPoint(x: 0.5, y: 0.5), new CGPoint(x: 1, y: 0.5)),
-    ];
-
     private static Fin<CosmeticIntent> PrepareCosmetic(Grasshopper2.UI.Canvas.Canvas canvas, CosmeticIntent intent) =>
         from mapped in PrepareCosmeticCore(canvas: canvas, intent: intent)
         from children in mapped.CoAnimate.Match(
@@ -1337,29 +1336,6 @@ public static class Motion {
             hapticCase: static (_, h) => Fin.Succ<CosmeticIntent>(h),
             state: canvas);
 
-    private static Fin<Unit> AcceptDistinctAnimationKeyPaths(CosmeticIntent intent) {
-        Seq<string> paths = Seq(AnimSpecOf(intent: intent).KeyPath) + intent.CoAnimate.IfNone(Seq<CosmeticIntent>()).Map(static child => AnimSpecOf(intent: child).KeyPath);
-        Seq<string> duplicates = toSeq(paths.GroupBy(keySelector: static path => path, comparer: StringComparer.Ordinal))
-            .Filter(static group => group.Take(2).Count() == 2)
-            .Map(static group => group.Key);
-        return guard(duplicates.IsEmpty, (Error)UiFault.InvalidInput(
-                op: Op.Of(name: nameof(CosmeticIntent.CoAnimate)),
-                detail: $"cosmetic co-animation key paths must be distinct: {string.Join(separator: ", ", values: duplicates.AsIterable())}"))
-            .ToFin();
-    }
-
-    private static Fin<Unit> AcceptCoAnimationLayer(CosmeticIntent intent) {
-        string parent = AnimSpecOf(intent: intent).KeyPath;
-        Seq<string> invalid = intent.CoAnimate.IfNone(Seq<CosmeticIntent>())
-            .Map(static child => (Intent: child, Path: AnimSpecOf(intent: child).KeyPath))
-            .Filter(child => string.Equals(a: child.Path, b: "strokeEnd", comparisonType: StringComparison.Ordinal) && !string.Equals(a: parent, b: "strokeEnd", comparisonType: StringComparison.Ordinal))
-            .Map(static child => child.Intent.GetType().Name);
-        return guard(invalid.IsEmpty, (Error)UiFault.InvalidInput(
-                op: Op.Of(name: nameof(CosmeticIntent.CoAnimate)),
-                detail: $"stroke co-animations require a stroke parent layer: {string.Join(separator: ", ", values: invalid.AsIterable())}"))
-            .ToFin();
-    }
-
     // One descriptor drives key-path, target alpha, repeat policy, and keyframe/spring options per case.
     // strokeEnd is non-repeating; haptic never reaches a layer.
     private readonly record struct CosmeticAnimSpec(string KeyPath, float To, int Cycles, bool Yoyo, bool Infinite, GhDuration Duration, GhMotion Easing, bool Repeat = true);
@@ -1381,6 +1357,29 @@ public static class Motion {
             // (CABasicAnimation on "path"), never to the float PropertyAnimation that reads spec.To.
             pathMorphCase: static pm => new CosmeticAnimSpec(KeyPath: "path", To: 1f, Cycles: 1, Yoyo: false, Infinite: false, Duration: pm.Duration, Easing: pm.Easing, Repeat: false),
             hapticCase: static _ => new CosmeticAnimSpec(KeyPath: "haptic", To: 0f, Cycles: 1, Yoyo: false, Infinite: false, Duration: GhDuration.Normal, Easing: GhMotion.Linear, Repeat: false));
+
+    private static Fin<Unit> AcceptCoAnimationLayer(CosmeticIntent intent) {
+        string parent = AnimSpecOf(intent: intent).KeyPath;
+        Seq<string> invalid = intent.CoAnimate.IfNone(Seq<CosmeticIntent>())
+            .Map(static child => (Intent: child, Path: AnimSpecOf(intent: child).KeyPath))
+            .Filter(child => string.Equals(a: child.Path, b: "strokeEnd", comparisonType: StringComparison.Ordinal) && !string.Equals(a: parent, b: "strokeEnd", comparisonType: StringComparison.Ordinal))
+            .Map(static child => child.Intent.GetType().Name);
+        return guard(invalid.IsEmpty, (Error)UiFault.InvalidInput(
+                op: Op.Of(name: nameof(CosmeticIntent.CoAnimate)),
+                detail: $"stroke co-animations require a stroke parent layer: {string.Join(separator: ", ", values: invalid.AsIterable())}"))
+            .ToFin();
+    }
+
+    private static Fin<Unit> AcceptDistinctAnimationKeyPaths(CosmeticIntent intent) {
+        Seq<string> paths = Seq(AnimSpecOf(intent: intent).KeyPath) + intent.CoAnimate.IfNone(Seq<CosmeticIntent>()).Map(static child => AnimSpecOf(intent: child).KeyPath);
+        Seq<string> duplicates = toSeq(paths.GroupBy(keySelector: static path => path, comparer: StringComparer.Ordinal))
+            .Filter(static group => group.Take(2).Count() == 2)
+            .Map(static group => group.Key);
+        return guard(duplicates.IsEmpty, (Error)UiFault.InvalidInput(
+                op: Op.Of(name: nameof(CosmeticIntent.CoAnimate)),
+                detail: $"cosmetic co-animation key paths must be distinct: {string.Join(separator: ", ", values: duplicates.AsIterable())}"))
+            .ToFin();
+    }
 
     private static Fin<Unit> AcceptGradientPoints(Op op, CosmeticGradientPoints points, int colourCount) =>
         from _ in points.Start.Map(start => AcceptNormalizedGradientPoint(op: op, point: start, label: nameof(CosmeticGradientPoints.Start))).IfNone(Fin.Succ(unit))

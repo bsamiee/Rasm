@@ -266,34 +266,6 @@ public abstract partial record FilePublishTarget {
                select result;
     }
 
-    private static Fin<FilePublishResult> WriteSvg(Svg target, Seq<FileViewPage> pages, Op op) =>
-        from fmtSvg in FileFormat.KnownFormat(key: "svg", op: op)
-        from result in CaptureViews(target: target.Target, format: fmtSvg, pages: pages, op: op,
-            render: (_, owned, path) => op.Catch(() => {
-                System.Xml.XmlDocument document = ViewCapture.CaptureToSvg(settings: owned);
-                document.Save(filename: path);
-                return VerifyFile(path: path, op: op);
-            }),
-            log: string.Create(CultureInfo.InvariantCulture, $"svg;views:{pages.Count}"))
-        select result;
-
-    private static Fin<FilePublishResult> CaptureViews(FileEndpoint target, FileFormat format, Seq<FileViewPage> pages, Op op, Func<FileViewPage, ViewCaptureSettings, string, Fin<Unit>> render, string log) =>
-        from endpoint in target.WithFormat(format: format).Output(op: op)
-        from written in pages.Map((page, index) => (Index: index, Page: page))
-            .TraverseM(item => item.Page.Render(
-                render: owned => render(arg1: item.Page, arg2: owned, arg3: pages.Count == 1 ? endpoint.Path : FileEndpoint.NumberedPath(path: endpoint.Path, index: item.Index + 1)),
-                op: op))
-            .As()
-        select new FilePublishResult(
-            Target: Some(endpoint),
-            Format: Some(format),
-            Receipt: DocumentReceipt.Empty,
-            Views: written.Map(static item => item.Report),
-            NativeLog: Some(log));
-
-    private static Fin<Unit> VerifyFile(string path, Op op) =>
-        Optional(new IOFileInfo(fileName: path)).Filter(static info => info.Exists && info.Length > 0).Map(static _ => unit).ToFin(Fail: op.InvalidResult());
-
     private static Fin<Unit> SaveBitmap(DrawingBitmap bitmap, FileRasterEncoding encoding, FileRasterSettings settings, string path, Op op) =>
         op.Catch(() => {
             Seq<(Encoder Key, long Value)> pairs = encoding.Parameters(settings: settings);
@@ -313,6 +285,34 @@ public abstract partial record FilePublishTarget {
                     _ => Fin.Fail<Unit>(error: op.InvalidResult()),
                 };
         });
+
+    private static Fin<FilePublishResult> WriteSvg(Svg target, Seq<FileViewPage> pages, Op op) =>
+        from fmtSvg in FileFormat.KnownFormat(key: "svg", op: op)
+        from result in CaptureViews(target: target.Target, format: fmtSvg, pages: pages, op: op,
+            render: (_, owned, path) => op.Catch(() => {
+                System.Xml.XmlDocument document = ViewCapture.CaptureToSvg(settings: owned);
+                document.Save(filename: path);
+                return VerifyFile(path: path, op: op);
+            }),
+            log: string.Create(CultureInfo.InvariantCulture, $"svg;views:{pages.Count}"))
+        select result;
+
+    private static Fin<Unit> VerifyFile(string path, Op op) =>
+        Optional(new IOFileInfo(fileName: path)).Filter(static info => info.Exists && info.Length > 0).Map(static _ => unit).ToFin(Fail: op.InvalidResult());
+
+    private static Fin<FilePublishResult> CaptureViews(FileEndpoint target, FileFormat format, Seq<FileViewPage> pages, Op op, Func<FileViewPage, ViewCaptureSettings, string, Fin<Unit>> render, string log) =>
+        from endpoint in target.WithFormat(format: format).Output(op: op)
+        from written in pages.Map((page, index) => (Index: index, Page: page))
+            .TraverseM(item => item.Page.Render(
+                render: owned => render(arg1: item.Page, arg2: owned, arg3: pages.Count == 1 ? endpoint.Path : FileEndpoint.NumberedPath(path: endpoint.Path, index: item.Index + 1)),
+                op: op))
+            .As()
+        select new FilePublishResult(
+            Target: Some(endpoint),
+            Format: Some(format),
+            Receipt: DocumentReceipt.Empty,
+            Views: written.Map(static item => item.Report),
+            NativeLog: Some(log));
 }
 
 // --- [MODELS] -----------------------------------------------------------------------------
@@ -477,13 +477,6 @@ internal sealed record FileViewPage(RhinoView Target, Option<RhinoViewport> View
     internal Fin<ViewCaptureSettings> Settings(Op op) =>
         UseMaybe(body: () => Spec.Open(view: Target, viewport: Viewport, op: op));
 
-    internal Fin<(T Value, FileViewReport Report)> Render<T>(Func<ViewCaptureSettings, Fin<T>> render, Op op) =>
-        UseMaybe(body: () => Spec.Render(
-            view: Target,
-            viewport: Viewport,
-            project: settings => render(arg: settings).Map(value => (Value: value, Report: ReportOf(settings: settings))),
-            op: op));
-
     internal FileViewReport ReportOf(ViewCaptureSettings settings) {
         static Option<string> FormatScale(double scale) =>
             RhinoMath.IsValidDouble(x: scale) && scale > 0.0
@@ -516,6 +509,13 @@ internal sealed record FileViewPage(RhinoView Target, Option<RhinoViewport> View
             _ => Build(name: string.Empty, scale: Option<string>.None, detailCount: 0, s: settings, raw: Option<double>.None),
         };
     }
+
+    internal Fin<(T Value, FileViewReport Report)> Render<T>(Func<ViewCaptureSettings, Fin<T>> render, Op op) =>
+        UseMaybe(body: () => Spec.Render(
+            view: Target,
+            viewport: Viewport,
+            project: settings => render(arg: settings).Map(value => (Value: value, Report: ReportOf(settings: settings))),
+            op: op));
 
     private Fin<T> UseMaybe<T>(Func<Fin<T>> body) =>
         Named.Case switch {

@@ -78,5 +78,5 @@ Rhino and Grasshopper plugin projects default `UseWorkspaceLibraries=false`. Too
 - Raw xUnit, CsCheck, coverlet, and Stryker API guidance lives under `../testing-libs`.
 - Test project package injection lives in `Directory.Build.props`; versions live in `Directory.Packages.props`.
 - Root `global.json` owns .NET 10 MTP runner selection; it does not pin the SDK.
-- Local mutation tooling lives in `.config/dotnet-tools.json` and runs through `tools.quality test run --mutation changed|full`.
+- Local mutation tooling lives in `.config/dotnet-tools.json` and runs through `tools.assay test run --mutation changed|full`.
 - Verify, ArchUnitNET, BenchmarkDotNet, and SharpFuzz each keep one direct `tests/csharp/_*` rail: `_tooling`, `_architecture`, `_benchmarks`, and `_fuzz`.

@@ -22,7 +22,7 @@ Scripts are transient diagnostic entrypoints for current code and real Rhino API
 Avoid it for:
 - Synthetic unit-test suites.
 - Mocked Rhino or Grasshopper behavior.
-- Managed cleanup already covered by `uv run python -m tools.quality static fix`; compile/analyzer proof belongs to `uv run python -m tools.quality static build`.
+- Managed cleanup already covered by `uv run python -m tools.assay static fix`; compile/analyzer proof belongs to `uv run python -m tools.assay static build`.
 - Long-running UI-thread experiments that require server-side cancellation.
 
 ## [2][ARCHITECTURE]
@@ -40,19 +40,19 @@ config:
 ---
 flowchart LR
     accTitle: Rhino bridge command architecture
-    accDescr: The tools.quality bridge operator routes commands through the client, protocol, plugin, and RhinoWIP with RhinoCode; the client also owns dotnet build and MSBuild projection.
-    Operator["tools.quality bridge"] --> Client["client"]
+    accDescr: The tools.assay bridge operator routes commands through the client, protocol, plugin, and RhinoWIP with RhinoCode; the client also owns dotnet build and MSBuild projection.
+    Operator["tools.assay bridge"] --> Client["client"]
     Client --> Protocol["protocol"]
     Protocol --> Plugin["plugin"]
     Plugin --> Rhino["RhinoWIP + RhinoCode"]
     Client --> DotNet["dotnet build / MSBuild projection"]
 ```
 
-Text equivalent: `tools.quality bridge` routes commands into `client/`, then through `protocol/`, `plugin/`, and RhinoWIP with RhinoCode; the client also owns `dotnet build` and MSBuild projection.
+Text equivalent: `tools.assay bridge` routes commands into `client/`, then through `protocol/`, `plugin/`, and RhinoWIP with RhinoCode; the client also owns `dotnet build` and MSBuild projection.
 
 | [INDEX] | [LAYER]  | [PATH]                      | [ROLE]                                      |
 | :-----: | -------- | --------------------------- | ------------------------------------------- |
-|   [1]   | Operator | `tools.quality bridge`      | Route commands; build client; stage Yak txn |
+|   [1]   | Operator | `tools.assay bridge`        | Route commands; build client; stage Yak txn |
 |   [2]   | Client   | `client/`                   | Resolve, build, phase JSON, named-pipe I/O  |
 |   [3]   | Protocol | `protocol/`                 | Wire DTOs, status vocab, exit-code policy   |
 |   [4]   | Plugin   | `plugin/`                   | Named-pipe server; RhinoCode on UI thread   |
@@ -60,73 +60,66 @@ Text equivalent: `tools.quality bridge` routes commands into `client/`, then thr
 
 ## [3][COMMANDS]
 
-Run commands from repository root. Prefix: `uv run python -m tools.quality`.
+Run commands from repository root. Prefix: `uv run python -m tools.assay`.
 
 | [INDEX] | [COMMAND]                              | [INTENT]                                                  |
 | :-----: | -------------------------------------- | --------------------------------------------------------- |
-|   [1]   | `bridge build-bridge`                  | Build protocol, plugin, client (`Release`)                |
+|   [1]   | `bridge build`                         | Build protocol, plugin, client (`Release`)                |
 |   [2]   | `bridge launch`                        | Idempotent reuse or cold RhinoWIP launch — `[INTENT]` [2] |
 |   [3]   | `bridge doctor`                        | Live Rhino, host runtime, scriptEngine, assembly paths    |
-|   [4]   | `bridge check <target> [scenario.csx]` | Build/execute target via RhinoCode lane                   |
-|   [5]   | `bridge clean <target>`                | Remove generated check reports for target                 |
+|   [4]   | `bridge check`                         | Bridge liveness probe                                     |
+|   [5]   | `bridge clean`                         | Remove bridge crash and autosave state                    |
 |   [6]   | `bridge quit`                          | Force-close bridge Rhino — `[INTENT]` [6]                 |
-|   [7]   | `bridge package rasm-bridge <version>` | Build `.rhp`; stage local Yak package                     |
-|   [8]   | `bridge deploy rasm-bridge <version>`  | Install staged package; relaunch; health — `[INTENT]` [8] |
-|   [9]   | `bridge publish rasm-bridge <version>` | Package, local deploy, push Yak feed                      |
-|  [10]   | `bridge verify <scenario-or-glob>`     | Scenario verify rail — `[INTENT]` [10]                    |
-|  [11]   | `api doctor [--strict] [--restore never]` | RhinoWIP, ILSpy, RhinoCode, host keys, package keys, host and central package source inventory |
+|   [7]   | `package stage --slug rasm-bridge --version <version>` | Build `.rhp`; stage local Yak package        |
+|   [8]   | `package deploy --slug rasm-bridge --version <version>` | Install staged package; relaunch; health — `[INTENT]` [8] |
+|   [9]   | `package publish --slug rasm-bridge --version <version>` | Package, local deploy, push Yak feed      |
+|  [10]   | `bridge verify --pattern <scenario-or-glob>` | Scenario verify rail — `[INTENT]` [10]              |
+|  [11]   | `api doctor [--strict]`                | RhinoWIP, ILSpy, RhinoCode, host keys, package keys, host and central package source inventory |
 |  [12]   | `api resolve <key> [all\|assembly\|xml\|nuspec\|deps\|package-root]` | Resolved managed, native, build, analyzer, and tool assets |
-|  [13]   | `api query <key> <symbol>`             | Type or member report via ILSpy (dotted `Type.Member`); bounded decompile, full source saved |
+|  [13]   | `api query --key <key> --symbol <symbol>` | Type or member report; bounded preview and full source artifacts |
 |  [14]   | `api show <artifact-or-symbol>`        | Saved-artifact preview; `--full` returns content inside `Envelope.data` |
 
 [INTENT]
 - [2] Before cold open, clears macOS recovery markers (`.rhl`/doc autosave, `Rhinoceros-*.ips`) so unclean exit never blocks headless launch with a recovery dialog.
 - [6] Marks open documents clean; exits without save prompt; escalates `SIGTERM`→`SIGKILL` if unreachable; `ok` when no live endpoint.
 - [8] Skips automated quit when no live endpoint; retires stale `~/.rasm/rhino-bridge.json` before relaunch.
-- [10] Resolves owning project; routes through `bridge check`; JSON/PNG under `.artifacts/rhino/verify/<run-id>`; prunes bundles past retention.
+- [10] Resolves scenarios and routes execution through the bridge client; report artifacts are emitted through the Assay envelope.
 
 ### [3.1][PRIMARY_USAGE]
 
-Validate real Grasshopper project:
+Validate bridge health:
 
 ```bash copy-safe
-uv run python -m tools.quality bridge check apps/grasshopper/<Plugin>/<Plugin>.csproj
+uv run python -m tools.assay bridge doctor
+uv run python -m tools.assay bridge check
 ```
 
-Expected result: JSON with top-level `"status": "ok"` and successful `resolve`, `build`, `connect`, and `execute` phases. The in-process `execute` phase is the authoritative Rhino evidence.
+Expected result: one Assay `Envelope` per command with `"status": "ok"` when the live bridge is healthy.
 
-Validate source ownership without runtime script:
+Validate an existing task-relevant RhinoCode scenario:
 
 ```bash copy-safe
-uv run python -m tools.quality bridge check apps/grasshopper/<Plugin>/<SourceFile>.cs
+uv run python -m tools.assay bridge verify --pattern <scenario.verify.csx>
 ```
 
-Expected result: exit code `3`, top-level `"status": "unsupported"`, `build` phase `"ok"`, and message `Source build validated; no runtime script supplied.`
-
-Validate source with an existing task-relevant RhinoCode script:
-
-```bash copy-safe
-uv run python -m tools.quality bridge check <real-source.cs> <scenario.verify.csx>
-```
-
-Expected result: `"status": "ok"` when the scenario compiles against bridge-generated `#r` directives from host-filtered runtime references and exercises real Rhino behavior. Scenarios must not contain `#r`, `#load`, or absolute build-output paths.
+Expected result: `"status": "ok"` when each matched scenario compiles against bridge-generated `#r` directives from host-filtered runtime references and exercises real Rhino behavior. Scenarios must not contain `#r`, `#load`, or absolute build-output paths.
 
 Library scenarios live under `tests/csharp/libs/<Project>/<MirrorPath>/scenarios/`. The operator script maps that convention to `libs/csharp/<Project>/<Project>.csproj` without manifests or scenario catalogs.
 
 Verify local API metadata:
 
 ```bash copy-safe
-uv run python -m tools.quality api doctor
+uv run python -m tools.assay api doctor
 ```
 
-Expected result: compact JSON for RhinoWIP app version, ILSpy host status, RhinoCode direct and roll-forward status, host keys, package keys, and artifact paths.
+Expected result: one Assay `Envelope` with RhinoWIP app version, ILSpy host status, RhinoCode direct and roll-forward status, host keys, package keys, and artifact paths.
 
 Inspect host/package API truth:
 
 ```bash copy-safe
-uv run python -m tools.quality api doctor --restore never
-uv run python -m tools.quality api query rhino-common Rhino.Geometry.Mesh
-uv run python -m tools.quality api query gh2 Document
+uv run python -m tools.assay api doctor
+uv run python -m tools.assay api query --key rhino-common --symbol Rhino.Geometry.Mesh
+uv run python -m tools.assay api query --key gh2 --symbol Document
 ```
 
 Expected result: compact JSON with ranked preview records and direct artifact paths. Current RhinoWIP includes RhinoCommon, GH2, and GH2-IO XML. Rhino.UI XML is absent; `api query` decompiles via ILSpy when XML is missing.
@@ -134,8 +127,8 @@ Expected result: compact JSON with ranked preview records and direct artifact pa
 Inspect Rhino UI metadata when XML is absent:
 
 ```bash copy-safe
-uv run python -m tools.quality api resolve rhino-ui assembly --restore never
-uv run python -m tools.quality api query rhino-ui Rhino.UI.DataSerializer
+uv run python -m tools.assay api resolve rhino-ui assembly
+uv run python -m tools.assay api query --key rhino-ui --symbol Rhino.UI.DataSerializer
 ```
 
 Expected result: compact JSON plus bounded inline preview and `decompile.cs` artifacts from ILSpy using a normalized .NET apphost environment. Use `api show <artifact-or-symbol>` for follow-up inspection.
@@ -155,14 +148,12 @@ Environment overrides:
 | [INDEX] | [VARIABLE]                         | [USE]                                                 |
 | :-----: | ---------------------------------- | ----------------------------------------------------- |
 |   [1]   | `RHINO_WIP_APP_PATH`               | RhinoWIP bundle for launch + MSBuild — `[ENV]` [1]    |
-|   [2]   | `QUALITY_RHINO_APP`                | Operator Rhino path; exported as `RHINO_WIP_APP_PATH` |
-|   [3]   | `CONFIGURATION`                    | Check build config (default `Release`)                |
-|   [4]   | `QUALITY_VERIFY_RETENTION_SECONDS` | Verify bundle retention sec (default `300`)           |
-|   [5]   | `RASM_BRIDGE_CONNECT_TIMEOUT_S`    | Cold connect deadline sec (default `90`)              |
-|   [6]   | `RASM_BRIDGE_TRANSPORT_TIMEOUT_S`  | Warm transport deadline sec (default `35`)            |
+|   [2]   | `CONFIGURATION`                    | Check build config (default `Release`)                |
+|   [3]   | `RASM_BRIDGE_CONNECT_TIMEOUT_S`    | Cold connect deadline sec (default `90`)              |
+|   [4]   | `RASM_BRIDGE_TRANSPORT_TIMEOUT_S`  | Warm transport deadline sec (default `35`)            |
 
 [ENV]
-- [1] Operator always exports; launch fails loud when unset. Unset operator resolves newest `/Applications/Rhino*.app` by `CFBundleVersion` (WIP-preferred).
+- [1] Launch fails loud when unset; set this to the RhinoWIP bundle used by MSBuild and the bridge client.
 
 Every bridge timeout follows one env-overridable rule — `RASM_BRIDGE_<NAME>_TIMEOUT_S` (seconds, positive) for `HELLO`, `CONNECT`, `TRANSPORT`, `QUIT_WAIT`, `HANDSHAKE`, and `IDLE_DISPATCH`.
 
@@ -302,6 +293,6 @@ API metadata lookup uses local sources in this order:
 
 ## [8][RUNTIME_BOUNDARIES]
 
-Live Rhino commands, `bridge verify`, bridge package live steps, and package staging are fail-fast exclusive. Never queue live Rhino commands behind each other; a busy lease means retry later or pick another proof.
+Live Rhino commands, `bridge verify`, package live steps, and package staging are fail-fast exclusive. Never queue live Rhino commands behind each other; a busy lease means retry later or pick another proof.
 
 Focused bridge implementation changes route through the matching runtime owner: reference projection, reference isolation, packaging, or transport. Use the command table above to select the narrow bridge/API/package command that owns the runtime fact.

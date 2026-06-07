@@ -457,6 +457,130 @@ public sealed partial class WireRouter {
         typeof(WireShape).IsAssignableFrom(c: type) && type is { IsAbstract: false };
 }
 
+[GenerateUnionOps]
+[Union]
+public partial record WireOp : IUiOp<WireResult> {
+    private WireOp() { }
+    public sealed partial record QueryCase(WireQuery Request) : WireOp;
+    public sealed partial record SelectCase(WireSelectionOp Op) : WireOp;
+    public sealed partial record SplitCase(WireSnapshot.ConnectedCase Wire, PointF Location) : WireOp;
+    public sealed partial record EditCase(WireSnapshot.ConnectedCase Wire, WireEdit Kind, WireEditArgs Args = default) : WireOp;
+    public sealed partial record EditBatchCase(Seq<(WireSnapshot.ConnectedCase Wire, WireEdit Kind, WireEditArgs Args)> Edits) : WireOp;
+    public sealed partial record RouteCase(Seq<Guid> Chain) : WireOp;
+    public sealed partial record InstallShapeCase(Type ShapeType, Option<float> CornerRadius = default, Option<float> SplitRatio = default, Option<Func<RectangleF, Seq<RectangleF>>> ObstaclesProvider = default) : WireOp;
+    public sealed partial record OverlayCase(WireOverlayStyle Style, MotionClock? Clock = null) : WireOp;
+    public sealed partial record WirePaintObserveCase(MotionClock? Clock = null) : WireOp;
+    public sealed partial record DiagnosticsCase(Seq<Guid> Seeds) : WireOp;
+    public static WireOp Query(WireQuery query) => new QueryCase(Request: query);
+    public static WireOp Select(WireSelectionOp op) => new SelectCase(Op: op);
+    public static WireOp Split(WireSnapshot.ConnectedCase wire, PointF location) => new SplitCase(Wire: wire, Location: location);
+    public static WireOp Edit(WireSnapshot.ConnectedCase wire, WireEdit edit, WireEditArgs args = default) => new EditCase(Wire: wire, Kind: edit, Args: args);
+    // Batch: N wire edits thread one ActionList → one undo entry, reusing the WireEdit dispatch.
+    public static WireOp EditBatch(params ReadOnlySpan<(WireSnapshot.ConnectedCase Wire, WireEdit Kind, WireEditArgs Args)> edits) =>
+        new EditBatchCase(Edits: toSeq(edits.ToArray()));
+    // Route: connect an ordered parameter chain by synthesizing adjacent-pair Connect edits onto the EditBatch rail.
+    public static WireOp Route(Seq<Guid> chain) => new RouteCase(Chain: chain);
+    public static WireOp InstallShape(Type shapeType) => new InstallShapeCase(ShapeType: shapeType);
+    public static WireOp InstallShape(WireRouter router, float cornerRadius = 8f, float splitRatio = 0.5f) =>
+        new InstallShapeCase(ShapeType: (router ?? WireRouter.Default).ShapeType, CornerRadius: Some(cornerRadius), SplitRatio: Some(splitRatio));
+    // InstallShape + an obstacle provider on one rail: the installed shape sees a populated obstacle set during paint.
+    public static WireOp InstallRouting(WireRouter router, Func<RectangleF, Seq<RectangleF>> provider, float cornerRadius = 8f, float splitRatio = 0.5f) =>
+        new InstallShapeCase(ShapeType: (router ?? WireRouter.Default).ShapeType, CornerRadius: Some(cornerRadius), SplitRatio: Some(splitRatio), ObstaclesProvider: Some(provider));
+    public static WireOp Overlay(WireOverlayStyle style, MotionClock? clock = null) => new OverlayCase(Style: style, Clock: clock);
+    public static WireOp WirePaintObserve(MotionClock? clock = null) => new WirePaintObserveCase(Clock: clock);
+    public static WireOp Diagnostics(params ReadOnlySpan<Guid> seeds) => new DiagnosticsCase(Seeds: toSeq(seeds.ToArray()));
+
+    GrasshopperUiIntent<WireResult> IUiOp<WireResult>.Intent() => Switch(
+        queryCase: static q => Wire.Query(query: q.Request),
+        selectCase: static s => Wire.Selection(op: s.Op).Map(static delta => (WireResult)new WireResult.SelectionCase(Delta: delta)),
+        splitCase: static s => Wire.Split(wire: s.Wire, location: s.Location).Map(static delta => (WireResult)new WireResult.MutationCase(Delta: delta)),
+        editCase: static e => Wire.Edit(wire: e.Wire, edit: e.Kind, args: e.Args).Map(static delta => (WireResult)new WireResult.MutationCase(Delta: delta)),
+        editBatchCase: static e => Wire.EditBatch(edits: e.Edits).Map(static delta => (WireResult)new WireResult.MutationCase(Delta: delta)),
+        routeCase: static r => Wire.Route(chain: r.Chain).Map(static delta => (WireResult)new WireResult.MutationCase(Delta: delta)),
+        installShapeCase: static i => Wire.InstallShape(
+            shapeType: i.ShapeType,
+            cornerRadius: i.CornerRadius.IfNone(8f),
+            splitRatio: i.SplitRatio.IfNone(0.5f),
+            obstacles: i.ObstaclesProvider is { IsSome: true, Case: Func<RectangleF, Seq<RectangleF>> provider } ? provider : null).Map(static sub => (WireResult)new WireResult.SubscriptionCase(Subscription: sub)),
+        overlayCase: static o => Wire.Overlay(style: o.Style, clock: o.Clock ?? MotionClock.MessageLoop).Map(static sub => (WireResult)new WireResult.SubscriptionCase(Subscription: sub)),
+        wirePaintObserveCase: static o => Wire.WirePaintObserve(clock: o.Clock ?? MotionClock.MessageLoop).Map(static sub => (WireResult)new WireResult.SubscriptionCase(Subscription: sub)),
+        diagnosticsCase: static d => Wire.Diagnostics(seeds: d.Seeds).Map(static diagnostics => (WireResult)new WireResult.DiagnosticsResult(Diagnostics: diagnostics)));
+}
+
+[SkipUnionOps]
+[Union]
+public partial record WireResult {
+    private WireResult() { }
+    public sealed record WiresCase(Seq<WireSnapshot.ConnectedCase> Wires) : WireResult;
+    public sealed record WireCase(WireSnapshot Wire) : WireResult;
+    public sealed record GraphCase(WireGraph Graph) : WireResult;
+    public sealed record MutationCase(Snapshot<DocumentMutationDelta> Delta) : WireResult;
+    public sealed record SelectionCase(WireSelectionDelta Delta) : WireResult;
+    public sealed record LinearityResult(WireLinearity Linearity) : WireResult;
+    public sealed record TopologyResult(GraphTopology Topology) : WireResult;
+    public sealed record SortedIdsResult(Seq<Guid> Ids) : WireResult;
+    public sealed record PathsResult(Seq<Seq<Guid>> Paths) : WireResult;
+    public sealed record IntegrityResult(GraphIntegrity Integrity) : WireResult;
+    public sealed record DiagnosticsResult(WireDiagnostics Diagnostics) : WireResult;
+    public sealed record InsertCase(WireInsertSnapshot Snapshot) : WireResult;
+    public sealed record DrawnCase(WireDrawnSnapshot Snapshot) : WireResult;
+    public sealed record SubscriptionCase(Subscription Subscription) : WireResult;
+}
+
+// --- [MODELS] -----------------------------------------------------------------------------
+[StructLayout(LayoutKind.Auto)]
+public readonly record struct WireGraph(Seq<WireSnapshot.ConnectedCase> Wires, Seq<Guid> Visited);
+
+[StructLayout(LayoutKind.Auto)]
+public readonly record struct WireLinearity(bool IsLinear, Option<Guid> Start, Option<Guid> End);
+
+[StructLayout(LayoutKind.Auto)]
+public readonly record struct GraphIntegrity(Seq<WireSnapshot.ConnectedCase> Dangling, Seq<WireSnapshot.ConnectedCase> Cycles, Seq<Guid> Missing, Seq<Guid> External);
+
+[StructLayout(LayoutKind.Auto)]
+public readonly record struct WireInsertSnapshot(bool CanInsert, Option<Guid> SourceId, Option<Guid> TargetId);
+
+[StructLayout(LayoutKind.Auto)]
+public readonly record struct WireDrawnEntry(Guid SourceId, Guid TargetId, WireKind Kind, RectangleF Bounds);
+
+[StructLayout(LayoutKind.Auto)]
+public readonly record struct WireDiagnostics(Seq<WireSnapshot.ConnectedCase> Wires, GraphIntegrity Integrity, Option<WireDrawnSnapshot> Drawn);
+
+[StructLayout(LayoutKind.Auto)]
+public readonly record struct WireOverlayStyle(PaintStyle Style, Option<Func<WireDrawnEntry, PaintStyle>> Select = default) {
+    internal PaintStyle For(WireDrawnEntry entry) {
+        PaintStyle fallback = Style;
+        Option<Func<WireDrawnEntry, PaintStyle>> select = Select;
+        return select.Match(Some: pick => pick(arg: entry), None: () => fallback);
+    }
+
+    // Per-WireKind overrides use one lookup selector with base-style fallback.
+    public static WireOverlayStyle ByKind(PaintStyle fallback, params ReadOnlySpan<(WireKind Kind, PaintStyle Style)> map) {
+        // BOUNDARY ADAPTER — ReadOnlySpan cannot be captured by the selector closure; freeze to a HashMap first.
+        HashMap<WireKind, PaintStyle> table = toHashMap(toSeq(map.ToArray()).Map(static pair => (pair.Kind, pair.Style)));
+        return new WireOverlayStyle(
+            Style: fallback,
+            Select: Some<Func<WireDrawnEntry, PaintStyle>>(entry => table.Find(key: entry.Kind).IfNone(fallback)));
+    }
+}
+
+[StructLayout(LayoutKind.Auto)]
+public readonly record struct WireDrawnStamp(
+    Guid DocumentHash,
+    int Modifications,
+    PointF ProjectionCentre,
+    float ProjectionZoom,
+    RectangleF DrawInnerFrame);
+
+[StructLayout(LayoutKind.Auto)]
+public readonly record struct WireDrawnSnapshot(Seq<WireDrawnEntry> Entries, WireDrawnStamp Stamp, bool FreshFromWirePaint) {
+    public int DocumentModifications => Stamp.Modifications;
+}
+
+[StructLayout(LayoutKind.Auto)]
+public readonly record struct WireSelectionDelta(int Selected, int Deselected);
+
+// --- [SERVICES] ---------------------------------------------------------------------------
 // Orthogonal (stepped/taxi) routing: a 3-segment elbow source -> (bendX, source.Y) -> (bendX, target.Y) -> target.
 // Corner radius / split ratio ride the UI-thread-affine WireShapeParams captured at construction, because
 // WireShape.Create builds via Activator.CreateInstance(type, source, target) and admits no extra ctor args.
@@ -591,129 +715,7 @@ public static class WireRouteContext {
     }
 }
 
-[GenerateUnionOps]
-[Union]
-public partial record WireOp : IUiOp<WireResult> {
-    private WireOp() { }
-    public sealed partial record QueryCase(WireQuery Request) : WireOp;
-    public sealed partial record SelectCase(WireSelectionOp Op) : WireOp;
-    public sealed partial record SplitCase(WireSnapshot.ConnectedCase Wire, PointF Location) : WireOp;
-    public sealed partial record EditCase(WireSnapshot.ConnectedCase Wire, WireEdit Kind, WireEditArgs Args = default) : WireOp;
-    public sealed partial record EditBatchCase(Seq<(WireSnapshot.ConnectedCase Wire, WireEdit Kind, WireEditArgs Args)> Edits) : WireOp;
-    public sealed partial record RouteCase(Seq<Guid> Chain) : WireOp;
-    public sealed partial record InstallShapeCase(Type ShapeType, Option<float> CornerRadius = default, Option<float> SplitRatio = default, Option<Func<RectangleF, Seq<RectangleF>>> ObstaclesProvider = default) : WireOp;
-    public sealed partial record OverlayCase(WireOverlayStyle Style, MotionClock? Clock = null) : WireOp;
-    public sealed partial record WirePaintObserveCase(MotionClock? Clock = null) : WireOp;
-    public sealed partial record DiagnosticsCase(Seq<Guid> Seeds) : WireOp;
-    public static WireOp Query(WireQuery query) => new QueryCase(Request: query);
-    public static WireOp Select(WireSelectionOp op) => new SelectCase(Op: op);
-    public static WireOp Split(WireSnapshot.ConnectedCase wire, PointF location) => new SplitCase(Wire: wire, Location: location);
-    public static WireOp Edit(WireSnapshot.ConnectedCase wire, WireEdit edit, WireEditArgs args = default) => new EditCase(Wire: wire, Kind: edit, Args: args);
-    // Batch: N wire edits thread one ActionList → one undo entry, reusing the WireEdit dispatch.
-    public static WireOp EditBatch(params ReadOnlySpan<(WireSnapshot.ConnectedCase Wire, WireEdit Kind, WireEditArgs Args)> edits) =>
-        new EditBatchCase(Edits: toSeq(edits.ToArray()));
-    // Route: connect an ordered parameter chain by synthesizing adjacent-pair Connect edits onto the EditBatch rail.
-    public static WireOp Route(Seq<Guid> chain) => new RouteCase(Chain: chain);
-    public static WireOp InstallShape(Type shapeType) => new InstallShapeCase(ShapeType: shapeType);
-    public static WireOp InstallShape(WireRouter router, float cornerRadius = 8f, float splitRatio = 0.5f) =>
-        new InstallShapeCase(ShapeType: (router ?? WireRouter.Default).ShapeType, CornerRadius: Some(cornerRadius), SplitRatio: Some(splitRatio));
-    // InstallShape + an obstacle provider on one rail: the installed shape sees a populated obstacle set during paint.
-    public static WireOp InstallRouting(WireRouter router, Func<RectangleF, Seq<RectangleF>> provider, float cornerRadius = 8f, float splitRatio = 0.5f) =>
-        new InstallShapeCase(ShapeType: (router ?? WireRouter.Default).ShapeType, CornerRadius: Some(cornerRadius), SplitRatio: Some(splitRatio), ObstaclesProvider: Some(provider));
-    public static WireOp Overlay(WireOverlayStyle style, MotionClock? clock = null) => new OverlayCase(Style: style, Clock: clock);
-    public static WireOp WirePaintObserve(MotionClock? clock = null) => new WirePaintObserveCase(Clock: clock);
-    public static WireOp Diagnostics(params ReadOnlySpan<Guid> seeds) => new DiagnosticsCase(Seeds: toSeq(seeds.ToArray()));
-
-    GrasshopperUiIntent<WireResult> IUiOp<WireResult>.Intent() => Switch(
-        queryCase: static q => Wire.Query(query: q.Request),
-        selectCase: static s => Wire.Selection(op: s.Op).Map(static delta => (WireResult)new WireResult.SelectionCase(Delta: delta)),
-        splitCase: static s => Wire.Split(wire: s.Wire, location: s.Location).Map(static delta => (WireResult)new WireResult.MutationCase(Delta: delta)),
-        editCase: static e => Wire.Edit(wire: e.Wire, edit: e.Kind, args: e.Args).Map(static delta => (WireResult)new WireResult.MutationCase(Delta: delta)),
-        editBatchCase: static e => Wire.EditBatch(edits: e.Edits).Map(static delta => (WireResult)new WireResult.MutationCase(Delta: delta)),
-        routeCase: static r => Wire.Route(chain: r.Chain).Map(static delta => (WireResult)new WireResult.MutationCase(Delta: delta)),
-        installShapeCase: static i => Wire.InstallShape(
-            shapeType: i.ShapeType,
-            cornerRadius: i.CornerRadius.IfNone(8f),
-            splitRatio: i.SplitRatio.IfNone(0.5f),
-            obstacles: i.ObstaclesProvider is { IsSome: true, Case: Func<RectangleF, Seq<RectangleF>> provider } ? provider : null).Map(static sub => (WireResult)new WireResult.SubscriptionCase(Subscription: sub)),
-        overlayCase: static o => Wire.Overlay(style: o.Style, clock: o.Clock ?? MotionClock.MessageLoop).Map(static sub => (WireResult)new WireResult.SubscriptionCase(Subscription: sub)),
-        wirePaintObserveCase: static o => Wire.WirePaintObserve(clock: o.Clock ?? MotionClock.MessageLoop).Map(static sub => (WireResult)new WireResult.SubscriptionCase(Subscription: sub)),
-        diagnosticsCase: static d => Wire.Diagnostics(seeds: d.Seeds).Map(static diagnostics => (WireResult)new WireResult.DiagnosticsResult(Diagnostics: diagnostics)));
-}
-
-[SkipUnionOps]
-[Union]
-public partial record WireResult {
-    private WireResult() { }
-    public sealed record WiresCase(Seq<WireSnapshot.ConnectedCase> Wires) : WireResult;
-    public sealed record WireCase(WireSnapshot Wire) : WireResult;
-    public sealed record GraphCase(WireGraph Graph) : WireResult;
-    public sealed record MutationCase(Snapshot<DocumentMutationDelta> Delta) : WireResult;
-    public sealed record SelectionCase(WireSelectionDelta Delta) : WireResult;
-    public sealed record LinearityResult(WireLinearity Linearity) : WireResult;
-    public sealed record TopologyResult(GraphTopology Topology) : WireResult;
-    public sealed record SortedIdsResult(Seq<Guid> Ids) : WireResult;
-    public sealed record PathsResult(Seq<Seq<Guid>> Paths) : WireResult;
-    public sealed record IntegrityResult(GraphIntegrity Integrity) : WireResult;
-    public sealed record DiagnosticsResult(WireDiagnostics Diagnostics) : WireResult;
-    public sealed record InsertCase(WireInsertSnapshot Snapshot) : WireResult;
-    public sealed record DrawnCase(WireDrawnSnapshot Snapshot) : WireResult;
-    public sealed record SubscriptionCase(Subscription Subscription) : WireResult;
-}
-
-// --- [MODELS] -----------------------------------------------------------------------------
-[StructLayout(LayoutKind.Auto)]
-public readonly record struct WireGraph(Seq<WireSnapshot.ConnectedCase> Wires, Seq<Guid> Visited);
-
-[StructLayout(LayoutKind.Auto)]
-public readonly record struct WireLinearity(bool IsLinear, Option<Guid> Start, Option<Guid> End);
-
-[StructLayout(LayoutKind.Auto)]
-public readonly record struct GraphIntegrity(Seq<WireSnapshot.ConnectedCase> Dangling, Seq<WireSnapshot.ConnectedCase> Cycles, Seq<Guid> Missing, Seq<Guid> External);
-
-[StructLayout(LayoutKind.Auto)]
-public readonly record struct WireInsertSnapshot(bool CanInsert, Option<Guid> SourceId, Option<Guid> TargetId);
-
-[StructLayout(LayoutKind.Auto)]
-public readonly record struct WireDrawnEntry(Guid SourceId, Guid TargetId, WireKind Kind, RectangleF Bounds);
-
-[StructLayout(LayoutKind.Auto)]
-public readonly record struct WireDiagnostics(Seq<WireSnapshot.ConnectedCase> Wires, GraphIntegrity Integrity, Option<WireDrawnSnapshot> Drawn);
-
-[StructLayout(LayoutKind.Auto)]
-public readonly record struct WireOverlayStyle(PaintStyle Style, Option<Func<WireDrawnEntry, PaintStyle>> Select = default) {
-    internal PaintStyle For(WireDrawnEntry entry) {
-        PaintStyle fallback = Style;
-        Option<Func<WireDrawnEntry, PaintStyle>> select = Select;
-        return select.Match(Some: pick => pick(arg: entry), None: () => fallback);
-    }
-
-    // Per-WireKind overrides use one lookup selector with base-style fallback.
-    public static WireOverlayStyle ByKind(PaintStyle fallback, params ReadOnlySpan<(WireKind Kind, PaintStyle Style)> map) {
-        // BOUNDARY ADAPTER — ReadOnlySpan cannot be captured by the selector closure; freeze to a HashMap first.
-        HashMap<WireKind, PaintStyle> table = toHashMap(toSeq(map.ToArray()).Map(static pair => (pair.Kind, pair.Style)));
-        return new WireOverlayStyle(
-            Style: fallback,
-            Select: Some<Func<WireDrawnEntry, PaintStyle>>(entry => table.Find(key: entry.Kind).IfNone(fallback)));
-    }
-}
-
-[StructLayout(LayoutKind.Auto)]
-public readonly record struct WireDrawnStamp(
-    Guid DocumentHash,
-    int Modifications,
-    PointF ProjectionCentre,
-    float ProjectionZoom,
-    RectangleF DrawInnerFrame);
-
-[StructLayout(LayoutKind.Auto)]
-public readonly record struct WireDrawnSnapshot(Seq<WireDrawnEntry> Entries, WireDrawnStamp Stamp, bool FreshFromWirePaint) {
-    public int DocumentModifications => Stamp.Modifications;
-}
-
-[StructLayout(LayoutKind.Auto)]
-public readonly record struct WireSelectionDelta(int Selected, int Deselected);
-
+// --- [OPERATIONS] -------------------------------------------------------------------------
 internal static partial class Wire {
     internal static GrasshopperUiIntent<WireResult> Query(WireQuery query) => query.Switch(
         listCase: static list => Listed(kind: list.Kind).Map(static wires => (WireResult)new WireResult.WiresCase(Wires: wires)),

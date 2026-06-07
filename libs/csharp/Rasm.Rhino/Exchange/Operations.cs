@@ -243,15 +243,6 @@ public static class FileOp {
             from result in HeadlessScope(scope: active, body: body, scheduler: runtime.Scheduler)
             select result);
 
-    public static Eff<FileRuntime, FileReport> Batch(Seq<Eff<FileRuntime, FileReport>> items, FileBatchPolicy policy) =>
-        Lift(run: runtime => items switch {
-            Seq<Eff<FileRuntime, FileReport>> values when !values.IsEmpty => values.TraverseM(operation =>
-                operation.Run(runtime).BindFail(error => guard(policy.ContinueOnError, error).ToFin()
-                    .Map(_ => FileReport.Empty(phase: FilePhase.Batch) with { Issues = Seq(FileIssue.Of(code: FileIssueCode.BatchFailure, message: error.Message)) }))).As()
-                    .Map(reports => FileReport.Of(phase: FilePhase.Batch, issues: reports.Bind(static report => report.Issues), children: reports)),
-            _ => Fin.Fail<FileReport>(error: Op.Of(name: nameof(Batch)).InvalidInput()),
-        });
-
     public static Eff<FileRuntime, FileReport> PublishPlan(FilePublish publish) =>
         Lift(run: runtime =>
             from live in Live(runtime: runtime, op: Op.Of(name: nameof(PublishPlan)))
@@ -297,6 +288,21 @@ public static class FileOp {
                     Id: id,
                     Objects: toSeq(live.Document.NamedPositions.ObjectIds(id: id))))));
 
+    public static Eff<FileRuntime, FileReport> Batch(Seq<Eff<FileRuntime, FileReport>> items, FileBatchPolicy policy) =>
+        Lift(run: runtime => items switch {
+            Seq<Eff<FileRuntime, FileReport>> values when !values.IsEmpty => values.TraverseM(operation =>
+                operation.Run(runtime).BindFail(error => guard(policy.ContinueOnError, error).ToFin()
+                    .Map(_ => FileReport.Empty(phase: FilePhase.Batch) with { Issues = Seq(FileIssue.Of(code: FileIssueCode.BatchFailure, message: error.Message)) }))).As()
+                    .Map(reports => FileReport.Of(phase: FilePhase.Batch, issues: reports.Bind(static report => report.Issues), children: reports)),
+            _ => Fin.Fail<FileReport>(error: Op.Of(name: nameof(Batch)).InvalidInput()),
+        });
+
+    internal static Eff<FileRuntime, T> Lift<T>(Func<FileRuntime, Fin<T>> run) =>
+        Eff<FileRuntime, T>.Lift(runtime =>
+            Optional(run)
+                .ToFin(Fail: Op.Of(name: nameof(Lift)).InvalidInput())
+                .Bind(valid => valid(arg: runtime)));
+
     private static Fin<T> HeadlessScope<T>(HeadlessExchange scope, Eff<FileRuntime, T> body, IoScheduler scheduler) =>
         Op.Of(name: nameof(Headless)).Catch(() => {
             // BOUNDARY ADAPTER — RhinoDoc.CreateHeadless/OpenHeadless yields an unmanaged document; the finally disposes it even when body fails.
@@ -333,17 +339,17 @@ public static class FileOp {
             }
         });
 
-    internal static Eff<FileRuntime, T> Lift<T>(Func<FileRuntime, Fin<T>> run) =>
-        Eff<FileRuntime, T>.Lift(runtime =>
-            Optional(run)
-                .ToFin(Fail: Op.Of(name: nameof(Lift)).InvalidInput())
-                .Bind(valid => valid(arg: runtime)));
-
     private static Fin<(RhinoDoc Document, Context Domain, DocumentEdit Edit)> Live(FileRuntime runtime, Op op) =>
         (runtime.Document.Case, runtime.Domain.Case, runtime.Edit.Case) switch {
             (RhinoDoc document, Context domain, DocumentEdit edit) => Fin.Succ(value: (document, domain, edit)),
             _ => Fin.Fail<(RhinoDoc Document, Context Domain, DocumentEdit Edit)>(error: op.MissingContext()),
         };
+
+    private static Fin<FileReport> Commit<T>(FileRuntime runtime, FilePhase phase, string name, T change, Func<RhinoDoc, T, Op, Fin<DocumentReceipt>> apply) where T : class =>
+        from live in Live(runtime: runtime, op: Op.Of(name: name))
+        from active in Optional(change).ToFin(Fail: Op.Of(name: name).InvalidInput())
+        from receipt in live.Edit.Commit(name: name, redraw: DocumentRedraw.After, undoRecorded: true, run: (document, _, op) => apply(arg1: document, arg2: active, arg3: op))
+        select FileReport.Of(phase: phase, receipt: Some(receipt));
 
     private static Fin<FileReport> OpenCore(FileEndpoint source, FileProfile profile) =>
         from endpoint in source.Input(op: Op.Of(name: nameof(FileExchange.Open)))
@@ -439,21 +445,6 @@ public static class FileOp {
             return exported.Bind(receipt => restored.Map(_ => receipt));
         }));
 
-    private static Fin<FileReport> PublishCore(FileRuntime runtime, FilePublish publish) {
-        Op op = Op.Of(name: nameof(FileExchange.Publish));
-        return from live in Live(runtime: runtime, op: op)
-               from active in Optional(publish).ToFin(Fail: op.InvalidInput())
-               from target in Optional(active.Target).ToFin(Fail: op.InvalidInput())
-               let views = active.Views.IsEmpty ? Seq(new FileView(Source: new FileViewSource.Pages())) : active.Views
-               from pages in views.TraverseM(view => view.Source.Resolve(document: live.Document, spec: view, op: op)).As().Map(static groups => groups.Bind(static items => items))
-               from _ in guard(!pages.IsEmpty, op.InvalidInput())
-               from result in active.Snapshot.Case switch {
-                   string snapshot => InSnapshot(document: live.Document, snapshotName: snapshot, op: op, body: () => RhinoUi.Protect(valid: () => target.Write(pages: pages, layers: active.Layers, op: op))),
-                   _ => RhinoUi.Protect(valid: () => target.Write(pages: pages, layers: active.Layers, op: op)),
-               }
-               select FileReport.Of(phase: FilePhase.Publish, target: result.Target, format: result.Format, issues: result.Issues, nativeLog: result.NativeLog, receipt: Some(result.Receipt), views: result.Views);
-    }
-
     private static (Option<FileEndpoint> Target, Option<FileFormat> Format, Seq<FileIssue> Issues) PublishMeta(FilePublishTarget target, Seq<FileView> views) =>
         target switch {
             FilePublishTarget.Pdf value => (
@@ -480,6 +471,24 @@ public static class FileOp {
             _ => (Target: Option<FileEndpoint>.None, Format: Option<FileFormat>.None, Issues: Seq<FileIssue>()),
         };
 
+    private static Fin<FileReport> PublishCore(FileRuntime runtime, FilePublish publish) {
+        Op op = Op.Of(name: nameof(FileExchange.Publish));
+        return from live in Live(runtime: runtime, op: op)
+               from active in Optional(publish).ToFin(Fail: op.InvalidInput())
+               from target in Optional(active.Target).ToFin(Fail: op.InvalidInput())
+               let views = active.Views.IsEmpty ? Seq(new FileView(Source: new FileViewSource.Pages())) : active.Views
+               from pages in views.TraverseM(view => view.Source.Resolve(document: live.Document, spec: view, op: op)).As().Map(static groups => groups.Bind(static items => items))
+               from _ in guard(!pages.IsEmpty, op.InvalidInput())
+               from result in active.Snapshot.Case switch {
+                   string snapshot => InSnapshot(document: live.Document, snapshotName: snapshot, op: op, body: () => RhinoUi.Protect(valid: () => target.Write(pages: pages, layers: active.Layers, op: op))),
+                   _ => RhinoUi.Protect(valid: () => target.Write(pages: pages, layers: active.Layers, op: op)),
+               }
+               select FileReport.Of(phase: FilePhase.Publish, target: result.Target, format: result.Format, issues: result.Issues, nativeLog: result.NativeLog, receipt: Some(result.Receipt), views: result.Views);
+    }
+
+    private static Fin<Unit> SnapshotScript(uint serial, string verb, string name, Op op) =>
+        op.Catch(() => op.Confirm(success: RhinoApp.RunScript(documentSerialNumber: serial, script: $"-_Snapshot {verb} _Name \"{name.Replace(oldValue: "\"", newValue: "\\\"", comparisonType: StringComparison.Ordinal)}\" _Enter", echo: false)));
+
     private static Fin<T> InSnapshot<T>(RhinoDoc document, string snapshotName, Op op, Func<Fin<T>> body) =>
         from target in FileEndpoint.NonBlank(value: snapshotName, op: op)
         from _exists in guard(toSeq(document.Snapshots.Names).Exists(name => string.Equals(a: name, b: target, comparisonType: StringComparison.Ordinal)), op.InvalidInput())
@@ -498,12 +507,4 @@ public static class FileOp {
         })
         select result;
 
-    private static Fin<Unit> SnapshotScript(uint serial, string verb, string name, Op op) =>
-        op.Catch(() => op.Confirm(success: RhinoApp.RunScript(documentSerialNumber: serial, script: $"-_Snapshot {verb} _Name \"{name.Replace(oldValue: "\"", newValue: "\\\"", comparisonType: StringComparison.Ordinal)}\" _Enter", echo: false)));
-
-    private static Fin<FileReport> Commit<T>(FileRuntime runtime, FilePhase phase, string name, T change, Func<RhinoDoc, T, Op, Fin<DocumentReceipt>> apply) where T : class =>
-        from live in Live(runtime: runtime, op: Op.Of(name: name))
-        from active in Optional(change).ToFin(Fail: Op.Of(name: name).InvalidInput())
-        from receipt in live.Edit.Commit(name: name, redraw: DocumentRedraw.After, undoRecorded: true, run: (document, _, op) => apply(arg1: document, arg2: active, arg3: op))
-        select FileReport.Of(phase: phase, receipt: Some(receipt));
 }

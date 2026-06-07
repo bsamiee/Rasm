@@ -103,6 +103,8 @@ public partial record CanvasLocus {
                 .Map(value => Bounds(value: state.Canvas.Map(rectangle: value, from: state.From, to: state.To))));
 }
 
+public enum CanvasFitTarget { Content, Selection, Viewport }
+
 [SkipUnionOps]
 [Union]
 public partial record CanvasViewOp {
@@ -121,8 +123,6 @@ public partial record CanvasViewOp {
     public static CanvasViewOp Position(CanvasPosition where, CanvasViewPolicy policy = default) => new PositionCase(Where: where, Policy: policy);
     public static CanvasViewOp ZoomAround(PointF controlPoint, float factor, CanvasViewPolicy policy = default) => new ZoomAroundCase(ControlPoint: controlPoint, Factor: factor, Policy: policy);
 }
-
-public enum CanvasFitTarget { Content, Selection, Viewport }
 
 [GenerateUnionOps]
 [Union]
@@ -213,6 +213,9 @@ public readonly record struct CanvasViewPolicy(
     public const float SelectionFitPadding = 48f;
 }
 
+[StructLayout(LayoutKind.Auto)]
+public readonly record struct CanvasProjectionPolicy(Option<PointF> Centre = default, Option<float> Zoom = default);
+
 [ComplexValueObject]
 [ValidationError<UiFault>]
 [StructLayout(LayoutKind.Auto)]
@@ -229,6 +232,20 @@ public readonly partial struct CanvasInteractionPolicy {
     public Option<float> ZuiVariableParameterThreshold { get; }
     public Option<float> ZuiWireDetailingThreshold { get; }
     public Option<CursorMode> Cursor { get; }
+
+    public static CanvasInteractionPolicy Default => Create(
+        allowPan: true,
+        allowZoom: true,
+        showTilesWhenEmpty: true,
+        windowSelectObjects: true,
+        windowSelectWires: true,
+        windowSelectGroups: true,
+        viewportDragging: default,
+        actions: default,
+        projection: default,
+        zuiVariableParameterThreshold: default,
+        zuiWireDetailingThreshold: default,
+        cursor: default);
 
     [BoundaryAdapter]
     static partial void ValidateFactoryArguments(
@@ -260,27 +277,10 @@ public readonly partial struct CanvasInteractionPolicy {
         validationError = fault;
         _ = (allowPan, allowZoom, showTilesWhenEmpty, windowSelectObjects, windowSelectWires, windowSelectGroups, viewportDragging, actions, zuiVariableParameterThreshold, zuiWireDetailingThreshold, cursor);
     }
-
-    public static CanvasInteractionPolicy Default => Create(
-        allowPan: true,
-        allowZoom: true,
-        showTilesWhenEmpty: true,
-        windowSelectObjects: true,
-        windowSelectWires: true,
-        windowSelectGroups: true,
-        viewportDragging: default,
-        actions: default,
-        projection: default,
-        zuiVariableParameterThreshold: default,
-        zuiWireDetailingThreshold: default,
-        cursor: default);
 }
 
 [StructLayout(LayoutKind.Auto)]
 public readonly record struct CanvasInteractionSnapshot(CanvasInteractionPolicy Before, CanvasInteractionPolicy After);
-
-[StructLayout(LayoutKind.Auto)]
-public readonly record struct CanvasProjectionPolicy(Option<PointF> Centre = default, Option<float> Zoom = default);
 
 [ValueObject<float>(KeyMemberName = "Value", KeyMemberAccessModifier = AccessModifier.Public)]
 [ValidationError<UiFault>]
@@ -798,6 +798,13 @@ internal static partial class UiRail {
             size: new SizeF(width: inner.Width / zoom, height: inner.Height / zoom));
     }
 
+    private static Option<RectangleF> FrameOf(IEnumerable<IDocumentObject> targets) =>
+        toSeq(targets).Fold(
+            initialState: Option<RectangleF>.None,
+            f: static (acc, obj) => acc.Match(
+                Some: bounds => Some(RectangleF.Union(rect1: bounds, rect2: obj.Attributes.AggregateBounds)),
+                None: () => Some(obj.Attributes.AggregateBounds)));
+
     internal static UiPixelScale PixelScale(GhCanvas canvas, Option<ControlGraphics> graphics = default) =>
         graphics
             .Filter(static g => g.Content.PointsPerPixel > 0f || g.ScreenScale > 0f)
@@ -857,6 +864,13 @@ internal static partial class UiRail {
                 .Map(PickSnapshotOf)
                 .IfNone(PickSnapshotOf(result: Resolve(probe: content)));
         }, what: "Canvas.ResolvePick"));
+
+    // Probe offsets ordered by Manhattan distance from centre: hit, 4 cardinals, 4 diagonals (matches the prior OrderBy).
+    private static readonly (int Dx, int Dy)[] ProbeOffsets =
+        [(0, 0), (-1, 0), (0, -1), (0, 1), (1, 0), (-1, -1), (-1, 1), (1, -1), (1, 1)];
+
+    private static Seq<PointF> ProbeLattice(PointF centre, float radius) =>
+        toSeq(ProbeOffsets).Map(offset => new PointF(x: centre.X + (offset.Dx * radius), y: centre.Y + (offset.Dy * radius)));
 
     // Only IInteraction carries domain Nomen; native sentinel types stay Option.None.
     internal static Option<string> FocusNomenOf(GhCanvas canvas) =>
@@ -918,13 +932,6 @@ internal static partial class UiRail {
             ObjectUnderPick: result.ObjectUnderPick.NonEmpty(),
             InletUnderPick: result.InletUnderPick.NonEmpty(),
             OutletUnderPick: result.OutletUnderPick.NonEmpty());
-
-    private static Option<RectangleF> FrameOf(IEnumerable<IDocumentObject> targets) =>
-        toSeq(targets).Fold(
-            initialState: Option<RectangleF>.None,
-            f: static (acc, obj) => acc.Match(
-                Some: bounds => Some(RectangleF.Union(rect1: bounds, rect2: obj.Attributes.AggregateBounds)),
-                None: () => Some(obj.Attributes.AggregateBounds)));
 
     private static Grasshopper2.Parsing.Result<Unit> InlineResult(string text, Func<string, Fin<Unit>> apply) =>
         GrasshopperUi.Protect(valid: () => apply(arg: text)).Match(
@@ -1055,13 +1062,6 @@ internal static partial class UiRail {
             return deselects.Count + selects.Count;
         }, what: "Connectivity selection expansion");
 
-    // Probe offsets ordered by Manhattan distance from centre: hit, 4 cardinals, 4 diagonals (matches the prior OrderBy).
-    private static readonly (int Dx, int Dy)[] ProbeOffsets =
-        [(0, 0), (-1, 0), (0, -1), (0, 1), (1, 0), (-1, -1), (-1, 1), (1, -1), (1, 1)];
-
-    private static Seq<PointF> ProbeLattice(PointF centre, float radius) =>
-        toSeq(ProbeOffsets).Map(offset => new PointF(x: centre.X + (offset.Dx * radius), y: centre.Y + (offset.Dy * radius)));
-
     internal static Fin<Option<Guid>> ComposeDispatch(GhDocumentMethods methods, GhObjectList objects, ObjectScope subject, ComposeOp op, ActionList actions) =>
         subject.Switch(
             state: (methods, objects, op, actions),
@@ -1179,6 +1179,12 @@ internal static partial class UiRail {
     private static Seq<WireEnds> WiresOrEmpty(IEnumerable<WireEnds>? wires) =>
         Optional(wires).Map(static w => toSeq(w)).IfNone(Seq<WireEnds>());
 
+    internal static DocumentObjectSnapshot DocumentObjectSnapshotOf(IDocumentObject obj) =>
+        new(Id: obj.InstanceId, Name: obj.Nomen.Name, DisplayName: obj.DisplayName,
+            Selected: obj.Selected, Activity: obj.Activity.Inv(),
+            Display: obj.Display.Inv(), Phase: obj.Phase.Inv(), State: obj.State.Inv(),
+            Bounds: obj.Attributes.Bounds, Pivot: obj.Attributes.Pivot);
+
     internal static DocumentSnapshot DocumentSnapshotOf(GhDocument document, GhObjectList objects) {
         Seq<WireEnds> allWires = Wire.AllWireEnds(objects: objects);
         Seq<WireEnds> selectedWires = WiresOrEmpty(wires: objects.SelectedWires);
@@ -1193,11 +1199,5 @@ internal static partial class UiRail {
             AttributeBounds: objects.AttributeBounds, PivotBounds: objects.PivotBounds,
             ProjectionCentre: document.Projection.centre, ProjectionZoom: document.Projection.zoom);
     }
-
-    internal static DocumentObjectSnapshot DocumentObjectSnapshotOf(IDocumentObject obj) =>
-        new(Id: obj.InstanceId, Name: obj.Nomen.Name, DisplayName: obj.DisplayName,
-            Selected: obj.Selected, Activity: obj.Activity.Inv(),
-            Display: obj.Display.Inv(), Phase: obj.Phase.Inv(), State: obj.State.Inv(),
-            Bounds: obj.Attributes.Bounds, Pivot: obj.Attributes.Pivot);
 
 }

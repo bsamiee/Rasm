@@ -123,6 +123,59 @@ public partial record ClipboardOp {
     public static readonly ClipboardOp PasteGh1Xml = new VerbCase(Verb: ClipboardVerb.PasteGh1Xml, Kind: default, Behaviour: default);
 }
 
+[SmartEnum<int>]
+public sealed partial class ClipboardVerb {
+    private delegate Fin<int> RunFn(GhDocumentMethods methods, ClipboardKind kind, PasteBehaviour behaviour, ActionList actions);
+
+    public static readonly ClipboardVerb Copy = new(
+        key: 0,
+        run: static (methods, kind, _, actions) =>
+            UiRail.ValidateClipboard(name: nameof(ClipboardOp.Copy), clipboard: kind)
+                .Bind(k => Op.Of(name: nameof(ClipboardOp.Copy)).Attempt(body: () => methods.CopySelection(clipboard: k) ? 1 : 0, what: "DocumentMethods.CopySelection")));
+    public static readonly ClipboardVerb Cut = new(
+        key: 1,
+        run: static (methods, kind, _, actions) =>
+            UiRail.ValidateClipboard(name: nameof(ClipboardOp.Cut), clipboard: kind)
+                .Bind(k => Op.Of(name: nameof(ClipboardOp.Cut)).Attempt(body: () => methods.CutSelection(clipboard: k, actions: actions) ? 1 : 0, what: "DocumentMethods.CutSelection")));
+    public static readonly ClipboardVerb Paste = new(
+        key: 2,
+        run: static (methods, kind, behaviour, actions) =>
+            UiRail.ValidateClipboard(name: nameof(ClipboardOp.Paste), clipboard: kind)
+                .Bind(k => Op.Of(name: nameof(ClipboardOp.Paste)).Attempt(body: () => methods.PasteFromClipboard(clipboard: k, behaviour: behaviour, actions: actions) ? 1 : 0, what: "DocumentMethods.PasteFromClipboard")));
+    public static readonly ClipboardVerb PasteGh1Xml = new(
+        key: 3,
+        run: static (methods, _, _, actions) =>
+            Op.Of(name: nameof(ClipboardOp.PasteGh1Xml)).Attempt(body: () => methods.PasteGrasshopper1XmlFromClipboard(actions: actions) ? 1 : 0, what: "DocumentMethods.PasteGrasshopper1XmlFromClipboard"));
+
+    [UseDelegateFromConstructor]
+    internal partial Fin<int> Run(GhDocumentMethods methods, ClipboardKind kind, PasteBehaviour behaviour, ActionList actions);
+}
+
+[SmartEnum<int>]
+public sealed partial class DocumentLinkKind {
+    private delegate bool CanCreateFn(GhDocumentMethods methods, IEnumerable<IDocumentObject> targets, out string whyNot);
+    private delegate IDocumentObject? CreateFn(GhDocumentMethods methods, IDocumentObject[]? targets, ActionList actions);
+
+    public Op Op { get; }
+
+    public static readonly DocumentLinkKind Chain = new(
+        key: 0,
+        op: Op.Of(name: nameof(Chain)),
+        canCreate: static (GhDocumentMethods methods, IEnumerable<IDocumentObject> targets, out string whyNot) => methods.CanCreateChain(objects: targets, whyNot: out whyNot),
+        create: static (methods, targets, actions) => targets is null ? methods.ChainSelection(actions: actions) : methods.ChainObjects(objects: targets, actions: actions));
+    public static readonly DocumentLinkKind Cluster = new(
+        key: 1,
+        op: Op.Of(name: nameof(Cluster)),
+        canCreate: static (GhDocumentMethods methods, IEnumerable<IDocumentObject> targets, out string whyNot) => methods.CanCreateCluster(objects: targets, whyNot: out whyNot),
+        create: static (methods, targets, actions) => targets is null ? methods.ClusterSelection(actions: actions) : methods.ClusterObjects(objects: targets, actions: actions));
+
+    [UseDelegateFromConstructor]
+    internal partial bool CanCreate(GhDocumentMethods methods, IEnumerable<IDocumentObject> targets, out string whyNot);
+
+    [UseDelegateFromConstructor]
+    internal partial IDocumentObject? Create(GhDocumentMethods methods, IDocumentObject[]? targets, ActionList actions);
+}
+
 [SkipUnionOps]
 [Union]
 public partial record ComposeOp {
@@ -159,31 +212,6 @@ public partial record ComposeOp {
                     .Map(static c => c.InstanceId)
                     .Bind(static id => id.NonEmpty()),
                 what: "DocumentMethods.Compose"));
-}
-
-[SmartEnum<int>]
-public sealed partial class DocumentLinkKind {
-    private delegate bool CanCreateFn(GhDocumentMethods methods, IEnumerable<IDocumentObject> targets, out string whyNot);
-    private delegate IDocumentObject? CreateFn(GhDocumentMethods methods, IDocumentObject[]? targets, ActionList actions);
-
-    public Op Op { get; }
-
-    public static readonly DocumentLinkKind Chain = new(
-        key: 0,
-        op: Op.Of(name: nameof(Chain)),
-        canCreate: static (GhDocumentMethods methods, IEnumerable<IDocumentObject> targets, out string whyNot) => methods.CanCreateChain(objects: targets, whyNot: out whyNot),
-        create: static (methods, targets, actions) => targets is null ? methods.ChainSelection(actions: actions) : methods.ChainObjects(objects: targets, actions: actions));
-    public static readonly DocumentLinkKind Cluster = new(
-        key: 1,
-        op: Op.Of(name: nameof(Cluster)),
-        canCreate: static (GhDocumentMethods methods, IEnumerable<IDocumentObject> targets, out string whyNot) => methods.CanCreateCluster(objects: targets, whyNot: out whyNot),
-        create: static (methods, targets, actions) => targets is null ? methods.ClusterSelection(actions: actions) : methods.ClusterObjects(objects: targets, actions: actions));
-
-    [UseDelegateFromConstructor]
-    internal partial bool CanCreate(GhDocumentMethods methods, IEnumerable<IDocumentObject> targets, out string whyNot);
-
-    [UseDelegateFromConstructor]
-    internal partial IDocumentObject? Create(GhDocumentMethods methods, IDocumentObject[]? targets, ActionList actions);
 }
 
 [SmartEnum<int>]
@@ -489,44 +517,6 @@ public partial record WirelessOp {
         }).IfNone(Seq<Guid>());
 }
 
-[GenerateUnionOps]
-[Union]
-public partial record DocumentOp : IUiOp<DocumentResult> {
-    private DocumentOp() { }
-    public sealed partial record QueryCase(DocumentQuery Request) : DocumentOp;
-    public sealed partial record MutateCase(Seq<DocumentMutation> Mutations, DocumentMutationPolicy Policy) : DocumentOp;
-    public sealed partial record ClipboardCase(ClipboardOp Op) : DocumentOp;
-    public sealed partial record HistoryCase(DocumentHistory Request) : DocumentOp;
-    public sealed partial record InspectCase(DocumentInspect Kind) : DocumentOp;
-    public sealed partial record SolutionCase(SolutionControl Control, SolutionMode Mode) : DocumentOp;
-    public sealed partial record MarkCase(DocumentMark Request) : DocumentOp;
-    public sealed partial record ReviewCase(DocumentReview Request) : DocumentOp;
-    public sealed partial record GroupCase(GroupOp Op) : DocumentOp;
-    public sealed partial record WirelessCase(WirelessOp Op) : DocumentOp;
-    public sealed partial record CustomValueCase(string Key, Option<string> Value) : DocumentOp;
-    public sealed partial record FileCase(DocumentFileOp Op) : DocumentOp;
-
-    public static DocumentOp Query(DocumentQuery query) => new QueryCase(Request: query);
-    public static DocumentOp Mutate(params ReadOnlySpan<DocumentMutation> mutations) =>
-        new MutateCase(Mutations: toSeq(mutations.ToArray()), Policy: DocumentMutationPolicy.Default);
-    public static DocumentOp Mutate(DocumentMutationPolicy policy, params ReadOnlySpan<DocumentMutation> mutations) =>
-        new MutateCase(Mutations: toSeq(mutations.ToArray()), Policy: policy);
-    public static DocumentOp Clipboard(ClipboardOp op) => new ClipboardCase(Op: op);
-    public static DocumentOp History(DocumentHistory history) => new HistoryCase(Request: history);
-    public static DocumentOp Inspect(DocumentInspect kind) => new InspectCase(Kind: kind);
-    public static readonly DocumentOp DependencyGraph = new InspectCase(Kind: DocumentInspect.DependencyGraph);
-    public static DocumentOp Solution(SolutionControl control, SolutionMode mode = SolutionMode.Regular) => new SolutionCase(Control: control, Mode: mode);
-    public static DocumentOp Mark(DocumentMark mark) => new MarkCase(Request: mark);
-    public static DocumentOp Review(DocumentReview review) => new ReviewCase(Request: review);
-    public static DocumentOp Group(GroupOp op) => new GroupCase(Op: op);
-    public static DocumentOp Wireless(WirelessOp op) => new WirelessCase(Op: op);
-    public static DocumentOp CustomValue(string key, string value) => new CustomValueCase(Key: key, Value: Some(value));
-    public static DocumentOp ClearCustomValue(string key) => new CustomValueCase(Key: key, Value: None);
-    public static DocumentOp File(DocumentFileOp op) => new FileCase(Op: op);
-
-    GrasshopperUiIntent<DocumentResult> IUiOp<DocumentResult>.Intent() => Document.Plan(op: this);
-}
-
 // Document.File is FileUtility; HasPath means Path is non-null, but Path may still be empty.
 [SmartEnum<int>]
 public sealed partial class DocumentFileOp {
@@ -642,12 +632,6 @@ public partial record DocumentResult {
     public sealed record WirelessListResult(Seq<DocumentWirelessSnapshot> Snapshots) : DocumentResult;
     public sealed record FileResult(DocumentFileSnapshot Snapshot) : DocumentResult;
 }
-
-// --- [MODELS] -----------------------------------------------------------------------------
-[StructLayout(LayoutKind.Auto)]
-public readonly record struct DocumentMarkSnapshot(Seq<string> Names, Option<string> Name = default, Option<RectangleF> Frame = default, bool Changed = false);
-
-public readonly record struct DocumentReviewSnapshot(string Left, string Right, bool IncludeText, bool Shown);
 
 [SkipUnionOps]
 [Union]
@@ -829,51 +813,6 @@ public partial record DocumentReview {
         });
 }
 
-[StructLayout(LayoutKind.Auto)]
-public readonly record struct DocumentMutationPolicy(Option<RepaintRequest> Repaint = default) {
-    public static DocumentMutationPolicy Default => new(Repaint: Some(RepaintRequest.Canvas));
-    internal RepaintRequest RepaintOrDefault => Repaint.IfNone(RepaintRequest.Canvas);
-}
-
-[StructLayout(LayoutKind.Auto)]
-public readonly record struct IsolateOptions(bool IncludePins = true, bool IncludeInputs = true, bool IncludeOutputs = true);
-
-[StructLayout(LayoutKind.Auto)]
-public readonly record struct DocumentSnapshot(Guid Hash, bool Modified, int Modifications, int ObjectCount, int PinCount, int ExpiredCount, int SelectedObjectCount, int SelectedWireCount, int SelectedDanglingWireCount, int WireCount, int DanglingWireCount, RectangleF AttributeBounds, RectangleF PivotBounds, PointF ProjectionCentre, float ProjectionZoom);
-
-[StructLayout(LayoutKind.Auto)]
-public readonly record struct DocumentUniverseSnapshot(Seq<DocumentSnapshot> Documents, int Count);
-
-[StructLayout(LayoutKind.Auto)]
-public readonly record struct DocumentHistoryNode(string Name, int Count);
-
-[StructLayout(LayoutKind.Auto)]
-public readonly record struct DocumentHistorySnapshot(bool IsEmpty, bool CanUndo, bool CanRedo, Seq<DocumentHistoryNode> UndoNodes = default, Seq<DocumentHistoryNode> RedoNodes = default) {
-    public int UndoCount => UndoNodes.Count;
-    public int RedoCount => RedoNodes.Count;
-}
-
-[StructLayout(LayoutKind.Auto)]
-public readonly record struct DocumentObjectSnapshot(Guid Id, string Name, string DisplayName, bool Selected, string Activity, string Display, string Phase, string State, RectangleF Bounds, PointF Pivot);
-
-[StructLayout(LayoutKind.Auto)]
-public readonly record struct ParameterSnapshot(Guid Id, string Name, string Kind, string Access, string AccessVariability, string Requirement, string TypeFlavour, int InputCount, int OutputCount, bool HasColourOverride);
-
-[StructLayout(LayoutKind.Auto)]
-public readonly record struct DocumentGripSnapshot(Guid Parameter, bool InletWithinRange, bool OutletWithinRange);
-
-[StructLayout(LayoutKind.Auto)]
-public readonly record struct DocumentDisplaySnapshot(bool Enabled, bool DrawWires, bool DrawMeshes, TimeSpan Throttling, string RuleSetName);
-
-[StructLayout(LayoutKind.Auto)]
-public readonly record struct DocumentFileSnapshot(bool HasPath, string Path);
-
-[StructLayout(LayoutKind.Auto)]
-public readonly record struct DocumentGroupSnapshot(Option<Guid> Group, Option<string> Label, Option<GhOpenColorFamily> Colour, Seq<Guid> Members, int Changed, bool Exists);
-
-[StructLayout(LayoutKind.Auto)]
-public readonly record struct DocumentWirelessSnapshot(Option<Guid> Shout, Seq<Guid> Listens, int Changed);
-
 [SkipUnionOps]
 [Union]
 public partial record ObjectSpec {
@@ -940,6 +879,171 @@ public partial record DropCue {
             .Bind(valid => Optional(objects.FindParameter(instanceId: valid))
                 .ToFin(Fail: UiFault.InvalidInput(op: op, detail: $"{label} cue parameter {valid} not found"))
                 .Map(static parameter => Some(parameter)));
+}
+
+[SmartEnum<int>]
+public sealed partial class DocumentTargetVerb {
+    private delegate int RunSelectedFn(GhDocumentMethods methods, GhObjectList objects, ActionList actions);
+    private delegate int RunObjectsFn(GhDocumentMethods methods, GhObjectList objects, IDocumentObject[] targets, ActionList actions);
+
+    public static readonly DocumentTargetVerb Show = new(
+        key: 0,
+        runSelected: static (m, _, a) => m.ShowSelected(actions: a),
+        runObjects: static (m, _, t, a) => m.ShowObjects(objects: t, actions: a));
+    public static readonly DocumentTargetVerb Hide = new(
+        key: 1,
+        runSelected: static (m, _, a) => m.HideSelected(actions: a),
+        runObjects: static (m, _, t, a) => m.HideObjects(objects: t, actions: a));
+    public static readonly DocumentTargetVerb ToggleVisibility = new(
+        key: 2,
+        runSelected: static (m, _, a) => m.ToggleDisplaySelected(actions: a),
+        runObjects: static (m, _, t, a) => m.ToggleDisplayObjects(objects: t, actions: a));
+    public static readonly DocumentTargetVerb Enable = new(
+        key: 3,
+        runSelected: static (_, objects, actions) => SetActivity(targets: objects.SelectedObjects, activity: ObjectActivity.Enabled, actions: actions),
+        runObjects: static (_, _, targets, actions) => SetActivity(targets: targets, activity: ObjectActivity.Enabled, actions: actions));
+    public static readonly DocumentTargetVerb Disable = new(
+        key: 4,
+        runSelected: static (_, objects, actions) => SetActivity(targets: objects.SelectedObjects, activity: ObjectActivity.Disabled, actions: actions),
+        runObjects: static (_, _, targets, actions) => SetActivity(targets: targets, activity: ObjectActivity.Disabled, actions: actions));
+    public static readonly DocumentTargetVerb ToggleActivity = new(
+        key: 5,
+        runSelected: static (_, objects, actions) => ToggleActivityOf(targets: objects.SelectedObjects, actions: actions),
+        runObjects: static (_, _, targets, actions) => ToggleActivityOf(targets: targets, actions: actions));
+
+    [UseDelegateFromConstructor]
+    private partial int RunSelected(GhDocumentMethods methods, GhObjectList objects, ActionList actions);
+
+    [UseDelegateFromConstructor]
+    private partial int RunObjects(GhDocumentMethods methods, GhObjectList objects, IDocumentObject[] targets, ActionList actions);
+
+    internal int Run(GhDocumentMethods methods, GhObjectList objects, IDocumentObject[]? targets, ActionList actions) =>
+        targets is null ? RunSelected(methods: methods, objects: objects, actions: actions) : RunObjects(methods: methods, objects: objects, targets: targets, actions: actions);
+
+    private static int SetActivity(IEnumerable<IDocumentObject> targets, ObjectActivity activity, ActionList actions) =>
+        toSeq(targets).Fold(
+            initialState: 0,
+            f: (count, obj) => obj.Activity == activity
+                ? count
+                : ApplyActivity(count: count, obj: obj, activity: activity, actions: actions));
+
+    // Toggle flips each object to the opposite activity, so it always applies (never the no-op SetActivity skip).
+    private static int ToggleActivityOf(IEnumerable<IDocumentObject> targets, ActionList actions) =>
+        toSeq(targets).Fold(
+            initialState: 0,
+            f: (count, obj) => ApplyActivity(count: count, obj: obj, activity: obj.Activity == ObjectActivity.Enabled ? ObjectActivity.Disabled : ObjectActivity.Enabled, actions: actions));
+
+    private static int ApplyActivity(int count, IDocumentObject obj, ObjectActivity activity, ActionList actions) {
+        // BOUNDARY ADAPTER -- GH2 mutation: record the undoable action then flip + expire the object in place.
+        actions.Add(new ObjectActivityAction(obj));
+        obj.Activity = activity;
+        obj.Expire();
+        return count + 1;
+    }
+}
+
+[SkipUnionOps]
+[Union]
+public abstract partial record DocumentTargetOp {
+    public sealed record VerbCase(DocumentTargetVerb Verb) : DocumentTargetOp;
+    public sealed record SelectionCase(SelectionOp Op) : DocumentTargetOp;
+    public sealed record DisplayCase(DisplayPort Port, VisibilityChange Change) : DocumentTargetOp;
+    public sealed record DeleteCase(bool DataOnly, Seq<WireEnds> Wires) : DocumentTargetOp;
+    public sealed record ColourCase(Option<GhColour> Override) : DocumentTargetOp;
+    public sealed record NudgeCase(int Dx, int Dy) : DocumentTargetOp;
+    public sealed record RenameCase(string Name) : DocumentTargetOp;
+
+    public static readonly DocumentTargetOp Show = new VerbCase(Verb: DocumentTargetVerb.Show);
+    public static readonly DocumentTargetOp Hide = new VerbCase(Verb: DocumentTargetVerb.Hide);
+    public static readonly DocumentTargetOp ToggleVisibility = new VerbCase(Verb: DocumentTargetVerb.ToggleVisibility);
+    public static readonly DocumentTargetOp Enable = new VerbCase(Verb: DocumentTargetVerb.Enable);
+    public static readonly DocumentTargetOp Disable = new VerbCase(Verb: DocumentTargetVerb.Disable);
+    public static readonly DocumentTargetOp ToggleActivity = new VerbCase(Verb: DocumentTargetVerb.ToggleActivity);
+    public static DocumentTargetOp Delete(bool dataOnly = false, Seq<WireEnds> wires = default) => new DeleteCase(DataOnly: dataOnly, Wires: wires);
+    public static DocumentTargetOp Style(GhColour colour) => new ColourCase(Override: Some(colour));
+    public static readonly DocumentTargetOp ClearStyle = new ColourCase(Override: Option<GhColour>.None);
+    public static DocumentTargetOp Nudge(int dx, int dy) => new NudgeCase(Dx: dx, Dy: dy);
+    public static readonly DocumentTargetOp NudgeLeft = new NudgeCase(Dx: -1, Dy: 0);
+    public static readonly DocumentTargetOp NudgeRight = new NudgeCase(Dx: 1, Dy: 0);
+    public static readonly DocumentTargetOp NudgeUp = new NudgeCase(Dx: 0, Dy: -1);
+    public static readonly DocumentTargetOp NudgeDown = new NudgeCase(Dx: 0, Dy: 1);
+    public static DocumentTargetOp Rename(string name) => new RenameCase(Name: name);
+
+    internal Fin<int> Apply(GhDocumentMethods methods, GhObjectList objects, Seq<Guid> ids, ActionList actions) =>
+        ids.TraverseM(id => Optional(objects.Find(instanceId: id))
+            .ToFin(Fail: UiFault.InvalidInput(op: Op.Of(name: nameof(ObjectScope)), detail: $"object {id} not found")))
+        .Map(static resolved => resolved.ToArray())
+        .Bind(targets => Dispatch(methods: methods, objects: objects, actions: actions, targets: targets)).As();
+
+    internal Fin<int> ApplySelected(GhDocumentMethods methods, GhObjectList objects, ActionList actions) =>
+        Dispatch(methods: methods, objects: objects, actions: actions, targets: null);
+
+    // Null sentinel chooses *Selected(actions); non-null chooses *Objects(targets, actions).
+    private Fin<int> Dispatch(GhDocumentMethods methods, GhObjectList objects, ActionList actions, IDocumentObject[]? targets) =>
+        Switch(
+            state: (methods, objects, targets, actions),
+            verbCase: static (s, v) => Op.Of(name: nameof(DocumentTargetVerb)).Attempt(
+                body: () => v.Verb.Run(methods: s.methods, objects: s.objects, targets: s.targets, actions: s.actions),
+                what: "DocumentTargetVerb"),
+            selectionCase: static (s, selection) => UiRail.SelectionDispatch(methods: s.methods, objects: s.objects, op: selection.Op),
+            displayCase: static (s, display) => Op.Of(name: nameof(DisplayPort)).Attempt(
+                body: () => display.Port.Run(methods: s.methods, show: display.Change.IsShow, actions: s.actions),
+                what: "DisplayPort"),
+            deleteCase: static (s, delete) => Op.Of(name: nameof(DeleteCase)).Attempt(
+                body: () => UiRail.RunDelete(methods: s.methods, targets: s.targets, dataOnly: delete.DataOnly, wires: delete.Wires, actions: s.actions),
+                what: "DocumentMethods.Delete"),
+            colourCase: static (s, colour) => {
+                GhColour? value = colour.Override.OrNull();
+                return Op.Of(name: nameof(ColourCase)).Attempt(
+                    body: () => s.targets is null
+                        ? s.methods.SetColourOverrideSelected(colour: value, actions: s.actions)
+                        : s.methods.SetColourOverrideObjects(objects: s.targets, colour: value, actions: s.actions),
+                    what: "DocumentMethods.SetColourOverride");
+            },
+            nudgeCase: static (s, nudge) => MoveTargets(objects: s.objects, targets: s.targets, dx: nudge.Dx, dy: nudge.Dy, actions: s.actions),
+            renameCase: static (s, rename) => RenameTargets(objects: s.objects, targets: s.targets, name: rename.Name, actions: s.actions));
+
+    private static Fin<int> RenameTargets(GhObjectList objects, IDocumentObject[]? targets, string name, ActionList actions) =>
+        Op.Of(name: nameof(RenameCase)).Attempt(body: () => {
+            Seq<IDocumentObject> selected = targets is null ? toSeq(objects.SelectedObjects) : toSeq(targets);
+            _ = selected.Iter(obj => {
+                actions.Add(new RenameAction(obj));
+                obj.UserName = name;
+                obj.Expire();
+            });
+            return selected.Count;
+        }, what: "target rename");
+
+    private static Fin<int> MoveTargets(GhObjectList objects, IDocumentObject[]? targets, int dx, int dy, ActionList actions) {
+        Op op = Op.Of(name: nameof(NudgeCase));
+        return (dx, dy) switch {
+            (0, 0) => Fin.Succ(value: 0),
+            _ => op.Attempt(body: () => {
+                Seq<IDocumentObject> selected = targets is null ? toSeq(objects.SelectedObjects) : toSeq(targets);
+                _ = selected.Iter(obj => {
+                    actions.Add(new PivotAction(obj: obj));
+                    obj.Attributes.Move(dx: dx, dy: dy);
+                    obj.Expire();
+                });
+                return selected.Count;
+            }, what: "target attribute nudge"),
+        };
+    }
+}
+
+[SmartEnum<int>]
+public sealed partial class DisplayPort {
+    private delegate int RunFn(GhDocumentMethods methods, bool show, ActionList actions);
+
+    public static readonly DisplayPort Inputs = new(
+        key: 0,
+        run: static (methods, show, actions) => show ? methods.ShowSelectedInputs(actions: actions) : methods.HideSelectedInputs(actions: actions));
+    public static readonly DisplayPort Outputs = new(
+        key: 1,
+        run: static (methods, show, actions) => show ? methods.ShowSelectedOutputs(actions: actions) : methods.HideSelectedOutputs(actions: actions));
+
+    [UseDelegateFromConstructor]
+    internal partial int Run(GhDocumentMethods methods, bool show, ActionList actions);
 }
 
 [SkipUnionOps]
@@ -1111,198 +1215,94 @@ public abstract partial record DocumentMutation {
                 what: "ObjectList.Absorb"));
 }
 
-[SmartEnum<int>]
-public sealed partial class DocumentTargetVerb {
-    private delegate int RunSelectedFn(GhDocumentMethods methods, GhObjectList objects, ActionList actions);
-    private delegate int RunObjectsFn(GhDocumentMethods methods, GhObjectList objects, IDocumentObject[] targets, ActionList actions);
-
-    public static readonly DocumentTargetVerb Show = new(
-        key: 0,
-        runSelected: static (m, _, a) => m.ShowSelected(actions: a),
-        runObjects: static (m, _, t, a) => m.ShowObjects(objects: t, actions: a));
-    public static readonly DocumentTargetVerb Hide = new(
-        key: 1,
-        runSelected: static (m, _, a) => m.HideSelected(actions: a),
-        runObjects: static (m, _, t, a) => m.HideObjects(objects: t, actions: a));
-    public static readonly DocumentTargetVerb ToggleVisibility = new(
-        key: 2,
-        runSelected: static (m, _, a) => m.ToggleDisplaySelected(actions: a),
-        runObjects: static (m, _, t, a) => m.ToggleDisplayObjects(objects: t, actions: a));
-    public static readonly DocumentTargetVerb Enable = new(
-        key: 3,
-        runSelected: static (_, objects, actions) => SetActivity(targets: objects.SelectedObjects, activity: ObjectActivity.Enabled, actions: actions),
-        runObjects: static (_, _, targets, actions) => SetActivity(targets: targets, activity: ObjectActivity.Enabled, actions: actions));
-    public static readonly DocumentTargetVerb Disable = new(
-        key: 4,
-        runSelected: static (_, objects, actions) => SetActivity(targets: objects.SelectedObjects, activity: ObjectActivity.Disabled, actions: actions),
-        runObjects: static (_, _, targets, actions) => SetActivity(targets: targets, activity: ObjectActivity.Disabled, actions: actions));
-    public static readonly DocumentTargetVerb ToggleActivity = new(
-        key: 5,
-        runSelected: static (_, objects, actions) => ToggleActivityOf(targets: objects.SelectedObjects, actions: actions),
-        runObjects: static (_, _, targets, actions) => ToggleActivityOf(targets: targets, actions: actions));
-
-    [UseDelegateFromConstructor]
-    private partial int RunSelected(GhDocumentMethods methods, GhObjectList objects, ActionList actions);
-
-    [UseDelegateFromConstructor]
-    private partial int RunObjects(GhDocumentMethods methods, GhObjectList objects, IDocumentObject[] targets, ActionList actions);
-
-    internal int Run(GhDocumentMethods methods, GhObjectList objects, IDocumentObject[]? targets, ActionList actions) =>
-        targets is null ? RunSelected(methods: methods, objects: objects, actions: actions) : RunObjects(methods: methods, objects: objects, targets: targets, actions: actions);
-
-    private static int SetActivity(IEnumerable<IDocumentObject> targets, ObjectActivity activity, ActionList actions) =>
-        toSeq(targets).Fold(
-            initialState: 0,
-            f: (count, obj) => obj.Activity == activity
-                ? count
-                : ApplyActivity(count: count, obj: obj, activity: activity, actions: actions));
-
-    // Toggle flips each object to the opposite activity, so it always applies (never the no-op SetActivity skip).
-    private static int ToggleActivityOf(IEnumerable<IDocumentObject> targets, ActionList actions) =>
-        toSeq(targets).Fold(
-            initialState: 0,
-            f: (count, obj) => ApplyActivity(count: count, obj: obj, activity: obj.Activity == ObjectActivity.Enabled ? ObjectActivity.Disabled : ObjectActivity.Enabled, actions: actions));
-
-    private static int ApplyActivity(int count, IDocumentObject obj, ObjectActivity activity, ActionList actions) {
-        // BOUNDARY ADAPTER -- GH2 mutation: record the undoable action then flip + expire the object in place.
-        actions.Add(new ObjectActivityAction(obj));
-        obj.Activity = activity;
-        obj.Expire();
-        return count + 1;
-    }
-}
-
-[SkipUnionOps]
+[GenerateUnionOps]
 [Union]
-public abstract partial record DocumentTargetOp {
-    public sealed record VerbCase(DocumentTargetVerb Verb) : DocumentTargetOp;
-    public sealed record SelectionCase(SelectionOp Op) : DocumentTargetOp;
-    public sealed record DisplayCase(DisplayPort Port, VisibilityChange Change) : DocumentTargetOp;
-    public sealed record DeleteCase(bool DataOnly, Seq<WireEnds> Wires) : DocumentTargetOp;
-    public sealed record ColourCase(Option<GhColour> Override) : DocumentTargetOp;
-    public sealed record NudgeCase(int Dx, int Dy) : DocumentTargetOp;
-    public sealed record RenameCase(string Name) : DocumentTargetOp;
+public partial record DocumentOp : IUiOp<DocumentResult> {
+    private DocumentOp() { }
+    public sealed partial record QueryCase(DocumentQuery Request) : DocumentOp;
+    public sealed partial record MutateCase(Seq<DocumentMutation> Mutations, DocumentMutationPolicy Policy) : DocumentOp;
+    public sealed partial record ClipboardCase(ClipboardOp Op) : DocumentOp;
+    public sealed partial record HistoryCase(DocumentHistory Request) : DocumentOp;
+    public sealed partial record InspectCase(DocumentInspect Kind) : DocumentOp;
+    public sealed partial record SolutionCase(SolutionControl Control, SolutionMode Mode) : DocumentOp;
+    public sealed partial record MarkCase(DocumentMark Request) : DocumentOp;
+    public sealed partial record ReviewCase(DocumentReview Request) : DocumentOp;
+    public sealed partial record GroupCase(GroupOp Op) : DocumentOp;
+    public sealed partial record WirelessCase(WirelessOp Op) : DocumentOp;
+    public sealed partial record CustomValueCase(string Key, Option<string> Value) : DocumentOp;
+    public sealed partial record FileCase(DocumentFileOp Op) : DocumentOp;
 
-    public static readonly DocumentTargetOp Show = new VerbCase(Verb: DocumentTargetVerb.Show);
-    public static readonly DocumentTargetOp Hide = new VerbCase(Verb: DocumentTargetVerb.Hide);
-    public static readonly DocumentTargetOp ToggleVisibility = new VerbCase(Verb: DocumentTargetVerb.ToggleVisibility);
-    public static readonly DocumentTargetOp Enable = new VerbCase(Verb: DocumentTargetVerb.Enable);
-    public static readonly DocumentTargetOp Disable = new VerbCase(Verb: DocumentTargetVerb.Disable);
-    public static readonly DocumentTargetOp ToggleActivity = new VerbCase(Verb: DocumentTargetVerb.ToggleActivity);
-    public static DocumentTargetOp Delete(bool dataOnly = false, Seq<WireEnds> wires = default) => new DeleteCase(DataOnly: dataOnly, Wires: wires);
-    public static DocumentTargetOp Style(GhColour colour) => new ColourCase(Override: Some(colour));
-    public static readonly DocumentTargetOp ClearStyle = new ColourCase(Override: Option<GhColour>.None);
-    public static DocumentTargetOp Nudge(int dx, int dy) => new NudgeCase(Dx: dx, Dy: dy);
-    public static readonly DocumentTargetOp NudgeLeft = new NudgeCase(Dx: -1, Dy: 0);
-    public static readonly DocumentTargetOp NudgeRight = new NudgeCase(Dx: 1, Dy: 0);
-    public static readonly DocumentTargetOp NudgeUp = new NudgeCase(Dx: 0, Dy: -1);
-    public static readonly DocumentTargetOp NudgeDown = new NudgeCase(Dx: 0, Dy: 1);
-    public static DocumentTargetOp Rename(string name) => new RenameCase(Name: name);
+    public static DocumentOp Query(DocumentQuery query) => new QueryCase(Request: query);
+    public static DocumentOp Mutate(params ReadOnlySpan<DocumentMutation> mutations) =>
+        new MutateCase(Mutations: toSeq(mutations.ToArray()), Policy: DocumentMutationPolicy.Default);
+    public static DocumentOp Mutate(DocumentMutationPolicy policy, params ReadOnlySpan<DocumentMutation> mutations) =>
+        new MutateCase(Mutations: toSeq(mutations.ToArray()), Policy: policy);
+    public static DocumentOp Clipboard(ClipboardOp op) => new ClipboardCase(Op: op);
+    public static DocumentOp History(DocumentHistory history) => new HistoryCase(Request: history);
+    public static DocumentOp Inspect(DocumentInspect kind) => new InspectCase(Kind: kind);
+    public static readonly DocumentOp DependencyGraph = new InspectCase(Kind: DocumentInspect.DependencyGraph);
+    public static DocumentOp Solution(SolutionControl control, SolutionMode mode = SolutionMode.Regular) => new SolutionCase(Control: control, Mode: mode);
+    public static DocumentOp Mark(DocumentMark mark) => new MarkCase(Request: mark);
+    public static DocumentOp Review(DocumentReview review) => new ReviewCase(Request: review);
+    public static DocumentOp Group(GroupOp op) => new GroupCase(Op: op);
+    public static DocumentOp Wireless(WirelessOp op) => new WirelessCase(Op: op);
+    public static DocumentOp CustomValue(string key, string value) => new CustomValueCase(Key: key, Value: Some(value));
+    public static DocumentOp ClearCustomValue(string key) => new CustomValueCase(Key: key, Value: None);
+    public static DocumentOp File(DocumentFileOp op) => new FileCase(Op: op);
 
-    internal Fin<int> Apply(GhDocumentMethods methods, GhObjectList objects, Seq<Guid> ids, ActionList actions) =>
-        ids.TraverseM(id => Optional(objects.Find(instanceId: id))
-            .ToFin(Fail: UiFault.InvalidInput(op: Op.Of(name: nameof(ObjectScope)), detail: $"object {id} not found")))
-        .Map(static resolved => resolved.ToArray())
-        .Bind(targets => Dispatch(methods: methods, objects: objects, actions: actions, targets: targets)).As();
-
-    internal Fin<int> ApplySelected(GhDocumentMethods methods, GhObjectList objects, ActionList actions) =>
-        Dispatch(methods: methods, objects: objects, actions: actions, targets: null);
-
-    // Null sentinel chooses *Selected(actions); non-null chooses *Objects(targets, actions).
-    private Fin<int> Dispatch(GhDocumentMethods methods, GhObjectList objects, ActionList actions, IDocumentObject[]? targets) =>
-        Switch(
-            state: (methods, objects, targets, actions),
-            verbCase: static (s, v) => Op.Of(name: nameof(DocumentTargetVerb)).Attempt(
-                body: () => v.Verb.Run(methods: s.methods, objects: s.objects, targets: s.targets, actions: s.actions),
-                what: "DocumentTargetVerb"),
-            selectionCase: static (s, selection) => UiRail.SelectionDispatch(methods: s.methods, objects: s.objects, op: selection.Op),
-            displayCase: static (s, display) => Op.Of(name: nameof(DisplayPort)).Attempt(
-                body: () => display.Port.Run(methods: s.methods, show: display.Change.IsShow, actions: s.actions),
-                what: "DisplayPort"),
-            deleteCase: static (s, delete) => Op.Of(name: nameof(DeleteCase)).Attempt(
-                body: () => UiRail.RunDelete(methods: s.methods, targets: s.targets, dataOnly: delete.DataOnly, wires: delete.Wires, actions: s.actions),
-                what: "DocumentMethods.Delete"),
-            colourCase: static (s, colour) => {
-                GhColour? value = colour.Override.OrNull();
-                return Op.Of(name: nameof(ColourCase)).Attempt(
-                    body: () => s.targets is null
-                        ? s.methods.SetColourOverrideSelected(colour: value, actions: s.actions)
-                        : s.methods.SetColourOverrideObjects(objects: s.targets, colour: value, actions: s.actions),
-                    what: "DocumentMethods.SetColourOverride");
-            },
-            nudgeCase: static (s, nudge) => MoveTargets(objects: s.objects, targets: s.targets, dx: nudge.Dx, dy: nudge.Dy, actions: s.actions),
-            renameCase: static (s, rename) => RenameTargets(objects: s.objects, targets: s.targets, name: rename.Name, actions: s.actions));
-
-    private static Fin<int> RenameTargets(GhObjectList objects, IDocumentObject[]? targets, string name, ActionList actions) =>
-        Op.Of(name: nameof(RenameCase)).Attempt(body: () => {
-            Seq<IDocumentObject> selected = targets is null ? toSeq(objects.SelectedObjects) : toSeq(targets);
-            _ = selected.Iter(obj => {
-                actions.Add(new RenameAction(obj));
-                obj.UserName = name;
-                obj.Expire();
-            });
-            return selected.Count;
-        }, what: "target rename");
-
-    private static Fin<int> MoveTargets(GhObjectList objects, IDocumentObject[]? targets, int dx, int dy, ActionList actions) {
-        Op op = Op.Of(name: nameof(NudgeCase));
-        return (dx, dy) switch {
-            (0, 0) => Fin.Succ(value: 0),
-            _ => op.Attempt(body: () => {
-                Seq<IDocumentObject> selected = targets is null ? toSeq(objects.SelectedObjects) : toSeq(targets);
-                _ = selected.Iter(obj => {
-                    actions.Add(new PivotAction(obj: obj));
-                    obj.Attributes.Move(dx: dx, dy: dy);
-                    obj.Expire();
-                });
-                return selected.Count;
-            }, what: "target attribute nudge"),
-        };
-    }
+    GrasshopperUiIntent<DocumentResult> IUiOp<DocumentResult>.Intent() => Document.Plan(op: this);
 }
 
-[SmartEnum<int>]
-public sealed partial class ClipboardVerb {
-    private delegate Fin<int> RunFn(GhDocumentMethods methods, ClipboardKind kind, PasteBehaviour behaviour, ActionList actions);
+// --- [MODELS] -----------------------------------------------------------------------------
+[StructLayout(LayoutKind.Auto)]
+public readonly record struct DocumentMarkSnapshot(Seq<string> Names, Option<string> Name = default, Option<RectangleF> Frame = default, bool Changed = false);
 
-    public static readonly ClipboardVerb Copy = new(
-        key: 0,
-        run: static (methods, kind, _, actions) =>
-            UiRail.ValidateClipboard(name: nameof(ClipboardOp.Copy), clipboard: kind)
-                .Bind(k => Op.Of(name: nameof(ClipboardOp.Copy)).Attempt(body: () => methods.CopySelection(clipboard: k) ? 1 : 0, what: "DocumentMethods.CopySelection")));
-    public static readonly ClipboardVerb Cut = new(
-        key: 1,
-        run: static (methods, kind, _, actions) =>
-            UiRail.ValidateClipboard(name: nameof(ClipboardOp.Cut), clipboard: kind)
-                .Bind(k => Op.Of(name: nameof(ClipboardOp.Cut)).Attempt(body: () => methods.CutSelection(clipboard: k, actions: actions) ? 1 : 0, what: "DocumentMethods.CutSelection")));
-    public static readonly ClipboardVerb Paste = new(
-        key: 2,
-        run: static (methods, kind, behaviour, actions) =>
-            UiRail.ValidateClipboard(name: nameof(ClipboardOp.Paste), clipboard: kind)
-                .Bind(k => Op.Of(name: nameof(ClipboardOp.Paste)).Attempt(body: () => methods.PasteFromClipboard(clipboard: k, behaviour: behaviour, actions: actions) ? 1 : 0, what: "DocumentMethods.PasteFromClipboard")));
-    public static readonly ClipboardVerb PasteGh1Xml = new(
-        key: 3,
-        run: static (methods, _, _, actions) =>
-            Op.Of(name: nameof(ClipboardOp.PasteGh1Xml)).Attempt(body: () => methods.PasteGrasshopper1XmlFromClipboard(actions: actions) ? 1 : 0, what: "DocumentMethods.PasteGrasshopper1XmlFromClipboard"));
+public readonly record struct DocumentReviewSnapshot(string Left, string Right, bool IncludeText, bool Shown);
 
-    [UseDelegateFromConstructor]
-    internal partial Fin<int> Run(GhDocumentMethods methods, ClipboardKind kind, PasteBehaviour behaviour, ActionList actions);
+[StructLayout(LayoutKind.Auto)]
+public readonly record struct DocumentMutationPolicy(Option<RepaintRequest> Repaint = default) {
+    public static DocumentMutationPolicy Default => new(Repaint: Some(RepaintRequest.Canvas));
+    internal RepaintRequest RepaintOrDefault => Repaint.IfNone(RepaintRequest.Canvas);
 }
 
-[SmartEnum<int>]
-public sealed partial class DisplayPort {
-    private delegate int RunFn(GhDocumentMethods methods, bool show, ActionList actions);
+[StructLayout(LayoutKind.Auto)]
+public readonly record struct IsolateOptions(bool IncludePins = true, bool IncludeInputs = true, bool IncludeOutputs = true);
 
-    public static readonly DisplayPort Inputs = new(
-        key: 0,
-        run: static (methods, show, actions) => show ? methods.ShowSelectedInputs(actions: actions) : methods.HideSelectedInputs(actions: actions));
-    public static readonly DisplayPort Outputs = new(
-        key: 1,
-        run: static (methods, show, actions) => show ? methods.ShowSelectedOutputs(actions: actions) : methods.HideSelectedOutputs(actions: actions));
+[StructLayout(LayoutKind.Auto)]
+public readonly record struct DocumentSnapshot(Guid Hash, bool Modified, int Modifications, int ObjectCount, int PinCount, int ExpiredCount, int SelectedObjectCount, int SelectedWireCount, int SelectedDanglingWireCount, int WireCount, int DanglingWireCount, RectangleF AttributeBounds, RectangleF PivotBounds, PointF ProjectionCentre, float ProjectionZoom);
 
-    [UseDelegateFromConstructor]
-    internal partial int Run(GhDocumentMethods methods, bool show, ActionList actions);
+[StructLayout(LayoutKind.Auto)]
+public readonly record struct DocumentUniverseSnapshot(Seq<DocumentSnapshot> Documents, int Count);
+
+[StructLayout(LayoutKind.Auto)]
+public readonly record struct DocumentHistoryNode(string Name, int Count);
+
+[StructLayout(LayoutKind.Auto)]
+public readonly record struct DocumentHistorySnapshot(bool IsEmpty, bool CanUndo, bool CanRedo, Seq<DocumentHistoryNode> UndoNodes = default, Seq<DocumentHistoryNode> RedoNodes = default) {
+    public int UndoCount => UndoNodes.Count;
+    public int RedoCount => RedoNodes.Count;
 }
+
+[StructLayout(LayoutKind.Auto)]
+public readonly record struct DocumentObjectSnapshot(Guid Id, string Name, string DisplayName, bool Selected, string Activity, string Display, string Phase, string State, RectangleF Bounds, PointF Pivot);
+
+[StructLayout(LayoutKind.Auto)]
+public readonly record struct ParameterSnapshot(Guid Id, string Name, string Kind, string Access, string AccessVariability, string Requirement, string TypeFlavour, int InputCount, int OutputCount, bool HasColourOverride);
+
+[StructLayout(LayoutKind.Auto)]
+public readonly record struct DocumentGripSnapshot(Guid Parameter, bool InletWithinRange, bool OutletWithinRange);
+
+[StructLayout(LayoutKind.Auto)]
+public readonly record struct DocumentDisplaySnapshot(bool Enabled, bool DrawWires, bool DrawMeshes, TimeSpan Throttling, string RuleSetName);
+
+[StructLayout(LayoutKind.Auto)]
+public readonly record struct DocumentFileSnapshot(bool HasPath, string Path);
+
+[StructLayout(LayoutKind.Auto)]
+public readonly record struct DocumentGroupSnapshot(Option<Guid> Group, Option<string> Label, Option<GhOpenColorFamily> Colour, Seq<Guid> Members, int Changed, bool Exists);
+
+[StructLayout(LayoutKind.Auto)]
+public readonly record struct DocumentWirelessSnapshot(Option<Guid> Shout, Seq<Guid> Listens, int Changed);
 
 // --- [OPERATIONS] -------------------------------------------------------------------------
 internal static class OptionNativeExtensions {
@@ -1429,6 +1429,45 @@ internal static partial class Document {
             what: "Document.CustomValues")
         select (DocumentResult)new DocumentResult.CustomValueResult(Key: validKey, Value: doc.CustomValues.Get(key: validKey, @default: string.Empty));
 
+    internal static Fin<DocumentResult> MutateHistory(GrasshopperUi.Scope scope, Op op, Action<GhDocument> run) =>
+        from document in scope.NeedDocument()
+        let before = document.Modifications
+        from _ in Try.lift(f: () => { run(document); return unit; }).Run().MapFail(error => UiFault.MutationRejected(op: op, detail: error.Message))
+        from changed in document.Modifications == before
+            ? Fin.Fail<Unit>(error: UiFault.MutationRejected(op: op, detail: "nothing to undo/redo/clear"))
+            : Fin.Succ(value: unit)
+        select (DocumentResult)new DocumentResult.HistoryResult(Snapshot: UiRail.HistorySnapshotOf(document: document));
+
+    internal static Fin<DocumentResult> ShowHistory(GrasshopperUi.Scope scope) =>
+        from document in scope.NeedDocument()
+        from canvas in scope.NeedCanvas()
+        from _ in Op.Of(name: nameof(DocumentHistory.ShowHistory)).Attempt(
+            body: () => { _ = History.ShowHistory(canvas: canvas); return unit; },
+            what: "History.ShowHistory")
+        select (DocumentResult)new DocumentResult.HistoryResult(Snapshot: UiRail.HistorySnapshotOf(document: document));
+
+    internal static Fin<DocumentResult> MutateHistoryTarget(GrasshopperUi.Scope scope, int ordinal, bool redo) =>
+        from document in scope.NeedDocument()
+        from validOrdinal in ordinal >= 0
+            ? Fin.Succ(value: ordinal)
+            : Fin.Fail<int>(error: UiFault.InvalidInput(op: Op.Of(name: nameof(DocumentHistory.Target)), detail: "history ordinal must be non-negative"))
+        from node in toSeq(redo ? document.Undo.CentralRedoSequence : document.Undo.CentralUndoSequence)
+            .Skip(validOrdinal).Head
+            .ToFin(Fail: UiFault.InvalidInput(op: Op.Of(name: nameof(DocumentHistory.Target)), detail: string.Create(CultureInfo.InvariantCulture, $"no history node at ordinal {ordinal}")))
+        from _gate in (node.IsRoot, node.Record.State == (redo ? Grasshopper2.Undo.State.Redo : Grasshopper2.Undo.State.Undo)) switch {
+            (true, _) => Fin.Fail<Unit>(error: UiFault.InvalidInput(op: Op.Of(name: nameof(DocumentHistory.Target)), detail: "root history node cannot be replayed")),
+            (_, false) => Fin.Fail<Unit>(error: UiFault.MutationRejected(op: Op.Of(name: nameof(DocumentHistory.Target)), detail: redo ? "history node is not in a redoable state" : "history node is not in an undoable state")),
+            _ => Fin.Succ(value: unit),
+        }
+        from _ in Op.Of(name: nameof(DocumentHistory.Target)).Attempt(
+            body: () => {
+                // BOUNDARY ADAPTER -- direction-dispatched native replay; one Attempt wraps the chosen action.
+                (redo ? (Action<Node>)document.Undo.Redo : document.Undo.Undo)(node);
+                return unit;
+            },
+            what: "History node target")
+        select (DocumentResult)new DocumentResult.HistoryResult(Snapshot: UiRail.HistorySnapshotOf(document: document));
+
     private static Fin<DocumentResult> Mutate(GrasshopperUi.Scope scope, Seq<DocumentMutation> mutations, DocumentMutationPolicy policy) =>
         UiRail.RunDocumentMutation(scope: scope, op: Op.Of(name: nameof(DocumentOp.Mutate)),
             mutate: (methods, objects, actions) => mutations.TraverseM(m => m.Apply(methods: methods, objects: objects, actions: actions))
@@ -1477,45 +1516,6 @@ internal static partial class Document {
                 After: UiRail.DocumentSnapshotOf(document: document, objects: objects),
                 Created: receipt.Created),
             OwnerId: Some(document.Hash));
-
-    internal static Fin<DocumentResult> MutateHistory(GrasshopperUi.Scope scope, Op op, Action<GhDocument> run) =>
-        from document in scope.NeedDocument()
-        let before = document.Modifications
-        from _ in Try.lift(f: () => { run(document); return unit; }).Run().MapFail(error => UiFault.MutationRejected(op: op, detail: error.Message))
-        from changed in document.Modifications == before
-            ? Fin.Fail<Unit>(error: UiFault.MutationRejected(op: op, detail: "nothing to undo/redo/clear"))
-            : Fin.Succ(value: unit)
-        select (DocumentResult)new DocumentResult.HistoryResult(Snapshot: UiRail.HistorySnapshotOf(document: document));
-
-    internal static Fin<DocumentResult> ShowHistory(GrasshopperUi.Scope scope) =>
-        from document in scope.NeedDocument()
-        from canvas in scope.NeedCanvas()
-        from _ in Op.Of(name: nameof(DocumentHistory.ShowHistory)).Attempt(
-            body: () => { _ = History.ShowHistory(canvas: canvas); return unit; },
-            what: "History.ShowHistory")
-        select (DocumentResult)new DocumentResult.HistoryResult(Snapshot: UiRail.HistorySnapshotOf(document: document));
-
-    internal static Fin<DocumentResult> MutateHistoryTarget(GrasshopperUi.Scope scope, int ordinal, bool redo) =>
-        from document in scope.NeedDocument()
-        from validOrdinal in ordinal >= 0
-            ? Fin.Succ(value: ordinal)
-            : Fin.Fail<int>(error: UiFault.InvalidInput(op: Op.Of(name: nameof(DocumentHistory.Target)), detail: "history ordinal must be non-negative"))
-        from node in toSeq(redo ? document.Undo.CentralRedoSequence : document.Undo.CentralUndoSequence)
-            .Skip(validOrdinal).Head
-            .ToFin(Fail: UiFault.InvalidInput(op: Op.Of(name: nameof(DocumentHistory.Target)), detail: string.Create(CultureInfo.InvariantCulture, $"no history node at ordinal {ordinal}")))
-        from _gate in (node.IsRoot, node.Record.State == (redo ? Grasshopper2.Undo.State.Redo : Grasshopper2.Undo.State.Undo)) switch {
-            (true, _) => Fin.Fail<Unit>(error: UiFault.InvalidInput(op: Op.Of(name: nameof(DocumentHistory.Target)), detail: "root history node cannot be replayed")),
-            (_, false) => Fin.Fail<Unit>(error: UiFault.MutationRejected(op: Op.Of(name: nameof(DocumentHistory.Target)), detail: redo ? "history node is not in a redoable state" : "history node is not in an undoable state")),
-            _ => Fin.Succ(value: unit),
-        }
-        from _ in Op.Of(name: nameof(DocumentHistory.Target)).Attempt(
-            body: () => {
-                // BOUNDARY ADAPTER -- direction-dispatched native replay; one Attempt wraps the chosen action.
-                (redo ? (Action<Node>)document.Undo.Redo : document.Undo.Undo)(node);
-                return unit;
-            },
-            what: "History node target")
-        select (DocumentResult)new DocumentResult.HistoryResult(Snapshot: UiRail.HistorySnapshotOf(document: document));
 
     private static Fin<Seq<DocumentObjectSnapshot>> Find(GhObjectList objects, FindCriterion criterion) =>
         criterion.Switch(

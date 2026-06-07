@@ -40,7 +40,6 @@ public sealed partial class SampleStopKind {
 
 [Union]
 public abstract partial record SampleKind {
-    private SampleKind() { }
     public sealed record ExplicitCase : SampleKind { internal ExplicitCase(Seq<Point3d> points) => Points = points; public Seq<Point3d> Points { get; } }
     public sealed record PoissonDiskCase : SampleKind { internal PoissonDiskCase(PositiveMagnitude radius, Dimension attempts, int seed) { Radius = radius; Attempts = attempts; Seed = seed; } public PositiveMagnitude Radius { get; } public Dimension Attempts { get; } public int Seed { get; } }
     public sealed record FarthestCase : SampleKind { internal FarthestCase(Dimension count) => Count = count; public Dimension Count { get; } }
@@ -48,10 +47,11 @@ public abstract partial record SampleKind {
     public sealed record LloydCase : SampleKind { internal LloydCase(Dimension count, Dimension iterations) { Count = count; Iterations = iterations; } public Dimension Count { get; } public Dimension Iterations { get; } }
     public sealed record CapacityCase : SampleKind { internal CapacityCase(Dimension count, Dimension limit, Dimension iterations, PositiveMagnitude tolerance) { Count = count; Limit = limit; Iterations = iterations; Tolerance = tolerance; } public Dimension Count { get; } public Dimension Limit { get; } public Dimension Iterations { get; } public PositiveMagnitude Tolerance { get; } }
     public sealed record WeightedCase : SampleKind { internal WeightedCase(Seq<(Point3d Point, double Mass)> points) => Points = points; public Seq<(Point3d Point, double Mass)> Points { get; } }
-    public sealed record SampleEliminationCase : SampleKind { internal SampleEliminationCase(Dimension count, Dimension oversampleFactor, PositiveMagnitude alpha, PositiveMagnitude beta, PositiveMagnitude gamma, int seed) { Count = count; OversampleFactor = oversampleFactor; Alpha = alpha; Beta = beta; Gamma = gamma; Seed = seed; } public Dimension Count { get; } public Dimension OversampleFactor { get; } public PositiveMagnitude Alpha { get; } public PositiveMagnitude Beta { get; } public PositiveMagnitude Gamma { get; } public int Seed { get; } }
     public sealed record ScalarDensityCase : SampleKind { internal ScalarDensityCase(ScalarField density, Dimension count) { Density = density; Count = count; } public ScalarField Density { get; } public Dimension Count { get; } }
     public sealed record AdaptiveCase : SampleKind { internal AdaptiveCase(ScalarField density, Dimension count, PositiveMagnitude minSpacing) { Density = density; Count = count; MinSpacing = minSpacing; } public ScalarField Density { get; } public Dimension Count { get; } public PositiveMagnitude MinSpacing { get; } }
+    public sealed record SampleEliminationCase : SampleKind { internal SampleEliminationCase(Dimension count, Dimension oversampleFactor, PositiveMagnitude alpha, PositiveMagnitude beta, PositiveMagnitude gamma, int seed) { Count = count; OversampleFactor = oversampleFactor; Alpha = alpha; Beta = beta; Gamma = gamma; Seed = seed; } public Dimension Count { get; } public Dimension OversampleFactor { get; } public PositiveMagnitude Alpha { get; } public PositiveMagnitude Beta { get; } public PositiveMagnitude Gamma { get; } public int Seed { get; } }
     public sealed record DworkVariableDensityCase : SampleKind { internal DworkVariableDensityCase(ScalarField radius, Dimension count, PositiveMagnitude minRadius, Dimension attempts, int seed) { Radius = radius; Count = count; MinRadius = minRadius; Attempts = attempts; Seed = seed; } public ScalarField Radius { get; } public Dimension Count { get; } public PositiveMagnitude MinRadius { get; } public Dimension Attempts { get; } public int Seed { get; } }
+    private SampleKind() { }
     public static Fin<SampleKind> Explicit(Seq<Point3d> points, Op? key = null) =>
         points.IsEmpty ? Fin.Fail<SampleKind>(key.OrDefault().InvalidInput()) : Fin.Succ<SampleKind>(new ExplicitCase(points: points));
     public static Fin<SampleKind> PoissonDisk(double radius, int attempts = 30, int seed = 0, Op? key = null) =>
@@ -77,6 +77,8 @@ public abstract partial record SampleKind {
             : CloudKernel.MassOf(mass: new Arr<double>([.. points.AsIterable().Select(static item => item.Mass)]), count: points.Count, key: op)
                 .Map(_ => (SampleKind)new WeightedCase(points: points));
     }
+    public static Fin<SampleKind> ScalarDensity(ScalarField density, int count, Op? key = null) => Optional(density).ToFin(key.OrDefault().InvalidInput()).Bind(active => key.OrDefault().AcceptValidated<Dimension>(candidate: count).Map(c => (SampleKind)new ScalarDensityCase(density: active, count: c)));
+    public static Fin<SampleKind> Adaptive(ScalarField density, int count, double minSpacing, Op? key = null) => Optional(density).ToFin(key.OrDefault().InvalidInput()).Bind(active => key.OrDefault().AcceptValidated<Dimension>(candidate: count).Bind(c => key.OrDefault().AcceptValidated<PositiveMagnitude>(candidate: minSpacing).Map(spacing => (SampleKind)new AdaptiveCase(density: active, count: c, minSpacing: spacing))));
     public static Fin<SampleKind> SampleElimination(int count, int oversampleFactor, double alpha, double beta, double gamma, int seed, Op? key = null) {
         Op op = key.OrDefault();
         return from c in op.AcceptValidated<Dimension>(candidate: count)
@@ -87,8 +89,6 @@ public abstract partial record SampleKind {
                from _ in guard(oversample.Value > 1 && b.Value <= 1.0, op.InvalidInput())
                select (SampleKind)new SampleEliminationCase(count: c, oversampleFactor: oversample, alpha: a, beta: b, gamma: g, seed: seed);
     }
-    public static Fin<SampleKind> ScalarDensity(ScalarField density, int count, Op? key = null) => Optional(density).ToFin(key.OrDefault().InvalidInput()).Bind(active => key.OrDefault().AcceptValidated<Dimension>(candidate: count).Map(c => (SampleKind)new ScalarDensityCase(density: active, count: c)));
-    public static Fin<SampleKind> Adaptive(ScalarField density, int count, double minSpacing, Op? key = null) => Optional(density).ToFin(key.OrDefault().InvalidInput()).Bind(active => key.OrDefault().AcceptValidated<Dimension>(candidate: count).Bind(c => key.OrDefault().AcceptValidated<PositiveMagnitude>(candidate: minSpacing).Map(spacing => (SampleKind)new AdaptiveCase(density: active, count: c, minSpacing: spacing))));
     public static Fin<SampleKind> DworkVariableDensity(ScalarField radius, int count, double minRadius, int attempts = 30, int seed = 0, Op? key = null) {
         Op op = key.OrDefault();
         return from active in Optional(radius).ToFin(op.InvalidInput())
@@ -107,6 +107,8 @@ public abstract partial record SampleKind {
         WeightedCase c => c.Points.IsEmpty
             ? Fin.Fail<SampleKind>(key.InvalidInput())
             : CloudKernel.MassOf(mass: new Arr<double>([.. c.Points.AsIterable().Select(static item => item.Mass)]), count: c.Points.Count, key: key).Map(_ => this),
+        ScalarDensityCase c => from density in FieldNabla.NotNull(value: c.Density, key: key) from count in FieldNabla.Dimension(value: c.Count, key: key) select this,
+        AdaptiveCase c => from density in FieldNabla.NotNull(value: c.Density, key: key) from count in FieldNabla.Dimension(value: c.Count, key: key) from spacing in FieldNabla.Positive(value: c.MinSpacing, key: key) select this,
         SampleEliminationCase c => from count in FieldNabla.Dimension(value: c.Count, key: key)
                                    from oversample in FieldNabla.Dimension(value: c.OversampleFactor, key: key)
                                    from a in FieldNabla.Positive(value: c.Alpha, key: key)
@@ -114,8 +116,6 @@ public abstract partial record SampleKind {
                                    from g in FieldNabla.Positive(value: c.Gamma, key: key)
                                    from valid in guard(c.OversampleFactor.Value > 1 && c.Beta.Value <= 1.0, key.InvalidInput())
                                    select this,
-        ScalarDensityCase c => from density in FieldNabla.NotNull(value: c.Density, key: key) from count in FieldNabla.Dimension(value: c.Count, key: key) select this,
-        AdaptiveCase c => from density in FieldNabla.NotNull(value: c.Density, key: key) from count in FieldNabla.Dimension(value: c.Count, key: key) from spacing in FieldNabla.Positive(value: c.MinSpacing, key: key) select this,
         DworkVariableDensityCase c => from radius in FieldNabla.NotNull(value: c.Radius, key: key) from count in FieldNabla.Dimension(value: c.Count, key: key) from min in FieldNabla.Positive(value: c.MinRadius, key: key) from attempts in FieldNabla.Dimension(value: c.Attempts, key: key) select this,
         _ => Fin.Fail<SampleKind>(key.InvalidInput()),
     };
@@ -123,7 +123,7 @@ public abstract partial record SampleKind {
         FieldNabla.NotNull(value: value, key: key).Bind(kind => kind.Admit(key: key));
     internal Fin<SampleResult> Evaluate(ExtractionDomain domain, Context context, Op key) =>
         Admit(key: key).Bind(kind => SampleKernel.Sample(kind: kind, domain: domain, context: context, key: key));
-    internal (Option<int> Count, Option<int> Iterations, double MeshScale, bool Density, SampleAlgorithmKind Algorithm) Request => this switch { ExplicitCase => (Option<int>.None, Option<int>.None, 0.0, false, SampleAlgorithmKind.Explicit), PoissonDiskCase => (Option<int>.None, Option<int>.None, 0.0, false, SampleAlgorithmKind.BridsonActiveListPoisson), FarthestCase c => (Some(c.Count.Value), Option<int>.None, 1.0, false, SampleAlgorithmKind.FarthestCandidate), OptimizeCase c => (Some(c.Count.Value), Some(c.Iterations.Value), 1.0, false, SampleAlgorithmKind.FarthestOptimize), LloydCase c => (Some(c.Count.Value), Some(c.Iterations.Value), 1.0, false, SampleAlgorithmKind.LloydCandidateRelaxation), CapacityCase c => (Some(c.Count.Value), Some(c.Iterations.Value), c.Limit.Value, false, SampleAlgorithmKind.CapacityLimitedLloydCandidate), WeightedCase => (Option<int>.None, Option<int>.None, 0.0, false, SampleAlgorithmKind.WeightedMassPropagation), SampleEliminationCase c => (Some(c.Count.Value), Option<int>.None, c.OversampleFactor.Value, false, SampleAlgorithmKind.YukselWeightedSampleElimination), ScalarDensityCase c => (Some(c.Count.Value), Option<int>.None, 8.0, true, SampleAlgorithmKind.VariableDensityPoisson), AdaptiveCase c => (Some(c.Count.Value), Option<int>.None, 12.0, true, SampleAlgorithmKind.VariableDensityPoisson), DworkVariableDensityCase c => (Some(c.Count.Value), Option<int>.None, 12.0, true, SampleAlgorithmKind.DworkVariableDensity), _ => (Option<int>.None, Option<int>.None, 0.0, false, SampleAlgorithmKind.Explicit) };
+    internal (Option<int> Count, Option<int> Iterations, double MeshScale, bool Density, SampleAlgorithmKind Algorithm) Request => this switch { ExplicitCase => (Option<int>.None, Option<int>.None, 0.0, false, SampleAlgorithmKind.Explicit), PoissonDiskCase => (Option<int>.None, Option<int>.None, 0.0, false, SampleAlgorithmKind.BridsonActiveListPoisson), FarthestCase c => (Some(c.Count.Value), Option<int>.None, 1.0, false, SampleAlgorithmKind.FarthestCandidate), OptimizeCase c => (Some(c.Count.Value), Some(c.Iterations.Value), 1.0, false, SampleAlgorithmKind.FarthestOptimize), LloydCase c => (Some(c.Count.Value), Some(c.Iterations.Value), 1.0, false, SampleAlgorithmKind.LloydCandidateRelaxation), CapacityCase c => (Some(c.Count.Value), Some(c.Iterations.Value), c.Limit.Value, false, SampleAlgorithmKind.CapacityLimitedLloydCandidate), WeightedCase => (Option<int>.None, Option<int>.None, 0.0, false, SampleAlgorithmKind.WeightedMassPropagation), ScalarDensityCase c => (Some(c.Count.Value), Option<int>.None, 8.0, true, SampleAlgorithmKind.VariableDensityPoisson), AdaptiveCase c => (Some(c.Count.Value), Option<int>.None, 12.0, true, SampleAlgorithmKind.VariableDensityPoisson), SampleEliminationCase c => (Some(c.Count.Value), Option<int>.None, c.OversampleFactor.Value, false, SampleAlgorithmKind.YukselWeightedSampleElimination), DworkVariableDensityCase c => (Some(c.Count.Value), Option<int>.None, 12.0, true, SampleAlgorithmKind.DworkVariableDensity), _ => (Option<int>.None, Option<int>.None, 0.0, false, SampleAlgorithmKind.Explicit) };
     internal Option<double> DensityError(int emitted) => Request is { Density: true, Count: Option<int> count } ? count.Map(value => Math.Abs(value: emitted - value) / Math.Max(val1: 1.0, val2: value)) : Option<double>.None;
     internal Fin<TOut> Project<TOut>(ExtractionDomain domain, Context context, Op? key = null) {
         Op op = key.OrDefault();
@@ -276,11 +276,11 @@ internal static class SampleKernel {
             SampleKind.OptimizeCase fpo => SelectionOf(kind: kind, candidates: candidates, indices: FpoSample(candidates: candidates, count: fpo.Count.Value, iterations: fpo.Iterations.Value), key: key),
             SampleKind.LloydCase lloyd => RelaxationSample(candidates: candidates, count: lloyd.Count.Value, iterations: lloyd.Iterations.Value, capacity: Option<int>.None, key: key).Bind(indices => SelectionOf(kind: kind, candidates: candidates, indices: indices, key: key)),
             SampleKind.CapacityCase ccvt => CapacityCvtSelection(candidates: candidates, count: ccvt.Count.Value, limit: ccvt.Limit.Value, iterations: ccvt.Iterations.Value, tolerance: ccvt.Tolerance.Value, key: key),
+            SampleKind.ScalarDensityCase density => DensitySelection(candidates: candidates, density: density.Density, count: density.Count.Value, minSpacing: VariableDensitySpacing(candidates: candidates, count: density.Count.Value), algorithm: SampleAlgorithmKind.VariableDensityPoisson, context: context, key: key),
+            SampleKind.AdaptiveCase adaptive => DensitySelection(candidates: candidates, density: adaptive.Density, count: adaptive.Count.Value, minSpacing: adaptive.MinSpacing.Value, algorithm: SampleAlgorithmKind.VariableDensityPoisson, context: context, key: key),
             SampleKind.SampleEliminationCase elimination => SampleElimination(candidates: candidates, count: elimination.Count.Value, oversampleFactor: elimination.OversampleFactor.Value, alpha: elimination.Alpha.Value, beta: elimination.Beta.Value, gamma: elimination.Gamma.Value, seed: elimination.Seed, domainMeasure: domainMeasure, key: key)
                 .Bind(result => SelectionOf(candidates: candidates, indices: result.Indices, algorithm: Some(result.Algorithm), key: key)),
             SampleKind.DworkVariableDensityCase dwork => DworkVariableDensitySelection(candidates: candidates, radius: dwork.Radius, count: dwork.Count.Value, minRadius: dwork.MinRadius.Value, attempts: dwork.Attempts.Value, seed: dwork.Seed, context: context, key: key),
-            SampleKind.ScalarDensityCase density => DensitySelection(candidates: candidates, density: density.Density, count: density.Count.Value, minSpacing: VariableDensitySpacing(candidates: candidates, count: density.Count.Value), algorithm: SampleAlgorithmKind.VariableDensityPoisson, context: context, key: key),
-            SampleKind.AdaptiveCase adaptive => DensitySelection(candidates: candidates, density: adaptive.Density, count: adaptive.Count.Value, minSpacing: adaptive.MinSpacing.Value, algorithm: SampleAlgorithmKind.VariableDensityPoisson, context: context, key: key),
             SampleKind.PoissonDiskCase pd => Fin.Fail<SampleSelection>(error: key.Unsupported(geometryType: pd.GetType(), outputType: typeof(SampleResult))),
             _ => Fin.Fail<SampleSelection>(error: key.Unsupported(geometryType: kind.GetType(), outputType: typeof(SampleResult))),
         }

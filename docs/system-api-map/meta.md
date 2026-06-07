@@ -38,7 +38,7 @@ C# 14 feature catalog: `../external-libs/csharp/language.md`. Compiler package s
 
 ## [3][HOST_REFERENCES]
 
-`Directory.Build.props` owns RhinoWIP app paths, `RhinoCommon`, `Rhino.UI`, `Grasshopper2`, `GrasshopperIO`, `Eto`, RhinoCode references, `System.Drawing.Common` host assembly, and conditioned compile package metadata. Host-reference edits use `uv run python -m tools.quality api doctor`.
+`Directory.Build.props` owns RhinoWIP app paths, `RhinoCommon`, `Rhino.UI`, `Grasshopper2`, `GrasshopperIO`, `Eto`, RhinoCode references, `System.Drawing.Common` host assembly, and conditioned compile package metadata. Host-reference edits use `uv run python -m tools.assay api doctor`.
 
 ## [4][GENERATED_METADATA]
 

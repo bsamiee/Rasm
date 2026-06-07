@@ -10,10 +10,9 @@ public sealed partial class SpectralAssemblyKind {
 }
 
 [SmartEnum<int>]
-public sealed partial class SpectralDistanceKind {
-    public static readonly SpectralDistanceKind Euclidean = new(key: 0);
-    public static readonly SpectralDistanceKind Manhattan = new(key: 1);
-    public static readonly SpectralDistanceKind Cosine = new(key: 2);
+public sealed partial class SpectralScaleNormalization {
+    public static readonly SpectralScaleNormalization Raw = new(key: 0);
+    public static readonly SpectralScaleNormalization FirstNonZeroEigenvalue = new(key: 1);
 }
 
 [SmartEnum<int>]
@@ -25,29 +24,30 @@ public sealed partial class SpectralEnergyNormalization {
 }
 
 [SmartEnum<int>]
-public sealed partial class SpectralScaleNormalization {
-    public static readonly SpectralScaleNormalization Raw = new(key: 0);
-    public static readonly SpectralScaleNormalization FirstNonZeroEigenvalue = new(key: 1);
-}
-
-[SmartEnum<int>]
-public sealed partial class SpectralTieBreak { public static readonly SpectralTieBreak InputOrder = new(key: 0); }
-
-[SmartEnum<int>]
 public sealed partial class SpectralZeroModePolicy {
     public static readonly SpectralZeroModePolicy Keep = new(key: 0);
     public static readonly SpectralZeroModePolicy Drop = new(key: 1);
 }
 
+[SmartEnum<int>]
+public sealed partial class SpectralDistanceKind {
+    public static readonly SpectralDistanceKind Euclidean = new(key: 0);
+    public static readonly SpectralDistanceKind Manhattan = new(key: 1);
+    public static readonly SpectralDistanceKind Cosine = new(key: 2);
+}
+
+[SmartEnum<int>]
+public sealed partial class SpectralTieBreak { public static readonly SpectralTieBreak InputOrder = new(key: 0); }
+
 [Union]
 public abstract partial record SpectralFilter {
-    private SpectralFilter() { }
     public sealed record HeatCase(PositiveMagnitude Time) : SpectralFilter;
     public sealed record WaveCase(PositiveMagnitude Energy, PositiveMagnitude Bandwidth) : SpectralFilter;
     public sealed record BiharmonicCase : SpectralFilter;
     public sealed record DiffusionCase(PositiveMagnitude Time) : SpectralFilter;
     public sealed record CommuteTimeCase : SpectralFilter;
     public sealed record IdentityCase : SpectralFilter;
+    private SpectralFilter() { }
     public static SpectralFilter Heat(PositiveMagnitude time) => new HeatCase(Time: time);
     public static SpectralFilter Wave(PositiveMagnitude energy, PositiveMagnitude bandwidth) => new WaveCase(Energy: energy, Bandwidth: bandwidth);
     public static SpectralFilter Biharmonic => new BiharmonicCase();
@@ -149,10 +149,20 @@ public readonly record struct DiscreteCalculus(SparseMatrix D0, SparseMatrix D1,
 
 [BoundaryAdapter, StructLayout(LayoutKind.Auto)]
 public readonly record struct SpectralBasis(Arr<double> Eigenvalues, Arr<Arr<double>> Eigenvectors) {
-    public bool IsValid { get { int vertexCount = VertexCount; return Eigenvalues.Count > 0 && Eigenvalues.Count == Eigenvectors.Count && Eigenvalues.ForAll(static lambda => RhinoMath.IsValidDouble(x: lambda) && lambda >= -RhinoMath.SqrtEpsilon) && Eigenvectors.ForAll(phi => vertexCount > 0 && phi.Count == vertexCount && phi.ForAll(RhinoMath.IsValidDouble)); } }
     internal int VertexCount => Eigenvectors.IsEmpty ? 0 : Eigenvectors[index: 0].Count;
+    public bool IsValid { get { int vertexCount = VertexCount; return Eigenvalues.Count > 0 && Eigenvalues.Count == Eigenvectors.Count && Eigenvalues.ForAll(static lambda => RhinoMath.IsValidDouble(x: lambda) && lambda >= -RhinoMath.SqrtEpsilon) && Eigenvectors.ForAll(phi => vertexCount > 0 && phi.Count == vertexCount && phi.ForAll(RhinoMath.IsValidDouble)); } }
     public SpectralBasis Truncate(int k) =>
         k <= 0 || k >= Eigenvalues.Count ? this : new SpectralBasis(Eigenvalues: new Arr<double>([.. Eigenvalues.AsIterable().Take(k)]), Eigenvectors: new Arr<Arr<double>>([.. Eigenvectors.AsIterable().Take(k)]));
+}
+
+[BoundaryAdapter, StructLayout(LayoutKind.Auto)]
+public readonly record struct SpectralDescriptorPolicy(SpectralScaleNormalization ScaleNormalization, SpectralEnergyNormalization EnergyNormalization, SpectralZeroModePolicy ZeroModePolicy, Option<Dimension> CropCount) {
+    public static SpectralDescriptorPolicy Raw => new(ScaleNormalization: SpectralScaleNormalization.Raw, EnergyNormalization: SpectralEnergyNormalization.Raw, ZeroModePolicy: SpectralZeroModePolicy.Keep, CropCount: None);
+    internal bool IsValid => ScaleNormalization is not null && EnergyNormalization is not null && ZeroModePolicy is not null && CropCount.Map(static count => count.Value > 0).IfNone(noneValue: true);
+    internal bool IsRaw => ScaleNormalization.Equals(SpectralScaleNormalization.Raw) && EnergyNormalization.Equals(SpectralEnergyNormalization.Raw) && ZeroModePolicy.Equals(SpectralZeroModePolicy.Keep) && CropCount.IsNone;
+    internal bool IsValueOnly => ScaleNormalization.Equals(SpectralScaleNormalization.Raw) && ZeroModePolicy.Equals(SpectralZeroModePolicy.Keep) && CropCount.IsNone;
+    internal static Fin<SpectralDescriptorPolicy> Admit(SpectralDescriptorPolicy policy, Op key) =>
+        guard(policy.IsValid, key.InvalidInput()).ToFin().Map(_ => policy);
 }
 
 [BoundaryAdapter, StructLayout(LayoutKind.Auto)]
@@ -174,16 +184,6 @@ public readonly record struct SpectralWaveReceipt(double Energy, double Bandwidt
                 && rangeValid;
         }
     }
-}
-
-[BoundaryAdapter, StructLayout(LayoutKind.Auto)]
-public readonly record struct SpectralDescriptorPolicy(SpectralScaleNormalization ScaleNormalization, SpectralEnergyNormalization EnergyNormalization, SpectralZeroModePolicy ZeroModePolicy, Option<Dimension> CropCount) {
-    public static SpectralDescriptorPolicy Raw => new(ScaleNormalization: SpectralScaleNormalization.Raw, EnergyNormalization: SpectralEnergyNormalization.Raw, ZeroModePolicy: SpectralZeroModePolicy.Keep, CropCount: None);
-    internal bool IsValid => ScaleNormalization is not null && EnergyNormalization is not null && ZeroModePolicy is not null && CropCount.Map(static count => count.Value > 0).IfNone(noneValue: true);
-    internal bool IsRaw => ScaleNormalization.Equals(SpectralScaleNormalization.Raw) && EnergyNormalization.Equals(SpectralEnergyNormalization.Raw) && ZeroModePolicy.Equals(SpectralZeroModePolicy.Keep) && CropCount.IsNone;
-    internal bool IsValueOnly => ScaleNormalization.Equals(SpectralScaleNormalization.Raw) && ZeroModePolicy.Equals(SpectralZeroModePolicy.Keep) && CropCount.IsNone;
-    internal static Fin<SpectralDescriptorPolicy> Admit(SpectralDescriptorPolicy policy, Op key) =>
-        guard(policy.IsValid, key.InvalidInput()).ToFin().Map(_ => policy);
 }
 
 [BoundaryAdapter, StructLayout(LayoutKind.Auto)]

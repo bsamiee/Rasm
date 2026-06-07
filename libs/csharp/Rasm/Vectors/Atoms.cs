@@ -122,32 +122,6 @@ public readonly record struct Direction {
 }
 
 [BoundaryAdapter, StructLayout(LayoutKind.Auto)]
-public readonly record struct VectorFrame {
-    private VectorFrame(Plane value) => Value = value;
-    public Plane Value { get; }
-    public static Fin<VectorFrame> Of(Point3d origin, Vector3d normal, Option<Vector3d> xHint, Context context, Op? key = null) =>
-        from point in key.OrDefault().AcceptValue(value: origin)
-        from z in Direction.Of(value: normal, context: context, key: key.OrDefault())
-        let tangent = xHint.Map(raw => raw - (z.Value * (raw * z.Value))).Filter(v => !v.IsTiny(context.Absolute.Value)).IfNone(SeedPerpendicular(axis: z.Value))
-        from x in Direction.Of(value: tangent, context: context, key: key.OrDefault())
-        from y in Direction.Of(value: Vector3d.CrossProduct(a: z.Value, b: x.Value), context: context, key: key.OrDefault())
-        let frame = new Plane(origin: point, xDirection: x.Value, yDirection: y.Value)
-        from valid in FieldNabla.Plane(basis: frame, key: key.OrDefault())
-        select new VectorFrame(value: valid);
-    public static Fin<Seq<VectorFrame>> Chain(Seq<Point3d> points, Direction initialNormal, bool closed, Context context, Op? key = null) =>
-        CloudKernel.BishopChainOf(points: points, initialNormal: initialNormal, closed: closed, context: context, key: key.OrDefault()).Bind(planes => planes.TraverseM(p => Of(origin: p.Origin, normal: p.ZAxis, xHint: Some(p.XAxis), context: context, key: key.OrDefault())).As());
-    internal static Vector3d SeedPerpendicular(Vector3d axis) {
-        Vector3d seed = Vector3d.Zero;
-        return seed.PerpendicularTo(other: axis) && seed.Unitize() ? seed : Vector3d.XAxis;
-    }
-    internal Fin<TOut> Project<TOut>(Op key) => typeof(TOut) switch {
-        Type t when t == typeof(Plane) => FieldNabla.Plane(basis: Value, key: key).Map(static value => (TOut)(object)value),
-        Type t when t == typeof(Transform) => AtomProjection.Value<Transform, TOut>(value: Transform.PlaneToPlane(plane0: Plane.WorldXY, plane1: Value), key: key),
-        _ => AtomProjection.Self<VectorFrame, TOut>(value: this, key: key),
-    };
-}
-
-[BoundaryAdapter, StructLayout(LayoutKind.Auto)]
 public readonly record struct VectorSpan {
     private VectorSpan(Point3d anchor, Direction direction, PositiveMagnitude magnitude) { Anchor = anchor; Direction = direction; Magnitude = magnitude; }
     public Point3d Anchor { get; }
@@ -177,6 +151,32 @@ public readonly record struct VectorSpan {
         Type t when t == typeof(Line) => AtomProjection.Value<Line, TOut>(value: Axis, key: key),
         Type t when t == typeof(double) => AtomProjection.Value<double, TOut>(value: Magnitude.Value, key: key),
         _ => AtomProjection.Self<VectorSpan, TOut>(value: this, key: key),
+    };
+}
+
+[BoundaryAdapter, StructLayout(LayoutKind.Auto)]
+public readonly record struct VectorFrame {
+    private VectorFrame(Plane value) => Value = value;
+    public Plane Value { get; }
+    public static Fin<VectorFrame> Of(Point3d origin, Vector3d normal, Option<Vector3d> xHint, Context context, Op? key = null) =>
+        from point in key.OrDefault().AcceptValue(value: origin)
+        from z in Direction.Of(value: normal, context: context, key: key.OrDefault())
+        let tangent = xHint.Map(raw => raw - (z.Value * (raw * z.Value))).Filter(v => !v.IsTiny(context.Absolute.Value)).IfNone(SeedPerpendicular(axis: z.Value))
+        from x in Direction.Of(value: tangent, context: context, key: key.OrDefault())
+        from y in Direction.Of(value: Vector3d.CrossProduct(a: z.Value, b: x.Value), context: context, key: key.OrDefault())
+        let frame = new Plane(origin: point, xDirection: x.Value, yDirection: y.Value)
+        from valid in FieldNabla.Plane(basis: frame, key: key.OrDefault())
+        select new VectorFrame(value: valid);
+    public static Fin<Seq<VectorFrame>> Chain(Seq<Point3d> points, Direction initialNormal, bool closed, Context context, Op? key = null) =>
+        CloudKernel.BishopChainOf(points: points, initialNormal: initialNormal, closed: closed, context: context, key: key.OrDefault()).Bind(planes => planes.TraverseM(p => Of(origin: p.Origin, normal: p.ZAxis, xHint: Some(p.XAxis), context: context, key: key.OrDefault())).As());
+    internal static Vector3d SeedPerpendicular(Vector3d axis) {
+        Vector3d seed = Vector3d.Zero;
+        return seed.PerpendicularTo(other: axis) && seed.Unitize() ? seed : Vector3d.XAxis;
+    }
+    internal Fin<TOut> Project<TOut>(Op key) => typeof(TOut) switch {
+        Type t when t == typeof(Plane) => FieldNabla.Plane(basis: Value, key: key).Map(static value => (TOut)(object)value),
+        Type t when t == typeof(Transform) => AtomProjection.Value<Transform, TOut>(value: Transform.PlaneToPlane(plane0: Plane.WorldXY, plane1: Value), key: key),
+        _ => AtomProjection.Self<VectorFrame, TOut>(value: this, key: key),
     };
 }
 

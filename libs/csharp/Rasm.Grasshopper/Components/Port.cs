@@ -159,26 +159,8 @@ public sealed partial class PortKind {
     public static readonly PortKind NPoint = Of<Grasshopper2.Types.Coordinates.NPoint>(key: nameof(NPoint), input: static (a, n, c, i, x, r) => a.AddNPoint(name: n, code: c, info: i, access: x, requirement: r), output: static (a, n, c, i, x) => a.AddNPoint(name: n, code: c, info: i, access: x));
     public static readonly PortKind UvPoint = Of<Point2d>(key: nameof(UvPoint), input: static (a, n, c, i, x, r) => a.AddUvPoint(name: n, code: c, info: i, access: x, requirement: r), output: static (a, n, c, i, x) => a.AddUvPoint(name: n, code: c, info: i, access: x));
     public static readonly PortKind Deform = Of<Deform>(key: nameof(Deform), input: static (a, n, c, i, x, r) => a.AddDeform(name: n, code: c, info: i, access: x, requirement: r), output: static (a, n, c, i, x) => a.AddDeform(name: n, code: c, info: i, access: x));
-    public Type Type { get; }
-    public Type WireType { get; }
-    internal bool SupportsInput { get; }
-    internal bool SupportsOutput { get; }
-    internal Capability DefaultPolicy { get; }
     [UseDelegateFromConstructor] private partial IParameter AddInput(InputAdder adder, string name, string code, string info, Access access, Requirement requirement);
     [UseDelegateFromConstructor] private partial IParameter AddOutput(OutputAdder adder, string name, string code, string info, Access access);
-    internal static Seq<(Type Type, Seq<PortKind> Kinds)> TypeCollisions =>
-        TypeSideGroups.Choose(static group => TypeDefault(type: group.Type, side: group.Side, kinds: group.Kinds).IsSome
-            ? Option<(Type Type, Seq<PortKind> Kinds)>.None
-            : Some((group.Type, group.Kinds)));
-    public static Option<PortKind> From(Type type) => From(type: type, side: Side.Input);
-    internal static Option<PortKind> From(Type type, Side side) {
-        ArgumentNullException.ThrowIfNull(argument: type);
-        return type == typeof(Shape)
-            ? Some(Generic)
-            : type.IsEnum && System.Enum.GetUnderlyingType(enumType: type) == typeof(int) && !type.IsDefined(attributeType: typeof(FlagsAttribute), inherit: false)
-                ? EnumKind(type: type)
-            : TypeDefaults.Value.TryGetValue(key: (type, side), value: out PortKind? kind) ? Some(kind) : Option<PortKind>.None;
-    }
     public static PortKind Register<T>(
         string key,
         Func<InputAdder, string, string, string, Access, Requirement, IParameter>? input = null,
@@ -201,6 +183,24 @@ public sealed partial class PortKind {
                 output: static (a, n, c, i, x) => a.AddEnum<T>(name: n, code: c, info: i, access: x),
                 wireType: typeof(int)),
         };
+    public static Option<PortKind> From(Type type) => From(type: type, side: Side.Input);
+    internal static Option<PortKind> From(Type type, Side side) {
+        ArgumentNullException.ThrowIfNull(argument: type);
+        return type == typeof(Shape)
+            ? Some(Generic)
+            : type.IsEnum && System.Enum.GetUnderlyingType(enumType: type) == typeof(int) && !type.IsDefined(attributeType: typeof(FlagsAttribute), inherit: false)
+                ? EnumKind(type: type)
+            : TypeDefaults.Value.TryGetValue(key: (type, side), value: out PortKind? kind) ? Some(kind) : Option<PortKind>.None;
+    }
+    internal static Seq<(Type Type, Seq<PortKind> Kinds)> TypeCollisions =>
+        TypeSideGroups.Choose(static group => TypeDefault(type: group.Type, side: group.Side, kinds: group.Kinds).IsSome
+            ? Option<(Type Type, Seq<PortKind> Kinds)>.None
+            : Some((group.Type, group.Kinds)));
+    public Type Type { get; }
+    public Type WireType { get; }
+    internal bool SupportsInput { get; }
+    internal bool SupportsOutput { get; }
+    internal Capability DefaultPolicy { get; }
     internal bool Accepts(Type type, Side side) => (this == Generic || Type == type) && Supports(side: side);
     internal bool Supports(Side side) => side switch {
         Side.Input => SupportsInput,
@@ -247,10 +247,6 @@ public sealed partial class PortKind {
         toSeq(TypeGroups.Bind(static group => Seq(Side.Input, Side.Output)
             .Map(side => (group.Type, Side: side, Kinds: group.Kinds.Filter(kind => kind.Supports(side: side))))
             .Filter(static group => !group.Kinds.IsEmpty)));
-    private static Option<PortKind> TypeDefault(Type type, Side side, Seq<PortKind> kinds) =>
-        ExplicitTypeDefault(type: type, side: side).Match(
-            Some: kind => kinds.Exists(candidate => candidate == kind) ? Some(kind) : Option<PortKind>.None,
-            None: () => kinds.Count == 1 ? kinds.Head : Option<PortKind>.None);
     private static readonly FrozenDictionary<(Type Type, Side Side), PortKind> ExplicitDefaults =
         new Dictionary<(Type, Side), PortKind> {
             [(typeof(int), Side.Input)] = Integer, [(typeof(int), Side.Output)] = Integer,
@@ -260,6 +256,10 @@ public sealed partial class PortKind {
         }.ToFrozenDictionary();
     private static Option<PortKind> ExplicitTypeDefault(Type type, Side side) =>
         ExplicitDefaults.TryGetValue(key: (type, side), value: out PortKind? kind) ? Some(kind) : Option<PortKind>.None;
+    private static Option<PortKind> TypeDefault(Type type, Side side, Seq<PortKind> kinds) =>
+        ExplicitTypeDefault(type: type, side: side).Match(
+            Some: kind => kinds.Exists(candidate => candidate == kind) ? Some(kind) : Option<PortKind>.None,
+            None: () => kinds.Count == 1 ? kinds.Head : Option<PortKind>.None);
     private static readonly Lazy<FrozenDictionary<(Type Type, Side Side), PortKind>> TypeDefaults =
         new(static () => TypeSideGroups
             .Choose(static group => TypeDefault(type: group.Type, side: group.Side, kinds: group.Kinds).Map(kind => (group.Type, group.Side, Kind: kind)))
@@ -285,13 +285,6 @@ public abstract class Port {
         Requirement = requirement;
         Policy = policy;
     }
-    public string Name { get; }
-    public string Code { get; }
-    public string Info { get; }
-    public PortKind Kind { get; }
-    public Access Access { get; }
-    public Requirement Requirement { get; }
-    public Capability Policy { get; }
     public static Port<TVal> Of<TVal>(
         string name,
         string code,
@@ -348,6 +341,13 @@ public abstract class Port {
         TVal initial,
         Access access = Access.Item) where TVal : struct, Enum =>
         Of<TVal>(name: name, code: code, info: info, access: access, kind: PortKind.Enum(initial: initial), policy: Capability.Default(value: initial));
+    public string Name { get; }
+    public string Code { get; }
+    public string Info { get; }
+    public PortKind Kind { get; }
+    public Access Access { get; }
+    public Requirement Requirement { get; }
+    public Capability Policy { get; }
 }
 public sealed class Port<TVal> : Port {
     internal Port(

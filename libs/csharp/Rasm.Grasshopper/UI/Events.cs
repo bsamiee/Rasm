@@ -217,6 +217,7 @@ public sealed partial class WindowLifecycle {
     internal partial Fin<Subscription> Subscribe(Window window, Func<WindowLifecycleSnapshot, Fin<Unit>> handler);
 }
 
+// --- [MODELS] -----------------------------------------------------------------------------
 public readonly record struct DocumentEventHandlers(EventHandler<DocumentModifiedEventArgs> Modified, EventHandler<DocumentStateEventArgs> State, EventHandler<BeforeAfterEventArgs<GhDocument, IDocumentParent>> Parent, EventHandler<UndoEventArgs> Undo, EventHandler<AfterAddObjectEventArgs> Added, EventHandler<AfterRemoveObjectEventArgs> Removed, EventHandler<ObjectEventArgs> Expired, EventHandler<ObjectEventArgs> Selection, EventHandler<ObjectEventArgs> Enabled, EventHandler<ObjectEventArgs> Relevance, EventHandler<ObjectEventArgs> Layout, EventHandler<ObjectEventArgs> Display, EventHandler<ObjectNameEventArgs> Name, EventHandler<ObjectGuidEventArgs> Id) {
     internal static DocumentEventHandlers Combine(Seq<DocumentEventHandlers> handlers) =>
         handlers.Fold(
@@ -381,6 +382,104 @@ public sealed record ControlEventPipe(Control Source, Func<ControlEventSnapshot,
     }
 }
 
+[StructLayout(LayoutKind.Auto)]
+public readonly record struct DocumentEventSnapshot(DocumentEvent Kind, DocumentSnapshot Document, Seq<DocumentObjectSnapshot> Objects, Seq<WireSnapshot.ConnectedCase> Wires, Option<string> Detail);
+
+[StructLayout(LayoutKind.Auto)]
+public readonly record struct SolutionEventSnapshot(
+    SolutionEvent Kind,
+    DocumentSnapshot Document,
+    Option<string> SolutionKey = default,
+    Option<string> FaultMessage = default,
+    Option<string> FaultType = default);
+
+[StructLayout(LayoutKind.Auto)]
+public readonly record struct UndoEventSnapshot(
+    UndoEvent Kind,
+    DocumentHistorySnapshot History,
+    Option<string> NodeName = default,
+    Option<int> NodeCount = default);
+
+[StructLayout(LayoutKind.Auto)]
+public readonly record struct ControlEventSnapshot(ControlEvent Kind, bool Enabled, bool Visible, bool HasFocus, Option<PointF> Point = default, Option<MouseButtons> Buttons = default, Option<Keys> Keys = default, Option<string> Text = default, Option<SizeF> Delta = default, Option<float> Pressure = default, Option<DragEffects> DragEffects = default, Option<DragEffects> AllowedDragEffects = default, Option<IDataObject> DragData = default);
+
+[StructLayout(LayoutKind.Auto)]
+public readonly record struct CanvasProjectionDelta(PointF OldOrigin, float OldZoom, PointF NewOrigin, float NewZoom);
+
+[StructLayout(LayoutKind.Auto)]
+public readonly record struct CanvasWindowDelta(WindowSelection Window, SelectionMode Mode);
+
+[StructLayout(LayoutKind.Auto)]
+public readonly record struct CanvasEventSnapshot(CanvasEvent Kind, Option<CanvasProjectionDelta> Projection = default, Option<CanvasWindowDelta> Window = default, bool Modified = false, Option<PointF> Hover = default);
+
+[StructLayout(LayoutKind.Auto)]
+public readonly record struct WindowLifecycleSnapshot(bool Visible, Eto.Drawing.Point Location, Option<WindowState> State);
+
+[StructLayout(LayoutKind.Auto)]
+public readonly record struct AccessibilityPrefsSnapshot(bool ReduceMotion);
+
+[StructLayout(LayoutKind.Auto)]
+public readonly record struct NativeInputSnapshot(
+    NSEventType Kind,
+    NSEventPhase Phase,
+    NSEventPhase MomentumPhase,
+    bool PreciseScrolling,
+    InputModifierSnapshot Modifiers,
+    ulong RawModifiers,
+    Option<double> DeltaX = default,
+    Option<double> DeltaY = default,
+    Option<double> Magnification = default,
+    Option<double> Rotation = default,
+    Option<double> Pressure = default,
+    Option<double> TangentialPressure = default,
+    Option<double> StageTransition = default,
+    Option<long> Stage = default,
+    Option<ulong> ButtonMask = default,
+    Option<(double X, double Y)> Tilt = default,
+    Option<ulong> KeyCode = default) {
+    private const ulong ShiftMask = 1UL << 17;
+    private const ulong OptionMask = 1UL << 19;
+    private const ulong CommandMask = 1UL << 20;
+
+    internal static NativeInputSnapshot Of(NSEvent e) {
+        ulong modifiers = (ulong)e.ModifierFlags;
+        return new(
+            Kind: e.Type,
+            Phase: e.Phase,
+            MomentumPhase: e.MomentumPhase,
+            PreciseScrolling: Guard(read: () => e.HasPreciseScrollingDeltas).IfNone(noneValue: false),
+            Modifiers: new InputModifierSnapshot(
+                Shift: (modifiers & ShiftMask) != 0UL,
+                Command: (modifiers & CommandMask) != 0UL,
+                Option: (modifiers & OptionMask) != 0UL),
+            RawModifiers: modifiers,
+            DeltaX: Guard(read: () => (double)e.ScrollingDeltaX),
+            DeltaY: Guard(read: () => (double)e.ScrollingDeltaY),
+            Magnification: Guard(read: () => (double)e.Magnification),
+            Rotation: Guard(read: () => (double)e.Rotation),
+            Pressure: Guard(read: () => (double)e.Pressure),
+            TangentialPressure: Guard(read: () => (double)e.TangentialPressure),
+            StageTransition: Guard(read: () => (double)e.StageTransition),
+            Stage: Guard(read: () => (long)e.Stage),
+            ButtonMask: Guard(read: () => (ulong)e.ButtonMask),
+            Tilt: Guard(read: () => e.Tilt).Map(static (CGPoint t) => ((double)t.X, (double)t.Y)),
+            KeyCode: Guard(read: () => (ulong)e.KeyCode));
+    }
+
+    // BOUNDARY ADAPTER — NSEvent getter failures vary by MarshalObjectiveCExceptionMode; local monitors must project inapplicable reads to None.
+#pragma warning disable CA1031 // broad catch is the boundary contract — see native-getter rationale above
+    private static Option<T> Guard<T>(Func<T> read) {
+        try {
+            return Some(read());
+        } catch (Exception) {
+            return Option<T>.None;
+        }
+    }
+#pragma warning restore CA1031
+}
+
+// --- [SERVICES] ---------------------------------------------------------------------------
+
 public static class DocumentEventKind {
     public static readonly DocumentEvent Modified = OnDoc(
         name: nameof(Modified),
@@ -449,8 +548,8 @@ public static class DocumentEventKind {
     public static readonly DocumentEvent AnyChanged = DocumentEvent.Composite(
         name: nameof(AnyChanged),
         combine: DocumentEventHandlers.Combine,
-        Modified, StateChanged, ObjectAdded, ObjectRemoved, ObjectExpired, ObjectName, Selection,
-        ObjectEnabled, ObjectRelevance, ObjectLayout, ObjectDisplay, ObjectInstanceId, ParentChanged);
+        Modified, StateChanged, ParentChanged, ObjectAdded, ObjectRemoved, ObjectExpired, ObjectName, Selection,
+        ObjectEnabled, ObjectRelevance, ObjectLayout, ObjectDisplay, ObjectInstanceId);
 
     private static DocumentEventPipe PipeOf((GhDocument Doc, GhObjectList Objs) owner, Func<DocumentEventSnapshot, Fin<Unit>> handler) =>
         new(Document: owner.Doc, Objects: owner.Objs, Handler: handler);
@@ -730,104 +829,6 @@ public static class ControlEventKind {
                 arg2: (_, e) => new ControlEventPipe(Source: source, Handler: sink).Publish(snapshot: snapshot(arg1: kind, arg2: source, arg3: e))));
 }
 
-// --- [MODELS] -----------------------------------------------------------------------------
-[StructLayout(LayoutKind.Auto)]
-public readonly record struct DocumentEventSnapshot(DocumentEvent Kind, DocumentSnapshot Document, Seq<DocumentObjectSnapshot> Objects, Seq<WireSnapshot.ConnectedCase> Wires, Option<string> Detail);
-
-[StructLayout(LayoutKind.Auto)]
-public readonly record struct SolutionEventSnapshot(
-    SolutionEvent Kind,
-    DocumentSnapshot Document,
-    Option<string> SolutionKey = default,
-    Option<string> FaultMessage = default,
-    Option<string> FaultType = default);
-
-[StructLayout(LayoutKind.Auto)]
-public readonly record struct UndoEventSnapshot(
-    UndoEvent Kind,
-    DocumentHistorySnapshot History,
-    Option<string> NodeName = default,
-    Option<int> NodeCount = default);
-
-[StructLayout(LayoutKind.Auto)]
-public readonly record struct ControlEventSnapshot(ControlEvent Kind, bool Enabled, bool Visible, bool HasFocus, Option<PointF> Point = default, Option<MouseButtons> Buttons = default, Option<Keys> Keys = default, Option<string> Text = default, Option<SizeF> Delta = default, Option<float> Pressure = default, Option<DragEffects> DragEffects = default, Option<DragEffects> AllowedDragEffects = default, Option<IDataObject> DragData = default);
-
-[StructLayout(LayoutKind.Auto)]
-public readonly record struct CanvasProjectionDelta(PointF OldOrigin, float OldZoom, PointF NewOrigin, float NewZoom);
-
-[StructLayout(LayoutKind.Auto)]
-public readonly record struct CanvasWindowDelta(WindowSelection Window, SelectionMode Mode);
-
-[StructLayout(LayoutKind.Auto)]
-public readonly record struct CanvasEventSnapshot(CanvasEvent Kind, Option<CanvasProjectionDelta> Projection = default, Option<CanvasWindowDelta> Window = default, bool Modified = false, Option<PointF> Hover = default);
-
-[StructLayout(LayoutKind.Auto)]
-public readonly record struct WindowLifecycleSnapshot(bool Visible, Eto.Drawing.Point Location, Option<WindowState> State);
-
-[StructLayout(LayoutKind.Auto)]
-public readonly record struct AccessibilityPrefsSnapshot(bool ReduceMotion);
-
-[StructLayout(LayoutKind.Auto)]
-public readonly record struct NativeInputSnapshot(
-    NSEventType Kind,
-    NSEventPhase Phase,
-    NSEventPhase MomentumPhase,
-    bool PreciseScrolling,
-    InputModifierSnapshot Modifiers,
-    ulong RawModifiers,
-    Option<double> DeltaX = default,
-    Option<double> DeltaY = default,
-    Option<double> Magnification = default,
-    Option<double> Rotation = default,
-    Option<double> Pressure = default,
-    Option<double> TangentialPressure = default,
-    Option<double> StageTransition = default,
-    Option<long> Stage = default,
-    Option<ulong> ButtonMask = default,
-    Option<(double X, double Y)> Tilt = default,
-    Option<ulong> KeyCode = default) {
-    private const ulong ShiftMask = 1UL << 17;
-    private const ulong OptionMask = 1UL << 19;
-    private const ulong CommandMask = 1UL << 20;
-
-    internal static NativeInputSnapshot Of(NSEvent e) {
-        ulong modifiers = (ulong)e.ModifierFlags;
-        return new(
-            Kind: e.Type,
-            Phase: e.Phase,
-            MomentumPhase: e.MomentumPhase,
-            PreciseScrolling: Guard(read: () => e.HasPreciseScrollingDeltas).IfNone(noneValue: false),
-            Modifiers: new InputModifierSnapshot(
-                Shift: (modifiers & ShiftMask) != 0UL,
-                Command: (modifiers & CommandMask) != 0UL,
-                Option: (modifiers & OptionMask) != 0UL),
-            RawModifiers: modifiers,
-            DeltaX: Guard(read: () => (double)e.ScrollingDeltaX),
-            DeltaY: Guard(read: () => (double)e.ScrollingDeltaY),
-            Magnification: Guard(read: () => (double)e.Magnification),
-            Rotation: Guard(read: () => (double)e.Rotation),
-            Pressure: Guard(read: () => (double)e.Pressure),
-            TangentialPressure: Guard(read: () => (double)e.TangentialPressure),
-            StageTransition: Guard(read: () => (double)e.StageTransition),
-            Stage: Guard(read: () => (long)e.Stage),
-            ButtonMask: Guard(read: () => (ulong)e.ButtonMask),
-            Tilt: Guard(read: () => e.Tilt).Map(static (CGPoint t) => ((double)t.X, (double)t.Y)),
-            KeyCode: Guard(read: () => (ulong)e.KeyCode));
-    }
-
-    // BOUNDARY ADAPTER — NSEvent getter failures vary by MarshalObjectiveCExceptionMode; local monitors must project inapplicable reads to None.
-#pragma warning disable CA1031 // broad catch is the boundary contract — see native-getter rationale above
-    private static Option<T> Guard<T>(Func<T> read) {
-        try {
-            return Some(read());
-        } catch (Exception) {
-            return Option<T>.None;
-        }
-    }
-#pragma warning restore CA1031
-}
-
-// --- [SERVICES] ---------------------------------------------------------------------------
 internal static partial class Events {
     internal static GrasshopperUiIntent<Subscription> Subscribe(UiEvent uiEvent) =>
         uiEvent.Switch(

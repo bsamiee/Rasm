@@ -5,21 +5,6 @@ using StatusBar = Rhino.UI.StatusBar;
 namespace Rasm.Rhino.UI;
 
 // --- [MODELS] -----------------------------------------------------------------------------
-public readonly record struct UiProgressSpec(
-    int Lower,
-    int Upper,
-    string Label,
-    bool EmbedLabel = true,
-    bool ShowPercentComplete = true);
-
-public readonly record struct UiProgressStep(
-    Option<int> Position = default,
-    Option<string> Label = default,
-    bool Absolute = true) {
-    public static UiProgressStep Relative(int delta = 1, string? label = null) =>
-        new(Position: Some(delta), Label: Optional(label), Absolute: false);
-}
-
 public readonly record struct UiToast(RhinoView View, string Message, Option<int> TextHeight = default, Option<System.Drawing.PointF> Location = default) {
     internal Fin<Unit> Apply() {
         RhinoView? target = View;
@@ -90,8 +75,31 @@ public readonly record struct UiStatus(
     }
 }
 
+public readonly record struct UiProgressSpec(
+    int Lower,
+    int Upper,
+    string Label,
+    bool EmbedLabel = true,
+    bool ShowPercentComplete = true);
+
+public readonly record struct UiProgressStep(
+    Option<int> Position = default,
+    Option<string> Label = default,
+    bool Absolute = true) {
+    public static UiProgressStep Relative(int delta = 1, string? label = null) =>
+        new(Position: Some(delta), Label: Optional(label), Absolute: false);
+}
+
 // --- [SERVICES] ---------------------------------------------------------------------------
 public sealed partial record RhinoUi {
+    internal readonly record struct Scope(RhinoDoc Document, RunMode Mode, Option<Window> Owner = default) {
+        public Window? Parent =>
+            Owner.Case switch {
+                Window window => window,
+                _ => global::Rhino.UI.RhinoEtoApp.MainWindowForDocument(Document),
+            };
+    }
+
     private readonly RhinoDoc document;
     private readonly RunMode mode;
 
@@ -99,14 +107,6 @@ public sealed partial record RhinoUi {
         ArgumentNullException.ThrowIfNull(argument: document);
         this.document = document;
         this.mode = mode;
-    }
-
-    internal readonly record struct Scope(RhinoDoc Document, RunMode Mode, Option<Window> Owner = default) {
-        public Window? Parent =>
-            Owner.Case switch {
-                Window window => window,
-                _ => global::Rhino.UI.RhinoEtoApp.MainWindowForDocument(Document),
-            };
     }
 
     public Fin<T> Use<T>(UiIntent<T> intent) =>

@@ -24,6 +24,9 @@ public abstract partial record IoScheduler {
 
 // --- [MODELS] -----------------------------------------------------------------------------
 public readonly record struct FileRuntime {
+    internal FileRuntime(Option<RhinoDoc> document, RunMode mode, Option<Context> domain, Option<DocumentEdit> edit, Option<RhinoUi> ui, IoScheduler scheduler) =>
+        (Document, Mode, Domain, Edit, Ui, Scheduler) = (document, mode, domain, edit, ui, scheduler);
+
     internal Option<RhinoDoc> Document { get; }
 
     internal RunMode Mode { get; }
@@ -35,9 +38,6 @@ public readonly record struct FileRuntime {
     internal Option<RhinoUi> Ui { get; }
 
     internal IoScheduler Scheduler { get; }
-
-    internal FileRuntime(Option<RhinoDoc> document, RunMode mode, Option<Context> domain, Option<DocumentEdit> edit, Option<RhinoUi> ui, IoScheduler scheduler) =>
-        (Document, Mode, Domain, Edit, Ui, Scheduler) = (document, mode, domain, edit, ui, scheduler);
 }
 
 // --- [SERVICES] ---------------------------------------------------------------------------

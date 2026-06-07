@@ -9,25 +9,25 @@ namespace Rasm.Grasshopper.UI;
 [GenerateUnionOps]
 [Union]
 public partial record EditorOp : IUiOp<EditorResult> {
-    private EditorOp() { }
     public sealed partial record ShowCase(bool Visible, Option<string> Layout) : EditorOp;
-    public sealed partial record StateCase : EditorOp;
     public sealed partial record ShellCase(Option<bool> Collapsed, Option<bool> ShowNotes, Option<bool> ShowUndoHistory, Option<string> Layout) : EditorOp;
+    public sealed partial record StateCase : EditorOp;
     public sealed partial record BeginRhinoGetterCase(RhinoDoc Document) : EditorOp;
 
     public static EditorOp Show(bool visible = true, string? layout = null) => new ShowCase(Visible: visible, Layout: Optional(layout));
-    public static readonly EditorOp State = new StateCase();
     public static EditorOp Shell(Option<bool> collapsed = default, Option<bool> showNotes = default, Option<bool> showUndoHistory = default, Option<string> layout = default) =>
         new ShellCase(Collapsed: collapsed, ShowNotes: showNotes, ShowUndoHistory: showUndoHistory, Layout: layout);
+    public static readonly EditorOp State = new StateCase();
     public static EditorOp BeginRhinoGetter(RhinoDoc document) => new BeginRhinoGetterCase(Document: document);
+    private EditorOp() { }
 
     // Show is Read-scoped: it opens the editor in-body; headless opens construct the singleton without StatusBar paint.
     GrasshopperUiIntent<EditorResult> IUiOp<EditorResult>.Intent() =>
         new(
             policy: Switch(
                 showCase: static _ => GrasshopperUiPolicy.Read,
-                stateCase: static _ => GrasshopperUiPolicy.Read,
                 shellCase: static _ => GrasshopperUiPolicy.Canvas(openEditor: true),
+                stateCase: static _ => GrasshopperUiPolicy.Read,
                 beginRhinoGetterCase: static _ => GrasshopperUiPolicy.Read),
             run: _ => Editor.Dispatch(op: this));
 }
@@ -35,11 +35,11 @@ public partial record EditorOp : IUiOp<EditorResult> {
 [SkipUnionOps]
 [Union]
 public partial record EditorResult {
-    private EditorResult() { }
     public sealed record UnitResult : EditorResult;
-    public sealed record StateResult(EditorSnapshot Snapshot) : EditorResult;
     public sealed record ShellResult(Snapshot<EditorShellSnapshot> Snapshot) : EditorResult;
+    public sealed record StateResult(EditorSnapshot Snapshot) : EditorResult;
     public static readonly EditorResult Unit = new UnitResult();
+    private EditorResult() { }
 }
 
 // --- [MODELS] -----------------------------------------------------------------------------
@@ -53,12 +53,11 @@ public readonly record struct EditorShellSnapshot(bool Collapsed, bool ShowNotes
 internal static partial class Editor {
     internal static Fin<EditorResult> Dispatch(EditorOp op) => op.Switch(
         showCase: static show => ShowEditor(visible: show.Visible, layoutRules: show.Layout.IfNone(string.Empty), op: Op.Of(name: nameof(EditorOp.Show))),
-        stateCase: static _ => DispatchState(),
         shellCase: static shell => ShowEditor(visible: true, layoutRules: shell.Layout.IfNone(string.Empty), op: Op.Of(name: nameof(EditorOp.Shell)), shell: Some(shell)),
+        stateCase: static _ => DispatchState(),
         beginRhinoGetterCase: static getter => DispatchRhinoGetter(getter: getter));
 
     // ShowEditor(false) still Form.Show()s; headless loads construct directly, visible requests use GhEditor.ShowEditor.
-    // Shell snapshots after optional chrome writes; op.Attempt re-rails native throws to GhEditor.
     private static Fin<EditorResult> ShowEditor(bool visible, string layoutRules, Op op, Option<EditorOp.ShellCase> shell = default) =>
         op.Attempt(
             body: () => visible
@@ -83,6 +82,7 @@ internal static partial class Editor {
         (Initial: GhEditor.InitialLayout, Defined: toSeq(GhEditor.DefinedLayouts));
 
     private static EditorResult.ShellResult ShellResultOf(GhEditor current, EditorOp.ShellCase shell, Option<GhCanvas> canvas) {
+        // Shell snapshots after optional chrome writes; op.Attempt re-rails native throws to GhEditor.
         _ = shell.Collapsed.Iter(value => current.Collapsed = value);
         _ = shell.ShowNotes.Iter(value => current.ShowNotes = value);
         _ = canvas.Iter(c => shell.ShowUndoHistory.Iter(value => c.ShowUndoHistory = value));

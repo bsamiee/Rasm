@@ -66,10 +66,10 @@ public sealed partial class AlignKind {
     public bool NeedsCovariances { get; }
     public AlignmentApproximationStatus Approximation { get; }
     [UseDelegateFromConstructor] internal partial Fin<AlignmentStep> SolveStep(Seq<Point3d> source, AlignmentMatch match, Transform current, AlignmentPolicy policy, Op key);
-    internal Fin<AlignmentReceipt> AlignDetailed(VectorCloud source, VectorCloud target, Op? key = null) =>
-        AlignDetailed(source: source, target: target, policy: AlignmentPolicy.Default, key: key);
     internal Fin<AlignmentReceipt> AlignDetailed(VectorCloud source, VectorCloud target, AlignmentPolicy policy, Op? key = null) =>
         AlignKernel.AlignClouds(kind: this, source: source, target: target, policy: policy, key: key.OrDefault());
+    internal Fin<AlignmentReceipt> AlignDetailed(VectorCloud source, VectorCloud target, Op? key = null) =>
+        AlignDetailed(source: source, target: target, policy: AlignmentPolicy.Default, key: key);
 }
 
 // --- [MODELS] -----------------------------------------------------------------------------
@@ -105,6 +105,10 @@ public readonly record struct AlignmentOptimizerReceipt(AlignmentOptimizerStopKi
         && Solve.Map(static solve => solve.IsUsable).IfNone(noneValue: true);
 }
 
+internal readonly record struct AlignmentMatch(CloudCorrespondenceSet Correspondences, Point3d[] Targets, Vector3d[] Normals, double[] Distances, double[] RowMass, int[] TargetIndices, Option<CloudNeighborhoodPcaResult> SourcePca = default, Option<CloudNeighborhoodPcaResult> TargetPca = default);
+
+internal readonly record struct AlignmentStep(Transform Delta, Option<SolveReceipt> Solve = default, Option<AlignmentRobustReceipt> Robust = default, Option<AlignmentOptimizerReceipt> Optimizer = default, Option<AlignmentStopKind> Stop = default);
+
 [BoundaryAdapter, StructLayout(LayoutKind.Auto)]
 public readonly record struct AlignmentReceipt(Transform Transform, AlignKind Kind, AlignmentApproximationStatus Approximation, AlignmentStopKind Stop, int Iterations, double FinalDelta, Option<AlignmentRobustReceipt> Robust, CloudCorrespondenceSet Correspondences, Option<SolveReceipt> Solve, Option<AlignmentOptimizerReceipt> Optimizer) {
     internal Fin<TOut> Project<TOut>(Op key) =>
@@ -117,10 +121,6 @@ public readonly record struct AlignmentReceipt(Transform Transform, AlignKind Ki
 }
 
 // --- [OPERATIONS] -------------------------------------------------------------------------
-internal readonly record struct AlignmentMatch(CloudCorrespondenceSet Correspondences, Point3d[] Targets, Vector3d[] Normals, double[] Distances, double[] RowMass, int[] TargetIndices, Option<CloudNeighborhoodPcaResult> SourcePca = default, Option<CloudNeighborhoodPcaResult> TargetPca = default);
-
-internal readonly record struct AlignmentStep(Transform Delta, Option<SolveReceipt> Solve = default, Option<AlignmentRobustReceipt> Robust = default, Option<AlignmentOptimizerReceipt> Optimizer = default, Option<AlignmentStopKind> Stop = default);
-
 internal static class AlignKernel {
     private readonly record struct IcpState(Transform Current, double FinalDelta, int Iterations, AlignmentStep Step, Option<AlignmentStopKind> Stop);
 
@@ -344,6 +344,26 @@ internal static class AlignKernel {
     }
     [StructLayout(LayoutKind.Auto)]
     private readonly record struct GicpObjective(double Cost, double MeanMahalanobis, double MaxMahalanobis);
+    private static Fin<GicpObjective> GicpObjectiveOf(Seq<Point3d> source, AlignmentMatch match, CloudNeighborhoodPcaResult sourcePca, CloudNeighborhoodPcaResult targetPca, Transform current, Op key) =>
+        key.Catch(() => {
+            double total = 0.0;
+            double max = 0.0;
+            for (int i = 0; i < source.Count; i++) {
+                Point3d x = current * source[index: i];
+                Vector3d residual = match.Targets[i] - x;
+                MathNet.Numerics.LinearAlgebra.Vector<double> solved = GicpPrecisionOf(current: current, source: sourcePca.Samples[index: i].Covariance, target: targetPca.Samples[index: match.TargetIndices[i]].Covariance)
+                    .Multiply(DenseVectorD.OfArray([residual.X, residual.Y, residual.Z]));
+                double mahalanobis = (residual.X * solved[0]) + (residual.Y * solved[1]) + (residual.Z * solved[2]);
+                if (!RhinoMath.IsValidDouble(x: mahalanobis) || mahalanobis < 0.0) return Fin.Fail<GicpObjective>(key.InvalidResult());
+                total += match.RowMass[i] * mahalanobis;
+                max = Math.Max(val1: max, val2: mahalanobis);
+            }
+            double massTotal = match.RowMass.Sum();
+            double mean = massTotal > RhinoMath.ZeroTolerance ? total / massTotal : total;
+            return RhinoMath.IsValidDouble(x: total) && RhinoMath.IsValidDouble(x: mean) && RhinoMath.IsValidDouble(x: massTotal)
+                ? Fin.Succ(new GicpObjective(Cost: total, MeanMahalanobis: mean, MaxMahalanobis: max))
+                : Fin.Fail<GicpObjective>(key.InvalidResult());
+        });
     private static Fin<SolveReceipt> GicpNormalEquation(Seq<Point3d> source, AlignmentMatch match, CloudNeighborhoodPcaResult sourcePca, CloudNeighborhoodPcaResult targetPca, Transform current, double damping, Op key) =>
         key.Catch(() => {
             double[] h = new double[36];
@@ -427,26 +447,6 @@ internal static class AlignKernel {
             TargetPca: targetPca.Receipt);
         return receipt.IsValid ? Fin.Succ(exhausted with { Solve = Some(solution), Optimizer = Some(receipt), Stop = Some(AlignmentStopKind.OptimizerStopped) }) : Fin.Fail<AlignmentStep>(key.InvalidResult());
     }
-    private static Fin<GicpObjective> GicpObjectiveOf(Seq<Point3d> source, AlignmentMatch match, CloudNeighborhoodPcaResult sourcePca, CloudNeighborhoodPcaResult targetPca, Transform current, Op key) =>
-        key.Catch(() => {
-            double total = 0.0;
-            double max = 0.0;
-            for (int i = 0; i < source.Count; i++) {
-                Point3d x = current * source[index: i];
-                Vector3d residual = match.Targets[i] - x;
-                MathNet.Numerics.LinearAlgebra.Vector<double> solved = GicpPrecisionOf(current: current, source: sourcePca.Samples[index: i].Covariance, target: targetPca.Samples[index: match.TargetIndices[i]].Covariance)
-                    .Multiply(DenseVectorD.OfArray([residual.X, residual.Y, residual.Z]));
-                double mahalanobis = (residual.X * solved[0]) + (residual.Y * solved[1]) + (residual.Z * solved[2]);
-                if (!RhinoMath.IsValidDouble(x: mahalanobis) || mahalanobis < 0.0) return Fin.Fail<GicpObjective>(key.InvalidResult());
-                total += match.RowMass[i] * mahalanobis;
-                max = Math.Max(val1: max, val2: mahalanobis);
-            }
-            double massTotal = match.RowMass.Sum();
-            double mean = massTotal > RhinoMath.ZeroTolerance ? total / massTotal : total;
-            return RhinoMath.IsValidDouble(x: total) && RhinoMath.IsValidDouble(x: mean) && RhinoMath.IsValidDouble(x: massTotal)
-                ? Fin.Succ(new GicpObjective(Cost: total, MeanMahalanobis: mean, MaxMahalanobis: max))
-                : Fin.Fail<GicpObjective>(key.InvalidResult());
-        });
     private static LinearMatrix GicpPrecisionOf(Transform current, SymmetricMatrix source, SymmetricMatrix target) {
         LinearMatrix rotation = DenseMatrixD.Create(rows: 3, columns: 3, init: (row, col) => current[row, col]);
         LinearMatrix metric = MatrixKernel.ToMathNet(target.ToDense()) + (rotation * MatrixKernel.ToMathNet(source.ToDense()) * rotation.Transpose());

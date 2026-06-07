@@ -20,9 +20,9 @@ public abstract partial record BlendKind {
     public static Fin<BlendKind> Root(double k, Op? key = null) => FieldNabla.WithPositive(candidate: k, make: static v => (BlendKind)new RootCase(K: v), key: key);
     public static Fin<BlendKind> Cubic(double k, Op? key = null) => FieldNabla.WithPositive(candidate: k, make: static v => (BlendKind)new CubicCase(K: v), key: key);
     public static Fin<BlendKind> Chamfer(double k, Op? key = null) => FieldNabla.WithPositive(candidate: k, make: static v => (BlendKind)new ChamferCase(K: v), key: key);
-    public static Fin<BlendKind> Round(double r, Op? key = null) => FieldNabla.WithPositive(candidate: r, make: static v => (BlendKind)new RoundCase(R: v), key: key);
     public static Fin<BlendKind> Groove(double k, double d, Op? key = null) =>
         FieldNabla.WithPositivePair(left: k, right: d, make: static (kk, dd) => (BlendKind)new GrooveCase(K: kk, D: dd), key: key);
+    public static Fin<BlendKind> Round(double r, Op? key = null) => FieldNabla.WithPositive(candidate: r, make: static v => (BlendKind)new RoundCase(R: v), key: key);
     internal double Smin(double a, double b) => Switch(
         state: (A: a, B: b),
         hardCase: static (s, _) => Math.Min(val1: s.A, val2: s.B),
@@ -137,13 +137,13 @@ public abstract partial record Falloff {
 public sealed partial class FieldBlend {
     public static readonly FieldBlend Sum = new(key: 0, scale: static _ => 1.0);
     public static readonly FieldBlend Average = new(key: 1, scale: static count => 1.0 / count);
+    [UseDelegateFromConstructor] private partial double Scale(int count);
     internal Fin<Vector3d> Combine(Seq<Vector3d> vectors, Op key) => CombineCore(values: vectors, zero: Vector3d.Zero, add: static (sum, v) => sum + v, scale: static (sum, factor) => sum * factor, key: key);
     internal Fin<double> CombineScalar(Seq<double> values, Op key) => CombineCore(values: values, zero: 0.0, add: static (sum, v) => sum + v, scale: static (sum, factor) => sum * factor, key: key);
     private Fin<T> CombineCore<T>(Seq<T> values, T zero, Func<T, T, T> add, Func<T, double, T> scale, Op key) =>
         from _ in guard(!values.IsEmpty, key.InvalidResult())
         from value in key.AcceptValue(value: scale(arg1: values.Fold(initialState: zero, f: add), arg2: Scale(count: values.Count)))
         select value;
-    [UseDelegateFromConstructor] private partial double Scale(int count);
 }
 
 [SmartEnum<int>]
@@ -155,6 +155,14 @@ public sealed partial class IsoSurfaceStatus {
 }
 
 [SmartEnum<int>]
+public sealed partial class KernelProfileStatus {
+    public static readonly KernelProfileStatus Smooth = new(key: 0);
+    public static readonly KernelProfileStatus SupportBoundary = new(key: 1);
+    public static readonly KernelProfileStatus NonsmoothOrigin = new(key: 2);
+    public static readonly KernelProfileStatus OutsideSupport = new(key: 3);
+}
+
+[SmartEnum<int>]
 public sealed partial class KernelKind {
     public static readonly KernelKind Wendland = new(key: 0, evaluate: static (d, r) => SupportProfile(distance: d, radius: r, nonsmoothAtOrigin: false, value: static (q, _) => Pow1(q: q, power: 4) * (1.0 + (4.0 * q)), first: static (q, r) => ((-20.0 * q) + (60.0 * q * q) - (60.0 * q * q * q) + (20.0 * q * q * q * q)) / r, second: static (q, r) => (-20.0 + (120.0 * q) - (180.0 * q * q) + (80.0 * q * q * q)) / (r * r)));
     public static readonly KernelKind Quintic = new(key: 1, evaluate: static (d, r) => SupportProfile(distance: d, radius: r, nonsmoothAtOrigin: true, value: static (q, _) => Pow1(q: q, power: 5), first: static (q, r) => -5.0 * Pow1(q: q, power: 4) / r, second: static (q, r) => 20.0 * Pow1(q: q, power: 3) / (r * r)));
@@ -162,6 +170,7 @@ public sealed partial class KernelKind {
     public static readonly KernelKind Cubic = new(key: 3, evaluate: static (d, r) => SupportProfile(distance: d, radius: r, nonsmoothAtOrigin: true, value: static (q, _) => Pow1(q: q, power: 3), first: static (q, r) => -3.0 * Pow1(q: q, power: 2) / r, second: static (q, r) => 6.0 * (1.0 - q) / (r * r)));
     public static readonly KernelKind Linear = new(key: 4, evaluate: static (d, r) => SupportProfile(distance: d, radius: r, nonsmoothAtOrigin: true, value: static (q, _) => 1.0 - q, first: static (_, r) => -1.0 / r, second: static (_, _) => 0.0));
     public static readonly KernelKind Epanechnikov = new(key: 5, evaluate: static (d, r) => SupportProfile(distance: d, radius: r, nonsmoothAtOrigin: false, value: static (q, _) => 1.0 - (q * q), first: static (q, r) => -2.0 * q / r, second: static (_, r) => -2.0 / (r * r)));
+    [UseDelegateFromConstructor] private partial KernelProfile Evaluate(double distance, double radius);
     internal Fin<KernelProfile> Profile(double distance, double radius, Op key) =>
         from _ in FieldNabla.KernelInput(distance: distance, radius: radius, key: key)
         from profile in Evaluate(distance: distance, radius: radius) switch {
@@ -170,7 +179,6 @@ public sealed partial class KernelKind {
         }
         select profile;
     internal double Weight(double distance, double radius) => Evaluate(distance: distance, radius: radius).Value;
-    [UseDelegateFromConstructor] private partial KernelProfile Evaluate(double distance, double radius);
     private static double Pow1(double q, int power) => Math.Pow(x: 1.0 - q, y: power);
     private static KernelProfile SupportProfile(double distance, double radius, bool nonsmoothAtOrigin, Func<double, double, double> value, Func<double, double, double> first, Func<double, double, double> second) {
         double q = distance / radius;
@@ -180,14 +188,6 @@ public sealed partial class KernelKind {
                 ? new KernelProfile(Value: 0.0, FirstDerivative: 0.0, SecondDerivative: 0.0, Status: KernelProfileStatus.SupportBoundary)
                 : new KernelProfile(Value: value(arg1: q, arg2: radius), FirstDerivative: first(arg1: q, arg2: radius), SecondDerivative: second(arg1: q, arg2: radius), Status: nonsmoothAtOrigin && distance <= RhinoMath.SqrtEpsilon ? KernelProfileStatus.NonsmoothOrigin : KernelProfileStatus.Smooth);
     }
-}
-
-[SmartEnum<int>]
-public sealed partial class KernelProfileStatus {
-    public static readonly KernelProfileStatus Smooth = new(key: 0);
-    public static readonly KernelProfileStatus SupportBoundary = new(key: 1);
-    public static readonly KernelProfileStatus NonsmoothOrigin = new(key: 2);
-    public static readonly KernelProfileStatus OutsideSupport = new(key: 3);
 }
 
 [SmartEnum<int>]
@@ -244,7 +244,13 @@ public sealed partial class ReconstructionFailureKind { public static readonly R
 
 [SmartEnum<int>]
 public sealed partial class ReconstructionMode {
-    public static readonly ReconstructionMode RbfInterpolation = new(key: 0, executable: true, requiresNormals: false, requiresSparseSystem: false, polynomialDegree: 0), RbfApproximation = new(key: 1, executable: true, requiresNormals: false, requiresSparseSystem: false, polynomialDegree: 0), MovingLeastSquares = new(key: 2, executable: true, requiresNormals: true, requiresSparseSystem: false, polynomialDegree: 1), LevinMovingLeastSquares = new(key: 3, executable: false, requiresNormals: true, requiresSparseSystem: false, polynomialDegree: 2), AlgebraicPointSetSurfaces = new(key: 4, executable: false, requiresNormals: true, requiresSparseSystem: false, polynomialDegree: 2), Poisson = new(key: 5, executable: false, requiresNormals: true, requiresSparseSystem: true, polynomialDegree: 0), ScreenedPoisson = new(key: 6, executable: false, requiresNormals: true, requiresSparseSystem: true, polynomialDegree: 0);
+    public static readonly ReconstructionMode RbfInterpolation = new(key: 0, executable: true, requiresNormals: false, requiresSparseSystem: false, polynomialDegree: 0);
+    public static readonly ReconstructionMode RbfApproximation = new(key: 1, executable: true, requiresNormals: false, requiresSparseSystem: false, polynomialDegree: 0);
+    public static readonly ReconstructionMode MovingLeastSquares = new(key: 2, executable: true, requiresNormals: true, requiresSparseSystem: false, polynomialDegree: 1);
+    public static readonly ReconstructionMode LevinMovingLeastSquares = new(key: 3, executable: false, requiresNormals: true, requiresSparseSystem: false, polynomialDegree: 2);
+    public static readonly ReconstructionMode AlgebraicPointSetSurfaces = new(key: 4, executable: false, requiresNormals: true, requiresSparseSystem: false, polynomialDegree: 2);
+    public static readonly ReconstructionMode Poisson = new(key: 5, executable: false, requiresNormals: true, requiresSparseSystem: true, polynomialDegree: 0);
+    public static readonly ReconstructionMode ScreenedPoisson = new(key: 6, executable: false, requiresNormals: true, requiresSparseSystem: true, polynomialDegree: 0);
     public bool Executable { get; }
     public bool RequiresNormals { get; }
     public bool RequiresSparseSystem { get; }

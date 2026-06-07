@@ -16,6 +16,52 @@ public interface IUiInput<TState> {
 public enum KeyPhase { Down, Up, FocusGain, FocusLost }
 
 [Union]
+public abstract partial record UiInputEvent<TUiState> : IUiInput<TUiState> {
+    public sealed record CanvasPointer(UiCanvasContext<TUiState> Value) : UiInputEvent<TUiState>;
+    public sealed record CanvasKey(UiCanvasKey<TUiState> Value) : UiInputEvent<TUiState>;
+    public sealed record ViewportMouse(MouseContext<TUiState> Value) : UiInputEvent<TUiState>;
+
+    private UiInputEvent() { }
+
+    public TUiState State => Switch(
+        canvasPointer: static e => e.Value.State,
+        canvasKey: static e => e.Value.State,
+        viewportMouse: static e => e.Value.State);
+    public bool Shift => Switch(
+        canvasPointer: static e => e.Value.Shift,
+        canvasKey: static e => e.Value.Shift,
+        viewportMouse: static e => e.Value.Shift);
+    public bool Control => Switch(
+        canvasPointer: static e => e.Value.Control,
+        canvasKey: static e => e.Value.Control,
+        viewportMouse: static e => e.Value.Control);
+    public bool Alt => Switch(
+        canvasPointer: static e => e.Value.Alt,
+        canvasKey: static e => e.Value.Alt,
+        viewportMouse: static _ => false);
+}
+
+[SmartEnum<int>]
+public sealed partial class SystemFontKind {
+    [UseDelegateFromConstructor]
+    public partial Eto.Drawing.Font Resolve(float? size, Eto.Drawing.FontDecoration decoration);
+
+    public static readonly SystemFontKind Default = new(key: 0, resolve: Eto.Drawing.SystemFonts.Default);
+    public static readonly SystemFontKind Bold = new(key: 1, resolve: Eto.Drawing.SystemFonts.Bold);
+    public static readonly SystemFontKind Label = new(key: 2, resolve: Eto.Drawing.SystemFonts.Label);
+    public static readonly SystemFontKind Menu = new(key: 3, resolve: Eto.Drawing.SystemFonts.Menu);
+    public static readonly SystemFontKind MenuBar = new(key: 4, resolve: Eto.Drawing.SystemFonts.MenuBar);
+    public static readonly SystemFontKind Message = new(key: 5, resolve: Eto.Drawing.SystemFonts.Message);
+    public static readonly SystemFontKind Palette = new(key: 6, resolve: Eto.Drawing.SystemFonts.Palette);
+    public static readonly SystemFontKind Status = new(key: 7, resolve: Eto.Drawing.SystemFonts.StatusBar);   // StatusBar is the native name
+    public static readonly SystemFontKind TitleBar = new(key: 8, resolve: Eto.Drawing.SystemFonts.TitleBar);
+    public static readonly SystemFontKind ToolTip = new(key: 9, resolve: Eto.Drawing.SystemFonts.ToolTip);
+    public static readonly SystemFontKind User = new(key: 10, resolve: Eto.Drawing.SystemFonts.User);
+}
+
+public enum UiAnchor { TopLeft, TopCenter, TopRight, MiddleLeft, Center, MiddleRight, BottomLeft, BottomCenter, BottomRight }
+
+[Union]
 public abstract partial record SpriteSource {
     public sealed record Memory(DrawingBitmap Bitmap) : SpriteSource;
     public sealed record Path(string Value) : SpriteSource;
@@ -45,26 +91,6 @@ public abstract partial record SpriteSource {
         return one.GetPixel(0, 0);
     }
 }
-
-[SmartEnum<int>]
-public sealed partial class SystemFontKind {
-    [UseDelegateFromConstructor]
-    public partial Eto.Drawing.Font Resolve(float? size, Eto.Drawing.FontDecoration decoration);
-
-    public static readonly SystemFontKind Default = new(key: 0, resolve: Eto.Drawing.SystemFonts.Default);
-    public static readonly SystemFontKind Bold = new(key: 1, resolve: Eto.Drawing.SystemFonts.Bold);
-    public static readonly SystemFontKind Label = new(key: 2, resolve: Eto.Drawing.SystemFonts.Label);
-    public static readonly SystemFontKind Menu = new(key: 3, resolve: Eto.Drawing.SystemFonts.Menu);
-    public static readonly SystemFontKind MenuBar = new(key: 4, resolve: Eto.Drawing.SystemFonts.MenuBar);
-    public static readonly SystemFontKind Message = new(key: 5, resolve: Eto.Drawing.SystemFonts.Message);
-    public static readonly SystemFontKind Palette = new(key: 6, resolve: Eto.Drawing.SystemFonts.Palette);
-    public static readonly SystemFontKind Status = new(key: 7, resolve: Eto.Drawing.SystemFonts.StatusBar);   // StatusBar is the native name
-    public static readonly SystemFontKind TitleBar = new(key: 8, resolve: Eto.Drawing.SystemFonts.TitleBar);
-    public static readonly SystemFontKind ToolTip = new(key: 9, resolve: Eto.Drawing.SystemFonts.ToolTip);
-    public static readonly SystemFontKind User = new(key: 10, resolve: Eto.Drawing.SystemFonts.User);
-}
-
-public enum UiAnchor { TopLeft, TopCenter, TopRight, MiddleLeft, Center, MiddleRight, BottomLeft, BottomCenter, BottomRight }
 
 [Union(SwitchMapStateParameterName = "state")]
 public abstract partial record UiCurveSeg {    // screen-space (px) path segment
@@ -161,32 +187,6 @@ public abstract partial record UiFont {
     internal Eto.Drawing.Font ToEto() => Switch(
         familyCase: static f => new Eto.Drawing.Font(f.Name, f.Size, f.Style, f.Decoration),
         systemCase: static s => s.Kind.Resolve(size: s.Size.ToNullable(), decoration: s.Decoration));
-}
-
-[Union]
-public abstract partial record UiInputEvent<TUiState> : IUiInput<TUiState> {
-    public sealed record CanvasPointer(UiCanvasContext<TUiState> Value) : UiInputEvent<TUiState>;
-    public sealed record CanvasKey(UiCanvasKey<TUiState> Value) : UiInputEvent<TUiState>;
-    public sealed record ViewportMouse(MouseContext<TUiState> Value) : UiInputEvent<TUiState>;
-
-    private UiInputEvent() { }
-
-    public TUiState State => Switch(
-        canvasPointer: static e => e.Value.State,
-        canvasKey: static e => e.Value.State,
-        viewportMouse: static e => e.Value.State);
-    public bool Shift => Switch(
-        canvasPointer: static e => e.Value.Shift,
-        canvasKey: static e => e.Value.Shift,
-        viewportMouse: static e => e.Value.Shift);
-    public bool Control => Switch(
-        canvasPointer: static e => e.Value.Control,
-        canvasKey: static e => e.Value.Control,
-        viewportMouse: static e => e.Value.Control);
-    public bool Alt => Switch(
-        canvasPointer: static e => e.Value.Alt,
-        canvasKey: static e => e.Value.Alt,
-        viewportMouse: static _ => false);
 }
 
 [Union]
@@ -435,6 +435,53 @@ public readonly record struct UiCanvasKey<TState>(KeyPhase Phase, TState State, 
     public Eto.Forms.Keys Key => Args.Key;
 }
 
+public readonly record struct UiSprite(SpriteSource Source, UiSpritePlace Place, float Size = 1f, Option<(BlendMode Source, BlendMode Destination)> Blend = default, Option<DrawingColor> Tint = default);
+
+public readonly record struct UiStroke(DrawingColor Color, float Width = 1f, Seq<float> Dashes = default, float Halo = 0f, DrawingColor HaloColor = default, Eto.Drawing.PenLineJoin Join = Eto.Drawing.PenLineJoin.Miter, Eto.Drawing.PenLineCap Cap = Eto.Drawing.PenLineCap.Square, float Miter = 10f) {
+    public static UiStroke Of(DrawingColor color, float width = 1f) => new(Color: color, Width: width);
+    internal Eto.Drawing.Pen ToPen() {
+        Seq<float> dashes = Dashes;   // struct lambdas cannot capture `this`
+        Eto.Drawing.Pen pen = new(Color.ToEto(), Width) { LineJoin = Join, LineCap = Cap, MiterLimit = Miter };
+        _ = Op.SideWhen(!dashes.IsEmpty, () => pen.DashStyle = new Eto.Drawing.DashStyle(0f, [.. dashes]));
+        return pen;
+    }
+    internal DisplayPen ToDisplayPen() {
+        Seq<float> dashes = Dashes;
+        DisplayPen pen = new() {
+            Color = Color,
+            Thickness = Width,
+            HaloThickness = Halo,
+            HaloColor = HaloColor.IsEmpty switch { true => Color, false => HaloColor },
+            CapStyle = Cap switch { Eto.Drawing.PenLineCap.Butt => LineCapStyle.Flat, Eto.Drawing.PenLineCap.Round => LineCapStyle.Round, _ => LineCapStyle.Square },
+            JoinStyle = Join switch { Eto.Drawing.PenLineJoin.Bevel => LineJoinStyle.Bevel, Eto.Drawing.PenLineJoin.Round => LineJoinStyle.Round, _ => LineJoinStyle.Miter },
+        };
+        _ = Op.SideWhen(!dashes.IsEmpty, () => pen.SetPattern(dashesAndGaps: dashes.AsEnumerable()));
+        return pen;
+    }
+}
+
+[StructLayout(LayoutKind.Auto)]
+public readonly record struct UiRenderHint(
+    Option<bool> AntiAlias = default,
+    Option<Eto.Drawing.ImageInterpolation> Interpolation = default,
+    Option<Eto.Drawing.PixelOffsetMode> PixelOffset = default) {
+    public static UiRenderHint HighQuality => new(AntiAlias: true, Interpolation: Eto.Drawing.ImageInterpolation.High, PixelOffset: Eto.Drawing.PixelOffsetMode.None);
+    public static UiRenderHint operator +(UiRenderHint l, UiRenderHint r) => new(
+        AntiAlias: r.AntiAlias.IsSome ? r.AntiAlias : l.AntiAlias,
+        Interpolation: r.Interpolation.IsSome ? r.Interpolation : l.Interpolation,
+        PixelOffset: r.PixelOffset.IsSome ? r.PixelOffset : l.PixelOffset);
+    internal Unit Apply(Eto.Drawing.Graphics g) {
+        Option<bool> antiAlias = AntiAlias;   // struct lambdas cannot capture `this`
+        Option<Eto.Drawing.ImageInterpolation> interpolation = Interpolation;
+        Option<Eto.Drawing.PixelOffsetMode> pixelOffset = PixelOffset;
+        return Op.Side(() => {
+            _ = antiAlias.Iter(v => g.AntiAlias = v);
+            _ = interpolation.Iter(v => g.ImageInterpolation = v);
+            _ = pixelOffset.Iter(v => g.PixelOffsetMode = v);
+        });
+    }
+}
+
 public readonly record struct UiHud(Seq<UiMark> Marks) {
     public static UiHud Empty => new(Seq<UiMark>());
     public static UiHud operator +(UiHud left, UiHud right) => new(left.Marks + right.Marks);
@@ -475,62 +522,15 @@ public readonly record struct UiHudLayout(System.Drawing.RectangleF Bounds, floa
         });
 }
 
-[StructLayout(LayoutKind.Auto)]
-public readonly record struct UiRenderHint(
-    Option<bool> AntiAlias = default,
-    Option<Eto.Drawing.ImageInterpolation> Interpolation = default,
-    Option<Eto.Drawing.PixelOffsetMode> PixelOffset = default) {
-    public static UiRenderHint HighQuality => new(AntiAlias: true, Interpolation: Eto.Drawing.ImageInterpolation.High, PixelOffset: Eto.Drawing.PixelOffsetMode.None);
-    public static UiRenderHint operator +(UiRenderHint l, UiRenderHint r) => new(
-        AntiAlias: r.AntiAlias.IsSome ? r.AntiAlias : l.AntiAlias,
-        Interpolation: r.Interpolation.IsSome ? r.Interpolation : l.Interpolation,
-        PixelOffset: r.PixelOffset.IsSome ? r.PixelOffset : l.PixelOffset);
-    internal Unit Apply(Eto.Drawing.Graphics g) {
-        Option<bool> antiAlias = AntiAlias;   // struct lambdas cannot capture `this`
-        Option<Eto.Drawing.ImageInterpolation> interpolation = Interpolation;
-        Option<Eto.Drawing.PixelOffsetMode> pixelOffset = PixelOffset;
-        return Op.Side(() => {
-            _ = antiAlias.Iter(v => g.AntiAlias = v);
-            _ = interpolation.Iter(v => g.ImageInterpolation = v);
-            _ = pixelOffset.Iter(v => g.PixelOffsetMode = v);
-        });
-    }
-}
-
-public readonly record struct UiSprite(SpriteSource Source, UiSpritePlace Place, float Size = 1f, Option<(BlendMode Source, BlendMode Destination)> Blend = default, Option<DrawingColor> Tint = default);
-
-public readonly record struct UiStroke(DrawingColor Color, float Width = 1f, Seq<float> Dashes = default, float Halo = 0f, DrawingColor HaloColor = default, Eto.Drawing.PenLineJoin Join = Eto.Drawing.PenLineJoin.Miter, Eto.Drawing.PenLineCap Cap = Eto.Drawing.PenLineCap.Square, float Miter = 10f) {
-    public static UiStroke Of(DrawingColor color, float width = 1f) => new(Color: color, Width: width);
-    internal Eto.Drawing.Pen ToPen() {
-        Seq<float> dashes = Dashes;   // struct lambdas cannot capture `this`
-        Eto.Drawing.Pen pen = new(Color.ToEto(), Width) { LineJoin = Join, LineCap = Cap, MiterLimit = Miter };
-        _ = Op.SideWhen(!dashes.IsEmpty, () => pen.DashStyle = new Eto.Drawing.DashStyle(0f, [.. dashes]));
-        return pen;
-    }
-    internal DisplayPen ToDisplayPen() {
-        Seq<float> dashes = Dashes;
-        DisplayPen pen = new() {
-            Color = Color,
-            Thickness = Width,
-            HaloThickness = Halo,
-            HaloColor = HaloColor.IsEmpty switch { true => Color, false => HaloColor },
-            CapStyle = Cap switch { Eto.Drawing.PenLineCap.Butt => LineCapStyle.Flat, Eto.Drawing.PenLineCap.Round => LineCapStyle.Round, _ => LineCapStyle.Square },
-            JoinStyle = Join switch { Eto.Drawing.PenLineJoin.Bevel => LineJoinStyle.Bevel, Eto.Drawing.PenLineJoin.Round => LineJoinStyle.Round, _ => LineJoinStyle.Miter },
-        };
-        _ = Op.SideWhen(!dashes.IsEmpty, () => pen.SetPattern(dashesAndGaps: dashes.AsEnumerable()));
-        return pen;
-    }
-}
-
 // --- [SERVICES] ---------------------------------------------------------------------------
 public sealed class UiSpriteAtlas : IDisposable {
+    public static UiSpriteAtlas Empty => new();
+
     // BOUNDARY ADAPTER — DisplayBitmap is IDisposable native sprite-decode interop; an Atom.Swap retry under contention would leak the undisposed bitmap, so the cache stays a ConcurrentDictionary (D6)
     private readonly System.Collections.Concurrent.ConcurrentDictionary<SpriteSource, DisplayBitmap> cache = new();
     // BOUNDARY ADAPTER — Eto.Drawing.Bitmap is IDisposable; same swap-retry leak hazard as cache, so this stays a ConcurrentDictionary (D6)
     private readonly System.Collections.Concurrent.ConcurrentDictionary<SpriteSource, Eto.Drawing.Bitmap> etoCache = new();
     private int disposed;
-
-    public static UiSpriteAtlas Empty => new();
 
     public void Dispose() {
         _ = Interlocked.Exchange(ref disposed, 1) == 1
@@ -630,6 +630,10 @@ public sealed class UiCanvas<TState> : Eto.Forms.Drawable {
 }
 
 // --- [OPERATIONS] -------------------------------------------------------------------------
+internal static class DrawingConvert {
+    internal static EtoColor ToEto(this DrawingColor color) => EtoColor.FromArgb(color.R, color.G, color.B, color.A);
+}
+
 public static class UiInput {
     extension<TState>(IUiInput<TState> input) {
         public MouseDecision<TState> Pass => MouseDecision.Pass(input.State);
@@ -639,8 +643,4 @@ public static class UiInput {
 
         public MouseDecision<TState> Hint(string value) => MouseDecision.Hint(input.State, value);
     }
-}
-
-internal static class DrawingConvert {
-    internal static EtoColor ToEto(this DrawingColor color) => EtoColor.FromArgb(color.R, color.G, color.B, color.A);
 }

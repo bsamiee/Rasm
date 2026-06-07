@@ -33,14 +33,14 @@ public sealed partial class IntegratorKind {
             [35.0 / 384.0, 0.0, 500.0 / 1113.0, 125.0 / 192.0, -2187.0 / 6784.0, 11.0 / 84.0]],
         weights: [35.0 / 384.0, 0.0, 500.0 / 1113.0, 125.0 / 192.0, -2187.0 / 6784.0, 11.0 / 84.0, 0.0],
         errorWeights: [5179.0 / 57600.0, 0.0, 7571.0 / 16695.0, 393.0 / 640.0, -92097.0 / 339200.0, 187.0 / 2100.0, 1.0 / 40.0]);
+    internal const double AdaptiveSafetyFactor = 0.9;
+    internal const double AdaptiveMinScale = 0.2;
+    internal const double AdaptiveMaxScale = 10.0;
     public ButcherTableau Tableau { get; }
     internal bool IsAdaptive => Tableau.EmbeddedWeights.IsSome;
     internal double AdaptiveExponent => Tableau.EmbeddedOrder
         .Map(static order => 1.0 / (order + 1.0))
         .IfNone(0.2);
-    internal const double AdaptiveSafetyFactor = 0.9;
-    internal const double AdaptiveMinScale = 0.2;
-    internal const double AdaptiveMaxScale = 10.0;
     private static IntegratorKind Fixed(int key, int order, double[][] coupling, double[] weights) =>
         new(key: key, tableau: new ButcherTableau(Coupling: toSeq(coupling.Select(static r => toSeq(r))), Abscissae: toSeq(coupling.Select(static r => r.Sum())), Weights: toSeq(weights), EmbeddedWeights: Option<Seq<double>>.None, MethodOrder: order, EmbeddedOrder: Option<int>.None));
     private static IntegratorKind Adaptive(int key, int order, int embeddedOrder, double[][] coupling, double[] weights, double[] errorWeights) =>
@@ -49,9 +49,9 @@ public sealed partial class IntegratorKind {
 
 [Union]
 public abstract partial record FieldIntegrator {
-    private FieldIntegrator() { }
     public sealed record FixedCase : FieldIntegrator { internal FixedCase(IntegratorKind kind) => Kind = kind; public IntegratorKind Kind { get; } }
     public sealed record AdaptiveCase : FieldIntegrator { internal AdaptiveCase(IntegratorKind kind, PositiveMagnitude tolerance, int maxRejects) { Kind = kind; Tolerance = tolerance; MaxRejects = maxRejects; } public IntegratorKind Kind { get; } public PositiveMagnitude Tolerance { get; } public int MaxRejects { get; } }
+    private FieldIntegrator() { }
     public static Fin<FieldIntegrator> Fixed(IntegratorKind kind, Op? key = null) {
         Op op = key.OrDefault();
         return from active in Optional(kind).ToFin(op.InvalidInput())
@@ -68,6 +68,16 @@ public abstract partial record FieldIntegrator {
                from validated in op.AcceptValidated<PositiveMagnitude>(candidate: tolerance)
                select (FieldIntegrator)new AdaptiveCase(kind: active, tolerance: validated, maxRejects: maxRejects);
     }
+    internal int RejectBudget => Switch(
+        state: 0,
+        fixedCase: static (s, _) => s,
+        adaptiveCase: static (_, c) => c.MaxRejects);
+    internal ButcherTableau Tableau => Switch(
+        state: default(ButcherTableau),
+        fixedCase: static (_, c) => c.Kind.Tableau,
+        adaptiveCase: static (_, c) => c.Kind.Tableau);
+    internal int MethodOrder => Tableau.MethodOrder;
+    internal Option<int> EmbeddedOrder => Tableau.EmbeddedOrder;
     internal Fin<FieldIntegrator> Admit(Op key) =>
         Switch(
             state: key,
@@ -87,16 +97,6 @@ public abstract partial record FieldIntegrator {
         FieldNabla.NotNull(value: value, key: key).Bind(integrator => integrator.Admit(key: key));
     internal static Fin<FieldIntegrator> AdmitOrFixed(FieldIntegrator? value, Op key) =>
         value is null ? Fixed(kind: IntegratorKind.RK4, key: key) : Admit(value: value, key: key);
-    internal int RejectBudget => Switch(
-        state: 0,
-        fixedCase: static (s, _) => s,
-        adaptiveCase: static (_, c) => c.MaxRejects);
-    internal ButcherTableau Tableau => Switch(
-        state: default(ButcherTableau),
-        fixedCase: static (_, c) => c.Kind.Tableau,
-        adaptiveCase: static (_, c) => c.Kind.Tableau);
-    internal int MethodOrder => Tableau.MethodOrder;
-    internal Option<int> EmbeddedOrder => Tableau.EmbeddedOrder;
     internal Fin<StreamlineStep> Step(VectorField field, Point3d point, double h, Context context, Op key) => Switch(
         state: (Field: field, Point: point, H: h, Context: context, Key: key),
         fixedCase: static (s, c) =>
@@ -140,16 +140,36 @@ public sealed partial class StreamlineStopKind {
     public static readonly StreamlineStopKind MaxIterationsExhausted = new(key: 2);
 }
 
+[SmartEnum<int>]
+public sealed partial class TraceEventKind {
+    public static readonly TraceEventKind CrossSurface = new(key: 0);
+    public static readonly TraceEventKind RegionThresholdCrossing = new(key: 1);
+}
+
+[SmartEnum<int>]
+public sealed partial class TraceEventStatus {
+    public static readonly TraceEventStatus InitialEndpointTouch = new(key: 0);
+    public static readonly TraceEventStatus PreviousEndpointTouch = new(key: 1);
+    public static readonly TraceEventStatus CurrentEndpointTouch = new(key: 2);
+    public static readonly TraceEventStatus BracketedCrossing = new(key: 3);
+}
+
+[SmartEnum<int>]
+public sealed partial class TraceEventLocalizationKind {
+    public static readonly TraceEventLocalizationKind BoundedBisection = new(key: 0);
+    public static readonly TraceEventLocalizationKind DenseOutputRoot = new(key: 1);
+}
+
 [Union]
 public abstract partial record Termination {
-    private const int EventBisectionMaxIterations = 64;
-    private Termination() { }
     public sealed record StepCountCase(int Count) : Termination;
     public sealed record ArcLengthCase(PositiveMagnitude Length) : Termination;
     public sealed record MagnitudeFloorCase(PositiveMagnitude Threshold) : Termination;
     public sealed record CrossSurfaceCase(SupportSpace Surface, int MaxLocalizationIterations) : Termination;
     public sealed record RegionThresholdCase(ScalarField Region, double Threshold, int MaxLocalizationIterations) : Termination;
     public sealed record LoopDetectedCase(PositiveMagnitude ClosureRadius) : Termination;
+    private const int EventBisectionMaxIterations = 64;
+    private Termination() { }
     public static Fin<Termination> Steps(int count, Op? key = null) =>
         count > 0
             ? Fin.Succ<Termination>(new StepCountCase(Count: count))
@@ -174,10 +194,6 @@ public abstract partial record Termination {
     }
     public static Fin<Termination> LoopDetected(double closureRadius, Op? key = null) =>
         Positive(candidate: closureRadius, create: static r => new LoopDetectedCase(ClosureRadius: r), key: key);
-    private static Fin<Termination> Positive(double candidate, Func<PositiveMagnitude, Termination> create, Op? key) =>
-        key.OrDefault().AcceptValidated<PositiveMagnitude>(candidate: candidate).Map(create);
-    private static Fin<int> LocalizationIterations(int candidate, Op key) =>
-        candidate > 0 ? Fin.Succ(candidate) : Fin.Fail<int>(key.InvalidInput());
     internal Fin<Termination> Admit(Op key) => Switch(
         state: key,
         stepCountCase: static (op, termination) => termination.Count > 0 ? Fin.Succ<Termination>(termination) : Fin.Fail<Termination>(op.InvalidInput()),
@@ -196,8 +212,6 @@ public abstract partial record Termination {
         loopDetectedCase: static (op, termination) => FieldNabla.Positive(value: termination.ClosureRadius, key: op).Map(_ => (Termination)termination));
     internal static Fin<Termination> Admit(Termination value, Op key) =>
         FieldNabla.NotNull(value: value, key: key).Bind(termination => termination.Admit(key: key));
-    private static Fin<(bool Stop, Option<TraceEvent> Event)> Decision(bool stop) =>
-        Fin.Succ((Stop: stop, Event: Option<TraceEvent>.None));
     internal Fin<(bool Stop, Option<TraceEvent> Event)> Evaluate(StreamlineState state, Vector3d currentSample, Context context, Op key) => Switch(
         state: (Field: state, Sample: currentSample, Context: context, Key: key),
         stepCountCase: static (s, c) => Decision(stop: s.Field.Steps >= c.Count),
@@ -223,6 +237,12 @@ public abstract partial record Termination {
             maxIterations: c.MaxLocalizationIterations,
             sample: point => c.Region.SampleScalar(sample: point, context: s.Context, key: s.Key).Map(value => value - c.Threshold),
             key: s.Key).Map(@event => (Stop: @event.IsSome, Event: @event)));
+    private static Fin<Termination> Positive(double candidate, Func<PositiveMagnitude, Termination> create, Op? key) =>
+        key.OrDefault().AcceptValidated<PositiveMagnitude>(candidate: candidate).Map(create);
+    private static Fin<int> LocalizationIterations(int candidate, Op key) =>
+        candidate > 0 ? Fin.Succ(candidate) : Fin.Fail<int>(key.InvalidInput());
+    private static Fin<(bool Stop, Option<TraceEvent> Event)> Decision(bool stop) =>
+        Fin.Succ((Stop: stop, Event: Option<TraceEvent>.None));
     private static Fin<Option<TraceEvent>> EvaluateEvent(StreamlineState state, TraceEventKind kind, double tolerance, int maxIterations, Func<Point3d, Fin<double>> sample, Op key) =>
         from currentValue in sample(state.Current)
         from output in state.Trail.Count < 2
@@ -283,26 +303,6 @@ public abstract partial record Termination {
         state.Trail.Count >= 3
         && toSeq(Enumerable.Range(start: 0, count: state.Trail.Count - 2))
             .Exists(i => state.Current.DistanceToSquared(other: state.Trail[i]) <= radius * radius);
-}
-
-[SmartEnum<int>]
-public sealed partial class TraceEventKind {
-    public static readonly TraceEventKind CrossSurface = new(key: 0);
-    public static readonly TraceEventKind RegionThresholdCrossing = new(key: 1);
-}
-
-[SmartEnum<int>]
-public sealed partial class TraceEventStatus {
-    public static readonly TraceEventStatus InitialEndpointTouch = new(key: 0);
-    public static readonly TraceEventStatus PreviousEndpointTouch = new(key: 1);
-    public static readonly TraceEventStatus CurrentEndpointTouch = new(key: 2);
-    public static readonly TraceEventStatus BracketedCrossing = new(key: 3);
-}
-
-[SmartEnum<int>]
-public sealed partial class TraceEventLocalizationKind {
-    public static readonly TraceEventLocalizationKind BoundedBisection = new(key: 0);
-    public static readonly TraceEventLocalizationKind DenseOutputRoot = new(key: 1);
 }
 
 // --- [MODELS] -----------------------------------------------------------------------------
@@ -524,9 +524,9 @@ internal readonly record struct DenseOutputState(Point3d Start, Point3d End, dou
 
 [Union]
 internal abstract partial record StreamlineStep {
-    private StreamlineStep() { }
     public sealed record AcceptedCase(Point3d Next, double SuggestedStep, Option<double> Error, DenseOutputState Dense) : StreamlineStep;
     public sealed record RejectedCase(double SuggestedStep, Option<double> Error) : StreamlineStep;
+    private StreamlineStep() { }
 }
 
 internal readonly record struct StreamlineState(Seq<Point3d> Trail, Point3d Current, double H, double Arc, int Steps, int Rejects, int RejectedSteps, double MinStep, double MaxStep, Option<double> LastError, double MaxError, Option<DenseOutputState> Dense, Option<TraceEvent> Event, Option<StreamlineStopKind> Stop) {
