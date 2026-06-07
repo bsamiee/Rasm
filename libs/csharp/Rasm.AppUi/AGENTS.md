@@ -7,7 +7,7 @@ Scope: `libs/csharp/Rasm.AppUi/` only. Root policy and `libs/csharp/AGENTS.md` o
 - Before production work, read `README.md`, `ARCHITECTURE.md`, and `ROADMAP.md` to decide package state, embedding proof, and sequence.
 - Before changing runtime boot, inbound observables, scheduler handoff, or diagnostics contracts, read `Rasm.AppHost/AGENTS.md`.
 - Before changing host UI dispatch, panels, repaint, undo, canvas, or editor behavior, read `Rasm.Rhino/AGENTS.md` and `Rasm.Grasshopper/AGENTS.md`.
-- Before package or host-reference changes, read `docs/system-api-map` and `docs/host-libraries.md`.
+- Before package or host-reference changes, read `docs/stacks/csharp/platform-map/` and `docs/usage/composition.md`.
 
 ## [2][OWNER_CONTRACT]
 

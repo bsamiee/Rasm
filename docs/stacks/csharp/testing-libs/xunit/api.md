@@ -60,7 +60,7 @@ The local test runner maps single filter text to MTP-native query, trait, class,
 
 When a `[Theory]` should cover every case of a `[SmartEnum<int>]` or `[Union]`, build `TheoryData` from the closed-set `Items` property rather than enumerating `[InlineData]` rows. Adding a new case auto-extends coverage; no spec maintenance is required.
 
-Cross-reference: this pattern is also a Stryker enabler — see `docs/testing-libs/stryker/api.md [6][THEORY_AS_STRYKER_ENABLER]`.
+Cross-reference: this pattern is also a Stryker enabler — see `docs/stacks/csharp/testing-libs/stryker/api.md [6][THEORY_AS_STRYKER_ENABLER]`.
 
 ## [7][TEST_CONTEXT_CANCELLATION]
 

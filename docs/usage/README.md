@@ -16,21 +16,21 @@ Cross-stack implementation surface for new work. Leaf docs own package and membe
 |   [8]   | Composition root   | Scrutor, EF, Serilog, OTel, Http.Resilience — bootstrap only           |
 
 [READ]
-- [1] Local RhinoWIP XML; `uv run python -m tools.assay api query --key rhino-common --symbol <symbol>`
-- [2] Local GH2 XML; `uv run python -m tools.assay api query --key gh2 --symbol <symbol>`
-- [3] `external-libs/mathnet/*.md`; CSparse at sparse direct boundary
-- [4] `system-api-map/bcl.md`, `replacements.md`, `meta.md`, `packages.md`
-- [5] `external-libs/languageext/*.md`
-- [6] `external-libs/thinktecture/*.md`
+- [1] `../hosts/rhino/README.md`; local RhinoWIP XML; `uv run python -m tools.assay api query --key rhino-common --symbol <symbol>`
+- [2] `../hosts/grasshopper/README.md`; local GH2 XML; `uv run python -m tools.assay api query --key gh2 --symbol <symbol>`
+- [3] `../stacks/csharp/product-libs/mathnet/*.md`; CSparse at sparse direct boundary
+- [4] `../stacks/csharp/platform-map/bcl.md`, `replacements.md`, `meta.md`, `packages.md`
+- [5] `../stacks/csharp/product-libs/languageext/*.md`
+- [6] `../stacks/csharp/product-libs/thinktecture/*.md`
 - [7] `../libs/csharp/Rasm.AppUi/README.md`, `../libs/csharp/Rasm.AppHost/README.md`, `../libs/csharp/Rasm.Persistence/README.md`, `../libs/csharp/Rasm.Compute/README.md`
-- [8] `host-libraries.md` §1, §8
+- [8] `composition.md` §1, §8
 
 ## [2][FLOW]
 
 1. Admit raw input through Rhino/GH2/System boundary policy.
 2. Encode domain meaning with Thinktecture generated shapes.
 3. Carry failure through LanguageExt `Fin`, `Validation`, or `Eff`.
-4. Execute MathNet only for algorithmic numeric or symbolic work (`external-libs/mathnet/symbolics.md` — load-context gated; not a default GH hot path).
+4. Execute MathNet only for algorithmic numeric or symbolic work (`../stacks/csharp/product-libs/mathnet/symbolics.md` — load-context gated; not a default GH hot path).
 5. Project output back through Rhino validity or GH2 tree/diagnostic rules.
 6. Route app UI, runtime, persistence, and compute concerns through their owner-local platform manuals before adding packages or public rails.
 
@@ -55,16 +55,16 @@ Cross-stack implementation surface for new work. Leaf docs own package and membe
 
 ## [5][PROOF]
 
-| [INDEX] | [PROOF_OWNER]                               | [OWNS]                                                           |
-| :-----: | ------------------------------------------- | ---------------------------------------------------------------- |
-|   [1]   | `Directory.Packages.props`                  | Central package versions and package state.                      |
-|   [2]   | `Directory.Build.props`                     | Package references, global usings, RhinoWIP/GH2 host references. |
-|   [3]   | Local NuGet XML / lockfiles                 | Exact API surface for local package assets.                      |
-|   [4]   | RhinoWIP XML / decompile                    | RhinoCommon, GH2, Rhino.UI, Eto compile truth.                   |
-|   [5]   | `docs/system-api-map`, `docs/external-libs` | BCL and product-library policy after local proof.                |
-|   [6]   | `docs/testing-libs`                         | Test-rail API surfaces (xUnit, CsCheck, Verify, …).              |
-|   [7]   | `docs/standards`                            | Doc-type structure, technical style, proof, and retrieval shape. |
-|   [8]   | Owner-local platform manuals                | Future App UI, AppHost, Persistence, and Compute intent.         |
-|   [9]   | Official docs                               | Current context only when local proof is silent.                 |
+| [INDEX] | [PROOF_OWNER]                                                        | [OWNS]                                                           |
+| :-----: | -------------------------------------------------------------------- | ---------------------------------------------------------------- |
+|   [1]   | `Directory.Packages.props`                                           | Central package versions and package state.                      |
+|   [2]   | `Directory.Build.props`                                              | Package references, global usings, RhinoWIP/GH2 host references. |
+|   [3]   | Local NuGet XML / lockfiles                                          | Exact API surface for local package assets.                      |
+|   [4]   | RhinoWIP XML / decompile                                             | RhinoCommon, GH2, Rhino.UI, Eto compile truth.                   |
+|   [5]   | `docs/stacks/csharp/platform-map`, `docs/stacks/csharp/product-libs` | BCL and product-library policy after local proof.                |
+|   [6]   | `docs/stacks/csharp/testing-libs`                                    | Test-rail API surfaces (xUnit, CsCheck, Verify, …).              |
+|   [7]   | `docs/standards`                                                     | Doc-type structure, technical style, proof, and retrieval shape. |
+|   [8]   | Owner-local platform manuals                                         | Future App UI, AppHost, Persistence, and Compute intent.         |
+|   [9]   | Official docs                                                        | Current context only when local proof is silent.                 |
 
 Performance and runtime-load claims require measured or load-context evidence before docs call them active.

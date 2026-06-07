@@ -6,9 +6,7 @@ Scope: `libs/csharp/` only. Root `AGENTS.md` and `CLAUDE.md` own universal C# po
 
 - When editing a library project, read this file and then the nearest project `AGENTS.md`.
 - When adding a folder, public rail, operation algebra, state record, receipt, or proof pattern, name the existing operation, intent, receipt, policy, runtime, query, or boundary rail that grows; if no rail can be named, stop and read the nearest project overlay, source owner, or architecture before editing.
-- When changing `System.*`, package policy, global usings, host references, or `global.json` effects, read `docs/system-api-map`.
-- When adding product-library or host SDK assumptions, read `docs/external-libs`.
-- When moving host-composition packages into graph, read `docs/host-libraries.md`.
+- When changing C# stack posture (packages, BCL, product libraries, host SDKs, composition), read `docs/stacks/csharp/`, `docs/hosts/`, and `docs/usage/` for the concern that changed.
 
 ## [2][LIBRARY_CONTRACT]
 

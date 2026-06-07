@@ -15,6 +15,7 @@ Downstream code declares intent, ports, outputs, component specs, and UI request
 - When changing document mutation, undo, repaint, action commit, snapshot, placement, clipboard, or wire mutation behavior, read `DocumentMutation`, `DocumentMutationReceipt`, `DocumentMutationDelta`, and the shared mutation runner in `UI/`.
 - When changing wire query, edit, route, overlay, diagnostics, or reflective GH2 wire internals, read `WireOp` and `WireRepositoryRail`.
 - When changing kernel integration or analysis operation usage, read `Rasm/AGENTS.md`.
+- When changing GH2 host boundary policy, read `docs/hosts/grasshopper/`.
 - When naming a GH2 host API fact, use local GH2 XML/decompile evidence before writing the claim.
 - When authoring GH2 runtime scenarios, read `tests/csharp/AGENTS.md`, `tests/csharp/libs/AGENTS.md`, and `tools/rhino-bridge/AGENTS.md` first.
 

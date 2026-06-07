@@ -26,7 +26,7 @@ Use this skill with `coding-csharp` for `.cs` specs/testkit code, `coding-bash` 
 3. Inventory public APIs, union/SmartEnum cases, failure categories, output projections, native calls, and receipt metadata before writing assertions.
 4. Select laws from [oracles-laws.md](references/oracles-laws.md) and density axes from [density-axes.md](references/density-axes.md).
 5. Reuse active repo testkit contracts from [testkit.md](references/testkit.md).
-6. Check raw tool API in `docs/testing-libs` before using unfamiliar APIs.
+6. Check raw tool API in `docs/stacks/csharp/testing-libs` before using unfamiliar APIs.
 7. Check the repo-declared platform/API owner before changing serializers, fuzz parsers, runtime probes, host loaders, filesystem evidence, capture code, or standard-library API usage in tests.
 8. Write the spec from [unit-pbt.spec.template.md](templates/unit-pbt.spec.template.md).
 9. Validate with scoped cleanup first, then targeted build/test proof for touched rails.
@@ -116,14 +116,14 @@ Use the repo-declared scenario harness and injected scenario metadata. Do not de
 
 | [INDEX] | [TOOL] | [DOC] | [LOCAL_USE] |
 | :-----: | ------ | ----- | ----------- |
-| [1] | xUnit v3 | `docs/testing-libs/xunit/api.md` | MTP rail, assertions, fixtures, `TheoryData<T1..T15>`, generated runner JSON. |
-| [2] | CsCheck | `docs/testing-libs/cscheck/api.md` | `Gen`, `Sample`, shrink/replay, model/metamorphic/parallel/perf APIs. |
-| [3] | coverlet | `docs/testing-libs/coverlet/api.md` | Opt-in managed coverage map. |
-| [4] | Stryker.NET | `docs/testing-libs/stryker/api.md` | Explicit mutation through the local test runner. |
-| [5] | Verify | `docs/testing-libs/verify/api.md` | Stable artifact snapshots only. |
-| [6] | ArchUnitNET | `docs/testing-libs/archunit/api.md` | Assembly boundary laws. |
-| [7] | BenchmarkDotNet | `docs/testing-libs/benchmarkdotnet/api.md` | Benchmark console projects. |
-| [8] | SharpFuzz | `docs/testing-libs/sharpfuzz/api.md` | Fuzz harness projects. |
+| [1] | xUnit v3 | `docs/stacks/csharp/testing-libs/xunit/api.md` | MTP rail, assertions, fixtures, `TheoryData<T1..T15>`, generated runner JSON. |
+| [2] | CsCheck | `docs/stacks/csharp/testing-libs/cscheck/api.md` | `Gen`, `Sample`, shrink/replay, model/metamorphic/parallel/perf APIs. |
+| [3] | coverlet | `docs/stacks/csharp/testing-libs/coverlet/api.md` | Opt-in managed coverage map. |
+| [4] | Stryker.NET | `docs/stacks/csharp/testing-libs/stryker/api.md` | Explicit mutation through the local test runner. |
+| [5] | Verify | `docs/stacks/csharp/testing-libs/verify/api.md` | Stable artifact snapshots only. |
+| [6] | ArchUnitNET | `docs/stacks/csharp/testing-libs/archunit/api.md` | Assembly boundary laws. |
+| [7] | BenchmarkDotNet | `docs/stacks/csharp/testing-libs/benchmarkdotnet/api.md` | Benchmark console projects. |
+| [8] | SharpFuzz | `docs/stacks/csharp/testing-libs/sharpfuzz/api.md` | Fuzz harness projects. |
 
 Current local facts:
 

@@ -12,7 +12,7 @@ Encode material reference data and material-domain layout outputs as typed in-me
 
 - When editing a catalogue, layout, or query rail, read the target material folder to find its bounded context.
 - When changing brick sequence, scope, or deferred work, read `Bricks/ROADMAP.md`.
-- When changing BCL collection, source generation, or package/reference policy, read `docs/system-api-map`.
+- When changing BCL collection, source generation, or package/reference policy, read `docs/stacks/csharp/platform-map/`.
 - When changing catalogue values, read the source standard named by the material folder or catalogue and extend the typed catalogue record, closed vocabulary, code documentation, and citation route; if source-standard proof is missing, stop and record a proof gap instead of adding heuristic values.
 
 ## [3][EXTENSION_GRAMMAR]

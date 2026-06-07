@@ -1,6 +1,6 @@
 # [REPLACEMENTS]
 
-Replacement means moving behavior to the owning API, not adding wrappers. BCL surface catalog: `bcl.md`. Language features: `../external-libs/csharp/language.md`.
+Replacement means moving behavior to the owning API, not adding wrappers. BCL surface catalog: `bcl.md`. Language features: `../language/language.md`.
 
 ## [1][TEXT_AND_LOOKUP]
 
@@ -117,7 +117,7 @@ Owner API:
 
 Owner API:
 - [1] MathNet factorization/solver API.
-- [2] CSparse Cholesky + MathNet residual check — see `../external-libs/mathnet/sparse.md`.
+- [2] CSparse Cholesky + MathNet residual check — see `../product-libs/mathnet/sparse.md`.
 - [3] RhinoCommon.
 - [4] `TensorPrimitives` or `Vector<T>` after `System.Numerics.Tensors` adoption gate.
 - [5] `Vector.ConditionalSelect` / `Vector<T>` masks.

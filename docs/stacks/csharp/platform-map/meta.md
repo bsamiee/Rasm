@@ -1,6 +1,6 @@
 # [CSHARP_META]
 
-Scope: language version, central package graph, analyzer posture, RhinoWIP/GH2 host references, generated assembly metadata, global usings. BCL surfaces: `bcl.md`. Package state: `packages.md`. Language catalog: `../external-libs/csharp/language.md`.
+Scope: language version, central package graph, analyzer posture, RhinoWIP/GH2 host references, generated assembly metadata, global usings. BCL surfaces: `bcl.md`. Package state: `packages.md`. Language catalog: `../language/language.md`.
 
 ## [1][CONTROL_PLANES]
 
@@ -34,7 +34,7 @@ Scope: language version, central package graph, analyzer posture, RhinoWIP/GH2 h
 |   [3]   | Local analyzer        | `tools/cs-analyzer/CsAnalyzer.csproj`                               | Project analyzer ref; CSP#### catalog |
 |   [4]   | Roslyn authoring      | `Microsoft.CodeAnalysis.CSharp`, `Microsoft.CodeAnalysis.Analyzers` | `CsAnalyzer` and tests only           |
 
-C# 14 feature catalog: `../external-libs/csharp/language.md`. Compiler package state: `packages.md` §3. Treat analyzer failures as architecture pressure unless the owning policy explicitly permits an exception.
+C# 14 feature catalog: `../language/language.md`. Compiler package state: `packages.md` §3. Treat analyzer failures as architecture pressure unless the owning policy explicitly permits an exception.
 
 ## [3][HOST_REFERENCES]
 

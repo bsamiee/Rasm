@@ -18,10 +18,10 @@ Root-started work must still discover the nearest nested `AGENTS.md` before edit
 - When editing `docs/standards/**`, read `docs/standards/AGENTS.md` after `docs/standards/README.md`; root/shared/cross-type/provider/instruction-surface changes follow its active-corpus read rule.
 - When editing `tools/assay`, read `tools/assay/AGENTS.md`.
 - When editing bridge runtime, bridge scenarios, package, deploy, publish, or host-runtime proof, read `tools/rhino-bridge/AGENTS.md`.
-- When changing cross-stack owner precedence, proof order, or host-library routing, read `docs/usage.md`.
-- When changing `System.*`, global usings, package/reference policy, host-provided BCL assumptions, or `global.json`, read `docs/system-api-map`.
-- When adding product-library, host SDK, or host-composition assumptions, read `docs/external-libs` and `docs/host-libraries.md`.
-- When changing test-tool APIs or advanced harness behavior, read `docs/testing-libs`.
+- When changing cross-stack owner precedence, proof order, or composition routing, read `docs/usage/`.
+- When changing C# stack packages, BCL, product libraries, or build meta, read `docs/stacks/csharp/`.
+- When changing host SDK boundaries (Rhino, GH2), read `docs/hosts/`.
+- When changing test-tool APIs or advanced harness behavior, read `docs/stacks/csharp/testing-libs/`.
 
 ## [3][NAVIGATION]
 
@@ -59,11 +59,11 @@ Nested overlays inherit this target/current split; they only add local owner rai
 |   [1]   | Documentation standards        | `docs/standards/README.md`     |
 |   [2]   | `AGENTS.md` file shape         | `docs/standards/agents-md.md`  |
 |   [3]   | Standards authoring deltas     | `docs/standards/AGENTS.md`     |
-|   [4]   | Cross-stack owner ladder       | `docs/usage.md`                |
-|   [5]   | BCL, packages, host references | `docs/system-api-map`          |
-|   [6]   | Product and host libraries     | `docs/external-libs`           |
-|   [7]   | Host composition adoption      | `docs/host-libraries.md`       |
-|   [8]   | Test-tool APIs                 | `docs/testing-libs`            |
+|   [4]   | Owner ladder and proof order   | `docs/usage/`                  |
+|   [5]   | C# implementation lookup     | `docs/stacks/csharp/`          |
+|   [6]   | Host SDK boundaries          | `docs/hosts/`                  |
+|   [7]   | Host composition adoption      | `docs/usage/composition.md`    |
+|   [8]   | Test-tool APIs                 | `docs/stacks/csharp/testing-libs/` |
 |   [9]   | Quality command behavior       | `tools/quality/README.md`      |
 |  [10]   | Rhino bridge operator behavior | `tools/rhino-bridge/README.md` |
 |  [11]   | Live bridge instruction deltas | `tools/rhino-bridge/AGENTS.md` |
@@ -71,7 +71,7 @@ Nested overlays inherit this target/current split; they only add local owner rai
 |  [13]   | C# test and scenario deltas    | `tests/csharp/AGENTS.md`       |
 |  [14]   | Assay tool deltas              | `tools/assay/AGENTS.md`        |
 
-Host SDK boundaries use local RhinoWIP/GH2 XML, decompile evidence when XML is absent, the API rail, `docs/usage.md`, `docs/system-api-map`, and the nearest host project overlay. Package-consumer, package-pin, host-reference, and product-library truth live in central manifests, `docs/system-api-map`, `docs/external-libs`, local architecture/README/roadmap files, and nearest package overlays; do not preserve package facts in root prose.
+Host SDK boundaries use local RhinoWIP/GH2 XML, decompile evidence when XML is absent, the API rail, `docs/hosts/`, `docs/usage/`, and the nearest host project overlay. Package-consumer, package-pin, host-reference, and product-library truth live in central manifests, `docs/stacks/csharp/`, local architecture/README/roadmap files, and nearest package overlays; do not preserve package facts in root prose.
 
 ## [6][DOCUMENTATION]
 

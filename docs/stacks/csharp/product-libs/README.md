@@ -14,9 +14,7 @@ Scope: approved non-standard-library APIs. Package state, cross-stack owner orde
 ## [2][FILES]
 
 ```text
-docs/external-libs/
-├── csharp/
-│   └── language.md
+docs/stacks/csharp/product-libs/
 ├── languageext/
 │   ├── api.md
 │   ├── collections.md

@@ -10,8 +10,8 @@ Scope: `tests/csharp/` only. Root `AGENTS.md`, `CLAUDE.md`, and the `testing-cs`
 - Before changing an assertion, scenario fact, expected-value path, or mutation response, classify the behavior as static-managed law, bridge-owned runtime behavior, architecture/tooling/fuzz/benchmark rail, mutation-survivor triage, or proof gap.
 - When editing `tests/csharp/libs/**/*.spec.cs`, read `tests/csharp/libs/AGENTS.md`.
 - When editing or adding a spec, read the matching production owner and nearest production `AGENTS.md`.
-- When using advanced xUnit, CsCheck, coverlet, Stryker, Verify, ArchUnitNET, BenchmarkDotNet, or SharpFuzz behavior, read `docs/testing-libs`.
-- When changing serializer, fuzz-parser, bridge-probe, host-loader, filesystem, capture, or `System.*` test boundaries, read `docs/system-api-map`.
+- When using advanced xUnit, CsCheck, coverlet, Stryker, Verify, ArchUnitNET, BenchmarkDotNet, or SharpFuzz behavior, read `docs/stacks/csharp/testing-libs/`.
+- When changing serializer, fuzz-parser, bridge-probe, host-loader, filesystem, capture, or `System.*` test boundaries, read `docs/stacks/csharp/platform-map/`.
 - When changing `.verify.csx` or bridge-runtime work, read `tools/rhino-bridge/AGENTS.md`.
 
 ## [2][TEST_CONTRACT]

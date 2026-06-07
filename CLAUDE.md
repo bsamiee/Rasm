@@ -49,7 +49,7 @@ If reviewing, refining, editing, creating, or modifying X file type, use skill Y
 - [NEVER] Create thin wrappers that rename or forward external APIs without adding domain value.
 
 [IMPORTANT]: **.NET-Central-Package-Management**: C# package versions live in `Directory.Packages.props`; project files may declare usage but never versions.
-- [ALWAYS] Check `docs/system-api-map` before adding a `System.*` package, global using, or BCL replacement.
+- [ALWAYS] Check `docs/stacks/csharp/platform-map` before adding a `System.*` package, global using, or BCL replacement.
 - [ALWAYS] Keep RhinoWIP/GH2/Eto/System.Drawing host assemblies resolved through `Directory.Build.props` app-bundle references; if SDK compilation needs a NuGet reference surface, add it only as a conditioned central compile package.
 - [NEVER] Add unused `PackageVersion` entries as future intent.
 

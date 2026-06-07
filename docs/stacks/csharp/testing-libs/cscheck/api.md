@@ -131,4 +131,4 @@ CsCheck causal profiling output is replay material for the parallel check that e
 - Regression detection for an allocation or complexity path where the input size is part of the oracle.
 - A/B-style algorithmic choice during refactor on the same generator and project-owned tolerance policy.
 
-Never use for absolute performance claims — those belong in `tests/csharp/_benchmarks` with BenchmarkDotNet (see `docs/testing-libs/benchmarkdotnet/api.md`).
+Never use for absolute performance claims — those belong in `tests/csharp/_benchmarks` with BenchmarkDotNet (see `docs/stacks/csharp/testing-libs/benchmarkdotnet/api.md`).

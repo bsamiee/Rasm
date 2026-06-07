@@ -7,9 +7,9 @@ Root policy and `libs/csharp/AGENTS.md` own universal C# and library-family rule
 ## [1][READ_ORDER]
 
 - Before production work, read `README.md`, `ARCHITECTURE.md`, and `ROADMAP.md` to decide platform state, package adoption, and sequence.
-- Before moving package guidance into graph, read `docs/host-libraries.md`.
+- Before moving package guidance into graph, read `docs/usage/composition.md`.
 - Before changing cross-project runtime contracts, read AppUi, Compute, and Persistence local overlays.
-- Before creating project files, solution membership, central package entries, or directory-prop changes, read root quality policy and `docs/system-api-map`.
+- Before creating project files, solution membership, central package entries, or directory-prop changes, read root quality policy and `docs/stacks/csharp/platform-map/`.
 
 ## [2][OWNER_CONTRACT]
 
@@ -50,4 +50,4 @@ It coordinates boot, lifecycle, degradation policy, scheduling, diagnostics, and
 
 ## [6][STOP_RULES]
 
-If a change requires in-process `IServiceProvider`, Generic Host boot, exporter SDKs, raw host SDK calls, unproved shutdown/drain behavior, or companion package adoption without architecture and host proof, stop and route to `ARCHITECTURE.md`, `docs/host-libraries.md`, and manifest proof.
+If a change requires in-process `IServiceProvider`, Generic Host boot, exporter SDKs, raw host SDK calls, unproved shutdown/drain behavior, or companion package adoption without architecture and host proof, stop and route to `ARCHITECTURE.md`, `docs/usage/composition.md`, and manifest proof.

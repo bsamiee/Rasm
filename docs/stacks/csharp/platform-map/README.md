@@ -1,6 +1,6 @@
-# [SYSTEM_API_MAP]
+# [PLATFORM_MAP]
 
-Scope: BCL, shared-framework surfaces, package state, host references, build metadata. Cross-stack owner order: `../usage.md` §1. Product libraries: `../external-libs/README.md`. Test tools: `../testing-libs/xunit/api.md`. C# 14 language: `../external-libs/csharp/language.md`.
+Scope: BCL, shared-framework surfaces, package state, host references, build metadata. Cross-stack owner order: `../../usage/README.md` §1. Product libraries: `../product-libs/README.md`. Test tools: `../testing-libs/xunit/api.md`. C# 14 language: `../language/language.md`.
 
 ## [1][FILES]
 
@@ -13,24 +13,25 @@ Scope: BCL, shared-framework surfaces, package state, host references, build met
 
 ## [2][ROUTING]
 
-| [INDEX] | [QUESTION]                                       | [READ]                       |
-| :-----: | ------------------------------------------------ | ---------------------------- |
-|   [1]   | Cross-stack owner precedence                     | `../usage.md` §1             |
-|   [2]   | Proof hierarchy for API claims                   | `../usage.md` §5             |
-|   [3]   | Build props, analyzers, host refs, global usings | `meta.md`                    |
-|   [4]   | Package graph state / adoption                   | `packages.md`                |
-|   [5]   | BCL API ownership                                | `bcl.md`                     |
-|   [6]   | Replace local machinery                          | `replacements.md`            |
-|   [7]   | Product library APIs                             | `../external-libs/README.md` |
-|   [8]   | Test-tool APIs                                   | `../testing-libs/README.md`  |
-|   [9]   | Host composition packages                        | `../host-libraries.md` §8    |
+| [INDEX] | [QUESTION]                                       | [READ]                              |
+| :-----: | ------------------------------------------------ | ----------------------------------- |
+|   [1]   | Cross-stack owner precedence                     | `../../usage/README.md` §1          |
+|   [2]   | Proof hierarchy for API claims                   | `../../usage/README.md` §5          |
+|   [3]   | Build props, analyzers, host refs, global usings | `meta.md`                           |
+|   [4]   | Package graph state / adoption                   | `packages.md`                       |
+|   [5]   | BCL API ownership                                | `bcl.md`                            |
+|   [6]   | Replace local machinery                          | `replacements.md`                   |
+|   [7]   | Product library APIs                             | `../product-libs/README.md`         |
+|   [8]   | Test-tool APIs                                   | `../testing-libs/README.md`         |
+|   [9]   | Host composition packages                        | `../../usage/composition.md` §8     |
+|  [10]   | Host SDK boundaries                              | `../../hosts/README.md`             |
 
 ## [3][ADOPTION]
 
 - Distinguish in-box BCL from platform packages that still need an explicit `PackageReference` on first consumer (`packages.md` §1).
 - Keep unadopted packages out of active guidance until a measured consumer lands.
 - Use local XML or decompile evidence for RhinoWIP/GH2 API claims in public docs.
-- Reconcile package graph edits with `packages.md` and affected `docs/external-libs/**/api.md` guidance.
+- Reconcile package graph edits with `packages.md` and affected `../product-libs/**/api.md` guidance.
 
 ## [4][TEST_CONSUMERS]
 

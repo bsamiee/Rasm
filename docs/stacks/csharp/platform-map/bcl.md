@@ -1,6 +1,6 @@
 # [BCL]
 
-BCL APIs do not replace LanguageExt rails, Thinktecture shape, MathNet algorithms, Rhino geometry, or GH2 data semantics. C# 14 language features live in `../external-libs/csharp/language.md`; this file owns BCL/shared-framework API surfaces. SDK implicit usings and workspace globals — see `meta.md` §6.
+BCL APIs do not replace LanguageExt rails, Thinktecture shape, MathNet algorithms, Rhino geometry, or GH2 data semantics. C# 14 language features live in `../language/language.md`; this file owns BCL/shared-framework API surfaces. SDK implicit usings and workspace globals — see `meta.md` §6.
 
 ## [1][TEXT]
 
@@ -67,9 +67,9 @@ Use:
 - [5] One-shot grouped index; avoid repeated `GroupBy` materialization.
 - [6] Cold-path dedup and keyed set algebra; explicit `IEqualityComparer` when key policy ≠ default.
 - [7] Measured hot-path dictionary builds; `AsSpan` for trusted `List<T>` only.
-- [8] Default domain collections — see `../external-libs/languageext/collections.md`.
+- [8] Default domain collections — see `../product-libs/languageext/collections.md`.
 
-Collection expressions (`[]`, spread) are a C# owner (`../external-libs/csharp/language.md`); BCL targets may be expression-built then frozen via `ToFrozenDictionary`/`ToFrozenSet`.
+Collection expressions (`[]`, spread) are a C# owner (`../language/language.md`); BCL targets may be expression-built then frozen via `ToFrozenDictionary`/`ToFrozenSet`.
 
 ## [3][EQUALITY]
 
@@ -88,7 +88,7 @@ Use:
 - [3] Custom `GetHashCode`; `Add(value, IEqualityComparer<T>)` when hash must match comparer.
 - [4] Structural data carriers; compiler delegates per-field equality.
 - [5] Identity keys for live host objects; not structural equality.
-- [6] Branded domain admission — see `../external-libs/thinktecture/objects.md`.
+- [6] Branded domain admission — see `../product-libs/thinktecture/objects.md`.
 
 `HashCode` output is process-randomized — never persist or use as stable file keys. Records use compiler-synthesized equality; Thinktecture overrides synthesis on branded members.
 
@@ -107,7 +107,7 @@ Use:
 |   [9]   | MathNet                     | Matrices, solvers, statistics, symbolic math                                                           |
 
 Use:
-- [1] Model-space truth — see `../usage.md` §1 and local RhinoWIP XML.
+- [1] Model-space truth — see `../../../usage/README.md` §1 and local RhinoWIP XML.
 - [2] Scalar math; `Half` for compact wire/GPU interchange at boundary.
 - [3] Double complex scalar; bridge to MathNet at algorithm boundary.
 - [4] Narrowest generic-math constraint that admits required static members.
@@ -115,7 +115,7 @@ Use:
 - [6] Portable SIMD over contiguous spans; gate explicit intrinsics on hardware acceleration.
 - [7] Explicit width when portable SIMD is insufficient; never global-import.
 - [8] Platform package — explicit `PackageReference` on adoption; BenchmarkDotNet proof; see `packages.md` row [10].
-- [9] See `../external-libs/mathnet/`.
+- [9] See `../product-libs/mathnet/`.
 
 **Name collisions:** BCL `Vector<T>` (SIMD) ≠ MathNet `LinearAlgebra.Vector<T>`; BCL `Complex` (double) ≠ MathNet `Complex32`.
 

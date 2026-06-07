@@ -4,7 +4,7 @@ C# 14.0 on net10.0 is the active language surface (`LangVersion`, `TargetFramewo
 Compiler toolset: .NET 10 SDK compiler (global compile).
 Analyzer authoring uses `Microsoft.CodeAnalysis.CSharp` and `Microsoft.CodeAnalysis.Analyzers`.
 
-Route BCL and host-reference policy through `docs/system-api-map`. This page owns C# 14 feature selection.
+Route BCL and host-reference policy through `../platform-map/`. This page owns C# 14 feature selection.
 
 ## [1][C14_NEW]
 

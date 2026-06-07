@@ -286,7 +286,7 @@ def test_dotnet_tool_boundary_laws(monkeypatch: pytest.MonkeyPatch, quality: Qua
 
 
 @pytest.mark.property
-@given(st.lists(st.sampled_from(("README.md", "tools/quality/process.py", "docs/usage.md")), max_size=8).map(tuple))
+@given(st.lists(st.sampled_from(("README.md", "tools/quality/process.py", "docs/usage/README.md")), max_size=8).map(tuple))
 def test_static_empty_or_irrelevant_changes_never_resolve_project_graph(rows: tuple[str, ...]) -> None:
     with tempfile.TemporaryDirectory() as raw, pytest.MonkeyPatch.context() as monkeypatch:
         harness = QualityHarness(Path(raw), QualitySettings(root=Path(raw), rhino_app=None, run_id="test-run"))

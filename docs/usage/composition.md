@@ -4,12 +4,12 @@ Scope: composition roots, external I/O boundaries, app runtime, persistence, com
 
 This file owns adoption policy, not package manuals. Owner-local platform stubs carry candidate rationale:
 
-| [INDEX] | [OWNER]            | [MANUAL]                                           |
-| :-----: | ------------------ | -------------------------------------------------- |
-|   [1]   | `Rasm.AppUi`       | `../libs/csharp/Rasm.AppUi/ARCHITECTURE.md`       |
-|   [2]   | `Rasm.AppHost`     | `../libs/csharp/Rasm.AppHost/ARCHITECTURE.md`     |
-|   [3]   | `Rasm.Persistence` | `../libs/csharp/Rasm.Persistence/ARCHITECTURE.md` |
-|   [4]   | `Rasm.Compute`     | `../libs/csharp/Rasm.Compute/ARCHITECTURE.md`     |
+| [INDEX] | [OWNER]            | [MANUAL]                                             |
+| :-----: | ------------------ | ---------------------------------------------------- |
+|   [1]   | `Rasm.AppUi`       | `../../libs/csharp/Rasm.AppUi/ARCHITECTURE.md`       |
+|   [2]   | `Rasm.AppHost`     | `../../libs/csharp/Rasm.AppHost/ARCHITECTURE.md`     |
+|   [3]   | `Rasm.Persistence` | `../../libs/csharp/Rasm.Persistence/ARCHITECTURE.md` |
+|   [4]   | `Rasm.Compute`     | `../../libs/csharp/Rasm.Compute/ARCHITECTURE.md`     |
 
 ## [1][COMPOSITION_MODES]
 
