@@ -120,8 +120,9 @@ Boundary source: `<architecture, README, manifest, generated contract, or source
 Split when: `<second hazard, second readiness gate, or unrelated first action appears>`
 ```
 
-Rejected area: whole repository
-Reason: the rejected form is valid only when the readiness gate and first safe action are truly repository-wide.
+[RAMP_AREA]:
+- Rejected area: whole repository
+- Reason: the rejected form is valid only when the readiness gate and first safe action are truly repository-wide.
 
 ## [5][SOURCE_PATH]
 
@@ -135,7 +136,7 @@ Evidence: `<path exists, command output, generated artifact, or proof gap>`
 Update when: `<path, artifact, command, or adjacent route changes>`
 ```
 
-Use a grouped definition block when several source records share this schema. Keep each record short; if a source needs explanation, route to architecture, API, reference, support matrix, or code documentation instead of embedding the explanation.
+Use a GroupedRecord (`[RECORD_KEY]:` plus `- Field: value` bullets) when several source records share this schema. Keep each record short; if a source needs explanation, route to architecture, API, reference, support matrix, or code documentation instead of embedding the explanation.
 
 ## [6][READ_FIRST]
 
@@ -148,9 +149,10 @@ Check: `<observable answer, symbol, command result, or proof gap>`
 Route-away: `<body that stays in architecture, API, reference, support, how-to, or runbook>`
 ```
 
-Accepted reading: `Question: Which generated files are source-owned?`
-Rejected reading: `README.md`, `src/`, `tests/`
-Reason: the accepted form names the decision, source, check, and route-away; the rejected form is a path inventory.
+[READING_SHAPE]:
+- Accepted: `Question: Which generated files are source-owned?`
+- Rejected: `README.md`, `src/`, `tests/`
+- Reason: the accepted form names the decision, source, check, and route-away; the rejected form is a path inventory.
 
 ## [7][CONSTRAINTS]
 

@@ -129,7 +129,7 @@ Notation rules use these groups:
 [MARKUP_LABELS]:
 - Avoid slashes for prose alternatives; use `or`, `and`, or `or both`. Keep slashes for code, paths, URLs, and exact product syntax.
 - Use `[X_Y_Z]:` for a standalone group label before a list or table. Formatting owns the exact group-label shape. Keep prose labels short and concrete.
-- Use `Label: value` only for a short item-scoped fact, checklist field, or definition-block record line. Formatting owns field-line rendering; this guide owns label wording.
+- Use `Label: value` only inside list bullets, checklist fields, or fenced templates — not as bare paragraph lines after a colon leader. Formatting owns field-line rendering; this guide owns label wording.
 - Do not bold a whole label line for emphasis. Promote it to a heading when it needs an anchor or independent retrieval; otherwise keep it as a bracketed set label.
 
 [NUMBERS_QUOTES]:
@@ -160,11 +160,12 @@ Use examples under these limits:
 - Prefer one positive shape and one rejected shape when the distinction matters.
 - Keep an example's wording consistent with the terminology it teaches.
 - When a block could be copied, run, or mistaken for current policy, mark its reuse risk.
-- When the contrast is only short prose or values, use the compact contrast record from the formatting standard instead of separate fences.
+- When the contrast is only short prose or values, use a ContrastRecord from the formatting standard instead of separate fences.
 
-Accepted: Attach the unit to its value.
-Rejected: It is probably best to try to avoid not stating the unit when you can.
-Reason: The accepted sentence names the action directly; the rejected sentence hedges, negates, and hides the unit rule.
+[UNIT_ATTACHMENT]:
+- Accepted: Attach the unit to its value.
+- Rejected: It is probably best to try to avoid not stating the unit when you can.
+- Reason: The accepted sentence names the action directly; the rejected sentence hedges, negates, and hides the unit rule.
 
 ## [11][ACCESSIBILITY]
 
@@ -213,3 +214,4 @@ Use this verification checklist by group:
 - [ ] Links use meaningful text and point to canonical sources.
 - [ ] Accessibility does not depend on sensory-only cues.
 - [ ] No transient task language, obsolete command, or unsupported product claim remains.
+- [ ] Live policy uses GroupedRecord, AnchoredRecord, or ContrastRecord bullets; no bare indented field lines or flat contrast paragraphs.

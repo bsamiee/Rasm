@@ -55,16 +55,19 @@ Local identity or context fields such as `Gate:`, `Surface:`, `Representation:`,
 
 Prefer an event trigger over a calendar review date. Use a calendar date only when a maintained policy changes on a schedule or no better trigger exists.
 
-Attach the fields as a definition block beside the claim, one `label: value` per line, so each field is independently scannable and updatable:
+Attach the fields as a GroupedRecord beside the claim so each field is independently scannable and updatable:
 
 ```markdown template
-Command: `<configured-docs-or-build-gate>`
-Evidence: `<owning tool source and checked behavior>`.
-Last verified: YYYY-MM-DD
-Review trigger: `<gate route or owner change>`.
+[PROOF_RECORD]:
+- Command: `<configured-docs-or-build-gate>`
+- Evidence: `<owning tool source and checked behavior>`.
+- Last verified: YYYY-MM-DD
+- Review trigger: `<gate route or owner change>`.
 ```
 
-Carry only the fields the claim needs. A generated artifact adds `Generated from:` and `Controlling source:`. A settled command may need only `Evidence:`. A missing check uses `Proof gap:` plus `Review trigger:` when the gap can be closed. When several claims share one schema, follow the definition-block rules in [information-structure.md](information-structure.md).
+Flat `label: value` lines inside a `markdown template` fence are copy templates only. In live policy, use bracketed group labels with `- Field: value` bullets so GitHub Flavored Markdown renders each field on its own line. Proof gap: local GitHub render proof for field-line rendering was not run in this change.
+
+Carry only the fields the claim needs. A generated artifact adds `Generated from:` and `Controlling source:`. A settled command may need only `Evidence:`. A missing check uses `Proof gap:` plus `Review trigger:` when the gap can be closed. When several claims share one schema, follow the GroupedRecord rules in [information-structure.md](information-structure.md).
 
 ## [5][EVIDENCE_PLACEMENT]
 

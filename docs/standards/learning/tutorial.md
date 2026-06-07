@@ -108,9 +108,10 @@ Lead the title with the observable artifact or skill outcome, not an internal ab
 # [BUILD_ARTIFACT]
 ```
 
-Accepted title: `# [BUILD_ARTIFACT]`
-Rejected title: `# [UNDERSTANDING_DOCUMENTATION_RULES]`
-Reason: the accepted title names an artifact the lesson can produce; the rejected title names cognition, which routes to explanation. State the learning outcome as a specific capability the learner can perform: `you can validate a scoped Markdown diff`, never `understand documentation rules`.
+[TITLE_SHAPE]:
+- Accepted title: `# [BUILD_ARTIFACT]`
+- Rejected title: `# [UNDERSTANDING_DOCUMENTATION_RULES]`
+- Reason: the accepted title names an artifact the lesson can produce; the rejected title names cognition, which routes to explanation. State the learning outcome as a specific capability the learner can perform: `you can validate a scoped Markdown diff`, never `understand documentation rules`.
 
 ## [6][LEARNING_PATHS]
 
@@ -235,8 +236,9 @@ State each term in the step that first needs it. Use fixed inputs, deterministic
     If wrong: a `trailing whitespace` line names the file and line to fix before continuing.
 ```
 
-Rejected step: `3. Run the check.`
-Reason: the rejected form carries no exact signal and no working-state gate. Keep every command copy-safe per the craft route: omit prompts, use long flags, use full file paths where needed, and use realistic placeholders.
+[ORDERED_STEP_SHAPE]:
+- Rejected step: `3. Run the check.`
+- Reason: the rejected form carries no exact signal and no working-state gate. Keep every command copy-safe per the craft route: omit prompts, use long flags, use full file paths where needed, and use realistic placeholders.
 
 ## [9][EXECUTION_VOCABULARY]
 
@@ -324,14 +326,15 @@ A learning path additionally closes lesson order and composed capability: prereq
 
 Use short excerpts to prove closure shape; do not publish a complete second tutorial inside the standard.
 
-Accepted done checks:
+[DONE_CHECKS]:
 - [ ] `<validation-command>` exits 0
 - [ ] the changed path set is scoped to the lesson artifact
 - [ ] any missing link or anchor checker is recorded as a proof gap.
 
-Accepted noticing sentence: Notice the lesson validates one bounded documentation path instead of teaching general Git or contribution workflow.
-Rejected example shape: a full mini-tutorial repeated inside `Execution closure`.
-Reason: title, preview, steps, result, and validation already have local examples beside their rules.
+[CLOSURE_EXAMPLE]:
+- Accepted: Notice the lesson validates one bounded documentation path instead of teaching general Git or contribution workflow.
+- Rejected: a full mini-tutorial repeated inside `Execution closure`.
+- Reason: title, preview, steps, result, and validation already have local examples beside their rules.
 
 Learner-facing first person such as `We will build` is correct because the document tutors. Author notes, task history, interaction fragments, and local machine paths are not.
 

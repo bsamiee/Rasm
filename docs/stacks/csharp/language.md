@@ -4,12 +4,13 @@ C# 14.0 on `net10.0` is the active language surface. `Directory.Build.props` own
 
 ## [1][ACTIVE_SURFACE]
 
-Target framework: `net10.0`
-Language version: `14.0`
-Nullable: `enable`
-Implicit usings: `enable`
-Compiler: .NET 10 SDK C# compiler
-Analyzer authoring: `Microsoft.CodeAnalysis.CSharp` with project analyzer packages
+[ACTIVE_SURFACE]:
+- Target framework: `net10.0`
+- Language version: `14.0`
+- Nullable: `enable`
+- Implicit usings: `enable`
+- Compiler: .NET 10 SDK C# compiler
+- Analyzer authoring: `Microsoft.CodeAnalysis.CSharp` with project analyzer packages
 
 Use the active language surface directly. Replace older syntax when the compiler expresses the same behavior with less ceremony.
 
@@ -36,64 +37,70 @@ Use the active language surface directly. Replace older syntax when the compiler
 
 ## [3][SCOPED_PATTERNS]
 
-Null-conditional assignment:
-    Use: nullable host, UI, event, and indexer boundaries with `target?.Prop = value` or `target?.[i] += delta`.
-    Reject: domain logic on nullable mutation chains.
-    Note: `++` and `--` are not valid on a null-conditional left side.
+[NULL_CONDITIONAL_ASSIGNMENT]:
+- Use: nullable host, UI, event, and indexer boundaries with `target?.Prop = value` or `target?.[i] += delta`.
+- Reject: domain logic on nullable mutation chains.
+- Note: `++` and `--` are not valid on a null-conditional left side.
 
-Partial members:
-    Use: source-generator, analyzer, binding, or hand/generated splits.
-    Reject: splitting files only to make a type look smaller.
+[PARTIAL_MEMBERS]:
+- Use: source-generator, analyzer, binding, or hand/generated splits.
+- Reject: splitting files only to make a type look smaller.
 
-Stack-only generic algorithms:
-    Use: `ref struct` interface implementations, `allows ref struct`, and scoped `ref` locals when a span-like algorithm needs stack-only values.
-    Reject: boxing stack-only values through interface conversions or carrying them across `await` or `yield`.
+[STACK_ONLY_GENERIC_ALGORITHMS]:
+- Use: `ref struct` interface implementations, `allows ref struct`, and scoped `ref` locals when a span-like algorithm needs stack-only values.
+- Reject: boxing stack-only values through interface conversions or carrying them across `await` or `yield`.
 
-`System.Threading.Lock`:
-    Use: new synchronous boundary gates.
-    Reject: holding a lock across `await`.
+[SYSTEM_THREADING_LOCK]:
+- Use: new synchronous boundary gates.
+- Reject: holding a lock across `await`.
 
-`ref readonly`:
-    Use: API contracts that require a variable by reference without mutation.
-    Reject: blanket large-struct performance policy.
+[REF_READONLY]:
+- Use: API contracts that require a variable by reference without mutation.
+- Reject: blanket large-struct performance policy.
 
-`OverloadResolutionPriorityAttribute`:
-    Use: public overload sets that remain ambiguous after span and `params` shape cleanup.
-    Reject: unclear overload design hidden by priority.
+[OVERLOADRESOLUTIONPRIORITYATTRIBUTE]:
+- Use: public overload sets that remain ambiguous after span and `params` shape cleanup.
+- Reject: unclear overload design hidden by priority.
 
-`using` alias any type:
-    Use: dense tuple, pointer, array, and nested generic signatures.
-    Reject: parallel domain type names.
+[USING_ALIAS_ANY_TYPE]:
+- Use: dense tuple, pointer, array, and nested generic signatures.
+- Reject: parallel domain type names.
 
-Default lambda parameters and simple lambda modifiers:
-    Use: delegate adapters where the target delegate fixes the shape.
-    Reject: replacing a coherent method surface with lambda-only defaults.
+[DEFAULT_LAMBDA_PARAMETERS_AND_SIMPLE_LAMBDA_MODIFIERS]:
+- Use: delegate adapters where the target delegate fixes the shape.
+- Reject: replacing a coherent method surface with lambda-only defaults.
 
 ## [4][REPLACEMENTS]
 
-Accepted: `ReadOnlySpan<T>` input plus collection expressions and `params` collections where call shape requires arity.
-Rejected: `T[]`, `IEnumerable<T>`, `List<T>`, and span overload families for the same operation.
-Reason: span conversions and `params` collections carry common call shapes without overload drift.
+[REPLACEMENT_1]:
+- Accepted: `ReadOnlySpan<T>` input plus collection expressions and `params` collections where call shape requires arity.
+- Rejected: `T[]`, `IEnumerable<T>`, `List<T>`, and span overload families for the same operation.
+- Reason: span conversions and `params` collections carry common call shapes without overload drift.
 
-Accepted: `field` accessor validation.
-Rejected: private backing fields used only by one property setter.
-Reason: the invariant belongs to the property when no cross-property state is involved.
+[REPLACEMENT_2]:
+- Accepted: `field` accessor validation.
+- Rejected: private backing fields used only by one property setter.
+- Reason: the invariant belongs to the property when no cross-property state is involved.
 
-Accepted: extension blocks on the receiver type.
-Rejected: wrapper-only types that rename receiver behavior.
-Reason: the receiver owns the behavior; a wrapper adds shape without capability.
+[REPLACEMENT_3]:
+- Accepted: extension blocks on the receiver type.
+- Rejected: wrapper-only types that rename receiver behavior.
+- Reason: the receiver owns the behavior; a wrapper adds shape without capability.
 
-Accepted: `System.Threading.Lock` at new synchronous boundaries.
-Rejected: private `object` locks for new code.
-Reason: the runtime lock type is the synchronization owner.
+[REPLACEMENT_4]:
+- Accepted: `System.Threading.Lock` at new synchronous boundaries.
+- Rejected: private `object` locks for new code.
+- Reason: the runtime lock type is the synchronization owner.
 
-Accepted: collection expressions with spread.
-Rejected: `new[]`, manual list construction, and concat-then-add boilerplate.
-Reason: the expression form carries construction and composition directly.
+[REPLACEMENT_5]:
+- Accepted: collection expressions with spread.
+- Rejected: `new[]`, manual list construction, and concat-then-add boilerplate.
+- Reason: the expression form carries construction and composition directly.
 
-Accepted: `nameof(List<>)`.
-Rejected: closed-generic dummy names or string literals for generic type definitions.
-Reason: diagnostics and telemetry should follow symbol identity.
+[REPLACEMENT_6]:
+- Accepted: `nameof(List<>)`.
+- Rejected: closed-generic dummy names or string literals for generic type definitions.
+- Reason: diagnostics and telemetry should follow symbol identity.
 
 ## [5][REJECTIONS]
 

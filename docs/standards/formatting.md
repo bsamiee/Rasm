@@ -197,16 +197,18 @@ The index column is centered, the text column (`[ITEM]`) is left-aligned, the nu
 - Use a bracketed set label only when the introducer is a category, set, key, or compact list name. The label format is `[X_Y_Z]:`: uppercase, underscores for compounds, 1–3 semantic words, and no surrounding bold or code span.
 - Treat a bracketed set label as its own structural block. Put one blank line before it when prose, a list, a table, another label, or a fenced block introduces it; put the introduced list or table on the next line after the label with no blank gap.
 - For a fenced example, use a complete colon lead instead of a bracketed set label, then obey the fence-spacing rule. Do not use a bracketed set label as a heading surrogate, and do not attach it directly to a heading or to an opening or closing fence; those boundaries still keep the structural blank line above.
-- Use grouped sibling lists for a short series of lists that share one lead but are not nested under one parent item. Write a complete lead sentence ending in a colon, a blank line, the first bracketed set label, and that label's list on the following line. Keep one blank line between completed peer groups when useful. Promote a group to H3 when it needs an anchor, a long explanation, or independent retrieval.
+- Use grouped sibling lists for a short series of lists that share one lead but are not nested under one parent item. Write a complete lead sentence ending in a colon, a blank line, the first bracketed set label, and that label's list on the following line. Keep one blank line between completed peer groups when useful. Promote a GroupedRecord to an AnchoredRecord H3 only when another document links to the record or a stable heading slug is required.
 - Do not stack bracketed set labels. If a second label appears before the first label's list or table, remove the outer label or promote the outer category to prose or a heading.
-- Use a nested list only when every child item qualifies one parent item. Indent child bullets, ordered-list continuations, and field continuations with four spaces.
+- A bracketed `[RECORD_KEY]:` or `[CONTRAST_KEY]:` label must be followed by a bullet list on the next line; never bare indented `Field: value` lines after the label.
+- Use a nested list only when every child item qualifies one parent item. Indent child bullets and ordered-list continuations with four spaces; field content under a group label is always a bullet, not a bare indented line.
 - Roadmap active trees are the type-local nesting exception. Render phase rows with `- P-0010: <outcome>`, task rows with `- [ ] T-0010 [QUEUED] <title>` or `- [x] T-0010 [COMPLETE] <title>`, and task fields as nested `- Label: value` rows. Keep four-space indentation for every child level and no blank lines inside one milestone tree.
 
 [FIELD_LINES]:
 - Keep short checklist fields inline after an em dash. Promote larger checklist state to the record form defined by `information-structure.md`.
-- Keep definition-block labels in sentence case or verified field casing, followed by one colon and one space. Indent wrapped or list-valued field content four spaces beneath the label.
-- Keep item-scoped field labels raw by default inside bullets, checklist items, and definition blocks: `Label: value`. Use bracketed set labels only for standalone group labels. Use backticks only for literal fields, symbols, commands, paths, flags, exact tokens, or placeholders. Do not bold the label or the whole line.
-- Render short contrast examples as one compact record rather than adjacent fences when [information-structure.md](information-structure.md) chooses that carrier. Use raw labels such as `Accepted:`, `Rejected:`, `Before:`, `After:`, `Near miss:`, and `Reason:`; keep one-line values inline, indent multi-field values four spaces, and place the reason immediately after the rejected value. Use a table only when the contrast compares three or more attributes across two or more options.
+- GroupedRecord and AnchoredRecord fields use `- Field: value` bullets beneath a bracketed `[RECORD_KEY]:` label or H3 heading. Keep field labels in sentence case or verified field casing, followed by one colon and one space inside each bullet.
+- A list-valued field uses one parent bullet, then one nested bullet tier beneath it.
+- Keep item-scoped field labels raw by default inside bullets, checklist items, and record groups: `Label: value`. Use bracketed set labels only for standalone group labels. Use backticks only for literal fields, symbols, commands, paths, flags, exact tokens, or placeholders. Do not bold the label or the whole line.
+- Render ContrastRecord examples as `[CONTRAST_KEY]:` followed by `- Accepted:`, `- Rejected:` or `- Near miss:`, and `- Reason:` bullets rather than adjacent fences or column-0 field lines. Use a table only when the contrast compares three or more attributes across two or more options.
 - Let prose soft-wrap; the form standard carries the no-hard-wrap rule, and this whitespace discipline governs only the gaps between structural elements.
 
 A conceptual list example:
@@ -219,7 +221,15 @@ Use the container that matches the reader action:
 - Checklists (`- [ ]`): verification, acceptance, or status items whose completion is asserted and checked.
 ```
 
-A grouped cardinality example:
+GroupedRecord is the normative field carrier for same-section record clusters. Section cardinality uses this shape:
+
+[REQUIRED_UNIVERSAL]:
+- Opening lead: required, single; states the support question, profile, and regime.
+- Required sections: `Scope`, `Status vocabulary`, `Matrix`, `Exclusions`, `Boundaries`, and `Validation`.
+
+[CONDITIONAL_PROFILE]:
+- `Lifecycle dates`: required for product-lifecycle and deprecation profiles.
+- `Reading rule`: required for two-axis, intersection, or derived cells.
 
 ```markdown conceptual
 Section cardinality uses these groups:

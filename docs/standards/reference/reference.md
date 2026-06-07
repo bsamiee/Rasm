@@ -58,7 +58,7 @@ Choose one primary profile per reference leaf. Split the leaf when a second prof
 [SOURCE_MAP_CATALOG]:
 - Carries: source-key maps, package graph posture, BCL/shared-framework surfaces, external-library posture, testing-tool facts, and replacement maps.
 - Required sets: scope with source model, one or more fact sets, and route-away table.
-- Entry shape: fact cards or grouped records when rows need proof/update fields.
+- Entry shape: fact cards or GroupedRecord clusters when rows need proof/update fields.
 - Route-away: callable API contracts, support lifecycle, test strategy, how-to commands, architecture, and source comments.
 
 Use this lookup archetype selector. The record trigger names the first signal that the row needs records instead of a wider table:
@@ -338,8 +338,9 @@ Side effect: does not intentionally mutate tracked source.
 
 Replace placeholders with exact command help, a source path, or a generated command reference before publishing a real command reference.
 
-Rejected warning: This command has a dry-run mode, but the warning omits invocation, effect, and side effect.
-Reason: the accepted shape gives the reader one lookup fact plus the information needed to refresh it. The rejected shape hides the invocation, effect, and side effect.
+[COMMAND_WARNING]:
+- Rejected: This command has a dry-run mode, but the warning omits invocation, effect, and side effect.
+- Reason: the accepted shape gives the reader one lookup fact plus the information needed to refresh it. The rejected shape hides the invocation, effect, and side effect.
 
 ## [11][BOUNDARIES]
 

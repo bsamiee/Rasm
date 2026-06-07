@@ -171,9 +171,11 @@ A step that uses a command should bind operation, expected result, and next cond
 ```
 
 Use a fenced command only when the command is multi-line, copy-safe as written, or clearer outside the step record. Include a rejected near-miss only when it prevents a likely material error:
-Accepted command: `<command> --scope <target>`
-Rejected near-miss: `<command>`
-Reason: the accepted command scopes the check to the documented target; the rejected command can report unrelated state.
+
+[SCOPED_COMMAND]:
+- Accepted: `<command> --scope <target>`
+- Near miss: `<command>`
+- Reason: the accepted command scopes the check to the documented target; the rejected command can report unrelated state.
 
 For a forking procedure, use prose or a numbered branch first. Use a decision table when independent conditions jointly choose an action; use Mermaid only when branch sequence and rejoin are harder to follow as steps or a decision table.
 
@@ -198,10 +200,15 @@ Render `Verification` as a checklist when the outcome carries several independen
 - [ ] `<verification check>` proves the result, or the missing checker is recorded as a proof gap.
 ```
 
-Rejected verification:
-    ## [3][VERIFICATION]
-    - [ ] `<command>` exited 0.
-Reason: the rejected form omits the requested revision, target state, and readiness outcome, so it cannot prove the `Goal`.
+Rejected verification shape:
+
+```markdown rejected
+## [3][VERIFICATION]
+- [ ] `<command>` exited 0.
+```
+
+[REJECTED_VERIFICATION]:
+- Reason: the rejected form omits the requested revision, target state, and readiness outcome, so it cannot prove the `Goal`.
 
 For a state-changing task, give `Rollback` the reverse action, its expected result, and its own check. When no reverse exists, say so and route recovery to a runbook by topic:
 

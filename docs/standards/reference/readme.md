@@ -237,14 +237,14 @@ README files do not use invocation markers such as `[CRITICAL]`, `[ALWAYS]`, or 
 
 Use structure where it improves scanning:
 - Status, maturity, and support: status-tagged record with `Surface`, `Status`, `Reader action`, `Exit`, `Evidence` or `Controlling source`, and `Review trigger` when the claim can drift. `Phase N`, `in progress`, and similar progress labels are invalid README status unless the row names an exit condition and routes implementation sequence to roadmap.
-- Entrypoints, import surfaces, and first-run command cards: lookup table or definition block, never prose that hides a key-to-effect map. Entrypoints are import surfaces, commands, executable files, public type families, or scope-local API names a reader can use or edit first; adjacent files are `Documents`, not entrypoints.
-- README tables: table use is conditional, not the default. Before a README table, name the warrant in prose: either `This table is a lookup by <key>` or `This table compares <row set> across <attributes>`. If no warrant can be stated plainly, use a definition block, grouped records, or a package/tool card.
-- Curated command surfaces: start with a compact lookup table only when the family-to-verbs map is the reader question. Put flags, examples, caveats, mutation behavior, and semantic notes in grouped command records or H3 command cards; route exhaustive generated help away.
-- Machine contracts: use grouped definition records for stdout, stderr, exit behavior, artifacts, and automation streams unless the values are short enough for a real lookup table. Keep one compact example or verification signal; route full schemas and status algebra away.
-- Integrations: use grouped records keyed by toolchain, capability backend, runtime backend, service, or environment surface. Use a table only when the integration rows share short comparable attributes; dependency essays and full configuration matrices route away.
+- Entrypoints, import surfaces, and first-run command cards: lookup table or GroupedRecord, never prose that hides a key-to-effect map. Entrypoints are import surfaces, commands, executable files, public type families, or scope-local API names a reader can use or edit first; adjacent files are `Documents`, not entrypoints.
+- README tables: table use is conditional, not the default. Before a README table, name the warrant in prose: either `This table is a lookup by <key>` or `This table compares <row set> across <attributes>`. If no warrant can be stated plainly, use a GroupedRecord or a package/tool card.
+- Curated command surfaces: start with a compact lookup table only when the family-to-verbs map is the reader question. Put flags, examples, caveats, mutation behavior, and semantic notes in GroupedRecord command clusters or H3 command cards; route exhaustive generated help away.
+- Machine contracts: use GroupedRecord clusters for stdout, stderr, exit behavior, artifacts, and automation streams unless the values are short enough for a real lookup table. Keep one compact example or verification signal; route full schemas and status algebra away.
+- Integrations: use GroupedRecord clusters keyed by toolchain, capability backend, runtime backend, service, or environment surface. Use a table only when the integration rows share short comparable attributes; dependency essays and full configuration matrices route away.
 - Diagrams: Mermaid is allowed when it answers a route, flow, ownership, lifecycle, or machine-contract question. It must have a nearby text equivalent and render proof when touched.
 - Replacement/adoption: status record or package/tool card naming `Replaces`, `Current policy`, `Use now`, `Migration blocker`, `Update when`, and `Route deeper`. Use ordinary README fields, not invocation markers.
-- Documentation and child maps: definition block under eight entries; table only when entries carry comparable columns such as route or status.
+- Documentation and child maps: GroupedRecord under eight entries; table only when entries carry comparable columns such as route or status.
 - First-run troubleshooting: decision table only when more than one setup symptom maps to a distinct response; otherwise use one short paragraph.
 - Commands: fenced blocks with an info string and intent label.
 - License: closing section for published repositories.
@@ -302,7 +302,8 @@ Artifact table
 Source-owner table
 ```
 
-Reason: back-to-back README tables turn the page into a reference dump. Keep only tables with a named lookup or comparison warrant, and move heterogeneous rows with caveats into records.
+[TABLE_STACK]:
+- Reason: back-to-back README tables turn the page into a reference dump. Keep only tables with a named lookup or comparison warrant, and move heterogeneous rows with caveats into records.
 
 Rejected split cards:
 
@@ -314,7 +315,8 @@ Need: future sequence
 Open: `ROADMAP.md`
 ```
 
-Reason: the rejected shape creates one card per link and turns routing into low-value field spam.
+[SPLIT_CARDS]:
+- Reason: the rejected shape creates one card per link and turns routing into low-value field spam.
 
 Rejected multi-route card:
 
@@ -324,7 +326,8 @@ Consumed by: architecture, roadmap, runbook, API, support, tutorial.
 Use in this document: everything should be updated.
 ```
 
-Reason: the rejected card mixes command, API, support, and architecture bodies.
+[MULTI_ROUTE_CARD]:
+- Reason: the rejected card mixes command, API, support, and architecture bodies.
 
 ## [10][READER_ROUTE_EXAMPLES]
 
@@ -364,8 +367,9 @@ Use this hub-index pattern:
 
 The row labels are reader questions, not just filenames. File-only lists route poorly when the corpus mixes API, reference, support, and strategy facts.
 
-Rejected child prose: The architecture document covers lots of helpful context about the overall structure, boundaries, invariants, and related details.
-Reason: the rejected shape buries the route and duplicates the child page's content.
+[CHILD_PROSE]:
+- Rejected: The architecture document covers lots of helpful context about the overall structure, boundaries, invariants, and related details.
+- Reason: the rejected shape buries the route and duplicates the child page's content.
 
 Use this root first-path example:
 

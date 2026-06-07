@@ -211,9 +211,10 @@ Artifacts: <diagnostic artifacts>
 Trigger: <presubmit, post-submit, nightly, release, or manual runtime gate>
 ```
 
-Rejected level: framework-tests
-Rejected trigger: CI
-Reason: the rejected form names a framework and omits source, risk, tier, size, hermeticity, trigger, and diagnosis path.
+[LEVEL_CONTRAST]:
+- Rejected level: framework-tests
+- Rejected trigger: CI
+- Reason: the rejected form names a framework and omits source, risk, tier, size, hermeticity, trigger, and diagnosis path.
 
 Local rail classes stay distinct from test levels. Use this table as a selection checklist, then replace every row a produced strategy uses with the repository's current gate name, status check, or generated artifact:
 
@@ -324,8 +325,9 @@ Map each change family to the smallest sufficient proof surface. The table below
 
 When an escalation trigger fires, the change also clears the broader gate the row escalates into. A produced strategy that leaves a placeholder, generic gate class, or unowned review path in this table is incomplete.
 
-Rejected proof row: `behavior | generic gate | if risky`
-Reason: the rejected row names no repository gate, contract, source check, or escalation condition.
+[PROOF_ROW_CONTRAST]:
+- Rejected proof row: `behavior | generic gate | if risky`
+- Reason: the rejected row names no repository gate, contract, source check, or escalation condition.
 
 ## [14][DIAGNOSIS_REPAIR]
 
@@ -373,8 +375,9 @@ Re-enable criteria: <green runs or source fix required>
 Deletion criteria: <duplicated stronger coverage or retired behavior>
 ```
 
-Rejected policy: Flaky tests can be quarantined until they are fixed.
-Reason: the rejected form has no detection threshold, repair path, status, maximum duration, residual risk, or re-enable rule.
+[FLAKY_POLICY_CONTRAST]:
+- Rejected policy: Flaky tests can be quarantined until they are fixed.
+- Reason: the rejected form has no detection threshold, repair path, status, maximum duration, residual risk, or re-enable rule.
 
 ## [16][METRICS]
 

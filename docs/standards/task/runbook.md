@@ -304,9 +304,11 @@ Choose the smallest response form that preserves responder action:
 - Do not duplicate the same branch as prose, decision table, and diagram. Assign one representation to carry the decision and let nearby prose state the invariant or consequence.
 
 Show one step record that carries the accepted command and the rejected near-miss when the near-miss is a likely destructive error. The command alone is not the runbook step; the known-good target, expected result, and verification are part of the safety contract:
-Command: `<verify-command> <specific-target>`
-Rejected near-miss: `<verify-command>`
-Reason: no target, so the responder cannot prove which runtime behavior was checked.
+
+[VERIFY_TARGET]:
+- Command: `<verify-command> <specific-target>`
+- Near miss: `<verify-command>`
+- Reason: no target, so the responder cannot prove which runtime behavior was checked.
 
 ## [13][MAINTENANCE]
 

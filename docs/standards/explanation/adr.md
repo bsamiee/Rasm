@@ -165,19 +165,21 @@ ADR cardinality splits into these groups:
 
 The H1 names the decision only; the lead carries the lifecycle facts and top-level reader promise.
 
-Accepted title: `# [ADOPT_CONTRACT]`
-Accepted fields:
-    Status: accepted
-    Class: contract
-    Date: YYYY-MM-DD
-    Supersedes: none
-    Superseded by: none
-    Decision source: accepted design `<design-doc>`
-    Evidence: generated contract diff and release gate receipt
-Accepted lead: This ADR accepts `<contract>` as the durable cross-scope contract. It records the trade-off, rejected alternatives, accepted downside, and contract confirmation evidence; implementation sequencing stays in the roadmap.
-Rejected title: `# [CONTRACT]`
-Rejected lead: This document discusses whether we should probably standardize events and lists some implementation steps.
-Reason: the rejected lead hides lifecycle facts and mixes proposal work into the ADR.
+[ADR_TITLE_LEAD_SHAPE]:
+- Accepted title: `# [ADOPT_CONTRACT]`
+- Accepted lead: This ADR accepts `<contract>` as the durable cross-scope contract. It records the trade-off, rejected alternatives, accepted downside, and contract confirmation evidence; implementation sequencing stays in the roadmap.
+- Rejected title: `# [CONTRACT]`
+- Rejected lead: This document discusses whether we should probably standardize events and lists some implementation steps.
+- Reason: the rejected lead hides lifecycle facts and mixes proposal work into the ADR.
+
+[ACCEPTED_FIELDS]:
+- Status: accepted
+- Class: contract
+- Date: YYYY-MM-DD
+- Supersedes: none
+- Superseded by: none
+- Decision source: accepted design `<design-doc>`
+- Evidence: generated contract diff and release gate receipt
 
 ## [6][SECTION_RULES]
 
@@ -287,8 +289,9 @@ Use a decision-basis matrix only when it improves final-decision reconstruction.
 
 The columns name the decision facts an ADR preserves: the driver served, the cost the selected option accepts, the risk a rejected option leaves, and the final verdict.
 
-Rejected shape: Option A is good because it has schema support but it adds a dependency, and option B avoids the dependency though it is slower, and deferring costs nothing now but compounds risk later.
-Reason: prose hides the decision basis; the table preserves the driver served, the cost the selected option accepts, the risk a rejected option leaves, and the final verdict.
+[DECISION_BASIS_SHAPE]:
+- Rejected: Option A is good because it has schema support but it adds a dependency, and option B avoids the dependency though it is slower, and deferring costs nothing now but compounds risk later.
+- Reason: prose hides the decision basis; the table preserves the driver served, the cost the selected option accepts, the risk a rejected option leaves, and the final verdict.
 
 ## [9][DESIGN_HANDOFF]
 

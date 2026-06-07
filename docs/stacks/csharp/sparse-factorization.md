@@ -19,21 +19,21 @@ MathNet.Numerics has no CSparse API surface. Hybrid routing is integrator-author
 
 ## [2][STORAGE_ADMISSION]
 
-CSR:
-    Native owner: MathNet sparse compressed row storage.
-    Best for: row assembly, row SpMV, and iterative solves.
+[CSR]:
+- Native owner: MathNet sparse compressed row storage.
+- Best for: row assembly, row SpMV, and iterative solves.
 
-CSC:
-    Native owner: CSparse compressed column storage.
-    Best for: direct factorization.
+[CSC]:
+- Native owner: CSparse compressed column storage.
+- Best for: direct factorization.
 
-Triplets:
-    Rule: deduplicate and sum before building CSR or CSC.
-    Gate: do not convert CSR to CSC every step without factorization caching.
+[TRIPLETS]:
+- Rule: deduplicate and sum before building CSR or CSC.
+- Gate: do not convert CSR to CSC every step without factorization caching.
 
-Symmetric Cholesky admission:
-    Rule: normalize to upper triangle, reject disagreeing duplicate positions beyond tolerance, require square `n x n`, and pin or shift semidefinite operators before Cholesky.
-    Repository path: `SolvePath.SparseCholesky`.
+[SYMMETRIC_CHOLESKY_ADMISSION]:
+- Rule: normalize to upper triangle, reject disagreeing duplicate positions beyond tolerance, require square `n x n`, and pin or shift semidefinite operators before Cholesky.
+- Repository path: `SolvePath.SparseCholesky`.
 
 ## [3][DIRECT_SOLVE_SELECTION]
 
@@ -52,41 +52,41 @@ Validate direct and fallback residuals explicitly. Factorizations and solvers re
 
 ## [4][CSPARSE_SURFACE]
 
-Core namespaces:
-    Use: `CSparse`, `CSparse.Storage`, `CSparse.Ordering`, `CSparse.Double`, `CSparse.Complex`, and factorization namespaces.
+[CORE_NAMESPACES]:
+- Use: `CSparse`, `CSparse.Storage`, `CSparse.Ordering`, `CSparse.Double`, `CSparse.Complex`, and factorization namespaces.
 
-Storage:
-    Use: `CoordinateStorage<T>` for COO assembly and compressed column storage fields for CSC.
-    Fields: `ColumnPointers`, `RowIndices`, and `Values`.
+[STORAGE]:
+- Use: `CoordinateStorage<T>` for COO assembly and compressed column storage fields for CSC.
+- Fields: `ColumnPointers`, `RowIndices`, and `Values`.
 
-Factorization:
-    Use: `SparseCholesky` for square SPD.
-    Use: `SparseLDL` for square symmetric matrices.
-    Use: `SparseLU` for square nonsymmetric matrices.
-    Use: `SparseQR` for rectangular systems.
+[FACTORIZATION]:
+- Use: `SparseCholesky` for square SPD.
+- Use: `SparseLDL` for square symmetric matrices.
+- Use: `SparseLU` for square nonsymmetric matrices.
+- Use: `SparseQR` for rectangular systems.
 
-Ordering:
-    Cholesky and LDL enum gate: `Natural` and `MinimumDegreeAtPlusA`.
-    LU and QR enum gate: `Natural`, `MinimumDegreeAtPlusA`, `MinimumDegreeStS`, and `MinimumDegreeAtA` where matrix shape allows them.
-    Rectangular QR: avoid `MinimumDegreeAtPlusA`; prefer `MinimumDegreeStS` or `MinimumDegreeAtA` for rectangular least squares.
-    Explicit permutation: bypasses the enum gate when the factorization owner proves the permutation.
+[ORDERING]:
+- Cholesky and LDL enum gate: `Natural` and `MinimumDegreeAtPlusA`.
+- LU and QR enum gate: `Natural`, `MinimumDegreeAtPlusA`, `MinimumDegreeStS`, and `MinimumDegreeAtA` where matrix shape allows them.
+- Rectangular QR: avoid `MinimumDegreeAtPlusA`; prefer `MinimumDegreeStS` or `MinimumDegreeAtA` for rectangular least squares.
+- Explicit permutation: bypasses the enum gate when the factorization owner proves the permutation.
 
-Solve:
-    Use: `Permutation.Apply`, `ApplyInverse`, and `SolverHelper` kernels where the factorization owner needs them.
-    Reject: documenting abstract `P` and `Q` alone.
+[SOLVE]:
+- Use: `Permutation.Apply`, `ApplyInverse`, and `SolverHelper` kernels where the factorization owner needs them.
+- Reject: documenting abstract `P` and `Q` alone.
 
 ## [5][CACHE_AND_FAILURES]
 
 Cache factors by topology hash and factorization policy, not only dimension. Profile fill-in as factor nonzeros over input nonzeros before choosing direct over iterative.
 
-`NonZerosCount` interpretation:
-    Cholesky and LDL: count `L`.
-    LU: count `L + U - n`.
-    QR: count `Q + R - m`.
-    Receipt: store the family beside `FactorNonZeros` so downstream code reads the count correctly.
+[NONZEROSCOUNT_INTERPRETATION]:
+- Cholesky and LDL: count `L`.
+- LU: count `L + U - n`.
+- QR: count `Q + R - m`.
+- Receipt: store the family beside `FactorNonZeros` so downstream code reads the count correctly.
 
-Failure rails:
-    Map: non-SPD, zero diagonal, missing pivot, invalid ordering, residual failure, and update or downdate failure into typed rails.
-    Update: Cholesky update and downdate are factor-owner behavior; record whether the update returned `false`.
+[FAILURE_RAILS]:
+- Map: non-SPD, zero diagonal, missing pivot, invalid ordering, residual failure, and update or downdate failure into typed rails.
+- Update: Cholesky update and downdate are factor-owner behavior; record whether the update returned `false`.
 
 Keep `CSparse` as the exact package id. Do not call it `CSparse.NET`.

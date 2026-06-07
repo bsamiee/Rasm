@@ -126,13 +126,15 @@ Required path fields are `Intent`, `Entry artifact`, and `Scope bound`; `Prerequ
 Route broad, expensive, compatibility-breaking, security-sensitive, or cross-scope work to a source-routing check before the contributor spends implementation effort. Use prose for a single route-away condition. Use a decision table only when two or more independent conditions jointly choose the entry artifact. Use a route-selection flowchart only when normal contribution, security-sensitive work, and consultation-before-implementation all exist and the branch-and-rejoin path would be hard to follow as prose.
 
 Show a near-miss only when authors tend to publish vague path bounds:
-Accepted intent: land fix
-Accepted prerequisite: local gate
-Accepted scope bound: self-contained; no breaking API or cross-scope migration
-Rejected intent: quick fixes
-Rejected prerequisite: unspecified
-Rejected scope bound: broad and unbounded
-Reason: the accepted fields constrain the contributor path; the rejected fields leave the path broad and unbounded.
+
+[CONTRIBUTOR_PATH]:
+- Accepted intent: land fix
+- Accepted prerequisite: local gate
+- Accepted scope bound: self-contained; no breaking API or cross-scope migration
+- Rejected intent: quick fixes
+- Rejected prerequisite: unspecified
+- Rejected scope bound: broad and unbounded
+- Reason: the accepted fields constrain the contributor path; the rejected fields leave the path broad and unbounded.
 
 Use the same compact contrast labels in every contributing example: `Accepted`, `Rejected`, `Near miss`, and `Reason`. Do not substitute `Good`, `Bad`, or project-local taste labels; the contrast record exists to show the action difference.
 

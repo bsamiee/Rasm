@@ -212,8 +212,9 @@ Use a comparison table when two or more options survive triage. The baseline row
 
 When only one option survived and the trade-off is asymmetric, a `Lightweight` design may render this section as labeled prose instead of a table. The deciding trade-off and baseline still appear inside `Alternatives considered`; do not hide them under `Proposed approach`.
 
-Rejected alternatives: `Single-writer queue` and `sharded design`, with no selected-option trade-off.
-Reason: the rejected shape records options without the deciding trade-off.
+[ALTERNATIVES_CONTRAST]:
+- Rejected alternatives: `Single-writer queue` and `sharded design`, with no selected-option trade-off.
+- Reason: the rejected shape records options without the deciding trade-off.
 
 ## [8][CHANGE_SLICES]
 
@@ -240,8 +241,9 @@ Proof gate: contract gate evidence, or proof gap
 
 Slice kinds are local labels, not a closed global sequence. Keep dependency order honest and leave no blank rollback boundary. Use `Roadmap reference` only to point at an existing or same-change roadmap milestone or task; when slices become dated work with exit gates, move the sequence to the roadmap route.
 
-Rejected slice table: `S1 refactor -> S2 implementation -> S3 tests`.
-Reason: the rejected shape invites fixed-sequence copying.
+[SLICE_TABLE_CONTRAST]:
+- Rejected slice table: `S1 refactor -> S2 implementation -> S3 tests`.
+- Reason: the rejected shape invites fixed-sequence copying.
 
 ## [9][TRACKABLE_RECORDS]
 

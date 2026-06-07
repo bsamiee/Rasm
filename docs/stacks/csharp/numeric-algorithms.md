@@ -18,66 +18,66 @@ Build matrices from explicit coordinate order, dimensions, units, and tolerance 
 
 ## [2][DENSE_LINEAR_ALGEBRA]
 
-Construction:
-    Owner: `Matrix<T>.Build` and `Vector<T>.Build`.
-    Gate: construct from admitted coordinates, dimensions, and scalar policy.
+[CONSTRUCTION]:
+- Owner: `Matrix<T>.Build` and `Vector<T>.Build`.
+- Gate: construct from admitted coordinates, dimensions, and scalar policy.
 
-Factorization:
-    Owner: `LU`, `QR`, `Cholesky`, `Svd`, and `Evd`.
-    Use: reusable factorization, diagnostics, determinant, rank, residual, and eigen receipts.
-    Gate: record factorization family, status, tolerance, and residual when downstream behavior depends on those facts.
+[FACTORIZATION]:
+- Owner: `LU`, `QR`, `Cholesky`, `Svd`, and `Evd`.
+- Use: reusable factorization, diagnostics, determinant, rank, residual, and eigen receipts.
+- Gate: record factorization family, status, tolerance, and residual when downstream behavior depends on those facts.
 
-Direct solve:
-    Owner: direct `Solve` only when no exposed policy or diagnostic path is needed.
-    Repository path: `SolvePath.DenseLu`, `SolvePath.DenseQrLeastSquares`, and `SolvePath.DenseCholesky`.
+[DIRECT_SOLVE]:
+- Owner: direct `Solve` only when no exposed policy or diagnostic path is needed.
+- Repository path: `SolvePath.DenseLu`, `SolvePath.DenseQrLeastSquares`, and `SolvePath.DenseCholesky`.
 
-Eigen solve:
-    Owner: dense `Evd` for symmetric and general dense eigen.
-    Repository path: `EigenSolvePath.DenseSymmetricEvd` and `EigenSolvePath.DenseGeneralEvd`.
+[EIGEN_SOLVE]:
+- Owner: dense `Evd` for symmetric and general dense eigen.
+- Repository path: `EigenSolvePath.DenseSymmetricEvd` and `EigenSolvePath.DenseGeneralEvd`.
 
-Scalar namespaces:
-    Rule: keep `MathNet.Numerics.LinearAlgebra`, `.Complex`, `.Complex32`, and `.Single` scalar families isolated inside one transform pipeline.
-    Gate: add an explicit conversion boundary before mixing scalar namespaces.
+[SCALAR_NAMESPACES]:
+- Rule: keep `MathNet.Numerics.LinearAlgebra`, `.Complex`, `.Complex32`, and `.Single` scalar families isolated inside one transform pipeline.
+- Gate: add an explicit conversion boundary before mixing scalar namespaces.
 
 ## [3][SPARSE_ITERATIVE_SOLVE]
 
 Use sparse iterative solve when structure is uncertain, the pattern changes often, or SPD admission is not proven.
 
-Solver:
-    Owner: `BiCgStab` as the primary nonsymmetric Krylov path.
-    Alternatives: `GpBiCg`, `TFQMR`, and `MlkBiCgStab` only when the algorithm owner proves the fit.
-    Repository path: `SolvePath.SparseBiCgStabDiagonal`.
+[SOLVER]:
+- Owner: `BiCgStab` as the primary nonsymmetric Krylov path.
+- Alternatives: `GpBiCg`, `TFQMR`, and `MlkBiCgStab` only when the algorithm owner proves the fit.
+- Repository path: `SolvePath.SparseBiCgStabDiagonal`.
 
-Preconditioner:
-    Owner: diagonal, ILU0, ILUTP, and MILU0 preconditioner families.
-    Gate: record whether the preconditioner changes convergence or fallback behavior.
+[PRECONDITIONER]:
+- Owner: diagonal, ILU0, ILUTP, and MILU0 preconditioner families.
+- Gate: record whether the preconditioner changes convergence or fallback behavior.
 
-Iterator:
-    Owner: `Iterator<T>` with `FailureStopCriterion`, `DivergenceStopCriterion`, `ResidualStopCriterion`, and `IterationCountStopCriterion`.
-    Gate: preserve `Iterator.Status`, stop reason, iteration count, tolerance, and residual in the receipt.
+[ITERATOR]:
+- Owner: `Iterator<T>` with `FailureStopCriterion`, `DivergenceStopCriterion`, `ResidualStopCriterion`, and `IterationCountStopCriterion`.
+- Gate: preserve `Iterator.Status`, stop reason, iteration count, tolerance, and residual in the receipt.
 
-Fallback:
-    Rule: use provider-dependent `Matrix<T>.Solve(b)` only after iterative residual failure is recorded and the fallback residual is validated explicitly.
-    Repository path: `SolvePath.SparseMathNetDirectFallback`.
+[FALLBACK]:
+- Rule: use provider-dependent `Matrix<T>.Solve(b)` only after iterative residual failure is recorded and the fallback residual is validated explicitly.
+- Repository path: `SolvePath.SparseMathNetDirectFallback`.
 
 ## [4][EIGEN_STATISTICS_SYMBOLICS]
 
-Partial eigen:
-    Owner: local block-iterative methods on sparse operators.
-    Repository path: `EigenSolvePath.SparseLobpcg`, `EigenSolvePath.SparseHermitianLobpcg`, and `EigenSolvePath.SparseGeneralizedCholeskyCongruence`.
-    Reject: claiming a MathNet LOBPCG type when local XML or source does not prove one.
+[PARTIAL_EIGEN]:
+- Owner: local block-iterative methods on sparse operators.
+- Repository path: `EigenSolvePath.SparseLobpcg`, `EigenSolvePath.SparseHermitianLobpcg`, and `EigenSolvePath.SparseGeneralizedCholeskyCongruence`.
+- Reject: claiming a MathNet LOBPCG type when local XML or source does not prove one.
 
-Statistics:
-    Owner: `MathNet.Numerics.Statistics`, `Statistics.*`, and `SortedArrayStatistics`.
-    Gate: data ownership, sort policy, and empty-sample behavior must be explicit before the statistic runs.
+[STATISTICS]:
+- Owner: `MathNet.Numerics.Statistics`, `Statistics.*`, and `SortedArrayStatistics`.
+- Gate: data ownership, sort policy, and empty-sample behavior must be explicit before the statistic runs.
 
-Optimization, integration, and interpolation:
-Owner: MathNet only with an accepted algorithm owner and failure rail.
-    Gate: keep API catalog rows out of active guidance until source use exists.
+[OPTIMIZATION_INTEGRATION_INTERPOLATION]:
+- Owner: MathNet only with an accepted algorithm owner and failure rail.
+- Gate: keep API catalog rows out of active guidance until source use exists.
 
-Symbolics:
-    Owner: `MathNet.Symbolics`.
-    Gate: the project graph references the package, but active guidance starts only when production source owns formula parsing, transformation, evaluation, or compilation.
+[SYMBOLICS]:
+- Owner: `MathNet.Symbolics`.
+- Gate: the project graph references the package, but active guidance starts only when production source owns formula parsing, transformation, evaluation, or compilation.
 
 ## [5][RECEIPTS_AND_FAILURES]
 

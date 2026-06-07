@@ -55,5 +55,5 @@ Keep concept pages free of package-version tables, broad upstream API inventorie
 - No link farms, copied provider manuals, broad member catalogs, or source/provenance sections.
 - No defensive version wording in active docs.
 - No route-only README unless the boundary has no useful chooser beyond routes.
-- No long prose-table cells when grouped records carry the decision better.
+- No long prose-table cells when GroupedRecord clusters carry the decision better.
 - No test-tool leaf file when the concern belongs in a proof-rail page.

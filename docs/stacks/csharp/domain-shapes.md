@@ -6,18 +6,18 @@ Generated domain shapes own admission, identity, bounded vocabulary, closed vari
 
 Choose the owner from modeling pressure. A generated type is justified when it removes primitive admission, unowned comparison, external behavior tables, nullable payload bags, or repeated dispatch from callers.
 
-| [INDEX] | [PRESSURE]                     | [OWNER]                         | [REJECT]                         |
-| :-----: | :----------------------------- | :------------------------------ | :------------------------------- |
-|   [1]   | one raw value with invariants   | `[ValueObject<T>]`              | primitive parameter policy       |
-|   [2]   | several fields form one value   | `[ComplexValueObject]`          | positional record identity       |
-|   [3]   | bounded rows with behavior      | `[SmartEnum<TKey>]`             | enum plus dictionary             |
-|   [4]   | closed payload variants         | `[Union]`                       | nullable payload bag             |
-|   [5]   | generated operation identity    | `[Union]` plus `GenerateUnionOps` | parallel operation table       |
-|   [6]   | closed result or evidence       | `[Union]` plus `SkipUnionOps`   | generated operations by habit    |
-|   [7]   | adapter-only raw alternatives   | ad-hoc type-list union          | public domain ad-hoc variants    |
-|   [8]   | generator-unsupported control   | manual owner                    | hand-written generated clone     |
-|   [9]   | external protocol shape         | boundary DTO                    | serializer-shaped domain owner   |
-|  [10]   | inert data with no invariant    | `record` or `record struct`     | decorative generated type        |
+| [INDEX] | [PRESSURE]                    | [OWNER]                           | [REJECT]                       |
+| :-----: | :---------------------------- | :-------------------------------- | :----------------------------- |
+|   [1]   | one raw value with invariants | `[ValueObject<T>]`                | primitive parameter policy     |
+|   [2]   | several fields form one value | `[ComplexValueObject]`            | positional record identity     |
+|   [3]   | bounded rows with behavior    | `[SmartEnum<TKey>]`               | enum plus dictionary           |
+|   [4]   | closed payload variants       | `[Union]`                         | nullable payload bag           |
+|   [5]   | generated operation identity  | `[Union]` plus `GenerateUnionOps` | parallel operation table       |
+|   [6]   | closed result or evidence     | `[Union]` plus `SkipUnionOps`     | generated operations by habit  |
+|   [7]   | adapter-only raw alternatives | ad-hoc type-list union            | public domain ad-hoc variants  |
+|   [8]   | generator-unsupported control | manual owner                      | hand-written generated clone   |
+|   [9]   | external protocol shape       | boundary DTO                      | serializer-shaped domain owner |
+|  [10]   | inert data with no invariant  | `record` or `record struct`       | decorative generated type      |
 
 Generated owners are the default when the generator can express the invariant. Manual owners are reserved for generator-proven unsupported shape, stack-confined or open-ended state, type-indexed projection that cannot be modeled by `[Union]`, or total dispatch the generated surface cannot express. Generic unions are allowed when the generator supports the shape and the type parameter is semantic payload, state, or result evidence.
 
@@ -25,36 +25,36 @@ Generated owners are the default when the generator can express the invariant. M
 
 Admission is a stack. Raw input is normalized at the boundary, generated factories enforce the invariant, validation partials express owner-local rejection, comparer attributes declare identity, and one rail bridge projects the generated outcome into `Fin<T>` or `Validation<Error,T>`.
 
-Raw candidate:
-    Owner: boundary adapter.
-    Job: trim, parse, decode, or project foreign shape only when the protocol requires it.
-    Reject: carrying raw strings, numbers, nulls, or sentinel values into domain signatures.
+[RAW_CANDIDATE]:
+- Owner: boundary adapter.
+- Job: trim, parse, decode, or project foreign shape only when the protocol requires it.
+- Reject: carrying raw strings, numbers, nulls, or sentinel values into domain signatures.
 
-Generated factory:
-    Owner: `[ValueObject<T>]`, `[ComplexValueObject]`, or `[SmartEnum<TKey>]`.
-    Job: expose generated `Create`, `TryCreate`, `Validate`, item lookup, and parsing directly.
-    Reject: helper factories that only rename generated members.
+[GENERATED_FACTORY]:
+- Owner: `[ValueObject<T>]`, `[ComplexValueObject]`, or `[SmartEnum<TKey>]`.
+- Job: expose generated `Create`, `TryCreate`, `Validate`, item lookup, and parsing directly.
+- Reject: helper factories that only rename generated members.
 
-Validation partial:
-    Owner: generated partial hook.
-    Signature: `ValidateFactoryArguments(ref ValidationError?, ref T1, ref T2, ...)` or the custom validation error type declared by `[ValidationError<TFault>]`.
-    Rule: camelCase `ref` parameters match generated property names.
-    Reject: post-construction validation that lets invalid values exist.
+[VALIDATION_PARTIAL]:
+- Owner: generated partial hook.
+- Signature: `ValidateFactoryArguments(ref ValidationError?, ref T1, ref T2, ...)` or the custom validation error type declared by `[ValidationError<TFault>]`.
+- Rule: camelCase `ref` parameters match generated property names.
+- Reject: post-construction validation that lets invalid values exist.
 
-Typed failure:
-    Owner: `[ValidationError<TFault>]` and the fault union.
-    Rule: use a generated fault only when callers need the domain fault at admission time.
-    Reject: stringly validation messages passed through reusable domain logic.
+[TYPED_FAILURE]:
+- Owner: `[ValidationError<TFault>]` and the fault union.
+- Rule: use a generated fault only when callers need the domain fault at admission time.
+- Reject: stringly validation messages passed through reusable domain logic.
 
-Comparer policy:
-    Owner: generated key or member comparer attributes.
-    Use: `[KeyMemberEqualityComparer]`, `[KeyMemberComparer]`, member comparers, and declared string comparison policy when identity has non-default comparison.
-    Reject: hand-written comparer classes beside generated owners.
+[COMPARER_POLICY]:
+- Owner: generated key or member comparer attributes.
+- Use: `[KeyMemberEqualityComparer]`, `[KeyMemberComparer]`, member comparers, and declared string comparison policy when identity has non-default comparison.
+- Reject: hand-written comparer classes beside generated owners.
 
-Rail bridge:
-    Owner: boundary adapter or one declared projection when several boundary values share the same ingress shape.
-    Rule: generated success or failure converts once into `Fin<T>` or `Validation<Error,T>`.
-    Reject: both a generated factory wrapper and a second `Validate` wrapper for the same value.
+[RAIL_BRIDGE]:
+- Owner: boundary adapter or one declared projection when several boundary values share the same ingress shape.
+- Rule: generated success or failure converts once into `Fin<T>` or `Validation<Error,T>`.
+- Reject: both a generated factory wrapper and a second `Validate` wrapper for the same value.
 
 ```csharp conceptual
 [Union]
@@ -106,27 +106,27 @@ public static Fin<<CodeValue>> AdmitCode(string raw) =>
 
 ## [3][GENERATED_OWNERS]
 
-Scalar value object:
-    Shape: `[ValueObject<T>]`.
-    Use: one primitive representation with admission, normalization, equality, comparison, parsing, or operator policy.
-    Gate: keep `Create` for trusted construction and `TryCreate` or `Validate` for untrusted ingress.
-    Default structs: allow zero-init only when zero is a real domain value.
-    Reject: public raw primitive signatures after the value object exists.
+[SCALAR_VALUE_OBJECT]:
+- Shape: `[ValueObject<T>]`.
+- Use: one primitive representation with admission, normalization, equality, comparison, parsing, or operator policy.
+- Gate: keep `Create` for trusted construction and `TryCreate` or `Validate` for untrusted ingress.
+- Default structs: allow zero-init only when zero is a real domain value.
+- Reject: public raw primitive signatures after the value object exists.
 
-Complex value object:
-    Shape: `[ComplexValueObject]`.
-    Use: multi-field identity with generated construction and equality.
-    Gate: use a partial class or partial struct with get-only properties.
-    Ordering: write owner-local comparison only when multi-field ordering is a domain operation.
-    Reject: records, record structs, positional record parameters, and `{ get; init; }` identity fields.
+[COMPLEX_VALUE_OBJECT]:
+- Shape: `[ComplexValueObject]`.
+- Use: multi-field identity with generated construction and equality.
+- Gate: use a partial class or partial struct with get-only properties.
+- Ordering: write owner-local comparison only when multi-field ordering is a domain operation.
+- Reject: records, record structs, positional record parameters, and `{ get; init; }` identity fields.
 
-Smart enum:
-    Shape: `[SmartEnum<TKey>]`.
-    Use: bounded cases with stable keys, lookup, parsing, generated item sets, and case-local behavior.
-    Behavior: put `[UseDelegateFromConstructor]` members on the smart enum when each case owns the operation.
-    Allow: private static item factories only when they compress repeated case initializers inside the same owner.
-    Allow: derived read-mostly indexes from generated `Items` only when the index does not own behavior.
-    Reject: native enum plus parallel dictionaries, switch tables, or behavior services.
+[SMART_ENUM]:
+- Shape: `[SmartEnum<TKey>]`.
+- Use: bounded cases with stable keys, lookup, parsing, generated item sets, and case-local behavior.
+- Behavior: put `[UseDelegateFromConstructor]` members on the smart enum when each case owns the operation.
+- Allow: private static item factories only when they compress repeated case initializers inside the same owner.
+- Allow: derived read-mostly indexes from generated `Items` only when the index does not own behavior.
+- Reject: native enum plus parallel dictionaries, switch tables, or behavior services.
 
 ```csharp conceptual
 [SmartEnum<int>]
@@ -151,13 +151,13 @@ public sealed partial class <Mode> {
 }
 ```
 
-Union:
-    Shape: `[Union]`.
-    Use: closed variants with named payloads and generated `Switch` or `Map` dispatch.
-    Result rule: dispatch arms must unify to one exact result type, including generic parameters.
-    Context rule: use `SwitchMapStateParameterName` or generated state-threaded overloads when 3 or more arms share context.
-    Collapse rule: same-payload collapse targets passive, non-generic, non-error unions with repeated payload shape. It does not target empty marker cases, behavior-only cases, `Expected` or `Error` failures, two-case pairs, semantically different member names, or cases with owned behavior.
-    Reject: optional payload bags, repeated switch arms, generated case aliases, and helper dispatch.
+[UNION]:
+- Shape: `[Union]`.
+- Use: closed variants with named payloads and generated `Switch` or `Map` dispatch.
+- Result rule: dispatch arms must unify to one exact result type, including generic parameters.
+- Context rule: use `SwitchMapStateParameterName` or generated state-threaded overloads when 3 or more arms share context.
+- Collapse rule: same-payload collapse targets passive, non-generic, non-error unions with repeated payload shape. It does not target empty marker cases, behavior-only cases, `Expected` or `Error` failures, two-case pairs, semantically different member names, or cases with owned behavior.
+- Reject: optional payload bags, repeated switch arms, generated case aliases, and helper dispatch.
 
 ```csharp conceptual
 [GenerateUnionOps]
@@ -186,17 +186,17 @@ public abstract partial record <Command> {
 }
 ```
 
-Ad-hoc union:
-    Shape: type-list union.
-    Use: narrow adapter alternatives where foreign input arrives in several raw representations.
-    Gate: project into the domain owner before domain logic.
-    Reject: public domain variants hidden inside ad-hoc unions.
+[AD_HOC_UNION]:
+- Shape: type-list union.
+- Use: narrow adapter alternatives where foreign input arrives in several raw representations.
+- Gate: project into the domain owner before domain logic.
+- Reject: public domain variants hidden inside ad-hoc unions.
 
-Manual variant owner:
-    Shape: sealed manual owner with total dispatch.
-    Use: generator-proven unsupported shape, stack-confined state, open-ended state, type-indexed projection, or constraints the generated union cannot express.
-    Gate: keep construction closed and dispatch total.
-    Reject: manual unions that only reproduce generated `Switch` or `Map`.
+[MANUAL_VARIANT_OWNER]:
+- Shape: sealed manual owner with total dispatch.
+- Use: generator-proven unsupported shape, stack-confined state, open-ended state, type-indexed projection, or constraints the generated union cannot express.
+- Gate: keep construction closed and dispatch total.
+- Reject: manual unions that only reproduce generated `Switch` or `Map`.
 
 ```csharp conceptual
 public readonly ref struct <FrameOwner> {
@@ -216,111 +216,111 @@ public readonly ref struct <FrameOwner> {
 }
 ```
 
-Boundary DTO:
-    Shape: protocol-owned carrier.
-    Use: external wire shape, host API shape, or serialization contract that differs from the domain owner.
-    Gate: translate at the boundary and keep the domain owner canonical.
-    Reject: duplicate DTOs beside generated owners when no external protocol demands them.
+[BOUNDARY_DTO]:
+- Shape: protocol-owned carrier.
+- Use: external wire shape, host API shape, or serialization contract that differs from the domain owner.
+- Gate: translate at the boundary and keep the domain owner canonical.
+- Reject: duplicate DTOs beside generated owners when no external protocol demands them.
 
 ## [4][DISPATCH_POLICY]
 
 Generated dispatch is the behavior owner when a closed vocabulary or variant controls execution. Add behavior to the generated owner before adding another service, helper, dictionary, or wrapper.
 
-State-threaded dispatch:
-    Use: pass shared context through generated state overloads when repeated arms capture the same value.
-    Result: branch lambdas stay static and return the same rail or value type.
-    Reject: capturing the same context in every branch.
+[STATE_THREADED_DISPATCH]:
+- Use: pass shared context through generated state overloads when repeated arms capture the same value.
+- Result: branch lambdas stay static and return the same rail or value type.
+- Reject: capturing the same context in every branch.
 
-Smart-enum row behavior:
-    Use: constructor delegates or generated members when each case has behavior.
-    Result: adding a case forces its behavior row to be supplied with the case.
-    Reject: external switch tables, lookup dictionaries, and case-name branching.
+[SMART_ENUM_ROW_BEHAVIOR]:
+- Use: constructor delegates or generated members when each case has behavior.
+- Result: adding a case forces its behavior row to be supplied with the case.
+- Reject: external switch tables, lookup dictionaries, and case-name branching.
 
-Union operation routing:
-    Use: generated `Switch`, `Map`, and selected overloads for total case dispatch.
-    Boundary stop: partial overloads are allowed only when the owner deliberately stops dispatch at a named case boundary.
-    Reject: case aliases that only forward to generated construction.
+[UNION_OPERATION_ROUTING]:
+- Use: generated `Switch`, `Map`, and selected overloads for total case dispatch.
+- Boundary stop: partial overloads are allowed only when the owner deliberately stops dispatch at a named case boundary.
+- Reject: case aliases that only forward to generated construction.
 
-Algebraic operators:
-    Use: owner-local operators only when the type has explicit algebraic laws.
-    Gate: generated unions do not imply domain `+` or `|`.
-    Reject: operator sugar that only hides dispatch.
+[ALGEBRAIC_OPERATORS]:
+- Use: owner-local operators only when the type has explicit algebraic laws.
+- Gate: generated unions do not imply domain `+` or `|`.
+- Reject: operator sugar that only hides dispatch.
 
 ## [5][LOCAL_GENERATION_POLICY]
 
 `GenerateUnionOps` and `SkipUnionOps` are repository-local policy attributes for generated union operation shape. They are not Thinktecture package options.
 
-GenerateUnionOps:
-    Use: operation or intent unions that own generated per-case operation identity.
-    Effect: emit the owner-local operation surface for each case.
-    Reject: separate operation tables that drift from generated cases.
+[GENERATEUNIONOPS]:
+- Use: operation or intent unions that own generated per-case operation identity.
+- Effect: emit the owner-local operation surface for each case.
+- Reject: separate operation tables that drift from generated cases.
 
-SkipUnionOps:
-    Use: result unions, evidence unions, DTO-shaped unions, private implementation unions, or generated dispatch surfaces where operation routing belongs elsewhere.
-    Effect: opt out explicitly so the absence is intentional.
-    Reject: unqualified generated unions in functional surfaces.
+[SKIPUNIONOPS]:
+- Use: result unions, evidence unions, DTO-shaped unions, private implementation unions, or generated dispatch surfaces where operation routing belongs elsewhere.
+- Effect: opt out explicitly so the absence is intentional.
+- Reject: unqualified generated unions in functional surfaces.
 
-Analyzer feedback:
-    Rule: analyzer findings around generated dispatch, generated case aliases, manual closed unions, closed-union plan fusion, passive sibling surfaces, and decorative generated shapes are architecture pressure.
-    Action: fix the domain shape first.
-    Exception: refine the analyzer only when current source proves a false positive.
+[ANALYZER_FEEDBACK]:
+- Rule: analyzer findings around generated dispatch, generated case aliases, manual closed unions, closed-union plan fusion, passive sibling surfaces, and decorative generated shapes are architecture pressure.
+- Action: fix the domain shape first.
+- Exception: refine the analyzer only when current source proves a false positive.
 
 ## [6][BOUNDARIES]
 
-Rail boundary:
-    Rule: generated validation admits or rejects raw values; LanguageExt transports the admitted value or typed failure.
-    Reject: generated validation exceptions or raw generated failures leaking through domain code.
+[RAIL_BOUNDARY]:
+- Rule: generated validation admits or rejects raw values; LanguageExt transports the admitted value or typed failure.
+- Reject: generated validation exceptions or raw generated failures leaking through domain code.
 
-Serialization:
-    Rule: keep serialization policy explicit at the boundary.
-    Gate: integration packages stay inactive until package graph and an accepted owner prove adoption.
-    Reject: serializer-shaped domain owners.
+[SERIALIZATION]:
+- Rule: keep serialization policy explicit at the boundary.
+- Gate: integration packages stay inactive until package graph and an accepted owner prove adoption.
+- Reject: serializer-shaped domain owners.
 
-Factory hiding:
-    Option: `SkipFactoryMethods`.
-    Use: only when a stronger owner deliberately hides generated factory surface behind an algebraic or rail-returning constructor.
-    Rule: keep construction inside the generated owner; do not hand-write constructor infrastructure the generator still owns.
-    Reject: helper-only replacement factories.
+[FACTORY_HIDING]:
+- Option: `SkipFactoryMethods`.
+- Use: only when a stronger owner deliberately hides generated factory surface behind an algebraic or rail-returning constructor.
+- Rule: keep construction inside the generated owner; do not hand-write constructor infrastructure the generator still owns.
+- Reject: helper-only replacement factories.
 
-Generated storage:
-    Option: `UseSingleBackingField`.
-    Use: only when memory shape or generated semantics require one backing field.
-    Gate: keep the choice with the generated owner.
+[GENERATED_STORAGE]:
+- Option: `UseSingleBackingField`.
+- Use: only when memory shape or generated semantics require one backing field.
+- Gate: keep the choice with the generated owner.
 
-Conversion operators:
-    Use: public boundary ergonomics only.
-    Gate: domain admission remains explicit.
-    Reject: implicit conversion that bypasses validation.
+[CONVERSION_OPERATORS]:
+- Use: public boundary ergonomics only.
+- Gate: domain admission remains explicit.
+- Reject: implicit conversion that bypasses validation.
 
-Partial generated splits:
-    Use: generator-owned declarations, implementations, validation hooks, and behavior members.
-    Reject: arbitrary file fragmentation to make generated owners look smaller.
+[PARTIAL_GENERATED_SPLITS]:
+- Use: generator-owned declarations, implementations, validation hooks, and behavior members.
+- Reject: arbitrary file fragmentation to make generated owners look smaller.
 
 ## [7][REJECTIONS]
 
-Primitive obsession:
-    Wrong: raw strings, numbers, nulls, and sentinels in reusable domain signatures.
-    Replacement: generated value object admission followed by one rail bridge.
+[PRIMITIVE_OBSESSION]:
+- Wrong: raw strings, numbers, nulls, and sentinels in reusable domain signatures.
+- Replacement: generated value object admission followed by one rail bridge.
 
-Enum plus dictionary:
-    Wrong: native enum keys with behavior, labels, delegates, or comparer policy in parallel maps.
-    Replacement: smart enum rows with generated lookup and owner-local behavior.
+[ENUM_PLUS_DICTIONARY]:
+- Wrong: native enum keys with behavior, labels, delegates, or comparer policy in parallel maps.
+- Replacement: smart enum rows with generated lookup and owner-local behavior.
 
-Switch table:
-    Wrong: caller-side case-name branching for closed variants.
-    Replacement: generated union dispatch or smart-enum delegate behavior.
+[SWITCH_TABLE]:
+- Wrong: caller-side case-name branching for closed variants.
+- Replacement: generated union dispatch or smart-enum delegate behavior.
 
-Nullable payload bag:
-    Wrong: one record with many optional members and a discriminator.
-    Replacement: generated union with named payload cases.
+[NULLABLE_PAYLOAD_BAG]:
+- Wrong: one record with many optional members and a discriminator.
+- Replacement: generated union with named payload cases.
 
-Helper-only factories:
-    Wrong: methods that only rename generated `Create`, `TryCreate`, lookup, or validation.
-    Replacement: generated surface or one real boundary projection into a rail.
+[HELPER_ONLY_FACTORIES]:
+- Wrong: methods that only rename generated `Create`, `TryCreate`, lookup, or validation.
+- Replacement: generated surface or one real boundary projection into a rail.
 
-Decorative generated shape:
-    Wrong: generated attributes on inert carriers with no invariant, dispatch, admission, or behavior.
-    Replacement: plain `record` or `record struct`.
+[DECORATIVE_GENERATED_SHAPE]:
+- Wrong: generated attributes on inert carriers with no invariant, dispatch, admission, or behavior.
+- Replacement: plain `record` or `record struct`.
 
 ## [8][VALIDATION]
 

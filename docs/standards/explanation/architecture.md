@@ -106,11 +106,12 @@ Add these conditional sections only when their trigger applies:
 
 Required sections are required because agents need them in order: read the current tree first, decide whether the scope applies, locate project truth, follow work through entrypoints, understand dependency constraints, preserve invariants, handle current status, verify drift-prone claims, and route adjacent concerns.
 
-Accepted title: `# [PACKAGE_ARCHITECTURE]`
-Accepted lead: This architecture explains `<package-root>/` as the `<project-manifest>` package that carries external input admission, generated contracts, worker execution, and persistence boundaries. The codemap was refreshed from repository paths and the project file; ADRs own why the public schema exists, and the roadmap carries unfinished contract-freeze work.
-Rejected title: `# [SYSTEM_OVERVIEW]`
-Rejected lead: This document describes the event system at a high level.
-Reason: the accepted lead is concrete enough to start work; the rejected lead describes a system without code anchors.
+[LEAD_CONTRAST]:
+- Accepted title: `# [PACKAGE_ARCHITECTURE]`
+- Accepted lead: This architecture explains `<package-root>/` as the `<project-manifest>` package that carries external input admission, generated contracts, worker execution, and persistence boundaries. The codemap was refreshed from repository paths and the project file; ADRs own why the public schema exists, and the roadmap carries unfinished contract-freeze work.
+- Rejected title: `# [SYSTEM_OVERVIEW]`
+- Rejected lead: This document describes the event system at a high level.
+- Reason: the accepted lead is concrete enough to start work; the rejected lead describes a system without code anchors.
 
 ## [4][SECTION_RULES]
 
@@ -374,8 +375,9 @@ Adjacent relation:
     Route-away: milestone tasks and gate taxonomy stay in roadmap and test strategy.
 ```
 
-Rejected invariant: the package stays clean and modular.
-Reason: the invariant cannot guide an edit.
+[INVARIANT_CONTRAST]:
+- Rejected invariant: the package stays clean and modular.
+- Reason: the invariant cannot guide an edit.
 
 ## [12][STATUS_AND_ROADMAP]
 

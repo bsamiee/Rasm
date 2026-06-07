@@ -4,22 +4,22 @@ Coverage, mutation, and snapshots are evidence rails over managed tests and dete
 
 ## [1][COVERAGE]
 
-Surface:
-    `--coverlet`: command-time coverage opt-in.
-    `--coverlet-output-format`: `json` and `cobertura` for machine-readable output.
-    `--coverlet-include` and `--coverlet-exclude`: managed assembly selection.
-    `--coverlet-exclude-by-file`: generated and obj-path exclusions.
-    `--coverlet-exclude-by-attribute`: coverage and generated-code attributes.
-    `--coverlet-exclude-assemblies-without-sources`: strict assembly-source handling.
+[SURFACE]:
+- `--coverlet`: command-time coverage opt-in.
+- `--coverlet-output-format`: `json` and `cobertura` for machine-readable output.
+- `--coverlet-include` and `--coverlet-exclude`: managed assembly selection.
+- `--coverlet-exclude-by-file`: generated and obj-path exclusions.
+- `--coverlet-exclude-by-attribute`: coverage and generated-code attributes.
+- `--coverlet-exclude-assemblies-without-sources`: strict assembly-source handling.
 
-Classification:
-    Missing static law: add the law to the owning spec.
-    Runtime-owned path: strengthen the runtime scenario; coverage cannot prove native behavior.
-    Generated source: exclude centrally by file or attribute.
-    Defensive unreachable: name the invariant locally; do not force execution through reflection.
-    Dead code: remove it.
+[CLASSIFICATION]:
+- Missing static law: add the law to the owning spec.
+- Runtime-owned path: strengthen the runtime scenario; coverage cannot prove native behavior.
+- Generated source: exclude centrally by file or attribute.
+- Defensive unreachable: name the invariant locally; do not force execution through reflection.
+- Dead code: remove it.
 
-Rejections:
+[REJECTIONS]:
 - Do not write artificial tests only to raise a percentage.
 - Do not lower thresholds to hide runtime-owned paths.
 - Do not call private methods by reflection for coverage.
@@ -27,31 +27,31 @@ Rejections:
 
 ## [2][MUTATION]
 
-Local rail:
-    Tool restore: local .NET tool manifest.
-    Pair: one managed product project and one managed test project.
-    Runner: Microsoft Testing Platform when the project configures it.
-    Output: project artifact root.
-    Lock: live mutation lock fails fast; stale unlocked files are reusable.
-    Discovery: zero-test discovery fails the rail.
+[LOCAL_RAIL]:
+- Tool restore: local .NET tool manifest.
+- Pair: one managed product project and one managed test project.
+- Runner: Microsoft Testing Platform when the project configures it.
+- Output: project artifact root.
+- Lock: live mutation lock fails fast; stale unlocked files are reusable.
+- Discovery: zero-test discovery fails the rail.
 
-Modes:
-    `off`: unit-only default.
-    `changed`: mutate changed eligible managed files.
-    `full`: full managed mutation with strict thresholds.
+[MODES]:
+- `off`: unit-only default.
+- `changed`: mutate changed eligible managed files.
+- `full`: full managed mutation with strict thresholds.
 
-Survivors:
-    Missing oracle: add a law that distinguishes the mutant.
-    Equivalent mutant: document the equivalence; do not weaken the oracle.
-    Runtime-owned path: add or strengthen the runtime scenario.
-    Product bug: fix production code.
+[SURVIVORS]:
+- Missing oracle: add a law that distinguishes the mutant.
+- Equivalent mutant: document the equivalence; do not weaken the oracle.
+- Runtime-owned path: add or strengthen the runtime scenario.
+- Product bug: fix production code.
 
-Theory split:
-    Rule: Stryker mutates each test method body.
-    Use: split into theory rows only when survivor analysis proves a property under-samples a closed case and the split preserves the real oracle.
-    Reject: asserting the mutant's behavior.
+[THEORY_SPLIT]:
+- Rule: Stryker mutates each test method body.
+- Use: split into theory rows only when survivor analysis proves a property under-samples a closed case and the split preserves the real oracle.
+- Reject: asserting the mutant's behavior.
 
-Boundaries:
+[BOUNDARIES]:
 - Do not mutate host-runtime projects, plugin apps, runtime bridge tools, or scenario scripts.
 - Treat selected mutants with non-zero discovery and explicit timeouts as real mutation results.
 - Keep configuration in the quality operator while one product/test pair is under mutation.
@@ -60,21 +60,21 @@ Boundaries:
 
 Use `Verify.XunitV3` for deterministic artifact contracts. Do not use snapshots for algebraic laws, numeric behavior, host-native truth, random samples, or current implementation output.
 
-Fits:
-    Analyzer diagnostics whose text is user-facing.
-    Generated manifests and normalized package/config reports.
-    Public catalogs where ordering and names are contract.
-    Normalized runtime evidence JSON after the runtime rail stabilizes.
-    Select generated source outputs when generator behavior is part of the package upgrade contract.
+[FITS]:
+- Analyzer diagnostics whose text is user-facing.
+- Generated manifests and normalized package/config reports.
+- Public catalogs where ordering and names are contract.
+- Normalized runtime evidence JSON after the runtime rail stabilizes.
+- Select generated source outputs when generator behavior is part of the package upgrade contract.
 
-Settings:
-    Global scrubbers: module initializer.
-    Per-test settings: only when the artifact owner requires path or name changes.
-    Snapshot placement: beside owning specs or under a stable artifact directory.
-    Scrub: machine paths, timestamps, generated IDs, runtime versions, and environment-specific noise.
-    Review: use the Verify CLI for manual review and acceptance; never auto-accept received files in scripts.
+[SETTINGS]:
+- Global scrubbers: module initializer.
+- Per-test settings: only when the artifact owner requires path or name changes.
+- Snapshot placement: beside owning specs or under a stable artifact directory.
+- Scrub: machine paths, timestamps, generated IDs, runtime versions, and environment-specific noise.
+- Review: use the Verify CLI for manual review and acceptance; never auto-accept received files in scripts.
 
-Rejections:
+[REJECTIONS]:
 - Snapshotting floating numeric output when a tolerance law is available.
 - Snapshotting runtime stdout with clocks, machine paths, or runtime version strings.
 - Snapshotting generated random samples.

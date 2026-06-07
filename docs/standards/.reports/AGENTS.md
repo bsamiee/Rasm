@@ -37,8 +37,8 @@ Iterative push tracks extend an existing lane. A follow-up pass edits the earlie
 Every multi-report session folder has `README.md` as the session manifest. The manifest is the archive entrypoint and routing surface, not a ledger, narrative summary, or active standard.
 
 Required sections:
-- `[SESSION_CARD]`: definition block naming target owner, status, source set, read order, and boundary.
-- `[TRACK_CARDS]`: grouped definition blocks, one per track, with `Direction`, `Facets`, `Use when`, `Extend by`, and `Route`.
+- `[SESSION_CARD]`: GroupedRecord (`[KEY]:` plus field bullets) naming target owner, status, source set, read order, and boundary.
+- `[TRACK_CARDS]`: GroupedRecord clusters, one per track, with `Direction`, `Facets`, `Use when`, `Extend by`, and `Route`.
 - `[NEXT_PASS_RULE]`: one paragraph that tells a later agent how to build, correct, fold, or route without repeating the same pass.
 - `[CORRECTIONS]`: only when a report has a corrected, superseded, or retracted claim.
 - `[PROMOTION_LOG]`: durable rules promoted, target owner files, and promotion date.

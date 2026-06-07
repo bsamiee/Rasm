@@ -89,7 +89,7 @@ Use a table when row-and-column comparison or lookup across a homogeneous set is
 - Frame a table with 1 or 2 sentences only when the reader cannot act on the table alone: status context, applicable-row selection, or whole-set invariant.
 - Follow-on prose may state a consequence or exception, but it must not restate cell values.
 - In a mixed block, prose carries decision criteria or invariant; the table carries per-item values.
-- A table followed by `[USE]`, `[DETAIL]`, `[NOTE]`, or another index-keyed block is valid only when the row set is identical, the secondary block is short, and no row needs independent proof, status, update, or removal fields. Otherwise use one complete table, row-owned records, grouped definition records, or subsection-per-record blocks.
+- A table followed by `[USE]`, `[DETAIL]`, `[NOTE]`, or another index-keyed block is valid only when the row set is identical, the secondary block is short, and no row needs independent proof, status, update, or removal fields. Otherwise use one complete table, row-owned records, GroupedRecord clusters, or AnchoredRecord blocks.
 
 [FORMS]:
 
@@ -175,9 +175,22 @@ Use this closed default `Status` vocabulary so an agent can filter exact strings
 
 Concrete status values stay in the type standard that validates the produced document. Type-local vocabularies also stay local when they control publication state, reader readiness, proof closure, or produced-document validity. A shared vocabulary card defines the carrier and field semantics; it does not import every type-local status into the default lifecycle vocabulary.
 
+[RECORD_CARRIER_CHOOSER]:
+
+| [INDEX] | [CARRIER]       | [SHAPE]                                              | [USE]                                                                 |
+| :-----: | :-------------- | :--------------------------------------------------- | :-------------------------------------------------------------------- |
+|   [1]   | GroupedRecord   | `[RECORD_KEY]:` then `- Field: value` bullets        | same-section scan clusters sharing one schema                         |
+|   [2]   | AnchoredRecord  | `### [N.M][RECORD_KEY]` then `- Field: value` bullets | cross-linked record or stable slug required                           |
+|   [3]   | ContrastRecord  | `[CONTRAST_KEY]:` then `- Accepted:` / `- Rejected:` / `- Reason:` bullets | short positive and rejected pairs                          |
+|   [4]   | OrderedStep     | numbered step then nested `- Field: value` bullets   | tutorial, how-to, and runbook steps with independently scanned fields |
+
+Formatting owns bracket-label spelling, list spacing, and field-line rendering in [formatting.md](formatting.md).
+
 [RECORD_FORMS]:
-- Per-item record block: H3 item identifier plus fields, one `label: value` per line.
-- Escalate from record table to per-item record blocks when any item has more than 5 fields, any field needs a list or code block, or items are updated independently over the document's life.
+- GroupedRecord: default for several records sharing one schema in the same section.
+- AnchoredRecord: promote from GroupedRecord only when another document links to the record or a stable heading slug is required.
+- Per-item record block: AnchoredRecord with H3 item identifier plus `- Field: value` bullets.
+- Escalate from record table to AnchoredRecord blocks when any item has more than 5 fields, any field needs a list or code block, or items are updated independently over the document's life.
 - Adjacent-document relation record: use only when another maintained document changes reader action, proof, status interpretation, validation, or maintenance; put it beside the section that consumes the adjacent fact and delete it when the fact no longer affects this document.
 - Task ID: use only when another task, milestone, proof receipt, dependency edge, or adjacent document references the item. Put the stable ID at the front of the item, such as `[T-0010]` or `[ADR-NNNN]`; do not issue IDs merely because a list is numbered.
 - Progress: represent progress only when the document states the numerator, denominator, closure rule, and proof surface before the marker. The rendered progress marker uses [formatting.md](formatting.md); counts, closure units, and proof details stay in surrounding fields. Percentages, bars, phases, and complexity values are valid only when the document defines the calculation or decision rule they measure.
@@ -208,23 +221,27 @@ Route-away: <body of work that remains in the adjacent standard>
 - A type standard may declare a bounded `roadmap active tree` only when the hierarchy itself is the reader question. The exception is limited to milestone body > phase bullet > task checkbox > task field bullets, uses the fixed field vocabulary in [roadmap.md](explanation/roadmap.md), and applies only to roadmap active or terminal work.
 - Split a list past 7 items into named sets, each set introduced by a standalone bracketed `[X_Y_Z]:` label with formatting-standard spacing.
 - Do not mix ordered and unordered items in one logical block.
-- Use an ordered record when a numbered step has independently scanned fields such as `Action`, `Command`, `Expected signal`, `Failure route`, or `Proof`.
-- Keep short ordered-record fields on the numbered item when they fit one line. Indent continuation fields 4 spaces under the step when more than one field is required.
+- Use an OrderedStep when a numbered step has independently scanned fields such as `Action`, `Command`, `Expected signal`, `Failure route`, or `Proof`.
+- Keep short ordered-record fields on the numbered item when they fit one line. When more than one field is required, nest `- Field: value` bullets under the numbered item.
 - A fenced command or output block may appear inside an ordered record only as that step's command or expected signal; split commands and output into separate fences.
 - Promote a step to a subsection-per-record block when it needs independent proof, rollback, escalation, or maintenance fields.
 
 [DEFINITION_BLOCKS]:
-- Use one label per line when a label carries meaning a reader will scan, quote, or update independently.
-- For several records sharing one schema, use a grouped definition block: a record-name label leader ending in one colon, such as `Partial eigen:`, then shared `label: value` fields indented 4 spaces beneath it, with a blank line between records.
-- A list-valued field keeps the label on its own line and indents child list items 4 spaces beneath the label; a wrapped prose continuation also indents 4 spaces.
-- Once a record exceeds 5 fields, 2 or more fields need continuations, or any field needs a code block, move to a subsection-per-record block.
+- Use one field per bullet when a label carries meaning a reader will scan, quote, or update independently.
+- For several records sharing one schema, use a GroupedRecord: a standalone bracketed `[RECORD_KEY]:` label, then immediate `- Field: value` bullets on the following lines with no blank gap between the label and the list.
+- Put one blank line before each `[RECORD_KEY]:` when prose, another record, a table, or a fence introduces it; do not put blank lines between bullets inside one record.
+- A list-valued field uses one parent bullet, then one nested bullet tier beneath it; do not use bare indented field lines after a paragraph leader.
+- Once a record exceeds 5 fields, 2 or more fields need continuations, or any field needs a code block, move to an AnchoredRecord block.
 - Do not pack several labeled facts into one sentence, and do not widen a record into a one-row table.
+- Do not publish bare indented `Field: value` lines after a sentence-case colon leader in live policy; GitHub Flavored Markdown renders them as one paragraph or a code block.
 
 [CONTRAST_RECORDS]:
-- Use a compact contrast record when a rejected form is plausible, observed in source, or the positive form is easy to copy incorrectly.
-- Fields are `Accepted:`, `Rejected:` or `Near miss:`, and `Reason:`. Formatting owns label spelling and spacing.
-- Do not use a contrast record for every rule. Use a single positive example when the rejected form is not likely.
-- Use fences only when line breaks, indentation, syntax highlighting, copyability, or renderer recognition is part of the distinction.
+- Use a ContrastRecord when a rejected form is plausible, observed in source, or the positive form is easy to copy incorrectly.
+- Shape: standalone bracketed `[CONTRAST_KEY]:` label, then `- Accepted:`, `- Rejected:` or `- Near miss:`, and `- Reason:` bullets. Formatting owns label spelling and list spacing.
+- Use only the closed field labels `Accepted:`, `Rejected:`, `Near miss:`, and `Reason:`; put qualified distinctions in the bracket key or bullet value, not in invented label spellings.
+- Do not use a ContrastRecord for every rule. Use a single positive example when the rejected form is not likely.
+- Do not publish consecutive column-0 `Accepted:` / `Rejected:` / `Reason:` lines without list markers in live policy.
+- Use a `markdown rejected` fence only when the rejected side needs headings, checklists, or multiline structure that bullets cannot carry cleanly.
 
 ## [5][LITERAL_MACHINE_SURFACES]
 
@@ -286,7 +303,7 @@ This standards corpus currently allows these language-intent pairs:
 
 Keep blocks short enough to review. Pair runnable commands and observed output as separate fences: `bash copy-safe` for the command a reader runs, then `text output-only` for the expected signal when the signal needs a block. Do not paste terminal transcripts into copy-safe fences. Use `diff output-only` for bounded generated-diff proof, and link the generated contract, manifest, or source file instead of pasting a long diff or machine output whole.
 
-Do not fence short accepted/rejected, before/after, good/bad, or near-miss examples when each side is only a sentence, heading, command, field set, or compact value. Use the compact contrast record carried by [formatting.md](formatting.md) so paired values stay adjacent and the rejection reason remains visible.
+Do not fence short accepted/rejected, before/after, good/bad, or near-miss examples when each side is only a sentence, heading, command, field set, or compact value. Use a ContrastRecord with bulleted `Accepted:`, `Rejected:`, and `Reason:` fields carried by [formatting.md](formatting.md) so paired values stay adjacent and the rejection reason remains visible.
 
 Do not let command syntax imply execution proof. A copy-safe command tells the reader what to run; an executed proof record says it was run and what it proved.
 
@@ -351,9 +368,10 @@ Note      no     no     no
 
 Text equivalent: lifecycle records carry state, proof, and update fields; notes do not.
 
-Accepted: use a short aligned tree, stack, box, or matrix when source inspection is the reader job.
-Rejected: draw a multibranch workflow with ASCII arrows.
-Reason: branching flows with multiple decisions, actors, or states have outgrown monospace text and belong in Mermaid.
+[ASCII_VS_MERMAID]:
+- Accepted: use a short aligned tree, stack, box, or matrix when source inspection is the reader job.
+- Rejected: draw a multibranch workflow with ASCII arrows.
+- Reason: branching flows with multiple decisions, actors, or states have outgrown monospace text and belong in Mermaid.
 
 Use Mermaid when rendered structure adds value beyond bullets or monospace text. Mermaid source is compact, text-editable, and renderer-backed, so prefer it over embedded images for any diagram an agent may need to read or revise. Use an exact `mermaid` fence, not an intent-labeled fence, because Markdown renderers detect Mermaid by the language tag. State conceptual, template, generated, or rejected intent in the lead-in sentence or caption.
 
@@ -490,7 +508,7 @@ Use this verification checklist by group:
 - [ ] Table eligibility checks rendered width and prose density, not only row and column count.
 - [ ] A finite enumerable set of trackable items uses status-tagged records with `Status`, `Exit`, and applicable dependency or completion-evidence details, never flat prose.
 - [ ] Checklists use the checkbox form and carry the fields their checklist form requires.
-- [ ] A single record uses a definition block; record clusters use grouped or subsection-per-record blocks.
+- [ ] A single record uses a GroupedRecord or AnchoredRecord; record clusters use bracketed group labels or H3 anchors, never bare indented field lines or flat contrast paragraphs.
 - [ ] Decision and lookup tables are used for condition-action and key-value content respectively, and decision tables declare hit policy before examples.
 
 [LITERAL_MACHINE]:

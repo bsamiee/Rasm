@@ -146,15 +146,22 @@ Choose the local owner rail from the active folder's source, manifest, generated
 When a dependency, backend, runtime, host API, storage layer, provider, or tool integration adds capability, first bind it into the existing local owner: operation algebra, typed case, row table, registry bind, tagged union case, receipt fold, aspect slot, service/layer requirement, boundary adapter, artifact/store shape, runtime record, query algebra, source-owned scenario, or envelope field. Expose a new command, flag, setting, public API, wrapper, package facade, compatibility alias, or provider-branded surface only when the owner route proves reader action changes.
 
 [TEST_PROOF]:
-For test-owning overlays, write proof-classification rules before assertion rules. Accepted: before adding a host-facing assertion, classify the behavior as static-managed law or host-runtime scenario proof; put native success in a source-owned scenario and keep unit specs on guards, categories, receipts, and pure managed contracts. Rejected: skipped unit tests, mock-host proof, shape-only assertions, or documentation-only caveats for runtime behavior.
+For test-owning overlays, write proof-classification rules before assertion rules.
 
-Accepted: when adding backend storage behavior, extend the existing store/settings owner and receipt or envelope fold before documenting operator workflow.
-Rejected: add a backend-branded command, cloud-mode flag, helper module, or provider-specific report.
-Reason: the accepted form internalizes capability into the owner rail; the rejected form exposes implementation as surface area.
+[HOST_ASSERTION_PROOF]:
+- Accepted: before adding a host-facing assertion, classify the behavior as static-managed law or host-runtime scenario proof; put native success in a source-owned scenario and keep unit specs on guards, categories, receipts, and pure managed contracts.
+- Rejected: skipped unit tests, mock-host proof, shape-only assertions, or documentation-only caveats for runtime behavior.
+- Reason: runtime behavior needs scenario proof; static law stays on managed contracts.
 
-Accepted: when maintaining an overlay, delete a rule whose local delta disappeared or raise it to the parent only after the parent extraction rule is met.
-Rejected: keep the rule as historical context.
-Reason: `AGENTS.md` carries current behavior deltas, not local history.
+[REPLACEMENT_1]:
+- Accepted: when adding backend storage behavior, extend the existing store/settings owner and receipt or envelope fold before documenting operator workflow.
+- Rejected: add a backend-branded command, cloud-mode flag, helper module, or provider-specific report.
+- Reason: the accepted form internalizes capability into the owner rail; the rejected form exposes implementation as surface area.
+
+[REPLACEMENT_2]:
+- Accepted: when maintaining an overlay, delete a rule whose local delta disappeared or raise it to the parent only after the parent extraction rule is met.
+- Rejected: keep the rule as historical context.
+- Reason: `AGENTS.md` carries current behavior deltas, not local history.
 
 ## [8][ROUTE_AWAY]
 
@@ -228,9 +235,10 @@ Use the bracketed heading idiom from `formatting.md`: `# [SCOPE_AGENTS]`, `## [N
 
 Use invocation markers only for instruction-file invariants. Prefer positive imperatives and pair hard prohibitions with a replacement action or route. Write present-tense behavioral rules without source inventories, rewrite rationale, mental commentary, session narration, or source spam.
 
-Accepted: When changing package-backed behavior, read the platform owner and extend the local operation rail before adding a public provider surface.
-Rejected: This file helps agents understand that packages should be treated as first-class.
-Reason: The accepted form names trigger, owner, and action; the rejected form narrates intent without changing local behavior.
+[REPLACEMENT_3]:
+- Accepted: When changing package-backed behavior, read the platform owner and extend the local operation rail before adding a public provider surface.
+- Rejected: This file helps agents understand that packages should be treated as first-class.
+- Reason: The accepted form names trigger, owner, and action; the rejected form narrates intent without changing local behavior.
 
 Use examples only beside high-risk distinctions. Do not add language tutorials, provider comparisons, command examples, package lists, or repeated local rail inventories to make the standard feel complete.
 

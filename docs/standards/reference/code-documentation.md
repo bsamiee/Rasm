@@ -134,165 +134,196 @@ Language-version claims are target standards and route freshness through [proof.
 
 Toolchain: XML documentation comments for C# 14 public API contracts; XML comments in `.cs` are the semantic owner, compiler XML is the generated mirror, and DocFX is the generated-reference profile.
 Generated profile: compiler XML and DocFX; `cref` routes compiler-verifiable internal references.
-Comment owns:
-    - `<summary>` purpose.
-    - `<typeparam>` and `<typeparamref>` semantic type role, runtime capability, algebraic obligation, or variant family.
-    - `<param>` and `<paramref>` caller obligation, ownership, normalization state, trusted boundary, lifetime, or cancellation propagation.
-    - `<returns>` success semantics, typed failure rail, validation accumulation, effect runtime, terminal boundary, or resource ownership.
-    - `<value>` property value meaning.
-    - `<remarks>`, `<para>`, and `<list>` invariants, generated-code behavior, resource scope, retry schedule, security/data exposure, interop, or lifecycle details.
-Rail/resource rules:
-    - `Fin<T>`: success value and domain `Error` meanings.
-    - `Validation<Error,T>`: independent obligations and accumulated failure semantics.
-    - `Eff<RT,T>`: runtime capabilities, deferred execution, cancellation or interruption behavior, retry or repeat `Schedule`, resource scope, and terminal `Run` owner.
-    - `IO<T>`: boundary action, resource ownership, and execution point.
-    - `Bracket`: acquire/use/release ownership and whether release runs on success, failure, and cancellation.
-    - `K<F,T>` or trait-polymorphic APIs: algebraic obligation on `F` only when the constraint does not explain caller meaning.
-Special shapes:
-    - `<exception>` names actual thrown type and cause on a throwing surface only.
-    - `<see cref>` and `<seealso cref>` route compiler-verifiable references; `<see href>` routes external links.
-    - `<see langword>`, `<typeparamref>`, and `<paramref>` avoid prose echo; `<inheritdoc>` applies only when inherited semantics and copied fields are exact.
-    - C# 14 extension blocks document receiver invariants, static or instance extension method, property, or operator semantics, receiver type-parameter meaning, allocation/resource behavior, side effects, and failure rail.
-    - Records and primary constructors document normalization, equality, copy, required-member initialization ordering, external binder obligations, and invariant semantics.
-    - Thinktecture value objects, complex value objects, smart enums, and unions document invariant, normalization, invalid-state prevention, factory failure, equality consequence, closed vocabulary, case semantics, and exhaustive dispatch route.
-    - Nullable annotations and attributes own null-state; comments state domain absence, sentinel meaning, default-value pitfall, boundary conversion, or null-propagation behavior only when observable.
-    - Cancellation and resource comments name token propagation, observable `OperationCanceledException`, cleanup, borrowed or owned lifetime, disposal or async cleanup, lock release, and DI lifetime only when caller-visible.
-Reject: missing-comment churn where declarations already carry caller truth, unresolved `cref`, fake `<exception>` tags for typed rails, Markdown-heavy XML unless the generated renderer is the only consumer, generated-member catalogs, `<include>` files without maintained source, and lifecycle wrappers for internal surfaces that should be deleted or replaced.
-Syntax cue: `/// <summary>Builds one cancellable geometry import effect.</summary>`.
+
+[COMMENT_OWNS]:
+- `<summary>` purpose.
+- `<typeparam>` and `<typeparamref>` semantic type role, runtime capability, algebraic obligation, or variant family.
+- `<param>` and `<paramref>` caller obligation, ownership, normalization state, trusted boundary, lifetime, or cancellation propagation.
+- `<returns>` success semantics, typed failure rail, validation accumulation, effect runtime, terminal boundary, or resource ownership.
+- `<value>` property value meaning.
+- `<remarks>`, `<para>`, and `<list>` invariants, generated-code behavior, resource scope, retry schedule, security/data exposure, interop, or lifecycle details.
+
+[RAIL_RESOURCE_RULES]:
+- `Fin<T>`: success value and domain `Error` meanings.
+- `Validation<Error,T>`: independent obligations and accumulated failure semantics.
+- `Eff<RT,T>`: runtime capabilities, deferred execution, cancellation or interruption behavior, retry or repeat `Schedule`, resource scope, and terminal `Run` owner.
+- `IO<T>`: boundary action, resource ownership, and execution point.
+- `Bracket`: acquire/use/release ownership and whether release runs on success, failure, and cancellation.
+- `K<F,T>` or trait-polymorphic APIs: algebraic obligation on `F` only when the constraint does not explain caller meaning.
+
+[SPECIAL_SHAPES]:
+- `<exception>` names actual thrown type and cause on a throwing surface only.
+- `<see cref>` and `<seealso cref>` route compiler-verifiable references; `<see href>` routes external links.
+- `<see langword>`, `<typeparamref>`, and `<paramref>` avoid prose echo; `<inheritdoc>` applies only when inherited semantics and copied fields are exact.
+- C# 14 extension blocks document receiver invariants, static or instance extension method, property, or operator semantics, receiver type-parameter meaning, allocation/resource behavior, side effects, and failure rail.
+- Records and primary constructors document normalization, equality, copy, required-member initialization ordering, external binder obligations, and invariant semantics.
+- Thinktecture value objects, complex value objects, smart enums, and unions document invariant, normalization, invalid-state prevention, factory failure, equality consequence, closed vocabulary, case semantics, and exhaustive dispatch route.
+- Nullable annotations and attributes own null-state; comments state domain absence, sentinel meaning, default-value pitfall, boundary conversion, or null-propagation behavior only when observable.
+- Cancellation and resource comments name token propagation, observable `OperationCanceledException`, cleanup, borrowed or owned lifetime, disposal or async cleanup, lock release, and DI lifetime only when caller-visible.
+[REJECT]:
+- Reject: missing-comment churn where declarations already carry caller truth, unresolved `cref`, fake `<exception>` tags for typed rails, Markdown-heavy XML unless the generated renderer is the only consumer, generated-member catalogs, `<include>` files without maintained source, and lifecycle wrappers for internal surfaces that should be deleted or replaced.
+
+[SYNTAX_CUE]:
+- Syntax cue: `/// <summary>Builds one cancellable geometry import effect.</summary>`.
 
 ### [6.2][TYPESCRIPT]
 
 Toolchain: TSDoc for exported TypeScript 7 `.ts` APIs that form a package, module, service, schema, model, runner, or testkit contract. TypeScript syntax, exported schemas, models, and `Effect<A, E, R>` carry machine shape; API Extractor is the strict package-API canon, and TypeDoc is the browsing renderer.
 Generated profile: API Extractor for strict package API and TypeDoc for browsing.
-Comment owns:
-    - summary before the first block tag.
-    - `@remarks`: invariants, lifecycle, resource, retry, cancellation, security, terminal runner, or observability semantics.
-    - `@typeParam`: semantic generic relationship, not type-expression echo.
-    - `@param`: caller obligation, unit, ownership, trust boundary, or resource meaning.
-    - `@returns`: success, typed failure, environment, deferred execution, terminal behavior, or stream semantics.
-    - `@throws`: escaped exception or terminal-runner Promise rejection only; typed `E` failures belong in `@returns`, `@remarks`, or the rail contract.
-    - `{@link ...}` and linked `@see` blocks: resolvable public references through the TypeScript generator profile.
-    - `{@inheritDoc ...}`: exact inherited summary, `@remarks`, `@param`, `@typeParam`, and `@returns`; non-copied lifecycle, default, example, or deprecation tags stay explicit.
-    - `@packageDocumentation`: package entrypoint contract only; README or reference owns package maps and curated lookup facts.
-Rail/resource rules:
-    - `A`: success meaning and observable side effect.
-    - `E`: expected typed failure variants, recovery boundary, retryable failure classes, and terminal failure after retry exhaustion; defects route through `Cause`, `Exit`, terminal diagnostics, or Promise rejection only when exposed.
-    - `R`: required services, layers, runtime context, scope, and caller-owned configuration.
-    - Interruption: whether finalizers run, whether external APIs receive cancellation, and whether callers inspect `Exit` or `Cause`.
-    - Resource scope: who opens and closes `Scope`, what finalizers release, and whether release observes success, failure, and interruption.
-    - Retry and terminal runner: stop condition, backoff or jitter shape, retryable failure tags, schedule requirements added to `R`, runtime ownership, process exit mapping, signal handling, logging, spans/metrics, and Promise rejection at the boundary.
-Special shapes:
-    - `Option`: absence semantics only when absence carries domain meaning.
-    - `Either`: pure success and failure branches when exported as a public rail.
-    - `Exit` and `Cause`: all-outcome inspection, defects, and interruption only when callers observe them.
-    - `Stream`: item semantics, ordering, backpressure, end condition, failure channel, interruption, and resource finalizers.
-    - `Layer` and services: construction side effects, dependency provision, reference sharing, fresh allocation, memoization, scope, teardown, and configuration ownership.
-    - `satisfies`, `const` type parameters, and exact optional fields: declarations own conformance, literal inference, and omitted-versus-`undefined` shape; comments state only observable semantic consequences.
-    - Decorators and schema annotations: runtime metadata, registration side effects, generated consumers, cross-field invariants, parse failures, and generation routes only when public callers depend on them.
-    - `@public`, `@beta`, `@alpha`, and `@internal`: API Extractor release-stage contract; use at most one per exported API item when the package API rail consumes release status.
-    - `@deprecated`: lifecycle warning, not a release tag; include replacement path, behavior delta, migration or removal condition, generated-reference route, and review trigger.
-Reject: JSDoc type-expression syntax in `.ts`, closure-style type comments, duplicate type info in `@param`, broad `@throws` for typed `E`, bare `@inheritDoc`, `@see SomeSymbol` without a link route, TSDoc on local implementation details, generated package catalogs, release tags on internal greenfield surfaces, `@internal` as a security boundary, copied TypeDoc output, and Promise-return comments that hide the terminal `Effect` boundary.
-Syntax cue: `/** Imports one artifact; returns an Effect with committed receipt, ImportFailure, and required services. @public */`.
+
+[COMMENT_OWNS]:
+- summary before the first block tag.
+- `@remarks`: invariants, lifecycle, resource, retry, cancellation, security, terminal runner, or observability semantics.
+- `@typeParam`: semantic generic relationship, not type-expression echo.
+- `@param`: caller obligation, unit, ownership, trust boundary, or resource meaning.
+- `@returns`: success, typed failure, environment, deferred execution, terminal behavior, or stream semantics.
+- `@throws`: escaped exception or terminal-runner Promise rejection only; typed `E` failures belong in `@returns`, `@remarks`, or the rail contract.
+- `{@link ...}` and linked `@see` blocks: resolvable public references through the TypeScript generator profile.
+- `{@inheritDoc ...}`: exact inherited summary, `@remarks`, `@param`, `@typeParam`, and `@returns`; non-copied lifecycle, default, example, or deprecation tags stay explicit.
+- `@packageDocumentation`: package entrypoint contract only; README or reference owns package maps and curated lookup facts.
+
+[RAIL_RESOURCE_RULES]:
+- `A`: success meaning and observable side effect.
+- `E`: expected typed failure variants, recovery boundary, retryable failure classes, and terminal failure after retry exhaustion; defects route through `Cause`, `Exit`, terminal diagnostics, or Promise rejection only when exposed.
+- `R`: required services, layers, runtime context, scope, and caller-owned configuration.
+- Interruption: whether finalizers run, whether external APIs receive cancellation, and whether callers inspect `Exit` or `Cause`.
+- Resource scope: who opens and closes `Scope`, what finalizers release, and whether release observes success, failure, and interruption.
+- Retry and terminal runner: stop condition, backoff or jitter shape, retryable failure tags, schedule requirements added to `R`, runtime ownership, process exit mapping, signal handling, logging, spans/metrics, and Promise rejection at the boundary.
+
+[SPECIAL_SHAPES]:
+- `Option`: absence semantics only when absence carries domain meaning.
+- `Either`: pure success and failure branches when exported as a public rail.
+- `Exit` and `Cause`: all-outcome inspection, defects, and interruption only when callers observe them.
+- `Stream`: item semantics, ordering, backpressure, end condition, failure channel, interruption, and resource finalizers.
+- `Layer` and services: construction side effects, dependency provision, reference sharing, fresh allocation, memoization, scope, teardown, and configuration ownership.
+- `satisfies`, `const` type parameters, and exact optional fields: declarations own conformance, literal inference, and omitted-versus-`undefined` shape; comments state only observable semantic consequences.
+- Decorators and schema annotations: runtime metadata, registration side effects, generated consumers, cross-field invariants, parse failures, and generation routes only when public callers depend on them.
+- `@public`, `@beta`, `@alpha`, and `@internal`: API Extractor release-stage contract; use at most one per exported API item when the package API rail consumes release status.
+- `@deprecated`: lifecycle warning, not a release tag; include replacement path, behavior delta, migration or removal condition, generated-reference route, and review trigger.
+[REJECT]:
+- Reject: JSDoc type-expression syntax in `.ts`, closure-style type comments, duplicate type info in `@param`, broad `@throws` for typed `E`, bare `@inheritDoc`, `@see SomeSymbol` without a link route, TSDoc on local implementation details, generated package catalogs, release tags on internal greenfield surfaces, `@internal` as a security boundary, copied TypeDoc output, and Promise-return comments that hide the terminal `Effect` boundary.
+
+[SYNTAX_CUE]:
+- Syntax cue: `/** Imports one artifact; returns an Effect with committed receipt, ImportFailure, and required services. @public */`.
 
 ### [6.3][PYTHON]
 
 Toolchain: Google docstrings for Python 3.15 public modules, classes, functions, methods, properties, protocols, and package entrypoints; PEP 257 supplies docstring placement and layout, while signatures, annotations, strict type checkers, and annotation introspection own type shape.
 Generated profile: Griffe and mkdocstrings.
-Comment owns:
-    - Summary: one line that does not echo the function name.
-    - Extended summary: invariants, lifecycle, resource, cancellation, concurrency, security, data-exposure, schema, or interop semantics.
-    - `Args:`: obligation, unit, ownership, accepted semantic range, trusted boundary, or context requirement.
-    - `Returns:`: success payload, typed error rail, effect boundary, resource ownership, terminal behavior, converted native exceptions, and typed-error semantics.
-    - `Yields:`: emitted value, ordering, completion, and resource finalization for public generator or async generator contracts.
-    - `Receives:`: `send()` input only when the public generator accepts it and Griffe or mkdocstrings parses the section.
-    - `Raises:`, `Attributes:`, `Warns:`, and `Examples:`: intentionally exposed native exceptions, public attribute meaning, emitted warning categories, and non-obvious call shape, lifecycle, or failure handling.
-Rail/resource rules:
-    - `Result[T, E]`: `Ok` payload and each meaningful error variant in `Returns:`.
-    - `Option[T]`: absence semantics only when absence is not obvious from function name and type.
-    - Expression-style effect builders: success and failure rails, resource lifetime, terminal boundary, and whether native exceptions are converted before returning.
-    - anyio cancellation: caller-visible cancellation, cleanup shielding, and re-raise behavior only when cancellation changes observable semantics.
-    - `ExceptionGroup`: grouped boundary exceptions only when part of the supported interface.
-    - Native exception boundary: converted exceptions belong in `Returns:` as typed errors; intentionally exposed native exceptions belong in `Raises:`.
-Special shapes:
-    - Annotation owners: `annotationlib`, PEP 649, and PEP 749 govern deferred annotation inspection for generated references; PEP 695 and PEP 696 place type parameters and defaults in signatures.
-    - Docstring boundary: docstrings add only semantic relationships, variance obligations, runtime constraints, or caller meaning.
-    - Narrowing and type forms: PEP 742 `TypeIs`, PEP 747 `TypeForm`, and PEP 800 `@disjoint_base` comments document narrowing, type-expression handling, or nominal disjointness only when public callers depend on it.
-    - Payload shape: PEP 728, PEP 705, PEP 655, and PEP 692 let `TypedDict`, `ReadOnly`, `Required`, `NotRequired`, and `Unpack` carry payload shape.
-    - Runtime and schema metadata: PEP 810 lazy imports, PEP 661 `sentinel`, and PEP 814 `frozendict` document deferred import-error timing, public absence, identity, snapshot, or hashability semantics only when caller-visible; PEP 702-style deprecation belongs to external support contracts only.
-    - Schema owners: Pydantic and msgspec metadata own schema-facing field descriptions, aliases, strictness, immutability, generated JSON Schema, and declarative validation; beartype `Annotated` validators own runtime validation at decorated boundaries.
-    - Model docstrings: docstrings own model purpose, cross-field invariants, security exposure, resource obligations, and caller-visible failure semantics that schema metadata cannot carry.
-    - Sensitive metadata: generated schema annotations are publishable documentation and must exclude secrets, personal data, tenant IDs, credential routes, private hostnames, nonpublic paths, and real sensitive examples from `description`, `examples`, `json_schema_extra`, dataclass `doc`, and generator-consumed metadata.
-Reject:
-    - Type or signature echo: type echo in `Args:` or `Returns:`, signature-echo summaries, blanket parameter documentation, comments that compensate for missing annotations, and old string-forward-reference lore.
-    - Rail mismatch: `Raises:` for typed rails, validation data, warnings, and precondition violations.
-    - Tooling mismatch: docstring-only deprecation where tooling needs `warnings.deprecated`, public `object()` sentinels where `sentinel` fits, and mixed section dialects inside Google docstrings.
-    - Schema drift: schema fields documented only in prose when metadata owns them and field examples with sensitive data.
-Syntax cue: `"""Import one validated plan artifact."""`.
+
+[COMMENT_OWNS]:
+- Summary: one line that does not echo the function name.
+- Extended summary: invariants, lifecycle, resource, cancellation, concurrency, security, data-exposure, schema, or interop semantics.
+- `Args:`: obligation, unit, ownership, accepted semantic range, trusted boundary, or context requirement.
+- `Returns:`: success payload, typed error rail, effect boundary, resource ownership, terminal behavior, converted native exceptions, and typed-error semantics.
+- `Yields:`: emitted value, ordering, completion, and resource finalization for public generator or async generator contracts.
+- `Receives:`: `send()` input only when the public generator accepts it and Griffe or mkdocstrings parses the section.
+- `Raises:`, `Attributes:`, `Warns:`, and `Examples:`: intentionally exposed native exceptions, public attribute meaning, emitted warning categories, and non-obvious call shape, lifecycle, or failure handling.
+
+[RAIL_RESOURCE_RULES]:
+- `Result[T, E]`: `Ok` payload and each meaningful error variant in `Returns:`.
+- `Option[T]`: absence semantics only when absence is not obvious from function name and type.
+- Expression-style effect builders: success and failure rails, resource lifetime, terminal boundary, and whether native exceptions are converted before returning.
+- anyio cancellation: caller-visible cancellation, cleanup shielding, and re-raise behavior only when cancellation changes observable semantics.
+- `ExceptionGroup`: grouped boundary exceptions only when part of the supported interface.
+- Native exception boundary: converted exceptions belong in `Returns:` as typed errors; intentionally exposed native exceptions belong in `Raises:`.
+
+[SPECIAL_SHAPES]:
+- Annotation owners: `annotationlib`, PEP 649, and PEP 749 govern deferred annotation inspection for generated references; PEP 695 and PEP 696 place type parameters and defaults in signatures.
+- Docstring boundary: docstrings add only semantic relationships, variance obligations, runtime constraints, or caller meaning.
+- Narrowing and type forms: PEP 742 `TypeIs`, PEP 747 `TypeForm`, and PEP 800 `@disjoint_base` comments document narrowing, type-expression handling, or nominal disjointness only when public callers depend on it.
+- Payload shape: PEP 728, PEP 705, PEP 655, and PEP 692 let `TypedDict`, `ReadOnly`, `Required`, `NotRequired`, and `Unpack` carry payload shape.
+- Runtime and schema metadata: PEP 810 lazy imports, PEP 661 `sentinel`, and PEP 814 `frozendict` document deferred import-error timing, public absence, identity, snapshot, or hashability semantics only when caller-visible; PEP 702-style deprecation belongs to external support contracts only.
+- Schema owners: Pydantic and msgspec metadata own schema-facing field descriptions, aliases, strictness, immutability, generated JSON Schema, and declarative validation; beartype `Annotated` validators own runtime validation at decorated boundaries.
+- Model docstrings: docstrings own model purpose, cross-field invariants, security exposure, resource obligations, and caller-visible failure semantics that schema metadata cannot carry.
+- Sensitive metadata: generated schema annotations are publishable documentation and must exclude secrets, personal data, tenant IDs, credential routes, private hostnames, nonpublic paths, and real sensitive examples from `description`, `examples`, `json_schema_extra`, dataclass `doc`, and generator-consumed metadata.
+
+[REJECT]:
+- Type or signature echo: type echo in `Args:` or `Returns:`, signature-echo summaries, blanket parameter documentation, comments that compensate for missing annotations, and old string-forward-reference lore.
+- Rail mismatch: `Raises:` for typed rails, validation data, warnings, and precondition violations.
+- Tooling mismatch: docstring-only deprecation where tooling needs `warnings.deprecated`, public `object()` sentinels where `sentinel` fits, and mixed section dialects inside Google docstrings.
+- Schema drift: schema fields documented only in prose when metadata owns them and field examples with sensitive data.
+
+[SYNTAX_CUE]:
+- Syntax cue: `"""Import one validated plan artifact."""`.
 
 ### [6.4][BASH]
 
 Toolchain: Bash 5.3+ has no docstrings; use contract comments only where callers, analyzers, or maintainers need stdout, stderr, exit-status, state, trap, cleanup, environment, nameref, stream, durable-write, current-shell substitution, or ShellCheck rationale. POSIX.1-2024 appears only when a script explicitly claims portable shell semantics.
 Generated profile: no generated-reference profile by default; help metadata owns command catalogs and ShellCheck directives own analyzer-control comments.
-Comment owns:
-    - Caller action, analyzer behavior, or maintenance safety only.
-    - Script contract, command function contract, environment contract, dispatch route, trap/cleanup ownership, nameref return, stream boundary, durable write, current-shell substitution, redaction boundary, or ShellCheck directive rationale.
-    - Bash-only target through shebang or ShellCheck directive; no POSIX, dash, ksh, zsh, macOS `/bin/bash`, or BusyBox compatibility mention unless tested or explicitly constrained.
-Rail/resource rules:
-    - Script headers: Bash baseline, command surface, write scope, environment contract, stdout shape, stderr role, exit-status vocabulary, traps, cleanup, and destructive or resource boundaries.
-    - Command functions: purpose, admitted arguments, globals read or written, stdout/stderr contract, exit status, side effect, and dispatch-table route.
-    - Nameref outputs: caller-allocated variable names, mutation ownership, structured return shape, collision rule, and whether stdout is intentionally unused.
-    - Dispatch and environment: route key grammar, table ownership, handler signature, metadata source, unsupported-command exit, required variables, accepted shape, absence/default behavior, export behavior, redaction rule, log sink, and missing or invalid failure status.
-    - Channel split: stdout is machine data only, stderr is diagnostics and logs only, and exit status is the failure channel.
-    - Structured output: namerefs carry structured outputs where command substitution would hide mutation or split data.
-Special shapes:
-    - Mutable state: comments name parsing, retry counter, stream loop, signal flag, cleanup stack, PID map, or process supervision.
-    - `errexit` and `ERR`: comments state ignored contexts, `pipefail` dependency, `errtrace` inheritance, and `inherit_errexit` command-substitution behavior only when the public failure rail depends on them.
-    - Traps and cleanup: comments state signal, `BASH_TRAPSIG`, forward target, wait owner, reentrancy guard, cleanup order, child forwarding, exit-status mapping, acquisition/release order, partial acquisition, LIFO ownership, idempotence, temporary path, same-filesystem rename assumption, sensitive `umask`, durability choice, and rollback behavior.
-    - Streaming loops and retry: comments state stream boundary, delimiter, subshell or current-shell mutation, backpressure, ordering, finalization, failure propagation, retryable status class, maximum attempts, capped delay, jitter source, idempotence, and terminal failure rail.
-    - Atomic replacement and durable write: comments name temp path, same-filesystem or same-directory assumption, destination replacement policy, `EXDEV` or `--no-copy` behavior, rollback, file flush, directory-entry flush, crash model, filesystem caveat, and proof route.
-    - Bash 5.3 substitution forms: `${ command; }` captures output in the current shell and preserves side effects when persisted mutation, `return`, `exit`, or positional-parameter sharing is caller-visible; `${| command; }` expands from local `REPLY` while stdout remains on the caller stream when that separation avoids a subshell.
-    - Timing and glob forms: `BASH_MONOSECONDS` is for elapsed monotonic duration contracts; `EPOCHREALTIME` is for wall-clock timestamps; `GLOBSORT` appears only when glob ordering is semantic; `shfmt` owns layout and parse shape only.
-    - ShellCheck directives: use a short rationale before the directive, name the diagnostic code and local invariant, keep the directive line machine-scannable, and scope it to the smallest complete command; `source`, `source-path`, and `shell` directives name analysis routing or dialect truth, not runtime behavior; `external-sources=true` belongs in `.shellcheckrc`.
-Reject:
-    - False documentation surface: pseudo-docstring blocks, generated Bash catalogs, comments for every function, and mechanical parameter headers.
-    - Source echo: comments that restate `local`, `readonly`, associative-array shape, positional numbering, or function names.
-    - Dialect drift: portable-shell hedging in Bash-only scripts, bare ShellCheck disables, and trailing directive rationales.
-    - Channel or stream drift: mixed stdout payload and logs, collection loops documented as streams, and `set -e handles errors` comments.
-    - Durability drift: durable-write claims backed only by temp write plus `mv`.
-Syntax cue: `# shellcheck shell=bash`.
+
+[COMMENT_OWNS]:
+- Caller action, analyzer behavior, or maintenance safety only.
+- Script contract, command function contract, environment contract, dispatch route, trap/cleanup ownership, nameref return, stream boundary, durable write, current-shell substitution, redaction boundary, or ShellCheck directive rationale.
+- Bash-only target through shebang or ShellCheck directive; no POSIX, dash, ksh, zsh, macOS `/bin/bash`, or BusyBox compatibility mention unless tested or explicitly constrained.
+
+[RAIL_RESOURCE_RULES]:
+- Script headers: Bash baseline, command surface, write scope, environment contract, stdout shape, stderr role, exit-status vocabulary, traps, cleanup, and destructive or resource boundaries.
+- Command functions: purpose, admitted arguments, globals read or written, stdout/stderr contract, exit status, side effect, and dispatch-table route.
+- Nameref outputs: caller-allocated variable names, mutation ownership, structured return shape, collision rule, and whether stdout is intentionally unused.
+- Dispatch and environment: route key grammar, table ownership, handler signature, metadata source, unsupported-command exit, required variables, accepted shape, absence/default behavior, export behavior, redaction rule, log sink, and missing or invalid failure status.
+- Channel split: stdout is machine data only, stderr is diagnostics and logs only, and exit status is the failure channel.
+- Structured output: namerefs carry structured outputs where command substitution would hide mutation or split data.
+
+[SPECIAL_SHAPES]:
+- Mutable state: comments name parsing, retry counter, stream loop, signal flag, cleanup stack, PID map, or process supervision.
+- `errexit` and `ERR`: comments state ignored contexts, `pipefail` dependency, `errtrace` inheritance, and `inherit_errexit` command-substitution behavior only when the public failure rail depends on them.
+- Traps and cleanup: comments state signal, `BASH_TRAPSIG`, forward target, wait owner, reentrancy guard, cleanup order, child forwarding, exit-status mapping, acquisition/release order, partial acquisition, LIFO ownership, idempotence, temporary path, same-filesystem rename assumption, sensitive `umask`, durability choice, and rollback behavior.
+- Streaming loops and retry: comments state stream boundary, delimiter, subshell or current-shell mutation, backpressure, ordering, finalization, failure propagation, retryable status class, maximum attempts, capped delay, jitter source, idempotence, and terminal failure rail.
+- Atomic replacement and durable write: comments name temp path, same-filesystem or same-directory assumption, destination replacement policy, `EXDEV` or `--no-copy` behavior, rollback, file flush, directory-entry flush, crash model, filesystem caveat, and proof route.
+- Bash 5.3 substitution forms: `${ command; }` captures output in the current shell and preserves side effects when persisted mutation, `return`, `exit`, or positional-parameter sharing is caller-visible; `${| command; }` expands from local `REPLY` while stdout remains on the caller stream when that separation avoids a subshell.
+- Timing and glob forms: `BASH_MONOSECONDS` is for elapsed monotonic duration contracts; `EPOCHREALTIME` is for wall-clock timestamps; `GLOBSORT` appears only when glob ordering is semantic; `shfmt` owns layout and parse shape only.
+- ShellCheck directives: use a short rationale before the directive, name the diagnostic code and local invariant, keep the directive line machine-scannable, and scope it to the smallest complete command; `source`, `source-path`, and `shell` directives name analysis routing or dialect truth, not runtime behavior; `external-sources=true` belongs in `.shellcheckrc`.
+
+[REJECT]:
+- False documentation surface: pseudo-docstring blocks, generated Bash catalogs, comments for every function, and mechanical parameter headers.
+- Source echo: comments that restate `local`, `readonly`, associative-array shape, positional numbering, or function names.
+- Dialect drift: portable-shell hedging in Bash-only scripts, bare ShellCheck disables, and trailing directive rationales.
+- Channel or stream drift: mixed stdout payload and logs, collection loops documented as streams, and `set -e handles errors` comments.
+- Durability drift: durable-write claims backed only by temp write plus `mv`.
+
+[SYNTAX_CUE]:
+- Syntax cue: `# shellcheck shell=bash`.
 
 ### [6.5][POSTGRESQL]
 
 Toolchain: PostgreSQL 18.4 `COMMENT ON` is durable schema and catalog documentation visible through catalog access; SQL source comments are local rationale only because PostgreSQL treats them as whitespace before syntax analysis. Catalog comments apply to every object kind supported by PostgreSQL `COMMENT ON`; do not turn the standard into an object grammar catalog.
 Generated profile: durable generated references extract object comments from `pg_description` or `pg_shdescription`; `psql` describe output is a human smoke route.
-Comment owns: catalog comments own durable schema meaning; SQL source comments own local migration, function-body, and RLS rationale only.
-Rail/resource rules:
-    - Objects: schemas, tables, domains, and types own modeled concept, ownership boundary, temporal meaning, tenant scope, or invariant; columns own semantic value, unit, lifecycle, generated meaning, non-obvious nullable meaning, tenant scope, or public data-exposure constraint.
-    - Constraints and indexes: invariant, planner purpose, operator class, selectivity assumption, uniqueness/exclusion law, or access path.
-    - Functions: contract, volatility, strictness, null behavior, set-returning cardinality, parallel safety, cost/rows when caller-visible, security mode, `search_path` expectation, leakproof promise, and SQLSTATE exposure.
-    - Procedures: contract, security mode, transaction-control limitation where caller-visible, procedure-local `SET` behavior, `search_path` expectation, privilege boundary, and SQLSTATE exposure from the procedure body.
-    - Routine identity: routines own catalog identity umbrella only when a generated route or `COMMENT ON ROUTINE` target spans functions and procedures.
-    - Policies: access invariant, command scope, role scope, `USING` and `WITH CHECK` split, permissive or restrictive combination, tenant predicate, bypass assumption, owner behavior, race, and covert-channel reasoning.
-    - Views: projection scope, owner privilege mode, `security_invoker`, `security_barrier`, `CHECK OPTION`, RLS policy user, function execution mode, and data-exposure rule.
-    - Materialized views: stored projection, freshness, `relispopulated` state, refresh owner or event, `CONCURRENTLY` eligibility, unique-index proof, stale-data tolerance, and data-exposure rule.
-    - Replication and extension: extensions, publications, and subscriptions own installed purpose, version gate, replication scope, provider assumption, and operational boundary.
-Special shapes:
-    - Migrations: comments state lock level, rewrite behavior, backfill shape, validation phase, privilege window, rollout gate, irreversibility, rollback boundary, extension gate, and smallest proof-query class without output transcripts.
-    - Routine bodies: comments state dynamic SQL, exception conversion, search-path hardening, lock ordering, cursor ownership, transaction behavior, and planner assumptions.
-    - RLS security: comments state table lookup, current-setting behavior, bypass role, owner behavior, race, leakproof boundary, and covert-channel reasoning that the policy expression alone cannot carry.
-    - Catalog proof functions: use `pg_description` plus `obj_description(oid, catalog)` for database-local objects, `col_description(table_oid, column_number)` for columns, and `pg_shdescription` plus `shobj_description(oid, catalog)` for shared objects.
-    - Generated dictionaries: derive from catalog address, `pg_identify_object`, owning catalog facts, and description functions; include catalog facts beside comments instead of copying migration prose.
-    - Identity: function, procedure, routine, and aggregate comment identity is determined by input-relevant argument types, not names, and `OUT`-only arguments are omitted when identity does not require them.
-    - Security proof: security comments on policies, RLS tables, views, materialized views, and functions need catalog proof through `pg_policies` or `pg_policy`, `pg_class.relrowsecurity`, `relforcerowsecurity`, `reloptions`, `relispopulated`, `pg_roles.rolbypassrls`, `pg_proc.proleakproof`, or `prosecdef`.
-    - Exposure and linting: generated dictionaries must not expose subscription `subconninfo` or credentials; `sqlfluff --dialect postgres` proves formatting and linting only, not catalog comments, object identity, privileges, data exposure, replication semantics, or semantic documentation.
-Reject:
-    - Exposure risks: secrets, credentials, privileged assumptions, exploit details, credential routes, tenant IDs, sensitive operational data, security-critical internals, private backup routes, and proof-query transcripts in `COMMENT ON`.
-    - Operational drift: migration status, rollout windows, and rollback plans in `COMMENT ON`.
-    - Catalog visibility miss: any connected database user can see database-object comments, and connected cluster users can see shared-object comments.
-    - Catalog drift: hand-maintained data dictionaries that duplicate catalog comments, source comments for durable schema meaning, and blanket comments like `user id`.
-    - Weak description calls: `obj_description(oid)` without catalog identity and one-argument `obj_description(oid)`.
-    - Security/freshness gaps: RLS prose without policy comments plus verification route and materialized-view comments that omit freshness and refresh contract.
-Syntax cue: `COMMENT ON TABLE app.account_event IS 'Append-only account event ledger.';`.
+[COMMENT_OWNS]:
+- Catalog comments own durable schema meaning.
+- SQL source comments own local migration, function-body, and RLS rationale only.
+
+[RAIL_RESOURCE_RULES]:
+- Objects: schemas, tables, domains, and types own modeled concept, ownership boundary, temporal meaning, tenant scope, or invariant; columns own semantic value, unit, lifecycle, generated meaning, non-obvious nullable meaning, tenant scope, or public data-exposure constraint.
+- Constraints and indexes: invariant, planner purpose, operator class, selectivity assumption, uniqueness/exclusion law, or access path.
+- Functions: contract, volatility, strictness, null behavior, set-returning cardinality, parallel safety, cost/rows when caller-visible, security mode, `search_path` expectation, leakproof promise, and SQLSTATE exposure.
+- Procedures: contract, security mode, transaction-control limitation where caller-visible, procedure-local `SET` behavior, `search_path` expectation, privilege boundary, and SQLSTATE exposure from the procedure body.
+- Routine identity: routines own catalog identity umbrella only when a generated route or `COMMENT ON ROUTINE` target spans functions and procedures.
+- Policies: access invariant, command scope, role scope, `USING` and `WITH CHECK` split, permissive or restrictive combination, tenant predicate, bypass assumption, owner behavior, race, and covert-channel reasoning.
+- Views: projection scope, owner privilege mode, `security_invoker`, `security_barrier`, `CHECK OPTION`, RLS policy user, function execution mode, and data-exposure rule.
+- Materialized views: stored projection, freshness, `relispopulated` state, refresh owner or event, `CONCURRENTLY` eligibility, unique-index proof, stale-data tolerance, and data-exposure rule.
+- Replication and extension: extensions, publications, and subscriptions own installed purpose, version gate, replication scope, provider assumption, and operational boundary.
+
+[SPECIAL_SHAPES]:
+- Migrations: comments state lock level, rewrite behavior, backfill shape, validation phase, privilege window, rollout gate, irreversibility, rollback boundary, extension gate, and smallest proof-query class without output transcripts.
+- Routine bodies: comments state dynamic SQL, exception conversion, search-path hardening, lock ordering, cursor ownership, transaction behavior, and planner assumptions.
+- RLS security: comments state table lookup, current-setting behavior, bypass role, owner behavior, race, leakproof boundary, and covert-channel reasoning that the policy expression alone cannot carry.
+- Catalog proof functions: use `pg_description` plus `obj_description(oid, catalog)` for database-local objects, `col_description(table_oid, column_number)` for columns, and `pg_shdescription` plus `shobj_description(oid, catalog)` for shared objects.
+- Generated dictionaries: derive from catalog address, `pg_identify_object`, owning catalog facts, and description functions; include catalog facts beside comments instead of copying migration prose.
+- Identity: function, procedure, routine, and aggregate comment identity is determined by input-relevant argument types, not names, and `OUT`-only arguments are omitted when identity does not require them.
+- Security proof: security comments on policies, RLS tables, views, materialized views, and functions need catalog proof through `pg_policies` or `pg_policy`, `pg_class.relrowsecurity`, `relforcerowsecurity`, `reloptions`, `relispopulated`, `pg_roles.rolbypassrls`, `pg_proc.proleakproof`, or `prosecdef`.
+- Exposure and linting: generated dictionaries must not expose subscription `subconninfo` or credentials; `sqlfluff --dialect postgres` proves formatting and linting only, not catalog comments, object identity, privileges, data exposure, replication semantics, or semantic documentation.
+
+[REJECT]:
+- Exposure risks: secrets, credentials, privileged assumptions, exploit details, credential routes, tenant IDs, sensitive operational data, security-critical internals, private backup routes, and proof-query transcripts in `COMMENT ON`.
+- Operational drift: migration status, rollout windows, and rollback plans in `COMMENT ON`.
+- Catalog visibility miss: any connected database user can see database-object comments, and connected cluster users can see shared-object comments.
+- Catalog drift: hand-maintained data dictionaries that duplicate catalog comments, source comments for durable schema meaning, and blanket comments like `user id`.
+- Weak description calls: `obj_description(oid)` without catalog identity and one-argument `obj_description(oid)`.
+- Security/freshness gaps: RLS prose without policy comments plus verification route and materialized-view comments that omit freshness and refresh contract.
+
+[SYNTAX_CUE]:
+- Syntax cue: `COMMENT ON TABLE app.account_event IS 'Append-only account event ledger.';`.
 
 ## [7][LIFECYCLE_REFERENCES]
 
