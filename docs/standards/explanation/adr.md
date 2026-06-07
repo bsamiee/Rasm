@@ -326,7 +326,7 @@ Class-specific adjacent updates keep the decision from drifting into the wrong r
 [EXPLANATION_TYPES]:
 - [design-doc.md](design-doc.md) carries proposal discussion before acceptance; link it when an ADR derives from an accepted design.
 - [architecture.md](architecture.md) carries current structure and invariants; link it when the ADR confirms, changes, or supersedes a structural boundary.
-- [roadmap.md](roadmap.md) carries build sequence and milestone exit proof; link it only when implementation sequencing remains active.
+- [roadmap.md](roadmap.md) carries build sequence, task identity, and task exit proof; link it only when implementation sequencing remains active.
 - [test-strategy.md](test-strategy.md) carries confirmation-gate taxonomy and reusable test proof policy.
 - [api.md](../reference/api.md), [reference.md](../reference/reference.md), and [code-documentation.md](../reference/code-documentation.md) own public-contract, lookup, and source-symbol documentation.
 

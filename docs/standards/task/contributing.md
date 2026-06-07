@@ -11,7 +11,7 @@ Route away adjacent concerns before authoring the workflow:
 [WORKFLOW_ROUTES]:
 - readiness, first safe tasks, and ramp sequence go to onboarding.
 - normal procedures go to how-to guides.
-- implementation sequence, task lists, blockers, and milestone exit proof go to roadmaps.
+- implementation sequence, task lists, blockers, and task exit proof go to roadmaps.
 - operational symptoms and recovery go to runbooks.
 - gate taxonomy, flake policy, and portfolio proof go to test strategy.
 - supported versions, platforms, and compatibility windows go to support matrices.
@@ -281,7 +281,7 @@ These adjacent standards own routed material:
 - [how-to.md](how-to.md) carries normal repeatable procedures.
 - [runbook.md](runbook.md) carries operational symptom-to-fix procedures, rollback, escalation, communication, and evidence capture.
 - [onboarding.md](../learning/onboarding.md) carries agent ramp, read-first path, constraints, first safe action, validation, and stop rules.
-- [roadmap.md](../explanation/roadmap.md) carries implementation sequence, milestone and task records, blockers, documentation handoffs, progress, and exit proof.
+- [roadmap.md](../explanation/roadmap.md) carries implementation sequence, milestone umbrellas, task records, blockers, documentation handoffs, optional progress, and task exit proof.
 
 [POLICY_PROOF]:
 - [proof.md](../proof.md) carries evidence strength and claim-level reporting for workflows, enforced conventions, sign-off, pull requests, and unrun gates.
@@ -309,7 +309,7 @@ Use this verification checklist by group:
 [ROUTES_STRUCTURE]:
 - [ ] Review rules keep normal collaboration public and require every comment to receive a response.
 - [ ] Documentation-change triggers route new docs through the standards corpus by topic and use the relation record only when docs travel with the change.
-- [ ] Roadmap task lists, blockers, progress, and milestone exit proof stay in roadmap documents.
+- [ ] Roadmap task lists, blockers, optional progress, and task exit proof stay in roadmap documents.
 - [ ] `Getting help` appears only for contribution blockers and routes support, onboarding, incidents, repository policy, roadmap task negotiation, and security reports elsewhere.
 - [ ] Security reporting points to a private or coordinated route without becoming a security-policy template.
 - [ ] Selector, gate, and review-profile forms match their row count: table for comparable sets, definition block for one record.

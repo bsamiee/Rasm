@@ -185,7 +185,7 @@ Architecture path-state markers use this closed vocabulary when bracketed inline
 - `[PROVISIONAL]`: path is current but not yet stable enough to treat as ordinary structure.
 - `[DEPRECATED]`: path remains readable or callable only under a source-backed support rule.
 
-When a marker needs a local source reference, append the source key inside the same brackets after the base token: `[ACTIVE M<N>]`, `[BLOCKED ADR-NNNN]`, or `[DEPRECATED SUPPORT-<KEY>]`. Status table cells keep only the base token so filtering stays exact; the adjacent source column carries the reference.
+When a marker needs a local source reference, append the source key inside the same brackets after the base token: `[ACTIVE <TASK-ID>]`, `[BLOCKED ADR-NNNN]`, or `[DEPRECATED SUPPORT-<KEY>]`. Status table cells keep only the base token so filtering stays exact; the adjacent source column carries the reference.
 
 A useful codemap shows structure, route, project identity, and status in one place:
 
@@ -202,7 +202,7 @@ A useful codemap shows structure, route, project identity, and status in one pla
 │   ├── <file-f>                                   # FILE NOTES
 │   └── <file-g>                                   # FILE NOTES
 ├── <folder-c>/                                    # FOLDER NOTES
-│   ├── <file-h>                  [ACTIVE M<N>]    # STATUS NOTES
+│   ├── <file-h>        [ACTIVE <TASK-ID>]          # STATUS NOTES
 │   ├── <file-i>                                   # FILE NOTES
 │   └── <nested-folder-b>/                         # NESTED FOLDER NOTES
 │       └── <nested-folder-c>/                     # NESTED FOLDER NOTES
@@ -219,7 +219,7 @@ When status appears in the tree, add a path-state table and codemap source block
 
 | [INDEX] | [PATH]               | [STATE]      | [READ_AS]     | [SOURCE]     | [UPDATE]     | [REMOVE]             |
 | :-----: | :------------------- | :----------- | :------------ | :----------- | :----------- | :------------------- |
-|   [1]   | `<execution-worker>` | [ACTIVE]     | moving route  | roadmap M<N> | M<N> or path | M<N> is `COMPLETE`   |
+|   [1]   | `<execution-worker>` | [ACTIVE]     | moving route  | roadmap task | task or path | task is `[COMPLETE]` |
 |   [2]   | `<retained-reader>`  | [DEPRECATED] | support reads | support row  | support row  | support is `Retired` |
 
 ```text template
@@ -274,7 +274,7 @@ flowchart LR
     Host["external callback"] --> Ingress["<entrypoint>"]
     Ingress --> Validator["<validator>"]
     Validator --> Contract["<contract-artifact>"]
-    Validator --> Worker["<worker> [ACTIVE M<N>]"]
+    Validator --> Worker["<worker> [ACTIVE <TASK-ID>]"]
     Worker --> Store["<store>"]
     Legacy["<legacy-reader> [DEPRECATED]"] -. "migration reads only" .-> Store
 ```
@@ -348,10 +348,10 @@ Rule: accepted writes pass through `<worker>`.
 Forbids: `Admission/` calling `<store>` write APIs directly.
 Check: dependency gate or review check rejects `Admission/ -> Storage/` write paths.
 Adjacent relation:
-    Changed fact: M<N> moves execution routing while the dependency gate is being wired.
-    Consumed by: roadmap M<N> and test-strategy dependency gate.
+    Changed fact: <TASK-ID> moves execution routing while the dependency gate is being wired.
+    Consumed by: roadmap task <TASK-ID> and test-strategy dependency gate.
     Use in this document: the invariant is enforced as a current architecture boundary while work is in progress.
-    Update when: M<N> closes, defers, or the dependency gate changes.
+    Update when: <TASK-ID> closes, defers, or the dependency gate changes.
     Close when: the architecture invariant no longer depends on roadmap or test-strategy status.
     Route-away: milestone tasks and gate taxonomy stay in roadmap and test strategy.
 ```
@@ -398,7 +398,7 @@ Do not claim a representation reflects code unless its paths, manifests, contrac
 [EXPLANATION_TYPES]:
 - [adr.md](adr.md) carries why a durable architecture choice was made.
 - [design-doc.md](design-doc.md) carries proposed architecture changes before acceptance.
-- [roadmap.md](roadmap.md) carries implementation sequence, task IDs, progress, dependencies, and exit proof.
+- [roadmap.md](roadmap.md) carries implementation sequence, milestone umbrellas, task IDs, dependencies, optional progress, and task exit proof.
 - [test-strategy.md](test-strategy.md) carries gate taxonomy, flake policy, and test proof vocabulary.
 
 [TASK_REFERENCE_TYPES]:

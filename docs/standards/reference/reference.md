@@ -191,7 +191,7 @@ Route changed reference facts by the first route whose reader action changes:
 |   [2]   | command flag, lookup value, replacement, package posture, source key             | [reference.md](reference.md)                      |
 |   [3]   | ordered procedure input, verification, migration step                            | [how-to.md](../task/how-to.md)                    |
 |   [4]   | current path, dependency, scope boundary, invariant, generated-contract boundary | [architecture.md](../explanation/architecture.md) |
-|   [5]   | future sequence, milestone, exit proof, deferred work, removal timing            | [roadmap.md](../explanation/roadmap.md)           |
+|   [5]   | future sequence, milestone umbrella, task exit proof, deferred work, removal timing | [roadmap.md](../explanation/roadmap.md)        |
 |   [6]   | lifecycle, compatibility, support, deprecation policy                            | [support-matrix.md](support-matrix.md)            |
 |   [7]   | operational symptom, rollback, recovery                                          | [runbook.md](../task/runbook.md)                  |
 |   [8]   | public symbol semantics, source comments, generated anchors                      | [code-documentation.md](code-documentation.md)    |

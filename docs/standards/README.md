@@ -71,7 +71,7 @@ Map the reader need to the artifact. Route-away cells name the standards that sh
 |   [1]   | current structure       | [architecture](explanation/architecture.md)   | [ADR](explanation/adr.md), task routes                |
 |   [2]   | durable decision        | [ADR](explanation/adr.md)                     | [design](explanation/design-doc.md), architecture     |
 |   [3]   | proposal review         | [design](explanation/design-doc.md)           | [ADR](explanation/adr.md), architecture               |
-|   [4]   | milestone exit proof    | [roadmap](explanation/roadmap.md)             | release route, [support](reference/support-matrix.md) |
+|   [4]   | task sequence and proof | [roadmap](explanation/roadmap.md)             | release route, [support](reference/support-matrix.md) |
 |   [5]   | gate policy             | [test strategy](explanation/test-strategy.md) | [how-to](task/how-to.md), [runbook](task/runbook.md)  |
 |   [6]   | entrypoint or hub       | [README](reference/readme.md)                 | [reference](reference/reference.md), tutorial         |
 |   [7]   | lookup truth            | [reference](reference/reference.md)           | [how-to](task/how-to.md), tutorial                    |
@@ -189,7 +189,7 @@ These anti-patterns fall into three groups:
 |   [2]   | callable contracts            | [API](reference/api.md)                               |
 |   [3]   | lookup facts                  | [reference](reference/reference.md)                   |
 |   [4]   | source-symbol semantics       | [code documentation](reference/code-documentation.md) |
-|   [5]   | future work and exit criteria | [roadmap](explanation/roadmap.md)                     |
+|   [5]   | future work and task exit proof | [roadmap](explanation/roadmap.md)                   |
 |   [6]   | failure response              | [runbook](task/runbook.md)                            |
 |   [7]   | contribution workflow         | [contributing](task/contributing.md)                  |
 

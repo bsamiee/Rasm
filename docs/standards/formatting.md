@@ -16,7 +16,7 @@ Container selection, table construction, and structured-record fields belong to 
 
 ## [2][STATUS_RESULT_MARKERS]
 
-Render an inline status, result, change, or compact state as a bracketed token so an agent can filter on an exact string. Use a closed set; do not invent tokens, emojis, checkmarks, crossmarks, or decorative alternates. A record's `Status:` field carries the plain lifecycle value the form standard defines (`COMPLETE`, `BLOCKED`); the bracketed form is for inline use.
+Render an inline status, result, change, or compact state as a bracketed token so an agent can filter on an exact string. Use a closed set; do not invent tokens, emojis, checkmarks, crossmarks, or decorative alternates. By default, a record's `Status:` field carries the plain lifecycle value the form standard defines (`COMPLETE`, `BLOCKED`); a type standard may require the bracketed lifecycle marker in `Status:` when exact rendered filtering is part of that produced record's contract.
 
 [TOKEN_FAMILIES]:
 
@@ -68,7 +68,7 @@ Token use is separate from the closed set so the table remains scannable:
 [USE_RULES]:
 - Prefer the most specific family. Do not use two tokens that mean the same thing in one column.
 - Keep domain status vocabularies in their declared casing as field values; bracketed inline lifecycle markers uppercase the canonical token and replace spaces with hyphens. A type-local marker such as `[PROVISIONAL]` or `[DEPRECATED]` is valid only when the type standard declares that marker's closed vocabulary, meaning, and removal behavior before the first rendered example or production use.
-- Suffix forms such as `[ACTIVE M<N>]` are allowed only as codemap or source-key projections where the suffix identifies a source route, milestone, path, or row key. The base token must still come from a declared vocabulary, and the suffix must not create lifecycle meaning.
+- Suffix forms such as `[ACTIVE <ID>]` are allowed only as codemap or source-key projections where the suffix identifies a source route, milestone, task, path, or row key. The base token must still come from a declared vocabulary, and the suffix must not create lifecycle meaning.
 - Use compact glyphs only where density matters, such as validation lists, delta summaries, or table cells, and only with the global meanings above.
 - Use explicit states when clarity matters more than width.
 - Reserve these tokens for status, result, change, and state reporting; do not scatter bracketed tokens through ordinary prose or duplicate a definition-block field or checkbox state.
@@ -86,6 +86,7 @@ Render progress as a bar only after [information-structure.md](information-struc
 - Percentage calculation: `floor(100 * numerator / denominator)`.
 - Fill calculation: `floor(20 * numerator / denominator)`.
 - Closure: show `100%` and fill all 20 cells only when numerator equals denominator.
+- Roadmap records use the same 20-cell rule when they render progress; task proof and milestone completion basis stay in roadmap fields, not appended to the progress line.
 
 [PROGRESS_EDGE_CASES]:
 

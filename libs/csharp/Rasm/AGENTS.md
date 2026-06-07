@@ -12,7 +12,7 @@ Build reusable category logic for analysis, vectors, detection, orientation, tra
 
 - When adding shared validation, context, ownership, statistics, acceptance, projection, or geometry-identity behavior, read `Domain/` to find the reusable owner.
 - When changing `Analysis/`, read `Analysis/Analyze.cs`; preserve `IAspect`, `Operation<TGeometry,TOut>`, and `Analyze.Run` as the singular execution rail.
-- When changing Vectors projection, sampling, extraction, receipt, or algorithm entrypoints, read `Vectors/_ARCHITECTURE.md` and `Vectors/Intent.cs`; preserve `VectorIntent.Project<TOut>(Context, Op?)` as the consumer projection rail and `ExtractionDomain` plus `SampleKind` as the sampling/extraction rail unless architecture has moved the owner.
+- When changing Vectors projection, sampling, extraction, receipt, or algorithm entrypoints, read `Vectors/Intent.cs`; preserve `VectorIntent.Project<TOut>(Context, Op?)` as the consumer projection rail and `ExtractionDomain` plus `SampleKind` as the sampling/extraction rail unless architecture has moved the owner.
 - When changing BCL, `System.*`, or package policy, read `docs/stacks/csharp/platform/`.
 - When adding numerical or symbolic behavior, read `docs/stacks/csharp/numeric-algorithms.md` and `docs/stacks/csharp/sparse-factorization.md`.
 - When native runtime behavior is required for mesh, plane, unwrap, remesh, SDF, validity, or host predicates, read `tests/csharp/AGENTS.md`, `tests/csharp/libs/AGENTS.md`, and `tools/rhino-bridge/AGENTS.md`; route native success to source-owned bridge scenarios instead of static xUnit.
@@ -40,7 +40,3 @@ Build reusable category logic for analysis, vectors, detection, orientation, tra
 - No Vectors UI, preview, command, GH2 parameter, bake, product workflow, or app receipt surface; host and product packages consume vector receipts and projections through their own rails.
 - No hardcoded invisible policy values; use named policies, native defaults, typed receipts, or caller input.
 - No exposure of fixed kernel/native choices as public knobs unless they execute and change behavior.
-
-## [6][STOP_RULES]
-
-If `Domain`, `Analysis`, `Vectors`, MathNet/CSparse member semantics, Rhino predicate semantics, or native runtime behavior is unproved, stop before adding a public rail; route source proof to `Vectors/_ARCHITECTURE.md`, `docs/stacks/csharp/numeric-algorithms.md`, `docs/stacks/csharp/sparse-factorization.md`, `docs/stacks/csharp/platform/`, or source-owned bridge scenarios.

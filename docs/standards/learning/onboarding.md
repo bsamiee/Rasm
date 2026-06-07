@@ -261,7 +261,7 @@ These adjacent standards own routed material:
 
 [EXPLANATION_REFERENCE_TYPES]:
 - [architecture.md](../explanation/architecture.md) carries current structure, dependency direction, and invariants.
-- [roadmap.md](../explanation/roadmap.md) carries future-work sequence and milestone exit proof.
+- [roadmap.md](../explanation/roadmap.md) carries future-work sequence, task identity, and task exit proof.
 - [api.md](../reference/api.md) carries generated or contract-backed API truth.
 - [code-documentation.md](../reference/code-documentation.md) carries public-symbol comments and generated source-reference contracts.
 - [support-matrix.md](../reference/support-matrix.md) carries support status, lifecycle, platform, version, and compatibility truth.

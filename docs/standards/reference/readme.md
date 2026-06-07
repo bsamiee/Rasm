@@ -416,7 +416,7 @@ Root README correction: a root `## Commands` section that copies build, runtime,
 [TASK_LEARNING_ROUTES]:
 - [tutorial.md](../learning/tutorial.md) carries learning paths.
 - [runbook.md](../task/runbook.md) carries operational recovery.
-- [roadmap.md](../explanation/roadmap.md) carries future-work sequence and milestone exit proof.
+- [roadmap.md](../explanation/roadmap.md) carries future-work sequence, task identity, and task exit proof.
 - [contributing.md](../task/contributing.md) carries contribution workflow and pull-request evidence.
 
 ## [12][VALIDATION]

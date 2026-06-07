@@ -223,7 +223,7 @@ Kind: contract
 Depends: —
 Check focus: breaking-change shape
 Rollback boundary: revert generated schema diff
-Roadmap milestone: roadmap M<N> when this slice becomes dated work
+Roadmap milestone: roadmap `<AREA>-000` when this slice becomes dated work
 Proof gate: contract gate evidence, or proof gap
 ```
 

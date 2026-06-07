@@ -179,7 +179,7 @@ Concrete status values stay in the type standard that validates the produced doc
 - Per-item record block: H3 item identifier plus fields, one `label: value` per line.
 - Escalate from record table to per-item record blocks when any item has more than 5 fields, any field needs a list or code block, or items are updated independently over the document's life.
 - Adjacent-document relation record: use only when another maintained document changes reader action, proof, status interpretation, validation, or maintenance; put it beside the section that consumes the adjacent fact and delete it when the fact no longer affects this document.
-- Task ID: use only when another task, milestone, proof receipt, dependency edge, or adjacent document references the item. Put the stable ID at the front of the item, such as `[M<N>]` or `[ADR-NNNN]`; do not issue IDs merely because a list is numbered.
+- Task ID: use only when another task, milestone, proof receipt, dependency edge, or adjacent document references the item. Put the stable ID at the front of the item, such as `[<AREA>-010]` or `[ADR-NNNN]`; do not issue IDs merely because a list is numbered.
 - Progress: represent progress only when the document states the numerator, denominator, closure rule, and proof surface before the marker. The rendered progress marker uses [formatting.md](formatting.md); counts, closure units, and proof details stay in surrounding fields. Percentages, bars, phases, and complexity values are valid only when the document defines the calculation or decision rule they measure.
 
 Use this relation-record field order exactly:
@@ -195,6 +195,7 @@ Route-away: <body of work that remains in the adjacent standard>
 
 [CHECKLISTS]:
 - Verification checklist: author self-check of observable, falsifiable conditions; item text only, no route or completion evidence. The validation section closing each standard uses this form.
+- Final `VALIDATION` sections are verification checklists and use checkbox items. Produced-document skeletons, required-section inventories, cardinality rules, and vocabulary definitions may name a future `Validation` heading, but they are not validation checklists and must stay under the owning structure section rather than a live `VALIDATION` heading.
 - Acceptance checklist: external gate; each item carries an `Exit` condition. Completion evidence is added on completion through the field label defined by [proof.md](proof.md).
 - Status checklist: living tracker; each item carries `Status` and, where they exist, `Depends` and proof fields.
 - Checklist items use `- [ ]` or `- [x]`, never plain bullets, when completion is asserted and verified.
@@ -415,6 +416,7 @@ Render page shape as 3 separate jobs: standard file anatomy, type-standard openi
 - `Examples`: conditional; include only where misuse is likely.
 - Conditional sections: add with `## [N][<CONDITIONAL_SECTION>]` only when the condition holds.
 - Every long standard needs a chooser, boundaries, and a validation section.
+- A live `VALIDATION` section is the closing verification checklist for the current standard or document. A required-structure template may include a future `Validation` heading inside the template, but rule lists that describe required sections, field cardinality, or vocabulary behavior stay under `Section cardinality` or the relevant type-standard owner.
 
 [TYPE_STANDARD_OPENING]:
 1. Purpose and boundary in the lead.

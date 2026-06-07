@@ -122,6 +122,7 @@ Use this verification checklist by group:
 - [ ] Root-file findings use the 4 shared axes: form, craft, evidence, notation.
 - [ ] Each finding names path plus line or section, axis, issue, correction task, rule or standard to tighten, and proof gap when applicable.
 - [ ] Poor information representation was identified before rewriting, then fixed in scope or routed away.
+- [ ] Roadmap edits check semantic milestone/task separation, bracketed task lifecycle status, task reference material, progress basis when progress is rendered, handoff records, terminal-work records, and checkbox final validation where roadmap surfaces are in scope.
 
 [ROUTING_PRESERVATION]:
 - [ ] Each changed rule routes to one owner.

@@ -12,6 +12,7 @@ Scope: `docs/stacks/csharp/**`. Parent instructions and `docs/standards` own gen
 - When changing package graph, globals, host references, tools, analyzers, or package admission, read `platform/build-and-packages.md` and the relevant manifest.
 - When changing BCL or `System.*` replacement guidance, read `platform/system-apis.md` and route package adoption to `platform/build-and-packages.md`.
 - When changing test-tool behavior, proof-rail selection, or test package guidance, read `testing/README.md` and the concern page that owns the proof rail.
+- When changing C# stack concept sequencing, future concept-page admission, or reusable implementation-policy milestones, read `ROADMAP.md` and extend its milestone or task records instead of copying sequence state into this overlay or concept pages.
 - When changing cross-stack precedence, read `docs/usage/`; when changing host SDK semantics, read `docs/hosts/` where present.
 
 ## [2][TARGETS]

@@ -390,7 +390,7 @@ Do not create a shared support folder by implication inside this standard.
 - [code-documentation.md](code-documentation.md) carries public symbol semantics when support or deprecation changes caller-visible source comments.
 
 [PLANNING_TASK_ROUTES]:
-- [roadmap.md](../explanation/roadmap.md) carries future support intent and milestone exit proof.
+- [roadmap.md](../explanation/roadmap.md) carries future support intent, task identity, and task exit proof.
 - [how-to.md](../task/how-to.md) carries step-by-step migration procedures.
 - [runbook.md](../task/runbook.md) carries operational recovery for support-impacting incidents.
 - [README.md](../README.md) carries document-type routing, placement, and lifecycle.
