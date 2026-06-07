@@ -179,6 +179,7 @@ README section cardinality uses these groups:
 - `Machine contract`: conditional when stdout, stderr, exit codes, durable artifacts, or external state are consumed by agents, CI, automation, or another tool. Summarize the stable shape and one verification signal; route field-by-field schema, status algebra, and typed variants away.
 - `Integrations`: conditional when external tools, package managers, env vars, services, filesystem backends, telemetry, runtime hosts, or automation hooks change operation. Name what the integration enables and the reader action it changes; route full configuration matrices away.
 - `Diagram`: conditional when a Mermaid or image diagram explains command flow, boundary crossing, lifecycle, ownership, or machine contract faster than prose. Diagrams are encouraged when they answer one reader question, not mandatory decoration.
+- Architecture diagram fallback: allowed only when no sibling `ARCHITECTURE.md` exists and the README opens a small scope whose current structure fits summary depth. Promote the diagram to `ARCHITECTURE.md` when the scope gains multiple entrypoints, generated contracts, dependency rules, nontrivial flow, or roadmap-status overlays.
 - `Replacement/adoption`: conditional when a README covers a tool, alias, package, or operator replacing another surface, especially before repo policy has fully migrated. Name `Replaces`, `Current policy`, `Use now`, `Migration blocker`, `Update when`, and `Route deeper`.
 - `Command reference link`: optional for generated or exhaustive command families after the curated README surface.
 - `Output`: conditional when the tool writes files, captures, external state, durable artifacts, or machine-readable streams.
@@ -214,6 +215,7 @@ A README must carry the facts its profile needs and no deeper route's body.
 - Curated operating surface: when the boundary is a multi-command tool or service, include the command families, flags, integrations, and caveats that change first-use or safe operation. Keep this at summary depth; do not paste generated help.
 - Machine contract: when output is consumed by agents, CI, automation, or tools, summarize stdout, stderr, exit behavior, durable artifacts, and the verification signal.
 - Diagrams: include diagrams only when they clarify flow, ownership, lifecycle, or machine contract; provide nearby text equivalent and keep them render-validated.
+- Architecture fallback: if no sibling `ARCHITECTURE.md` exists, a small-scope README may include a compact current codemap, flow, or ownership diagram; route planned structure and task state to `.planning/` or roadmap rather than the README.
 - License: name the SPDX identifier and route for any published repository.
 - Tool side effects: name output, artifact, or external-state locations and the verification signal.
 
@@ -221,13 +223,13 @@ When the README's first path, status, constraints, entrypoints, curated command 
 
 Use this surface-split selector. Rows name ownership routes, not inventories:
 
-| [INDEX] | [SURFACE]                    | [README_KEEPS]                       | [ROUTE_AWAY]                       |
-| :-----: | :--------------------------- | :----------------------------------- | :--------------------------------- |
-|   [1]   | `README.md`                  | boundary, first path, status, routes | exhaustive catalogs and workflows  |
-|   [2]   | `AGENTS.md`                  | agent route link                     | read order, invariants, gates      |
-|   [3]   | `ARCHITECTURE.md`           | current-structure link               | codemaps, matrices, invariants     |
-|   [4]   | API/reference/code docs      | generated or lookup route link       | commands, schemas, symbols, fields |
-|   [5]   | runbook/contributing/roadmap | recovery, PR, or sequence route link | workflows, blockers, deferred work |
+| [INDEX] | [SURFACE]                    | [README_KEEPS]                       | [ROUTE_AWAY]                          |
+| :-----: | :--------------------------- | :----------------------------------- | :------------------------------------ |
+|   [1]   | `README.md`                  | boundary, first path, status, routes | exhaustive catalogs and workflows     |
+|   [2]   | `AGENTS.md`                  | agent route link                     | read order, invariants, gates         |
+|   [3]   | `ARCHITECTURE.md`            | current-structure link               | codemaps, matrices, invariants        |
+|   [4]   | API/reference/code docs      | generated or lookup route link       | commands, schemas, symbols, fields    |
+|   [5]   | runbook/contributing/roadmap | recovery, PR, or sequence route link | workflows, active work, terminal work |
 
 README files do not use invocation markers such as `[CRITICAL]`, `[ALWAYS]`, or `[NEVER]`; those belong in instruction surfaces.
 
@@ -410,6 +412,7 @@ Root README correction: a root `## Commands` section that copies build, runtime,
 - [README.md](../README.md) carries document-type routing, placement, splitting, and lifecycle.
 - [AGENTS.md](../AGENTS.md) carries agent read order, behavioral overlays, forbidden patterns, and validation gates.
 - [architecture.md](../explanation/architecture.md) carries current structure and invariants.
+- [roadmap.md](../explanation/roadmap.md) carries `.planning/` roadmap shape and planning-file boundaries.
 - [api.md](api.md) carries generated endpoint and symbol catalogs.
 - [reference.md](reference.md) carries fact lookup leaves.
 
@@ -445,6 +448,7 @@ Use this verification checklist by group:
 - [ ] Machine contracts summarize stdout, stderr, exit behavior, artifacts, and streams when those are consumed by agents, CI, automation, or tools.
 - [ ] Integration rows name the reader action changed by each tool, backend, service, env var, or runtime hook.
 - [ ] Diagrams answer one route, flow, ownership, lifecycle, or machine-contract question and have nearby text equivalent.
+- [ ] README architecture diagrams appear only without a sibling `ARCHITECTURE.md`, stay current-only, and promote when architecture complexity exceeds summary depth.
 - [ ] Replacement/adoption records name the retired surface, current policy, use-now route, migration blocker, update trigger, and deeper route.
 - [ ] Route cards and package or tool entry cards appear only when they make maintained routes denser than prose.
 - [ ] Tool README command coverage stays curated; deeper generated help, API, runbook, architecture, source, and maintenance bodies are linked to their routes.

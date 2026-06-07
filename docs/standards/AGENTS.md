@@ -6,7 +6,7 @@ This file governs edits inside `docs/standards/**`. It is a behavioral overlay f
 
 These instructions extend `CLAUDE.md` and the root `AGENTS.md`; they do not replace them. They apply only to the standards authoring corpus under `docs/standards/**`.
 
-The active corpus is the current root, shared, and type standards listed by [README.md](README.md). Exclude `_reports/**` and any folder explicitly marked deprecated by a trusted local instruction or route owner unless the task names that source material.
+The active corpus is the current root, shared, and type standards listed by [README.md](README.md). Exclude `.reports/**` and any folder explicitly marked deprecated by a trusted local instruction or route owner unless the task names that source material.
 
 Reports, critique passes, memory notes, prompt assets, session history, external research, and deprecated source material are source material only. Promote only durable rules into the owning standard, and do not copy report transcripts, roles, confidence, task framing, fixed wave counts, or report structure into the active standards corpus.
 
@@ -18,12 +18,12 @@ Before every `docs/standards/**` file change, use the active instruction chain, 
 | :-----: | :------------------ | :----------------------------------------------- | :--------------------------------------------------------- |
 |   [1]   | Root audit or edit  | active root standards                            | routing, boundaries, instruction prose, audit rules        |
 |   [2]   | Narrow type edit    | needed shared owners, type family                | adjacent status, proof, produced-structure behavior        |
-|   [3]   | Named `_reports/**` | `_reports/AGENTS.md`, named reports              | reusable report promotion                                  |
+|   [3]   | Named `.reports/**` | `.reports/AGENTS.md`, named reports              | reusable report promotion                                  |
 |   [4]   | Cross-stack claim   | active repository instruction route, proof route | owner precedence, source evidence, implementation, tooling |
 
 Before rewriting, identify poor information representation: prose hiding lookup data, prose-like tables, one-row tables, duplicated table or diagram bodies, decorative diagrams, missing relation records, empty conditional headings, stale links, and decorative proof fields. Fix the problem in scope or route it away explicitly.
 
-When standards work creates or updates a reusable `_reports/` session, update or verify the nearest non-root `AGENTS.md` for that folder and keep report naming, track numbering, correction, promotion, and pruning mechanics in that `_reports/AGENTS.md` leaf.
+When standards work creates or updates a reusable `.reports/` session, update or verify the owning folder's main `AGENTS.md` only when it needs a local report trigger or promotion route, and keep report naming, track numbering, correction, promotion, and pruning mechanics in that `.reports/AGENTS.md` leaf.
 
 ## [3][RULE_OWNERS]
 
@@ -115,14 +115,14 @@ Use this verification checklist by group:
 
 [READ_SCOPE]:
 - [ ] The task mode selected the correct read set before edits.
-- [ ] `_reports/**` stayed excluded unless the task named it.
+- [ ] `.reports/**` stayed excluded unless the task named it.
 - [ ] Root-file audits or edits read every active root standards file in scope, excluding [agents-md.md](agents-md.md) only when the task explicitly excludes it.
 
 [ROOT_AUDIT]:
 - [ ] Root-file findings use the 4 shared axes: form, craft, evidence, notation.
 - [ ] Each finding names path plus line or section, axis, issue, correction task, rule or standard to tighten, and proof gap when applicable.
 - [ ] Poor information representation was identified before rewriting, then fixed in scope or routed away.
-- [ ] Roadmap edits check semantic milestone/task separation, bracketed task lifecycle status, task reference material, progress basis when progress is rendered, handoff records, terminal-work records, and checkbox final validation where roadmap surfaces are in scope.
+- [ ] Roadmap edits check neutral milestone/phase/task IDs, task-only lifecycle status, nested active-work trees, task reference material, progress basis when progress is rendered, terminal-work records, and checkbox final validation where roadmap surfaces are in scope.
 
 [ROUTING_PRESERVATION]:
 - [ ] Each changed rule routes to one owner.

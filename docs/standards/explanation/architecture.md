@@ -4,6 +4,8 @@ An architecture document helps an agent understand the code scope it is about to
 
 The controlling rule: architecture starts from code. The primary representation is a dense text codemap built from real paths, project files, package manifests, generated outputs, public contracts, and entrypoints. Diagrams are secondary and show relationships that a directory tree cannot: how work enters the scope, how calls or data flow, what depends on what, which boundary is forbidden, and where a roadmap item temporarily changes the current reading.
 
+Normal `ARCHITECTURE.md` files are current-only. A `.planning/ARCHITECTURE.md` file may show planned structure only when it names the roadmap or design source, current anchor, promotion target, and removal trigger that keep the planned view from becoming stale current truth.
+
 ## [1][USE_WHEN]
 
 Use an architecture document when a future agent must understand a maintained code area before changing it:
@@ -18,7 +20,7 @@ Route decision rationale to [adr.md](adr.md), proposed change review to [design-
 
 [AUTHORING_CONTRACT]:
 - Agent use: locate the code scope, decide whether a file belongs to the scope, preserve dependency direction, and verify that represented paths still match repository truth.
-- Required produced structure: lead, codemap, scope boundary, project identity, contracts/generated truth, entrypoints and flows, dependency direction, invariants, status overlays, proof, boundaries, and validation.
+- Required produced structure: lead, codemap, scope boundary, project identity, contracts/generated truth, entrypoints and flows, dependency direction, invariants, status overlays, proof, boundaries, and validation; planning architecture adds planned-view records only inside `.planning/ARCHITECTURE.md`.
 - Section cardinality: one scope boundary, one project identity, one codemap, one proof section, one boundaries section, and only diagrams or status overlays whose trigger changes code reading.
 - Adjacent checks: roadmap for sequence and status, ADR/design for why or proposed changes, API/reference/code docs for public surfaces, support matrix for lifecycle, test strategy for proof gates, runbook for operations.
 - Maintenance triggers: path move, project or manifest change, generated output change, public contract change, entrypoint change, dependency edge change, invariant change, support row change, or roadmap status change.
@@ -41,6 +43,16 @@ Choose the narrowest code scope that lets the reader make a safe edit. This is p
 |   [4]   | small directory with one entrypoint           | parent `README.md` section | compact codemap and one invariant record                    |
 
 Keep one architecture route per code scope. If two documents explain the same package or folder, merge them or route one to the other. Promote a README section to `ARCHITECTURE.md` when the directory gains a project file, package manifest, generated contract, more than one entrypoint, nontrivial flow, dependency rule, or roadmap-status overlay.
+
+Planning placement is narrower:
+
+| [INDEX] | [PLANNING_SCOPE]                         | [PLACE_ARCHITECTURE_HERE]           | [MUST_EXPLAIN]                                              |
+| :-----: | :--------------------------------------- | :---------------------------------- | :---------------------------------------------------------- |
+|   [1]   | scope-local planned sequence             | `<scope>/.planning/ARCHITECTURE.md` | current anchor, planned structure, source, promotion target |
+|   [2]   | ordinary current structure               | scope `ARCHITECTURE.md`             | current paths, current flows, current invariants            |
+|   [3]   | tiny current directory without own route | parent `README.md` section          | compact codemap and one invariant record                    |
+
+Do not put planned structure in an ordinary sibling `ARCHITECTURE.md`. Do not create a planning architecture without a sibling roadmap, design, or `SPEC.<slug>.md` source that changes current task action.
 
 ## [3][REQUIRED_STRUCTURE]
 
@@ -83,6 +95,10 @@ Add these conditional sections only when their trigger applies:
 
 <Insert after `Entrypoints and flows` only when process, host, device, worker, generated runtime, or resource placement changes code routing or proof.>
 
+## [N][PLANNED_VIEW]
+
+<Insert after `Status and roadmap` only inside `.planning/ARCHITECTURE.md` when a roadmap, design, or `SPEC.<slug>.md` source defines planned structure that agents must use before implementation.>
+
 ## [N][GLOSSARY]
 
 <Insert before `Boundaries` only when names cannot be inferred from paths, manifests, contracts, or public symbols.>
@@ -113,6 +129,8 @@ Each produced section carries one agent action:
 |   [9]   | `Proof`                         | verify representations against code             | represented path, manifest, node, contract, or edge   |
 
 Do not add a section for a concern that has no current reader action. Do not keep a status note after the path becomes ordinary current structure or pure release history.
+
+`Planned view` is a planning-architecture-only reader action. It lets an agent compare the current anchor against planned paths, flows, dependency edges, or invariants before executing a roadmap task. It is rejected in ordinary current architecture.
 
 ## [5][SCOPE_BOUNDARY]
 
@@ -376,6 +394,21 @@ Route-away: <task, progress, proposal, incident, support body, or proof taxonomy
 
 If a milestone changes both structure and flow, show it in both representations only when each representation carries a distinct reader job: the codemap path-state row carries removal and adjacent proof, and the flow label carries behavior reading. Do not repeat task counts, progress, dates, or proof in both places. Progress, task counts, dates, and completed history stay in the roadmap or release route.
 
+[PLANNING_ARCHITECTURE]:
+Use `.planning/ARCHITECTURE.md` when planned structure must be visible before implementation. The planned view is not current truth. Each planned record carries:
+
+```text template
+Planned structure: <path, flow, dependency edge, invariant, generated output, or boundary>
+Current anchor: <current path, manifest, flow, invariant, proof gap, or absence that the plan changes>
+Source: <roadmap task, design section, `SPEC.<slug>.md#<anchor>`, ADR, or proof gap>
+Use now: <edit, compare, avoid, prepare, verify, or route action>
+Promotion target: <ordinary `ARCHITECTURE.md`, README section, source path, generated reference, or deletion>
+Promote when: <task completion, implementation proof, generated artifact, source change, or decision acceptance>
+Remove when: <planned structure is promoted, dropped, canceled, or no longer changes current task action>
+```
+
+Planning architecture may include planned codemaps or diagrams only when each planned node maps to a current anchor or explicit absence. Planned rows never replace current codemap proof. When the planned structure lands, promote only the current facts to the ordinary architecture route and delete the planning-only rows.
+
 ## [13][PROOF]
 
 Architecture proof is representation-level. Place proof beside each drift-prone codemap, path-state row, entrypoint table, diagram, dependency matrix, invariant, generated contract, or status record.
@@ -398,8 +431,9 @@ Do not claim a representation reflects code unless its paths, manifests, contrac
 [EXPLANATION_TYPES]:
 - [adr.md](adr.md) carries why a durable architecture choice was made.
 - [design-doc.md](design-doc.md) carries proposed architecture changes before acceptance.
-- [roadmap.md](roadmap.md) carries implementation sequence, milestone umbrellas, task IDs, dependencies, optional progress, and task exit proof.
+- [roadmap.md](roadmap.md) carries implementation sequence, active milestone bodies, phase and task IDs, dependencies, progress, terminal work, and task exit proof.
 - [test-strategy.md](test-strategy.md) carries gate taxonomy, flake policy, and test proof vocabulary.
+- `.planning/ARCHITECTURE.md` carries planned structure only when the sibling roadmap, design, or `SPEC.<slug>.md` source changes task action before implementation.
 
 [TASK_REFERENCE_TYPES]:
 - [runbook.md](../task/runbook.md) carries operational recovery and incident response.
@@ -435,4 +469,7 @@ Do not claim a representation reflects code unless its paths, manifests, contrac
 
 [PROOF_STATUS]:
 - [ ] Roadmap and status facts use shared relation fields and appear only where they change current code reading.
+- [ ] Ordinary `ARCHITECTURE.md` files describe current structure only.
+- [ ] `.planning/ARCHITECTURE.md` planned rows name source, current anchor, use-now action, promotion target, promote condition, and removal trigger.
+- [ ] Planned structure is promoted or deleted when it stops changing active task action.
 - [ ] Drift-prone representations carry evidence and review triggers.

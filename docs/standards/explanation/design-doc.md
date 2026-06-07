@@ -4,6 +4,8 @@ A design document is a pre-implementation proposal for a change with real design
 
 The entry gate is ambiguity: write a design document only when at least two plausible approaches, cross-boundary consequences, or unresolved trade-offs need evaluation. Convergence, change slices, final checks, and proof planning raise the check profile; they do not justify a design document by themselves.
 
+Inside a scope-local `.planning/` folder, `SPEC.<slug>.md` is the planning spec-sheet filename governed by this standard. Use it when a roadmap task needs reusable detail, ambiguity handling, alternatives, risks, slices, or proof planning that would make the task row too large. If a task has one obvious approach and no reusable detailed spec, keep the detail in the roadmap task.
+
 ## [1][USE_WHEN]
 
 Use a design document when the change has design ambiguity and needs any of these before code lands:
@@ -13,11 +15,11 @@ Use a design document when the change has design ambiguity and needs any of thes
 - a bounded final-check window after discussion converges;
 - a proof plan that names commands, contracts, checks, evidence, or risks before merge or release.
 
-Do not use a design document for one obvious approach with no meaningful trade-off. Route accepted durable decisions to ADRs, current structure to architecture documents, dated build sequence to roadmaps, operational symptom response to runbooks, lookup catalogs to reference, generated contracts to API documentation, and contributor workflow to contributing guides.
+Do not use a design document or `SPEC.<slug>.md` for one obvious approach with no meaningful trade-off or reusable task detail. Route accepted durable decisions to ADRs, current structure to architecture documents, dated build sequence to roadmaps, operational symptom response to runbooks, lookup catalogs to reference, generated contracts to API documentation, and contributor workflow to contributing guides.
 
 [AUTHORING_CONTRACT]:
 - Agent use: confirm ambiguity, choose the profile, and write only the sections required by the lifecycle state and profile.
-- Required produced structure: lead with status/profile/source facts, then `Problem`, goals or draft gaps, context, approach, alternatives, risks/questions, proof plan, boundaries, and validation.
+- Required produced structure: lead with status/profile/source facts, then `Problem`, goals or draft gaps, context, approach, alternatives, risks/questions, proof plan, boundaries, and validation; `SPEC.<slug>.md` uses the same structure when it is the planning spec carrier.
 - Section cardinality: required sections appear once; conditional slices, cross-cutting checks, final-check, and ADR handoff sections appear only when their trigger holds.
 - Adjacent checks: use handoff records only when an accepted design changes another document's reader action, proof, or maintenance route.
 - Maintenance triggers: update the design when status, selected option, change slice, risk disposition, final-check result, proof gate, handoff target, or supersession changes.
@@ -35,6 +37,15 @@ Pick one profile from blast radius. The profile raises source and proof obligati
 `If policy` means acceptance binds durable architecture policy. `Public-contract` means the change has enough public, runtime, or contract blast radius that every concern gets a check source or a stated `n/a` reason.
 
 Local final check is a document state inside this type. It defines check source, deadline, open objections, and final disposition. Fork a parallel review artifact only when another maintained route requires it; when that happens, name the controlling route and link the canonical copy.
+
+[PLANNING_SPEC_SHEET]:
+- Filename: `SPEC.<slug>.md`.
+- Placement: sibling to `.planning/ROADMAP.md` by default.
+- Trigger: a roadmap task needs ambiguity handling, reusable detail, alternatives, risks, slices, or proof planning that would overfill the task row.
+- Roadmap link: task `Reference material` points to `SPEC.<slug>.md#<anchor>` when the spec changes execution.
+- Scope rule: link specs from tasks, not phases, unless a local tool consumes phase-level spec links.
+- Omit rule: keep detail in the roadmap task when the task has no ambiguity and no reusable detailed spec.
+- Folder rule: do not create `.planning/specs/` unless many active specs or tooling justify the extra lookup layer.
 
 ## [3][LIFECYCLE_FIELDS]
 
@@ -223,11 +234,11 @@ Kind: contract
 Depends: —
 Check focus: breaking-change shape
 Rollback boundary: revert generated schema diff
-Roadmap milestone: roadmap `<AREA>-000` when this slice becomes dated work
+Roadmap reference: roadmap `M-0010` or `T-0010` when this slice becomes dated work
 Proof gate: contract gate evidence, or proof gap
 ```
 
-Slice kinds are local labels, not a closed global sequence. Keep dependency order honest and leave no blank rollback boundary. Use `Roadmap milestone` only to point at an existing or same-change roadmap milestone; when slices become dated milestones with exit gates, move the sequence to the roadmap route.
+Slice kinds are local labels, not a closed global sequence. Keep dependency order honest and leave no blank rollback boundary. Use `Roadmap reference` only to point at an existing or same-change roadmap milestone or task; when slices become dated work with exit gates, move the sequence to the roadmap route.
 
 Rejected slice table: `S1 refactor -> S2 implementation -> S3 tests`.
 Reason: the rejected shape invites fixed-sequence copying.
@@ -407,6 +418,7 @@ A design document proposes; it never overrides an accepted decision. When a slic
 - [architecture.md](architecture.md) carries current structure and invariants the proposal must respect.
 - [test-strategy.md](test-strategy.md) carries gate taxonomy and reusable proof policy that a proof plan consumes.
 - [support-matrix.md](../reference/support-matrix.md) carries support and lifecycle rows consumed by the proposal.
+- `SPEC.<slug>.md` is the `.planning/` spec-sheet carrier for this standard when a roadmap task needs reusable detail or ambiguity handling.
 
 [REFERENCE_TASK_LEARNING]:
 - [api.md](../reference/api.md), [reference.md](../reference/reference.md), and [code-documentation.md](../reference/code-documentation.md) own public-contract, lookup, and source-symbol documentation.
@@ -419,6 +431,8 @@ A design document proposes; it never overrides an accepted decision. When a slic
 
 [GATE_PROFILE]:
 - [ ] The document has real ambiguity: at least two plausible approaches, cross-boundary consequences, or unresolved trade-offs.
+- [ ] A `SPEC.<slug>.md` file exists only when ambiguity, reusable task detail, alternatives, risks, slices, or proof planning justify it.
+- [ ] Straightforward task detail stays in roadmap task fields instead of a separate spec.
 - [ ] `Status` and `Profile` are single closed-set values, and profile obligations are met.
 - [ ] Lifecycle field cardinality holds; conditional fields appear only when their trigger holds.
 - [ ] A `DRAFT` uses the draft skeleton, and `DISCUSSION` or later uses the full proposal skeleton without optional `Change slices` unless its trigger holds.

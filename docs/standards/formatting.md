@@ -87,6 +87,7 @@ Render progress as a bar only after [information-structure.md](information-struc
 - Fill calculation: `floor(20 * numerator / denominator)`.
 - Closure: show `100%` and fill all 20 cells only when numerator equals denominator.
 - Roadmap records use the same 20-cell rule when they render progress; task proof and milestone completion basis stay in roadmap fields, not appended to the progress line.
+- Roadmap milestone and phase progress use the same bar; milestone and phase status fields are rejected because progress derives from child task completion.
 
 [PROGRESS_EDGE_CASES]:
 
@@ -199,6 +200,7 @@ The index column is centered, the text column (`[ITEM]`) is left-aligned, the nu
 - Use grouped sibling lists for a short series of lists that share one lead but are not nested under one parent item. Write a complete lead sentence ending in a colon, a blank line, the first bracketed set label, and that label's list on the following line. Keep one blank line between completed peer groups when useful. Promote a group to H3 when it needs an anchor, a long explanation, or independent retrieval.
 - Do not stack bracketed set labels. If a second label appears before the first label's list or table, remove the outer label or promote the outer category to prose or a heading.
 - Use a nested list only when every child item qualifies one parent item. Indent child bullets, ordered-list continuations, and field continuations with four spaces.
+- Roadmap active trees are the type-local nesting exception. Render phase rows with `- P-0010: <outcome>`, task rows with `- [ ] T-0010 [QUEUED] <title>` or `- [x] T-0010 [COMPLETE] <title>`, and task fields as nested `- Label: value` rows. Keep four-space indentation for every child level and no blank lines inside one milestone tree.
 
 [FIELD_LINES]:
 - Keep short checklist fields inline after an em dash. Promote larger checklist state to the record form defined by `information-structure.md`.

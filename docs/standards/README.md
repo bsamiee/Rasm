@@ -20,7 +20,7 @@ Separate rule authority from claim evidence.
 - This README controls reader need, document-type choice, corpus placement, split/link rules, and lifecycle routing.
 - Shared standards control form, craft, evidence, and notation.
 - Type standards control artifact-specific structure, status vocabulary, local proof slots, and examples.
-- `AGENTS.md` and `_reports/**` are instruction/source overlays, not standards bodies in the active document-type corpus.
+- `AGENTS.md` and `.reports/**` are instruction/source overlays, not standards bodies in the active document-type corpus.
 
 [CLAIM_EVIDENCE]:
 - [proof.md](proof.md) controls evidence strength, freshness, conflict handling, proof gaps, and docs-as-code gates.
@@ -107,15 +107,21 @@ Audit root standards against form, craft, evidence, and notation only. If a find
 
 Place documentation where the reader or tool first looks:
 
-| [INDEX] | [LOOKUP_TRIGGER]                           | [PLACE]               | [OWNER_ROUTE]                                     |
-| :-----: | :----------------------------------------- | :-------------------- | :------------------------------------------------ |
-|   [1]   | Corpus-wide entry document                 | repository root       | root README or root instruction file              |
-|   [2]   | Package, product, tool, or subsystem truth | scope-local directory | local README, architecture, reference, or runbook |
-|   [3]   | Shared cross-scope material                | `docs/`               | relevant docs route                               |
-|   [4]   | Authoring standards                        | `docs/standards/`     | this standards library                            |
-|   [5]   | Public symbol rationale                    | source files          | code documentation standard                       |
+| [INDEX] | [LOOKUP_TRIGGER]                           | [PLACE]               | [OWNER_ROUTE]                                       |
+| :-----: | :----------------------------------------- | :-------------------- | :-------------------------------------------------- |
+|   [1]   | Corpus-wide entry document                 | repository root       | root README or root instruction file                |
+|   [2]   | Package, product, tool, or subsystem truth | scope-local directory | local README, architecture, reference, or runbook   |
+|   [3]   | Shared cross-scope material                | `docs/`               | relevant docs route                                 |
+|   [4]   | Authoring standards                        | `docs/standards/`     | this standards library                              |
+|   [5]   | Public symbol rationale                    | source files          | code documentation standard                         |
+|   [6]   | Scope-local planning set                   | `<scope>/.planning/`  | roadmap, architecture, design spec, optional README |
+|   [7]   | Scope-local report set                     | `<scope>/.reports/`   | source-material reports and optional local overlay  |
 
 Prefer one owner for a claim. Link across owners instead of copying the same claim into multiple pages.
+
+Use `.planning/` as a flat scope-local planning container when roadmap, planning architecture, and `SPEC.<slug>.md` files need to live together without turning the scope README into a planning surface. A `.planning/README.md` appears only when 2 or more planning files need routing.
+
+Use `.reports/` as a scope-local source-material container for reusable agent research, investigation, findings, critique, synthesis, or promotion material. A `.reports/AGENTS.md` owns report mechanics when the report archive needs local session rules.
 
 ## [8][SPLIT_LINK]
 
@@ -131,6 +137,7 @@ When a draft serves more than one primary reader need, split it:
 |   [6]   | Implementation sequence                  | architecture or README  | roadmap          |
 |   [7]   | Proposal review                          | roadmap or architecture | design doc       |
 |   [8]   | Contribution workflow                    | README                  | contributing     |
+|   [9]   | Scope-local planning routes              | README or AGENTS.md     | `.planning/`     |
 
 After splitting, add the smallest cross-link that changes reader action, proof, or maintenance. Do not leave a summary copy that can drift.
 
@@ -149,7 +156,7 @@ Unless live product support and evidence justify them, do not preserve old paths
 
 ```text conceptual
 docs/standards/
-├── _reports/                  # source-material work reports
+├── .reports/                  # source-material work reports
 ├── explanation/               # architecture, ADR, design, roadmap, test strategy
 ├── reference/                 # README, lookup, API, code docs, support matrix
 ├── task/                      # how-to, runbook, contributing
@@ -163,7 +170,7 @@ docs/standards/
 └── agents-md.md               # AGENTS.md surface standard
 ```
 
-Active standards are the files in this layout except `_reports/**` and folders explicitly marked deprecated by a trusted local instruction or route owner. `AGENTS.md` is an instruction overlay, not a standards body.
+Active standards are the files in this layout except `.reports/**` and folders explicitly marked deprecated by a trusted local instruction or route owner. `AGENTS.md` is an instruction overlay, not a standards body.
 
 ## [11][ANTI_PATTERNS]
 
@@ -183,15 +190,15 @@ These anti-patterns fall into three groups:
 
 [MIXED_MODULE_FILES]:
 
-| [INDEX] | [CONTENT_KIND]                | [DESTINATION]                                         |
-| :-----: | :---------------------------- | :---------------------------------------------------- |
-|   [1]   | current code structure        | [architecture](explanation/architecture.md)           |
-|   [2]   | callable contracts            | [API](reference/api.md)                               |
-|   [3]   | lookup facts                  | [reference](reference/reference.md)                   |
-|   [4]   | source-symbol semantics       | [code documentation](reference/code-documentation.md) |
-|   [5]   | future work and task exit proof | [roadmap](explanation/roadmap.md)                   |
-|   [6]   | failure response              | [runbook](task/runbook.md)                            |
-|   [7]   | contribution workflow         | [contributing](task/contributing.md)                  |
+| [INDEX] | [CONTENT_KIND]                  | [DESTINATION]                                         |
+| :-----: | :------------------------------ | :---------------------------------------------------- |
+|   [1]   | current code structure          | [architecture](explanation/architecture.md)           |
+|   [2]   | callable contracts              | [API](reference/api.md)                               |
+|   [3]   | lookup facts                    | [reference](reference/reference.md)                   |
+|   [4]   | source-symbol semantics         | [code documentation](reference/code-documentation.md) |
+|   [5]   | future work and task exit proof | [roadmap](explanation/roadmap.md)                     |
+|   [6]   | failure response                | [runbook](task/runbook.md)                            |
+|   [7]   | contribution workflow           | [contributing](task/contributing.md)                  |
 
 ## [12][MAINTENANCE_RULES]
 
@@ -201,6 +208,7 @@ These anti-patterns fall into three groups:
 - Use a table only when comparison or lookup is clearer than a list.
 - Remove a stale standard instead of keeping a legacy alias.
 - Keep release history in the project's release mechanism, not in this index.
+- When project-bound docs feed reusable skills, prompts, templates, or standards, extract only the portable rule shape and replace local names, paths, package facts, commands, task IDs, and proof routes with neutral placeholders.
 
 ## [13][BOUNDARIES]
 

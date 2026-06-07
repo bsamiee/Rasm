@@ -17,7 +17,6 @@ This table is a lookup by reader decision.
 |   [7]   | system API replacement  | [system APIs](platform/system-apis.md)               |
 |   [8]   | proof rail              | [testing](testing/README.md)                         |
 |   [9]   | cross-stack precedence  | [usage](../../usage/README.md)                       |
-|  [10]   | next C# stack page work | [roadmap](ROADMAP.md)                                |
 
 ## [2][OWNER_RULE]
 

@@ -1,290 +1,287 @@
 # [ROADMAP_STANDARDS]
 
-A roadmap sequences code work for a concrete route: a repository, package, project, feature folder, integration, migration, refactor, or new module. It carries durable implementation order, milestone umbrellas, task identity, dependency edges, completion proof rules, terminal-work records, and adjacent-document handoffs; it is not a product promise, release-history tail, status diary, or second copy of a live planning system.
+A roadmap document is the maintained sequence for planned work inside one scope. It states current position, the structural vocabulary, active milestone bodies, terminal work, boundaries, and validation. It is not an architecture document, design proposal, release log, issue tracker mirror, changelog, or session report.
 
-The controlling rule: a roadmap helps agents decide which task to take next, which larger outcome that task serves, what must not start yet, what proof closes the task, which sibling documents must move, and which deferred, dropped, or canceled work must not be rediscovered.
+The controlling rule: roadmap hierarchy is data, not section structure. Produced roadmap files use H2 sections only for page regions. Milestones are cohesive bodies, phases are nested list rows inside a milestone, and tasks are checkbox rows inside a phase.
 
 ## [1][USE_WHEN]
 
-Use a roadmap when a code scope has a coordinated sequence that cannot be understood from architecture, ADRs, design docs, or a live planner alone:
-- building a package, project, tool, feature folder, generated contract, integration, or runtime surface;
-- sequencing a refactor, collapse, migration, removal, source-backed support window, or stabilization effort;
-- coordinating architecture changes with implementation milestones, task records, and proof gates;
-- tracking documentation handoffs as code structure, public contracts, tests, tutorials, runbooks, or support policy change;
-- assigning durable task IDs before the work can be delegated safely.
+Use a roadmap when future agents need to understand ordered implementation work:
+- active build, refactor, migration, integration, hardening, or documentation sequence;
+- current task position and proof route;
+- milestone and phase progress derived from task completion;
+- task-level references, dependencies, proof requirements, and handoff routes;
+- deferred, dropped, or canceled work that still affects active sequence or future cleanup.
 
-Route current structure to [architecture.md](architecture.md), durable decisions to [adr.md](adr.md), pre-code proposal review to [design-doc.md](design-doc.md), gate taxonomy to [test-strategy.md](test-strategy.md), supported-version lifecycle to [support-matrix.md](../reference/support-matrix.md), release history to the project release mechanism, and repeatable procedures to [runbook.md](../task/runbook.md) or how-to/tutorial documents.
+Route current structure to [architecture.md](architecture.md), ambiguous approach or task-scale specification detail to [design-doc.md](design-doc.md), accepted durable decisions to [adr.md](adr.md), gate taxonomy to [test-strategy.md](test-strategy.md), operational response to [runbook.md](../task/runbook.md), and release chronology to the project's release route. Link an adjacent document only when it changes current task action, proof, status interpretation, or maintenance.
 
 [AUTHORING_CONTRACT]:
-- Agent use: select the next executable task, understand its milestone umbrella, see blockers, prove task completion, and update adjacent documents only when task output changes them.
-- Required produced structure: lead, scope, roadmap contract, lifecycle and IDs, boundaries, milestones with child tasks, terminal work when present, and validation.
-- Section cardinality: one scope, one roadmap contract, one lifecycle and ID rule set, one boundaries section before milestones, one milestone section, one validation section, and optional current status, constraints, dependencies, handoffs, work register, or deferred/dropped/canceled work only when referenced.
-- Adjacent checks: check architecture, ADR, design, API/reference/code docs, support matrix, test strategy, and task or learning docs only when the adjacent fact changes scope, proof, status interpretation, validation, or handoff.
-- Maintenance triggers: changed code scope, milestone outcome, task state, proof requirement, dependency edge, public contract, support row, generated output, live-planner source, or terminal-work reason.
+- Agent use: read current position, execute the first active task whose dependencies and proof route are satisfied, update task status from evidence, and keep milestone or phase progress derived from child tasks.
+- Required produced structure: lead, `Current position`, `Structural components`, `Boundaries`, `Active work`, optional `Terminal work`, and `Validation`.
+- Section cardinality: one current-position section, one structural-components section, one boundaries section, one active-work section, at most one terminal-work section, and one validation section.
+- Adjacent checks: architecture for current structure, design or `SPEC.<slug>.md` for ambiguous task detail, proof owners for completion evidence, and live planning route only when mutable planning data is owned outside Markdown.
+- Maintenance triggers: task status changes, proof route changes, active task insertion, milestone or phase split, dependency change, terminal disposition, adjacent spec move, or live planning route change.
 
-## [2][ROADMAP_CONTRACT]
+## [2][PLANNING_FOLDER]
 
-Use the nearest live source for mutable planning facts and the Markdown roadmap for durable sequencing shape. A live issue, milestone, release, project board, workflow, or planning system carries mutable dates, assignments, comments, and runtime task logs. Repository source, manifests, generated contracts, architecture, ADRs, tests, and release artifacts own proof. The roadmap carries mission, sequence type, milestone umbrellas, task ID policy, task status, dependency edges, documentation handoffs, and closure rules.
+Roadmaps may live in a scope-local `.planning/` folder when the scope needs planning files without mixing planned sequence into ordinary README or architecture routes.
 
-When Markdown and a live planner disagree, the live planner controls mutable facts. If no live planner exists, the Markdown roadmap may control task IDs and lifecycle status, but every `[COMPLETE]` claim still needs proof under [proof.md](../proof.md). Runtime todo lists, agent scratch plans, and transient session tasks do not become roadmap IDs unless they are promoted into durable task records with dependency, exit, proof, or handoff fields.
+```text conceptual
+<scope>/.planning/
+├── ARCHITECTURE.md
+├── README.md
+├── ROADMAP.md
+├── SPEC.<slug>.md
+└── SPEC.<slug>.md
+```
 
-Pick one sequence type in the lead:
+Keep `.planning/` flat by default. `README.md` appears only when 2 or more planning files need routing. `SPEC.<slug>.md` is the spec-sheet carrier governed by [design-doc.md](design-doc.md) when it carries ambiguity, alternatives, risks, slices, or proof planning. Do not create `.planning/specs/` unless many active specs or tooling justify the extra lookup layer.
 
-| [INDEX] | [TYPE]                   | [SCOPE]                           | [PROOF]                                        |
-| :-----: | :----------------------- | :-------------------------------- | :--------------------------------------------- |
-|   [1]   | Package build            | package, app, library, or tool    | project file, manifest, gate, generated output |
-|   [2]   | Feature build            | feature, command, or workflow     | source path, route, scenario, acceptance gate  |
-|   [3]   | Refactor or collapse     | route, surface, path, or edge     | diff, invariant, gate, deleted stale paths     |
-|   [4]   | Integration or migration | host, contract, storage, support  | contract, adapter, support row, runtime proof  |
-|   [5]   | Hardening sequence       | stability, performance, readiness | strategy gate, benchmark, support, release     |
+The `.planning/` folder is scope-local: a root `.planning/` covers the repository or workspace, and a nested `.planning/` covers only the directory or package boundary that contains it.
 
-Use this heading order for a standalone roadmap:
+## [3][PRODUCED_STRUCTURE]
+
+Produced roadmap files use this page outline. Do not add H3 or H4 headings to represent milestones, phases, tasks, deferred groups, or task detail.
 
 ```markdown template
 # [<CODE_SCOPE>_ROADMAP]
 
-<Lead: name roadmap state, sequence type, mission, code scope, live planning route, and proof route.>
+[ACTIVE] <sequence type> for `<code-scope>`: <mission>. Current position: T-0010 is active in P-0010 under M-0010. Proof route: <source, command, artifact, review, or proof gap>. Live planning route: Markdown-controlled.
 
-## [1][SCOPE]
+## [1][CURRENT_POSITION]
 
-## [2][ROADMAP_CONTRACT]
+## [2][STRUCTURAL_COMPONENTS]
 
-## [3][LIFECYCLE_IDS]
+## [3][BOUNDARIES]
 
-## [4][BOUNDARIES]
+## [4][ACTIVE_WORK]
 
-## [5][MILESTONES]
+## [5][TERMINAL_WORK]
 
 ## [6][VALIDATION]
 ```
 
-Add conditional sections only when they change sequencing or maintenance behavior. `Current status` follows `Roadmap contract`; `Constraints` and `Dependencies and blockers` appear before `Boundaries`; `Documentation handoffs`, `Work register`, and `Deferred dropped canceled work` appear after `Milestones` in that order. Between `Milestones` and final `Validation`, include only task-bearing lifecycle sections so expanding work records do not bury boundaries, proof rules, or authoring guidance.
+Omit `Terminal work` when no deferred, dropped, or canceled item remains useful. Keep produced H2 labels exact; H2s are page regions only.
 
-`No roadmap` is a route-away verdict:
-Roadmap: not authored.
-Reason: current architecture and accepted ADRs already carry the active route truth; cite `<architecture path>` and `<ADR path when one controls the verdict>`.
+## [4][CURRENT_POSITION]
 
-## [3][LIFECYCLE_IDS]
+`Current position` carries the minimum state needed to resume work without scanning every task field first.
 
-`Roadmap state` describes the document as a planning source. Render roadmap state as one bracketed token in the lead:
-- `[ACTIVE]`: the roadmap controls the current coordinated sequence.
-- `[SNAPSHOT]`: the roadmap summarizes a live planner and every mutable row links to that route.
-- `[PAUSED]`: the sequence is intentionally stopped and names the return condition.
-- `[CLOSING]`: remaining items are being completed, canceled, or moved.
-- `[ARCHIVED]`: the roadmap is not active and points to release history, architecture, ADRs, or the live planner that replaced it.
+```markdown template
+## [1][CURRENT_POSITION]
 
-Roadmap-local task `Status` values use the shared lifecycle vocabulary rendered as bracketed tokens:
-- `[QUEUED]`: accepted for sequencing, not yet executing.
-- `[ACTIVE]`: active inside the task scope.
-- `[BLOCKED]`: a named dependency, decision, access gap, or proof gap prevents progress.
-- `[DEFERRED]`: moved outside the current sequence with a return event.
-- `[COMPLETE]`: exit is satisfied, proof agrees, and required handoffs are closed or routed away.
-- `[DROPPED]`: removed before accepted execution because it is duplicate, invalid, superseded outside this roadmap, or has no remaining dependency or handoff reference.
-- `[CANCELED]`: accepted work stopped; successor, rollback, or retired need is stated.
+State: [ACTIVE]
+Sequence type: <Package build | Feature build | Refactor or collapse | Integration or migration | Hardening sequence>
+Current focus: T-0010 in P-0010 under M-0010.
+Progress basis: <N>/<N> tasks; counted only when task `Status` is `[COMPLETE]` and proof agrees.
+Progress: [████░░░░░░░░░░░░░░░░] 20%
+Proof route: <source, command, artifact, review, or proof gap>.
+Live planning route: Markdown-controlled.
+```
 
-Milestone status is derived from child tasks unless the roadmap declares a real milestone-level lifecycle reason. If shown, milestone status uses the same bracketed tokens and must not contradict child task state. A milestone is `[COMPLETE]` only when its completion rule is satisfied.
+`State` uses the roadmap lifecycle vocabulary:
+- `[ACTIVE]`: active task sequence; agents may execute the next task whose dependencies are satisfied.
+- `[PAUSED]`: sequence is preserved, but execution is intentionally stopped until the named return event.
+- `[SNAPSHOT]`: recorded for state transfer; another route owns current execution.
+- `[CLOSING]`: active work is complete and remaining edits are proof, handoff, cleanup, or archival.
+- `[ARCHIVED]`: no active work remains; keep only when the roadmap still explains a maintained route.
 
-Semantic IDs are the default:
-- Milestone IDs use `<AREA>-000`, where `<AREA>` is a stable uppercase semantic area for the outcome umbrella.
-- Task IDs use `<AREA>-010`, `<AREA>-020`, `<AREA>-030`, with gaps of 10 so new tasks can be inserted without renumbering.
-- A milestone ID is never reused after completion, deferral, drop, cancellation, or replacement.
-- A task ID is never reused; if work splits, create new task IDs and route or close the old one.
-- External IDs from issue trackers or live planners stay in `Live task source`, `Source route`, or `External ID` fields; do not replace local Markdown IDs unless the live planner controls the work.
-- Issue, risk, blocker, and proof-gap IDs exist only when dependencies, proof, milestones, tasks, or adjacent documents reference them.
+`Sequence type` describes the work family; it is not a status. Use the listed values unless the roadmap standard is updated with another reusable family.
 
-Allowed legacy and local variants:
-- `M<N>` may appear only in legacy roadmaps, migration notes, rejected examples, or external live sources that already use that shape.
-- `M<N>.T<N>` may remain only when an existing roadmap already depends on those IDs; new roadmap standards use semantic area IDs.
-- If tasks are design change slices, route them to the design doc as `S<N>` slices.
-- If tasks are proof subchecks for one exit condition, keep them nested under that task's acceptance detail and do not assign separate task IDs.
+`Proof route` appears only when it names the proof class that closes the current task set: source review, generated artifact, link check, command gate, external review, or proof gap. Do not copy full validation ladders into the current-position block.
 
-Progress is optional. Use it only when a maintained actor updates it and the roadmap defines numerator, denominator, closure rule, and proof surface before first use. Default progress is derived from child tasks whose `Status` is `[COMPLETE]` and whose proof agrees. The rendered line is only the 20-cell bar and percentage; put calculation basis in `Completion rule` or a task-progress field, not in milestone proof boilerplate.
+`Live planning route` appears when mutable comments, dates, assignments, runtime logs, issue threads, boards, milestones, or workflow state are owned outside Markdown. Use `Markdown-controlled` when no external live planning route exists.
 
-## [4][BOUNDARIES]
+Do not add `Next executable task` or `Blocked by`. The next task is inferred from active task order, `Status`, `Depends on`, and proof requirements.
+
+## [5][STRUCTURAL_COMPONENTS]
+
+Roadmap IDs are neutral and scope-local:
+- `M-0010`: milestone.
+- `P-0010`: phase.
+- `T-0010`: task.
+
+Start at `0010` and increment by 10. Do not encode language, package, layer, component, owner, date, status, or semantic prefixes into the ID. Put those facts in the relevant field only when they change task action.
+
+Only tasks carry lifecycle status. Milestones and phases carry derived progress only.
+
+[TASK_STATUS]:
+- `[QUEUED]`: ready to remain in the sequence, but not active.
+- `[ACTIVE]`: current execution target or explicitly in progress.
+- `[BLOCKED]`: cannot proceed until the `Depends on` or proof gate resolves.
+- `[DEFERRED]`: removed from active execution but returnable through terminal work.
+- `[COMPLETE]`: exit condition is satisfied and proof agrees.
+- `[DROPPED]`: no longer wanted.
+- `[CANCELED]`: superseded or invalidated by a later route.
+
+Active milestones use these fields:
+- `ID`
+- `Outcome`
+- `Completion rule`
+- `Progress basis`
+- `Progress`
+- `Phases`
+
+Active phases use these fields:
+- `ID`
+- `Outcome`
+- `Scope`
+- `Depends on`
+- `Completion rule`
+- `Progress basis`
+- `Progress`
+- `Tasks`
+
+Active tasks use this row and field vocabulary:
+- Row: `- [ ] T-0010 [QUEUED] <concise executable title>`
+- `Work`
+- `Target`
+- `Reference material`
+- `Depends on`
+- `Exit`
+- `Proof required`
+- `Handoff`
+
+Task row `ID` and `Status` are encoded in the checkbox row. Do not repeat `ID:` or `Status:` as nested task fields unless a parser or local tool requires those labels.
+
+Omit absent optional fields instead of writing `none`, `n/a`, empty placeholders, or filler records. Required active-task fields are `Work`, `Target`, `Exit`, and `Proof required`. `Reference material`, `Depends on`, and `Handoff` appear only when they change execution.
+
+`Reference material` points to material an agent should read before execution when ordinary target-file reading is not enough. Use it for `SPEC.<slug>.md#<anchor>`, architecture sections, design sections, generated artifacts, or source routes that change the task. Do not use it as a link dump.
+
+`Proof required` names the proof class that can close the task. It may name a proof gap, but the task cannot become `[COMPLETE]` until proof agrees.
+
+## [6][ACTIVE_WORK]
+
+`Active work` contains one or more milestone bodies. A roadmap may have one milestone. Each milestone remains a cohesive body; do not promote phases, tasks, or task fields to headings.
+
+```markdown template
+## [4][ACTIVE_WORK]
+
+Milestone:
+- ID: M-0010
+- Outcome: <umbrella implementation outcome>.
+- Completion rule: all child tasks are `[COMPLETE]`, and required handoffs are closed or routed away.
+- Progress basis: complete child tasks over all tasks in child phases.
+- Progress: [░░░░░░░░░░░░░░░░░░░░] 0%
+- Phases:
+    - P-0010: <phase outcome>.
+        - Scope: `<path-or-surface>`, `<contract>`.
+        - Completion rule: all child tasks are `[COMPLETE]`.
+        - Progress basis: complete child tasks over this phase's tasks.
+        - Progress: [░░░░░░░░░░░░░░░░░░░░] 0%
+        - Tasks:
+            - [ ] T-0010 [QUEUED] <concise executable title>
+                - Work: <one executable work unit>.
+                - Target: `<path>`, `<document>`, `<contract>`.
+                - Reference material: `SPEC.<slug>.md#<anchor>`.
+                - Depends on: <task, phase, source condition, or proof gate>.
+                - Exit: <observable completion condition>.
+                - Proof required: <source, command, artifact, review, or proof gap>.
+                - Handoff: <adjacent route>.
+            - [ ] T-0020 [QUEUED] <second executable title>
+                - Work: <one executable work unit>.
+                - Target: `<path>`.
+                - Exit: <observable completion condition>.
+                - Proof required: <source, command, artifact, review, or proof gap>.
+    - P-0020: <phase outcome>.
+        - Scope: `<path-or-surface>`.
+        - Depends on: P-0010.
+        - Completion rule: all child tasks are `[COMPLETE]`.
+        - Progress basis: complete child tasks over this phase's tasks.
+        - Progress: [░░░░░░░░░░░░░░░░░░░░] 0%
+        - Tasks:
+            - [ ] T-0030 [QUEUED] <third executable title>
+                - Work: <one executable work unit>.
+                - Target: `<path>`.
+                - Exit: <observable completion condition>.
+                - Proof required: <source, command, artifact, review, or proof gap>.
+```
+
+Use `-` for phase rows and task-field rows. Use `- [ ]` or `- [x]` only for task rows. Indent each child level by four spaces. Do not insert blank lines inside one milestone tree.
+
+Milestone progress is complete child tasks over all tasks in all child phases. Phase progress is complete child tasks over tasks in that phase. A task counts complete only when its row status is `[COMPLETE]` and proof agrees. Milestone and phase status fields are rejected because progress already derives their state.
+
+Multiple milestone bodies may appear in `Active work` only when each milestone has a distinct umbrella outcome. Do not split one milestone into multiple bodies merely to shorten the page.
+
+## [7][TERMINAL_WORK]
+
+`Terminal work` preserves deferred, dropped, or canceled work only when deleting it would lose useful sequencing, successor, or return information. It is one cohesive body and never uses headings to nest milestone, phase, or task hierarchy.
+
+```markdown template
+## [5][TERMINAL_WORK]
+
+Terminal item:
+- ID: X-<original-id>-<N>
+- Original ID: <milestone, phase, or task ID>
+- Kind: milestone | phase | task
+- Status: [DEFERRED] | [DROPPED] | [CANCELED]
+- Work: <one-line preserved outcome or task>.
+- Reason: <why it left active sequence>.
+- Successor: <replacement route>.
+- Return event: <required for `[DEFERRED]`>.
+- Close when: <references are removed, successor owns it, or external route preserves it>.
+- Preserved structure:
+    - Phase P-0010: <phase outcome>.
+        - Task T-0010: <task title>; <terminal disposition or successor>.
+        - Task T-0020: <task title>; <terminal disposition or successor>.
+    - Task T-0030: <task title>; use directly when `Kind: task`.
+```
+
+`Original ID` keeps the active-sequence reference stable after removal. `ID` starts with `X-` so terminal records cannot be confused with active milestone, phase, or task IDs.
+
+For `Kind: milestone`, preserve relevant phase and task rows under `Preserved structure`. For `Kind: phase`, preserve relevant task rows. For `Kind: task`, use the direct task row and omit phase rows. Omit `Successor` when absent. `Return event` is required only for `[DEFERRED]`.
+
+Delete terminal work when successor routes own the information, all references are removed, or the item no longer changes future task action.
+
+## [8][BOUNDARIES]
 
 [EXPLANATION_TYPES]:
-- [architecture.md](architecture.md) carries current code structure, project identity, path states, flows, dependency direction, and invariants.
-- [adr.md](adr.md) carries durable decisions and their confirmation.
-- [design-doc.md](design-doc.md) carries pre-code proposals, risks, validation slices, and accepted approach.
-- [test-strategy.md](test-strategy.md) carries gate taxonomy, flake policy, and proof vocabulary.
-- [support-matrix.md](../reference/support-matrix.md) carries supported versions, support windows, and lifecycle status.
+- [architecture.md](architecture.md) carries current structure, current codemaps, invariants, dependency direction, and planned architecture only under the planning-architecture rules.
+- [design-doc.md](design-doc.md) carries ambiguous approach, alternatives, risk records, change slices, proof planning, and `SPEC.<slug>.md` spec sheets when task detail outgrows the roadmap.
+- [adr.md](adr.md) carries accepted durable decisions.
+- [test-strategy.md](test-strategy.md) carries reusable gate taxonomy.
 
-[TASK_HISTORY_ROUTES]:
-- [reference.md](../reference/reference.md) carries lookup facts; release history belongs to the project release mechanism.
-- [runbook.md](../task/runbook.md) carries operational procedures and recovery.
-- External product roadmap commitments belong to the maintained product planning or release surface; this standard applies only when a code scope needs implementation sequence, task identity, exit proof, dependency edges, or documentation handoffs.
-- Research findings, agent scratch plans, and automation spillover stay source evidence until promoted into a milestone, task, terminal-work record, or live-planner route.
+[REFERENCE_TASK_LEARNING]:
 - [README.md](../README.md) carries document-type routing, placement, and lifecycle.
+- [readme.md](../reference/readme.md) carries scope entrypoints and navigation.
+- [runbook.md](../task/runbook.md) carries operational recovery.
+- API, reference, and code-documentation routes carry lookup and generated contract facts.
 
-## [5][MILESTONES]
-
-A milestone is an umbrella outcome: a larger sequence of tasks under one coherent code or documentation objective. It is not the executable work item. Use H3 milestone anchors when the roadmap is Markdown-controlled or another document links to the milestone.
-
-Milestone fields:
-- `ID`: semantic milestone ID ending in `-000`.
-- `Status`: optional; omit when status is fully derived from child tasks.
-- `Outcome`: large umbrella outcome the milestone completes.
-- `Why now`: sequencing pressure or value that makes the outcome relevant.
-- `Scope`: paths, concept family, implementation area, generated output, or handoff surface.
-- `Included tasks`: child task IDs in intended order.
-- `Dependency rule`: what must precede this milestone; omit when absent.
-- `Completion rule`: normally all included tasks are `[COMPLETE]`, and required handoffs are closed or routed away.
-
-Task fields:
-- `ID`: semantic task ID in the same area as its milestone.
-- `Status`: bracketed lifecycle token.
-- `Milestone`: parent milestone ID.
-- `Work`: one executable work unit.
-- `Target`: paths, documents, contracts, commands, generated outputs, or source surfaces touched.
-- `Reference material`: source material to read or mine before execution, such as research notes, plan docs, design docs, artifacts, folders, files, or source routes; omit when ordinary target reading is enough.
-- `Depends on`: task, milestone, source condition, live route, or proof gate; omit when absent.
-- `Exit`: observable completion condition.
-- `Proof required`: source, command, generated artifact, link check, review, or stated proof gap required before `[COMPLETE]`.
-- `Handoff`: adjacent document route only when this task changes it.
-
-`Reference material` is context, not closure. It does not replace `Target`, `Depends on`, `Proof required`, or `Handoff`; it names material that changes how the task should be interpreted.
-
-Use acceptance checklists inside a task only when multiple checks are inseparable proof conditions. If a checklist item can be delegated independently, split it into its own task ID.
-
-Use this accepted milestone with task records:
-
-```markdown template
-### [5.1][<AREA>_POLICY]
-
-ID: <AREA>-000
-Outcome: implementation policy is represented as one coherent boundary.
-Why now: related implementation rules currently split agent decisions.
-Scope: `<policy-doc>`, `<companion-doc>`, `<usage-route>`.
-Included tasks: <AREA>-010, <AREA>-020, <AREA>-030.
-Completion rule: all included tasks are `[COMPLETE]`, and required handoffs are closed or routed away.
-
-Task:
-ID: <AREA>-010
-Status: [QUEUED]
-Milestone: <AREA>-000
-Work: author implementation policy.
-Target: `<policy-doc>`, `<readme-route>`.
-Reference material: `<research-note>`, `<design-doc>`, `<source-folder>`.
-Exit: ownership rules are stated without wrapper leakage or route ambiguity.
-Proof required: changed Markdown link check plus source-owner review.
-Handoff: README route only when the new page is admitted.
-```
-
-Rejected milestone: `M<N> work`; `Goal: add <file>`; `Exit criteria: three anonymous checklist items`; `Proof map: 0/3`.
-Reason: the rejected record has a vague ID, makes a task look like a milestone, hides delegateable work in anonymous bullets, and repeats proof arithmetic without improving task selection.
-
-## [6][DEPENDENCIES_HANDOFFS]
-
-Use this conditional section when dependency edges, blockers, or document handoffs change sequence or milestone closure. Omit it when milestone and task fields are enough.
-
-Dependencies are sequencing edges, not task lists. Use the edge table when dependent work cannot start, complete, or prove exit until the required fact changes.
-
-| [INDEX] | [EDGE]                  | [DEPENDENT] | [REQUIRES]  | [RELATION]          | [ROUTE]        | [LIVE]          | [RULE]                       |
-| :-----: | :---------------------- | :---------- | :---------- | :------------------ | :------------- | :-------------- | :--------------------------- |
-|   [1]   | E-<AREA>-010-<AREA>-020 | <AREA>-020  | <AREA>-010  | blocked by          | internal task  | `<live-source>` | start after policy admission |
-|   [2]   | E-<AREA>-030-SUPPORT    | <AREA>-030  | support row | external dependency | support matrix | support row     | remove after support closes  |
-
-Blocker records cover access blockers, proof blockers, decision blockers, and support blockers that are not clean milestone-to-task or task-to-task edges:
-
-```text template
-ID: B-<task-id>-N
-Status: [BLOCKED]
-Blocks: <task ID> exit `<exit name>`
-Blocked by: <decision, access, proof gate, support row, or external contract>
-Source route: <path, ADR, design, support row, live issue, or gate route>
-Go/no-go rule: <binary rule>
-Evidence: <current source or stated proof gap>
-Close when: <fact changes>
-Route-away: <discussion, procedure, or support body that belongs elsewhere>
-```
-
-Use a handoff record when task completion changes another document route. Omit absent routes; do not write `none`.
-
-```text template
-ID: H-<task-id>-N
-Status: [QUEUED]
-Task: <task ID>
-Destination path: <architecture, ADR, design, API, reference, code documentation, README, how-to, tutorial, runbook, support, or test-strategy path>
-Changed fact: `<execution-entrypoint>` becomes the single execution path.
-Consumed by: architecture codemap, code-documentation public semantics, and test-strategy gate mapping.
-Use in this document: <task ID> cannot close until linked document routes consume or route away the fact.
-Update when: execution entrypoint, flow, generated contract, or proof gate changes.
-Close when: linked documents are updated or explicitly route the fact away.
-Route-away: architecture body, source-comment content, and gate taxonomy stay in their routes.
-```
-
-Every `Handoff` listed in a task must have a matching handoff record or an explicit route-away note that explains why the adjacent route does not change.
-
-## [7][WORK_REGISTER]
-
-Use this conditional section only when a roadmap-local issue, risk, task, proof gap, or promoted research finding changes sequence, dependencies, or adjacent updates. Live issue bodies stay in the live planner; the roadmap carries only the fact that changes agent action.
-
-Register kinds define status semantics before records:
-- `Kind: issue` uses `OPEN`, `ASSIGNED`, `CLOSED`, `DROPPED`.
-- `Kind: risk` uses `OPEN`, `MITIGATED`, `ACCEPTED-AS-RISK`, `CLOSED`, `DROPPED`.
-- `Kind: blocker`, `Kind: task`, and `Kind: proof-gap` may use roadmap lifecycle tokens only when they directly block a milestone or task.
-
-Field order is fixed: `ID`, `Kind`, `Status`, `Changed fact`, `Consumed by`, `Use in this document`, `Exit`, `Depends`, `Evidence`, `Update when`, `Close when`, `Route-away`, then local detail fields.
-
-```markdown template
-### [7.1][RISK_CONTRACT_DRIFT]
-
-ID: R-<AREA>-010-1
-Kind: risk
-Status: OPEN
-Changed fact: generated contract may change after <AREA>-010 lands.
-Consumed by: <AREA>-010 exit and downstream generated-reference task.
-Use in this document: <AREA>-010 cannot close until contract drift is either proven absent or routed to a later task.
-Exit: contract drift is proven absent, mitigated, or accepted by a successor task.
-Evidence: generated contract diff or stated unrun gap.
-Update when: contract generator, schema source, or consumer compatibility gate changes.
-Close when: contract diff is reviewed or successor task accepts the remaining work.
-Route-away: design discussion and issue comments stay in the live planner.
-```
-
-## [8][DEFERRED_DROPPED_CANCELED_WORK]
-
-Use this conditional section only when exclusions are not clear enough inside active records or when prior work must remain visible so agents do not recreate it. Keep each record short: preserve the original ID, what the work was, why it left sequence, and how it returns or what supersedes it.
-
-Deferred work states the return event. Dropped work states why the item no longer belongs in this roadmap and removes dependency references to it. Canceled work states successor, rollback, or retired need. Do not split dropped and canceled into separate sections unless another maintained tool consumes that exact split.
-
-```text template
-ID: X-<original-id>-<N>
-Original ID: <milestone or task ID>
-Kind: milestone | task
-Status: [DEFERRED] | [DROPPED] | [CANCELED]
-Work: <one-line preserved outcome or task>
-Reason: <why it left active sequence>
-Successor: <replacement task, milestone, live route, ADR, or retired need when relevant>
-Return event: <event that moves deferred work back into sequence>
-Close when: <references are removed, successor owns it, or external route preserves it>
-```
-
-Original IDs are never reused. Do not copy full old task bodies into terminal work unless unique acceptance or proof information would otherwise be lost.
+[ROADMAP_BOUNDARIES]:
+- Current structure routes to architecture.
+- Ambiguous approach or reusable task-scale detail routes to `SPEC.<slug>.md`.
+- Mutable comments, dates, assignments, issue discussion, and runtime logs route to the live planning route when one exists.
+- Completed chronology routes to release notes, changelog, ADR, source proof, or history only when those routes exist and change reader action.
 
 ## [9][VALIDATION]
 
-[SCOPE_SEQUENCE]:
-- [ ] The roadmap sequences a concrete code scope: repository, package, project, feature folder, integration, migration, refactor, or new module.
-- [ ] The lead names roadmap state, sequence type, mission, code scope, live planning route, and proof route.
-- [ ] `Scope` states mission, included paths, excluded work, live planner, architecture route, proof route, and release-history route where present.
-- [ ] `Roadmap contract` states which live source controls mutable planning facts and which Markdown fields remain durable.
-- [ ] Sequence type names the proof emphasis before milestones are written.
-- [ ] Boundaries appear before milestones, and only task-bearing lifecycle sections appear after milestones.
+[CURRENT_POSITION]:
+- [ ] The lead and current-position section name state, sequence type, current focus, progress basis, progress, proof route when useful, and live planning route.
+- [ ] There is no `Next executable task` or `Blocked by` field.
+- [ ] `Proof route` names only the route-level proof class for the current task set.
+- [ ] `Live planning route` is `Markdown-controlled` unless an external or local live planning system owns mutable planning data.
 
-[LIFECYCLE_IDS]:
-- [ ] Roadmap state and roadmap-local task statuses use bracketed tokens from the closed vocabulary.
-- [ ] Milestones are umbrella outcomes and use semantic `-000` IDs.
-- [ ] Tasks use semantic zero-padded IDs with gaps of 10 and are never reused.
-- [ ] Task status is primary; milestone status is derived or justified by a real milestone-level lifecycle reason.
-- [ ] Runtime todos and live-planner tasks are not promoted into roadmap IDs without durable task fields.
+[STRUCTURE]:
+- [ ] Produced H2s are page regions only: `Current position`, `Structural components`, `Boundaries`, `Active work`, optional `Terminal work`, and `Validation`.
+- [ ] No H3 or H4 heading represents a milestone, phase, task, terminal group, or task-detail body.
+- [ ] IDs use neutral `M-0010`, `P-0010`, and `T-0010` shapes without semantic prefixes.
+- [ ] Only task rows carry lifecycle status.
+- [ ] Milestone and phase progress derive from child task completion and use the 20-cell progress bar.
 
-[RECORDS_HANDOFFS]:
-- [ ] Every milestone names outcome, scope, included tasks, dependency rule when present, and completion rule.
-- [ ] Every task names work, target, reference material when task-specific context is required, exit, proof required, dependency when present, and handoff when it changes an adjacent document.
-- [ ] `Reference material` names context to read and does not replace target edits, dependency sequencing, completion proof, or adjacent-document handoff.
-- [ ] Acceptance checklists appear inside a task only when their checks are inseparable; delegateable checks have task IDs.
-- [ ] Dependencies use edge records when field-level dependency references are not enough.
-- [ ] Handoffs use the shared relation fields and appear only when task completion changes another document route.
-- [ ] Deferred, dropped, and canceled records preserve original ID, kind, reason, successor or return event when relevant, and close condition.
-- [ ] A task is `[COMPLETE]` only when exit, proof required, and required handoffs agree.
+[ACTIVE_WORK]:
+- [ ] Each milestone is one cohesive body with `ID`, `Outcome`, `Completion rule`, `Progress basis`, `Progress`, and `Phases`.
+- [ ] Each phase is a nested `- P-0010: <outcome>` row with `Scope`, optional `Depends on`, `Completion rule`, `Progress basis`, `Progress`, and `Tasks`.
+- [ ] Each task is a checkbox row with neutral ID, bracketed status, concise executable title, and nested task fields.
+- [ ] Task fields use only `Work`, `Target`, `Reference material`, `Depends on`, `Exit`, `Proof required`, and `Handoff`.
+- [ ] Optional fields are omitted when absent; no filler `none`, `n/a`, or placeholder-only rows remain.
+- [ ] Task `Reference material` points only to material that changes execution.
+
+[TERMINAL_WORK]:
+- [ ] Terminal items use a cohesive body with `ID`, `Original ID`, `Kind`, `Status`, `Work`, `Reason`, conditional `Successor`, conditional `Return event`, `Close when`, and `Preserved structure`.
+- [ ] Terminal `Kind` determines whether preserved structure carries phase rows, task rows, or one direct task row.
+- [ ] Deferred work names a return event; dropped or canceled work names a reason and close condition.
+
+[BOUNDARIES]:
+- [ ] Current structure routes to architecture instead of roadmap prose.
+- [ ] Ambiguous approach or reusable task detail routes to `SPEC.<slug>.md`.
+- [ ] Mutable planning data routes to the live planning route instead of duplicating in Markdown.

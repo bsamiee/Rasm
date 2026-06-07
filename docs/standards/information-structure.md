@@ -179,7 +179,7 @@ Concrete status values stay in the type standard that validates the produced doc
 - Per-item record block: H3 item identifier plus fields, one `label: value` per line.
 - Escalate from record table to per-item record blocks when any item has more than 5 fields, any field needs a list or code block, or items are updated independently over the document's life.
 - Adjacent-document relation record: use only when another maintained document changes reader action, proof, status interpretation, validation, or maintenance; put it beside the section that consumes the adjacent fact and delete it when the fact no longer affects this document.
-- Task ID: use only when another task, milestone, proof receipt, dependency edge, or adjacent document references the item. Put the stable ID at the front of the item, such as `[<AREA>-010]` or `[ADR-NNNN]`; do not issue IDs merely because a list is numbered.
+- Task ID: use only when another task, milestone, proof receipt, dependency edge, or adjacent document references the item. Put the stable ID at the front of the item, such as `[T-0010]` or `[ADR-NNNN]`; do not issue IDs merely because a list is numbered.
 - Progress: represent progress only when the document states the numerator, denominator, closure rule, and proof surface before the marker. The rendered progress marker uses [formatting.md](formatting.md); counts, closure units, and proof details stay in surrounding fields. Percentages, bars, phases, and complexity values are valid only when the document defines the calculation or decision rule they measure.
 
 Use this relation-record field order exactly:
@@ -205,6 +205,7 @@ Route-away: <body of work that remains in the adjacent standard>
 - Use bullets for equivalent items and numbered lists only when order is real.
 - Keep items parallel in grammar and scope, and avoid single-item lists.
 - Limit nesting to 2 levels; split deeper structure into subsections.
+- A type standard may declare a bounded `roadmap active tree` only when the hierarchy itself is the reader question. The exception is limited to milestone body > phase bullet > task checkbox > task field bullets, uses the fixed field vocabulary in [roadmap.md](explanation/roadmap.md), and applies only to roadmap active or terminal work.
 - Split a list past 7 items into named sets, each set introduced by a standalone bracketed `[X_Y_Z]:` label with formatting-standard spacing.
 - Do not mix ordered and unordered items in one logical block.
 - Use an ordered record when a numbered step has independently scanned fields such as `Action`, `Command`, `Expected signal`, `Failure route`, or `Proof`.

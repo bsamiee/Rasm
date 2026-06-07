@@ -1,0 +1,69 @@
+Question: Which formatting notation and marker systems in the active `docs/standards` corpus should promote, correct, merge, drop, or hold?
+Type: repo-scan
+Lane: track-formatting-notation
+Merge key: formatting.md :: notation marker systems :: audit active corpus usage
+Target owner: `docs/standards/formatting.md`
+Source basis: full local reads of `formatting.md`, `information-structure.md`, `proof.md`, `agents-md.md`; active-corpus scan of `docs/standards/**/*.md` excluding `.reports/**`; official GitHub and GFM Markdown docs accessed 2026-06-06
+Promotion target: `docs/standards/formatting.md`, with owner-routed corrections to `docs/standards/information-structure.md`, `docs/standards/proof.md`, and affected type standards
+Outcome: HOLD
+
+## [FINDINGS]
+
+| [INDEX] | [SOURCE] | [EVIDENCE] | [WEAKNESS] | [CORRECTION] | [OWNER_FILE] | [RIPPLE_FILES] | [OUTCOME] | [PROOF_GAP_OR_QUESTION] |
+| :-----: | :------- | :--------- | :--------- | :----------- | :----------- | :------------- | :-------- | :---------------------- |
+|   [1]   | `docs/standards/formatting.md:17` `docs/standards/formatting.md:19` `docs/standards/information-structure.md:128` | `formatting.md` says bracketed tokens render inline status/result/change/state, while `information-structure.md` owns the default `Status` vocabulary. | The split is correct, but `formatting.md:19` names only example lifecycle values and can read like notation owns lifecycle semantics. | Tighten the sentence to say the full plain lifecycle set is owned by `information-structure.md`, and keep `formatting.md` limited to bracketed rendering and token families. | `docs/standards/formatting.md` | `docs/standards/information-structure.md`, type standards with local status sets | MERGE | No renderer proof gap. This is an owner-boundary wording gap. |
+|   [2]   | `docs/standards/formatting.md:44` `docs/standards/explanation/architecture.md:182` `docs/standards/explanation/architecture.md:188` | `formatting.md` allows type-local bracketed markers only when the type standard declares vocabulary, meaning, and removal behavior; architecture declares `[ACTIVE]`, `[BLOCKED]`, `[PROVISIONAL]`, and `[DEPRECATED]`, plus source-key suffixes such as `[ACTIVE M2]`. | Architecture is compliant, but the corpus now has a reusable type-local marker pattern that is easy to mistake for an extension of the global token table. | Promote a short `type-local bracket token` rule in `formatting.md`: base marker filters exactly; source-key suffixes are allowed only when the type owner declares parsing and table cells keep base tokens. | `docs/standards/formatting.md` | `docs/standards/explanation/architecture.md`, any future type standard with local bracket tokens | PROMOTE | Question: should suffix grammar be globally allowed only for codemaps, or for any type-local marker that declares a base-token projection? |
+| [3] | `:79` `docs/standards/formatting.md:179` `docs/standards/information-structure.md:39` | A two-row table compares `Accepted` and `Rejected` instruction forms under `[RESULT]`. Formatting already says short contrast examples should be compact records rather than adjacent fences or tables when each side is only a compact value. | The table is a prose-like contrast, not dense lookup. It adds table shape without comparison depth and uses a non-index stub where a compact contrast record is clearer. | Convert the table to `Accepted:`, `Rejected:`, and `Reason:` field lines beside the rule. | `` | `docs/standards/formatting.md`, `docs/standards/information-structure.md` | CORRECT | No external proof gap. |
+|   [4]   | `docs/standards/explanation/architecture.md:332` `docs/standards/formatting.md:132` | The architecture dependency matrix starts with `[FROM]` instead of `[INDEX]`. Formatting allows a non-enumerable matrix to use a bracketed stub rubric when row identity is not enumerable. | First-pass table scans can falsely flag this as an index omission. The table is a real matrix keyed by folder dependency source. | Keep the matrix shape. Do not force `[INDEX]` onto matrices whose stub column is the row axis. | `docs/standards/formatting.md` | `docs/standards/explanation/architecture.md`, matrix-producing type standards | DROP | No proof gap. This is a false-positive rejection. |
+|   [5]   | `docs/standards/formatting.md:138` `docs/standards/formatting.md:142` | The safety table includes escaped literal pipe `\|` inside a cell. Official GFM table docs and the GFM spec both require escaping literal pipes in table cell content. | Naive pipe-split scans report a cell-count mismatch unless escaped pipes are parsed. | Keep the row. If a standards validation script is later added, parse escaped table pipes before counting cells. | `docs/standards/formatting.md` | any future docs table validator | DROP | Proof source: GitHub "Organizing information with tables" and GFM spec table extension. |
+|   [6]   | `docs/standards/information-structure.md:105` `docs/standards/formatting.md:147` `docs/standards/proof.md:154` | `information-structure.md` states GFM tables are flat and do not support row spans, column spans, nested lists, multiline cells, or reliable embedded HTML; `formatting.md` states colon alignment grammar. | These are renderer-dependent claims. `proof.md` requires renderer claims to have maintained renderer proof or a proof gap, but the active standard does not attach a proof field beside these claims. | Add a compact proof record or source note near the table-renderer claims naming the GFM spec and GitHub table docs, with a review trigger of GitHub/GFM table behavior changes. | `docs/standards/proof.md` | `docs/standards/information-structure.md`, `docs/standards/formatting.md` | PROMOTE | Proof source exists now; gap is only that the active standards do not carry it visibly. |
+|   [7]   | `docs/standards/information-structure.md:456` `docs/standards/information-structure.md:460` `docs/standards/information-structure.md:466` `docs/standards/information-structure.md:473` `docs/standards/proof.md:154` | Callouts, details, and footnotes are explicitly renderer-bound. Official GitHub docs currently document alert syntax and limits, `<details>` collapsed sections, footnote syntax, and hidden HTML comments. | The rules are directionally correct, but provider behavior is drift-prone and no local proof field is attached. | Add current-source proof beside the callouts/details/footnotes block or route a shared renderer-proof packet through `proof.md`. Keep container choice in `information-structure.md`; do not move alert syntax into `proof.md`. | `docs/standards/information-structure.md` | `docs/standards/proof.md`, `docs/standards/formatting.md` | PROMOTE | Proof source exists now; local render proof is still a separate gap if repository publication depends on exact rendered output. |
+|   [8]   | `docs/standards/formatting.md:31` `docs/standards/AGENTS.md:92` `docs/standards/reference/support-matrix.md:174` | Formatting declares table absence values; the standards overlay forbids filler fields such as `none` or `n/a`; support-matrix says source-level unknown dates should use explicit source terms such as `not announced`. | The cross-owner rule is present but scattered: table cells, record fields, and source-semantic unknowns use different absence handling. | Merge a one-sentence boundary into `formatting.md`: `—` is a table-cell absence render, absent record fields are omitted, and source-semantic unknowns use the owning source or type-standard literal. | `docs/standards/formatting.md` | `docs/standards/AGENTS.md`, `docs/standards/reference/support-matrix.md`, `docs/standards/information-structure.md` | MERGE | No external proof gap. |
+|   [9]   | `docs/standards/explanation/roadmap.md:191` `docs/standards/explanation/roadmap.md:197` `docs/standards/explanation/roadmap.md:202` `docs/standards/formatting.md:52` | Roadmap examples use progress bars with a visible calculation basis and a `Proof map` owner for numerator, denominator, and proof basis. | No defect. This is the best current example of the formatting/information-structure split working correctly. | Keep as a model for future progress-bar use. Do not move roadmap progress semantics into `formatting.md`. | `docs/standards/explanation/roadmap.md` | `docs/standards/formatting.md`, `docs/standards/information-structure.md` | DROP | No proof gap. |
+|  [10]   | active-corpus scan of 23 files; `docs/standards/information-structure.md:272` `docs/standards/reference/readme.md:368` | Ordinary fences use declared language-intent pairs or exact renderer tags such as `mermaid`. The four-backtick README example intentionally contains inner `bash copy-safe` fences. | No active fence-label defect found. A naive fence scanner can misread nested four-backtick examples as extra unlabeled fences. | Keep the current fence-label rule. Future validators must recognize fence length and nesting. | `docs/standards/information-structure.md` | `docs/standards/reference/readme.md`, future Markdown validators | DROP | No proof gap. |
+|  [11]   | active-corpus scan of 23 files; `docs/standards/formatting.md:208` `docs/standards/formatting.md:213` | Active headings outside fences follow the bracketed heading idiom. Placeholder headings such as `[N][...]` appear inside templates, where formatting permits placeholders. | No active heading defect found. Template placeholders can look like invalid active headings to naive scans. | Keep the rule and validator distinction: active headings must be concrete; fenced templates may use placeholders. | `docs/standards/formatting.md` | all type standards with heading templates | DROP | No proof gap. |
+|  [12]   | `docs/standards/task/contributing.md:193` `docs/standards/task/contributing.md:195` `docs/standards/task/contributing.md:196` `docs/standards/formatting.md:25` | Contributing uses `[PASS]` and `[SKIP]` result tokens in a conceptual gate-report table. | The example is compliant, but it is a useful proof-result exemplar and should not be broadened into lifecycle or runtime status. | Keep as a result-token example. If formatting gets examples by family, link or mirror this as result-token usage without importing gate semantics. | `docs/standards/formatting.md` | `docs/standards/task/contributing.md`, `docs/standards/proof.md` | MERGE | No proof gap. |
+
+## [EVIDENCE]
+
+[LOCAL_SOURCE_SET]:
+- Required instruction files read first: `CLAUDE.md`, `AGENTS.md`, `docs/standards/README.md`, `docs/standards/AGENTS.md`, `.reports/AGENTS.md`.
+- Required standards full-read with line numbers: `docs/standards/formatting.md`, `docs/standards/information-structure.md`, `docs/standards/proof.md`, `docs/standards/agents-md.md`.
+- Active corpus scanned: 23 Markdown files from `fd -t f -e md . docs/standards -E .reports | sort`.
+- Scan classes: bracketed headings, standalone group labels, bracket tokens, compact glyphs, progress bars, table headers and separator alignment, code-fence info strings, alerts, `<details>`, footnotes, hidden comments, `Status:` and `Outcome:` field lines.
+
+[CURRENT_SOURCE_SET]:
+- GitHub Docs, [Basic writing and formatting syntax](https://docs.github.com/en/get-started/writing-on-github/getting-started-with-writing-and-formatting-on-github/basic-writing-and-formatting-syntax): footnotes, alerts, hidden comments, heading anchors.
+- GitHub Docs, [Organizing information with tables](https://docs.github.com/en/get-started/writing-on-github/working-with-advanced-formatting/organizing-information-with-tables): table alignment and escaped literal pipes.
+- GitHub Docs, [Organizing information with collapsed sections](https://docs.github.com/en/get-started/writing-on-github/working-with-advanced-formatting/organizing-information-with-collapsed-sections): `<details>` and `<summary>` behavior.
+- GitHub, [GitHub Flavored Markdown Spec](https://github.github.com/gfm/#tables-extension-): table extension, delimiter alignment, escaped pipes, block-level exclusion, and row-cell behavior.
+
+[SCAN_RESULTS]:
+- Active alert blocks: none.
+- Active hidden HTML comments: none; only rule examples mention `<!-- source-only: ... -->`.
+- Active `<details>` blocks: none; only rules describe `<details>` and `<summary>`.
+- Active footnote definitions: none; only rules describe `[^label]`.
+- Active progress bars: `formatting.md` examples and `roadmap.md` templates.
+- Active ordinary code fences: declared intent pairs only; renderer-local `mermaid` fences preserve exact renderer tag.
+- Active headings outside fences: all conform to the bracketed heading idiom.
+
+## [RECOMMENDATIONS]
+
+[PROMOTE]:
+- Add visible current-source proof or a shared proof packet for renderer-dependent table, alert, details, footnote, and hidden-comment claims. Route proof semantics to `proof.md`; keep container and styling decisions in `information-structure.md` and `formatting.md`.
+- Add a small type-local bracket-token rule to `formatting.md` so domain markers such as architecture path-state tokens cannot be mistaken for additions to the global token table.
+
+[CORRECT]:
+- Replace the two-row accepted/rejected table in with a compact contrast record.
+
+[MERGE]:
+- Merge absence-value boundaries across table cells, record field omission, and source-semantic unknown values.
+- Merge result-token exemplar language from contributing without importing gate semantics into formatting.
+
+[DROP]:
+- Drop first-pass false positives for non-index matrix stubs, escaped literal pipes, progress-bar examples with proof basis, nested four-backtick examples, and fenced heading placeholders.
+
+## [PROOF_GAPS]
+
+- Local render proof was not run. The report uses maintained GitHub/GFM documentation for renderer behavior; if Rasm publication depends on exact rendered output, `proof.md` still requires local render proof or an explicit `Proof gap:`.
+- No active standards were edited, so no docs-as-code gate was run for active corpus changes.
