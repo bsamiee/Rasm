@@ -1,11 +1,12 @@
 """Run test, list, coverage, and mutation rails."""
 
+from collections.abc import Callable  # noqa: TC003  # unconditional: _MUTATION_SCOPE binds the projection type at import time
 from dataclasses import dataclass, replace
 from pathlib import Path  # unconditional: cyclopts resolves TestParams.target's `Path | None` at CLI-build (PEP 649)
 from typing import TYPE_CHECKING
 
 from cyclopts.types import NonNegativeInt  # noqa: TC002  # Cyclopts evaluates Param dataclass annotations at runtime.
-from expression import Result  # noqa: TC002  # unconditional: beartype @checked resolves the handler forward-ref (PEP 649)
+from expression import Ok, Result  # noqa: TC002  # unconditional: beartype @checked resolves the handler forward-ref (PEP 649)
 from expression.collections import block
 from expression.extra.result import sequence
 import msgspec
@@ -27,6 +28,7 @@ from tools.assay.core.model import (
     Match,
     Mode,
     MutationLane,
+    receipt,
     Report,  # noqa: TC001  # unconditional: beartype @checked resolves the rail's forward-ref (PEP 649)
     Runner,
     TestRun,
@@ -44,7 +46,7 @@ if TYPE_CHECKING:
 
 # --- [CONSTANTS] ------------------------------------------------------------------------
 
-_GAP_NOTE: str = "mutation requested but no eligible lane (typescript has no mutation runner; or target/all overrides the default)"
+_GAP_NOTE: str = "mutation requested but no eligible lane (typescript has no mutation runner)"
 _COVERAGE_OUTPUTS: tuple[tuple[str, tuple[str, ...]], ...] = (
     ("coverage.json", ("uv", "run", "coverage", "json", "-o", ".artifacts/python/coverage/coverage.json")),
     ("coverage.xml", ("uv", "run", "coverage", "xml", "-o", ".artifacts/python/coverage/coverage.xml")),
@@ -52,6 +54,10 @@ _COVERAGE_OUTPUTS: tuple[tuple[str, tuple[str, ...]], ...] = (
 )
 _TESTS = msgspec.json.Decoder(TestRun)
 _ROSTER_ENCODER = msgspec.json.Encoder(order="deterministic")
+# Per-runner changed-file mutation scope: Stryker.NET takes repeatable `--mutate <glob>`; runners absent here cannot scope (UNSUPPORTED).
+_MUTATION_SCOPE: dict[str, Callable[[tuple[str, ...]], tuple[str, ...]]] = {
+    "dotnet-stryker": lambda files: tuple(flag for f in files for flag in ("--mutate", f)),
+}
 
 
 # --- [MODELS] ---------------------------------------------------------------------------
@@ -89,12 +95,13 @@ def _languages(selected: Language | None) -> tuple[Language, ...]:
 
 
 def _eligible(tool: Tool, params: TestParams) -> bool:
-    # Reject ineligible mutation rows before they can acquire mutation.lock.
+    # Reject ineligible mutation rows before they can acquire mutation.lock; the C# selector (target/all)
+    # narrows which project mutates via routed.projects, never whether mutation runs.
     match (tool.mode, params.mutation):
         case (Mode.MUTATION, MutationLane.OFF):
             return False
         case (Mode.MUTATION, MutationLane.CHANGED | MutationLane.FULL):
-            return params.target is None and not params.all
+            return True
         case (Mode.RESTORE, _) | (Mode.BUILD, _):
             return not params.no_build
         case _:
@@ -133,33 +140,81 @@ def _filter(expr: str) -> tuple[str, ...]:
             return ("--filter-method", f"*{method}*")
 
 
+def _scoped_mutation(tool: Tool, params: TestParams, files: tuple[str, ...]) -> Tool | None:
+    # CHANGED lane narrows the mutation runner to the changed-file set; runners absent from the table cannot scope (None -> UNSUPPORTED).
+    match (tool.mode, params.mutation, _MUTATION_SCOPE.get(tool.name)):
+        case (Mode.MUTATION, MutationLane.CHANGED, None):
+            return None
+        case (Mode.MUTATION, MutationLane.CHANGED, scoped):
+            return msgspec.structs.replace(tool, command=(*tool.command, *scoped(files)))
+        case _:
+            return tool
+
+
 def _checks(routed: Routed, params: TestParams, mode: Mode) -> tuple[Check, ...]:
-    # dotnet test (MTP) consumes the filter expression; non-dotnet rows ignore it.
+    # dotnet test (MTP) consumes the filter expression; non-dotnet rows ignore it. CHANGED mutation rows scope to routed files.
     filt = _filter(params.filter)
 
-    def _splice(tool: Tool) -> Tool:
-        match (bool(filt), tool.runner, tool.mode):
-            case (True, Runner.DOTNET, Mode.RUN | Mode.LIST):
+    def _splice(tool: Tool) -> Tool | None:
+        scoped = _scoped_mutation(tool, params, routed.files)
+        match (scoped, tool.mode, bool(filt), tool.runner):
+            case (None, _, _, _) | (_, Mode.MUTATION, _, _):
+                return scoped
+            case (_, Mode.RUN | Mode.LIST, True, Runner.DOTNET):
                 return msgspec.structs.replace(tool, command=(*tool.command, *filt))
             case _:
                 return tool
 
-    return tuple(Check(tool=_splice(t), paths=routed.files) for t in _rows(routed.language, params, mode))
+    return tuple(
+        Check(tool=spliced, paths=routed.files)
+        for t in _rows(routed.language, params, mode)
+        for spliced in (_splice(t),)
+        if spliced is not None
+    )
+
+
+def _unsupported_scope(routed: Routed, params: TestParams, mode: Mode) -> tuple[Result[Completed, Fault], ...]:
+    # CHANGED mutation rows whose runner has no scope table entry surface UNSUPPORTED rather than mutate the whole tree.
+    match (mode, params.mutation):
+        case (Mode.MUTATION, MutationLane.CHANGED):
+            return tuple(
+                Ok(receipt(t.command, 3, status=RailStatus.UNSUPPORTED, notes=(f"{t.name}: no changed-file mutation scope",)))
+                for t in _rows(routed.language, params, mode)
+                if t.name not in _MUTATION_SCOPE
+            )
+        case _:
+            return ()
 
 
 def _routed(languages: tuple[Language, ...], paths: tuple[str, ...], settings: AssaySettings) -> Result[Block[Routed], Fault]:
     return sequence(block.of_seq(route(language, paths, settings=settings) for language in languages))
 
 
+def _select(routed: Routed, params: TestParams, settings: AssaySettings) -> Routed:
+    # The C# selector projects onto routed.projects so dotnet test/list/stryker rows (Input.PROJECT) splice the
+    # chosen csproj(s); glob-strategy languages have no project axis and ignore target/all. `--target` narrows to one
+    # project; `--all` unions the default test target with the changed-file closure so the canonical suite always runs.
+    match (routed.language.strategy, params.target, params.all):
+        case ("glob", _, _):
+            return routed
+        case (_, Path() as target, _):
+            return msgspec.structs.replace(routed, projects=(str(target),))
+        case (_, None, True):
+            return msgspec.structs.replace(routed, projects=tuple(sorted({str(settings.test_target), *routed.projects})))
+        case _:
+            return routed
+
+
 def _dispatch(
     routed: Routed, params: TestParams, *, settings: AssaySettings, scope: ArtifactScope, mode: Mode
 ) -> tuple[Result[Completed, Fault], ...]:
     checks = _checks(routed, params, mode)
+    unsupported = _unsupported_scope(routed, params, mode)
     match checks:
         case ():
-            return ()
+            return unsupported
         case _:
-            return fan_out(checks, settings=settings, scope=scope, routed=routed)
+            return (*fan_out(checks, settings=settings, scope=scope, routed=routed), *unsupported)
 
 
 def _roster_matches(outcomes: tuple[Completed, ...]) -> tuple[Match, ...]:
@@ -219,26 +274,24 @@ def _results_artifact(scope: ArtifactScope) -> Artifact:
     return Artifact(id="results", kind=ArtifactKind.TEST, path=str(scope.path))
 
 
-def _coverage_artifacts(settings: AssaySettings, done: tuple[Completed, ...]) -> tuple[Artifact, ...]:
+def _coverage_artifacts(settings: AssaySettings, scope: ArtifactScope, done: tuple[Completed, ...]) -> tuple[Artifact, ...]:
     root = Path(str(settings.root)) / ".artifacts/python/coverage"
     produced = frozenset(name for name, head in _COVERAGE_OUTPUTS if any(c.argv[: len(head)] == head and c.returncode == 0 for c in done))
     paths = tuple(p for name in produced for p in (root / name,) if p.is_file())
-    store = settings.store()
-    return tuple(_adopt_coverage(store, settings.run_id, path) for path in paths)
+    return tuple(_adopt_coverage(scope.store, settings.run_id, path) for path in paths)
 
 
 def _adopt_coverage(store: ArtifactStore, run_id: str, path: Path) -> Artifact:
     raw = path.read_bytes()
-    stored = store.write_bytes(raw, ArtifactKind.TEST.value, run_id, "coverage", path.name)
+    stored = store.adopt_file(path, ArtifactKind.TEST.value, run_id, "coverage", path.name)
     return Artifact(id=path.name, kind=ArtifactKind.TEST, path=stored, bytes=len(raw), lines=len(raw.decode(errors="replace").splitlines()))
 
 
-def _roster_artifacts(settings: AssaySettings, discovered: tuple[Match, ...]) -> tuple[Artifact, ...]:
+def _roster_artifacts(settings: AssaySettings, scope: ArtifactScope, discovered: tuple[Match, ...]) -> tuple[Artifact, ...]:
     text = "\n".join(m.text for m in discovered)
     raw = _ROSTER_ENCODER.encode(discovered)
-    store = settings.store()
     text_raw = text.encode()
-    text_path, json_path = store.write_many((
+    text_path, json_path = scope.store.write_many((
         (text_raw, (ArtifactKind.TEST.value, settings.run_id, "roster.txt")),
         (raw, (ArtifactKind.TEST.value, settings.run_id, "roster.json")),
     ))
@@ -248,7 +301,7 @@ def _roster_artifacts(settings: AssaySettings, discovered: tuple[Match, ...]) ->
     )
 
 
-def thin_rail(settings: AssaySettings, scope: ArtifactScope, params: TestParams, *, claim: Claim, verb: str, mode: Mode) -> Result[Report, Fault]:
+def _thin_rail(settings: AssaySettings, scope: ArtifactScope, params: TestParams, *, claim: Claim, verb: str, mode: Mode) -> Result[Report, Fault]:
     """Run the shared test route, eligibility, fan-out, and fold body.
 
     Returns:
@@ -269,14 +322,14 @@ def thin_rail(settings: AssaySettings, scope: ArtifactScope, params: TestParams,
             base = fold(claim, verb, outcomes, detail=_detail(outcomes, params))
             return msgspec.structs.replace(
                 base,
-                artifacts=(*base.artifacts, _results_artifact(scope), *_coverage_artifacts(settings, outcomes)),
+                artifacts=(*base.artifacts, _results_artifact(scope), *_coverage_artifacts(settings, scope, outcomes)),
                 notes=(*base.notes, *((_GAP_NOTE,) if gap else ())),
             )
 
         return _routed(languages, params.paths, settings).bind(
-            lambda routed: sequence(routed.collect(lambda r: block.of_seq(_dispatch_all(r, params, settings=settings, scope=scope, mode=mode)))).map(
-                _settle
-            )
+            lambda routed: sequence(
+                routed.collect(lambda r: block.of_seq(_dispatch_all(_select(r, params, settings), params, settings=settings, scope=scope, mode=mode)))
+            ).map(_settle)
         )
 
     match any(t.mode is Mode.MUTATION for t in eligible):
@@ -295,7 +348,7 @@ def run(settings: AssaySettings, scope: ArtifactScope, params: TestParams) -> Re
     Returns:
         Test run report, or routing/spawn fault.
     """
-    return thin_rail(settings, scope, params, claim=Claim.TEST, verb="run", mode=Mode.RUN)
+    return _thin_rail(settings, scope, params, claim=Claim.TEST, verb="run", mode=Mode.RUN)
 
 
 def list(settings: AssaySettings, scope: ArtifactScope, params: TestParams) -> Result[Report, Fault]:  # noqa: A001  # the verb IS "list"; this is the registry-bound Handler name
@@ -311,7 +364,7 @@ def list(settings: AssaySettings, scope: ArtifactScope, params: TestParams) -> R
         outcomes = tuple(done)
         base = fold(Claim.TEST, "list", outcomes)
         discovered = tuple(m for m in _roster_matches(outcomes) if not needle or needle in m.text.lower())
-        artifacts = (*base.artifacts, _results_artifact(scope), *_roster_artifacts(settings, discovered))
+        artifacts = (*base.artifacts, _results_artifact(scope), *_roster_artifacts(settings, scope, discovered))
         roster = discovered[: params.limit] if params.limit > 0 else discovered
         note = (f"discovery: total={len(discovered)} returned={len(roster)}",) if discovered else ()
         diagnostics = tuple(
@@ -330,9 +383,9 @@ def list(settings: AssaySettings, scope: ArtifactScope, params: TestParams) -> R
         )
 
     return _routed(languages, params.paths, settings).bind(
-        lambda routed: sequence(routed.collect(lambda r: block.of_seq(_dispatch(r, params, settings=settings, scope=scope, mode=Mode.LIST)))).map(
-            _settle
-        )
+        lambda routed: sequence(
+            routed.collect(lambda r: block.of_seq(_dispatch(_select(r, params, settings), params, settings=settings, scope=scope, mode=Mode.LIST)))
+        ).map(_settle)
     )
 
 
@@ -342,7 +395,7 @@ def coverage(settings: AssaySettings, scope: ArtifactScope, params: TestParams) 
     Returns:
         Coverage test report, or routing/spawn fault.
     """
-    return thin_rail(settings, scope, replace(params, coverage=True, benchmark=False), claim=Claim.TEST, verb="coverage", mode=Mode.RUN)
+    return _thin_rail(settings, scope, replace(params, coverage=True, benchmark=False), claim=Claim.TEST, verb="coverage", mode=Mode.RUN)
 
 
 def _dispatch_all(
@@ -360,4 +413,4 @@ def _dispatch_all(
 
 # --- [EXPORTS] --------------------------------------------------------------------------
 
-__all__ = ["TestParams", "coverage", "list", "run", "thin_rail"]
+__all__ = ["TestParams", "coverage", "list", "run"]

@@ -6,7 +6,7 @@
 > [!CAUTION]
 > Do not treat this bridge as a unit-test framework. Do not create artificial tests to prove code paths. Use it to validate real project files, source files, assemblies, and scripts against the Rhino coding environment.
 
-## [1][PURPOSE]
+## [1]-[PURPOSE]
 
 The bridge answers one question: does current code build, reference, and execute correctly in RhinoWIP with RhinoCode, RhinoCommon, Grasshopper2, and repository assemblies resolved as Rhino sees them.
 
@@ -25,7 +25,7 @@ Avoid it for:
 - Managed cleanup already covered by `uv run python -m tools.assay static fix`; compile/analyzer proof belongs to `uv run python -m tools.assay static build`.
 - Long-running UI-thread experiments that require server-side cancellation.
 
-## [2][ARCHITECTURE]
+## [2]-[ARCHITECTURE]
 
 ```mermaid
 ---
@@ -58,7 +58,7 @@ Text equivalent: `tools.assay bridge` routes commands into `client/`, then throu
 |   [4]   | Plugin   | `plugin/`                   | Named-pipe server; RhinoCode on UI thread   |
 |   [5]   | Endpoint | `~/.rasm/rhino-bridge.json` | Pipe, PID, version; not job/scenario data   |
 
-## [3][COMMANDS]
+## [3]-[COMMANDS]
 
 Run commands from repository root. Prefix: `uv run python -m tools.assay`.
 
@@ -85,7 +85,7 @@ Run commands from repository root. Prefix: `uv run python -m tools.assay`.
 - [8] Skips automated quit when no live endpoint; retires stale `~/.rasm/rhino-bridge.json` before relaunch.
 - [10] Resolves scenarios and routes execution through the bridge client; report artifacts are emitted through the Assay envelope.
 
-### [3.1][PRIMARY_USAGE]
+### [3.1]-[PRIMARY_USAGE]
 
 Validate bridge health:
 
@@ -135,7 +135,7 @@ Expected result: compact JSON plus bounded inline preview and `decompile.cs` art
 
 Default API commands do not print broad query/decompile streams. Inspect `artifact_paths` or run `api show <artifact-or-symbol> --full`; stdout remains one JSON Envelope.
 
-### [3.2][OPTIONS]
+### [3.2]-[OPTIONS]
 
 The client surface is intentionally minimal — defaults are env-driven and constant.
 
@@ -157,7 +157,7 @@ Environment overrides:
 
 Every bridge timeout follows one env-overridable rule — `RASM_BRIDGE_<NAME>_TIMEOUT_S` (seconds, positive) for `HELLO`, `CONNECT`, `TRANSPORT`, `QUIT_WAIT`, `HANDSHAKE`, and `IDLE_DISPATCH`.
 
-## [4][OUTPUT_CONTRACT]
+## [4]-[OUTPUT_CONTRACT]
 
 Top-level fields:
 - `schema`: wire contract. Current value: `rasm.rhino-bridge.v1`.
@@ -203,7 +203,7 @@ Phase expectations:
 
 Output blocks include `source`, `text`, `truncated`, `length`, and `limit`. Treat `truncated: true` as machine-actionable loss of detail. Parse `outputs[]` by `source`: `execute` emits `stdout` and `stderr` (the script's console streams) plus `rhino.command` — the Rhino command-window history captured around execution via `RhinoApp.CommandWindowCaptureEnabled` with `CapturedCommandWindowStrings`/`CommandHistoryWindowText`, surfacing native command echoes a script triggers. Process-spawning phases (`resolve`, `build`) emit `process.stdout`/`process.stderr`. Every successful `execute` carries a `rhino.command` block (empty when no command ran).
 
-### [4.1][SCRIPT_RETURNS]
+### [4.1]-[SCRIPT_RETURNS]
 
 Scripts can return structured agent evidence by writing one stdout line:
 
@@ -217,7 +217,7 @@ Runtime checks force RhinoCode C# `csharp.resolver.isolate = true` and `CachePol
 
 The Rhino-loaded bridge boundary is dependency-free outside RhinoWIP host assemblies and the local protocol DLL. `rasm-bridge.rhp` and `Rasm.RhinoBridge.Protocol.dll` do not package `LanguageExt.Core` or `Thinktecture.Runtime.Extensions`; this prevents Rhino's shared plugin load context from binding other plugins to Rasm's functional-library versions.
 
-### [4.2][BRIDGE_MARKERS]
+### [4.2]-[BRIDGE_MARKERS]
 
 Scenarios and smoke probes emit structured evidence as **bridge markers** — line-oriented stdout records prefixed `rasm.rhino-bridge.`. The plugin captures stdout, leaves raw text in `execute.outputs[].text`, and the canonical parser is `Rasm.RhinoBridge.Protocol.BridgeMarker.Scan(string stdout) -> IReadOnlyList<BridgeMarker>` (in the protocol assembly, also published in the agent reference set).
 
@@ -239,7 +239,7 @@ Fact emission contract. `Rasm.TestKit.Scenarios.Scenario.Run(theme, capturePath,
 
 Marker consumption. The prefixed `Evidence("facts", json)` marker is the structured source of truth. The plain `facts={json}` line is human-readable duplicate output. Use `BridgeMarker.Scan(stdout)`, filter on `Evidence` cases, and deserialize `Evidence.Value` as a `Dictionary<string, JsonElement>` for typed fact access.
 
-## [5][REFERENCE_POLICY]
+## [5]-[REFERENCE_POLICY]
 
 Host assemblies (`RhinoCommon`, `Rhino.UI`, `Eto`, `Grasshopper2`, `GrasshopperIO`, `RhinoCodePlatform.Rhino3D`, `Microsoft.macOS`, `System.Drawing.Common`) resolve from the installed RhinoWIP app bundle via `Directory.Build.props` HintPaths under `$(RhinoWipResourcesPath)` with `Private=false` — never from NuGet. The bundle path is the newest installed `/Applications/Rhino*.app` (see `RHINO_WIP_APP_PATH`), so compile and runtime bind the same versions Rhino loads; `bridge doctor` reports the resolved versions and paths.
 
@@ -259,7 +259,7 @@ API metadata lookup uses local sources in this order:
 > [!CAUTION]
 > Do not document `check <source.cs> <script.csx>` as compile-reference based until the client owns a real compile-reference projection and the plugin applies it authoritatively.
 
-## [6][FAILURE_READING]
+## [6]-[FAILURE_READING]
 
 | [INDEX] | [SIGNAL]                      | [READ_AS]                          | [NEXT_ACTION]                                                        |
 | :-----: | ----------------------------- | ---------------------------------- | -------------------------------------------------------------------- |
@@ -273,7 +273,7 @@ API metadata lookup uses local sources in this order:
 |   [8]   | `ilspycmd` apphost failure    | Bad `DOTNET_ROOT`/hostfxr          | `api doctor`; fix apphost env — not MSBuild/Rhino refs               |
 |   [9]   | `execute` script-engine fault | RhinoCode language start failure   | Check `doctor.hostRuntime`; rebuild plugin for current bundle        |
 
-## [7][UPDATE_RULES]
+## [7]-[UPDATE_RULES]
 
 > [!IMPORTANT]
 > 1. Preserve architecture: operator script -> client -> protocol -> Rhino plugin.
@@ -291,7 +291,7 @@ API metadata lookup uses local sources in this order:
 > - Never add temp-only scripts, generated tests, or fake probes as bridge purpose.
 - Never automate Rhino settings or templates from this repository.
 
-## [8][RUNTIME_BOUNDARIES]
+## [8]-[RUNTIME_BOUNDARIES]
 
 Live Rhino commands, `bridge verify`, package live steps, and package staging are fail-fast exclusive. Never queue live Rhino commands behind each other; a busy lease means retry later or pick another proof.
 

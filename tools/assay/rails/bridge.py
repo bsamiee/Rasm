@@ -2,6 +2,7 @@
 
 from dataclasses import dataclass
 from pathlib import Path
+import re
 import shutil
 import time
 from typing import Final, override
@@ -38,6 +39,8 @@ from tools.assay.core.status import RailStatus
 _CLIENT_PROJECT: Final[str] = "tools/rhino-bridge/client/Rasm.RhinoBridge.Client.csproj"
 _PLUGIN_PROJECT: Final[str] = "tools/rhino-bridge/plugin/Rasm.RhinoBridge.Plugin.csproj"
 _PROTOCOL_PROJECT: Final[str] = "tools/rhino-bridge/protocol/Rasm.RhinoBridge.Protocol.csproj"
+_TESTKIT_PROJECT: Final[str] = "tests/csharp/_testkit/Rasm.TestKit.csproj"
+_LIB_ROOT: Final[tuple[str, ...]] = ("tests", "csharp", "libs")
 _SCENARIO_SUFFIX: Final[str] = ".verify.csx"
 _SCENARIO_TIMEOUT_S: Final[float] = 180.0
 _VERIFY_TTL_S: Final[float] = 300.0
@@ -46,6 +49,9 @@ _PATH_GLYPHS: Final[str] = "/*?["
 _EXECUTE_PHASE: Final[str] = "execute"
 _STDOUT_SOURCE: Final[str] = "stdout"
 _STDERR_SOURCE: Final[str] = "stderr"
+# Scenario evidence markers (BridgeMarker.Prefix) ride execute stdout via Scenario.Run / Capture.
+_EVIDENCE_RE: Final[re.Pattern[str]] = re.compile(r"rasm\.rhino-bridge\.evidence=facts=(\{.*\})")
+_CAPTURE_RE: Final[re.Pattern[str]] = re.compile(r"rasm\.rhino-bridge\.capture=(\{.*\})")
 
 
 # --- [MODELS] ---------------------------------------------------------------------------
@@ -55,12 +61,14 @@ _STDERR_SOURCE: Final[str] = "stderr"
 class BridgeParams(BaseParams):
     """Parameters shared by bridge verbs."""
 
-    pattern: str = ""
-
     @override
     def _arity(self, verb: str) -> int:
-        _ = verb
-        return 0
+        return 1 if verb == "verify" else 0
+
+    @property
+    def pattern(self) -> str:
+        """Scenario discovery pattern from the positional tail; empty discovers every scenario under the workspace root."""
+        return self.paths[0] if self.paths else ""
 
 
 class _Scenario(msgspec.Struct, frozen=True, gc=False):
@@ -78,6 +86,7 @@ class _BridgeFault(msgspec.Struct, frozen=True, gc=False, omit_defaults=True, re
     message: str = ""
     type: str = ""
     stack_trace: str = ""
+    causes: tuple["_BridgeFault", ...] = ()  # recursive self-reference — quoted so msgspec resolves it post-creation
 
 
 class _BridgeDiagnostics(msgspec.Struct, frozen=True, gc=False, omit_defaults=True, rename="camel"):
@@ -89,13 +98,17 @@ class _BridgeOutput(msgspec.Struct, frozen=True, gc=False, omit_defaults=True, r
     source: str = ""
     text: str = ""
     truncated: bool = False
+    length: int = 0
+    limit: int = 0
 
 
 class _BridgePhase(msgspec.Struct, frozen=True, gc=False, omit_defaults=True, rename="camel"):
     phase: str
     status: RailStatus = RailStatus.FAILED
+    duration_ms: int = 0
     data: dict[str, object] | None = None
     outputs: tuple[_BridgeOutput, ...] = ()
+    fault: _BridgeFault | None = None
 
 
 class _BridgeResult(msgspec.Struct, frozen=True, gc=False, omit_defaults=True, rename="camel"):
@@ -103,6 +116,7 @@ class _BridgeResult(msgspec.Struct, frozen=True, gc=False, omit_defaults=True, r
     status: RailStatus = RailStatus.FAILED
     report_path: str = ""
     phases: tuple[_BridgePhase, ...] = ()
+    fault: _BridgeFault | None = None
 
 
 # --- [TABLES] ---------------------------------------------------------------------------
@@ -171,15 +185,47 @@ def _coerce_diagnostics(raw: object) -> _BridgeDiagnostics:
         return _BridgeDiagnostics()
 
 
+def _with_facts(done: Completed, result: _BridgeResult) -> Completed:
+    # Markers ride the execute phase's decoded stdout BridgeOutput, not raw client stdout;
+    # surface them as receipt notes (full VerifyScenario decoding lands in Wave E).
+    text = next(
+        (out.text for phase in result.phases if phase.phase == _EXECUTE_PHASE for out in phase.outputs if out.source == _STDOUT_SOURCE),
+        "",
+    )
+    facts = tuple(
+        f"{label}:{match.group(1)}"
+        for label, pattern in (("facts", _EVIDENCE_RE), ("capture", _CAPTURE_RE))
+        for line in text.splitlines()
+        if (match := pattern.search(line)) is not None
+    )
+    return done if not facts else msgspec.structs.replace(done, notes=(*done.notes, *facts))
+
+
 def _first_fault(result: _BridgeResult) -> tuple[str, str]:
-    # Phases stream in wire order, so the first defect is the retriage entry.
-    return next(((phase.phase, _phase_diagnostic(phase)) for phase in result.phases if phase.status.severity > RailStatus.OK.severity), ("", ""))
+    # A reply-level fault outranks phase rows; otherwise phases stream in wire order, so the first defect is the retriage entry.
+    match result.fault:
+        case _BridgeFault() as fault:
+            return ("reply", _fault_message(fault))
+        case _:
+            return next(
+                ((phase.phase, _phase_diagnostic(phase)) for phase in result.phases if phase.status.severity > RailStatus.OK.severity),
+                ("", ""),
+            )
+
+
+def _fault_message(fault: _BridgeFault) -> str:
+    # Causes are a flattened inner-exception chain; the first carries the proximate failure when present.
+    return next((tail.message for tail in fault.causes), fault.message)[:256]
 
 
 def _phase_diagnostic(phase: _BridgePhase) -> str:
-    streamed = next((out.text for src in (_STDERR_SOURCE, _STDOUT_SOURCE) for out in phase.outputs if out.source == src and out.text), "")
-    match (streamed, _diagnostics(phase.data).exception_reports):
-        case ("", (head, *_)):
+    # Execute markers stream to stdout, so the execute phase prefers stdout; every other phase keeps stderr-first.
+    order = (_STDOUT_SOURCE, _STDERR_SOURCE) if phase.phase == _EXECUTE_PHASE else (_STDERR_SOURCE, _STDOUT_SOURCE)
+    streamed = next((out.text for src in order for out in phase.outputs if out.source == src and out.text), "")
+    match (phase.fault, streamed, _diagnostics(phase.data).exception_reports):
+        case (_BridgeFault() as fault, "", _):
+            return _fault_message(fault)
+        case (_, "", (head, *_)):
             return head.message[:256]
         case _:
             return streamed[:256]
@@ -201,21 +247,55 @@ def _read_result(result_path: Path) -> Result[bytes, Fault]:
         return Error(Fault(("read", str(result_path)), RailStatus.FAULTED, str(exc)[:1024]))
 
 
+def _resolve_project(settings: AssaySettings, scenario: Path) -> Path:
+    # ClientVerb routes on extension: a .csproj positional[0] -> Project closure that supplies the scenario's compile surface.
+    # tests/csharp/libs/<project>/.../scenarios/X.verify.csx owns <project>.Tests.csproj; bare scenarios fall back to the TestKit closure.
+    root = Path(str(settings.root))
+    parts = scenario.resolve().relative_to(root.resolve()).parts
+    match parts:
+        case ("tests", "csharp", "libs", project, *_):
+            candidate = root / Path(*_LIB_ROOT) / project / f"{project}.Tests.csproj"
+            return candidate if candidate.is_file() else root / _TESTKIT_PROJECT
+        case _:
+            return root / _TESTKIT_PROJECT
+
+
+def _client_ready(settings: AssaySettings) -> Result[None, str]:
+    # --no-build client invocations need a prior build closure; a missing client DLL is an operational fault, not a scenario defect.
+    bin_dir = Path(str(settings.root)) / Path(_CLIENT_PROJECT).parent / "bin" / settings.configuration.value
+    if any(bin_dir.glob("*/Rasm.RhinoBridge.Client.dll")):
+        return Ok(None)
+    return Error(f"bridge client is not built under {bin_dir}; run `bridge build` first")
+
+
 def _run_scenario(settings: AssaySettings, report_dir: Path, scenario: Path) -> _Scenario:
     # Spawn/timeout Faults become FAILED scenario rows so every discovered scenario stays represented.
     stem = scenario.name.removesuffix(_SCENARIO_SUFFIX) or scenario.stem
     result_path = report_dir / f"{stem}.json"
-    run = _client_run(settings, "check", str(scenario), "--result", str(result_path), timeout=_SCENARIO_TIMEOUT_S)
+    project = _resolve_project(settings, scenario)
+    match _client_ready(settings):
+        case Result(error=reason):
+            return _Scenario(
+                status=RailStatus.FAILED, stem=stem, fault_phase="client", fault_output=reason[:256],
+                completed=receipt((stem, "client"), 1, status=RailStatus.FAILED, notes=(reason,)),
+            )
+        case _:
+            return _run_decoded(settings, project, scenario, result_path, stem)
+
+
+def _run_decoded(settings: AssaySettings, project: Path, scenario: Path, result_path: Path, stem: str) -> _Scenario:
+    run = _client_run(settings, "check", str(project), str(scenario), "--result", str(result_path), timeout=_SCENARIO_TIMEOUT_S)
     match run:
         case Result(tag="ok", ok=done):
             res = _decode_result(done, result_path)
             phase, output = _first_fault(res)
-            return _Scenario(status=res.status, stem=stem, exceptions=_exceptions(res), fault_phase=phase, fault_output=output, completed=done)
+            return _Scenario(
+                status=res.status, stem=stem, exceptions=_exceptions(res), fault_phase=phase, fault_output=output,
+                completed=_with_facts(done, res),
+            )
         case Result(error=fault):
             return _Scenario(
-                status=RailStatus.FAILED,
-                stem=stem,
-                fault_phase="launch",
+                status=RailStatus.FAILED, stem=stem, fault_phase="launch",
                 fault_output=(fault.message or " ".join(fault.argv))[:256],
                 completed=receipt(fault.argv, 1, status=RailStatus.FAILED),
             )
@@ -256,15 +336,16 @@ def _glob(root: Path, pattern: str) -> tuple[Path, ...]:
     )
 
 
-def _expire_stale(report_dir: Path, ttl_s: float) -> None:
-    # Expire before launch so housekeeping cannot race freshly written scenario JSON.
-    parent = report_dir.parent
-    match parent.is_dir():
+def _expire_stale(report_dir: Path, run_id: str, ttl_s: float) -> None:
+    # The per-run scope (report_dir.parent) is unique, so housekeeping must sweep the shared claim root by mtime.
+    # Exclude the live run so expiry before launch cannot race this run's freshly written scenario JSON.
+    claim_root = report_dir.parent.parent
+    match claim_root.is_dir():
         case False:
             return
         case True:
             cutoff = time.time() - ttl_s
-            _ = tuple(_rmtree(child) for child in parent.iterdir() if _is_stale(child, parent, cutoff))
+            _ = tuple(_rmtree(child) for child in claim_root.iterdir() if child.name != run_id and _is_stale(child, claim_root, cutoff))
 
 
 def _is_stale(child: Path, parent: Path, cutoff: float) -> bool:
@@ -302,10 +383,10 @@ def verify(settings: AssaySettings, scope: ArtifactScope, params: BridgeParams) 
 
 
 def _verify_locked(settings: AssaySettings, scope: ArtifactScope, params: BridgeParams, argv: tuple[str, ...]) -> Result[Report, Fault]:
-    # Build, report-dir setup, and launch must complete before scenario discovery and execution.
+    # Report-dir setup, the fault-gated build, then launch must each clear before scenario discovery; the prelude receipts are discarded.
     report_dir = Path(scope.path) / _VERIFY_DIR
-    _expire_stale(report_dir, _VERIFY_TTL_S)
-    prelude = _ensure_dir(report_dir).bind(lambda _: _build_closure(settings)).bind(lambda _: _affirm(_client_run(settings, "launch")))
+    _expire_stale(report_dir, settings.run_id, _VERIFY_TTL_S)
+    prelude = _ensure_dir(report_dir).bind(lambda _: _build_closure(settings)).bind(lambda _: _faulted(_client_run(settings, "launch")))
     match prelude:
         case Result(tag="ok"):
             return _fold_scenarios(settings, report_dir, _discover(settings, params.pattern), argv)
@@ -333,14 +414,15 @@ def _fold_scenarios(settings: AssaySettings, report_dir: Path, scenarios: tuple[
             return Ok(msgspec.structs.replace(report, artifacts=(*report.artifacts, *_scenario_artifacts(report_dir))))
 
 
-def _build_closure(settings: AssaySettings) -> Result[None, Fault]:
+def _build_closure(settings: AssaySettings) -> Result[Completed, Fault]:
     # One stable build tree keeps the live host and --no-build client on the same output.
-    def locked(_held: object) -> Result[None, Fault]:
+    # Order protocol -> plugin -> client -> testkit so the isolated resolver finds Scenario.Run / FactBag at scenario time.
+    def locked(_held: object) -> Result[Completed, Fault]:
         scope = ArtifactScope.build(settings, "bridge")
-        projects = (_PROTOCOL_PROJECT, _PLUGIN_PROJECT, _CLIENT_PROJECT)
+        projects = (_PROTOCOL_PROJECT, _PLUGIN_PROJECT, _CLIENT_PROJECT, _TESTKIT_PROJECT)
         check = Check(tool=_BUILD_TOOL, cwd=Path(str(settings.root)))
         routed = Routed(language=Language.CSHARP, scope=Scope.CHANGED, projects=tuple(str(settings.root / p) for p in projects))
-        return _affirm(run_check(check, settings=settings, scope=scope, routed=routed, deadline=None))
+        return _faulted(run_check(check, settings=settings, scope=scope, routed=routed, deadline=None))
 
     return leased(f"build-bridge-{settings.configuration.value}", locked, settings=settings, run_id=settings.run_id, project="bridge")
 
@@ -355,11 +437,11 @@ def _scenario_artifacts(report_dir: Path) -> tuple[Artifact, ...]:
     )
 
 
-def _affirm(outcome: Result[Completed, Fault]) -> Result[None, Fault]:
-    # Non-zero build/launch exits mean verify could not run, so promote them to Fault.
+def _faulted(outcome: Result[Completed, Fault]) -> Result[Completed, Fault]:
+    # Non-zero build/launch exits mean the closure is unusable; promote them to Fault while preserving the receipt on success.
     match outcome:
         case Result(tag="ok", ok=done) if done.status.severity <= RailStatus.OK.severity:
-            return Ok(None)
+            return Ok(done)
         case Result(tag="ok", ok=done):
             # FAILED is success-channel defect evidence; build/launch failure is an operational Fault.
             status = RailStatus.FAULTED if done.status is RailStatus.FAILED else done.status
@@ -436,7 +518,7 @@ def build(settings: AssaySettings, scope: ArtifactScope, params: BridgeParams) -
         Bridge build report or build fault.
     """
     _ = (scope, params)
-    return _build_closure(settings).map(lambda _: fold(Claim.BRIDGE, "build", (receipt(("bridge", "build"), 0),)))
+    return _build_closure(settings).map(lambda done: fold(Claim.BRIDGE, "build", (done,)))
 
 
 # --- [EXPORTS] --------------------------------------------------------------------------

@@ -4,7 +4,7 @@ from collections.abc import Callable
 from dataclasses import dataclass
 from enum import StrEnum
 from pathlib import Path
-from typing import Annotated, get_args, Literal, Self
+from typing import Annotated, Literal, Self
 
 from cyclopts import Parameter
 import msgspec
@@ -278,9 +278,6 @@ class ApiSource(Detail, frozen=True, tag="api-source"):
 class ApiSurface(Detail, frozen=True, tag="api"):
     """API surface detail."""
 
-    source_kind: SourceKind = SourceKind.TOOL
-    source_id: str = ""
-    version: str = ""
     source: ApiSource = ApiSource()
     shape: SymbolShape = SymbolShape.SEARCH
     signature: str = ""
@@ -383,7 +380,7 @@ class Report(Base, frozen=True):
 class Envelope(Base, frozen=True, kw_only=True):
     """Top-level Assay wire Envelope."""
 
-    schema_version: int
+    schema_version: Literal[1] = 1
     claim: Claim
     verb: str
     status: RailStatus = RailStatus.OK
@@ -420,13 +417,23 @@ def field_cap(struct: type[msgspec.Struct], field: str, *, default: int) -> int:
     Returns:
         Configured max length, or the supplied default when absent.
     """
-    return (
-        next((m.max_length for f in msgspec.structs.fields(struct) if f.name == field for m in get_args(f.type) if isinstance(m, msgspec.Meta)), None)
-        or default
-    )
+    match msgspec.inspect.type_info(struct):
+        case msgspec.inspect.StructType(fields=fields):
+            return next(
+                (
+                    f.type.max_length
+                    for f in fields
+                    if f.name == field
+                    and isinstance(f.type, msgspec.inspect.StrType)
+                    and f.type.max_length is not None
+                ),
+                default,
+            )
+        case _:
+            return default
 
 
-# --- [TABLES] ---------------------------------------------------------------------------
+# --- [CONSTANTS] ------------------------------------------------------------------------
 
 # Reserve hint space for parse framing so surplus tokens do not sever the diagnostic suffix.
 _HINT_CAP: int = field_cap(Diagnostic, "hint", default=1 << 62)
@@ -470,9 +477,6 @@ class BaseParams:
         joined = " ".join(tokens)
         clipped = joined[:_SURPLUS_TOKEN_CAP] + ("…" if len(joined) > _SURPLUS_TOKEN_CAP else "")
         return Fault((), RailStatus.FAULTED, f"parse: {verb}: unexpected positional(s): {clipped}")
-
-
-# --- [OPERATIONS] -----------------------------------------------------------------------
 
 
 def receipt(
@@ -537,8 +541,8 @@ def fold(claim: Claim, verb: str, outcomes: tuple[Completed, ...], *, detail: An
             text=(o.stderr or o.stdout)[-_DEFECT_TAIL:].decode(errors="replace").strip(),
             severity="failed",
         )
-        for o in outcomes
-        if _count(o) == (0, 1)
+        for o, p in zip(outcomes, pairs, strict=True)
+        if p == (0, 1)
     )
     return Report(
         claim,
@@ -581,6 +585,15 @@ def wire_encode(value: object) -> bytes:
         Deterministic JSON bytes.
     """
     return _ENCODER.encode(value)
+
+
+def wire_safe(text: str) -> str:
+    """Replace lone surrogates (PEP 383 surrogateescape from invalid-UTF-8 argv) with U+FFFD.
+
+    Returns:
+        A string msgspec can UTF-8 encode for the wire.
+    """
+    return text.encode("utf-8", "replace").decode("utf-8")
 
 
 # --- [COMPOSITION] ----------------------------------------------------------------------
@@ -633,4 +646,5 @@ __all__ = [
     "receipt",
     "validate_detail",
     "wire_encode",
+    "wire_safe",
 ]

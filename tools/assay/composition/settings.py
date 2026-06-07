@@ -12,7 +12,7 @@ from urllib.parse import urlsplit
 
 import fsspec  # type: ignore[import-untyped]  # fsspec ships no py.typed marker
 import msgspec
-from pydantic import AliasChoices, BaseModel, BeforeValidator, computed_field, ConfigDict, Field, field_validator
+from pydantic import AliasChoices, BaseModel, BeforeValidator, computed_field, ConfigDict, Field, field_validator, model_validator
 from pydantic_settings import (  # noqa: TC002  # Pydantic calls the hook by runtime annotations.
     BaseSettings,
     PydanticBaseSettingsSource,
@@ -46,99 +46,6 @@ class LogFormat(StrEnum):
     CI = "ci"
 
 
-# --- [CONSTANTS] ------------------------------------------------------------------------
-
-_MARKER: Final[str] = "Workspace.slnx"
-_ARTIFACTS: Final[str] = ".artifacts"
-_ASSAY: Final[str] = "assay"
-_BUILD: Final[str] = "build"
-_DISABLE_BUILD_SERVERS: Final[str] = "--disable-build-servers"
-_ARTIFACTS_PATH_FLAG: Final[str] = "--artifacts-path"
-_RUN_ID_PATTERN: Final[str] = r"^[A-Za-z0-9_.-]+$"
-_REMOTE_ENV_NAMES: Final[frozenset[str]] = frozenset((
-    "ASSAY_AGENT_TASK_ID",
-    "ASSAY_ARTIFACT_RETENTION",
-    "ASSAY_EXEC_TARGET",
-    "ASSAY_RUN_ID",
-    "HOME",
-    "LANG",
-    "LC_ALL",
-    "OTEL_EXPORTER_OTLP_ENDPOINT",
-    "OTEL_EXPORTER_OTLP_TRACES_ENDPOINT",
-    "OTEL_SERVICE_NAME",
-    "PATH",
-))
-_TRACE_CONTEXT_ENV: Final[frozenset[str]] = frozenset(("traceparent", "tracestate", "baggage"))
-_PYTHON_TOOL_ENV: Final[dict[str, str]] = {
-    "UV_CACHE_DIR": ".cache/uv",
-    "HYPOTHESIS_STORAGE_DIRECTORY": ".cache/hypothesis",
-    "RUFF_CACHE_DIR": ".cache/ruff",
-    "MYPY_CACHE_DIR": ".cache/mypy",
-    "COVERAGE_FILE": ".cache/coverage/.coverage",
-}
-
-
-# --- [BOUNDARIES] -----------------------------------------------------------------------
-
-
-def _anchor(value: str | UPath) -> UPath:
-    # Normalize once at ingress so all readers see an absolute UPath anchored to the nearest workspace marker.
-    cursor = UPath(value).expanduser().resolve()
-    return next((p for p in (cursor, *cursor.parents) if (p / _MARKER).is_file()), cursor)
-
-
-def _expand_or_none(value: str | UPath | None) -> str | None:
-    match value:
-        case None | "":
-            return None
-        case _:
-            return str(UPath(value).expanduser())
-
-
-def _safe_segment(part: str | UPath) -> str:
-    text = str(part).replace("\\", "/")
-    pieces = tuple(p for p in text.split("/") if p)
-    match (
-        text.startswith("/"),
-        text in {"", ".", ".."},
-        any(p in {".", ".."} for p in pieces),
-        len(pieces) == 1 and text == pieces[0],
-        "\x00" in text,
-    ):
-        case (False, False, False, True, False):
-            return text
-        case _:
-            raise ValueError(f"unsafe artifact path segment: {text!r}")
-
-
-def _detail_path(row: dict[str, object]) -> str:
-    value = row.get("name", row.get("path", ""))
-    return str(value)
-
-
-def _mtime(info: dict[str, object]) -> float:
-    value = info.get("mtime", info.get("created", 0.0))
-    return value if isinstance(value, int | float) else 0.0
-
-
-def _artifact_match(path: str, token: str) -> bool:
-    if not token.strip():
-        return False
-    stem = path.rsplit("/", 1)[-1]
-    return token in {path, stem} or token in path
-
-
-def _root_parts(root: str) -> tuple[str, ...]:
-    return tuple(part for part in root.split("/") if part)
-
-
-def _fileish(info: dict[str, object]) -> bool:
-    kind = str(info.get("type", "")).casefold()
-    return kind not in {"directory", "folder"}
-
-
-# --- [TYPES] ----------------------------------------------------------------------------
-
 type AnchoredRoot = Annotated[UPath, BeforeValidator(_anchor)]
 type ExpandedPath = Annotated[UPath, BeforeValidator(lambda v: UPath(v).expanduser())]
 type ExpandedKnownHosts = Annotated[str | None, BeforeValidator(_expand_or_none)]
@@ -146,7 +53,7 @@ type RunId = Annotated[str, Field(min_length=1, max_length=160, pattern=_RUN_ID_
 type StoreProtocol = Annotated[str, Field(min_length=1, max_length=64, pattern=r"^[A-Za-z][A-Za-z0-9+.-]*$")]
 
 
-@runtime_checkable
+@runtime_checkable  # noqa: PLR0904  # Protocol mirrors fsspec's full structural contract; removing any method breaks the backend boundary.
 class ArtifactFileSystem(Protocol):
     """Structural subset of fsspec used by Assay artifact storage."""
 
@@ -212,6 +119,96 @@ class ArtifactFileSystem(Protocol):
             Backend-specific file object.
         """
 
+    @property
+    def transaction(self) -> contextlib.AbstractContextManager[object]:
+        """Return a backend write-transaction context; backends without one fold to `nullcontext`.
+
+        Returns:
+            Context manager batching writes, or `nullcontext` when the backend is non-transactional.
+        """
+        return contextlib.nullcontext()
+
+
+# --- [CONSTANTS] ------------------------------------------------------------------------
+
+_MARKER: Final[str] = "Workspace.slnx"
+_ARTIFACTS: Final[str] = ".artifacts"
+_ASSAY: Final[str] = "assay"
+_BUILD: Final[str] = "build"
+_DISABLE_BUILD_SERVERS: Final[str] = "--disable-build-servers"
+_ARTIFACTS_PATH_FLAG: Final[str] = "--artifacts-path"
+_RUN_ID_PATTERN: Final[str] = r"^[A-Za-z0-9_.-]+$"
+_REMOTE_ENV_NAMES: Final[frozenset[str]] = frozenset((
+    "ASSAY_AGENT_TASK_ID",
+    "ASSAY_ARTIFACT_RETENTION",
+    "ASSAY_EXEC_TARGET",
+    "ASSAY_RUN_ID",
+    "HOME",
+    "LANG",
+    "LC_ALL",
+    "OTEL_EXPORTER_OTLP_ENDPOINT",
+    "OTEL_EXPORTER_OTLP_TRACES_ENDPOINT",
+    "OTEL_SERVICE_NAME",
+    "PATH",
+    "RHINO_WIP_APP_PATH",
+))
+_TRACE_CONTEXT_ENV: Final[frozenset[str]] = frozenset(("traceparent", "tracestate", "baggage"))
+_PYTHON_TOOL_ENV: Final[dict[str, str]] = {
+    "UV_CACHE_DIR": ".cache/uv",
+    "HYPOTHESIS_STORAGE_DIRECTORY": ".cache/hypothesis",
+    "RUFF_CACHE_DIR": ".cache/ruff",
+    "MYPY_CACHE_DIR": ".cache/mypy",
+    "COVERAGE_FILE": ".cache/coverage/.coverage",
+}
+
+
+# --- [BOUNDARIES] -----------------------------------------------------------------------
+
+
+def _anchor(value: str | UPath) -> UPath:
+    # Normalize once at ingress so all readers see an absolute UPath anchored to the nearest workspace marker.
+    cursor = UPath(value).expanduser().resolve()
+    return next((p for p in (cursor, *cursor.parents) if (p / _MARKER).is_file()), cursor)
+
+
+def _expand_or_none(value: str | UPath | None) -> str | None:
+    match value:
+        case None | "":
+            return None
+        case _:
+            return str(UPath(value).expanduser())
+
+
+def _safe_segment(part: str | UPath) -> str:
+    text = str(part).replace("\\", "/")
+    pieces = tuple(p for p in text.split("/") if p)
+    match (
+        text.startswith("/"),
+        text in {"", ".", ".."},
+        any(p in {".", ".."} for p in pieces),
+        len(pieces) == 1 and text == pieces[0],
+        "\x00" in text,
+    ):
+        case (False, False, False, True, False):
+            return text
+        case _:
+            raise ValueError(f"unsafe artifact path segment: {text!r}")
+
+
+def _root_parts(root: str) -> tuple[str, ...]:
+    return tuple(part for part in root.split("/") if part)
+
+
+def _mtime(info: dict[str, object]) -> float:
+    # Coerce fsspec mtime/created metadata to a POSIX float; module-level so tests can monkeypatch the ranking key.
+    match info.get("mtime", info.get("created", 0.0)):
+        case int() | float() as value:
+            return float(value)
+        case datetime() as value:  # fsspec memory/info backends surface `created` as a tz-aware datetime
+            return value.timestamp()
+        case _:
+            return 0.0
+
 
 # --- [MODELS] ---------------------------------------------------------------------------
 
@@ -223,6 +220,20 @@ class ArtifactBackend(BaseModel):
 
     protocol: StoreProtocol = "file"
     root: str = ""
+
+    @model_validator(mode="after")
+    def _bounded_non_file_root(self) -> ArtifactBackend:  # noqa: N804  # Pydantic v2 mode="after" validators receive the model instance via self, not cls.
+        # The `file` backend folds an empty root to the workspace store root, but non-file backends (fsspec MemoryFileSystem
+        # is a process-global singleton) must name an explicit, traversal-free root or distinct stores collide in one process.
+        match (self.protocol, self.root.strip(), ".." in _root_parts(self.root)):
+            case ("file", _, _):
+                return self
+            case (_, "", _):
+                raise ValueError(f"non-file backend {self.protocol!r} requires a non-empty root")
+            case (_, _, True):
+                raise ValueError(f"non-file backend root must not traverse with '..': {self.root!r}")
+            case _:
+                return self
 
     def target(self, settings: AssaySettings) -> str:
         """Project the backend root without smuggling run scope into storage ownership.
@@ -398,12 +409,11 @@ class AssaySettings(BaseSettings):
         Returns:
             Environment variables allowed to cross the SSH execution boundary.
         """
+        # ASSAY_RUN_ID is allowlisted but lives only on the settings model (default_factory), never in os.environ, so the
+        # _overlay clone the remote plan inherits omits it; inject it here so the remote process shares the run id.
         safe_names = frozenset((*self.python_tool_env, *_REMOTE_ENV_NAMES, *_TRACE_CONTEXT_ENV))
-        return {key: value for key, value in env.items() if key in safe_names and key.replace("_", "").isalnum()}
-
-
-# ArtifactBackend references AssaySettings in an annotation; rebuild after AssaySettings exists.
-ArtifactBackend.model_rebuild()
+        source = {"ASSAY_RUN_ID": self.run_id, **env}
+        return {k: v for k, v in source.items() if k in safe_names}
 
 
 # --- [SERVICES] -------------------------------------------------------------------------
@@ -442,52 +452,30 @@ class ArtifactStore:
         """
         return tuple(self._normalize_backend_path(path) for path in sorted(self.fs.glob(f"{self.root}/{pattern}")))
 
-    def list(self, *parts: str | UPath) -> tuple[str, ...]:
-        """List direct children under a store-relative path.
+    def walk(self, *parts: str | UPath, recursive: bool = False, detail: bool = False) -> tuple[str, ...] | tuple[tuple[str, dict[str, object]], ...]:
+        """List children under a store-relative path, optionally recursive and with metadata.
+
+        `recursive` chooses `find` over `ls`; `detail` projects `(path, metadata)` rows over plain paths.
 
         Returns:
-            Matching backend paths.
+            Matching backend paths, or `(path, metadata)` rows when `detail` is set; `()` when the path is absent.
         """
-        rows = self.fs.ls(self.path(*parts), detail=False)
-        paths = tuple(str(path) for path in rows)
-        return tuple(self._normalize_backend_path(path) for path in sorted(paths))
-
-    def list_details(self, *parts: str | UPath) -> tuple[tuple[str, dict[str, object]], ...]:
-        """List direct children under a store-relative path with metadata.
-
-        Returns:
-            `(path, metadata)` rows.
-        """
+        base = self.path(*parts)
         try:
-            rows = self.fs.ls(self.path(*parts), detail=True)
+            rows = self.fs.find(base, detail=detail) if recursive else self.fs.ls(base, detail=detail)
         except FileNotFoundError:
             return ()
-        details = tuple(row for row in rows if isinstance(row, dict))
-        return tuple(sorted((self._normalize_backend_path(_detail_path(row)), row) for row in details))
-
-    def find(self, *parts: str | UPath) -> tuple[str, ...]:
-        """Recursively list paths under a store-relative path.
-
-        Returns:
-            Matching backend paths.
-        """
-        rows = self.fs.find(self.path(*parts), detail=False)
-        paths = tuple(str(path) for path in rows)
-        return tuple(self._normalize_backend_path(path) for path in sorted(paths))
-
-    def find_details(self, *parts: str | UPath) -> tuple[tuple[str, dict[str, object]], ...]:
-        """Recursively list paths under a store-relative path with metadata.
-
-        Returns:
-            `(path, metadata)` rows.
-        """
-        try:
-            rows = self.fs.find(self.path(*parts), detail=True)
-        except FileNotFoundError:
-            return ()
-        match rows:
-            case dict():
-                return tuple(sorted((self._normalize_backend_path(str(path)), dict(info)) for path, info in rows.items()))
+        match (detail, rows):
+            case (False, list() as paths):
+                return tuple(self._normalize_backend_path(str(path)) for path in sorted(str(p) for p in paths))
+            case (True, dict() as keyed):
+                return tuple(sorted((self._normalize_backend_path(str(path)), dict(info)) for path, info in keyed.items()))
+            case (True, list() as details):
+                return tuple(
+                    sorted(
+                        (self._normalize_backend_path(str(row.get("name", row.get("path", "")))), row) for row in details if isinstance(row, dict)
+                    )
+                )
             case _:
                 return ()
 
@@ -541,6 +529,11 @@ class ArtifactStore:
     def _normalize_backend_path(self, path: str) -> str:
         return path.removeprefix("/") if not self.root.startswith("/") else path
 
+    @staticmethod
+    def _fileish(info: dict[str, object]) -> bool:
+        kind = str(info.get("type", "")).casefold()
+        return kind not in {"directory", "folder"}
+
     def exists(self, *parts: str) -> bool:
         """Return whether a store-relative path exists."""
         return bool(self.fs.exists(self.path(*parts)))
@@ -577,23 +570,25 @@ class ArtifactStore:
         """
         return self.read_path(path).decode(encoding, errors=errors)
 
-    def write_bytes(self, payload: bytes, *parts: str | UPath, create: bool = False, transaction: bool = False) -> str:
-        """Write bytes to a validated store-relative path and return the backend path.
-
-        Returns:
-            Backend path that received the payload.
-
-        Raises:
-            FileExistsError: When `create` is true and the target already exists.
-        """
-        path = self.path(*parts)
+    def _write_at(self, path: str, payload: bytes, *, create: bool, transaction: bool) -> str:
+        # Shared makedirs + create-guard + pipe_file for both the store-relative and backend-path validation entrypoints.
         parent = path.rsplit("/", 1)[0] if "/" in path else self.root
-        with getattr(self.fs, "transaction", contextlib.nullcontext()) if transaction else contextlib.nullcontext():
+        with self.fs.transaction if transaction else contextlib.nullcontext():
             self.fs.makedirs(parent, exist_ok=True)
             if create and self.fs.exists(path):
                 raise FileExistsError(path)
             self.fs.pipe_file(path, payload)
         return path
+
+    def write_bytes(self, payload: bytes, *parts: str | UPath, create: bool = False, transaction: bool = False) -> str:
+        """Write bytes to a validated store-relative path and return the backend path.
+
+        Raises `FileExistsError` when `create` is true and the target already exists (via `_write_at`).
+
+        Returns:
+            Backend path that received the payload.
+        """
+        return self._write_at(self.path(*parts), payload, create=create, transaction=transaction)
 
     def write_text(self, payload: str, *parts: str | UPath, create: bool = False, transaction: bool = False, encoding: str = "utf-8") -> str:
         """Write text to a validated store-relative path and return the backend path.
@@ -606,20 +601,12 @@ class ArtifactStore:
     def write_bytes_path(self, payload: bytes, path: str | UPath, *, create: bool = False, transaction: bool = False) -> str:
         """Write bytes to a validated backend path emitted by this store.
 
+        Raises `FileExistsError` when `create` is true and the target already exists (via `_write_at`).
+
         Returns:
             Backend path that received the payload.
-
-        Raises:
-            FileExistsError: When `create` is true and the target already exists.
         """
-        target = self.backend_path(path)
-        parent = target.rsplit("/", 1)[0] if "/" in target else self.root
-        with getattr(self.fs, "transaction", contextlib.nullcontext()) if transaction else contextlib.nullcontext():
-            self.fs.makedirs(parent, exist_ok=True)
-            if create and self.fs.exists(target):
-                raise FileExistsError(target)
-            self.fs.pipe_file(target, payload)
-        return target
+        return self._write_at(self.backend_path(path), payload, create=create, transaction=transaction)
 
     def open_write(self, *parts: str | UPath) -> tuple[str, object]:
         """Open a validated store-relative backend file for incremental byte writes.
@@ -643,11 +630,15 @@ class ArtifactStore:
     def write_many(self, rows: tuple[tuple[bytes, tuple[str | UPath, ...]], ...], *, transaction: bool = True) -> tuple[str, ...]:
         """Write multiple payloads under one backend transaction when supported.
 
+        Segment validation runs over every part-tuple before the first write, so an unsafe segment cannot leave a
+        half-written batch behind.
+
         Returns:
             Backend paths that received the payloads.
         """
-        with getattr(self.fs, "transaction", contextlib.nullcontext()) if transaction else contextlib.nullcontext():
-            return tuple(self.write_bytes(payload, *parts, transaction=False) for payload, parts in rows)
+        resolved = tuple((self.path(*parts), payload) for payload, parts in rows)
+        with self.fs.transaction if transaction else contextlib.nullcontext():
+            return tuple(self._write_at(path, payload, create=False, transaction=False) for path, payload in resolved)
 
     def adopt_file(self, source: str | UPath | Path, *parts: str | UPath) -> str:
         """Copy a local tool-produced file into the configured artifact backend.
@@ -690,21 +681,28 @@ class ArtifactStore:
         payload = wire_encode(report)
         return self.write_bytes(payload, ArtifactKind.HISTORY.value, run_id, name), len(payload)
 
-    def retain_history(self, keep: int) -> None:
-        """Prune old run history directories by backend metadata age."""
-        detailed = self.list_details(ArtifactKind.HISTORY.value)
-        runs = tuple(path for path, _ in sorted(detailed, key=lambda row: (_mtime(row[1]), row[0]))) or sorted(
-            self.glob(f"{ArtifactKind.HISTORY.value}/*")
-        )
-        for path in runs[: max(0, len(runs) - keep)]:
-            try:
-                self.remove_path(path, recursive=True)
-            except FileNotFoundError:
-                _ = self.exists_path(path)
+    def sorted_history_ids(self) -> tuple[str, ...]:
+        """Return history run ids ranked oldest-first by `(mtime, run_id)` within the history root.
 
-    def history_run_ids(self) -> tuple[str, ...]:
-        """Return known history run ids."""
-        return tuple(path.rstrip("/").rsplit("/", 1)[-1] for path in sorted(self.glob(f"{ArtifactKind.HISTORY.value}/*")))
+        Backends that omit `mtime` fold to `0.0`, leaving the lexicographic run id as the chronological tiebreaker.
+
+        Returns:
+            Run ids ordered oldest-first.
+        """
+        detailed = self.walk(ArtifactKind.HISTORY.value, detail=True)
+        rows = tuple((path.rstrip("/").rsplit("/", 1)[-1], info) for path, info in detailed if isinstance(info, dict)) or tuple(
+            (path.rstrip("/").rsplit("/", 1)[-1], {}) for path in self.glob(f"{ArtifactKind.HISTORY.value}/*")
+        )
+        return tuple(run_id for run_id, _ in sorted(rows, key=lambda row: (_mtime(row[1]), row[0])))
+
+    def retain_history(self, keep: int) -> None:
+        """Prune old run history by backend metadata age, keeping the newest `keep` runs."""
+        runs = self.sorted_history_ids()
+        for run_id in runs[: max(0, len(runs) - keep)]:
+            try:
+                self.remove(ArtifactKind.HISTORY.value, run_id, recursive=True)
+            except FileNotFoundError:
+                _ = self.exists(ArtifactKind.HISTORY.value, run_id)
 
     def load_history(self, run_id: str) -> Envelope | None:
         """Load one run Envelope and restore its full report artifact when available.
@@ -755,16 +753,25 @@ class ArtifactStore:
             return (direct,)
         if latest:
             for root in roots:
-                matches = tuple(row for row in self.find_details(*_root_parts(root)) if _fileish(row[1]))
+                matches = tuple(row for row in self._walk_details(root) if self._fileish(row[1]))
                 if matches:
                     return self._ranked_paths(matches)
             return ()
         if not token.strip():
             return ()
+        stem = token.rsplit("/", 1)[-1]
         matches = tuple(
-            (path, info) for root in roots for path, info in self.find_details(*_root_parts(root)) if _fileish(info) and _artifact_match(path, token)
+            (path, info)
+            for root in roots
+            for path, info in self._walk_details(root)
+            if self._fileish(info) and (token in {path, stem} or token in path)
         )
         return self._ranked_paths(matches)
+
+    def _walk_details(self, root: str) -> tuple[tuple[str, dict[str, object]], ...]:
+        # walk() returns a union; resolve_artifacts only ever consumes the detail projection of a recursive walk.
+        rows = self.walk(*_root_parts(root), recursive=True, detail=True)
+        return tuple((path, info) for path, info in rows if isinstance(info, dict))
 
     @staticmethod
     def _ranked_paths(matches: tuple[tuple[str, dict[str, object]], ...]) -> tuple[str, ...]:

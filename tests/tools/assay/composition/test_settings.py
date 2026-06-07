@@ -1,21 +1,27 @@
 """Assay settings and artifact-store laws."""
 
+from datetime import datetime, UTC
 import inspect
+from itertools import starmap
+from pathlib import Path  # noqa: TC003  # pytest resolves fixture annotation at runtime
 from typing import override, TYPE_CHECKING
 
+import msgspec
 from pydantic import ValidationError
 from pydantic_settings import PydanticBaseSettingsSource
 import pytest
 from upath import UPath
 
-from tools.assay.composition.settings import ArtifactBackend, AssaySettings, Configuration
-from tools.assay.core.model import ArtifactKind
+from tests.tools.assay.conftest import _ENCODER, make_history_envelope  # noqa: PLC2701  # testing internals is legitimate
+from tools.assay.composition.settings import _mtime, ArtifactBackend, AssaySettings, Configuration  # noqa: PLC2701  # testing internals is legitimate
+from tools.assay.core.model import Artifact, ArtifactKind
 
 
 if TYPE_CHECKING:
     from pydantic.fields import FieldInfo
 
     from tests.tools.assay.conftest import AssayHarness
+    from tools.assay.core.model import Report
 
 
 class _DummySource(PydanticBaseSettingsSource):
@@ -62,8 +68,8 @@ def test_store_text_find_info_and_create_only(assay_root: AssayHarness) -> None:
     path = store.write_text("alpha\nbeta\n", "scope", "api", "surface.txt", create=True, transaction=True)
 
     assert store.read_text_path(path) == "alpha\nbeta\n"
-    assert path in store.find("scope")
-    assert path in store.list("scope", "api")
+    assert path in store.walk("scope", recursive=True)
+    assert path in store.walk("scope", "api")
     assert store.size_path(path) == len("alpha\nbeta\n")
     with pytest.raises(FileExistsError):
         store.write_text("again", "scope", "api", "surface.txt", create=True)
@@ -132,3 +138,108 @@ def test_settings_validate_run_id_exec_target_and_known_hosts(assay_root: AssayH
 
     with pytest.raises(ValidationError, match="without path/query/fragment"):
         AssaySettings(root=UPath(assay_root.root), run_id="run-1", exec_target="ssh://host/path")
+
+
+# --- [ARTIFACT_RANKING] ----------------------------------------------------------------
+
+
+def test_resolve_artifacts_latest_respects_root_priority(assay_root: AssayHarness, monkeypatch: pytest.MonkeyPatch) -> None:
+    """`latest=True` returns the newest artifact from the FIRST non-empty root, even when a LATER root holds a newer file.
+
+    Root priority is load-bearing: `api show latest` lists `scope/api` before the general scopes so API-specific
+    artifacts win over newer generic ones (the within-root order is still mtime-descending via `_ranked_paths`).
+    """
+    store = assay_root.settings.store(protocol="memory", root="multi-root")
+    first = store.write_text("first-root", "scope", "a.txt")
+    store.write_text("newer-later-root", "history", "b.txt")
+
+    # Stamp deterministic mtimes through the module rank key so the assertion never leans on wall-clock write order
+    # (the memory backend caches its filesystem singleton, so wrapping store.fs would leak across tests).
+    monkeypatch.setattr("tools.assay.composition.settings._mtime", lambda info: 2.0 if str(info.get("name", "")).endswith("b.txt") else 1.0)
+
+    ranked = store.resolve_artifacts("latest", "scope", "history", latest=True)
+    assert ranked[0] == first  # `scope` is the first non-empty root; history/b.txt is never reached despite being newer
+
+
+@pytest.mark.parametrize(
+    "info, expected",
+    [
+        ({"mtime": 42.0}, 42.0),
+        ({"mtime": 7}, 7.0),
+        ({"created": datetime(2026, 1, 1, tzinfo=UTC)}, datetime(2026, 1, 1, tzinfo=UTC).timestamp()),
+        ({}, 0.0),
+        ({"created": "not-a-time"}, 0.0),
+    ],
+)
+def test_mtime_coerces_datetime_and_numeric(info: dict[str, object], expected: float) -> None:
+    """`_mtime` coerces numeric mtime and a tz-aware `created` datetime (memory/info backend) to a POSIX float."""
+    assert _mtime(info) == expected
+
+
+# --- [HISTORY_RETENTION] ---------------------------------------------------------------
+
+
+@pytest.mark.parametrize("backend", ["file", "memory"])
+def test_artifact_store_history_law_matrix(backend: str, assay_root: AssayHarness) -> None:
+    """write_history persists, load_history round-trips known/unknown ids, and retain_history prunes oldest first."""
+    store = assay_root.settings.store() if backend == "file" else assay_root.settings.store(protocol="memory", root="hist")
+    store.write_history("run-a", _ENCODER.encode(make_history_envelope("run-a")))
+    store.write_history("run-b", _ENCODER.encode(make_history_envelope("run-b")))
+
+    assert store.load_history("run-a") is not None
+    assert store.load_history("nope") is None
+    assert store.load_history("") is None
+
+    store.retain_history(keep=1)
+
+    assert store.load_history("run-a") is None
+    assert store.load_history("run-b") is not None
+
+
+@pytest.mark.parametrize("backend", ["file", "memory"])
+def test_restore_full_report_falls_back_on_corrupt_artifact(backend: str, assay_root: AssayHarness) -> None:
+    """A corrupt full-report artifact silently degrades restore_full_report to the compact envelope (OSError/MsgspecError)."""
+    store = assay_root.settings.store() if backend == "file" else assay_root.settings.store(protocol="memory", root="restore")
+    corrupt = store.write_bytes(b"{not a report", ArtifactKind.HISTORY.value, "run-x", "full.json")
+    base = make_history_envelope("run-x")
+    assert base.report is not None
+    artifact = Artifact(id="full-report", kind=ArtifactKind.HISTORY, path=corrupt)
+    report: Report = msgspec.structs.replace(base.report, artifacts=(artifact,))
+    env = msgspec.structs.replace(base, report=report)
+
+    assert store.restore_full_report(env) is env
+
+
+# --- [ENV_INGESTION] -------------------------------------------------------------------
+
+
+def test_dotenv_and_secrets_are_ignored(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    """Init values win and `.env`/secrets sources stay disabled because settings_customise_sources returns (init, env) only."""
+    (tmp_path / "Workspace.slnx").write_text("", encoding="utf-8")
+    (tmp_path / ".env").write_text("ASSAY_RUN_ID=from-dotenv\n", encoding="utf-8")
+    monkeypatch.chdir(tmp_path)
+
+    assert AssaySettings(root=UPath(tmp_path), run_id="explicit").run_id == "explicit"
+
+
+@pytest.mark.parametrize(
+    "env, expected",
+    [
+        ({"ASSAY_OTEL_ENDPOINT": "http://primary:4317"}, "http://primary:4317"),
+        ({"OTEL_EXPORTER_OTLP_ENDPOINT": "http://generic:4317"}, "http://generic:4317"),
+        ({"OTEL_EXPORTER_OTLP_TRACES_ENDPOINT": "http://traces:4317"}, "http://traces:4317"),
+        (
+            {"ASSAY_OTEL_ENDPOINT": "http://primary:4317", "OTEL_EXPORTER_OTLP_ENDPOINT": "http://generic:4317"},
+            "http://primary:4317",
+        ),
+        (
+            {"OTEL_EXPORTER_OTLP_ENDPOINT": "http://generic:4317", "OTEL_EXPORTER_OTLP_TRACES_ENDPOINT": "http://traces:4317"},
+            "http://generic:4317",
+        ),
+    ],
+)
+def test_otel_endpoint_alias_precedence(env: dict[str, str], expected: str, assay_root: AssayHarness, monkeypatch: pytest.MonkeyPatch) -> None:
+    """otel_endpoint resolves through AliasChoices in declaration order: ASSAY_OTEL_ENDPOINT before the generic then the traces OTLP env."""
+    tuple(starmap(monkeypatch.setenv, env.items()))
+
+    assert AssaySettings(root=UPath(assay_root.root), run_id="run-1").otel_endpoint == expected

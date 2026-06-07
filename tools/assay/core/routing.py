@@ -74,7 +74,6 @@ _CACHED: tuple[str, ...] = ("git", "diff", "--cached", "--name-only", "--diff-fi
 _UNTRACKED: tuple[str, ...] = ("git", "ls-files", "--others", "--exclude-standard")
 _FD: tuple[str, ...] = ("fd", "-H", "-t", "f", ".")
 _FD_EXCLUDE: tuple[str, ...] = ("--exclude", ".git", "--exclude", "bin", "--exclude", "obj")
-_LOG: structlog.stdlib.BoundLogger = structlog.get_logger("assay.routing")
 
 
 # --- [MODELS] ---------------------------------------------------------------------------
@@ -89,6 +88,11 @@ class Routed(Base, frozen=True):
     projects: tuple[str, ...] = ()
     groups: tuple[tuple[str, tuple[str, ...]], ...] = ()
     full_triggers: tuple[str, ...] = ()
+
+
+# --- [SERVICES] -------------------------------------------------------------------------
+
+_LOG: structlog.stdlib.BoundLogger = structlog.get_logger("assay.routing")
 
 
 # --- [OPERATIONS] -----------------------------------------------------------------------

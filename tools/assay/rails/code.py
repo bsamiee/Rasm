@@ -1,7 +1,7 @@
 """Run structural search, rewrite, content search, and tree-sitter query rails."""
 
 from dataclasses import dataclass, replace
-from functools import reduce
+from functools import cache, lru_cache, reduce
 from hashlib import sha256
 from pathlib import Path
 import re
@@ -240,18 +240,52 @@ def _ts_thunk(query_src: str, language: Language, root: Path, *, limit: int) -> 
     return run
 
 
-def _ts_language(language: Language, rel: str) -> TSLanguage:
-    grammar = _TSX_GRAMMAR if language is Language.TYPESCRIPT and rel.endswith(".tsx") else _GRAMMARS[language]
+def _ts_grammar(language: Language, *, is_tsx: bool) -> Callable[[], object]:
+    return _TSX_GRAMMAR if language is Language.TYPESCRIPT and is_tsx else _GRAMMARS[language]
+
+
+@lru_cache(maxsize=8)
+def _ts_language(grammar_key: str) -> TSLanguage:
+    """Resolve a string grammar key to a compiled TSLanguage, cached by key.
+
+    Returns:
+        Compiled immutable TSLanguage for the grammar key.
+    """
+    grammar = _TSX_GRAMMAR if grammar_key == "tsx" else _GRAMMARS[Language(grammar_key)]
+    return ts_language(grammar)
+
+
+@cache
+def ts_language(grammar: Callable[[], object]) -> TSLanguage:
+    """Compile a tree-sitter language once per grammar-fn identity.
+
+    Returns:
+        The cached immutable TSLanguage for the grammar callable.
+    """
     return TSLanguage(grammar())
 
 
-def _ts_file_captures(query_src: str, language: Language, rel: str, src: bytes, *, cap: int) -> tuple[Capture, ...]:
-    ts_lang = _ts_language(language, rel)
-    root_node = TSParser(ts_lang).parse(src).root_node
+@cache
+def ts_query(grammar: Callable[[], object], query_src: str) -> TSQuery | QueryError:
+    """Compile a tree-sitter query once per grammar-fn identity and source.
+
+    Returns:
+        The cached immutable TSQuery, or the QueryError raised while compiling it.
+    """
     try:
-        cursor = QueryCursor(TSQuery(ts_lang, query_src))
+        return TSQuery(ts_language(grammar), query_src)
     except QueryError as exc:
-        return (Capture(name="query_error", text=str(exc)[:_TEXT_CAP], file=rel, line=1, parse_error=True),)
+        return exc
+
+
+def _ts_file_captures(query_src: str, language: Language, rel: str, src: bytes, *, cap: int) -> tuple[Capture, ...]:
+    grammar = _ts_grammar(language, is_tsx=rel.endswith(".tsx"))
+    root_node = TSParser(ts_language(grammar)).parse(src).root_node
+    match ts_query(grammar, query_src):
+        case QueryError() as exc:
+            return (Capture(name="query_error", text=str(exc)[:_TEXT_CAP], file=rel, line=1, parse_error=True),)
+        case compiled:
+            cursor = QueryCursor(compiled)
     cursor.match_limit = cap
     raw_matches = tuple(cursor.matches(root_node))
     matches = raw_matches[:cap]
@@ -291,11 +325,11 @@ def _read(path: Path) -> bytes | None:
         return None
 
 
-def _artifact(settings: AssaySettings, verb: str, content: str) -> Artifact:
+def _artifact(scope: ArtifactScope, verb: str, content: str, settings: AssaySettings) -> Artifact:
     # run_id prevents listing clobber; content hash lets delta distinguish changed match sets.
     raw = content.encode()
     digest = sha256(raw).hexdigest()[:12]
-    path = settings.store().write_bytes(raw, ArtifactKind.CODE.value, verb, settings.run_id, "matches.txt")
+    path = scope.store.write_bytes(raw, ArtifactKind.CODE.value, verb, settings.run_id, "matches.txt")
     return Artifact(id=digest, kind=ArtifactKind.CODE, path=str(path), bytes=len(raw), lines=len(content.splitlines()))
 
 
@@ -309,25 +343,17 @@ def _safe_decode[T, E](decoder: msgspec.json.Decoder[T], raw: bytes, empty: E) -
 
 def _ag_normalize(completeds: tuple[Completed, ...]) -> tuple[Completed, ...]:
     # ast-grep exit 1 with parseable JSON means no match (-> EMPTY); rc==1 with garbage stdout is a tool fault that must stay FAILED.
-    def _norm(done: Completed) -> Completed:
-        match (done.returncode, _parses(done.stdout)):
-            case (1, True):
-                return msgspec.structs.replace(done, status=RailStatus.EMPTY)
-            case _:
-                return done
-
-    return tuple(_norm(d) for d in completeds)
+    return tuple(
+        msgspec.structs.replace(done, status=RailStatus.EMPTY)
+        if done.returncode == 1 and _safe_decode(AST_MATCHES, done.stdout or b"[]", None) is not None
+        else done
+        for done in completeds
+    )
 
 
-def _parses(stdout: bytes) -> bool:
-    try:
-        _ = AST_MATCHES.decode(stdout or b"[]")
-    except msgspec.MsgspecError:
-        return False
-    return True
-
-
-def _report(settings: AssaySettings, verb: str, pattern: str, completeds: tuple[Completed, ...], rows: tuple[Match, ...], listing: str) -> Report:
+def _report(
+    settings: AssaySettings, scope: ArtifactScope, verb: str, pattern: str, completeds: tuple[Completed, ...], rows: tuple[Match, ...], listing: str
+) -> Report:
     # Hits promote EMPTY to OK; no-hit results stay terse, while malformed queries keep defect rows.
     # Full match cardinality rides Artifact.lines, not notes.
     base = fold(Claim.CODE, verb, completeds)
@@ -335,7 +361,7 @@ def _report(settings: AssaySettings, verb: str, pattern: str, completeds: tuple[
     done = Completed(("code", verb, pattern), 1 if status is RailStatus.FAILED else 0, status=status)
     final_rows = rows or base.results
     return msgspec.structs.replace(
-        fold(Claim.CODE, verb, (done,)), artifacts=(_artifact(settings, verb, listing),) if listing else (), results=final_rows
+        fold(Claim.CODE, verb, (done,)), artifacts=(_artifact(scope, verb, listing, settings),) if listing else (), results=final_rows
     )
 
 
@@ -440,7 +466,9 @@ def search(settings: AssaySettings, scope: ArtifactScope, params: CodeParams) ->
     match bool(_METAVAR.search(params.pattern)):
         case True:
             return _fan(settings, scope, params, mode=Mode.CHECK, splice=_search_splice(params, Path(str(settings.root)))).map(
-                lambda done: _report(settings, "search", params.pattern, _ag_normalize(done), *_ag_rows(done, params.max_results, params.pattern))
+                lambda done: _report(
+                    settings, scope, "search", params.pattern, _ag_normalize(done), *_ag_rows(done, params.max_results, params.pattern)
+                )
             )
         case False:
             return _content_search(settings, scope, params)
@@ -454,15 +482,15 @@ def _content_search(settings: AssaySettings, scope: ArtifactScope, params: CodeP
         case Tool() as tool:
             check = Check(tool=_content_splice(tool, params, Path(str(settings.root))), paths=tuple(params.paths or _DEFAULT_TARGET))
             routed = Routed(language=tool.language, scope=Scope.CHANGED)
-            return run_check(check, settings=settings, scope=scope, routed=routed).map(lambda done: _content_report(settings, params, done))
+            return run_check(check, settings=settings, scope=scope, routed=routed).map(lambda done: _content_report(settings, scope, params, done))
 
 
-def _content_report(settings: AssaySettings, params: CodeParams, done: Completed) -> Report:
+def _content_report(settings: AssaySettings, scope: ArtifactScope, params: CodeParams, done: Completed) -> Report:
     rows, listing = _rg_rows((done,), params.max_results, params.pattern)
     status, notes = _rg_status(done.returncode, (done.stderr or b"").decode(errors="replace").strip(), has_rows=bool(rows))
     synthetic = Completed(("code", "search", params.pattern), 1 if status is RailStatus.FAILED else 0, status=status, notes=notes)
     return msgspec.structs.replace(
-        fold(Claim.CODE, "search", (synthetic,)), artifacts=(_artifact(settings, "search", listing),) if listing else (), results=rows
+        fold(Claim.CODE, "search", (synthetic,)), artifacts=(_artifact(scope, "search", listing, settings),) if listing else (), results=rows
     )
 
 
@@ -486,7 +514,9 @@ def rewrite(settings: AssaySettings, scope: ArtifactScope, params: CodeParams) -
             )
         case False:
             return _fan(settings, scope, params, mode=Mode.CHECK, splice=_rewrite_splice(params, root, apply=False)).map(
-                lambda done: _report(settings, "rewrite", params.pattern, _ag_normalize(done), *_ag_rows(done, params.max_results, params.pattern))
+                lambda done: _report(
+                    settings, scope, "rewrite", params.pattern, _ag_normalize(done), *_ag_rows(done, params.max_results, params.pattern)
+                )
             )
 
 
@@ -497,7 +527,7 @@ def query(settings: AssaySettings, scope: ArtifactScope, params: CodeParams) -> 
         Query report, or routing/spawn fault.
     """
     return _fan(settings, scope, params, mode=Mode.QUERY, splice=_query_splice(params, Path(str(settings.root)))).map(
-        lambda done: _report(settings, "query", params.pattern, done, *_ts_rows(done, params.max_results, params.pattern))
+        lambda done: _report(settings, scope, "query", params.pattern, done, *_ts_rows(done, params.max_results, params.pattern))
     )
 
 

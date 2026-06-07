@@ -11,7 +11,7 @@ from typing import TYPE_CHECKING
 
 import pytest  # noqa: TC002 — pytest.MonkeyPatch/CaptureFixture used in runtime annotations (no PEP 563)
 
-from tests.tools.assay.conftest import RailProbe
+from tests.tools.assay.conftest import RailProbe, read_one_envelope
 from tools.assay.composition import registry  # private package surface under test
 from tools.assay.core.model import Bind, Claim, Envelope  # private package surface under test
 from tools.assay.core.status import RailStatus  # private package surface under test
@@ -19,8 +19,6 @@ from tools.assay.rails import bridge as bridge_rail, package as package_rail  # 
 
 
 if TYPE_CHECKING:
-    from collections.abc import Callable
-
     from expression import Result
 
     from tests.tools.assay.conftest import AssayHarness, BridgeResult, YakShape
@@ -73,13 +71,12 @@ def test_yak_shape_materializes_valid_meta(assay_root: AssayHarness, yak_shape: 
     assert all(props[name] for name in required)
 
 
-def test_envelope_fixture_decodes_single_stdout_line(
+def test_envelope_oracle_decodes_single_stdout_line(
     assay_root: AssayHarness,
-    envelope: Callable[[pytest.CaptureFixture[str]], Envelope],
     capsys: pytest.CaptureFixture[str],
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    """The real registry ``rail`` runner writes exactly one stdout Envelope; the fixture decodes it.
+    """The real registry ``rail`` runner writes exactly one stdout Envelope; the oracle decodes it.
 
     CLI isolation is env-only (the runner reads a bare ``AssaySettings()``), so ``ASSAY_ROOT`` redirects
     I/O under tmp; the runner seats its own per-fire ``_WRITES`` ContextVar (reset in ``finally``), so the
@@ -88,7 +85,7 @@ def test_envelope_fixture_decodes_single_stdout_line(
     monkeypatch.setenv("ASSAY_ROOT", str(assay_root.root))
     runner = registry.rail(Bind(Claim.PACKAGE, "list", package_rail.list, package_rail.PackageParams, ""))
     runner(package_rail.PackageParams())
-    decoded = envelope(capsys)
+    decoded = read_one_envelope(capsys)
     assert decoded.claim is Claim.PACKAGE
     assert decoded.verb == "list"
     assert decoded.status is RailStatus.OK

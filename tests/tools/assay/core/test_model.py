@@ -2,21 +2,22 @@
 
 # --- [RUNTIME_PRELUDE] ------------------------------------------------------------------------
 
+from typing import get_args
+
 from hypothesis import given
 from hypothesis.strategies import integers, lists, text
 import msgspec
+import msgspec.inspect as msgspec_inspect
 import pytest
 
-from tests.tools.assay.conftest import completed_st, fault_st
+from tests.tools.assay.conftest import assert_counts_consistent, assert_wire_roundtrip, completed_st, detail_st, fault_st
 from tools.assay.core.model import (
     AnyDetail,
-    ApiResolution,
-    ApiSource,
-    ApiSurface,
     BaseParams,
     Claim,
     Completed,
     Counts,
+    Detail,
     Diagnostic,
     envelope,
     Fault,
@@ -24,27 +25,23 @@ from tools.assay.core.model import (
     fold,
     Language,
     Mode,
-    PackageRun,
     receipt,
-    RunDelta,
     Runner,
-    TestRun,
     validate_detail,
-    VerifySummary,
 )
 from tools.assay.core.status import RailStatus
 
 
 # --- [CONSTANTS] -----------------------------------------------------------------------
 
-_DETAIL_VARIANTS: tuple[type, ...] = (ApiSource, ApiSurface, VerifySummary, TestRun, PackageRun, ApiResolution, Diagnostic, RunDelta)
+_DETAIL_VARIANTS: tuple[type, ...] = get_args(AnyDetail.__value__)  # self-tracking; matches conftest.detail_st
 _ENCODER = msgspec.json.Encoder(order="deterministic")
-_DECODER: msgspec.json.Decoder[AnyDetail | None] = msgspec.json.Decoder(AnyDetail | None)
 
 
 # --- [OPERATIONS] -----------------------------------------------------------------------
 
 
+@pytest.mark.mutation
 @given(lists(completed_st, min_size=0, max_size=20))
 def test_fold_count_oracle(outcomes: list[Completed]) -> None:
     """``fold`` count invariant: ``ok + failed == total == len(outcomes)`` for non-FAULTED/BUSY/TIMEOUT rows."""
@@ -66,6 +63,7 @@ def test_fold_defect_row_per_failed(outcomes: list[Completed]) -> None:
     failed_count = sum(1 for o in tup if o.status is RailStatus.FAILED)
     assert len(report.results) == failed_count
     assert all(m.severity == "failed" for m in report.results)
+    assert_counts_consistent(report)  # total == ok + failed AND len(results) == failed
 
 
 @given(completed_st)
@@ -86,6 +84,7 @@ def test_fold_empty_outcomes_is_empty_report() -> None:
 # --- [FIELD_CAP] -----------------------------------------------------------------------
 
 
+@pytest.mark.mutation
 @pytest.mark.parametrize("type_,field,default,expected", [(Fault, "message", 0, 1024), (Diagnostic, "hint", 0, 256), (Fault, "argv", 42, 42)])
 def test_field_cap_oracle(type_: type, field: str, default: int, expected: int) -> None:
     """``field_cap`` introspection oracle: message→1024, hint→256, missing→default."""
@@ -111,14 +110,30 @@ def test_surplus_always_within_cap(verb: str, tokens: list[str]) -> None:
 # --- [CODEC] ---------------------------------------------------------------------------
 
 
-@pytest.mark.parametrize("variant", _DETAIL_VARIANTS)
-def test_validate_detail_round_trip(variant: type) -> None:
-    """``validate_detail`` round-trips each AnyDetail concrete variant byte-identically."""
-    instance = variant()
-    encoded = _ENCODER.encode(instance)
-    decoded = _DECODER.decode(encoded)
-    assert decoded is not None
-    assert _ENCODER.encode(decoded) == encoded
+@given(detail_st)
+def test_detail_variant_wire_round_trip(detail: AnyDetail) -> None:
+    """Every AnyDetail variant subclasses Detail and survives the deterministic codec byte-identically."""
+    assert isinstance(detail, Detail)
+    assert_wire_roundtrip(detail, type(detail))
+
+
+def test_any_detail_tags_are_injective() -> None:
+    """Every AnyDetail variant carries a unique msgspec tag — wire disambiguation is injective."""
+    tags = [
+        t.tag
+        for v in _DETAIL_VARIANTS
+        if isinstance(t := msgspec_inspect.type_info(v), msgspec_inspect.StructType)
+    ]  # StructType.tag (msgspec>=0.21)
+    assert len(tags) == len(set(tags)), f"duplicate tags: {tags}"
+
+
+@given(detail_st)
+def test_wire_struct_rejects_unknown_fields(detail: AnyDetail) -> None:
+    """Every Detail variant carries ``forbid_unknown_fields`` — a surplus key is rejected at decode."""
+    raw: dict[str, object] = msgspec.json.decode(_ENCODER.encode(detail), type=dict)
+    raw["__probe__"] = 1
+    with pytest.raises(msgspec.ValidationError, match="__probe__"):
+        msgspec.json.decode(msgspec.json.encode(raw), type=type(detail))
 
 
 def test_validate_detail_none_round_trips() -> None:
@@ -203,6 +218,7 @@ def test_envelope_report_branch_carries_report() -> None:
 # --- [RECEIPT] -------------------------------------------------------------------------
 
 
+@pytest.mark.mutation
 @pytest.mark.parametrize("rc,explicit,expected", [(0, None, RailStatus.EMPTY), (1, None, RailStatus.FAILED), (0, RailStatus.OK, RailStatus.OK)])
 def test_receipt_oracle(rc: int, explicit: RailStatus | None, expected: RailStatus) -> None:
     """``receipt`` oracle: rc→status derivation + explicit override."""

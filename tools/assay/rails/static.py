@@ -75,7 +75,7 @@ def _routed(languages: tuple[Language, ...], paths: tuple[str, ...], settings: A
     return sequence(block.of_seq(route(language, paths, settings=settings) for language in languages))
 
 
-def thin_rail(settings: AssaySettings, scope: ArtifactScope, params: StaticParams, *, claim: Claim, verb: str, mode: Mode) -> Result[Report, Fault]:
+def _thin_rail(settings: AssaySettings, scope: ArtifactScope, params: StaticParams, *, claim: Claim, verb: str, mode: Mode) -> Result[Report, Fault]:
     """Run a static rail by routing languages and fanning selected tools.
 
     Returns:
@@ -159,7 +159,7 @@ def fix(settings: AssaySettings, scope: ArtifactScope, params: StaticParams) -> 
     Returns:
         Static fix report, or routing/spawn fault.
     """
-    return thin_rail(settings, scope, params, claim=Claim.STATIC, verb="fix", mode=Mode.WRITE)
+    return _thin_rail(settings, scope, params, claim=Claim.STATIC, verb="fix", mode=Mode.WRITE)
 
 
 def report(settings: AssaySettings, scope: ArtifactScope, params: StaticParams) -> Result[Report, Fault]:
@@ -168,7 +168,7 @@ def report(settings: AssaySettings, scope: ArtifactScope, params: StaticParams) 
     Returns:
         Static diagnostic report, or routing/spawn fault.
     """
-    return thin_rail(settings, scope, params, claim=Claim.STATIC, verb="report", mode=Mode.CHECK)
+    return _thin_rail(settings, scope, params, claim=Claim.STATIC, verb="report", mode=Mode.CHECK)
 
 
 def build(settings: AssaySettings, scope: ArtifactScope, params: StaticParams) -> Result[Report, Fault]:
@@ -177,7 +177,7 @@ def build(settings: AssaySettings, scope: ArtifactScope, params: StaticParams) -
     Returns:
         Static build report, or routing/spawn fault.
     """
-    return thin_rail(settings, scope, params, claim=Claim.STATIC, verb="build", mode=Mode.BUILD)
+    return _thin_rail(settings, scope, params, claim=Claim.STATIC, verb="build", mode=Mode.BUILD)
 
 
 def full(settings: AssaySettings, scope: ArtifactScope, params: StaticParams) -> Result[Report, Fault]:
@@ -187,14 +187,12 @@ def full(settings: AssaySettings, scope: ArtifactScope, params: StaticParams) ->
         Full static report, or routing/spawn fault.
     """
     routed_params = replace(params, paths=params.paths or ("Workspace.slnx",))
-    reports: list[Report] = []
-    for configuration in (Configuration.DEBUG, Configuration.RELEASE):
-        match thin_rail(settings.with_configuration(configuration), scope, routed_params, claim=Claim.STATIC, verb="full", mode=Mode.BUILD):
-            case Result(tag="ok", ok=report):
-                reports.append(report)
-            case Result(error=fault):
-                return Error(fault)
-    return Ok(_combine_full(tuple(reports)))
+    return sequence(
+        block.of_seq(
+            _thin_rail(settings.with_configuration(configuration), scope, routed_params, claim=Claim.STATIC, verb="full", mode=Mode.BUILD)
+            for configuration in (Configuration.DEBUG, Configuration.RELEASE)
+        )
+    ).map(lambda b: _combine_full(tuple(b)))
 
 
 def _combine_full(reports: tuple[Report, ...]) -> Report:
@@ -221,7 +219,6 @@ def plan(settings: AssaySettings, scope: ArtifactScope, params: StaticParams) ->
     Returns:
         Static routing plan report, or routing fault.
     """
-    _ = scope
     return _routed(_languages(params.language, params.paths), params.paths, settings).map(lambda routed: _plan_report(tuple(routed), settings, scope))
 
 
@@ -283,4 +280,4 @@ def _route_sha(routed: Routed) -> str:
 
 # --- [EXPORTS] --------------------------------------------------------------------------
 
-__all__: list[str] = ["StaticParams", "build", "fix", "full", "plan", "report", "thin_rail"]
+__all__: list[str] = ["StaticParams", "build", "fix", "full", "plan", "report"]

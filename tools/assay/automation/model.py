@@ -1,10 +1,21 @@
 """Define automation trigger and action wire models."""
 
+from enum import StrEnum
 from typing import Annotated
 
 from msgspec import json, Meta, Raw
 
 from tools.assay.core.model import Base, Claim  # noqa: TC001  # tools.assay package; Claim is a runtime msgspec field type
+
+
+# --- [TYPES] ----------------------------------------------------------------------------
+
+
+class WatchFilter(StrEnum):
+    """Wire tag resolved to a watchfiles filter by the engine; unknown tags fail at msgspec decode."""
+
+    DEFAULT = "default"
+    PYTHON = "python"
 
 
 # --- [MODELS] ---------------------------------------------------------------------------
@@ -22,7 +33,7 @@ class Watch(Base, frozen=True, tag_field="kind", tag="watch", forbid_unknown_fie
     """
 
     paths: tuple[str, ...]
-    filter: str = "default"
+    filter: WatchFilter = WatchFilter.DEFAULT
     ignore_patterns: tuple[str, ...] = ()
     debounce: Annotated[int, Meta(ge=1)] = 1600
     step: Annotated[int, Meta(ge=1)] = 50
@@ -97,8 +108,8 @@ type Action = Rail | Program | Sequence | Debounce
 # --- [TABLES] ---------------------------------------------------------------------------
 
 
-_DECODE_TRIGGER: json.Decoder[Trigger] = json.Decoder(Trigger)
-_DECODE_ACTION: json.Decoder[Action] = json.Decoder(Action)  # built after Action so msgspec sees the final union
+TRIGGER_DECODER: json.Decoder[Trigger] = json.Decoder(Trigger)
+ACTION_DECODER: json.Decoder[Action] = json.Decoder(Action)  # built after Action so msgspec sees the final union
 _ENCODE = json.Encoder(order="deterministic")
 
 # --- [OPERATIONS] -----------------------------------------------------------------------
@@ -127,19 +138,6 @@ def describe(node: Trigger | Action) -> str:  # noqa: PLR0911, PLR0912  # one re
             return f"debounce[{describe(inner)} @ {w}ms]"
 
 
-def decode(blob: bytes, *, trigger: bool) -> Trigger | Action:
-    """Decode one trigger or action JSON blob.
-
-    Returns:
-        Decoded trigger or action union member.
-    """
-    match trigger:
-        case True:
-            return _DECODE_TRIGGER.decode(blob)
-        case False:
-            return _DECODE_ACTION.decode(blob)
-
-
 def encode(node: Trigger | Action) -> bytes:
     """Encode a trigger or action to deterministic JSON.
 
@@ -149,7 +147,36 @@ def encode(node: Trigger | Action) -> bytes:
     return _ENCODE.encode(node)
 
 
+def decode(blob: bytes, *, trigger: bool) -> Trigger | Action:
+    """Decode JSON bytes to a trigger or action depending on the discriminant.
+
+    Args:
+        blob: Raw JSON bytes from the wire.
+        trigger: True to decode as a Trigger union; False to decode as an Action union.
+
+    Returns:
+        Decoded trigger or action instance.
+    """
+    return TRIGGER_DECODER.decode(blob) if trigger else ACTION_DECODER.decode(blob)
+
+
 # --- [EXPORTS] --------------------------------------------------------------------------
 
 
-__all__ = ["Action", "Debounce", "Manual", "Program", "Rail", "Schedule", "Sequence", "Trigger", "Watch", "decode", "describe", "encode"]
+__all__ = [
+    "ACTION_DECODER",
+    "Action",
+    "Debounce",
+    "Manual",
+    "Program",
+    "Rail",
+    "Schedule",
+    "Sequence",
+    "TRIGGER_DECODER",
+    "Trigger",
+    "Watch",
+    "WatchFilter",
+    "decode",
+    "describe",
+    "encode",
+]

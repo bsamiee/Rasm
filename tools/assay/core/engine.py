@@ -15,7 +15,6 @@ from urllib.parse import urlsplit
 
 import anyio
 from anyio import to_thread  # explicit submodule import; ty mis-resolves anyio.to_thread
-import asyncssh
 from expression import Error, Ok, Result
 import msgspec
 from opentelemetry import propagate, trace
@@ -25,7 +24,11 @@ import structlog
 from upath import UPath
 
 from tools.assay.composition.settings import ArtifactScope, AssaySettings  # unconditional for beartype forward refs
-from tools.assay.core.aspect import checked, compose, traced
+from tools.assay.core.aspect import (
+    _CHECKED_LAYER,  # noqa: PLC2701  # intentional internal seam; aspect is co-owned by engine
+    compose,
+    traced,
+)
 from tools.assay.core.model import Artifact, ArtifactKind, Check, Completed, Fault, Mode, receipt, Runner
 from tools.assay.core.routing import place, Routed
 from tools.assay.core.status import RailStatus
@@ -35,11 +38,13 @@ if TYPE_CHECKING:
     from collections.abc import AsyncIterator, Coroutine, Generator, Mapping, MutableMapping
 
     from anyio.abc import ByteReceiveStream, ObjectReceiveStream, ObjectSendStream, Process
+    import asyncssh
 
 
 # --- [TYPES] ----------------------------------------------------------------------------
 
 type _Woven = Callable[[Check, AssaySettings, ArtifactScope | None, Routed, float | None], Coroutine[None, None, Result[Completed, Fault]]]
+type _Recv = Callable[[], Coroutine[None, None, bytes | None]]
 
 
 # --- [CONSTANTS] ------------------------------------------------------------------------
@@ -52,6 +57,12 @@ _SSH_SIGNAL_STATUS: int = 255
 _RETRY_MIN_REMAINING: float = 0.05
 _LOG = structlog.get_logger("assay.engine")
 _TRACER = trace.get_tracer("assay.engine")
+
+# cpu_affinity is Linux/cgroup-aware where present; the boundary falls back to the logical count once at import.
+try:
+    _USABLE_CPU: int = len(psutil.Process().cpu_affinity())  # type: ignore[attr-defined]  # ty: ignore[possibly-missing-attribute]
+except (psutil.Error, AttributeError, NotImplementedError):
+    _USABLE_CPU = psutil.cpu_count(logical=True) or 8
 
 # POSIX-only fcntl members bind once because ty checks all platforms and cannot narrow this module to POSIX.
 _FLOCK, _LOCK_EX, _LOCK_NB, _LOCK_UN = fcntl.flock, fcntl.LOCK_EX, fcntl.LOCK_NB, fcntl.LOCK_UN  # ty: ignore[possibly-missing-attribute]
@@ -253,23 +264,43 @@ def _contained(root: Path, rel: str) -> Path | ValueError:
 
 
 async def _drain(stream: ByteReceiveStream | None, *, tail_cap: int, chunk: int) -> bytes:
-    captured = await _drain_capture(stream, tail_cap=tail_cap, chunk=chunk)
+    captured = await _drain_stream(_recv_anyio(stream, chunk), tail_cap=tail_cap)
     return captured.tail
 
 
-async def _drain_capture(stream: ByteReceiveStream | None, *, tail_cap: int, chunk: int, sink: _WriteSink | None = None, path: str = "") -> _Captured:
-    match stream:
-        case None:
-            return _Captured(path=path)
-        case _:
-            tail, total, lines, last = b"", 0, 0, b""
-            while (read := await _next_chunk(stream, chunk=chunk)) is not None:
-                _write_sink(sink, read)
-                tail = (tail + read)[-tail_cap:]
-                total += len(read)
-                lines += read.count(b"\n")
-                last = read[-1:]
-            return _Captured(tail=tail, path=path, size=total, lines=lines + (1 if total and last != b"\n" else 0))
+async def _drain_stream(recv: _Recv, *, tail_cap: int, sink: _WriteSink | None = None, path: str = "") -> _Captured:
+    tail, total, lines, last = b"", 0, 0, b""
+    # why: an async byte pump is irreducibly imperative — the read primitive is a side-effecting coroutine driven to EOF.
+    while (read := await recv()) is not None:
+        _write_sink(sink, read)
+        tail = (tail + read)[-tail_cap:]
+        total += len(read)
+        lines += read.count(b"\n")
+        last = read[-1:]
+    return _Captured(tail=tail, path=path, size=total, lines=lines + (1 if total and last != b"\n" else 0))
+
+
+def _recv_anyio(stream: ByteReceiveStream | None, chunk: int) -> _Recv:
+    async def _recv() -> bytes | None:
+        match stream:
+            case None:
+                return None
+            case _:
+                try:
+                    return await stream.receive(chunk)
+                except anyio.EndOfStream, anyio.ClosedResourceError:
+                    return None
+
+    return _recv
+
+
+def _recv_ssh(reader: asyncssh.SSHReader[bytes], chunk: int) -> _Recv:
+    # asyncssh read returns b"" only at EOF; project the empty terminator to the pump's None sentinel.
+
+    async def _recv() -> bytes | None:
+        return (await reader.read(chunk)) or None
+
+    return _recv
 
 
 def _write_sink(sink: _WriteSink | None, payload: bytes) -> None:
@@ -278,13 +309,6 @@ def _write_sink(sink: _WriteSink | None, payload: bytes) -> None:
             pass
         case _:
             sink.write(payload)
-
-
-async def _next_chunk(stream: ByteReceiveStream, *, chunk: int) -> bytes | None:
-    try:
-        return await stream.receive(chunk)
-    except anyio.EndOfStream:
-        return None
 
 
 async def _reap(proc: Process, limiter: anyio.CapacityLimiter | None = None) -> None:
@@ -330,10 +354,14 @@ async def _run_process_backend(plan: _ExecPlan) -> Completed:
                             async def _tee(name: str, stream: ByteReceiveStream | None) -> None:
                                 path, handle = _stream_writer(plan, name)
                                 if handle is None:
-                                    streams[name] = await _drain_capture(stream, tail_cap=plan.tail_cap, chunk=plan.chunk, path=path)
+                                    streams[name] = await _drain_stream(
+                                        _recv_anyio(stream, plan.chunk), tail_cap=plan.tail_cap, path=path
+                                    )
                                     return
                                 with handle as sink:
-                                    streams[name] = await _drain_capture(stream, tail_cap=plan.tail_cap, chunk=plan.chunk, sink=sink, path=path)
+                                    streams[name] = await _drain_stream(
+                                        _recv_anyio(stream, plan.chunk), tail_cap=plan.tail_cap, sink=sink, path=path
+                                    )
 
                             tg.start_soon(_tee, "out", proc.stdout)
                             tg.start_soon(_tee, "err", proc.stderr)
@@ -382,6 +410,7 @@ def _stream_writer(plan: _ExecPlan, name: str) -> tuple[str, _WriteContext | Non
 
 
 async def _run_remote(plan: _ExecPlan, target: str) -> Completed:
+    import asyncssh  # noqa: PLC0415  # lazy: asyncssh costs ~83ms cold start; defer past import-time
     # encoding=None keeps remote stdout/stderr as bytes, matching local Completed receipts.
     command = _remote_command(plan.argv, cwd=plan.cwd, env=plan.env)
     async with _ssh_connection(target, plan.settings) as conn:
@@ -395,20 +424,26 @@ async def _run_remote(plan: _ExecPlan, target: str) -> Completed:
                         async def _tee(name: str, reader: asyncssh.SSHReader[bytes]) -> None:
                             path, handle = _stream_writer(plan, name)
                             if handle is None:
-                                streams[name] = await _drain_reader(reader, tail_cap=plan.tail_cap, chunk=plan.chunk, path=path)
+                                streams[name] = await _drain_stream(
+                                    _recv_ssh(reader, plan.chunk), tail_cap=plan.tail_cap, path=path
+                                )
                                 return
                             with handle as sink:
-                                streams[name] = await _drain_reader(reader, tail_cap=plan.tail_cap, chunk=plan.chunk, sink=sink, path=path)
+                                streams[name] = await _drain_stream(
+                                    _recv_ssh(reader, plan.chunk), tail_cap=plan.tail_cap, sink=sink, path=path
+                                )
 
                         tg.start_soon(_tee, "out", proc.stdout)
                         tg.start_soon(_tee, "err", proc.stderr)
                         await proc.wait()
                     stdout, stderr = streams.get("out", _Captured()).tail, streams.get("err", _Captured()).tail
+                    code, notes = _ssh_outcome(proc.exit_status, getattr(proc, "exit_signal", None))
                     return receipt(
                         plan.argv,
-                        _ssh_status(proc.exit_status, getattr(proc, "exit_signal", None)),
+                        code,
                         stdout=stdout,
                         stderr=stderr,
+                        notes=notes,
                         artifacts=_stream_artifacts(plan.scope, plan.settings, plan.check, streams),
                     )
                 finally:
@@ -417,11 +452,13 @@ async def _run_remote(plan: _ExecPlan, target: str) -> Completed:
                         await proc.wait_closed()
             case False:
                 done = await conn.run(command, encoding=None, check=False)
+                code, notes = _ssh_outcome(done.exit_status, getattr(done, "exit_signal", None))
                 return receipt(
                     plan.argv,
-                    _ssh_status(done.exit_status, getattr(done, "exit_signal", None)),
+                    code,
                     stdout=_as_bytes(done.stdout),
                     stderr=_as_bytes(done.stderr),
+                    notes=notes,
                 )
 
 
@@ -454,6 +491,8 @@ async def _connect(target: str, settings: AssaySettings) -> AsyncIterator[asyncs
 
 
 async def _connect_once(target: str, settings: AssaySettings) -> asyncssh.SSHClientConnection:
+    import asyncssh  # noqa: PLC0415  # lazy: asyncssh costs ~83ms cold start; defer past import-time
+
     parts = urlsplit(target)
     return await asyncssh.connect(
         parts.hostname or "",
@@ -472,9 +511,15 @@ def _remote_command(argv: tuple[str, ...], *, cwd: str, env: Mapping[str, str]) 
     return f"cd {shlex.quote(cwd)} && {body}"
 
 
-def _ssh_status(status: int | None, signal: object | None) -> int:
-    _ = signal
-    return status if status is not None else _SSH_SIGNAL_STATUS
+def _ssh_outcome(status: int | None, signal: object | None) -> tuple[int, tuple[str, ...]]:
+    # A signalled remote exit has no numeric status; surface the signal name as receipt evidence beside the synthetic 255.
+    match status, signal:
+        case int() as code, _:
+            return code, ()
+        case None, (str() as name, *_):
+            return _SSH_SIGNAL_STATUS, (f"ssh.signal={name}",)
+        case _:
+            return _SSH_SIGNAL_STATUS, ()
 
 
 def _as_bytes(data: bytes | str | None) -> bytes:
@@ -487,16 +532,11 @@ def _as_bytes(data: bytes | str | None) -> bytes:
             return data.encode()
 
 
-async def _drain_reader(reader: asyncssh.SSHReader[bytes], *, tail_cap: int, chunk: int, sink: _WriteSink | None = None, path: str = "") -> _Captured:
-    # Remote analogue of _drain_capture; an empty read is EOF.
-    tail, total, lines, last = b"", 0, 0, b""
-    while (read := await reader.read(chunk)) != b"":
-        _write_sink(sink, read)
-        tail = (tail + read)[-tail_cap:]
-        total += len(read)
-        lines += read.count(b"\n")
-        last = read[-1:]
-    return _Captured(tail=tail, path=path, size=total, lines=lines + (1 if total and last != b"\n" else 0))
+def _safe_call[T](fn: Callable[[], T], default: T) -> T:
+    try:
+        return fn()
+    except (psutil.Error, TypeError, ValueError, AttributeError, OSError):
+        return default
 
 
 def _snapshot() -> dict[str, float]:
@@ -504,50 +544,16 @@ def _snapshot() -> dict[str, float]:
     proc = psutil.Process()
     with proc.oneshot():
         info = proc.memory_info()
-        full = _memory_full(proc)
         base = {
             "mem.rss_bytes": float(info.rss),
-            "mem.vms_bytes": _float_attr(info, "vms"),
-            "mem.uss_bytes": _float_attr(full, "uss"),
-            "mem.percent_rss": _rss_percent(info),
-            "cpu.percent": _float_call(proc.cpu_percent),
+            "mem.vms_bytes": _safe_call(lambda: float(info.vms), -1.0),
+            "mem.uss_bytes": _safe_call(lambda: float(proc.memory_full_info().uss), -1.0),
+            "mem.percent_rss": _safe_call(lambda: float(info.rss) * 100.0 / max(float(psutil.virtual_memory().total), 1.0), -1.0),
+            "cpu.percent": _safe_call(lambda: float(proc.cpu_percent()) if isinstance(proc.cpu_percent, _Nullary) else -1.0, -1.0),
             "proc.num_fds": float(_num_fds(proc)),
-            "proc.num_threads": _float_call(proc.num_threads),
+            "proc.num_threads": _safe_call(lambda: float(proc.num_threads()) if isinstance(proc.num_threads, _Nullary) else -1.0, -1.0),
         }
-    return {**base, **_memory_pressure(), **_load_pressure(), **_children(proc)}
-
-
-def _memory_full(proc: psutil.Process) -> object:
-    try:
-        return proc.memory_full_info()
-    except psutil.Error, AttributeError:
-        return object()
-
-
-def _rss_percent(info: object) -> float:
-    try:
-        total = psutil.virtual_memory().total
-        return _float_attr(info, "rss") * 100.0 / max(float(total), 1.0)
-    except psutil.Error, TypeError, ValueError, AttributeError:
-        return -1.0
-
-
-def _float_attr(obj: object, name: str) -> float:
-    try:
-        return float(getattr(obj, name))
-    except TypeError, ValueError, AttributeError:
-        return -1.0
-
-
-def _float_call(fn: object) -> float:
-    try:
-        match fn:
-            case _Nullary() as call:
-                return float(call())
-            case _:
-                return -1.0
-    except psutil.Error, TypeError, ValueError, AttributeError:
-        return -1.0
+    return {**base, **_memory_pressure(), **_load_pressure()}
 
 
 def _memory_pressure() -> dict[str, float]:
@@ -555,9 +561,9 @@ def _memory_pressure() -> dict[str, float]:
         mem = psutil.virtual_memory()
         swap = psutil.swap_memory()
         return {
-            "sys.mem_available_bytes": _float_attr(mem, "available"),
-            "sys.mem_percent": _float_attr(mem, "percent"),
-            "sys.swap_percent": _float_attr(swap, "percent"),
+            "sys.mem_available_bytes": _safe_call(lambda: float(mem.available), -1.0),
+            "sys.mem_percent": _safe_call(lambda: float(mem.percent), -1.0),
+            "sys.swap_percent": _safe_call(lambda: float(swap.percent), -1.0),
         }
     except psutil.Error, TypeError, ValueError, AttributeError:
         return {}
@@ -577,16 +583,12 @@ def _load_pressure() -> dict[str, float]:
 def _children(proc: psutil.Process) -> dict[str, float]:
     try:
         kids = tuple(proc.children(recursive=True))
-        return {"proc.children": float(len(kids)), "proc.children_rss_bytes": float(sum(_child_rss(child) for child in kids))}
+        return {
+            "proc.children": float(len(kids)),
+            "proc.children_rss_bytes": float(sum(_safe_call(lambda c=child: int(getattr(c.memory_info(), "rss", 0)), 0) for child in kids)),
+        }
     except psutil.Error, TypeError, ValueError, AttributeError:
         return {}
-
-
-def _child_rss(proc: psutil.Process) -> int:
-    try:
-        return int(getattr(proc.memory_info(), "rss", 0))
-    except psutil.Error, TypeError, ValueError, AttributeError:
-        return 0
 
 
 def _num_fds(proc: psutil.Process) -> int:
@@ -598,7 +600,8 @@ def _num_fds(proc: psutil.Process) -> int:
 
 def _diagnose(exc: BaseException) -> None:
     # Seed span and ContextVar resource context before each Fault is built.
-    snap = _snapshot()
+    # The children walk runs only on the real spawn-fault path, not on every _snapshot caller.
+    snap = {**_snapshot(), **_children(psutil.Process())}
     _RESOURCE.set(tuple(snap.items()))
     span = trace.get_current_span()
     span.record_exception(exc)
@@ -608,40 +611,47 @@ def _diagnose(exc: BaseException) -> None:
 async def _guarded(
     check: Check, settings: AssaySettings, scope: ArtifactScope | None, routed: Routed, deadline: float | None
 ) -> Result[Completed, Fault]:
+    import asyncssh  # noqa: PLC0415  # lazy import MUST bind before the try frame whose except evaluates asyncssh.Error (not OSError-derived)
+
     match _materialize(check, settings):
         case Result(tag="ok", ok=prepared):
             check = prepared
         case Result(error=fault):
             return Error(fault)
     argv = _argv(check, routed, settings=settings, scope=scope)
-    absolute_deadline = deadline if deadline is not None else (time.monotonic() + check.tool.timeout if check.tool.timeout is not None else None)
-    started = time.monotonic()
+    bound = deadline if deadline is not None else (time.monotonic() + check.tool.timeout if check.tool.timeout is not None else None)
+    t0 = time.monotonic()
+    attempts = [1]
+
+    def _stamped(message: str) -> str:
+        return f"{message} [attempts={attempts[0]}]" if attempts[0] > 1 else message
+
     try:
         cwd = str(UPath(check.cwd or settings.local_root).path)
         env = _overlay(settings, scope)
         propagate.inject(env)
         trace.get_current_span().set_attribute("exec.target", settings.exec_target)
-        thread_limiter = anyio.CapacityLimiter(_governed(settings, (check,)))
-        done = await _execute_retrying(check, settings, scope, argv=argv, cwd=cwd, env=env, thread_limiter=thread_limiter, deadline=absolute_deadline)
-        return (
-            Ok(msgspec.structs.replace(done, duration_ms=(time.monotonic() - started) * 1000.0))
-            if done is not None
-            else Error(Fault(argv, status=RailStatus.TIMEOUT, message="deadline exceeded"))
+        done = await _execute_retrying(
+            check, settings, scope,
+            argv=argv, cwd=cwd, env=env,
+            thread_limiter=anyio.CapacityLimiter(_governed(settings, (check,))),
+            deadline=bound, attempts=attempts,
         )
+        return Ok(msgspec.structs.replace(done, duration_ms=(time.monotonic() - t0) * 1000.0))
     except TimeoutError as exc:
         _diagnose(exc)
-        return Error(Fault(argv, status=RailStatus.TIMEOUT, message="deadline exceeded"))
+        return Error(Fault(argv, status=RailStatus.TIMEOUT, message=_stamped("deadline exceeded")))
     except FileNotFoundError as exc:
         # Absent host binary is a capability gap, not a fault: create_subprocess_exec raises FileNotFoundError at spawn.
         _diagnose(exc)
-        return Error(Fault(argv, status=RailStatus.UNSUPPORTED, message=str(exc)))
+        return Error(Fault(argv, status=RailStatus.UNSUPPORTED, message=_stamped(str(exc))))
     except (OSError, ValueError, asyncssh.Error) as exc:
         # ValueError covers bare NUL-in-argv from create_subprocess_exec; it is not an OSError so it must be named explicitly.
         _diagnose(exc)
-        return Error(Fault(argv, status=RailStatus.FAULTED, message=str(exc)))
+        return Error(Fault(argv, status=RailStatus.FAULTED, message=_stamped(str(exc))))
 
 
-async def _execute_retrying(
+async def _execute_retrying(  # noqa: PLR0913  # retry loop: check/settings/scope/argv/cwd/env/limiter/deadline/attempts are all load-bearing across the retry body
     check: Check,
     settings: AssaySettings,
     scope: ArtifactScope | None,
@@ -651,15 +661,21 @@ async def _execute_retrying(
     env: Mapping[str, str],
     thread_limiter: anyio.CapacityLimiter,
     deadline: float | None,
-) -> Completed | None:
+    attempts: list[int],
+) -> Completed:
+    # The cell carries the live attempt count across stamina's exhaustion re-raise so _guarded can stamp the surfaced fault.
+    # stamina re-raises on exhaustion and anyio.fail_after raises TimeoutError on deadline — normal return always has done set.
     done: Completed | None = None
-    attempts = 0
     async for attempt in stamina.retry_context(on=_retry_on(check, deadline), attempts=3, timeout=_retry_timeout(deadline)):
-        attempts += 1
+        attempts[0] = attempt.num
         with attempt:
             with anyio.fail_after(_remaining(deadline)):
                 done = await _execute(check, settings, scope, argv=argv, cwd=cwd, env=env, thread_limiter=thread_limiter)
-    return msgspec.structs.replace(done, notes=(*done.notes, f"retry attempts={attempts}")) if done is not None and attempts > 1 else done
+    match done:
+        case None:
+            raise RuntimeError("stamina exhausted without raising — invariant violated")  # unreachable; stamina re-raises
+        case Completed() as result:
+            return msgspec.structs.replace(result, notes=(*result.notes, f"retry attempts={attempts[0]}")) if attempts[0] > 1 else result
 
 
 async def _execute(
@@ -701,6 +717,8 @@ def _retry_timeout(deadline: float | None) -> float:
 
 
 def _retry_on(check: Check, deadline: float | None) -> Callable[[BaseException], bool]:
+    import asyncssh  # noqa: PLC0415  # lazy: classify's match arm references asyncssh.Error; bind for the closure
+
     def within_budget() -> bool:
         remaining = _remaining(deadline)
         return remaining is None or remaining > _RETRY_MIN_REMAINING
@@ -709,7 +727,7 @@ def _retry_on(check: Check, deadline: float | None) -> Callable[[BaseException],
         match exc:
             case FileNotFoundError() | ValueError() | TimeoutError():
                 return False
-            case asyncssh.Error() | ConnectionError() | BrokenPipeError():
+            case asyncssh.Error() | ConnectionError():
                 return within_budget()
             case OSError():
                 return check.tool.runner is not Runner.DIRECT and within_budget()
@@ -739,7 +757,7 @@ def _spawn(check: Check, settings: AssaySettings) -> _Woven:
         agent=lambda *_a, **_k: settings.agent_context,
     )
     # compose is Hom-typed, so threading async _Woven through it needs one checker suppression.
-    weave: Callable[[_Woven], _Woven] = compose(checked(), span)  # type: ignore[assignment]  # ty: ignore[invalid-assignment]
+    weave: Callable[[_Woven], _Woven] = compose(_CHECKED_LAYER, span)  # type: ignore[assignment]  # ty: ignore[invalid-assignment]
     return weave(_guarded)
 
 
@@ -794,7 +812,8 @@ def fan_out(
 async def _fan_schedule(
     checks: tuple[Check, ...], *, settings: AssaySettings, scope: ArtifactScope | None, routed: Routed, deadline: float | None, limit: int
 ) -> dict[int, Result[Completed, Fault]]:
-    send, recv = anyio.create_memory_object_stream[tuple[int, Check]](limit)
+    # Buffer the producer to the full check count so enqueueing never blocks behind a stalled worker; the deadline still bounds the send loop.
+    send, recv = anyio.create_memory_object_stream[tuple[int, Check]](max(1, len(checks)))
     out_send, out_recv = anyio.create_memory_object_stream[tuple[int, Result[Completed, Fault]]](limit)
     results: dict[int, Result[Completed, Fault]] = {}
     async with anyio.create_task_group() as tg:
@@ -805,8 +824,9 @@ async def _fan_schedule(
         for work_recv, result_send in zip(work_recvs, result_sends, strict=True):
             tg.start_soon(_fan_worker, work_recv, result_send, settings, scope, routed, deadline)
         async with send:
-            for item in enumerate(checks):
-                await send.send(item)
+            with anyio.move_on_after(_remaining(deadline)):
+                for item in enumerate(checks):
+                    await send.send(item)
         async with out_recv:
             async for index, result in out_recv:
                 results[index] = result
@@ -830,6 +850,8 @@ async def _fan_worker(
 
 @contextlib.asynccontextmanager
 async def _pooled_ssh() -> AsyncIterator[None]:
+    import asyncssh  # noqa: PLC0415  # lazy: the close-loop except evaluates asyncssh.Error; bind before the try frame
+
     cache = _SshCache({}, anyio.Lock())
     token = _SSH_CACHE.set(cache)
     try:
@@ -856,17 +878,10 @@ def _total(slot: Result[Completed, Fault] | None) -> Result[Completed, Fault]:
 
 
 def _governed(settings: AssaySettings, checks: tuple[Check, ...] = ()) -> int:
-    usable = _usable_cpu(settings.max_checks)
     runner_cap = settings.dotnet_max_cpu if any(c.tool.runner is Runner.DOTNET for c in checks) else settings.max_checks
-    mode_cap = settings.mutation_max_cpu if any(c.tool.mode is Mode.MUTATION for c in checks) else runner_cap
-    return max(1, min(settings.max_checks, mode_cap, usable))
-
-
-def _usable_cpu(default: int) -> int:
-    try:
-        return len(psutil.Process().cpu_affinity())  # type: ignore[attr-defined]  # ty: ignore[possibly-missing-attribute]  # Linux/cgroup-aware when present
-    except psutil.Error, AttributeError, NotImplementedError:
-        return psutil.cpu_count(logical=True) or default
+    # Mixed DOTNET+MUTATION batches must honour BOTH ceilings — intersect, never let the mode cap shadow the runner cap.
+    mode_cap = min(runner_cap, settings.mutation_max_cpu) if any(c.tool.mode is Mode.MUTATION for c in checks) else runner_cap
+    return max(1, min(settings.max_checks, mode_cap, _USABLE_CPU))
 
 
 # --- [COMPOSITION] ----------------------------------------------------------------------
@@ -886,11 +901,13 @@ def _stale(owner: _LeaseOwner, tolerance: float) -> bool:
         return not psutil.pid_exists(owner.pid)
 
 
-def _claim(fd: int, resource: str, *, run_id: str, tolerance: float, target: str) -> _LeaseOwner | None:
+def _claim(
+    fd: int, resource: str, *, run_id: str, tolerance: float, target: str, cwd: str = "", project: str = "", mode: str = "exclusive"
+) -> _LeaseOwner | None:
     # Non-blocking flock wins cleanly, steals stale/corrupt holders, and maps live holders to BUSY.
     try:
         _FLOCK(fd, _LOCK_EX | _LOCK_NB)
-        return _write_owner(fd, resource, run_id=run_id, target=target)
+        return _write_owner(fd, resource, run_id=run_id, target=target, cwd=cwd, project=project, mode=mode)
     except BlockingIOError:
         held = os.read(fd, 4096)
         # b"" UNDER a contended flock can only be a live holder mid-write/mid-release (a dead holder dropped its flock,
@@ -898,26 +915,28 @@ def _claim(fd: int, resource: str, *, run_id: str, tolerance: float, target: str
         # present-but-stale blocks fall through to the decode + _stale + steal path.
         match held:
             case b"":
-                _stamp_holder(None, run_id=run_id)
+                _stamp_holder(None)
                 return None
             case _:
                 owner = _decode_owner(held)
-                _stamp_holder(owner, run_id=run_id)
+                _stamp_holder(owner)
                 match owner is not None and not _stale(owner, tolerance):
                     case True:
                         return None
                     case False:
                         _LOG.warning("lease.steal", resource=resource, run_id=run_id, lost=_holder(owner))
-                        return _steal(fd, resource, run_id=run_id, target=target, owner=owner)
+                        return _steal(fd, resource, run_id=run_id, target=target, cwd=cwd, project=project, mode=mode, owner=owner)
 
 
-def _steal(fd: int, resource: str, *, run_id: str, target: str, owner: _LeaseOwner | None) -> _LeaseOwner | None:
+def _steal(
+    fd: int, resource: str, *, run_id: str, target: str, cwd: str = "", project: str = "", mode: str = "exclusive", owner: _LeaseOwner | None
+) -> _LeaseOwner | None:
     # A lost TOCTOU race yields BUSY, not FAULTED.
     try:
         _FLOCK(fd, _LOCK_EX | _LOCK_NB)
     except BlockingIOError:
         return None
-    won = _write_owner(fd, resource, run_id=run_id, target=target)
+    won = _write_owner(fd, resource, run_id=run_id, target=target, cwd=cwd, project=project, mode=mode)
     _LOG.info("lease.stolen", resource=resource, run_id=run_id, lost=_holder(owner), won=_holder(won))
     return won
 
@@ -930,9 +949,8 @@ def _holder(owner: _LeaseOwner | None) -> dict[str, object]:
             return {"pid": owner.pid, "create_time": owner.create_time, "run_id": owner.run_id}
 
 
-def _stamp_holder(owner: _LeaseOwner | None, *, run_id: str) -> None:
-    span = trace.get_current_span()
-    span.set_attributes({"assay.run_id": run_id, **{f"holder.{k}": str(v) for k, v in _holder(owner).items()}})
+def _stamp_holder(owner: _LeaseOwner | None) -> None:
+    trace.get_current_span().add_event("lease.contested", attributes={f"holder.{k}": str(v) for k, v in _holder(owner).items()})
 
 
 def _decode_owner(held: bytes) -> _LeaseOwner | None:
@@ -961,11 +979,16 @@ def _write_block(fd: int, block: _LeaseOwner) -> _LeaseOwner:
     return block
 
 
-def _write_owner(fd: int, resource: str, *, run_id: str, target: str) -> _LeaseOwner:
-    # target records whether the holder ran locally or through ssh://.
+def _write_owner(
+    fd: int, resource: str, *, run_id: str, target: str, cwd: str = "", project: str = "", mode: str = "exclusive"
+) -> _LeaseOwner:
+    # target records whether the holder ran locally or through ssh://; cwd/project/mode are stamped here so the block is written once.
     proc = psutil.Process(os.getpid())
     with proc.oneshot():
-        block = _LeaseOwner(resource=resource, run_id=run_id, pid=proc.pid, create_time=proc.create_time(), started_at=time.time(), target=target)
+        block = _LeaseOwner(
+            resource=resource, run_id=run_id, pid=proc.pid, create_time=proc.create_time(),
+            cwd=cwd, project=project, mode=mode, started_at=time.time(), target=target,
+        )
     return _write_block(fd, block)
 
 
@@ -986,26 +1009,25 @@ def exclusive_lease(
         Result containing the held lease or a busy fault.
     """
     path = settings.artifact(ArtifactKind.LOCKS, f"{resource}.lock")
+    # fcntl.flock + os.open + mkdir are local-fs POSIX primitives; a remote artifact backend cannot host the lease.
+    if path.protocol not in {"", "file"}:
+        yield Error(Fault((), status=RailStatus.UNSUPPORTED, message=f"POSIX leases require a local artifact root; got {path.protocol!r} backend"))
+        return
     path.parent.mkdir(parents=True, exist_ok=True)
     fd = os.open(str(path), _LOCKS_OPEN_FLAGS, _LOCK_MODE)
     owner: _LeaseOwner | None = None
     try:
-        owner = _claim(fd, resource, run_id=run_id, tolerance=settings.lease_drift_tolerance, target=settings.exec_target)
-        match owner:
-            case None:
-                yield Error(Fault((), status=RailStatus.BUSY, message=f"{resource} held by a live process"))
-            case _:
-                stamped = msgspec.structs.replace(owner, run_id=run_id, cwd=str(settings.root), project=project, mode=mode)
-                _write_block(fd, stamped)
-                yield Ok(_Held(stamped))
+        owner = _claim(
+            fd, resource, run_id=run_id,
+            tolerance=settings.lease_drift_tolerance, target=settings.exec_target,
+            cwd=str(settings.root), project=project, mode=mode,
+        )
+        yield Ok(_Held(owner)) if owner is not None else Error(Fault((), status=RailStatus.BUSY, message=f"{resource} held by a live process"))
     finally:
-        match owner:
-            case None:
-                os.close(fd)
-            case _:
-                os.ftruncate(fd, 0)
-                _FLOCK(fd, _LOCK_UN)
-                os.close(fd)
+        if owner is not None:
+            os.ftruncate(fd, 0)
+            _FLOCK(fd, _LOCK_UN)
+        os.close(fd)
 
 
 def leased[T](

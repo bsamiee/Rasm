@@ -8,7 +8,7 @@ from enum import IntEnum
 from functools import wraps
 import inspect
 from operator import itemgetter
-from typing import assert_never, Protocol, runtime_checkable, TYPE_CHECKING
+from typing import assert_never, Final, TYPE_CHECKING
 
 from beartype import beartype, BeartypeConf, BeartypeStrategy
 from expression import Ok, Result
@@ -46,15 +46,6 @@ class Slot(IntEnum):
 type Layer[**P, T] = tuple[Slot, Callable[[Hom[P, T]], Hom[P, T]]]
 
 
-@runtime_checkable
-class _AssayLogger(Protocol):
-    def info(self, event: str, **kw: object) -> object: ...
-
-    def warning(self, event: str, **kw: object) -> object: ...
-
-    def error(self, event: str, **kw: object) -> object: ...
-
-
 # --- [CONSTANTS] ------------------------------------------------------------------------
 
 _CONF = BeartypeConf(is_pep484_tower=True, strategy=BeartypeStrategy.O1)
@@ -75,17 +66,17 @@ class Inversion(Exception):  # noqa: N818  # surfaced via TypeError, not an *Err
     depth: int
 
 
+# --- [SERVICES] -------------------------------------------------------------------------
+
+_LOG: Final = structlog.get_logger("assay")
+
+
 # --- [OPERATIONS] -----------------------------------------------------------------------
-
-
-def _log() -> _AssayLogger:
-    logger: _AssayLogger = structlog.get_logger("assay")
-    return logger
 
 
 def _correlate(projected: Attrs) -> dict[str, str]:
     # Normalize OTel-style attrs into contextvar identifiers and drop empty values.
-    return {key.removeprefix("assay.").replace(".", "_"): str(val) for key, val in projected.items() if str(val)}
+    return {key.removeprefix("assay.").replace(".", "_"): str(val) for key, val in projected.items() if val is not None and str(val)}
 
 
 def ring_processor(logger: object, method_name: str, event_dict: EventDict) -> EventDict:  # noqa: ARG001  # mandated structlog Processor signature: (logger, method_name, event_dict)
@@ -194,6 +185,9 @@ def checked[**P, T](*, conf: BeartypeConf = _CONF) -> Layer[P, T]:
     return (Slot.checked, lambda fn: checked_call(fn, conf=conf))
 
 
+_CHECKED_LAYER: Final = checked()
+
+
 def logged[**P, T](*, event: str, keys: Bind[P]) -> Layer[P, T]:
     """Create the rail logging layer.
 
@@ -209,15 +203,14 @@ def logged[**P, T](*, event: str, keys: Bind[P]) -> Layer[P, T]:
                 match res:
                     case Result(tag="ok", ok=done):
                         # T is unbounded, so getattr is the generic status projection.
-                        _log().info(f"{event}.finish", status=getattr(done, "status", RailStatus.OK))
+                        _LOG.info(f"{event}.finish", status=getattr(done, "status", RailStatus.OK))
                     case Result(error=f):
-                        logger = _log()
                         finish = f"{event}.finish"
                         match f.status.severity >= RailStatus.FAILED.severity:
                             case True:
-                                logger.error(finish, status=f.status, message=f.message, argv=f.argv)
+                                _LOG.error(finish, status=f.status, message=f.message, argv=f.argv)
                             case False:
-                                logger.info(finish, status=f.status, message=f.message, argv=f.argv)
+                                _LOG.info(finish, status=f.status, message=f.message, argv=f.argv)
                 return res  # ty: ignore[invalid-return-type]  # mypy strict needs the Result[T] annotation; @wraps re-scopes that T under ty: the rail is identical
 
         return woven  # ty: ignore[invalid-return-type]  # @wraps over expression.Result yields ty's _Wrapped re-scope; mypy --strict accepts the Hom passthrough
@@ -293,6 +286,7 @@ __all__ = [
     "Inversion",
     "Layer",
     "Slot",
+    "_CHECKED_LAYER",
     "_RING",
     "assemble",
     "checked",

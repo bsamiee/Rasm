@@ -89,7 +89,8 @@ def test_coverage_artifacts_require_current_output(assay_root: AssayHarness) -> 
     (root / "coverage.json").write_text("{}", encoding="utf-8")
     done = Completed(("uv", "run", "coverage", "json", "-o", ".artifacts/python/coverage/coverage.json"), 0, status=RailStatus.OK)
 
-    assert _coverage_artifacts(assay_root.settings, ()) == ()
-    artifact = _coverage_artifacts(assay_root.settings, (done,))[0]
+    scope = assay_root.scope(Claim.TEST)
+    assert _coverage_artifacts(assay_root.settings, scope, ()) == ()
+    artifact = _coverage_artifacts(assay_root.settings, scope, (done,))[0]
     assert artifact.id == "coverage.json"
     assert artifact.path.endswith(f"/test/{assay_root.settings.run_id}/coverage/coverage.json")

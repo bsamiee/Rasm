@@ -11,8 +11,9 @@ from tools.assay import (
     _DRAIN_MS,  # noqa: PLC2701  # intra-package private import: one operator-chosen ~1.5s bound shared with the BatchSpanProcessor cadence
     install_tracing,
 )
-from tools.assay.composition.registry import build_app, parse_fault, REGISTRY, wire_safe
+from tools.assay.composition.registry import build_app, parse_fault, REGISTRY
 from tools.assay.composition.settings import AssaySettings
+from tools.assay.core.model import wire_safe
 
 
 # --- [COMPOSITION] ----------------------------------------------------------------------
@@ -79,39 +80,40 @@ def main(argv: list[str] | None = None) -> int:
     # Scrub lone surrogates (os.fsdecode surrogateescape from invalid-UTF-8 argv) at the boundary so untrusted
     # tokens cannot crash the wire encoder; valid Unicode passes through unchanged.
     tokens = tuple(wire_safe(token) for token in (sys.argv[1:] if argv is None else argv))
+
+    def _install() -> None:
+        try:
+            install_tracing(AssaySettings().otel_endpoint)
+        except ValidationError as exc:
+            _ = exc
+
+    def _drain(provider: object) -> None:
+        # Under a live OTLP endpoint this caps force_flush at _DRAIN_MS (~1.5s), then releases SDK workers.
+        match getattr(provider, "force_flush", None):
+            case flush if callable(flush):
+                try:
+                    flush(_DRAIN_MS)
+                except Exception as exc:  # noqa: BLE001  # final lifecycle boundary: diagnostics go to stderr, never stdout
+                    sys.stderr.write(f"assay: trace force_flush failed: {exc}\n")
+            case _:
+                pass
+        match getattr(provider, "shutdown", None):
+            case shutdown if callable(shutdown):
+                try:
+                    shutdown()
+                except Exception as exc:  # noqa: BLE001  # final lifecycle boundary: diagnostics go to stderr, never stdout
+                    sys.stderr.write(f"assay: trace shutdown failed: {exc}\n")
+            case _:
+                pass
+
     try:
-        _install_provider_from_settings()
+        _install()
         return meta(*tokens)
     finally:
-        _drain_provider(get_tracer_provider())
+        _drain(get_tracer_provider())
 
 
-def _install_provider_from_settings() -> None:
-    try:
-        install_tracing(AssaySettings().otel_endpoint)
-    except ValidationError as exc:
-        _ = exc
-
-
-def _drain_provider(provider: object) -> None:
-    # Under a live OTLP endpoint this caps force_flush at _DRAIN_MS (~1.5s), then releases SDK workers.
-    match getattr(provider, "force_flush", None):
-        case flush if callable(flush):
-            try:
-                flush(_DRAIN_MS)
-            except Exception as exc:  # noqa: BLE001  # final lifecycle boundary: diagnostics go to stderr, never stdout
-                sys.stderr.write(f"assay: trace force_flush failed: {exc}\n")
-        case _:
-            pass
-    match getattr(provider, "shutdown", None):
-        case shutdown if callable(shutdown):
-            try:
-                shutdown()
-            except Exception as exc:  # noqa: BLE001  # final lifecycle boundary: diagnostics go to stderr, never stdout
-                sys.stderr.write(f"assay: trace shutdown failed: {exc}\n")
-        case _:
-            pass
-
+# --- [ENTRY] ----------------------------------------------------------------------------
 
 if __name__ == "__main__":
     raise SystemExit(main())

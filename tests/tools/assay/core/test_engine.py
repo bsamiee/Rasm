@@ -2,9 +2,13 @@
 
 # --- [RUNTIME_PRELUDE] ------------------------------------------------------------------------
 
+import contextlib
 from contextlib import aclosing
+import fcntl
 import os
 import sys
+import tempfile
+import time
 from types import SimpleNamespace
 from typing import override, TYPE_CHECKING, TypedDict
 
@@ -12,25 +16,31 @@ import anyio
 from anyio.abc import ByteReceiveStream
 import anyio.lowlevel
 from expression import Error, Ok
-from hypothesis import given
+from hypothesis import given, settings as hyp_settings, strategies as st
+from hypothesis.stateful import Bundle, consumes, invariant, rule, RuleBasedStateMachine, run_state_machine_as_test
 from hypothesis.strategies import binary
 import msgspec
 import psutil
 import pytest
+from upath import UPath
 
-from tests.tools.assay.conftest import _make_psutil_module, _proc  # noqa: PLC2701
+from tests.tools.assay.conftest import _make_psutil_module, _proc, assert_result_status  # noqa: PLC2701
+from tools.assay.composition.settings import AssaySettings
 import tools.assay.core.engine as engine_mod
 from tools.assay.core.engine import (
     _decode_owner,  # noqa: PLC2701
     _drain,  # noqa: PLC2701
     _governed,  # noqa: PLC2701
     _inproc,  # noqa: PLC2701
+    _remote_command,  # noqa: PLC2701
     _retry_on,  # noqa: PLC2701
     _splice,  # noqa: PLC2701
+    _ssh_outcome,  # noqa: PLC2701
     _stale,  # noqa: PLC2701
     _total,  # noqa: PLC2701
     discover,
     exclusive_lease,
+    fan_out,
     run_check,
     run_check_async,
 )
@@ -92,6 +102,16 @@ _STALE_CASES: tuple[tuple[_ProcKw, bool], ...] = (
 )
 
 _REMOTE_TOOL = Tool("remote", Runner.DOTNET, ("test",), Input.NONE, Language.CSHARP, Claim.STATIC)
+# Emits 8 KiB of 'x' deterministically (> the 4096-byte default stream_tail_bytes) so the clip law has a true tail to truncate.
+_LARGE_STREAM_TOOL = Tool(
+    name="test-large-stream",
+    runner=Runner.DIRECT,
+    command=(sys.executable, "-c", "import sys; sys.stdout.write('x' * 8192)"),
+    input=Input.NONE,
+    language=Language.PYTHON,
+    claim=Claim.STATIC,
+    mode=Mode.BUILD,
+)
 
 
 # --- [DRAIN_ADAPTERS] -------------------------------------------------------------------
@@ -316,6 +336,37 @@ def test_streaming_process_persists_full_artifact(assay_root: AssayHarness) -> N
     assert scope.store.read_path(stdout_artifact.path).strip() == b"stream-ok"
 
 
+def test_streaming_tail_clips_at_stream_tail_bytes(assay_root: AssayHarness) -> None:
+    """The streaming receipt tail is clipped to ``stream_tail_bytes`` while the full stdout persists through ArtifactStore."""
+    scope = assay_root.scope(Claim.STATIC)
+    tail_cap = assay_root.settings.stream_tail_bytes
+    outcome = run_check(Check(tool=_LARGE_STREAM_TOOL), settings=assay_root.settings, scope=scope, routed=_ROUTED_CHANGED)
+
+    assert outcome.is_ok()
+    assert len(outcome.ok.stdout) == tail_cap
+    assert outcome.ok.stdout == b"x" * tail_cap
+    stdout_artifact = next(artifact for artifact in outcome.ok.artifacts if artifact.id == "test-large-stream-out")
+    assert scope.store.read_path(stdout_artifact.path) == b"x" * 8192
+
+
+@pytest.mark.parametrize(
+    "runner,exc,expected",
+    [
+        (Runner.DOTNET, ConnectionError("reset"), True),  # transport reset retries on a remote runner
+        (Runner.DOTNET, BrokenPipeError("pipe"), True),  # broken pipe retries on a remote runner
+        (Runner.DOTNET, OSError("transport"), True),  # generic OSError retries on a non-direct runner
+        (Runner.DIRECT, OSError("local"), False),  # local OSError never retries — a tool defect, not a transport fault
+        (Runner.DOTNET, FileNotFoundError("absent"), False),  # missing binary is a capability gap, never retried
+        (Runner.DOTNET, TimeoutError("deadline"), False),  # deadline is terminal, not transient
+    ],
+)
+def test_retry_classifier_table(runner: Runner, exc: BaseException, expected: bool) -> None:  # noqa: FBT001
+    """``_retry_on`` returns a predicate that retries transport/spawn faults on non-direct runners only."""
+    check = Check(tool=msgspec.structs.replace(_ECHO_TOOL, runner=runner))
+    assert _retry_on(check, None)(exc) is expected
+
+
+@pytest.mark.mutation
 def test_staged_process_rejects_escaping_paths(assay_root: AssayHarness) -> None:
     """Stage workdirs and inputs are contained before any destructive materialization."""
     for stage in (Stage(root="../outside"), Stage(root=".artifacts/python/work", inputs=("../pyproject.toml",))):
@@ -398,20 +449,61 @@ def test_total_error_slot_passes_through() -> None:
 
 
 @pytest.mark.parametrize(
-    "cpu_count,max_checks,expected",
+    "cpu_count,max_checks,dotnet,mutation,runner_modes,expected",
     [
-        (4, 8, 4),  # cpu_count caps at 4
-        (4, 2, 2),  # max_checks caps below cpu_count
-        (8, 8, 8),  # equal
-        (1, 8, 1),  # single cpu caps at 1
-        (4, 4, 4),  # exact match
+        (4, 8, 4, 4, [], 4),  # usable_cpu caps at 4
+        (4, 2, 4, 4, [], 2),  # max_checks caps below usable_cpu
+        (8, 8, 8, 8, [], 8),  # equal
+        (1, 8, 8, 8, [], 1),  # single usable cpu caps at 1
+        (4, 8, 2, 8, [(Runner.DOTNET, Mode.CHECK)], 2),  # dotnet runner_cap engages mode_cap default
+        (4, 8, 8, 1, [(Runner.DIRECT, Mode.MUTATION)], 1),  # mutation mode_cap engages
+        (4, 8, 2, 3, [(Runner.DOTNET, Mode.MUTATION)], 2),  # both present: dotnet (2) intersects mutation (3) -> 2
     ],
 )
-def test_governed_cpu_cap(cpu_count: int, max_checks: int, expected: int, monkeypatch: pytest.MonkeyPatch, assay_root: AssayHarness) -> None:
-    """``_governed`` caps ``max_checks`` by logical CPU count — neither starves nor oversubscribes."""
-    monkeypatch.setattr(engine_mod.psutil, "cpu_count", lambda **_: cpu_count)  # type: ignore[attr-defined]
-    settings = assay_root.settings.model_copy(update={"max_checks": max_checks})
-    assert _governed(settings) == expected
+def test_governed_cap_table(
+    cpu_count: int,
+    max_checks: int,
+    dotnet: int,
+    mutation: int,
+    runner_modes: list[tuple[Runner, Mode]],
+    expected: int,
+    monkeypatch: pytest.MonkeyPatch,
+    assay_root: AssayHarness,
+) -> None:
+    """``_governed`` folds the 3-axis cap (usable cpu, dotnet runner, mutation mode) into one concurrency floor.
+
+    ``_USABLE_CPU`` (the import-time cpu_affinity constant) is patched directly: Linux ``cpu_affinity`` bypasses a ``cpu_count`` monkeypatch.
+    """
+    monkeypatch.setattr(engine_mod, "_USABLE_CPU", cpu_count)
+    settings = assay_root.settings.model_copy(update={"max_checks": max_checks, "dotnet_max_cpu": dotnet, "mutation_max_cpu": mutation})
+    checks = tuple(Check(tool=msgspec.structs.replace(_ECHO_TOOL, runner=r, mode=m)) for r, m in runner_modes)
+    assert _governed(settings, checks) == expected
+
+
+# --- [FAN_OUT] -------------------------------------------------------------------------
+
+
+@pytest.mark.mutation
+def test_fan_out_deadline_integrates_order_and_timeout(assay_root: AssayHarness, monkeypatch: pytest.MonkeyPatch) -> None:
+    """``fan_out`` preserves input order, completes the fast slots, and back-fills the deadline-cancelled slot as TIMEOUT.
+
+    The idx-2 slot sleeps 10s but the per-check ``fail_after(_remaining(deadline))`` cancels it at ~0.3s,
+    so the test never stalls on the never-completing worker — deadline teardown converts it to a TIMEOUT fault.
+    """
+
+    async def indexed(check: Check, *_args: object, **_kwargs: object) -> Completed:
+        idx = int(check.tool.name.split("-")[1])
+        await anyio.sleep(0 if idx < 2 else 10.0)
+        return receipt((check.tool.name,), 0)
+
+    monkeypatch.setattr(engine_mod, "_execute", indexed)
+    checks = tuple(Check(tool=msgspec.structs.replace(_ECHO_TOOL, name=f"check-{i}", runner=Runner.DOTNET)) for i in range(3))
+    results = fan_out(checks, settings=assay_root.settings, scope=None, routed=_ROUTED_CHANGED, deadline=time.monotonic() + 0.3)
+
+    assert len(results) == 3
+    assert results[0].is_ok()
+    assert results[1].is_ok()
+    assert_result_status(results[2], RailStatus.TIMEOUT)
 
 
 # --- [DRAIN_TAIL_CAP] ------------------------------------------------------------------
@@ -488,6 +580,7 @@ def test_otel_span_carries_mem_rss_attribute(assay_root: AssayHarness, monkeypat
 # --- [LEASE] ---------------------------------------------------------------------------
 
 
+@pytest.mark.mutation
 def test_exclusive_lease_busy_on_live_holder(assay_root: AssayHarness) -> None:
     """A second ``exclusive_lease`` on the same resource while the first is held yields ``Error(Fault(BUSY))``."""
     with exclusive_lease("test-resource", "run-a", settings=assay_root.settings) as first:
@@ -529,6 +622,128 @@ def test_exclusive_lease_stale_steal(assay_root: AssayHarness, monkeypatch: pyte
         assert result.is_ok(), f"stale-steal should succeed, got: {result}"
 
 
+@pytest.mark.mutation
+def test_lease_owner_block_fields(assay_root: AssayHarness) -> None:
+    """A held lease stamps every owner-block field: resource/run_id/cwd/pid and a positive create_time."""
+    lock_path = assay_root.settings.artifact(ArtifactKind.LOCKS, "field-test.lock")
+    with exclusive_lease("field-test", "run-field", settings=assay_root.settings, project="my-project", mode="exclusive") as held:
+        assert held.is_ok()
+        owner = engine_mod._DECODER.decode(lock_path.read_bytes())
+
+    assert (owner.resource, owner.run_id, owner.cwd, owner.pid) == ("field-test", "run-field", str(assay_root.root), os.getpid())
+    assert owner.project == "my-project"
+    assert owner.mode == "exclusive"
+    assert owner.create_time > 0.0
+
+
+@pytest.mark.mutation
+def test_claim_busy_under_separately_held_flock(assay_root: AssayHarness) -> None:
+    """An empty/corrupt body STEALS unless a sibling fd holds the flock — a held flock maps the contender to BUSY."""
+    lock_path = assay_root.settings.artifact(ArtifactKind.LOCKS, "contended.lock")
+    lock_path.parent.mkdir(parents=True, exist_ok=True)
+    fd = os.open(str(lock_path), os.O_RDWR | os.O_CREAT)
+    fcntl.flock(fd, fcntl.LOCK_EX)  # ty: ignore[possibly-missing-attribute]  # POSIX-only; verified present on macOS/Linux
+    try:
+        with exclusive_lease("contended", "run-c", settings=assay_root.settings) as contender:
+            assert_result_status(contender, RailStatus.BUSY)
+    finally:
+        fcntl.flock(fd, fcntl.LOCK_UN)  # ty: ignore[possibly-missing-attribute]  # POSIX-only; symmetric release
+        os.close(fd)
+
+
+# --- [STATEFUL_LEASE] ------------------------------------------------------------------
+
+
+class _LeaseSlot(msgspec.Struct, frozen=True, gc=False):
+    """One entered lease: its per-token ``ExitStack`` plus whether the acquire returned Ok (a live holder)."""
+
+    stack: contextlib.ExitStack
+    is_ok: bool
+
+
+class LeaseStateMachine(RuleBasedStateMachine):
+    """Stateful model of the synchronous ``exclusive_lease`` mutual-exclusion algebra.
+
+    Each ``acquire`` enters a real ``exclusive_lease`` context for one shared resource through a per-token
+    ``ExitStack`` and records the held-vs-busy outcome. ``release`` consumes a slot and closes only that
+    token's stack. The invariant proves the contract: at most one Ok holder is live across all entered
+    leases, so any acquire while the resource is held yields BUSY. Purely synchronous — no event loop.
+    """
+
+    held = Bundle("held")
+
+    def __init__(self) -> None:
+        """Initialise the state machine with an empty slot registry and a fresh temporary artifact root."""
+        super().__init__()
+        self._slots: dict[int, _LeaseSlot] = {}
+        root = UPath(tempfile.mkdtemp(prefix="assay-lease-rbsm-"))
+        (root / "Workspace.slnx").write_text("", encoding="utf-8")
+        self._settings = AssaySettings(root=root, exec_target="", exec_known_hosts=None)
+
+    @rule(target=held, run_id=st.text(alphabet="abcdef0123456789", min_size=1, max_size=8))
+    def acquire(self, run_id: str) -> int:
+        stack = contextlib.ExitStack()
+        result = stack.enter_context(exclusive_lease("shared", run_id, settings=self._settings))
+        slot = _LeaseSlot(stack=stack, is_ok=result.is_ok())
+        key = id(slot)
+        self._slots[key] = slot
+        return key
+
+    @rule(key=consumes(held))
+    def release(self, key: int) -> None:
+        slot = self._slots.pop(key, None)
+        match slot:
+            case _LeaseSlot(stack=stack):
+                stack.close()
+            case None:
+                pass
+
+    @invariant()
+    def at_most_one_live_holder(self) -> None:
+        live = sum(1 for slot in self._slots.values() if slot.is_ok)
+        assert live <= 1, f"mutual exclusion broken: {live} live holders"
+
+    def teardown(self) -> None:
+        # Drain every still-open slot stack through a forcing comprehension (no imperative loop in the model).
+        _ = tuple(slot.stack.close() for slot in self._slots.values())
+
+
+def test_lease_state_machine_holds_mutual_exclusion() -> None:
+    """Drive the synchronous ``exclusive_lease`` RBSM: across all acquire/release interleavings, at most one Ok holder is ever live."""
+    run_state_machine_as_test(LeaseStateMachine, settings=hyp_settings(stateful_step_count=50, deadline=None))
+
+
+# --- [REMOTE_UNITS] --------------------------------------------------------------------
+
+
+@pytest.mark.parametrize(
+    "argv,cwd,env,fragments",
+    [
+        (("dotnet", "test"), "/work", {}, ("cd /work &&", "dotnet test")),
+        (("ruff", "check", "."), "/repo root", {"PYTHONHASHSEED": "0"}, ("cd '/repo root'", "PYTHONHASHSEED=0", "ruff check .")),
+        (("echo", "a b"), "/w", {"K": "v w"}, ("cd /w &&", "K='v w'", "echo 'a b'")),
+    ],
+)
+def test_remote_command_quotes_cwd_env_and_argv(argv: tuple[str, ...], cwd: str, env: dict[str, str], fragments: tuple[str, ...]) -> None:
+    """``_remote_command`` shell-quotes the cwd prefix, env exports, and every argv segment into one ``cd ... && ...`` line."""
+    command = _remote_command(argv, cwd=cwd, env=env)
+    assert all(fragment in command for fragment in fragments), f"missing fragment in {command!r}"
+
+
+@pytest.mark.parametrize(
+    "status,signal,expected",
+    [
+        (0, None, (0, ())),  # clean exit passes through with no signal note
+        (2, None, (2, ())),  # non-zero exit passes through with no signal note
+        (None, None, (255, ())),  # signal-killed (None status) maps to the sentinel; no signal tuple to note
+        (None, ("TERM", False, "", ""), (255, ("ssh.signal=TERM",))),  # asyncssh exit_signal 4-tuple surfaces its name as evidence
+    ],
+)
+def test_ssh_outcome_maps_signal_none_to_sentinel(status: int | None, signal: object | None, expected: tuple[int, tuple[str, ...]]) -> None:
+    """``_ssh_outcome`` passes integer exit codes through and maps a ``None`` status (signal kill) to ``255``, noting the signal name."""
+    assert _ssh_outcome(status, signal) == expected
+
+
 # --- [SSH_STREAMING] -------------------------------------------------------------------
 
 
@@ -551,6 +766,9 @@ async def test_ssh_loopback_non_streaming_round_trip(assay_root: AssayHarness, s
     assert outcome.is_ok()
     # Handler echoes "remote-ok:<command>\n" — assert token AND that the command transited (E4 fix).
     assert b"remote-ok:" in outcome.ok.stdout, f"expected 'remote-ok:' prefix, got {outcome.ok.stdout!r}"
+    # T12 verified-gap: the run_id must ride the remote env export so a remote tool stamps the same run.
+    # remote_env() admits ASSAY_RUN_ID but only forwards it when already present in os.environ — this is the gap.
+    assert b"ASSAY_RUN_ID=" in outcome.ok.stdout
     assert outcome.ok.returncode == 0
 
 
@@ -575,3 +793,13 @@ async def test_ssh_streaming_round_trip(assay_root: AssayHarness, ssh_loopback: 
     # The tail contains the command suffix (e.g. "/bin/echo stream-ok") — assert that transited.
     assert b"/bin/echo" in outcome.ok.stdout, f"command suffix not found in stdout tail: {outcome.ok.stdout!r}"
     assert outcome.ok.returncode == 0
+
+
+# --- [MUTATION_LANE] -------------------------------------------------------------------
+
+
+def test_mutation_lane_is_populated(request: pytest.FixtureRequest) -> None:
+    """The ``mutation`` marker lane carries the engine's destructive-boundary laws so Stryker/mutmut has a target set."""
+    collected = request.session.items if hasattr(request.session, "items") else ()
+    marked = [item for item in collected if item.get_closest_marker("mutation") is not None]
+    assert len(marked) >= 5, f"mutation lane underpopulated: {len(marked)} marked"

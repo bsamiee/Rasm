@@ -3,10 +3,13 @@
 import annotationlib  # PEP 749: STRING annotations avoid evaluating unresolvable forward refs
 from dataclasses import dataclass, replace
 import difflib
+from functools import lru_cache
 import hashlib
 import importlib
 import importlib.metadata
 import inspect
+import itertools
+import operator
 from pathlib import Path
 import re
 from typing import assert_never, override, TYPE_CHECKING
@@ -15,7 +18,7 @@ import xml.etree.ElementTree as ET  # noqa: S405  # trusted local Directory.Pack
 from cyclopts.types import PositiveInt  # noqa: TC002  # Cyclopts evaluates Param dataclass annotations at runtime.
 from expression import Error, Ok, Result
 import msgspec
-from tree_sitter import Language as TSLanguage, Parser as TSParser, Query as TSQuery, QueryCursor
+from tree_sitter import Parser as TSParser, QueryCursor, QueryError
 import tree_sitter_typescript
 
 from tools.assay.composition.catalog import Capture, CAPTURE_ENCODER, CAPTURES, select
@@ -45,6 +48,7 @@ from tools.assay.core.model import (
 )
 from tools.assay.core.routing import Routed, Scope
 from tools.assay.core.status import RailStatus
+from tools.assay.rails.code import _node_text, ts_language, ts_query  # noqa: PLC2701  # shared tree-sitter primitives owned by code.py
 
 
 if TYPE_CHECKING:
@@ -79,6 +83,11 @@ _NUGET_ROOTS: tuple[str, ...] = (".cache/nuget/packages", str(Path.home() / ".nu
 _FRAMEWORK_RANK: tuple[str, ...] = ("net10.0", "net9.0", "net8.0", "net7.0", "net6.0", "netstandard2.1", "netstandard2.0")
 _ASSET_DIRS: tuple[str, ...] = ("lib", "ref", "runtimes", "build", "buildTransitive", "analyzers", "tools")
 _SURFACE_KINDS: frozenset[str] = frozenset(("Class", "Struct", "Interface", "Delegate", "Enum"))
+_PACKAGE_KINDS: frozenset[SourceKind] = frozenset(
+    (SourceKind.NUGET, SourceKind.PYDIST, SourceKind.TSDECL)  # sources whose key is also a package name
+)
+_COMPACT_VISIBLE: frozenset[SourceKind] = frozenset((SourceKind.ASSEMBLY, SourceKind.NUGET, SourceKind.TOOL))  # doctor compact-row source kinds
+_COMPACT_SUMMARY_IDS: frozenset[str] = frozenset(("python-dists", "ts-decls"))  # polyglot summary rows always shown in compact output
 _PREVIEW_ROWS: int = 12
 _CANDIDATE_CAP: int = 8
 # _RESULT_CAP is imported from core/model.py alongside fold as the shared saturation site.
@@ -98,6 +107,8 @@ _TS_DECL_QUERY: str = (  # .d.ts exported declaration names become @type capture
     " (enum_declaration name: (identifier) @type)"
     " (function_signature name: (identifier) @type)"
     " (module name: (identifier) @type)"
+    " (variable_declarator name: (identifier) @type)"  # export declare const NAME
+    " (namespace_export (identifier) @type)"  # export * as NAME
 )
 _TS_GRAMMAR: Callable[[], object] = tree_sitter_typescript.language_typescript  # shared with code.py
 _DECL_NODES: frozenset[str] = frozenset(  # .d.ts node kinds that anchor member signatures.
@@ -111,6 +122,7 @@ _DECL_NODES: frozenset[str] = frozenset(  # .d.ts node kinds that anchor member 
         "method_signature",
         "property_signature",
         "public_field_definition",
+        "variable_declarator",
     )
 )
 _INSPECT_KINDS: tuple[tuple[str, Callable[[object], bool]], ...] = (  # pydist roster predicates
@@ -119,6 +131,7 @@ _INSPECT_KINDS: tuple[tuple[str, Callable[[object], bool]], ...] = (  # pydist r
 )
 _NAME_CAP: int = 320
 _SIG_CAP: int = 480
+_FULL_CAP: int = 2560  # full .d.ts member body capture; larger than the signature window
 _LATEST_ARTIFACT: str = "latest"
 
 
@@ -184,28 +197,6 @@ class _Surface:
     raw: str
 
 
-@dataclass(frozen=True, slots=True)
-class _Body:
-    signature: str
-    xml: str
-    window: str
-    full: str
-    selected: int
-    truncated: bool
-
-
-@dataclass(frozen=True, slots=True)
-class _Detail:
-    signature: str = ""
-    doc: str = ""
-    preview: str = ""
-    member: str = ""
-    truncated: bool = False
-    lines: int = 0
-    selected: int = 0
-    artifact_paths: tuple[str, ...] = ()
-
-
 # --- [OPERATIONS] -----------------------------------------------------------------------
 
 
@@ -230,19 +221,20 @@ def _safe(key: str) -> str:
     return re.sub(r"[^A-Za-z0-9_.-]+", "-", key).strip("-") or "source"
 
 
-_SHA256_MEMO: dict[tuple[str, int, int], str] = {}
+@lru_cache(maxsize=256)
+def _asm_digest(path_str: str, size: int, mtime_ns: int) -> str:  # noqa: ARG001  # size+mtime_ns are lru_cache discriminants, not consumed in body
+    # Content hash joins size and mtime because RhinoWIP reinstalls can preserve DLL mtimes.
+    return hashlib.sha256(Path(path_str).read_bytes()).hexdigest()
 
 
 def _fingerprint(assemblies: tuple[Path, ...]) -> str:
-    # Content hash joins size and mtime because RhinoWIP reinstalls can preserve DLL mtimes.
-    # The memo avoids rehashing unchanged assemblies within one process.
-    def _asm_digest(p: Path) -> str:
-        stat = p.stat()
-        key = (str(p), stat.st_size, stat.st_mtime_ns)
-        cached = _SHA256_MEMO.get(key)
-        return cached if cached is not None else _SHA256_MEMO.setdefault(key, hashlib.sha256(p.read_bytes()).hexdigest())
-
-    seed = "|".join(f"{p}:{stat.st_size}:{stat.st_mtime_ns}:{_asm_digest(p)}" for p in assemblies if p.is_file() for stat in (p.stat(),))
+    # Single stat() per assembly; lru_cache on _asm_digest avoids rehashing unchanged files.
+    seed = "|".join(
+        f"{p}:{st.st_size}:{st.st_mtime_ns}:{_asm_digest(str(p), st.st_size, st.st_mtime_ns)}"
+        for p in assemblies
+        if p.is_file()
+        for st in (p.stat(),)
+    )
     return hashlib.sha256(seed.encode()).hexdigest()[:16]
 
 
@@ -267,22 +259,29 @@ def _host_source(settings: AssaySettings, key: str) -> _Source | None:
             )
 
 
+@lru_cache(maxsize=8)
+def _packages_at(root_str: str, props_mtime_ns: int) -> dict[str, str]:
+    # props_mtime_ns is the cache discriminant; re-parsed only when the file changes on disk.
+    _ = props_mtime_ns
+    try:
+        root = ET.fromstring(Path(root_str).read_bytes())  # noqa: S314  # trusted local Directory.Packages.props, never network-sourced
+    except (OSError, ET.ParseError):
+        return {}
+    return {
+        inc: ver
+        for node in root.iterfind(".//PackageVersion")
+        for inc, ver in ((node.get("Include", ""), node.get("Version", "")),)
+        if inc and ver
+    }
+
+
 def _packages(settings: AssaySettings) -> dict[str, str]:
     path = settings.root / _PACKAGES_PROPS
-    match path.is_file():
-        case False:
-            return {}
-        case True:
-            try:
-                root = ET.fromstring(path.read_bytes())  # noqa: S314  # trusted local Directory.Packages.props, never network-sourced
-            except ET.ParseError:
-                return {}
-            return {
-                inc: ver
-                for node in root.iterfind(".//PackageVersion")
-                for inc, ver in ((node.get("Include", ""), node.get("Version", "")),)
-                if inc and ver
-            }
+    try:
+        mtime_ns = path.stat().st_mtime_ns
+    except OSError:
+        return {}
+    return _packages_at(str(path), mtime_ns)
 
 
 def _candidates(names: tuple[str, ...], needle: str, *, n: int = _CANDIDATE_CAP) -> tuple[tuple[str, int], ...]:
@@ -345,16 +344,32 @@ def _package_owners(settings: AssaySettings, package: str) -> tuple[str, ...]:
     return _package_owner_index(settings).get(package.casefold(), ())
 
 
+@lru_cache(maxsize=8)
+def _package_owner_index_at(root_str: str, fingerprint: str) -> dict[str, tuple[str, ...]]:
+    # fingerprint encodes sorted csproj mtime_ns values; re-computed only when the project graph changes.
+    _ = fingerprint
+    root = Path(root_str)
+    rows = sorted(
+        (package, path.relative_to(root).as_posix())
+        for path in root.rglob("*.csproj")
+        if not any(part in {".artifacts", ".cache", "bin", "obj"} for part in path.parts)
+        for package in _project_references(path)
+    )
+    return {
+        package: tuple(sorted(owner for _, owner in group))
+        for package, group in itertools.groupby(rows, key=operator.itemgetter(0))
+    }
+
+
 def _package_owner_index(settings: AssaySettings) -> dict[str, tuple[str, ...]]:
     root = Path(str(settings.root))
-    found: dict[str, list[str]] = {}
-    for path in root.rglob("*.csproj"):
-        if any(part in {".artifacts", ".cache", "bin", "obj"} for part in path.parts):
-            continue
-        owner = path.relative_to(root).as_posix()
-        for package in _project_references(path):
-            found.setdefault(package, []).append(owner)
-    return {package: tuple(sorted(owners)) for package, owners in found.items()}
+    csproj_paths = sorted(
+        p for p in root.rglob("*.csproj") if not any(part in {".artifacts", ".cache", "bin", "obj"} for part in p.parts)
+    )
+    fingerprint = hashlib.sha256(
+        "|".join(f"{p}:{p.stat().st_mtime_ns}" for p in csproj_paths).encode()
+    ).hexdigest()[:16]
+    return _package_owner_index_at(str(root), fingerprint)
 
 
 def _project_references(path: Path) -> tuple[str, ...]:
@@ -670,25 +685,35 @@ def _tsdecl_thunk(source: _Source, symbol: str) -> InprocThunk:
     # Empty symbols roster .d.ts declarations; member lookups anchor one signature capture.
 
     def run(_check: Check) -> Completed:
-        ts_lang = TSLanguage(_TS_GRAMMAR())
-        parser = TSParser(ts_lang)
-        captures = tuple(cap for path in source.asset_paths for cap in _ts_captures(parser, ts_lang, path, symbol))
+        parser = TSParser(ts_language(_TS_GRAMMAR))  # parser is mutable: never cached, one per thunk run
+        captures = tuple(cap for path in source.asset_paths for cap in _ts_captures(parser, path, symbol))
         return receipt(("ts-api", "member" if symbol else "surface", source.key, symbol), 0, stdout=CAPTURE_ENCODER.encode(captures))
 
     return run
 
 
-def _ts_captures(parser: TSParser, language: TSLanguage, path: Path, symbol: str) -> tuple[Capture, ...]:
+def _ts_captures(parser: TSParser, path: Path, symbol: str) -> tuple[Capture, ...]:
     try:
         src = path.read_bytes()
     except OSError:
         return ()
     root = parser.parse(src).root_node
+    is_dts = path.name.endswith(".d.ts")
     parse_fault = (Capture(name="parse_error", text="tree-sitter parse error", file=path.name, line=1, parse_error=True),) if root.has_error else ()
     match symbol:
         case "":
-            query = TSQuery(language, _TS_DECL_QUERY)
-            declared = tuple(
+            return (*parse_fault, *_ts_declared(root, path, is_dts=is_dts), *_export_aliases(root, path))
+        case _:
+            return (*parse_fault, *_ts_member(root, symbol, path, is_dts=is_dts))
+
+
+def _ts_declared(root: Node, path: Path, *, is_dts: bool) -> tuple[Capture, ...]:
+    # QueryError on a malformed roster query surfaces as a single capture, mirroring the code.py query rail.
+    match ts_query(_TS_GRAMMAR, _TS_DECL_QUERY):
+        case QueryError() as exc:
+            return (Capture(name="query_error", text=str(exc)[:_NAME_CAP], file=path.name, line=1, parse_error=True),)
+        case compiled:
+            return tuple(
                 Capture(
                     name="type",
                     text=_node_text(node)[:_NAME_CAP],
@@ -700,34 +725,46 @@ def _ts_captures(parser: TSParser, language: TSLanguage, path: Path, symbol: str
                     start_byte=node.start_byte,
                     end_byte=node.end_byte,
                 )
-                for nodes in QueryCursor(query).captures(root).values()
+                for nodes in QueryCursor(compiled).captures(root).values()
                 for node in nodes
-                if _exported(node)
+                if _exported(node, is_dts=is_dts)
             )
-            return (*parse_fault, *declared, *_export_aliases(root, path))
-        case _:
-            return (*parse_fault, *_ts_member(root, symbol, path))
 
 
-def _ts_member(root: Node, symbol: str, path: Path) -> tuple[Capture, ...]:
+def _ts_member(root: Node, symbol: str, path: Path, *, is_dts: bool) -> tuple[Capture, ...]:
     # Owner-qualified lookups resolve Foo.x by matching Foo first, then x within that declaration.
+    # Flat lookups anchor to depth-1 exported declarations so a nested property_signature never wins.
     owner, _dot, target = symbol.rpartition(".")
     owner_node = next(
-        (n for n in _walk_decls(root) if owner and (name := n.child_by_field_name("name")) is not None and _node_text(name) == owner), None
+        (
+            n
+            for n in _walk_decls(root)
+            if owner and (name := n.child_by_field_name("name")) is not None and _node_text(name) == owner and _exported(name, is_dts=is_dts)
+        ),
+        None,
     )
     node = (
         next((n for n in _walk_decls(owner_node) if (name := n.child_by_field_name("name")) is not None and _node_text(name) == target), None)
         if owner_node is not None
-        else next((n for n in _walk_decls(root) if (name := n.child_by_field_name("name")) is not None and _node_text(name) == target), None)
+        else next(
+            (
+                n
+                for n in _walk_decls(root)
+                if (name := n.child_by_field_name("name")) is not None and _node_text(name) == target and _exported(name, is_dts=is_dts)
+            ),
+            None,
+        )
     )
     match node:
         case None:
             return _export_member(root, target, path)
         case node:
+            full = _node_text(node)
+            doc = _ts_doc(node)
             return (
                 Capture(
                     name="signature",
-                    text=_node_text(node)[:_SIG_CAP],
+                    text=full.splitlines()[0][:_SIG_CAP] if full else "",
                     file=path.name,
                     line=node.start_point.row + 1,
                     column=node.start_point.column + 1,
@@ -736,11 +773,24 @@ def _ts_member(root: Node, symbol: str, path: Path) -> tuple[Capture, ...]:
                     start_byte=node.start_byte,
                     end_byte=node.end_byte,
                 ),
+                Capture(name="full", text=full[:_FULL_CAP], file=path.name, line=node.start_point.row + 1),
+                *((Capture(name="doc", text=doc[:_SIG_CAP], file=path.name, line=node.start_point.row + 1),) if doc else ()),
             )
 
 
-def _exported(node: Node) -> bool:
-    return any(parent.type == "export_statement" for parent in _parents(node))
+def _ts_doc(node: Node) -> str:
+    # The TSDoc block is the comment immediately preceding the declaration's top-level statement.
+    top = next((p for p in _parents(node) if p.parent is not None and p.parent.type == "program"), node)
+    prev = top.prev_sibling
+    return _node_text(prev).strip() if prev is not None and prev.type == "comment" and _node_text(prev).startswith("/**") else ""
+
+
+def _exported(node: Node, *, is_dts: bool) -> bool:
+    # An ambient .d.ts module implicitly exports its top-level declarations, so a depth-1 declaration
+    # (its owner directly under program, optionally through one ambient_declaration wrapper) counts as exported.
+    chain = tuple(p.type for p in _parents(node))
+    ambient_depth1 = is_dts and chain[1:] in {("program",), ("ambient_declaration", "program")}
+    return "export_statement" in chain or ambient_depth1
 
 
 def _parents(node: Node) -> tuple[Node, ...]:
@@ -802,11 +852,6 @@ def _walk_decls(node: Node) -> tuple[Node, ...]:
     return (*own, *(d for child in node.children for d in _walk_decls(child)))
 
 
-def _node_text(node: Node) -> str:
-    raw = node.text
-    return raw.decode(errors="replace") if raw is not None else ""
-
-
 def _invoke(settings: AssaySettings, scope: ArtifactScope, tool: Tool, *args: str) -> Completed:
     # scope=None preserves the real dotnet-tools.json CLI home for `dotnet tool run ilspycmd`.
     _ = scope
@@ -860,14 +905,24 @@ def _inproc_check(settings: AssaySettings, source: _Source, mode: Mode, thunk: I
 
 
 def _inproc_surface(settings: AssaySettings, source: _Source) -> Result[_Surface, Fault]:
-    # Empty asset paths become an EMPTY surface, not a fault.
+    # Content-fingerprint caches avoid repeat thunk listings; empty asset paths become an EMPTY surface, not a fault.
+    store = settings.store()
     cache = _cache_path(settings, source, _fingerprint(source.asset_paths))
-    return _inproc_check(settings, source, Mode.QUERY, _inproc_thunk(source, "")).map(lambda done: _parse_inproc(source, cache, done))
+    match store.exists_path(cache):
+        case True:
+            return Ok(_parse_inproc(source, cache, store.read_text_path(cache).encode()))
+        case False:
+
+            def _persist(done: Completed) -> _Surface:
+                store.write_text_path(done.stdout.decode(errors="replace"), cache)
+                return _parse_inproc(source, cache, done.stdout)
+
+            return _inproc_check(settings, source, Mode.QUERY, _inproc_thunk(source, "")).map(_persist)
 
 
-def _parse_inproc(source: _Source, cache: str, done: Completed) -> _Surface:
-    types = tuple(dict.fromkeys(cap.text for cap in CAPTURES.decode(done.stdout or b"[]") if cap.name == "type" and cap.text))
-    return _roster(source, cache, types, done.stdout.decode(errors="replace"))
+def _parse_inproc(source: _Source, cache: str, stdout: bytes) -> _Surface:
+    types = tuple(dict.fromkeys(cap.text for cap in CAPTURES.decode(stdout or b"[]") if cap.name == "type" and cap.text))
+    return _roster(source, cache, types, stdout.decode(errors="replace"))
 
 
 def _cache_path(settings: AssaySettings, source: _Source, fingerprint: str) -> str:
@@ -948,17 +1003,21 @@ def _xml_members(path: Path) -> tuple[ET.Element, ...]:
     return tuple(root.iterfind(".//member"))
 
 
-def _decompile(settings: AssaySettings, scope: ArtifactScope, surface: _Surface, symbol: str, p: ApiParams) -> Result[_Body, Fault]:
+def _decompile(
+    settings: AssaySettings, scope: ArtifactScope, surface: _Surface, symbol: str, shape: SymbolShape, p: ApiParams
+) -> Result[Report, Fault]:
     match surface.source.kind:
         case SourceKind.ASSEMBLY | SourceKind.NUGET:
-            return _cs_decompile(settings, scope, surface, symbol, p)
+            return _cs_decompile(settings, scope, surface, symbol, shape, p)
         case SourceKind.PYDIST | SourceKind.TSDECL:
-            return _inproc_decompile(settings, surface, symbol, p)
+            return _inproc_decompile(settings, surface, symbol, shape, p)
         case _:  # pragma: no cover  # SourceKind.TOOL never resolves through _source
-            return Ok(_Body(signature="", xml="", window="", full="", selected=0, truncated=False))
+            return Ok(_search_report(settings, surface, p))
 
 
-def _cs_decompile(settings: AssaySettings, scope: ArtifactScope, surface: _Surface, symbol: str, p: ApiParams) -> Result[_Body, Fault]:
+def _cs_decompile(  # noqa: PLR0914  # genuine C# decompile surface: fqn, lines, boundary, declared, anchor, window, signature, sig, selected, truncated, done, text
+    settings: AssaySettings, scope: ArtifactScope, surface: _Surface, symbol: str, shape: SymbolShape, p: ApiParams
+) -> Result[Report, Fault]:
     # ilspycmd owns C# source windows; sidecar XML owns docs.
     head, _, tail = symbol.rpartition(".")
     fqn = _rank_type(surface.types, symbol) or _rank_type(surface.types, head)
@@ -966,32 +1025,43 @@ def _cs_decompile(settings: AssaySettings, scope: ArtifactScope, surface: _Surfa
         case None:
             return Error(Fault(("api", "decompile", symbol), status=RailStatus.FAULTED, message="no ilspycmd catalog row"))
         case Tool() if not fqn:
-            return Ok(_Body(signature="", xml="", window="", full="", selected=0, truncated=False))
+            return Ok(_decompile_report(settings, surface, shape, "", "", "", "", 0, truncated=False, p=p))
         case Tool() as tool:
             done = _run_decompile(settings, scope, tool, fqn, surface.source.assemblies)
-            return Ok(_body(done, tail or symbol.rsplit(".", 1)[-1], p, doc=_xml_doc(surface.source, symbol)))
+            text = done.stdout.decode(errors="replace")
+            lines = tuple(line for line in text.splitlines() if not p.grep or p.grep.casefold() in line.casefold())
+            boundary = re.compile(rf"\b{re.escape(tail or symbol.rsplit('.', 1)[-1])}\b", re.IGNORECASE)
+            declared = tuple(off for off, line in enumerate(lines) if boundary.search(line) and not line.lstrip().startswith("///"))
+            anchor = next(iter(declared), 0)
+            window = lines if p.full else lines[anchor : anchor + p.max_lines]
+            signature = next((lines[off].strip() for off in declared), next(iter(window), "").strip())
+            sig = signature if done.returncode == 0 and text else ""
+            selected = len(lines)
+            truncated = not p.full and len(lines) > len(window)
+            return Ok(
+                _decompile_report(
+                    settings, surface, shape, sig, _xml_doc(surface.source, symbol), "\n".join(window), text, selected, truncated=truncated, p=p
+                )
+            )
 
 
-def _inproc_decompile(settings: AssaySettings, surface: _Surface, symbol: str, p: ApiParams) -> Result[_Body, Fault]:
+def _inproc_decompile(settings: AssaySettings, surface: _Surface, symbol: str, shape: SymbolShape, p: ApiParams) -> Result[Report, Fault]:
     # Python and TypeScript docs ride thunk captures, not XMLDoc lookup.
     source = surface.source
-    return _inproc_check(settings, source, Mode.LIST, _inproc_thunk(source, symbol)).map(lambda done: _inproc_body(done, p))
 
+    def _build(done: Completed) -> Report:
+        captured = {cap.name: cap.text for cap in CAPTURES.decode(done.stdout or b"[]")}
+        signature = captured.get("signature", "")
+        full = captured.get("full", "") or signature
+        lines = tuple(line for line in full.splitlines() if not p.grep or p.grep.casefold() in line.casefold())
+        window = lines if p.full else lines[: p.max_lines]
+        return _decompile_report(
+            settings, surface, shape,
+            signature, captured.get("doc", ""), "\n".join(window), full,
+            len(lines), truncated=not p.full and len(lines) > len(window), p=p,
+        )
 
-def _inproc_body(done: Completed, p: ApiParams) -> _Body:
-    captured = {cap.name: cap.text for cap in CAPTURES.decode(done.stdout or b"[]")}
-    signature = captured.get("signature", "")
-    full = captured.get("full", "") or signature
-    lines = tuple(line for line in full.splitlines() if not p.grep or p.grep.casefold() in line.casefold())
-    window = lines if p.full else lines[: p.max_lines]
-    return _Body(
-        signature=signature,
-        xml=captured.get("doc", ""),
-        window="\n".join(window),
-        full=full,
-        selected=len(lines),
-        truncated=not p.full and len(lines) > len(window),
-    )
+    return _inproc_check(settings, source, Mode.LIST, _inproc_thunk(source, symbol)).map(_build)
 
 
 def _run_decompile(settings: AssaySettings, scope: ArtifactScope, tool: Tool, fqn: str, assemblies: tuple[Path, ...]) -> Completed:
@@ -1000,25 +1070,6 @@ def _run_decompile(settings: AssaySettings, scope: ArtifactScope, tool: Tool, fq
     decompile_tool = msgspec.structs.replace(tool, command=(*(c for c in tool.command if c not in {"-l", "cisde"}), "-t", fqn, *_DECOMPILE_FLAGS))
     attempts = tuple(_invoke(settings, scope, decompile_tool, str(asm)) for asm in ordered)
     return next((d for d in attempts if d.returncode == 0 and d.stdout), attempts[0] if attempts else Completed(("ilspycmd",), 1))
-
-
-def _body(done: Completed, simple: str, p: ApiParams, *, doc: str) -> _Body:
-    # Declaration-line anchors avoid matching XML doc comments as signatures.
-    text = done.stdout.decode(errors="replace")
-    lines = tuple(line for line in text.splitlines() if not p.grep or p.grep.casefold() in line.casefold())
-    boundary = re.compile(rf"\b{re.escape(simple)}\b", re.IGNORECASE)
-    declared = tuple(off for off, line in enumerate(lines) if boundary.search(line) and not line.lstrip().startswith("///"))
-    anchor = next(iter(declared), 0)
-    window = lines if p.full else lines[anchor : anchor + p.max_lines]
-    signature = next((lines[off].strip() for off in declared), next(iter(window), "").strip())
-    return _Body(
-        signature=signature if done.returncode == 0 and text else "",
-        xml=doc,
-        window="\n".join(window),
-        full=text,
-        selected=len(lines),
-        truncated=not p.full and len(lines) > len(window),
-    )
 
 
 def _artifact(settings: AssaySettings, source: _Source, name: str, content: str) -> Artifact:
@@ -1037,7 +1088,7 @@ def _api_source(source: _Source, *, status: RailStatus | None = None, selected: 
         source_kind=source.kind,
         source_id=source.key,
         version=source.version,
-        package=source.key if source.kind in {SourceKind.NUGET, SourceKind.PYDIST, SourceKind.TSDECL} else "",
+        package=source.key if source.kind in _PACKAGE_KINDS else "",
         primary_assembly=assemblies[0] if assemblies else "",
         primary_xml=xmls[0] if xmls else "",
         assemblies=assemblies,
@@ -1064,9 +1115,9 @@ def _matches(rows: tuple[str, ...], kind: ArtifactKind, pattern: str) -> tuple[M
         return base + char_sim + max(0, 20 - len(text) // 4)
 
     filtered = tuple(r for r in rows if not pattern or query in r.casefold())
-    ranked = tuple(sorted(filtered, key=lambda r: (-score(r), r)))
+    scored = sorted(((r, score(r)) for r in filtered), key=lambda x: (-x[1], x[0]))
     return tuple(
-        Match(id=f"{kind.value}-{i:03d}", kind=kind, text=r[:_NAME_CAP], score=score(r)) for i, r in enumerate(ranked[:_RESULT_CAP], start=1)
+        Match(id=f"{kind.value}-{i:03d}", kind=kind, text=r[:_NAME_CAP], score=s) for i, (r, s) in enumerate(scored[:_RESULT_CAP], start=1)
     )
 
 
@@ -1081,9 +1132,11 @@ def doctor(settings: AssaySettings, scope: ArtifactScope, p: ApiParams) -> Resul
     """
     surface_tool = next((t for t in select(Claim.API, Language.CSHARP)), None)
     version = _invoke(settings, scope, surface_tool, "--version") if surface_tool is not None else Completed(("ilspycmd",), 1)
-    sources = _inventory_sources(settings, _rhino_app(settings), version)
+    ilspy_ver = (version.stdout.decode(errors="replace").splitlines()[0].strip() if version.stdout else "") or "unavailable"
+    sources = _inventory_sources(settings, _rhino_app(settings), ilspy_ver, version.returncode)
     healthy = tuple(s for s in sources if s.status is RailStatus.OK)
     artifacts = _inventory_artifacts(settings, sources)
+    compact = _compact_sources(sources)
     done = Completed(
         ("api", "doctor"),
         0,
@@ -1091,13 +1144,10 @@ def doctor(settings: AssaySettings, scope: ArtifactScope, p: ApiParams) -> Resul
         notes=(f"{len(healthy)}/{len(sources)} inventory sources healthy",),
     )
     detail = ApiSurface(
-        source_kind=SourceKind.TOOL,
-        source_id="ilspycmd",
-        version=version.stdout.decode(errors="replace").splitlines()[0].strip() if version.stdout else "",
         source=next((s for s in sources if s.source_id == "ilspycmd"), ApiSource(source_kind=SourceKind.TOOL, source_id="ilspycmd")),
         shape=SymbolShape.INDEX,
         preview="\n".join(
-            f"{s.status.value}\t{s.source_kind.value}\t{s.source_id}\t{s.version or s.package_root}" for s in _compact_sources(sources)
+            f"{s.status.value}\t{s.source_kind.value}\t{s.source_id}\t{s.version or s.package_root or s.primary_assembly}" for s in compact
         ),
         lines=len(sources),
         selected=len(healthy),
@@ -1107,11 +1157,11 @@ def doctor(settings: AssaySettings, scope: ArtifactScope, p: ApiParams) -> Resul
         Match(
             id=f"inventory-{i:03d}",
             kind=ArtifactKind.SCOPE,
-            text=f"{source.source_id}: {source.version or source.package_root or source.reason}",
+            text=f"{source.source_id}: {source.version or source.package_root or source.primary_assembly or source.reason}",
             score=100 if source.status is RailStatus.OK else 0,
             severity=None if source.status is RailStatus.OK else "missing",
         )
-        for i, source in enumerate(_compact_sources(sources), start=1)
+        for i, source in enumerate(compact, start=1)
     )
     return _strict(msgspec.structs.replace(fold(Claim.API, "doctor", (done,), detail=detail), artifacts=artifacts, results=results), p)
 
@@ -1137,7 +1187,7 @@ def _source_tsv(source: ApiSource) -> str:
         str(source.status),
         source.source_id,
         source.version,
-        source.package_root,
+        source.package_root or source.primary_assembly,
         ",".join(source.frameworks),
         ",".join(source.owners),
         str(len(source.assemblies)),
@@ -1147,23 +1197,22 @@ def _source_tsv(source: ApiSource) -> str:
     return "\t".join(cells)
 
 
-def _inventory_sources(settings: AssaySettings, app: Path | None, version: Completed) -> tuple[ApiSource, ...]:
-    roots = _root_inventory_sources(settings, app, version)
+def _inventory_sources(settings: AssaySettings, app: Path | None, ilspy_ver: str, returncode: int) -> tuple[ApiSource, ...]:
+    roots = _root_inventory_sources(settings, app, ilspy_ver, returncode)
     nugets = _nuget_inventory_sources(settings)
     polyglot = _polyglot_inventory_sources(settings)
     return (*roots, *nugets, *polyglot)
 
 
-def _root_inventory_sources(settings: AssaySettings, app: Path | None, version: Completed) -> tuple[ApiSource, ...]:
+def _root_inventory_sources(settings: AssaySettings, app: Path | None, ilspy_ver: str, returncode: int) -> tuple[ApiSource, ...]:
     app_source = ApiSource(
         source_kind=SourceKind.ASSEMBLY,
         source_id="rhino-app",
         package_root=str(app) if app is not None else "",
         status=RailStatus.OK if app is not None and app.is_dir() else RailStatus.EMPTY,
     )
-    ilspy_ver = (version.stdout.decode(errors="replace").splitlines()[0].strip() if version.stdout else "") or "unavailable"
     tool_source = ApiSource(
-        source_kind=SourceKind.TOOL, source_id="ilspycmd", version=ilspy_ver, status=RailStatus.OK if version.returncode == 0 else RailStatus.EMPTY
+        source_kind=SourceKind.TOOL, source_id="ilspycmd", version=ilspy_ver, status=RailStatus.OK if returncode == 0 else RailStatus.EMPTY
     )
     hosts = tuple(
         _api_source(src, status=RailStatus.OK if src.assemblies else RailStatus.EMPTY)
@@ -1199,7 +1248,7 @@ def _compact_sources(sources: tuple[ApiSource, ...]) -> tuple[ApiSource, ...]:
     return tuple(
         source
         for source in sources
-        if source.source_kind in {SourceKind.ASSEMBLY, SourceKind.NUGET, SourceKind.TOOL} or source.source_id in {"python-dists", "ts-decls"}
+        if source.source_kind in _COMPACT_VISIBLE or source.source_id in _COMPACT_SUMMARY_IDS
     )
 
 
@@ -1241,9 +1290,10 @@ def _resolve_report(settings: AssaySettings, source: _Source, p: ApiParams) -> R
     detail = _api_detail(
         source,
         SymbolShape.SEARCH,
-        _Detail(
-            preview="\n".join(str(t) for t in existing[:_PREVIEW_ROWS]), lines=len(targets), selected=len(existing), artifact_paths=(artifact.path,)
-        ),
+        preview="\n".join(str(t) for t in existing[:_PREVIEW_ROWS]),
+        lines=len(targets),
+        selected=len(existing),
+        artifact_paths=(artifact.path,),
     )
     report = fold(Claim.API, "resolve", (done,), detail=detail)
     return msgspec.structs.replace(report, artifacts=(artifact,), results=_matches(tuple(str(t) for t in targets), ArtifactKind.SCOPE, ""))
@@ -1283,7 +1333,7 @@ def _resolve_namespace(settings: AssaySettings, scope: ArtifactScope, surface: _
     type_fqn = _rank_type(surface.types, p.symbol)
     owned = surface.by_namespace.get(_rank_namespace(surface, p.symbol), ()) if not type_fqn else ()
     return (
-        _decompile(settings, scope, surface, type_fqn, p).map(lambda body: _decompile_report(settings, surface, SymbolShape.TYPE, body, p))
+        _decompile(settings, scope, surface, type_fqn, SymbolShape.TYPE, p)
         if type_fqn
         else Ok(_roster_report(settings, surface, SymbolShape.NAMESPACE, owned, p))
         if owned
@@ -1300,7 +1350,7 @@ def _query_shape(settings: AssaySettings, scope: ArtifactScope, surface: _Surfac
         case SymbolShape.NAMESPACE:
             return _resolve_namespace(settings, scope, surface, p)
         case SymbolShape.TYPE | SymbolShape.MEMBER as shape:
-            return _decompile(settings, scope, surface, p.symbol, p).map(lambda body: _decompile_report(settings, surface, shape, body, p))
+            return _decompile(settings, scope, surface, p.symbol, shape, p)
         case SymbolShape.SEARCH:  # pragma: no cover  # shape_of never emits SEARCH; the decompile-miss path routes through _decompile_report
             return Ok(_search_report(settings, surface, p))
         case never:  # pragma: no cover
@@ -1325,13 +1375,11 @@ def _roster_report(settings: AssaySettings, surface: _Surface, shape: SymbolShap
     detail = _api_detail(
         source,
         shape,
-        _Detail(
-            preview="\n".join(rows[:_PREVIEW_ROWS]),
-            truncated=len(rows) > _PREVIEW_ROWS,
-            lines=len(rows),
-            selected=len(rows),
-            artifact_paths=(artifact.path,),
-        ),
+        preview="\n".join(rows[:_PREVIEW_ROWS]),
+        truncated=len(rows) > _PREVIEW_ROWS,
+        lines=len(rows),
+        selected=len(rows),
+        artifact_paths=(artifact.path,),
     )
     store = settings.store()
     extra = _cache_artifact(store, surface.cache) if shape is SymbolShape.INDEX and store.exists_path(surface.cache) else None
@@ -1357,73 +1405,85 @@ def _search_report(settings: AssaySettings, surface: _Surface, p: ApiParams) -> 
             detail = _api_detail(
                 source,
                 SymbolShape.SEARCH,
-                _Detail(
-                    preview="\n".join(hits[:_PREVIEW_ROWS]),
-                    truncated=len(hits) > _PREVIEW_ROWS,
-                    lines=len(hits),
-                    selected=len(hits),
-                    artifact_paths=(artifact.path,),
-                ),
+                preview="\n".join(hits[:_PREVIEW_ROWS]),
+                truncated=len(hits) > _PREVIEW_ROWS,
+                lines=len(hits),
+                selected=len(hits),
+                artifact_paths=(artifact.path,),
             )
             return msgspec.structs.replace(
                 fold(Claim.API, "query", (done,), detail=detail), artifacts=(artifact,), results=_matches(hits, ArtifactKind.SCOPE, p.symbol)
             )
 
 
-def _decompile_report(settings: AssaySettings, surface: _Surface, shape: SymbolShape, body: _Body, p: ApiParams) -> Report:
+def _decompile_report(  # noqa: PLR0913,PLR0914  # genuine decompile assembly surface: settings, surface, shape, signature, xml, window, full, selected, truncated, p; all structural caller slots
+    settings: AssaySettings,
+    surface: _Surface,
+    shape: SymbolShape,
+    signature: str,
+    xml: str,
+    window: str,
+    full: str,
+    selected: int,
+    *,
+    truncated: bool,
+    p: ApiParams,
+) -> Report:
     # Decompile misses can still resolve to known namespaces before falling to search.
-    match body.signature:
+    match signature:
         case "":
             ns_key = _rank_namespace(surface, p.symbol)
             owned = surface.by_namespace.get(ns_key, ()) if ns_key != p.symbol or ns_key in surface.by_namespace else ()
             return _roster_report(settings, surface, SymbolShape.NAMESPACE, owned, p) if owned else _search_report(settings, surface, p)
         case _:
-            return _decompile_body(settings, surface, shape, body, p)
+            direct_fqn = _rank_type(surface.types, p.symbol)
+            head = p.symbol.rpartition(".")[0]
+            resolved_fqn = direct_fqn or (_rank_type(surface.types, head) if head else "")
+            is_member = shape is SymbolShape.MEMBER or bool(head and resolved_fqn and not direct_fqn)
+            final_shape = SymbolShape.MEMBER if is_member else SymbolShape.TYPE
+            suffix = {SourceKind.PYDIST: ".py", SourceKind.TSDECL: ".d.ts"}.get(surface.source.kind, ".cs")
+            artifact = _artifact(settings, surface.source, f"decompile{suffix}", full)
+            detail = _api_detail(
+                surface.source,
+                final_shape,
+                signature=signature,
+                doc=xml,
+                preview=window,
+                member=p.symbol.rpartition(".")[2] if is_member else "",
+                truncated=truncated,
+                lines=selected,
+                selected=selected,
+                artifact_paths=(artifact.path,),
+            )
+            note = Completed(("api", "query", surface.source.key), 0, status=RailStatus.OK, notes=(f"{selected} selected lines",))
+            result = Match(id=f"{final_shape.value}-001", kind=ArtifactKind.SCOPE, text=(resolved_fqn or p.symbol)[:_NAME_CAP], score=100)
+            return msgspec.structs.replace(fold(Claim.API, "query", (note,), detail=detail), artifacts=(artifact,), results=(result,))
 
 
-def _decompile_body(settings: AssaySettings, surface: _Surface, shape: SymbolShape, body: _Body, p: ApiParams) -> Report:
-    direct_fqn = _rank_type(surface.types, p.symbol)
-    head = p.symbol.rpartition(".")[0]
-    resolved_fqn = direct_fqn or (_rank_type(surface.types, head) if head else "")
-    is_member = shape is SymbolShape.MEMBER or bool(head and resolved_fqn and not direct_fqn)
-    final_shape = SymbolShape.MEMBER if is_member else SymbolShape.TYPE
-    suffix = {SourceKind.PYDIST: ".py", SourceKind.TSDECL: ".d.ts"}.get(surface.source.kind, ".cs")
-    artifact = _artifact(settings, surface.source, f"decompile{suffix}", body.full)
-    detail = _api_detail(
-        surface.source,
-        final_shape,
-        _Detail(
-            signature=body.signature,
-            doc=body.xml,
-            preview=body.window,
-            member=p.symbol.rpartition(".")[2] if is_member else "",
-            truncated=body.truncated,
-            lines=body.selected,
-            selected=body.selected,
-            artifact_paths=(artifact.path,),
-        ),
-    )
-    done = Completed(("api", "query", surface.source.key), 0, status=RailStatus.OK, notes=(f"{body.selected} selected lines",))
-    result = Match(id=f"{final_shape.value}-001", kind=ArtifactKind.SCOPE, text=(resolved_fqn or p.symbol)[:_NAME_CAP], score=100)
-    return msgspec.structs.replace(fold(Claim.API, "query", (done,), detail=detail), artifacts=(artifact,), results=(result,))
-
-
-def _api_detail(source: _Source, shape: SymbolShape, detail: _Detail | None = None) -> ApiSurface:
-    active = detail or _Detail()
+def _api_detail(  # noqa: PLR0913  # single ApiSurface constructor surface; all slots are keyword-only, no positional overload risk
+    source: _Source,
+    shape: SymbolShape,
+    *,
+    signature: str = "",
+    doc: str = "",
+    preview: str = "",
+    member: str = "",
+    truncated: bool = False,
+    lines: int = 0,
+    selected: int = 0,
+    artifact_paths: tuple[str, ...] = (),
+) -> ApiSurface:
     return ApiSurface(
-        source_kind=source.kind,
-        source_id=source.key,
-        version=source.version,
         source=_api_source(source),
         shape=shape,
-        signature=active.signature,
-        doc=active.doc,
-        preview=active.preview,
-        member=active.member,
-        truncated=active.truncated,
-        lines=active.lines,
-        selected=active.selected,
-        artifact_paths=active.artifact_paths,
+        signature=signature,
+        doc=doc,
+        preview=preview,
+        member=member,
+        truncated=truncated,
+        lines=lines,
+        selected=selected,
+        artifact_paths=artifact_paths,
     )
 
 
@@ -1459,8 +1519,6 @@ def _show_store_report(store: ArtifactStore, path: str, p: ApiParams, *, matched
     )
     source = ApiSource(source_kind=SourceKind.TOOL, source_id=p.token, assets=(path,), status=RailStatus.OK, selected=(path,))
     detail = ApiSurface(
-        source_kind=SourceKind.TOOL,
-        source_id=p.token,
         source=source,
         shape=SymbolShape.SEARCH,
         preview=window,

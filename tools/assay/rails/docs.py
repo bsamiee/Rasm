@@ -53,7 +53,7 @@ class FaultedPromotion(Exception):  # noqa: N818  # sentinel, not an *Error cond
 # --- [OPERATIONS] -----------------------------------------------------------------------
 
 
-def thin_rail(settings: AssaySettings, scope: ArtifactScope, params: DocsParams, *, claim: Claim, verb: str, mode: Mode) -> Result[Report, Fault]:
+def _thin_rail(settings: AssaySettings, scope: ArtifactScope, params: DocsParams, *, claim: Claim, verb: str, mode: Mode) -> Result[Report, Fault]:
     """Run the shared docs route, fan-out, fold, and strict promotion body.
 
     Returns:
@@ -96,9 +96,9 @@ def check(settings: AssaySettings, scope: ArtifactScope, params: DocsParams) -> 
     Returns:
         Docs validation report, or routing/spawn fault.
     """
-    return thin_rail(settings, scope, params, claim=Claim.DOCS, verb="check", mode=Mode.CHECK)
+    return _thin_rail(settings, scope, params, claim=Claim.DOCS, verb="check", mode=Mode.CHECK)
 
 
 # --- [EXPORTS] --------------------------------------------------------------------------
 
-__all__ = ["DocsParams", "FaultedPromotion", "check", "thin_rail"]
+__all__ = ["DocsParams", "FaultedPromotion", "check"]

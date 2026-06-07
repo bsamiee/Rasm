@@ -28,6 +28,7 @@ _FROM_RC: tuple[tuple[int, RailStatus], ...] = (
 # --- [OPERATIONS] -----------------------------------------------------------------------
 
 
+@pytest.mark.mutation
 @given(sampled_from(_ALL), sampled_from(_ALL))
 def test_join_max_severity_oracle(left: RailStatus, right: RailStatus) -> None:
     """``join`` returns the operand with the strictly greater severity; ties keep left."""
@@ -48,14 +49,9 @@ def test_join_seed_dominates_skip() -> None:
 
 
 @given(sampled_from(_ALL))
-def test_join_absorbing_element(s: RailStatus) -> None:
-    """``join(s, FAULTED) is FAULTED`` — FAULTED absorbs all."""
+def test_join_faulted_absorbs_both_sides(s: RailStatus) -> None:
+    """``join(s, FAULTED) is join(FAULTED, s) is FAULTED`` — commutative absorption."""
     assert join(s, _ABSORBING) is _ABSORBING
-
-
-@given(sampled_from(_ALL))
-def test_join_faulted_absorbs_left(s: RailStatus) -> None:
-    """``join(FAULTED, s) is FAULTED`` — absorbing from both sides."""
     assert join(_ABSORBING, s) is _ABSORBING
 
 
@@ -94,6 +90,7 @@ def test_fold_associativity(members: list[RailStatus]) -> None:
 # --- [OPERATIONS] -----------------------------------------------------------------------
 
 
+@pytest.mark.mutation
 @pytest.mark.parametrize("rc,expected", _FROM_RC)
 def test_from_returncode_closed_table(rc: int, expected: RailStatus) -> None:
     """``from_returncode`` maps {0→EMPTY, 5→BUSY, 124→TIMEOUT, *→FAILED}."""

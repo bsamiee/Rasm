@@ -52,6 +52,7 @@ from tools.assay.core.model import (
     Tool,
     validate_detail,
     wire_encode,
+    wire_safe,
 )
 from tools.assay.core.routing import Routed, Scope
 from tools.assay.core.status import RailStatus
@@ -76,14 +77,23 @@ from tools.assay.rails.test import TestParams
 if TYPE_CHECKING:
     from collections.abc import Iterator, Mapping
 
-    from tools.assay.composition.settings import ArtifactStore
-
 
 # --- [TYPES] ----------------------------------------------------------------------------
 
 # Per-verb adapter; `P` is the verb params type, not a ParamSpec.
 type Handler[P] = Callable[[AssaySettings, ArtifactScope, P], Result[Report, Fault]]
 type ReportLayer = Layer[[AssaySettings, ArtifactScope, object], Report]
+
+
+# --- [MODELS] ---------------------------------------------------------------------------
+
+
+class _ProbeRow(msgspec.Struct, frozen=True, gc=False, omit_defaults=True):
+    # One cached --version probe outcome keyed by freshness token; absent fields decode to defaults.
+    token: str = ""
+    ts: float = 0.0
+    note: str = ""
+    ok: bool = True
 
 
 # --- [CONSTANTS] ------------------------------------------------------------------------
@@ -112,6 +122,7 @@ _PROBE_LOCKED: Final[tuple[tuple[tuple[str, ...], str], ...]] = (
     (Runner.PNPM.prefix, "pnpm-lock.yaml"),
 )
 _ENVELOPE_DECODER: Final[msgspec.json.Decoder[Envelope]] = msgspec.json.Decoder(Envelope)
+_PROBE_DECODER: Final[msgspec.json.Decoder[dict[str, _ProbeRow]]] = msgspec.json.Decoder(dict[str, _ProbeRow])
 _PYPROJECT: Final[Path] = Path(__file__).resolve().parents[3] / "pyproject.toml"
 
 
@@ -368,7 +379,7 @@ REGISTRY: Final[tuple[Bind, ...]] = (
     Bind(Claim.PACKAGE, "stage", package_rail.stage, PackageParams, "Yak stage commit under lease."),
     Bind(Claim.PACKAGE, "deploy", package_rail.deploy, PackageParams, "Yak install to live host."),
     Bind(Claim.PACKAGE, "publish", package_rail.publish, PackageParams, "Yak push to server."),
-    Bind(Claim.PACKAGE, "list", package_rail.list, PackageParams, "Staged + published manifests."),
+    Bind(Claim.PACKAGE, "list", package_rail.list, PackageParams, "Package project roster: slug/csproj pairs."),
     Bind(Claim.PACKAGE, "plan", package_rail.plan, PackageParams, "Stage plan into notes."),
     Bind(Claim.API, "doctor", api_rail.doctor, ApiParams, "Host/NuGet/tool health; --strict -> FAULTED."),
     Bind(Claim.API, "resolve", api_rail.resolve, ApiParams, "Asset path resolution."),
@@ -376,15 +387,6 @@ REGISTRY: Final[tuple[Bind, ...]] = (
     Bind(Claim.API, "show", api_rail.show, ApiParams, "Artifact preview."),
     Bind(Claim.DOCS, "check", docs_rail.check, DocsParams, "Markdown + Mermaid validation."),
 )
-
-
-def wire_safe(text: str) -> str:
-    """Replace lone surrogates (PEP 383 surrogateescape from invalid-UTF-8 argv) with U+FFFD.
-
-    Returns:
-        A string msgspec can UTF-8 encode for the wire.
-    """
-    return text.encode("utf-8", "replace").decode("utf-8")
 
 
 def _encode(envelope: Envelope) -> bytes:
@@ -408,7 +410,8 @@ def _encode(envelope: Envelope) -> bytes:
 def _emit_envelope(settings: AssaySettings, envelope: Envelope, *, persist: bool = True) -> Envelope:
     # Single stdout writer; optional history persistence happens after the wire line.
     sys.stdout.buffer.write(_encode(envelope) + b"\n")
-    persist and _persist(settings, envelope)  # type: ignore[func-returns-value]  # intentional: _persist returns None; short-circuit is the gate, not a value use
+    if persist:
+        _persist(settings, envelope)
     return envelope
 
 
@@ -422,25 +425,9 @@ def _persist(settings: AssaySettings, envelope: Envelope) -> None:
         _LOG.warning("history.persist_failed", run_id=settings.run_id, error=str(exc)[:200])
 
 
-def _retain(store: ArtifactStore, keep: int) -> None:
-    store.retain_history(keep)
-
-
-def _run_ids(store: ArtifactStore) -> tuple[str, ...]:
-    return store.history_run_ids()
-
-
 def _prior(run_ids: tuple[str, ...], run_id: str) -> str:
     earlier = tuple(r for r in run_ids if r < run_id)
     return earlier[-1] if earlier else ""
-
-
-def _load_run(store: ArtifactStore, run_id: str) -> Envelope | None:
-    return store.load_history(run_id)
-
-
-def _restore_full_report(store: ArtifactStore, env: Envelope) -> Envelope:
-    return store.restore_full_report(env)
 
 
 def _delta_report(before_id: str, after_id: str, before: Envelope | None, after: Envelope | None) -> Report:
@@ -471,8 +458,8 @@ def delta(run_id: str, *, against: str = "") -> Envelope:
     """
     settings = AssaySettings()
     store = settings.store()
-    before_id = against or _prior(_run_ids(store), run_id)
-    report = _delta_report(before_id, run_id, _load_run(store, before_id), _load_run(store, run_id))
+    before_id = against or _prior(store.sorted_history_ids(), run_id)
+    report = _delta_report(before_id, run_id, store.load_history(before_id), store.load_history(run_id))
     env = msgspec.structs.replace(envelope(report, claim=Claim.STATIC, verb="delta", run_id=settings.run_id), notes=report.notes)
     return _emit_envelope(settings, env, persist=False)
 
@@ -557,21 +544,22 @@ def _health(settings: AssaySettings) -> tuple[tuple[Match, ...], tuple[str, ...]
     misses = tuple(c for c in probes if hits.get(c.tool.command) is None)
     results = fan_out(misses, settings=settings, scope=None, routed=_PROBE_ROUTED)
     fresh = dict(zip((c.tool.command for c in misses), map(_probe_note, misses, results, strict=True), strict=True))
-    _probe_cache_store(settings, cache, fresh, volatile)
+    current = frozenset(c.tool.command for c in probes if c.tool.command not in volatile)
+    _probe_cache_store(settings, cache, fresh, current)
     noted = tuple(hits.get(c.tool.command) or fresh[c.tool.command] for c in probes)
-    probe_matches = tuple(
-        Match(id=check.tool.name, kind=ArtifactKind.PROCESS, text=note, severity="failed" if not ok else None)
-        for check, (note, ok) in zip(probes, noted, strict=True)
+    return (
+        tuple(
+            Match(id=check.tool.name, kind=ArtifactKind.PROCESS, text=note, severity="failed" if not ok else None)
+            for check, (note, ok) in zip(probes, noted, strict=True)
+        ),
+        tuple(note for note, _ in noted),
     )
-    notes = tuple(note for note, _ in noted)
-    return probe_matches, notes
 
 
 def _probe_token(argv: tuple[str, ...]) -> str | None:
     # Freshness follows the launched program plus lockfile mtime for venv/node launchers. DIRECT and DOTNET keep argv[0]
     # because the launcher is the probed tool/SDK. An unresolvable program has no token and forces a live probe.
-    from pathlib import Path  # noqa: PLC0415  # stdlib: deferred import, only on the self-test probe-cache path
-    import shutil  # noqa: PLC0415  # stdlib: deferred import, only on the self-test probe-cache path
+    import shutil  # noqa: PLC0415  # deferred to avoid module-load cost on the non-probe path
 
     def mtime(path: str | None) -> int | None:
         try:
@@ -601,45 +589,39 @@ def _probe_token(argv: tuple[str, ...]) -> str | None:
             return None
 
 
-def _cache_hit(cache: Mapping[str, object], argv: tuple[str, ...]) -> tuple[str, bool] | None:
+def _cache_hit(cache: Mapping[str, _ProbeRow], argv: tuple[str, ...]) -> tuple[str, bool] | None:
     # A hit requires a matching freshness token within TTL; any shape mismatch folds to a miss (live probe).
     match (cache.get(_PROBE_CACHE_KEY % "\x00".join(argv)), _probe_token(argv)):
-        case ({"token": str() as stored, "ts": (int() | float()) as ts, "note": str() as note, "ok": bool() as ok}, str() as token) if (
-            stored == token and 0 <= time.time() - ts < _PROBE_TTL
-        ):
+        case (_ProbeRow(token=stored, ts=ts, note=note, ok=ok), str() as token) if stored == token and 0 <= time.time() - ts < _PROBE_TTL:
             return note, ok
         case _:
             return None
 
 
-def _probe_cache_load(settings: AssaySettings) -> Mapping[str, object]:
+def _probe_cache_load(settings: AssaySettings) -> dict[str, _ProbeRow]:
     # Absent or malformed cache folds to empty so probes fall back to live process checks.
     try:
-        store = settings.store()
-        raw = store.read_bytes("cache", _PROBE_CACHE_FILE)
-        match msgspec.json.decode(raw):
-            case dict() as parsed:
-                return parsed
-            case _:
-                return {}
+        return _PROBE_DECODER.decode(settings.store().read_bytes("cache", _PROBE_CACHE_FILE))
     except OSError, msgspec.MsgspecError:
         return {}
 
 
 def _probe_cache_store(
-    settings: AssaySettings, prior: Mapping[str, object], fresh: Mapping[tuple[str, ...], tuple[str, bool]], volatile: frozenset[tuple[str, ...]]
+    settings: AssaySettings, prior: Mapping[str, _ProbeRow], fresh: Mapping[tuple[str, ...], tuple[str, bool]], current: frozenset[tuple[str, ...]]
 ) -> None:
-    # Best-effort write-back: only token-resolvable, non-volatile (non-git) probes persist; failures are silent.
-    entries = {
-        _PROBE_CACHE_KEY % "\x00".join(argv): {"token": token, "ts": time.time(), "note": note, "ok": ok}
+    # Best-effort write-back: only token-resolvable, current-run probes persist; stale keys for catalog-dropped tools drop.
+    fresh_rows = {
+        _PROBE_CACHE_KEY % "\x00".join(argv): _ProbeRow(token=token, ts=time.time(), note=note, ok=ok)
         for argv, (note, ok) in fresh.items()
-        if argv not in volatile
+        if argv in current
         for token in (_probe_token(argv),)
         if token is not None
     }
+    current_keys = frozenset(_PROBE_CACHE_KEY % "\x00".join(argv) for argv in current)
+    retained = {key: row for key, row in prior.items() if key in current_keys and key not in fresh_rows}
     try:
         store = settings.store()
-        store.write_bytes(wire_encode({**prior, **entries}), "cache", _PROBE_CACHE_FILE)
+        store.write_bytes(wire_encode({**retained, **fresh_rows}), "cache", _PROBE_CACHE_FILE)
     except OSError as exc:
         _LOG.warning("probe_cache.store_failed", run_id=settings.run_id, error=str(exc)[:200])
 
@@ -682,8 +664,11 @@ def _probe_note(check: Check, result: Result[Completed, Fault]) -> tuple[str, bo
             return f"tool {name}: {lines[0][:80] if lines else 'present'}", True
         case Completed() as d:
             # Exit-code cannot distinguish a present-but-nonzero --version (e.g. py-analyzer/squawk usage exit 2) from a
-            # launcher-swallowed absent tool; reported informationally, never failing structural health.
-            return f"tool {name}: present (exit {d.returncode})", True
+            # launcher-swallowed absent tool; reported informationally, never failing structural health. Tools that print
+            # their version yet exit non-zero (py-analyzer/squawk under --version) still surface it from the first line.
+            lines = (d.stdout or d.stderr).decode(errors="replace").strip().splitlines()
+            version = f": {lines[0][:80]}" if lines else ""
+            return f"tool {name}: present (exit {d.returncode}){version}", True
 
 
 def _census() -> bool:
@@ -736,7 +721,7 @@ def build_app(registry: tuple[Bind, ...]) -> App:
     root = App(
         name="assay",
         help="Rasm polyglot quality operator.",
-        version=_project_version(),
+        version=_VERSION,
         default_parameter=Parameter(show_default=False),
         result_action="return_value",
         backend="asyncio",
@@ -755,13 +740,15 @@ def build_app(registry: tuple[Bind, ...]) -> App:
     return app
 
 
-def _project_version() -> str:
+def _read_version() -> str:
     try:
-        project = tomllib.loads(_PYPROJECT.read_text(encoding="utf-8")).get("project", {})
-        version = project.get("version", "")
-        return version if isinstance(version, str) and version else "0.0.0"
-    except OSError, tomllib.TOMLDecodeError:
+        v = tomllib.loads(_PYPROJECT.read_text(encoding="utf-8")).get("project", {}).get("version", "")
+        return v if isinstance(v, str) and v else "0.0.0"
+    except (OSError, tomllib.TOMLDecodeError):
         return "0.0.0"
+
+
+_VERSION: Final[str] = _read_version()
 
 
 def _register[**P](app: App, obj: App | Callable[P, object], *, name: str | None = None, help: str = "") -> App:  # noqa: A002  # cyclopts command kwarg is named "help"; mirroring the CLI surface

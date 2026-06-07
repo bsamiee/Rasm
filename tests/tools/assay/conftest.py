@@ -3,10 +3,10 @@
 A ``msgspec.inspect``-driven strategy resolver registers every wire struct with bounded leaf strategies
 (reading ``Meta`` constraints generically, so ``from_type(Fault)`` yields non-empty bounded messages and
 adding a model field over the supported JSON leaf taxonomy needs zero conftest change), a single
-the polymorphic ``cli`` fixture runs the CLI in-process (or as a real subprocess under ``isolate=True``),
-and the promoted oracles
-(``assert_wire_roundtrip``/``assert_counts_consistent``/``make_history_envelope``) let
-laws read as one-liners. Plus the socket-free ``RailProbe`` host, the loopback ``SshLoopback`` network
+the polymorphic ``cli`` fixture runs the CLI in-process (or as a real subprocess under ``isolate=True``)
+returning a ``CliResult`` (envelope + exit code + raw stdout/stderr), and the promoted oracles
+(``read_one_envelope``/``unwrap_ok``/``unwrap_error``/``assert_result_status``/``assert_wire_roundtrip``/``make_history_envelope``)
+let laws read as one-liners. Plus the socket-free ``RailProbe`` host, the loopback ``SshLoopback`` network
 seam, and the ``BridgeResult``/``YakShape`` materializers.
 
 Prefer ``data()`` over nested ``@given`` and the shared oracles over hand-rolled ``assert x.is_ok()``.
@@ -21,7 +21,7 @@ import os
 from pathlib import Path
 import shutil
 from types import SimpleNamespace
-from typing import get_args, override, Protocol, TYPE_CHECKING
+from typing import Final, get_args, override, Protocol, TYPE_CHECKING
 from unittest.mock import create_autospec, MagicMock
 
 import anyio
@@ -67,7 +67,7 @@ from tools.assay.rails import bridge as bridge_rail, package as package_rail
 
 
 if TYPE_CHECKING:
-    from collections.abc import AsyncGenerator, Callable, Generator
+    from collections.abc import AsyncGenerator, Generator
 
 
 # --- [TYPES] ----------------------------------------------------------------------------
@@ -78,9 +78,11 @@ class VerbRunner(Protocol):
 
     Synchronous so the in-process default (which spawns its own ``anyio`` event loop inside ``main``)
     is callable from any test; ``isolate=True`` drives the subprocess via ``anyio.run`` internally.
+    Returns a ``CliResult`` carrying the decoded Envelope, exit code, and the raw stdout/stderr bytes
+    so channel-separation laws can assert structlog diagnostics stay on stderr.
     """
 
-    def __call__(self, *argv: str, isolate: bool = False, extra_env: dict[str, str] | None = None) -> tuple[Envelope, int]: ...
+    def __call__(self, *argv: str, isolate: bool = False, extra_env: dict[str, str] | None = None) -> CliResult: ...
 
 
 # --- [CONSTANTS] -----------------------------------------------------------------------
@@ -234,6 +236,15 @@ _ENCODE_PROBE: tuple[tuple[st.SearchStrategy[object], type[object]], ...] = (
 
 
 # --- [MODELS] --------------------------------------------------------------------------
+
+
+class CliResult(msgspec.Struct, frozen=True, gc=False):
+    """One CLI invocation: the decoded stdout Envelope plus exit code and raw stdout/stderr bytes."""
+
+    envelope: Envelope
+    exit_code: int
+    stdout: bytes
+    stderr: bytes
 
 
 @dataclass(frozen=True, slots=True)
@@ -434,6 +445,7 @@ def _make_psutil_module(procs: dict[int | None, MagicMock], *, cpu_count: int = 
         A ``psutil`` module double with a pid-dispatching ``Process`` factory.
     """
     fake = MagicMock(spec=_psutil)
+    fake.Error = _psutil.Error  # real base class so `except (psutil.Error, ...)` stays catchable under the double
     fake.NoSuchProcess = _psutil.NoSuchProcess
     fake.AccessDenied = _psutil.AccessDenied
     fake.cpu_count.return_value = cpu_count
@@ -452,6 +464,60 @@ def _make_psutil_module(procs: dict[int | None, MagicMock], *, cpu_count: int = 
 
 # --- [ORACLES] -------------------------------------------------------------------------
 # >=2-consumer oracle helpers the foundation tests + W3 share; single-file helpers stay in their file.
+
+_ENVELOPE_DECODER: Final = msgspec.json.Decoder(Envelope)
+
+
+def read_one_envelope_from_bytes(raw: bytes) -> Envelope:
+    """Assert exactly one NDJSON line on the buffer and decode it as an Envelope.
+
+    Returns:
+        The single decoded Envelope.
+    """
+    rows = raw.splitlines()
+    assert len(rows) == 1, f"expected exactly one stdout Envelope line, got {len(rows)}: {rows!r}"
+    return _ENVELOPE_DECODER.decode(rows[0])
+
+
+def read_one_envelope(cap: pytest.CaptureFixture[bytes] | pytest.CaptureFixture[str]) -> Envelope:
+    """Drain a capsys/capsysbinary fixture, assert one stdout Envelope line, and decode it.
+
+    Returns:
+        The single decoded Envelope (bytes or str capture).
+    """
+    out = cap.readouterr().out
+    return read_one_envelope_from_bytes(out if isinstance(out, bytes) else out.encode())
+
+
+def unwrap_ok[T](result: Result[T, Fault], *, message: str = "") -> T:
+    """Assert ``Ok`` and return the inner value, surfacing the Fault detail on failure.
+
+    Returns:
+        The unwrapped Ok value.
+    """
+    assert result.is_ok(), f"expected Ok, got Error({result.error}){': ' + message if message else ''}"
+    return result.ok
+
+
+def unwrap_error[T](result: Result[T, Fault], *, message: str = "") -> Fault:
+    """Assert ``Error`` and return the Fault, surfacing the Ok value on failure.
+
+    Returns:
+        The unwrapped Fault.
+    """
+    assert result.is_error(), f"expected Error, got Ok({result.ok}){': ' + message if message else ''}"
+    return result.error
+
+
+def assert_result_status[T](result: Result[T, Fault], status: RailStatus) -> Fault:
+    """Assert the result is an ``Error`` carrying ``status``; return the Fault for further checks.
+
+    Returns:
+        The unwrapped Fault carrying the expected status.
+    """
+    fault = unwrap_error(result)
+    assert fault.status is status, f"expected status {status}, got {fault.status}"
+    return fault
 
 
 def assert_wire_roundtrip[T](value: T, typ: type[T]) -> T:
@@ -492,6 +558,21 @@ def pipe_history(store: ArtifactStore, run_ids: tuple[str, ...]) -> None:
 # --- [COMPOSITION] ---------------------------------------------------------------------
 
 
+def pytest_collection_modifyitems(items: list[pytest.Item]) -> None:
+    """Auto-mark every Hypothesis-backed assay test ``property`` so ``-m property`` selection is total.
+
+    Pytest runs BOTH this sub-conftest hook and the root-conftest network hook; markers compose. The
+    scope is the assay subtree by virtue of this conftest's directory.
+    """
+    from hypothesis import is_hypothesis_test  # noqa: PLC0415  # public surface; keep import local to the hook
+
+    property_ = pytest.mark.property
+    for item in items:
+        fn = getattr(item, "function", None)
+        if fn is not None and is_hypothesis_test(fn):
+            item.add_marker(property_, append=False)
+
+
 @pytest.fixture
 def anyio_backend() -> str:
     """Pin the single asyncio backend (function scope) so async fixtures avoid the module-scope default.
@@ -528,38 +609,22 @@ def mem_store(assay_root: AssayHarness) -> Generator[ArtifactStore]:
 
 
 @pytest.fixture
-def envelope() -> Callable[[pytest.CaptureFixture[str]], Envelope]:
-    """Decode the single stdout Envelope line the CLI ``_emit`` writes (synchronous capsys seam).
-
-    Returns:
-        Callable that reads captured stdout and decodes one Envelope.
-    """
-
-    def decode(capsys: pytest.CaptureFixture[str]) -> Envelope:
-        rows = capsys.readouterr().out.splitlines()
-        assert len(rows) == 1, f"expected exactly one stdout Envelope line, got {len(rows)}"
-        return msgspec.json.decode(rows[0].encode(), type=Envelope)
-
-    return decode
-
-
-@pytest.fixture
 def cli(assay_root: AssayHarness, capsysbinary: pytest.CaptureFixture[bytes], monkeypatch: pytest.MonkeyPatch) -> VerbRunner:
-    """Run the assay CLI and decode its single stdout Envelope plus exit code.
+    """Run the assay CLI and return its single stdout Envelope, exit code, and raw stdout/stderr.
 
     Default (``isolate=False``): drives ``main([*argv])`` in-process under ``ASSAY_ROOT=<root>``
     (~0.001s vs ~0.65s subprocess), reading the one Envelope from ``capsysbinary`` and the returned exit
     code. ``isolate=True`` spawns the real ``uv run python -m tools.assay`` subprocess via ``anyio.run``
     for the few argv/exit-code isolation laws. Synchronous: ``main`` opens its own ``anyio`` loop, so an
     async wrapper would raise "Already running asyncio". Structlog writes to stderr; one Envelope reaches
-    stdout.
+    stdout — both are preserved on the returned ``CliResult`` for channel-separation laws.
 
     Returns:
-        Synchronous callable ``run(*argv, isolate=False, extra_env=None) -> (Envelope, int)``.
+        Synchronous callable ``run(*argv, isolate=False, extra_env=None) -> CliResult``.
     """
     monkeypatch.setenv("ASSAY_ROOT", str(assay_root.root))
 
-    def run(*argv: str, isolate: bool = False, extra_env: dict[str, str] | None = None) -> tuple[Envelope, int]:
+    def run(*argv: str, isolate: bool = False, extra_env: dict[str, str] | None = None) -> CliResult:
         for key, value in (extra_env or {}).items():
             monkeypatch.setenv(key, value)
         match isolate:
@@ -567,9 +632,8 @@ def cli(assay_root: AssayHarness, capsysbinary: pytest.CaptureFixture[bytes], mo
                 from tools.assay.__main__ import main  # noqa: PLC0415  # in-proc import keeps the subprocess path import-clean
 
                 code = main([*argv])
-                rows = capsysbinary.readouterr().out.splitlines()
-                assert len(rows) == 1, f"expected exactly one stdout Envelope line, got {len(rows)}"
-                return msgspec.json.decode(rows[0], type=Envelope), code
+                cap = capsysbinary.readouterr()
+                return CliResult(envelope=read_one_envelope_from_bytes(cap.out), exit_code=code, stdout=cap.out, stderr=cap.err)
             case True:
                 if _UV is None:
                     pytest.skip("uv not on PATH")
@@ -577,9 +641,12 @@ def cli(assay_root: AssayHarness, capsysbinary: pytest.CaptureFixture[bytes], mo
                 # CWD is the repo root (so `python -m tools.assay` resolves the package); ASSAY_ROOT isolates I/O to tmp.
                 spawn = functools.partial(anyio.run_process, env=spawn_env, cwd=str(_REPO_ROOT), check=False)
                 result = anyio.run(spawn, ["uv", "run", "python", "-m", "tools.assay", *argv])
-                rows = result.stdout.splitlines()
-                assert len(rows) == 1, f"expected 1 Envelope line, got {len(rows)}: {result.stdout[:300]!r}"
-                return msgspec.json.decode(rows[0], type=Envelope), result.returncode
+                return CliResult(
+                    envelope=read_one_envelope_from_bytes(result.stdout),
+                    exit_code=result.returncode,
+                    stdout=result.stdout,
+                    stderr=result.stderr,
+                )
 
     return run
 

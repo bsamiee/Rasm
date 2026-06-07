@@ -85,7 +85,7 @@ def test_tree_sitter_any_of_prefilter_has_no_false_negative(assay_root: AssayHar
 
 def test_code_artifact_uses_assay_store(assay_root: AssayHarness) -> None:
     """Code listings are persisted by ArtifactStore under the assay artifact root."""
-    artifact = _artifact(assay_root.settings, "search", "a.py:1: hit")
+    artifact = _artifact(assay_root.scope(Claim.CODE), "search", "a.py:1: hit", assay_root.settings)
 
     assert ".artifacts/assay/code/search/" in artifact.path
     assert artifact.lines == 1

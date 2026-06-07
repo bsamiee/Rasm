@@ -4,8 +4,9 @@ from collections.abc import Callable, Coroutine
 import hashlib
 from itertools import count
 from operator import itemgetter
+import re
 import sys
-from typing import TYPE_CHECKING
+from typing import assert_never, TYPE_CHECKING
 from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
 import aiocron  # type: ignore[import-untyped]  # aiocron ships no py.typed marker
@@ -17,7 +18,7 @@ import psutil  # typed via the types-psutil stub (psutil ships no py.typed marke
 import structlog
 from watchfiles import awatch, DefaultFilter, PythonFilter
 
-from tools.assay.automation.model import Debounce, Manual, Program, Rail, Schedule, Sequence, Watch
+from tools.assay.automation.model import Debounce, Manual, Program, Rail, Schedule, Sequence, Watch, WatchFilter
 from tools.assay.composition.registry import rail, REGISTRY
 from tools.assay.composition.settings import ArtifactScope
 from tools.assay.core.engine import run_check_async
@@ -49,24 +50,13 @@ type RailOutcome = tuple[Envelope, bool]
 
 # --- [CONSTANTS] ------------------------------------------------------------------------
 
-# The wire carries a string tag; this boundary resolves watchfiles filters and degrades unknown tags to DefaultFilter.
-_FILTERS: dict[str, BaseFilter] = {"default": DefaultFilter(), "python": PythonFilter()}
-
 _PROGRAM_ROUTED: Routed = Routed(language=Language.PYTHON, scope=Scope.FULL)
 
 _ENCODER = msgspec.json.Encoder(order="deterministic")
 _LOG: structlog.stdlib.BoundLogger = structlog.get_logger("assay.automation")
 _JITTER_MS: int = 100
 _NO_CHANGES: ChangeBatch = ()
-
-
-# --- [MODELS] ---------------------------------------------------------------------------
-
-
-class _RunState(msgspec.Struct, frozen=True, gc=False):
-    # Cron re-entry cell: ticks coalesce into `missed`, and single-task updates keep it lock-free.
-    running: bool = False
-    missed: int = 0
+_CPU_PRIMED: set[int] = set()  # one-shot warm-up latch: non-empty = primed; add(0) marks the first blocking sample
 
 
 # --- [OPERATIONS] -----------------------------------------------------------------------
@@ -78,13 +68,15 @@ def _emit(line: Envelope) -> None:
     sys.stdout.buffer.flush()
 
 
-async def _governed(threshold: float | None) -> bool:
+def _governed(threshold: float | None) -> bool:
     match threshold:
         case None:
             return False
         case _:
-            sample = await to_thread.run_sync(psutil.cpu_percent, None)
-            return isinstance(sample, int | float) and sample >= threshold * 100.0
+            # cpu_percent(interval=None) is non-blocking but reads zeros until primed; prime lazily on first
+            # governed call (a 0.1s sample) so threshold-less CLI runs pay no warm-up tax at import.
+            _ = _CPU_PRIMED or (psutil.cpu_percent(0.1), _CPU_PRIMED.add(0))
+            return psutil.cpu_percent(interval=None) >= threshold * 100.0
 
 
 def _resolve(action: Rail) -> Bind | None:
@@ -166,7 +158,7 @@ async def _program_envelope(action: Program, settings: AssaySettings) -> Envelop
 
 async def _emit_leaf(leaf: Action, settings: AssaySettings, limiter: anyio.CapacityLimiter, cpu_threshold: float | None) -> RailStatus:
     # Governor checks run before the per-drive limiter; slow fires queue on one token instead of re-entering.
-    match await _governed(cpu_threshold):
+    match _governed(cpu_threshold):
         case True:
             claim, verb = _label(leaf)
             # SKIP bypasses fold because EMPTY has higher severity; counts still mark one governed leaf.
@@ -208,8 +200,6 @@ async def _sequence(leaves: tuple[Action, ...], settings: AssaySettings, limiter
                 match folded:
                     case RailStatus.FAILED | RailStatus.BUSY | RailStatus.TIMEOUT | RailStatus.FAULTED:
                         return folded
-                    case _:
-                        pass
     return folded  # pragma: no cover  # _forever never terminates; the in-loop returns are the only exits
 
 
@@ -236,8 +226,6 @@ async def _quiesce(recv: MemoryObjectReceiveStream[ChangeBatch], window_ms: floa
         match scope.cancelled_caught:
             case True:
                 return latest
-            case False:
-                pass
     return latest  # pragma: no cover  # _forever returns only through quiet-window cancellation
 
 
@@ -263,14 +251,10 @@ def _debounce(inner: Fire, window_ms: int, *, collapse: bool) -> tuple[Fire, Wor
                     match collapse:
                         case False:
                             await inner(changes)
-                        case _:
-                            pass
                     latest = await _quiesce(recv, window_ms)
                     match collapse:
                         case True:
                             await inner(latest or changes)
-                        case _:
-                            pass
         finally:
             await send.aclose()
 
@@ -296,38 +280,38 @@ async def _watch(spec: Watch, fire: Fire, stop: anyio.Event) -> None:
 
 
 def _watch_filter(spec: Watch) -> BaseFilter:
-    match (spec.filter, spec.ignore_patterns):
-        case ("default", ignores):
+    ignores = spec.ignore_patterns
+    match spec.filter:
+        case WatchFilter.DEFAULT:
             return DefaultFilter(ignore_entity_patterns=ignores)
-        case ("python", ignores):
+        case WatchFilter.PYTHON:
             return PythonFilter(ignore_paths=ignores, extra_extensions=(".pyi",))
-        case (known, ()) if known in _FILTERS:
-            return _FILTERS[known]
-        case _:
-            raise ValueError(f"unknown watch filter: {spec.filter}")
+        case _ as unreachable:
+            assert_never(unreachable)
 
 
 def _hardened_fire(fire: Fire, settings: AssaySettings, action: Action | None = None) -> Fire:
     # Cron fires are single-flight: mid-fire ticks coalesce, then one catch-up runs after the active fire.
     # A run_id hash adds deterministic start jitter; scheduling telemetry stays on structlog, not Envelope notes.
-    state: list[_RunState] = [_RunState()]
+    # Single-task updates keep this re-entry cell lock-free; `missed` coalesces ticks arriving during an active fire.
+    running = False
+    missed = 0
 
     async def hardened(changes: ChangeBatch = _NO_CHANGES) -> None:
-        match state[0].running:
+        nonlocal running, missed
+        match running:
             case True:
-                state[0] = msgspec.structs.replace(state[0], missed=state[0].missed + 1)
+                missed += 1
             case False:
-                state[0] = msgspec.structs.replace(state[0], running=True)
+                running = True
                 try:
                     await anyio.sleep((int.from_bytes(hashlib.sha256(settings.run_id.encode()).digest()[:4], "big") % _JITTER_MS) / 1000.0)
                     await fire(changes)
-                    match state[0].missed:
-                        case missed if missed:
-                            _LOG.warning("schedule.coalesced", missed=missed)
-                            state[0] = msgspec.structs.replace(state[0], missed=0)
+                    match missed:
+                        case coalesced if coalesced:
+                            _LOG.warning("schedule.coalesced", missed=coalesced)
+                            missed = 0
                             await fire(_NO_CHANGES)
-                        case _:
-                            pass
                 except Exception as exc:  # noqa: BLE001  # automation boundary: one FAULTED NDJSON row, not task-group escape
                     claim, verb = _label(action) if action is not None else (Claim.STATIC, "automation")
                     _emit(
@@ -339,7 +323,7 @@ def _hardened_fire(fire: Fire, settings: AssaySettings, action: Action | None = 
                         )
                     )
                 finally:
-                    state[0] = msgspec.structs.replace(state[0], running=False)
+                    running = False
 
     return hardened
 
@@ -395,7 +379,7 @@ async def drive(trigger: Trigger, action: Action, settings: AssaySettings) -> No
                 async with anyio.create_task_group() as tg:
                     tg.start_soon(_schedule, spec, scheduled, stop)
                     await _co_resident(tg, worker)
-    except* (OSError, ValueError, ZoneInfoNotFoundError) as errors:
+    except* (OSError, ValueError, ZoneInfoNotFoundError, re.error) as errors:
         claim, verb = _label(action)
         message = "; ".join(str(exc) for exc in errors.exceptions)
         _emit(envelope(Fault((), RailStatus.FAULTED, f"automation setup: {message}"), claim=claim, verb=verb, run_id=settings.run_id))

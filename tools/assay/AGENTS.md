@@ -2,7 +2,7 @@
 
 Scope: `tools/assay/` only. Root policy owns universal Python and docs behavior; `coding-python` is required before any `.py` edit. `README.md` owns the command surface, operator workflow, and user-facing tool reference.
 
-## [1][READ_ORDER]
+## [1]-[READ_ORDER]
 
 - When changing command behavior, operator text, or public wire expectations, read `README.md`.
 - When editing a module, read the target module fully first.
@@ -11,7 +11,7 @@ Scope: `tools/assay/` only. Root policy owns universal Python and docs behavior;
 - When changing artifact storage, runtime backend, history persistence, or filesystem behavior, read `composition/settings.py` for `ArtifactStore` and `ArtifactScope`, then read `composition/registry.py` for history persistence before adding public surface.
 - When changing automation triggers, actions, or fire loops, read `automation/model.py` and `automation/engine.py`.
 
-## [2][ARCHITECTURE_CONTRACT]
+## [2]-[ARCHITECTURE_CONTRACT]
 
 Assay is one engine over `Tool` and `Check` rows. `TOOLS` and `REGISTRY` select rows, `run_check` and `fan_out` execute them, `fold` builds `Report`, and `envelope` emits `Envelope`; cross-cutting rail behavior attaches through `Slot`, `Layer`, `compose`, and `_RAIL_LAYERS`. Process retry, deadlines, transport, stream capture, and status mapping stay inside `core/engine.py`.
 
@@ -19,7 +19,7 @@ Runtime backend, storage, and filesystem capability is internal behavior. It ext
 
 Add functionality by deepening the existing polymorphic shape that owns the behavior. Prefer one behavior-bearing enum, msgspec message model, catalog row, registry bind, tagged detail union, `Result` rail, aspect slot, or store/scope projection over many loose objects later forced into one stream. Advanced Python means precise shapes, generic owner flows, structural typing where it removes concrete coupling, and first-class use of `msgspec`, `pydantic-settings`, `anyio`, `expression`, Cyclopts, and the existing aspect stack; it does not mean flat strings, command wrappers, constant piles, or parallel models.
 
-## [3][EXTENSION_GRAMMAR]
+## [3]-[EXTENSION_GRAMMAR]
 
 - Program: add one catalog row.
 - Language: add one language axis member, routing arm, and catalog rows.
@@ -38,7 +38,7 @@ Add functionality by deepening the existing polymorphic shape that owns the beha
 - Local tool outputs that must first exist on disk are adopted into `ArtifactStore` before becoming report artifacts. Raw local paths are acceptable only as the external tool boundary, not as the final Assay artifact contract.
 - AOT and observability lifecycle changes preserve the `core.aspect` pre-claw exception, explicit checked/logged/traced boundary layers, stderr-only logging, and CLI provider drain order: envelope dispatch, force flush, then provider shutdown.
 
-## [4][ENGINEERING_RULES]
+## [4]-[ENGINEERING_RULES]
 
 - Axis enums carry behavior payloads; do not split vocabulary, CLI tokens, wire values, and match keys into parallel types.
 - One report, detail, envelope, artifact, match, count, bind, and params model crosses rails unless a new tagged case is the required extension.
@@ -55,7 +55,7 @@ Add functionality by deepening the existing polymorphic shape that owns the beha
 - Do not build a rat-nest where strings feed constants, constants feed free unions, unions feed wrapper models, and wrappers feed special-case branches. Promote one canonical shape only when it carries reusable behavior across future commands.
 - Delete behaviorless scaffolds. A benchmark, state machine, fixture axis, params field, setting, or test helper is kept only when current executable tests consume it and assert behavior.
 
-## [5][BOUNDARY_RULES]
+## [5]-[BOUNDARY_RULES]
 
 | [INDEX] | [BOUNDARY]       | [OWNER]                   |
 | :-----: | :--------------- | :------------------------ |
@@ -70,7 +70,7 @@ Add functionality by deepening the existing polymorphic shape that owns the beha
 |   [9]   | Automation model | `automation/model.py`     |
 |  [10]   | Automation loop  | `automation/engine.py`    |
 
-## [6][REJECTIONS]
+## [6]-[REJECTIONS]
 
 - No parallel type, params, rail shape, status enum, report struct, parser protocol, tool module, helper file, or wrapper object for one concept.
 - No catalog parser callback, parse smoke hook, or parser field unless the engine/fold path consumes it as behavior.
@@ -86,6 +86,6 @@ Add functionality by deepening the existing polymorphic shape that owns the beha
 - No skipped empty benchmark, unused state-machine scaffold, or fixture matrix that is not consumed by a current test.
 - No package-metadata storage fixes for Python tooling; package metadata does not own Python runtime policy.
 
-## [7][STOP_RULES]
+## [7]-[STOP_RULES]
 
 If a `.py` behavior change cannot be exercised through its consuming rail, `REGISTRY` bind, `TOOLS` selection, `Envelope` emission, `ArtifactStore` history, or automation `Trigger`/`Action` fire, state the proof gap instead of claiming operator readiness.

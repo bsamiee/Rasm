@@ -3,21 +3,7 @@
 from typing import TYPE_CHECKING
 
 from tools.assay.composition.catalog import CAPTURES
-from tools.assay.core.model import (
-    ApiResolution,
-    ApiSource,
-    ApiSurface,
-    Check,
-    Claim,
-    Completed,
-    Input,
-    Language,
-    Mode,
-    Runner,
-    SourceKind,
-    SymbolShape,
-    Tool,
-)
+from tools.assay.core.model import ApiResolution, ApiSource, ApiSurface, Check, Claim, Input, Language, Mode, Runner, SourceKind, SymbolShape, Tool
 from tools.assay.core.status import RailStatus
 from tools.assay.rails import api as api_rail
 from tools.assay.rails.api import ApiParams, shape_of
@@ -110,9 +96,7 @@ def test_nuget_source_carries_quality_inventory_facts(assay_root: AssayHarness) 
 def test_inventory_sources_include_host_nuget_and_lightweight_pydist_rows(assay_root: AssayHarness) -> None:
     """Doctor inventory keeps full source rows while avoiding pydist per-file expansion."""
     assay_root.write("Directory.Packages.props", '<Project><ItemGroup><PackageVersion Include="Pkg.Core" Version="1.2.3" /></ItemGroup></Project>')
-    source = api_rail._inventory_sources(
-        assay_root.settings, None, Completed(("ilspycmd", "--version"), 0, stdout=b"ilspycmd: x\n", status=RailStatus.OK)
-    )
+    source = api_rail._inventory_sources(assay_root.settings, None, "ilspycmd: x", 0)
     nuget = next(row for row in source if row.source_id == "Pkg.Core")
     pydist = next(row for row in source if row.source_kind is SourceKind.PYDIST and row.source_id != "python-dists")
 
@@ -147,7 +131,8 @@ def test_api_resolve_cli_preserves_nuget_source_detail(assay_root: AssayHarness,
         path.parent.mkdir(parents=True, exist_ok=True)
         path.write_text("x", encoding="utf-8")
 
-    env, code = cli("api", "resolve", "--key", "Pkg.Core", "--kind", "all")
+    res = cli("api", "resolve", "--key", "Pkg.Core", "--kind", "all")
+    env, code = res.envelope, res.exit_code
 
     assert code == RailStatus.OK.exit_code
     assert env.report is not None
@@ -168,7 +153,8 @@ def test_api_show_latest_cli_prefers_api_scope_artifacts(assay_root: AssayHarnes
     api_path = store.write_text("api artifact\n", "scope", "api", "pkg", "surface.txt")
     store.write_text("newer generic artifact\n", "scope", "zzz", "surface.txt")
 
-    env, code = cli("api", "show", "latest", "--max-lines", "1")
+    res = cli("api", "show", "latest", "--max-lines", "1")
+    env, code = res.envelope, res.exit_code
 
     assert code == RailStatus.OK.exit_code
     assert env.report is not None

@@ -7,42 +7,76 @@ from typing import TYPE_CHECKING
 import anyio
 import anyio.lowlevel
 import msgspec
+import pytest
 
+from tests.tools.assay.conftest import read_one_envelope
 from tools.assay.automation import engine as automation_engine
-from tools.assay.automation.engine import _emit_leaf, _governed, _hardened_fire, _schedule, drive  # noqa: PLC2701
-from tools.assay.automation.model import Manual, Program, Rail, Schedule, Watch
+from tools.assay.automation.engine import (  # noqa: TC001  # runtime annotation — type alias used in variable and parameter annotations
+    _debounce,  # noqa: PLC2701  # testing internals
+    _emit_leaf,  # noqa: PLC2701  # testing internals
+    _governed,  # noqa: PLC2701  # testing internals
+    _hardened_fire,  # noqa: PLC2701  # testing internals
+    _schedule,  # noqa: PLC2701  # testing internals
+    ChangeBatch,
+    drive,
+)
+from tools.assay.automation.model import Manual, Program, Rail, Schedule, Trigger, Watch, WatchFilter
 from tools.assay.core.model import Claim, Envelope, envelope, fold
 from tools.assay.core.status import RailStatus
 
 
 if TYPE_CHECKING:
-    import pytest
-
     from tests.tools.assay.conftest import AssayHarness
 
 
-def test_cpu_governor_threshold(monkeypatch: pytest.MonkeyPatch) -> None:
-    """CPU threshold skips a fire once psutil reports utilization at or above the ceiling."""
-    monkeypatch.setattr("tools.assay.automation.engine.psutil.cpu_percent", lambda _interval: 91.0)
+# --- [CONSTANTS] ------------------------------------------------------------------------
 
-    assert anyio.run(_governed, 0.9) is True
-    assert anyio.run(_governed, 0.95) is False
-    assert anyio.run(_governed, None) is False
+_FIRST: ChangeBatch = (("added", "first.txt"),)
+_SECOND: ChangeBatch = (("modified", "second.txt"),)
 
 
-def test_watch_setup_fault_emits_ndjson_envelope(assay_root: AssayHarness, capsysbinary: pytest.CaptureFixture[bytes]) -> None:
-    """Watch setup errors emit a bounded fault envelope instead of escaping."""
-    trigger = Watch(paths=(str(assay_root.root),), filter="unknown")
-    action = Program(argv=("true",))
+@pytest.mark.parametrize(
+    "threshold,cpu,skip",
+    [
+        (0.9, 91.0, True),    # 91 >= 90
+        (0.95, 91.0, False),  # 91 < 95
+        (None, 91.0, False),  # None disables the governor
+        (0.0, 0.0, True),     # 0 >= 0
+        (1.0, 100.0, True),   # 100 >= 100
+        (1.0, 99.9, False),   # 99.9 < 100
+        (0.91, 91.0, True),   # 91 >= 91 (exact boundary)
+    ],
+)
+def test_cpu_governor_boundary(threshold: float | None, cpu: float, *, skip: bool, monkeypatch: pytest.MonkeyPatch) -> None:
+    """`_governed` skips iff the psutil sample is at or above `threshold * 100` (sync, warmed, non-blocking)."""
+    # tolerate the warmup(0.1) + read(interval=None) calls
+    monkeypatch.setattr("tools.assay.automation.engine.psutil.cpu_percent", lambda *_a, **_k: cpu)
+    monkeypatch.setattr("tools.assay.automation.engine._CPU_PRIMED", [True])  # skip the one-shot warmup so the patched sample is read directly
 
-    anyio.run(drive, trigger, action, assay_root.settings)
-    rows = capsysbinary.readouterr().out.splitlines()
-    env = msgspec.json.decode(rows[0], type=Envelope)
+    assert _governed(threshold) is skip
 
-    assert len(rows) == 1
+
+@pytest.mark.parametrize(
+    "trigger,fragment",
+    [
+        # re.error now caught by drive except*
+        (Watch(paths=("{root}",), filter=WatchFilter.DEFAULT, ignore_patterns=(r"*.pyc",)), "nothing to repeat"),
+        (Schedule(cron="* * * * *", timezone="Invalid/Zone"), "No time zone"),
+    ],
+)
+def test_drive_setup_fault_emits_one_faulted_envelope(
+    trigger: Watch | Schedule, fragment: str, assay_root: AssayHarness, capsysbinary: pytest.CaptureFixture[bytes]
+) -> None:
+    """Trigger setup defects fold into one FAULTED envelope labelled by the action, not a task-group escape."""
+    bound = msgspec.structs.replace(trigger, paths=(str(assay_root.root),)) if isinstance(trigger, Watch) else trigger
+    anyio.run(drive, bound, Program(argv=("true",)), assay_root.settings)
+    env = read_one_envelope(capsysbinary)
+
     assert env.status is RailStatus.FAULTED
     assert env.error is not None
-    assert "unknown watch filter" in env.error.message
+    assert fragment in env.error.message
+    assert env.claim is Claim.STATIC
+    assert env.verb == "program"  # pins _label(Program) dispatch
 
 
 def test_empty_program_emits_fault_envelope(assay_root: AssayHarness, capsysbinary: pytest.CaptureFixture[bytes]) -> None:
@@ -111,6 +145,34 @@ def test_schedule_stops_cron_on_cancellation(monkeypatch: pytest.MonkeyPatch) ->
     anyio.run(run)
 
     assert stopped == [True]
+
+
+@pytest.mark.anyio
+@pytest.mark.parametrize("collapse", [False, True])
+async def test_debounce_collapse_modes(*, collapse: bool) -> None:
+    """Both leading (collapse=False) and trailing (collapse=True) modes fire exactly once per storm window."""
+    fired: list[ChangeBatch] = []
+
+    async def inner(changes: ChangeBatch) -> None:  # noqa: RUF029  # must satisfy Fire = Callable[[ChangeBatch], Coroutine[...]] for _debounce
+        fired.append(changes)
+
+    fire, worker = _debounce(inner, 50, collapse=collapse)
+    async with anyio.create_task_group() as tg:
+        tg.start_soon(worker)
+        await fire(_FIRST)
+        await anyio.lowlevel.checkpoint()
+        await fire(_SECOND)  # coalesced: the size-1 channel already holds _FIRST
+        await anyio.sleep(0.07)  # > 50ms quiescence window
+        tg.cancel_scope.cancel()
+
+    assert len(fired) == 1
+
+
+def test_watch_filter_unknown_rejected_at_decode() -> None:
+    """An unknown filter tag now fails at the wire boundary (WatchFilter StrEnum) — validation moved to decode."""
+    blob = msgspec.json.encode({"kind": "watch", "paths": ["x"], "filter": "unknown"})
+    with pytest.raises(msgspec.ValidationError, match="unknown"):
+        msgspec.json.decode(blob, type=Trigger)
 
 
 def test_hardened_fire_resets_after_failure(

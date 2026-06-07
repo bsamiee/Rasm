@@ -1,6 +1,7 @@
 """Run yak package stage, deploy, publish, list, and plan rails."""
 
 from dataclasses import dataclass
+from enum import StrEnum
 import fnmatch
 from functools import reduce
 from itertools import chain
@@ -8,7 +9,7 @@ import os
 from pathlib import Path
 from shutil import copy2, rmtree
 from tempfile import mkdtemp
-from typing import Final, override, TYPE_CHECKING
+from typing import Final, override, Self, TYPE_CHECKING
 
 from expression import Error, Ok, Result
 from expression.collections import block
@@ -25,6 +26,7 @@ from tools.assay.core.model import (
     Check,
     Claim,
     Completed,
+    Counts,
     Fault,
     fold,
     Input,
@@ -37,7 +39,7 @@ from tools.assay.core.model import (
     Tool,
 )
 from tools.assay.core.routing import Routed, Scope
-from tools.assay.core.status import RailStatus
+from tools.assay.core.status import join, RailStatus
 
 # Reuse the canonical bridge client seam for rasm-bridge lifecycle steps.
 from tools.assay.rails.bridge import _client_run as _bridge_client_run  # noqa: PLC2701
@@ -50,6 +52,23 @@ if TYPE_CHECKING:
 # --- [TYPES] ----------------------------------------------------------------------------
 
 type _Step = tuple[str, ...]
+
+
+class _LifecycleStep(StrEnum):
+    """Post-stage lifecycle step with its yak run mode and bridge-lock requirement."""
+
+    mode: Mode
+    needs_bridge: bool
+    INSTALL = "install", Mode.DEPLOY, False
+    PUSH = "push", Mode.PUBLISH, False
+    QUIT = "quit", Mode.CLIENT, True
+    REFRESH = "refresh", Mode.CLIENT, True
+
+    def __new__(cls, value: str, mode: Mode, needs_bridge: bool) -> Self:  # noqa: FBT001  # enum payload binder mirrors enum field order
+        """Bind the wire token, yak run mode, and bridge-lock flag payload."""
+        member = str.__new__(cls, value)
+        member._value_, member.mode, member.needs_bridge = value, mode, needs_bridge
+        return member
 
 
 # --- [CONSTANTS] ------------------------------------------------------------------------
@@ -202,11 +221,11 @@ def _safe_package_pattern(pattern: str) -> bool:
 _DECODER: Final[msgspec.json.Decoder[_MsbuildProps]] = msgspec.json.Decoder(_MsbuildProps)
 
 # Ordered post-stage step policy keyed by verb and rasm-bridge slug match.
-_STEP_POLICY: Final[dict[tuple[str, bool], tuple[str, ...]]] = {
-    ("deploy", False): ("install",),
-    ("deploy", True): ("quit", "install", "refresh"),
-    ("publish", False): ("install", "push"),
-    ("publish", True): ("quit", "install", "refresh", "push"),
+_STEP_POLICY: Final[dict[tuple[str, bool], tuple[_LifecycleStep, ...]]] = {
+    ("deploy", False): (_LifecycleStep.INSTALL,),
+    ("deploy", True): (_LifecycleStep.QUIT, _LifecycleStep.INSTALL, _LifecycleStep.REFRESH),
+    ("publish", False): (_LifecycleStep.INSTALL, _LifecycleStep.PUSH),
+    ("publish", True): (_LifecycleStep.QUIT, _LifecycleStep.INSTALL, _LifecycleStep.REFRESH, _LifecycleStep.PUSH),
 }
 
 
@@ -442,21 +461,16 @@ def _stamp_version(detail: object, version: str) -> PackageRun:
             return PackageRun(version=version)
 
 
-def _run_step(settings: AssaySettings, scope: ArtifactScope, meta: YakMeta, package_file: Path, kind: str) -> Result[Completed, Fault]:
-    # install/push are yak steps; quit/refresh go through the bridge client under bridge.lock.
-    match kind:
-        case "install":
-            return _run_yak(meta, _yak_install_tail(package_file), Mode.DEPLOY, cwd=meta.package_dir, settings=settings, scope=scope)
-        case "push":
-            return _run_yak(meta, _yak_push_tail(meta, package_file), Mode.PUBLISH, cwd=meta.package_dir, settings=settings, scope=scope)
+def _run_step(settings: AssaySettings, scope: ArtifactScope, meta: YakMeta, package_file: Path, step: _LifecycleStep) -> Result[Completed, Fault]:
+    # install/push are yak steps carrying their own tail; quit/refresh ride the bridge client under bridge.lock.
+    # Refresh failure after install is recoverable by bridge launch, so bridge steps ride Completed(FAILED).
+    match step:
+        case _LifecycleStep.INSTALL:
+            return _run_yak(meta, _yak_install_tail(package_file), step.mode, cwd=meta.package_dir, settings=settings, scope=scope)
+        case _LifecycleStep.PUSH:
+            return _run_yak(meta, _yak_push_tail(meta, package_file), step.mode, cwd=meta.package_dir, settings=settings, scope=scope)
         case _:
-            return _run_bridge_client(settings, scope, kind)
-
-
-def _run_bridge_client(settings: AssaySettings, scope: ArtifactScope, verb: str) -> Result[Completed, Fault]:
-    # Refresh failure after install is recoverable by bridge launch, so it rides Completed(FAILED).
-    _ = scope
-    return _bridge_client_run(settings, verb)
+            return _bridge_client_run(settings, str(step))
 
 
 def _resolve_package_file(meta: YakMeta) -> Result[Path, Fault]:
@@ -480,15 +494,20 @@ def _finish(settings: AssaySettings, scope: ArtifactScope, meta: YakMeta, slug: 
 
 
 def _drive_steps(
-    settings: AssaySettings, scope: ArtifactScope, meta: YakMeta, slug: str, verb: str, staged: Report, package_file: Path, steps: tuple[str, ...]
+    settings: AssaySettings,
+    scope: ArtifactScope,
+    meta: YakMeta,
+    slug: str,
+    verb: str,
+    staged: Report,
+    package_file: Path,
+    steps: tuple[_LifecycleStep, ...],
 ) -> Result[Report, Fault]:
     # Bridge-bound policy acquires bridge.lock once for quit -> install -> refresh.
-    needs_bridge = any(step in {"quit", "refresh"} for step in steps)
-
     def run_steps(_held: object) -> Result[Report, Fault]:
         return _fold_steps(settings, scope, meta, verb, staged, package_file, steps)
 
-    match needs_bridge:
+    match any(step.needs_bridge for step in steps):
         case True:
             return leased(_BRIDGE_LOCK, run_steps, settings=settings, run_id=settings.run_id, project=slug, mode="exclusive")
         case False:
@@ -496,14 +515,30 @@ def _drive_steps(
 
 
 def _fold_steps(
-    settings: AssaySettings, scope: ArtifactScope, meta: YakMeta, verb: str, staged: Report, package_file: Path, steps: tuple[str, ...]
+    settings: AssaySettings, scope: ArtifactScope, meta: YakMeta, verb: str, staged: Report, package_file: Path, steps: tuple[_LifecycleStep, ...]
 ) -> Result[Report, Fault]:
-    # Result accumulator appends Completed rows and short-circuits only on spawn or lease Faults.
+    # Result accumulator appends Completed rows and short-circuits only on spawn or lease Faults; stage build evidence survives the merge.
     seed: Result[tuple[Completed, ...], Fault] = Ok(())
     folded = reduce(
-        lambda acc, kind: acc.bind(lambda done: _run_step(settings, scope, meta, package_file, kind).map(lambda c: (*done, c))), steps, seed
+        lambda acc, step: acc.bind(lambda done: _run_step(settings, scope, meta, package_file, step).map(lambda c: (*done, c))), steps, seed
     )
-    return folded.map(lambda outcomes: fold(Claim.PACKAGE, verb, outcomes, detail=staged.detail))
+    return folded.map(lambda outcomes: _merge_stage(staged, fold(Claim.PACKAGE, verb, outcomes, detail=staged.detail)))
+
+
+def _merge_stage(staged: Report, steps: Report) -> Report:
+    # Stage results/counts/artifacts/notes ride ahead of step rows so build evidence and post-stage steps both survive one report.
+    return msgspec.structs.replace(
+        steps,
+        status=join(staged.status, steps.status),
+        counts=Counts(
+            ok=staged.counts.ok + steps.counts.ok,
+            failed=staged.counts.failed + steps.counts.failed,
+            total=staged.counts.total + steps.counts.total,
+        ),
+        results=(*staged.results, *steps.results),
+        artifacts=(*staged.artifacts, *steps.artifacts),
+        notes=(*staged.notes, *steps.notes),
+    )
 
 
 def _lifecycle(settings: AssaySettings, scope: ArtifactScope, params: PackageParams, verb: str) -> Result[Report, Fault]:

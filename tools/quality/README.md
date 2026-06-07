@@ -10,7 +10,7 @@ Rails stay orthogonal: `static` never runs tests, `test` never opens Rhino, `bri
 
 Output contract: every verb writes exactly one JSON `Envelope` object to stdout with `rail`, `verb`, `status`, `exit_code`, `run_id`, `evidence`, `data`, `error`, `truncated`, and `notes`. Streamed `dotnet` bytes and structlog diagnostics go to stderr only. There is no raw-text passthrough; stdout is always the single Envelope.
 
-## [1][RAIL_MAP]
+## [1]-[RAIL_MAP]
 
 ```mermaid
 ---
@@ -65,7 +65,7 @@ flowchart LR
 |   [7]   | `rails/package.py` | Yak metadata, atomic stage, stage lease.                  |
 |   [8]   | `rails/api.py`     | Host and NuGet API resolver; ilspy surface + decompile.   |
 
-## [2][COMMAND_SURFACE]
+## [2]-[COMMAND_SURFACE]
 
 Run from any path under the worktree. `QualitySettings.anchor()` walks parents until `Workspace.slnx`.
 
@@ -82,7 +82,7 @@ Run from any path under the worktree. `QualitySettings.anchor()` walks parents u
 
 Use the Python module entrypoint directly. Do not add package-manager aliases for this operator.
 
-## [3][STATIC_RAIL]
+## [3]-[STATIC_RAIL]
 
 > [!CAUTION]
 > `static fix` mutates files. `static report`, `static build`, `static full`, and `static plan` do not intentionally mutate tracked source.
@@ -123,7 +123,7 @@ Closure isolation:
 - A non-blocking `build-<closure>.lock` lease guards each closure. Busy returns `busy` with owner text and exit `5`; it never hangs.
 - Distinct closures build concurrently; the same closure twice returns instant `busy`.
 
-## [4][TEST_RAIL]
+## [4]-[TEST_RAIL]
 
 MTP source: `global.json` uses `"runner": "Microsoft.Testing.Platform"`.
 
@@ -150,7 +150,7 @@ Mutation:
 - Tool: `dotnet-stryker`, MTP runner, thresholds `95/90/85`; version lives in `.config/dotnet-tools.json` as the source of truth.
 - Lock: `.artifacts/locks/mutation.lock`; live contention fails fast.
 
-## [5][BRIDGE_PACKAGE_RAIL]
+## [5]-[BRIDGE_PACKAGE_RAIL]
 
 > [!CAUTION]
 > Live Rhino and package staging never wait. Contention returns `busy` with owner text and exit `5`.
@@ -184,7 +184,7 @@ Bridge `Envelope.status` → `exit_code`:
 |   [3]   | `unsupported`     |      3 | Build proof valid; no scenario path supplied. |
 |   [4]   | `busy`, `timeout` |      5 | Exclusive resource busy or scenario timeout.  |
 
-## [6][API_RAIL]
+## [6]-[API_RAIL]
 
 API evidence root: `.artifacts/quality/api/<run-id>/`. Default commands emit compact JSON only. Full raw stdout/stderr, type and namespace surfaces, decompiled source, and `report.json` stay in the run artifact directory.
 
@@ -289,7 +289,7 @@ Observed gotchas use these readings:
 - Multi-assembly packages stay bounded by the preview cap; compact JSON keeps stdout bounded and stores full files on disk.
 - A central package with no owning `.csproj` shows in `api doctor` with empty `owners`; treat such an entry as a pre-consumer pin, not active API surface.
 
-## [7][ARTIFACTS_CONCURRENCY]
+## [7]-[ARTIFACTS_CONCURRENCY]
 
 Artifact scope:
 - `rail()` opens `.artifacts/quality/<rail>/<run_id>/` and isolated `DOTNET_CLI_HOME`.
@@ -304,7 +304,7 @@ Concurrency:
 - Exclusive fail-fast: mutation, live Rhino bridge commands, `bridge verify`, bridge package live steps, and package staging from cleanup through commit.
 - Lease files remain stable and are truncated after release; do not delete lock files as stale cleanup.
 
-## [8][RAIL_SELECTION]
+## [8]-[RAIL_SELECTION]
 
 Use:
 - `static fix` before `static build` for C# edits.
@@ -326,6 +326,6 @@ Avoid:
 - Running mutation implicitly on every unit test pass.
 - Waiting on locks; busy means choose another proof or retry later.
 
-## [9][RUNTIME_REQUIREMENTS]
+## [9]-[RUNTIME_REQUIREMENTS]
 
 Required tools: `dotnet`, `fd`, `git`, and `rg`. Local-manifest tools (`ilspycmd`, `dotnet-stryker`, `dotnet-outdated`) live in `.config/dotnet-tools.json` and are invoked through the operator rail that owns them. Required files: `Workspace.slnx`, default test csproj, and `.config/dotnet-tools.json`. Rhino preflight also checks executable `Contents/Resources/bin/yak`.

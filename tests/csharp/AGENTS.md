@@ -2,7 +2,7 @@
 
 Scope: `tests/csharp/` only. Root `AGENTS.md`, `CLAUDE.md`, and the `testing-cs` skill own universal test policy; this file adds C# test-tree deltas. Library-spec deltas live in `tests/csharp/libs/AGENTS.md`.
 
-## [1][READ_ORDER]
+## [1]-[READ_ORDER]
 
 [REQUIRED]: Follow `CLAUDE.md`, `testing-cs`, and `coding-csharp` for every `.spec.cs`, `.verify.csx`, and testkit change.
 
@@ -14,7 +14,7 @@ Scope: `tests/csharp/` only. Root `AGENTS.md`, `CLAUDE.md`, and the `testing-cs`
 - When changing serializer, fuzz-parser, bridge-probe, host-loader, filesystem, capture, or `System.*` test boundaries, read `docs/stacks/csharp/platform/`.
 - When changing `.verify.csx` or bridge-runtime work, read `tools/rhino-bridge/AGENTS.md`.
 
-## [2][TEST_CONTRACT]
+## [2]-[TEST_CONTRACT]
 
 [CRITICAL]:
 - Build adversarial laws, not confirmation checks.
@@ -27,7 +27,7 @@ Proof classification comes before assertion. Static specs prove pure managed con
 
 Mutation survivors are triage input. Classify each survivor as missing oracle, equivalent mutant, bridge-owned path, or product bug before editing tests; strengthen a spec only after that classification says the surviving behavior is static-managed and missing a real oracle.
 
-## [3][EXTENSION_GRAMMAR]
+## [3]-[EXTENSION_GRAMMAR]
 
 - Shared law, oracle, generator, serializer, or scenario capability: extend `_testkit` only when multiple specs consume it.
 - Architecture law: route dependency and layering checks through `tests/csharp/_architecture`.
@@ -37,7 +37,7 @@ Mutation survivors are triage input. Classify each survivor as missing oracle, e
 - Library spec: mirror the production owner and follow `tests/csharp/libs/AGENTS.md`.
 - Bridge scenario: route to `tools/rhino-bridge/AGENTS.md` and `testing-cs` bridge guidance.
 
-## [4][ORACLE_RULES]
+## [4]-[ORACLE_RULES]
 
 - Prefer variable-driven samples through `Spec.ForAll`, `Spec.Metamorphic`, and `Spec.Regression`.
 - Use explicit seeds only to preserve a discovered regression.
@@ -47,7 +47,7 @@ Mutation survivors are triage input. Classify each survivor as missing oracle, e
 - Use `Spec` rail helpers for `Fin`, `Validation`, `Option`, success, failure category, and diagnostics, including `Spec.Some` and `Spec.None` for `Option` proof. Raw `.IsSucc`, `.IsFail`, `.IsSome`, and `.IsNone` checks are allowed only as secondary invariants after value, category, oracle, diagnostic, receipt, or bridge-fact proof, or when rail-state policy is the subject under test.
 - Treat bridge facts as oracle material only when they come from source-owned scenario evidence, not from human-readable stdout, run-local artifact paths, or a static imitation of the host.
 
-## [5][REJECTIONS]
+## [5]-[REJECTIONS]
 
 - No implementation mirrors as expected values.
 - No raw rail-state checks as primary proof when `Spec` helpers, expected values, failure categories, diagnostics, receipt invariants, or bridge facts can prove the behavior.
@@ -58,6 +58,6 @@ Mutation survivors are triage input. Classify each survivor as missing oracle, e
 - No generated reports, corpora, mutation output, benchmark output, or transient test results outside `.artifacts`.
 - No bridge scenario `#r`, `#load`, or absolute build-output paths.
 
-## [6][STOP_RULES]
+## [6]-[STOP_RULES]
 
 If a bridge run reports host assembly identity, staged-reference, marker parsing, fact envelope, or LanguageExt bootstrap failures, verify bridge setup before weakening the scenario or static spec. If a static spec would only pretend to execute native runtime behavior, route the claim to a source-owned bridge scenario or record a proof gap instead.

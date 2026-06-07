@@ -4,10 +4,12 @@
 
 from typing import TYPE_CHECKING
 
+from cyclopts import App
 import msgspec
+import pytest
 
 from tests.tools.assay.conftest import make_history_envelope, pipe_history
-from tools.assay.composition.registry import _delta_report, _load_run, _ok_envelope, _prior, _retain, _run_ids, REGISTRY  # noqa: PLC2701
+from tools.assay.composition.registry import _delta_report, _ok_envelope, _prior, build_app, REGISTRY  # noqa: PLC2701
 from tools.assay.core.model import _RESULT_CAP, ArtifactKind, Claim, envelope, fold, Match, receipt, Report, RunDelta  # noqa: PLC2701
 from tools.assay.core.status import RailStatus
 
@@ -20,6 +22,7 @@ if TYPE_CHECKING:
 # --- [PRIOR_ORACLE] --------------------------------------------------------------------
 
 
+@pytest.mark.mutation
 def test_prior_lexicographic_oracle() -> None:
     """``_prior`` returns the largest run_id strictly less than the given id — ISO-timestamp order is chronological."""
     ids = ("2026-01-01T00-00-00", "2026-01-02T00-00-00", "2026-01-03T00-00-00")
@@ -29,23 +32,43 @@ def test_prior_lexicographic_oracle() -> None:
     assert not _prior((), "anything")
 
 
+# --- [REGISTRY_SHAPE] ------------------------------------------------------------------
+
+
+def test_registry_unique_claim_verb_pairs() -> None:
+    """Each ``(claim, verb)`` binding is unique — the Cyclopts sub-app/command tree has no colliding leaf."""
+    pairs = [(b.claim, b.verb) for b in REGISTRY]
+    assert len(pairs) == len(set(pairs))
+
+
+def test_build_app_reaches_every_registry_leaf() -> None:
+    """``build_app(REGISTRY)`` returns a Cyclopts ``App`` whose every ``(claim, verb)`` leaf is reachable.
+
+    Each row weaves into a sub-app keyed by ``claim.value`` carrying a command named ``verb``; reachability
+    is membership of ``verb`` in ``app[claim.value]``.
+    """
+    app = build_app(REGISTRY)
+    assert isinstance(app, App)
+    assert all(b.verb in app[b.claim.value] for b in REGISTRY)
+
+
 # --- [LOAD_RUN_ORACLE] -----------------------------------------------------------------
 
 
-def test_load_run_corrupt_returns_none(mem_store: ArtifactStore) -> None:
-    """``_load_run`` on corrupt bytes folds to ``None`` — a crashing prior run never FAULTs delta."""
+def test_load_history_corrupt_returns_none(mem_store: ArtifactStore) -> None:
+    """``load_history`` on corrupt bytes folds to ``None`` — a crashing prior run never FAULTs delta."""
     mem_store.write_bytes(b"{not-valid-json}", "history", "corrupt-run", "envelope.json")
-    assert _load_run(mem_store, "corrupt-run") is None
+    assert mem_store.load_history("corrupt-run") is None
 
 
-def test_load_run_empty_id_returns_none(mem_store: ArtifactStore) -> None:
-    """``_load_run(store, "")`` folds to ``None`` — the no-prior sentinel passes through cleanly."""
-    assert _load_run(mem_store, "") is None
+def test_load_history_empty_id_returns_none(mem_store: ArtifactStore) -> None:
+    """``load_history("")`` folds to ``None`` — the no-prior sentinel passes through cleanly."""
+    assert mem_store.load_history("") is None
 
 
-def test_load_run_absent_returns_none(mem_store: ArtifactStore) -> None:
-    """``_load_run`` on a run_id with no persisted file folds to ``None``."""
-    assert _load_run(mem_store, "nonexistent-run-id") is None
+def test_load_history_absent_returns_none(mem_store: ArtifactStore) -> None:
+    """``load_history`` on a run_id with no persisted file folds to ``None``."""
+    assert mem_store.load_history("nonexistent-run-id") is None
 
 
 def test_persist_retain_reload_delta_round_trip(mem_store: ArtifactStore) -> None:
@@ -59,15 +82,15 @@ def test_persist_retain_reload_delta_round_trip(mem_store: ArtifactStore) -> Non
     run_c = "2026-01-03T00-00-00.000000-9001"
     pipe_history(mem_store, (run_a, run_b, run_c))
 
-    _retain(mem_store, keep=2)
-    surviving = _run_ids(mem_store)
+    mem_store.retain_history(2)
+    surviving = mem_store.sorted_history_ids()
     assert run_a not in surviving, f"oldest run {run_a!r} should have been pruned"
     assert run_b in surviving
     assert run_c in surviving
     assert len(surviving) == 2
 
-    loaded_b = _load_run(mem_store, run_b)
-    loaded_c = _load_run(mem_store, run_c)
+    loaded_b = mem_store.load_history(run_b)
+    loaded_c = mem_store.load_history(run_c)
     assert loaded_b is not None, "run_b should survive retention"
     assert loaded_c is not None, "run_c should survive retention"
     assert loaded_b.run_id == run_b

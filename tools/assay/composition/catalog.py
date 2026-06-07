@@ -70,9 +70,6 @@ CAPTURES = msgspec.json.Decoder(tuple[Capture, ...])
 CAPTURE_ENCODER = msgspec.json.Encoder()
 RG_EVENT = msgspec.json.Decoder(RgEvent)
 
-
-# --- [TABLES] ---------------------------------------------------------------------------
-
 DIRECT, MODULE, UV, DOTNET, PNPM, INPROC = Runner.DIRECT, Runner.MODULE, Runner.UV, Runner.DOTNET, Runner.PNPM, Runner.INPROC
 FILES, INCLUDE, PROJECT, SOLUTION, NONE = (Input.FILES, Input.INCLUDE, Input.PROJECT, Input.SOLUTION, Input.NONE)
 PY, TS, CS, BASH, SQL, DOCS = (Language.PYTHON, Language.TYPESCRIPT, Language.CSHARP, Language.BASH, Language.SQL, Language.DOCS)
@@ -184,7 +181,7 @@ TOOLS: tuple[Tool, ...] = (
     Tool("sqlfluff", UV, ("sqlfluff", "fix", "--dialect", "postgres"), FILES, SQL, Claim.STATIC, mode=Mode.WRITE),
     Tool("squawk", UV, ("squawk",), FILES, SQL, Claim.STATIC),
     # -- Docs --------------------------------------------------------------------------------
-    Tool("mmdc", PNPM, ("mmdc", "-a", ".artifacts/mermaid", "-q"), INCLUDE, DOCS, Claim.DOCS),
+    Tool("mmdc", PNPM, ("mmdc", "-a", ".artifacts/mermaid", "-q"), NONE, DOCS, Claim.DOCS),
     # -- Code (`ast-grep run` self-walks; tree-sitter queries receive routed files) ----------
     Tool("ast-grep", PNPM, ("ast-grep", "run"), NONE, PY, Claim.CODE),
     Tool("ast-grep", PNPM, ("ast-grep", "run"), NONE, PY, Claim.CODE, mode=Mode.WRITE),
@@ -215,4 +212,4 @@ def select(claim: Claim, language: Language | None = None) -> tuple[Tool, ...]:
 
 # --- [EXPORTS] --------------------------------------------------------------------------
 
-__all__ = ["AST_MATCHES", "CAPTURES", "CAPTURE_ENCODER", "RG_EVENT", "AstMatch", "Capture", "RgEvent", "TOOLS", "select"]
+__all__ = ["AST_MATCHES", "CAPTURES", "CAPTURE_ENCODER", "RG_EVENT", "Capture", "TOOLS", "select"]

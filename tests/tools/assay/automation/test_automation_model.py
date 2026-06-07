@@ -3,7 +3,7 @@
 import msgspec
 import pytest
 
-from tools.assay.automation.model import Debounce, decode, describe, encode, Rail, Schedule, Sequence, Watch
+from tools.assay.automation.model import Debounce, decode, describe, encode, Manual, Rail, Schedule, Sequence, Watch, WatchFilter
 from tools.assay.core.model import Claim
 
 
@@ -15,9 +15,21 @@ def test_recursive_action_codec_round_trips() -> None:
     assert describe(action) == "seq[debounce[rail[static:report] @ 250ms]]"
 
 
+@pytest.mark.parametrize(
+    "node,trigger",
+    [
+        (Debounce(action=Rail(claim=Claim.STATIC, verb="report"), window_ms=250, collapse=False), False),
+        (Manual(), True),
+    ],
+)
+def test_leaf_node_codec_round_trips(node: Debounce | Manual, *, trigger: bool) -> None:
+    """The collapse=False debounce flag and the niladic Manual trigger survive the tagged-union codec."""
+    assert decode(encode(node), trigger=trigger) == node
+
+
 def test_watch_and_schedule_knobs_decode() -> None:
     """Watchfiles and cron knobs are first-class trigger fields."""
-    watch = Watch(paths=("tools/assay",), filter="python", step=25, force_polling=True, recursive=False, ignore_permission_denied=True)
+    watch = Watch(paths=("tools/assay",), filter=WatchFilter.PYTHON, step=25, force_polling=True, recursive=False, ignore_permission_denied=True)
     schedule = Schedule(cron="*/5 * * * *", timezone="UTC")
 
     assert decode(encode(watch), trigger=True) == watch
