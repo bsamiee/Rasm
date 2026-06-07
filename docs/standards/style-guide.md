@@ -42,9 +42,10 @@ For unresolved sentence composition, use concision, parallelism, positive form, 
 
 [NOISE_REMOVAL]:
 - Remove filler, marketing claims, draft notes, and transient interaction language.
+- Make coding-project documents useful through concrete routes, constraints, fields, examples, proof triggers, update rules, and owner boundaries. Do not narrate that a document is for agents, explain the session that produced it, or describe the intended mental model when the structure can show the rule directly.
 - In coding-project documents, prefer concrete paths, commands, contracts, failure modes, gates, and artifacts over vague planning or operational prose. Remove generic routing language, alignment language, momentum language, or value language when it does not name a real route or change an implementation, validation, access, support, or recovery decision.
 - Reject prompt-era process vocabulary in durable docs unless quoted as archival evidence: `dictum`, `dossier`, `stage N`, `validated snippet`, task-ledger labels, and agent-invented abstraction names. Prefer current source names, configured command names, public symbols, and maintained document types.
-- Cut a hedge that carries no information. Preserve a qualifier that marks genuine uncertainty, and let the evidence standard govern it.
+- Cut a hedge that carries no information. Replace non-load-bearing hedges with direct rules, preserve qualifiers that mark real scope limits, and route real uncertainty to [proof.md](proof.md) as a proof gap.
 
 ## [4][PARAGRAPH_ARCHITECTURE]
 

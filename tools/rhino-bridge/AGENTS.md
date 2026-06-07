@@ -5,7 +5,7 @@ Scope: `tools/rhino-bridge/` only. Root policy owns universal quality selection;
 ## [1][READ_ORDER]
 
 - When changing operator behavior, protocol expectations, command text, or failure interpretation, read `README.md`.
-- When choosing static, test, bridge, package, or publish rails, read `CLAUDE.md` quality policy.
+- When choosing static, test, bridge, package, or publish rails, read `CLAUDE.md` for rail selection and `tools/quality/README.md` for command behavior.
 - When authoring scenarios, read `tests/csharp/AGENTS.md` and `testing-cs` bridge guidance.
 - When changing bridge wire behavior, read `protocol/BridgeWire.cs`, `client/ClientVerb.cs`, `client/Program.cs`, `plugin/Rhino/Transport.cs`, `plugin/Rhino/CodeEngine.cs`, `tools/assay/rails/bridge.py`, and `tools/assay/composition/settings.py` first.
 

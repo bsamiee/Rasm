@@ -10,11 +10,11 @@ Apply this standard to choose and shape containers:
 - code blocks, intent labels, examples, monospace text structures, progress summaries, Mermaid diagrams, and C4 architecture handoffs
 - callouts, collapsible blocks, footnotes, headings, section boundaries, line wrapping, retrieval chunks, and page anatomy.
 
-Salience and ordering within a unit belong to the position standard, sentence mechanics to the craft standard, evidence strength to the proof standard, and visual styling to the formatting standard.
+Treat prose, bullets, lists, records, tables, diagrams, matrices, and literal blocks as equal contenders until the reader question selects one. Sentence mechanics belong to the craft standard, evidence strength to the proof standard, and visual styling to the formatting standard.
 
 ## [2][CONTAINER_CHOOSER]
 
-Use the smallest container that preserves meaning. Change container when the reader's question shifts from explanation to lookup, ordered action, relationship, proof, or machine consumption. Structured containers are not decoration: bullets and key-value blocks outperform prose for option selection and field extraction, and tables outperform both for dense factual lookup.
+Use the smallest container that preserves meaning. Change container when the reader's question shifts from explanation to lookup, ordered action, relationship, proof, or machine consumption. Structured containers are not decoration: bullets and key-value blocks outperform prose for option selection and field extraction, and tables outperform both only for dense factual lookup.
 
 A single record read by field belongs in a definition block, not a one-row table. Sparse data compared across rows still belongs in a table, not flattened into prose. When no two items share a comparison question, abandon the table and give each item its own record.
 
@@ -213,7 +213,7 @@ Route-away: <body of work that remains in the adjacent standard>
 
 [DEFINITION_BLOCKS]:
 - Use one label per line when a label carries meaning a reader will scan, quote, or update independently.
-- For several records sharing one schema, use a grouped definition block: a plain record-name line, then shared `label: value` fields indented 4 spaces beneath it, with a blank line between records.
+- For several records sharing one schema, use a grouped definition block: a record-name label leader ending in one colon, such as `Partial eigen:`, then shared `label: value` fields indented 4 spaces beneath it, with a blank line between records.
 - A list-valued field keeps the label on its own line and indents child list items 4 spaces beneath the label; a wrapped prose continuation also indents 4 spaces.
 - Once a record exceeds 5 fields, 2 or more fields need continuations, or any field needs a code block, move to a subsection-per-record block.
 - Do not pack several labeled facts into one sentence, and do not widen a record into a one-row table.

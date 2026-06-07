@@ -8,7 +8,7 @@ Scope: `libs/csharp/Rasm.Persistence/` only. Root policy and `libs/csharp/AGENTS
 - Before changing durable-work scheduling or runtime receipts, read `Rasm.AppHost/AGENTS.md`.
 - Before changing live-state observables, read `Rasm.AppUi/AGENTS.md`.
 - Before changing benchmark, cache, model-result, or execution-artifact storage, read `Rasm.Compute/AGENTS.md`.
-- Before package, BCL, or host-reference changes, read `docs/stacks/csharp/platform-map/` and `docs/usage/composition.md`.
+- Before package, BCL, or host-reference changes, read `docs/stacks/csharp/platform/` and `docs/usage/composition.md`.
 
 ## [2][OWNER_CONTRACT]
 

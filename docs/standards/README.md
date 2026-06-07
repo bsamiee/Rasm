@@ -97,6 +97,12 @@ Each cross-cutting rule routes to exactly one owner:
 
 Audit root standards against form, craft, evidence, and notation only. If a finding does not fit those 4 axes, route it to the owning standard instead of creating a local audit category.
 
+[HYGIENE_ROUTES]:
+- Agent-usable docs: [information structure](information-structure.md) chooses the carrier; [style guide](style-guide.md) makes the rule direct.
+- Process narration, source-history prose, and non-load-bearing hedges: [style guide](style-guide.md) removes them; [agents-md](agents-md.md) owns instruction-specific cases.
+- Proof, source, provenance, and freshness fields: [proof](proof.md) owns evidence shape and proof gaps.
+- External-library implementation policy: route docs behavior through [docs overlay](../AGENTS.md), cross-stack precedence through [usage](../usage/README.md), and language-specific decisions through `stacks/<language>/`.
+
 ## [7][PLACEMENT]
 
 Place documentation where the reader or tool first looks:

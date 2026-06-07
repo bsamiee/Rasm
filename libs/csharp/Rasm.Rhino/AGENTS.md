@@ -13,8 +13,8 @@ Each category folder owns one full Rhino concern. Capture native API capability 
 - When editing a folder, read existing folder files and extend canonical owners before creating new files or types.
 - When naming risky Rhino behavior, verify against local RhinoWIP XML, decompile evidence when XML is absent, and the repo API rail.
 - When changing Rhino host boundary behavior, read `docs/hosts/rhino/`.
-- When changing `System.*`, package/reference, raster, filesystem, or host-provided assembly decisions, read `docs/stacks/csharp/platform-map/`.
-- When adding numerical or symbolic algorithms, read `docs/stacks/csharp/product-libs/mathnet/`.
+- When changing `System.*`, package/reference, raster, filesystem, or host-provided assembly decisions, read `docs/stacks/csharp/platform/`.
+- When adding numerical or symbolic algorithms, read `docs/stacks/csharp/numeric-algorithms.md` and `docs/stacks/csharp/sparse-factorization.md`.
 - When authoring runtime scenarios, read `tests/csharp/AGENTS.md`, `tests/csharp/libs/AGENTS.md`, and `tools/rhino-bridge/AGENTS.md` first.
 
 ## [3][EXTENSION_GRAMMAR]

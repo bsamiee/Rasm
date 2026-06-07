@@ -19,11 +19,11 @@ This file owns adoption policy, not package manuals. Owner-local platform stubs 
 |   [2]   | Companion process, test host, bridge service |      No      | `IServiceCollection`, optional Generic Host, optional Scrutor |
 |   [3]   | Domain, analysis, geometry kernel            | No container | LanguageExt effects and direct constructors                   |
 
-Scrutor, Generic Host, logging providers, telemetry exporters, HTTP resilience, EF Core, and validation packages wait for a concrete bootstrap consumer. The AppUi package matrix is active direct through `Rasm.AppUi.csproj`. `Directory.Packages.props` carries graph evidence; owner-local manuals carry intent and adoption guidance.
+Composition packages enter through the owner rail that performs the runtime work: bootstrap, scheduling, persistence, observation, compute, or support evidence. The AppUi package matrix is active direct through `Rasm.AppUi.csproj`. `Directory.Packages.props` carries graph evidence; owner-local manuals carry intent and adoption guidance.
 
-## [2][FIRST_CONSUMER_CANDIDATES]
+## [2][ADOPTION_GATES]
 
-| [INDEX] | [CANDIDATE]                    | [TRIGGER]                                                    | [OWNER]            |
+| [INDEX] | [CAPABILITY]                   | [ADMISSION_ROUTE]                                            | [OWNER]            |
 | :-----: | ------------------------------ | ------------------------------------------------------------ | ------------------ |
 |   [1]   | Scrutor                        | Real `IServiceCollection` bootstrap with scan/decorate value | `Rasm.AppHost`     |
 |   [2]   | Generic Host / DI abstractions | Companion process, bridge service, or test host              | `Rasm.AppHost`     |
@@ -38,7 +38,7 @@ Scrutor, Generic Host, logging providers, telemetry exporters, HTTP resilience, 
 |  [11]   | System.Numerics.Tensors        | Measured span/TensorPrimitives kernel consumer               | `Rasm.Compute`     |
 |  [12]   | ML.NET / gRPC client           | Named model or out-of-process compute companion              | `Rasm.Compute`     |
 
-Resolve package versions from the current package graph and maintained package source when the first concrete consumer lands. Do not record exact candidate versions in owner docs.
+Resolve package versions from the current package graph and maintained package source when the owner route admits the package. Do not record exact candidate versions in owner docs.
 
 ## [3][BOUNDARIES]
 
@@ -53,6 +53,6 @@ Resolve package versions from the current package graph and maintained package s
 ## [4][REJECTIONS]
 
 - Do not add unused central `PackageVersion` entries as future intent.
-- Do not call a package active until a project references it and owner-local evidence records the behavior.
+- Do not call a package active until a source route admits it and owner-local evidence records the behavior.
 - Do not import host packages into `Rasm`, `Rasm.Rhino`, or `Rasm.Grasshopper` domain/hot-path code.
 - Do not stack LanguageExt retry, DB retry, and HTTP resilience on one operation.

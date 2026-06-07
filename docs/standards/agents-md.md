@@ -219,6 +219,10 @@ Use the bracketed heading idiom from `formatting.md`: `# [SCOPE_AGENTS]`, `## [N
 
 Use invocation markers only for instruction-file invariants. Prefer positive imperatives and pair hard prohibitions with a replacement action or route. Write present-tense behavioral rules without source inventories, rewrite rationale, mental commentary, session narration, or source spam.
 
+Accepted: When changing package-backed behavior, read the platform owner and extend the local operation rail before adding a public provider surface.
+Rejected: This file helps agents understand that packages should be treated as first-class.
+Reason: The accepted form names trigger, owner, and action; the rejected form narrates intent without changing local behavior.
+
 Use examples only beside high-risk distinctions. Do not add language tutorials, provider comparisons, command examples, package lists, or repeated local rail inventories to make the standard feel complete.
 
 ## [13][BOUNDARIES]

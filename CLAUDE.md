@@ -30,9 +30,10 @@ If reviewing, refining, editing, creating, or modifying X file type, use skill Y
 ## [2][BEHAVIOR]
 
 [IMPORTANT]:
-- [ALWAYS] Use new sources when conducting research; sources [MUST] be within last 9 months from current date unless stable official docs are the only primary source for a settled platform rule.
+- [ALWAYS] Use new sources when conducting research; freshness-sensitive sources [MUST] be within the last 3-4 months from current date unless stable official docs are the only primary source for a settled platform rule.
 - [ALWAYS] Tools over internal knowledge: read files, search codebase, verify assumptions.
 - [ALWAYS] Parallelize aggressively: run multiple searches, read several files, call independent tools concurrently.
+- [ALWAYS] Use bounded sub-agents for independent exploration, research, verification, and disjoint implementation when the user asks for sub-agents or parallel agent work; merge findings through current source proof and keep fixed agent counts, transcript order, and critique labels out of durable policy.
 - [ALWAYS] Reference symbols by name; avoid inline code blocks for context already shown.
 
 [CRITICAL]:
@@ -44,12 +45,13 @@ If reviewing, refining, editing, creating, or modifying X file type, use skill Y
 - [ALWAYS] Treat dependencies declared in `pyproject.toml`, `pnpm-workspace.yaml`, `Directory.Packages.props`, and equivalent manifests as first-class libraries.
 - [ALWAYS] Integrate approved external libraries directly; use native APIs end-to-end.
 - [ALWAYS] Prefer ecosystem libraries that already own the domain concern over local reinvention.
+- [ALWAYS] Internalize manifest-admitted package capability into the canonical local owner before exposing commands, wrappers, facades, flags, provider selectors, or provider-branded public surfaces.
 - [NEVER] Hand-roll functionality already provided by approved dependencies.
 - [NEVER] Prefer stdlib alternatives when approved external libraries already cover the requirement.
 - [NEVER] Create thin wrappers that rename or forward external APIs without adding domain value.
 
 [IMPORTANT]: **.NET-Central-Package-Management**: C# package versions live in `Directory.Packages.props`; project files may declare usage but never versions.
-- [ALWAYS] Check `docs/stacks/csharp/platform-map` before adding a `System.*` package, global using, or BCL replacement.
+- [ALWAYS] Check `docs/stacks/csharp/platform` before adding a `System.*` package, global using, or BCL replacement.
 - [ALWAYS] Keep RhinoWIP/GH2/Eto/System.Drawing host assemblies resolved through `Directory.Build.props` app-bundle references; if SDK compilation needs a NuGet reference surface, add it only as a conditioned central compile package.
 - [NEVER] Add unused `PackageVersion` entries as future intent.
 
@@ -64,7 +66,7 @@ If reviewing, refining, editing, creating, or modifying X file type, use skill Y
 - [NEVER] Create helper/utility files or functions (`helpers.*`, `*Helper`, `*Util`, `common.*`) for single-caller or thin indirection.
 - [NEVER] Create wrappers, unnecessary intermediate bindings, single-use aliases, or constant spam.
 - [NEVER] Split one concern across parallel names, objects, services, or error rails.
-- [NEVER] Add comments describing "what"; reserve comments for "why", boundary exceptions, and non-obvious invariants.
+- [NEVER] Add comments describing "what"; reserve comments for "why", boundary exceptions, and non-obvious invariants. Public XML docs, TSDoc, Google docstrings, Bash contract comments, and SQL `COMMENT ON` state caller-visible semantics only; comments and docstrings never carry task, session, sub-agent, review-label, or process narration.
 - [NEVER] Add new code before searching for existing canonical shapes, vocabularies, services, and policies to extend.
 - [NEVER] Extract code to new files to reduce LOC. Densify in place through polymorphism, fold algebras, table-driven dispatch.
 - [NEVER] Add shims, adapters, legacy aliases, `[Obsolete]` wrappers, or backwards-compat surfaces. Break APIs freely when collapse improves the system.
@@ -105,7 +107,7 @@ If reviewing, refining, editing, creating, or modifying X file type, use skill Y
 
 [IMPORTANT] C# dependency workflow:
 1. [ALWAYS] **Check package truth**: `rg -n "<PackageId>" Directory.Packages.props Directory.Build.props **/*.csproj`.
-2. [ALWAYS] **Add version centrally** only when a concrete consumer is added.
+2. [ALWAYS] **Add version centrally** only when a project, tool, host route, or accepted owner route admits the package.
 3. [ALWAYS] **Keep project references versionless** under central package management.
 4. [ALWAYS] **Validate graph**: use `uv run python -m tools.quality static plan <changed-manifest>` when routing is uncertain, then `uv run python -m tools.quality static full` for central package, solution, global runner, `.editorconfig`, or analyzer trigger changes.
 
@@ -114,7 +116,7 @@ If reviewing, refining, editing, creating, or modifying X file type, use skill Y
 Three orthogonal rails: static analysis, unit tests, runtime verification. Each tool verb owns one rail; never conflate.
 
 [CRITICAL]:
-1. [NEVER] Run static, test, or bridge rails for comment-only, divider-only, declaration-order, or move-only organization work unless the user explicitly requests a quality rail or preservation proof fails.
+1. [NEVER] Run static, test, or bridge rails for source-comment-only, docstring-only, XML-doc-only, TSDoc-only, divider-only, declaration-order, or move-only organization work unless the user explicitly requests a quality rail or preservation proof fails.
 2. [ALWAYS] Prove move-only organization with `git diff --check` plus line, declaration, or hash preservation at the movement boundary. Report no compile, analyzer, test, or runtime claim.
 
 [IMPORTANT]:
