@@ -12,6 +12,8 @@ import msgspec
 from tools.assay.composition.settings import ArtifactScope, AssaySettings  # noqa: TC001  # unconditional for beartype runtime
 from tools.assay.core.engine import leased, run_check
 from tools.assay.core.model import (
+    Artifact,
+    ArtifactKind,
     BaseParams,
     Check,
     Claim,
@@ -227,7 +229,10 @@ def _discover(settings: AssaySettings, pattern: str) -> tuple[Path, ...]:
 
 
 def _direct(root: Path, pattern: str) -> tuple[Path, ...]:
-    candidate = Path(pattern) if Path(pattern).is_absolute() else root / pattern
+    base = root.resolve()
+    candidate = (Path(pattern) if Path(pattern).is_absolute() else root / pattern).resolve()
+    if not candidate.is_relative_to(base):
+        return ()
     match (candidate.is_file(), candidate.is_dir(), candidate.name.endswith(_SCENARIO_SUFFIX)):
         case (True, _, True):
             return (candidate.resolve(),)
@@ -239,8 +244,16 @@ def _direct(root: Path, pattern: str) -> tuple[Path, ...]:
 
 def _glob(root: Path, pattern: str) -> tuple[Path, ...]:
     # Bare tokens expand to recursive worktree globs.
+    base = root.resolve()
     normalized = pattern if any(glyph in pattern for glyph in _PATH_GLYPHS) else f"**/{pattern}"
-    return tuple(sorted(p.resolve() for p in root.glob(normalized) if p.is_file() and p.name.endswith(_SCENARIO_SUFFIX)))
+    return tuple(
+        sorted(
+            resolved
+            for p in root.glob(normalized)
+            for resolved in (p.resolve(),)
+            if resolved.is_relative_to(base) and p.is_file() and p.name.endswith(_SCENARIO_SUFFIX)
+        )
+    )
 
 
 def _expire_stale(report_dir: Path, ttl_s: float) -> None:
@@ -316,16 +329,30 @@ def _fold_scenarios(settings: AssaySettings, report_dir: Path, scenarios: tuple[
                 first_fault_phase=first.fault_phase if first is not None else "",
                 first_fault_output=first.fault_output if first is not None else "",
             )
-            return Ok(fold(Claim.BRIDGE, "verify", tuple(row.completed for row in rows), detail=summary))
+            report = fold(Claim.BRIDGE, "verify", tuple(row.completed for row in rows), detail=summary)
+            return Ok(msgspec.structs.replace(report, artifacts=(*report.artifacts, *_scenario_artifacts(report_dir))))
 
 
 def _build_closure(settings: AssaySettings) -> Result[None, Fault]:
     # One stable build tree keeps the live host and --no-build client on the same output.
-    scope = ArtifactScope.build(settings, "bridge")
-    projects = (_PROTOCOL_PROJECT, _PLUGIN_PROJECT, _CLIENT_PROJECT)
-    check = Check(tool=_BUILD_TOOL, cwd=Path(str(settings.root)))
-    routed = Routed(language=Language.CSHARP, scope=Scope.CHANGED, projects=tuple(str(settings.root / p) for p in projects))
-    return _affirm(run_check(check, settings=settings, scope=scope, routed=routed, deadline=None))
+    def locked(_held: object) -> Result[None, Fault]:
+        scope = ArtifactScope.build(settings, "bridge")
+        projects = (_PROTOCOL_PROJECT, _PLUGIN_PROJECT, _CLIENT_PROJECT)
+        check = Check(tool=_BUILD_TOOL, cwd=Path(str(settings.root)))
+        routed = Routed(language=Language.CSHARP, scope=Scope.CHANGED, projects=tuple(str(settings.root / p) for p in projects))
+        return _affirm(run_check(check, settings=settings, scope=scope, routed=routed, deadline=None))
+
+    return leased(f"build-bridge-{settings.configuration.value}", locked, settings=settings, run_id=settings.run_id, project="bridge")
+
+
+def _scenario_artifacts(report_dir: Path) -> tuple[Artifact, ...]:
+    return tuple(
+        Artifact(
+            id=path.stem, kind=ArtifactKind.RHINO, path=str(path), bytes=path.stat().st_size, lines=len(path.read_text(errors="replace").splitlines())
+        )
+        for path in sorted(report_dir.glob("*.json"))
+        if path.is_file()
+    )
 
 
 def _affirm(outcome: Result[Completed, Fault]) -> Result[None, Fault]:

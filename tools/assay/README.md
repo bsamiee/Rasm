@@ -90,7 +90,7 @@ Example:
 Verbs: `fix`, `report`, `build`, `full`, `plan`
 Inputs: `[paths...]`, `--language`
 Output: shared `Report`; `plan` emits route/build-scope artifacts.
-Use: `fix` mutates; `report` diagnoses; `build` compiles the routed closure; `full` runs the build-shaped closure rail.
+Use: `fix` mutates under lease; `report` diagnoses; `build` compiles the routed restore/build closure; `full` runs the build-shaped closure for Debug and Release.
 Example:
     `uv run python -m tools.assay static plan --language csharp libs/csharp/Rasm`
 
@@ -136,7 +136,7 @@ Example:
 Verbs: `doctor`, `resolve`, `query`, `show`
 Inputs: `--key`, `--symbol`, `--kind`, `--token`, `--max-lines`, `--lines`, `--grep`, `--full`, `--strict`
 Output: `ApiSurface` or `ApiResolution` detail.
-Use: sources include host assemblies, NuGet packages, Python distributions, and TypeScript declarations.
+Use: sources include host assemblies, NuGet packages, Python distributions, and TypeScript declarations; `show latest` resolves through artifact-store root priority rather than a workspace scan.
 Example:
     `uv run python -m tools.assay api query --key rhino-common --symbol Rhino.Geometry.Mesh`
 
@@ -245,7 +245,7 @@ tree-sitter
 
 OpenTelemetry
     Enables: optional spans when an OTLP endpoint is configured.
-    Boundary: no endpoint means no-op tracing.
+    Boundary: no endpoint means no-op tracing; CLI exit drains by force-flush then provider shutdown after envelope dispatch.
 
 fsspec / UPath
     Enables: artifact-store shape and local file default.
@@ -286,7 +286,7 @@ Storage and history:
 Artifact root
     Default local root is `.artifacts/assay`.
     `ArtifactStore` owns read, write, list, find, show, cache, history, and full-report artifact behavior.
-    Individual rails decide which full outputs become artifacts.
+    Individual rails decide which full outputs become artifacts; local tool outputs are copied into the store before becoming report artifacts.
     Inspect `report.artifacts` before assuming a file exists.
 
 History

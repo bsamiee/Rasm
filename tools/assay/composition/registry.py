@@ -6,8 +6,10 @@ from contextvars import ContextVar
 from functools import reduce
 from itertools import count, groupby
 from operator import attrgetter
+from pathlib import Path
 import sys
 import time
+import tomllib
 from types import FunctionType
 from typing import Final, TYPE_CHECKING
 
@@ -110,7 +112,7 @@ _PROBE_LOCKED: Final[tuple[tuple[tuple[str, ...], str], ...]] = (
     (Runner.PNPM.prefix, "pnpm-lock.yaml"),
 )
 _ENVELOPE_DECODER: Final[msgspec.json.Decoder[Envelope]] = msgspec.json.Decoder(Envelope)
-_REPORT_DECODER: Final[msgspec.json.Decoder[Report]] = msgspec.json.Decoder(Report)
+_PYPROJECT: Final[Path] = Path(__file__).resolve().parents[3] / "pyproject.toml"
 
 
 # --- [OPERATIONS] -----------------------------------------------------------------------
@@ -225,14 +227,13 @@ def _ok_envelope(bind: Bind, settings: AssaySettings, ms: float, report: Report)
 
 
 def _full_report_artifact(settings: AssaySettings, bind: Bind, report: Report) -> tuple[Artifact, ...]:
-    payload = wire_encode(report)
     name = f"{bind.claim.value}-{bind.verb}.full-report.json"
     try:
-        path = settings.store().write_bytes(payload, ArtifactKind.HISTORY.value, settings.run_id, name)
+        path, size = settings.store().write_full_report(settings.run_id, name, report)
     except OSError as exc:
         _LOG.warning("history.full_report_failed", run_id=settings.run_id, error=str(exc)[:200])
         return ()
-    return (Artifact(id="full-report", kind=ArtifactKind.HISTORY, path=path, bytes=len(payload), lines=payload.count(b"\n")),)
+    return (Artifact(id="full-report", kind=ArtifactKind.HISTORY, path=path, bytes=size, lines=0),)
 
 
 def _emit(bind: Bind, settings: AssaySettings, started: float, outcome: Result[Report, Fault]) -> Envelope:
@@ -415,29 +416,18 @@ def _persist(settings: AssaySettings, envelope: Envelope) -> None:
     # History writes are best-effort and use the same bytes delta decodes later.
     try:
         store = settings.store()
-        store.write_bytes(_encode(envelope), ArtifactKind.HISTORY.value, settings.run_id, "envelope.json")
-        _retain(store, settings.artifact_retention)
+        store.write_history(settings.run_id, _encode(envelope))
+        store.retain_history(settings.artifact_retention)
     except OSError as exc:
         _LOG.warning("history.persist_failed", run_id=settings.run_id, error=str(exc)[:200])
 
 
 def _retain(store: ArtifactStore, keep: int) -> None:
-    # ISO-prefixed run_id makes lexical order chronological; a concurrent prune racing the same run is idempotent.
-    def _rm_quiet(path: str) -> str:
-        # A concurrent pruner may already have removed `path`; only that race is silent — EACCES and other OSErrors still surface.
-        try:
-            store.remove_path(path, recursive=True)
-        except FileNotFoundError:
-            return path
-        return path
-
-    runs = sorted(store.glob(f"{ArtifactKind.HISTORY.value}/*"))
-    excess = runs[: max(0, len(runs) - keep)]
-    tuple(_rm_quiet(path) for path in excess)
+    store.retain_history(keep)
 
 
 def _run_ids(store: ArtifactStore) -> tuple[str, ...]:
-    return tuple(path.rstrip("/").rsplit("/", 1)[-1] for path in sorted(store.glob(f"{ArtifactKind.HISTORY.value}/*")))
+    return store.history_run_ids()
 
 
 def _prior(run_ids: tuple[str, ...], run_id: str) -> str:
@@ -446,28 +436,11 @@ def _prior(run_ids: tuple[str, ...], run_id: str) -> str:
 
 
 def _load_run(store: ArtifactStore, run_id: str) -> Envelope | None:
-    match run_id:
-        case "":
-            return None
-        case _:
-            try:
-                return _restore_full_report(store, _ENVELOPE_DECODER.decode(store.read_bytes(ArtifactKind.HISTORY.value, run_id, "envelope.json")))
-            except OSError, msgspec.MsgspecError:
-                return None
+    return store.load_history(run_id)
 
 
 def _restore_full_report(store: ArtifactStore, env: Envelope) -> Envelope:
-    match env.report:
-        case None:
-            return env
-        case report:
-            artifact = next((a for a in report.artifacts if a.id == "full-report"), None)
-            if artifact is None:
-                return env
-            try:
-                return msgspec.structs.replace(env, report=_REPORT_DECODER.decode(store.read_path(artifact.path)))
-            except OSError, msgspec.MsgspecError:
-                return env
+    return store.restore_full_report(env)
 
 
 def _delta_report(before_id: str, after_id: str, before: Envelope | None, after: Envelope | None) -> Report:
@@ -763,6 +736,7 @@ def build_app(registry: tuple[Bind, ...]) -> App:
     root = App(
         name="assay",
         help="Rasm polyglot quality operator.",
+        version=_project_version(),
         default_parameter=Parameter(show_default=False),
         result_action="return_value",
         backend="asyncio",
@@ -779,6 +753,15 @@ def build_app(registry: tuple[Bind, ...]) -> App:
     _register(app, self_test, name="self-test")
     _register(app, delta, name="delta")
     return app
+
+
+def _project_version() -> str:
+    try:
+        project = tomllib.loads(_PYPROJECT.read_text(encoding="utf-8")).get("project", {})
+        version = project.get("version", "")
+        return version if isinstance(version, str) and version else "0.0.0"
+    except OSError, tomllib.TOMLDecodeError:
+        return "0.0.0"
 
 
 def _register[**P](app: App, obj: App | Callable[P, object], *, name: str | None = None, help: str = "") -> App:  # noqa: A002  # cyclopts command kwarg is named "help"; mirroring the CLI surface

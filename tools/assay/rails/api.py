@@ -24,6 +24,7 @@ from tools.assay.core.engine import run_check
 from tools.assay.core.model import (
     _RESULT_CAP,  # noqa: PLC2701  # shared saturation site
     ApiResolution,
+    ApiSource,
     ApiSurface,
     Artifact,
     ArtifactKind,
@@ -67,6 +68,7 @@ _HOST_SPECS: dict[str, tuple[str, str]] = {
     "gh2": ("ManagedPlugIns/Grasshopper2Plugin.rhp/Grasshopper2.dll", "ManagedPlugIns/Grasshopper2Plugin.rhp/Grasshopper2.xml"),
     "gh2-io": ("ManagedPlugIns/Grasshopper2Plugin.rhp/GrasshopperIO.dll", "ManagedPlugIns/Grasshopper2Plugin.rhp/GrasshopperIO.xml"),
     "rhino-code": ("Rhino.Runtime.Code.dll", ""),
+    "rhino-code-remote": ("Rhino.Runtime.Code.Remote.dll", ""),
     "rhino-common": ("RhinoCommon.dll", "RhinoCommon.xml"),
     "rhino-ui": ("Rhino.UI.dll", "Rhino.UI.xml"),
 }
@@ -117,6 +119,7 @@ _INSPECT_KINDS: tuple[tuple[str, Callable[[object], bool]], ...] = (  # pydist r
 )
 _NAME_CAP: int = 320
 _SIG_CAP: int = 480
+_LATEST_ARTIFACT: str = "latest"
 
 
 # --- [MODELS] ---------------------------------------------------------------------------
@@ -167,6 +170,8 @@ class _Source:
     nuspec: Path | None = None
     package_root: Path | None = None
     asset_paths: tuple[Path, ...] = ()
+    frameworks: tuple[str, ...] = ()
+    owners: tuple[str, ...] = ()
 
 
 @dataclass(frozen=True, slots=True)
@@ -187,6 +192,18 @@ class _Body:
     full: str
     selected: int
     truncated: bool
+
+
+@dataclass(frozen=True, slots=True)
+class _Detail:
+    signature: str = ""
+    doc: str = ""
+    preview: str = ""
+    member: str = ""
+    truncated: bool = False
+    lines: int = 0
+    selected: int = 0
+    artifact_paths: tuple[str, ...] = ()
 
 
 # --- [OPERATIONS] -----------------------------------------------------------------------
@@ -318,7 +335,45 @@ def _framework_dir(root: Path, asset: str) -> Path | None:
     return next(iter(ranked), None)
 
 
-def _nuget_source(settings: AssaySettings, package: str, version: str) -> _Source:
+def _frameworks(root: Path) -> tuple[str, ...]:
+    found = {p.name for asset in ("ref", "lib") for base in (root / asset,) if base.is_dir() for p in base.iterdir() if p.is_dir()}
+    ranked = (*(name for name in _FRAMEWORK_RANK if name in found), *sorted(found - frozenset(_FRAMEWORK_RANK)))
+    return tuple(ranked)
+
+
+def _package_owners(settings: AssaySettings, package: str) -> tuple[str, ...]:
+    return _package_owner_index(settings).get(package.casefold(), ())
+
+
+def _package_owner_index(settings: AssaySettings) -> dict[str, tuple[str, ...]]:
+    root = Path(str(settings.root))
+    found: dict[str, list[str]] = {}
+    for path in root.rglob("*.csproj"):
+        if any(part in {".artifacts", ".cache", "bin", "obj"} for part in path.parts):
+            continue
+        owner = path.relative_to(root).as_posix()
+        for package in _project_references(path):
+            found.setdefault(package, []).append(owner)
+    return {package: tuple(sorted(owners)) for package, owners in found.items()}
+
+
+def _project_references(path: Path) -> tuple[str, ...]:
+    try:
+        root = ET.fromstring(path.read_bytes())  # noqa: S314  # trusted local project XML
+    except OSError, ET.ParseError:
+        return ()
+    return tuple(
+        ref
+        for node in root.iter()
+        for ref in ((node.get("Include") or node.get("Update") or "").casefold(),)
+        if node.tag.rpartition("}")[2] == "PackageReference"
+        if ref
+    )
+
+
+def _nuget_source(
+    settings: AssaySettings, package: str, version: str, *, include_assets: bool = True, owners: tuple[str, ...] | None = None
+) -> _Source:
     # Package-stem assemblies lead so sidecar XML docs win; unrestored roots fold EMPTY.
     root = _package_root(settings, package, version)
     selected = _framework_dir(root, "ref") or _framework_dir(root, "lib")
@@ -327,7 +382,11 @@ def _nuget_source(settings: AssaySettings, package: str, version: str) -> _Sourc
     ordered = (*primary, *(a for a in assemblies if a not in primary))
     xmls = tuple(a.with_suffix(".xml") for a in ordered if a.with_suffix(".xml").is_file())
     nuspec = next(iter(sorted(root.glob("*.nuspec"))), None) if root.is_dir() else None
-    assets = tuple(sorted(p for d in _ASSET_DIRS for base in (root / d,) if base.is_dir() for p in base.rglob("*") if p.is_file()))
+    assets = (
+        tuple(sorted(p for d in _ASSET_DIRS for base in (root / d,) if base.is_dir() for p in base.rglob("*") if p.is_file()))
+        if include_assets
+        else ()
+    )
     return _Source(
         key=package,
         kind=SourceKind.NUGET,
@@ -337,11 +396,36 @@ def _nuget_source(settings: AssaySettings, package: str, version: str) -> _Sourc
         nuspec=nuspec,
         package_root=root if root.is_dir() else None,
         asset_paths=assets,
+        frameworks=_frameworks(root),
+        owners=owners if owners is not None else _package_owners(settings, package),
     )
 
 
 def _pydist_names() -> tuple[str, ...]:
     return tuple(sorted({dist.metadata["Name"] for dist in importlib.metadata.distributions() if dist.metadata["Name"]}))
+
+
+def _pydist_inventory_sources() -> tuple[ApiSource, ...]:
+    rows = []
+    for dist in importlib.metadata.distributions():
+        name = dist.metadata["Name"] or ""
+        if not name:
+            continue
+        try:
+            root = Path(str(dist.locate_file("")))
+        except OSError:
+            root = Path()
+        rows.append(
+            ApiSource(
+                source_kind=SourceKind.PYDIST,
+                source_id=name,
+                version=dist.version or "",
+                package=name,
+                package_root=str(root) if root.is_dir() else "",
+                status=RailStatus.OK,
+            )
+        )
+    return tuple(sorted(rows, key=lambda row: row.source_id.casefold()))
 
 
 def _pydist_source(key: str) -> _Source | None:
@@ -944,6 +1028,31 @@ def _artifact(settings: AssaySettings, source: _Source, name: str, content: str)
     return Artifact(id=digest, kind=ArtifactKind.SCOPE, path=str(path), bytes=len(raw), lines=len(content.splitlines()))
 
 
+def _api_source(source: _Source, *, status: RailStatus | None = None, selected: tuple[Path, ...] = ()) -> ApiSource:
+    assemblies = tuple(str(p) for p in source.assemblies)
+    xmls = tuple(str(p) for p in source.xmls)
+    assets = tuple(str(p) for p in source.asset_paths)
+    package_root = str(source.package_root) if source.package_root is not None else ""
+    return ApiSource(
+        source_kind=source.kind,
+        source_id=source.key,
+        version=source.version,
+        package=source.key if source.kind in {SourceKind.NUGET, SourceKind.PYDIST, SourceKind.TSDECL} else "",
+        primary_assembly=assemblies[0] if assemblies else "",
+        primary_xml=xmls[0] if xmls else "",
+        assemblies=assemblies,
+        xmls=xmls,
+        assets=assets,
+        package_root=package_root,
+        nuspec=str(source.nuspec) if source.nuspec is not None else "",
+        frameworks=source.frameworks,
+        owners=source.owners,
+        restore="restored" if package_root else ("missing" if source.kind is SourceKind.NUGET else ""),
+        status=status or (RailStatus.OK if source.assemblies or source.asset_paths or source.package_root else RailStatus.EMPTY),
+        selected=tuple(str(p) for p in selected),
+    )
+
+
 def _matches(rows: tuple[str, ...], kind: ArtifactKind, pattern: str) -> tuple[Match, ...]:
     # Caller-supplied kind keeps type and scope match evidence distinct.
     query = pattern.casefold()
@@ -972,56 +1081,125 @@ def doctor(settings: AssaySettings, scope: ArtifactScope, p: ApiParams) -> Resul
     """
     surface_tool = next((t for t in select(Claim.API, Language.CSHARP)), None)
     version = _invoke(settings, scope, surface_tool, "--version") if surface_tool is not None else Completed(("ilspycmd",), 1)
-    rows = _inventory(settings, _rhino_app(settings), version)
+    sources = _inventory_sources(settings, _rhino_app(settings), version)
+    healthy = tuple(s for s in sources if s.status is RailStatus.OK)
+    artifacts = _inventory_artifacts(settings, sources)
     done = Completed(
         ("api", "doctor"),
         0,
-        status=RailStatus.OK if all(ok for _, ok, _, _ in rows) else RailStatus.EMPTY,
-        notes=(f"{sum(1 for _, ok, _, _ in rows if ok)}/{len(rows)} inventory sources healthy",),
+        status=RailStatus.OK if len(healthy) == len(sources) else RailStatus.EMPTY,
+        notes=(f"{len(healthy)}/{len(sources)} inventory sources healthy",),
     )
     detail = ApiSurface(
         source_kind=SourceKind.TOOL,
         source_id="ilspycmd",
         version=version.stdout.decode(errors="replace").splitlines()[0].strip() if version.stdout else "",
+        source=next((s for s in sources if s.source_id == "ilspycmd"), ApiSource(source_kind=SourceKind.TOOL, source_id="ilspycmd")),
         shape=SymbolShape.INDEX,
-        preview="\n".join(f"{'[OK]' if ok else '[MISSING]'} {name}: {text}" for name, ok, text, _ in rows),
+        preview="\n".join(
+            f"{s.status.value}\t{s.source_kind.value}\t{s.source_id}\t{s.version or s.package_root}" for s in _compact_sources(sources)
+        ),
+        lines=len(sources),
+        selected=len(healthy),
+        artifact_paths=tuple(a.path for a in artifacts),
     )
     results = tuple(
         Match(
             id=f"inventory-{i:03d}",
             kind=ArtifactKind.SCOPE,
-            text=f"{name}: {text}" if text else name,
-            score=100 if ok else 0,
-            severity=None if ok else "missing",
+            text=f"{source.source_id}: {source.version or source.package_root or source.reason}",
+            score=100 if source.status is RailStatus.OK else 0,
+            severity=None if source.status is RailStatus.OK else "missing",
         )
-        for i, (name, ok, text, _) in enumerate(rows, start=1)
+        for i, source in enumerate(_compact_sources(sources), start=1)
     )
-    artifact = _inventory_artifact(settings, rows)
-    return _strict(msgspec.structs.replace(fold(Claim.API, "doctor", (done,), detail=detail), artifacts=(artifact,), results=results), p)
+    return _strict(msgspec.structs.replace(fold(Claim.API, "doctor", (done,), detail=detail), artifacts=artifacts, results=results), p)
 
 
-def _inventory_artifact(settings: AssaySettings, rows: tuple[tuple[str, bool, str, SourceKind], ...]) -> Artifact:
-    content = "\n".join(f"{kind.value}\t{'ok' if ok else 'missing'}\t{name}\t{text}" for name, ok, text, kind in rows)
-    raw = content.encode()
-    path = settings.store().write_bytes(raw, ArtifactKind.SCOPE.value, "api", settings.run_id, "doctor-inventory.tsv")
-    return Artifact(id="doctor-inventory", kind=ArtifactKind.SCOPE, path=path, bytes=len(raw), lines=len(rows))
-
-
-def _inventory(settings: AssaySettings, app: Path | None, version: Completed) -> tuple[tuple[str, bool, str, SourceKind], ...]:
-    # Include host-source rows even when a source has no assemblies.
-    packages = _packages(settings)
-    host_keys = tuple(k for k in _HOST_SPECS if _host_source(settings, k) is not None)
-    host_present = tuple(k for k in host_keys if (src := _host_source(settings, k)) is not None and src.assemblies)
-    pydists = _pydist_names()
-    tsdecls = _tsdecl_names(settings)
-    ilspy_ver = (version.stdout.decode(errors="replace").splitlines()[0].strip() if version.stdout else "") or "unavailable"
+def _inventory_artifacts(settings: AssaySettings, sources: tuple[ApiSource, ...]) -> tuple[Artifact, ...]:
+    store = settings.store()
+    json_raw = _ENCODER.encode(sources)
+    tsv = "\n".join(_source_tsv(source) for source in sources)
+    tsv_raw = tsv.encode()
+    json_path, tsv_path = store.write_many((
+        (json_raw, (ArtifactKind.SCOPE.value, "api", settings.run_id, "doctor-inventory.json")),
+        (tsv_raw, (ArtifactKind.SCOPE.value, "api", settings.run_id, "doctor-inventory.tsv")),
+    ))
     return (
-        ("rhino-app", app is not None and app.is_dir(), str(app) if app is not None else "", SourceKind.ASSEMBLY),
-        ("ilspycmd", version.returncode == 0, ilspy_ver, SourceKind.TOOL),
-        ("host-sources", bool(host_present), ",".join(host_present), SourceKind.ASSEMBLY),
-        ("nuget-sources", bool(packages), str(len(packages)), SourceKind.NUGET),
-        ("python-dists", bool(pydists), str(len(pydists)), SourceKind.PYDIST),
-        ("ts-decls", bool(tsdecls), str(len(tsdecls)), SourceKind.TSDECL),
+        Artifact(id="doctor-inventory-json", kind=ArtifactKind.SCOPE, path=json_path, bytes=len(json_raw), lines=len(sources)),
+        Artifact(id="doctor-inventory-tsv", kind=ArtifactKind.SCOPE, path=tsv_path, bytes=len(tsv_raw), lines=len(sources)),
+    )
+
+
+def _source_tsv(source: ApiSource) -> str:
+    cells: tuple[str, ...] = (
+        str(source.source_kind),
+        str(source.status),
+        source.source_id,
+        source.version,
+        source.package_root,
+        ",".join(source.frameworks),
+        ",".join(source.owners),
+        str(len(source.assemblies)),
+        str(len(source.xmls)),
+        str(len(source.assets)),
+    )
+    return "\t".join(cells)
+
+
+def _inventory_sources(settings: AssaySettings, app: Path | None, version: Completed) -> tuple[ApiSource, ...]:
+    roots = _root_inventory_sources(settings, app, version)
+    nugets = _nuget_inventory_sources(settings)
+    polyglot = _polyglot_inventory_sources(settings)
+    return (*roots, *nugets, *polyglot)
+
+
+def _root_inventory_sources(settings: AssaySettings, app: Path | None, version: Completed) -> tuple[ApiSource, ...]:
+    app_source = ApiSource(
+        source_kind=SourceKind.ASSEMBLY,
+        source_id="rhino-app",
+        package_root=str(app) if app is not None else "",
+        status=RailStatus.OK if app is not None and app.is_dir() else RailStatus.EMPTY,
+    )
+    ilspy_ver = (version.stdout.decode(errors="replace").splitlines()[0].strip() if version.stdout else "") or "unavailable"
+    tool_source = ApiSource(
+        source_kind=SourceKind.TOOL, source_id="ilspycmd", version=ilspy_ver, status=RailStatus.OK if version.returncode == 0 else RailStatus.EMPTY
+    )
+    hosts = tuple(
+        _api_source(src, status=RailStatus.OK if src.assemblies else RailStatus.EMPTY)
+        for key in _HOST_SPECS
+        for src in (_host_source(settings, key),)
+        if src is not None
+    )
+    return (app_source, tool_source, *hosts)
+
+
+def _nuget_inventory_sources(settings: AssaySettings) -> tuple[ApiSource, ...]:
+    packages = _packages(settings)
+    owners = _package_owner_index(settings)
+    return tuple(
+        _api_source(_nuget_source(settings, package, version, include_assets=False, owners=owners.get(package.casefold(), ())), status=None)
+        for package, version in sorted(packages.items())
+    )
+
+
+def _polyglot_inventory_sources(settings: AssaySettings) -> tuple[ApiSource, ...]:
+    pydists = _pydist_inventory_sources()
+    pydist_names = tuple(source.source_id for source in pydists)
+    tsdecl_names = _tsdecl_names(settings)
+    pydist_summary = ApiSource(source_kind=SourceKind.PYDIST, source_id="python-dists", status=RailStatus.OK if pydist_names else RailStatus.EMPTY)
+    tsdecl_summary = ApiSource(source_kind=SourceKind.TSDECL, source_id="ts-decls", status=RailStatus.OK if tsdecl_names else RailStatus.EMPTY)
+    tsdecls = tuple(
+        src for name in tsdecl_names for source in (_tsdecl_source(settings, name),) if source is not None for src in (_api_source(source),)
+    )
+    return (pydist_summary, tsdecl_summary, *pydists, *tsdecls)
+
+
+def _compact_sources(sources: tuple[ApiSource, ...]) -> tuple[ApiSource, ...]:
+    return tuple(
+        source
+        for source in sources
+        if source.source_kind in {SourceKind.ASSEMBLY, SourceKind.NUGET, SourceKind.TOOL} or source.source_id in {"python-dists", "ts-decls"}
     )
 
 
@@ -1060,7 +1238,13 @@ def _resolve_report(settings: AssaySettings, source: _Source, p: ApiParams) -> R
     artifact = _artifact(settings, source, f"{p.kind}.paths.txt", "\n".join(str(t) for t in targets))
     note = f"{len(existing)}/{len(targets)} {p.kind} paths present"
     done = Completed(("api", "resolve", p.key), 0, status=RailStatus.OK if existing else RailStatus.EMPTY, notes=(note,))
-    detail = _api_detail(source, SymbolShape.SEARCH, preview="\n".join(str(t) for t in existing[:_PREVIEW_ROWS]))
+    detail = _api_detail(
+        source,
+        SymbolShape.SEARCH,
+        _Detail(
+            preview="\n".join(str(t) for t in existing[:_PREVIEW_ROWS]), lines=len(targets), selected=len(existing), artifact_paths=(artifact.path,)
+        ),
+    )
     report = fold(Claim.API, "resolve", (done,), detail=detail)
     return msgspec.structs.replace(report, artifacts=(artifact,), results=_matches(tuple(str(t) for t in targets), ArtifactKind.SCOPE, ""))
 
@@ -1138,7 +1322,17 @@ def _roster_report(settings: AssaySettings, surface: _Surface, shape: SymbolShap
         status=RailStatus.OK if rows else RailStatus.EMPTY,
         notes=(f"{len(surface.types)} types across {len(surface.namespaces)} namespaces",),
     )
-    detail = _api_detail(source, shape, preview="\n".join(rows[:_PREVIEW_ROWS]), truncated=len(rows) > _PREVIEW_ROWS, lines=len(rows))
+    detail = _api_detail(
+        source,
+        shape,
+        _Detail(
+            preview="\n".join(rows[:_PREVIEW_ROWS]),
+            truncated=len(rows) > _PREVIEW_ROWS,
+            lines=len(rows),
+            selected=len(rows),
+            artifact_paths=(artifact.path,),
+        ),
+    )
     store = settings.store()
     extra = _cache_artifact(store, surface.cache) if shape is SymbolShape.INDEX and store.exists_path(surface.cache) else None
     artifacts = (artifact, extra) if extra is not None else (artifact,)
@@ -1158,11 +1352,19 @@ def _search_report(settings: AssaySettings, surface: _Surface, p: ApiParams) -> 
             return fold(Claim.API, "query", (done,), detail=ApiResolution(candidates=_candidates(surface.types, p.symbol), reason="partial"))
         case _:
             done = Completed(("api", "query", source.key), 0, status=RailStatus.OK, notes=(f"{len(hits)} search hits",))
-            detail = _api_detail(
-                source, SymbolShape.SEARCH, preview="\n".join(hits[:_PREVIEW_ROWS]), truncated=len(hits) > _PREVIEW_ROWS, lines=len(hits)
-            )
             # _matches caps at _RESULT_CAP; the artifact carries the full hit set so the "full results under run_id" breadcrumb holds.
             artifact = _artifact(settings, source, "search.txt", "\n".join(hits))
+            detail = _api_detail(
+                source,
+                SymbolShape.SEARCH,
+                _Detail(
+                    preview="\n".join(hits[:_PREVIEW_ROWS]),
+                    truncated=len(hits) > _PREVIEW_ROWS,
+                    lines=len(hits),
+                    selected=len(hits),
+                    artifact_paths=(artifact.path,),
+                ),
+            )
             return msgspec.structs.replace(
                 fold(Claim.API, "query", (done,), detail=detail), artifacts=(artifact,), results=_matches(hits, ArtifactKind.SCOPE, p.symbol)
             )
@@ -1190,40 +1392,38 @@ def _decompile_body(settings: AssaySettings, surface: _Surface, shape: SymbolSha
     detail = _api_detail(
         surface.source,
         final_shape,
-        signature=body.signature,
-        doc=body.xml,
-        preview=body.window,
-        member=p.symbol.rpartition(".")[2] if is_member else "",
-        truncated=body.truncated,
-        lines=body.selected,
+        _Detail(
+            signature=body.signature,
+            doc=body.xml,
+            preview=body.window,
+            member=p.symbol.rpartition(".")[2] if is_member else "",
+            truncated=body.truncated,
+            lines=body.selected,
+            selected=body.selected,
+            artifact_paths=(artifact.path,),
+        ),
     )
     done = Completed(("api", "query", surface.source.key), 0, status=RailStatus.OK, notes=(f"{body.selected} selected lines",))
     result = Match(id=f"{final_shape.value}-001", kind=ArtifactKind.SCOPE, text=(resolved_fqn or p.symbol)[:_NAME_CAP], score=100)
     return msgspec.structs.replace(fold(Claim.API, "query", (done,), detail=detail), artifacts=(artifact,), results=(result,))
 
 
-def _api_detail(
-    source: _Source,
-    shape: SymbolShape,
-    *,
-    signature: str = "",
-    doc: str = "",
-    preview: str = "",
-    member: str = "",
-    truncated: bool = False,
-    lines: int = 0,
-) -> ApiSurface:
+def _api_detail(source: _Source, shape: SymbolShape, detail: _Detail | None = None) -> ApiSurface:
+    active = detail or _Detail()
     return ApiSurface(
         source_kind=source.kind,
         source_id=source.key,
         version=source.version,
+        source=_api_source(source),
         shape=shape,
-        signature=signature,
-        doc=doc,
-        preview=preview,
-        member=member,
-        truncated=truncated,
-        lines=lines,
+        signature=active.signature,
+        doc=active.doc,
+        preview=active.preview,
+        member=active.member,
+        truncated=active.truncated,
+        lines=active.lines,
+        selected=active.selected,
+        artifact_paths=active.artifact_paths,
     )
 
 
@@ -1242,37 +1442,49 @@ def show(settings: AssaySettings, scope: ArtifactScope, p: ApiParams) -> Result[
     """
     _ = scope
     store = settings.store()
-    match _show_target(store, p):
-        case str() as path:
-            return _strict(_show_store_report(store, path, p), p)
+    match _show_targets(store, p):
+        case (path, *rest):
+            return _strict(_show_store_report(store, path, p, matched=1 + len(rest)), p)
         case _:
             done = Completed(("api", "show", p.token), 0, status=RailStatus.EMPTY, notes=(f"artifact not found: {p.token}",))
             return _strict(fold(Claim.API, "show", (done,)), p)
 
 
-def _show_store_report(store: ArtifactStore, path: str, p: ApiParams) -> Report:
+def _show_store_report(store: ArtifactStore, path: str, p: ApiParams, *, matched: int = 1) -> Report:
     text = store.read_text_path(path)
     window, total, truncated = _slice(text, lines=p.lines, grep=p.grep, max_lines=p.max_lines, full=p.full)
     digest = hashlib.sha256(f"{path}|{p.token}".encode()).hexdigest()[:12]
     artifact = Artifact(
         id=digest, kind=ArtifactKind.SCOPE, path=path, bytes=store.size_path(path, fallback=len(text.encode())), lines=len(text.splitlines())
     )
-    detail = ApiSurface(source_kind=SourceKind.TOOL, source_id=p.token, shape=SymbolShape.SEARCH, preview=window, truncated=truncated, lines=total)
-    done = Completed(("api", "show", p.token), 0, status=RailStatus.OK, notes=(f"{total} selected lines",))
+    source = ApiSource(source_kind=SourceKind.TOOL, source_id=p.token, assets=(path,), status=RailStatus.OK, selected=(path,))
+    detail = ApiSurface(
+        source_kind=SourceKind.TOOL,
+        source_id=p.token,
+        source=source,
+        shape=SymbolShape.SEARCH,
+        preview=window,
+        truncated=truncated,
+        lines=total,
+        selected=total,
+        artifact_paths=(path,),
+    )
+    notes = (f"{total} selected lines", *(f"{matched} artifact matches; selected newest" for _ in range(1) if matched > 1))
+    done = Completed(("api", "show", p.token), 0, status=RailStatus.OK, notes=notes)
     return msgspec.structs.replace(fold(Claim.API, "show", (done,), detail=detail), artifacts=(artifact,))
 
 
-def _show_target(store: ArtifactStore, p: ApiParams) -> str | None:
-    try:
-        direct = store.backend_path(p.token)
-        if store.exists_path(direct):
-            return direct
-    except ValueError:
-        direct = ""
-    matches = tuple(path for path in store.find(ArtifactKind.SCOPE.value) if path.endswith((f"/{p.token}", p.token)))
-    ranked = tuple(sorted(matches, key=store.mtime_path, reverse=True))
-    selected = next(iter(ranked), None)
-    return str(selected) if selected is not None else None
+def _show_targets(store: ArtifactStore, p: ApiParams) -> tuple[str, ...]:
+    return store.resolve_artifacts(
+        p.token,
+        f"{ArtifactKind.SCOPE.value}/api",
+        ArtifactKind.SCOPE.value,
+        ArtifactKind.HISTORY.value,
+        ArtifactKind.PROCESS.value,
+        ArtifactKind.TEST.value,
+        ArtifactKind.CODE.value,
+        latest=p.token == _LATEST_ARTIFACT,
+    )
 
 
 def _cache_artifact(store: ArtifactStore, path: str) -> Artifact:

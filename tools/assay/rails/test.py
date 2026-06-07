@@ -12,7 +12,7 @@ import msgspec
 import structlog
 
 from tools.assay.composition.catalog import select
-from tools.assay.composition.settings import ArtifactScope, AssaySettings  # noqa: TC001  # unconditional for beartype runtime
+from tools.assay.composition.settings import ArtifactScope, ArtifactStore, AssaySettings  # noqa: TC001  # unconditional for beartype runtime
 from tools.assay.core.engine import fan_out, leased
 from tools.assay.core.model import (
     Artifact,
@@ -46,11 +46,12 @@ if TYPE_CHECKING:
 
 _GAP_NOTE: str = "mutation requested but no eligible lane (typescript has no mutation runner; or target/all overrides the default)"
 _COVERAGE_OUTPUTS: tuple[tuple[str, tuple[str, ...]], ...] = (
-    ("coverage.json", ("uv", "run", "coverage", "json")),
-    ("coverage.xml", ("uv", "run", "coverage", "xml")),
-    ("coverage.lcov", ("uv", "run", "coverage", "lcov")),
+    ("coverage.json", ("uv", "run", "coverage", "json", "-o", ".artifacts/python/coverage/coverage.json")),
+    ("coverage.xml", ("uv", "run", "coverage", "xml", "-o", ".artifacts/python/coverage/coverage.xml")),
+    ("coverage.lcov", ("uv", "run", "coverage", "lcov", "-o", ".artifacts/python/coverage/coverage.lcov")),
 )
 _TESTS = msgspec.json.Decoder(TestRun)
+_ROSTER_ENCODER = msgspec.json.Encoder(order="deterministic")
 
 
 # --- [MODELS] ---------------------------------------------------------------------------
@@ -118,7 +119,7 @@ def _mutation_gap(params: TestParams, rows: tuple[Tool, ...]) -> bool:
 
 
 def _filter(expr: str) -> tuple[str, ...]:
-    # Mirror the quality MTP filter discriminant: query (/...), trait (k=v), class (suffix/+), else method.
+    # MTP filter discriminant: query (/...), trait (k=v), class (suffix/+), else method.
     match expr.strip():
         case "":
             return ()
@@ -222,11 +223,28 @@ def _coverage_artifacts(settings: AssaySettings, done: tuple[Completed, ...]) ->
     root = Path(str(settings.root)) / ".artifacts/python/coverage"
     produced = frozenset(name for name, head in _COVERAGE_OUTPUTS if any(c.argv[: len(head)] == head and c.returncode == 0 for c in done))
     paths = tuple(p for name in produced for p in (root / name,) if p.is_file())
-    return tuple(
-        Artifact(
-            id=path.name, kind=ArtifactKind.TEST, path=str(path), bytes=path.stat().st_size, lines=len(path.read_text(errors="replace").splitlines())
-        )
-        for path in paths
+    store = settings.store()
+    return tuple(_adopt_coverage(store, settings.run_id, path) for path in paths)
+
+
+def _adopt_coverage(store: ArtifactStore, run_id: str, path: Path) -> Artifact:
+    raw = path.read_bytes()
+    stored = store.write_bytes(raw, ArtifactKind.TEST.value, run_id, "coverage", path.name)
+    return Artifact(id=path.name, kind=ArtifactKind.TEST, path=stored, bytes=len(raw), lines=len(raw.decode(errors="replace").splitlines()))
+
+
+def _roster_artifacts(settings: AssaySettings, discovered: tuple[Match, ...]) -> tuple[Artifact, ...]:
+    text = "\n".join(m.text for m in discovered)
+    raw = _ROSTER_ENCODER.encode(discovered)
+    store = settings.store()
+    text_raw = text.encode()
+    text_path, json_path = store.write_many((
+        (text_raw, (ArtifactKind.TEST.value, settings.run_id, "roster.txt")),
+        (raw, (ArtifactKind.TEST.value, settings.run_id, "roster.json")),
+    ))
+    return (
+        Artifact(id="test-roster", kind=ArtifactKind.TEST, path=text_path, bytes=len(text_raw), lines=len(discovered)),
+        Artifact(id="test-roster-json", kind=ArtifactKind.TEST, path=json_path, bytes=len(raw), lines=len(discovered)),
     )
 
 
@@ -293,6 +311,7 @@ def list(settings: AssaySettings, scope: ArtifactScope, params: TestParams) -> R
         outcomes = tuple(done)
         base = fold(Claim.TEST, "list", outcomes)
         discovered = tuple(m for m in _roster_matches(outcomes) if not needle or needle in m.text.lower())
+        artifacts = (*base.artifacts, _results_artifact(scope), *_roster_artifacts(settings, discovered))
         roster = discovered[: params.limit] if params.limit > 0 else discovered
         note = (f"discovery: total={len(discovered)} returned={len(roster)}",) if discovered else ()
         diagnostics = tuple(
@@ -304,15 +323,10 @@ def list(settings: AssaySettings, scope: ArtifactScope, params: TestParams) -> R
         notes = (*base.notes, *note, *diagnostics)
         return (
             msgspec.structs.replace(
-                base,
-                status=RailStatus.OK,
-                counts=Counts(len(roster), 0, len(roster)),
-                results=roster,
-                artifacts=(*base.artifacts, _results_artifact(scope)),
-                notes=notes,
+                base, status=RailStatus.OK, counts=Counts(len(roster), 0, len(roster)), results=roster, artifacts=artifacts, notes=notes
             )
             if roster
-            else msgspec.structs.replace(base, artifacts=(*base.artifacts, _results_artifact(scope)), notes=notes)
+            else msgspec.structs.replace(base, artifacts=artifacts, notes=notes)
         )
 
     return _routed(languages, params.paths, settings).bind(

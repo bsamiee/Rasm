@@ -32,6 +32,11 @@ Add functionality by deepening the existing polymorphic shape that owns the beha
 - External tool, backend, filesystem, subprocess, and provider names convert at registry, settings, store, engine, and envelope boundaries. Internal Assay code uses canonical axis values, typed details, artifact rows, and result rails; public output does not expose provider selectors, backend modes, or wrapper service names unless `README.md` proves operator action changes.
 - Execution environment, cache, staging, cwd, and subprocess policy extend `AssaySettings`, `Tool`, `Check`, and `core/engine.py`; they do not live in rail call-site patches, catalog-local process wrappers, or per-tool helper functions.
 - Before adding a row, flag, setting, detail, or file operation, trace the full flow from registry or rail params through routing, `Check`, engine execution, fold, envelope, artifacts, and tests. If the change only works by bypassing one of those owners, refactor the owner instead.
+- Read-only subprocess discovery, including git and file enumeration, routes through the engine discovery boundary. Routing decodes returned path rows; it does not own process spawning, timeout mapping, or subprocess status conversion.
+- Build-like rails use owner-defined mode families and stable scopes. `static build/full` and bridge build closure behavior extend `Mode`, `ArtifactScope.build`, and engine leases together; do not special-case restore/build ordering in rail call sites.
+- Artifact preview and lookup semantics belong to `ArtifactStore`. Tokens such as latest selection are explicit store queries, not empty substring matches, path scans in rails, or backend-specific filesystem shortcuts.
+- Local tool outputs that must first exist on disk are adopted into `ArtifactStore` before becoming report artifacts. Raw local paths are acceptable only as the external tool boundary, not as the final Assay artifact contract.
+- AOT and observability lifecycle changes preserve the `core.aspect` pre-claw exception, explicit checked/logged/traced boundary layers, stderr-only logging, and CLI provider drain order: envelope dispatch, force flush, then provider shutdown.
 
 ## [4][ENGINEERING_RULES]
 

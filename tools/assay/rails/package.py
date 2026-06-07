@@ -44,7 +44,7 @@ from tools.assay.rails.bridge import _client_run as _bridge_client_run  # noqa: 
 
 
 if TYPE_CHECKING:
-    from collections.abc import Callable, Iterable
+    from collections.abc import Iterable
 
 
 # --- [TYPES] ----------------------------------------------------------------------------
@@ -111,7 +111,7 @@ class PackageParams(BaseParams):
 
 
 class _MsbuildProps(Base, frozen=True):
-    Properties: dict[str, str] = {}  # noqa: RUF012  # MSBuild wire key is PascalCase; default-empty so a missing block decodes total
+    Properties: dict[str, str] = msgspec.field(default_factory=dict)  # MSBuild wire key is PascalCase; missing block decodes total
 
 
 class YakMeta(Base, frozen=True, gc=False):
@@ -165,9 +165,18 @@ class YakMeta(Base, frozen=True, gc=False):
             Current metadata when staging preconditions hold, or a fault.
         """
         root = Path(str(settings.root)).resolve()
-        expected = (self.project_dir / "bin" / settings.configuration.value / self.target_framework).resolve()
-        resolved = self.target_dir.resolve()
+        project = (root / self.project).resolve()
+        project_dir = _absolute(root, self.project_dir)
+        manifest_dir = _absolute(root, self.manifest_dir)
+        package_dir = _absolute(root, self.package_dir)
+        expected = (project_dir / "bin" / settings.configuration.value / self.target_framework).resolve()
+        resolved = _absolute(root, self.target_dir)
         checks: tuple[tuple[bool, str], ...] = (
+            (project.is_file() and project.is_relative_to(root), f"package project escaped workspace: {self.project}"),
+            (project_dir.is_relative_to(root), f"project directory escaped workspace: {self.project_dir}"),
+            (manifest_dir.is_relative_to(root), f"manifest directory escaped workspace: {self.manifest_dir}"),
+            (package_dir.is_relative_to(root), f"package directory escaped workspace: {self.package_dir}"),
+            (_safe_package_pattern(self.package_pattern), f"unsafe package pattern for {slug}: {self.package_pattern}"),
             (evaluated_slug == slug, f"package slug mismatch for {self.project}: expected {slug}, evaluated {evaluated_slug}"),
             (self.target_ext == _RHP, f"package project must emit {_RHP} for {slug}: {self.project}"),
             (resolved.is_relative_to(root) and resolved == expected, f"refusing to clean unexpected output directory: {self.target_dir}"),
@@ -178,6 +187,14 @@ class YakMeta(Base, frozen=True, gc=False):
             (self.yak_path.is_file() and os.access(self.yak_path, os.X_OK), f"yak not executable at {self.yak_path}"),
         )
         return next((Error(Fault(("yak", slug), message=detail)) for ok, detail in checks if not ok), Ok(self))
+
+
+def _absolute(root: Path, path: Path) -> Path:
+    return path.resolve() if path.is_absolute() else (root / path).resolve()
+
+
+def _safe_package_pattern(pattern: str) -> bool:
+    return bool(pattern) and "/" not in pattern and "\\" not in pattern and "\x00" not in pattern and ".." not in Path(pattern).parts
 
 
 # --- [TABLES] ---------------------------------------------------------------------------
@@ -362,23 +379,50 @@ def _commit(meta: YakMeta, staged: Path, slug: str) -> Result[Report, Fault]:
 
 def _stage_meta(settings: AssaySettings, scope: ArtifactScope, meta: YakMeta, slug: str, version: str) -> Result[Report, Fault]:
     # Stage under package_dir's parent so the final replace is same-filesystem and lease-scoped.
-    meta.package_dir.parent.mkdir(parents=True, exist_ok=True)
-    staged = Path(mkdtemp(prefix=f"{meta.package_dir.name}.", dir=meta.package_dir.parent))
     resource = f"{_PACKAGE_STAGE}-{meta.package_dir.name}"
-    splice = _stage_artifacts(meta, staged)
 
     def locked(_held: object) -> Result[Report, Fault]:
-        return splice.bind(lambda _: _run_yak(meta, _yak_build_tail(meta, version), Mode.STAGE, cwd=staged, settings=settings, scope=scope)).bind(
-            lambda done: _commit_or_fail(meta, staged, slug, version, done)
-        )
+        meta.package_dir.parent.mkdir(parents=True, exist_ok=True)
+        staged = Path(mkdtemp(prefix=f"{meta.package_dir.name}.", dir=meta.package_dir.parent))
+        outcome = _build_outputs(meta, settings, scope).bind(lambda built: _copy_after_build(meta, staged, slug, version, built, settings, scope))
+        match outcome:
+            case Result(tag="error"):
+                rmtree(staged, ignore_errors=True)
+                return outcome
+            case _:
+                return outcome
 
-    outcome = leased(resource, locked, settings=settings, run_id=settings.run_id, project=slug, mode="exclusive")
-    match outcome:
-        case Result(tag="error"):
+    return leased(resource, locked, settings=settings, run_id=settings.run_id, project=slug, mode="exclusive")
+
+
+def _build_outputs(meta: YakMeta, settings: AssaySettings, scope: ArtifactScope) -> Result[Completed, Fault]:
+    tool = Tool(
+        "dotnet-build",
+        Runner.DOTNET,
+        ("build", meta.project, "-c", settings.configuration.value, "-v:quiet", "/clp:ErrorsOnly"),
+        Input.NONE,
+        Language.CSHARP,
+        Claim.PACKAGE,
+        mode=Mode.BUILD,
+    )
+    return run_check(
+        Check(tool=tool, cwd=Path(str(settings.root))), settings=settings, scope=scope, routed=Routed(language=Language.CSHARP, scope=Scope.CHANGED)
+    )
+
+
+def _copy_after_build(
+    meta: YakMeta, staged: Path, slug: str, version: str, built: Completed, settings: AssaySettings, scope: ArtifactScope
+) -> Result[Report, Fault]:
+    match built.status:
+        case RailStatus.FAILED | RailStatus.FAULTED | RailStatus.TIMEOUT:
             rmtree(staged, ignore_errors=True)
-            return outcome
+            return Ok(fold(Claim.PACKAGE, "stage", (built,)))
         case _:
-            return outcome
+            return (
+                _stage_artifacts(meta, staged)
+                .bind(lambda _: _run_yak(meta, _yak_build_tail(meta, version), Mode.STAGE, cwd=staged, settings=settings, scope=scope))
+                .bind(lambda done: _commit_or_fail(meta, staged, slug, version, done))
+            )
 
 
 def _commit_or_fail(meta: YakMeta, staged: Path, slug: str, version: str, done: Completed) -> Result[Report, Fault]:
@@ -440,9 +484,10 @@ def _drive_steps(
 ) -> Result[Report, Fault]:
     # Bridge-bound policy acquires bridge.lock once for quit -> install -> refresh.
     needs_bridge = any(step in {"quit", "refresh"} for step in steps)
-    run_steps: Callable[[object], Result[Report, Fault]] = lambda _held: _fold_steps(  # noqa: E731  # thunk closes over the lease boundary
-        settings, scope, meta, verb, staged, package_file, steps
-    )
+
+    def run_steps(_held: object) -> Result[Report, Fault]:
+        return _fold_steps(settings, scope, meta, verb, staged, package_file, steps)
+
     match needs_bridge:
         case True:
             return leased(_BRIDGE_LOCK, run_steps, settings=settings, run_id=settings.run_id, project=slug, mode="exclusive")
@@ -469,11 +514,14 @@ def _lifecycle(settings: AssaySettings, scope: ArtifactScope, params: PackagePar
             lambda staged: _finish(settings, scope, meta, params.slug, verb, staged)
         )
 
-    return (
-        _resolve_project(settings, params.slug)
-        .bind(lambda project: evaluate_meta(settings, scope, project, params.slug, params.version))
-        .bind(staged_then_finish)
-    )
+    def locked(_held: object) -> Result[Report, Fault]:
+        return (
+            _resolve_project(settings, params.slug)
+            .bind(lambda project: evaluate_meta(settings, scope, project, params.slug, params.version))
+            .bind(staged_then_finish)
+        )
+
+    return leased(f"package-{params.slug or 'default'}", locked, settings=settings, run_id=settings.run_id, project=params.slug, mode="exclusive")
 
 
 # --- [COMPOSITION] ----------------------------------------------------------------------

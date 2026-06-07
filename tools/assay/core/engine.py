@@ -100,12 +100,31 @@ class _ExecPlan:
     thread_limiter: anyio.CapacityLimiter | None
 
 
+@dataclass(frozen=True, slots=True)
+class _Captured:
+    tail: bytes = b""
+    path: str = ""
+    size: int = 0
+    lines: int = 0
+
+
 _SSH_CACHE: ContextVar[_SshCache | None] = ContextVar("assay_ssh_cache", default=None)
 
 
 @runtime_checkable
 class _Nullary(Protocol):
     def __call__(self) -> float | int | str: ...
+
+
+class _WriteSink(Protocol):
+    def write(self, payload: bytes) -> object: ...
+
+
+@runtime_checkable
+class _WriteContext(Protocol):
+    def __enter__(self) -> _WriteSink: ...
+
+    def __exit__(self, exc_type: type[BaseException] | None, exc: BaseException | None, tb: object) -> object: ...
 
 
 # --- [TABLES] ---------------------------------------------------------------------------
@@ -142,6 +161,49 @@ def _argv(check: Check, routed: Routed, *, settings: AssaySettings, scope: Artif
     body = ("--project", str(settings.root), *body) if tool.runner is Runner.UV and tool.stage.project else body
     tails = place(routed, tool, settings=settings)
     return (*tool.runner.prefix, *body, *(part for tail in tails for part in tail))
+
+
+def argv_for(check: Check, routed: Routed, *, settings: AssaySettings, scope: ArtifactScope | None) -> tuple[str, ...]:
+    """Project the exact argv the engine would execute for a check.
+
+    Returns:
+        Command argv after runner, scope, stage, and routed inputs are applied.
+    """
+    return _argv(check, routed, settings=settings, scope=scope)
+
+
+async def discover_async(argv: tuple[str, ...], *, root: UPath | Path | str, limit_s: float) -> Result[bytes, Fault]:
+    """Run an engine-owned read-only discovery command.
+
+    Returns:
+        Captured stdout, or a typed discovery fault.
+    """
+    try:
+        with anyio.fail_after(limit_s):
+            done = await anyio.run_process(list(argv), cwd=str(root), check=False)
+    except TimeoutError:
+        return Error(Fault(argv, RailStatus.TIMEOUT, f"timeout after {limit_s:g}s"))
+    except OSError as exc:
+        return Error(Fault(argv, RailStatus.FAULTED, str(exc)[:1024]))
+    match done.returncode:
+        case 0:
+            return Ok(done.stdout)
+        case _:
+            tail = (done.stderr or done.stdout or b"").decode(errors="replace").strip()[:1024]
+            return Error(Fault(argv, RailStatus.FAULTED, tail))
+
+
+def discover(argv: tuple[str, ...], *, root: UPath | Path | str, timeout: float) -> Result[bytes, Fault]:
+    """Run an engine-owned read-only discovery command from synchronous rails.
+
+    Returns:
+        Captured stdout, or a typed discovery fault.
+    """
+
+    async def _run() -> Result[bytes, Fault]:
+        return await discover_async(argv, root=root, limit_s=timeout)
+
+    return anyio.run(_run)
 
 
 def _materialize(check: Check, settings: AssaySettings) -> Result[Check, Fault]:
@@ -191,20 +253,31 @@ def _contained(root: Path, rel: str) -> Path | ValueError:
 
 
 async def _drain(stream: ByteReceiveStream | None, *, tail_cap: int, chunk: int) -> bytes:
-    tail, _full = await _drain_capture(stream, tail_cap=tail_cap, chunk=chunk)
-    return tail
+    captured = await _drain_capture(stream, tail_cap=tail_cap, chunk=chunk)
+    return captured.tail
 
 
-async def _drain_capture(stream: ByteReceiveStream | None, *, tail_cap: int, chunk: int) -> tuple[bytes, bytes]:
+async def _drain_capture(stream: ByteReceiveStream | None, *, tail_cap: int, chunk: int, sink: _WriteSink | None = None, path: str = "") -> _Captured:
     match stream:
         case None:
-            return b"", b""
+            return _Captured(path=path)
         case _:
-            tail, chunks = b"", []
+            tail, total, lines, last = b"", 0, 0, b""
             while (read := await _next_chunk(stream, chunk=chunk)) is not None:
-                chunks.append(read)
+                _write_sink(sink, read)
                 tail = (tail + read)[-tail_cap:]
-            return tail, b"".join(chunks)
+                total += len(read)
+                lines += read.count(b"\n")
+                last = read[-1:]
+            return _Captured(tail=tail, path=path, size=total, lines=lines + (1 if total and last != b"\n" else 0))
+
+
+def _write_sink(sink: _WriteSink | None, payload: bytes) -> None:
+    match sink:
+        case None:
+            pass
+        case _:
+            sink.write(payload)
 
 
 async def _next_chunk(stream: ByteReceiveStream, *, chunk: int) -> bytes | None:
@@ -250,17 +323,22 @@ async def _run_process_backend(plan: _ExecPlan) -> Completed:
             match plan.streaming:
                 case True:
                     proc = await anyio.open_process(list(plan.argv), cwd=plan.cwd, env=plan.env)
-                    streams: dict[str, tuple[bytes, bytes]] = {}
+                    streams: dict[str, _Captured] = {}
                     try:
                         async with anyio.create_task_group() as tg:
 
                             async def _tee(name: str, stream: ByteReceiveStream | None) -> None:
-                                streams[name] = await _drain_capture(stream, tail_cap=plan.tail_cap, chunk=plan.chunk)
+                                path, handle = _stream_writer(plan, name)
+                                if handle is None:
+                                    streams[name] = await _drain_capture(stream, tail_cap=plan.tail_cap, chunk=plan.chunk, path=path)
+                                    return
+                                with handle as sink:
+                                    streams[name] = await _drain_capture(stream, tail_cap=plan.tail_cap, chunk=plan.chunk, sink=sink, path=path)
 
                             tg.start_soon(_tee, "out", proc.stdout)
                             tg.start_soon(_tee, "err", proc.stderr)
                             await proc.wait()
-                        stdout, stderr = streams.get("out", (b"", b""))[0], streams.get("err", (b"", b""))[0]
+                        stdout, stderr = streams.get("out", _Captured()).tail, streams.get("err", _Captured()).tail
                         return receipt(
                             plan.argv,
                             proc.returncode or 0,
@@ -277,24 +355,30 @@ async def _run_process_backend(plan: _ExecPlan) -> Completed:
             return await _run_remote(replace(plan, env=plan.settings.remote_env(dict(plan.env))), target)
 
 
-def _stream_artifacts(
-    scope: ArtifactScope | None, settings: AssaySettings, check: Check, streams: Mapping[str, tuple[bytes, bytes]]
-) -> tuple[Artifact, ...]:
+def _stream_artifacts(scope: ArtifactScope | None, settings: AssaySettings, check: Check, streams: Mapping[str, _Captured]) -> tuple[Artifact, ...]:
+    _ = settings
     match scope:
         case None:
             return ()
-        case ArtifactScope(store=store):
+        case ArtifactScope():
             return tuple(
-                Artifact(
-                    id=f"{check.tool.name}-{name}",
-                    kind=ArtifactKind.PROCESS,
-                    path=store.write_bytes(full, ArtifactKind.PROCESS.value, settings.run_id, check.tool.name, f"{name}.log"),
-                    bytes=len(full),
-                    lines=full.count(b"\n") + (1 if full and not full.endswith(b"\n") else 0),
-                )
-                for name, (_tail, full) in streams.items()
-                if full
+                Artifact(id=f"{check.tool.name}-{name}", kind=ArtifactKind.PROCESS, path=captured.path, bytes=captured.size, lines=captured.lines)
+                for name, captured in streams.items()
+                if captured.path and captured.size
             )
+
+
+def _stream_writer(plan: _ExecPlan, name: str) -> tuple[str, _WriteContext | None]:
+    match plan.scope:
+        case None:
+            return "", None
+        case ArtifactScope(store=store):
+            path, handle = store.open_write(ArtifactKind.PROCESS.value, plan.settings.run_id, plan.check.tool.name, f"{name}.log")
+            match handle:
+                case _WriteContext() as writer:
+                    return path, writer
+                case _:
+                    raise TypeError(f"artifact backend returned non-context writer: {type(handle).__name__}")
 
 
 async def _run_remote(plan: _ExecPlan, target: str) -> Completed:
@@ -304,17 +388,22 @@ async def _run_remote(plan: _ExecPlan, target: str) -> Completed:
         match plan.streaming:
             case True:
                 proc = await conn.create_process(command, encoding=None, stdin=asyncssh.DEVNULL)
-                streams: dict[str, tuple[bytes, bytes]] = {}
+                streams: dict[str, _Captured] = {}
                 try:
                     async with anyio.create_task_group() as tg:
 
                         async def _tee(name: str, reader: asyncssh.SSHReader[bytes]) -> None:
-                            streams[name] = await _drain_reader(reader, tail_cap=plan.tail_cap, chunk=plan.chunk)
+                            path, handle = _stream_writer(plan, name)
+                            if handle is None:
+                                streams[name] = await _drain_reader(reader, tail_cap=plan.tail_cap, chunk=plan.chunk, path=path)
+                                return
+                            with handle as sink:
+                                streams[name] = await _drain_reader(reader, tail_cap=plan.tail_cap, chunk=plan.chunk, sink=sink, path=path)
 
                         tg.start_soon(_tee, "out", proc.stdout)
                         tg.start_soon(_tee, "err", proc.stderr)
                         await proc.wait()
-                    stdout, stderr = streams.get("out", (b"", b""))[0], streams.get("err", (b"", b""))[0]
+                    stdout, stderr = streams.get("out", _Captured()).tail, streams.get("err", _Captured()).tail
                     return receipt(
                         plan.argv,
                         _ssh_status(proc.exit_status, getattr(proc, "exit_signal", None)),
@@ -398,13 +487,16 @@ def _as_bytes(data: bytes | str | None) -> bytes:
             return data.encode()
 
 
-async def _drain_reader(reader: asyncssh.SSHReader[bytes], *, tail_cap: int, chunk: int) -> tuple[bytes, bytes]:
+async def _drain_reader(reader: asyncssh.SSHReader[bytes], *, tail_cap: int, chunk: int, sink: _WriteSink | None = None, path: str = "") -> _Captured:
     # Remote analogue of _drain_capture; an empty read is EOF.
-    tail, chunks = b"", []
+    tail, total, lines, last = b"", 0, 0, b""
     while (read := await reader.read(chunk)) != b"":
-        chunks.append(read)
+        _write_sink(sink, read)
         tail = (tail + read)[-tail_cap:]
-    return tail, b"".join(chunks)
+        total += len(read)
+        lines += read.count(b"\n")
+        last = read[-1:]
+    return _Captured(tail=tail, path=path, size=total, lines=lines + (1 if total and last != b"\n" else 0))
 
 
 def _snapshot() -> dict[str, float]:
@@ -530,11 +622,7 @@ async def _guarded(
         propagate.inject(env)
         trace.get_current_span().set_attribute("exec.target", settings.exec_target)
         thread_limiter = anyio.CapacityLimiter(_governed(settings, (check,)))
-        done: Completed | None = None
-        async for attempt in stamina.retry_context(on=_retry_on(check, absolute_deadline), attempts=3, timeout=_retry_timeout(absolute_deadline)):
-            with attempt:
-                with anyio.fail_after(_remaining(absolute_deadline)):
-                    done = await _execute(check, settings, scope, argv=argv, cwd=cwd, env=env, thread_limiter=thread_limiter)
+        done = await _execute_retrying(check, settings, scope, argv=argv, cwd=cwd, env=env, thread_limiter=thread_limiter, deadline=absolute_deadline)
         return (
             Ok(msgspec.structs.replace(done, duration_ms=(time.monotonic() - started) * 1000.0))
             if done is not None
@@ -551,6 +639,27 @@ async def _guarded(
         # ValueError covers bare NUL-in-argv from create_subprocess_exec; it is not an OSError so it must be named explicitly.
         _diagnose(exc)
         return Error(Fault(argv, status=RailStatus.FAULTED, message=str(exc)))
+
+
+async def _execute_retrying(
+    check: Check,
+    settings: AssaySettings,
+    scope: ArtifactScope | None,
+    *,
+    argv: tuple[str, ...],
+    cwd: str,
+    env: Mapping[str, str],
+    thread_limiter: anyio.CapacityLimiter,
+    deadline: float | None,
+) -> Completed | None:
+    done: Completed | None = None
+    attempts = 0
+    async for attempt in stamina.retry_context(on=_retry_on(check, deadline), attempts=3, timeout=_retry_timeout(deadline)):
+        attempts += 1
+        with attempt:
+            with anyio.fail_after(_remaining(deadline)):
+                done = await _execute(check, settings, scope, argv=argv, cwd=cwd, env=env, thread_limiter=thread_limiter)
+    return msgspec.structs.replace(done, notes=(*done.notes, f"retry attempts={attempts}")) if done is not None and attempts > 1 else done
 
 
 async def _execute(
@@ -642,8 +751,22 @@ def run_check(
     Returns:
         Completed receipt, or a fault when spawn, lease, or timeout handling fails.
     """
-    # fan_out awaits _spawn directly to avoid nested anyio.run.
-    return anyio.run(_spawn(check, settings), check, settings, scope, routed, deadline)
+
+    async def _run() -> Result[Completed, Fault]:
+        return await run_check_async(check, settings=settings, scope=scope, routed=routed, deadline=deadline)
+
+    return anyio.run(_run)
+
+
+async def run_check_async(
+    check: Check, *, settings: AssaySettings, scope: ArtifactScope | None, routed: Routed, deadline: float | None = None
+) -> Result[Completed, Fault]:
+    """Run one check inside an existing event loop.
+
+    Returns:
+        Completed receipt, or a fault when spawn, lease, or timeout handling fails.
+    """
+    return await _spawn(check, settings)(check, settings, scope, routed, deadline)
 
 
 def fan_out(
@@ -662,8 +785,7 @@ def fan_out(
             parent.set_attribute("assay.checks_total", len(checks))
             parent.set_attribute("assay.checks_concurrency", limit)
             async with _pooled_ssh():
-                with anyio.move_on_after(deadline - time.monotonic() if deadline is not None else None):
-                    results.update(await _fan_schedule(checks, settings=settings, scope=scope, routed=routed, deadline=deadline, limit=limit))
+                results.update(await _fan_schedule(checks, settings=settings, scope=scope, routed=routed, deadline=deadline, limit=limit))
         return tuple(_total(results.get(i)) for i in range(len(checks)))
 
     return anyio.run(_run)
@@ -703,7 +825,7 @@ async def _fan_worker(
 ) -> None:
     async with recv, send:
         async for i, check in recv:
-            await send.send((i, await _spawn(check, settings)(check, settings, scope, routed, deadline)))
+            await send.send((i, await run_check_async(check, settings=settings, scope=scope, routed=routed, deadline=deadline)))
 
 
 @contextlib.asynccontextmanager
@@ -910,4 +1032,4 @@ def leased[T](
 
 # --- [EXPORTS] --------------------------------------------------------------------------
 
-__all__ = ["_RESOURCE", "exclusive_lease", "fan_out", "leased", "run_check"]
+__all__ = ["_RESOURCE", "argv_for", "discover", "discover_async", "exclusive_lease", "fan_out", "leased", "run_check", "run_check_async"]

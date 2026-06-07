@@ -6,11 +6,9 @@ from enum import StrEnum
 from functools import reduce
 from pathlib import PurePosixPath
 from posixpath import normpath
-from subprocess import CalledProcessError  # noqa: S404  # exception type only; anyio.run_process owns the spawn
 from typing import assert_never, Protocol, runtime_checkable
 import xml.etree.ElementTree as ET  # noqa: S405  # trusted local .csproj XML from source.read, never network-sourced
 
-import anyio
 from expression import Error, Ok, Result
 import structlog
 from upath import UPath
@@ -96,24 +94,11 @@ class Routed(Base, frozen=True):
 # --- [OPERATIONS] -----------------------------------------------------------------------
 
 
-async def _spawn(argv: tuple[str, ...], root: UPath) -> bytes:
-    # check=True and fail_after raise into _git's single fault boundary.
-    with anyio.fail_after(_TIMEOUT):
-        done = await anyio.run_process(list(argv), cwd=str(root), check=True)
-    return done.stdout
-
-
 def _git(argv: tuple[str, ...], *, root: UPath) -> Result[tuple[str, ...], Fault]:
-    # The lone exception seam: timeout, non-zero, and OSError become Fault values.
-    try:
-        raw = anyio.run(_spawn, argv, root)
-    except TimeoutError:
-        return Error(Fault(argv, RailStatus.TIMEOUT, f"timeout after {_TIMEOUT}s"))
-    except CalledProcessError as exc:
-        return Error(Fault(argv, RailStatus.FAULTED, (exc.stderr or b"").decode(errors="replace")[:1024]))
-    except OSError as exc:
-        return Error(Fault(argv, RailStatus.FAULTED, str(exc)[:1024]))
-    return Ok(tuple(line for line in raw.decode(errors="replace").splitlines() if line))
+    # Discovery subprocess ownership lives in core.engine; routing only decodes stdout rows.
+    from tools.assay.core.engine import discover  # noqa: PLC0415  # local import avoids the engine->routing import cycle
+
+    return discover(argv, root=root, timeout=_TIMEOUT).map(lambda raw: tuple(line for line in raw.decode(errors="replace").splitlines() if line))
 
 
 def _norm(paths: tuple[str, ...]) -> tuple[str, ...]:

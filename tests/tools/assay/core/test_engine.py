@@ -4,6 +4,7 @@
 
 from contextlib import aclosing
 import os
+import sys
 from types import SimpleNamespace
 from typing import override, TYPE_CHECKING, TypedDict
 
@@ -28,8 +29,10 @@ from tools.assay.core.engine import (
     _splice,  # noqa: PLC2701
     _stale,  # noqa: PLC2701
     _total,  # noqa: PLC2701
+    discover,
     exclusive_lease,
     run_check,
+    run_check_async,
 )
 from tools.assay.core.model import ArtifactKind, Check, Claim, Completed, Fault, Input, Language, Mode, receipt, Runner, Stage, Tool  # noqa: TC001
 from tools.assay.core.routing import Routed, Scope
@@ -38,10 +41,10 @@ from tools.assay.core.status import RailStatus
 
 if TYPE_CHECKING:
     from collections.abc import Mapping, Sequence
+    from pathlib import Path
 
     from anyio.streams.memory import MemoryObjectReceiveStream
     from expression import Result
-    from opentelemetry.sdk.trace.export.in_memory_span_exporter import InMemorySpanExporter
 
     from tests.tools.assay.conftest import AssayHarness, SshLoopback
 
@@ -192,6 +195,46 @@ def test_retry_classifier_keeps_exit_codes_out_of_retry() -> None:
     assert _retry_on(direct, None)(OSError("local")) is False
     assert _retry_on(remote, None)(OSError("remote transport")) is True
     assert _retry_on(remote, None)(TimeoutError("deadline")) is False
+
+
+def test_discover_maps_read_only_process_status_to_result(tmp_path: Path) -> None:
+    """Engine-owned discovery returns stdout on zero and Fault on non-zero without routing-owned subprocess code."""
+    ok = discover((sys.executable, "-c", "print('a')"), root=tmp_path, timeout=5.0)
+    bad = discover((sys.executable, "-c", "import sys; sys.stderr.write('bad'); sys.exit(2)"), root=tmp_path, timeout=5.0)
+
+    assert ok == Ok(b"a\n")
+    assert bad.is_error()
+    assert bad.error.status is RailStatus.FAULTED
+    assert bad.error.message == "bad"
+
+
+@pytest.mark.anyio
+async def test_run_check_async_is_public_event_loop_boundary(assay_root: AssayHarness) -> None:
+    """Async callers use run_check_async directly instead of importing the private woven spawn function."""
+    outcome = await run_check_async(Check(tool=_ECHO_TOOL), settings=assay_root.settings, scope=None, routed=_ROUTED_CHANGED)
+
+    assert outcome.is_ok()
+    assert b"hello" in outcome.ok.stdout
+
+
+def test_retry_attempts_are_reported_after_transient_spawn_recovery(assay_root: AssayHarness, monkeypatch: pytest.MonkeyPatch) -> None:
+    """Recovered transient spawn/connect retries leave agent-visible attempt evidence."""
+    calls = 0
+
+    async def flaky(*_args: object, **_kwargs: object) -> Completed:
+        nonlocal calls
+        await anyio.lowlevel.checkpoint()
+        calls += 1
+        if calls == 1:
+            raise OSError("temporary transport")
+        return receipt(("dotnet", "test"), 0)
+
+    monkeypatch.setattr(engine_mod, "_execute", flaky)
+    outcome = run_check(Check(tool=_REMOTE_TOOL), settings=assay_root.settings, scope=None, routed=_ROUTED_CHANGED)
+
+    assert outcome.is_ok()
+    assert calls == 2
+    assert "retry attempts=2" in outcome.ok.notes
 
 
 # --- [SPLICE_ORACLE] -------------------------------------------------------------------
@@ -408,35 +451,38 @@ def test_drain_none_stream_returns_empty() -> None:
 # --- [OTEL_SPAN_RESOURCE] --------------------------------------------------------------
 
 
-def test_otel_span_carries_mem_rss_attribute(assay_root: AssayHarness, otel_spans: InMemorySpanExporter, monkeypatch: pytest.MonkeyPatch) -> None:
-    """``_diagnose`` records a ``fault.resource_snapshot`` event on the active span with ``mem.rss_bytes``.
-
-    Opens a real tracer span so ``_diagnose`` attaches to a recording span (not the no-op root).
-    Monkeypatches psutil so the rss value is deterministic. Asserts via ``otel_spans.get_finished_spans()``
-    — the private ``_RESOURCE`` contextvar is NOT read (E1 fix: internal-state leak → OTel contract).
-    """
-    from opentelemetry import trace as otel_trace  # noqa: PLC0415
-
+def test_otel_span_carries_mem_rss_attribute(assay_root: AssayHarness, monkeypatch: pytest.MonkeyPatch) -> None:
+    """``_diagnose`` records a ``fault.resource_snapshot`` event on the active span with ``mem.rss_bytes``."""
     fake_rss = 65536
     fake = _make_psutil_module({None: _proc(rss=fake_rss)})
     monkeypatch.setattr(engine_mod, "psutil", fake)
-    otel_spans.clear()
 
-    tracer = otel_trace.get_tracer("assay.test")
-    with tracer.start_as_current_span("test.otel_law"):
-        exc = TimeoutError("synthetic timeout for OTel test")
-        engine_mod._diagnose(exc)
+    class Span:
+        def __init__(self) -> None:
+            self.events: list[tuple[str, object]] = []
+            self.exceptions: list[BaseException] = []
 
-    finished = otel_spans.get_finished_spans()
-    assert len(finished) >= 1, "Expected at least one finished span from the test.otel_law context"
-    all_events = [e for span in finished for e in span.events]
-    snapshot_events = [e for e in all_events if e.name == engine_mod._FAULT_SNAPSHOT]
-    assert snapshot_events, f"No '{engine_mod._FAULT_SNAPSHOT}' event found; events: {[e.name for e in all_events]}"
-    attrs = snapshot_events[0].attributes or {}
-    assert "mem.rss_bytes" in attrs, f"'mem.rss_bytes' missing from event attributes: {dict(attrs)}"
-    # OTel attribute values are typed as AttributeValue (int | float | str | ...); _snapshot stores float(rss).
-    rss_val = attrs["mem.rss_bytes"]
-    assert rss_val == fake_rss, f"Expected rss={fake_rss!r}, got {rss_val!r}"
+        def record_exception(self, exc: BaseException) -> None:
+            self.exceptions.append(exc)
+
+        def add_event(self, name: str, attributes: object) -> None:
+            self.events.append((name, attributes))
+
+    span = Span()
+    monkeypatch.setattr(engine_mod.__dict__["trace"], "get_current_span", lambda: span)
+
+    exc = TimeoutError("synthetic timeout for OTel test")
+    engine_mod._diagnose(exc)
+
+    assert span.exceptions == [exc]
+    assert span.events
+    name, attrs = span.events[0]
+    assert name == engine_mod._FAULT_SNAPSHOT
+    match attrs:
+        case {"mem.rss_bytes": int() | float() as rss}:
+            assert rss == fake_rss
+        case _:
+            pytest.fail(f"missing mem.rss_bytes in {attrs!r}")
 
 
 # --- [LEASE] ---------------------------------------------------------------------------

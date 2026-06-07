@@ -20,8 +20,8 @@ from watchfiles import awatch, DefaultFilter, PythonFilter
 from tools.assay.automation.model import Debounce, Manual, Program, Rail, Schedule, Sequence, Watch
 from tools.assay.composition.registry import rail, REGISTRY
 from tools.assay.composition.settings import ArtifactScope
-from tools.assay.core.engine import _spawn  # noqa: PLC2701  # intra-package woven spawn; run_check's anyio.run would nest under drive's
-from tools.assay.core.model import Check, Claim, Counts, envelope, Fault, fold, Input, Language, Mode, Report, Runner, Tool
+from tools.assay.core.engine import run_check_async
+from tools.assay.core.model import Check, Claim, Counts, Envelope, envelope, Fault, fold, Input, Language, Mode, Report, Runner, Tool
 from tools.assay.core.routing import Routed, Scope
 from tools.assay.core.status import join, RailStatus
 
@@ -35,7 +35,7 @@ if TYPE_CHECKING:
 
     from tools.assay.automation.model import Action, Trigger
     from tools.assay.composition.settings import AssaySettings
-    from tools.assay.core.model import Bind, Envelope
+    from tools.assay.core.model import Bind
 
 
 # --- [TYPES] ----------------------------------------------------------------------------
@@ -44,6 +44,7 @@ if TYPE_CHECKING:
 type ChangeBatch = tuple[tuple[str, str], ...]
 type Fire = Callable[[ChangeBatch], Coroutine[None, None, None]]
 type Worker = Callable[[], Coroutine[None, None, None]]
+type RailOutcome = tuple[Envelope, bool]
 
 
 # --- [CONSTANTS] ------------------------------------------------------------------------
@@ -82,7 +83,7 @@ async def _governed(threshold: float | None) -> bool:
         case None:
             return False
         case _:
-            sample = await to_thread.run_sync(psutil.cpu_percent, 0.1)
+            sample = await to_thread.run_sync(psutil.cpu_percent, None)
             return isinstance(sample, int | float) and sample >= threshold * 100.0
 
 
@@ -116,7 +117,7 @@ def _program_check(argv: tuple[str, ...]) -> Check:
 
 
 async def _program_outcome(action: Program, settings: AssaySettings) -> Result[Report, Fault]:
-    # Avoid nested anyio.run by awaiting the same engine spawn rail that fan_out uses.
+    # Avoid nested anyio.run by awaiting the engine's public async execution boundary.
     # Process exit codes stay on the Completed channel; only spawn and timeout failures become Faults.
     # The trailing None deadline selects _guarded's run-to-completion budget (check.tool.timeout), so a
     # catalog tool with no timeout (dotnet build, stryker) runs unbounded by design here, not capped per fire.
@@ -124,7 +125,7 @@ async def _program_outcome(action: Program, settings: AssaySettings) -> Result[R
         return Error(Fault(("program",), RailStatus.FAULTED, "program argv must be non-empty"))
     check = _program_check(action.argv)
     scope = ArtifactScope.open(settings, Claim.STATIC)
-    outcome = await _spawn(check, settings)(check, settings, scope, _PROGRAM_ROUTED, None)
+    outcome = await run_check_async(check, settings=settings, scope=scope, routed=_PROGRAM_ROUTED)
     match outcome:
         case Result(tag="ok", ok=done):
             return Ok(fold(Claim.STATIC, "program", (done,)))
@@ -137,21 +138,20 @@ def _emitted(line: Envelope) -> Envelope:
     return line
 
 
-def _rail_outcome(action: Rail, settings: AssaySettings) -> Envelope:
+def _rail_outcome(action: Rail, settings: AssaySettings) -> RailOutcome:
     # Registry rails write their own Envelope, so this branch returns it instead of emitting twice.
     # Binding and Raw decode failures fold to a FAULTED Envelope at the automation boundary.
     bind = _resolve(action)
     match bind:
         case None:
-            return _emitted(
-                envelope(Fault((), RailStatus.FAULTED, f"unbound rail: {action.claim.value}:{action.verb}"), claim=action.claim, verb=action.verb)
-            )
+            fault = Fault((), RailStatus.FAULTED, f"unbound rail: {action.claim.value}:{action.verb}")
+            return envelope(fault, claim=action.claim, verb=action.verb), False
         case _:
             try:
                 params = msgspec.json.decode(bytes(action.params), type=bind.params) if action.params else bind.params()
             except msgspec.DecodeError as exc:
-                return _emitted(envelope(Fault((), RailStatus.FAULTED, str(exc)[:1024]), claim=action.claim, verb=action.verb))
-            return rail(bind, settings)(params)
+                return envelope(Fault((), RailStatus.FAULTED, str(exc)[:1024]), claim=action.claim, verb=action.verb), False
+            return rail(bind, settings)(params), True
 
 
 async def _program_envelope(action: Program, settings: AssaySettings) -> Envelope:
@@ -178,7 +178,8 @@ async def _emit_leaf(leaf: Action, settings: AssaySettings, limiter: anyio.Capac
             match leaf:
                 case Rail() as r:
                     async with limiter:
-                        return _rail_outcome(r, settings).status
+                        env, emitted = await to_thread.run_sync(_rail_outcome, r, settings)
+                        return (env if emitted else _emitted(env)).status
                 case Program() as p:
                     async with limiter:
                         return (await _program_envelope(p, settings)).status
@@ -245,26 +246,33 @@ def _debounce(inner: Fire, window_ms: int, *, collapse: bool) -> tuple[Fire, Wor
     send, recv = anyio.create_memory_object_stream[ChangeBatch](1)
 
     async def signal(changes: ChangeBatch) -> None:  # noqa: RUF029  # async is required: the trigger loop awaits this as a Fire; send_nowait is the non-blocking coalescing notify
-        match send.statistics().current_buffer_used:
-            case 0:
-                send.send_nowait(changes)
-            case _:
-                return
+        try:
+            match send.statistics().current_buffer_used:
+                case 0:
+                    send.send_nowait(changes)
+                case _:
+                    return
+        except anyio.ClosedResourceError:
+            return
 
     async def worker() -> None:
         # recv is an async iterator: each yielded signal opens one debounce cycle at constant stack depth.
-        async for changes in recv:
-            match collapse:
-                case False:
-                    await inner(changes)
-                case _:
-                    pass
-            latest = await _quiesce(recv, window_ms)
-            match collapse:
-                case True:
-                    await inner(latest or changes)
-                case _:
-                    pass
+        try:
+            async with recv:
+                async for changes in recv:
+                    match collapse:
+                        case False:
+                            await inner(changes)
+                        case _:
+                            pass
+                    latest = await _quiesce(recv, window_ms)
+                    match collapse:
+                        case True:
+                            await inner(latest or changes)
+                        case _:
+                            pass
+        finally:
+            await send.aclose()
 
     return signal, worker
 

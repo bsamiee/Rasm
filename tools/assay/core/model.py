@@ -252,12 +252,36 @@ class Match(Base, frozen=True):
     confidence: Annotated[int, msgspec.Meta(ge=0, le=100)] = 100
 
 
+class ApiSource(Detail, frozen=True, tag="api-source"):
+    """Polyglot API source inventory detail."""
+
+    source_kind: SourceKind = SourceKind.TOOL
+    source_id: str = ""
+    version: str = ""
+    package: str = ""
+    primary_assembly: str = ""
+    primary_xml: str = ""
+    assemblies: tuple[str, ...] = ()
+    xmls: tuple[str, ...] = ()
+    assets: tuple[str, ...] = ()
+    package_root: str = ""
+    nuspec: str = ""
+    frameworks: tuple[str, ...] = ()
+    owners: tuple[str, ...] = ()
+    restore: str = ""
+    status: RailStatus = RailStatus.EMPTY
+    selected: tuple[str, ...] = ()
+    candidates: tuple[tuple[str, int], ...] = ()
+    reason: str = ""
+
+
 class ApiSurface(Detail, frozen=True, tag="api"):
     """API surface detail."""
 
     source_kind: SourceKind = SourceKind.TOOL
     source_id: str = ""
     version: str = ""
+    source: ApiSource = ApiSource()
     shape: SymbolShape = SymbolShape.SEARCH
     signature: str = ""
     doc: str = ""
@@ -265,6 +289,8 @@ class ApiSurface(Detail, frozen=True, tag="api"):
     member: str = ""
     truncated: bool = False
     lines: Annotated[int, msgspec.Meta(ge=0)] = 0
+    selected: Annotated[int, msgspec.Meta(ge=0)] = 0
+    artifact_paths: tuple[str, ...] = ()
 
 
 class VerifySummary(Detail, frozen=True, tag="verify"):
@@ -338,7 +364,7 @@ class RunDelta(Detail, frozen=True, tag="delta"):
     removed: int = 0
 
 
-type AnyDetail = ApiSurface | VerifySummary | TestRun | PackageRun | ApiResolution | Diagnostic | RunDelta
+type AnyDetail = ApiSource | ApiSurface | VerifySummary | TestRun | PackageRun | ApiResolution | Diagnostic | RunDelta
 
 
 class Report(Base, frozen=True):
@@ -567,6 +593,7 @@ _DETAIL_DECODER: msgspec.json.Decoder[AnyDetail | None] = msgspec.json.Decoder(A
 __all__ = [
     "AnyDetail",
     "ApiResolution",
+    "ApiSource",
     "ApiSurface",
     "Artifact",
     "ArtifactKind",

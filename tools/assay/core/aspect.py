@@ -33,7 +33,6 @@ if TYPE_CHECKING:
 type Attrs = Mapping[str, object]
 type Bind[**P] = Callable[P, Mapping[str, object]]
 type Hom[**P, T] = Callable[P, Result[T, Fault]]
-type Layer[**P, T] = tuple[Slot, Callable[[Hom[P, T]], Hom[P, T]]]
 
 
 class Slot(IntEnum):
@@ -42,6 +41,9 @@ class Slot(IntEnum):
     checked = 0
     logged = 1
     traced = 2
+
+
+type Layer[**P, T] = tuple[Slot, Callable[[Hom[P, T]], Hom[P, T]]]
 
 
 @runtime_checkable

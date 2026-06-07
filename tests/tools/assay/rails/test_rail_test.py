@@ -25,7 +25,7 @@ def test_coverage_rows_do_not_duplicate_plain_pytest() -> None:
 
     assert "coverage" in {tool.name for tool in run_rows}
     assert "pytest" not in {tool.name for tool in run_rows}
-    assert {"coverage-json", "coverage-report"} <= {tool.name for tool in client_rows}
+    assert {"coverage-json", "coverage-xml", "coverage-lcov", "coverage-report"} <= {tool.name for tool in client_rows}
 
 
 def test_mutation_lanes_are_explicit_behavior_controls() -> None:
@@ -58,6 +58,9 @@ def test_list_counts_roster_rows_and_keeps_discovery_failures_in_notes(assay_roo
     assert [row.id for row in report.results] == ["tests/a.py::test_one"]
     assert "discovery: total=2 returned=1" in report.notes
     assert any(note == "discovery failed: dotnet test --list-tests: no project" for note in report.notes)
+    roster = next(artifact for artifact in report.artifacts if artifact.id == "test-roster")
+    assert roster.lines == 2
+    assert scope.store.read_text_path(roster.path).splitlines() == ["tests/a.py::test_one", "tests/a.py::test_two"]
 
 
 def test_coverage_report_total_populates_test_detail() -> None:
@@ -84,7 +87,9 @@ def test_coverage_artifacts_require_current_output(assay_root: AssayHarness) -> 
     root = assay_root.root / ".artifacts/python/coverage"
     root.mkdir(parents=True)
     (root / "coverage.json").write_text("{}", encoding="utf-8")
-    done = Completed(("uv", "run", "coverage", "json"), 0, status=RailStatus.OK)
+    done = Completed(("uv", "run", "coverage", "json", "-o", ".artifacts/python/coverage/coverage.json"), 0, status=RailStatus.OK)
 
     assert _coverage_artifacts(assay_root.settings, ()) == ()
-    assert _coverage_artifacts(assay_root.settings, (done,))[0].id == "coverage.json"
+    artifact = _coverage_artifacts(assay_root.settings, (done,))[0]
+    assert artifact.id == "coverage.json"
+    assert artifact.path.endswith(f"/test/{assay_root.settings.run_id}/coverage/coverage.json")

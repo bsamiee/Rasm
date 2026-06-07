@@ -5,20 +5,28 @@ from dataclasses import dataclass
 from datetime import datetime, UTC
 from enum import StrEnum
 import os
+from pathlib import Path
 import sys
-from typing import Annotated, Final, override, Protocol, runtime_checkable, TYPE_CHECKING
+from typing import Annotated, Final, override, Protocol, runtime_checkable
 from urllib.parse import urlsplit
 
 import fsspec  # type: ignore[import-untyped]  # fsspec ships no py.typed marker
+import msgspec
 from pydantic import AliasChoices, BaseModel, BeforeValidator, computed_field, ConfigDict, Field, field_validator
-from pydantic_settings import BaseSettings, SettingsConfigDict
+from pydantic_settings import (  # noqa: TC002  # Pydantic calls the hook by runtime annotations.
+    BaseSettings,
+    PydanticBaseSettingsSource,
+    SettingsConfigDict,
+)
 from upath import UPath  # pathlib-compatible path for local and fsspec-backed artifact stores
 
-
-if TYPE_CHECKING:
-    from pydantic_settings import PydanticBaseSettingsSource
-
-    from tools.assay.core.model import ArtifactKind, Claim
+from tools.assay.core.model import (  # noqa: TC001  # claw/settings hooks evaluate these annotations.
+    ArtifactKind,
+    Claim,
+    Envelope,
+    Report,
+    wire_encode,
+)
 
 
 # --- [TYPES] ----------------------------------------------------------------------------
@@ -103,6 +111,32 @@ def _safe_segment(part: str | UPath) -> str:
             raise ValueError(f"unsafe artifact path segment: {text!r}")
 
 
+def _detail_path(row: dict[str, object]) -> str:
+    value = row.get("name", row.get("path", ""))
+    return str(value)
+
+
+def _mtime(info: dict[str, object]) -> float:
+    value = info.get("mtime", info.get("created", 0.0))
+    return value if isinstance(value, int | float) else 0.0
+
+
+def _artifact_match(path: str, token: str) -> bool:
+    if not token.strip():
+        return False
+    stem = path.rsplit("/", 1)[-1]
+    return token in {path, stem} or token in path
+
+
+def _root_parts(root: str) -> tuple[str, ...]:
+    return tuple(part for part in root.split("/") if part)
+
+
+def _fileish(info: dict[str, object]) -> bool:
+    kind = str(info.get("type", "")).casefold()
+    return kind not in {"directory", "folder"}
+
+
 # --- [TYPES] ----------------------------------------------------------------------------
 
 type AnchoredRoot = Annotated[UPath, BeforeValidator(_anchor)]
@@ -169,6 +203,13 @@ class ArtifactFileSystem(Protocol):
 
         Returns:
             Backend-specific removal result.
+        """
+
+    def open(self, path: str, mode: str = "rb") -> object:
+        """Open a backend file.
+
+        Returns:
+            Backend-specific file object.
         """
 
 
@@ -288,6 +329,7 @@ class AssaySettings(BaseSettings):
         file_secret_settings: PydanticBaseSettingsSource,
     ) -> tuple[PydanticBaseSettingsSource, ...]:
         """Use init values and `ASSAY_*` environment variables as the only settings sources."""
+        _ = (settings_cls, dotenv_settings, file_secret_settings)
         return (init_settings, env_settings)
 
     @computed_field  # type: ignore[prop-decorator]  # pydantic computed_field over a property
@@ -331,8 +373,16 @@ class AssaySettings(BaseSettings):
         Returns:
             Artifact store bound to the requested backend.
         """
-        backend = self.artifact_backend.model_copy(update={k: v for k, v in {"protocol": protocol, "root": root}.items() if v is not None})
+        backend = ArtifactBackend.model_validate({
+            **self.artifact_backend.model_dump(),
+            **{k: v for k, v in {"protocol": protocol, "root": root}.items() if v is not None},
+        })
         return ArtifactStore(fs=fsspec.filesystem(backend.protocol, **opts), root=backend.target(self))
+
+    def with_configuration(self, configuration: Configuration) -> AssaySettings:
+        """Return validated settings for a different build configuration."""
+        fields = {name: getattr(self, name) for name in type(self).model_fields}
+        return self.__class__.model_validate({**fields, "configuration": configuration})
 
     def artifact(self, kind: ArtifactKind, *parts: str | UPath) -> UPath:
         """Project an artifact path from a kind and path parts.
@@ -402,6 +452,19 @@ class ArtifactStore:
         paths = tuple(str(path) for path in rows)
         return tuple(self._normalize_backend_path(path) for path in sorted(paths))
 
+    def list_details(self, *parts: str | UPath) -> tuple[tuple[str, dict[str, object]], ...]:
+        """List direct children under a store-relative path with metadata.
+
+        Returns:
+            `(path, metadata)` rows.
+        """
+        try:
+            rows = self.fs.ls(self.path(*parts), detail=True)
+        except FileNotFoundError:
+            return ()
+        details = tuple(row for row in rows if isinstance(row, dict))
+        return tuple(sorted((self._normalize_backend_path(_detail_path(row)), row) for row in details))
+
     def find(self, *parts: str | UPath) -> tuple[str, ...]:
         """Recursively list paths under a store-relative path.
 
@@ -411,6 +474,22 @@ class ArtifactStore:
         rows = self.fs.find(self.path(*parts), detail=False)
         paths = tuple(str(path) for path in rows)
         return tuple(self._normalize_backend_path(path) for path in sorted(paths))
+
+    def find_details(self, *parts: str | UPath) -> tuple[tuple[str, dict[str, object]], ...]:
+        """Recursively list paths under a store-relative path with metadata.
+
+        Returns:
+            `(path, metadata)` rows.
+        """
+        try:
+            rows = self.fs.find(self.path(*parts), detail=True)
+        except FileNotFoundError:
+            return ()
+        match rows:
+            case dict():
+                return tuple(sorted((self._normalize_backend_path(str(path)), dict(info)) for path, info in rows.items()))
+            case _:
+                return ()
 
     def info(self, *parts: str | UPath) -> dict[str, object]:
         """Return backend metadata for a store-relative path."""
@@ -542,6 +621,17 @@ class ArtifactStore:
             self.fs.pipe_file(target, payload)
         return target
 
+    def open_write(self, *parts: str | UPath) -> tuple[str, object]:
+        """Open a validated store-relative backend file for incremental byte writes.
+
+        Returns:
+            Backend path and writable file object.
+        """
+        path = self.path(*parts)
+        parent = path.rsplit("/", 1)[0] if "/" in path else self.root
+        self.fs.makedirs(parent, exist_ok=True)
+        return path, self.fs.open(path, "wb")
+
     def write_text_path(self, payload: str, path: str | UPath, *, create: bool = False, transaction: bool = False, encoding: str = "utf-8") -> str:
         """Write text to a validated backend path emitted by this store.
 
@@ -549,6 +639,23 @@ class ArtifactStore:
             Backend path that received the payload.
         """
         return self.write_bytes_path(payload.encode(encoding), path, create=create, transaction=transaction)
+
+    def write_many(self, rows: tuple[tuple[bytes, tuple[str | UPath, ...]], ...], *, transaction: bool = True) -> tuple[str, ...]:
+        """Write multiple payloads under one backend transaction when supported.
+
+        Returns:
+            Backend paths that received the payloads.
+        """
+        with getattr(self.fs, "transaction", contextlib.nullcontext()) if transaction else contextlib.nullcontext():
+            return tuple(self.write_bytes(payload, *parts, transaction=False) for payload, parts in rows)
+
+    def adopt_file(self, source: str | UPath | Path, *parts: str | UPath) -> str:
+        """Copy a local tool-produced file into the configured artifact backend.
+
+        Returns:
+            Backend path that received the copied payload.
+        """
+        return self.write_bytes(Path(str(source)).read_bytes(), *parts)
 
     def remove(self, *parts: str | UPath, recursive: bool = False) -> object:
         """Remove a validated store-relative path.
@@ -565,6 +672,103 @@ class ArtifactStore:
             Backend-specific removal result.
         """
         return self.fs.rm(self.backend_path(path), recursive=recursive)
+
+    def write_history(self, run_id: str, payload: bytes) -> str:
+        """Persist one encoded Envelope in run history.
+
+        Returns:
+            Backend path written.
+        """
+        return self.write_bytes(payload, ArtifactKind.HISTORY.value, run_id, "envelope.json")
+
+    def write_full_report(self, run_id: str, name: str, report: Report) -> tuple[str, int]:
+        """Persist an unclipped Report before previewing or clipping.
+
+        Returns:
+            Backend path and payload byte count.
+        """
+        payload = wire_encode(report)
+        return self.write_bytes(payload, ArtifactKind.HISTORY.value, run_id, name), len(payload)
+
+    def retain_history(self, keep: int) -> None:
+        """Prune old run history directories by backend metadata age."""
+        detailed = self.list_details(ArtifactKind.HISTORY.value)
+        runs = tuple(path for path, _ in sorted(detailed, key=lambda row: (_mtime(row[1]), row[0]))) or sorted(
+            self.glob(f"{ArtifactKind.HISTORY.value}/*")
+        )
+        for path in runs[: max(0, len(runs) - keep)]:
+            try:
+                self.remove_path(path, recursive=True)
+            except FileNotFoundError:
+                _ = self.exists_path(path)
+
+    def history_run_ids(self) -> tuple[str, ...]:
+        """Return known history run ids."""
+        return tuple(path.rstrip("/").rsplit("/", 1)[-1] for path in sorted(self.glob(f"{ArtifactKind.HISTORY.value}/*")))
+
+    def load_history(self, run_id: str) -> Envelope | None:
+        """Load one run Envelope and restore its full report artifact when available.
+
+        Returns:
+            Restored Envelope, or None when the run cannot be read.
+        """
+        match run_id:
+            case "":
+                return None
+            case _:
+                try:
+                    env = msgspec.json.decode(self.read_bytes(ArtifactKind.HISTORY.value, run_id, "envelope.json"), type=Envelope)
+                    return self.restore_full_report(env)
+                except OSError, msgspec.MsgspecError:
+                    return None
+
+    def restore_full_report(self, env: Envelope) -> Envelope:
+        """Replace a clipped report with its full-report artifact when present.
+
+        Returns:
+            Envelope with the full report restored when possible.
+        """
+        match env.report:
+            case None:
+                return env
+            case report:
+                artifact = next((a for a in report.artifacts if a.id == "full-report"), None)
+                if artifact is None:
+                    return env
+                try:
+                    restored = msgspec.json.decode(self.read_path(artifact.path), type=Report)
+                except OSError, msgspec.MsgspecError:
+                    return env
+                return msgspec.structs.replace(env, report=restored)
+
+    def resolve_artifacts(self, token: str, *roots: str, latest: bool = False) -> tuple[str, ...]:
+        """Resolve a token through direct paths, basenames, substring matches, or explicit latest lookup.
+
+        Returns:
+            Matching backend paths ordered newest-first.
+        """
+        try:
+            direct = self.backend_path(token)
+        except ValueError:
+            direct = ""
+        if direct and self.exists_path(direct):
+            return (direct,)
+        if latest:
+            for root in roots:
+                matches = tuple(row for row in self.find_details(*_root_parts(root)) if _fileish(row[1]))
+                if matches:
+                    return self._ranked_paths(matches)
+            return ()
+        if not token.strip():
+            return ()
+        matches = tuple(
+            (path, info) for root in roots for path, info in self.find_details(*_root_parts(root)) if _fileish(info) and _artifact_match(path, token)
+        )
+        return self._ranked_paths(matches)
+
+    @staticmethod
+    def _ranked_paths(matches: tuple[tuple[str, dict[str, object]], ...]) -> tuple[str, ...]:
+        return tuple(path for path, _ in sorted(matches, key=lambda row: (-_mtime(row[1]), row[0])))
 
 
 @dataclass(frozen=True, slots=True)
@@ -587,14 +791,15 @@ class ArtifactScope:
         return cls(store, path, (_ARTIFACTS_PATH_FLAG, path, _DISABLE_BUILD_SERVERS))
 
     @classmethod
-    def build(cls, settings: AssaySettings, closure: str) -> ArtifactScope:
+    def build(cls, settings: AssaySettings, closure: str, configuration: Configuration | str | None = None) -> ArtifactScope:
         """Open a stable build-closure artifact scope.
 
         Returns:
             Artifact scope rooted under the build closure id.
         """
         store = settings.store()
-        path = store.ensure(_BUILD, closure)
+        config = configuration.value if isinstance(configuration, Configuration) else configuration or settings.configuration.value
+        path = store.ensure(_BUILD, closure, config)
         return cls(store, path, (_ARTIFACTS_PATH_FLAG, path, _DISABLE_BUILD_SERVERS))
 
     @property

@@ -136,11 +136,6 @@ public abstract partial record ExtractionDomain {
             surfaceIsoCase: static (state, _) => Fin.Fail<CurveBatch>(error: state.Key.Unsupported(geometryType: typeof(Mesh), outputType: typeof(ContourPolicy.SurfaceIsoCase)))));
     // BOUNDARY ADAPTER — scalar contouring is absent from RhinoCommon; this local PL kernel
     // follows Rhino's triangulated mesh topology and returns stitched curve candidates only.
-    [StructLayout(LayoutKind.Auto)]
-    private readonly record struct ScalarIsolinePointKey(long X, long Y, long Z) { internal int Compare(ScalarIsolinePointKey other) => (X, Y, Z).CompareTo((other.X, other.Y, other.Z)); }
-    [StructLayout(LayoutKind.Auto)]
-    private readonly record struct ScalarIsolineSegment(Point3d A, Point3d B);
-    private sealed class ScalarIsolineStats { internal int RawSegments, DedupedSegments, DegenerateRejected, PlateauRejected, StitchedCandidates, BranchStops, BranchNodes, MaxIncidentSegments, EmittedCurves; }
     private static Fin<ScalarIsolineResult> ScalarIsolinesDetailed(Mesh mesh, Arr<double> values, Seq<double> levels, Context context, Op key) {
         if (values.Count != mesh.Vertices.Count || values.Exists(static value => !RhinoMath.IsValidDouble(x: value)) || levels.IsEmpty || levels.Exists(static value => !RhinoMath.IsValidDouble(x: value)))
             return Fin.Fail<ScalarIsolineResult>(key.InvalidInput());
@@ -463,6 +458,14 @@ internal abstract partial record Extraction {
 
 // --- [MODELS] -----------------------------------------------------------------------------
 internal readonly record struct CurveBatch(Seq<Curve> Curves, Option<ScalarIsolineResult> ScalarIsoline, ExtractionReceipt Receipt);
+
+[StructLayout(LayoutKind.Auto)]
+internal readonly record struct ScalarIsolinePointKey(long X, long Y, long Z) { internal int Compare(ScalarIsolinePointKey other) => (X, Y, Z).CompareTo((other.X, other.Y, other.Z)); }
+
+[StructLayout(LayoutKind.Auto)]
+internal readonly record struct ScalarIsolineSegment(Point3d A, Point3d B);
+
+internal sealed class ScalarIsolineStats { internal int RawSegments, DedupedSegments, DegenerateRejected, PlateauRejected, StitchedCandidates, BranchStops, BranchNodes, MaxIncidentSegments, EmittedCurves; }
 
 [BoundaryAdapter, StructLayout(LayoutKind.Auto)]
 public readonly record struct ExtractionReceipt(ExtractionStatus Status, int Attempted, int Emitted, int Rejected, bool NativeRouted, ToleranceSource ToleranceSource, Option<double> Tolerance, bool ParallelCallback, Option<IsoSurfaceReceipt> IsoSurface = default, Option<ScalarIsolineReceipt> ScalarIsoline = default, Option<SampleReceipt> Sample = default) {

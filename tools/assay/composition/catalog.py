@@ -116,7 +116,9 @@ TOOLS: tuple[Tool, ...] = (
         mode=Mode.RUN,
     ),
     Tool("coverage", UV, ("coverage", "run", "-m", "pytest", "-m", "not benchmark"), INCLUDE, PY, Claim.TEST, mode=Mode.RUN),
-    Tool("coverage-json", UV, ("coverage", "json"), NONE, PY, Claim.TEST, mode=Mode.CLIENT),
+    Tool("coverage-json", UV, ("coverage", "json", "-o", ".artifacts/python/coverage/coverage.json"), NONE, PY, Claim.TEST, mode=Mode.CLIENT),
+    Tool("coverage-xml", UV, ("coverage", "xml", "-o", ".artifacts/python/coverage/coverage.xml"), NONE, PY, Claim.TEST, mode=Mode.CLIENT),
+    Tool("coverage-lcov", UV, ("coverage", "lcov", "-o", ".artifacts/python/coverage/coverage.lcov"), NONE, PY, Claim.TEST, mode=Mode.CLIENT),
     Tool("coverage-report", UV, ("coverage", "report", "--format=total"), NONE, PY, Claim.TEST, mode=Mode.CLIENT),
     Tool(
         "mutmut",

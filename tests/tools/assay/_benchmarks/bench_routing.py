@@ -64,8 +64,8 @@ def bench_routing_proportionality(assay_root: AssaySettings) -> None:
     assert ratio <= 3.0, f"routing proportionality violated: ratio = {ratio:.2f} > 3.0"
 
 
-def bench_routing_single_path(benchmark: RoutingBenchmark, assay_root: AssaySettings) -> None:
-    """place() over a single .py path is sub-millisecond — the single-file hot path."""
+def bench_routing_changed_paths(benchmark: RoutingBenchmark, assay_root: AssaySettings) -> None:
+    """place() over changed .py paths is sub-millisecond — the changed-path hot path."""
 
     def routed_place(routed: Routed, tool: Tool) -> tuple[tuple[str, ...], ...]:
         return place(routed, tool, settings=assay_root)

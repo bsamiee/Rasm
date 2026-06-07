@@ -38,6 +38,7 @@ from tools.assay.composition.settings import ArtifactScope, ArtifactStore, Assay
 from tools.assay.core.model import (
     AnyDetail,
     ApiResolution,
+    ApiSource,
     ApiSurface,
     Artifact,
     ArtifactKind,
@@ -177,7 +178,7 @@ def _resolver(cls: type[msgspec.Struct]) -> st.SearchStrategy[object]:
 # lambdas that crash msgspec.encode. Order is irrelevant: detail_st derives from AnyDetail, not a slice.
 _WIRE_STRUCTS: tuple[type[msgspec.Struct], ...] = (
     Completed, Fault, Counts, Artifact, Match, RunSnapshot,
-    ApiSurface, VerifySummary, TestRun, PackageRun, ApiResolution, Diagnostic, RunDelta, Report,
+    ApiSource, ApiSurface, VerifySummary, TestRun, PackageRun, ApiResolution, Diagnostic, RunDelta, Report,
     Stage, Tool, Check,
 )  # fmt: skip
 for _struct in _WIRE_STRUCTS:
@@ -520,7 +521,7 @@ def mem_store(assay_root: AssayHarness) -> Generator[ArtifactStore]:
     Yields:
         An ``ArtifactStore`` backed by ``fsspec.MemoryFileSystem`` rooted at a ``run_id``-keyed prefix.
     """
-    store = assay_root.settings.store(protocol="memory")
+    store = assay_root.settings.store(protocol="memory", root=f"mem-store/{assay_root.settings.run_id}")
     yield store
     if store.exists_path(store.root):
         store.remove_path(store.root, recursive=True)

@@ -1,7 +1,7 @@
 """Expose the Assay registry as the CLI entrypoint."""
 
 import sys
-from typing import Final, TYPE_CHECKING
+from typing import Final
 
 from cyclopts.exceptions import CycloptsError
 from opentelemetry.trace import get_tracer_provider
@@ -9,12 +9,10 @@ from pydantic import ValidationError
 
 from tools.assay import (
     _DRAIN_MS,  # noqa: PLC2701  # intra-package private import: one operator-chosen ~1.5s bound shared with the BatchSpanProcessor cadence
+    install_tracing,
 )
 from tools.assay.composition.registry import build_app, parse_fault, REGISTRY, wire_safe
-
-
-if TYPE_CHECKING:
-    from collections.abc import Callable
+from tools.assay.composition.settings import AssaySettings
 
 
 # --- [COMPOSITION] ----------------------------------------------------------------------
@@ -78,18 +76,41 @@ def main(argv: list[str] | None = None) -> int:
     Returns:
         Process exit code returned by the CLI dispatcher.
     """
-    # The fallback keeps tracing opt-in without branching the exit path.
-    flush: Callable[[int], bool] = getattr(get_tracer_provider(), "force_flush", lambda _timeout_millis: True)
     # Scrub lone surrogates (os.fsdecode surrogateescape from invalid-UTF-8 argv) at the boundary so untrusted
     # tokens cannot crash the wire encoder; valid Unicode passes through unchanged.
     tokens = tuple(wire_safe(token) for token in (sys.argv[1:] if argv is None else argv))
     try:
+        _install_provider_from_settings()
         return meta(*tokens)
     finally:
-        # Under a live OTLP endpoint this caps the exit-time force_flush budget at _DRAIN_MS (~1.5s), trading
-        # worst-case CLI-exit stall for a small span-drop risk on a sluggish collector; the common no-endpoint
-        # path is a ProxyTracerProvider with no force_flush, so the identity fallback returns immediately.
-        flush(_DRAIN_MS)
+        _drain_provider(get_tracer_provider())
+
+
+def _install_provider_from_settings() -> None:
+    try:
+        install_tracing(AssaySettings().otel_endpoint)
+    except ValidationError as exc:
+        _ = exc
+
+
+def _drain_provider(provider: object) -> None:
+    # Under a live OTLP endpoint this caps force_flush at _DRAIN_MS (~1.5s), then releases SDK workers.
+    match getattr(provider, "force_flush", None):
+        case flush if callable(flush):
+            try:
+                flush(_DRAIN_MS)
+            except Exception as exc:  # noqa: BLE001  # final lifecycle boundary: diagnostics go to stderr, never stdout
+                sys.stderr.write(f"assay: trace force_flush failed: {exc}\n")
+        case _:
+            pass
+    match getattr(provider, "shutdown", None):
+        case shutdown if callable(shutdown):
+            try:
+                shutdown()
+            except Exception as exc:  # noqa: BLE001  # final lifecycle boundary: diagnostics go to stderr, never stdout
+                sys.stderr.write(f"assay: trace shutdown failed: {exc}\n")
+        case _:
+            pass
 
 
 if __name__ == "__main__":

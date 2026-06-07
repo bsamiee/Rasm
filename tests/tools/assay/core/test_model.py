@@ -11,6 +11,7 @@ from tests.tools.assay.conftest import completed_st, fault_st
 from tools.assay.core.model import (
     AnyDetail,
     ApiResolution,
+    ApiSource,
     ApiSurface,
     BaseParams,
     Claim,
@@ -36,7 +37,7 @@ from tools.assay.core.status import RailStatus
 
 # --- [CONSTANTS] -----------------------------------------------------------------------
 
-_DETAIL_VARIANTS: tuple[type, ...] = (ApiSurface, VerifySummary, TestRun, PackageRun, ApiResolution, Diagnostic, RunDelta)
+_DETAIL_VARIANTS: tuple[type, ...] = (ApiSource, ApiSurface, VerifySummary, TestRun, PackageRun, ApiResolution, Diagnostic, RunDelta)
 _ENCODER = msgspec.json.Encoder(order="deterministic")
 _DECODER: msgspec.json.Decoder[AnyDetail | None] = msgspec.json.Decoder(AnyDetail | None)
 
