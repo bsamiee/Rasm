@@ -25,6 +25,17 @@ def test_watch_and_schedule_knobs_decode() -> None:
     assert "UTC" in describe(schedule)
 
 
+def test_schedule_defaults_to_utc_and_threshold_is_normalized() -> None:
+    """Schedules are explicit UTC by default and CPU thresholds are bounded fractions."""
+    schedule = decode(b'{"kind":"schedule","cron":"*/5 * * * *"}', trigger=True)
+
+    assert isinstance(schedule, Schedule)
+    assert schedule == Schedule(cron="*/5 * * * *")
+    assert schedule.timezone == "UTC"
+    with pytest.raises(msgspec.ValidationError, match=r"<= 1\.0"):
+        decode(b'{"kind":"schedule","cron":"*/5 * * * *","cpu_threshold":1.5}', trigger=True)
+
+
 def test_program_decode_requires_argv() -> None:
     """Program actions must name an executable before reaching the engine."""
     with pytest.raises(msgspec.ValidationError, match="length >= 1"):

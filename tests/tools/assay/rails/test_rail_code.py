@@ -71,6 +71,18 @@ def test_tree_sitter_match_limit_marks_truncation(assay_root: AssayHarness) -> N
     assert captures[0].truncated
 
 
+def test_tree_sitter_any_of_prefilter_has_no_false_negative(assay_root: AssayHarness) -> None:
+    """Grouped #any-of? prefilter keeps files matching any literal in the predicate group."""
+    assay_root.write("pkg/mod.py", "def beta():\n    return 1\n")
+    query = '(function_definition name: (identifier) @name (#any-of? @name "alpha" "beta"))'
+    thunk = _ts_thunk(query, Language.PYTHON, assay_root.root, limit=10)
+    done = thunk(Check(tool=Tool("ts", Runner.INPROC, (), Input.NONE, Language.PYTHON, Claim.CODE, mode=Mode.QUERY), paths=("pkg/mod.py",)))
+    captures = CAPTURES.decode(done.stdout)
+
+    assert done.status.value == "ok"
+    assert captures[0].text == "beta"
+
+
 def test_code_artifact_uses_assay_store(assay_root: AssayHarness) -> None:
     """Code listings are persisted by ArtifactStore under the assay artifact root."""
     artifact = _artifact(assay_root.settings, "search", "a.py:1: hit")

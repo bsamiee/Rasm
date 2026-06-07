@@ -13,7 +13,7 @@ Scope: `tools/assay/` only. Root policy owns universal Python and docs behavior;
 
 ## [2][ARCHITECTURE_CONTRACT]
 
-Assay is one engine over `Tool` and `Check` rows. `TOOLS` and `REGISTRY` select rows, `run_check` and `fan_out` execute them, `fold` builds `Report`, and `envelope` emits `Envelope`; cross-cutting behavior attaches through `Slot`, `Layer`, `SpawnLayer`, `compose`, `compose_spawn`, and `_RAIL_LAYERS`.
+Assay is one engine over `Tool` and `Check` rows. `TOOLS` and `REGISTRY` select rows, `run_check` and `fan_out` execute them, `fold` builds `Report`, and `envelope` emits `Envelope`; cross-cutting rail behavior attaches through `Slot`, `Layer`, `compose`, and `_RAIL_LAYERS`. Process retry, deadlines, transport, stream capture, and status mapping stay inside `core/engine.py`.
 
 Runtime backend, storage, and filesystem capability is internal behavior. It extends settings, artifact store/scope, engine execution, history persistence, envelope rows, and artifact rows before it becomes operator workflow or public wire shape.
 
@@ -25,7 +25,7 @@ Add functionality by deepening the existing polymorphic shape that owns the beha
 - Language: add one language axis member, routing arm, and catalog rows.
 - Verb: add one registry bind and one owning params type.
 - Detail: add one tagged detail variant and union registration.
-- Aspect: add one `Slot` value only when needed, one `Layer` or `SpawnLayer`, and one `_RAIL_LAYERS` or `_spawn` composition entry.
+- Aspect: add one `Slot` value, one `Layer`, and one `_RAIL_LAYERS` composition entry only when a cross-rail `Result` concern needs the aspect owner.
 - Automation trigger or action: add one tagged union case.
 - In-process tool: add one catalog row with a thunk folded through the same engine rail.
 - Runtime backend or storage behavior: extend settings, store/scope, engine execution, history persistence, and envelope/artifact rows before adding a command, flag, helper module, wrapper service, or parallel store type.
@@ -44,7 +44,7 @@ Add functionality by deepening the existing polymorphic shape that owns the beha
 - Persist the full report or listing before clipping rows, artifacts, previews, or stderr breadcrumbs; the compact envelope may point at the artifact, but it must not be the only copy.
 - Sequence `Result` values from `fan_out`; never filter out `Error` slots to manufacture an empty or clean report.
 - Keep output parsing at the owning rail boundary. Catalog rows select execution; they do not carry parser callbacks, census-only adapters, or dead validation hooks.
-- Route artifact writes, reads, globs, and removals through `ArtifactStore`; raw filesystem access belongs only at local tool boundaries that consume files directly.
+- Route artifact writes, reads, globs, removals, previews, caches, history, and full-report restoration through `ArtifactStore`; raw filesystem access belongs only at local tool boundaries that consume files directly.
 - Validate cwd, stage roots, stage inputs, and backend paths before deletion, copy, spawn, or remote execution. Empty local UPath protocol and `file` are both local; absolute, empty, trailing-slash, dot, and dot-dot stage paths are not.
 - Refactor as if the capability was present from the first design: collapse duplicated branches into the owner rail, update tests at that owner boundary, and delete obsolete wrong-placement code in the same change.
 - Do not build a rat-nest where strings feed constants, constants feed free unions, unions feed wrapper models, and wrappers feed special-case branches. Promote one canonical shape only when it carries reusable behavior across future commands.

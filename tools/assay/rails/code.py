@@ -7,6 +7,7 @@ from pathlib import Path
 import re
 from typing import override, TYPE_CHECKING
 
+from cyclopts.types import NonNegativeInt  # noqa: TC002  # Cyclopts evaluates Param dataclass annotations at runtime.
 from expression import Error, Result  # noqa: TC002  # Result unconditional: @checked's beartype resolves the handler forward-ref (PEP 649)
 from expression.collections import block
 from expression.extra.result import sequence
@@ -65,7 +66,7 @@ class CodeParams(BaseParams):
     pattern: str = ""
     rewrite: str = ""
     apply: bool = False
-    max_results: int = 1000
+    max_results: NonNegativeInt = 1000
 
     @override
     def bound(self, verb: str) -> CodeParams | Fault:
@@ -197,13 +198,19 @@ def _top_level_patterns(query_src: str) -> int:
     return reduce(step, masked, (0, 0))[1]
 
 
-def _eq_needles(query_src: str) -> frozenset[bytes] | None:
-    # Single-pattern #eq?-only queries can prefilter files by literal needles with zero false negatives.
+def _eq_needles(query_src: str) -> tuple[frozenset[bytes], ...] | None:
+    # Single-pattern #eq?/#any-of?-only queries can prefilter files by literal needles with zero false negatives.
     predicates = frozenset(re.findall(r"#([a-z][a-z-]*)\?", query_src))
     match (predicates, _top_level_patterns(query_src)):
-        case (preds, 1) if preds == frozenset({"eq"}):
-            literals = tuple(re.findall(r'#eq\?\s+@\S+\s+"([^"]*)"', query_src))
-            return frozenset(lit.encode() for lit in literals) if literals and not any("\\" in lit for lit in literals) else None
+        case (preds, 1) if preds <= frozenset(("eq", "any-of")) and preds:
+            groups = (
+                *(frozenset((literal.encode(),)) for literal in re.findall(r'#eq\?\s+@\S+\s+"([^"\\]*)"', query_src)),
+                *(
+                    frozenset(literal.encode() for literal in re.findall(r'"([^"\\]*)"', body))
+                    for body in re.findall(r"#any-of\?\s+@\S+((?:\s+\"[^\"\\]*\")+)", query_src)
+                ),
+            )
+            return groups if groups and all(groups) else None
         case _:
             return None
 
@@ -218,7 +225,7 @@ def _ts_thunk(query_src: str, language: Language, root: Path, *, limit: int) -> 
             cap_row
             for rel in check.paths
             for src in (_read(root / rel),)
-            if src is not None and (needles is None or all(needle in src for needle in needles))
+            if src is not None and (needles is None or all(any(needle in src for needle in group) for group in needles))
             for cap_row in _ts_file_captures(query_src, language, rel, src, cap=cap)
         )
         captures = tuple(rows[:cap])

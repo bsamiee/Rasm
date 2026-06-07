@@ -2,10 +2,15 @@
 
 from typing import TYPE_CHECKING
 
+from expression import Ok
+from expression.collections import block
 import pytest
 
-from tools.assay.core.model import Completed, Language, Mode, TestRun
+from tools.assay.composition.settings import ArtifactScope
+from tools.assay.core.model import Claim, Completed, Language, Mode, MutationLane, TestRun
+from tools.assay.core.routing import Routed, Scope
 from tools.assay.core.status import RailStatus
+from tools.assay.rails import test as test_rail
 from tools.assay.rails.test import _coverage_artifacts, _coverage_percent, _detail, _rows, TestParams  # noqa: PLC2701
 
 
@@ -21,6 +26,38 @@ def test_coverage_rows_do_not_duplicate_plain_pytest() -> None:
     assert "coverage" in {tool.name for tool in run_rows}
     assert "pytest" not in {tool.name for tool in run_rows}
     assert {"coverage-json", "coverage-report"} <= {tool.name for tool in client_rows}
+
+
+def test_mutation_lanes_are_explicit_behavior_controls() -> None:
+    """Mutation lanes select mutation tools explicitly instead of a weak boolean flag."""
+    off_rows = _rows(Language.PYTHON, TestParams(mutation=MutationLane.OFF), Mode.MUTATION)
+    changed_rows = _rows(Language.PYTHON, TestParams(mutation=MutationLane.CHANGED), Mode.MUTATION)
+    full_rows = _rows(Language.PYTHON, TestParams(mutation=MutationLane.FULL), Mode.MUTATION)
+
+    assert off_rows == ()
+    assert {tool.mode for tool in changed_rows} == {Mode.MUTATION}
+    assert {tool.name for tool in full_rows} == {tool.name for tool in changed_rows}
+
+
+def test_list_counts_roster_rows_and_keeps_discovery_failures_in_notes(assay_root: AssayHarness, monkeypatch: pytest.MonkeyPatch) -> None:
+    """Mixed discovery results still emit direct test identities, not process defect rows."""
+    ok = Completed(("pytest", "--collect-only"), 0, stdout=b"tests/a.py::test_one\ntests/a.py::test_two\n", status=RailStatus.OK)
+    failed = Completed(("dotnet", "test", "--list-tests"), 1, stderr=b"no project", status=RailStatus.FAILED)
+    scope = ArtifactScope.open(assay_root.settings, Claim.TEST)
+    routed = Routed(language=Language.PYTHON, scope=Scope.CHANGED)
+
+    monkeypatch.setattr(test_rail, "_routed", lambda *_args, **_kwargs: Ok(block.of_seq((routed,))))
+    monkeypatch.setattr(test_rail, "_dispatch", lambda *_args, **_kwargs: (Ok(ok), Ok(failed)))
+
+    outcome = test_rail.list(assay_root.settings, scope, TestParams(limit=1))
+
+    assert outcome.is_ok()
+    report = outcome.ok
+    assert report.status is RailStatus.OK
+    assert report.counts.total == 1
+    assert [row.id for row in report.results] == ["tests/a.py::test_one"]
+    assert "discovery: total=2 returned=1" in report.notes
+    assert any(note == "discovery failed: dotnet test --list-tests: no project" for note in report.notes)
 
 
 def test_coverage_report_total_populates_test_detail() -> None:

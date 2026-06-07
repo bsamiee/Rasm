@@ -5,7 +5,6 @@ from typing import TYPE_CHECKING
 import anyio
 import anyio.lowlevel
 import msgspec
-import pytest
 
 from tools.assay.automation import engine as automation_engine
 from tools.assay.automation.engine import _governed, _hardened_fire, drive  # noqa: PLC2701
@@ -15,6 +14,8 @@ from tools.assay.core.status import RailStatus
 
 
 if TYPE_CHECKING:
+    import pytest
+
     from tests.tools.assay.conftest import AssayHarness
 
 
@@ -22,9 +23,9 @@ def test_cpu_governor_threshold(monkeypatch: pytest.MonkeyPatch) -> None:
     """CPU threshold skips a fire once psutil reports utilization at or above the ceiling."""
     monkeypatch.setattr("tools.assay.automation.engine.psutil.cpu_percent", lambda _interval: 91.0)
 
-    assert _governed(0.9) is True
-    assert _governed(0.95) is False
-    assert _governed(None) is False
+    assert anyio.run(_governed, 0.9) is True
+    assert anyio.run(_governed, 0.95) is False
+    assert anyio.run(_governed, None) is False
 
 
 def test_watch_setup_fault_emits_ndjson_envelope(assay_root: AssayHarness, capsysbinary: pytest.CaptureFixture[bytes]) -> None:
@@ -54,12 +55,14 @@ def test_empty_program_emits_fault_envelope(assay_root: AssayHarness, capsysbina
     assert "non-empty" in env.error.message
 
 
-def test_hardened_fire_resets_after_failure(assay_root: AssayHarness, monkeypatch: pytest.MonkeyPatch) -> None:
-    """Schedule coalescing does not wedge if the fired action raises."""
+def test_hardened_fire_resets_after_failure(
+    assay_root: AssayHarness, monkeypatch: pytest.MonkeyPatch, capsysbinary: pytest.CaptureFixture[bytes]
+) -> None:
+    """Schedule coalescing emits one fault envelope and does not wedge if the fired action raises."""
     monkeypatch.setattr(automation_engine, "_JITTER_MS", 1)
     calls = 0
 
-    async def fire() -> None:
+    async def fire(_changes: tuple[tuple[str, str], ...]) -> None:
         nonlocal calls
         await anyio.lowlevel.checkpoint()
         calls += 1
@@ -68,9 +71,15 @@ def test_hardened_fire_resets_after_failure(assay_root: AssayHarness, monkeypatc
 
     async def run() -> None:
         hardened = _hardened_fire(fire, assay_root.settings)
-        with pytest.raises(RuntimeError, match="boom"):
-            await hardened()
-        await hardened()
+        await hardened(())
+        await hardened(())
 
     anyio.run(run)
+    rows = capsysbinary.readouterr().out.splitlines()
+    env = msgspec.json.decode(rows[0], type=Envelope)
+
     assert calls == 2
+    assert len(rows) == 1
+    assert env.status is RailStatus.FAULTED
+    assert env.error is not None
+    assert "RuntimeError: boom" in env.error.message

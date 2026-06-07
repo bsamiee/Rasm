@@ -6,7 +6,7 @@ from pydantic import ValidationError
 import pytest
 from upath import UPath
 
-from tools.assay.composition.settings import AssaySettings
+from tools.assay.composition.settings import ArtifactBackend, AssaySettings
 from tools.assay.core.model import ArtifactKind
 
 
@@ -21,6 +21,28 @@ def test_memory_store_round_trip_and_glob(assay_root: AssayHarness) -> None:
 
     assert store.read_bytes("history", "run-1", "envelope.json") == b"payload"
     assert path in store.glob("history/*/envelope.json")
+
+
+def test_store_text_find_info_and_create_only(assay_root: AssayHarness) -> None:
+    """ArtifactStore exposes text, metadata, recursive find, and create-only writes over fsspec."""
+    store = assay_root.settings.store(protocol="memory")
+    path = store.write_text("alpha\nbeta\n", "scope", "api", "surface.txt", create=True, transaction=True)
+
+    assert store.read_text_path(path) == "alpha\nbeta\n"
+    assert path in store.find("scope")
+    assert path in store.list("scope", "api")
+    assert store.size_path(path) == len("alpha\nbeta\n")
+    with pytest.raises(FileExistsError):
+        store.write_text("again", "scope", "api", "surface.txt", create=True)
+
+
+def test_settings_owned_artifact_backend_and_trace_env(assay_root: AssayHarness) -> None:
+    """Artifact backend settings are independent of local root and trace context crosses SSH env projection."""
+    settings = AssaySettings(root=UPath(assay_root.root), run_id="run-1", artifact_backend=ArtifactBackend(protocol="memory", root="custom-root"))
+    env = settings.remote_env({"traceparent": "00-a-b-01", "baggage": "k=v", "UNSAFE": "x", "ASSAY_RUN_ID": "run-1"})
+
+    assert settings.store().root == "custom-root"
+    assert env == {"traceparent": "00-a-b-01", "baggage": "k=v", "ASSAY_RUN_ID": "run-1"}
 
 
 def test_artifact_rejects_unsafe_path_segments(assay_root: AssayHarness) -> None:

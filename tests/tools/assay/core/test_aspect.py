@@ -5,7 +5,7 @@ from collections import deque
 from expression import Ok, Result  # noqa: TC002
 import pytest
 
-from tools.assay.core.aspect import _RING, compose, compose_spawn, Inversion, logged, ring_processor, Slot  # noqa: PLC2701
+from tools.assay.core.aspect import _RING, compose, Inversion, logged, ring_processor, Slot  # noqa: PLC2701
 from tools.assay.core.model import Fault  # noqa: TC001
 
 
@@ -31,9 +31,3 @@ def test_compose_rejects_layer_inversion() -> None:
         compose(logged(event="x", keys=dict), (Slot.checked, lambda fn: fn))(identity)
 
     assert isinstance(raised.value.args[0], Inversion)
-
-
-def test_compose_spawn_accepts_only_retry_slot() -> None:
-    """Spawn composition is intentionally retry-only."""
-    with pytest.raises(TypeError, match=r"Slot\.retried"):
-        compose_spawn((Slot.checked, lambda fn: fn))

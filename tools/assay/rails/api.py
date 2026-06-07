@@ -12,13 +12,14 @@ import re
 from typing import assert_never, override, TYPE_CHECKING
 import xml.etree.ElementTree as ET  # noqa: S405  # trusted local Directory.Packages.props XML, never network-sourced
 
+from cyclopts.types import PositiveInt  # noqa: TC002  # Cyclopts evaluates Param dataclass annotations at runtime.
 from expression import Error, Ok, Result
 import msgspec
 from tree_sitter import Language as TSLanguage, Parser as TSParser, Query as TSQuery, QueryCursor
 import tree_sitter_typescript
 
 from tools.assay.composition.catalog import Capture, CAPTURE_ENCODER, CAPTURES, select
-from tools.assay.composition.settings import ArtifactScope, AssaySettings  # noqa: TC001  # registry passes both at runtime
+from tools.assay.composition.settings import ArtifactScope, ArtifactStore, AssaySettings  # noqa: TC001  # registry passes these at runtime
 from tools.assay.core.engine import run_check
 from tools.assay.core.model import (
     _RESULT_CAP,  # noqa: PLC2701  # shared saturation site
@@ -129,7 +130,7 @@ class ApiParams(BaseParams):
     symbol: str = ""
     kind: _PathKind = "all"
     token: str = ""
-    max_lines: int = 120
+    max_lines: PositiveInt = 120
     lines: str = ""
     grep: str = ""
     full: bool = False
@@ -174,7 +175,7 @@ class _Surface:
     types: tuple[str, ...]
     namespaces: tuple[str, ...]
     by_namespace: dict[str, tuple[str, ...]]
-    cache: Path
+    cache: str
     raw: str
 
 
@@ -610,6 +611,8 @@ def _ts_captures(parser: TSParser, language: TSLanguage, path: Path, symbol: str
                     file=path.name,
                     line=node.start_point.row + 1,
                     column=node.start_point.column + 1,
+                    end_line=node.end_point.row + 1,
+                    end_column=node.end_point.column + 1,
                     start_byte=node.start_byte,
                     end_byte=node.end_byte,
                 )
@@ -623,9 +626,17 @@ def _ts_captures(parser: TSParser, language: TSLanguage, path: Path, symbol: str
 
 
 def _ts_member(root: Node, symbol: str, path: Path) -> tuple[Capture, ...]:
-    # First declaration with a matching name field anchors the signature.
-    target = symbol.rsplit(".", 1)[-1]
-    match next((n for n in _walk_decls(root) if (name := n.child_by_field_name("name")) is not None and _node_text(name) == target), None):
+    # Owner-qualified lookups resolve Foo.x by matching Foo first, then x within that declaration.
+    owner, _dot, target = symbol.rpartition(".")
+    owner_node = next(
+        (n for n in _walk_decls(root) if owner and (name := n.child_by_field_name("name")) is not None and _node_text(name) == owner), None
+    )
+    node = (
+        next((n for n in _walk_decls(owner_node) if (name := n.child_by_field_name("name")) is not None and _node_text(name) == target), None)
+        if owner_node is not None
+        else next((n for n in _walk_decls(root) if (name := n.child_by_field_name("name")) is not None and _node_text(name) == target), None)
+    )
+    match node:
         case None:
             return _export_member(root, target, path)
         case node:
@@ -636,6 +647,8 @@ def _ts_member(root: Node, symbol: str, path: Path) -> tuple[Capture, ...]:
                     file=path.name,
                     line=node.start_point.row + 1,
                     column=node.start_point.column + 1,
+                    end_line=node.end_point.row + 1,
+                    end_column=node.end_point.column + 1,
                     start_byte=node.start_byte,
                     end_byte=node.end_byte,
                 ),
@@ -662,6 +675,8 @@ def _export_aliases(root: Node, path: Path) -> tuple[Capture, ...]:
             file=path.name,
             line=spec.start_point.row + 1,
             column=spec.start_point.column + 1,
+            end_line=spec.end_point.row + 1,
+            end_column=spec.end_point.column + 1,
             start_byte=spec.start_byte,
             end_byte=spec.end_byte,
         )
@@ -678,6 +693,8 @@ def _export_member(root: Node, target: str, path: Path) -> tuple[Capture, ...]:
             file=path.name,
             line=spec.start_point.row + 1,
             column=spec.start_point.column + 1,
+            end_line=spec.end_point.row + 1,
+            end_column=spec.end_point.column + 1,
             start_byte=spec.start_byte,
             end_byte=spec.end_byte,
         )
@@ -731,6 +748,7 @@ def _surface(settings: AssaySettings, scope: ArtifactScope, source: _Source) -> 
 def _cs_surface(settings: AssaySettings, scope: ArtifactScope, source: _Source) -> Result[_Surface, Fault]:
     # Content-fingerprint caches avoid repeat ilspy listings; non-zero ilspy exits fault the rail.
     assemblies = source.assemblies
+    store = settings.store()
     match next((t for t in select(Claim.API, Language.CSHARP)), None):
         case None:
             return Error(Fault(("api", "surface", source.key), status=RailStatus.FAULTED, message="no ilspycmd catalog row"))
@@ -738,9 +756,9 @@ def _cs_surface(settings: AssaySettings, scope: ArtifactScope, source: _Source) 
             return Ok(_Surface(source, (), (), {}, _cache_path(settings, source, ""), ""))
         case Tool() as tool:
             cache = _cache_path(settings, source, _fingerprint(assemblies))
-            match cache.is_file():
+            match store.exists_path(cache):
                 case True:
-                    return Ok(_parse_surface(source, cache, cache.read_text(encoding="utf-8", errors="replace")))
+                    return Ok(_parse_surface(source, cache, store.read_text_path(cache)))
                 case False:
                     return _run_surface(settings, scope, source, tool, assemblies, cache)
 
@@ -763,17 +781,17 @@ def _inproc_surface(settings: AssaySettings, source: _Source) -> Result[_Surface
     return _inproc_check(settings, source, Mode.QUERY, _inproc_thunk(source, "")).map(lambda done: _parse_inproc(source, cache, done))
 
 
-def _parse_inproc(source: _Source, cache: Path, done: Completed) -> _Surface:
+def _parse_inproc(source: _Source, cache: str, done: Completed) -> _Surface:
     types = tuple(dict.fromkeys(cap.text for cap in CAPTURES.decode(done.stdout or b"[]") if cap.name == "type" and cap.text))
     return _roster(source, cache, types, done.stdout.decode(errors="replace"))
 
 
-def _cache_path(settings: AssaySettings, source: _Source, fingerprint: str) -> Path:
-    return Path(str(settings.artifact(ArtifactKind.SCOPE, "api", f"{_safe(source.key)}.{fingerprint or 'unresolved'}.txt")))
+def _cache_path(settings: AssaySettings, source: _Source, fingerprint: str) -> str:
+    return settings.store().path(ArtifactKind.SCOPE.value, "api", f"{_safe(source.key)}.{fingerprint or 'unresolved'}.txt")
 
 
 def _run_surface(
-    settings: AssaySettings, scope: ArtifactScope, source: _Source, tool: Tool, assemblies: tuple[Path, ...], cache: Path
+    settings: AssaySettings, scope: ArtifactScope, source: _Source, tool: Tool, assemblies: tuple[Path, ...], cache: str
 ) -> Result[_Surface, Fault]:
     # Successful ilspy listings populate a deterministic roster cache.
     attempts = tuple((asm, _invoke(settings, scope, tool, str(asm))) for asm in assemblies)
@@ -783,8 +801,7 @@ def _run_surface(
             return Error(Fault(("api", "surface", source.key), status=RailStatus.FAULTED, message=detail[:1024]))
         case True:
             text = "\n".join(f"# {asm}\n{done.stdout.decode(errors='replace')}" for asm, done in attempts if done.stdout)
-            cache.parent.mkdir(parents=True, exist_ok=True)
-            cache.write_text(text, encoding="utf-8")
+            settings.store().write_text_path(text, cache)
             return Ok(_parse_surface(source, cache, text))
 
 
@@ -794,7 +811,7 @@ def _namespace_of(fqn: str, types: frozenset[str]) -> str:
     return next((".".join(parts[:i]) for i in range(len(parts)) if ".".join(parts[: i + 1]) in types), ".".join(parts[:-1]))
 
 
-def _parse_surface(source: _Source, cache: Path, text: str) -> _Surface:
+def _parse_surface(source: _Source, cache: str, text: str) -> _Surface:
     types = tuple(
         dict.fromkeys(
             parts[1]
@@ -807,7 +824,7 @@ def _parse_surface(source: _Source, cache: Path, text: str) -> _Surface:
     return _roster(source, cache, types, text)
 
 
-def _roster(source: _Source, cache: Path, types: tuple[str, ...], raw: str) -> _Surface:
+def _roster(source: _Source, cache: str, types: tuple[str, ...], raw: str) -> _Surface:
     type_set = frozenset(types)
     namespace_of = {fqn: _namespace_of(fqn, type_set) for fqn in types}
     namespaces = tuple(sorted({ns for ns in namespace_of.values() if ns}))
@@ -979,7 +996,15 @@ def doctor(settings: AssaySettings, scope: ArtifactScope, p: ApiParams) -> Resul
         )
         for i, (name, ok, text, _) in enumerate(rows, start=1)
     )
-    return _strict(msgspec.structs.replace(fold(Claim.API, "doctor", (done,), detail=detail), results=results), p)
+    artifact = _inventory_artifact(settings, rows)
+    return _strict(msgspec.structs.replace(fold(Claim.API, "doctor", (done,), detail=detail), artifacts=(artifact,), results=results), p)
+
+
+def _inventory_artifact(settings: AssaySettings, rows: tuple[tuple[str, bool, str, SourceKind], ...]) -> Artifact:
+    content = "\n".join(f"{kind.value}\t{'ok' if ok else 'missing'}\t{name}\t{text}" for name, ok, text, kind in rows)
+    raw = content.encode()
+    path = settings.store().write_bytes(raw, ArtifactKind.SCOPE.value, "api", settings.run_id, "doctor-inventory.tsv")
+    return Artifact(id="doctor-inventory", kind=ArtifactKind.SCOPE, path=path, bytes=len(raw), lines=len(rows))
 
 
 def _inventory(settings: AssaySettings, app: Path | None, version: Completed) -> tuple[tuple[str, bool, str, SourceKind], ...]:
@@ -1001,10 +1026,10 @@ def _inventory(settings: AssaySettings, app: Path | None, version: Completed) ->
 
 
 def _strict(report: Report, p: ApiParams) -> Result[Report, Fault]:
-    # Strict mode promotes incomplete inventory to a fault.
+    # Strict mode promotes incomplete API evidence to a fault.
     match (p.strict, report.status):
-        case (True, RailStatus.EMPTY | RailStatus.SKIP):
-            return Error(Fault(("api", report.verb), status=RailStatus.FAULTED, message=f"{report.verb} inventory incomplete under --strict"))
+        case (True, status) if status is not RailStatus.OK:
+            return Error(Fault(("api", report.verb), status=RailStatus.FAULTED, message=f"{report.verb} incomplete under --strict"))
         case _:
             return Ok(report)
 
@@ -1018,9 +1043,9 @@ def resolve(settings: AssaySettings, scope: ArtifactScope, p: ApiParams) -> Resu
     _ = scope
     match _source(settings, p.key):
         case Result(tag="ok", ok=source):
-            return Ok(_resolve_report(settings, source, p))
+            return _strict(_resolve_report(settings, source, p), p)
         case Result(error=resolution):
-            return Ok(_miss_report("resolve", p.key, resolution))
+            return _strict(_miss_report("resolve", p.key, resolution), p)
 
 
 def _resolve_report(settings: AssaySettings, source: _Source, p: ApiParams) -> Report:
@@ -1060,9 +1085,13 @@ def query(settings: AssaySettings, scope: ArtifactScope, p: ApiParams) -> Result
     """
     match _source(settings, p.key):
         case Result(tag="ok", ok=source):
-            return _surface(settings, scope, source).bind(lambda surface: _query_shape(settings, scope, surface, p))
+            return (
+                _surface(settings, scope, source)
+                .bind(lambda surface: _query_shape(settings, scope, surface, p))
+                .bind(lambda report: _strict(report, p))
+            )
         case Result(error=resolution):
-            return Ok(_miss_report("query", p.key, resolution))
+            return _strict(_miss_report("query", p.key, resolution), p)
 
 
 def _resolve_namespace(settings: AssaySettings, scope: ArtifactScope, surface: _Surface, p: ApiParams) -> Result[Report, Fault]:
@@ -1110,17 +1139,8 @@ def _roster_report(settings: AssaySettings, surface: _Surface, shape: SymbolShap
         notes=(f"{len(surface.types)} types across {len(surface.namespaces)} namespaces",),
     )
     detail = _api_detail(source, shape, preview="\n".join(rows[:_PREVIEW_ROWS]), truncated=len(rows) > _PREVIEW_ROWS, lines=len(rows))
-    extra = (
-        Artifact(
-            id=hashlib.sha256(f"{surface.cache}|surface".encode()).hexdigest()[:12],
-            kind=ArtifactKind.SCOPE,
-            path=str(surface.cache),
-            bytes=surface.cache.stat().st_size,
-            lines=len(surface.cache.read_text(encoding="utf-8", errors="replace").splitlines()),
-        )
-        if shape is SymbolShape.INDEX and surface.cache.is_file()
-        else None
-    )
+    store = settings.store()
+    extra = _cache_artifact(store, surface.cache) if shape is SymbolShape.INDEX and store.exists_path(surface.cache) else None
     artifacts = (artifact, extra) if extra is not None else (artifact,)
     return msgspec.structs.replace(
         fold(Claim.API, "query", (done,), detail=detail), artifacts=artifacts, results=_matches(rows, ArtifactKind.SCOPE, p.grep)
@@ -1221,30 +1241,49 @@ def show(settings: AssaySettings, scope: ArtifactScope, p: ApiParams) -> Result[
         Artifact preview report, or an empty report when the artifact is absent.
     """
     _ = scope
-    match _show_target(Path(str(settings.artifact(ArtifactKind.SCOPE, "api"))), p):  # api artifact tree is local-fs; UPath -> Path
-        case Path() as path if path.is_file():
-            return Ok(_show_report(path, p))
+    store = settings.store()
+    match _show_target(store, p):
+        case str() as path:
+            return _strict(_show_store_report(store, path, p), p)
         case _:
             done = Completed(("api", "show", p.token), 0, status=RailStatus.EMPTY, notes=(f"artifact not found: {p.token}",))
-            return Ok(fold(Claim.API, "show", (done,)))
+            return _strict(fold(Claim.API, "show", (done,)), p)
 
 
-def _show_report(path: Path, p: ApiParams) -> Report:
-    text = path.read_text(encoding="utf-8", errors="replace")
+def _show_store_report(store: ArtifactStore, path: str, p: ApiParams) -> Report:
+    text = store.read_text_path(path)
     window, total, truncated = _slice(text, lines=p.lines, grep=p.grep, max_lines=p.max_lines, full=p.full)
-    digest = hashlib.sha256(f"{path}|{path.name}".encode()).hexdigest()[:12]
-    artifact = Artifact(id=digest, kind=ArtifactKind.SCOPE, path=str(path), bytes=path.stat().st_size, lines=len(text.splitlines()))
+    digest = hashlib.sha256(f"{path}|{p.token}".encode()).hexdigest()[:12]
+    artifact = Artifact(
+        id=digest, kind=ArtifactKind.SCOPE, path=path, bytes=store.size_path(path, fallback=len(text.encode())), lines=len(text.splitlines())
+    )
     detail = ApiSurface(source_kind=SourceKind.TOOL, source_id=p.token, shape=SymbolShape.SEARCH, preview=window, truncated=truncated, lines=total)
     done = Completed(("api", "show", p.token), 0, status=RailStatus.OK, notes=(f"{total} selected lines",))
     return msgspec.structs.replace(fold(Claim.API, "show", (done,), detail=detail), artifacts=(artifact,))
 
 
-def _show_target(base: Path, p: ApiParams) -> Path | None:
-    # Direct paths win before newest artifact-tree matches.
-    direct = Path(p.token).expanduser()
-    globbed = sorted(base.glob(f"**/{p.token}"), key=lambda path: path.stat().st_mtime, reverse=True) if base.is_dir() else []
-    candidates = ((direct,) if direct.is_file() else ()) + tuple(globbed)
-    return next((c for c in candidates if c.is_file()), None)
+def _show_target(store: ArtifactStore, p: ApiParams) -> str | None:
+    try:
+        direct = store.backend_path(p.token)
+        if store.exists_path(direct):
+            return direct
+    except ValueError:
+        direct = ""
+    matches = tuple(path for path in store.find(ArtifactKind.SCOPE.value) if path.endswith((f"/{p.token}", p.token)))
+    ranked = tuple(sorted(matches, key=store.mtime_path, reverse=True))
+    selected = next(iter(ranked), None)
+    return str(selected) if selected is not None else None
+
+
+def _cache_artifact(store: ArtifactStore, path: str) -> Artifact:
+    text = store.read_text_path(path)
+    return Artifact(
+        id=hashlib.sha256(f"{path}|surface".encode()).hexdigest()[:12],
+        kind=ArtifactKind.SCOPE,
+        path=path,
+        bytes=store.size_path(path, fallback=len(text.encode())),
+        lines=len(text.splitlines()),
+    )
 
 
 def _slice(text: str, *, lines: str, grep: str, max_lines: int, full: bool) -> tuple[str, int, bool]:

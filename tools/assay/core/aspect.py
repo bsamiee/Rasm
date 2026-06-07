@@ -1,7 +1,7 @@
 """Define ordered aspect layers for rail and engine boundaries."""
 
 from collections import deque
-from collections.abc import Callable, Coroutine, Mapping
+from collections.abc import Callable, Mapping
 from contextvars import ContextVar
 from dataclasses import dataclass
 from enum import IntEnum
@@ -15,31 +15,25 @@ from expression import Ok, Result
 from expression.collections import block
 from opentelemetry import baggage, context, trace
 from opentelemetry.trace import Status, StatusCode
-import stamina
-from stamina.instrumentation import set_on_retry_hooks
 import structlog
 from structlog.contextvars import bound_contextvars, get_contextvars
 
-from tools.assay.core.model import Fault, ResourceBusyError
+from tools.assay.core.model import Fault
 from tools.assay.core.status import RailStatus
 
 
 if TYPE_CHECKING:
     from expression.collections import Block
     from opentelemetry.trace import Span
-    from stamina.instrumentation import RetryDetails
     from structlog.typing import EventDict
 
 
 # --- [TYPES] ----------------------------------------------------------------------------
 
 type Attrs = Mapping[str, object]
-type Hook = Callable[[Exception], bool]
 type Bind[**P] = Callable[P, Mapping[str, object]]
 type Hom[**P, T] = Callable[P, Result[T, Fault]]
-type Spawn[**P, T] = Callable[P, Coroutine[None, None, T]]
 type Layer[**P, T] = tuple[Slot, Callable[[Hom[P, T]], Hom[P, T]]]
-type SpawnLayer[**P, T] = tuple[Slot, Callable[[Spawn[P, T]], Spawn[P, T]]]
 
 
 class Slot(IntEnum):
@@ -48,7 +42,6 @@ class Slot(IntEnum):
     checked = 0
     logged = 1
     traced = 2
-    retried = 3
 
 
 @runtime_checkable
@@ -81,17 +74,6 @@ class Inversion(Exception):  # noqa: N818  # surfaced via TypeError, not an *Err
 
 
 # --- [OPERATIONS] -----------------------------------------------------------------------
-
-
-def _transient(exc: Exception) -> bool:
-    # ResourceBusyError is a lease fact, not flaky transport, so it never retries.
-    match exc:
-        case ResourceBusyError():
-            return False
-        case ConnectionError() | TimeoutError() | BrokenPipeError() | OSError():
-            return True
-        case _:
-            return False
 
 
 def _log() -> _AssayLogger:
@@ -139,18 +121,6 @@ def ring_recent() -> tuple[str, ...]:
             return ()
 
 
-def _on_retry(details: RetryDetails) -> None:
-    # Retry hooks read context bound outside the retried loop, including seams where logged is forbidden.
-    wait_for = float(getattr(details.wait_for, "total_seconds", lambda: details.wait_for)())
-    trace.get_current_span().add_event(
-        "retry.scheduled",
-        attributes={"retry.attempt": details.retry_num, "retry.wait_for": wait_for, "retry.cause": type(details.caused_by).__name__},
-    )
-    _log().warning(
-        "retry.scheduled", attempt=details.retry_num, wait_for=details.wait_for, caused_by=type(details.caused_by).__name__, **get_contextvars()
-    )
-
-
 def _once[**P, T](dec: Callable[[Callable[P, T]], Callable[P, T]]) -> Callable[[Callable[P, T]], Callable[P, T]]:
     # Idempotency is per decorator instance; callers wire factories once at module scope.
     tag = id(dec)
@@ -167,6 +137,15 @@ def _once[**P, T](dec: Callable[[Callable[P, T]], Callable[P, T]]) -> Callable[[
                 return woven
 
     return guard
+
+
+def checked_call[**P, T](fn: Hom[P, T], *, conf: BeartypeConf = _CONF) -> Hom[P, T]:
+    """Apply runtime shape validation to one rail function.
+
+    Returns:
+        Woven function with runtime argument and return validation.
+    """
+    return _once(beartype(conf=conf))(fn)
 
 
 def assemble[**P, T](layers: Block[Layer[P, T]], fn: Hom[P, T]) -> Result[Hom[P, T], Inversion]:
@@ -190,7 +169,7 @@ def compose[**P, T](*layers: Layer[P, T]) -> Callable[[Hom[P, T]], Hom[P, T]]:
     Returns:
         Decorator that applies the non-retry layers in slot order.
     """
-    homs = block.of_seq(tuple(lyr for lyr in layers if lyr[0] is not Slot.retried))
+    homs = block.of_seq(layers)
 
     def weave(fn: Hom[P, T]) -> Hom[P, T]:
         match assemble(homs, fn):
@@ -204,30 +183,13 @@ def compose[**P, T](*layers: Layer[P, T]) -> Callable[[Hom[P, T]], Hom[P, T]]:
     return weave
 
 
-def compose_spawn[**P, T](layer: SpawnLayer[P, T]) -> Callable[[Spawn[P, T]], Spawn[P, T]]:
-    """Build an engine spawn-layer decorator.
-
-    Returns:
-        Decorator that applies checked, traced, and retry spawn layers.
-
-    Raises:
-        TypeError: The layer is not a retry slot.
-
-    """
-    match layer[0]:
-        case Slot.retried:
-            return layer[1]
-        case slot:
-            raise TypeError(Inversion(Slot.retried, slot, 0))
-
-
 def checked[**P, T](*, conf: BeartypeConf = _CONF) -> Layer[P, T]:
     """Create the runtime shape-validation layer.
 
     Returns:
         Layer tuple for the checked slot.
     """
-    return (Slot.checked, _once(beartype(conf=conf)))
+    return (Slot.checked, lambda fn: checked_call(fn, conf=conf))
 
 
 def logged[**P, T](*, event: str, keys: Bind[P]) -> Layer[P, T]:
@@ -320,39 +282,21 @@ def traced[**P, T](*, span: str, attrs: Callable[P, Attrs], agent: Callable[P, A
     return (Slot.traced, dec)
 
 
-def retried[**P, T](*, on: Hook = _transient, attempts: int = 3, timeout: float = 30.0) -> SpawnLayer[P, T]:
-    """Create the engine retry layer.
-
-    Returns:
-        Spawn layer tuple for the retried slot.
-    """
-    return (Slot.retried, _once(stamina.retry(on=on, attempts=attempts, timeout=timeout)))
-
-
-# --- [COMPOSITION] ----------------------------------------------------------------------
-
-set_on_retry_hooks([_on_retry])
-
-
 # --- [EXPORTS] --------------------------------------------------------------------------
 
 __all__ = [
     "Attrs",
     "Bind",
     "Hom",
-    "Hook",
     "Inversion",
     "Layer",
     "Slot",
-    "Spawn",
-    "SpawnLayer",
     "_RING",
     "assemble",
     "checked",
+    "checked_call",
     "compose",
-    "compose_spawn",
     "logged",
-    "retried",
     "ring_processor",
     "ring_recent",
     "traced",

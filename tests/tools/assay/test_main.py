@@ -31,3 +31,14 @@ def test_incomplete_claim_emits_parse_fault(cli: VerbRunner) -> None:
     assert not env.verb
     assert env.error is not None
     assert "incomplete command" in env.error.message
+
+
+def test_numeric_validator_faults_before_dispatch(cli: VerbRunner) -> None:
+    """Cyclopts numeric validators surface as one parse envelope."""
+    env, code = cli("code", "query", "(module) @m", "--max-results", "-1")
+
+    assert code == RailStatus.FAULTED.exit_code
+    assert env.status is RailStatus.FAULTED
+    assert env.error is not None
+    assert env.error_context is not None
+    assert env.error_context.failing_step == "parse"

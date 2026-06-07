@@ -30,7 +30,7 @@ class Watch(Base, frozen=True, tag_field="kind", tag="watch", forbid_unknown_fie
     poll_delay_ms: Annotated[int, Meta(ge=1)] = 300
     recursive: bool = True
     ignore_permission_denied: bool | None = None
-    cpu_threshold: float | None = None
+    cpu_threshold: Annotated[float, Meta(ge=0, le=1)] | None = None
 
 
 class Schedule(Base, frozen=True, tag_field="kind", tag="schedule", forbid_unknown_fields=True):
@@ -42,8 +42,8 @@ class Schedule(Base, frozen=True, tag_field="kind", tag="schedule", forbid_unkno
     """
 
     cron: str
-    timezone: str = ""
-    cpu_threshold: float | None = None
+    timezone: str = "UTC"
+    cpu_threshold: Annotated[float, Meta(ge=0, le=1)] | None = None
 
 
 class Manual(Base, frozen=True, tag_field="kind", tag="manual", forbid_unknown_fields=True):

@@ -136,8 +136,8 @@ class MutationLane(StrEnum):
     """Mutation runner lane for test evidence."""
 
     OFF = "off"
-    STRYKER = "stryker"
-    MUTMUT = "mutmut"
+    CHANGED = "changed"
+    FULL = "full"
 
 
 class SymbolShape(StrEnum):
@@ -157,13 +157,6 @@ type InprocThunk = Callable[[Check], Completed]
 
 _RESULT_CAP: int = 1000
 _DEFECT_TAIL: int = 400
-
-
-# --- [ERRORS] ---------------------------------------------------------------------------
-
-
-class ResourceBusyError(Exception):
-    """Lease contention signal that is mapped to `RailStatus.BUSY`."""
 
 
 # --- [MODELS] ---------------------------------------------------------------------------
@@ -208,6 +201,16 @@ class Check(Base, frozen=True, cache_hash=True):
     cwd: Path | None = None
 
 
+class Artifact(Base, frozen=True):
+    """Produced artifact record."""
+
+    id: str
+    kind: ArtifactKind
+    path: str
+    bytes: Annotated[int, msgspec.Meta(ge=0)] = 0
+    lines: Annotated[int, msgspec.Meta(ge=0)] = 0
+
+
 class Completed(Base, frozen=True):
     """Receipt for a process or in-process tool that ran."""
 
@@ -218,6 +221,7 @@ class Completed(Base, frozen=True):
     duration_ms: Annotated[float, msgspec.Meta(ge=0)] = 0.0
     status: RailStatus = RailStatus.EMPTY
     notes: tuple[str, ...] = ()
+    artifacts: tuple[Artifact, ...] = ()
 
 
 class Fault(Base, frozen=True):
@@ -234,16 +238,6 @@ class Counts(Base, frozen=True):
     ok: int = 0
     failed: int = 0
     total: int = 0
-
-
-class Artifact(Base, frozen=True):
-    """Produced artifact record."""
-
-    id: str
-    kind: ArtifactKind
-    path: str
-    bytes: Annotated[int, msgspec.Meta(ge=0)] = 0
-    lines: Annotated[int, msgspec.Meta(ge=0)] = 0
 
 
 class Match(Base, frozen=True):
@@ -464,13 +458,23 @@ def receipt(
     duration_ms: float = 0.0,
     status: RailStatus | None = None,
     notes: tuple[str, ...] = (),
+    artifacts: tuple[Artifact, ...] = (),
 ) -> Completed:
     """Build a completed receipt.
 
     Returns:
         Completed process or in-process tool receipt.
     """
-    return Completed(argv, rc, stdout, stderr, duration_ms, status or RailStatus.from_returncode(rc), notes)
+    return Completed(
+        argv=argv,
+        returncode=rc,
+        stdout=stdout,
+        stderr=stderr,
+        duration_ms=duration_ms,
+        status=status or RailStatus.from_returncode(rc),
+        notes=notes,
+        artifacts=artifacts,
+    )
 
 
 def validate_detail(detail: AnyDetail | None) -> AnyDetail | None:
@@ -516,6 +520,7 @@ def fold(claim: Claim, verb: str, outcomes: tuple[Completed, ...], *, detail: An
         rail_fold(*(o.status for o in outcomes)),
         Counts(ok_n, fail_n, ok_n + fail_n),
         results=defects,
+        artifacts=tuple(artifact for o in outcomes for artifact in o.artifacts),
         notes=tuple(n for o in outcomes for n in o.notes),
         detail=detail,
     )
@@ -541,6 +546,15 @@ def envelope(payload: Report | Fault, *, claim: Claim, verb: str, run_id: str = 
                 error=f,
                 error_context=error_context,
             )
+
+
+def wire_encode(value: object) -> bytes:
+    """Encode a wire value through the single deterministic msgspec encoder.
+
+    Returns:
+        Deterministic JSON bytes.
+    """
+    return _ENCODER.encode(value)
 
 
 # --- [COMPOSITION] ----------------------------------------------------------------------
@@ -575,7 +589,6 @@ __all__ = [
     "MutationLane",
     "PackageRun",
     "Report",
-    "ResourceBusyError",
     "RunDelta",
     "RunSnapshot",
     "Runner",
@@ -592,4 +605,5 @@ __all__ = [
     "fold",
     "receipt",
     "validate_detail",
+    "wire_encode",
 ]

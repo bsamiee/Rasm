@@ -4,6 +4,7 @@ from dataclasses import dataclass, replace
 from pathlib import Path  # unconditional: cyclopts resolves TestParams.target's `Path | None` at CLI-build (PEP 649)
 from typing import TYPE_CHECKING
 
+from cyclopts.types import NonNegativeInt  # noqa: TC002  # Cyclopts evaluates Param dataclass annotations at runtime.
 from expression import Result  # noqa: TC002  # unconditional: beartype @checked resolves the handler forward-ref (PEP 649)
 from expression.collections import block
 from expression.extra.result import sequence
@@ -20,6 +21,7 @@ from tools.assay.core.model import (
     Check,
     Claim,
     Completed,  # noqa: TC001  # unconditional: _roster_matches uses Completed as a runtime type in the tuple annotation
+    Counts,
     Fault,  # noqa: TC001  # unconditional: beartype @checked resolves the rail's forward-ref (PEP 649)
     fold,
     Match,
@@ -61,11 +63,11 @@ class TestParams(BaseParams):
     target: Path | None = None
     all: bool = False
     no_build: bool = False
-    mutation: bool = False
+    mutation: MutationLane = MutationLane.OFF
     benchmark: bool = False
     coverage: bool = False
     filter: str = ""
-    limit: int = 0
+    limit: NonNegativeInt = 0
     grep: str = ""
 
 
@@ -88,9 +90,9 @@ def _languages(selected: Language | None) -> tuple[Language, ...]:
 def _eligible(tool: Tool, params: TestParams) -> bool:
     # Reject ineligible mutation rows before they can acquire mutation.lock.
     match (tool.mode, params.mutation):
-        case (Mode.MUTATION, False):
+        case (Mode.MUTATION, MutationLane.OFF):
             return False
-        case (Mode.MUTATION, True):
+        case (Mode.MUTATION, MutationLane.CHANGED | MutationLane.FULL):
             return params.target is None and not params.all
         case (Mode.RESTORE, _) | (Mode.BUILD, _):
             return not params.no_build
@@ -112,7 +114,7 @@ def _rows(language: Language, params: TestParams, mode: Mode) -> tuple[Tool, ...
 
 def _mutation_gap(params: TestParams, rows: tuple[Tool, ...]) -> bool:
     # Valid but inapplicable mutation requests fold to EMPTY, not FAULTED.
-    return params.mutation and not any(t.mode is Mode.MUTATION for t in rows)
+    return params.mutation is not MutationLane.OFF and not any(t.mode is Mode.MUTATION for t in rows)
 
 
 def _filter(expr: str) -> tuple[str, ...]:
@@ -181,11 +183,11 @@ def _detail(done: tuple[Completed, ...], params: TestParams) -> AnyDetail | None
     )
     coverage = _coverage_percent(done)
     match (params.mutation, params.coverage, coverage):
-        case (False, False, _):
+        case (MutationLane.OFF, False, _):
             return None
         case (_, True, float() as total):
             return msgspec.structs.replace(mutation, coverage=total)
-        case (True, _, _):
+        case (MutationLane.CHANGED | MutationLane.FULL, _, _):
             return mutation if mutation.mutation is not MutationLane.OFF else None
         case _:
             return None
@@ -235,7 +237,7 @@ def thin_rail(settings: AssaySettings, scope: ArtifactScope, params: TestParams,
         Folded test report, or routing/spawn/lease fault.
     """
     languages = _languages(params.language)
-    eligible = tuple(t for language in languages for t in _rows(language, params, Mode.MUTATION if params.mutation else mode))
+    eligible = tuple(t for language in languages for t in _rows(language, params, Mode.MUTATION if params.mutation is not MutationLane.OFF else mode))
     gap = _mutation_gap(params, eligible)
     match gap:
         case True:
@@ -293,16 +295,24 @@ def list(settings: AssaySettings, scope: ArtifactScope, params: TestParams) -> R
         discovered = tuple(m for m in _roster_matches(outcomes) if not needle or needle in m.text.lower())
         roster = discovered[: params.limit] if params.limit > 0 else discovered
         note = (f"discovery: total={len(discovered)} returned={len(roster)}",) if discovered else ()
+        diagnostics = tuple(
+            f"discovery {c.status.value}: {' '.join(c.argv)[:120]}{f': {tail}' if tail else ''}"
+            for c in outcomes
+            if c.status.severity > RailStatus.OK.severity
+            for tail in ((c.stderr or c.stdout)[-256:].decode(errors="replace").strip(),)
+        )
+        notes = (*base.notes, *note, *diagnostics)
         return (
             msgspec.structs.replace(
                 base,
                 status=RailStatus.OK,
-                results=(*base.results, *roster),
+                counts=Counts(len(roster), 0, len(roster)),
+                results=roster,
                 artifacts=(*base.artifacts, _results_artifact(scope)),
-                notes=(*base.notes, *note),
+                notes=notes,
             )
             if roster
-            else msgspec.structs.replace(base, artifacts=(*base.artifacts, _results_artifact(scope)))
+            else msgspec.structs.replace(base, artifacts=(*base.artifacts, _results_artifact(scope)), notes=notes)
         )
 
     return _routed(languages, params.paths, settings).bind(
@@ -325,7 +335,11 @@ def _dispatch_all(
     routed: Routed, params: TestParams, *, settings: AssaySettings, scope: ArtifactScope, mode: Mode
 ) -> tuple[Result[Completed, Fault], ...]:
     run = _dispatch(routed, params, settings=settings, scope=scope, mode=mode)
-    mutation = _dispatch(routed, params, settings=settings, scope=scope, mode=Mode.MUTATION) if params.mutation and mode is Mode.RUN else ()
+    mutation = (
+        _dispatch(routed, params, settings=settings, scope=scope, mode=Mode.MUTATION)
+        if params.mutation is not MutationLane.OFF and mode is Mode.RUN
+        else ()
+    )
     coverage = _dispatch(routed, params, settings=settings, scope=scope, mode=Mode.CLIENT) if params.coverage and mode is Mode.RUN else ()
     return (*run, *mutation, *coverage)
 

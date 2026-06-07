@@ -5,9 +5,9 @@ A ``msgspec.inspect``-driven strategy resolver registers every wire struct with 
 adding a model field over the supported JSON leaf taxonomy needs zero conftest change), a single
 the polymorphic ``cli`` fixture runs the CLI in-process (or as a real subprocess under ``isolate=True``),
 and the promoted oracles
-(``assert_wire_roundtrip``/``expect_ok``/``assert_counts_consistent``/``make_history_envelope``) let
+(``assert_wire_roundtrip``/``assert_counts_consistent``/``make_history_envelope``) let
 laws read as one-liners. Plus the socket-free ``RailProbe`` host, the loopback ``SshLoopback`` network
-seam, the ``BridgeResult``/``YakShape`` materializers, and the table-driven ``ab_delta`` A/B fixture.
+seam, and the ``BridgeResult``/``YakShape`` materializers.
 
 Prefer ``data()`` over nested ``@given`` and the shared oracles over hand-rolled ``assert x.is_ok()``.
 """
@@ -63,12 +63,10 @@ from tools.assay.core.model import (
 )
 from tools.assay.core.status import RailStatus
 from tools.assay.rails import bridge as bridge_rail, package as package_rail
-from tools.quality.rails import package as quality_package
-from tools.quality.settings import ArtifactScope as QualityScope, QualitySettings
 
 
 if TYPE_CHECKING:
-    from collections.abc import AsyncGenerator, Callable, Generator, Mapping
+    from collections.abc import AsyncGenerator, Callable, Generator
 
 
 # --- [TYPES] ----------------------------------------------------------------------------
@@ -302,41 +300,6 @@ class SshLoopback:
 
 
 @dataclass(frozen=True, slots=True)
-class AbDelta:
-    """The A/B delta: both decoded operator outputs plus the field-name correspondence."""
-
-    assay: Envelope
-    quality: dict[str, object]
-    mapping: Mapping[str, str]
-
-
-@dataclass(frozen=True, slots=True)
-class Verdict:
-    """Per-field A/B verdict: the assay value, the predecessor value, and whether assay subsumes it."""
-
-    field: str
-    assay: object
-    quality: object
-    subsumes: bool
-
-
-@dataclass(frozen=True, slots=True)
-class AbCell:
-    """One overlapping verb: bound assay + predecessor thunks plus the field-name correspondence.
-
-    The thunks absorb the non-uniform predecessor signatures (``package_list_payload(settings, scope)``
-    vs ``package_plan_payload(settings, scope, slug, version)`` vs ``plan_payload(settings, scope,
-    paths)``) so the law table iterates one uniform shape.
-    """
-
-    claim: Claim
-    verb: str
-    assay: Callable[[AssayHarness], Result[Report, Fault]]
-    quality: Callable[[AssayHarness], Result[bytes, object]]
-    mapping: Mapping[str, str]
-
-
-@dataclass(frozen=True, slots=True)
 class BridgeResult:
     """``_BridgeResult`` JSON writer: one valid camelCase payload plus three adversarial variants."""
 
@@ -490,16 +453,6 @@ def _make_psutil_module(procs: dict[int | None, MagicMock], *, cpu_count: int = 
 # >=2-consumer oracle helpers the foundation tests + W3 share; single-file helpers stay in their file.
 
 
-def expect_ok[T](result: Result[T, object]) -> T:
-    """Assert a Result is Ok and return its value (mirrors tools/quality conftest).
-
-    Returns:
-        The unwrapped success value.
-    """
-    assert result.is_ok(), f"expected Ok, got Error: {result}"
-    return result.ok
-
-
 def assert_wire_roundtrip[T](value: T, typ: type[T]) -> T:
     """Assert deterministic encode/decode/re-encode byte-identity for a wire struct.
 
@@ -533,32 +486,6 @@ def pipe_history(store: ArtifactStore, run_ids: tuple[str, ...]) -> None:
     """Write a canned Envelope into the history tree for each run_id (delta/retention setup)."""
     for run_id in run_ids:
         store.write_bytes(_ENCODER.encode(make_history_envelope(run_id)), "history", run_id, "envelope.json")
-
-
-# --- [TABLES] ---------------------------------------------------------------------------
-# VERB_MATRIX drives the A/B closure: one bound (assay, predecessor) pair per overlapping read-only verb.
-# W2-A grows this to the full overlapping-verb set; the machinery (ab_delta + Verdict) is verb-agnostic.
-
-
-def _qsettings(harness: AssayHarness) -> QualitySettings:
-    return QualitySettings(root=harness.root, rhino_app=None, run_id="ab-delta")
-
-
-def _qscope(harness: AssayHarness, claim: Claim) -> QualityScope:
-    return QualityScope(root=harness.root, rail=claim.value, scope_path=harness.root, dotnet_env={})
-
-
-VERB_MATRIX: tuple[AbCell, ...] = (
-    AbCell(
-        Claim.PACKAGE,
-        "list",
-        assay=lambda h: package_rail.list(h.settings, ArtifactScope.open(h.settings, Claim.PACKAGE), package_rail.PackageParams()),
-        quality=lambda h: quality_package.package_list_payload(_qsettings(h), _qscope(h, Claim.PACKAGE)),
-        mapping={"rail": "claim", "data": "report", "evidence": "error_context"},
-    ),
-)
-
-_CELLS: dict[tuple[Claim, str], AbCell] = {(c.claim, c.verb): c for c in VERB_MATRIX}
 
 
 # --- [COMPOSITION] ---------------------------------------------------------------------
@@ -595,7 +522,7 @@ def mem_store(assay_root: AssayHarness) -> Generator[ArtifactStore]:
     """
     store = assay_root.settings.store(protocol="memory")
     yield store
-    if store.fs.exists(store.root):
+    if store.exists_path(store.root):
         store.remove_path(store.root, recursive=True)
 
 
@@ -716,30 +643,6 @@ def yak_shape() -> YakShape:
         Package-shape materializer for yak rail tests.
     """
     return YakShape()
-
-
-@pytest.fixture
-def ab_delta(assay_root: AssayHarness) -> Callable[[Claim, str], AbDelta]:
-    """Run an overlapping verb on OURS and the ``tools.quality`` predecessor; decode both + the field map.
-
-    Dispatches on ``(claim, verb)`` through ``VERB_MATRIX``. Fault-transparent: asserts the predecessor
-    is ``is_ok()`` before decoding (silently degrading to empty-dict on fault was the prior bug).
-
-    Returns:
-        Callable that compares an assay Envelope with the predecessor payload for one overlapping verb.
-    """
-
-    def run(claim: Claim, verb: str) -> AbDelta:
-        cell = _CELLS[claim, verb]
-        outcome = cell.assay(assay_root)
-        payload = outcome.ok if outcome.is_ok() else outcome.error
-        assay_env = wrap_envelope(payload, claim=claim, verb=verb)
-        quality = cell.quality(assay_root)
-        assert quality.is_ok(), f"ab_delta: predecessor {claim.value} {verb} faulted: {quality}"
-        quality_decoded = msgspec.json.decode(quality.ok, type=dict[str, object])
-        return AbDelta(assay=assay_env, quality=quality_decoded, mapping=cell.mapping)
-
-    return run
 
 
 @pytest.fixture(scope="session", autouse=True)

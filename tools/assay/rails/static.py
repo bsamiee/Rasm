@@ -165,6 +165,9 @@ def _plan_report(routed: tuple[Routed, ...], settings: AssaySettings, scope: Art
         )
         for r, sha in routed_sha
     )
+    previews = tuple(
+        preview for r, _ in routed_sha for verb, mode in _PREVIEW_MODES for preview in (_preview(r, verb, mode, settings, scope),) if preview
+    )
     notes = (
         *(
             f"{r.language!s}: scope={r.scope!s} closure={sha} projects={len(r.projects)}"
@@ -172,7 +175,7 @@ def _plan_report(routed: tuple[Routed, ...], settings: AssaySettings, scope: Art
             else f"{r.language!s}: scope={r.scope!s} files={len(r.files)}"
             for r, sha in routed_sha
         ),
-        *(_preview(r, verb, mode, settings, scope) for r, _ in routed_sha for verb, mode in _PREVIEW_MODES),
+        *previews,
     )
     artifacts = tuple(Artifact(id=f"build-{sha}", kind=ArtifactKind.SCOPE, path=build_scope) for r, sha in routed_sha if r.projects)
     base = fold(Claim.STATIC, "plan", ())
@@ -185,8 +188,8 @@ def _preview(routed: Routed, verb: str, mode: Mode, settings: AssaySettings, sco
     argvs = tuple(
         _argv(Check(tool=tool), routed, settings=settings, scope=scope) for tool in select(Claim.STATIC, routed.language) if tool.mode is mode
     )
-    bodies = " ; ".join(" ".join(argv) for argv in argvs) or "(no rows)"
-    return f"{routed.language!s} {verb}: {bodies}"
+    bodies = " ; ".join(" ".join(argv) for argv in argvs)
+    return f"{routed.language!s} {verb}: {bodies}" if bodies else ""
 
 
 def _closure_sha(routed: Routed) -> str:

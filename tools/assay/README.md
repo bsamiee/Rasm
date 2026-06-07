@@ -1,14 +1,14 @@
 # [ASSAY_OPERATOR]
 
-`tools.assay` is the Rasm polyglot quality-operator implementation for C#, Python, TypeScript, Bash, SQL, docs, bridge, package, and API proof. Root quality routing still names `tools.quality`; use Assay for Assay-owned work and explicit operator validation.
+`tools.assay` is the Rasm polyglot quality-operator implementation for C#, Python, TypeScript, Bash, SQL, docs, bridge, package, and API proof. Assay is the replacement quality surface, not a compatibility wrapper.
 
 ## [1][STATUS]
 
-Status: active Assay operator; not the root-canonical quality route.
-Use: Assay-owned development and explicit Assay validation.
+Status: active replacement operator.
+Use: repository quality, API, bridge, package, static, test, code, docs, and automation validation.
 Machine contract: normal CLI invocations emit one JSON `Envelope` on stdout; diagnostics ride stderr.
 Automation: programmatic arm through `drive(trigger, action, settings)`; no registered root `watch` CLI.
-Root quality policy, bridge routing, and repo-wide command ownership stay outside this README.
+Compatibility: no stale command aliases or shim surfaces.
 
 ## [2][FIRST_COMMAND]
 
@@ -54,7 +54,7 @@ flowchart LR
   drive -.-> ndjson["automation: NDJSON\nper fire / leaf"]
 
   rail -.-> railAspect["rail seam\nchecked -> logged -> traced"]
-  engine -.-> engineAspect["engine seam\nchecked + traced around retried"]
+  engine -.-> engineAspect["engine seam\nretry + deadline + transport"]
 ```
 
 Text equivalent: CLI argv resolves through `REGISTRY` into a `Bind`; the rail owns settings, scope, routing, check construction, engine dispatch, and fold. The engine runs `Check` rows and returns either `Completed` receipts for a `Report` or a `Fault` for an error `Envelope`. Automation uses the same engine and registry rails but emits NDJSON per fire or sequence leaf.
@@ -107,9 +107,9 @@ Example:
 
 Verbs: `run`, `list`, `coverage`
 Inputs: `[paths...]`, `--language`, `--no-build`, `--mutation`, `--benchmark`, `--coverage`
-Source-exposed params: `--target`, `--all`, `--filter`
+Source-exposed params: `--target`, `--all`, `--filter`, `--limit`, `--grep`
 Output: `TestRun` detail, or `Match` rows for `list`.
-Use: mutation is boolean; `target` and `all` constrain mutation eligibility, while `filter` narrows .NET list/run invocations.
+Use: mutation is `off`, `changed`, or `full`; `target` and `all` constrain mutation eligibility, while `filter` narrows .NET list/run invocations. `list` emits direct test identity rows and keeps discovery diagnostics separate.
 Example:
     `uv run python -m tools.assay test run --language csharp tests/csharp`
 
@@ -205,7 +205,7 @@ Integrations are grouped by the reader action they change. They are capability n
 
 `.NET` / `dotnet`
     Enables: C# restore, build, test, API, bridge, and package rails.
-    Boundary: catalog rows own invocations; root policy still controls canonical quality use.
+    Boundary: catalog rows own invocations.
 
 Python tools
     Enables: Ruff, ty, mypy, pytest, coverage, mutmut, and py-analyzer proof.
@@ -255,7 +255,7 @@ fsspec / UPath
     Enables: remote process execution through `ASSAY_EXEC_TARGET=ssh://...`.
     Boundary: moves command execution only; routing, artifacts, and locks still need local or shared paths.
 
-Runtime model libraries are load-bearing but not command surfaces: `msgspec` owns wire structs, `pydantic-settings` owns `ASSAY_*` settings, `cyclopts` owns CLI binding, `anyio` owns concurrency, `expression` owns `Result` folding, and `beartype`/`structlog`/OpenTelemetry/`stamina` are the aspect stack.
+Runtime model libraries are load-bearing but not command surfaces: `msgspec` owns wire structs, `pydantic-settings` owns `ASSAY_*` settings, `cyclopts` owns CLI binding, `anyio` owns concurrency, `expression` owns `Result` folding, `stamina` owns engine retry, and `beartype`/`structlog`/OpenTelemetry own cross-cutting aspects.
 
 ## [7][AUTOMATION]
 
@@ -285,11 +285,12 @@ Storage and history:
 
 Artifact root
     Default local root is `.artifacts/assay`.
+    `ArtifactStore` owns read, write, list, find, show, cache, history, and full-report artifact behavior.
     Individual rails decide which full outputs become artifacts.
     Inspect `report.artifacts` before assuming a file exists.
 
 History
-    Registry invocations persist envelope JSON by `run_id`; `delta` reads retained history.
+    Registry invocations persist compact envelope JSON and full report artifacts by `run_id`; `delta` reloads full report artifacts when compact history was clipped.
     Parse faults and automation program envelopes are thinner than normal rail history.
     Use retained history for comparisons, not as a substitute for rerunning the rail.
 
@@ -310,7 +311,7 @@ Tracing
 Environment and remote execution:
 
 Environment
-    README-worthy env vars are `ASSAY_RUN_ID`, `ASSAY_AGENT_TASK_ID`, `ASSAY_ARTIFACT_RETENTION`, `ASSAY_EXEC_TARGET`, and `ASSAY_EXEC_KNOWN_HOSTS`.
+    README-worthy env vars are `ASSAY_RUN_ID`, `ASSAY_AGENT_TASK_ID`, `ASSAY_ARTIFACT_RETENTION`, `ASSAY_ARTIFACT_BACKEND__PROTOCOL`, `ASSAY_ARTIFACT_BACKEND__ROOT`, `ASSAY_EXEC_TARGET`, and `ASSAY_EXEC_KNOWN_HOSTS`.
     Use env vars for correlation, retention, and execution target control only where settings expose the behavior.
 
 Remote execution

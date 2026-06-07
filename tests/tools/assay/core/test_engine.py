@@ -14,11 +14,23 @@ from expression import Error, Ok
 from hypothesis import given
 from hypothesis.strategies import binary
 import msgspec
+import psutil
 import pytest
 
 from tests.tools.assay.conftest import _make_psutil_module, _proc  # noqa: PLC2701
 import tools.assay.core.engine as engine_mod
-from tools.assay.core.engine import _decode_owner, _drain, _governed, _inproc, _splice, _stale, _total, exclusive_lease, run_check  # noqa: PLC2701
+from tools.assay.core.engine import (
+    _decode_owner,  # noqa: PLC2701
+    _drain,  # noqa: PLC2701
+    _governed,  # noqa: PLC2701
+    _inproc,  # noqa: PLC2701
+    _retry_on,  # noqa: PLC2701
+    _splice,  # noqa: PLC2701
+    _stale,  # noqa: PLC2701
+    _total,  # noqa: PLC2701
+    exclusive_lease,
+    run_check,
+)
 from tools.assay.core.model import ArtifactKind, Check, Claim, Completed, Fault, Input, Language, Mode, receipt, Runner, Stage, Tool  # noqa: TC001
 from tools.assay.core.routing import Routed, Scope
 from tools.assay.core.status import RailStatus
@@ -75,6 +87,8 @@ _STALE_CASES: tuple[tuple[_ProcKw, bool], ...] = (
     ({"running": True, "create_time": _CT}, False),
     ({"running": True, "create_time": _CT + 5.0}, True),
 )
+
+_REMOTE_TOOL = Tool("remote", Runner.DOTNET, ("test",), Input.NONE, Language.CSHARP, Claim.STATIC)
 
 
 # --- [DRAIN_ADAPTERS] -------------------------------------------------------------------
@@ -157,6 +171,29 @@ def test_stale_oracle(proc_kw: _ProcKw, expected: bool, monkeypatch: pytest.Monk
     assert _stale(owner, tolerance=1.0) is expected
 
 
+def test_stale_access_denied_stays_live(monkeypatch: pytest.MonkeyPatch) -> None:
+    """AccessDenied means the OS still owns the pid, so lease stealing stays disabled while pid_exists is true."""
+    proc = _proc(pid=99999, running=True, create_time=_CT)
+    proc.create_time.side_effect = psutil.AccessDenied(pid=99999)
+    fake = _make_psutil_module({99999: proc})
+    fake.pid_exists.return_value = True
+    monkeypatch.setattr(engine_mod, "psutil", fake)
+    owner = engine_mod._LeaseOwner(resource="r", run_id="x", pid=99999, create_time=_CT)
+
+    assert _stale(owner, tolerance=1.0) is False
+
+
+def test_retry_classifier_keeps_exit_codes_out_of_retry() -> None:
+    """Retry classification targets spawn/connect failures, not normal tool exits or parse defects."""
+    direct = Check(tool=_ECHO_TOOL)
+    remote = Check(tool=_REMOTE_TOOL)
+
+    assert _retry_on(direct, None)(FileNotFoundError("missing")) is False
+    assert _retry_on(direct, None)(OSError("local")) is False
+    assert _retry_on(remote, None)(OSError("remote transport")) is True
+    assert _retry_on(remote, None)(TimeoutError("deadline")) is False
+
+
 # --- [SPLICE_ORACLE] -------------------------------------------------------------------
 
 
@@ -222,6 +259,18 @@ def test_staged_process_materializes_workdir_and_env(assay_root: AssayHarness, m
     assert all(env[key] == value for key, value in assay_root.settings.python_tool_env.items())
     assert (work / "tools/assay/__init__.py").is_file()
     assert not (assay_root.root / "mutants").exists()
+
+
+def test_streaming_process_persists_full_artifact(assay_root: AssayHarness) -> None:
+    """Streaming receipts keep bounded tails while full stdout is persisted through ArtifactStore."""
+    scope = assay_root.scope(Claim.STATIC)
+    outcome = run_check(Check(tool=_STREAM_TOOL), settings=assay_root.settings, scope=scope, routed=_ROUTED_CHANGED)
+
+    assert outcome.is_ok()
+    assert b"stream-ok" in outcome.ok.stdout
+    assert any(artifact.id == "test-stream-out" for artifact in outcome.ok.artifacts)
+    stdout_artifact = next(artifact for artifact in outcome.ok.artifacts if artifact.id == "test-stream-out")
+    assert scope.store.read_path(stdout_artifact.path).strip() == b"stream-ok"
 
 
 def test_staged_process_rejects_escaping_paths(assay_root: AssayHarness) -> None:

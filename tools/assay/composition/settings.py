@@ -1,5 +1,6 @@
 """Define Assay settings, artifact stores, and .NET artifact scopes."""
 
+import contextlib
 from dataclasses import dataclass
 from datetime import datetime, UTC
 from enum import StrEnum
@@ -9,7 +10,7 @@ from typing import Annotated, Final, override, Protocol, runtime_checkable, TYPE
 from urllib.parse import urlsplit
 
 import fsspec  # type: ignore[import-untyped]  # fsspec ships no py.typed marker
-from pydantic import AliasChoices, BeforeValidator, computed_field, Field, field_validator
+from pydantic import AliasChoices, BaseModel, BeforeValidator, computed_field, ConfigDict, Field, field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 from upath import UPath  # pathlib-compatible path for local and fsspec-backed artifact stores
 
@@ -46,7 +47,20 @@ _BUILD: Final[str] = "build"
 _DISABLE_BUILD_SERVERS: Final[str] = "--disable-build-servers"
 _ARTIFACTS_PATH_FLAG: Final[str] = "--artifacts-path"
 _RUN_ID_PATTERN: Final[str] = r"^[A-Za-z0-9_.-]+$"
-_SAFE_ENV_PREFIXES: Final[tuple[str, ...]] = ("ASSAY_", "OTEL_", "PYTHON", "UV_")
+_REMOTE_ENV_NAMES: Final[frozenset[str]] = frozenset((
+    "ASSAY_AGENT_TASK_ID",
+    "ASSAY_ARTIFACT_RETENTION",
+    "ASSAY_EXEC_TARGET",
+    "ASSAY_RUN_ID",
+    "HOME",
+    "LANG",
+    "LC_ALL",
+    "OTEL_EXPORTER_OTLP_ENDPOINT",
+    "OTEL_EXPORTER_OTLP_TRACES_ENDPOINT",
+    "OTEL_SERVICE_NAME",
+    "PATH",
+))
+_TRACE_CONTEXT_ENV: Final[frozenset[str]] = frozenset(("traceparent", "tracestate", "baggage"))
 _PYTHON_TOOL_ENV: Final[dict[str, str]] = {
     "UV_CACHE_DIR": ".cache/uv",
     "HYPOTHESIS_STORAGE_DIRECTORY": ".cache/hypothesis",
@@ -95,6 +109,7 @@ type AnchoredRoot = Annotated[UPath, BeforeValidator(_anchor)]
 type ExpandedPath = Annotated[UPath, BeforeValidator(lambda v: UPath(v).expanduser())]
 type ExpandedKnownHosts = Annotated[str | None, BeforeValidator(_expand_or_none)]
 type RunId = Annotated[str, Field(min_length=1, max_length=160, pattern=_RUN_ID_PATTERN)]
+type StoreProtocol = Annotated[str, Field(min_length=1, max_length=64, pattern=r"^[A-Za-z][A-Za-z0-9+.-]*$")]
 
 
 @runtime_checkable
@@ -114,6 +129,23 @@ class ArtifactFileSystem(Protocol):
         Returns:
             Matching backend paths.
         """
+
+    def ls(self, path: str, *, detail: bool = False) -> list[str] | list[dict[str, object]]:
+        """List a backend path.
+
+        Returns:
+            Backend path rows or detail dictionaries.
+        """
+
+    def find(self, path: str, *, detail: bool = False) -> list[str] | dict[str, dict[str, object]]:
+        """Recursively list backend paths.
+
+        Returns:
+            Backend paths or detail dictionaries keyed by path.
+        """
+
+    def info(self, path: str) -> dict[str, object]:
+        """Return backend metadata for a path."""
 
     def exists(self, path: str) -> bool:
         """Return whether the backend path exists."""
@@ -143,11 +175,45 @@ class ArtifactFileSystem(Protocol):
 # --- [MODELS] ---------------------------------------------------------------------------
 
 
+class ArtifactBackend(BaseModel):
+    """Validated artifact backend selected by settings."""
+
+    model_config = ConfigDict(frozen=True, extra="forbid")
+
+    protocol: StoreProtocol = "file"
+    root: str = ""
+
+    def target(self, settings: AssaySettings) -> str:
+        """Project the backend root without smuggling run scope into storage ownership.
+
+        Returns:
+            Backend root path used by `ArtifactStore`.
+        """
+        match (self.protocol, self.root):
+            case ("file", ""):
+                return str(settings.store_root)
+            case ("file", root):
+                candidate = UPath(root).expanduser()
+                return str(candidate if candidate.is_absolute() else settings.root / candidate)
+            case (_, root) if root:
+                return root.rstrip("/")
+            case _:
+                return f"{_ARTIFACTS}/{_ASSAY}"
+
+
 class AssaySettings(BaseSettings):
     """Validated Assay runtime settings."""
 
     model_config = SettingsConfigDict(
-        env_prefix="ASSAY_", case_sensitive=False, frozen=True, extra="forbid", populate_by_name=True, env_ignore_empty=True, env_parse_enums=True
+        env_prefix="ASSAY_",
+        env_nested_delimiter="__",
+        nested_model_default_partial_update=True,
+        case_sensitive=False,
+        frozen=True,
+        extra="forbid",
+        populate_by_name=True,
+        env_ignore_empty=True,
+        env_parse_enums=True,
     )
 
     root: AnchoredRoot = Field(default_factory=UPath.cwd)
@@ -158,7 +224,8 @@ class AssaySettings(BaseSettings):
     stream_tail_bytes: Annotated[int, Field(ge=512)] = 4096
     stream_chunk_bytes: Annotated[int, Field(ge=4096)] = 65536
     lease_drift_tolerance: Annotated[float, Field(gt=0)] = 1.0
-    artifact_retention: Annotated[int, Field(ge=1, le=10000, validation_alias=AliasChoices("ASSAY_ARTIFACT_RETENTION"))] = 50
+    artifact_retention: Annotated[int, Field(ge=1, le=10000)] = 50
+    artifact_backend: ArtifactBackend = Field(default_factory=ArtifactBackend)
     scoped_verbs: frozenset[str] = frozenset(("build", "clean", "msbuild", "pack", "publish", "restore", "run", "test"))
     trigger_files: frozenset[str] = frozenset((
         ".config/dotnet-tools.json",
@@ -172,19 +239,16 @@ class AssaySettings(BaseSettings):
     trigger_prefixes: tuple[str, ...] = ("tools/cs-analyzer/",)
     test_target: ExpandedPath = UPath("tests/csharp/libs/Rasm/Rasm.Tests.csproj")
     log_format: LogFormat = Field(default_factory=lambda: LogFormat.HUMAN if sys.stderr.isatty() else LogFormat.CI)
-    run_id: RunId = Field(
-        default_factory=lambda: f"{datetime.now(tz=UTC):%Y-%m-%dT%H-%M-%S.%f}-{os.getpid()}", validation_alias=AliasChoices("ASSAY_RUN_ID")
-    )
-    agent_task_id: str = Field(default="", validation_alias=AliasChoices("ASSAY_AGENT_TASK_ID"))
-    exec_target: str = Field(
-        default="", validation_alias=AliasChoices("ASSAY_EXEC_TARGET"), description="execution target; '' = local, ssh://[user@]host[:port] = remote"
-    )
+    run_id: RunId = Field(default_factory=lambda: f"{datetime.now(tz=UTC):%Y-%m-%dT%H-%M-%S.%f}-{os.getpid()}")
+    agent_task_id: str = ""
+    exec_target: str = Field(default="", description="execution target; '' = local, ssh://[user@]host[:port] = remote")
     exec_known_hosts: ExpandedKnownHosts = Field(
         default=str(UPath("~/.ssh/known_hosts").expanduser()),
-        validation_alias=AliasChoices("ASSAY_EXEC_KNOWN_HOSTS"),
         description="asyncssh known_hosts path for ssh:// exec_target; empty disables the host-key check",
     )
-    otel_endpoint: str = Field(default="", validation_alias=AliasChoices("OTEL_EXPORTER_OTLP_ENDPOINT", "OTEL_EXPORTER_OTLP_TRACES_ENDPOINT"))
+    otel_endpoint: str = Field(
+        default="", validation_alias=AliasChoices("ASSAY_OTEL_ENDPOINT", "OTEL_EXPORTER_OTLP_ENDPOINT", "OTEL_EXPORTER_OTLP_TRACES_ENDPOINT")
+    )
 
     @field_validator("run_id", "agent_task_id")
     @classmethod
@@ -261,18 +325,14 @@ class AssaySettings(BaseSettings):
             case protocol:
                 raise ValueError(f"root must use file protocol for process execution, got {protocol!r}")
 
-    def store(self, *, protocol: str = "file", **opts: object) -> ArtifactStore:
+    def store(self, *, protocol: str | None = None, root: str | None = None, **opts: object) -> ArtifactStore:
         """Create an artifact store backend.
 
         Returns:
             Artifact store bound to the requested backend.
         """
-        match protocol:
-            case "file":
-                target = str(self.store_root)
-            case _:
-                target = f"{_ARTIFACTS}/{_ASSAY}/{self.run_id}"
-        return ArtifactStore(fs=fsspec.filesystem(protocol, **opts), root=target)
+        backend = self.artifact_backend.model_copy(update={k: v for k, v in {"protocol": protocol, "root": root}.items() if v is not None})
+        return ArtifactStore(fs=fsspec.filesystem(backend.protocol, **opts), root=backend.target(self))
 
     def artifact(self, kind: ArtifactKind, *parts: str | UPath) -> UPath:
         """Project an artifact path from a kind and path parts.
@@ -288,18 +348,18 @@ class AssaySettings(BaseSettings):
         Returns:
             Environment variables allowed to cross the SSH execution boundary.
         """
-        safe_names = frozenset(self.python_tool_env)
-        return {
-            key: value
-            for key, value in env.items()
-            if key in safe_names or key in {"PATH", "HOME", "LANG", "LC_ALL"} or key.startswith(_SAFE_ENV_PREFIXES)
-        }
+        safe_names = frozenset((*self.python_tool_env, *_REMOTE_ENV_NAMES, *_TRACE_CONTEXT_ENV))
+        return {key: value for key, value in env.items() if key in safe_names and key.replace("_", "").isalnum()}
+
+
+# ArtifactBackend references AssaySettings in an annotation; rebuild after AssaySettings exists.
+ArtifactBackend.model_rebuild()
 
 
 # --- [SERVICES] -------------------------------------------------------------------------
 
 
-@dataclass(frozen=True, slots=True)
+@dataclass(frozen=True, slots=True)  # noqa: PLR0904  # ArtifactStore is the single public storage owner; splitting operations would weaken the boundary.
 class ArtifactStore:
     """Artifact filesystem backend."""
 
@@ -330,7 +390,57 @@ class ArtifactStore:
         Returns:
             Matching store paths.
         """
-        return tuple(path.removeprefix("/") if not self.root.startswith("/") else path for path in self.fs.glob(f"{self.root}/{pattern}"))
+        return tuple(self._normalize_backend_path(path) for path in sorted(self.fs.glob(f"{self.root}/{pattern}")))
+
+    def list(self, *parts: str | UPath) -> tuple[str, ...]:
+        """List direct children under a store-relative path.
+
+        Returns:
+            Matching backend paths.
+        """
+        rows = self.fs.ls(self.path(*parts), detail=False)
+        paths = tuple(str(path) for path in rows)
+        return tuple(self._normalize_backend_path(path) for path in sorted(paths))
+
+    def find(self, *parts: str | UPath) -> tuple[str, ...]:
+        """Recursively list paths under a store-relative path.
+
+        Returns:
+            Matching backend paths.
+        """
+        rows = self.fs.find(self.path(*parts), detail=False)
+        paths = tuple(str(path) for path in rows)
+        return tuple(self._normalize_backend_path(path) for path in sorted(paths))
+
+    def info(self, *parts: str | UPath) -> dict[str, object]:
+        """Return backend metadata for a store-relative path."""
+        return self.fs.info(self.path(*parts))
+
+    def info_path(self, path: str | UPath) -> dict[str, object]:
+        """Return backend metadata for a previously emitted backend path."""
+        return self.fs.info(self.backend_path(path))
+
+    def exists_path(self, path: str | UPath) -> bool:
+        """Return whether a previously emitted backend path exists."""
+        return bool(self.fs.exists(self.backend_path(path)))
+
+    def size_path(self, path: str | UPath, *, fallback: int = 0) -> int:
+        """Return a backend path size as an int.
+
+        Returns:
+            File size, or `fallback` when the backend omits size metadata.
+        """
+        value = self.info_path(path).get("size", fallback)
+        return value if isinstance(value, int) else fallback
+
+    def mtime_path(self, path: str | UPath, *, fallback: float = 0.0) -> float:
+        """Return a backend path modification time as a float.
+
+        Returns:
+            Modification time, or `fallback` when the backend omits mtime metadata.
+        """
+        value = self.info_path(path).get("mtime", fallback)
+        return value if isinstance(value, int | float) else fallback
 
     def backend_path(self, path: str | UPath) -> str:
         """Validate and normalize a backend path previously emitted by this store.
@@ -342,12 +452,15 @@ class ArtifactStore:
             ValueError: When the path is outside this store root.
         """
         text = str(path).replace("\\", "/")
-        normalized = text.removeprefix("/") if not self.root.startswith("/") else text
+        normalized = self._normalize_backend_path(text)
         match normalized == self.root or normalized.startswith(f"{self.root}/"):
             case True:
                 return normalized
             case False:
                 raise ValueError(f"artifact path escaped store root: {text!r}")
+
+    def _normalize_backend_path(self, path: str) -> str:
+        return path.removeprefix("/") if not self.root.startswith("/") else path
 
     def exists(self, *parts: str) -> bool:
         """Return whether a store-relative path exists."""
@@ -361,6 +474,14 @@ class ArtifactStore:
         """
         return self.fs.cat_file(self.path(*parts))
 
+    def read_text(self, *parts: str | UPath, encoding: str = "utf-8", errors: str = "replace") -> str:
+        """Read text from a validated store-relative path.
+
+        Returns:
+            Decoded text payload.
+        """
+        return self.read_bytes(*parts).decode(encoding, errors=errors)
+
     def read_path(self, path: str | UPath) -> bytes:
         """Read bytes from a validated backend path returned by the store.
 
@@ -369,17 +490,65 @@ class ArtifactStore:
         """
         return self.fs.cat_file(self.backend_path(path))
 
-    def write_bytes(self, payload: bytes, *parts: str | UPath) -> str:
+    def read_text_path(self, path: str | UPath, encoding: str = "utf-8", errors: str = "replace") -> str:
+        """Read text from a validated backend path returned by the store.
+
+        Returns:
+            Decoded text payload.
+        """
+        return self.read_path(path).decode(encoding, errors=errors)
+
+    def write_bytes(self, payload: bytes, *parts: str | UPath, create: bool = False, transaction: bool = False) -> str:
         """Write bytes to a validated store-relative path and return the backend path.
 
         Returns:
             Backend path that received the payload.
+
+        Raises:
+            FileExistsError: When `create` is true and the target already exists.
         """
         path = self.path(*parts)
         parent = path.rsplit("/", 1)[0] if "/" in path else self.root
-        self.fs.makedirs(parent, exist_ok=True)
-        self.fs.pipe_file(path, payload)
+        with getattr(self.fs, "transaction", contextlib.nullcontext()) if transaction else contextlib.nullcontext():
+            self.fs.makedirs(parent, exist_ok=True)
+            if create and self.fs.exists(path):
+                raise FileExistsError(path)
+            self.fs.pipe_file(path, payload)
         return path
+
+    def write_text(self, payload: str, *parts: str | UPath, create: bool = False, transaction: bool = False, encoding: str = "utf-8") -> str:
+        """Write text to a validated store-relative path and return the backend path.
+
+        Returns:
+            Backend path that received the payload.
+        """
+        return self.write_bytes(payload.encode(encoding), *parts, create=create, transaction=transaction)
+
+    def write_bytes_path(self, payload: bytes, path: str | UPath, *, create: bool = False, transaction: bool = False) -> str:
+        """Write bytes to a validated backend path emitted by this store.
+
+        Returns:
+            Backend path that received the payload.
+
+        Raises:
+            FileExistsError: When `create` is true and the target already exists.
+        """
+        target = self.backend_path(path)
+        parent = target.rsplit("/", 1)[0] if "/" in target else self.root
+        with getattr(self.fs, "transaction", contextlib.nullcontext()) if transaction else contextlib.nullcontext():
+            self.fs.makedirs(parent, exist_ok=True)
+            if create and self.fs.exists(target):
+                raise FileExistsError(target)
+            self.fs.pipe_file(target, payload)
+        return target
+
+    def write_text_path(self, payload: str, path: str | UPath, *, create: bool = False, transaction: bool = False, encoding: str = "utf-8") -> str:
+        """Write text to a validated backend path emitted by this store.
+
+        Returns:
+            Backend path that received the payload.
+        """
+        return self.write_bytes_path(payload.encode(encoding), path, create=create, transaction=transaction)
 
     def remove(self, *parts: str | UPath, recursive: bool = False) -> object:
         """Remove a validated store-relative path.
@@ -437,4 +606,4 @@ class ArtifactScope:
 # --- [EXPORTS] --------------------------------------------------------------------------
 
 
-__all__ = ["AssaySettings", "ArtifactScope", "ArtifactStore", "Configuration", "LogFormat"]
+__all__ = ["ArtifactBackend", "AssaySettings", "ArtifactScope", "ArtifactStore", "Configuration", "LogFormat"]

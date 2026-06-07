@@ -11,7 +11,6 @@ import time
 from types import FunctionType
 from typing import Final, TYPE_CHECKING
 
-from beartype import beartype
 from beartype.roar import BeartypeCallHintViolation
 from cyclopts import App, Parameter
 from expression import Error, Ok, Result
@@ -21,7 +20,7 @@ import structlog
 
 from tools.assay.composition.catalog import select, TOOLS
 from tools.assay.composition.settings import ArtifactScope, AssaySettings
-from tools.assay.core.aspect import _CONF, _RING, compose, logged, Slot, traced  # noqa: PLC2701
+from tools.assay.core.aspect import _RING, checked_call, compose, Layer, logged, Slot, traced  # noqa: PLC2701
 from tools.assay.core.engine import _RESOURCE, _snapshot, fan_out  # noqa: PLC2701
 from tools.assay.core.model import (
     _HINT_CAP,  # noqa: PLC2701  # intra-package private import: shared model cap, canonical clip site
@@ -50,6 +49,7 @@ from tools.assay.core.model import (
     RunSnapshot,
     Tool,
     validate_detail,
+    wire_encode,
 )
 from tools.assay.core.routing import Routed, Scope
 from tools.assay.core.status import RailStatus
@@ -75,13 +75,13 @@ if TYPE_CHECKING:
     from collections.abc import Iterator, Mapping
 
     from tools.assay.composition.settings import ArtifactStore
-    from tools.assay.core.aspect import Layer
 
 
 # --- [TYPES] ----------------------------------------------------------------------------
 
 # Per-verb adapter; `P` is the verb params type, not a ParamSpec.
 type Handler[P] = Callable[[AssaySettings, ArtifactScope, P], Result[Report, Fault]]
+type ReportLayer = Layer[[AssaySettings, ArtifactScope, object], Report]
 
 
 # --- [CONSTANTS] ------------------------------------------------------------------------
@@ -110,6 +110,7 @@ _PROBE_LOCKED: Final[tuple[tuple[tuple[str, ...], str], ...]] = (
     (Runner.PNPM.prefix, "pnpm-lock.yaml"),
 )
 _ENVELOPE_DECODER: Final[msgspec.json.Decoder[Envelope]] = msgspec.json.Decoder(Envelope)
+_REPORT_DECODER: Final[msgspec.json.Decoder[Report]] = msgspec.json.Decoder(Report)
 
 
 # --- [OPERATIONS] -----------------------------------------------------------------------
@@ -119,12 +120,12 @@ def _identity_hom(*_a: object, **_k: object) -> Result[Report, Fault]:
     return Ok(fold(Claim.STATIC, "self-test", ()))
 
 
+def _checked_report(fn: Handler[object]) -> Handler[object]:
+    return checked_call(fn)
+
+
 def _correlate(settings: AssaySettings, _scope: ArtifactScope, params: object) -> Mapping[str, object]:
     return {"run_id": settings.run_id, "strict": getattr(params, "strict", False), **settings.agent_context}
-
-
-def _checked_rail(fn: Handler[object]) -> Handler[object]:
-    return beartype(conf=_CONF)(fn)
 
 
 def _bound(params: object, claim: Claim, verb: str) -> Result[object, Fault]:
@@ -224,7 +225,7 @@ def _ok_envelope(bind: Bind, settings: AssaySettings, ms: float, report: Report)
 
 
 def _full_report_artifact(settings: AssaySettings, bind: Bind, report: Report) -> tuple[Artifact, ...]:
-    payload = _ENCODER.encode(report)
+    payload = wire_encode(report)
     name = f"{bind.claim.value}-{bind.verb}.full-report.json"
     try:
         path = settings.store().write_bytes(payload, ArtifactKind.HISTORY.value, settings.run_id, name)
@@ -270,7 +271,7 @@ def _emit(bind: Bind, settings: AssaySettings, started: float, outcome: Result[R
                 run_id=settings.run_id,
                 error=Fault((), RailStatus.FAULTED, f"second Envelope suppressed (write #{rank}); Invariant 1 violated"),
             )
-            sys.stderr.buffer.write(_ENCODER.encode(doubled) + b"\n")
+            sys.stderr.buffer.write(wire_encode(doubled) + b"\n")
             return doubled
 
 
@@ -287,7 +288,7 @@ def rail(bind: Bind, settings: AssaySettings | None = None) -> Callable[[object]
         started = time.perf_counter()
         # Ring and write count are invocation-scoped so automation can reuse rail() across fires.
         # Resource snapshots stay lazy and only run on Fault or defect paths.
-        ring_token, writes_token = _RING.set(deque(maxlen=16)), _WRITES.set(count())
+        ring_token, writes_token, resource_token = _RING.set(deque(maxlen=16)), _WRITES.set(count()), _RESOURCE.set(())
         try:
             # An unwritable .artifacts root makes ArtifactScope.open escape _guard; fold that OSError into one FAULTED Envelope here.
             scope = ArtifactScope.open(active, bind.claim)
@@ -296,6 +297,7 @@ def rail(bind: Bind, settings: AssaySettings | None = None) -> Callable[[object]
         except OSError as exc:
             return _emit(bind, active, started, Error(Fault((), RailStatus.FAULTED, f"scope: {exc}")))
         finally:
+            _RESOURCE.reset(resource_token)
             _WRITES.reset(writes_token)
             _RING.reset(ring_token)
 
@@ -336,9 +338,9 @@ def _guard(thunk: Callable[[], Result[Report, Fault]]) -> Result[Report, Fault]:
 
 # --- [COMPOSITION] ----------------------------------------------------------------------
 
-# compose sorts by Slot; rails use checked/logged/traced without spawn retry.
-_RAIL_LAYERS: Final[tuple[Layer[[AssaySettings, ArtifactScope, object], Report], ...]] = (
-    (Slot.checked, _checked_rail),
+# compose sorts layer slots; rails use checked/logged/traced without spawn retry.
+_RAIL_LAYERS: Final[tuple[ReportLayer, ...]] = (
+    (Slot.checked, _checked_report),
     logged(event="rail", keys=_correlate),
     traced(span="assay.rail", attrs=_correlate),
 )
@@ -374,8 +376,6 @@ REGISTRY: Final[tuple[Bind, ...]] = (
     Bind(Claim.DOCS, "check", docs_rail.check, DocsParams, "Markdown + Mermaid validation."),
 )
 
-_ENCODER: Final = msgspec.json.Encoder(order="deterministic")
-
 
 def wire_safe(text: str) -> str:
     """Replace lone surrogates (PEP 383 surrogateescape from invalid-UTF-8 argv) with U+FFFD.
@@ -391,7 +391,7 @@ def _encode(envelope: Envelope) -> bytes:
     # (msgspec.to_builtins also rejects them), so that boundary failure folds to a scrubbed minimal FAULTED
     # Envelope, holding the one-Envelope contract. Argv is scrubbed upstream in __main__ so this is the rare path.
     try:
-        return _ENCODER.encode(envelope)
+        return wire_encode(envelope)
     except UnicodeEncodeError:
         safe = Envelope(
             schema_version=1,
@@ -401,7 +401,7 @@ def _encode(envelope: Envelope) -> bytes:
             exit_code=RailStatus.FAULTED.exit_code,
             notes=("output contained invalid characters",),
         )
-        return _ENCODER.encode(safe)
+        return wire_encode(safe)
 
 
 def _emit_envelope(settings: AssaySettings, envelope: Envelope, *, persist: bool = True) -> Envelope:
@@ -451,9 +451,23 @@ def _load_run(store: ArtifactStore, run_id: str) -> Envelope | None:
             return None
         case _:
             try:
-                return _ENVELOPE_DECODER.decode(store.read_bytes(ArtifactKind.HISTORY.value, run_id, "envelope.json"))
+                return _restore_full_report(store, _ENVELOPE_DECODER.decode(store.read_bytes(ArtifactKind.HISTORY.value, run_id, "envelope.json")))
             except OSError, msgspec.MsgspecError:
                 return None
+
+
+def _restore_full_report(store: ArtifactStore, env: Envelope) -> Envelope:
+    match env.report:
+        case None:
+            return env
+        case report:
+            artifact = next((a for a in report.artifacts if a.id == "full-report"), None)
+            if artifact is None:
+                return env
+            try:
+                return msgspec.structs.replace(env, report=_REPORT_DECODER.decode(store.read_path(artifact.path)))
+            except OSError, msgspec.MsgspecError:
+                return env
 
 
 def _delta_report(before_id: str, after_id: str, before: Envelope | None, after: Envelope | None) -> Report:
@@ -501,7 +515,7 @@ def parse_fault(tokens: tuple[str, ...], message: str, *, step: str = "parse") -
         fault_message = f"{step}: {message}"
     except ValidationError as config_error:
         settings = AssaySettings.model_construct()
-        fault_message = f"config: {config_error}"
+        fault_message = f"config: {_validation_message(config_error)}"
     claim, verb, dispatch = _parse_dispatch(tokens)
     fault = Fault((), RailStatus.FAULTED, fault_message[:_MESSAGE_CAP])
     _seed_parse_ring(dispatch, tokens)
@@ -518,6 +532,14 @@ def _parse_dispatch(tokens: tuple[str, ...]) -> tuple[Claim, str, str]:
             return Claim.STATIC, head, "none"
         case _:
             return Claim.STATIC, "", "none"
+
+
+def _validation_message(error: ValidationError) -> str:
+    rows = tuple(
+        f"{'.'.join(str(part) for part in item.get('loc', ()) if part != '__root__') or 'settings'}: {item.get('msg', 'invalid')}"
+        for item in error.errors(include_url=False, include_context=False, include_input=False)
+    )
+    return "; ".join(rows) or str(error)
 
 
 def self_test(*, rhino: bool = False) -> Envelope:
@@ -644,7 +666,7 @@ def _probe_cache_store(
     }
     try:
         store = settings.store()
-        store.write_bytes(msgspec.json.encode({**prior, **entries}), "cache", _PROBE_CACHE_FILE)
+        store.write_bytes(wire_encode({**prior, **entries}), "cache", _PROBE_CACHE_FILE)
     except OSError as exc:
         _LOG.warning("probe_cache.store_failed", run_id=settings.run_id, error=str(exc)[:200])
 
@@ -738,7 +760,16 @@ def build_app(registry: tuple[Bind, ...]) -> App:
     Returns:
         Cyclopts application with claim and verb commands registered.
     """
-    root = App(name="assay", help="Rasm polyglot quality operator.", default_parameter=Parameter(show_default=False), result_action="return_value")
+    root = App(
+        name="assay",
+        help="Rasm polyglot quality operator.",
+        default_parameter=Parameter(show_default=False),
+        result_action="return_value",
+        backend="asyncio",
+        exit_on_error=False,
+        print_error=False,
+        help_on_error=False,
+    )
     keyed = sorted(registry, key=lambda b: b.claim.value)
     subs = tuple(
         reduce(lambda app, row: _register(app, _leaf(row), name=row.verb, help=row.help), tuple(rows), App(name=claim.value))

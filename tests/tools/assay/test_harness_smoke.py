@@ -1,9 +1,7 @@
-"""Smoke laws proving each assay Phase-2 fixture works end to end.
+"""Smoke laws proving each assay fixture works end to end.
 
-NOT the A/B matrix — six tight tests asserting isolation produces an Envelope under tmp, the
-socket-free mock host yields a canned status, the loopback ssh round-trips a command through the
-engine's ``_run_remote`` (the lone network-marked / ``socket_enabled`` law), the ``_BridgeResult``
-JSON decodes defensively, and ``ab_diff`` returns both operator Envelopes.
+Tight tests assert isolation produces an Envelope under tmp, the socket-free mock host yields a canned
+status, bridge result JSON decodes defensively, and package-shape fixtures materialize valid metadata.
 """
 
 # --- [RUNTIME_PRELUDE] ------------------------------------------------------------------------
@@ -25,7 +23,7 @@ if TYPE_CHECKING:
 
     from expression import Result
 
-    from tests.tools.assay.conftest import AbDelta, AssayHarness, BridgeResult, YakShape
+    from tests.tools.assay.conftest import AssayHarness, BridgeResult, YakShape
     from tools.assay.core.model import Fault, Report
 
 
@@ -73,15 +71,6 @@ def test_yak_shape_materializes_valid_meta(assay_root: AssayHarness, yak_shape: 
     props = yak_shape.props(meta)
     required = tuple(name for name in package_rail._META_PROPS if name != "YakPushSource")
     assert all(props[name] for name in required)
-
-
-def test_ab_delta_returns_both_envelopes(ab_delta: Callable[[Claim, str], AbDelta]) -> None:
-    """``ab_delta`` runs both operators in-process and returns the assay Envelope, the quality dict, and the delta."""
-    delta = ab_delta(Claim.PACKAGE, "list")
-    assert isinstance(delta.assay, Envelope)
-    assert delta.assay.claim is Claim.PACKAGE
-    assert "packages" in delta.quality
-    assert delta.mapping["evidence"] == "error_context"
 
 
 def test_envelope_fixture_decodes_single_stdout_line(

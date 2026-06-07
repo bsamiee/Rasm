@@ -25,7 +25,7 @@ import structlog
 from structlog import make_filtering_bound_logger, WriteLogger
 from structlog.contextvars import clear_contextvars, merge_contextvars
 from structlog.dev import ConsoleRenderer
-from structlog.processors import add_log_level, dict_tracebacks, JSONRenderer, TimeStamper
+from structlog.processors import add_log_level, CallsiteParameter, CallsiteParameterAdder, dict_tracebacks, JSONRenderer, TimeStamper
 
 from tools.assay.composition.settings import AssaySettings, LogFormat
 from tools.assay.core.aspect import ring_processor  # intra-package import; recent-events ring seam
@@ -38,7 +38,13 @@ if TYPE_CHECKING:
 
 _INFO: int = 20
 _DRAIN_MS: int = 1500  # single ~1.5s bound: BatchSpanProcessor schedule cadence here and the exit-time force_flush budget in __main__.main
-_SERVICE: dict[str, str] = {"service.name": "assay"}
+_SERVICE: dict[str, str | int] = {
+    "service.name": "assay",
+    "service.namespace": "rasm",
+    "process.pid": os.getpid(),
+    "process.runtime.name": "python",
+    "process.runtime.version": sys.version.split()[0],
+}
 
 
 # --- [COMPOSITION] ----------------------------------------------------------------------
@@ -56,6 +62,7 @@ def _configure(log_format: LogFormat) -> None:
             merge_contextvars,  # first so @logged binds and agent context stay isolated per ContextVar
             ring_processor,  # captures contextualized events into the recent-events ring
             add_log_level,
+            CallsiteParameterAdder(parameters=(CallsiteParameter.MODULE, CallsiteParameter.FUNC_NAME, CallsiteParameter.LINENO)),
             dict_tracebacks,
             TimeStamper(fmt="iso", utc=True),
             renderer,
