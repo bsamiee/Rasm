@@ -2,8 +2,6 @@
 
 C# 14.0 on `net10.0` is the active language surface. `Directory.Build.props` owns `TargetFramework`, `LangVersion`, `Nullable`, and `ImplicitUsings`; this page owns syntax and expression selection for C# code in this repository.
 
-Platform APIs, package graph state, host references, and analyzer injection route to [platform](platform/README.md). Rail, domain-shape, numeric, and sparse modeling route to the root capability pages in this folder.
-
 ## [1][ACTIVE_SURFACE]
 
 Target framework: `net10.0`

@@ -2,8 +2,6 @@
 
 CSparse owns direct sparse factorization when matrix shape justifies it. MathNet owns sparse construction and iterative solves; CSparse owns direct sparse solves, factor reuse, fill-in policy, and ordering once the matrix is admitted.
 
-Package graph truth routes to [build and packages](platform/build-and-packages.md). Iterative sparse solve routes to [numeric algorithms](numeric-algorithms.md).
-
 ## [1][ROLE_SPLIT]
 
 | [INDEX] | [CONCERN]                     | [OWNER]              |

@@ -22,7 +22,7 @@ Assertions:
     Prefer: project assertion wrappers for success, failure, validation, category, and multi-failure rails.
     Use: `Assert.Equivalent` when stable member shape is the oracle.
     Use: `Assert.Throws*` only at boundary adapters where exceptions are the public contract.
-    Route-away: host-native behavior belongs in runtime scenarios.
+    Reject: proving host-native behavior with static managed assertions.
 
 Pipeline hooks:
     Use: `ITestPipelineStartup` for invariant culture or managed assembly setup only.

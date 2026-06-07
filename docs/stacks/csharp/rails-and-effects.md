@@ -1,75 +1,94 @@
 # [RAILS_AND_EFFECTS]
 
-LanguageExt owns result rails, effect execution, immutable collection flow, schedules, traversal, and managed boundary state. Use these surfaces after raw host, native, wire, or generated-shape inputs have been admitted into explicit domain values.
+LanguageExt owns result rails, effect execution, immutable collection flow, schedules, traversal, and managed boundary state. Use these surfaces after host, native, wire, or generated-shape inputs have been admitted into explicit domain values.
 
-Package graph and workspace global usings route to [build and packages](platform/build-and-packages.md). Generated domain admission routes to [domain shapes](domain-shapes.md).
+## [1][RAIL_CHOOSER]
 
-## [1][RAIL_SELECTION]
+Choose the narrowest carrier that preserves the real outcome. A wider rail is justified only when the operation needs the additional failure, runtime, resource, or polymorphic capability.
 
-Use the narrowest rail that carries the real outcome.
+| [INDEX] | [SURFACE]             | [OWNS]                    | [REJECT]            |
+| :-----: | :-------------------- | :------------------------ | :------------------ |
+|   [1]   | `Option<T>`           | absence                   | hidden failure      |
+|   [2]   | `Fin<T>`              | sync fallibility          | thrown control flow |
+|   [3]   | `Validation<Error,T>` | independent failures      | early guard chain   |
+|   [4]   | `Eff<RT,T>`           | runtime capability        | service location    |
+|   [5]   | `IO<T>`               | deferred boundary work    | eager side effect   |
+|   [6]   | `Schedule`            | retry or repeat policy    | ad-hoc delay loop   |
+|   [7]   | `Seq<T>` and `Arr<T>` | immutable traversal       | mutable collection  |
+|   [8]   | `HashMap<K,V>`        | immutable keyed lookup    | mutable dictionary  |
+|   [9]   | `Atom<T>`             | boundary state cell       | domain accumulator  |
+|  [10]   | `K<F,A>`              | carrier-polymorphic arrow | duplicate pipelines |
 
-| [INDEX] | [SURFACE]             | [USE]                          |
-| :-----: | :-------------------- | :----------------------------- |
-|   [1]   | `Option<T>`           | absence without failure        |
-|   [2]   | `Fin<T>`              | synchronous fallible result    |
-|   [3]   | `Validation<Error,T>` | independent error accumulation |
-|   [4]   | `Eff<RT,T>`           | runtime-record effect          |
-|   [5]   | `IO<T>`               | deferred side-effect           |
-|   [6]   | `Schedule`            | retry or repeat policy         |
-|   [7]   | `Seq<T>` and `Arr<T>` | immutable traversal            |
-|   [8]   | `HashMap<K,V>`        | immutable lookup               |
-|   [9]   | `Atom<T>`             | managed boundary state         |
-|  [10]   | `K<F,A>`              | carrier-polymorphic algorithm  |
-
-Use `Fin<T>` for local admission and native call results. Use `Validation<Error,T>` when independent failures should accumulate before one boundary result is returned. Use `Eff<RT,T>` when runtime context, resource lifetime, host effects, or asynchronous execution belongs to the operation.
+`Fin<T>` is the ordinary local fallible result. `Validation<Error,T>` is for independent checks that must accumulate before returning one boundary result. `Eff<RT,T>` is for runtime context, host effects, cancellation, resource lifetime, or asynchronous execution that belongs to the operation.
 
 ## [2][BOUNDARY_FLOW]
 
 Generated admission:
-    Owner: generated `Create`, `TryCreate`, and validation partials.
-    Rail: convert once into `Fin<T>` or `Validation<Error,T>`.
-    Reject: wrapper factories that only rename generated factory members.
+    Input: generated value-object, complex-value-object, smart-enum, or union admission.
+    Rail: convert generated success or failure once into `Fin<T>` or `Validation<Error,T>`.
+    Boundary: generated shape policy stays in [domain shapes](domain-shapes.md).
+    Reject: wrapper factories that only rename generated members.
 
-Host or native nullable input:
-    Owner: boundary adapter.
-    Rail: convert nulls and sentinels into `Option<T>` or `Fin<T>` before domain logic.
+Nullable or sentinel input:
+    Input: host, native, UI, wire, or file value that can be absent or invalid.
+    Rail: convert to `Option<T>` for absence or `Fin<T>` for failure before domain logic.
+    Boundary: keep null and sentinel checks in adapters.
     Reject: null checks scattered inside collection transforms.
 
-Exception boundary:
-    Owner: native or host call site.
-    Rail: use `Try.lift<Fin<T>>(f).Run().MapFail(...)` when the captured exception must become a typed domain failure.
+Exception capture:
+    Input: native or host call that can throw.
+    Rail: use `Try.lift<Fin<T>>(f).Run().MapFail(...)` only with a flattening step such as `Bind(static result => result)` or an explicit `Match`.
+    Failure: preserve the captured error message or aggregate the captured error into the produced fault.
     Reject: discarding the captured error after `Try.lift`.
 
 Terminal collapse:
-    Owner: host, UI, native, or wire boundary.
-    Rail: keep `Match`, `IfFail`, `Run`, `RunAsync`, `RunIO`, and unsafe collapse at the consuming edge.
-    Reject: terminal collapse inside pure domain projections.
+    Input: `Fin<T>`, `Validation<E,T>`, `Eff<RT,T>`, `IO<T>`, or `Option<T>`.
+    Rail: use `Match`, `IfFail`, `Run`, `RunAsync`, `RunIO`, or unsafe extraction only at host, UI, native, command, or wire edges.
+    Boundary: reusable domain transforms keep the carrier.
+    Reject: mid-pipeline collapse inside pure projections.
 
-## [3][PIPELINES]
+Boundary validation:
+    Input: external DTO, config, UI form, or protocol payload.
+    Rail: map boundary validation results into `Validation<Error,T>` or a declared batch-fault carrier before domain entry.
+    Boundary: validation packages and rule sets stay outside domain modules.
+    Reject: package-specific validators as domain policy.
+
+## [3][TRAVERSAL_FLOW]
+
+Traversal policy is part of rail policy because the collection shape decides how failures, effects, and resource boundaries compose.
 
 Collection owner:
     Default: `Seq<T>` for domain sequence flow.
     Materialized output: `Arr<T>` when index stability or boundary transfer matters.
     Lookup: `HashMap<K,V>` when key policy is known.
-    Set: `HashSet<T>` for immutable capability or graph sets.
+    Set: immutable set surfaces when membership, graph edges, or uniqueness is the operation.
 
-Traversal owner:
-    Use: `.TraverseM(f) >> lower` for `Fin`, `Validation`, or `Option`.
-    Use: `.TraverseM(f).As()` for `Eff` or `IO`.
-    Use: `.Traverse(identity) >> lower` when the collection already contains rail values.
-    Use: `.Choose(f)` for filter-map to `Option`.
+Rail traversal:
+    Use: `.TraverseM(f).As()` when each item produces `Fin<T>`, `Validation<E,T>`, `Eff<RT,T>`, or `IO<T>` and the collection should become one carrier.
+    Use: `.TraverseM(identity).As()` when the collection already contains carrier values.
+    Use: `.Traverse(identity)` only when the carrier and source shape make applicative traversal clearer.
+    Reject: map to carriers followed by identity traversal when direct traversal can fuse the projection.
+
+Filter-map and aggregation:
+    Use: `.Choose(f)` for filter-map into `Option<T>`.
     Use: `.Fold(init, f)` for immutable aggregation.
-    Use: `.Strict()` before boundary transfer when lazy traversal would outlive its owner.
+    Use: prepend plus reverse, or an owning builder, when fold output preserves order.
+    Reject: mutable accumulators, `.Filter(...).Map(...)`, and append-heavy fold state.
 
 Indexed effectful traversal:
-    Use: indexed `Map((value, index) => ...)` plus `TraverseM(identity)` when an algorithm needs the index and no native indexed `TraverseM` exists.
+    Use: indexed `Map((value, index) => ...)` plus `TraverseM(identity).As()` when the algorithm needs the index and no native indexed `TraverseM` exists.
     Reject: index-threaded folds unless the fold carries additional algorithm state.
 
-Prelude guards:
-    Use: `guard(condition, error)`, `guardnot(condition, error)`, `Optional(x)`, `Some(x)`, `None`, `identity`, `toSeq`, and `toHashMap` where they keep the pipeline expression-shaped.
-    Boundary: use `Optional(x).ToFin(error)` at nullable boundaries.
+Boundary strictness:
+    Use: `.Strict()` before boundary transfer when lazy traversal would outlive its owner.
+    Reject: lazy sequence flow over disposed, borrowed, UI, native, or host-owned resources.
 
-## [4][FAILURE_TRANSFORMS]
+Prelude guards:
+    Use: `guard`, `guardnot`, `Optional`, `Some`, `None`, `identity`, `toSeq`, and `toHashMap` where they keep a pipeline expression-shaped.
+    Boundary: use `Optional(x).ToFin(error)` at nullable boundaries.
+    Reject: boolean success/failure factories that duplicate `guard(...).ToFin()`.
+
+## [4][FAILURE_HANDLING]
 
 Use carrier-qualified failure transforms before collapse. Do not throw inside rail transforms.
 
@@ -85,28 +104,40 @@ Use carrier-qualified failure transforms before collapse. Do not throw inside ra
 |   [8]   | `.ToOption()`           | cross-rail                        | discard failure detail |
 |   [9]   | `.Match(Succ:, Fail:)`  | `Fin`, `Option`, `Either`         | terminal collapse      |
 
-Validation uses a monoidal error carrier. Use a typed error, `StringM`, `Validation<Seq<UiFault>,T>` at declared UI or batch fault owners, or another monoidal carrier. Do not use `Validation<string,T>` or ordinary domain/application `Validation<Seq<Error>,T>`.
+Validation uses a monoidal error carrier. Use a typed error, `StringM`, a declared batch-fault carrier, or another monoidal carrier whose combination law the owner controls. Do not use `Validation<string,T>` or ordinary domain/application `Validation<Seq<Error>,T>`.
 
-## [5][EFFECTS_SCHEDULES_STATE]
+Recovery projects typed failures. If a captured exception carries diagnostic context, bind the failure parameter and thread its message or aggregate into the produced fault.
 
-Effects:
-    Use: `Eff<RT,T>` for runtime-record effects and `IO<T>` for deferred side-effects or resource work.
-    Use: `Eff.runtime<RT>()` when the runtime itself must be materialized.
-    Use: `Prelude.liftEff` to lift pure or simpler effect values.
-    Collapse: pick `Run`, `RunAsync`, or `RunIO` at the composition boundary.
+## [5][EFFECT_RUNTIME]
+
+Runtime record:
+    Use: `Eff<RT,T>` when the operation needs host capability, cancellation, progress, clock, filesystem, UI, native document, or another runtime dependency.
+    Access: materialize runtime capability through `Eff.runtime<RT>()` or an owner-local ask projection.
+    Boundary: construct the runtime once at the composition edge.
+    Reject: service-location wrappers and ambient host globals inside reusable transforms.
+
+Effect lifting:
+    Use: lift pure, `Fin<T>`, or simpler effect values into `Eff<RT,T>` where the pipeline owns runtime composition.
+    Async: wrap async boundary work into an effect and collapse at the edge.
+    Reject: `await` inside `Eff<RT,T>` returning methods when an effect lift can express the boundary.
+
+Resource boundary:
+    Use: `IO<T>.Bracket`, `BracketFail`, `Finally`, `Prelude.use`, or an owner-local disposable capsule when the effect owns acquisition.
+    Cleanup: the owner that acquires, borrows, or transfers a resource also disposes losing branches and failure paths.
+    Reject: resource lifetime hidden behind ordinary domain state.
 
 Effect recovery:
     Use: `Prelude.catch`, `@catch`, `catchOf`, `catchOfFold`, `IfFailEff`, and verified catch combinators at effect boundaries.
-    Resource: use `IO<T>.Bracket`, `BracketFail`, `Finally`, and `Prelude.use` for cleanup.
+    Rule: choose named recovery when operator meaning is not obvious from the local type.
     Reject: bare `eff1 | eff2` as fallback or retry semantics.
 
-Schedules:
-    Use: `Schedule`, `IO<T>.Retry(Schedule)`, `Prelude.retry`, and `repeat` for retry, repeat, delay, timeout, and backoff policy.
+Schedule policy:
+    Use: `Schedule`, `IO<T>.Retry(Schedule)`, `Prelude.retry`, and `repeat` for retry, repeat, delay, timeout, and backoff policy when the local owner admits retry.
     Builders: `recurs`, `spaced`, `linear`, `exponential`, `fibonacci`, `upto`, `jitter`, and `maxDelay`.
     Algebra: use schedule `|`, `union`, `intersect`, and schedule-transformer `+` only when schedule policy is the local owner.
-    Duration: import `LanguageExt.UnitsOfMeasure` when duration literals carry the policy.
+    Proof: schedule capability is admitted; implementation examples are not implied by this page.
 
-Operators:
+Operator boundaries:
     Domain `+` and `|`: application-defined operators on domain types.
     `[Flags] |`: enum bitwise OR, unrelated to LanguageExt.
     Validation `&`: independent validation product through a monoidal carrier.
@@ -114,21 +145,66 @@ Operators:
     Effect/finally `|`: effect-finally composition where the local type proves that owner.
     Rule: use named methods when the owner is not obvious from the local type.
 
-State:
+## [6][RECEIPTS_STATE]
+
+State belongs at a boundary or session owner, not inside pure domain accumulation.
+
+Atom state:
     Use: `Atom<T>.Swap(f)` for synchronous state transition.
     Use: `Atom<T>.SwapMaybe(f)` for optional state transition.
     Use: `Atom<T>.SwapIO` or `SwapMaybeIO` for IO-backed state transition.
-    Boundary: keep `Atom<T>`, `AtomHashMap`, `AtomSeq`, and `AtomQue` at UI, session, or boundary concurrent state owners.
-    Reject: hiding native lifetime, host tree mutation, or ordinary domain accumulation behind LanguageExt state.
+    Rule: swap functions must be safe to retry under contention.
+    Reject: hiding native lifetime, host tree mutation, or ordinary aggregation behind `Atom<T>`.
 
-## [6][TRAITS_AND_INTEROP]
+Boundary state families:
+    Use: `Atom<T>`, `AtomHashMap`, `AtomSeq`, and `AtomQue` at UI, session, memoization, or concurrent boundary owners.
+    Gate: cache only successful values unless the owner explicitly models failed entries.
+    Reject: global mutable state disguised as functional flow.
 
-Use `K<F,A>` and trait-based algorithms when one implementation genuinely works across carriers. Keep file-local query syntax unless repeated algorithms prove a trait abstraction.
+Operational receipts:
+    Rule: when repeated mutation buckets share construction, count, status, or slot semantics, fold them into one fact stream with slot or kind metadata.
+    Projection: derive counts, summaries, and status from the fact stream.
+    Reject: parallel receipt fields that must be kept in sync manually.
 
-Absent or unproven trait helpers such as `ComposeK`, `HyloM`, and `FoldArrows` stay rejected unless local XML or source proves availability.
+Algorithm receipts:
+    Rule: keep typed receipts when fields carry solver, sampling, route, status, metric, spectral, mesh, extraction, or proof evidence.
+    Projection: carry evidence beside the algorithm result.
+    Reject: collapsing algorithm proof into a generic receipt ledger.
 
-Interop rules:
-- Convert host arrays, lists, and tree values at adapter edges.
-- Preserve GH2 tree semantics at the host boundary; project values into rails after the path owner is known.
-- Keep MathNet vectors and matrices internal to algorithm execution.
-- Keep span work inside measured primitive kernels or boundary adapters.
+## [7][INTEROP]
+
+Carrier-polymorphic algorithms:
+    Use: `K<F,A>` and trait-based algorithms when one implementation genuinely works across carriers.
+    Gate: keep carrier choice at instantiation, not inside every arrow.
+    Reject: duplicated `Fin`, `Validation`, `Eff`, and `IO` pipelines for the same transform.
+
+Unproven trait helpers:
+    Rule: absent or unproven helpers such as `ComposeK`, `HyloM`, and `FoldArrows` stay rejected unless maintained API evidence proves availability.
+    Replacement: write the owner-local composition directly with available carrier operations.
+
+Host collections:
+    Rule: convert host arrays, lists, and tree values at adapter edges.
+    GH2 trees: preserve tree semantics at the host boundary; project values into rails after the path owner is known.
+    Reject: BCL collection signatures as domain flow.
+
+Numeric and span boundaries:
+    MathNet: keep vectors and matrices internal to algorithm execution.
+    Span: keep span work inside measured primitive kernels or boundary adapters.
+    Reject: using rail policy to choose BCL or system replacements.
+
+Composition and proof:
+    Composition roots: runtime wiring, container scan, decorators, and host boot policy stay outside reusable rail transforms.
+    Executable checks: prove behavior; this page states carrier policy.
+    Adoption state: versions, references, and globals do not change carrier choice.
+
+## [8][VALIDATION]
+
+- [ ] The rail is the narrowest carrier that preserves the outcome.
+- [ ] Generated admission, nullable input, sentinels, and exceptions convert once at the boundary.
+- [ ] `Try.lift<Fin<T>>(...).Run().MapFail(...)` is flattened with `Bind(static result => result)` or explicit `Match`.
+- [ ] `Run`, `RunAsync`, `RunIO`, `Match`, and unsafe collapse stay at the consuming edge.
+- [ ] Traversal uses `.TraverseM(...).As()`, `.TraverseM(identity).As()`, `Choose`, and `Fold` before manual loops or accumulators.
+- [ ] Schedule policy is stated as admitted target capability without claiming local examples where none exist.
+- [ ] `Atom<T>` stays at boundary, session, memoization, or concurrent state owners.
+- [ ] Operational receipts fold shared mutation facts, and algorithm receipts stay typed.
+- [ ] Package, BCL, composition, and proof-tool facts stay out of rail policy unless they change carrier choice.

@@ -2,8 +2,6 @@
 
 Numeric algorithms start after external-domain validity projection. Host semantics stay with host owners; numeric code receives explicit coordinates, dimensions, tolerances, units, and policy values.
 
-Package graph truth routes to [build and packages](platform/build-and-packages.md). Direct sparse factorization routes to [sparse factorization](sparse-factorization.md).
-
 ## [1][DECISION_SPINE]
 
 | [INDEX] | [INPUT]                     | [OWNER]                        |

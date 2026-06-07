@@ -42,6 +42,8 @@ Archived or generated source material is evidence only. Strip source history, re
 
 Route README orientation to `README.md`, package graph truth to `platform/build-and-packages.md`, BCL replacement truth to `platform/system-apis.md`, host runtime semantics to `docs/hosts/`, cross-stack precedence to `docs/usage/`, command syntax to tool owners, and ordinary documentation form to `docs/standards`.
 
+Use these boundaries while maintaining the folder; do not copy them into concept pages as lead sentences, validation bullets, or generic "routes to" prose. A concept page states its own coding decision and omits non-owned facts unless the link changes the reader's implementation choice.
+
 Keep concept pages free of package-version tables, broad upstream API inventories, generic validation ladders, local command catalogs, source-link collections, generated catalog bodies, and compatibility stubs.
 
 ## [7][REJECTIONS]

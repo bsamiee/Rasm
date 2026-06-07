@@ -24,7 +24,7 @@ Nullable: `enable`
 Implicit usings: `enable`
 Test runner selector: `global.json` selects `Microsoft.Testing.Platform`.
 
-C# language selection routes to [language](../language.md). Analyzer failures are architecture pressure unless the analyzer is proven wrong.
+Analyzer failures are architecture pressure unless the analyzer is proven wrong.
 
 ## [3][PACKAGE_STATE]
 

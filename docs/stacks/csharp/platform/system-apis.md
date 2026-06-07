@@ -2,8 +2,6 @@
 
 System APIs replace local machinery only when they own the concern. They do not replace LanguageExt rails, Thinktecture domain shapes, MathNet algorithms, Rhino geometry, or GH2 data semantics.
 
-Package gates and global using policy route to [build and packages](build-and-packages.md). C# syntax routes to [language](../language.md).
-
 ## [1][SMELL_LOOKUP]
 
 This table is a lookup by repeated local smell.
@@ -39,7 +37,8 @@ Formatting and parsing:
 JSON:
     Owner: `[JsonSerializable]`, `JsonSerializerContext`, `JsonSourceGenerationOptions`, and `JsonTypeInfo<T>` overloads.
     Replace: reflection-heavy serializers for known contract types and hand-rolled JSON.
-    Gate: boundary contracts only; domain admission still routes through Thinktecture and LanguageExt.
+    Gate: boundary contracts only.
+    Reject: using JSON contracts as domain admission.
 
 Encoding:
     Owner: `Encoding`, `UTF8Encoding`, `Rune`, `Ascii`, `Base64Url`, `Convert.ToHexString`, and `ToHexStringLower`.
@@ -56,7 +55,7 @@ Read-mostly lookup:
 Immutable boundary payload:
     Owner: `ImmutableArray`, `ImmutableDictionary`, and `ImmutableHashSet`.
     Replace: mutable public collection payloads outside LanguageExt rails.
-    Route-away: domain sequence identity belongs to LanguageExt `Seq<T>` and `HashMap<K,V>`.
+    Boundary: domain sequence identity is not a BCL replacement concern.
 
 Ordering and scheduling:
     Owner: `OrderedDictionary<K,V>` for insertion order and `PriorityQueue<TElement,TPriority>` for heap scheduling.
@@ -83,7 +82,7 @@ Default equality:
 Branded equality:
     Owner: Thinktecture value objects, `[KeyMemberEqualityComparer]`, and `[KeyMemberComparer]`.
     Replace: primitive branded string or scalar equality copied across files.
-    Route-away: generated shape details live in [domain shapes](../domain-shapes.md).
+    Boundary: generated domain shapes own branded identity.
 
 Host identity:
     Owner: `RuntimeHelpers.GetHashCode(object)` for live host reference identity.
@@ -94,12 +93,12 @@ Host identity:
 Scalar and generic math:
     Owner: `Math`, `MathF`, `Half`, BCL `Complex`, and the narrowest generic math constraint such as `INumberBase<T>`, `IBinaryInteger<T>`, or `IFloatingPointIeee754<T>`.
     Replace: hand-rolled per-type scalar math.
-    Route-away: matrix and solver algorithms live in [numeric algorithms](../numeric-algorithms.md).
+    Boundary: matrix and solver algorithms are not scalar replacement concerns.
 
 Vector and tensor primitives:
     Owner: BCL `Vector<T>`, `Vector128/256/512<T>`, `Shuffle`, and `TensorPrimitives`.
     Replace: flat hot numeric reductions only after measured proof.
-    Gate: `System.Numerics.Tensors` requires an explicit package consumer recorded in [build and packages](build-and-packages.md).
+    Gate: `System.Numerics.Tensors` requires an explicit package consumer.
 
 Type collision:
     Rule: BCL `Vector<T>` is SIMD, MathNet `Vector<T>` is linear algebra, and BCL `Complex` is not MathNet `Complex32`.
