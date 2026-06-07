@@ -1,8 +1,19 @@
 """Shared pytest configuration for repo-local Python tests."""
 
+# --- [RUNTIME_PRELUDE] ------------------------------------------------------------------------
+
+import os
+from pathlib import Path
+
+
+ROOT = Path(__file__).resolve().parents[1]
+_DEFAULT_HYPOTHESIS_HOME = ROOT / ".cache" / "hypothesis"
+_hypothesis_storage_directory = os.environ.get("HYPOTHESIS_STORAGE_DIRECTORY")  # noqa: TID251  # pytest boundary: anchor Hypothesis before import
+HYPOTHESIS_HOME = Path(_hypothesis_storage_directory) if _hypothesis_storage_directory else _DEFAULT_HYPOTHESIS_HOME
+os.environ.setdefault("HYPOTHESIS_STORAGE_DIRECTORY", str(HYPOTHESIS_HOME))  # noqa: TID251  # pytest boundary: seed subprocess home before import
+
 # --- [IMPORTS] ------------------------------------------------------------------------
 
-from pathlib import Path
 from typing import TYPE_CHECKING
 
 from hypothesis import HealthCheck, Phase, settings as hyp_settings
@@ -24,10 +35,10 @@ if TYPE_CHECKING:
 
 # --- [CONSTANTS] -----------------------------------------------------------------------
 # Repo-local Hypothesis/cache anchors W3 reads directly (no fixture indirection over importable constants).
+# Optional profiles: ``--hypothesis-profile=rasm-ci|rasm-stress|rasm-debug|rasm-adversarial|rasm-stateful|rasm-parity``;
+# mutmut uses ``rasm-mutation`` via ``[tool.mutmut]`` pytest args.
 
 
-ROOT = Path(__file__).resolve().parents[1]
-HYPOTHESIS_HOME = ROOT / ".cache" / "hypothesis"
 HYPOTHESIS_EXAMPLES = HYPOTHESIS_HOME / "examples"
 _EXAMPLE_DB = DirectoryBasedExampleDatabase(HYPOTHESIS_EXAMPLES)
 _SUPPRESSIONS = (HealthCheck.too_slow, HealthCheck.data_too_large)

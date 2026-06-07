@@ -153,7 +153,7 @@ _REMOTE_ENV_NAMES: Final[frozenset[str]] = frozenset((
     "RHINO_WIP_APP_PATH",
 ))
 _TRACE_CONTEXT_ENV: Final[frozenset[str]] = frozenset(("traceparent", "tracestate", "baggage"))
-_PYTHON_TOOL_ENV: Final[dict[str, str]] = {
+_PYTHON_TOOL_ENV_REL: Final[dict[str, str]] = {
     "UV_CACHE_DIR": ".cache/uv",
     "HYPOTHESIS_STORAGE_DIRECTORY": ".cache/hypothesis",
     "RUFF_CACHE_DIR": ".cache/ruff",
@@ -358,7 +358,8 @@ class AssaySettings(BaseSettings):
     @property
     def python_tool_env(self) -> dict[str, str]:
         """Project repo-local Python tool storage variables for subprocess launches."""
-        return dict(_PYTHON_TOOL_ENV)
+        local = self.local_root
+        return {key: str(local / rel) for key, rel in _PYTHON_TOOL_ENV_REL.items()}
 
     @property
     def store_root(self) -> UPath:
@@ -472,9 +473,7 @@ class ArtifactStore:
                 return tuple(sorted((self._normalize_backend_path(str(path)), dict(info)) for path, info in keyed.items()))
             case (True, list() as details):
                 return tuple(
-                    sorted(
-                        (self._normalize_backend_path(str(row.get("name", row.get("path", "")))), row) for row in details if isinstance(row, dict)
-                    )
+                    sorted((self._normalize_backend_path(str(row.get("name", row.get("path", "")))), row) for row in details if isinstance(row, dict))
                 )
             case _:
                 return ()
@@ -690,7 +689,7 @@ class ArtifactStore:
             Run ids ordered oldest-first.
         """
         detailed = self.walk(ArtifactKind.HISTORY.value, detail=True)
-        rows = tuple((path.rstrip("/").rsplit("/", 1)[-1], info) for path, info in detailed if isinstance(info, dict)) or tuple(
+        rows = tuple((path.rstrip("/").rsplit("/", 1)[-1], info) for path, info in detailed if isinstance(info, dict)) or tuple(  # type: ignore[str-unpack]
             (path.rstrip("/").rsplit("/", 1)[-1], {}) for path in self.glob(f"{ArtifactKind.HISTORY.value}/*")
         )
         return tuple(run_id for run_id, _ in sorted(rows, key=lambda row: (_mtime(row[1]), row[0])))
@@ -771,7 +770,7 @@ class ArtifactStore:
     def _walk_details(self, root: str) -> tuple[tuple[str, dict[str, object]], ...]:
         # walk() returns a union; resolve_artifacts only ever consumes the detail projection of a recursive walk.
         rows = self.walk(*_root_parts(root), recursive=True, detail=True)
-        return tuple((path, info) for path, info in rows if isinstance(info, dict))
+        return tuple((path, info) for path, info in rows if isinstance(info, dict))  # type: ignore[str-unpack]
 
     @staticmethod
     def _ranked_paths(matches: tuple[tuple[str, dict[str, object]], ...]) -> tuple[str, ...]:

@@ -319,7 +319,10 @@ def test_staged_process_materializes_workdir_and_env(assay_root: AssayHarness, m
     assert outcome.is_ok()
     assert argv == ("uv", "run", "--project", str(assay_root.root), "mutmut", "run", "tests/tools/assay")
     assert cwd == str(work)
-    assert all(env[key] == value for key, value in assay_root.settings.python_tool_env.items())
+    expected_env = assay_root.settings.python_tool_env
+    assert all(env[key] == value for key, value in expected_env.items())
+    assert env["HYPOTHESIS_STORAGE_DIRECTORY"] == str(assay_root.root / ".cache" / "hypothesis")
+    assert env["HYPOTHESIS_STORAGE_DIRECTORY"] != ".hypothesis"
     assert (work / "tools/assay/__init__.py").is_file()
     assert not (assay_root.root / "mutants").exists()
 
@@ -703,14 +706,15 @@ class LeaseStateMachine(RuleBasedStateMachine):
         live = sum(1 for slot in self._slots.values() if slot.is_ok)
         assert live <= 1, f"mutual exclusion broken: {live} live holders"
 
+    @override
     def teardown(self) -> None:
         # Drain every still-open slot stack through a forcing comprehension (no imperative loop in the model).
-        _ = tuple(slot.stack.close() for slot in self._slots.values())
+        _ = tuple(slot.stack.close() for slot in self._slots.values())  # type: ignore[func-returns-value]
 
 
 def test_lease_state_machine_holds_mutual_exclusion() -> None:
     """Drive the synchronous ``exclusive_lease`` RBSM: across all acquire/release interleavings, at most one Ok holder is ever live."""
-    run_state_machine_as_test(LeaseStateMachine, settings=hyp_settings(stateful_step_count=50, deadline=None))
+    run_state_machine_as_test(LeaseStateMachine, settings=hyp_settings(stateful_step_count=50, deadline=None))  # type: ignore[no-untyped-call]
 
 
 # --- [REMOTE_UNITS] --------------------------------------------------------------------
