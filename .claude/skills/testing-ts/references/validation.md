@@ -2,15 +2,15 @@
 
 [IMPORTANT] Three validation layers run in sequence: structural (fast, syntactic), semantic (coverage + oracle), statistical (mutation score). A spec must pass all three before submission. Each layer catches a distinct defect class -- structural catches formatting violations, semantic catches coverage gaps, statistical catches circular reasoning.
 
-## [1][STRUCTURAL_GATE]
+## [1]-[STRUCTURAL_GATE]
 
 The PostToolUse hook enforces 13 structural rules on every `*.spec.ts` edit. Structural violations block further validation -- fix before proceeding.
 
 [REFERENCE] Full rule table with patterns and fixes: [→guardrails.md](./guardrails.md) section 1.1.
 
-## [2][SEMANTIC_GATE]
+## [2]-[SEMANTIC_GATE]
 
-### [2.1][COVERAGE]
+### [2.1]-[COVERAGE]
 
 **Command:** `pnpm exec nx test -- --coverage`
 
@@ -24,7 +24,7 @@ The PostToolUse hook enforces 13 structural rules on every `*.spec.ts` edit. Str
 
 **Remediation pattern:** Identify uncovered branches in HTML report -> add `Effect.all` aggregation for boundary enumeration -> re-run coverage -> confirm improvement above 95%.
 
-### [2.2][ORACLE_INDEPENDENCE]
+### [2.2]-[ORACLE_INDEPENDENCE]
 
 Every assertion must derive its expected value from a source **external** to the implementation under test.
 
@@ -32,15 +32,15 @@ Every assertion must derive its expected value from a source **external** to the
 
 [REFERENCE] Oracle classification table and detection signals: [→guardrails.md](./guardrails.md) section 3.
 
-### [2.3][GENERATOR_QUALITY]
+### [2.3]-[GENERATOR_QUALITY]
 
 Arbitraries must produce diverse, representative inputs covering the domain's edge topology. Schema-derived arbitraries (`Arbitrary.make(Schema)`) preferred over hand-rolled.
 
 [REFERENCE] Arbitrary safety filters and precondition discipline: [→guardrails.md](./guardrails.md) sections 4.2-4.3.
 
-## [3][STATISTICAL_GATE]
+## [3]-[STATISTICAL_GATE]
 
-### [3.1][MUTATION_ANALYSIS]
+### [3.1]-[MUTATION_ANALYSIS]
 
 **Command:** `npx stryker run`
 
@@ -48,7 +48,7 @@ Run Stryker after semantic gate passes. Analyze surviving mutants to determine i
 
 [REFERENCE] Mutation thresholds, kill strategies, and equivalent mutant handling: [→guardrails.md](./guardrails.md) section 1.2.
 
-## [4][VALIDATION_PIPELINE]
+## [4]-[VALIDATION_PIPELINE]
 
 | [INDEX] | [GATE] | [CHECK]                 | [ON_FAIL]                            |
 | :-----: | :----: | ----------------------- | ------------------------------------ |
@@ -60,7 +60,7 @@ Run Stryker after semantic gate passes. Analyze surviving mutants to determine i
 
 [REFERENCE] Thresholds: SKILL.md section 2. Hook rules: [→guardrails.md](./guardrails.md) section 1.1.
 
-## [5][ERROR_DIAGNOSIS]
+## [5]-[ERROR_DIAGNOSIS]
 
 | [INDEX] | [SYMPTOM]                       | [ROOT_CAUSE]                               | [FIX]                                                 |
 | :-----: | ------------------------------- | ------------------------------------------ | ----------------------------------------------------- |

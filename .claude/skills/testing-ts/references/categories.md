@@ -2,7 +2,7 @@
 
 [IMPORTANT] Walk routing matrix per module. Pure modules route to Unit PBT. Boundary modules (database, HTTP, Redis) route to Integration. Cross-service orchestration routes to System. User-facing flows route to E2E.
 
-## [1][ROUTING_MATRIX]
+## [1]-[ROUTING_MATRIX]
 
 | [INDEX] | **Category** | [LOCATION]              | [ENV]    | [KEY_TOOLS]                  | [ROUTE_WHEN]                      |
 | :-----: | ------------ | ----------------------- | -------- | ---------------------------- | --------------------------------- |
@@ -12,7 +12,7 @@
 |   [4]   | System       | `tests/system/`         | node     | Full Layer stack, mock edges | Cross-service orchestration.      |
 |   [5]   | E2E          | `tests/e2e/`            | chromium | Playwright, agent pipeline   | User-facing flows, visual checks. |
 
-## [2][UNIT_PBT]
+## [2]-[UNIT_PBT]
 
 **Environment:** node (root-tests or packages-node Vitest project).
 **Tools:** `@effect/vitest` (`it.effect`, `it.effect.prop`, `layer`), fast-check arbitraries, `node:crypto` (differential oracle).
@@ -39,7 +39,7 @@
 
 [REFERENCE] Law selection: [→laws.md](./laws.md) — Density techniques: [→density.md](./density.md).
 
-## [3][INTEGRATION]
+## [3]-[INTEGRATION]
 
 **Environment:** node (root-tests Vitest project).
 **Tools:** testcontainers (`GenericContainer`, `Wait`), MSW (`http.get`, `http.post` handlers).
@@ -60,7 +60,7 @@
 
 **Routing Decision:** Modules communicating with PostgreSQL, Redis, or external HTTP services. Verify SQL queries, cache operations, HTTP client behavior.
 
-## [3.5][CONTRACT]
+## [3.5]-[CONTRACT]
 
 **Environment:** node (root-tests or packages-node Vitest project).
 **Tools:** `@effect/vitest` (`it.effect`, `it.effect.prop`, `layer`), `Schema.decodeUnknown`, `Effect.provideService`, `Arbitrary.make`.
@@ -84,7 +84,7 @@
 
 **Routing Decision:** Cross-package schema compatibility, service tag structural checks, layer composition verification. Use when two packages share types or services at their boundary.
 
-## [4][SYSTEM]
+## [4]-[SYSTEM]
 
 **Environment:** node.
 **Tools:** Full service stack composed via Effect Layer. Services mock at edges -- no containers.
@@ -103,7 +103,7 @@
 
 **Routing Decision:** Cross-service interactions. Error propagation chains. API route handlers orchestrating multiple services.
 
-## [5][E2E]
+## [5]-[E2E]
 
 **Environment:** chromium (Playwright).
 **Agent Pipeline:** planner (UI exploration) -> generator (spec creation) -> healer (failure remediation). Agents handle E2E spec generation -- do not manually author.
@@ -124,7 +124,7 @@
 
 **Routing Decision:** User-facing flows. Visual verification. Cross-app navigation. Authentication flows. Invoke Playwright agent pipeline.
 
-## [6][CROSS_CUTTING]
+## [6]-[CROSS_CUTTING]
 
 | [INDEX] | **Technique**        | [SCOPE]                | [MECHANISM]                                        |
 | :-----: | -------------------- | ---------------------- | -------------------------------------------------- |

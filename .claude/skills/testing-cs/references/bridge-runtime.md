@@ -3,7 +3,7 @@
 
 <br>
 
-## [1][OWNERSHIP]
+## [1]-[OWNERSHIP]
 
 | [INDEX] | [BEHAVIOR] | [OWNER] |
 | :-----: | ---------- | ------- |
@@ -12,7 +12,7 @@
 | [3] | Host document, canvas, wires, editor events | Runtime scenario |
 | [4] | Runtime protocol/client/plugin behavior | Runtime scenarios and tool checks |
 
-## [2][RULES]
+## [2]-[RULES]
 
 - Static specs may classify runtime-owned behavior, but must not pretend to execute it.
 - Pair new runtime scenarios with owning source files through the repo runtime check command or run them through the repo runtime verify command.
@@ -24,7 +24,7 @@
 - Static specs still own managed input guards around those payloads: null/default validation, unsupported outputs, category shape, and no exception-shaped failures.
 - Do not replace a runtime-owned success case with a weaker xUnit shape assertion. Add a scenario or record the exact executable gap.
 
-## [3][RECLASSIFICATION]
+## [3]-[RECLASSIFICATION]
 
 When a host update or product change makes a previously runtime-owned API genuinely pure-managed, reclassify it back to static via the following audit:
 
@@ -36,7 +36,7 @@ When a host update or product change makes a previously runtime-owned API genuin
 Reclassifications are conservative by default: when in doubt, the behavior stays runtime-owned. The cost of a false-positive reclassification outweighs the cost of an over-strict runtime classification.
 
 ---
-## [4][SCENARIO_GROUPING]
+## [4]-[SCENARIO_GROUPING]
 >**Dictum:** *Runtime handshakes are expensive; amortize via thematic grouping.*
 
 <br>
@@ -61,7 +61,7 @@ Do NOT group when:
 Evidence channel: grouped assertions populate a shared fact bag through the repo scenario harness. When a grouped scenario fails, the runtime evidence JSON shows the predicate that threw plus the full fact dictionary collected before the throw.
 
 ---
-## [5][SCENARIO_LOC_GUIDANCE]
+## [5]-[SCENARIO_LOC_GUIDANCE]
 
 | [TYPE] | [TARGET_LOC] | [NOTES] |
 | ------ | ------------ | ------- |

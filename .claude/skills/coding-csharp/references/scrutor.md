@@ -6,7 +6,7 @@
 Scrutor extends the built-in Microsoft container via `Scan` + `Decorate`/`TryDecorate` on `IServiceCollection`.
 
 ---
-## [1][BOUNDED_DISCOVERY]
+## [1]-[BOUNDED_DISCOVERY]
 >**Dictum:** *Assembly predicates and type filters are the first defense against registration drift.*
 
 <br>
@@ -46,7 +46,7 @@ public static class ModuleDiscovery {
 [CRITICAL]: `AssignableTo<T>().AssignableTo<U>()` yields types implementing BOTH (intersective `IntersectWith`). Use `AssignableToAny(typeof(T), typeof(U))` for types implementing EITHER. `InNamespaces` uses prefix matching (hierarchical); `InExactNamespaces` uses exact matching only.
 
 ---
-## [2][REGISTRATION_STRATEGY]
+## [2]-[REGISTRATION_STRATEGY]
 >**Dictum:** *Default append is drift-prone; explicit strategy is the only deterministic path.*
 
 <br>
@@ -88,7 +88,7 @@ public static class StrategyExamples {
 ```
 
 ---
-## [3][DECORATOR_TOPOLOGY]
+## [3]-[DECORATOR_TOPOLOGY]
 >**Dictum:** *Decoration order is architecture; the last Decorate call wraps outermost.*
 
 <br>
@@ -133,7 +133,7 @@ public static class OpenGenericDecoration {
 [IMPORTANT]: Open generic decoration targets closed registrations compatible with the open definition. Decorators with type constraints (e.g., `where TCmd : IAccessRestricted`) silently skip non-matching closed types via `MakeGenericType` catch -- correct since v4.0.0 but allocates `ArgumentException` per mismatch at startup. Open generic registrations are excluded from `ValidateOnBuild`. Use `DecorationStrategy` or factory decorate overloads when type-based match is insufficient.
 
 ---
-## [4][EFF_DECORATOR]
+## [4]-[EFF_DECORATOR]
 >**Dictum:** *Eff-wrapping decorators compose within the effect pipeline -- never collapse via Match and re-lift.*
 
 <br>
@@ -203,7 +203,7 @@ public static class EffDecoratorGraph {
 [CRITICAL]: Decoration order: `OrderPipeline` -> `RetryOrderDecorator` -> `TracingOrderDecorator` (outermost observes retried result). Decorators compose within `Eff` via `Map`/`MapFail` -- collapsing via `Match` and re-lifting destroys monadic context and violates PREMATURE_MATCH_COLLAPSE (see `patterns.md`).
 
 ---
-## [5][KEYED_REGISTRATION]
+## [5]-[KEYED_REGISTRATION]
 >**Dictum:** *Service keys encode variant routing structurally; keyed decoration requires explicit key matching.*
 
 <br>
@@ -251,7 +251,7 @@ public static class KeyedDiscovery {
 [CRITICAL]: `RegistrationStrategy.Throw` with multiple keyed registrations sharing the same `ServiceType` throws on the second key — `HasRegistration` ignores keys. Use `Append` or separate scan blocks for multi-key same-interface registration. Public `Decorate<T>()` wraps only non-keyed registrations (`ServiceKey == null`); enum/object keyed services require manual decorate fold per key.
 
 ---
-## [6][RULES]
+## [6]-[RULES]
 >**Dictum:** *Scrutor quality is determinism under change.*
 
 <br>

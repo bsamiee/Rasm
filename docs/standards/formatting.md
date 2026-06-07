@@ -2,7 +2,7 @@
 
 This standard carries the presentation layer: markers, alignment, whitespace, and the heading idiom that render a chosen container. It does not choose containers, decompose tables, write prose, or weigh evidence. Keep this layer minimal: markers and styling earn their place by aiding an agent or reader, never by decorating the page.
 
-## [1][USE_WHEN]
+## [1]-[USE_WHEN]
 
 Apply this standard when rendering a container that [information-structure.md](information-structure.md) has already chosen:
 - status, result, and change markers in records, checklists, tables, and reports
@@ -14,7 +14,7 @@ Apply this standard when rendering a container that [information-structure.md](i
 
 Container selection, table construction, and structured-record fields belong to the form standard; sentence mechanics, terminology, and `must`/`should`/`may` belong to the craft standard. Formatting renders lifecycle and status semantics after another standard defines them; it does not create new lifecycle meaning.
 
-## [2][STATUS_RESULT_MARKERS]
+## [2]-[STATUS_RESULT_MARKERS]
 
 Render an inline status, result, change, or compact state as a bracketed token so an agent can filter on an exact string. Use a closed set; do not invent tokens, emojis, checkmarks, crossmarks, or decorative alternates. By default, a record's `Status:` field carries the plain lifecycle value the form standard defines (`COMPLETE`, `BLOCKED`); a type standard may require the bracketed lifecycle marker in `Status:` when exact rendered filtering is part of that produced record's contract.
 
@@ -127,7 +127,7 @@ The marker is not a decoration. Omit it when the document cannot define the nume
 - Accessibility: provide a text equivalent when meaning is not recoverable from adjacent text; provide a proof basis when the glyph claims evidence or progress.
 - Rejected forms: decorative glyphs, emojis, checkmark or crossmark substitution, FIGlet-style banners, ornamental frames, separator carpets, copied terminal animations, ANSI color output, photo-to-ASCII art, and standalone glyph legends that do not change reader action.
 
-## [3][INVOCATION_MARKERS]
+## [3]-[INVOCATION_MARKERS]
 
 Reserve invocation markers for instruction files — `AGENTS.md`, `CLAUDE.md`, and prompt files — where an agent must weight a constraint above surrounding text. Use them only for invariants that change agent behavior. Prefer `CRITICAL` and `NEVER` for hard boundaries, `IMPORTANT` and `ALWAYS` for load-bearing defaults.
 
@@ -142,7 +142,7 @@ GitHub alerts use this surface grammar in ordinary rendered documentation. [info
 
 An alert is not an invocation marker. Do not write `[IMPORTANT]:` in ordinary documentation, and do not write `> [!IMPORTANT]` in instruction files when an invocation marker is the intended weighting surface.
 
-## [4][TABLE_STYLING]
+## [4]-[TABLE_STYLING]
 
 Once form chooses a table, style it for scanning.
 
@@ -184,7 +184,7 @@ The GFM separator row encodes the four alignment classes — left-align with `:-
 
 The index column is centered, the text column (`[ITEM]`) is left-aligned, the numeric column (`[COUNT]`) is right-aligned, full result tokens in `[RESULT]` are left-aligned, and the compact result/check column is centered. A column containing full lifecycle words, long code spans, or prose-like status text is text and stays left-aligned.
 
-## [5][LIST_WHITESPACE_DISCIPLINE]
+## [5]-[LIST_WHITESPACE_DISCIPLINE]
 
 [LIST_MARKERS]:
 - Use `-` for bullets; do not use `*` or `+`.
@@ -243,30 +243,31 @@ Section cardinality uses these groups:
 - `Reading rule`: required for two-axis, intersection, or derived cells.
 ```
 
-## [6][HEADING_IDIOM]
+## [6]-[HEADING_IDIOM]
 
 Use one bracketed heading format throughout repo-internal standards-controlled documentation and instruction files. Public or registry README files may use plain reader-facing headings when [reference/readme.md](reference/readme.md) declares that exception:
 - H1: `# [DOCUMENT_TITLE]`; the H1 carries only the semantic title label and never a heading-tier prefix.
-- H2: `## [N][SECTION_LABEL]`; `N` is the section number in document order.
-- H3: `### [N.M][SUBSECTION_LABEL]`; `N.M` is the parent section number plus the subsection number.
+- H2: `## [N]-[SECTION_LABEL]`; `N` is the section number in document order.
+- H3: `### [N.M]-[SUBSECTION_LABEL]`; `N.M` is the parent section number plus the subsection number.
+- Extra qualifiers on the same line use the same concise bracket discipline: `## [N]-[PRIMARY]-[EXTRA]`; never trailing prose after the label brackets.
 
 Labels are uppercase, use underscores for compounds, and preferably contain 1 or 2 semantic words. Use at most 3 words for normal headings; go longer only when a verified source name, command family, or document type would lose meaning if shortened. Do not mix bracketed heading labels with sentence-style headings. Examples inside fenced templates use the same bracketed grammar with placeholders only where the author must replace the label.
 
 Reject heading theater such as `# [H1][NAME]`, bracket tokens outside the allowed marker families, and decorative `<br>` spacing used to simulate layout. Allowed marker families are headings, standalone group labels, table rubrics, inline status/result/change/state/lifecycle markers, compact glyphs, invocation markers, and GitHub alert markers.
 
-## [7][ANCHORS_COMMENTS]
+## [7]-[ANCHORS_COMMENTS]
 
 Treat heading anchors and hidden Markdown comments as source-level notation. Anchor rules below are the local validation convention for in-repo links; external renderers may apply different duplicate-suffix or punctuation rules.
 
 Use these source-notation rules:
-- Anchor stability: a bracketed heading slug is the lowercased heading text with brackets, punctuation, dots, and underscores removed; `## [10][FOLDER_LAYOUT]` becomes `#10folderlayout`. When a heading number or label changes, update every in-repo link to that anchor in the same change.
+- Anchor stability: a bracketed heading slug is the lowercased heading text with brackets, punctuation, dots, and underscores removed; `## [10]-[FOLDER_LAYOUT]` becomes `#10folderlayout`. When a heading number or label changes, update every in-repo link to that anchor in the same change.
 - Duplicate headings: do not create duplicate bracket-heading anchors in one file. Rename the semantic label rather than relying on renderer-specific duplicate suffixes.
 - Renumbering: renumber headings only when the document structure changes; cosmetic rewrites preserve existing heading numbers so links stay stable.
 - Hidden comments: use HTML comments only for source-view authoring hints, generator hints, or maintenance notes that should not render: `<!-- source-only: <short reason> -->`.
 - Comment placement: put a hidden comment immediately before the block it annotates, separated by the same blank-line rules as the surrounding block. Keep comments one line when possible; multi-line comments are allowed only for generated source-view notes that would be noisy when rendered.
 - Comment limits: never use a hidden comment as the only carrier of safety, proof, intent, "replace with verified data," or required constraints. Do not put comments inside table rows or cells; use visible prose, a table note, or a definition block instead.
 
-## [8][BOUNDARIES]
+## [8]-[BOUNDARIES]
 
 - [information-structure.md](information-structure.md) carries container choice, table construction, code-block intent labels, progress eligibility, and structured-record fields; this standard styles what it builds.
 - [style-guide.md](style-guide.md) carries sentence mechanics, terminology, and requirement modals.
@@ -274,7 +275,7 @@ Use these source-notation rules:
 - [proof.md](proof.md) carries evidence strength, freshness, and proof label meanings; this standard renders the result and status markers that present evidence or status.
 - [README.md](README.md) carries document-type routing and cross-standard links.
 
-## [9][VALIDATION]
+## [9]-[VALIDATION]
 
 Use this verification checklist by group:
 

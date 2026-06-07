@@ -4,20 +4,20 @@ Scope: `libs/csharp/Rasm.AppHost/` only. `Rasm.AppHost` is the in-process runtim
 
 Root policy and `libs/csharp/AGENTS.md` own universal C# and library-family rules; local README, `ARCHITECTURE.md`, and `ROADMAP.md` own platform state and implementation sequence.
 
-## [1][READ_ORDER]
+## [1]-[READ_ORDER]
 
 - Before production work, read `README.md`, `ARCHITECTURE.md`, and `ROADMAP.md` to decide platform state, package adoption, and sequence.
 - Before moving package guidance into graph, read `docs/usage/composition.md`.
 - Before changing cross-project runtime contracts, read AppUi, Compute, and Persistence local overlays.
 - Before creating project files, solution membership, central package entries, or directory-prop changes, read `CLAUDE.md`, `tools/quality/README.md`, and `docs/stacks/csharp/platform/`.
 
-## [2][OWNER_CONTRACT]
+## [2]-[OWNER_CONTRACT]
 
 `Rasm.AppHost` is the in-process runtime-record platform. Generic Host, DI containers, Scrutor, Serilog sinks, OpenTelemetry SDK/exporters, and companion service roots are companion/test/bridge concerns only unless architecture and manifest proof explicitly move them into a composition root.
 
 It coordinates boot, lifecycle, degradation policy, scheduling, diagnostics, and typed cross-capability receipts; it does not own UI rendering, durable storage internals, compute substrate execution, domain logic, or host SDK behavior. Keep one runtime record and one capability boundary. Expose typed receipts and value records, not service-provider access, generic ledgers, or per-package subsystems.
 
-## [3][EXTENSION_GRAMMAR]
+## [3]-[EXTENSION_GRAMMAR]
 
 - Runtime lifecycle case: extend `RasmRuntime`, lifecycle receipts, and capability boundary records before adding a subsystem.
 - Cross-capability receipt: extend the typed receipt stream with slot/kind metadata before adding a ledger.
@@ -26,7 +26,7 @@ It coordinates boot, lifecycle, degradation policy, scheduling, diagnostics, and
 - Configuration: pass bound value data into boot; do not introduce configuration pipes inside the runtime core.
 - Package-backed runtime behavior: read `ARCHITECTURE.md` and central manifests, then internalize approved package capability into `RasmRuntime`, lifecycle rails, scheduler/drain policy, and typed receipts before adding config knobs, service registries, facade methods, or compatibility aliases.
 
-## [4][BOUNDARY_RULES]
+## [4]-[BOUNDARY_RULES]
 
 | [INDEX] | [CONCERN]     | [RULE]                                                       |
 | :-----: | :------------ | :----------------------------------------------------------- |
@@ -38,7 +38,7 @@ It coordinates boot, lifecycle, degradation policy, scheduling, diagnostics, and
 |   [6]   | Shutdown      | Drain compute before persistence, then complete UI signals   |
 |   [7]   | Host SDK      | Rhino/GH2 facts route to their host-boundary owners          |
 
-## [5][REJECTIONS]
+## [5]-[REJECTIONS]
 
 - No domain logic, UI rendering, persistence context ownership, or compute substrate implementation.
 - No public `IServiceProvider` or generic runtime service-location API.
@@ -48,6 +48,6 @@ It coordinates boot, lifecycle, degradation policy, scheduling, diagnostics, and
 - No package versions in documentation text; version truth lives in central manifests.
 - No raw host SDK assumptions without the host-boundary route that proves them.
 
-## [6][STOP_RULES]
+## [6]-[STOP_RULES]
 
 If a change requires in-process `IServiceProvider`, Generic Host boot, exporter SDKs, raw host SDK calls, unproved shutdown/drain behavior, or companion package adoption without architecture and host proof, stop and route to `ARCHITECTURE.md`, `docs/usage/composition.md`, and manifest proof.

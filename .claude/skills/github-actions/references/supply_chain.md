@@ -1,8 +1,8 @@
 # [H1][SUPPLY-CHAIN]
 
-## [1][SHA_PINNING]
+## [1]-[SHA_PINNING]
 
-### [1.1][DETECTION_RULES]
+### [1.1]-[DETECTION_RULES]
 
 | [INDEX] | [CHECK]                         | [TAG]         | [SEVERITY] | [WHAT_TO_FLAG]                                                |
 | :-----: | ------------------------------- | ------------- | :--------: | ------------------------------------------------------------- |
@@ -14,7 +14,7 @@
 
 **Required format:** `owner/repo@<40-char-SHA> # vN.N.N`
 
-### [1.2][TJ_ACTIONS_INCIDENT]
+### [1.2]-[TJ_ACTIONS_INCIDENT]
 
 **March 2025 — CVE-2025-30066:** tj-actions/changed-files compromise affected 23,000+ repositories.
 
@@ -29,7 +29,7 @@
 - [ALWAYS] Flag `tj-actions/*` without SHA pin — known targeted namespace.
 - [ALWAYS] Flag workflows missing `step-security/harden-runner` as first step.
 
-### [1.3][IMMUTABLE_ACTIONS]
+### [1.3]-[IMMUTABLE_ACTIONS]
 
 **Status:** OCI immutable publishing **paused** (not progressing to GA). GitHub pivoted to **org-level SHA pinning enforcement** as the primary supply chain control.
 
@@ -41,11 +41,11 @@
 
 **Current posture:** SHA pinning + Dependabot/Renovate automated updates. Org setting "Require actions to be pinned to a full-length commit SHA" enforces `@<40-char-SHA>` format, rejects `@v1`/`@main` refs. Available in GitHub Enterprise Cloud and Server 3.12+.
 
-## [2][OIDC_FEDERATION]
+## [2]-[OIDC_FEDERATION]
 
 **Required permission:** `id-token: write` at job level. Short-lived tokens per session — zero rotation overhead.
 
-### [2.1][DETECTION_RULES]
+### [2.1]-[DETECTION_RULES]
 
 | [INDEX] | [CHECK]                               | [TAG]          | [WHAT_TO_FLAG]                                                          |
 | :-----: | ------------------------------------- | -------------- | ----------------------------------------------------------------------- |
@@ -54,7 +54,7 @@
 |   [3]   | **Old OIDC action versions**          | `[OIDC-VER]`   | Pre-current major versions of cloud auth actions.                       |
 |   [4]   | **Missing subject claim restriction** | `[OIDC-TRUST]` | Flag if OIDC trust policy review is recommended.                        |
 
-### [2.2][PROVIDER_MATRIX]
+### [2.2]-[PROVIDER_MATRIX]
 
 | [INDEX] | [PROVIDER] | [ACTION]                                | [CURRENT_MAJOR] | [KEY_INPUTS]                                    |
 | :-----: | ---------- | --------------------------------------- | :-------------: | ----------------------------------------------- |
@@ -64,7 +64,7 @@
 
 Subject claims include repo, branch, and environment for fine-grained trust policies.
 
-### [2.3][COMMON_ERRORS]
+### [2.3]-[COMMON_ERRORS]
 
 | [INDEX] | [ERROR]                                                       | [CAUSE]                                                   |
 | :-----: | ------------------------------------------------------------- | --------------------------------------------------------- |
@@ -72,9 +72,9 @@ Subject claims include repo, branch, and environment for fine-grained trust poli
 |   [2]   | **`No OpenIDConnect provider found`**                         | OIDC identity provider not created in cloud account.      |
 |   [3]   | **Missing `id-token: write`**                                 | Permission absent from job-level `permissions:` block.    |
 
-## [3][SBOM_AND_PROVENANCE]
+## [3]-[SBOM_AND_PROVENANCE]
 
-### [3.1][SLSA_LEVELS]
+### [3.1]-[SLSA_LEVELS]
 
 | [INDEX] | [LEVEL]      | [REQUIREMENT]             | [IMPLEMENTATION]                                        |
 | :-----: | ------------ | ------------------------- | ------------------------------------------------------- |
@@ -84,7 +84,7 @@ Subject claims include repo, branch, and environment for fine-grained trust poli
 
 **Required permissions:** `id-token: write`, `contents: read`, `attestations: write`.
 
-### [3.2][DETECTION_RULES]
+### [3.2]-[DETECTION_RULES]
 
 | [INDEX] | [CHECK]                       | [TAG]           | [WHAT_TO_FLAG]                                                   |
 | :-----: | ----------------------------- | --------------- | ---------------------------------------------------------------- |
@@ -93,7 +93,7 @@ Subject claims include repo, branch, and environment for fine-grained trust poli
 |   [3]   | **Missing attestation perms** | `[ATTEST-PERM]` | Attestation action present but `attestations: write` missing.    |
 |   [4]   | **No cosign for signing**     | `[SIGNING]`     | Container push without `sigstore/cosign-installer` for signing.  |
 
-### [3.3][VERIFICATION_SYNTAX]
+### [3.3]-[VERIFICATION_SYNTAX]
 
 **`gh attestation verify`** — GA in GitHub CLI (requires >= v2.47.0). Verifies Sigstore-signed provenance and SBOM attestations.
 
@@ -113,11 +113,11 @@ gh attestation verify <file-path> --repo owner/repo --format json
 
 Key flags: `--repo` (single repo), `--owner` (org-wide), `--bundle` (offline), `--bundle-from-oci` (registry-stored), `--predicate-type` (non-default SLSA type), `--format json` (machine-readable).
 
-## [4][HARDEN_RUNNER]
+## [4]-[HARDEN_RUNNER]
 
 **Canonical version:** v2.14.2. EDR-class agent for GitHub Actions runners.
 
-### [4.1][CAPABILITIES]
+### [4.1]-[CAPABILITIES]
 
 | [INDEX] | [FEATURE]                     | [DESCRIPTION]                                                     |
 | :-----: | ----------------------------- | ----------------------------------------------------------------- |
@@ -128,7 +128,7 @@ Key flags: `--repo` (single repo), `--owner` (org-wide), `--bundle` (offline), `
 |   [5]   | **Socket syscall coverage**   | sendto/sendmsg/sendmmsg audit logging (security fix in v2.14.2).  |
 |   [6]   | **Selective installation**    | Skips install on repos with `skip_harden_runner` custom property. |
 
-### [4.2][DETECTION_RULES]
+### [4.2]-[DETECTION_RULES]
 
 | [INDEX] | [CHECK]                           | [TAG]      | [WHAT_TO_FLAG]                                              |
 | :-----: | --------------------------------- | ---------- | ----------------------------------------------------------- |
@@ -138,9 +138,9 @@ Key flags: `--repo` (single repo), `--owner` (org-wide), `--bundle` (offline), `
 |   [4]   | **Empty allowlist in block mode** | `[HARDEN]` | `egress-policy: block` without `allowed-endpoints`.         |
 |   [5]   | **Old version**                   | `[HARDEN]` | Version < v2.14.2 — missing socket syscall audit fix.       |
 
-## [5][TOKEN_HYGIENE]
+## [5]-[TOKEN_HYGIENE]
 
-### [5.1][TOKEN_SELECTION]
+### [5.1]-[TOKEN_SELECTION]
 
 | [INDEX] | [TYPE]               | [SCOPE]            |  [LIFETIME]  | [CROSS_REPO] | [USE_CASE]           |
 | :-----: | -------------------- | ------------------ | :----------: | :----------: | -------------------- |
@@ -148,7 +148,7 @@ Key flags: `--repo` (single repo), `--owner` (org-wide), `--bundle` (offline), `
 |   [2]   | **Fine-grained PAT** | Selected repos     | Up to 1 year |     Yes      | Personal automation. |
 |   [3]   | **GitHub App token** | Installation repos |    1 hour    |     Yes      | Org-wide automation. |
 
-### [5.2][DETECTION_RULES]
+### [5.2]-[DETECTION_RULES]
 
 | [INDEX] | [CHECK]                       | [TAG]           | [WHAT_TO_FLAG]                                                  |
 | :-----: | ----------------------------- | --------------- | --------------------------------------------------------------- |
@@ -157,7 +157,7 @@ Key flags: `--repo` (single repo), `--owner` (org-wide), `--bundle` (offline), `
 |   [3]   | **`permissions: {}` missing** | `[PERMISSIONS]` | No top-level deny-all default.                                  |
 |   [4]   | **Secrets in `run:` blocks**  | `[INJECTION]`   | `${{ secrets.* }}` directly interpolated in `run:` blocks.      |
 
-### [5.3][APP_TOKEN_ERRORS]
+### [5.3]-[APP_TOKEN_ERRORS]
 
 | [INDEX] | [ERROR]                                          | [CAUSE]                                                          |
 | :-----: | ------------------------------------------------ | ---------------------------------------------------------------- |
@@ -165,7 +165,7 @@ Key flags: `--repo` (single repo), `--owner` (org-wide), `--bundle` (offline), `
 |   [2]   | **`Resource not accessible by integration`**     | Missing permissions in the GitHub App configuration.             |
 |   [3]   | **Token expired**                                | Token generated too early — regenerate before the step (1h TTL). |
 
-## [6][DEPENDENCY_REVIEW]
+## [6]-[DEPENDENCY_REVIEW]
 
 | [INDEX] | [CHECK]                       | [TAG]       | [WHAT_TO_FLAG]                                                    |
 | :-----: | ----------------------------- | ----------- | ----------------------------------------------------------------- |
@@ -174,7 +174,7 @@ Key flags: `--repo` (single repo), `--owner` (org-wide), `--bundle` (offline), `
 |   [3]   | **No gitleaks**               | `[SECRETS]` | Missing `gitleaks/gitleaks-action` for CI-level secret scanning.  |
 |   [4]   | **No Dependabot for actions** | `[MAINT]`   | Missing `.github/dependabot.yml` with `github-actions` ecosystem. |
 
-## [7][NODE_RUNTIME]
+## [7]-[NODE_RUNTIME]
 
 | [INDEX] | [RUNTIME]  | [STATUS]                                  |    [DEADLINE]     |
 | :-----: | ---------- | ----------------------------------------- | :---------------: |

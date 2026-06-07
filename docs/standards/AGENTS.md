@@ -2,7 +2,7 @@
 
 This file governs edits inside `docs/standards/**`. It is a behavioral overlay for standards work: read the active corpus, route each rule to its owner, preserve load-bearing current facts, and close every change with the required representation and proof checks.
 
-## [1][SCOPE]
+## [1]-[SCOPE]
 
 These instructions extend `CLAUDE.md` and the root `AGENTS.md`; they do not replace them. They apply only to the standards authoring corpus under `docs/standards/**`.
 
@@ -10,7 +10,7 @@ The active corpus is the current root, shared, and type standards listed by [REA
 
 Reports, critique passes, memory notes, prompt assets, session history, external research, and deprecated source material are source material only. Promote only durable rules into the owning standard, and do not copy report transcripts, roles, confidence, task framing, fixed wave counts, or report structure into the active standards corpus.
 
-## [2][READ_ORDER]
+## [2]-[READ_ORDER]
 
 Before every `docs/standards/**` file change, use the active instruction chain, [README.md](README.md), the full target file, its routed owner standard, linked adjacent standards, and the affected folder or type family. The table adds mode-specific sources; for root audits, include [agents-md.md](agents-md.md) unless the task excludes it.
 
@@ -25,7 +25,7 @@ Before rewriting, identify poor information representation: prose hiding lookup 
 
 When standards work creates or updates a reusable `.reports/` session, update or verify the owning folder's main `AGENTS.md` only when it needs a local report trigger or promotion route, and keep report naming, track numbering, correction, promotion, and pruning mechanics in that `.reports/AGENTS.md` leaf.
 
-## [3][RULE_OWNERS]
+## [3]-[RULE_OWNERS]
 
 Use the owner that controls the changed rule; do not copy that owner's body into this file.
 
@@ -39,7 +39,7 @@ Use the owner that controls the changed rule; do not copy that owner's body into
 |   [6]   | `formatting.md`            | bracketed headings, invocation markers, table styling, whitespace                     |
 |   [7]   | type standards             | artifact-specific structure, status vocabulary, local proof slots                     |
 
-## [4][ROOT_FILE_AUDITS]
+## [4]-[ROOT_FILE_AUDITS]
 
 Audit root standards files against exactly 4 shared axes: form, craft, evidence, and notation. Do not invent a fifth audit axis. Instruction-surface specifics may route to [agents-md.md](agents-md.md), but root-file quality scoring stays on the 4 shared standards.
 
@@ -53,7 +53,7 @@ Each finding must carry:
 
 Read-only audits state that no files were edited and no validation gate ran. Edit audits name exact commands only when they ran in the current change or a current status check proves them.
 
-## [5][ARTIFACT_CONTRACT]
+## [5]-[ARTIFACT_CONTRACT]
 
 Standards files are executable guidance for future agents. Start with scope, reader action, controlling owner or status, highest-risk constraint, and route-away. End with boundaries, proof, validation, or the next safe route.
 
@@ -73,7 +73,7 @@ Every type standard states the opening contract before examples, taxonomies, or 
 
 Use adjacent-document relation records only when the adjacent fact changes reader action, proof, status interpretation, validation, or maintenance. Use normal Markdown links for background. Route missing owned content to its owner instead of embedding it.
 
-## [6][EDIT_INVARIANTS]
+## [6]-[EDIT_INVARIANTS]
 
 [PRESERVATION]:
 - Preserve every load-bearing current command, path, version, flag, field, qualifier, status value, route pointer, proof field, invariant, and source-backed claim.
@@ -92,7 +92,7 @@ Use adjacent-document relation records only when the adjacent fact changes reade
 - People or process metadata fields such as `Owner:`, `Role:`, `Team:`, `Maintainer:`, `Reviewer:`, `Stakeholder:`, `Audience:`, `PM:`, `RACI:`, approval ladders, or organizational accountability are forbidden unless a literal local tool output or source standard consumes that exact field.
 - Route-owner or source-owner language is allowed when it identifies the standard or path that controls a rule.
 
-## [7][FORBIDDEN_PATTERNS]
+## [7]-[FORBIDDEN_PATTERNS]
 
 [NEVER]:
 - Publish live task instructions, chat excerpts, critique summaries, prompt-source narration, rewrite rationale, fixed sub-agent counts, session state, secrets, or nonpublic machine paths.
@@ -103,13 +103,13 @@ Use adjacent-document relation records only when the adjacent fact changes reade
 - Publish empty conditional headings, decorative diagrams, duplicated table or diagram bodies, `Consumed by: none`, or generic metadata whitelists.
 - Hand-maintain generated catalogs, mirrors, or provider claims as independent truth.
 
-## [8][BOUNDARIES]
+## [8]-[BOUNDARIES]
 
 This file routes standards-folder work and enforces local close checks. It does not define document types, prose craft, proof labels, container forms, status vocabularies, or `AGENTS.md` semantic slots.
 
 When this file and a shared standard appear to overlap, keep the durable rule in the shared standard and keep only the local read, routing, or close-check behavior here.
 
-## [9][VALIDATION]
+## [9]-[VALIDATION]
 
 Use this verification checklist by group:
 

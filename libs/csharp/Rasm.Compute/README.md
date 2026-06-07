@@ -2,13 +2,13 @@
 
 `Rasm.Compute` is the measured-compute platform for long-running, tensor, model, and remote execution lanes. It wraps the existing `Rasm.Vectors` tensor/numeric substrate in `Eff<RT,ExecutionReceipt>` — adding timing, allocation, cancellation, substrate selection, and progress — without duplicating a single `TensorPrimitives` kernel that `Rasm.Vectors` already owns.
 
-## [1][PURPOSE]
+## [1]-[PURPOSE]
 
 `Rasm.Compute` coordinates substrate selection, cancellation/progress, benchmark receipts, model lifecycle, remote dispatch, and failure taxonomy for work that outgrows direct `Rasm` operations. `Rasm.Vectors` tensor/numeric algorithms are the default substrate; Compute calls them and does not re-implement them.
 
 It is not a tensor wrapper, ONNX Runtime wrapper, gRPC wrapper, job framework, acceleration claim, or replacement for existing `Rasm`/`Rasm.Vectors` numerics.
 
-## [2][STATUS]
+## [2]-[STATUS]
 
 | [INDEX] | [SURFACE]            | [STATE]                                                         |
 | :-----: | -------------------- | --------------------------------------------------------------- |
@@ -20,7 +20,7 @@ It is not a tensor wrapper, ONNX Runtime wrapper, gRPC wrapper, job framework, a
 
 Add packages centrally at the newest viable versions during Phase 0. Do not pin version numbers in documentation.
 
-## [3][MANUAL]
+## [3]-[MANUAL]
 
 | [INDEX] | [FILE]             | [READ_FOR]                                                                             |
 | :-----: | ------------------ | -------------------------------------------------------------------------------------- |
@@ -28,7 +28,7 @@ Add packages centrally at the newest viable versions during Phase 0. Do not pin 
 |   [2]   | `AGENTS.md`        | Build rules, boundary enforcement, and package rejections                              |
 |   [3]   | `ROADMAP.md`       | Build sequence and scoped lanes                                                        |
 
-## [4][CONSTRAINTS]
+## [4]-[CONSTRAINTS]
 
 - Substrate choice stays internal to Compute operations; `Rasm.Vectors` owns algorithm bodies.
 - Speed and allocation claims carry benchmark evidence under `.artifacts/compute/benchmarks/`.

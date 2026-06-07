@@ -11,7 +11,7 @@ Execute Perplexity AI queries via Python CLI. API key auto-injected via 1Passwor
 
 [IMPORTANT] Sonar family models (Feb 2026): `sonar` (lightweight search), `sonar-pro` (deeper retrieval, 2x more results), `sonar-reasoning` (real-time reasoning), `sonar-reasoning-pro` (DeepSeek-R1, visible reasoning), `sonar-deep-research` (long-form reports). Citation tokens no longer billed for sonar/sonar-pro.
 
-## [1][COMMANDS]
+## [1]-[COMMANDS]
 
 | [CMD]    | [ARGS]                    | [MODEL]             |
 | -------- | ------------------------- | ------------------- |
@@ -21,7 +21,7 @@ Execute Perplexity AI queries via Python CLI. API key auto-injected via 1Passwor
 | reason   | `<query> [strip]`         | sonar-reasoning-pro |
 | search   | `<query> [max] [country]` | sonar               |
 
-## [2][USAGE]
+## [2]-[USAGE]
 
 ```bash
 # Quick question with citations (lightweight)
@@ -43,7 +43,7 @@ uv run $CLAUDE_HOME/skills/perplexity-tools/scripts/perplexity.py reason "Compar
 uv run $CLAUDE_HOME/skills/perplexity-tools/scripts/perplexity.py search "Nx 22 features" 5
 ```
 
-## [3][ARGUMENTS]
+## [3]-[ARGUMENTS]
 
 **ask**: `<query>`
 - `query` — Question to ask (required)
@@ -68,7 +68,7 @@ uv run $CLAUDE_HOME/skills/perplexity-tools/scripts/perplexity.py search "Nx 22 
 - `max` — Max results (default: `10`)
 - `country` — Country code to focus results (e.g., `US`, `GB`)
 
-## [4][OUTPUT]
+## [4]-[OUTPUT]
 
 Commands return: `{"status": "success|error", ...}`.
 
@@ -80,13 +80,13 @@ Commands return: `{"status": "success|error", ...}`.
 |   [4]   | `reason`   | `{query, response}`              |
 |   [5]   | `search`   | `{query, results[]}`             |
 
-## [5][ENVIRONMENT]
+## [5]-[ENVIRONMENT]
 
 | [VAR]                | [REQUIRED] | [DESCRIPTION]                           |
 | -------------------- | ---------- | --------------------------------------- |
 | `PERPLEXITY_API_KEY` | Yes        | Perplexity API key (1Password injected) |
 
-## [6][ERROR_HANDLING]
+## [6]-[ERROR_HANDLING]
 
 - HTTP errors print `[ERROR] <status>: <body>` and exit 1
 - Rate limit (429): print retry guidance and exit 1

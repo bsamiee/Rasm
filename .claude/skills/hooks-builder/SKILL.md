@@ -35,7 +35,7 @@ Build Claude Code hooks—shell commands, prompt evaluations, or multi-turn agen
 | Troubleshooting | [troubleshooting.md](references/troubleshooting.md)    |
 | Validation      | [validation.md](references/validation.md)              |
 
-## [1][EVENT_SELECTION]
+## [1]-[EVENT_SELECTION]
 
 **Decision Gate:**
 - *Intercept before execution?* → PreToolUse (validate/block/modify parameters)
@@ -73,7 +73,7 @@ Build Claude Code hooks—shell commands, prompt evaluations, or multi-turn agen
 |   [8]   | SubagentStart      | Shows stderr to user only                    |
 |   [9]   | PreCompact         | Shows stderr to user only                    |
 
-## [2][CONFIGURATION]
+## [2]-[CONFIGURATION]
 
 | [INDEX] | [SCOPE] | [PATH]                        | [USE]                | [GIT]  |
 | :-----: | ------- | ----------------------------- | -------------------- | :----: |
@@ -85,7 +85,7 @@ Build Claude Code hooks—shell commands, prompt evaluations, or multi-turn agen
 
 **Snapshot:** Hooks captured at startup; mid-session edits require `/hooks` review to reload.
 
-## [3][IMPLEMENTATION]
+## [3]-[IMPLEMENTATION]
 
 | [INDEX] | [TYPE]  | [USE_CASE]                       | [TIMEOUT] | [CHARACTERISTICS]            |
 | :-----: | ------- | -------------------------------- | :-------: | ---------------------------- |
@@ -123,11 +123,11 @@ Build Claude Code hooks—shell commands, prompt evaluations, or multi-turn agen
 |   [1]   | `prompt` | string |     —      | Instructions for LLM; `$ARGUMENTS` = hook JSON |
 |   [2]   | `model`  | string | fast model | Model to use for evaluation                    |
 
-## [4][SCRIPTING]
+## [4]-[SCRIPTING]
 
 Python 3.14+ with strict typing. Zero imperative patterns.
 
-## [5][VALIDATION]
+## [5]-[VALIDATION]
 
 [VERIFY] Completion:
 - [ ] Event: Selected correct hook type for automation goal.

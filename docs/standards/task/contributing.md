@@ -2,7 +2,7 @@
 
 A contributing guide tells a prospective contributor which contribution paths the project accepts, how normal changes move from intent to review, what evidence proves the work, and how pull requests converge. It is a contributor workflow document, not onboarding, architecture, gate taxonomy, roadmap, incident response, repository policy, support policy, or vulnerability-disclosure policy. Keep adjacent concerns in their routes and link them only where the contributor must act on the boundary.
 
-## [1][USE_WHEN]
+## [1]-[USE_WHEN]
 
 Use a contributing guide when readers need accepted contribution paths, normal-change workflow, contributor-facing quality-gate evidence, pull-request evidence, review-collaboration rules, or security-report routing.
 
@@ -29,7 +29,7 @@ Route away adjacent concerns before authoring the workflow:
 
 Opening order is fixed for task standards: route and use contract first, produced structure second, cardinality third, then baselines, examples, and local patterns. Do not let contribution-path examples define section order implicitly.
 
-## [2][SOURCE_PRECEDENCE]
+## [2]-[SOURCE_PRECEDENCE]
 
 Anchor contribution obligations to project truth first. A guide may mention a host surface, commit format, sign-off, code of conduct, license, contribution location, review route, or security route only when repository configuration, host settings, workflow files, templates, CODEOWNERS, or maintained policy proves the project uses it.
 
@@ -41,7 +41,7 @@ Use this source order for contributor-facing claims:
 
 Do not import a `feat:` or `fix:` prefix rule, `Signed-off-by` line, contribution location, branch-protection claim, required-check claim, response-time promise, or security-reporting path from external examples alone. If host or policy confirmation is unavailable during authoring, state the missing configuration and omit the obligation from the contributor workflow.
 
-## [3][REQUIRED_STRUCTURE]
+## [3]-[REQUIRED_STRUCTURE]
 
 The published guide uses a required base plus conditional additions. Each `##` heading is a standalone retrieval unit; renumber headings in document order after inserting or omitting conditional sections.
 
@@ -50,35 +50,35 @@ The published guide uses a required base plus conditional additions. Each `##` h
 
 <Lead: accepted contribution surface and the highest-risk contribution boundary.>
 
-## [1][SCOPE]
+## [1]-[SCOPE]
 
-## [2][WAYS_CONTRIBUTE]
+## [2]-[WAYS_CONTRIBUTE]
 
-## [3][SETUP_WORKFLOW]
+## [3]-[SETUP_WORKFLOW]
 
-## [4][QUALITY_GATES]
+## [4]-[QUALITY_GATES]
 
-## [5][PULL_REQUESTS]
+## [5]-[PULL_REQUESTS]
 
-## [6][REVIEW]
+## [6]-[REVIEW]
 
-## [7][SECURITY_REPORTS]
+## [7]-[SECURITY_REPORTS]
 
-## [8][BOUNDARIES]
+## [8]-[BOUNDARIES]
 
-## [9][VALIDATION]
+## [9]-[VALIDATION]
 ```
 
 Add these conditional sections only when their trigger applies:
 
 ```markdown template
-## [N][BEFORE_YOU_START]
+## [N]-[BEFORE_YOU_START]
 
-## [N][GETTING_HELP]
+## [N]-[GETTING_HELP]
 
-## [N][DOCUMENTATION_CHANGES]
+## [N]-[DOCUMENTATION_CHANGES]
 
-## [N][MAINTENANCE]
+## [N]-[MAINTENANCE]
 ```
 
 Place conditional sections where the contributor needs them: `Before you start` before setup, `Getting help` after quality gates, `Documentation changes` before PR evidence, and `Maintenance` before or after `Boundaries` based on whether it changes contribution workflow or only stewardship.
@@ -92,13 +92,13 @@ Place conditional sections where the contributor needs them: `Before you start` 
 
 Required sections carry one purpose each. `Scope` states accepted surfaces and route-away topics; `Ways to contribute` selects the first artifact; `Setup workflow` reaches a first-gate-passing tree and states enforced workflow facts; `Quality gates` names contributor-facing results; `Pull requests` records review evidence; `Review` makes threads converge; `Security reports` routes private vulnerability detail; `Boundaries` names adjacent routes; `Validation` verifies the published guide. Omit placeholders, template instructions, maintenance route notes, and speculative routes.
 
-## [4][SCOPE]
+## [4]-[SCOPE]
 
 `Scope` states what the project accepts before it teaches any workflow. It carries the accepted contribution surface, the public or private entry route for each surface, topics routed away, and the highest-risk contribution boundary, such as security-sensitive, breaking, or cross-scope work that requires direction first.
 
 Do not publish broad encouragement without a reviewable path. A contribution guide that invites work the project cannot review creates contributor waste and route ambiguity. When no maintained route exists for an excluded topic, route the contributor to source-routing consultation instead of inventing policy in `CONTRIBUTING`.
 
-## [5][WAYS_CONTRIBUTE]
+## [5]-[WAYS_CONTRIBUTE]
 
 `Ways to contribute` is a selector for the first reviewable artifact. Each accepted path names the contributor intent, entry artifact, gated prerequisite, and scope bound, so a contributor can choose the first action without reading the whole guide.
 
@@ -138,7 +138,7 @@ Show a near-miss only when authors tend to publish vague path bounds:
 
 Use the same compact contrast labels in every contributing example: `Accepted`, `Rejected`, `Near miss`, and `Reason`. Do not substitute `Good`, `Bad`, or project-local taste labels; the contrast record exists to show the action difference.
 
-## [6][BEFORE_YOU_START]
+## [6]-[BEFORE_YOU_START]
 
 Include `Before you start` only when a contributor must accept or complete a prerequisite before opening a contribution path. Carry the route and acceptance action, not the policy body.
 
@@ -150,7 +150,7 @@ Include `Before you start` only when a contributor must accept or complete a pre
 
 Do not embed prerequisite knowledge, first-task guidance, or readiness here; route those to onboarding. Do not embed the full code-of-conduct text, license body, sign-off certification body, or contributor-license-agreement. Route each to its maintained source.
 
-## [7][SETUP_WORKFLOW]
+## [7]-[SETUP_WORKFLOW]
 
 `Setup workflow` states the commands a contributor on the normal path runs to reach a working tree that passes the first gate. Link deeper onboarding, architecture, build, platform, or reference material instead of embedding it. A setup command that was not checked during guide maintenance stays provisional beside the command under [proof.md](../proof.md).
 
@@ -165,7 +165,7 @@ Use ordered steps for commands that must run in order. Use bullets or definition
 
 State each branch condition before its action: `If <signal>, do <action>`. Do not claim continuous integration, required status checks, branch protection, source-routing response time, commit-convention enforcement, sign-off enforcement, or automation behavior unless repository or host configuration proves it.
 
-## [8][QUALITY_GATES]
+## [8]-[QUALITY_GATES]
 
 `Quality gates` names the runnable command or maintained review gate that proves a contributor's change and the result to attach. Publish a gate mapping only when the repository proves concrete commands or maintained review gates; otherwise, delete the section's table or record and state the missing route.
 
@@ -200,11 +200,11 @@ Show a gap in the row or record where the contributor reports a result, not in a
 
 Delete the gate mapping when no maintained gate or review route exists. A polished list of unproved commands is filler, not contributor guidance.
 
-## [9][GETTING_HELP]
+## [9]-[GETTING_HELP]
 
 Include `Getting help` only for contribution blockers that prevent a contributor from completing a reviewable path: setup command failure, missing permission, unclear route, inaccessible required gate, or a review question that needs maintained source direction. Link the maintained discussion or source-routing contact route only when the project publishes one. Do not use this section for user support, onboarding, repository-policy questions, incident response, roadmap task negotiation, or vulnerability reports; route those topics elsewhere.
 
-## [10][DOCUMENTATION_CHANGES]
+## [10]-[DOCUMENTATION_CHANGES]
 
 Include `Documentation changes` when contributions can alter documentation truth: code behavior, configuration, generated contracts, user-visible behavior, support status, gate policy, route practice, contribution workflow, operational procedure, or public entry route. Route a new or changed document through the standards index by topic, then through the matching document-type standard; this guide carries the trigger, not the adjacent document.
 
@@ -221,7 +221,7 @@ Route-away: <adjacent document body that remains outside the contributing guide>
 
 Use richer integration only when the adjacent document changes contributor action or review evidence. API contract changes usually update API documentation and any migration how-to; public symbol intent changes route to code documentation; support status changes route to the support matrix and any README entry route; new contributor gates update both contributing and test strategy; onboarding updates only when a workflow change affects readiness or first safe tasks; roadmap updates only when task sequence or milestone proof changes contributor action. A link is enough when the adjacent document only provides background.
 
-## [11][PULL_REQUESTS]
+## [11]-[PULL_REQUESTS]
 
 A pull request is accepted for review when its body carries the change summary, run results, gaps, scope, and required self-checks. Missing required results are a request-changes condition, not a validator nicety. Use the host template when one exists; otherwise use one body shape with checklist items embedded, not a separate checklist plus a duplicate template:
 
@@ -245,7 +245,7 @@ Required self-check:
 
 State an unrun gate as unrun rather than implying it passed. Update the pull-request body when run results, scope, or risk change during review. Add paths, routes, visual evidence, runtime evidence, generated artifacts, governing decisions, or roadmap milestones only when those facts route review.
 
-## [12][REVIEW]
+## [12]-[REVIEW]
 
 `Review` defines how contributors resolve review threads without widening the contribution. Apply these rules to every review:
 - Keep technical discussion public unless it carries sensitive information.
@@ -264,17 +264,17 @@ When the project runs a maintained review or triage ladder, describe only the co
 
 Required profile fields are `Trigger`, `Policy link`, and `Contributor action`. Omit the profile mapping when the project runs a single flat review path or when no maintained policy proves the profiles. Branch protection, merge conditions, and repository policy belong to the maintained repository-policy route.
 
-## [13][SECURITY_REPORTS]
+## [13]-[SECURITY_REPORTS]
 
 Route every vulnerability report to the project's maintained security policy, enabled private vulnerability-reporting channel, or coordinated vulnerability-reporting channel, and keep that route out of the normal issue and pull-request flow. When no coordinated route is documented, instruct reporters to ask through the published source-routing channel for the preferred security contact without publishing exploit details.
 
 Carry only the private route and no policy body. Do not embed a `SECURITY.md` template, disclosure timeline, bounty promise, supported-version policy, advisory workflow, embargo rule, or response-time claim; those belong to the security-policy route.
 
-## [14][MAINTENANCE]
+## [14]-[MAINTENANCE]
 
 Review a contributing guide when accepted contribution paths, host discovery behavior, issue or pull-request templates, branch protection, required checks, gate commands, sign-off, contributor agreement, commit-title convention, security-report route, review policy, contributor help route, or documentation-travel rule changes. Update the guide from real review failures when contributors repeatedly choose the wrong entry artifact, omit required evidence, report gates ambiguously, publish security details publicly, or ask for hidden repository-policy rules. Delete or route dead contribution paths instead of preserving them as legacy invitations.
 
-## [15][BOUNDARIES]
+## [15]-[BOUNDARIES]
 
 These adjacent standards own routed material:
 
@@ -291,7 +291,7 @@ These adjacent standards own routed material:
 - [support-matrix.md](../reference/support-matrix.md) carries supported versions, platforms, runtimes, deprecation, and end-of-support facts.
 - Maintained repository-policy and security-policy documents carry branch protection, merge permissions, disclosure, support-window, and advisory policy when they exist; otherwise this guide routes those topics to source-routing checks without becoming the policy body.
 
-## [16][VALIDATION]
+## [16]-[VALIDATION]
 
 Use this verification checklist by group:
 

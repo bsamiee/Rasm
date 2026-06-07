@@ -6,7 +6,7 @@
 EF Core persistence aligned with LanguageExt. Patterns below target bootstrap and host projects.
 
 ---
-## [1][DBCONTEXT_AS_EFFECT]
+## [1]-[DBCONTEXT_AS_EFFECT]
 >**Dictum:** *The database is an effect; DbContext belongs in the Eff shell.*
 
 <br>
@@ -79,7 +79,7 @@ public static class OrderPersistence {
 [IMPORTANT]: Runtime is a plain `sealed record` -- no interface indirection. `CancellationToken` lives on the runtime so `Eff` pipelines resolve it implicitly via `ResolveToken` (see `concurrency.md` [4] -- token threading). `IO.liftAsync` keeps `async`/`await` inside the `IO` boundary. `MigrateAsync` is idempotent -- schema rollback is always a new forward migration; `Down()` is unreliable in production. `EnableRetryOnFailure` handles transient PostgreSQL errors (connection drops, deadlocks) with exponential backoff.
 
 ---
-## [2][QUERY_COMPOSITION]
+## [2]-[QUERY_COMPOSITION]
 >**Dictum:** *Queries compose as expressions; materialization happens at boundaries.*
 
 <br>
@@ -182,7 +182,7 @@ public static class ViewRefresh {
 [CRITICAL]: Keyset pagination fetches `pageSize + 1` rows to determine `hasNext` without a COUNT query -- COUNT on large tables forces a sequential scan in PostgreSQL. Expression trees execute server-side; `.Select()` pushes column selection to SQL; `AsNoTracking()` skips the change tracker. Write models use OCC via `RowVersion`/`UpdatedAt` -- never mix tracked and untracked entities in the same pipeline.
 
 ---
-## [3][TYPE_MAPPING]
+## [3]-[TYPE_MAPPING]
 >**Dictum:** *The database schema speaks primitives; the domain speaks types.*
 
 <br>
@@ -286,7 +286,7 @@ public static readonly Action<EntityTypeBuilder<CustomerEntity>> ConfigureCustom
 [IMPORTANT]: Register converters via `.HasConversion<DomainIdentityConverter>()`, `.HasConversion<InstantConverter>()`, `.HasConversion<JsonColumnConverter<T>>().HasColumnType("jsonb")`. Configuration uses `Action<EntityTypeBuilder<T>>` lambdas to avoid `IEntityTypeConfiguration<T>` methods. `_ => throw new UnreachableException()` is the permitted defensive arm until C# ships first-class DU exhaustiveness. Value objects (`readonly record struct` with `OwnsOne`/`OwnsMany`) are persistence-layer composites with no identity -- distinct from domain primitives (`DomainIdentity`, `TenantId`) which are branded scalars mapped via `ValueConverter`.
 
 ---
-## [4][REPOSITORY_ALGEBRA]
+## [4]-[REPOSITORY_ALGEBRA]
 >**Dictum:** *Repositories are interpreters; queries are data.*
 
 <br>
@@ -325,7 +325,7 @@ public abstract record RepoQuery<TKey, TEntity, TResult> where TEntity : class {
 [CRITICAL]: Interpreter maps: `GetById` to `FindAsync` + `Optional`, `GetByPredicate` to `.Where().ToListAsync()` + `toSeq`, `GetPage` to `KeysetPagination.GetPage`, `Exists` to `AnyAsync`. All async calls lift via `IO.liftAsync`. The `private protected` constructor prevents external subtypes from breaking exhaustiveness. See `composition.md` [5] for the algebraic compression pattern.
 
 ---
-## [5][RULES]
+## [5]-[RULES]
 >**Dictum:** *Rules compress into constraints.*
 
 <br>
@@ -347,7 +347,7 @@ public abstract record RepoQuery<TKey, TEntity, TResult> where TEntity : class {
 - [NEVER] `IEntityTypeConfiguration<T>` with override methods -- use `Action<EntityTypeBuilder<T>>` lambdas.
 
 ---
-## [6][QUICK_REFERENCE]
+## [6]-[QUICK_REFERENCE]
 
 | [INDEX] | [PATTERN]                | [WHEN]                                   | [KEY_TRAIT]                                |
 | :-----: | :----------------------- | :--------------------------------------- | :----------------------------------------- |

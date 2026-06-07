@@ -2,7 +2,7 @@
 
 This roadmap sequences the build. The runtime platform is built fully from the foundation; external-hop and companion lanes integrate with the concern that owns them.
 
-## [1][PHASE_0]
+## [1]-[PHASE_0]
 
 - Add every core package to root `Directory.Packages.props` at the newest viable versions; project references stay versionless; no unusual pinning. In-process: `LanguageExt.Core`, `OpenTelemetry.Api`, `Microsoft.Extensions.Logging.Abstractions`, `NodaTime`, `FluentValidation`, `Microsoft.Extensions.Http.Resilience`. In-box no-pin: `System.Threading.Channels`, `System.Threading.Tasks.Dataflow`, `System.Diagnostics.DiagnosticSource`, `TimeProvider`. Companion: `Microsoft.Extensions.Hosting`, `Microsoft.Extensions.DependencyInjection`, `Microsoft.Extensions.Configuration` (+ `.Binder` + `.Json`), `Microsoft.Extensions.Options` (+ `.ConfigurationExtensions` + `.DataAnnotations`), `Microsoft.Extensions.Diagnostics`, `OpenTelemetry.Instrumentation.Runtime`, `OpenTelemetry.Instrumentation.Process`, `OpenTelemetry.Exporter.OpenTelemetryProtocol`, `Serilog` (+ `.Sinks.OpenTelemetry` + `.Enrichers.Span` + `.Enrichers.Thread` + `.Enrichers.Environment`), `Scrutor`, `FluentValidation.DependencyInjectionExtensions`, `Microsoft.Extensions.ObjectPool` (conditional).
 - Create `Rasm.AppHost.csproj`, wire into `Workspace.slnx` and the central build, resolve host assemblies as sibling libs do. Target `net10.0` (not `net10.0-windows`).
@@ -11,7 +11,7 @@ This roadmap sequences the build. The runtime platform is built fully from the f
 
 Phase 0 is complete when restore and build pass clean.
 
-## [2][RUNTIME_CORE]
+## [2]-[RUNTIME_CORE]
 
 Build the runtime rail with its core mechanisms integrated:
 
@@ -33,7 +33,7 @@ Build the runtime rail with its core mechanisms integrated:
 
 Runtime operations return typed `LifecycleReceipt` DU cases; correlate `DiagnosticReceipt` (AppUi-owned) without redefining it.
 
-## [3][SCOPED_LANES]
+## [3]-[SCOPED_LANES]
 
 | [INDEX] | [LANE]                            | [INTEGRATES_WITH]                    |
 | :-----: | --------------------------------- | ------------------------------------ |
@@ -46,7 +46,7 @@ Runtime operations return typed `LifecycleReceipt` DU cases; correlate `Diagnost
 |   [7]   | Dataflow                          | Multi-stage topology beyond Channels |
 |   [8]   | ObjectPool                        | Conditional; when allocation profiling warrants |
 
-## [4][RUNTIME_EVIDENCE]
+## [4]-[RUNTIME_EVIDENCE]
 
 Runtime claims are scoped to proven profiles. Owner-local receipts identify:
 

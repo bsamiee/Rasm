@@ -67,7 +67,7 @@ layer(${LAYER_NAME})('${SUITE_NAME}', (it) => {
 });
 ```
 
-## [1][PLACEHOLDER_REFERENCE]
+## [1]-[PLACEHOLDER_REFERENCE]
 
 | [INDEX] | [PLACEHOLDER]          | [EXAMPLE]                                   |
 | :-----: | ---------------------- | ------------------------------------------- |

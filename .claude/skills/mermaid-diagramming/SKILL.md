@@ -28,7 +28,7 @@ Mermaid v11+ diagram creation with frontmatter YAML, ELK layout, Dracula palette
 - *[CHARTS]* — Pie, quadrant, sankey, xy, radar, gantt, treemap. Load for: data visualization, project timelines.
 - *[ARCHITECTURE]* — C4, architecture-beta, packet-beta, timeline, gitgraph, kanban. Load for: system views, infrastructure, network protocols, version control flow, project boards.
 
-## [1][INSTRUCTIONS]
+## [1]-[INSTRUCTIONS]
 
 **Required Tasks:**
 1. Read [→global-config.md](./references/global-config.md): Frontmatter YAML, ELK layout (required for ALL diagrams).
@@ -59,7 +59,7 @@ Mermaid v11+ diagram creation with frontmatter YAML, ELK layout, Dracula palette
 - *Load Sequence* — global-config.md → styling.md → {category}.md → compose. Never skip configuration.
 - *Frontmatter Only* — `%%{init:...}%%` directives deprecated v10.5.0. Use YAML frontmatter exclusively.
 
-## [2][DIAGRAM_SELECTION]
+## [2]-[DIAGRAM_SELECTION]
 
 | [CATEGORY]   | [TYPES]                                              | [REFERENCE]                                      |
 | :----------- | ---------------------------------------------------- | ------------------------------------------------ |
@@ -103,7 +103,7 @@ Mermaid v11+ diagram creation with frontmatter YAML, ELK layout, Dracula palette
 **Best-Practices:**
 - *Category Match* — Select by primary concern: flow→Graph, time→Interaction, structure→Modeling, data→Charts, system→Architecture.
 
-## [3][VALIDATION]
+## [3]-[VALIDATION]
 
 [VERIFY] Before diagram creation:
 - [ ] Frontmatter: valid YAML with `config:` key (before diagram declaration).

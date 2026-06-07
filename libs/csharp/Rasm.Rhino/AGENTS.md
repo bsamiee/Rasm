@@ -2,13 +2,13 @@
 
 Scope: `libs/csharp/Rasm.Rhino/` only. Root policy and `libs/csharp/AGENTS.md` own universal C# and library-family rules; this file adds RhinoWIP boundary deltas.
 
-## [1][SCOPE]
+## [1]-[SCOPE]
 
 `Rasm.Rhino` is the canonical RhinoWIP boundary library for command, UI, camera, viewport, document, exchange, block, and future Rhino concern categories.
 
 Each category folder owns one full Rhino concern. Capture native API capability deeply, then expose a smaller, stronger, value-adding boundary with FP/ROP internals. Downstream code should read like product logic, not RhinoCommon sequencing, option plumbing, or ceremony.
 
-## [2][READ_ORDER]
+## [2]-[READ_ORDER]
 
 - When editing a folder, read existing folder files and extend canonical owners before creating new files or types.
 - When naming risky Rhino behavior, verify against local RhinoWIP XML, decompile evidence when XML is absent, and the repo API rail.
@@ -17,7 +17,7 @@ Each category folder owns one full Rhino concern. Capture native API capability 
 - When adding numerical or symbolic algorithms, read `docs/stacks/csharp/numeric-algorithms.md` and `docs/stacks/csharp/sparse-factorization.md`.
 - When authoring runtime scenarios, read `tests/csharp/AGENTS.md`, `tests/csharp/libs/AGENTS.md`, and `tools/rhino-bridge/AGENTS.md` first.
 
-## [3][EXTENSION_GRAMMAR]
+## [3]-[EXTENSION_GRAMMAR]
 
 - New Rhino concern: create or extend a category owner, not a wrapper facade.
 - New document, view, object, or panel watch: route through root `Events.cs` and `WatchBus`.
@@ -28,7 +28,7 @@ Each category folder owns one full Rhino concern. Capture native API capability 
 - New UI behavior: extend `UiIntent<T>`, `UiViewportPreview`, `UiViewportInteraction<TState>`, `MotionSpec` in `UI/Motion.cs`, or `RasmPanel` / `UiChromeOp<T>` in `UI/Panel.cs` before adding a parallel executor.
 - New native return conversion: map nullable to `Option` or `Fin`, bool failure to typed failure, resource lifetime to scoped projection, and document mutation to the existing receipt vocabulary.
 
-## [4][ROUTING]
+## [4]-[ROUTING]
 
 | [INDEX] | [CONCERN]    | [OWNER]                                                                                        |
 | :-----: | :----------- | :--------------------------------------------------------------------------------------------- |
@@ -40,14 +40,14 @@ Each category folder owns one full Rhino concern. Capture native API capability 
 |   [6]   | Blocks       | `Blocks/` ops, lifecycle, archive/link, graph, preview                                         |
 |   [7]   | Exchange     | `Exchange/` import/export, sheet/detail, publish                                               |
 
-## [5][UI_RULES]
+## [5]-[UI_RULES]
 
 - `UI/` owns `UiIntent<T>`, Rhino/Eto dispatch, dialogs, panels, overlays, callbacks, retained canvas state, motion clocks, and drawing-resource lifetimes.
 - Keep the Rhino UI executor as the sole dispatch edge; route callbacks, user delegates, native event identity, and scoped disposal through protected native boundaries.
 - Model native UI events as typed unions with native identities.
 - Treat process-lifetime native registrations, retained overlay state, motion algebra, and per-paint resource disposal as owner-rail concerns.
 
-## [6][REJECTIONS]
+## [6]-[REJECTIONS]
 
 - No wrapper-only RhinoCommon renames.
 - No public parameter mirror of every native knob.
@@ -58,6 +58,6 @@ Each category folder owns one full Rhino concern. Capture native API capability 
 - No obsolete native value exposed as compatibility API; project it only inside the owning boundary conversion when live Rhino documents can still emit it, then expose canonical Rasm names.
 - No native-member claim based only on member existence; verify semantics when the replacement value matters.
 
-## [7][STOP_RULES]
+## [7]-[STOP_RULES]
 
 If RhinoWIP XML, decompile evidence, or the API rail cannot prove semantics, stop before naming a public rail or replacement value; route runtime behavior to source-owned bridge scenarios.

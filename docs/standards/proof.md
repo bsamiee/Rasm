@@ -2,7 +2,7 @@
 
 Proof is a claim-level obligation. Each command, contract, status, version, support statement, generated artifact, diagram, procedure, or provider claim must point to reproducible evidence that lets the next maintainer refresh it. This standard carries evidence strength, freshness, conflict resolution, proof fields, proof gaps, preservation, and verification. It does not own where a claim sits, which container presents it, or the words that phrase it.
 
-## [1][USE_WHEN]
+## [1]-[USE_WHEN]
 
 Apply this standard when documentation states:
 - commands, flags, outputs, quality gates, or expected success signals
@@ -15,7 +15,7 @@ Apply this standard when documentation states:
 
 Add proof fields only for a drift-prone claim, a named reader trust need, or a named tool, renderer, generator, retrieval index, or review workflow that consumes the field. Add non-proof machine-consumed fields only when the consumer names the exact schema it reads. Never use evidence fields as page decoration.
 
-## [2][EVIDENCE_HIERARCHY]
+## [2]-[EVIDENCE_HIERARCHY]
 
 Use the strongest source that directly proves the claim:
 1. Machine-readable repository truth: source, manifests, lockfiles, schemas, generated contracts, generated API reference, checked-in diagram models, or symbol documentation generated from source.
@@ -25,7 +25,7 @@ Use the strongest source that directly proves the claim:
 
 Repository truth and generated contracts outrank prose. Local command output outranks a copied transcript. Maintained upstream source outranks examples for actively changing tools.
 
-## [3][CONFLICT_HANDLING]
+## [3]-[CONFLICT_HANDLING]
 
 When sources disagree, use the source closest to the executing system. The hierarchy above already decides most conflicts; this section states only disagreement behavior:
 - If generated output and handwritten prose disagree, use the generated output and fix or route the prose.
@@ -34,7 +34,7 @@ When sources disagree, use the source closest to the executing system. The hiera
 
 If a lower source remains useful, cite it as background and state which higher source controls the claim.
 
-## [4][PROOF_FIELDS]
+## [4]-[PROOF_FIELDS]
 
 This standard is the single route for proof, source, freshness, proof-gap, and generated-artifact field labels. Use the smallest field set that keeps the claim maintainable.
 
@@ -69,7 +69,7 @@ Flat `label: value` lines inside a `markdown template` fence are copy templates 
 
 Carry only the fields the claim needs. A generated artifact adds `Generated from:` and `Controlling source:`. A settled command may need only `Evidence:`. A missing check uses `Proof gap:` plus `Review trigger:` when the gap can be closed. When several claims share one schema, follow the GroupedRecord rules in [information-structure.md](information-structure.md).
 
-## [5][EVIDENCE_PLACEMENT]
+## [5]-[EVIDENCE_PLACEMENT]
 
 Place evidence close to the claim it proves.
 
@@ -89,7 +89,7 @@ Place evidence close to the claim it proves.
 
 Legacy page-level labels such as `[SOURCE]` are not sufficient proof for drift-prone API, package, support, generated, or test-tool facts unless every material fact on the page shares that exact source and freshness trigger.
 
-## [6][ASSERTION_UNCERTAINTY]
+## [6]-[ASSERTION_UNCERTAINTY]
 
 State a verified fact plainly. Mark a genuine gap explicitly.
 
@@ -110,7 +110,7 @@ State a verified fact plainly. Mark a genuine gap explicitly.
 - Never present training-data recall or assumption as verified fact.
 - If a claim cannot be checked against a current source during the change, state the proof gap and mark the claim provisional.
 
-## [7][PRESERVATION_REFACTOR]
+## [7]-[PRESERVATION_REFACTOR]
 
 A refactor relocates content; it never drops load-bearing current facts.
 
@@ -128,7 +128,7 @@ A refactor relocates content; it never drops load-bearing current facts.
 - Comparison method: diff, checklist, table, or reviewer pass.
 - Result: preserved, routed, deleted with proof, or blocked.
 
-## [8][SOURCE_RESEARCH]
+## [8]-[SOURCE_RESEARCH]
 
 Use maintained sources first:
 - Prefer repository source, generated contracts, manifests, lockfiles, release notes, package manifests, and source repositories.
@@ -148,7 +148,7 @@ If current source is unavailable, state the gap and mark the claim provisional.
 - Terms such as `latest`, `current`, `supported`, `deprecated`, `obsolete`, `legacy`, `experimental`, `beta`, `soon`, and `future` require a source-specific definition plus `Last verified:` or `Review trigger:` when they describe present behavior.
 - Rewrite the claim as a source-independent target standard when current availability is not the point.
 
-## [9][AGENT_SURFACE_EVALUATION]
+## [9]-[AGENT_SURFACE_EVALUATION]
 
 Treat a machine-facing surface as a contract when it affects retrieval, generated mirrors, tool use, or structured output. Prove that contract with evaluation rather than assertion.
 
@@ -201,7 +201,7 @@ Last verified: YYYY-MM-DD
 
 State `Proof gap:` when a contract is reviewed by a human rather than enforced by tooling.
 
-## [10][EVIDENCE_FORMAT]
+## [10]-[EVIDENCE_FORMAT]
 
 Keep evidence short and reproducible:
 - the exact command as run
@@ -235,18 +235,18 @@ Ran the build and it works.
 
 The contrast is the rule: a note is reproducible when a maintenance route can re-run the exact command against the named source, not when it preserves only a past transcript.
 
-## [11][PROOF_DOCUMENT_TYPE]
+## [11]-[PROOF_DOCUMENT_TYPE]
 
 The evidence hierarchy, freshness fields, proof labels, preservation rule, and docs-as-code gates govern every document. Type standards may name artifact-specific proof slots, examples, and route-away rules where the shared hierarchy is not specific enough. Do not restate generic proof per type.
 
-## [12][BOUNDARIES]
+## [12]-[BOUNDARIES]
 
 - [information-structure.md](information-structure.md) carries the container that presents an evidence table, caption, or labeled block.
 - [style-guide.md](style-guide.md) carries the phrasing of a claim and the removal of filler hedging.
 - [formatting.md](formatting.md) carries the markers and styling that present an evidence table or status field.
 - [README.md](README.md) carries document-type routing and cross-standard links.
 
-## [13][VALIDATION]
+## [13]-[VALIDATION]
 
 Use this verification checklist by group:
 

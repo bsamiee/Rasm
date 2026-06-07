@@ -11,7 +11,7 @@ This file owns adoption policy, not package manuals. Owner-local platform stubs 
 |   [3]   | `Rasm.Persistence` | `../../libs/csharp/Rasm.Persistence/ARCHITECTURE.md` |
 |   [4]   | `Rasm.Compute`     | `../../libs/csharp/Rasm.Compute/ARCHITECTURE.md`     |
 
-## [1][COMPOSITION_MODES]
+## [1]-[COMPOSITION_MODES]
 
 | [INDEX] | [MODE]                                       |  [DEFAULT]   | [COMPOSITION]                                                 |
 | :-----: | -------------------------------------------- | :----------: | ------------------------------------------------------------- |
@@ -21,7 +21,7 @@ This file owns adoption policy, not package manuals. Owner-local platform stubs 
 
 Composition packages enter through the owner rail that performs the runtime work: bootstrap, scheduling, persistence, observation, compute, or support evidence. The AppUi package matrix is active direct through `Rasm.AppUi.csproj`. `Directory.Packages.props` carries graph evidence; owner-local manuals carry intent and adoption guidance.
 
-## [2][ADOPTION_GATES]
+## [2]-[ADOPTION_GATES]
 
 | [INDEX] | [CAPABILITY]                   | [ADMISSION_ROUTE]                                            | [OWNER]            |
 | :-----: | ------------------------------ | ------------------------------------------------------------ | ------------------ |
@@ -40,7 +40,7 @@ Composition packages enter through the owner rail that performs the runtime work
 
 Resolve package versions from the current package graph and maintained package source when the owner route admits the package. Do not record exact candidate versions in owner docs.
 
-## [3][BOUNDARIES]
+## [3]-[BOUNDARIES]
 
 - LanguageExt `Schedule` owns domain and hosted `Eff`/`IO` retry/repeat cadence.
 - HTTP resilience owns typed outbound `HttpClient` policies only.
@@ -50,7 +50,7 @@ Resolve package versions from the current package graph and maintained package s
 - Observability packages register at a composition root. Domain results stay typed first and project to logs, traces, and metrics at boundaries.
 - Persistence owns database open/migrate/query/dispose semantics. AppHost may schedule or orchestrate durable work; it does not own storage internals.
 
-## [4][REJECTIONS]
+## [4]-[REJECTIONS]
 
 - Do not add unused central `PackageVersion` entries as future intent.
 - Do not call a package active until a source route admits it and owner-local evidence records the behavior.

@@ -6,7 +6,7 @@ The controlling rule: architecture starts from code. The primary representation 
 
 Normal `ARCHITECTURE.md` files are current-only. A `.planning/ARCHITECTURE.md` file may show planned structure only when it names the roadmap or design source, current anchor, promotion target, and removal trigger that keep the planned view from becoming stale current truth.
 
-## [1][USE_WHEN]
+## [1]-[USE_WHEN]
 
 Use an architecture document when a future agent must understand a maintained code area before changing it:
 - repository, solution, workspace, package, project, module, folder, or directory boundaries;
@@ -31,7 +31,7 @@ Route decision rationale to [adr.md](adr.md), proposed change review to [design-
 - C4 Context, Container, and Component are view levels, not required headings. A C4 Container is a deployable or executable runtime unit, not a package, library, or folder. A C4 Component appears only inside a named container.
 - Structurizr or another checked-in model is the model source only when repository tooling already carries it. Mermaid is renderer source, not the canonical architecture model.
 
-## [2][CODE_SCOPE_PLACEMENT]
+## [2]-[CODE_SCOPE_PLACEMENT]
 
 Choose the narrowest code scope that lets the reader make a safe edit. This is placement, not a ranking.
 
@@ -54,7 +54,7 @@ Planning placement is narrower:
 
 Do not put planned structure in an ordinary sibling `ARCHITECTURE.md`. Do not create a planning architecture without a sibling roadmap, design, or `SPEC.<slug>.md` source that changes current task action.
 
-## [3][REQUIRED_STRUCTURE]
+## [3]-[REQUIRED_STRUCTURE]
 
 Use this heading order for a standalone architecture file. Embedded architecture uses the same content under the parent README.
 
@@ -65,41 +65,41 @@ This standard explains scope and identity before the codemap rule so authors kno
 
 <Lead: name the code scope, current route promise, project or package identity, codemap proof, and route-away for decisions and future sequence.>
 
-## [1][CODEMAP]
+## [1]-[CODEMAP]
 
-## [2][SCOPE_BOUNDARY]
+## [2]-[SCOPE_BOUNDARY]
 
-## [3][PROJECT_IDENTITY]
+## [3]-[PROJECT_IDENTITY]
 
-## [4][CONTRACTS_GENERATED_TRUTH]
+## [4]-[CONTRACTS_GENERATED_TRUTH]
 
-## [5][ENTRYPOINTS_AND_FLOWS]
+## [5]-[ENTRYPOINTS_AND_FLOWS]
 
-## [6][DEPENDENCY_DIRECTION]
+## [6]-[DEPENDENCY_DIRECTION]
 
-## [7][INVARIANTS]
+## [7]-[INVARIANTS]
 
-## [8][STATUS_AND_ROADMAP]
+## [8]-[STATUS_AND_ROADMAP]
 
-## [9][PROOF]
+## [9]-[PROOF]
 
-## [10][BOUNDARIES]
+## [10]-[BOUNDARIES]
 
-## [11][VALIDATION]
+## [11]-[VALIDATION]
 ```
 
 Add these conditional sections only when their trigger applies:
 
 ```markdown template
-## [N][RUNTIME_BOUNDARY]
+## [N]-[RUNTIME_BOUNDARY]
 
 <Insert after `Entrypoints and flows` only when process, host, device, worker, generated runtime, or resource placement changes code routing or proof.>
 
-## [N][PLANNED_VIEW]
+## [N]-[PLANNED_VIEW]
 
 <Insert after `Status and roadmap` only inside `.planning/ARCHITECTURE.md` when a roadmap, design, or `SPEC.<slug>.md` source defines planned structure that agents must use before implementation.>
 
-## [N][GLOSSARY]
+## [N]-[GLOSSARY]
 
 <Insert before `Boundaries` only when names cannot be inferred from paths, manifests, contracts, or public symbols.>
 ```
@@ -113,7 +113,7 @@ Required sections are required because agents need them in order: read the curre
 - Rejected lead: This document describes the event system at a high level.
 - Reason: the accepted lead is concrete enough to start work; the rejected lead describes a system without code anchors.
 
-## [4][SECTION_RULES]
+## [4]-[SECTION_RULES]
 
 Each produced section carries one agent action:
 
@@ -133,7 +133,7 @@ Do not add a section for a concern that has no current reader action. Do not kee
 
 `Planned view` is a planning-architecture-only reader action. It lets an agent compare the current anchor against planned paths, flows, dependency edges, or invariants before executing a roadmap task. It is rejected in ordinary current architecture.
 
-## [5][SCOPE_BOUNDARY]
+## [5]-[SCOPE_BOUNDARY]
 
 `Scope boundary` states what this architecture covers and what it refuses to cover. Name real paths, project files, package manifests, generated directories, public contracts, commands, host references, adjacent routes, and exclusions.
 
@@ -144,7 +144,7 @@ Adjacent routes: `<adapter-root>/` admits external callbacks; `<api-reference-ro
 Reader rule: edits under `<entrypoint-folder>/`, `<execution-folder>/`, or `<contract-folder>/` must check this architecture first.
 ```
 
-## [6][PROJECT_IDENTITY]
+## [6]-[PROJECT_IDENTITY]
 
 `Project identity` lets an agent locate the build/package truth before editing. Include only identities that exist for the scope.
 
@@ -159,7 +159,7 @@ Host or runtime boundary: external callback enters through `<entrypoint>`
 
 Do not invent a manifest, command, export, or generated output to fill the section. Absence is useful only when it changes behavior, such as "this folder has no project file; build proof comes from the parent project."
 
-## [7][CONTRACTS_GENERATED_TRUTH]
+## [7]-[CONTRACTS_GENERATED_TRUTH]
 
 `Contracts and generated truth` is required when the scope exposes a public contract, generated file, generated reference, command output contract, host metadata surface, schema, or source-generated public symbol family. It prevents architecture from becoming an API catalog while still showing which generated artifacts make the code safe to edit.
 
@@ -192,7 +192,7 @@ Close when: `<routing edge no longer affects architecture or the consuming stand
 Route-away: `<body that stays in the consuming route>`
 ```
 
-## [8][CODEMAP]
+## [8]-[CODEMAP]
 
 The codemap is the controlling representation. Derive it from repository paths, project files, package manifests, generated artifacts, public contracts, and host references. Include two or three directory levels by default. Include a leaf only when it is an entrypoint, public contract, manifest, generated source, central algorithm, public export, adapter, invariant route, or status-bearing path.
 
@@ -252,7 +252,7 @@ Review trigger: path, project, manifest, generated contract, support row, or roa
 
 Use path-state markers only for facts that change editing behavior. Remove them when the state no longer changes code reading.
 
-## [9][ENTRYPOINTS_AND_FLOWS]
+## [9]-[ENTRYPOINTS_AND_FLOWS]
 
 Entrypoints name how work enters the code scope. Use records or a table when the reader must compare kind, input, failure rail, next route, effect, and proof.
 
@@ -333,7 +333,7 @@ Use C4 or topology diagrams only when a simpler codemap, table, or Mermaid flow 
 
 Every C4 or topology node maps to a codemap path, manifest, runtime boundary, generated artifact, public contract, or external route. Each diagram carries a nearby text equivalent plus representation proof: source or proof gap, element match, and review trigger. If a diagram cannot name that mapping, use prose or a table instead.
 
-## [10][DEPENDENCY_DIRECTION]
+## [10]-[DEPENDENCY_DIRECTION]
 
 Dependency representation answers what may import, call, reference, or generate what. Use the smallest structure that prevents wrong edits. For a tiny scope, a monospace edge list is enough:
 
@@ -356,12 +356,12 @@ Use a matrix when several folders or packages have comparable dependency rules:
 
 Use one representation for one edge set. Use the monospace list for a tiny boundary, a matrix for comparable folders or packages, and Mermaid only when relationship shape is easier to scan visually than either text form.
 
-## [11][INVARIANTS]
+## [11]-[INVARIANTS]
 
 Write invariants as records when the rule has a forbidden shape, proof gate, or adjacent route.
 
 ```markdown template
-### [N.M][NO_DIRECT_STORAGE_WRITES]
+### [N.M]-[NO_DIRECT_STORAGE_WRITES]
 
 Rule: accepted writes pass through `<worker>`.
 Forbids: `Admission/` calling `<store>` write APIs directly.
@@ -379,7 +379,7 @@ Adjacent relation:
 - Rejected invariant: the package stays clean and modular.
 - Reason: the invariant cannot guide an edit.
 
-## [12][STATUS_AND_ROADMAP]
+## [12]-[STATUS_AND_ROADMAP]
 
 Architecture may include roadmap and status only when those facts change current code reading. It is not a task tracker, progress report, or release log. When a linked milestone exists, architecture maintenance must check whether the milestone still changes a codemap path, flow node, dependency edge, or invariant; remove the overlay when it closes, defers without current effect, or moves to release history.
 
@@ -411,7 +411,7 @@ Remove when: <planned structure is promoted, dropped, canceled, or no longer cha
 
 Planning architecture may include planned codemaps or diagrams only when each planned node maps to a current anchor or explicit absence. Planned rows never replace current codemap proof. When the planned structure lands, promote only the current facts to the ordinary architecture route and delete the planning-only rows.
 
-## [13][PROOF]
+## [13]-[PROOF]
 
 Architecture proof is representation-level. Place proof beside each drift-prone codemap, path-state row, entrypoint table, diagram, dependency matrix, invariant, generated contract, or status record.
 
@@ -428,7 +428,7 @@ Result: <what was verified>
 
 Do not claim a representation reflects code unless its paths, manifests, contracts, nodes, and edges were checked against the current repository during the change. If proof is human review rather than a configured command, state that gap.
 
-## [14][BOUNDARIES]
+## [14]-[BOUNDARIES]
 
 [EXPLANATION_TYPES]:
 - [adr.md](adr.md) carries why a durable architecture choice was made.
@@ -445,7 +445,7 @@ Do not claim a representation reflects code unless its paths, manifests, contrac
 - External-library adoption pages may name current paths only as relation records unless they own a codemap, entrypoint flow, dependency direction, invariant, or generated-contract boundary.
 - [README.md](../README.md) carries document-type routing, placement, and lifecycle.
 
-## [15][VALIDATION]
+## [15]-[VALIDATION]
 
 [SCOPE_CODEMAP]:
 - [ ] The document explains a repository, solution, package, project, module, folder, or directory that an agent may edit.

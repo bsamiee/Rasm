@@ -2,7 +2,7 @@
 
 Six patterns use dispatch tables, frozen state, `B: Final` constants.
 
-## [1][SECURITY_GATE]
+## [1]-[SECURITY_GATE]
 
 **Events:** PreToolUse (Bash|Write|Read matcher)
 
@@ -45,7 +45,7 @@ if __name__ == "__main__":
     sys.exit(main())
 ```
 
-## [2][INPUT_TRANSFORMER]
+## [2]-[INPUT_TRANSFORMER]
 
 **Events:** PreToolUse (Bash|Write matcher)
 
@@ -76,7 +76,7 @@ if __name__ == "__main__":
     sys.exit(main())
 ```
 
-## [3][QUALITY_PIPELINE]
+## [3]-[QUALITY_PIPELINE]
 
 **Events:** PostToolUse (Write|Edit matcher)
 
@@ -104,7 +104,7 @@ if __name__ == "__main__":
     sys.exit(main())
 ```
 
-## [4][CONTEXT_BOOTSTRAP]
+## [4]-[CONTEXT_BOOTSTRAP]
 
 **Events:** SessionStart (startup|resume|compact matcher)
 
@@ -129,7 +129,7 @@ if __name__ == "__main__":
     sys.exit(main())
 ```
 
-## [5][OBSERVABILITY]
+## [5]-[OBSERVABILITY]
 
 **Events:** All (catch-all matcher)
 
@@ -165,7 +165,7 @@ if __name__ == "__main__":
     sys.exit(main())
 ```
 
-## [6][STOP_EVALUATOR]
+## [6]-[STOP_EVALUATOR]
 
 **Events:** Stop, SubagentStop (prompt type)
 

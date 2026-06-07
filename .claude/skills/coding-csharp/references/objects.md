@@ -8,7 +8,7 @@ This document standardizes object-family selection, invariant construction, vari
 Effect orchestration lives in `effects.md`; polymorphic compression lives in `composition.md`; low-level tuning lives in `performance.md`.
 
 ---
-## [1][TOPOLOGY_SELECTION]
+## [1]-[TOPOLOGY_SELECTION]
 >**Dictum:** *Choose by semantic contract, then commit to one canonical form.*
 
 <br>
@@ -35,7 +35,7 @@ Effect orchestration lives in `effects.md`; polymorphic compression lives in `co
 - If a second "canonical" shape appears, the model has already drifted.
 
 ---
-## [2][VALUE_OBJECT_CANONICAL]
+## [2]-[VALUE_OBJECT_CANONICAL]
 >**Dictum:** *Value objects terminate primitive obsession at ingestion boundaries.*
 
 <br>
@@ -87,7 +87,7 @@ public readonly partial struct OrderId {
 - Never expose primitives in public domain signatures once a value object exists.
 - `SkipFactoryMethods = true` belongs to algebraic domain atoms whose construction must return a custom `Fin<T>` rail; do not disable generated factories for simple HTTP/JSON/EF wrappers.
 
-### [2.1][COMPLEX_VALUE_OBJECT]
+### [2.1]-[COMPLEX_VALUE_OBJECT]
 
 `[ComplexValueObject]` models multi-field invariants (ranges, paint styles, spring configs, `Dim3`).
 
@@ -123,7 +123,7 @@ public readonly partial struct DampingConfig {
 ```
 
 ---
-## [3][DOMAIN_BRIDGE]
+## [3]-[DOMAIN_BRIDGE]
 >**Dictum:** *One generic bridge projects Thinktecture construction into `Fin<T>`; derive `Validation` at call site.*
 
 <br>
@@ -161,7 +161,7 @@ public static class DomainBridge {
 - Never create separate `Validate` wrappers -- compose `.ToValidation()` at call site.
 
 ---
-## [4][SMART_ENUM_CANONICAL]
+## [4]-[SMART_ENUM_CANONICAL]
 >**Dictum:** *Closed behavioral sets belong in SmartEnums, not primitive enums plus detached switch maps.*
 
 <br>
@@ -209,7 +209,7 @@ public static class OrderStateRole {
 - Boundary parse uses `TryGet` via DomainBridge; reserve throwing `Get` for trusted paths.
 
 ---
-## [5][UNION_CANONICAL]
+## [5]-[UNION_CANONICAL]
 >**Dictum:** *Variant payloads require unions, not nullable field choreography.*
 
 <br>
@@ -306,7 +306,7 @@ public static class PaymentAdapter {
 - `Fin<T>.ToEff<RT>()` lifts dispatch results into effectful pipelines when host context is required.
 - Ad-hoc `Union<T1,...>` is for boundary adapter scenarios; regular `[Union]` is for domain variant hierarchies.
 
-### [5.1][UNION_ADVANCED_ATTRIBUTES]
+### [5.1]-[UNION_ADVANCED_ATTRIBUTES]
 
 | Attribute | Use |
 | --------- | --- |
@@ -334,7 +334,7 @@ Hand-written domain operators (separate from Thinktecture codegen):
 Read the operator body before composing; laws differ per type. Thinktecture does not generate these on `[Union]` types.
 
 ---
-## [6][AGGREGATE_OBJECT_SHAPE]
+## [6]-[AGGREGATE_OBJECT_SHAPE]
 >**Dictum:** *Aggregates own transitions; callers consume typed constructors and `with`-expression codomains.*
 
 Aggregate state is immutable; transitions use `with`-expression mutation and return typed codomains (`Fin<T>` / `Validation<Error,T>`).
@@ -374,7 +374,7 @@ public sealed record PurchaseOrder(
 - Applicative tuple gathers all validation errors; `Apply` runs only when all succeed.
 
 ---
-## [7][STACK_ONLY_OBJECT_BOUNDARY]
+## [7]-[STACK_ONLY_OBJECT_BOUNDARY]
 >**Dictum:** *`ref struct` belongs to parsing/workspace layers, then exits into durable canonical objects.*
 
 `readonly ref struct` is infrastructure-local for span workflows.
@@ -398,7 +398,7 @@ public readonly ref struct Utf8Window(ReadOnlySpan<byte> source) {
 ```
 
 ---
-## [8][RULES]
+## [8]-[RULES]
 >**Dictum:** *Rules are optimization constraints for correctness and density.*
 
 - One concept, one canonical object form.
@@ -411,7 +411,7 @@ public readonly ref struct Utf8Window(ReadOnlySpan<byte> source) {
 - `with`-expressions are the sole mechanism for record state transitions.
 
 ---
-## [9][QUICK_REFERENCE]
+## [9]-[QUICK_REFERENCE]
 
 | [INDEX] | [SYMPTOM]                                     | [PRIMARY_FIX]                                 | [SECTION] |
 | :-----: | :-------------------------------------------- | --------------------------------------------- | :-------- |

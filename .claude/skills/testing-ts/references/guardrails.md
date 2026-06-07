@@ -2,9 +2,9 @@
 
 Two enforcement layers: **automated gates** (machine-checkable, zero-tolerance) and **design guardrails** (require judgment, enforced via review). Together they form defense-in-depth preventing circular, flaky, and implementation-confirming tests.
 
-## [1][AUTOMATED_GATES]
+## [1]-[AUTOMATED_GATES]
 
-### [1.1][HOOK_RULES]
+### [1.1]-[HOOK_RULES]
 
 The PostToolUse hook (`.claude/hooks/validate-spec.sh`) validates every `*.spec.ts` edit via single-pass awk. JSON `{"decision":"block","reason":"..."}` with line-specific errors for self-correction.
 
@@ -24,7 +24,7 @@ The PostToolUse hook (`.claude/hooks/validate-spec.sh`) validates every `*.spec.
 |  [12]   | Import order       | @effect/vitest -> ${WORKSPACE_SCOPE}/* -> effect -> vitest                | Reorder to match sequence                           |
 |  [13]   | Forbidden labels   | `[HELPERS]`, `[HANDLERS]`, `[UTILS]`, `[CONFIG]`, `[DISPATCH]` | Use CONSTANTS, LAYER, ALGEBRAIC, EDGE_CASES         |
 
-### [1.2][MUTATION_THRESHOLDS]
+### [1.2]-[MUTATION_THRESHOLDS]
 
 Stryker injects code mutants (operator swaps, conditional negations, statement deletions, string mutations). Circular tests re-derive source logic and compute the same wrong answer as mutated source -- mutant survives.
 
@@ -43,7 +43,7 @@ Stryker injects code mutants (operator swaps, conditional negations, statement d
 |   [3]   | Statement deletion       | Test that depends on deleted operation    |
 |   [4]   | String mutation          | Known-answer vector comparison            |
 
-## [2][ANTI_PATTERNS]
+## [2]-[ANTI_PATTERNS]
 
 Hook rules catch syntactic violations. These anti-patterns catch **semantic** issues that require judgment:
 
@@ -62,7 +62,7 @@ Hook rules catch syntactic violations. These anti-patterns catch **semantic** is
 
 **Mock compression pattern:** Mock factories constructing a single-field object (`{ method: vi.fn(() => Effect.void) }`) are thin wrappers adding indirection without value. Inline the literal directly into `_provide` or `Effect.provideService`. Reserve named `_mk*` factories for mocks with 2+ configurable fields or conditional behavior (e.g., `_mkDb({ a?: …, ns?: …, set?: … })`).
 
-## [3][ORACLE_INDEPENDENCE]
+## [3]-[ORACLE_INDEPENDENCE]
 
 A test is **implementation-confirming** when changing internal algorithm (preserving contract) breaks it. These tests create maintenance burden and catch zero real bugs. Six detection signals:
 
@@ -86,32 +86,32 @@ A test is **implementation-confirming** when changing internal algorithm (preser
 |   [5]   | Manually computed        | Verify       | Hand-calculate, document derivation     |
 |   [6]   | Source output pasted     | **Circular** | **Replace** with law or oracle          |
 
-## [4][DETERMINISM_AND_ISOLATION]
+## [4]-[DETERMINISM_AND_ISOLATION]
 
-### [4.1][TIME_DETERMINISM]
+### [4.1]-[TIME_DETERMINISM]
 
 All time-dependent tests use `TestClock.adjust` for virtual time progression. Real wall-clock (`it.scopedLive`) is reserved for integration tests requiring actual delays (container startup, semaphore saturation). Never mix TestClock and real timers in the same test.
 
-### [4.2][ARBITRARY_SAFETY]
+### [4.2]-[ARBITRARY_SAFETY]
 
 Filter arbitraries to exclude dangerous inputs that poison global state:
 - **Proto pollution**: `_safeKey.filter((k) => !['__proto__', 'constructor', 'prototype'].includes(k))`
 - **JSON injection**: `.filter((o) => !JSON.stringify(o).includes('"__proto__"'))`
 - **Length bounds**: `maxLength` on strings prevents OOM; `maxKeys`/`maxDepth` on objects prevents combinatorial explosion
 
-### [4.3][PRECONDITION_DISCIPLINE]
+### [4.3]-[PRECONDITION_DISCIPLINE]
 
 `fc.pre()` rejects invalid samples at generator level. If precondition rejects >5% of generated cases, the arbitrary is too broad -- narrow the generator instead. Excessive `fc.pre()` filtering degrades shrinking quality and wastes generation budget.
 
-### [4.4][RESOURCE_CLEANUP]
+### [4.4]-[RESOURCE_CLEANUP]
 
 Use `it.scoped` for tests requiring `Scope`-managed resources (semaphores, circuit breakers, fibers). The scope automatically releases resources on test completion. For integration tests: `beforeAll`/`afterAll` manage container lifecycle with explicit `60_000` timeout.
 
-### [4.5][TEST_ISOLATION]
+### [4.5]-[TEST_ISOLATION]
 
 Each `it.effect` / `it.effect.prop` runs in a fresh Effect runtime. Shared state between tests must be immutable (`as const`) or re-initialized per test. Layer-scoped suites (`layer(testLayer)('name', ...)`) share a service layer but each test gets isolated fiber execution.
 
-## [5][HUMAN_REVIEW]
+## [5]-[HUMAN_REVIEW]
 
 Three criteria automation cannot verify:
 

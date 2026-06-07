@@ -2,7 +2,7 @@
 
 This page owns C# build control planes, central package graph state, host references, global usings, tool packages, and package adoption gates. Package versions live in `Directory.Packages.props`; this page records ownership, reference mode, and coding route.
 
-## [1][CONTROL_PLANES]
+## [1]-[CONTROL_PLANES]
 
 | [INDEX] | [OWNER]                     | [OWNS]                                  |
 | :-----: | :-------------------------- | :-------------------------------------- |
@@ -16,7 +16,7 @@ This page owns C# build control planes, central package graph state, host refere
 
 Do not duplicate package versions in concept pages. Concept pages state implementation policy; this page states graph and build admission.
 
-## [2][ACTIVE_SURFACE]
+## [2]-[ACTIVE_SURFACE]
 
 [ACTIVE_SURFACE]:
 - Target framework: `net10.0`
@@ -27,7 +27,7 @@ Do not duplicate package versions in concept pages. Concept pages state implemen
 
 Analyzer failures are architecture pressure unless the analyzer is proven wrong.
 
-## [3][PACKAGE_STATE]
+## [3]-[PACKAGE_STATE]
 
 | [INDEX] | [STATE]            | [MEANING]                                    |
 | :-----: | :----------------- | :------------------------------------------- |
@@ -41,7 +41,7 @@ Analyzer failures are architecture pressure unless the analyzer is proven wrong.
 
 `candidate` rows are planning and admission records. Promote them to implementation guidance when the owning source, manifest, tool, host bundle, or project-local roadmap proves the capability route.
 
-## [4][FUNCTIONAL_CORE]
+## [4]-[FUNCTIONAL_CORE]
 
 [LANGUAGEEXT]:
 - Package: `LanguageExt.Core`.
@@ -59,7 +59,7 @@ Analyzer failures are architecture pressure unless the analyzer is proven wrong.
 - Condition: `UseWorkspaceLibraries=true` and not the local analyzer project.
 - Includes: `LanguageExt`, `LanguageExt.Common`, `LanguageExt.Traits`, `LanguageExt.Effects`, `LanguageExt.Pretty`, `LanguageExt.Traits.Domain`, static `LanguageExt.Prelude`, and `Thinktecture`.
 
-## [5][NUMERICS_GRAPH]
+## [5]-[NUMERICS_GRAPH]
 
 [MATHNET]:
 - Direct package: `MathNet.Numerics`.
@@ -80,7 +80,7 @@ Analyzer failures are architecture pressure unless the analyzer is proven wrong.
 - Consumer: `libs/csharp/Rasm/Rasm.csproj`.
 - Gate: concept guidance starts only when production source owns formula parsing, transformation, evaluation, or compilation.
 
-## [6][APP_UI_GRAPH]
+## [6]-[APP_UI_GRAPH]
 
 App UI packages are direct references in `libs/csharp/Rasm.AppUi/Rasm.AppUi.csproj`. Local App UI architecture owns UI adoption details; this page owns package graph presence.
 
@@ -93,7 +93,7 @@ App UI packages are direct references in `libs/csharp/Rasm.AppUi/Rasm.AppUi.cspr
 [DRAWING_AND_CHARTS]:
 - Packages: `SkiaSharp`, `SkiaSharp.HarfBuzz`, `SkiaSharp.NativeAssets.macOS`, `HarfBuzzSharp.NativeAssets.macOS`, `Svg.Controls.Skia.Avalonia`, and `LiveChartsCore.SkiaSharpView.Avalonia`.
 
-## [7][TEST_GRAPH]
+## [7]-[TEST_GRAPH]
 
 [RUNNABLE_TEST_PROJECTS]:
 - Packages: `xunit.v3.mtp-v2` and `coverlet.MTP`.
@@ -118,7 +118,7 @@ App UI packages are direct references in `libs/csharp/Rasm.AppUi/Rasm.AppUi.cspr
 - Condition: test or testkit projects.
 - Includes: `Xunit` and `CsCheck`.
 
-## [8][HOST_REFERENCES]
+## [8]-[HOST_REFERENCES]
 
 [RHINOWIP_REFERENCES]:
 - Owner: `Directory.Build.props`.
@@ -135,7 +135,7 @@ App UI packages are direct references in `libs/csharp/Rasm.AppUi/Rasm.AppUi.cspr
 - Owner: `tools/rhino-bridge`.
 - Rule: compile-time global usings do not define staged `.verify.csx` runtime usings.
 
-## [9][ANALYZERS_AND_TOOLS]
+## [9]-[ANALYZERS_AND_TOOLS]
 
 [EXTERNAL_ANALYZERS]:
 - Packages: `Microsoft.VisualStudio.Threading.Analyzers` and `Meziantou.Analyzer`.
@@ -154,7 +154,7 @@ App UI packages are direct references in `libs/csharp/Rasm.AppUi/Rasm.AppUi.cspr
 - Owner: `.config/dotnet-tools.json`.
 - Tools: `dotnet-outdated-tool`, `dotnet-stryker`, and `ilspycmd`.
 
-## [10][ADOPTION_GATES]
+## [10]-[ADOPTION_GATES]
 
 [SYSTEM_TENSORS]:
 - Candidate: `System.Numerics.Tensors`.

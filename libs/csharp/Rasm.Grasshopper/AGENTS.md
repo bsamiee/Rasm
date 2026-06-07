@@ -2,13 +2,13 @@
 
 Scope: `libs/csharp/Rasm.Grasshopper/` only. Root policy and `libs/csharp/AGENTS.md` own universal C# and library-family rules; this file adds Grasshopper 2 boundary deltas.
 
-## [1][SCOPE]
+## [1]-[SCOPE]
 
 `Rasm.Grasshopper` is the canonical Grasshopper 2 boundary over `Rasm`. It captures host API capability, preserves native semantics, and exposes smaller, stronger component, data, and UI rails for downstream app code.
 
 Downstream code declares intent, ports, outputs, component specs, and UI requests through the typed GH2 rails; it does not choreograph GH2 lifecycle, data access, tree paths, conversion, disposal, undo, repaint, or UI-thread sequencing.
 
-## [2][READ_ORDER]
+## [2]-[READ_ORDER]
 
 - When changing component/data flow, read `Components/` to find the owner for ports, outputs, conversion, diagnostics, and ownership transfer.
 - When changing GH2 UI operation dispatch, scope resolution, or UI-thread behavior, read the `IUiOp<TResult>`, `GrasshopperUiIntent<T>`, `GhUi`, and `GrasshopperUi.Use` owners in `UI/`.
@@ -19,7 +19,7 @@ Downstream code declares intent, ports, outputs, component specs, and UI request
 - When naming a GH2 host API fact, use local GH2 XML/decompile evidence before writing the claim.
 - When authoring GH2 runtime scenarios, read `tests/csharp/AGENTS.md`, `tests/csharp/libs/AGENTS.md`, and `tools/rhino-bridge/AGENTS.md` first.
 
-## [3][EXTENSION_GRAMMAR]
+## [3]-[EXTENSION_GRAMMAR]
 
 - New component capability: extend `ComponentSpec`, `SpecBuilder`, `OutputBinding`, `PortKind`, `Capability`, and ownership-transfer rails before adding one-off parameter, conversion, or diagnostic code.
 - New GH2 UI request family: implement an `IUiOp<TResult>` case and surface it through `GrasshopperUiIntent<T>` and `GhUi`; do not add a separate public executor, thread-marshalling path, or caller-side GH2 operation switch.
@@ -29,7 +29,7 @@ Downstream code declares intent, ports, outputs, component specs, and UI request
 - New host fact: place exact signatures in source or architecture proof; keep this overlay to the action rule.
 - New app behavior: app packages pass typed `ComponentSpec`, ports, outputs, `GrasshopperUiIntent<T>`, `DocumentMutation`, `WireOp`, and receipts; they do not choreograph GH2 lifecycle or expose raw native knobs.
 
-## [4][BOUNDARY_RULES]
+## [4]-[BOUNDARY_RULES]
 
 | [INDEX] | [CONCERN]        | [RULE]                                                                                      |
 | :-----: | :--------------- | :------------------------------------------------------------------------------------------ |
@@ -39,7 +39,7 @@ Downstream code declares intent, ports, outputs, component specs, and UI request
 |   [4]   | Bridge scenarios | Own successful GH2 runtime behavior                                                         |
 |   [5]   | App code         | Stays a thin caller of component and UI rails                                               |
 
-## [5][REJECTIONS]
+## [5]-[REJECTIONS]
 
 - No wrapper-only methods that rename GH2 calls.
 - No second local operation model for analysis.
@@ -50,6 +50,6 @@ Downstream code declares intent, ports, outputs, component specs, and UI request
 - No raw `Grasshopper2.*` in isolated bridge scenarios when the existing bridge-owned GH2 execution route is required.
 - No public exposure of every native knob as parameters; model semantic operations and hide native detail behind typed policies.
 
-## [6][STOP_RULES]
+## [6]-[STOP_RULES]
 
 If static tests cannot execute native GH2 behavior, route to bridge scenarios instead of weakening the spec. If host API evidence is missing, record a proof gap in the owning architecture or source route before publishing the claim.

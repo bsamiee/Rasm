@@ -2,7 +2,7 @@
 
 Platform-specific bugs, timing issues, and configuration gotchas.
 
-## [1][PLATFORM_ISSUES]
+## [1]-[PLATFORM_ISSUES]
 
 | [INDEX] | [PLATFORM] | [ISSUE]                       | [WORKAROUND]                        |
 | :-----: | ---------- | ----------------------------- | ----------------------------------- |
@@ -13,7 +13,7 @@ Platform-specific bugs, timing issues, and configuration gotchas.
 |   [5]   | Docker     | SSH key access required       | Mount SSH agent socket              |
 |   [6]   | SSHFS      | Relative paths fail           | Use absolute paths only             |
 
-### [1.1][WINDOWS_WORKAROUND]
+### [1.1]-[WINDOWS_WORKAROUND]
 
 ```json
 {
@@ -21,7 +21,7 @@ Platform-specific bugs, timing issues, and configuration gotchas.
 }
 ```
 
-## [2][TIMING_ISSUES]
+## [2]-[TIMING_ISSUES]
 
 | [INDEX] | [ISSUE]                | [THRESHOLD] | [SOLUTION]                         |
 | :-----: | ---------------------- | :---------: | ---------------------------------- |
@@ -30,7 +30,7 @@ Platform-specific bugs, timing issues, and configuration gotchas.
 |   [3]   | SessionStart timeout   |     60s     | Cache expensive computations       |
 |   [4]   | Slow network calls     |      —      | Use async or background processes  |
 
-### [2.1][DEDUPLICATION_PATTERN]
+### [2.1]-[DEDUPLICATION_PATTERN]
 
 ```python
 import fcntl, sys, contextlib
@@ -50,7 +50,7 @@ def _acquire_lock() -> bool:
 _acquire_lock() or sys.exit(0)  # Another instance running
 ```
 
-## [3][EXIT_CODE_GOTCHAS]
+## [3]-[EXIT_CODE_GOTCHAS]
 
 | [INDEX] | [CODE] | [DOCUMENTED]       | [ACTUAL]                         |
 | :-----: | :----: | ------------------ | -------------------------------- |
@@ -61,7 +61,7 @@ _acquire_lock() or sys.exit(0)  # Another instance running
 
 [CRITICAL] Use exit 0 for warnings. Exit 1 blocks despite documentation.
 
-## [4][CONFIG_ISSUES]
+## [4]-[CONFIG_ISSUES]
 
 | [INDEX] | [ISSUE]                       | [SYMPTOM]                     | [FIX]                        |
 | :-----: | ----------------------------- | ----------------------------- | ---------------------------- |
@@ -72,7 +72,7 @@ _acquire_lock() or sys.exit(0)  # Another instance running
 |   [5]   | Wrong shebang                 | `/usr/bin/env: bad interp`    | Use `#!/usr/bin/env python3` |
 |   [6]   | /hooks shows "No hooks"       | Valid config ignored (#11544) | Check settings.json location |
 
-## [5][REMOTE_EXECUTION]
+## [5]-[REMOTE_EXECUTION]
 
 | [INDEX] | [CONTEXT]         | [ISSUE]                    | [SOLUTION]                           |
 | :-----: | ----------------- | -------------------------- | ------------------------------------ |
@@ -81,7 +81,7 @@ _acquire_lock() or sys.exit(0)  # Another instance running
 |   [3]   | CI/CD             | No interactive approval    | Pre-approve in settings              |
 |   [4]   | GitHub Codespaces | PATH issues                | Use absolute paths                   |
 
-## [6][DEBUGGING]
+## [6]-[DEBUGGING]
 
 | [INDEX] | [METHOD]           | [COMMAND]                                       |
 | :-----: | ------------------ | ----------------------------------------------- |

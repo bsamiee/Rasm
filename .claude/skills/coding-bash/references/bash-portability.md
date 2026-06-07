@@ -11,7 +11,7 @@ Cross-platform shell compatibility for Bash 5.2+/5.3, zsh, dash, and container-m
 |   [5]   | Container environments  |  S5   | Alpine, Wolfi, distroless — PID 1 + image selection       |
 |   [6]   | Signal/trap portability |  S6   | Cross-shell trap semantics — EXIT, ERR, subshell          |
 
-## [1][SHEBANG_AND_MACOS_REEXEC]
+## [1]-[SHEBANG_AND_MACOS_REEXEC]
 
 | [INDEX] | [SHEBANG]             | [USE_WHEN]                          |
 | :-----: | :-------------------- | :---------------------------------- |
@@ -34,7 +34,7 @@ Cross-platform shell compatibility for Bash 5.2+/5.3, zsh, dash, and container-m
 }
 ```
 
-## [2][SHELL_COMPATIBILITY_MATRIX]
+## [2]-[SHELL_COMPATIBILITY_MATRIX]
 
 Cross-shell semantic divergences — not feature presence but behavioral differences that cause silent bugs:
 
@@ -56,7 +56,7 @@ Cross-shell semantic divergences — not feature presence but behavioral differe
 
 Decision rule: dash/ash restricts to POSIX `[ ]`, no arrays, no namerefs, no here-strings. Bash 5.2+ means full feature set. zsh requires testing — array indexing, `$0`, option names diverge silently. `${ cmd; }` and `GLOBSORT` are 5.3-only — gate with `(( _BASH_V >= 503 ))`. `coproc` is 4.0+ only, not POSIX — use `mkfifo` for portable bidirectional IPC.
 
-### [2.1][POSIX_2024_ISSUE_8]
+### [2.1]-[POSIX_2024_ISSUE_8]
 
 IEEE 1003.1-2024 standardized `pipefail`, `sed -E`, `realpath`, `readlink`, `printf` numbered args (`%2$s%1$s`), `rm -d`. Explicitly **deferred**: `local` (reserved identifier, not standardized). `find -print0` / `xargs -0` remain non-standard.
 
@@ -66,7 +66,7 @@ Adoption bottleneck: dash (Debian/Ubuntu `/bin/sh`) has not shipped `pipefail`. 
 _has_pipefail() { (set -o pipefail 2>/dev/null); }
 ```
 
-## [3][COREUTIL_DIVERGENCE]
+## [3]-[COREUTIL_DIVERGENCE]
 
 | [INDEX] | [CMD]      | [GNU]                      | [BSD_(macOS)]                   | [PORTABLE]                             |
 | :-----: | :--------- | :------------------------- | :------------------------------ | :------------------------------------- |
@@ -108,7 +108,7 @@ _parse_date() {
 }
 ```
 
-## [4][PLATFORM_DISPATCH]
+## [4]-[PLATFORM_DISPATCH]
 
 Resolve platform at init. Bind OS-specific functions once. All call sites dispatch through a uniform key — zero runtime branching after initialization. Tool probes (`_HAS_RG`, `_resolve_tool`) and bash version probes (`_HAS_INSITU`) are owned by `variable-features.md` and `version-features.md` respectively.
 
@@ -158,7 +158,7 @@ _clipboard() { _platform clipboard; }
 
 `eval` in probes is safe — static string literals, not user input. `(( _CAN_X ))` for arithmetic dispatch is zero-cost.
 
-### [4.1][EXTENDED_PLATFORM_DISPATCH]
+### [4.1]-[EXTENDED_PLATFORM_DISPATCH]
 
 Multi-axis dispatch — keys compose `action_platform_toolchain` for GNU/BSD/busybox:
 
@@ -176,9 +176,9 @@ _grep_pcre() {
 }
 ```
 
-## [5][CONTAINER_ENVIRONMENTS]
+## [5]-[CONTAINER_ENVIRONMENTS]
 
-### [5.1][IMAGE_SELECTION_MATRIX]
+### [5.1]-[IMAGE_SELECTION_MATRIX]
 
 | [INDEX] | [IMAGE]               | [SHELL]      | [BASH]                  | [USE_WHEN]                         |
 | :-----: | :-------------------- | :----------- | :---------------------- | :--------------------------------- |
@@ -191,7 +191,7 @@ _grep_pcre() {
 
 Wolfi-base ships bash by default — more predictable than Alpine for build stages. Distroless images contain no shell — portability shifts to "what shell does the build image have?" Loadable builtins (`enable -f`) are distribution-dependent (Arch: included; Debian: `bash-builtins` pkg; macOS/Alpine: build from source) — never depend on them in portable scripts.
 
-### [5.2][PID_1_PATTERNS]
+### [5.2]-[PID_1_PATTERNS]
 
 Kernel does NOT deliver default SIGTERM to PID 1 — without explicit handling, SIGTERM is ignored and k8s escalates to SIGKILL after `terminationGracePeriodSeconds` (30s default).
 
@@ -215,7 +215,7 @@ _exec_service() { exec "$@"; }
 # handling reaping + signal forwarding natively — prefer over in-script forwarding
 ```
 
-## [6][SIGNAL_AND_TRAP_PORTABILITY]
+## [6]-[SIGNAL_AND_TRAP_PORTABILITY]
 
 | [INDEX] | [BEHAVIOR]           | [BASH_5.2+]             | [DASH/ASH]       | [ZSH_5.9+]  |
 | :-----: | :------------------- | :---------------------- | :--------------- | :---------- |

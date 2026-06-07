@@ -4,7 +4,7 @@ A runbook drives a responder from an observable operational symptom to triage, m
 
 The responder acts during an active operational condition, so the page supplies the exact response path, not background, severity routing, normal-task instruction, or a postmortem template. Local incident process carries severity names, response clocks, mutation permission, communication cadence, escalation thresholds, and profile tie-breakers. This standard carries response shape, not a universal severity taxonomy.
 
-## [1][USE_WHEN]
+## [1]-[USE_WHEN]
 
 Write a runbook when every condition holds:
 - the starting point is an observable operational symptom a responder can name;
@@ -23,13 +23,13 @@ Route normal repeatable work, contribution workflow, severity and command policy
 
 Opening order is fixed for task standards: route and use contract first, produced structure second, cardinality third, then baselines, examples, and local patterns. Do not let response diagrams or profile examples define section order implicitly.
 
-## [2][RESPONSE_BASELINES]
+## [2]-[RESPONSE_BASELINES]
 
 Use local operational truth for the values a responder invokes during an incident. A runbook must provide a clear response path, communication route, working record, impact assessment, mitigation path, and verification rule. A local incident process must map any provider terms into local response profiles before a runbook can use them.
 
 Local incident-process documents, policies, or operations corpora carry profile names, severity or priority terms, response clocks, mutation permission, escalation thresholds, communication requirements, and evidence requirements. A runbook uses those values only when the local corpus maintains them. If no maintained local source exists, profile-dependent mutation is blocked until a source assigns mutation permission.
 
-## [3][RESPONSE_PROFILE]
+## [3]-[RESPONSE_PROFILE]
 
 A runbook declares the local response profile in `## [1][TRIGGER]`. The profile comes from the maintained incident process, not from this standard's vocabulary. It must resolve the impact class, response clock, mutation permission, escalation threshold, communication requirement, and evidence requirement before the responder mutates state.
 
@@ -90,7 +90,7 @@ flowchart TB
 
 Text equivalent: start from the observable trigger, state impact, confirm safety and permission, run read-only triage, choose mitigation, rollback, or escalation from local profile rules, verify recovery or containment, and capture evidence for handoff or review. `Escalation` is always present; only its triggering criteria vary by local profile.
 
-## [4][PLACEMENT]
+## [4]-[PLACEMENT]
 
 Place a runbook where a responder under pressure first looks:
 - Shared operational runbook: `docs/runbooks/<symptom-or-system>.md`.
@@ -99,44 +99,44 @@ Place a runbook where a responder under pressure first looks:
 
 Write one canonical runbook per operational trigger. When two runbooks share a triage or mitigation path, link the canonical one by topic rather than copy the path into both.
 
-## [5][REQUIRED_STRUCTURE]
+## [5]-[REQUIRED_STRUCTURE]
 
 Use the section set below; each `##` heading is a standalone retrieval unit a responder may open out of order. The base template includes response-critical universal sections, including evidence capture, so agents do not publish empty profile-gated headings. Add conditional sections only when their trigger applies, and renumber headings in document order.
 
 ```markdown template
 # [RECOVER_OBSERVABLE_SYMPTOM]
 
-## [1][TRIGGER]
+## [1]-[TRIGGER]
 
 Escalation path: <source, contact path, or procedure for escalation and permission>
 Response profile: <local incident-process profile>
 Incident-process source: <maintained local source, or `provisional: no maintained local source`>
 
-## [2][IMPACT]
+## [2]-[IMPACT]
 
-## [3][SAFETY_PREREQUISITES]
+## [3]-[SAFETY_PREREQUISITES]
 
-## [4][TRIAGE]
+## [4]-[TRIAGE]
 
-## [5][MITIGATION]
+## [5]-[MITIGATION]
 
-## [6][ESCALATION]
+## [6]-[ESCALATION]
 
-## [7][VERIFICATION]
+## [7]-[VERIFICATION]
 
-## [8][EVIDENCE_CAPTURE]
+## [8]-[EVIDENCE_CAPTURE]
 
-## [9][BOUNDARIES]
+## [9]-[BOUNDARIES]
 ```
 
 Add these conditional sections only when their trigger applies:
 
 ```markdown template
-## [N][ROLLBACK_ABORT]
+## [N]-[ROLLBACK_ABORT]
 
-## [N][COMMUNICATION]
+## [N]-[COMMUNICATION]
 
-## [N][FOLLOW_UP_CLEANUP]
+## [N]-[FOLLOW_UP_CLEANUP]
 
 ```
 
@@ -146,7 +146,7 @@ Runbook trigger/profile fields are stable: `Trigger`, `Impact class`, `Response 
 
 Conditional sections appear only when they change responder action: `Rollback or abort` is required when any action changes state, increases risk, is irreversible, the response profile requires an abort point, or rollback failure changes escalation; `Communication` is required when the local profile demands reader updates; `Follow-up cleanup` restores safe steady state after recovery and is not a postmortem. Omit an optional section rather than publishing it empty.
 
-## [6][CONTENT_REQUIREMENTS]
+## [6]-[CONTENT_REQUIREMENTS]
 
 A runbook must carry the concrete facts a cold responder needs, not prose that gestures at them:
 
@@ -168,7 +168,7 @@ A runbook must carry the concrete facts a cold responder needs, not prose that g
 
 State a concrete metric and threshold wherever recovery, impact, escalation, or abort turns on one — error rate below the alert threshold, latency under the stated budget, queue depth back to baseline — never a bare health or recovery adjective.
 
-## [7][ACTION_PATTERNS]
+## [7]-[ACTION_PATTERNS]
 
 Triage and mitigation steps carry command, expected signal, and branch or verification in the step body. This density prevents command-only instructions that hide the recovery condition:
 
@@ -197,7 +197,7 @@ Escalation route: data recovery source with evidence attached; do not mutate unt
 
 Avoid generic mitigation catalogs. A published runbook may list mitigation classes only when the local operational corpus proves those classes for this trigger and each row carries local evidence. Otherwise, state the one supported action, or state `Safe mutation: none`.
 
-## [8][SCOPE_RULES]
+## [8]-[SCOPE_RULES]
 
 Runbook scope follows these rules:
 - Start from an observable trigger: alert name, failed check, user-impact report, queue depth, breached latency or error budget, data-integrity symptom, deployment failure, or security signal.
@@ -219,7 +219,7 @@ Route-away: <topology map, lifecycle table, lookup catalog, normal task, agent r
 
 Omit the handoff for background-only links. Include it only when adjacent truth changes triage order, safe action, escalation route, verification, or responder routing. Do not use the record to decorate every topology link.
 
-## [9][TRIAGE_RULES]
+## [9]-[TRIAGE_RULES]
 
 Triage follows these rules:
 - Put every read-only observation before the first state-changing action.
@@ -241,7 +241,7 @@ Render triage as an ordered check sequence, not flat prose. When triage forks on
 
 Use a Mermaid `flowchart` only when the branch sequence and rejoin are harder to follow as a numbered list or decision table; do not publish both a decision table and a diagram for the same triage branch.
 
-## [10][MITIGATION_ROLLBACK_ABORT]
+## [10]-[MITIGATION_ROLLBACK_ABORT]
 
 Mitigation, rollback, and abort rules split into these groups:
 
@@ -265,7 +265,7 @@ Mitigation, rollback, and abort rules split into these groups:
 
 `Mitigation` is required because every runbook must state the safe response route. `Rollback or abort` is conditional because only state-changing, risky, irreversible, or profile-gated actions need a separate reverse path, abort point, or explicit no-reverse statement.
 
-## [11][ESCALATION_EVIDENCE]
+## [11]-[ESCALATION_EVIDENCE]
 
 Escalation criteria must be observable, and the local response profile decides the threshold. State the condition that raises impact class, changes response path, or blocks mutation: impact threshold breached, time-in-incident threshold passed without recovery, response path unclear, mutation permission missing, required access unavailable, primary tooling unavailable, rollback failed, security compromise suspected, data-loss risk present, or verification contradicting the assumed cause.
 
@@ -293,7 +293,7 @@ Gap: <none, unavailable check, missing access, or unrun check>
 
 A runbook claims a recovery path works, so keep the verification details beside the drift-prone step under [proof.md](../proof.md) instead of adding a page-wide stamp. State an unrun or manual-only check as a review gate rather than asserting a path that was not executed during the last verification.
 
-## [12][FORMAT_CHOICES]
+## [12]-[FORMAT_CHOICES]
 
 Choose the smallest response form that preserves responder action:
 - Use a definition block for responder-facing context, one `label: value` per line, not a one-row table.
@@ -310,11 +310,11 @@ Show one step record that carries the accepted command and the rejected near-mis
 - Near miss: `<verify-command>`
 - Reason: no target, so the responder cannot prove which runtime behavior was checked.
 
-## [13][MAINTENANCE]
+## [13]-[MAINTENANCE]
 
 Review a runbook when its trigger, service path, dashboard, alert rule, command, dependency, API behavior, public symbol behavior, topology, supported target, rollback path, escalation path, mutation permission, communication cadence, incident-process profile, local incident-process source, gate policy, README emergency route, contribution workflow, agent ramp, or automation changes. Update it from real incidents when a responder had to invent a check, skip a stale step, ask for hidden context, perform an undocumented mitigation, or discover that verification no longer proves recovery. Delete or merge a runbook whose trigger no longer exists rather than keep it as a stale alias.
 
-## [14][BOUNDARIES]
+## [14]-[BOUNDARIES]
 
 These adjacent standards own routed material:
 
@@ -330,7 +330,7 @@ These adjacent standards own routed material:
 - [README.md](../README.md) carries reader-need classification, document-type choice, placement, and lifecycle; it is not an incident-process source.
 - Maintained local incident-process, communication-policy, incident-review, and postmortem corpora carry severity routing, cadence, mutation permission, retrospective analysis, and postmortem templates when they exist. When no maintained local incident-process source exists, profile-dependent fields are provisional or blocked and the runbook must escalate before mutation.
 
-## [15][VALIDATION]
+## [15]-[VALIDATION]
 
 Use this verification checklist by group:
 
@@ -347,7 +347,7 @@ Use this verification checklist by group:
 - [ ] Each mitigation step names its locally supported mitigation class and pairs an expected result with a recovery check, or `Mitigation` states `Safe mutation: none` with captured evidence and escalation route.
 - [ ] Risky actions carry mutation permission plus rollback or abort criteria before the action, and rollback-insufficient cases route to recovery.
 - [ ] Escalation criteria are observable and name a path, with contents to send.
-- [ ] `## [N][COMMUNICATION]` appears only when the local profile requires it and states reader, cadence, and status fields.
+- [ ] `## [N]-[COMMUNICATION]` appears only when the local profile requires it and states reader, cadence, and status fields.
 
 [CLOSURE_STRUCTURE]:
 - [ ] Verification names a metric and threshold for each recovery signal, not a bare health or recovery adjective.

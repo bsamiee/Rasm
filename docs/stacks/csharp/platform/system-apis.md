@@ -2,7 +2,7 @@
 
 System APIs replace local machinery only when they own the concern. They do not replace LanguageExt rails, Thinktecture domain shapes, MathNet algorithms, Rhino geometry, or GH2 data semantics.
 
-## [1][SMELL_LOOKUP]
+## [1]-[SMELL_LOOKUP]
 
 This table is a lookup by repeated local smell.
 
@@ -16,7 +16,7 @@ This table is a lookup by repeated local smell.
 |   [6]   | matrix algorithm        | numeric concept page          |
 |   [7]   | `DateTime.Now` delta    | `TimeProvider` or `Stopwatch` |
 
-## [2][TEXT_AND_WIRE]
+## [2]-[TEXT_AND_WIRE]
 
 [REGEX_GRAMMAR]:
 - Owner: `[GeneratedRegex]` for stable structural grammar; plain `Regex` with `RegexOptions.NonBacktracking` for runtime grammar.
@@ -45,7 +45,7 @@ This table is a lookup by repeated local smell.
 - Replace: manual hex loops, unsafe ASCII checks, and URL-base64 helpers.
 - Gate: validate allowed code points with text policy, not scattered predicates.
 
-## [3][COLLECTIONS_AND_LOOKUP]
+## [3]-[COLLECTIONS_AND_LOOKUP]
 
 [READ_MOSTLY_LOOKUP]:
 - Owner: `FrozenDictionary`, `FrozenSet`, and alternate span lookup where the comparer supports it.
@@ -71,7 +71,7 @@ This table is a lookup by repeated local smell.
 - Owner: `CollectionsMarshal.GetValueRefOrAddDefault` at measured boundaries.
 - Reject: domain public identity built from mutable dictionary internals.
 
-## [4][EQUALITY_AND_IDENTITY]
+## [4]-[EQUALITY_AND_IDENTITY]
 
 [DEFAULT_EQUALITY]:
 - Owner: `EqualityComparer<T>.Default`, `EqualityComparer<T>.Create`, `HashCode`, records, and record structs.
@@ -88,7 +88,7 @@ This table is a lookup by repeated local smell.
 - Owner: `RuntimeHelpers.GetHashCode(object)` for live host reference identity.
 - Reject: persisting `GetHashCode()` output or using it as a stable file key.
 
-## [5][NUMERICS]
+## [5]-[NUMERICS]
 
 [SCALAR_AND_GENERIC_MATH]:
 - Owner: `Math`, `MathF`, `Half`, BCL `Complex`, and the narrowest generic math constraint such as `INumberBase<T>`, `IBinaryInteger<T>`, or `IFloatingPointIeee754<T>`.
@@ -108,7 +108,7 @@ This table is a lookup by repeated local smell.
 - Owner: RhinoCommon for geometry, units, tolerances, transforms, and topology.
 - Reject: replacing native host geometry semantics with generic numeric helpers.
 
-## [6][RUNTIME_AND_OBSERVABILITY]
+## [6]-[RUNTIME_AND_OBSERVABILITY]
 
 [TIME]:
 - Owner: `TimeProvider`, `PeriodicTimer`, `Stopwatch.GetTimestamp`, and `Stopwatch.GetElapsedTime`.
@@ -130,7 +130,7 @@ This table is a lookup by repeated local smell.
 - Replace: hand-rolled queues, private `object` locks, timeout token scatter, and task completions without asynchronous continuations.
 - Gate: never hold `Lock` across `await`; annotate async streams with `[EnumeratorCancellation]`.
 
-## [7][IO_BUFFERS_AND_INTEGRITY]
+## [7]-[IO_BUFFERS_AND_INTEGRITY]
 
 [PATH_AND_FILE_IO]:
 - Owner: `Path`, `File.OpenHandle`, `RandomAccess`, `FileStreamOptions`, `FileOptions`, `ReadExactlyAsync`, and `ReadAtLeastAsync`.
@@ -147,7 +147,7 @@ This table is a lookup by repeated local smell.
 - Replace: `System.Random` for cryptographic bytes and `SHA256` for non-cryptographic cache keys.
 - Gate: reserve ASN.1 for PKI or signing requirements.
 
-## [8][BOUNDARY_AND_INTEROP]
+## [8]-[BOUNDARY_AND_INTEROP]
 
 [NULLABLE_FLOW_AND_SYNTAX_HINTS]:
 - Owner: `NotNullWhen`, `NotNullIfNotNull`, `MemberNotNull`, `DoesNotReturn`, `StringSyntax`, and trim annotations.

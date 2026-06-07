@@ -17,7 +17,7 @@ Execute SonarCloud queries through unified Python CLI.
 [IMPORTANT] Commands require `SONARCLOUD_PROJECT_KEY` and `SONARCLOUD_ORGANIZATION`, or repo config that declares equivalent values. Provide the API token through the environment or the local secret manager. SonarCloud API base: `https://sonarcloud.io/api`.
 
 ---
-## [0][SCANNER]
+## [0]-[SCANNER]
 >**Dictum:** *Local scanner enables pre-push quality gates.*
 
 <br>
@@ -29,7 +29,7 @@ Execute SonarCloud queries through unified Python CLI.
 **Configuration:** `sonar-project.properties` at repo root.
 
 ---
-## [1][COMMANDS]
+## [1]-[COMMANDS]
 
 | [CMD]        | [ARGS]                   | [PURPOSE]                     |
 | ------------ | ------------------------ | ----------------------------- |
@@ -41,7 +41,7 @@ Execute SonarCloud queries through unified Python CLI.
 | hotspots     | `[status]`               | Security hotspots             |
 
 ---
-## [2][USAGE]
+## [2]-[USAGE]
 
 ```bash
 # Zero-arg invocation (most common)
@@ -64,7 +64,7 @@ uv run $CODEX_HOME/skills/sonarcloud-tools/scripts/sonarcloud.py hotspots TO_REV
 ```
 
 ---
-## [3][ARGUMENTS]
+## [3]-[ARGUMENTS]
 
 **quality-gate**: `[branch]` or `pr <num>`
 - No args -- current default branch
@@ -89,7 +89,7 @@ uv run $CODEX_HOME/skills/sonarcloud-tools/scripts/sonarcloud.py hotspots TO_REV
 - `status` -- Filter: `TO_REVIEW`, `ACKNOWLEDGED`, `FIXED`, `SAFE`
 
 ---
-## [4][OUTPUT]
+## [4]-[OUTPUT]
 
 Commands return: `{"status": "success|error", ...}`.
 
@@ -103,14 +103,14 @@ Commands return: `{"status": "success|error", ...}`.
 |   [6]   | `hotspots`     | `{project, total, hotspots[]}`                       |
 
 ---
-## [5][ENVIRONMENT]
+## [5]-[ENVIRONMENT]
 
 | [VAR]         | [REQUIRED] | [DESCRIPTION]                    |
 | ------------- | ---------- | -------------------------------- |
 | `SONAR_TOKEN` | Yes        | SonarCloud API token (1Password) |
 
 ---
-## [6][ERROR_HANDLING]
+## [6]-[ERROR_HANDLING]
 
 - HTTP errors print `[ERROR] <status>: <body>` and exit 1
 - Missing token: `[ERROR] SONAR_TOKEN environment variable not set`

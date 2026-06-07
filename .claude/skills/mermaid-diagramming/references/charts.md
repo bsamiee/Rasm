@@ -5,7 +5,7 @@ Seven chart types: `pie`, `quadrantChart`, `xychart-beta`, `radar-beta`, `sankey
 [REFERENCE] Theme, classDef: [->styling.md](./styling.md)
 [REFERENCE] Validation: [->validation.md§7](./validation.md#7chart_diagrams)
 
-## [1][PIE]
+## [1]-[PIE]
 
 **Declaration:** `pie` | `pie showData` (display percentages). `title Text`, `"Label" : value`.
 **Config:** `textPosition` (0.0-1.0, default 0.75), `useMaxWidth` (true).
@@ -13,7 +13,7 @@ Seven chart types: `pie`, `quadrantChart`, `xychart-beta`, `radar-beta`, `sankey
 
 [IMPORTANT] Hex colors only — theming engine rejects color names.
 
-## [2][QUADRANT]
+## [2]-[QUADRANT]
 
 **Declaration:** `quadrantChart`. `title Text`, `x-axis Low --> High`, `y-axis Low --> High`, `quadrant-1 Label` through `quadrant-4 Label`, `Item: [x, y]` (0-1 range).
 **Numbering:** 1=Top-right, 2=Top-left, 3=Bottom-left, 4=Bottom-right.
@@ -21,7 +21,7 @@ Seven chart types: `pie`, `quadrantChart`, `xychart-beta`, `radar-beta`, `sankey
 **Theme:** `quadrant1Fill`-`quadrant4Fill`, `quadrantPointFill`, axis text fills.
 **Config:** `chartWidth/Height` (500), `pointRadius` (5), `xAxisPosition` (top|bottom), `yAxisPosition` (left|right).
 
-## [3][XYCHART]
+## [3]-[XYCHART]
 
 **Declaration:** `xychart-beta` | `xychart-beta horizontal`.
 **Syntax:** `title "Text"`, `x-axis [a, b, c]` (categories) or `x-axis "Label" min --> max` (range), `y-axis "Label" min --> max`, `bar [values]`, `line [values]`.
@@ -30,7 +30,7 @@ Seven chart types: `pie`, `quadrantChart`, `xychart-beta`, `radar-beta`, `sankey
 
 [CRITICAL] Array lengths must match x-axis category count.
 
-## [4][RADAR]
+## [4]-[RADAR]
 
 **Declaration:** `radar-beta` (v11.6.0+).
 **Syntax:** `title Text`, `axis A, B, C, D, E`, `max value`, `min value`, `ticks N`, `graticule polygon|circle`, `"Series": [values]`, `showLegend`.
@@ -39,14 +39,14 @@ Seven chart types: `pie`, `quadrantChart`, `xychart-beta`, `radar-beta`, `sankey
 
 [IMPORTANT] Axis count must match value array length. Omitting `max` triggers auto-scaling.
 
-## [5][SANKEY]
+## [5]-[SANKEY]
 
 **Declaration:** `sankey-beta`. CSV format — `Source,Target,Value` per line.
 **Config:** `width` (600), `height` (400), `linkColor` (gradient|source|target|#hex), `nodeAlignment` (justify|center|left|right), `showValues` (true), `prefix`/`suffix` (string).
 
 [IMPORTANT] DAG structure only — circular flows rejected.
 
-## [6][GANTT]
+## [6]-[GANTT]
 
 **Declaration:** `gantt`. `title Text`, `dateFormat YYYY-MM-DD`, `axisFormat %m-%d`, `section Name`.
 **Task:** `Name :modifiers, id, start, duration|end`. Start: date, `after taskId`, `until taskId`. Duration: `7d`, `2w`, `1m`.
@@ -59,7 +59,7 @@ Seven chart types: `pie`, `quadrantChart`, `xychart-beta`, `radar-beta`, `sankey
 [CRITICAL] `%%{init:...}%%` deprecated v10.5.0; use YAML frontmatter exclusively.
 [IMPORTANT] Only `base` theme exposes full themeVariables customization.
 
-## [7][TREEMAP]
+## [7]-[TREEMAP]
 
 **Declaration:** `treemap-beta`. Hierarchy via indentation — sections `"Name"` (no value), leaves `"Name": value`.
 **Styling:** `"Name":::className: value`, `classDef className fill:#hex`.

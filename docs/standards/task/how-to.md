@@ -2,7 +2,7 @@
 
 A how-to guide carries one competent reader through one practical goal or problem to an observable outcome. Lead with the outcome, keep only the actions and judgment points needed to reach it, and close with outcome evidence rather than command completion. The reader already knows the domain and exercises judgment; the guide supplies the usable route, not teaching, background, operational recovery, or a lookup catalog.
 
-## [1][USE_WHEN]
+## [1]-[USE_WHEN]
 
 Write a how-to guide when every condition holds:
 - the reader can already act in the domain and needs the reliable path, not instruction;
@@ -21,13 +21,13 @@ Route a first-success learning path, an operational symptom response, a contribu
 
 Opening order is fixed for task standards: route and use contract first, produced structure second, cardinality third, then baselines, examples, and local patterns. Do not let examples define section order implicitly.
 
-## [2][HOW_TO_BASELINE]
+## [2]-[HOW_TO_BASELINE]
 
 This standard operationalizes the local how-to route. A how-to is goal-oriented action for an already-competent user who knows what they want to achieve. Its structure follows the user's work, keeps focus on one goal, links explanation and reference instead of embedding them, and phrases unavoidable branches as conditional imperatives.
 
 The rules below add agent-facing structure, conditional section discipline, rollback behavior, troubleshooting boundaries, cross-document handoffs, and claim-level proof. Use those additions to make the route executable; do not turn a how-to into a learning course, operating runbook, API catalog, or roadmap update.
 
-## [3][SECTION_RULES]
+## [3]-[SECTION_RULES]
 
 A how-to guide has a required core and conditional support. The required core is `# [HOW_TASK]`, `## [1][GOAL]`, `## [2][PROCEDURE]`, and `## [3][VERIFICATION]`. Conditional sections appear only when the task consumes the fact or action they carry, and every inserted conditional section renumbers in document order.
 
@@ -39,32 +39,32 @@ A how-to guide has a required core and conditional support. The required core is
 
 Do not classify guides by project maturity, product size, or broad task family. Required and conditional sections derive from the work the reader must perform and the proof the outcome requires.
 
-## [4][REQUIRED_STRUCTURE]
+## [4]-[REQUIRED_STRUCTURE]
 
 Use the section set below; each `##` heading is a standalone retrieval unit a reader may open out of order. The base template includes only universal sections, so agents do not publish empty conditional headings. Add conditional sections only when their trigger applies, and renumber headings in document order.
 
 ```markdown template
 # [HOW_TASK]
 
-## [1][GOAL]
+## [1]-[GOAL]
 
-## [2][PROCEDURE]
+## [2]-[PROCEDURE]
 
-## [3][VERIFICATION]
+## [3]-[VERIFICATION]
 ```
 
 Add these conditional sections only when their trigger applies:
 
 ```markdown template
-## [N][PREREQUISITES]
+## [N]-[PREREQUISITES]
 
-## [N][ROLLBACK]
+## [N]-[ROLLBACK]
 
-## [N][TROUBLESHOOTING]
+## [N]-[TROUBLESHOOTING]
 
-## [N][BOUNDARIES]
+## [N]-[BOUNDARIES]
 
-## [N][MAINTENANCE]
+## [N]-[MAINTENANCE]
 ```
 
 Required sections carry one purpose each: `Goal` names the single task outcome in the reader's terms; `Procedure` gives a logical sequence ordered by dependency, reader flow, setup context, or judgment sequence; `Verification` proves the `Goal` outcome, records consumed verification gates when a configured workflow requires them, and states whether the path ran or which check remains unrun. Conditional sections carry only the fact their trigger requires: prerequisites are checkable records, rollback is the reverse path or recovery route, troubleshooting is task-local recovery, boundaries route adjacent routes, and maintenance names drift triggers.
@@ -73,18 +73,18 @@ Task result grammar is outcome-first: `Goal` names the intended observable state
 
 Omit a conditional section when the condition is absent. Do not publish empty placeholders, generic readiness text, reference inventories, broad recovery branches, or author scaffolding to make the template look complete.
 
-## [5][MINIMAL_PATTERN]
+## [5]-[MINIMAL_PATTERN]
 
 A minimal how-to still carries the full outcome path. Use a compact skeleton when the task is small rather than adding placeholder sections:
 
 ```markdown conceptual
 # [COMPLETE_TASK]
 
-## [1][GOAL]
+## [1]-[GOAL]
 
 Complete one scoped task so the result and any proof gap are visible.
 
-## [2][PROCEDURE]
+## [2]-[PROCEDURE]
 
 1. Prepare the target surface.
     Operation: `<preparation action>`
@@ -95,7 +95,7 @@ Complete one scoped task so the result and any proof gap are visible.
     Expected result: `<observable result>` is present.
     If the result is absent, restore the prior state or route to troubleshooting.
 
-## [3][VERIFICATION]
+## [3]-[VERIFICATION]
 
 - [ ] `<observable result>` matches the goal.
 - [ ] `<verification check>` proves the result or the proof gap is stated.
@@ -105,7 +105,7 @@ Evidence: `<verification check>` result or explicit proof gap.
 
 The skeleton uses a checklist because two independent outcome conditions must hold. A single-condition `Verification` may be a short proof statement with `Evidence:` beside it; do not force a one-item checklist.
 
-## [6][SCOPE_RULES]
+## [6]-[SCOPE_RULES]
 
 How-to scope follows these rules:
 - Solve one task per guide and state its outcome in the title and `Goal`.
@@ -127,7 +127,7 @@ Route-away: <concept, lookup, recovery, learning, status fact, gate policy, or e
 
 Omit the handoff when the guide merely links further reading after completion. Include it only when the procedure would be unsafe, ambiguous, or incomplete without the adjacent route. API-call procedures, generated-reference-driven steps, agent-practice guides, contributor tasks, and gate-driven tasks are valid handoff cases only when they change the work inside the procedure.
 
-## [7][PREREQUISITES_RULES]
+## [7]-[PREREQUISITES_RULES]
 
 A prerequisite is a record the reader scans and confirms before starting, so render `Prerequisites` as a definition block with one `label: value` per line, never as a paragraph and never as a one-row table. Each record names a concrete, checkable fact, not a vague readiness claim:
 - `Access`: the named permission, credential, or scope, with the surface it grants on.
@@ -144,7 +144,7 @@ Tools: Git plus repository-local validation environment
 Prepared artifact: document-only diff under `<docs-path>`
 ```
 
-## [8][PROCEDURE_RULES]
+## [8]-[PROCEDURE_RULES]
 
 Procedure rules split into step order and step wording:
 
@@ -187,14 +187,14 @@ For a forking procedure, use prose or a numbered branch first. Use a decision ta
 |   [3]   | any              | no           | route invalid plan             |
 ```
 
-## [9][VERIFICATION_ROLLBACK_RULES]
+## [9]-[VERIFICATION_ROLLBACK_RULES]
 
 End on a `Verification` block that observes the `Goal` outcome, not that a command exited zero. Bind the check to the task's actual outcome: setup proves convergence to the target state, mutation proves the new state, and read-only work proves the artifact, reading, or export shape. State each expected result beside the command, query, dashboard, generated artifact, UI path, or review gate that proves it.
 
 Render `Verification` as a checklist when the outcome carries several independently observable conditions:
 
 ```markdown conceptual
-## [3][VERIFICATION]
+## [3]-[VERIFICATION]
 
 - [ ] `<observable result>` matches the goal.
 - [ ] `<verification check>` proves the result, or the missing checker is recorded as a proof gap.
@@ -203,7 +203,7 @@ Render `Verification` as a checklist when the outcome carries several independen
 Rejected verification shape:
 
 ```markdown rejected
-## [3][VERIFICATION]
+## [3]-[VERIFICATION]
 - [ ] `<command>` exited 0.
 ```
 
@@ -232,17 +232,17 @@ Last verified: YYYY-MM-DD
 
 State an unrun step honestly: mark it provisional and name the gate that would prove it, rather than asserting a path that was not executed.
 
-## [10][TROUBLESHOOTING_RULES]
+## [10]-[TROUBLESHOOTING_RULES]
 
 Keep `Troubleshooting` to failure modes that block this task and have a concrete recovery; route operational recovery, escalation, and incident evidence to a runbook by topic. A failure-mode set is finite and scannable, so render each entry as a record carrying its signal, cause, and recovery, never as a flat paragraph:
 - `Signal`: the observable symptom the reader sees — an error string, a failed check, or a wrong reading.
 - `Cause`: the condition that produced the signal, when known.
 - `Recovery`: the concrete action that returns the reader to the path, or the route to the controlling runbook when recovery exceeds this task.
 
-Render each entry as a `### [N.M][SYMPTOM]` H3 whose body carries the fields one `label: value` per line:
+Render each entry as a `### [N.M]-[SYMPTOM]` H3 whose body carries the fields one `label: value` per line:
 
 ```markdown conceptual
-### [N.M][TARGET_NOT_FOUND]
+### [N.M]-[TARGET_NOT_FOUND]
 
 Signal: unresolved anchor is reported for `<doc-path>#<expected-anchor>`
 Cause: the heading label changed without updating the in-repo link.
@@ -251,17 +251,17 @@ Recovery: update the link target or restore the heading anchor, then rerun local
 
 A symptom-to-recovery set with three or more short entries may use a lookup table keyed on signal, but do not publish both record blocks and a table for the same failures. Choose the container the reader will scan fastest.
 
-## [11][FORMAT_CHOICES]
+## [11]-[FORMAT_CHOICES]
 
 Choose forms by the reader action this how-to requires. Use numbered procedure steps for the normal path, step records for commands with expected results, definition blocks for prerequisites, checklists for multi-condition verification, and signal-keyed records or lookup tables for task-local troubleshooting. Route general table limits, record escalation, diagrams, and code-block intent labels to [information-structure.md](../information-structure.md).
 
 For a forking procedure, apply the container order from `Procedure rules`: numbered branch, decision table, then Mermaid only when branch sequence and rejoin are clearer as a rendered flow. Keep a text equivalent beside any Mermaid diagram, and do not duplicate the same branch as prose, table, and diagram.
 
-## [12][MAINTENANCE]
+## [12]-[MAINTENANCE]
 
 Review a how-to when a command, tool version, target path, UI label, expected output, prerequisite, prepared artifact, rollback path, troubleshooting signal, adjacent source, proof gate, or verification signal changes. Update it from real use when readers choose the wrong branch, need hidden context, rerun unsafe commands, or report outcome checks that no longer prove the goal. Delete or split a how-to whose goal has become multiple tasks rather than preserving broad variants in one guide.
 
-## [13][BOUNDARIES]
+## [13]-[BOUNDARIES]
 
 These adjacent standards own routed material:
 
@@ -277,7 +277,7 @@ These adjacent standards own routed material:
 - [style-guide.md](../style-guide.md) carries imperative and input-neutral phrasing and the conditional-imperative form this guide requires of procedure steps.
 - [README.md](../README.md) carries reader-need classification, document-type choice, placement, and lifecycle; route a draft that serves another reader need there.
 
-## [14][VALIDATION]
+## [14]-[VALIDATION]
 
 Use this verification checklist by group:
 

@@ -3,7 +3,7 @@
 Self-contained advanced capability reference. **Not** basic `Map`/`Bind`/`Create`.
 
 ---
-## [1][LOAD_WITH]
+## [1]-[LOAD_WITH]
 
 | Task | Reference |
 | ---- | --------- |
@@ -15,7 +15,7 @@ Self-contained advanced capability reference. **Not** basic `Map`/`Bind`/`Create
 | Serilog, OTel, Http resilience | [observability.md](observability.md) |
 
 ---
-## [2][LANGUAGEEXT_OPERATORS]
+## [2]-[LANGUAGEEXT_OPERATORS]
 
 | Symbol | Carrier | Semantics |
 | ------ | ------- | --------- |
@@ -36,7 +36,7 @@ Eff recovery: `Prelude.catch`, `Prelude.retry(schedule, eff)`, `IfFailEff` — n
 Use LINQ `from..in..select` for monadic composition.
 
 ---
-## [3][LANGUAGEEXT_COMBINATORS]
+## [3]-[LANGUAGEEXT_COMBINATORS]
 
 | Combinator | Notes |
 | ---------- | ----- |
@@ -55,7 +55,7 @@ Use LINQ `from..in..select` for monadic composition.
 `Validation<string,T>` is not supported — use `Validation<StringM,T>` or `Validation<Error,T>`. Parallel fault channels at UI boundaries may use `Validation<Seq<TFault>,T>` with a dedicated fault type — not `Validation<Seq<Error>,T>` in domain.
 
 ---
-## [4][THINKTECTURE_ATTRIBUTES]
+## [4]-[THINKTECTURE_ATTRIBUTES]
 
 | Attribute | Effect |
 | --------- | ------ |
@@ -74,7 +74,7 @@ Thinktecture does **not** emit union `operator +`/`|`. Set `SerializationFramewo
 Generic or ref-struct constrained sums use plain `abstract record` + manual `switch` — not `[Union]`.
 
 ---
-## [5][MATHNET_CSPARSE]
+## [5]-[MATHNET_CSPARSE]
 
 | Surface | Owner |
 | ------- | ----- |
@@ -86,7 +86,7 @@ Generic or ref-struct constrained sums use plain `abstract record` + manual `swi
 Package id for direct sparse library: **`CSparse`**. Prefer native geometry APIs for model semantics; MathNet for numerical kernels after explicit coordinate projection.
 
 ---
-## [6][C14_HIGHLIGHTS]
+## [6]-[C14_HIGHLIGHTS]
 
 | Feature | Use |
 | ------- | --- |
@@ -100,7 +100,7 @@ Package id for direct sparse library: **`CSparse`**. Prefer native geometry APIs
 | Switch / list patterns | Total value-returning dispatch |
 
 ---
-## [7][HOST_PACKAGES]
+## [7]-[HOST_PACKAGES]
 
 | Package | Composition-root surface |
 | ------- | ------------------------ |

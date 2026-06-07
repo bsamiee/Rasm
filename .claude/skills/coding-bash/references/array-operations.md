@@ -11,7 +11,7 @@ Set algebra via associative arrays, structural transforms via bulk expansion, hi
 |  [5]  | Higher-order trav |  S3   | Map/filter/reduce/scan/predicates via nameref             |
 |  [6]  | Pipeline bridge   |  S4   | Null-safe array-to-pipeline, parallel map, collect        |
 
-## [1][SET_ALGEBRA]
+## [1]-[SET_ALGEBRA]
 
 Build a set from one array and probe from the other instead of nested iteration. Case-insensitive sets: key via `${item,,}` in `_to_set` — propagates uniformly to all downstream operations.
 
@@ -49,7 +49,7 @@ declare -a drift=(); _diff expected deployed drift
 (( ${#drift[@]} )) && printf 'Missing in deploy: %s\n' "${drift[*]}"
 ```
 
-### [1.1][RELATIONAL_SET_OPERATIONS]
+### [1.1]-[RELATIONAL_SET_OPERATIONS]
 
 Set algebra on associative arrays — keys as elements, values irrelevant for pure set ops.
 
@@ -105,7 +105,7 @@ Nameref pitfalls: avoid `local -n _r=$1` where caller passes `_r` (circular ref)
 
 **Performance**: all operations O(n) per call. Above ~10k elements, delegate to `comm`/`sort`/`join` on sorted files — external tools handle large datasets orders of magnitude faster than bash loops.
 
-## [2][STRUCTURAL_TRANSFORMS]
+## [2]-[STRUCTURAL_TRANSFORMS]
 
 ```bash
 # Bulk prefix/suffix — O(n) in expansion engine, zero loops
@@ -138,7 +138,7 @@ declare -a cli_flags=("${flags[@]/#/--}")  # cli_flags=("--host=localhost" ...)
 
 `_zip_kv` binds directly into destination index via `printf -v` — zero forks. `_unpack` is the inverse of `_join` + `_zip_kv`.
 
-### [2.1][NAMEREF_BUILDER]
+### [2.1]-[NAMEREF_BUILDER]
 
 Callee accumulates into caller's associative array via `local -n` — replaces `eval`-based indirection.
 
@@ -160,7 +160,7 @@ config_merge merged overrides  # last-write wins
 # merged: [ssl]="true" [port]="5433" [host]="localhost" [db]="myapp"
 ```
 
-## [3][HIGHER_ORDER_TRAVERSE]
+## [3]-[HIGHER_ORDER_TRAVERSE]
 
 ```bash
 _map() {
@@ -208,7 +208,7 @@ declare total=0; _reduce _add big total
 
 `_map` (nameref, zero forks) vs `_map_exec` (stdout capture, one fork per element). `_any`/`_all` short-circuit — O(1) best case. `_count_by` builds a frequency table in a single pass.
 
-## [4][PIPELINE_INTEGRATION]
+## [4]-[PIPELINE_INTEGRATION]
 
 Only null-delimited (`\0`) is safe for arbitrary data — newline-delimited breaks on filenames with embedded newlines.
 
@@ -252,7 +252,7 @@ done
 
 `_group_by`/`_count_by` use nameref classifier convention: classifier writes to `$2` via `printf -v`.
 
-### [4.1][BASH_53_ARRAY_PRIMITIVES]
+### [4.1]-[BASH_53_ARRAY_PRIMITIVES]
 
 Gate all behind `(( _BASH_V >= 503 ))` — version probe in [version-features.md S7](./version-features.md).
 
@@ -275,7 +275,7 @@ Gate all behind `(( _BASH_V >= 503 ))` — version probe in [version-features.md
 # fltexpr loadable builtin: enable -f fltexpr fltexpr; fltexpr 'end - start'
 ```
 
-### [4.2][BOUNDED_CONCURRENCY_POOL]
+### [4.2]-[BOUNDED_CONCURRENCY_POOL]
 
 `wait -n -p` (5.2+) enables per-job result collection without polling — alternative to `xargs -P` when per-job exit status matters.
 
@@ -299,7 +299,7 @@ _pool_map() {
 }
 ```
 
-### [4.3][PERFORMANCE_THRESHOLDS]
+### [4.3]-[PERFORMANCE_THRESHOLDS]
 
 | [INDEX] | [ELEMENT_COUNT] | [STRATEGY]                                                    |
 | :-----: | :-------------- | :------------------------------------------------------------ |

@@ -5,7 +5,7 @@ C4, architecture-beta, packet-beta, timeline, gitGraph, kanban diagrams.
 [REFERENCE] Theme, classDef: [->styling.md](./styling.md)
 [REFERENCE] Validation: [->validation.md§8](./validation.md#8architecture_diagrams)
 
-## [1][C4]
+## [1]-[C4]
 
 **Levels:** `C4Context` (landscape), `C4Container` (apps/services), `C4Component` (internal), `C4Dynamic` (runtime), `C4Deployment` (infrastructure).
 
@@ -20,7 +20,7 @@ C4, architecture-beta, packet-beta, timeline, gitGraph, kanban diagrams.
 
 [CRITICAL] Named parameters use `$` prefix. C4 uses fixed CSS — theme skins have no effect.
 
-## [2][INFRASTRUCTURE]
+## [2]-[INFRASTRUCTURE]
 
 **Declaration:** `architecture-beta`
 
@@ -30,7 +30,7 @@ C4, architecture-beta, packet-beta, timeline, gitGraph, kanban diagrams.
 
 [CRITICAL] Layout engine non-deterministic — same code renders differently on refresh (known v11.5.0+).
 
-## [3][PACKET]
+## [3]-[PACKET]
 
 **Declaration:** `packet-beta`
 
@@ -39,7 +39,7 @@ C4, architecture-beta, packet-beta, timeline, gitGraph, kanban diagrams.
 
 [CRITICAL] All bits MUST be defined — gaps or overlaps trigger errors.
 
-## [4][TIMELINE]
+## [4]-[TIMELINE]
 
 **Declaration:** `timeline`
 
@@ -48,7 +48,7 @@ C4, architecture-beta, packet-beta, timeline, gitGraph, kanban diagrams.
 
 [CRITICAL] `%%{init:...}%%` deprecated v10.5.0; use YAML frontmatter exclusively.
 
-## [5][GITGRAPH]
+## [5]-[GITGRAPH]
 
 **Declaration:** `gitGraph` or `gitGraph LR:|TB:|BT:`
 
@@ -58,7 +58,7 @@ C4, architecture-beta, packet-beta, timeline, gitGraph, kanban diagrams.
 
 [CRITICAL] `%%{init:...}%%` deprecated v10.5.0; use YAML frontmatter exclusively.
 
-## [6][KANBAN]
+## [6]-[KANBAN]
 
 **Declaration:** `kanban`
 

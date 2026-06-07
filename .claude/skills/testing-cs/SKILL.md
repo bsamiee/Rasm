@@ -16,7 +16,7 @@ description: >-
 Use this skill with `coding-csharp` for `.cs` specs/testkit code, `coding-bash` for scripts, and repository documentation standards for Markdown. The canonical unit rail is xUnit v3/MTP + CsCheck + the active repo testkit; host-native runtime behavior belongs in the repo-declared runtime scenario rail. Managed tests attempt falsification through independent oracles, mutation-visible rows, failure categories, model/metamorphic relations, receipt tampering, and raw-payload laws.
 
 ---
-## [1][WORKFLOW]
+## [1]-[WORKFLOW]
 >**Dictum:** *Classify first; falsify with fewer, stronger laws second.*
 
 <br>
@@ -32,7 +32,7 @@ Use this skill with `coding-csharp` for `.cs` specs/testkit code, `coding-bash` 
 9. Validate with scoped cleanup first, then targeted build/test proof for touched rails.
 
 ---
-## [2][RAILS]
+## [2]-[RAILS]
 >**Dictum:** *Runtime ownership is executable proof, not a documentation escape hatch.*
 
 <br>
@@ -65,7 +65,7 @@ Use this skill with `coding-csharp` for `.cs` specs/testkit code, `coding-bash` 
 - If a repo declares a static-vs-runtime classification list, treat it as the owner for that surface; static specs own pure managed laws and managed input guards, while native success belongs in runtime scenarios.
 
 ---
-## [3][SCENARIOS]
+## [3]-[SCENARIOS]
 >**Dictum:** *Scenario files are source-only runtime laws owned by tests.*
 
 <br>
@@ -84,7 +84,7 @@ Use the repo-declared scenario harness and injected scenario metadata. Do not de
 - When a scenario uses viewport evidence, set the active view and redraw before capture.
 
 ---
-## [4][SPEC_SHAPE]
+## [4]-[SPEC_SHAPE]
 >**Dictum:** *One generated input should exercise many assertions.*
 
 <br>
@@ -109,7 +109,7 @@ Use the repo-declared scenario harness and injected scenario metadata. Do not de
 - Filter `Spec.ForAll(Gen.OneOfConst([A,B,C]), ...)` shows as ONE Stryker mutation target. Convert to `[Theory][InlineData(A)][InlineData(B)][InlineData(C)]` (or `MemberData(...)` from `SmartEnum.Items`) when Stryker survivors include per-case logic — Theory rows give N separately-killable targets.
 
 ---
-## [5][TOOL_RAIL]
+## [5]-[TOOL_RAIL]
 >**Dictum:** *Tool knowledge lives in docs; specs use the small contract.*
 
 <br>
@@ -135,7 +135,7 @@ Current local facts:
 - Treat Stryker zero discovery as a failed mutation rail; the managed target is 95% after discovery proof.
 
 ---
-## [6][VALIDATION]
+## [6]-[VALIDATION]
 >**Dictum:** *A failing law is evidence; investigate product behavior before weakening the test.*
 
 <br>

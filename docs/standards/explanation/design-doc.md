@@ -6,7 +6,7 @@ The entry gate is ambiguity: write a design document only when at least two plau
 
 Inside a scope-local `.planning/` folder, `SPEC.<slug>.md` is the planning spec-sheet filename governed by this standard. Use it when a roadmap task needs reusable detail, ambiguity handling, alternatives, risks, slices, or proof planning that would make the task row too large. If a task has one obvious approach and no reusable detailed spec, keep the detail in the roadmap task.
 
-## [1][USE_WHEN]
+## [1]-[USE_WHEN]
 
 Use a design document when the change has design ambiguity and needs any of these before code lands:
 - pre-code convergence across two or more routes or boundaries;
@@ -24,7 +24,7 @@ Do not use a design document or `SPEC.<slug>.md` for one obvious approach with n
 - Adjacent checks: use handoff records only when an accepted design changes another document's reader action, proof, or maintenance route.
 - Maintenance triggers: update the design when status, selected option, change slice, risk disposition, final-check result, proof gate, handoff target, or supersession changes.
 
-## [2][PROFILES]
+## [2]-[PROFILES]
 
 Pick one profile from blast radius. The profile raises source and proof obligations; it never removes the ambiguity gate.
 
@@ -47,7 +47,7 @@ Local final check is a document state inside this type. It defines check source,
 - Omit rule: keep detail in the roadmap task when the task has no ambiguity and no reusable detailed spec.
 - Folder rule: do not create `.planning/specs/` unless many active specs or tooling justify the extra lookup layer.
 
-## [3][LIFECYCLE_FIELDS]
+## [3]-[LIFECYCLE_FIELDS]
 
 Every design document states lifecycle facts where they route source and proof obligations: status and profile in the lead, check-scope and final-check facts in the matching sections, and supersession in the handoff or boundaries section.
 
@@ -79,7 +79,7 @@ Multiple status vocabularies are allowed only when they are scoped to separate r
 
 `Status` and `Profile` are discriminants: an agent reads them to route lifecycle obligations and conditional sections. Keep both to one value from the closed set.
 
-## [4][REQUIRED_STRUCTURE]
+## [4]-[REQUIRED_STRUCTURE]
 
 Use the base skeleton for every status, then apply the lifecycle deltas. Conditional sections are omitted until their trigger holds; when they appear, insert them at the named position and renumber headings in document order.
 
@@ -88,33 +88,33 @@ Use the base skeleton for every status, then apply the lifecycle deltas. Conditi
 
 <Lead: name status, profile, date, source, check scopes when required, proposal outcome, and the adjacent document that will receive accepted truth.>
 
-## [1][PROBLEM]
+## [1]-[PROBLEM]
 
-## [2][GOALS]
+## [2]-[GOALS]
 
-## [3][NON_GOALS]
+## [3]-[NON_GOALS]
 
-## [4][CONTEXT]
+## [4]-[CONTEXT]
 
-## [5][PROPOSED_APPROACH]
+## [5]-[PROPOSED_APPROACH]
 
-## [6][ALTERNATIVES_CONSIDERED]
+## [6]-[ALTERNATIVES_CONSIDERED]
 
-## [7][RISKS_OPEN_QUESTIONS]
+## [7]-[RISKS_OPEN_QUESTIONS]
 
-## [8][PROOF_PLAN]
+## [8]-[PROOF_PLAN]
 
-## [9][BOUNDARIES]
+## [9]-[BOUNDARIES]
 
-## [10][VALIDATION]
+## [10]-[VALIDATION]
 ```
 
 Use this draft-delta skeleton before checkable options exist:
 
 ```markdown template
-## [2][ROUGH_GOALS]
+## [2]-[ROUGH_GOALS]
 
-## [3][GAPS]
+## [3]-[GAPS]
 
 <Omit `Non-goals`, `Context`, `Proposed approach`, `Alternatives considered`, `Risks and open questions`, and `Proof plan` until checkable options exist.>
 ```
@@ -122,19 +122,19 @@ Use this draft-delta skeleton before checkable options exist:
 Add these conditional sections only when their trigger applies:
 
 ```markdown template
-## [N][CHANGE_SLICES]
+## [N]-[CHANGE_SLICES]
 
 <Insert after `Alternatives considered` for `Standard`, `Public-contract`, or a `Lightweight` design whose selected direction must land in separate checkable changes.>
 
-## [N][CROSS_CUTTING_IMPLICATIONS]
+## [N]-[CROSS_CUTTING_IMPLICATIONS]
 
 <Insert after `Change slices` for `Standard` and `Public-contract`.>
 
-## [N][FINAL_CHECK_RECORD]
+## [N]-[FINAL_CHECK_RECORD]
 
 <Insert after `Risks and open questions` at `FINAL-CHECK` and later.>
 
-## [N][DECISION_RECORD_HANDOFF]
+## [N]-[DECISION_RECORD_HANDOFF]
 
 <Insert after `Proof plan` when acceptance binds durable policy or supersedes an ADR.>
 ```
@@ -163,7 +163,7 @@ Accepted title: `# [FREEZE_CONTRACT]`
 Accepted fields: `Status: DISCUSSION`; `Profile: Public-contract`; `Date: YYYY-MM-DD`; `Source: <design-source>`; `Check scopes: <platform>, <consumers>, <release-route>`.
 Accepted lead: This design proposes freezing `<contract>` so downstream consumers can validate integration before release. It compares generated and maintained contract options, records change slices, and, if accepted, hands durable policy to an ADR and current boundary changes to architecture.
 
-## [5][SECTION_RULES]
+## [5]-[SECTION_RULES]
 
 State each section's controlling content first and its boundary last. Where a section names a finite set of trackable items, render that set as the mandated structure.
 
@@ -186,12 +186,12 @@ State each section's controlling content first and its boundary last. Where a se
 
 Use stable local IDs only for records another section or adjacent document references. Change slices use `S<N>`, risks use `R<N>`, open questions use `Q<N>`, and cross-cutting concern records use their concern label. Do not add IDs to every paragraph; an ID exists so a dependency, handoff, acceptance gate, or proof receipt can point to one record without copying it.
 
-## [6][GOALS_CHECKLIST]
+## [6]-[GOALS_CHECKLIST]
 
 Render `Goals` as a checklist of measurable conditions. A bare prose goal with no pass condition is the primary low-value failure mode.
 
 ```markdown template
-## [2][GOALS]
+## [2]-[GOALS]
 
 - [ ] Generated contract accepts the seeded payload — proven by `<contract-validation command or status check>`.
 - [ ] No direct `Admission/ -> Storage/` writes remain — proven by `<dependency gate or manual check>`.
@@ -200,7 +200,7 @@ Render `Goals` as a checklist of measurable conditions. A bare prose goal with n
 
 Each item pairs outcome with the metric, threshold, or signal that proves it. Carry the same scope boundary into `Non-goals`: a declined scope is a plausible candidate the reader might expect.
 
-## [7][ALTERNATIVES_CONSIDERED]
+## [7]-[ALTERNATIVES_CONSIDERED]
 
 Use a comparison table when two or more options survive triage. The baseline row is mandatory when inaction was plausible. Name columns after the deciding facts agents need, not generic sentiment.
 
@@ -216,7 +216,7 @@ When only one option survived and the trade-off is asymmetric, a `Lightweight` d
 - Rejected alternatives: `Single-writer queue` and `sharded design`, with no selected-option trade-off.
 - Reason: the rejected shape records options without the deciding trade-off.
 
-## [8][CHANGE_SLICES]
+## [8]-[CHANGE_SLICES]
 
 A change slice is one self-contained change that an agent can understand, validate, and revert without the rest of the proposal landing first. Use a compact table only while rollback and handoff facts stay short:
 
@@ -228,7 +228,7 @@ A change slice is one self-contained change that an agent can understand, valida
 Promote slices to records when proof, rollback, or adjacent handoff needs more than a short cell:
 
 ```markdown template
-### [N.M][CONTRACT_FREEZE]
+### [N.M]-[CONTRACT_FREEZE]
 
 ID: S1
 Kind: contract
@@ -245,12 +245,12 @@ Slice kinds are local labels, not a closed global sequence. Keep dependency orde
 - Rejected slice table: `S1 refactor -> S2 implementation -> S3 tests`.
 - Reason: the rejected shape invites fixed-sequence copying.
 
-## [9][TRACKABLE_RECORDS]
+## [9]-[TRACKABLE_RECORDS]
 
 `Cross-cutting implications` carries one record per concern for `Standard` and `Public-contract` designs:
 
 ```markdown template
-### [N.M][SECURITY]
+### [N.M]-[SECURITY]
 
 Concern: security
 Applies: yes | no
@@ -261,7 +261,7 @@ Decision: <constraint, mitigation, or n/a reason>
 `Risks and open questions` carries one record per item. Use uppercase status values: `OPEN`, `ASSIGNED`, and `DEFERRED` are active or returnable; `RESOLVED`, `ACCEPTED-AS-RISK`, and `DROPPED` are terminal. A `DEFERRED` item must name the return trigger or adjacent route that can reopen it. `DROPPED` records may be deleted only when no design, ADR, roadmap, proof receipt, or adjacent document references them. `ACCEPTED-AS-RISK` persists until an ADR, roadmap, support row, or proof receipt carries the residual risk.
 
 ```markdown template
-### [N.M][SHARD_REBALANCE]
+### [N.M]-[SHARD_REBALANCE]
 
 ID: R1
 Status: ACCEPTED-AS-RISK
@@ -275,7 +275,7 @@ Update when: selected write path, route failover behavior, or proof gate changes
 Close when: failover benchmark lands or ADR accepts the residual risk.
 Route-away: implementation issue discussion and benchmark procedure stay in their documents.
 
-### [N.M][WRITER_FANOUT]
+### [N.M]-[WRITER_FANOUT]
 
 ID: Q1
 Status: RESOLVED
@@ -327,7 +327,7 @@ Strategy gate route: <test strategy path and gate anchor>
 
 The design is ready to accept only when every required check reads `satisfied`, every objection reads `RESOLVED` or `ACCEPTED-AS-RISK`, and no live risk remains `OPEN`.
 
-## [10][LIFECYCLE]
+## [10]-[LIFECYCLE]
 
 Statuses advance in one direction except for a documented return to `DISCUSSION`. Each transition has an observable entry condition. The conceptual diagram shows the proposal lifecycle.
 
@@ -365,7 +365,7 @@ Enter `FINAL-CHECK` only when an agent can evaluate the final direction without 
 
 `IMPLEMENTED` is a handoff status, not implementation routing. It records that the implementation source, ADR, roadmap milestone, release note, or proof receipt is linked; active implementation state belongs to those routes.
 
-## [11][DECISION_RECORD_HANDOFF]
+## [11]-[DECISION_RECORD_HANDOFF]
 
 After acceptance, create an ADR when the design binds two or more routes, packages, runtime boundaries, or durable contracts, or when it supersedes a prior durable decision. The design names the handoff targets; adjacent document standards own derivation mechanics, current architecture proof, milestone exit, and gate policy.
 
@@ -399,11 +399,11 @@ Use this handoff decision table:
 |   [8]   | adoption or task path changes | README, tutorial, or how-to  |
 |   [9]   | operational readiness changes | runbook                      |
 
-## [12][MODAL_LANGUAGE]
+## [12]-[MODAL_LANGUAGE]
 
 Use lowercase `must`, `should`, and `may` with the local craft standard's ordinary prose meanings: requirement, recommendation, and permission. Do not use bracketed all-caps tags such as `[MUST]`, `[SHOULD]`, or `[ALWAYS]` in a design document.
 
-## [13][PRECEDENCE]
+## [13]-[PRECEDENCE]
 
 Source order decides a wording or scope question when sources disagree:
 1. Current repository source, manifests, generated contracts, and accepted decisions the proposal must respect.
@@ -412,7 +412,7 @@ Source order decides a wording or scope question when sources disagree:
 
 A design document proposes; it never overrides an accepted decision. When a slice contradicts an accepted ADR, the design must either narrow scope or plan the ADR supersession handoff.
 
-## [14][BOUNDARIES]
+## [14]-[BOUNDARIES]
 
 [EXPLANATION_TYPES]:
 - [adr.md](adr.md) carries the accepted durable decision and its confirmation evidence after this proposal is accepted.
@@ -429,7 +429,7 @@ A design document proposes; it never overrides an accepted decision. When a slic
 - [contributing.md](../task/contributing.md) carries contribution workflow when a design changes it.
 - [README.md](../README.md) routes document-type choice, placement, and lifecycle questions.
 
-## [15][VALIDATION]
+## [15]-[VALIDATION]
 
 [GATE_PROFILE]:
 - [ ] The document has real ambiguity: at least two plausible approaches, cross-boundary consequences, or unresolved trade-offs.

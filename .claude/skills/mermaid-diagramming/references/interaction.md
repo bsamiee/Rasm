@@ -1,9 +1,9 @@
 # [H1][INTERACTION]
 
 Two diagram types: `sequenceDiagram` (message-passing protocols), `journey` (user experience mapping).
-## [1][SEQUENCE]
+## [1]-[SEQUENCE]
 
-### [1.1][PARTICIPANTS]
+### [1.1]-[PARTICIPANTS]
 
 | [INDEX] | [TYPE]      | [SYNTAX]                                  | [RENDER]           | [UML_SEMANTIC]      |
 | :-----: | ----------- | ----------------------------------------- | ------------------ | ------------------- |
@@ -22,7 +22,7 @@ Two diagram types: `sequenceDiagram` (message-passing protocols), `journey` (use
 
 [CRITICAL] JSON type requires double quotes; incompatible with `as Alias` syntax.
 
-### [1.2][ARROWS]
+### [1.2]-[ARROWS]
 
 | [INDEX] | [SYNTAX] | [APPEARANCE]         | [USE_CASE]          |
 | :-----: | -------- | -------------------- | ------------------- |
@@ -43,7 +43,7 @@ Two diagram types: `sequenceDiagram` (message-passing protocols), `journey` (use
 
 [CRITICAL] Reserved word `end` in messages wraps as `(end)`, `[end]`, `{end}`.
 
-### [1.3][CONTROL_FLOW]
+### [1.3]-[CONTROL_FLOW]
 
 | [INDEX] | [BLOCK]  | [SYNTAX]                                    | [PURPOSE]                  |
 | :-----: | -------- | ------------------------------------------- | -------------------------- |
@@ -71,14 +71,14 @@ break When process fails
 end
 ```
 
-### [1.4][FEATURES]
+### [1.4]-[FEATURES]
 
 **Autonumber:** `autonumber`—placed after `sequenceDiagram`, before first message; no offset/increment control.
 **Links:** `link A: Label @ URL` (single), `links A: {"Label1": "URL1", "Label2": "URL2"}` (multi)—placed after participant declarations; `participant` compatible only; `actor` has known issues.
 
-## [2][JOURNEY]
+## [2]-[JOURNEY]
 
-### [2.1][SYNTAX]
+### [2.1]-[SYNTAX]
 
 **Structure:** `journey` → `title Label` → `section Phase` → `Task: score: Actor1, Actor2`.
 
@@ -108,11 +108,11 @@ journey
 ```
 **Theming:** Variables `fillType0`-`fillType9` (sections), `titleColor`/`titleFontFamily`/`titleFontSize` (v11+); actor colors theme-dependent—use `themeCSS` for overrides.
 
-## [3][CONFIG]
+## [3]-[CONFIG]
 
 Comments via `%% text` (single-line only, own line).
 
-### [3.1][SEQUENCE_CONFIG]
+### [3.1]-[SEQUENCE_CONFIG]
 
 | [INDEX] | [KEY]                    | [TYPE]  | [DEFAULT] | [EFFECT]                                 |
 | :-----: | ------------------------ | ------- | :-------: | ---------------------------------------- |
@@ -144,7 +144,7 @@ Comments via `%% text` (single-line only, own line).
 |   [2]   | `message` |       16       | Message text       |
 |   [3]   | `note`    |       14       | Note content       |
 
-### [3.2][JOURNEY_CONFIG]
+### [3.2]-[JOURNEY_CONFIG]
 
 | [INDEX] | [KEY]         | [TYPE]  | [DEFAULT] | [EFFECT]               |
 | :-----: | ------------- | ------- | :-------: | ---------------------- |

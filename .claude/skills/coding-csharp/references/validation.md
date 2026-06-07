@@ -6,7 +6,7 @@
 Structural quality checklist for auditing `.cs` modules against csharp-standards contracts. Use after scaffolding, editing, or reviewing any module. Items below are not enforced by the compiler or editorconfig — apply judgment against the referenced contracts.
 
 ---
-## [1][TYPE_INTEGRITY]
+## [1]-[TYPE_INTEGRITY]
 
 - [ ] One canonical type per entity -- no duplicate record definitions across files
 - [ ] Domain primitives use `readonly record struct` + `private` constructor + `Fin<T>` factory -- raw `string`/`int`/`Guid` absent from public signatures
@@ -15,7 +15,7 @@ Structural quality checklist for auditing `.cs` modules against csharp-standards
 - [ ] Phantom type markers are empty `readonly struct` -- no fields, no methods
 
 ---
-## [2][ERROR_SYMPTOMS]
+## [2]-[ERROR_SYMPTOMS]
 
 Diagnostic table for structural issues. Consult FIRST when triaging code review findings.
 
@@ -38,7 +38,7 @@ Diagnostic table for structural issues. Consult FIRST when triaging code review 
 |  [15]   | **Composition root has long `Add*` chains** | Registration drift risk       | Scrutor `Scan` + explicit `UsingRegistrationStrategy` |
 
 ---
-## [3][EFFECT_INTEGRITY]
+## [3]-[EFFECT_INTEGRITY]
 
 - [ ] `Fin<T>` for synchronous fallible operations -- `Bind`/`Map` chain; `Match` appears ONLY at program/API boundaries
 - [ ] `Validation<Error,T>` for multi-field validation -- applicative `.Apply()` tuple; no sequential short-circuiting
@@ -47,7 +47,7 @@ Diagnostic table for structural issues. Consult FIRST when triaging code review 
 - [ ] No `Match` mid-pipeline -- if `.Match(Succ: ..., Fail: ...)` appears before the final return/boundary, it is premature; use `Map`/`Bind`/`BiMap` instead
 
 ---
-## [4][CONTROL_FLOW]
+## [4]-[CONTROL_FLOW]
 
 - [ ] Zero `if`/`else`/`while`/`for`/`foreach` in domain code; boundary adapters may use minimal protocol-required flow only *(try/catch/throw: see [3] EFFECT_INTEGRITY)*
 - [ ] Exhaustive switch on DU hierarchies -- compiler-enforced; no silent `_` discard arm that swallows future variants -- `_ => throw new UnreachableException()` is the permitted defensive pattern *(C# does not yet support first-class DU exhaustiveness)*
@@ -56,7 +56,7 @@ Diagnostic table for structural issues. Consult FIRST when triaging code review 
 - [ ] Sealed DU / no-setter invariants: see [1] TYPE_INTEGRITY [CONTRACTS]
 
 ---
-## [5][SURFACE_QUALITY]
+## [5]-[SURFACE_QUALITY]
 
 - [ ] **No helper spam**: every private function is called from 2+ sites within the module — single-call private functions are inlined; multi-call functions collapse into the canonical owning [Union]'s dispatch arm or SmartEnum behavior closure, never a standalone helper file
 - [ ] **No arity spam**: 3+ methods sharing a name prefix or structural pattern collapse to one polymorphic function via `params ReadOnlySpan<T>` or a typed query algebra
@@ -66,7 +66,7 @@ Diagnostic table for structural issues. Consult FIRST when triaging code review 
 - [ ] **Composition roots are deterministic**: use Scrutor scan/decorate flows with explicit registration strategy rather than ad-hoc `AddTransient`/`AddScoped` accumulation
 
 ---
-## [6][DENSITY]
+## [6]-[DENSITY]
 
 - [ ] **Pressure-point density signals (not byte count)**: ≥3 parallel types/records for one concept; ≥3 sibling factory methods sharing a prefix; ≥3 near-identical switch arms; ≥3 single-call private helpers. Any one triggers IN-PLACE polymorphic collapse — never file extraction, never functionality removal.
 - [ ] **Greenfield posture**: no `[Obsolete]`, no `Adapt*`/`From*Legacy*` helpers, no `internal static T BackcompatX(...)`. Every refactor breaks APIs cleanly.
@@ -74,7 +74,7 @@ Diagnostic table for structural issues. Consult FIRST when triaging code review 
 - [ ] **No wrapper/indirection spam**: single-use `private` methods wrapping a library call with no additional logic should be inlined -- wrappers justified only when adding validation, error translation, or span-based optimization
 
 ---
-## [7][PERFORMANCE_SENSITIVITY]
+## [7]-[PERFORMANCE_SENSITIVITY]
 
 These checks apply ONLY to code annotated as hot-path or residing in performance-critical namespaces.
 
@@ -86,7 +86,7 @@ These checks apply ONLY to code annotated as hot-path or residing in performance
 - [ ] For bounded `length + allowed chars`, use cached `SearchValues<char>` + `ContainsAnyExcept`/`IndexOfAnyExcept`; reserve `[GeneratedRegex]` for structural grammars. See `performance.md` [7A]
 
 ---
-## [8][DETECTION_HEURISTICS]
+## [8]-[DETECTION_HEURISTICS]
 
 Concrete search patterns for any `.cs` file:
 
@@ -107,7 +107,7 @@ Concrete search patterns for any `.cs` file:
 |  [13]   | **`new Regex(` in smart constructor or domain code**     | RUNTIME_REGEX_COMPILATION      |    High    | CSP0704/CSP0606/SYSLIB1040 |
 
 ---
-## [9][QUICK_REFERENCE]
+## [9]-[QUICK_REFERENCE]
 
 | [INDEX] | [CHECKLIST_AREA]            | [WHAT_IT_VALIDATES]                                             | [REFERENCE]                         |
 | :-----: | :-------------------------- | :-------------------------------------------------------------- | :---------------------------------- |
@@ -122,7 +122,7 @@ Concrete search patterns for any `.cs` file:
 |   [9]   | **BOUNDARY_ADAPTER**        | FluentValidation async RuleSets bridged to typed channels       | `effects.md` [4], [2]               |
 
 ---
-## [10][BOUNDARY_ADAPTER]
+## [10]-[BOUNDARY_ADAPTER]
 
 > [BOUNDARY ONLY] FluentValidation adapters belong at the HTTP/API layer. Never import FluentValidation into domain modules. Use the bridge ONLY in application service boundary code.
 

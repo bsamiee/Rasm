@@ -1,6 +1,6 @@
 # [H1][ADVANCED-TRIGGERS]
 
-## [1][TRIGGER_SELECTION]
+## [1]-[TRIGGER_SELECTION]
 
 | [INDEX] | [SCENARIO]                    | [TRIGGER]                           | [SECRETS] | [PATH_FILTER] |
 | :-----: | ----------------------------- | ----------------------------------- | :-------: | :-----------: |
@@ -22,7 +22,7 @@ on:
     paths: ['packages/frontend/**', 'packages/shared/**']
 ```
 
-## [2][WORKFLOW_RUN]
+## [2]-[WORKFLOW_RUN]
 
 ```yaml
 on:
@@ -44,7 +44,7 @@ jobs:
 
 [IMPORTANT] Max 3 levels of chaining. Artifacts accessible via `run-id` from triggering workflow.
 
-## [3][REPOSITORY_DISPATCH]
+## [3]-[REPOSITORY_DISPATCH]
 
 ```yaml
 on:
@@ -67,7 +67,7 @@ curl -X POST -H "Authorization: Bearer $TOKEN" -H "Accept: application/vnd.githu
 
 [CRITICAL] Only triggers on default branch. Cross-repo dispatch requires App token or PAT.
 
-## [4][CHATOPS]
+## [4]-[CHATOPS]
 
 ```yaml
 on:
@@ -92,7 +92,7 @@ jobs:
 
 [IMPORTANT] Verify `author_association`. Pass comment content through `env:` indirection. [REFERENCE] [->expressions-and-contexts.md§INJECTION_PREVENTION](./expressions-and-contexts.md).
 
-## [5][WORKFLOW_DISPATCH]
+## [5]-[WORKFLOW_DISPATCH]
 
 ```yaml
 on:
@@ -114,11 +114,11 @@ on:
 
 **`ref` parameter:** API triggers specify branch/tag/SHA via `ref` field in request body. UI triggers use branch picker dropdown. Max 25 inputs, 65,535 chars payload.
 
-## [6][SCHEDULE]
+## [6]-[SCHEDULE]
 
 [IMPORTANT] All `schedule` cron expressions evaluate in **UTC only** (no timezone override). Timezone support is on GitHub roadmap (Q1 2026 preview). Convert local times manually. Schedules only run on the default branch.
 
-## [7][MERGE_GROUP]
+## [7]-[MERGE_GROUP]
 
 ```yaml
 on:
@@ -136,7 +136,7 @@ jobs:
 
 **Context properties:** `base_ref`, `base_sha`, `head_ref`, `head_sha`, `head_commit.*`
 
-## [8][PULL_REQUEST_TARGET]
+## [8]-[PULL_REQUEST_TARGET]
 
 **Dec 8, 2025 enforcement (active):** Workflow source always comes from default branch — no matter which branch the PR targets. `GITHUB_REF` resolves to `refs/heads/main`; `GITHUB_SHA` points to default branch HEAD at run start. Environment protection rules evaluate against the execution ref. This eliminates "pwn request" attacks where malicious PRs modified workflow definitions.
 
@@ -160,7 +160,7 @@ jobs:
             });
 ```
 
-## [9][DYNAMIC_MATRIX]
+## [9]-[DYNAMIC_MATRIX]
 
 ```yaml
 jobs:
@@ -196,7 +196,7 @@ jobs:
 
 [IMPORTANT] `uses:` values are static strings — not dynamically generated. Max 256 jobs per matrix.
 
-## [10][ORCHESTRATION_PATTERNS]
+## [10]-[ORCHESTRATION_PATTERNS]
 
 | [INDEX] | [PATTERN]                 | [KEY_RULES]                                                                                                |
 | :-----: | ------------------------- | ---------------------------------------------------------------------------------------------------------- |

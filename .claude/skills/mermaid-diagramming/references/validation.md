@@ -2,7 +2,7 @@
 
 Consolidated validation for all Mermaid diagram types. Anti-patterns, escaping rules, verification checklists.
 
-## [1][CONFIGURATION]
+## [1]-[CONFIGURATION]
 
 [REFERENCE] Configuration details: [->global-config.md](./global-config.md)
 
@@ -15,7 +15,7 @@ Consolidated validation for all Mermaid diagram types. Anti-patterns, escaping r
 - [ ] Theme uses `base` for `themeVariables`.
 - [ ] Security level via `initialize()` only.
 
-## [2][SECURITY]
+## [2]-[SECURITY]
 
 **Anti-patterns:** `securityLevel` in frontmatter (silently ignored), `javascript:` URLs, `data:` URLs, missing `dompurifyConfig`, `secure` override in config.
 
@@ -25,7 +25,7 @@ Consolidated validation for all Mermaid diagram types. Anti-patterns, escaping r
 - [ ] Sanitize callbacks for nodeId and user input.
 - [ ] Never use secure keys in frontmatter.
 
-## [3][ACCESSIBILITY]
+## [3]-[ACCESSIBILITY]
 
 **Anti-patterns:** `accTitle`/`accDescr` before diagram type (place after), accessibility in `block-beta` (#6524) and `mindmap` (#4167).
 
@@ -34,7 +34,7 @@ Consolidated validation for all Mermaid diagram types. Anti-patterns, escaping r
 - [ ] Provide `accDescr` for WCAG 2.1 compliance.
 - [ ] Avoid accessibility in `block-beta` and `mindmap` (known bugs).
 
-## [4][GRAPH_DIAGRAMS]
+## [4]-[GRAPH_DIAGRAMS]
 
 **Reserved words:** `end`, `default`, `subgraph`, `direction`, `style`, `linkStyle`, `classDef`, `class`, `click`, `flowchart`, `graph`. Escape: `id["end"]` or capitalize.
 **Node IDs:** Alphanumeric + underscore. Invalid first char: `o`, `x` (edge conflict).
@@ -53,7 +53,7 @@ Consolidated validation for all Mermaid diagram types. Anti-patterns, escaping r
 [VERIFY] Block:
 - [ ] `columns N` first; all blocks have explicit span `:N`.
 
-## [5][INTERACTION_DIAGRAMS]
+## [5]-[INTERACTION_DIAGRAMS]
 
 **Anti-patterns:** JSON without quotes, JSON + `as Alias` mixed, unbalanced `+`/`-` activation, missing `end`, `end` in message text (wrap in brackets), journey score outside 1-5.
 
@@ -64,7 +64,7 @@ Consolidated validation for all Mermaid diagram types. Anti-patterns, escaping r
 [VERIFY] Journey:
 - [ ] Scores integer 1-5 only; group tasks in `section` blocks.
 
-## [6][MODELING_DIAGRAMS]
+## [6]-[MODELING_DIAGRAMS]
 
 **Reserved words:** State: `end`, `state`. ER: `ONE`, `MANY`, `TO`, `U`, `1` (bug #7093).
 **Anti-patterns:** `<T>` generics (use `~T~`), missing visibility prefix, ER empty `{ }`, `classDef` inside composite, state styling on start/end.
@@ -83,7 +83,7 @@ Consolidated validation for all Mermaid diagram types. Anti-patterns, escaping r
 [VERIFY] Requirement:
 - [ ] `id:` field present; valid relation type.
 
-## [7][CHART_DIAGRAMS]
+## [7]-[CHART_DIAGRAMS]
 
 **Anti-patterns:** Pie values sum to 0, sankey circular flow, XY mismatched arrays, gantt invalid dates, radar axis/value mismatch, quadrant coords outside 0-1, treemap mixed indent or non-numeric leaf.
 
@@ -96,7 +96,7 @@ Consolidated validation for all Mermaid diagram types. Anti-patterns, escaping r
 - [ ] Quadrant: coordinates 0.0-1.0.
 - [ ] Treemap: consistent indentation, numeric leaves.
 
-## [8][ARCHITECTURE_DIAGRAMS]
+## [8]-[ARCHITECTURE_DIAGRAMS]
 
 **Anti-patterns:** C4 missing `Rel()`, undefined alias, wrong `$` prefix; architecture missing `in` clause; overlapping/incomplete bits in packet; gitgraph merge before branch, checkout before branch, cherry-pick same branch; kanban wrong indentation, wrong priority strings.
 
@@ -115,7 +115,7 @@ Consolidated validation for all Mermaid diagram types. Anti-patterns, escaping r
 [VERIFY] Kanban:
 - [ ] Tasks indented under columns; priority exact match with single quotes.
 
-## [9][ERROR_SYMPTOMS]
+## [9]-[ERROR_SYMPTOMS]
 
 | [INDEX] | [SYMPTOM]           | [FIX]                              |
 | :-----: | ------------------- | ---------------------------------- |

@@ -3,7 +3,7 @@
 
 <br>
 
-## [1][MANAGED]
+## [1]-[MANAGED]
 
 | [INDEX] | [COMMAND] | [USE] |
 | :-----: | --------- | ----- |
@@ -22,7 +22,7 @@
 Managed gates isolate build output under the repo-owned artifact root. Mutation is explicit and fail-fast on the repo-owned mutation lock.
 
 ---
-## [2][MUTATION]
+## [2]-[MUTATION]
 
 Stryker is owned by the configured pure-managed project/test pair. Thresholds and reporters come from the repo mutation owner. Zero discovery fails the rail.
 
@@ -32,7 +32,7 @@ Stryker is owned by the configured pure-managed project/test pair. Thresholds an
 ```
 
 ---
-## [3][RUNTIME]
+## [3]-[RUNTIME]
 
 | [INDEX] | [COMMAND] | [USE] |
 | :-----: | --------- | ----- |

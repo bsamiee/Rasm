@@ -3,7 +3,7 @@
 
 <br>
 
-## [1][ORACLE_ORDER]
+## [1]-[ORACLE_ORDER]
 
 | [INDEX] | [ORACLE] | [EXAMPLE] |
 | :-----: | -------- | --------- |
@@ -17,7 +17,7 @@
 [CRITICAL] Do not use production `Matrix.operator *`, `Matrix.Determinant`, `CloudKernel.*`, or the same projection method as the expected-value engine for the method under test.
 
 ---
-## [2][ORACLE_GRADE]
+## [2]-[ORACLE_GRADE]
 
 | [GRADE] | [ORACLE] | [USE] |
 | ------- | -------- | ----- |
@@ -35,7 +35,7 @@
 - Category rails are real value when the category is contractual: `Input`, `Tolerance`, `Result`, `Unsupported`, and `Operation` catch exception-shaped failures without overfitting exact prose.
 
 ---
-## [3][LAW_MATRIX]
+## [3]-[LAW_MATRIX]
 
 | [AXIS] | [LAW] | [BUGS_CAUGHT] |
 | ------ | ----- | ------------- |
@@ -49,7 +49,7 @@
 | Runtime | Static-vs-bridge classification, native validity, host/UI thread behavior. | Tests that pass outside the only runtime that matters. |
 
 ---
-## [4][ANTI_PATTERNS]
+## [4]-[ANTI_PATTERNS]
 
 - Snapshotting the current implementation output and asserting it later.
 - Using one test per branch when one generated law can traverse the axis.
@@ -68,7 +68,7 @@
 - **Hoisted `Op key` across `Switch` arms**: every `[Union].Switch` arm constructs `Op.Of(name: nameof(CaseName))` for diagnostic provenance.
 
 ---
-## [5][POLYMORPHIC_ORACLE_RULES]
+## [5]-[POLYMORPHIC_ORACLE_RULES]
 
 Cross-reference [density-axes.md `[4]`](density-axes.md) for the pattern catalog. Oracle-side rules that govern polymorphic specs:
 

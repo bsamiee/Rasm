@@ -2,7 +2,7 @@
 
 A support matrix is policy-backed reference: it states which runtime, platform, version, feature, integration, or combination is supported now, what that status grants, what bounds qualify it, and what evidence refreshes it. It is not a roadmap, release note, migration guide, or recovery procedure. It answers "is this supported, under which conditions, and until when" in one scan.
 
-## [1][USE_WHEN]
+## [1]-[USE_WHEN]
 
 Use a support matrix when a reader compares support facts across rows:
 - product, runtime, platform, host, toolchain, browser, device, or deployment support.
@@ -19,7 +19,7 @@ Route future support intent to [roadmap.md](../explanation/roadmap.md), current 
 - Adjacent checks: check roadmap for future intent, architecture for current path-state or codemap changes, API/code documentation for contract-backed support, README for entry status, how-to for migration steps, runbook for operational recovery, and reference for ordinary lookup facts only when a row changes those reader actions.
 - Maintenance triggers: update the matrix when a source lifecycle, support phase, compatibility bound, generated check, dependency floor, entitlement, host runtime, support row, deprecation warning, replacement, or migration route changes.
 
-## [2][PROFILES]
+## [2]-[PROFILES]
 
 Choose one profile per matrix. Split the page when a second profile would force a different status vocabulary, axis set, source model, or reading rule.
 
@@ -31,7 +31,7 @@ Choose one profile per matrix. Split the page when a second profile would force 
 
 Skew fields apply only to skew-governed systems. Other compatibility profiles may use semantic-version ranges, peer-dependency bounds, API version windows, provider policy terms, or generated compatibility-check outputs as the controlling model.
 
-## [3][SUPPORT_REGIME]
+## [3]-[SUPPORT_REGIME]
 
 Name the support regime in `Scope`, because regime is a support precondition.
 
@@ -43,7 +43,7 @@ Name the support regime in `Scope`, because regime is a support precondition.
 
 A matrix that mixes regimes states the regime per row or per section.
 
-## [4][REQUIRED_STRUCTURE]
+## [4]-[REQUIRED_STRUCTURE]
 
 Use the universal structure, then insert profile-conditional sections only where triggered.
 
@@ -54,35 +54,35 @@ Use this universal template:
 
 <Lead: name the supported surface, profile, support regime, and the single reader question the matrix answers.>
 
-## [1][SCOPE]
+## [1]-[SCOPE]
 
-## [2][STATUS_VOCABULARY]
+## [2]-[STATUS_VOCABULARY]
 
-## [3][MATRIX]
+## [3]-[MATRIX]
 
-## [4][EXCLUSIONS]
+## [4]-[EXCLUSIONS]
 
-## [5][BOUNDARIES]
+## [5]-[BOUNDARIES]
 
-## [6][VALIDATION]
+## [6]-[VALIDATION]
 ```
 
 Add these conditional sections only when the selected profile requires them:
 
 ```markdown template
-## [N][LIFECYCLE_DATES]
+## [N]-[LIFECYCLE_DATES]
 
-## [N][READING_RULE]
+## [N]-[READING_RULE]
 
-## [N][COMPATIBILITY_BOUNDS]
+## [N]-[COMPATIBILITY_BOUNDS]
 
-## [N][DEPENDENCY_FLOORS]
+## [N]-[DEPENDENCY_FLOORS]
 
-## [N][LIMITATIONS]
+## [N]-[LIMITATIONS]
 
-## [N][DEPRECATIONS]
+## [N]-[DEPRECATIONS]
 
-## [N][MIGRATION_PATHS]
+## [N]-[MIGRATION_PATHS]
 ```
 
 Section cardinality uses these groups:
@@ -104,7 +104,7 @@ Section cardinality uses these groups:
 - `Boundaries`: required, single.
 - `Validation`: required, single.
 
-## [5][LIFECYCLE_BASELINES]
+## [5]-[LIFECYCLE_BASELINES]
 
 Map imported lifecycle or compatibility concepts to their source instead of flattening them into local vocabulary.
 
@@ -133,7 +133,7 @@ When importing lifecycle data, preserve upstream field names before mapping them
 
 In support matrices, `n/a` is support-specific: it means the support field does not apply to that surface, version, platform, entitlement, or derived cell. It is not a general synonym for domain `none`, blank data, unknown support, or an unrun proof gate.
 
-## [6][STATUS_VOCABULARY]
+## [6]-[STATUS_VOCABULARY]
 
 Define statuses by the exact fix classes and support channels they grant. Local labels are display labels; each row must carry `Source phase:` and `Phase grants:` when a maintained policy carries the terms.
 
@@ -166,7 +166,7 @@ Support-display states: `Supported`, `Maintenance`, `Limited`, and `Deprecated` 
 
 These display states are support policy terms, not shared lifecycle tokens. Do not render them as `[ACTIVE]` or `[COMPLETE]`; use the exact support label in support rows and map to lifecycle only in an adjacent roadmap, README, or architecture record that declares the projection.
 
-## [7][LIFECYCLE_DATES]
+## [7]-[LIFECYCLE_DATES]
 
 State lifecycle dates as distinct fields and preserve source precision. Do not collapse active support, end of life, extended support, end of availability support, end of engineering support, discontinued, maintained, LTS, or latest-release facts into one date when the source distinguishes them.
 
@@ -221,7 +221,7 @@ stateDiagram-v2
 
 Text equivalent: the support row remains `Supported` until the source phase changes, moves through `Maintenance` only when the source grants reduced fix classes, may move directly to `Deprecated` when a replacement or removal policy exists, reaches `End of support` when ordinary fixes stop, and becomes `Retired` only when the surface is unavailable. Migration guidance belongs in deprecated records, not in a lifecycle state.
 
-## [8][MATRIX]
+## [8]-[MATRIX]
 
 Use a table when row-and-column scanning is the clearest comparison and keep it inside the shared table ceiling. Use a definition block when one surface is read by field. Use grouped subsections when a row needs paragraph detail, nested proof, or migration explanation.
 
@@ -274,7 +274,7 @@ Review trigger: `<release, policy, compatibility, entitlement, or generated-chec
 Route-away: `<README, API, roadmap, migration how-to, runbook, or support document body; omit untriggered routes>`
 ```
 
-## [9][READING_RULE]
+## [9]-[READING_RULE]
 
 State the derivation rule for two-axis, intersection, or computed matrix cells immediately beside the table. Without it, the grid is ambiguous.
 
@@ -286,7 +286,7 @@ Conditional support: row-owned record beside the affected row.
 
 Cells stay atomic: date, status, compact marker, or `n/a`. Put conditional support in row-owned records, not prose inside a cell.
 
-## [10][COMPATIBILITY_BOUNDS]
+## [10]-[COMPATIBILITY_BOUNDS]
 
 State compatibility bounds using the source model that governs the surface. For skew-governed systems, use this template:
 
@@ -310,11 +310,11 @@ For non-skew systems, replace skew fields with the actual controlling model:
 
 Never imply bidirectional or numeric skew support when the source uses another compatibility convention.
 
-## [11][DEPENDENCY_FLOORS]
+## [11]-[DEPENDENCY_FLOORS]
 
 State dependency floors where support depends on an upstream runtime, OS, toolchain, host, or package. Each row names the minimum supported upstream version, any ceiling, and the upstream end-of-life rule. Local support never extends past the upstream's own end of life unless an explicit extended-support program is named and sourced.
 
-## [12][EXCLUSIONS]
+## [12]-[EXCLUSIONS]
 
 Enumerate unsupported configurations explicitly. The absence of a row is not proof of support or lack of support.
 
@@ -324,7 +324,7 @@ Unsupported: treating an unsupported platform package as a runtime dependency; u
 
 The examples are maintained-source exclusion shapes. Publish only exclusions proven by a support map, usage guide, or generated API metadata.
 
-## [13][DEPRECATIONS]
+## [13]-[DEPRECATIONS]
 
 Distinguish `Deprecated`, `End of support`, `Retired`, and `Unsupported`; they answer different reader questions. Render each deprecation as a definition block or per-item record, not a bullet list of fields.
 
@@ -352,7 +352,7 @@ Last verified: YYYY-MM-DD
 Review trigger: command surface, generated API contract, support policy, or migration route changes.
 ```
 
-## [14][MIGRATION_PATHS]
+## [14]-[MIGRATION_PATHS]
 
 Keep migration guidance decision-oriented. For each migration, name source surface, target surface, direct or staged path, prerequisites, known breaking changes, evidence signal, and controlling how-to. Put the step-by-step work in [how-to.md](../task/how-to.md) and operational recovery in [runbook.md](../task/runbook.md).
 
@@ -371,7 +371,7 @@ Close when: `<target is adopted, source is removed, or consuming document routes
 Route-away: `<step-by-step migration, API catalog, README body, roadmap sequence, or runbook recovery body>`
 ```
 
-## [15][PLACEMENT]
+## [15]-[PLACEMENT]
 
 Place the matrix where the source path or generated artifact that refreshes it first points:
 - Scope-local reference corpus when support truth belongs to one package, tool, or subsystem.
@@ -381,7 +381,7 @@ Place the matrix where the source path or generated artifact that refreshes it f
 
 Do not create a shared support folder by implication inside this standard.
 
-## [16][BOUNDARIES]
+## [16]-[BOUNDARIES]
 
 [REFERENCE_ROUTES]:
 - [reference.md](reference.md) carries support facts when support is one lookup fact among many.
@@ -397,7 +397,7 @@ Do not create a shared support folder by implication inside this standard.
 
 Package graph states are adoption states, not support statuses by default. A support matrix may consume package state only when it maps the row to support regime, source phase, fix classes, support channel, compatibility bounds, replacement, and removal behavior.
 
-## [17][VALIDATION]
+## [17]-[VALIDATION]
 
 Use this verification checklist by group:
 

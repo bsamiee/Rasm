@@ -24,7 +24,7 @@ Docker Engine 27+ | BuildKit 0.27+ | Dockerfile syntax 1.14 | Node 24 LTS Krypto
 - *Orchestration:* docker-bake.hcl for monorepo multi-target builds
 - *Not:* Building/running containers, debugging runtime issues
 
-## [1][REQUIREMENTS]
+## [1]-[REQUIREMENTS]
 
 **Guidance:**
 - `Language` -- Language, version, framework, entry point, package manager (pnpm/npm/uv/go mod/maven/gradle)
@@ -37,7 +37,7 @@ Docker Engine 27+ | BuildKit 0.27+ | Dockerfile syntax 1.14 | Node 24 LTS Krypto
 
 [REFERENCE]: [dockerfile_knowledge.md](./references/dockerfile_knowledge.md) -- Generation patterns, language substitution, cache mounts.
 
-## [2][MANDATORY_FEATURES]
+## [2]-[MANDATORY_FEATURES]
 
 **Guidance:**
 - `Syntax` -- `# syntax=docker/dockerfile:1` as first line (enables BuildKit frontend).
@@ -50,7 +50,7 @@ Docker Engine 27+ | BuildKit 0.27+ | Dockerfile syntax 1.14 | Node 24 LTS Krypto
 - **Metadata:** OCI labels (`org.opencontainers.image.title/source/licenses/revision/created/version`), Pulumi-injectable ARGs (`GIT_SHA`, `BUILD_DATE`, `IMAGE_VERSION`)
 - **Runtime:** `HEALTHCHECK` with `--start-interval=2s` (exec-form CMD), `STOPSIGNAL SIGTERM`, non-privileged ports (>1024)
 
-## [3][PNPM_MONOREPO]
+## [3]-[PNPM_MONOREPO]
 
 **Guidance:**
 - `Fetch-first` -- `pnpm fetch --frozen-lockfile` downloads to store without installing (maximizes cache hits).
@@ -65,7 +65,7 @@ Docker Engine 27+ | BuildKit 0.27+ | Dockerfile syntax 1.14 | Node 24 LTS Krypto
 
 [REFERENCE]: [dockerfile_knowledge.md](./references/dockerfile_knowledge.md) -- pnpm monorepo pattern, cache mount targets.
 
-## [4][DELIVERABLES]
+## [4]-[DELIVERABLES]
 
 | [INDEX] | [LANGUAGE]                | [ESTIMATED_SIZE] |
 | :-----: | ------------------------- | :--------------: |
@@ -86,7 +86,7 @@ docker buildx build \
     -t myapp:latest --push .
 ```
 
-## [5][VALIDATION]
+## [5]-[VALIDATION]
 
 **Severity classification:**
 - `Critical` -- Hardcoded secrets in ENV/ARG, cert bypass flags, no USER directive.

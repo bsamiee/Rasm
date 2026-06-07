@@ -2,7 +2,7 @@
 
 This folder is the C# stack decision atlas. It routes language, platform, dependency-backed capability, numeric, sparse, and proof-tool decisions to the document that owns the coding choice.
 
-## [1][CHOOSE]
+## [1]-[CHOOSE]
 
 This table is a lookup by reader decision.
 
@@ -18,7 +18,7 @@ This table is a lookup by reader decision.
 |   [8]   | proof rail             | [testing](testing/README.md)                         |
 |   [9]   | cross-stack precedence | [usage](../../usage/README.md)                       |
 
-## [2][OWNER_RULE]
+## [2]-[OWNER_RULE]
 
 Package versions, references, injected globals, local tools, and graph admission live in [build and packages](platform/build-and-packages.md). System API replacement decisions live in [system APIs](platform/system-apis.md). Coding decisions live in the capability page that owns the concern, even when an approved package implements the behavior.
 

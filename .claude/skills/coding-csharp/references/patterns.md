@@ -4,7 +4,7 @@
 Anti-pattern codex with corrective examples for C# 14 / .NET 10 functional modules. All examples assume `using static LanguageExt.Prelude;`. For detection heuristics, see `validation.md`.
 
 ---
-## [1][ANTI_PATTERN_CODEX]
+## [1]-[ANTI_PATTERN_CODEX]
 >**Dictum:** *Each anti-pattern is a local decision that compounds into global drag.*
 
 **VAR_INFERENCE**
@@ -165,7 +165,7 @@ public readonly record struct UserId<TState> {
 [CORRECT]: COLLAPSE-IN-PLACE — merge the repetitive switch arms into a single arm parameterized by a `[Union]` case or `SmartEnum<T>` entry carrying the varying field as data. The "varying part" becomes a payload field on the case, NOT a new file, NOT a new helper, NOT a deletion. File proliferation, helper extraction, and functionality removal are always code smells. The fix is more polymorphism in the same surface, never less code.
 
 ---
-## [2][QUICK_REFERENCE]
+## [2]-[QUICK_REFERENCE]
 >**Dictum:** *Symptoms point to structural causes; fixes are architectural.*
 
 | [INDEX] | [PATTERN]                | [SYMPTOM]                              | [FIX]                                                        |

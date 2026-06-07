@@ -2,7 +2,7 @@
 
 [IMPORTANT] Docker Engine 29.2+ | BuildKit 0.27+ | Dockerfile syntax 1 (auto-resolving) | February 2026
 
-## [1][MULTI_STAGE_TEMPLATE]
+## [1]-[MULTI_STAGE_TEMPLATE]
 
 ```dockerfile
 # syntax=docker/dockerfile:1
@@ -44,7 +44,7 @@ HEALTHCHECK --interval=30s --timeout=5s --start-period=${START} --start-interval
 ENTRYPOINT ${ENTRYPOINT}
 ```
 
-## [2][LANGUAGE_SUBSTITUTION]
+## [2]-[LANGUAGE_SUBSTITUTION]
 
 | [INDEX] | [STACK]       | [BUILD_IMAGE]             | [RUNTIME_IMAGE]             |
 | :-----: | ------------- | ------------------------- | --------------------------- |
@@ -80,7 +80,7 @@ ENTRYPOINT ${ENTRYPOINT}
 - **NODE/JAVA** (Alpine): `addgroup -g 1001 -S nodejs && adduser -u 1001 -S -G nodejs -s /sbin/nologin nodejs`
 - **GO_DISTROLESS**: Built-in `nonroot` user (UID 65532) — no creation needed
 
-## [3][PNPM_MONOREPO]
+## [3]-[PNPM_MONOREPO]
 
 **Stage sequence:** `base` (corepack enable) -> `deps` (fetch + install) -> `build` (nx build + pnpm deploy) -> `runtime`
 
@@ -97,7 +97,7 @@ ENTRYPOINT ${ENTRYPOINT}
 - `STOPSIGNAL SIGTERM` for graceful Node.js shutdown
 - Exemplar: the Dockerfile in the physical app root is the production reference.
 
-## [4][CACHE_MOUNTS]
+## [4]-[CACHE_MOUNTS]
 
 | [INDEX] | [PKG_MGR]    | [CACHE_TARGET]                          |
 | :-----: | ------------ | --------------------------------------- |
@@ -122,7 +122,7 @@ ENTRYPOINT ${ENTRYPOINT}
 10. apt: Add `sharing=locked`
 11. apk: `apk add --no-cache` sufficient
 
-## [5][FRAMEWORK_NOTES]
+## [5]-[FRAMEWORK_NOTES]
 
 | [INDEX] | [FRAMEWORK]        | [KEY_PATTERNS]                                                                                                                 |
 | :-----: | ------------------ | ------------------------------------------------------------------------------------------------------------------------------ |
@@ -133,7 +133,7 @@ ENTRYPOINT ${ENTRYPOINT}
 |   [5]   | **Django**         | gunicorn `--bind 0.0.0.0:8000 --workers 4`, collect static in build stage                                                      |
 |   [6]   | **Remix**          | `output: 'server'`, copy `build/server` + `build/client` + `public`                                                            |
 
-## [6][BUILD_ORCHESTRATION]
+## [6]-[BUILD_ORCHESTRATION]
 
 ```hcl
 variable "GIT_SHA"    { default = "unknown" }

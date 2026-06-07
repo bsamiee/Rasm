@@ -2,7 +2,7 @@
 
 Scope: `libs/csharp/Rasm.Persistence/` only. Root policy and `libs/csharp/AGENTS.md` own universal C# and library-family rules; local README, `ARCHITECTURE.md`, and `ROADMAP.md` own store state, package facts, and implementation sequence.
 
-## [1][READ_ORDER]
+## [1]-[READ_ORDER]
 
 - Before production work, read `README.md`, `ARCHITECTURE.md`, and `ROADMAP.md` to decide store state, provider proof, and sequence.
 - Before changing durable-work scheduling or runtime receipts, read `Rasm.AppHost/AGENTS.md`.
@@ -10,13 +10,13 @@ Scope: `libs/csharp/Rasm.Persistence/` only. Root policy and `libs/csharp/AGENTS
 - Before changing benchmark, cache, model-result, or execution-artifact storage, read `Rasm.Compute/AGENTS.md`.
 - Before package, BCL, or host-reference changes, read `docs/stacks/csharp/platform/` and `docs/usage/composition.md`.
 
-## [2][OWNER_CONTRACT]
+## [2]-[OWNER_CONTRACT]
 
 `Rasm.Persistence` is the local durable-state platform. It owns store rails, query algebra, migrations, snapshots, read-only live-state projection, support-artifact storage, and typed store receipts; it does not own domain semantics, UI observation, GH solve behavior, AppHost scheduling, or compute execution.
 
 Keep storage operations as typed lifecycle operations and typed query algebras. Use bracketed resource lifetimes, one operation context per call, explicit store receipts, and source-owned serialization or snapshot rails.
 
-## [3][EXTENSION_GRAMMAR]
+## [3]-[EXTENSION_GRAMMAR]
 
 - New store operation: extend `StoreLifecycleOp`, `StoreQuery<TResult>`, `StoreDispatch`, `AppState`, `SnapshotEnvelope`, or `StoreReceipt` before adding a repository wrapper.
 - New durable receipt: extend store receipt fields when the fields carry route, status, count, checksum, compression, snapshot, or migration proof.
@@ -25,7 +25,7 @@ Keep storage operations as typed lifecycle operations and typed query algebras. 
 - New support artifact: route request ownership through AppHost; Persistence stores, redacts, exports, and cleans.
 - Package-backed storage behavior: read `ARCHITECTURE.md` and central manifests, then internalize approved package capability inside lifecycle, query, snapshot, live-state, support-artifact, and receipt rails before exposing provider selectors, serializer knobs, repository abstractions, or compatibility aliases.
 
-## [4][BOUNDARY_RULES]
+## [4]-[BOUNDARY_RULES]
 
 | [INDEX] | [BOUNDARY]         | [RULE]                                                             |
 | :-----: | :----------------- | :----------------------------------------------------------------- |
@@ -36,7 +36,7 @@ Keep storage operations as typed lifecycle operations and typed query algebras. 
 |   [5]   | `Rasm.AppUi`       | Observes live state through its scheduler boundary                 |
 |   [6]   | Support bundles    | AppHost requests; Persistence stores, redacts, exports, and cleans |
 
-## [5][REJECTIONS]
+## [5]-[REJECTIONS]
 
 - No GH solve hot-path calls.
 - No EF, SQLite, serializer, or store references in domain projects.
@@ -45,6 +45,6 @@ Keep storage operations as typed lifecycle operations and typed query algebras. 
 - No provider API, native asset, or encryption claim without architecture proof.
 - No package versions in documentation text; version truth lives in central manifests.
 
-## [6][STOP_RULES]
+## [6]-[STOP_RULES]
 
 If provider behavior, native asset loading, encryption availability, corrupt-store recovery, downgrade guards, live-state serialization, backup, or snapshot behavior cannot be proved statically, route the claim to architecture proof or runtime verification instead of weakening the storage contract.

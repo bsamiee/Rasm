@@ -13,7 +13,7 @@ Execute Exa AI search queries via Python CLI. API key auto-injected via 1Passwor
 
 [IMPORTANT] Exa 2.0 introduced three search tiers: `fast` (sub-350ms), `auto` (balanced), `deep` (agentic, highest quality). Default: `auto`.
 
-## [1][COMMANDS]
+## [1]-[COMMANDS]
 
 | [CMD]        | [ARGS]                 | [RETURNS]                        |
 | ------------ | ---------------------- | -------------------------------- |
@@ -22,7 +22,7 @@ Execute Exa AI search queries via Python CLI. API key auto-injected via 1Passwor
 | find-similar | `<url> [num]`          | Pages similar to given URL       |
 | answer       | `<query>`              | AI-generated answer with sources |
 
-## [2][USAGE]
+## [2]-[USAGE]
 
 ```bash
 # Web search (default: auto type, 8 results)
@@ -50,7 +50,7 @@ uv run $CLAUDE_HOME/skills/exa-tools/scripts/exa.py find-similar "https://effect
 uv run $CLAUDE_HOME/skills/exa-tools/scripts/exa.py answer "What are the latest Vite migration considerations?"
 ```
 
-## [3][ARGUMENTS]
+## [3]-[ARGUMENTS]
 
 **search**: `<query> [type] [num]`
 - `query` — Search query (required)
@@ -68,7 +68,7 @@ uv run $CLAUDE_HOME/skills/exa-tools/scripts/exa.py answer "What are the latest 
 **answer**: `<query>`
 - `query` — Question to answer with web sources (required)
 
-## [4][OUTPUT]
+## [4]-[OUTPUT]
 
 Commands return: `{"status": "success|error", ...}`.
 
@@ -79,13 +79,13 @@ Commands return: `{"status": "success|error", ...}`.
 |   [3]   | `find-similar` | `{url, results[]}`           |
 |   [4]   | `answer`       | `{query, answer, sources[]}` |
 
-## [5][ENVIRONMENT]
+## [5]-[ENVIRONMENT]
 
 | [VAR]         | [REQUIRED] | [DESCRIPTION]                    |
 | ------------- | ---------- | -------------------------------- |
 | `EXA_API_KEY` | Yes        | Exa API key (1Password injected) |
 
-## [6][ERROR_HANDLING]
+## [6]-[ERROR_HANDLING]
 
 - HTTP errors print `[ERROR] <status>: <body>` and exit 1
 - Rate limit (429): retry after `Retry-After` header value

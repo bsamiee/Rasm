@@ -2,7 +2,7 @@
 
 Code documentation exists only when a public caller needs semantics the declaration cannot express. Signatures, annotations, schemas, shell declarations, SQL objects, and catalogs own machine shape; source comments own omitted caller-visible obligations, outcomes, failure channels, side effects, resource contracts, security exposure, lifecycle signals, and resolvable routes.
 
-## [1][USE_WHEN]
+## [1]-[USE_WHEN]
 
 Apply this standard when writing or reviewing source-level documentation for:
 - public visible types, members, functions, methods, modules, packages, properties, scripts, command functions, SQL functions, routines, policies, and catalog objects.
@@ -21,7 +21,7 @@ Omit comments that restate source-owned facts: signatures, obvious accessors, pr
 - Maintenance triggers: public surface added, removed, renamed, retyped, made visible, given a new failure carrier, changed side effect, changed generated-reference anchor, changed schema catalog comment, changed script command, or changed caller-visible invariant.
 - Stale prevention: source comments document semantics that source shape cannot express; generated catalogs are regenerated or linked, not rebuilt by hand.
 
-## [2][DECISION_ROUTER]
+## [2]-[DECISION_ROUTER]
 
 Review a surface before writing a comment. Public visibility creates a documentation question, not an automatic comment requirement.
 
@@ -48,7 +48,7 @@ Review a surface before writing a comment. Public visibility creates a documenta
 - Prose mechanics inside comments belong in [style-guide.md](../style-guide.md).
 - Comments and generator-consumed metadata must not contain secrets, personal data, tenant identifiers, credential routes, private host paths, exploit steps, or privileged assumptions.
 
-## [3][PRODUCED_SHAPE]
+## [3]-[PRODUCED_SHAPE]
 
 Produced source comments use the smallest syntax the language toolchain parses. Do not publish a manual profile label in a source comment unless the toolchain defines that exact tag.
 
@@ -73,7 +73,7 @@ Omit when: `<signature, annotation, schema, catalog, shell declaration, or SQL o
 - Lifecycle-tag record: conditional; include only when an external support contract consumes a lifecycle marker.
 - Example: conditional; include only beside non-obvious misuse where prose alone is likely to fail.
 
-## [4][GENERATED_HANDOFF]
+## [4]-[GENERATED_HANDOFF]
 
 Use a generated-reference handoff only when a public comment changes contract behavior, generated output, or an adjacent reader action. When an API page already carries `Generation command` or proof fields, this handoff links the generated anchor and avoids duplicating those fields; when a clarity fix preserves behavior, no adjacent document changes are required.
 
@@ -86,7 +86,7 @@ Use a generated-reference handoff only when a public comment changes contract be
 - `Route-away`: README, api, reference, architecture, roadmap, runbook, how-to, tutorial, or support body that stays in its route.
 - Optional local fields: `Public surface`, `Source paths`, `Generated reference`, `Generation command`, `Failure carriers`, `Evidence`, `Generated from`, `Controlling source`, and `Review trigger`; proof and freshness label meanings stay in [proof.md](../proof.md).
 
-## [5][SURFACE_MODEL]
+## [5]-[SURFACE_MODEL]
 
 Choose one public-surface profile during authoring and review. A comment is complete when a caller can use the surface correctly and handle every outcome from the declaration plus comment without reading the body.
 
@@ -114,7 +114,7 @@ Functional, result-oriented, and expression-style APIs document observable chann
 
 State boundary details only when the public surface crosses them: native exception conversion, process exit, SQL error conversion, host fault conversion, deferred execution, transaction commit, resource release, or generated-reference mirroring. A comment that says only `returns Fin<T>`, `Effect<A, E, R>`, `Result[T, E]`, `Promise<T>`, SQL return type, or another typed carrier without naming failure variants is incomplete.
 
-## [6][LANGUAGE_CAPSULES]
+## [6]-[LANGUAGE_CAPSULES]
 
 Each language capsule uses the syntax its toolchain parses and keeps semantic content out of generated catalogs. The capsule shape is `Toolchain`, `Generated profile`, `Comment owns`, `Rail/resource rules`, `Special shapes`, `Reject`, and `Syntax cue`; examples are syntax cues, not duplicate policy bodies.
 
@@ -130,7 +130,7 @@ Language-version claims are target standards and route freshness through [proof.
 |   [4]   | Bash 5.3+       | contract comments          | none by default                      |
 |   [5]   | PostgreSQL 18.4 | `COMMENT ON`               | catalog comments and describe output |
 
-### [6.1][C_SHARP]
+### [6.1]-[C_SHARP]
 
 Toolchain: XML documentation comments for C# 14 public API contracts; XML comments in `.cs` are the semantic owner, compiler XML is the generated mirror, and DocFX is the generated-reference profile.
 Generated profile: compiler XML and DocFX; `cref` routes compiler-verifiable internal references.
@@ -166,7 +166,7 @@ Generated profile: compiler XML and DocFX; `cref` routes compiler-verifiable int
 [SYNTAX_CUE]:
 - Syntax cue: `/// <summary>Builds one cancellable geometry import effect.</summary>`.
 
-### [6.2][TYPESCRIPT]
+### [6.2]-[TYPESCRIPT]
 
 Toolchain: TSDoc for exported TypeScript 7 `.ts` APIs that form a package, module, service, schema, model, runner, or testkit contract. TypeScript syntax, exported schemas, models, and `Effect<A, E, R>` carry machine shape; API Extractor is the strict package-API canon, and TypeDoc is the browsing renderer.
 Generated profile: API Extractor for strict package API and TypeDoc for browsing.
@@ -206,7 +206,7 @@ Generated profile: API Extractor for strict package API and TypeDoc for browsing
 [SYNTAX_CUE]:
 - Syntax cue: `/** Imports one artifact; returns an Effect with committed receipt, ImportFailure, and required services. @public */`.
 
-### [6.3][PYTHON]
+### [6.3]-[PYTHON]
 
 Toolchain: Google docstrings for Python 3.15 public modules, classes, functions, methods, properties, protocols, and package entrypoints; PEP 257 supplies docstring placement and layout, while signatures, annotations, strict type checkers, and annotation introspection own type shape.
 Generated profile: Griffe and mkdocstrings.
@@ -247,7 +247,7 @@ Generated profile: Griffe and mkdocstrings.
 [SYNTAX_CUE]:
 - Syntax cue: `"""Import one validated plan artifact."""`.
 
-### [6.4][BASH]
+### [6.4]-[BASH]
 
 Toolchain: Bash 5.3+ has no docstrings; use contract comments only where callers, analyzers, or maintainers need stdout, stderr, exit-status, state, trap, cleanup, environment, nameref, stream, durable-write, current-shell substitution, or ShellCheck rationale. POSIX.1-2024 appears only when a script explicitly claims portable shell semantics.
 Generated profile: no generated-reference profile by default; help metadata owns command catalogs and ShellCheck directives own analyzer-control comments.
@@ -285,7 +285,7 @@ Generated profile: no generated-reference profile by default; help metadata owns
 [SYNTAX_CUE]:
 - Syntax cue: `# shellcheck shell=bash`.
 
-### [6.5][POSTGRESQL]
+### [6.5]-[POSTGRESQL]
 
 Toolchain: PostgreSQL 18.4 `COMMENT ON` is durable schema and catalog documentation visible through catalog access; SQL source comments are local rationale only because PostgreSQL treats them as whitespace before syntax analysis. Catalog comments apply to every object kind supported by PostgreSQL `COMMENT ON`; do not turn the standard into an object grammar catalog.
 Generated profile: durable generated references extract object comments from `pg_description` or `pg_shdescription`; `psql` describe output is a human smoke route.
@@ -325,7 +325,7 @@ Generated profile: durable generated references extract object comments from `pg
 [SYNTAX_CUE]:
 - Syntax cue: `COMMENT ON TABLE app.account_event IS 'Append-only account event ledger.';`.
 
-## [7][LIFECYCLE_REFERENCES]
+## [7]-[LIFECYCLE_REFERENCES]
 
 Lifecycle tags preserve only external support contracts. Use `@deprecated`, `[Obsolete]`, OpenAPI `deprecated`, PEP 702-style deprecation, TypeScript release tags, and equivalent generator-visible markers only when an external caller, package, generated reference, support matrix, or compatibility policy needs a warning plus migration route.
 
@@ -343,7 +343,7 @@ Resolve every code reference through the toolchain that carries it, or omit the 
 
 Reserve inline comments for the reason a non-obvious choice exists. Accepted: `// Resolve eagerly to surface a missing host symbol at registration rather than first call.` Rejected: document every parameter, return type, command, column, or branch because it is public. Reason: public visibility creates a review question, not an automatic comment requirement.
 
-## [8][ANTI_PATTERNS]
+## [8]-[ANTI_PATTERNS]
 
 Reject these cross-language shapes:
 - Type-restating parameter: a `<param>`, `@param`, `Args:`, Bash function header, or SQL comment entry that echoes the declared type. Replace it with unit, range, origin, obligation, catalog meaning, or delete it.
@@ -354,7 +354,7 @@ Reject these cross-language shapes:
 - Profile or line-narration leakage: a manual-only profile label emitted into a source comment without a toolchain-local tag, or an inline comment that restates the next statement. Remove the label or delete the narration.
 - Generated or lifecycle preservation: a source file or docs leaf that hand-maintains generated public surface, command lists, or SQL dictionaries, or a lifecycle marker on greenfield internal surfaces that should be deleted or replaced.
 
-## [9][BOUNDARIES]
+## [9]-[BOUNDARIES]
 
 [REFERENCE_ROUTES]:
 - [API reference](api.md): generated and contract-backed API reference, including generated mirrors of source comments.
@@ -371,7 +371,7 @@ Reject these cross-language shapes:
 
 Source comments carry no proof details unless a language-specific generator consumes them.
 
-## [10][VALIDATION]
+## [10]-[VALIDATION]
 
 Use this verification checklist by group:
 

@@ -2,7 +2,7 @@
 
 Reference documentation is lookup truth for a reader who already knows the domain and needs one exact fact while working. It describes and only describes: facts, fields, commands, terms, limits, statuses, and current constraints. It fails when it teaches a path, argues a rationale, hides procedure in tables, or lets drift-prone claims float without nearby proof.
 
-## [1][USE_WHEN]
+## [1]-[USE_WHEN]
 
 Route a page to this standard when the reader extracts a fact rather than follows a path:
 - external product, library, SDK, protocol, host, runtime, or package facts.
@@ -21,7 +21,7 @@ Route HTTP contracts and generated API surfaces to [api.md](api.md), broad suppo
 - Adjacent checks: check API, code-documentation, support-matrix, README, how-to, runbook, tutorial, roadmap, architecture, and ADR only when a fact changes the reader action those routes control.
 - Maintenance triggers: update the reference when a source, generated artifact, command output, status vocabulary, field value, maintained source, or adjacent route changes.
 
-## [2][PROFILES]
+## [2]-[PROFILES]
 
 Choose one primary profile per reference leaf. Split the leaf when a second profile changes source model, entry fields, or lookup order.
 
@@ -71,7 +71,7 @@ Use this lookup archetype selector. The record trigger names the first signal th
 |   [4]   | replacement map           | approved replacement choice         | replacement gate appears       |
 |   [5]   | package/tool fact catalog | package graph or testing-tool facts | policy changes reader action   |
 
-## [3][REQUIRED_STRUCTURE]
+## [3]-[REQUIRED_STRUCTURE]
 
 Order reference leaves to source first, lookup in the body, and boundaries last.
 
@@ -82,21 +82,21 @@ Use this required core:
 
 <One-sentence scope.>
 
-## [1][SCOPE]
+## [1]-[SCOPE]
 
-## [2][LOOKUP_GROUP]
+## [2]-[LOOKUP_GROUP]
 
-## [N][BOUNDARIES]
+## [N]-[BOUNDARIES]
 
-## [N][VALIDATION]
+## [N]-[VALIDATION]
 ```
 
 Add these conditional sections only when their trigger applies:
 
 ```markdown template
-## [N][STATUS_VOCABULARY]
+## [N]-[STATUS_VOCABULARY]
 
-## [N][EXAMPLES]
+## [N]-[EXAMPLES]
 ```
 
 [SECTION_CARDINALITY]:
@@ -131,7 +131,7 @@ Refresh command: `<exact command; omit when no command refreshes the facts>`
 
 Use a compact controlling-source table only when every row shares the same update trigger. Otherwise promote each source or fact set to a definition block.
 
-## [4][REFERENCE_BASELINES]
+## [4]-[REFERENCE_BASELINES]
 
 Reference prose ranks below machine-readable truth:
 1. Repository source, generated output, contracts, manifests, schemas, source comments, lockfiles, and runnable command output.
@@ -143,7 +143,7 @@ This standard carries local term statuses such as `preferred`, `admitted`, `depr
 
 Every reference-local status vocabulary must declare exact casing, active values, blocked or unavailable values when present, returnable values when present, terminal values, omitted shared lifecycle states, and removal behavior before the first table or record that uses it. Title-case support or capability labels are display terms; they are not shared lifecycle values unless the record explicitly maps them.
 
-## [5][FACT_ENTRIES]
+## [5]-[FACT_ENTRIES]
 
 State only fields a reader needs to use the fact:
 - name or canonical term.
@@ -208,7 +208,7 @@ Close when: `<consuming route updates or explicitly routes away the fact>`
 Route-away: `<content that stays in the adjacent route>`
 ```
 
-## [6][CAPABILITY_ENTRIES]
+## [6]-[CAPABILITY_ENTRIES]
 
 A capability reference catalogs a finite set of support facts that change over releases; render that set as status-tagged records. Declare the closed `Status` vocabulary once and draw every entry from it.
 
@@ -228,7 +228,7 @@ When status maps deterministically to caller decision, include a compact lookup 
 
 The table is conceptual. Replace status names and decisions with the page's declared vocabulary; migration steps route to a how-to or support matrix.
 
-## [7][KEYED_MAPPINGS]
+## [7]-[KEYED_MAPPINGS]
 
 Use lookup tables for direct key-to-value retrieval: exit-code-to-meaning, error-code-to-cause, flag-to-effect, environment-variable-to-purpose, or status-to-policy. Use decision tables only when two or more independent conditions jointly determine an outcome over a finite combination space.
 
@@ -266,7 +266,7 @@ Review trigger: `<command, output shape, exit status, artifact, or failure behav
 
 This lookup table is valid because each row maps a flag to caller-facing effect. The how-to carries the ordered task that combines those flags into a workflow.
 
-## [8][GLOSSARIES]
+## [8]-[GLOSSARIES]
 
 A glossary is a local controlled vocabulary. Every concept resolves to one preferred term inside the bounded context, even when another vocabulary uses different labels.
 
@@ -289,7 +289,7 @@ Preferred term: `<preferred term; required for non-preferred entries>`
 Related: `<term anchors; omit when unrelated>`
 ```
 
-## [9][DATA_DICTIONARIES]
+## [9]-[DATA_DICTIONARIES]
 
 A data dictionary describes data elements against their controlling schema. The dictionary does not replace schemas, migrations, generated contracts, warehouse catalogs, or API contracts.
 
@@ -322,7 +322,7 @@ Aliases/lineage: `<aliases, prior names, or source mapping; omit when absent>`
 Sensitivity/access: `<classification; omit when unrestricted or not classified>`
 ```
 
-## [10][EXAMPLES_WARNINGS]
+## [10]-[EXAMPLES_WARNINGS]
 
 A reference example illustrates one fact, runs at most 12 lines, and never becomes a procedure. Place it beside the fact it clarifies and label the fence with intent.
 
@@ -342,7 +342,7 @@ Replace placeholders with exact command help, a source path, or a generated comm
 - Rejected: This command has a dry-run mode, but the warning omits invocation, effect, and side effect.
 - Reason: the accepted shape gives the reader one lookup fact plus the information needed to refresh it. The rejected shape hides the invocation, effect, and side effect.
 
-## [11][BOUNDARIES]
+## [11]-[BOUNDARIES]
 
 [REFERENCE_ROUTES]:
 - [api.md](api.md) carries HTTP contracts, OpenAPI descriptions, and generated library API reference.
@@ -358,7 +358,7 @@ Replace placeholders with exact command help, a source path, or a generated comm
 - [adr.md](../explanation/adr.md) carries recorded decision rationale.
 - [README.md](../README.md) carries document-type routing, placement, and lifecycle.
 
-## [12][VALIDATION]
+## [12]-[VALIDATION]
 
 Use this verification checklist by group:
 

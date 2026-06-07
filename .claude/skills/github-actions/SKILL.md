@@ -62,7 +62,7 @@ Generate and validate production-ready GitHub Actions workflows and custom actio
 | Example           | [docker-lint-scan-action.yml](examples/docker-lint-scan-action.yml)        |
 | Example           | [pr-change-router-action.yml](examples/pr-change-router-action.yml)        |
 
-## [1][STANDARDS]
+## [1]-[STANDARDS]
 
 Every generated workflow enforces defense-in-depth: supply chain integrity prevents compromised actions from executing, minimal permissions limit blast radius if a job is compromised, and harden-runner detects anomalous behavior at runtime. These layers are independent — failure of one leaves others intact.
 
@@ -80,11 +80,11 @@ Every generated workflow enforces defense-in-depth: supply chain integrity preve
 
 [REFERENCE] [best-practices.md](./references/best-practices.md) — Security checklist, supply chain controls, anti-patterns.
 
-## [2][TEMPLATES]
+## [2]-[TEMPLATES]
 
 Templates use `[PLACEHOLDER]` syntax for generation-time substitution. SHA resolution happens at generation time via the discovery protocol — templates contain placeholder SHAs, not static pins.
 
-### [2.1][PLACEHOLDER_CONVENTION]
+### [2.1]-[PLACEHOLDER_CONVENTION]
 
 All templates use a unified `[UPPER_SNAKE_CASE]` placeholder convention:
 
@@ -98,11 +98,11 @@ All templates use a unified `[UPPER_SNAKE_CASE]` placeholder convention:
 | **Secrets**     | `[SECRET_KEY]`, `[SECRET_NAME]`, `[REGISTRY_TOKEN]`                         |
 | **Docker**      | `[BASE_IMAGE]`, `[BUILDER_IMAGE]`, `[ENTRYPOINT]`                           |
 
-### [2.2][HARDEN_RUNNER_SCOPE]
+### [2.2]-[HARDEN_RUNNER_SCOPE]
 
 `harden-runner` is included as the first step in every **workflow** job template (basic, reusable). **Action** templates (composite, Docker, JavaScript) do NOT include `harden-runner` — the **calling workflow** is responsible for adding it as the first step in the job that invokes the action. Actions are steps, not jobs.
 
-### [2.3][TEMPLATE_INDEX]
+### [2.3]-[TEMPLATE_INDEX]
 
 | [INDEX] | [TEMPLATE]            | [PATH]                                     | [SCAFFOLDS]                                                        |
 | :-----: | --------------------- | ------------------------------------------ | ------------------------------------------------------------------ |
@@ -114,7 +114,7 @@ All templates use a unified `[UPPER_SNAKE_CASE]` placeholder convention:
 
 [REFERENCE] [custom-actions.md](./references/custom-actions.md) — Action type selection, metadata, runtime deprecation.
 
-## [3][EXAMPLES]
+## [3]-[EXAMPLES]
 
 Each example demonstrates distinct patterns with minimal overlap. Load relevant examples before generation to match the target scenario.
 
@@ -132,7 +132,7 @@ Each example demonstrates distinct patterns with minimal overlap. Load relevant 
 |  [10]   | **Docker Lint + Scan**                   | `examples/docker-lint-scan-action.yml`  | Composite action: Trivy scan, hadolint, SARIF output.             |
 |  [11]   | **PR Change Router**                     | `examples/pr-change-router-action.yml`  | Composite action: paths-filter, dynamic matrix, label sync.       |
 
-## [4][ACTION_DISCOVERY]
+## [4]-[ACTION_DISCOVERY]
 
 Static SHA catalogs decay — actions release frequently and stale pins miss security patches. Resolve versions at generation time. Never embed hardcoded SHAs in reference docs or templates.
 
@@ -152,7 +152,7 @@ Static SHA catalogs decay — actions release frequently and stale pins miss sec
 
 [REFERENCE] [version-discovery.md](./references/version-discovery.md) — Discovery protocol, SHA pinning format, common actions index, automated maintenance.
 
-## [5][VALIDATION]
+## [5]-[VALIDATION]
 
 **Validation pipeline:**
 

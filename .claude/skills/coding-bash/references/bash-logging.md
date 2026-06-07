@@ -12,7 +12,7 @@ Production logging for Bash 5.2+/5.3. JSON-ND structured emission, numeric level
 |  [6]  | Context propagation  |  S6   | Distributed tracing — correlation, OTEL traceparent |
 |  [7]  | Fork-free emission   |  S7   | Bash 5.3+ — zero-fork timestamps, elapsed timing    |
 
-## [1][JSON_ND_STRUCTURED_LOGGING]
+## [1]-[JSON_ND_STRUCTURED_LOGGING]
 
 `jq -nc` with `--arg`/`--argjson` — injection-safe. `printf`-based JSON only for fixed-schema, program-controlled values. `_LOG_FD` defaults to stderr because container runtimes capture stderr independently — preserves stdout as a clean data channel for pipeline composition. `_ts` centralizes timestamp generation with a fork-free path on Bash 5.3+ (see S7).
 
@@ -69,7 +69,7 @@ _json_log_rich() {
 
 All emitters write a single atomic line via `jq -nc` — prevents interleaved partial writes. EPOCHREALTIME precision owned by version-features.md S4. jq 1.8+: `if` without `else` defaults to identity; `trim`/`ltrim`/`rtrim` replace regex-based cleanup.
 
-## [2][LEVEL_GATED_DISPATCH]
+## [2]-[LEVEL_GATED_DISPATCH]
 
 ```bash
 declare -Ar _LOG_LEVELS=([TRACE]=0 [DEBUG]=1 [INFO]=2 [WARN]=3 [ERROR]=4 [FATAL]=5)
@@ -110,7 +110,7 @@ _with_level() {
 
 `_LOG_EMITTER` resolves once at startup — zero branching per call. `_with_level` enables diagnostic sections without global level mutation.
 
-## [3][TERMINAL_CAPABILITY]
+## [3]-[TERMINAL_CAPABILITY]
 
 Three-tier detection: (1) `NO_COLOR` env (no-color.org), (2) FD test (`-t 2`), (3) `tput colors`. CI platforms support ANSI without TTY.
 
@@ -161,7 +161,7 @@ _log_text() {
 
 `NO_COLOR+set` tests existence not value — spec mandates any value (including empty) disables color. CI enables ANSI without TTY because log viewers render it natively.
 
-## [4][CI_PLATFORM_INTEGRATION]
+## [4]-[CI_PLATFORM_INTEGRATION]
 
 Platform resolved once at startup. `case/esac` retained for genuine glob-pattern matching, not if/elif routing.
 
@@ -231,7 +231,7 @@ _summary_table() {
 
 `_annotate` fires on GitHub Actions and Buildkite for mapped levels. `_summary` writes to `$GITHUB_STEP_SUMMARY` for persistent Markdown output.
 
-## [5][ASYNC_LOG_SHIPPING]
+## [5]-[ASYNC_LOG_SHIPPING]
 
 ```bash
 # NOTE: while-read is intentional here — streaming consumer, not collection
@@ -280,7 +280,7 @@ Batch buffering (100 lines or 1s timeout) amortizes syscalls. Shipping alternati
 | Fluent Bit stdin pipe | `script.sh \| fluent-bit -i stdin -o <output>`                         | Zero-change to emitters       |
 | syslog (Linux)        | `logger -t "${SCRIPT_NAME}" --sd-id meta@0 "key=val"`                  | Zero-fork on Linux via socket |
 
-## [6][CONTEXT_PROPAGATION]
+## [6]-[CONTEXT_PROPAGATION]
 
 `_init_trace` is the canonical owner of TRACEPARENT generation — version-features.md S4 references this file. `TRACEPARENT` propagates through `exec` and subshell boundaries via `export`.
 
@@ -357,7 +357,7 @@ _with_span() {
 
 `SRANDOM` provides unpredictable span IDs (version-features.md S4). `_with_span` composes with `_with_section` (S4). `BASH_MONOSECONDS` in `_span_end` is immune to NTP drift — `EPOCHREALTIME` arithmetic breaks on clock adjustment. OTLP export: `otel-cli exec -- cmd` (equinix-labs) or `opentelemetry-bash` (Thoth v3.43+, auto-instrumentation).
 
-## [7][FORK_FREE_EMISSION]
+## [7]-[FORK_FREE_EMISSION]
 
 At 10K log lines, forking `date` per line (~3ms/fork on Linux) costs ~30s wall time. Three techniques eliminate this: `${ cmd; }` (5.3, no subshell), `BASH_MONOSECONDS` (monotonic elapsed timing), loadable `strftime` (fork-free formatting).
 

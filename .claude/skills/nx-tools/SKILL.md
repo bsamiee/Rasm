@@ -11,7 +11,7 @@ Query Nx workspace with unified Python CLI. Wraps `pnpm exec nx` commands.
 
 [IMPORTANT] Nx 22 features: Terminal UI, continuous tasks, pnpm catalog support, AI agent configuration, Vitest 4 atomizer. All commands run with `NX_DAEMON=false` for deterministic output.
 
-## [1][COMMANDS]
+## [1]-[COMMANDS]
 
 | [CMD]      | [ARGS]        | [PURPOSE]                              |
 | ---------- | ------------- | -------------------------------------- |
@@ -25,7 +25,7 @@ Query Nx workspace with unified Python CLI. Wraps `pnpm exec nx` commands.
 | graph      | `[output]`    | Generate dependency graph              |
 | docs       | `[topic]`     | View Nx command documentation          |
 
-## [2][USAGE]
+## [2]-[USAGE]
 
 ```bash
 # Zero-arg commands
@@ -48,7 +48,7 @@ uv run $CLAUDE_HOME/skills/nx-tools/scripts/nx.py docs                # topic=ge
 uv run $CLAUDE_HOME/skills/nx-tools/scripts/nx.py docs affected
 ```
 
-## [3][ARGUMENTS]
+## [3]-[ARGUMENTS]
 
 **workspace**: (no arguments)
 - Returns list of all project names in workspace
@@ -82,7 +82,7 @@ uv run $CLAUDE_HOME/skills/nx-tools/scripts/nx.py docs affected
 **docs**: `[topic]`
 - `topic` — Nx command to get help for (default: general help)
 
-## [4][OUTPUT]
+## [4]-[OUTPUT]
 
 Commands return: `{"status": "success|error", ...}`.
 
@@ -98,14 +98,14 @@ Commands return: `{"status": "success|error", ...}`.
 |   [8]   | `graph`      | `{file: string}`                      |
 |   [9]   | `docs`       | `{topic: string, docs: string}`       |
 
-## [5][ENVIRONMENT]
+## [5]-[ENVIRONMENT]
 
 | [VAR]                | [REQUIRED] | [DESCRIPTION]                          |
 | -------------------- | ---------- | -------------------------------------- |
 | `CLAUDE_PROJECT_DIR` | No         | Override workspace root for `path` cmd |
 | `NX_DAEMON`          | No         | Force-set to `false` by script         |
 
-## [6][ERROR_HANDLING]
+## [6]-[ERROR_HANDLING]
 
 - Nx errors print `[ERROR] <message>` and exit 1
 - Project not found: `[ERROR] Cannot find project '<name>'`

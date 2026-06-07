@@ -2,9 +2,9 @@
 
 [IMPORTANT] Walk law taxonomy per exported function. Select all applicable laws. Pack laws sharing the same arbitrary shape into a single `it.effect.prop`.
 
-## [1][ALGEBRAIC_LAWS]
+## [1]-[ALGEBRAIC_LAWS]
 
-### [1.1][FUNCTION_PROPERTIES]
+### [1.1]-[FUNCTION_PROPERTIES]
 
 | [INDEX] | [LAW]        | [FORMULA]                         | [WHEN_TO_USE]                                            |
 | :-----: | ------------ | --------------------------------- | -------------------------------------------------------- |
@@ -23,7 +23,7 @@
 **Homomorphism** -- `apply(a, concat(p1, p2)) = apply(apply(a, p1), p2)` (patch composition).
 **Annihilation** -- `import('') = []`; `diff(x, x) = null`.
 
-### [1.2][EQUIVALENCE_RELATIONS]
+### [1.2]-[EQUIVALENCE_RELATIONS]
 
 | [INDEX] | [LAW]      | [FORMULA]                       | [WHEN_TO_USE]                    |
 | :-----: | ---------- | ------------------------------- | -------------------------------- |
@@ -46,7 +46,7 @@ it.effect.prop('equivalence relation', { x: _arb, y: _arb, z: _arb }, ({ x, y, z
     }));
 ```
 
-### [1.3][STRUCTURAL_PROPERTIES]
+### [1.3]-[STRUCTURAL_PROPERTIES]
 
 | [INDEX] | [LAW]           | [FORMULA]                     | [WHEN_TO_USE]                                |
 | :-----: | --------------- | ----------------------------- | -------------------------------------------- |
@@ -71,7 +71,7 @@ it.effect.prop('det + nondet', { x: _arb }, ({ x }) => Effect.gen(function* () {
 }));
 ```
 
-### [1.4][CONCURRENCY_LAWS]
+### [1.4]-[CONCURRENCY_LAWS]
 
 | [INDEX] | [LAW]               | [FORMULA]                                              | [WHEN_TO_USE]                                |
 | :-----: | ------------------- | ------------------------------------------------------ | -------------------------------------------- |
@@ -83,7 +83,7 @@ it.effect.prop('det + nondet', { x: _arb }, ({ x }) => Effect.gen(function* () {
 **Resource bracket** -- `Effect.acquireRelease(acquire, release)` guarantees `release` runs even under interruption. Verify via `it.scoped`.
 **Ref atomicity** -- concurrent `Ref.update` with `Effect.fork` + `Fiber.join`; final value equals sequential application.
 
-### [1.5][TYPE_LEVEL_LAWS]
+### [1.5]-[TYPE_LEVEL_LAWS]
 
 | [INDEX] | [LAW]               | [MECHANISM]                                        | [WHEN_TO_USE]                       |
 | :-----: | ------------------- | -------------------------------------------------- | ----------------------------------- |
@@ -93,9 +93,9 @@ it.effect.prop('det + nondet', { x: _arb }, ({ x }) => Effect.gen(function* () {
 
 **Type-level tests** run at compile time -- zero runtime cost. Use alongside algebraic PBT to verify type narrowing, branded type rejection, and schema type inference.
 
-## [2][TESTING_STRATEGIES]
+## [2]-[TESTING_STRATEGIES]
 
-### [2.1][ORACLE_STRATEGIES]
+### [2.1]-[ORACLE_STRATEGIES]
 
 | [INDEX] | [STRATEGY]     | [DESCRIPTION]                                    | [WHEN_TO_USE]                        |
 | :-----: | -------------- | ------------------------------------------------ | ------------------------------------ |
@@ -122,7 +122,7 @@ it.effect.prop('differential', { x: _arb }, ({ x }) => Effect.gen(function* () {
 }));
 ```
 
-### [2.2][STATISTICAL_TESTING]
+### [2.2]-[STATISTICAL_TESTING]
 
 Chi-squared uniformity for randomness validation. Parameters:
 
@@ -144,9 +144,9 @@ it.effect('uniformity', () => Effect.gen(function* () {
 }));
 ```
 
-## [3][DOMAIN_INVARIANTS]
+## [3]-[DOMAIN_INVARIANTS]
 
-### [3.1][SECURITY_INVARIANTS]
+### [3.1]-[SECURITY_INVARIANTS]
 
 | [INDEX] | [INVARIANT]         | [PROPERTY]                                                       |
 | :-----: | ------------------- | ---------------------------------------------------------------- |
@@ -170,7 +170,7 @@ it.effect.prop('tenant isolation', { t1: fc.uuid(), t2: fc.uuid(), x: _arb }, ({
 });
 ```
 
-### [3.2][BOUNDARY_INVARIANTS]
+### [3.2]-[BOUNDARY_INVARIANTS]
 
 | [INDEX] | [INVARIANT]   | [PROPERTY]                                        |
 | :-----: | ------------- | ------------------------------------------------- |
@@ -180,7 +180,7 @@ it.effect.prop('tenant isolation', { t1: fc.uuid(), t2: fc.uuid(), x: _arb }, ({
 |   [4]   | Format bounds | Invalid version/min-bytes yield `INVALID_FORMAT`  |
 |   [5]   | AAD binding   | Wrong/missing additional authenticated data fails |
 
-## [4][LAW_SELECTION]
+## [4]-[LAW_SELECTION]
 
 **Selection procedure:**
 1. **Identify function signature** -- `A -> B`, `A -> A`, `(A, A) -> B`, `(A, B) -> A`.

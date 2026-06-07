@@ -9,7 +9,7 @@ Operate as a senior developer in a bleeding-edge monorepo; use the newest viable
 - [ALWAYS] If an external contract requires a different name, isolate mapping at boundary adapters and keep canonical names internally.
 - [NEVER] Rename a canonical concept across schemas/models/classes, parameters, and return keys within the same bounded context.
 
-## [1][REQUIRED_STANDARDS]
+## [1]-[REQUIRED_STANDARDS]
 
 If reviewing, refining, editing, creating, or modifying X file type, use skill Y (required):
 
@@ -27,7 +27,7 @@ If reviewing, refining, editing, creating, or modifying X file type, use skill Y
 - [ALWAYS] Language-specific mechanics come from the required `coding-*` skill.
 - [ALWAYS] Treat `.claude/skills/*` as project skill context and `/Users/bardiasamiee/.codex/skills/*` as Codex runtime skill context; keep overlapping standards mirrored when they govern this repo.
 
-## [2][BEHAVIOR]
+## [2]-[BEHAVIOR]
 
 [IMPORTANT]:
 - [ALWAYS] Use new sources when conducting research; freshness-sensitive sources [MUST] be within the last 3-4 months from current date unless stable official docs are the only primary source for a settled platform rule.
@@ -39,7 +39,7 @@ If reviewing, refining, editing, creating, or modifying X file type, use skill Y
 [CRITICAL]:
 - [NEVER] Use emojis; use `[X]` style markers with concise UPPERCASE formatting.
 
-## [3][DEPENDENCY_POLICY]
+## [3]-[DEPENDENCY_POLICY]
 
 [IMPORTANT]: **External-Lib-First**: approved dependencies are primary implementation surface.
 - [ALWAYS] Treat dependencies declared in `pyproject.toml`, `pnpm-workspace.yaml`, `Directory.Packages.props`, and equivalent manifests as first-class libraries.
@@ -55,7 +55,7 @@ If reviewing, refining, editing, creating, or modifying X file type, use skill Y
 - [ALWAYS] Keep RhinoWIP/GH2/Eto/System.Drawing host assemblies resolved through `Directory.Build.props` app-bundle references; if SDK compilation needs a NuGet reference surface, add it only as a conditioned central compile package.
 - [NEVER] Add unused `PackageVersion` entries as future intent.
 
-## [4][UNIVERSAL_CONSTRAINTS]
+## [4]-[UNIVERSAL_CONSTRAINTS]
 
 [CRITICAL]:
 - [NEVER] Use weak, unbounded, or erased types where the language can express the domain precisely.
@@ -86,7 +86,7 @@ If reviewing, refining, editing, creating, or modifying X file type, use skill Y
 - [ALWAYS] Consider `tools/cs-analyzer` when a repeated C# optimization pattern is proven by diffs. Add rules only after the best fix reduces LOC or surface while preserving semantics.
 - [ALWAYS] Use indexed `Map(..., index)` plus `TraverseM(identity)` when an indexed effectful traversal is needed and no native indexed `TraverseM` exists; do not replace it with an index-threaded fold unless the fold carries additional algorithm state.
 
-## [5][OUTPUT]
+## [5]-[OUTPUT]
 
 [IMPORTANT]:
 - [ALWAYS] Use `backticks` for file paths, symbols, and CLI commands.
@@ -94,7 +94,7 @@ If reviewing, refining, editing, creating, or modifying X file type, use skill Y
 - [ALWAYS] Use Markdown: headings for structure, bullets for lists, tables for comparisons.
 - [ALWAYS] Keep responses actionable; lead with what changed, not what you will do.
 
-### [5.1][DEPENDENCIES]
+### [5.1]-[DEPENDENCIES]
 
 [IMPORTANT] TypeScript dependency workflow:
 
@@ -111,7 +111,7 @@ If reviewing, refining, editing, creating, or modifying X file type, use skill Y
 3. [ALWAYS] **Keep project references versionless** under central package management.
 4. [ALWAYS] **Validate graph**: use `uv run python -m tools.quality static plan <changed-manifest>` when routing is uncertain, then `uv run python -m tools.quality static full` for central package, solution, global runner, `.editorconfig`, or analyzer trigger changes.
 
-### [5.2][QUALITY_GATES]
+### [5.2]-[QUALITY_GATES]
 
 Three orthogonal rails: static analysis, unit tests, runtime verification. Each tool verb owns one rail; never conflate.
 
@@ -130,7 +130,7 @@ Three orthogonal rails: static analysis, unit tests, runtime verification. Each 
 8. [ALWAYS] **Trust the analyzer**: 80+ CSP descriptors (`tools/cs-analyzer/Kernel/RuleCatalog.cs`) enforce coding-csharp standards. When CSP#### fires, fix the architecture; do not suppress.
 9. [NEVER] Re-introduce a `test` mode into the static rail. Tests are a separate gate.
 
-### [5.3][PLAN_DISCIPLINE]
+### [5.3]-[PLAN_DISCIPLINE]
 
 [IMPORTANT]:
 - [ALWAYS] Plans are documents, not narratives. Maximum 1-2 screen pages.
@@ -138,13 +138,13 @@ Three orthogonal rails: static analysis, unit tests, runtime verification. Each 
 - [NEVER] Include "Phase 1...Phase N" workflow narration, alternatives considered, or implementation prose. The plan is the recommendation, not a journal.
 - [ALWAYS] If a plan exceeds the page limit, that is signal to collapse the problem, not expand the prose.
 
-### [5.4][SURFACE_PREFERENCE]
+### [5.4]-[SURFACE_PREFERENCE]
 
 [IMPORTANT]:
 - [ALWAYS] Prefer FEWER deep, complex surfaces over MANY loose, simple ones. A single 400-LOC type that owns a full polymorphic concern is better than four 100-LOC types that fragment it.
 - [ALWAYS] The unit of design is the polymorphic dispatch surface, not the file.
 
-## [6][FILE_ORGANIZATION]
+## [6]-[FILE_ORGANIZATION]
 
 [IMPORTANT] **Section separators**: language comment marker + space + `---` + bracketed UPPERCASE snake label with no internal spaces + dash fill to the established language width.
 

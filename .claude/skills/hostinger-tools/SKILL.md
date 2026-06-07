@@ -12,7 +12,7 @@ Invokes Hostinger API through Python wrapper using `HOSTINGER_TOKEN` env var. Ba
 
 [IMPORTANT] Zero-arg commands default to `page=1`, `limit=30`. Uses `--key value` flag syntax. Hostinger also provides an MCP server and n8n node for automation.
 
-## [1][VPS_CORE]
+## [1]-[VPS_CORE]
 
 ```bash
 uv run $CLAUDE_HOME/skills/hostinger-tools/scripts/hostinger.py vps-list
@@ -25,7 +25,7 @@ uv run $CLAUDE_HOME/skills/hostinger-tools/scripts/hostinger.py vps-actions --id
 uv run $CLAUDE_HOME/skills/hostinger-tools/scripts/hostinger.py vps-action-view --id 1196440 --action-id 71183700
 ```
 
-## [2][VPS_CONFIG]
+## [2]-[VPS_CONFIG]
 
 ```bash
 uv run $CLAUDE_HOME/skills/hostinger-tools/scripts/hostinger.py vps-hostname-set --id 1196440 --hostname myserver.example.com
@@ -37,7 +37,7 @@ uv run $CLAUDE_HOME/skills/hostinger-tools/scripts/hostinger.py vps-ptr-create -
 uv run $CLAUDE_HOME/skills/hostinger-tools/scripts/hostinger.py vps-ptr-delete --id 1196440 --ip-id 1154886
 ```
 
-## [3][VPS_RECOVERY]
+## [3]-[VPS_RECOVERY]
 
 ```bash
 uv run $CLAUDE_HOME/skills/hostinger-tools/scripts/hostinger.py vps-recovery-start --id 1196440 --root-password "TempPass123!"
@@ -45,7 +45,7 @@ uv run $CLAUDE_HOME/skills/hostinger-tools/scripts/hostinger.py vps-recovery-sto
 uv run $CLAUDE_HOME/skills/hostinger-tools/scripts/hostinger.py vps-recreate --id 1196440 --template-id 1007 --password "NewPass123!"
 ```
 
-## [4][DOCKER]
+## [4]-[DOCKER]
 
 ```bash
 uv run $CLAUDE_HOME/skills/hostinger-tools/scripts/hostinger.py docker-list --id 1196440
@@ -60,7 +60,7 @@ uv run $CLAUDE_HOME/skills/hostinger-tools/scripts/hostinger.py docker-update --
 uv run $CLAUDE_HOME/skills/hostinger-tools/scripts/hostinger.py docker-delete --id 1196440 --project myapp
 ```
 
-## [5][FIREWALL]
+## [5]-[FIREWALL]
 
 ```bash
 uv run $CLAUDE_HOME/skills/hostinger-tools/scripts/hostinger.py firewall-list
@@ -75,7 +75,7 @@ uv run $CLAUDE_HOME/skills/hostinger-tools/scripts/hostinger.py firewall-rule-up
 uv run $CLAUDE_HOME/skills/hostinger-tools/scripts/hostinger.py firewall-rule-delete --id 12345 --rule-id 67890
 ```
 
-## [6][SSH_KEYS]
+## [6]-[SSH_KEYS]
 
 ```bash
 uv run $CLAUDE_HOME/skills/hostinger-tools/scripts/hostinger.py ssh-key-list
@@ -85,7 +85,7 @@ uv run $CLAUDE_HOME/skills/hostinger-tools/scripts/hostinger.py ssh-key-attach -
 uv run $CLAUDE_HOME/skills/hostinger-tools/scripts/hostinger.py ssh-key-attached --vps-id 1196440
 ```
 
-## [7][SCRIPTS]
+## [7]-[SCRIPTS]
 
 ```bash
 uv run $CLAUDE_HOME/skills/hostinger-tools/scripts/hostinger.py script-list
@@ -95,7 +95,7 @@ uv run $CLAUDE_HOME/skills/hostinger-tools/scripts/hostinger.py script-update --
 uv run $CLAUDE_HOME/skills/hostinger-tools/scripts/hostinger.py script-delete --id 12345
 ```
 
-## [8][SNAPSHOTS]
+## [8]-[SNAPSHOTS]
 
 ```bash
 uv run $CLAUDE_HOME/skills/hostinger-tools/scripts/hostinger.py snapshot-view --id 1196440
@@ -106,14 +106,14 @@ uv run $CLAUDE_HOME/skills/hostinger-tools/scripts/hostinger.py backup-list --id
 uv run $CLAUDE_HOME/skills/hostinger-tools/scripts/hostinger.py backup-restore --id 1196440 --backup-id 67890
 ```
 
-## [9][DNS]
+## [9]-[DNS]
 
 ```bash
 uv run $CLAUDE_HOME/skills/hostinger-tools/scripts/hostinger.py dns-records --domain example.com
 uv run $CLAUDE_HOME/skills/hostinger-tools/scripts/hostinger.py dns-snapshots --domain example.com
 ```
 
-## [10][DOMAINS]
+## [10]-[DOMAINS]
 
 ```bash
 uv run $CLAUDE_HOME/skills/hostinger-tools/scripts/hostinger.py domain-list
@@ -121,7 +121,7 @@ uv run $CLAUDE_HOME/skills/hostinger-tools/scripts/hostinger.py domain-view --do
 uv run $CLAUDE_HOME/skills/hostinger-tools/scripts/hostinger.py domain-check --domain example --tlds com,net,io
 ```
 
-## [11][DOMAIN_EXTENDED]
+## [11]-[DOMAIN_EXTENDED]
 
 ```bash
 uv run $CLAUDE_HOME/skills/hostinger-tools/scripts/hostinger.py domain-lock-enable --domain example.com
@@ -134,7 +134,7 @@ uv run $CLAUDE_HOME/skills/hostinger-tools/scripts/hostinger.py domain-forwardin
 uv run $CLAUDE_HOME/skills/hostinger-tools/scripts/hostinger.py domain-nameservers-set --domain example.com --ns1 ns1.hostinger.com --ns2 ns2.hostinger.com
 ```
 
-## [12][WHOIS]
+## [12]-[WHOIS]
 
 ```bash
 uv run $CLAUDE_HOME/skills/hostinger-tools/scripts/hostinger.py whois-list
@@ -145,7 +145,7 @@ uv run $CLAUDE_HOME/skills/hostinger-tools/scripts/hostinger.py whois-delete --i
 uv run $CLAUDE_HOME/skills/hostinger-tools/scripts/hostinger.py whois-usage --id 12345
 ```
 
-## [13][BILLING]
+## [13]-[BILLING]
 
 ```bash
 uv run $CLAUDE_HOME/skills/hostinger-tools/scripts/hostinger.py billing-catalog
@@ -159,7 +159,7 @@ uv run $CLAUDE_HOME/skills/hostinger-tools/scripts/hostinger.py billing-auto-ren
 uv run $CLAUDE_HOME/skills/hostinger-tools/scripts/hostinger.py billing-auto-renewal-disable --id AzqaEWV5FiDYT4Ka3
 ```
 
-## [14][HOSTING]
+## [14]-[HOSTING]
 
 ```bash
 uv run $CLAUDE_HOME/skills/hostinger-tools/scripts/hostinger.py hosting-orders-list
@@ -169,7 +169,7 @@ uv run $CLAUDE_HOME/skills/hostinger-tools/scripts/hostinger.py hosting-website-
 uv run $CLAUDE_HOME/skills/hostinger-tools/scripts/hostinger.py hosting-datacenters-list --order-id 12345
 ```
 
-## [15][REFERENCE]
+## [15]-[REFERENCE]
 
 ```bash
 uv run $CLAUDE_HOME/skills/hostinger-tools/scripts/hostinger.py datacenter-list
@@ -177,7 +177,7 @@ uv run $CLAUDE_HOME/skills/hostinger-tools/scripts/hostinger.py template-list
 uv run $CLAUDE_HOME/skills/hostinger-tools/scripts/hostinger.py template-view --id 1007
 ```
 
-## [16][OUTPUT]
+## [16]-[OUTPUT]
 
 Commands return: `{"status": "success|error", ...}`.
 
@@ -188,13 +188,13 @@ Commands return: `{"status": "success|error", ...}`.
 |   [3]   | Action commands | `{id: int, action: bool}`  |
 |   [4]   | Create commands | `{id: int, created: bool}` |
 
-## [17][ENVIRONMENT]
+## [17]-[ENVIRONMENT]
 
 | [VAR]             | [REQUIRED] | [DESCRIPTION]              |
 | ----------------- | ---------- | -------------------------- |
 | `HOSTINGER_TOKEN` | Yes        | Hostinger API bearer token |
 
-## [18][ERROR_HANDLING]
+## [18]-[ERROR_HANDLING]
 
 - HTTP errors print `[ERROR] <status>: <body>` and exit 1
 - Missing token: `[ERROR] HOSTINGER_TOKEN environment variable not set`

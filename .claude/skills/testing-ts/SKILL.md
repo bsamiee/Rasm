@@ -34,7 +34,7 @@ Generate dense, law-driven test suites. Pure transformations tested via algebrai
 |   [7]   | Template   | [integration.spec.template.md](templates/integration.spec.template.md) |
 |   [8]   | Template   | [contract.spec.template.md](templates/contract.spec.template.md)       |
 
-## [1][WORKFLOW]
+## [1]-[WORKFLOW]
 
 1. **Read source module** -- Inventory exported functions, Effect dependencies (R channel), error types (E channel), schemas, branded types.
 2. **Classify test category** -- Walk routing table from [section 4](#4category_routing). Most `packages/server/` modules are unit PBT. Boundary modules (database, HTTP) are integration.
@@ -48,7 +48,7 @@ Generate dense, law-driven test suites. Pure transformations tested via algebrai
 10. **Verify coverage** -- Predict branch coverage from properties. Add `[EDGE_CASES]` section if <95% predicted. Run `pnpm exec nx test -- --coverage` to confirm.
 11. **Run mutation testing** -- `npx stryker run` to verify tests kill mutants. Stryker TS checker eliminates compile-error mutants; `vitest.related: true` scopes test runs.
 
-## [2][HARD_CONSTRAINTS]
+## [2]-[HARD_CONSTRAINTS]
 
 [CRITICAL]:
 - [ALWAYS] **175 LOC flat cap** per spec file. No exceptions.
@@ -65,7 +65,7 @@ Generate dense, law-driven test suites. Pure transformations tested via algebrai
 |   [4]   | Mutation low    |   60    | Investigation trigger                |
 |   [5]   | Mutation high   |   80    | Target -- contract-driven tests      |
 
-## [3][FILE_STRUCTURE]
+## [3]-[FILE_STRUCTURE]
 
 **Import Order** (enforced by hook):
 1. `@effect/vitest` -- `it`, `layer`
@@ -121,7 +121,7 @@ Generate dense, law-driven test suites. Pure transformations tested via algebrai
 
 **Topology:** See [section 4](#4category_routing) for file locations per category.
 
-## [4][CATEGORY_ROUTING]
+## [4]-[CATEGORY_ROUTING]
 
 **Categories:** Unit PBT (`tests/unit/`), Integration (`tests/integration/`), Contract (`tests/contract/` or `tests/integration/`), System (`tests/system/`), E2E (`tests/e2e/`).
 **Quick route:** Pure modules are Unit PBT. Boundary modules (database, HTTP, Redis) are Integration. Cross-module schema/service compatibility is Contract. Cross-service orchestration is System. User-facing flows are E2E (Playwright agent pipeline -- do not manually author).
@@ -138,7 +138,7 @@ Generate dense, law-driven test suites. Pure transformations tested via algebrai
 
 [REFERENCE] Full routing matrix, Vitest inline projects, and patterns per category: [->categories.md](./references/categories.md).
 
-## [5][LAW_SELECTION]
+## [5]-[LAW_SELECTION]
 
 Walk the law taxonomy per exported function. Select all applicable laws. Pack laws sharing the same arbitrary shape into a single `it.effect.prop`.
 
@@ -151,7 +151,7 @@ Walk the law taxonomy per exported function. Select all applicable laws. Pack la
 
 [REFERENCE] Full law taxonomy, selection procedure, and code patterns: [->laws.md](./references/laws.md).
 
-## [6][DENSITY_SELECTION]
+## [6]-[DENSITY_SELECTION]
 
 **Top techniques:** `it.effect.prop` PBT (50-200x), property packing (2-4x), `Effect.all` aggregation (Nx1), statistical batching, symmetric iteration, model-based commands, `fc.scheduler()` race detection.
 
@@ -161,7 +161,7 @@ Walk the law taxonomy per exported function. Select all applicable laws. Pack la
 
 [REFERENCE] Full technique catalog, decision rules, and code patterns: [->density.md](./references/density.md).
 
-## [6.1][EFFECT_TESTING_API]
+## [6.1]-[EFFECT_TESTING_API]
 
 [IMPORTANT] **Schema-as-arbitraries**: Pass `Schema` directly to `it.effect.prop` -- no `Arbitrary.make()` wrapping needed. The framework auto-creates arbitraries.
 
@@ -191,7 +191,7 @@ it.effect.prop('roundtrip', { req: NotificationService.Request }, ({ req }) =>
 - [ALWAYS] Use `it.scoped` for tests acquiring `Scope`-managed resources.
 - [ALWAYS] Use `layer()` wrapper for suites sharing a service layer.
 
-## [7][THESIS]
+## [7]-[THESIS]
 
 - **Algebraic PBT as External Oracle** -- Laws (identity, inverse, homomorphism) are domain-independent mathematical truths. AI cannot fabricate a law that "happens to pass" -- law correctness is provable independent of implementation.
 - **Parametric Generation Multiplies Coverage** -- Single `it.effect.prop` invocation generates 50-200 cases per run, replacing hundreds of hand-written assertions with single universally-quantified property.
@@ -209,7 +209,7 @@ it.effect.prop('roundtrip', { req: NotificationService.Request }, ({ req }) =>
 |   [6]   | PostToolUse Hook     | 13-rule awk validator               | Active   |
 |   [7]   | Human Review         | Final gate for spec correctness     | Always   |
 
-## [8][VALIDATION]
+## [8]-[VALIDATION]
 
 [VERIFY]:
 - [ ] Thresholds met (section 2 above)

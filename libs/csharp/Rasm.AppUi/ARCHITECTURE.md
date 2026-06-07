@@ -2,7 +2,7 @@
 
 `Rasm.AppUi` is the platform boundary above `Rasm.Rhino/UI` and `Rasm.Grasshopper/UI`. It captures product UI intent, state, visual requests, diagnostics, and receipts through one unified rail, without duplicating Rhino/GH2 dispatch, repaint, undo, document affinity, or lifecycle policy.
 
-## [1][BUILD_STATUS]
+## [1]-[BUILD_STATUS]
 
 ```mermaid
 ---
@@ -35,7 +35,7 @@ Text equivalent: plugin and app intent enters `Rasm.AppUi`; AppUi delegates host
 |   [4]   | Package references    | Active direct; every pinned AppUi package is referenced |
 |   [5]   | Host runtime evidence | Per host scenario                                       |
 
-## [2][PUBLIC_RAIL_CONTRACT]
+## [2]-[PUBLIC_RAIL_CONTRACT]
 
 | [INDEX] | [CONCEPT]          | [OWNS]                                                            | [DOES_NOT_OWN]                 |
 | :-----: | ------------------ | ----------------------------------------------------------------- | ------------------------------ |
@@ -49,7 +49,7 @@ Text equivalent: plugin and app intent enters `Rasm.AppUi`; AppUi delegates host
 
 The public entry accepts typed app-surface operations as data and returns typed outcomes/receipts. Toolkit types stay internal; product concepts cross the boundary.
 
-## [3][HOST_DELEGATION]
+## [3]-[HOST_DELEGATION]
 
 | [INDEX] | [APPUI_INTENT] | [RHINO_RAIL]                                     | [GH2_RAIL]                         | [FORBIDDEN_DUPLICATE]       |
 | :-----: | -------------- | ------------------------------------------------ | ---------------------------------- | --------------------------- |
@@ -78,9 +78,9 @@ macOS support means coexistence inside RhinoWIP/GH2, not generic desktop success
 - Await `TopLevel.Closed` before calling base dispose — disposing the Eto parent before the Avalonia TopLevel closes causes a native handle double-free.
 - GH2-Avalonia embedding remains an extension point, not the default path. Rhino-panel embedding is supported; GH2 retained surfaces stay on component input panels, toolbars, canvas paint hooks, and transient popups until a GH2 dockable panel-host API exists. When such a host exists, extend the GH2 UI rail before adding an AppUi-owned panel path.
 
-## [4][PACKAGES]
+## [4]-[PACKAGES]
 
-### [4.1][CORE_MATRIX]
+### [4.1]-[CORE_MATRIX]
 
 Version matrix is coupled: Avalonia ↔ ReactiveUI.Avalonia ↔ ReactiveUI ↔ DynamicData ↔ System.Reactive ↔ SkiaSharp (Avalonia-bundled, LiveCharts2-aligned) — all as one set, not each in isolation. Central pins live in `Directory.Packages.props`; `Rasm.AppUi.csproj` references the active matrix versionlessly.
 
@@ -108,7 +108,7 @@ Version matrix is coupled: Avalonia ↔ ReactiveUI.Avalonia ↔ ReactiveUI ↔ D
 |  [20]   | `Svg.Controls.Skia.Avalonia`                 | SVG icon and asset rendering                                                                                                                                      |
 |  [21]   | `DialogHost.Avalonia`                        | In-panel dialogs — no NSWindow required                                                                                                                           |
 
-### [4.2][PACKAGE_REJECTIONS]
+### [4.2]-[PACKAGE_REJECTIONS]
 
 | [INDEX] | [REJECTED_PACKAGE]               | [REASON]                                                             |
 | :-----: | -------------------------------- | -------------------------------------------------------------------- |
@@ -120,16 +120,16 @@ Version matrix is coupled: Avalonia ↔ ReactiveUI.Avalonia ↔ ReactiveUI ↔ D
 |   [6]   | `MessageBox.Avalonia`            | Nightly-only dependency; use `DialogHost.Avalonia` instead           |
 |   [7]   | `Avalonia.Xaml.Interactions`     | Deprecated; replaced by `Xaml.Behaviors.Avalonia`                    |
 
-### [4.3][NATIVE_HAZARD]
+### [4.3]-[NATIVE_HAZARD]
 
 > [!CAUTION]
 > SkiaSharp-native coexistence is a host-load boundary. Rhino ships native Skia in the host process while AppUi uses the Avalonia/LiveCharts/SVG SkiaSharp matrix. The AppUi path must either share the host-compatible native major with `<ExcludeAssets>native</ExcludeAssets>` or route Skia rendering out of the in-process host path. `HarfBuzzSharp.NativeAssets.macOS` is carried independently for text shaping.
 
 Layout: cohesive flat files — `Shell.cs`, `Screen.cs`, `Command.cs`, `Live.cs`, `Visual.cs`, `Chart.cs`, `Diagnostic.cs` — each with canonical sections; UI scheduler boundary co-locates with ReactiveUI activation in `Screen.cs`. No per-concept subfolders or mini-files.
 
-## [5][TYPE_SHAPES]
+## [5]-[TYPE_SHAPES]
 
-### [5.1][SCHEDULER]
+### [5.1]-[SCHEDULER]
 
 `RasmUiScheduler` — sealed record; unifies Avalonia `Dispatcher` and ReactiveUI `RxApp.MainThreadScheduler`. Constructed once on the UI thread in `PlugIn.OnLoad`, before any live-projection work. Passed into `AppHost.Boot(token, timeProvider, uiScheduler, …)` so AppHost references it without owning it — non-circular.
 
@@ -139,7 +139,7 @@ RasmUiScheduler
   RxScheduler  : IScheduler                      // RxApp.MainThreadScheduler wrapper
 ```
 
-### [5.2][SHELL]
+### [5.2]-[SHELL]
 
 `Shell` — sealed record; product shell state, route identity, and nav-stack ownership. `AppState` (from Persistence) is an immutable point-in-time domain snapshot; `Shell` is the UI navigation and visibility layer — they do not collide.
 
@@ -153,7 +153,7 @@ Shell
 
 Route = route identity + nav-stack owner + activation; Shell-state is not AppState.
 
-### [5.3][SCREEN]
+### [5.3]-[SCREEN]
 
 `Screen<T>` — `ReactiveValidationObject` (from `ReactiveUI.Validation`); `T` is the domain model slice the screen projects. Owns view identity, command availability, and the validation surface. Toolkit base type (`ReactiveObject`, `ReactiveValidationObject`) stays internal.
 
@@ -166,7 +166,7 @@ Screen<T>
   Activator    : ViewModelActivator               // WhenActivated / CompositeDisposable
 ```
 
-### [5.4][COMMAND_AND_RECEIPT]
+### [5.4]-[COMMAND_AND_RECEIPT]
 
 ```text conceptual
 Command
@@ -182,7 +182,7 @@ CommandReceipt
   Elapsed      : TimeSpan
 ```
 
-### [5.5][LIVE_VIEW]
+### [5.5]-[LIVE_VIEW]
 
 `LiveView<T>` — DynamicData-backed read-only projection. `T` is the projected model type. Subscriptions managed via `WhenActivated`/`CompositeDisposable`; disposal on `Screen` deactivation. Never exposes `SourceCache` or change-sets publicly.
 
@@ -192,7 +192,7 @@ LiveView<T>
   Snapshot     : IObservable<IReadOnlyList<T>>     // public projection
 ```
 
-### [5.6][CHART_DASHBOARD]
+### [5.6]-[CHART_DASHBOARD]
 
 ```text conceptual
 ChartVm
@@ -202,7 +202,7 @@ ChartVm
   UpdateOn     : RasmUiScheduler                  // series updates marshalled onto UI scheduler
 ```
 
-### [5.7][DIAGNOSTIC_RECEIPT]
+### [5.7]-[DIAGNOSTIC_RECEIPT]
 
 `DiagnosticReceipt` is AppUi-owned; AppHost may reference/correlate it but does not define it.
 
@@ -217,7 +217,7 @@ DiagnosticReceipt
   Fault        : string?                          // non-null on Disposed with exception
 ```
 
-### [5.8][APP_STATE_PROJECTION]
+### [5.8]-[APP_STATE_PROJECTION]
 
 `AppState` is defined and owned by `Rasm.Persistence` — a minimal read-only sealed record (point-in-time snapshot). AppUi consumes it as `IObservable<AppState>` via `ObserveOn(RasmUiScheduler.RxScheduler)`. Fields consumed by AppUi (read-only, no write-back):
 
@@ -230,11 +230,11 @@ AppState
   OpCounts        : StoreOpCounts
 ```
 
-### [5.9][PARADIGM]
+### [5.9]-[PARADIGM]
 
 View layer: ReactiveUI (`ReactiveCommand` / `IObservable<T>` / VMs). App-surface rail lowers typed operations → `CommandReceipt`. Cross-folder work runs as `Eff<RT, T>` inside AppHost's runtime record. AppUi submits intents and consumes typed receipts and observables — it never carries `Eff` directly.
 
-## [6][COMPOSITION]
+## [6]-[COMPOSITION]
 
 > [!CAUTION]
 > Bootstrap order: `PlugIn.OnLoad` is the composition root. Constructs `RasmUiScheduler` on the UI thread → calls `AppHost.Boot(token, timeProvider, uiScheduler, …capabilities)` → receives `BootReceipt` (runtime record + `DrainHandle`) → hands `RasmRuntime` to AppUi to activate inbound observables. `RasmUiScheduler` is AppUi-owned and AppHost-referenced — non-circular.
@@ -249,7 +249,7 @@ Inbound contracts are typed, built fully now, and ready to fire when the sibling
 |   [2]   | Scheduling | `Rasm.AppHost`     | Background/runtime work dispatched via `RasmRuntime`; UI marshals results onto `RasmUiScheduler`             |
 |   [3]   | Progress   | `Rasm.Compute`     | `IObservable<ComputeProgress>` — `ObserveOn(RasmUiScheduler.RxScheduler)` before UI bind; cold, no `OnError` |
 
-## [7][WORLD_CLASS_CAPABILITIES]
+## [7]-[WORLD_CLASS_CAPABILITIES]
 
 | [INDEX] | [CAPABILITY]               | [MECHANISM]                                                                                                        |
 | :-----: | -------------------------- | ------------------------------------------------------------------------------------------------------------------ |
@@ -262,7 +262,7 @@ Inbound contracts are typed, built fully now, and ready to fire when the sibling
 |   [7]   | Clipboard                  | Avalonia `IClipboard` injected into `Screen`; no static access                                                     |
 |   [8]   | Accessibility              | `AutomationProperties.Name/HelpText` on every interactive control; `AutomationPeer` overrides for custom visuals   |
 
-## [8][RUNTIME_EVIDENCE]
+## [8]-[RUNTIME_EVIDENCE]
 
 | [INDEX] | [STATE]        | [MEANING]                                    |
 | :-----: | -------------- | -------------------------------------------- |
@@ -271,7 +271,7 @@ Inbound contracts are typed, built fully now, and ready to fire when the sibling
 
 Evidence categories: RhinoWIP macOS load, GH2 coexistence where a host surface exists, host parent identity, focus/keyboard/z-order, Retina scale, native asset layout, GPU/frame-pacing coexistence with the viewport, screenshot, disposal/unload, accessibility, support-bundle diagnostics.
 
-## [9][PACKAGE_REFERENCES]
+## [9]-[PACKAGE_REFERENCES]
 
 | [INDEX] | [REFERENCE]                                                                                        | [USE]                                     |
 | :-----: | -------------------------------------------------------------------------------------------------- | ----------------------------------------- |

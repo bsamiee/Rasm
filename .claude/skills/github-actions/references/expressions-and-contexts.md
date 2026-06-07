@@ -1,10 +1,10 @@
 # [H1][EXPRESSIONS-AND-CONTEXTS]
 
-## [1][SYNTAX]
+## [1]-[SYNTAX]
 
 `${{ }}` for dynamic values. `if:` conditions are implicit (can omit `${{ }}`). Expressions resolve **before** runner execution — they are string interpolation, not runtime code.
 
-## [2][CONTEXTS]
+## [2]-[CONTEXTS]
 
 | [INDEX] | [CONTEXT]      | [KEY_PROPERTIES]                                                                            |
 | :-----: | -------------- | ------------------------------------------------------------------------------------------- |
@@ -33,7 +33,7 @@
 |   [6]   | `runner.temp`        | Temp directory (cleaned after job) |
 |   [7]   | `runner.tool_cache`  | Tool cache directory               |
 
-## [3][FUNCTIONS]
+## [3]-[FUNCTIONS]
 
 | [INDEX] | [FUNCTION]         | [EXAMPLE]                                                            |
 | :-----: | ------------------ | -------------------------------------------------------------------- |
@@ -58,7 +58,7 @@
 
 **Comparison semantics:** Falsy values: `false`, `0`, `-0`, `""`, `null`. GitHub ignores case for string `==`/`!=`. `NaN` relational comparisons always return `false`. Objects/arrays equal only when same instance.
 
-## [4][PATTERNS]
+## [4]-[PATTERNS]
 
 ```yaml
 # Branch/tag conditionals
@@ -91,7 +91,7 @@ if: always() && contains(join(needs.*.result, ','), 'failure')
 if: always() && needs.deploy.result == 'failure' && needs.deploy.result != 'cancelled'
 ```
 
-## [5][CROSS_JOB_OUTPUTS]
+## [5]-[CROSS_JOB_OUTPUTS]
 
 ```yaml
 jobs:
@@ -116,7 +116,7 @@ jobs:
 
 [IMPORTANT] All job outputs are strings. Boolean comparisons require string equality: `== 'true'`, not `== true`. Multi-line outputs require delimiter syntax.
 
-## [6][INJECTION_PREVENTION]
+## [6]-[INJECTION_PREVENTION]
 
 [CRITICAL]:
 - [NEVER] Interpolate `${{ github.event.* }}` directly in `run:` — attacker-controlled PR titles, branch names, and commit messages can inject shell commands.
@@ -139,7 +139,7 @@ jobs:
 - `github.event.head_commit.message`, `.author.name`, `.author.email`
 - `github.event.discussion.title`, `.body`
 
-## [7][GITHUB_OUTPUT]
+## [7]-[GITHUB_OUTPUT]
 
 ```yaml
 # Simple key-value
@@ -165,7 +165,7 @@ jobs:
 |   [4]   | **`$GITHUB_PATH`**         | PATH additions — available to subsequent steps.        | —                               |
 |   [5]   | **`$GITHUB_STEP_SUMMARY`** | Job summary — Markdown rendered on workflow run page.  | 1 MiB/step, 20 summaries/job.   |
 
-## [8][JOB_SUMMARIES]
+## [8]-[JOB_SUMMARIES]
 
 ```yaml
 - run: |
@@ -180,7 +180,7 @@ jobs:
 - Secrets auto-masked in summaries — same masking rules as log output.
 - Supports badges via `![](url)`, collapsible regions via `<details><summary>`, and HTML tables.
 
-## [9][SECRET_MASKING]
+## [9]-[SECRET_MASKING]
 
 - Secrets referenced via `${{ secrets.NAME }}` are auto-masked in all log output.
 - `::add-mask::VALUE` — dynamically mask any value in subsequent log lines.

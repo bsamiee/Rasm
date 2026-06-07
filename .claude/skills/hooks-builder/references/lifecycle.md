@@ -2,7 +2,7 @@
 
 Fifteen lifecycle events span agent execution. Each fires at distinct point with event-specific input.
 
-## [1][EVENTS]
+## [1]-[EVENTS]
 
 | [INDEX] | [EVENT]            | [TRIGGER]                        | [CAN_BLOCK] | [OUTPUT_VISIBILITY]   |
 | :-----: | ------------------ | -------------------------------- | :---------: | --------------------- |
@@ -24,9 +24,9 @@ Fifteen lifecycle events span agent execution. Each fires at distinct point with
 
 [CRITICAL] Exit code 2 blocks action for events marked `Yes` in CAN_BLOCK column. PostToolUse/PostToolUseFailure exit 2 shows stderr to Claude but cannot undo the tool call. Setup runs only on explicit `claude --init` or `claude --init-only` invocation — not on regular session start.
 
-## [2][INPUT_SCHEMAS]
+## [2]-[INPUT_SCHEMAS]
 
-### [2.1][COMMON_FIELDS]
+### [2.1]-[COMMON_FIELDS]
 
 All events receive via stdin JSON:
 
@@ -38,7 +38,7 @@ All events receive via stdin JSON:
 |   [4]   | `cwd`             | string | Current working directory                                        |
 |   [5]   | `permission_mode` | string | `default`, `plan`, `acceptEdits`, `dontAsk`, `bypassPermissions` |
 
-### [2.2][TOOL_EVENTS]
+### [2.2]-[TOOL_EVENTS]
 
 PreToolUse, PermissionRequest, PostToolUse, PostToolUseFailure add:
 
@@ -50,7 +50,7 @@ PreToolUse, PermissionRequest, PostToolUse, PostToolUseFailure add:
 
 PostToolUse adds `tool_response` (object). PostToolUseFailure adds `error` (string) and optional `is_interrupt` (boolean).
 
-### [2.3][STOP_EVENTS]
+### [2.3]-[STOP_EVENTS]
 
 Stop and SubagentStop add:
 
@@ -60,7 +60,7 @@ Stop and SubagentStop add:
 
 SubagentStop additionally provides `agent_id` (string), `agent_type` (string), and `agent_transcript_path` (string).
 
-### [2.4][SESSION_EVENTS]
+### [2.4]-[SESSION_EVENTS]
 
 | [INDEX] | [EVENT]      | [FIELD]  | [VALUES]                                                                       |
 | :-----: | ------------ | -------- | ------------------------------------------------------------------------------ |
@@ -69,14 +69,14 @@ SubagentStop additionally provides `agent_id` (string), `agent_type` (string), a
 |   [3]   | Setup        | `source` | `init`, `maintenance`                                                          |
 |   [4]   | SessionEnd   | `reason` | `clear`, `logout`, `prompt_input_exit`, `bypass_permissions_disabled`, `other` |
 
-### [2.5][SUBAGENT_EVENTS]
+### [2.5]-[SUBAGENT_EVENTS]
 
 | [INDEX] | [EVENT]       | [FIELD]      | [DESCRIPTION]                      |
 | :-----: | ------------- | ------------ | ---------------------------------- |
 |   [1]   | SubagentStart | `agent_id`   | Unique identifier for the subagent |
 |   [2]   | SubagentStart | `agent_type` | Agent name (matcher target)        |
 
-### [2.6][TEAM_EVENTS]
+### [2.6]-[TEAM_EVENTS]
 
 | [INDEX] | [EVENT]       | [FIELD]            | [DESCRIPTION]                            |
 | :-----: | ------------- | ------------------ | ---------------------------------------- |
@@ -88,7 +88,7 @@ SubagentStop additionally provides `agent_id` (string), `agent_type` (string), a
 |   [6]   | TaskCompleted | `teammate_name`    | Teammate completing task (may be absent) |
 |   [7]   | TaskCompleted | `team_name`        | Team name (may be absent)                |
 
-### [2.7][OTHER_EVENTS]
+### [2.7]-[OTHER_EVENTS]
 
 | [INDEX] | [EVENT]          | [FIELD]               | [DESCRIPTION]                                                            |
 | :-----: | ---------------- | --------------------- | ------------------------------------------------------------------------ |
@@ -99,7 +99,7 @@ SubagentStop additionally provides `agent_id` (string), `agent_type` (string), a
 |   [5]   | Notification     | `title`               | Optional notification title                                              |
 |   [6]   | Notification     | `notification_type`   | `permission_prompt`, `idle_prompt`, `auth_success`, `elicitation_dialog` |
 
-## [3][EXIT_CODES]
+## [3]-[EXIT_CODES]
 
 | [INDEX] | [CODE] | [BEHAVIOR]                                              |
 | :-----: | :----: | ------------------------------------------------------- |
@@ -109,7 +109,7 @@ SubagentStop additionally provides `agent_id` (string), `agent_type` (string), a
 
 [CRITICAL] Choose one approach per hook: exit codes alone, OR exit 0 with JSON for structured control. JSON is only processed on exit 0.
 
-### [3.1][EXIT_2_BEHAVIOR]
+### [3.1]-[EXIT_2_BEHAVIOR]
 
 | [INDEX] | [EVENT]             | [EXIT_2_EFFECT]                                        |
 | :-----: | ------------------- | ------------------------------------------------------ |
@@ -124,7 +124,7 @@ SubagentStop additionally provides `agent_id` (string), `agent_type` (string), a
 |   [9]   | PostToolUseFailure  | Shows stderr to Claude (tool already failed)           |
 |  [10]   | Non-blocking events | Shows stderr to user only (no effect on execution)     |
 
-## [4][EXECUTION]
+## [4]-[EXECUTION]
 
 | [INDEX] | [PROPERTY]      | [VALUE]                                                              |
 | :-----: | --------------- | -------------------------------------------------------------------- |

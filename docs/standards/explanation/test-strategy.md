@@ -4,7 +4,7 @@ A test strategy document fixes the test portfolio, risk model, gate placement, r
 
 Name one profile and one primary strategy archetype in the opening paragraph. Secondary archetype influences are allowed only when they change gate selection and are named explicitly.
 
-## [1][USE_WHEN]
+## [1]-[USE_WHEN]
 
 Use a test strategy when a maintained scope must state any of these:
 - which test levels exist and which risk each covers;
@@ -24,7 +24,7 @@ Do not use a test strategy to list every command a contributor runs, catalog run
 - Adjacent checks: check architecture for invariants, API and code documentation for generated contracts or public symbols, support matrix for supported targets, roadmap for exit proof, contributing/how-to for command paths, and runbook for production gate recovery only when those facts choose or close a gate.
 - Maintenance triggers: update the strategy when a risk tier, gate, status check, runner, artifact, maintained scope boundary, support target, generated contract, quarantine rule, entry/exit threshold, or proof requirement changes.
 
-## [2][REQUIRED_STRUCTURE]
+## [2]-[REQUIRED_STRUCTURE]
 
 Use this required section order. Conditional sections are omitted until their trigger holds; when they appear, insert them at the named position and renumber headings in document order.
 
@@ -33,23 +33,23 @@ Use this required section order. Conditional sections are omitted until their tr
 
 <Lead: name the one profile, the primary archetype, any secondary influence, and the single risk class this scope carries.>
 
-## [1][SCOPE]
+## [1]-[SCOPE]
 
-## [2][PRINCIPLES]
+## [2]-[PRINCIPLES]
 
-## [3][RISK_MODEL]
+## [3]-[RISK_MODEL]
 
-## [4][TEST_LEVELS]
+## [4]-[TEST_LEVELS]
 
-## [5][GATE_MAPPING]
+## [5]-[GATE_MAPPING]
 
-## [6][REQUIRED_PROOF_BY_CHANGE]
+## [6]-[REQUIRED_PROOF_BY_CHANGE]
 
-## [7][DIAGNOSIS_REPAIR]
+## [7]-[DIAGNOSIS_REPAIR]
 
-## [8][BOUNDARIES]
+## [8]-[BOUNDARIES]
 
-## [9][VALIDATION]
+## [9]-[VALIDATION]
 ```
 
 Use this accepted lead shape:
@@ -72,13 +72,13 @@ Use this conditional-section decision table:
 Use this conditional-addition template:
 
 ```markdown template
-## [N][ENTRY_EXIT_CRITERIA]
+## [N]-[ENTRY_EXIT_CRITERIA]
 
-## [N][FLAKY_TEST_POLICY]
+## [N]-[FLAKY_TEST_POLICY]
 
-## [N][METRICS]
+## [N]-[METRICS]
 
-## [N][MAINTENANCE_EVENTS]
+## [N]-[MAINTENANCE_EVENTS]
 ```
 
 [SECTION_CARDINALITY]:
@@ -86,13 +86,13 @@ Use this conditional-addition template:
 - Conditional sections appear only when their decision-table trigger holds.
 - Produced strategies contain no placeholders, template gate names, generic gate classes, or unnamed repair paths in place of a source path, status check, contract, or proof gate.
 
-## [3][LOCAL_TRUTH]
+## [3]-[LOCAL_TRUTH]
 
 Separate local executable truth from testing vocabulary. Repository truth carries gate names, commands, runners, status-check identifiers, artifacts, repair paths, and release policy. Produced strategies claim only local policy and local evidence.
 
 Use shared testing terms as local labels only when the strategy defines their meaning before use. If a project must claim compliance with a nonlocal policy, route that policy to the maintained policy document and keep this strategy focused on executable gates.
 
-## [4][PROFILES_ARCHETYPES]
+## [4]-[PROFILES_ARCHETYPES]
 
 Pick one profile for scope and one primary archetype for depth selection. Split the document when one page needs more than one profile.
 
@@ -118,7 +118,7 @@ Use the archetype vocabulary below as local strategy labels. These labels are se
 
 Prefer `Analytical` when a risk register governs the scope. If a produced strategy combines archetypes, declare one primary archetype and list secondary influences in `Principles` with the gate-selection rule they change.
 
-## [5][TESTING_VOCABULARY]
+## [5]-[TESTING_VOCABULARY]
 
 Use testing vocabulary only after the strategy binds it to local executable truth. The strategy names the level, risk, trigger, and selection rule, then links the live source for commands, runner config, status checks, artifacts, and repair paths beside the claim it proves.
 
@@ -143,7 +143,7 @@ Testing vocabulary supplies these concepts:
 
 These field-value vocabularies are not lifecycle `Status` unless the record explicitly carries lifecycle. `Trigger` names when a gate runs, `Blocking` names merge or release effect, and quarantine terms name test-row handling. If a strategy also tracks lifecycle work, use the shared record vocabulary or declare a separate lifecycle family before the first record.
 
-## [6][PLACEMENT]
+## [6]-[PLACEMENT]
 
 Place test strategies at the nearest scope that owns the policy:
 - Shared scope strategy: `docs/test-strategy.md`.
@@ -152,11 +152,11 @@ Place test strategies at the nearest scope that owns the policy:
 
 Keep one strategy per scope. Link a lower-level strategy instead of copying its gate map into a shared document.
 
-## [7][SCOPE]
+## [7]-[SCOPE]
 
 State the maintained scope boundary, what is in and out, and the single primary risk class the scope carries. A strategy that carries unrelated risk classes is two strategies; split it. Name the scope in the H1 and the risk class in the opening paragraph so both stand alone in retrieval.
 
-## [8][PRINCIPLES]
+## [8]-[PRINCIPLES]
 
 State the trade-off rules the portfolio obeys with these required rules:
 
@@ -176,7 +176,7 @@ State the trade-off rules the portfolio obeys with these required rules:
 [EVIDENCE_RAILS]:
 - Keep static analysis, build/type checking, unit/property tests, integration gates, runtime scenario checks, mutation, fuzzing, benchmark, and snapshot/visual proof as separate rail classes unless local policy proves that one gate fully consumes another. A strategy may route commands away, but it must not collapse static-managed evidence and runtime bridge evidence into one unnamed proof bucket.
 
-## [9][RISK_MODEL]
+## [9]-[RISK_MODEL]
 
 Bind test depth and gate selection to an auditable risk tier. State the scoring model the scope actually uses, the tier buckets, and the rule mapping each tier to test depth and minimum gate. Use a decision table so an agent resolves a tier deterministically.
 
@@ -191,7 +191,7 @@ The table below is a default likelihood-by-impact template, not a universal rule
 
 Define likelihood and impact scales before using numeric scores. Link the risk register from repository truth, and name at least the High and Extreme risks currently local. Require traceability: each High or Extreme risk back-links to the level or gate that covers it through a register field or `Covered-by:` line.
 
-## [10][TEST_LEVELS]
+## [10]-[TEST_LEVELS]
 
 Define only levels the scope runs or reviews. Render each level as a definition block; the template below is the authoritative field order. `Size` carries the resource and isolation boundary, `Scope` carries the behavior surface, and `Hermeticity` controls continuous-integration eligibility.
 
@@ -230,7 +230,7 @@ Local rail classes stay distinct from test levels. Use this table as a selection
 |   [8]   | benchmark                   | maintained budget gate                                  | performance-budget evidence                       |
 |   [9]   | host/runtime scenario       | simulator, device, or host scenario                     | integration with external host behavior           |
 
-## [11][GATE_MAPPING]
+## [11]-[GATE_MAPPING]
 
 A gate map connects a level to automation without becoming a runner manual. Link commands, status checks, and runner configuration; do not list runnable command recipes. Render each gate as one definition block:
 
@@ -289,7 +289,7 @@ flowchart TB
 
 Text equivalent: changed-path impact selects the presubmit gate first; unit and contract proof can defer broader integration to post-submit and nightly gates; release acceptance waits for high-fidelity and nonfunctional proof; presubmit failure blocks early, and any deferred gate must state residual risk in the gate record.
 
-## [12][ENTRY_EXIT_CRITERIA]
+## [12]-[ENTRY_EXIT_CRITERIA]
 
 Include entry and exit criteria when the strategy carries release gates, manual runtime gate, regulated gate, hotfix tailoring, or locally defined phase vocabulary. State conditions that open each gate and thresholds that close each class; if phases appear, define the phase vocabulary before the first criterion that uses it.
 
@@ -308,7 +308,7 @@ Exit (hotfix): <tailored thresholds and affected risk areas>
 
 Do not require pass-rate, critical-flow, defect-bound, or escape-budget fields unless the local release policy uses them. An unstated tailored release or gate path is an ungated path.
 
-## [13][REQUIRED_PROOF_BY_CHANGE]
+## [13]-[REQUIRED_PROOF_BY_CHANGE]
 
 Map each change family to the smallest sufficient proof surface. The table below is a template: produced strategies replace every proof cell with repository gate names, contracts, or source checks and link [proof.md](../proof.md) for evidence strength rather than restating the evidence hierarchy.
 
@@ -329,7 +329,7 @@ When an escalation trigger fires, the change also clears the broader gate the ro
 - Rejected proof row: `behavior | generic gate | if risky`
 - Reason: the rejected row names no repository gate, contract, source check, or escalation condition.
 
-## [14][DIAGNOSIS_REPAIR]
+## [14]-[DIAGNOSIS_REPAIR]
 
 Every test level, gate, and quarantine path states how failures are diagnosed and repaired:
 - source or artifact used to diagnose failure;
@@ -340,7 +340,7 @@ Every test level, gate, and quarantine path states how failures are diagnosed an
 
 A large or cross-scope test with no diagnosis path is a defect in the strategy.
 
-## [15][FLAKY_TEST_POLICY]
+## [15]-[FLAKY_TEST_POLICY]
 
 Define a flaky test as one that both passes and fails against the same relevant code and environment state. Include this section when the scope has reruns, quarantine, noisy tests, or deletion/re-enable decisions.
 
@@ -379,7 +379,7 @@ Deletion criteria: <duplicated stronger coverage or retired behavior>
 - Rejected policy: Flaky tests can be quarantined until they are fixed.
 - Reason: the rejected form has no detection threshold, repair path, status, maximum duration, residual risk, or re-enable rule.
 
-## [16][METRICS]
+## [16]-[METRICS]
 
 Include metrics only when each metric changes a decision. Bind every metric to the named decision it drives:
 - pass, fail, flake, retry, quarantine, and re-enable rate per level: portfolio rebalance and level retirement;
@@ -391,7 +391,7 @@ Include metrics only when each metric changes a decision. Bind every metric to t
 
 Do not publish a metric the scope cannot act on, and do not present raw coverage percentage as proof of correctness.
 
-## [17][MAINTENANCE_EVENTS]
+## [17]-[MAINTENANCE_EVENTS]
 
 Add this section only when several maintenance events need explanation. Events beat calendar dates unless a maintained policy requires a scheduled review.
 
@@ -410,7 +410,7 @@ Use these common maintenance events:
 - flake-rate, gate-duration, or release-escape threshold is breached;
 - maintained testing policy the strategy reuses is revised.
 
-## [18][BOUNDARIES]
+## [18]-[BOUNDARIES]
 
 [EXPLANATION_TYPES]:
 - [architecture.md](architecture.md) carries architecture topology, runtime boundaries, and invariant checks that select test levels.
@@ -425,7 +425,7 @@ Use these common maintenance events:
 - [README.md](../README.md) carries document-type routing, placement, and lifecycle.
 - [proof.md](../proof.md) carries evidence strength, proof details, and verification gates.
 
-## [19][VALIDATION]
+## [19]-[VALIDATION]
 
 Use this verification checklist by group:
 

@@ -66,7 +66,7 @@ layer(_contractLayer)('contract: ${SUITE_NAME}', (it) => {
 });
 ```
 
-## [1][PLACEHOLDER_REFERENCE]
+## [1]-[PLACEHOLDER_REFERENCE]
 
 | [INDEX] | [PLACEHOLDER]          | [EXAMPLE]                                           |
 | :-----: | ---------------------- | --------------------------------------------------- |
@@ -94,7 +94,7 @@ layer(_contractLayer)('contract: ${SUITE_NAME}', (it) => {
 |  [22]   | `EDGE_CASE_EFFECTS`    | `S.decodeUnknown(PkgA)({}).pipe(Effect.flip)`       |
 |  [23]   | `EXPECTED`             | `[expect.objectContaining({ _tag: 'ParseError' })]` |
 
-## [2][CONVENTIONS]
+## [2]-[CONVENTIONS]
 
 - **No `vi.mock`** -- contract tests use real schemas and service tags
 - **`Layer.succeed(Tag, impl)`** for minimal fakes -- not full mock objects

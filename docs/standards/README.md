@@ -2,7 +2,7 @@
 
 This folder is the active standards library and router for documentation. Start here to classify the reader need, pick the document type, and route each rule to its owner. This index is the root route map for the library. Standards link back only at boundaries or when a neighboring rule changes author action.
 
-## [1][USE_WHEN]
+## [1]-[USE_WHEN]
 
 Use this index when:
 - creating or rewriting Markdown documentation
@@ -11,7 +11,7 @@ Use this index when:
 - splitting, merging, moving, or deleting a document
 - checking whether a standard is active
 
-## [2][AUTHORITY_EVIDENCE]
+## [2]-[AUTHORITY_EVIDENCE]
 
 Separate rule authority from claim evidence.
 
@@ -30,7 +30,7 @@ Separate rule authority from claim evidence.
 
 Current repository truth proves current facts; it does not weaken future-facing standards.
 
-## [3][READ_ORDER]
+## [3]-[READ_ORDER]
 
 Read order is workflow order; owner routing and claim evidence still decide conflicts.
 
@@ -49,7 +49,7 @@ Read order is workflow order; owner routing and claim evidence still decide conf
 |   [4]   | proof fields and gates           | [proof.md](proof.md)                                                 |
 |   [5]   | containers and examples          | [information-structure.md](information-structure.md)                 |
 
-## [4][READER_NEED_MAP]
+## [4]-[READER_NEED_MAP]
 
 Classify a document by the reader action:
 
@@ -62,7 +62,7 @@ Classify a document by the reader action:
 
 Publish only documents that answer a real reader need. If no quadrant fits cleanly, reduce the scope until one reader outcome is primary.
 
-## [5][CHOOSE_TYPE]
+## [5]-[CHOOSE_TYPE]
 
 Map the reader need to the artifact. Route-away cells name the standards that should receive adjacent content instead.
 
@@ -84,7 +84,7 @@ Map the reader need to the artifact. Route-away cells name the standards that sh
 |  [14]   | tested learning path    | [tutorial](learning/tutorial.md)              | [reference](reference/reference.md), variants         |
 |  [15]   | readiness ramp          | [onboarding](learning/onboarding.md)          | [how-to](task/how-to.md), contributing                |
 
-## [6][SHARED_STANDARDS]
+## [6]-[SHARED_STANDARDS]
 
 Each cross-cutting rule routes to exactly one owner:
 
@@ -103,7 +103,7 @@ Audit root standards against form, craft, evidence, and notation only. If a find
 - Proof, source, provenance, and freshness fields: [proof](proof.md) owns evidence shape and proof gaps.
 - External-library implementation policy: route docs behavior through [docs overlay](../AGENTS.md), cross-stack precedence through [usage](../usage/README.md), and language-specific decisions through `stacks/<language>/`.
 
-## [7][PLACEMENT]
+## [7]-[PLACEMENT]
 
 Place documentation where the reader or tool first looks:
 
@@ -123,7 +123,7 @@ Use `.planning/` as a flat scope-local planning container when roadmap, planning
 
 Use `.reports/` as a scope-local source-material container for reusable agent research, investigation, findings, critique, synthesis, or promotion material. A `.reports/AGENTS.md` owns report mechanics when the report archive needs local session rules.
 
-## [8][SPLIT_LINK]
+## [8]-[SPLIT_LINK]
 
 When a draft serves more than one primary reader need, split it:
 
@@ -141,7 +141,7 @@ When a draft serves more than one primary reader need, split it:
 
 After splitting, add the smallest cross-link that changes reader action, proof, or maintenance. Do not leave a summary copy that can drift.
 
-## [9][LIFECYCLE]
+## [9]-[LIFECYCLE]
 
 Maintain documentation with these rules:
 - Create the smallest useful document that answers the reader need.
@@ -152,7 +152,7 @@ Maintain documentation with these rules:
 
 Unless live product support and evidence justify them, do not preserve old paths, terminology, commands, or product claims as compatibility notes.
 
-## [10][FOLDER_LAYOUT]
+## [10]-[FOLDER_LAYOUT]
 
 ```text conceptual
 docs/standards/
@@ -172,7 +172,7 @@ docs/standards/
 
 Active standards are the files in this layout except `.reports/**` and folders explicitly marked deprecated by a trusted local instruction or route owner. `AGENTS.md` is an instruction overlay, not a standards body.
 
-## [11][ANTI_PATTERNS]
+## [11]-[ANTI_PATTERNS]
 
 These anti-patterns fall into three groups:
 
@@ -200,7 +200,7 @@ These anti-patterns fall into three groups:
 |   [6]   | failure response                | [runbook](task/runbook.md)                            |
 |   [7]   | contribution workflow           | [contributing](task/contributing.md)                  |
 
-## [12][MAINTENANCE_RULES]
+## [12]-[MAINTENANCE_RULES]
 
 - Keep this README a route map; put detailed rules in the owner standard.
 - Prefer restructuring, deletion, and route links over duplicated guidance.
@@ -210,14 +210,14 @@ These anti-patterns fall into three groups:
 - Keep release history in the project's release mechanism, not in this index.
 - When project-bound docs feed reusable skills, prompts, templates, or standards, extract only the portable rule shape and replace local names, paths, package facts, commands, task IDs, and proof routes with neutral placeholders.
 
-## [13][BOUNDARIES]
+## [13]-[BOUNDARIES]
 
 - Shared standards carry cross-cutting rules; this README only routes readers to them.
 - Type standards carry artifact-specific structure; this README only chooses the primary type.
 - The active repository instruction route carries cross-stack implementation precedence and proof order outside the standards library.
 - [AGENTS.md](AGENTS.md) carries local agent routing, read scope, audit contracts, and close checks for edits inside this folder.
 
-## [14][VALIDATION]
+## [14]-[VALIDATION]
 
 Use this verification checklist by axis. Command, link, anchor, renderer, and docs-build gates are selected through [proof.md](proof.md); unrun gates are proof gaps.
 

@@ -16,7 +16,7 @@ apps/
 |   [1]   | `grasshopper` | Plugin exposes Grasshopper2 components, parameter ports, IDataAccess | `apps/grasshopper/Radyab/`; `<new Grasshopper plugin>` |
 |   [2]   | `rhino`       | Plugin exposes Rhino commands, panels, overlays — no GH components   | `<new Rhino plugin>`                                   |
 
-## [1][CSPROJ_CONVENTIONS]
+## [1]-[CSPROJ_CONVENTIONS]
 
 `Directory.Build.props` auto-classifies projects by path:
 
@@ -37,7 +37,7 @@ To add a new plugin:
 3. Add `<YakPackageSlug>` to the project and `tools/yak/<slug>/manifest.yml` so `uv run python -m tools.quality bridge package <slug> <version>` resolves the artifact through MSBuild.
 4. Tests for the plugin live at `tests/csharp/<PluginName>/<PluginName>.Tests.csproj` for static specs. Runtime bridge scenarios live under `tests/csharp/libs/<Project>/<MirrorPath>/scenarios/` for library-owned behavior, including plugin-facing GH UI slices. See the `cs-testing` skill.
 
-## [2][REFERENCE_PLUGIN]
+## [2]-[REFERENCE_PLUGIN]
 
 `apps/grasshopper/Radyab/Radyab.csproj` is the current Grasshopper-host exemplar, not the only plugin shape. Match the host folder convention when adding new plugins:
 

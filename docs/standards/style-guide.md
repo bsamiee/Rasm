@@ -2,7 +2,7 @@
 
 This standard carries craft: the words inside a document, sentence mechanics, terminology, punctuation, links, and code-safe Markdown. Apply it after the document type and container are chosen. It does not decide content position, container form, or evidence strength.
 
-## [1][USE_WHEN]
+## [1]-[USE_WHEN]
 
 Apply this standard when writing or reviewing:
 - prose, headings, captions, notes, warnings, and example wording
@@ -12,7 +12,7 @@ Apply this standard when writing or reviewing:
 
 Salience and ordering, container form, and evidence strength belong to the position, form, and evidence standards.
 
-## [2][WORDING_PRECEDENCE]
+## [2]-[WORDING_PRECEDENCE]
 
 Use the first source that decides a naming or wording question:
 1. Current repository source, manifests, generated contracts, API fields, and verified product or package names.
@@ -25,7 +25,7 @@ When sources conflict, choose the repo-local term only when a current route or c
 
 For unresolved sentence composition, use concision, parallelism, positive form, and concrete language. For unresolved punctuation, capitalization, numbers, and quotation mechanics, use established editorial style unless repository notation or code-safe Markdown overrides it.
 
-## [3][PROSE_RULES]
+## [3]-[PROSE_RULES]
 
 [SHAPE]:
 - Put the controlling rule, constraint, or outcome before supporting detail.
@@ -48,7 +48,7 @@ For unresolved sentence composition, use concision, parallelism, positive form, 
 - Reject prompt-era process vocabulary in durable docs unless quoted as archival evidence: `dictum`, `dossier`, `stage N`, `validated snippet`, task-ledger labels, and agent-invented abstraction names. Prefer current source names, configured command names, public symbols, and maintained document types.
 - Cut a hedge that carries no information. Replace non-load-bearing hedges with direct rules, preserve qualifiers that mark real scope limits, and route real uncertainty to [proof.md](proof.md) as a proof gap.
 
-## [4][PARAGRAPH_ARCHITECTURE]
+## [4]-[PARAGRAPH_ARCHITECTURE]
 
 Use a front-and-close shape. The first sentence states the rule, claim, scope, outcome, or transition. The middle qualifies, explains, or proves it. The final sentence closes on the consequence, boundary, evidence requirement, or next route.
 
@@ -66,7 +66,7 @@ Use paragraph pairs when one idea needs a setup and a consequence. The first par
 
 Use the smallest carrier that preserves the reader job. A packet with only 1 or 2 independently useful fields usually wants prose or a short definition block, not a full template. Omit absent fields rather than filling a packet to satisfy shape.
 
-## [5][SENTENCE_MECHANICS]
+## [5]-[SENTENCE_MECHANICS]
 
 [CLAUSE_JOINING]:
 - Coordinating conjunctions are `for`, `and`, `nor`, `but`, `or`, `yet`, and `so`.
@@ -91,7 +91,7 @@ Use the smallest carrier that preserves the reader job. A packet with only 1 or 
 - State a condition before the action it controls: `If <signal>, do <action>`.
 - Keep modifiers and related words next to the terms they govern.
 
-## [6][TERMINOLOGY]
+## [6]-[TERMINOLOGY]
 
 - Preserve verified product, package, API, command, file, and UI names exactly.
 - Use one term for one concept within a bounded context.
@@ -101,7 +101,7 @@ Use the smallest carrier that preserves the reader job. A packet with only 1 or 
 - Do not invent reader-facing names for internal concepts.
 - Do not name stale commands, removed tools, transient task labels, or removed skills unless a current route proves they are still supported.
 
-## [7][PUNCTUATION_NUMBERS_NOTATION]
+## [7]-[PUNCTUATION_NUMBERS_NOTATION]
 
 [LOCAL_MECHANICS]:
 - Use U.S. English spelling unless a product or source name differs.
@@ -138,7 +138,7 @@ Notation rules use these groups:
 - In ordinary prose quotations, place commas and periods inside closing quotation marks and colons and semicolons outside. For UI labels, commands, code, exact strings, and copied source text, preserve literal punctuation and prefer backticks over quotation marks.
 - Use straight quotes and ASCII-safe punctuation in any Markdown a reader may copy into commands, code, config, or trackers. Curly quotation marks and apostrophes are acceptable only in prose that is never copied as a literal.
 
-## [8][CODE_SAFE_MARKDOWN]
+## [8]-[CODE_SAFE_MARKDOWN]
 
 - Wrap commands, flags, paths, environment variables, package IDs, symbols, literal values, and placeholders in backticks.
 - Name a placeholder by route, such as `<scenario-glob>` or `<package-name>`, and use one only when the reader must substitute a value.
@@ -146,13 +146,13 @@ Notation rules use these groups:
 - Put surrounding sentence punctuation outside a code span unless the punctuation is part of the literal value.
 - When inline code contains a backtick, use a longer matching backtick delimiter rather than a backslash escape.
 
-## [9][LINKS]
+## [9]-[LINKS]
 
 - Use link text that describes the destination, and avoid bare URLs unless the URL is the example value.
 - Prefer canonical repo docs, generated contracts, manifests, or maintained source routes, and avoid deep links when a stable top-level reference carries the same truth.
 - Route generated, mirrored, or version-sensitive target freshness and generated mirror behavior to [proof.md](proof.md).
 
-## [10][EXAMPLES]
+## [10]-[EXAMPLES]
 
 Examples must prove shape or prevent misuse. Place local examples beside the rule they clarify per [information-structure.md](information-structure.md). A late example section is valid only when it is a named reader-route example set that demonstrates how several rules interact. This guide controls example wording; the form standard controls placement.
 
@@ -167,7 +167,7 @@ Use examples under these limits:
 - Rejected: It is probably best to try to avoid not stating the unit when you can.
 - Reason: The accepted sentence names the action directly; the rejected sentence hedges, negates, and hides the unit rule.
 
-## [11][ACCESSIBILITY]
+## [11]-[ACCESSIBILITY]
 
 - Carry meaning through text, not through color, position, shape, pointer movement, screenshots, or sound alone.
 - Provide text equivalents for visual, audio, or screenshot-only information, and write alt text that states what the image proves.
@@ -175,7 +175,7 @@ Use examples under these limits:
 - When keyboard, pointer, touch, voice, or automation can perform the action, use input-neutral UI verbs. When the UI label is the action target, describe it exactly.
 - Prefer conventional grammar and punctuation for machine translation and avoid idioms and culture-specific figurative wording.
 
-## [12][FINAL_PROOFING_PASS]
+## [12]-[FINAL_PROOFING_PASS]
 
 Review craft in 4 passes before publication:
 1. Composition: scope, controlling idea, paragraph order, and section endings.
@@ -183,14 +183,14 @@ Review craft in 4 passes before publication:
 3. Terminology: names, commands, paths, links, and examples use exact source wording.
 4. Accessibility wording: sensory cues, UI labels, and text equivalents are direct and input-neutral.
 
-## [13][BOUNDARIES]
+## [13]-[BOUNDARIES]
 
 - [information-structure.md](information-structure.md) carries container form, example placement, and the code-block intent-label vocabulary.
 - [proof.md](proof.md) carries evidence strength and when a hedge is a load-bearing uncertainty marker rather than filler.
 - [formatting.md](formatting.md) carries status and invocation markers, table styling, and whitespace; this standard carries the words.
 - [README.md](README.md) carries document-type routing and cross-standard links.
 
-## [14][VALIDATION]
+## [14]-[VALIDATION]
 
 Use this verification checklist by group:
 

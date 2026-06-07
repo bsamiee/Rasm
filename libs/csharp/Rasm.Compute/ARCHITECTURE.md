@@ -2,7 +2,7 @@
 
 `Rasm.Compute` is the owner for measured execution beyond direct in-process `Rasm.Vectors` operations. It keeps tensor, model, remote, cancellation, benchmark, and receipt concerns explicit without turning package APIs into public platform APIs.
 
-## [1][BUILD_STATUS]
+## [1]-[BUILD_STATUS]
 
 ```mermaid
 ---
@@ -35,7 +35,7 @@ Text equivalent: compute intent enters `Rasm.Compute`; Compute wraps `Rasm.Vecto
 |   [4]   | Packages           | `[NOT_STARTED]`          |
 |   [5]   | Benchmark evidence | Per measured input class |
 
-## [2][PUBLIC_RAIL_CONTRACT]
+## [2]-[PUBLIC_RAIL_CONTRACT]
 
 | [INDEX] | [CONCEPT]           | [OWNS]                                                                      | [DOES_NOT_OWN]             |
 | :-----: | ------------------- | --------------------------------------------------------------------------- | -------------------------- |
@@ -49,13 +49,13 @@ Text equivalent: compute intent enters `Rasm.Compute`; Compute wraps `Rasm.Vecto
 
 Operations are `Eff<RT, ExecutionReceipt>` on the runtime record `RT` (defined by `Rasm.AppHost`). `RT` carries the `CancellationToken` and `TimeProvider`; Compute owns no executor. AppHost owns the bounded `Channel<ComputeRequest>`, drains it on its background scheduler, and calls Compute to execute each request; `ComputeRequest` is defined in the shared-contracts project, not in `Rasm.Compute`.
 
-## [3][TYPE_SHAPES]
+## [3]-[TYPE_SHAPES]
 
-### [3.1][RUNTIME_CONSTRAINT]
+### [3.1]-[RUNTIME_CONSTRAINT]
 
 `IComputeRuntime` is the minimal interface Compute needs to run standalone (without AppHost). It exposes `CancellationToken Token { get; }` and `TimeProvider Time { get; }`. `RasmRuntime` (defined in `Rasm.AppHost`) implements it and adds per-capability accessors. Operations parameterized on `RT where RT : IComputeRuntime` compile and run without AppHost; with AppHost they receive the full `RasmRuntime`. Capabilities resolve through `Eff.runtime<RT>()` — no `Has<RT,_>` traits and no `Readable.asks` (v4 vocabulary, forbidden).
 
-### [3.2][SUBSTRATE_SELECTION_PREDICATE]
+### [3.2]-[SUBSTRATE_SELECTION_PREDICATE]
 
 The substrate escalation predicate is a pure function `SubstrateKind SelectSubstrate(ComputeIntent intent)` with this ordered rule:
 
@@ -68,11 +68,11 @@ The substrate escalation predicate is a pure function `SubstrateKind SelectSubst
 
 `SubstrateKind` is a Thinktecture-generated enum discriminant on `ExecutionReceipt`. Escalation is applied at operation entry; no subsequent switch on substrate kind appears in domain logic.
 
-### [3.3][VECTORS_BOUNDARY]
+### [3.3]-[VECTORS_BOUNDARY]
 
 Compute calls `Rasm.Vectors` for all tensor/numeric work. It does NOT re-implement `TensorPrimitives` kernels, mesh operators, spectral substrates, or sampling algorithms that `Rasm.Vectors` owns. Compute's sole additions over a `Rasm.Vectors` call are: `Eff<RT,ExecutionReceipt>` lifting, timing via `RT.Time`, allocation measurement via `MemoryOwner<T>` / `ArrayPoolBufferWriter<T>`, cancellation forwarding via `RT.Token`, substrate selection via the predicate above, and `ComputeProgress` emission. Zero algorithm duplication.
 
-### [3.4][RECEIPT_SHAPES]
+### [3.4]-[RECEIPT_SHAPES]
 
 ```
 ExecutionReceipt
@@ -115,7 +115,7 @@ RemoteReceipt
 
 No separate `ComputeReceipt` union type. Lane receipts are `Option<>` fields on `ExecutionReceipt`. No `IReceipt` base.
 
-### [3.5][COMPUTE_PROGRESS_SHAPE]
+### [3.5]-[COMPUTE_PROGRESS_SHAPE]
 
 ```
 ComputeProgress
@@ -128,23 +128,23 @@ ComputeProgress
 
 Emission contract: Compute owns a cold `Subject<ComputeProgress>` per operation; exposes `.AsObservable()` on `ExecutionReceipt` or operation context; never calls `ObserveOn` — that is AppUi's boundary (`ObserveOn(RasmUiScheduler.RxScheduler)`). `OnCompleted` fires on both success and cancellation. `OnError` never fires — faults surface via `ExecutionReceipt.Failure`. Emissions are monotone in `Fraction`; a single-step operation emits exactly one item at `Fraction=1` then completes. GH2 components with no subscriber receive no-op emissions — the cold `Subject` has zero cost without an observer.
 
-### [3.6][COMPUTE_REQUEST_AND_OWNER]
+### [3.6]-[COMPUTE_REQUEST_AND_OWNER]
 
 `ComputeRequest` is a sealed record defined in the shared-contracts project (which also houses the `.proto` file and `Grpc.Tools` reference). It carries: `ComputeIntent Intent`, `ModelKey? Model`, `string? RemoteEndpoint`, `TimeSpan Deadline`, `CancellationToken Token` (per-request linked token — AppHost creates it linked to `RasmRuntime.Token` at drain time). AppHost owns the `Channel<ComputeRequest>` writer and drains it on its background scheduler; Compute executes when called. `ComputeRequest` never appears in `Rasm.Compute` type definitions — Compute consumes it from the shared-contracts reference.
 
-### [3.7][INFERENCE_SESSION_LEASE]
+### [3.7]-[INFERENCE_SESSION_LEASE]
 
 One `InferenceSession` per `ModelKey`, managed through `Atom<HashMap<ModelKey, SemaphoreSlim>>` (LanguageExt atomic reference). Session creation is serialized per key by the `SemaphoreSlim`; after creation the session is reused concurrently. Session disposal happens only at shutdown drain in AppHost. `IntraOpNumThreads` is capped at 2–4 (not `Environment.ProcessorCount`) to avoid contending with Rhino's mesh and display pipelines. A shared ORT thread pool is configured once per process via `OrtEnvironment.GetInstance().SetGlobalIntraOpNumThreads(cap)` before any session is created.
 
-### [3.8][MODEL_CACHE_AND_DETERMINISM]
+### [3.8]-[MODEL_CACHE_AND_DETERMINISM]
 
 `ModelKey` is a value record: `{ ModelName, ContentHash, InputShape, ExecutionProvider }`. The content hash is derived from the `.onnx` file bytes at load time; ORT does not track model changes so a stale `ModelCacheDirectory` returns the old compiled MLProgram without error. Cache key includes `ContentHash` to detect stale entries. Compute performs a content-hash lookup into Persistence (`Eff<RT, Option<ModelResult>>`) before any inference; a miss runs inference and stores. A hit returns the cached result and emits `ModelReceipt.CacheHit = true`. The CoreML ANE silently downcasts fp32 inputs to fp16; validate equivalence against `CPUOnly` EP with `AllowLowPrecisionAccumulationOnGPU=0` and record the result in `ModelReceipt.Fp16Downcast`. Equivalence tolerance and baseline definition live in `BenchmarkReceipt`; the policy (`RelativeTolerance`, `AbsoluteTolerance`) is fixed per model identity in the model configuration, not per invocation.
 
-### [3.9][ALLOCATION_BUDGET]
+### [3.9]-[ALLOCATION_BUDGET]
 
 Each operation declares an allocation category: `Minimal` (< 1 MB), `Moderate` (1–64 MB), `Heavy` (> 64 MB). The budget is measured via `GC.GetAllocatedBytesForCurrentThread()` before and after the operation body. An overrun does not throw; it sets `ExecutionReceipt.Failure = ExecutionFailure.AllocationBudgetExceeded` and returns the partial receipt. `MemoryOwner<T>` (`CommunityToolkit.HighPerformance`) and `ArrayPoolBufferWriter<T>` are the staging buffers for mesh/tensor work; `ArrayPool<T>` (in-box) for smaller transient allocations. `Microsoft.IO.RecyclableMemoryStream` is used only where a `Stream`-shaped code path is proven necessary.
 
-## [4][SUBSTRATE_ORDER]
+## [4]-[SUBSTRATE_ORDER]
 
 | [INDEX] | [SUBSTRATE]               | [SCOPE]      | [BASIS]                                                         |
 | :-----: | ------------------------- | ------------ | --------------------------------------------------------------- |
@@ -155,9 +155,9 @@ Each operation declares an allocation category: `Minimal` (< 1 MB), `Moderate` (
 
 `System.Numerics.Tensors` is in-box on net10.0 — call `TensorPrimitives` directly; rent input buffers from `ArrayPool<T>` (in-box) or `MemoryOwner<T>` (`CommunityToolkit.HighPerformance`). `UnitsNet` provides typed physical scalars (lengths, angles, forces) for CAD inputs and results — satisfying the no-weak-types rule for dimension-bearing values.
 
-## [5][PACKAGES]
+## [5]-[PACKAGES]
 
-### [5.1][APPROVED_ADJACENT]
+### [5.1]-[APPROVED_ADJACENT]
 
 | [INDEX] | [PACKAGE]                             | [ROLE]                                                                         | [CONDITION]                                    |
 | :-----: | ------------------------------------- | ------------------------------------------------------------------------------ | ---------------------------------------------- |
@@ -174,7 +174,7 @@ Each operation declares an allocation category: `Minimal` (< 1 MB), `Moderate` (
 
 `ArrayPool<T>` and `System.Numerics.Tensors` are in-box on net10.0 — no NuGet entry.
 
-### [5.2][REJECTIONS]
+### [5.2]-[REJECTIONS]
 
 | [INDEX] | [REJECTED]                                                 | [REASON]                                                                        |
 | :-----: | ---------------------------------------------------------- | ------------------------------------------------------------------------------- |
@@ -189,7 +189,7 @@ Each operation declares an allocation category: `Minimal` (< 1 MB), `Moderate` (
 |   [9]   | `Grpc.AspNetCore` / `Grpc.HealthCheck` / `Grpc.Reflection` | Server-side packages; Compute is a client                                       |
 |  [10]   | MessagePack / MemoryPack                                   | No serialization boundary in Compute; Persistence owns snapshot codecs          |
 
-## [6][MODEL_LANE_INTEGRATION]
+## [6]-[MODEL_LANE_INTEGRATION]
 
 > [!CAUTION]
 > Use the managed CoreML EP API: `SessionOptions.AppendExecutionProvider("CoreML", new Dictionary<string,string>{ ["ModelFormat"] = "MLProgram", ["MLComputeUnits"] = "CPUAndNeuralEngine", ["ModelCacheDirectory"] = path })`. Do not add native P/Invoke provider setup when the managed API owns the execution-provider route.
@@ -207,17 +207,17 @@ Each operation declares an allocation category: `Minimal` (< 1 MB), `Moderate` (
 
 [REMOTE_LANE] gRPC idle-connection handling: configure `SocketsHttpHandler` with `KeepAlivePingDelay`, `KeepAlivePingTimeout`, and `EnableMultipleHttp2Connections = true` to prevent idle-connection timeouts from surfacing as transient errors. AppHost owns retry on the remote hop; Compute emits `RemoteReceipt.RetryOwnerConflict` if a second retry owner appears.
 
-## [7][GRASSHOPPER_SURFACING]
+## [7]-[GRASSHOPPER_SURFACING]
 
 - In-process operations (default substrate, `Rasm.Vectors` calls): use `GH_TaskCapableComponent` with cached result; `ExpireSolution(true)` after the task completes.
 - Model or remote operations (> 100 ms): submit to AppHost's `Channel<ComputeRequest>` from the solve method; cache the last `ExecutionReceipt` and call `ExpireSolution(true)` when the channel drain delivers the result. The GH solve thread never blocks on ONNX `Run` or gRPC.
 - Progress: subscribe to `IObservable<ComputeProgress>` via AppUi, which calls `ObserveOn(RasmUiScheduler.RxScheduler)`; components with no subscriber receive no-op cold-Subject emissions at zero cost.
 
-## [8][FAILURE_MODEL]
+## [8]-[FAILURE_MODEL]
 
 `ExecutionReceipt.Failure` is a typed discriminant. Cases: `InputRejected`, `UnsupportedSubstrate`, `Cancelled`, `DeadlineExceeded`, `AllocationBudgetExceeded`, `OutputInequivalent`, `BenchmarkRegression`, `ModelNotFound`, `ModelVersionMismatch`, `ModelLoadFailed`, `UnsafeConcurrency`, `RemoteDeadlineExceeded`, `PayloadRejected`, `RetryOwnerConflict`, `RemoteFault`. `OnError` is never called on the progress observable; all failures surface through the receipt.
 
-## [9][MEASUREMENT_EVIDENCE]
+## [9]-[MEASUREMENT_EVIDENCE]
 
 | [INDEX] | [STATE]        | [MEANING]                                           |
 | :-----: | -------------- | --------------------------------------------------- |
@@ -227,7 +227,7 @@ Each operation declares an allocation category: `Minimal` (< 1 MB), `Moderate` (
 
 Benchmark claims carry baseline, target, input class, tolerance, memory profile, and artifact path under `.artifacts/compute/benchmarks/<substrate>/<run-id>/`, which Persistence indexes. The Compute benchmark project lives in `tests/csharp/libs/Rasm.Compute/Rasm.Compute.Benchmarks.csproj` and references `BenchmarkDotNet` (already in central management).
 
-## [10][CROSS_FOLDER]
+## [10]-[CROSS_FOLDER]
 
 Compute plugs into the shared spine all four folders share:
 - **Runtime record:** `Eff<RT, T>` on `RasmRuntime` (AppHost-defined); `RT` carries `CancellationToken` and `TimeProvider`. `IComputeRuntime` is the minimal constraint letting Compute compile and test without AppHost.
@@ -239,7 +239,7 @@ Compute plugs into the shared spine all four folders share:
 
 Layout: five cohesive flat files — `Intent.cs`, `Substrate.cs`, `Model.cs`, `Remote.cs`, `Progress.cs` — each with canonical sections; benchmark receipts co-locate in `Substrate.cs`. No per-lane subfolders or mini-files.
 
-## [11][PACKAGE_REFERENCES]
+## [11]-[PACKAGE_REFERENCES]
 
 | [INDEX] | [REFERENCE]                                                                                                                       | [USE]                                                            |
 | :-----: | --------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------- |

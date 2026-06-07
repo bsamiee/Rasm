@@ -2,7 +2,7 @@
 
 CSparse owns direct sparse factorization when matrix shape justifies it. MathNet owns sparse construction and iterative solves; CSparse owns direct sparse solves, factor reuse, fill-in policy, and ordering once the matrix is admitted.
 
-## [1][ROLE_SPLIT]
+## [1]-[ROLE_SPLIT]
 
 | [INDEX] | [CONCERN]                     | [OWNER]              |
 | :-----: | :---------------------------- | :------------------- |
@@ -17,7 +17,7 @@ CSparse owns direct sparse factorization when matrix shape justifies it. MathNet
 
 MathNet.Numerics has no CSparse API surface. Hybrid routing is integrator-authored and must carry residual validation.
 
-## [2][STORAGE_ADMISSION]
+## [2]-[STORAGE_ADMISSION]
 
 [CSR]:
 - Native owner: MathNet sparse compressed row storage.
@@ -35,7 +35,7 @@ MathNet.Numerics has no CSparse API surface. Hybrid routing is integrator-author
 - Rule: normalize to upper triangle, reject disagreeing duplicate positions beyond tolerance, require square `n x n`, and pin or shift semidefinite operators before Cholesky.
 - Repository path: `SolvePath.SparseCholesky`.
 
-## [3][DIRECT_SOLVE_SELECTION]
+## [3]-[DIRECT_SOLVE_SELECTION]
 
 Use direct sparse factorization only when the sparse structure, reuse pattern, and residual policy justify it.
 
@@ -50,7 +50,7 @@ Use direct sparse factorization only when the sparse structure, reuse pattern, a
 
 Validate direct and fallback residuals explicitly. Factorizations and solvers return vectors; callers own diagnostics.
 
-## [4][CSPARSE_SURFACE]
+## [4]-[CSPARSE_SURFACE]
 
 [CORE_NAMESPACES]:
 - Use: `CSparse`, `CSparse.Storage`, `CSparse.Ordering`, `CSparse.Double`, `CSparse.Complex`, and factorization namespaces.
@@ -75,7 +75,7 @@ Validate direct and fallback residuals explicitly. Factorizations and solvers re
 - Use: `Permutation.Apply`, `ApplyInverse`, and `SolverHelper` kernels where the factorization owner needs them.
 - Reject: documenting abstract `P` and `Q` alone.
 
-## [5][CACHE_AND_FAILURES]
+## [5]-[CACHE_AND_FAILURES]
 
 Cache factors by topology hash and factorization policy, not only dimension. Profile fill-in as factor nonzeros over input nonzeros before choosing direct over iterative.
 

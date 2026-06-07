@@ -2,7 +2,7 @@
 
 This standard carries form: which container carries a piece of information and how that container supports scanning, retrieval, and maintenance. Choose the container after the document type is known and before drafting long sections. This standard does not decide salience, prose, visual styling, or evidence strength.
 
-## [1][USE_WHEN]
+## [1]-[USE_WHEN]
 
 Apply this standard to choose and shape containers:
 - prose, bullets, numbered lists, and checklists
@@ -12,7 +12,7 @@ Apply this standard to choose and shape containers:
 
 Treat prose, bullets, lists, records, tables, diagrams, matrices, and literal blocks as equal contenders until the reader question selects one. Sentence mechanics belong to the craft standard, evidence strength to the proof standard, and visual styling to the formatting standard.
 
-## [2][CONTAINER_CHOOSER]
+## [2]-[CONTAINER_CHOOSER]
 
 Use the smallest container that preserves meaning. Change container when the reader's question shifts from explanation to lookup, ordered action, relationship, proof, or machine consumption. Structured containers are not decoration: bullets and key-value blocks outperform prose for option selection and field extraction, and tables outperform both only for dense factual lookup.
 
@@ -61,7 +61,7 @@ Choose the carrier by information signature and reader question:
 
 Narrative units still need structure. A standalone sentence is valid only when it carries a lead, transition, consequence, caption, route boundary, or explicit proof gap. If a sentence names a scannable value, convert it to a field line. If it qualifies a table row, move it to a note or row-owned record. If it warns, use an alert. If two loose sentences sit apart as separate paragraphs, join them into a paragraph pair with a lead and closing consequence, or turn them into list items or relation records.
 
-## [3][TABLES]
+## [3]-[TABLES]
 
 Use a table when row-and-column comparison or lookup across a homogeneous set is the point. Keep it within bounds that agent readers and split-pane readers handle.
 
@@ -115,7 +115,7 @@ GFM tables are flat row-and-column structures. They do not support row spans, co
 
 Validate table integrity before publication: every row in one table has the same cell count after escaped pipes are accounted for, literal pipes inside cells are escaped, and a table over the row or column ceiling decomposes by the dominant violation. A malformed lookup table is worse than prose because agents will parse the wrong columns confidently.
 
-## [4][RECORDS_LISTS]
+## [4]-[RECORDS_LISTS]
 
 Render a finite enumerable set whose items carry state as structured records, never as flat prose. State earns status: add `Status`, availability, lifecycle, or progress only when a maintained actor filters, updates, removes, or proves the item by that state. Milestones, decisions, requirements, risks, tasks, and gates need status, dependency, and completion evidence only when those fields change reader action. Use a table while items stay homogeneous and short-celled; switch to a per-item record block once any field needs more than a cell.
 
@@ -180,7 +180,7 @@ Concrete status values stay in the type standard that validates the produced doc
 | [INDEX] | [CARRIER]       | [SHAPE]                                              | [USE]                                                                 |
 | :-----: | :-------------- | :--------------------------------------------------- | :-------------------------------------------------------------------- |
 |   [1]   | GroupedRecord   | `[RECORD_KEY]:` then `- Field: value` bullets        | same-section scan clusters sharing one schema                         |
-|   [2]   | AnchoredRecord  | `### [N.M][RECORD_KEY]` then `- Field: value` bullets | cross-linked record or stable slug required                           |
+|   [2]   | AnchoredRecord  | `### [N.M]-[RECORD_KEY]` then `- Field: value` bullets | cross-linked record or stable slug required                           |
 |   [3]   | ContrastRecord  | `[CONTRAST_KEY]:` then `- Accepted:` / `- Rejected:` / `- Reason:` bullets | short positive and rejected pairs                          |
 |   [4]   | OrderedStep     | numbered step then nested `- Field: value` bullets   | tutorial, how-to, and runbook steps with independently scanned fields |
 
@@ -243,7 +243,7 @@ Route-away: <body of work that remains in the adjacent standard>
 - Do not publish consecutive column-0 `Accepted:` / `Rejected:` / `Reason:` lines without list markers in live policy.
 - Use a `markdown rejected` fence only when the rejected side needs headings, checklists, or multiline structure that bullets cannot carry cleanly.
 
-## [5][LITERAL_MACHINE_SURFACES]
+## [5]-[LITERAL_MACHINE_SURFACES]
 
 Use literal and machine-consumed carriers only after deciding what the reader or parser needs to do with the surface. Parser-owned shape, copyable source, observed output, and executed proof are different carriers.
 
@@ -307,7 +307,7 @@ Do not fence short accepted/rejected, before/after, good/bad, or near-miss examp
 
 Do not let command syntax imply execution proof. A copy-safe command tells the reader what to run; an executed proof record says it was run and what it proved.
 
-## [6][VISUAL_TOPOLOGY]
+## [6]-[VISUAL_TOPOLOGY]
 
 Use visual and monospace topology only when arrangement, branch shape, relationship, hierarchy, state, progress, dependency, alignment, or comparison is the reader question. A visual is not a decoration, and one visual answers one reader question.
 
@@ -391,7 +391,7 @@ Use at most one controlling representation for one decision, edge set, branch, l
 
 For architecture, use [explanation/architecture.md](explanation/architecture.md) to choose the C4 profile floor, static Context and Container semantics, Component drill-down rules, and deployment or resource-topology cases. Choosing whether a diagram is needed is this standard's call; how an architecture model is structured belongs to the architecture type standard.
 
-## [7][SECONDARY_CONTAINERS]
+## [7]-[SECONDARY_CONTAINERS]
 
 Use secondary containers only when they change reading path, salience, portability, or economy. They do not replace proof, safety, first-read procedures, or ordinary structure.
 
@@ -412,7 +412,7 @@ Do not hard-wrap Markdown prose. Write each paragraph as one logical line and le
 
 Carry meaning with structure, not ornament. Markdown structure is cheap, readable, and portable, so spend tokens on signal: meaningful headings, lists, records, and tables, not nested decoration. Avoid stacked emphasis and redundant rules, and let one structure own each section.
 
-## [8][PAGE_SHAPE]
+## [8]-[PAGE_SHAPE]
 
 Render page shape as 3 separate jobs: standard file anatomy, type-standard opening order, and produced-document skeleton. The template is the structure prescription; conditional sections appear only when their condition holds so agents do not publish empty headings.
 
@@ -421,19 +421,19 @@ Render page shape as 3 separate jobs: standard file anatomy, type-standard openi
 
 <Lead: scope and promise in one short paragraph.>
 
-## [1][USE_WHEN]
+## [1]-[USE_WHEN]
 
-## [2][<REQUIRED_SHAPE>]
+## [2]-[<REQUIRED_SHAPE>]
 
-## [3][BOUNDARIES]
+## [3]-[BOUNDARIES]
 
-## [4][VALIDATION]
+## [4]-[VALIDATION]
 ```
 
 [SECTION_CARDINALITY]:
 - `Lead`, `Use when`, rules section or sections, `Boundaries`, and `Validation`: required.
 - `Examples`: conditional; include only where misuse is likely.
-- Conditional sections: add with `## [N][<CONDITIONAL_SECTION>]` only when the condition holds.
+- Conditional sections: add with `## [N]-[<CONDITIONAL_SECTION>]` only when the condition holds.
 - Every long standard needs a chooser, boundaries, and a validation section.
 - A live `VALIDATION` section is the closing verification checklist for the current standard or document. A required-structure template may include a future `Validation` heading inside the template, but rule lists that describe required sections, field cardinality, or vocabulary behavior stay under `Section cardinality` or the relevant type-standard owner.
 
@@ -454,13 +454,13 @@ Taxonomies, baselines, examples, graphics, and provider notes follow only after 
 
 <Lead.>
 
-## [1][<SECTION_A>]
+## [1]-[<SECTION_A>]
 
-## [2][<SECTION_B>]
+## [2]-[<SECTION_B>]
 
-## [3][BOUNDARIES]
+## [3]-[BOUNDARIES]
 
-## [4][VALIDATION]
+## [4]-[VALIDATION]
 ```
 
 Tag each produced-document heading `required | conditional | optional | repeatable` in a cardinality block beneath the template. `required` sections always appear, `conditional` sections appear only when their condition holds, `optional` sections appear at author discretion, and `repeatable` records appear once per item. Put conditional sections in a separate addition block unless every instance of the type needs the heading. Put record-field order beside the first record template, not in a late validation section.
@@ -481,7 +481,7 @@ Tag each produced-document heading `required | conditional | optional | repeatab
 - Label any block a reader could copy, run, or mistake for current policy with its intent.
 - Do not publish interaction excerpts, nonpublic local paths, or local task notes as reusable patterns.
 
-## [9][BOUNDARIES]
+## [9]-[BOUNDARIES]
 
 - [style-guide.md](style-guide.md) carries salience and the placement of content within the containers this standard shapes.
 - [formatting.md](formatting.md) carries visual styling of these containers: table alignment, status and invocation markers, whitespace, and the heading-label idiom.
@@ -489,7 +489,7 @@ Tag each produced-document heading `required | conditional | optional | repeatab
 - [proof.md](proof.md) carries evidence strength and freshness for the facts a table, record, diagram, or block presents.
 - [README.md](README.md) carries document-type routing and links to type standards such as the architecture standard.
 
-## [10][VALIDATION]
+## [10]-[VALIDATION]
 
 Use this verification checklist by group:
 

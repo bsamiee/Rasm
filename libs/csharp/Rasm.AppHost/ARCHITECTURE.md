@@ -2,7 +2,7 @@
 
 `Rasm.AppHost` is the composition/runtime boundary for Rasm application surfaces. Its default plugin mode is runtime-record `Eff.runtime<RT>()`; Generic Host and `IServiceCollection` are companion/test/bridge modes only — `[NEVER]` in-process.
 
-## [1][BUILD_STATUS]
+## [1]-[BUILD_STATUS]
 
 ```mermaid
 ---
@@ -36,7 +36,7 @@ Text equivalent: `Rasm.AppHost` is the runtime-record boundary for `Rasm.Rhino`,
 |   [4]   | Host packages    | `[NOT_STARTED]`          |
 |   [5]   | Runtime evidence | Per host scenario        |
 
-## [2][MODE_CONTRACT]
+## [2]-[MODE_CONTRACT]
 
 | [INDEX] | [MODE]                        | [OWNED_BY_APPHOST]                                     | [PACKAGE_SCOPE]                      |
 | :-----: | ----------------------------- | ------------------------------------------------------ | ------------------------------------ |
@@ -50,7 +50,7 @@ Text equivalent: `Rasm.AppHost` is the runtime-record boundary for `Rasm.Rhino`,
 
 The public rail accepts typed runtime operations as data and emits lifecycle/status/fault receipts. It does not expose `IServiceProvider` as an application API.
 
-## [3][OWNER_SPLIT]
+## [3]-[OWNER_SPLIT]
 
 | [INDEX] | [CONCERN]   | [APPHOST_OWNS]                            | [OTHER_OWNER]                                                  |
 | :-----: | ----------- | ----------------------------------------- | -------------------------------------------------------------- |
@@ -75,9 +75,9 @@ AppHost owns the shared spine all four folders integrate through. `RasmRuntime` 
 
 Layout: `Runtime/` (record, lifecycle, cancellation, time), `Flow/` (channel, scheduler, drain, backpressure), with root `AppHost.cs` (Boot/Drain composition) and `Telemetry.cs` (fused observability) — cohesive files with canonical sections, never per-concern mini-files.
 
-## [4][TYPE_SHAPES]
+## [4]-[TYPE_SHAPES]
 
-### [4.1][RASMRUNTIME]
+### [4.1]-[RASMRUNTIME]
 
 `RasmRuntime` is a **plain sealed record** constructed by the composition root in `PlugIn.OnLoad` (in-process mode) or the companion bootstrap root (companion mode). It is the sole `RT` type argument supplied to `Eff.runtime<RT>()`. Fields:
 
@@ -95,7 +95,7 @@ Layout: `Runtime/` (record, lifecycle, cancellation, time), `Flow/` (channel, sc
 
 `RasmRuntime` is never instantiated outside the composition root. No module calls `new RasmRuntime(…)` independently.
 
-### [4.2][BOOTRECEIPT_AND_DRAINHANDLE]
+### [4.2]-[BOOTRECEIPT_AND_DRAINHANDLE]
 
 ```
 sealed record BootReceipt(RasmRuntime Runtime, DrainHandle Drain, LifecycleReceipt Lifecycle);
@@ -109,7 +109,7 @@ sealed record DrainHandle(
 
 `DrainHandle` owns the root `CancellationTokenSource` and the background drain `Task`. Initiating drain calls `RootSource.CancelAfter(deadline, Time)` (`CancellationTokenSource.CancelAfter(TimeSpan, TimeProvider)`) then awaits `DrainTask`; this performs the ordered drain sequence described in §3. The `Time` field drives the deadline (3–5 s then forceful cancel).
 
-### [4.3][LIFECYCLERECEIPT]
+### [4.3]-[LIFECYCLERECEIPT]
 
 `LifecycleReceipt` is a discriminated union (DU) with cases:
 
@@ -125,7 +125,7 @@ sealed record DrainHandle(
 
 AppHost emits `LifecycleReceipt`; AppUi correlates via `DiagnosticReceipt` (AppUi-owned); AppHost references and correlates `DiagnosticReceipt` but does not redefine it.
 
-### [4.4][OBSERVABILITYSLOT]
+### [4.4]-[OBSERVABILITYSLOT]
 
 `ObservabilitySlot` (defined in `Telemetry.cs`) holds:
 - `ActivitySource` named `"Rasm.AppHost"` (stable, never renamed)
@@ -134,11 +134,11 @@ AppHost emits `LifecycleReceipt`; AppUi correlates via `DiagnosticReceipt` (AppU
 
 In-process instrumentation: `OpenTelemetry.Api` only — pure API, no SDK weight. `ActivitySource.StartActivity(…)` and `Meter.CreateCounter/Histogram(…)` are the only in-process calls.
 
-### [4.5][CONFIG_SURFACE]
+### [4.5]-[CONFIG_SURFACE]
 
 No Generic Host in-process. Typed config is bound at `Boot` via a plain `IConfiguration` read (companion provides `IConfiguration`; in-process reads from a JSON file or embedded default). The typed config record is `RasmConfig` (sealed record), bound with `IOptions<RasmConfig>` in companion and passed directly in-process. `Microsoft.Extensions.Configuration` + `.Binder` + `.Json` + `Microsoft.Extensions.Options` + `.ConfigurationExtensions` + `.DataAnnotations` are **companion scope** — they wire `IOptions<RasmConfig>` validation at the companion bootstrap root. In-process, `Boot` receives a pre-bound `RasmConfig` value object; no `IConfiguration` object crosses into `RasmRuntime`.
 
-### [4.6][HEALTH_SURFACE]
+### [4.6]-[HEALTH_SURFACE]
 
 `AppHost` exposes an in-process readiness query surface (no HTTP, no middleware):
 
@@ -148,7 +148,7 @@ sealed record HealthSnapshot(bool Booted, bool PersistenceAvailable, bool Comput
 
 The composition root queries `HealthSnapshot` synchronously; it is a pure projection of current `LifecycleReceipt` DU state plus channel/store state flags. No `IHealthCheck` middleware.
 
-### [4.7][DEGRADATION_POLICY]
+### [4.7]-[DEGRADATION_POLICY]
 
 When a sibling faults (Persistence unavailable, Compute channel full after deadline, AppUi scheduler disposed), AppHost emits `LifecycleReceipt.Faulted` with the faulting sibling and applied policy. Policy options (named, not anonymous):
 
@@ -160,7 +160,7 @@ When a sibling faults (Persistence unavailable, Compute channel full after deadl
 
 Policy is data in `RasmConfig`; no inline `if`/`switch` branching in domain logic.
 
-### [4.8][SUPPORT_BUNDLE]
+### [4.8]-[SUPPORT_BUNDLE]
 
 AppHost owns the support-bundle trigger and collection signal. When triggered (user-requested or fault-triggered), AppHost:
 1. Emits a `SupportBundleRequested` event with a correlation ID and timestamp.
@@ -170,9 +170,9 @@ AppHost owns the support-bundle trigger and collection signal. When triggered (u
 
 Persistence stores, redacts, and exports; AppHost coordinates collection and size-cap policy — neither owns the other's concern.
 
-## [5][PACKAGES]
+## [5]-[PACKAGES]
 
-### [5.1][IN_PROCESS_PACKAGES]
+### [5.1]-[IN_PROCESS_PACKAGES]
 
 Packages that ship inside the in-process plugin binary:
 
@@ -189,7 +189,7 @@ Packages that ship inside the in-process plugin binary:
 |   [9]   | `FluentValidation`                         | External DTO/config validation at boundary               |
 |  [10]   | `Microsoft.Extensions.Http.Resilience`     | Typed outbound `HttpClient` policy (Polly resilience pipeline inside); never raw Polly |
 
-### [5.2][COMPANION_PACKAGES]
+### [5.2]-[COMPANION_PACKAGES]
 
 Packages that activate **only** at companion/test/bridge bootstrap roots, never in-process:
 
@@ -216,7 +216,7 @@ Packages that activate **only** at companion/test/bridge bootstrap roots, never 
 |  [19]   | `FluentValidation.DependencyInjectionExtensions`  | DI-registered validator scanning; companion root only    |
 |  [20]   | `Microsoft.Extensions.ObjectPool`                 | Object pooling where profiled allocation warrants; conditional |
 
-### [5.3][IN_BOX_NO_PIN]
+### [5.3]-[IN_BOX_NO_PIN]
 
 Confirmed in-box on `net10.0` — no `PackageVersion` entry needed:
 
@@ -227,7 +227,7 @@ Confirmed in-box on `net10.0` — no `PackageVersion` entry needed:
 |   [3]   | `System.Diagnostics.DiagnosticSource` |
 |   [4]   | `TimeProvider`                        |
 
-### [5.4][REJECTIONS]
+### [5.4]-[REJECTIONS]
 
 | [INDEX] | [REJECTED]                                    | [REASON]                                                   |
 | :-----: | --------------------------------------------- | ---------------------------------------------------------- |
@@ -240,7 +240,7 @@ Confirmed in-box on `net10.0` — no `PackageVersion` entry needed:
 |   [7]   | `Microsoft.Extensions.Caching.Memory`         | Caching is a Persistence concern                           |
 |   [8]   | Any `Microsoft.AspNetCore.*`                  | ASP.NET Core owns the web server process; incompatible with Rhino host |
 
-## [6][FLOW_POLICY]
+## [6]-[FLOW_POLICY]
 
 - Runtime records resolve capabilities through `Eff.runtime<RT>()`. No `Has<RT,_>` traits or `Readable.asks`.
 - LanguageExt `Schedule` owns domain and hosted `Eff`/`IO` retry/repeat cadence.
@@ -251,7 +251,7 @@ Confirmed in-box on `net10.0` — no `PackageVersion` entry needed:
 - Channel capacity is a named field in `RasmRuntime`, not a file-level constant.
 - Observability emits from one fused projection surface (`Telemetry.cs`); no split telemetry branches.
 
-## [7][RUNTIME_EVIDENCE]
+## [7]-[RUNTIME_EVIDENCE]
 
 | [INDEX] | [STATE]        | [MEANING]                                |
 | :-----: | -------------- | ---------------------------------------- |
@@ -260,7 +260,7 @@ Confirmed in-box on `net10.0` — no `PackageVersion` entry needed:
 
 Evidence categories: startup, drain, cancellation, fault propagation, scope disposal, telemetry correlation, outbound retry ownership, support-bundle correlation, Rhino/GH unload behavior, `InvokeOnUiThread` fence proof, `TimeProvider`-deadline proof, health snapshot query, degradation policy applied.
 
-## [8][SOURCE_ANCHORS]
+## [8]-[SOURCE_ANCHORS]
 
 | [INDEX] | [SOURCE]                                                                                                              | [USE]                                      |
 | :-----: | --------------------------------------------------------------------------------------------------------------------- | ------------------------------------------ |

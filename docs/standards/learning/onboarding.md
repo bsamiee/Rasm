@@ -2,7 +2,7 @@
 
 An agent ramp prepares a future agent to operate safely in one bounded source area before broad edits. It gives the agent the minimum source path, read-first questions, local constraints, first safe action, readiness gate, and stop rules needed to decide whether the next action is safe. It is not a tutorial, contribution workflow, runbook, architecture map, permission ladder, status tracker, or planning artifact.
 
-## [1][USE_WHEN]
+## [1]-[USE_WHEN]
 
 Use an agent ramp when a source area needs a repeatable preparation path before edits:
 - a complex package, tool, bridge, generated surface, or host integration has local hazards;
@@ -19,7 +19,7 @@ Route first-success teaching to [tutorial.md](tutorial.md), normal repeatable wo
 - Adjacent checks: check architecture, API, support matrix, roadmap, code documentation, how-to, runbook, contributing, reference, and README only when their fact changes the reading path, first action, readiness gate, or stop rule.
 - Maintenance triggers: update the ramp when source path, generated artifact, command, support boundary, first safe action, readiness gate, stop rule, or adjacent route changes.
 
-## [2][REQUIRED_STRUCTURE]
+## [2]-[REQUIRED_STRUCTURE]
 
 Use this produced-document skeleton. The structure is a ramp contract, not a mandate to fill every section with metadata; omit optional sections and records that do not change agent behavior.
 
@@ -28,23 +28,23 @@ Use this produced-document skeleton. The structure is a ramp contract, not a man
 
 <Lead: one sentence naming the bounded source area, first safe action, readiness gate, and stop condition.>
 
-## [1][SCOPE]
+## [1]-[SCOPE]
 
-## [2][SOURCE_PATH]
+## [2]-[SOURCE_PATH]
 
-## [3][READ_FIRST]
+## [3]-[READ_FIRST]
 
-## [4][CONSTRAINTS]
+## [4]-[CONSTRAINTS]
 
-## [5][FIRST_SAFE_ACTION]
+## [5]-[FIRST_SAFE_ACTION]
 
-## [6][READINESS_GATE]
+## [6]-[READINESS_GATE]
 
-## [7][STOP_RULES]
+## [7]-[STOP_RULES]
 
-## [8][BOUNDARIES]
+## [8]-[BOUNDARIES]
 
-## [9][VALIDATION]
+## [9]-[VALIDATION]
 ```
 
 Insert conditional sections only when their trigger changes agent behavior. The table is a trigger lookup; produced ramps still omit every conditional heading whose trigger is false.
@@ -58,11 +58,11 @@ Insert conditional sections only when their trigger changes agent behavior. The 
 Use this conditional-addition template:
 
 ```markdown template
-## [N][GENERATED_SURFACES]
+## [N]-[GENERATED_SURFACES]
 
-## [N][DRIFT_TRIGGERS]
+## [N]-[DRIFT_TRIGGERS]
 
-## [N][AVAILABILITY_RECORDS]
+## [N]-[AVAILABILITY_RECORDS]
 ```
 
 [SECTION_CARDINALITY]:
@@ -80,7 +80,7 @@ Shared lifecycle states omitted here are intentional: ramps do not use `QUEUED`,
 
 Produced ramps must replace every placeholder with local truth. A ramp is incomplete if it contains `<...>` fields, broad source areas, unnamed gates, unowned stop routes, or source records that do not change the first safe action or readiness gate.
 
-## [3][RAMP_CHOOSER]
+## [3]-[RAMP_CHOOSER]
 
 Choose an agent ramp only when preparation before edits is the reader problem. Use this decision table before drafting:
 
@@ -106,7 +106,7 @@ Route labels map to current standard files:
 
 If the source area has no local hazard, no constrained first action, and no readiness gate, do not write an agent ramp. Route to the smallest adjacent document that changes the agent's next action.
 
-## [4][SCOPE]
+## [4]-[SCOPE]
 
 State the smallest source area that owns the hazard and readiness gate. Name what is in scope, what is out of scope, the source route that proves the boundary, and the condition that splits one ramp into two.
 
@@ -124,7 +124,7 @@ Split when: `<second hazard, second readiness gate, or unrelated first action ap
 - Rejected area: whole repository
 - Reason: the rejected form is valid only when the readiness gate and first safe action are truly repository-wide.
 
-## [5][SOURCE_PATH]
+## [5]-[SOURCE_PATH]
 
 Name only the source paths the agent must open before acting. A source path record is a retrieval primitive, not a summary.
 
@@ -138,7 +138,7 @@ Update when: `<path, artifact, command, or adjacent route changes>`
 
 Use a GroupedRecord (`[RECORD_KEY]:` plus `- Field: value` bullets) when several source records share this schema. Keep each record short; if a source needs explanation, route to architecture, API, reference, support matrix, or code documentation instead of embedding the explanation.
 
-## [6][READ_FIRST]
+## [6]-[READ_FIRST]
 
 Order readings by dependency question, not directory order. Each reading item must answer one question the agent needs before the first safe action; if the list grows past 5 items, group it by dependency question or split the ramp.
 
@@ -154,7 +154,7 @@ Route-away: `<body that stays in architecture, API, reference, support, how-to, 
 - Rejected: `README.md`, `src/`, `tests/`
 - Reason: the accepted form names the decision, source, check, and route-away; the rejected form is a path inventory.
 
-## [7][CONSTRAINTS]
+## [7]-[CONSTRAINTS]
 
 Constraints are allowed only when they change the first safe action or readiness gate. Each constraint names the source that proves it and routes broader explanation away.
 
@@ -176,7 +176,7 @@ Route-away: `<architecture, API, code documentation, support matrix, test strate
 
 Do not add generic conduct, collaboration, escalation, permission, role, or team fields.
 
-## [8][FIRST_SAFE_ACTION]
+## [8]-[FIRST_SAFE_ACTION]
 
 The first safe action is the smallest real action that proves the agent can operate in the source area without broad edits. It may be a low-risk edit, read-only trace, fixture reproduction, generated-output comparison, or validation dry-run.
 
@@ -190,7 +190,7 @@ Evidence: `<command, diff, generated output, or proof gap>`
 
 If the action needs step-by-step instructions, route to a how-to. If the action teaches first success, route to a tutorial. If the action responds to a failure symptom, route to a runbook.
 
-## [9][READINESS_GATE]
+## [9]-[READINESS_GATE]
 
 The readiness gate closes the ramp. The agent may proceed only when the gate passes or the proof gap is explicitly acceptable for the next action.
 
@@ -203,7 +203,7 @@ Evidence: `<captured result or proof gap>`
 
 Keep the readiness gate local to the ramp. Broad test portfolio policy belongs to [test-strategy.md](../explanation/test-strategy.md), and evidence mechanics belong to [proof.md](../proof.md).
 
-## [10][STOP_RULES]
+## [10]-[STOP_RULES]
 
 Stop rules constrain the next action. State only conditions that force the agent to stop or route away.
 
@@ -220,7 +220,7 @@ Use definition records for one or two stop rules. Use a compact table when sever
 
 The table above is a shape example. Produced ramps replace each row with local stop conditions, exact route documents, and evidence.
 
-## [11][GENERATED_SURFACES]
+## [11]-[GENERATED_SURFACES]
 
 Add this section only when generated files, mirrors, or contracts affect the first safe action or readiness gate. Generated-surface records state the controlling source and the action boundary; they do not explain the generated format.
 
@@ -234,7 +234,7 @@ Stop when: `<source missing, generator unavailable, output drift, or proof gap>`
 
 Route generated contract meaning to API or code documentation, generator operation to how-to, and evidence strength to proof.
 
-## [12][DRIFT_TRIGGERS]
+## [12]-[DRIFT_TRIGGERS]
 
 Add this section only when several stale events need a shared route. A single drift-prone claim carries its own proof and update condition beside the claim.
 
@@ -247,11 +247,11 @@ Use these common drift triggers:
 
 Events beat calendar dates unless a maintained policy requires a scheduled review.
 
-## [13][AVAILABILITY_VOCABULARY]
+## [13]-[AVAILABILITY_VOCABULARY]
 
 The closed availability set is declared before first record use in `Required structure`. This section exists only to route extended availability explanation when a produced ramp needs it; do not restate the vocabulary after records.
 
-## [14][BOUNDARIES]
+## [14]-[BOUNDARIES]
 
 These adjacent standards own routed material:
 
@@ -275,7 +275,7 @@ These adjacent standards own routed material:
 - [style-guide.md](../style-guide.md) carries prose, terminology, links, and code-safe Markdown.
 - [proof.md](../proof.md) carries evidence strength, freshness, proof gaps, and verification gates.
 
-## [15][VALIDATION]
+## [15]-[VALIDATION]
 
 Use these validation checks before publishing an agent ramp:
 

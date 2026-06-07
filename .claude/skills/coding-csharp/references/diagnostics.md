@@ -6,7 +6,7 @@
 Diagnostics in C# 14 / .NET 10 remain compositional with `Fin<T>` / `Validation<Error,T>` / `Eff<RT,T>` and never force procedural collapse. Centralized runtime surfaces own telemetry identities; probes remain identity-preserving taps.
 
 ---
-## [1][DIAGNOSTIC_RUNTIME]
+## [1]-[DIAGNOSTIC_RUNTIME]
 >**Dictum:** *One module owns diagnostic state and probes; debug enrichment is compile-time gated.*
 
 <br>
@@ -105,7 +105,7 @@ public static class Probe {
 ```
 
 ---
-## [2][FAILURE_INTELLIGENCE]
+## [2]-[FAILURE_INTELLIGENCE]
 >**Dictum:** *Failure analysis is projection: flatten once, summarize once.*
 
 <br>
@@ -172,7 +172,7 @@ file static class ValidationExtensions {
 |   [9]   | `SYSLIB1042` | Invalid pattern in `[GeneratedRegex]`    | fix regex; validated at build time |
 
 ---
-## [2A][EFF_STACK_TRACE_NAVIGATION]
+## [2A]-[EFF_STACK_TRACE_NAVIGATION]
 >**Dictum:** *Read Eff failure traces by ignoring runtime plumbing and following domain annotations.*
 
 <br>
@@ -286,7 +286,7 @@ file static class SpanCorrelation {
 ```
 
 ---
-## [3][PERF_DIAGNOSTICS]
+## [3]-[PERF_DIAGNOSTICS]
 >**Dictum:** *Profile from runtime signals first; prove minimal-capture hot paths.*
 
 <br>
@@ -341,7 +341,7 @@ public static class ClosureDiagnostics {
 ```
 
 ---
-## [4][DIAGNOSTIC_CANON]
+## [4]-[DIAGNOSTIC_CANON]
 >**Dictum:** *Diagnostic constraints enforce compositional observability.*
 
 <br>

@@ -2,7 +2,7 @@
 
 Architecture tests, benchmarks, and fuzz harnesses are specialized proof rails. Keep them outside ordinary managed unit proof unless the owning test surface explicitly selects them.
 
-## [1][ARCHUNITNET]
+## [1]-[ARCHUNITNET]
 
 Use `TngTech.ArchUnitNET.xUnitV3` for compiled assembly boundary laws that the local analyzer does not own.
 
@@ -21,7 +21,7 @@ Use `TngTech.ArchUnitNET.xUnitV3` for compiled assembly boundary laws that the l
 - Rule: when closed-world dispatch must recognize an open downstream type set, assert every admitted type reaches dispatch through a marker interface or registry entry.
 - Rail: `tests/csharp/_architecture`.
 
-## [2][BENCHMARKDOTNET]
+## [2]-[BENCHMARKDOTNET]
 
 Use BenchmarkDotNet only in benchmark projects. Benchmarks are executable measurement rails, not unit specs and not part of the default test run.
 
@@ -42,7 +42,7 @@ Use BenchmarkDotNet only in benchmark projects. Benchmarks are executable measur
 
 Reject: host-native documents, UI surfaces, viewport state, UI threads, bridge endpoints, and runtime scenarios in this rail.
 
-## [3][SHARPFUZZ]
+## [3]-[SHARPFUZZ]
 
 Use SharpFuzz for instrumented parser, decoder, and token-surface fuzzing. Keep it outside the normal managed test gate.
 

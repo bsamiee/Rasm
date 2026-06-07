@@ -5,7 +5,7 @@ Four types: `classDiagram` (OO structure), `erDiagram` (data relationships), `st
 [REFERENCE] classDef, styling: [->styling.md](./styling.md)
 [REFERENCE] Validation: [->validation.md§6](./validation.md#6modeling_diagrams)
 
-## [1][CLASS_DIAGRAMS]
+## [1]-[CLASS_DIAGRAMS]
 
 **Declaration:** `classDiagram`.
 
@@ -23,7 +23,7 @@ Four types: `classDiagram` (OO structure), `erDiagram` (data relationships), `st
 
 [CRITICAL] Comma-separated generics (`~K,V~`) NOT supported in nested contexts.
 
-## [2][ENTITY_RELATIONSHIP]
+## [2]-[ENTITY_RELATIONSHIP]
 
 **Declaration:** `erDiagram`.
 
@@ -35,7 +35,7 @@ Four types: `classDiagram` (OO structure), `erDiagram` (data relationships), `st
 
 [IMPORTANT] Entity names UPPERCASE by convention. Reserved: `ONE`, `MANY`, `TO`, `U`, `1` (bug #7093).
 
-## [3][STATE_DIAGRAMS]
+## [3]-[STATE_DIAGRAMS]
 
 **Declaration:** `stateDiagram-v2` (v1 deprecated).
 
@@ -48,7 +48,7 @@ Four types: `classDiagram` (OO structure), `erDiagram` (data relationships), `st
 
 [CRITICAL] Place `classDef` at diagram root, not inside composites. Start/End `[*]` and containers reject styling.
 
-## [4][REQUIREMENT_DIAGRAMS]
+## [4]-[REQUIREMENT_DIAGRAMS]
 
 **Declaration:** `requirementDiagram`.
 
@@ -59,7 +59,7 @@ Four types: `classDiagram` (OO structure), `erDiagram` (data relationships), `st
 **Relations:** `contains`, `copies`, `derives`, `satisfies`, `verifies`, `refines`, `traces`. Syntax: `A - contains -> B`, reverse: `B <- contains - A`.
 **Direction:** `direction TB|BT|LR|RL`. Styling: `classDef`, `class`, `style`, `:::className`.
 
-## [5][CONFIG]
+## [5]-[CONFIG]
 
 | [INDEX] | [KEY]              | [TYPE]  | [DEFAULT] | [APPLIES_TO] |
 | :-----: | ------------------ | ------- | :-------: | ------------ |

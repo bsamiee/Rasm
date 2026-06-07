@@ -2,7 +2,7 @@
 
 Generated domain shapes own admission, identity, bounded vocabulary, closed variants, generated factories, validation partials, equality, comparison, and dispatch. Thinktecture is the normal implementation surface for those decisions; LanguageExt carries admitted values and typed failures after the generated owner accepts or rejects raw input.
 
-## [1][SHAPE_CHOOSER]
+## [1]-[SHAPE_CHOOSER]
 
 Choose the owner from modeling pressure. A generated type is justified when it removes primitive admission, unowned comparison, external behavior tables, nullable payload bags, or repeated dispatch from callers.
 
@@ -21,7 +21,7 @@ Choose the owner from modeling pressure. A generated type is justified when it r
 
 Generated owners are the default when the generator can express the invariant. Manual owners are reserved for generator-proven unsupported shape, stack-confined or open-ended state, type-indexed projection that cannot be modeled by `[Union]`, or total dispatch the generated surface cannot express. Generic unions are allowed when the generator supports the shape and the type parameter is semantic payload, state, or result evidence.
 
-## [2][ADMISSION_STACK]
+## [2]-[ADMISSION_STACK]
 
 Admission is a stack. Raw input is normalized at the boundary, generated factories enforce the invariant, validation partials express owner-local rejection, comparer attributes declare identity, and one rail bridge projects the generated outcome into `Fin<T>` or `Validation<Error,T>`.
 
@@ -104,7 +104,7 @@ public static Fin<<CodeValue>> AdmitCode(string raw) =>
         : Fin.Fail<<CodeValue>>(new <Fault>.InvalidRaw(Detail: "raw value was rejected"));
 ```
 
-## [3][GENERATED_OWNERS]
+## [3]-[GENERATED_OWNERS]
 
 [SCALAR_VALUE_OBJECT]:
 - Shape: `[ValueObject<T>]`.
@@ -222,7 +222,7 @@ public readonly ref struct <FrameOwner> {
 - Gate: translate at the boundary and keep the domain owner canonical.
 - Reject: duplicate DTOs beside generated owners when no external protocol demands them.
 
-## [4][DISPATCH_POLICY]
+## [4]-[DISPATCH_POLICY]
 
 Generated dispatch is the behavior owner when a closed vocabulary or variant controls execution. Add behavior to the generated owner before adding another service, helper, dictionary, or wrapper.
 
@@ -246,7 +246,7 @@ Generated dispatch is the behavior owner when a closed vocabulary or variant con
 - Gate: generated unions do not imply domain `+` or `|`.
 - Reject: operator sugar that only hides dispatch.
 
-## [5][LOCAL_GENERATION_POLICY]
+## [5]-[LOCAL_GENERATION_POLICY]
 
 `GenerateUnionOps` and `SkipUnionOps` are repository-local policy attributes for generated union operation shape. They are not Thinktecture package options.
 
@@ -265,7 +265,7 @@ Generated dispatch is the behavior owner when a closed vocabulary or variant con
 - Action: fix the domain shape first.
 - Exception: refine the analyzer only when current source proves a false positive.
 
-## [6][BOUNDARIES]
+## [6]-[BOUNDARIES]
 
 [RAIL_BOUNDARY]:
 - Rule: generated validation admits or rejects raw values; LanguageExt transports the admitted value or typed failure.
@@ -296,7 +296,7 @@ Generated dispatch is the behavior owner when a closed vocabulary or variant con
 - Use: generator-owned declarations, implementations, validation hooks, and behavior members.
 - Reject: arbitrary file fragmentation to make generated owners look smaller.
 
-## [7][REJECTIONS]
+## [7]-[REJECTIONS]
 
 [PRIMITIVE_OBSESSION]:
 - Wrong: raw strings, numbers, nulls, and sentinels in reusable domain signatures.
@@ -322,7 +322,7 @@ Generated dispatch is the behavior owner when a closed vocabulary or variant con
 - Wrong: generated attributes on inert carriers with no invariant, dispatch, admission, or behavior.
 - Replacement: plain `record` or `record struct`.
 
-## [8][VALIDATION]
+## [8]-[VALIDATION]
 
 - [ ] The shape follows modeling pressure, not package inventory.
 - [ ] Generated factories, validation partials, equality, comparison, and dispatch are used directly.

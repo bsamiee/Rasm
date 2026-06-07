@@ -1,8 +1,8 @@
 # [H1][MODERN-FEATURES]
 
-## [1][REUSABLE_WORKFLOWS]
+## [1]-[REUSABLE_WORKFLOWS]
 
-### [1.1][LIMITS]
+### [1.1]-[LIMITS]
 
 | [INDEX] | [CONSTRAINT]                 |            [LIMIT]            | [WHAT_TO_FLAG]                                                         |
 | :-----: | ---------------------------- | :---------------------------: | ---------------------------------------------------------------------- |
@@ -12,7 +12,7 @@
 |   [4]   | **Secret propagation**       |     Explicit or `inherit`     | `secrets: inherit` passes all caller secrets to the reusable workflow. |
 |   [5]   | **Output references**        |  `jobs.<id>.outputs.<name>`   | Caller must match the exact job ID and output name from callee.        |
 
-### [1.2][DETECTION_RULES]
+### [1.2]-[DETECTION_RULES]
 
 | [INDEX] | [CHECK]                       | [TAG]          | [WHAT_TO_FLAG]                                                          |
 | :-----: | ----------------------------- | -------------- | ----------------------------------------------------------------------- |
@@ -24,9 +24,9 @@
 
 [REFERENCE] Reusable workflow orchestration: [advanced-triggers.md](./advanced-triggers.md).
 
-## [2][DEPLOYMENT_ENVIRONMENTS]
+## [2]-[DEPLOYMENT_ENVIRONMENTS]
 
-### [2.1][PROTECTION_RULES]
+### [2.1]-[PROTECTION_RULES]
 
 | [INDEX] | [RULE]                           |      [LIMIT]       | [VALIDATION]                                                          |
 | :-----: | -------------------------------- | :----------------: | --------------------------------------------------------------------- |
@@ -36,7 +36,7 @@
 |   [4]   | **Environment secrets**          |   Scoped to env    | Only available to jobs targeting this environment.                    |
 |   [5]   | **Custom deployment protection** | GitHub App webhook | Third-party gates: Datadog, Honeycomb, ServiceNow, New Relic, Sentry. |
 
-### [2.2][CUSTOM_PROTECTION_RULES]
+### [2.2]-[CUSTOM_PROTECTION_RULES]
 
 **Status:** GA for public repos (all plans) and private/internal repos (Enterprise only).
 
@@ -49,7 +49,7 @@ Custom deployment protection rules use GitHub Apps subscribing to the `deploymen
 |   [3]   | **Protection gate timeout**    | `[ENV]` | External gate must respond within 30 days (default timeout).     |
 |   [4]   | **No protection on prod**      | `[ENV]` | Production environment without any protection rules configured.  |
 
-## [3][JOB_SUMMARIES]
+## [3]-[JOB_SUMMARIES]
 
 | [INDEX] | [CONSTRAINT]              |         [LIMIT]          | [WHAT_TO_FLAG]                                     |
 | :-----: | ------------------------- | :----------------------: | -------------------------------------------------- |
@@ -69,16 +69,16 @@ Custom deployment protection rules use GitHub Apps subscribing to the `deploymen
 
 [IMPORTANT] Always quote `$GITHUB_STEP_SUMMARY` in `run:` blocks to prevent word splitting.
 
-## [4][CONTAINER_JOBS]
+## [4]-[CONTAINER_JOBS]
 
-### [4.1][NETWORKING]
+### [4.1]-[NETWORKING]
 
 | [INDEX] | [SCENARIO]           | [SERVICE_ACCESS]                                 | [PORT_MAPPING]                   |
 | :-----: | -------------------- | ------------------------------------------------ | -------------------------------- |
 |   [1]   | **Job in container** | Service name as hostname (`postgres://postgres`) | No port mapping needed.          |
 |   [2]   | **Job on runner**    | `localhost` with mapped ports                    | `ports: ['5432:5432']` required. |
 
-### [4.2][DETECTION_RULES]
+### [4.2]-[DETECTION_RULES]
 
 | [INDEX] | [CHECK]                     | [TAG]         | [WHAT_TO_FLAG]                                                   |
 | :-----: | --------------------------- | ------------- | ---------------------------------------------------------------- |
@@ -105,7 +105,7 @@ jobs:
 
 [IMPORTANT] When job runs in a container, service containers share a Docker network — use service name as hostname, no port mapping.
 
-## [5][CONCURRENCY_CONTROL]
+## [5]-[CONCURRENCY_CONTROL]
 
 ```yaml
 concurrency:
@@ -121,11 +121,11 @@ concurrency:
 
 **Semantics:** Max 1 running + 1 pending per group. When a third run enters, the pending run is cancelled (not the running one). `cancel-in-progress: true` cancels the running job instead. Use `false` for deployments to avoid partial state.
 
-## [6][YAML_ANCHORS]
+## [6]-[YAML_ANCHORS]
 
 **Status:** Supported since September 2025. Basic YAML 1.2.2 anchors (`&name`) and aliases (`*name`) only.
 
-### [6.1][LIMITATIONS]
+### [6.1]-[LIMITATIONS]
 
 | [INDEX] | [CONSTRAINT]           | [DETAIL]                                                                  |
 | :-----: | ---------------------- | ------------------------------------------------------------------------- |
@@ -134,7 +134,7 @@ concurrency:
 |   [3]   | **Sequence expansion** | Use `- *anchor` for sequence items, not `<<:` for mapping merge.          |
 |   [4]   | **`uses:` is static**  | Anchors cannot dynamically construct `uses:` action references.           |
 
-### [6.2][ACTIONLINT_CHECKS]
+### [6.2]-[ACTIONLINT_CHECKS]
 
 | [INDEX] | [CHECK]             | [TAG]    | [WHAT_TO_FLAG]                                    |
 | :-----: | ------------------- | -------- | ------------------------------------------------- |
@@ -158,7 +158,7 @@ jobs:
       - run: pnpm lint
 ```
 
-## [7][MATRIX_STRATEGY]
+## [7]-[MATRIX_STRATEGY]
 
 | [INDEX] | [KEY]               | [DEFAULT]               | [BEHAVIOR]                                                                           |
 | :-----: | ------------------- | ----------------------- | ------------------------------------------------------------------------------------ |
@@ -175,7 +175,7 @@ jobs:
 |   [3]   | **`continue-on-error` masking** | `[MATRIX]` | `continue-on-error: true` with `fail-fast: true` hides failures.     |
 |   [4]   | **Exceeds 256 jobs**            | `[MATRIX]` | Matrix expansion exceeds 256 job limit per workflow.                 |
 
-## [8][NODE_RUNTIME]
+## [8]-[NODE_RUNTIME]
 
 | [INDEX] | [RUNTIME]      | [STATUS]                                                      |
 | :-----: | -------------- | ------------------------------------------------------------- |
@@ -185,7 +185,7 @@ jobs:
 |   [4]   | **Node.js 22** | Skipped — GitHub jumped node20 directly to node24.            |
 |   [5]   | **Node.js 24** | Required — use `using: 'node24'` for JavaScript actions.      |
 
-### [8.1][MIGRATION_TIMELINE]
+### [8.1]-[MIGRATION_TIMELINE]
 
 | [INDEX] | [DATE]             | [EVENT]                                                                                    |
 | :-----: | ------------------ | ------------------------------------------------------------------------------------------ |
@@ -194,7 +194,7 @@ jobs:
 |   [3]   | **April 30, 2026** | Node.js 20 reaches upstream EOL.                                                           |
 |   [4]   | **Summer 2026**    | node20 fully removed — environment variable override stops working.                        |
 
-### [8.2][DETECTION_RULES]
+### [8.2]-[DETECTION_RULES]
 
 | [INDEX] | [CHECK]                                  | [TAG]       | [WHAT_TO_FLAG]                                                          |
 | :-----: | ---------------------------------------- | ----------- | ----------------------------------------------------------------------- |
@@ -204,7 +204,7 @@ jobs:
 
 [IMPORTANT] Early testing: set `FORCE_JAVASCRIPT_ACTIONS_TO_NODE24=true` as workflow env var. node24 is incompatible with macOS 13.4 and earlier; ARM32 self-hosted runners are unsupported.
 
-## [9][WORKFLOW_DISPATCH_INPUTS]
+## [9]-[WORKFLOW_DISPATCH_INPUTS]
 
 | [INDEX] | [CONSTRAINT]     | [LIMIT]                                                | [WHAT_TO_FLAG]                                       |
 | :-----: | ---------------- | ------------------------------------------------------ | ---------------------------------------------------- |
@@ -213,7 +213,7 @@ jobs:
 |   [3]   | Valid types      | `string`, `boolean`, `choice`, `number`, `environment` | Other types are invalid.                             |
 |   [4]   | `choice` options | Required list                                          | `type: choice` without `options:` list is an error.  |
 
-## [10][ACTIONLINT_FEATURES]
+## [10]-[ACTIONLINT_FEATURES]
 
 | [INDEX] | [FEATURE]                          | [VERSION] | [DESCRIPTION]                                                     |
 | :-----: | ---------------------------------- | :-------: | ----------------------------------------------------------------- |

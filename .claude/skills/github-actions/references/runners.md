@@ -1,6 +1,6 @@
 # [H1][RUNNERS]
 
-## [1][STANDARD_LABELS]
+## [1]-[STANDARD_LABELS]
 
 | [INDEX] | [OS]        | [LABELS]                                         | [DEFAULT]    |
 | :-----: | ----------- | ------------------------------------------------ | ------------ |
@@ -8,7 +8,7 @@
 |   [2]   | **Windows** | `windows-latest`, `windows-2025`, `windows-2022` | windows-2025 |
 |   [3]   | **macOS**   | `macos-latest`, `macos-15`, `macos-14`           | macos-15     |
 
-## [2][DEPRECATED_AND_RETIRED]
+## [2]-[DEPRECATED_AND_RETIRED]
 
 | [INDEX] | [LABEL]            | [STATUS]                    | [DATE]         | [REPLACEMENT]   |
 | :-----: | ------------------ | --------------------------- | -------------- | --------------- |
@@ -20,7 +20,7 @@
 |   [6]   | **`windows-2019`** | Retired.                    | June 2025.     | `windows-2025`. |
 |   [7]   | **`windows-2022`** | Supported (phasing out).    | Migrate early. | `windows-2025`. |
 
-### [2.1][MACOS_INTEL_DEPRECATION]
+### [2.1]-[MACOS_INTEL_DEPRECATION]
 
 | [INDEX] | [LABEL]                                | [STATUS]              | [REPLACEMENT]      |
 | :-----: | -------------------------------------- | --------------------- | ------------------ |
@@ -29,7 +29,7 @@
 
 Apple Silicon (ARM64) required after Fall 2027. Flag Intel macOS labels with deprecation warning.
 
-## [3][ARM64_RUNNERS]
+## [3]-[ARM64_RUNNERS]
 
 | [INDEX] | [LABEL]                | [AVAILABILITY]                                                |
 | :-----: | ---------------------- | ------------------------------------------------------------- |
@@ -38,7 +38,7 @@ Apple Silicon (ARM64) required after Fall 2027. Flag Intel macOS labels with dep
 
 [IMPORTANT] ARM64 labels: canonical format is `-arm` suffix (NOT `-arm64`). `ubuntu-latest-arm64` and `ubuntu-24.04-arm64` are **invalid** — flag as incorrect label.
 
-### [3.1][DETECTION_RULES]
+### [3.1]-[DETECTION_RULES]
 
 | [INDEX] | [CHECK]                 | [TAG]      | [WHAT_TO_FLAG]                                                 |
 | :-----: | ----------------------- | ---------- | -------------------------------------------------------------- |
@@ -46,7 +46,7 @@ Apple Silicon (ARM64) required after Fall 2027. Flag Intel macOS labels with dep
 |   [2]   | **`ubuntu-latest-arm`** | `[RUNNER]` | Not a valid label — use explicit version (`ubuntu-24.04-arm`). |
 |   [3]   | **ARM in private repo** | `[RUNNER]` | Requires Team or Enterprise plan — free only for public repos. |
 
-## [4][GPU_RUNNERS]
+## [4]-[GPU_RUNNERS]
 
 | [INDEX] | [LABEL]             | [GPU]                                            | [PRICING] |
 | :-----: | ------------------- | ------------------------------------------------ | --------- |
@@ -54,14 +54,14 @@ Apple Silicon (ARM64) required after Fall 2027. Flag Intel macOS labels with dep
 
 Requires Team or Enterprise Cloud plan. Flag `gpu-*` labels in workflows targeting Free/Pro plans.
 
-## [5][XLARGE_RUNNERS]
+## [5]-[XLARGE_RUNNERS]
 
 | [INDEX] | [LABEL]                                      | [SPECS]                           | [PRICING] |
 | :-----: | -------------------------------------------- | --------------------------------- | --------- |
 |   [1]   | **`macos-latest-xlarge`, `macos-15-xlarge`** | 5-core M2 Pro, 8-core GPU, 14 GB. | $0.16/min |
 |   [2]   | **`macos-14-xlarge`**                        | 5-core M2 Pro, 8-core GPU, 14 GB. | $0.16/min |
 
-## [6][LARGER_RUNNERS]
+## [6]-[LARGER_RUNNERS]
 
 | [INDEX] | [TYPE]        | [SPEC]         | [NOTES]                            |
 | :-----: | ------------- | -------------- | ---------------------------------- |
@@ -71,7 +71,7 @@ Requires Team or Enterprise Cloud plan. Flag `gpu-*` labels in workflows targeti
 
 Larger runners (Team/Enterprise): up to 1,000 concurrent jobs; 100 GPU max.
 
-## [7][MULTI_ARCHITECTURE]
+## [7]-[MULTI_ARCHITECTURE]
 
 ```yaml
 strategy:
@@ -86,9 +86,9 @@ runs-on: ${{ matrix.runner }}
 
 [IMPORTANT] Validate ARM64 matrix uses `-arm` suffix (not `-arm64`). Flag `ubuntu-latest-arm64` in matrix definitions.
 
-## [8][SELF_HOSTED]
+## [8]-[SELF_HOSTED]
 
-### [8.1][ACTIONLINT_LABELS]
+### [8.1]-[ACTIONLINT_LABELS]
 
 ```yaml
 # .github/actionlint.yaml
@@ -98,7 +98,7 @@ self-hosted-runner:
 
 Custom labels must be declared for actionlint validation — unlisted labels produce false-positive errors.
 
-### [8.2][SECURITY_CHECKS]
+### [8.2]-[SECURITY_CHECKS]
 
 | [INDEX] | [CHECK]                       | [TAG]           | [WHAT_TO_FLAG]                                                   |
 | :-----: | ----------------------------- | --------------- | ---------------------------------------------------------------- |
@@ -107,7 +107,7 @@ Custom labels must be declared for actionlint validation — unlisted labels pro
 |   [3]   | **Missing harden-runner**     | `[SELF-HOSTED]` | Self-hosted runners need runtime monitoring (K8s support in v2). |
 |   [4]   | **No runner group isolation** | `[SELF-HOSTED]` | Runner groups should restrict org/repo access boundaries.        |
 
-## [9][SELECTION_CHECKLIST]
+## [9]-[SELECTION_CHECKLIST]
 
 | [INDEX] | [CRITERION]      | [GUIDANCE]                                                                                  |
 | :-----: | ---------------- | ------------------------------------------------------------------------------------------- |

@@ -2,7 +2,7 @@
 
 Consolidated checklist for hooks-builder. SKILL.md §VALIDATION contains high-level gates; this file contains operational verification procedures.
 
-## [1][SCHEMA_GATE]
+## [1]-[SCHEMA_GATE]
 
 [VERIFY] Schema compliance:
 - [ ] JSON syntax valid—no trailing commas.
@@ -14,7 +14,7 @@ Consolidated checklist for hooks-builder. SKILL.md §VALIDATION contains high-le
 - [ ] `async` and `statusMessage` fields used appropriately.
 - [ ] `once` field only used in skill-scoped hooks.
 
-## [2][LIFECYCLE_GATE]
+## [2]-[LIFECYCLE_GATE]
 
 [VERIFY] Lifecycle compliance:
 - [ ] Match event to automation goal (blocking or observing).
@@ -25,7 +25,7 @@ Consolidated checklist for hooks-builder. SKILL.md §VALIDATION contains high-le
 - [ ] Set timeout appropriate for script complexity (in seconds).
 - [ ] Consider race conditions for PermissionRequest hooks under 1.5s.
 
-## [3][INTEGRATION_GATE]
+## [3]-[INTEGRATION_GATE]
 
 [VERIFY] Integration compliance:
 - [ ] `$CLAUDE_PROJECT_DIR` quoted in command strings.
@@ -35,7 +35,7 @@ Consolidated checklist for hooks-builder. SKILL.md §VALIDATION contains high-le
 - [ ] Windows: absolute paths used instead of env variables.
 - [ ] PermissionRequest hooks complete in <1.5s.
 
-## [4][SCRIPTING_GATE]
+## [4]-[SCRIPTING_GATE]
 
 [VERIFY] Script quality:
 - [ ] `ty check` passes with zero errors.
@@ -45,7 +45,7 @@ Consolidated checklist for hooks-builder. SKILL.md §VALIDATION contains high-le
 - [ ] No forbidden security patterns.
 - [ ] Path validation uses `realpath()`.
 
-## [5][RECIPES_GATE]
+## [5]-[RECIPES_GATE]
 
 [VERIFY] Recipe compliance:
 - [ ] Dispatch tables replace if/else chains.
@@ -54,7 +54,7 @@ Consolidated checklist for hooks-builder. SKILL.md §VALIDATION contains high-le
 - [ ] Exit 0 for non-blocking hooks.
 - [ ] Prompt/agent hooks use `{"ok": true/false}` response schema.
 
-## [6][TROUBLESHOOTING_GATE]
+## [6]-[TROUBLESHOOTING_GATE]
 
 [VERIFY] Deployment readiness:
 - [ ] JSON syntax validated (no trailing commas).
@@ -65,7 +65,7 @@ Consolidated checklist for hooks-builder. SKILL.md §VALIDATION contains high-le
 - [ ] PermissionRequest hooks complete in <1.5s.
 - [ ] Prompt/agent hooks only on eligible events (8 events, NOT TeammateIdle).
 
-## [7][ERROR_SYMPTOMS]
+## [7]-[ERROR_SYMPTOMS]
 
 | [SYMPTOM]                 | [CAUSE]                       | [FIX]                         |
 | ------------------------- | ----------------------------- | ----------------------------- |
@@ -80,7 +80,7 @@ Consolidated checklist for hooks-builder. SKILL.md §VALIDATION contains high-le
 | Prompt hook not firing    | Used on TeammateIdle          | TeammateIdle: exit codes only |
 | Wrong timeout units       | Used milliseconds             | Timeouts are in SECONDS       |
 
-## [8][OPERATIONAL_COMMANDS]
+## [8]-[OPERATIONAL_COMMANDS]
 
 ```bash
 # JSON validation

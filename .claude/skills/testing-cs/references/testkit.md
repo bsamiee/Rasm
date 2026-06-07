@@ -3,7 +3,7 @@
 
 <br>
 
-## [1][FILES]
+## [1]-[FILES]
 
 | [INDEX] | [FILE]          | [OWNS]                                                                                                      |
 | :-----: | --------------- | ----------------------------------------------------------------------------------------------------------- |
@@ -13,7 +13,7 @@
 |   [4]   | `Serializer.cs` | xUnit serializer for pure data display.                                                                     |
 
 ---
-## [2][SPEC_CONTRACT]
+## [2]-[SPEC_CONTRACT]
 
 - Use `Spec.ForAll` instead of raw `gen.Sample` so seed/iter/time/thread precedence is consistent.
 - Use `Spec.Metamorphic` when expected values come from an independent path.
@@ -25,7 +25,7 @@
 - Add model-based, async, snapshot, benchmark, or fuzz adapters only when two concrete consumers exist.
 
 ---
-## [3][GENERATOR_CONTRACT]
+## [3]-[GENERATOR_CONTRACT]
 
 - Value-object generators call production `TryCreate`/`Create`/`AcceptValidated` paths.
 - Edge-biased scalar generators include tolerance-adjacent values, not just broad random ranges.
@@ -33,7 +33,7 @@
 - Keep module-local generators inside the spec until at least two consumers need the same concept.
 
 ---
-## [4][SUPPRESSION_POLICY]
+## [4]-[SUPPRESSION_POLICY]
 
 - No local `SuppressMessage` attributes for normal xUnit generator classes.
 - Keep test classes public for xUnit discovery.
@@ -41,7 +41,7 @@
 - Folder-wide analyzer rationale belongs in `.editorconfig`, not in repeated file-local comments.
 
 ---
-## [5][GENERATOR_SHRINKING_RULE]
+## [5]-[GENERATOR_SHRINKING_RULE]
 >**Dictum:** *`throw` inside `Select` breaks shrinking; use `Where(Try)+Select` to preserve it.*
 
 <br>
@@ -68,7 +68,7 @@ The `throw` form turns rejected candidates into property failures instead of fil
 [SOURCE] CsCheck README on `Where` shrinking semantics.
 
 ---
-## [6][ADMISSION_EXTENSION_HOOK]
+## [6]-[ADMISSION_EXTENSION_HOOK]
 >**Dictum:** *Cross-layer types extend admission through an interface, not a switch arm.*
 
 <br>
@@ -95,7 +95,7 @@ Do NOT add per-type arms to `ValidityOf` for cross-layer types — that would cr
 Architecture coverage: an `ArchUnitNET` test in `tests/csharp/_architecture/` enumerates all `[BoundaryAdapter]`-marked types and asserts each is reachable through `ValidityOf` (either via `IDomainValid` or explicit switch arm). Catches the entire `AcceptValue / ValidityOf` gap regression class once and forever.
 
 ---
-## [7][ASSEMBLY_FIXTURE_PATTERN]
+## [7]-[ASSEMBLY_FIXTURE_PATTERN]
 >**Dictum:** *Shared assembly context is an attribute, not an interface.*
 
 <br>

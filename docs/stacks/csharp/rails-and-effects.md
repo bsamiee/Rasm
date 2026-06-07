@@ -2,7 +2,7 @@
 
 LanguageExt owns result rails, effect execution, immutable collection flow, schedules, traversal, and managed boundary state. Use these surfaces after host, native, wire, or generated-shape inputs have been admitted into explicit domain values.
 
-## [1][RAIL_CHOOSER]
+## [1]-[RAIL_CHOOSER]
 
 Choose the narrowest carrier that preserves the real outcome. A wider rail is justified only when the operation needs the additional failure, runtime, resource, schedule, state, or carrier-polymorphic capability.
 
@@ -21,7 +21,7 @@ Choose the narrowest carrier that preserves the real outcome. A wider rail is ju
 
 `Fin<T>` is the ordinary local fallible result. `Validation<E,T>` is for independent checks that must accumulate before returning one boundary result. `Eff<RT,T>` is for runtime context, host effects, cancellation, resource lifetime, or asynchronous execution that belongs to the operation.
 
-## [2][BOUNDARY_CONVERSION]
+## [2]-[BOUNDARY_CONVERSION]
 
 Every boundary converts once into the carrier that states the real outcome. Reusable domain transforms keep the carrier; terminal collapse belongs at host, UI, native, command, or wire edges.
 
@@ -66,7 +66,7 @@ public static Fin<<Receipt>> Capture(Func<Fin<<Receipt>>> native) {
 - Boundary: validation packages and rule sets stay outside domain modules.
 - Reject: package-specific validators as domain policy.
 
-## [3][TRAVERSAL_FLOW]
+## [3]-[TRAVERSAL_FLOW]
 
 Traversal policy is rail policy because the collection shape decides how failures, effects, strictness, and resource boundaries compose.
 
@@ -110,7 +110,7 @@ public static Fin<Seq<<Receipt>>> TraverseRaw(Seq<string> raw) =>
 - Boundary: use `Optional(x).ToFin(error)` at nullable boundaries.
 - Reject: boolean success/failure factories that duplicate `guard(...).ToFin()`.
 
-## [4][FAILURE_HANDLING]
+## [4]-[FAILURE_HANDLING]
 
 Use carrier-qualified failure transforms before collapse. Do not throw inside rail transforms.
 
@@ -150,7 +150,7 @@ public static Validation<Error, <RangeValue>> AdmitRange(string raw, int start, 
         .As();
 ```
 
-## [5][EFFECT_RUNTIME]
+## [5]-[EFFECT_RUNTIME]
 
 [RUNTIME_RECORD]:
 - Use: `Eff<RT,T>` when the operation needs host capability, cancellation, progress, clock, filesystem, UI, native document, or another runtime dependency.
@@ -214,7 +214,7 @@ public static IO<<Receipt>> Retry(IO<<Receipt>> work) {
 - Effect/finally `|`: effect-finally composition where the local type proves that owner.
 - Rule: use named methods when the owner is not obvious from the local type.
 
-## [6][STATE_RECEIPTS]
+## [6]-[STATE_RECEIPTS]
 
 State belongs at a boundary or session owner, not inside pure domain accumulation.
 
@@ -259,7 +259,7 @@ public readonly record struct <Receipt>(<CodeValue> Code, int Count) {
 }
 ```
 
-## [7][INTEROP]
+## [7]-[INTEROP]
 
 [CARRIER_POLYMORPHIC_ALGORITHMS]:
 - Use: `K<F,A>` and trait-based algorithms when one implementation genuinely works across carriers.
@@ -285,7 +285,7 @@ public readonly record struct <Receipt>(<CodeValue> Code, int Count) {
 - Executable checks: prove behavior; this page states carrier policy.
 - Adoption state: versions, references, and globals do not change carrier choice.
 
-## [8][VALIDATION]
+## [8]-[VALIDATION]
 
 - [ ] The rail is the narrowest carrier that preserves the outcome.
 - [ ] Generated admission, nullable input, sentinels, and exceptions convert once at the boundary.

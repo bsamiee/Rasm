@@ -1,6 +1,6 @@
 # [H1][ACT-USAGE]
 
-## [1][ACTIONLINT]
+## [1]-[ACTIONLINT]
 
 **Current version:** 1.7.10 (December 30, 2025).
 
@@ -20,7 +20,7 @@ actionlint -format sarif                     # SARIF (code scanning integration)
 
 **Exit codes:** `0` = success, `1` = errors found, `2` = fatal error.
 
-### [1.1][CONFIGURATION]
+### [1.1]-[CONFIGURATION]
 
 ```yaml
 # .github/actionlint.yaml
@@ -35,7 +35,7 @@ self-hosted-runner:
   labels: [my-custom-runner, gpu-runner]  # Declare custom labels
 ```
 
-### [1.2][CI_INTEGRATION]
+### [1.2]-[CI_INTEGRATION]
 
 ```yaml
 name: Lint Workflows
@@ -56,7 +56,7 @@ jobs:
           sarif_file: actionlint.sarif
 ```
 
-### [1.3][KEY_CHECKS]
+### [1.3]-[KEY_CHECKS]
 
 | [INDEX] | [CHECK_CATEGORY]        | [WHAT_IT_VALIDATES]                                                 |
 | :-----: | ----------------------- | ------------------------------------------------------------------- |
@@ -71,7 +71,7 @@ jobs:
 |   [9]   | **Permissions**         | Valid scope names (`models`, `artifact-metadata` in 1.7.8+/1.7.10). |
 |  [10]   | **Constant conditions** | `if: true`, `if: false`, and complex constant expressions.          |
 
-## [2][ACT]
+## [2]-[ACT]
 
 **Current version:** v0.2.84 (January 1, 2026).
 
@@ -93,7 +93,7 @@ act workflow_dispatch --input version=1.2.3    # Trigger with inputs
 
 **Exit codes:** `0` = success, `1` = job failed, `2` = parse/execution error.
 
-### [2.1][OPTIONS]
+### [2.1]-[OPTIONS]
 
 | [INDEX] | [FLAG]                                     | [PURPOSE]                                    |
 | :-----: | ------------------------------------------ | -------------------------------------------- |
@@ -106,7 +106,7 @@ act workflow_dispatch --input version=1.2.3    # Trigger with inputs
 |   [7]   | **`--action-offline-mode`**                | Skip downloading actions (use cached).       |
 |   [8]   | **`--matrix os:ubuntu-latest`**            | Filter matrix to specific combination.       |
 
-### [2.2][CONFIGURATION_FILE]
+### [2.2]-[CONFIGURATION_FILE]
 
 ```bash
 # .actrc (project root or $HOME)
@@ -115,7 +115,7 @@ act workflow_dispatch --input version=1.2.3    # Trigger with inputs
 -P ubuntu-latest=catthehacker/ubuntu:act-latest
 ```
 
-## [3][LIMITATIONS]
+## [3]-[LIMITATIONS]
 
 | [INDEX] | [TOOL]         | [LIMITATION]                        | [IMPACT]                                                   |
 | :-----: | -------------- | ----------------------------------- | ---------------------------------------------------------- |
@@ -128,7 +128,7 @@ act workflow_dispatch --input version=1.2.3    # Trigger with inputs
 |   [7]   | **act**        | YAML anchor explosion (pre-v0.2.84) | Fixed in v0.2.84 — update to latest.                       |
 |   [8]   | **act**        | `.github/workflows/` only           | Cannot validate workflows in other directories.            |
 
-## [4][TROUBLESHOOTING]
+## [4]-[TROUBLESHOOTING]
 
 | [INDEX] | [ISSUE]                             | [SOLUTION]                                                    |
 | :-----: | ----------------------------------- | ------------------------------------------------------------- |

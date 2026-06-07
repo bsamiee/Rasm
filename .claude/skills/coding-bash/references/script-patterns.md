@@ -14,7 +14,7 @@
 | [10]  | Coprocess              |  S10  | Persistent subprocess, sentinel-framed I/O      |
 | [11]  | Testing                |  S11  | Inline assertions, self-test mode               |
 
-## [1][ARGUMENT_PARSING]
+## [1]-[ARGUMENT_PARSING]
 
 Three-phase pipeline: subcommand dispatch (O(1) via `declare -Ar`), flag parsing (`case/esac`),
 positional collection (remainder after `--`). Flags consumed exhaustively before positionals.
@@ -60,7 +60,7 @@ _parse_flags() {
 Remove `_SUBCMDS` (or leave empty) for flag-only scripts. Handlers receive only positional
 args — flags frozen via `readonly` before invocation.
 
-### [1.1][MULTI_AXIS_DISPATCH]
+### [1.1]-[MULTI_AXIS_DISPATCH]
 
 Two-dimensional `verb:resource` keyed dispatch with parallel metadata arrays. Subsumes
 nested subcommands — the composite key encodes the full route:
@@ -105,7 +105,7 @@ _dispatch_help() {
 }
 ```
 
-### [1.2][MIDDLEWARE]
+### [1.2]-[MIDDLEWARE]
 
 Pre/post hooks wrapping handlers via chainable dispatch. Each middleware receives a nameref to
 context — rejection short-circuits the chain without coupling to business logic:
@@ -133,7 +133,7 @@ _use _mw_version
 # Usage: _run_with_middleware _cmd_deploy prod
 ```
 
-## [2][METADATA_DRIVEN_HELP]
+## [2]-[METADATA_DRIVEN_HELP]
 
 `_OPT_META` encodes all option data — adding an option = one table entry + one `case` branch.
 Explicit key list controls iteration order (associative arrays have no insertion order).
@@ -172,7 +172,7 @@ _usage() {
 }
 ```
 
-## [3][CONFIGURATION]
+## [3]-[CONFIGURATION]
 
 No `eval`/`source` — `declare -g` with regex-validated key names, comment skip, extglob trimming:
 
@@ -192,7 +192,7 @@ load_config() {
 }
 ```
 
-## [4][STRUCTURED_LOGGING]
+## [4]-[STRUCTURED_LOGGING]
 
 Canonical reference: [bash-logging.md](./bash-logging.md). API signatures:
 
@@ -210,12 +210,12 @@ _init_trace() {
 }
 ```
 
-## [5][TRAP_CHAIN_AND_CLEANUP]
+## [5]-[TRAP_CHAIN_AND_CLEANUP]
 
 ERR fires on command failure (diagnostic only), EXIT fires unconditionally and invokes the
 cleanup registry. Cleanup is LIFO — later-acquired resources depend on earlier ones.
 
-### [5.1][ERR_TRAP]
+### [5.1]-[ERR_TRAP]
 
 Full stack trace via `FUNCNAME`/`BASH_LINENO`/`BASH_SOURCE`. Requires `set -E` (errtrace)
 so the trap inherits into functions and subshells:
@@ -232,7 +232,7 @@ _on_err() {
 trap '_on_err' ERR
 ```
 
-### [5.2][CLEANUP_REGISTRY]
+### [5.2]-[CLEANUP_REGISTRY]
 
 LIFO stack — `eval` acceptable here because all registered commands are script-controlled
 string literals, never user input:
@@ -255,7 +255,7 @@ exec {lock_fd}>/var/lock/myscript.lock
 _register_cleanup "exec ${lock_fd}>&-"
 ```
 
-### [5.3][SIGNAL_INTERNALS]
+### [5.3]-[SIGNAL_INTERNALS]
 
 | [IDX] | [BEHAVIOR]          | [DETAIL]                                                               |
 | :---: | :------------------ | :--------------------------------------------------------------------- |
@@ -275,7 +275,7 @@ Coalescing matters for `SIGCHLD` — multiple children exiting may deliver one s
 trap 'while wait -n 2>/dev/null; do :; done' CHLD
 ```
 
-### [5.4][EXIT_CODES]
+### [5.4]-[EXIT_CODES]
 
 | [IDX] | [CODE]  | [MEANING]      | [USAGE]                        |
 | :---: | :-----: | :------------- | :----------------------------- |
@@ -291,7 +291,7 @@ readonly EX_OK=0 EX_ERR=1 EX_USAGE=2
 _die_usage() { _err "$@"; _err "See --help"; exit "${EX_USAGE}"; }
 ```
 
-## [6][PARALLEL_PROCESSING]
+## [6]-[PARALLEL_PROCESSING]
 
 `wait -n -p VARNAME` (Bash 5.1+) captures the finished PID — required for mapping results
 back to inputs. Without `-p`, a failed job is unidentifiable in the batch.
@@ -320,7 +320,7 @@ done
 fd -e txt -x process_file {}
 ```
 
-## [7][LOCKS_AND_SIGNALS]
+## [7]-[LOCKS_AND_SIGNALS]
 
 Lock FDs register with `_CLEANUP_STACK` so they release even on ERR paths.
 
@@ -344,7 +344,7 @@ critical_multi_step_op    # Cannot be interrupted
 trap - INT TERM           # Reset: default disposition restored
 ```
 
-## [8][RETRY]
+## [8]-[RETRY]
 
 `SRANDOM` provides kernel entropy — `RANDOM` is LCG, unsuitable for jitter (correlated storms
 across near-simultaneously seeded processes). Parameters: `max` ($1, default 3), `delay` ($2,
@@ -369,7 +369,7 @@ retry() {
 # Usage: retry 5 1 30 curl -f https://api.example.com/data
 ```
 
-## [9][ATOMIC_IO]
+## [9]-[ATOMIC_IO]
 
 Write to temporary file, then atomic `mv` (same filesystem). `umask 077` before `mktemp` for sensitive data:
 
@@ -388,7 +388,7 @@ WORK_DIR="$(mktemp -d)"; readonly WORK_DIR
 _register_cleanup "rm -rf '${WORK_DIR}'"
 ```
 
-## [10][COPROCESS]
+## [10]-[COPROCESS]
 
 `coproc` (Bash 4.0+) creates a bidirectional pipe — `${COPROC[0]}` reads stdout,
 `${COPROC[1]}` writes stdin. Sentinel-based framing solves the result boundary problem
@@ -424,7 +424,7 @@ db_close() {
 
 Use named pipes when multiple concurrent workers or POSIX portability is required.
 
-## [11][TESTING]
+## [11]-[TESTING]
 
 ```bash
 assert_eq()        { [[ "$1" == "$2" ]] || _die "ASSERT ${FUNCNAME[1]}:${BASH_LINENO[0]}: '${2}' != '${1}'"; }

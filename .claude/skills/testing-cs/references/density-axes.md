@@ -3,7 +3,7 @@
 
 <br>
 
-## [1][PACKING]
+## [1]-[PACKING]
 
 | [INDEX] | [TECHNIQUE] | [USE] |
 | :-----: | ----------- | ----- |
@@ -16,7 +16,7 @@
 | [7] | Receipt table | Generate operation modes and assert typed receipt invariants in one pass. |
 
 ---
-## [2][COVERAGE_AXES]
+## [2]-[COVERAGE_AXES]
 
 Every owning spec should explicitly consider these axes:
 
@@ -32,7 +32,7 @@ Every owning spec should explicitly consider these axes:
 | [8] | Native ownership | Is each native-dependent behavior represented by a bridge scenario? |
 
 ---
-## [3][LOC_TACTICS]
+## [3]-[LOC_TACTICS]
 
 - Collapse repeated `Fact`s into one generated law when they share setup.
 - Use local arrays for case tables; use `Spec.SmartEnumKeysUnique` for distinctness.
@@ -46,7 +46,7 @@ Every owning spec should explicitly consider these axes:
 - Batch independent invariants (catalog multiplicities, fault category + type-pair) under `Assert.Multiple(() => …, …)` so every delta reports at once instead of stopping at the first failure. Use only for INDEPENDENT checks — never when one lambda's `Assert.IsType` result feeds the next.
 
 ---
-## [4][POLYMORPHIC_PATTERNS]
+## [4]-[POLYMORPHIC_PATTERNS]
 >**Dictum:** *Reach for these before adding a second Fact that shares setup with an existing one.*
 
 <br>
@@ -107,7 +107,7 @@ When NOT to polymorphize:
 - Failure on one case must be visible as separately-tracked test ID for CI triage — use Theory rows.
 
 ---
-## [5][COVERAGE_AXES_EXTENDED]
+## [5]-[COVERAGE_AXES_EXTENDED]
 
 Beyond the base axes in `[2]`, two more axes apply to numeric algorithms:
 

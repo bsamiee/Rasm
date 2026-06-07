@@ -2,7 +2,7 @@
 
 Numeric algorithms start after external-domain validity projection. Host semantics stay with host owners; numeric code receives explicit coordinates, dimensions, tolerances, units, and policy values.
 
-## [1][DECISION_SPINE]
+## [1]-[DECISION_SPINE]
 
 | [INDEX] | [INPUT]                     | [OWNER]                        |
 | :-----: | :-------------------------- | :----------------------------- |
@@ -16,7 +16,7 @@ Numeric algorithms start after external-domain validity projection. Host semanti
 
 Build matrices from explicit coordinate order, dimensions, units, and tolerance policy. Public outputs carry domain receipts and diagnostics, not MathNet storage types.
 
-## [2][DENSE_LINEAR_ALGEBRA]
+## [2]-[DENSE_LINEAR_ALGEBRA]
 
 [CONSTRUCTION]:
 - Owner: `Matrix<T>.Build` and `Vector<T>.Build`.
@@ -39,7 +39,7 @@ Build matrices from explicit coordinate order, dimensions, units, and tolerance 
 - Rule: keep `MathNet.Numerics.LinearAlgebra`, `.Complex`, `.Complex32`, and `.Single` scalar families isolated inside one transform pipeline.
 - Gate: add an explicit conversion boundary before mixing scalar namespaces.
 
-## [3][SPARSE_ITERATIVE_SOLVE]
+## [3]-[SPARSE_ITERATIVE_SOLVE]
 
 Use sparse iterative solve when structure is uncertain, the pattern changes often, or SPD admission is not proven.
 
@@ -60,7 +60,7 @@ Use sparse iterative solve when structure is uncertain, the pattern changes ofte
 - Rule: use provider-dependent `Matrix<T>.Solve(b)` only after iterative residual failure is recorded and the fallback residual is validated explicitly.
 - Repository path: `SolvePath.SparseMathNetDirectFallback`.
 
-## [4][EIGEN_STATISTICS_SYMBOLICS]
+## [4]-[EIGEN_STATISTICS_SYMBOLICS]
 
 [PARTIAL_EIGEN]:
 - Owner: local block-iterative methods on sparse operators.
@@ -79,7 +79,7 @@ Use sparse iterative solve when structure is uncertain, the pattern changes ofte
 - Owner: `MathNet.Symbolics`.
 - Gate: the project graph references the package, but active guidance starts only when production source owns formula parsing, transformation, evaluation, or compilation.
 
-## [5][RECEIPTS_AND_FAILURES]
+## [5]-[RECEIPTS_AND_FAILURES]
 
 Carry solver path, stop reason, iterations, residual, tolerance, dimensions, RHS length, and non-finite status through domain receipts. Convert exceptions, non-convergence, non-finite values, unsupported result shapes, and residual failure into `Fin<T>` at the algorithm boundary.
 

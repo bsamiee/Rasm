@@ -4,7 +4,7 @@ API documentation is contract-backed reference for a callable surface. It tells 
 
 This standard assumes local source-collection mechanics already live in repo instruction files, route READMEs, generated artifacts, and tooling documentation. Do not restate those mechanics here. Follow the local tool route, then write the smallest API page that preserves contract identity, caller obligations, failure/status behavior, proof fields, and adjacent-route handoff.
 
-## [1][USE_WHEN]
+## [1]-[USE_WHEN]
 
 Apply this standard to a surface that callers, generated clients, or agents invoke or parse:
 - local HTTP contracts and OpenAPI descriptions;
@@ -25,7 +25,7 @@ Route source-level public symbol comment style to [code-documentation.md](code-d
 - Maintenance triggers: callable contract, parameter, field, status, error, envelope, generated output, source comment, support row, or entrypoint changes.
 - Stale prevention: generated catalogs are linked or regenerated, never hand-copied.
 
-## [2][PROFILES]
+## [2]-[PROFILES]
 
 Choose one primary profile per page. Split the page when a second profile would force a different contract source or body structure.
 
@@ -41,7 +41,7 @@ Choose one primary profile per page. Split the page when a second profile would 
 
 Local and generated profiles name the generated artifact and refresh route. Upstream profiles name the maintained source beside drift-prone facts and never imply local routing of upstream behavior.
 
-## [3][REQUIRED_STRUCTURE]
+## [3]-[REQUIRED_STRUCTURE]
 
 Use this skeleton, then replace `<PROFILE_BODY>` with the one selected profile section. Do not publish empty optional headings.
 
@@ -50,15 +50,15 @@ Use this skeleton, then replace `<PROFILE_BODY>` with the one selected profile s
 
 <Scope: one sentence naming the callable surface, profile, controlling contract or upstream artifact, and generated-output route when one exists.>
 
-## [1][CONTRACT]
+## [1]-[CONTRACT]
 
-## [2][<PROFILE_BODY>]
+## [2]-[<PROFILE_BODY>]
 
-## [N][API_CHANGE_MAINTENANCE]
+## [N]-[API_CHANGE_MAINTENANCE]
 
-## [N][BOUNDARIES]
+## [N]-[BOUNDARIES]
 
-## [N][VALIDATION]
+## [N]-[VALIDATION]
 ```
 
 Use these required profile bodies:
@@ -71,7 +71,7 @@ Use these required profile bodies:
 
 Conditional profile sections appear only when the callable surface exposes the concern: authorization, HTTP mechanics, schemas, errors, async, versioning, examples, generated artifacts, and status/failure contracts.
 
-## [4][CONTRACT_SOURCE]
+## [4]-[CONTRACT_SOURCE]
 
 API prose ranks below the contract or source it describes. Resolve conflicts in this order:
 1. Scope README, local instruction files, and tool/source implementation for local agent-callable APIs.
@@ -86,7 +86,7 @@ Use [proof.md](../proof.md) for evidence strength, freshness, source conflicts, 
 
 Keep source and proof fields distinct. `Contract source` and `Controlling source` identify controlling artifacts; `Evidence` identifies the observed check or source span that proves the current claim. Do not put a command transcript in `Controlling source`, and do not let a source path stand in for generated-output, parser, or renderer evidence.
 
-## [5][CONTRACT_RECORDS]
+## [5]-[CONTRACT_RECORDS]
 
 Use one contract record per callable surface or surface family. Omit fields that do not apply; do not replace omitted fields with `n/a`.
 
@@ -121,7 +121,7 @@ Failure/status behavior: `<status, exit, typed failure, error, or miss behavior>
 Review trigger: `<field, source, schema, parser, or generated output changes>`
 ```
 
-## [6][PROFILE_RULES]
+## [6]-[PROFILE_RULES]
 
 Profile rules split by API surface:
 
@@ -160,7 +160,7 @@ Profile rules split by API surface:
 - Do not copy upstream catalogs or imply local routing of upstream behavior.
 - Route local support dates, compatibility, and migration windows to support matrix or how-to.
 
-## [7][API_CHANGE_MAINTENANCE]
+## [7]-[API_CHANGE_MAINTENANCE]
 
 Every API page states how caller-facing changes refresh adjacent docs. Use this selector before profile-specific details so agents update the contract first, then only the adjacent routes whose reader action changes.
 
@@ -187,12 +187,12 @@ Close when: `<consuming route updates, route is removed, or fact routes away>`
 Route-away: `<adjacent route body; omit untriggered routes>`
 ```
 
-## [8][VERSIONING]
+## [8]-[VERSIONING]
 
 State versioning and deprecation as one explicit statement per contract, or route support dates to support matrix. Distinguish versioning scheme, deprecation notice, sunset or removal signal, migration target, and support lifecycle date.
 Name the maintained source only when a local consumer or support policy depends on that source.
 
-## [9][BOUNDARIES]
+## [9]-[BOUNDARIES]
 
 - [code-documentation.md](code-documentation.md) carries source-level public symbol comments that generated library reference consumes.
 - [reference.md](reference.md) carries curated lookup facts, command inventories, option tables, and status vocabularies that are not callable API contracts.
@@ -202,7 +202,7 @@ Name the maintained source only when a local consumer or support policy depends 
 - [readme.md](readme.md) carries first entry routes and route-document maps.
 - [architecture.md](../explanation/architecture.md) carries current structure, routing boundaries, and generated-output placement when those facts affect code editing.
 
-## [10][VALIDATION]
+## [10]-[VALIDATION]
 
 Use this verification checklist by group:
 

@@ -4,7 +4,7 @@
 Observability keeps `Fin<T>`, `Validation<Error,T>`, and `Eff<RT,T>` intact while projecting telemetry through one compositional surface. Host surfaces include `[LoggerMessage]`, `ActivitySource`, `Meter`, `TagList`, `LogContext`, Serilog OTLP sink, and OpenTelemetry exporters.
 
 ---
-## [1][SIGNAL_ALGEBRA]
+## [1]-[SIGNAL_ALGEBRA]
 >**Dictum:** *One module owns identities, tag algebra, and fused channel emission.*
 
 ```csharp
@@ -199,7 +199,7 @@ public static class Observe {
 ```
 
 ---
-## [2][OBSERVABILITY_CANON]
+## [2]-[OBSERVABILITY_CANON]
 >**Dictum:** *Observability constraints are architecture contracts, not optional style.*
 
 | [INDEX] | [CONSTRAINT]               | [MANDATE]                                                                        | [SURFACE]                           |
@@ -234,7 +234,7 @@ public static class Observe {
 |   [5]   | **`component`**  | **recommended** | adapter boundary (`gateway`, `repo`, `scheduler`) |
 
 ---
-## [3][EFF_PIPELINE]
+## [3]-[EFF_PIPELINE]
 >**Dictum:** *`Eff` instrumentation composes as one wrapper; no business-flow forks.*
 
 ```csharp
@@ -275,7 +275,7 @@ public static class ObserveEff {
 ```
 
 ---
-## [4][COMPOSITION_ROOT]
+## [4]-[COMPOSITION_ROOT]
 >**Dictum:** *Composition root wires exporters and resilience; domain modules emit canonical signals only.*
 
 ```csharp
@@ -375,7 +375,7 @@ public static class ResilienceContextSetup {
 ```
 
 ---
-## [5][RULES]
+## [5]-[RULES]
 >**Dictum:** *Observability quality is consistency under composition pressure.*
 
 - [ALWAYS] Emit via Observe.Outcome, Observe.Validation, and ObserveEff.Pipeline.

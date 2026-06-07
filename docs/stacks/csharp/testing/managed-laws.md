@@ -2,7 +2,7 @@
 
 xUnit v3 and CsCheck own static managed law proof. Use project testkit wrappers first; promote raw package use into the testkit only after repeated specs need the same rail.
 
-## [1][XUNIT_V3]
+## [1]-[XUNIT_V3]
 
 [DISCOVERY]:
 - Use: `[Fact]` for named laws, regression seeds, and single-oracle managed contracts.
@@ -29,7 +29,7 @@ xUnit v3 and CsCheck own static managed law proof. Use project testkit wrappers 
 - Use: `BeforeAfterTestAttribute` only when an assertion-visible hook is required.
 - Reject: warming host-native APIs in static tests.
 
-## [2][MTP_FILTERS]
+## [2]-[MTP_FILTERS]
 
 This table is a lookup by focused test input.
 
@@ -42,7 +42,7 @@ This table is a lookup by focused test input.
 
 MTP commands use the local runner or `dotnet test --project <test-project>`. Positional project paths are invalid in MTP mode.
 
-## [3][CSCHECK]
+## [3]-[CSCHECK]
 
 [PROPERTY_RAILS]:
 - `Check.Sample` and `Check.SampleAsync`: generated input laws; project wrapper is `Spec.ForAll`.
@@ -80,7 +80,7 @@ MTP commands use the local runner or `dotnet test --project <test-project>`. Pos
 - Use: `SampleParallel` for contention and process-static cache races.
 - Replay: use the emitted parallel seed, including thread suffixes.
 
-## [4][PROJECT_TESTKIT]
+## [4]-[PROJECT_TESTKIT]
 
 [PROJECT_WRAPPERS]:
 - `Spec.ForAll`: primary property rail; precedence is explicit arguments, environment variables, then package defaults.
@@ -100,6 +100,6 @@ MTP commands use the local runner or `dotnet test --project <test-project>`. Pos
 - `CsCheck_Ulps`: package floating equality slack; project tolerances live in assertion wrappers.
 - `CsCheck_WhereLimit`: filter rejection cap.
 
-## [5][MUTATION_INTERACTION]
+## [5]-[MUTATION_INTERACTION]
 
 A CsCheck fact is one mutation entry point. A theory with distinct rows creates separately tracked entry points. Convert a closed-set property into theory rows only when mutation analysis shows one smart-enum or union case is under-killed and the row split preserves the oracle.

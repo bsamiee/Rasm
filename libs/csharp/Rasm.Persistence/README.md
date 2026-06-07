@@ -2,13 +2,13 @@
 
 `Rasm.Persistence` is the local durable-state platform for Rasm plugins and apps, built fully from the foundation: SQLite-backed state, `StoreLifecycleOp`/`StoreQuery<T>` algebra, migrations, snapshots, live-state projection, and support artifacts.
 
-## [1][PURPOSE]
+## [1]-[PURPOSE]
 
 `Rasm.Persistence` owns local SQLite-backed app state, migrations, queries, presets, snapshots, caches, `IObservable<AppState>` live-state projection, support artifacts, redaction, export receipts, and cleanup. AppHost schedules durable work through Persistence's exported `StoreDispatch` capability (typed `Eff<RT, StoreReceipt>`); Persistence owns open, migrate, query, transaction, dispose, and storage receipts.
 
 It is not a repository wrapper, EF wrapper, serializer wrapper, solve-path cache, GH tree store, or domain model replacement.
 
-## [2][STATUS]
+## [2]-[STATUS]
 
 | [INDEX] | [SURFACE]           | [STATE]                                              |
 | :-----: | ------------------- | ---------------------------------------------------- |
@@ -21,7 +21,7 @@ It is not a repository wrapper, EF wrapper, serializer wrapper, solve-path cache
 
 Add packages centrally at newest viable versions during Phase 0; no version numbers in `.csproj`.
 
-## [3][MANUAL]
+## [3]-[MANUAL]
 
 | [INDEX] | [FILE]             | [READ_FOR]                                                                                                       |
 | :-----: | ------------------ | ---------------------------------------------------------------------------------------------------------------- |
@@ -29,7 +29,7 @@ Add packages centrally at newest viable versions during Phase 0; no version numb
 |   [2]   | `AGENTS.md`        | Build rules, integration corrections, and hot-path rejections                                                    |
 |   [3]   | `ROADMAP.md`       | Build sequence and scoped lanes                                                                                  |
 
-## [4][CONSTRAINTS]
+## [4]-[CONSTRAINTS]
 
 - Store operations are `StoreLifecycleOp` and `StoreQuery<TResult>` sealed DUs with `Fold`, not an `IRepository<T>` family.
 - `DbContext` lives inside an `Eff<RT,T>` `Bracket` shell — one context per operation, no context lives across operations.

@@ -4,7 +4,7 @@ A tutorial teaches one learner outcome by guiding the learner through concrete a
 
 A learning path orders multiple tested lessons so later lessons reuse skill, vocabulary, or artifacts established earlier. This standard carries lesson shape, learner-path ordering, and execution proof; it does not own competent-reader procedures, readiness, incident recovery, lookup facts, API contract truth, support policy, contribution workflow, or conceptual explanation.
 
-## [1][USE_WHEN]
+## [1]-[USE_WHEN]
 
 Use a tutorial when every condition holds:
 - the reader is learning the subject, not performing routine work.
@@ -24,7 +24,7 @@ Route elsewhere by topic when the reader is a competent operator completing a kn
 - Adjacent checks: check how-to, API, reference, support matrix, runbook, contributing, onboarding, roadmap, architecture, code documentation, and README only when a lesson consumes their fact after or inside the learning path.
 - Maintenance triggers: update the tutorial when start state, fixture, command, tested stack, generated artifact, support target, lesson order, learner trap, result gate, or adjacent learning route changes.
 
-## [2][REQUIRED_STRUCTURE]
+## [2]-[REQUIRED_STRUCTURE]
 
 A single tutorial uses this spine. `Learner-trap recovery` appears only when the author observed recoverable failures or can cite a documented learner trap that does not fit a step-local `If wrong` field.
 
@@ -33,25 +33,25 @@ A single tutorial uses this spine. `Learner-trap recovery` appears only when the
 
 <Lead: one sentence naming the artifact, difficulty, estimated time, and tested stack.>
 
-## [1][WHAT_WE_WILL_BUILD]
+## [1]-[WHAT_WE_WILL_BUILD]
 
-## [2][LEARNING_OUTCOME]
+## [2]-[LEARNING_OUTCOME]
 
-## [3][PREREQUISITES]
+## [3]-[PREREQUISITES]
 
-## [4][START_STATE]
+## [4]-[START_STATE]
 
-## [5][STEPS]
+## [5]-[STEPS]
 
-## [6][RESULT]
+## [6]-[RESULT]
 
-## [7][WHAT_TO_NOTICE]
+## [7]-[WHAT_TO_NOTICE]
 
-## [8][NEXT_STEPS]
+## [8]-[NEXT_STEPS]
 
-## [9][BOUNDARIES]
+## [9]-[BOUNDARIES]
 
-## [10][VALIDATION]
+## [10]-[VALIDATION]
 ```
 
 Section cardinality uses these groups:
@@ -72,7 +72,7 @@ Section cardinality uses these groups:
 
 Generated documents must not include empty conditional headings. Omit `Learner-trap recovery` or adjacent links when their trigger is false.
 
-## [3][AUTHORING_RULES]
+## [3]-[AUTHORING_RULES]
 
 Tutorial rules split into these groups:
 
@@ -89,7 +89,7 @@ Tutorial rules split into these groups:
 - Keep inputs reproducible, repeatable, and disposable so a learner can rerun from a clean start.
 - Keep short lessons compact: keep entry sections to short blocks unless proof requires more.
 
-## [4][STRUCTURAL_CHOICES]
+## [4]-[STRUCTURAL_CHOICES]
 
 Choose one structure before writing. A single tutorial and a learning path have different closure surfaces, so do not blend them.
 
@@ -100,7 +100,7 @@ Choose one structure before writing. A single tutorial and a learning path have 
 
 Treat reader, difficulty, tool family, and concept depth as entry context and prose constraints inside the chosen structure, not as additional variants. Split lessons that need separate inputs, proof, titles, or success artifacts.
 
-## [5][TITLE_OUTCOME_RULES]
+## [5]-[TITLE_OUTCOME_RULES]
 
 Lead the title with the observable artifact or skill outcome, not an internal abstraction:
 
@@ -113,7 +113,7 @@ Lead the title with the observable artifact or skill outcome, not an internal ab
 - Rejected title: `# [UNDERSTANDING_DOCUMENTATION_RULES]`
 - Reason: the accepted title names an artifact the lesson can produce; the rejected title names cognition, which routes to explanation. State the learning outcome as a specific capability the learner can perform: `you can validate a scoped Markdown diff`, never `understand documentation rules`.
 
-## [6][LEARNING_PATHS]
+## [6]-[LEARNING_PATHS]
 
 A learning path index uses this spine when multiple tested lessons compose one broader skill:
 
@@ -122,19 +122,19 @@ A learning path index uses this spine when multiple tested lessons compose one b
 
 <Lead: one sentence naming the skill outcome, difficulty, lesson count, and whether stack proof is lesson-local or shared.>
 
-## [1][READER]
+## [1]-[READER]
 
-## [2][OUTCOME]
+## [2]-[OUTCOME]
 
-## [3][PREREQUISITES]
+## [3]-[PREREQUISITES]
 
-## [4][PATH]
+## [4]-[PATH]
 
-## [5][COMPLETION]
+## [5]-[COMPLETION]
 
-## [6][BOUNDARIES]
+## [6]-[BOUNDARIES]
 
-## [7][VALIDATION]
+## [7]-[VALIDATION]
 ```
 
 Learning-path sections are authorable, not prose placeholders:
@@ -156,7 +156,7 @@ Shared lifecycle states omitted here are intentional: learning paths do not use 
 Each `Path` entry is a subsection-per-record block because entries are updated independently and order is load-bearing:
 
 ```markdown template
-### [N.M][LESSON_TITLE_LINK]
+### [N.M]-[LESSON_TITLE_LINK]
 
 ID: `<lesson id only when another lesson, proof receipt, or path dependency references it>`
 Availability: AVAILABLE | DRAFT | BLOCKED | DEFERRED | DROPPED
@@ -175,7 +175,7 @@ Step-level `Execution` tags explain the concrete unverified dependency inside a 
 
 Order entries so each later lesson consumes a prior lesson's result. If entries can be read in any order without loss, the document is a hub index routed to [readme.md](../reference/readme.md), not a learning path.
 
-## [7][END_STATE_PREVIEW]
+## [7]-[END_STATE_PREVIEW]
 
 An end-state preview must show the final artifact, not decorate the opening. Exact output is enough when the result is textual:
 
@@ -212,7 +212,7 @@ Text equivalent: the completed request route validates an incoming payload, writ
 
 Reject a generic success diagram that does not prove the learner's final artifact.
 
-## [8][STEP_RECORDS]
+## [8]-[STEP_RECORDS]
 
 Each step is a checkpoint record, not a bare instruction line. A step must leave the learner in a verified working state. Render steps as numbered checkpoint records; add H3 milestone sets only when a longer tutorial needs skimmable boundaries, and keep actual steps numbered under the set.
 
@@ -240,7 +240,7 @@ State each term in the step that first needs it. Use fixed inputs, deterministic
 - Rejected step: `3. Run the check.`
 - Reason: the rejected form carries no exact signal and no working-state gate. Keep every command copy-safe per the craft route: omit prompts, use long flags, use full file paths where needed, and use realistic placeholders.
 
-## [9][EXECUTION_VOCABULARY]
+## [9]-[EXECUTION_VOCABULARY]
 
 A published tutorial's core success path must be author-run from start state to result. Use execution tags only for draft or blocked lessons, or for optional side effects outside the core path that depend on hardware, credentials, validator access, or live services the author could not exercise.
 
@@ -261,12 +261,12 @@ The tag rides in the step record's optional `Execution` field. Define the set in
 
 This shape is valid only when the link checker is outside the core success path or the lesson is not published as available.
 
-## [10][RESULT_EXIT_GATE]
+## [10]-[RESULT_EXIT_GATE]
 
 State `Result` as the final artifact compared against the end-state preview: reference diff, exact output, screenshot plus text equivalent, or diagram plus caption. Close the section with `Done when` checks so the learner and an agent validating the document know whether the lesson closed. Test automation and release policy route to [test-strategy.md](../explanation/test-strategy.md).
 
 ```markdown template
-## [6][RESULT]
+## [6]-[RESULT]
 
 The scoped diff passes the stated end-state preview: changed Markdown has no whitespace errors and the validation gap is explicit.
 
@@ -278,7 +278,7 @@ The result is done when these checks pass:
 
 Each `Done when` item is observable and falsifiable. The final item proves the learning outcome capability, not just the last step.
 
-## [11][LEARNER_TRAP_RECOVERY]
+## [11]-[LEARNER_TRAP_RECOVERY]
 
 Add learner-trap recovery only for failures observed during front-to-back execution or locally maintained learner traps that cannot fit in a step-local `If wrong` field. Do not invent symptom-cause-fix rows because a step could theoretically fail. Operational recovery routes to runbook, and routine task repair routes to how-to.
 
@@ -294,7 +294,7 @@ Order rows by the step where the signal first appears. Use the table only while 
 Promote a trap to a record when the cause, recovery, or evidence needs more than a short cell:
 
 ```markdown template
-### [N.M][UNRESOLVED_ANCHOR]
+### [N.M]-[UNRESOLVED_ANCHOR]
 
 Step: Step 4
 Signal: unresolved anchor appears.
@@ -303,7 +303,7 @@ Recovery: update the link target or restore the heading anchor, then rerun local
 Evidence: maintained trap.
 ```
 
-## [12][NEXT_STEPS]
+## [12]-[NEXT_STEPS]
 
 Close a tutorial with one reinforcement exercise when one can reuse the new skill without introducing a second lesson. Link adjacent documents only when maintained adjacent content exists and the route changes the learner's next action.
 
@@ -311,7 +311,7 @@ The reinforcement exercise fails when it introduces a new tool, subsystem, accou
 
 Do not invent adjacent links just to cover every reader-need route. Missing adjacent content is a documentation gap, not a reason to embed another document type in the tutorial; full route ownership stays in `Boundaries`.
 
-## [13][EXECUTION_CLOSURE]
+## [13]-[EXECUTION_CLOSURE]
 
 Execute the primary path as written before publishing a tutorial as available. Claim support attaches to the drift-prone fact, not the page footer. Generic claim-support field mechanics route to [proof.md](../proof.md); this section names only tutorial-specific closure obligations.
 
@@ -338,7 +338,7 @@ Use short excerpts to prove closure shape; do not publish a complete second tuto
 
 Learner-facing first person such as `We will build` is correct because the document tutors. Author notes, task history, interaction fragments, and local machine paths are not.
 
-## [14][BOUNDARIES]
+## [14]-[BOUNDARIES]
 
 These adjacent routes own material outside the tutorial:
 
@@ -362,7 +362,7 @@ These adjacent routes own material outside the tutorial:
 - Command mechanics, terminology, and copy-safe Markdown route to [style-guide.md](../style-guide.md).
 - Claim-level evidence and preservation route to [proof.md](../proof.md).
 
-## [15][VALIDATION]
+## [15]-[VALIDATION]
 
 Use this verification checklist by group:
 

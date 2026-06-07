@@ -2,7 +2,7 @@
 
 C# 14.0 on `net10.0` is the active language surface. `Directory.Build.props` owns `TargetFramework`, `LangVersion`, `Nullable`, and `ImplicitUsings`; this page owns syntax and expression selection for C# code in this repository.
 
-## [1][ACTIVE_SURFACE]
+## [1]-[ACTIVE_SURFACE]
 
 [ACTIVE_SURFACE]:
 - Target framework: `net10.0`
@@ -14,7 +14,7 @@ C# 14.0 on `net10.0` is the active language surface. `Directory.Build.props` own
 
 Use the active language surface directly. Replace older syntax when the compiler expresses the same behavior with less ceremony.
 
-## [2][REQUIRED_PATTERNS]
+## [2]-[REQUIRED_PATTERNS]
 
 | [INDEX] | [PATTERN]                         | [USE]                           |
 | :-----: | :-------------------------------- | :------------------------------ |
@@ -35,7 +35,7 @@ Use the active language surface directly. Replace older syntax when the compiler
 - Use collection expressions and `params` collections before adding array/list overload families.
 - Use switch expressions, property patterns, logical patterns, and list patterns for value-returning domain decisions.
 
-## [3][SCOPED_PATTERNS]
+## [3]-[SCOPED_PATTERNS]
 
 [NULL_CONDITIONAL_ASSIGNMENT]:
 - Use: nullable host, UI, event, and indexer boundaries with `target?.Prop = value` or `target?.[i] += delta`.
@@ -70,7 +70,7 @@ Use the active language surface directly. Replace older syntax when the compiler
 - Use: delegate adapters where the target delegate fixes the shape.
 - Reject: replacing a coherent method surface with lambda-only defaults.
 
-## [4][REPLACEMENTS]
+## [4]-[REPLACEMENTS]
 
 [REPLACEMENT_1]:
 - Accepted: `ReadOnlySpan<T>` input plus collection expressions and `params` collections where call shape requires arity.
@@ -102,7 +102,7 @@ Use the active language surface directly. Replace older syntax when the compiler
 - Rejected: closed-generic dummy names or string literals for generic type definitions.
 - Reason: diagnostics and telemetry should follow symbol identity.
 
-## [5][REJECTIONS]
+## [5]-[REJECTIONS]
 
 - Interceptors are not a production baseline.
 - File-based app preprocessor directives are not a project-library pattern.

@@ -2,9 +2,9 @@
 
 Hooks integrate via settings files, environment variables, and context injection patterns.
 
-## [1][ENVIRONMENT]
+## [1]-[ENVIRONMENT]
 
-### [1.1][HOOK_VARIABLES]
+### [1.1]-[HOOK_VARIABLES]
 
 | [INDEX] | [VARIABLE]           | [SCOPE]      | [VALUE]                            |
 | :-----: | -------------------- | ------------ | ---------------------------------- |
@@ -15,14 +15,14 @@ Hooks integrate via settings files, environment variables, and context injection
 
 [IMPORTANT] All other event-specific data (session_id, tool_name, tool_input, cwd, etc.) is delivered via JSON stdin, NOT environment variables. Parse with `jq` (Bash) or `json.load(sys.stdin)` (Python).
 
-### [1.2][CUSTOM_VARIABLES]
+### [1.2]-[CUSTOM_VARIABLES]
 
 ```python
 DEBUG: Final[bool] = os.environ.get("CLAUDE_HOOK_DEBUG", "").lower() in ("1", "true")
 _debug = lambda msg: DEBUG and print(f"[hook] {msg}", file=sys.stderr)
 ```
 
-### [1.3][PATH_PATTERNS]
+### [1.3]-[PATH_PATTERNS]
 
 ```json
 { "command": "bash \"$CLAUDE_PROJECT_DIR\"/.claude/hooks/validate-spec.sh" }
@@ -30,7 +30,7 @@ _debug = lambda msg: DEBUG and print(f"[hook] {msg}", file=sys.stderr)
 
 [CRITICAL] Quote `$CLAUDE_PROJECT_DIR` for paths with spaces.
 
-### [1.4][PLATFORM_WARNINGS]
+### [1.4]-[PLATFORM_WARNINGS]
 
 | [INDEX] | [PLATFORM] | [ISSUE]                              | [WORKAROUND]              |
 | :-----: | ---------- | ------------------------------------ | ------------------------- |
@@ -38,9 +38,9 @@ _debug = lambda msg: DEBUG and print(f"[hook] {msg}", file=sys.stderr)
 |   [2]   | Windows    | PATH wiped on env append             | Use full executable paths |
 |   [3]   | Remote     | SSH key access required              | Configure SSH agent       |
 
-## [2][CONTEXT_INJECTION]
+## [2]-[CONTEXT_INJECTION]
 
-### [2.1][OUTPUT_ROUTING]
+### [2.1]-[OUTPUT_ROUTING]
 
 | [INDEX] | [EVENT]          | [STDOUT_HANDLING]              |
 | :-----: | ---------------- | ------------------------------ |
@@ -50,7 +50,7 @@ _debug = lambda msg: DEBUG and print(f"[hook] {msg}", file=sys.stderr)
 |   [4]   | PostToolUse      | Shown in verbose mode (Ctrl+O) |
 |   [5]   | Others           | Debug log only (`--debug`)     |
 
-### [2.2][SESSIONSTART_PATTERN]
+### [2.2]-[SESSIONSTART_PATTERN]
 
 ```python
 import json
@@ -66,7 +66,7 @@ def build_response(content: str) -> dict[str, object]:
 print(json.dumps(build_response("Project uses Effect. Follow CLAUDE.md.")))
 ```
 
-### [2.3][ENV_FILE_PERSISTENCE]
+### [2.3]-[ENV_FILE_PERSISTENCE]
 
 ```python
 from pathlib import Path
@@ -82,7 +82,7 @@ def cache_to_env(key: str, value: str) -> None:
 cache_to_env("SKILL_COUNT", str(len(skills)))
 ```
 
-## [3][ATTENTION_WEIGHTING]
+## [3]-[ATTENTION_WEIGHTING]
 
 | [INDEX] | [TAG]         | [WEIGHT] | [USE]                     |
 | :-----: | ------------- | :------: | ------------------------- |
@@ -90,7 +90,7 @@ cache_to_env("SKILL_COUNT", str(len(skills)))
 |   [2]   | `<IMPORTANT>` |   High   | Key guidance              |
 |   [3]   | `<context>`   | Standard | General context injection |
 
-## [4][MERGE_BEHAVIOR]
+## [4]-[MERGE_BEHAVIOR]
 
 | [INDEX] | [SCOPE] | [PATH]                        | [PRECEDENCE] |
 | :-----: | ------- | ----------------------------- | :----------: |
@@ -102,7 +102,7 @@ cache_to_env("SKILL_COUNT", str(len(skills)))
 - Hook snapshots captured at startup; changes require `/hooks` review
 - Identical hook commands auto-deduplicated
 
-## [5][TIMING]
+## [5]-[TIMING]
 
 | [INDEX] | [EVENT]           | [THRESHOLD] | [CONSEQUENCE]                |
 | :-----: | ----------------- | :---------: | ---------------------------- |
@@ -110,7 +110,7 @@ cache_to_env("SKILL_COUNT", str(len(skills)))
 |   [2]   | SessionStart      |     <5s     | Delayed session start        |
 |   [3]   | All hooks         |   <100ms    | Imperceptible latency        |
 
-## [6][FOLDER_STRUCTURE]
+## [6]-[FOLDER_STRUCTURE]
 
 ```
 .claude/

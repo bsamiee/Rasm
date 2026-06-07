@@ -2,13 +2,13 @@
 
 Scope: `libs/csharp/Rasm/` only. Root policy and `libs/csharp/AGENTS.md` own universal C# and library-family rules; this file adds kernel and analysis deltas.
 
-## [1][SCOPE]
+## [1]-[SCOPE]
 
 `Rasm` is the foundational geometry kernel and higher-order concern library. It is not a thin Rhino API boundary, wrapper extraction area, or dumping ground for unrelated utilities.
 
 Build reusable category logic for analysis, vectors, detection, orientation, transformation, topology, measurement, spatial search, and future concern categories. Downstream consumers receive `Analyze.Run`, `Operation<TGeometry,TOut>`, `VectorIntent`, typed receipts, and `Domain`-backed projections; they do not receive host-shaped APIs or per-file consumer entrypoints.
 
-## [2][READ_ORDER]
+## [2]-[READ_ORDER]
 
 - When adding shared validation, context, ownership, statistics, acceptance, projection, or geometry-identity behavior, read `Domain/` to find the reusable owner.
 - When changing `Analysis/`, read `Analysis/Analyze.cs`; preserve `IAspect`, `Operation<TGeometry,TOut>`, and `Analyze.Run` as the singular execution rail.
@@ -17,7 +17,7 @@ Build reusable category logic for analysis, vectors, detection, orientation, tra
 - When adding numerical or symbolic behavior, read `docs/stacks/csharp/numeric-algorithms.md` and `docs/stacks/csharp/sparse-factorization.md`.
 - When native runtime behavior is required for mesh, plane, unwrap, remesh, SDF, validity, or host predicates, read `tests/csharp/AGENTS.md`, `tests/csharp/libs/AGENTS.md`, and `tools/rhino-bridge/AGENTS.md`; route native success to source-owned bridge scenarios instead of static xUnit.
 
-## [3][EXTENSION_GRAMMAR]
+## [3]-[EXTENSION_GRAMMAR]
 
 - Shared kernel concept: extend `Domain` when the behavior is reused across concern categories or required by acceptance, validation, statistics, context, ownership, or geometry identity.
 - Analysis behavior: extend `IAspect`, `Operation<TGeometry,TOut>`, and `Analyze.Run` in `Analysis/Analyze.cs`; import `Domain` validation, statistics, coercion, and kind logic instead of creating analysis-local copies.
@@ -25,14 +25,14 @@ Build reusable category logic for analysis, vectors, detection, orientation, tra
 - New numerical or symbolic behavior: use approved MathNet, CSparse, or native BCL numeric surfaces directly inside the owning algorithm rail; do not expose library knobs or wrapper-only numeric APIs.
 - Future concern category: build one category, one consumer surface, typed intent/state, and algorithms over `Domain`; current missing consumers do not justify host-shaped APIs or narrow wrappers.
 
-## [4][EXECUTION_RULES]
+## [4]-[EXECUTION_RULES]
 
 - Expose one access path per folder; do not give every file its own consumer API.
 - Model category intent as typed data when primitive parameters create ceremony or hide semantics.
 - Convert native nullable, bool, disposable, and ownership semantics into typed rails at boundary adapters.
 - Preserve Rhino predicate semantics; verify substitutions against local API evidence and runtime behavior before replacing native calls with algebraic approximations.
 
-## [5][REJECTIONS]
+## [5]-[REJECTIONS]
 
 - No wrapper-only abstractions around RhinoCommon or existing domain code.
 - No local copies of reusable `Domain` validation, statistics, coercion, geometry-kind, or acceptance logic.

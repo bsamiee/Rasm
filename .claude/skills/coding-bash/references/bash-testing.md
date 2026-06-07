@@ -14,7 +14,7 @@ Production testing for Bash 5.2+/5.3. bats-core 1.13+, test isolation via subshe
 |  [8]  | Contract testing    |  S8   | CLI exit codes, stdout schema, stderr rules   |
 |  [9]  | ShellCheck 0.11.0   |  S9   | SC2327-SC2332 — new codes for test/prod code  |
 
-## [1][BATS_CORE_FRAMEWORK]
+## [1]-[BATS_CORE_FRAMEWORK]
 
 bats-core 1.13+: `setup_file`/`teardown_file` (suite fixtures), `bats_load_library` (dependency resolution), `bats::on_failure` (v1.12+ failure-only diagnostics), test tagging via `# bats test_tags=` with `--filter-tags` (v1.8+), `--negative-filter` (v1.13+), `--abort` (v1.13+ fail-fast — halts entire suite on first failure), JUnit/TAP13 formatters, `--jobs` parallel execution. Each `@test` runs in a subshell — variable mutations isolated by default. v1.13 fix: `run` now unsets `output`, `stderr`, `lines`, `stderr_lines` at invocation start — eliminates variable crosstalk between successive `run` calls within a test.
 
@@ -65,7 +65,7 @@ _run_validation_case() {
 @test "validate_replicas: positive accepted" { _run_validation_case valid; }
 ```
 
-### [1.1][HELPERS_TAGS_CONFIG]
+### [1.1]-[HELPERS_TAGS_CONFIG]
 
 | [LIBRARY]      | [KEY_ASSERTIONS]                                                                                                                                                                    |
 | :------------- | :---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
@@ -95,7 +95,7 @@ bats --negative-filter "legacy_" tests/              # exclude by name (v1.13+)
 bats --abort tests/                                  # halt suite on first failure (v1.13+)
 ```
 
-## [2][TEST_ISOLATION]
+## [2]-[TEST_ISOLATION]
 
 `BATS_TEST_TMPDIR` (per-test, auto-cleaned) is the primary isolation mechanism. `BATS_FILE_TMPDIR` persists across tests in a file for expensive fixtures. PATH restriction prevents non-deterministic system commands.
 
@@ -131,7 +131,7 @@ _make_project_fixture() {
 }
 ```
 
-### [2.1][ADVANCED_ISOLATION]
+### [2.1]-[ADVANCED_ISOLATION]
 
 ```bash
 # faketime: deterministic time-dependent tests (requires libfaketime)
@@ -168,7 +168,7 @@ _make_project_fixture() {
 }
 ```
 
-## [3][MOCK_AND_STUB_PATTERNS]
+## [3]-[MOCK_AND_STUB_PATTERNS]
 
 Preference order: (1) function override — subshell-isolated by bats, (2) PATH mock — shadows system command via `tests/mocks/`, (3) stub file — controlled data dependency. Function overrides are zero-setup; PATH mocks required when code uses `command`, `env`, or absolute path.
 
@@ -209,7 +209,7 @@ _assert_call_count() {
 
 `export -f` propagates function overrides into child processes. Mock scripts must reject unrecognized arguments with `exit 1` — silent acceptance masks bugs. `printf '%q'` safely quotes responses containing single quotes, newlines, or special characters for use in `eval`-constructed function bodies.
 
-### [3.1][PLAN_BASED_MOCKS]
+### [3.1]-[PLAN_BASED_MOCKS]
 
 `buildkite-plugins/bats-mock` provides `stub`/`unstub` with plan-based call expectations — verifies both behavior and call sequence on `unstub`.
 
@@ -227,7 +227,7 @@ _assert_call_count() {
 
 Embedded `--self-test` assertion primitives (`_assert_eq`, `_assert_match`, `_assert_set`) owned by script-patterns.md S10.
 
-## [4][COVERAGE_AND_MUTATION]
+## [4]-[COVERAGE_AND_MUTATION]
 
 kcov 43+ instruments bash via `PS4` + `BASH_XTRACEFD` — zero source modification. `--include-path=./lib` restricts to production code. `--bash-dont-parse-binary-dir` prevents instrumenting non-bash executables. `--bash-parse-files-in-dir` tracks indirectly sourced files. v43: `--dump-summary` emits JSON coverage to stdout — machine-readable for CI gating without parsing HTML/Cobertura.
 
@@ -251,7 +251,7 @@ _check_coverage() {
 # kcov --dump-summary coverage/ | jq -r '.percent_covered' | { read -r pct; (( ${pct%.*} >= 80 )); }
 ```
 
-### [4.1][MUTATION_TESTING]
+### [4.1]-[MUTATION_TESTING]
 
 ```bash
 # Automated mutation: flip operator, run suite, check if tests catch it
@@ -284,7 +284,7 @@ _mutation_sweep() {
 }
 ```
 
-## [5][CI_INTEGRATION]
+## [5]-[CI_INTEGRATION]
 
 CI pipeline owned by bash-testing.md. validation.md cross-references for ShellCheck-specific diagnostic codes. `koalaman/shellcheck-action@v2` (maintained by ShellCheck author). Container matrix references bash-portability.md S5.1 image selection.
 
@@ -337,7 +337,7 @@ jobs:
         with: { name: coverage-report, path: coverage/ }
 ```
 
-### [5.1][CONTAINERIZED_TESTING]
+### [5.1]-[CONTAINERIZED_TESTING]
 
 `bats/bats` Docker image (Alpine-based, 5M+ pulls) bundles `bats-support` and `bats-assert` — `bats_load_library` resolves them without installation. Mount scripts read-only to prevent test pollution.
 
@@ -360,7 +360,7 @@ services:
     command: ['--formatter', 'junit', '--output', '/code/tests/reports/', '/code/tests']
 ```
 
-## [6][PROPERTY_BASED_PATTERNS]
+## [6]-[PROPERTY_BASED_PATTERNS]
 
 No mature property-based testing framework exists for bash. Pattern: generate random inputs from constrained domains, verify invariants (not specific outputs). `SRANDOM` for uniform 32-bit numeric domains; `/dev/urandom` for byte-stream domains.
 
@@ -422,7 +422,7 @@ _prop_test() {
 
 Shrinking on violation: binary-search input size `[lo=1, hi=failing_size]` to find minimal reproducing case.
 
-### [6.1][HYPOTHESIS_PBT]
+### [6.1]-[HYPOTHESIS_PBT]
 
 Python Hypothesis provides structured shrinking, replay databases, and rich strategies unavailable in pure bash. Pattern: Hypothesis generates inputs, `subprocess.run` invokes the script under test, assertions verify algebraic properties. Pass data via stdin — never interpolate into shell strings (injection). Set `timeout=` on every subprocess call.
 
@@ -458,7 +458,7 @@ def test_normalize_lowercase(line: str):
 
 Constraints: `assume("\x00" not in value)` — bash variables cannot hold NUL bytes. Assert properties (idempotency, commutativity, roundtrip identity, monotonicity), never exact output. Hypothesis shrinks failing cases automatically — no manual binary search needed.
 
-## [7][SNAPSHOT_TESTING]
+## [7]-[SNAPSHOT_TESTING]
 
 ```bash
 _snapshot_dir="${BATS_TEST_DIRNAME}/snapshots"
@@ -483,7 +483,7 @@ _assert_snapshot() {
 }
 ```
 
-## [8][CONTRACT_TESTING]
+## [8]-[CONTRACT_TESTING]
 
 ```bash
 _assert_cli_contract() {
@@ -510,7 +510,7 @@ _assert_cli_contract() {
 }
 ```
 
-## [9][SHELLCHECK_0_11_0]
+## [9]-[SHELLCHECK_0_11_0]
 
 Full ShellCheck reference in validation.md S3. Test-relevant codes from 0.11.0 below — each surfaces in test infrastructure or scripts under test.
 
