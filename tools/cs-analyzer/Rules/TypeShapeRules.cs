@@ -47,6 +47,40 @@ internal static class TypeShapeRules {
         AnalyzerState.ReportEach(context.ReportDiagnostic, diagnostics);
     }
 
+    // --- [INIT_ONLY_BYPASS] ---------------------------------------------------
+
+    internal static void CheckInitOnlyBypassOnValidated(SymbolAnalysisContext context, ScopeInfo scope, INamedTypeSymbol namedType) {
+        bool hasValidatedFactory = SymbolFacts.HasCreateFactory(namedType)
+            && namedType.GetMembers().OfType<IMethodSymbol>()
+                .Where(method => method.IsStatic && method.Name is "Create" or "CreateK")
+                .Any(SymbolFacts.IsFinOrKReturnType);
+        IEnumerable<Diagnostic> diagnostics = (scope.IsDomainOrApplication, hasValidatedFactory, namedType.Locations.Length) switch {
+            (true, true, > 0) => namedType.GetMembers().OfType<IPropertySymbol>()
+                .Where(property => property.SetMethod is IMethodSymbol setter && setter.IsInitOnly)
+                .Where(property => property.Locations.Length > 0)
+                .Select(property => Diagnostic.Create(RuleCatalog.CSP0720, property.Locations[0], property.Name)),
+            _ => [],
+        };
+        AnalyzerState.ReportEach(context.ReportDiagnostic, diagnostics);
+    }
+
+    // --- [WITH_EXPRESSION_BYPASS] ---------------------------------------------
+
+    internal static void CheckWithExpressionBypass(OperationAnalysisContext context, ScopeInfo scope, IWithOperation withOperation) {
+        INamedTypeSymbol? createdType = withOperation.Type as INamedTypeSymbol;
+        string typeName = createdType?.Name ?? string.Empty;
+        bool hasPrivateCtor = createdType?.InstanceConstructors.Any(constructor => constructor.DeclaredAccessibility is Accessibility.Private or Accessibility.ProtectedAndInternal) == true;
+        bool hasFactory = createdType is not null && SymbolFacts.HasCreateFactory(createdType);
+        bool externalCaller = createdType is not null
+            && !SymbolEqualityComparer.Default.Equals(
+                context.ContainingSymbol?.ContainingType,
+                createdType);
+        AnalyzerState.Report(context.ReportDiagnostic, (scope.IsDomainOrApplication, createdType?.IsRecord, hasPrivateCtor, hasFactory, externalCaller) switch {
+            (true, true, true, true, true) => Diagnostic.Create(RuleCatalog.CSP0717, context.Operation.Syntax.GetLocation(), typeName),
+            _ => null,
+        });
+    }
+
     // --- [DU_SHAPE] -----------------------------------------------------------
 
     internal static ImmutableArray<INamedTypeSymbol> CheckDiscriminatedUnionShape(SymbolAnalysisContext context, ScopeInfo scope, INamedTypeSymbol namedType) {
@@ -118,53 +152,83 @@ internal static class TypeShapeRules {
         });
     }
 
-    // --- [MANUAL_CLOSED_UNION_OVERRIDE] -------------------------------------
+    // --- [DATETIME_FIELD] -----------------------------------------------------
 
-    internal static void ReportManualClosedUnionOverride(CompilationAnalysisContext context, AnalyzerState state) {
-        IEnumerable<Diagnostic> diagnostics = state.NamedTypes()
-            .Where(namedType => SymbolEqualityComparer.Default.Equals(namedType.ContainingAssembly, context.Compilation.Assembly))
-            .Where(namedType => state.ScopeFor(namedType).IsAnalyzable)
-            .Where(namedType => namedType.Locations.Length > 0)
-            .Select(namedType => SymbolFacts.TryManualClosedUnionOverride(
-                namedType: namedType,
-                derivedTypes: state.DerivedTypes(baseType: namedType),
-                facts: out ManualClosedUnionOverrideFacts facts)
-                ? Diagnostic.Create(RuleCatalog.CSP0740, namedType.Locations[0], namedType.Name, facts.MemberName, facts.OverrideCount)
-                : null)
-            .OfType<Diagnostic>();
+    internal static void CheckDateTimeFieldInDomain(SymbolAnalysisContext context, ScopeInfo scope, INamedTypeSymbol namedType) {
+        IEnumerable<Diagnostic> diagnostics = scope.IsDomainOrApplication switch {
+            true => namedType.GetMembers()
+                .Where(member => member switch {
+                    IFieldSymbol field => SymbolFacts.IsDateTimeType(UnwrapNullable(field.Type).OriginalDefinition),
+                    IPropertySymbol property => SymbolFacts.IsDateTimeType(UnwrapNullable(property.Type).OriginalDefinition),
+                    _ => false,
+                })
+                .Where(member => member.Locations.Length > 0)
+                .Select(member => Diagnostic.Create(RuleCatalog.CSP0714, member.Locations[0], member.Name))
+                .Concat(namedType.GetMembers().OfType<IMethodSymbol>()
+                    .SelectMany(method => method.Parameters)
+                    .Where(parameter => SymbolFacts.IsDateTimeType(UnwrapNullable(parameter.Type).OriginalDefinition))
+                    .Where(parameter => parameter.Locations.Length > 0)
+                    .Select(parameter => Diagnostic.Create(RuleCatalog.CSP0714, parameter.Locations[0], parameter.Name))),
+            _ => [],
+        };
         AnalyzerState.ReportEach(context.ReportDiagnostic, diagnostics);
     }
 
-    // --- [CLOSED_UNION_PLAN_FUSION] -----------------------------------------
+    // --- [ATOM_REF_PROPERTY] --------------------------------------------------
 
-    internal static void ReportClosedUnionPlanFusion(CompilationAnalysisContext context, AnalyzerState state) {
-        IEnumerable<Diagnostic> diagnostics = state.ClosedUnionDispatches()
-            .GroupBy(
-                static fact => $"{fact.Union.ToDisplayString(SymbolDisplayFormat.FullyQualifiedFormat)}|{fact.CaseSetKey}",
-                StringComparer.Ordinal)
-            .Select(ClosedUnionPlanFusionDiagnostic)
-            .OfType<Diagnostic>();
-        AnalyzerState.ReportEach(context.ReportDiagnostic, diagnostics);
+    internal static void CheckAtomRefAsProperty(SymbolAnalysisContext context, ScopeInfo scope, IPropertySymbol property) =>
+        AnalyzerState.Report(context.ReportDiagnostic, (scope.IsDomainOrApplication, SymbolFacts.IsAtomOrRefType(UnwrapNullable(property.Type)), property.Locations.Length) switch {
+            (true, true, > 0) => Diagnostic.Create(RuleCatalog.CSP0712, property.Locations[0], property.Name),
+            _ => null,
+        });
+    private static ITypeSymbol UnwrapNullable(ITypeSymbol type) => SymbolFacts.UnwrapNullable(type);
+
+    // --- [ANEMIC_ENTITY] ------------------------------------------------------
+
+    internal static void CheckAnemicEntity(SymbolAnalysisContext context, ScopeInfo scope, INamedTypeSymbol namedType) {
+        // TypeKind.Class covers both class and record declarations in Roslyn
+        bool isConcreteClass = namedType.TypeKind == TypeKind.Class && !namedType.IsAbstract && !namedType.IsStatic;
+        ImmutableArray<IPropertySymbol> publicProperties = [
+            .. namedType.GetMembers().OfType<IPropertySymbol>()
+                .Where(property => property.DeclaredAccessibility == Accessibility.Public),
+        ];
+        bool allGetSet = publicProperties.Length > 0
+            && publicProperties.All(property => property.GetMethod is not null && property.SetMethod is not null && !property.SetMethod.IsInitOnly);
+        bool hasFactory = SymbolFacts.HasCreateFactory(namedType);
+        bool hasDomainMethods = namedType.GetMembers().OfType<IMethodSymbol>()
+            .Any(method => method.MethodKind == MethodKind.Ordinary
+                && method.DeclaredAccessibility == Accessibility.Public
+                && !method.IsStatic
+                && method.Name is not "ToString" and not "Equals" and not "GetHashCode");
+        AnalyzerState.Report(context.ReportDiagnostic, (scope.IsDomainOrApplication, isConcreteClass, allGetSet, hasFactory, hasDomainMethods, namedType.Locations.Length) switch {
+            (true, true, true, false, false, > 0) => Diagnostic.Create(RuleCatalog.CSP0715, namedType.Locations[0], namedType.Name),
+            _ => null,
+        });
     }
-    private static Diagnostic? ClosedUnionPlanFusionDiagnostic(IGrouping<string, ClosedUnionDispatchFact> group) {
-        ImmutableArray<ClosedUnionDispatchFact> facts = [.. group];
-        ClosedUnionDispatchFact? metadata = facts
-            .Where(static fact => fact.Kind == ClosedUnionDispatchKind.Metadata)
-            .OrderBy(static fact => fact.Location.SourceSpan.Start)
-            .Cast<ClosedUnionDispatchFact?>()
-            .FirstOrDefault();
-        bool duplicateBehavior = metadata is ClosedUnionDispatchFact metadataFact
-            && facts.Any(fact => fact.Kind == ClosedUnionDispatchKind.Behavior && SameClosedUnionPlanConcern(metadata: metadataFact, behavior: fact));
-        return metadata is ClosedUnionDispatchFact diagnosticFact && duplicateBehavior
-            ? Diagnostic.Create(RuleCatalog.CSP0744, diagnosticFact.Location, diagnosticFact.Union.Name)
-            : null;
+
+    // --- [RECEIPT_SHAPE] -----------------------------------------------------
+
+    internal static void CheckOperationalReceiptFactStream(SymbolAnalysisContext context, ScopeInfo scope, INamedTypeSymbol namedType) {
+        bool shapePressure = SymbolFacts.OperationalReceiptMemberScore(receipt: namedType) >= 3
+            && !SymbolFacts.HasReceiptFactStream(receipt: namedType);
+        AnalyzerState.Report(context.ReportDiagnostic, (scope.IsAnalyzable, SymbolFacts.IsOperationalReceiptType(namedType), shapePressure, namedType.Locations.Length) switch {
+            (true, true, true, > 0) => Diagnostic.Create(RuleCatalog.CSP0730, namedType.Locations[0], namedType.Name),
+            _ => null,
+        });
     }
-    private static bool SameClosedUnionPlanConcern(ClosedUnionDispatchFact metadata, ClosedUnionDispatchFact behavior) =>
-        metadata.CaseSetKey == behavior.CaseSetKey
-        && (metadata.OwnerKey == behavior.OwnerKey
-            || (metadata.OwnerIsUnion
-                && behavior.ReceiverRole == ClosedUnionDispatchReceiverRole.Parameter
-                && string.Equals(a: metadata.FilePath, b: behavior.FilePath, comparisonType: StringComparison.Ordinal)));
+
+    // --- [FORWARDING_REQUEST_CASE_FAMILY] -----------------------------------
+
+    internal static void CheckForwardingRequestCaseFamily(SymbolAnalysisContext context, ScopeInfo scope, INamedTypeSymbol namedType) {
+        bool candidate = SymbolFacts.TryForwardingRequestCaseFamily(
+            compilation: context.Compilation,
+            namedType: namedType,
+            facts: out ForwardingRequestCaseFamilyFacts facts);
+        AnalyzerState.Report(context.ReportDiagnostic, (scope.IsAnalyzable, candidate, namedType.Locations.Length) switch {
+            (true, true, > 0) => Diagnostic.Create(RuleCatalog.CSP0741, namedType.Locations[0], namedType.Name, facts.CaseCount),
+            _ => null,
+        });
+    }
 
     // --- [PASSIVE_SIBLING_SURFACE_FAMILY] -----------------------------------
 
@@ -291,118 +355,6 @@ internal static class TypeShapeRules {
             _ => false,
         };
 
-    // --- [DATETIME_FIELD] -----------------------------------------------------
-
-    internal static void CheckDateTimeFieldInDomain(SymbolAnalysisContext context, ScopeInfo scope, INamedTypeSymbol namedType) {
-        IEnumerable<Diagnostic> diagnostics = scope.IsDomainOrApplication switch {
-            true => namedType.GetMembers()
-                .Where(member => member switch {
-                    IFieldSymbol field => SymbolFacts.IsDateTimeType(UnwrapNullable(field.Type).OriginalDefinition),
-                    IPropertySymbol property => SymbolFacts.IsDateTimeType(UnwrapNullable(property.Type).OriginalDefinition),
-                    _ => false,
-                })
-                .Where(member => member.Locations.Length > 0)
-                .Select(member => Diagnostic.Create(RuleCatalog.CSP0714, member.Locations[0], member.Name))
-                .Concat(namedType.GetMembers().OfType<IMethodSymbol>()
-                    .SelectMany(method => method.Parameters)
-                    .Where(parameter => SymbolFacts.IsDateTimeType(UnwrapNullable(parameter.Type).OriginalDefinition))
-                    .Where(parameter => parameter.Locations.Length > 0)
-                    .Select(parameter => Diagnostic.Create(RuleCatalog.CSP0714, parameter.Locations[0], parameter.Name))),
-            _ => [],
-        };
-        AnalyzerState.ReportEach(context.ReportDiagnostic, diagnostics);
-    }
-
-    // --- [ANEMIC_ENTITY] ------------------------------------------------------
-
-    internal static void CheckAnemicEntity(SymbolAnalysisContext context, ScopeInfo scope, INamedTypeSymbol namedType) {
-        // TypeKind.Class covers both class and record declarations in Roslyn
-        bool isConcreteClass = namedType.TypeKind == TypeKind.Class && !namedType.IsAbstract && !namedType.IsStatic;
-        ImmutableArray<IPropertySymbol> publicProperties = [
-            .. namedType.GetMembers().OfType<IPropertySymbol>()
-                .Where(property => property.DeclaredAccessibility == Accessibility.Public),
-        ];
-        bool allGetSet = publicProperties.Length > 0
-            && publicProperties.All(property => property.GetMethod is not null && property.SetMethod is not null && !property.SetMethod.IsInitOnly);
-        bool hasFactory = SymbolFacts.HasCreateFactory(namedType);
-        bool hasDomainMethods = namedType.GetMembers().OfType<IMethodSymbol>()
-            .Any(method => method.MethodKind == MethodKind.Ordinary
-                && method.DeclaredAccessibility == Accessibility.Public
-                && !method.IsStatic
-                && method.Name is not "ToString" and not "Equals" and not "GetHashCode");
-        AnalyzerState.Report(context.ReportDiagnostic, (scope.IsDomainOrApplication, isConcreteClass, allGetSet, hasFactory, hasDomainMethods, namedType.Locations.Length) switch {
-            (true, true, true, false, false, > 0) => Diagnostic.Create(RuleCatalog.CSP0715, namedType.Locations[0], namedType.Name),
-            _ => null,
-        });
-    }
-
-    // --- [ATOM_REF_PROPERTY] --------------------------------------------------
-
-    internal static void CheckAtomRefAsProperty(SymbolAnalysisContext context, ScopeInfo scope, IPropertySymbol property) =>
-        AnalyzerState.Report(context.ReportDiagnostic, (scope.IsDomainOrApplication, SymbolFacts.IsAtomOrRefType(UnwrapNullable(property.Type)), property.Locations.Length) switch {
-            (true, true, > 0) => Diagnostic.Create(RuleCatalog.CSP0712, property.Locations[0], property.Name),
-            _ => null,
-        });
-    private static ITypeSymbol UnwrapNullable(ITypeSymbol type) => SymbolFacts.UnwrapNullable(type);
-
-    // --- [WITH_EXPRESSION_BYPASS] ---------------------------------------------
-
-    internal static void CheckWithExpressionBypass(OperationAnalysisContext context, ScopeInfo scope, IWithOperation withOperation) {
-        INamedTypeSymbol? createdType = withOperation.Type as INamedTypeSymbol;
-        string typeName = createdType?.Name ?? string.Empty;
-        bool hasPrivateCtor = createdType?.InstanceConstructors.Any(constructor => constructor.DeclaredAccessibility is Accessibility.Private or Accessibility.ProtectedAndInternal) == true;
-        bool hasFactory = createdType is not null && SymbolFacts.HasCreateFactory(createdType);
-        bool externalCaller = createdType is not null
-            && !SymbolEqualityComparer.Default.Equals(
-                context.ContainingSymbol?.ContainingType,
-                createdType);
-        AnalyzerState.Report(context.ReportDiagnostic, (scope.IsDomainOrApplication, createdType?.IsRecord, hasPrivateCtor, hasFactory, externalCaller) switch {
-            (true, true, true, true, true) => Diagnostic.Create(RuleCatalog.CSP0717, context.Operation.Syntax.GetLocation(), typeName),
-            _ => null,
-        });
-    }
-
-    // --- [INIT_ONLY_BYPASS] ---------------------------------------------------
-
-    internal static void CheckInitOnlyBypassOnValidated(SymbolAnalysisContext context, ScopeInfo scope, INamedTypeSymbol namedType) {
-        bool hasValidatedFactory = SymbolFacts.HasCreateFactory(namedType)
-            && namedType.GetMembers().OfType<IMethodSymbol>()
-                .Where(method => method.IsStatic && method.Name is "Create" or "CreateK")
-                .Any(SymbolFacts.IsFinOrKReturnType);
-        IEnumerable<Diagnostic> diagnostics = (scope.IsDomainOrApplication, hasValidatedFactory, namedType.Locations.Length) switch {
-            (true, true, > 0) => namedType.GetMembers().OfType<IPropertySymbol>()
-                .Where(property => property.SetMethod is IMethodSymbol setter && setter.IsInitOnly)
-                .Where(property => property.Locations.Length > 0)
-                .Select(property => Diagnostic.Create(RuleCatalog.CSP0720, property.Locations[0], property.Name)),
-            _ => [],
-        };
-        AnalyzerState.ReportEach(context.ReportDiagnostic, diagnostics);
-    }
-
-    // --- [RECEIPT_SHAPE] -----------------------------------------------------
-
-    internal static void CheckOperationalReceiptFactStream(SymbolAnalysisContext context, ScopeInfo scope, INamedTypeSymbol namedType) {
-        bool shapePressure = SymbolFacts.OperationalReceiptMemberScore(receipt: namedType) >= 3
-            && !SymbolFacts.HasReceiptFactStream(receipt: namedType);
-        AnalyzerState.Report(context.ReportDiagnostic, (scope.IsAnalyzable, SymbolFacts.IsOperationalReceiptType(namedType), shapePressure, namedType.Locations.Length) switch {
-            (true, true, true, > 0) => Diagnostic.Create(RuleCatalog.CSP0730, namedType.Locations[0], namedType.Name),
-            _ => null,
-        });
-    }
-
-    // --- [FORWARDING_REQUEST_CASE_FAMILY] -----------------------------------
-
-    internal static void CheckForwardingRequestCaseFamily(SymbolAnalysisContext context, ScopeInfo scope, INamedTypeSymbol namedType) {
-        bool candidate = SymbolFacts.TryForwardingRequestCaseFamily(
-            compilation: context.Compilation,
-            namedType: namedType,
-            facts: out ForwardingRequestCaseFamilyFacts facts);
-        AnalyzerState.Report(context.ReportDiagnostic, (scope.IsAnalyzable, candidate, namedType.Locations.Length) switch {
-            (true, true, > 0) => Diagnostic.Create(RuleCatalog.CSP0741, namedType.Locations[0], namedType.Name, facts.CaseCount),
-            _ => null,
-        });
-    }
-
     // --- [FLAGS_ENUM_OVERUSE] -------------------------------------------------
 
     internal static void TrackFlagsEnumDeclaration(SymbolAnalysisContext context, AnalyzerState state, INamedTypeSymbol namedType) {
@@ -438,13 +390,61 @@ internal static class TypeShapeRules {
         state.TrackFlagsEnum(enumType: enumType);
         return 0;
     }
-    private static int RegisterFlagsComposition(AnalyzerState state, INamedTypeSymbol enumType) {
-        state.TrackFlagsEnumCompositionSite(enumType: enumType);
-        return 0;
-    }
     private static INamedTypeSymbol? UnwrapEnumType(ITypeSymbol? type) =>
         type switch {
             INamedTypeSymbol named when named.TypeKind == TypeKind.Enum => named,
             _ => null,
         };
+    private static int RegisterFlagsComposition(AnalyzerState state, INamedTypeSymbol enumType) {
+        state.TrackFlagsEnumCompositionSite(enumType: enumType);
+        return 0;
+    }
+
+    // --- [MANUAL_CLOSED_UNION_OVERRIDE] -------------------------------------
+
+    internal static void ReportManualClosedUnionOverride(CompilationAnalysisContext context, AnalyzerState state) {
+        IEnumerable<Diagnostic> diagnostics = state.NamedTypes()
+            .Where(namedType => SymbolEqualityComparer.Default.Equals(namedType.ContainingAssembly, context.Compilation.Assembly))
+            .Where(namedType => state.ScopeFor(namedType).IsAnalyzable)
+            .Where(namedType => namedType.Locations.Length > 0)
+            .Select(namedType => SymbolFacts.TryManualClosedUnionOverride(
+                namedType: namedType,
+                derivedTypes: state.DerivedTypes(baseType: namedType),
+                facts: out ManualClosedUnionOverrideFacts facts)
+                ? Diagnostic.Create(RuleCatalog.CSP0740, namedType.Locations[0], namedType.Name, facts.MemberName, facts.OverrideCount)
+                : null)
+            .OfType<Diagnostic>();
+        AnalyzerState.ReportEach(context.ReportDiagnostic, diagnostics);
+    }
+
+    // --- [CLOSED_UNION_PLAN_FUSION] -----------------------------------------
+
+    internal static void ReportClosedUnionPlanFusion(CompilationAnalysisContext context, AnalyzerState state) {
+        IEnumerable<Diagnostic> diagnostics = state.ClosedUnionDispatches()
+            .GroupBy(
+                static fact => $"{fact.Union.ToDisplayString(SymbolDisplayFormat.FullyQualifiedFormat)}|{fact.CaseSetKey}",
+                StringComparer.Ordinal)
+            .Select(ClosedUnionPlanFusionDiagnostic)
+            .OfType<Diagnostic>();
+        AnalyzerState.ReportEach(context.ReportDiagnostic, diagnostics);
+    }
+    private static Diagnostic? ClosedUnionPlanFusionDiagnostic(IGrouping<string, ClosedUnionDispatchFact> group) {
+        ImmutableArray<ClosedUnionDispatchFact> facts = [.. group];
+        ClosedUnionDispatchFact? metadata = facts
+            .Where(static fact => fact.Kind == ClosedUnionDispatchKind.Metadata)
+            .OrderBy(static fact => fact.Location.SourceSpan.Start)
+            .Cast<ClosedUnionDispatchFact?>()
+            .FirstOrDefault();
+        bool duplicateBehavior = metadata is ClosedUnionDispatchFact metadataFact
+            && facts.Any(fact => fact.Kind == ClosedUnionDispatchKind.Behavior && SameClosedUnionPlanConcern(metadata: metadataFact, behavior: fact));
+        return metadata is ClosedUnionDispatchFact diagnosticFact && duplicateBehavior
+            ? Diagnostic.Create(RuleCatalog.CSP0744, diagnosticFact.Location, diagnosticFact.Union.Name)
+            : null;
+    }
+    private static bool SameClosedUnionPlanConcern(ClosedUnionDispatchFact metadata, ClosedUnionDispatchFact behavior) =>
+        metadata.CaseSetKey == behavior.CaseSetKey
+        && (metadata.OwnerKey == behavior.OwnerKey
+            || (metadata.OwnerIsUnion
+                && behavior.ReceiverRole == ClosedUnionDispatchReceiverRole.Parameter
+                && string.Equals(a: metadata.FilePath, b: behavior.FilePath, comparisonType: StringComparison.Ordinal)));
 }

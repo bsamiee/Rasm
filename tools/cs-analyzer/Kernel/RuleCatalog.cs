@@ -51,6 +51,11 @@ internal static class RuleCatalog {
     internal static readonly DiagnosticDescriptor CSP0013 = Err("CSP0013", "ClosureCapture", "Lambda captures outer variable(s) causing display-class allocation; prefix with 'static' or tuple threading", "PerformanceDiscipline");
     internal static readonly DiagnosticDescriptor CSP0014 = Err("CSP0014", "TaskRunFanOut", "Task.Run() fan-out is forbidden; use bounded Channel<T> topology or Eff<RT,T> fork", "AsyncDiscipline");
 
+    // --- [CONVENTION_RULES] ----------------------------------------------------
+
+    internal static readonly DiagnosticDescriptor CSP0015 = Err("CSP0015", "VarInference", "Explicit 'var' usage in domain/application code is forbidden; declare explicit type for '{0}'", "TypeDiscipline");
+    internal static readonly DiagnosticDescriptor CSP0017 = Err("CSP0017", "NonStaticHotPathClosure", "Non-static lambda capturing '{0}' in performance namespace is forbidden; use static lambda and tuple threading", "PerformanceDiscipline");
+
     // --- [BOUNDARY_RULES] ------------------------------------------------------
 
     internal static readonly DiagnosticDescriptor CSP0104 = Err("CSP0104", "NullSentinel", "Null sentinel comparison in domain/application flow is forbidden; use Option<T>/Fin<T>", "FunctionalDiscipline");
@@ -85,57 +90,6 @@ internal static class RuleCatalog {
     internal static readonly DiagnosticDescriptor CSP0504 = Err("CSP0504", "EffectReturnPolicy", "Method '{0}' returns '{1}' in domain/application flow; use Fin<T>, Validation<Error,T>, Eff<RT,T>, K<F,T>, or IO<A>", "FunctionalDiscipline");
     internal static readonly DiagnosticDescriptor CSP0505 = Err("CSP0505", "TypeClassStaticAbstractPolicy", "Type-class interface '{0}' must declare at least one static abstract member", "TypeDiscipline");
     internal static readonly DiagnosticDescriptor CSP0506 = Err("CSP0506", "ExtensionProjectionRequired", "Static projection method '{0}' over receiver '{1}' must be an extension method", "SurfaceArea");
-    /// <summary>
-    /// CSP0726 PositionalRecordConstructor — fires on `new RecordType(positional, args, ...)` where the record's primary constructor
-    /// has 3+ parameters and any call-site argument lacks a name. Records with three or more fields are prone to silent reordering
-    /// when fields are repositioned in the declaration; named arguments lock down call-site readability and survive declaration churn.
-    /// Threshold of 3 mirrors the call-site cognitive load — two-field records read clearly positionally, three-plus do not.
-    /// </summary>
-    internal static readonly DiagnosticDescriptor CSP0726 = Err("CSP0726", "PositionalRecordConstructor", "Record '{0}' has {1} primary-constructor parameters; use named arguments at every call site to survive field reordering", "SurfaceArea");
-    /// <summary>
-    /// CSP0727 SwitchExpressionPrecedence — fires when a switch expression appears as the right operand of an arithmetic
-    /// binary operator (*, /, %, +, -) without explicit parentheses. C# 12+ precedence places the switch expression
-    /// HIGHER than multiplicative/additive operators, so `A * B switch { ... }` parses as `A * (B switch { ... })`,
-    /// not `(A * B) switch { ... }`. The trap is silent: no warning, no analyzer signal, no test failure that maps back
-    /// to the precedence rule. Localized in production via a metamorphic test on Distribution.Median (May 2026).
-    /// Fix: parenthesize the intended switch input — `(A * B) switch { ... }` — or parenthesize the switch result —
-    /// `A * (B switch { ... })`. Either expresses intent unambiguously.
-    /// </summary>
-    internal static readonly DiagnosticDescriptor CSP0727 = Err("CSP0727", "SwitchExpressionPrecedence", "Switch expression as right operand of '{0}' binds tighter than arithmetic; wrap the intended switch input '(A {0} B) switch {{ ... }}' or the switch result 'A {0} (B switch {{ ... }})' in parentheses", "FunctionalDiscipline");
-    /// <summary>
-    /// CSP0728 MapFailDiscardsException — fires when a LanguageExt MapFail lambda following the
-    /// canonical `Try.lift(...).Run().MapFail(...)` exception-capture chain uses the C# discard
-    /// parameter '_'. The Try.lift wrapper captures the actual exception; the discard erases that
-    /// payload at the boundary between rail-typed code and the producer of diagnostic context.
-    /// Use a named parameter and thread the inbound Error/Message into the produced fault, either
-    /// via interpolation (`$"...: {error.Message}"`) or via Error aggregation (`existing + error`).
-    /// The chain check is strict (Try.lift → Run → MapFail) so Op-level validation MapFails
-    /// (Op.AcceptValue/AcceptText.MapFail(_ => ...)) remain permitted: those discard a
-    /// non-information-bearing validation error in favour of a domain-specific substitute.
-    /// </summary>
-    internal static readonly DiagnosticDescriptor CSP0728 = Err("CSP0728", "MapFailDiscardsException", "MapFail discards Try.lift-captured exception via '_'; bind the parameter and thread error.Message into the produced fault (e.g. $\"...: {error.Message}\") or aggregate via Error.+", "FunctionalDiscipline");
-    /// <summary>
-    /// CSP0729 OverloadAdjacency — fires when overloads with the same name/accessibility/static/abstract shape are
-    /// split by unrelated members. Interface implementation blocks stay exempt so boundary adapters can mirror host
-    /// contracts without scattering overload families.
-    /// </summary>
-    internal static readonly DiagnosticDescriptor CSP0729 = Err("CSP0729", "OverloadAdjacency", "All '{0}' overloads should be adjacent", "SurfaceArea");
-    internal static readonly DiagnosticDescriptor CSP0730 = Err("CSP0730", "OperationalReceiptFactStream", "Operational receipt '{0}' carries three or more parallel mutation buckets; collapse to a fact stream with slot/kind metadata and computed projections", "SurfaceArea");
-    internal static readonly DiagnosticDescriptor CSP0731 = Err("CSP0731", "ReceiptChainCollapse", "Receipt expression combines {0} factory terms; collapse into an owner factory or folded change facts", "SurfaceArea");
-    internal static readonly DiagnosticDescriptor CSP0732 = Err("CSP0732", "ReceiptConstructionOwner", "Operational receipt '{0}' is constructed outside its owner; route through canonical receipt factories", "SurfaceArea");
-    internal static readonly DiagnosticDescriptor CSP0733 = Err("CSP0733", "GeneratedCaseAliasCollapse", "Generated case alias '{0}' only forwards to Thinktecture case construction; use generated factory/dispatch surface directly", "SurfaceArea");
-    internal static readonly DiagnosticDescriptor CSP0734 = Err("CSP0734", "StateThreadedDispatch", "Generated dispatch '{0}' captures the same state across {1} arms; use state-threaded overloads or static lambdas", "PerformanceDiscipline");
-    internal static readonly DiagnosticDescriptor CSP0735 = Err("CSP0735", "TraverseFusion", "Mapped traversal '{0}' materializes an intermediate projection; use direct Traverse/TraverseM over the producing function", "FunctionalDiscipline");
-    internal static readonly DiagnosticDescriptor CSP0736 = Err("CSP0736", "FoldAppendAccumulator", "Fold accumulator appends through '{0}'; prepend with Cons and reverse in projection, or use an owning builder", "FunctionalDiscipline");
-    internal static readonly DiagnosticDescriptor CSP0737 = Err("CSP0737", "SamePayloadUnionCases", "Union '{0}' has {1} cases with identical payload shape; collapse to a kind-backed record or SmartEnum-owned behavior", "SurfaceArea");
-    internal static readonly DiagnosticDescriptor CSP0738 = Err("CSP0738", "ExclusiveOptionalPayloadBag", "Type '{0}' carries {1} complex Option<T> payload slots and a {2}-slot projection; collapse mutually-exclusive payloads to a closed union and keep supplemental context outside it", "SurfaceArea");
-    internal static readonly DiagnosticDescriptor CSP0739 = Err("CSP0739", "GuardableFinConditional", "Boolean Fin<T> gate manually constructs success/failure; use guard(condition, error).ToFin() for Unit or compose guard inside query flow", "FunctionalDiscipline");
-    internal static readonly DiagnosticDescriptor CSP0740 = Err("CSP0740", "ManualClosedUnionOverride", "Manual union '{0}' implements '{1}' through {2} case overrides; use Thinktecture [Union] with generated state-threaded dispatch and delete the override rail", "SurfaceArea");
-    internal static readonly DiagnosticDescriptor CSP0741 = Err("CSP0741", "ForwardingRequestCaseFamily", "Forwarding request family '{0}' has {1} sealed cases that only relay to intent Run; move policy/dispatch storage to the common request base and expose typed factories over one sealed capsule", "SurfaceArea");
-    internal static readonly DiagnosticDescriptor CSP0742 = Err("CSP0742", "ManualOpAdmissionGate", "Manual Fin<T> admission gate duplicates Op.AcceptValue/Accept/Confirm for '{0}'; route native sentinel validity through op.AcceptValue(value: ...), op.Accept(value: ...), or op.Confirm(success: ...)", "FunctionalDiscipline");
-    internal static readonly DiagnosticDescriptor CSP0743 = Err("CSP0743", "ManualGenericProjectionGate", "Generic output projection is manually gated; route exact value projection through the owning projection/admission rail and keep semantic receipt/result alternatives owner-local", "FunctionalDiscipline");
-    internal static readonly DiagnosticDescriptor CSP0744 = Err("CSP0744", "ClosedUnionPlanFusion", "Closed union '{0}' dispatches metadata and behavior separately; fuse case rows into one state-threaded operation plan", "SurfaceArea");
-    internal static readonly DiagnosticDescriptor CSP0745 = Err("CSP0745", "PassiveSiblingSurfaceFamily", "Sibling member family '{0}' has {1} passive rows with the same construction/forwarding skeleton; collapse to one operation algebra, generated dispatch, or data-driven row table", "SurfaceArea");
 
     // --- [PERFORMANCE_RULES] ---------------------------------------------------
 
@@ -192,6 +146,57 @@ internal static class RuleCatalog {
     /// a targeted remediation when the imperative shape is specifically an accumulator.
     /// </summary>
     internal static readonly DiagnosticDescriptor CSP0725 = Err("CSP0725", "ImperativeAccumulator", "Loop body mutates outer-scope variable '{0}'; use Seq<T>.Fold or TraverseFin/TraverseValidation", "FunctionalDiscipline");
+    /// <summary>
+    /// CSP0726 PositionalRecordConstructor — fires on `new RecordType(positional, args, ...)` where the record's primary constructor
+    /// has 3+ parameters and any call-site argument lacks a name. Records with three or more fields are prone to silent reordering
+    /// when fields are repositioned in the declaration; named arguments lock down call-site readability and survive declaration churn.
+    /// Threshold of 3 mirrors the call-site cognitive load — two-field records read clearly positionally, three-plus do not.
+    /// </summary>
+    internal static readonly DiagnosticDescriptor CSP0726 = Err("CSP0726", "PositionalRecordConstructor", "Record '{0}' has {1} primary-constructor parameters; use named arguments at every call site to survive field reordering", "SurfaceArea");
+    /// <summary>
+    /// CSP0727 SwitchExpressionPrecedence — fires when a switch expression appears as the right operand of an arithmetic
+    /// binary operator (*, /, %, +, -) without explicit parentheses. C# 12+ precedence places the switch expression
+    /// HIGHER than multiplicative/additive operators, so `A * B switch { ... }` parses as `A * (B switch { ... })`,
+    /// not `(A * B) switch { ... }`. The trap is silent: no warning, no analyzer signal, no test failure that maps back
+    /// to the precedence rule. Localized in production via a metamorphic test on Distribution.Median (May 2026).
+    /// Fix: parenthesize the intended switch input — `(A * B) switch { ... }` — or parenthesize the switch result —
+    /// `A * (B switch { ... })`. Either expresses intent unambiguously.
+    /// </summary>
+    internal static readonly DiagnosticDescriptor CSP0727 = Err("CSP0727", "SwitchExpressionPrecedence", "Switch expression as right operand of '{0}' binds tighter than arithmetic; wrap the intended switch input '(A {0} B) switch {{ ... }}' or the switch result 'A {0} (B switch {{ ... }})' in parentheses", "FunctionalDiscipline");
+    /// <summary>
+    /// CSP0728 MapFailDiscardsException — fires when a LanguageExt MapFail lambda following the
+    /// canonical `Try.lift(...).Run().MapFail(...)` exception-capture chain uses the C# discard
+    /// parameter '_'. The Try.lift wrapper captures the actual exception; the discard erases that
+    /// payload at the boundary between rail-typed code and the producer of diagnostic context.
+    /// Use a named parameter and thread the inbound Error/Message into the produced fault, either
+    /// via interpolation (`$"...: {error.Message}"`) or via Error aggregation (`existing + error`).
+    /// The chain check is strict (Try.lift → Run → MapFail) so Op-level validation MapFails
+    /// (Op.AcceptValue/AcceptText.MapFail(_ => ...)) remain permitted: those discard a
+    /// non-information-bearing validation error in favour of a domain-specific substitute.
+    /// </summary>
+    internal static readonly DiagnosticDescriptor CSP0728 = Err("CSP0728", "MapFailDiscardsException", "MapFail discards Try.lift-captured exception via '_'; bind the parameter and thread error.Message into the produced fault (e.g. $\"...: {error.Message}\") or aggregate via Error.+", "FunctionalDiscipline");
+    /// <summary>
+    /// CSP0729 OverloadAdjacency — fires when overloads with the same name/accessibility/static/abstract shape are
+    /// split by unrelated members. Interface implementation blocks stay exempt so boundary adapters can mirror host
+    /// contracts without scattering overload families.
+    /// </summary>
+    internal static readonly DiagnosticDescriptor CSP0729 = Err("CSP0729", "OverloadAdjacency", "All '{0}' overloads should be adjacent", "SurfaceArea");
+    internal static readonly DiagnosticDescriptor CSP0730 = Err("CSP0730", "OperationalReceiptFactStream", "Operational receipt '{0}' carries three or more parallel mutation buckets; collapse to a fact stream with slot/kind metadata and computed projections", "SurfaceArea");
+    internal static readonly DiagnosticDescriptor CSP0731 = Err("CSP0731", "ReceiptChainCollapse", "Receipt expression combines {0} factory terms; collapse into an owner factory or folded change facts", "SurfaceArea");
+    internal static readonly DiagnosticDescriptor CSP0732 = Err("CSP0732", "ReceiptConstructionOwner", "Operational receipt '{0}' is constructed outside its owner; route through canonical receipt factories", "SurfaceArea");
+    internal static readonly DiagnosticDescriptor CSP0733 = Err("CSP0733", "GeneratedCaseAliasCollapse", "Generated case alias '{0}' only forwards to Thinktecture case construction; use generated factory/dispatch surface directly", "SurfaceArea");
+    internal static readonly DiagnosticDescriptor CSP0734 = Err("CSP0734", "StateThreadedDispatch", "Generated dispatch '{0}' captures the same state across {1} arms; use state-threaded overloads or static lambdas", "PerformanceDiscipline");
+    internal static readonly DiagnosticDescriptor CSP0735 = Err("CSP0735", "TraverseFusion", "Mapped traversal '{0}' materializes an intermediate projection; use direct Traverse/TraverseM over the producing function", "FunctionalDiscipline");
+    internal static readonly DiagnosticDescriptor CSP0736 = Err("CSP0736", "FoldAppendAccumulator", "Fold accumulator appends through '{0}'; prepend with Cons and reverse in projection, or use an owning builder", "FunctionalDiscipline");
+    internal static readonly DiagnosticDescriptor CSP0737 = Err("CSP0737", "SamePayloadUnionCases", "Union '{0}' has {1} cases with identical payload shape; collapse to a kind-backed record or SmartEnum-owned behavior", "SurfaceArea");
+    internal static readonly DiagnosticDescriptor CSP0738 = Err("CSP0738", "ExclusiveOptionalPayloadBag", "Type '{0}' carries {1} complex Option<T> payload slots and a {2}-slot projection; collapse mutually-exclusive payloads to a closed union and keep supplemental context outside it", "SurfaceArea");
+    internal static readonly DiagnosticDescriptor CSP0739 = Err("CSP0739", "GuardableFinConditional", "Boolean Fin<T> gate manually constructs success/failure; use guard(condition, error).ToFin() for Unit or compose guard inside query flow", "FunctionalDiscipline");
+    internal static readonly DiagnosticDescriptor CSP0740 = Err("CSP0740", "ManualClosedUnionOverride", "Manual union '{0}' implements '{1}' through {2} case overrides; use Thinktecture [Union] with generated state-threaded dispatch and delete the override rail", "SurfaceArea");
+    internal static readonly DiagnosticDescriptor CSP0741 = Err("CSP0741", "ForwardingRequestCaseFamily", "Forwarding request family '{0}' has {1} sealed cases that only relay to intent Run; move policy/dispatch storage to the common request base and expose typed factories over one sealed capsule", "SurfaceArea");
+    internal static readonly DiagnosticDescriptor CSP0742 = Err("CSP0742", "ManualOpAdmissionGate", "Manual Fin<T> admission gate duplicates Op.AcceptValue/Accept/Confirm for '{0}'; route native sentinel validity through op.AcceptValue(value: ...), op.Accept(value: ...), or op.Confirm(success: ...)", "FunctionalDiscipline");
+    internal static readonly DiagnosticDescriptor CSP0743 = Err("CSP0743", "ManualGenericProjectionGate", "Generic output projection is manually gated; route exact value projection through the owning projection/admission rail and keep semantic receipt/result alternatives owner-local", "FunctionalDiscipline");
+    internal static readonly DiagnosticDescriptor CSP0744 = Err("CSP0744", "ClosedUnionPlanFusion", "Closed union '{0}' dispatches metadata and behavior separately; fuse case rows into one state-threaded operation plan", "SurfaceArea");
+    internal static readonly DiagnosticDescriptor CSP0745 = Err("CSP0745", "PassiveSiblingSurfaceFamily", "Sibling member family '{0}' has {1} passive rows with the same construction/forwarding skeleton; collapse to one operation algebra, generated dispatch, or data-driven row table", "SurfaceArea");
 
     // --- [UNION_OPS_RULES] -----------------------------------------------------
 
@@ -204,11 +209,6 @@ internal static class RuleCatalog {
         "UnionOpsQualification",
         "[Union] type '{0}' has no ops qualification; add [GenerateUnionOps] to emit SelfOp per case, or [SkipUnionOps] to opt out",
         "TypeDiscipline");
-
-    // --- [CONVENTION_RULES] ----------------------------------------------------
-
-    internal static readonly DiagnosticDescriptor CSP0015 = Err("CSP0015", "VarInference", "Explicit 'var' usage in domain/application code is forbidden; declare explicit type for '{0}'", "TypeDiscipline");
-    internal static readonly DiagnosticDescriptor CSP0017 = Err("CSP0017", "NonStaticHotPathClosure", "Non-static lambda capturing '{0}' in performance namespace is forbidden; use static lambda and tuple threading", "PerformanceDiscipline");
 
     // --- [EXPORTS] -------------------------------------------------------------
 

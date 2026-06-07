@@ -16,8 +16,8 @@ internal static class RuntimeRules {
 
     private static readonly HashSet<string> RegexStaticMethods = new(["Match", "IsMatch", "Replace", "Split"], StringComparer.Ordinal);
     private static readonly HashSet<string> ConvertNumericMethods = new([
-        "ToInt16", "ToInt32", "ToInt64", "ToUInt16", "ToUInt32", "ToUInt64",
-        "ToByte", "ToSByte", "ToSingle", "ToDouble", "ToDecimal"], StringComparer.Ordinal);
+        "ToByte", "ToSByte", "ToInt16", "ToUInt16", "ToInt32", "ToUInt32",
+        "ToInt64", "ToUInt64", "ToSingle", "ToDouble", "ToDecimal"], StringComparer.Ordinal);
 
     // --- [LAMBDA_RULES] -------------------------------------------------------
 
@@ -28,9 +28,6 @@ internal static class RuntimeRules {
             _ => null,
         });
     }
-
-    // --- [HOT_PATH_RULES] ------------------------------------------------------
-
     internal static void CheckHotPathNonStaticLambda(OperationAnalysisContext context, ScopeInfo scope, IAnonymousFunctionOperation anonymousFunction) {
         ImmutableArray<string> capturedSymbols = CapturedOuterSymbols(anonymousFunction);
         string captureList = string.Join(separator: ", ", values: capturedSymbols);
@@ -40,11 +37,6 @@ internal static class RuntimeRules {
             _ => null,
         });
     }
-    internal static void CheckHotPathLinq(OperationAnalysisContext context, ScopeInfo scope, IInvocationOperation invocation) =>
-        AnalyzerState.Report(context.ReportDiagnostic, (scope.IsHotPath, invocation.TargetMethod.ContainingNamespace?.ToDisplayString()?.StartsWith(value: "System.Linq", comparisonType: StringComparison.Ordinal) == true) switch {
-            (true, true) => Diagnostic.Create(RuleCatalog.CSP0601, context.Operation.Syntax.GetLocation(), invocation.TargetMethod.Name),
-            _ => null,
-        });
     private static bool IsStaticLambda(IAnonymousFunctionOperation lambda) =>
         lambda.Syntax switch {
             LambdaExpressionSyntax { Modifiers: { } modifiers } => modifiers.Any(modifier => modifier.IsKind(SyntaxKind.StaticKeyword)),
@@ -65,6 +57,14 @@ internal static class RuntimeRules {
             });
         return [.. captured.Where(name => !string.IsNullOrWhiteSpace(name)).Distinct(StringComparer.Ordinal)];
     }
+
+    // --- [HOT_PATH_RULES] ------------------------------------------------------
+
+    internal static void CheckHotPathLinq(OperationAnalysisContext context, ScopeInfo scope, IInvocationOperation invocation) =>
+        AnalyzerState.Report(context.ReportDiagnostic, (scope.IsHotPath, invocation.TargetMethod.ContainingNamespace?.ToDisplayString()?.StartsWith(value: "System.Linq", comparisonType: StringComparison.Ordinal) == true) switch {
+            (true, true) => Diagnostic.Create(RuleCatalog.CSP0601, context.Operation.Syntax.GetLocation(), invocation.TargetMethod.Name),
+            _ => null,
+        });
 
     // --- [RESOURCE_RULES] -----------------------------------------------------
 
@@ -89,6 +89,16 @@ internal static class RuntimeRules {
 
     // --- [REGEX_RULES] --------------------------------------------------------
 
+    internal static void CheckGeneratedRegexCharsetValidation(SymbolAnalysisContext context, ScopeInfo scope, IMethodSymbol method) {
+        bool hasGeneratedRegex = SymbolFacts.TryGetGeneratedRegexPattern(method, out string pattern, out RegexOptions options);
+        bool simpleCharsetValidation = hasGeneratedRegex
+            && SymbolFacts.IsSearchValuesFriendlyRegexOptions(options)
+            && SymbolFacts.IsSimpleCharsetLengthRegex(pattern);
+        AnalyzerState.Report(context.ReportDiagnostic, (scope.IsDomainOrApplication, simpleCharsetValidation, method.Locations.Length) switch {
+            (true, true, > 0) => Diagnostic.Create(RuleCatalog.CSP0607, method.Locations[0], method.Name),
+            _ => null,
+        });
+    }
     internal static void CheckRegexRuntimeConstruction(OperationAnalysisContext context, ScopeInfo scope, IObjectCreationOperation objectCreation) =>
         AnalyzerState.Report(context.ReportDiagnostic, (scope.IsDomainOrApplication, objectCreation.Type?.OriginalDefinition.ToDisplayString() == "System.Text.RegularExpressions.Regex") switch {
             (true, true) => Diagnostic.Create(RuleCatalog.CSP0704, context.Operation.Syntax.GetLocation(), objectCreation.Type?.Name ?? string.Empty),
@@ -100,16 +110,6 @@ internal static class RuntimeRules {
             && RegexStaticMethods.Contains(invocation.TargetMethod.Name);
         AnalyzerState.Report(context.ReportDiagnostic, (scope.IsDomainOrApplication, regexStatic) switch {
             (true, true) => Diagnostic.Create(RuleCatalog.CSP0606, context.Operation.Syntax.GetLocation(), invocation.TargetMethod.Name),
-            _ => null,
-        });
-    }
-    internal static void CheckGeneratedRegexCharsetValidation(SymbolAnalysisContext context, ScopeInfo scope, IMethodSymbol method) {
-        bool hasGeneratedRegex = SymbolFacts.TryGetGeneratedRegexPattern(method, out string pattern, out RegexOptions options);
-        bool simpleCharsetValidation = hasGeneratedRegex
-            && SymbolFacts.IsSearchValuesFriendlyRegexOptions(options)
-            && SymbolFacts.IsSimpleCharsetLengthRegex(pattern);
-        AnalyzerState.Report(context.ReportDiagnostic, (scope.IsDomainOrApplication, simpleCharsetValidation, method.Locations.Length) switch {
-            (true, true, > 0) => Diagnostic.Create(RuleCatalog.CSP0607, method.Locations[0], method.Name),
             _ => null,
         });
     }

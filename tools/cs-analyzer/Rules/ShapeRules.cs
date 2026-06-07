@@ -153,22 +153,15 @@ internal static class ShapeRules {
         bool overloadPressure = overloads.Length > 2 || (overloads.Length > 1 && arityLadder);
         return overloadPressure && !hasReadOnlySpanCollapse && !unionPolymorphicPair && !inputShapePolymorphism;
     }
-    // Overloads qualify as input-shape polymorphism when there exists some shared parameter index where each overload presents a
-    // distinct type. This is the C# type system's native discriminator and the canonical alternative to `params ReadOnlySpan<T>`
-    // or Union dispatch when domain factories must accept fundamentally different input modalities (e.g., explicit values vs
-    // boundary adapter sources). Zero-parameter overloads disqualify the relaxation because they cannot participate in type
-    // discrimination.
-    private static bool HasDisjointParameterTypeAtSomeIndex(ImmutableArray<IMethodSymbol> overloads) {
-        int minArity = overloads.Length switch {
-            < 2 => 0,
-            _ => overloads.Min(method => method.Parameters.Length),
+    private static bool IsParamsReadOnlySpanOverload(IMethodSymbol overload) =>
+        overload.Parameters switch {
+            { Length: > 0 } parameters => parameters[parameters.Length - 1] switch {
+                { IsParams: true, Type: INamedTypeSymbol { OriginalDefinition.MetadataName: "ReadOnlySpan`1", ContainingNamespace: { } ns } }
+                    => ns.ToDisplayString() == "System",
+                _ => false,
+            },
+            _ => false,
         };
-        return minArity switch {
-            0 => false,
-            _ => Enumerable.Range(0, minArity).Any(index =>
-                overloads.Select(method => method.Parameters[index].Type.ToDisplayString()).Distinct(StringComparer.Ordinal).Count() == overloads.Length),
-        };
-    }
     private static bool IsUnionDispatchingPair(ImmutableArray<IMethodSymbol> overloads) {
         ImmutableArray<IMethodSymbol> ordered = overloads.Length switch {
             2 => [.. overloads.OrderBy(method => method.TypeParameters.Length)],
@@ -192,28 +185,25 @@ internal static class ShapeRules {
         && type.TypeArguments.Any(argument => argument.TypeKind == TypeKind.TypeParameter)
         && SymbolFacts.HasAnyAttribute(type, "UnionAttribute", "Union")
         && SymbolFacts.IsDomainNamespace(type.ContainingNamespace?.ToDisplayString() ?? string.Empty);
-    private static bool IsParamsReadOnlySpanOverload(IMethodSymbol overload) =>
-        overload.Parameters switch {
-            { Length: > 0 } parameters => parameters[parameters.Length - 1] switch {
-                { IsParams: true, Type: INamedTypeSymbol { OriginalDefinition.MetadataName: "ReadOnlySpan`1", ContainingNamespace: { } ns } }
-                    => ns.ToDisplayString() == "System",
-                _ => false,
-            },
-            _ => false,
+    // Overloads qualify as input-shape polymorphism when there exists some shared parameter index where each overload presents a
+    // distinct type. This is the C# type system's native discriminator and the canonical alternative to `params ReadOnlySpan<T>`
+    // or Union dispatch when domain factories must accept fundamentally different input modalities (e.g., explicit values vs
+    // boundary adapter sources). Zero-parameter overloads disqualify the relaxation because they cannot participate in type
+    // discrimination.
+    private static bool HasDisjointParameterTypeAtSomeIndex(ImmutableArray<IMethodSymbol> overloads) {
+        int minArity = overloads.Length switch {
+            < 2 => 0,
+            _ => overloads.Min(method => method.Parameters.Length),
         };
+        return minArity switch {
+            0 => false,
+            _ => Enumerable.Range(0, minArity).Any(index =>
+                overloads.Select(method => method.Parameters[index].Type.ToDisplayString()).Distinct(StringComparer.Ordinal).Count() == overloads.Length),
+        };
+    }
 
     // --- [OVERLOAD_ADJACENCY_RULES] ------------------------------------------
 
-    internal static void CheckOverloadAdjacency(SymbolAnalysisContext context, ScopeInfo scope, INamedTypeSymbol namedType) {
-        IEnumerable<Diagnostic> diagnostics = scope.IsAnalyzable switch {
-            true => namedType.DeclaringSyntaxReferences
-                .Select(reference => reference.GetSyntax(context.CancellationToken))
-                .OfType<TypeDeclarationSyntax>()
-                .SelectMany(type => OverloadAdjacencyDiagnostics(context, type)),
-            _ => [],
-        };
-        AnalyzerState.ReportEach(context.ReportDiagnostic, diagnostics);
-    }
     private readonly struct OverloadKey : IEquatable<OverloadKey> {
         internal OverloadKey(string name, Accessibility accessibility, bool isStatic, bool isAbstract) {
             Name = name;
@@ -255,6 +245,16 @@ internal static class ShapeRules {
         internal OverloadKey Key { get; }
         internal SyntaxToken NameToken { get; }
         internal ImmutableArray<INamedTypeSymbol> Interfaces { get; }
+    }
+    internal static void CheckOverloadAdjacency(SymbolAnalysisContext context, ScopeInfo scope, INamedTypeSymbol namedType) {
+        IEnumerable<Diagnostic> diagnostics = scope.IsAnalyzable switch {
+            true => namedType.DeclaringSyntaxReferences
+                .Select(reference => reference.GetSyntax(context.CancellationToken))
+                .OfType<TypeDeclarationSyntax>()
+                .SelectMany(type => OverloadAdjacencyDiagnostics(context, type)),
+            _ => [],
+        };
+        AnalyzerState.ReportEach(context.ReportDiagnostic, diagnostics);
     }
     private static IEnumerable<Diagnostic> OverloadAdjacencyDiagnostics(SymbolAnalysisContext context, TypeDeclarationSyntax type) {
         ImmutableArray<OverloadMember> members = [
@@ -390,6 +390,41 @@ internal static class ShapeRules {
             (true, true, true, true) => positionalArguments.Select(argument => Diagnostic.Create(RuleCatalog.CSP0726, argument.GetLocation(), ((INamedTypeSymbol)objectCreation.Type!).Name, parameterCount)),
             _ => [],
         };
+        AnalyzerState.ReportEach(context.ReportDiagnostic, diagnostics);
+    }
+
+    // --- [INTERFACE_POLLUTION_RULES] -------------------------------------------
+
+    internal static void ReportInterfacePollution(CompilationAnalysisContext context, AnalyzerState state) {
+        IEnumerable<Diagnostic> diagnostics = state.SingleImplementationInterfaces()
+            .Where(tuple => tuple.Interface.TypeKind == TypeKind.Interface)
+            .Where(tuple => tuple.Interface.Name.StartsWith(value: "I", comparisonType: StringComparison.Ordinal))
+            .Where(tuple => state.ScopeFor(tuple.Interface).IsDomainOrApplication)
+            .Where(tuple => !IsExemptInterface(tuple.Interface))
+            .Where(tuple => tuple.Interface.Locations.Length > 0)
+            .Select(tuple => Diagnostic.Create(RuleCatalog.CSP0501, tuple.Interface.Locations[0], tuple.Interface.Name, tuple.Implementation.Name));
+        AnalyzerState.ReportEach(context.ReportDiagnostic, diagnostics);
+    }
+    private static bool IsExemptInterface(INamedTypeSymbol interfaceSymbol) {
+        // Exempt Has<RT,Trait> pattern interfaces
+        bool hasTraitPattern = interfaceSymbol.IsGenericType
+            && interfaceSymbol.Name.StartsWith(value: "Has", comparisonType: StringComparison.Ordinal);
+        // Exempt static abstract interfaces (type classes)
+        bool hasStaticAbstract = interfaceSymbol.GetMembers().OfType<IMethodSymbol>()
+            .Any(method => method.IsStatic && method.IsAbstract);
+        // Exempt [Union]/[SmartEnum] attributed types
+        bool hasExemptionAttribute = interfaceSymbol.GetAttributes()
+            .Any(attribute => InterfaceExemptionAttributes.Contains(attribute.AttributeClass?.Name ?? string.Empty));
+        return hasTraitPattern || hasStaticAbstract || hasExemptionAttribute;
+    }
+
+    // --- [SINGLE_USE_HELPER_RULES] --------------------------------------------
+
+    internal static void ReportSingleUseHelpers(CompilationAnalysisContext context, AnalyzerState state) {
+        IEnumerable<Diagnostic> diagnostics = state.SingleUsePrivateMethods()
+            .Where(method => state.ScopeFor(method).IsDomainOrApplication)
+            .Where(method => method.Locations.Length > 0)
+            .Select(method => Diagnostic.Create(RuleCatalog.CSP0503, method.Locations[0], method.Name));
         AnalyzerState.ReportEach(context.ReportDiagnostic, diagnostics);
     }
 
@@ -551,38 +586,6 @@ internal static class ShapeRules {
             IConversionOperation conversion => FlattenReceiptTerms(operation: conversion.Operand, receiptType: receiptType),
             _ => [operation],
         };
-
-    // --- [REPORTS] ------------------------------------------------------------
-
-    internal static void ReportInterfacePollution(CompilationAnalysisContext context, AnalyzerState state) {
-        IEnumerable<Diagnostic> diagnostics = state.SingleImplementationInterfaces()
-            .Where(tuple => tuple.Interface.TypeKind == TypeKind.Interface)
-            .Where(tuple => tuple.Interface.Name.StartsWith(value: "I", comparisonType: StringComparison.Ordinal))
-            .Where(tuple => state.ScopeFor(tuple.Interface).IsDomainOrApplication)
-            .Where(tuple => !IsExemptInterface(tuple.Interface))
-            .Where(tuple => tuple.Interface.Locations.Length > 0)
-            .Select(tuple => Diagnostic.Create(RuleCatalog.CSP0501, tuple.Interface.Locations[0], tuple.Interface.Name, tuple.Implementation.Name));
-        AnalyzerState.ReportEach(context.ReportDiagnostic, diagnostics);
-    }
-    private static bool IsExemptInterface(INamedTypeSymbol interfaceSymbol) {
-        // Exempt Has<RT,Trait> pattern interfaces
-        bool hasTraitPattern = interfaceSymbol.IsGenericType
-            && interfaceSymbol.Name.StartsWith(value: "Has", comparisonType: StringComparison.Ordinal);
-        // Exempt static abstract interfaces (type classes)
-        bool hasStaticAbstract = interfaceSymbol.GetMembers().OfType<IMethodSymbol>()
-            .Any(method => method.IsStatic && method.IsAbstract);
-        // Exempt [Union]/[SmartEnum] attributed types
-        bool hasExemptionAttribute = interfaceSymbol.GetAttributes()
-            .Any(attribute => InterfaceExemptionAttributes.Contains(attribute.AttributeClass?.Name ?? string.Empty));
-        return hasTraitPattern || hasStaticAbstract || hasExemptionAttribute;
-    }
-    internal static void ReportSingleUseHelpers(CompilationAnalysisContext context, AnalyzerState state) {
-        IEnumerable<Diagnostic> diagnostics = state.SingleUsePrivateMethods()
-            .Where(method => state.ScopeFor(method).IsDomainOrApplication)
-            .Where(method => method.Locations.Length > 0)
-            .Select(method => Diagnostic.Create(RuleCatalog.CSP0503, method.Locations[0], method.Name));
-        AnalyzerState.ReportEach(context.ReportDiagnostic, diagnostics);
-    }
 
     // --- [CONVENTION_RULES] ---------------------------------------------------
 

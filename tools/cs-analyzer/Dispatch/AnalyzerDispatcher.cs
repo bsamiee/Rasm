@@ -37,12 +37,14 @@ internal static class AnalyzerDispatcher {
             case (_, INamedTypeSymbol namedType):
                 state.TrackNamedType(namedType: namedType);
                 state.TrackInterfaceImplementations(namedType: namedType);
+                TypeShapeRules.TrackFlagsEnumDeclaration(context, state, namedType);
                 ShapeRules.CheckSignatures(context, scope, namedType);
                 ShapeRules.CheckOverloadSpam(context, scope, namedType);
                 ShapeRules.CheckOverloadAdjacency(context, scope, namedType);
                 ShapeRules.CheckApiSurfaceInflationByPrefix(context, scope, namedType);
                 ShapeRules.CheckMutableFields(context, scope, namedType);
                 ShapeRules.CheckPublicCtorOnValidatedPrimitive(context, scope, namedType);
+                ShapeRules.CheckValidationTypeUsage(context, scope, namedType);
                 ShapeRules.CheckTypeClassStaticAbstractPolicy(context, scope, namedType);
                 TypeShapeRules.CheckDomainPrimitiveShape(context, scope, namedType);
                 TypeShapeRules.CheckCreateFactoryReturnType(context, scope, namedType);
@@ -56,8 +58,6 @@ internal static class AnalyzerDispatcher {
                 TypeShapeRules.CheckOperationalReceiptFactStream(context, scope, namedType);
                 TypeShapeRules.CheckForwardingRequestCaseFamily(context, scope, namedType);
                 TypeShapeRules.CheckPassiveSiblingSurfaceFamily(context, scope, namedType);
-                TypeShapeRules.TrackFlagsEnumDeclaration(context, state, namedType);
-                ShapeRules.CheckValidationTypeUsage(context, scope, namedType);
                 break;
             default:
                 return;
@@ -76,13 +76,13 @@ internal static class AnalyzerDispatcher {
                 state.TrackClosedUnionDispatch(containingSymbol: context.ContainingSymbol, invocation: invocation);
                 FlowRules.CheckMatchCollapse(context, state, scope, invocation);
                 FlowRules.CheckMatchBoundaryStrict(context, state, scope, invocation);
-                FlowRules.CheckRunInTransform(context, scope, invocation);
-                FlowRules.CheckMapFailDiscardsException(context, scope, invocation);
                 FlowRules.CheckReferenceEqualsNull(context, scope, invocation);
                 FlowRules.CheckAsyncBlocking(context, scope, invocation);
                 FlowRules.CheckTaskRunFanOut(context, scope, invocation);
                 FlowRules.CheckFireAndForget(context, scope, invocation);
                 FlowRules.CheckUnboundedWhenAll(context, scope, invocation);
+                FlowRules.CheckRunInTransform(context, scope, invocation);
+                FlowRules.CheckMapFailDiscardsException(context, scope, invocation);
                 FlowRules.CheckFilterMapChain(context, scope, invocation);
                 FlowRules.CheckTraverseFusion(context, scope, invocation);
                 FlowRules.CheckStateThreadedDispatch(context, scope, invocation);
@@ -136,10 +136,10 @@ internal static class AnalyzerDispatcher {
                 FlowRules.CheckExceptionThrow(context, scope, throwOperation);
                 return;
             case (_, IBinaryOperation binary):
-                FlowRules.CheckNullSentinel(context, scope, binary);
-                FlowRules.CheckFoldAppendAccumulator(context, scope, binary);
-                ShapeRules.CheckReceiptChainCollapse(context, scope, binary);
                 TypeShapeRules.TrackFlagsEnumComposition(context, state, binary);
+                FlowRules.CheckNullSentinel(context, scope, binary);
+                ShapeRules.CheckReceiptChainCollapse(context, scope, binary);
+                FlowRules.CheckFoldAppendAccumulator(context, scope, binary);
                 return;
             case (_, IIsPatternOperation isPattern):
                 FlowRules.CheckNullPatternSentinel(context, scope, isPattern);

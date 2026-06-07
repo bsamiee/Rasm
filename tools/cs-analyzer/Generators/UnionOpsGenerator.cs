@@ -24,6 +24,30 @@ public sealed class UnionOpsGenerator : IIncrementalGenerator {
             action: static (ctx, pair) => Emit(ctx: ctx, unionType: pair.Union!, compilation: pair.Compilation));
     }
 
+    private static string DeclarationKeyword(INamedTypeSymbol type) =>
+        (type.IsRecord, type.TypeKind, type.IsAbstract, type.IsSealed, type.IsReadOnly) switch {
+            (true, _, true, _, _) => "abstract partial record",
+            (true, _, _, _, _) => "partial record",
+            (_, TypeKind.Struct, _, _, true) => "readonly partial struct",
+            (_, TypeKind.Struct, _, _, _) => "partial struct",
+            (_, _, true, true, _) => "abstract sealed partial class",
+            (_, _, true, _, _) => "abstract partial class",
+            (_, _, _, true, _) => "sealed partial class",
+            _ => "partial class",
+        };
+
+    private static IEnumerable<INamedTypeSymbol> NamespaceUnionCases(INamespaceSymbol namespaceSymbol, INamedTypeSymbol unionType) =>
+        namespaceSymbol.GetTypeMembers()
+            .Where(caseType => SymbolEqualityComparer.Default.Equals(caseType.BaseType, unionType) && caseType.IsRecord && caseType.IsSealed)
+            .Concat(namespaceSymbol.GetNamespaceMembers().SelectMany(child => NamespaceUnionCases(namespaceSymbol: child, unionType: unionType)));
+
+    private static ImmutableArray<INamedTypeSymbol> UnionCases(Compilation compilation, INamedTypeSymbol unionType) =>
+        [
+            .. unionType.GetTypeMembers()
+                .Where(caseType => SymbolEqualityComparer.Default.Equals(caseType.BaseType, unionType) && caseType.IsRecord && caseType.IsSealed)
+                .Concat(compilation.GlobalNamespace.GetNamespaceMembers().SelectMany(namespaceSymbol => NamespaceUnionCases(namespaceSymbol: namespaceSymbol, unionType: unionType))),
+        ];
+
     private static void Emit(SourceProductionContext ctx, INamedTypeSymbol unionType, Compilation compilation) {
         ImmutableArray<INamedTypeSymbol> cases = UnionCases(compilation: compilation, unionType: unionType);
         if (cases.IsEmpty) {
@@ -51,28 +75,4 @@ public sealed class UnionOpsGenerator : IIncrementalGenerator {
             hintName: $"{unionType.Name}.UnionOps.g.cs",
             sourceText: SourceText.From(string.Join(separator: "\n", values: lines), Encoding.UTF8));
     }
-
-    private static ImmutableArray<INamedTypeSymbol> UnionCases(Compilation compilation, INamedTypeSymbol unionType) =>
-        [
-            .. unionType.GetTypeMembers()
-                .Where(caseType => SymbolEqualityComparer.Default.Equals(caseType.BaseType, unionType) && caseType.IsRecord && caseType.IsSealed)
-                .Concat(compilation.GlobalNamespace.GetNamespaceMembers().SelectMany(namespaceSymbol => NamespaceUnionCases(namespaceSymbol: namespaceSymbol, unionType: unionType))),
-        ];
-
-    private static IEnumerable<INamedTypeSymbol> NamespaceUnionCases(INamespaceSymbol namespaceSymbol, INamedTypeSymbol unionType) =>
-        namespaceSymbol.GetTypeMembers()
-            .Where(caseType => SymbolEqualityComparer.Default.Equals(caseType.BaseType, unionType) && caseType.IsRecord && caseType.IsSealed)
-            .Concat(namespaceSymbol.GetNamespaceMembers().SelectMany(child => NamespaceUnionCases(namespaceSymbol: child, unionType: unionType)));
-
-    private static string DeclarationKeyword(INamedTypeSymbol type) =>
-        (type.IsRecord, type.TypeKind, type.IsAbstract, type.IsSealed, type.IsReadOnly) switch {
-            (true, _, true, _, _) => "abstract partial record",
-            (true, _, _, _, _) => "partial record",
-            (_, TypeKind.Struct, _, _, true) => "readonly partial struct",
-            (_, TypeKind.Struct, _, _, _) => "partial struct",
-            (_, _, true, true, _) => "abstract sealed partial class",
-            (_, _, true, _, _) => "abstract partial class",
-            (_, _, _, true, _) => "sealed partial class",
-            _ => "partial class",
-        };
 }

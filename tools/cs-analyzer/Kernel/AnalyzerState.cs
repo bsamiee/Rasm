@@ -49,6 +49,18 @@ internal sealed class AnalyzerState {
 
     // --- [OPERATIONS] ----------------------------------------------------------
 
+    internal static void Report(Action<Diagnostic> report, Diagnostic? diagnostic) {
+        switch (diagnostic) {
+            case Diagnostic d:
+                report(d);
+                break;
+        }
+    }
+    internal static void ReportEach(Action<Diagnostic> report, IEnumerable<Diagnostic> diagnostics) {
+        foreach (Diagnostic d in diagnostics) {
+            report(d);
+        }
+    }
     internal ScopeInfo ScopeFor(ISymbol symbol) =>
         _scopeCache.GetOrAdd(key: symbol, valueFactory: ScopeModel.Classify);
 
@@ -124,20 +136,5 @@ internal sealed class AnalyzerState {
             ? derived
             : [];
     internal ImmutableArray<ClosedUnionDispatchFact> ClosedUnionDispatches() => [.. _closedUnionDispatches];
-
-    // --- [OPERATIONS] ----------------------------------------------------------
-
-    internal static void Report(Action<Diagnostic> report, Diagnostic? diagnostic) {
-        switch (diagnostic) {
-            case Diagnostic d:
-                report(d);
-                break;
-        }
-    }
-    internal static void ReportEach(Action<Diagnostic> report, IEnumerable<Diagnostic> diagnostics) {
-        foreach (Diagnostic d in diagnostics) {
-            report(d);
-        }
-    }
 
 }

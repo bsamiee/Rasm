@@ -89,8 +89,8 @@ internal sealed class ScopeInfo {
     internal bool IsAnalyzable => Kind.IsAnalyzable;
     internal bool IsBoundary => Kind.IsBoundary;
     internal bool IsDomainOrApplication => Kind.IsDomainOrApplication;
-    internal bool IsFunctional => Kind.IsDomainOrApplication || ReferenceEquals(objA: Kind, objB: ScopeKind.Analysis);
     internal bool IsComposition => Kind.IsComposition;
+    internal bool IsFunctional => Kind.IsDomainOrApplication || ReferenceEquals(objA: Kind, objB: ScopeKind.Analysis);
     internal bool IsHotPath =>
         NamespaceName.Contains(value: ".Performance", comparisonType: StringComparison.Ordinal)
         || FilePath.Contains(value: "Performance", comparisonType: StringComparison.OrdinalIgnoreCase);
@@ -210,7 +210,24 @@ internal static class ScopeModel {
 internal static class SymbolFacts {
     // --- [CONSTANTS] -----------------------------------------------------------
 
+    private const int RegexOptionNonBacktrackingBit = 1024;
+    private const int SearchValuesFriendlyRegexOptionMask =
+        (int)RegexOptions.CultureInvariant
+        | (int)RegexOptions.Compiled
+        | RegexOptionNonBacktrackingBit;
     private static readonly HashSet<string> BlockingMethods = new(["Wait", "WaitAll", "WaitAny", "GetResult", "Sleep"], StringComparer.Ordinal);
+    internal static readonly HashSet<string> MutableCollectionNames =
+        new(["List`1", "Dictionary`2", "HashSet`1", "Queue`1", "Stack`1", "SortedDictionary`2", "SortedSet`1"], StringComparer.Ordinal);
+    private static readonly HashSet<string> ValidatedReturnTypes = new(["Fin`1", "K`2"], StringComparer.Ordinal);
+    private static readonly HashSet<string> AcceptValueIsValidTypeNames = new([
+        "Arc", "BoundingBox", "Box", "Circle", "ClosestHit", "Cone", "Cylinder", "Ellipse", "Interval", "IntersectionHit", "Line",
+        "Plane", "Point2d", "Point3d", "Polyline", "RayQuery", "Rectangle3d", "Sphere", "Torus", "Transform", "Vector3d",
+    ], StringComparer.Ordinal);
+    private static readonly HashSet<(string From, string To)> NarrowingCasts = [
+        ("Int64", "Int32"), ("Int64", "Int16"), ("Int64", "Byte"), ("Int64", "SByte"),
+        ("Int32", "Int16"), ("Int32", "Byte"), ("Int32", "SByte"), ("Double", "Single"),
+        ("Double", "Decimal"), ("Decimal", "Single"), ("Decimal", "Double"), ("Single", "Decimal"),
+        ("UInt64", "UInt32"), ("UInt64", "UInt16"), ("UInt64", "Byte"), ("UInt32", "UInt16"), ("UInt32", "Byte")];
     private static readonly HashSet<string> OperationalReceiptNames = new([
         "Added", "Attached", "Attributes", "Changed", "Created", "Deleted", "Detached", "Flashed", "Hidden", "Lifecycle",
         "Locked", "Moved", "Redraw", "Removed", "Replaced", "Resource", "Resources", "Selected", "Transformed", "Undo",
@@ -221,15 +238,6 @@ internal static class SymbolFacts {
         "Kernel", "Lipschitz", "Matrix", "Mesh", "Native", "Path", "Policy", "Residual", "Route", "Sample", "Sampling",
         "Sdf", "Search", "Solver", "Spectral", "Status", "Stop", "Tolerance", "Topology", "Volume",
     ], StringComparer.Ordinal);
-    private static readonly HashSet<string> AcceptValueIsValidTypeNames = new([
-        "Arc", "BoundingBox", "Box", "Circle", "ClosestHit", "Cone", "Cylinder", "Ellipse", "Interval", "IntersectionHit", "Line",
-        "Plane", "Point2d", "Point3d", "Polyline", "RayQuery", "Rectangle3d", "Sphere", "Torus", "Transform", "Vector3d",
-    ], StringComparer.Ordinal);
-    private const int RegexOptionNonBacktrackingBit = 1024;
-    private const int SearchValuesFriendlyRegexOptionMask =
-        (int)RegexOptions.CultureInvariant
-        | (int)RegexOptions.Compiled
-        | RegexOptionNonBacktrackingBit;
 
     // --- [ATTRIBUTE_FACTS] -----------------------------------------------------
 
@@ -387,6 +395,8 @@ internal static class SymbolFacts {
             && invocation.TargetMethod.Name == "StartNew")
         || (invocation.TargetMethod.ContainingType?.ToDisplayString() == "System.Threading.ThreadPool"
             && invocation.TargetMethod.Name == "QueueUserWorkItem");
+    internal static bool IsTaskLikeType(ITypeSymbol? type) =>
+        type?.OriginalDefinition.ToDisplayString() is "System.Threading.Tasks.Task" or "System.Threading.Tasks.Task<TResult>" or "System.Threading.Tasks.ValueTask" or "System.Threading.Tasks.ValueTask<TResult>";
     internal static bool IsTaskWhenAllUnbounded(IInvocationOperation invocation) {
         bool isWhenAll = invocation.TargetMethod.Name == "WhenAll"
             && invocation.TargetMethod.ContainingType.OriginalDefinition.ToDisplayString() == "System.Threading.Tasks.Task";
@@ -414,8 +424,6 @@ internal static class SymbolFacts {
         && invocation.TargetMethod.ContainingType is INamedTypeSymbol containingType
         && (IsTaskOrAwaiterType(containingType)
             || containingType.ToDisplayString() == "System.Threading.Thread");
-    internal static bool IsTaskLikeType(ITypeSymbol? type) =>
-        type?.OriginalDefinition.ToDisplayString() is "System.Threading.Tasks.Task" or "System.Threading.Tasks.Task<TResult>" or "System.Threading.Tasks.ValueTask" or "System.Threading.Tasks.ValueTask<TResult>";
     private static bool IsTaskOrAwaiterType(INamedTypeSymbol type) {
         string displayName = type.OriginalDefinition.ToDisplayString();
         bool knownTaskLike = displayName is
@@ -502,8 +510,6 @@ internal static class SymbolFacts {
 
     // --- [TYPE_SHAPE_FACTS] ----------------------------------------------------
 
-    internal static readonly HashSet<string> MutableCollectionNames =
-        new(["List`1", "Dictionary`2", "HashSet`1", "Queue`1", "Stack`1", "SortedDictionary`2", "SortedSet`1"], StringComparer.Ordinal);
     internal static bool IsInsideLoop(IOperation? operation) =>
         operation switch {
             null => false,
@@ -540,7 +546,6 @@ internal static class SymbolFacts {
             ForEachStatementSyntax => false,
             _ => false,
         };
-    private static readonly HashSet<string> ValidatedReturnTypes = new(["Fin`1", "K`2"], StringComparer.Ordinal);
     internal static bool IsFinOrKReturnType(IMethodSymbol method) =>
         IsValidatedFactoryReturnType(method.ReturnType);
     internal static bool IsValidatedFactoryReturnType(ITypeSymbol returnType) =>
@@ -585,13 +590,13 @@ internal static class SymbolFacts {
                 && property.Property.ContainingType.ContainingNamespace.ToDisplayString().StartsWith(value: Markers.LanguageExtNamespace, comparisonType: StringComparison.Ordinal),
             _ => false,
         };
+    internal static bool IsLanguageExtFinType(ITypeSymbol? type) =>
+        type is INamedTypeSymbol { OriginalDefinition.MetadataName: "Fin`1", TypeArguments.Length: 1 } fin
+        && fin.ContainingNamespace.ToDisplayString().StartsWith(value: Markers.LanguageExtNamespace, comparisonType: StringComparison.Ordinal);
     internal static bool IsLanguageExtFinUnitType(ITypeSymbol? type) =>
         type is INamedTypeSymbol { OriginalDefinition.MetadataName: "Fin`1", TypeArguments.Length: 1 } fin
         && fin.ContainingNamespace.ToDisplayString().StartsWith(value: Markers.LanguageExtNamespace, comparisonType: StringComparison.Ordinal)
         && IsLanguageExtUnitType(fin.TypeArguments[0]);
-    internal static bool IsLanguageExtFinType(ITypeSymbol? type) =>
-        type is INamedTypeSymbol { OriginalDefinition.MetadataName: "Fin`1", TypeArguments.Length: 1 } fin
-        && fin.ContainingNamespace.ToDisplayString().StartsWith(value: Markers.LanguageExtNamespace, comparisonType: StringComparison.Ordinal);
     internal static bool IsLanguageExtFinSuccessInvocation(IInvocationOperation invocation) =>
         invocation.TargetMethod.Name == "Succ"
         && IsLanguageExtFinType(invocation.Type)
@@ -603,6 +608,20 @@ internal static class SymbolFacts {
         && IsLanguageExtFinType(invocation.Type)
         && invocation.Arguments.Length > 0
         && IsLanguageExtCommonErrorAssignableType(type: UnwrapValue(invocation.Arguments[0].Value)?.Type, commonErrorType: commonErrorType);
+    internal static bool IsNarrowingNumericCast(ITypeSymbol fromType, ITypeSymbol toType) =>
+        NarrowingCasts.Contains((fromType.MetadataName, toType.MetadataName));
+    internal static bool HasCreateFactory(INamedTypeSymbol namedType) =>
+        namedType.GetMembers().OfType<IMethodSymbol>().Any(method => method.IsStatic && method.Name is "Create" or "CreateK");
+    internal static bool IsAtomOrRefType(ITypeSymbol type) =>
+        type.OriginalDefinition.MetadataName is "Atom`1" or "Ref`1"
+        && (type.ContainingNamespace?.ToDisplayString() ?? string.Empty)
+            .StartsWith(value: Markers.LanguageExtNamespace, comparisonType: StringComparison.Ordinal);
+    internal static bool IsDateTimeType(ITypeSymbol type) =>
+        type.OriginalDefinition.MetadataName is "DateTime" or "DateTimeOffset";
+    internal static ITypeSymbol UnwrapNullable(ITypeSymbol type) =>
+        type is INamedTypeSymbol { OriginalDefinition.SpecialType: SpecialType.System_Nullable_T } nullableType
+            ? nullableType.TypeArguments[0]
+            : type;
     internal static bool IsManualGenericProjectionGate(IConditionalOperation conditional, ISymbol? containingSymbol) =>
         TryProjectionTypeParameter(type: conditional.Type, parameter: out ITypeParameterSymbol? parameter)
         && !IsProjectionOwner(symbol: containingSymbol)
@@ -704,6 +723,10 @@ internal static class SymbolFacts {
             && failureArms.Length == 1
             && IsConfirmableNativeStatusSwitchArm(model: model, switchExpression: switchExpression, arm: successArms[0]);
     }
+    internal static bool ContainsPlainInvalidResult(IOperation operation) =>
+        operation.DescendantsAndSelf()
+            .OfType<IInvocationOperation>()
+            .Any(static invocation => invocation.TargetMethod.Name == "InvalidResult" && invocation.Arguments.Length == 0);
     private static ExpressionSyntax UnwrapExpression(ExpressionSyntax expression) =>
         expression switch {
             ParenthesizedExpressionSyntax parenthesized => UnwrapExpression(parenthesized.Expression),
@@ -757,10 +780,6 @@ internal static class SymbolFacts {
             .OfType<InvocationExpressionSyntax>()
             .Any(invocation => invocation.ArgumentList.Arguments.Count == 0
                 && model.GetSymbolInfo(invocation).Symbol is IMethodSymbol { Name: "InvalidResult" });
-    internal static bool ContainsPlainInvalidResult(IOperation operation) =>
-        operation.DescendantsAndSelf()
-            .OfType<IInvocationOperation>()
-            .Any(static invocation => invocation.TargetMethod.Name == "InvalidResult" && invocation.Arguments.Length == 0);
     private static bool SameReference(SemanticModel model, ExpressionSyntax left, ExpressionSyntax right) =>
         (ReferencedSymbol(model: model, expression: left), ReferencedSymbol(model: model, expression: right)) switch {
             (ISymbol a, ISymbol b) => SymbolEqualityComparer.Default.Equals(a, b),
@@ -925,25 +944,6 @@ internal static class SymbolFacts {
             _ => false,
         };
     }
-    private static readonly HashSet<(string From, string To)> NarrowingCasts = [
-        ("Int64", "Int32"), ("Int64", "Int16"), ("Int64", "Byte"), ("Int64", "SByte"),
-        ("Int32", "Int16"), ("Int32", "Byte"), ("Int32", "SByte"), ("Double", "Single"),
-        ("Double", "Decimal"), ("Decimal", "Single"), ("Decimal", "Double"), ("Single", "Decimal"),
-        ("UInt64", "UInt32"), ("UInt64", "UInt16"), ("UInt64", "Byte"), ("UInt32", "UInt16"), ("UInt32", "Byte")];
-    internal static bool IsNarrowingNumericCast(ITypeSymbol fromType, ITypeSymbol toType) =>
-        NarrowingCasts.Contains((fromType.MetadataName, toType.MetadataName));
-    internal static bool HasCreateFactory(INamedTypeSymbol namedType) =>
-        namedType.GetMembers().OfType<IMethodSymbol>().Any(method => method.IsStatic && method.Name is "Create" or "CreateK");
-    internal static bool IsAtomOrRefType(ITypeSymbol type) =>
-        type.OriginalDefinition.MetadataName is "Atom`1" or "Ref`1"
-        && (type.ContainingNamespace?.ToDisplayString() ?? string.Empty)
-            .StartsWith(value: Markers.LanguageExtNamespace, comparisonType: StringComparison.Ordinal);
-    internal static bool IsDateTimeType(ITypeSymbol type) =>
-        type.OriginalDefinition.MetadataName is "DateTime" or "DateTimeOffset";
-    internal static ITypeSymbol UnwrapNullable(ITypeSymbol type) =>
-        type is INamedTypeSymbol { OriginalDefinition.SpecialType: SpecialType.System_Nullable_T } nullableType
-            ? nullableType.TypeArguments[0]
-            : type;
     internal static bool IsOperationalReceiptType(ITypeSymbol? type) =>
         UnwrapNamed(type) is INamedTypeSymbol receipt
         && receipt.Name.EndsWith(value: "Receipt", comparisonType: StringComparison.Ordinal)
@@ -1252,6 +1252,16 @@ internal static class SymbolFacts {
                     && SymbolEqualityComparer.Default.Equals(candidate.OverriddenMethod?.OriginalDefinition, method.OriginalDefinition)),
             _ => null,
         };
+    private static ISymbol? MatchingBaseMember(ImmutableArray<ISymbol> dispatchMembers, ISymbol overrideMember) =>
+        overrideMember switch {
+            IPropertySymbol property => dispatchMembers
+                .OfType<IPropertySymbol>()
+                .FirstOrDefault(candidate => SymbolEqualityComparer.Default.Equals(property.OverriddenProperty?.OriginalDefinition, candidate.OriginalDefinition)),
+            IMethodSymbol method => dispatchMembers
+                .OfType<IMethodSymbol>()
+                .FirstOrDefault(candidate => SymbolEqualityComparer.Default.Equals(method.OverriddenMethod?.OriginalDefinition, candidate.OriginalDefinition)),
+            _ => null,
+        };
     private static bool HasNoExtraManualBehavior(INamedTypeSymbol caseType, ImmutableArray<ISymbol> dispatchMembers) =>
         caseType.GetMembers()
             .Where(static member => !member.IsImplicitlyDeclared)
@@ -1270,6 +1280,11 @@ internal static class SymbolFacts {
             IMethodSymbol method when MatchingBaseMember(dispatchMembers: dispatchMembers, overrideMember: method) is not null => IsSimpleDispatchOverride(method),
             IMethodSymbol { Name: "Deconstruct" or "PrintMembers" } => true,
             _ => false,
+        };
+    private static string DescribeDispatchMembers(ImmutableArray<ISymbol> dispatchMembers) =>
+        dispatchMembers.Length switch {
+            1 => dispatchMembers[0].Name,
+            _ => $"{dispatchMembers[0].Name} and {dispatchMembers.Length - 1} more members",
         };
     internal static bool TryForwardingRequestCaseFamily(Compilation compilation, INamedTypeSymbol namedType, out ForwardingRequestCaseFamilyFacts facts) {
         facts = default;
@@ -1351,16 +1366,6 @@ internal static class SymbolFacts {
             IParameterReferenceOperation parameterReference => SymbolEqualityComparer.Default.Equals(parameterReference.Parameter, parameter),
             _ => false,
         };
-    private static ISymbol? MatchingBaseMember(ImmutableArray<ISymbol> dispatchMembers, ISymbol overrideMember) =>
-        overrideMember switch {
-            IPropertySymbol property => dispatchMembers
-                .OfType<IPropertySymbol>()
-                .FirstOrDefault(candidate => SymbolEqualityComparer.Default.Equals(property.OverriddenProperty?.OriginalDefinition, candidate.OriginalDefinition)),
-            IMethodSymbol method => dispatchMembers
-                .OfType<IMethodSymbol>()
-                .FirstOrDefault(candidate => SymbolEqualityComparer.Default.Equals(method.OverriddenMethod?.OriginalDefinition, candidate.OriginalDefinition)),
-            _ => null,
-        };
     private static bool IsSimpleDispatchOverride(ISymbol member) =>
         member.DeclaringSyntaxReferences.Any(reference => reference.GetSyntax() switch {
             MethodDeclarationSyntax method => SimpleDispatchMethod(method),
@@ -1398,11 +1403,6 @@ internal static class SymbolFacts {
     private static bool IsSimpleInvocation(InvocationExpressionSyntax invocation) =>
         invocation.Expression is IdentifierNameSyntax or MemberAccessExpressionSyntax
         && invocation.ArgumentList.Arguments.All(argument => IsSimpleProjectionOrDispatchExpression(argument.Expression));
-    private static string DescribeDispatchMembers(ImmutableArray<ISymbol> dispatchMembers) =>
-        dispatchMembers.Length switch {
-            1 => dispatchMembers[0].Name,
-            _ => $"{dispatchMembers[0].Name} and {dispatchMembers.Length - 1} more members",
-        };
     internal static bool TryClosedUnionDispatch(Compilation compilation, ISymbol containingSymbol, IInvocationOperation invocation, out ClosedUnionDispatchFact fact) {
         fact = default;
         ImmutableArray<IAnonymousFunctionOperation> lambdas = [
@@ -1442,6 +1442,19 @@ internal static class SymbolFacts {
                     ? receiverType
                     : null,
         };
+    private static ImmutableArray<INamedTypeSymbol> ClosedUnionDispatchCases(INamedTypeSymbol union, ImmutableArray<IAnonymousFunctionOperation> lambdas) =>
+        [
+            .. lambdas
+                .Select(lambda => lambda.Symbol.Parameters
+                    .Select(static parameter => parameter.Type)
+                    .OfType<INamedTypeSymbol>()
+                    .FirstOrDefault(type => IsClosedUnionCase(union: union, type: type)))
+                .Where(static type => type is not null)
+                .Select(static type => type!),
+        ];
+    private static bool IsClosedUnionCase(INamedTypeSymbol union, INamedTypeSymbol type) =>
+        type.BaseType is INamedTypeSymbol baseType
+        && SymbolEqualityComparer.Default.Equals(baseType.OriginalDefinition, union.OriginalDefinition);
     private static ClosedUnionDispatchKind? ClosedUnionDispatchKindOf(IInvocationOperation invocation, ImmutableArray<IAnonymousFunctionOperation> lambdas) =>
         invocation.Type switch {
             INamedTypeSymbol type when IsMetadataLikeType(type) && lambdas.All(static lambda => !HasBehaviorInvocation(lambda)) => ClosedUnionDispatchKind.Metadata,
@@ -1465,19 +1478,6 @@ internal static class SymbolFacts {
         lambda.Body.DescendantsAndSelf()
             .OfType<IObjectCreationOperation>()
             .Any();
-    private static ImmutableArray<INamedTypeSymbol> ClosedUnionDispatchCases(INamedTypeSymbol union, ImmutableArray<IAnonymousFunctionOperation> lambdas) =>
-        [
-            .. lambdas
-                .Select(lambda => lambda.Symbol.Parameters
-                    .Select(static parameter => parameter.Type)
-                    .OfType<INamedTypeSymbol>()
-                    .FirstOrDefault(type => IsClosedUnionCase(union: union, type: type)))
-                .Where(static type => type is not null)
-                .Select(static type => type!),
-        ];
-    private static bool IsClosedUnionCase(INamedTypeSymbol union, INamedTypeSymbol type) =>
-        type.BaseType is INamedTypeSymbol baseType
-        && SymbolEqualityComparer.Default.Equals(baseType.OriginalDefinition, union.OriginalDefinition);
     private static string CaseSetKey(ImmutableArray<INamedTypeSymbol> cases) =>
         string.Join(
             separator: "|",
