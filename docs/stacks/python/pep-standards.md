@@ -93,37 +93,63 @@ The table is an index, not a PEP manual. Keep each row atomic: name the capabili
 
 ```python conceptual
 from dataclasses import dataclass
-from typing import Literal, Self, TypeIs, assert_never, final
+from typing import Literal, Self, TypeForm, TypeIs, assert_never, dataclass_transform, disjoint_base, final
 
 
 type Kind = Literal["<value-a>", "<value-b>"]
+type ExtensionValue = str | int
+type Extension = tuple[str, ExtensionValue]
+
+
+@dataclass_transform(frozen_default=True, slots_default=True, kw_only_default=True)
+def row[T: type[object]](cls: T, /) -> T:
+    return dataclass(frozen=True, slots=True, kw_only=True)(cls)
+
+
+@disjoint_base
+class ShapeFamily: ...
 
 
 @final
-@dataclass(frozen=True, slots=True)
-class Shape[T: Kind = Literal["<value-a>"]]:
+@row
+class Shape[T: Kind = Literal["<value-a>"]](ShapeFamily):
     kind: T
     key: str
     value: str
+    extensions: tuple[Extension, ...] = ()
 
     def renamed(self, key: str, /) -> Self:
-        return type(self)(kind=self.kind, key=key, value=self.value)
+        return type(self)(
+            kind=self.kind,
+            key=key,
+            value=self.value,
+            extensions=self.extensions,
+        )
 
 
 type Member = Shape[Literal["<value-a>"]] | Shape[Literal["<value-b>"]]
+type Batch[*Ts] = tuple[*Ts]
+
+
+def accepted(form: TypeForm[Member], /) -> TypeForm[Member]:
+    return form
 
 
 def primary(shape: Member, /) -> TypeIs[Shape[Literal["<value-a>"]]]:
     return shape.kind == "<value-a>"
 
 
-def projected(shape: Member, /) -> str:
+def bundled[*Ts](*members: *Ts) -> Batch[*Ts]:
+    return members
+
+
+def projected(shape: Member, prefix: str, /) -> str:
     match shape:
         case value if primary(value):
             selected = value.renamed("<field-a>")
-            return f"<result-a>:{selected.key}:{selected.value}"
+            return f"{prefix}:<result-a>:{selected.key}:{selected.value}"
         case Shape(kind="<value-b>", key=key, value=value):
-            return f"<result-b>:{key}:{value}"
+            return f"{prefix}:<result-b>:{key}:{value}"
         case _ as unreachable:
             assert_never(unreachable)
 ```
@@ -137,24 +163,7 @@ def projected(shape: Member, /) -> str:
 - Boundary: `ReadOnly` is static payload evidence; runtime immutability belongs to the materialized domain owner.
 
 ```python conceptual
-from dataclasses import dataclass
-from typing import Literal, NotRequired, ReadOnly, Required, TypedDict, assert_never
-
-
-type ExtensionValue = str | int
-type Extension = tuple[str, ExtensionValue]
-type Kind = Literal["<value-a>", "<value-b>"]
-
-
-@dataclass(frozen=True, slots=True)
-class Shape[T: Kind = Literal["<value-a>"]]:
-    kind: T
-    key: str
-    value: str
-    extensions: tuple[Extension, ...] = ()
-
-
-type Member = Shape[Literal["<value-a>"]] | Shape[Literal["<value-b>"]]
+from typing import NotRequired, ReadOnly, Required, TypedDict, assert_never
 
 
 class RowPayload(TypedDict, total=False, extra_items=ReadOnly[ExtensionValue]):
@@ -163,14 +172,22 @@ class RowPayload(TypedDict, total=False, extra_items=ReadOnly[ExtensionValue]):
     kind: NotRequired[ReadOnly[Kind]]
 
 
-def materialized(row: RowPayload, /) -> Member:
+CORE_FIELDS = frozenset({"key", "kind", "value"})
+
+
+def materialized(
+    row: RowPayload,
+    /,
+    *,
+    default: Kind = "<value-a>",
+) -> Member:
     extensions = tuple(
         (field, value)
         for field, value in row.items()
-        if field not in ("key", "kind", "value")
+        if field not in CORE_FIELDS
     )
 
-    match row.get("kind", "<value-a>"):
+    match row.get("kind", default):
         case "<value-a>":
             return Shape(
                 kind="<value-a>",
@@ -201,21 +218,13 @@ def materialized(row: RowPayload, /) -> Member:
 from collections.abc import Callable
 from dataclasses import dataclass
 from functools import wraps
-from typing import Concatenate, Literal, NotRequired, ReadOnly, Required, TypedDict, Unpack
+from typing import Concatenate, Unpack
 
-
-type Kind = Literal["<value-a>", "<value-b>"]
 
 @dataclass(frozen=True, slots=True)
 class Context:
-    kind: Kind
+    default: Kind
     prefix: str
-
-
-class RowPayload(TypedDict, total=False, closed=True):
-    key: Required[ReadOnly[str]]
-    value: Required[ReadOnly[str]]
-    kind: NotRequired[ReadOnly[Kind]]
 
 
 type RowOperation[T] = Callable[[Unpack[RowPayload]], T]
@@ -227,19 +236,21 @@ def contextual[**P, T](
     /,
 ) -> Callable[P, T]:
     @wraps(operation)
-    def projected(*args: P.args, **kwargs: P.kwargs) -> T:
+    def preserved(*args: P.args, **kwargs: P.kwargs) -> T:
         return operation(context, *args, **kwargs)
 
-    return projected
+    return preserved
 
 
 def build(context: Context, /, **row: Unpack[RowPayload]) -> str:
-    kind = row.get("kind", context.kind)
-    return f"{context.prefix}:{kind}:{row['key']}:{row['value']}"
+    return projected(
+        materialized(row, default=context.default),
+        context.prefix,
+    )
 
 
 SELECTED: RowOperation[str] = contextual(
-    Context(kind="<value-a>", prefix="<field-a>"),
+    Context(default="<value-a>", prefix="<field-a>"),
     build,
 )
 ```
@@ -280,7 +291,7 @@ def selected(
     )
     row = frozendict(
         (field, normalized)
-        for field, value in zip(fields, values, strict=True)
+        for field, value in zip(fields, map(str.strip, values, strict=True), strict=True)
         if (normalized := value.removeprefix("<field-a>:").removesuffix(":<field-b>"))
     )
     return POLICY | fallback_row | overlay | row
@@ -329,6 +340,27 @@ SELECTED, SELECTED_POLICY = materialized(selected)
 - Reject: parsing rendered strings, untyped sensitive `str`, locale-dependent persisted I/O, archive path trust, `tomli` shims, `pytz` adapters, and stringly timezone policy.
 - Law: policy consumes structured material, not reconstructed text or trusted transport names.
 
+```python conceptual
+from pathlib import Path
+from string.templatelib import Template
+from typing import LiteralString
+from zoneinfo import ZoneInfo
+import tarfile, tomllib
+
+
+type PolicyMaterial = tuple[Template, dict[str, object], tuple[str, ...], ZoneInfo]
+
+
+def materialized(policy: LiteralString, root: Path, zone: LiteralString, /) -> PolicyMaterial:
+    data = tomllib.loads((root / "<file>.toml").read_text(encoding="utf-8"))
+    zone_info = ZoneInfo(zone)
+    view = t"{policy=}:{data['<field>']=}:{zone_info.key=}"
+    with tarfile.open(root / "<archive>.tar.gz") as archive:
+        safe = tuple(item for member in archive if (item := tarfile.data_filter(member, root / "<folder>")))
+        archive.extractall(root / "<folder>", members=safe, filter="data")
+    return view, data, tuple(member.name for member in safe), zone_info
+```
+
 [IMPORT_STARTUP]:
 - PEPs: PEP 810, PEP 829, PEP 667.
 - Use when: imports, startup hooks, or locals views become runtime values.
@@ -363,6 +395,19 @@ SELECTED, SELECTED_POLICY = materialized(selected)
 - Accept: `except*`, `BaseException.add_note()`, exits kept out of `finally`, and unparenthesized exception handlers without `as`.
 - Reject: single-error collapse, message concatenation, `return`, `break`, or `continue` that exits `finally`, tuple-wrapper noise, and handler branches that erase grouped-failure identity.
 - Law: exception flow preserves the failure set and causal context; syntax cleanup is allowed only when it keeps the handled shape visible.
+
+```python conceptual
+def preserved(group: BaseExceptionGroup, /) -> None:
+    try:
+        raise group
+    except* ValueError as failures:
+        for error in failures.exceptions: error.add_note("<field>=<value-a>")
+        raise
+    except* TypeError, LookupError:
+        raise
+    finally:
+        audit("<event>")
+```
 
 [BINARY_TRANSPORT]:
 - PEPs: PEP 688, PEP 574, PEP 784.
