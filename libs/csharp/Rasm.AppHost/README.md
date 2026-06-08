@@ -25,11 +25,10 @@ Add packages centrally at the newest viable versions during Phase 0. Remove vers
 
 ## [3]-[MANUAL]
 
-| [INDEX] | [FILE]             | [READ_FOR]                                                                     |
-| :-----: | ------------------ | ------------------------------------------------------------------------------ |
+| [INDEX] | [FILE]            | [READ_FOR]                                                                     |
+| :-----: | ----------------- | ------------------------------------------------------------------------------ |
 |   [1]   | `ARCHITECTURE.md` | Composition modes, type shapes, packages, flow policy, shutdown/drain sequence |
-|   [2]   | `AGENTS.md`        | Build rules, package boundaries, rejections                                    |
-|   [3]   | `ROADMAP.md`       | Build sequence and runtime evidence                                            |
+|   [2]   | `ROADMAP.md`      | Build sequence and runtime evidence                                            |
 
 ## [4]-[CONSTRAINTS]
 

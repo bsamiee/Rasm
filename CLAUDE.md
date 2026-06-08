@@ -23,10 +23,6 @@ If reviewing, refining, editing, creating, or modifying X file type, use skill Y
 |   [6]   | Bash/sh (`.sh`, `.bash`)            | `coding-bash`               |
 |   [7]   | SQL (`.sql`)                        | `coding-pg`                 |
 
-[IMPORTANT]:
-- [ALWAYS] Language-specific mechanics come from the required `coding-*` skill.
-- [ALWAYS] Treat `.claude/skills/*` as project skill context and `/Users/bardiasamiee/.codex/skills/*` as Codex runtime skill context; keep overlapping standards mirrored when they govern this repo.
-
 ## [2]-[BEHAVIOR]
 
 [IMPORTANT]:
@@ -53,7 +49,6 @@ If reviewing, refining, editing, creating, or modifying X file type, use skill Y
 [IMPORTANT]: **.NET-Central-Package-Management**: C# package versions live in `Directory.Packages.props`; project files may declare usage but never versions.
 - [ALWAYS] Check `docs/stacks/csharp/platform` before adding a `System.*` package, global using, or BCL replacement.
 - [ALWAYS] Keep RhinoWIP/GH2/Eto/System.Drawing host assemblies resolved through `Directory.Build.props` app-bundle references; if SDK compilation needs a NuGet reference surface, add it only as a conditioned central compile package.
-- [NEVER] Add unused `PackageVersion` entries as future intent.
 
 ## [4]-[UNIVERSAL_CONSTRAINTS]
 
@@ -84,13 +79,11 @@ If reviewing, refining, editing, creating, or modifying X file type, use skill Y
 - [ALWAYS] Keep typed algorithm receipts when fields carry route, status, sampling, solver, spectral, mesh, or extraction evidence.
 - [ALWAYS] Treat CSP analyzer diagnostics as hypotheses: fix production code for true positives; refine the analyzer for false positives or fixes that add ceremony without improving correctness, capability, or maintainability.
 - [ALWAYS] Consider `tools/cs-analyzer` when a repeated C# optimization pattern is proven by diffs. Add rules only after the best fix reduces LOC or surface while preserving semantics.
-- [ALWAYS] Use indexed `Map(..., index)` plus `TraverseM(identity)` when an indexed effectful traversal is needed and no native indexed `TraverseM` exists; do not replace it with an index-threaded fold unless the fold carries additional algorithm state.
 
 ## [5]-[OUTPUT]
 
 [IMPORTANT]:
 - [ALWAYS] Use `backticks` for file paths, symbols, and CLI commands.
-- [ALWAYS] Avoid large code blocks; reference file/symbol names instead.
 - [ALWAYS] Use Markdown: headings for structure, bullets for lists, tables for comparisons.
 - [ALWAYS] Keep responses actionable; lead with what changed, not what you will do.
 
@@ -117,7 +110,6 @@ Three orthogonal rails: static analysis, unit tests, runtime verification. Each 
 
 [CRITICAL]:
 1. [NEVER] Run static, test, or bridge rails for source-comment-only, docstring-only, XML-doc-only, TSDoc-only, divider-only, declaration-order, or move-only organization work unless the user explicitly requests a quality rail or preservation proof fails.
-2. [ALWAYS] Prove move-only organization with `git diff --check` plus line, declaration, or hash preservation at the movement boundary. Report no compile, analyzer, test, or runtime claim.
 
 [IMPORTANT]:
 1. [ALWAYS] **Static fix** — `uv run python -m tools.quality static fix [paths...]`. Run after executable C# source changes, analyzer remediation, or user-requested cleanup when safe autofix is desired. Routes changed files or explicit paths to owning projects. Applies scoped `dotnet format whitespace`, `style`, and `analyzers` fixes. No build, no tests.
@@ -133,10 +125,9 @@ Three orthogonal rails: static analysis, unit tests, runtime verification. Each 
 ### [5.3]-[PLAN_DISCIPLINE]
 
 [IMPORTANT]:
-- [ALWAYS] Plans are documents, not narratives. Maximum 1-2 screen pages.
-- [ALWAYS] Structure: Context (1 sentence on why), Critical files (paths + line numbers), Approach (3-5 bullets), Verification (1-2 commands). Nothing else.
-- [NEVER] Include "Phase 1...Phase N" workflow narration, alternatives considered, or implementation prose. The plan is the recommendation, not a journal.
-- [ALWAYS] If a plan exceeds the page limit, that is signal to collapse the problem, not expand the prose.
+- [ALWAYS] Plans are documents, not narratives. Code change must be explicit, real, and validated to pass all quality checks per language tooling.
+- [ALWAYS] Structure: Context (1 sentence on why), Critical files (paths + line numbers), Approach (3-5 bullets), Code Change (true to implementaiton code block).
+- [NEVER] Include "Phase 1...Phase N" workflow narration, alternatives considered, or implementation prose. The plan is the blueprint, not a journal.
 
 ### [5.4]-[SURFACE_PREFERENCE]
 
@@ -196,7 +187,7 @@ Three orthogonal rails: static analysis, unit tests, runtime verification. Each 
 
 **Language Overlays**:
 - C#: `[Union]`, `[SmartEnum]`, `[ValueObject]`, generated case families, static entries, delegate partials, validation partials, factories, and projections stay inside the declaring owner block. Preserve generated-case and smart-enum semantic order, with one generated case or static entry per physical declaration line unless a generator or runtime contract requires grouping. Static construction order inside a type is semantic when later fields derive from earlier fields. Static kernels, projectors, acceptors, and extension folds are `[OPERATIONS]` unless they own an actual dependency or service boundary. Inside a section, prefer attributes/delegates/marker types, enums/smart enums, readonly structs/records/value objects, records/classes/services, then owner-local private types when all earlier ordering constraints are equal. Inside a C# owner block, prefer generated/static dependency entries, fields/state, constructors/factories, properties, public operations, explicit boundary adapters, internal operations, then private kernels/implementation details.
-- Python: module docstring, `__future__`, imports, `TYPE_CHECKING`, and import-time gates precede ordinary sections. Runtime decoders, encoders, registries, and tables follow the models/functions they inspect because module-level assignments execute immediately and runtime annotation consumers such as `msgspec` and `beartype` resolve real objects. `Annotated` validator functions may use `[BOUNDARIES]` between immutable constants and dependent aliases when the aliases must reference the real validator object.
+- Python: imports, `TYPE_CHECKING`, and import-time gates precede ordinary sections. Runtime decoders, encoders, registries, and tables follow the models/functions they inspect because module-level assignments execute immediately and runtime annotation consumers such as `msgspec` and `beartype` resolve real objects. `Annotated` validator functions may use `[BOUNDARIES]` between immutable constants and dependent aliases when the aliases must reference the real validator object.
 - TypeScript: side-effect/value imports preserve runtime order, and `import type`/`export type` stay explicit. Runtime schemas/classes are `[MODELS]`, `Effect.Service` owners are `[SERVICES]`, `Layer`/runtime wiring is `[COMPOSITION]`, and catalog or registry rows that reference functions/classes stay after their referenced owners.
 - Bash: shebang, ShellCheck directives, `set`/`shopt`, and environment/path gates are `[RUNTIME_PRELUDE]`; `readonly` values are `[CONSTANTS]`; `declare -Ar` maps are `[TABLES]`; traps, dispatch, source guards, and `_main` are late `[COMPOSITION]` or `[ENTRY]`.
 - PostgreSQL: extensions, schemas, and search-path guards are `[RUNTIME_PRELUDE]`; domains and types are `[TYPES]`; tables, constraints, generated columns, and partitions are `[MODELS]`; functions split by service boundary or query operation; indexes, triggers, row-level security, and policies are `[COMPOSITION]`; grants and comments are late `[EXPORTS]`.

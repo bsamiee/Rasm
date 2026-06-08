@@ -20,7 +20,6 @@ Separate rule authority from claim evidence.
 - This README controls reader need, document-type choice, corpus placement, split/link rules, and lifecycle routing.
 - Shared standards control form, craft, evidence, and notation.
 - Type standards control artifact-specific structure, status vocabulary, local proof slots, and examples.
-- `AGENTS.md` and `.reports/**` are instruction/source overlays, not standards bodies in the active document-type corpus.
 
 [CLAIM_EVIDENCE]:
 - [proof.md](proof.md) controls evidence strength, freshness, conflict handling, proof gaps, and docs-as-code gates.
@@ -34,20 +33,18 @@ Current repository truth proves current facts; it does not weaken future-facing 
 
 Read order is workflow order; owner routing and claim evidence still decide conflicts.
 
-1. For standards-library edits, follow [AGENTS.md](AGENTS.md) first.
-2. Use the reader-need matrix and type chooser below to pick one primary document type when the artifact serves a reader-need document type.
-3. For document-type standards, apply the page-anatomy and opening-contract rules in [information-structure.md](information-structure.md), then apply the chosen type standard.
-4. Apply the 4 shared standards: form, craft, evidence, and notation.
+1. Use the reader-need matrix and type chooser below to pick one primary document type when the artifact serves a reader-need document type.
+2. For document-type standards, apply the page-anatomy and opening-contract rules in [information-structure.md](information-structure.md), then apply the chosen type standard.
+3. Apply the 4 shared standards: form, craft, evidence, and notation.
 
 [NON_TYPE_ROUTES]:
 
 | [INDEX] | [SURFACE]                        | [OWNER_ROUTE]                                                        |
 | :-----: | :------------------------------- | :------------------------------------------------------------------- |
-|   [1]   | instructions and overlay prose   | [AGENTS](agents-md.md)                                               |
-|   [2]   | mirrors, indexes, retrieval, MCP | [proof](proof.md), [information-structure](information-structure.md) |
-|   [3]   | structured output and checks     | [proof](proof.md)                                                    |
-|   [4]   | proof fields and gates           | [proof.md](proof.md)                                                 |
-|   [5]   | containers and examples          | [information-structure.md](information-structure.md)                 |
+|   [1]   | mirrors, indexes, retrieval, MCP | [proof](proof.md), [information-structure](information-structure.md) |
+|   [2]   | structured output and checks     | [proof](proof.md)                                                    |
+|   [3]   | proof fields and gates           | [proof.md](proof.md)                                                 |
+|   [4]   | containers and examples          | [information-structure.md](information-structure.md)                 |
 
 ## [4]-[READER_NEED_MAP]
 
@@ -99,9 +96,9 @@ Audit root standards against form, craft, evidence, and notation only. If a find
 
 [HYGIENE_ROUTES]:
 - Agent-usable docs: [information structure](information-structure.md) chooses the carrier; [style guide](style-guide.md) makes the rule direct.
-- Process narration, source-history prose, and non-load-bearing hedges: [style guide](style-guide.md) removes them; [agents-md](agents-md.md) owns instruction-specific cases.
+- Process narration, source-history prose, and non-load-bearing hedges: [style guide](style-guide.md) removes them.
 - Proof, source, provenance, and freshness fields: [proof](proof.md) owns evidence shape and proof gaps.
-- External-library implementation policy: route docs behavior through [docs overlay](../AGENTS.md), cross-stack precedence through [usage](../usage/README.md), and language-specific decisions through `stacks/<language>/`.
+- External-library implementation policy: route cross-stack precedence through [usage](../usage/README.md), and language-specific decisions through `stacks/<language>/`.
 
 ## [7]-[PLACEMENT]
 
@@ -115,13 +112,10 @@ Place documentation where the reader or tool first looks:
 |   [4]   | Authoring standards                        | `docs/standards/`     | this standards library                              |
 |   [5]   | Public symbol rationale                    | source files          | code documentation standard                         |
 |   [6]   | Scope-local planning set                   | `<scope>/.planning/`  | roadmap, architecture, design spec, optional README |
-|   [7]   | Scope-local report set                     | `<scope>/.reports/`   | source-material reports and optional local overlay  |
 
 Prefer one owner for a claim. Link across owners instead of copying the same claim into multiple pages.
 
 Use `.planning/` as a flat scope-local planning container when roadmap, planning architecture, and `SPEC.<slug>.md` files need to live together without turning the scope README into a planning surface. A `.planning/README.md` appears only when 2 or more planning files need routing.
-
-Use `.reports/` as a scope-local source-material container for reusable agent research, investigation, findings, critique, synthesis, or promotion material. A `.reports/AGENTS.md` owns report mechanics when the report archive needs local session rules.
 
 ## [8]-[SPLIT_LINK]
 
@@ -137,7 +131,7 @@ When a draft serves more than one primary reader need, split it:
 |   [6]   | Implementation sequence                  | architecture or README  | roadmap          |
 |   [7]   | Proposal review                          | roadmap or architecture | design doc       |
 |   [8]   | Contribution workflow                    | README                  | contributing     |
-|   [9]   | Scope-local planning routes              | README or AGENTS.md     | `.planning/`     |
+|   [9]   | Scope-local planning routes              | README                  | `.planning/`     |
 
 After splitting, add the smallest cross-link that changes reader action, proof, or maintenance. Do not leave a summary copy that can drift.
 
@@ -156,21 +150,18 @@ Unless live product support and evidence justify them, do not preserve old paths
 
 ```text conceptual
 docs/standards/
-├── .reports/                  # source-material work reports
 ├── explanation/               # architecture, ADR, design, roadmap, test strategy
 ├── reference/                 # README, lookup, API, code docs, support matrix
 ├── task/                      # how-to, runbook, contributing
 ├── learning/                  # tutorial, onboarding
 ├── README.md                  # this router
-├── AGENTS.md                  # local instruction overlay
 ├── information-structure.md   # form
 ├── style-guide.md             # craft
 ├── proof.md                   # evidence
-├── formatting.md              # notation
-└── agents-md.md               # AGENTS.md surface standard
+└── formatting.md              # notation
 ```
 
-Active standards are the files in this layout except `.reports/**` and folders explicitly marked deprecated by a trusted local instruction or route owner. `AGENTS.md` is an instruction overlay, not a standards body.
+Active standards are the files in this layout except folders explicitly marked deprecated by a trusted local instruction or route owner.
 
 ## [11]-[ANTI_PATTERNS]
 
@@ -215,7 +206,6 @@ These anti-patterns fall into three groups:
 - Shared standards carry cross-cutting rules; this README only routes readers to them.
 - Type standards carry artifact-specific structure; this README only chooses the primary type.
 - The active repository instruction route carries cross-stack implementation precedence and proof order outside the standards library.
-- [AGENTS.md](AGENTS.md) carries local agent routing, read scope, audit contracts, and close checks for edits inside this folder.
 
 ## [14]-[VALIDATION]
 

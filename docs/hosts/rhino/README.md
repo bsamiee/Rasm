@@ -1,12 +1,12 @@
 # [RHINO_HOST]
 
-Rhino host truth comes from local RhinoWIP XML, decompile evidence when XML is silent, the API rail, source-owned bridge scenarios, and `libs/csharp/Rasm.Rhino/AGENTS.md`.
+Rhino host truth comes from local RhinoWIP XML, decompile evidence when XML is silent, the API rail, source-owned bridge scenarios, and the `Rasm.Rhino` source boundary.
 
 ## [1]-[READ_ROUTE]
 
 - Member availability: local RhinoWIP XML and the API rail.
 - Missing XML semantics: decompile evidence or runtime bridge scenario.
-- Boundary design: `libs/csharp/Rasm.Rhino/AGENTS.md`.
+- Boundary design: `Rasm.Rhino` source and architecture routes.
 - Runtime proof: source-owned `*.verify.csx` scenarios through the bridge rail.
 
 ## [2]-[BOUNDARIES]

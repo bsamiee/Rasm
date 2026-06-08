@@ -6,12 +6,9 @@ This planning architecture records `docs/stacks/python/` as the Python stack doc
 
 ```text conceptual
 docs/stacks/python/                              # Python stack decision atlas
-├── AGENTS.md                                    # leaf overlay routes for Python stack edits
 ├── README.md                                    # stack chooser and planned route orientation
 ├── language.md                                  # current Python language surface
 ├── pep-standards.md                             # PEP-backed action index and family contracts
-├── .reports/                                    # source-material report companion
-│   └── AGENTS.md                                # report session mechanics for Python stack research
 └── .planning/                                   # scope-local planning state
     ├── ARCHITECTURE.md                          # current topology and planned topology
     ├── ROADMAP.md                               # milestone sequencing and task status
@@ -22,13 +19,13 @@ Planned files appear only in `Planned view` until created.
 
 ## [2]-[SCOPE_BOUNDARY]
 
-Included: `docs/stacks/python/`, its README chooser, leaf overlay, language decision page, PEP standards page, scope-local report companion, and scope-local planning files.
+Included: `docs/stacks/python/`, its README chooser, language decision page, PEP standards page, and scope-local planning files.
 
-Excluded: Python source implementation, exact package version tables, generated outputs, runtime validation logs, report source material as doctrine, and durable coding doctrine after concept pages exist.
+Excluded: Python source implementation, exact package version tables, generated outputs, runtime validation logs, and durable coding doctrine after concept pages exist.
 
-Adjacent routes: `pyproject.toml` carries current Python package and tool graph truth until the platform route exists; `docs/stacks/AGENTS.md` carries stack-parent topology; `docs/standards/` carries documentation form.
+Adjacent routes: `pyproject.toml` carries current Python package and tool graph truth until the platform route exists; the root instruction route carries stack-parent work order; `docs/standards/` carries documentation form.
 
-Reader rule: edits under `docs/stacks/python/` must keep the README chooser, leaf overlay, roadmap, and planned architecture aligned.
+Reader rule: edits under `docs/stacks/python/` must keep the README chooser, roadmap, and planned architecture aligned.
 
 ## [3]-[PROJECT_IDENTITY]
 
@@ -43,30 +40,22 @@ Current owner lookup:
 | [INDEX] | [SURFACE]                               | [ROLE]           |
 | :-----: | :-------------------------------------- | :--------------- |
 |   [1]   | `README.md`                             | stack chooser    |
-|   [2]   | `AGENTS.md`                             | edit overlay     |
-|   [3]   | `language.md`                           | language surface |
-|   [4]   | `pep-standards.md`                      | PEP action index |
-|   [5]   | `.reports/AGENTS.md`                    | report companion |
-|   [6]   | `.planning/ROADMAP.md`                  | sequence owner   |
-|   [7]   | `.planning/ARCHITECTURE.md`             | topology owner   |
-|   [8]   | `.planning/SPEC.aot-first-decorator.md` | planning source  |
+|   [2]   | `language.md`                           | language surface |
+|   [3]   | `pep-standards.md`                      | PEP action index |
+|   [4]   | `.planning/ROADMAP.md`                  | sequence owner   |
+|   [5]   | `.planning/ARCHITECTURE.md`             | topology owner   |
+|   [6]   | `.planning/SPEC.aot-first-decorator.md` | planning source  |
 
 [OWNER_BOUNDARIES]:
 - Surface: `README.md`
   - Owns: stack chooser and planned route orientation.
   - Route-away: language doctrine and concept-page bodies.
-- Surface: `AGENTS.md`
-  - Owns: leaf overlay routes for Python stack edits.
-  - Route-away: syntax law, PEP explanations, package facts, and validation ladders.
 - Surface: `language.md`
   - Owns: current Python language surface.
   - Route-away: data-shape taxonomy, dispatch, rails, boundaries, runtime, algorithms, and proof.
 - Surface: `pep-standards.md`
   - Owns: PEP-backed action index, row inclusion law, and cross-cutting PEP family contracts.
   - Route-away: PEP prose, platform package graph truth, native extension policy, and concept-page doctrine.
-- Surface: `.reports/AGENTS.md`
-  - Owns: report session mechanics for reusable Python stack research.
-  - Route-away: durable doctrine, roadmap state, planned topology, package graph truth, and proof claims.
 - Surface: `.planning/ROADMAP.md`
   - Owns: milestone sequencing and task status.
   - Route-away: durable coding law.
@@ -86,22 +75,14 @@ This scope owns no generated contract. If a future Python stack page represents 
 | [INDEX] | [ENTRYPOINT]                            | [KIND]       | [NEXT]       |
 | :-----: | :-------------------------------------- | :----------- | :----------- |
 |   [1]   | `README.md`                             | chooser      | concept page |
-|   [2]   | `AGENTS.md`                             | overlay      | stack route  |
-|   [3]   | `.reports/AGENTS.md`                    | report       | spec sheet   |
-|   [4]   | `.planning/ROADMAP.md`                  | roadmap      | active task  |
-|   [5]   | `.planning/ARCHITECTURE.md`             | architecture | planned view |
-|   [6]   | `.planning/SPEC.aot-first-decorator.md` | spec sheet   | future owner |
+|   [2]   | `.planning/ROADMAP.md`                  | roadmap      | active task  |
+|   [3]   | `.planning/ARCHITECTURE.md`             | architecture | planned view |
+|   [4]   | `.planning/SPEC.aot-first-decorator.md` | spec sheet   | future owner |
 
 [ENTRYPOINT_EFFECTS]:
 - Entrypoint: `README.md`
   - Input: Python stack decision.
   - Effect: routes reader action to the owning page.
-- Entrypoint: `AGENTS.md`
-  - Input: Python stack edit.
-  - Effect: changes maintenance behavior for this folder.
-- Entrypoint: `.reports/AGENTS.md`
-  - Input: reusable Python stack research session.
-  - Effect: keeps report mechanics source-material-only and promotes final guidance to a planning spec sheet.
 - Entrypoint: `.planning/ROADMAP.md`
   - Input: planned stack buildout.
   - Effect: preserves sequence and task status.
@@ -112,7 +93,7 @@ This scope owns no generated contract. If a future Python stack page represents 
   - Input: AOT-first planning detail.
   - Effect: remains source material until referenced rules land.
 
-The README chooser selects the concept page for the coding decision and uses the roadmap only when the concept page is planned but not yet promoted. The AGENTS overlay changes maintenance behavior for this folder; it does not carry language rules, package graph state, roadmap task bodies, report mechanics, or architecture codemap.
+The README chooser selects the concept page for the coding decision and uses the roadmap only when the concept page is planned but not yet promoted.
 
 ## [6]-[DEPENDENCY_DIRECTION]
 
@@ -128,10 +109,8 @@ config:
 ---
 flowchart LR
     accTitle: Python stack dependency direction
-    accDescr: The Python stack overlay routes edits to the README chooser, roadmap, and report companion; report sessions promote into planning spec sheets; architecture and roadmap synchronize planning state; concept owners feed later testing and platform routes; and planned labels stay out of the current codemap until files exist.
-    Overlay["AGENTS.md"]
+    accDescr: The Python stack README routes edits to the chooser and roadmap; architecture and roadmap synchronize planning state; concept owners feed later testing and platform routes; and planned labels stay out of the current codemap until files exist.
     Chooser["README.md"]
-    Reports[".reports/AGENTS.md"]
     Architecture[".planning/ARCHITECTURE.md"]
     Roadmap[".planning/ROADMAP.md"]
     Spec["planning spec sheets"]
@@ -140,10 +119,6 @@ flowchart LR
     Platform["platform package routes"]
     Codemap["current codemap"]
 
-    Overlay --> Chooser
-    Overlay --> Roadmap
-    Overlay --> Reports
-    Reports --> Spec
     Chooser --> Concepts
     Architecture <--> Roadmap
     Architecture --> Spec
@@ -154,7 +129,7 @@ flowchart LR
     Platform -. "no core ownership" .-> Concepts
 ```
 
-Text equivalent: `AGENTS.md` changes maintenance routing toward the README chooser, roadmap, and report companion; `.reports/AGENTS.md` keeps research source-material-only and promotes final guidance to planning spec sheets; `.planning/ARCHITECTURE.md` and `.planning/ROADMAP.md` keep topology and sequence synchronized; planning spec sheets feed future concept owners; core concept pages feed testing in M-0020 and platform in M-0030; testing and platform routes must not own core concept doctrine; planned labels enter the current codemap only after their files exist.
+Text equivalent: `README.md` routes reader decisions toward concept owners and roadmap-backed planned pages; `.planning/ARCHITECTURE.md` and `.planning/ROADMAP.md` keep topology and sequence synchronized; planning spec sheets feed future concept owners; core concept pages feed testing in M-0020 and platform in M-0030; testing and platform routes must not own core concept doctrine; planned labels enter the current codemap only after their files exist.
 
 ## [7]-[INVARIANTS]
 
@@ -259,7 +234,7 @@ docs/stacks/python/platform/
 
 [SPEC_SHEETS]:
 - Planned structure: `SPEC.core-modeling-composition.md`, `SPEC.runtime-algorithms.md`, `SPEC.testing-proof-rails.md`, `SPEC.platform-package-graph.md`, and `SPEC.planning-route-closure.md`.
-- Current anchor: [ROADMAP](ROADMAP.md) phase research/spec tasks and `.reports/AGENTS.md`.
+- Current anchor: [ROADMAP](ROADMAP.md) phase research/spec tasks.
 - Source: [ROADMAP](ROADMAP.md) P-0020 through P-0060.
 - Use now: keep deep research handoff out of roadmap task bodies and active concept pages until each spec sheet is created.
 - Promotion target: files under `docs/stacks/python/.planning/`.
@@ -316,7 +291,7 @@ Proof gap: planned spec sheets plus planned core, testing, and platform pages do
 
 ## [11]-[BOUNDARIES]
 
-Architecture carries current and planned topology. Roadmap carries task order and progress. README carries reader orientation. AGENTS carries local maintenance behavior. `.reports/AGENTS.md` carries source-material mechanics. Spec sheets carry task-ready synthesis until promoted. Concept pages carry coding decisions. Testing pages carry proof decisions. Platform pages carry package graph and build truth.
+Architecture carries current and planned topology. Roadmap carries task order and progress. README carries reader orientation. AGENTS carries local maintenance behavior. Spec sheets carry task-ready synthesis until promoted. Concept pages carry coding decisions. Testing pages carry proof decisions. Platform pages carry package graph and build truth.
 
 Do not preserve this planning architecture as current structure after the planned pages become ordinary docs.
 

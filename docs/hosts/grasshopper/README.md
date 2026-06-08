@@ -1,12 +1,12 @@
 # [GRASSHOPPER_HOST]
 
-Grasshopper 2 host truth comes from local GH2 XML, decompile evidence when XML is silent, the API rail, source-owned bridge scenarios, and `libs/csharp/Rasm.Grasshopper/AGENTS.md`.
+Grasshopper 2 host truth comes from local GH2 XML, decompile evidence when XML is silent, the API rail, source-owned bridge scenarios, and the `Rasm.Grasshopper` source boundary.
 
 ## [1]-[READ_ROUTE]
 
 - Member availability: local GH2 XML and the API rail.
 - Missing XML semantics: decompile evidence or runtime bridge scenario.
-- Boundary design: `libs/csharp/Rasm.Grasshopper/AGENTS.md`.
+- Boundary design: `Rasm.Grasshopper` source and architecture routes.
 - Runtime proof: source-owned `*.verify.csx` scenarios through the bridge rail.
 
 ## [2]-[BOUNDARIES]

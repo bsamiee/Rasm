@@ -25,8 +25,7 @@ It is not an Avalonia wrapper, ReactiveUI wrapper, Skia wrapper, charting wrappe
 | [INDEX] | [FILE]             | [READ_FOR]                                                                                                               |
 | :-----: | ------------------ | ------------------------------------------------------------------------------------------------------------------------ |
 |   [1]   | `ARCHITECTURE.md` | Rail contract, type shapes, host delegation, package matrix, embedding rules, world-class capabilities, runtime evidence |
-|   [2]   | `AGENTS.md`        | Build rules, forbidden duplicates, embedding constraints, package rejections                                             |
-|   [3]   | `ROADMAP.md`       | Build sequence, integration surfaces, promotion criteria, Phase-0 verification gates (§6)                                |
+|   [2]   | `ROADMAP.md`       | Build sequence, integration surfaces, promotion criteria, Phase-0 verification gates (§6)                                |
 
 ## [4]-[CONSTRAINTS]
 

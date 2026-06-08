@@ -10,7 +10,7 @@ Use a README to open exactly one boundary:
 - documentation corpus for routing a reader to the next page.
 - tool, command, or local service for the first successful invocation and curated operating surface.
 
-Route exhaustive architecture structure, generated API or symbol catalogs, complete flag help, learning paths, operational recovery, future-work sequences, durable decisions, and contribution workflow to their controlling standards. Route agent-only read order, behavioral overlays, validation ladders, forbidden patterns, and provider-loading rules to `AGENTS.md`. A README may link an instruction file when it changes the reader's route, but it must not copy the instruction body. Keep the README to orientation, first path, action-changing status, curated operating facts, and routing.
+Route exhaustive architecture structure, generated API or symbol catalogs, complete flag help, learning paths, operational recovery, future-work sequences, durable decisions, contribution workflow, and instruction-only behavior to their controlling standards. A README may link an instruction file when it changes the reader's route, but it must not copy the instruction body. Keep the README to orientation, first path, action-changing status, curated operating facts, and routing.
 
 ## [2]-[AUTHORING_CONTRACT]
 
@@ -19,7 +19,7 @@ README files carry useful operating facts at summary depth: boundary, first succ
 - Agent use: identify the one boundary the README opens, choose the matching profile, and route deeper bodies to their routes.
 - Produced structure: title, description, profile-required first path or routing sections, status/support facts only when they change action, curated operating sections when triggered, and maintained document routes.
 - Section cardinality: one title, one description, one primary profile, required profile sections once, conditional sections only when triggered.
-- Adjacent checks: check `AGENTS.md`, architecture, API, reference, support matrix, tutorial, how-to, runbook, roadmap, contributing, and code documentation only when README status, first path, entrypoints, or routes change.
+- Adjacent checks: check architecture, API, reference, support matrix, tutorial, how-to, runbook, roadmap, contributing, code documentation, and instruction routes only when README status, first path, entrypoints, or routes change.
 - Maintenance triggers: display name, boundary, first command, verification signal, status, support fact, entrypoint, curated command surface, side effect, machine contract, integration, license, child page, or maintained route changes.
 
 ## [3]-[README_BASELINES]
@@ -187,7 +187,7 @@ README section cardinality uses these groups:
 
 Package entry field order is a README-local exception because package readers decide from status and entrypoints first: `Status`, `Entrypoints`, `First path` or `First command` when runnable, `Verify` when a first path exists, `Documents`, `Constraints`, `Update when`, `Route-away`.
 
-A tool README may show the first command, one verification command, side effects needed to interpret first success, and a curated command or integration surface when those facts are the operator-facing product. Full generated command help, exhaustive flags, complete envelope field catalogs, status algebra, source signatures, maintenance gates, and recovery procedures route to API, reference, architecture, runbook, source, or `AGENTS.md` routes.
+A tool README may show the first command, one verification command, side effects needed to interpret first success, and a curated command or integration surface when those facts are the operator-facing product. Full generated command help, exhaustive flags, complete envelope field catalogs, status algebra, source signatures, maintenance gates, and recovery procedures route to API, reference, architecture, runbook, source, or instruction routes.
 
 ## [7]-[BADGES_BANNERS]
 
@@ -226,10 +226,9 @@ Use this surface-split selector. Rows name ownership routes, not inventories:
 | [INDEX] | [SURFACE]                    | [README_KEEPS]                       | [ROUTE_AWAY]                          |
 | :-----: | :--------------------------- | :----------------------------------- | :------------------------------------ |
 |   [1]   | `README.md`                  | boundary, first path, status, routes | exhaustive catalogs and workflows     |
-|   [2]   | `AGENTS.md`                  | agent route link                     | read order, invariants, gates         |
-|   [3]   | `ARCHITECTURE.md`            | current-structure link               | codemaps, matrices, invariants        |
-|   [4]   | API/reference/code docs      | generated or lookup route link       | commands, schemas, symbols, fields    |
-|   [5]   | runbook/contributing/roadmap | recovery, PR, or sequence route link | workflows, active work, terminal work |
+|   [2]   | `ARCHITECTURE.md`            | current-structure link               | codemaps, matrices, invariants        |
+|   [3]   | API/reference/code docs      | generated or lookup route link       | commands, schemas, symbols, fields    |
+|   [4]   | runbook/contributing/roadmap | recovery, PR, or sequence route link | workflows, active work, terminal work |
 
 README files do not use invocation markers such as `[CRITICAL]`, `[ALWAYS]`, or `[NEVER]`; those belong in instruction surfaces.
 
@@ -272,7 +271,6 @@ Entrypoints: `<import surface, command, executable, or public type family>`
 First command: `<copyable command; omit when the package has no first command>`
 Verify: `<observable result, command, or status check; omit when no runnable path exists>`
 Machine contract: `<stdout/stderr/exit/artifact summary; omit when not a machine-consumed tool>`
-Agent route: `<AGENTS.md route; omit when no local instruction surface changes reader behavior>`
 Documents: `<adjacent document links>`
 Constraints: `<reader-facing assumptions only>`
 Update when: `<status, entrypoint, first path, verification, document route, or constraint changes>`
@@ -288,7 +286,7 @@ Verify: command emits the declared machine envelope and does not touch runtime s
 Route-away: full command catalog, envelope fields, status exits, tool architecture, and operational recovery stay in reference, API, architecture, and runbook documents.
 ```
 
-The card above is valid because the fields decide first use. Instruction files may appear in a README map only as agent instruction targets; do not list `AGENTS.md` as a package, corpus, or tool entrypoint.
+The card above is valid because the fields decide first use. Instruction files may appear in a README map only as agent instruction targets; do not list an instruction file as a package, corpus, or tool entrypoint.
 
 Rejected table stack:
 
@@ -408,13 +406,12 @@ Route-away: runtime, package, and host API lookup stay in reference routes.
 
 The example is conceptual: it shows the minimum root README path with command proof and route selection, not a universal public section set.
 
-Root README correction: a root `## Commands` section that copies build, runtime, packaging, deployment, publishing, and verification verbs is rejected. The root may show one first command and one verification signal; command inventories belong to API/reference routes, recovery to runbook, and execution rules to `AGENTS.md`.
+Root README correction: a root `## Commands` section that copies build, runtime, packaging, deployment, publishing, and verification verbs is rejected. The root may show one first command and one verification signal; command inventories belong to API/reference routes, recovery to runbook, and execution rules to instruction routes.
 
 ## [11]-[BOUNDARIES]
 
 [SOURCE_ROUTES]:
 - [README.md](../README.md) carries document-type routing, placement, splitting, and lifecycle.
-- [AGENTS.md](../AGENTS.md) carries agent read order, behavioral overlays, forbidden patterns, and validation gates.
 - [architecture.md](../explanation/architecture.md) carries current structure and invariants.
 - [roadmap.md](../explanation/roadmap.md) carries `.planning/` roadmap shape and planning-file boundaries.
 - [api.md](api.md) carries generated endpoint and symbol catalogs.

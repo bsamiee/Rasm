@@ -20,7 +20,7 @@ Task completion requires the target file to exist, the README chooser to route t
 
 ## [3]-[BOUNDARIES]
 
-This roadmap owns the Python stack documentation buildout sequence only. Current language decisions live in [language](../language.md), stack orientation lives in [README](../README.md), local agent behavior lives in [AGENTS](../AGENTS.md), and planned topology lives in [architecture](ARCHITECTURE.md).
+This roadmap owns the Python stack documentation buildout sequence only. Current language decisions live in [language](../language.md), stack orientation lives in [README](../README.md), and planned topology lives in [architecture](ARCHITECTURE.md).
 
 The first milestone is core coding doctrine only: language, PEP routing, dense value shapes, dispatch surfaces, rails, boundaries, runtime, and algorithms. Testing is the second milestone. Platform and package graph truth are the third milestone.
 
@@ -43,15 +43,15 @@ Milestone:
 - Progress: [████████░░░░░░░░░░░░] 38%
 - Phases:
     - P-0010: Foundation decision surfaces.
-        - Scope: `docs/stacks/python/README.md`, `docs/stacks/python/AGENTS.md`, `docs/stacks/python/language.md`, `docs/stacks/python/.planning/`.
+        - Scope: `docs/stacks/python/README.md`, `docs/stacks/python/language.md`, `docs/stacks/python/.planning/`.
         - Completion rule: all child tasks are `[COMPLETE]`.
         - Progress basis: complete child tasks over this phase's tasks.
         - Progress: [████████████████████] 100%
         - Tasks:
-            - [x] T-0010 [COMPLETE] Establish Python stack chooser and overlay routing
-                - Work: establish Python stack chooser and overlay routing.
-                - Target: `docs/stacks/python/README.md`, `docs/stacks/python/AGENTS.md`.
-                - Exit: stack chooser and overlay routing are established.
+            - [x] T-0010 [COMPLETE] Establish Python stack chooser routing
+                - Work: establish Python stack chooser routing.
+                - Target: `docs/stacks/python/README.md`.
+                - Exit: stack chooser routing is established.
                 - Proof required: source review and Markdown validation.
             - [x] T-0020 [COMPLETE] Rewrite `language.md` as the version-feature document for Python 3.10 through 3.15
                 - Work: rewrite `language.md` as a concise Python 3.10-3.15 feature surface, prioritizing Python 3.15 and then Python 3.14.
@@ -231,7 +231,7 @@ Milestone:
                 - Exit: `build-and-packages.md` owns package graph and build truth, while core concept pages own coding decisions.
                 - Proof required: source review and Markdown validation.
     - P-0060: Planning route closure.
-        - Scope: `docs/stacks/python/README.md`, `docs/stacks/python/AGENTS.md`, `docs/stacks/python/.planning/ARCHITECTURE.md`, `docs/stacks/python/.planning/SPEC.planning-route-closure.md`.
+        - Scope: `docs/stacks/python/README.md`, `docs/stacks/python/.planning/ARCHITECTURE.md`, `docs/stacks/python/.planning/SPEC.planning-route-closure.md`.
         - Depends on: P-0050.
         - Completion rule: all child tasks are `[COMPLETE]`.
         - Progress basis: complete child tasks over this phase's tasks.
@@ -244,12 +244,12 @@ Milestone:
                 - Exit: the spec sheet defines the handoff for reconciliation and planning-only detail retirement.
                 - Proof required: source review and Markdown validation.
                 - Handoff: phase closure tasks use the spec sheet as reference material.
-            - [ ] T-0230 [QUEUED] Reconcile `README.md`, `AGENTS.md`, and `.planning/ARCHITECTURE.md`
-                - Work: reconcile `README.md`, `AGENTS.md`, and `.planning/ARCHITECTURE.md` after core, testing, and platform pages exist.
-                - Target: `docs/stacks/python/README.md`, `docs/stacks/python/AGENTS.md`, `docs/stacks/python/.planning/ARCHITECTURE.md`.
+            - [ ] T-0230 [QUEUED] Reconcile `README.md` and `.planning/ARCHITECTURE.md`
+                - Work: reconcile `README.md` and `.planning/ARCHITECTURE.md` after core, testing, and platform pages exist.
+                - Target: `docs/stacks/python/README.md`, `docs/stacks/python/.planning/ARCHITECTURE.md`.
                 - Reference material: `SPEC.planning-route-closure.md#reconciliation`.
                 - Depends on: T-0220.
-                - Exit: chooser, overlay, and planning architecture agree with promoted pages.
+                - Exit: chooser and planning architecture agree with promoted pages.
                 - Proof required: source review and Markdown validation.
             - [ ] T-0240 [QUEUED] Retire planning-only detail
                 - Work: retire planning-only detail that has been promoted to active owners.

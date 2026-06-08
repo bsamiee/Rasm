@@ -25,8 +25,7 @@ Add packages centrally at the newest viable versions during Phase 0. Do not pin 
 | [INDEX] | [FILE]             | [READ_FOR]                                                                             |
 | :-----: | ------------------ | -------------------------------------------------------------------------------------- |
 |   [1]   | `ARCHITECTURE.md` | Type shapes, substrate selection, packages, boundary rules, failure model, measurement |
-|   [2]   | `AGENTS.md`        | Build rules, boundary enforcement, and package rejections                              |
-|   [3]   | `ROADMAP.md`       | Build sequence and scoped lanes                                                        |
+|   [2]   | `ROADMAP.md`       | Build sequence and scoped lanes                                                        |
 
 ## [4]-[CONSTRAINTS]
 
