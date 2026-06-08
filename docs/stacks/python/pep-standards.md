@@ -360,6 +360,13 @@ def materialized(policy: LiteralString, root: Path, zone: LiteralString, /) -> P
     return view, data, tuple(member.name for member in safe), zone_info
 ```
 
+[EXCEPTION_FLOW]:
+- PEPs: PEP 765, PEP 654, PEP 678, PEP 758.
+- Use when: exception structure, grouped failure transport, or handler syntax changes control-flow semantics.
+- Accept: `except*`, `BaseException.add_note()`, exits kept out of `finally`, and unparenthesized exception handlers without `as`.
+- Reject: single-error collapse, message concatenation, `return`, `break`, or `continue` that exits `finally`, tuple-wrapper noise, and handler branches that erase grouped-failure identity.
+- Law: exception flow preserves the failure set and causal context; syntax cleanup is allowed only when it keeps the handled shape visible.
+
 [IMPORT_STARTUP]:
 - PEPs: PEP 810, PEP 829, PEP 667.
 - Use when: imports, startup hooks, or locals views become runtime values.
@@ -367,12 +374,54 @@ def materialized(policy: LiteralString, root: Path, zone: LiteralString, /) -> P
 - Reject: local-import startup hacks, executable `.pth` import lines, hidden package-marker side effects, and assumed `locals()` write-through.
 - Law: evaluation and startup boundaries must be visible where the module declares them.
 
+```python conceptual
+# <distribution>.start: <module>:startup
+from types import FrameType
+lazy import cold_surface
+
+def startup(frame: FrameType, /) -> object:
+    declared = locals()
+    return cold_surface.activate(declared | {"<field>": frame.f_locals["<field>"]})
+```
+
+[BINARY_TRANSPORT]:
+- PEPs: PEP 688, PEP 574, PEP 784.
+- Use when: binary payloads, buffers, compressed data, or serialized streams cross boundaries.
+- Accept: `Buffer`, `__buffer__`, protocol 5 out-of-band buffers, and `compression.zstd`.
+- Reject: `bytes` or `ByteString` buffer aliases, copy-heavy pickle blobs, bespoke zstd adapters, subprocess compression shells, and pre-decoded byte piles that discard buffer ownership.
+- Law: binary boundaries carry buffer, compression, and serialization semantics directly.
+
+```python conceptual
+from collections.abc import Buffer
+import compression.zstd as zstd, pickle
+
+class Packet:
+    def __init__(self, view: memoryview, /): self._view = view
+    def __buffer__(self, flags: int, /) -> memoryview: return self._view
+
+def encode(payload: Buffer, /) -> tuple[bytes, tuple[pickle.PickleBuffer, ...]]:
+    buffers: list[pickle.PickleBuffer] = []
+    return zstd.compress(pickle.dumps(pickle.PickleBuffer(payload), protocol=5, buffer_callback=buffers.append)), tuple(buffers)
+```
+
 [FREE_THREADING]:
 - PEPs: PEP 779, PEP 703, PEP 567.
 - Use when: shared mutation, context propagation, or supported-target claims depend on free-threaded execution.
 - Accept: free-threaded Python as a supported target, explicit synchronization for shared mutation, and `ContextVar` for async or thread context.
 - Reject: experimental no-GIL caveats, implicit GIL serialization, thread-local async state, mutable ambient globals, and import-time singleton mutation as coordination.
 - Law: free-threaded code makes mutation ownership and context propagation explicit before relying on scheduling or cache behavior.
+
+```python conceptual
+from contextvars import ContextVar
+from threading import RLock
+
+scope: ContextVar[str] = ContextVar("scope", default="<value-a>")
+gate = RLock()
+
+def record(rows: ShapeRows, key: str, delta: int, /) -> tuple[str, int]:
+    with gate:
+        return scope.get(), rows.add(key, delta)
+```
 
 [INTERPRETERS]:
 - PEPs: PEP 734, PEP 684.
@@ -387,33 +436,6 @@ def materialized(policy: LiteralString, root: Path, zone: LiteralString, /) -> P
 - Accept: frame-pointer-preserving builds, profiling namespaces, safe debug attach points, `sys.monitoring`, audit hooks, `co_lines()`, and fine-grained traceback locations.
 - Reject: frame-pointer-stripped native builds, legacy `profile`, debugger injection hooks, `settrace()` event scrapers, monkeypatch security probes, `co_lnotab` decoding, and line-only diagnostics.
 - Law: diagnostics use runtime-owned observation surfaces; private hooks and timing loops do not replace event, stack, or source-location evidence.
-
-[EXCEPTION_FLOW]:
-- PEPs: PEP 765, PEP 654, PEP 678, PEP 758.
-- Use when: exception structure, grouped failure transport, or handler syntax changes control-flow semantics.
-- Accept: `except*`, `BaseException.add_note()`, exits kept out of `finally`, and unparenthesized exception handlers without `as`.
-- Reject: single-error collapse, message concatenation, `return`, `break`, or `continue` that exits `finally`, tuple-wrapper noise, and handler branches that erase grouped-failure identity.
-- Law: exception flow preserves the failure set and causal context; syntax cleanup is allowed only when it keeps the handled shape visible.
-
-```python conceptual
-def preserved(group: BaseExceptionGroup, /) -> None:
-    try:
-        raise group
-    except* ValueError as failures:
-        for error in failures.exceptions: error.add_note("<field>=<value-a>")
-        raise
-    except* TypeError, LookupError:
-        raise
-    finally:
-        audit("<event>")
-```
-
-[BINARY_TRANSPORT]:
-- PEPs: PEP 688, PEP 574, PEP 784.
-- Use when: binary payloads, buffers, compressed data, or serialized streams cross boundaries.
-- Accept: `Buffer`, `__buffer__`, protocol 5 out-of-band buffers, and `compression.zstd`.
-- Reject: `bytes` or `ByteString` buffer aliases, copy-heavy pickle blobs, bespoke zstd adapters, subprocess compression shells, and pre-decoded byte piles that discard buffer ownership.
-- Law: binary boundaries carry buffer, compression, and serialization semantics directly.
 
 [PROJECT_METADATA]:
 - PEPs: PEP 735, PEP 808.
