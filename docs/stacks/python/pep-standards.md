@@ -93,64 +93,75 @@ The table is an index, not a PEP manual. Keep each row atomic: name the capabili
 
 ```python conceptual
 from dataclasses import dataclass
-from typing import Literal, Self, TypeForm, TypeIs, assert_never, dataclass_transform, disjoint_base, final
+from typing import Literal, Protocol, Self, TypeForm, TypeGuard, TypeIs, assert_never
+from typing import dataclass_transform, disjoint_base, final, override
 
 
 type Kind = Literal["<value-a>", "<value-b>"]
-type ExtensionValue = str | int
-type Extension = tuple[str, ExtensionValue]
-
-
-@dataclass_transform(frozen_default=True, slots_default=True, kw_only_default=True)
-def row[T: type[object]](cls: T, /) -> T:
-    return dataclass(frozen=True, slots=True, kw_only=True)(cls)
-
-
-@disjoint_base
-class ShapeFamily: ...
-
-
-@final
-@row
-class Shape[T: Kind = Literal["<value-a>"]](ShapeFamily):
-    kind: T
-    key: str
-    value: str
-    extensions: tuple[Extension, ...] = ()
-
-    def renamed(self, key: str, /) -> Self:
-        return type(self)(
-            kind=self.kind,
-            key=key,
-            value=self.value,
-            extensions=self.extensions,
-        )
-
-
-type Member = Shape[Literal["<value-a>"]] | Shape[Literal["<value-b>"]]
+type Atom = str | int
+type Extension = tuple[str, Atom]
 type Batch[*Ts] = tuple[*Ts]
 
 
-def accepted(form: TypeForm[Member], /) -> TypeForm[Member]:
+@dataclass_transform(frozen_default=True, slots_default=True, kw_only_default=True)
+def record[T: type[object]](cls: T, /) -> T:
+    return dataclass(frozen=True, slots=True, kw_only=True)(cls)
+
+
+class Renders(Protocol):
+    def rendered(self, prefix: str, /) -> str: ...
+
+
+@disjoint_base
+class ShapeRoot:
+    def rendered(self, prefix: str, /) -> str:
+        raise NotImplementedError
+
+
+@final
+@record
+class Shape[T: Kind = Literal["<value-a>"]](ShapeRoot):
+    kind: T
+    key: str
+    value: Atom
+    extensions: tuple[Extension, ...] = ()
+
+    def renamed(self, key: str, /) -> Self:
+        return type(self)(kind=self.kind, key=key, value=self.value, extensions=self.extensions)
+
+    @override
+    def rendered(self, prefix: str, /) -> str:
+        return f"{prefix}:{self.kind}:{self.key}:{self.value}"
+
+
+type Member = Shape[Literal["<value-a>"]] | Shape[Literal["<value-b>"]]
+type MemberForm = TypeForm[Member]
+
+
+def accepts(form: MemberForm, /) -> MemberForm:
     return form
 
 
-def primary(shape: Member, /) -> TypeIs[Shape[Literal["<value-a>"]]]:
-    return shape.kind == "<value-a>"
+def primary(value: Member, /) -> TypeIs[Shape[Literal["<value-a>"]]]:
+    return value.kind == "<value-a>"
 
 
-def bundled[*Ts](*members: *Ts) -> Batch[*Ts]:
-    return members
+def extension(value: object, /) -> TypeGuard[Extension]:
+    return isinstance(value, tuple) and len(value) == 2 and isinstance(value[0], str)
 
 
-def projected(shape: Member, prefix: str, /) -> str:
-    match shape:
-        case value if primary(value):
-            selected = value.renamed("<field-a>")
-            return f"{prefix}:<result-a>:{selected.key}:{selected.value}"
-        case Shape(kind="<value-b>", key=key, value=value):
-            return f"{prefix}:<result-b>:{key}:{value}"
-        case _ as unreachable:
+def packed[*Ts](*items: *Ts) -> Batch[*Ts]:
+    return items
+
+
+def projected(value: Member, prefix: str, /) -> str:
+    match value:
+        case selected if primary(selected):
+            port: Renders = selected.renamed("<field-a>")
+            return port.rendered(prefix)
+        case Shape(kind="<value-b>") as selected:
+            return selected.rendered(prefix)
+        case unreachable:
             assert_never(unreachable)
 ```
 
@@ -166,13 +177,10 @@ def projected(shape: Member, prefix: str, /) -> str:
 from typing import NotRequired, ReadOnly, Required, TypedDict, assert_never
 
 
-class RowPayload(TypedDict, total=False, extra_items=ReadOnly[ExtensionValue]):
-    key: Required[ReadOnly[str]]
-    value: Required[ReadOnly[str]]
+class RowPayload(TypedDict, total=False, extra_items=ReadOnly[Atom]):
     kind: NotRequired[ReadOnly[Kind]]
-
-
-CORE_FIELDS = frozenset({"key", "kind", "value"})
+    key: Required[ReadOnly[str]]
+    value: Required[ReadOnly[Atom]]
 
 
 def materialized(
@@ -181,28 +189,15 @@ def materialized(
     *,
     default: Kind = "<value-a>",
 ) -> Member:
-    extensions = tuple(
-        (field, value)
-        for field, value in row.items()
-        if field not in CORE_FIELDS
-    )
-
-    match row.get("kind", default):
-        case "<value-a>":
+    match {"kind": default} | row:
+        case {"kind": "<value-a>" | "<value-b>" as kind, "key": key, "value": value, **extensions}:
             return Shape(
-                kind="<value-a>",
-                key=row["key"],
-                value=row["value"],
-                extensions=extensions,
+                kind=kind,
+                key=key,
+                value=value,
+                extensions=tuple(extensions.items()),
             )
-        case "<value-b>":
-            return Shape(
-                kind="<value-b>",
-                key=row["key"],
-                value=row["value"],
-                extensions=extensions,
-            )
-        case _ as unreachable:
+        case unreachable:
             assert_never(unreachable)
 ```
 
@@ -216,43 +211,35 @@ def materialized(
 
 ```python conceptual
 from collections.abc import Callable
-from dataclasses import dataclass
 from functools import wraps
 from typing import Concatenate, Unpack
 
 
-@dataclass(frozen=True, slots=True)
-class Context:
-    default: Kind
-    prefix: str
-
-
+type Context = tuple[Kind, str]
 type RowOperation[T] = Callable[[Unpack[RowPayload]], T]
 
 
-def contextual[**P, T](
+def with_context[**P, T](
     context: Context,
-    operation: Callable[Concatenate[Context, P], T],
     /,
-) -> Callable[P, T]:
-    @wraps(operation)
-    def preserved(*args: P.args, **kwargs: P.kwargs) -> T:
-        return operation(context, *args, **kwargs)
+) -> Callable[[Callable[Concatenate[Context, P], T]], Callable[P, T]]:
+    def bind(operation: Callable[Concatenate[Context, P], T], /) -> Callable[P, T]:
+        @wraps(operation)
+        def call(*args: P.args, **kwargs: P.kwargs) -> T:
+            return operation(context, *args, **kwargs)
 
-    return preserved
+        return call
 
-
-def build(context: Context, /, **row: Unpack[RowPayload]) -> str:
-    return projected(
-        materialized(row, default=context.default),
-        context.prefix,
-    )
+    return bind
 
 
-SELECTED: RowOperation[str] = contextual(
-    Context(default="<value-a>", prefix="<field-a>"),
-    build,
-)
+@with_context(("<value-a>", "<field-a>"))
+def render(context: Context, /, **row: Unpack[RowPayload]) -> str:
+    default, prefix = context
+    return projected(materialized(row, default=default), prefix)
+
+
+SELECTED: RowOperation[str] = render
 ```
 
 [COLLECTION_INVARIANTS]:
@@ -264,37 +251,44 @@ SELECTED: RowOperation[str] = contextual(
 
 ```python conceptual
 from builtins import frozendict, sentinel
+import math.integer as integer
 
 
 MISSING = sentinel("MISSING")
 
-type Row = frozendict[str, str]
+type FrozenRow = frozendict[str, str]
 
-POLICY: Row = frozendict({
-    "<field-a>": "<value-a>",
-    "<field-b>": "<value-b>",
-})
+BASE: FrozenRow = frozendict({"<field-a>": "<value-a>"})
 
 
-def selected(
+def normalized(
     fields: tuple[str, ...],
     values: tuple[str, ...],
+    weights: tuple[int, ...],
     /,
     *,
     fallback: str | MISSING = MISSING,
-    overlay: Row = frozendict(),
-) -> Row:
-    fallback_row = (
-        frozendict({"<field-b>": fallback})
-        if fallback is not MISSING
-        else frozendict()
+    overlay: FrozenRow = frozendict(),
+) -> FrozenRow:
+    names = tuple(
+        *field.removeprefix("<prefix>").removesuffix("<suffix>").split(":")
+        for field in map(str.strip, fields, strict=True)
+        if field
     )
-    row = frozendict(
-        (field, normalized)
-        for field, value in zip(fields, map(str.strip, values, strict=True), strict=True)
-        if (normalized := value.removeprefix("<field-a>:").removesuffix(":<field-b>"))
+    measured = frozendict(
+        (
+            name,
+            f"{float(integer.gcd(weight, len(value))):z.1f}:{value}",
+        )
+        for name, raw, weight in zip(names, map(str.strip, values, strict=True), weights, strict=True)
+        if (value := raw.removeprefix("<value-a>:").removesuffix(":<value-b>"))
     )
-    return POLICY | fallback_row | overlay | row
+    return (
+        BASE
+        | (frozendict({"<fallback>": fallback}) if fallback is not MISSING else frozendict())
+        | overlay
+        | measured
+    )
 ```
 
 [ANNOTATION_RUNTIME]:
@@ -308,29 +302,34 @@ def selected(
 import annotationlib
 from builtins import frozendict
 from collections.abc import Callable
-from typing import Annotated, get_args
+from typing import Annotated, get_args, get_origin
 
 
 type Policy = frozendict[str, str]
+type Field = Annotated[str, frozendict({"<prefix>": "<field-a>", "<suffix>": "<field-b>"})]
+type AnnotationPolicies = frozendict[str, tuple[Policy, ...]]
 
-POLICY: Policy = frozendict({"<field-a>": "<value-a>"})
-type Field = Annotated[str, POLICY]
 
-
-def materialized(operation: Callable[[Field], str], /) -> tuple[Callable[[Field], str], Policy]:
-    annotations = annotationlib.get_annotations(
-        operation,
-        format=annotationlib.Format.VALUE,
-    )
-    _, policy = get_args(annotations["field"])
-    return operation, policy
+def annotation_policies[**P, R](operation: Callable[P, R], /) -> AnnotationPolicies:
+    return frozendict({
+        name: tuple(
+            policy
+            for policy in get_args(annotation)[1:]
+            if isinstance(policy, frozendict)
+        )
+        for name, annotation in annotationlib.get_annotations(
+            operation,
+            format=annotationlib.Format.VALUE,
+        ).items()
+        if get_origin(annotation) is Annotated
+    })
 
 
 def selected(field: Field, /) -> str:
-    return field
+    return field.removeprefix("<field-a>:")
 
 
-SELECTED, SELECTED_POLICY = materialized(selected)
+SELECTED_POLICY = annotation_policies(selected)
 ```
 
 [TEXT_TEMPLATES]:
