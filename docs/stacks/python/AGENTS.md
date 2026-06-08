@@ -28,11 +28,17 @@ Current package and tool graph truth stays in `pyproject.toml` until `platform/b
 
 Delete planned-view records when the corresponding concept page exists and the README chooser reaches it. Do not copy roadmap task bodies, progress, or terminal work into this overlay.
 
-## [5]-[ROUTE_AWAY]
+## [5]-[REPORT_COMPANION]
+
+When a Python roadmap task requires deep research before a concept page is created, use the scope-local report companion for reusable source scans, critique, synthesis, and candidate wording. Promote the final task-ready guidance into the matching `.planning/SPEC.<slug>.md`; keep reports as source material only.
+
+Read `.reports/AGENTS.md` before creating or using Python stack reports. Do not copy report session naming, track mechanics, sub-agent notes, source inventories, or report outcomes into README, roadmap, architecture, or concept pages.
+
+## [6]-[ROUTE_AWAY]
 
 Route README orientation to `README.md`, current package/tool graph truth to `pyproject.toml` until `platform/build-and-packages.md` exists, package-backed coding policy to concept pages, implementation sequence to `.planning/ROADMAP.md`, planned structure to `.planning/ARCHITECTURE.md`, command syntax to tool owners, and documentation form to `docs/standards/`.
 
-## [6]-[REJECTIONS]
+## [7]-[REJECTIONS]
 
 - No Python package-specific files, folders, helper taxonomies, or upstream API catalogs.
 - No standard-library fallback rule when the stronger package adoption gap belongs in `pyproject.toml`, a Python concept page, or active planning route.
