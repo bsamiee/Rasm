@@ -57,7 +57,8 @@
                 "hooks": [
                     {
                         "type": "command",
-                        "command": "bash \"$CLAUDE_PROJECT_DIR\"/.claude/hooks/setup-env.sh"
+                        "command": "bash \"$CLAUDE_PROJECT_DIR\"/.claude/hooks/setup-env.sh",
+                        "timeout": 5
                     }
                 ]
             }

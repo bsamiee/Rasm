@@ -12,21 +12,22 @@ Scope: `docs/stacks/csharp/**`. Parent instructions and `docs/standards` own gen
 - When changing package graph, globals, host references, tools, analyzers, or package admission, read `platform/build-and-packages.md` and the relevant manifest.
 - When changing BCL or `System.*` replacement guidance, read `platform/system-apis.md` and route package adoption to `platform/build-and-packages.md`.
 - When changing test-tool behavior, proof-rail selection, or test package guidance, read `testing/README.md` and the concern page that owns the proof rail.
-- When changing future C# stack concept admission or reusable implementation policy, read the relevant `libs/csharp/**` owner docs and source, the matching stack concept page, `platform/build-and-packages.md` when package truth changes, and the `coding-csharp` skill. Promote only portable domain, category, language, package-capability, rail, generated-shape, proof-classification, and rejection rules into this folder.
-- When extracting reusable C# skill, prompt, or template guidance from this folder, abstract only portable language, package-capability, rail, generated-shape, proof-classification, and rejection rules. Keep local paths, package graph facts, task IDs, commands, host proof, and manifest state in their owning docs.
+- When changing future C# stack concept admission or reusable implementation policy, read the relevant `libs/csharp/**` owner docs and source, the matching stack concept page, and `platform/build-and-packages.md` when package truth changes. Promote verified portable domain, category, language, package-capability, rail, generated-shape, proof-classification, and rejection rules into this folder.
 - When changing cross-stack precedence, read `docs/usage/`; when changing host SDK semantics, read `docs/hosts/` where present.
 
 ## [2]-[TARGETS]
 
 C# 14.0 on `net10.0` is the target language surface. This folder owns C# coding policy for the repository; package-backed capability is first-class when it is source-backed by direct reference, global injection, conditioned build route, host bundle, tool graph, central package graph support attached to a declared closure, tool surface, host route, or an accepted adoption gate.
 
-Do not weaken target guidance with migration caveats, version anxiety, compatibility aliases, deprecation windows, partial-adoption prose, or stale route names. State the target rule, route current graph facts to manifests and `platform/build-and-packages.md`, or mark a proof gap.
+Do not weaken target guidance with migration caveats, version anxiety, compatibility aliases, deprecation windows, partial-adoption prose, or stale route names. State the target rule, route current graph facts to manifests and `platform/build-and-packages.md`, or mark an adoption gap.
 
 ## [3]-[OWNER_CONTRACT]
 
 Concept pages own coding decisions. Extend the owning page by adding or correcting a rule, row, gate, rejection, receipt, bridge, or boundary record. Do not add package-facade pages, summary pages, API catalogs, or parallel external-library folders when a concept page can own the decision.
 
 Package versions, project references, global usings, local tools, host references, analyzers, adoption gates, and package-state records stay in `platform/build-and-packages.md`. BCL replacement decisions stay in `platform/system-apis.md`. Proof-tool selection stays in `testing/**`.
+
+For C#, record package admission gaps in the owning concept and `platform/build-and-packages.md`, then state the stronger package-backed rule.
 
 ## [4]-[DEPENDENCY_BOUNDARY]
 

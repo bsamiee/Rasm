@@ -21,12 +21,18 @@ Create an overlay only when the directory has a behavior delta that parent instr
 
 ## [2]-[CONTENT_MODEL]
 
-Root routes, parent deduplicates, and leaf specializes. Write only the action-changing delta from parent guidance.
+Root routes, parent deduplicates, and leaf specializes. Write only the action-changing delta from parent guidance, and make each deeper overlay increase local resolution instead of restating broader doctrine.
 
 [LAYER_ROLES]:
 - Root overlay: repository instruction router; owns load behavior that changes author action, first-hop nested overlay discovery, trusted-source conflict rules, cross-stack owner routes, root-change preservation audit, and root-only rejections.
 - Parent overlay: shared subtree delta; owns rules repeated by three or more siblings, family-wide read triggers, shared runtime/generated/trust/package/proof boundaries, and repeated stop conditions.
 - Leaf overlay: local behavior delta; owns exact owner identifiers, extension actions, route-away records, proof gaps, and stop rules that would disappear if the file were deleted.
+
+[RESOLUTION_GRADIENT]:
+- Root: name the first route and trust rule that reaches a subtree.
+- Parent: name the shared trigger and boundary that 3 or more leaves would otherwise repeat.
+- Leaf: name the exact local owner rail, extension action, proof gap, and stop condition.
+- Rejection: copying parent purpose, repeating generic engineering posture, or routing to a non-owner instead of a maintained source.
 
 [CLAIM_MODES]:
 - Target standard: normative rule about the newest objectively stronger language, feature, tool, architecture, dependency, or methodology target. State it directly; current code never weakens it.
@@ -90,7 +96,7 @@ Do not add generic validation sections. System guidance, root policy, skills, to
 - Generated surface: required when the folder owns generated docs, contracts, catalogs, mirrors, schemas, or source extraction; name the source, generator or refresh route, drift trigger, and do-not-edit rule.
 - Documentation closeout: required when a subtree owns nonstandard maintained docs, status documents, or source-material task artifacts whose stale facts would misroute future work. Name the trigger, carrier, update action, cleanup condition, and route-away owner; README, architecture, roadmap, API, reference, and task bodies stay in their document standards.
 - Planning route: required when a subtree has scope-local `.planning/` files whose location changes agent action. Name the trigger, planning scope, live planning route when present, promotion target, stale cleanup condition, and route-away owner. Do not copy roadmap, architecture, or spec-sheet bodies into the overlay.
-- Reusable-guidance extraction: required when local docs, stack pages, planning files, or reports feed later skills, prompts, templates, or standards. Name the extraction trigger, portable target, material to abstract, nonportable facts to keep local, and replacement action.
+- Reusable-guidance extraction: required when local material feeds later reusable artifacts. Name the extraction trigger, portable target, material to abstract, nonportable facts to keep local, and replacement action.
 - Report companion: required when a folder keeps reusable agent outputs under a scope-local `.reports/`. The main-folder overlay names only when to read or create reports, where durable findings promote, and that `.reports/` remains source material. The `.reports/AGENTS.md` leaf owns report session naming, session README shape, manifests, lanes, prior-pass reads, correction-in-place, promotion, pruning, and duplicate rejection. Do not copy active folder policy, command gates, README content, report numbering rules, lane mechanics, or architecture summaries into the main overlay.
 
 [REJECTED_SLOTS]:
@@ -140,7 +146,7 @@ Use trigger-owner-action wording:
 When <change class>, read <owner source> and extend <owner rail> by <case, row, fold, projection, receipt, boundary adapter, scenario, or envelope field>. Do not add <specific rejected substitute>; route <non-owned fact> to <README, architecture, roadmap, source, manifest, generated contract, tool README, or proof owner>.
 ```
 
-Choose the local owner rail from the active folder's source, manifest, generated contract, tool documentation, or nearest overlay. If no local canonical owner exists, route the fact away instead of inventing one. Language-specific rail names belong in language skills or local overlays, not in the generic `AGENTS.md` standard.
+Choose the local owner rail from the active folder's source, manifest, generated contract, tool documentation, documentation owner, or nearest overlay. If no local canonical owner exists, route the fact away instead of inventing one.
 
 [INTERNALIZATION_BEFORE_EXPOSURE]:
 When a dependency, backend, runtime, host API, storage layer, provider, or tool integration adds capability, first bind it into the existing local owner: operation algebra, typed case, row table, registry bind, tagged union case, receipt fold, aspect slot, service/layer requirement, boundary adapter, artifact/store shape, runtime record, query algebra, source-owned scenario, or envelope field. Expose a new command, flag, setting, public API, wrapper, package facade, compatibility alias, or provider-branded surface only when the owner route proves reader action changes.
@@ -265,6 +271,7 @@ For produced overlays, maintenance guidance is clear only when it names the sour
 - [ ] Deleting the overlay would remove a real local behavior delta.
 - [ ] Root routes, parent deduplicates, and leaf specializes.
 - [ ] No layer copies another owner's README, architecture, roadmap, API, tool doc, source, or generated-contract body.
+- [ ] Each deeper overlay increases local precision and does not restate parent doctrine.
 
 [PROOF_SPLIT]:
 - [ ] Target rules are not weakened by current drift.
@@ -276,7 +283,7 @@ For produced overlays, maintenance guidance is clear only when it names the sour
 - [ ] Session-learning promotions name the mistake trigger, owning surface, replacement action, rejected substitute, and proof-gap or stop behavior without copying the mistake log.
 - [ ] Local documentation closeout rules name the changed source event, carrier, update action, cleanup condition, and route-away owner without copying README, architecture, roadmap, or task bodies.
 - [ ] Planning route rules appear only when `.planning/` changes local agent action and do not duplicate roadmap, architecture, or spec-sheet bodies.
-- [ ] Reusable-guidance extraction rules separate portable guidance from local paths, package graph facts, task IDs, commands, host proof, and live planning state.
+- [ ] Reusable-guidance extraction rules separate portable guidance from local-only facts, commands, host proof, and live planning state.
 - [ ] Dependency, provider, host, runtime, backend, storage, generated, and package behavior is internalized before public exposure.
 - [ ] Rejections pair each forbidden shape with a replacement owner or route.
 
