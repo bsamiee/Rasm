@@ -34,7 +34,7 @@ Use the active Python surface directly. Replace older spellings and local machin
 |   [8]   | self type                  | `typing.Self`                                                  | bound `TypeVar` self boilerplate    |
 |   [9]   | generic defaults           | type parameter defaults and `NoDefault`                        | overload families for defaults      |
 |  [10]   | typed disjointness         | `@typing.disjoint_base`                                        | prose-only disjointness             |
-|  [11]   | variadic generic options   | `TypeVarTuple` variance args                                   | asymmetric variadic-generic shims   |
+|  [11]   | variadic generic options   | `TypeVarTuple` bound, variance, and infer_variance args        | asymmetric variadic-generic shims   |
 |  [12]   | kwargs payload             | `Unpack[TypedDict]`                                            | homogeneous `**kwargs`              |
 |  [13]   | typed dict closure         | `closed=` and `extra_items=`                                   | open payload prose                  |
 |  [14]   | required keys              | `Required[]` and `NotRequired[]`                               | split `TypedDict` inheritance       |
@@ -158,22 +158,22 @@ Use the active Python surface directly. Replace older spellings and local machin
 
 Use these contracts when the chooser names the primitive but code still needs a placement rule.
 
-[DECLARATION_SITE]:
-- Use when: the owner declaration can state a type, callable, keyword, or annotation shape directly.
-- Accept: inline type parameters, `type` aliases, exact callable forwarding, `TypeIs`, `TypeForm`, `Unpack[TypedDict]`, `ReadOnly`, `io.Reader`, and `io.Writer`.
-- Reject: remote alias repair, erased callables, downstream casts, broad `object` recovery, and prose keyword contracts.
-- Boundary: object-family policy, payload policy, and decorator architecture belong to the owning concept page.
+[TYPE_DECLARATION_SITE]:
+- Use when: the defining declaration can carry type evidence that callers would otherwise repair downstream.
+- Accept: inline type parameters, `type` aliases, `TypeForm` for type-expression values, parameter-preserving callable signatures, type parameter defaults, `NoDefault`, `@typing.override`, `typing.Self`, `@typing.disjoint_base`, and `TypeVarTuple` `bound`, `covariant`, `contravariant`, and `infer_variance` arguments.
+- Reject: erased `Callable[..., T]`, remote alias repair, broad `type[T]` or `object` placeholders for type-form values, unmarked overrides, prose-only disjointness, bound-self boilerplate, and protocol shells created only to type an existing object.
+- Boundary: `TypeForm`, disjointness, and override evidence are static typing contracts; runtime validation, object-family policy, decorator architecture, protocol ports, and package-backed typing decisions belong to the owning concept page.
 
 [TYPE_PREDICATE_SITE]:
 - Use when: a reusable predicate proves exact type membership that inline narrowing cannot express.
 - Accept: `TypeIs[T]` over the concrete target or owned structural target, where `T` is compatible with the input type and the predicate is true exactly for `T`.
-- Reject: subset predicates, incompatible target narrowing, `TypeGuard` for subtype-compatible checks, bool helpers followed by `cast`, and runtime-checkable protocols created only to satisfy `isinstance`.
+- Reject: subtype-compatible predicates written as `TypeGuard`, subset predicates disguised as membership proofs, bool helpers followed by `cast`, and runtime-checkable protocols created only to satisfy `isinstance`.
 - Soundness: `TypeIs[T]` is a biconditional type-membership proof, not a validation rail for valid, non-empty, active, normalized, positive, or otherwise filtered `T` values.
 - Consumption: keep predicate use at ingress, dispatch, or projection boundaries; fold the narrowed value through one expression or the owning result rail instead of spreading branch bodies.
 - Boundary: untyped package gaps enter as `object` at the boundary; typed object-shape ownership, validation, and provider adoption belong to the owning concept page.
 
 ```python conceptual
-from typing import assert_type, final, TypeIs
+from typing import TypeIs, assert_type, final
 
 
 class Shape: ...
@@ -194,77 +194,128 @@ def projected(value: RefinedShape | OtherShape) -> RefinedShape | OtherShape:
     return assert_type(value, RefinedShape) if is_shape(value) else assert_type(value, OtherShape)
 ```
 
-[INSPECTION_SITE]:
-- Use when: runtime code consumes annotations, signatures, unions, or type forms.
-- Accept: `annotationlib`, `inspect.signature(annotation_format=...)`, `typing.get_origin()`, and `typing.get_args()` at the consuming boundary.
-- Reject: raw annotation dictionaries, string surgery, annotation `eval`, and private union implementation checks.
-- Boundary: external text, dynamic execution, annotation cost, and import-time behavior belong to the owning concept page.
+[TYPED_DICT_PAYLOAD_SITE]:
+- Use when: keyword or dictionary payload shape is part of the callable contract.
+- Accept: `Unpack[TypedDict]` for keyword payloads, `closed=` for static exact-key constraints, `extra_items=` for typed extension slots, `Required[]`, `NotRequired[]`, and `ReadOnly[T]` on individual keys.
+- Reject: homogeneous `**kwargs`, open payload prose, split `TypedDict` inheritance for required-key bookkeeping, mutable-key promises in comments, `Mapping[str, object]` bags, and runtime validation used to repair erased static payload shape.
+- Boundary: `TypedDict` shapes static payload compatibility; rich domain objects, ingress validation, serialization policy, and provider payload mapping belong to the owning boundary or domain concept page.
 
-[MODULE_ENTRY_SITE]:
-- Use when: import, startup, or template structure must stay visible before execution.
-- Accept: module-scope lazy imports, `.start` entries, t-string processors, and template AST nodes.
-- Reject: function-local import hiding, executable `.pth` lines, rendered-string reparsing, and scattered `importlib` laziness.
-- Boundary: runtime startup policy belongs to the runtime owner; package graph and tool graph truth belong to the platform owner.
+```python conceptual
+from enum import StrEnum
+from typing import NotRequired, ReadOnly, Required, TypedDict, Unpack
+
+
+class Field(StrEnum):
+    KEY = "<field-a>"
+    VALUE = "<field-b>"
+
+
+class Row(TypedDict, total=False, closed=True):
+    key: Required[ReadOnly[str]]
+    value: NotRequired[str]
+    field: NotRequired[Field]
+
+
+def selected(**row: Unpack[Row]) -> str:
+    return row["key"]
+
+
+SELECTED_RESULT = selected(key="<key-a>", field=Field.KEY)
+```
 
 [MODULE_BOUNDARY_SITE]:
 - Use when: a module declares its public names or imports another module surface.
 - Accept: named imports, end-of-file `__all__`, and `__init__.py` only when it owns real package initialization or a public package contract.
-- Reject: wildcard imports, barrel files, facade-only exports, empty `__init__.py` package markers, and re-export files that only hide the real owner.
-- Boundary: package topology and generated API documentation belong to their owning platform, architecture, or code-documentation surface.
+- Reject: wildcard imports, barrel files, facade-only exports, empty `__init__.py` package markers, re-export files that hide the real owner, and package markers that exist only to make traversal or imports look tidy.
+- Boundary: package topology, generated API documentation, public package contracts, and source-symbol documentation belong to their owning platform, architecture, or code-documentation surface.
 
-[TOOL_SURFACE]:
-- Use when: executing Python code, resolving dependencies, locking the environment, or invoking Python tools.
-- Accept: `uv`-managed entrypoints through the repository tool graph.
-- Reject: ambient `python`, `pip`, `venv`, direct tool shims, and PATH-dependent execution that bypasses `uv`.
-- Boundary: command catalogs, package versions, tool groups, and cache paths belong to tool, manifest, or platform owners.
+[LAZY_IMPORT_SITE]:
+- Use when: a cold dependency should remain declared at the module boundary without paying import cost until first use.
+- Accept: module-scope `lazy import` and `lazy from` statements for named modules or named imported members.
+- Reject: function-local import hiding, `importlib` laziness scattered through call sites, `lazy` inside functions, classes, or `try` blocks, lazy star imports, lazy future imports, and `__lazy_modules__` in target-only code where direct `lazy` imports can state the boundary.
+- Boundary: global lazy-import modes, startup policy, dependency graph costs, and tool graph truth belong to the runtime or platform owner.
 
-[EXPRESSION_SITE]:
-- Use when: the invariant is local to one expression or statement.
-- Accept: `match`, assignment expressions, unpacking comprehensions, `copy.replace()`, `zip(strict=True)`, and direct multi-exception syntax.
-- Reject: precondition temporaries, accumulator loops, after-the-fact asserts, one-use helpers, and mutate-then-freeze copies.
-- Boundary: dispatch architecture, error transport, and recovery policy belong to the owning concept page.
+[STARTUP_ENTRY_SITE]:
+- Use when: interpreter startup code must be declared as an auditable startup entry point.
+- Accept: `.start` entries in mandatory `pkg.mod:callable` form for zero-argument startup hooks.
+- Reject: executable `.pth` import lines, implicit import side effects, wildcard startup modules, and startup code hidden in package marker files.
+- Boundary: package installation layout, site processing, startup ordering, and command behavior belong to the runtime or platform owner.
 
-[STANDARD_PRIMITIVE_SITE]:
-- Use when: a standard-library primitive exactly owns the operation shape.
-- Accept: the named primitive for value, path, compression, heap, UUID, regex, queue, interpreter, or profiling concerns.
-- Reject: local wrappers, magic literals, pseudo-protocols, subprocess adapters, sentinel payloads, and private probes.
-- Boundary: data-structure strategy, runtime scheduling, and proof policy belong to algorithm, runtime, or testing owners.
+[TEMPLATE_STRUCTURE_SITE]:
+- Use when: dynamic text must preserve template structure for processing, policy, or AST analysis before rendering.
+- Accept: t-string processors, `string.templatelib.Template` and `Interpolation`, `ast.TemplateStr`, and `ast.Interpolation` where code needs static segments, interpolation values, expression text, conversion, or format-spec structure.
+- Reject: f-string pre-parsing, rendered-string reparsing, regex extraction from formatted text, hand-built interpolation tuples, and string concatenation used to hide template policy.
+- Boundary: t-string processors decide whether to apply conversions and format specs; template security, localization, escaping, rendering, and AST rewrite policy belong to the owning boundary or text-processing concept page.
+
+```python conceptual
+from string.templatelib import Template
+from typing import Literal
+
+
+type Conversion = Literal["a", "r", "s"] | None
+type TemplateField = tuple[object, str, Conversion, str]
+type TemplateParts = tuple[tuple[str, ...], tuple[TemplateField, ...]]
+
+
+def selected(template: Template) -> TemplateParts:
+    return (
+        template.strings,
+        tuple(
+            (field.value, field.expression, field.conversion, field.format_spec)
+            for field in template.interpolations
+        ),
+    )
+
+
+VALUE = "<value-a>"
+SELECTED_RESULT = selected(t"<field-a>{VALUE!r:<field-b>}")
+```
+
+[CLOSED_MATCH_SITE]:
+- Use when: a closed domain must project every case through one operation-local `match` statement.
+- Accept: pattern narrowing over the closed variant owner, one operation-local projection, and `case _ as unreachable: assert_never(unreachable)` when the static checker needs an exhaustiveness witness.
+- Reject: tag `if` chains, guarded matches that leave cases unproved, catch-all raises, default arms that hide a missing case, and pre-match normalization that erases the discriminant.
+- Boundary: variant ownership, error rail shape, and cross-module dispatch architecture belong to the owning domain or surface concept page.
+
+```python conceptual
+from dataclasses import dataclass
+from typing import assert_never
+
+
+@dataclass(frozen=True)
+class VariantA:
+    value: str
+
+
+@dataclass(frozen=True)
+class VariantB:
+    value: int
+
+
+type Variant = VariantA | VariantB
+
+
+def selected(variant: Variant) -> str:
+    match variant:
+        case VariantA(value=value):
+            return f"<result-a>:{value}"
+        case VariantB(value=value):
+            return f"<result-b>:{value}"
+        case _ as unreachable:
+            assert_never(unreachable)
+```
 
 [SENTINEL_DEFAULT_SITE]:
 - Use when: omission or inherited selection must be distinct from every valid domain value, including `None`.
 - Accept: module-global `NAME = sentinel("NAME")` values whose variable name matches the sentinel name, reused by `is`, and carried directly in the union type.
-- Reject: `object()` defaults, `None` defaults when `None` is domain-valid, string tokens, omitted-vs-supplied overloads with no return-shape change, and bool flags that split one option shape.
+- Reject: repeated `sentinel("<name>")` calls for the same semantic value, `object()` defaults, `None` defaults when `None` is domain-valid, string tokens, omitted-vs-supplied overloads with no return-shape change, and bool flags that split one option shape.
 - Boundary: queue or task lifecycle, wire payload tags, and protocol tokens use the owning lifecycle API or explicit domain value instead of sentinel payloads.
 
-```python conceptual
-from builtins import sentinel
-from enum import StrEnum
-
-
-INHERIT = sentinel("INHERIT")
-
-
-class Variant(StrEnum):
-    PRIMARY = "<variant-a>"
-    SECONDARY = "<variant-b>"
-
-
-type VariantSelection = Variant | INHERIT
-
-
-def selected(base: Variant, selection: VariantSelection = INHERIT) -> Variant:
-    match selection:
-        case Variant() as variant:
-            return variant
-        case _ if selection is INHERIT:
-            return base
-```
-
-[FROZENDICT_POLICY_TABLE]:
-- Use when: immutable mapping rows or nested policy tables need mapping semantics, language-level immutability, and order-insensitive equality or hash identity.
+[FROZENDICT_TABLE_SITE]:
+- Use when: immutable mapping rows or nested policy tables need mapping semantics, language-level immutability, and order-insensitive equality or hashing of the `frozendict` value.
 - Accept: `frozendict[K, V]` rows with hashable keys; values must also be hashable when the row itself is hashed or used as an outer key.
 - Reject: tuple-pair pseudo-maps, sorted-item key normalizers, module-level dictionaries used as immutable policy tables, `MappingProxyType` views over mutable storage, frozen shells around dictionaries, and mutate-then-freeze copy ladders.
-- Boundary: `frozendict` preserves insertion order for iteration, but order is not equality or hash identity; use tuple pairs or an owning value object when order is semantic. `frozendict` is shallowly immutable; nested values must be immutable or owned by a model.
+- Boundary: `frozendict` is not a `dict` subclass and preserves insertion order for iteration, but order is not equality or value-hash semantics; use tuple pairs or an owning value object when order is semantic. `frozendict` is shallowly immutable; nested values must be immutable or owned by a model.
 
 ```python conceptual
 from builtins import frozendict
@@ -290,25 +341,20 @@ SELECTED_RESULT: str = TABLE[ROW_A]
 
 Use these tests before keeping a local abstraction beside a language primitive.
 
-[TYPE_REPAIR]:
-- Smell: a cast, alias, helper, or erased callable exists only to recover evidence later.
-- Collapse: move evidence into the owner declaration.
-- Done when: callers no longer need repair code to recover the shape.
-
-[PREDICATE_PROTOCOL]:
-- Smell: a `Protocol` mirrors an imported object only to make `isinstance`, `cast`, or a bool helper acceptable to the type checker.
-- Collapse: replace the protocol-as-predicate with a `TypeIs` predicate over the real target, or admit the object through a typed local owner when no real target type exists.
-- Done when: both predicate branches narrow without wildcard protocols, `cast`, or post-check repair code.
+[TYPE_EVIDENCE_REPAIR]:
+- Smell: a cast, alias, erased callable, fake protocol, runtime-checkable shell, or bool predicate exists only to recover type evidence that the declaration could have preserved.
+- Collapse: move evidence into the owner declaration, `TypeIs` predicate, `TypedDict` payload, `TypeForm`, parameter-preserving callable, or real structural owner.
+- Done when: callers narrow, call, unpack, or inspect the value without `cast`, wildcard protocols, post-check repair code, or duplicated declaration aliases.
 
 [STRING_RECOVERY]:
-- Smell: code parses rendered strings, paths, URLs, annotations, regex intent, or template fields by hand.
+- Smell: code parses rendered strings, paths, URLs, annotations, regex intent, warning filters, template fields, AST structure, or source names by hand.
 - Collapse: ask the language API for the structured form.
 - Done when: the implementation consumes typed components instead of reconstructed text.
 
 [CEREMONY_WRAPPER]:
-- Smell: a helper only names one modern expression, iterator, update, predicate, or primitive operation.
-- Collapse: inline the language form at the use site.
-- Done when: the invariant is visible where it executes.
+- Smell: a helper only hides a modern expression, iterator, update, predicate, or primitive operation from the use site.
+- Collapse: inline the language form where the invariant executes, or deepen the owning operation if the helper carries real policy.
+- Done when: the call site shows the language-owned invariant directly and no one-use helper remains.
 
 [SURFACE_FACADE]:
 - Smell: a file exists only to re-export another module, mark a package, or collect names from several owners.
@@ -316,14 +362,9 @@ Use these tests before keeping a local abstraction beside a language primitive.
 - Done when: readers can find the implementation owner without traversing wildcard imports, barrels, or empty package files.
 
 [MAGIC_VALUE]:
-- Smell: absence, boundary, ordering, or identifier limits are represented by strings, objects, numeric sentinels, or literal UUIDs.
-- Collapse: use the named sentinel, boundary value, or ordered identifier primitive.
+- Smell: absence, boundary, ordering, identifier limits, UUID limits, base-encoding policy, or buffer flags are represented by strings, objects, numeric sentinels, or literal UUIDs.
+- Collapse: use the named sentinel, boundary value, enum, flag, or standard primitive that carries the value semantics.
 - Done when: the value carries its own semantics without prose.
-
-[PROOF_PROXY]:
-- Smell: timing, async state, native stacks, or debug attach behavior is inferred through local probes.
-- Collapse: use the built-in profiling, inspection, frame-pointer, or debug primitive.
-- Done when: the proof hook is a language-owned surface and proof policy routes away.
 
 ## [5]-[REJECTIONS]
 
