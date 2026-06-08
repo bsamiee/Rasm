@@ -172,26 +172,70 @@ Use these contracts when the chooser names the primitive but code still needs a 
 - Consumption: keep predicate use at ingress, dispatch, or projection boundaries; fold the narrowed value through one expression or the owning result rail instead of spreading branch bodies.
 - Boundary: untyped package gaps enter as `object` at the boundary; typed object-shape ownership, validation, and provider adoption belong to the owning concept page.
 
+Disjoint nominal owner: use when runtime class membership owns the variant split and the predicate replaces protocol or cast repair.
+
 ```python conceptual
 from typing import TypeIs, assert_type, final
+from typing_extensions import disjoint_base
 
 
-class Shape: ...
+class Shape:
+    @disjoint_base
+    class _Seal: ...
 
 
-class RefinedShape(Shape): ...
+    class RefinedShape(_Seal): ...
 
 
-@final
-class OtherShape: ...
+    @final
+    class OtherShape(_Seal): ...
 
 
-def is_shape(value: object) -> TypeIs[Shape]:
-    return isinstance(value, Shape)
+type Member = Shape.RefinedShape | Shape.OtherShape
 
 
-def projected(value: RefinedShape | OtherShape) -> RefinedShape | OtherShape:
-    return assert_type(value, RefinedShape) if is_shape(value) else assert_type(value, OtherShape)
+def is_refined(value: Member) -> TypeIs[Shape.RefinedShape]:
+    return isinstance(value, Shape.RefinedShape)
+
+
+def projected(value: Member) -> Member:
+    return (
+        assert_type(value, Shape.RefinedShape)
+        if is_refined(value)
+        else assert_type(value, Shape.OtherShape)
+    )
+```
+
+Tagged generic owner: use when one parameterized model owns the family and literal state proves the narrower member.
+
+```python conceptual
+from dataclasses import dataclass
+from typing import Literal, TypeIs, assert_type
+
+
+type RefinedTag = Literal["<refined>"]
+type OtherTag = Literal["<other>"]
+type Tag = RefinedTag | OtherTag
+
+
+@dataclass(frozen=True, slots=True)
+class Shape[T: Tag]:
+    tag: T
+
+
+type Member = Shape[RefinedTag] | Shape[OtherTag]
+
+
+def is_refined(value: Member) -> TypeIs[Shape[RefinedTag]]:
+    return value.tag == "<refined>"
+
+
+def projected(value: Member) -> Member:
+    return (
+        assert_type(value, Shape[RefinedTag])
+        if is_refined(value)
+        else assert_type(value, Shape[OtherTag])
+    )
 ```
 
 [TYPED_DICT_PAYLOAD_SITE]:
@@ -204,6 +248,8 @@ def projected(value: RefinedShape | OtherShape) -> RefinedShape | OtherShape:
 from enum import StrEnum
 from typing import NotRequired, ReadOnly, Required, TypedDict, Unpack
 
+from expression import Option
+
 
 class Field(StrEnum):
     KEY = "<field-a>"
@@ -212,12 +258,14 @@ class Field(StrEnum):
 
 class Row(TypedDict, total=False, closed=True):
     key: Required[ReadOnly[str]]
-    value: NotRequired[str]
-    field: NotRequired[Field]
+    field: NotRequired[ReadOnly[Field]]
 
 
 def selected(**row: Unpack[Row]) -> str:
-    return row["key"]
+    key = row["key"]
+    return Option.of_optional(row.get("field")).map(
+        lambda field: f"<result-a>:{key}:{field}"
+    ).default_with(lambda: f"<result-b>:{key}")
 
 
 SELECTED_RESULT = selected(key="<key-a>", field=Field.KEY)
@@ -253,8 +301,8 @@ from typing import Literal
 
 
 type Conversion = Literal["a", "r", "s"] | None
-type TemplateField = tuple[object, str, Conversion, str]
-type TemplateParts = tuple[tuple[str, ...], tuple[TemplateField, ...]]
+type InterpolationParts = tuple[object, str, Conversion, str]
+type TemplateParts = tuple[tuple[str, ...], tuple[InterpolationParts, ...]]
 
 
 def selected(template: Template) -> TemplateParts:
@@ -280,29 +328,34 @@ SELECTED_RESULT = selected(t"<field-a>{VALUE!r:<field-b>}")
 ```python conceptual
 from dataclasses import dataclass
 from typing import assert_never
+from typing_extensions import disjoint_base
 
 
-@dataclass(frozen=True)
-class VariantA:
-    value: str
+class Variant:
+    @disjoint_base
+    class _Seal: ...
+
+    @dataclass(frozen=True, slots=True, kw_only=True)
+    class A(_Seal):
+        value: str
+
+    @dataclass(frozen=True, slots=True, kw_only=True)
+    class B(_Seal):
+        value: int
 
 
-@dataclass(frozen=True)
-class VariantB:
-    value: int
-
-
-type Variant = VariantA | VariantB
-
-
-def selected(variant: Variant) -> str:
+def selected(variant: Variant.A | Variant.B) -> str:
     match variant:
-        case VariantA(value=value):
+        case Variant.A(value=value):
             return f"<result-a>:{value}"
-        case VariantB(value=value):
+        case Variant.B(value=value):
             return f"<result-b>:{value}"
         case _ as unreachable:
             assert_never(unreachable)
+
+
+VARIANT_A = Variant.A(value="<value-a>")
+SELECTED_RESULT = selected(VARIANT_A)
 ```
 
 [SENTINEL_DEFAULT_SITE]:
@@ -330,11 +383,12 @@ class Field(StrEnum):
 type Row = frozendict[Field, str]
 
 
-ROW_A: Row = frozendict({Field.KEY: "<key-a>", Field.VALUE: "<value-a>"})
-ROW_B: Row = frozendict({Field.KEY: "<key-b>", Field.VALUE: "<value-b>"})
-TABLE: frozendict[Row, str] = frozendict({ROW_A: "<result-a>", ROW_B: "<result-b>"})
+TABLE: frozendict[Row, str] = frozendict({
+    frozendict({Field.KEY: "<key-a>", Field.VALUE: "<value-a>"}): "<result-a>",
+    frozendict({Field.KEY: "<key-b>", Field.VALUE: "<value-b>"}): "<result-b>",
+})
 
-SELECTED_RESULT: str = TABLE[ROW_A]
+SELECTED_RESULT: str = TABLE[frozendict({Field.VALUE: "<value-a>", Field.KEY: "<key-a>"})]
 ```
 
 ## [4]-[ABSTRACTION_COLLAPSE_TESTS]
