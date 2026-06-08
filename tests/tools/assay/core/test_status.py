@@ -12,7 +12,7 @@ import itertools
 from hypothesis import given, strategies as st
 import pytest
 
-from tests._aspect import register_law, spec  # noqa: PLC2701
+from tests._aspect import register_laws, spec  # noqa: PLC2701
 from tests._spec import absorbing, associative, commutative, identity_element, monotone, validity_matrix, ValidityCase  # noqa: PLC2701
 from tests.tools.assay.conftest import rail_status_st
 from tools.assay.core.status import fold, join, RailStatus
@@ -39,27 +39,29 @@ _FROM_RC: tuple[tuple[int, RailStatus], ...] = (
 # Module-level registrations for laws that use @given/@parametrize without @spec.
 # @spec-decorated tests already register at decoration time above; only explicit calls are hoisted here.
 
-register_law(join, "join_associative_full")
-register_law(join, "join_commutative_pairs")
-for _member in _ALL:
-    register_law(RailStatus, f"join_empty_identity_sweep[{_member.name}]")
-for _lo in _ALL:
-    for _hi in _ALL:
-        if _lo.severity <= _hi.severity:
-            register_law(join, f"join_monotone_left[{_lo.name}<={_hi.name}]")
-for _member in _ALL:
-    register_law(RailStatus, f"member_invariants[{_member.name}]")
-for _rc, _ in _FROM_RC:
-    register_law(RailStatus, f"from_returncode[{_rc}]")
-register_law(RailStatus, "severity_ordering_validity_matrix")
-register_law(RailStatus, "faulted_is_max_severity")
-register_law(RailStatus, "skip_is_min_severity")
-register_law(RailStatus, "alias_skipped_resolves_to_skip")
-register_law(fold, "fold_max_severity_oracle")
-register_law(fold, "fold_associativity_split")
-register_law(fold, "fold_empty_seed")
-register_law(fold, "fold_permutation_invariant")
-register_law(fold, "fold_faulted_dominates")
+register_laws(
+    (
+        join,
+        (
+            "join_associative_full",
+            "join_commutative_pairs",
+            *(f"join_monotone_left[{lo.name}<={hi.name}]" for lo in _ALL for hi in _ALL if lo.severity <= hi.severity),
+        ),
+    ),
+    (
+        RailStatus,
+        (
+            *(f"join_empty_identity_sweep[{m.name}]" for m in _ALL),
+            *(f"member_invariants[{m.name}]" for m in _ALL),
+            *(f"from_returncode[{rc}]" for rc, _ in _FROM_RC),
+            "severity_ordering_validity_matrix",
+            "faulted_is_max_severity",
+            "skip_is_min_severity",
+            "alias_skipped_resolves_to_skip",
+        ),
+    ),
+    (fold, ("fold_max_severity_oracle", "fold_associativity_split", "fold_empty_seed", "fold_permutation_invariant", "fold_faulted_dominates")),
+)
 
 
 # --- [OPERATIONS] -----------------------------------------------------------------------
@@ -80,27 +82,17 @@ def _join_left_severity(s: RailStatus) -> int:
 # ── join algebra ────────────────────────────────────────────────────────────────────────
 
 
-@spec(RailStatus, mutation=True, law="join_associative")
-def test_join_associative(s: RailStatus) -> None:
-    """Self-triple is associative; the full three-arg sweep covers arbitrary triples."""
-    associative(s, s, s, join, eq=_sev_eq)
-
-
+@pytest.mark.mutation
 @given(rail_status_st, rail_status_st, rail_status_st)
 def test_join_associative_full(a: RailStatus, b: RailStatus, c: RailStatus) -> None:
-    """Join three arbitrary statuses is associative on severity."""
+    """Join three arbitrary statuses is associative on severity — the full product subsumes the self-triple."""
     associative(a, b, c, join, eq=_sev_eq)
 
 
-@spec(RailStatus, mutation=True, law="join_commutative")
-def test_join_commutative(s: RailStatus) -> None:
-    """Self-pair is trivially commutative; the cross-pair oracle is the falsifiable sweep."""
-    commutative(s, s, join, eq=_sev_eq)
-
-
+@pytest.mark.mutation
 @given(rail_status_st, rail_status_st)
 def test_join_commutative_pairs(a: RailStatus, b: RailStatus) -> None:
-    """join(a, b) and join(b, a) agree on severity — commutative on the semigroup carrier."""
+    """join(a, b) and join(b, a) agree on severity — the full pair product subsumes the self-pair."""
     commutative(a, b, join, eq=_sev_eq)
 
 
@@ -222,15 +214,9 @@ def test_from_returncode_closed_table(rc: int, expected: RailStatus) -> None:
 
 def test_severity_ordering_validity_matrix() -> None:
     """Validity matrix: every adjacent member pair is strictly ascending in severity."""
+    validity_matrix([ValidityCase(label=f"{m.name}.severity_non_negative", value=m, expected=True) for m in _ALL], lambda m: m.severity >= 0)
     validity_matrix(
-        [ValidityCase(label=f"{m.name}.severity_non_negative", value=m, expected=True) for m in _ALL],
-        lambda m: m.severity >= 0,
-    )
-    validity_matrix(
-        [
-            ValidityCase(label=f"{lo.name}<{hi.name}", value=(lo, hi), expected=True)
-            for lo, hi in itertools.pairwise(_ALL)
-        ],
+        [ValidityCase(label=f"{lo.name}<{hi.name}", value=(lo, hi), expected=True) for lo, hi in itertools.pairwise(_ALL)],
         lambda pair: pair[0].severity < pair[1].severity,
     )
 

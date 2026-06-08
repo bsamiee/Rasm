@@ -15,12 +15,15 @@ Law design:
 
 import contextlib
 from datetime import datetime, UTC
+import itertools
 import operator
 import tempfile
 from typing import Final, override, TYPE_CHECKING
 
 from dirty_equals import IsPartialDict, IsStr, IsTuple
-from hypothesis import given, settings as hyp_settings, strategies as st
+import fsspec
+from hypothesis import given, settings as hyp_settings, strategies as st, target
+from hypothesis.stateful import Bundle, invariant, rule, RuleBasedStateMachine, run_state_machine_as_test
 import msgspec
 from pydantic import ValidationError
 import pytest
@@ -179,13 +182,14 @@ def test_mtime_from_info_projection(info: dict[str, object], expected: float) ->
 register_law(mtime_from_info, "mtime_from_info_projection")
 
 
-@given(st.one_of(st.floats(min_value=0.0, max_value=1e12, allow_nan=False, allow_infinity=False), st.integers(min_value=0, max_value=2**53)))
+@given(st.one_of(st.floats(min_value=0.0, max_value=1e12, allow_nan=False, allow_infinity=False), st.integers(min_value=0, max_value=2**53 + 2)))
 @hyp_settings(max_examples=80)
 def test_mtime_from_info_numeric_identity(v: float) -> None:
-    """mtime_from_info returns float(v) for finite non-negative float/int mtime — lossless within 2^53."""
+    """mtime_from_info returns float(v) for finite non-negative float/int mtime — exact within float()'s own promotion."""
     result = mtime_from_info({"mtime": v})
     assert isinstance(result, float)
-    assert result == v  # int == float intentional: v <= 2^53 is exactly representable, matching float()'s own promotion
+    assert result == float(v)  # noqa: RUF069  # exact equality is the contract: mtime_from_info must equal float()'s own deterministic int->float promotion, even past 2^53
+    target(float(v), label="mtime_magnitude")  # drives toward 2^53+1, the first int the strategy can emit where int->float promotion loses precision
 
 
 register_law(mtime_from_info, "mtime_from_info_numeric_identity")
@@ -638,6 +642,82 @@ def test_artifact_store_sorted_history_ids_order(mem_store: ArtifactStore, monke
 
 
 register_law(ArtifactStore, "artifact_store_sorted_history_ids_order")
+
+
+# --- [STATEFUL_HISTORY_RBSM] ----------------------------------------------------------------
+# The example-based retention laws above pin specific edge arms (keep in {0,1}, exactly 3 runs,
+# concurrent-deletion race). The real contract — across an arbitrary interleaving of write_history,
+# retain_history(keep=N), and load_history, the survivor set is always exactly the N most-recent
+# runs by recency rank and never exceeds N — is a sequential stateful protocol those laws cannot
+# reach (write-after-retain, repeated retains with shrinking N, retain interleaved with writes are
+# all beyond their scope). This machine catches: off-by-one in the prune slice, broken index
+# after retain, load_history returning None for a listed id (orphaned index entry), and
+# over-retention when keep > written count.
+
+
+class HistoryRetentionStateMachine(RuleBasedStateMachine):
+    """State machine for the ArtifactStore write_history / retain_history / load_history protocol.
+
+    Oracles purely on the monotonic zero-padded counter (lexicographic == recency rank) to sidestep
+    in-memory fsspec mtime-tie flakiness that the monkeypatch in test_sorted_history_ids_order works around.
+    """
+
+    runs: Bundle[str] = Bundle("runs")
+    _instances = itertools.count()  # process-monotonic: a disjoint root per machine, immune to id() reuse across instances
+
+    def __init__(self) -> None:
+        """Initialise a fresh in-memory ArtifactStore and the monotonic write-order oracle."""
+        super().__init__()
+        # fsspec memory:// is a process-global singleton, so each machine MUST own a disjoint root and purge it
+        # in teardown; sharing a root (or reusing id(self)) leaks state into the next replay -> FlakyStrategyDefinition.
+        self._store = ArtifactStore(fs=fsspec.filesystem("memory"), root=f"rbsm-store/{next(self._instances)}")
+        self._counter = 0  # monotonic: write order == lexicographic run_id order == recency rank
+        self._written: set[str] = set()
+
+    @rule(target=runs)
+    def write_run(self) -> str:
+        self._counter += 1
+        run_id = f"run-{self._counter:06d}"
+        self._store.write_history(run_id, WIRE_ENCODER.encode(make_history_envelope(run_id)))
+        self._written.add(run_id)
+        return run_id
+
+    @rule(keep=st.integers(min_value=0, max_value=5))
+    def retain(self, keep: int) -> None:
+        self._store.retain_history(keep=keep)
+        # update oracle: survivors are the `keep` highest run_ids (lexicographic == recency for zero-padded counter)
+        sorted_written = sorted(self._written)
+        pruned = set(sorted_written[: max(0, len(sorted_written) - keep)])
+        self._written -= pruned
+        # the bound is a retain-local postcondition: immediately after pruning, the live set is capped by keep.
+        # asserting it as an always-on @invariant would be false, since a later write_run legitimately re-grows the store.
+        assert len(self._store.sorted_history_ids()) <= keep, f"retain(keep={keep}) left {len(self._store.sorted_history_ids())} survivors"
+
+    @invariant()
+    def survivors_are_loadable(self) -> None:
+        """Every id sorted_history_ids reports must load — no orphaned index entry listed without a payload."""
+        ids = self._store.sorted_history_ids()
+        orphans = tuple(rid for rid in ids if self._store.load_history(rid) is None)
+        assert not orphans, f"orphaned index entries listed but load_history returned None: {orphans!r}"
+
+    @invariant()
+    def oracle_set_matches_reported_ids(self) -> None:
+        """The set of loadable run ids must equal the oracle set derived from the monotonic write counter."""
+        ids = set(self._store.sorted_history_ids())
+        assert ids == self._written, f"oracle={self._written!r} reported={ids!r}"
+
+    @override
+    def teardown(self) -> None:
+        # Purge this machine's subtree from the process-global memory FS so no state leaks into the next instance.
+        self._store.remove_path(self._store.root, recursive=True) if self._store.exists_path(self._store.root) else None
+
+
+def test_history_retention_state_machine() -> None:
+    """Drive the ArtifactStore write/retain/load RBSM: survivors are always exactly the N most-recent runs."""
+    run_state_machine_as_test(HistoryRetentionStateMachine, settings=hyp_settings.get_profile("rasm-stateful"))  # type: ignore[no-untyped-call]
+
+
+register_law(ArtifactStore, "history_retention_state_machine")
 
 
 def test_artifact_store_full_report_restore_matrix(mem_store: ArtifactStore) -> None:

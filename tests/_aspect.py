@@ -11,11 +11,12 @@ every public symbol has at least one law or explicit exemption.
 
 from builtins import sentinel as _sentinel  # type: ignore[attr-defined]  # 3.15 PEP 661 builtin; mypy typeshed lag (ty resolves)
 from collections.abc import Callable  # noqa: TC003  # PEP 695 [**P] annotations are evaluated at runtime; TYPE_CHECKING guard would break them
+import functools
 import importlib
 import inspect
 from pathlib import Path
 
-from hypothesis import given as hyp_given, settings as hyp_settings
+from hypothesis import event as hyp_event, given as hyp_given, settings as hyp_settings
 import msgspec
 import pytest
 
@@ -117,6 +118,7 @@ def spec[**P](
     markers: tuple[str, ...] = (),
     timeout: float | None = None,
     law: str | None = None,
+    events: tuple[Callable[[object], str], ...] = (),
 ) -> Callable[[Callable[P, None]], Callable[P, None]]:
     """Polymorphic @spec entrypoint: register + optionally drive a property law.
 
@@ -131,6 +133,11 @@ def spec[**P](
     rejected via ``__wrapped__`` inspection. All hypothesis test functions must return ``None``
     by hypothesis contract — ``R`` is fixed to ``None``.
 
+    When ``events`` is non-empty and ``given=True``, each callable receives the drawn argument and
+    its return value is passed to ``hypothesis.event()``. Per-event frequency appears under
+    ``--hypothesis-show-statistics``. Default empty tuple = zero overhead; ``given=False`` ignores
+    ``events`` (no drawn arg in scope).
+
     Args:
         subject: The type or callable whose strategy ``resolve`` resolves (strategy registered on
             first call; ``given=False`` skips strategy resolution).
@@ -140,6 +147,8 @@ def spec[**P](
         markers: Extra pytest mark names to apply.
         timeout: Hypothesis deadline in seconds; ``None`` (default) inherits from the profile.
         law: Override law name in ``MANIFEST``; defaults to the decorated function's ``__name__``.
+        events: Callables ``(drawn) -> str``; when non-empty and ``given=True``, each tag is
+            reported via ``hypothesis.event()`` on every drawn example.
 
     Returns:
         A decorator that wraps the function, applies the full mark/settings stack, and registers a
@@ -161,7 +170,16 @@ def spec[**P](
 
         match given:
             case True:
-                with_given = hyp_given(resolve(subject))(fn)
+                # When events are registered, wrap fn so each drawn arg is reported via hypothesis.event()
+                # before delegation. functools.wraps preserves fn's signature so @given injects correctly;
+                # __wrapped__ is set on the wrapper (pointing to fn), not on fn itself — the double-decoration
+                # guard already passed and only fires on the incoming fn, not our internal wrapper.
+                target = (
+                    functools.wraps(fn)(lambda *args, **kwargs: ([hyp_event(tag(args[-1])) for tag in events], fn(*args, **kwargs))[-1])
+                    if events
+                    else fn
+                )
+                with_given = hyp_given(resolve(subject))(target)
             case _:
                 with_given = fn
 
@@ -173,9 +191,7 @@ def spec[**P](
                 with_settings = hyp_settings(parent=profile_settings, deadline=timeout)(with_given)
 
         all_marks = (*markers, *(("mutation",) if mutation else ()))
-        result = with_settings
-        for marker_name in all_marks:
-            result = getattr(pytest.mark, marker_name)(result)
+        result = functools.reduce(lambda acc, m: getattr(pytest.mark, m)(acc), all_marks, with_settings)
 
         fn_name: str = getattr(fn, "__name__", repr(fn))
         MANIFEST.append(LawRecord(subject=_qualname(subject), law=law or fn_name, module=getattr(fn, "__module__", "<unknown>")))
@@ -202,6 +218,28 @@ def register_law(subject: object, law: str, *, module: str | None = None) -> Non
     frame = inspect.currentframe()
     caller_module = module or (frame.f_back.f_globals.get("__name__", "<unknown>") if frame and frame.f_back else "<unknown>")
     MANIFEST.append(LawRecord(subject=_qualname(subject), law=law, module=caller_module))
+
+
+def register_laws(*pairs: tuple[object, tuple[str, ...]]) -> None:
+    """Batch-register multiple law families at import time.
+
+    A greppable import-time helper that registers many ``LawRecord`` entries without
+    per-law ``register_law`` call spam. Intended for families of metamorphic, matrix, or
+    parametrized laws that share one subject but declare several law names together.
+
+    Each pair is ``(subject, (law_name, ...))`` where ``subject`` is the type or callable
+    covered and each ``law_name`` is a distinct law identifier. The caller module is
+    captured once via ``inspect.currentframe().f_back`` and shared across all emitted
+    records, matching the behaviour of ``register_law``.
+
+    Args:
+        *pairs: Variable-length sequence of ``(subject, (law_name, ...))`` 2-tuples.
+    """
+    frame = inspect.currentframe()
+    caller_module = frame.f_back.f_globals.get("__name__", "<unknown>") if frame and frame.f_back else "<unknown>"
+    MANIFEST.extend(
+        LawRecord(subject=_qualname(subject), law=law_name, module=caller_module) for subject, law_names in pairs for law_name in law_names
+    )
 
 
 def register_sut(package: str, *, exempt: frozenset[str] = frozenset()) -> None:
@@ -233,4 +271,4 @@ def assert_law_coverage() -> None:
         )
 
 
-__all__ = ["spec", "register_law", "register_sut", "assert_law_coverage", "MANIFEST", "LawRecord"]
+__all__ = ["spec", "register_law", "register_laws", "register_sut", "assert_law_coverage", "MANIFEST", "LawRecord"]

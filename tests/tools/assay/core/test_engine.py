@@ -23,7 +23,7 @@ from typing import override, TYPE_CHECKING, TypedDict
 import anyio
 from dirty_equals import Contains, IsInt, IsPartialDict, IsPositiveFloat
 from expression import Error, Ok
-from hypothesis import given, HealthCheck, settings as hyp_settings, strategies as st
+from hypothesis import given, HealthCheck, settings as hyp_settings, strategies as st, target
 from hypothesis.stateful import Bundle, consumes, invariant, rule, RuleBasedStateMachine, run_state_machine_as_test
 import msgspec
 from opentelemetry import trace
@@ -450,6 +450,7 @@ def test_write_sink_receives_every_drained_chunk(chunks: tuple[bytes, ...]) -> N
     """``drain_stream`` tees the FULL stream into a ``WriteSink`` while the captured tail stays bounded — the tee is tail-cap-free."""
     sink: WriteSink = _ListSink()
     whole = b"".join(chunks)
+    target(float(len(whole)), label="drained_bytes")
     captured = anyio.run(lambda: drain_stream(_recv_of(chunks), tail_cap=8, sink=sink))
     assert isinstance(sink, _ListSink)
     assert (b"".join(sink.chunks), captured.size, captured.tail) == (whole, len(whole), whole[-8:]), "sink/capture lost or clipped a chunk"
@@ -859,7 +860,8 @@ def test_diagnose_records_resource_snapshot(monkeypatch: pytest.MonkeyPatch) -> 
         assert exceptions == [exc], "exception not recorded on the fault span"
         name, attrs = events[0]
         assert (name, attrs.get("mem.rss_bytes")) == (engine_mod._FAULT_SNAPSHOT, 65536.0), f"snapshot event wrong: {name!r} {attrs!r}"
-        assert dict(engine_mod._RESOURCE.get())["mem.rss_bytes"] == pytest.approx(65536.0), "resource ContextVar not seeded from the snapshot"
+        rss = dict(engine_mod._RESOURCE.get())["mem.rss_bytes"]
+        assert rss == pytest.approx(65536.0), "resource ContextVar not seeded from the snapshot"
     finally:
         engine_mod._RESOURCE.reset(token)
 

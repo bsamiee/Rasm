@@ -28,15 +28,11 @@ from tools.assay.core.model import Claim, Language, Tool
 
 # --- [CONSTANTS] ----------------------------------------------------------------------
 
-_VALID_RG_JSON: bytes = (
-    b'{"type":"match","data":{"path":{"text":"foo.py"},'
-    b'"lines":{"text":"x = 1\\n"},"line_number":7}}'
-)
+_VALID_RG_JSON: bytes = b'{"type":"match","data":{"path":{"text":"foo.py"},"lines":{"text":"x = 1\\n"},"line_number":7}}'
 
 # One concrete AstMatch payload to assert field-identity (structural, not PBT).
 _AST_MATCH_PAYLOAD: bytes = (
-    b'[{"text":"def f()","file":"a.py","lines":"1-3","replacement":"",'
-    b'"range":{"start":{"line":1,"column":0},"end":{"line":3,"column":1}}}]'
+    b'[{"text":"def f()","file":"a.py","lines":"1-3","replacement":"","range":{"start":{"line":1,"column":0},"end":{"line":3,"column":1}}}]'
 )
 
 
@@ -44,6 +40,7 @@ _AST_MATCH_PAYLOAD: bytes = (
 
 
 # -- Capture roundtrip (covers CAPTURES + CAPTURE_ENCODER) ----------------------------
+
 
 @spec(Capture, law="capture_codec_roundtrip")
 def test_capture_roundtrip(capture: Capture) -> None:
@@ -59,6 +56,7 @@ register_law("tools.assay.composition.catalog.CAPTURE_ENCODER", "capture_codec_r
 
 # -- CAPTURES structural: empty array -------------------------------------------------
 
+
 def test_captures_empty_array_decodes_to_empty_tuple() -> None:
     """CAPTURES.decode(b'[]') yields the empty tuple, not a list."""
     result = CAPTURES.decode(b"[]")
@@ -70,6 +68,7 @@ register_law("tools.assay.composition.catalog.CAPTURES", "captures_empty_array",
 
 # -- Capture: assert_roundtrip uses the generic msgspec default codec ------------------
 
+
 @spec(Capture, law="capture_assert_roundtrip_oracle")
 def test_capture_assert_roundtrip(capture: Capture) -> None:
     """Generic assert_roundtrip encodes and re-encodes Capture with byte identity."""
@@ -77,6 +76,7 @@ def test_capture_assert_roundtrip(capture: Capture) -> None:
 
 
 # -- AST_MATCHES structural -----------------------------------------------------------
+
 
 def test_ast_matches_empty_array() -> None:
     """AST_MATCHES.decode(b'[]') returns the empty tuple."""
@@ -102,6 +102,7 @@ register_law("tools.assay.composition.catalog.AST_MATCHES", "ast_matches_field_i
 
 # -- RG_EVENT: JSON "type" -> .kind alias law -----------------------------------------
 
+
 def test_rg_event_type_to_kind_alias() -> None:
     """RG_EVENT maps the JSON 'type' key to the .kind attribute (msgspec rename)."""
     ev = RG_EVENT.decode(_VALID_RG_JSON)
@@ -126,6 +127,7 @@ register_law("tools.assay.composition.catalog.RG_EVENT", "rg_event_defaults", mo
 
 # -- TOOLS census: every row selects back via select(claim, language) -----------------
 
+
 @pytest.mark.parametrize("claim", list(Claim))
 def test_catalog_census_every_tool_selects_back(claim: Claim) -> None:
     """Census invariant: every Tool in TOOLS with the given claim appears in select(claim, language)."""
@@ -138,6 +140,7 @@ register_law("tools.assay.composition.catalog.TOOLS", "tools_census_select_back"
 
 # -- select: result is a subset of TOOLS for every Claim ------------------------------
 
+
 @pytest.mark.parametrize("claim", list(Claim))
 def test_select_total_subset_of_tools(claim: Claim) -> None:
     """select(claim) returns only Tool objects from TOOLS — no foreign rows."""
@@ -148,6 +151,7 @@ register_law(select, "select_total_subset", module=__name__)
 
 
 # -- select: language refinement is monotone (select(c,l) ⊆ select(c)) ---------------
+
 
 @pytest.mark.parametrize("claim", list(Claim))
 @pytest.mark.parametrize("language", list(Language))
@@ -164,6 +168,7 @@ register_law(select, "select_monotone_language", module=__name__)
 
 # -- select: idempotent (pure function, no hidden mutable state) -----------------------
 
+
 @pytest.mark.parametrize("claim", list(Claim))
 def test_select_idempotent(claim: Claim) -> None:
     """select(claim) == select(claim): deterministic, stable, free of side-effects."""
@@ -174,6 +179,7 @@ register_law(select, "select_idempotent", module=__name__)
 
 
 # -- Tool: resolve-backed property for generated instances ----------------------------
+
 
 @spec(Tool, law="tool_select_back_for_generated")
 def test_tool_generated_instance_selects_back(tool: Tool) -> None:

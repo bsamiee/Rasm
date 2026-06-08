@@ -15,7 +15,7 @@ Law-coverage strategy:
 
 # --- [RUNTIME_PRELUDE] ------------------------------------------------------------------
 
-from hypothesis import given, strategies as st
+from hypothesis import example, given, strategies as st
 import msgspec
 import pytest
 
@@ -49,12 +49,9 @@ from tools.assay.core.model import Claim
 
 _claim_st: st.SearchStrategy[Claim] = st.sampled_from(list(Claim))
 _verb_st: st.SearchStrategy[str] = st.text(min_size=1, max_size=32)
-_argv_st: st.SearchStrategy[tuple[str, ...]] = (
-    st.lists(st.text(min_size=1, max_size=16), min_size=1, max_size=4).map(tuple)
-)
 
 _rail_st: st.SearchStrategy[Rail] = st.builds(Rail, claim=_claim_st, verb=_verb_st)
-_program_st: st.SearchStrategy[Program] = st.builds(Program, argv=_argv_st)
+_program_st: st.SearchStrategy[Program] = resolve(Program)
 _action_st: st.SearchStrategy[Action] = st.deferred(
     lambda: st.one_of(
         _rail_st,
@@ -73,6 +70,10 @@ _trigger_st: st.SearchStrategy[Trigger] = st.one_of(resolve(Watch), resolve(Sche
 # --- [LAWS] -----------------------------------------------------------------------------
 
 
+@example(action=Rail(claim=Claim.STATIC, verb="x"))
+@example(action=Program(argv=("a",)))
+@example(action=Sequence(actions=(Rail(claim=Claim.STATIC, verb="x"),)))
+@example(action=Debounce(action=Rail(claim=Claim.STATIC, verb="x"), window_ms=1))
 @given(_action_st)
 def test_action_encode_decode_roundtrip(action: Action) -> None:
     """decode(encode(x), trigger=False) == x for all Action variants (Rail/Program/Sequence/Debounce)."""
@@ -83,6 +84,9 @@ register_law(Action, "test_action_encode_decode_roundtrip")
 register_law("ACTION_DECODER", "test_action_encode_decode_roundtrip")
 
 
+@example(trigger=Manual())
+@example(trigger=Watch(paths=("p",)))
+@example(trigger=Schedule(cron="* * * * *"))
 @given(_trigger_st)
 def test_trigger_encode_decode_roundtrip(trigger: Trigger) -> None:
     """decode(encode(x), trigger=True) == x for all Trigger variants (Watch/Schedule/Manual)."""
@@ -130,10 +134,7 @@ _DESCRIBE_PREFIXES: tuple[tuple[type[Watch | Schedule | Manual | Rail | Program 
     ],
     ids=[cls for _, cls in _DESCRIBE_PREFIXES],
 )
-def test_describe_prefix_per_variant(
-    node: Watch | Schedule | Manual | Rail | Program | Sequence | Debounce,
-    prefix: str,
-) -> None:
+def test_describe_prefix_per_variant(node: Watch | Schedule | Manual | Rail | Program | Sequence | Debounce, prefix: str) -> None:
     """describe(node) starts with the tag prefix for each union variant."""
     assert describe(node).startswith(prefix)
 
@@ -185,9 +186,7 @@ def test_describe_schedule_timezone_suffix() -> None:
     """describe(Schedule) appends ' @ {tz}' when timezone is truthy; omits it for empty string."""
     assert "@ UTC" in describe(Schedule(cron="0 * * * *"))
     # Fabricate a wire instance with empty timezone via msgspec to probe the omit branch.
-    no_tz = msgspec.json.decode(
-        b'{"kind":"schedule","cron":"* * * * *","timezone":""}', type=Schedule
-    )
+    no_tz = msgspec.json.decode(b'{"kind":"schedule","cron":"* * * * *","timezone":""}', type=Schedule)
     out = describe(no_tz)
     assert "@" not in out
     assert out.startswith("schedule[")

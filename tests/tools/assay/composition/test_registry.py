@@ -17,7 +17,7 @@ import msgspec.structs
 from pydantic import BaseModel, ValidationError
 import pytest  # MonkeyPatch used as runtime parameter annotation in test function signatures
 
-from tests._aspect import register_law  # noqa: PLC2701
+from tests._aspect import register_laws  # noqa: PLC2701
 from tests._spec import assert_error, assert_error_status, assert_ok, support_matrix, validity_matrix, ValidityCase  # noqa: PLC2701
 from tests.tools.assay.conftest import (  # noqa: TC001  # AssayHarness is a runtime fixture annotation (pytest evaluates parameter types at collection)
     AssayHarness,
@@ -137,13 +137,14 @@ def test_registry_structural_invariants() -> None:
     )
 
 
-for _law in ("registry_unique_claim_verb_pairs", "registry_all_handlers_callable", "registry_every_claim_covered", "registry_all_resolve_via_rail"):
-    register_law(_REGISTRY_ROOT, _law)
-
-
-# rail(bind) is callable and named-by-verb for every Bind — the per-Bind dispatch surface laws.
-register_law(rail, "rail_runner_name_matches_verb")
-register_law(rail, "rail_runner_is_callable_for_every_bind")
+register_laws(
+    (
+        _REGISTRY_ROOT,
+        ("registry_unique_claim_verb_pairs", "registry_all_handlers_callable", "registry_every_claim_covered", "registry_all_resolve_via_rail"),
+    ),
+    # rail(bind) is callable and named-by-verb for every Bind — the per-Bind dispatch surface laws.
+    (rail, ("rail_runner_name_matches_verb", "rail_runner_is_callable_for_every_bind")),
+)
 
 
 # --- [BUILD_APP] ---------------------------------------------------------------------------------
@@ -165,8 +166,7 @@ def test_build_app_returns_cyclopts_app() -> None:
     support_matrix(("self-test reachable", lambda: "self-test" in app, True), ("delta reachable", lambda: "delta" in app, True))
 
 
-for _law in ("build_app_returns_cyclopts_app", "build_app_every_leaf_reachable", "build_app_self_test_and_delta_registered"):
-    register_law(build_app, _law)
+register_laws((build_app, ("build_app_returns_cyclopts_app", "build_app_every_leaf_reachable", "build_app_self_test_and_delta_registered")))
 
 
 # --- [ORPHAN_MIN_AGE_S] -----------------------------------------------------------------------
@@ -178,9 +178,6 @@ def test_orphan_min_age_s_value() -> None:
     Mutant caught: changing the constant → hygiene filter breaks for 14-min-old processes.
     """
     assert int(ORPHAN_MIN_AGE_S) == 900
-
-
-register_law(_ORPHAN_SUBJECT, "orphan_min_age_s_value")
 
 
 def test_orphan_min_age_s_threshold_boundary(assay_root: AssayHarness, monkeypatch: pytest.MonkeyPatch) -> None:
@@ -200,9 +197,6 @@ def test_orphan_min_age_s_threshold_boundary(assay_root: AssayHarness, monkeypat
         return frozenset(m.id for m in matches if m.severity == "failed")
 
     assert orphan_ids(ORPHAN_MIN_AGE_S + 1.0) >= orphan_ids(ORPHAN_MIN_AGE_S), "more orphans expected past threshold"
-
-
-register_law(_ORPHAN_SUBJECT, "orphan_min_age_s_threshold_boundary")
 
 
 def test_process_hygiene_reports_old_repo_orphans(assay_root: AssayHarness, monkeypatch: pytest.MonkeyPatch) -> None:
@@ -226,9 +220,6 @@ def test_process_hygiene_reports_old_repo_orphans(assay_root: AssayHarness, monk
     assert all("pid=456" not in n and "pid=789" not in n for n in notes)
 
 
-register_law(_ORPHAN_SUBJECT, "process_hygiene_reports_old_repo_orphans")
-
-
 def test_orphan_process_exception_returns_none() -> None:
     """_orphan_process returns None when proc.info raises OSError — defensive against dead processes.
 
@@ -243,7 +234,15 @@ def test_orphan_process_exception_returns_none() -> None:
     assert registry_mod._orphan_process(broken, Path("/private/tmp"), now=10000.0) is None
 
 
-register_law(_ORPHAN_SUBJECT, "orphan_process_exception_returns_none")
+register_laws((
+    _ORPHAN_SUBJECT,
+    (
+        "orphan_min_age_s_value",
+        "orphan_min_age_s_threshold_boundary",
+        "process_hygiene_reports_old_repo_orphans",
+        "orphan_process_exception_returns_none",
+    ),
+))
 
 
 # --- [PARSE_FAULT] ---------------------------------------------------------------------------
@@ -277,15 +276,6 @@ def test_parse_fault_dispatch_and_fallback() -> None:
     assert all(parse_fault(tokens, "msg").status is RailStatus.FAULTED for tokens in cases), "every dispatch path must emit FAULTED"
 
 
-for _law in (
-    "parse_fault_known_claim_dispatch",
-    "parse_fault_unknown_token_falls_back_to_static",
-    "parse_fault_empty_tokens_fallback",
-    "parse_fault_status_always_faulted",
-):
-    register_law(parse_fault, _law)
-
-
 def test_parse_fault_diagnostic_context_present() -> None:
     """parse_fault populates error_context.failing_step='parse' and recent_events contains dispatch token.
 
@@ -295,9 +285,6 @@ def test_parse_fault_diagnostic_context_present() -> None:
     assert env.error_context is not None
     assert env.error_context.failing_step == "parse"
     assert any("dispatch=static" in ev for ev in env.error_context.recent_events)
-
-
-register_law(parse_fault, "parse_fault_diagnostic_context_present")
 
 
 @pytest.mark.parametrize("initial, dispatch, tokens", [("existing", "static", ("static", "fix")), ("none", "bridge", ("bridge", "verify"))])
@@ -316,10 +303,6 @@ def test_seed_parse_ring_extends_or_creates(initial: str, dispatch: str, tokens:
         assert " ".join(tokens) in ring
     finally:
         _RING.reset(token)
-
-
-register_law(parse_fault, "seed_parse_ring_extends_existing_ring")
-register_law(parse_fault, "seed_parse_ring_creates_ring_when_none")
 
 
 @pytest.mark.parametrize(
@@ -342,9 +325,6 @@ def test_failing_step_classification(fault: Fault, expected_step: str) -> None:
     assert registry_mod._failing_step(fault) == expected_step
 
 
-register_law(parse_fault, "failing_step_classification")
-
-
 def test_distill_explicit_events_and_dispatch_none() -> None:
     """_distill honours caller-supplied events/resource (skipping the ring + _snapshot) and the dispatch=none sentinel.
 
@@ -362,10 +342,6 @@ def test_distill_explicit_events_and_dispatch_none() -> None:
     assert none_diag.dispatched is False
 
 
-register_law(parse_fault, "distill_with_explicit_events_and_resource")
-register_law(parse_fault, "distill_dispatch_none_marks_not_dispatched")
-
-
 def test_parse_fault_config_error_path(monkeypatch: pytest.MonkeyPatch) -> None:
     """parse_fault catches ValidationError from AssaySettings() and emits a 'config:' Fault.
 
@@ -380,9 +356,6 @@ def test_parse_fault_config_error_path(monkeypatch: pytest.MonkeyPatch) -> None:
     assert env.status is RailStatus.FAULTED
     assert env.error is not None
     assert env.error.message.startswith("config:")
-
-
-register_law(parse_fault, "parse_fault_config_error_path")
 
 
 def test_validation_message_formats_pydantic_errors() -> None:
@@ -403,9 +376,6 @@ def test_validation_message_formats_pydantic_errors() -> None:
         assert len(msg) > 0
 
 
-register_law(parse_fault, "validation_message_formats_pydantic_errors")
-
-
 def test_encode_unicode_error_produces_scrubbed_envelope(monkeypatch: pytest.MonkeyPatch) -> None:
     """_encode catches UnicodeEncodeError and emits a scrubbed FAULTED Envelope.
 
@@ -423,7 +393,24 @@ def test_encode_unicode_error_produces_scrubbed_envelope(monkeypatch: pytest.Mon
     assert "invalid characters" in (decoded.notes[0] if decoded.notes else "")
 
 
-register_law(parse_fault, "encode_unicode_error_produces_scrubbed_envelope")
+register_laws((
+    parse_fault,
+    (
+        "parse_fault_known_claim_dispatch",
+        "parse_fault_unknown_token_falls_back_to_static",
+        "parse_fault_empty_tokens_fallback",
+        "parse_fault_status_always_faulted",
+        "parse_fault_diagnostic_context_present",
+        "seed_parse_ring_extends_existing_ring",
+        "seed_parse_ring_creates_ring_when_none",
+        "failing_step_classification",
+        "distill_with_explicit_events_and_resource",
+        "distill_dispatch_none_marks_not_dispatched",
+        "parse_fault_config_error_path",
+        "validation_message_formats_pydantic_errors",
+        "encode_unicode_error_produces_scrubbed_envelope",
+    ),
+))
 
 
 # --- [RAIL] ----------------------------------------------------------------------------------
@@ -437,9 +424,6 @@ def test_identity_hom_returns_ok_report() -> None:
     assert isinstance(assert_ok(registry_mod._identity_hom("a", "b", x=1)), Report)
 
 
-register_law(build_app, "identity_hom_returns_ok_report")
-
-
 def test_correlate_maps_run_id_and_strict(assay_root: AssayHarness) -> None:
     """_correlate extracts run_id, strict flag, and agent_context from settings + params.
 
@@ -451,9 +435,6 @@ def test_correlate_maps_run_id_and_strict(assay_root: AssayHarness) -> None:
     assert ctx["strict"] is True
 
 
-register_law(build_app, "correlate_maps_run_id_and_strict")
-
-
 def test_bound_passthrough_and_surplus_fault() -> None:
     """_bound wraps a non-BaseParams object in Ok and faults BaseParams with surplus positional tokens.
 
@@ -463,10 +444,6 @@ def test_bound_passthrough_and_surplus_fault() -> None:
     assert assert_ok(registry_mod._bound(42, Claim.STATIC, "fix")) == 42
     surplus = registry_mod._bound(BridgeParams(paths=("extra", "tokens")), Claim.BRIDGE, "verify")  # verify arity=0
     assert isinstance(assert_error(surplus), Fault)
-
-
-register_law(rail, "bound_non_base_params_passes_through")
-register_law(rail, "bound_surplus_paths_faults")
 
 
 @pytest.mark.parametrize("status", [RailStatus.EMPTY, RailStatus.SKIP])
@@ -488,11 +465,6 @@ def test_strict_passthrough_for_ok_non_strict() -> None:
     assert registry_mod._strict(Ok(Report(Claim.STATIC, "fix", RailStatus.OK)), _strict_params(strict=False)).is_ok()
 
 
-register_law(rail, "strict_promotes_empty_report_to_fault")
-register_law(rail, "strict_promotes_skip_report_to_fault")
-register_law(rail, "strict_passthrough_for_ok_non_strict")
-
-
 def test_narrow_raises_type_error_for_non_function() -> None:
     """_narrow rejects non-FunctionType handlers with TypeError — binds must be module-level defs.
 
@@ -500,9 +472,6 @@ def test_narrow_raises_type_error_for_non_function() -> None:
     """
     with pytest.raises(TypeError, match="FunctionType"):
         registry_mod._narrow(42)
-
-
-register_law(rail, "narrow_raises_type_error_for_non_function")
 
 
 def test_validated_propagates_ok_and_error() -> None:
@@ -515,10 +484,6 @@ def test_validated_propagates_ok_and_error() -> None:
     assert assert_ok(registry_mod._validated(Ok(report))) is report
     fault = Fault((), RailStatus.FAULTED, "err")
     assert assert_error(registry_mod._validated(Error(fault))) is fault
-
-
-register_law(rail, "validated_executes_on_ok_report")
-register_law(rail, "validated_passthrough_for_error")
 
 
 @pytest.mark.parametrize(
@@ -542,11 +507,6 @@ def test_guard_maps_exception_to_fault(exc: Exception, prefix: str) -> None:
     assert fault.message.startswith(prefix)
 
 
-register_law(rail, "guard_catches_faulted_promotion")
-register_law(rail, "guard_catches_beartype_violation")
-register_law(rail, "guard_catches_msgspec_error")
-
-
 def test_rail_runner_emits_ok_and_fault_paths(assay_root: AssayHarness, monkeypatch: pytest.MonkeyPatch) -> None:
     """rail(bind) runner folds an Ok(report) into an OK Envelope and an Error(Fault) into a FAILED Envelope+diagnostic.
 
@@ -565,10 +525,6 @@ def test_rail_runner_emits_ok_and_fault_paths(assay_root: AssayHarness, monkeypa
     assert fault_env.error_context.failing_step == "spawn"
 
 
-register_law(rail, "rail_runner_ok_path_executes_emit")
-register_law(rail, "rail_runner_fault_path_executes_emit")
-
-
 def test_rail_runner_scope_oserror_faults(assay_root: AssayHarness, monkeypatch: pytest.MonkeyPatch) -> None:
     """rail(bind) runner with ArtifactScope.open raising OSError emits a FAULTED Envelope.
 
@@ -581,9 +537,6 @@ def test_rail_runner_scope_oserror_faults(assay_root: AssayHarness, monkeypatch:
     env = _run_fake(bind, assay_root.settings, Ok(fold(Claim.STATIC, bind.verb, ())))
     assert env.status is RailStatus.FAULTED
     assert "scope:" in (env.error.message if env.error else "")
-
-
-register_law(rail, "rail_runner_scope_oserror_faults")
 
 
 def test_emit_double_write_guard(assay_root: AssayHarness) -> None:
@@ -608,7 +561,29 @@ def test_emit_double_write_guard(assay_root: AssayHarness) -> None:
     assert "Invariant 1" in env.error.message
 
 
-register_law(rail, "emit_double_write_guard")
+register_laws(
+    (build_app, ("identity_hom_returns_ok_report", "correlate_maps_run_id_and_strict")),
+    (
+        rail,
+        (
+            "bound_non_base_params_passes_through",
+            "bound_surplus_paths_faults",
+            "strict_promotes_empty_report_to_fault",
+            "strict_promotes_skip_report_to_fault",
+            "strict_passthrough_for_ok_non_strict",
+            "narrow_raises_type_error_for_non_function",
+            "validated_executes_on_ok_report",
+            "validated_passthrough_for_error",
+            "guard_catches_faulted_promotion",
+            "guard_catches_beartype_violation",
+            "guard_catches_msgspec_error",
+            "rail_runner_ok_path_executes_emit",
+            "rail_runner_fault_path_executes_emit",
+            "rail_runner_scope_oserror_faults",
+            "emit_double_write_guard",
+        ),
+    ),
+)
 
 
 # --- [DELTA] ---------------------------------------------------------------------------------
@@ -622,9 +597,6 @@ def test_delta_no_prior_emits_empty_status(assay_root: AssayHarness, monkeypatch
     monkeypatch.setenv("ASSAY_ROOT", str(assay_root.root))
     env = delta("nonexistent-run-id")
     assert (env.claim, env.verb, env.status) == (Claim.STATIC, "delta", RailStatus.EMPTY)
-
-
-register_law(delta, "delta_no_prior_emits_empty_status")
 
 
 def test_delta_history_projection(mem_store: ArtifactStore, assay_root: AssayHarness, monkeypatch: pytest.MonkeyPatch) -> None:
@@ -653,9 +625,6 @@ def test_delta_history_projection(mem_store: ArtifactStore, assay_root: AssayHar
     assert (report.detail.before.id, report.detail.after.id) == (run_b, run_c)
 
 
-register_law(delta, "delta_history_projection")
-
-
 def test_delta_missing_after_and_symmetric_difference() -> None:
     """_delta_report folds a missing `after` to EMPTY and counts added/removed as the symmetric difference of result keys.
 
@@ -673,10 +642,6 @@ def test_delta_missing_after_and_symmetric_difference() -> None:
     assert (diff.detail.added, diff.detail.removed) == (1, 0)
 
 
-register_law(delta, "delta_missing_after_folds_to_empty")
-register_law(delta, "delta_symmetric_difference_oracle")
-
-
 def test_persist_oserror_is_swallowed(assay_root: AssayHarness, monkeypatch: pytest.MonkeyPatch) -> None:
     """_persist swallows OSError from the history store — a failing write never crashes the rail.
 
@@ -686,7 +651,16 @@ def test_persist_oserror_is_swallowed(assay_root: AssayHarness, monkeypatch: pyt
     registry_mod._persist(assay_root.settings, make_history_envelope("run-x"))  # must not raise
 
 
-register_law(delta, "persist_oserror_is_swallowed")
+register_laws((
+    delta,
+    (
+        "delta_no_prior_emits_empty_status",
+        "delta_history_projection",
+        "delta_missing_after_folds_to_empty",
+        "delta_symmetric_difference_oracle",
+        "persist_oserror_is_swallowed",
+    ),
+))
 
 
 # --- [SELF_TEST] ---------------------------------------------------------------------------------
@@ -709,11 +683,6 @@ def test_self_test_structure_and_census(assay_root: AssayHarness, monkeypatch: p
     assert verb_ids <= result_ids, f"missing verb ids from self_test census: {verb_ids - result_ids}"
 
 
-register_law(self_test, "self_test_structure")
-register_law(self_test, "self_test_census_rows_cover_all_registry_verbs")
-register_law(self_test, "self_test_ok_when_composition_healthy")
-
-
 def test_ok_envelope_truncation_persists_full_report(assay_root: AssayHarness) -> None:
     """_ok_envelope saturates stdout at _RESULT_CAP while persisting the unclipped report as artifact.
 
@@ -733,9 +702,6 @@ def test_ok_envelope_truncation_persists_full_report(assay_root: AssayHarness) -
     assert len(msgspec.json.decode(full_raw, type=Report).results) == _RESULT_CAP + 1
 
 
-register_law(self_test, "ok_envelope_truncation_persists_full_report")
-
-
 def test_full_report_artifact_oserror_returns_empty(assay_root: AssayHarness, monkeypatch: pytest.MonkeyPatch) -> None:
     """_full_report_artifact returns () when write_full_report raises OSError.
 
@@ -745,9 +711,6 @@ def test_full_report_artifact_oserror_returns_empty(assay_root: AssayHarness, mo
 
     _patch_store(monkeypatch, "write_full_report")
     assert _full_report_artifact(assay_root.settings, REGISTRY[0], Report(Claim.STATIC, "fix", RailStatus.OK)) == ()
-
-
-register_law(self_test, "full_report_artifact_oserror_returns_empty")
 
 
 def _completed(check: Check, *, rc: int = 0, status: RailStatus = RailStatus.OK, stdout: bytes = b"") -> Completed:
@@ -788,16 +751,6 @@ def test_probe_note_projects_result_to_note(
     assert ok is want_ok
 
 
-for _law in (
-    "probe_note_git_head_ok",
-    "probe_note_git_dirty_states",
-    "probe_note_tool_nonzero_exit",
-    "probe_note_git_missing_returns_ok",
-    "probe_note_tool_missing_returns_false",
-):
-    register_law(self_test, _law)
-
-
 @pytest.mark.parametrize("fresh", [True, False], ids=["fresh", "stale"])
 def test_cache_hit_respects_ttl(fresh: bool) -> None:  # noqa: FBT001
     """_cache_hit returns (note, ok) for a matching fresh token within TTL and None once the ts expires.
@@ -813,10 +766,6 @@ def test_cache_hit_respects_ttl(fresh: bool) -> None:  # noqa: FBT001
     assert registry_mod._cache_hit(cache, argv) == (("git: HEAD abc1234", True) if fresh else None)
 
 
-register_law(self_test, "cache_hit_valid_token_returns_note")
-register_law(self_test, "cache_hit_stale_token_returns_none")
-
-
 @pytest.mark.parametrize("argv", [(), ("__no_such_program_xyz__",)], ids=["empty-argv", "unresolvable"])
 def test_probe_token_returns_none(argv: tuple[str, ...]) -> None:
     """_probe_token returns None for empty argv (no key) and unresolvable programs (no mtime → forces a live probe).
@@ -825,10 +774,6 @@ def test_probe_token_returns_none(argv: tuple[str, ...]) -> None:
     programs (stale cache hits).
     """
     assert registry_mod._probe_token(argv) is None
-
-
-register_law(self_test, "probe_token_empty_argv_returns_none")
-register_law(self_test, "probe_token_unresolvable_direct_returns_none")
 
 
 @pytest.mark.parametrize("seed", [None, b"{bad json"], ids=["missing", "corrupt"])
@@ -845,10 +790,6 @@ def test_probe_cache_load_folds_to_empty(assay_root: AssayHarness, seed: bytes |
     assert registry_mod._probe_cache_load(assay_root.settings) == {}
 
 
-register_law(self_test, "probe_cache_load_missing_returns_empty")
-register_law(self_test, "probe_cache_load_corrupt_returns_empty")
-
-
 def test_probe_cache_store_oserror_is_swallowed(assay_root: AssayHarness, monkeypatch: pytest.MonkeyPatch) -> None:
     """_probe_cache_store swallows OSError from write_bytes — a failing write never crashes self_test.
 
@@ -856,9 +797,6 @@ def test_probe_cache_store_oserror_is_swallowed(assay_root: AssayHarness, monkey
     """
     _patch_store(monkeypatch, "write_bytes")
     registry_mod._probe_cache_store(assay_root.settings, {}, {}, frozenset())  # must not raise
-
-
-register_law(self_test, "probe_cache_store_oserror_is_swallowed")
 
 
 def test_composes_health_and_type_error(monkeypatch: pytest.MonkeyPatch) -> None:
@@ -870,10 +808,6 @@ def test_composes_health_and_type_error(monkeypatch: pytest.MonkeyPatch) -> None
     assert registry_mod._composes() is True
     monkeypatch.setattr(registry_mod, "compose", lambda *_a, **_k: (_ for _ in ()).throw(TypeError("slot order inversion")))
     assert registry_mod._composes() is False
-
-
-register_law(self_test, "composes_returns_true_for_healthy_layers")
-register_law(self_test, "composes_returns_false_on_type_error")
 
 
 def test_yak_ready_without_yak_on_path(monkeypatch: pytest.MonkeyPatch) -> None:
@@ -888,7 +822,31 @@ def test_yak_ready_without_yak_on_path(monkeypatch: pytest.MonkeyPatch) -> None:
     assert registry_mod._yak_ready() is False
 
 
-register_law(self_test, "yak_ready_without_yak_on_path")
+register_laws((
+    self_test,
+    (
+        "self_test_structure",
+        "self_test_census_rows_cover_all_registry_verbs",
+        "self_test_ok_when_composition_healthy",
+        "ok_envelope_truncation_persists_full_report",
+        "full_report_artifact_oserror_returns_empty",
+        "probe_note_git_head_ok",
+        "probe_note_git_dirty_states",
+        "probe_note_tool_nonzero_exit",
+        "probe_note_git_missing_returns_ok",
+        "probe_note_tool_missing_returns_false",
+        "cache_hit_valid_token_returns_note",
+        "cache_hit_stale_token_returns_none",
+        "probe_token_empty_argv_returns_none",
+        "probe_token_unresolvable_direct_returns_none",
+        "probe_cache_load_missing_returns_empty",
+        "probe_cache_load_corrupt_returns_empty",
+        "probe_cache_store_oserror_is_swallowed",
+        "composes_returns_true_for_healthy_layers",
+        "composes_returns_false_on_type_error",
+        "yak_ready_without_yak_on_path",
+    ),
+))
 
 
 # --- [LEAF] ----------------------------------------------------------------------------------
@@ -922,10 +880,6 @@ def test_leaf_command_closure_and_invocation(assay_root: AssayHarness, monkeypat
     assert env.status is RailStatus.OK
 
 
-register_law(build_app, "leaf_command_closure_callable")
-register_law(build_app, "leaf_command_invocation_returns_envelope")
-
-
 def test_read_version_string_and_oserror_default(monkeypatch: pytest.MonkeyPatch) -> None:
     """_read_version() returns a non-empty version string, and falls back to '0.0.0' when pyproject is unreadable.
 
@@ -935,10 +889,6 @@ def test_read_version_string_and_oserror_default(monkeypatch: pytest.MonkeyPatch
     assert registry_mod._read_version() == IsStr(min_length=1)
     monkeypatch.setattr(Path, "read_text", _bad_io)
     assert registry_mod._read_version() == "0.0.0"
-
-
-register_law(build_app, "read_version_returns_string")
-register_law(build_app, "read_version_oserror_returns_default")
 
 
 def test_register_all_match_arms() -> None:
@@ -955,4 +905,13 @@ def test_register_all_match_arms() -> None:
     assert {"sub-app", "my-noop", "my-noop2"} <= set(app)
 
 
-register_law(build_app, "register_all_match_arms")
+register_laws((
+    build_app,
+    (
+        "leaf_command_closure_callable",
+        "leaf_command_invocation_returns_envelope",
+        "read_version_returns_string",
+        "read_version_oserror_returns_default",
+        "register_all_match_arms",
+    ),
+))

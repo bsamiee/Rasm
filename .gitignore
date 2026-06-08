@@ -59,6 +59,8 @@ lost-pixel/
 playwright-report/
 playwright/.cache/
 mutants/
+.hypothesis/
+.benchmarks/
 **/__screenshots__/
 .vitest-attachments
 

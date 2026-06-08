@@ -10,12 +10,12 @@ preserves the fold count invariant and asserts the ``Report`` arithmetic via ``a
 
 from typing import get_args
 
-from hypothesis import given, strategies as st
+from hypothesis import example, given, strategies as st, target
 import msgspec
 import msgspec.inspect as msgspec_inspect
 import pytest
 
-from tests._aspect import register_law, spec  # noqa: PLC2701  # sibling test-internal module; `_`-named by S1 design
+from tests._aspect import register_law, register_laws, spec  # noqa: PLC2701  # sibling test-internal module; `_`-named by S1 design
 from tests._spec import assert_roundtrip, idempotent, metamorphic, support_matrix  # noqa: PLC2701  # sibling test-internal oracle surface
 from tests.tools.assay.conftest import (
     api_resolution_st,
@@ -135,64 +135,35 @@ _BARE_STRENUM_CLASSES: tuple[type[Claim | SourceKind | ArtifactKind | MutationLa
 for _row in _WIRE_ROWS:
     register_law(_row[0], "wire_round_trip")
 
-# AnyDetail variant laws.
-register_law(AnyDetail, "variant_round_trip")
-register_law(AnyDetail, "tags_injective")
-register_law(Detail, "variant_is_subclass")
-
-# Base wire policy.
-register_law(Base, "forbid_unknown_fields")
-
-# fold laws.
-register_law(fold, "count_oracle")
-register_law(fold, "defect_row_per_failed")
-register_law(fold, "empty_report")
-register_law(fold, "failed_stderr_in_text")
-
-# Report / Counts / Match fold-arithmetic laws.
-register_law(Report, "counts_consistent")
-register_law(Report, "envelope_source")
-register_law(Counts, "fold_arithmetic")
-register_law(Match, "defect_row_severity")
-
-# envelope laws.
-register_law(envelope, "report_status_projection")
-register_law(envelope, "fault_status_projection")
-register_law(Envelope, "fault_branch")
-register_law(Fault, "envelope_error_payload")
-
-# receipt laws.
-register_law(receipt, "status_derivation")
-register_law(Completed, "receipt_construction")
-
-# field_cap law.
-register_law(field_cap, "introspection_oracle")
-
-# validate_detail laws.
-register_law(validate_detail, "detail_round_trip")
-register_law(validate_detail, "none_passthrough")
-
-# wire_encode / wire_safe laws (@spec covers wire_encode "determinism" at decoration time).
-register_law(wire_encode, "decode_clean")
-register_law(wire_safe, "surrogate_neutralization")
-register_law(wire_safe, "idempotent")
-
-# BaseParams laws.
-register_law(BaseParams, "surplus_within_cap")
-register_law(BaseParams, "default_arity_identity")
-
-# Payload-bearing enum laws.
-register_law(Runner, "prefix_str_tuple")
-register_law(Mode, "flags_are_bool")
-register_law(Language, "suffix_and_strategy")
-register_law(Input, "flag_and_scoped")
+register_laws(
+    (AnyDetail, ("variant_round_trip", "tags_injective")),
+    (Detail, ("variant_is_subclass",)),
+    (Base, ("forbid_unknown_fields",)),
+    (fold, ("count_oracle", "defect_row_per_failed", "empty_report", "failed_stderr_in_text")),
+    (Report, ("counts_consistent", "envelope_source")),
+    (Counts, ("fold_arithmetic",)),
+    (Match, ("defect_row_severity",)),
+    (envelope, ("report_status_projection", "fault_status_projection")),
+    (Envelope, ("fault_branch",)),
+    (Fault, ("envelope_error_payload",)),
+    (receipt, ("status_derivation",)),
+    (Completed, ("receipt_construction",)),
+    (field_cap, ("introspection_oracle",)),
+    (validate_detail, ("detail_round_trip", "none_passthrough")),
+    # @spec covers wire_encode "determinism" at decoration time.
+    (wire_encode, ("decode_clean",)),
+    (wire_safe, ("surrogate_neutralization", "idempotent")),
+    (BaseParams, ("surplus_within_cap", "default_arity_identity")),
+    (Runner, ("prefix_str_tuple",)),
+    (Mode, ("flags_are_bool",)),
+    (Language, ("suffix_and_strategy",)),
+    (Input, ("flag_and_scoped",)),
+    (Bind, ("well_formed",)),
+)
 
 # Bare StrEnum token-identity law — one registration per class.
 for _cls in _BARE_STRENUM_CLASSES:
     register_law(_cls, "token_identity")
-
-# Bind structural law.
-register_law(Bind, "well_formed")
 
 
 # --- [WIRE_ROUNDTRIP] ------------------------------------------------------------------------
@@ -246,6 +217,8 @@ def test_fold_count_oracle(outcomes: list[Completed]) -> None:
     report = fold(Claim.STATIC, "check", tup)
     ok_n = sum(1 for o in tup if o.status in {RailStatus.OK, RailStatus.EMPTY, RailStatus.SKIP})
     fail_n = sum(1 for o in tup if o.status is RailStatus.FAILED)
+    target(float(len(tup)), label="fold_outcome_count")
+    target(float(ok_n + fail_n), label="fold_counted_total")
     assert report.counts.ok == ok_n
     assert report.counts.failed == fail_n
     assert report.counts.total == ok_n + fail_n
@@ -377,6 +350,9 @@ def test_wire_safe_neutralizes_surrogates(surrogates: str) -> None:
     wire_safe(surrogates).encode("utf-8")  # would raise if a surrogate survived
 
 
+@example(text="")
+@example(text="\U0010ffff")  # max valid codepoint, multi-byte
+@example(text="a" * 64)  # max-size boundary
 @given(st.text(max_size=64))
 def test_wire_safe_idempotent_on_clean(text: str) -> None:
     """``wire_safe`` is idempotent: a UTF-8-clean string passes through unchanged."""
@@ -393,6 +369,7 @@ def test_baseparams_surplus_within_fault_cap(verb: str, tokens: list[str]) -> No
     fault = BaseParams.surplus(verb, tuple(tokens))
     assert isinstance(fault, Fault)
     assert fault.status is RailStatus.FAULTED
+    target(float(len(fault.message.encode())), label="surplus_message_bytes")
     assert len(fault.message.encode()) <= field_cap(Fault, "message", default=0)
 
 
@@ -441,11 +418,7 @@ def test_input_payload(member: Input) -> None:
     assert isinstance(member.scoped, bool)
 
 
-@pytest.mark.parametrize(
-    "enum_cls",
-    [Claim, SourceKind, ArtifactKind, MutationLane, SymbolShape],
-    ids=lambda c: c.__name__,
-)
+@pytest.mark.parametrize("enum_cls", [Claim, SourceKind, ArtifactKind, MutationLane, SymbolShape], ids=lambda c: c.__name__)
 def test_bare_strenum_token_identity(enum_cls: type[Claim | SourceKind]) -> None:
     """Every bare StrEnum member's wire token equals its lowercase string value — injective, str-typed."""
     members = list(enum_cls)

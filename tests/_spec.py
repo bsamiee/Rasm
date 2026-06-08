@@ -15,6 +15,7 @@ Extends Spec.cs: ``involution`` and ``absorbing`` have no C# counterpart;
 # --- [RUNTIME_PRELUDE] ------------------------------------------------------------------
 
 from collections.abc import Callable, Iterable  # noqa: TC003
+import functools
 import operator
 from typing import overload, Protocol, Self
 
@@ -71,17 +72,34 @@ class ProjectionCase[I](msgspec.Struct, frozen=True, gc=False):
     unsupported_out: object
 
 
+class MetamorphicRelation[T, R](msgspec.Struct, frozen=True, gc=False):
+    """A single metamorphic relation for :func:`metamorphic_sweep`.
+
+    Models the literature's ``(input-transform, output-relation)`` pair: ``transform`` derives a
+    follow-up input from the source, and ``relate`` asserts the required relation between the
+    source output ``f(x)`` and the follow-up output ``f(transform(x))``, raising ``AssertionError``
+    on violation (mirroring every other oracle body).
+
+    Args:
+        name: Human-readable relation identifier surfaced on failure.
+        transform: Maps the source input to the follow-up input.
+        relate: Asserts the relation between ``f(x)`` and ``f(transform(x))``; raises on violation.
+    """
+
+    name: str
+    transform: Callable[[T], T]
+    relate: Callable[[R, R], None]
+
+
 # --- [OPERATIONS] -----------------------------------------------------------------------
 
 
-def _resolve_eq[T](eq: _Eq[T]) -> Callable[[T, T], bool]:
-    # Collapse point for all equality-shaped law bodies — mirrors Spec.cs EqLaw.
-    return eq if eq is not None else operator.eq
-
-
 def _eq_law[T](left: T, right: T, eq: _Eq[T]) -> None:
-    """Assert structural (or custom) equality, surfacing both sides on failure."""
-    assert _resolve_eq(eq)(left, right), f"law violated: {left!r} != {right!r}"
+    """Assert structural (or custom) equality, surfacing both sides on failure.
+
+    The shared collapse point for every equality-shaped law body — mirrors Spec.cs ``EqLaw``.
+    """
+    assert (eq if eq is not None else operator.eq)(left, right), f"law violated: {left!r} != {right!r}"
 
 
 # --- ALGEBRAIC ORACLES ------------------------------------------------------------------
@@ -158,6 +176,46 @@ def permutation_invariant[T, R](original: T, shuffled: T, f: Callable[[T], R], *
 def metamorphic[T, R](x: T, path: Callable[[T], R], oracle: Callable[[T], R], *, eq: _Eq[R] = None) -> None:
     """Assert ``eq(path(x), oracle(x))`` — two computation paths must agree on the same input."""
     _eq_law(path(x), oracle(x), eq)
+
+
+def metamorphic_sweep[T, R](x: T, f: Callable[[T], R], *relations: MetamorphicRelation[T, R]) -> None:
+    """Assert every :class:`MetamorphicRelation` holds between ``f(x)`` and ``f(relation.transform(x))``.
+
+    Generalizes :func:`metamorphic` from one path-vs-oracle agreement to an N-relation fold over the
+    ``(input-transform, output-relation)`` form: each relation's ``relate`` is called with the source
+    output and the follow-up output, raising ``AssertionError`` on the first violation.
+
+    Args:
+        x: The source input.
+        f: The function under test.
+        *relations: Metamorphic relations to enforce against ``f(x)``.
+    """
+    base = f(x)
+    functools.reduce(lambda _, r: r.relate(base, f(r.transform(x))), relations, None)
+
+
+def refutes[T](witness: T, law: Callable[..., None], *args: object, **kwargs: object) -> None:
+    """Assert ``law`` *raises* ``AssertionError`` on a known-broken ``witness`` — the falsification oracle.
+
+    Inverse of every other oracle: where they prove a law HOLDS, this proves a law is FALSIFIABLE.
+    A law with no falsifying witness is a tautology a surviving mutant exploits unobserved; this is the
+    in-engine bridge from ``_spec`` to the mutation lane (``refutes(broken_x, idempotent, increment)``
+    proves ``idempotent`` actually catches a non-idempotent ``f``).
+
+    Args:
+        witness: A value (or first positional) for which ``law`` is expected to fail.
+        law: An oracle from this module invoked as ``law(witness, *args, **kwargs)``.
+        *args: Trailing positional arguments forwarded to ``law``.
+        **kwargs: Keyword arguments forwarded to ``law``.
+
+    Raises:
+        AssertionError: When ``law`` does NOT raise on ``witness`` (the law is a tautology).
+    """
+    try:
+        law(witness, *args, **kwargs)
+    except AssertionError:
+        return  # the law rejected the broken witness — falsifiability proven
+    raise AssertionError("law is a tautology — a surviving mutant exploits it")
 
 
 # --- MATRIX ORACLES ---------------------------------------------------------------------
@@ -374,6 +432,7 @@ def model_based[M: RuleBasedStateMachine](machine_cls: type[M]) -> type[M]:
 __all__ = [
     "ValidityCase",
     "ProjectionCase",
+    "MetamorphicRelation",
     "roundtrip",
     "identity",
     "idempotent",
@@ -387,6 +446,8 @@ __all__ = [
     "monotone",
     "permutation_invariant",
     "metamorphic",
+    "metamorphic_sweep",
+    "refutes",
     "validity_matrix",
     "support_matrix",
     "projection_matrix",

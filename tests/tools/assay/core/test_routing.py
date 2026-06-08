@@ -2,9 +2,12 @@
 
 # --- [RUNTIME_PRELUDE] ------------------------------------------------------------------------
 
+from __future__ import annotations
+
 from typing import override, TYPE_CHECKING
 
 from expression import Error, Ok
+from hypothesis import given, HealthCheck, settings as h_settings, strategies as st, target
 import msgspec.structs
 import pytest
 
@@ -68,13 +71,7 @@ class _FaultingSource(Source):
 
 # Shared Python-language tool fixture: FILES/CHECK — covers routable_files filtering via place.
 _PY_TOOL = Tool(
-    name="py-check",
-    runner=Runner.UV,
-    command=("ruff", "check"),
-    input=Input.FILES,
-    language=Language.PYTHON,
-    claim=Claim.CODE,
-    mode=Mode.CHECK,
+    name="py-check", runner=Runner.UV, command=("ruff", "check"), input=Input.FILES, language=Language.PYTHON, claim=Claim.CODE, mode=Mode.CHECK
 )
 
 # Probe-fixture prefixes declared by AssaySettings — drives the S2 seam parametrize law.
@@ -134,18 +131,8 @@ def test_routed_replace_yields_new_instance() -> None:
 register_law(Routed, "routed_full_triggers_scope_consistency")
 
 
-@pytest.mark.parametrize(
-    "scope,full_triggers,files",
-    [
-        (Scope.FULL, ("Workspace.slnx",), ("Workspace.slnx",)),
-        (Scope.CHANGED, (), ("src/A.cs",)),
-    ],
-)
-def test_routed_full_triggers_scope_consistency(
-    scope: Scope,
-    full_triggers: tuple[str, ...],
-    files: tuple[str, ...],
-) -> None:
+@pytest.mark.parametrize("scope,full_triggers,files", [(Scope.FULL, ("Workspace.slnx",), ("Workspace.slnx",)), (Scope.CHANGED, (), ("src/A.cs",))])
+def test_routed_full_triggers_scope_consistency(scope: Scope, full_triggers: tuple[str, ...], files: tuple[str, ...]) -> None:
     """full_triggers is non-empty iff scope is FULL — the escalation invariant."""
     r = Routed(language=Language.CSHARP, scope=scope, files=files, full_triggers=full_triggers)
     assert (r.scope is Scope.FULL) == (len(r.full_triggers) > 0)
@@ -260,12 +247,7 @@ register_law(place, "place_input_arm_table")
     [
         (Input.FILES, Mode.CHECK, Routed(Language.PYTHON, Scope.CHANGED, files=("a.py",)), (("a.py",),)),
         (Input.FILES, Mode.CHECK, Routed(Language.PYTHON, Scope.CHANGED), ()),
-        (
-            Input.INCLUDE,
-            Mode.WRITE,
-            Routed(Language.CSHARP, Scope.CHANGED, groups=(("A.csproj", ("a.cs",)),)),
-            (("A.csproj", "--include", "a.cs"),),
-        ),
+        (Input.INCLUDE, Mode.WRITE, Routed(Language.CSHARP, Scope.CHANGED, groups=(("A.csproj", ("a.cs",)),)), (("A.csproj", "--include", "a.cs"),)),
         (Input.PROJECT, Mode.RUN, Routed(Language.CSHARP, Scope.CHANGED, projects=("A.csproj",)), (("A.csproj",),)),
         (Input.NONE, Mode.CHECK, Routed(Language.PYTHON, Scope.CHANGED, files=("a.py",)), (("a.py",),)),
         (Input.NONE, Mode.CHECK, Routed(Language.PYTHON, Scope.CHANGED), ((),)),
@@ -273,11 +255,7 @@ register_law(place, "place_input_arm_table")
     ids=["files-present", "files-empty", "include-arm", "project-arm", "none-with-files", "none-empty"],
 )
 def test_place_input_arm_table(
-    input_mode: Input,
-    mode: Mode,
-    routed: Routed,
-    expected: tuple[tuple[str, ...], ...],
-    assay_root: AssayHarness,
+    input_mode: Input, mode: Mode, routed: Routed, expected: tuple[tuple[str, ...], ...], assay_root: AssayHarness
 ) -> None:
     """Each Input arm projects routed data into a stable argv tail (full matrix, 6 arms)."""
     tool = Tool("t", Runner.DIRECT, ("tool",), input_mode, routed.language, Claim.STATIC, mode=mode)
@@ -309,13 +287,15 @@ def test_place_determinism(assay_root: AssayHarness) -> None:
 register_law(place, "place_proportional_by_inspection")
 
 
-@pytest.mark.parametrize("k", [1, 10, 20, 50])
+@h_settings(max_examples=200, suppress_health_check=[HealthCheck.function_scoped_fixture])
+@given(k=st.integers(min_value=0, max_value=2000))
 def test_place_proportional_by_inspection(k: int, assay_root: AssayHarness) -> None:
     """place() projects all k files into exactly one argv tail — O(N) by construction, not chunked."""
     files = tuple(f"pkg/mod_{i}.py" for i in range(k))
     routed = Routed(language=Language.PYTHON, scope=Scope.CHANGED, files=files)
     result = place(routed, _PY_TOOL, settings=assay_root.settings)
-    assert result == (files,), f"expected one argv tail with {k} files, got {result!r}"
+    target(float(k), label="placed_file_count")
+    assert result == (files,) if k else result == (), f"expected one argv tail with {k} files, got {result!r}"
 
 
 # --- routable_files: probe-fixture prefix stripping ---

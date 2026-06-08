@@ -15,6 +15,12 @@ _hypothesis_storage_directory = os.environ.get("HYPOTHESIS_STORAGE_DIRECTORY")  
 HYPOTHESIS_HOME = Path(_hypothesis_storage_directory) if _hypothesis_storage_directory else _DEFAULT_HYPOTHESIS_HOME
 os.environ.setdefault("HYPOTHESIS_STORAGE_DIRECTORY", str(HYPOTHESIS_HOME))  # noqa: TID251  # pytest boundary: seed subprocess home before import
 
+# Rank 18: opt-in observability artifact lane — must be set BEFORE hypothesis.internal.observability
+# is first imported so the module-level callback registration fires on that import.
+# Default off; zero overhead when unset. Activate with ASSAY_OBSERVABILITY=1.
+if os.environ.get("ASSAY_OBSERVABILITY"):  # noqa: TID251  # pytest boundary: observability gate before hypothesis import
+    os.environ.setdefault("HYPOTHESIS_EXPERIMENTAL_OBSERVABILITY", "1")  # noqa: TID251
+
 # --- [IMPORTS] ------------------------------------------------------------------------
 
 from typing import TYPE_CHECKING
@@ -22,7 +28,12 @@ from typing import TYPE_CHECKING
 import anyio
 from hypothesis import HealthCheck, is_hypothesis_test, Phase, settings as hyp_settings
 from hypothesis.configuration import set_hypothesis_home_dir
-from hypothesis.database import DirectoryBasedExampleDatabase
+from hypothesis.database import BackgroundWriteDatabase, DirectoryBasedExampleDatabase, GitHubArtifactDatabase, MultiplexedDatabase, ReadOnlyDatabase
+from hypothesis.internal.observability import add_observability_callback  # no public re-export; hypothesis itself uses this path
+from hypothesis.strategies._internal.utils import (  # noqa: PLC2701  # no public re-export; mirrors hypothesis._deliver_to_file's own import
+    to_jsonable,
+)
+import msgspec.json
 from opentelemetry import trace as otel_trace
 from opentelemetry.sdk.trace import TracerProvider
 from opentelemetry.sdk.trace.export import SimpleSpanProcessor
@@ -45,7 +56,19 @@ if TYPE_CHECKING:
 
 
 HYPOTHESIS_EXAMPLES = HYPOTHESIS_HOME / "examples"
-_EXAMPLE_DB = DirectoryBasedExampleDatabase(HYPOTHESIS_EXAMPLES)
+# Rank 16: BackgroundWriteDatabase keeps adversarial-profile (max_examples=2000) writes off the
+# critical path. Behind RASM_HYPOTHESIS_GH_REPLAY, a ReadOnlyDatabase(GitHubArtifactDatabase(...))
+# layer replays CI-found counterexamples locally via MultiplexedDatabase. rasm-mutation and
+# rasm-parity profiles deliberately pass database=None and are unaffected.
+# register_random: no private random.Random seam exists in the engines at this time; call it here
+# (strong ref required — hypothesis weakrefs the instance) if one is introduced.
+_local_db = BackgroundWriteDatabase(DirectoryBasedExampleDatabase(HYPOTHESIS_EXAMPLES))
+_gh_replay = os.environ.get("RASM_HYPOTHESIS_GH_REPLAY")  # noqa: TID251  # test boundary: CI replay gate
+_EXAMPLE_DB = (
+    MultiplexedDatabase(_local_db, ReadOnlyDatabase(GitHubArtifactDatabase(*_gh_replay.split("/", 1))))
+    if _gh_replay and "/" in _gh_replay
+    else _local_db
+)
 _SUPPRESSIONS = (HealthCheck.too_slow, HealthCheck.data_too_large)
 _log = structlog.get_logger(__name__)
 
@@ -107,6 +130,27 @@ hyp_settings.register_profile(
     derandomize=True,
     suppress_health_check=_SUPPRESSIONS,
 )
+# Rank 19 (future, no dep now): a rasm-symbolic profile (@settings(backend="crosshair")) over
+# SMT-tractable pure _spec laws (arithmetic roundtrip / monotone / inverse) will be enabled when a
+# cp315 crosshair-tool wheel ships. CrossHair integrates as a Hypothesis BACKEND via the
+# hypothesis.internal.conjecture.engine AVAILABLE_PROVIDERS registry — zero engine change required,
+# conftest-only. Gate behind a pytest marker to avoid accidental activation on normal runs.
+
+# Rank 18: when ASSAY_OBSERVABILITY is set, redirect jsonlines observations to .artifacts/python/observed/
+# alongside the coverage artifacts. The env var was set before the hypothesis import above so the
+# module-level _deliver_to_file callback already registered; the custom callback below additionally
+# writes the same payload to the repo artifacts tree for agent-readable evidence.
+if os.environ.get("ASSAY_OBSERVABILITY"):  # noqa: TID251  # test boundary: observability artifact redirect
+    _OBS_DIR = ROOT / ".artifacts" / "python" / "observed"
+
+    def _deliver_to_artifacts(observation: object) -> None:
+        kind = "testcases" if getattr(observation, "type", None) == "test_case" else "info"
+        _OBS_DIR.mkdir(parents=True, exist_ok=True)
+        artifact = _OBS_DIR / f"{datetime.now(tz=UTC).date().isoformat()}_{kind}.jsonl"
+        with artifact.open(mode="a") as fh:
+            fh.write(msgspec.json.encode(to_jsonable(observation, avoid_realization=False)).decode() + "\n")
+
+    add_observability_callback(_deliver_to_artifacts, all_threads=True)
 
 
 def pytest_collection_modifyitems(items: list[pytest.Item]) -> None:
@@ -162,18 +206,7 @@ def _build_profiler_argv(artifact_dir: Path, secs: str) -> list[str]:
     artifact_dir.mkdir(parents=True, exist_ok=True)
     ts = datetime.now(tz=UTC).strftime("%Y%m%dT%H%M%S")
     artifact = artifact_dir / f"session-{ts}.jsonl"
-    return [
-        "python",
-        "-m",
-        "profiling.sampling",
-        "attach",
-        str(os.getpid()),
-        "--jsonl",
-        "-o",
-        str(artifact),
-        "-d",
-        secs,
-    ]
+    return ["python", "-m", "profiling.sampling", "attach", str(os.getpid()), "--jsonl", "-o", str(artifact), "-d", secs]
 
 
 def _run_profiler(artifact_dir: Path, secs: str) -> None:

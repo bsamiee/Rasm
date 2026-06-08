@@ -189,9 +189,7 @@ def test_mutation_marker_is_declared_not_unknown() -> None:
     pyproject.toml — pytest emits ``PytestUnknownMarkWarning`` (error under ``filterwarnings=["error"]``)
     when any test uses ``@pytest.mark.mutation``.
     """
-    assert "mutation" in _pytest_ini_marker_names(), (
-        "mutation marker not declared in [tool.pytest.ini_options] markers"
-    )
+    assert "mutation" in _pytest_ini_marker_names(), "mutation marker not declared in [tool.pytest.ini_options] markers"
 
 
 def test_network_marker_auto_applied_to_socket_fixture_items(pytestconfig: pytest.Config) -> None:
@@ -200,14 +198,10 @@ def test_network_marker_auto_applied_to_socket_fixture_items(pytestconfig: pytes
     Falsifiable by: removing the ``socket_enabled`` branch from ``pytest_collection_modifyitems``
     — socket-gated tests become invisible to ``-m network`` selection.
     """
-    socket_items = [
-        item for item in _collect_session_items(pytestconfig)
-        if "socket_enabled" in getattr(item, "fixturenames", ())
-    ]
+    socket_items = [item for item in _collect_session_items(pytestconfig) if "socket_enabled" in getattr(item, "fixturenames", ())]
     for item in socket_items:
         assert item.get_closest_marker("network") is not None, (
-            f"{item.nodeid!r} requests socket_enabled but lacks the 'network' marker — "
-            "pytest_collection_modifyitems hook is not applying it"
+            f"{item.nodeid!r} requests socket_enabled but lacks the 'network' marker — pytest_collection_modifyitems hook is not applying it"
         )
 
 
@@ -217,14 +211,10 @@ def test_property_marker_auto_applied_to_hypothesis_items(pytestconfig: pytest.C
     Falsifiable by: removing the ``is_hypothesis_test`` branch from ``pytest_collection_modifyitems``
     — property-based tests become invisible to ``-m property`` selection.
     """
-    hypothesis_items = [
-        item for item in _collect_session_items(pytestconfig)
-        if item.function is not None and is_hypothesis_test(item.function)
-    ]
+    hypothesis_items = [item for item in _collect_session_items(pytestconfig) if item.function is not None and is_hypothesis_test(item.function)]
     for item in hypothesis_items:
         assert item.get_closest_marker("property") is not None, (
-            f"{item.nodeid!r} is a hypothesis test but lacks the 'property' marker — "
-            "pytest_collection_modifyitems hook is not applying it"
+            f"{item.nodeid!r} is a hypothesis test but lacks the 'property' marker — pytest_collection_modifyitems hook is not applying it"
         )
 
 
@@ -238,9 +228,7 @@ def test_benchmark_storage_single_owner_in_addopts() -> None:
     pytest invocation — the single-owner policy breaks and the storage path becomes ambiguous.
     """
     flags = _benchmark_storage_flags(_pytest_ini_addopts())
-    assert len(flags) == 1, (
-        f"Expected exactly one --benchmark-storage in addopts, found {len(flags)}: {flags!r}"
-    )
+    assert len(flags) == 1, f"Expected exactly one --benchmark-storage in addopts, found {len(flags)}: {flags!r}"
 
 
 def test_benchmark_storage_uri_matches_catalog_constant() -> None:
@@ -252,9 +240,7 @@ def test_benchmark_storage_uri_matches_catalog_constant() -> None:
     flags = _benchmark_storage_flags(_pytest_ini_addopts())
     assert flags, "--benchmark-storage not found in addopts (prerequisite for URI-match law)"
     _, _, uri = flags[0].partition("=")
-    assert uri == BENCHMARK_STORAGE_URI, (
-        f"addopts URI {uri!r} != catalog.BENCHMARK_STORAGE_URI {BENCHMARK_STORAGE_URI!r}"
-    )
+    assert uri == BENCHMARK_STORAGE_URI, f"addopts URI {uri!r} != catalog.BENCHMARK_STORAGE_URI {BENCHMARK_STORAGE_URI!r}"
 
 
 def test_benchmark_storage_not_duplicated_in_conftest_files() -> None:
@@ -264,13 +250,9 @@ def test_benchmark_storage_not_duplicated_in_conftest_files() -> None:
     that duplicates or overrides the benchmark storage path — single-owner policy breaks silently.
     """
     violators: list[str] = [
-        str(cf.relative_to(REPO_ROOT))
-        for cf in (REPO_ROOT / "tests").rglob("conftest.py")
-        if "--benchmark-storage" in cf.read_text(encoding="utf-8")
+        str(cf.relative_to(REPO_ROOT)) for cf in (REPO_ROOT / "tests").rglob("conftest.py") if "--benchmark-storage" in cf.read_text(encoding="utf-8")
     ]
-    assert not violators, (
-        f"--benchmark-storage found in conftest file(s) outside addopts: {violators!r}"
-    )
+    assert not violators, f"--benchmark-storage found in conftest file(s) outside addopts: {violators!r}"
 
 
 def test_catalog_module_exposes_benchmark_storage_uri() -> None:

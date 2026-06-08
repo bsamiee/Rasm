@@ -20,6 +20,7 @@ from typing import override, TYPE_CHECKING
 
 from dirty_equals import IsInt, IsStr
 from expression import Ok, Result  # runtime: canned run_check replacements return Result instances
+from hypothesis import given as hyp_given, settings as hyp_settings, strategies as st
 import pytest
 
 from tests._aspect import register_law, spec  # noqa: PLC2701  # sibling test-internal module; `_`-named by S1 design
@@ -30,6 +31,9 @@ from tests._spec import (  # noqa: PLC2701  # sibling test-internal module; `_`-
     support_matrix,
     validity_matrix,
     ValidityCase,
+)
+from tests._strategies import (  # noqa: PLC2701  # sibling test-internal module; aliased to avoid collision with tools.assay.rails.api.resolve verb
+    resolve as st_resolve,
 )
 from tests.tools.assay.conftest import RailProbe  # shared canned-output DNA; `_`-named by S1 design
 from tools.assay.composition.catalog import CAPTURES, select
@@ -559,22 +563,23 @@ register_law(query, "query_unknown_key_unsupported")
 # --- @spec laws for wire types -----------------------------------------------------------------
 
 
-@spec(ApiResolution, law="api_resolution_roundtrip")
-def test_api_resolution_wire_roundtrip(r: ApiResolution) -> None:
-    """ApiResolution survives a deterministic JSON encode/decode round-trip."""
-    assert_roundtrip(r, ApiResolution)
+# Three wire types share identical roundtrip semantics; collapsed into one parametrized law.
+# register_law entries below keep law-coverage gate total for all three subjects.
+@pytest.mark.parametrize(
+    "type_, strategy",
+    [(ApiResolution, st_resolve(ApiResolution)), (ApiSource, st_resolve(ApiSource)), (ApiSurface, st_resolve(ApiSurface))],
+    ids=["resolution", "source", "surface"],
+)
+@hyp_given(st.data())
+@hyp_settings(parent=hyp_settings.get_profile("rasm"))
+def test_wire_roundtrip(type_: type, strategy: st.SearchStrategy[object], data: st.DataObject) -> None:
+    """ApiResolution/ApiSource/ApiSurface each survive a deterministic JSON encode/decode round-trip."""
+    assert_roundtrip(data.draw(strategy), type_)
 
 
-@spec(ApiSource, law="api_source_roundtrip")
-def test_api_source_wire_roundtrip(s: ApiSource) -> None:
-    """ApiSource survives a deterministic JSON encode/decode round-trip."""
-    assert_roundtrip(s, ApiSource)
-
-
-@spec(ApiSurface, law="api_surface_roundtrip")
-def test_api_surface_wire_roundtrip(surf: ApiSurface) -> None:
-    """ApiSurface survives a deterministic JSON encode/decode round-trip."""
-    assert_roundtrip(surf, ApiSurface)
+register_law(ApiResolution, "api_resolution_roundtrip")
+register_law(ApiSource, "api_source_roundtrip")
+register_law(ApiSurface, "api_surface_roundtrip")
 
 
 # --- C# query verb integration with canned ilspycmd output ------------------------------------

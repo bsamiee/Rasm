@@ -95,6 +95,11 @@ error-on-warning = true
 
 # --- [MYPY] ----------------------------------------------------------------
 
+# ADVISORY checker only — `ty` ([tool.ty], all = "error") is the BINDING type gate. mypy diverges on intentional
+# 3.15 / ty-clean idioms (typing.TypeForm absent in mypy; no-for-loop side-effect comprehensions read as
+# func-returns-value; disallow_any_explicit flags Callable[..., R] test signatures; unfollowed-import Any on
+# fsspec/hypothesis). Those divergences are NOT defects — do not "fix" them with mypy-only suppressions that ty
+# would then reject under respect-type-ignore-comments = false. Resolve real type defects through ty.
 [tool.mypy]
 python_version =          "3.15"
 cache_dir =               ".cache/mypy"
@@ -246,26 +251,62 @@ output = ".artifacts/python/coverage/coverage.lcov"
 
 # --- [MUTMUT] --------------------------------------------------------------
 
-# libcst (mutmut's mutator) has no cp315 wheel and the build host lacks a Rust toolchain, so mutation runs on a 3.14.5
-# sidecar interpreter. `requires-python = ">=3.15"` forbids `uv run --python 3.14`; the working invocation ignores the
-# project env and supplies a locked dependency set (single-owner command lives in `tools.assay.composition.catalog`):
-#   uv export --no-emit-project --group mutation --group dev -o .cache/mutation-requirements.txt
-#   uv run --no-project --python 3.14.5 --with-requirements .cache/mutation-requirements.txt mutmut run
-# Flip to native 3.15 (`uv run --group mutation mutmut run`) by changing one catalog setting when cp315 libcst ships.
+# libcst (mutmut's mutator) ships no cp315 wheel, so it builds from source: install Rust (`rustup default stable`) and set
+# `PYO3_USE_ABI3_FORWARD_COMPATIBILITY=1` so pyo3 targets the 3.15 stable ABI. The supported posture is a dedicated mutation
+# venv (keeps libcst's source build out of the main `.venv`):
+#   uv venv .cache/mut-venv --python 3.15
+#   PYO3_USE_ABI3_FORWARD_COMPATIBILITY=1 PATH=$HOME/.cargo/bin:$PATH \
+#       uv pip install --python .cache/mut-venv -r .cache/mutation-requirements.txt
+#
+# SUPPORTED RUNNER (one posture only). `COVERAGE_RCFILE=.config/coverage-mutmut.ini` is mandatory — see the
+# `mutate_only_covered_lines` note below for why mutmut's coverage map is poisoned without it:
+#   COVERAGE_RCFILE=.config/coverage-mutmut.ini PYO3_USE_ABI3_FORWARD_COMPATIBILITY=1 PATH=$HOME/.cargo/bin:$PATH \
+#       .cache/mut-venv/bin/python -m mutmut run
+#   .cache/mut-venv/bin/python tools/quality/mutation_kill_rate.py --threshold 0.80   # kill-rate gate; mutmut owns none
+#
+# `-o required_plugins=` below waives the required-plugins guard for the mutation invocation only: mutmut disables
+# pytest-randomly (`-p no:randomly`, its own default) for deterministic kill verdicts, which would otherwise trip the
+# project's `required_plugins` check and abort before any mutant runs.
+#
+# KNOWN 3.15.0b1 CEILING (mutmut-internal, not config): the Rank-13 `relative_files=false` COVERAGE_RCFILE fix is the
+# verified unblock for "no covered mutants" — the runner now passes `store_lines_covered_by_tests` and enters the stats phase.
+# The stats phase then aborts with pytest exit 4 (a pytest STARTUP / usage error, NOT a test failure). Exit 4 means pytest
+# rejected its own invocation before collecting any tests; the IDENTICAL pytest command run manually from the repo root returns
+# 0 (1035 passed), confirming the failure is specific to mutmut-3's `change_cwd(mutants/)` stats pass on 3.15.0b1 — not a
+# frozen-bootstrap realpath issue and not a test-suite defect. The kill-rate gate (tools/quality/mutation_kill_rate.py) is structurally
+# complete but unexercisable until this stats-pass issue resolves, most likely via a newer mutmut-3 release or stable 3.15.
 [tool.mutmut]
 source_paths = ["tools/assay"]
-# Cheap pre-filter: ty checks the mutated copy (cwd=mutants/) and kills type-invalid mutants before any test runs; gitlab JSON is mutmut-native.
-type_check_command = ["uv", "run", "ty", "check", "--output-format", "gitlab", "tools/assay"]
+# Type-check pre-filter DISABLED (tests are the kill mechanism — disabling loses no kill power). Root cause, traced to the
+# installed mutmut 3.6.0: `filter_mutants_with_type_checker` (`mutmut/mutation/file_mutation.py:494`) RAISES on ANY checker
+# diagnostic whose line falls outside a mutated-method span (`mutant is None` -> bare `raise Exception(...)`), aborting the
+# entire run. It is NOT ty failing to resolve the injected `mutmut.mutation.trampoline` import (that line is `# type: ignore`'d
+# and respected). Re-enable only once `ty check tools/assay` is provably zero-diagnostic at HEAD over the `mutants/` copy.
 pytest_add_cli_args_test_selection = ["tests/tools/assay"]
 pytest_add_cli_args = [
     "--hypothesis-profile=rasm-mutation",
-    "--randomly-dont-reorganize",
-    "--randomly-dont-reset-seed",
-    "-p",
-    "no:randomly",
+    "-o",
+    "required_plugins=",
+    "-m",
+    "not benchmark and not network",
+    # subprocess/integration test spawns the real `uv run python -m tools.assay`, which runs the UNMUTATED binary
+    # (and fails inside mutmut's mutants/ copy) — useless for mutation, deselected here.
+    "--deselect",
+    "tests/tools/assay/test_main.py::test_main_subprocess_exit_code",
 ]
 do_not_mutate = ["tools/assay/__init__.py"]
-mutate_only_covered_lines = true
+# Coverage-to-mutant map (Rank 13/14). With `mutate_only_covered_lines = true`, mutmut's `gather_coverage`
+# (`mutmut/code_coverage.py:54-55`) keys covered lines by the ABSOLUTE mutant path then reads them back via
+# `CoverageData.lines(abs)`. The project's `[tool.coverage.run] relative_files = true` makes coverage store RELATIVE keys,
+# so `lines(abs)` returns `None`, every covered set collapses to empty, and the run aborts at "no covered mutants" before a
+# single mutant is tested (reproduced live on coverage 7.14.x: relative-keyed data yields `lines(abspath)=None`,
+# `lines(rel)=[1,2,3]`). The supported runner exports `COVERAGE_RCFILE=.config/coverage-mutmut.ini` (`relative_files = false`) to
+# restore absolute keys for the mutmut invocation ONLY — the main suite + the coverage gate keep `relative_files = true`
+# untouched. `false` here is the robust default: it sidesteps the brittle map entirely (full-scope over `tools/assay`;
+# survivors on genuinely-uncovered lines surface as explicit triage), correct even if a future coverage core regresses the
+# path keying. Flip to `true` (with the `COVERAGE_RCFILE` override, proven sufficient at the coverage gate) only to scope
+# mutation to covered lines for speed.
+mutate_only_covered_lines = false
 max_stack_depth = 10
 
 # --- [RUFF] ----------------------------------------------------------------
@@ -355,6 +396,7 @@ ignore = [
     "TRY300",
 ]
 "tools/py_analyzer/**" = ["PLR0912", "TC003"]
+"tools/quality/mutation_kill_rate.py" = ["T201"]  # standalone mutation-gate CLI: the score verdict IS stdout (shell/CI consumes it), not a structlog event
 "tests/**"         = ["S101", "PLR2004", "PLR0913", "ARG001", "ARG002", "ANN201", "ANN401", "D101", "D102", "D103", "SLF001"]
 "**/adapters/**"   = ["ANN401"]
 "**/conftest.py"   = ["E402", "F401", "ARG001"]
