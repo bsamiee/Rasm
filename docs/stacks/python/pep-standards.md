@@ -79,6 +79,7 @@ The table is an index, not a PEP manual. Keep each row atomic: name the capabili
 |  [69]   | PEP 570 | Positional API        | Use `/` parameters                                    | `*args` parsing                                |
 |  [70]   | PEP 591 | Final contracts       | Mark final names and classes                          | Prose-only finality                            |
 |  [71]   | PEP 574 | Pickle buffers        | Use protocol 5 out-of-band buffers                    | Copy-heavy pickle blobs                        |
+|  [72]   | PEP 821 | Keyword callables     | Type keyword callables with `Callable[[Unpack[TD]], R]` | Callback `Protocol` shells                  |
 
 ## [2]-[PEP_FAMILY_CONTRACTS]
 
@@ -87,67 +88,100 @@ The table is an index, not a PEP manual. Keep each row atomic: name the capabili
 - Use when: the PEP row moves static proof into type expressions, predicates, aliases, generic owners, protocols, overrides, or closed branch law.
 - Accept: `TypeForm`, `TypeIs`, `TypeGuard` only for non-subtype narrowing, `@disjoint_base`, inline type parameters, type defaults, `*Ts`, `Protocol`, `Literal`, `Self`, `@override`, `@dataclass_transform()`, built-in generic and union spellings, `match`, and `final`.
 - Reject: `object` type-form carriers, broad `type[Any]`, bool predicates followed by `cast`, prose-only disjointness, TypeVar farms, rank-specific generic classes, fake nominal ABC shells, checker plugins for flags, legacy `typing.List` or `typing.Dict`, `Union`, `Optional`, and unmarked override or finality contracts.
-- Law: static evidence belongs at the declaration, predicate, or branch owner; consumers should narrow, dispatch, and call without downstream repair.
+- Law: static evidence belongs at the declaration, predicate, or branch owner; `TypeIs` proves exact membership, not filtered validity.
 
 ```python conceptual
+from collections.abc import Callable
 from dataclasses import dataclass
 from typing import Literal, TypeForm, TypeIs, assert_never
 
 
-type Kind = Literal["<value-a>", "<value-b>"]
+type Primary = Literal["<value-a>"]
+type Secondary = Literal["<value-b>"]
+type Kind = Primary | Secondary
 
 
 @dataclass(frozen=True, slots=True)
-class Shape[T: Kind = Literal["<value-a>"]]:
+class Shape[T: Kind = Primary]:
     kind: T
     value: str
 
 
-def selected(shape: Shape[Kind], /) -> TypeIs[Shape[Literal["<value-a>"]]]:
+type Member = Shape[Primary] | Shape[Secondary]
+type Projection[T: Kind] = Callable[[Shape[T]], str]
+type Registered[T: Kind] = tuple[TypeForm[Shape[T]], Projection[T]]
+
+
+def primary(shape: Member, /) -> TypeIs[Shape[Primary]]:
     return shape.kind == "<value-a>"
 
 
-def projected(
-    shape_type: TypeForm[Shape[Kind]],
-    shape: Shape[Kind],
+def registered[T: Kind](
+    shape_type: TypeForm[Shape[T]],
+    projection: Projection[T],
     /,
-) -> tuple[TypeForm[Shape[Kind]], str]:
+) -> Registered[T]:
+    return shape_type, projection
+
+
+def projected(shape: Member, /) -> str:
     match shape:
         case Shape(kind="<value-a>", value=value):
-            return shape_type, f"<result-a>:{value}"
+            return f"<result-a>:{value}"
         case Shape(kind="<value-b>", value=value):
-            return shape_type, f"<result-b>:{value}"
+            return f"<result-b>:{value}"
         case _ as unreachable:
             assert_never(unreachable)
+
+
+PRIMARY_SHAPE = registered(TypeForm(Shape[Primary]), lambda shape: f"<result-a>:{shape.value}")
 ```
 
 [CALLABLE_SIGNATURES]:
-- PEPs: PEP 612, PEP 692, PEP 570.
+- PEPs: PEP 612, PEP 692, PEP 821, PEP 570.
 - Use when: callable shape, decorator AOP, keyword payloads, or positional-only contracts must survive API boundaries.
-- Accept: `ParamSpec`, `Concatenate`, `Unpack[TypedDict]`, and `/` positional-only parameters.
-- Reject: `Callable[..., Any]`, homogeneous `**kwargs`, wrapper signatures that erase parameters, and `*args` parsing for positional contracts.
+- Accept: `ParamSpec`, `Concatenate`, `Callable[[Unpack[TypedDict]], R]`, `Unpack[TypedDict]`, and `/` positional-only parameters.
+- Reject: `Callable[..., Any]`, homogeneous `**kwargs`, callback `Protocol` shells for keyword-callable aliases, wrapper signatures that erase parameters, and `*args` parsing for positional contracts.
 - Law: signatures carry the call contract where the aspect, payload, or positional boundary is declared.
 
 ```python conceptual
 from collections.abc import Callable
 from dataclasses import dataclass
-from typing import Concatenate, TypeForm
+from functools import wraps
+from typing import Concatenate, ReadOnly, Required, TypedDict, Unpack
 
 
 @dataclass(frozen=True, slots=True)
 class Context:
-    shape: TypeForm[Shape[Kind]]
+    prefix: str
 
 
-def selected[**P, T](
+class Row(TypedDict, total=False, closed=True):
+    key: Required[ReadOnly[str]]
+    value: Required[ReadOnly[str]]
+
+
+type Operation[**P, T] = Callable[P, T]
+type RowOperation = Callable[[Unpack[Row]], str]
+
+
+def contextual[**P, T](
     operation: Callable[Concatenate[Context, P], T],
     context: Context,
     /,
-) -> Callable[P, T]:
+) -> Operation[P, T]:
+    @wraps(operation)
     def projected(*args: P.args, **kwargs: P.kwargs) -> T:
         return operation(context, *args, **kwargs)
 
     return projected
+
+
+def selected(context: Context, /) -> RowOperation:
+    def operation(context: Context, **row: Unpack[Row]) -> str:
+        return f"{context.prefix}:{row['key']}:{row['value']}"
+
+    return contextual(operation, context)
 ```
 
 [TYPED_PAYLOADS]:
@@ -158,23 +192,32 @@ def selected[**P, T](
 - Law: payload exactness, requiredness, and read-only evidence belong in the payload shape, not in prose or runtime repair.
 
 ```python conceptual
-from enum import StrEnum
+from dataclasses import dataclass
 from typing import Literal, NotRequired, ReadOnly, Required, TypedDict, Unpack
 
 
-class Field(StrEnum):
-    KEY = "<value-a>"
-    VALUE = "<value-b>"
+type Kind = Literal["<value-a>", "<value-b>"]
 
 
-class Row(TypedDict, total=False, extra_items=ReadOnly[str]):
-    field: Required[ReadOnly[Field]]
+@dataclass(frozen=True, slots=True)
+class Shape:
+    kind: Kind
+    key: str
+    value: str
+
+
+class Row(TypedDict, total=False, closed=True):
+    key: Required[ReadOnly[str]]
     value: Required[ReadOnly[str]]
     kind: NotRequired[ReadOnly[Kind]]
 
 
-def selected(context: Context, /, **row: Unpack[Row]) -> Shape[Literal["<value-a>"]]:
-    return Shape(kind="<value-a>", value=f"{row['field']}:{row['value']}")
+def selected(**row: Unpack[Row]) -> Shape:
+    return Shape(
+        kind=row.get("kind", "<value-a>"),
+        key=row["key"],
+        value=row["value"],
+    )
 ```
 
 [COLLECTION_INVARIANTS]:
@@ -186,30 +229,44 @@ def selected(context: Context, /, **row: Unpack[Row]) -> Shape[Literal["<value-a
 
 ```python conceptual
 from builtins import frozendict, sentinel
+from decimal import Decimal
+from math import integer
+from typing import Literal
 
 
 MISSING = sentinel("MISSING")
 
+type Field = Literal["<field-a>", "<field-b>"]
+type Kind = Literal["<value-a>", "<value-b>"]
+type Selection = Kind | MISSING
+type Row = frozendict[Field, str]
 type Policy = frozendict[Field, str]
+type Projection = tuple[Policy, str]
 
 POLICY: frozendict[Kind, Policy] = frozendict({
-    "<value-a>": frozendict({Field.KEY: "<result-a>"}),
-    "<value-b>": frozendict({Field.KEY: "<result-b>"}),
+    "<value-a>": frozendict({"<field-a>": "<result-a>"}),
+    "<value-b>": frozendict({"<field-a>": "<result-b>"}),
 })
 
 
 def selected(
-    kind: Kind | MISSING = MISSING,
+    kind: Selection = MISSING,
     /,
     *,
     fields: tuple[Field, ...],
     values: tuple[str, ...],
-) -> Policy:
+    overlays: tuple[Row, ...] = (),
+    weight: Decimal = Decimal("-0.004"),
+) -> Projection:
+    selected_kind: Kind = "<value-a>" if kind is MISSING else kind
     row = frozendict({
-        field: value
+        field: normalized
         for field, value in zip(fields, values, strict=True)
+        if (normalized := value.removeprefix("value:").removesuffix(":value"))
     })
-    return POLICY["<value-a>" if kind is MISSING else kind] | row
+    policy = POLICY[selected_kind] | frozendict({**overlay for overlay in overlays}) | row
+    scale = integer.lcm(len(row), len(policy), 1)
+    return policy, f"{Decimal(scale) * weight:z.2f}"
 ```
 
 [ANNOTATION_RUNTIME]:
@@ -222,16 +279,30 @@ def selected(
 ```python conceptual
 import annotationlib
 from builtins import frozendict
+from collections.abc import Callable
 from typing import Annotated, get_args
 
 
-def selected(row: Annotated[Row, POLICY["<value-a>"]], /) -> Policy:
+type Policy = frozendict[str, str]
+
+POLICY: Policy = frozendict({"<field-a>": "<value-a>"})
+type Field = Annotated[str, POLICY]
+
+
+def materialized(operation: Callable[[Field], str], /) -> tuple[Callable[[Field], str], Policy]:
     annotations = annotationlib.get_annotations(
-        selected,
+        operation,
         format=annotationlib.Format.VALUE,
     )
-    _, policy = get_args(annotations["row"])
-    return policy | frozendict({Field.VALUE: row["value"]})
+    _, policy = get_args(annotations["field"])
+    return operation, policy
+
+
+def selected(field: Field, /) -> str:
+    return field
+
+
+SELECTED, SELECTED_POLICY = materialized(selected)
 ```
 
 [TEXT_TEMPLATES]:
