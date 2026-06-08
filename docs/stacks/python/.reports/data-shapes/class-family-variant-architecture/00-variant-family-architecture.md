@@ -1,5 +1,16 @@
 # Variant Family Architecture
 
+# Critical Signals
+
+- `@disjoint_base` (PEP 800) + PEP 742 `TypeIs` + `match`/`assert_never` form the proof triangle per closed union layer — hierarchical families require independent witnesses at each routing level; nested pattern guards do not discharge inner exhaustiveness.
+- Product-of-sum depth budget is three discriminator routing levels inside one owner; beyond level three extract inner closed union into named sub-owner field with independent vocabulary table, registry parity, and migration axis — flat `"outer.inner"` tags couple evolution axes unless wire contract mandates single flat vocabulary.
+- Cross-sub-owner invariants prove once at root smart constructor `admit` before registry lookup; multi-stage registry lookup mirrors nested `match` (outer narrow → sub-field → inner narrow); each sub-owner table parity proves independently — top-level parity does not subsume inner tables.
+- Worker and subinterpreter handoffs re-materialize hierarchical `Member` through root-pinned decoder bytes — import-time frozen registries and cached nested `TypeAdapter` pairs do not cross process or interpreter seams without vocabulary table hash parity at receiving root boot.
+- Sparse `TRANSITION_ROWS` materialize at root import into read-only `TRANSITION_GRAPH`, transitive `REACHABLE`, and shortest-hop `LAWFUL_CHAINS` — absent `(from_kind, to_kind)` row means forbidden hop, not implicit identity; per-request path search without cached canonical chains is merge blocker.
+- `TypeAdapter.validate_python(member.model_dump())` on live `Member` to change discriminant kind — collapse to endofold transition row or documented re-ingress row, not ingress replay disguised as in-process transition.
+- Migration fold invoked mid-domain on materialized current-vocabulary `Member` — collapse to read-boundary migration module; endofold tables operate only after migration completes.
+- Vocabulary table row count must equal closed union width — registry parity tests are import-time defects; orphan rows and missing arms block merge before behavioral suites run.
+
 # Family Ownership And Closure
 
 - One closed domain owns exactly one namespace object — outer class, `@tagged_union` owner, or single module-local family alias — never scatter variants as unrelated module-level siblings.

@@ -1,5 +1,11 @@
 # Pydantic v2 Shape Ownership
 
+# Critical Signals
+
+- Altitude placement and deferred-annotation admission certificate bind at composition-root warm-up — each owner occupies exactly one altitude (`composition-root`, `ingress-projection`, `canonical`, `boundary-pipeline`); `annotationlib.Format.VALUE` field-key parity against `model_fields` after `model_rebuild()` is the compile-time admission certificate that must replay before worker and PEP 734 subinterpreter publish; altitude violations and certificate drift block merge at root import smoke, not domain retry.
+- Three proof surfaces are orthogonal — runtime admission (`model_validate` / `TypeAdapter`), compiled core-schema oracle (`__pydantic_core_schema__` walk), and dual-mode JSON Schema projection — passing one does not discharge the others; field-snapshot equality without core-graph replay is false-green.
+- Cross-process and subinterpreter handoffs re-materialize through root-pinned `TypeAdapter` bytes — compiled `SchemaValidator` identity and generic parametrization (`Box[int]` vs `Box[str]`) do not cross spawn seams without vocabulary and schema-version parity at receiving root boot.
+
 # Shape Engine Doctrine
 
 - Pydantic v2 is the compiled shape engine for boundary admission, settings, discriminated unions, computed wire fields, and JSON Schema-rich contracts; validation is one projection of shape ownership, not the product definition.

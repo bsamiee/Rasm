@@ -1,5 +1,16 @@
 # Shape System Integration Doctrine — Unified Synthesis
 
+# Critical Signals
+
+- Federation temporal law admits three non-overlapping phases — promotion in-flight, reconciliation in-flight, assurance-between-promotions — composition root owns transitions; steady-state mark and A1–A6 assurance bind only after post-reconciliation certify; promotion and reconciliation phases win over scheduled replay and deep assurance on affected contexts.
+- One canonical owner per concept maps to exactly one stack layer and at most one lattice projection per bounded context; cross-context integration admits only vocabulary consensus, seam adapters, and receipt edges — interior modules never import foreign domain shapes or re-prove invariants on projected views.
+- Validation runs once per boundary crossing — ingress Pydantic strict, smart constructors return `Result`, egress msgspec assumes canonical validity; interior pipelines trust materialized shapes without second Pydantic pass or msgspec decode past persistence edges.
+- Projections derive outward from canonical through explicit adapter functions — ingress, wire, settings, CLI, and persistence slices are chooser roles, not parallel domain owners; no projection imports another projection as definition source.
+- Anti-corruption adapters own all foreign-to-canonical translation at context seams — vocabulary remap tables, cardinality remap, union remap, and version selection complete before domain smart constructors execute.
+- Composition roots wire typed handoff graphs, settings fan-out, protocol scope maps, and trusted-replay pins — domain folders never import sibling domain folders, foreign registries, or boundary adapter implementations.
+- Integration proof executes static → import-architecture → contract tables → metamorphic round-trip → runtime boundary → mutation — failures at static layer block expensive generative suites; proof failure targets adapter or vocabulary owner before canonical record.
+- Evolution coupling gates vocabulary, ingress discriminator, wire tag, migration fold, seam remap, and fold arms in one promotion unit — partial version or token promotion without contract rows is a merge blocker; canonical owners never branch on `schema_version`.
+
 # Canonical Shape Stack
 
 - Python `>=3.15` admits one vertical shape stack per bounded context; each layer owns a distinct invariant class; lower layers never re-validate what an upper layer already proved.
@@ -236,7 +247,7 @@
 - Cross-context handoff exports fold-derived receipts or stream snapshots when evidence crosses seams; canonical state does not duplicate inside receipt payloads.
 - Stream version envelopes follow version-envelope law; fold paths select by version at the adapter.
 
-# Trust Posture Routing
+# Trust Posture Admission
 
 - **Untrusted foreign ingress** — full Pydantic strict validation at ingress projection; no `model_construct` or trusted convert on raw bytes.
 - **Semi-trusted service payloads** — validate once at ingress; `forbid_unknown_fields` or `extra="forbid"` remains on for the session.
@@ -268,18 +279,18 @@
 
 - Integration correctness is provable through composed static, contract, metamorphic, runtime, and mutation obligations — not through duplicate manual review.
 - Proof harness layers stack orthogonally; execution order is static checkers before contract tables before metamorphic properties before integration smoke before mutation — failures at the static layer block expensive generative runs; orthogonal checker matrices execute only after integration static layers pass.
-- Proof failure targets the adapter or vocabulary owner first, not the canonical domain record; proof debt from checker gaps tracks on the language axis — source declarations stay spec-complete; harness suppressions at integration seams are rejected; binding round-trip failures implicate integration adapter binding before concept-axis engine or replacement owners.
-- **Layer 1 — static** — `ty`/`mypy` exhaustiveness on canonical unions and stage literals; `assert_never` arms required; runs before orthogonal checker matrices on typed-payload, pydantic, and protocols axes; static failure blocks all generative suites.
-- **Layer 2 — import architecture** — domain folders never import sibling domain folders; domain modules never import msgspec or Pydantic except through type-only boundary stubs when unavoidable; composition roots never import foreign registries or file-local fold helpers; wire modules never import ingress modules; runs before arch tests on concept-axis modules; import failure attributes to integration seam placement before concept-axis interior.
-- **Layer 3 — contract tables** — vocabulary bijection, remap totality, and payload key tables as parametrized rows beside vocabulary or family owners; one table row drives production remap assertions and CI bijection proofs; adapters import the table, tests do not duplicate token lists; typed-payload contract rows share the same parametrized owner beside vocabulary or family tables.
+- Proof failure targets the adapter or vocabulary owner first, not the canonical domain record; proof debt from checker gaps tracks on the language axis — source declarations stay spec-complete; harness suppressions at integration seams are rejected; binding round-trip failures implicate integration adapter binding before interior domain owners.
+- **Layer 1 — static** — `ty`/`mypy` exhaustiveness on canonical unions and stage literals; `assert_never` arms required; runs before orthogonal checker matrices on payload, ingress, and port surfaces; static failure blocks all generative suites.
+- **Layer 2 — import architecture** — domain folders never import sibling domain folders; domain modules never import msgspec or Pydantic except through type-only boundary stubs when unavoidable; composition roots never import foreign registries or file-local fold helpers; wire modules never import ingress modules; runs before arch tests on interior domain modules; import failure attributes to integration seam placement before canonical interior.
+- **Layer 3 — contract tables** — vocabulary bijection, remap totality, and payload key tables as parametrized rows beside vocabulary or family owners; one table row drives production remap assertions and CI bijection proofs; adapters import the table, tests do not duplicate token lists; payload contract rows share the same parametrized owner beside vocabulary or family tables.
 - **Layer 4 — metamorphic and round-trip** — runs after contract tables; when bijection holds: generate lawful canonical value → `project_*_wire` → encode → decode → `materialize_*` → assert equality on canonical identity; subset bijection tests declare excluded fields — computed-on-materialize, wire-omitted, and settings-only — with documented rationale; cross-projection chain when ingress and wire diverge: canonical → wire → decode → materialize must succeed; canonical → ingress reverse fixture → materialize only on documented test-only paths; polymorphic families add per-arm samples in Cartesian coverage when cross-arm law requires; nested sub-owners inherit parent arm conditioning in generative strategies; seam metamorphic law: foreign fixture corpus → anti-corruption `materialize_*` → local canonical → local wire → decode → local `materialize_*` when foreign-local bijection is policy — otherwise one-way foreign-to-canonical proof only.
-- **Layer 5 — runtime boundary** — runs after metamorphic suite; `beartype` on adapters post-materialization; integration smoke asserts diagnostic routing for injected ingress, wire, seam, and migration defects; interior domain beartype stays secondary.
-- **Layer 6 — mutation and drift** — executes last; Stryker on adapter `materialize_*` and remap tables when seam logic is dense — concept-axis mutation surfaces are secondary; import-linter custom rules flag wire importing ingress, domain importing boundary adapter implementation, and receipt models duplicating fold output; mutation testing on discriminant routing requires kill ratio on `match` arms — mutants defaulting to catch-all must fail exhaustiveness type-check or contract tests; integration drift signals gate merge before concept-axis-only proof debt.
+- **Layer 5 — runtime boundary** — runs after metamorphic suite; `beartype` on adapters post-materialization; integration smoke asserts diagnostic attribution for injected ingress, wire, seam, and migration defects; interior domain beartype stays secondary.
+- **Layer 6 — mutation and drift** — executes last; Stryker on adapter `materialize_*` and remap tables when seam logic is dense; import-linter custom rules flag wire importing ingress, domain importing boundary adapter implementation, and receipt models duplicating fold output; mutation testing on discriminant dispatch requires kill ratio on `match` arms — mutants defaulting to catch-all must fail exhaustiveness type-check or contract tests; integration drift signals gate merge before interior-only proof debt.
 - **Role map coverage** — every concept maps to exactly one stack layer and at most one active lattice projection; checklist or arch rule fails on orphan ingress without canonical owner or canonical without egress path.
 - **Stage-to-layer alignment** — each materialization stage name pairs with one stack layer artifact; mixed-type handoffs between construction and enrichment indicate binding drift.
 - **Fold totality** — receipt-stream reducers are total per `StrEnum` kind or return explicit `Result` unhandled arms — `None` collapse is a binding defect, not a domain edge case.
 
-# OpenAPI, Schema Drift, And Failure Archaeology
+# OpenAPI, Schema Drift, And Failure Attribution
 
 - Pydantic discriminated unions export JSON Schema `oneOf` plus `discriminator` from model declarations — hand-maintained OpenAPI discriminator tables parallel to `Annotated[..., Discriminator(...)]` are merge blockers.
 - Schema diff tests compare generated OpenAPI or JSON Schema snapshots on ingress model changes — discriminator mapping drift fails CI before runtime discovery.
@@ -298,7 +309,7 @@
 - Diagnostic evidence tags stack layer, projection role, and seam identity on every boundary fault — `ingress`, `wire`, `seam`, `migration`, or `materialize` discriminator in structured fault payloads, not undifferentiated validation messages.
 - Trace decorators on seam adapters emit span attributes for exporting context, importing context, schema version, and materialization stage at handoff — interior domain spans omit foreign codec identifiers.
 - Cross-context handoff logs record canonical type name and adapter function at exit and entry — receipt stream append events carry slot/kind enum members, not raw handler strings.
-- Integration smoke tests assert diagnostic routing: injected ingress violations surface at ingress owner, injected wire decode failures at wire owner, injected remap gaps at seam owner — conflated attribution fails the smoke module.
+- Integration smoke tests assert diagnostic attribution: injected ingress violations surface at ingress owner, injected wire decode failures at wire owner, injected remap gaps at seam owner — conflated attribution fails the smoke module.
 - Observability vocabulary aligns with catalog and dispatch `StrEnum` rows — diagnostic tags reuse token owners; ad hoc log strings for concepts already enum-owned are drift signals.
 
 # Property Harness And CI Gates
@@ -306,7 +317,7 @@
 - Hypothesis strategies draw from closed registry rows keyed by `StrEnum` or materialized exemplars — `st.sampled_from` over lawful canonical instances per arm, not `st.from_type` on closed unions without registered exemplars or unfiltered text filtered only by runtime validation.
 - Composite strategies mirror nested `match` structure — outer discriminant conditions inner arm generation; independent random tags across hierarchy levels are rejected.
 - Law registration associates integration proofs with port symbols, vocabulary owners, or adapter modules via `register_law` — witnesses bind to the integration owner, not pytest file paths.
-- `@spec` and law-matrix decorators on integration tests preserve collected signatures — hypothesis `@given` removes strategy parameters from pytest-visible signatures per decorator-admitted-shape rules.
+- `@spec` and law-matrix decorators on integration tests preserve collected signatures — hypothesis `@given` removes strategy parameters from pytest-visible signatures per decorator admission stack order.
 - Shrinking preserves discriminant legality — custom composite builders rebuild valid canonical values after shrink; invalid tag mutations fail at construction gate, not as accepted counterexamples.
 - Fold totality laws assert receipt-stream reducers handle every `StrEnum` kind or return explicit `Result` unhandled arms — `None` collapse from fold is harness failure, not domain edge case.
 - Adding a canonical field without ingress mirror, wire projection, or documented adapter omission fails role-map coverage checklist — orphan canonical fields without egress path block merge.
@@ -346,34 +357,26 @@
 - Version bump updating wire struct without migration fold or contract samples — partial promotion leaves stores unreadable.
 - Generating hypothesis samples via unfiltered text filtered by runtime validation — wastes cycles and misses lawful shrink paths.
 - Harness suppressions or cast escapes at integration seams — proof debt belongs on language axis; fix owner typing instead.
-- Cross-axis `StrEnum` declared in ingress model, wire struct, and domain module without vocabulary owner — collapse to vocabulary axis first, then bind edges.
-- Concept axis redefining stack layer order or inventing a projection role outside the lattice — reject before merge; integration doctrine owns taxonomy.
-- Integration doctrine restating pydantic-core, replacement tier, or capability intersection mechanics — bind edge only on concept axis.
-- Promoting concept-axis proof law into integration binding block — mechanics stay on concept owners.
-- Harness or CI gate validating concept-axis interior law before integration role-map coverage — reorder proof composition per integration layer ordering.
+- Parallel `StrEnum` declared in ingress model, wire struct, and domain module without vocabulary owner — collapse to vocabulary owner first, then bind projection edges.
+- Interior module redefining stack layer order or inventing a projection role outside the lattice — reject before merge; integration doctrine owns taxonomy.
+- Integration doctrine restating ingress engine compilation, replacement algebra, or capability intersection mechanics — bind edge only at assigned stack role.
+- Promoting interior proof law into integration binding block — mechanics stay on declaring module owners.
+- Harness or CI gate validating interior domain law before integration role-map coverage — reorder proof composition per integration layer ordering.
 - Standard section naming package brands as shape owners — package boundaries name admission sites, not canonical concepts.
 - Remediation order: consolidate vocabulary, move rule to canonical owner, thin secondary projection, add or fix seam adapter — never add a third parallel type.
 
 # Doctrine Authority And Precedence
 
-- **Integration wins on ownership** — when a concept axis proposes a new shape layer, projection role, validation gate, or seam altitude, the proposal must map to exactly one row in stack taxonomy or projection lattice; otherwise the proposal is rejected until integration doctrine assigns the binding.
-- **Concept axis wins on mechanics** — pydantic-core compilation, replacement algebra, capability intersection joins, decorator phase taxonomy, payload `Unpack` preservation, and variant-family polymorphic persistence stay on their owning axis; integration references binding edges only.
-- **Single invariant owner** — duplicate-validation test arbitrates cross-axis conflicts: when two axes enforce the same rule on different shapes, integration assigns ownership to the canonical layer; the secondary axis thins to projection mirror or deletes the validator.
-- **Vocabulary unification** — token, sentinel, and discriminant closure defaults to vocabulary-absence axis; integration binds import-at-edge policy; concept axes do not declare parallel `StrEnum` rows without vocabulary-axis promotion unit.
-- **Composition-root supremacy** — cross-context wiring, settings fan-out, protocol scope maps, and trusted-replay pins default to integration assembly rules; concept axes document context-local boot slices only.
-- **Evolution coupling** — version envelope, simultaneous projection update, and metamorphic proof obligations gate all concept-axis promotions that touch ingress, wire, or seam edges; partial promotion without integration contract row is a merge blocker.
-
-# Concept Axis Ownership
-
-- **class-family-variant-architecture** — owns `@tagged_union`, discriminated union arms, sub-owner nesting, exhaustive `match` on variant payloads, and polymorphic persistence proof; integration owns dispatch registry keys on materialized canonical types and variant graduation from parallel optional fields.
-- **decorator-admitted-shape-composition** — owns decorator phase taxonomy, `**P` preservation, and surface altitude tables; integration owns outer stack order `trace > authorize > validate > cache > govern > retry` and decorator gate on `Result` rails.
-- **immutable-persistent-replacement-shapes** — owns `copy.replace`, `msgspec.structs.replace`, `model_copy`, tier routing, and hash-stability proof; integration owns mutable-transition graduation and enrichment stage placement after materialization exit.
-- **model-materialization-pipeline** — owns stage carrier vocabulary, ingress-to-materialization sequencing detail, and consumer seam algebra for wire envelopes; integration owns materialization stage-to-stack-layer alignment and single validation gate.
-- **protocols-capabilities-structural-ports** — owns capability lattice, mirror extraction, conformance witnesses, structural admission decorators, and capability intersection joins; integration owns protocol stack role, seam altitude binding, and interior trust without `isinstance` repair.
-- **pydantic-domain-shape-engine** — owns pydantic-core schema compilation, `TypeAdapter` orchestration, and strict ingress engine mechanics; integration owns Pydantic package boundary, ingress projection role, trust-posture admission, and OpenAPI drift gates.
-- **rich-class-owner-design** — owns smart constructors, post-init replay pressure, enrichment identity, boundary morphism on rich owners, and validated transition assembly; integration owns record-to-rich-class graduation, enrichment stage after construction, and phantom stage threading on projection edges.
-- **typed-payload-contract-surfaces** — owns `TypedDict` closure, `Unpack`, `ReadOnly`, `NotRequired`, keyword-callable seam preservation, and composition-root payload wiring proof; integration owns payload surfaces as boundary ingress carriers only.
-- **vocabulary-absence-state-encoding** — owns `Literal`, `Option`, `sentinel`, absence FSM mechanics, and seam remap table ownership on declared closure; integration owns vocabulary stack layer, absence semantics ownership, and vocabulary sync across projections.
+- Integration doctrine owns stack taxonomy, projection lattice roles, validation gate placement, seam altitude, federation binding edges, and evolution coupling across ingress, wire, and seam projections.
+- Declaring-module mechanics — ingress engine compilation, replacement algebra, capability intersection joins, decorator phase taxonomy, payload `Unpack` preservation, and variant-family polymorphic persistence — stay on the module that implements them; integration assigns stack role and boundary placement only.
+- Single invariant owner arbitrates conflicts: duplicate-validation test assigns ownership to the canonical layer; secondary surfaces thin to projection mirror or delete the validator.
+- Vocabulary unification defaults to vocabulary owner module; integration binds import-at-edge policy; parallel `StrEnum` rows without promotion unit are merge blockers.
+- Composition-root supremacy governs cross-context wiring, settings fan-out, protocol scope maps, and trusted-replay pins.
+- Evolution coupling gates version envelope, simultaneous projection update, and metamorphic proof on any promotion touching ingress, wire, or seam edges; partial promotion without integration contract row is a merge blocker.
+- Temporal phase supremacy governs promotion, reconciliation, and sustain phases — federation-edge promotions complete post-reconciliation certify before steady-state mark; open E-signal or partial landing during certify is merge blocker.
+- **Charter supremacy on law evolution** — doctrine edits adding shape kinds, federation edge types, violation signals, assurance invariants, propagation edges, or reconciliation rows absent from prior federation witness tables require charter amendment unit before merge — runtime federation proof passing does not waive charter invariants C1–C7.
+- **Supersession explicitness** — retired doctrine bullets carry `superseded_by` witness pointer in charter tables — silent deletion of enforcement or collapse-test bullets is charter violation per charter C5; schema_version sunset law from evolution section applies analogously to doctrine row retirement.
+- **Dual authority split** — bounded-context integration doctrine wins on interior stack altitude and single validation gate when federation reports address federation only; system coherence doctrine wins on kind ontology and federation topology; charter records arbitration witness when federation and interior boundaries disagree per charter precedence stack.
 
 # Integration Completeness
 
@@ -385,6 +388,13 @@
 - Every persistence and wire handoff carries closed `schema_version` with read-path migration fold — canonical owners do not branch on version; write-path emits current version only.
 - Every vocabulary or variant promotion updates ingress discriminator, wire tag, contract table, and fold arm in one unit — partial promotion is a merge blocker.
 - Every integration proof layer executes static → contract → metamorphic → runtime → mutation in composed order — failures at the static layer block expensive generative suites.
-- Every boundary fault payload tags stack layer, projection role, or seam identity — diagnostic routing smoke passes for injected ingress, wire, seam, and migration defects.
+- Composition root exports temporal witness row with correct phase at all times — steady-state mark holds only in `assurance_between_promotions` with post-reconciliation certify current.
+- Every edge-touching change completes promotion fan-out and post-reconciliation certify before steady-state re-entry — interior-only misclassification collapse tests pass.
+- Every boundary fault payload tags stack layer, projection role, or seam identity — diagnostic attribution smoke passes for injected ingress, wire, seam, and migration defects.
 - Collapse tests pass — no dual owner per concept, wire-as-domain, settings-in-constructor, seam skip, receipt-as-state, or stringly seam remains in the bounded context.
-- Every concept axis retains mechanics inside integration-assigned stack role, lattice binding, and evolution gates — concept owners do not redefine taxonomy or projection roles.
+- Every interior module retains mechanics inside integration-assigned stack role, lattice binding, and evolution gates — declaring modules do not redefine taxonomy or projection roles.
+- Every federation lifecycle phase from assurance synthesis maps to enforceable rows across prior federation witness tables — charter C6 closure totality passes with zero orphan phases.
+- Every doctrine amendment maps to exactly one charter lattice row with liable doctrine owner and rollback unit — orphan doctrine edits without amendment witness block merge per charter amendment doctrine.
+- Every composition root production config carries D4 closure witness revision — missing charter stamp blocks handoff charter attributes on federation edges.
+- Every charter fault routes to liable doctrine owner per diagnostic tags — `charter`, `amendment`, `supersession`, `closure`, `integrity`, `precedence`, `taxonomy_extension`, `witness_drift` extend assurance tags from assurance doctrine without conflated attribution.
+- Charter collapse tests pass — no silent doctrine edit, taxonomy sprawl, signal orphan, duplicate witness lists, precedence inversion, false closure, or axis capture remains in the doctrine family.

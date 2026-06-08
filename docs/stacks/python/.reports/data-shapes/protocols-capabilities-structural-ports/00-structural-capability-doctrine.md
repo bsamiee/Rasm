@@ -1,5 +1,16 @@
 # Structural Capability Doctrine
 
+# Critical Signals
+
+- Capability assurance temporal law admits two non-overlapping phases — promotion in-flight and assurance-between-promotions — composition root owns phase transitions; steady-state mark and P1–P10 assurance bind only in sustain phase after post-promotion certify; promotion in-flight wins over scheduled replay and deep assurance on affected port edges.
+- Admit `typing.Protocol` when structural polymorphism is load-bearing — multiple implementers satisfy one capability without inheritance; reject nominal variant splits, single-callback shells, fat mirrors, and `@runtime_checkable` unions simulating closed variant modality.
+- Static structural proof (PEP 544 + PEP 695/696), runtime presence (`@runtime_checkable`), semantic narrowing (`TypeIs`), and introspection (`get_protocol_members`) are non-interchangeable evidence grades — substituting grades at a seam is a lattice defect regardless of checker green.
+- Ports compose by intersection, not fat interfaces; scope maps key `type[Port]` and thread through `@effect.result` generators — reject module-level mutable registries and interior `isinstance` repair on narrowed capabilities.
+- Kleisli `Arrow` composition threads fault unions across hops with provenance; async and sync port families stay distinct; tier and version gates resolve at composition root before interior bind chains execute.
+- Boundary adapters mirror minimal third-party surfaces; export `Protocol` symbols and `resolve_*` factories only — vendor implementations, tier traversal machinery, and pickled capabilities stay inside providing modules.
+- Every admitted port registers law witnesses via `register_law`, frozenset member snapshots, negative partial-implementer cases, and metamorphic re-bind chains where egress participates — proof harness order is static → frozenset → runtime → generative → metamorphic.
+- Variant identity stays on `@tagged_union` families with exhaustive `match` — at most one port parameterized on `Member`; per-arm protocol sprawl and registry rows typed as protocol pretending to be catalogs are rejected.
+
 # Admission Gate
 
 - Admit `typing.Protocol` when structural polymorphism is load-bearing: multiple independent implementers must satisfy the same capability without inheritance or local subclassing.
@@ -423,3 +434,5 @@
 - Fat mirror unused members: usage graph empty for declared members; trim mirror to minimal invoked surface.
 - Parallel checker exemptions: port module passes one backend with suppressions; collapse proof debt to language axis and restore spec-complete declarations.
 - Done when every admitted port has catalog row, frozenset snapshot, registered law slugs, static/runtime matrix coverage, consumer seam negative imports, and metamorphic re-bind witnesses where egress participates — and every harness collapse row is absent from the bounded context.
+- Composition root exports temporal witness row with correct phase at all times — steady-state mark holds only in `assurance_between_promotions` with post-promotion certify current per capability assurance temporal law in Critical Signals.
+

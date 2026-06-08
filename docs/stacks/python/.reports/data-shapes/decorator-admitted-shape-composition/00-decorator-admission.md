@@ -1,5 +1,16 @@
 # Decorator-Admitted Shape Composition
 
+# Critical Signals
+
+- Stacked decorators admit shape at definition time on the canonical owner — executable semantics plus static evidence; one inspectable surface via preserved signatures, propagated `__wrapped__`, and checker-visible transforms.
+- `annotationlib.get_annotations(..., format=VALUE, include_extras=True)` is the sole annotation read — never mutate raw `__annotations__`; PEP 695 `**P` preservation is mandatory on callable wrappers.
+- Six finite effect surfaces — synthesis, validation, projection, enforcement, catalog, marker — marker-only decorators rejected unless paired with executable admission.
+- Stack altitude is load-bearing: boundary (`@validate_call`, ingress validators), canonical (synthesis, cross-field law), interior (folds on materialized values) — altitude violations are seam defects.
+- Pydantic owns rich domain admission; msgspec owns wire-fast frozen layout — one synthesis family per concept; cross-family movement only at boundary adapters.
+- Seam proof uses compiled evidence (`model_fields`, `__pydantic_core_schema__`, `msgspec.inspect.type_info`) — not source decorator order or comment tables.
+- Evolution binds decorator stacks, schema snapshots, and seam proof rows in one promotion unit — dependency pin bumps trigger first-touch rebuild and dual-mode schema diffs.
+- Domain modules never import ingress decorator owners, boundary payloads, or msgspec wire structs as durable types.
+
 # Admission Doctrine
 
 - Cross-cutting shape behavior—field synthesis, immutability, validation, derived members, runtime type checking, and model enrichment—is declared at definition time through stacked, type-visible decorators that build one coherent shape owner.

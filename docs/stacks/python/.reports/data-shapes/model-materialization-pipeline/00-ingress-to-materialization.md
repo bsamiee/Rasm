@@ -1,5 +1,16 @@
 # Model Materialization Pipeline
 
+# Critical Signals
+
+- Seven ordered stages each with one owner surface — ingress carriers (`bytes`, `dict`, staging views) never survive past validation exit; inter-stage algebra composes as boundary `capture`/`async_capture` with `expression` `Result`.
+- Module-level `TypeAdapter`/`Encoder`/`Decoder` singletons — never per-request construction; single-pass decode (`validate_json`, tagged `Decoder.decode`) replaces `json.loads` then validate.
+- Pydantic owns untrusted ingress; msgspec owns internal wire and cache rows — three projection families (`ingress`, `domain`, `wire`) with explicit boundary projection, not parallel DTO/model/struct triples.
+- Materialization exit is the only type domain modules accept without adapter re-entry — enrichment uses immutable replacement (`model_copy`, `structs.replace`, smart constructors returning `Result`).
+- Round-trip proof (`decoder.decode(encoder.encode(value))`) required before persist on polymorphic slots — proof is egress guard at root `_validated`, not interior domain logic.
+- Composition root owns REGISTRY, codec singletons, envelope emit chain, and one-write stdout invariant — leaf domain modules import canonical owners only.
+- Unknown `schema_version` fails pass-one envelope decode — migration folds at read boundary via `msgspec.convert`, one hop per read; deterministic `order="deterministic"` when bytes become cache keys.
+- Stage-first failure attribution — validation faults at ingress adapter, decode faults at wire owner, proof faults at root guard, handler faults after materialization exit.
+
 # Seven-Stage Pipeline
 
 - Ordered stages: ingress payload → validation → normalization → construction → enrichment → immutable materialization → outbound serialization.

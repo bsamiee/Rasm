@@ -1,21 +1,28 @@
-# Typed Payload Contract Surfaces — Doctrine Synthesis
+# Typed Payload Contract Doctrine
+
+# Critical Signals
+
+- Typed payloads are pre-materialization static dictionary contracts only — boundary, staging, patch, event, and egress assignability slots; canonical owners, variant families, and wire structs occupy durable layers above the promotion gate.
+- One payload name owns one contract; openness (`closed`, `extra_items`, default open), requiredness, and `ReadOnly` evidence are declared, not inferred from comments, runtime repair, or checker convenience.
+- Promotion at the composition root is the sole lawful transition from payload evidence to materialized owners; interior modules accept owners or frozen extension snapshots, never assignable payload types or forwarded `**kwargs`.
+- Contract reader emission is the single field-authority surface — `annotationlib` VALUE-grade folds emit rows that adapters, OpenAPI fragments, hypothesis strategies, and metamorphic chains consume identically; oracle skew against `TypeAdapter(Payload).json_schema()` blocks merge at the emission layer; parallel prose field lists and hand-maintained JSON schemas are merge blockers.
+- Triage tie-break anchors at promotion gate side — pre-gate payload law, post-gate owner law, adapter-only correspondence; assurance certify rows run only after promotion unit commit and never substitute gate admission or re-admit payload-shaped interior parameters.
 
 # Contract Surface Law
 
-- Python `>=3.15` typed payloads occupy pre-materialization lattice slots only — boundary, staging, patch, event, and egress assignability targets — never canonical, variant-family, or wire-struct layers.
+- Python `>=3.15` typed payloads occupy pre-materialization lattice slots only — never canonical, variant-family, or wire-struct layers.
 - Payload law belongs in shape declarations; prose, comments, runtime `dict` repair, and boundary validators must not substitute for erased or implicit payload structure.
 - A typed payload is a static dictionary contract: declared keys, per-key requiredness, per-key mutability evidence, and an explicit openness posture — not a domain owner, validation engine, or serialization policy.
 - One payload name owns one contract; parallel mirror shapes for requiredness, openness, or read-only posture split one concept and are rejected.
 - `TypedDict` at runtime is a plain `dict`; static contracts are checker-enforced. Runtime immutability, ingress validation, and wire codec policy belong to materialized owners and boundary adapters.
-- Python 3.15 ships `closed=`, `extra_items=`, `Required`, `NotRequired`, and `ReadOnly` in `typing`; PEP 728 is accepted in the 3.15 `TypedDict` specification.
-- Author payload law from the typing spec and 3.15 docs; checker gaps are proof debt tracked on the language axis, not license to omit declarations.
+- Stdlib `typing` ships `closed=`, `extra_items=`, `Required`, `NotRequired`, and `ReadOnly` on `TypedDict`; author payload law from the typing specification — checker gaps are proof debt, not license to omit declarations.
 
 # Openness, Extension, And Inheritance
 
-- Payload exactness is a deliberate choice among three postures: `closed=True` (PEP 728), `extra_items=T`, or default open — never an accident of default openness.
+- Payload exactness is a deliberate choice among three postures: `closed=True`, `extra_items=T`, or default open — never an accident of default openness.
 - `closed=True` forbids keys beyond the declared set; use for wire envelopes, event bodies, provider response slots, and any contract where unknown keys are a defect.
 - `extra_items=T` permits a typed extension band beyond a known core — metadata bags, provider overlays, plugin annotations, keyword tails not fixed at declaration time.
-- Default open: structural assignability permits extra keys typed as `ReadOnly[object]`; construction still rejects undeclared keys per PEP 589.
+- Default open: structural assignability permits extra keys typed as `ReadOnly[object]`; construction still rejects undeclared keys on literals and constructors.
 - `closed=True` and `extra_items=` are mutually exclusive; combining them is a runtime error; prefer `closed=True` over `extra_items=Never`.
 - `closed` and `extra_items` inherit through subclassing without widening; a subclass cannot widen a closed parent, cannot pass `closed=False` under a parent with `closed=True` or `extra_items`, and cannot add keys to a `closed=True` parent.
 - Narrowing `extra_items` is permitted only when the parent declares `extra_items=ReadOnly[T]`; widening `T`, removing `closed=True`, or passing `closed=False` under a closed or `extra_items` parent is rejected.
@@ -28,17 +35,14 @@
 
 # Requiredness, Read-Only, And Absence
 
-- Per-key requiredness uses `Required[T]` and `NotRequired[T]` (PEP 655) in one owner instead of split total/non-total sibling types; `total=False` makes declared keys optional by default; `total=True` makes them required by default.
+- Per-key requiredness uses `Required[T]` and `NotRequired[T]` in one owner instead of split total/non-total sibling types; `total=False` makes declared keys optional by default; `total=True` makes them required by default.
 - `__required_keys__` and `__optional_keys__` are introspection truth; `__total__` alone is insufficient when `Required`/`NotRequired` or mixed inheritance is present.
 - `extra_items` keys are always non-required; `Required` and `NotRequired` must not annotate `extra_items`; deleting an `extra_items` key is permitted; deleting a required declared key is not.
 - Requiredness answers whether a key must be present; it does not answer whether the value may be updated — that is `ReadOnly` evidence.
-- `ReadOnly[T]` (PEP 705) marks static non-mutability on ingress evidence consumers must not mutate — identifiers, discriminants, envelope fields, snapshot inputs, callback parameters typed as read-only payloads.
+- `ReadOnly[T]` marks static non-mutability on ingress evidence consumers must not mutate — identifiers, discriminants, envelope fields, snapshot inputs, callback parameters typed as read-only payloads.
 - Mutable-item payloads are assignable to read-only-item payloads; the reverse is rejected.
 - Frozen domain owners own durable immutability after promotion; do not claim immutability in comments when only `ReadOnly` is declared.
 - `extra_items=ReadOnly[T]` enables lawful narrowing in subclasses when extension metadata is evidence, not a mutable scratch map.
-- Payload doctrine remains `TypedDict`-scoped for `ReadOnly` until PEP 767 is final and promoted on the language axis; readiness modules isolate experimental class-attribute and protocol read-only patterns without merging them into production payload law.
-- When PEP 767 lands, matrix modules extend from item-level `ReadOnly` to attribute read-only on payload-adjacent protocol surfaces — promotion gates treat checker evidence uniformly; runtime immutability still belongs on frozen owners after promotion.
-- PEP 767 extensions must not weaken subclass required-key law under read-only extension bands.
 - `NotRequired[T]` types optional key presence; `T | None` types optional null values — do not conflate; do not use `NotRequired[T | None]` when only absence or only null is intended.
 - `None` as a value and key absence are different contracts; optional value types use `T | None` on the key; optional presence uses `NotRequired[T]`.
 - The same field name may pair payload `NotRequired` with ingress-model `Field(default=MISSING)` only when the adapter documents the semantic fork: wire-optional versus parameter-omitted.
@@ -48,29 +52,27 @@
 # Construction Versus Assignability
 
 - Assignability answers whether an existing mapping may be treated as compatible after it exists; construction answers whether a literal or constructor call may introduce keys at creation time.
-- Open and default-open payloads permit extra keys on assignability — unknown keys type as `ReadOnly[object]`; construction still rejects undeclared keys per PEP 589.
+- Open and default-open payloads permit extra keys on assignability — unknown keys type as `ReadOnly[object]`; construction still rejects undeclared keys on literals and constructors.
 - `closed=True` removes extras from both postures; a value typed as a closed payload cannot be proven to carry keys outside the declared set at any use site.
-- `extra_items=T` types extension keys on assignability while keeping them non-required; extension keys appear only on values that already satisfy assignability or arrive from untyped ingress decoded upstream.
+- `extra_items=T` types extension keys on assignability while keeping them non-required; extension keys appear only on values that already satisfy assignability or arrive from untrusted ingress decoded upstream.
 - Adapters decode untrusted material to `dict[str, object]`, validate into boundary payloads via `TypeAdapter`, then treat the product as assignable evidence — not as proof that arbitrary construction sites may omit openness declarations.
-- Construction-time extra-key rejection is specified for `TypedDict` literals and constructors; assignability still allows structural extras on open types; law must distinguish may-exist-after-assignability from may-be-passed-at-construction.
+- Law must distinguish may-exist-after-assignability from may-be-passed-at-construction.
 
 # Closed-Key Narrowing
 
-- PEP 728 `key in payload` narrowing on closed payloads composes left-to-right; test discriminant keys before body keys.
+- `key in payload` narrowing on closed payloads composes left-to-right; test discriminant keys before body keys.
 - `in` narrowing is static evidence only — boundary validation must still gate untrusted ingress; negative `not in` tests do not prove absence for required keys on closed payloads.
 - Union narrowing uses `match payload:` with one arm per closed variant or per `(kind, body)` pair; use `in` guards inside arms when optional declared keys partition behavior without warranting separate payload types.
 
 # Keyword-Callable And Decorator Seams
 
-- Implementation signatures use `def op(**kwargs: Unpack[Payload]) -> R` (PEP 692); keyword-callable hooks use `Callable[[Unpack[Payload]], R]` (PEP 821) — not homogeneous `**kwargs`, untyped `**kwargs`, or one-method `Protocol` shells that hide parameter names.
+- Implementation signatures use `def op(**kwargs: Unpack[Payload]) -> R`; keyword-callable hooks use `Callable[[Unpack[Payload]], R]` — not homogeneous `**kwargs`, untyped `**kwargs`, or one-method `Protocol` shells that hide parameter names.
 - Structural ports that are not independent multi-method surfaces stay on `Callable[[Unpack[Payload]], R]`.
-- Callable and payload contracts compose with PEP 612: `ParamSpec`, `Concatenate`, `/` positional-only boundaries, and `@wraps` on decorators so aspect stacks preserve the payload shape end to end.
+- Callable and payload contracts compose with `ParamSpec`, `Concatenate`, `/` positional-only boundaries, and `@wraps` on decorators so aspect stacks preserve the payload shape end to end.
 - The signature owns the call contract at the declaration site; erased `Callable[..., R]`, `*args` parsing for positional keyword bundles, and wrapper signatures that drop `Unpack` are rejected.
 - Decorators preserve shape with PEP 695 `**P` and `@wraps`: inner `(*args: P.args, **kwargs: P.kwargs)` forwards without erasing `Unpack`; `Concatenate[Context, P]` prepends bound context without redeclaring payload keys.
-- Keyword-callable hooks typed as `Callable[[Unpack[Payload]], R]` must survive decorator stacks; wrappers use PEP 695 `ParamSpec` preservation and `@wraps` so inner forwards without erasing `Unpack`.
-- `Concatenate[Context, P]` prepends aspect context at the seam — tracing, auth, or admission metadata — without redeclaring payload keys on each wrapper layer.
 - Decorators must not replace static contracts with runtime `dict` repair, `get` defaults for missing keys, or `extra="allow"` on closed surfaces.
-- Decorator altitude and phase ordering belong on the decorator-admitted-shape axis — not payload field declarations.
+- Decorator altitude and phase ordering belong on decorator admission surfaces — not payload field declarations.
 - `Unpack[Payload, extra_items=T]` at a callable boundary is equivalent to required known keywords plus `**tail: T`; unknown keywords at call sites are checker errors only when the payload is closed; otherwise they must satisfy `extra_items`.
 - Keyword-tail call sites collect `**tail` into a frozen snapshot at the adapter exit when the tail must survive past the call boundary.
 
@@ -81,7 +83,6 @@
 - Closed boundary envelopes use `closed=True` when the wire format forbids undeclared keys; open provider surfaces use `extra_items` when the provider may return a typed extension band beyond the stable core.
 - Reject `Mapping[str, object]`, `dict[str, Any]`, and untyped `**data` when a `TypedDict` can name the shape; runtime validation may gate untrusted input but must not replace a missing static payload declaration.
 - Provider and wire field renaming stays once in the boundary adapter as typed correspondence rows — not scattered `model_dump` key pops or inline literals duplicated across ingress and egress.
-- Field correspondence tables live in the adapter module as typed rows or explicit constructor kwargs — not as scattered `model_dump` key pops or inline string literals duplicated across ingress and egress paths.
 - Anti-corruption adapters decode foreign layout into boundary payloads or ingress models, then promote to canonical owners; canonical owners never absorb foreign field names, cardinality, or discriminant encoding.
 - When ingress field count differs from canonical field count, the adapter documents each omission as wire-optional, domain-default, or computed-on-materialize; payload `NotRequired` keys mirror wire optionality; canonical defaults apply at promotion, not by mutating the payload dict.
 - Provider response slots mixing a stable core with a typed overlay declare `extra_items` on the boundary payload and map overlay keys once before variant promotion.
@@ -92,14 +93,12 @@
 - One staged payload per construction phase, not parallel full and partial types for the same concept; staging payloads remain read-only evidence where later steps must not rewrite earlier evidence.
 - Smart constructors accept partial construction payloads and return `Result[Owner, E]` or `Option[Owner]`; failed or abandoned staging payloads discard at the seam — they do not persist in registries, caches, or context variables.
 - Patch payloads express intentional partial updates: updatable fields are `NotRequired`; identity and version fields that must not change are `ReadOnly` and block update slots at the static seam — omitted `NotRequired` keys mean leave unchanged.
-- Patch payloads hand off to the replacement axis — `model_copy(update=...)`, `copy.replace(...)`, or `model_validate(snapshot | delta)` — not in-place dict mutation; closed patch payloads pair with closed replacement folds.
+- Patch payloads hand off to replacement expressions — `model_copy(update=...)`, `copy.replace(...)`, or `model_validate(snapshot | delta)` — not in-place dict mutation; closed patch payloads pair with closed replacement folds.
 - Patch payloads never apply themselves; replacement owners must not reinterpret read-only patch keys as mutable defaults.
 - Patch payloads are closed unless typed extension metadata is explicitly admitted via `extra_items`; do not reuse full creation payloads as patch shapes.
 - Adapters routing both route on payload type or explicit stage discriminant, never on keys-present heuristics; creation and patch payloads are different seam artifacts even when key names overlap.
-- Nested partial updates assemble nested validate inputs explicitly until polymorphic nested replace is admitted on the materialization axis; shallow `model_copy(update={"nested": {...}})` without typed nested validation is rejected when nested slots are materialized models.
-- Nested patch replace proves through explicit nested validate assembly until the materialization axis admits one-expression `replace_validated`.
+- Nested partial updates assemble nested validate inputs explicitly until polymorphic nested replace admits one-expression validated replacement; shallow `model_copy(update={"nested": {...}})` without typed nested validation is rejected when nested slots are materialized models.
 - Patch payloads name `ReadOnly` on identity and version keys — replace proof asserts omitted `NotRequired` keys leave nested subgraphs untouched and read-only keys reject update attempts at validation exit.
-- Nested extension bands on patch inputs use closed patch payloads or bounded `extra_items` — proof samples include drift keys on nested patch literals rejected before replace reaches domain folds.
 - Extension metadata on updates uses `extra_items` on the patch payload only when the replacement owner admits typed extension bands.
 
 # Events, Discriminants, And Variant Envelopes
@@ -109,15 +108,15 @@
 - Semi-closed and closed variant families pair a discriminant envelope payload with a body payload selected by `kind` or tag literal; the envelope carries read-only identity and occurrence fields; the body carries variant-specific required keys.
 - When subclassing would violate `closed=True`, use sibling closed body payloads per variant and a closed union at the match gate — match envelope first, bind body type from discriminant, then match body keys; never mutate the envelope dict to attach body fields.
 - `match payload:` on the discriminant binds the body payload type or promoting constructor per arm; `assert_never` witnesses arms the checker cannot close when the vocabulary row is finite.
-- Class-family variant architecture owns interior `match` on materialized tagged unions; payload seams supply static discriminant evidence and promotion constructs the tagged owner before family dispatch runs.
+- Class-family variant dispatch runs on materialized tagged unions; payload seams supply static discriminant evidence and promotion constructs the tagged owner before family dispatch runs.
 - Open extension arms in variant families use `extra_items=T` on ingress or staging payload, then fold captured extensions into `frozendict` or tuple snapshots at promotion; extension dicts do not flow through family dispatch as scratch maps.
 - Vocabulary modules export token rows; payloads import literals or enum members; bare wire enums and payload enums stay separate shapes — discriminant keys carry bare tokens; rich member metadata lives on payload enums or canonical owners.
 - `TypeIs` narrowing on materialized owners complements payload discriminant matching after promotion with a single vocabulary source of truth.
-- Illegal FSM transitions at ingress emit typed fault owners with enum-member labels; vocabulary axis owns the legal-event set; payload seams carry evidence fields only.
+- Illegal FSM transitions at ingress emit typed fault owners with enum-member labels; vocabulary modules own the legal-event set; payload seams carry evidence fields only.
 - Event consumption treats the payload as evidence with `ReadOnly` on fields handlers must not rewrite; promotion to domain facts happens once in the handler entry, not by mutating the event dict in place.
 - `StrEnum` members carrying non-member payloads prove through explicit seam tests — static typing relies on typing-spec nonmember rules; runtime tests assert member construction preserves payload fields and rejects illegal member definitions.
 - Proof table asserts parity among payload literal, enum member value, and wire string for every arm without reconstructing tokens from member names at runtime.
-- Adapter modules document each member payload row in the contract table and test member construction explicitly until stdlib exposes verification — do not infer payload legality from enum membership alone.
+- Adapter modules document each member payload row in the contract table and test member construction explicitly — do not infer payload legality from enum membership alone.
 - Fault payloads at illegal FSM transitions carry enum-member labels in typed fault owners — seam tests feed out-of-vocabulary discriminants and assert fault discriminant vocabulary, not bare exceptions.
 
 # Promotion, Extension Capture, And Egress
@@ -125,7 +124,7 @@
 - Promotion is the lawful transition from static payload compatibility to a materialized domain owner at the composition-root gate; payloads stop at the promotion gate; domain logic runs on owners.
 - Promote when values cross from transport or staging into invariant-bearing domain space — after ingress decode, after event admission, after partial construction completes, or before dispatch on a closed variant family.
 - Pattern matching with `**extensions` captures the extension band when `extra_items` names `T`; fold captured extensions into `frozendict[str, V]` or immutable tuple evidence once at the gate — not lazily inside transforms, through long pipelines, or as scratch maps in family dispatch.
-- Tuple or `frozendict` snapshots are promotion products, not alternate permanent models; do not pass captured extension dicts through long pipelines; snapshot at promotion and thread the snapshot through domain logic as part of the owner or as a dedicated immutable field.
+- Tuple or `frozendict` snapshots are promotion products, not alternate permanent models; snapshot at promotion and thread through domain logic as part of the owner or as a dedicated immutable field.
 - Do not promote prematurely inside boundary adapters that only forward opaque mapping material; do not defer promotion so deeply that domain code operates on raw `dict` with comment contracts.
 - Closed payloads project to `Mapping[str, VT]` only when every declared value type is assignable to `VT` — an egress typing convenience, not ingress license.
 - Wire egress projects from canonical through `msgspec.convert` or field-explicit struct construction; egress payloads, when used, are assignability targets for dict literals built in the adapter.
@@ -142,15 +141,14 @@
 - Keyword ingress typed as `Unpack[Payload]` unpacks inside the adapter in the same expression that validates or promotes — do not thread `**kwargs` through interior modules.
 - Pipeline order: wire decode → boundary validate into payload or ingress model → discriminant `match` → owner construction → domain fold; partial construction aligns with staging carriers; patch payloads align with replacement stage entry; extension bands fold at promotion into immutable owner evidence.
 - When staging completes, the durable handoff is always a materialized owner, never a validated dict typed as assignable payload evidence.
-- Nested patch replace admits only through documented seam expressions with explicit validate assembly until `replace_validated` lands on the replacement axis.
-- Extension bands from `extra_items` fold at the promotion gate into `frozendict` or tuple snapshots on the owner — materialization stages downstream receive immutable extension evidence, not mutable capture dicts.
+- Extension bands from `extra_items` fold at the promotion gate into `frozendict` or tuple snapshots on the owner — downstream materialization stages receive immutable extension evidence, not mutable capture dicts.
 - Untrusted ingress always passes `TypeAdapter` validation before payload assignability is assumed; trusted-replay paths pin adapter module identity, schema version, and store key beside the payload owner at the composition root — replay validates into the same boundary payload type as live ingress, then promotes through the identical gate expression.
 
 # Projection Lattice And Stage Roles
 
 - Boundary ingress — closed or `extra_items`-bounded payloads decode foreign mapping material after bytes/text parse; below Pydantic ingress models when the model wraps the payload; above raw `dict[str, object]` at the adapter exit.
 - Staging partial — `total=False` with stage-scoped `Required` keys between ingress validation and `Result[Owner, E]` promotion; never persist in root registries after promotion completes or fails.
-- Patch delta — `NotRequired`-only update contracts hand off to the replacement axis at the composition root; not interior parameters and not wire egress owners.
+- Patch delta — `NotRequired`-only update contracts hand off to replacement expressions at the composition root; not interior parameters and not wire egress owners.
 - Event evidence — closed envelope plus discriminant-selected body payloads supply static handler admission evidence; promotion to domain facts once at the root gate, not inside dispatch folds.
 - Egress assignability — closed egress subsets or full boundary payloads type dict literals built by projection adapters; interior modules emit canonical or wire struct owners, not egress payload types.
 - Keyword-callable surface — `Unpack[Payload]` on root adapter signatures only; interior modules receive materialized owners or frozen extension snapshots; keyword payload contracts do not thread past the first validate/promote expression.
@@ -159,13 +157,12 @@
 - Ingress models and boundary payloads may diverge on aliases and `NotRequired` keys; they must not diverge on discriminant vocabulary without adapter-owned mapping tables; vocabulary tokens export once from the canonical or vocabulary owner.
 - Settings and CLI slices do not redeclare payload key sets — cyclopts `Parameter` and `pydantic-settings` `Field(validation_alias=...)` project from canonical or settings models; static payload contracts type adapter kwargs at the CLI boundary only.
 - Dual-surface owners without decorator-admitted composition use a dedicated staging payload per surface until a single owner can project both without lattice collapse; proof asserts CLI invocations materialize the same canonical owner as HTTP ingress for equivalent field sets.
-- Dual CLI and settings surfaces remain staged payloads at the root until decorator-admitted single-owner projection lands — cross-path canonical equality binds in the same change unit as either surface moves.
 - Settings `validation_alias` tables map once in the adapter; proof samples include alias-key ingress dicts validated into boundary payloads before promotion.
 - Sentinel-parameter defaults on CLI entrypoints pair with `*` boundaries — proof verifies positional callers cannot skip into sentinel arms and that `NotRequired` payload keys align with cyclopts `Parameter` omission semantics documented in the adapter module.
 
 # Programmatic Reading And TypeAdapter
 
-- Read payload law through `annotationlib.get_annotations(owner, format=annotationlib.Format.FORWARDREF)` — not raw `__annotations__`; forward references and PEP 649 deferred annotation thunks resolve through the annotationlib entry point.
+- Read payload law through `annotationlib.get_annotations(owner, format=annotationlib.Format.FORWARDREF)` — not raw `__annotations__`; forward references and deferred annotation thunks resolve through the annotationlib entry point.
 - Fold requiredness from `__required_keys__` and `__optional_keys__`; read openness from `__closed__` and `extra_items`; missing `__closed__` is default-open assignability posture at introspection, not permission to skip declaration at authoring sites.
 - Strip `ReadOnly` wrappers for codec dispatch; preserve them in static signature emission.
 - Contract readers emit one boundary table per payload owner — required keys, value types, read-only flags, openness posture, and `extra_items` type — at build or test collection time; adapters consume tables, domain modules import payload types directly.
@@ -175,15 +172,15 @@
 - Adapter-derived JSON Schema is sole wire-schema authority for payload names; parallel OpenAPI field lists and JSON contract tables are merge blockers.
 - Generic payload owners with `T` in body slots and `extra_items=T` require paired static proof: annotationlib resolves `T` and `ReadOnly` wrappers; `TypeAdapter` with concrete specializations validates runtime behavior per argument.
 - When Pydantic ingress models embed generic payload fields, `model_rebuild()` runs at root first-touch before contract reader emission; reader output and `TypeAdapter.json_schema()` must agree on specialized field sets for each concrete argument row.
-- Reader emission tests compare frozenset outputs to `TypeAdapter` specialized schemas per concrete argument; pydantic `model_rebuild` ordering is documented at root first-touch.
-- Mypy and ty may disagree on deferred annotation thunks for generic payloads — matrix modules pin `from __future__ import annotations` posture explicitly; reader emission tests compare frozenset outputs across backends for the same owner until parity is proven.
+- Reader emission tests compare frozenset outputs to `TypeAdapter` specialized schemas per concrete argument; `model_rebuild` ordering is documented at root first-touch.
+- Cross-checker matrix modules pin `from __future__ import annotations` posture explicitly; reader emission tests compare frozenset outputs across backends for the same owner until parity is proven.
 - Do not maintain parallel non-generic payload siblings to dodge forward-ref proof — specialize at adapter and reader sites; introduce sibling closed payloads only when required-key sets are incompatible.
 
 # Generic Payloads
 
 - Generic payloads declare type parameters on the `TypedDict` when extension value types or body slots vary: `class SlotPayload[T](TypedDict): ...` with bounded `extra_items=T`.
 - Bound type parameters on extension bands prevent unbounded `object` erosion in generic clients.
-- Default type parameters (PEP 696) stabilize call sites with fixed extension atoms: `class Envelope[T: JsonValue = JsonValue](TypedDict, closed=True): ...`.
+- Default type parameters stabilize call sites with fixed extension atoms: `class Envelope[T: JsonValue = JsonValue](TypedDict, closed=True): ...`.
 - Generic payloads remain static contracts; runtime validation uses `TypeAdapter` with concrete or bounded-union arguments.
 - Separate closed payloads when variants carry incompatible required-key sets that generic optional fields would erase; do not introduce parallel non-generic payloads when a single generic owner can express the family.
 
@@ -201,20 +198,17 @@
 
 - Proof consumes reader-emitted contract table rows as the single field-authority surface — adapters, factories, OpenAPI fragments, and hypothesis strategies read the same tables; prose field lists and parallel JSON schemas are rejected.
 - Payload owners participate in the integration proof harness as an orthogonal static layer — type-only payload modules run in the cross-checker matrix even when runtime tests target promoted owners only.
-- Type-only payload modules participate in the static proof ladder even when runtime tests target promoted owners only.
 - Each closed payload owner maintains a parametrized contract table row: declared keys, requiredness frozensets, `ReadOnly` flags, `__closed__`, and `extra_items` type when present.
 - Contract tables link to metamorphic chains at the composition root: lawful payload dict → validate → promote → project egress → validate assignability — failures implicate adapter binding before domain owners.
 - Per-payload wire samples live beside the owner module: lawful closed literals, lawful `extra_items` extension bands, and drift samples with forbidden keys or wrong discriminant literals — `TypeAdapter.validate_python` and `validate_json` assert accept/reject parity with the table.
 - Static proof runs pyright, mypy, and ty on payload-law modules in a fixed cross-checker matrix covering `closed=True`, `extra_items`, mixed `Required`/`NotRequired`, generic `TypedDict[T]`, and `ReadOnly` variance.
-- Cross-checker matrix is a merge gate for stack integration — bounded contexts cannot ship payload law on a single backend green; it is not a pyright-only convenience.
+- Cross-checker matrix is a merge gate for stack integration — bounded contexts cannot ship payload law on a single backend green.
 - One passing backend does not relax declarations required by others — suppressions, `cast`, and `# type: ignore` at payload sites fail lint policy before checker matrix execution.
-- Open language, materialization, or decorator-axis proof debt does not waive spec-complete declarations or proof obligations while tracking remains open.
-- PEP 728 inheritance edges that mypy tracks as open — subclass under `extra_items=ReadOnly[T]`, narrowing `extra_items`, closed parent sibling variants — each edge owns a minimal repro module in the matrix until mypy tracking closes.
+- Open proof debt does not waive spec-complete declarations or proof obligations while tracking remains open.
+- Inheritance edges that one backend tracks as open — subclass under `extra_items=ReadOnly[T]`, narrowing `extra_items`, closed parent sibling variants — each edge owns a minimal repro module in the matrix until tracking closes.
 - Assignability versus construction splits get distinct matrix modules: open assignability with construction rejection, closed assignability, and `extra_items` extension assignability; checker errors at the wrong site indicate mis-tagged proof modules.
 - Callable seam modules exercise `Callable[[Unpack[Payload]], R]`, `Concatenate[Context, P]`, and decorator-wrapped forwards in one file per payload family.
-- Cross-axis static checks include decorator-wrapped callables, generic payload specializations at adapter sites, and `Concatenate` stacks — one representative module per payload family exercises the full seam signature graph.
-- Pyright leads on PEP 728 `closed` and `extra_items`, PEP 692 `Unpack`, and PEP 705 `ReadOnly` in many payload positions; use pyright for early payload-law feedback when mypy lags a PEP family.
-- Author payload law from Python 3.15 typing spec and stdlib documentation; integration CI runs pyright on representative payload modules when mypy lags PEP 728 edges.
+- Static checks include decorator-wrapped callables, generic payload specializations at adapter sites, and `Concatenate` stacks — one representative module per payload family exercises the full seam signature graph.
 - Discriminant exhaustiveness proof pairs static checker witnesses with runtime promotion tests: every `Literal` or enum arm in the vocabulary row constructs the expected owner kind through the root gate expression; missing arms fail CI before behavioral suites run.
 - `TypeAdapter(Payload).json_schema()` output is snapshotted or diff-tested against reader-emitted OpenAPI fragments — divergence between adapter schema, reader tables, and hand-maintained fixtures is a merge blocker.
 - Callable payload seams prove signature preservation: collected root handlers and decorated hooks expose `Unpack[Payload]` in `inspect.signature` after `inspect.unwrap` exhaustion; ParamSpec erasure fails the contract suite before integration tests execute.
@@ -275,9 +269,8 @@
 - Parallel JSON Schema diverging from `TypeAdapter.json_schema()` or reader-emitted tables indicates duplicate contract surfaces.
 - Domain modules importing boundary payload types indicate a missed promotion gate.
 - `model_dump` dict surgery at interior sites indicates projection collapse — route through egress adapter and closed egress payload or struct projection.
-- Patch payloads reaching domain folds without a replacement owner target indicate a seam skip — patch application belongs on the replacement axis expression, not inside transforms.
+- Patch payloads reaching domain folds without a replacement owner target indicate a seam skip — patch application belongs on the replacement expression, not inside transforms.
 - Discriminant exhaustiveness gaps are binding defects surfaced in checker matrix and contract table parity before runtime promotion tests — missing `match` arms are not integration test gaps.
-- ParamSpec erasure after decorator application on keyword hooks indicates a wrapper dropped `Unpack` — fix the decorator stack before widening the payload.
 
 # Rejection Catalog
 
@@ -286,9 +279,9 @@
 - Parallel payload types for create, patch, and wire when stage-specific names tied to one concept suffice; default-open posture when exactness or typed extension is required.
 - Interior modules constructing `TypeAdapter(Payload)` for convenience — boundary leak bypassing root wiring and proof harness attribution.
 - `**kwargs` threading past root ingress, dual JSON Schema beside `TypeAdapter.json_schema()` or reader-emitted tables, and domain modules importing boundary payload types.
-- `model_dump` dict surgery routed to interior `TypedDict` assignability; patch payloads applied inside domain folds without replacement-axis expression; mutable staging dicts retained after failed promotion or in context variables after failed promotion.
-- `st.from_type(Payload)` or table-less Hypothesis builders on closed payloads; in-place mutation of admitted event or staging dicts after promotion admission; promotion tests that mutate event or staging dicts in place after admission.
-- Checker-matrix green on one backend used to omit declarations required by others; proof suite green on pyright alone while mypy matrix modules fail — checker gaps are not merge criteria for omitting declarations.
+- `model_dump` dict surgery routed to interior `TypedDict` assignability; patch payloads applied inside domain folds without replacement expression; mutable staging dicts retained after failed promotion or in context variables.
+- `st.from_type(Payload)` or table-less Hypothesis builders on closed payloads; in-place mutation of admitted event or staging dicts after promotion admission.
+- Checker-matrix green on one backend used to omit declarations required by others — checker gaps are not merge criteria for omitting declarations.
 - Integration tests importing `TypeAdapter` in domain modules for convenience; contract tables maintained in JSON while Python payload owners drift — dual sources; collapse to reader-emitted tables from live annotations.
 - Bounded contexts without a payload stage role map per concept — boundary, staging, patch, and egress slots undocumented at the composition root.
 - Trusted-replay paths validating into a different boundary payload type than live ingress for the same concept.
