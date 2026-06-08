@@ -142,9 +142,16 @@ Notation rules use these groups:
 
 - Wrap commands, flags, paths, environment variables, package IDs, symbols, literal values, and placeholders in backticks.
 - Name a placeholder by route, such as `<scenario-glob>` or `<package-name>`, and use one only when the reader must substitute a value.
+- In reusable code examples, keep placeholders language-valid: use neutral identifiers for code structure and placeholder literals only where the language accepts literal values. Prefer structural names such as `Shape`, `Variant`, `Field`, `Row`, `TABLE`, and `SELECTED` over product, workflow, or repository nouns unless the documented concept is domain-specific.
 - Omit the shell prompt from a copyable command unless the prompt is the subject.
 - Put surrounding sentence punctuation outside a code span unless the punctuation is part of the literal value.
 - When inline code contains a backtick, use a longer matching backtick delimiter rather than a backslash escape.
+
+[CODE_PLACEHOLDER_EXAMPLES]:
+- Accepted: `Shape`, `RefinedShape`, and `OtherShape`. Rejected: `Customer`, `PremiumCustomer`, and `WebhookPayload`. Reason: the accepted names show type structure without importing a business domain.
+- Accepted: `Variant`, `PRIMARY`, `SECONDARY`, `"<variant-a>"`, and `"<variant-b>"`. Rejected: `Mode`, `PROD`, `STAGING`, `"basic"`, and `"premium"`. Reason: the accepted names teach enum shape and placeholder data without suggesting deployment or pricing semantics.
+- Accepted: `Field`, `KEY`, `VALUE`, `Row`, `ROW_A`, and `TABLE`. Rejected: `Header`, `Route`, `UserRow`, and `OrderMap`. Reason: the accepted names keep mapping examples structural unless the documented concept is headers, routes, users, or orders.
+- Accepted: `SELECTED`, `SELECTED_RESULT`, `"<value-a>"`, and `"<result-a>"`. Rejected: `active_customer`, `invoice_total`, `"alice"`, and `"acme"`. Reason: the accepted names mark selection and data position without anchoring the sample to an identity or product.
 
 ## [9]-[LINKS]
 

@@ -176,22 +176,22 @@ Use these contracts when the chooser names the primitive but code still needs a 
 from typing import assert_type, final, TypeIs
 
 
-class Base: ...
+class Shape: ...
 
 
-class Refined(Base): ...
+class RefinedShape(Shape): ...
 
 
 @final
-class Remainder: ...
+class OtherShape: ...
 
 
-def is_base(value: object) -> TypeIs[Base]:
-    return isinstance(value, Base)
+def is_shape(value: object) -> TypeIs[Shape]:
+    return isinstance(value, Shape)
 
 
-def narrow(value: Refined | Remainder) -> Refined | Remainder:
-    return assert_type(value, Refined) if is_base(value) else assert_type(value, Remainder)
+def projected(value: RefinedShape | OtherShape) -> RefinedShape | OtherShape:
+    return assert_type(value, RefinedShape) if is_shape(value) else assert_type(value, OtherShape)
 ```
 
 [INSPECTION_SITE]:
@@ -229,6 +229,62 @@ def narrow(value: Refined | Remainder) -> Refined | Remainder:
 - Accept: the named primitive for value, path, compression, heap, UUID, regex, queue, interpreter, or profiling concerns.
 - Reject: local wrappers, magic literals, pseudo-protocols, subprocess adapters, sentinel payloads, and private probes.
 - Boundary: data-structure strategy, runtime scheduling, and proof policy belong to algorithm, runtime, or testing owners.
+
+[SENTINEL_DEFAULT_SITE]:
+- Use when: omission or inherited selection must be distinct from every valid domain value, including `None`.
+- Accept: module-global `NAME = sentinel("NAME")` values whose variable name matches the sentinel name, reused by `is`, and carried directly in the union type.
+- Reject: `object()` defaults, `None` defaults when `None` is domain-valid, string tokens, omitted-vs-supplied overloads with no return-shape change, and bool flags that split one option shape.
+- Boundary: queue or task lifecycle, wire payload tags, and protocol tokens use the owning lifecycle API or explicit domain value instead of sentinel payloads.
+
+```python conceptual
+from builtins import sentinel
+from enum import StrEnum
+
+
+INHERIT = sentinel("INHERIT")
+
+
+class Variant(StrEnum):
+    PRIMARY = "<variant-a>"
+    SECONDARY = "<variant-b>"
+
+
+type VariantSelection = Variant | INHERIT
+
+
+def selected(base: Variant, selection: VariantSelection = INHERIT) -> Variant:
+    match selection:
+        case Variant() as variant:
+            return variant
+        case _ if selection is INHERIT:
+            return base
+```
+
+[FROZENDICT_POLICY_TABLE]:
+- Use when: immutable mapping rows or nested policy tables need mapping semantics, language-level immutability, and order-insensitive equality or hash identity.
+- Accept: `frozendict[K, V]` rows with hashable keys; values must also be hashable when the row itself is hashed or used as an outer key.
+- Reject: tuple-pair pseudo-maps, sorted-item key normalizers, module-level dictionaries used as immutable policy tables, `MappingProxyType` views over mutable storage, frozen shells around dictionaries, and mutate-then-freeze copy ladders.
+- Boundary: `frozendict` preserves insertion order for iteration, but order is not equality or hash identity; use tuple pairs or an owning value object when order is semantic. `frozendict` is shallowly immutable; nested values must be immutable or owned by a model.
+
+```python conceptual
+from builtins import frozendict
+from enum import StrEnum
+
+
+class Field(StrEnum):
+    KEY = "<field-a>"
+    VALUE = "<field-b>"
+
+
+type Row = frozendict[Field, str]
+
+
+ROW_A: Row = frozendict({Field.KEY: "<key-a>", Field.VALUE: "<value-a>"})
+ROW_B: Row = frozendict({Field.KEY: "<key-b>", Field.VALUE: "<value-b>"})
+TABLE: frozendict[Row, str] = frozendict({ROW_A: "<result-a>", ROW_B: "<result-b>"})
+
+SELECTED_RESULT: str = TABLE[ROW_A]
+```
 
 ## [4]-[ABSTRACTION_COLLAPSE_TESTS]
 
