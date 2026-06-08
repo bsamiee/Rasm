@@ -360,13 +360,6 @@ def materialized(policy: LiteralString, root: Path, zone: LiteralString, /) -> P
     return view, data, tuple(member.name for member in safe), zone_info
 ```
 
-[EXCEPTION_FLOW]:
-- PEPs: PEP 765, PEP 654, PEP 678, PEP 758.
-- Use when: exception structure, grouped failure transport, or handler syntax changes control-flow semantics.
-- Accept: `except*`, `BaseException.add_note()`, exits kept out of `finally`, and unparenthesized exception handlers without `as`.
-- Reject: single-error collapse, message concatenation, `return`, `break`, or `continue` that exits `finally`, tuple-wrapper noise, and handler branches that erase grouped-failure identity.
-- Law: exception flow preserves the failure set and causal context; syntax cleanup is allowed only when it keeps the handled shape visible.
-
 [IMPORT_STARTUP]:
 - PEPs: PEP 810, PEP 829, PEP 667.
 - Use when: imports, startup hooks, or locals views become runtime values.
@@ -430,12 +423,48 @@ def record(rows: ShapeRows, key: str, delta: int, /) -> tuple[str, int]:
 - Reject: process-only isolation wrappers where interpreter isolation is the owner and shared module state across interpreter boundaries.
 - Law: interpreter boundaries own isolation directly; process wrappers survive only when the process boundary is the actual requirement.
 
+```python conceptual
+from concurrent import interpreters
+from functools import wraps
+
+
+def isolated(fn=None, /, *, gil="own"):
+    def bind(operation):
+        @wraps(operation)
+        def call(*payload):
+            with interpreters.create(gil=gil) as runtime:
+                return runtime.call(operation, *payload)
+        return call
+    return bind(fn) if fn else bind
+```
+
 [DIAGNOSTICS]:
 - PEPs: PEP 831, PEP 799, PEP 768, PEP 669, PEP 578, PEP 626, PEP 657.
 - Use when: runtime-owned evidence should explain execution behavior, performance, security observation, or failure location.
 - Accept: frame-pointer-preserving builds, profiling namespaces, safe debug attach points, `sys.monitoring`, audit hooks, `co_lines()`, and fine-grained traceback locations.
 - Reject: frame-pointer-stripped native builds, legacy `profile`, debugger injection hooks, `settrace()` event scrapers, monkeypatch security probes, `co_lnotab` decoding, and line-only diagnostics.
 - Law: diagnostics use runtime-owned observation surfaces; private hooks and timing loops do not replace event, stack, or source-location evidence.
+
+```python conceptual
+import sys
+
+
+def observed(code, sink, /):
+    token = sys.monitoring.use_tool_id(sys.monitoring.PROFILER_ID, "<surface>")
+    sys.addaudithook(lambda event, args: sink("audit", event, args))
+    sys.monitoring.register_callback(
+        token, sys.monitoring.events.RAISE,
+        lambda raised, offset, error: sink("raise", tuple(raised.co_lines()), tuple(raised.co_positions()), error),
+    )
+    return token
+```
+
+[EXCEPTION_FLOW]:
+- PEPs: PEP 765, PEP 654, PEP 678, PEP 758.
+- Use when: exception structure, grouped failure transport, or handler syntax changes control-flow semantics.
+- Accept: `except*`, `BaseException.add_note()`, exits kept out of `finally`, and unparenthesized exception handlers without `as`.
+- Reject: single-error collapse, message concatenation, `return`, `break`, or `continue` that exits `finally`, tuple-wrapper noise, and handler branches that erase grouped-failure identity.
+- Law: exception flow preserves the failure set and causal context; syntax cleanup is allowed only when it keeps the handled shape visible.
 
 [PROJECT_METADATA]:
 - PEPs: PEP 735, PEP 808.
