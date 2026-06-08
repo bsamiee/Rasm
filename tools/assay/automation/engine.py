@@ -1,6 +1,7 @@
 """Run automation triggers through Assay rails and direct programs."""
 
 from collections.abc import Callable, Coroutine
+from contextvars import ContextVar
 import hashlib
 from itertools import count
 from operator import itemgetter
@@ -56,7 +57,9 @@ _ENCODER = msgspec.json.Encoder(order="deterministic")
 _LOG: structlog.stdlib.BoundLogger = structlog.get_logger("assay.automation")
 _JITTER_MS: int = 100
 _NO_CHANGES: ChangeBatch = ()
-_CPU_PRIMED: set[int] = set()  # one-shot warm-up latch: non-empty = primed; add(0) marks the first blocking sample
+# One-shot warm-up latch carried in a ContextVar so each test resets it independently and the blocking
+# cpu_percent(0.1) prime stays reachable behind the conftest psutil double; True = already primed.
+_CPU_PRIMED: ContextVar[bool] = ContextVar("assay_cpu_primed", default=False)
 
 
 # --- [OPERATIONS] -----------------------------------------------------------------------
@@ -68,18 +71,26 @@ def _emit(line: Envelope) -> None:
     sys.stdout.buffer.flush()
 
 
-def _governed(threshold: float | None) -> bool:
+def is_governed(threshold: float | None) -> bool:
+    """Report whether the CPU governor should skip a fire at the given threshold.
+
+    Args:
+        threshold: Fractional CPU ceiling in [0, 1]; None disables the governor.
+
+    Returns:
+        True when the current CPU sample meets or exceeds `threshold * 100`.
+    """
     match threshold:
         case None:
             return False
         case _:
             # cpu_percent(interval=None) is non-blocking but reads zeros until primed; prime lazily on first
             # governed call (a 0.1s sample) so threshold-less CLI runs pay no warm-up tax at import.
-            match len(_CPU_PRIMED):
-                case 0:
+            match _CPU_PRIMED.get():
+                case False:
                     psutil.cpu_percent(0.1)
-                    _CPU_PRIMED.add(0)
-                case _:
+                    _CPU_PRIMED.set(True)
+                case True:
                     pass
             return psutil.cpu_percent(interval=None) >= threshold * 100.0
 
@@ -163,7 +174,7 @@ async def _program_envelope(action: Program, settings: AssaySettings) -> Envelop
 
 async def _emit_leaf(leaf: Action, settings: AssaySettings, limiter: anyio.CapacityLimiter, cpu_threshold: float | None) -> RailStatus:
     # Governor checks run before the per-drive limiter; slow fires queue on one token instead of re-entering.
-    match _governed(cpu_threshold):
+    match is_governed(cpu_threshold):
         case True:
             claim, verb = _label(leaf)
             # SKIP bypasses fold because EMPTY has higher severity; counts still mark one governed leaf.
@@ -433,4 +444,4 @@ async def drive(trigger: Trigger, action: Action, settings: AssaySettings) -> No
 
 # --- [EXPORTS] --------------------------------------------------------------------------
 
-__all__ = ["ChangeBatch", "Fire", "Worker", "drive"]
+__all__ = ["ChangeBatch", "Fire", "Worker", "drive", "is_governed"]

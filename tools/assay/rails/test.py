@@ -234,7 +234,7 @@ def _detail(done: tuple[Completed, ...], params: TestParams) -> AnyDetail | None
     mutation = next(
         (d for c in done if (d := _test_detail(c)) is not None and isinstance(d, TestRun) and d.mutation is not MutationLane.OFF), TestRun()
     )
-    coverage = _coverage_percent(done)
+    coverage = coverage_percent(done)
     match (params.mutation, params.coverage, coverage):
         case (MutationLane.OFF, False, _):
             return None
@@ -253,7 +253,12 @@ def _test_detail(done: Completed) -> TestRun:
         return TestRun()
 
 
-def _coverage_percent(done: tuple[Completed, ...]) -> float | None:
+def coverage_percent(done: tuple[Completed, ...]) -> float | None:
+    """Extract the coverage percentage from a completed ``coverage report`` run.
+
+    Returns:
+        Coverage percentage as a float, or ``None`` when no coverage report is present.
+    """
     return next(
         (
             float(text)
@@ -410,4 +415,4 @@ def _dispatch_all(
 
 # --- [EXPORTS] --------------------------------------------------------------------------
 
-__all__ = ["TestParams", "coverage", "list", "run"]
+__all__ = ["TestParams", "coverage", "coverage_percent", "list", "run"]

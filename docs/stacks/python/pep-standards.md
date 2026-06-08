@@ -369,12 +369,18 @@ def materialized(policy: LiteralString, root: Path, zone: LiteralString, /) -> P
 
 ```python conceptual
 # <distribution>.start: <module>:startup
-from types import FrameType
+from collections.abc import Callable, Mapping
+from types import FrameType, MappingProxyType
 lazy import cold_surface
 
-def startup(frame: FrameType, /) -> object:
-    declared = locals()
-    return cold_surface.activate(declared | {"<field>": frame.f_locals["<field>"]})
+STARTUP_FIELDS = ("<field-a>", "<field-b>")
+DECLARED = MappingProxyType(dict(locals()))
+type StartupSink[T] = Callable[[Mapping[str, object], Mapping[str, object]], T]
+
+def startup[T](frame: FrameType, /, sink: StartupSink[T] = cold_surface.activate) -> T:
+    frame_view = frame.f_locals
+    captured = MappingProxyType({name: frame_view[name] for name in STARTUP_FIELDS if name in frame_view})
+    return sink(DECLARED, captured)
 ```
 
 [BINARY_TRANSPORT]:
@@ -385,16 +391,20 @@ def startup(frame: FrameType, /) -> object:
 - Law: binary boundaries carry buffer, compression, and serialization semantics directly.
 
 ```python conceptual
-from collections.abc import Buffer
-import compression.zstd as zstd, pickle
+from collections.abc import Buffer, Callable
+import compression.zstd as zstd
+import pickle
 
-class Packet:
-    def __init__(self, view: memoryview, /): self._view = view
+type BinaryFrame = tuple[bytes, tuple[pickle.PickleBuffer, ...]]
+
+class BinaryPacket[T: Buffer]:
+    def __init__(self, payload: T, /): self._view = memoryview(payload)
     def __buffer__(self, flags: int, /) -> memoryview: return self._view
 
-def encode(payload: Buffer, /) -> tuple[bytes, tuple[pickle.PickleBuffer, ...]]:
+def encode[T: Buffer](payload: T, /, shape: Callable[[pickle.PickleBuffer], object]) -> BinaryFrame:
     buffers: list[pickle.PickleBuffer] = []
-    return zstd.compress(pickle.dumps(pickle.PickleBuffer(payload), protocol=5, buffer_callback=buffers.append)), tuple(buffers)
+    stream = pickle.dumps(shape(pickle.PickleBuffer(BinaryPacket(payload))), protocol=5, buffer_callback=buffers.append)
+    return zstd.compress(stream), tuple(buffers)
 ```
 
 [FREE_THREADING]:
@@ -405,15 +415,19 @@ def encode(payload: Buffer, /) -> tuple[bytes, tuple[pickle.PickleBuffer, ...]]:
 - Law: free-threaded code makes mutation ownership and context propagation explicit before relying on scheduling or cache behavior.
 
 ```python conceptual
-from contextvars import ContextVar
+from collections.abc import Callable
+from contextvars import ContextVar, copy_context
+from functools import wraps
 from threading import RLock
 
-scope: ContextVar[str] = ContextVar("scope", default="<value-a>")
-gate = RLock()
+scope: ContextVar[str] = ContextVar("<field-a>", default="<value-a>")
 
-def record(rows: ShapeRows, key: str, delta: int, /) -> tuple[str, int]:
-    with gate:
-        return scope.get(), rows.add(key, delta)
+def synchronized[**P, T](operation: Callable[P, T], /) -> Callable[P, T]:
+    gate = RLock()
+    @wraps(operation)
+    def call(*args: P.args, **kwargs: P.kwargs) -> T:
+        with gate: return copy_context().run(operation, *args, **kwargs)
+    return call
 ```
 
 [INTERPRETERS]:
@@ -424,18 +438,21 @@ def record(rows: ShapeRows, key: str, delta: int, /) -> tuple[str, int]:
 - Law: interpreter boundaries own isolation directly; process wrappers survive only when the process boundary is the actual requirement.
 
 ```python conceptual
+from collections.abc import Callable
 from concurrent import interpreters
 from functools import wraps
+from typing import Literal
 
+type InterpreterGil = Literal["own"]
 
-def isolated(fn=None, /, *, gil="own"):
-    def bind(operation):
+def isolated[**P, T](entrypoint: str, /, *, gil: InterpreterGil = "own") -> Callable[[Callable[P, T]], Callable[P, T]]:
+    def bind(operation: Callable[P, T], /) -> Callable[P, T]:
+        route = operation.__module__, operation.__qualname__
         @wraps(operation)
-        def call(*payload):
-            with interpreters.create(gil=gil) as runtime:
-                return runtime.call(operation, *payload)
+        def call(*args: P.args, **kwargs: P.kwargs) -> T:
+            with interpreters.create(gil=gil) as runtime: return runtime.call(entrypoint, route, args, kwargs)
         return call
-    return bind(fn) if fn else bind
+    return bind
 ```
 
 [DIAGNOSTICS]:
@@ -446,17 +463,21 @@ def isolated(fn=None, /, *, gil="own"):
 - Law: diagnostics use runtime-owned observation surfaces; private hooks and timing loops do not replace event, stack, or source-location evidence.
 
 ```python conceptual
+from collections.abc import Callable
 import sys
 
+type DiagnosticSink = Callable[[str, dict[str, object]], None]
 
-def observed(code, sink, /):
-    token = sys.monitoring.use_tool_id(sys.monitoring.PROFILER_ID, "<surface>")
-    sys.addaudithook(lambda event, args: sink("audit", event, args))
-    sys.monitoring.register_callback(
-        token, sys.monitoring.events.RAISE,
-        lambda raised, offset, error: sink("raise", tuple(raised.co_lines()), tuple(raised.co_positions()), error),
-    )
-    return token
+def observed(surface: str, sink: DiagnosticSink, /, *, tool: int = sys.monitoring.PROFILER_ID) -> int:
+    monitoring = sys.monitoring
+    monitoring.use_tool_id(tool, surface)
+    event = monitoring.events.RAISE
+    def raised(frame, offset: int, error: BaseException, /) -> None:
+        code = frame.f_code
+        sink("<raise>", {"offset": offset, "lines": tuple(code.co_lines()), "positions": tuple(code.co_positions()), "error": error})
+    sys.addaudithook(lambda name, args: sink("<audit>", {"event": name, "args": args}))
+    monitoring.register_callback(tool, event, raised); monitoring.set_events(tool, event)
+    return tool
 ```
 
 [EXCEPTION_FLOW]:

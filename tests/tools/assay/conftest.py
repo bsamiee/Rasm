@@ -1,21 +1,23 @@
 """Typed fixture DNA for the assay test suite.
 
-A ``msgspec.inspect``-driven strategy resolver registers every wire struct with bounded leaf strategies
-(reading ``Meta`` constraints generically, so ``from_type(Fault)`` yields non-empty bounded messages and
-adding a model field over the supported JSON leaf taxonomy needs zero conftest change), a single
-the polymorphic ``cli`` fixture runs the CLI in-process (or as a real subprocess under ``isolate=True``)
-returning a ``CliResult`` (envelope + exit code + raw stdout/stderr), and the promoted oracles
-(``read_one_envelope``/``unwrap_ok``/``unwrap_error``/``assert_result_status``/``assert_wire_roundtrip``/``make_history_envelope``)
-let laws read as one-liners. Plus the socket-free ``RailProbe`` host, the loopback ``SshLoopback`` network
-seam, and the ``BridgeResult``/``YakShape`` materializers.
+The S1 ``resolve`` resolver (``tests._strategies``) registers every wire struct with bounded, encode-clean
+strategies (reading ``Meta`` constraints generically, so ``from_type(Fault)`` yields non-empty bounded
+messages and adding a model field over the supported JSON leaf taxonomy needs zero conftest change). The
+generic value-level oracles live in ``tests._spec`` and the law-coverage gate in ``tests._aspect`` — this
+module wires the assay SUT into both and owns only the assay-typed seams that do not generalize: the
+polymorphic ``cli`` fixture (in-process or real subprocess under ``isolate=True``), the socket-free
+``RailProbe`` host, the loopback ``SshLoopback`` network seam, the ``BridgeResult``/``YakShape``
+materializers, the psutil module doubles, and the envelope/history oracles
+(``read_one_envelope`` / ``assert_counts_consistent`` / ``make_history_envelope`` / ``pipe_history``).
 
-Prefer ``data()`` over nested ``@given`` and the shared oracles over hand-rolled ``assert x.is_ok()``.
+Prefer ``resolve(X)`` over a hand-rolled strategy and the ``tests._spec`` oracles over hand-rolled
+``assert x.is_ok()``.
 """
 
 # --- [RUNTIME_PRELUDE] ------------------------------------------------------------------------
 
+from collections.abc import Callable  # noqa: TC003  # runtime: annotates RailProbe.install's `rail` factory return
 from dataclasses import dataclass, field
-import datetime as dt
 import functools
 import os
 from pathlib import Path
@@ -25,14 +27,23 @@ from typing import Final, get_args, override, Protocol, TYPE_CHECKING
 from unittest.mock import create_autospec, MagicMock
 
 import anyio
-from expression import Ok, Result  # noqa: TC002  # Result used as runtime annotation in diff() closure
-from hypothesis import given, settings as hyp_settings, strategies as st
+from expression import Error, Ok, Result  # Error/Ok/Result are runtime in the RailProbe canned-outcome builders
+from hypothesis import strategies as st
 import msgspec
-import msgspec.inspect as msgspec_inspect
 import psutil as _psutil
 import pytest
 from upath import UPath
 
+from tests._aspect import register_sut  # noqa: PLC2701  # sibling test-internal module; `_`-named by S1 design
+from tests._spec import (  # noqa: PLC2701  # sibling test-internal module re-exported so assay law files import oracles from one DNA surface
+    assert_error,
+    assert_error_status,
+    assert_none,
+    assert_ok,
+    assert_roundtrip,
+    assert_some,
+)
+from tests._strategies import resolve  # noqa: PLC2701  # sibling test-internal module; `_`-named by S1 design
 from tests.conftest import REPO_ROOT
 from tools.assay.composition.registry import REGISTRY
 from tools.assay.composition.settings import ArtifactScope, ArtifactStore, AssaySettings  # noqa: TC001
@@ -42,7 +53,6 @@ from tools.assay.core.model import (
     ApiSource,
     ApiSurface,
     Artifact,
-    ArtifactKind,
     Check,
     Claim,
     Completed,
@@ -64,7 +74,7 @@ from tools.assay.core.model import (
     VerifySummary,
 )
 from tools.assay.core.status import RailStatus
-from tools.assay.rails import bridge as bridge_rail, package as package_rail
+from tools.assay.rails import package as package_rail
 
 
 if TYPE_CHECKING:
@@ -86,122 +96,83 @@ class VerbRunner(Protocol):
     def __call__(self, *argv: str, isolate: bool = False, extra_env: dict[str, str] | None = None) -> CliResult: ...
 
 
+class CpuSampler(Protocol):
+    """Canned ``psutil.cpu_percent`` signature: warmup ``cpu_percent(0.1)`` and read ``cpu_percent(interval=None)``."""
+
+    def __call__(self, interval: float | None = None) -> float: ...
+
+
+class CpuDoubleInstaller(Protocol):
+    """The ``cpu_double`` fixture surface: pin ``automation.engine``'s ``psutil.cpu_percent`` to a canned sampler."""
+
+    def __call__(self, cpu_percent: CpuSampler, *, cpu_count: int = 4) -> MagicMock: ...
+
+
 # --- [CONSTANTS] -----------------------------------------------------------------------
 
 _UV = shutil.which("uv")
 
-# Deterministic codec pair shared by the wire-roundtrip oracle (mirrors model._ENCODER order policy).
+# Deterministic codec shared by the history oracles (mirrors model._ENCODER order policy).
 WIRE_ENCODER = msgspec.json.Encoder(order="deterministic")
 
-# --- [OPERATIONS] -----------------------------------------------------------------------
-# A msgspec.inspect-driven resolver maps each wire struct field to a bounded leaf strategy reading its
-# Meta constraints, so from_type(X) round-trips through the deterministic codec and yields non-empty
-# bounded strings. register_type_strategy each struct; StrEnum resolves natively (no enum registration).
+# The assay SUT package whose public surface the law-coverage gate (tests._aspect) walks.
+SUT_PACKAGE: Final = "tools.assay"
+
+# Law-less symbols the coverage gate must not demand a law for. MINIMAL by intent — exemption is not a way
+# to dodge a falsifiable law. Each entry is either a structural type-alias Callable (no behavior to assert)
+# or an internal __all__'d seam whose behavior is proven through the public surface that consumes it.
+#   - aspect.py:  Attrs/Bind/Hom/Layer are PEP 695 `type` aliases (Callable / tuple shapes), Inversion is a
+#                 decoration-time ordering Exception surfaced via TypeError (asserted through compose/assemble).
+#   - engine.py:  ByteRecv is a Callable alias; _RESOURCE is the resource ContextVar seam.
+#   - model.py:   InprocThunk is a Callable alias. NOTE: the simple-name `Bind` also names model.Bind (a real
+#                 registry-binding model) — that model still earns its own law in S3b; the name is name-exempt
+#                 here only because aspect.Bind (the alias) is genuinely law-less and the gate keys on simple-names.
+#   - registry.py: Handler is a Callable alias.
+#   - automation/engine.py: Fire/Worker are Callable aliases.
+#   - aspect.py:  _CHECKED_LAYER/_RING are the assembled-layer + ring-buffer ContextVar seams.
+_EXEMPT: Final = frozenset({
+    "Attrs", "Bind", "Hom", "Layer", "Inversion",  # aspect type aliases + ordering Exception
+    "ByteRecv", "_RESOURCE",                        # core/engine alias + resource ContextVar
+    "InprocThunk",                                  # model Callable alias
+    "Handler",                                      # registry Callable alias
+    "Fire", "Worker", "ChangeBatch",               # automation/engine Callable + type aliases
+    "_CHECKED_LAYER", "_RING",                      # aspect assembled-layer + ring ContextVar seams
+    "_HINT_CAP", "_RESULT_CAP",                     # model int caps (no independent law; _HINT_CAP exercised via field_cap)
+})  # fmt: skip
+
+register_sut(SUT_PACKAGE, exempt=_EXEMPT)
 
 
-def _leaf(node: msgspec_inspect.Type) -> st.SearchStrategy[object]:  # noqa: C901, PLR0911, PLR0912, PLR0914  # closed-taxonomy match dispatch: one polymorphic surface over the msgspec node algebra
-    """Map one ``msgspec.inspect`` field node to a codec-bounded Hypothesis strategy.
-
-    Reads ``ge``/``gt``/``le``/``lt``/``max_length`` so generated values satisfy the wire ``Meta`` and
-    survive an encode/decode round-trip; strings draw ``min_size=1`` so faults carry real messages.
-    ``CustomType`` (``InprocThunk``/``Path``) forces ``None`` — the registered resolver routes
-    every ``Tool`` callable + ``Check.cwd`` field through here, so drawn instances are encode-clean.
-    Covers the JSON-codec leaf taxonomy a future ``Detail``/``Report`` field could introduce
-    (datetime/date/dict/list/set/literal); only msgspec nodes with no JSON-stable projection raise.
-
-    Returns:
-        A bounded strategy for the node, recursing through unions, collections, and nested structs.
-
-    Raises:
-        AssertionError: When the node type is absent from the supported JSON leaf taxonomy.
-    """
-    match node:
-        case msgspec_inspect.IntType(ge=ge, gt=gt, le=le, lt=lt):
-            lo = ge if ge is not None else (gt + 1 if gt is not None else 0)
-            hi = le if le is not None else (lt - 1 if lt is not None else 1_000_000)
-            return st.integers(min_value=lo, max_value=hi)
-        case msgspec_inspect.FloatType(ge=ge, gt=gt, le=le, lt=lt):
-            lo_f = ge if ge is not None else (gt if gt is not None else 0.0)
-            hi_f = le if le is not None else (lt if lt is not None else 1_000_000.0)
-            exclude_lo = ge is None and gt is not None  # Meta(gt=0): timeout must be strictly positive
-            exclude_hi = le is None and lt is not None
-            return st.floats(min_value=lo_f, max_value=hi_f, exclude_min=exclude_lo, exclude_max=exclude_hi, allow_nan=False, allow_infinity=False)
-        case msgspec_inspect.StrType(max_length=cap):
-            return st.text(min_size=1, max_size=min(cap or 64, 64))
-        case msgspec_inspect.BoolType():
-            return st.booleans()
-        case msgspec_inspect.BytesType():
-            return st.binary(max_size=256)
-        case msgspec_inspect.EnumType(cls=cls):
-            return st.sampled_from(list(cls))
-        case msgspec_inspect.LiteralType(values=values):
-            return st.sampled_from(list(values))
-        case msgspec_inspect.DateTimeType():
-            return st.datetimes(timezones=st.just(dt.UTC))  # msgspec JSON requires tz-aware (RFC3339) datetimes
-        case msgspec_inspect.DateType():
-            return st.dates()
-        case msgspec_inspect.NoneType():
-            return st.none()
-        case msgspec_inspect.UnionType(types=types):
-            return st.one_of(*(_leaf(t) for t in types))
-        case msgspec_inspect.VarTupleType(item_type=item):
-            return st.lists(_leaf(item), max_size=3).map(tuple)
-        case msgspec_inspect.TupleType(item_types=items):
-            return st.tuples(*(_leaf(t) for t in items))
-        case msgspec_inspect.ListType(item_type=item):
-            return st.lists(_leaf(item), max_size=3)
-        case msgspec_inspect.SetType(item_type=item) | msgspec_inspect.FrozenSetType(item_type=item):
-            return st.frozensets(_leaf(item), max_size=3)
-        case msgspec_inspect.DictType(key_type=key, value_type=val):
-            return st.dictionaries(_leaf(key), _leaf(val), max_size=3)
-        case msgspec_inspect.StructType(cls=cls):
-            return _resolver(cls)
-        case msgspec_inspect.CustomType():
-            return st.none()  # InprocThunk / Path: no JSON-stable projection -> draw None (round-trip clean)
-        case _:
-            raise AssertionError(f"unhandled msgspec node {type(node).__name__}")
+# --- [STRATEGIES] ----------------------------------------------------------------------
+# `resolve` (tests._strategies) registers a bounded, encode-clean strategy for each wire struct so
+# `st.from_type(X)` round-trips through the deterministic codec. StrEnum / Detail-tag unions resolve
+# natively. The module-level `_st` names below are thin `resolve(...)`-backed aliases the law files import.
 
 
-def _resolver(cls: type[msgspec.Struct]) -> st.SearchStrategy[object]:
-    """Build a ``builds`` strategy for a struct from its inspected fields.
-
-    Returns:
-        A strategy emitting fully-populated instances with every optional field overridden.
-    """
-    info = msgspec_inspect.type_info(cls)
-    assert isinstance(info, msgspec_inspect.StructType)
-    return st.builds(cls, **{f.name: _leaf(f.type) for f in info.fields})
-
-
-# Every struct W3 draws under @given (incl. Tool/Check). Registering Tool/Check via _resolver routes
-# their CustomType fields (thunk callable, cwd: Path) through _leaf -> st.none(), so from_type
-# yields encode-clean instances; OMITTING them lets hypothesis resolve the union natively, which both
-# emits SmallSearchSpaceWarning (hard error under filterwarnings=['error']) for Path and generates live
-# lambdas that crash msgspec.encode. Order is irrelevant: detail_st derives from AnyDetail, not a slice.
-_WIRE_STRUCTS: tuple[type[msgspec.Struct], ...] = (
-    Completed, Fault, Counts, Artifact, Match, RunSnapshot,
-    ApiSource, ApiSurface, VerifySummary, TestRun, PackageRun, ApiResolution, Diagnostic, RunDelta, Report,
-    Stage, Tool, Check,
-)  # fmt: skip
-for _struct in _WIRE_STRUCTS:
-    st.register_type_strategy(_struct, _resolver(_struct))
-
-# Module-level NAMES the foundation tests + W3 reference; thin aliases over from_type / the resolver.
-rail_status_st: st.SearchStrategy[RailStatus] = st.from_type(RailStatus)
+rail_status_st: st.SearchStrategy[RailStatus] = resolve(RailStatus)
 binds_st = st.sampled_from(REGISTRY)
-completed_st: st.SearchStrategy[Completed] = st.from_type(Completed)
-fault_st: st.SearchStrategy[Fault] = st.from_type(Fault)
-counts_st: st.SearchStrategy[Counts] = st.from_type(Counts)
-artifact_st: st.SearchStrategy[Artifact] = st.from_type(Artifact)
-match_st: st.SearchStrategy[Match] = st.from_type(Match)
-run_snapshot_st: st.SearchStrategy[RunSnapshot] = st.from_type(RunSnapshot)
-report_st: st.SearchStrategy[Report] = st.from_type(Report)
-# Derive the Detail variants from the AnyDetail alias itself — self-tracking, no positional [6:13] coupling.
-detail_st: st.SearchStrategy[AnyDetail] = st.one_of(*(st.from_type(v) for v in get_args(AnyDetail.__value__)))
-# The resolver forces Tool.thunk (Callable) and Check.cwd (Path) to None via _leaf(CustomType),
-# so from_type sweeps the engine Runner x Input x Mode x Language cartesian with encode-clean instances.
-tool_st: st.SearchStrategy[Tool] = st.from_type(Tool)
-check_st: st.SearchStrategy[Check] = st.from_type(Check)
+completed_st: st.SearchStrategy[Completed] = resolve(Completed)
+fault_st: st.SearchStrategy[Fault] = resolve(Fault)
+counts_st: st.SearchStrategy[Counts] = resolve(Counts)
+artifact_st: st.SearchStrategy[Artifact] = resolve(Artifact)
+match_st: st.SearchStrategy[Match] = resolve(Match)
+run_snapshot_st: st.SearchStrategy[RunSnapshot] = resolve(RunSnapshot)
+report_st: st.SearchStrategy[Report] = resolve(Report)
+# Derive the Detail variants from the AnyDetail alias itself — self-tracking, no positional coupling.
+detail_st: st.SearchStrategy[AnyDetail] = st.one_of(*(resolve(v) for v in get_args(AnyDetail.__value__)))
+# resolve forces Tool.thunk (Callable) and Check.cwd (Path) to None via the CustomType arm, so from_type
+# sweeps the engine Runner x Input x Mode x Language cartesian with encode-clean instances.
+tool_st: st.SearchStrategy[Tool] = resolve(Tool)
+check_st: st.SearchStrategy[Check] = resolve(Check)
+stage_st: st.SearchStrategy[Stage] = resolve(Stage)
+api_resolution_st: st.SearchStrategy[ApiResolution] = resolve(ApiResolution)
+api_source_st: st.SearchStrategy[ApiSource] = resolve(ApiSource)
+api_surface_st: st.SearchStrategy[ApiSurface] = resolve(ApiSurface)
+verify_summary_st: st.SearchStrategy[VerifySummary] = resolve(VerifySummary)
+test_run_st: st.SearchStrategy[TestRun] = resolve(TestRun)
+package_run_st: st.SearchStrategy[PackageRun] = resolve(PackageRun)
+diagnostic_st: st.SearchStrategy[Diagnostic] = resolve(Diagnostic)
+run_delta_st: st.SearchStrategy[RunDelta] = resolve(RunDelta)
 
 
 @st.composite
@@ -212,27 +183,11 @@ def _envelopes(draw: st.DrawFn) -> Envelope:
         Envelope whose status/exit_code derive from the wrapped payload.
     """
     payload: Report | Fault = draw(st.one_of(report_st, fault_st))
-    return wrap_envelope(payload, claim=draw(st.from_type(Claim)), verb=draw(st.text(max_size=32)), run_id=draw(st.text(max_size=32)))
+    return wrap_envelope(payload, claim=draw(resolve(Claim)), verb=draw(st.text(max_size=32)), run_id=draw(st.text(max_size=32)))
 
 
 envelope_st: st.SearchStrategy[Envelope] = _envelopes()
 st.register_type_strategy(Envelope, envelope_st)
-
-# Every module-level strategy drawn under @given is validated once post-init. .validate() raises
-# SmallSearchSpaceWarning when a wire field escapes the resolver, so strategy defects fail at session start
-# instead of inside a later property.
-_VALIDATED_STRATEGIES: tuple[st.SearchStrategy[object], ...] = (
-    rail_status_st, completed_st, fault_st, counts_st, artifact_st, match_st, run_snapshot_st,
-    report_st, detail_st, tool_st, check_st, envelope_st,
-)  # fmt: skip
-# Wire strategies whose drawn instance must survive the deterministic codec — the encode step is what
-# catches a live Tool.thunk Callable (a TypeError validate() alone never reaches). Tool/Check
-# encode-clean only because the resolver forced their callable/Path fields to None.
-_ENCODE_PROBE: tuple[tuple[st.SearchStrategy[object], type[object]], ...] = (
-    (completed_st, Completed), (fault_st, Fault), (counts_st, Counts), (artifact_st, Artifact),
-    (match_st, Match), (run_snapshot_st, RunSnapshot), (report_st, Report),
-    (tool_st, Tool), (check_st, Check), (envelope_st, Envelope),
-)  # fmt: skip
 
 
 # --- [MODELS] --------------------------------------------------------------------------
@@ -278,23 +233,126 @@ class AssayHarness:
 
 @dataclass(frozen=True, slots=True)
 class RailProbe:
-    """Socket-free mock host: monkeypatch a rail-module member to a canned receipt.
+    """Socket-free mock host: monkeypatch an engine seam, as-imported-by an owner module, to a canned outcome.
 
-    Patch target is the OWNER rail module, never ``core.engine``, mirroring production binding.
+    One probe owns every canned-output seam the rail/engine/automation laws consume. The patch target is
+    the OWNER module that re-binds the seam (``rails.api``, ``automation.engine``, ``core.engine`` only when
+    a law drives that module directly), never the definition site, mirroring how production resolves the name.
+
+    Seam shapes (all dispatched through the polymorphic ``install``):
+      - ``"run_check"``     — sync ``(check, *, settings, scope, routed, deadline=None) -> Result[Completed, Fault]``.
+      - ``"run_check_async"``— coroutine of the same ``Result`` shape (``_program_outcome`` awaits this).
+      - ``"fan_out"``       — sync ``(checks, ...) -> tuple[Result[Completed, Fault], ...]`` (one payload per check).
+      - ``"rail"``          — factory ``(bind, settings) -> (params) -> Envelope`` (the automation registry seam).
+
+    Every invocation is recorded on ``calls`` as ``(member, args, kwargs)``; ``checks`` collects the first
+    positional ``Check`` per call so a law can assert the routed argv without unpacking ``calls`` by hand.
     """
 
     calls: list[tuple[str, tuple[object, ...], dict[str, object]]] = field(default_factory=list)
+    checks: list[Check] = field(default_factory=list)
 
-    def install(self, monkeypatch: pytest.MonkeyPatch, owner: object, member: str, payload: Result[object, Fault]) -> None:
-        def replacement(*args: object, **kwargs: object) -> Result[object, Fault]:
-            self.calls.append((member, args, kwargs))
-            return payload
+    def install(
+        self,
+        monkeypatch: pytest.MonkeyPatch,
+        owner: object,
+        member: str,
+        payload: Result[object, Fault] | Envelope | tuple[Result[Completed, Fault], ...],
+    ) -> None:
+        """Bind ``owner.member`` to a canned seam mirroring the production call shape of ``member``.
 
-        monkeypatch.setattr(owner, member, replacement)
+        ``run_check``/``run_check_async``/``fan_out`` accept a ``Result``/tuple payload; ``rail`` accepts a
+        canned ``Envelope`` and installs the ``(bind, settings) -> (params) -> Envelope`` factory. Each call
+        is appended to ``calls`` and any first-positional ``Check`` is appended to ``checks``.
+
+        Raises:
+            TypeError: When ``member`` and ``payload`` are not one of the supported seam/payload pairings.
+        """
+
+        def _record(args: tuple[object, ...]) -> None:
+            self.calls.append((member, args, {}))
+            self.checks.extend(c for c in args[:1] if isinstance(c, Check))
+
+        match member, payload:
+            case "run_check_async", Result() as result:
+
+                async def _async(*args: object, **kwargs: object) -> Result[object, Fault]:  # noqa: RUF029  # async required: production seam is awaited
+                    self.calls.append((member, args, kwargs))
+                    self.checks.extend(c for c in args[:1] if isinstance(c, Check))
+                    return result
+
+                monkeypatch.setattr(owner, member, _async)
+            case "fan_out", tuple() as results:
+
+                def _fan(checks: tuple[Check, ...], **kwargs: object) -> tuple[Result[Completed, Fault], ...]:
+                    self.calls.append((member, (checks,), kwargs))
+                    self.checks.extend(checks)
+                    return results
+
+                monkeypatch.setattr(owner, member, _fan)
+            case "rail", Envelope() as env:
+
+                def _factory(bind: object, settings: object) -> Callable[[object], Envelope]:
+                    self.calls.append((member, (bind, settings), {}))
+
+                    def _run(params: object) -> Envelope:
+                        self.calls.append(("rail.run", (params,), {}))
+                        return env
+
+                    return _run
+
+                monkeypatch.setattr(owner, member, _factory)
+            case _, Result() as result:
+
+                def _sync(*args: object, **kwargs: object) -> Result[object, Fault]:
+                    self.calls.append((member, args, kwargs))
+                    self.checks.extend(c for c in args[:1] if isinstance(c, Check))
+                    return result
+
+                monkeypatch.setattr(owner, member, _sync)
+            case _:  # pragma: no cover  # the seam/payload pairings above are exhaustive for the rail laws
+                raise TypeError(f"RailProbe.install: unsupported seam/payload pairing for {member!r}: {type(payload).__name__}")
+
+    @property
+    def commands(self) -> list[tuple[str, ...]]:
+        """The ``tool.command`` argv of every captured ``Check``, in invocation order.
+
+        Returns:
+            One argv tuple per recorded ``Check`` — the analogue of the local ``invoked`` capture lists.
+        """
+        return [tuple(c.tool.command) for c in self.checks]
 
     @staticmethod
     def ok(argv: tuple[str, ...] = ("rasm-bridge", "check"), status: RailStatus = RailStatus.OK) -> Result[Completed, Fault]:
+        """An ``Ok`` receipt outcome for a successful seam (default ``rasm-bridge check`` argv, OK status).
+
+        Returns:
+            ``Ok(Completed)`` carrying the given argv, ``rc=0``, and status.
+        """
         return Ok(receipt(argv, 0, status=status))
+
+    @staticmethod
+    def receipt(
+        argv: tuple[str, ...], rc: int = 0, *, status: RailStatus | None = None, stdout: bytes = b"", stderr: bytes = b""
+    ) -> Result[Completed, Fault]:
+        """An ``Ok`` outcome wrapping a wire-shaped ``Completed`` so a verb's output-parsing logic runs.
+
+        ``status`` defaults to ``RailStatus.from_returncode(rc)``; pass ``stdout`` to feed the verb a realistic
+        payload (canned ilspycmd output, MSBuild ``-getProperty`` JSON, build banners, …).
+
+        Returns:
+            ``Ok(Completed)`` carrying the argv, return code, status, and captured streams.
+        """
+        return Ok(receipt(argv, rc, status=status, stdout=stdout, stderr=stderr))
+
+    @staticmethod
+    def error(argv: tuple[str, ...], message: str, *, status: RailStatus = RailStatus.FAULTED) -> Result[Completed, Fault]:
+        """An ``Error`` outcome wrapping a ``Fault`` so a verb's error rail runs against a spawn/timeout failure.
+
+        Returns:
+            ``Error(Fault)`` carrying the argv, status, and message.
+        """
+        return Error(Fault(argv, status, message))
 
 
 @dataclass(frozen=True, slots=True)
@@ -452,18 +510,20 @@ def _make_psutil_module(procs: dict[int | None, MagicMock], *, cpu_count: int = 
 
     def _process_factory(pid: int | None = None) -> MagicMock:
         proc = procs.get(pid)
-        if proc is None:
-            raise _psutil.NoSuchProcess(pid if isinstance(pid, int) else 0)
-        if getattr(proc, "_raise_no_such", False):
-            raise _psutil.NoSuchProcess(int(proc.pid))
-        return proc
+        match proc:
+            case None:
+                raise _psutil.NoSuchProcess(pid if isinstance(pid, int) else 0)
+            case _ if getattr(proc, "_raise_no_such", False):
+                raise _psutil.NoSuchProcess(int(proc.pid))
+            case _:
+                return proc
 
     fake.Process.side_effect = _process_factory
     return fake
 
 
 # --- [ORACLES] -------------------------------------------------------------------------
-# >=2-consumer oracle helpers the foundation tests + W3 share; single-file helpers stay in their file.
+# Assay-TYPED oracles that do not generalize (generic value-level oracles come from tests._spec).
 
 _ENVELOPE_DECODER: Final = msgspec.json.Decoder(Envelope)
 
@@ -489,50 +549,6 @@ def read_one_envelope(cap: pytest.CaptureFixture[bytes] | pytest.CaptureFixture[
     return read_one_envelope_from_bytes(out if isinstance(out, bytes) else out.encode())
 
 
-def unwrap_ok[T](result: Result[T, Fault], *, message: str = "") -> T:
-    """Assert ``Ok`` and return the inner value, surfacing the Fault detail on failure.
-
-    Returns:
-        The unwrapped Ok value.
-    """
-    assert result.is_ok(), f"expected Ok, got Error({result.error}){': ' + message if message else ''}"
-    return result.ok
-
-
-def unwrap_error[T](result: Result[T, Fault], *, message: str = "") -> Fault:
-    """Assert ``Error`` and return the Fault, surfacing the Ok value on failure.
-
-    Returns:
-        The unwrapped Fault.
-    """
-    assert result.is_error(), f"expected Error, got Ok({result.ok}){': ' + message if message else ''}"
-    return result.error
-
-
-def assert_result_status[T](result: Result[T, Fault], status: RailStatus) -> Fault:
-    """Assert the result is an ``Error`` carrying ``status``; return the Fault for further checks.
-
-    Returns:
-        The unwrapped Fault carrying the expected status.
-    """
-    fault = unwrap_error(result)
-    assert fault.status is status, f"expected status {status}, got {fault.status}"
-    return fault
-
-
-def assert_wire_roundtrip[T](value: T, typ: type[T]) -> T:
-    """Assert deterministic encode/decode/re-encode byte-identity for a wire struct.
-
-    Returns:
-        The decoded value (equal to ``value``).
-    """
-    raw = WIRE_ENCODER.encode(value)
-    decoded = msgspec.json.decode(raw, type=typ)
-    assert decoded == value, f"decode mismatch for {typ.__name__}"
-    assert WIRE_ENCODER.encode(decoded) == raw, f"re-encode not byte-identical for {typ.__name__}"
-    return decoded
-
-
 def assert_counts_consistent(report: Report) -> None:
     """Assert the report fold invariant: ``total == ok + failed`` and ``len(results) == failed``."""
     assert report.counts.total == report.counts.ok + report.counts.failed, f"counts arithmetic broken: {report.counts}"
@@ -556,6 +572,38 @@ def pipe_history(store: ArtifactStore, run_ids: tuple[str, ...]) -> None:
 
 
 # --- [COMPOSITION] ---------------------------------------------------------------------
+
+
+@pytest.fixture(autouse=True)
+def _isolate_sut_state() -> Generator[None]:
+    """Reset every SUT module-level ContextVar + structlog context per test — they leak in-process.
+
+    The CLI/``@logged``/``@checked``/engine seams bind into ContextVars (aspect ``_RING``, automation
+    ``_CPU_PRIMED``, engine ``_RESOURCE``/``_SSH_CACHE``) and structlog's bound context that persist within
+    the test process; forcing each to its declared default at test start keeps every ring / governor /
+    resource / history law order-independent under pytest-randomly. One shared seam — the universal isolation
+    the whole suite relies on (``_WRITES`` has no default and is owned per-invocation, so it is left alone).
+
+    Yields:
+        None — the test runs with all SUT ContextVars at their defaults + a cleared structlog context.
+    """
+    import structlog  # noqa: PLC0415
+
+    from tools.assay.automation.engine import _CPU_PRIMED  # noqa: PLC0415, PLC2701
+    from tools.assay.core.aspect import _RING  # noqa: PLC0415, PLC2701
+    from tools.assay.core.engine import _RESOURCE, _SSH_CACHE  # noqa: PLC0415, PLC2701
+
+    structlog.contextvars.clear_contextvars()
+    tok_ring = _RING.set(None)
+    tok_cpu = _CPU_PRIMED.set(False)
+    tok_res = _RESOURCE.set(())
+    tok_ssh = _SSH_CACHE.set(None)
+    yield
+    _RING.reset(tok_ring)
+    _CPU_PRIMED.reset(tok_cpu)
+    _RESOURCE.reset(tok_res)
+    _SSH_CACHE.reset(tok_ssh)
+    structlog.contextvars.clear_contextvars()
 
 
 @pytest.fixture
@@ -604,9 +652,14 @@ def cli(assay_root: AssayHarness, capsysbinary: pytest.CaptureFixture[bytes], mo
             monkeypatch.setenv(key, value)
         match isolate:
             case False:
-                from tools.assay.__main__ import main  # noqa: PLC0415  # in-proc import keeps the subprocess path import-clean
+                from tools.assay import __main__ as main_mod  # noqa: PLC0415  # in-proc import keeps the subprocess path import-clean
 
-                code = main([*argv])
+                # main() force_flushes + shuts down the global trace provider before exit (correct for a one-shot
+                # process). In-process that would tear down the session provider the otel_spans fixture reads, so
+                # neutralize ONLY the teardown here — span recording still flows through the global tracer.
+                neutralized = SimpleNamespace(force_flush=lambda *_a, **_k: True, shutdown=lambda: None)
+                monkeypatch.setattr(main_mod, "get_tracer_provider", lambda: neutralized)
+                code = main_mod.main([*argv])
                 cap = capsysbinary.readouterr()
                 return CliResult(envelope=read_one_envelope_from_bytes(cap.out), exit_code=code, stdout=cap.out, stderr=cap.err)
             case True:
@@ -625,12 +678,62 @@ def cli(assay_root: AssayHarness, capsysbinary: pytest.CaptureFixture[bytes], mo
 
 @pytest.fixture
 def rail_probe() -> RailProbe:
-    """Build a socket-free rail host with canned receipts.
+    """Build the one canned-output rail host: ``run_check``/``run_check_async``/``fan_out``/``rail`` seams.
 
     Returns:
-        Probe that installs fake ``run_check`` and ``fan_out`` responses.
+        A fresh ``RailProbe`` whose ``install`` binds a canned seam as-imported-by an owner module and whose
+        ``calls``/``checks``/``commands`` capture every invocation for assertions.
     """
     return RailProbe()
+
+
+def install_cpu_double(monkeypatch: pytest.MonkeyPatch, cpu_percent: CpuSampler, *, cpu_count: int = 4) -> MagicMock:
+    """Install a ``psutil`` module double on ``automation.engine`` whose ``cpu_percent`` is ``cpu_percent``.
+
+    Reuses ``_make_psutil_module`` semantics (real ``Error``/``NoSuchProcess`` classes, ``cpu_count``) so the
+    governor laws drive ``is_governed`` against a canned non-blocking CPU sample with no real ``psutil`` read.
+
+    Returns:
+        The installed ``psutil`` module double; ``.cpu_percent`` is the supplied callable.
+    """
+    from tools.assay.automation import engine as automation_engine  # noqa: PLC0415  # patch target re-imported here
+
+    fake = _make_psutil_module({}, cpu_count=cpu_count)
+    fake.cpu_percent = cpu_percent
+    monkeypatch.setattr(automation_engine, "psutil", fake)
+    return fake
+
+
+@pytest.fixture
+def cpu_double(monkeypatch: pytest.MonkeyPatch) -> CpuDoubleInstaller:
+    """Yield an installer that pins ``automation.engine``'s ``psutil.cpu_percent`` to a canned sample.
+
+    Returns:
+        ``install(cpu_percent, *, cpu_count=4) -> MagicMock`` — call it with the canned ``cpu_percent`` callable
+        (e.g. ``lambda *_a, **_k: 91.0``) to drive the CPU governor decision deterministically.
+    """
+
+    def install(cpu_percent: CpuSampler, *, cpu_count: int = 4) -> MagicMock:
+        return install_cpu_double(monkeypatch, cpu_percent, cpu_count=cpu_count)
+
+    return install
+
+
+@pytest.fixture
+def captured_emits(monkeypatch: pytest.MonkeyPatch) -> list[Envelope]:
+    """Redirect ``automation.engine._emit`` to a capture list and yield it.
+
+    Every Envelope the engine would write to stdout is appended instead, so a ``drive`` law asserts the exact
+    emitted Envelope sequence without parsing NDJSON off ``capsysbinary``.
+
+    Returns:
+        The mutable ``list[Envelope]`` collecting each ``_emit`` call, in emission order.
+    """
+    from tools.assay.automation import engine as automation_engine  # noqa: PLC0415  # patch target re-imported here
+
+    seen: list[Envelope] = []
+    monkeypatch.setattr(automation_engine, "_emit", seen.append)
+    return seen
 
 
 @pytest.fixture
@@ -683,23 +786,3 @@ def yak_shape() -> YakShape:
         Package-shape materializer for yak rail tests.
     """
     return YakShape()
-
-
-def run_strategy_validation_gate() -> None:
-    """Validate + encode-probe every module-level strategy once per session, post-init."""
-    for strategy in _VALIDATED_STRATEGIES:
-        strategy.validate()
-
-    @hyp_settings(max_examples=25, deadline=None)
-    @given(data=st.data())
-    def _encode_law(data: st.DataObject) -> None:
-        for strategy, typ in _ENCODE_PROBE:
-            assert_wire_roundtrip(data.draw(strategy), typ)
-
-    _encode_law()
-
-
-@pytest.fixture(scope="session", autouse=True)
-def _strategy_validation_gate() -> None:
-    """Validate + encode-probe every module-level strategy once per session, post-collection."""
-    run_strategy_validation_gate()

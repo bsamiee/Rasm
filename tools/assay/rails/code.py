@@ -471,7 +471,7 @@ def search(settings: AssaySettings, scope: ArtifactScope, params: CodeParams) ->
                     settings, scope, "search", params.pattern, _ag_normalize(done), *_ag_rows(done, params.max_results, params.pattern)
                 )
             )
-        case False:
+        case False:  # pragma: no cover — exhaustive match(bool); sysmon arc to implicit exit unreachable
             return _content_search(settings, scope, params)
 
 
@@ -480,7 +480,7 @@ def _content_search(settings: AssaySettings, scope: ArtifactScope, params: CodeP
     match next((t for t in select(Claim.CODE) if t.mode is Mode.CONTENT), None):
         case None:
             return Error(Fault(("code", "search"), status=RailStatus.FAULTED, message="no ripgrep content catalog row"))
-        case Tool() as tool:
+        case Tool() as tool:  # pragma: no cover — exhaustive match(Tool|None); sysmon arc to implicit exit unreachable
             check = Check(tool=_content_splice(tool, params, Path(str(settings.root))), paths=tuple(params.paths or _DEFAULT_TARGET))
             routed = Routed(language=tool.language, scope=Scope.CHANGED)
             return run_check(check, settings=settings, scope=scope, routed=routed).map(lambda done: _content_report(settings, scope, params, done))
@@ -513,7 +513,7 @@ def rewrite(settings: AssaySettings, scope: ArtifactScope, params: CodeParams) -
                 run_id=settings.run_id,
                 project="code",
             )
-        case False:
+        case False:  # pragma: no cover — exhaustive match(bool); sysmon arc to implicit exit unreachable
             return _fan(settings, scope, params, mode=Mode.CHECK, splice=_rewrite_splice(params, root, apply=False)).map(
                 lambda done: _report(
                     settings, scope, "rewrite", params.pattern, _ag_normalize(done), *_ag_rows(done, params.max_results, params.pattern)

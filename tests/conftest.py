@@ -2,8 +2,10 @@
 
 # --- [RUNTIME_PRELUDE] ------------------------------------------------------------------------
 
+from datetime import datetime, UTC
 import os
 from pathlib import Path
+import threading
 
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -17,6 +19,7 @@ os.environ.setdefault("HYPOTHESIS_STORAGE_DIRECTORY", str(HYPOTHESIS_HOME))  # n
 
 from typing import TYPE_CHECKING
 
+import anyio
 from hypothesis import HealthCheck, is_hypothesis_test, Phase, settings as hyp_settings
 from hypothesis.configuration import set_hypothesis_home_dir
 from hypothesis.database import DirectoryBasedExampleDatabase
@@ -25,6 +28,7 @@ from opentelemetry.sdk.trace import TracerProvider
 from opentelemetry.sdk.trace.export import SimpleSpanProcessor
 from opentelemetry.sdk.trace.export.in_memory_span_exporter import InMemorySpanExporter
 import pytest
+import structlog
 from structlog.testing import capture_logs
 
 
@@ -43,6 +47,7 @@ if TYPE_CHECKING:
 HYPOTHESIS_EXAMPLES = HYPOTHESIS_HOME / "examples"
 _EXAMPLE_DB = DirectoryBasedExampleDatabase(HYPOTHESIS_EXAMPLES)
 _SUPPRESSIONS = (HealthCheck.too_slow, HealthCheck.data_too_large)
+_log = structlog.get_logger(__name__)
 
 
 # --- [COMPOSITION] ---------------------------------------------------------------------
@@ -142,6 +147,82 @@ def _otel_provider() -> Generator[InMemorySpanExporter]:
     otel_trace.set_tracer_provider(tp)
     yield exp
     tp.shutdown()
+
+
+def _build_profiler_argv(artifact_dir: Path, secs: str) -> list[str]:
+    """Construct the profiling.sampling attach argv and ensure the output directory exists.
+
+    Args:
+        artifact_dir: Directory under which the JSONL artifact is written.
+        secs: Sampling duration as a string (passed verbatim to ``-d``).
+
+    Returns:
+        Argv list ready for subprocess execution.
+    """
+    artifact_dir.mkdir(parents=True, exist_ok=True)
+    ts = datetime.now(tz=UTC).strftime("%Y%m%dT%H%M%S")
+    artifact = artifact_dir / f"session-{ts}.jsonl"
+    return [
+        "python",
+        "-m",
+        "profiling.sampling",
+        "attach",
+        str(os.getpid()),
+        "--jsonl",
+        "-o",
+        str(artifact),
+        "-d",
+        secs,
+    ]
+
+
+def _run_profiler(artifact_dir: Path, secs: str) -> None:
+    """Execute the profiler subprocess inside ``anyio.run``.
+
+    Any exception propagates to the daemon thread's unhandled-exception handler which
+    writes to stderr — acceptable for observability-only infrastructure. The daemon
+    thread cannot crash the session regardless of outcome.
+
+    Args:
+        artifact_dir: Directory for the JSONL output artifact.
+        secs: Sampling duration forwarded to the subprocess.
+    """
+
+    async def _attach(argv: list[str]) -> None:
+        async with await anyio.open_process(argv, stdout=None, stderr=None) as proc:
+            await proc.wait()
+
+    argv = _build_profiler_argv(artifact_dir, secs)
+    anyio.run(_attach, argv)
+
+
+@pytest.fixture(scope="session", autouse=True)
+def _profiling_sampler(_otel_provider: InMemorySpanExporter) -> None:
+    """Best-effort out-of-process CPU sampler for the test session PID.
+
+    Activated only when ``ASSAY_PROFILE`` is non-empty in the environment. Spawns
+    ``python -m profiling.sampling attach <pid> --jsonl -o <artifact> -d <secs>`` in a
+    daemon thread so the subprocess does not block the session or its teardown.
+    Default duration is 60 s; override with ``ASSAY_PROFILE_SECS``.
+
+    WHY a daemon thread: ``anyio.run`` must not be called on the pytest main thread
+    (which may already have an event loop in some plugins), and the subprocess is
+    fire-and-forget — we never need its exit code or output.
+
+    WHY exceptions absorbed in thread target: any failure (missing wheel, platform
+    restriction, permission error) is logged via structlog to stderr and must never
+    propagate out of the daemon thread into the session.
+    """
+    profile_flag = os.environ.get("ASSAY_PROFILE")  # noqa: TID251  # test boundary: env gate
+    if not profile_flag:
+        return
+    secs = os.environ.get("ASSAY_PROFILE_SECS", "60")  # noqa: TID251  # test boundary: duration override
+    artifact_dir = ROOT / ".artifacts" / "python" / "profile"
+
+    def _spawn() -> None:
+        _run_profiler(artifact_dir, secs)
+
+    threading.Thread(target=_spawn, daemon=True, name="assay-profiler").start()
 
 
 @pytest.fixture

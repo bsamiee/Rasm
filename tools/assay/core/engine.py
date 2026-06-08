@@ -45,7 +45,7 @@ if TYPE_CHECKING:
 # --- [TYPES] ----------------------------------------------------------------------------
 
 type _Woven = Callable[[Check, AssaySettings, ArtifactScope | None, Routed, float | None], Coroutine[None, None, Result[Completed, Fault]]]
-type _Recv = Callable[[], Coroutine[None, None, bytes | None]]
+type ByteRecv = Callable[[], Coroutine[None, None, bytes | None]]
 
 
 # --- [CONSTANTS] ------------------------------------------------------------------------
@@ -58,12 +58,6 @@ _SSH_SIGNAL_STATUS: int = 255
 _RETRY_MIN_REMAINING: float = 0.05
 _LOG = structlog.get_logger("assay.engine")
 _TRACER = trace.get_tracer("assay.engine")
-
-# cpu_affinity is Linux/cgroup-aware where present; the boundary falls back to the logical count once at import.
-try:
-    _USABLE_CPU: int = len(psutil.Process().cpu_affinity())  # type: ignore[attr-defined]  # ty: ignore[possibly-missing-attribute]
-except psutil.Error, AttributeError, NotImplementedError:
-    _USABLE_CPU = psutil.cpu_count(logical=True) or 8
 
 # POSIX-only fcntl members bind once because ty checks all platforms and cannot narrow this module to POSIX.
 _FLOCK, _LOCK_EX, _LOCK_NB, _LOCK_UN = fcntl.flock, fcntl.LOCK_EX, fcntl.LOCK_NB, fcntl.LOCK_UN  # ty: ignore[possibly-missing-attribute]
@@ -113,7 +107,9 @@ class _ExecPlan:
 
 
 @dataclass(frozen=True, slots=True)
-class _Captured:
+class Captured:
+    """Aggregate of a drained byte stream: tail window, artifact path, and total size/line counts."""
+
     tail: bytes = b""
     path: str = ""
     size: int = 0
@@ -128,13 +124,17 @@ class _Nullary(Protocol):
     def __call__(self) -> float | int | str: ...
 
 
-class _WriteSink(Protocol):
-    def write(self, payload: bytes) -> object: ...
+class WriteSink(Protocol):
+    """Structural byte sink: a writable target receiving stream chunks during a drain."""
+
+    def write(self, payload: bytes) -> object:
+        """Write one byte chunk to the sink."""
+        ...
 
 
 @runtime_checkable
 class _WriteContext(Protocol):
-    def __enter__(self) -> _WriteSink: ...
+    def __enter__(self) -> WriteSink: ...
 
     def __exit__(self, exc_type: type[BaseException] | None, exc: BaseException | None, tb: object) -> object: ...
 
@@ -147,7 +147,14 @@ _DECODER: msgspec.json.Decoder[_LeaseOwner] = msgspec.json.Decoder(_LeaseOwner)
 # --- [OPERATIONS] -----------------------------------------------------------------------
 
 
-def _splice(runner: Runner, command: tuple[str, ...], scope: ArtifactScope | None, scoped_verbs: frozenset[str], mode: Mode) -> tuple[str, ...]:
+def splice_command(
+    runner: Runner, command: tuple[str, ...], scope: ArtifactScope | None, scoped_verbs: frozenset[str], mode: Mode
+) -> tuple[str, ...]:
+    """Inject scope flags into a DOTNET build-graph command before any ``--`` argument separator.
+
+    Returns:
+        The command with scope flags spliced for scoped DOTNET verbs, otherwise the command verbatim.
+    """
     match (runner, command, scope):
         case (Runner.DOTNET, (verb, *_), ArtifactScope() as s) if verb in scoped_verbs and mode not in {Mode.QUERY, Mode.LIST}:
             cut = command.index("--") if "--" in command else len(command)
@@ -169,7 +176,7 @@ def _overlay(settings: AssaySettings, scope: ArtifactScope | None) -> Mapping[st
 def _argv(check: Check, routed: Routed, *, settings: AssaySettings, scope: ArtifactScope | None) -> tuple[str, ...]:
     # Runner prefix, scoped command body, then routed tails keep scope and input axes separate.
     tool = check.tool
-    body = _splice(tool.runner, tool.command, scope, settings.scoped_verbs, tool.mode)
+    body = splice_command(tool.runner, tool.command, scope, settings.scoped_verbs, tool.mode)
     body = (*(part for group in tool.groups for part in ("--group", group)), *body) if tool.runner is Runner.UV else body
     body = ("--project", str(settings.root), *body) if tool.runner is Runner.UV and tool.stage.project else body
     tails = place(routed, tool, settings=settings)
@@ -242,7 +249,7 @@ def _copy_stage_input(check: Check, root: Path, work: Path, rel: str) -> Fault |
     if isinstance(src, ValueError):
         return Fault((check.tool.name, "stage", rel), message=str(src))
     dst = _contained(work, rel)
-    if isinstance(dst, ValueError):
+    if isinstance(dst, ValueError):  # pragma: no cover  # defensive: src passed identical containment on the same rel; dst cannot escape work
         return Fault((check.tool.name, "stage", rel), message=str(dst))
     if not src.exists():
         return Fault((check.tool.name, "stage", rel), message=f"missing stage input: {rel}")
@@ -266,11 +273,22 @@ def _contained(root: Path, rel: str) -> Path | ValueError:
 
 
 async def _drain(stream: ByteReceiveStream | None, *, tail_cap: int, chunk: int) -> bytes:
-    captured = await _drain_stream(_recv_anyio(stream, chunk), tail_cap=tail_cap)
+    captured = await drain_stream(_recv_anyio(stream, chunk), tail_cap=tail_cap)
     return captured.tail
 
 
-async def _drain_stream(recv: _Recv, *, tail_cap: int, sink: _WriteSink | None = None, path: str = "") -> _Captured:
+async def drain_stream(recv: ByteRecv, *, tail_cap: int, sink: WriteSink | None = None, path: str = "") -> Captured:
+    """Pump an async byte source to EOF, tee-ing to an optional sink and retaining a bounded tail.
+
+    Args:
+        recv: Async read primitive returning the next chunk, or ``None`` at EOF.
+        tail_cap: Maximum number of trailing bytes retained in the captured tail.
+        sink: Optional byte sink receiving every chunk as it is read.
+        path: Artifact path recorded on the resulting capture.
+
+    Returns:
+        Capture of the tail window, artifact path, total byte size, and line count.
+    """
     tail, total, lines, last = b"", 0, 0, b""
     # why: an async byte pump is irreducibly imperative — the read primitive is a side-effecting coroutine driven to EOF.
     while (read := await recv()) is not None:
@@ -278,11 +296,11 @@ async def _drain_stream(recv: _Recv, *, tail_cap: int, sink: _WriteSink | None =
         tail = (tail + read)[-tail_cap:]
         total += len(read)
         lines += read.count(b"\n")
-        last = read[-1:]
-    return _Captured(tail=tail, path=path, size=total, lines=lines + (1 if total and last != b"\n" else 0))
+        last = read[-1:] or last  # track last CONTENT byte: an empty chunk must not clobber the newline-terminus probe
+    return Captured(tail=tail, path=path, size=total, lines=lines + (1 if total and last != b"\n" else 0))
 
 
-def _recv_anyio(stream: ByteReceiveStream | None, chunk: int) -> _Recv:
+def _recv_anyio(stream: ByteReceiveStream | None, chunk: int) -> ByteRecv:
     async def _recv() -> bytes | None:
         match stream:
             case None:
@@ -296,7 +314,7 @@ def _recv_anyio(stream: ByteReceiveStream | None, chunk: int) -> _Recv:
     return _recv
 
 
-def _recv_ssh(reader: asyncssh.SSHReader[bytes], chunk: int) -> _Recv:
+def _recv_ssh(reader: asyncssh.SSHReader[bytes], chunk: int) -> ByteRecv:
     # asyncssh read returns b"" only at EOF; project the empty terminator to the pump's None sentinel.
 
     async def _recv() -> bytes | None:
@@ -305,7 +323,7 @@ def _recv_ssh(reader: asyncssh.SSHReader[bytes], chunk: int) -> _Recv:
     return _recv
 
 
-def _write_sink(sink: _WriteSink | None, payload: bytes) -> None:
+def _write_sink(sink: WriteSink | None, payload: bytes) -> None:
     match sink:
         case None:
             pass
@@ -352,22 +370,22 @@ async def _run_process_backend(plan: _ExecPlan) -> Completed:
             match plan.streaming:
                 case True:
                     proc = await anyio.open_process(list(plan.argv), cwd=plan.cwd, env=plan.env)
-                    streams: dict[str, _Captured] = {}
+                    streams: dict[str, Captured] = {}
                     try:
                         async with anyio.create_task_group() as tg:
 
                             async def _tee(name: str, stream: ByteReceiveStream | None) -> None:
                                 path, handle = _stream_writer(plan, name)
                                 if handle is None:
-                                    streams[name] = await _drain_stream(_recv_anyio(stream, plan.chunk), tail_cap=plan.tail_cap, path=path)
+                                    streams[name] = await drain_stream(_recv_anyio(stream, plan.chunk), tail_cap=plan.tail_cap, path=path)
                                     return
                                 with handle as sink:
-                                    streams[name] = await _drain_stream(_recv_anyio(stream, plan.chunk), tail_cap=plan.tail_cap, sink=sink, path=path)
+                                    streams[name] = await drain_stream(_recv_anyio(stream, plan.chunk), tail_cap=plan.tail_cap, sink=sink, path=path)
 
                             tg.start_soon(_tee, "out", proc.stdout)
                             tg.start_soon(_tee, "err", proc.stderr)
                             await proc.wait()
-                        stdout, stderr = streams.get("out", _Captured()).tail, streams.get("err", _Captured()).tail
+                        stdout, stderr = streams.get("out", Captured()).tail, streams.get("err", Captured()).tail
                         return receipt(
                             plan.argv,
                             proc.returncode or 0,
@@ -384,7 +402,7 @@ async def _run_process_backend(plan: _ExecPlan) -> Completed:
             return await _run_remote(replace(plan, env=plan.settings.remote_env(dict(plan.env))), target)
 
 
-def _stream_artifacts(scope: ArtifactScope | None, settings: AssaySettings, check: Check, streams: Mapping[str, _Captured]) -> tuple[Artifact, ...]:
+def _stream_artifacts(scope: ArtifactScope | None, settings: AssaySettings, check: Check, streams: Mapping[str, Captured]) -> tuple[Artifact, ...]:
     _ = settings
     match scope:
         case None:
@@ -414,28 +432,28 @@ async def _run_remote(plan: _ExecPlan, target: str) -> Completed:
     import asyncssh  # noqa: PLC0415  # lazy: asyncssh costs ~83ms cold start; defer past import-time
 
     # encoding=None keeps remote stdout/stderr as bytes, matching local Completed receipts.
-    command = _remote_command(plan.argv, cwd=plan.cwd, env=plan.env)
+    command = remote_command(plan.argv, cwd=plan.cwd, env=plan.env)
     async with _ssh_connection(target, plan.settings) as conn:
         match plan.streaming:
             case True:
                 proc = await conn.create_process(command, encoding=None, stdin=asyncssh.DEVNULL)
-                streams: dict[str, _Captured] = {}
+                streams: dict[str, Captured] = {}
                 try:
                     async with anyio.create_task_group() as tg:
 
                         async def _tee(name: str, reader: asyncssh.SSHReader[bytes]) -> None:
                             path, handle = _stream_writer(plan, name)
                             if handle is None:
-                                streams[name] = await _drain_stream(_recv_ssh(reader, plan.chunk), tail_cap=plan.tail_cap, path=path)
+                                streams[name] = await drain_stream(_recv_ssh(reader, plan.chunk), tail_cap=plan.tail_cap, path=path)
                                 return
                             with handle as sink:
-                                streams[name] = await _drain_stream(_recv_ssh(reader, plan.chunk), tail_cap=plan.tail_cap, sink=sink, path=path)
+                                streams[name] = await drain_stream(_recv_ssh(reader, plan.chunk), tail_cap=plan.tail_cap, sink=sink, path=path)
 
                         tg.start_soon(_tee, "out", proc.stdout)
                         tg.start_soon(_tee, "err", proc.stderr)
                         await proc.wait()
-                    stdout, stderr = streams.get("out", _Captured()).tail, streams.get("err", _Captured()).tail
-                    code, notes = _ssh_outcome(proc.exit_status, getattr(proc, "exit_signal", None))
+                    stdout, stderr = streams.get("out", Captured()).tail, streams.get("err", Captured()).tail
+                    code, notes = ssh_outcome(proc.exit_status, getattr(proc, "exit_signal", None))
                     return receipt(
                         plan.argv,
                         code,
@@ -450,7 +468,7 @@ async def _run_remote(plan: _ExecPlan, target: str) -> Completed:
                         await proc.wait_closed()
             case False:
                 done = await conn.run(command, encoding=None, check=False)
-                code, notes = _ssh_outcome(done.exit_status, getattr(done, "exit_signal", None))
+                code, notes = ssh_outcome(done.exit_status, getattr(done, "exit_signal", None))
                 return receipt(plan.argv, code, stdout=_as_bytes(done.stdout), stderr=_as_bytes(done.stderr), notes=notes)
 
 
@@ -496,14 +514,24 @@ async def _connect_once(target: str, settings: AssaySettings) -> asyncssh.SSHCli
     )
 
 
-def _remote_command(argv: tuple[str, ...], *, cwd: str, env: Mapping[str, str]) -> str:
+def remote_command(argv: tuple[str, ...], *, cwd: str, env: Mapping[str, str]) -> str:
+    """Build a single shell-quoted remote command line carrying the cwd, env exports, and argv.
+
+    Returns:
+        A ``cd <cwd> && <exports> <argv>`` line with every segment shell-quoted.
+    """
     # cwd and env ride the remote shell command because sshd may reject AcceptEnv; quote every segment.
     exports = tuple(f"{shlex.quote(k)}={shlex.quote(v)}" for k, v in env.items())
     body = " ".join((*exports, *(shlex.quote(part) for part in argv)))
     return f"cd {shlex.quote(cwd)} && {body}"
 
 
-def _ssh_outcome(status: int | None, signal: object | None) -> tuple[int, tuple[str, ...]]:
+def ssh_outcome(status: int | None, signal: object | None) -> tuple[int, tuple[str, ...]]:
+    """Resolve a remote exit status and optional signal into a numeric code plus receipt notes.
+
+    Returns:
+        The integer exit code (or synthetic 255 for a signalled kill) and any signal-name notes.
+    """
     # A signalled remote exit has no numeric status; surface the signal name as receipt evidence beside the synthetic 255.
     match status, signal:
         case int() as code, _:
@@ -631,7 +659,7 @@ async def _guarded(
             argv=argv,
             cwd=cwd,
             env=env,
-            thread_limiter=anyio.CapacityLimiter(_governed(settings, (check,))),
+            thread_limiter=anyio.CapacityLimiter(governed_concurrency(settings, (check,))),
             deadline=bound,
             attempts=attempts,
         )
@@ -664,13 +692,13 @@ async def _execute_retrying(  # noqa: PLR0913  # retry loop: check/settings/scop
     # The cell carries the live attempt count across stamina's exhaustion re-raise so _guarded can stamp the surfaced fault.
     # stamina re-raises on exhaustion and anyio.fail_after raises TimeoutError on deadline — normal return always has done set.
     done: Completed | None = None
-    async for attempt in stamina.retry_context(on=_retry_on(check, deadline), attempts=3, timeout=_retry_timeout(deadline)):
+    async for attempt in stamina.retry_context(on=retry_predicate(check, deadline), attempts=3, timeout=_retry_timeout(deadline)):
         attempts[0] = attempt.num
         with attempt:
             with anyio.fail_after(_remaining(deadline)):
                 done = await _execute(check, settings, scope, argv=argv, cwd=cwd, env=env, thread_limiter=thread_limiter)
     match done:
-        case None:
+        case None:  # pragma: no cover  # invariant guard: stamina re-raises on exhaustion, so done is always set on normal return
             raise RuntimeError("stamina exhausted without raising — invariant violated")  # unreachable; stamina re-raises
         case Completed() as result:
             return msgspec.structs.replace(result, notes=(*result.notes, f"retry attempts={attempts[0]}")) if attempts[0] > 1 else result
@@ -714,7 +742,12 @@ def _retry_timeout(deadline: float | None) -> float:
     return min(30.0, _remaining(deadline) or 30.0)
 
 
-def _retry_on(check: Check, deadline: float | None) -> Callable[[BaseException], bool]:
+def retry_predicate(check: Check, deadline: float | None) -> Callable[[BaseException], bool]:
+    """Build a stamina retry predicate that retries transport/spawn faults within the remaining budget.
+
+    Returns:
+        A predicate that retries connection/OS faults on non-direct runners while budget remains, never spawn/value/timeout faults.
+    """
     import asyncssh  # noqa: PLC0415  # lazy: classify's match arm references asyncssh.Error; bind for the closure
 
     def within_budget() -> bool:
@@ -795,7 +828,7 @@ def fan_out(
     """
 
     async def _run() -> tuple[Result[Completed, Fault], ...]:
-        limit = _governed(settings, checks)
+        limit = governed_concurrency(settings, checks)
         results: dict[int, Result[Completed, Fault]] = {}
         with _TRACER.start_as_current_span("assay.fan_out") as parent:
             parent.set_attribute("assay.checks_total", len(checks))
@@ -875,17 +908,27 @@ def _total(slot: Result[Completed, Fault] | None) -> Result[Completed, Fault]:
             return r
 
 
-def _governed(settings: AssaySettings, checks: tuple[Check, ...] = ()) -> int:
+def governed_concurrency(settings: AssaySettings, checks: tuple[Check, ...] = ()) -> int:
+    """Fold the usable-CPU, DOTNET-runner, and MUTATION-mode ceilings into one concurrency floor.
+
+    Returns:
+        The concurrency limit, at least 1, bounded by ``max_checks``, the mode cap, and ``settings.cpu_count``.
+    """
     runner_cap = settings.dotnet_max_cpu if any(c.tool.runner is Runner.DOTNET for c in checks) else settings.max_checks
     # Mixed DOTNET+MUTATION batches must honour BOTH ceilings — intersect, never let the mode cap shadow the runner cap.
     mode_cap = min(runner_cap, settings.mutation_max_cpu) if any(c.tool.mode is Mode.MUTATION for c in checks) else runner_cap
-    return max(1, min(settings.max_checks, mode_cap, _USABLE_CPU))
+    return max(1, min(settings.max_checks, mode_cap, settings.cpu_count))
 
 
 # --- [COMPOSITION] ----------------------------------------------------------------------
 
 
-def _stale(owner: _LeaseOwner, tolerance: float) -> bool:
+def is_lease_stale(owner: _LeaseOwner, tolerance: float) -> bool:
+    """Decide whether a lease holder is dead or PID-reused and therefore stealable.
+
+    Returns:
+        True when the holder process is gone, not running, or drifted past ``tolerance``; False when it is live and matching.
+    """
     # Match pid plus create_time within the drift band so PID reuse does not preserve stale locks.
     try:
         proc = psutil.Process(owner.pid)
@@ -910,15 +953,15 @@ def _claim(
         held = os.read(fd, 4096)
         # b"" UNDER a contended flock can only be a live holder mid-write/mid-release (a dead holder dropped its flock,
         # so the success path above would have won). Map it to BUSY without a steal log; only present-but-corrupt or
-        # present-but-stale blocks fall through to the decode + _stale + steal path.
+        # present-but-stale blocks fall through to the decode + is_lease_stale + steal path.
         match held:
             case b"":
                 _stamp_holder(None)
                 return None
             case _:
-                owner = _decode_owner(held)
+                owner = decode_lease_owner(held)
                 _stamp_holder(owner)
-                match owner is not None and not _stale(owner, tolerance):
+                match owner is not None and not is_lease_stale(owner, tolerance):
                     case True:
                         return None
                     case False:
@@ -951,7 +994,12 @@ def _stamp_holder(owner: _LeaseOwner | None) -> None:
     trace.get_current_span().add_event("lease.contested", attributes={f"holder.{k}": str(v) for k, v in _holder(owner).items()})
 
 
-def _decode_owner(held: bytes) -> _LeaseOwner | None:
+def decode_lease_owner(held: bytes) -> _LeaseOwner | None:
+    """Decode lock-file bytes into a lease owner, treating empty or corrupt content as absent.
+
+    Returns:
+        The decoded owner, or ``None`` when the bytes are empty or fail to decode.
+    """
     # Empty or corrupt lock bytes represent a stealable stale holder.
     match held:
         case b"":
@@ -1062,4 +1110,25 @@ def leased[T](
 
 # --- [EXPORTS] --------------------------------------------------------------------------
 
-__all__ = ["_RESOURCE", "argv_for", "discover", "discover_async", "exclusive_lease", "fan_out", "leased", "run_check", "run_check_async"]
+__all__ = [
+    "_RESOURCE",
+    "ByteRecv",
+    "Captured",
+    "WriteSink",
+    "argv_for",
+    "decode_lease_owner",
+    "discover",
+    "discover_async",
+    "drain_stream",
+    "exclusive_lease",
+    "fan_out",
+    "governed_concurrency",
+    "is_lease_stale",
+    "leased",
+    "remote_command",
+    "retry_predicate",
+    "run_check",
+    "run_check_async",
+    "splice_command",
+    "ssh_outcome",
+]

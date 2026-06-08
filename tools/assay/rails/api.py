@@ -151,6 +151,7 @@ class ApiParams(BaseParams):
     grep: str = ""
     full: bool = False
     strict: bool = False
+    sources: tuple[str, ...] = ()  # non-empty → restrict doctor inventory to matching source_id prefixes
 
     @override
     def bound(self, verb: str) -> ApiParams | Fault:
@@ -1124,6 +1125,13 @@ def _matches(rows: tuple[str, ...], kind: ArtifactKind, pattern: str) -> tuple[M
 # --- [COMPOSITION] ----------------------------------------------------------------------
 
 
+def _filtered_sources(all_sources: tuple[ApiSource, ...], prefixes: tuple[str, ...]) -> tuple[ApiSource, ...]:
+    # p.sources non-empty → restrict inventory to sources whose source_id starts with a requested prefix.
+    return (
+        tuple(s for s in all_sources if any(s.source_id.startswith(prefix) for prefix in prefixes)) if prefixes else all_sources
+    )
+
+
 def doctor(settings: AssaySettings, scope: ArtifactScope, p: ApiParams) -> Result[Report, Fault]:
     """Inventory API source health.
 
@@ -1133,7 +1141,7 @@ def doctor(settings: AssaySettings, scope: ArtifactScope, p: ApiParams) -> Resul
     surface_tool = next((t for t in select(Claim.API, Language.CSHARP)), None)
     version = _invoke(settings, scope, surface_tool, "--version") if surface_tool is not None else Completed(("ilspycmd",), 1)
     ilspy_ver = (version.stdout.decode(errors="replace").splitlines()[0].strip() if version.stdout else "") or "unavailable"
-    sources = _inventory_sources(settings, _rhino_app(settings), ilspy_ver, version.returncode)
+    sources = _filtered_sources(_inventory_sources(settings, _rhino_app(settings), ilspy_ver, version.returncode), p.sources)
     healthy = tuple(s for s in sources if s.status is RailStatus.OK)
     artifacts = _inventory_artifacts(settings, sources)
     compact = _compact_sources(sources)

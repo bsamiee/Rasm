@@ -118,7 +118,7 @@ _PROBE_TIMEOUT: Final = 8.0
 _PROBE_TTL: Final = 900.0
 _PROBE_CACHE_FILE: Final = "probe-cache.json"
 _PROBE_CACHE_KEY: Final = "probe:%s"
-_ORPHAN_MIN_AGE_S: Final = 900.0
+ORPHAN_MIN_AGE_S: Final = 900.0
 _ORPHAN_PROCESS_TOKENS: Final[frozenset[str]] = frozenset(("python", "python3", "uv", "ty"))
 # Launcher-prefix -> lockfile that pins the launched program; ordered longest-prefix-first so the matcher resolves MODULE
 # before UV on their shared `uv run` head. Tokens stat the launched program (argv slot after the prefix) and fold the
@@ -598,7 +598,7 @@ def _orphan_process(proc: psutil.Process, root: Path, *, now: float) -> _Process
     match (
         int(info.get("ppid") or -1) == 1,
         cwd is not None and _under(cwd, root),
-        age >= _ORPHAN_MIN_AGE_S,
+        age >= ORPHAN_MIN_AGE_S,
         _tooling_process(cmdline or (command,)),
     ):
         case (True, True, True, True):
@@ -837,4 +837,4 @@ def _register[**P](app: App, obj: App | Callable[P, object], *, name: str | None
 
 # --- [EXPORTS] --------------------------------------------------------------------------
 
-__all__ = ["REGISTRY", "Handler", "build_app", "delta", "parse_fault", "rail", "self_test"]
+__all__ = ["ORPHAN_MIN_AGE_S", "REGISTRY", "Handler", "build_app", "delta", "parse_fault", "rail", "self_test"]

@@ -6,7 +6,7 @@ from enum import StrEnum
 from functools import reduce
 from pathlib import PurePosixPath
 from posixpath import normpath
-from typing import assert_never, Final, Protocol, runtime_checkable
+from typing import assert_never, Protocol, runtime_checkable
 import xml.etree.ElementTree as ET  # noqa: S405  # trusted local .csproj XML from source.read, never network-sourced
 
 from expression import Error, Ok, Result
@@ -30,8 +30,6 @@ from tools.assay.core.status import RailStatus
 
 type RoutePaths = tuple[str, ...]
 type ProjectIndex = Mapping[str, str]
-
-_PROBE_FIXTURE_PREFIXES: Final[tuple[str, ...]] = ("tests/tools/ast-grep/", "tests/tools/py_analyzer/")
 
 
 class Scope(StrEnum):
@@ -191,9 +189,16 @@ def route(
     return enumerated.bind(lambda files: _closure(language, files, src, settings) if language.strategy == "closure" else _glob(language, files))
 
 
-def _routable_files(files: RoutePaths) -> RoutePaths:
-    # ty/mypy honor pyproject excludes only for project-wide runs; explicit argv still type-checks probe fixtures.
-    return tuple(path for path in files if not any(path.startswith(prefix) for prefix in _PROBE_FIXTURE_PREFIXES))
+def routable_files(files: RoutePaths, settings: AssaySettings) -> RoutePaths:
+    """Filter probe-fixture paths from an explicit file list.
+
+    ty/mypy honor pyproject excludes only for project-wide runs; explicit argv would otherwise type-check probe
+    fixtures that are intentionally excluded. The prefixes are owned by ``AssaySettings.probe_fixture_prefixes``.
+
+    Returns:
+        File paths with configured probe-fixture prefixes removed.
+    """
+    return tuple(path for path in files if not any(path.startswith(prefix) for prefix in settings.probe_fixture_prefixes))
 
 
 def place(routed: Routed, tool: Tool, *, settings: AssaySettings) -> tuple[tuple[str, ...], ...]:
@@ -204,7 +209,7 @@ def place(routed: Routed, tool: Tool, *, settings: AssaySettings) -> tuple[tuple
     """
     match tool.input:
         case Input.FILES:
-            files = _routable_files(routed.files)
+            files = routable_files(routed.files, settings)
             return ((*files,),) if files else ()
         case Input.INCLUDE:
             return tuple((project, *Input.INCLUDE.flag, *files) for project, files in routed.groups)
@@ -214,7 +219,7 @@ def place(routed: Routed, tool: Tool, *, settings: AssaySettings) -> tuple[tuple
         case Input.SOLUTION:
             return ((str(settings.solution),),)
         case Input.NONE:
-            files = _routable_files(routed.files)
+            files = routable_files(routed.files, settings)
             return ((*files,),) if files else ((),)
         case never:  # pragma: no cover
             assert_never(never)
@@ -260,4 +265,4 @@ def _expand(target: str, *, root: UPath) -> Result[tuple[str, ...], Fault]:
 
 # --- [EXPORTS] --------------------------------------------------------------------------
 
-__all__ = ["ProjectIndex", "RoutePaths", "Routed", "Scope", "Source", "place", "route"]
+__all__ = ["ProjectIndex", "RoutePaths", "Routed", "Scope", "Source", "place", "routable_files", "route"]

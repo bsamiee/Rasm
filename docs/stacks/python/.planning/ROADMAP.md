@@ -25,8 +25,6 @@ This roadmap owns the Python stack documentation buildout sequence only. Current
 The first milestone is core coding doctrine only: language, PEP routing, dense value shapes, dispatch surfaces, rails, boundaries, runtime, and algorithms. Testing is the second milestone. Platform and package graph truth are the third milestone.
 
 [SEQUENCING_RULES]:
-- Repair `language.md` before creating `pep-standards.md`; the PEP index must map to stable owner boundaries instead of compensating for a confused language page.
-- Create `pep-standards.md` as an index only. It lists PEP, Python version, owner, agent action, and superseded practice; it does not carry PEP prose or concept-page doctrine.
 - Create `data-shapes.md` before `surfaces-and-dispatch.md` so decorators and registries can depend on stable object and payload law.
 - Create `boundaries.md` before `runtime.md` so dynamic behavior and external protocols have an owner before runtime policy depends on them.
 - Keep core coding doctrine as flat root concept pages until a category has multiple peer leaves and a chooser.

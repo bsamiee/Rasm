@@ -115,3 +115,8 @@ except ValidationError as exc:
     _SETTINGS = AssaySettings.model_construct()
 
 _configure(_SETTINGS.log_format)
+
+
+# --- [EXPORTS] --------------------------------------------------------------------------
+
+__all__ = ["install_tracing", "bootstrap_error"]

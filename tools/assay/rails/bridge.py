@@ -198,8 +198,15 @@ def _with_facts(done: Completed, result: _BridgeResult) -> Completed:
     return done if not facts else msgspec.structs.replace(done, notes=(*done.notes, *facts))
 
 
-def _first_fault(result: _BridgeResult) -> tuple[str, str]:
-    # A reply-level fault outranks phase rows; otherwise phases stream in wire order, so the first defect is the retriage entry.
+def first_fault(result: _BridgeResult) -> tuple[str, str]:
+    """Extract the phase label and diagnostic message for the first failing phase.
+
+    A reply-level fault outranks phase rows; otherwise phases stream in wire order, so the
+    first defect is the retriage entry.
+
+    Returns:
+        ``(phase_label, diagnostic_message)`` pair; both empty strings when the result is clean.
+    """
     match result.fault:
         case _BridgeFault() as fault:
             return ("reply", _fault_message(fault))
@@ -289,7 +296,7 @@ def _run_decoded(settings: AssaySettings, project: Path, scenario: Path, result_
     match run:
         case Result(tag="ok", ok=done):
             res = _decode_result(done, result_path)
-            phase, output = _first_fault(res)
+            phase, output = first_fault(res)
             return _Scenario(
                 status=res.status, stem=stem, exceptions=_exceptions(res), fault_phase=phase, fault_output=output, completed=_with_facts(done, res)
             )
@@ -525,4 +532,4 @@ def build(settings: AssaySettings, scope: ArtifactScope, params: BridgeParams) -
 
 # --- [EXPORTS] --------------------------------------------------------------------------
 
-__all__ = ["BridgeParams", "build", "check", "clean", "doctor", "launch", "quit", "verify"]
+__all__ = ["BridgeParams", "build", "check", "clean", "doctor", "first_fault", "launch", "quit", "verify"]

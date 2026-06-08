@@ -1,52 +1,249 @@
-"""Wire/evidence spine: StrEnum payloads, fold count oracle, field_cap, validate_detail, envelope branches."""
+"""Model spine laws: wire round-trip encode-probe, the fold count oracle, envelope projection, enum payloads.
+
+This file OWNS the wire-round-trip encode-probe law: every wire struct the conftest registers via
+``resolve`` is swept through ``assert_roundtrip`` (encode → decode → re-encode byte-identity) — the
+former ``_strategy_validation_gate`` session fixture reborn as one collectable, falsifiable law. It also
+preserves the fold count invariant and asserts the ``Report`` arithmetic via ``assert_counts_consistent``.
+"""
 
 # --- [RUNTIME_PRELUDE] ------------------------------------------------------------------------
 
 from typing import get_args
 
-from hypothesis import given
-from hypothesis.strategies import integers, lists, text
+from hypothesis import given, strategies as st
 import msgspec
 import msgspec.inspect as msgspec_inspect
 import pytest
 
-from tests.tools.assay.conftest import assert_counts_consistent, assert_wire_roundtrip, completed_st, detail_st, fault_st, WIRE_ENCODER
+from tests._aspect import register_law, spec  # noqa: PLC2701  # sibling test-internal module; `_`-named by S1 design
+from tests._spec import assert_roundtrip, idempotent, metamorphic, support_matrix  # noqa: PLC2701  # sibling test-internal oracle surface
+from tests.tools.assay.conftest import (
+    api_resolution_st,
+    api_source_st,
+    api_surface_st,
+    artifact_st,
+    assert_counts_consistent,
+    binds_st,
+    check_st,
+    completed_st,
+    counts_st,
+    detail_st,
+    diagnostic_st,
+    envelope_st,
+    fault_st,
+    match_st,
+    package_run_st,
+    report_st,
+    run_delta_st,
+    run_snapshot_st,
+    stage_st,
+    test_run_st,
+    tool_st,
+    verify_summary_st,
+    WIRE_ENCODER,
+)
 from tools.assay.core.model import (
     AnyDetail,
+    ApiResolution,
+    ApiSource,
+    ApiSurface,
+    Artifact,
+    ArtifactKind,
+    Base,
     BaseParams,
+    Bind,
+    Check,
     Claim,
     Completed,
     Counts,
     Detail,
     Diagnostic,
+    Envelope,
     envelope,
     Fault,
     field_cap,
     fold,
+    Input,
     Language,
+    Match,
     Mode,
+    MutationLane,
+    PackageRun,
     receipt,
+    Report,
+    RunDelta,
     Runner,
+    RunSnapshot,
+    SourceKind,
+    Stage,
+    SymbolShape,
+    TestRun,
+    Tool,
     validate_detail,
+    VerifySummary,
+    wire_encode,
+    wire_safe,
 )
 from tools.assay.core.status import RailStatus
 
 
-# --- [CONSTANTS] -----------------------------------------------------------------------
+# --- [CONSTANTS] -----------------------------------------------------------------------------
 
-_DETAIL_VARIANTS: tuple[type, ...] = get_args(AnyDetail.__value__)  # self-tracking; matches conftest.detail_st
+# Self-tracking AnyDetail variant set — matches conftest.detail_st, no positional coupling.
+_DETAIL_VARIANTS: tuple[type[Detail], ...] = get_args(AnyDetail.__value__)
+
+# (subject, strategy) rows for the wire round-trip encode-probe. One law sweeps every wire struct the
+# conftest registers; each row registers its own subject so law-coverage stays total across all structs.
+_WIRE_ROWS: tuple[tuple[type[Base], st.SearchStrategy[Base]], ...] = (
+    (Stage, stage_st),
+    (Tool, tool_st),
+    (Check, check_st),
+    (Artifact, artifact_st),
+    (Completed, completed_st),
+    (Fault, fault_st),
+    (Counts, counts_st),
+    (Match, match_st),
+    (ApiSource, api_source_st),
+    (ApiSurface, api_surface_st),
+    (VerifySummary, verify_summary_st),
+    (TestRun, test_run_st),
+    (PackageRun, package_run_st),
+    (ApiResolution, api_resolution_st),
+    (Diagnostic, diagnostic_st),
+    (RunSnapshot, run_snapshot_st),
+    (RunDelta, run_delta_st),
+    (Report, report_st),
+    (Envelope, envelope_st),
+)
+
+# Bare StrEnum classes covered by test_bare_strenum_token_identity — one registration per class.
+_BARE_STRENUM_CLASSES: tuple[type[Claim | SourceKind | ArtifactKind | MutationLane | SymbolShape], ...] = (
+    Claim,
+    SourceKind,
+    ArtifactKind,
+    MutationLane,
+    SymbolShape,
+)
 
 
-# --- [OPERATIONS] -----------------------------------------------------------------------
+# --- [LAW_COVERAGE] --------------------------------------------------------------------------
+# Module-level registrations so MANIFEST is populated at import/collection time, not test-execution
+# time. @spec-decorated laws register themselves at decoration time — only explicit register_law
+# calls that were formerly inside test bodies are hoisted here.
+
+# Wire round-trip — one registration per row so coverage is total across all wire structs.
+for _row in _WIRE_ROWS:
+    register_law(_row[0], "wire_round_trip")
+
+# AnyDetail variant laws.
+register_law(AnyDetail, "variant_round_trip")
+register_law(AnyDetail, "tags_injective")
+register_law(Detail, "variant_is_subclass")
+
+# Base wire policy.
+register_law(Base, "forbid_unknown_fields")
+
+# fold laws.
+register_law(fold, "count_oracle")
+register_law(fold, "defect_row_per_failed")
+register_law(fold, "empty_report")
+register_law(fold, "failed_stderr_in_text")
+
+# Report / Counts / Match fold-arithmetic laws.
+register_law(Report, "counts_consistent")
+register_law(Report, "envelope_source")
+register_law(Counts, "fold_arithmetic")
+register_law(Match, "defect_row_severity")
+
+# envelope laws.
+register_law(envelope, "report_status_projection")
+register_law(envelope, "fault_status_projection")
+register_law(Envelope, "fault_branch")
+register_law(Fault, "envelope_error_payload")
+
+# receipt laws.
+register_law(receipt, "status_derivation")
+register_law(Completed, "receipt_construction")
+
+# field_cap law.
+register_law(field_cap, "introspection_oracle")
+
+# validate_detail laws.
+register_law(validate_detail, "detail_round_trip")
+register_law(validate_detail, "none_passthrough")
+
+# wire_encode / wire_safe laws (@spec covers wire_encode "determinism" at decoration time).
+register_law(wire_encode, "decode_clean")
+register_law(wire_safe, "surrogate_neutralization")
+register_law(wire_safe, "idempotent")
+
+# BaseParams laws.
+register_law(BaseParams, "surplus_within_cap")
+register_law(BaseParams, "default_arity_identity")
+
+# Payload-bearing enum laws.
+register_law(Runner, "prefix_str_tuple")
+register_law(Mode, "flags_are_bool")
+register_law(Language, "suffix_and_strategy")
+register_law(Input, "flag_and_scoped")
+
+# Bare StrEnum token-identity law — one registration per class.
+for _cls in _BARE_STRENUM_CLASSES:
+    register_law(_cls, "token_identity")
+
+# Bind structural law.
+register_law(Bind, "well_formed")
+
+
+# --- [WIRE_ROUNDTRIP] ------------------------------------------------------------------------
+# The encode-probe this file owns: encode → decode → re-encode byte-identity over every wire struct.
+# A non-deterministic codec or a non-decode-clean field defect dies on the re-encode identity step.
 
 
 @pytest.mark.mutation
-@given(lists(completed_st, min_size=0, max_size=20))
+@pytest.mark.parametrize("subject, strategy", _WIRE_ROWS, ids=[row[0].__name__ for row in _WIRE_ROWS])
+def test_wire_struct_round_trips(subject: type[Base], strategy: st.SearchStrategy[Base]) -> None:
+    """Every conftest-registered wire struct survives the deterministic codec byte-identically."""
+
+    @given(strategy)
+    def _probe(value: Base) -> None:
+        assert_roundtrip(value, subject, codec=WIRE_ENCODER)
+
+    _probe()
+
+
+@given(detail_st)
+def test_any_detail_variant_round_trips(detail: AnyDetail) -> None:
+    """Every AnyDetail variant subclasses Detail and survives the deterministic codec byte-identically."""
+    assert isinstance(detail, Detail)
+    assert_roundtrip(detail, type(detail), codec=WIRE_ENCODER)
+
+
+def test_any_detail_tags_are_injective() -> None:
+    """Every AnyDetail variant carries a unique msgspec tag — wire disambiguation is injective."""
+    tags = [t.tag for v in _DETAIL_VARIANTS if isinstance(t := msgspec_inspect.type_info(v), msgspec_inspect.StructType)]
+    assert len(tags) == len(set(tags)), f"duplicate tags: {tags}"
+
+
+@given(detail_st)
+def test_wire_struct_forbids_unknown_fields(detail: AnyDetail) -> None:
+    """The shared Base policy forbids unknown fields — a surplus key is rejected at decode."""
+    raw: dict[str, object] = msgspec.json.decode(WIRE_ENCODER.encode(detail), type=dict)
+    raw["__probe__"] = 1
+    with pytest.raises(msgspec.ValidationError, match="__probe__"):
+        msgspec.json.decode(msgspec.json.encode(raw), type=type(detail))
+
+
+# --- [FOLD] ----------------------------------------------------------------------------------
+# PRESERVED model-fold law: ok + failed == total, one defect row per FAILED, EMPTY status on empty.
+
+
+@pytest.mark.mutation
+@given(st.lists(completed_st, min_size=0, max_size=20))
 def test_fold_count_oracle(outcomes: list[Completed]) -> None:
-    """``fold`` count invariant: ``ok + failed == total == len(outcomes)`` for non-FAULTED/BUSY/TIMEOUT rows."""
+    """``fold`` count invariant: OK/EMPTY/SKIP→ok, FAILED→failed, FAULTED/BUSY/TIMEOUT→neither; total==ok+failed."""
     tup = tuple(outcomes)
     report = fold(Claim.STATIC, "check", tup)
-    # Only OK/EMPTY/SKIP→ok and FAILED→failed; FAULTED/BUSY/TIMEOUT→neither (not in total either)
     ok_n = sum(1 for o in tup if o.status in {RailStatus.OK, RailStatus.EMPTY, RailStatus.SKIP})
     fail_n = sum(1 for o in tup if o.status is RailStatus.FAILED)
     assert report.counts.ok == ok_n
@@ -54,182 +251,219 @@ def test_fold_count_oracle(outcomes: list[Completed]) -> None:
     assert report.counts.total == ok_n + fail_n
 
 
-@given(lists(completed_st, min_size=1, max_size=10))
+@given(st.lists(completed_st, min_size=1, max_size=10))
 def test_fold_defect_row_per_failed(outcomes: list[Completed]) -> None:
-    """Each FAILED Completed yields exactly one Match row in ``report.results`` with ``severity='failed'``."""
-    tup = tuple(outcomes)
-    report = fold(Claim.CODE, "check", tup)
-    failed_count = sum(1 for o in tup if o.status is RailStatus.FAILED)
+    """Each FAILED Completed yields exactly one ``severity='failed'`` Match row; counts stay consistent."""
+    report = fold(Claim.CODE, "check", tuple(outcomes))
+    failed_count = sum(1 for o in outcomes if o.status is RailStatus.FAILED)
     assert len(report.results) == failed_count
     assert all(m.severity == "failed" for m in report.results)
-    assert_counts_consistent(report)  # total == ok + failed AND len(results) == failed
-
-
-@given(completed_st)
-def test_fold_single_ok_yields_no_defect_rows(done: Completed) -> None:
-    """A single non-FAILED Completed yields an empty ``results`` tuple."""
-    ok = msgspec.structs.replace(done, status=RailStatus.OK, returncode=0)
-    report = fold(Claim.STATIC, "plan", (ok,))
-    assert report.results == ()
+    assert_counts_consistent(report)
 
 
 def test_fold_empty_outcomes_is_empty_report() -> None:
-    """``fold`` over an empty tuple produces ``Report`` with all-zero counts and ``EMPTY`` status."""
+    """``fold`` over an empty tuple yields all-zero counts and ``EMPTY`` status."""
     report = fold(Claim.TEST, "run", ())
     assert report.counts == Counts()
     assert report.status is RailStatus.EMPTY
 
 
-# --- [FIELD_CAP] -----------------------------------------------------------------------
+def test_fold_failed_stderr_reaches_results_text() -> None:
+    """``fold`` carries a FAILED ``Completed.stderr`` into ``results[0].text``."""
+    marker = b"unique-sentinel-stderr-content"
+    report = fold(Claim.STATIC, "check", (receipt(("tool",), 1, stderr=marker),))
+    assert report.results
+    assert marker.decode() in report.results[0].text
+
+
+# --- [ENVELOPE] ------------------------------------------------------------------------------
+# envelope() status/exit projection: exit_code == status.exit_code for both Report and Fault payloads.
+
+
+@given(st.lists(completed_st, min_size=0, max_size=5))
+def test_envelope_projects_report_status(outcomes: list[Completed]) -> None:
+    """``envelope(report, ...)`` projects ``status`` and ``exit_code`` from the folded report."""
+    report = fold(Claim.STATIC, "check", tuple(outcomes))
+    env = envelope(report, claim=Claim.STATIC, verb="check")
+    assert env.report is report
+    assert env.error is None
+    assert env.status == report.status
+    assert env.exit_code == report.status.exit_code
+
+
+@given(fault_st)
+def test_envelope_projects_fault_status(fault: Fault) -> None:
+    """``envelope(fault, ...)`` carries the Fault in ``error``, clears ``report``, and projects exit_code."""
+    env = envelope(fault, claim=Claim.CODE, verb="check")
+    assert env.error is fault
+    assert env.report is None
+    assert env.status is fault.status
+    assert env.exit_code == fault.status.exit_code
+
+
+# --- [RECEIPT] -------------------------------------------------------------------------------
 
 
 @pytest.mark.mutation
-@pytest.mark.parametrize("type_,field,default,expected", [(Fault, "message", 0, 1024), (Diagnostic, "hint", 0, 256), (Fault, "argv", 42, 42)])
-def test_field_cap_oracle(type_: type, field: str, default: int, expected: int) -> None:
-    """``field_cap`` introspection oracle: message→1024, hint→256, missing→default."""
-    assert field_cap(type_, field, default=default) == expected  # ty: ignore[invalid-argument-type]
+@pytest.mark.parametrize(
+    "rc, explicit, expected",
+    [(0, None, RailStatus.EMPTY), (1, None, RailStatus.FAILED), (5, None, RailStatus.BUSY), (0, RailStatus.OK, RailStatus.OK)],
+)
+def test_receipt_status_derivation(rc: int, explicit: RailStatus | None, expected: RailStatus) -> None:
+    """``receipt`` derives status from the return code unless an explicit override is supplied."""
+    done = receipt(("ruff",), rc) if explicit is None else receipt(("ruff",), rc, status=explicit)
+    assert done.argv == ("ruff",)
+    assert done.returncode == rc
+    assert done.status is expected
 
 
-def test_surplus_message_within_fault_cap() -> None:
-    """``surplus(verb, tokens).message`` length ≤ 1024 bytes even for large glob expansions."""
-    tokens = tuple(f"path/to/file{i}.cs" for i in range(2000))
-    fault = BaseParams.surplus("fix", tokens)
-    assert isinstance(fault, Fault)
-    assert len(fault.message.encode()) <= 1024
+# --- [FIELD_CAP] -----------------------------------------------------------------------------
+# field_cap reads a msgspec StrType max_length; absent → default. _HINT_CAP/_RESULT_CAP are int caps
+# derived through this introspection, so the field_cap law covers their derivation contract directly.
 
 
-@given(text(max_size=512), integers(min_value=1, max_value=20).flatmap(lambda n: lists(text(max_size=64), min_size=n, max_size=n)))
-def test_surplus_always_within_cap(verb: str, tokens: list[str]) -> None:
-    """``surplus`` is total and always clips to the wire cap for any verb and any token sequence."""
-    fault = BaseParams.surplus(verb, tuple(tokens))
-    assert isinstance(fault, Fault)
-    assert len(fault.message.encode()) <= 1024
+@pytest.mark.mutation
+@pytest.mark.parametrize(
+    "subject, name, default, expected",
+    [
+        (Fault, "message", 0, 1024),
+        (Diagnostic, "hint", 0, 256),
+        (Match, "text", 0, 400),
+        (VerifySummary, "first_fault_output", 0, 256),
+        (Fault, "argv", 42, 42),
+        (Counts, "absent", 7, 7),
+    ],
+)
+def test_field_cap_introspection(subject: type[msgspec.Struct], name: str, default: int, expected: int) -> None:
+    """``field_cap`` returns the configured max_length, or the default when the field is non-string or absent."""
+    assert field_cap(subject, name, default=default) == expected
 
 
-# --- [CODEC] ---------------------------------------------------------------------------
-
-
-@given(detail_st)
-def test_detail_variant_wire_round_trip(detail: AnyDetail) -> None:
-    """Every AnyDetail variant subclasses Detail and survives the deterministic codec byte-identically."""
-    assert isinstance(detail, Detail)
-    assert_wire_roundtrip(detail, type(detail))
-
-
-def test_any_detail_tags_are_injective() -> None:
-    """Every AnyDetail variant carries a unique msgspec tag — wire disambiguation is injective."""
-    tags = [
-        t.tag for v in _DETAIL_VARIANTS if isinstance(t := msgspec_inspect.type_info(v), msgspec_inspect.StructType)
-    ]  # StructType.tag (msgspec>=0.21)
-    assert len(tags) == len(set(tags)), f"duplicate tags: {tags}"
+# --- [VALIDATE_DETAIL] -----------------------------------------------------------------------
 
 
 @given(detail_st)
-def test_wire_struct_rejects_unknown_fields(detail: AnyDetail) -> None:
-    """Every Detail variant carries ``forbid_unknown_fields`` — a surplus key is rejected at decode."""
-    raw: dict[str, object] = msgspec.json.decode(WIRE_ENCODER.encode(detail), type=dict)
-    raw["__probe__"] = 1
-    with pytest.raises(msgspec.ValidationError, match="__probe__"):
-        msgspec.json.decode(msgspec.json.encode(raw), type=type(detail))
+def test_validate_detail_round_trips(detail: AnyDetail) -> None:
+    """``validate_detail`` round-trips any AnyDetail variant through the tagged-union codec."""
+    assert validate_detail(detail) == detail
 
 
-def test_validate_detail_none_round_trips() -> None:
+def test_validate_detail_none_passthrough() -> None:
     """``validate_detail(None)`` returns ``None`` — the optional slot survives the codec."""
     assert validate_detail(None) is None
 
 
-@given(completed_st)
-def test_completed_json_round_trip(done: Completed) -> None:
-    """``Completed`` msgspec round-trip: encode then decode yields a structurally equal value."""
-    raw = WIRE_ENCODER.encode(done)
-    restored = msgspec.json.decode(raw, type=Completed)
-    assert restored.argv == done.argv
-    assert restored.returncode == done.returncode
-    assert restored.status == done.status
+# --- [WIRE_CODEC] ----------------------------------------------------------------------------
+# wire_encode is the single deterministic encoder; wire_safe sanitizes lone surrogates for the wire.
 
 
-@given(fault_st)
-def test_fault_json_round_trip(fault: Fault) -> None:
-    """``Fault`` msgspec round-trip preserves argv, status, and the clipped message."""
-    raw = WIRE_ENCODER.encode(fault)
-    restored = msgspec.json.decode(raw, type=Fault)
-    assert restored.status == fault.status
-    assert restored.message == fault.message
+@spec(Diagnostic, mutation=True, law="determinism")
+def test_wire_encode_is_deterministic(detail: Diagnostic) -> None:
+    """``wire_encode`` agrees with the deterministic conftest encoder for any wire value."""
+    metamorphic(detail, wire_encode, WIRE_ENCODER.encode)
 
 
-# --- [ENUM_PAYLOADS] -------------------------------------------------------------------
+@given(detail_st)
+def test_wire_encode_decodes_clean(detail: AnyDetail) -> None:
+    """``wire_encode`` output decodes back to a structurally equal value."""
+    assert msgspec.json.decode(wire_encode(detail), type=type(detail)) == detail
 
 
-@pytest.mark.parametrize("member", list(Language))
-def test_language_suffixes_dot_prefixed(member: Language) -> None:
-    """All ``Language.suffixes`` are dot-prefixed strings."""
-    assert all(s.startswith(".") for s in member.suffixes)
+@given(st.text(alphabet=st.characters(min_codepoint=0xDC80, max_codepoint=0xDCFF), min_size=1, max_size=8))
+def test_wire_safe_neutralizes_surrogates(surrogates: str) -> None:
+    """``wire_safe`` makes any lone-surrogate string UTF-8 encodable, where the raw string would raise."""
+    with pytest.raises(UnicodeEncodeError):
+        surrogates.encode("utf-8")
+    wire_safe(surrogates).encode("utf-8")  # would raise if a surrogate survived
 
 
-@pytest.mark.parametrize("member", list(Mode))
-def test_mode_stream_writes_are_bool(member: Mode) -> None:
+@given(st.text(max_size=64))
+def test_wire_safe_idempotent_on_clean(text: str) -> None:
+    """``wire_safe`` is idempotent: a UTF-8-clean string passes through unchanged."""
+    idempotent(wire_safe(text), wire_safe)
+
+
+# --- [PARAMS] --------------------------------------------------------------------------------
+# BaseParams default arity is unbounded (None) → bound() is identity; surplus() always clips to the cap.
+
+
+@given(st.text(max_size=64), st.lists(st.text(max_size=32), min_size=0, max_size=2000))
+def test_baseparams_surplus_within_fault_cap(verb: str, tokens: list[str]) -> None:
+    """``BaseParams.surplus`` is total and always clips the Fault message to the 1024-byte wire cap."""
+    fault = BaseParams.surplus(verb, tuple(tokens))
+    assert isinstance(fault, Fault)
+    assert fault.status is RailStatus.FAULTED
+    assert len(fault.message.encode()) <= field_cap(Fault, "message", default=0)
+
+
+@given(st.lists(st.text(max_size=32), min_size=0, max_size=8), st.text(max_size=16))
+def test_baseparams_default_arity_is_identity(paths: list[str], verb: str) -> None:
+    """The default ``_arity`` is unbounded, so ``bound`` returns the params unchanged (never a Fault)."""
+    params = BaseParams(paths=tuple(paths))
+    bound = params.bound(verb)
+    assert bound is params
+
+
+# --- [ENUM_PAYLOADS] -------------------------------------------------------------------------
+# Payload-bearing enums carry typed sidecars (Runner.prefix, Mode.stream/writes, Language.*, Input.*);
+# bare StrEnums (Claim/SourceKind/ArtifactKind/MutationLane/SymbolShape) carry only str-token identity.
+
+
+@pytest.mark.parametrize("member", list(Runner), ids=[m.name for m in Runner])
+def test_runner_prefix_is_str_tuple(member: Runner) -> None:
+    """``Runner.prefix`` is a string tuple; in-process/direct runners are empty, launcher runners are non-empty."""
+    empty_prefix = {Runner.DIRECT, Runner.INPROC}
+    assert isinstance(member.prefix, tuple)
+    assert all(isinstance(p, str) for p in member.prefix)
+    support_matrix(("prefix_emptiness_matches_runner_kind", lambda: member.prefix == (), member in empty_prefix))
+
+
+@pytest.mark.parametrize("member", list(Mode), ids=[m.name for m in Mode])
+def test_mode_flags_are_bool(member: Mode) -> None:
     """``Mode.stream`` and ``Mode.writes`` are genuine booleans, not int aliases."""
     assert isinstance(member.stream, bool)
     assert isinstance(member.writes, bool)
 
 
-@pytest.mark.parametrize("member", list(Runner))
-def test_runner_prefix_is_tuple(member: Runner) -> None:
-    """``Runner.prefix`` is always a tuple of strings; INPROC prefix is empty."""
-    assert isinstance(member.prefix, tuple)
-    assert all(isinstance(p, str) for p in member.prefix)
-    # INPROC invariant folded here — eliminates the standalone singleton test (D5)
-    if member is Runner.INPROC:
-        assert member.prefix == ()
+@pytest.mark.parametrize("member", list(Language), ids=[m.name for m in Language])
+def test_language_payload(member: Language) -> None:
+    """``Language.suffixes`` are dot-prefixed; ``strategy`` is a closed routing discriminant."""
+    assert member.suffixes
+    assert all(s.startswith(".") for s in member.suffixes)
+    assert member.strategy in {"closure", "glob"}
 
 
-# --- [ENVELOPE] ------------------------------------------------------------------------
+@pytest.mark.parametrize("member", list(Input), ids=[m.name for m in Input])
+def test_input_payload(member: Input) -> None:
+    """``Input.flag`` is a string tuple and ``Input.scoped`` is a genuine boolean."""
+    assert isinstance(member.flag, tuple)
+    assert all(isinstance(f, str) for f in member.flag)
+    assert isinstance(member.scoped, bool)
 
 
-@given(lists(completed_st, min_size=0, max_size=5))
-def test_envelope_exit_code_matches_report_status(outcomes: list[Completed]) -> None:
-    """``envelope(report, ...).exit_code == report.status.exit_code`` — projection consistency."""
-    report = fold(Claim.STATIC, "check", tuple(outcomes))
-    env = envelope(report, claim=Claim.STATIC, verb="check")
-    assert env.exit_code == report.status.exit_code
-    assert env.status == report.status
+@pytest.mark.parametrize(
+    "enum_cls",
+    [Claim, SourceKind, ArtifactKind, MutationLane, SymbolShape],
+    ids=lambda c: c.__name__,
+)
+def test_bare_strenum_token_identity(enum_cls: type[Claim | SourceKind]) -> None:
+    """Every bare StrEnum member's wire token equals its lowercase string value — injective, str-typed."""
+    members = list(enum_cls)
+    assert all(isinstance(m.value, str) and m.value == m for m in members)
+    assert len({m.value for m in members}) == len(members)
 
 
-def test_envelope_fault_branch_carries_error() -> None:
-    """Wrapping a ``Fault`` populates ``Envelope.error`` and clears ``Envelope.report``."""
-    fault = Fault(("ruff",), RailStatus.FAULTED, "tool missing")
-    env = envelope(fault, claim=Claim.CODE, verb="check")
-    assert env.error is fault
-    assert env.report is None
-    assert env.status is RailStatus.FAULTED
+# --- [BIND] ----------------------------------------------------------------------------------
+# model.Bind is the registry binding model (claim → verb → handler); it is NOT wire-serializable
+# (handler is a callable, params is a type), so its law is structural well-formedness over REGISTRY.
 
 
-def test_envelope_report_branch_carries_report() -> None:
-    """Wrapping a ``Report`` populates ``Envelope.report`` and clears ``Envelope.error``."""
-    report = fold(Claim.PACKAGE, "list", ())
-    env = envelope(report, claim=Claim.PACKAGE, verb="list")
-    assert env.report is report
-    assert env.error is None
-
-
-# --- [RECEIPT] -------------------------------------------------------------------------
-
-
-@pytest.mark.mutation
-@pytest.mark.parametrize("rc,explicit,expected", [(0, None, RailStatus.EMPTY), (1, None, RailStatus.FAILED), (0, RailStatus.OK, RailStatus.OK)])
-def test_receipt_oracle(rc: int, explicit: RailStatus | None, expected: RailStatus) -> None:
-    """``receipt`` oracle: rc→status derivation + explicit override."""
-    done = receipt(("ruff",), rc) if explicit is None else receipt(("ruff",), rc, status=explicit)
-    assert done.status is expected
-
-
-# --- [KNOWN_BUGS] ----------------------------------------------------------------------
-
-
-def test_failed_stderr_appears_in_results_text() -> None:
-    """``fold`` carries FAILED ``Completed.stderr`` into ``results[0].text`` — verified against live model."""
-    stderr_marker = b"unique-sentinel-stderr-content"
-    done = receipt(("tool",), 1, stderr=stderr_marker)
-    report = fold(Claim.STATIC, "check", (done,))
-    assert report.results
-    assert stderr_marker.decode() in report.results[0].text
+@given(binds_st)
+def test_bind_is_well_formed(bind: Bind) -> None:
+    """Each registry ``Bind`` carries a callable handler, a ``Claim`` claim, a str verb, and a ``type`` params."""
+    assert callable(bind.handler)
+    assert isinstance(bind.claim, Claim)
+    assert isinstance(bind.verb, str)
+    assert bind.verb
+    assert isinstance(bind.params, type)
+    assert isinstance(bind.help, str)

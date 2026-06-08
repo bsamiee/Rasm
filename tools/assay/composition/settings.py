@@ -200,8 +200,19 @@ def _root_parts(root: str) -> tuple[str, ...]:
     return tuple(part for part in root.split("/") if part)
 
 
-def _mtime(info: dict[str, object]) -> float:
-    # Coerce fsspec mtime/created metadata to a POSIX float; module-level so tests can monkeypatch the ranking key.
+def _default_cpu_count() -> int:
+    # Affinity-aware usable-CPU count: os.process_cpu_count honors sched_getaffinity/cgroup limits where present and
+    # folds to the logical count otherwise; clamp into the field's [1, 256] bound so the default is always valid. This
+    # mirrors engine._USABLE_CPU and is the seam engine._governed reads via AssaySettings.cpu_count.
+    return min(256, max(1, os.process_cpu_count() or 8))
+
+
+def mtime_from_info(info: dict[str, object]) -> float:
+    """Coerce fsspec `mtime`/`created` metadata to a POSIX float for history ranking.
+
+    Returns:
+        Modification time as a POSIX float, or `0.0` when the backend omits both keys.
+    """
     match info.get("mtime", info.get("created", 0.0)):
         case int() | float() as value:
             return float(value)
@@ -274,6 +285,7 @@ class AssaySettings(BaseSettings):
     dotnet_max_cpu: Annotated[int, Field(ge=1, le=64)] = 4
     mutation_max_cpu: Annotated[int, Field(ge=1, le=64)] = 2
     max_checks: Annotated[int, Field(ge=1, le=64)] = 8
+    cpu_count: Annotated[int, Field(ge=1, le=256)] = Field(default_factory=_default_cpu_count)
     stream_tail_bytes: Annotated[int, Field(ge=512)] = 4096
     stream_chunk_bytes: Annotated[int, Field(ge=4096)] = 65536
     lease_drift_tolerance: Annotated[float, Field(gt=0)] = 1.0
@@ -290,7 +302,9 @@ class AssaySettings(BaseSettings):
         "global.json",
     ))
     trigger_prefixes: tuple[str, ...] = ("tools/cs-analyzer/",)
+    probe_fixture_prefixes: tuple[str, ...] = ("tests/tools/ast-grep/", "tests/tools/py_analyzer/")
     test_target: ExpandedPath = UPath("tests/csharp/libs/Rasm/Rasm.Tests.csproj")
+    mutation_python: str = "3.14.5"
     log_format: LogFormat = Field(default_factory=lambda: LogFormat.HUMAN if sys.stderr.isatty() else LogFormat.CI)
     run_id: RunId = Field(default_factory=lambda: f"{datetime.now(tz=UTC):%Y-%m-%dT%H-%M-%S.%f}-{os.getpid()}")
     agent_task_id: str = ""
@@ -693,7 +707,7 @@ class ArtifactStore:
         rows = tuple((path.rstrip("/").rsplit("/", 1)[-1], info) for path, info in detailed if isinstance(info, dict)) or tuple(  # type: ignore[str-unpack]
             (path.rstrip("/").rsplit("/", 1)[-1], {}) for path in self.glob(f"{ArtifactKind.HISTORY.value}/*")
         )
-        return tuple(run_id for run_id, _ in sorted(rows, key=lambda row: (_mtime(row[1]), row[0])))
+        return tuple(run_id for run_id, _ in sorted(rows, key=lambda row: (mtime_from_info(row[1]), row[0])))
 
     def retain_history(self, keep: int) -> None:
         """Prune old run history by backend metadata age, keeping the newest `keep` runs."""
@@ -775,7 +789,7 @@ class ArtifactStore:
 
     @staticmethod
     def _ranked_paths(matches: tuple[tuple[str, dict[str, object]], ...]) -> tuple[str, ...]:
-        return tuple(path for path, _ in sorted(matches, key=lambda row: (-_mtime(row[1]), row[0])))
+        return tuple(path for path, _ in sorted(matches, key=lambda row: (-mtime_from_info(row[1]), row[0])))
 
 
 @dataclass(frozen=True, slots=True)
@@ -818,4 +832,4 @@ class ArtifactScope:
 # --- [EXPORTS] --------------------------------------------------------------------------
 
 
-__all__ = ["ArtifactBackend", "AssaySettings", "ArtifactScope", "ArtifactStore", "Configuration", "LogFormat"]
+__all__ = ["ArtifactBackend", "AssaySettings", "ArtifactScope", "ArtifactStore", "Configuration", "LogFormat", "mtime_from_info"]
