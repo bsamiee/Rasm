@@ -6,19 +6,19 @@ This folder is the Python stack decision atlas. It routes language, shape, surfa
 
 This table is a lookup by reader decision.
 
-| [INDEX] | [DECISION]               | [READ]                                      |
-| :-----: | :----------------------- | :------------------------------------------ |
-|   [1]   | language syntax          | [language](language.md)                     |
-|   [2]   | domain shape             | future `domain-shapes.md`                   |
-|   [3]   | surface and dispatch     | future `surfaces-and-dispatch.md`           |
-|   [4]   | result and effect flow   | future `rails-and-effects.md`               |
-|   [5]   | boundaries and codecs    | future `boundaries-and-codecs.md`           |
-|   [6]   | runtime and concurrency  | future `runtime-and-concurrency.md`         |
-|   [7]   | algorithms and data      | future `algorithms-and-data.md`             |
-|   [8]   | package or platform fact | future `platform/build-and-packages.md`     |
-|   [9]   | proof rail               | future `testing/README.md`                  |
-|  [10]   | planned stack buildout   | [roadmap](.planning/ROADMAP.md)             |
-|  [11]   | planned stack topology   | [architecture](.planning/ARCHITECTURE.md)   |
+| [INDEX] | [DECISION]               | [READ]                                    |
+| :-----: | :----------------------- | :---------------------------------------- |
+|   [1]   | language syntax          | [language](language.md)                   |
+|   [2]   | domain shape             | future `domain-shapes.md`                 |
+|   [3]   | surface and dispatch     | future `surfaces-and-dispatch.md`         |
+|   [4]   | result and effect flow   | future `rails-and-effects.md`             |
+|   [5]   | boundaries and codecs    | future `boundaries-and-codecs.md`         |
+|   [6]   | runtime and concurrency  | future `runtime-and-concurrency.md`       |
+|   [7]   | algorithms and data      | future `algorithms-and-data.md`           |
+|   [8]   | package or platform fact | future `platform/build-and-packages.md`   |
+|   [9]   | proof rail               | future `testing/README.md`                |
+|  [10]   | planned stack buildout   | [roadmap](.planning/ROADMAP.md)           |
+|  [11]   | planned stack topology   | [architecture](.planning/ARCHITECTURE.md) |
 
 ## [2]-[OWNER_RULE]
 

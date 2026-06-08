@@ -47,13 +47,13 @@ The target style is declaration-first Python. Imports, type surfaces, decorator 
 
 ## [5]-[DECORATOR_REQUIREMENTS]
 
-| [CONDITION] | [PROMOTE] | [REJECT] | [OWNER] |
-| :---------- | :-------- | :------- | :------ |
-| A wrapper preserves call shape. | Inline `**P`, exact return type, and `functools.wraps`. | `Callable[..., Any]` and untyped wrappers. | `language.md` |
-| A wrapper adds leading context. | `Concatenate[Context, P]` at the declaration. | Capturing global context with erased types. | `language.md` |
-| A decorator registers a surface. | Typed registry row built at definition time. | Runtime list mutation from scattered modules. | `surfaces-and-dispatch.md` |
-| A decorator validates boundary input. | Boundary-owned decoder returning a rail. | Domain decorator that raises or branches internally. | `boundaries.md` |
-| A decorator selects provider behavior. | Typed dispatch table or capability object. | String provider switches inside the wrapper. | `surfaces-and-dispatch.md` |
+| [CONDITION]                            | [PROMOTE]                                               | [REJECT]                                             | [OWNER]                    |
+| :------------------------------------- | :------------------------------------------------------ | :--------------------------------------------------- | :------------------------- |
+| A wrapper preserves call shape.        | Inline `**P`, exact return type, and `functools.wraps`. | `Callable[..., Any]` and untyped wrappers.           | `language.md`              |
+| A wrapper adds leading context.        | `Concatenate[Context, P]` at the declaration.           | Capturing global context with erased types.          | `language.md`              |
+| A decorator registers a surface.       | Typed registry row built at definition time.            | Runtime list mutation from scattered modules.        | `surfaces-and-dispatch.md` |
+| A decorator validates boundary input.  | Boundary-owned decoder returning a rail.                | Domain decorator that raises or branches internally. | `boundaries.md`            |
+| A decorator selects provider behavior. | Typed dispatch table or capability object.              | String provider switches inside the wrapper.         | `surfaces-and-dispatch.md` |
 
 ```python
 type Handler[T] = Callable[[T], Result[Receipt, HandlerError]]
@@ -68,15 +68,15 @@ def register[T: Event](shape: TypeForm[T]) -> Callable[[Handler[T]], Handler[T]]
 
 ## [6]-[OWNER_MAP]
 
-| [RULE] | [FUTURE_OWNER] | [PROMOTION_ACTION] |
-| :----- | :------------- | :----------------- |
-| Inline type parameters, `TypeForm`, decorator callable preservation, lazy import syntax, sentinels, `frozendict`, and `copy.replace`. | `language.md` | Already belongs in active language law. |
-| Shape-first object families, closed/extra payloads, immutable data, absence markers, replacement policy, and chained shape nesting. | `data-shapes.md` | Promote as the first concept page. |
-| Decorator-first architecture, registry construction, typed dispatch rows, `singledispatch` boundaries, and polymorphic surfaces. | `surfaces-and-dispatch.md` | Promote after shape taxonomy exists. |
-| `Option` / `Result` rail conversion, effect composition, and error transport. | `rails-and-effects.md` | Promote with boundary return contracts. |
-| Dynamic import, codecs, structured templates, external text, subprocess/sql/shell sinks, and validation branches. | `boundaries.md` | Promote before package/platform rules depend on it. |
-| Deferred annotation cost, startup behavior, free-threading, JIT, concurrency, and import graph performance. | `runtime.md` | Promote as runtime policy, not language law. |
-| Package `.start`, toolchain proof, filesystem proof, and platform-specific execution records. | `platform-and-proof.md` | Promote after runtime boundaries are stable. |
+| [RULE]                                                                                                                                | [FUTURE_OWNER]             | [PROMOTION_ACTION]                                  |
+| :------------------------------------------------------------------------------------------------------------------------------------ | :------------------------- | :-------------------------------------------------- |
+| Inline type parameters, `TypeForm`, decorator callable preservation, lazy import syntax, sentinels, `frozendict`, and `copy.replace`. | `language.md`              | Already belongs in active language law.             |
+| Shape-first object families, closed/extra payloads, immutable data, absence markers, replacement policy, and chained shape nesting.   | `data-shapes.md`           | Promote as the first concept page.                  |
+| Decorator-first architecture, registry construction, typed dispatch rows, `singledispatch` boundaries, and polymorphic surfaces.      | `surfaces-and-dispatch.md` | Promote after shape taxonomy exists.                |
+| `Option` / `Result` rail conversion, effect composition, and error transport.                                                         | `rails-and-effects.md`     | Promote with boundary return contracts.             |
+| Dynamic import, codecs, structured templates, external text, subprocess/sql/shell sinks, and validation branches.                     | `boundaries.md`            | Promote before package/platform rules depend on it. |
+| Deferred annotation cost, startup behavior, free-threading, JIT, concurrency, and import graph performance.                           | `runtime.md`               | Promote as runtime policy, not language law.        |
+| Package `.start`, toolchain proof, filesystem proof, and platform-specific execution records.                                         | `platform-and-proof.md`    | Promote after runtime boundaries are stable.        |
 
 ## [7]-[OPEN_QUESTIONS]
 
