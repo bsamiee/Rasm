@@ -89,58 +89,41 @@ The table is an index, not a PEP manual. Keep each row atomic: name the capabili
 - Accept: `TypeForm`, `TypeIs`, `TypeGuard` only for non-subtype narrowing, `@disjoint_base`, inline type parameters, type defaults, `*Ts`, `Protocol`, `Literal`, `Self`, `@override`, `@dataclass_transform()`, built-in generic and union spellings, `match`, and `final`.
 - Reject: `object` type-form carriers, broad `type[Any]`, bool predicates followed by `cast`, prose-only disjointness, TypeVar farms, rank-specific generic classes, fake nominal ABC shells, checker plugins for flags, legacy `typing.List` or `typing.Dict`, `Union`, `Optional`, and unmarked override or finality contracts.
 - Law: static evidence belongs at the declaration, predicate, or branch owner; `TypeIs` proves exact membership, not filtered validity.
+- Boundary: `TypeForm` carries type-expression values in APIs; `Protocol` is for real structural ports with independent implementers, not callback shells or nominal repair.
 
 ```python conceptual
-from collections.abc import Callable
 from dataclasses import dataclass
-from typing import Literal, TypeForm, TypeIs, assert_never
+from typing import Literal, Self, TypeIs, assert_never, final
 
 
-type Primary = Literal["<value-a>"]
-type Secondary = Literal["<value-b>"]
-type Kind = Primary | Secondary
+type Kind = Literal["<value-a>", "<value-b>"]
 
 
+@final
 @dataclass(frozen=True, slots=True)
-class Shape[T: Kind = Primary]:
+class Shape[T: Kind = Literal["<value-a>"]]:
     kind: T
     key: str
     value: str
 
-
-type Member = Shape[Primary] | Shape[Secondary]
-type Projection[T: Kind] = Callable[[Shape[T]], str]
-type ShapeForm[T: Kind] = TypeForm[Shape[T]]
-type Selection[T: Kind] = tuple[ShapeForm[T], str]
+    def renamed(self, key: str, /) -> Self:
+        return type(self)(kind=self.kind, key=key, value=self.value)
 
 
-def primary(shape: Member, /) -> TypeIs[Shape[Primary]]:
+type Member = Shape[Literal["<value-a>"]] | Shape[Literal["<value-b>"]]
+
+
+def primary(shape: Member, /) -> TypeIs[Shape[Literal["<value-a>"]]]:
     return shape.kind == "<value-a>"
-
-
-def selected[T: Kind](
-    shape_type: ShapeForm[T],
-    shape: Shape[T],
-    projection: Projection[T],
-    /,
-) -> Selection[T]:
-    return shape_type, projection(shape)
 
 
 def projected(shape: Member, /) -> str:
     match shape:
-        case Shape(kind="<value-a>") if primary(shape):
-            return selected(
-                TypeForm(Shape[Primary]),
-                shape,
-                lambda member: f"<result-a>:{member.key}:{member.value}",
-            )[1]
-        case Shape(kind="<value-b>"):
-            return selected(
-                TypeForm(Shape[Secondary]),
-                shape,
-                lambda member: f"<result-b>:{member.key}:{member.value}",
-            )[1]
+        case value if primary(value):
+            selected = value.renamed("<field-a>")
+            return f"<result-a>:{selected.key}:{selected.value}"
+        case Shape(kind="<value-b>", key=key, value=value):
+            return f"<result-b>:{key}:{value}"
         case _ as unreachable:
             assert_never(unreachable)
 ```
@@ -150,40 +133,58 @@ def projected(shape: Member, /) -> str:
 - Use when: dictionary payload shape is part of the static callable, boundary, or data contract.
 - Accept: `TypedDict`, `closed=`, `extra_items=`, `Required`, `NotRequired`, and `ReadOnly` items.
 - Reject: `dict[str, Any]`, implicit extra keys, split mirror shapes for requiredness, and comments that claim item immutability.
-- Law: payload exactness, requiredness, and read-only evidence belong in the payload shape, not in prose or runtime repair.
+- Law: payload exactness, requiredness, read-only evidence, and deliberate extension slots belong in the payload shape, not in prose or runtime repair.
+- Boundary: `ReadOnly` is static payload evidence; runtime immutability belongs to the materialized domain owner.
 
 ```python conceptual
 from dataclasses import dataclass
-from typing import Literal, NotRequired, ReadOnly, Required, TypedDict, Unpack, assert_never
+from typing import Literal, NotRequired, ReadOnly, Required, TypedDict, assert_never
 
 
-type Primary = Literal["<value-a>"]
-type Secondary = Literal["<value-b>"]
-type Kind = Primary | Secondary
+type ExtensionValue = str | int
+type Extension = tuple[str, ExtensionValue]
+type Kind = Literal["<value-a>", "<value-b>"]
 
 
 @dataclass(frozen=True, slots=True)
-class Shape[T: Kind = Primary]:
+class Shape[T: Kind = Literal["<value-a>"]]:
     kind: T
     key: str
     value: str
+    extensions: tuple[Extension, ...] = ()
 
 
-type Member = Shape[Primary] | Shape[Secondary]
+type Member = Shape[Literal["<value-a>"]] | Shape[Literal["<value-b>"]]
 
 
-class RowPayload(TypedDict, total=False, closed=True):
+class RowPayload(TypedDict, total=False, extra_items=ReadOnly[ExtensionValue]):
     key: Required[ReadOnly[str]]
     value: Required[ReadOnly[str]]
     kind: NotRequired[ReadOnly[Kind]]
 
 
-def materialized(**row: Unpack[RowPayload]) -> Member:
+def materialized(row: RowPayload, /) -> Member:
+    extensions = tuple(
+        (field, value)
+        for field, value in row.items()
+        if field not in ("key", "kind", "value")
+    )
+
     match row.get("kind", "<value-a>"):
         case "<value-a>":
-            return Shape(kind="<value-a>", key=row["key"], value=row["value"])
+            return Shape(
+                kind="<value-a>",
+                key=row["key"],
+                value=row["value"],
+                extensions=extensions,
+            )
         case "<value-b>":
-            return Shape(kind="<value-b>", key=row["key"], value=row["value"])
+            return Shape(
+                kind="<value-b>",
+                key=row["key"],
+                value=row["value"],
+                extensions=extensions,
+            )
         case _ as unreachable:
             assert_never(unreachable)
 ```
@@ -194,6 +195,7 @@ def materialized(**row: Unpack[RowPayload]) -> Member:
 - Accept: `ParamSpec`, `Concatenate`, `Callable[[Unpack[TypedDict]], R]`, `Unpack[TypedDict]`, and `/` positional-only parameters.
 - Reject: `Callable[..., Any]`, homogeneous `**kwargs`, callback `Protocol` shells for keyword-callable aliases, wrapper signatures that erase parameters, and `*args` parsing for positional contracts.
 - Law: signatures carry the call contract where the aspect, payload, or positional boundary is declared.
+- Boundary: `Unpack[TypedDict]` types the implementation `**kwargs`; `Callable[[Unpack[TD]], R]` types the callback value.
 
 ```python conceptual
 from collections.abc import Callable
@@ -202,21 +204,12 @@ from functools import wraps
 from typing import Concatenate, Literal, NotRequired, ReadOnly, Required, TypedDict, Unpack
 
 
-type Primary = Literal["<value-a>"]
-type Secondary = Literal["<value-b>"]
-type Kind = Primary | Secondary
+type Kind = Literal["<value-a>", "<value-b>"]
 
 @dataclass(frozen=True, slots=True)
 class Context:
     kind: Kind
     prefix: str
-
-
-@dataclass(frozen=True, slots=True)
-class Shape[T: Kind = Primary]:
-    kind: T
-    key: str
-    value: str
 
 
 class RowPayload(TypedDict, total=False, closed=True):
@@ -225,15 +218,14 @@ class RowPayload(TypedDict, total=False, closed=True):
     kind: NotRequired[ReadOnly[Kind]]
 
 
-type Operation[**P, T] = Callable[P, T]
-type RowOperation = Callable[[Unpack[RowPayload]], Shape[Kind]]
+type RowOperation[T] = Callable[[Unpack[RowPayload]], T]
 
 
 def contextual[**P, T](
     context: Context,
     operation: Callable[Concatenate[Context, P], T],
     /,
-) -> Operation[P, T]:
+) -> Callable[P, T]:
     @wraps(operation)
     def projected(*args: P.args, **kwargs: P.kwargs) -> T:
         return operation(context, *args, **kwargs)
@@ -241,74 +233,57 @@ def contextual[**P, T](
     return projected
 
 
-def build(context: Context, /, **row: Unpack[RowPayload]) -> Shape[Kind]:
-    return Shape(
-        kind=row.get("kind", context.kind),
-        key=f"{context.prefix}:{row['key']}",
-        value=row["value"],
-    )
+def build(context: Context, /, **row: Unpack[RowPayload]) -> str:
+    kind = row.get("kind", context.kind)
+    return f"{context.prefix}:{kind}:{row['key']}:{row['value']}"
 
 
-SELECTED: RowOperation = contextual(Context(kind="<value-a>", prefix="<field-a>"), build)
+SELECTED: RowOperation[str] = contextual(
+    Context(kind="<value-a>", prefix="<field-a>"),
+    build,
+)
 ```
 
 [COLLECTION_INVARIANTS]:
 - PEPs: PEP 661, PEP 814, PEP 791, PEP 682, PEP 798, PEP 618, PEP 709, PEP 616, PEP 584, PEP 572.
 - Use when: a language primitive carries an invariant for values, mappings, numeric formatting, iteration, or collection composition.
-- Accept: `sentinel()`, `frozendict`, `math.integer`, signed-zero formatting, unpacking comprehensions, `zip(strict=True)`, direct comprehensions, affix removers, dict union, and assignment expressions.
+- Accept: `sentinel()`, `frozendict`, `math.integer`, signed-zero formatting, unpacking comprehensions, `zip(strict=True)`, `map(strict=True)`, direct comprehensions, affix removers, dict union, and assignment expressions.
 - Reject: `object()` sentinels, magic strings, tuple-pair pseudo-maps, float-path integer helpers, post-format negative-zero cleanup, chain adapters, post-truncation asserts, loop rewrites for comprehension speed, slice/strip hacks, copy/update ladders, and duplicated condition expressions.
-- Law: keep the invariant where the primitive executes; a helper survives only when it carries domain policy beyond the PEP-backed replacement.
+- Law: keep the invariant where the primitive executes; `math.integer` belongs on integer algorithms, and `z` formatting belongs at display sinks.
 
 ```python conceptual
 from builtins import frozendict, sentinel
-from dataclasses import dataclass
-from functools import reduce
-from operator import or_
-from typing import Literal
 
 
 MISSING = sentinel("MISSING")
 
-type Field = Literal["<field-a>", "<field-b>"]
-type Primary = Literal["<value-a>"]
-type Secondary = Literal["<value-b>"]
-type Kind = Primary | Secondary
-type Selection = Kind | MISSING
-type Values = frozendict[Field, str]
-type Policy = frozendict[Kind, Values]
+type Row = frozendict[str, str]
 
-
-@dataclass(frozen=True, slots=True)
-class Shape[T: Kind = Primary]:
-    kind: T
-    key: str
-    value: str
-
-
-type Member = Shape[Primary] | Shape[Secondary]
-
-POLICY: Policy = frozendict({
-    "<value-a>": frozendict({"<field-a>": "<key-a>", "<field-b>": "<result-a>"}),
-    "<value-b>": frozendict({"<field-a>": "<key-b>", "<field-b>": "<result-b>"}),
+POLICY: Row = frozendict({
+    "<field-a>": "<value-a>",
+    "<field-b>": "<value-b>",
 })
 
 
 def selected(
-    kind: Selection = MISSING,
+    fields: tuple[str, ...],
+    values: tuple[str, ...],
     /,
     *,
-    fields: tuple[Field, ...],
-    values: tuple[str, ...],
-    overlays: tuple[Values, ...] = (),
-) -> Member:
-    selected_kind: Kind = "<value-a>" if kind is MISSING else kind
+    fallback: str | MISSING = MISSING,
+    overlay: Row = frozendict(),
+) -> Row:
+    fallback_row = (
+        frozendict({"<field-b>": fallback})
+        if fallback is not MISSING
+        else frozendict()
+    )
     row = frozendict(
         (field, normalized)
         for field, value in zip(fields, values, strict=True)
         if (normalized := value.removeprefix("<field-a>:").removesuffix(":<field-b>"))
     )
-    merged = reduce(or_, overlays, POLICY[selected_kind]) | row
-    return Shape(kind=selected_kind, key=merged["<field-a>"], value=merged["<field-b>"])
+    return POLICY | fallback_row | overlay | row
 ```
 
 [ANNOTATION_RUNTIME]:
