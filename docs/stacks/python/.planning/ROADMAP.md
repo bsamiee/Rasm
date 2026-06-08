@@ -1,14 +1,14 @@
 # [PYTHON_STACK_ROADMAP]
 
-[ACTIVE] Feature build for `docs/stacks/python/`: first complete the core Python coding doctrine that prevents low-quality flat code, then promote testing proof rails, then platform graph truth. Current position: T-0020 is active in P-0010 under M-0010. Progress basis: 3/24 tasks. Proof route: source review and Markdown validation. Live planning route: Markdown-controlled.
+[ACTIVE] Feature build for `docs/stacks/python/`: first complete the core Python coding doctrine that prevents low-quality flat code, then promote testing proof rails, then platform graph truth. Current position: T-0050 is active in P-0010 under M-0010. Progress basis: 4/24 tasks. Proof route: source review and Markdown validation. Live planning route: Markdown-controlled.
 
 ## [1]-[CURRENT_POSITION]
 
 State: [ACTIVE]
 Sequence type: Feature build
-Current focus: T-0020 in P-0010 under M-0010.
-Progress basis: 3/24 tasks; counted only when task `Status` is `[COMPLETE]` and proof agrees.
-Progress: [███░░░░░░░░░░░░░░░░░] 13%
+Current focus: T-0050 in P-0010 under M-0010.
+Progress basis: 4/24 tasks; counted only when task `Status` is `[COMPLETE]` and proof agrees.
+Progress: [███░░░░░░░░░░░░░░░░░] 17%
 Proof route: source review and Markdown validation.
 Live planning route: Markdown-controlled.
 
@@ -42,20 +42,20 @@ Milestone:
 - Outcome: Core Python coding doctrine exists for advanced values, surfaces, rails, boundaries, runtime, and algorithms without category folders or package-shaped topology.
 - Completion rule: all child tasks are `[COMPLETE]`, and required handoffs are closed or routed away.
 - Progress basis: complete child tasks over all tasks in child phases.
-- Progress: [█████░░░░░░░░░░░░░░░] 23%
+- Progress: [██████░░░░░░░░░░░░░░] 31%
 - Phases:
     - P-0010: Foundation decision surfaces.
         - Scope: `docs/stacks/python/README.md`, `docs/stacks/python/AGENTS.md`, `docs/stacks/python/language.md`, `docs/stacks/python/.planning/`.
         - Completion rule: all child tasks are `[COMPLETE]`.
         - Progress basis: complete child tasks over this phase's tasks.
-        - Progress: [████████████░░░░░░░░] 60%
+        - Progress: [████████████████░░░░] 80%
         - Tasks:
             - [x] T-0010 [COMPLETE] Establish Python stack chooser and overlay routing
                 - Work: establish Python stack chooser and overlay routing.
                 - Target: `docs/stacks/python/README.md`, `docs/stacks/python/AGENTS.md`.
                 - Exit: stack chooser and overlay routing are established.
                 - Proof required: source review and Markdown validation.
-            - [ ] T-0020 [ACTIVE] Rewrite `language.md` as the version-feature document for Python 3.10 through 3.15
+            - [x] T-0020 [COMPLETE] Rewrite `language.md` as the version-feature document for Python 3.10 through 3.15
                 - Work: rewrite `language.md` as a concise Python 3.10-3.15 feature surface, prioritizing Python 3.15 and then Python 3.14.
                 - Target: `docs/stacks/python/language.md`.
                 - Exit: `language.md` is stable enough for `pep-standards.md` to map to owner boundaries.
@@ -70,7 +70,7 @@ Milestone:
                 - Target: `docs/stacks/python/.planning/SPEC.aot-first-decorator.md`.
                 - Exit: `.planning/SPEC.aot-first-decorator.md` exists as source material until all referenced rules have active owners.
                 - Proof required: source review and Markdown validation.
-            - [ ] T-0050 [QUEUED] Create `pep-standards.md` as a compact PEP-to-owner decision index
+            - [ ] T-0050 [ACTIVE] Create `pep-standards.md` as a compact PEP-to-owner decision index
                 - Work: create `pep-standards.md` as a compact PEP-to-owner decision index.
                 - Target: `docs/stacks/python/pep-standards.md`.
                 - Depends on: T-0020.
@@ -271,5 +271,5 @@ Milestone:
 - [ ] Every phase from P-0020 onward starts with a research/spec task.
 - [ ] Every page-creation or closure task after a phase research/spec task names that spec sheet as reference material.
 - [ ] Planned files match the planned view in `.planning/ARCHITECTURE.md`.
-- [ ] `pep-standards.md` remains planned until the file exists and the README chooser reaches it.
+- [ ] `pep-standards.md` remains active until the README chooser reaches it and proof agrees.
 - [ ] This roadmap may name planned files, but it does not carry the doctrine that belongs in those files.
