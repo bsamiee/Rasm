@@ -2,6 +2,7 @@
 
 # --- [RUNTIME_PRELUDE] ------------------------------------------------------------------------
 
+from dataclasses import dataclass
 from typing import TYPE_CHECKING
 
 from cyclopts import App
@@ -9,7 +10,16 @@ import msgspec
 import pytest
 
 from tests.tools.assay.conftest import make_history_envelope, pipe_history
-from tools.assay.composition.registry import _delta_report, _ok_envelope, _prior, build_app, REGISTRY  # noqa: PLC2701
+from tools.assay.composition import registry as registry_mod
+from tools.assay.composition.registry import (
+    _delta_report,  # noqa: PLC2701
+    _ok_envelope,  # noqa: PLC2701
+    _ORPHAN_MIN_AGE_S,  # noqa: PLC2701
+    _prior,  # noqa: PLC2701
+    _process_hygiene,  # noqa: PLC2701
+    build_app,
+    REGISTRY,
+)
 from tools.assay.core.model import _RESULT_CAP, ArtifactKind, Claim, envelope, fold, Match, receipt, Report, RunDelta  # noqa: PLC2701
 from tools.assay.core.status import RailStatus
 
@@ -17,6 +27,11 @@ from tools.assay.core.status import RailStatus
 if TYPE_CHECKING:
     from tests.tools.assay.conftest import AssayHarness
     from tools.assay.composition.settings import ArtifactStore
+
+
+@dataclass(frozen=True, slots=True)
+class _Proc:
+    info: dict[str, object]
 
 
 # --- [PRIOR_ORACLE] --------------------------------------------------------------------
@@ -50,6 +65,25 @@ def test_build_app_reaches_every_registry_leaf() -> None:
     app = build_app(REGISTRY)
     assert isinstance(app, App)
     assert all(b.verb in app[b.claim.value] for b in REGISTRY)
+
+
+def test_process_hygiene_reports_old_repo_orphans(assay_root: AssayHarness, monkeypatch: pytest.MonkeyPatch) -> None:
+    """Self-test hygiene reports orphaned repo Python/UV/type-server processes without flagging active children."""
+    root = str(assay_root.root)
+    rows = (
+        _Proc({"pid": 123, "ppid": 1, "create_time": 100.0, "name": "python3", "cmdline": ("python3", "-"), "cwd": root}),
+        _Proc({"pid": 456, "ppid": 99, "create_time": 100.0, "name": "python3", "cmdline": ("python3", "-"), "cwd": root}),
+        _Proc({"pid": 789, "ppid": 1, "create_time": 100.0, "name": "python3", "cmdline": ("python3", "-"), "cwd": str(assay_root.root.parent)}),
+    )
+
+    monkeypatch.setattr(registry_mod.__dict__["psutil"], "process_iter", lambda _attrs: rows)
+    monkeypatch.setattr(registry_mod.__dict__["time"], "time", lambda: 100.0 + _ORPHAN_MIN_AGE_S + 1.0)
+    matches, notes = _process_hygiene(assay_root.settings)
+
+    assert len(matches) == 1
+    assert matches[0].severity == "failed"
+    assert "pid=123" in matches[0].text
+    assert all("pid=456" not in note and "pid=789" not in note for note in notes)
 
 
 # --- [LOAD_RUN_ORACLE] -----------------------------------------------------------------

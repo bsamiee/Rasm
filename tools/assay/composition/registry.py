@@ -17,6 +17,7 @@ from beartype.roar import BeartypeCallHintViolation
 from cyclopts import App, Parameter
 from expression import Error, Ok, Result
 import msgspec
+import psutil
 from pydantic import ValidationError
 import structlog
 
@@ -96,6 +97,12 @@ class _ProbeRow(msgspec.Struct, frozen=True, gc=False, omit_defaults=True):
     ok: bool = True
 
 
+class _ProcessRow(msgspec.Struct, frozen=True, gc=False):
+    pid: int
+    age_s: float
+    command: str
+
+
 # --- [CONSTANTS] ------------------------------------------------------------------------
 
 _ARTIFACT_CAP: Final = 100
@@ -111,6 +118,8 @@ _PROBE_TIMEOUT: Final = 8.0
 _PROBE_TTL: Final = 900.0
 _PROBE_CACHE_FILE: Final = "probe-cache.json"
 _PROBE_CACHE_KEY: Final = "probe:%s"
+_ORPHAN_MIN_AGE_S: Final = 900.0
+_ORPHAN_PROCESS_TOKENS: Final[frozenset[str]] = frozenset(("python", "python3", "uv", "ty"))
 # Launcher-prefix -> lockfile that pins the launched program; ordered longest-prefix-first so the matcher resolves MODULE
 # before UV on their shared `uv run` head. Tokens stat the launched program (argv slot after the prefix) and fold the
 # lockfile mtime, so an in-place lockfile-driven upgrade (ruff/ty/ast-grep under uv.lock, JS tools under pnpm-lock) flips
@@ -547,13 +556,68 @@ def _health(settings: AssaySettings) -> tuple[tuple[Match, ...], tuple[str, ...]
     current = frozenset(c.tool.command for c in probes if c.tool.command not in volatile)
     _probe_cache_store(settings, cache, fresh, current)
     noted = tuple(hits.get(c.tool.command) or fresh[c.tool.command] for c in probes)
+    hygiene = _process_hygiene(settings)
     return (
-        tuple(
-            Match(id=check.tool.name, kind=ArtifactKind.PROCESS, text=note, severity="failed" if not ok else None)
-            for check, (note, ok) in zip(probes, noted, strict=True)
+        (
+            *tuple(
+                Match(id=check.tool.name, kind=ArtifactKind.PROCESS, text=note, severity="failed" if not ok else None)
+                for check, (note, ok) in zip(probes, noted, strict=True)
+            ),
+            *hygiene[0],
         ),
-        tuple(note for note, _ in noted),
+        (*tuple(note for note, _ in noted), *hygiene[1]),
     )
+
+
+def _process_hygiene(settings: AssaySettings) -> tuple[tuple[Match, ...], tuple[str, ...]]:
+    root = Path(str(settings.root)).resolve()
+    rows = tuple(
+        row
+        for proc in psutil.process_iter(("pid", "ppid", "create_time", "name", "cmdline", "cwd"))
+        for row in (_orphan_process(proc, root, now=time.time()),)
+        if row is not None
+    )
+    if not rows:
+        note = "process hygiene: no orphaned repo Python/UV/type-server processes"
+        return (Match(id="process-hygiene", kind=ArtifactKind.PROCESS, text=note),), (note,)
+    notes = tuple(f"process hygiene: orphan pid={row.pid} age={row.age_s / 60:.0f}m command={row.command}" for row in rows)
+    return tuple(
+        Match(id=f"process-hygiene-{row.pid}", kind=ArtifactKind.PROCESS, text=note, severity="failed") for row, note in zip(rows, notes, strict=True)
+    ), notes
+
+
+def _orphan_process(proc: psutil.Process, root: Path, *, now: float) -> _ProcessRow | None:
+    try:
+        info = proc.info
+        cmdline = tuple(str(part) for part in (info.get("cmdline") or ()))
+        command = " ".join(cmdline) or str(info.get("name") or "")
+        cwd = Path(str(info["cwd"])).resolve() if info.get("cwd") else None
+    except OSError, psutil.Error, TypeError, ValueError:
+        return None
+    age = max(now - float(info.get("create_time") or now), 0.0)
+    match (
+        int(info.get("ppid") or -1) == 1,
+        cwd is not None and _under(cwd, root),
+        age >= _ORPHAN_MIN_AGE_S,
+        _tooling_process(cmdline or (command,)),
+    ):
+        case (True, True, True, True):
+            return _ProcessRow(pid=int(info.get("pid") or 0), age_s=age, command=command[:160])
+        case _:
+            return None
+
+
+def _tooling_process(cmdline: tuple[str, ...]) -> bool:
+    return any(Path(part).name in _ORPHAN_PROCESS_TOKENS or Path(part).name.startswith("python") for part in cmdline)
+
+
+def _under(path: Path, root: Path) -> bool:
+    try:
+        path.relative_to(root)
+    except ValueError:
+        return False
+    else:
+        return True
 
 
 def _probe_token(argv: tuple[str, ...]) -> str | None:
