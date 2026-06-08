@@ -211,10 +211,15 @@ branch =          true
 relative_files =  true
 source =          ["tools/assay"]
 data_file =       ".cache/coverage/.coverage"
-core =            "ctrace"
+# CPython 3.15.0b1 ships no compiled C tracer (`coverage.tracer.CTracer` absent); `sys.monitoring` (PEP 669) is the only
+# working core. Verified to record branch arcs + per-test contexts (coarser than the pure-Python core, but contexts are
+# diagnostic — the law-coverage gate reads the law MANIFEST, not coverage contexts).
+core =            "sysmon"
 
 [tool.coverage.report]
-fail_under =    100
+# 95 floor: sysmon's PEP 669 core captures slightly fewer arcs than the (absent) C core on this beta interpreter; the
+# line+branch rail is one of three (law-coverage manifest gate + mutation survivors are the compensating rails).
+fail_under =    95
 show_missing =  true
 skip_covered =  true
 exclude_also = [
@@ -227,6 +232,7 @@ exclude_also = [
 [tool.coverage.json]
 output = ".artifacts/python/coverage/coverage.json"
 pretty_print = true
+show_contexts = true
 
 [tool.coverage.html]
 directory = ".artifacts/python/coverage/html"
@@ -240,8 +246,14 @@ output = ".artifacts/python/coverage/coverage.lcov"
 
 # --- [MUTMUT] --------------------------------------------------------------
 
+# libcst (mutmut's mutator) has no cp315 wheel and the build host lacks a Rust toolchain, so mutation runs on a 3.14.5
+# sidecar interpreter. `requires-python = ">=3.15"` forbids `uv run --python 3.14`; the working invocation ignores the
+# project env and supplies a locked dependency set (single-owner command lives in `tools.assay.composition.catalog`):
+#   uv export --no-emit-project --group mutation --group dev -o .cache/mutation-requirements.txt
+#   uv run --no-project --python 3.14.5 --with-requirements .cache/mutation-requirements.txt mutmut run
+# Flip to native 3.15 (`uv run --group mutation mutmut run`) by changing one catalog setting when cp315 libcst ships.
 [tool.mutmut]
-paths_to_mutate = ["tools/assay"]
+source_paths = ["tools/assay"]
 # Cheap pre-filter: ty checks the mutated copy (cwd=mutants/) and kills type-invalid mutants before any test runs; gitlab JSON is mutmut-native.
 type_check_command = ["uv", "run", "ty", "check", "--output-format", "gitlab", "tools/assay"]
 pytest_add_cli_args_test_selection = ["tests/tools/assay"]

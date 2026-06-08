@@ -9,16 +9,17 @@ This table is a lookup by reader decision.
 | [INDEX] | [DECISION]               | [READ]                                    |
 | :-----: | :----------------------- | :---------------------------------------- |
 |   [1]   | language syntax          | [language](language.md)                   |
-|   [2]   | domain shape             | future `domain-shapes.md`                 |
-|   [3]   | surface and dispatch     | future `surfaces-and-dispatch.md`         |
-|   [4]   | result and effect flow   | future `rails-and-effects.md`             |
-|   [5]   | boundaries and codecs    | future `boundaries-and-codecs.md`         |
-|   [6]   | runtime and concurrency  | future `runtime-and-concurrency.md`       |
-|   [7]   | algorithms and data      | future `algorithms-and-data.md`           |
-|   [8]   | package or platform fact | future `platform/build-and-packages.md`   |
-|   [9]   | proof rail               | future `testing/README.md`                |
-|  [10]   | planned stack buildout   | [roadmap](.planning/ROADMAP.md)           |
-|  [11]   | planned stack topology   | [architecture](.planning/ARCHITECTURE.md) |
+|   [2]   | PEP-backed action        | [PEP standards](pep-standards.md)         |
+|   [3]   | data shape               | future `data-shapes.md`                   |
+|   [4]   | surface and dispatch     | future `surfaces-and-dispatch.md`         |
+|   [5]   | result and effect flow   | future `rails-and-effects.md`             |
+|   [6]   | boundary and codec       | future `boundaries.md`                    |
+|   [7]   | runtime and concurrency  | future `runtime.md`                       |
+|   [8]   | algorithm and data       | future `algorithms.md`                    |
+|   [9]   | package or platform fact | future `platform/build-and-packages.md`   |
+|  [10]   | proof rail               | future `testing/README.md`                |
+|  [11]   | planned stack buildout   | [roadmap](.planning/ROADMAP.md)           |
+|  [12]   | planned stack topology   | [architecture](.planning/ARCHITECTURE.md) |
 
 ## [2]-[OWNER_RULE]
 

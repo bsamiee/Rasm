@@ -1,14 +1,14 @@
 # [PYTHON_STACK_ROADMAP]
 
-[ACTIVE] Feature build for `docs/stacks/python/`: first complete the core Python coding doctrine that prevents low-quality flat code, then promote testing proof rails, then platform graph truth. Current position: T-0050 is active in P-0010 under M-0010. Progress basis: 4/24 tasks. Proof route: source review and Markdown validation. Live planning route: Markdown-controlled.
+[ACTIVE] Feature build for `docs/stacks/python/`: first complete the core Python coding doctrine that prevents low-quality flat code, then promote testing proof rails, then platform graph truth. Current position: T-0060 is active in P-0020 under M-0010. Progress basis: 5/24 tasks. Proof route: source review and Markdown validation. Live planning route: Markdown-controlled.
 
 ## [1]-[CURRENT_POSITION]
 
 State: [ACTIVE]
 Sequence type: Feature build
-Current focus: T-0050 in P-0010 under M-0010.
-Progress basis: 4/24 tasks; counted only when task `Status` is `[COMPLETE]` and proof agrees.
-Progress: [███░░░░░░░░░░░░░░░░░] 17%
+Current focus: T-0060 in P-0020 under M-0010.
+Progress basis: 5/24 tasks; counted only when task `Status` is `[COMPLETE]` and proof agrees.
+Progress: [████░░░░░░░░░░░░░░░░] 21%
 Proof route: source review and Markdown validation.
 Live planning route: Markdown-controlled.
 
@@ -42,13 +42,13 @@ Milestone:
 - Outcome: Core Python coding doctrine exists for advanced values, surfaces, rails, boundaries, runtime, and algorithms without category folders or package-shaped topology.
 - Completion rule: all child tasks are `[COMPLETE]`, and required handoffs are closed or routed away.
 - Progress basis: complete child tasks over all tasks in child phases.
-- Progress: [██████░░░░░░░░░░░░░░] 31%
+- Progress: [████████░░░░░░░░░░░░] 38%
 - Phases:
     - P-0010: Foundation decision surfaces.
         - Scope: `docs/stacks/python/README.md`, `docs/stacks/python/AGENTS.md`, `docs/stacks/python/language.md`, `docs/stacks/python/.planning/`.
         - Completion rule: all child tasks are `[COMPLETE]`.
         - Progress basis: complete child tasks over this phase's tasks.
-        - Progress: [████████████████░░░░] 80%
+        - Progress: [████████████████████] 100%
         - Tasks:
             - [x] T-0010 [COMPLETE] Establish Python stack chooser and overlay routing
                 - Work: establish Python stack chooser and overlay routing.
@@ -70,7 +70,7 @@ Milestone:
                 - Target: `docs/stacks/python/.planning/SPEC.aot-first-decorator.md`.
                 - Exit: `.planning/SPEC.aot-first-decorator.md` exists as source material until all referenced rules have active owners.
                 - Proof required: source review and Markdown validation.
-            - [ ] T-0050 [ACTIVE] Create `pep-standards.md` as a compact PEP-to-owner decision index
+            - [x] T-0050 [COMPLETE] Create `pep-standards.md` as a compact PEP-to-owner decision index
                 - Work: create `pep-standards.md` as a compact PEP-to-owner decision index.
                 - Target: `docs/stacks/python/pep-standards.md`.
                 - Depends on: T-0020.
@@ -83,7 +83,7 @@ Milestone:
         - Progress basis: complete child tasks over this phase's tasks.
         - Progress: [░░░░░░░░░░░░░░░░░░░░] 0%
         - Tasks:
-            - [ ] T-0060 [QUEUED] Produce the core modeling and composition spec sheet
+            - [ ] T-0060 [ACTIVE] Produce the core modeling and composition spec sheet
                 - Work: run ten bounded sub-agent research lanes for data shapes, dispatch surfaces, rails, and boundaries; fold research, critique, dry-run content, and candidate wording into one focused spec sheet.
                 - Target: `docs/stacks/python/.planning/SPEC.core-modeling-composition.md`.
                 - Depends on: T-0050.

@@ -8,7 +8,8 @@ This planning architecture records `docs/stacks/python/` as the Python stack doc
 docs/stacks/python/                              # Python stack decision atlas
 ├── AGENTS.md                                    # leaf overlay routes for Python stack edits
 ├── README.md                                    # stack chooser and planned route orientation
-├── language.md                                  # current Python language surface pending version-feature repair
+├── language.md                                  # current Python language surface
+├── pep-standards.md                             # PEP-backed action index and family contracts
 ├── .reports/                                    # source-material report companion
 │   └── AGENTS.md                                # report session mechanics for Python stack research
 └── .planning/                                   # scope-local planning state
@@ -21,7 +22,7 @@ Planned files appear only in `Planned view` until created.
 
 ## [2]-[SCOPE_BOUNDARY]
 
-Included: `docs/stacks/python/`, its README chooser, leaf overlay, language decision page, scope-local report companion, and scope-local planning files.
+Included: `docs/stacks/python/`, its README chooser, leaf overlay, language decision page, PEP standards page, scope-local report companion, and scope-local planning files.
 
 Excluded: Python source implementation, exact package version tables, generated outputs, runtime validation logs, report source material as doctrine, and durable coding doctrine after concept pages exist.
 
@@ -44,10 +45,11 @@ Current owner lookup:
 |   [1]   | `README.md`                             | stack chooser    |
 |   [2]   | `AGENTS.md`                             | edit overlay     |
 |   [3]   | `language.md`                           | language surface |
-|   [4]   | `.reports/AGENTS.md`                    | report companion |
-|   [5]   | `.planning/ROADMAP.md`                  | sequence owner   |
-|   [6]   | `.planning/ARCHITECTURE.md`             | topology owner   |
-|   [7]   | `.planning/SPEC.aot-first-decorator.md` | planning source  |
+|   [4]   | `pep-standards.md`                      | PEP action index |
+|   [5]   | `.reports/AGENTS.md`                    | report companion |
+|   [6]   | `.planning/ROADMAP.md`                  | sequence owner   |
+|   [7]   | `.planning/ARCHITECTURE.md`             | topology owner   |
+|   [8]   | `.planning/SPEC.aot-first-decorator.md` | planning source  |
 
 [OWNER_BOUNDARIES]:
 - Surface: `README.md`
@@ -57,8 +59,11 @@ Current owner lookup:
   - Owns: leaf overlay routes for Python stack edits.
   - Route-away: syntax law, PEP explanations, package facts, and validation ladders.
 - Surface: `language.md`
-  - Owns: current Python language surface pending repair.
+  - Owns: current Python language surface.
   - Route-away: data-shape taxonomy, dispatch, rails, boundaries, runtime, algorithms, and proof.
+- Surface: `pep-standards.md`
+  - Owns: PEP-backed action index, row inclusion law, and cross-cutting PEP family contracts.
+  - Route-away: PEP prose, platform package graph truth, native extension policy, and concept-page doctrine.
 - Surface: `.reports/AGENTS.md`
   - Owns: report session mechanics for reusable Python stack research.
   - Route-away: durable doctrine, roadmap state, planned topology, package graph truth, and proof claims.
@@ -206,7 +211,6 @@ Planned core topology:
 
 ```text conceptual
 docs/stacks/python/
-├── pep-standards.md
 ├── data-shapes.md
 ├── surfaces-and-dispatch.md
 ├── rails-and-effects.md
@@ -245,7 +249,7 @@ docs/stacks/python/platform/
 ```
 
 [CORE_CONCEPT_PAGES]:
-- Planned structure: `pep-standards.md`, `data-shapes.md`, `surfaces-and-dispatch.md`, `rails-and-effects.md`, `boundaries.md`, `runtime.md`, and `algorithms.md`.
+- Planned structure: `data-shapes.md`, `surfaces-and-dispatch.md`, `rails-and-effects.md`, `boundaries.md`, `runtime.md`, and `algorithms.md`.
 - Current anchor: [README](../README.md) future chooser rows, [ROADMAP](ROADMAP.md), and `.planning/SPEC.aot-first-decorator.md`.
 - Source: [ROADMAP](ROADMAP.md) M-0010.
 - Use now: reserve decision-based names and prevent operational, package-shaped, proof-shaped, or skill-shaped docs.
@@ -284,19 +288,18 @@ Planned owners:
 
 | [INDEX] | [FILE]                           | [FUTURE_OWNER_SCOPE]                                                                      | [MILESTONE] |
 | :-----: | :------------------------------- | :---------------------------------------------------------------------------------------- | :---------- |
-|   [1]   | `pep-standards.md`               | PEP-to-owner action index with Python version, agent action, and superseded practice.     | M-0010      |
-|   [2]   | `data-shapes.md`                 | Object families, records, enums, immutable data, sentinels, payloads, and nesting.        | M-0010      |
-|   [3]   | `surfaces-and-dispatch.md`       | Decorator-first architecture, typed registries, pattern dispatch, and callable surfaces.  | M-0010      |
-|   [4]   | `rails-and-effects.md`           | `Option` / `Result`, error transport, effect composition, recovery, retry, and resources. | M-0010      |
-|   [5]   | `boundaries.md`                  | Validation, codecs, structured templates, external sinks, and dynamic execution.          | M-0010      |
-|   [6]   | `runtime.md`                     | Import-time evaluation, annotation cost, concurrency, free-threading, JIT, and lifetime.  | M-0010      |
-|   [7]   | `algorithms.md`                  | Traversal, folds, vectorized work, parsing trees, complexity, and data strategy.          | M-0010      |
-|   [8]   | `testing/README.md`              | Python proof-rail chooser.                                                                | M-0020      |
-|   [9]   | `testing/managed-laws.md`        | Pytest, Hypothesis, property laws, model checks, fixtures, and assertion shape.           | M-0020      |
-|  [10]   | `testing/evidence-rails.md`      | Coverage, mutation, snapshots, benchmark evidence, and deterministic artifacts.           | M-0020      |
-|  [11]   | `testing/specialized-rails.md`   | Async, socket, filesystem, process, parser, and benchmark-specialized proof rails.        | M-0020      |
-|  [12]   | `platform/README.md`             | Python platform chooser.                                                                  | M-0030      |
-|  [13]   | `platform/build-and-packages.md` | Package graph, dependency groups, tool graph, adoption gates, and package-policy routes.  | M-0030      |
+|   [1]   | `data-shapes.md`                 | Object families, records, enums, immutable data, sentinels, payloads, and nesting.        | M-0010      |
+|   [2]   | `surfaces-and-dispatch.md`       | Decorator-first architecture, typed registries, pattern dispatch, and callable surfaces.  | M-0010      |
+|   [3]   | `rails-and-effects.md`           | `Option` / `Result`, error transport, effect composition, recovery, retry, and resources. | M-0010      |
+|   [4]   | `boundaries.md`                  | Validation, codecs, structured templates, external sinks, and dynamic execution.          | M-0010      |
+|   [5]   | `runtime.md`                     | Import-time evaluation, annotation cost, concurrency, free-threading, JIT, and lifetime.  | M-0010      |
+|   [6]   | `algorithms.md`                  | Traversal, folds, vectorized work, parsing trees, complexity, and data strategy.          | M-0010      |
+|   [7]   | `testing/README.md`              | Python proof-rail chooser.                                                                | M-0020      |
+|   [8]   | `testing/managed-laws.md`        | Pytest, Hypothesis, property laws, model checks, fixtures, and assertion shape.           | M-0020      |
+|   [9]   | `testing/evidence-rails.md`      | Coverage, mutation, snapshots, benchmark evidence, and deterministic artifacts.           | M-0020      |
+|  [10]   | `testing/specialized-rails.md`   | Async, socket, filesystem, process, parser, and benchmark-specialized proof rails.        | M-0020      |
+|  [11]   | `platform/README.md`             | Python platform chooser.                                                                  | M-0030      |
+|  [12]   | `platform/build-and-packages.md` | Package graph, dependency groups, tool graph, adoption gates, and package-policy routes.  | M-0030      |
 
 ## [10]-[PROOF]
 
