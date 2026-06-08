@@ -20,7 +20,11 @@ Organize stack pages by domain, category, or concept. Approved external librarie
 
 Each `language.md` starts with a canonical chooser table for primitive selection. Each row states one durable decision as concern, accepted surface, and rejected substitute. Use neutral concern names that describe the coding choice, not release names, package names, feature marketing, or broad categories. Keep cells atomic: one owner primitive or compact phrase per cell, no prose explanations, links, source notes, version history, caveats, examples, or multi-sentence rationale.
 
+For table-driven stack pages, promote a row or row family into a card only when the coding decision needs expanded guidance: concept complexity, advanced implementation shape, replacement of a common local workaround, or recently added language capability that benefits from executable form.
+
 After the chooser, build sections from row families that need more than lookup. A post-table section must add usage boundaries, composition rules, or accepted/rejected replacements that change implementation; do not restate the chooser row as loose bullets. Prefer one matrix or contrast record per decision family over mixed prose, unscoped lists, and floating examples. Route runtime, package, proof, platform, and architecture detail to the concept page that owns that decision.
+
+Code snippets belong inside cards that justify executable guidance. Use snippets to clarify extended explanation, complex mechanics, advanced code shape, or replacement of casts, facades, wrappers, fake protocols, helper ladders, and other workarounds; keep snippets neutral, minimal, and capability-dense.
 
 Package-manager absence is not a downgrade signal. If a domain needs a stronger external library that is not yet admitted by the manifest, write the target capability and adoption gap in the owning concept, platform page, roadmap, or architecture route instead of weakening the guidance to available built-ins.
 
