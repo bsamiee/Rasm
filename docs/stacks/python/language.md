@@ -1,20 +1,22 @@
 # [PYTHON_LANGUAGE]
 
-Python `>=3.15` is the active language surface. `pyproject.toml` owns the interpreter floor and tool configuration; this page owns syntax, type-expression, annotation, import, template, and standard-library primitive selection.
+Python `>=3.15` is the active language surface. This page is the version-feature law for choosing syntax, type-expression, annotation, import/export, template, and standard-library primitive forms before adding a local abstraction.
 
-Concept pages own modeling, dispatch architecture, rails, boundary validation, runtime concurrency, algorithms, package-backed capability, and proof rails. Use this page to choose the language form before adding a local abstraction.
+`pyproject.toml` owns the interpreter floor, `uv`, and tool configuration facts. This page names those facts only when they change the language form a Python file may assume.
 
 ## [1]-[ACTIVE_SURFACE]
 
 [ACTIVE_SURFACE]:
 - Interpreter floor: `>=3.15`
+- Tool baseline: `uv` owns Python environment, lockfile, dependency, and tool execution entrypoints
 - Type gates: strict `ty` and strict `mypy`
 - Formatter and lint gate: `Ruff` preview policy
 - Encoding baseline: UTF-8 default with explicit persisted-I/O contracts
-- Import baseline: module-scope imports, with explicit lazy imports for cold dependencies
+- Import baseline: module-scope named imports, with explicit lazy imports for cold dependencies
+- Export baseline: explicit end-of-file `__all__`; no wildcard imports, barrel files, facade exports, or empty `__init__.py` package markers
 - Annotation baseline: deferred annotations inspected through annotation APIs
 
-Treat source files as modern Python, not compatibility layers. Remove old imports, shims, and typing spellings when the language now carries the concept directly.
+Treat source files as modern Python, not compatibility layers. Remove old imports, shims, typing spellings, package markers, and tool bypasses when the active surface carries the concept directly.
 
 ## [2]-[CANONICAL_CHOOSER]
 
@@ -160,31 +162,73 @@ Use these contracts when the chooser names the primitive but code still needs a 
 - Use when: the owner declaration can state a type, callable, keyword, or annotation shape directly.
 - Accept: inline type parameters, `type` aliases, exact callable forwarding, `TypeIs`, `TypeForm`, `Unpack[TypedDict]`, `ReadOnly`, `io.Reader`, and `io.Writer`.
 - Reject: remote alias repair, erased callables, downstream casts, broad `object` recovery, and prose keyword contracts.
-- Route away: object-family and payload policy to `data-shapes.md`; decorator architecture to `surfaces-and-dispatch.md`.
+- Boundary: object-family policy, payload policy, and decorator architecture belong to the owning concept page.
+
+[TYPE_PREDICATE_SITE]:
+- Use when: a reusable predicate proves exact type membership that inline narrowing cannot express.
+- Accept: `TypeIs[T]` over the concrete target or owned structural target, where `T` is compatible with the input type and the predicate is true exactly for `T`.
+- Reject: subset predicates, incompatible target narrowing, `TypeGuard` for subtype-compatible checks, bool helpers followed by `cast`, and runtime-checkable protocols created only to satisfy `isinstance`.
+- Soundness: `TypeIs[T]` is a biconditional type-membership proof, not a validation rail for valid, non-empty, active, normalized, positive, or otherwise filtered `T` values.
+- Consumption: keep predicate use at ingress, dispatch, or projection boundaries; fold the narrowed value through one expression or the owning result rail instead of spreading branch bodies.
+- Boundary: untyped package gaps enter as `object` at the boundary; typed object-shape ownership, validation, and provider adoption belong to the owning concept page.
+
+```python conceptual
+from typing import assert_type, final, TypeIs
+
+
+class Base: ...
+
+
+class Refined(Base): ...
+
+
+@final
+class Remainder: ...
+
+
+def is_base(value: object) -> TypeIs[Base]:
+    return isinstance(value, Base)
+
+
+def narrow(value: Refined | Remainder) -> Refined | Remainder:
+    return assert_type(value, Refined) if is_base(value) else assert_type(value, Remainder)
+```
 
 [INSPECTION_SITE]:
 - Use when: runtime code consumes annotations, signatures, unions, or type forms.
 - Accept: `annotationlib`, `inspect.signature(annotation_format=...)`, `typing.get_origin()`, and `typing.get_args()` at the consuming boundary.
 - Reject: raw annotation dictionaries, string surgery, annotation `eval`, and private union implementation checks.
-- Route away: external text and dynamic execution policy to `boundaries.md`; annotation cost and import-time behavior to `runtime.md`.
+- Boundary: external text, dynamic execution, annotation cost, and import-time behavior belong to the owning concept page.
 
 [MODULE_ENTRY_SITE]:
 - Use when: import, startup, or template structure must stay visible before execution.
 - Accept: module-scope lazy imports, `.start` entries, t-string processors, and template AST nodes.
 - Reject: function-local import hiding, executable `.pth` lines, rendered-string reparsing, and scattered `importlib` laziness.
-- Route away: package graph and tool graph truth to platform pages; runtime startup policy to `runtime.md`.
+- Boundary: runtime startup policy belongs to the runtime owner; package graph and tool graph truth belong to the platform owner.
+
+[MODULE_BOUNDARY_SITE]:
+- Use when: a module declares its public names or imports another module surface.
+- Accept: named imports, end-of-file `__all__`, and `__init__.py` only when it owns real package initialization or a public package contract.
+- Reject: wildcard imports, barrel files, facade-only exports, empty `__init__.py` package markers, and re-export files that only hide the real owner.
+- Boundary: package topology and generated API documentation belong to their owning platform, architecture, or code-documentation surface.
+
+[TOOL_SURFACE]:
+- Use when: executing Python code, resolving dependencies, locking the environment, or invoking Python tools.
+- Accept: `uv`-managed entrypoints through the repository tool graph.
+- Reject: ambient `python`, `pip`, `venv`, direct tool shims, and PATH-dependent execution that bypasses `uv`.
+- Boundary: command catalogs, package versions, tool groups, and cache paths belong to tool, manifest, or platform owners.
 
 [EXPRESSION_SITE]:
 - Use when: the invariant is local to one expression or statement.
 - Accept: `match`, assignment expressions, unpacking comprehensions, `copy.replace()`, `zip(strict=True)`, and direct multi-exception syntax.
 - Reject: precondition temporaries, accumulator loops, after-the-fact asserts, one-use helpers, and mutate-then-freeze copies.
-- Route away: dispatch architecture to `surfaces-and-dispatch.md`; error transport and recovery policy to `rails-and-effects.md`.
+- Boundary: dispatch architecture, error transport, and recovery policy belong to the owning concept page.
 
 [STANDARD_PRIMITIVE_SITE]:
 - Use when: a standard-library primitive exactly owns the operation shape.
 - Accept: the named primitive for value, path, compression, heap, UUID, regex, queue, interpreter, or profiling concerns.
 - Reject: local wrappers, magic literals, pseudo-protocols, subprocess adapters, sentinel payloads, and private probes.
-- Route away: data-structure strategy to `algorithms.md`; runtime scheduling and proof policy to `runtime.md` or testing pages.
+- Boundary: data-structure strategy, runtime scheduling, and proof policy belong to algorithm, runtime, or testing owners.
 
 ## [4]-[ABSTRACTION_COLLAPSE_TESTS]
 
@@ -195,6 +239,11 @@ Use these tests before keeping a local abstraction beside a language primitive.
 - Collapse: move evidence into the owner declaration.
 - Done when: callers no longer need repair code to recover the shape.
 
+[PREDICATE_PROTOCOL]:
+- Smell: a `Protocol` mirrors an imported object only to make `isinstance`, `cast`, or a bool helper acceptable to the type checker.
+- Collapse: replace the protocol-as-predicate with a `TypeIs` predicate over the real target, or admit the object through a typed local owner when no real target type exists.
+- Done when: both predicate branches narrow without wildcard protocols, `cast`, or post-check repair code.
+
 [STRING_RECOVERY]:
 - Smell: code parses rendered strings, paths, URLs, annotations, regex intent, or template fields by hand.
 - Collapse: ask the language API for the structured form.
@@ -204,6 +253,11 @@ Use these tests before keeping a local abstraction beside a language primitive.
 - Smell: a helper only names one modern expression, iterator, update, predicate, or primitive operation.
 - Collapse: inline the language form at the use site.
 - Done when: the invariant is visible where it executes.
+
+[SURFACE_FACADE]:
+- Smell: a file exists only to re-export another module, mark a package, or collect names from several owners.
+- Collapse: import the real owner by name and publish the module's own `__all__` only where the module owns the public surface.
+- Done when: readers can find the implementation owner without traversing wildcard imports, barrels, or empty package files.
 
 [MAGIC_VALUE]:
 - Smell: absence, boundary, ordering, or identifier limits are represented by strings, objects, numeric sentinels, or literal UUIDs.
@@ -221,5 +275,5 @@ Use these tests before keeping a local abstraction beside a language primitive.
 - No table cells with prose rationale, examples, links, source notes, caveats, or multiple unrelated primitives.
 - No restating chooser rows as loose bullets below the table.
 - No `typing.Optional`, `typing.Union`, `typing.TypeAlias`, module-level type-parameter boilerplate, `cast`, or `Any` leakage in durable examples.
-- No direct `__annotations__` inspection, annotation-string eval, locals-mutation policy, helper modules, package facades, provider-branded surfaces, or external-library-specific docs topology.
+- No ambient Python execution bypassing `uv`, wildcard imports, barrel files, facade exports, empty package-marker `__init__.py` files, direct `__annotations__` inspection, annotation-string eval, locals-mutation policy, helper modules, package facades, provider-branded surfaces, or external-library-specific docs topology.
 - No runtime, validation, observability, testing, package graph, or algorithm policy in `language.md` when another concept page owns the decision.
