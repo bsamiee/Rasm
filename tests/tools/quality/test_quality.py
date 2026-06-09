@@ -1,6 +1,6 @@
 """Adversarial laws for the Python quality operator."""
 
-# --- [IMPORTS] ------------------------------------------------------------------------
+# --- [RUNTIME_PRELUDE] ------------------------------------------------------------------
 
 from pathlib import Path
 import plistlib
@@ -36,7 +36,7 @@ if TYPE_CHECKING:
     from tests.tools.quality.conftest import CliLaw, TargetLaw
 
 
-# --- [OPERATIONS] ----------------------------------------------------------------------
+# --- [OPERATIONS] -----------------------------------------------------------------------
 
 
 def test_quality_harness_scope_matches_artifact_scope_open(quality: QualityHarness) -> None:
@@ -58,7 +58,7 @@ def _bridge_completed(status: RailStatus) -> Completed:
     return Completed(("bridge",), 0, msgspec.json.encode(bridge_rail.BridgeResult(status=status)), b"")
 
 
-# --- [CLI LAWS] ------------------------------------------------------------------------
+# --- [CLI_LAWS] -------------------------------------------------------------------------
 
 
 @pytest.mark.parametrize("law", CLI_LAWS, ids=lambda law: "-".join(law.argv))
@@ -168,7 +168,7 @@ def test_cli_projection_laws() -> None:
         assert bridge_rail.try_decode_bridge(wire).default_value(bridge_rail.BridgeResult()).status is rail
 
 
-# --- [PROCESS AND SETTINGS LAWS] -------------------------------------------------------
+# --- [PROCESS_AND_SETTINGS_LAWS] --------------------------------------------------------
 
 
 def test_process_stream_timeout_settings_and_dotnet_laws(quality: QualityHarness, tmp_path: Path, capfd: pytest.CaptureFixture[str]) -> None:
@@ -292,7 +292,7 @@ def test_dotnet_tool_boundary_laws(monkeypatch: pytest.MonkeyPatch, quality: Qua
     assert process_mod._dotnet_root() is None
 
 
-# --- [STATIC RAIL LAWS] ----------------------------------------------------------------
+# --- [STATIC_RAIL_LAWS] -----------------------------------------------------------------
 
 
 @given(st.lists(st.sampled_from(("README.md", "tools/quality/process.py", "docs/usage/README.md")), max_size=8).map(tuple))
@@ -383,7 +383,7 @@ def test_static_format_and_full_edge_laws(monkeypatch: pytest.MonkeyPatch, quali
     assert static_rail.run_static_rail(quality.settings, scope, "full").default_value("skip") == "done"
 
 
-# --- [TEST RAIL LAWS] ------------------------------------------------------------------
+# --- [TEST_RAIL_LAWS] -------------------------------------------------------------------
 
 
 @pytest.mark.parametrize("law", list(TARGET_LAWS), ids=lambda law: f"{law.mode}-{law.mutation}-{law.test_modules or 'default'}")
@@ -439,7 +439,7 @@ def test_test_rail_selector_list_and_mutation_laws(monkeypatch: pytest.MonkeyPat
     assert any("**/*.cs" in call for call in calls)
 
 
-# --- [API LAWS] ------------------------------------------------------------------------
+# --- [API_LAWS] -------------------------------------------------------------------------
 
 
 def test_api_package_source_query_show_and_failure_laws(monkeypatch: pytest.MonkeyPatch, quality: QualityHarness) -> None:
@@ -543,7 +543,7 @@ def test_api_package_restore_and_empty_surface_laws(monkeypatch: pytest.MonkeyPa
     assert api_rail._slice_text("a\nb\nc", lines="2:3", grep="", max_lines=1) == ("b\nc", 3, True)
 
 
-# --- [BRIDGE AND PACKAGE LAWS] ---------------------------------------------------------
+# --- [BRIDGE_AND_PACKAGE_LAWS] ----------------------------------------------------------
 
 
 def test_bridge_payload_verify_client_and_discovery_laws(monkeypatch: pytest.MonkeyPatch, quality: QualityHarness) -> None:

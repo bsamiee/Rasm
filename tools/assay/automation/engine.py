@@ -384,39 +384,30 @@ def _armed(action: Action, settings: AssaySettings, *, limiter: anyio.CapacityLi
             return _fire(action, settings, limiter=limiter, cpu_threshold=ceiling), None
 
 
+async def _co_resident(tg: TaskGroup, resident: Worker | None, stop: anyio.Event) -> None:
+    # Run the optional resident worker inside the driver's task group until stop, then cancel the group.
+    match resident:
+        case None:
+            return
+        case _:
+            tg.start_soon(resident)
+            await stop.wait()
+            tg.cancel_scope.cancel()
+
+
 async def _drive_watch(spec: Watch, action: Action, settings: AssaySettings, *, limiter: anyio.CapacityLimiter, stop: anyio.Event) -> None:
     fire, worker = _armed(action, settings, limiter=limiter, ceiling=spec.cpu_threshold)
-
-    async def _co_resident(tg: TaskGroup, resident: Worker | None) -> None:
-        match resident:
-            case None:
-                return
-            case _:
-                tg.start_soon(resident)
-                await stop.wait()
-                tg.cancel_scope.cancel()
-
     async with anyio.create_task_group() as tg:
         tg.start_soon(_watch, spec, fire, stop)
-        await _co_resident(tg, worker)
+        await _co_resident(tg, worker, stop)
 
 
 async def _drive_schedule(spec: Schedule, action: Action, settings: AssaySettings, *, limiter: anyio.CapacityLimiter, stop: anyio.Event) -> None:
     fire, worker = _armed(action, settings, limiter=limiter, ceiling=spec.cpu_threshold)
     scheduled = _hardened_fire(fire, settings, action) if worker is None else fire
-
-    async def _co_resident(tg: TaskGroup, resident: Worker | None) -> None:
-        match resident:
-            case None:
-                return
-            case _:
-                tg.start_soon(resident)
-                await stop.wait()
-                tg.cancel_scope.cancel()
-
     async with anyio.create_task_group() as tg:
         tg.start_soon(_schedule, spec, scheduled, stop)
-        await _co_resident(tg, worker)
+        await _co_resident(tg, worker, stop)
 
 
 async def _run_trigger(trigger: Trigger, action: Action, settings: AssaySettings, *, limiter: anyio.CapacityLimiter, stop: anyio.Event) -> None:

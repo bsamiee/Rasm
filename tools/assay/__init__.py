@@ -1,4 +1,4 @@
-"""Configure Assay import-time logging, tracing, and beartype checks."""
+"""Configure Assay import-time tracing and beartype checks; logging lives in ``tools.assay._logging``."""
 # ruff: noqa: RUF067, E402  # executable boundary: the claw gate runs before Assay imports.
 
 # --- [RUNTIME_PRELUDE] ------------------------------------------------------------------
@@ -6,20 +6,13 @@
 # Import it before installing the package hook; subsequent Assay modules still load under ASSAY_CLAW.
 import os
 import sys
-from typing import TYPE_CHECKING
 
 from beartype import BeartypeConf
 from beartype.claw import beartype_this_package
-import msgspec
 from opentelemetry.sdk.resources import Resource
 from pydantic import ValidationError
-import structlog
-from structlog import make_filtering_bound_logger, WriteLogger
-from structlog.contextvars import clear_contextvars, merge_contextvars
-from structlog.dev import ConsoleRenderer
-from structlog.processors import add_log_level, CallsiteParameter, CallsiteParameterAdder, dict_tracebacks, JSONRenderer, TimeStamper
 
-from tools.assay.core.aspect import ring_processor  # intra-package import; recent-events ring seam
+import tools.assay.core.aspect  # pre-claw load: aspect's PEP 695 aliases must bypass beartype_this_package
 
 
 {"1": lambda: beartype_this_package(conf=BeartypeConf(is_pep484_tower=True, warning_cls_on_decorator_exception=None))}.get(
@@ -27,15 +20,12 @@ from tools.assay.core.aspect import ring_processor  # intra-package import; rece
     lambda: None,
 )()
 
-from tools.assay.composition.settings import AssaySettings, LogFormat
+from tools.assay._logging import configure_logging  # noqa: PLC2701  # leaf logging owner; re-exported so importers need not drag this bootstrap
+from tools.assay.composition.settings import AssaySettings
 
-
-if TYPE_CHECKING:
-    from structlog.typing import Processor
 
 # --- [CONSTANTS] ------------------------------------------------------------------------
 
-_INFO: int = 20
 _DRAIN_MS: int = 1500  # single ~1.5s bound: BatchSpanProcessor schedule cadence here and the exit-time force_flush budget in __main__.main
 _SERVICE: dict[str, str | int] = {
     "service.name": "assay",
@@ -47,30 +37,6 @@ _SERVICE: dict[str, str | int] = {
 
 
 # --- [COMPOSITION] ----------------------------------------------------------------------
-
-
-def _configure(log_format: LogFormat) -> None:
-    match log_format:
-        # msgspec keeps CI logs compatible with Assay structs and datetimes.
-        case LogFormat.CI:
-            renderer: Processor = JSONRenderer(serializer=lambda v, **_k: msgspec.json.encode(v).decode())
-        case LogFormat.HUMAN:
-            renderer = ConsoleRenderer(colors=True)
-    structlog.configure(
-        processors=[
-            merge_contextvars,  # first so @logged binds and agent context stay isolated per ContextVar
-            ring_processor,  # captures contextualized events into the recent-events ring
-            add_log_level,
-            CallsiteParameterAdder(parameters=(CallsiteParameter.MODULE, CallsiteParameter.FUNC_NAME, CallsiteParameter.LINENO)),
-            dict_tracebacks,
-            TimeStamper(fmt="iso", utc=True),
-            renderer,
-        ],
-        wrapper_class=make_filtering_bound_logger(_INFO),
-        logger_factory=lambda *_args: WriteLogger(sys.stderr),  # stdout belongs to the Envelope wire
-        cache_logger_on_first_use=False,
-    )
-    clear_contextvars()
 
 
 def _install_tracing(endpoint: str) -> None:
@@ -114,9 +80,9 @@ except ValidationError as exc:
     _BOOTSTRAP_ERROR = exc
     _SETTINGS = AssaySettings.model_construct()
 
-_configure(_SETTINGS.log_format)
+configure_logging(_SETTINGS.log_format)
 
 
 # --- [EXPORTS] --------------------------------------------------------------------------
 
-__all__ = ["install_tracing", "bootstrap_error"]
+__all__ = ["bootstrap_error", "configure_logging", "install_tracing"]

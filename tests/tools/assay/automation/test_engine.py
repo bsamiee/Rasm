@@ -105,7 +105,7 @@ def _fake_awatch(batches: tuple[tuple[tuple[str, str], ...], ...]) -> object:
     return _awatch
 
 
-# --- [LAWS: is_governed] ----------------------------------------------------------------
+# --- [LAWS_IS_GOVERNED] -----------------------------------------------------------------
 
 
 @pytest.mark.parametrize(
@@ -211,7 +211,7 @@ def test_is_governed_primed_latch_reads_without_warmup(cpu_double: CpuDoubleInst
 register_law(is_governed, "test_is_governed_primed_latch_reads_without_warmup")
 
 
-# --- [LAWS: drive — Program projection] -------------------------------------------------
+# --- [LAWS_DRIVE_PROGRAM] ---------------------------------------------------------------
 
 
 def test_drive_program_projects_completed_to_report(
@@ -292,7 +292,7 @@ def test_drive_program_status_projection(
 register_law(_eng.drive, "test_drive_program_status_projection")
 
 
-# --- [LAWS: drive — Rail projection] ----------------------------------------------------
+# --- [LAWS_DRIVE_RAIL] ------------------------------------------------------------------
 
 
 def test_drive_rail_resolves_bind_and_emits_canned_envelope(
@@ -316,7 +316,7 @@ def test_drive_rail_resolves_bind_and_emits_canned_envelope(
 register_law(_eng.drive, "test_drive_rail_resolves_bind_and_emits_canned_envelope")
 
 
-# --- [LAWS: drive — governor gating] ----------------------------------------------------
+# --- [LAWS_DRIVE_GOVERNOR] --------------------------------------------------------------
 
 
 def test_drive_governed_skip_emits_one_skip_envelope(
@@ -345,7 +345,7 @@ def test_drive_governed_skip_emits_one_skip_envelope(
 register_law(_eng.drive, "test_drive_governed_skip_emits_one_skip_envelope")
 
 
-# --- [LAWS: drive — Sequence fold] ------------------------------------------------------
+# --- [LAWS_DRIVE_SEQUENCE] --------------------------------------------------------------
 
 
 def test_drive_sequence_folds_to_highest_severity(
@@ -485,7 +485,7 @@ def test_drive_sequence_halts_on_fault(
 register_law(_eng.drive, "test_drive_sequence_halts_on_fault")
 
 
-# --- [LAWS: drive — Watch trigger] ------------------------------------------------------
+# --- [LAWS_DRIVE_WATCH] -----------------------------------------------------------------
 
 
 def test_drive_watch_fires_per_canned_batch(
@@ -559,7 +559,7 @@ def test_drive_watch_debounce_collapses_storm(
 register_law(_eng.drive, "test_drive_watch_debounce_collapses_storm")
 
 
-# --- [LAWS: drive — Schedule trigger] ---------------------------------------------------
+# --- [LAWS_DRIVE_SCHEDULE] --------------------------------------------------------------
 
 
 def test_drive_schedule_fires_then_stops(
@@ -764,7 +764,7 @@ def test_hardened_fire_faults_reset_after_exception(
 register_law(_eng.drive, "test_hardened_fire_faults_reset_after_exception")
 
 
-# --- [LAWS: drive — debounce primitive] -------------------------------------------------
+# --- [LAWS_DRIVE_DEBOUNCE] --------------------------------------------------------------
 
 
 @pytest.mark.parametrize("collapse", [False, True], ids=["leading", "trailing"])
@@ -826,7 +826,7 @@ def test_debounce_signal_ignores_when_buffer_full() -> None:
 register_law(_eng.drive, "test_debounce_signal_ignores_when_buffer_full")
 
 
-# --- [LAWS: drive — setup-fault boundary] -----------------------------------------------
+# --- [LAWS_DRIVE_SETUP_FAULT] -----------------------------------------------------------
 
 
 def test_drive_manual_program_emits_single_envelope(

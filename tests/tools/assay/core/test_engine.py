@@ -306,7 +306,7 @@ def test_retry_predicate_exhausted_budget_blocks_retry() -> None:
     assert retry_predicate(Check(tool=_REMOTE_TOOL), spent)(ConnectionError("reset")) is False
 
 
-# --- [SPLICE_COMMAND / ARGV_FOR] (argv composition) -------------------------------------
+# --- [SPLICE_COMMAND_ARGV_FOR] ----------------------------------------------------------
 
 
 def test_splice_command_injects_scope_flags_for_dotnet_build_verbs(assay_root: AssayHarness) -> None:
@@ -370,7 +370,7 @@ def test_argv_for_composes_runner_prefix_scope_and_routed_tails(assay_root: Assa
     assert {"ruff", "check", "a.py", "b.py"} <= set(argv), f"command body or routed tails lost in {argv!r}"
 
 
-# --- [SSH_OUTCOME / REMOTE_COMMAND] (status projection + shell-quoting) -----------------
+# --- [SSH_OUTCOME_REMOTE_COMMAND] -------------------------------------------------------
 
 
 def test_ssh_outcome_projects_status_and_signal() -> None:
@@ -400,7 +400,7 @@ def test_remote_command_shell_quotes_cwd_env_argv(argv: tuple[str, ...], cwd: st
     assert command == Contains(*fragments), f"missing fragment in {command!r}"
 
 
-# --- [DRAIN_STREAM / CAPTURED] (byte-pump aggregate over a ByteRecv double) -------------
+# --- [DRAIN_STREAM_CAPTURED] ------------------------------------------------------------
 
 
 def _recv_of(chunks: tuple[bytes, ...]) -> engine_mod.ByteRecv:
@@ -461,7 +461,7 @@ def test_captured_defaults_are_the_empty_aggregate() -> None:
     assert (Captured().tail, Captured().path, Captured().size, Captured().lines) == (b"", "", 0, 0)
 
 
-# --- [DISCOVER] (read-only process status → Result) -------------------------------------
+# --- [DISCOVER] -------------------------------------------------------------------------
 
 
 def test_discover_maps_process_status_to_result(tmp_path: Path) -> None:
@@ -483,7 +483,7 @@ def test_discover_deadline_and_spawn_faults(tmp_path: Path) -> None:
     assert_error_status(absent, RailStatus.FAULTED)
 
 
-# --- [RUN_CHECK / RUN_CHECK_ASYNC / FAN_OUT] (real subprocess + psutil seams) -----------
+# --- [RUN_CHECK_FAN_OUT] ----------------------------------------------------------------
 
 
 def test_run_check_executes_direct_tool(assay_root: AssayHarness) -> None:
@@ -533,7 +533,7 @@ def test_fan_out_preserves_order_and_backfills_timeout(assay_root: AssayHarness,
     assert_error_status(results[2], RailStatus.TIMEOUT)
 
 
-# --- [EXCLUSIVE_LEASE / LEASED] (process mutual exclusion) ------------------------------
+# --- [EXCLUSIVE_LEASE_LEASED] -----------------------------------------------------------
 
 
 @pytest.mark.mutation
@@ -700,7 +700,7 @@ def test_inproc_thunk_outcomes(assay_root: AssayHarness) -> None:
     assert (healthy.returncode, healthy.stdout) == (0, b"inproc-ok"), f"healthy-thunk receipt wrong: {healthy!r}"
 
 
-# --- [STREAMING_LOCAL] (scoped tee → bounded tail + persisted artifact) -----------------
+# --- [STREAMING_LOCAL] ------------------------------------------------------------------
 
 # Each row drives the real `_run_process_backend` streaming arm: the anyio TaskGroup tees stdout through
 # `drain_stream` into a store-opened sink (when scoped) and `_stream_artifacts` records the persisted bytes.

@@ -43,41 +43,60 @@ Choose the lifecycle role before adding an owner, construct, rail, or projection
 ```python conceptual
 from dataclasses import dataclass
 from typing import Literal, NotRequired, ReadOnly, Required, Self, TypedDict
+
 import msgspec
 from expression import Error, Ok, Result
-from pydantic import BaseModel, ConfigDict, TypeAdapter, ValidationError
+from pydantic import BaseModel, ConfigDict, Field, TypeAdapter, ValidationError
 
-type ShapeFault = Literal["<empty-key>", "<invalid-payload>"]
-class ShapePayload(TypedDict, closed=True): key: Required[ReadOnly[str]]; note: NotRequired[ReadOnly[str | None]]
-class ShapeIngress(BaseModel): model_config = ConfigDict(frozen=True, extra="forbid", strict=True); key: str; note: str | None = None
+type ShapeFault = Literal["<empty-key>", "<invalid-payload>", "<invalid-egress>"]
+
+class ShapePayload(TypedDict, closed=True):
+    source_key: Required[ReadOnly[str]]
+    source_note: NotRequired[ReadOnly[str | None]]
+
+class ShapeIngress(BaseModel):
+    model_config = ConfigDict(frozen=True, extra="forbid", strict=True)
+    key: str = Field(validation_alias="source_key")
+    note: str | None = Field(default=None, validation_alias="source_note")
 
 @dataclass(frozen=True, slots=True, kw_only=True)
 class Shape:
-    key: str; note: str | None = None
+    key: str
+    note: str | None = None
+
     @classmethod
-    def admit(cls, ingress: ShapeIngress, /) -> Result[Self, ShapeFault]: return Ok(cls(key=ingress.key, note=ingress.note)) if ingress.key else Error("<empty-key>")
+    def admit(cls, ingress: ShapeIngress, /) -> Result[Self, ShapeFault]:
+        return (
+            Error("<empty-key>")
+            if ingress.key == ""
+            else Ok(cls(key=ingress.key, note=ingress.note))
+        )
 
-class ShapeWire(msgspec.Struct, frozen=True, forbid_unknown_fields=True, omit_defaults=True): key: str; note: str | None = None
+class ShapeWire(msgspec.Struct, frozen=True, forbid_unknown_fields=True, omit_defaults=True):
+    wire_key: str
+    wire_note: str | None = None
 
-SHAPE_PAYLOAD, SHAPE_INGRESS = TypeAdapter(ShapePayload), TypeAdapter(ShapeIngress)
+SHAPE_PAYLOAD = TypeAdapter(ShapePayload)
+SHAPE_ENCODER = msgspec.json.Encoder()
 
-def admitted(raw: object, /) -> Result[ShapeIngress, ShapeFault]:
+def admitted(raw: object, /) -> Result[Shape, ShapeFault]:
     try:
-        return Ok(SHAPE_INGRESS.validate_python(SHAPE_PAYLOAD.validate_python(raw)))
+        payload = SHAPE_PAYLOAD.validate_python(raw)
+        return Shape.admit(ShapeIngress.model_validate(payload))
     except ValidationError:
         return Error("<invalid-payload>")
 
-def materialized(ingress: ShapeIngress, /) -> Result[Shape, ShapeFault]:
-    return Shape.admit(ingress)
-
 def projected(shape: Shape, /) -> ShapeWire:
-    return ShapeWire(key=shape.key, note=shape.note)
+    return ShapeWire(wire_key=shape.key, wire_note=shape.note)
 
-def encoded(wire: ShapeWire, /) -> bytes:
-    return msgspec.json.encode(wire)
+def egressed(wire: ShapeWire, /) -> Result[bytes, ShapeFault]:
+    try:
+        return Ok(SHAPE_ENCODER.encode(wire))
+    except msgspec.EncodeError:
+        return Error("<invalid-egress>")
 
-def egressed(raw: object, /) -> Result[bytes, ShapeFault]:
-    return admitted(raw).bind(materialized).map(projected).map(encoded)
+def delivered(raw: object, /) -> Result[bytes, ShapeFault]:
+    return admitted(raw).map(projected).bind(egressed)
 ```
 
 ## [2]-[OWNER_CHOOSER]
@@ -136,6 +155,57 @@ Choose the invariant owner before choosing a package-backed model, wrapper, prot
 - Fold `extra_items` extension bands into `frozendict` or tuple evidence at promotion.
 - Reject total/non-total mirror shapes, homogeneous `**kwargs`, forwarded payload kwargs, and payload imports in domain interiors.
 
+[PAYLOAD_EXTENSION_PROMOTION]:
+- `extra_items` is the only admitted open payload band.
+- `Unpack[ShapePayload]` belongs at a root keyword entry, not inside the domain.
+- Materialization folds extensions into immutable owner evidence.
+- Payload dictionaries stop at owner admission.
+
+```python conceptual
+from dataclasses import dataclass, field
+from typing import Literal, NotRequired, ReadOnly, Required, Self, TypedDict, Unpack
+
+from expression import Error, Ok, Result
+from frozendict import frozendict
+from pydantic import TypeAdapter, ValidationError
+
+type ShapeFault = Literal["<empty-key>", "<invalid-payload>"]
+
+class ShapePayload(TypedDict, extra_items=ReadOnly[str]):
+    key: Required[ReadOnly[str]]
+    note: NotRequired[ReadOnly[str | None]]
+
+SHAPE_PAYLOAD = TypeAdapter(ShapePayload)
+
+@dataclass(frozen=True, slots=True, kw_only=True)
+class Shape:
+    key: str
+    note: str | None = None
+    extensions: frozendict[str, str] = field(default_factory=frozendict)
+
+    @classmethod
+    def materialized(cls, payload: ShapePayload, /) -> Result[Self, ShapeFault]:
+        return (
+            Error("<empty-key>")
+            if payload["key"] == ""
+            else Ok(
+                cls(
+                    key=payload["key"],
+                    note=payload.get("note"),
+                    extensions=frozendict(
+                        (key, value) for key, value in payload.items() if key not in ShapePayload.__annotations__
+                    ),
+                )
+            )
+        )
+
+def accepted(**raw: Unpack[ShapePayload]) -> Result[Shape, ShapeFault]:
+    try:
+        return Shape.materialized(SHAPE_PAYLOAD.validate_python(raw))
+    except ValidationError:
+        return Error("<invalid-payload>")
+```
+
 [PYDANTIC_ADMISSION]:
 - Pydantic owns untrusted ingress, settings, alias policy, discriminated admission, `Annotated` validation, JSON Schema-rich contracts, and mapped `ValidationError` surfaces.
 - Use module-level `TypeAdapter` for unions, payloads, scalars, and containers.
@@ -163,6 +233,56 @@ Choose the invariant owner before choosing a package-backed model, wrapper, prot
 - Wire owner: use msgspec only when fixed wire layout is policy-canonical.
 - Rich owner: use a rich class when construction law, behavior, folds, transition methods, evidence slots, or projection methods exceed declarative fields.
 - Family owner: use one closed family owner when mutually exclusive shapes represent one concept.
+
+A canonical owner snippet must not import boundary engines unless the boundary engine itself is the durable owner.
+
+```python conceptual
+from collections.abc import Callable
+from dataclasses import dataclass, field, replace
+from typing import Literal, Self
+
+from expression import Error, Nothing, Ok, Option, Result, Some
+
+type ShapeFault = Literal["<empty-key>", "<empty-tag>", "<duplicate-tag>"]
+
+@dataclass(frozen=True, slots=True, kw_only=True)
+class ShapeView:
+    key: str
+    selected: Option[str]
+    tags: tuple[str, ...]
+
+@dataclass(frozen=True, slots=True, kw_only=True)
+class Shape:
+    key: str
+    note: str | None = None
+    tags: tuple[str, ...] = field(default_factory=tuple)
+
+    @classmethod
+    def admit(cls, *, key: str, note: str | None = None) -> Result[Self, ShapeFault]:
+        return Error("<empty-key>") if key == "" else Ok(cls(key=key, note=note))
+
+    def tagged(self, tag: str, /) -> Result[Self, ShapeFault]:
+        return (
+            Error("<empty-tag>")
+            if tag == ""
+            else Error("<duplicate-tag>")
+            if tag in self.tags
+            else Ok(replace(self, tags=(*self.tags, tag)))
+        )
+
+    def fold_note[T](self, some: Callable[[str], T], none: Callable[[], T], /) -> T:
+        match self.note:
+            case str() as note:
+                return some(note)
+            case None:
+                return none()
+
+    def selected(self, /) -> Option[str]:
+        return self.fold_note(Some, lambda: Nothing)
+
+    def viewed(self, /) -> ShapeView:
+        return ShapeView(key=self.key, selected=self.selected(), tags=self.tags)
+```
 
 [GRADUATION_REJECTS]:
 - Graduate repeated primitive validation to a vocabulary, constrained scalar, or owner field.
@@ -196,38 +316,92 @@ Choose the invariant owner before choosing a package-backed model, wrapper, prot
 
 ```python conceptual
 from builtins import sentinel
-from dataclasses import dataclass
-from typing import Literal, NotRequired, ReadOnly, TypedDict
+from dataclasses import dataclass, field
+from enum import StrEnum
+from typing import Literal, NotRequired, ReadOnly, Self, TypedDict, assert_never
+
 from expression import Error, Nothing, Ok, Option, Result, Some
+from pydantic import TypeAdapter, ValidationError
 
 MISSING = sentinel("MISSING")
-type ShapeFault = Literal["<invalid-note>"]
-type NoteSource = Literal["<omitted>", "<provided>"]
+type ShapeFault = Literal["<invalid-patch>", "<invalid-note>"]
 
 class ShapePatch(TypedDict, total=False, closed=True):
     note: NotRequired[ReadOnly[str | None]]
 
+class NoteState(StrEnum):
+    OMITTED = "<omitted>"
+    NULL = "<null>"
+    PROVIDED = "<provided>"
+
+@dataclass(frozen=True, slots=True, kw_only=True)
+class Note:
+    state: NoteState
+    text: str | None = None
+
+    def __post_init__(self) -> None:
+        match self.state:
+            case NoteState.PROVIDED if self.text is None:
+                raise ValueError("<invalid-note>")
+            case NoteState.OMITTED | NoteState.NULL if self.text is not None:
+                raise ValueError("<invalid-note>")
+            case NoteState.PROVIDED | NoteState.OMITTED | NoteState.NULL:
+                return
+            case unreachable:
+                assert_never(unreachable)
+
+    @classmethod
+    def omitted(cls) -> Self:
+        return cls(state=NoteState.OMITTED)
+
+    @classmethod
+    def null(cls) -> Self:
+        return cls(state=NoteState.NULL)
+
+    @classmethod
+    def provided(cls, text: str, /) -> Self:
+        return cls(state=NoteState.PROVIDED, text=text)
+
+    @classmethod
+    def admitted(cls, row: ShapePatch, /) -> Result[Self, ShapeFault]:
+        match row.get("note", MISSING):
+            case value if value is MISSING:
+                return Ok(cls.omitted())
+            case None:
+                return Ok(cls.null())
+            case "":
+                return Error("<invalid-note>")
+            case str() as text:
+                return Ok(cls.provided(text))
+
+    def selected(self, fallback: str | type(MISSING) = MISSING, /) -> Option[str]:
+        match self.state:
+            case NoteState.PROVIDED:
+                return Some(self.text) if self.text is not None else Nothing
+            case NoteState.NULL:
+                return Nothing
+            case NoteState.OMITTED:
+                return Nothing if fallback is MISSING else Some(fallback)
+            case unreachable:
+                assert_never(unreachable)
+
+SHAPE_PATCH = TypeAdapter(ShapePatch)
+
 @dataclass(frozen=True, slots=True, kw_only=True)
 class Shape:
-    note: str | None = None
-    source: NoteSource = "<omitted>"
-    def selected(self, fallback: str | MISSING = MISSING, /) -> Option[str]:
-        return (
-            Some(self.note)
-            if self.note is not None
-            else Some(fallback) if fallback is not MISSING else Nothing
-        )
+    note: Note = field(default_factory=Note.omitted)
 
-def admitted(row: ShapePatch, /) -> Result[Shape, ShapeFault]:
-    return (
-        Error("<invalid-note>")
-        if row.get("note") == ""
-        else Ok(Shape(note=row["note"], source="<provided>") if "note" in row else Shape())
-    )
+def admitted(raw: object, /) -> Result[Shape, ShapeFault]:
+    try:
+        patch = SHAPE_PATCH.validate_python(raw)
+    except ValidationError:
+        return Error("<invalid-patch>")
+
+    return Note.admitted(patch).map(lambda note: Shape(note=note))
 ```
 
 [FAMILIES]:
-- Closed family: one owner namespace, one union alias, one vocabulary, distinct runtime members or a proven tagged union, total `match`, and `assert_never`.
+- Closed family: one owner namespace, one vocabulary, distinct runtime members or one tagged owner for shallow variants, total `match`, and `assert_never`.
 - Semi-closed family: closed core plus typed extension band or explicit extension variant.
 - Open family: only when foreign or plugin code can add members without editing the owner.
 - Use `TypeIs` only when a reusable predicate proves exact membership, not filtered validity.
@@ -238,44 +412,49 @@ def admitted(row: ShapePatch, /) -> Result[Shape, ShapeFault]:
 [CLOSED_FAMILY]:
 
 ```python conceptual
-from dataclasses import dataclass, field
+from collections.abc import Callable
+from dataclasses import dataclass
 from enum import StrEnum
-from typing import Literal, TypeIs, assert_never, disjoint_base, final
+from typing import Self, assert_never
+
+from expression import Nothing, Option, Some
 
 class Variant(StrEnum):
     PRIMARY = "<value-a>"
     SECONDARY = "<value-b>"
 
-@disjoint_base
+@dataclass(frozen=True, slots=True, kw_only=True)
 class Shape:
-    __slots__ = ()
-
-@final
-@dataclass(frozen=True, slots=True, kw_only=True)
-class Primary(Shape):
-    kind: Literal[Variant.PRIMARY] = field(default=Variant.PRIMARY, init=False)
+    kind: Variant
     key: str
+    note: Option[str] = Nothing
 
-@final
-@dataclass(frozen=True, slots=True, kw_only=True)
-class Secondary(Shape):
-    kind: Literal[Variant.SECONDARY] = field(default=Variant.SECONDARY, init=False)
-    key: str
-    note: str | None = None
+    @classmethod
+    def primary(cls, key: str, /) -> Self:
+        return cls(kind=Variant.PRIMARY, key=key)
 
-type Member = Primary | Secondary
+    @classmethod
+    def secondary(cls, key: str, note: str | None = None, /) -> Self:
+        return cls(
+            kind=Variant.SECONDARY,
+            key=key,
+            note=Nothing if note is None else Some(note),
+        )
 
-def is_primary(shape: Member, /) -> TypeIs[Primary]:
-    return type(shape) is Primary
+    def folded[T](self, primary: Callable[[str], T], secondary: Callable[[str, Option[str]], T], /) -> T:
+        match self.kind:
+            case Variant.PRIMARY:
+                return primary(self.key)
+            case Variant.SECONDARY:
+                return secondary(self.key, self.note)
+            case unreachable:
+                assert_never(unreachable)
 
-def selected(shape: Member, /) -> tuple[Variant, str]:
-    match shape:
-        case Primary() as selected:
-            return selected.kind, selected.key
-        case Secondary() as selected:
-            return selected.kind, selected.key
-        case unreachable:
-            assert_never(unreachable)
+def selected(shape: Shape, /) -> tuple[Variant, str, Option[str]]:
+    return shape.folded(
+        lambda key: (Variant.PRIMARY, key, Nothing),
+        lambda key, note: (Variant.SECONDARY, key, note),
+    )
 ```
 
 ## [6]-[PROJECTIONS_PORTS_AND_BOUNDARIES]
@@ -288,27 +467,70 @@ def selected(shape: Member, /) -> tuple[Variant, str]:
 - Reject: projection-to-projection authority, codec engines in canonical owners, scattered `model_dump` key pops, model-per-provider interiors, provider-shaped domain fields, and canonical `schema_version` branches that belong to read-boundary migration.
 
 ```python conceptual
-from builtins import frozendict
 from dataclasses import dataclass
 from enum import StrEnum
 from typing import Literal, ReadOnly, Required, Self, TypedDict
+
 import msgspec
 from expression import Error, Ok, Result
+from frozendict import frozendict
+from pydantic import TypeAdapter, ValidationError
 
-class Variant(StrEnum): PRIMARY = "<value-a>"; SECONDARY = "<value-b>"
-type ShapeFault = Literal["<empty-key>", "<unknown-kind>"]
-class ForeignRow(TypedDict, closed=True): foreign_kind: Required[ReadOnly[str]]; foreign_key: Required[ReadOnly[str]]
+class Variant(StrEnum):
+    PRIMARY = "<value-a>"
+    SECONDARY = "<value-b>"
+
+type WireKind = Literal["<wire-a>", "<wire-b>"]
+type ShapeFault = Literal["<empty-key>", "<invalid-row>", "<unknown-kind>"]
+
+class ForeignRow(TypedDict, closed=True):
+    foreign_kind: Required[ReadOnly[str]]
+    foreign_key: Required[ReadOnly[str]]
+
 @dataclass(frozen=True, slots=True, kw_only=True)
 class Shape:
-    kind: Variant; key: str
+    kind: Variant
+    key: str
+
     @classmethod
-    def admit(cls, *, kind: Variant, key: str) -> Result[Self, ShapeFault]: return Ok(cls(kind=kind, key=key)) if key else Error("<empty-key>")
-class ShapeWire(msgspec.Struct, frozen=True, forbid_unknown_fields=True): wire_kind: str; wire_key: str
-KIND_IN = frozendict({"<foreign-a>": Variant.PRIMARY, "<foreign-b>": Variant.SECONDARY})
-KIND_OUT = frozendict({Variant.PRIMARY: "<wire-a>", Variant.SECONDARY: "<wire-b>"})
+    def admit(cls, *, kind: Variant, key: str) -> Result[Self, ShapeFault]:
+        return (
+            Error("<empty-key>")
+            if key == ""
+            else Ok(cls(kind=kind, key=key))
+        )
+
+class ShapeWire(msgspec.Struct, frozen=True, forbid_unknown_fields=True):
+    wire_kind: WireKind
+    wire_key: str
+
+KIND_ROUTE: frozendict[str, tuple[Variant, WireKind]] = frozendict({
+    "<foreign-a>": (Variant.PRIMARY, "<wire-a>"),
+    "<foreign-b>": (Variant.SECONDARY, "<wire-b>"),
+})
+KIND_OUT: frozendict[Variant, WireKind] = frozendict((kind, wire) for kind, wire in KIND_ROUTE.values())
+
+FOREIGN_ROW = TypeAdapter(ForeignRow)
+
+def rowed(raw: object, /) -> Result[ForeignRow, ShapeFault]:
+    try:
+        return Ok(FOREIGN_ROW.validate_python(raw))
+    except ValidationError:
+        return Error("<invalid-row>")
+
 def materialized(row: ForeignRow, /) -> Result[Shape, ShapeFault]:
-    return Shape.admit(kind=kind, key=row["foreign_key"]) if (kind := KIND_IN.get(row["foreign_kind"])) else Error("<unknown-kind>")
-def projected(shape: Shape, /) -> ShapeWire: return ShapeWire(wire_kind=KIND_OUT[shape.kind], wire_key=shape.key)
+    route = KIND_ROUTE.get(row["foreign_kind"])
+    return (
+        Error("<unknown-kind>")
+        if route is None
+        else Shape.admit(kind=route[0], key=row["foreign_key"])
+    )
+
+def projected(shape: Shape, /) -> ShapeWire:
+    return ShapeWire(wire_kind=KIND_OUT[shape.kind], wire_key=shape.key)
+
+def translated(raw: object, /) -> Result[ShapeWire, ShapeFault]:
+    return rowed(raw).bind(materialized).map(projected)
 ```
 
 [STRUCTURAL_PORTS]:
@@ -323,27 +545,54 @@ def projected(shape: Shape, /) -> ShapeWire: return ShapeWire(wire_kind=KIND_OUT
 - Reject one-method callback protocols where `Callable` works, protocol unions simulating closed variants, protocols as wire or ingress fields, and protocols used as weak type repair.
 
 ```python conceptual
-from builtins import frozendict
-from dataclasses import dataclass
-from typing import Literal, Protocol, get_protocol_members
-from expression import Error, Ok, Result
+from copy import replace
+from dataclasses import dataclass, field
+from typing import Literal, Protocol, Self
 
-type ShapeFault = Literal["<missing>", "<unavailable>"]
+from expression import Error, Ok, Result
+from frozendict import frozendict
+
+type ShapeFault = Literal["<missing>"]
+
 @dataclass(frozen=True, slots=True, kw_only=True)
-class Shape: key: str; value: str
+class Shape:
+    key: str
+    value: str
+
 class ShapeStore(Protocol):
     def loaded(self, key: str, /) -> Result[Shape, ShapeFault]: ...
-    def stored(self, shape: Shape, /) -> Result[Shape, ShapeFault]: ...
+    def stored(self, shape: Shape, /) -> Result[Self, ShapeFault]: ...
+
+@dataclass(frozen=True, slots=True, kw_only=True)
 class MemoryStore:
-    def __init__(self, rows: frozendict[str, Shape], /) -> None: self._rows = rows
-    def loaded(self, key: str, /) -> Result[Shape, ShapeFault]: return Ok(shape) if (shape := self._rows.get(key)) else Error("<missing>")
-    def stored(self, shape: Shape, /) -> Result[Shape, ShapeFault]: return Ok(shape)
-class EmptyStore:
-    def loaded(self, key: str, /) -> Result[Shape, ShapeFault]: return Error("<unavailable>")
-    def stored(self, shape: Shape, /) -> Result[Shape, ShapeFault]: return Error("<unavailable>")
-PORT_MEMBERS = frozenset(get_protocol_members(ShapeStore))
-type ShapeScope = frozendict[type[ShapeStore], ShapeStore]
-def selected(scope: ShapeScope, key: str, /) -> Result[Shape, ShapeFault]: return scope[ShapeStore].loaded(key).bind(scope[ShapeStore].stored)
+    rows: frozendict[str, Shape] = field(default_factory=frozendict)
+
+    def loaded(self, key: str, /) -> Result[Shape, ShapeFault]:
+        return (
+            Ok(self.rows[key])
+            if key in self.rows
+            else Error("<missing>")
+        )
+
+    def stored(self, shape: Shape, /) -> Result[Self, ShapeFault]:
+        return Ok(replace(self, rows=self.rows | {shape.key: shape}))
+
+@dataclass(frozen=True, slots=True)
+class SnapshotStore:
+    row: Shape
+
+    def loaded(self, key: str, /) -> Result[Shape, ShapeFault]:
+        return (
+            Ok(self.row)
+            if key == self.row.key
+            else Error("<missing>")
+        )
+
+    def stored(self, shape: Shape, /) -> Result[Self, ShapeFault]:
+        return Ok(replace(self, row=shape))
+
+def refreshed[S: ShapeStore](store: S, key: str, value: str, /) -> Result[S, ShapeFault]:
+    return store.loaded(key).map(lambda shape: replace(shape, value=value)).bind(store.stored)
 ```
 
 ## [7]-[IMMUTABLE_REPLACEMENT]
@@ -364,41 +613,47 @@ def selected(scope: ShapeScope, key: str, /) -> Result[Shape, ShapeFault]: retur
 ```python conceptual
 from copy import replace
 from dataclasses import dataclass
-from typing import Literal, NotRequired, ReadOnly, Self, TypedDict
+from typing import Literal, NotRequired, ReadOnly, Required, Self, TypedDict
+
 from expression import Error, Ok, Result
 from pydantic import TypeAdapter, ValidationError
 
-type ShapeFault = Literal["<empty-key>", "<invalid-patch>"]
+type ShapeFault = Literal["<empty-key>", "<invalid-patch>", "<stale-version>"]
 
 class ShapePatch(TypedDict, closed=True):
+    expected_version: Required[ReadOnly[int]]
     key: NotRequired[ReadOnly[str]]
     note: NotRequired[ReadOnly[str | None]]
-    version: NotRequired[ReadOnly[int]]
 
 @dataclass(frozen=True, slots=True, kw_only=True)
 class Shape:
     key: str
     note: str | None = None
     version: int = 1
-    def noted(self, note: str | None, /) -> Self:
-        return replace(self, note=note)
+
     def renamed(self, key: str, /) -> Result[Self, ShapeFault]:
-        return Ok(replace(self, key=key)) if key else Error("<empty-key>")
+        return Error("<empty-key>") if key == "" else Ok(replace(self, key=key))
+
+    def advanced(self, *, expected_version: int, key: str, note: str | None) -> Result[Self, ShapeFault]:
+        return (
+            Error("<stale-version>")
+            if expected_version != self.version
+            else self.renamed(key).map(lambda shape: replace(shape, note=note, version=self.version + 1))
+        )
 
 SHAPE_PATCH = TypeAdapter(ShapePatch)
 
-def revalidated(shape: Shape, raw: object, /) -> Result[Shape, ShapeFault]:
+def patched(shape: Shape, raw: object, /) -> Result[Shape, ShapeFault]:
     try:
         patch = SHAPE_PATCH.validate_python(raw)
     except ValidationError:
         return Error("<invalid-patch>")
-    candidate = replace(
-        shape,
+
+    return shape.advanced(
+        expected_version=patch["expected_version"],
         key=patch.get("key", shape.key),
         note=patch.get("note", shape.note),
-        version=patch.get("version", shape.version),
     )
-    return Ok(candidate) if candidate.key else Error("<empty-key>")
 ```
 
 ## [8]-[COLLAPSE_TESTS]

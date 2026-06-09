@@ -44,6 +44,7 @@ from structlog.testing import capture_logs
 if TYPE_CHECKING:
     from collections.abc import Generator
 
+    from hypothesis.database import ExampleDatabase
     from structlog.types import EventDict
 
 
@@ -62,11 +63,11 @@ HYPOTHESIS_EXAMPLES = HYPOTHESIS_HOME / "examples"
 # (strong ref required — hypothesis weakrefs the instance) if one is introduced.
 _local_db = BackgroundWriteDatabase(DirectoryBasedExampleDatabase(HYPOTHESIS_EXAMPLES))
 _gh_replay = os.environ.get("RASM_HYPOTHESIS_GH_REPLAY")  # noqa: TID251  # test boundary: CI replay gate
-_EXAMPLE_DB = (
-    MultiplexedDatabase(_local_db, ReadOnlyDatabase(GitHubArtifactDatabase(*_gh_replay.split("/", 1))))
-    if _gh_replay and "/" in _gh_replay
-    else _local_db
-)
+match _gh_replay.split("/", 1) if _gh_replay else []:
+    case [owner, repo]:
+        _EXAMPLE_DB: ExampleDatabase = MultiplexedDatabase(_local_db, ReadOnlyDatabase(GitHubArtifactDatabase(owner, repo)))
+    case _:
+        _EXAMPLE_DB = _local_db
 _SUPPRESSIONS = (HealthCheck.too_slow, HealthCheck.data_too_large)
 _log = structlog.get_logger(__name__)
 

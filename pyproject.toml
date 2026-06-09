@@ -152,7 +152,7 @@ warn_untyped_fields =           true
 # not a defect. disallow_any_*: Callable[..., R] test signatures + TypeForm unfollowed-import Any. warn_unreachable:
 # exhaustive seam match arms ty proves live. disable_error_code: mypy typeshed lag — TypeForm + PEP 661 sentinel
 # (attr-defined), no-for-loop side-effect comprehensions (func-returns-value), test Callable signatures (type-arg),
-# RailProbe.install LSP narrowing (override), GitHubArtifactDatabase(*split) splat-arity (arg-type).
+# RailProbe.install LSP narrowing (override), **dict-splat into typed ctors + mypy Never-collapse arg propagation (arg-type).
 [[tool.mypy.overrides]]
 module =                  "tests.*"
 disallow_any_explicit =   false

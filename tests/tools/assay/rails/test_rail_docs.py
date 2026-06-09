@@ -49,7 +49,7 @@ register_law(check, "check_strict_flag_propagated")
 register_law(check, "check_multi_fault_first_fault_wins")
 
 
-# --- [LAWS: DocsParams] ----------------------------------------------------------------
+# --- [LAWS_DOCSPARAMS] ------------------------------------------------------------------
 
 
 def test_docs_params_default_strict_is_false() -> None:
@@ -86,7 +86,7 @@ def test_docs_params_paths_default_empty() -> None:
     )
 
 
-# --- [LAWS: FaultedPromotion] ----------------------------------------------------------
+# --- [LAWS_FAULTED_PROMOTION] -----------------------------------------------------------
 
 
 def test_faulted_promotion_is_exception_subclass() -> None:
@@ -143,7 +143,7 @@ def test_faulted_promotion_promotion_matrix() -> None:
         _ = label  # label consumed by parametrize context
 
 
-# --- [LAWS: check] ---------------------------------------------------------------------
+# --- [LAWS_CHECK] -----------------------------------------------------------------------
 
 
 def test_check_fan_out_fault_propagates_on_error_rail(assay_root: AssayHarness, monkeypatch: pytest.MonkeyPatch) -> None:

@@ -43,6 +43,7 @@ from tests._seams import (  # noqa: PLC2701  # sibling seam engine; `_`-named by
     Async as _Async,
     autospec_proc,
     Factory as _Factory,
+    FanOut as _FanOut,
     install_module_attr,
     loopback_server,
     NdjsonOracle,
@@ -62,13 +63,8 @@ from tests._spec import (  # noqa: PLC2701  # sibling test-internal module re-ex
 )
 from tests._strategies import resolve  # noqa: PLC2701  # sibling test-internal module; `_`-named by S1 design
 from tests.conftest import REPO_ROOT
-from tools.assay import _configure  # noqa: PLC2701  # private structlog config entry re-applied per test to override sibling-suite resets
 from tools.assay.composition.registry import REGISTRY
-from tools.assay.composition.settings import (  # ArtifactScope.open is invoked + AssaySettings is a TmpRoot field type
-    ArtifactScope,
-    AssaySettings,
-    LogFormat,
-)
+from tools.assay.composition.settings import ArtifactScope, AssaySettings  # ArtifactScope.open is invoked + AssaySettings is a TmpRoot field type
 from tools.assay.core.model import (
     AnyDetail,
     ApiResolution,
@@ -159,11 +155,11 @@ SUT_PACKAGE: Final = "tools.assay"
 #   - automation/engine.py: Fire/Worker are Callable aliases.
 #   - aspect.py:  _CHECKED_LAYER/_RING are the assembled-layer + ring-buffer ContextVar seams.
 _EXEMPT: Final = frozenset({
-    "Attrs", "Bind", "Hom", "Layer", "Inversion",  # aspect type aliases + ordering Exception
+    "Attrs", "Bind", "Hom", "Layer", "Inversion",   # aspect type aliases + ordering Exception
     "ByteRecv", "_RESOURCE",                        # core/engine alias + resource ContextVar
     "InprocThunk",                                  # model Callable alias
     "Handler",                                      # registry Callable alias
-    "Fire", "Worker", "ChangeBatch",               # automation/engine Callable + type aliases
+    "Fire", "Worker", "ChangeBatch",                # automation/engine Callable + type aliases
     "_CHECKED_LAYER", "_RING",                      # aspect assembled-layer + ring ContextVar seams
     "_HINT_CAP", "_RESULT_CAP",                     # model int caps (no independent law; _HINT_CAP exercised via field_cap)
 })  # fmt: skip
@@ -261,8 +257,9 @@ class RailProbe(SeamProbe[Check], frozen=True, gc=False):
     The patch target is the OWNER module that re-binds the seam (``rails.api``/``automation.engine``/
     ``core.engine``), never the definition site, mirroring how production resolves the name. ``install``
     promotes the member name to a :data:`Shape` variant (``run_check_async`` → awaited; ``rail`` → the
-    ``(bind, settings) -> (params) -> Envelope`` factory recording a ``rail.run`` call-layer; everything else →
-    sync) — this member→shape map is documented ASSAY POLICY, not an engine catch-all.
+    ``(bind, settings) -> (params) -> Envelope`` factory recording a ``rail.run`` call-layer; a tuple-of-Results
+    payload → fan-out; everything else → sync) — this member→shape map is documented ASSAY POLICY, not an engine
+    catch-all.
     """
 
     project: Callable[[tuple[object, ...]], Generator[Check]] = _pick_check
@@ -278,7 +275,8 @@ class RailProbe(SeamProbe[Check], frozen=True, gc=False):
         """Bind ``owner.member`` to a canned seam mirroring the production call shape of ``member``.
 
         ``run_check``/``run_check_async`` accept a ``Result`` payload; ``rail`` accepts a canned ``Envelope``
-        and installs the ``(bind, settings) -> (params) -> Envelope`` factory. Each call is appended to
+        and installs the ``(bind, settings) -> (params) -> Envelope`` factory; a tuple-of-Results payload binds a
+        fan-out seam so a future fan-out member is not silently doubled as ``Sync``. Each call is appended to
         ``calls`` and any first-positional ``Check`` to ``captured`` (read as ``checks``).
         """
         match member:
@@ -287,7 +285,7 @@ class RailProbe(SeamProbe[Check], frozen=True, gc=False):
             case "rail":
                 shape = _Factory[object](value=payload, inner_label="rail.run")
             case _:
-                shape = Sync[object](value=payload)
+                shape = _FanOut[object](values=payload) if isinstance(payload, tuple) else Sync[object](value=payload)
         super().install(monkeypatch, owner, member, shape)
 
     @property
@@ -520,18 +518,12 @@ def _isolate_sut_state() -> Generator[None]:
     the test process; forcing each to its declared default at test start keeps every ring / governor /
     resource / history law order-independent under pytest-randomly. One shared seam — the universal isolation
     the whole suite relies on (``_WRITES`` has no default and is owned per-invocation, so it is left alone).
-
-    Also re-applies assay's ``_configure`` per test: sibling ``tools.quality`` tests reset structlog's GLOBAL
-    ``logger_factory`` to a ``PrintLoggerFactory`` over a transient ``sys.stderr`` that pytest's fd-capture closes,
-    which would otherwise crash every later assay rail log (``ValueError: I/O operation on closed file``).
     """
     import structlog  # noqa: PLC0415
 
     from tools.assay.automation.engine import _CPU_PRIMED  # noqa: PLC0415, PLC2701
     from tools.assay.core.aspect import _RING  # noqa: PLC0415, PLC2701
     from tools.assay.core.engine import _RESOURCE, _SSH_CACHE  # noqa: PLC0415, PLC2701
-
-    _configure(LogFormat.CI)
 
     # `_arm` ties each ``Token[T]`` to its ``ContextVar[T]`` at set-time so the heterogeneous (None/bool/tuple/cache)
     # vars reset type-cleanly without a per-var statement; one comprehension arms all four, the closures undo them.
@@ -664,11 +656,15 @@ async def ssh_loopback(socket_enabled: None) -> AsyncGenerator[SshLoopback]:
     key = asyncssh.generate_private_key("ssh-ed25519")
 
     def _listen() -> Awaitable[asyncssh.SSHAcceptor]:
-        # asyncssh.listen returns an awaitable async-CM wrapper; declaring Awaitable[SSHAcceptor] lets the engine bind S.
+        # asyncssh.listen returns an _ACMWrapper (Awaitable, not Coroutine); SSHAcceptor is its awaited server type.
         return asyncssh.listen("127.0.0.1", 0, server_host_keys=[key], server_factory=_Server, process_factory=_handler)
 
-    # ty cannot bind S=SSHAcceptor through Awaitable invariance at this call site; the engine + runtime are sound.
-    async with loopback_server(_listen, lambda server: server.get_port()) as lb:  # ty: ignore[invalid-argument-type, unresolved-attribute]
+    def _port(server: asyncssh.SSHAcceptor) -> int:
+        return server.get_port()  # typed reader keeps get_port checked, narrowing the unavoidable ignore below
+
+    # ty cannot bind loopback_server's S typevar through the @asynccontextmanager wrapper (the decorated generic is
+    # non-subscriptable and S stays opaque), so _listen/_port check against an unsolved S; the engine + runtime are sound.
+    async with loopback_server(_listen, _port) as lb:  # ty: ignore[invalid-argument-type]
         yield SshLoopback(port=lb.port)
 
 

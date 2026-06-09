@@ -703,6 +703,21 @@ def _ts_captures(parser: TSParser, path: Path, symbol: str) -> tuple[Capture, ..
             return (*parse_fault, *_ts_member(root, symbol, path, is_dts=is_dts))
 
 
+def _span_capture(name: str, text: str, node: Node, path: Path) -> Capture:
+    # Shared tree-sitter capture window: tree-sitter points are 0-indexed, Capture's line/column are 1-indexed.
+    return Capture(
+        name=name,
+        text=text,
+        file=path.name,
+        line=node.start_point.row + 1,
+        column=node.start_point.column + 1,
+        end_line=node.end_point.row + 1,
+        end_column=node.end_point.column + 1,
+        start_byte=node.start_byte,
+        end_byte=node.end_byte,
+    )
+
+
 def _ts_declared(root: Node, path: Path, *, is_dts: bool) -> tuple[Capture, ...]:
     # QueryError on a malformed roster query surfaces as a single capture, mirroring the code.py query rail.
     match ts_query(_TS_GRAMMAR, _TS_DECL_QUERY):
@@ -710,17 +725,7 @@ def _ts_declared(root: Node, path: Path, *, is_dts: bool) -> tuple[Capture, ...]
             return (Capture(name="query_error", text=str(exc)[:_NAME_CAP], file=path.name, line=1, parse_error=True),)
         case compiled:
             return tuple(
-                Capture(
-                    name="type",
-                    text=_node_text(node)[:_NAME_CAP],
-                    file=path.name,
-                    line=node.start_point.row + 1,
-                    column=node.start_point.column + 1,
-                    end_line=node.end_point.row + 1,
-                    end_column=node.end_point.column + 1,
-                    start_byte=node.start_byte,
-                    end_byte=node.end_byte,
-                )
+                _span_capture("type", _node_text(node)[:_NAME_CAP], node, path)
                 for nodes in QueryCursor(compiled).captures(root).values()
                 for node in nodes
                 if _exported(node, is_dts=is_dts)
@@ -758,17 +763,7 @@ def _ts_member(root: Node, symbol: str, path: Path, *, is_dts: bool) -> tuple[Ca
             full = _node_text(node)
             doc = _ts_doc(node)
             return (
-                Capture(
-                    name="signature",
-                    text=full.splitlines()[0][:_SIG_CAP] if full else "",
-                    file=path.name,
-                    line=node.start_point.row + 1,
-                    column=node.start_point.column + 1,
-                    end_line=node.end_point.row + 1,
-                    end_column=node.end_point.column + 1,
-                    start_byte=node.start_byte,
-                    end_byte=node.end_byte,
-                ),
+                _span_capture("signature", full.splitlines()[0][:_SIG_CAP] if full else "", node, path),
                 Capture(name="full", text=full[:_FULL_CAP], file=path.name, line=node.start_point.row + 1),
                 *((Capture(name="doc", text=doc[:_SIG_CAP], file=path.name, line=node.start_point.row + 1),) if doc else ()),
             )
@@ -798,36 +793,12 @@ def _parents(node: Node) -> tuple[Node, ...]:
 
 
 def _export_aliases(root: Node, path: Path) -> tuple[Capture, ...]:
-    return tuple(
-        Capture(
-            name="type",
-            text=_export_name(spec)[:_NAME_CAP],
-            file=path.name,
-            line=spec.start_point.row + 1,
-            column=spec.start_point.column + 1,
-            end_line=spec.end_point.row + 1,
-            end_column=spec.end_point.column + 1,
-            start_byte=spec.start_byte,
-            end_byte=spec.end_byte,
-        )
-        for spec in _walk(root, "export_specifier")
-        if _export_name(spec)
-    )
+    return tuple(_span_capture("type", _export_name(spec)[:_NAME_CAP], spec, path) for spec in _walk(root, "export_specifier") if _export_name(spec))
 
 
 def _export_member(root: Node, target: str, path: Path) -> tuple[Capture, ...]:
     return tuple(
-        Capture(
-            name="signature",
-            text=_node_text(spec)[:_SIG_CAP],
-            file=path.name,
-            line=spec.start_point.row + 1,
-            column=spec.start_point.column + 1,
-            end_line=spec.end_point.row + 1,
-            end_column=spec.end_point.column + 1,
-            start_byte=spec.start_byte,
-            end_byte=spec.end_byte,
-        )
+        _span_capture("signature", _node_text(spec)[:_SIG_CAP], spec, path)
         for spec in _walk(root, "export_specifier")
         if _export_name(spec) == target
     )[:1]

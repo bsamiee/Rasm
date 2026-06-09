@@ -1,6 +1,6 @@
 """Typed fixture surface for quality-rail laws."""
 
-# --- [IMPORTS] ------------------------------------------------------------------------
+# --- [RUNTIME_PRELUDE] ------------------------------------------------------------------
 
 from collections import Counter
 from dataclasses import dataclass, field
@@ -20,7 +20,7 @@ if TYPE_CHECKING:
     from collections.abc import Callable, Mapping
 
 
-# --- [MODELS] --------------------------------------------------------------------------
+# --- [MODELS] ---------------------------------------------------------------------------
 
 
 @dataclass(frozen=True, slots=True)
@@ -239,7 +239,7 @@ class PackageShape:
         )
 
 
-# --- [LAW_TABLES] ----------------------------------------------------------------------
+# --- [LAW_TABLES] -----------------------------------------------------------------------
 
 
 API_DOCTOR = api_rail.ApiDoctorReport(query={"op": "doctor"}, status="ok", rhino={}, ilspy={}, rhinocode={}, counts={}, artifact_paths={}, sources=())
@@ -328,7 +328,7 @@ TARGET_LAWS: tuple[TargetLaw, ...] = (
 )
 
 
-# --- [COMPOSITION] ---------------------------------------------------------------------
+# --- [COMPOSITION] ----------------------------------------------------------------------
 
 
 @pytest.fixture

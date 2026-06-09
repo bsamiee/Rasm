@@ -16,6 +16,7 @@ from expression import Error, Ok, Result
 import msgspec
 import structlog
 
+from tools.assay._logging import configure_logging  # noqa: PLC2701  # shared live-stderr structlog owner; one config across both packages
 from tools.quality.process import Completed, dotnet_build, ProcessFault, RailStatus
 from tools.quality.rails import api as api_rail, bridge as bridge_rail, package as bridge_package, static as static_rail, test as test_rail
 from tools.quality.settings import ArtifactScope, QualitySettings
@@ -477,12 +478,7 @@ for _rail_app in (static, test_app, bridge, api):
 
 
 def main(argv: list[str] | None = None) -> int:
-    structlog.configure(
-        processors=(structlog.contextvars.merge_contextvars, structlog.processors.TimeStamper(fmt="iso"), structlog.dev.ConsoleRenderer()),
-        # Logs/diagnostics to stderr; machine payloads (rail JSON, _emit) stay alone on stdout.
-        logger_factory=structlog.PrintLoggerFactory(file=sys.stderr),
-        cache_logger_on_first_use=False,
-    )
+    configure_logging()  # canonical live-stderr config: diagnostics to stderr, the Envelope wire keeps stdout alone
     return (app() if argv is None else app(argv)) or 0
 
 

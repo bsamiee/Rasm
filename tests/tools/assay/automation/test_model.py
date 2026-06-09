@@ -107,7 +107,7 @@ register_law(Schedule, "test_trigger_encode_decode_roundtrip")
 register_law(Manual, "test_trigger_encode_decode_roundtrip")
 
 
-# --- describe prefix laws ---
+# --- [DESCRIBE_PREFIX] ------------------------------------------------------------------
 
 
 _DESCRIBE_PREFIXES: tuple[tuple[type[Watch | Schedule | Manual | Rail | Program | Sequence | Debounce], str], ...] = (
@@ -151,7 +151,7 @@ def test_describe_action_nonempty(action: Action) -> None:
 register_law(describe, "test_describe_action_nonempty")
 
 
-# --- Sequence describe compositional law ---
+# --- [SEQUENCE_DESCRIBE] ----------------------------------------------------------------
 
 
 def test_describe_sequence_compositional() -> None:
@@ -166,7 +166,7 @@ def test_describe_sequence_compositional() -> None:
 register_law(Sequence, "test_describe_sequence_compositional")
 
 
-# --- Rail describe projection ---
+# --- [RAIL_DESCRIBE] --------------------------------------------------------------------
 
 
 @pytest.mark.parametrize("claim", list(Claim))
@@ -179,7 +179,7 @@ def test_describe_rail_claim_verb_projection(claim: Claim) -> None:
 register_law(Rail, "test_describe_rail_claim_verb_projection")
 
 
-# --- Schedule timezone describe ---
+# --- [SCHEDULE_TIMEZONE] ----------------------------------------------------------------
 
 
 def test_describe_schedule_timezone_suffix() -> None:
@@ -195,7 +195,7 @@ def test_describe_schedule_timezone_suffix() -> None:
 register_law(Schedule, "test_describe_schedule_timezone_suffix")
 
 
-# --- Watch describe path-count and debounce projection ---
+# --- [WATCH_DESCRIBE] -------------------------------------------------------------------
 
 
 @given(resolve(Watch))
@@ -208,7 +208,7 @@ def test_describe_watch_path_count(watch: Watch) -> None:
 register_law(Watch, "test_describe_watch_path_count")
 
 
-# --- WatchFilter sweep ---
+# --- [WATCHFILTER_SWEEP] ----------------------------------------------------------------
 
 
 @pytest.mark.parametrize("flt", list(WatchFilter))
@@ -223,7 +223,7 @@ def test_watch_filter_roundtrip(flt: WatchFilter) -> None:
 register_law(WatchFilter, "test_watch_filter_roundtrip")
 
 
-# --- Constraint violation laws ---
+# --- [CONSTRAINT_VIOLATION] -------------------------------------------------------------
 
 
 @pytest.mark.parametrize(
@@ -245,7 +245,7 @@ def test_decode_constraint_violations(blob: bytes, trigger: bool, match: str) ->
 register_law(decode, "test_decode_constraint_violations")
 
 
-# --- encode purity ---
+# --- [ENCODE_PURITY] --------------------------------------------------------------------
 
 
 @given(_action_st)

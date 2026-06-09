@@ -38,6 +38,11 @@ _PYPROJECT: Path = REPO_ROOT / "pyproject.toml"
 # Policy markers that must be declared in [tool.pytest.ini_options] markers.
 _POLICY_MARKERS: frozenset[str] = frozenset({"benchmark", "mutation", "network", "property"})
 
+# Tool scratch dirs that must never collect at the repo root: each tool home is routed under .cache/ or
+# .artifacts/ (hypothesis → .cache/hypothesis, pytest-benchmark → .artifacts/python/benchmarks, coverage →
+# .cache/coverage/.coverage, inline-snapshot → .cache/inline-snapshot).
+_LITTER_DIRS: frozenset[str] = frozenset({".hypothesis", ".benchmarks", ".mutants", "mutants", ".coverage", ".approval_tests_temp"})
+
 
 # --- [OPERATIONS] -----------------------------------------------------------------------
 
@@ -117,7 +122,7 @@ def _collect_session_items(pytestconfig: pytest.Config) -> list[Function]:
     return [item for item in (raw if isinstance(raw, list) else []) if isinstance(item, Function)]
 
 
-# --- law-coverage gate ---
+# --- [LAW_COVERAGE_GATE] ----------------------------------------------------------------
 
 
 def test_law_coverage_gate() -> None:
@@ -129,7 +134,7 @@ def test_law_coverage_gate() -> None:
     assert_law_coverage()
 
 
-# --- MANIFEST structural laws ---
+# --- [MANIFEST_STRUCTURAL_LAWS] ---------------------------------------------------------
 
 
 def test_manifest_records_are_typed() -> None:
@@ -166,7 +171,7 @@ def test_manifest_has_no_lambda_subjects() -> None:
     assert not lambda_entries, f"anonymous-subject law records found: {lambda_entries!r}"
 
 
-# --- marker-policy laws ---
+# --- [MARKER_POLICY_LAWS] ---------------------------------------------------------------
 
 
 def test_declared_markers_cover_policy_set() -> None:
@@ -215,7 +220,7 @@ def test_property_marker_auto_applied_to_hypothesis_items(pytestconfig: pytest.C
         )
 
 
-# --- benchmark-storage single-owner policy ---
+# --- [BENCHMARK_STORAGE_POLICY] ---------------------------------------------------------
 
 
 def test_benchmark_storage_single_owner_in_addopts() -> None:
@@ -262,3 +267,16 @@ def test_catalog_module_exposes_benchmark_storage_uri() -> None:
     uri: object = getattr(mod, "BENCHMARK_STORAGE_URI", None)
     assert isinstance(uri, str), f"BENCHMARK_STORAGE_URI is absent or not str: {uri!r}"
     assert uri, f"BENCHMARK_STORAGE_URI is empty: {uri!r}"
+
+
+# --- [LITTER_CONTAINMENT_POLICY] --------------------------------------------------------
+
+
+def test_repo_root_has_no_tool_scratch_litter() -> None:
+    """No test tool writes its scratch to the repo root; every home routes under .cache/ or .artifacts/.
+
+    Falsifiable by: a tool (hypothesis, pytest-benchmark, coverage, mutmut, approvaltests) regressing its
+    store to the repo root instead of its routed home — the offending dir name would surface here.
+    """
+    present = sorted(name for name in _LITTER_DIRS if (REPO_ROOT / name).exists())
+    assert not present, f"repo root collected test-tool litter (route each under .cache/ or .artifacts/): {present}"

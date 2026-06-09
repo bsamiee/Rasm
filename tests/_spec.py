@@ -116,7 +116,7 @@ def de_eq(*, delta: float | None = None) -> Callable[[float, float], bool]:
     return lambda left, right: left == IsApprox(right, delta=delta)
 
 
-# --- ALGEBRAIC ORACLES ------------------------------------------------------------------
+# --- [ALGEBRAIC_ORACLES] ----------------------------------------------------------------
 
 
 def roundtrip[T, U](x: T, forward: Callable[[T], U], back: Callable[[U], T], *, eq: _Eq[T] = None) -> None:
@@ -232,7 +232,7 @@ def refutes[T](witness: T, law: Callable[..., None], *args: object, **kwargs: ob
     raise AssertionError("law is a tautology — a surviving mutant exploits it")
 
 
-# --- MATRIX ORACLES ---------------------------------------------------------------------
+# --- [MATRIX_ORACLES] -------------------------------------------------------------------
 
 
 @overload
@@ -283,7 +283,7 @@ def projection_matrix[I](cases: Iterable[ProjectionCase[I]], project: Callable[[
         assert actual == reference, f"projection_matrix[{case_.label!r}]: expected {reference!r}, got {actual!r} (intent={case_.intent!r})"
 
 
-# --- ROP ORACLES ------------------------------------------------------------------------
+# --- [ROP_ORACLES] ----------------------------------------------------------------------
 
 _DEFAULT_ENCODER: msgspec.json.Encoder = msgspec.json.Encoder(order="deterministic")
 
@@ -421,7 +421,7 @@ def assert_roundtrip[T](value: T, typ: type[T], *, codec: msgspec.json.Encoder |
     return decoded
 
 
-# --- STATEFUL / MODEL-BASED -------------------------------------------------------------
+# --- [STATEFUL_MODEL_BASED] -------------------------------------------------------------
 
 
 def model_based[M: RuleBasedStateMachine](machine_cls: type[M]) -> type[M]:

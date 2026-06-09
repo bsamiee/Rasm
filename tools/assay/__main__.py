@@ -9,6 +9,7 @@ from pydantic import ValidationError
 
 from tools.assay import (
     _DRAIN_MS,  # noqa: PLC2701  # intra-package private import: one operator-chosen ~1.5s bound shared with the BatchSpanProcessor cadence
+    configure_logging,
     install_tracing,
 )
 from tools.assay.composition.registry import build_app, parse_fault, REGISTRY
@@ -77,6 +78,7 @@ def main(argv: list[str] | None = None) -> int:
     Returns:
         Process exit code returned by the CLI dispatcher.
     """
+    configure_logging()  # explicit replacement for the deleted import side effect; no-op once the package bootstrap configured
     # Scrub lone surrogates (os.fsdecode surrogateescape from invalid-UTF-8 argv) at the boundary so untrusted
     # tokens cannot crash the wire encoder; valid Unicode passes through unchanged.
     tokens = tuple(wire_safe(token) for token in (sys.argv[1:] if argv is None else argv))

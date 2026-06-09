@@ -85,7 +85,7 @@ def test_slot_ordering_is_monotonic() -> None:
     )
 
 
-# --- [COMPOSE / ASSEMBLE] ---------------------------------------------------------------
+# --- [COMPOSE_ASSEMBLE] -----------------------------------------------------------------
 
 
 def test_compose_double_checked_equals_single() -> None:
@@ -165,7 +165,7 @@ def test_compose_raises_typeerror_carrying_inversion() -> None:
     assert raised.value.args[0].outer is Slot.logged
 
 
-# --- [CHECKED / CHECKED_CALL] -----------------------------------------------------------
+# --- [CHECKED_CHECKED_CALL] -------------------------------------------------------------
 
 
 def test_checked_is_checked_slot_layer() -> None:
@@ -271,7 +271,7 @@ def test_traced_stamps_fault_status_and_adds_fault_event(otel_spans: InMemorySpa
     assert tuple(e.name for e in spans[0].events) == ("assay.fault",)
 
 
-# --- [RING_PROCESSOR / RING_RECENT] -----------------------------------------------------
+# --- [RING_PROCESSOR_RING_RECENT] -------------------------------------------------------
 
 
 @given(level=st.sampled_from(("info", "warning", "error")), event=st.text(max_size=32))
