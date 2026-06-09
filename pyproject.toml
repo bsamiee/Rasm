@@ -380,6 +380,8 @@ ignore = [
     "FIX002",  # todo-found (CI gate, not editor noise)
     "INP001",  # implicit-namespace-package (monorepo structure)
     "CPY001",  # missing-copyright-notice (top-level LICENSE)
+    # -- Section-divider convention -----------------------------------------
+    "ERA001",  # bare '# --- [LABEL]' sub-section dividers (CLAUDE.md [6]) read as commented-out code by eradicate
 ]
 
 [tool.ruff.lint.per-file-ignores]

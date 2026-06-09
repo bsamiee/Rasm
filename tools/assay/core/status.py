@@ -1,4 +1,4 @@
-"""Define rail status values and their severity fold."""
+"""Rail status values and their severity fold."""
 
 from enum import StrEnum
 from functools import reduce
@@ -11,7 +11,7 @@ from typing import Self
 class RailStatus(StrEnum):
     """Rail status with its wire token, exit code, and severity rank."""
 
-    exit_code: int  # annotation-only field; __new__ binds the payload after enum construction
+    exit_code: int  # bound by __new__; not a real descriptor
     severity: int
 
     SKIP = "skip", 0, 0, "skipped"
@@ -24,21 +24,21 @@ class RailStatus(StrEnum):
     FAULTED = "faulted", 2, 7
 
     def __new__(cls, value: str, exit_code: int, severity: int, *aliases: str) -> Self:
-        """Bind the wire token, process exit code, severity, and aliases."""
+        """Bind the wire token, exit code, severity, and string aliases."""
         member = str.__new__(cls, value)
         member._value_ = value
         member.exit_code = exit_code
         member.severity = severity
         for alias in aliases:
-            member._add_value_alias_(alias)  # Python 3.13+ alias registration rejects cross-member collisions
+            member._add_value_alias_(alias)  # Python 3.13+ raises on cross-member alias collisions
         return member
 
     @classmethod
     def from_returncode(cls, rc: int) -> RailStatus:
-        """Project a process return code onto a rail status.
+        """Project a process return code onto the nearest rail status.
 
         Returns:
-            Status represented by the process return code.
+            EMPTY for 0, BUSY for 5, TIMEOUT for 124, FAILED for everything else.
         """
         match rc:
             case 0:
@@ -63,7 +63,7 @@ def fold(*members: RailStatus) -> RailStatus:
     """Reduce statuses under `join`, seeded at `EMPTY`.
 
     Returns:
-        Highest-severity status from the supplied members.
+        The highest-severity status among the supplied members.
     """
     return reduce(join, members, RailStatus.EMPTY)
 

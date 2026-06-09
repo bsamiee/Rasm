@@ -14,8 +14,8 @@ from expression import Error, Ok, Result
 import msgspec
 import pytest
 
-from tests._aspect import register_law  # noqa: PLC2701
-from tests._spec import assert_error, assert_error_status, assert_ok, support_matrix  # noqa: PLC2701
+from tests._aspect import register_law  # noqa: PLC2701 — test-internal private symbol
+from tests._spec import assert_error, assert_error_status, assert_ok, support_matrix  # noqa: PLC2701 — test-internal private symbol
 from tools.assay.composition.settings import ArtifactScope, AssaySettings
 from tools.assay.core.model import Claim, Fault, receipt, Report
 from tools.assay.core.status import RailStatus
@@ -61,17 +61,16 @@ if TYPE_CHECKING:
 
 
 class _LeaseAction(Protocol):
-    """Protocol for the action callable passed into `leased` (called with one held-object arg)."""
+    """Structural type for the action passed to `leased`; accepts a held resource object."""
 
     def __call__(self, held: object) -> object: ...
 
 
-# --- [CONSTANTS] ------------------------------------------------------------------------
-
-# Bridge verb type alias — maps the three-arg production signature.
 type _BridgeVerb = Callable[[AssaySettings, ArtifactScope, BridgeParams], Result[Report, Fault]]
 
-# Lifecycle verbs (all but verify) — routes differ only in client subcommand.
+
+# --- [CONSTANTS] ------------------------------------------------------------------------
+
 _LIFECYCLE_VERBS: tuple[tuple[str, _BridgeVerb], ...] = (
     ("check", check),
     ("clean", clean),
@@ -84,7 +83,7 @@ _LIFECYCLE_VERBS: tuple[tuple[str, _BridgeVerb], ...] = (
 # --- [OPERATIONS] -----------------------------------------------------------------------
 
 
-# Shared lease-bypass factory: replaces `leased` so lifecycle verb laws run without filesystem locks.
+# Substitutes for `leased` so lifecycle verb laws skip filesystem lock acquisition.
 def _leased_bypass(resource: str, action: _LeaseAction, *, settings: object, run_id: str, project: str = "", mode: str = "exclusive") -> object:
     return action(MagicMock())
 
@@ -98,7 +97,7 @@ def _install_dll(assay_root: AssayHarness) -> None:
 
 
 def _make_scenario(assay_root: AssayHarness, rel: str = "tests/bridge/Case.verify.csx") -> Path:
-    """Write a minimal scenario file and return its path.
+    """Write a minimal scenario file under assay_root.
 
     Returns:
         Absolute path of the written scenario file.
@@ -121,7 +120,7 @@ def _br_failed(*phases: _BridgePhase) -> _BridgeResult:
     return _BridgeResult(status=RailStatus.FAILED, phases=phases)
 
 
-# ------ BridgeParams laws -----------------------------------------------------------------------
+# --- [BRIDGE_PARAMS]
 
 
 register_law(BridgeParams, "pattern_from_paths")
@@ -148,7 +147,34 @@ def test_bridge_params_arity_discriminates_verify(verb: str, expected_arity: int
     assert BridgeParams()._arity(verb) == expected_arity
 
 
-# ------ first_fault laws -----------------------------------------------------------------------
+register_law(BridgeParams, "module_public_surface")
+
+
+def test_bridge_module_public_surface() -> None:
+    """Bridge module __all__ names exactly the 9 expected public symbols — no silent omission or addition."""
+    expected = frozenset(["BridgeParams", "build", "check", "clean", "doctor", "first_fault", "launch", "quit", "verify"])
+    support_matrix(
+        ("all_present", lambda: expected <= frozenset(_bridge_mod.__all__), True),
+        ("no_extras", lambda: frozenset(_bridge_mod.__all__) == expected, True),
+    )
+
+
+register_law(BridgeParams, "defaults_validity")
+
+
+def test_bridge_params_defaults_validity() -> None:
+    """BridgeParams default fields hold expected zero-value sentinels."""
+    p = BridgeParams()
+    support_matrix(
+        ("paths empty tuple", lambda: p.paths == (), True),
+        ("language absent", lambda: p.language is None, True),
+        ("pattern empty", lambda: not p.pattern, True),
+    )
+    assert p.paths == ()
+    assert p.language is None
+
+
+# --- [FIRST_FAULT]
 
 register_law(first_fault, "clean_result_empty_pair")
 register_law(first_fault, "reply_outranks_phases")
@@ -179,7 +205,6 @@ _BR_FIRST = _br_failed(
     _failed_phase("execute", _out("stderr", "second error")),
 )
 
-# Case table: (id, BridgeResult, expected_label, expected_msg_predicate)
 _FIRST_FAULT_CASES: tuple[tuple[str, _BridgeResult, str, Callable[[str], bool]], ...] = (
     ("clean_result_empty_pair", _BR_CLEAN, "", operator.not_),
     ("reply_outranks_phases", _BR_REPLY, "reply", lambda m: m == "reply error"),
@@ -211,7 +236,77 @@ def test_first_fault_message_truncated_at_256_chars() -> None:
     assert len(msg_phase) == 256
 
 
-# ------ _BridgeResult decode laws (via BridgeResult fixture) ------------------------------------
+# --- [COERCE_DIAGNOSTICS]
+
+register_law(_coerce_diagnostics, "valid_converts")
+register_law(_coerce_diagnostics, "invalid_returns_default")
+
+
+@pytest.mark.parametrize(
+    "raw, expected_exception_count",
+    [
+        ({"commandWindow": [], "exceptionReports": [{"category": "e", "message": "boom", "type": "T", "stackTrace": "", "causes": []}]}, 1),
+        ("not-a-dict", 0),
+        (None, 0),
+    ],
+    ids=["valid-one-exception", "invalid-string-fallback", "none-fallback"],
+)
+def test_coerce_diagnostics_result(raw: object, expected_exception_count: int) -> None:
+    """_coerce_diagnostics converts valid payloads and returns a default on ValidationError."""
+    result = _coerce_diagnostics(raw)
+    assert isinstance(result, _BridgeDiagnostics)
+    assert len(result.exception_reports) == expected_exception_count
+
+
+# --- [WITH_FACTS]
+
+register_law(_with_facts, "no_markers_returns_done_unchanged")
+register_law(_with_facts, "evidence_marker_appended_as_note")
+register_law(_with_facts, "capture_marker_appended_as_note")
+
+
+@pytest.mark.parametrize(
+    "marker_line, note_prefix, changed",
+    [
+        ("plain text", None, False),
+        ('rasm.rhino-bridge.evidence=facts={"key":"value"}', "facts:", True),
+        ('rasm.rhino-bridge.capture={"png":"base64data"}', "capture:", True),
+    ],
+    ids=["no-marker-identity", "evidence-marker", "capture-marker"],
+)
+def test_with_facts(marker_line: str, note_prefix: str | None, changed: bool) -> None:  # noqa: FBT001 — parametrize row value, not a flag param
+    """_with_facts appends/skips notes based on execute stdout marker prefixes."""
+    done = receipt(("rasm-bridge",), 0)
+    phase = _BridgePhase(phase="execute", status=RailStatus.OK, outputs=(_BridgeOutput(source="stdout", text=marker_line),))
+    result_br = _BridgeResult(status=RailStatus.OK, phases=(phase,))
+    out = _with_facts(done, result_br)
+    if changed:
+        assert note_prefix is not None
+        assert any(note.startswith(note_prefix) for note in out.notes)
+    else:
+        assert out is done
+
+
+# --- [READ_RESULT]
+
+register_law(_decode_result, "os_error_fallback_to_failed")
+
+
+def test_read_result_oserror_path(tmp_path: Path) -> None:
+    """_read_result returns Error(Fault(FAULTED)) when read_bytes raises PermissionError on a chmod-000 file."""
+    restricted = tmp_path / "restricted.json"
+    restricted.write_bytes(b'{"status":"ok"}')
+    restricted.chmod(0)
+    try:
+        r = _read_result(restricted)
+        if r.is_error():
+            err = r.error
+            assert err.status is RailStatus.FAULTED or err.status is RailStatus.SKIP
+    finally:
+        restricted.chmod(stat.S_IRUSR | stat.S_IWUSR)
+
+
+# --- [BRIDGE_RESULT_DECODE]
 
 register_law(_BridgeResult, "valid_file_wins_over_stdout")
 register_law(_BridgeResult, "malformed_file_sentinel")
@@ -257,7 +352,7 @@ def test_decode_result_missing_file_malformed_stdout_sentinel(bridge_result: Bri
     assert result.status is RailStatus.FAILED
 
 
-# ------ _ensure_dir laws ------------------------------------------------------------------------
+# --- [ENSURE_DIR]
 
 register_law(_ensure_dir, "success_creates_nested")
 register_law(_ensure_dir, "file_collision_faulted")
@@ -278,152 +373,125 @@ def test_ensure_dir_file_collision_returns_faulted(tmp_path: Path) -> None:
     assert_error_status(_ensure_dir(blocker / "nested"), RailStatus.FAULTED)
 
 
-# ------ Lifecycle verb laws (check, clean, doctor, launch, quit) --------------------------------
+# --- [RMTREE]
 
-for _lc_name, _lc_fn in _LIFECYCLE_VERBS:
-    register_law(_lc_fn, f"{_lc_name}_routes_run_check")
-
-
-@pytest.mark.parametrize("verb_name, verb_fn", _LIFECYCLE_VERBS, ids=[v[0] for v in _LIFECYCLE_VERBS])
-def test_lifecycle_verb_routes_to_run_check(
-    verb_name: str, verb_fn: _BridgeVerb, assay_root: AssayHarness, rail_probe: RailProbe, monkeypatch: pytest.MonkeyPatch
-) -> None:
-    """Lifecycle verbs delegate to run_check under the bridge lease — confirmed via captured call."""
-    rail_probe.install(monkeypatch, _bridge_mod, "run_check", Ok(receipt(("rasm-bridge", verb_name), 0)))
-    monkeypatch.setattr(_bridge_mod, "leased", _leased_bypass)
-    assert_ok(verb_fn(assay_root.settings, assay_root.scope(Claim.BRIDGE), BridgeParams()))
-    assert len(rail_probe.checks) == 1, f"{verb_name} did not invoke run_check"
+register_law(_rmtree, "removes_tree_and_returns_path")
 
 
-# ------ build verb laws -------------------------------------------------------------------------
-
-register_law(build, "build_routes_build_tool")
-
-
-def test_build_routes_build_tool(assay_root: AssayHarness, rail_probe: RailProbe, monkeypatch: pytest.MonkeyPatch) -> None:
-    """Build delegates to run_check with the build-specific tool (rasm-bridge-build)."""
-    rail_probe.install(monkeypatch, _bridge_mod, "run_check", Ok(receipt(("rasm-bridge-build",), 0)))
-    monkeypatch.setattr(_bridge_mod, "leased", _leased_bypass)
-    assert_ok(build(assay_root.settings, assay_root.scope(Claim.BRIDGE), BridgeParams()))
-    assert len(rail_probe.checks) == 1
-    assert rail_probe.checks[0].tool.name == "rasm-bridge-build"
+def test_rmtree_removes_tree_and_returns_path(tmp_path: Path) -> None:
+    """_rmtree removes the directory tree and returns the original path."""
+    target = tmp_path / "target"
+    target.mkdir()
+    (target / "file.txt").write_text("content", encoding="utf-8")
+    returned = _rmtree(target)
+    assert returned == target
+    assert not target.exists()
 
 
-# ------ verify verb laws ------------------------------------------------------------------------
+# --- [IS_STALE]
 
-register_law(verify, "no_scenarios_unsupported")
-
-
-def test_verify_no_scenarios_unsupported_report(assay_root: AssayHarness, rail_probe: RailProbe, monkeypatch: pytest.MonkeyPatch) -> None:
-    """Verify produces an UNSUPPORTED report when no scenarios are discovered under the workspace."""
-    rail_probe.install(monkeypatch, _bridge_mod, "run_check", Ok(receipt(("rasm-bridge",), 0)))
-    monkeypatch.setattr(_bridge_mod, "leased", _leased_bypass)
-    report = assert_ok(verify(assay_root.settings, assay_root.scope(Claim.BRIDGE), BridgeParams()))
-    assert report.status is RailStatus.UNSUPPORTED
+register_law(_is_stale, "oserror_returns_false")
+register_law(_is_stale, "stale_dir_true")
 
 
-# ------ support_matrix: structural probe of public surface --------------------------------------
+def test_is_stale_oserror_returns_false(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    """_is_stale returns False when stat raises OSError (e.g. path disappears between iterdir and stat)."""
+    child = tmp_path / "victim"
+    child.mkdir()
+    original_stat = Path.stat
 
-register_law(BridgeParams, "module_public_surface")
+    def _patched_stat(self: Path, *, follow_symlinks: bool = True) -> object:
+        if self == child:
+            raise OSError("simulated stat failure")
+        return original_stat(self, follow_symlinks=follow_symlinks)
 
-
-def test_bridge_module_public_surface() -> None:
-    """Bridge module __all__ names exactly the 9 expected public symbols — no silent omission or addition."""
-    expected = frozenset(["BridgeParams", "build", "check", "clean", "doctor", "first_fault", "launch", "quit", "verify"])
-    support_matrix(
-        ("all_present", lambda: expected <= frozenset(_bridge_mod.__all__), True),
-        ("no_extras", lambda: frozenset(_bridge_mod.__all__) == expected, True),
-    )
-
-
-# ------ support_matrix: BridgeParams field defaults -------------------------------------------
-
-register_law(BridgeParams, "defaults_validity")
+    monkeypatch.setattr(Path, "stat", _patched_stat)
+    assert _is_stale(child, tmp_path, cutoff=float("inf")) is False
 
 
-def test_bridge_params_defaults_validity() -> None:
-    """BridgeParams default fields hold expected zero-value sentinels."""
-    p = BridgeParams()
-    support_matrix(
-        ("paths empty tuple", lambda: p.paths == (), True),
-        ("language absent", lambda: p.language is None, True),
-        ("pattern empty", lambda: not p.pattern, True),
-    )
-    assert p.paths == ()
-    assert p.language is None
+def test_is_stale_stale_dir_true(tmp_path: Path) -> None:
+    """_is_stale returns True for a real directory whose mtime is before the cutoff."""
+    child = tmp_path / "stale_dir"
+    child.mkdir()
+    os.utime(child, (0.0, 0.0))
+    assert _is_stale(child, tmp_path, cutoff=float("inf")) is True
 
 
-# ------ _coerce_diagnostics laws ----------------------------------------------------------------
+# --- [EXPIRE_STALE]
 
-register_law(_coerce_diagnostics, "valid_converts")
-register_law(_coerce_diagnostics, "invalid_returns_default")
+register_law(_expire_stale, "non_existent_claim_root_no_op")
+register_law(_expire_stale, "stale_child_removed")
+
+
+def test_expire_stale_nonexistent_claim_root_noop(tmp_path: Path) -> None:
+    """_expire_stale is a no-op when the claim root doesn't exist — no exception raised."""
+    report_dir = tmp_path / "missing_root" / "run-id" / "verify"
+    _expire_stale(report_dir, "run-id", 300.0)
+
+
+def test_expire_stale_removes_stale_child(tmp_path: Path) -> None:
+    """_expire_stale removes children whose mtime is past the TTL cutoff."""
+    claim_root = tmp_path / "claim"
+    claim_root.mkdir()
+    run_id = "current-run"
+    stale = claim_root / "old-run"
+    stale.mkdir()
+    os.utime(stale, (0.0, 0.0))
+    live = claim_root / run_id
+    live.mkdir()
+    report_dir = live / "verify"
+    _expire_stale(report_dir, run_id, 300.0)
+    assert not stale.exists(), "stale child must be removed"
+    assert live.exists(), "live run dir must be preserved"
+
+
+# --- [FAULTED]
+
+register_law(_faulted, "failed_ok_becomes_fault")
+register_law(_faulted, "unsupported_ok_becomes_fault")
+register_law(_faulted, "error_passthrough")
 
 
 @pytest.mark.parametrize(
-    "raw, expected_exception_count",
-    [
-        ({"commandWindow": [], "exceptionReports": [{"category": "e", "message": "boom", "type": "T", "stackTrace": "", "causes": []}]}, 1),
-        ("not-a-dict", 0),
-        (None, 0),
-    ],
-    ids=["valid-one-exception", "invalid-string-fallback", "none-fallback"],
+    "status, exit_code", [(RailStatus.FAILED, 1), (RailStatus.TIMEOUT, 5)], ids=["failed-promoted-to-faulted", "timeout-promoted"]
 )
-def test_coerce_diagnostics_result(raw: object, expected_exception_count: int) -> None:
-    """_coerce_diagnostics converts valid payloads and returns a default on ValidationError."""
-    result = _coerce_diagnostics(raw)
-    assert isinstance(result, _BridgeDiagnostics)
-    assert len(result.exception_reports) == expected_exception_count
+def test_faulted_non_zero_ok_becomes_error(status: RailStatus, exit_code: int) -> None:
+    """_faulted promotes a success-channel receipt with non-OK status to Error(Fault)."""
+    done = receipt(("rasm-bridge",), exit_code, status=status, stderr=b"build failed")
+    assert isinstance(assert_error(_faulted(Ok(done))), Fault)
 
 
-# ------ _with_facts laws ------------------------------------------------------------------------
-
-register_law(_with_facts, "no_markers_returns_done_unchanged")
-register_law(_with_facts, "evidence_marker_appended_as_note")
-register_law(_with_facts, "capture_marker_appended_as_note")
-
-
-@pytest.mark.parametrize(
-    "marker_line, note_prefix, changed",
-    [
-        ("plain text", None, False),
-        ('rasm.rhino-bridge.evidence=facts={"key":"value"}', "facts:", True),
-        ('rasm.rhino-bridge.capture={"png":"base64data"}', "capture:", True),
-    ],
-    ids=["no-marker-identity", "evidence-marker", "capture-marker"],
-)
-def test_with_facts(marker_line: str, note_prefix: str | None, changed: bool) -> None:  # noqa: FBT001
-    """_with_facts appends/skips notes based on execute stdout marker prefixes."""
-    done = receipt(("rasm-bridge",), 0)
-    phase = _BridgePhase(phase="execute", status=RailStatus.OK, outputs=(_BridgeOutput(source="stdout", text=marker_line),))
-    result_br = _BridgeResult(status=RailStatus.OK, phases=(phase,))
-    out = _with_facts(done, result_br)
-    if changed:
-        assert note_prefix is not None
-        assert any(note.startswith(note_prefix) for note in out.notes)
-    else:
-        assert out is done
+def test_faulted_error_passthrough() -> None:
+    """_faulted passes Error(Fault) through unchanged."""
+    fault = Fault(("rasm-bridge",), RailStatus.FAULTED, "original")
+    assert assert_error(_faulted(Error(fault))) is fault
 
 
-# ------ _read_result OSError branch -------------------------------------------------------------
-
-register_law(_decode_result, "os_error_fallback_to_failed")
-
-
-def test_read_result_oserror_path(tmp_path: Path) -> None:
-    """_read_result returns Error(Fault(FAULTED)) when read_bytes raises PermissionError on a chmod-000 file."""
-    restricted = tmp_path / "restricted.json"
-    restricted.write_bytes(b'{"status":"ok"}')
-    restricted.chmod(0)
-    try:
-        r = _read_result(restricted)
-        if r.is_error():
-            err = r.error
-            assert err.status is RailStatus.FAULTED or err.status is RailStatus.SKIP
-    finally:
-        restricted.chmod(stat.S_IRUSR | stat.S_IWUSR)
+def test_faulted_ok_status_passthrough() -> None:
+    """_faulted returns Ok when the receipt has severity <= OK (skip, empty, ok)."""
+    assert_ok(_faulted(Ok(receipt(("rasm-bridge",), 0, status=RailStatus.OK))))
 
 
-# ------ _resolve_project laws -------------------------------------------------------------------
+# --- [CLIENT_READY]
+
+register_law(_client_ready, "dll_absent_returns_error")
+register_law(_client_ready, "dll_present_returns_ok")
+
+
+def test_client_ready_dll_absent_returns_error(assay_root: AssayHarness) -> None:
+    """_client_ready returns Error when no Rasm.RhinoBridge.Client.dll exists under bin/<config>."""
+    result = _client_ready(assay_root.settings)
+    assert result.is_error()
+    assert "bridge build" in result.error
+
+
+def test_client_ready_dll_present_returns_ok(assay_root: AssayHarness) -> None:
+    """_client_ready returns Ok(None) when the client DLL exists under the expected bin path."""
+    _install_dll(assay_root)
+    assert _client_ready(assay_root.settings).is_ok()
+
+
+# --- [RESOLVE_PROJECT]
 
 register_law(_resolve_project, "lib_path_with_csproj_resolves_project")
 register_law(_resolve_project, "lib_path_without_csproj_falls_back_to_testkit")
@@ -449,67 +517,7 @@ def test_resolve_project_non_lib_path_resolves_testkit(assay_root: AssayHarness)
     assert "TestKit" in r.name or r.suffix == ".csproj"
 
 
-# ------ _client_ready laws ----------------------------------------------------------------------
-
-register_law(_client_ready, "dll_absent_returns_error")
-register_law(_client_ready, "dll_present_returns_ok")
-
-
-def test_client_ready_dll_absent_returns_error(assay_root: AssayHarness) -> None:
-    """_client_ready returns Error when no Rasm.RhinoBridge.Client.dll exists under bin/<config>."""
-    result = _client_ready(assay_root.settings)
-    assert result.is_error()
-    assert "bridge build" in result.error
-
-
-def test_client_ready_dll_present_returns_ok(assay_root: AssayHarness) -> None:
-    """_client_ready returns Ok(None) when the client DLL exists under the expected bin path."""
-    _install_dll(assay_root)
-    assert _client_ready(assay_root.settings).is_ok()
-
-
-# ------ _run_scenario laws (client not ready + run_check fake) ----------------------------------
-
-register_law(_run_scenario, "client_not_ready_returns_failed_scenario")
-register_law(_run_scenario, "run_check_ok_produces_scenario")
-register_law(_run_scenario, "run_check_error_produces_failed_scenario")
-
-_ok_json = msgspec.json.encode(_BridgeResult(command="check", status=RailStatus.OK))
-_run_scenario_cases: tuple[tuple[str, bool, object, RailStatus, str], ...] = (
-    ("client_not_ready", False, None, RailStatus.FAILED, "client"),
-    ("run_check_ok", True, lambda *a, **kw: Ok(receipt(("rasm-bridge",), 0, stdout=_ok_json)), RailStatus.OK, "Case"),
-    ("run_check_error", True, lambda *a, **kw: Error(Fault(("rasm-bridge",), RailStatus.FAULTED, "timeout")), RailStatus.FAILED, "launch"),
-)
-
-
-@pytest.mark.parametrize("case_id, dll, patch_fn, exp_status, exp_attr", _run_scenario_cases, ids=[c[0] for c in _run_scenario_cases])
-def test_run_scenario(
-    assay_root: AssayHarness,
-    tmp_path: Path,
-    monkeypatch: pytest.MonkeyPatch,
-    case_id: str,
-    dll: bool,  # noqa: FBT001
-    patch_fn: object,
-    exp_status: RailStatus,
-    exp_attr: str,
-) -> None:
-    """_run_scenario routes to FAILED(client/launch) or OK(stem) based on DLL presence and run_check outcome."""
-    if dll:
-        _install_dll(assay_root)
-    if patch_fn is not None:
-        monkeypatch.setattr(_bridge_mod, "run_check", patch_fn)
-    report_dir = tmp_path / "verify"
-    report_dir.mkdir()
-    s = _run_scenario(assay_root.settings, report_dir, _make_scenario(assay_root))
-    assert s.status is exp_status
-    match exp_status:
-        case RailStatus.OK:
-            assert s.stem == exp_attr
-        case _:
-            assert s.fault_phase == exp_attr
-
-
-# ------ _direct path-outside-base and dir-scan branches ----------------------------------------
+# --- [DIRECT]
 
 register_law(_direct, "outside_base_returns_empty")
 register_law(_direct, "directory_scans_recursively")
@@ -557,106 +565,65 @@ def test_direct(
         assert check_fn(tmp_path, result)
 
 
-# ------ _expire_stale laws ----------------------------------------------------------------------
+# --- [RUN_SCENARIO]
 
-register_law(_expire_stale, "non_existent_claim_root_no_op")
-register_law(_expire_stale, "stale_child_removed")
+register_law(_run_scenario, "client_not_ready_returns_failed_scenario")
+register_law(_run_scenario, "run_check_ok_produces_scenario")
+register_law(_run_scenario, "run_check_error_produces_failed_scenario")
 
-
-def test_expire_stale_nonexistent_claim_root_noop(tmp_path: Path) -> None:
-    """_expire_stale is a no-op when the claim root doesn't exist — no exception raised."""
-    report_dir = tmp_path / "missing_root" / "run-id" / "verify"
-    _expire_stale(report_dir, "run-id", 300.0)
-
-
-def test_expire_stale_removes_stale_child(tmp_path: Path) -> None:
-    """_expire_stale removes children whose mtime is past the TTL cutoff."""
-    claim_root = tmp_path / "claim"
-    claim_root.mkdir()
-    run_id = "current-run"
-    stale = claim_root / "old-run"
-    stale.mkdir()
-    os.utime(stale, (0.0, 0.0))
-    live = claim_root / run_id
-    live.mkdir()
-    report_dir = live / "verify"
-    _expire_stale(report_dir, run_id, 300.0)
-    assert not stale.exists(), "stale child must be removed"
-    assert live.exists(), "live run dir must be preserved"
-
-
-# ------ _is_stale laws --------------------------------------------------------------------------
-
-register_law(_is_stale, "oserror_returns_false")
-register_law(_is_stale, "stale_dir_true")
-
-
-def test_is_stale_oserror_returns_false(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
-    """_is_stale returns False when stat raises OSError (e.g. path disappears between iterdir and stat)."""
-    child = tmp_path / "victim"
-    child.mkdir()
-    original_stat = Path.stat
-
-    def _patched_stat(self: Path, *, follow_symlinks: bool = True) -> object:
-        if self == child:
-            raise OSError("simulated stat failure")
-        return original_stat(self, follow_symlinks=follow_symlinks)
-
-    monkeypatch.setattr(Path, "stat", _patched_stat)
-    assert _is_stale(child, tmp_path, cutoff=float("inf")) is False
-
-
-def test_is_stale_stale_dir_true(tmp_path: Path) -> None:
-    """_is_stale returns True for a real directory whose mtime is before the cutoff."""
-    child = tmp_path / "stale_dir"
-    child.mkdir()
-    os.utime(child, (0.0, 0.0))
-    assert _is_stale(child, tmp_path, cutoff=float("inf")) is True
-
-
-# ------ _rmtree law -----------------------------------------------------------------------------
-
-register_law(_rmtree, "removes_tree_and_returns_path")
-
-
-def test_rmtree_removes_tree_and_returns_path(tmp_path: Path) -> None:
-    """_rmtree removes the directory tree and returns the original path."""
-    target = tmp_path / "target"
-    target.mkdir()
-    (target / "file.txt").write_text("content", encoding="utf-8")
-    returned = _rmtree(target)
-    assert returned == target
-    assert not target.exists()
-
-
-# ------ _faulted laws ---------------------------------------------------------------------------
-
-register_law(_faulted, "failed_ok_becomes_fault")
-register_law(_faulted, "unsupported_ok_becomes_fault")
-register_law(_faulted, "error_passthrough")
-
-
-@pytest.mark.parametrize(
-    "status, exit_code", [(RailStatus.FAILED, 1), (RailStatus.TIMEOUT, 5)], ids=["failed-promoted-to-faulted", "timeout-promoted"]
+_ok_json = msgspec.json.encode(_BridgeResult(command="check", status=RailStatus.OK))
+_run_scenario_cases: tuple[tuple[str, bool, object, RailStatus, str], ...] = (
+    ("client_not_ready", False, None, RailStatus.FAILED, "client"),
+    ("run_check_ok", True, lambda *a, **kw: Ok(receipt(("rasm-bridge",), 0, stdout=_ok_json)), RailStatus.OK, "Case"),
+    ("run_check_error", True, lambda *a, **kw: Error(Fault(("rasm-bridge",), RailStatus.FAULTED, "timeout")), RailStatus.FAILED, "launch"),
 )
-def test_faulted_non_zero_ok_becomes_error(status: RailStatus, exit_code: int) -> None:
-    """_faulted promotes a success-channel receipt with non-OK status to Error(Fault)."""
-    done = receipt(("rasm-bridge",), exit_code, status=status, stderr=b"build failed")
-    assert isinstance(assert_error(_faulted(Ok(done))), Fault)
 
 
-def test_faulted_error_passthrough() -> None:
-    """_faulted passes Error(Fault) through unchanged."""
-    fault = Fault(("rasm-bridge",), RailStatus.FAULTED, "original")
-    assert assert_error(_faulted(Error(fault))) is fault
+@pytest.mark.parametrize("case_id, dll, patch_fn, exp_status, exp_attr", _run_scenario_cases, ids=[c[0] for c in _run_scenario_cases])
+def test_run_scenario(
+    assay_root: AssayHarness,
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    case_id: str,
+    dll: bool,  # noqa: FBT001 — bool is a parametrize row value, not a flag param
+    patch_fn: object,
+    exp_status: RailStatus,
+    exp_attr: str,
+) -> None:
+    """_run_scenario routes to FAILED(client/launch) or OK(stem) based on DLL presence and run_check outcome."""
+    if dll:
+        _install_dll(assay_root)
+    if patch_fn is not None:
+        monkeypatch.setattr(_bridge_mod, "run_check", patch_fn)
+    report_dir = tmp_path / "verify"
+    report_dir.mkdir()
+    s = _run_scenario(assay_root.settings, report_dir, _make_scenario(assay_root))
+    assert s.status is exp_status
+    match exp_status:
+        case RailStatus.OK:
+            assert s.stem == exp_attr
+        case _:
+            assert s.fault_phase == exp_attr
 
 
-def test_faulted_ok_status_passthrough() -> None:
-    """_faulted returns Ok when the receipt has severity <= OK (skip, empty, ok)."""
-    assert_ok(_faulted(Ok(receipt(("rasm-bridge",), 0, status=RailStatus.OK))))
+# --- [SCENARIO_ARTIFACTS]
+
+register_law(_scenario_artifacts, "json_files_become_artifacts")
 
 
-# ------ _fold_scenarios non-empty branch --------------------------------------------------------
+def test_scenario_artifacts_json_files_become_rhino_artifacts(tmp_path: Path) -> None:
+    """_scenario_artifacts surfaces every .json file in the report_dir as a Rhino artifact."""
+    r1 = tmp_path / "case1.json"
+    r2 = tmp_path / "case2.json"
+    r1.write_text('{"status":"ok"}\n', encoding="utf-8")
+    r2.write_text('{"status":"failed"}\n', encoding="utf-8")
+    artifacts = _scenario_artifacts(tmp_path)
+    assert len(artifacts) == 2
+    assert {a.id for a in artifacts} == {"case1", "case2"}
+    assert all(a.bytes > 0 and a.lines >= 1 for a in artifacts)
+
+
+# --- [FOLD_SCENARIOS]
 
 register_law(_fold_scenarios, "non_empty_scenarios_with_ok_run")
 register_law(_fold_scenarios, "non_empty_scenarios_with_failed_run")
@@ -674,7 +641,7 @@ def test_fold_scenarios_non_empty(
     scenario_stem: str,
     bridge_status: RailStatus,
     rc: int,
-    ok_expected: bool,  # noqa: FBT001
+    ok_expected: bool,  # noqa: FBT001 — bool is a parametrize row value, not a flag param
 ) -> None:
     """_fold_scenarios folds scenario receipts into a Report; failed scenario → non-OK status."""
     _install_dll(assay_root)
@@ -694,26 +661,49 @@ def test_fold_scenarios_non_empty(
         assert report.status is not RailStatus.OK
 
 
-# ------ _scenario_artifacts law -----------------------------------------------------------------
+# --- [LIFECYCLE_VERBS]
 
-register_law(_scenario_artifacts, "json_files_become_artifacts")
-
-
-def test_scenario_artifacts_json_files_become_rhino_artifacts(tmp_path: Path) -> None:
-    """_scenario_artifacts surfaces every .json file in the report_dir as a Rhino artifact."""
-    r1 = tmp_path / "case1.json"
-    r2 = tmp_path / "case2.json"
-    r1.write_text('{"status":"ok"}\n', encoding="utf-8")
-    r2.write_text('{"status":"failed"}\n', encoding="utf-8")
-    artifacts = _scenario_artifacts(tmp_path)
-    assert len(artifacts) == 2
-    assert {a.id for a in artifacts} == {"case1", "case2"}
-    assert all(a.bytes > 0 and a.lines >= 1 for a in artifacts)
+for _lc_name, _lc_fn in _LIFECYCLE_VERBS:
+    register_law(_lc_fn, f"{_lc_name}_routes_run_check")
 
 
-# ------ _verify_locked prelude-error branch (build/launch fault) --------------------------------
+@pytest.mark.parametrize("verb_name, verb_fn", _LIFECYCLE_VERBS, ids=[v[0] for v in _LIFECYCLE_VERBS])
+def test_lifecycle_verb_routes_to_run_check(
+    verb_name: str, verb_fn: _BridgeVerb, assay_root: AssayHarness, rail_probe: RailProbe, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Lifecycle verbs delegate to run_check under the bridge lease — confirmed via captured call."""
+    rail_probe.install(monkeypatch, _bridge_mod, "run_check", Ok(receipt(("rasm-bridge", verb_name), 0)))
+    monkeypatch.setattr(_bridge_mod, "leased", _leased_bypass)
+    assert_ok(verb_fn(assay_root.settings, assay_root.scope(Claim.BRIDGE), BridgeParams()))
+    assert len(rail_probe.checks) == 1, f"{verb_name} did not invoke run_check"
 
+
+# --- [BUILD]
+
+register_law(build, "build_routes_build_tool")
+
+
+def test_build_routes_build_tool(assay_root: AssayHarness, rail_probe: RailProbe, monkeypatch: pytest.MonkeyPatch) -> None:
+    """Build delegates to run_check with the build-specific tool (rasm-bridge-build)."""
+    rail_probe.install(monkeypatch, _bridge_mod, "run_check", Ok(receipt(("rasm-bridge-build",), 0)))
+    monkeypatch.setattr(_bridge_mod, "leased", _leased_bypass)
+    assert_ok(build(assay_root.settings, assay_root.scope(Claim.BRIDGE), BridgeParams()))
+    assert len(rail_probe.checks) == 1
+    assert rail_probe.checks[0].tool.name == "rasm-bridge-build"
+
+
+# --- [VERIFY]
+
+register_law(verify, "no_scenarios_unsupported")
 register_law(verify, "prelude_fault_propagated")
+
+
+def test_verify_no_scenarios_unsupported_report(assay_root: AssayHarness, rail_probe: RailProbe, monkeypatch: pytest.MonkeyPatch) -> None:
+    """Verify produces an UNSUPPORTED report when no scenarios are discovered under the workspace."""
+    rail_probe.install(monkeypatch, _bridge_mod, "run_check", Ok(receipt(("rasm-bridge",), 0)))
+    monkeypatch.setattr(_bridge_mod, "leased", _leased_bypass)
+    report = assert_ok(verify(assay_root.settings, assay_root.scope(Claim.BRIDGE), BridgeParams()))
+    assert report.status is RailStatus.UNSUPPORTED
 
 
 def test_verify_locked_prelude_fault_propagated(assay_root: AssayHarness, rail_probe: RailProbe, monkeypatch: pytest.MonkeyPatch) -> None:

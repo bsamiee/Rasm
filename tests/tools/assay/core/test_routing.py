@@ -1,4 +1,14 @@
-"""Laws for tools.assay.core.routing: route, place, routable_files, Routed, RoutePaths, ProjectIndex, Scope, Source."""
+"""Law suite for tools.assay.core.routing.
+
+Covers Scope StrEnum identity and validity, Source Protocol runtime-checkability,
+Routed structural invariants and scope-consistency, ProjectIndex and RoutePaths
+type contracts, route() language-table dispatch / determinism / fault propagation /
+normalisation, place() Input-arm projection / solution arm / determinism / proportionality
+/ probe-fixture stripping, and routable_files() prefix filtering.
+
+Symbols under test: route, place, routable_files, Routed, RoutePaths, ProjectIndex,
+Scope, Source.
+"""
 
 # --- [RUNTIME_PRELUDE] ------------------------------------------------------------------
 
@@ -11,8 +21,14 @@ from hypothesis import given, HealthCheck, settings as h_settings, strategies as
 import msgspec.structs
 import pytest
 
-from tests._aspect import register_law, spec  # noqa: PLC2701  # sibling test-internal module; `_`-named by S1 design
-from tests._spec import assert_error_status, assert_ok, support_matrix, validity_matrix, ValidityCase  # noqa: PLC2701  # sibling test-internal module
+from tests._aspect import register_law, spec  # noqa: PLC2701  # _-prefixed private module; cross-package import is intentional
+from tests._spec import (  # noqa: PLC2701  # _-prefixed private module; cross-package import is intentional
+    assert_error_status,
+    assert_ok,
+    support_matrix,
+    validity_matrix,
+    ValidityCase,
+)
 from tools.assay.core.model import Claim, Fault, Input, Language, Mode, Runner, Tool
 from tools.assay.core.routing import place, routable_files, route, Routed, Scope, Source
 from tools.assay.core.status import RailStatus
@@ -69,19 +85,18 @@ class _FaultingSource(Source):
 
 # --- [CONSTANTS] ------------------------------------------------------------------------
 
-# Shared Python-language tool fixture: FILES/CHECK — covers routable_files filtering via place.
 _PY_TOOL = Tool(
     name="py-check", runner=Runner.UV, command=("ruff", "check"), input=Input.FILES, language=Language.PYTHON, claim=Claim.CODE, mode=Mode.CHECK
 )
 
-# Probe-fixture prefixes declared by AssaySettings — drives the S2 seam parametrize law.
+# Mirrors AssaySettings.probe_fixture_prefixes — keeps prefix-stripping law parametrization in sync with settings.
 _DEFAULT_PREFIXES: tuple[str, ...] = ("tests/tools/ast-grep/", "tests/tools/py_analyzer/")
 
 
 # --- [OPERATIONS] -----------------------------------------------------------------------
 
 
-# --- Scope / Source enum sweeps ---
+# --- [SCOPE_SOURCE_SWEEPS]
 
 
 register_law(Scope, "scope_enum_sweep")
@@ -93,6 +108,30 @@ def test_scope_enum_sweep(member: Scope) -> None:
     assert Scope(member.value) is member
 
 
+register_law(Scope, "scope_validity_matrix")
+
+
+def _try_scope(v: str) -> bool:
+    try:
+        Scope(v)
+    except ValueError:
+        return False
+    return True
+
+
+def test_scope_validity_matrix() -> None:
+    """All Scope members are valid StrEnum instances; non-members raise ValueError."""
+    validity_matrix(
+        [
+            ValidityCase(label="changed", value="changed", expected=True),
+            ValidityCase(label="full", value="full", expected=True),
+            ValidityCase(label="invalid", value="INVALID", expected=False),
+            ValidityCase(label="empty", value="", expected=False),
+        ],
+        _try_scope,
+    )
+
+
 register_law(Source, "source_protocol_runtime_checkable")
 
 
@@ -102,7 +141,20 @@ def test_source_is_runtime_checkable() -> None:
     assert not isinstance(object(), Source)
 
 
-# --- Routed structural invariants ---
+register_law(Source, "source_protocol_support_matrix")
+
+
+def test_source_protocol_support_matrix() -> None:
+    """Support matrix: conforming/non-conforming Source implementations are distinguished at runtime."""
+    support_matrix(
+        ("stub_source_conforms", lambda: isinstance(_StubSource(()), Source), True),
+        ("faulting_source_conforms", lambda: isinstance(_FaultingSource(), Source), True),
+        ("plain_object_rejected", lambda: isinstance(object(), Source), False),
+        ("dict_rejected", lambda: isinstance({}, Source), False),
+    )
+
+
+# --- [ROUTED_INVARIANTS]
 
 
 @spec(Routed)
@@ -138,7 +190,7 @@ def test_routed_full_triggers_scope_consistency(scope: Scope, full_triggers: tup
     assert (r.scope is Scope.FULL) == (len(r.full_triggers) > 0)
 
 
-# --- ProjectIndex / RoutePaths structural laws ---
+# --- [PROJECTINDEX_ROUTEPATHS]
 
 
 register_law("ProjectIndex", "project_index_mapping")
@@ -160,7 +212,7 @@ def test_route_paths_is_tuple_of_str() -> None:
     assert all(isinstance(p, str) for p in paths)
 
 
-# --- route: determinism + scope escalation ---
+# --- [ROUTE_LAWS]
 
 
 register_law(route, "route_language_table")
@@ -236,7 +288,7 @@ def test_route_files_are_normalized(assay_root: AssayHarness) -> None:
     assert len(routed.files) == len(set(routed.files)), "duplicate paths leaked through normalisation"
 
 
-# --- place: input-arm table ---
+# --- [PLACE_LAWS]
 
 
 register_law(place, "place_input_arm_table")
@@ -281,7 +333,7 @@ def test_place_determinism(assay_root: AssayHarness) -> None:
     assert place(routed, _PY_TOOL, settings=assay_root.settings) == place(routed, _PY_TOOL, settings=assay_root.settings)
 
 
-# --- place: proportional placement (O(N) projection law) ---
+# --- [PLACE_PROPORTIONAL]
 
 
 register_law(place, "place_proportional_by_inspection")
@@ -298,7 +350,22 @@ def test_place_proportional_by_inspection(k: int, assay_root: AssayHarness) -> N
     assert result == (files,) if k else result == (), f"expected one argv tail with {k} files, got {result!r}"
 
 
-# --- routable_files: probe-fixture prefix stripping ---
+register_law(place, "place_strips_probe_fixtures_via_files_input")
+
+
+@pytest.mark.parametrize("extra_prefix", list(_DEFAULT_PREFIXES))
+def test_place_strips_probe_fixtures_via_files_input(extra_prefix: str, assay_root: AssayHarness) -> None:
+    """place(INPUT.FILES) delegates to routable_files — probe-fixture paths are absent from argv."""
+    probe = f"{extra_prefix}fail/helper_import.py"
+    legit = "tools/assay/core/model.py"
+    routed = Routed(language=Language.PYTHON, scope=Scope.CHANGED, files=(probe, legit))
+    result = place(routed, _PY_TOOL, settings=assay_root.settings)
+    argv_flat = tuple(arg for tail in result for arg in tail)
+    assert probe not in argv_flat
+    assert legit in argv_flat
+
+
+# --- [ROUTABLE_FILES_LAWS]
 
 
 register_law(routable_files, "routable_files_strips_prefix")
@@ -344,62 +411,3 @@ def test_routable_files_custom_prefixes(assay_root: AssayHarness) -> None:
     result = routable_files(files, custom_settings)
     assert "custom/probe/fail.py" not in result
     assert "tools/assay/core/routing.py" in result
-
-
-register_law(place, "place_strips_probe_fixtures_via_files_input")
-
-
-@pytest.mark.parametrize("extra_prefix", list(_DEFAULT_PREFIXES))
-def test_place_strips_probe_fixtures_via_files_input(extra_prefix: str, assay_root: AssayHarness) -> None:
-    """place(INPUT.FILES) delegates to routable_files — probe-fixture paths are absent from argv."""
-    probe = f"{extra_prefix}fail/helper_import.py"
-    legit = "tools/assay/core/model.py"
-    routed = Routed(language=Language.PYTHON, scope=Scope.CHANGED, files=(probe, legit))
-    result = place(routed, _PY_TOOL, settings=assay_root.settings)
-    argv_flat = tuple(arg for tail in result for arg in tail)
-    assert probe not in argv_flat
-    assert legit in argv_flat
-
-
-# --- validity matrix: Scope values ---
-
-
-register_law(Scope, "scope_validity_matrix")
-
-
-def _try_scope(v: str) -> bool:
-    # Inline predicate — only called inline in the validity_matrix oracle below.
-    try:
-        Scope(v)
-    except ValueError:
-        return False
-    return True
-
-
-def test_scope_validity_matrix() -> None:
-    """All Scope members are valid StrEnum instances; non-members raise ValueError."""
-    validity_matrix(
-        [
-            ValidityCase(label="changed", value="changed", expected=True),
-            ValidityCase(label="full", value="full", expected=True),
-            ValidityCase(label="invalid", value="INVALID", expected=False),
-            ValidityCase(label="empty", value="", expected=False),
-        ],
-        _try_scope,
-    )
-
-
-# --- support matrix: Source protocol conformance ---
-
-
-register_law(Source, "source_protocol_support_matrix")
-
-
-def test_source_protocol_support_matrix() -> None:
-    """Support matrix: conforming/non-conforming Source implementations are distinguished at runtime."""
-    support_matrix(
-        ("stub_source_conforms", lambda: isinstance(_StubSource(()), Source), True),
-        ("faulting_source_conforms", lambda: isinstance(_FaultingSource(), Source), True),
-        ("plain_object_rejected", lambda: isinstance(object(), Source), False),
-        ("dict_rejected", lambda: isinstance({}, Source), False),
-    )

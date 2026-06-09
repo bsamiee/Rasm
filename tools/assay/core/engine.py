@@ -1,4 +1,12 @@
-"""Execute checks through local, remote, in-process, and leased runners."""
+"""Execution engine for the assay toolchain.
+
+Owns the full check execution surface: local subprocess, SSH remote, in-process thunk,
+and POSIX flock lease runners. Entry points are run_check, run_check_async, and fan_out
+for single and concurrent check dispatch; governed_concurrency folds CPU, DOTNET, and
+mutation ceilings into one concurrency limit. discover and discover_async serve
+read-only discovery commands outside the check lifecycle. exclusive_lease and leased
+provide the non-blocking POSIX lease protocol used by the quality gate bus.
+"""
 
 from collections.abc import Callable
 import contextlib
@@ -15,7 +23,7 @@ from typing import Protocol, runtime_checkable, TYPE_CHECKING
 from urllib.parse import urlsplit
 
 import anyio
-from anyio import to_thread  # explicit submodule import; ty mis-resolves anyio.to_thread
+from anyio import to_thread  # ty mis-resolves anyio.to_thread without an explicit submodule import
 from expression import Error, Ok, Result
 import msgspec
 from opentelemetry import propagate, trace
@@ -24,9 +32,9 @@ import stamina
 import structlog
 from upath import UPath
 
-from tools.assay.composition.settings import ArtifactScope, AssaySettings  # unconditional for beartype forward refs
+from tools.assay.composition.settings import ArtifactScope, AssaySettings  # unconditional: beartype resolves forward refs at import time
 from tools.assay.core.aspect import (
-    _CHECKED_LAYER,  # noqa: PLC2701  # intentional internal seam; aspect is co-owned by engine
+    _CHECKED_LAYER,  # noqa: PLC2701  # co-owned internal seam: aspect and engine share this layer without a public surface
     compose,
     traced,
 )
@@ -48,6 +56,26 @@ type _Woven = Callable[[Check, AssaySettings, ArtifactScope | None, Routed, floa
 type ByteRecv = Callable[[], Coroutine[None, None, bytes | None]]
 
 
+class WriteSink(Protocol):
+    """Structural byte sink: a writable target receiving stream chunks during a drain."""
+
+    def write(self, payload: bytes) -> object:
+        """Receive one raw byte chunk; return value is ignored by the drain pump."""
+        ...
+
+
+@runtime_checkable
+class _Nullary(Protocol):
+    def __call__(self) -> float | int | str: ...
+
+
+@runtime_checkable
+class _WriteContext(Protocol):
+    def __enter__(self) -> WriteSink: ...
+
+    def __exit__(self, exc_type: type[BaseException] | None, exc: BaseException | None, tb: object) -> object: ...
+
+
 # --- [CONSTANTS] ------------------------------------------------------------------------
 
 _LOCKS_OPEN_FLAGS: int = os.O_RDWR | os.O_CREAT
@@ -56,13 +84,9 @@ _FAULT_SNAPSHOT: str = "fault.resource_snapshot"
 _SSH_CONNECT_TIMEOUT: float = 15.0
 _SSH_SIGNAL_STATUS: int = 255
 _RETRY_MIN_REMAINING: float = 0.05
-_LOG = structlog.get_logger("assay.engine")
-_TRACER = trace.get_tracer("assay.engine")
 
-# POSIX-only fcntl members bind once because ty checks all platforms and cannot narrow this module to POSIX.
+# ty cannot narrow this module to POSIX, so bind the POSIX-only members once to avoid repeated attribute ignores.
 _FLOCK, _LOCK_EX, _LOCK_NB, _LOCK_UN = fcntl.flock, fcntl.LOCK_EX, fcntl.LOCK_NB, fcntl.LOCK_UN  # ty: ignore[possibly-missing-attribute]
-# Fault-time resource snapshots cross the anyio.run boundary through this ContextVar.
-_RESOURCE: ContextVar[tuple[tuple[str, float], ...]] = ContextVar("assay_resource", default=())
 
 
 # --- [MODELS] ---------------------------------------------------------------------------
@@ -72,8 +96,7 @@ class _LeaseOwner(msgspec.Struct, frozen=True, gc=False, omit_defaults=True):
     resource: str
     run_id: str
     pid: int
-    # (pid, create_time) survives PID reuse; a recycled pid carries a fresh create_time.
-    create_time: float
+    create_time: float  # (pid, create_time) pair survives PID reuse; a recycled pid carries a fresh create_time
     cwd: str = ""
     project: str = ""
     mode: str = "exclusive"
@@ -117,26 +140,14 @@ class Captured:
 
 
 _SSH_CACHE: ContextVar[_SshCache | None] = ContextVar("assay_ssh_cache", default=None)
+# Fault-time snapshots cross the anyio.run boundary; ContextVar threads the snapshot without polluting call signatures.
+_RESOURCE: ContextVar[tuple[tuple[str, float], ...]] = ContextVar("assay_resource", default=())
 
 
-@runtime_checkable
-class _Nullary(Protocol):
-    def __call__(self) -> float | int | str: ...
+# --- [SERVICES] -------------------------------------------------------------------------
 
-
-class WriteSink(Protocol):
-    """Structural byte sink: a writable target receiving stream chunks during a drain."""
-
-    def write(self, payload: bytes) -> object:
-        """Write one byte chunk to the sink."""
-        ...
-
-
-@runtime_checkable
-class _WriteContext(Protocol):
-    def __enter__(self) -> WriteSink: ...
-
-    def __exit__(self, exc_type: type[BaseException] | None, exc: BaseException | None, tb: object) -> object: ...
+_LOG = structlog.get_logger("assay.engine")
+_TRACER = trace.get_tracer("assay.engine")
 
 
 # --- [TABLES] ---------------------------------------------------------------------------
@@ -152,6 +163,9 @@ def splice_command(
 ) -> tuple[str, ...]:
     """Inject scope flags into a DOTNET build-graph command before any ``--`` argument separator.
 
+    Scope injection is skipped when the runner is not DOTNET, the verb is not in scoped_verbs,
+    scope is absent, or mode is QUERY or LIST.
+
     Returns:
         The command with scope flags spliced for scoped DOTNET verbs, otherwise the command verbatim.
     """
@@ -164,7 +178,7 @@ def splice_command(
 
 
 def _overlay(settings: AssaySettings, scope: ArtifactScope | None) -> Mapping[str, str]:
-    base: MutableMapping[str, str] = dict(os.environ)  # noqa: TID251  # spawn boundary clones the host environment
+    base: MutableMapping[str, str] = dict(os.environ)  # noqa: TID251  # clones the host environment at the spawn boundary
     base.update(settings.python_tool_env)
     match scope:
         case ArtifactScope() as s:
@@ -174,7 +188,6 @@ def _overlay(settings: AssaySettings, scope: ArtifactScope | None) -> Mapping[st
 
 
 def _argv(check: Check, routed: Routed, *, settings: AssaySettings, scope: ArtifactScope | None) -> tuple[str, ...]:
-    # Runner prefix, scoped command body, then routed tails keep scope and input axes separate.
     tool = check.tool
     body = splice_command(tool.runner, tool.command, scope, settings.scoped_verbs, tool.mode)
     body = (*(part for group in tool.groups for part in ("--group", group)), *body) if tool.runner is Runner.UV else body
@@ -249,7 +262,7 @@ def _copy_stage_input(check: Check, root: Path, work: Path, rel: str) -> Fault |
     if isinstance(src, ValueError):
         return Fault((check.tool.name, "stage", rel), message=str(src))
     dst = _contained(work, rel)
-    if isinstance(dst, ValueError):  # pragma: no cover  # defensive: src passed identical containment on the same rel; dst cannot escape work
+    if isinstance(dst, ValueError):  # pragma: no cover  # src passed identical containment on the same rel; dst cannot escape work
         return Fault((check.tool.name, "stage", rel), message=str(dst))
     if not src.exists():
         return Fault((check.tool.name, "stage", rel), message=f"missing stage input: {rel}")
@@ -280,6 +293,9 @@ async def _drain(stream: ByteReceiveStream | None, *, tail_cap: int, chunk: int)
 async def drain_stream(recv: ByteRecv, *, tail_cap: int, sink: WriteSink | None = None, path: str = "") -> Captured:
     """Pump an async byte source to EOF, tee-ing to an optional sink and retaining a bounded tail.
 
+    Line count includes a synthetic final line when the stream ends without a trailing newline,
+    so the count matches the number of logical lines rather than raw newline occurrences.
+
     Args:
         recv: Async read primitive returning the next chunk, or ``None`` at EOF.
         tail_cap: Maximum number of trailing bytes retained in the captured tail.
@@ -290,13 +306,12 @@ async def drain_stream(recv: ByteRecv, *, tail_cap: int, sink: WriteSink | None 
         Capture of the tail window, artifact path, total byte size, and line count.
     """
     tail, total, lines, last = b"", 0, 0, b""
-    # why: an async byte pump is irreducibly imperative — the read primitive is a side-effecting coroutine driven to EOF.
     while (read := await recv()) is not None:
         _write_sink(sink, read)
         tail = (tail + read)[-tail_cap:]
         total += len(read)
         lines += read.count(b"\n")
-        last = read[-1:] or last  # track last CONTENT byte: an empty chunk must not clobber the newline-terminus probe
+        last = read[-1:] or last  # an empty chunk must not clobber the newline-terminus probe
     return Captured(tail=tail, path=path, size=total, lines=lines + (1 if total and last != b"\n" else 0))
 
 
@@ -315,8 +330,7 @@ def _recv_anyio(stream: ByteReceiveStream | None, chunk: int) -> ByteRecv:
 
 
 def _recv_ssh(reader: asyncssh.SSHReader[bytes], chunk: int) -> ByteRecv:
-    # asyncssh read returns b"" only at EOF; project the empty terminator to the pump's None sentinel.
-
+    # asyncssh signals EOF with b"", not EndOfStream; map to None for pump uniformity.
     async def _recv() -> bytes | None:
         return (await reader.read(chunk)) or None
 
@@ -332,7 +346,7 @@ def _write_sink(sink: WriteSink | None, payload: bytes) -> None:
 
 
 async def _reap(proc: Process, limiter: anyio.CapacityLimiter | None = None) -> None:
-    # Shield kill-and-wait so cancellation cannot strand a child past lease release.
+    # Shielded so cancellation cannot strand a child process past lease release.
     with anyio.CancelScope(shield=True):
         match proc.returncode:
             case None:
@@ -364,7 +378,6 @@ def _reap_tree(pid: int) -> None:
 
 
 async def _run_process_backend(plan: _ExecPlan) -> Completed:
-    # exec_target selects the local hot path or the remote path; both return the same receipt shape.
     match plan.settings.exec_target:
         case "":
             match plan.streaming:
@@ -429,9 +442,8 @@ def _stream_writer(plan: _ExecPlan, name: str) -> tuple[str, _WriteContext | Non
 
 
 async def _run_remote(plan: _ExecPlan, target: str) -> Completed:
-    import asyncssh  # noqa: PLC0415  # lazy: asyncssh costs ~83ms cold start; defer past import-time
+    import asyncssh  # noqa: PLC0415  # lazy: ~83ms cold-start cost; defer past import time
 
-    # encoding=None keeps remote stdout/stderr as bytes, matching local Completed receipts.
     command = remote_command(plan.argv, cwd=plan.cwd, env=plan.env)
     async with _ssh_connection(target, plan.settings) as conn:
         match plan.streaming:
@@ -482,6 +494,7 @@ async def _ssh_connection(target: str, settings: AssaySettings) -> AsyncIterator
         case _SshCache() as pooled:
             async with pooled.lock:
                 cached = pooled.conns.get(target)
+                # is_closed is not stable across asyncssh versions; guard with getattr
                 if cached is None or bool(getattr(cached, "is_closed", lambda: False)()):
                     conn = await _connect_once(target, settings)
                     pooled.conns[target] = conn
@@ -501,7 +514,7 @@ async def _connect(target: str, settings: AssaySettings) -> AsyncIterator[asyncs
 
 
 async def _connect_once(target: str, settings: AssaySettings) -> asyncssh.SSHClientConnection:
-    import asyncssh  # noqa: PLC0415  # lazy: asyncssh costs ~83ms cold start; defer past import-time
+    import asyncssh  # noqa: PLC0415  # lazy: ~83ms cold-start cost; defer past import time
 
     parts = urlsplit(target)
     return await asyncssh.connect(
@@ -520,7 +533,6 @@ def remote_command(argv: tuple[str, ...], *, cwd: str, env: Mapping[str, str]) -
     Returns:
         A ``cd <cwd> && <exports> <argv>`` line with every segment shell-quoted.
     """
-    # cwd and env ride the remote shell command because sshd may reject AcceptEnv; quote every segment.
     exports = tuple(f"{shlex.quote(k)}={shlex.quote(v)}" for k, v in env.items())
     body = " ".join((*exports, *(shlex.quote(part) for part in argv)))
     return f"cd {shlex.quote(cwd)} && {body}"
@@ -532,7 +544,6 @@ def ssh_outcome(status: int | None, signal: object | None) -> tuple[int, tuple[s
     Returns:
         The integer exit code (or synthetic 255 for a signalled kill) and any signal-name notes.
     """
-    # A signalled remote exit has no numeric status; surface the signal name as receipt evidence beside the synthetic 255.
     match status, signal:
         case int() as code, _:
             return code, ()
@@ -560,7 +571,7 @@ def _safe_call[T](fn: Callable[[], T], default: T) -> T:
 
 
 def _snapshot() -> dict[str, float]:
-    # psutil oneshot batches resource facts into the Diagnostic wire shape.
+    # oneshot batches proc syscalls; _children is called separately to avoid recursive oneshot nesting.
     proc = psutil.Process()
     with proc.oneshot():
         info = proc.memory_info()
@@ -614,14 +625,13 @@ def _children(proc: psutil.Process) -> dict[str, float]:
 
 def _num_fds(proc: psutil.Process) -> int:
     try:
-        return int(proc.num_fds())  # ty: ignore[possibly-missing-attribute]  # POSIX-only psutil member; the AttributeError arm catches its absence
+        return int(proc.num_fds())  # ty: ignore[possibly-missing-attribute]  # POSIX-only; AttributeError handles absence on non-POSIX
     except psutil.AccessDenied, NotImplementedError, AttributeError:
         return -1
 
 
 def _diagnose(exc: BaseException) -> None:
-    # Seed span and ContextVar resource context before each Fault is built.
-    # The children walk runs only on the real spawn-fault path, not on every _snapshot caller.
+    # Children walk on the fault path only; keeps _snapshot free of recursive oneshot nesting.
     snap = {**_snapshot(), **_children(psutil.Process())}
     _RESOURCE.set(tuple(snap.items()))
     span = trace.get_current_span()
@@ -632,7 +642,7 @@ def _diagnose(exc: BaseException) -> None:
 async def _guarded(
     check: Check, settings: AssaySettings, scope: ArtifactScope | None, routed: Routed, deadline: float | None
 ) -> Result[Completed, Fault]:
-    import asyncssh  # noqa: PLC0415  # lazy import MUST bind before the try frame whose except evaluates asyncssh.Error (not OSError-derived)
+    import asyncssh  # noqa: PLC0415  # lazy: must bind before the try frame whose except evaluates asyncssh.Error (not an OSError subclass)
 
     match _materialize(check, settings):
         case Result(tag="ok", ok=prepared):
@@ -668,16 +678,16 @@ async def _guarded(
         _diagnose(exc)
         return Error(Fault(argv, status=RailStatus.TIMEOUT, message=_stamped("deadline exceeded")))
     except FileNotFoundError as exc:
-        # Absent host binary is a capability gap, not a fault: create_subprocess_exec raises FileNotFoundError at spawn.
+        # Missing capability at spawn, not a transient fault — never retry.
         _diagnose(exc)
         return Error(Fault(argv, status=RailStatus.UNSUPPORTED, message=_stamped(str(exc))))
     except (OSError, ValueError, asyncssh.Error) as exc:
-        # Parentheses are PEP 758-required when binding with ``as``; ValueError covers bare NUL-in-argv from create_subprocess_exec.
+        # ValueError covers NUL-in-argv from anyio's create_subprocess_exec.
         _diagnose(exc)
         return Error(Fault(argv, status=RailStatus.FAULTED, message=_stamped(str(exc))))
 
 
-async def _execute_retrying(  # noqa: PLR0913  # retry loop: check/settings/scope/argv/cwd/env/limiter/deadline/attempts are all load-bearing across the retry body
+async def _execute_retrying(  # noqa: PLR0913  # all params are load-bearing across the retry body; no grouping reduces the count
     check: Check,
     settings: AssaySettings,
     scope: ArtifactScope | None,
@@ -689,8 +699,7 @@ async def _execute_retrying(  # noqa: PLR0913  # retry loop: check/settings/scop
     deadline: float | None,
     attempts: list[int],
 ) -> Completed:
-    # The cell carries the live attempt count across stamina's exhaustion re-raise so _guarded can stamp the surfaced fault.
-    # stamina re-raises on exhaustion and anyio.fail_after raises TimeoutError on deadline — normal return always has done set.
+    # list[int] cell carries attempt count across stamina's re-raise boundary for fault stamping in _guarded.
     done: Completed | None = None
     async for attempt in stamina.retry_context(on=retry_predicate(check, deadline), attempts=3, timeout=_retry_timeout(deadline)):
         attempts[0] = attempt.num
@@ -698,8 +707,8 @@ async def _execute_retrying(  # noqa: PLR0913  # retry loop: check/settings/scop
             with anyio.fail_after(_remaining(deadline)):
                 done = await _execute(check, settings, scope, argv=argv, cwd=cwd, env=env, thread_limiter=thread_limiter)
     match done:
-        case None:  # pragma: no cover  # invariant guard: stamina re-raises on exhaustion, so done is always set on normal return
-            raise RuntimeError("stamina exhausted without raising — invariant violated")  # unreachable; stamina re-raises
+        case None:  # pragma: no cover  # stamina always re-raises on exhaustion; None only if that contract breaks
+            raise RuntimeError("stamina exhausted without raising — invariant violated")
         case Completed() as result:
             return msgspec.structs.replace(result, notes=(*result.notes, f"retry attempts={attempts[0]}")) if attempts[0] > 1 else result
 
@@ -748,7 +757,7 @@ def retry_predicate(check: Check, deadline: float | None) -> Callable[[BaseExcep
     Returns:
         A predicate that retries connection/OS faults on non-direct runners while budget remains, never spawn/value/timeout faults.
     """
-    import asyncssh  # noqa: PLC0415  # lazy: classify's match arm references asyncssh.Error; bind for the closure
+    import asyncssh  # noqa: PLC0415  # lazy: classify's match arm references asyncssh.Error; must bind before the closure captures it
 
     def within_budget() -> bool:
         remaining = _remaining(deadline)
@@ -769,25 +778,24 @@ def retry_predicate(check: Check, deadline: float | None) -> Callable[[BaseExcep
 
 
 async def _inproc(check: Check, limiter: anyio.CapacityLimiter | None = None) -> Completed:
-    # INPROC thunks run under the same deadline and child span as subprocess tools.
     match check.tool.thunk:
         case None:
             return receipt((check.tool.name,), 1, stderr=b"INPROC tool carries no thunk")
         case thunk:
             try:
                 return await to_thread.run_sync(thunk, check, limiter=limiter)
-            except Exception as exc:  # noqa: BLE001  # INPROC resilience boundary: any thunk fault -> FAILED receipt, never an uncaught raise across the fan
+            except Exception as exc:  # noqa: BLE001  # INPROC resilience: any thunk fault becomes a FAILED receipt; never propagates across the fan
                 return receipt((check.tool.name, *check.paths), 1, stderr=f"{type(exc).__name__}: {exc}".encode()[:1024])
 
 
 def _spawn(check: Check, settings: AssaySettings) -> _Woven:
-    # Retry correlation binds at the engine seam; the engine intentionally has no logged layer.
+    # compose wraps _guarded at call time so each invocation carries a fresh span; omitting the logged layer is intentional.
+    # compose is Hom-typed; no variance-safe overload for async _Woven — suppression is load-bearing.
     span = traced(
         span=check.tool.name,
         attrs=lambda *_a, **_k: {"assay.run_id": settings.run_id, "assay.tool": check.tool.name},
         agent=lambda *_a, **_k: settings.agent_context,
     )
-    # compose is Hom-typed, so threading async _Woven through it needs one checker suppression.
     weave: Callable[[_Woven], _Woven] = compose(_CHECKED_LAYER, span)  # type: ignore[assignment]  # ty: ignore[invalid-assignment]
     return weave(_guarded)
 
@@ -823,6 +831,10 @@ def fan_out(
 ) -> tuple[Result[Completed, Fault], ...]:
     """Run checks concurrently and preserve input order.
 
+    ``deadline`` is an absolute ``time.monotonic()`` ceiling shared across all checks; ``None``
+    means no shared budget, deferring to each check's per-tool timeout. Checks that expire
+    before dispatch yield a TIMEOUT fault in their result slot.
+
     Returns:
         One completed-or-fault result per input check.
     """
@@ -843,7 +855,7 @@ def fan_out(
 async def _fan_schedule(
     checks: tuple[Check, ...], *, settings: AssaySettings, scope: ArtifactScope | None, routed: Routed, deadline: float | None, limit: int
 ) -> dict[int, Result[Completed, Fault]]:
-    # Buffer the producer to the full check count so enqueueing never blocks behind a stalled worker; the deadline still bounds the send loop.
+    # Buffer capacity equals the check count so the producer never blocks behind a stalled worker.
     send, recv = anyio.create_memory_object_stream[tuple[int, Check]](max(1, len(checks)))
     out_send, out_recv = anyio.create_memory_object_stream[tuple[int, Result[Completed, Fault]]](limit)
     results: dict[int, Result[Completed, Fault]] = {}
@@ -881,7 +893,7 @@ async def _fan_worker(
 
 @contextlib.asynccontextmanager
 async def _pooled_ssh() -> AsyncIterator[None]:
-    import asyncssh  # noqa: PLC0415  # lazy: the close-loop except evaluates asyncssh.Error; bind before the try frame
+    import asyncssh  # noqa: PLC0415  # lazy: the finally except evaluates asyncssh.Error; must bind before the try frame
 
     cache = _SshCache({}, anyio.Lock())
     token = _SSH_CACHE.set(cache)
@@ -915,7 +927,7 @@ def governed_concurrency(settings: AssaySettings, checks: tuple[Check, ...] = ()
         The concurrency limit, at least 1, bounded by ``max_checks``, the mode cap, and ``settings.cpu_count``.
     """
     runner_cap = settings.dotnet_max_cpu if any(c.tool.runner is Runner.DOTNET for c in checks) else settings.max_checks
-    # Mixed DOTNET+MUTATION batches must honour BOTH ceilings — intersect, never let the mode cap shadow the runner cap.
+    # Mixed DOTNET+MUTATION batches must honour both ceilings; intersect so neither shadows the other.
     mode_cap = min(runner_cap, settings.mutation_max_cpu) if any(c.tool.mode is Mode.MUTATION for c in checks) else runner_cap
     return max(1, min(settings.max_checks, mode_cap, settings.cpu_count))
 
@@ -929,31 +941,29 @@ def is_lease_stale(owner: _LeaseOwner, tolerance: float) -> bool:
     Returns:
         True when the holder process is gone, not running, or drifted past ``tolerance``; False when it is live and matching.
     """
-    # Match pid plus create_time within the drift band so PID reuse does not preserve stale locks.
+    # (pid, create_time) within the drift band guards against PID reuse presenting as a live holder.
     try:
         proc = psutil.Process(owner.pid)
         with proc.oneshot():
             return not (proc.is_running() and abs(proc.create_time() - owner.create_time) < tolerance)
     except psutil.NoSuchProcess, ValueError:
-        # ValueError covers psutil.Process(pid<=0) from a corrupt/adversarial owner block: an unresolvable pid is dead and stealable.
+        # ValueError covers psutil.Process(pid<=0) from a corrupt owner block; treat as dead.
         return True
     except psutil.AccessDenied:
-        # AccessDenied proves a pid is still owned by the OS; do not steal and risk releasing a live holder's lease.
+        # AccessDenied means the OS still owns the pid; fall back to pid_exists rather than stealing a live lease.
         return not psutil.pid_exists(owner.pid)
 
 
 def _claim(
     fd: int, resource: str, *, run_id: str, tolerance: float, target: str, cwd: str = "", project: str = "", mode: str = "exclusive"
 ) -> _LeaseOwner | None:
-    # Non-blocking flock wins cleanly, steals stale/corrupt holders, and maps live holders to BUSY.
+    # Non-blocking flock: live contention returns None (BUSY); stale or corrupt owner falls through to steal.
     try:
         _FLOCK(fd, _LOCK_EX | _LOCK_NB)
         return _write_owner(fd, resource, run_id=run_id, target=target, cwd=cwd, project=project, mode=mode)
     except BlockingIOError:
         held = os.read(fd, 4096)
-        # b"" UNDER a contended flock can only be a live holder mid-write/mid-release (a dead holder dropped its flock,
-        # so the success path above would have won). Map it to BUSY without a steal log; only present-but-corrupt or
-        # present-but-stale blocks fall through to the decode + is_lease_stale + steal path.
+        # b"" under a live flock means the holder is mid-write; a dead holder would have released flock and the success path above would have won.
         match held:
             case b"":
                 _stamp_holder(None)
@@ -972,7 +982,7 @@ def _claim(
 def _steal(
     fd: int, resource: str, *, run_id: str, target: str, cwd: str = "", project: str = "", mode: str = "exclusive", owner: _LeaseOwner | None
 ) -> _LeaseOwner | None:
-    # A lost TOCTOU race yields BUSY, not FAULTED.
+    # TOCTOU: the holder may have revived between is_lease_stale and this flock; a second BlockingIOError yields BUSY.
     try:
         _FLOCK(fd, _LOCK_EX | _LOCK_NB)
     except BlockingIOError:
@@ -1000,7 +1010,6 @@ def decode_lease_owner(held: bytes) -> _LeaseOwner | None:
     Returns:
         The decoded owner, or ``None`` when the bytes are empty or fail to decode.
     """
-    # Empty or corrupt lock bytes represent a stealable stale holder.
     match held:
         case b"":
             return None
@@ -1012,7 +1021,7 @@ def decode_lease_owner(held: bytes) -> _LeaseOwner | None:
 
 
 def _write_all(fd: int, payload: bytes) -> None:
-    # POSIX write(2) may short-write; iterate the remaining tail at the advanced fd offset.
+    # POSIX write(2) permits short-writes; advance the view until the full payload is consumed.
     view = memoryview(payload)
     while view:
         view = view[os.write(fd, view) :]
@@ -1026,7 +1035,6 @@ def _write_block(fd: int, block: _LeaseOwner) -> _LeaseOwner:
 
 
 def _write_owner(fd: int, resource: str, *, run_id: str, target: str, cwd: str = "", project: str = "", mode: str = "exclusive") -> _LeaseOwner:
-    # target records whether the holder ran locally or through ssh://; cwd/project/mode are stamped here so the block is written once.
     proc = psutil.Process(os.getpid())
     with proc.oneshot():
         block = _LeaseOwner(
@@ -1060,7 +1068,7 @@ def exclusive_lease(
         Result containing the held lease or a busy fault.
     """
     path = settings.artifact(ArtifactKind.LOCKS, f"{resource}.lock")
-    # fcntl.flock + os.open + mkdir are local-fs POSIX primitives; a remote artifact backend cannot host the lease.
+    # fcntl.flock requires a local fd; remote artifact backends cannot host lease files.
     if path.protocol not in {"", "file"}:
         yield Error(Fault((), status=RailStatus.UNSUPPORTED, message=f"POSIX leases require a local artifact root; got {path.protocol!r} backend"))
         return

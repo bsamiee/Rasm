@@ -1,12 +1,12 @@
-"""Seam engine — project-agnostic, polymorphic test doubles distilling seam MECHANISM from PAYLOAD.
+"""Seam engine: project-agnostic, polymorphic test doubles distilling seam MECHANISM from PAYLOAD.
 
-A recording monkeypatch installer dispatched by call SHAPE (:class:`SeamProbe` + the :data:`Shape` algebra),
-a spec-bound psutil double (:func:`autospec_proc` / :func:`psutil_module_double` / :func:`install_module_attr`),
-a leak-free loopback capsule (:class:`Loopback` / :func:`loopback_server`), a table-driven payload-variant
-writer (:class:`VariantWriter`), an injected-settings tmp-root harness (:class:`TmpRoot` / :func:`tmp_root`),
-and an NDJSON decode oracle (:class:`NdjsonOracle`). Every domain dependency enters through an injected
-``Callable``/``Decoder``/owner — the engine imports NO project package; dispatch is STRUCTURAL (``match`` on the
-variant TYPE / payload SHAPE), never stringly-typed, and the closed :data:`Shape` union proves exhaustiveness.
+Surfaces: a recording monkeypatch installer dispatched by call SHAPE (``SeamProbe`` + the ``Shape`` algebra);
+a spec-bound psutil double (``autospec_proc`` / ``psutil_module_double`` / ``install_module_attr``); a
+leak-free loopback capsule (``Loopback`` / ``loopback_server``); a table-driven payload-variant writer
+(``VariantWriter``); an injected-settings tmp-root harness (``TmpRoot`` / ``tmp_root``); and an NDJSON decode
+oracle (``NdjsonOracle``). Every domain dependency enters through an injected ``Callable``/``Decoder``/owner
+— the engine imports NO project package; dispatch is STRUCTURAL (``match`` on the variant TYPE / payload
+SHAPE), never stringly-typed, and the closed ``Shape`` union proves exhaustiveness.
 """
 
 # --- [RUNTIME_PRELUDE] ------------------------------------------------------------------
@@ -14,7 +14,7 @@ variant TYPE / payload SHAPE), never stringly-typed, and the closed :data:`Shape
 from collections.abc import Callable, Iterable
 from contextlib import asynccontextmanager
 from pathlib import Path
-from types import TracebackType  # noqa: TC003  # runtime: annotates the _AsyncServer.__aexit__ Protocol dunder
+from types import TracebackType  # noqa: TC003  # Protocol dunder __aexit__ annotation requires runtime presence
 from typing import Protocol, Self, TYPE_CHECKING
 from unittest.mock import create_autospec, MagicMock
 
@@ -29,22 +29,27 @@ if TYPE_CHECKING:
 
 # --- [TYPES] ----------------------------------------------------------------------------
 
-# One recorded invocation: (patch coordinate, positional args, keyword args). The member name is metadata
-# only — dispatch keys on the Shape VARIANT, never on the member string.
+# SeamRecord carries member name for log readability; dispatch keys on Shape VARIANT, not the string.
 type SeamRecord = tuple[str, tuple[object, ...], dict[str, object]]
 
-# Either pre-encoded bytes (written verbatim) or a structured object handed to the injected encoder.
 type Variant = bytes | object
 
 
+class _AsyncServer(Protocol):
+    """Structural bound for an awaited server object that is its own async context manager (enters to itself)."""
+
+    async def __aenter__(self) -> Self: ...
+    async def __aexit__(self, exc_type: type[BaseException] | None, exc: BaseException | None, tb: TracebackType | None) -> object: ...
+
+
+# --- [MODELS] ---------------------------------------------------------------------------
+
+# --- [RECORDING_PATCH]
+
+
 def _noproject[A](_args: tuple[object, ...]) -> tuple[A, ...]:
-    # Identity projection: record every call but capture nothing until the caller injects a real `project`.
+    """Return the empty tuple; default for ``SeamProbe.project`` when callers only need the call log."""
     return ()
-
-
-# --- [RECORDING_PATCH] ------------------------------------------------------------------
-# Bind `owner.member` to a canned behavior whose installation is dispatched by CALL SHAPE — the closed
-# `Shape[R]` union (sync / async / fan-out / factory) drives `SeamProbe.install` via structural `match`.
 
 
 class Sync[R](msgspec.Struct, frozen=True, gc=False):
@@ -79,8 +84,8 @@ class SeamProbe[A](msgspec.Struct, frozen=True, gc=False):
     """Recording monkeypatch host: install a canned seam by call SHAPE and capture every invocation.
 
     ``project`` maps the positional args of each recorded call to the capture stream ``captured``; the default
-    captures nothing (pure call recorder). ``install`` matches the closed :data:`Shape` union — sync / awaited
-    / fan-out / curried-factory — binding the matching canned callable via the single impure boundary
+    captures nothing (pure call recorder). ``install`` matches the closed ``Shape`` union — sync / awaited /
+    fan-out / curried-factory — binding the matching canned callable via the single impure boundary
     ``mp.setattr(owner, member, fn)``. ``projected`` derives an arbitrary view over the raw ``calls`` log.
     """
 
@@ -102,7 +107,7 @@ class SeamProbe[A](msgspec.Struct, frozen=True, gc=False):
         match shape:
             case Async(value=value):
 
-                async def run_async(*args: object, **kwargs: object) -> R:  # noqa: RUF029  # async required: production seam is awaited
+                async def run_async(*args: object, **kwargs: object) -> R:  # noqa: RUF029  # async required: production callsite awaits this seam
                     record(args, kwargs)
                     return value
 
@@ -138,81 +143,7 @@ class SeamProbe[A](msgspec.Struct, frozen=True, gc=False):
         return [item for call in self.calls for item in pick(call)]
 
 
-# --- [PROCESS_DOUBLES] ------------------------------------------------------------------
-# `autospec_proc` builds a spec-bound `create_autospec` process double from keyword fields/methods; the engine
-# never imports psutil — the real Error classes and the not-found factory enter through `psutil_module_double`.
-
-
-def autospec_proc(spec: type, *, fields: Mapping[str, object] = {}, methods: Mapping[str, object] = {}, dead: bool = False) -> MagicMock:
-    """Build a ``create_autospec(spec, instance=True)`` double from plain fields and method return values.
-
-    ``methods`` returns are assigned onto the autospec CHILD mocks (``p.<m>.return_value = ...``), not the
-    parent; ``dead=True`` stamps a private ``_dead`` sentinel that :func:`psutil_module_double`'s factory reads
-    to raise not-found instead of returning the double.
-
-    Returns:
-        A spec-bound ``MagicMock`` carrying the requested field values and method returns.
-    """
-    proc: MagicMock = create_autospec(spec, instance=True)
-    [setattr(proc, name, value) for name, value in fields.items()]
-    [setattr(getattr(proc, name), "return_value", value) for name, value in methods.items()]
-    proc._dead = dead  # private sentinel consumed only by psutil_module_double's factory
-    return proc
-
-
-def psutil_module_double[E: BaseException](
-    real: object,
-    procs: Mapping[int | None, MagicMock],
-    *,
-    not_found: Callable[[int | None], E],
-    extra: Mapping[str, object] = {},  # read-only mapping; never mutated
-) -> MagicMock:
-    """Wrap a pid→double mapping into a ``MagicMock(spec=real)`` module whose ``Process`` factory dispatches it.
-
-    ``procs[None]`` is the self-process; integer keys are explicit pids. An unregistered pid raises
-    ``not_found(pid)`` (no silent fallback); a double stamped ``_dead`` raises ``not_found(double.pid)``.
-    ``extra`` re-binds the module's real Error/NoSuchProcess/AccessDenied/cpu_count so SUT ``except`` clauses
-    stay catchable under the double — the engine itself never imports psutil.
-
-    Returns:
-        A ``psutil`` module double with a pid-dispatching ``Process`` side effect.
-    """
-    fake = MagicMock(spec=real)
-    [setattr(fake, name, value) for name, value in extra.items()]
-
-    def process_factory(pid: int | None = None) -> MagicMock:
-        match procs.get(pid):
-            case None:
-                raise not_found(pid)
-            case proc if getattr(proc, "_dead", False):
-                raise not_found(proc.pid)
-            case proc:
-                return proc
-
-    fake.Process.side_effect = process_factory
-    return fake
-
-
-def install_module_attr[D](mp: pytest.MonkeyPatch, owner: object, attr: str, double: D) -> D:
-    """Pin ``double`` onto ``owner.attr`` via monkeypatch.
-
-    Returns:
-        ``double`` unchanged, for fluent ``.cpu_percent = ...``-style post-configuration.
-    """
-    mp.setattr(owner, attr, double)
-    return double
-
-
-# --- [NETWORK_LOOPBACK] -----------------------------------------------------------------
-# `loopback_server` owns the listen/teardown lifecycle via `async with`; `Loopback` projects the bound port
-# to a connect target. The listener/port readers are injected, so the engine imports no network library.
-
-
-class _AsyncServer(Protocol):
-    """Structural bound for an awaited server object that is its own async context manager (enters to itself)."""
-
-    async def __aenter__(self) -> Self: ...
-    async def __aexit__(self, exc_type: type[BaseException] | None, exc: BaseException | None, tb: TracebackType | None) -> object: ...
+# --- [NETWORK_LOOPBACK]
 
 
 class Loopback(msgspec.Struct, frozen=True, gc=False):
@@ -239,15 +170,13 @@ async def loopback_server[S: _AsyncServer](
     ResourceWarning under ``filterwarnings=["error"]``.
 
     Yields:
-        A :class:`Loopback` carrying ``host`` and the bound port.
+        A ``Loopback`` carrying ``host`` and the bound port.
     """
     async with await listen() as server:
         yield Loopback(host=host, port=port_of(server))
 
 
-# --- [FIXTURE_WRITERS] ------------------------------------------------------------------
-# `VariantWriter` materializes a data-driven family of payload variants (valid + adversarial) to a directory;
-# `TmpRoot` is an isolated tmp tree whose settings projection is supplied by an injected factory.
+# --- [FIXTURE_WRITERS]
 
 
 class VariantWriter[V](msgspec.Struct, frozen=True, gc=False):
@@ -292,7 +221,7 @@ class VariantWriter[V](msgspec.Struct, frozen=True, gc=False):
 class TmpRoot[S](msgspec.Struct, frozen=True, gc=False):
     """Isolated tmp-tree harness: a ``write`` primitive plus an injected ``settings`` projection.
 
-    ``make_settings`` (via :func:`tmp_root`) is the sole injection seam, so the engine never imports any
+    ``make_settings`` (via ``tmp_root``) is the sole injection seam, so the engine never imports any
     project settings type.
     """
 
@@ -313,16 +242,15 @@ class TmpRoot[S](msgspec.Struct, frozen=True, gc=False):
 
 
 def tmp_root[S](root: Path, make_settings: Callable[[Path], S]) -> TmpRoot[S]:
-    """Build a :class:`TmpRoot` rooted at ``root``; ``make_settings`` is the sole project-settings injection seam.
+    """Build a ``TmpRoot`` rooted at ``root``; ``make_settings`` is the sole project-settings injection seam.
 
     Returns:
-        A :class:`TmpRoot` carrying the root and its derived settings.
+        A ``TmpRoot`` carrying the root and its derived settings.
     """
     return TmpRoot(root=root, settings=make_settings(root))
 
 
-# --- [DECODE_ORACLES] -------------------------------------------------------------------
-# `NdjsonOracle` decodes a single NDJSON line off a buffer or capture fixture, asserting the line count.
+# --- [DECODE_ORACLES]
 
 
 class NdjsonOracle[T](msgspec.Struct, frozen=True, gc=False):
@@ -341,12 +269,73 @@ class NdjsonOracle[T](msgspec.Struct, frozen=True, gc=False):
         return self.one(out if isinstance(out, bytes) else out.encode())
 
 
+# --- [OPERATIONS] -----------------------------------------------------------------------
+
+# --- [PROCESS_DOUBLES]
+
+
+def autospec_proc(spec: type, *, fields: Mapping[str, object] = {}, methods: Mapping[str, object] = {}, dead: bool = False) -> MagicMock:
+    """Build a ``create_autospec(spec, instance=True)`` double from plain fields and method return values.
+
+    ``methods`` returns are assigned onto the autospec CHILD mocks (``p.<m>.return_value = ...``), not the
+    parent; ``dead=True`` stamps a private ``_dead`` sentinel that ``psutil_module_double``'s factory reads
+    to raise not-found instead of returning the double.
+
+    Returns:
+        A spec-bound ``MagicMock`` carrying the requested field values and method returns.
+    """
+    proc: MagicMock = create_autospec(spec, instance=True)
+    [setattr(proc, name, value) for name, value in fields.items()]
+    [setattr(getattr(proc, name), "return_value", value) for name, value in methods.items()]
+    proc._dead = dead
+    return proc
+
+
+def psutil_module_double[E: BaseException](
+    real: object, procs: Mapping[int | None, MagicMock], *, not_found: Callable[[int | None], E], extra: Mapping[str, object] = {}
+) -> MagicMock:
+    """Wrap a pid→double mapping into a ``MagicMock(spec=real)`` module whose ``Process`` factory dispatches it.
+
+    ``procs[None]`` is the self-process; integer keys are explicit pids. An unregistered pid raises
+    ``not_found(pid)`` (no silent fallback); a double stamped ``_dead`` raises ``not_found(double.pid)``.
+    ``extra`` re-binds the module's real Error/NoSuchProcess/AccessDenied/cpu_count so SUT ``except`` clauses
+    stay catchable under the double — the engine itself never imports psutil.
+
+    Returns:
+        A ``psutil`` module double with a pid-dispatching ``Process`` side effect.
+    """
+    fake = MagicMock(spec=real)
+    [setattr(fake, name, value) for name, value in extra.items()]
+
+    def process_factory(pid: int | None = None) -> MagicMock:
+        match procs.get(pid):
+            case None:
+                raise not_found(pid)
+            case proc if getattr(proc, "_dead", False):
+                raise not_found(proc.pid)
+            case proc:
+                return proc
+
+    fake.Process.side_effect = process_factory
+    return fake
+
+
+def install_module_attr[D](mp: pytest.MonkeyPatch, owner: object, attr: str, double: D) -> D:
+    """Pin ``double`` onto ``owner.attr`` via monkeypatch.
+
+    Returns:
+        ``double`` unchanged, for fluent ``.cpu_percent = ...``-style post-configuration.
+    """
+    mp.setattr(owner, attr, double)
+    return double
+
+
 # --- [EXPORTS] --------------------------------------------------------------------------
 
 __all__ = [
     "Async",
-    "FanOut",
     "Factory",
+    "FanOut",
     "Loopback",
     "NdjsonOracle",
     "SeamProbe",

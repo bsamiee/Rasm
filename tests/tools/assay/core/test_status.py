@@ -3,6 +3,9 @@
 Public surface: RailStatus, fold, join (tools.assay.core.status.__all__).
 Oracle catalog: associative / commutative / absorbing / identity_element / monotone / validity_matrix.
 Strategy: resolve(RailStatus) -> sampled_from(list(RailStatus)) (StrEnum; registered by conftest).
+
+@given and @parametrize bypass @spec auto-registration, so register_laws lists every law name
+explicitly to keep the coverage ledger consistent with the generated test IDs.
 """
 
 # --- [RUNTIME_PRELUDE] ------------------------------------------------------------------
@@ -12,8 +15,16 @@ import itertools
 from hypothesis import given, strategies as st
 import pytest
 
-from tests._aspect import register_laws, spec  # noqa: PLC2701
-from tests._spec import absorbing, associative, commutative, identity_element, monotone, validity_matrix, ValidityCase  # noqa: PLC2701
+from tests._aspect import register_laws, spec  # noqa: PLC2701 — private test-infra import; no public re-export exists
+from tests._spec import (  # noqa: PLC2701 — private test-infra import; no public re-export exists
+    absorbing,
+    associative,
+    commutative,
+    identity_element,
+    monotone,
+    validity_matrix,
+    ValidityCase,
+)
 from tests.tools.assay.conftest import rail_status_st
 from tools.assay.core.status import fold, join, RailStatus
 
@@ -24,7 +35,6 @@ _ALL: tuple[RailStatus, ...] = tuple(RailStatus)
 _ABSORBING: RailStatus = RailStatus.FAULTED
 _SEED: RailStatus = RailStatus.EMPTY
 
-# from_returncode closed mapping — exhaustive per the SUT match arms.
 _FROM_RC: tuple[tuple[int, RailStatus], ...] = (
     (0, RailStatus.EMPTY),
     (5, RailStatus.BUSY),
@@ -35,9 +45,7 @@ _FROM_RC: tuple[tuple[int, RailStatus], ...] = (
     (255, RailStatus.FAILED),
 )
 
-# --- [LAW_COVERAGE] ---------------------------------------------------------------------
-# Module-level registrations for laws that use @given/@parametrize without @spec.
-# @spec-decorated tests already register at decoration time above; only explicit calls are hoisted here.
+# --- [LAW_COVERAGE]
 
 register_laws(
     (
@@ -65,21 +73,18 @@ register_laws(
 
 
 # --- [OPERATIONS] -----------------------------------------------------------------------
-# Internal projections used by oracle calls; not law functions themselves.
 
 
 def _sev_eq(a: RailStatus, b: RailStatus) -> bool:
-    # Severity-level equality for commutative oracle (join preserves severity but not always object
-    # identity on ties — left wins; commutative holds on the semigroup carrier, not enum singletons).
+    # Semigroup equality on severity only; left wins ties, so enum identity is not commutative.
     return a.severity == b.severity
 
 
 def _join_left_severity(s: RailStatus) -> int:
-    # Projection for the monotone oracle: join(s, SEED).severity is monotone in s.
     return join(s, _SEED).severity
 
 
-# ── join algebra ────────────────────────────────────────────────────────────────────────
+# --- [JOIN_ALGEBRA]
 
 
 @pytest.mark.mutation
@@ -121,12 +126,35 @@ def test_join_empty_identity_sweep(member: RailStatus) -> None:
         case True:
             identity_element(member, join, _SEED, eq=_sev_eq)
         case _:
-            # SKIP (severity 0) is below EMPTY: join(EMPTY, SKIP) = EMPTY != SKIP.
+            # SKIP (severity 0) is below the seed: join with EMPTY returns EMPTY, not SKIP.
             assert join(_SEED, member) is _SEED
             assert join(member, _SEED) is _SEED
 
 
-# ── fold algebra ────────────────────────────────────────────────────────────────────────
+# --- [SEVERITY_MONOTONICITY]
+
+
+@pytest.mark.parametrize(
+    "lo,hi",
+    [(lo, hi) for lo in _ALL for hi in _ALL if lo.severity <= hi.severity],
+    ids=[f"{lo.name}<={hi.name}" for lo in _ALL for hi in _ALL if lo.severity <= hi.severity],
+)
+def test_join_monotone_left(lo: RailStatus, hi: RailStatus) -> None:
+    """Join is monotone in its left argument: join(lo, x).severity <= join(hi, x).severity when lo <= hi."""
+    monotone(lo, hi, _join_left_severity)
+
+
+# --- [EXIT_CODE_PROJECTION]
+
+
+@spec(RailStatus, law="join_exit_code_non_negative")
+def test_join_exit_code_non_negative(s: RailStatus) -> None:
+    """Join result always carries a non-negative exit_code regardless of operand."""
+    assert join(s, _SEED).exit_code >= 0
+    assert join(_SEED, s).exit_code >= 0
+
+
+# --- [FOLD_ALGEBRA]
 
 
 @given(st.lists(rail_status_st, min_size=1, max_size=8))
@@ -173,43 +201,18 @@ def test_fold_faulted_dominates(s: RailStatus) -> None:
     assert fold(_ABSORBING, s) is _ABSORBING
 
 
-# ── severity monotonicity ────────────────────────────────────────────────────────────────
+# --- [FOLD_DOMAIN_CLOSURE]
 
 
-@pytest.mark.parametrize(
-    "lo,hi",
-    [(lo, hi) for lo in _ALL for hi in _ALL if lo.severity <= hi.severity],
-    ids=[f"{lo.name}<={hi.name}" for lo in _ALL for hi in _ALL if lo.severity <= hi.severity],
-)
-def test_join_monotone_left(lo: RailStatus, hi: RailStatus) -> None:
-    """Join is monotone in its left argument: join(lo, x).severity <= join(hi, x).severity when lo <= hi."""
-    monotone(lo, hi, _join_left_severity)
+@spec(RailStatus, law="fold_result_is_enum_member")
+def test_fold_result_is_enum_member(s: RailStatus) -> None:
+    """fold(s) is always a genuine RailStatus member — no synthetic value escapes the domain."""
+    result = fold(s)
+    assert isinstance(result, RailStatus)
+    assert result in _ALL
 
 
-# ── per-member invariants ────────────────────────────────────────────────────────────────
-
-
-@pytest.mark.parametrize("member", _ALL, ids=[m.name for m in _ALL])
-def test_member_invariants(member: RailStatus) -> None:
-    """Per-member: StrEnum bijection, non-negative exit_code, non-negative severity."""
-    assert RailStatus._value2member_map_[str(member)] is member
-    assert isinstance(member.exit_code, int)
-    assert member.exit_code >= 0
-    assert isinstance(member.severity, int)
-    assert member.severity >= 0
-
-
-# ── from_returncode closed table ────────────────────────────────────────────────────────
-
-
-@pytest.mark.mutation
-@pytest.mark.parametrize("rc,expected", _FROM_RC, ids=[f"rc={r}" for r, _ in _FROM_RC])
-def test_from_returncode_closed_table(rc: int, expected: RailStatus) -> None:
-    """from_returncode maps {0->EMPTY, 5->BUSY, 124->TIMEOUT, *->FAILED} exactly."""
-    assert RailStatus.from_returncode(rc) is expected
-
-
-# ── validity matrix: severity ordering ──────────────────────────────────────────────────
+# --- [SEVERITY_ORDERING]
 
 
 def test_severity_ordering_validity_matrix() -> None:
@@ -231,30 +234,32 @@ def test_skip_is_min_severity() -> None:
     assert all(RailStatus.SKIP.severity <= m.severity for m in _ALL)
 
 
-# ── alias contract ───────────────────────────────────────────────────────────────────────
+# --- [PER_MEMBER_INVARIANTS]
+
+
+@pytest.mark.parametrize("member", _ALL, ids=[m.name for m in _ALL])
+def test_member_invariants(member: RailStatus) -> None:
+    """Per-member: StrEnum bijection, non-negative exit_code, non-negative severity."""
+    assert RailStatus._value2member_map_[str(member)] is member
+    assert isinstance(member.exit_code, int)
+    assert member.exit_code >= 0
+    assert isinstance(member.severity, int)
+    assert member.severity >= 0
+
+
+# --- [FROM_RETURNCODE]
+
+
+@pytest.mark.mutation
+@pytest.mark.parametrize("rc,expected", _FROM_RC, ids=[f"rc={r}" for r, _ in _FROM_RC])
+def test_from_returncode_closed_table(rc: int, expected: RailStatus) -> None:
+    """from_returncode maps {0->EMPTY, 5->BUSY, 124->TIMEOUT, *->FAILED} exactly."""
+    assert RailStatus.from_returncode(rc) is expected
+
+
+# --- [ALIAS_CONTRACT]
 
 
 def test_alias_skipped_resolves_to_skip() -> None:
     """RailStatus('skipped') is RailStatus.SKIP — the alias contract is wired correctly."""
     assert RailStatus._value2member_map_["skipped"] is RailStatus.SKIP
-
-
-# ── join exit-code projection ─────────────────────────────────────────────────────────────
-
-
-@spec(RailStatus, law="join_exit_code_non_negative")
-def test_join_exit_code_non_negative(s: RailStatus) -> None:
-    """Join result always carries a non-negative exit_code regardless of operand."""
-    assert join(s, _SEED).exit_code >= 0
-    assert join(_SEED, s).exit_code >= 0
-
-
-# ── fold StrEnum domain closure ───────────────────────────────────────────────────────────
-
-
-@spec(RailStatus, law="fold_result_is_enum_member")
-def test_fold_result_is_enum_member(s: RailStatus) -> None:
-    """fold(s) is always a genuine RailStatus member — no synthetic value escapes the domain."""
-    result = fold(s)
-    assert isinstance(result, RailStatus)
-    assert result in _ALL

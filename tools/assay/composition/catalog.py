@@ -1,4 +1,10 @@
-"""Define Assay tool catalog rows and rail wire decoders."""
+"""Assay tool catalog: static Tool rows for every supported runner/claim/language combination and msgspec decoders for structured tool output.
+
+TOOLS is the single source of truth for every runnable analysis surface.  select() is the
+only public query entry point; callers filter by Claim and optionally by Language.  The
+decoder constants (AST_MATCHES, CAPTURES, RG_EVENT) are shared wire decoders used by tool
+runners to deserialize structured output from ast-grep, tree-sitter, and ripgrep.
+"""
 
 import msgspec
 
@@ -24,7 +30,7 @@ class _Range(msgspec.Struct, frozen=True, gc=False):
 
 
 class AstMatch(msgspec.Struct, frozen=True, gc=False):
-    """Ast-grep compact JSON match."""
+    """One ast-grep match entry decoded from the JSON output array."""
 
     text: str = ""
     file: str = ""
@@ -80,7 +86,7 @@ FILES, INCLUDE, PROJECT, SOLUTION, NONE = (Input.FILES, Input.INCLUDE, Input.PRO
 PY, TS, CS, BASH, SQL, DOCS = (Language.PYTHON, Language.TYPESCRIPT, Language.CSHARP, Language.BASH, Language.SQL, Language.DOCS)
 
 TOOLS: tuple[Tool, ...] = (
-    # -- Python ------------------------------------------------------------------------------
+    # --- [PYTHON]
     Tool("validate-pyproject", UV, ("validate-pyproject", "pyproject.toml"), PROJECT, PY, Claim.STATIC),
     Tool("ruff", UV, ("ruff", "check"), FILES, PY, Claim.STATIC),
     Tool("ruff", UV, ("ruff", "check", "--fix"), FILES, PY, Claim.STATIC, mode=Mode.WRITE),
@@ -130,7 +136,7 @@ TOOLS: tuple[Tool, ...] = (
             project=True,
         ),
     ),
-    # -- TypeScript --------------------------------------------------------------------------
+    # --- [TYPESCRIPT]
     Tool("tsc", PNPM, ("tsc", "--noEmit", "-p", "tsconfig.base.json"), PROJECT, TS, Claim.STATIC, mode=Mode.BUILD),
     Tool("biome", PNPM, ("biome", "ci", "--files-ignore-unknown=true"), NONE, TS, Claim.STATIC),
     Tool("knip", PNPM, ("knip", "--exclude", "catalog", "--no-config-hints"), PROJECT, TS, Claim.STATIC),
@@ -146,7 +152,7 @@ TOOLS: tuple[Tool, ...] = (
         mode=Mode.VERIFY,
     ),
     Tool("vitest", PNPM, ("vitest", "run"), NONE, TS, Claim.TEST, mode=Mode.RUN),
-    # -- C# ----------------------------------------------------------------------------------
+    # --- [CSHARP]
     Tool("dotnet-format", DOTNET, ("format", "--severity", "error", "--verify-no-changes"), INCLUDE, CS, Claim.STATIC),
     Tool("dotnet-format", DOTNET, ("format", "--severity", "error"), INCLUDE, CS, Claim.STATIC, mode=Mode.WRITE),
     Tool("dotnet-restore", DOTNET, ("restore", "--locked-mode"), PROJECT, CS, Claim.STATIC, mode=Mode.RESTORE),
@@ -165,42 +171,41 @@ TOOLS: tuple[Tool, ...] = (
     ),
     Tool("rasm-bridge", DOTNET, ("run", "--no-build", "--", "verify"), PROJECT, CS, Claim.BRIDGE, mode=Mode.VERIFY),
     Tool("ilspycmd", DOTNET, ("tool", "run", "ilspycmd", "--", "-l", "cisde"), NONE, CS, Claim.API, mode=Mode.QUERY),
-    # Python/TypeScript API thunks emit Capture arrays like tree-sitter, not ApiSurface JSON.
+    # py-api and ts-api INPROC thunks emit Capture arrays (same shape as tree-sitter), not ApiSurface JSON.
     Tool("py-api", INPROC, ("py-api", "surface"), NONE, PY, Claim.API, mode=Mode.QUERY),
     Tool("py-api", INPROC, ("py-api", "member"), NONE, PY, Claim.API, mode=Mode.LIST),
     Tool("ts-api", INPROC, ("ts-api", "surface"), NONE, TS, Claim.API, mode=Mode.QUERY),
     Tool("ts-api", INPROC, ("ts-api", "member"), NONE, TS, Claim.API, mode=Mode.LIST),
     Tool("yak", DIRECT, ("yak", "build"), NONE, CS, Claim.PACKAGE, mode=Mode.STAGE),
-    # -- Bash (configured when the tools are available on the executing host) ----------------
+    # --- [BASH]
     Tool("shellcheck", DIRECT, ("shellcheck", "-f", "json1"), FILES, BASH, Claim.STATIC),
     Tool("shfmt", DIRECT, ("shfmt", "-d"), FILES, BASH, Claim.STATIC),
     Tool("shfmt", DIRECT, ("shfmt", "-w"), FILES, BASH, Claim.STATIC, mode=Mode.WRITE),
-    # -- SQL (configured when the tools are available on the executing host) -----------------
+    # --- [SQL]
     Tool("sqlfluff", UV, ("sqlfluff", "lint", "--dialect", "postgres"), FILES, SQL, Claim.STATIC),
     Tool("sqlfluff", UV, ("sqlfluff", "fix", "--dialect", "postgres"), FILES, SQL, Claim.STATIC, mode=Mode.WRITE),
     Tool("squawk", UV, ("squawk",), FILES, SQL, Claim.STATIC),
-    # -- Docs --------------------------------------------------------------------------------
+    # --- [DOCS]
     Tool("mmdc", PNPM, ("mmdc", "-a", ".artifacts/mermaid", "-q"), NONE, DOCS, Claim.DOCS),
-    # -- Code (`ast-grep run` self-walks; tree-sitter queries receive routed files) ----------
+    # --- [CODE]
     Tool("ast-grep", PNPM, ("ast-grep", "run"), NONE, PY, Claim.CODE),
     Tool("ast-grep", PNPM, ("ast-grep", "run"), NONE, PY, Claim.CODE, mode=Mode.WRITE),
     Tool("ast-grep", PNPM, ("ast-grep", "run"), NONE, TS, Claim.CODE),
     Tool("ast-grep", PNPM, ("ast-grep", "run"), NONE, TS, Claim.CODE, mode=Mode.WRITE),
     Tool("tree-sitter", INPROC, ("tree-sitter", "query"), FILES, PY, Claim.CODE, mode=Mode.QUERY),
     Tool("tree-sitter", INPROC, ("tree-sitter", "query"), FILES, TS, Claim.CODE, mode=Mode.QUERY),
-    # Ripgrep self-walks once; the Python tag is census-only and --language refines through rail globs.
+    # ripgrep self-walks the tree; PY tag is census-only — rail globs narrow the language at invocation time.
     Tool(
         "ripgrep", DIRECT, ("rg", "--json", "-U", "--multiline-dotall", "-P", "--hidden", "--glob", "!.git"), NONE, PY, Claim.CODE, mode=Mode.CONTENT
     ),
 )
 
 
-def select(claim: Claim, language: Language | None = None) -> tuple[Tool, ...]:
-    """Select catalog rows for a claim and optional language.
+# --- [OPERATIONS] -----------------------------------------------------------------------
 
-    Returns:
-        Sorted tool rows matching the requested claim and language.
-    """
+
+def select(claim: Claim, language: Language | None = None) -> tuple[Tool, ...]:
+    """Return sorted catalog rows matching `claim` and optional `language`."""
     return tuple(
         sorted(
             (t for t in TOOLS if t.claim is claim and (language is None or t.language is language)),

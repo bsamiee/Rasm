@@ -46,6 +46,9 @@ if TYPE_CHECKING:
     from tests.tools.assay.conftest import AssayHarness, YakShape
     from tools.assay.core.model import Check, Completed
 
+
+# --- [TYPES] ----------------------------------------------------------------------------
+
 type _VerbFn = Callable[[AssaySettings, ArtifactScope, PackageParams], Result[Report, Fault]]
 type _MetaMutator = Callable[[YakMeta], YakMeta]
 
@@ -56,7 +59,6 @@ _NAMESPACED_XML = b'<Project xmlns="urn:test"><PropertyGroup><YakPackageSlug>ras
 _PLAIN_XML = b"<Project><PropertyGroup><YakPackageSlug>rasm-bridge</YakPackageSlug></PropertyGroup></Project>"
 _NO_SLUG_XML = b"<Project><PropertyGroup/></Project>"
 
-# (label, pattern, expected_safe) truth table for _safe_package_pattern
 _PATTERN_CASES: tuple[tuple[str, str, bool], ...] = (
     ("plain_yak", "rasm-rh9_1-mac.yak", True),
     ("versioned_yak", "pkg-v1.0-mac.yak", True),
@@ -67,7 +69,6 @@ _PATTERN_CASES: tuple[tuple[str, str, bool], ...] = (
     ("null_byte", "file\x00null.yak", False),
 )
 
-# (slug, pairs, expect_ok, expect_duplicate) truth table for _lone_match
 _LONE_CASES: tuple[tuple[str, tuple[tuple[str, str], ...], bool, bool], ...] = (
     ("pkg", (("a.csproj", "pkg"),), True, False),
     ("pkg", (("a.csproj", "other"),), False, False),
@@ -75,7 +76,6 @@ _LONE_CASES: tuple[tuple[str, tuple[tuple[str, str], ...], bool, bool], ...] = (
     ("pkg", (), False, False),
 )
 
-# (label, evaluated_slug_override, meta_mutator, error_fragment) for YakMeta.validate failures
 _VALIDATE_FAILURE_CASES: tuple[tuple[str, str | None, _MetaMutator | None, str], ...] = (
     ("slug_mismatch", "other-slug", None, "slug mismatch"),
     ("wrong_ext", None, lambda m: msgspec.structs.replace(m, target_ext=".dll"), ".rhp"),
@@ -90,7 +90,7 @@ _VERBS: tuple[tuple[_VerbFn, str], ...] = ((stage, "stage"), (deploy, "deploy"),
 
 # --- [OPERATIONS] -----------------------------------------------------------------------
 
-# ------ PackageParams laws -------------------------------------------------------------------
+# --- [PACKAGE_PARAMS]
 
 
 register_law(PackageParams, "defaults_are_blank")
@@ -121,7 +121,7 @@ def test_package_arity_is_zero() -> None:
     assert "unexpected positional" in surplus.message
 
 
-# ------ _safe_package_pattern laws -----------------------------------------------------------
+# --- [SAFE_PACKAGE_PATTERN]
 
 register_law(_safe_package_pattern, "truth_table")
 
@@ -132,7 +132,7 @@ def test_safe_package_pattern_truth_table(label: str, pattern: str, expected: bo
     assert _safe_package_pattern(pattern) is expected, f"[{label}]: {pattern!r}"
 
 
-# ------ _slug_from_bytes laws ----------------------------------------------------------------
+# --- [SLUG_FROM_BYTES]
 
 register_law(_slug_from_bytes, "extraction_cases")
 
@@ -146,7 +146,7 @@ def test_slug_from_bytes_cases(raw: bytes, expected: str) -> None:
     assert _slug_from_bytes(raw) == expected
 
 
-# ------ _lone_match laws ---------------------------------------------------------------------
+# --- [LONE_MATCH]
 
 register_law(_lone_match, "resolution")
 register_law(_lone_match, "duplicate_message")
@@ -166,7 +166,7 @@ def test_lone_match_resolution(slug: str, pairs: tuple[tuple[str, str], ...], ex
                 assert "duplicates" in e.message
 
 
-# ------ YakMeta laws -------------------------------------------------------------------------
+# --- [YAK_META]
 
 register_law(YakMeta, "validate_precondition_matrix")
 register_law(YakMeta, "from_props_missing_fields")
@@ -206,7 +206,19 @@ def test_yakmeta_from_props_missing_fields(drop_key: str, assay_root: AssayHarne
     assert drop_key in e.message
 
 
-# ------ evaluate_meta laws -------------------------------------------------------------------
+@spec(YakMeta, law="roundtrip_encode_clean")
+def test_yakmeta_roundtrip(m: YakMeta) -> None:
+    """YakMeta round-trips through msgspec JSON; Path-typed fields resolve to None via CustomType arm."""
+    from tests._spec import assert_roundtrip  # noqa: PLC0415, PLC2701
+
+    none_path = m.manifest_dir is None or m.target_dir is None or m.yak_path is None
+    none_dir = m.package_dir is None or m.project_dir is None
+    if none_path or none_dir:
+        return
+    assert_roundtrip(m, YakMeta)
+
+
+# --- [EVALUATE_META]
 
 register_law(evaluate_meta, "propagates_run_check_fault")
 register_law(evaluate_meta, "decodes_msbuild_props_to_meta")
@@ -225,7 +237,7 @@ def test_evaluate_meta_propagates_run_check_fault(assay_root: AssayHarness, yak_
 
 
 def test_evaluate_meta_decodes_canned_msbuild_props(assay_root: AssayHarness, yak_shape: YakShape, monkeypatch: pytest.MonkeyPatch) -> None:
-    """evaluate_meta decodes canned MSBuild `-getProperty` JSON into validated YakMeta."""
+    """evaluate_meta decodes canned MSBuild -getProperty JSON into validated YakMeta."""
     meta = yak_shape.materialize(assay_root)
     monkeypatch.setattr(_pkg_mod, "run_check", _flow_run_check(yak_shape, meta))
     decoded = assert_ok(evaluate_meta(assay_root.settings, assay_root.scope(Claim.PACKAGE), meta.project, yak_shape.slug, "3.1.4"))
@@ -248,7 +260,7 @@ def test_evaluate_meta_malformed_output_faults(assay_root: AssayHarness, yak_sha
     assert "MSB1009" in e.message
 
 
-# ------ plan verb laws -----------------------------------------------------------------------
+# --- [PLAN]
 
 register_law(plan, "produces_package_run_detail")
 register_law(plan, "propagates_resolve_fault")
@@ -288,7 +300,7 @@ def test_plan_propagates_meta_fault(assay_root: AssayHarness, yak_shape: YakShap
     assert "msbuild" in e.message
 
 
-# ------ list verb laws -----------------------------------------------------------------------
+# --- [LIST]
 
 register_law(list, "empty_workspace")
 register_law(list, "discovers_yak_projects")
@@ -321,7 +333,7 @@ def test_list_ignores_non_yak_csproj(assay_root: AssayHarness) -> None:
     assert not any(non_yak.stem in (m.text or "") for m in report.results)
 
 
-# ------ stage/deploy/publish verb laws -------------------------------------------------------
+# --- [STAGE_DEPLOY_PUBLISH]
 
 register_law(stage, "slug_lease_acquired")
 register_law(deploy, "slug_lease_acquired")
@@ -364,9 +376,7 @@ def test_verbs_propagate_slug_resolution_fault(verb_fn: _VerbFn, verb_name: str,
     )
 
 
-# ------ canned-output lifecycle flow laws ----------------------------------------------------
-# Mode-discriminating run_check double drives the full stage flow against the materialised yak
-# filesystem; real leased/exclusive_lease paths run covering _stage_meta/_drive_steps lease arms.
+# --- [LIFECYCLE_FLOW]
 
 
 def _props_stdout(yak_shape: YakShape, meta: YakMeta) -> bytes:
@@ -381,7 +391,15 @@ def _flow_run_check(
     stage_status: RailStatus = RailStatus.OK,
     build_fault: Fault | None = None,
 ) -> Callable[..., Result[Completed, Fault]]:
-    # QUERY → MSBuild JSON; BUILD → Ok/Error receipt; STAGE → drop .yak for commit; else → install/push receipt.
+    """Build a fake run_check that simulates the full stage pipeline.
+
+    The STAGE arm writes a .yak file so _commit_or_fail finds a real artifact on disk;
+    all other arms return minimal receipts keyed by mode.
+
+    Returns:
+        A callable accepting a Check that dispatches on tool.mode.
+    """
+
     def fake(check: Check, **_kwargs: object) -> Result[Completed, Fault]:
         mode = check.tool.mode
         match mode:
@@ -408,6 +426,11 @@ register_law(stage, "yak_stage_failure_short_circuits_before_commit")
 def _install_flow(
     verb_fn: _VerbFn, assay_root: AssayHarness, yak_shape: YakShape, monkeypatch: pytest.MonkeyPatch
 ) -> tuple[Result[Report, Fault], builtins.list[str]]:
+    """Run verb_fn with a fake pipeline and capture bridge call args.
+
+    Returns:
+        Tuple of (verb result, list of positional args forwarded to the fake bridge client).
+    """
     meta = yak_shape.materialize(assay_root)
     monkeypatch.setattr(_pkg_mod, "run_check", _flow_run_check(yak_shape, meta))
     calls: builtins.list[str] = []
@@ -467,7 +490,7 @@ def test_stage_step_failure_short_circuits(
     assert not (assay_root.root / yak_shape.project.parent / "yak").exists()
 
 
-# ------ post-stage policy + step driver laws -------------------------------------------------
+# --- [POST_STAGE_POLICY]
 
 register_law(_finish, "stage_verb_short_circuits_policy")
 register_law(_finish, "non_ok_stage_skips_steps")
@@ -480,7 +503,7 @@ register_law(_read_bytes, "absent_file_is_empty_oserror_is_fault")
 
 
 def test_finish_stage_verb_returns_staged_unchanged(assay_root: AssayHarness, yak_shape: YakShape) -> None:
-    """`_finish` with verb='stage' returns the staged report verbatim, never resolving a package file."""
+    """_finish with verb='stage' returns the staged report verbatim, never resolving a package file."""
     meta = yak_shape.materialize(assay_root)
     staged = fold(Claim.PACKAGE, "stage", (receipt(("yak", "build"), 0, status=RailStatus.OK),))
     assert assert_ok(_finish(assay_root.settings, assay_root.scope(Claim.PACKAGE), meta, yak_shape.slug, "stage", staged)) is staged
@@ -490,7 +513,7 @@ def test_finish_stage_verb_returns_staged_unchanged(assay_root: AssayHarness, ya
 def test_finish_non_ok_stage_skips_post_steps(
     bad_status: RailStatus, assay_root: AssayHarness, yak_shape: YakShape, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    """`_finish` short-circuits a non-OK stage status for deploy/publish without resolving or driving steps."""
+    """_finish short-circuits a non-OK stage status for deploy/publish without resolving or driving steps."""
     meta = yak_shape.materialize(assay_root)
     staged = msgspec.structs.replace(fold(Claim.PACKAGE, "deploy", ()), status=bad_status)
     monkeypatch.setattr(_pkg_mod, "_resolve_package_file", lambda *_a, **_kw: (_ for _ in ()).throw(AssertionError("must not run")))
@@ -527,7 +550,7 @@ def test_drive_steps_bridge_policy_acquires_bridge_lock(assay_root: AssayHarness
 
 
 def test_resolve_package_file_ambiguous_glob_faults(assay_root: AssayHarness, yak_shape: YakShape) -> None:
-    """`_resolve_package_file` faults when zero or many files match the package pattern."""
+    """_resolve_package_file faults when zero or many files match the package pattern."""
     meta = yak_shape.materialize(assay_root)
     (assay_root.root / meta.package_dir).mkdir(parents=True, exist_ok=True)
     e = assert_error_status(_resolve_package_file(meta), RailStatus.FAULTED)
@@ -535,7 +558,7 @@ def test_resolve_package_file_ambiguous_glob_faults(assay_root: AssayHarness, ya
 
 
 def test_merge_stage_combines_evidence() -> None:
-    """`_merge_stage` sums counts and concatenates results/artifacts/notes, joining the worst status."""
+    """_merge_stage sums counts and concatenates results/artifacts/notes, joining the worst status."""
     staged = msgspec.structs.replace(fold(Claim.PACKAGE, "deploy", (receipt(("yak", "build"), 0, status=RailStatus.OK),)), notes=("staged-note",))
     steps = msgspec.structs.replace(fold(Claim.PACKAGE, "deploy", (receipt(("yak", "install"), 1, status=RailStatus.FAILED),)), notes=("step-note",))
     merged = _merge_stage(staged, steps)
@@ -548,7 +571,7 @@ def test_merge_stage_combines_evidence() -> None:
 
 
 def test_stamp_version_stamps_packagerun_and_defaults() -> None:
-    """`_stamp_version` overwrites a PackageRun version and synthesises a fresh PackageRun for any other detail."""
+    """_stamp_version overwrites a PackageRun version and synthesises a fresh PackageRun for any other detail."""
     stamped = _stamp_version(PackageRun(project="p", version="old"), "new")
     assert stamped.project == "p"
     assert stamped.version == "new"
@@ -562,7 +585,7 @@ def test_stamp_version_stamps_packagerun_and_defaults() -> None:
 def test_commit_or_fail_non_ok_folds_without_commit(
     bad_status: RailStatus, assay_root: AssayHarness, yak_shape: YakShape, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    """`_commit_or_fail` folds a non-OK yak receipt into a stage report and never commits the staged tree."""
+    """_commit_or_fail folds a non-OK yak receipt into a stage report and never commits the staged tree."""
     meta = yak_shape.materialize(assay_root)
     staged = Path(assay_root.write(yak_shape.project.parent / "staged-tmp" / yak_shape.package_pattern, "yak")).parent
     monkeypatch.setattr(_pkg_mod, "_commit", lambda *_a, **_kw: (_ for _ in ()).throw(AssertionError("commit must not run")))
@@ -573,14 +596,14 @@ def test_commit_or_fail_non_ok_folds_without_commit(
 
 
 def test_read_bytes_absent_and_oserror(assay_root: AssayHarness, monkeypatch: pytest.MonkeyPatch) -> None:
-    """`_read_bytes` returns empty bytes for an absent file and a fault for a non-NotFound OSError."""
+    """_read_bytes returns empty bytes for an absent file and a fault for a non-NotFound OSError."""
     assert assert_ok(_read_bytes(assay_root.root / "nope.csproj")) == b""
     monkeypatch.setattr(Path, "read_bytes", lambda _self: (_ for _ in ()).throw(PermissionError("denied")))
     e = assert_error_status(_read_bytes(assay_root.write("locked.csproj", "x")), RailStatus.FAULTED)
     assert "denied" in e.message
 
 
-# ------ staging error-rail edge laws ---------------------------------------------------------
+# --- [STAGING_ERROR_RAIL]
 
 register_law(_pkg_mod._yak_tool, "no_catalog_row_faults")
 register_law(_pkg_mod._stage_artifacts, "missing_manifest_or_primary_faults")
@@ -590,7 +613,7 @@ register_law(stage, "build_outputs_fault_cleans_staged_tree")
 
 
 def test_yak_tool_no_catalog_row_faults(assay_root: AssayHarness, yak_shape: YakShape, monkeypatch: pytest.MonkeyPatch) -> None:
-    """`_yak_tool` faults when the PACKAGE catalog row is absent."""
+    """_yak_tool faults when the PACKAGE catalog row is absent."""
     meta = yak_shape.materialize(assay_root)
     monkeypatch.setattr(_pkg_mod, "select", lambda *_a, **_kw: ())
     e = assert_error_status(_pkg_mod._yak_tool(meta, ("build",), Mode.STAGE), RailStatus.FAULTED)
@@ -599,7 +622,7 @@ def test_yak_tool_no_catalog_row_faults(assay_root: AssayHarness, yak_shape: Yak
 
 @pytest.mark.parametrize("drop", ["manifest", "primary"])
 def test_stage_artifacts_missing_inputs_fault(drop: str, assay_root: AssayHarness, yak_shape: YakShape) -> None:
-    """`_stage_artifacts` faults when the manifest or primary `.rhp` is absent before yak build."""
+    """_stage_artifacts faults when the manifest or primary .rhp is absent before yak build."""
     meta = yak_shape.materialize(assay_root)
     target = {"manifest": meta.manifest_dir / "manifest.yml", "primary": meta.target_dir / f"{meta.assembly_name}{meta.target_ext}"}[drop]
     target.unlink()
@@ -609,7 +632,7 @@ def test_stage_artifacts_missing_inputs_fault(drop: str, assay_root: AssayHarnes
 
 
 def test_copy_tree_oserror_faults(assay_root: AssayHarness, yak_shape: YakShape, monkeypatch: pytest.MonkeyPatch) -> None:
-    """`_copy_tree` turns a copy failure into a bounded yak-build Fault."""
+    """_copy_tree turns a copy failure into a bounded yak-build Fault."""
     meta = yak_shape.materialize(assay_root)
     staged = Path(assay_root.write("staged-c/.keep", "")).parent
     monkeypatch.setattr(_pkg_mod, "copy2", lambda *_a, **_kw: (_ for _ in ()).throw(OSError("disk full")))
@@ -618,7 +641,7 @@ def test_copy_tree_oserror_faults(assay_root: AssayHarness, yak_shape: YakShape,
 
 
 def test_commit_swap_oserror_rolls_back(assay_root: AssayHarness, yak_shape: YakShape, monkeypatch: pytest.MonkeyPatch) -> None:
-    """`_commit` faults and restores the prior package_dir when the staged swap raises OSError."""
+    """_commit faults and restores the prior package_dir when the staged swap raises OSError."""
     meta = yak_shape.materialize(assay_root)
     staged = Path(assay_root.write("staged-commit/dist.yak", "yak")).parent
     monkeypatch.setattr(Path, "replace", lambda _self, _target: (_ for _ in ()).throw(OSError("cross-device link")))
@@ -627,7 +650,7 @@ def test_commit_swap_oserror_rolls_back(assay_root: AssayHarness, yak_shape: Yak
 
 
 def test_stage_build_outputs_fault_cleans_staged_tree(assay_root: AssayHarness, yak_shape: YakShape, monkeypatch: pytest.MonkeyPatch) -> None:
-    """A `_build_outputs` Fault (spawn failure) propagates and the staged temp tree is removed by `_stage_meta`."""
+    """A _build_outputs Fault (spawn failure) propagates and the staged temp tree is removed by _stage_meta."""
     meta = yak_shape.materialize(assay_root)
     parents_before = {p.name for p in (assay_root.root / yak_shape.project.parent).iterdir()}
     spawn_fault = Fault(("dotnet", "build"), message="spawn failed: ENOENT")
@@ -636,18 +659,3 @@ def test_stage_build_outputs_fault_cleans_staged_tree(assay_root: AssayHarness, 
     assert "spawn failed" in e.message
     parents_after = {p.name for p in (assay_root.root / yak_shape.project.parent).iterdir()}
     assert parents_after == parents_before, f"leaked staged tree: {parents_after - parents_before}"
-
-
-# ------ YakMeta PBT laws via @spec -----------------------------------------------------------
-
-
-@spec(YakMeta, law="roundtrip_encode_clean")
-def test_yakmeta_roundtrip(m: YakMeta) -> None:
-    """YakMeta round-trips through msgspec JSON; Path-typed fields resolve to None via CustomType arm."""
-    from tests._spec import assert_roundtrip  # noqa: PLC0415, PLC2701
-
-    none_path = m.manifest_dir is None or m.target_dir is None or m.yak_path is None
-    none_dir = m.package_dir is None or m.project_dir is None
-    if none_path or none_dir:
-        return
-    assert_roundtrip(m, YakMeta)

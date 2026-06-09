@@ -1,19 +1,23 @@
 """Run test, list, coverage, and mutation rails."""
 
-from collections.abc import Callable  # noqa: TC003  # unconditional: _MUTATION_SCOPE binds the projection type at import time
+from collections.abc import Callable  # noqa: TC003  # _MUTATION_SCOPE binds the projection type at import time
 from dataclasses import dataclass, replace
-from pathlib import Path  # unconditional: cyclopts resolves TestParams.target's `Path | None` at CLI-build (PEP 649)
+from pathlib import Path
 from typing import TYPE_CHECKING
 
-from cyclopts.types import NonNegativeInt  # noqa: TC002  # Cyclopts evaluates Param dataclass annotations at runtime.
-from expression import Ok, Result  # noqa: TC002  # unconditional: beartype @checked resolves the handler forward-ref (PEP 649)
+from cyclopts.types import NonNegativeInt  # noqa: TC002  # cyclopts resolves Param-annotated dataclass fields at runtime
+from expression import Ok, Result  # noqa: TC002  # beartype @checked resolves the handler forward-ref (PEP 649)
 from expression.collections import block
 from expression.extra.result import sequence
 import msgspec
 import structlog
 
 from tools.assay.composition.catalog import select
-from tools.assay.composition.settings import ArtifactScope, ArtifactStore, AssaySettings  # noqa: TC001  # unconditional for beartype runtime
+from tools.assay.composition.settings import (  # noqa: TC001  # beartype resolves ArtifactScope/ArtifactStore/AssaySettings annotations at runtime
+    ArtifactScope,
+    ArtifactStore,
+    AssaySettings,
+)
 from tools.assay.core.engine import fan_out, leased
 from tools.assay.core.model import (
     Artifact,
@@ -21,15 +25,15 @@ from tools.assay.core.model import (
     BaseParams,
     Check,
     Claim,
-    Completed,  # noqa: TC001  # unconditional: _roster_matches uses Completed as a runtime type in the tuple annotation
+    Completed,  # noqa: TC001  # _roster_matches uses Completed as a runtime type in the tuple annotation
     Counts,
-    Fault,  # noqa: TC001  # unconditional: beartype @checked resolves the rail's forward-ref (PEP 649)
+    Fault,  # noqa: TC001  # beartype @checked resolves the rail's forward-ref (PEP 649)
     fold,
     Match,
     Mode,
     MutationLane,
     receipt,
-    Report,  # noqa: TC001  # unconditional: beartype @checked resolves the rail's forward-ref (PEP 649)
+    Report,  # noqa: TC001  # beartype @checked resolves the rail's forward-ref (PEP 649)
     Runner,
     TestRun,
 )
@@ -52,9 +56,13 @@ _COVERAGE_OUTPUTS: tuple[tuple[str, tuple[str, ...]], ...] = (
     ("coverage.xml", ("uv", "run", "coverage", "xml", "-o", ".artifacts/python/coverage/coverage.xml")),
     ("coverage.lcov", ("uv", "run", "coverage", "lcov", "-o", ".artifacts/python/coverage/coverage.lcov")),
 )
+
+
+# --- [TABLES] ---------------------------------------------------------------------------
+
 _TESTS = msgspec.json.Decoder(TestRun)
 _ROSTER_ENCODER = msgspec.json.Encoder(order="deterministic")
-# Per-runner changed-file mutation scope: Stryker.NET takes repeatable `--mutate <glob>`; runners absent here cannot scope (UNSUPPORTED).
+# Stryker.NET accepts repeatable `--mutate <glob>`; runners absent here surface UNSUPPORTED on CHANGED lane.
 _MUTATION_SCOPE: dict[str, Callable[[tuple[str, ...]], tuple[str, ...]]] = {
     "dotnet-stryker": lambda files: tuple(flag for f in files for flag in ("--mutate", f))
 }
@@ -95,8 +103,7 @@ def _languages(selected: Language | None) -> tuple[Language, ...]:
 
 
 def _eligible(tool: Tool, params: TestParams) -> bool:
-    # Reject ineligible mutation rows before they can acquire mutation.lock; the C# selector (target/all)
-    # narrows which project mutates via routed.projects, never whether mutation runs.
+    # Mutation eligibility is independent of target/all; those narrow projects only.
     match (tool.mode, params.mutation):
         case (Mode.MUTATION, MutationLane.OFF):
             return False
@@ -121,12 +128,11 @@ def _rows(language: Language, params: TestParams, mode: Mode) -> tuple[Tool, ...
 
 
 def _mutation_gap(params: TestParams, rows: tuple[Tool, ...]) -> bool:
-    # Valid but inapplicable mutation requests fold to EMPTY, not FAULTED.
     return params.mutation is not MutationLane.OFF and not any(t.mode is Mode.MUTATION for t in rows)
 
 
 def _filter(expr: str) -> tuple[str, ...]:
-    # MTP filter discriminant: query (/...), trait (k=v), class (suffix/+), else method.
+    # MTP filter discriminant: leading `/` = query, `k=v` = trait, Tests/Laws/Spec suffix or `+` = class, else method.
     match expr.strip():
         case "":
             return ()
@@ -141,7 +147,7 @@ def _filter(expr: str) -> tuple[str, ...]:
 
 
 def _scoped_mutation(tool: Tool, params: TestParams, files: tuple[str, ...]) -> Tool | None:
-    # CHANGED lane narrows the mutation runner to the changed-file set; runners absent from the table cannot scope (None -> UNSUPPORTED).
+    # CHANGED lane scopes the runner to changed files; runners absent from _MUTATION_SCOPE yield None → UNSUPPORTED.
     match (tool.mode, params.mutation, _MUTATION_SCOPE.get(tool.name)):
         case (Mode.MUTATION, MutationLane.CHANGED, None):
             return None
@@ -152,7 +158,7 @@ def _scoped_mutation(tool: Tool, params: TestParams, files: tuple[str, ...]) -> 
 
 
 def _checks(routed: Routed, params: TestParams, mode: Mode) -> tuple[Check, ...]:
-    # dotnet test (MTP) consumes the filter expression; non-dotnet rows ignore it. CHANGED mutation rows scope to routed files.
+    # MTP consumes the filter; non-dotnet rows ignore it. CHANGED mutation rows scope to routed files.
     filt = _filter(params.filter)
 
     def _splice(tool: Tool) -> Tool | None:
@@ -171,7 +177,6 @@ def _checks(routed: Routed, params: TestParams, mode: Mode) -> tuple[Check, ...]
 
 
 def _unsupported_scope(routed: Routed, params: TestParams, mode: Mode) -> tuple[Result[Completed, Fault], ...]:
-    # CHANGED mutation rows whose runner has no scope table entry surface UNSUPPORTED rather than mutate the whole tree.
     match (mode, params.mutation):
         case (Mode.MUTATION, MutationLane.CHANGED):
             return tuple(
@@ -188,9 +193,7 @@ def _routed(languages: tuple[Language, ...], paths: tuple[str, ...], settings: A
 
 
 def _select(routed: Routed, params: TestParams, settings: AssaySettings) -> Routed:
-    # The C# selector projects onto routed.projects so dotnet test/list/stryker rows (Input.PROJECT) splice the
-    # chosen csproj(s); glob-strategy languages have no project axis and ignore target/all. `--target` narrows to one
-    # project; `--all` unions the default test target with the changed-file closure so the canonical suite always runs.
+    # C# splices routed.projects for dotnet rows; --target pins to one csproj, --all unions default test target with changed-file closure.
     match (routed.language.strategy, params.target, params.all):
         case ("glob", _, _):
             return routed
@@ -215,7 +218,7 @@ def _dispatch(
 
 
 def _roster_matches(outcomes: tuple[Completed, ...]) -> tuple[Match, ...]:
-    # Accept dotnet list-test rows and pytest collect rows; skip headers and count summaries.
+    # Accepts dotnet list-test and pytest collect output; skips MTP headers and count summary lines.
     def _skip(name: str) -> bool:
         return name.startswith("The ") or (name[:1].isdigit() and name.endswith("found"))
 
@@ -229,8 +232,15 @@ def _roster_matches(outcomes: tuple[Completed, ...]) -> tuple[Match, ...]:
     return tuple(rows)
 
 
+def _test_detail(done: Completed) -> TestRun:
+    try:
+        return _TESTS.decode(done.stdout or b"{}")
+    except msgspec.DecodeError:
+        return TestRun()
+
+
 def _detail(done: tuple[Completed, ...], params: TestParams) -> AnyDetail | None:
-    # Mutation evidence is stdout-derived; choose the first decoded receipt with a real mutation lane.
+    # Mutation evidence is stdout-derived; use the first decoded receipt carrying a real mutation lane.
     mutation = next(
         (d for c in done if (d := _test_detail(c)) is not None and isinstance(d, TestRun) and d.mutation is not MutationLane.OFF), TestRun()
     )
@@ -246,18 +256,11 @@ def _detail(done: tuple[Completed, ...], params: TestParams) -> AnyDetail | None
             return None
 
 
-def _test_detail(done: Completed) -> TestRun:
-    try:
-        return _TESTS.decode(done.stdout or b"{}")
-    except msgspec.DecodeError:
-        return TestRun()
-
-
 def coverage_percent(done: tuple[Completed, ...]) -> float | None:
-    """Extract the coverage percentage from a completed ``coverage report`` run.
+    """Extract the coverage percentage from a completed coverage report run.
 
     Returns:
-        Coverage percentage as a float, or ``None`` when no coverage report is present.
+        Coverage percentage as a float, or None when no coverage report is present.
     """
     return next(
         (
@@ -272,8 +275,14 @@ def coverage_percent(done: tuple[Completed, ...]) -> float | None:
 
 
 def _results_artifact(scope: ArtifactScope) -> Artifact:
-    # The per-run scope directory is where dotnet --results-directory writes; surface it as the test results artifact.
+    # dotnet --results-directory writes into the per-run scope path; expose it as the test results artifact.
     return Artifact(id="results", kind=ArtifactKind.TEST, path=str(scope.path))
+
+
+def _adopt_coverage(store: ArtifactStore, run_id: str, path: Path) -> Artifact:
+    raw = path.read_bytes()
+    stored = store.adopt_file(path, ArtifactKind.TEST.value, run_id, "coverage", path.name)
+    return Artifact(id=path.name, kind=ArtifactKind.TEST, path=stored, bytes=len(raw), lines=len(raw.decode(errors="replace").splitlines()))
 
 
 def _coverage_artifacts(settings: AssaySettings, scope: ArtifactScope, done: tuple[Completed, ...]) -> tuple[Artifact, ...]:
@@ -281,12 +290,6 @@ def _coverage_artifacts(settings: AssaySettings, scope: ArtifactScope, done: tup
     produced = frozenset(name for name, head in _COVERAGE_OUTPUTS if any(c.argv[: len(head)] == head and c.returncode == 0 for c in done))
     paths = tuple(p for name in produced for p in (root / name,) if p.is_file())
     return tuple(_adopt_coverage(scope.store, settings.run_id, path) for path in paths)
-
-
-def _adopt_coverage(store: ArtifactStore, run_id: str, path: Path) -> Artifact:
-    raw = path.read_bytes()
-    stored = store.adopt_file(path, ArtifactKind.TEST.value, run_id, "coverage", path.name)
-    return Artifact(id=path.name, kind=ArtifactKind.TEST, path=stored, bytes=len(raw), lines=len(raw.decode(errors="replace").splitlines()))
 
 
 def _roster_artifacts(settings: AssaySettings, scope: ArtifactScope, discovered: tuple[Match, ...]) -> tuple[Artifact, ...]:
@@ -301,6 +304,19 @@ def _roster_artifacts(settings: AssaySettings, scope: ArtifactScope, discovered:
         Artifact(id="test-roster", kind=ArtifactKind.TEST, path=text_path, bytes=len(text_raw), lines=len(discovered)),
         Artifact(id="test-roster-json", kind=ArtifactKind.TEST, path=json_path, bytes=len(raw), lines=len(discovered)),
     )
+
+
+def _dispatch_all(
+    routed: Routed, params: TestParams, *, settings: AssaySettings, scope: ArtifactScope, mode: Mode
+) -> tuple[Result[Completed, Fault], ...]:
+    run = _dispatch(routed, params, settings=settings, scope=scope, mode=mode)
+    mutation = (
+        _dispatch(routed, params, settings=settings, scope=scope, mode=Mode.MUTATION)
+        if params.mutation is not MutationLane.OFF and mode is Mode.RUN
+        else ()
+    )
+    coverage = _dispatch(routed, params, settings=settings, scope=scope, mode=Mode.CLIENT) if params.coverage and mode is Mode.RUN else ()
+    return (*run, *mutation, *coverage)
 
 
 def _thin_rail(settings: AssaySettings, scope: ArtifactScope, params: TestParams, *, claim: Claim, verb: str, mode: Mode) -> Result[Report, Fault]:
@@ -353,8 +369,10 @@ def run(settings: AssaySettings, scope: ArtifactScope, params: TestParams) -> Re
     return _thin_rail(settings, scope, params, claim=Claim.TEST, verb="run", mode=Mode.RUN)
 
 
-def list(settings: AssaySettings, scope: ArtifactScope, params: TestParams) -> Result[Report, Fault]:  # noqa: A001  # the verb IS "list"; this is the registry-bound Handler name
+def list(settings: AssaySettings, scope: ArtifactScope, params: TestParams) -> Result[Report, Fault]:  # noqa: A001
     """List discovered tests.
+
+    The name must match the registry-bound Handler name for verb dispatch.
 
     Returns:
         Test roster report, or routing/spawn fault.
@@ -398,19 +416,6 @@ def coverage(settings: AssaySettings, scope: ArtifactScope, params: TestParams) 
         Coverage test report, or routing/spawn fault.
     """
     return _thin_rail(settings, scope, replace(params, coverage=True, benchmark=False), claim=Claim.TEST, verb="coverage", mode=Mode.RUN)
-
-
-def _dispatch_all(
-    routed: Routed, params: TestParams, *, settings: AssaySettings, scope: ArtifactScope, mode: Mode
-) -> tuple[Result[Completed, Fault], ...]:
-    run = _dispatch(routed, params, settings=settings, scope=scope, mode=mode)
-    mutation = (
-        _dispatch(routed, params, settings=settings, scope=scope, mode=Mode.MUTATION)
-        if params.mutation is not MutationLane.OFF and mode is Mode.RUN
-        else ()
-    )
-    coverage = _dispatch(routed, params, settings=settings, scope=scope, mode=Mode.CLIENT) if params.coverage and mode is Mode.RUN else ()
-    return (*run, *mutation, *coverage)
 
 
 # --- [EXPORTS] --------------------------------------------------------------------------

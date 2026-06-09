@@ -12,8 +12,8 @@ from typing import TYPE_CHECKING
 
 import pytest
 
-from tests._aspect import register_law  # noqa: PLC2701  # sibling test-internal module; _-named by S1 design
-from tests._spec import assert_error_status  # noqa: F401, PLC2701  # imported for symmetry; _-named by S1 design
+from tests._aspect import register_law  # noqa: PLC2701  # test-framework internal; no public re-export path
+from tests._spec import assert_error_status  # noqa: F401, PLC2701  # conftest re-exports for fixture injection; import triggers registration
 from tests.tools.assay.conftest import read_one_envelope_from_bytes
 from tools.assay import __main__ as _main_mod, bootstrap_error, install_tracing
 from tools.assay.core.model import Claim
@@ -30,10 +30,9 @@ _FAULTED_EXIT: int = RailStatus.FAULTED.exit_code
 
 
 # --- [OPERATIONS] -----------------------------------------------------------------------
-# Laws are organized by SUT symbol so register_law calls are co-located.
 
 
-# -- main: empty-argv → parse fault -------------------------------------------------------
+# --- [MAIN_EMPTY_ARGV]
 
 
 def test_main_empty_argv_emits_parse_fault(cli: VerbRunner) -> None:
@@ -48,7 +47,7 @@ def test_main_empty_argv_emits_parse_fault(cli: VerbRunner) -> None:
 register_law(_main_mod.main, "test_main_empty_argv_emits_parse_fault")
 
 
-# -- main: bare claim (incomplete command) ------------------------------------------------
+# --- [MAIN_BARE_CLAIM]
 
 
 def test_main_bare_claim_emits_parse_fault(cli: VerbRunner) -> None:
@@ -64,7 +63,7 @@ def test_main_bare_claim_emits_parse_fault(cli: VerbRunner) -> None:
 register_law(_main_mod.main, "test_main_bare_claim_emits_parse_fault")
 
 
-# -- main: exit-code matrix (parse faults carry _DRAIN_MS-independent exit codes) --------
+# --- [MAIN_EXIT_CODE_MATRIX]
 
 
 @pytest.mark.parametrize(
@@ -80,7 +79,7 @@ def test_main_bare_claim_exit_code_matrix(cli: VerbRunner, argv: tuple[str, ...]
 register_law(_main_mod.main, "test_main_bare_claim_exit_code_matrix")
 
 
-# -- main: numeric-validator fault surfaces before dispatch -------------------------------
+# --- [MAIN_NUMERIC_VALIDATOR]
 
 
 def test_main_numeric_validator_faults_before_dispatch(cli: VerbRunner) -> None:
@@ -96,7 +95,7 @@ def test_main_numeric_validator_faults_before_dispatch(cli: VerbRunner) -> None:
 register_law(_main_mod.main, "test_main_numeric_validator_faults_before_dispatch")
 
 
-# -- main: error_context.failing_step is "parse" on no-command fault ---------------------
+# --- [MAIN_NO_COMMAND_CONTEXT]
 
 
 def test_main_no_command_fault_context(cli: VerbRunner) -> None:
@@ -109,7 +108,7 @@ def test_main_no_command_fault_context(cli: VerbRunner) -> None:
 register_law(_main_mod.main, "test_main_no_command_fault_context")
 
 
-# -- main: channel separation — one Envelope line on stdout, structlog on stderr ----------
+# --- [MAIN_CHANNEL_SEPARATION]
 
 
 def test_main_channel_separation(cli: VerbRunner) -> None:
@@ -117,7 +116,6 @@ def test_main_channel_separation(cli: VerbRunner) -> None:
     res = cli("static", "plan")
     assert len(res.stdout.splitlines()) == 1
     assert b'"schema_version"' not in res.stderr
-    # Decoding the single stdout line must succeed (proves it is a valid Envelope).
     decoded = read_one_envelope_from_bytes(res.stdout)
     assert decoded.schema_version == 1
 
@@ -125,7 +123,7 @@ def test_main_channel_separation(cli: VerbRunner) -> None:
 register_law(_main_mod.main, "test_main_channel_separation")
 
 
-# -- main: tracing lifecycle — flush then shutdown after dispatch -------------------------
+# --- [MAIN_TRACING_LIFECYCLE]
 
 
 def test_main_tracing_lifecycle_order(monkeypatch: pytest.MonkeyPatch) -> None:
@@ -154,16 +152,14 @@ def test_main_tracing_lifecycle_order(monkeypatch: pytest.MonkeyPatch) -> None:
 register_law(_main_mod.main, "test_main_tracing_lifecycle_order")
 
 
-# -- main: surrogates scrubbed before wire encode ----------------------------------------
+# --- [MAIN_SURROGATE_ARGV]
 
 
 def test_main_surrogate_argv_does_not_crash(cli: VerbRunner) -> None:
     """Lone surrogate bytes in argv are replaced with U+FFFD before reaching the wire encoder."""
-    # os.fsdecode(b'\xff') → surrogated string on POSIX; mimic with the lone-surrogate char directly.
-    surrogate_token = "\udcff"  # noqa: S105  # lone surrogate, not a password; tests wire_safe sanitisation
-    # Running with a bad token in the verb position: should produce a fault, never a UnicodeEncodeError.
+    # os.fsdecode(b'\xff') yields a surrogated string on POSIX; '\udcff' is the direct equivalent.
+    surrogate_token = "\udcff"  # noqa: S105  # not a credential; lone surrogate probes wire_safe sanitization path
     res = cli(surrogate_token)
-    # Must produce exactly one decodable Envelope on stdout.
     assert len(res.stdout.splitlines()) == 1
     decoded = read_one_envelope_from_bytes(res.stdout)
     assert decoded.status is RailStatus.FAULTED
@@ -172,7 +168,7 @@ def test_main_surrogate_argv_does_not_crash(cli: VerbRunner) -> None:
 register_law(_main_mod.main, "test_main_surrogate_argv_does_not_crash")
 
 
-# -- main: isolate=True subprocess exit code for invalid input ---------------------------
+# --- [MAIN_SUBPROCESS_EXIT_CODE]
 
 
 def test_main_subprocess_exit_code(cli: VerbRunner) -> None:
@@ -185,7 +181,7 @@ def test_main_subprocess_exit_code(cli: VerbRunner) -> None:
 register_law(_main_mod.main, "test_main_subprocess_exit_code")
 
 
-# -- main: malformed ASSAY_* env folds to one config-fault Envelope ----------------------
+# --- [MAIN_CONFIG_ENV_FAULT]
 
 
 def test_main_config_env_fault_surfaces_as_config_step(cli: VerbRunner) -> None:
@@ -200,7 +196,7 @@ def test_main_config_env_fault_surfaces_as_config_step(cli: VerbRunner) -> None:
 register_law(_main_mod.main, "test_main_config_env_fault_surfaces_as_config_step")
 
 
-# -- main: unexpected dispatch exception folds to the dispatch safety-net -----------------
+# --- [MAIN_UNEXPECTED_DISPATCH]
 
 
 def test_main_unexpected_dispatch_faults_to_dispatch_step(cli: VerbRunner, monkeypatch: pytest.MonkeyPatch) -> None:
@@ -209,7 +205,7 @@ def test_main_unexpected_dispatch_faults_to_dispatch_step(cli: VerbRunner, monke
     class _BoomApp:
         @staticmethod
         def parse_args(_tokens: tuple[str, ...], **_kwargs: object) -> tuple[object, None, None]:
-            return object(), None, None  # a non-help command so _no_command is False and dispatch executes
+            return object(), None, None  # non-None first element signals real dispatch to cyclopts, not help
 
         def __call__(self, *_args: object, **_kwargs: object) -> object:
             raise RuntimeError("boom")
@@ -227,7 +223,7 @@ def test_main_unexpected_dispatch_faults_to_dispatch_step(cli: VerbRunner, monke
 register_law(_main_mod.main, "test_main_unexpected_dispatch_faults_to_dispatch_step")
 
 
-# -- main: _drain is a no-op over a lifecycle-less trace provider -------------------------
+# --- [MAIN_DRAIN_NOOP]
 
 
 def test_main_drain_noop_on_lifecycleless_provider(monkeypatch: pytest.MonkeyPatch) -> None:
@@ -240,7 +236,7 @@ def test_main_drain_noop_on_lifecycleless_provider(monkeypatch: pytest.MonkeyPat
 register_law(_main_mod.main, "test_main_drain_noop_on_lifecycleless_provider")
 
 
-# -- main: _drain swallows force_flush/shutdown failures to stderr, never stdout ----------
+# --- [MAIN_DRAIN_SWALLOWS_LIFECYCLE]
 
 
 def test_main_drain_swallows_provider_lifecycle_exceptions(monkeypatch: pytest.MonkeyPatch, capsysbinary: pytest.CaptureFixture[bytes]) -> None:
@@ -257,7 +253,7 @@ def test_main_drain_swallows_provider_lifecycle_exceptions(monkeypatch: pytest.M
     code = _main_mod.main(["self-test"])
     cap = capsysbinary.readouterr()
     assert code == 7
-    assert cap.out == b""  # the Envelope wire is untouched; lifecycle diagnostics belong on stderr
+    assert cap.out == b""
     assert b"force_flush failed" in cap.err
     assert b"shutdown failed" in cap.err
 
@@ -265,7 +261,7 @@ def test_main_drain_swallows_provider_lifecycle_exceptions(monkeypatch: pytest.M
 register_law(_main_mod.main, "test_main_drain_swallows_provider_lifecycle_exceptions")
 
 
-# -- main: _install swallows a settings ValidationError (bad ASSAY_* env) -----------------
+# --- [MAIN_INSTALL_SWALLOWS_SETTINGS]
 
 
 def test_main_install_tracing_swallows_settings_validation(monkeypatch: pytest.MonkeyPatch) -> None:
@@ -279,7 +275,7 @@ def test_main_install_tracing_swallows_settings_validation(monkeypatch: pytest.M
 register_law(_main_mod.main, "test_main_install_tracing_swallows_settings_validation")
 
 
-# -- main: subprocess bootstrap-error path folds to one config-fault Envelope -------------
+# --- [MAIN_SUBPROCESS_BOOTSTRAP_ERROR]
 
 
 def test_main_subprocess_bootstrap_error_config_fault(cli: VerbRunner) -> None:
@@ -294,12 +290,12 @@ def test_main_subprocess_bootstrap_error_config_fault(cli: VerbRunner) -> None:
 register_law(_main_mod.main, "test_main_subprocess_bootstrap_error_config_fault")
 
 
-# -- install_tracing: empty endpoint is a no-op ------------------------------------------
+# --- [INSTALL_TRACING_EMPTY_ENDPOINT]
 
 
 def test_install_tracing_empty_endpoint_is_noop() -> None:
     """install_tracing('') must not install a tracer provider (no exception, no side effect)."""
-    from opentelemetry.trace import get_tracer_provider as _gtp  # noqa: PLC0415
+    from opentelemetry.trace import get_tracer_provider as _gtp  # noqa: PLC0415  # deferred: avoids OTel global-provider side-effect at session scope
 
     before = _gtp()
     install_tracing("")
@@ -310,7 +306,7 @@ def test_install_tracing_empty_endpoint_is_noop() -> None:
 register_law(install_tracing, "test_install_tracing_empty_endpoint_is_noop")
 
 
-# -- install_tracing: non-empty endpoint installs a real provider -------------------------
+# --- [INSTALL_TRACING_NON_EMPTY_ENDPOINT]
 
 
 def test_install_tracing_non_empty_endpoint_builds_real_provider(monkeypatch: pytest.MonkeyPatch) -> None:
@@ -323,8 +319,8 @@ def test_install_tracing_non_empty_endpoint_builds_real_provider(monkeypatch: py
     Falsified by: install_tracing skipping the provider build, attaching no span processor, or reusing the
     existing global provider instead of constructing a new one.
     """
-    from opentelemetry.sdk.trace import TracerProvider  # noqa: PLC0415
-    import opentelemetry.trace as _ot  # noqa: PLC0415
+    from opentelemetry.sdk.trace import TracerProvider  # noqa: PLC0415  # deferred: module-level import installs OTel before monkeypatch
+    import opentelemetry.trace as _ot  # noqa: PLC0415  # deferred: same session-provider contamination reason as TracerProvider
 
     captured: list[object] = []
     monkeypatch.setattr(_ot, "set_tracer_provider", captured.append)
@@ -333,31 +329,30 @@ def test_install_tracing_non_empty_endpoint_builds_real_provider(monkeypatch: py
     provider = captured[0]
     assert isinstance(provider, TracerProvider)
     assert provider is not _ot.get_tracer_provider(), "must build a NEW provider, not reuse the global"
-    assert provider._active_span_processor is not None  # OTLP BatchSpanProcessor was attached
+    assert provider._active_span_processor is not None
 
 
 register_law(install_tracing, "test_install_tracing_non_empty_endpoint_builds_real_provider")
 
 
-# -- bootstrap_error: nominal path returns None ------------------------------------------
+# --- [BOOTSTRAP_ERROR_NOMINAL]
 
 
 def test_bootstrap_error_nominal_returns_none() -> None:
     """Under a valid environment bootstrap_error() returns None (no import-time config fault)."""
     result = bootstrap_error()
-    # The import-time settings load succeeded in the current environment; None is the healthy signal.
     assert result is None
 
 
 register_law(bootstrap_error, "test_bootstrap_error_nominal_returns_none")
 
 
-# -- bootstrap_error: smoke law — result is ValidationError or None ----------------------
+# --- [BOOTSTRAP_ERROR_TYPE_CONTRACT]
 
 
 def test_bootstrap_error_type_contract() -> None:
     """bootstrap_error() always returns ValidationError | None, never an unexpected type."""
-    from pydantic import ValidationError  # noqa: PLC0415
+    from pydantic import ValidationError  # noqa: PLC0415  # deferred: avoids mandatory pydantic import at collection time; type-contract check only
 
     result = bootstrap_error()
     assert result is None or isinstance(result, ValidationError)

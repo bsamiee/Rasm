@@ -56,13 +56,12 @@ _SUFFIX_CASES: tuple[tuple[str, Language], ...] = (
     ("Foo.cs", Language.CSHARP),
 )
 
-# Verbs whose Ok branch carries claim=STATIC and verb=<name>; full also checks counts fold.
 _CLAIM_VERB_CASES: tuple[tuple[_VerbFn, str], ...] = ((fix, "fix"), (report, "report"), (build, "build"), (full, "full"))
 
 
 # --- [OPERATIONS] -----------------------------------------------------------------------
 
-# ------ StaticParams laws ---------------------------------------------------------------------
+# --- [STATICPARAMS_LAWS]
 
 
 register_law(StaticParams, "default_fields")
@@ -99,7 +98,27 @@ def test_staticparams_language_field(language: Language | None, paths: tuple[str
 register_law(StaticParams, "language_field_preserved")
 
 
-# ------ Language-inference laws ---------------------------------------------------------------
+# --- [VALIDITY_MATRIX]
+
+
+@pytest.mark.parametrize(
+    "case",
+    [
+        ValidityCase("none", StaticParams(language=None), expected=True),
+        *(ValidityCase(lang.value, StaticParams(language=lang), expected=True) for lang in Language),
+    ],
+    ids=lambda c: c.label if isinstance(c, ValidityCase) else str(c),
+)
+def test_staticparams_language_validity_matrix(case: ValidityCase[StaticParams]) -> None:
+    """StaticParams accepts None and every Language member without fault."""
+    validity_matrix([case], valid=lambda p: isinstance(p, StaticParams) and p.language == case.value.language)
+
+
+register_law(StaticParams, "language_validity_matrix")
+register_law(StaticParams, "all_verbs_rop_contract")
+
+
+# --- [LANGUAGE_INFERENCE_LAWS]
 
 
 @pytest.mark.parametrize("path, expected", _SUFFIX_CASES)
@@ -126,7 +145,6 @@ register_law(Language, "inference_empty_paths_all_languages")
 
 
 def test_language_inference_explicit_overrides_paths() -> None:
-    """Explicit language overrides suffix inference."""
     from tools.assay.rails.static import _languages  # noqa: PLC0415, PLC2701
 
     result = _languages(Language.CSHARP, ("tools/assay/__init__.py",))
@@ -149,7 +167,7 @@ def test_language_inference_multi_suffix() -> None:
 register_law(Language, "inference_multi_suffix_no_duplicates")
 
 
-# ------ mode-family law -----------------------------------------------------------------------
+# --- [MODE_FAMILY_LAW]
 
 
 @pytest.mark.parametrize("mode, expected", [(Mode.BUILD, (Mode.RESTORE, Mode.BUILD)), (Mode.CHECK, (Mode.CHECK,)), (Mode.WRITE, (Mode.WRITE,))])
@@ -163,7 +181,24 @@ def test_mode_family(mode: Mode, expected: tuple[Mode, ...]) -> None:
 register_law(Mode, "mode_family_build_restore_closure")
 
 
-# ------ plan rail laws ------------------------------------------------------------------------
+# --- [SUPPORT_MATRIX]
+
+
+def test_readonly_verbs_do_not_use_write_mode() -> None:
+    """Plan, report, and build verbs never invoke Mode.WRITE (falsifiable: swap mode in _thin_rail)."""
+    support_matrix(
+        ("check_writes_false", lambda: not Mode.CHECK.writes, True),
+        ("build_writes_false", lambda: not Mode.BUILD.writes, True),
+        ("write_writes_true", lambda: Mode.WRITE.writes, True),
+    )
+
+
+register_law(plan, "readonly_verb_no_write_mode")
+register_law(report, "readonly_verb_no_write_mode")
+register_law(build, "readonly_verb_no_write_mode")
+
+
+# --- [PLAN_RAIL_LAWS]
 
 
 @pytest.mark.parametrize(
@@ -231,7 +266,7 @@ def test_plan_report_routed_object_directly(assay_root: AssayHarness) -> None:
 register_law(plan, "plan_report_routed_notes")
 
 
-# ------ ROP contract: all verbs return Result + Ok branch shape -------------------------------
+# --- [ROP_CONTRACT]
 
 
 @pytest.mark.parametrize("verb_fn, verb_name", _CLAIM_VERB_CASES, ids=[n for _, n in _CLAIM_VERB_CASES])
@@ -249,7 +284,7 @@ def test_verb_returns_result_and_ok_shape(verb_fn: _VerbFn, verb_name: str, assa
             if verb_name == "full":
                 assert r.counts.ok + r.counts.failed == r.counts.total, f"counts arithmetic broken: {r.counts!r}"
         case _:
-            pass  # Error branch: Fault is acceptable; this law proves the Ok branch shape when it succeeds.
+            pass  # Fault branch is an acceptable outcome; law governs only the Ok shape.
 
 
 register_law(fix, "returns_result")
@@ -260,7 +295,6 @@ register_law(build, "returns_result")
 register_law(build, "ok_carries_static_claim")
 register_law(full, "returns_result")
 register_law(full, "counts_fold_invariant")
-register_law(StaticParams, "all_verbs_rop_contract")
 
 
 def test_full_injects_workspace_slnx_when_paths_empty(assay_root: AssayHarness) -> None:
@@ -274,43 +308,7 @@ def test_full_injects_workspace_slnx_when_paths_empty(assay_root: AssayHarness) 
 register_law(full, "workspace_slnx_injection")
 
 
-# ------ validity matrix: StaticParams.language field accepts None and all Language members ----
-
-
-@pytest.mark.parametrize(
-    "case",
-    [
-        ValidityCase("none", StaticParams(language=None), expected=True),
-        *(ValidityCase(lang.value, StaticParams(language=lang), expected=True) for lang in Language),
-    ],
-    ids=lambda c: c.label if isinstance(c, ValidityCase) else str(c),
-)
-def test_staticparams_language_validity_matrix(case: ValidityCase[StaticParams]) -> None:
-    """StaticParams accepts None and every Language member without fault."""
-    validity_matrix([case], valid=lambda p: isinstance(p, StaticParams) and p.language == case.value.language)
-
-
-register_law(StaticParams, "language_validity_matrix")
-
-
-# ------ support matrix: read-only verbs do not set Mode.writes=True --------------------------
-
-
-def test_readonly_verbs_do_not_use_write_mode() -> None:
-    """Plan, report, and build verbs never invoke Mode.WRITE (falsifiable: swap mode in _thin_rail)."""
-    support_matrix(
-        ("check_writes_false", lambda: not Mode.CHECK.writes, True),
-        ("build_writes_false", lambda: not Mode.BUILD.writes, True),
-        ("write_writes_true", lambda: Mode.WRITE.writes, True),
-    )
-
-
-register_law(plan, "readonly_verb_no_write_mode")
-register_law(report, "readonly_verb_no_write_mode")
-register_law(build, "readonly_verb_no_write_mode")
-
-
-# ------ _dispatch empty-checks arm (line 98): DOCS has no registered tools -------------------
+# --- [DISPATCH_EMPTY_CHECKS]
 
 
 def test_dispatch_returns_empty_when_no_checks_for_language(assay_root: AssayHarness) -> None:
@@ -324,8 +322,41 @@ def test_dispatch_returns_empty_when_no_checks_for_language(assay_root: AssayHar
 register_law(Language, "dispatch_empty_checks_toolless_language")
 
 
-# ------ _build_fan + _write_fan via leased monkeypatch ----------------------------------------
-# Each law asserts _build_fan/_write_fan correctly projects the leased Ok or Error outcome.
+# --- [DISPATCH_ARMS]
+
+
+@pytest.mark.parametrize(
+    "mode, routed, prefix",
+    [
+        (Mode.BUILD, Routed(Language.CSHARP, Scope.FULL, files=("Workspace.slnx",), projects=("Workspace.slnx",)), None),
+        (Mode.WRITE, Routed(Language.PYTHON, Scope.FULL, files=("tools/assay/__init__.py",), projects=()), "write-"),
+    ],
+    ids=["build_projects", "write_mode"],
+)
+def test_dispatch_arm(mode: Mode, routed: Routed, prefix: str | None, monkeypatch: pytest.MonkeyPatch, assay_root: AssayHarness) -> None:
+    """_dispatch routes BUILD+projects to _build_fan and WRITE to _write_fan (falsifiable: wrong arm)."""
+    ok_argv = ("dotnet", "build") if mode is Mode.BUILD else ("ruff", "check", "--fix")
+    ok_rows: tuple[object, ...] = (Ok(receipt(ok_argv, 0, status=RailStatus.OK)),)
+    captured: list[str] = []
+
+    def _fake(resource: str, *_a: object, **_kw: object) -> object:
+        captured.append(resource)
+        return Ok(ok_rows)
+
+    monkeypatch.setattr(static_rail, "leased", _fake)
+    scope = assay_root.scope(Claim.STATIC)
+    result = static_rail._dispatch(routed, settings=assay_root.settings, scope=scope, mode=mode)
+    assert result == ok_rows, f"_dispatch {mode}: expected ok_rows, got {result!r}"
+    if prefix is not None:
+        assert captured, f"leased not called — wrong arm taken for {mode}: {captured!r}"
+        assert captured[0].startswith(prefix), f"wrong resource prefix for {mode}: {captured!r}"
+
+
+register_law(build, "dispatch_build_projects_routes_build_fan")
+register_law(fix, "dispatch_write_mode_routes_write_fan")
+
+
+# --- [FAN_LEASED_LAWS]
 
 
 @pytest.mark.parametrize(
@@ -357,12 +388,10 @@ def test_fan_leased_ok_and_error(
     checks = static_rail._checks(routed, mode)
     fn = getattr(static_rail, fan)
 
-    # Ok path
     monkeypatch.setattr(static_rail, "leased", lambda *_a, **_kw: Ok(ok_rows))
     ok_result = fn(checks, routed, assay_root.settings) if fan == "_build_fan" else fn(checks, routed, assay_root.settings, scope)
     assert ok_result == ok_rows, f"{fan} Ok: expected ok_rows propagated, got {ok_result!r}"
 
-    # Error path
     monkeypatch.setattr(static_rail, "leased", lambda *_a, **_kw: Error(fault))
     err_result = fn(checks, routed, assay_root.settings) if fan == "_build_fan" else fn(checks, routed, assay_root.settings, scope)
     assert len(err_result) == 1, f"{fan} Error: expected single-element tuple, got {err_result!r}"
@@ -400,41 +429,7 @@ def test_write_fan_route_sha_prefix(monkeypatch: pytest.MonkeyPatch, assay_root:
 register_law(fix, "route_sha_included_in_lease_resource")
 
 
-# ------ _dispatch arms: BUILD→_build_fan, WRITE→_write_fan -----------------------------------
-
-
-@pytest.mark.parametrize(
-    "mode, routed, prefix",
-    [
-        (Mode.BUILD, Routed(Language.CSHARP, Scope.FULL, files=("Workspace.slnx",), projects=("Workspace.slnx",)), None),
-        (Mode.WRITE, Routed(Language.PYTHON, Scope.FULL, files=("tools/assay/__init__.py",), projects=()), "write-"),
-    ],
-    ids=["build_projects", "write_mode"],
-)
-def test_dispatch_arm(mode: Mode, routed: Routed, prefix: str | None, monkeypatch: pytest.MonkeyPatch, assay_root: AssayHarness) -> None:
-    """_dispatch routes BUILD+projects to _build_fan and WRITE to _write_fan (falsifiable: wrong arm)."""
-    ok_argv = ("dotnet", "build") if mode is Mode.BUILD else ("ruff", "check", "--fix")
-    ok_rows: tuple[object, ...] = (Ok(receipt(ok_argv, 0, status=RailStatus.OK)),)
-    captured: list[str] = []
-
-    def _fake(resource: str, *_a: object, **_kw: object) -> object:
-        captured.append(resource)
-        return Ok(ok_rows)
-
-    monkeypatch.setattr(static_rail, "leased", _fake)
-    scope = assay_root.scope(Claim.STATIC)
-    result = static_rail._dispatch(routed, settings=assay_root.settings, scope=scope, mode=mode)
-    assert result == ok_rows, f"_dispatch {mode}: expected ok_rows, got {result!r}"
-    if prefix is not None:
-        assert captured, f"leased not called — wrong arm taken for {mode}: {captured!r}"
-        assert captured[0].startswith(prefix), f"wrong resource prefix for {mode}: {captured!r}"
-
-
-register_law(build, "dispatch_build_projects_routes_build_fan")
-register_law(fix, "dispatch_write_mode_routes_write_fan")
-
-
-# ------ fix/build/report/full: verb integration via canned leased ----------------------------
+# --- [VERB_INTEGRATION]
 
 
 @pytest.mark.parametrize("verb_fn, verb_name", [(fix, "fix"), (build, "build"), (report, "report")], ids=["fix", "build", "report"])
@@ -458,10 +453,7 @@ register_law(report, "ok_report_fold_arithmetic_via_canned_output")
 
 
 def test_full_combines_debug_release_via_canned_leased(monkeypatch: pytest.MonkeyPatch, assay_root: AssayHarness) -> None:
-    """Full with canned leased and fan_out folds two configurations; counts sum correctly.
-
-    Drives _combine_full and the sequence-over-two-configs logic. Falsifiable: wrong sum, wrong verb.
-    """
+    """Full with canned leased and fan_out folds two configurations; counts sum correctly (falsifiable: wrong sum or wrong verb)."""
     ok_rows: tuple[object, ...] = (Ok(receipt(("dotnet", "build"), 0, status=RailStatus.OK)),)
     monkeypatch.setattr(static_rail, "leased", lambda *_a, **_kw: Ok(ok_rows))
     monkeypatch.setattr(static_rail, "fan_out", lambda *_a, **_kw: ok_rows)

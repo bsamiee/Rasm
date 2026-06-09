@@ -1,4 +1,16 @@
-"""Run yak package stage, deploy, publish, list, and plan rails."""
+"""Yak package lifecycle rails: stage, deploy, publish, list, and plan.
+
+Manages the full yak distribution lifecycle for Rhino plugin packages. Stage
+atomically builds, copies, and commits artifacts to the package directory using
+a same-filesystem rename with a .previous.<pid> recovery pivot. Deploy and
+publish extend stage with post-stage lifecycle steps (install, push) driven by
+a per-slug policy table; the rasm-bridge slug additionally cycles the live Rhino
+host via quit and refresh steps. All mutating paths acquire exclusive leases so
+concurrent rails for the same slug serialize safely.
+
+Public surface: PackageParams, YakMeta, stage, deploy, publish, list, plan,
+evaluate_meta.
+"""
 
 from dataclasses import dataclass
 from enum import StrEnum
@@ -17,7 +29,10 @@ from expression.extra.result import sequence
 import msgspec
 
 from tools.assay.composition.catalog import select
-from tools.assay.composition.settings import ArtifactScope, AssaySettings  # noqa: TC001  # unconditional for beartype runtime
+from tools.assay.composition.settings import (  # noqa: TC001  # beartype resolves these at import time, not under TYPE_CHECKING
+    ArtifactScope,
+    AssaySettings,
+)
 from tools.assay.core.engine import leased, run_check
 from tools.assay.core.model import (
     ArtifactKind,
@@ -40,9 +55,9 @@ from tools.assay.core.model import (
 )
 from tools.assay.core.routing import Routed, Scope
 from tools.assay.core.status import join, RailStatus
-
-# Reuse the canonical bridge client seam for rasm-bridge lifecycle steps.
-from tools.assay.rails.bridge import _client_run as _bridge_client_run  # noqa: PLC2701
+from tools.assay.rails.bridge import (
+    _client_run as _bridge_client_run,  # noqa: PLC2701  # intentional: _client_run is package-rail internal coupling, not a public bridge surface
+)
 
 
 if TYPE_CHECKING:
@@ -65,7 +80,6 @@ class _LifecycleStep(StrEnum):
     REFRESH = "refresh", Mode.CLIENT, True
 
     def __new__(cls, value: str, mode: Mode, needs_bridge: bool) -> Self:  # noqa: FBT001  # enum payload binder mirrors enum field order
-        """Bind the wire token, yak run mode, and bridge-lock flag payload."""
         member = str.__new__(cls, value)
         member._value_, member.mode, member.needs_bridge = value, mode, needs_bridge
         return member
@@ -130,7 +144,7 @@ class PackageParams(BaseParams):
 
 
 class _MsbuildProps(Base, frozen=True):
-    Properties: dict[str, str] = msgspec.field(default_factory=dict)  # MSBuild wire key is PascalCase; missing block decodes total
+    Properties: dict[str, str] = msgspec.field(default_factory=dict)
 
 
 class YakMeta(Base, frozen=True, gc=False):
@@ -156,7 +170,6 @@ class YakMeta(Base, frozen=True, gc=False):
         Returns:
             Validated yak metadata, or a metadata/precondition fault.
         """
-        # YakPushSource is optional; every other metadata property must be present.
         missing = tuple(name for name in _META_PROPS if name != "YakPushSource" and not props.get(name))
         match missing:
             case ():
@@ -208,19 +221,11 @@ class YakMeta(Base, frozen=True, gc=False):
         return next((Error(Fault(("yak", slug), message=detail)) for ok, detail in checks if not ok), Ok(self))
 
 
-def _absolute(root: Path, path: Path) -> Path:
-    return path.resolve() if path.is_absolute() else (root / path).resolve()
-
-
-def _safe_package_pattern(pattern: str) -> bool:
-    return bool(pattern) and "/" not in pattern and "\\" not in pattern and "\x00" not in pattern and ".." not in Path(pattern).parts
-
-
 # --- [TABLES] ---------------------------------------------------------------------------
 
 _DECODER: Final[msgspec.json.Decoder[_MsbuildProps]] = msgspec.json.Decoder(_MsbuildProps)
 
-# Ordered post-stage step policy keyed by verb and rasm-bridge slug match.
+# Keyed by (verb, is_rasm_bridge_slug); bridge slug forces quit/refresh to cycle the live host.
 _STEP_POLICY: Final[dict[tuple[str, bool], tuple[_LifecycleStep, ...]]] = {
     ("deploy", False): (_LifecycleStep.INSTALL,),
     ("deploy", True): (_LifecycleStep.QUIT, _LifecycleStep.INSTALL, _LifecycleStep.REFRESH),
@@ -232,8 +237,16 @@ _STEP_POLICY: Final[dict[tuple[str, bool], tuple[_LifecycleStep, ...]]] = {
 # --- [OPERATIONS] -----------------------------------------------------------------------
 
 
+def _absolute(root: Path, path: Path) -> Path:
+    return path.resolve() if path.is_absolute() else (root / path).resolve()
+
+
+def _safe_package_pattern(pattern: str) -> bool:
+    return bool(pattern) and "/" not in pattern and "\\" not in pattern and "\x00" not in pattern and ".." not in Path(pattern).parts
+
+
 def _yak_tool(meta: YakMeta, command: _Step, mode: Mode) -> Result[Tool, Fault]:
-    # Command carries the complete invocation; Input.NONE contributes only the empty routing tail.
+    # Input.NONE: no changed-file routing tail; yak operates on committed package_dir.
     match select(Claim.PACKAGE, Language.CSHARP):
         case (base, *_):
             return Ok(msgspec.structs.replace(base, command=(str(meta.yak_path), *command), mode=mode))
@@ -255,7 +268,7 @@ def _yak_push_tail(meta: YakMeta, package_file: Path) -> _Step:
 
 
 def _run_yak(meta: YakMeta, command: _Step, mode: Mode, *, cwd: Path, settings: AssaySettings, scope: ArtifactScope) -> Result[Completed, Fault]:
-    # Minimal C#/CHANGED Routed satisfies Input.NONE; non-zero yak exits stay on Completed.
+    # Non-zero yak exits stay on Completed, not Fault.
     return _yak_tool(meta, command, mode).bind(
         lambda tool: run_check(Check(tool=tool, cwd=cwd), settings=settings, scope=scope, routed=Routed(language=tool.language, scope=Scope.CHANGED))
     )
@@ -284,7 +297,6 @@ def evaluate_meta(settings: AssaySettings, scope: ArtifactScope, project: str, s
 
 
 def _decode_props(project: str, done: Completed) -> Result[dict[str, str], Fault]:
-    # Non-zero MSBuild emits plain error text, so decode failure becomes a bounded metadata Fault.
     try:
         return Ok(_DECODER.decode(done.stdout or b"{}").Properties)
     except msgspec.DecodeError:
@@ -293,7 +305,6 @@ def _decode_props(project: str, done: Completed) -> Result[dict[str, str], Fault
 
 
 def _resolve_project(settings: AssaySettings, slug: str) -> Result[str, Fault]:
-    # Resolve by slug, never by changed set, so package lifecycle cannot target ambiguous projects.
     return _package_projects(settings).bind(lambda projects: _slugged(settings, projects)).bind(lambda pairs: _lone_match(slug, pairs))
 
 
@@ -305,7 +316,7 @@ def _package_projects(settings: AssaySettings) -> Result[tuple[str, ...], Fault]
 
 
 def _slugged(settings: AssaySettings, projects: tuple[str, ...]) -> Result[tuple[tuple[str, str], ...], Fault]:
-    # Empty slug means non-yak project; I/O faults still dominate the sequence.
+    # Empty slug identifies a non-yak project; sequence short-circuits on the first I/O fault.
     return sequence(block.of_seq(_csproj_slug(settings, p) for p in projects)).map(lambda slugs: tuple(zip(projects, tuple(slugs), strict=True)))
 
 
@@ -321,7 +332,6 @@ def _lone_match(slug: str, pairs: tuple[tuple[str, str], ...]) -> Result[str, Fa
 
 
 def _csproj_slug(settings: AssaySettings, project: str) -> Result[str, Fault]:
-    # Read package slug directly from XML; absence means non-yak project.
     return _read_bytes(Path(str(settings.root / project))).map(_slug_from_bytes)
 
 
@@ -346,7 +356,7 @@ def _slug_from_bytes(raw: bytes) -> str:
 
 
 def _stage_artifacts(meta: YakMeta, staged: Path) -> Result[Path, Fault]:
-    # Drop host-provided assemblies; require manifest and primary .rhp before yak build.
+    # Host-provided assemblies are excluded; manifest and primary .rhp must exist before yak build.
     manifest = meta.manifest_dir / "manifest.yml"
     primary = meta.target_dir / f"{meta.assembly_name}{meta.target_ext}"
     match (manifest.is_file(), primary.is_file()):
@@ -397,7 +407,7 @@ def _commit(meta: YakMeta, staged: Path, slug: str) -> Result[Report, Fault]:
 
 
 def _stage_meta(settings: AssaySettings, scope: ArtifactScope, meta: YakMeta, slug: str, version: str) -> Result[Report, Fault]:
-    # Stage under package_dir's parent so the final replace is same-filesystem and lease-scoped.
+    # Temp dir is under package_dir's parent to keep the final rename on the same filesystem.
     resource = f"{_PACKAGE_STAGE}-{meta.package_dir.name}"
 
     def locked(_held: object) -> Result[Report, Fault]:
@@ -462,8 +472,7 @@ def _stamp_version(detail: object, version: str) -> PackageRun:
 
 
 def _run_step(settings: AssaySettings, scope: ArtifactScope, meta: YakMeta, package_file: Path, step: _LifecycleStep) -> Result[Completed, Fault]:
-    # install/push are yak steps carrying their own tail; quit/refresh ride the bridge client under bridge.lock.
-    # Refresh failure after install is recoverable by bridge launch, so bridge steps ride Completed(FAILED).
+    # Refresh failure after install is recoverable via bridge relaunch; bridge steps fold into Completed, not Fault.
     match step:
         case _LifecycleStep.INSTALL:
             return _run_yak(meta, _yak_install_tail(package_file), step.mode, cwd=meta.package_dir, settings=settings, scope=scope)
@@ -474,7 +483,7 @@ def _run_step(settings: AssaySettings, scope: ArtifactScope, meta: YakMeta, pack
 
 
 def _resolve_package_file(meta: YakMeta) -> Result[Path, Fault]:
-    # Resolve from committed package_dir so install/push never operate on ambiguous staged artifacts.
+    # Resolves from committed package_dir so install/push never operate on a temp-staged artifact.
     matches = sorted(meta.package_dir.glob(meta.package_pattern))
     match matches:
         case [only]:
@@ -484,7 +493,6 @@ def _resolve_package_file(meta: YakMeta) -> Result[Path, Fault]:
 
 
 def _finish(settings: AssaySettings, scope: ArtifactScope, meta: YakMeta, slug: str, verb: str, staged: Report) -> Result[Report, Fault]:
-    # Stage verb and non-OK stage results short-circuit before post-stage policy.
     match (verb, staged.status):
         case ("stage", _) | (_, RailStatus.FAILED | RailStatus.FAULTED | RailStatus.TIMEOUT | RailStatus.BUSY):
             return Ok(staged)
@@ -503,7 +511,6 @@ def _drive_steps(
     package_file: Path,
     steps: tuple[_LifecycleStep, ...],
 ) -> Result[Report, Fault]:
-    # Bridge-bound policy acquires bridge.lock once for quit -> install -> refresh.
     def run_steps(_held: object) -> Result[Report, Fault]:
         return _fold_steps(settings, scope, meta, verb, staged, package_file, steps)
 
@@ -517,7 +524,7 @@ def _drive_steps(
 def _fold_steps(
     settings: AssaySettings, scope: ArtifactScope, meta: YakMeta, verb: str, staged: Report, package_file: Path, steps: tuple[_LifecycleStep, ...]
 ) -> Result[Report, Fault]:
-    # Result accumulator appends Completed rows and short-circuits only on spawn or lease Faults; stage build evidence survives the merge.
+    # Stage build evidence is preserved in the accumulator; only spawn or lease Faults short-circuit.
     seed: Result[tuple[Completed, ...], Fault] = Ok(())
     folded = reduce(
         lambda acc, step: acc.bind(lambda done: _run_step(settings, scope, meta, package_file, step).map(lambda c: (*done, c))), steps, seed
@@ -526,7 +533,7 @@ def _fold_steps(
 
 
 def _merge_stage(staged: Report, steps: Report) -> Report:
-    # Stage results/counts/artifacts/notes ride ahead of step rows so build evidence and post-stage steps both survive one report.
+    # Stage results prepend step rows so build evidence and post-stage outcomes both survive in one report.
     return msgspec.structs.replace(
         steps,
         status=join(staged.status, steps.status),
@@ -540,8 +547,6 @@ def _merge_stage(staged: Report, steps: Report) -> Report:
 
 
 def _lifecycle(settings: AssaySettings, scope: ArtifactScope, params: PackageParams, verb: str) -> Result[Report, Fault]:
-    # Resolve and validate before leases, then stage and apply verb-specific post-stage steps.
-
     def staged_then_finish(meta: YakMeta) -> Result[Report, Fault]:
         return _stage_meta(settings, scope, meta, params.slug, params.version).bind(
             lambda staged: _finish(settings, scope, meta, params.slug, verb, staged)
@@ -555,6 +560,25 @@ def _lifecycle(settings: AssaySettings, scope: ArtifactScope, params: PackagePar
         )
 
     return leased(f"package-{params.slug or 'default'}", locked, settings=settings, run_id=settings.run_id, project=params.slug, mode="exclusive")
+
+
+def _plan_report(meta: YakMeta, version: str) -> Report:
+    return msgspec.structs.replace(
+        fold(Claim.PACKAGE, "plan", ()),
+        status=RailStatus.OK,
+        detail=PackageRun(
+            project=meta.project,
+            pattern=meta.package_pattern,
+            version=version,
+            manifest_dir=str(meta.manifest_dir),
+            target_dir=str(meta.target_dir),
+            package_dir=str(meta.package_dir),
+            target_framework=meta.target_framework,
+            platform=meta.yak_platform,
+            push_source=meta.yak_push_source,
+            yak_path=str(meta.yak_path),
+        ),
+    )
 
 
 # --- [COMPOSITION] ----------------------------------------------------------------------
@@ -587,7 +611,9 @@ def publish(settings: AssaySettings, scope: ArtifactScope, params: PackageParams
     return _lifecycle(settings, scope, params, "publish")
 
 
-def list(settings: AssaySettings, scope: ArtifactScope, params: PackageParams) -> Result[Report, Fault]:  # noqa: A001  # registry binds the canonical verb name "list"
+def list(  # noqa: A001
+    settings: AssaySettings, scope: ArtifactScope, params: PackageParams
+) -> Result[Report, Fault]:
     """List package projects and slugs.
 
     Returns:
@@ -617,25 +643,6 @@ def plan(settings: AssaySettings, scope: ArtifactScope, params: PackageParams) -
         _resolve_project(settings, params.slug)
         .bind(lambda project: evaluate_meta(settings, scope, project, params.slug, params.version))
         .map(lambda meta: _plan_report(meta, params.version))
-    )
-
-
-def _plan_report(meta: YakMeta, version: str) -> Report:
-    return msgspec.structs.replace(
-        fold(Claim.PACKAGE, "plan", ()),
-        status=RailStatus.OK,
-        detail=PackageRun(
-            project=meta.project,
-            pattern=meta.package_pattern,
-            version=version,
-            manifest_dir=str(meta.manifest_dir),
-            target_dir=str(meta.target_dir),
-            package_dir=str(meta.package_dir),
-            target_framework=meta.target_framework,
-            platform=meta.yak_platform,
-            push_source=meta.yak_push_source,
-            yak_path=str(meta.yak_path),
-        ),
     )
 
 

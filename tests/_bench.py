@@ -25,17 +25,11 @@ if TYPE_CHECKING:
 
 # --- [CONSTANTS] ------------------------------------------------------------------------
 
-# Auto-calibration floor: pedantic's default iterations=1 is unsafe below 100us (timer
-# resolution/overhead dominates), so sub-floor subjects get their iteration count raised
-# until the measured window clears the floor, capped to keep a single round bounded.
+# pedantic's default iterations=1 is unsafe below 100 us: timer resolution dominates, so sub-floor subjects are re-calibrated up to the cap.
 _CALIBRATION_FLOOR_NS = 100_000
 _ITERATIONS_CAP = 10_000
 
-# Session-end step detector: penalized piecewise-constant (Potts) fit over the per-(label,size)
-# median time series. A breakpoint is admitted when the scale-free log-likelihood gain
-# `n * ln(sse_full / sse_split)` clears the BIC-style penalty `_POTTS_BETA * ln(n)` (~4 DOF/
-# breakpoint, ASV convention); a final segment exceeding the prior segment's level by more than
-# `_REGRESSION_TOLERANCE` (relative) then fails the gate. Storage dir mirrors the pytest addopts.
+# Potts/BIC step detector: breakpoint admitted when scale-free log-likelihood gain clears beta*ln(n) (~4 DOF/breakpoint, ASV convention).
 _POTTS_BETA = 4.0
 _REGRESSION_TOLERANCE = 0.70
 _BENCHMARK_STORAGE_DIR = ".artifacts/python/benchmarks"
@@ -54,7 +48,7 @@ class BenchCase(msgspec.Struct, frozen=True):
     gate is statistically guarded — a sample whose dispersion exceeds ``max_rel_iqr`` is skipped
     as untrustworthy rather than producing a flaky verdict.
 
-    Fields:
+    Attributes:
         gate: When False, the row is measured and recorded but the absolute budget is not asserted
             (regression-compare-only rows).
         gate_stat: Which robust statistic the budget gates on; ``median`` (default) or ``min`` for
@@ -147,13 +141,10 @@ def run_bench(benchmark: BenchmarkFixture, row: BenchCase, size: int) -> object:
     proc = psutil.Process(os.getpid())
     payload = row.workload(size)
 
-    # Non-blocking CPU sample primes the interval counter; the post-call read measures the
-    # fraction spent in user+sys during the pedantic window. RSS is sampled around the call.
+    # interval=None primes the psutil interval counter; the second call after pedantic captures user+sys CPU fraction for the timed window.
     proc.cpu_percent(interval=None)
     rss_before = proc.memory_info().rss
 
-    # Untimed probe -> auto-calibrate iterations so sub-100us subjects clear the timer-resolution
-    # floor. Skipped when the row pinned iterations (>1) or rebuilds per round (setup forces 1).
     probe_start = time.perf_counter_ns()
     row.subject(payload)
     probe_dt = time.perf_counter_ns() - probe_start
@@ -163,17 +154,17 @@ def run_bench(benchmark: BenchmarkFixture, row: BenchCase, size: int) -> object:
         else row.iterations
     )
 
-    # pytest-benchmark ships no stub for BenchmarkFixture.pedantic; ty resolves it, mypy needs the inline ignore.
-    # fresh_per_round rebuilds the payload via setup before each round (consuming/mutating subjects),
-    # which forces iterations=1; otherwise the built-once payload is reused with calibrated iterations.
     def _measure() -> object:
         return (
-            benchmark.pedantic(row.subject, setup=lambda: ((row.workload(size),), {}), rounds=row.rounds, warmup_rounds=row.warmup_rounds)  # type: ignore[no-untyped-call]
+            benchmark.pedantic(  # type: ignore[no-untyped-call]  # BenchmarkFixture.pedantic has no stub; ty resolves, mypy cannot
+                row.subject, setup=lambda: ((row.workload(size),), {}), rounds=row.rounds, warmup_rounds=row.warmup_rounds
+            )
             if row.fresh_per_round
-            else benchmark.pedantic(row.subject, args=(payload,), rounds=row.rounds, iterations=iterations, warmup_rounds=row.warmup_rounds)  # type: ignore[no-untyped-call]
+            else benchmark.pedantic(  # type: ignore[no-untyped-call]  # BenchmarkFixture.pedantic has no stub; ty resolves, mypy cannot
+                row.subject, args=(payload,), rounds=row.rounds, iterations=iterations, warmup_rounds=row.warmup_rounds
+            )
         )
 
-    # gc.disable/enable is a resource boundary (try/finally), not control flow.
     def _gated() -> object:
         gc.disable()
         try:
@@ -183,8 +174,7 @@ def run_bench(benchmark: BenchmarkFixture, row: BenchCase, size: int) -> object:
 
     result = _gated() if row.disable_gc else _measure()
 
-    # benchmark.stats is a Metadata (always populated post-pedantic); the robust Stats sample lives
-    # on its .stats attribute (verified against pytest-benchmark 5.2.3 — NOT directly on Metadata).
+    # post-pedantic: benchmark.stats is Metadata; robust Stats live on .stats.stats, not directly on Metadata (pytest-benchmark 5.2.3).
     assert benchmark.stats is not None
     s = benchmark.stats.stats
     rel_iqr = s.iqr / s.median if s.median > 0 else inf
@@ -201,8 +191,6 @@ def run_bench(benchmark: BenchmarkFixture, row: BenchCase, size: int) -> object:
         size=size,
     )
 
-    # Dispersion floor dominates the budget gate: a sample whose IQR overruns its median is noise, so an
-    # untrustworthy verdict skips (never a flaky fail); a trustworthy over-budget sample fails. Skip-before-fail order.
     match (rel_iqr > row.max_rel_iqr, row.gate and observed_ms > row.budget_ms):
         case (True, _):
             pytest.skip(f"{row.label}-{size}: sample too noisy to gate (rel_iqr={rel_iqr:.3f} > {row.max_rel_iqr})")
@@ -238,7 +226,7 @@ def run_registry(rows: Sequence[BenchCase]) -> Callable[..., None]:
     return bench_
 
 
-# --- [COMPOSITION] ----------------------------------------------------------------------
+# --- [ENTRY] ----------------------------------------------------------------------------
 
 
 def _potts_segments(series: tuple[float, ...]) -> tuple[tuple[float, ...], ...]:
@@ -264,8 +252,6 @@ def _potts_segments(series: tuple[float, ...]) -> tuple[tuple[float, ...], ...]:
         mu = sum(seg) / len(seg)
         return reduce(lambda acc, v: acc + (v - mu) ** 2, seg, 0.0)
 
-    # Greedy split: at each segment pick the cut maximizing the scale-free log-likelihood gain,
-    # admitting it only when the gain clears the penalty; fold the recursion over the series.
     def _gain(seg: tuple[float, ...], i: int) -> float:
         full, split = _sse(seg), _sse(seg[:i]) + _sse(seg[i:])
         return len(seg) * log(full / split) if (full > 0.0 and split > 0.0) else (inf if full > 0.0 else 0.0)

@@ -1,6 +1,5 @@
 """Benchmark suite for representative assay operations.
 
-resolve strategy build, wire encode/decode, model fold, and routing place.
 Each ``BenchCase`` row encodes a real workload; ``run_registry`` generates the Cartesian
 ``(row, size)`` product so one parametrized function owns all benchmark invocations.
 """
@@ -34,9 +33,6 @@ _FILES_TOOL: Tool = Tool(
 _SETUP_ENCODER: msgspec.json.Encoder = msgspec.json.Encoder(order="deterministic")
 _WIRE_DECODER: msgspec.json.Decoder[Envelope] = msgspec.json.Decoder(Envelope)
 
-# Resolve strategy registered at module import; example() calls are the timed operation in resolve bench.
-_completed_st: st.SearchStrategy[Completed] = resolve(Completed)
-
 
 # --- [OPERATIONS] -----------------------------------------------------------------------
 
@@ -47,14 +43,13 @@ def _envelope(size: int) -> Envelope:
 
 
 def _resolve_subject(payload: tuple[object, ...]) -> object:
-    """Walk the msgspec type-info graph for ``size`` field nodes of Completed.
+    """Measure ``msgspec.inspect.type_info`` enumeration cost across N repeated calls.
 
-    This measures the resolve() core path — ``msgspec.inspect.type_info`` field enumeration —
-    which is the expensive step executed once per type during strategy registration. ``size``
-    scales the number of repeated inspections (simulating resolver warm-up across N types).
+    ``size`` simulates resolver warm-up across N types; this is the expensive once-per-type
+    step during strategy registration.
 
     Returns:
-        Tuple of StructType nodes, one per inspection call.
+        Opaque result retained by the benchmark harness to prevent dead-code elimination.
     """
     (size,) = payload
     assert isinstance(size, int)
@@ -62,11 +57,6 @@ def _resolve_subject(payload: tuple[object, ...]) -> object:
 
 
 def _place_subject(payload: tuple[object, ...]) -> object:
-    """Place routed files into command argument tails via a fresh isolated settings instance.
-
-    Returns:
-        Command argument tail groups for the tool input mode.
-    """
     import tempfile  # noqa: PLC0415
 
     from upath import UPath  # noqa: PLC0415
@@ -81,7 +71,7 @@ def _place_subject(payload: tuple[object, ...]) -> object:
         return place(routed, tool, settings=settings)
 
 
-# --- [MODELS] ---------------------------------------------------------------------------
+# --- [ROWS]
 
 _ROWS: tuple[BenchCase, ...] = (
     BenchCase(
@@ -134,5 +124,8 @@ _ROWS: tuple[BenchCase, ...] = (
 
 
 # --- [COMPOSITION] ----------------------------------------------------------------------
+
+# Eager: amortises resolver warm-up outside timed invocations so the first benchmark size is not skewed.
+_completed_st: st.SearchStrategy[Completed] = resolve(Completed)
 
 bench_assay = run_registry(_ROWS)

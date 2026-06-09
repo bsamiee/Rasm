@@ -1,11 +1,18 @@
-"""Define automation trigger and action wire models."""
+"""Wire models for automation triggers and actions decoded by the engine.
+
+Triggers (Watch, Schedule, Manual) are the event sources; actions (Rail, Program,
+Sequence, Debounce) are the responses. The Trigger and Action type aliases form closed
+unions over these cases and are the sole surfaces passed to TRIGGER_DECODER and
+ACTION_DECODER. All structs are frozen msgspec.Struct subclasses with tag-based
+discriminated-union decoding; unknown fields are rejected at decode time.
+"""
 
 from enum import StrEnum
 from typing import Annotated
 
 from msgspec import json, Meta, Raw
 
-from tools.assay.core.model import Base, Claim  # noqa: TC001  # tools.assay package; Claim is a runtime msgspec field type
+from tools.assay.core.model import Base, Claim  # noqa: TC001  # runtime msgspec field — deferring breaks struct resolution
 
 
 # --- [TYPES] ----------------------------------------------------------------------------
@@ -22,14 +29,11 @@ class WatchFilter(StrEnum):
 
 
 class Watch(Base, frozen=True, tag_field="kind", tag="watch", forbid_unknown_fields=True):
-    """Filesystem trigger interpreted by `watchfiles`.
+    """Filesystem trigger interpreted by watchfiles.
 
-    Attributes:
-        paths: Files or directories to watch.
-        filter: Engine-resolved watch filter tag.
-        ignore_patterns: Glob patterns excluded from watch events.
-        debounce: Watch debounce window in milliseconds.
-        cpu_threshold: CPU ceiling that skips a fire when reached.
+    cpu_threshold, when set, suppresses a fire when the current CPU utilization meets or
+    exceeds the fractional ceiling; the engine evaluates this before handing the event to
+    the action pipeline.
     """
 
     paths: tuple[str, ...]
@@ -45,11 +49,10 @@ class Watch(Base, frozen=True, tag_field="kind", tag="watch", forbid_unknown_fie
 
 
 class Schedule(Base, frozen=True, tag_field="kind", tag="schedule", forbid_unknown_fields=True):
-    """Cron trigger interpreted by `aiocron`.
+    """Cron trigger interpreted by aiocron.
 
-    Attributes:
-        cron: Cron expression passed to the scheduler.
-        cpu_threshold: CPU ceiling that skips a fire when reached.
+    cpu_threshold suppresses a fire when CPU utilization meets or exceeds the fractional
+    ceiling at the scheduled instant; the check runs before the action pipeline executes.
     """
 
     cron: str
@@ -62,12 +65,11 @@ class Manual(Base, frozen=True, tag_field="kind", tag="manual", forbid_unknown_f
 
 
 class Rail(Base, frozen=True, tag_field="kind", tag="rail", forbid_unknown_fields=True):
-    """Rail action decoded against the registry when it fires.
+    """Rail action resolved against the registry at fire time.
 
-    Attributes:
-        claim: Claim that owns the rail.
-        verb: Verb within the claim.
-        params: Raw JSON payload decoded against the bound params type.
+    params carries the raw JSON bytes; the engine defers their decode until the bound
+    params type is retrieved from the registry, so an unknown claim or verb fails at
+    dispatch rather than at wire decode.
     """
 
     claim: Claim
@@ -84,19 +86,17 @@ class Program(Base, frozen=True, tag_field="kind", tag="program", forbid_unknown
 class Sequence(Base, frozen=True, tag_field="kind", tag="sequence", forbid_unknown_fields=True):
     """Ordered actions evaluated by the engine."""
 
-    actions: tuple["Action", ...]  # noqa: UP037  # forward-ref string is required: the Action alias is declared below, __future__ annotations is forbidden here, and msgspec evals this annotation at class creation
+    actions: tuple["Action", ...]  # noqa: UP037  # forward ref — Action alias defined after Sequence
 
 
 class Debounce(Base, frozen=True, tag_field="kind", tag="debounce", forbid_unknown_fields=True):
-    """Action wrapper that coalesces trigger storms.
+    """Action wrapper that coalesces trigger storms within a quiescence window.
 
-    Attributes:
-        action: Wrapped action to fire.
-        window_ms: Quiescence window in milliseconds.
-        collapse: Whether to keep only the trailing fire.
+    When collapse is True, only the trailing event in the window fires; intermediate
+    events are discarded. window_ms is the quiescence duration in milliseconds.
     """
 
-    action: "Action"  # noqa: UP037  # forward-ref string is required: the Action alias is declared below, __future__ annotations is forbidden here, and msgspec evals this annotation at class creation
+    action: "Action"  # noqa: UP037  # forward ref — Action alias defined after Debounce
     window_ms: int = 500
     collapse: bool = True
 
@@ -108,18 +108,20 @@ type Action = Rail | Program | Sequence | Debounce
 # --- [TABLES] ---------------------------------------------------------------------------
 
 
-TRIGGER_DECODER: json.Decoder[Trigger] = json.Decoder(Trigger)
-ACTION_DECODER: json.Decoder[Action] = json.Decoder(Action)  # built after Action so msgspec sees the final union
+TRIGGER_DECODER: json.Decoder[Trigger] = json.Decoder(Trigger)  # msgspec resolves union members eagerly at Decoder.__init__
+ACTION_DECODER: json.Decoder[Action] = json.Decoder(Action)
 _ENCODE = json.Encoder(order="deterministic")
 
 # --- [OPERATIONS] -----------------------------------------------------------------------
 
 
-def describe(node: Trigger | Action) -> str:  # noqa: PLR0911, PLR0912  # one return/arm per union case is the canonical total projection; counts scale with the union, not with branching complexity
-    """Render a trigger or action as a one-line label.
+# total match over a closed union — branch count is structural, not complexity
+def describe(node: Trigger | Action) -> str:  # noqa: PLR0911, PLR0912
+    """Render a trigger or action as a compact one-line label suitable for logging.
 
     Returns:
-        Human-readable label for the trigger or action.
+        Label encoding the kind and key discriminating fields, for example
+        ``watch[3 paths @ 1600ms]`` or ``debounce[rail[core:run] @ 500ms]``.
     """
     match node:
         case Watch(paths=p, debounce=d):
@@ -139,23 +141,23 @@ def describe(node: Trigger | Action) -> str:  # noqa: PLR0911, PLR0912  # one re
 
 
 def encode(node: Trigger | Action) -> bytes:
-    """Encode a trigger or action to deterministic JSON.
+    """Encode a trigger or action to JSON bytes.
 
     Returns:
-        Deterministic JSON bytes for the wire model.
+        JSON bytes with deterministic key ordering, suitable for hashing or comparison.
     """
     return _ENCODE.encode(node)
 
 
 def decode(blob: bytes, *, trigger: bool) -> Trigger | Action:
-    """Decode JSON bytes to a trigger or action depending on the discriminant.
+    """Decode JSON bytes to a trigger or action.
 
     Args:
         blob: Raw JSON bytes from the wire.
-        trigger: True to decode as a Trigger union; False to decode as an Action union.
+        trigger: When True, routes to TRIGGER_DECODER; when False, routes to ACTION_DECODER.
 
     Returns:
-        Decoded trigger or action instance.
+        Decoded instance from the appropriate closed union.
     """
     return TRIGGER_DECODER.decode(blob) if trigger else ACTION_DECODER.decode(blob)
 

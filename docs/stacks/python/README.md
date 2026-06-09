@@ -10,8 +10,8 @@ This table is a lookup by reader decision.
 | :-----: | :----------------------- | :---------------------------------------------------------- | :------- |
 |   [1]   | language syntax          | [language](language.md)                                     | active   |
 |   [2]   | PEP-backed action        | [PEP standards](pep-standards.md)                           | active   |
-|   [3]   | data shape               | future `data-shapes.md`                                     | target   |
-|   [4]   | surface and dispatch     | future `surfaces-and-dispatch.md`                           | target   |
+|   [3]   | data shape               | [data shapes](data-shapes.md)                               | active   |
+|   [4]   | surface and dispatch     | future `surfaces-and-dispatch.md`                           | next     |
 |   [5]   | result and effect flow   | future `rails-and-effects.md`                               | target   |
 |   [6]   | boundary and codec       | future `boundaries.md`                                      | target   |
 |   [7]   | runtime and concurrency  | future `runtime.md`                                         | target   |
@@ -31,6 +31,12 @@ When the stronger package is not admitted yet, keep the target capability in the
 ## [3]-[PARADIGM_DECISIONS]
 
 Use these decisions as the manifest for future concept pages. A construct earns space only when it proves lifecycle position, ownership depth, and boundary role.
+
+[PAGE_CRAFT]:
+- Decision: each page is an implicit, skill-style source of truth written as one holistic body — dense tables and tight snippets that teach by structure, not prose; it states its own law directly, with no meta-commentary, no cross-file references or ownership narration, and no project, tool, or skill context.
+- Law: one page owns one layer and never re-demonstrates another's pattern — `language.md` owns primitives, `pep-standards.md` owns PEP-structural typing, `data-shapes.md` owns shapes and owners, each later page owns its architecture; a sibling concern is neither re-shown nor pointed to, because the reader holds the whole atlas as one body.
+- Use: external libraries as first-class native surfaces over a single FP + ROP + `expression` spine — unified rails, ADTs, AOP aspects, and parameterized polymorphism; collapse 2-4 parallel surfaces into one richer one.
+- Reject: duplicated atomic examples across pages, cross-file pointers, hardcoded or flat logic, model/wrapper/alias spam, and any snippet whose density does not beat ordinary Python ~3-4x.
 
 [SHAPE_LIFECYCLE]:
 - Decision: `Raw -> Payload -> Canonical owner -> Rail/effect -> Projection -> Egress`.
@@ -72,7 +78,7 @@ Use these decisions as the manifest for future concept pages. A construct earns 
 [PACKAGE_OWNERSHIP]:
 - Decision: capability owner chooses package or standard-library primitive by invariant, not by habit.
 - Law: approved packages are direct implementation material; language primitives remain owners when they carry the invariant directly.
-- Use: `anyio` for structured concurrency, `httpx` for transport boundaries, `pydantic-settings` for configuration, `expression` for `Option` and `Result`, `structlog` and OpenTelemetry for observability, and standard primitives such as `Path`, `sentinel`, `frozendict`, `StrEnum`, `TypeIs`, and `TypeForm` when they are the exact invariant.
+- Use: `anyio` for structured concurrency, `httpx` for transport boundaries, `cyclopts` for CLI command dispatch, `pydantic-settings` for configuration and `pydantic.validate_call` for boundary admission, `stamina` for retry, `beartype` for runtime type contracts, `expression` for `Option` and `Result`, `structlog` and OpenTelemetry for observability, and standard primitives such as `Path`, `sentinel`, `frozendict`, `StrEnum`, `TypeIs`, and `TypeForm` when they are the exact invariant.
 - Reject: stdlib-first reflexes, package-branded wrappers, thin facades, and public provider leakage.
 
 ## [4]-[BUILD_ORDER]
@@ -90,33 +96,34 @@ This table is a lookup by target page sequence.
 |   [7]   | `platform/build-and-packages.md` | package admission and tool ownership |
 |   [8]   | `testing/README.md`              | type, runtime, and boundary proof    |
 
-## [5]-[DATA_SHAPES_TARGET]
+## [5]-[SURFACES_DISPATCH_TARGET]
 
-`data-shapes.md` is the first target page. It should be the lifecycle and owner-choice law, not a catalog of Python shape tricks.
+`data-shapes.md` is complete. `surfaces-and-dispatch.md` is the active target. It owns dispatch and aspect ARCHITECTURE — how one polymorphic surface, its dispatch form, its runtime contract, its registry seam, and its aspects compose. It assumes the primitives and shapes the prior pages own and never re-teaches `match`, `TypeIs`, `**P`, `@dataclass_transform`, closed-family shape, or the `frozendict`-table shape.
+
+[SECTIONS]:
+- Polymorphic-surface law: one entrypoint owns all modalities; the discriminant is input shape, runtime type, tag, arity, value pattern, or predicate; ≥3 siblings sharing a prefix and return rail collapse into one `@tagged_union` request ADT plus one total fold.
+- Dispatch-form chooser: a decision tree of discriminating questions over `match` (owned closed variants) / `singledispatch`(method) (open-by-type, with the ABC-ambiguity pitfall) / `frozendict[K, Callable]` value table (bounded vocabulary key) / `Protocol`+`TypeIs` (structural capability) / `@overload` (static-only variance, with the `get_overloads`+`annotationlib` runtime bridge) / `plum` (N×M positional type matrix) / `cyclopts App` (CLI subcommand token to typed binding).
+- Dispatch contracts: static dispatch (`match`/`@overload`/`TypeIs`) is checker-proven and zero-cost; runtime dispatch (`singledispatch`/value table/`Protocol`) decides at call time and needs a contract — `beartype` (violation lifted to `Result` at the boundary) or `pydantic.validate_call` for coercing ingress; free-threaded builds require import-time registration completion.
+- Registry and seam: registry taxonomy (`frozendict` closed table / `TypeForm[T]`-keyed open registry / `singledispatch` type-hierarchy / `entry_points` install-time); rows built at definition time returning the original handler; `match` owns closed in-repo domains while a registry or `singledispatch` owns the open boundary; lookup misses return `Option`.
+- Aspects: bind each concern to its admitted lib — retry to `stamina`, observability to `structlog` + OpenTelemetry, runtime contract to `beartype`, boundary validation to `pydantic.validate_call`, memoization to `functools.cache`, timeout and scope to `anyio`; aspects materialize policy at definition time, preserve signature, return `Result` instead of raising, stack in deterministic order (cache outside the rail, never caching `Error`), and collapse 2-4 wrappers into one parameterized factory.
+- Composition: `pipe`/`compose`/`curry_flip`, Kleisli `result.pipeline`, and `@effect.result` do-notation (`yield from`); config-driven pipelines fold via `compose(*steps)`; the seam where a dispatch surface returns a rail and downstream `.map`/`.bind` compose.
+- Async dispatch: the async surface is `async def -> Result[T, E]` (`@effect.result` is sync-only); timeout lifts to `Result` via `anyio.move_on_after`; `stamina` async retry raises at the boundary and converts to `Error`; fan-out runs through an `anyio.TaskGroup` with `except*` into one aggregate rail; `anyio.to_thread`/`to_process` offload sync handlers.
+- Collapse tests: a pressure-point scan proving N sibling entrypoints, ad-hoc wrappers, or string-dispatch chains collapse into one polymorphic surface, one parameterized aspect, or one typed table.
+
+[EXTERNAL_LIBS]:
+- `expression` (first-class): `pipe`/`compose`/`curry_flip`, `@tagged_union` for closed dispatch, `@effect.result`/`result.pipeline` for ROP composition, `catch` for boundary lift. `effect.result` is a class; `flow` and a standalone `Pipe` do not exist; `result.pipeline` lives in `expression.extra.result`.
+- `cyclopts` (first-class CLI dispatch): `App` is the command table, `@app.command` registers arms, `@app.meta.default` is the token-level interceptor, `Parameter`/`Group` own typed binding and validation, `result_action="return_value"` embeds the surface programmatically.
+- `stamina` retry, `structlog` + OpenTelemetry observability, `beartype` runtime contracts, `pydantic.validate_call` boundary validation, `anyio` scope/timeout/fan-out/offload, stdlib `functools` (`singledispatch`(method), `cache`, `wraps`, `Placeholder`) + `annotationlib`. Reject `wrapt`.
+- `plum-dispatch` admit ONLY for genuine N×M positional type-matrix dispatch (keyword args bypass it); not yet in `pyproject.toml`, so add it there before use.
 
 [ACCEPTANCE]:
-- It classifies every value as raw ingress, typed payload, canonical owner, boundary adapter, rail carrier, projection, or egress.
-- It defines how to create Pydantic models, `msgspec` structs, dataclasses, rich classes, enums, protocols, and typed payloads without ad hoc local patterns.
-- It chooses closed, semi-closed, or open family posture before dispatch form.
-- It separates absence as omitted key, valid `None`, sentinel default, enum/member state, `Option.none`, or typed failure.
-- It chooses `TypedDict`, `pydantic`, `msgspec`, frozen dataclass, rich class, `StrEnum`, `Literal`, sentinel, `Option`, or `Result` by lifecycle role.
-- It keeps wire tokens, provider names, schema aliases, serialization, command strings, and external payload forms at boundaries.
-- It rejects new wrappers, aliases, tiny classes, constants, protocols, or helper functions when one deeper canonical owner can absorb the behavior.
+- Every dispatch surface is one polymorphic entrypoint returning a rail; no sibling-entrypoint proliferation, string dispatch, or `isinstance` ladder survives.
+- Each form is chosen by its discriminating contract; `match` owns closed in-repo domains, registries and `singledispatch` own open boundaries, `cyclopts` owns the CLI boundary, `plum` owns only true N×M.
+- Runtime dispatch carries a contract; violations convert to `Result` at the boundary and never raise inside domain flow.
+- Aspects bind to the admitted libs, materialize at definition time, preserve signature, and return `Result`; 2-4 wrappers collapse into one parameterized aspect with a stated stack order.
+- Async surfaces return `Result` and fan-out collapses to one aggregate rail; sync handlers offload through `anyio`.
 
-Paths below are relative to `.reports/data-shapes/`.
-
-[SOURCE_CANDIDATES]:
-- `shape-system-integration-doctrine/00-unified-shape-integration.md`
-- `model-materialization-pipeline/00-ingress-to-materialization.md`
-- `typed-payload-contract-surfaces/00-contract-payload-doctrine.md`
-- `vocabulary-absence-state-encoding/00-vocabulary-sentinel-doctrine.md`
-- `class-family-variant-architecture/00-variant-family-architecture.md`
-- `pydantic-domain-shape-engine/00-pydantic-v2-shape-ownership.md`
-- `rich-class-owner-design/00-rich-class-owner-mechanics.md`
-- `protocols-capabilities-structural-ports/00-structural-capability-doctrine.md`
-- `immutable-persistent-replacement-shapes/00-immutable-replacement-doctrine.md`
-
-Use the `00-*` reports as promotion candidates. Use later report files as edge-case evidence, proof stress material, or anti-pattern sources only after the target page has a compact owner law.
+`.planning/SPEC.aot-first-decorator.md` is the decorator-first seed; its §7 question (singledispatch vs match) resolves to `match` for closed in-repo and a registry or `singledispatch` for the open boundary. No `.reports/` research exists yet; author from this seeding and the research pipeline it kicks off.
 
 ## [6]-[CURRENT_CONFLICT_RULE]
 

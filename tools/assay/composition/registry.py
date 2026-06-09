@@ -1,4 +1,13 @@
-"""Compose Assay registry binds, runners, Envelopes, and history commands."""
+"""Assay composition: registry, runners, Envelope emission, and history commands.
+
+Owns the full execution path from a parsed Cyclopts invocation to a written Envelope:
+claim dispatch, parameter binding and validation, rail-layer composition, artifact-scope
+lifecycle, one-Envelope-per-call invariant enforcement, history persistence, and the
+self-test/delta/parse-fault entry points that sit outside the REGISTRY fold.
+
+Public surfaces: REGISTRY (Bind tuple), build_app, rail, self_test, delta, parse_fault,
+Handler (type alias), and ORPHAN_MIN_AGE_S.
+"""
 
 from collections import deque
 from collections.abc import Callable
@@ -26,8 +35,8 @@ from tools.assay.composition.settings import ArtifactScope, AssaySettings
 from tools.assay.core.aspect import _RING, checked_call, compose, Layer, logged, Slot, traced  # noqa: PLC2701
 from tools.assay.core.engine import _RESOURCE, _snapshot, fan_out  # noqa: PLC2701
 from tools.assay.core.model import (
-    _HINT_CAP,  # noqa: PLC2701  # intra-package private import: shared model cap, canonical clip site
-    _RESULT_CAP,  # noqa: PLC2701  # intra-package private import: shared model cap, canonical saturation site
+    _HINT_CAP,  # noqa: PLC2701  # private symbol; canonical hint-cap clip site
+    _RESULT_CAP,  # noqa: PLC2701  # private symbol; canonical result-cap saturation site
     Artifact,
     ArtifactKind,
     BaseParams,
@@ -81,16 +90,41 @@ if TYPE_CHECKING:
 
 # --- [TYPES] ----------------------------------------------------------------------------
 
-# Per-verb adapter; `P` is the verb params type, not a ParamSpec.
+# `P` is the verb params type, not a ParamSpec.
 type Handler[P] = Callable[[AssaySettings, ArtifactScope, P], Result[Report, Fault]]
 type ReportLayer = Layer[[AssaySettings, ArtifactScope, object], Report]
+
+
+# --- [CONSTANTS] ------------------------------------------------------------------------
+
+_ARTIFACT_CAP: Final = 100
+# Mirrors the msgspec-enforced cap on Fault.message so history round-trips without silent truncation.
+_MESSAGE_CAP: Final[int] = field_cap(Fault, "message", default=1 << 62)
+_DISPATCH_NONE: Final = "dispatch=none"
+# Per-invocation counter; long-lived automation processes must not trip the one-Envelope guard on reuse.
+_WRITES: ContextVar[Iterator[int]] = ContextVar("assay_writes")
+_PROBE_ROUTED: Final[Routed] = Routed(language=Language.PYTHON, scope=Scope.CHANGED)
+_PROBE_TIMEOUT: Final = 8.0
+_PROBE_TTL: Final = 900.0
+_PROBE_CACHE_FILE: Final = "probe-cache.json"
+_PROBE_CACHE_KEY: Final = "probe:%s"
+_PYPROJECT: Final[Path] = Path(__file__).resolve().parents[3] / "pyproject.toml"
+ORPHAN_MIN_AGE_S: Final = 900.0
+_ORPHAN_PROCESS_TOKENS: Final[frozenset[str]] = frozenset(("python", "python3", "uv", "ty"))
+# Longest-prefix-first: MODULE resolves before UV on the shared `uv run` head;
+# DIRECT and DOTNET omitted — argv[0] is the tool binary, no lockfile fold needed.
+_PROBE_LOCKED: Final[tuple[tuple[tuple[str, ...], str], ...]] = (
+    (Runner.MODULE.prefix, "uv.lock"),
+    (Runner.UV.prefix, "uv.lock"),
+    (Runner.PNPM.prefix, "pnpm-lock.yaml"),
+)
 
 
 # --- [MODELS] ---------------------------------------------------------------------------
 
 
 class _ProbeRow(msgspec.Struct, frozen=True, gc=False, omit_defaults=True):
-    # One cached --version probe outcome keyed by freshness token; absent fields decode to defaults.
+    # token encodes path+mtime; a tool upgrade changes the token and invalidates the cached entry.
     token: str = ""
     ts: float = 0.0
     note: str = ""
@@ -103,36 +137,13 @@ class _ProcessRow(msgspec.Struct, frozen=True, gc=False):
     command: str
 
 
-# --- [CONSTANTS] ------------------------------------------------------------------------
-
-_ARTIFACT_CAP: Final = 100
-# field_cap keeps parse messages and hints within the same bounds msgspec enforces when history is read back.
-_MESSAGE_CAP: Final[int] = field_cap(Fault, "message", default=1 << 62)
-_DISPATCH_NONE: Final = "dispatch=none"
-# Seeded per invocation so long-lived automation fires do not trip the one-Envelope guard after the first run.
-_WRITES: ContextVar[Iterator[int]] = ContextVar("assay_writes")
-_LOG: Final = structlog.get_logger("assay.registry")
-_PROBE_ROUTED: Final[Routed] = Routed(language=Language.PYTHON, scope=Scope.CHANGED)
-_PROBE_TIMEOUT: Final = 8.0
-# Warm self-test reuses --version probes within the TTL; an upgraded tool changes its (program, mtime, lockfile) token and misses.
-_PROBE_TTL: Final = 900.0
-_PROBE_CACHE_FILE: Final = "probe-cache.json"
-_PROBE_CACHE_KEY: Final = "probe:%s"
-ORPHAN_MIN_AGE_S: Final = 900.0
-_ORPHAN_PROCESS_TOKENS: Final[frozenset[str]] = frozenset(("python", "python3", "uv", "ty"))
-# Launcher-prefix -> lockfile that pins the launched program; ordered longest-prefix-first so the matcher resolves MODULE
-# before UV on their shared `uv run` head. Tokens stat the launched program (argv slot after the prefix) and fold the
-# lockfile mtime, so an in-place lockfile-driven upgrade (ruff/ty/ast-grep under uv.lock, JS tools under pnpm-lock) flips
-# the token even though the uv/pnpm shim mtime is fixed. DIRECT (yak) and DOTNET (the probed SDK) carry no prefix entry:
-# argv[0] IS the tool, so they keep the launcher token with no lockfile fold.
-_PROBE_LOCKED: Final[tuple[tuple[tuple[str, ...], str], ...]] = (
-    (Runner.MODULE.prefix, "uv.lock"),
-    (Runner.UV.prefix, "uv.lock"),
-    (Runner.PNPM.prefix, "pnpm-lock.yaml"),
-)
 _ENVELOPE_DECODER: Final[msgspec.json.Decoder[Envelope]] = msgspec.json.Decoder(Envelope)
 _PROBE_DECODER: Final[msgspec.json.Decoder[dict[str, _ProbeRow]]] = msgspec.json.Decoder(dict[str, _ProbeRow])
-_PYPROJECT: Final[Path] = Path(__file__).resolve().parents[3] / "pyproject.toml"
+
+
+# --- [SERVICES] -------------------------------------------------------------------------
+
+_LOG: Final = structlog.get_logger("assay.registry")
 
 
 # --- [OPERATIONS] -----------------------------------------------------------------------
@@ -150,9 +161,17 @@ def _correlate(settings: AssaySettings, _scope: ArtifactScope, params: object) -
     return {"run_id": settings.run_id, "strict": getattr(params, "strict", False), **settings.agent_context}
 
 
+def _seed_parse_ring(dispatch: str, tokens: tuple[str, ...]) -> None:
+    cmd = " ".join(tokens)[:_HINT_CAP]
+    match _RING.get():
+        case deque() as ring:
+            ring.extend((f"dispatch={dispatch}", cmd))
+        case None:
+            _RING.set(deque((f"dispatch={dispatch}", cmd), maxlen=16))
+
+
 def _bound(params: object, claim: Claim, verb: str) -> Result[object, Fault]:
-    # BaseParams.bound owns positional arity for every verb; surplus tokens fold into the parse taxonomy.
-    # The surplus path seeds the same dispatch ring shape as parse_fault for one Diagnostic format.
+    # BaseParams.bound validates positional arity; surplus tokens surface via _seed_parse_ring for hint distillation.
     match params:
         case BaseParams() as p:
             match p.bound(verb):
@@ -165,18 +184,8 @@ def _bound(params: object, claim: Claim, verb: str) -> Result[object, Fault]:
             return Ok(params)
 
 
-def _seed_parse_ring(dispatch: str, tokens: tuple[str, ...]) -> None:
-    # Seed dispatch and reconstructed command line for parse diagnostics.
-    cmd = " ".join(tokens)[:_HINT_CAP]
-    match _RING.get():
-        case deque() as ring:
-            ring.extend((f"dispatch={dispatch}", cmd))
-        case None:
-            _RING.set(deque((f"dispatch={dispatch}", cmd), maxlen=16))
-
-
 def _strict(outcome: Result[Report, Fault], params: object) -> Result[Report, Fault]:
-    # Under --strict, only no-op folds promote; defect and infrastructure statuses already dominate.
+    # EMPTY and SKIP promote to FAULTED under --strict; defect and infrastructure statuses already dominate.
     match outcome:
         case Result(tag="ok", ok=report) if getattr(params, "strict", False) and report.status in {RailStatus.EMPTY, RailStatus.SKIP}:
             return Error(Fault((), RailStatus.FAULTED, "strict: empty/skipped fold"))
@@ -184,26 +193,8 @@ def _strict(outcome: Result[Report, Fault], params: object) -> Result[Report, Fa
             return outcome
 
 
-def _distill(
-    fault: Fault, duration_ms: float, *, events: tuple[str, ...] | None = None, resource: tuple[tuple[str, float], ...] = (), step: str | None = None
-) -> tuple[Diagnostic, bool]:
-    # Distill Faults and FAILED defect rows into one Diagnostic shape.
-    # Resource snapshots are lazy on the error path, and every clipped parse byte sets Envelope.truncated.
-    ring = events if events is not None else tuple(_RING.get() or ())
-    step = step if step is not None else _failing_step(fault)
-    reason = fault.message.removeprefix(f"{step}: ") or (ring[-1] if ring else "")
-    framing = f"{step}: after {duration_ms:.1f}ms"
-    # Reserve one byte for the separator space the hint inserts between `budgeted` and `after`, so len(hint) <= _HINT_CAP.
-    budgeted = reason[: max(_HINT_CAP - len(framing) - 1, 0)]
-    hint = f"{step}: {budgeted} after {duration_ms:.1f}ms"
-    truncated = len(reason) > len(budgeted) or len(fault.message) >= _MESSAGE_CAP or fault.message.endswith("…")
-    dispatched = not (ring and ring[0] == _DISPATCH_NONE)
-    snap = resource or _RESOURCE.get() or tuple(_snapshot().items())
-    return Diagnostic(failing_step=step, recent_events=ring, elapsed_ms=duration_ms, hint=hint, dispatched=dispatched, resource=snap), truncated
-
-
 def _failing_step(fault: Fault) -> str:
-    # Name the stage from status, argv, and canonical synthetic-fault prefixes.
+    # Derives stage name from status, argv, and the synthetic-fault prefix set owned by _guard.
     match (fault.status, fault.argv):
         case (RailStatus.TIMEOUT, _):
             return "timeout"
@@ -215,8 +206,35 @@ def _failing_step(fault: Fault) -> str:
             return "spawn"
 
 
+def _distill(
+    fault: Fault, duration_ms: float, *, events: tuple[str, ...] | None = None, resource: tuple[tuple[str, float], ...] = (), step: str | None = None
+) -> tuple[Diagnostic, bool]:
+    # Resource snapshots are lazy; clipping any byte sets Envelope.truncated.
+    ring = events if events is not None else tuple(_RING.get() or ())
+    step = step if step is not None else _failing_step(fault)
+    reason = fault.message.removeprefix(f"{step}: ") or (ring[-1] if ring else "")
+    framing = f"{step}: after {duration_ms:.1f}ms"
+    # Reserve one byte for the space separating `budgeted` and the framing suffix, keeping len(hint) <= _HINT_CAP.
+    budgeted = reason[: max(_HINT_CAP - len(framing) - 1, 0)]
+    hint = f"{step}: {budgeted} after {duration_ms:.1f}ms"
+    truncated = len(reason) > len(budgeted) or len(fault.message) >= _MESSAGE_CAP or fault.message.endswith("…")
+    dispatched = not (ring and ring[0] == _DISPATCH_NONE)
+    snap = resource or _RESOURCE.get() or tuple(_snapshot().items())
+    return Diagnostic(failing_step=step, recent_events=ring, elapsed_ms=duration_ms, hint=hint, dispatched=dispatched, resource=snap), truncated
+
+
+def _full_report_artifact(settings: AssaySettings, bind: Bind, report: Report) -> tuple[Artifact, ...]:
+    name = f"{bind.claim.value}-{bind.verb}.full-report.json"
+    try:
+        path, size = settings.store().write_full_report(settings.run_id, name, report)
+    except OSError as exc:
+        _LOG.warning("history.full_report_failed", run_id=settings.run_id, error=str(exc)[:200])
+        return ()
+    return (Artifact(id="full-report", kind=ArtifactKind.HISTORY, path=path, bytes=size, lines=0),)
+
+
 def _ok_envelope(bind: Bind, settings: AssaySettings, ms: float, report: Report) -> Envelope:
-    # FAILED reports get the same Diagnostic shape as Fault rails, sourced from defect rows.
+    # FAILED reports carry a Diagnostic built from defect result rows, matching the fault-rail shape.
     truncated = len(report.results) > _RESULT_CAP or len(report.artifacts) > _ARTIFACT_CAP
     if truncated:
         artifact = _full_report_artifact(settings, bind, report)
@@ -246,19 +264,38 @@ def _ok_envelope(bind: Bind, settings: AssaySettings, ms: float, report: Report)
     )
 
 
-def _full_report_artifact(settings: AssaySettings, bind: Bind, report: Report) -> tuple[Artifact, ...]:
-    name = f"{bind.claim.value}-{bind.verb}.full-report.json"
+def _narrow(handler: object) -> Handler[object]:
+    # Rail modules rely on return annotations for beartype; FunctionType confirms the match without a cast.
+    match handler:
+        case FunctionType() as fn:
+            return fn
+        case _:
+            raise TypeError(f"Bind.handler must be a module-level def (FunctionType), got {type(handler).__name__}")
+
+
+def _validated(outcome: Result[Report, Fault]) -> Result[Report, Fault]:
+    match outcome:
+        case Result(tag="ok", ok=report):
+            validate_detail(report.detail)
+            return outcome
+        case _:
+            return outcome
+
+
+def _guard(thunk: Callable[[], Result[Report, Fault]]) -> Result[Report, Fault]:
+    # Owns the strict:/validation:/config: fault-prefix contract; rail modules must not emit these prefixes.
     try:
-        path, size = settings.store().write_full_report(settings.run_id, name, report)
-    except OSError as exc:
-        _LOG.warning("history.full_report_failed", run_id=settings.run_id, error=str(exc)[:200])
-        return ()
-    return (Artifact(id="full-report", kind=ArtifactKind.HISTORY, path=path, bytes=size, lines=0),)
+        return thunk()
+    except FaultedPromotion as promoted:
+        return Error(Fault((), RailStatus.FAULTED, f"strict: {promoted}"))
+    except BeartypeCallHintViolation as violation:
+        return Error(Fault((), RailStatus.FAULTED, f"validation: {violation}"))
+    except msgspec.MsgspecError as malformed:
+        return Error(Fault((), RailStatus.FAULTED, f"validation: {malformed}"))
 
 
 def _emit(bind: Bind, settings: AssaySettings, started: float, outcome: Result[Report, Fault]) -> Envelope:
-    # Fold the rail Result into one Envelope and enforce the per-invocation one-write guard.
-    # Parse faults are typo-class events, so they do not enter diffable run history.
+    # Enforces the one-write guard; parse faults skip history persistence.
     ms = (time.perf_counter() - started) * 1000.0
     persist = True
     match outcome:
@@ -299,19 +336,27 @@ def _emit(bind: Bind, settings: AssaySettings, started: float, outcome: Result[R
 def rail(bind: Bind, settings: AssaySettings | None = None) -> Callable[[object], Envelope]:
     """Build the registry runner for one bound verb.
 
+    Each call to the returned runner emits exactly one Envelope to stdout and,
+    unless the failing step is "parse", persists it to the history store.  Ring,
+    write counter, and resource snapshot context-vars are invocation-scoped and
+    reset in the finally block.  An OSError from ArtifactScope.open folds to a
+    FAULTED envelope rather than propagating.
+
+    Args:
+        bind: Registry row carrying the claim, verb, handler, and params type.
+        settings: Resolved settings; constructed from the environment when absent.
+
     Returns:
-        Callable that executes the bound verb and emits its Envelope.
+        Runner that accepts a params object and returns the emitted Envelope.
     """
     handler: Handler[object] = compose(*_RAIL_LAYERS)(_narrow(bind.handler))
 
     def run(params: object) -> Envelope:
         active = settings or AssaySettings()
         started = time.perf_counter()
-        # Ring and write count are invocation-scoped so automation can reuse rail() across fires.
-        # Resource snapshots stay lazy and only run on Fault or defect paths.
         ring_token, writes_token, resource_token = _RING.set(deque(maxlen=16)), _WRITES.set(count()), _RESOURCE.set(())
         try:
-            # An unwritable .artifacts root makes ArtifactScope.open escape _guard; fold that OSError into one FAULTED Envelope here.
+            # ArtifactScope.open raises OSError when the .artifacts root is unwritable; fold it here outside _guard.
             scope = ArtifactScope.open(active, bind.claim)
             outcome = _guard(lambda: _bound(params, bind.claim, bind.verb).bind(lambda p: _validated(_strict(handler(active, scope, p), p))))
             return _emit(bind, active, started, outcome)
@@ -326,40 +371,375 @@ def rail(bind: Bind, settings: AssaySettings | None = None) -> Callable[[object]
     return run
 
 
-def _narrow(handler: object) -> Handler[object]:
-    # Narrow erased Bind.handler without cast; rail modules import return annotation types for beartype.
-    match handler:
-        case FunctionType() as fn:
-            return fn
-        case _:
-            raise TypeError(f"Bind.handler must be a module-level def (FunctionType), got {type(handler).__name__}")
-
-
-def _validated(outcome: Result[Report, Fault]) -> Result[Report, Fault]:
-    # Validate success Report.detail against the tagged-union wire without rewriting the outcome.
-    match outcome:
-        case Result(tag="ok", ok=report):
-            validate_detail(report.detail)
-            return outcome
-        case _:
-            return outcome
-
-
-def _guard(thunk: Callable[[], Result[Report, Fault]]) -> Result[Report, Fault]:
-    # The composition root owns synthetic strict:/validation: fault prefixes.
+def _encode(envelope: Envelope) -> bytes:
+    # Lone surrogates in untrusted argv/paths raise UnicodeEncodeError; fold to a scrubbed FAULTED Envelope to preserve the one-Envelope contract.
     try:
-        return thunk()
-    except FaultedPromotion as promoted:
-        return Error(Fault((), RailStatus.FAULTED, f"strict: {promoted}"))
-    except BeartypeCallHintViolation as violation:
-        return Error(Fault((), RailStatus.FAULTED, f"validation: {violation}"))
-    except msgspec.MsgspecError as malformed:
-        return Error(Fault((), RailStatus.FAULTED, f"validation: {malformed}"))
+        return wire_encode(envelope)
+    except UnicodeEncodeError:
+        safe = Envelope(
+            schema_version=1,
+            claim=envelope.claim,
+            verb=wire_safe(envelope.verb),
+            status=RailStatus.FAULTED,
+            exit_code=RailStatus.FAULTED.exit_code,
+            notes=("output contained invalid characters",),
+        )
+        return wire_encode(safe)
+
+
+def _persist(settings: AssaySettings, envelope: Envelope) -> None:
+    # Best-effort; `delta` decodes raw encoded bytes directly from the history store.
+    try:
+        store = settings.store()
+        store.write_history(settings.run_id, _encode(envelope))
+        store.retain_history(settings.artifact_retention)
+    except OSError as exc:
+        _LOG.warning("history.persist_failed", run_id=settings.run_id, error=str(exc)[:200])
+
+
+def _emit_envelope(settings: AssaySettings, envelope: Envelope, *, persist: bool = True) -> Envelope:
+    sys.stdout.buffer.write(_encode(envelope) + b"\n")
+    if persist:
+        _persist(settings, envelope)
+    return envelope
+
+
+def _prior(run_ids: tuple[str, ...], run_id: str) -> str:
+    earlier = tuple(r for r in run_ids if r < run_id)
+    return earlier[-1] if earlier else ""
+
+
+def _delta_report(before_id: str, after_id: str, before: Envelope | None, after: Envelope | None) -> Report:
+    # Compares by status, counts, and `(id, line)` result keys; a missing side folds to EMPTY.
+    def snapshot(run_id: str, env: Envelope) -> tuple[RunSnapshot, frozenset[tuple[str, int]]]:
+        report = env.report
+        counts = report.counts if report is not None else Counts()
+        keys = frozenset((m.id, m.line) for m in (report.results if report is not None else ()))
+        return RunSnapshot(id=run_id, status=env.status, counts=counts), keys
+
+    match (before, after):
+        case (Envelope() as b, Envelope() as a):
+            (before_snap, before_keys), (after_snap, after_keys) = snapshot(before_id, b), snapshot(after_id, a)
+            detail = RunDelta(before=before_snap, after=after_snap, added=len(after_keys - before_keys), removed=len(before_keys - after_keys))
+            note = f"delta {before_id} -> {after_id}: {b.status.value} -> {a.status.value}, +{detail.added}/-{detail.removed} results"
+            return fold(Claim.STATIC, "delta", (Completed(("delta", after_id), 0, status=RailStatus.OK, notes=(note,)),), detail=detail)
+        case _:
+            missing = after_id if after is None else before_id
+            note = f"delta: run not found in history: {missing or '(no prior run)'}"
+            return fold(Claim.STATIC, "delta", (Completed(("delta", after_id), 0, status=RailStatus.EMPTY, notes=(note,)),))
+
+
+def delta(run_id: str, *, against: str = "") -> Envelope:
+    """Diff two persisted run Envelopes from the history store.
+
+    When against is empty, the comparison base is the most recent run whose id
+    sorts lexicographically before run_id.  The result Envelope is emitted to
+    stdout but not persisted to history.
+
+    Args:
+        run_id: Target run id; must exist in the history store.
+        against: Explicit base run id; defaults to the nearest prior run.
+
+    Returns:
+        Emitted delta Envelope with a RunDelta detail, or an EMPTY Envelope when
+        either run is absent from the store.
+    """
+    settings = AssaySettings()
+    store = settings.store()
+    before_id = against or _prior(store.sorted_history_ids(), run_id)
+    report = _delta_report(before_id, run_id, store.load_history(before_id), store.load_history(run_id))
+    env = msgspec.structs.replace(envelope(report, claim=Claim.STATIC, verb="delta", run_id=settings.run_id), notes=report.notes)
+    return _emit_envelope(settings, env, persist=False)
+
+
+def _parse_dispatch(tokens: tuple[str, ...]) -> tuple[Claim, str, str]:
+    match tokens:
+        case (head, *rest) if head in Claim._value2member_map_:
+            return Claim(head), (rest[0] if rest else ""), head
+        case (head, *_):
+            return Claim.STATIC, head, "none"
+        case _:
+            return Claim.STATIC, "", "none"
+
+
+def _validation_message(error: ValidationError) -> str:
+    rows = tuple(
+        f"{'.'.join(str(part) for part in item.get('loc', ()) if part != '__root__') or 'settings'}: {item.get('msg', 'invalid')}"
+        for item in error.errors(include_url=False, include_context=False, include_input=False)
+    )
+    return "; ".join(rows) or str(error)
+
+
+def parse_fault(tokens: tuple[str, ...], message: str, *, step: str = "parse") -> Envelope:
+    """Convert a Cyclopts parse failure into a FAULTED Envelope and emit it.
+
+    The emitted fault message takes the form "{step}: {message}".  When
+    AssaySettings construction fails, the step is overridden to "config" and the
+    message contains the Pydantic validation summary.  The Envelope is not
+    persisted to history.
+
+    Args:
+        tokens: Raw argv tokens used to derive the claim, verb, and parse-ring hint.
+        message: Cyclopts error text; clipped to the Fault message cap.
+        step: Fault-prefix label; "parse" by default; callers may pass "config".
+
+    Returns:
+        Emitted parse-fault Envelope with a FAULTED status and diagnostic context.
+    """
+    try:
+        settings = AssaySettings()
+        fault_message = f"{step}: {message}"
+    except ValidationError as config_error:
+        settings = AssaySettings.model_construct()
+        fault_message = f"config: {_validation_message(config_error)}"
+    claim, verb, dispatch = _parse_dispatch(tokens)
+    fault = Fault((), RailStatus.FAULTED, fault_message[:_MESSAGE_CAP])
+    _seed_parse_ring(dispatch, tokens)
+    diagnostic, truncated = _distill(fault, 0.0)
+    env = msgspec.structs.replace(envelope(fault, claim=claim, verb=verb, run_id=settings.run_id, error_context=diagnostic), truncated=truncated)
+    return _emit_envelope(settings, env, persist=False)
+
+
+def _probe_token(argv: tuple[str, ...]) -> str | None:
+    import shutil  # noqa: PLC0415  # deferred: avoids module-load cost on non-probe paths
+
+    def mtime(path: str | None) -> int | None:
+        try:
+            return Path(path).stat().st_mtime_ns if path is not None else None
+        except OSError:
+            return None
+
+    def lock_path(name: str) -> str | None:
+        # Walks from the .venv shim (not the Nix-store target) to the nearest ancestor lockfile; None means program mtime alone forms the token.
+        bases = Path(sys.executable).parents
+        return next((str(base / name) for base in bases if (base / name).exists()), None)
+
+    matched = next(((prefix, lock) for prefix, lock in _PROBE_LOCKED if argv[: len(prefix)] == prefix), None) if argv else None
+    match matched:
+        case (prefix, lock):
+            program = argv[len(prefix)] if len(argv) > len(prefix) else ""
+            resolved = shutil.which(program) or (sys.executable if "." in program or not program else None)
+            program_mtime, lock_mtime = mtime(resolved), mtime(lock_path(lock))
+            return None if program_mtime is None and lock_mtime is None else f"{resolved}|{program_mtime}|{lock}:{lock_mtime}"
+        case _ if argv:
+            path = shutil.which(argv[0])
+            return None if (m := mtime(path)) is None else f"{path}|{m}"
+        case _:
+            return None
+
+
+def _under(path: Path, root: Path) -> bool:
+    try:
+        path.relative_to(root)
+    except ValueError:
+        return False
+    else:
+        return True
+
+
+def _tooling_process(cmdline: tuple[str, ...]) -> bool:
+    return any(Path(part).name in _ORPHAN_PROCESS_TOKENS or Path(part).name.startswith("python") for part in cmdline)
+
+
+def _orphan_process(proc: psutil.Process, root: Path, *, now: float) -> _ProcessRow | None:
+    try:
+        info = proc.info
+        cmdline = tuple(str(part) for part in (info.get("cmdline") or ()))
+        command = " ".join(cmdline) or str(info.get("name") or "")
+        cwd = Path(str(info["cwd"])).resolve() if info.get("cwd") else None
+    except OSError, psutil.Error, TypeError, ValueError:
+        return None
+    age = max(now - float(info.get("create_time") or now), 0.0)
+    match (int(info.get("ppid") or -1) == 1, cwd is not None and _under(cwd, root), age >= ORPHAN_MIN_AGE_S, _tooling_process(cmdline or (command,))):
+        case (True, True, True, True):
+            return _ProcessRow(pid=int(info.get("pid") or 0), age_s=age, command=command[:160])
+        case _:
+            return None
+
+
+def _process_hygiene(settings: AssaySettings) -> tuple[tuple[Match, ...], tuple[str, ...]]:
+    root = Path(str(settings.root)).resolve()
+    rows = tuple(
+        row
+        for proc in psutil.process_iter(("pid", "ppid", "create_time", "name", "cmdline", "cwd"))
+        for row in (_orphan_process(proc, root, now=time.time()),)
+        if row is not None
+    )
+    if not rows:
+        note = "process hygiene: no orphaned repo Python/UV/type-server processes"
+        return (Match(id="process-hygiene", kind=ArtifactKind.PROCESS, text=note),), (note,)
+    notes = tuple(f"process hygiene: orphan pid={row.pid} age={row.age_s / 60:.0f}m command={row.command}" for row in rows)
+    return tuple(
+        Match(id=f"process-hygiene-{row.pid}", kind=ArtifactKind.PROCESS, text=note, severity="failed") for row, note in zip(rows, notes, strict=True)
+    ), notes
+
+
+def _probe(name: str, argv: tuple[str, ...]) -> Check:
+    tool = Tool(name=name, runner=Runner.DIRECT, command=argv, input=Input.NONE, language=Language.PYTHON, claim=Claim.STATIC, timeout=_PROBE_TIMEOUT)
+    return Check(tool=tool)
+
+
+_GIT_HEAD: Final = _probe("git-head", ("git", "rev-parse", "--short", "HEAD"))
+_GIT_DIRTY: Final = _probe("git-dirty", ("git", "status", "--porcelain"))
+
+
+def _cache_hit(cache: Mapping[str, _ProbeRow], argv: tuple[str, ...]) -> tuple[str, bool] | None:
+    match (cache.get(_PROBE_CACHE_KEY % "\x00".join(argv)), _probe_token(argv)):
+        case (_ProbeRow(token=stored, ts=ts, note=note, ok=ok), str() as token) if stored == token and 0 <= time.time() - ts < _PROBE_TTL:
+            return note, ok
+        case _:
+            return None
+
+
+def _probe_cache_load(settings: AssaySettings) -> dict[str, _ProbeRow]:
+    try:
+        return _PROBE_DECODER.decode(settings.store().read_bytes("cache", _PROBE_CACHE_FILE))
+    except OSError, msgspec.MsgspecError:
+        return {}
+
+
+def _probe_cache_store(
+    settings: AssaySettings, prior: Mapping[str, _ProbeRow], fresh: Mapping[tuple[str, ...], tuple[str, bool]], current: frozenset[tuple[str, ...]]
+) -> None:
+    # Best-effort; only token-resolvable probes for catalogued tools persist; removed-tool keys evict.
+    fresh_rows = {
+        _PROBE_CACHE_KEY % "\x00".join(argv): _ProbeRow(token=token, ts=time.time(), note=note, ok=ok)
+        for argv, (note, ok) in fresh.items()
+        if argv in current
+        for token in (_probe_token(argv),)
+        if token is not None
+    }
+    current_keys = frozenset(_PROBE_CACHE_KEY % "\x00".join(argv) for argv in current)
+    retained = {key: row for key, row in prior.items() if key in current_keys and key not in fresh_rows}
+    try:
+        store = settings.store()
+        store.write_bytes(wire_encode({**retained, **fresh_rows}), "cache", _PROBE_CACHE_FILE)
+    except OSError as exc:
+        _LOG.warning("probe_cache.store_failed", run_id=settings.run_id, error=str(exc)[:200])
+
+
+def _tool_probes() -> tuple[Check, ...]:
+    # DOTNET tools share one SDK probe; INPROC tools have no external --version surface.
+    def keyed(tool: Tool) -> tuple[str, tuple[str, ...]]:
+        match tool.runner:
+            case Runner.DOTNET:
+                return "dotnet", ("dotnet", "--version")
+            case Runner.UV if tool.groups:
+                group_flags = tuple(part for group in tool.groups for part in ("--group", group))
+                return f"{tool.runner.value}:{tool.command[0]}:{','.join(tool.groups)}", (
+                    *tool.runner.prefix,
+                    *group_flags,
+                    tool.command[0],
+                    "--version",
+                )
+            case _:
+                return f"{tool.runner.value}:{tool.command[0]}", (*tool.runner.prefix, tool.command[0], "--version")
+
+    deduped = dict(keyed(t) for t in TOOLS if t.runner is not Runner.INPROC)
+    return tuple(_probe(argv[-2], argv) for argv in deduped.values())
+
+
+def _probe_note(check: Check, result: Result[Completed, Fault]) -> tuple[str, bool]:
+    name = check.tool.name
+    match result.ok if result.is_ok() else None:
+        case None:
+            note = f"git: {name.removeprefix('git-')} unavailable" if name in {"git-head", "git-dirty"} else f"tool {name}: MISSING"
+            return note, name in {"git-head", "git-dirty"}
+        case Completed() as d if name == "git-head":
+            return f"git: HEAD {d.stdout.decode(errors='replace').strip()[:40] or 'unknown'}", True
+        case Completed() as d if name == "git-dirty":
+            return f"git: {'dirty' if d.stdout.strip() else 'clean'}", True
+        case Completed(returncode=0) as d:
+            lines = d.stdout.decode(errors="replace").strip().splitlines()
+            return f"tool {name}: {lines[0][:80] if lines else 'present'}", True
+        case Completed() as d:
+            # Exit-code alone cannot distinguish a present-but-nonzero `--version` from a launcher that swallowed a missing-tool error.
+            lines = (d.stdout or d.stderr).decode(errors="replace").strip().splitlines()
+            version = f": {lines[0][:80]}" if lines else ""
+            return f"tool {name}: present (exit {d.returncode}){version}", True
+
+
+def _census() -> bool:
+    # Every Tool must select back to itself; catches catalog/claim mismatches when adding TOOLS rows.
+    return all(t in select(t.claim, t.language) for t in TOOLS)
+
+
+def _yak_ready() -> bool:
+    # shutil.which matches the DIRECT runner's execvp PATH lookup; os.access would check CWD-relative paths instead.
+    import shutil  # noqa: PLC0415  # deferred: executed only on --rhino path
+
+    return any(
+        t.runner is Runner.DIRECT and t.command and t.command[0] == "yak" and shutil.which(t.command[0]) is not None
+        for t in TOOLS
+        if t.claim is Claim.PACKAGE
+    )
+
+
+def _health(settings: AssaySettings) -> tuple[tuple[Match, ...], tuple[str, ...]]:
+    # Missing tools appear in notes, not faults. Tool probes cache by (path, mtime, TTL); git probes are always live.
+    probes = (*_tool_probes(), _GIT_HEAD, _GIT_DIRTY)
+    volatile = frozenset(c.tool.command for c in (_GIT_HEAD, _GIT_DIRTY))
+    cache = _probe_cache_load(settings)
+    hits = {c.tool.command: hit for c in probes if c.tool.command not in volatile for hit in (_cache_hit(cache, c.tool.command),) if hit is not None}
+    misses = tuple(c for c in probes if hits.get(c.tool.command) is None)
+    results = fan_out(misses, settings=settings, scope=None, routed=_PROBE_ROUTED)
+    fresh = dict(zip((c.tool.command for c in misses), map(_probe_note, misses, results, strict=True), strict=True))
+    current = frozenset(c.tool.command for c in probes if c.tool.command not in volatile)
+    _probe_cache_store(settings, cache, fresh, current)
+    noted = tuple(hits.get(c.tool.command) or fresh[c.tool.command] for c in probes)
+    hygiene = _process_hygiene(settings)
+    return (
+        (
+            *tuple(
+                Match(id=check.tool.name, kind=ArtifactKind.PROCESS, text=note, severity="failed" if not ok else None)
+                for check, (note, ok) in zip(probes, noted, strict=True)
+            ),
+            *hygiene[0],
+        ),
+        (*tuple(note for note, _ in noted), *hygiene[1]),
+    )
+
+
+def self_test(*, rhino: bool = False) -> Envelope:
+    """Run the Assay composition preflight and emit a health Envelope.
+
+    Verifies handler callability for every REGISTRY row, claim coverage, rail-layer
+    composition, catalog census, and tool/process health probes.  When rhino is
+    True, the check additionally requires that a yak binary is present for the
+    PACKAGE claim; a missing yak yields FAILED rather than OK.
+
+    Args:
+        rhino: When True, fail if the Rhino packaging tool (yak) is not on PATH.
+
+    Returns:
+        Emitted preflight Envelope with OK or FAILED status and health-probe notes.
+    """
+    settings = AssaySettings()
+    claims = frozenset(b.claim for b in REGISTRY)
+    health_probes, health_notes = _health(settings)
+    # Absent host tools surface as UNSUPPORTED at use-time via FileNotFoundError in engine._guarded, not here.
+    healthy = all(callable(b.handler) for b in REGISTRY) and all(any(b.claim is c for b in REGISTRY) for c in claims) and _composes() and _census()
+    status = RailStatus.FAILED if (not healthy or (rhino and not _yak_ready())) else RailStatus.OK
+    summary = f"rows={len(REGISTRY)} claims={len(claims)} tools={len(TOOLS)} healthy={healthy} rhino={'required' if rhino else 'skipped'}"
+    report = fold(Claim.STATIC, "self-test", (receipt(("assay", "self-test"), 0 if status is RailStatus.OK else 1, status=status, notes=(summary,)),))
+    report = msgspec.structs.replace(
+        report,
+        results=(
+            *report.results,
+            *(Match(id=b.verb, kind=ArtifactKind.PROCESS, text=f"{b.claim.value} {b.verb}", severity=None) for b in REGISTRY),
+            *health_probes,
+        ),
+    )
+    return _emit_envelope(
+        settings,
+        msgspec.structs.replace(envelope(report, claim=Claim.STATIC, verb="self-test", run_id=settings.run_id), notes=(summary, *health_notes)),
+        persist=True,
+    )
 
 
 # --- [COMPOSITION] ----------------------------------------------------------------------
 
-# compose sorts layer slots; rails use checked/logged/traced without spawn retry.
+# compose sorts layers by Slot; rails apply checked/logged/traced without spawn retry.
 _RAIL_LAYERS: Final[tuple[ReportLayer, ...]] = (
     (Slot.checked, _checked_report),
     logged(event="rail", keys=_correlate),
@@ -398,365 +778,8 @@ REGISTRY: Final[tuple[Bind, ...]] = (
 )
 
 
-def _encode(envelope: Envelope) -> bytes:
-    # The single wire encoder. Untrusted argv/paths can carry lone surrogates msgspec cannot UTF-8 encode
-    # (msgspec.to_builtins also rejects them), so that boundary failure folds to a scrubbed minimal FAULTED
-    # Envelope, holding the one-Envelope contract. Argv is scrubbed upstream in __main__ so this is the rare path.
-    try:
-        return wire_encode(envelope)
-    except UnicodeEncodeError:
-        safe = Envelope(
-            schema_version=1,
-            claim=envelope.claim,
-            verb=wire_safe(envelope.verb),
-            status=RailStatus.FAULTED,
-            exit_code=RailStatus.FAULTED.exit_code,
-            notes=("output contained invalid characters",),
-        )
-        return wire_encode(safe)
-
-
-def _emit_envelope(settings: AssaySettings, envelope: Envelope, *, persist: bool = True) -> Envelope:
-    # Single stdout writer; optional history persistence happens after the wire line.
-    sys.stdout.buffer.write(_encode(envelope) + b"\n")
-    if persist:
-        _persist(settings, envelope)
-    return envelope
-
-
-def _persist(settings: AssaySettings, envelope: Envelope) -> None:
-    # History writes are best-effort and use the same bytes delta decodes later.
-    try:
-        store = settings.store()
-        store.write_history(settings.run_id, _encode(envelope))
-        store.retain_history(settings.artifact_retention)
-    except OSError as exc:
-        _LOG.warning("history.persist_failed", run_id=settings.run_id, error=str(exc)[:200])
-
-
-def _prior(run_ids: tuple[str, ...], run_id: str) -> str:
-    earlier = tuple(r for r in run_ids if r < run_id)
-    return earlier[-1] if earlier else ""
-
-
-def _delta_report(before_id: str, after_id: str, before: Envelope | None, after: Envelope | None) -> Report:
-    # Compare persisted reports by status, counts, and `(id, line)` result keys; missing sides fold to EMPTY.
-    def snapshot(run_id: str, env: Envelope) -> tuple[RunSnapshot, frozenset[tuple[str, int]]]:
-        report = env.report
-        counts = report.counts if report is not None else Counts()
-        keys = frozenset((m.id, m.line) for m in (report.results if report is not None else ()))
-        return RunSnapshot(id=run_id, status=env.status, counts=counts), keys
-
-    match (before, after):
-        case (Envelope() as b, Envelope() as a):
-            (before_snap, before_keys), (after_snap, after_keys) = snapshot(before_id, b), snapshot(after_id, a)
-            detail = RunDelta(before=before_snap, after=after_snap, added=len(after_keys - before_keys), removed=len(before_keys - after_keys))
-            note = f"delta {before_id} -> {after_id}: {b.status.value} -> {a.status.value}, +{detail.added}/-{detail.removed} results"
-            return fold(Claim.STATIC, "delta", (Completed(("delta", after_id), 0, status=RailStatus.OK, notes=(note,)),), detail=detail)
-        case _:
-            missing = after_id if after is None else before_id
-            note = f"delta: run not found in history: {missing or '(no prior run)'}"
-            return fold(Claim.STATIC, "delta", (Completed(("delta", after_id), 0, status=RailStatus.EMPTY, notes=(note,)),))
-
-
-def delta(run_id: str, *, against: str = "") -> Envelope:
-    """Diff two persisted run Envelopes.
-
-    Returns:
-        Emitted delta Envelope comparing the selected runs.
-    """
-    settings = AssaySettings()
-    store = settings.store()
-    before_id = against or _prior(store.sorted_history_ids(), run_id)
-    report = _delta_report(before_id, run_id, store.load_history(before_id), store.load_history(run_id))
-    env = msgspec.structs.replace(envelope(report, claim=Claim.STATIC, verb="delta", run_id=settings.run_id), notes=report.notes)
-    return _emit_envelope(settings, env, persist=False)
-
-
-def parse_fault(tokens: tuple[str, ...], message: str, *, step: str = "parse") -> Envelope:
-    """Convert a Cyclopts parse failure into the canonical fault Envelope.
-
-    Returns:
-        Emitted parse-fault Envelope.
-    """
-    try:
-        settings = AssaySettings()
-        fault_message = f"{step}: {message}"
-    except ValidationError as config_error:
-        settings = AssaySettings.model_construct()
-        fault_message = f"config: {_validation_message(config_error)}"
-    claim, verb, dispatch = _parse_dispatch(tokens)
-    fault = Fault((), RailStatus.FAULTED, fault_message[:_MESSAGE_CAP])
-    _seed_parse_ring(dispatch, tokens)
-    diagnostic, truncated = _distill(fault, 0.0)
-    env = msgspec.structs.replace(envelope(fault, claim=claim, verb=verb, run_id=settings.run_id, error_context=diagnostic), truncated=truncated)
-    return _emit_envelope(settings, env, persist=False)
-
-
-def _parse_dispatch(tokens: tuple[str, ...]) -> tuple[Claim, str, str]:
-    match tokens:
-        case (head, *rest) if head in Claim._value2member_map_:
-            return Claim(head), (rest[0] if rest else ""), head
-        case (head, *_):
-            return Claim.STATIC, head, "none"
-        case _:
-            return Claim.STATIC, "", "none"
-
-
-def _validation_message(error: ValidationError) -> str:
-    rows = tuple(
-        f"{'.'.join(str(part) for part in item.get('loc', ()) if part != '__root__') or 'settings'}: {item.get('msg', 'invalid')}"
-        for item in error.errors(include_url=False, include_context=False, include_input=False)
-    )
-    return "; ".join(rows) or str(error)
-
-
-def self_test(*, rhino: bool = False) -> Envelope:
-    """Run the Assay composition preflight.
-
-    Returns:
-        Emitted preflight Envelope.
-    """
-    settings = AssaySettings()
-    claims = frozenset(b.claim for b in REGISTRY)
-    health_probes, health_notes = _health(settings)
-    # Health is structural soundness only: an absent host tool cannot be distinguished from a present-but-nonzero
-    # --version via exit code (uv/dotnet/python -m all front absence as Completed(rc!=0)), so it surfaces as
-    # UNSUPPORTED at use-time (engine._guarded FileNotFoundError arm), not as a census verdict.
-    healthy = all(callable(b.handler) for b in REGISTRY) and all(any(b.claim is c for b in REGISTRY) for c in claims) and _composes() and _census()
-    status = RailStatus.FAILED if (not healthy or (rhino and not _yak_ready())) else RailStatus.OK
-    summary = f"rows={len(REGISTRY)} claims={len(claims)} tools={len(TOOLS)} healthy={healthy} rhino={'required' if rhino else 'skipped'}"
-    report = fold(Claim.STATIC, "self-test", (receipt(("assay", "self-test"), 0 if status is RailStatus.OK else 1, status=status, notes=(summary,)),))
-    # Census rows and health probes are machine data; tool/git probe text rides notes.
-    report = msgspec.structs.replace(
-        report,
-        results=(
-            *report.results,
-            *(Match(id=b.verb, kind=ArtifactKind.PROCESS, text=f"{b.claim.value} {b.verb}", severity=None) for b in REGISTRY),
-            *health_probes,
-        ),
-    )
-    return _emit_envelope(
-        settings,
-        msgspec.structs.replace(envelope(report, claim=Claim.STATIC, verb="self-test", run_id=settings.run_id), notes=(summary, *health_notes)),
-        persist=True,
-    )
-
-
-def _health(settings: AssaySettings) -> tuple[tuple[Match, ...], tuple[str, ...]]:
-    # Probe distinct tool versions and git state; missing tools surface as notes, not rail faults.
-    # Tool --version probes are cacheable by (resolved-path, mtime, TTL); git state is volatile and always live.
-    probes = (*_tool_probes(), _GIT_HEAD, _GIT_DIRTY)
-    volatile = frozenset(c.tool.command for c in (_GIT_HEAD, _GIT_DIRTY))
-    cache = _probe_cache_load(settings)
-    hits = {c.tool.command: hit for c in probes if c.tool.command not in volatile for hit in (_cache_hit(cache, c.tool.command),) if hit is not None}
-    misses = tuple(c for c in probes if hits.get(c.tool.command) is None)
-    results = fan_out(misses, settings=settings, scope=None, routed=_PROBE_ROUTED)
-    fresh = dict(zip((c.tool.command for c in misses), map(_probe_note, misses, results, strict=True), strict=True))
-    current = frozenset(c.tool.command for c in probes if c.tool.command not in volatile)
-    _probe_cache_store(settings, cache, fresh, current)
-    noted = tuple(hits.get(c.tool.command) or fresh[c.tool.command] for c in probes)
-    hygiene = _process_hygiene(settings)
-    return (
-        (
-            *tuple(
-                Match(id=check.tool.name, kind=ArtifactKind.PROCESS, text=note, severity="failed" if not ok else None)
-                for check, (note, ok) in zip(probes, noted, strict=True)
-            ),
-            *hygiene[0],
-        ),
-        (*tuple(note for note, _ in noted), *hygiene[1]),
-    )
-
-
-def _process_hygiene(settings: AssaySettings) -> tuple[tuple[Match, ...], tuple[str, ...]]:
-    root = Path(str(settings.root)).resolve()
-    rows = tuple(
-        row
-        for proc in psutil.process_iter(("pid", "ppid", "create_time", "name", "cmdline", "cwd"))
-        for row in (_orphan_process(proc, root, now=time.time()),)
-        if row is not None
-    )
-    if not rows:
-        note = "process hygiene: no orphaned repo Python/UV/type-server processes"
-        return (Match(id="process-hygiene", kind=ArtifactKind.PROCESS, text=note),), (note,)
-    notes = tuple(f"process hygiene: orphan pid={row.pid} age={row.age_s / 60:.0f}m command={row.command}" for row in rows)
-    return tuple(
-        Match(id=f"process-hygiene-{row.pid}", kind=ArtifactKind.PROCESS, text=note, severity="failed") for row, note in zip(rows, notes, strict=True)
-    ), notes
-
-
-def _orphan_process(proc: psutil.Process, root: Path, *, now: float) -> _ProcessRow | None:
-    try:
-        info = proc.info
-        cmdline = tuple(str(part) for part in (info.get("cmdline") or ()))
-        command = " ".join(cmdline) or str(info.get("name") or "")
-        cwd = Path(str(info["cwd"])).resolve() if info.get("cwd") else None
-    except OSError, psutil.Error, TypeError, ValueError:
-        return None
-    age = max(now - float(info.get("create_time") or now), 0.0)
-    match (int(info.get("ppid") or -1) == 1, cwd is not None and _under(cwd, root), age >= ORPHAN_MIN_AGE_S, _tooling_process(cmdline or (command,))):
-        case (True, True, True, True):
-            return _ProcessRow(pid=int(info.get("pid") or 0), age_s=age, command=command[:160])
-        case _:
-            return None
-
-
-def _tooling_process(cmdline: tuple[str, ...]) -> bool:
-    return any(Path(part).name in _ORPHAN_PROCESS_TOKENS or Path(part).name.startswith("python") for part in cmdline)
-
-
-def _under(path: Path, root: Path) -> bool:
-    try:
-        path.relative_to(root)
-    except ValueError:
-        return False
-    else:
-        return True
-
-
-def _probe_token(argv: tuple[str, ...]) -> str | None:
-    # Freshness follows the launched program plus lockfile mtime for venv/node launchers. DIRECT and DOTNET keep argv[0]
-    # because the launcher is the probed tool/SDK. An unresolvable program has no token and forces a live probe.
-    import shutil  # noqa: PLC0415  # deferred to avoid module-load cost on the non-probe path
-
-    def mtime(path: str | None) -> int | None:
-        try:
-            return Path(path).stat().st_mtime_ns if path is not None else None
-        except OSError:
-            return None
-
-    def lock_path(name: str) -> str | None:
-        # Walk up from the venv interpreter dir (unresolved: the .venv shim, not its Nix-store symlink target) to the
-        # nearest dir holding the lockfile; None if no ancestor carries it (then only the program mtime tokens).
-        bases = Path(sys.executable).parents
-        return next((str(base / name) for base in bases if (base / name).exists()), None)
-
-    # Match argv head against known launcher prefixes; the launched program is the slot after the prefix. A MODULE program
-    # is a dotted module name (no PATH executable), so its program signal collapses to the venv interpreter (sys.executable).
-    matched = next(((prefix, lock) for prefix, lock in _PROBE_LOCKED if argv[: len(prefix)] == prefix), None) if argv else None
-    match matched:
-        case (prefix, lock):
-            program = argv[len(prefix)] if len(argv) > len(prefix) else ""
-            resolved = shutil.which(program) or (sys.executable if "." in program or not program else None)
-            program_mtime, lock_mtime = mtime(resolved), mtime(lock_path(lock))
-            return None if program_mtime is None and lock_mtime is None else f"{resolved}|{program_mtime}|{lock}:{lock_mtime}"
-        case _ if argv:
-            path = shutil.which(argv[0])
-            return None if (m := mtime(path)) is None else f"{path}|{m}"
-        case _:
-            return None
-
-
-def _cache_hit(cache: Mapping[str, _ProbeRow], argv: tuple[str, ...]) -> tuple[str, bool] | None:
-    # A hit requires a matching freshness token within TTL; any shape mismatch folds to a miss (live probe).
-    match (cache.get(_PROBE_CACHE_KEY % "\x00".join(argv)), _probe_token(argv)):
-        case (_ProbeRow(token=stored, ts=ts, note=note, ok=ok), str() as token) if stored == token and 0 <= time.time() - ts < _PROBE_TTL:
-            return note, ok
-        case _:
-            return None
-
-
-def _probe_cache_load(settings: AssaySettings) -> dict[str, _ProbeRow]:
-    # Absent or malformed cache folds to empty so probes fall back to live process checks.
-    try:
-        return _PROBE_DECODER.decode(settings.store().read_bytes("cache", _PROBE_CACHE_FILE))
-    except OSError, msgspec.MsgspecError:
-        return {}
-
-
-def _probe_cache_store(
-    settings: AssaySettings, prior: Mapping[str, _ProbeRow], fresh: Mapping[tuple[str, ...], tuple[str, bool]], current: frozenset[tuple[str, ...]]
-) -> None:
-    # Best-effort write-back: only token-resolvable, current-run probes persist; stale keys for catalog-dropped tools drop.
-    fresh_rows = {
-        _PROBE_CACHE_KEY % "\x00".join(argv): _ProbeRow(token=token, ts=time.time(), note=note, ok=ok)
-        for argv, (note, ok) in fresh.items()
-        if argv in current
-        for token in (_probe_token(argv),)
-        if token is not None
-    }
-    current_keys = frozenset(_PROBE_CACHE_KEY % "\x00".join(argv) for argv in current)
-    retained = {key: row for key, row in prior.items() if key in current_keys and key not in fresh_rows}
-    try:
-        store = settings.store()
-        store.write_bytes(wire_encode({**retained, **fresh_rows}), "cache", _PROBE_CACHE_FILE)
-    except OSError as exc:
-        _LOG.warning("probe_cache.store_failed", run_id=settings.run_id, error=str(exc)[:200])
-
-
-def _probe(name: str, argv: tuple[str, ...]) -> Check:
-    tool = Tool(name=name, runner=Runner.DIRECT, command=argv, input=Input.NONE, language=Language.PYTHON, claim=Claim.STATIC, timeout=_PROBE_TIMEOUT)
-    return Check(tool=tool)
-
-
-_GIT_HEAD: Final = _probe("git-head", ("git", "rev-parse", "--short", "HEAD"))
-_GIT_DIRTY: Final = _probe("git-dirty", ("git", "status", "--porcelain"))
-
-
-def _tool_probes() -> tuple[Check, ...]:
-    # Deduplicate probes by launcher and program; DOTNET tools share one SDK probe and INPROC tools are skipped.
-    def keyed(tool: Tool) -> tuple[str, tuple[str, ...]]:
-        match tool.runner:
-            case Runner.DOTNET:
-                return "dotnet", ("dotnet", "--version")
-            case Runner.UV if tool.groups:
-                group_flags = tuple(part for group in tool.groups for part in ("--group", group))
-                return f"{tool.runner.value}:{tool.command[0]}:{','.join(tool.groups)}", (
-                    *tool.runner.prefix,
-                    *group_flags,
-                    tool.command[0],
-                    "--version",
-                )
-            case _:
-                return f"{tool.runner.value}:{tool.command[0]}", (*tool.runner.prefix, tool.command[0], "--version")
-
-    deduped = dict(keyed(t) for t in TOOLS if t.runner is not Runner.INPROC)
-    return tuple(_probe(argv[-2], argv) for argv in deduped.values())
-
-
-def _probe_note(check: Check, result: Result[Completed, Fault]) -> tuple[str, bool]:
-    # Project tool/git probe Results to notes; tool and git presence are informational and never fail structural health.
-    name = check.tool.name
-    match result.ok if result.is_ok() else None:
-        case None:
-            note = f"git: {name.removeprefix('git-')} unavailable" if name in {"git-head", "git-dirty"} else f"tool {name}: MISSING"
-            return note, name in {"git-head", "git-dirty"}
-        case Completed() as d if name == "git-head":
-            return f"git: HEAD {d.stdout.decode(errors='replace').strip()[:40] or 'unknown'}", True
-        case Completed() as d if name == "git-dirty":
-            return f"git: {'dirty' if d.stdout.strip() else 'clean'}", True
-        case Completed(returncode=0) as d:
-            lines = d.stdout.decode(errors="replace").strip().splitlines()
-            return f"tool {name}: {lines[0][:80] if lines else 'present'}", True
-        case Completed() as d:
-            # Exit-code cannot distinguish a present-but-nonzero --version (e.g. py-analyzer/squawk usage exit 2) from a
-            # launcher-swallowed absent tool; reported informationally, never failing structural health. Tools that print
-            # their version yet exit non-zero (py-analyzer/squawk under --version) still surface it from the first line.
-            lines = (d.stdout or d.stderr).decode(errors="replace").strip().splitlines()
-            version = f": {lines[0][:80]}" if lines else ""
-            return f"tool {name}: present (exit {d.returncode}){version}", True
-
-
-def _census() -> bool:
-    # Catch catalog rot: every row must select back to itself through the claim/language axes.
-    return all(t in select(t.claim, t.language) for t in TOOLS)
-
-
-def _yak_ready() -> bool:
-    # Rhino preflight requires a direct `yak` on PATH; the DIRECT runner uses execvp PATH lookup at spawn,
-    # so shutil.which agrees with runtime resolution where os.access(command[0]) would test the CWD-relative path.
-    import shutil  # noqa: PLC0415  # stdlib: deferred import, only on --rhino path
-
-    return any(
-        t.runner is Runner.DIRECT and t.command and t.command[0] == "yak" and shutil.which(t.command[0]) is not None
-        for t in TOOLS
-        if t.claim is Claim.PACKAGE
-    )
-
-
 def _composes() -> bool:
-    # Weaving identity catches Slot-order inversions without spawning a process.
+    # Identity handler catches Slot-order inversions in _RAIL_LAYERS without spawning a process.
     try:
         compose(*_RAIL_LAYERS)(_identity_hom)
     except TypeError:
@@ -764,9 +787,20 @@ def _composes() -> bool:
     return True
 
 
+def _read_version() -> str:
+    try:
+        v = tomllib.loads(_PYPROJECT.read_text(encoding="utf-8")).get("project", {}).get("version", "")
+        return v if isinstance(v, str) and v else "0.0.0"
+    except OSError, tomllib.TOMLDecodeError:
+        return "0.0.0"
+
+
+_VERSION: Final[str] = _read_version()
+
+
 def _leaf(bind: Bind) -> Callable[[object], Envelope]:
-    # Cyclopts needs a concrete default plus PEP 649 lazy annotations to flatten each Params type.
-    # Avoid functools.wraps because __wrapped__ exposes the defaultless rail runner to signature inspection.
+    # Cyclopts needs a concrete `params` default; functools.wraps is avoided because __wrapped__ exposes
+    # the defaultless runner to Cyclopts signature inspection. PEP 649 lazy annotations satisfy ty without imports.
     runner = rail(bind)
 
     def command(params: object = bind.params()) -> Envelope:
@@ -779,11 +813,37 @@ def _leaf(bind: Bind) -> Callable[[object], Envelope]:
     return command
 
 
+def _register[**P](
+    app: App,
+    obj: App | Callable[P, object],
+    *,
+    name: str | None = None,
+    help: str = "",  # noqa: A002  # cyclopts names this kwarg "help"; intentional shadow
+) -> App:
+    # App.command returns the registered sub-app, not the parent; returning app keeps reduce folds linear.
+    match (name, help):
+        case (None, _):
+            app.command(obj)
+        case (verb, ""):
+            app.command(obj, name=verb)
+        case (verb, text):
+            app.command(obj, name=verb, help=text)
+    return app
+
+
 def build_app(registry: tuple[Bind, ...]) -> App:
     """Build the Cyclopts command tree from registry rows.
 
+    Groups rows by claim to produce one sub-app per claim, then registers each
+    verb as a leaf command under its claim sub-app.  self_test and delta are
+    registered directly on the root app outside the claim fold.
+
+    Args:
+        registry: Ordered Bind tuple; typically the module-level REGISTRY constant.
+
     Returns:
-        Cyclopts application with claim and verb commands registered.
+        Configured Cyclopts App with claim sub-apps, verb leaves, self-test, and
+        delta registered.
     """
     root = App(
         name="assay",
@@ -804,29 +864,6 @@ def build_app(registry: tuple[Bind, ...]) -> App:
     app = reduce(_register, subs, root)
     _register(app, self_test, name="self-test")
     _register(app, delta, name="delta")
-    return app
-
-
-def _read_version() -> str:
-    try:
-        v = tomllib.loads(_PYPROJECT.read_text(encoding="utf-8")).get("project", {}).get("version", "")
-        return v if isinstance(v, str) and v else "0.0.0"
-    except OSError, tomllib.TOMLDecodeError:
-        return "0.0.0"
-
-
-_VERSION: Final[str] = _read_version()
-
-
-def _register[**P](app: App, obj: App | Callable[P, object], *, name: str | None = None, help: str = "") -> App:  # noqa: A002  # cyclopts command kwarg is named "help"; mirroring the CLI surface
-    # App.command returns the registered object, so return the parent to keep registry folds linear.
-    match (name, help):
-        case (None, _):
-            app.command(obj)
-        case (verb, ""):
-            app.command(obj, name=verb)
-        case (verb, text):
-            app.command(obj, name=verb, help=text)
     return app
 
 

@@ -19,9 +19,9 @@ from hypothesis import example, given, strategies as st
 import msgspec
 import pytest
 
-from tests._aspect import register_law  # noqa: PLC2701  # sibling test-internal module; `_`-named by S1 design
-from tests._spec import roundtrip  # noqa: PLC2701  # sibling test-internal module; `_`-named by S1 design
-from tests._strategies import resolve  # noqa: PLC2701  # sibling test-internal module; `_`-named by S1 design
+from tests._aspect import register_law  # noqa: PLC2701  # private test-internal module
+from tests._spec import roundtrip  # noqa: PLC2701  # private test-internal module
+from tests._strategies import resolve  # noqa: PLC2701  # private test-internal module
 from tools.assay.automation.model import (
     Action,
     ACTION_DECODER,
@@ -43,9 +43,7 @@ from tools.assay.core.model import Claim
 
 
 # --- [STRATEGIES] -----------------------------------------------------------------------
-# Rail.params is msgspec.Raw (RawType): unhandled by _node → register a bounded custom strategy
-# that omits params (uses the default Raw()). Debounce/Sequence are mutually recursive with Action
-# so they need an explicit deferred st.one_of tree that anchors on Rail/Program leaves.
+# Rail.params is msgspec.Raw, so it is omitted from builds; Debounce/Sequence mutual recursion requires st.deferred anchored on Rail/Program leaves.
 
 _claim_st: st.SearchStrategy[Claim] = st.sampled_from(list(Claim))
 _verb_st: st.SearchStrategy[str] = st.text(min_size=1, max_size=32)
@@ -61,10 +59,6 @@ _action_st: st.SearchStrategy[Action] = st.deferred(
     )
 )
 _trigger_st: st.SearchStrategy[Trigger] = st.one_of(resolve(Watch), resolve(Schedule), resolve(Manual))
-
-# Typed decode surfaces: ACTION_DECODER.decode / TRIGGER_DECODER.decode return correctly-typed unions so
-# roundtrip[T] resolves without cast or helper. The `decode` public function delegates to these singletons
-# (encode∘decode roundtrip therefore exercises ACTION_DECODER/TRIGGER_DECODER transitively).
 
 
 # --- [LAWS] -----------------------------------------------------------------------------
@@ -96,8 +90,7 @@ def test_trigger_encode_decode_roundtrip(trigger: Trigger) -> None:
 register_law(Trigger, "test_trigger_encode_decode_roundtrip")
 register_law("TRIGGER_DECODER", "test_trigger_encode_decode_roundtrip")
 
-# Per-variant coverage: the two roundtrip laws above exercise all 7 concrete types. register_law records
-# coverage for each so assert_law_coverage sees them; no duplicate test function is needed.
+# Per-variant registration delegates to the two roundtrip laws; assert_law_coverage sees all 7 types without duplicate test functions.
 register_law(Rail, "test_action_encode_decode_roundtrip")
 register_law(Program, "test_action_encode_decode_roundtrip")
 register_law(Debounce, "test_action_encode_decode_roundtrip")
@@ -107,7 +100,7 @@ register_law(Schedule, "test_trigger_encode_decode_roundtrip")
 register_law(Manual, "test_trigger_encode_decode_roundtrip")
 
 
-# --- [DESCRIBE_PREFIX] ------------------------------------------------------------------
+# --- [DESCRIBE_PREFIX]
 
 
 _DESCRIBE_PREFIXES: tuple[tuple[type[Watch | Schedule | Manual | Rail | Program | Sequence | Debounce], str], ...] = (
@@ -151,7 +144,7 @@ def test_describe_action_nonempty(action: Action) -> None:
 register_law(describe, "test_describe_action_nonempty")
 
 
-# --- [SEQUENCE_DESCRIBE] ----------------------------------------------------------------
+# --- [SEQUENCE_DESCRIBE]
 
 
 def test_describe_sequence_compositional() -> None:
@@ -166,7 +159,7 @@ def test_describe_sequence_compositional() -> None:
 register_law(Sequence, "test_describe_sequence_compositional")
 
 
-# --- [RAIL_DESCRIBE] --------------------------------------------------------------------
+# --- [RAIL_DESCRIBE]
 
 
 @pytest.mark.parametrize("claim", list(Claim))
@@ -179,13 +172,13 @@ def test_describe_rail_claim_verb_projection(claim: Claim) -> None:
 register_law(Rail, "test_describe_rail_claim_verb_projection")
 
 
-# --- [SCHEDULE_TIMEZONE] ----------------------------------------------------------------
+# --- [SCHEDULE_TIMEZONE]
 
 
 def test_describe_schedule_timezone_suffix() -> None:
     """describe(Schedule) appends ' @ {tz}' when timezone is truthy; omits it for empty string."""
     assert "@ UTC" in describe(Schedule(cron="0 * * * *"))
-    # Fabricate a wire instance with empty timezone via msgspec to probe the omit branch.
+    # Wire-construct with empty timezone: the normal constructor defaults to "UTC", so msgspec is the only path to the omit branch.
     no_tz = msgspec.json.decode(b'{"kind":"schedule","cron":"* * * * *","timezone":""}', type=Schedule)
     out = describe(no_tz)
     assert "@" not in out
@@ -195,7 +188,7 @@ def test_describe_schedule_timezone_suffix() -> None:
 register_law(Schedule, "test_describe_schedule_timezone_suffix")
 
 
-# --- [WATCH_DESCRIBE] -------------------------------------------------------------------
+# --- [WATCH_DESCRIBE]
 
 
 @given(resolve(Watch))
@@ -208,7 +201,7 @@ def test_describe_watch_path_count(watch: Watch) -> None:
 register_law(Watch, "test_describe_watch_path_count")
 
 
-# --- [WATCHFILTER_SWEEP] ----------------------------------------------------------------
+# --- [WATCHFILTER_SWEEP]
 
 
 @pytest.mark.parametrize("flt", list(WatchFilter))
@@ -223,7 +216,7 @@ def test_watch_filter_roundtrip(flt: WatchFilter) -> None:
 register_law(WatchFilter, "test_watch_filter_roundtrip")
 
 
-# --- [CONSTRAINT_VIOLATION] -------------------------------------------------------------
+# --- [CONSTRAINT_VIOLATION]
 
 
 @pytest.mark.parametrize(
@@ -236,7 +229,7 @@ register_law(WatchFilter, "test_watch_filter_roundtrip")
     ],
     ids=["cpu_threshold_gt1", "debounce_lt1", "program_empty_argv", "unknown_field"],
 )
-def test_decode_constraint_violations(blob: bytes, trigger: bool, match: str) -> None:  # noqa: FBT001  # parametrized bool flag in test params is idiomatic pytest; not a production API
+def test_decode_constraint_violations(blob: bytes, trigger: bool, match: str) -> None:  # noqa: FBT001  # parametrized fixture, not a flag arg
     """Out-of-bound wire inputs raise msgspec.ValidationError with the expected diagnostic."""
     with pytest.raises(msgspec.ValidationError, match=match):
         decode(blob, trigger=trigger)
@@ -245,7 +238,7 @@ def test_decode_constraint_violations(blob: bytes, trigger: bool, match: str) ->
 register_law(decode, "test_decode_constraint_violations")
 
 
-# --- [ENCODE_PURITY] --------------------------------------------------------------------
+# --- [ENCODE_PURITY]
 
 
 @given(_action_st)

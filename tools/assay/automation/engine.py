@@ -1,4 +1,10 @@
-"""Run automation triggers through Assay rails and direct programs."""
+"""Automation engine: runs Watch, Schedule, and Manual triggers through Assay rails and direct programs.
+
+Each trigger drives one action (Rail, Program, Sequence, or Debounce) under a single-flight
+CapacityLimiter.  Envelopes are written to stdout as newline-delimited JSON; structlog telemetry
+goes to stderr.  The public surface is `drive` plus `is_governed` and the type aliases exported
+via `__all__`.
+"""
 
 from collections.abc import Callable, Coroutine
 from contextvars import ContextVar
@@ -42,7 +48,6 @@ if TYPE_CHECKING:
 
 # --- [TYPES] ----------------------------------------------------------------------------
 
-# Each fire reports only through the NDJSON Envelope it emits.
 type ChangeBatch = tuple[tuple[str, str], ...]
 type Fire = Callable[[ChangeBatch], Coroutine[None, None, None]]
 type Worker = Callable[[], Coroutine[None, None, None]]
@@ -51,28 +56,34 @@ type RailOutcome = tuple[Envelope, bool]
 
 # --- [CONSTANTS] ------------------------------------------------------------------------
 
-_PROGRAM_ROUTED: Routed = Routed(language=Language.PYTHON, scope=Scope.FULL)
-
+# ContextVar isolates the priming latch per async context so tests don't bleed state.
+_CPU_PRIMED: ContextVar[bool] = ContextVar("assay_cpu_primed", default=False)
 _ENCODER = msgspec.json.Encoder(order="deterministic")
-_LOG: structlog.stdlib.BoundLogger = structlog.get_logger("assay.automation")
 _JITTER_MS: int = 100
 _NO_CHANGES: ChangeBatch = ()
-# One-shot warm-up latch carried in a ContextVar so each test resets it independently and the blocking
-# cpu_percent(0.1) prime stays reachable behind the conftest psutil double; True = already primed.
-_CPU_PRIMED: ContextVar[bool] = ContextVar("assay_cpu_primed", default=False)
+_PROGRAM_ROUTED: Routed = Routed(language=Language.PYTHON, scope=Scope.FULL)
+
+
+# --- [SERVICES] -------------------------------------------------------------------------
+
+_LOG: structlog.stdlib.BoundLogger = structlog.get_logger("assay.automation")
 
 
 # --- [OPERATIONS] -----------------------------------------------------------------------
 
 
 def _emit(line: Envelope) -> None:
-    # Per-line flushing keeps watch/schedule consumers current and preserves Envelope framing across concurrent fires.
+    # Per-line flush preserves Envelope framing across concurrent fires.
     sys.stdout.buffer.write(_ENCODER.encode(line) + b"\n")
     sys.stdout.buffer.flush()
 
 
 def is_governed(threshold: float | None) -> bool:
-    """Report whether the CPU governor should skip a fire at the given threshold.
+    """Decide whether the CPU governor should suppress a fire.
+
+    The first call that actually samples the CPU blocks for 0.1 s to prime the
+    psutil kernel counter; all subsequent calls within the same async context use
+    a non-blocking interval=None sample via `_CPU_PRIMED`.
 
     Args:
         threshold: Fractional CPU ceiling in [0, 1]; None disables the governor.
@@ -84,8 +95,6 @@ def is_governed(threshold: float | None) -> bool:
         case None:
             return False
         case _:
-            # cpu_percent(interval=None) is non-blocking but reads zeros until primed; prime lazily on first
-            # governed call (a 0.1s sample) so threshold-less CLI runs pay no warm-up tax at import.
             match _CPU_PRIMED.get():
                 case False:
                     psutil.cpu_percent(0.1)
@@ -103,15 +112,14 @@ def _label(action: Action) -> tuple[Claim, str]:
     match action:
         case Rail(claim=c, verb=v):
             return c, v
-        # Program and Sequence share the canonical direct-program label.
         case Program() | Sequence():
             return Claim.STATIC, "program"
         case Debounce(action=inner):
-            return _label(inner)  # pure wrapper: project the wrapped action's label
+            return _label(inner)
 
 
 def _program_check(argv: tuple[str, ...]) -> Check:
-    # DIRECT plus Input.NONE runs argv verbatim while satisfying the shared routing shape.
+    # Runner.DIRECT + Input.NONE bypasses registry lookup and passes argv verbatim through the Check shape.
     tool = Tool(
         name=argv[0] if argv else "program",
         runner=Runner.DIRECT,
@@ -125,10 +133,7 @@ def _program_check(argv: tuple[str, ...]) -> Check:
 
 
 async def _program_outcome(action: Program, settings: AssaySettings) -> Result[Report, Fault]:
-    # Avoid nested anyio.run by awaiting the engine's public async execution boundary.
-    # Process exit codes stay on the Completed channel; only spawn and timeout failures become Faults.
-    # The trailing None deadline selects _guarded's run-to-completion budget (check.tool.timeout), so a
-    # catalog tool with no timeout (dotnet build, stryker) runs unbounded by design here, not capped per fire.
+    # No deadline: catalog tools run unbounded per fire; only spawn and process failures become Faults.
     if not action.argv:
         return Error(Fault(("program",), RailStatus.FAULTED, "program argv must be non-empty"))
     check = _program_check(action.argv)
@@ -147,8 +152,7 @@ def _emitted(line: Envelope) -> Envelope:
 
 
 def _rail_outcome(action: Rail, settings: AssaySettings) -> RailOutcome:
-    # Registry rails write their own Envelope, so this branch returns it instead of emitting twice.
-    # Binding and Raw decode failures fold to a FAULTED Envelope at the automation boundary.
+    # Decode failures fold to a FAULTED Envelope at this boundary rather than escaping as exceptions.
     bind = _resolve(action)
     match bind:
         case None:
@@ -163,7 +167,6 @@ def _rail_outcome(action: Rail, settings: AssaySettings) -> RailOutcome:
 
 
 async def _program_envelope(action: Program, settings: AssaySettings) -> Envelope:
-    # Programs have no registry runner, so this boundary wraps their Result into the automation Envelope.
     match await _program_outcome(action, settings):
         case Result(tag="ok", ok=report):
             payload: Report | Fault = report
@@ -173,15 +176,13 @@ async def _program_envelope(action: Program, settings: AssaySettings) -> Envelop
 
 
 async def _emit_leaf(leaf: Action, settings: AssaySettings, limiter: anyio.CapacityLimiter, cpu_threshold: float | None) -> RailStatus:
-    # Governor checks run before the per-drive limiter; slow fires queue on one token instead of re-entering.
     match is_governed(cpu_threshold):
         case True:
             claim, verb = _label(leaf)
-            # SKIP bypasses fold because EMPTY has higher severity; counts still mark one governed leaf.
+            # SKIP bypasses the fold rail; Counts(1, 0, 1) still marks one governed leaf.
             skip = Report(claim, verb, RailStatus.SKIP, Counts(1, 0, 1), notes=(f"governed: cpu>={cpu_threshold or 0.0:.0%}",))
             return _emitted(envelope(skip, claim=claim, verb=verb)).status
-        # The limiter wraps ONLY true leaves (Rail/Program); Sequence/Debounce recurse OUTSIDE it so the
-        # capacity-1 token is not re-acquired by the same borrower task (anyio "already holding a token").
+        # Sequence/Debounce recurse without the limiter; re-acquiring the same token raises anyio `already holding a token`.
         case False:
             match leaf:
                 case Rail() as r:
@@ -197,15 +198,13 @@ async def _emit_leaf(leaf: Action, settings: AssaySettings, limiter: anyio.Capac
                     return await _emit_leaf(inner, settings, limiter, cpu_threshold)
 
 
-async def _forever() -> AsyncIterator[int]:  # noqa: RUF029  # async is required: callers `async for` over this inside async cycles; a sync generator is not async-iterable
-    # Constant-stack indefinite async driver: the `for` is iteration over the stdlib infinite counter, not domain branching.
-    # Callers thread their own state through the loop body and `return` on completion (sequence exhaustion, quiet window).
+# async required: callers need an async iterable for cooperative scheduling, not a sync generator
+async def _forever() -> AsyncIterator[int]:  # noqa: RUF029
     for i in count():
         yield i
 
 
 async def _sequence(leaves: tuple[Action, ...], settings: AssaySettings, limiter: anyio.CapacityLimiter, cpu_threshold: float | None) -> RailStatus:
-    # Fold by severity across leaves at constant stack depth; halt on definitive defects or Fault statuses.
     folded = RailStatus.EMPTY
     async for i in _forever():
         match i < len(leaves):
@@ -222,7 +221,6 @@ async def _sequence(leaves: tuple[Action, ...], settings: AssaySettings, limiter
 
 
 def _fire(action: Action, settings: AssaySettings, *, limiter: anyio.CapacityLimiter, cpu_threshold: float | None) -> Fire:
-    # One captured limiter and ceiling keep a whole Sequence single-flight across fires.
     async def fire(_changes: ChangeBatch) -> None:
         match action:
             case Sequence(actions=acts):
@@ -236,7 +234,6 @@ def _fire(action: Action, settings: AssaySettings, *, limiter: anyio.CapacityLim
 
 
 async def _quiesce(recv: MemoryObjectReceiveStream[ChangeBatch], window_ms: float) -> ChangeBatch:
-    # Drain signals at constant stack depth until one quiet window elapses with no further signal.
     latest: ChangeBatch = _NO_CHANGES
     async for _pass in _forever():
         with anyio.move_on_after(window_ms / 1000.0) as scope:
@@ -250,10 +247,10 @@ async def _quiesce(recv: MemoryObjectReceiveStream[ChangeBatch], window_ms: floa
 
 
 def _debounce(inner: Fire, window_ms: int, *, collapse: bool) -> tuple[Fire, Worker]:
-    # A size-1 channel coalesces storm signals; the worker lives under the trigger task group and stop scope.
+    # Worker lifetime belongs to the caller's task group and stop scope, not to this closure.
     send, recv = anyio.create_memory_object_stream[ChangeBatch](1)
 
-    async def signal(changes: ChangeBatch) -> None:  # noqa: RUF029  # async is required: the trigger loop awaits this as a Fire; send_nowait is the non-blocking coalescing notify
+    async def signal(changes: ChangeBatch) -> None:  # noqa: RUF029  # async required: trigger loop awaits this as a Fire coroutine
         try:
             match send.statistics().current_buffer_used:
                 case 0:
@@ -264,7 +261,6 @@ def _debounce(inner: Fire, window_ms: int, *, collapse: bool) -> tuple[Fire, Wor
             return
 
     async def worker() -> None:
-        # recv is an async iterator: each yielded signal opens one debounce cycle at constant stack depth.
         try:
             async with recv:
                 async for changes in recv:
@@ -285,8 +281,18 @@ def _debounce(inner: Fire, window_ms: int, *, collapse: bool) -> tuple[Fire, Wor
     return signal, worker
 
 
+def _watch_filter(spec: Watch) -> BaseFilter:
+    ignores = spec.ignore_patterns
+    match spec.filter:
+        case WatchFilter.DEFAULT:
+            return DefaultFilter(ignore_entity_patterns=ignores)
+        case WatchFilter.PYTHON:
+            return PythonFilter(ignore_paths=ignores, extra_extensions=(".pyi",))
+        case _ as unreachable:
+            assert_never(unreachable)
+
+
 async def _watch(spec: Watch, fire: Fire, stop: anyio.Event) -> None:
-    # awatch honors the shared stop_event directly.
     async for changes in awatch(
         *spec.paths,
         watch_filter=_watch_filter(spec),
@@ -301,17 +307,6 @@ async def _watch(spec: Watch, fire: Fire, stop: anyio.Event) -> None:
         batch = tuple((str(kind), path) for kind, path in sorted(changes, key=itemgetter(1)))
         _LOG.info("watch.fire", changes=len(batch), paths=tuple(path for _, path in batch[:8]))
         await fire(batch)
-
-
-def _watch_filter(spec: Watch) -> BaseFilter:
-    ignores = spec.ignore_patterns
-    match spec.filter:
-        case WatchFilter.DEFAULT:
-            return DefaultFilter(ignore_entity_patterns=ignores)
-        case WatchFilter.PYTHON:
-            return PythonFilter(ignore_paths=ignores, extra_extensions=(".pyi",))
-        case _ as unreachable:
-            assert_never(unreachable)
 
 
 def _emit_automation_fault(exc: Exception, settings: AssaySettings, action: Action | None) -> None:
@@ -340,9 +335,7 @@ async def _fire_with_coalesce(fire: Fire, settings: AssaySettings, changes: Chan
 
 
 def _hardened_fire(fire: Fire, settings: AssaySettings, action: Action | None = None) -> Fire:
-    # Cron fires are single-flight: mid-fire ticks coalesce, then one catch-up runs after the active fire.
-    # A run_id hash adds deterministic start jitter; scheduling telemetry stays on structlog, not Envelope notes.
-    # Single-task updates keep this re-entry cell lock-free; `missed` coalesces ticks arriving during an active fire.
+    # Single-flight gate: mid-fire ticks accumulate in missed for one deferred catch-up; scheduling telemetry routes to structlog, not Envelope notes.
     running = False
     missed = 0
 
@@ -355,7 +348,7 @@ def _hardened_fire(fire: Fire, settings: AssaySettings, action: Action | None = 
                 running = True
                 try:
                     missed = await _fire_with_coalesce(fire, settings, changes, missed)
-                except Exception as exc:  # noqa: BLE001  # automation boundary: one FAULTED NDJSON row, not task-group escape
+                except Exception as exc:  # noqa: BLE001  # automation boundary: exceptions emit one FAULTED row instead of escaping the task group
                     _emit_automation_fault(exc, settings, action)
                 finally:
                     running = False
@@ -364,7 +357,7 @@ def _hardened_fire(fire: Fire, settings: AssaySettings, action: Action | None = 
 
 
 async def _schedule(spec: Schedule, fire: Fire, stop: anyio.Event) -> None:
-    # Cron timing is owned by this AnyIO task; aiocron only computes the next wakeup.
+    # aiocron computes next wakeup instants only; the loop and stop integration are owned here.
     tz = ZoneInfo(spec.timezone)
     cron = aiocron.crontab(spec.cron, start=False, tz=tz)
     try:
@@ -385,7 +378,6 @@ def _armed(action: Action, settings: AssaySettings, *, limiter: anyio.CapacityLi
 
 
 async def _co_resident(tg: TaskGroup, resident: Worker | None, stop: anyio.Event) -> None:
-    # Run the optional resident worker inside the driver's task group until stop, then cancel the group.
     match resident:
         case None:
             return
@@ -421,7 +413,14 @@ async def _run_trigger(trigger: Trigger, action: Action, settings: AssaySettings
 
 
 async def drive(trigger: Trigger, action: Action, settings: AssaySettings) -> None:
-    """Run an action each time its trigger fires."""
+    """Run an action each time its trigger fires, writing Envelope JSON to stdout.
+
+    Manual triggers fire once and return.  Watch and Schedule triggers loop until
+    their underlying stop event fires or the process exits.  Setup failures
+    (invalid cron expression, unresolvable timezone, bad watch path, bad regex)
+    are caught from the ExceptionGroup raised by anyio and emitted as a single
+    FAULTED Envelope rather than propagating to the caller.
+    """
     limiter = anyio.CapacityLimiter(1)
     stop = anyio.Event()
 

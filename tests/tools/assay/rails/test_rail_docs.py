@@ -1,4 +1,11 @@
-"""Laws for tools.assay.rails.docs: DocsParams, FaultedPromotion, check."""
+"""Laws for tools.assay.rails.docs covering three contract surfaces.
+
+DocsParams: default and explicit strict/paths construction invariants.
+FaultedPromotion: Exception subclass semantics and the strict-mode promotion
+    matrix (EMPTY/SKIP raise, FAILED/OK are preserved unchanged).
+check: fan_out fault propagation, claim stamping, strict flag threading, and
+    first-fault short-circuit across multi-error fan_out results.
+"""
 
 # --- [RUNTIME_PRELUDE] ------------------------------------------------------------------
 
@@ -24,7 +31,7 @@ _FAILED_REPORT = fold(Claim.DOCS, "check", (Completed(("mmdc",), 1, status=RailS
 _OK_REPORT = fold(Claim.DOCS, "check", (Completed(("mmdc",), 0, status=RailStatus.OK),))
 
 
-# --- [LAW_COVERAGE] ---------------------------------------------------------------------
+# --- [LAW_COVERAGE]
 
 register_law(DocsParams, "docs_params_default_strict_is_false")
 register_law(DocsParams, "docs_params_roundtrip")
@@ -49,7 +56,7 @@ register_law(check, "check_strict_flag_propagated")
 register_law(check, "check_multi_fault_first_fault_wins")
 
 
-# --- [LAWS_DOCSPARAMS] ------------------------------------------------------------------
+# --- [LAWS_DOCSPARAMS]
 
 
 def test_docs_params_default_strict_is_false() -> None:
@@ -86,7 +93,7 @@ def test_docs_params_paths_default_empty() -> None:
     )
 
 
-# --- [LAWS_FAULTED_PROMOTION] -----------------------------------------------------------
+# --- [LAWS_FAULTED_PROMOTION]
 
 
 def test_faulted_promotion_is_exception_subclass() -> None:
@@ -140,10 +147,10 @@ def test_faulted_promotion_promotion_matrix() -> None:
                 docs_rail._strict(report, strict=strict)
         else:
             docs_rail._strict(report, strict=strict)  # must not raise
-        _ = label  # label consumed by parametrize context
+        _ = label  # suppress F841 unused-loop-variable
 
 
-# --- [LAWS_CHECK] -----------------------------------------------------------------------
+# --- [LAWS_CHECK]
 
 
 def test_check_fan_out_fault_propagates_on_error_rail(assay_root: AssayHarness, monkeypatch: pytest.MonkeyPatch) -> None:
@@ -157,7 +164,6 @@ def test_check_fan_out_fault_propagates_on_error_rail(assay_root: AssayHarness, 
 
 def test_check_no_files_yields_ok_rail(assay_root: AssayHarness, monkeypatch: pytest.MonkeyPatch) -> None:
     """Check with no routed files returns Ok(Report) with EMPTY/SKIP status — not a hard fault."""
-    # Explicit path so routing uses enumerate(); fan_out receives zero checks → Ok(Report) with no receipts.
     monkeypatch.setattr(docs_rail, "fan_out", lambda *_a, **_k: ())
 
     result = check(assay_root.settings, assay_root.scope(Claim.DOCS), DocsParams(paths=("docs/guide.md",)))
@@ -167,7 +173,6 @@ def test_check_no_files_yields_ok_rail(assay_root: AssayHarness, monkeypatch: py
 
 def test_check_strict_empty_becomes_error(assay_root: AssayHarness, monkeypatch: pytest.MonkeyPatch) -> None:
     """Check with strict=True and no outputs raises FaultedPromotion, which propagates as an exception."""
-    # Use explicit path so routing calls enumerate() (no git), then fan_out returns nothing → EMPTY fold → strict raise.
     monkeypatch.setattr(docs_rail, "fan_out", lambda *_a, **_k: ())
 
     with pytest.raises(FaultedPromotion):
@@ -194,7 +199,6 @@ def test_check_failed_receipt_yields_failed_report(assay_root: AssayHarness, mon
 
 def test_check_claim_is_docs(assay_root: AssayHarness, monkeypatch: pytest.MonkeyPatch) -> None:
     """Check always produces a Report stamped with Claim.DOCS — not silently reusing another claim."""
-    # Explicit path so routing uses enumerate() rather than git-changed; fan_out empty → EMPTY fold.
     monkeypatch.setattr(docs_rail, "fan_out", lambda *_a, **_k: ())
 
     result = check(assay_root.settings, assay_root.scope(Claim.DOCS), DocsParams(paths=("docs/guide.md",)))
@@ -204,9 +208,12 @@ def test_check_claim_is_docs(assay_root: AssayHarness, monkeypatch: pytest.Monke
 
 @given(st.booleans())
 @settings(max_examples=20, suppress_health_check=[HealthCheck.function_scoped_fixture])
-def test_check_strict_flag_propagated(assay_root: AssayHarness, monkeypatch: pytest.MonkeyPatch, strict: bool) -> None:  # noqa: FBT001
+def test_check_strict_flag_propagated(
+    assay_root: AssayHarness,
+    monkeypatch: pytest.MonkeyPatch,
+    strict: bool,  # noqa: FBT001 — bool param is the exact signal under test, not a flag smell
+) -> None:
     """check(strict=strict) with no outputs raises iff strict is True — strict flag is load-bearing."""
-    # Explicit path so routing uses enumerate(); fan_out empty → EMPTY fold; _strict discriminates on strict.
     monkeypatch.setattr(docs_rail, "fan_out", lambda *_a, **_k: ())
 
     params = DocsParams(paths=("docs/guide.md",), strict=strict)

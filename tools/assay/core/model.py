@@ -1,4 +1,15 @@
-"""Define Assay axes, wire structs, evidence details, and folds."""
+"""Assay domain model: axes, wire structs, evidence details, and fold operations.
+
+Defines the complete msgspec wire contract for the Assay quality-gate harness.
+Includes StrEnum axes (Claim, Language, Mode, Runner, Input) that drive tool
+dispatch, a frozen msgspec.Struct hierarchy (Base -> Detail -> typed Detail
+subtypes) for serialized evidence, and the three primary fold operations that
+collapse process outcomes into Reports, Envelopes, and CLI exit codes.
+
+The module-level encoder and detail decoder (_ENCODER, _DETAIL_DECODER) are
+composition roots; all serialization routes through wire_encode and
+validate_detail to guarantee deterministic ordering and tag enforcement.
+"""
 
 from collections.abc import Callable
 from dataclasses import dataclass
@@ -15,22 +26,29 @@ from tools.assay.core.status import fold as rail_fold, RailStatus
 # --- [TYPES] ----------------------------------------------------------------------------
 
 
-class Runner(StrEnum):
-    """Launch axis for a tool."""
+class ArtifactKind(StrEnum):
+    """Artifact and match namespace."""
 
-    prefix: tuple[str, ...]
-    DIRECT = "direct", ()
-    MODULE = "module", ("uv", "run", "python", "-m")
-    UV = "uv", ("uv", "run")
-    DOTNET = "dotnet", ("dotnet",)
-    PNPM = "pnpm", ("pnpm", "exec")
-    INPROC = "inproc", ()
+    LOCKS = "locks"
+    PROCESS = "process"
+    TEST = "test"
+    MUTATION = "mutation"
+    RHINO = "rhino"
+    SCOPE = "scope"
+    CODE = "code"
+    HISTORY = "history"
 
-    def __new__(cls, value: str, prefix: tuple[str, ...]) -> Self:
-        """Bind the wire token and command prefix payload."""
-        m = str.__new__(cls, value)
-        m._value_, m.prefix = value, prefix
-        return m
+
+class Claim(StrEnum):
+    """Proof claim that owns a rail."""
+
+    STATIC = "static"
+    CODE = "code"
+    TEST = "test"
+    BRIDGE = "bridge"
+    PACKAGE = "package"
+    API = "api"
+    DOCS = "docs"
 
 
 class Input(StrEnum):
@@ -45,7 +63,7 @@ class Input(StrEnum):
     NONE = "none", (), True
 
     def __new__(cls, value: str, flag: tuple[str, ...], scoped: bool) -> Self:  # noqa: FBT001  # enum payload binder mirrors enum field order
-        """Bind the wire token, CLI flag, and scoped-input payload."""
+        """Bind multi-payload StrEnum fields; StrEnum propagates only the string value, so flag and scoped are assigned manually."""
         m = str.__new__(cls, value)
         m._value_, m.flag, m.scoped = value, flag, scoped
         return m
@@ -64,7 +82,7 @@ class Language(StrEnum):
     DOCS = "docs", "glob", frozenset((".md", ".mmd"))
 
     def __new__(cls, value: str, strategy: Literal["closure", "glob"], suffixes: frozenset[str]) -> Self:
-        """Bind the wire token, routing strategy, and suffix payload."""
+        """Bind multi-payload StrEnum fields; StrEnum propagates only the string value, so strategy and suffixes are assigned manually."""
         m = str.__new__(cls, value)
         m._value_, m.strategy, m.suffixes = value, strategy, suffixes
         return m
@@ -91,35 +109,36 @@ class Mode(StrEnum):
     PUBLISH = "publish", False, False
 
     def __new__(cls, value: str, stream: bool, writes: bool) -> Self:  # noqa: FBT001  # enum payload binder mirrors enum field order
-        """Bind the wire token, streaming flag, and write flag payload."""
+        """Bind multi-payload StrEnum fields; StrEnum propagates only the string value, so stream and writes are assigned manually."""
         m = str.__new__(cls, value)
         m._value_, m.stream, m.writes = value, stream, writes
         return m
 
 
-class Claim(StrEnum):
-    """Proof claim that owns a rail."""
+class MutationLane(StrEnum):
+    """Mutation runner lane for test evidence."""
 
-    STATIC = "static"
-    CODE = "code"
-    TEST = "test"
-    BRIDGE = "bridge"
-    PACKAGE = "package"
-    API = "api"
-    DOCS = "docs"
+    OFF = "off"
+    CHANGED = "changed"
+    FULL = "full"
 
 
-class ArtifactKind(StrEnum):
-    """Artifact and match namespace."""
+class Runner(StrEnum):
+    """Launch axis for a tool."""
 
-    LOCKS = "locks"
-    PROCESS = "process"
-    TEST = "test"
-    MUTATION = "mutation"
-    RHINO = "rhino"
-    SCOPE = "scope"
-    CODE = "code"
-    HISTORY = "history"
+    prefix: tuple[str, ...]
+    DIRECT = "direct", ()
+    MODULE = "module", ("uv", "run", "python", "-m")
+    UV = "uv", ("uv", "run")
+    DOTNET = "dotnet", ("dotnet",)
+    PNPM = "pnpm", ("pnpm", "exec")
+    INPROC = "inproc", ()
+
+    def __new__(cls, value: str, prefix: tuple[str, ...]) -> Self:
+        """Bind enum payloads; StrEnum only propagates the string value, so extra fields must be assigned manually."""
+        m = str.__new__(cls, value)
+        m._value_, m.prefix = value, prefix
+        return m
 
 
 class SourceKind(StrEnum):
@@ -130,14 +149,6 @@ class SourceKind(StrEnum):
     TOOL = "tool"
     PYDIST = "pydist"
     TSDECL = "tsdecl"
-
-
-class MutationLane(StrEnum):
-    """Mutation runner lane for test evidence."""
-
-    OFF = "off"
-    CHANGED = "changed"
-    FULL = "full"
 
 
 class SymbolShape(StrEnum):
@@ -163,7 +174,7 @@ _DEFECT_TAIL: int = 400
 
 
 class Base(msgspec.Struct, frozen=True, gc=False, omit_defaults=True, repr_omit_defaults=True, forbid_unknown_fields=True):
-    """Base msgspec wire policy shared by assay structs."""
+    """Shared msgspec wire policy: frozen, gc-free, no unknown fields, omit defaults."""
 
 
 class Detail(Base, frozen=True, forbid_unknown_fields=True, tag_field="kind"):
@@ -225,20 +236,20 @@ class Completed(Base, frozen=True):
     artifacts: tuple[Artifact, ...] = ()
 
 
-class Fault(Base, frozen=True):
-    """Operational failure that prevented Assay from running a check."""
-
-    argv: tuple[str, ...]
-    status: RailStatus = RailStatus.FAULTED
-    message: Annotated[str, msgspec.Meta(max_length=1024)] = ""
-
-
 class Counts(Base, frozen=True):
     """Fold-derived report counts."""
 
     ok: int = 0
     failed: int = 0
     total: int = 0
+
+
+class Fault(Base, frozen=True):
+    """Operational failure that prevented Assay from running a check."""
+
+    argv: tuple[str, ...]
+    status: RailStatus = RailStatus.FAULTED
+    message: Annotated[str, msgspec.Meta(max_length=1024)] = ""
 
 
 class Match(Base, frozen=True):
@@ -251,6 +262,13 @@ class Match(Base, frozen=True):
     score: int = 0
     severity: str | None = None
     confidence: Annotated[int, msgspec.Meta(ge=0, le=100)] = 100
+
+
+class ApiResolution(Detail, frozen=True, tag="resolution"):
+    """API resolution miss detail."""
+
+    candidates: tuple[tuple[str, int], ...] = ()
+    reason: str = ""
 
 
 class ApiSource(Detail, frozen=True, tag="api-source"):
@@ -291,24 +309,15 @@ class ApiSurface(Detail, frozen=True, tag="api"):
     artifact_paths: tuple[str, ...] = ()
 
 
-class VerifySummary(Detail, frozen=True, tag="verify"):
-    """Bridge verification summary detail."""
+class Diagnostic(Detail, frozen=True, tag="diagnostic"):
+    """Fault and defect diagnostic detail."""
 
-    exceptions: int = 0
-    report_dir: str = ""
-    first_failure: str = ""
-    first_fault_phase: str = ""
-    first_fault_output: Annotated[str, msgspec.Meta(max_length=256)] = ""
-
-
-class TestRun(Detail, frozen=True, tag="test"):
-    """Test run detail."""
-
-    mutation: MutationLane = MutationLane.OFF
-    coverage: Annotated[float, msgspec.Meta(ge=0, le=100)] | None = None
-    killed: int = 0
-    survived: int = 0
-    selected: int = 0
+    failing_step: str = ""
+    recent_events: tuple[str, ...] = ()
+    elapsed_ms: Annotated[float, msgspec.Meta(ge=0)] = 0.0
+    hint: Annotated[str, msgspec.Meta(max_length=256)] = ""
+    dispatched: bool = True
+    resource: tuple[tuple[str, float], ...] = ()
 
 
 class PackageRun(Detail, frozen=True, tag="package"):
@@ -327,24 +336,6 @@ class PackageRun(Detail, frozen=True, tag="package"):
     yak_path: str = ""
 
 
-class ApiResolution(Detail, frozen=True, tag="resolution"):
-    """API resolution miss detail."""
-
-    candidates: tuple[tuple[str, int], ...] = ()
-    reason: str = ""
-
-
-class Diagnostic(Detail, frozen=True, tag="diagnostic"):
-    """Fault and defect diagnostic detail."""
-
-    failing_step: str = ""
-    recent_events: tuple[str, ...] = ()
-    elapsed_ms: Annotated[float, msgspec.Meta(ge=0)] = 0.0
-    hint: Annotated[str, msgspec.Meta(max_length=256)] = ""
-    dispatched: bool = True
-    resource: tuple[tuple[str, float], ...] = ()
-
-
 class RunSnapshot(Base, frozen=True):
     """Persisted run endpoint for delta details."""
 
@@ -360,6 +351,26 @@ class RunDelta(Detail, frozen=True, tag="delta"):
     after: RunSnapshot = RunSnapshot()
     added: int = 0
     removed: int = 0
+
+
+class TestRun(Detail, frozen=True, tag="test"):
+    """Test run detail."""
+
+    mutation: MutationLane = MutationLane.OFF
+    coverage: Annotated[float, msgspec.Meta(ge=0, le=100)] | None = None
+    killed: int = 0
+    survived: int = 0
+    selected: int = 0
+
+
+class VerifySummary(Detail, frozen=True, tag="verify"):
+    """Bridge verification summary detail."""
+
+    exceptions: int = 0
+    report_dir: str = ""
+    first_failure: str = ""
+    first_fault_phase: str = ""
+    first_fault_output: Annotated[str, msgspec.Meta(max_length=256)] = ""
 
 
 type AnyDetail = ApiSource | ApiSurface | VerifySummary | TestRun | PackageRun | ApiResolution | Diagnostic | RunDelta
@@ -394,8 +405,8 @@ class Envelope(Base, frozen=True, kw_only=True):
     truncated: bool = False
     notes: tuple[str, ...] = ()
 
-    def __cyclopts_returncode__(self) -> int:  # noqa: PLW3201  # Cyclopts protocol hook
-        """Return the Envelope exit code for Cyclopts."""
+    def __cyclopts_returncode__(self) -> int:  # noqa: PLW3201  # Cyclopts protocol hook: supplies process exit code
+        """Return the process exit code for the Cyclopts runtime."""
         return self.exit_code
 
 
@@ -413,11 +424,7 @@ class Bind(Base, frozen=True):
 
 
 def field_cap(struct: type[msgspec.Struct], field: str, *, default: int) -> int:
-    """Read a msgspec string max-length constraint.
-
-    Returns:
-        Configured max length, or the supplied default when absent.
-    """
+    """Return the msgspec `max_length` for a string field, or `default` when absent."""
     match msgspec.inspect.type_info(struct):
         case msgspec.inspect.StructType(fields=fields):
             return next(
@@ -432,14 +439,9 @@ def field_cap(struct: type[msgspec.Struct], field: str, *, default: int) -> int:
             return default
 
 
-# --- [CONSTANTS] ------------------------------------------------------------------------
-
-# Reserve hint space for parse framing so surplus tokens do not sever the diagnostic suffix.
+# Reserve headroom within the hint cap so surplus-token text does not sever the diagnostic suffix framing.
 _HINT_CAP: int = field_cap(Diagnostic, "hint", default=1 << 62)
 _SURPLUS_TOKEN_CAP: int = _HINT_CAP - 76
-
-
-# --- [MODELS] ---------------------------------------------------------------------------
 
 
 @Parameter(name="*")
@@ -455,11 +457,7 @@ class BaseParams:
         return None
 
     def bound(self, verb: str) -> Self | Fault:
-        """Validate positional tokens against the verb arity.
-
-        Returns:
-            Bound params, or a parse fault for surplus positional tokens.
-        """
+        """Return validated params, or a parse fault for surplus positional tokens."""
         match self._arity(verb):
             case int(cap) if len(self.paths) > cap:
                 return self.surplus(verb, self.paths[cap:])
@@ -468,11 +466,7 @@ class BaseParams:
 
     @staticmethod
     def surplus(verb: str, tokens: tuple[str, ...]) -> Fault:
-        """Build a parse fault for surplus positional tokens.
-
-        Returns:
-            Fault describing the unexpected positional tokens.
-        """
+        """Return a parse fault describing surplus positional tokens."""
         joined = " ".join(tokens)
         clipped = joined[:_SURPLUS_TOKEN_CAP] + ("…" if len(joined) > _SURPLUS_TOKEN_CAP else "")
         return Fault((), RailStatus.FAULTED, f"parse: {verb}: unexpected positional(s): {clipped}")
@@ -489,11 +483,7 @@ def receipt(
     notes: tuple[str, ...] = (),
     artifacts: tuple[Artifact, ...] = (),
 ) -> Completed:
-    """Build a completed receipt.
-
-    Returns:
-        Completed process or in-process tool receipt.
-    """
+    """Return a Completed receipt; derives status from `rc` when not supplied explicitly."""
     return Completed(
         argv=argv,
         returncode=rc,
@@ -507,10 +497,10 @@ def receipt(
 
 
 def validate_detail(detail: AnyDetail | None) -> AnyDetail | None:
-    """Validate detail through the tagged-union codec.
+    """Round-trip detail through the tagged-union wire codec to enforce tag and field constraints.
 
     Returns:
-        Detail decoded through the tagged-union wire contract.
+        The decoded detail, or None when the input is None.
     """
     return _DETAIL_DECODER.decode(_ENCODER.encode(detail))
 
@@ -526,10 +516,10 @@ def _count(done: Completed) -> tuple[int, int]:
 
 
 def fold(claim: Claim, verb: str, outcomes: tuple[Completed, ...], *, detail: AnyDetail | None = None) -> Report:
-    """Fold completed receipts into one report.
+    """Fold outcomes into a Report: aggregate status, ok/fail counts, defect tail rows, and notes.
 
     Returns:
-        Report with folded status, counts, defect rows, notes, and detail.
+        Report carrying folded status, ok/fail counts, defect tail rows, collected artifacts, notes, and optional detail.
     """
     pairs = tuple(map(_count, outcomes))
     ok_n, fail_n = (sum(a) for a in zip(*pairs, strict=True)) if pairs else (0, 0)
@@ -556,11 +546,7 @@ def fold(claim: Claim, verb: str, outcomes: tuple[Completed, ...], *, detail: An
 
 
 def envelope(payload: Report | Fault, *, claim: Claim, verb: str, run_id: str = "", error_context: Diagnostic | None = None) -> Envelope:
-    """Wrap a report or fault in an Envelope.
-
-    Returns:
-        Top-level Envelope carrying either success report or fault detail.
-    """
+    """Return a top-level Envelope carrying either a Report or a Fault with exit-code derived from status."""
     match payload:
         case Report() as r:
             return Envelope(schema_version=1, claim=claim, verb=verb, status=r.status, exit_code=r.status.exit_code, run_id=run_id, report=r)
@@ -578,16 +564,12 @@ def envelope(payload: Report | Fault, *, claim: Claim, verb: str, run_id: str = 
 
 
 def wire_encode(value: object) -> bytes:
-    """Encode a wire value through the single deterministic msgspec encoder.
-
-    Returns:
-        Deterministic JSON bytes.
-    """
+    """Return deterministic JSON bytes via the module-level ordered encoder."""
     return _ENCODER.encode(value)
 
 
 def wire_safe(text: str) -> str:
-    """Replace lone surrogates (PEP 383 surrogateescape from invalid-UTF-8 argv) with U+FFFD.
+    """Replace lone surrogates (PEP 383 surrogateescape from invalid-UTF-8 argv) with U+FFFD so msgspec can encode the result.
 
     Returns:
         A string msgspec can UTF-8 encode for the wire.

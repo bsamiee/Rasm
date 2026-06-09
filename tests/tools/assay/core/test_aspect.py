@@ -4,12 +4,16 @@ Every law dies to a real defect in ``tools.assay.core.aspect``: the ``_assay_ids
 guard (exercised THROUGH public ``compose``/``checked_call``), the ``Slot`` monotonic ordering that
 ``assemble`` folds over, beartype shape validation surfaced as a ``Fault``, structlog key binding +
 finish-event emission, OTel span stamping, and the recent-events ring contextvar projection.
+
+The module-level ``register_law`` loop executes at import time; ``test_pytest_policy.py`` reads the
+law MANIFEST after collection but before tools/ tests execute, so every subject-to-law mapping must
+be registered before that policy check runs.
 """
 
 # --- [RUNTIME_PRELUDE] ------------------------------------------------------------------
 
 from collections import deque
-from collections.abc import Callable  # noqa: TC003  # PEP 649 deferred; runtime annotation on `ident` evaluates lazily
+from collections.abc import Callable  # noqa: TC003  # used in a runtime annotation; TC003 requires TYPE_CHECKING guard
 from typing import Annotated
 
 from beartype.roar import BeartypeCallHintViolation
@@ -18,14 +22,16 @@ from expression import Error, Ok, Result  # noqa: TC002  # Result names the Hom 
 from expression.collections import block
 from hypothesis import given, strategies as st
 from opentelemetry import trace
-from opentelemetry.sdk.trace.export.in_memory_span_exporter import InMemorySpanExporter  # noqa: TC002  # otel exporter is a fixture param annotation
+from opentelemetry.sdk.trace.export.in_memory_span_exporter import (
+    InMemorySpanExporter,  # noqa: TC002  # fixture type annotations evaluated at collection time; must be a runtime import
+)
 import pytest
 from structlog.contextvars import get_contextvars
 
-from tests._aspect import register_law  # noqa: PLC2701  # sibling test-internal module; `_`-named by S1 design
-from tests._spec import assert_error, assert_ok, identity, support_matrix  # noqa: PLC2701  # sibling test-internal oracle catalog
+from tests._aspect import register_law  # noqa: PLC2701  # `_`-prefixed by test-internal S1 design convention
+from tests._spec import assert_error, assert_ok, identity, support_matrix  # noqa: PLC2701  # test-internal oracle catalog
 from tools.assay.core.aspect import (
-    _RING,  # noqa: PLC2701  # internal ring contextvar the ring_processor/ring_recent laws drive directly
+    _RING,  # noqa: PLC2701  # internal contextvar; ring_processor/ring_recent laws must seed it directly
     assemble,
     checked,
     checked_call,
@@ -45,13 +51,10 @@ from tools.assay.core.status import RailStatus
 
 # --- [CONSTANTS] ------------------------------------------------------------------------
 
-# A rail-shaped success Hom: the production layers all weave functions returning Result[Report, Fault].
 _REPORT: Report = fold(Claim.STATIC, "probe", ())
 
 
 # --- [OPERATIONS] -----------------------------------------------------------------------
-# `_rail` is the canonical typed Hom the layer laws weave; `_keys`/`_attrs` are the
-# logged/traced projection callables matching the production (settings, scope, params) arity-1 probe shape.
 
 
 def _rail(_x: object) -> Result[Report, Fault]:
@@ -71,7 +74,7 @@ def _attrs(_x: object) -> dict[str, object]:
 
 
 # --- [LAWS] -----------------------------------------------------------------------------
-# --- [SLOT] -----------------------------------------------------------------------------
+# --- [SLOT]
 
 
 def test_slot_ordering_is_monotonic() -> None:
@@ -85,7 +88,7 @@ def test_slot_ordering_is_monotonic() -> None:
     )
 
 
-# --- [COMPOSE_ASSEMBLE] -----------------------------------------------------------------
+# --- [COMPOSE_ASSEMBLE]
 
 
 def test_compose_double_checked_equals_single() -> None:
@@ -104,18 +107,17 @@ def test_compose_double_checked_equals_single() -> None:
     raw: Hom[[object], Report] = compose()(_rail)  # type: ignore[assignment]  # mypy Never-collapse on empty compose(); ty clean
 
     once_ids: frozenset[int] = getattr(once, "_assay_ids", frozenset())
-    # The same layer applied twice yields the SAME marker set as a single application: the guard deduped
-    # the second arm. A non-empty marker set distinguishes a woven rail from the untouched `raw` baseline,
-    # so the law dies both to a dropped guard (twice grows past once) and to a no-op layer (once == raw).
     assert getattr(twice, "_assay_ids", frozenset()) == once_ids
     assert once_ids != getattr(raw, "_assay_ids", frozenset())
     assert assert_ok(twice("ignored")) == assert_ok(once("ignored"))
 
 
 def test_compose_is_assemble_through_ok() -> None:
-    """``compose`` is ``assemble`` projected through its Ok rail — same woven behavior on a valid layer order."""
-    # Two P-bound ascending layers (logged < traced) — `checked()` binds no projection callable, so ty
-    # cannot specialize its free ParamSpec; these layers exercise the identical compose⇄assemble Ok path.
+    """``compose`` is ``assemble`` projected through its Ok rail — same woven behavior on a valid layer order.
+
+    Uses ``logged``/``traced`` rather than ``checked`` because ``checked()`` binds no projection
+    callable, leaving ty unable to specialize its free ParamSpec.
+    """
     log: Layer[[object], Report] = logged(event="rail", keys=_keys)
     trc: Layer[[object], Report] = traced(span="rail.span", attrs=_attrs)
     layers: list[Layer[[object], Report]] = [log, trc]
@@ -165,7 +167,7 @@ def test_compose_raises_typeerror_carrying_inversion() -> None:
     assert raised.value.args[0].outer is Slot.logged
 
 
-# --- [CHECKED_CHECKED_CALL] -------------------------------------------------------------
+# --- [CHECKED_CHECKED_CALL]
 
 
 def test_checked_is_checked_slot_layer() -> None:
@@ -206,7 +208,7 @@ def test_checked_call_faults_on_shape_violation() -> None:
         woven(-1)
 
 
-# --- [LOGGED] ---------------------------------------------------------------------------
+# --- [LOGGED]
 
 
 def test_logged_binds_keys_during_call_clears_after() -> None:
@@ -240,7 +242,7 @@ def test_logged_emits_finish_event_per_rail(log_events: list[dict[str, object]])
     assert {e.get("log_level") for e in finishes} == {"info", "error"}
 
 
-# --- [TRACED] ---------------------------------------------------------------------------
+# --- [TRACED]
 
 
 def test_traced_sync_records_one_span_with_status(otel_spans: InMemorySpanExporter) -> None:
@@ -271,7 +273,7 @@ def test_traced_stamps_fault_status_and_adds_fault_event(otel_spans: InMemorySpa
     assert tuple(e.name for e in spans[0].events) == ("assay.fault",)
 
 
-# --- [RING_PROCESSOR_RING_RECENT] -------------------------------------------------------
+# --- [RING_PROCESSOR_RING_RECENT]
 
 
 @given(level=st.sampled_from(("info", "warning", "error")), event=st.text(max_size=32))
@@ -310,9 +312,6 @@ def test_ring_recent_empty_without_active_ring() -> None:
 
 
 # --- [COMPOSITION] ----------------------------------------------------------------------
-# Import-time law registration: the coverage gate (tests/test_pytest_policy.py) reads MANIFEST after
-# COLLECTION, before the deeper tools/ tests execute, so registration must happen at module import — not
-# inside test bodies. Each subject maps to the law that falsifies its behavior above.
 
 
 for _subject, _law in (

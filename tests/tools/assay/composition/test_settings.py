@@ -29,9 +29,19 @@ from pydantic import ValidationError
 import pytest
 from upath import UPath
 
-from tests._aspect import register_law  # noqa: PLC2701
-from tests._spec import assert_none, assert_some, idempotent, roundtrip, validity_matrix  # noqa: PLC2701
-from tests.tools.assay.conftest import AssayHarness, make_history_envelope, WIRE_ENCODER  # noqa: TC001
+from tests._aspect import register_law  # noqa: PLC2701  # underscore-prefixed test-support; private by convention
+from tests._spec import (  # noqa: PLC2701  # underscore-prefixed test-support; private by convention
+    assert_none,
+    assert_some,
+    idempotent,
+    roundtrip,
+    validity_matrix,
+)
+from tests.tools.assay.conftest import (  # noqa: TC001  # runtime use: instantiated in fixture bodies, not annotation-only
+    AssayHarness,
+    make_history_envelope,
+    WIRE_ENCODER,
+)
 from tools.assay.composition import settings as _settings_mod
 from tools.assay.composition.settings import (
     ArtifactBackend,
@@ -56,7 +66,6 @@ if TYPE_CHECKING:
 
 # --- [CONSTANTS] ------------------------------------------------------------------------
 
-# Inclusive cpu_count bounds per Annotated[int, Field(ge=1, le=256)] plus the rejected neighbours.
 _CPU_MIN: Final = 1
 _CPU_MAX: Final = 256
 _CPU_BELOW: Final = 0
@@ -64,13 +73,9 @@ _CPU_ABOVE: Final = 300
 
 
 # --- [BOUNDARIES] -----------------------------------------------------------------------
-# One polymorphic ArtifactFileSystem stub drives every walk/retain/info/mtime/size edge arm via
-# constructor flags, replacing the five hand-rolled per-arm stub classes. `info_payload` feeds the
-# non-numeric mtime/size fallback arms; `rm_raises` simulates a concurrent-deletion race; `seed`
-# lets glob/find discover data so retain_history reaches the FileNotFoundError except arm.
 
 
-class _FsStub(ArtifactFileSystem):  # noqa: PLR0904  # 11 methods satisfy the ArtifactFileSystem structural protocol
+class _FsStub(ArtifactFileSystem):  # noqa: PLR0904  # full structural protocol requires all 11 override surfaces
     """Parametrizable fsspec stub: keyed-dict find detail, configurable info, optional rm race."""
 
     def __init__(self, *, info_payload: dict[str, object] | None = None, rm_raises: bool = False) -> None:
@@ -129,7 +134,7 @@ class _FsStub(ArtifactFileSystem):  # noqa: PLR0904  # 11 methods satisfy the Ar
     def rm(self, path: str, *, recursive: bool = False) -> object:
         match self._rm_raises:
             case True:
-                raise FileNotFoundError(path)  # simulate concurrent deletion — exercises retain_history except arm
+                raise FileNotFoundError(path)
             case _:
                 self._data.pop(path, None)
                 return None
@@ -143,7 +148,7 @@ class _FsStub(ArtifactFileSystem):  # noqa: PLR0904  # 11 methods satisfy the Ar
 
 # --- [OPERATIONS] -----------------------------------------------------------------------
 
-# --- StrEnum vocabulary laws (Configuration, LogFormat) -------------------------------------
+# --- [STR_ENUM_LAWS]
 
 
 @pytest.mark.parametrize("enum_cls", [Configuration, LogFormat], ids=["configuration", "log_format"])
@@ -159,7 +164,7 @@ register_law(Configuration, "str_enum_value_roundtrip")
 register_law(LogFormat, "str_enum_value_roundtrip")
 
 
-# --- mtime_from_info pure projection --------------------------------------------------------
+# --- [MTIME_FROM_INFO_LAWS]
 
 
 @pytest.mark.parametrize(
@@ -188,14 +193,14 @@ def test_mtime_from_info_numeric_identity(v: float) -> None:
     """mtime_from_info returns float(v) for finite non-negative float/int mtime — exact within float()'s own promotion."""
     result = mtime_from_info({"mtime": v})
     assert isinstance(result, float)
-    assert result == float(v)  # noqa: RUF069  # exact equality is the contract: mtime_from_info must equal float()'s own deterministic int->float promotion, even past 2^53
-    target(float(v), label="mtime_magnitude")  # drives toward 2^53+1, the first int the strategy can emit where int->float promotion loses precision
+    assert result == float(v)  # noqa: RUF069  # float() int→float promotion is deterministic; precision loss past 2^53 is the contract
+    target(float(v), label="mtime_magnitude")  # biases Hypothesis toward 2^53+1, where int→float first loses precision
 
 
 register_law(mtime_from_info, "mtime_from_info_numeric_identity")
 
 
-# --- ArtifactBackend validation + target dispatch -------------------------------------------
+# --- [ARTIFACT_BACKEND_LAWS]
 
 
 def test_artifact_backend_defaults_to_file_protocol() -> None:
@@ -258,7 +263,7 @@ register_law(ArtifactBackend, "artifact_backend_target_dispatch")
 register_law(ArtifactBackend, "artifact_backend_target_file_absolute")
 
 
-# --- AssaySettings field bounds + computed projections --------------------------------------
+# --- [ASSAY_SETTINGS_LAWS]
 
 
 def test_assay_settings_cpu_count_boundary(assay_root: AssayHarness) -> None:
@@ -333,7 +338,7 @@ def test_assay_settings_wire_safe_scrubs_surrogates(tmp_path: Path) -> None:
     """_wire_safe replaces lone surrogates in run_id / agent_task_id so the result is UTF-8 encodable."""
     (tmp_path / "Workspace.slnx").write_text("", encoding="utf-8")
     settings = AssaySettings(root=UPath(tmp_path), run_id="run-1", agent_task_id="run-\udcff", exec_target="", exec_known_hosts=None)
-    settings.agent_task_id.encode("utf-8")  # raises if a lone surrogate survived the scrub
+    settings.agent_task_id.encode("utf-8")
 
 
 register_law(AssaySettings, "assay_settings_wire_safe_scrubs_surrogates")
@@ -406,7 +411,7 @@ def test_assay_settings_artifact_rejects_unsafe_segments(part: str, assay_root: 
 register_law(AssaySettings, "assay_settings_artifact_rejects_unsafe_segments")
 
 
-# --- ArtifactScope.open / build / dotnet isolation ------------------------------------------
+# --- [ARTIFACT_SCOPE_LAWS]
 
 
 @pytest.mark.parametrize("claim", list(Claim))
@@ -450,7 +455,40 @@ def test_artifact_scope_dotnet_env_isolation(assay_root: AssayHarness) -> None:
 register_law(ArtifactScope, "artifact_scope_dotnet_env_isolation")
 
 
-# --- ArtifactStore read/write/path roundtrips -----------------------------------------------
+# --- [PROTOCOL]
+
+
+def test_artifact_file_system_protocol_runtime_checkable(mem_store: ArtifactStore) -> None:
+    """ArtifactFileSystem is @runtime_checkable: fsspec MemoryFileSystem satisfies it structurally."""
+    assert isinstance(mem_store.fs, ArtifactFileSystem)
+
+
+register_law(ArtifactFileSystem, "artifact_file_system_protocol_runtime_checkable")
+
+
+def test_artifact_file_system_protocol_default_transaction_is_nullcontext() -> None:
+    """A concrete filesystem inheriting the Protocol's default `transaction` receives a usable nullcontext.
+
+    The default property body returns contextlib.nullcontext() so non-transactional backends compose with
+    the `with self.fs.transaction` pattern in _write_at / write_many. _DefaultTxFs omits the override so the
+    Protocol default — not a class-level attribute — is exercised.
+    """
+
+    class _DefaultTxFs(_FsStub):
+        transaction = (
+            ArtifactFileSystem.transaction
+        )  # re-bind Protocol default so the property path is exercised, not _FsStub's class-level attribute
+
+    ctx = _DefaultTxFs().transaction
+    assert isinstance(ctx, contextlib.AbstractContextManager)
+    with ctx:
+        pass
+
+
+register_law(ArtifactFileSystem, "artifact_file_system_protocol_default_transaction_is_nullcontext")
+
+
+# --- [ARTIFACT_STORE_IO_LAWS]
 
 
 @pytest.mark.parametrize(
@@ -543,7 +581,7 @@ def test_artifact_store_exists_size_remove_open_adopt(mem_store: ArtifactStore, 
 register_law(ArtifactStore, "artifact_store_exists_size_remove_open_adopt")
 
 
-# --- ArtifactStore walk + info fallback arms (driven by _FsStub) ----------------------------
+# --- [ARTIFACT_STORE_WALK_LAWS]
 
 
 def test_artifact_store_walk_detail_dict_keyed_branch() -> None:
@@ -551,7 +589,7 @@ def test_artifact_store_walk_detail_dict_keyed_branch() -> None:
     rows = ArtifactStore(fs=_FsStub(), root="dict-root").walk("scope", recursive=True, detail=True)
     assert len(rows) == 1
     row = rows[0]
-    assert isinstance(row, tuple)  # detail=True yields (path, metadata) rows, never bare paths
+    assert isinstance(row, tuple)
     path, info = row
     assert "f.txt" in path
     assert info == IsPartialDict({"type": "file"})
@@ -583,7 +621,7 @@ def test_artifact_store_info_path_non_numeric_fallback(info_payload: dict[str, o
 register_law(ArtifactStore, "artifact_store_info_path_non_numeric_fallback")
 
 
-# --- ArtifactStore history persist / restore / retain ---------------------------------------
+# --- [ARTIFACT_STORE_HISTORY_LAWS]
 
 
 def test_artifact_store_write_history_roundtrip_and_unknown(mem_store: ArtifactStore) -> None:
@@ -644,15 +682,37 @@ def test_artifact_store_sorted_history_ids_order(mem_store: ArtifactStore, monke
 register_law(ArtifactStore, "artifact_store_sorted_history_ids_order")
 
 
-# --- [STATEFUL_HISTORY_RBSM] ------------------------------------------------------------
-# The example-based retention laws above pin specific edge arms (keep in {0,1}, exactly 3 runs,
-# concurrent-deletion race). The real contract — across an arbitrary interleaving of write_history,
-# retain_history(keep=N), and load_history, the survivor set is always exactly the N most-recent
-# runs by recency rank and never exceeds N — is a sequential stateful protocol those laws cannot
-# reach (write-after-retain, repeated retains with shrinking N, retain interleaved with writes are
-# all beyond their scope). This machine catches: off-by-one in the prune slice, broken index
-# after retain, load_history returning None for a listed id (orphaned index entry), and
-# over-retention when keep > written count.
+def test_artifact_store_full_report_restore_matrix(mem_store: ArtifactStore) -> None:
+    """restore_full_report: a present artifact restores the full Report; corrupt/absent/None-report degrade to original."""
+    env = make_history_envelope("run-fr-1")
+    assert env.report is not None
+    report = env.report
+
+    def _with_full_report(path: str | None) -> Envelope:
+        artifacts = () if path is None else (Artifact(id="full-report", kind=ArtifactKind.HISTORY, path=path),)
+        return msgspec.structs.replace(env, report=msgspec.structs.replace(report, artifacts=artifacts))
+
+    bpath, nbytes = mem_store.write_full_report("run-fr-1", "full.json", report)
+    assert nbytes > 0
+    present = _with_full_report(bpath)
+    restored = mem_store.restore_full_report(present)
+    assert restored is not present
+    assert restored.report is not None
+
+    corrupt = _with_full_report(mem_store.write_bytes(b"{corrupt json", ArtifactKind.HISTORY.value, "run-fr-1", "corrupt.json"))
+    assert mem_store.restore_full_report(corrupt) is corrupt
+
+    no_art = _with_full_report(None)
+    assert mem_store.restore_full_report(no_art) is no_art
+
+    no_report = msgspec.structs.replace(env, report=None)
+    assert mem_store.restore_full_report(no_report) is no_report
+
+
+register_law(ArtifactStore, "artifact_store_full_report_restore_matrix")
+
+
+# --- [STATEFUL_HISTORY_RBSM]
 
 
 class HistoryRetentionStateMachine(RuleBasedStateMachine):
@@ -666,12 +726,14 @@ class HistoryRetentionStateMachine(RuleBasedStateMachine):
     _instances = itertools.count()  # process-monotonic: a disjoint root per machine, immune to id() reuse across instances
 
     def __init__(self) -> None:
-        """Initialise a fresh in-memory ArtifactStore and the monotonic write-order oracle."""
+        """Initialise a fresh in-memory ArtifactStore and the monotonic write-order oracle.
+
+        fsspec memory:// is process-global; each machine owns a disjoint root, purged in
+        teardown, to prevent cross-replay state leaks.
+        """
         super().__init__()
-        # fsspec memory:// is a process-global singleton, so each machine MUST own a disjoint root and purge it
-        # in teardown; sharing a root (or reusing id(self)) leaks state into the next replay -> FlakyStrategyDefinition.
         self._store = ArtifactStore(fs=fsspec.filesystem("memory"), root=f"rbsm-store/{next(self._instances)}")
-        self._counter = 0  # monotonic: write order == lexicographic run_id order == recency rank
+        self._counter = 0  # monotonic write order == lexicographic run_id order == recency rank
         self._written: set[str] = set()
 
     @rule(target=runs)
@@ -685,12 +747,10 @@ class HistoryRetentionStateMachine(RuleBasedStateMachine):
     @rule(keep=st.integers(min_value=0, max_value=5))
     def retain(self, keep: int) -> None:
         self._store.retain_history(keep=keep)
-        # update oracle: survivors are the `keep` highest run_ids (lexicographic == recency for zero-padded counter)
         sorted_written = sorted(self._written)
         pruned = set(sorted_written[: max(0, len(sorted_written) - keep)])
         self._written -= pruned
-        # the bound is a retain-local postcondition: immediately after pruning, the live set is capped by keep.
-        # asserting it as an always-on @invariant would be false, since a later write_run legitimately re-grows the store.
+        # Postcondition at this rule boundary only; a subsequent write_run legitimately re-grows the store past keep.
         assert len(self._store.sorted_history_ids()) <= keep, f"retain(keep={keep}) left {len(self._store.sorted_history_ids())} survivors"
 
     @invariant()
@@ -708,7 +768,7 @@ class HistoryRetentionStateMachine(RuleBasedStateMachine):
 
     @override
     def teardown(self) -> None:
-        # Purge this machine's subtree from the process-global memory FS so no state leaks into the next instance.
+        """Purge the disjoint memory root to prevent cross-replay state leaks in the process-global fsspec memory filesystem."""
         self._store.remove_path(self._store.root, recursive=True) if self._store.exists_path(self._store.root) else None
 
 
@@ -720,38 +780,7 @@ def test_history_retention_state_machine() -> None:
 register_law(ArtifactStore, "history_retention_state_machine")
 
 
-def test_artifact_store_full_report_restore_matrix(mem_store: ArtifactStore) -> None:
-    """restore_full_report: a present artifact restores the full Report; corrupt/absent/None-report degrade to original."""
-    env = make_history_envelope("run-fr-1")
-    assert env.report is not None
-    report = env.report
-
-    def _with_full_report(path: str | None) -> Envelope:
-        # Project env carrying a single full-report artifact pointer, or an empty artifacts tuple when path is None.
-        artifacts = () if path is None else (Artifact(id="full-report", kind=ArtifactKind.HISTORY, path=path),)
-        return msgspec.structs.replace(env, report=msgspec.structs.replace(report, artifacts=artifacts))
-
-    bpath, nbytes = mem_store.write_full_report("run-fr-1", "full.json", report)
-    assert nbytes > 0
-    present = _with_full_report(bpath)
-    restored = mem_store.restore_full_report(present)
-    assert restored is not present
-    assert restored.report is not None
-
-    corrupt = _with_full_report(mem_store.write_bytes(b"{corrupt json", ArtifactKind.HISTORY.value, "run-fr-1", "corrupt.json"))
-    assert mem_store.restore_full_report(corrupt) is corrupt  # decode failure -> original
-
-    no_art = _with_full_report(None)
-    assert mem_store.restore_full_report(no_art) is no_art  # no full-report pointer -> original
-
-    no_report = msgspec.structs.replace(env, report=None)
-    assert mem_store.restore_full_report(no_report) is no_report  # report is None -> original
-
-
-register_law(ArtifactStore, "artifact_store_full_report_restore_matrix")
-
-
-# --- ArtifactStore resolve_artifacts branches -----------------------------------------------
+# --- [ARTIFACT_STORE_RESOLVE_ARTIFACTS_LAWS]
 
 
 def test_artifact_store_resolve_artifacts_empty_token_returns_empty(mem_store: ArtifactStore) -> None:
@@ -789,7 +818,7 @@ def test_artifact_store_resolve_artifacts_latest_across_roots(mem_store: Artifac
     monkeypatch.setattr(_settings_mod, "mtime_from_info", lambda info: 2.0 if str(info.get("name", "")).endswith("b.txt") else 1.0)
     ranked = mem_store.resolve_artifacts("latest", "scope", "history", latest=True)
     assert len(ranked) >= 1
-    assert "a.txt" in ranked[0]  # scope is tried first; history's newer file does not preempt root priority
+    assert "a.txt" in ranked[0]
 
     assert mem_store.resolve_artifacts("latest", "empty-scope", "empty-history", latest=True) == ()
 
@@ -797,44 +826,12 @@ def test_artifact_store_resolve_artifacts_latest_across_roots(mem_store: Artifac
 register_law(ArtifactStore, "artifact_store_resolve_artifacts_latest_across_roots")
 
 
-# --- [PROTOCOL] -------------------------------------------------------------------------
-# ArtifactFileSystem: structural runtime-checkable contract + default `transaction` property.
-
-
-def test_artifact_file_system_protocol_runtime_checkable(mem_store: ArtifactStore) -> None:
-    """ArtifactFileSystem is @runtime_checkable: fsspec MemoryFileSystem satisfies it structurally."""
-    assert isinstance(mem_store.fs, ArtifactFileSystem)
-
-
-register_law(ArtifactFileSystem, "artifact_file_system_protocol_runtime_checkable")
-
-
-def test_artifact_file_system_protocol_default_transaction_is_nullcontext() -> None:
-    """A concrete filesystem inheriting the Protocol's default `transaction` receives a usable nullcontext.
-
-    The default property body returns contextlib.nullcontext() so non-transactional backends compose with
-    the `with self.fs.transaction` pattern in _write_at / write_many. _DefaultTxFs omits the override so the
-    Protocol default — not a class-level attribute — is exercised.
-    """
-
-    class _DefaultTxFs(_FsStub):
-        transaction = ArtifactFileSystem.transaction  # re-bind to the Protocol default property descriptor
-
-    ctx = _DefaultTxFs().transaction
-    assert isinstance(ctx, contextlib.AbstractContextManager)
-    with ctx:
-        pass
-
-
-register_law(ArtifactFileSystem, "artifact_file_system_protocol_default_transaction_is_nullcontext")
-
-
-# --- ArtifactStore Option-projected reads (oracle laws) -------------------------------------
+# --- [ARTIFACT_STORE_OPTION_LAWS]
 
 
 def test_artifact_store_load_history_option_projection(mem_store: ArtifactStore) -> None:
     """load_history projects to Some(Envelope) for a stored run and None for an absent run (oracle laws)."""
-    from expression import Option  # noqa: PLC0415  # local: Option is only needed to project None/value into the oracle shape
+    from expression import Option  # noqa: PLC0415  # oracle-only; top-level import would surface expression as a module-level dependency
 
     mem_store.write_history("run-opt", WIRE_ENCODER.encode(make_history_envelope("run-opt")))
     assert_some(Option.of_optional(mem_store.load_history("run-opt")))

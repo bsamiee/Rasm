@@ -1,4 +1,14 @@
-"""Resolve host, NuGet, Python, and TypeScript API metadata."""
+"""Resolve and query API metadata across host assemblies, NuGet packages, Python distributions, and TypeScript declarations.
+
+Exposes four public verbs: doctor inventories all source health; resolve maps a key to its
+asset paths; query walks the type/namespace/member hierarchy via ilspycmd (C#) or INPROC
+inspect/tree-sitter (Python/TypeScript); show previews a previously written artifact.
+
+Source resolution priority: host bundle (rhino-common, eto, gh2, ...) -> NuGet
+(Directory.Packages.props) -> installed Python distribution -> node_modules TypeScript
+declaration. Each source kind carries a distinct decompile/surface path; C# routes through
+ilspycmd subprocess, Python and TypeScript route through in-process thunks.
+"""
 
 import annotationlib  # PEP 749: STRING annotations avoid evaluating unresolvable forward refs
 from dataclasses import dataclass, replace
@@ -22,7 +32,11 @@ from tree_sitter import Parser as TSParser, QueryCursor, QueryError
 import tree_sitter_typescript
 
 from tools.assay.composition.catalog import Capture, CAPTURE_ENCODER, CAPTURES, select
-from tools.assay.composition.settings import ArtifactScope, ArtifactStore, AssaySettings  # noqa: TC001  # registry passes these at runtime
+from tools.assay.composition.settings import (  # noqa: TC001  # beartype resolves these types at runtime in @checked signatures
+    ArtifactScope,
+    ArtifactStore,
+    AssaySettings,
+)
 from tools.assay.core.engine import run_check
 from tools.assay.core.model import (
     _RESULT_CAP,  # noqa: PLC2701  # shared saturation site
@@ -83,23 +97,20 @@ _NUGET_ROOTS: tuple[str, ...] = (".cache/nuget/packages", str(Path.home() / ".nu
 _FRAMEWORK_RANK: tuple[str, ...] = ("net10.0", "net9.0", "net8.0", "net7.0", "net6.0", "netstandard2.1", "netstandard2.0")
 _ASSET_DIRS: tuple[str, ...] = ("lib", "ref", "runtimes", "build", "buildTransitive", "analyzers", "tools")
 _SURFACE_KINDS: frozenset[str] = frozenset(("Class", "Struct", "Interface", "Delegate", "Enum"))
-_PACKAGE_KINDS: frozenset[SourceKind] = frozenset(
-    (SourceKind.NUGET, SourceKind.PYDIST, SourceKind.TSDECL)  # sources whose key is also a package name
-)
-_COMPACT_VISIBLE: frozenset[SourceKind] = frozenset((SourceKind.ASSEMBLY, SourceKind.NUGET, SourceKind.TOOL))  # doctor compact-row source kinds
+_PACKAGE_KINDS: frozenset[SourceKind] = frozenset((SourceKind.NUGET, SourceKind.PYDIST, SourceKind.TSDECL))  # key is also a package name
+_COMPACT_VISIBLE: frozenset[SourceKind] = frozenset((SourceKind.ASSEMBLY, SourceKind.NUGET, SourceKind.TOOL))  # doctor compact-output source kinds
 _COMPACT_SUMMARY_IDS: frozenset[str] = frozenset(("python-dists", "ts-decls"))  # polyglot summary rows always shown in compact output
 _PREVIEW_ROWS: int = 12
 _CANDIDATE_CAP: int = 8
-# _RESULT_CAP is imported from core/model.py alongside fold as the shared saturation site.
 _DEPS_PARTS: frozenset[str] = frozenset(("build", "buildTransitive", "analyzers", "tools", "runtimes"))
 _DECOMPILE_FLAGS: tuple[str, ...] = ("--no-dead-code", "--no-dead-stores")
-_ENCODER: msgspec.json.Encoder = msgspec.json.Encoder(order="deterministic")  # stable artifact wire order
+_ENCODER: msgspec.json.Encoder = msgspec.json.Encoder(order="deterministic")  # stable artifact wire order across runs
 _NODE_MODULES: str = "node_modules"
 _PNPM_STORE: str = "node_modules/.pnpm"  # pnpm mangles @scope/pkg as @scope+pkg
 _PATH_KINDS: frozenset[_PathKind] = frozenset(("all", "assembly", "xml", "nuspec", "deps", "package-root"))
 _DTS_GLOB: str = "*.d.ts"
 _DTS_ENTRY: str = "index.d.ts"
-_TS_DECL_QUERY: str = (  # .d.ts exported declaration names become @type captures.
+_TS_DECL_QUERY: str = (
     "(class_declaration name: (type_identifier) @type)"
     " (abstract_class_declaration name: (type_identifier) @type)"
     " (interface_declaration name: (type_identifier) @type)"
@@ -111,27 +122,22 @@ _TS_DECL_QUERY: str = (  # .d.ts exported declaration names become @type capture
     " (namespace_export (identifier) @type)"  # export * as NAME
 )
 _TS_GRAMMAR: Callable[[], object] = tree_sitter_typescript.language_typescript  # shared with code.py
-_DECL_NODES: frozenset[str] = frozenset(  # .d.ts node kinds that anchor member signatures.
-    (
-        "class_declaration",
-        "abstract_class_declaration",
-        "interface_declaration",
-        "type_alias_declaration",
-        "enum_declaration",
-        "function_signature",
-        "method_signature",
-        "property_signature",
-        "public_field_definition",
-        "variable_declarator",
-    )
-)
-_INSPECT_KINDS: tuple[tuple[str, Callable[[object], bool]], ...] = (  # pydist roster predicates
-    ("type", inspect.isclass),
-    ("type", inspect.isfunction),
-)
+_DECL_NODES: frozenset[str] = frozenset((
+    "class_declaration",
+    "abstract_class_declaration",
+    "interface_declaration",
+    "type_alias_declaration",
+    "enum_declaration",
+    "function_signature",
+    "method_signature",
+    "property_signature",
+    "public_field_definition",
+    "variable_declarator",
+))
+_INSPECT_KINDS: tuple[tuple[str, Callable[[object], bool]], ...] = (("type", inspect.isclass), ("type", inspect.isfunction))
 _NAME_CAP: int = 320
 _SIG_CAP: int = 480
-_FULL_CAP: int = 2560  # full .d.ts member body capture; larger than the signature window
+_FULL_CAP: int = 2560  # full .d.ts member body capture
 _LATEST_ARTIFACT: str = "latest"
 
 
@@ -140,7 +146,7 @@ _LATEST_ARTIFACT: str = "latest"
 
 @dataclass(frozen=True, slots=True, kw_only=True)
 class ApiParams(BaseParams):
-    """Parameters shared by `api` verbs."""
+    """Parameters shared by api verbs."""
 
     key: str = "rhino-common"
     symbol: str = ""
@@ -151,11 +157,15 @@ class ApiParams(BaseParams):
     grep: str = ""
     full: bool = False
     strict: bool = False
-    sources: tuple[str, ...] = ()  # non-empty → restrict doctor inventory to matching source_id prefixes
+    sources: tuple[str, ...] = ()  # non-empty → restrict doctor inventory to source_ids matching these prefixes
 
     @override
     def bound(self, verb: str) -> ApiParams | Fault:
         """Project positional tokens into the slots owned by an API verb.
+
+        Args:
+            verb: One of doctor, resolve, query, or show; controls which positional
+                slots absorb paths[0] and paths[1] and what arity is legal.
 
         Returns:
             Bound params, or a parse fault for surplus positional tokens.
@@ -223,13 +233,12 @@ def _safe(key: str) -> str:
 
 
 @lru_cache(maxsize=256)
-def _asm_digest(path_str: str, size: int, mtime_ns: int) -> str:  # noqa: ARG001  # size+mtime_ns are lru_cache discriminants, not consumed in body
-    # Content hash joins size and mtime because RhinoWIP reinstalls can preserve DLL mtimes.
+def _asm_digest(path_str: str, size: int, mtime_ns: int) -> str:  # noqa: ARG001  # size+mtime_ns are lru_cache key slots, not used in the body
+    # RhinoWIP reinstalls can preserve DLL mtimes, so content-hash is the discriminant.
     return hashlib.sha256(Path(path_str).read_bytes()).hexdigest()
 
 
 def _fingerprint(assemblies: tuple[Path, ...]) -> str:
-    # Single stat() per assembly; lru_cache on _asm_digest avoids rehashing unchanged files.
     seed = "|".join(
         f"{p}:{st.st_size}:{st.st_mtime_ns}:{_asm_digest(str(p), st.st_size, st.st_mtime_ns)}"
         for p in assemblies
@@ -240,13 +249,13 @@ def _fingerprint(assemblies: tuple[Path, ...]) -> str:
 
 
 def _rhino_app(settings: AssaySettings) -> Path | None:
-    # Worktree rhino-app wins for CI; otherwise use the first installed bundle, or None for EMPTY.
+    # Worktree `rhino-app` symlink wins for CI; falls back to first installed bundle, or None.
     candidates = (Path(str(settings.root)) / "rhino-app", *(Path(b) for b in _RHINO_BUNDLES))  # bundle resolution is local-fs; UPath -> Path
     return next((c for c in candidates if c.is_dir()), None)
 
 
 def _host_source(settings: AssaySettings, key: str) -> _Source | None:
-    # Missing host bundles still return an empty declared source so doctor can report the row.
+    # Returns an empty _Source when the bundle is absent so doctor can report the row.
     match _HOST_SPECS.get(key):
         case None:
             return None
@@ -262,8 +271,7 @@ def _host_source(settings: AssaySettings, key: str) -> _Source | None:
 
 @lru_cache(maxsize=8)
 def _packages_at(root_str: str, props_mtime_ns: int) -> dict[str, str]:
-    # props_mtime_ns is the cache discriminant; re-parsed only when the file changes on disk.
-    _ = props_mtime_ns
+    _ = props_mtime_ns  # lru_cache key slot
     try:
         root = ET.fromstring(Path(root_str).read_bytes())  # noqa: S314  # trusted local Directory.Packages.props, never network-sourced
     except OSError, ET.ParseError:
@@ -283,7 +291,7 @@ def _packages(settings: AssaySettings) -> dict[str, str]:
 
 
 def _candidates(names: tuple[str, ...], needle: str, *, n: int = _CANDIDATE_CAP) -> tuple[tuple[str, int], ...]:
-    # Miss scoring prioritizes exact, prefix, substring, then segment overlap with subordinate typo similarity.
+    # Score order: exact match > prefix > substring > segment overlap, with subordinate char similarity.
     casefold = needle.casefold()
     segments = frozenset(casefold.replace("-", ".").split("."))
 
@@ -302,7 +310,6 @@ def _candidates(names: tuple[str, ...], needle: str, *, n: int = _CANDIDATE_CAP)
 
 
 def _resolve_key(packages: dict[str, str], key: str) -> Result[str, ApiResolution]:
-    # Fuzzy NuGet misses carry typed candidates and unknown/ambiguous reason.
     casefold = key.casefold()
     exact = tuple(n for n in packages if n.casefold() == casefold)
     fuzzy = tuple(n for n in packages if n.casefold().startswith(casefold)) or tuple(n for n in packages if casefold in n.casefold())
@@ -317,7 +324,6 @@ def _resolve_key(packages: dict[str, str], key: str) -> Result[str, ApiResolutio
 
 
 def _package_root(settings: AssaySettings, package: str, version: str) -> Path:
-    # First extant NuGet cache root wins.
     candidates = tuple(
         Path(root) if Path(root).is_absolute() else Path(str(settings.root)) / root for root in _NUGET_ROOTS
     )  # NuGet cache is local-fs; UPath -> Path
@@ -338,14 +344,23 @@ def _frameworks(root: Path) -> tuple[str, ...]:
     return tuple(ranked)
 
 
-def _package_owners(settings: AssaySettings, package: str) -> tuple[str, ...]:
-    return _package_owner_index(settings).get(package.casefold(), ())
+def _project_references(path: Path) -> tuple[str, ...]:
+    try:
+        root = ET.fromstring(path.read_bytes())  # noqa: S314  # trusted local project XML
+    except OSError, ET.ParseError:
+        return ()
+    return tuple(
+        ref
+        for node in root.iter()
+        for ref in ((node.get("Include") or node.get("Update") or "").casefold(),)
+        if node.tag.rpartition("}")[2] == "PackageReference"
+        if ref
+    )
 
 
 @lru_cache(maxsize=8)
 def _package_owner_index_at(root_str: str, fingerprint: str) -> dict[str, tuple[str, ...]]:
-    # fingerprint encodes sorted csproj mtime_ns values; re-computed only when the project graph changes.
-    _ = fingerprint
+    _ = fingerprint  # lru_cache key slot; encodes sorted csproj mtime_ns so re-computation triggers on project graph changes
     root = Path(root_str)
     rows = sorted(
         (package, path.relative_to(root).as_posix())
@@ -363,24 +378,14 @@ def _package_owner_index(settings: AssaySettings) -> dict[str, tuple[str, ...]]:
     return _package_owner_index_at(str(root), fingerprint)
 
 
-def _project_references(path: Path) -> tuple[str, ...]:
-    try:
-        root = ET.fromstring(path.read_bytes())  # noqa: S314  # trusted local project XML
-    except OSError, ET.ParseError:
-        return ()
-    return tuple(
-        ref
-        for node in root.iter()
-        for ref in ((node.get("Include") or node.get("Update") or "").casefold(),)
-        if node.tag.rpartition("}")[2] == "PackageReference"
-        if ref
-    )
+def _package_owners(settings: AssaySettings, package: str) -> tuple[str, ...]:
+    return _package_owner_index(settings).get(package.casefold(), ())
 
 
 def _nuget_source(
     settings: AssaySettings, package: str, version: str, *, include_assets: bool = True, owners: tuple[str, ...] | None = None
 ) -> _Source:
-    # Package-stem assemblies lead so sidecar XML docs win; unrestored roots fold EMPTY.
+    # Package-stem assemblies lead so the sidecar XML doc is first; an unrestored root folds to EMPTY.
     root = _package_root(settings, package, version)
     selected = _framework_dir(root, "ref") or _framework_dir(root, "lib")
     assemblies = tuple(sorted(selected.glob("*.dll"))) if selected is not None else ()
@@ -435,7 +440,7 @@ def _pydist_inventory_sources() -> tuple[ApiSource, ...]:
 
 
 def _pydist_source(key: str) -> _Source | None:
-    # no assemblies: the PYDIST roster/decompile rides the INPROC inspect thunk, not ilspycmd
+    # No assemblies: PYDIST roster and decompile use the INPROC inspect thunk, not ilspycmd.
     try:
         dist = importlib.metadata.distribution(key)  # codec boundary: an uninstalled key raises PackageNotFoundError -> None (fall through)
     except importlib.metadata.PackageNotFoundError:
@@ -456,8 +461,7 @@ def _pydist_source(key: str) -> _Source | None:
 
 
 def _pydist_modules(key: str) -> tuple[str, ...]:
-    # top_level.txt first (declared truth, often absent in modern wheels), else invert
-    # packages_distributions() (module -> dists) to recover the real import roots (e.g. Pygments -> pygments).
+    # top_level.txt is absent in many modern wheels; packages_distributions() recovers real import roots.
     try:
         text = importlib.metadata.distribution(key).read_text("top_level.txt")
     except importlib.metadata.PackageNotFoundError:
@@ -469,7 +473,6 @@ def _pydist_modules(key: str) -> tuple[str, ...]:
 
 
 def _tsdecl_names(settings: AssaySettings) -> tuple[str, ...]:
-    # Hoisted and scoped npm packages form the TypeScript source roster.
     base = Path(str(settings.root)) / _NODE_MODULES
     match base.is_dir():
         case False:
@@ -487,7 +490,7 @@ def _tsdecl_names(settings: AssaySettings) -> tuple[str, ...]:
 
 
 def _tsdecl_dir(settings: AssaySettings, key: str) -> Path | None:
-    # Hoisted packages win before pnpm store fallbacks.
+    # Hoisted node_modules entry wins; pnpm store versioned paths are fallbacks.
     base = Path(str(settings.root)) / _NODE_MODULES
     hoisted = base / key
     mangled = key.replace("/", "+")
@@ -497,7 +500,7 @@ def _tsdecl_dir(settings: AssaySettings, key: str) -> Path | None:
 
 
 def _tsdecl_source(settings: AssaySettings, key: str) -> _Source | None:
-    # A package without .d.ts files yields EMPTY, not FAULTED.
+    # A package with no .d.ts files yields EMPTY, not FAULTED.
     match _tsdecl_dir(settings, key):
         case None:
             return None
@@ -509,22 +512,6 @@ def _tsdecl_source(settings: AssaySettings, key: str) -> _Source | None:
             return _Source(key=key, kind=SourceKind.TSDECL, version=version, package_root=pkg_dir, asset_paths=assets)
 
 
-def _tsdecl_entry(pkg_dir: Path) -> Path | None:
-    # package.json types/typings wins over index.d.ts.
-    manifest = pkg_dir / "package.json"
-    declared = _json_field(manifest, "types") or _json_field(manifest, "typings")
-    target = (pkg_dir / declared) if declared else (pkg_dir / _DTS_ENTRY)
-    return target if target.is_file() else None
-
-
-def _tsdecl_version(settings: AssaySettings, key: str) -> str:
-    # pnpm store metadata wins before hoisted package.json.
-    mangled = key.replace("/", "+")
-    pnpm = tuple(sorted((Path(str(settings.root)) / _PNPM_STORE).glob(f"{mangled}@*")))
-    tail = next((d.name.removeprefix(f"{mangled}@").split("+", 1)[0].split("_", 1)[0] for d in pnpm), "")
-    return tail or _json_field((Path(str(settings.root)) / _NODE_MODULES / key) / "package.json", "version")
-
-
 def _json_field(path: Path, field: str) -> str:
     try:
         data = msgspec.json.decode(path.read_bytes(), type=dict[str, msgspec.Raw])
@@ -533,8 +520,24 @@ def _json_field(path: Path, field: str) -> str:
         return ""
 
 
+def _tsdecl_entry(pkg_dir: Path) -> Path | None:
+    # package.json `types`/`typings` field wins over the `index.d.ts` convention.
+    manifest = pkg_dir / "package.json"
+    declared = _json_field(manifest, "types") or _json_field(manifest, "typings")
+    target = (pkg_dir / declared) if declared else (pkg_dir / _DTS_ENTRY)
+    return target if target.is_file() else None
+
+
+def _tsdecl_version(settings: AssaySettings, key: str) -> str:
+    # pnpm store directory name encodes the version; hoisted package.json is the fallback.
+    mangled = key.replace("/", "+")
+    pnpm = tuple(sorted((Path(str(settings.root)) / _PNPM_STORE).glob(f"{mangled}@*")))
+    tail = next((d.name.removeprefix(f"{mangled}@").split("+", 1)[0].split("_", 1)[0] for d in pnpm), "")
+    return tail or _json_field((Path(str(settings.root)) / _NODE_MODULES / key) / "package.json", "version")
+
+
 def _source(settings: AssaySettings, key: str) -> Result[_Source, ApiResolution]:
-    # Cheapest source wins; total misses aggregate candidates across all source kinds.
+    # Resolver priority: host → NuGet → pydist → tsdecl; misses aggregate candidates across all kinds.
     packages = _packages(settings)
     resolvers: tuple[Callable[[], _Source | None], ...] = (
         lambda: _host_source(settings, key),
@@ -544,7 +547,7 @@ def _source(settings: AssaySettings, key: str) -> Result[_Source, ApiResolution]
     )
 
     def _attempt(resolver: Callable[[], _Source | None]) -> _Source | None:
-        # Empty/blank/NUL keys make Distribution.from_name and glob scandir raise at the codec boundary; fold to a graceful miss.
+        # Empty/NUL keys cause importlib.metadata.distribution() and glob scandir to raise; swallow at the resolver boundary.
         try:
             return resolver()
         except ValueError, OSError:
@@ -559,7 +562,7 @@ def _source(settings: AssaySettings, key: str) -> Result[_Source, ApiResolution]
 
 
 def _module_members(module: object, prefix: str, *, depth: int = 1) -> tuple[Capture, ...]:
-    # One recursion level finds same-prefix submodules without walking the transitive graph.
+    # depth=1 captures same-prefix submodules without walking the full transitive import graph.
     name = getattr(module, "__name__", prefix)
     file = str(getattr(module, "__file__", "") or "")
     own = tuple(
@@ -588,8 +591,6 @@ def _import(name: str) -> object | None:
 
 
 def _pydist_thunk(key: str, symbol: str) -> InprocThunk:
-    # Empty symbols roster @type captures; member lookups capture signature, docs, and source.
-
     def run(_check: Check) -> Completed:
         match symbol:
             case "":
@@ -649,7 +650,6 @@ def _member_captures(obj: object, symbol: str) -> tuple[Capture, ...]:
 
 
 def _signature(obj: object) -> str:
-    # String annotations avoid evaluating unresolvable forward refs on inspect fallback.
     try:
         return str(
             inspect.signature(
@@ -672,14 +672,13 @@ def _annotations(obj: object) -> dict[str, str]:
 
 def _object_source(obj: object) -> str:
     try:
-        return inspect.getsource(obj)  # type: ignore[arg-type]  # ty: ignore[invalid-argument-type]  # any resolved symbol; a C-builtin / unreadable object -> TypeError arm
+        # resolved symbol; C-builtin or unreadable object -> TypeError
+        return inspect.getsource(obj)  # type: ignore[arg-type]  # ty: ignore[invalid-argument-type]
     except OSError, TypeError:
         return ""
 
 
 def _tsdecl_thunk(source: _Source, symbol: str) -> InprocThunk:
-    # Empty symbols roster .d.ts declarations; member lookups anchor one signature capture.
-
     def run(_check: Check) -> Completed:
         parser = TSParser(ts_language(_TS_GRAMMAR))  # parser is mutable: never cached, one per thunk run
         captures = tuple(cap for path in source.asset_paths for cap in _ts_captures(parser, path, symbol))
@@ -704,7 +703,7 @@ def _ts_captures(parser: TSParser, path: Path, symbol: str) -> tuple[Capture, ..
 
 
 def _span_capture(name: str, text: str, node: Node, path: Path) -> Capture:
-    # Shared tree-sitter capture window: tree-sitter points are 0-indexed, Capture's line/column are 1-indexed.
+    # tree-sitter points are 0-indexed; Capture line/column are 1-indexed.
     return Capture(
         name=name,
         text=text,
@@ -733,8 +732,7 @@ def _ts_declared(root: Node, path: Path, *, is_dts: bool) -> tuple[Capture, ...]
 
 
 def _ts_member(root: Node, symbol: str, path: Path, *, is_dts: bool) -> tuple[Capture, ...]:
-    # Owner-qualified lookups resolve Foo.x by matching Foo first, then x within that declaration.
-    # Flat lookups anchor to depth-1 exported declarations so a nested property_signature never wins.
+    # Owner-qualified lookups match Foo first, then x within it; flat lookups anchor to depth-1 exports so a nested property_signature cannot win.
     owner, _dot, target = symbol.rpartition(".")
     owner_node = next(
         (
@@ -777,8 +775,7 @@ def _ts_doc(node: Node) -> str:
 
 
 def _exported(node: Node, *, is_dts: bool) -> bool:
-    # An ambient .d.ts module implicitly exports its top-level declarations, so a depth-1 declaration
-    # (its owner directly under program, optionally through one ambient_declaration wrapper) counts as exported.
+    # Ambient .d.ts modules implicitly export top-level declarations; depth-1 under program or one ambient_declaration wrapper counts as exported.
     chain = tuple(p.type for p in _parents(node))
     ambient_depth1 = is_dts and chain[1:] in {("program",), ("ambient_declaration", "program")}
     return "export_statement" in chain or ambient_depth1
@@ -837,12 +834,12 @@ def _surface(settings: AssaySettings, scope: ArtifactScope, source: _Source) -> 
             return _cs_surface(settings, scope, source)
         case SourceKind.PYDIST | SourceKind.TSDECL:
             return _inproc_surface(settings, source)
-        case _:  # pragma: no cover  # SourceKind.TOOL never resolves through _source
+        case _:  # pragma: no cover  # TOOL never resolves through _source
             return Ok(_Surface(source, (), (), {}, _cache_path(settings, source, ""), ""))
 
 
 def _cs_surface(settings: AssaySettings, scope: ArtifactScope, source: _Source) -> Result[_Surface, Fault]:
-    # Content-fingerprint caches avoid repeat ilspy listings; non-zero ilspy exits fault the rail.
+    # Content-fingerprint cache avoids repeat ilspycmd type listings when assemblies have not changed.
     assemblies = source.assemblies
     store = settings.store()
     match next((t for t in select(Claim.API, Language.CSHARP)), None):
@@ -860,7 +857,7 @@ def _cs_surface(settings: AssaySettings, scope: ArtifactScope, source: _Source) 
 
 
 def _inproc_check(settings: AssaySettings, source: _Source, mode: Mode, thunk: InprocThunk) -> Result[Completed, Fault]:
-    # INPROC thunks ride the same deadline, limiter, and trace span as subprocess rails.
+    # Thunks run through run_check to share the deadline, rate limiter, and trace span with subprocess rails.
     language = Language.PYTHON if source.kind is SourceKind.PYDIST else Language.TYPESCRIPT
     match next((t for t in select(Claim.API, language) if t.mode is mode), None):
         case None:
@@ -872,7 +869,7 @@ def _inproc_check(settings: AssaySettings, source: _Source, mode: Mode, thunk: I
 
 
 def _inproc_surface(settings: AssaySettings, source: _Source) -> Result[_Surface, Fault]:
-    # Content-fingerprint caches avoid repeat thunk listings; empty asset paths become an EMPTY surface, not a fault.
+    # Fingerprint cache avoids repeat thunk runs; no asset_paths → EMPTY, not FAULTED.
     store = settings.store()
     cache = _cache_path(settings, source, _fingerprint(source.asset_paths))
     match store.exists_path(cache):
@@ -899,7 +896,6 @@ def _cache_path(settings: AssaySettings, source: _Source, fingerprint: str) -> s
 def _run_surface(
     settings: AssaySettings, scope: ArtifactScope, source: _Source, tool: Tool, assemblies: tuple[Path, ...], cache: str
 ) -> Result[_Surface, Fault]:
-    # Successful ilspy listings populate a deterministic roster cache.
     attempts = tuple((asm, _invoke(settings, scope, tool, str(asm))) for asm in assemblies)
     match any(done.returncode == 0 for _, done in attempts):
         case False:
@@ -947,7 +943,7 @@ def _rank_type(types: tuple[str, ...], needle: str) -> str:
 
 
 def _xml_doc(source: _Source, symbol: str) -> str:
-    # XMLDoc matching strips kind and parameters, then requires a dotted-segment boundary.
+    # Strips the XMLDoc kind prefix (M:/T:) and parameter list, then matches on a dotted-segment boundary.
     needle = symbol.casefold()
     return next(
         (
@@ -978,14 +974,13 @@ def _decompile(
             return _cs_decompile(settings, scope, surface, symbol, shape, p)
         case SourceKind.PYDIST | SourceKind.TSDECL:
             return _inproc_decompile(settings, surface, symbol, shape, p)
-        case _:  # pragma: no cover  # SourceKind.TOOL never resolves through _source
+        case _:  # pragma: no cover  # TOOL never resolves through _source
             return Ok(_search_report(settings, surface, p))
 
 
-def _cs_decompile(  # noqa: PLR0914  # genuine C# decompile surface: fqn, lines, boundary, declared, anchor, window, signature, sig, selected, truncated, done, text
+def _cs_decompile(  # noqa: PLR0914  # decompile pipeline uses all 14 locals as independent pipeline stages
     settings: AssaySettings, scope: ArtifactScope, surface: _Surface, symbol: str, shape: SymbolShape, p: ApiParams
 ) -> Result[Report, Fault]:
-    # ilspycmd owns C# source windows; sidecar XML owns docs.
     head, _, tail = symbol.rpartition(".")
     fqn = _rank_type(surface.types, symbol) or _rank_type(surface.types, head)
     match next((t for t in select(Claim.API, Language.CSHARP)), None):
@@ -1013,7 +1008,7 @@ def _cs_decompile(  # noqa: PLR0914  # genuine C# decompile surface: fqn, lines,
 
 
 def _inproc_decompile(settings: AssaySettings, surface: _Surface, symbol: str, shape: SymbolShape, p: ApiParams) -> Result[Report, Fault]:
-    # Python and TypeScript docs ride thunk captures, not XMLDoc lookup.
+    # Docs come from thunk captures (inspect.getdoc / TSDoc comment), not XMLDoc sidecar lookup.
     source = surface.source
 
     def _build(done: Completed) -> Report:
@@ -1039,7 +1034,7 @@ def _inproc_decompile(settings: AssaySettings, surface: _Surface, symbol: str, s
 
 
 def _run_decompile(settings: AssaySettings, scope: ArtifactScope, tool: Tool, fqn: str, assemblies: tuple[Path, ...]) -> Completed:
-    # Ref assemblies lead; the first non-empty decompile wins.
+    # Ref assemblies precede lib assemblies; first non-empty successful decompile wins.
     ordered = sorted(assemblies, key=lambda a: ("/ref/" not in a.as_posix(), a.as_posix().casefold()))
     decompile_tool = msgspec.structs.replace(tool, command=(*(c for c in tool.command if c not in {"-l", "cisde"}), "-t", fqn, *_DECOMPILE_FLAGS))
     attempts = tuple(_invoke(settings, scope, decompile_tool, str(asm)) for asm in ordered)
@@ -1096,11 +1091,6 @@ def _matches(rows: tuple[str, ...], kind: ArtifactKind, pattern: str) -> tuple[M
 # --- [COMPOSITION] ----------------------------------------------------------------------
 
 
-def _filtered_sources(all_sources: tuple[ApiSource, ...], prefixes: tuple[str, ...]) -> tuple[ApiSource, ...]:
-    # p.sources non-empty → restrict inventory to sources whose source_id starts with a requested prefix.
-    return tuple(s for s in all_sources if any(s.source_id.startswith(prefix) for prefix in prefixes)) if prefixes else all_sources
-
-
 def doctor(settings: AssaySettings, scope: ArtifactScope, p: ApiParams) -> Result[Report, Fault]:
     """Inventory API source health.
 
@@ -1141,6 +1131,10 @@ def doctor(settings: AssaySettings, scope: ArtifactScope, p: ApiParams) -> Resul
         for i, source in enumerate(compact, start=1)
     )
     return _strict(msgspec.structs.replace(fold(Claim.API, "doctor", (done,), detail=detail), artifacts=artifacts, results=results), p)
+
+
+def _filtered_sources(all_sources: tuple[ApiSource, ...], prefixes: tuple[str, ...]) -> tuple[ApiSource, ...]:
+    return tuple(s for s in all_sources if any(s.source_id.startswith(prefix) for prefix in prefixes)) if prefixes else all_sources
 
 
 def _inventory_artifacts(settings: AssaySettings, sources: tuple[ApiSource, ...]) -> tuple[Artifact, ...]:
@@ -1226,7 +1220,6 @@ def _compact_sources(sources: tuple[ApiSource, ...]) -> tuple[ApiSource, ...]:
 
 
 def _strict(report: Report, p: ApiParams) -> Result[Report, Fault]:
-    # Strict mode promotes incomplete API evidence to a fault.
     match (p.strict, report.status):
         case (True, status) if status is not RailStatus.OK:
             return Error(Fault(("api", report.verb), status=RailStatus.FAULTED, message=f"{report.verb} incomplete under --strict"))
@@ -1249,7 +1242,7 @@ def resolve(settings: AssaySettings, scope: ArtifactScope, p: ApiParams) -> Resu
 
 
 def _resolve_report(settings: AssaySettings, source: _Source, p: ApiParams) -> Report:
-    # Full paths ride an artifact; ranked previews ride results.
+    # Full path list rides an artifact; ranked previews ride results.
     if p.kind not in _PATH_KINDS:
         done = Completed(("api", "resolve", p.key, p.kind), 0, status=RailStatus.UNSUPPORTED, notes=(f"unknown kind: {p.kind}",))
         return fold(
@@ -1302,7 +1295,7 @@ def query(settings: AssaySettings, scope: ArtifactScope, p: ApiParams) -> Result
 
 
 def _resolve_namespace(settings: AssaySettings, scope: ArtifactScope, surface: _Surface, p: ApiParams) -> Result[Report, Fault]:
-    # Type suffix matches beat namespace roster lookup; genuine misses search.
+    # Type-suffix match wins over exact namespace roster; no match falls through to search.
     type_fqn = _rank_type(surface.types, p.symbol)
     owned = surface.by_namespace.get(_rank_namespace(surface, p.symbol), ()) if not type_fqn else ()
     return (
@@ -1315,7 +1308,7 @@ def _resolve_namespace(settings: AssaySettings, scope: ArtifactScope, surface: _
 
 
 def _query_shape(settings: AssaySettings, scope: ArtifactScope, surface: _Surface, p: ApiParams) -> Result[Report, Fault]:
-    # Closed SymbolShape dispatch keeps the namespace arm roster-aware.
+    # NAMESPACE delegates to _resolve_namespace so a symbol that is also a type suffix decompiles rather than returning a namespace roster.
     match shape_of(p.symbol):
         case SymbolShape.INDEX:
             rows = surface.namespaces or surface.types
@@ -1336,7 +1329,7 @@ def _rank_namespace(surface: _Surface, symbol: str) -> str:
 
 
 def _roster_report(settings: AssaySettings, surface: _Surface, shape: SymbolShape, rows: tuple[str, ...], p: ApiParams) -> Report:
-    # Roster reports keep bounded previews plus a full-listing artifact.
+    # INDEX shape attaches the raw surface cache as a second artifact so callers can access the unfiltered ilspycmd output.
     source = surface.source
     artifact = _artifact(settings, source, f"{shape.value}.txt", "\n".join(rows))
     done = Completed(
@@ -1363,7 +1356,7 @@ def _roster_report(settings: AssaySettings, surface: _Surface, shape: SymbolShap
 
 
 def _search_report(settings: AssaySettings, surface: _Surface, p: ApiParams) -> Report:
-    # Search misses stay UNSUPPORTED with nearest candidates, not bare EMPTY.
+    # Misses surface UNSUPPORTED with nearest candidates rather than bare EMPTY so callers can route to suggestions.
     source = surface.source
     needle = p.symbol.casefold()
     hits = tuple(fqn for fqn in surface.types if needle in fqn.casefold())
@@ -1373,7 +1366,7 @@ def _search_report(settings: AssaySettings, surface: _Surface, p: ApiParams) -> 
             return fold(Claim.API, "query", (done,), detail=ApiResolution(candidates=_candidates(surface.types, p.symbol), reason="partial"))
         case _:
             done = Completed(("api", "query", source.key), 0, status=RailStatus.OK, notes=(f"{len(hits)} search hits",))
-            # _matches caps at _RESULT_CAP; the artifact carries the full hit set so the "full results under run_id" breadcrumb holds.
+            # Artifact carries the full hit set; results are capped at _RESULT_CAP.
             artifact = _artifact(settings, source, "search.txt", "\n".join(hits))
             detail = _api_detail(
                 source,
@@ -1389,7 +1382,7 @@ def _search_report(settings: AssaySettings, surface: _Surface, p: ApiParams) -> 
             )
 
 
-def _decompile_report(  # noqa: PLR0913,PLR0914  # genuine decompile assembly surface: settings, surface, shape, signature, xml, window, full, selected, truncated, p; all structural caller slots
+def _decompile_report(  # noqa: PLR0913,PLR0914  # all slots are structural caller positions shared across C# and INPROC paths
     settings: AssaySettings,
     surface: _Surface,
     shape: SymbolShape,
@@ -1402,7 +1395,7 @@ def _decompile_report(  # noqa: PLR0913,PLR0914  # genuine decompile assembly su
     truncated: bool,
     p: ApiParams,
 ) -> Report:
-    # Decompile misses can still resolve to known namespaces before falling to search.
+    # An empty signature means ilspycmd returned nothing; try namespace roster before falling to search.
     match signature:
         case "":
             ns_key = _rank_namespace(surface, p.symbol)
@@ -1433,7 +1426,7 @@ def _decompile_report(  # noqa: PLR0913,PLR0914  # genuine decompile assembly su
             return msgspec.structs.replace(fold(Claim.API, "query", (note,), detail=detail), artifacts=(artifact,), results=(result,))
 
 
-def _api_detail(  # noqa: PLR0913  # single ApiSurface constructor surface; all slots are keyword-only, no positional overload risk
+def _api_detail(  # noqa: PLR0913  # single ApiSurface constructor surface; keyword-only slots prevent positional confusion
     source: _Source,
     shape: SymbolShape,
     *,
@@ -1461,7 +1454,6 @@ def _api_detail(  # noqa: PLR0913  # single ApiSurface constructor surface; all 
 
 
 def _miss_report(verb: str, key: str, resolution: ApiResolution) -> Report:
-    # Missing sources stay UNSUPPORTED and carry typed next-step candidates.
     note = f"no '{key}' source; {resolution.reason}, {len(resolution.candidates)} nearest candidate(s)"
     done = Completed(("api", verb, key), 0, status=RailStatus.UNSUPPORTED, notes=(note,))
     return fold(Claim.API, verb, (done,), detail=resolution)
@@ -1524,7 +1516,7 @@ def _cache_artifact(store: ArtifactStore, path: str) -> Artifact:
 
 
 def _slice(text: str, *, lines: str, grep: str, max_lines: int, full: bool) -> tuple[str, int, bool]:
-    # --lines windows beat --max-lines after optional grep filtering.
+    # `--lines` range window applied after grep; `--full` overrides both.
     selected = tuple(line for line in text.splitlines() if not grep or grep.casefold() in line.casefold())
     match (full, lines.split(":", maxsplit=1)):
         case (True, _):

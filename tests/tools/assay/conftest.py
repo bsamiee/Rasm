@@ -16,7 +16,7 @@ Prefer ``resolve(X)`` over a hand-rolled strategy and the ``tests._spec`` oracle
 
 # --- [RUNTIME_PRELUDE] ------------------------------------------------------------------
 
-from collections.abc import (  # noqa: TC003  # runtime: Callable annotates the CpuSampler protocol; Generator is the RailProbe.project msgspec field type
+from collections.abc import (  # noqa: TC003  # runtime: Callable is a CpuSampler annotation; Generator is the RailProbe.project msgspec field type
     Callable,
     Generator,
 )
@@ -64,7 +64,7 @@ from tests._spec import (  # noqa: PLC2701  # sibling test-internal module re-ex
 from tests._strategies import resolve  # noqa: PLC2701  # sibling test-internal module; `_`-named by S1 design
 from tests.conftest import REPO_ROOT
 from tools.assay.composition.registry import REGISTRY
-from tools.assay.composition.settings import ArtifactScope, AssaySettings  # ArtifactScope.open is invoked + AssaySettings is a TmpRoot field type
+from tools.assay.composition.settings import ArtifactScope, AssaySettings
 from tools.assay.core.model import (
     AnyDetail,
     ApiResolution,
@@ -136,42 +136,30 @@ class CpuDoubleInstaller(Protocol):
 
 _UV = shutil.which("uv")
 
-# Deterministic codec shared by the history oracles (mirrors model._ENCODER order policy).
+# Mirrors model._ENCODER order so oracle bytes are byte-identical to production wire output.
 WIRE_ENCODER = msgspec.json.Encoder(order="deterministic")
 
 # The assay SUT package whose public surface the law-coverage gate (tests._aspect) walks.
 SUT_PACKAGE: Final = "tools.assay"
 
-# Law-less symbols the coverage gate must not demand a law for. MINIMAL by intent — exemption is not a way
-# to dodge a falsifiable law. Each entry is either a structural type-alias Callable (no behavior to assert)
-# or an internal __all__'d seam whose behavior is proven through the public surface that consumes it.
-#   - aspect.py:  Attrs/Bind/Hom/Layer are PEP 695 `type` aliases (Callable / tuple shapes), Inversion is a
-#                 decoration-time ordering Exception surfaced via TypeError (asserted through compose/assemble).
-#   - engine.py:  ByteRecv is a Callable alias; _RESOURCE is the resource ContextVar seam.
-#   - model.py:   InprocThunk is a Callable alias. NOTE: the simple-name `Bind` also names model.Bind (a real
-#                 registry-binding model) — that model still earns its own law in S3b; the name is name-exempt
-#                 here only because aspect.Bind (the alias) is genuinely law-less and the gate keys on simple-names.
-#   - registry.py: Handler is a Callable alias.
-#   - automation/engine.py: Fire/Worker are Callable aliases.
-#   - aspect.py:  _CHECKED_LAYER/_RING are the assembled-layer + ring-buffer ContextVar seams.
+# Callable/type aliases and ContextVar seams with no independently testable behavior; kept minimal.
+# `Bind` exempts aspect.Bind (alias) only; model.Bind (a real binding) still earns a law in S3b.
 _EXEMPT: Final = frozenset({
-    "Attrs", "Bind", "Hom", "Layer", "Inversion",   # aspect type aliases + ordering Exception
-    "ByteRecv", "_RESOURCE",                        # core/engine alias + resource ContextVar
-    "InprocThunk",                                  # model Callable alias
-    "Handler",                                      # registry Callable alias
-    "Fire", "Worker", "ChangeBatch",                # automation/engine Callable + type aliases
-    "_CHECKED_LAYER", "_RING",                      # aspect assembled-layer + ring ContextVar seams
-    "_HINT_CAP", "_RESULT_CAP",                     # model int caps (no independent law; _HINT_CAP exercised via field_cap)
+    "Attrs", "Bind", "Hom", "Layer", "Inversion",   # aspect: type aliases + decoration-time TypeError
+    "ByteRecv", "_RESOURCE",                        # engine: Callable alias + resource ContextVar
+    "InprocThunk",                                  # model: Callable alias
+    "Handler",                                      # registry: Callable alias
+    "Fire", "Worker", "ChangeBatch",                # automation/engine: Callable + type aliases
+    "_CHECKED_LAYER", "_RING",                      # aspect: ContextVar seams (assembled layer + ring buffer)
+    "_HINT_CAP", "_RESULT_CAP",                     # model: int caps; _HINT_CAP exercised via field_cap
 })  # fmt: skip
 
 register_sut(SUT_PACKAGE, exempt=_EXEMPT)
 
 
 # --- [STRATEGIES] -----------------------------------------------------------------------
-# `resolve` (tests._strategies) registers a bounded, encode-clean strategy for each wire struct so
-# `st.from_type(X)` round-trips through the deterministic codec. Each `<snake>_st` global below is an
-# EXPLICIT, TYPED `resolve(Pascal)` alias — explicit (not a lazy `__getattr__`) so `@given(X_st)` resolves the
-# Hypothesis overload statically (a lazy module `__getattr__` returns an untyped value and breaks that overload).
+# Typed `resolve(Pascal)` aliases so `@given(X_st)` resolves the Hypothesis overload statically;
+# lazy `__getattr__` attributes return untyped `SearchStrategy` and defeat overload resolution.
 
 
 rail_status_st: st.SearchStrategy[RailStatus] = resolve(RailStatus)
@@ -194,8 +182,7 @@ package_run_st: st.SearchStrategy[PackageRun] = resolve(PackageRun)
 diagnostic_st: st.SearchStrategy[Diagnostic] = resolve(Diagnostic)
 run_delta_st: st.SearchStrategy[RunDelta] = resolve(RunDelta)
 
-# `binds_st` samples the live registry rather than a wire struct; `detail_st` unions the AnyDetail tags;
-# `envelope_st` composes a wire-consistent Envelope from a Report/Fault — none derive from a single `resolve(T)`.
+# `binds_st` samples the live registry; `envelope_st` composes via the canonical projection — neither maps to a single `resolve(T)`.
 binds_st = st.sampled_from(REGISTRY)
 detail_st: st.SearchStrategy[AnyDetail] = resolve(AnyDetail)
 
@@ -222,15 +209,15 @@ st.register_type_strategy(Envelope, envelope_st)
 
 
 def _pick_check(args: tuple[object, ...]) -> Generator[Check]:
-    # RailProbe's SeamProbe projection: capture the first positional Check per recorded seam call.
     return (a for a in args[:1] if isinstance(a, Check))
 
 
-# captured_emits projection: capture the sole positional (the emitted Envelope) per _emit call.
 _pick_first = operator.itemgetter(slice(1))
 
 
 class CliResult(msgspec.Struct, frozen=True, gc=False):
+    """CLI invocation result carrying the decoded Envelope, exit code, and raw channel bytes."""
+
     envelope: Envelope
     exit_code: int
     stdout: bytes
@@ -238,25 +225,40 @@ class CliResult(msgspec.Struct, frozen=True, gc=False):
 
 
 class AssayHarness(TmpRoot[AssaySettings], frozen=True, gc=False):
-    """Isolated tmp-tree capsule over :class:`TmpRoot` whose ``exec_target=""`` settings mutate nothing outside ``root``."""
+    """Isolated tmp-tree capsule over ``TmpRoot`` whose ``exec_target=""`` settings mutate nothing outside ``root``."""
 
     def scope(self, claim: Claim = Claim.PACKAGE) -> ArtifactScope:
+        """Open an ArtifactScope rooted at this harness's settings.
+
+        Returns:
+            ArtifactScope bound to this harness's root and the given claim.
+        """
         return ArtifactScope.open(self.settings, claim)
 
     def remote(self, exec_target: str) -> AssaySettings:
+        """Return a copy of settings with exec_target set and exec_known_hosts cleared for SSH law fixtures.
+
+        Returns:
+            AssaySettings copy with the given exec_target and no known-hosts constraint.
+        """
         return self.settings.model_copy(update={"exec_target": exec_target, "exec_known_hosts": None})
 
     @staticmethod
     def envelope_of(payload: Report | Fault, *, claim: Claim, verb: str) -> Envelope:
+        """Wrap payload in an Envelope via the canonical projection; run_id is auto-generated.
+
+        Returns:
+            Envelope whose status and exit_code derive from the payload type.
+        """
         return wrap_envelope(payload, claim=claim, verb=verb)
 
 
 class RailProbe(SeamProbe[Check], frozen=True, gc=False):
-    """Socket-free canned-seam host over :class:`SeamProbe` — projects the first positional ``Check`` per call.
+    """Socket-free canned-seam host over ``SeamProbe`` — projects the first positional ``Check`` per call.
 
     The patch target is the OWNER module that re-binds the seam (``rails.api``/``automation.engine``/
     ``core.engine``), never the definition site, mirroring how production resolves the name. ``install``
-    promotes the member name to a :data:`Shape` variant (``run_check_async`` → awaited; ``rail`` → the
+    promotes the member name to a ``Shape`` variant (``run_check_async`` → awaited; ``rail`` → the
     ``(bind, settings) -> (params) -> Envelope`` factory recording a ``rail.run`` call-layer; a tuple-of-Results
     payload → fan-out; everything else → sync) — this member→shape map is documented ASSAY POLICY, not an engine
     catch-all.
@@ -329,15 +331,21 @@ class SshLoopback(msgspec.Struct, frozen=True, gc=False):
 
     @property
     def exec_target(self) -> str:
+        """SSH exec_target URI with an explicit username required by asyncssh saslprep."""
         return f"ssh://x@127.0.0.1:{self.port}"
 
 
 class BridgeResult(msgspec.Struct, frozen=True, gc=False):
-    """``_BridgeResult`` JSON writer over :class:`VariantWriter` — one valid payload plus three adversarial variants."""
+    """``_BridgeResult`` JSON writer over ``VariantWriter`` — one valid payload plus three adversarial variants."""
 
     directory: Path
 
     def valid(self, command: str = "scenario.verify.csx") -> Path:
+        """Write a well-formed bridge result JSON and return its path.
+
+        Returns:
+            Path to the written valid.json file.
+        """
         payload = {
             "command": command,
             "status": "ok",
@@ -353,12 +361,27 @@ class BridgeResult(msgspec.Struct, frozen=True, gc=False):
         return self._writer({"valid": "valid.json"}, {"valid": payload}).path("valid")
 
     def malformed(self) -> Path:
+        """Write a bridge result containing invalid JSON and return its path.
+
+        Returns:
+            Path to the written malformed.json file.
+        """
         return self._writer({"malformed": "malformed.json"}, {"malformed": b"{not json"}).path("malformed")
 
     def partial(self) -> Path:
+        """Write a bridge result with a valid-JSON but structurally incomplete payload and return its path.
+
+        Returns:
+            Path to the written partial.json file.
+        """
         return self._writer({"partial": "partial.json"}, {"partial": b"{}"}).path("partial")
 
     def missing(self) -> Path:
+        """Return a path for a bridge result whose backing file is absent (never written).
+
+        Returns:
+            Path that maps to absent.json, which is not created on disk.
+        """
         return self._writer({"missing": "absent.json"}, {}, absent=frozenset({"missing"})).path("missing")
 
     def _writer(
@@ -368,7 +391,7 @@ class BridgeResult(msgspec.Struct, frozen=True, gc=False):
 
 
 class YakShape(msgspec.Struct, frozen=True, gc=False):
-    """Fake-yak + fake-msbuild materializer built on the harness's :class:`TmpRoot.write` primitive."""
+    """Fake-yak + fake-msbuild materializer built on the harness ``TmpRoot.write`` primitive."""
 
     slug: str = "rasm-bridge"
     project: Path = Path("apps/bridge/plugin.csproj")
@@ -378,6 +401,7 @@ class YakShape(msgspec.Struct, frozen=True, gc=False):
     package_pattern: str = "rasm-rh9_1-mac.yak"
 
     def props(self, meta: package_rail.YakMeta) -> dict[str, str]:
+        """Return the MSBuild/yak property dict corresponding to a materialized YakMeta."""
         return {
             "AssemblyName": meta.assembly_name,
             "MSBuildProjectDirectory": str(meta.project_dir),
@@ -394,6 +418,11 @@ class YakShape(msgspec.Struct, frozen=True, gc=False):
         }
 
     def materialize(self, harness: AssayHarness) -> package_rail.YakMeta:
+        """Write a fake yak binary, project file, manifest, and assembly tree under harness.root.
+
+        Returns:
+            YakMeta with paths pointing into the harness tmp-tree.
+        """
         yak = harness.write("yak", "#!/bin/sh\nexit 0\n", mode=0o755)
         project = harness.write(self.project, f"<Project><PropertyGroup><YakPackageSlug>{self.slug}</YakPackageSlug></PropertyGroup></Project>")
         target = project.parent / "bin" / harness.settings.configuration.value / self.target_framework
@@ -418,8 +447,6 @@ class YakShape(msgspec.Struct, frozen=True, gc=False):
 
 
 # --- [PSUTIL_DOUBLES] -------------------------------------------------------------------
-# `_proc`/`_make_psutil_module`/`install_cpu_double` are thin assay partials over the `tests._seams` psutil
-# double, preserving the EXACT public keyword shapes the core/test_engine + automation laws call.
 
 
 def _proc(
@@ -482,8 +509,6 @@ def install_cpu_double(monkeypatch: pytest.MonkeyPatch, cpu_percent: CpuSampler,
 
 
 # --- [ORACLES] --------------------------------------------------------------------------
-# Assay-TYPED oracles over the `tests._seams` NDJSON decode oracle (generic value-level oracles come from
-# tests._spec); the history writers stamp deterministic Envelopes into the artifact tree.
 
 _ENV_ORACLE: Final = NdjsonOracle(msgspec.json.Decoder(Envelope))
 read_one_envelope_from_bytes = _ENV_ORACLE.one
@@ -497,6 +522,11 @@ def assert_counts_consistent(report: Report) -> None:
 
 
 def make_history_envelope(run_id: str, *, claim: Claim = Claim.STATIC, status: RailStatus = RailStatus.OK) -> Envelope:
+    """Build a canned history Envelope with the given run_id, claim, and status for delta/retention fixtures.
+
+    Returns:
+        Envelope with run_id replaced to the given value and status/exit_code derived from the payload.
+    """
     report = fold(claim, "check", (receipt(("tool",), 0, status=status),))
     return msgspec.structs.replace(wrap_envelope(report, claim=claim, verb="check"), run_id=run_id)
 
@@ -525,8 +555,6 @@ def _isolate_sut_state() -> Generator[None]:
     from tools.assay.core.aspect import _RING  # noqa: PLC0415, PLC2701
     from tools.assay.core.engine import _RESOURCE, _SSH_CACHE  # noqa: PLC0415, PLC2701
 
-    # `_arm` ties each ``Token[T]`` to its ``ContextVar[T]`` at set-time so the heterogeneous (None/bool/tuple/cache)
-    # vars reset type-cleanly without a per-var statement; one comprehension arms all four, the closures undo them.
     def _arm[T](var: ContextVar[T], *, default: T) -> Callable[[], None]:
         token = var.set(default)
         return lambda: var.reset(token)
@@ -540,6 +568,11 @@ def _isolate_sut_state() -> Generator[None]:
 
 @pytest.fixture
 def assay_root(tmp_path: Path) -> AssayHarness:
+    """Isolated AssayHarness rooted at tmp_path with exec_target="" and a stub Workspace.slnx.
+
+    Returns:
+        AssayHarness capsule wrapping the isolated tmp settings tree.
+    """
     (tmp_path / "Workspace.slnx").write_text("", encoding="utf-8")
     settings = AssaySettings(root=UPath(tmp_path), exec_target="", exec_known_hosts=None)
     return AssayHarness(root=tmp_path, settings=settings)
@@ -547,6 +580,11 @@ def assay_root(tmp_path: Path) -> AssayHarness:
 
 @pytest.fixture
 def mem_store(assay_root: AssayHarness) -> Generator[ArtifactStore]:
+    """In-memory ArtifactStore scoped to this test's run_id; removes its root on teardown.
+
+    Yields:
+        ArtifactStore backed by the memory protocol under a per-run-id root.
+    """
     store = assay_root.settings.store(protocol="memory", root=f"mem-store/{assay_root.settings.run_id}")
     yield store
     store.remove_path(store.root, recursive=True) if store.exists_path(store.root) else None
@@ -574,9 +612,8 @@ def cli(assay_root: AssayHarness, capsysbinary: pytest.CaptureFixture[bytes], mo
             case False:
                 from tools.assay import __main__ as main_mod  # noqa: PLC0415  # in-proc import keeps the subprocess path import-clean
 
-                # main() force_flushes + shuts down the global trace provider before exit (correct for a one-shot
-                # process). In-process that would tear down the session provider the otel_spans fixture reads, so
-                # neutralize ONLY the teardown here — span recording still flows through the global tracer.
+                # main() shuts down the global tracer provider; in-process that tears down the session provider otel_spans reads.
+                # Neutralize teardown while keeping recording.
                 neutralized = SimpleNamespace(force_flush=lambda *_a, **_k: True, shutdown=lambda: None)
                 monkeypatch.setattr(main_mod, "get_tracer_provider", lambda: neutralized)
                 code = main_mod.main([*argv])
@@ -585,8 +622,7 @@ def cli(assay_root: AssayHarness, capsysbinary: pytest.CaptureFixture[bytes], mo
             case True:
                 if _UV is None:
                     pytest.skip("uv not on PATH")
-                spawn_env = {**os.environ, "ASSAY_ROOT": str(assay_root.root), **(extra_env or {})}  # noqa: TID251  # test boundary: clone + override env for subprocess isolation
-                # CWD is the repo root (so `python -m tools.assay` resolves the package); ASSAY_ROOT isolates I/O to tmp.
+                spawn_env = {**os.environ, "ASSAY_ROOT": str(assay_root.root), **(extra_env or {})}  # noqa: TID251  # subprocess env clone
                 spawn = functools.partial(anyio.run_process, env=spawn_env, cwd=str(REPO_ROOT), check=False)
                 result = anyio.run(spawn, ["uv", "run", "python", "-m", "tools.assay", *argv])
                 return CliResult(
@@ -598,11 +634,22 @@ def cli(assay_root: AssayHarness, capsysbinary: pytest.CaptureFixture[bytes], mo
 
 @pytest.fixture
 def rail_probe() -> RailProbe:
+    """Fresh RailProbe for canned-seam installation and call capture in a single test.
+
+    Returns:
+        Empty RailProbe with no recorded calls or captured checks.
+    """
     return RailProbe()
 
 
 @pytest.fixture
 def cpu_double(monkeypatch: pytest.MonkeyPatch) -> CpuDoubleInstaller:
+    """CpuDoubleInstaller bound to this test's monkeypatch; call it to pin automation.engine's psutil.
+
+    Returns:
+        Callable that installs a psutil module double with a canned cpu_percent sampler.
+    """
+
     def install(cpu_percent: CpuSampler, *, cpu_count: int = 4) -> MagicMock:
         return install_cpu_double(monkeypatch, cpu_percent, cpu_count=cpu_count)
 
@@ -611,7 +658,7 @@ def cpu_double(monkeypatch: pytest.MonkeyPatch) -> CpuDoubleInstaller:
 
 @pytest.fixture
 def captured_emits(monkeypatch: pytest.MonkeyPatch) -> list[Envelope]:
-    """Redirect ``automation.engine._emit`` to a recording :class:`SeamProbe` sink and yield its capture list.
+    """Redirect ``automation.engine._emit`` to a recording ``SeamProbe`` sink and yield its capture list.
 
     The engine's ``_emit(envelope)`` is patched to a ``Sync(None)`` seam whose ``project`` captures the sole
     positional Envelope (``args[:1]``) per call, so ``captured`` is a live ``list[Envelope]`` matching the HEAD
@@ -622,7 +669,7 @@ def captured_emits(monkeypatch: pytest.MonkeyPatch) -> list[Envelope]:
     """
     from tools.assay.automation import engine as automation_engine  # noqa: PLC0415  # patch target re-imported here
 
-    probe: SeamProbe[Envelope] = SeamProbe(project=_pick_first)  # _emit's sole positional is the Envelope captured by _pick_first
+    probe: SeamProbe[Envelope] = SeamProbe(project=_pick_first)
     probe.install(monkeypatch, automation_engine, "_emit", Sync(None))
     return probe.captured
 
@@ -647,8 +694,7 @@ async def ssh_loopback(socket_enabled: None) -> AsyncGenerator[SshLoopback]:
             _ = username
             return False
 
-    async def _handler(process: asyncssh.SSHServerProcess[str]) -> None:  # noqa: RUF029
-        # Echo a fixed token PLUS the received command so callers can assert the command transited.
+    async def _handler(process: asyncssh.SSHServerProcess[str]) -> None:  # noqa: RUF029  # no await; asyncssh drives the handler synchronously
         command = process.command or ""
         process.stdout.write(f"remote-ok:{command}\n")
         process.exit(0)
@@ -656,23 +702,32 @@ async def ssh_loopback(socket_enabled: None) -> AsyncGenerator[SshLoopback]:
     key = asyncssh.generate_private_key("ssh-ed25519")
 
     def _listen() -> Awaitable[asyncssh.SSHAcceptor]:
-        # asyncssh.listen returns an _ACMWrapper (Awaitable, not Coroutine); SSHAcceptor is its awaited server type.
+        # asyncssh.listen returns an _ACMWrapper (Awaitable, not Coroutine); SSHAcceptor is its awaited type.
         return asyncssh.listen("127.0.0.1", 0, server_host_keys=[key], server_factory=_Server, process_factory=_handler)
 
     def _port(server: asyncssh.SSHAcceptor) -> int:
-        return server.get_port()  # typed reader keeps get_port checked, narrowing the unavoidable ignore below
+        return server.get_port()
 
-    # ty cannot bind loopback_server's S typevar through the @asynccontextmanager wrapper (the decorated generic is
-    # non-subscriptable and S stays opaque), so _listen/_port check against an unsolved S; the engine + runtime are sound.
+    # ty cannot resolve loopback_server's S typevar through @asynccontextmanager; runtime is sound.
     async with loopback_server(_listen, _port) as lb:  # ty: ignore[invalid-argument-type]
         yield SshLoopback(port=lb.port)
 
 
 @pytest.fixture
 def bridge_result(tmp_path: Path) -> BridgeResult:
+    """BridgeResult writer rooted at tmp_path/verify for adversarial bridge-parse laws.
+
+    Returns:
+        BridgeResult capsule whose variant methods write into tmp_path/verify.
+    """
     return BridgeResult(tmp_path / "verify")
 
 
 @pytest.fixture
 def yak_shape() -> YakShape:
+    """Default YakShape materializer for package-rail laws.
+
+    Returns:
+        YakShape with default slug, project path, and assembly/framework settings.
+    """
     return YakShape()

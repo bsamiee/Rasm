@@ -1,14 +1,13 @@
-"""Generalized Hypothesis strategy resolver over the msgspec and pydantic-core schema node algebras.
+"""Hypothesis strategy resolver over the msgspec and pydantic-core schema node algebras.
 
-Project-agnostic force-multiplier: ``resolve(T)`` registers a bounded strategy for any structured type so
-``st.from_type(T)`` yields VALID, encode-clean instances with real field values. Two structurally-isomorphic
-walkers drive it — ``_node`` over ``msgspec.inspect`` nodes (Struct / dataclass / TypedDict / leaves), and
-``_pyd_node`` over ``__pydantic_core_schema__`` (the only source that exposes ``pattern``, ``multiple_of``,
-and nested-container item constraints — native ``st.from_type`` silently drops these and generates instances
-that fail validation). Both read the constraint metadata exactly so generated values survive a round-trip and
-their own model validators. Custom ``@field_validator`` / ``@model_validator`` bodies are opaque: instances are
-generated from the declared schema constraints, and a model whose validator rejects them must register an
-explicit strategy via ``st.register_type_strategy`` before calling ``resolve``.
+``resolve(T)`` registers a constraint-bounded strategy for any structured type so ``st.from_type(T)``
+yields valid, encode-clean instances. Two walkers drive it: ``_node`` over ``msgspec.inspect`` nodes
+(Struct, dataclass, TypedDict, leaves) and ``_pyd_node`` over ``__pydantic_core_schema__``, which is
+the only source that exposes ``pattern``, ``multiple_of``, and nested-container item constraints that
+native ``st.from_type`` silently drops. Both walkers read constraint metadata so generated values
+survive a round-trip and pass model validators. Custom ``@field_validator`` and ``@model_validator``
+bodies are opaque: a model whose validator rejects schema-derived instances must register an explicit
+strategy via ``st.register_type_strategy`` before calling ``resolve``.
 """
 
 # --- [RUNTIME_PRELUDE] ------------------------------------------------------------------
@@ -33,12 +32,10 @@ if TYPE_CHECKING:
 
 # --- [TYPES] ----------------------------------------------------------------------------
 
-# `__pydantic_core_schema__` is runtime-materialized dict data; modelled as a string-keyed object map and
-# narrowed per-access. This is the type-clean boundary shape — no `Any`, no `cast`.
+# Narrowed per-access so the rest of the module avoids `Any` and `cast`.
 type _Schema = Mapping[str, object]
 
 
-# Exactly the two size kwargs the collection strategies accept, so the `**` spread type-resolves precisely.
 class _Size(TypedDict):
     min_size: int
     max_size: int
@@ -47,15 +44,16 @@ class _Size(TypedDict):
 # --- [CONSTANTS] ------------------------------------------------------------------------
 
 
-_REGISTERED: set[type] = set()
 _EMPTY: _Schema = {}
-_CAP = 64  # collection/string size cap keeps generated payloads encode-cheap
+_CAP = 64  # keeps collection/string payloads encode-cheap and shrink-fast
 
-# Bounded recursive JSON-value strategy: covers all JSON leaf + container shapes while keeping depth/size small
-# so generated msgspec.Raw payloads are deterministic-encode-safe and round-trip cleanly.
 _JSON_SCALAR: st.SearchStrategy[object] = st.one_of(
     st.none(), st.booleans(), st.integers(min_value=-1_000, max_value=1_000), st.text(min_size=0, max_size=16)
 )
+
+
+# --- [OPERATIONS] -----------------------------------------------------------------------
+# --- [JSON_ALGEBRA]
 
 
 def _json_value(depth: int = 0) -> st.SearchStrategy[object]:
@@ -70,22 +68,17 @@ def _json_value(depth: int = 0) -> st.SearchStrategy[object]:
     )
 
 
+# Depth cap prevents exponential blowup; size cap avoids OOM on unbounded nested Raw payloads.
 _RAW_ST: st.SearchStrategy[msgspec.Raw] = _json_value().map(lambda v: msgspec.Raw(msgspec.json.encode(v)))
 
-# --- [OPERATIONS] -----------------------------------------------------------------------
-# --- [META_SURFACE_ALGEBRA] -------------------------------------------------------------
-# Shared constraint reads both walkers call so the file's contract ("both read the constraint metadata
-# exactly") holds: one length reader, one multiple-of reader, one constructive multiples generator, one
-# tz tri-state, one length-bounded text/regex composer, one max-digits-bounded decimal ceiling.
+# --- [META_SURFACE_ALGEBRA]
 
 
 def _len(node: object) -> tuple[int | None, int | None]:
-    # Common `min_length`/`max_length` surface shared by every container/bytes/str msgspec node.
     return (getattr(node, "min_length", None), getattr(node, "max_length", None))
 
 
 def _size(node: object, cap: int) -> _Size:
-    # Thread the node's length bounds into `min_size`/`max_size`, clamped to `cap` to stay encode-cheap.
     mn, mx = _len(node)
     return {"min_size": mn if isinstance(mn, int) else 0, "max_size": min(mx, cap) if isinstance(mx, int) else cap}
 
@@ -94,35 +87,31 @@ def _mult(node: object) -> int | float | None:
     return getattr(node, "multiple_of", None)
 
 
-def _tz_arg(tz: bool | None) -> st.SearchStrategy[dt.tzinfo | None]:  # noqa: FBT001  # `tz` mirrors the msgspec node's own `bool | None` tri-state field, not a boolean flag
-    # Tri-state RFC 3339 tz policy: False -> naive only, True -> aware only, None -> either.
+# `tz` mirrors the msgspec node's own `bool | None` tri-state field, not a boolean flag
+def _tz_arg(tz: bool | None) -> st.SearchStrategy[dt.tzinfo | None]:  # noqa: FBT001
     return st.none() if tz is False else st.timezones() if tz else st.none() | st.timezones()
 
 
 def _multiples_int(lo: int, hi: int, step: int) -> st.SearchStrategy[int]:
-    # Constructive: draw the multiplier directly so every value is a valid multiple (zero rejection). An empty
-    # multiplier range (no multiple of `step` in [lo, hi]) yields `st.nothing()` so the draw never raises.
+    # Draw the multiplier k directly so every value is a valid multiple with zero rejection.
     klo, khi = ceil(lo / step), floor(hi / step)
     return st.integers(min_value=klo, max_value=khi).map(lambda k: k * step) if klo <= khi else st.nothing()
 
 
 def _multiples_float(lo: float | Decimal, hi: float | Decimal, step: float | Decimal) -> st.SearchStrategy[float]:
-    # Decimal intermediate keeps `k*step` free of binary drift before projecting back to float; an empty
-    # multiplier range collapses to `st.nothing()` rather than letting hypothesis raise on draw.
+    # Decimal intermediate keeps `k*step` free of binary drift before projecting back to float.
     s = Decimal(str(step))
     klo, khi = ceil(Decimal(str(lo)) / s), floor(Decimal(str(hi)) / s)
     return st.integers(min_value=klo, max_value=khi).map(lambda k: float(Decimal(k) * s)) if klo <= khi else st.nothing()
 
 
 def _text(mn: object, mx: object, pattern: object) -> st.SearchStrategy[str]:
-    # `from_regex` carries NO length bound and overruns `max_length` on unbounded patterns, so a length
-    # filter is mandatory when a pattern is present; otherwise a directly-bounded `st.text`. Inputs are the
-    # raw `object`-typed schema/node values; narrowed here so both walkers share one length-bounded composer.
+    # `from_regex` carries no length bound, so a `.filter` is mandatory when `max_length` is declared.
     lo = mn if isinstance(mn, int) else 1
     hi = min(mx, _CAP) if isinstance(mx, int) else _CAP
     return (
         st.nothing()
-        if lo > hi  # provably-empty window (e.g. min_length above _CAP): short-circuit so the regex filter never exhausts
+        if lo > hi  # short-circuit provably-empty window before from_regex exhausts its filter budget
         else st.from_regex(pattern, fullmatch=True).filter(lambda s: lo <= len(s) <= hi)
         if isinstance(pattern, str)
         else st.text(min_size=lo, max_size=hi)
@@ -130,25 +119,28 @@ def _text(mn: object, mx: object, pattern: object) -> st.SearchStrategy[str]:
 
 
 def _decimal_max(md: object, dp: object) -> Decimal | None:
-    # Largest value within the digit budget: 10^(max_digits-decimal_places) - 10^(-decimal_places).
+    # Digit-budget ceiling: 10^(max_digits - decimal_places) - 10^(-decimal_places).
     return Decimal(10) ** (md - dp) - Decimal(10) ** (-dp) if isinstance(md, int) and isinstance(dp, int) else None
 
 
-# --- [MSGSPEC_NODE_ALGEBRA] -------------------------------------------------------------
+# --- [MSGSPEC_NODE_ALGEBRA]
 
 
-def _node(node: _mi.Type) -> st.SearchStrategy[object]:  # noqa: C901, PLR0911, PLR0912, PLR0914, PLR0915  # closed taxonomy: one polymorphic surface over the msgspec node algebra
+# closed taxonomy: one polymorphic surface over the msgspec node algebra
+def _node(node: _mi.Type) -> st.SearchStrategy[object]:  # noqa: C901, PLR0911, PLR0912, PLR0914, PLR0915
     """Map one ``msgspec.inspect`` node to a codec-bounded strategy.
 
-    Reads ``ge``/``gt``/``le``/``lt``/``max_length`` so generated values survive a msgspec JSON
-    encode/decode round-trip. ``CustomType`` (Callable, Path, …) maps to ``st.none()`` — the safe default
-    for JSON-opaque leaves. Struct-like arms recurse through ``resolve`` so nested types are registered too.
+    Reads numeric bounds (``ge``/``gt``/``le``/``lt``) and ``max_length`` so generated values survive a
+    msgspec JSON encode/decode round-trip. Struct-like arms recurse through ``resolve`` so nested types are
+    registered. ``CustomType`` and ``ExtType`` (Callable, Path, custom encoders) map to ``st.none()`` as
+    the safe default for JSON-opaque leaves.
 
     Returns:
         A bounded ``SearchStrategy`` for the node.
 
     Raises:
-        AssertionError: When the node type is absent from the supported taxonomy.
+        AssertionError: If the node type falls outside the supported msgspec taxonomy (unreachable in
+            practice; the match arms cover the complete closed set).
     """
     match node:
         case _mi.IntType(ge=ge, gt=gt, le=le, lt=lt):
@@ -222,16 +214,15 @@ def _node(node: _mi.Type) -> st.SearchStrategy[object]:  # noqa: C901, PLR0911, 
         case _mi.AnyType():
             return _json_value()
         case _mi.CustomType() | _mi.ExtType():
-            return st.none()  # JSON-opaque / schema-opaque leaves (Callable, Path, Ext): no stable projection → encode-clean None
+            return st.none()  # JSON-opaque leaves (Callable, Path, Ext): no schema-derivable projection
         case _:  # pragma: no cover  # provably unreachable: the msgspec node taxonomy above is exhaustive
             raise AssertionError(f"unhandled msgspec node {type(node).__name__}")
 
 
-# --- [PYDANTIC_CORE_NODE_ALGEBRA] -------------------------------------------------------
+# --- [PYDANTIC_CORE_NODE_ALGEBRA]
 
 
 def _is_schema(v: object) -> TypeIs[_Schema]:
-    # pydantic-core schema nodes are always string-keyed dicts; TypeIs declares the narrowing isinstance can't.
     return isinstance(v, Mapping)
 
 
@@ -252,9 +243,7 @@ def _ibound(schema: _Schema, incl: str, excl: str, step: int) -> int | None:
 
 
 def _fbound(schema: _Schema, incl: str, excl: str) -> tuple[float | Decimal | None, bool]:
-    # pydantic-core emits `ge`/`le` as `Decimal` for Decimal-literal constraints; thread it unconverted (st.floats and
-    # st.decimals both accept Decimal) so the decimal arm keeps full precision — an eager float() drifts one ULP at
-    # high decimal_places and can admit a boundary-violating value. int/float bounds fold to float as before.
+    # pydantic-core emits `ge`/`le` as `Decimal` for Decimal constraints; thread unconverted to avoid ULP drift at high `decimal_places`.
     a, b = schema.get(incl), schema.get(excl)
     return (
         (a if isinstance(a, Decimal) else float(a), False)
@@ -270,17 +259,22 @@ def _construct(cls: type) -> Callable[[object], object]:
 
 
 def _unwrap(schema: _Schema) -> _Schema:
-    # function-after/before/wrap wrap an inner schema; validator bodies are opaque, so generate from the inner constraints.
     return _unwrap(_sub(schema, "schema")) if str(schema.get("type", "")).startswith("function-") else schema
 
 
-def _pyd_node(schema: _Schema, defs: dict[str, _Schema]) -> st.SearchStrategy[object]:  # noqa: C901, PLR0911, PLR0912, PLR0914, PLR0915  # closed taxonomy: one polymorphic surface over the pydantic-core schema algebra
+# closed taxonomy: one polymorphic surface over the pydantic-core schema algebra
+def _pyd_node(schema: _Schema, defs: dict[str, _Schema]) -> st.SearchStrategy[object]:  # noqa: C901, PLR0911, PLR0912, PLR0914, PLR0915
     """Map one ``pydantic-core`` schema node to a constraint-honoring strategy.
 
-    Reads every machine-readable constraint the node carries (``ge``/``gt``/``le``/``lt``/``multiple_of``,
-    ``pattern``/``min_length``/``max_length``, item/key/value sub-schemas, ``decimal_places``, discriminator
-    choices) so generated instances pass pydantic validation. ``defs`` threads the ``definition-ref`` table so
-    recursive models resolve via ``st.deferred`` without unbounded recursion.
+    Reads every machine-readable constraint the node carries — numeric bounds, ``multiple_of``,
+    ``pattern``, ``min_length``/``max_length``, item/key/value sub-schemas, ``decimal_places``, and
+    discriminator choices — so generated instances pass pydantic validation. ``defs`` threads the
+    ``definition-ref`` table so recursive models resolve via ``st.deferred`` without unbounded recursion.
+    Unrecognized leaf types (url, json, call, custom) map to ``st.none()``.
+
+    Args:
+        schema: A single pydantic-core schema dict node.
+        defs: The accumulated ``definition-ref`` table from the enclosing ``definitions`` node.
 
     Returns:
         A constraint-bounded ``SearchStrategy`` for the node.
@@ -399,31 +393,32 @@ def _deferred_ref(ref: str, defs: dict[str, _Schema]) -> Callable[[], st.SearchS
     return lambda: _pyd_node(defs[ref], defs)
 
 
-# --- [EXPORTS] --------------------------------------------------------------------------
+_REGISTERED: set[type] = set()
 
 
-def resolve[T](subject: TypeForm[T]) -> st.SearchStrategy[T]:  # noqa: PLR0912  # one polymorphic entry point over the full type-form algebra (alias / pydantic / msgspec / native)
+# one polymorphic entry point over the full type-form algebra (alias / pydantic / msgspec / native)
+def resolve[T](subject: TypeForm[T]) -> st.SearchStrategy[T]:  # noqa: PLR0912
     """Idempotently register a constraint-bounded strategy for ``subject``, then return ``st.from_type(subject)``.
 
     Total over the type-form algebra (PEP 747 ``TypeForm``): PEP 695 ``type`` aliases unwrap through
-    ``__value__`` and recurse; pydantic models walk ``__pydantic_core_schema__`` (honoring pattern /
-    multiple_of / nested-item constraints that native ``from_type`` drops); msgspec Struct / dataclass /
-    TypedDict / NamedTuple walk the ``msgspec.inspect`` node algebra; everything else (unions, ``Literal``,
-    ``Annotated``, enums, leaves, containers) resolves natively through ``from_type``. The ``issubclass``
-    probe is guarded behind ``isinstance(subject, type)`` so a non-``type`` form (alias / union / ``Literal``)
-    never raises ``TypeError: issubclass() arg 1 must be a class``. Returning ``from_type`` preserves the
-    generic ``SearchStrategy[T]`` typing with no ``cast``. The ``_REGISTERED`` guard makes the call idempotent
-    and lets self-referential structs resolve through the registry.
+    ``__value__`` and recurse; pydantic models walk ``__pydantic_core_schema__`` honoring ``pattern``,
+    ``multiple_of``, and nested-item constraints that native ``from_type`` drops; msgspec Struct,
+    dataclass, TypedDict, and NamedTuple walk the ``msgspec.inspect`` node algebra; everything else
+    (unions, ``Literal``, ``Annotated``, enums, leaves, containers) resolves natively. Call is idempotent:
+    the ``_REGISTERED`` guard prevents duplicate registration and allows self-referential structs to
+    resolve through the already-registered strategy.
+
+    Args:
+        subject: Any PEP 747 ``TypeForm`` — a concrete ``type``, PEP 695 alias, union, ``Literal``,
+            ``Annotated``, or other type-expression.
 
     Returns:
-        ``st.from_type(subject)`` — a ``SearchStrategy[T]`` producing valid, encode-clean instances.
+        ``st.from_type(subject)`` producing valid, encode-clean instances of ``T``.
     """
     if isinstance(subject, TypeAliasType):
         return resolve(subject.__value__)
     if isinstance(subject, type) and subject not in _REGISTERED:
         _REGISTERED.add(subject)
-        # issubclass narrowing (not `match`) is required so `model.__pydantic_core_schema__` type-resolves; the
-        # subsequent `match` over the msgspec node algebra is the actual variant dispatch.
         if issubclass(subject, pydantic.BaseModel):
             model = subject
 
@@ -453,6 +448,9 @@ def resolve[T](subject: TypeForm[T]) -> st.SearchStrategy[T]:  # noqa: PLR0912  
                     pass  # enums, leaves, unions, Literal, containers: from_type resolves natively
 
     return st.from_type(subject)
+
+
+# --- [EXPORTS] --------------------------------------------------------------------------
 
 
 __all__ = ["resolve"]

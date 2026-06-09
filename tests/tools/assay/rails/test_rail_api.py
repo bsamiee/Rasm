@@ -1,16 +1,16 @@
-"""Law matrix for ``tools.assay.rails.api`` public surface.
+"""Law matrix for tools.assay.rails.api public surface.
 
-Scope: ApiParams, doctor, query, resolve, shape_of, show.
+Covers: ApiParams, doctor, query, resolve, shape_of, show.
 
-Law structure:
-- shape_of dispatch matrix (parametrize case-table, all SymbolShape arms falsifiable).
-- ApiParams.bound dispatch (parametrize verb x positional case-table; surplus -> Fault).
-- ApiParams.sources field invariants (tuple default, prefix filter monotone).
-- doctor sources filter: prefix-subset monotone law and strict-mode Fault promotion.
-- resolve: miss -> UNSUPPORTED + ApiResolution; bad kind -> UNSUPPORTED with kind candidates.
-- show: token cap / truncation; absent token -> EMPTY; latest prefers API scope artifacts.
-- query: known pydist key produces Ok report.
-- @spec laws for ApiResolution / ApiSource / ApiSurface field roundtrip identity.
+Laws:
+    shape_of: parametrized case-table over all SymbolShape arms; every arm is falsifiable.
+    ApiParams.bound: parametrized verb-x-positional case-table; surplus tokens produce Fault.
+    ApiParams.sources: tuple default; prefix filter is monotone.
+    doctor: prefix-subset monotone + strict-mode Fault promotion.
+    resolve: miss yields UNSUPPORTED + ApiResolution; bad kind yields kind candidates.
+    show: token cap / truncation; absent token yields EMPTY; latest prefers API scope.
+    query: known pydist key produces Ok report.
+    spec laws: ApiResolution / ApiSource / ApiSurface field roundtrip identity.
 """
 
 # --- [RUNTIME_PRELUDE] ------------------------------------------------------------------
@@ -105,20 +105,48 @@ _ILSPY_XML: str = (
 _INPROC_CHECK: Check = Check(tool=Tool("py-api", Runner.INPROC, (), Input.NONE, Language.PYTHON, Claim.API, mode=Mode.QUERY))
 _TS_CHECK: Check = Check(tool=Tool("ts-api", Runner.INPROC, (), Input.NONE, Language.TYPESCRIPT, Claim.API, mode=Mode.QUERY))
 
+_TEN_LINES: str = "\n".join(f"line{i}" for i in range(1, 11))
+
+# deps excluded: the fixture lays down no build/analyzers/runtimes dirs, so its target set is empty → EMPTY not OK.
+_PRESENT_KINDS: tuple[str, ...] = ("all", "assembly", "xml", "nuspec", "package-root")
+
+
+# --- [MODELS] ---------------------------------------------------------------------------
+
+
+class _DistDouble:
+    """Realistic importlib.metadata.Distribution double driving the pydist source/inventory edge arms.
+
+    ``files`` is None so the file-manifest-absent arm of _pydist_source is exercised; the OSError
+    fold-to-empty-root arm of the inventory loop is driven by the _OsErrorDist subclass below.
+    """
+
+    def __init__(self, name: str, *, root: str) -> None:
+        self.metadata: dict[str, str] = {"Name": name}
+        self.version = "1.0"
+        self.files = None
+        self._root = root
+
+    def locate_file(self, _rel: str) -> str:
+        return self._root
+
 
 # --- [OPERATIONS] -----------------------------------------------------------------------
 
 
 def _run(verb: Verb, assay_root: AssayHarness, **params: object) -> Result[Report, Fault]:
-    """Open a fresh Claim.API scope and run an api verb over ``ApiParams(**params)`` — one call shape for every verb law.
+    """Run an api verb over ApiParams(**params) in a fresh Claim.API scope.
 
-    Collapses the ubiquitous ``verb(assay_root.settings, scope, ApiParams(...))`` triple (and the per-test scope
-    open) into a single driver, so no test signature needs an ``api_scope`` fixture or an inline scope binding.
+    Collapses the verb(settings, scope, ApiParams(...)) triple so no test needs an inline scope binding.
 
     Returns:
-        The verb's ``Result[Report, Fault]`` over the isolated tmp tree.
+        The verb's Result[Report, Fault] over the isolated tmp tree.
     """
-    return verb(assay_root.settings, assay_root.scope(Claim.API), ApiParams(**params))  # ty: ignore[invalid-argument-type]  # **params is the open keyword set forwarded into the typed ApiParams ctor
+    return verb(
+        assay_root.settings,
+        assay_root.scope(Claim.API),
+        ApiParams(**params),  # ty: ignore[invalid-argument-type]  # **params is the open keyword set forwarded into the typed ApiParams ctor
+    )
 
 
 def _install_ilspy(
@@ -130,11 +158,10 @@ def _install_ilspy(
     returncode: int = 0,
     xmls: bool = False,
 ) -> None:
-    """Write a fabricated RhinoCommon assembly and pin api_rail.run_check + _source to canned ilspycmd output.
+    """Pin api_rail.run_check and _source to canned ilspycmd output over a fabricated RhinoCommon assembly.
 
-    The replacement discriminates on `-t` (decompile) vs the type-listing surface call, mirroring how
-    ilspycmd is actually invoked: surface lists types, decompile windows one type's source. Both branches
-    build their canned receipt through the shared ``RailProbe.receipt`` DNA.
+    The replacement discriminates on -t (decompile) vs the type-listing surface call, mirroring real
+    ilspycmd invocation. Both branches build their receipt through RailProbe.receipt.
     """
     asm = assay_root.write("RhinoCommon.dll", "MZ")
     xml_paths = (assay_root.write("RhinoCommon.xml", _ILSPY_XML),) if xmls else ()
@@ -152,7 +179,7 @@ def _install_ilspy(
 
 
 def _cs_surface(assay_root: AssayHarness, monkeypatch: pytest.MonkeyPatch, symbol: str, *, install: bool = True, **kw: object) -> ApiSurface:
-    """Install canned ilspycmd (unless ``install=False``), query ``symbol``, and return the asserted ApiSurface.
+    """Query symbol over canned ilspycmd output and return the asserted ApiSurface detail.
 
     Returns:
         The ApiSurface detail of the Ok query report over the canned C# source.
@@ -167,7 +194,9 @@ def _cs_surface(assay_root: AssayHarness, monkeypatch: pytest.MonkeyPatch, symbo
     return detail
 
 
-# shape_of — case-table covers all five SymbolShape arms (falsifiable: mutate the match arms).
+# --- [SHAPE_OF]
+
+
 @pytest.mark.parametrize(
     "symbol, expected",
     [
@@ -194,7 +223,7 @@ register_law(shape_of, "shape_of_dispatch")
 register_law(shape_of, "shape_of_idempotent")
 
 
-# --- ApiParams bound dispatch ------------------------------------------------------------------
+# --- [API_PARAMS]
 
 
 @pytest.mark.parametrize(
@@ -252,7 +281,7 @@ def test_api_params_field_identity(p: ApiParams) -> None:
     assert replace(p, key=p.key) == p
 
 
-# --- doctor laws -------------------------------------------------------------------------------
+# --- [DOCTOR]
 
 
 def test_doctor_returns_ok_report(assay_root: AssayHarness) -> None:
@@ -351,12 +380,9 @@ def test_inventory_sources_keep_full_rows_without_pydist_file_expansion(assay_ro
 register_law(doctor, "inventory_sources_full_rows")
 
 
-# --- resolve laws ------------------------------------------------------------------------------
+# --- [RESOLVE]
 
 
-# The resolve-miss family shares one empty-tree seam: resolve a key/kind, assert the UNSUPPORTED+ApiResolution
-# shape (or, under strict, a FAULTED error rail). One case-table over (key, kind, strict, reason) covers
-# unknown-key, bad-kind, NUL-codec-boundary, and strict-promotion in a single falsifiable law.
 @pytest.mark.parametrize(
     "key, kind, strict, reason",
     [
@@ -374,7 +400,11 @@ def test_resolve_miss_family(
     strict: bool,  # noqa: FBT001  # parametrized bool flag
     reason: str,
 ) -> None:
-    """Resolve misses stay UNSUPPORTED with a typed ApiResolution (reason + candidates); strict faults the rail."""
+    """Resolve misses stay UNSUPPORTED with a typed ApiResolution (reason + candidates); strict faults the rail.
+
+    One case-table covers unknown-key, bad-kind, NUL-codec-boundary, and strict-promotion in a single
+    falsifiable law.
+    """
     result = _run(resolve, assay_root, key=key, kind=kind, strict=strict)
     match strict:
         case True:
@@ -428,13 +458,10 @@ def test_resolve_pydist_key_ok(assay_root: AssayHarness) -> None:
 register_law(resolve, "resolve_pydist_key_ok")
 
 
-# --- show laws ---------------------------------------------------------------------------------
-# The store-windowing laws share one stored-artifact seam: write content under scope/api, derive a token,
-# show it, and assert the windowed ApiSurface. ``_show_detail`` collapses that repeated 4-line preamble.
+# --- [SHOW]
 
 
 def _show_detail(assay_root: AssayHarness, content: str, **params: object) -> ApiSurface:
-    # Each law runs in its own tmp tree, so a single fixed artifact name never collides across cases.
     token = assay_root.settings.store().write_text(content, "scope", "api", "pkg", "data.txt").rsplit("/", 1)[-1]
     detail = assert_ok(_run(show, assay_root, token=token, **params)).detail
     assert isinstance(detail, ApiSurface)
@@ -451,11 +478,6 @@ def test_show_absent_token_yields_empty(assay_root: AssayHarness) -> None:
 register_law(show, "show_absent_empty")
 
 
-_TEN_LINES: str = "\n".join(f"line{i}" for i in range(1, 11))
-
-
-# The store-windowing laws share one (content, params) -> ApiSurface seam; one case-table over the windowing
-# matrix (max-lines cap, within-cap, explicit --lines, --grep, --full) asserts (truncated, lines, preview).
 @pytest.mark.parametrize(
     "content, params, expect_truncated, expect_lines, check_preview",
     [
@@ -530,7 +552,7 @@ def test_show_latest_prefers_api_scope_artifact(assay_root: AssayHarness) -> Non
 register_law(show, "show_latest_api_scope_preference")
 
 
-# --- query laws --------------------------------------------------------------------------------
+# --- [QUERY]
 
 
 @pytest.mark.parametrize(
@@ -557,7 +579,7 @@ register_law(query, "query_pydist_ok")
 register_law(query, "query_unknown_key_unsupported")
 
 
-# --- @spec laws for wire types -----------------------------------------------------------------
+# --- [WIRE_TYPES]
 
 
 # Three wire types share identical roundtrip semantics; collapsed into one parametrized law.
@@ -579,15 +601,9 @@ register_law(ApiSource, "api_source_roundtrip")
 register_law(ApiSurface, "api_surface_roundtrip")
 
 
-# --- C# query verb integration with canned ilspycmd output ------------------------------------
-# These drive the full C# surface and decompile processing pipeline by feeding realistic ilspycmd
-# output through a monkeypatched run_check bound AS IMPORTED BY api.py, then asserting the verb parses
-# and projects it correctly. Without these the decompile and surface processing bulk never executes.
+# --- [CS_QUERY]
 
 
-# shape/anchor dispatch across the four SymbolShape arms, plus the SEARCH branch reached two ways:
-# a substring-matching namespace-shaped symbol and a type whose decompile is empty. Each case asserts
-# (shape, anchor-in-preview/signature) over one canned ilspycmd source via the shared _cs_surface seam.
 @pytest.mark.parametrize(
     "symbol, decompile, shape, anchor",
     [
@@ -603,7 +619,11 @@ register_law(ApiSurface, "api_surface_roundtrip")
 def test_cs_query_dispatches_every_shape(
     assay_root: AssayHarness, monkeypatch: pytest.MonkeyPatch, symbol: str, decompile: bytes, shape: SymbolShape, anchor: str
 ) -> None:
-    """C# query parses canned ilspycmd output into the correct ApiSurface shape and anchor text across all arms."""
+    """C# query parses canned ilspycmd output into the correct ApiSurface shape and anchor text across all arms.
+
+    Drives the full C# surface and decompile pipeline through a monkeypatched run_check. Covers the
+    four SymbolShape arms plus the SEARCH branch reached via substring match and empty decompile fallback.
+    """
     # The substring-search arm needs two same-prefix types so 'wid' substring-matches both; other arms use the default roster.
     types = {"wid": b"Class Acme.Widget\nClass Acme.WidgetFactory\nStruct Acme.Point\n"}.get(symbol, _ILSPY_TYPES)
     _install_ilspy(assay_root, monkeypatch, types=types, decompile=decompile)
@@ -715,9 +735,7 @@ def test_cs_surface_empty_assemblies_is_empty_not_fault(assay_root: AssayHarness
 register_law(query, "cs_surface_empty_assemblies_empty")
 
 
-# --- pydist (Python INPROC) query verb integration --------------------------------------------
-# The INPROC thunk runs real in-process introspection against installed distributions, so these
-# exercise the pydist surface/member/decompile pipeline end-to-end with zero external binary.
+# --- [PYDIST_QUERY]
 
 
 def test_pydist_member_query_captures_real_signature(assay_root: AssayHarness) -> None:
@@ -759,7 +777,7 @@ def test_pydist_member_grep_and_full_window(assay_root: AssayHarness) -> None:
 register_law(query, "pydist_member_grep_full")
 
 
-# --- pydist thunk + signature unit laws (direct introspection) --------------------------------
+# --- [PYDIST_THUNK]
 
 
 def test_member_captures_emits_signature_doc_full_triple() -> None:
@@ -802,9 +820,6 @@ def test_resolve_symbol_walks_longest_importable_prefix() -> None:
     assert getattr(resolved, "__name__", "") == "Struct"
 
 
-# _signature fallback family — one case-table over the (subject, expected-match) pairs covering the
-# inspect.signature success path (STRING forward-ref annotations), the annotationlib synthesis arm, the
-# class-shaped synthetic-parens arm, and the '(...)' sentinel when no annotations are recoverable.
 def _signature_fallback_probes() -> tuple[tuple[str, object, object], ...]:
     import types  # noqa: PLC0415  # local: a module object is the cleanest unsignable-but-annotated probe
 
@@ -860,23 +875,6 @@ def test_pydist_source_handles_files_none() -> None:
     assert source.kind is SourceKind.PYDIST
 
 
-class _DistDouble:
-    """Realistic importlib.metadata.Distribution double driving the pydist source/inventory edge arms.
-
-    ``files`` is None so the file-manifest-absent arm of _pydist_source is exercised; the OSError
-    fold-to-empty-root arm of the inventory loop is driven by the _OsErrorDist subclass below.
-    """
-
-    def __init__(self, name: str, *, root: str) -> None:
-        self.metadata: dict[str, str] = {"Name": name}
-        self.version = "1.0"
-        self.files = None
-        self._root = root
-
-    def locate_file(self, _rel: str) -> str:
-        return self._root
-
-
 def test_pydist_source_files_none_yields_empty_assets(assay_root: AssayHarness, monkeypatch: pytest.MonkeyPatch) -> None:
     """_pydist_source over a distribution whose .files is None resolves to a source with empty assets."""
     import importlib.metadata as importlib_metadata  # noqa: PLC0415  # local: drive the stdlib metadata boundary
@@ -910,9 +908,7 @@ def test_pydist_modules_unknown_key_empty() -> None:
     assert api_rail._pydist_modules("totally-not-installed-xyz") == ()
 
 
-# --- TypeScript decl (INPROC) thunk integration -----------------------------------------------
-# The tsdecl thunk parses real .d.ts files with tree-sitter in-process, so a fake node_modules tree
-# drives the full TS surface/member/export-alias/parse-error pipeline.
+# --- [TSDECL]
 
 
 def _ts_package(assay_root: AssayHarness, body: str, *, name: str = "mypkg", version: str = "2.1.0") -> None:
@@ -999,7 +995,7 @@ def test_ts_captures_unreadable_path_returns_empty(assay_root: AssayHarness) -> 
     assert api_rail._ts_captures(parser, missing, "") == ()
 
 
-# --- NuGet source resolution + resolve verb ---------------------------------------------------
+# --- [NUGET]
 
 
 def _nuget_fixture(assay_root: AssayHarness, *, owner: bool = True) -> Path:
@@ -1025,10 +1021,6 @@ def test_nuget_source_carries_inventory_facts(assay_root: AssayHarness) -> None:
     assert isinstance(detail, ApiSource)
     assert detail.restore == "restored"
     assert any(p.endswith("Pkg.Core.dll") for p in detail.assets)
-
-
-# deps excluded: the fixture lays down no build/analyzers/runtimes dirs, so its target set is empty → EMPTY not OK.
-_PRESENT_KINDS: tuple[str, ...] = ("all", "assembly", "xml", "nuspec", "package-root")
 
 
 @pytest.mark.parametrize("kind", _PRESENT_KINDS, ids=list(_PRESENT_KINDS))
@@ -1094,7 +1086,7 @@ def test_resolve_ambiguous_nuget_falls_through_to_unknown(assay_root: AssayHarne
 register_law(resolve, "resolve_nuget_ambiguous")
 
 
-# --- engine boundary + catalog-row faults -----------------------------------------------------
+# --- [ENGINE_BOUNDARY]
 
 
 def test_invoke_error_rail_yields_nonzero_completed(assay_root: AssayHarness, monkeypatch: pytest.MonkeyPatch) -> None:

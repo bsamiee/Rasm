@@ -3,7 +3,7 @@
 # --- [RUNTIME_PRELUDE] ------------------------------------------------------------------
 
 from collections import deque
-from collections.abc import Callable  # noqa: TC003  # runtime: annotates parametrized factory params at collection
+from collections.abc import Callable  # noqa: TC003  # Callable annotation in parametrize parameter evaluated at collection time
 from dataclasses import dataclass
 from pathlib import Path
 import time
@@ -11,15 +11,15 @@ from typing import Final, TYPE_CHECKING
 
 from beartype.roar import BeartypeCallHintViolation
 from dirty_equals import IsStr
-from expression import Error, Ok, Result  # noqa: TC002  # Result used in inner function return annotations at runtime
+from expression import Error, Ok, Result  # noqa: TC002  # Result appears in inner-function annotations evaluated at runtime
 import msgspec
 import msgspec.structs
 from pydantic import BaseModel, ValidationError
-import pytest  # MonkeyPatch used as runtime parameter annotation in test function signatures
+import pytest
 
 from tests._aspect import register_laws  # noqa: PLC2701
 from tests._spec import assert_error, assert_error_status, assert_ok, support_matrix, validity_matrix, ValidityCase  # noqa: PLC2701
-from tests.tools.assay.conftest import (  # noqa: TC001  # AssayHarness is a runtime fixture annotation (pytest evaluates parameter types at collection)
+from tests.tools.assay.conftest import (  # noqa: TC001  # fixture annotation resolved at collection time, not import time
     AssayHarness,
     make_history_envelope,
     pipe_history,
@@ -35,15 +35,13 @@ from tools.assay.composition.registry import (
     REGISTRY,
     self_test,
 )
-from tools.assay.composition.settings import (
-    ArtifactScope,
-    ArtifactStore,  # ArtifactStore is a runtime fixture annotation (pytest evaluates parameter types at collection)
-    AssaySettings,
-)
+from tools.assay.composition.settings import ArtifactScope, ArtifactStore, AssaySettings
 from tools.assay.core.aspect import _RING  # noqa: PLC2701  # ring ContextVar's home module (registry imports it for _seed_parse_ring)
-from tools.assay.core.engine import _RESOURCE  # noqa: PLC2701  # resource ContextVar home (registry imports it)
+from tools.assay.core.engine import (
+    _RESOURCE,  # noqa: PLC2701  # ContextVar set/reset directly for per-test context isolation in test_emit_double_write_guard
+)
 from tools.assay.core.model import (
-    _RESULT_CAP,  # noqa: PLC2701
+    _RESULT_CAP,  # noqa: PLC2701  # private cap used to construct overflow tuple in test_ok_envelope_truncation_persists_full_report
     ArtifactKind,
     Claim,
     Completed,
@@ -84,20 +82,23 @@ class _Proc:
     info: dict[str, object]
 
 
+# --- [OPERATIONS] -----------------------------------------------------------------------
+
+
 def _strict_params(strict: bool) -> object:  # noqa: FBT001  # boundary factory: production reads `params.strict` via getattr
-    """Build a canned params object carrying only the ``strict`` flag the rail reads via ``getattr``.
+    """Throwaway params object carrying only ``strict`` — duck-typed by the rail via ``getattr``.
 
     Returns:
-        A throwaway object whose ``strict`` attribute holds the requested flag.
+        Object whose ``strict`` attribute holds the requested flag.
     """
     return type("_Params", (), {"strict": strict})()
 
 
 def _bad_io(*_a: object, **_k: object) -> None:
-    """Raise ``OSError`` — a stand-in for any best-effort store write the rail must swallow.
+    """Raise ``OSError`` — stand-in for any best-effort store write the rail must swallow.
 
     Raises:
-        OSError: Always, simulating a full disk / read-only store.
+        OSError: Always, simulating a full disk or read-only store.
     """
     raise OSError("disk full")
 
@@ -110,13 +111,17 @@ def _run_fake(bind: Bind, settings: AssaySettings, outcome: Result[Report, Fault
     """Replace ``bind``'s handler with one returning ``outcome`` and execute the rail runner once.
 
     Returns:
-        The Envelope emitted by the rail runner for the canned outcome.
+        The ``Envelope`` emitted by the rail runner for the canned outcome.
     """
     fake = msgspec.structs.replace(bind, handler=lambda *_a, **_k: outcome)
     return rail(fake, settings=settings)(StaticParams())
 
 
-# --- [REGISTRY] -------------------------------------------------------------------------
+def _completed(check: Check, *, rc: int = 0, status: RailStatus = RailStatus.OK, stdout: bytes = b"") -> Completed:
+    return msgspec.structs.replace(Completed(check.tool.command, rc, status=status), stdout=stdout)
+
+
+# --- [REGISTRY]
 
 
 def test_registry_structural_invariants() -> None:
@@ -142,12 +147,11 @@ register_laws(
         _REGISTRY_ROOT,
         ("registry_unique_claim_verb_pairs", "registry_all_handlers_callable", "registry_every_claim_covered", "registry_all_resolve_via_rail"),
     ),
-    # rail(bind) is callable and named-by-verb for every Bind — the per-Bind dispatch surface laws.
     (rail, ("rail_runner_name_matches_verb", "rail_runner_is_callable_for_every_bind")),
 )
 
 
-# --- [BUILD_APP] ------------------------------------------------------------------------
+# --- [BUILD_APP]
 
 
 def test_build_app_returns_cyclopts_app() -> None:
@@ -169,7 +173,7 @@ def test_build_app_returns_cyclopts_app() -> None:
 register_laws((build_app, ("build_app_returns_cyclopts_app", "build_app_every_leaf_reachable", "build_app_self_test_and_delta_registered")))
 
 
-# --- [ORPHAN_MIN_AGE_S] -----------------------------------------------------------------
+# --- [ORPHAN_MIN_AGE_S]
 
 
 def test_orphan_min_age_s_value() -> None:
@@ -230,7 +234,7 @@ def test_orphan_process_exception_returns_none() -> None:
     import psutil as _ps  # noqa: PLC0415
 
     broken: _ps.Process = create_autospec(_ps.Process, instance=True)
-    type(broken).info = PropertyMock(side_effect=OSError("process gone"))  # PropertyMock satisfies autospec at runtime
+    type(broken).info = PropertyMock(side_effect=OSError("process gone"))
     assert registry_mod._orphan_process(broken, Path("/private/tmp"), now=10000.0) is None
 
 
@@ -245,7 +249,7 @@ register_laws((
 ))
 
 
-# --- [PARSE_FAULT] ----------------------------------------------------------------------
+# --- [PARSE_FAULT]
 
 
 def test_parse_fault_dispatch_and_fallback() -> None:
@@ -369,7 +373,7 @@ def test_validation_message_formats_pydantic_errors() -> None:
         y: str
 
     try:
-        _M.model_validate({"x": "not_int", "y": 123})  # model_validate accepts dict input
+        _M.model_validate({"x": "not_int", "y": 123})
     except ValidationError as exc:
         msg = registry_mod._validation_message(exc)
         assert "x" in msg
@@ -413,7 +417,7 @@ register_laws((
 ))
 
 
-# --- [RAIL] -----------------------------------------------------------------------------
+# --- [RAIL]
 
 
 def test_identity_hom_returns_ok_report() -> None:
@@ -500,7 +504,7 @@ def test_guard_maps_exception_to_fault(exc: Exception, prefix: str) -> None:
     Mutant caught: not catching one exception class → it escapes the rail to the caller unhandled.
     """
 
-    def _raise() -> Result[Report, Fault]:  # return annotation satisfies _guard signature
+    def _raise() -> Result[Report, Fault]:
         raise exc
 
     fault = assert_error_status(registry_mod._guard(_raise), RailStatus.FAULTED)
@@ -586,7 +590,7 @@ register_laws(
 )
 
 
-# --- [DELTA] ----------------------------------------------------------------------------
+# --- [DELTA]
 
 
 def test_delta_no_prior_emits_empty_status(assay_root: AssayHarness, monkeypatch: pytest.MonkeyPatch) -> None:
@@ -663,14 +667,14 @@ register_laws((
 ))
 
 
-# --- [SELF_TEST] ------------------------------------------------------------------------
+# --- [SELF_TEST]
 
 
 def test_self_test_structure_and_census(assay_root: AssayHarness, monkeypatch: pytest.MonkeyPatch) -> None:
     """self_test() emits a healthy STATIC/self-test Envelope whose census results cover every REGISTRY verb.
 
-    self_test appends census/health rows beyond the fold count, so counts.total tracks the folded receipt
-    count while results carries the full expanded rows.
+    Census/health rows extend beyond the fold count, so counts.total tracks folded receipts while results
+    carries the full expanded set.
     Mutants caught: wrong claim/verb literals; always-FAILED status; omitting the Match-extension loop.
     """
     monkeypatch.setenv("ASSAY_ROOT", str(assay_root.root))
@@ -713,10 +717,6 @@ def test_full_report_artifact_oserror_returns_empty(assay_root: AssayHarness, mo
     assert _full_report_artifact(assay_root.settings, REGISTRY[0], Report(Claim.STATIC, "fix", RailStatus.OK)) == ()
 
 
-def _completed(check: Check, *, rc: int = 0, status: RailStatus = RailStatus.OK, stdout: bytes = b"") -> Completed:
-    return msgspec.structs.replace(Completed(check.tool.command, rc, status=status), stdout=stdout)
-
-
 @pytest.mark.parametrize(
     "check_factory, outcome, want_substrings, want_ok",
     [
@@ -738,7 +738,7 @@ def test_probe_note_projects_result_to_note(
     check_factory: Callable[[], Check],
     outcome: Callable[[Check], Result[Completed, Fault]],
     want_substrings: tuple[str, ...],
-    want_ok: bool,  # noqa: FBT001
+    want_ok: bool,  # noqa: FBT001  # parametrize matrix field, not a call-site positional bool
 ) -> None:
     """_probe_note projects tool/git probe Results to (note, ok): git absence is informational, tool absence is a miss.
 
@@ -752,7 +752,7 @@ def test_probe_note_projects_result_to_note(
 
 
 @pytest.mark.parametrize("fresh", [True, False], ids=["fresh", "stale"])
-def test_cache_hit_respects_ttl(fresh: bool) -> None:  # noqa: FBT001
+def test_cache_hit_respects_ttl(fresh: bool) -> None:  # noqa: FBT001  # parametrize-injected, not a call-site positional bool
     """_cache_hit returns (note, ok) for a matching fresh token within TTL and None once the ts expires.
 
     Mutants caught: always returning None (TTL ignored, every probe re-runs); removing the TTL check (stale
@@ -849,7 +849,7 @@ register_laws((
 ))
 
 
-# --- [LEAF] -----------------------------------------------------------------------------
+# --- [LEAF]
 
 
 def test_leaf_command_closure_and_invocation(assay_root: AssayHarness, monkeypatch: pytest.MonkeyPatch) -> None:

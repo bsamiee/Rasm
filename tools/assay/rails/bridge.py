@@ -10,7 +10,8 @@ from typing import Final, override
 from expression import Error, Ok, Result
 import msgspec
 
-from tools.assay.composition.settings import ArtifactScope, AssaySettings  # noqa: TC001  # unconditional for beartype runtime
+# beartype resolves ArtifactScope annotation in public function signatures at runtime under PEP 649
+from tools.assay.composition.settings import ArtifactScope, AssaySettings  # noqa: TC001
 from tools.assay.core.engine import leased, run_check
 from tools.assay.core.model import (
     Artifact,
@@ -25,7 +26,7 @@ from tools.assay.core.model import (
     Language,
     Mode,
     receipt,
-    Report,  # noqa: TC001  # unconditional: beartype @checked resolves the -> Result[Report, Fault] forward-ref under PEP 649
+    Report,  # noqa: TC001  # beartype resolves Result[Report, Fault] forward-ref at runtime under PEP 649
     Runner,
     Tool,
     VerifySummary,
@@ -49,7 +50,7 @@ _PATH_GLYPHS: Final[str] = "/*?["
 _EXECUTE_PHASE: Final[str] = "execute"
 _STDOUT_SOURCE: Final[str] = "stdout"
 _STDERR_SOURCE: Final[str] = "stderr"
-# Scenario evidence markers (BridgeMarker.Prefix) ride execute stdout via Scenario.Run / Capture.
+# BridgeMarker-prefixed lines emitted to execute-phase stdout by Scenario.Run / Capture, not raw client stdout.
 _EVIDENCE_RE: Final[re.Pattern[str]] = re.compile(r"rasm\.rhino-bridge\.evidence=facts=(\{.*\})")
 _CAPTURE_RE: Final[re.Pattern[str]] = re.compile(r"rasm\.rhino-bridge\.capture=(\{.*\})")
 
@@ -67,12 +68,15 @@ class BridgeParams(BaseParams):
 
     @property
     def pattern(self) -> str:
-        """Scenario discovery pattern from the positional tail; empty discovers every scenario under the workspace root."""
+        """Scenario discovery pattern from the positional tail.
+
+        An empty string discovers every scenario under the workspace root.
+        """
         return self.paths[0] if self.paths else ""
 
 
 class _Scenario(msgspec.Struct, frozen=True, gc=False):
-    # The status fold erases scenario order, so preserve first-fault facts beside the receipt.
+    # fold() erases scenario order; first-fault fields must survive as receipt-adjacent state.
     status: RailStatus
     stem: str
     exceptions: int = 0
@@ -86,7 +90,7 @@ class _BridgeFault(msgspec.Struct, frozen=True, gc=False, omit_defaults=True, re
     message: str = ""
     type: str = ""
     stack_trace: str = ""
-    causes: tuple["_BridgeFault", ...] = ()  # recursive self-reference — quoted so msgspec resolves it post-creation
+    causes: tuple["_BridgeFault", ...] = ()
 
 
 class _BridgeDiagnostics(msgspec.Struct, frozen=True, gc=False, omit_defaults=True, rename="camel"):
@@ -123,7 +127,7 @@ class _BridgeResult(msgspec.Struct, frozen=True, gc=False, omit_defaults=True, r
 
 _RESULT_DECODER: Final[msgspec.json.Decoder[_BridgeResult]] = msgspec.json.Decoder(_BridgeResult, strict=False)
 
-# The client command is completed with project, configuration, and verb tail through structs.replace.
+# Input.NONE keeps the verb tail in the command body rather than Check.paths.
 _CLIENT_TOOL: Final[Tool] = Tool(
     name="rasm-bridge",
     runner=Runner.DOTNET,
@@ -134,7 +138,7 @@ _CLIENT_TOOL: Final[Tool] = Tool(
     mode=Mode.VERIFY,
     timeout=_SCENARIO_TIMEOUT_S,
 )
-# Lease-free compile check for the protocol, plugin, and client closure.
+# Build runs outside any lease; the lock in _build_closure prevents concurrent restores.
 _BUILD_TOOL: Final[Tool] = Tool(
     name="rasm-bridge-build",
     runner=Runner.DOTNET,
@@ -154,7 +158,6 @@ def _routed() -> Routed:
 
 
 def _client_check(settings: AssaySettings, *args: str) -> Check:
-    # Input.NONE keeps the full client invocation in the command body and out of Check.paths.
     tail = (str(settings.root / _CLIENT_PROJECT), "--configuration", settings.configuration.value, "--", *args)
     tool = msgspec.structs.replace(_CLIENT_TOOL, command=(*_CLIENT_TOOL.command, *tail))
     return Check(tool=tool, cwd=Path(str(settings.root)))
@@ -186,8 +189,7 @@ def _coerce_diagnostics(raw: object) -> _BridgeDiagnostics:
 
 
 def _with_facts(done: Completed, result: _BridgeResult) -> Completed:
-    # Markers ride the execute phase's decoded stdout BridgeOutput, not raw client stdout;
-    # surface them as receipt notes (full VerifyScenario decoding lands in Wave E).
+    # Evidence markers appear in the decoded execute-phase stdout from the JSON result, not in raw client stdout.
     text = next((out.text for phase in result.phases if phase.phase == _EXECUTE_PHASE for out in phase.outputs if out.source == _STDOUT_SOURCE), "")
     facts = tuple(
         f"{label}:{match.group(1)}"
@@ -201,11 +203,11 @@ def _with_facts(done: Completed, result: _BridgeResult) -> Completed:
 def first_fault(result: _BridgeResult) -> tuple[str, str]:
     """Extract the phase label and diagnostic message for the first failing phase.
 
-    A reply-level fault outranks phase rows; otherwise phases stream in wire order, so the
+    A reply-level fault outranks phase rows; otherwise phases stream in wire order so the
     first defect is the retriage entry.
 
     Returns:
-        ``(phase_label, diagnostic_message)`` pair; both empty strings when the result is clean.
+        Pair of (phase_label, diagnostic_message); both empty strings when the result is clean.
     """
     match result.fault:
         case _BridgeFault() as fault:
@@ -217,12 +219,12 @@ def first_fault(result: _BridgeResult) -> tuple[str, str]:
 
 
 def _fault_message(fault: _BridgeFault) -> str:
-    # Causes are a flattened inner-exception chain; the first carries the proximate failure when present.
+    # causes is a flattened inner-exception chain; the first entry is the proximate failure.
     return next((tail.message for tail in fault.causes), fault.message)[:256]
 
 
 def _phase_diagnostic(phase: _BridgePhase) -> str:
-    # Execute markers stream to stdout, so the execute phase prefers stdout; every other phase keeps stderr-first.
+    # Scenario markers stream to stdout; every other phase (compile, load) uses stderr as the primary diagnostic stream.
     order = (_STDOUT_SOURCE, _STDERR_SOURCE) if phase.phase == _EXECUTE_PHASE else (_STDERR_SOURCE, _STDOUT_SOURCE)
     streamed = next((out.text for src in order for out in phase.outputs if out.source == src and out.text), "")
     match (phase.fault, streamed, _diagnostics(phase.data).exception_reports):
@@ -235,7 +237,7 @@ def _phase_diagnostic(phase: _BridgePhase) -> str:
 
 
 def _decode_result(run: Completed, result_path: Path) -> _BridgeResult:
-    # Prefer the result file because client stderr carries structlog diagnostics, not evidence.
+    # The result file is authoritative; client stderr carries structlog infrastructure logs, not scenario JSON.
     raw = _read_result(result_path).default_value(run.stdout or run.stderr)
     try:
         return _RESULT_DECODER.decode(raw or b"{}")
@@ -251,8 +253,6 @@ def _read_result(result_path: Path) -> Result[bytes, Fault]:
 
 
 def _resolve_project(settings: AssaySettings, scenario: Path) -> Path:
-    # ClientVerb routes on extension: a .csproj positional[0] -> Project closure that supplies the scenario's compile surface.
-    # tests/csharp/libs/<project>/.../scenarios/X.verify.csx owns <project>.Tests.csproj; bare scenarios fall back to the TestKit closure.
     root = Path(str(settings.root))
     parts = scenario.resolve().relative_to(root.resolve()).parts
     match parts:
@@ -264,7 +264,7 @@ def _resolve_project(settings: AssaySettings, scenario: Path) -> Path:
 
 
 def _client_ready(settings: AssaySettings) -> Result[None, str]:
-    # --no-build client invocations need a prior build closure; a missing client DLL is an operational fault, not a scenario defect.
+    # --no-build skips restore/compile; a missing client DLL must surface as an operational fault, not a scenario defect.
     bin_dir = Path(str(settings.root)) / Path(_CLIENT_PROJECT).parent / "bin" / settings.configuration.value
     if any(bin_dir.glob("*/Rasm.RhinoBridge.Client.dll")):
         return Ok(None)
@@ -272,7 +272,7 @@ def _client_ready(settings: AssaySettings) -> Result[None, str]:
 
 
 def _run_scenario(settings: AssaySettings, report_dir: Path, scenario: Path) -> _Scenario:
-    # Spawn/timeout Faults become FAILED scenario rows so every discovered scenario stays represented.
+    # Launch and timeout faults become FAILED rows so every discovered scenario appears in the fold.
     stem = scenario.name.removesuffix(_SCENARIO_SUFFIX) or scenario.stem
     result_path = report_dir / f"{stem}.json"
     project = _resolve_project(settings, scenario)
@@ -311,8 +311,8 @@ def _run_decoded(settings: AssaySettings, project: Path, scenario: Path, result_
 
 
 def _discover(settings: AssaySettings, pattern: str) -> tuple[Path, ...]:
-    # Discover by direct file, directory scan, then worktree glob; empty is UNSUPPORTED, not Faulted.
-    root = Path(str(settings.root))  # scenario discovery globs the local worktree; UPath -> Path at the boundary
+    # Empty pattern returns () (UNSUPPORTED), not a Fault.
+    root = Path(str(settings.root))
     direct = _direct(root, pattern)
     return direct or _glob(root, pattern)
 
@@ -332,7 +332,7 @@ def _direct(root: Path, pattern: str) -> tuple[Path, ...]:
 
 
 def _glob(root: Path, pattern: str) -> tuple[Path, ...]:
-    # Bare tokens expand to recursive worktree globs.
+    # Bare name tokens (no glob glyphs) expand to **/<token> so callers can pass a stem without path context.
     base = root.resolve()
     normalized = pattern if any(glyph in pattern for glyph in _PATH_GLYPHS) else f"**/{pattern}"
     return tuple(
@@ -346,8 +346,7 @@ def _glob(root: Path, pattern: str) -> tuple[Path, ...]:
 
 
 def _expire_stale(report_dir: Path, run_id: str, ttl_s: float) -> None:
-    # The per-run scope (report_dir.parent) is unique, so housekeeping must sweep the shared claim root by mtime.
-    # Exclude the live run so expiry before launch cannot race this run's freshly written scenario JSON.
+    # Sweeps the claim root (parent of the run-scoped dir) by mtime; skips run_id to avoid racing in-flight scenario JSON.
     claim_root = report_dir.parent.parent
     match claim_root.is_dir():
         case False:
@@ -359,7 +358,7 @@ def _expire_stale(report_dir: Path, run_id: str, ttl_s: float) -> None:
 
 def _is_stale(child: Path, parent: Path, cutoff: float) -> bool:
     try:
-        # is_relative_to bounds the sweep against symlink escapes.
+        # resolve() + is_relative_to() prevents symlink escapes from the claim root.
         return child.is_dir() and child.resolve().is_relative_to(parent.resolve()) and child.stat().st_mtime <= cutoff
     except OSError:
         return False
@@ -392,7 +391,7 @@ def verify(settings: AssaySettings, scope: ArtifactScope, params: BridgeParams) 
 
 
 def _verify_locked(settings: AssaySettings, scope: ArtifactScope, params: BridgeParams, argv: tuple[str, ...]) -> Result[Report, Fault]:
-    # Report-dir setup, the fault-gated build, then launch must each clear before scenario discovery; the prelude receipts are discarded.
+    # dir creation, build, and launch are sequenced as a faulting prelude; their receipts are discarded on success.
     report_dir = Path(scope.path) / _VERIFY_DIR
     _expire_stale(report_dir, settings.run_id, _VERIFY_TTL_S)
     prelude = _ensure_dir(report_dir).bind(lambda _: _build_closure(settings)).bind(lambda _: _faulted(_client_run(settings, "launch")))
@@ -404,8 +403,7 @@ def _verify_locked(settings: AssaySettings, scope: ArtifactScope, params: Bridge
 
 
 def _fold_scenarios(settings: AssaySettings, report_dir: Path, scenarios: tuple[Path, ...], argv: tuple[str, ...]) -> Result[Report, Fault]:
-    # VerifySummary carries only bridge facts the status/count fold cannot derive.
-    # Lift the first failing scenario before order-insensitive folding erases it.
+    # VerifySummary preserves first-failure evidence that fold() erases when it merges statuses order-insensitively.
     match scenarios:
         case ():
             return Ok(fold(Claim.BRIDGE, "verify", (receipt(argv, 3, status=RailStatus.UNSUPPORTED),)))
@@ -424,8 +422,7 @@ def _fold_scenarios(settings: AssaySettings, report_dir: Path, scenarios: tuple[
 
 
 def _build_closure(settings: AssaySettings) -> Result[Completed, Fault]:
-    # One stable build tree keeps the live host and --no-build client on the same output.
-    # Order protocol -> plugin -> client -> testkit so the isolated resolver finds Scenario.Run / FactBag at scenario time.
+    # Protocol -> plugin -> client -> testkit order ensures the isolated resolver finds Scenario.Run / FactBag before scenario execution.
     def locked(_held: object) -> Result[Completed, Fault]:
         scope = ArtifactScope.build(settings, "bridge")
         projects = (_PROTOCOL_PROJECT, _PLUGIN_PROJECT, _CLIENT_PROJECT, _TESTKIT_PROJECT)
@@ -447,12 +444,12 @@ def _scenario_artifacts(report_dir: Path) -> tuple[Artifact, ...]:
 
 
 def _faulted(outcome: Result[Completed, Fault]) -> Result[Completed, Fault]:
-    # Non-zero build/launch exits mean the closure is unusable; promote them to Fault while preserving the receipt on success.
+    # Non-zero exits from build or launch mean the closure is unusable; promote to Fault rather than propagating as a defect row.
     match outcome:
         case Result(tag="ok", ok=done) if done.status.severity <= RailStatus.OK.severity:
             return Ok(done)
         case Result(tag="ok", ok=done):
-            # FAILED is success-channel defect evidence; build/launch failure is an operational Fault.
+            # FAILED in the success channel signals a build/launch defect; FAULTED marks it as an infrastructure failure.
             status = RailStatus.FAULTED if done.status is RailStatus.FAILED else done.status
             return Error(Fault(done.argv, status, (done.stderr or done.stdout or b"")[:1024].decode(errors="replace")))
         case Result(error=fault):
@@ -460,7 +457,6 @@ def _faulted(outcome: Result[Completed, Fault]) -> Result[Completed, Fault]:
 
 
 def _lifecycle(settings: AssaySettings, verb: str, *args: str) -> Result[Report, Fault]:
-    # Lifecycle verbs differ only by client subcommand and operands under the same bridge.lock lease.
     return leased(
         "bridge",
         lambda _held: _client_run(settings, verb, *args).map(lambda done: fold(Claim.BRIDGE, verb, (done,))),
@@ -490,8 +486,10 @@ def launch(settings: AssaySettings, scope: ArtifactScope, params: BridgeParams) 
     return _lifecycle(settings, "launch")
 
 
-def quit(settings: AssaySettings, scope: ArtifactScope, params: BridgeParams) -> Result[Report, Fault]:  # noqa: A001  # registry verb name; the rail surface mirrors the CLI token, never the builtin
+def quit(settings: AssaySettings, scope: ArtifactScope, params: BridgeParams) -> Result[Report, Fault]:  # noqa: A001
     """Terminate the bridge host under the live Rhino lease.
+
+    Named to mirror the CLI token; shadows the Python builtin intentionally.
 
     Returns:
         Bridge lifecycle report or operational fault.

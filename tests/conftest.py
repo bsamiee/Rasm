@@ -1,4 +1,10 @@
-"""Shared pytest configuration for repo-local Python tests."""
+"""Shared pytest configuration for all repo-local Python test suites.
+
+Registers hypothesis profiles (rasm, rasm-ci, rasm-stress, rasm-debug, rasm-mutation,
+rasm-adversarial, rasm-stateful, rasm-parity), installs a session-scoped OpenTelemetry
+TracerProvider backed by an InMemorySpanExporter, and wires optional observability and
+CPU-profiler side channels controlled by ASSAY_OBSERVABILITY and ASSAY_PROFILE.
+"""
 
 # --- [RUNTIME_PRELUDE] ------------------------------------------------------------------
 
@@ -11,15 +17,13 @@ import threading
 ROOT = Path(__file__).resolve().parents[1]
 REPO_ROOT = ROOT
 _DEFAULT_HYPOTHESIS_HOME = ROOT / ".cache" / "hypothesis"
-_hypothesis_storage_directory = os.environ.get("HYPOTHESIS_STORAGE_DIRECTORY")  # noqa: TID251  # pytest boundary: anchor Hypothesis before import
+_hypothesis_storage_directory = os.environ.get("HYPOTHESIS_STORAGE_DIRECTORY")  # noqa: TID251  # precedes hypothesis import; locks storage path
 HYPOTHESIS_HOME = Path(_hypothesis_storage_directory) if _hypothesis_storage_directory else _DEFAULT_HYPOTHESIS_HOME
-os.environ.setdefault("HYPOTHESIS_STORAGE_DIRECTORY", str(HYPOTHESIS_HOME))  # noqa: TID251  # pytest boundary: seed subprocess home before import
+os.environ.setdefault("HYPOTHESIS_STORAGE_DIRECTORY", str(HYPOTHESIS_HOME))  # noqa: TID251  # precedes hypothesis import in subprocess workers
 
-# Rank 18: opt-in observability artifact lane — must be set BEFORE hypothesis.internal.observability
-# is first imported so the module-level callback registration fires on that import.
-# Default off; zero overhead when unset. Activate with ASSAY_OBSERVABILITY=1.
-if os.environ.get("ASSAY_OBSERVABILITY"):  # noqa: TID251  # pytest boundary: observability gate before hypothesis import
-    os.environ.setdefault("HYPOTHESIS_EXPERIMENTAL_OBSERVABILITY", "1")  # noqa: TID251
+# Must precede any hypothesis import; add_observability_callback fires on the first hypothesis.internal.observability import.
+if os.environ.get("ASSAY_OBSERVABILITY"):  # noqa: TID251
+    os.environ.setdefault("HYPOTHESIS_EXPERIMENTAL_OBSERVABILITY", "1")  # noqa: TID251  # must precede observability module import
 
 from typing import TYPE_CHECKING
 
@@ -49,31 +53,60 @@ if TYPE_CHECKING:
 
 
 # --- [CONSTANTS] ------------------------------------------------------------------------
-# Repo-local Hypothesis/cache anchors W3 reads directly (no fixture indirection over importable constants).
-# Optional profiles: ``--hypothesis-profile=rasm-ci|rasm-stress|rasm-debug|rasm-adversarial|rasm-stateful|rasm-parity``;
-# mutmut uses ``rasm-mutation`` via ``[tool.mutmut]`` pytest args.
 
-
+# HYPOTHESIS_EXAMPLES is a public constant: some test modules (e.g. W3) import it directly without fixture indirection.
 HYPOTHESIS_EXAMPLES = HYPOTHESIS_HOME / "examples"
-# Rank 16: BackgroundWriteDatabase keeps adversarial-profile (max_examples=2000) writes off the
-# critical path. Behind RASM_HYPOTHESIS_GH_REPLAY, a ReadOnlyDatabase(GitHubArtifactDatabase(...))
-# layer replays CI-found counterexamples locally via MultiplexedDatabase. rasm-mutation and
-# rasm-parity profiles deliberately pass database=None and are unaffected.
-# register_random: no private random.Random seam exists in the engines at this time; call it here
-# (strong ref required — hypothesis weakrefs the instance) if one is introduced.
+_SUPPRESSIONS = (HealthCheck.too_slow, HealthCheck.data_too_large)
+
+
+# --- [SERVICES] -------------------------------------------------------------------------
+
+_log = structlog.get_logger(__name__)
+
+
+# --- [OPERATIONS] -----------------------------------------------------------------------
+
+
+def _build_profiler_argv(artifact_dir: Path, secs: str) -> list[str]:
+    """Construct the profiling.sampling attach argv and ensure the artifact directory exists.
+
+    Returns:
+        Argv list ready for subprocess execution.
+    """
+    artifact_dir.mkdir(parents=True, exist_ok=True)
+    ts = datetime.now(tz=UTC).strftime("%Y%m%dT%H%M%S")
+    artifact = artifact_dir / f"session-{ts}.jsonl"
+    return ["python", "-m", "profiling.sampling", "attach", str(os.getpid()), "--jsonl", "-o", str(artifact), "-d", secs]
+
+
+def _run_profiler(artifact_dir: Path, secs: str) -> None:
+    """Execute the profiler subprocess inside ``anyio.run`` on a daemon thread.
+
+    Must not run on the pytest main thread: anyio.run would conflict with plugins
+    that install their own event loop. Exceptions propagate to the thread's
+    unhandled-exception handler (stderr) and never reach the session.
+    """
+
+    async def _attach(argv: list[str]) -> None:
+        async with await anyio.open_process(argv, stdout=None, stderr=None) as proc:
+            await proc.wait()
+
+    argv = _build_profiler_argv(artifact_dir, secs)
+    anyio.run(_attach, argv)
+
+
+# --- [COMPOSITION] ----------------------------------------------------------------------
+
+
 _local_db = BackgroundWriteDatabase(DirectoryBasedExampleDatabase(HYPOTHESIS_EXAMPLES))
-_gh_replay = os.environ.get("RASM_HYPOTHESIS_GH_REPLAY")  # noqa: TID251  # test boundary: CI replay gate
+# BackgroundWriteDatabase keeps writes off the critical path; RASM_HYPOTHESIS_GH_REPLAY layers a ReadOnlyDatabase
+# over GitHubArtifactDatabase via MultiplexedDatabase to replay CI-found counterexamples locally.
+_gh_replay = os.environ.get("RASM_HYPOTHESIS_GH_REPLAY")  # noqa: TID251  # CI replay gate
 match _gh_replay.split("/", 1) if _gh_replay else []:
     case [owner, repo]:
         _EXAMPLE_DB: ExampleDatabase = MultiplexedDatabase(_local_db, ReadOnlyDatabase(GitHubArtifactDatabase(owner, repo)))
     case _:
         _EXAMPLE_DB = _local_db
-_SUPPRESSIONS = (HealthCheck.too_slow, HealthCheck.data_too_large)
-_log = structlog.get_logger(__name__)
-
-
-# --- [COMPOSITION] ----------------------------------------------------------------------
-
 
 set_hypothesis_home_dir(HYPOTHESIS_HOME)
 hyp_settings.register_profile("rasm", database=_EXAMPLE_DB, deadline=None, suppress_health_check=_SUPPRESSIONS)
@@ -95,8 +128,7 @@ hyp_settings.register_profile(
     suppress_health_check=_SUPPRESSIONS,
 )
 hyp_settings.register_profile(
-    # Mutation runs: no shared example DB (cached examples must not mask mutants), derandomized for stable kill verdicts,
-    # explicit+generate only (shrinking a survivor wastes the mutation budget; a single killing example suffices).
+    # no DB: cached examples mask mutants; derandomized: stable kill verdicts; no shrink phase: wastes mutation budget
     "rasm-mutation",
     database=None,
     deadline=None,
@@ -106,7 +138,7 @@ hyp_settings.register_profile(
     suppress_health_check=_SUPPRESSIONS,
 )
 hyp_settings.register_profile(
-    # Adversarial corpus: deep example budget to drive the hostile-input degradation laws into their corners.
+    # deep budget drives hostile-input degradation laws to their boundary corners
     "rasm-adversarial",
     database=_EXAMPLE_DB,
     deadline=None,
@@ -114,7 +146,7 @@ hyp_settings.register_profile(
     suppress_health_check=_SUPPRESSIONS,
 )
 hyp_settings.register_profile(
-    # Stateful RBSMs (lease / tick / history): long step traces so interleavings shrink to a minimal counterexample.
+    # long step traces drive stateful RBSM interleavings to a minimal counterexample
     "rasm-stateful",
     database=_EXAMPLE_DB,
     deadline=None,
@@ -122,24 +154,15 @@ hyp_settings.register_profile(
     suppress_health_check=_SUPPRESSIONS,
 )
 hyp_settings.register_profile(
-    # A/B parity: derandomized (database=None is mandatory under derandomize) for byte-stable cross-tool comparison.
+    # derandomized for byte-stable cross-tool comparison; database=None is mandatory under derandomize
     "rasm-parity",
     database=None,
     deadline=None,
     derandomize=True,
     suppress_health_check=_SUPPRESSIONS,
 )
-# Rank 19 (future, no dep now): a rasm-symbolic profile (@settings(backend="crosshair")) over
-# SMT-tractable pure _spec laws (arithmetic roundtrip / monotone / inverse) will be enabled when a
-# cp315 crosshair-tool wheel ships. CrossHair integrates as a Hypothesis BACKEND via the
-# hypothesis.internal.conjecture.engine AVAILABLE_PROVIDERS registry — zero engine change required,
-# conftest-only. Gate behind a pytest marker to avoid accidental activation on normal runs.
-
-# Rank 18: when ASSAY_OBSERVABILITY is set, redirect jsonlines observations to .artifacts/python/observed/
-# alongside the coverage artifacts. The env var was set before the hypothesis import above so the
-# module-level _deliver_to_file callback already registered; the custom callback below additionally
-# writes the same payload to the repo artifacts tree for agent-readable evidence.
-if os.environ.get("ASSAY_OBSERVABILITY"):  # noqa: TID251  # test boundary: observability artifact redirect
+# hypothesis registers its own _deliver_to_file callback on import; this second callback redirects observations to the repo artifacts tree.
+if os.environ.get("ASSAY_OBSERVABILITY"):  # noqa: TID251
     _OBS_DIR = ROOT / ".artifacts" / "python" / "observed"
 
     def _deliver_to_artifacts(observation: object) -> None:
@@ -155,10 +178,9 @@ if os.environ.get("ASSAY_OBSERVABILITY"):  # noqa: TID251  # test boundary: obse
 def pytest_collection_modifyitems(items: list[pytest.Item]) -> None:
     """Auto-apply ``network`` and ``property`` markers from fixture and Hypothesis membership.
 
-    Generic to every suite under this root (assay, quality, future py projects): ``pytest-socket``'s
-    ``socket_enabled`` fixture lifts ``--disable-socket`` per test, but without this hook those tests
-    are invisible to ``-m network`` selection. Hypothesis-backed tests gain ``property`` so ``-m property``
-    selection stays total without per-test decorators.
+    ``pytest-socket``'s ``socket_enabled`` fixture lifts ``--disable-socket`` per test, but
+    without this hook those tests are invisible to ``-m network`` selection. Hypothesis-backed
+    tests gain ``property`` so ``-m property`` selection is total without per-test decorators.
     """
     network = pytest.mark.network
     property_ = pytest.mark.property
@@ -177,12 +199,11 @@ def pytest_collection_modifyitems(items: list[pytest.Item]) -> None:
 def _otel_provider() -> Generator[InMemorySpanExporter]:
     """Install a real TracerProvider once per session; ``SimpleSpanProcessor`` ensures synchronous export.
 
-    ``autouse=True``: every test records real spans without opt-in. Placed in root conftest so it runs
-    before engine/aspect module-scope imports that bind the ProxyTracer — pytest guarantees root conftest
-    fixtures execute before sub-conftest fixtures.
+    Placed in root conftest so it runs before engine/aspect module-scope imports that bind the
+    ProxyTracer — pytest guarantees root conftest fixtures execute before sub-conftest fixtures.
 
     Yields:
-        The ``InMemorySpanExporter`` backed by the session-scoped ``TracerProvider``.
+        ``InMemorySpanExporter`` accumulating all spans for the session.
     """
     exp = InMemorySpanExporter()
     tp = TracerProvider()
@@ -192,63 +213,18 @@ def _otel_provider() -> Generator[InMemorySpanExporter]:
     tp.shutdown()
 
 
-def _build_profiler_argv(artifact_dir: Path, secs: str) -> list[str]:
-    """Construct the profiling.sampling attach argv and ensure the output directory exists.
-
-    Args:
-        artifact_dir: Directory under which the JSONL artifact is written.
-        secs: Sampling duration as a string (passed verbatim to ``-d``).
-
-    Returns:
-        Argv list ready for subprocess execution.
-    """
-    artifact_dir.mkdir(parents=True, exist_ok=True)
-    ts = datetime.now(tz=UTC).strftime("%Y%m%dT%H%M%S")
-    artifact = artifact_dir / f"session-{ts}.jsonl"
-    return ["python", "-m", "profiling.sampling", "attach", str(os.getpid()), "--jsonl", "-o", str(artifact), "-d", secs]
-
-
-def _run_profiler(artifact_dir: Path, secs: str) -> None:
-    """Execute the profiler subprocess inside ``anyio.run``.
-
-    Any exception propagates to the daemon thread's unhandled-exception handler which
-    writes to stderr — acceptable for observability-only infrastructure. The daemon
-    thread cannot crash the session regardless of outcome.
-
-    Args:
-        artifact_dir: Directory for the JSONL output artifact.
-        secs: Sampling duration forwarded to the subprocess.
-    """
-
-    async def _attach(argv: list[str]) -> None:
-        async with await anyio.open_process(argv, stdout=None, stderr=None) as proc:
-            await proc.wait()
-
-    argv = _build_profiler_argv(artifact_dir, secs)
-    anyio.run(_attach, argv)
-
-
 @pytest.fixture(scope="session", autouse=True)
 def _profiling_sampler(_otel_provider: InMemorySpanExporter) -> None:
     """Best-effort out-of-process CPU sampler for the test session PID.
 
-    Activated only when ``ASSAY_PROFILE`` is non-empty in the environment. Spawns
-    ``python -m profiling.sampling attach <pid> --jsonl -o <artifact> -d <secs>`` in a
-    daemon thread so the subprocess does not block the session or its teardown.
-    Default duration is 60 s; override with ``ASSAY_PROFILE_SECS``.
-
-    WHY a daemon thread: ``anyio.run`` must not be called on the pytest main thread
-    (which may already have an event loop in some plugins), and the subprocess is
-    fire-and-forget — we never need its exit code or output.
-
-    WHY exceptions absorbed in thread target: any failure (missing wheel, platform
-    restriction, permission error) is logged via structlog to stderr and must never
-    propagate out of the daemon thread into the session.
+    Activated when ``ASSAY_PROFILE`` is non-empty. Runs in a daemon thread so
+    ``anyio.run`` does not conflict with main-thread event loops. Any failure is
+    absorbed in the thread target and never reaches the session.
     """
-    profile_flag = os.environ.get("ASSAY_PROFILE")  # noqa: TID251  # test boundary: env gate
+    profile_flag = os.environ.get("ASSAY_PROFILE")  # noqa: TID251  # profiler activation gate
     if not profile_flag:
         return
-    secs = os.environ.get("ASSAY_PROFILE_SECS", "60")  # noqa: TID251  # test boundary: duration override
+    secs = os.environ.get("ASSAY_PROFILE_SECS", "60")  # noqa: TID251  # sampling duration override
     artifact_dir = ROOT / ".artifacts" / "python" / "profile"
 
     def _spawn() -> None:

@@ -10,7 +10,7 @@ every public symbol has at least one law or explicit exemption.
 # --- [RUNTIME_PRELUDE] ------------------------------------------------------------------
 
 from builtins import sentinel as _sentinel  # 3.15 PEP 661 builtin; mypy typeshed lag (ty resolves)
-from collections.abc import Callable  # noqa: TC003  # PEP 695 [**P] annotations are evaluated at runtime; TYPE_CHECKING guard would break them
+from collections.abc import Callable  # noqa: TC003  # PEP 695 ParamSpec annotations are runtime-evaluated; TYPE_CHECKING guard breaks them
 import functools
 import importlib
 import inspect
@@ -41,6 +41,8 @@ class LawRecord(msgspec.Struct, frozen=True):
     module: str
 
 
+# --- [TABLES]
+
 MANIFEST: list[LawRecord] = []
 SUT_PACKAGES: dict[str, frozenset[str]] = {}
 
@@ -49,26 +51,15 @@ SUT_PACKAGES: dict[str, frozenset[str]] = {}
 
 
 def _qualname(subject: object) -> str:
-    """Return a stable qualified name for a subject type or callable.
-
-    Returns:
-        The most specific name available on the subject.
-    """
     return getattr(subject, "__qualname__", None) or getattr(subject, "__name__", None) or str(subject)
 
 
 def _qualname_simple(qualname: str) -> str:
-    """Return the simple (last-component) name from a qualname string.
-
-    ``tools.assay.core.model.Envelope`` → ``Envelope``.
-
-    Returns:
-        The last dot-delimited segment.
-    """
     return qualname.rsplit(".", 1)[-1]
 
 
-def _public_surface(package_name: str) -> frozenset[str]:  # noqa: PLR0912  # filesystem walk + per-module __all__/dir fork is one cohesive surface-collection pass
+# filesystem walk + per-module __all__/dir fork is one cohesive pass; splitting would fragment ownership
+def _public_surface(package_name: str) -> frozenset[str]:  # noqa: PLR0912
     """Walk every leaf module under ``package_name`` and union their public symbols.
 
     Public surface = union of each module's ``__all__``, or all non-underscore attribute names when
@@ -79,19 +70,19 @@ def _public_surface(package_name: str) -> frozenset[str]:  # noqa: PLR0912  # fi
         Frozenset of simple (unqualified) public symbol names across the whole SUT package.
     """
     root = importlib.import_module(package_name)
-    modules = [root]  # the root package's own __all__ counts — submodule walk alone misses __init__ exports
-    # Filesystem walk over __path__ (NOT pkgutil.walk_packages): the SUT uses namespace subpackages with no
-    # __init__.py, which walk_packages silently skips — that would false-pass the gate over the whole subtree.
+    # Root __init__ exports must count; submodule walk alone misses them.
+    # rglob instead of pkgutil.walk_packages: walk_packages silently skips namespace subpackages (no __init__.py), producing false-pass coverage.
+    modules = [root]
     for base in getattr(root, "__path__", ()):
         for py in sorted(Path(base).rglob("*.py")):
             parts = py.relative_to(base).with_suffix("").parts
             stem = parts[:-1] if parts[-1] == "__init__" else parts
             mod_name = ".".join((package_name, *stem))
             if mod_name == package_name:
-                continue  # root already included
+                continue
             try:
                 modules.append(importlib.import_module(mod_name))
-            except Exception:  # noqa: BLE001, S112  # walk must continue past broken/optional modules; silence is intentional
+            except Exception:  # noqa: BLE001, S112  # broken or optional modules must not abort the walk
                 continue
 
     surface: set[str] = set()
@@ -104,9 +95,6 @@ def _public_surface(package_name: str) -> frozenset[str]:  # noqa: PLR0912  # fi
                 surface.update(n for n in dir(mod) if not n.startswith("_") and not inspect.ismodule(getattr(mod, n, None)))
 
     return frozenset(surface)
-
-
-# --- [EXPORTS] --------------------------------------------------------------------------
 
 
 def spec[**P](
@@ -154,26 +142,21 @@ def spec[**P](
         A decorator that wraps the function, applies the full mark/settings stack, and registers a
         ``LawRecord`` into ``MANIFEST``.
     """
-    # Lazy import avoids top-level circular dependency; _strategies is a sibling test-internal module.
-    from tests._strategies import resolve  # noqa: PLC0415, PLC2701
+    # Lazy import avoids a circular dependency: _strategies imports from _aspect at module level.
+    from tests._strategies import resolve  # noqa: PLC0415, PLC2701  # deferred to break import cycle; private sibling import is intentional
 
     def _decorator(fn: Callable[P, None]) -> Callable[P, None]:
-        # Double-decoration guard: @wraps sets __wrapped__; a second @spec sees it and rejects.
         if hasattr(fn, "__wrapped__"):
             msg = f"@spec double-decoration detected on {fn!r}; remove the duplicate decorator."
             raise TypeError(msg)
 
-        # Apply @given BEFORE @settings: hypothesis must wrap the raw function first.
-        # subject must be a type for resolve() to register a bounded strategy.
+        # hypothesis requires @given to wrap the raw function before @settings is applied.
         assert isinstance(subject, type), f"@spec given=True requires a type, got {subject!r}"
         profile_settings = hyp_settings.get_profile(profile)
 
         match given:
             case True:
-                # When events are registered, wrap fn so each drawn arg is reported via hypothesis.event()
-                # before delegation. functools.wraps preserves fn's signature so @given injects correctly;
-                # __wrapped__ is set on the wrapper (pointing to fn), not on fn itself — the double-decoration
-                # guard already passed and only fires on the incoming fn, not our internal wrapper.
+                # functools.wraps preserves the signature for @given injection; __wrapped__ fires the guard on fn, not the wrapper.
                 target = (
                     functools.wraps(fn)(lambda *args, **kwargs: ([hyp_event(tag(args[-1])) for tag in events], fn(*args, **kwargs))[-1])
                     if events
@@ -187,7 +170,6 @@ def spec[**P](
             case None:
                 with_settings = hyp_settings(parent=profile_settings)(with_given)
             case _:
-                # timeout is float | None; non-None branch is always float per the param annotation.
                 with_settings = hyp_settings(parent=profile_settings, deadline=timeout)(with_given)
 
         all_marks = (*markers, *(("mutation",) if mutation else ()))
@@ -196,9 +178,8 @@ def spec[**P](
         fn_name: str = getattr(fn, "__name__", repr(fn))
         MANIFEST.append(LawRecord(subject=_qualname(subject), law=law or fn_name, module=getattr(fn, "__module__", "<unknown>")))
 
-        # Return the @given/@settings/@mark stack AS-IS: @given already removed the strategy parameter from the
-        # collected signature and set __wrapped__ (the double-decoration sentinel). Re-stamping fn's signature here
-        # would re-expose the strategy param and pytest would treat it as a missing fixture.
+        # Return the decorated stack as-is: @given already stripped the strategy param from pytest's
+        # collected signature; re-stamping fn's signature would re-expose it as a missing fixture.
         return result
 
     return _decorator
@@ -270,5 +251,7 @@ def assert_law_coverage() -> None:
             f"  - {name}" for name in sorted(uncovered)
         )
 
+
+# --- [EXPORTS] --------------------------------------------------------------------------
 
 __all__ = ["spec", "register_law", "register_laws", "register_sut", "assert_law_coverage", "MANIFEST", "LawRecord"]

@@ -1,4 +1,15 @@
-"""Define Assay settings, artifact stores, and .NET artifact scopes."""
+"""Assay runtime configuration, artifact backend, and .NET artifact scope surfaces.
+
+Three public surfaces compose the settings layer: AssaySettings owns all validated
+runtime parameters sourced from ASSAY_* environment variables; ArtifactStore is the
+single filesystem owner that routes reads and writes through a pluggable fsspec backend;
+ArtifactScope projects per-run or per-closure artifact directories together with the
+MSBuild flags that redirect .NET build outputs into them.
+
+ArtifactFileSystem defines the structural fsspec subset required by ArtifactStore so
+any fsspec-compatible backend (local, memory, GCS, S3) satisfies the protocol without
+an adapter layer.
+"""
 
 import contextlib
 from dataclasses import dataclass
@@ -18,9 +29,9 @@ from pydantic_settings import (  # noqa: TC002  # Pydantic calls the hook by run
     PydanticBaseSettingsSource,
     SettingsConfigDict,
 )
-from upath import UPath  # pathlib-compatible path for local and fsspec-backed artifact stores
+from upath import UPath
 
-from tools.assay.core.model import (  # noqa: TC001  # claw/settings hooks evaluate these annotations.
+from tools.assay.core.model import (  # noqa: TC001  # pydantic_settings and ArtifactBackend field hooks evaluate these annotations at runtime.
     ArtifactKind,
     Claim,
     Envelope,
@@ -47,8 +58,8 @@ class LogFormat(StrEnum):
 
 
 type AnchoredRoot = Annotated[UPath, BeforeValidator(_anchor)]
-type ExpandedPath = Annotated[UPath, BeforeValidator(lambda v: UPath(v).expanduser())]
 type ExpandedKnownHosts = Annotated[str | None, BeforeValidator(_expand_or_none)]
+type ExpandedPath = Annotated[UPath, BeforeValidator(lambda v: UPath(v).expanduser())]
 type RunId = Annotated[str, Field(min_length=1, max_length=160, pattern=_RUN_ID_PATTERN)]
 type StoreProtocol = Annotated[str, Field(min_length=1, max_length=64, pattern=r"^[A-Za-z][A-Za-z0-9+.-]*$")]
 
@@ -58,18 +69,10 @@ class ArtifactFileSystem(Protocol):
     """Structural subset of fsspec used by Assay artifact storage."""
 
     def makedirs(self, path: str, *, exist_ok: bool = False) -> object:
-        """Create a directory path if needed.
-
-        Returns:
-            Backend-specific creation result.
-        """
+        """Create a directory path if needed."""
 
     def glob(self, path: str) -> list[str]:
-        """Expand a backend glob.
-
-        Returns:
-            Matching backend paths.
-        """
+        """Expand a backend glob."""
 
     def ls(self, path: str, *, detail: bool = False) -> list[str] | list[dict[str, object]]:
         """List a backend path.
@@ -92,51 +95,31 @@ class ArtifactFileSystem(Protocol):
         """Return whether the backend path exists."""
 
     def pipe_file(self, path: str, value: bytes) -> object:
-        """Write bytes to a backend file.
-
-        Returns:
-            Backend-specific write result.
-        """
+        """Write bytes to a backend file."""
 
     def cat_file(self, path: str) -> bytes:
-        """Read bytes from a backend file.
-
-        Returns:
-            File payload bytes.
-        """
+        """Read bytes from a backend file."""
 
     def rm(self, path: str, *, recursive: bool = False) -> object:
-        """Remove a backend path.
-
-        Returns:
-            Backend-specific removal result.
-        """
+        """Remove a backend path."""
 
     def open(self, path: str, mode: str = "rb") -> object:
-        """Open a backend file.
-
-        Returns:
-            Backend-specific file object.
-        """
+        """Open a backend file."""
 
     @property
     def transaction(self) -> contextlib.AbstractContextManager[object]:
-        """Return a backend write-transaction context; backends without one fold to `nullcontext`.
-
-        Returns:
-            Context manager batching writes, or `nullcontext` when the backend is non-transactional.
-        """
+        """Return a backend write-transaction context; backends without one fold to nullcontext."""
         return contextlib.nullcontext()
 
 
 # --- [CONSTANTS] ------------------------------------------------------------------------
 
-_MARKER: Final[str] = "Workspace.slnx"
 _ARTIFACTS: Final[str] = ".artifacts"
+_ARTIFACTS_PATH_FLAG: Final[str] = "--artifacts-path"
 _ASSAY: Final[str] = "assay"
 _BUILD: Final[str] = "build"
 _DISABLE_BUILD_SERVERS: Final[str] = "--disable-build-servers"
-_ARTIFACTS_PATH_FLAG: Final[str] = "--artifacts-path"
+_MARKER: Final[str] = "Workspace.slnx"
 _RUN_ID_PATTERN: Final[str] = r"^[A-Za-z0-9_.-]+$"
 _REMOTE_ENV_NAMES: Final[frozenset[str]] = frozenset((
     "ASSAY_AGENT_TASK_ID",
@@ -166,10 +149,30 @@ _PYTHON_TOOL_ENV_REL: Final[dict[str, str]] = {
 # --- [BOUNDARIES] -----------------------------------------------------------------------
 
 
+def mtime_from_info(info: dict[str, object]) -> float:
+    """Coerce fsspec mtime/created metadata to a POSIX float for history ranking.
+
+    Returns:
+        Modification time as a POSIX float, or 0.0 when the backend omits both keys.
+    """
+    match info.get("mtime", info.get("created", 0.0)):
+        case int() | float() as value:
+            return float(value)
+        case datetime() as value:  # fsspec memory/GCS backends return `created` as a tz-aware datetime instead of a float
+            return value.timestamp()
+        case _:
+            return 0.0
+
+
 def _anchor(value: str | UPath) -> UPath:
-    # Normalize once at ingress so all readers see an absolute UPath anchored to the nearest workspace marker.
+    # Walk ancestors at ingress so every consumer receives an absolute UPath rooted at the workspace, not the cwd.
     cursor = UPath(value).expanduser().resolve()
     return next((p for p in (cursor, *cursor.parents) if (p / _MARKER).is_file()), cursor)
+
+
+def _default_cpu_count() -> int:
+    # os.process_cpu_count honors cgroup/affinity limits; engine._governed reads this via AssaySettings.cpu_count.
+    return min(256, max(1, os.process_cpu_count() or 8))
 
 
 def _expand_or_none(value: str | UPath | None) -> str | None:
@@ -178,6 +181,10 @@ def _expand_or_none(value: str | UPath | None) -> str | None:
             return None
         case _:
             return str(UPath(value).expanduser())
+
+
+def _root_parts(root: str) -> tuple[str, ...]:
+    return tuple(part for part in root.split("/") if part)
 
 
 def _safe_segment(part: str | UPath) -> str:
@@ -196,32 +203,6 @@ def _safe_segment(part: str | UPath) -> str:
             raise ValueError(f"unsafe artifact path segment: {text!r}")
 
 
-def _root_parts(root: str) -> tuple[str, ...]:
-    return tuple(part for part in root.split("/") if part)
-
-
-def _default_cpu_count() -> int:
-    # Affinity-aware usable-CPU count: os.process_cpu_count honors sched_getaffinity/cgroup limits where present and
-    # folds to the logical count otherwise; clamp into the field's [1, 256] bound so the default is always valid. This
-    # mirrors engine._USABLE_CPU and is the seam engine._governed reads via AssaySettings.cpu_count.
-    return min(256, max(1, os.process_cpu_count() or 8))
-
-
-def mtime_from_info(info: dict[str, object]) -> float:
-    """Coerce fsspec `mtime`/`created` metadata to a POSIX float for history ranking.
-
-    Returns:
-        Modification time as a POSIX float, or `0.0` when the backend omits both keys.
-    """
-    match info.get("mtime", info.get("created", 0.0)):
-        case int() | float() as value:
-            return float(value)
-        case datetime() as value:  # fsspec memory/info backends surface `created` as a tz-aware datetime
-            return value.timestamp()
-        case _:
-            return 0.0
-
-
 # --- [MODELS] ---------------------------------------------------------------------------
 
 
@@ -234,9 +215,8 @@ class ArtifactBackend(BaseModel):
     root: str = ""
 
     @model_validator(mode="after")
-    def _bounded_non_file_root(self) -> ArtifactBackend:  # noqa: N804  # Pydantic v2 mode="after" validators receive the model instance via self, not cls.
-        # The `file` backend folds an empty root to the workspace store root, but non-file backends (fsspec MemoryFileSystem
-        # is a process-global singleton) must name an explicit, traversal-free root or distinct stores collide in one process.
+    def _bounded_non_file_root(self) -> ArtifactBackend:  # noqa: N804  # Pydantic v2 mode="after" passes the model instance, not cls.
+        # Non-file backends (e.g., fsspec MemoryFileSystem) are process-global singletons; an empty root collides across parallel stores.
         match (self.protocol, self.root.strip(), ".." in _root_parts(self.root)):
             case ("file", _, _):
                 return self
@@ -251,7 +231,7 @@ class ArtifactBackend(BaseModel):
         """Project the backend root without smuggling run scope into storage ownership.
 
         Returns:
-            Backend root path used by `ArtifactStore`.
+            Backend root path used by ArtifactStore.
         """
         match (self.protocol, self.root):
             case ("file", ""):
@@ -319,15 +299,14 @@ class AssaySettings(BaseSettings):
 
     @field_validator("run_id", "agent_task_id")
     @classmethod
-    def _wire_safe(cls, value: str) -> str:  # pydantic field validators are class-bound
-        # Scrub lone surrogates (surrogateescape from an invalid-UTF-8 ASSAY_RUN_ID/ASSAY_AGENT_TASK_ID env): these
-        # tags flow into agent_context, the structlog CI JSONRenderer, and the Envelope wire, all of which choke on
-        # un-encodable surrogates. The default_factory value is already clean, so this only ever scrubs env input.
+    def _wire_safe(cls, value: str) -> str:
+        # Surrogateescape from invalid-UTF-8 env produces lone surrogates that crash structlog's CI JSONRenderer
+        # and msgspec's Envelope encoder; default_factory values are always clean, so this only fires on env input.
         return value.encode("utf-8", "replace").decode("utf-8")
 
     @field_validator("exec_target")
     @classmethod
-    def _exec_target(cls, value: str) -> str:  # pydantic field validators are class-bound
+    def _exec_target(cls, value: str) -> str:
         # Validate scheme, host, and port before engine._run_remote can raise mid-spawn.
         match value:
             case "":
@@ -354,17 +333,17 @@ class AssaySettings(BaseSettings):
         dotenv_settings: PydanticBaseSettingsSource,
         file_secret_settings: PydanticBaseSettingsSource,
     ) -> tuple[PydanticBaseSettingsSource, ...]:
-        """Use init values and `ASSAY_*` environment variables as the only settings sources."""
+        """Use init values and ASSAY_* environment variables as the only settings sources."""
         _ = (settings_cls, dotenv_settings, file_secret_settings)
         return (init_settings, env_settings)
 
-    @computed_field  # type: ignore[prop-decorator]  # pydantic computed_field over a property
+    @computed_field  # type: ignore[prop-decorator]  # mypy Pydantic plugin does not model computed_field stacked on property
     @property
     def solution(self) -> UPath:
-        """Resolve `Workspace.slnx` under the anchored root."""
+        """Resolve Workspace.slnx under the anchored root."""
         return self.root / _MARKER
 
-    @computed_field  # type: ignore[prop-decorator]  # pydantic computed_field over a property
+    @computed_field  # type: ignore[prop-decorator]  # mypy Pydantic plugin does not model computed_field stacked on property
     @property
     def agent_context(self) -> dict[str, str]:
         """Build log and trace correlation tags."""
@@ -378,7 +357,7 @@ class AssaySettings(BaseSettings):
 
     @property
     def store_root(self) -> UPath:
-        """Resolve the `.artifacts/assay` root path."""
+        """Resolve the .artifacts/assay root path."""
         return self.root / _ARTIFACTS / _ASSAY
 
     @property
@@ -386,7 +365,7 @@ class AssaySettings(BaseSettings):
         """Return the local workspace root usable as a subprocess cwd.
 
         Raises:
-            ValueError: When `root` is not a local file path.
+            ValueError: When root is not a local file path.
         """
         match self.root.protocol:
             case "" | "file":
@@ -425,8 +404,7 @@ class AssaySettings(BaseSettings):
         Returns:
             Environment variables allowed to cross the SSH execution boundary.
         """
-        # ASSAY_RUN_ID is allowlisted but lives only on the settings model (default_factory), never in os.environ, so the
-        # _overlay clone the remote plan inherits omits it; inject it here so the remote process shares the run id.
+        # ASSAY_RUN_ID lives only in default_factory (never os.environ), so inject it explicitly for remote process run-id sharing.
         safe_names = frozenset((*self.python_tool_env, *_REMOTE_ENV_NAMES, *_TRACE_CONTEXT_ENV))
         source = {"ASSAY_RUN_ID": self.run_id, **env}
         return {k: v for k, v in source.items() if k in safe_names}
@@ -435,7 +413,7 @@ class AssaySettings(BaseSettings):
 # --- [SERVICES] -------------------------------------------------------------------------
 
 
-@dataclass(frozen=True, slots=True)  # noqa: PLR0904  # ArtifactStore is the single public storage owner; splitting operations would weaken the boundary.
+@dataclass(frozen=True, slots=True)  # noqa: PLR0904  # ArtifactStore is the single public storage owner; splitting would weaken the boundary.
 class ArtifactStore:
     """Artifact filesystem backend."""
 
@@ -471,10 +449,10 @@ class ArtifactStore:
     def walk(self, *parts: str | UPath, recursive: bool = False, detail: bool = False) -> tuple[str, ...] | tuple[tuple[str, dict[str, object]], ...]:
         """List children under a store-relative path, optionally recursive and with metadata.
 
-        `recursive` chooses `find` over `ls`; `detail` projects `(path, metadata)` rows over plain paths.
+        recursive chooses find over ls; detail projects (path, metadata) rows over plain paths.
 
         Returns:
-            Matching backend paths, or `(path, metadata)` rows when `detail` is set; `()` when the path is absent.
+            Matching backend paths, or (path, metadata) rows when detail is set; empty tuple when the path is absent.
         """
         base = self.path(*parts)
         try:
@@ -509,7 +487,7 @@ class ArtifactStore:
         """Return a backend path size as an int.
 
         Returns:
-            File size, or `fallback` when the backend omits size metadata.
+            File size, or fallback when the backend omits size metadata.
         """
         value = self.info_path(path).get("size", fallback)
         return value if isinstance(value, int) else fallback
@@ -518,7 +496,7 @@ class ArtifactStore:
         """Return a backend path modification time as a float.
 
         Returns:
-            Modification time, or `fallback` when the backend omits mtime metadata.
+            Modification time, or fallback when the backend omits mtime metadata.
         """
         value = self.info_path(path).get("mtime", fallback)
         return value if isinstance(value, int | float) else fallback
@@ -585,7 +563,6 @@ class ArtifactStore:
         return self.read_path(path).decode(encoding, errors=errors)
 
     def _write_at(self, path: str, payload: bytes, *, create: bool, transaction: bool) -> str:
-        # Shared makedirs + create-guard + pipe_file for both the store-relative and backend-path validation entrypoints.
         parent = path.rsplit("/", 1)[0] if "/" in path else self.root
         with self.fs.transaction if transaction else contextlib.nullcontext():
             self.fs.makedirs(parent, exist_ok=True)
@@ -595,9 +572,7 @@ class ArtifactStore:
         return path
 
     def write_bytes(self, payload: bytes, *parts: str | UPath, create: bool = False, transaction: bool = False) -> str:
-        """Write bytes to a validated store-relative path and return the backend path.
-
-        Raises `FileExistsError` when `create` is true and the target already exists (via `_write_at`).
+        """Write bytes to a validated store-relative path; raises FileExistsError when create is true and the target exists.
 
         Returns:
             Backend path that received the payload.
@@ -613,9 +588,7 @@ class ArtifactStore:
         return self.write_bytes(payload.encode(encoding), *parts, create=create, transaction=transaction)
 
     def write_bytes_path(self, payload: bytes, path: str | UPath, *, create: bool = False, transaction: bool = False) -> str:
-        """Write bytes to a validated backend path emitted by this store.
-
-        Raises `FileExistsError` when `create` is true and the target already exists (via `_write_at`).
+        """Write bytes to a validated backend path emitted by this store; raises FileExistsError when create is true and the target exists.
 
         Returns:
             Backend path that received the payload.
@@ -696,21 +669,22 @@ class ArtifactStore:
         return self.write_bytes(payload, ArtifactKind.HISTORY.value, run_id, name), len(payload)
 
     def sorted_history_ids(self) -> tuple[str, ...]:
-        """Return history run ids ranked oldest-first by `(mtime, run_id)` within the history root.
+        """Return history run ids ranked oldest-first by (mtime, run_id) within the history root.
 
-        Backends that omit `mtime` fold to `0.0`, leaving the lexicographic run id as the chronological tiebreaker.
+        Backends that omit mtime fold to 0.0, leaving the lexicographic run id as the chronological tiebreaker.
 
         Returns:
             Run ids ordered oldest-first.
         """
         detailed = self.walk(ArtifactKind.HISTORY.value, detail=True)
+        # walk return is a union; the isinstance guard narrows to detail rows
         rows = tuple((path.rstrip("/").rsplit("/", 1)[-1], info) for path, info in detailed if isinstance(info, dict)) or tuple(  # type: ignore[str-unpack]
             (path.rstrip("/").rsplit("/", 1)[-1], {}) for path in self.glob(f"{ArtifactKind.HISTORY.value}/*")
         )
         return tuple(run_id for run_id, _ in sorted(rows, key=lambda row: (mtime_from_info(row[1]), row[0])))
 
     def retain_history(self, keep: int) -> None:
-        """Prune old run history by backend metadata age, keeping the newest `keep` runs."""
+        """Prune old run history by backend metadata age, keeping the newest keep runs."""
         runs = self.sorted_history_ids()
         for run_id in runs[: max(0, len(runs) - keep)]:
             try:
@@ -783,8 +757,8 @@ class ArtifactStore:
         return self._ranked_paths(matches)
 
     def _walk_details(self, root: str) -> tuple[tuple[str, dict[str, object]], ...]:
-        # walk() returns a union; resolve_artifacts only ever consumes the detail projection of a recursive walk.
         rows = self.walk(*_root_parts(root), recursive=True, detail=True)
+        # walk union; the isinstance guard narrows detail rows
         return tuple((path, info) for path, info in rows if isinstance(info, dict))  # type: ignore[str-unpack]
 
     @staticmethod
@@ -825,11 +799,11 @@ class ArtifactScope:
 
     @property
     def dotnet_env(self) -> dict[str, str]:
-        """Build `.NET` command environment isolation variables."""
+        """Build .NET command environment isolation variables."""
         return {"DOTNET_CLI_HOME": f"{self.path}/dotnet-cli", "MSBUILDDISABLENODEREUSE": "1"}
 
 
 # --- [EXPORTS] --------------------------------------------------------------------------
 
 
-__all__ = ["ArtifactBackend", "AssaySettings", "ArtifactScope", "ArtifactStore", "Configuration", "LogFormat", "mtime_from_info"]
+__all__ = ["ArtifactBackend", "ArtifactScope", "ArtifactStore", "AssaySettings", "Configuration", "LogFormat", "mtime_from_info"]

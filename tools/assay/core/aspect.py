@@ -1,4 +1,12 @@
-"""Define ordered aspect layers for rail and engine boundaries."""
+"""Aspect-layer wiring for assay rail and engine boundaries.
+
+Provides the Slot ordering contract, assemble/compose combinators for stacking
+layers in slot order, and three factory functions -- checked, logged, traced --
+that cover runtime shape validation, structured logging with ring capture, and
+OpenTelemetry tracing with baggage propagation.  The ring_processor structlog
+processor and ring_recent snapshot utility expose the per-context event ring
+used by engine failure reports.
+"""
 
 from collections import deque
 from collections.abc import Callable, Mapping
@@ -36,7 +44,11 @@ type Hom[**P, T] = Callable[P, Result[T, Fault]]
 
 
 class Slot(IntEnum):
-    """Aspect layer order."""
+    """Ordered priority slots for aspect layers; lower value wraps the function first.
+
+    checked is innermost, traced is outermost.  assemble enforces monotonic
+    non-decreasing order and raises Inversion on regression.
+    """
 
     checked = 0
     logged = 1
@@ -48,10 +60,10 @@ type Layer[**P, T] = tuple[Slot, Callable[[Hom[P, T]], Hom[P, T]]]
 
 # --- [CONSTANTS] ------------------------------------------------------------------------
 
-_CONF = BeartypeConf(is_pep484_tower=True, strategy=BeartypeStrategy.O1)
-_TRACER = trace.get_tracer("assay.core")
 _ATTR_CAP = 256
+_CONF = BeartypeConf(is_pep484_tower=True, strategy=BeartypeStrategy.O1)
 _RING: ContextVar[deque[str] | None] = ContextVar("assay_ring", default=None)
+_TRACER = trace.get_tracer("assay.core")
 
 
 # --- [ERRORS] ---------------------------------------------------------------------------
@@ -74,16 +86,16 @@ _LOG: Final = structlog.get_logger("assay")
 # --- [OPERATIONS] -----------------------------------------------------------------------
 
 
-def _correlate(projected: Attrs) -> dict[str, str]:
-    # Normalize OTel-style attrs into contextvar identifiers and drop empty values.
-    return {key.removeprefix("assay.").replace(".", "_"): str(val) for key, val in projected.items() if val is not None and str(val)}
+def ring_processor(logger: object, method_name: str, event_dict: EventDict) -> EventDict:  # noqa: ARG001
+    """Append one structlog event summary to the active ring and inject trace correlation fields.
 
-
-def ring_processor(logger: object, method_name: str, event_dict: EventDict) -> EventDict:  # noqa: ARG001  # mandated structlog Processor signature: (logger, method_name, event_dict)
-    """Append one structlog event summary to the active recent-events ring.
+    Conforms to the structlog processor signature; logger and method_name are
+    required by the protocol but unused.  When a valid OpenTelemetry span is
+    active, trace_id and span_id are added to the event dict so log records
+    correlate with traces without a separate log-record processor.
 
     Returns:
-        Event dictionary passed through to the structlog processor chain.
+        The event dict, mutated in-place when a valid span is active.
     """
     match _RING.get():
         case deque() as ring:
@@ -102,10 +114,10 @@ def ring_processor(logger: object, method_name: str, event_dict: EventDict) -> E
 
 
 def ring_recent() -> tuple[str, ...]:
-    """Snapshot the active recent-events ring.
+    """Snapshot the active recent-events ring for the current context variable.
 
     Returns:
-        Recent event summaries for the current context.
+        Ordered event summaries, or an empty tuple when no ring is active.
     """
     match _RING.get():
         case deque() as ring:
@@ -126,26 +138,29 @@ def _once[**P, T](dec: Callable[[Callable[P, T]], Callable[P, T]]) -> Callable[[
                 return fn
             case False:
                 woven = dec(fn)
-                woven._assay_ids = ids | {tag}  # type: ignore[attr-defined]  # ty: ignore[unresolved-attribute]  # noqa: SLF001  # idempotency marker on the wrapper
+                # idempotency marker on the wrapper
+                woven._assay_ids = ids | {tag}  # type: ignore[attr-defined]  # ty: ignore[unresolved-attribute]  # noqa: SLF001
                 return woven
 
     return guard
 
 
 def checked_call[**P, T](fn: Hom[P, T], *, conf: BeartypeConf = _CONF) -> Hom[P, T]:
-    """Apply runtime shape validation to one rail function.
+    """Apply idempotent runtime shape validation to one rail function.
 
     Returns:
-        Woven function with runtime argument and return validation.
+        The function with beartype argument and return validation applied;
+        calling this a second time with the same decorator instance is a no-op.
     """
     return _once(beartype(conf=conf))(fn)
 
 
 def assemble[**P, T](layers: Block[Layer[P, T]], fn: Hom[P, T]) -> Result[Hom[P, T], Inversion]:
-    """Apply ordered layers to a rail function.
+    """Fold ordered layers onto a rail function, enforcing monotonic slot progression.
 
     Returns:
-        Woven function, or an inversion error when slot order regresses.
+        Ok carrying the woven function, or Error(Inversion) when a layer's slot
+        is less than the preceding slot.
     """
     seed: Result[tuple[Slot, int, Hom[P, T]], Inversion] = Ok((Slot.checked, 0, fn))
     return layers.fold(
@@ -157,10 +172,11 @@ def assemble[**P, T](layers: Block[Layer[P, T]], fn: Hom[P, T]) -> Result[Hom[P,
 
 
 def compose[**P, T](*layers: Layer[P, T]) -> Callable[[Hom[P, T]], Hom[P, T]]:
-    """Build a rail-layer decorator.
+    """Build a decorator that applies the given layers in slot order.
 
     Returns:
-        Decorator that applies the non-retry layers in slot order.
+        A decorator whose application raises TypeError (wrapping Inversion)
+        when any layer's slot is less than the preceding layer's slot.
     """
     homs = block.of_seq(layers)
 
@@ -177,22 +193,19 @@ def compose[**P, T](*layers: Layer[P, T]) -> Callable[[Hom[P, T]], Hom[P, T]]:
 
 
 def checked[**P, T](*, conf: BeartypeConf = _CONF) -> Layer[P, T]:
-    """Create the runtime shape-validation layer.
-
-    Returns:
-        Layer tuple for the checked slot.
-    """
+    """Return a Layer tuple for the Slot.checked position."""
     return (Slot.checked, lambda fn: checked_call(fn, conf=conf))
 
 
-_CHECKED_LAYER = checked()  # type: ignore[var-annotated]
+_CHECKED_LAYER = checked()  # type: ignore[var-annotated]  # Layer[**P, T] PEP 696 vars cannot be inferred at module-level singleton instantiation
 
 
 def logged[**P, T](*, event: str, keys: Bind[P]) -> Layer[P, T]:
-    """Create the rail logging layer.
+    """Return a Layer tuple that emits structured log events at Slot.logged.
 
-    Returns:
-        Layer tuple for the logged slot.
+    On success, logs event.finish at info level with the result status.  On
+    fault, logs at error when fault severity reaches FAILED, otherwise at info.
+    The keys callable binds structlog contextvars for the duration of the call.
     """
 
     def dec(fn: Hom[P, T]) -> Hom[P, T]:
@@ -202,7 +215,6 @@ def logged[**P, T](*, event: str, keys: Bind[P]) -> Layer[P, T]:
                 res = fn(*a, **k)
                 match res:
                     case Result(tag="ok", ok=done):
-                        # T is unbounded, so getattr is the generic status projection.
                         _LOG.info(f"{event}.finish", status=getattr(done, "status", RailStatus.OK))
                     case Result(error=f):
                         finish = f"{event}.finish"
@@ -211,11 +223,15 @@ def logged[**P, T](*, event: str, keys: Bind[P]) -> Layer[P, T]:
                                 _LOG.error(finish, status=f.status, message=f.message, argv=f.argv)
                             case False:
                                 _LOG.info(finish, status=f.status, message=f.message, argv=f.argv)
-                return res  # mypy strict needs the Result[T] annotation; @wraps re-scopes that T under ty: the rail is identical
+                return res  # @wraps re-scopes Result[T] under ty and mypy --strict; runtime shape is correct
 
-        return woven  # @wraps over expression.Result yields ty's _Wrapped re-scope; mypy --strict accepts the Hom passthrough
+        return woven
 
     return (Slot.logged, dec)
+
+
+def _correlate(projected: Attrs) -> dict[str, str]:
+    return {key.removeprefix("assay.").replace(".", "_"): str(val) for key, val in projected.items() if val is not None and str(val)}
 
 
 def _stamp[T](s: Span, res: Result[T, Fault]) -> Result[T, Fault]:
@@ -234,10 +250,12 @@ def _stamp[T](s: Span, res: Result[T, Fault]) -> Result[T, Fault]:
 
 
 def traced[**P, T](*, span: str, attrs: Callable[P, Attrs], agent: Callable[P, Attrs] | None = None) -> Layer[P, T]:
-    """Create the tracing layer for sync rail and async spawn functions.
+    """Return a Layer tuple that creates an OpenTelemetry span at Slot.traced.
 
-    Returns:
-        Layer tuple for the traced slot.
+    Projected attributes from attrs (and optional agent) are set on the span
+    and propagated as OpenTelemetry baggage.  Correlation fields are injected
+    into structlog contextvars so log records carry trace_id and span_id.
+    Dispatches to an async wrapper when the decorated function is a coroutine.
     """
 
     def dec(fn: Hom[P, T]) -> Hom[P, T]:
@@ -267,11 +285,12 @@ def traced[**P, T](*, span: str, attrs: Callable[P, Attrs], agent: Callable[P, A
                 try:
                     with _TRACER.start_as_current_span(span) as s:
                         s.set_attributes({key: str(val) for key, val in projected.items()})
+                        # fn is a coroutine function (guarded by iscoroutinefunction) but PEP 695 ParamSpec makes it opaque to both checkers
                         return _stamp(s, await fn(*a, **k))  # type: ignore[misc]  # ty: ignore[invalid-await]
                 finally:
                     context.detach(token)
 
-        # awoven is the async spawn boundary; compose owns the @wraps Hom re-scope suppression.
+        # union of awoven/woven cannot unify to Hom[P, T] under strict ParamSpec; runtime dispatch is correct
         return awoven if inspect.iscoroutinefunction(fn) else woven  # type: ignore[return-value]  # ty: ignore[invalid-return-type]
 
     return (Slot.traced, dec)

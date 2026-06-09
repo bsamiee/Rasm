@@ -13,9 +13,9 @@ from typing import TYPE_CHECKING
 
 import structlog
 
-from tests._aspect import register_law  # noqa: PLC2701  # sibling test-internal module; _-named by S1 design
+from tests._aspect import register_law  # noqa: PLC2701  # underscore-prefixed internal test helper
 from tools.assay import configure_logging
-from tools.assay._logging import _StderrLogger  # noqa: PLC2701  # the live-resolving factory product under test
+from tools.assay._logging import _StderrLogger  # noqa: PLC2701  # private factory product is the test surface
 from tools.assay.composition.settings import LogFormat
 
 
@@ -27,7 +27,6 @@ if TYPE_CHECKING:
 
 
 def test_configure_logging_resolves_stderr_per_write(monkeypatch: pytest.MonkeyPatch) -> None:
-    """The factory configure_logging installs writes to the live sys.stderr, surviving a closed prior stream."""
     configure_logging(LogFormat.CI)
     logger = structlog.get_config()["logger_factory"]()
     assert isinstance(logger, _StderrLogger)
@@ -40,9 +39,11 @@ def test_configure_logging_resolves_stderr_per_write(monkeypatch: pytest.MonkeyP
     first.close()
     second = io.StringIO()
     monkeypatch.setattr("sys.stderr", second)
-    logger.info("after-reassign")  # captured stream would raise ValueError here; live resolution writes to second
+    logger.info("after-reassign")
 
     assert "after-reassign" in second.getvalue()
 
+
+# --- [COMPOSITION] ----------------------------------------------------------------------
 
 register_law(configure_logging, "test_configure_logging_resolves_stderr_per_write")

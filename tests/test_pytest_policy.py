@@ -2,15 +2,15 @@
 
 Three orthogonal rails:
 
-1. **Law-coverage gate** — calls ``assert_law_coverage()`` in-session after all laws have been collected
+1. Law-coverage gate: calls ``assert_law_coverage()`` in-session after all laws have been collected
    and registered into ``MANIFEST``.  Every public ``tools.assay`` symbol must have at least one law or
    an explicit exemption recorded in the assay conftest's ``_EXEMPT`` frozenset.
 
-2. **Marker-policy laws** — assert the ``pytest_collection_modifyitems`` hook auto-applies ``network``
+2. Marker-policy laws: assert the ``pytest_collection_modifyitems`` hook auto-applies ``network``
    to tests that request ``socket_enabled`` and ``property`` to hypothesis-backed tests.  The ``mutation``
    marker is declared in ``pyproject.toml``; its registration is verified structurally.
 
-3. **Benchmark-storage single-owner policy** — the ``--benchmark-storage`` URI must appear in exactly
+3. Benchmark-storage single-owner policy: the ``--benchmark-storage`` URI must appear in exactly
    one place (``[tool.pytest.ini_options] addopts``) and must match the constant declared in
    ``tools.assay.composition.catalog``.  Duplication across ``conftest.py`` files or per-session
    ``benchmark.pedantic`` calls is forbidden.
@@ -19,14 +19,14 @@ Three orthogonal rails:
 # --- [RUNTIME_PRELUDE] ------------------------------------------------------------------
 
 import importlib
-from pathlib import Path  # noqa: TC003  # used at module level for _PYPROJECT constant; cannot defer to TYPE_CHECKING
+from pathlib import Path  # noqa: TC003  # module-level _PYPROJECT assignment prevents deferral
 import tomllib
 
 from _pytest.python import Function  # noqa: PLC2701  # internal pytest type; no public re-export; required for isinstance check
 from hypothesis import is_hypothesis_test
 import pytest
 
-from tests._aspect import assert_law_coverage, LawRecord, MANIFEST  # noqa: PLC2701  # sibling test-internal module; _-named by S1 design
+from tests._aspect import assert_law_coverage, LawRecord, MANIFEST  # noqa: PLC2701  # test-internal, _-named by design
 from tests.conftest import REPO_ROOT
 from tools.assay.composition.catalog import BENCHMARK_STORAGE_URI
 
@@ -35,12 +35,8 @@ from tools.assay.composition.catalog import BENCHMARK_STORAGE_URI
 
 _PYPROJECT: Path = REPO_ROOT / "pyproject.toml"
 
-# Policy markers that must be declared in [tool.pytest.ini_options] markers.
 _POLICY_MARKERS: frozenset[str] = frozenset({"benchmark", "mutation", "network", "property"})
 
-# Tool scratch dirs that must never collect at the repo root: each tool home is routed under .cache/ or
-# .artifacts/ (hypothesis → .cache/hypothesis, pytest-benchmark → .artifacts/python/benchmarks, coverage →
-# .cache/coverage/.coverage, inline-snapshot → .cache/inline-snapshot).
 _LITTER_DIRS: frozenset[str] = frozenset({".hypothesis", ".benchmarks", ".mutants", "mutants", ".coverage", ".approval_tests_temp"})
 
 
@@ -48,11 +44,10 @@ _LITTER_DIRS: frozenset[str] = frozenset({".hypothesis", ".benchmarks", ".mutant
 
 
 def _nav(node: dict[str, object], *keys: str) -> object:
-    """Walk a nested TOML mapping by successive string keys; returns None on any miss or type mismatch.
+    """Walk a nested TOML mapping by successive string keys.
 
     Returns:
-        The value found at the final key, or ``None`` if any key is absent or an intermediate value
-        is not a mapping.
+        Value at the final key, or ``None`` when any key is absent or an intermediate value is not a mapping.
     """
     current: object = node
     for k in keys:
@@ -65,36 +60,23 @@ def _nav(node: dict[str, object], *keys: str) -> object:
 
 
 def _pyproject_data() -> dict[str, object]:
-    """Load the root pyproject.toml as a plain string-keyed mapping.
+    """Load the root ``pyproject.toml`` as a plain string-keyed mapping.
 
     Returns:
-        TOML document as a ``dict[str, object]`` (toml values are always str-keyed at top level).
+        TOML document as ``dict[str, object]``.
     """
-    # tomllib returns dict[str, Any] at runtime; the annotation is intentionally widened to object
-    # so callers never rely on implicit Any propagation.
     data: dict[str, object] = tomllib.loads(_PYPROJECT.read_text(encoding="utf-8"))
     return data
 
 
 def _pytest_ini_addopts() -> list[str]:
-    """Return the ``[tool.pytest.ini_options] addopts`` list as a flat string list.
-
-    The TOML section ``[tool.pytest.ini_options]`` maps to the key path ``tool.pytest`` in the parsed
-    document; ``ini_options`` is the TOML section suffix, not a nested key.
-
-    Returns:
-        List of addopts strings; empty if the key is absent.
-    """
+    """Return the ``[tool.pytest] addopts`` list as a flat string list; empty when the key is absent."""
     addopts: object = _nav(_pyproject_data(), "tool", "pytest", "addopts")
     return [str(o) for o in addopts] if isinstance(addopts, list) else []
 
 
 def _pytest_ini_marker_names() -> frozenset[str]:
-    """Return the simple marker names declared under ``[tool.pytest.ini_options] markers``.
-
-    Returns:
-        Frozenset of bare marker names (e.g. ``{"benchmark", "mutation", "network", "property"}``).
-    """
+    """Return the bare marker names declared under ``[tool.pytest] markers`` (e.g. ``{"benchmark", "network"}``); empty when absent."""
     markers: object = _nav(_pyproject_data(), "tool", "pytest", "markers")
     if not isinstance(markers, list):
         return frozenset()
@@ -102,27 +84,18 @@ def _pytest_ini_marker_names() -> frozenset[str]:
 
 
 def _benchmark_storage_flags(addopts: list[str]) -> list[str]:
-    """Filter addopts to only ``--benchmark-storage`` flags.
-
-    Returns:
-        Sublist of entries that start with ``--benchmark-storage``.
-    """
+    """Return addopts entries that start with ``--benchmark-storage``."""
     return [o for o in addopts if o.startswith("--benchmark-storage")]
 
 
 def _collect_session_items(pytestconfig: pytest.Config) -> list[Function]:
-    """Return collected ``Function`` items from the current session if available.
-
-    Returns:
-        List of ``_pytest.python.Function`` items; empty when the session has no ``items`` attr.
-    """
+    """Return collected ``Function`` items from the current session; empty when ``session.items`` is absent."""
     session: object = pytestconfig.pluginmanager.get_plugin("session")
-    # _pytest.main.Session has no public stub; access .items via getattr to avoid ty attribute errors.
-    raw: object = getattr(session, "items", None)  # constant attr name; B009 suppressed: no stub on session type forces getattr over direct access
+    raw: object = getattr(session, "items", None)  # B009: session has no public stub; attribute is a fixed string, not computed
     return [item for item in (raw if isinstance(raw, list) else []) if isinstance(item, Function)]
 
 
-# --- [LAW_COVERAGE_GATE] ----------------------------------------------------------------
+# --- [LAW_COVERAGE_GATE]
 
 
 def test_law_coverage_gate() -> None:
@@ -134,7 +107,7 @@ def test_law_coverage_gate() -> None:
     assert_law_coverage()
 
 
-# --- [MANIFEST_STRUCTURAL_LAWS] ---------------------------------------------------------
+# --- [MANIFEST_STRUCTURAL_LAWS]
 
 
 def test_manifest_records_are_typed() -> None:
@@ -171,7 +144,7 @@ def test_manifest_has_no_lambda_subjects() -> None:
     assert not lambda_entries, f"anonymous-subject law records found: {lambda_entries!r}"
 
 
-# --- [MARKER_POLICY_LAWS] ---------------------------------------------------------------
+# --- [MARKER_POLICY_LAWS]
 
 
 def test_declared_markers_cover_policy_set() -> None:
@@ -220,7 +193,7 @@ def test_property_marker_auto_applied_to_hypothesis_items(pytestconfig: pytest.C
         )
 
 
-# --- [BENCHMARK_STORAGE_POLICY] ---------------------------------------------------------
+# --- [BENCHMARK_STORAGE_POLICY]
 
 
 def test_benchmark_storage_single_owner_in_addopts() -> None:
@@ -269,7 +242,7 @@ def test_catalog_module_exposes_benchmark_storage_uri() -> None:
     assert uri, f"BENCHMARK_STORAGE_URI is empty: {uri!r}"
 
 
-# --- [LITTER_CONTAINMENT_POLICY] --------------------------------------------------------
+# --- [LITTER_CONTAINMENT_POLICY]
 
 
 def test_repo_root_has_no_tool_scratch_litter() -> None:
