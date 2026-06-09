@@ -18,7 +18,6 @@ This table is a lookup by reader decision.
 |   [8]   | algorithm and data       | future `algorithms.md`                                      | target   |
 |   [9]   | package or platform fact | future `platform/build-and-packages.md`                     | target   |
 |  [10]   | proof rail               | future `testing/README.md`                                  | target   |
-|  [11]   | declaration-first design | [AOT/decorator spec](.planning/SPEC.aot-first-decorator.md) | planning |
 
 ## [2]-[OWNER_RULE]
 
@@ -122,8 +121,6 @@ This table is a lookup by target page sequence.
 - Runtime dispatch carries a contract; violations convert to `Result` at the boundary and never raise inside domain flow.
 - Aspects bind to the admitted libs, materialize at definition time, preserve signature, and return `Result`; 2-4 wrappers collapse into one parameterized aspect with a stated stack order.
 - Async surfaces return `Result` and fan-out collapses to one aggregate rail; sync handlers offload through `anyio`.
-
-`.planning/SPEC.aot-first-decorator.md` is the decorator-first seed; its §7 question (singledispatch vs match) resolves to `match` for closed in-repo and a registry or `singledispatch` for the open boundary. No `.reports/` research exists yet; author from this seeding and the research pipeline it kicks off.
 
 ## [6]-[CURRENT_CONFLICT_RULE]
 
