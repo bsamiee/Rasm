@@ -12,7 +12,7 @@ Python `>=3.15` is the active language surface. This page is the version-feature
 - Type gates: strict `ty` and strict `mypy`
 - Formatter and lint gate: `Ruff` preview policy
 - Encoding baseline: UTF-8 default with explicit persisted-I/O contracts
-- Import baseline: module-scope named imports, with explicit lazy imports for cold dependencies
+- Import baseline: module-scope named imports; lazy imports only after tool configuration admits the syntax
 - Export baseline: explicit end-of-file `__all__`; no wildcard imports, barrel files, facade exports, or empty `__init__.py` package markers
 - Annotation baseline: deferred annotations inspected through annotation APIs
 
@@ -51,7 +51,7 @@ Use the active Python surface directly. Replace older spellings and local machin
 |  [25]   | immutable map              | `frozendict`                                                   | tuple-pair pseudo-maps              |
 |  [26]   | invariant arity            | `zip(strict=True)`                                             | post-truncation asserts             |
 |  [27]   | mapped arity               | `map(strict=True)`                                             | post-truncation asserts             |
-|  [28]   | cold import                | module-scope `lazy import` or `lazy from`                      | local-import startup hacks          |
+|  [28]   | cold import                | tool-admitted module-scope `lazy import` or `lazy from`        | local-import startup hacks          |
 |  [29]   | startup hook               | `.start` entries                                               | executable `.pth` import lines      |
 |  [30]   | UTF-8 default              | UTF-8 default; `encoding="locale"`                             | locale-dependent implicit text I/O  |
 |  [31]   | static reflection          | `inspect.getmembers_static()`                                  | descriptor-triggering scans         |
@@ -161,7 +161,7 @@ Use these contracts when the chooser names the primitive but code still needs a 
 [TYPE_DECLARATION_SITE]:
 - Use when: the defining declaration can carry type evidence that callers would otherwise repair downstream.
 - Accept: inline type parameters, `type` aliases, `TypeForm` for type-expression values, parameter-preserving callable signatures, type parameter defaults, `NoDefault`, `@typing.override`, `typing.Self`, `@typing.disjoint_base`, and `TypeVarTuple` `bound`, `covariant`, `contravariant`, and `infer_variance` arguments.
-- Reject: erased `Callable[..., T]`, remote alias repair, broad `type[T]` or `object` placeholders for type-form values, unmarked overrides, prose-only disjointness, bound-self boilerplate, and protocol shells created only to type an existing object.
+- Reject: erased `Callable[..., T]`, imported `ParamSpec` where inline `**P` can express the decorator, remote alias repair, broad `type[T]` or `object` placeholders for type-form values, unmarked overrides, prose-only disjointness, bound-self boilerplate, and protocol shells created only to type an existing object.
 - Boundary: `TypeForm`, disjointness, and override evidence are static typing contracts; runtime validation, object-family policy, decorator architecture, protocol ports, and package-backed typing decisions belong to the owning concept page.
 
 [TYPE_PREDICATE_SITE]:
@@ -279,7 +279,7 @@ SELECTED_RESULT = selected(key="<key-a>", field=Field.KEY)
 
 [LAZY_IMPORT_SITE]:
 - Use when: a cold dependency should remain declared at the module boundary without paying import cost until first use.
-- Accept: module-scope `lazy import` and `lazy from` statements for named modules or named imported members.
+- Accept: module-scope `lazy import` and `lazy from` statements for named modules or named imported members only when formatter, linter, type checker, and runtime configuration admit the syntax.
 - Reject: function-local import hiding, `importlib` laziness scattered through call sites, `lazy` inside functions, classes, or `try` blocks, lazy star imports, lazy future imports, and `__lazy_modules__` in target-only code where direct `lazy` imports can state the boundary.
 - Boundary: global lazy-import modes, startup policy, dependency graph costs, and tool graph truth belong to the runtime or platform owner.
 

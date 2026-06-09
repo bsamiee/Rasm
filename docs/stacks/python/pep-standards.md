@@ -12,7 +12,7 @@ The table is an index, not a PEP manual. Keep each row atomic: name the capabili
 |   [2]   | PEP 749 | Annotation inspection | Use `annotationlib`                                     | Raw `__annotations__` reads                    |
 |   [3]   | PEP 649 | Annotation deferral   | Use unquoted annotations                                | Quoted annotation strings                      |
 |   [4]   | PEP 750 | Template strings      | Use `t`-strings for structured interpolation            | Parsing formatted strings                      |
-|   [5]   | PEP 810 | Lazy imports          | Declare cold imports with `lazy`                        | Local-import startup hacks                     |
+|   [5]   | PEP 810 | Lazy imports          | Declare tool-admitted cold imports with `lazy`          | Local-import startup hacks                     |
 |   [6]   | PEP 829 | Package startup       | Declare startup entrypoints in `.start`                 | Executable `.pth` import lines                 |
 |   [7]   | PEP 661 | Sentinel values       | Create named sentinels with `sentinel()`                | `object()` markers and magic strings           |
 |   [8]   | PEP 814 | Immutable mappings    | Use built-in `frozendict` for immutable mappings        | Tuple-pair encodings and thin wrappers         |
@@ -204,8 +204,8 @@ def materialized(
 [CALLABLE_SIGNATURES]:
 - PEPs: PEP 612, PEP 692, PEP 821, PEP 570.
 - Use when: callable shape, decorator AOP, keyword payloads, or positional-only contracts must survive API boundaries.
-- Accept: `ParamSpec`, `Concatenate`, `Callable[[Unpack[TypedDict]], R]`, `Unpack[TypedDict]`, and `/` positional-only parameters.
-- Reject: `Callable[..., Any]`, homogeneous `**kwargs`, callback `Protocol` shells for keyword-callable aliases, wrapper signatures that erase parameters, and `*args` parsing for positional contracts.
+- Accept: inline `**P`, `Concatenate`, `Callable[[Unpack[TypedDict]], R]`, `Unpack[TypedDict]`, and `/` positional-only parameters.
+- Reject: imported `ParamSpec` where inline `**P` can express the decorator, `Callable[..., Any]`, homogeneous `**kwargs`, callback `Protocol` shells for keyword-callable aliases, wrapper signatures that erase parameters, and `*args` parsing for positional contracts.
 - Law: signatures carry the call contract where the aspect, payload, or positional boundary is declared.
 - Boundary: `Unpack[TypedDict]` types the implementation `**kwargs`; `Callable[[Unpack[TD]], R]` types the callback value.
 
@@ -363,7 +363,7 @@ def materialized(policy: LiteralString, root: Path, zone: LiteralString, /) -> P
 [IMPORT_STARTUP]:
 - PEPs: PEP 810, PEP 829, PEP 667.
 - Use when: imports, startup hooks, or locals views become runtime values.
-- Accept: module-scope `lazy` imports, `.start` entries, `locals()` snapshots, and `frame.f_locals` proxies.
+- Accept: tool-admitted module-scope `lazy` imports, `.start` entries, `locals()` snapshots, and `frame.f_locals` proxies.
 - Reject: local-import startup hacks, executable `.pth` import lines, hidden package-marker side effects, and assumed `locals()` write-through.
 - Law: evaluation and startup boundaries must be visible where the module declares them.
 
