@@ -1,6 +1,6 @@
 """Laws for tools.assay.rails.code — CodeParams, query, rewrite, search."""
 
-# --- [RUNTIME_PRELUDE] -----------------------------------------------------------------------
+# --- [RUNTIME_PRELUDE] ------------------------------------------------------------------
 
 from dataclasses import replace as dc_replace
 from pathlib import Path
@@ -49,14 +49,14 @@ if TYPE_CHECKING:
     from tests.tools.assay.conftest import AssayHarness
 
 
-# --- [CONSTANTS] -----------------------------------------------------------------------------
+# --- [CONSTANTS] ------------------------------------------------------------------------
 
 _QUERY_TOOL = Tool("tree-sitter", Runner.INPROC, ("tree-sitter", "query"), Input.FILES, Language.PYTHON, Claim.CODE, mode=Mode.QUERY)
 _PY_FUNC_QUERY = "(function_definition name: (identifier) @name)"
 _BLANK_CASES: tuple[str, ...] = ("", "   ", "\t")
 _AG_MATCH = AstMatch(text="alpha = 1", file="pkg/mod.py", lines="alpha = 1\n", replacement="let alpha = 1")
 
-# --- [LAW_COVERAGE] --------------------------------------------------------------------------
+# --- [LAW_COVERAGE] ---------------------------------------------------------------------
 
 register_law(CodeParams, "bound_positional_projection")
 register_law(CodeParams, "bound_does_not_overwrite_flag_pattern")
@@ -100,7 +100,7 @@ register_law(rewrite, "ag_normalize_exit1_parseable_becomes_empty")
 register_law(rewrite, "ts_rows_produces_match_rows_and_listing")
 
 
-# --- [OPERATIONS] ----------------------------------------------------------------------------
+# --- [OPERATIONS] -----------------------------------------------------------------------
 
 # ------ CodeParams laws -----------------------------------------------------------------------
 

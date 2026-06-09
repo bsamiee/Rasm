@@ -1,6 +1,6 @@
 """Laws for tools.assay.rails.package — PackageParams, YakMeta, deploy, evaluate_meta, list, plan, publish, stage."""
 
-# --- [RUNTIME_PRELUDE] -----------------------------------------------------------------------
+# --- [RUNTIME_PRELUDE] ------------------------------------------------------------------
 
 from collections.abc import Callable
 from pathlib import Path
@@ -50,7 +50,7 @@ type _VerbFn = Callable[[AssaySettings, ArtifactScope, PackageParams], Result[Re
 type _MetaMutator = Callable[[YakMeta], YakMeta]
 
 
-# --- [CONSTANTS] -----------------------------------------------------------------------------
+# --- [CONSTANTS] ------------------------------------------------------------------------
 
 _NAMESPACED_XML = b'<Project xmlns="urn:test"><PropertyGroup><YakPackageSlug>rasm-bridge</YakPackageSlug></PropertyGroup></Project>'
 _PLAIN_XML = b"<Project><PropertyGroup><YakPackageSlug>rasm-bridge</YakPackageSlug></PropertyGroup></Project>"
@@ -88,7 +88,7 @@ _NON_OK_STATUSES: tuple[RailStatus, ...] = (RailStatus.FAILED, RailStatus.FAULTE
 _VERBS: tuple[tuple[_VerbFn, str], ...] = ((stage, "stage"), (deploy, "deploy"), (publish, "publish"))
 
 
-# --- [OPERATIONS] ----------------------------------------------------------------------------
+# --- [OPERATIONS] -----------------------------------------------------------------------
 
 # ------ PackageParams laws -------------------------------------------------------------------
 

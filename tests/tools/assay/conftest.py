@@ -14,7 +14,7 @@ Prefer ``resolve(X)`` over a hand-rolled strategy and the ``tests._spec`` oracle
 ``assert x.is_ok()``.
 """
 
-# --- [RUNTIME_PRELUDE] ------------------------------------------------------------------------
+# --- [RUNTIME_PRELUDE] ------------------------------------------------------------------
 
 from collections.abc import (  # noqa: TC003  # runtime: Callable annotates the CpuSampler protocol; Generator is the RailProbe.project msgspec field type
     Callable,
@@ -62,8 +62,13 @@ from tests._spec import (  # noqa: PLC2701  # sibling test-internal module re-ex
 )
 from tests._strategies import resolve  # noqa: PLC2701  # sibling test-internal module; `_`-named by S1 design
 from tests.conftest import REPO_ROOT
+from tools.assay import _configure  # noqa: PLC2701  # private structlog config entry re-applied per test to override sibling-suite resets
 from tools.assay.composition.registry import REGISTRY
-from tools.assay.composition.settings import ArtifactScope, AssaySettings  # ArtifactScope.open is invoked + AssaySettings is a TmpRoot field type
+from tools.assay.composition.settings import (  # ArtifactScope.open is invoked + AssaySettings is a TmpRoot field type
+    ArtifactScope,
+    AssaySettings,
+    LogFormat,
+)
 from tools.assay.core.model import (
     AnyDetail,
     ApiResolution,
@@ -104,7 +109,7 @@ if TYPE_CHECKING:
     from tools.assay.composition.settings import ArtifactStore
 
 
-# --- [TYPES] ----------------------------------------------------------------------------------
+# --- [TYPES] ----------------------------------------------------------------------------
 
 
 class VerbRunner(Protocol):
@@ -131,7 +136,7 @@ class CpuDoubleInstaller(Protocol):
     def __call__(self, cpu_percent: CpuSampler, *, cpu_count: int = 4) -> MagicMock: ...
 
 
-# --- [CONSTANTS] ------------------------------------------------------------------------------
+# --- [CONSTANTS] ------------------------------------------------------------------------
 
 _UV = shutil.which("uv")
 
@@ -166,7 +171,7 @@ _EXEMPT: Final = frozenset({
 register_sut(SUT_PACKAGE, exempt=_EXEMPT)
 
 
-# --- [STRATEGIES] -----------------------------------------------------------------------------
+# --- [STRATEGIES] -----------------------------------------------------------------------
 # `resolve` (tests._strategies) registers a bounded, encode-clean strategy for each wire struct so
 # `st.from_type(X)` round-trips through the deterministic codec. Each `<snake>_st` global below is an
 # EXPLICIT, TYPED `resolve(Pascal)` alias — explicit (not a lazy `__getattr__`) so `@given(X_st)` resolves the
@@ -217,7 +222,7 @@ envelope_st: st.SearchStrategy[Envelope] = _envelopes()
 st.register_type_strategy(Envelope, envelope_st)
 
 
-# --- [MODELS] ---------------------------------------------------------------------------------
+# --- [MODELS] ---------------------------------------------------------------------------
 
 
 def _pick_check(args: tuple[object, ...]) -> Generator[Check]:
@@ -414,7 +419,7 @@ class YakShape(msgspec.Struct, frozen=True, gc=False):
         )
 
 
-# --- [PSUTIL_DOUBLES] -------------------------------------------------------------------------
+# --- [PSUTIL_DOUBLES] -------------------------------------------------------------------
 # `_proc`/`_make_psutil_module`/`install_cpu_double` are thin assay partials over the `tests._seams` psutil
 # double, preserving the EXACT public keyword shapes the core/test_engine + automation laws call.
 
@@ -478,7 +483,7 @@ def install_cpu_double(monkeypatch: pytest.MonkeyPatch, cpu_percent: CpuSampler,
     return install_module_attr(monkeypatch, automation_engine, "psutil", fake)
 
 
-# --- [ORACLES] --------------------------------------------------------------------------------
+# --- [ORACLES] --------------------------------------------------------------------------
 # Assay-TYPED oracles over the `tests._seams` NDJSON decode oracle (generic value-level oracles come from
 # tests._spec); the history writers stamp deterministic Envelopes into the artifact tree.
 
@@ -503,7 +508,7 @@ def pipe_history(store: ArtifactStore, run_ids: tuple[str, ...]) -> None:
     [store.write_bytes(WIRE_ENCODER.encode(make_history_envelope(run_id)), "history", run_id, "envelope.json") for run_id in run_ids]
 
 
-# --- [COMPOSITION] ----------------------------------------------------------------------------
+# --- [COMPOSITION] ----------------------------------------------------------------------
 
 
 @pytest.fixture(autouse=True)
@@ -515,12 +520,18 @@ def _isolate_sut_state() -> Generator[None]:
     the test process; forcing each to its declared default at test start keeps every ring / governor /
     resource / history law order-independent under pytest-randomly. One shared seam — the universal isolation
     the whole suite relies on (``_WRITES`` has no default and is owned per-invocation, so it is left alone).
+
+    Also re-applies assay's ``_configure`` per test: sibling ``tools.quality`` tests reset structlog's GLOBAL
+    ``logger_factory`` to a ``PrintLoggerFactory`` over a transient ``sys.stderr`` that pytest's fd-capture closes,
+    which would otherwise crash every later assay rail log (``ValueError: I/O operation on closed file``).
     """
     import structlog  # noqa: PLC0415
 
     from tools.assay.automation.engine import _CPU_PRIMED  # noqa: PLC0415, PLC2701
     from tools.assay.core.aspect import _RING  # noqa: PLC0415, PLC2701
     from tools.assay.core.engine import _RESOURCE, _SSH_CACHE  # noqa: PLC0415, PLC2701
+
+    _configure(LogFormat.CI)
 
     # `_arm` ties each ``Token[T]`` to its ``ContextVar[T]`` at set-time so the heterogeneous (None/bool/tuple/cache)
     # vars reset type-cleanly without a per-var statement; one comprehension arms all four, the closures undo them.

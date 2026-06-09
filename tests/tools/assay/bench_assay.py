@@ -5,7 +5,7 @@ Each ``BenchCase`` row encodes a real workload; ``run_registry`` generates the C
 ``(row, size)`` product so one parametrized function owns all benchmark invocations.
 """
 
-# --- [RUNTIME_PRELUDE] -----------------------------------------------------------------
+# --- [RUNTIME_PRELUDE] ------------------------------------------------------------------
 
 from typing import TYPE_CHECKING
 
@@ -23,7 +23,7 @@ from tools.assay.core.status import RailStatus
 if TYPE_CHECKING:
     from hypothesis import strategies as st
 
-# --- [CONSTANTS] -----------------------------------------------------------------------
+# --- [CONSTANTS] ------------------------------------------------------------------------
 
 pytestmark = pytest.mark.benchmark
 
@@ -81,7 +81,7 @@ def _place_subject(payload: tuple[object, ...]) -> object:
         return place(routed, tool, settings=settings)
 
 
-# --- [MODELS] --------------------------------------------------------------------------
+# --- [MODELS] ---------------------------------------------------------------------------
 
 _ROWS: tuple[BenchCase, ...] = (
     BenchCase(
@@ -133,6 +133,6 @@ _ROWS: tuple[BenchCase, ...] = (
 )
 
 
-# --- [COMPOSITION] ---------------------------------------------------------------------
+# --- [COMPOSITION] ----------------------------------------------------------------------
 
 bench_assay = run_registry(_ROWS)

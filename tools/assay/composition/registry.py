@@ -22,7 +22,6 @@ from pydantic import ValidationError
 import structlog
 
 from tools.assay.composition.catalog import select, TOOLS
-from tools.assay.composition.pipeline import ATTRIBUTION_LATTICE, EVOLUTION_OBLIGATIONS, SMOKE_FEDERATION
 from tools.assay.composition.settings import ArtifactScope, AssaySettings
 from tools.assay.core.aspect import _RING, checked_call, compose, Layer, logged, Slot, traced  # noqa: PLC2701
 from tools.assay.core.engine import _RESOURCE, _snapshot, fan_out  # noqa: PLC2701
@@ -833,16 +832,4 @@ def _register[**P](app: App, obj: App | Callable[P, object], *, name: str | None
 
 # --- [EXPORTS] --------------------------------------------------------------------------
 
-__all__ = [
-    "ATTRIBUTION_LATTICE",
-    "EVOLUTION_OBLIGATIONS",
-    "ORPHAN_MIN_AGE_S",
-    "REGISTRY",
-    "SMOKE_FEDERATION",
-    "Handler",
-    "build_app",
-    "delta",
-    "parse_fault",
-    "rail",
-    "self_test",
-]
+__all__ = ["ORPHAN_MIN_AGE_S", "REGISTRY", "Handler", "build_app", "delta", "parse_fault", "rail", "self_test"]

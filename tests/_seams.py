@@ -9,7 +9,7 @@ and an NDJSON decode oracle (:class:`NdjsonOracle`). Every domain dependency ent
 variant TYPE / payload SHAPE), never stringly-typed, and the closed :data:`Shape` union proves exhaustiveness.
 """
 
-# --- [RUNTIME_PRELUDE] ------------------------------------------------------------------------
+# --- [RUNTIME_PRELUDE] ------------------------------------------------------------------
 
 from collections.abc import Callable, Iterable
 from contextlib import asynccontextmanager
@@ -27,7 +27,7 @@ if TYPE_CHECKING:
     import pytest
 
 
-# --- [TYPES] ----------------------------------------------------------------------------------
+# --- [TYPES] ----------------------------------------------------------------------------
 
 # One recorded invocation: (patch coordinate, positional args, keyword args). The member name is metadata
 # only — dispatch keys on the Shape VARIANT, never on the member string.
@@ -42,7 +42,7 @@ def _noproject[A](_args: tuple[object, ...]) -> tuple[A, ...]:
     return ()
 
 
-# --- [RECORDING_PATCH] ------------------------------------------------------------------------
+# --- [RECORDING_PATCH] ------------------------------------------------------------------
 # Bind `owner.member` to a canned behavior whose installation is dispatched by CALL SHAPE — the closed
 # `Shape[R]` union (sync / async / fan-out / factory) drives `SeamProbe.install` via structural `match`.
 
@@ -138,7 +138,7 @@ class SeamProbe[A](msgspec.Struct, frozen=True, gc=False):
         return [item for call in self.calls for item in pick(call)]
 
 
-# --- [PROCESS_DOUBLES] ------------------------------------------------------------------------
+# --- [PROCESS_DOUBLES] ------------------------------------------------------------------
 # `autospec_proc` builds a spec-bound `create_autospec` process double from keyword fields/methods; the engine
 # never imports psutil — the real Error classes and the not-found factory enter through `psutil_module_double`.
 
@@ -203,7 +203,7 @@ def install_module_attr[D](mp: pytest.MonkeyPatch, owner: object, attr: str, dou
     return double
 
 
-# --- [NETWORK_LOOPBACK] -----------------------------------------------------------------------
+# --- [NETWORK_LOOPBACK] -----------------------------------------------------------------
 # `loopback_server` owns the listen/teardown lifecycle via `async with`; `Loopback` projects the bound port
 # to a connect target. The listener/port readers are injected, so the engine imports no network library.
 
@@ -245,7 +245,7 @@ async def loopback_server[S: _AsyncServer](
         yield Loopback(host=host, port=port_of(server))
 
 
-# --- [FIXTURE_WRITERS] ------------------------------------------------------------------------
+# --- [FIXTURE_WRITERS] ------------------------------------------------------------------
 # `VariantWriter` materializes a data-driven family of payload variants (valid + adversarial) to a directory;
 # `TmpRoot` is an isolated tmp tree whose settings projection is supplied by an injected factory.
 
@@ -321,7 +321,7 @@ def tmp_root[S](root: Path, make_settings: Callable[[Path], S]) -> TmpRoot[S]:
     return TmpRoot(root=root, settings=make_settings(root))
 
 
-# --- [DECODE_ORACLES] -------------------------------------------------------------------------
+# --- [DECODE_ORACLES] -------------------------------------------------------------------
 # `NdjsonOracle` decodes a single NDJSON line off a buffer or capture fixture, asserting the line count.
 
 
@@ -341,7 +341,7 @@ class NdjsonOracle[T](msgspec.Struct, frozen=True, gc=False):
         return self.one(out if isinstance(out, bytes) else out.encode())
 
 
-# --- [EXPORTS] --------------------------------------------------------------------------------
+# --- [EXPORTS] --------------------------------------------------------------------------
 
 __all__ = [
     "Async",

@@ -16,7 +16,7 @@ Three orthogonal rails:
    ``benchmark.pedantic`` calls is forbidden.
 """
 
-# --- [RUNTIME_PRELUDE] -----------------------------------------------------------------------
+# --- [RUNTIME_PRELUDE] ------------------------------------------------------------------
 
 import importlib
 from pathlib import Path  # noqa: TC003  # used at module level for _PYPROJECT constant; cannot defer to TYPE_CHECKING
@@ -31,7 +31,7 @@ from tests.conftest import REPO_ROOT
 from tools.assay.composition.catalog import BENCHMARK_STORAGE_URI
 
 
-# --- [CONSTANTS] -----------------------------------------------------------------------------
+# --- [CONSTANTS] ------------------------------------------------------------------------
 
 _PYPROJECT: Path = REPO_ROOT / "pyproject.toml"
 
@@ -39,7 +39,7 @@ _PYPROJECT: Path = REPO_ROOT / "pyproject.toml"
 _POLICY_MARKERS: frozenset[str] = frozenset({"benchmark", "mutation", "network", "property"})
 
 
-# --- [OPERATIONS] ----------------------------------------------------------------------------
+# --- [OPERATIONS] -----------------------------------------------------------------------
 
 
 def _nav(node: dict[str, object], *keys: str) -> object:
@@ -115,9 +115,6 @@ def _collect_session_items(pytestconfig: pytest.Config) -> list[Function]:
     # _pytest.main.Session has no public stub; access .items via getattr to avoid ty attribute errors.
     raw: object = getattr(session, "items", None)  # constant attr name; B009 suppressed: no stub on session type forces getattr over direct access
     return [item for item in (raw if isinstance(raw, list) else []) if isinstance(item, Function)]
-
-
-# --- [TESTS] ---------------------------------------------------------------------------------
 
 
 # --- law-coverage gate ---

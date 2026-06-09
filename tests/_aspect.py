@@ -7,9 +7,9 @@ the SUT package surface; ``assert_law_coverage`` walks it via ``pkgutil.walk_pac
 every public symbol has at least one law or explicit exemption.
 """
 
-# --- [RUNTIME_PRELUDE] -----------------------------------------------------------------------
+# --- [RUNTIME_PRELUDE] ------------------------------------------------------------------
 
-from builtins import sentinel as _sentinel  # type: ignore[attr-defined]  # 3.15 PEP 661 builtin; mypy typeshed lag (ty resolves)
+from builtins import sentinel as _sentinel  # 3.15 PEP 661 builtin; mypy typeshed lag (ty resolves)
 from collections.abc import Callable  # noqa: TC003  # PEP 695 [**P] annotations are evaluated at runtime; TYPE_CHECKING guard would break them
 import functools
 import importlib
@@ -21,12 +21,12 @@ import msgspec
 import pytest
 
 
-# --- [CONSTANTS] -----------------------------------------------------------------------------
+# --- [CONSTANTS] ------------------------------------------------------------------------
 
 _UNSET: object = _sentinel("_UNSET")
 
 
-# --- [MODELS] --------------------------------------------------------------------------------
+# --- [MODELS] ---------------------------------------------------------------------------
 
 
 class LawRecord(msgspec.Struct, frozen=True):
@@ -45,7 +45,7 @@ MANIFEST: list[LawRecord] = []
 SUT_PACKAGES: dict[str, frozenset[str]] = {}
 
 
-# --- [OPERATIONS] ----------------------------------------------------------------------------
+# --- [OPERATIONS] -----------------------------------------------------------------------
 
 
 def _qualname(subject: object) -> str:
@@ -106,7 +106,7 @@ def _public_surface(package_name: str) -> frozenset[str]:  # noqa: PLR0912  # fi
     return frozenset(surface)
 
 
-# --- [EXPORTS] -------------------------------------------------------------------------------
+# --- [EXPORTS] --------------------------------------------------------------------------
 
 
 def spec[**P](

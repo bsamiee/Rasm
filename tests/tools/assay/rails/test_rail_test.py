@@ -1,6 +1,6 @@
 """Law-matrix for tools.assay.rails.test [TestParams, coverage, coverage_percent, list, run]."""
 
-# --- [RUNTIME_PRELUDE] -----------------------------------------------------------------------
+# --- [RUNTIME_PRELUDE] ------------------------------------------------------------------
 
 import dataclasses
 from pathlib import Path
@@ -46,7 +46,7 @@ if TYPE_CHECKING:
     from tools.assay.core.model import Completed
 
 
-# --- [CONSTANTS] ---------------------------------------------------------------------------
+# --- [CONSTANTS] ------------------------------------------------------------------------
 
 _COV_ARGV: tuple[str, ...] = ("uv", "run", "coverage", "report", "--format=total")
 _OTHER_ARGV: tuple[str, ...] = ("uv", "run", "pytest")
@@ -54,7 +54,7 @@ _PY = Language.PYTHON
 _PY_ROUTED = Routed(language=_PY, scope=Scope.CHANGED)
 
 
-# --- [OPERATIONS] --------------------------------------------------------------------------
+# --- [OPERATIONS] -----------------------------------------------------------------------
 # Bare-Completed builders thread the shared model.receipt primitive; status is passed through verbatim
 # where a law gates on it (rc=0 derives EMPTY, not OK), and the rail seams wire one canned-receipt fan.
 
@@ -90,7 +90,7 @@ def _tool(name: str = "pytest", mode: Mode = Mode.RUN, runner: Runner = Runner.U
     return Tool(name=name, runner=runner, command=(name,), input=Input.NONE, language=language, claim=Claim.TEST, mode=mode)
 
 
-# --- [LAW_COVERAGE] ------------------------------------------------------------------------
+# --- [LAW_COVERAGE] ---------------------------------------------------------------------
 # Import-time registry: every falsifiable subject below carries a law; the gate (tests._aspect) is TOTAL.
 
 register_law(coverage_percent, "coverage_percent_parametric")
@@ -135,7 +135,7 @@ register_law(test_rail.run, "routed_yields_ok_for_valid_languages")
 register_law(test_rail.run, "routed_multi_language_combines_results")
 
 
-# --- [LAWS: coverage_percent] --------------------------------------------------------------
+# --- [LAWS: coverage_percent] -----------------------------------------------------------
 
 
 @pytest.mark.parametrize(
@@ -187,7 +187,7 @@ def test_coverage_percent_argv_prefix_gate(prefix: tuple[str, ...], is_coverage:
     assert result == pytest.approx(75.0) if is_coverage else result is None
 
 
-# --- [LAWS: TestParams] --------------------------------------------------------------------
+# --- [LAWS: TestParams] -----------------------------------------------------------------
 
 
 def test_testparams_default_invariants() -> None:
@@ -226,7 +226,7 @@ def test_testparams_coverage_benchmark_exclusive_intent() -> None:
     assert (p.coverage, p.benchmark) == (True, True)
 
 
-# --- [LAWS: _eligible — branch matrix] -----------------------------------------------------
+# --- [LAWS: _eligible — branch matrix] --------------------------------------------------
 
 
 @pytest.mark.parametrize(
@@ -255,7 +255,7 @@ def test_eligible_branch_matrix(tool: Tool, params: TestParams, expected: bool) 
     assert _eligible(tool, params) is expected
 
 
-# --- [LAWS: _filter — discriminant arms] ---------------------------------------------------
+# --- [LAWS: _filter — discriminant arms] ------------------------------------------------
 
 
 @pytest.mark.parametrize(
@@ -279,7 +279,7 @@ def test_filter_discriminant_arms(expr: str, expected: tuple[str, ...]) -> None:
     assert _filter(expr) == expected
 
 
-# --- [LAWS: _scoped_mutation — match arms] -------------------------------------------------
+# --- [LAWS: _scoped_mutation — match arms] ----------------------------------------------
 
 
 def _mutation_tool(name: str = "mutmut") -> Tool:
@@ -315,7 +315,7 @@ def test_scoped_mutation_arms() -> None:
     assert scoped.command == ("tool", "run", "dotnet-stryker", "--", "--mutate", "src/Foo.cs", "--mutate", "src/Bar.cs")
 
 
-# --- [LAWS: _checks — splice logic] --------------------------------------------------------
+# --- [LAWS: _checks — splice logic] -----------------------------------------------------
 
 
 def test_checks_splice_arms(monkeypatch: pytest.MonkeyPatch) -> None:
@@ -348,7 +348,7 @@ def test_checks_splice_arms(monkeypatch: pytest.MonkeyPatch) -> None:
     assert "--filter-method" not in uv_checks[0].tool.command
 
 
-# --- [LAWS: _unsupported_scope — CHANGED vs non-CHANGED] -----------------------------------
+# --- [LAWS: _unsupported_scope — CHANGED vs non-CHANGED] --------------------------------
 
 
 def test_unsupported_scope_arms(monkeypatch: pytest.MonkeyPatch) -> None:
@@ -368,7 +368,7 @@ def test_unsupported_scope_arms(monkeypatch: pytest.MonkeyPatch) -> None:
     assert _unsupported_scope(routed, TestParams(mutation=MutationLane.CHANGED), Mode.RUN) == ()
 
 
-# --- [LAWS: _select — target/all/glob arms] ------------------------------------------------
+# --- [LAWS: _select — target/all/glob arms] ---------------------------------------------
 
 
 def test_select_arms(assay_root: AssayHarness) -> None:
@@ -388,7 +388,7 @@ def test_select_arms(assay_root: AssayHarness) -> None:
     assert {str(settings.test_target), rasm} <= set(unioned)
 
 
-# --- [LAWS: _dispatch — checks/unsupported branching] --------------------------------------
+# --- [LAWS: _dispatch — checks/unsupported branching] -----------------------------------
 
 
 def test_dispatch_empty_checks_returns_unsupported_only(assay_root: AssayHarness, monkeypatch: pytest.MonkeyPatch) -> None:
@@ -413,7 +413,7 @@ def test_dispatch_non_empty_checks_calls_fan_out(assay_root: AssayHarness, monke
     assert results == (Ok(ok),)
 
 
-# --- [LAWS: _roster_matches — skip / kind arms] --------------------------------------------
+# --- [LAWS: _roster_matches — skip / kind arms] -----------------------------------------
 
 
 def test_roster_matches_skip_and_kind_arms() -> None:
@@ -429,7 +429,7 @@ def test_roster_matches_skip_and_kind_arms() -> None:
     assert _roster_matches((_ok(("pytest", "--collect-only")),)) == ()
 
 
-# --- [LAWS: _detail — mutation/coverage arms] ----------------------------------------------
+# --- [LAWS: _detail — mutation/coverage arms] -------------------------------------------
 
 
 @pytest.mark.parametrize(
@@ -454,7 +454,7 @@ def test_detail_mutation_and_coverage_arms(done: tuple[Completed, ...], params: 
             assert result.coverage == pytest.approx(check)
 
 
-# --- [LAWS: _adopt_coverage — artifact construction] ---------------------------------------
+# --- [LAWS: _adopt_coverage — artifact construction] ------------------------------------
 
 
 def test_adopt_coverage_artifact_fields(assay_root: AssayHarness) -> None:
@@ -470,7 +470,7 @@ def test_adopt_coverage_artifact_fields(assay_root: AssayHarness) -> None:
     assert (artifact.id, artifact.kind, artifact.bytes, artifact.lines) == ("coverage.json", ArtifactKind.TEST, len(content), 1)
 
 
-# --- [LAWS: coverage (verb)] ---------------------------------------------------------------
+# --- [LAWS: coverage (verb)] ------------------------------------------------------------
 
 
 def test_coverage_forces_coverage_flag(assay_root: AssayHarness, monkeypatch: pytest.MonkeyPatch) -> None:
@@ -491,7 +491,7 @@ def test_coverage_verb_claim_is_test(assay_root: AssayHarness, monkeypatch: pyte
     assert [(claim, verb) for _, claim, verb in seen] == [(Claim.TEST, "coverage")]
 
 
-# --- [LAWS: list (verb)] -------------------------------------------------------------------
+# --- [LAWS: list (verb)] ----------------------------------------------------------------
 
 
 @pytest.mark.parametrize(
@@ -547,7 +547,7 @@ def test_list_roster_artifact_written_to_scope(assay_root: AssayHarness, monkeyp
     assert "test-roster" in {a.id for a in report.artifacts}
 
 
-# --- [LAWS: run (verb)] --------------------------------------------------------------------
+# --- [LAWS: run (verb)] -----------------------------------------------------------------
 
 
 def test_run_ok_report_from_dispatch(assay_root: AssayHarness, monkeypatch: pytest.MonkeyPatch) -> None:
@@ -584,7 +584,7 @@ def test_run_claim_is_test(assay_root: AssayHarness, monkeypatch: pytest.MonkeyP
     assert [claim for _, claim, _ in seen] == [Claim.TEST]
 
 
-# --- [LAWS: _dispatch_all — mode arms] -----------------------------------------------------
+# --- [LAWS: _dispatch_all — mode arms] --------------------------------------------------
 
 
 @pytest.mark.parametrize(
@@ -610,7 +610,7 @@ def test_dispatch_all_mode_arms(assay_root: AssayHarness, monkeypatch: pytest.Mo
     assert set(call_modes) == expected_modes
 
 
-# --- [LAWS: _routed — sequence composition] ------------------------------------------------
+# --- [LAWS: _routed — sequence composition] ---------------------------------------------
 
 
 def test_routed_yields_ok_for_valid_languages(assay_root: AssayHarness, monkeypatch: pytest.MonkeyPatch) -> None:
@@ -628,7 +628,7 @@ def test_routed_multi_language_combines_results(assay_root: AssayHarness, monkey
     assert {r.language for r in assert_ok(result)} == {_PY, Language.TYPESCRIPT}
 
 
-# --- [LAWS: _thin_rail — gap / lease / direct-work arms] -----------------------------------
+# --- [LAWS: _thin_rail — gap / lease / direct-work arms] --------------------------------
 
 
 def test_thin_rail_gap_note_emitted_in_report_notes(assay_root: AssayHarness, monkeypatch: pytest.MonkeyPatch) -> None:

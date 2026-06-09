@@ -5,7 +5,7 @@ Every law must be falsifiable by a real defect. Anti-theater: no tautological as
 no re-stating construction. register_law keeps law-coverage total for the three SUT symbols.
 """
 
-# --- [RUNTIME_PRELUDE] -----------------------------------------------------------------------
+# --- [RUNTIME_PRELUDE] ------------------------------------------------------------------
 
 from types import SimpleNamespace
 from typing import TYPE_CHECKING
@@ -24,7 +24,7 @@ if TYPE_CHECKING:
     from tests.tools.assay.conftest import VerbRunner
 
 
-# --- [CONSTANTS] -------------------------------------------------------------------------
+# --- [CONSTANTS] ------------------------------------------------------------------------
 
 _FAULTED_EXIT: int = RailStatus.FAULTED.exit_code
 
@@ -183,6 +183,115 @@ def test_main_subprocess_exit_code(cli: VerbRunner) -> None:
 
 
 register_law(_main_mod.main, "test_main_subprocess_exit_code")
+
+
+# -- main: malformed ASSAY_* env folds to one config-fault Envelope ----------------------
+
+
+def test_main_config_env_fault_surfaces_as_config_step(cli: VerbRunner) -> None:
+    """A verb that builds AssaySettings under a malformed ASSAY_* env emits one FAULTED Envelope, failing_step='config'."""
+    res = cli("static", "plan", extra_env={"ASSAY_MAX_CHECKS": "999"})
+    assert res.exit_code == _FAULTED_EXIT
+    assert res.envelope.status is RailStatus.FAULTED
+    assert res.envelope.error_context is not None
+    assert res.envelope.error_context.failing_step == "config"
+
+
+register_law(_main_mod.main, "test_main_config_env_fault_surfaces_as_config_step")
+
+
+# -- main: unexpected dispatch exception folds to the dispatch safety-net -----------------
+
+
+def test_main_unexpected_dispatch_faults_to_dispatch_step(cli: VerbRunner, monkeypatch: pytest.MonkeyPatch) -> None:
+    """A non-Cyclopts dispatch exception reaches stdout as one FAULTED Envelope via the final boundary (failing_step='dispatch')."""
+
+    class _BoomApp:
+        @staticmethod
+        def parse_args(_tokens: tuple[str, ...], **_kwargs: object) -> tuple[object, None, None]:
+            return object(), None, None  # a non-help command so _no_command is False and dispatch executes
+
+        def __call__(self, *_args: object, **_kwargs: object) -> object:
+            raise RuntimeError("boom")
+
+    monkeypatch.setattr(_main_mod, "app", _BoomApp())
+    res = cli("static")
+    assert res.exit_code == _FAULTED_EXIT
+    assert res.envelope.status is RailStatus.FAULTED
+    assert res.envelope.error_context is not None
+    assert res.envelope.error_context.failing_step == "dispatch"
+    assert res.envelope.error is not None
+    assert "RuntimeError" in res.envelope.error.message
+
+
+register_law(_main_mod.main, "test_main_unexpected_dispatch_faults_to_dispatch_step")
+
+
+# -- main: _drain is a no-op over a lifecycle-less trace provider -------------------------
+
+
+def test_main_drain_noop_on_lifecycleless_provider(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Drain over a provider exposing neither force_flush nor shutdown is a no-op; main returns the dispatch code."""
+    monkeypatch.setattr(_main_mod, "meta", lambda *_tokens: 5)
+    monkeypatch.setattr(_main_mod, "get_tracer_provider", SimpleNamespace)
+    assert _main_mod.main(["self-test"]) == 5
+
+
+register_law(_main_mod.main, "test_main_drain_noop_on_lifecycleless_provider")
+
+
+# -- main: _drain swallows force_flush/shutdown failures to stderr, never stdout ----------
+
+
+def test_main_drain_swallows_provider_lifecycle_exceptions(monkeypatch: pytest.MonkeyPatch, capsysbinary: pytest.CaptureFixture[bytes]) -> None:
+    """A provider whose force_flush and shutdown raise is drained to stderr only; main returns the dispatch code, stdout stays clean."""
+
+    def _boom_flush(_timeout_millis: int) -> bool:
+        raise RuntimeError("flush boom")
+
+    def _boom_shutdown() -> None:
+        raise RuntimeError("shutdown boom")
+
+    monkeypatch.setattr(_main_mod, "meta", lambda *_tokens: 7)
+    monkeypatch.setattr(_main_mod, "get_tracer_provider", lambda: SimpleNamespace(force_flush=_boom_flush, shutdown=_boom_shutdown))
+    code = _main_mod.main(["self-test"])
+    cap = capsysbinary.readouterr()
+    assert code == 7
+    assert cap.out == b""  # the Envelope wire is untouched; lifecycle diagnostics belong on stderr
+    assert b"force_flush failed" in cap.err
+    assert b"shutdown failed" in cap.err
+
+
+register_law(_main_mod.main, "test_main_drain_swallows_provider_lifecycle_exceptions")
+
+
+# -- main: _install swallows a settings ValidationError (bad ASSAY_* env) -----------------
+
+
+def test_main_install_tracing_swallows_settings_validation(monkeypatch: pytest.MonkeyPatch) -> None:
+    """A malformed ASSAY_* env raised while building tracing settings is swallowed; main still returns the dispatch code."""
+    monkeypatch.setenv("ASSAY_MAX_CHECKS", "999")
+    monkeypatch.setattr(_main_mod, "meta", lambda *_tokens: 0)
+    monkeypatch.setattr(_main_mod, "get_tracer_provider", lambda: SimpleNamespace(force_flush=lambda *_a, **_k: True, shutdown=lambda: None))
+    assert _main_mod.main([]) == 0
+
+
+register_law(_main_mod.main, "test_main_install_tracing_swallows_settings_validation")
+
+
+# -- main: subprocess bootstrap-error path folds to one config-fault Envelope -------------
+
+
+def test_main_subprocess_bootstrap_error_config_fault(cli: VerbRunner) -> None:
+    """A malformed ASSAY_* env survives real interpreter startup (import-time bootstrap fallback) and folds to one config-fault Envelope."""
+    res = cli("static", "plan", isolate=True, extra_env={"ASSAY_MAX_CHECKS": "999"})
+    assert res.exit_code == _FAULTED_EXIT
+    assert res.envelope.status is RailStatus.FAULTED
+    assert res.envelope.error_context is not None
+    assert res.envelope.error_context.failing_step == "config"
+
+
+register_law(_main_mod.main, "test_main_subprocess_bootstrap_error_config_fault")
 
 
 # -- install_tracing: empty endpoint is a no-op ------------------------------------------

@@ -11,7 +11,7 @@ generated from the declared schema constraints, and a model whose validator reje
 explicit strategy via ``st.register_type_strategy`` before calling ``resolve``.
 """
 
-# --- [RUNTIME_PRELUDE] ----------------------------------------------------------------------
+# --- [RUNTIME_PRELUDE] ------------------------------------------------------------------
 
 from collections.abc import Mapping
 import datetime as dt
@@ -31,7 +31,7 @@ if TYPE_CHECKING:
     from typing import TypeIs
 
 
-# --- [TYPES] --------------------------------------------------------------------------------
+# --- [TYPES] ----------------------------------------------------------------------------
 
 # `__pydantic_core_schema__` is runtime-materialized dict data; modelled as a string-keyed object map and
 # narrowed per-access. This is the type-clean boundary shape — no `Any`, no `cast`.
@@ -44,7 +44,7 @@ class _Size(TypedDict):
     max_size: int
 
 
-# --- [CONSTANTS] ----------------------------------------------------------------------------
+# --- [CONSTANTS] ------------------------------------------------------------------------
 
 
 _REGISTERED: set[type] = set()
@@ -72,8 +72,8 @@ def _json_value(depth: int = 0) -> st.SearchStrategy[object]:
 
 _RAW_ST: st.SearchStrategy[msgspec.Raw] = _json_value().map(lambda v: msgspec.Raw(msgspec.json.encode(v)))
 
-# --- [OPERATIONS] ---------------------------------------------------------------------------
-# --- [META_SURFACE_ALGEBRA] -----------------------------------------------------------------
+# --- [OPERATIONS] -----------------------------------------------------------------------
+# --- [META_SURFACE_ALGEBRA] -------------------------------------------------------------
 # Shared constraint reads both walkers call so the file's contract ("both read the constraint metadata
 # exactly") holds: one length reader, one multiple-of reader, one constructive multiples generator, one
 # tz tri-state, one length-bounded text/regex composer, one max-digits-bounded decimal ceiling.
@@ -106,7 +106,7 @@ def _multiples_int(lo: int, hi: int, step: int) -> st.SearchStrategy[int]:
     return st.integers(min_value=klo, max_value=khi).map(lambda k: k * step) if klo <= khi else st.nothing()
 
 
-def _multiples_float(lo: float, hi: float, step: float) -> st.SearchStrategy[float]:
+def _multiples_float(lo: float | Decimal, hi: float | Decimal, step: float | Decimal) -> st.SearchStrategy[float]:
     # Decimal intermediate keeps `k*step` free of binary drift before projecting back to float; an empty
     # multiplier range collapses to `st.nothing()` rather than letting hypothesis raise on draw.
     s = Decimal(str(step))
@@ -121,7 +121,11 @@ def _text(mn: object, mx: object, pattern: object) -> st.SearchStrategy[str]:
     lo = mn if isinstance(mn, int) else 1
     hi = min(mx, _CAP) if isinstance(mx, int) else _CAP
     return (
-        st.from_regex(pattern, fullmatch=True).filter(lambda s: lo <= len(s) <= hi) if isinstance(pattern, str) else st.text(min_size=lo, max_size=hi)
+        st.nothing()
+        if lo > hi  # provably-empty window (e.g. min_length above _CAP): short-circuit so the regex filter never exhausts
+        else st.from_regex(pattern, fullmatch=True).filter(lambda s: lo <= len(s) <= hi)
+        if isinstance(pattern, str)
+        else st.text(min_size=lo, max_size=hi)
     )
 
 
@@ -130,7 +134,7 @@ def _decimal_max(md: object, dp: object) -> Decimal | None:
     return Decimal(10) ** (md - dp) - Decimal(10) ** (-dp) if isinstance(md, int) and isinstance(dp, int) else None
 
 
-# --- [MSGSPEC_NODE_ALGEBRA] -----------------------------------------------------------------
+# --- [MSGSPEC_NODE_ALGEBRA] -------------------------------------------------------------
 
 
 def _node(node: _mi.Type) -> st.SearchStrategy[object]:  # noqa: C901, PLR0911, PLR0912, PLR0914, PLR0915  # closed taxonomy: one polymorphic surface over the msgspec node algebra
@@ -223,7 +227,7 @@ def _node(node: _mi.Type) -> st.SearchStrategy[object]:  # noqa: C901, PLR0911, 
             raise AssertionError(f"unhandled msgspec node {type(node).__name__}")
 
 
-# --- [PYDANTIC_CORE_NODE_ALGEBRA] -----------------------------------------------------------
+# --- [PYDANTIC_CORE_NODE_ALGEBRA] -------------------------------------------------------
 
 
 def _is_schema(v: object) -> TypeIs[_Schema]:
@@ -247,11 +251,18 @@ def _ibound(schema: _Schema, incl: str, excl: str, step: int) -> int | None:
     return int(a) if isinstance(a, int) else (int(b) + step if isinstance(b, int) else None)
 
 
-def _fbound(schema: _Schema, incl: str, excl: str) -> tuple[float | None, bool]:
-    # Decimal-typed bounds: pydantic-core emits `ge`/`le` as `Decimal` when the constraint is a Decimal literal,
-    # so the gate must admit Decimal alongside int/float or the decimal arm silently drops its bound.
+def _fbound(schema: _Schema, incl: str, excl: str) -> tuple[float | Decimal | None, bool]:
+    # pydantic-core emits `ge`/`le` as `Decimal` for Decimal-literal constraints; thread it unconverted (st.floats and
+    # st.decimals both accept Decimal) so the decimal arm keeps full precision — an eager float() drifts one ULP at
+    # high decimal_places and can admit a boundary-violating value. int/float bounds fold to float as before.
     a, b = schema.get(incl), schema.get(excl)
-    return (float(a), False) if isinstance(a, int | float | Decimal) else (float(b), True) if isinstance(b, int | float | Decimal) else (None, False)
+    return (
+        (a if isinstance(a, Decimal) else float(a), False)
+        if isinstance(a, int | float | Decimal)
+        else (b if isinstance(b, Decimal) else float(b), True)
+        if isinstance(b, int | float | Decimal)
+        else (None, False)
+    )
 
 
 def _construct(cls: type) -> Callable[[object], object]:
@@ -388,7 +399,7 @@ def _deferred_ref(ref: str, defs: dict[str, _Schema]) -> Callable[[], st.SearchS
     return lambda: _pyd_node(defs[ref], defs)
 
 
-# --- [EXPORTS] ------------------------------------------------------------------------------
+# --- [EXPORTS] --------------------------------------------------------------------------
 
 
 def resolve[T](subject: TypeForm[T]) -> st.SearchStrategy[T]:  # noqa: PLR0912  # one polymorphic entry point over the full type-form algebra (alias / pydantic / msgspec / native)
@@ -423,7 +434,7 @@ def resolve[T](subject: TypeForm[T]) -> st.SearchStrategy[T]:  # noqa: PLR0912  
             st.register_type_strategy(subject, st.deferred(_pyd_build))
         else:
             match _mi.type_info(subject):
-                case _mi.StructType(fields=fields) | _mi.DataclassType(fields=fields):
+                case _mi.StructType(fields=fields) | _mi.DataclassType(fields=fields) | _mi.NamedTupleType(fields=fields):
                     struct = subject
 
                     def _struct_build() -> st.SearchStrategy[object]:

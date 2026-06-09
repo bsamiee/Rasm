@@ -13,7 +13,7 @@ Law structure:
 - @spec laws for ApiResolution / ApiSource / ApiSurface field roundtrip identity.
 """
 
-# --- [RUNTIME_PRELUDE] -----------------------------------------------------------------------
+# --- [RUNTIME_PRELUDE] ------------------------------------------------------------------
 
 from dataclasses import replace
 from typing import override, TYPE_CHECKING
@@ -69,7 +69,7 @@ if TYPE_CHECKING:
     type Verb = Callable[[AssaySettings, ArtifactScope, ApiParams], Result[Report, Fault]]  # query/resolve/show/doctor share this shape
 
 
-# --- [CONSTANTS] -------------------------------------------------------------------------------
+# --- [CONSTANTS] ------------------------------------------------------------------------
 
 # All valid _PathKind tokens per _PATH_KINDS constant in api.py.
 _VALID_KINDS: tuple[str, ...] = ("all", "assembly", "xml", "nuspec", "deps", "package-root")
@@ -106,7 +106,7 @@ _INPROC_CHECK: Check = Check(tool=Tool("py-api", Runner.INPROC, (), Input.NONE, 
 _TS_CHECK: Check = Check(tool=Tool("ts-api", Runner.INPROC, (), Input.NONE, Language.TYPESCRIPT, Claim.API, mode=Mode.QUERY))
 
 
-# --- [HELPERS] ---------------------------------------------------------------------------------
+# --- [OPERATIONS] -----------------------------------------------------------------------
 
 
 def _run(verb: Verb, assay_root: AssayHarness, **params: object) -> Result[Report, Fault]:
@@ -118,7 +118,7 @@ def _run(verb: Verb, assay_root: AssayHarness, **params: object) -> Result[Repor
     Returns:
         The verb's ``Result[Report, Fault]`` over the isolated tmp tree.
     """
-    return verb(assay_root.settings, assay_root.scope(Claim.API), ApiParams(**params))  # type: ignore[arg-type]  # ty: ignore[invalid-argument-type]  # **params is the open keyword set forwarded into the typed ApiParams ctor
+    return verb(assay_root.settings, assay_root.scope(Claim.API), ApiParams(**params))  # ty: ignore[invalid-argument-type]  # **params is the open keyword set forwarded into the typed ApiParams ctor
 
 
 def _install_ilspy(
@@ -165,9 +165,6 @@ def _cs_surface(assay_root: AssayHarness, monkeypatch: pytest.MonkeyPatch, symbo
     detail = assert_ok(_run(query, assay_root, key="rhino-common", symbol=symbol, **kw)).detail
     assert isinstance(detail, ApiSurface)
     return detail
-
-
-# --- [OPERATIONS] ------------------------------------------------------------------------------
 
 
 # shape_of — case-table covers all five SymbolShape arms (falsifiable: mutate the match arms).

@@ -1,6 +1,6 @@
 """Laws for tools.assay.core.routing: route, place, routable_files, Routed, RoutePaths, ProjectIndex, Scope, Source."""
 
-# --- [RUNTIME_PRELUDE] ------------------------------------------------------------------------
+# --- [RUNTIME_PRELUDE] ------------------------------------------------------------------
 
 from __future__ import annotations
 
@@ -25,7 +25,7 @@ if TYPE_CHECKING:
     from tools.assay.core.routing import ProjectIndex, RoutePaths
 
 
-# --- [TYPES] ----------------------------------------------------------------------------------
+# --- [TYPES] ----------------------------------------------------------------------------
 
 
 class _StubSource(Source):
@@ -67,7 +67,7 @@ class _FaultingSource(Source):
         return Ok(b"")
 
 
-# --- [CONSTANTS] ------------------------------------------------------------------------------
+# --- [CONSTANTS] ------------------------------------------------------------------------
 
 # Shared Python-language tool fixture: FILES/CHECK — covers routable_files filtering via place.
 _PY_TOOL = Tool(
@@ -78,7 +78,7 @@ _PY_TOOL = Tool(
 _DEFAULT_PREFIXES: tuple[str, ...] = ("tests/tools/ast-grep/", "tests/tools/py_analyzer/")
 
 
-# --- [OPERATIONS] -----------------------------------------------------------------------------
+# --- [OPERATIONS] -----------------------------------------------------------------------
 
 
 # --- Scope / Source enum sweeps ---

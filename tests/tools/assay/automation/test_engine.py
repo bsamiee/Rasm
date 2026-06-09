@@ -10,7 +10,7 @@ for the ``_emit`` boundary) so the engine's processing/projection logic executes
 payload rather than letting the external process no-op.
 """
 
-# --- [RUNTIME_PRELUDE] -----------------------------------------------------------------------
+# --- [RUNTIME_PRELUDE] ------------------------------------------------------------------
 
 import contextvars
 from types import SimpleNamespace
@@ -38,7 +38,7 @@ if TYPE_CHECKING:
     from tools.assay.core.model import Envelope
 
 
-# --- [CONSTANTS] -----------------------------------------------------------------------------
+# --- [CONSTANTS] ------------------------------------------------------------------------
 
 # Falsifiable governor boundary table: (threshold, cpu_percent, expected_governed).
 _GOVERNOR_CASES: list[tuple[float | None, float, bool]] = [
@@ -55,7 +55,7 @@ _FIRST: tuple[tuple[str, str], ...] = (("added", "first.txt"),)
 _SECOND: tuple[tuple[str, str], ...] = (("modified", "second.txt"),)
 
 
-# --- [OPERATIONS] ----------------------------------------------------------------------------
+# --- [OPERATIONS] -----------------------------------------------------------------------
 
 
 def _one(seen: list[Envelope]) -> Envelope:
@@ -105,7 +105,7 @@ def _fake_awatch(batches: tuple[tuple[tuple[str, str], ...], ...]) -> object:
     return _awatch
 
 
-# --- [LAWS: is_governed] ---------------------------------------------------------------------
+# --- [LAWS: is_governed] ----------------------------------------------------------------
 
 
 @pytest.mark.parametrize(
@@ -211,7 +211,7 @@ def test_is_governed_primed_latch_reads_without_warmup(cpu_double: CpuDoubleInst
 register_law(is_governed, "test_is_governed_primed_latch_reads_without_warmup")
 
 
-# --- [LAWS: drive — Program projection] ------------------------------------------------------
+# --- [LAWS: drive — Program projection] -------------------------------------------------
 
 
 def test_drive_program_projects_completed_to_report(
@@ -292,7 +292,7 @@ def test_drive_program_status_projection(
 register_law(_eng.drive, "test_drive_program_status_projection")
 
 
-# --- [LAWS: drive — Rail projection] ---------------------------------------------------------
+# --- [LAWS: drive — Rail projection] ----------------------------------------------------
 
 
 def test_drive_rail_resolves_bind_and_emits_canned_envelope(
@@ -316,7 +316,7 @@ def test_drive_rail_resolves_bind_and_emits_canned_envelope(
 register_law(_eng.drive, "test_drive_rail_resolves_bind_and_emits_canned_envelope")
 
 
-# --- [LAWS: drive — governor gating] ---------------------------------------------------------
+# --- [LAWS: drive — governor gating] ----------------------------------------------------
 
 
 def test_drive_governed_skip_emits_one_skip_envelope(
@@ -345,7 +345,7 @@ def test_drive_governed_skip_emits_one_skip_envelope(
 register_law(_eng.drive, "test_drive_governed_skip_emits_one_skip_envelope")
 
 
-# --- [LAWS: drive — Sequence fold] -----------------------------------------------------------
+# --- [LAWS: drive — Sequence fold] ------------------------------------------------------
 
 
 def test_drive_sequence_folds_to_highest_severity(
@@ -485,7 +485,7 @@ def test_drive_sequence_halts_on_fault(
 register_law(_eng.drive, "test_drive_sequence_halts_on_fault")
 
 
-# --- [LAWS: drive — Watch trigger] -----------------------------------------------------------
+# --- [LAWS: drive — Watch trigger] ------------------------------------------------------
 
 
 def test_drive_watch_fires_per_canned_batch(
@@ -559,7 +559,7 @@ def test_drive_watch_debounce_collapses_storm(
 register_law(_eng.drive, "test_drive_watch_debounce_collapses_storm")
 
 
-# --- [LAWS: drive — Schedule trigger] --------------------------------------------------------
+# --- [LAWS: drive — Schedule trigger] ---------------------------------------------------
 
 
 def test_drive_schedule_fires_then_stops(
@@ -764,7 +764,7 @@ def test_hardened_fire_faults_reset_after_exception(
 register_law(_eng.drive, "test_hardened_fire_faults_reset_after_exception")
 
 
-# --- [LAWS: drive — debounce primitive] ------------------------------------------------------
+# --- [LAWS: drive — debounce primitive] -------------------------------------------------
 
 
 @pytest.mark.parametrize("collapse", [False, True], ids=["leading", "trailing"])
@@ -826,7 +826,7 @@ def test_debounce_signal_ignores_when_buffer_full() -> None:
 register_law(_eng.drive, "test_debounce_signal_ignores_when_buffer_full")
 
 
-# --- [LAWS: drive — setup-fault boundary] ----------------------------------------------------
+# --- [LAWS: drive — setup-fault boundary] -----------------------------------------------
 
 
 def test_drive_manual_program_emits_single_envelope(

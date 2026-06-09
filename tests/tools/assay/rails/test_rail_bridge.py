@@ -1,6 +1,6 @@
 """Laws for tools.assay.rails.bridge — BridgeParams, build, check, clean, doctor, first_fault, launch, quit, verify."""
 
-# --- [RUNTIME_PRELUDE] -----------------------------------------------------------------------
+# --- [RUNTIME_PRELUDE] ------------------------------------------------------------------
 
 from collections.abc import Callable
 import operator
@@ -57,7 +57,7 @@ if TYPE_CHECKING:
     from tests.tools.assay.conftest import AssayHarness, BridgeResult, RailProbe
 
 
-# --- [TYPES] -----------------------------------------------------------------------------------
+# --- [TYPES] ----------------------------------------------------------------------------
 
 
 class _LeaseAction(Protocol):
@@ -66,7 +66,7 @@ class _LeaseAction(Protocol):
     def __call__(self, held: object) -> object: ...
 
 
-# --- [CONSTANTS] -------------------------------------------------------------------------------
+# --- [CONSTANTS] ------------------------------------------------------------------------
 
 # Bridge verb type alias — maps the three-arg production signature.
 type _BridgeVerb = Callable[[AssaySettings, ArtifactScope, BridgeParams], Result[Report, Fault]]
@@ -81,7 +81,7 @@ _LIFECYCLE_VERBS: tuple[tuple[str, _BridgeVerb], ...] = (
 )
 
 
-# --- [OPERATIONS] -------------------------------------------------------------------------------
+# --- [OPERATIONS] -----------------------------------------------------------------------
 
 
 # Shared lease-bypass factory: replaces `leased` so lifecycle verb laws run without filesystem locks.

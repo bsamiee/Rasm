@@ -1,4 +1,6 @@
-# --- [RUNTIME_PRELUDE] -----------------------------------------------------------------
+"""Benchmark registry harness: BenchCase rows, auto-calibrated pedantic gating, and the session-end Potts/BIC regression hook."""
+
+# --- [RUNTIME_PRELUDE] ------------------------------------------------------------------
 
 from collections.abc import Callable
 from functools import reduce
@@ -21,7 +23,7 @@ if TYPE_CHECKING:
     from _pytest.config import Config
     from pytest_benchmark.fixture import BenchmarkFixture
 
-# --- [CONSTANTS] -----------------------------------------------------------------------
+# --- [CONSTANTS] ------------------------------------------------------------------------
 
 # Auto-calibration floor: pedantic's default iterations=1 is unsafe below 100us (timer
 # resolution/overhead dominates), so sub-floor subjects get their iteration count raised
@@ -38,7 +40,7 @@ _POTTS_BETA = 4.0
 _REGRESSION_TOLERANCE = 0.70
 _BENCHMARK_STORAGE_DIR = ".artifacts/python/benchmarks"
 
-# --- [MODELS] --------------------------------------------------------------------------
+# --- [MODELS] ---------------------------------------------------------------------------
 
 
 class BenchCase(msgspec.Struct, frozen=True):
@@ -104,7 +106,7 @@ class _StoredDoc(msgspec.Struct, frozen=True):
     benchmarks: tuple[_StoredEntry, ...] = ()
 
 
-# --- [OPERATIONS] ----------------------------------------------------------------------
+# --- [OPERATIONS] -----------------------------------------------------------------------
 
 
 def bench_params(rows: Sequence[BenchCase]) -> pytest.MarkDecorator:
@@ -199,14 +201,15 @@ def run_bench(benchmark: BenchmarkFixture, row: BenchCase, size: int) -> object:
         size=size,
     )
 
-    # Dispersion floor before the budget assertion: a sample whose IQR dominates its median is
-    # noise, so an untrustworthy verdict is a skip, not a flaky fail.
-    (pytest.skip(f"{row.label}-{size}: sample too noisy to gate (rel_iqr={rel_iqr:.3f} > {row.max_rel_iqr})") if rel_iqr > row.max_rel_iqr else None)
-    (
-        pytest.fail(f"{row.label}-{size}: {row.gate_stat}={observed_ms:.4f}ms exceeds budget {row.budget_ms:.4f}ms")
-        if (row.gate and observed_ms > row.budget_ms)
-        else None
-    )
+    # Dispersion floor dominates the budget gate: a sample whose IQR overruns its median is noise, so an
+    # untrustworthy verdict skips (never a flaky fail); a trustworthy over-budget sample fails. Skip-before-fail order.
+    match (rel_iqr > row.max_rel_iqr, row.gate and observed_ms > row.budget_ms):
+        case (True, _):
+            pytest.skip(f"{row.label}-{size}: sample too noisy to gate (rel_iqr={rel_iqr:.3f} > {row.max_rel_iqr})")
+        case (_, True):
+            pytest.fail(f"{row.label}-{size}: {row.gate_stat}={observed_ms:.4f}ms exceeds budget {row.budget_ms:.4f}ms")
+        case _:
+            pass
 
     return result
 
@@ -235,7 +238,7 @@ def run_registry(rows: Sequence[BenchCase]) -> Callable[..., None]:
     return bench_
 
 
-# --- [COMPOSITION] ---------------------------------------------------------------------
+# --- [COMPOSITION] ----------------------------------------------------------------------
 
 
 def _potts_segments(series: tuple[float, ...]) -> tuple[tuple[float, ...], ...]:
@@ -345,6 +348,6 @@ def pytest_benchmark_update_json(config: Config, benchmarks: object, output_json
     )
 
 
-# --- [EXPORTS] -------------------------------------------------------------------------
+# --- [EXPORTS] --------------------------------------------------------------------------
 
 __all__ = ["BenchCase", "bench_params", "run_bench", "run_registry"]

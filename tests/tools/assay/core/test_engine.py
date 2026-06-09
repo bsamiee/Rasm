@@ -8,7 +8,7 @@ mutual-exclusion contract is held by the ported ``LeaseStateMachine`` RBSM. ``ru
 are law-less by nature and are carried as exemptions in the assay conftest ``_EXEMPT`` set.
 """
 
-# --- [RUNTIME_PRELUDE] ------------------------------------------------------------------------
+# --- [RUNTIME_PRELUDE] ------------------------------------------------------------------
 
 import contextlib
 import fcntl
@@ -111,7 +111,7 @@ _ROUTED_CHANGED = Routed(language=Language.CSHARP, scope=Scope.CHANGED)
 _PY_CHANGED = Routed(language=Language.PYTHON, scope=Scope.CHANGED)
 
 
-# --- [HARNESS] (single-source run-check + stream + remote drivers) -----------------------
+# --- [HARNESS] (single-source run-check + stream + remote drivers) ----------------------
 
 
 def _run(check: Check, harness: AssayHarness, *, scope: ArtifactScope | None = None) -> Result[Completed, Fault]:
@@ -191,7 +191,7 @@ def test_decode_lease_owner_corrupt_bytes_are_none() -> None:
     )
 
 
-# --- [IS_LEASE_STALE] (psutil-double validity sweep + monotone-in-drift) -----------------
+# --- [IS_LEASE_STALE] (psutil-double validity sweep + monotone-in-drift) ----------------
 
 _STALE_CASES: tuple[tuple[str, _ProcKw, bool], ...] = (
     ("no-such-process", {"raise_no_such": True}, True),
@@ -236,7 +236,7 @@ def test_is_lease_stale_access_denied_stays_live(monkeypatch: pytest.MonkeyPatch
     assert is_lease_stale(owner, tolerance=1.0) is False
 
 
-# --- [GOVERNED_CONCURRENCY] (cpu-bounded fold over varied AssaySettings) -----------------
+# --- [GOVERNED_CONCURRENCY] (cpu-bounded fold over varied AssaySettings) ----------------
 
 
 @pytest.mark.parametrize(
@@ -370,7 +370,7 @@ def test_argv_for_composes_runner_prefix_scope_and_routed_tails(assay_root: Assa
     assert {"ruff", "check", "a.py", "b.py"} <= set(argv), f"command body or routed tails lost in {argv!r}"
 
 
-# --- [SSH_OUTCOME / REMOTE_COMMAND] (status projection + shell-quoting) ------------------
+# --- [SSH_OUTCOME / REMOTE_COMMAND] (status projection + shell-quoting) -----------------
 
 
 def test_ssh_outcome_projects_status_and_signal() -> None:
@@ -400,7 +400,7 @@ def test_remote_command_shell_quotes_cwd_env_argv(argv: tuple[str, ...], cwd: st
     assert command == Contains(*fragments), f"missing fragment in {command!r}"
 
 
-# --- [DRAIN_STREAM / CAPTURED] (byte-pump aggregate over a ByteRecv double) --------------
+# --- [DRAIN_STREAM / CAPTURED] (byte-pump aggregate over a ByteRecv double) -------------
 
 
 def _recv_of(chunks: tuple[bytes, ...]) -> engine_mod.ByteRecv:
@@ -483,7 +483,7 @@ def test_discover_deadline_and_spawn_faults(tmp_path: Path) -> None:
     assert_error_status(absent, RailStatus.FAULTED)
 
 
-# --- [RUN_CHECK / RUN_CHECK_ASYNC / FAN_OUT] (real subprocess + psutil seams) -------------
+# --- [RUN_CHECK / RUN_CHECK_ASYNC / FAN_OUT] (real subprocess + psutil seams) -----------
 
 
 def test_run_check_executes_direct_tool(assay_root: AssayHarness) -> None:
@@ -621,7 +621,7 @@ class LeaseStateMachine(RuleBasedStateMachine):
     @override
     def teardown(self) -> None:
         # Drain every still-open slot stack through a forcing comprehension (no imperative loop in the model).
-        _ = tuple(slot.stack.close() for slot in self._slots.values())  # type: ignore[func-returns-value]  # ExitStack.close() is None; tuple forces the side effects
+        _ = tuple(slot.stack.close() for slot in self._slots.values())  # ExitStack.close() is None; tuple forces the side effects
 
 
 def test_lease_state_machine_holds_mutual_exclusion() -> None:
@@ -657,7 +657,7 @@ def test_run_check_rejects_escaping_stage_paths(assay_root: AssayHarness) -> Non
     assert not (assay_root.root.parent / "outside").exists()
 
 
-# --- [GUARDED_FAULT_RAILS] (spawn classification through run_check) ----------------------
+# --- [GUARDED_FAULT_RAILS] (spawn classification through run_check) ---------------------
 
 _GUARDED_TOOLS: tuple[tuple[str, tuple[str, ...], float | None, RailStatus], ...] = (
     ("missing-binary", ("/nonexistent/assay-guarded-binary",), None, RailStatus.UNSUPPORTED),
@@ -676,7 +676,7 @@ def test_run_check_classifies_spawn_faults(
     assert_error_status(run_check(Check(tool=tool), settings=assay_root.settings, scope=None, routed=_PY_CHANGED), status)
 
 
-# --- [INPROC_THUNK] (in-process execution rail through run_check) ------------------------
+# --- [INPROC_THUNK] (in-process execution rail through run_check) -----------------------
 
 
 def test_inproc_thunk_outcomes(assay_root: AssayHarness) -> None:
@@ -700,7 +700,7 @@ def test_inproc_thunk_outcomes(assay_root: AssayHarness) -> None:
     assert (healthy.returncode, healthy.stdout) == (0, b"inproc-ok"), f"healthy-thunk receipt wrong: {healthy!r}"
 
 
-# --- [STREAMING_LOCAL] (scoped tee → bounded tail + persisted artifact) ------------------
+# --- [STREAMING_LOCAL] (scoped tee → bounded tail + persisted artifact) -----------------
 
 # Each row drives the real `_run_process_backend` streaming arm: the anyio TaskGroup tees stdout through
 # `drain_stream` into a store-opened sink (when scoped) and `_stream_artifacts` records the persisted bytes.
@@ -739,7 +739,7 @@ def test_streaming_local_tail_clips_while_full_artifact_persists(
             assert scope.store.read_path(artifact.path) == payload, "persisted artifact lost the streamed bytes"
 
 
-# --- [STAGE_MATERIALIZE] (contained worktree projection before execution) ----------------
+# --- [STAGE_MATERIALIZE] (contained worktree projection before execution) ---------------
 
 
 def test_staged_tool_materializes_workdir_and_runs(assay_root: AssayHarness) -> None:
@@ -785,7 +785,7 @@ def test_staged_tool_requires_local_execution(assay_root: AssayHarness) -> None:
     assert "staged tools require local execution" in fault.message, f"wrong stage-remote message: {fault!r}"
 
 
-# --- [REAP] (process-tree teardown on the streaming finally) -----------------------------
+# --- [REAP] (process-tree teardown on the streaming finally) ----------------------------
 
 
 def test_reap_terminates_live_tree_and_passes_through_exited(monkeypatch: pytest.MonkeyPatch) -> None:
@@ -839,7 +839,7 @@ def test_terminate_process_tree_kills_terminate_resistant_child() -> None:
     already_dead.kill.assert_not_called()
 
 
-# --- [DIAGNOSE_SNAPSHOT] (resource snapshot folded onto the fault span) ------------------
+# --- [DIAGNOSE_SNAPSHOT] (resource snapshot folded onto the fault span) -----------------
 
 
 def test_diagnose_records_resource_snapshot(monkeypatch: pytest.MonkeyPatch) -> None:
@@ -910,7 +910,7 @@ def test_load_pressure_handles_absent_and_failing_getloadavg(monkeypatch: pytest
     assert engine_mod._load_pressure() == {}, "absent getloadavg not degraded to empty"
 
 
-# --- [LEASE_CLAIM] (flock contention, empty-body BUSY, stale-steal) ----------------------
+# --- [LEASE_CLAIM] (flock contention, empty-body BUSY, stale-steal) ---------------------
 
 
 @contextlib.contextmanager
@@ -1043,7 +1043,7 @@ def test_steal_yields_busy_on_lost_toctou_race(assay_root: AssayHarness) -> None
         assert engine_mod._steal(contender, "steal-lost", run_id="loser", target="", owner=None) is None, "lost TOCTOU race did not yield BUSY"
 
 
-# --- [SSH_ROUND_TRIP] (network-marked loopback through the engine) -----------------------
+# --- [SSH_ROUND_TRIP] (network-marked loopback through the engine) ----------------------
 
 
 @pytest.mark.anyio
@@ -1131,7 +1131,7 @@ async def test_pooled_ssh_logs_close_failures(exc_factory: str) -> None:
     assert closed[0] is True, "pooled connection close was not attempted before wait_closed faulted"
 
 
-# --- [ENGINE_INTERNALS] (direct-drive seams not reachable through a verb) ----------------
+# --- [ENGINE_INTERNALS] (direct-drive seams not reachable through a verb) ---------------
 
 
 def test_drain_none_stream_is_empty_tail() -> None:

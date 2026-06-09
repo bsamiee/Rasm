@@ -19,8 +19,9 @@ import functools
 import operator
 from typing import overload, Protocol, Self
 
+from dirty_equals import IsApprox
 from expression import Option, Result
-from hypothesis.stateful import RuleBasedStateMachine
+from hypothesis.stateful import Bundle, consumes, invariant, multiple, RuleBasedStateMachine
 import msgspec
 import msgspec.json
 
@@ -100,6 +101,19 @@ def _eq_law[T](left: T, right: T, eq: _Eq[T]) -> None:
     The shared collapse point for every equality-shaped law body — mirrors Spec.cs ``EqLaw``.
     """
     assert (eq if eq is not None else operator.eq)(left, right), f"law violated: {left!r} != {right!r}"
+
+
+def de_eq(*, delta: float | None = None) -> Callable[[float, float], bool]:
+    """Build an approximate-equality ``eq`` callable over ``dirty_equals.IsApprox`` for the oracle ``eq`` kwarg.
+
+    Args:
+        delta: Absolute tolerance; ``None`` uses ``IsApprox``'s relative default.
+
+    Returns:
+        A two-arg predicate ``left == IsApprox(right, delta=delta)``. ``IsApprox.__eq__`` swallows
+        ``TypeError``, so non-numeric operands fold to ``False`` rather than raising.
+    """
+    return lambda left, right: left == IsApprox(right, delta=delta)
 
 
 # --- ALGEBRAIC ORACLES ------------------------------------------------------------------
@@ -433,6 +447,7 @@ __all__ = [
     "ValidityCase",
     "ProjectionCase",
     "MetamorphicRelation",
+    "de_eq",
     "roundtrip",
     "identity",
     "idempotent",
@@ -458,4 +473,8 @@ __all__ = [
     "assert_none",
     "assert_roundtrip",
     "model_based",
+    "Bundle",
+    "consumes",
+    "invariant",
+    "multiple",
 ]

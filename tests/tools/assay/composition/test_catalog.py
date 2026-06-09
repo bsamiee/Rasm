@@ -15,7 +15,7 @@ Law design
 - select idempotent — select(claim) == select(claim) (pure, no hidden mutable state).
 """
 
-# --- [RUNTIME_PRELUDE] ---------------------------------------------------------------
+# --- [RUNTIME_PRELUDE] ------------------------------------------------------------------
 
 import pytest
 
@@ -26,7 +26,7 @@ from tools.assay.composition.catalog import AST_MATCHES, Capture, CAPTURE_ENCODE
 from tools.assay.core.model import Claim, Language, Tool
 
 
-# --- [CONSTANTS] ----------------------------------------------------------------------
+# --- [CONSTANTS] ------------------------------------------------------------------------
 
 _VALID_RG_JSON: bytes = b'{"type":"match","data":{"path":{"text":"foo.py"},"lines":{"text":"x = 1\\n"},"line_number":7}}'
 
@@ -36,7 +36,7 @@ _AST_MATCH_PAYLOAD: bytes = (
 )
 
 
-# --- [OPERATIONS] ---------------------------------------------------------------------
+# --- [OPERATIONS] -----------------------------------------------------------------------
 
 
 # -- Capture roundtrip (covers CAPTURES + CAPTURE_ENCODER) ----------------------------

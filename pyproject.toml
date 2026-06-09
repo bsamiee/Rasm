@@ -98,9 +98,11 @@ error-on-warning = true
 # ADVISORY checker only — `ty` ([tool.ty], all = "error") is the BINDING type gate. mypy diverges on intentional
 # 3.15 / ty-clean idioms (typing.TypeForm absent in mypy; no-for-loop side-effect comprehensions read as
 # func-returns-value; disallow_any_explicit flags Callable[..., R] test signatures; unfollowed-import Any on
-# fsspec/hypothesis). Those divergences are NOT defects — do not "fix" them with mypy-only suppressions that ty
-# would then reject under respect-type-ignore-comments = false. Resolve real type defects through ty.
+# fsspec). Those divergences are NOT defects: they are scoped in the `[[tool.mypy.overrides]]` stanzas below, never
+# in inline suppressions that ty would reject under respect-type-ignore-comments = false. `files` makes the two
+# disjoint subtrees the canonical bare-`uv run mypy` target. Resolve real type defects through ty.
 [tool.mypy]
+files =                   ["tools/assay", "tests"]
 python_version =          "3.15"
 cache_dir =               ".cache/mypy"
 strict =                  true
@@ -145,6 +147,23 @@ init_typed =                    true
 init_forbid_extra =             true
 warn_required_dynamic_aliases = true
 warn_untyped_fields =           true
+
+# tests/** are ty-clean but diverge from strict mypy on intentional idioms; each relaxation maps to a real divergence,
+# not a defect. disallow_any_*: Callable[..., R] test signatures + TypeForm unfollowed-import Any. warn_unreachable:
+# exhaustive seam match arms ty proves live. disable_error_code: mypy typeshed lag — TypeForm + PEP 661 sentinel
+# (attr-defined), no-for-loop side-effect comprehensions (func-returns-value), test Callable signatures (type-arg),
+# RailProbe.install LSP narrowing (override), GitHubArtifactDatabase(*split) splat-arity (arg-type).
+[[tool.mypy.overrides]]
+module =                  "tests.*"
+disallow_any_explicit =   false
+disallow_any_unimported = false
+warn_unreachable =        false
+disable_error_code =      ["func-returns-value", "attr-defined", "type-arg", "override", "arg-type"]
+
+# fsspec ships no py.typed marker.
+[[tool.mypy.overrides]]
+module =                 "fsspec"
+ignore_missing_imports = true
 
 # --- [PYTEST] --------------------------------------------------------------
 

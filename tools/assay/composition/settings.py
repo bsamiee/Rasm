@@ -10,7 +10,7 @@ import sys
 from typing import Annotated, Final, override, Protocol, runtime_checkable
 from urllib.parse import urlsplit
 
-import fsspec  # type: ignore[import-untyped]  # fsspec ships no py.typed marker
+import fsspec  # fsspec ships no py.typed marker (declared in [[tool.mypy.overrides]])
 import msgspec
 from pydantic import AliasChoices, BaseModel, BeforeValidator, computed_field, ConfigDict, Field, field_validator, model_validator
 from pydantic_settings import (  # noqa: TC002  # Pydantic calls the hook by runtime annotations.

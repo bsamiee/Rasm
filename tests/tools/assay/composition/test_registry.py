@@ -1,6 +1,6 @@
 """Registry completeness, delta history projection, parse_fault decode, rail dispatch, and self_test laws."""
 
-# --- [RUNTIME_PRELUDE] -----------------------------------------------------------------------
+# --- [RUNTIME_PRELUDE] ------------------------------------------------------------------
 
 from collections import deque
 from collections.abc import Callable  # noqa: TC003  # runtime: annotates parametrized factory params at collection
@@ -67,14 +67,14 @@ if TYPE_CHECKING:
     from tools.assay.core.model import Bind, Check
 
 
-# --- [CONSTANTS] -----------------------------------------------------------------------------
+# --- [CONSTANTS] ------------------------------------------------------------------------
 
 _EXPECTED_CLAIMS: frozenset[Claim] = frozenset(b.claim for b in REGISTRY)
 _REGISTRY_ROOT: Final = f"{registry_mod.__name__}.REGISTRY"
 _ORPHAN_SUBJECT: Final = f"{registry_mod.__name__}.ORPHAN_MIN_AGE_S"
 
 
-# --- [MODELS] --------------------------------------------------------------------------------
+# --- [MODELS] ---------------------------------------------------------------------------
 
 
 @dataclass(frozen=True, slots=True)
@@ -116,7 +116,7 @@ def _run_fake(bind: Bind, settings: AssaySettings, outcome: Result[Report, Fault
     return rail(fake, settings=settings)(StaticParams())
 
 
-# --- [REGISTRY] ------------------------------------------------------------------------------
+# --- [REGISTRY] -------------------------------------------------------------------------
 
 
 def test_registry_structural_invariants() -> None:
@@ -147,7 +147,7 @@ register_laws(
 )
 
 
-# --- [BUILD_APP] ---------------------------------------------------------------------------------
+# --- [BUILD_APP] ------------------------------------------------------------------------
 
 
 def test_build_app_returns_cyclopts_app() -> None:
@@ -169,7 +169,7 @@ def test_build_app_returns_cyclopts_app() -> None:
 register_laws((build_app, ("build_app_returns_cyclopts_app", "build_app_every_leaf_reachable", "build_app_self_test_and_delta_registered")))
 
 
-# --- [ORPHAN_MIN_AGE_S] -----------------------------------------------------------------------
+# --- [ORPHAN_MIN_AGE_S] -----------------------------------------------------------------
 
 
 def test_orphan_min_age_s_value() -> None:
@@ -245,7 +245,7 @@ register_laws((
 ))
 
 
-# --- [PARSE_FAULT] ---------------------------------------------------------------------------
+# --- [PARSE_FAULT] ----------------------------------------------------------------------
 
 
 def test_parse_fault_dispatch_and_fallback() -> None:
@@ -413,7 +413,7 @@ register_laws((
 ))
 
 
-# --- [RAIL] ----------------------------------------------------------------------------------
+# --- [RAIL] -----------------------------------------------------------------------------
 
 
 def test_identity_hom_returns_ok_report() -> None:
@@ -586,7 +586,7 @@ register_laws(
 )
 
 
-# --- [DELTA] ---------------------------------------------------------------------------------
+# --- [DELTA] ----------------------------------------------------------------------------
 
 
 def test_delta_no_prior_emits_empty_status(assay_root: AssayHarness, monkeypatch: pytest.MonkeyPatch) -> None:
@@ -663,7 +663,7 @@ register_laws((
 ))
 
 
-# --- [SELF_TEST] ---------------------------------------------------------------------------------
+# --- [SELF_TEST] ------------------------------------------------------------------------
 
 
 def test_self_test_structure_and_census(assay_root: AssayHarness, monkeypatch: pytest.MonkeyPatch) -> None:
@@ -849,7 +849,7 @@ register_laws((
 ))
 
 
-# --- [LEAF] ----------------------------------------------------------------------------------
+# --- [LEAF] -----------------------------------------------------------------------------
 
 
 def test_leaf_command_closure_and_invocation(assay_root: AssayHarness, monkeypatch: pytest.MonkeyPatch) -> None:

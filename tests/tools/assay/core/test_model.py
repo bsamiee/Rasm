@@ -6,7 +6,7 @@ former ``_strategy_validation_gate`` session fixture reborn as one collectable, 
 preserves the fold count invariant and asserts the ``Report`` arithmetic via ``assert_counts_consistent``.
 """
 
-# --- [RUNTIME_PRELUDE] ------------------------------------------------------------------------
+# --- [RUNTIME_PRELUDE] ------------------------------------------------------------------
 
 from typing import get_args
 
@@ -87,7 +87,7 @@ from tools.assay.core.model import (
 from tools.assay.core.status import RailStatus
 
 
-# --- [CONSTANTS] -----------------------------------------------------------------------------
+# --- [CONSTANTS] ------------------------------------------------------------------------
 
 # Self-tracking AnyDetail variant set — matches conftest.detail_st, no positional coupling.
 _DETAIL_VARIANTS: tuple[type[Detail], ...] = get_args(AnyDetail.__value__)
@@ -126,7 +126,7 @@ _BARE_STRENUM_CLASSES: tuple[type[Claim | SourceKind | ArtifactKind | MutationLa
 )
 
 
-# --- [LAW_COVERAGE] --------------------------------------------------------------------------
+# --- [LAW_COVERAGE] ---------------------------------------------------------------------
 # Module-level registrations so MANIFEST is populated at import/collection time, not test-execution
 # time. @spec-decorated laws register themselves at decoration time — only explicit register_law
 # calls that were formerly inside test bodies are hoisted here.
@@ -166,7 +166,7 @@ for _cls in _BARE_STRENUM_CLASSES:
     register_law(_cls, "token_identity")
 
 
-# --- [WIRE_ROUNDTRIP] ------------------------------------------------------------------------
+# --- [WIRE_ROUNDTRIP] -------------------------------------------------------------------
 # The encode-probe this file owns: encode → decode → re-encode byte-identity over every wire struct.
 # A non-deterministic codec or a non-decode-clean field defect dies on the re-encode identity step.
 
@@ -205,7 +205,7 @@ def test_wire_struct_forbids_unknown_fields(detail: AnyDetail) -> None:
         msgspec.json.decode(msgspec.json.encode(raw), type=type(detail))
 
 
-# --- [FOLD] ----------------------------------------------------------------------------------
+# --- [FOLD] -----------------------------------------------------------------------------
 # PRESERVED model-fold law: ok + failed == total, one defect row per FAILED, EMPTY status on empty.
 
 
@@ -249,7 +249,7 @@ def test_fold_failed_stderr_reaches_results_text() -> None:
     assert marker.decode() in report.results[0].text
 
 
-# --- [ENVELOPE] ------------------------------------------------------------------------------
+# --- [ENVELOPE] -------------------------------------------------------------------------
 # envelope() status/exit projection: exit_code == status.exit_code for both Report and Fault payloads.
 
 
@@ -274,7 +274,7 @@ def test_envelope_projects_fault_status(fault: Fault) -> None:
     assert env.exit_code == fault.status.exit_code
 
 
-# --- [RECEIPT] -------------------------------------------------------------------------------
+# --- [RECEIPT] --------------------------------------------------------------------------
 
 
 @pytest.mark.mutation
@@ -290,7 +290,7 @@ def test_receipt_status_derivation(rc: int, explicit: RailStatus | None, expecte
     assert done.status is expected
 
 
-# --- [FIELD_CAP] -----------------------------------------------------------------------------
+# --- [FIELD_CAP] ------------------------------------------------------------------------
 # field_cap reads a msgspec StrType max_length; absent → default. _HINT_CAP/_RESULT_CAP are int caps
 # derived through this introspection, so the field_cap law covers their derivation contract directly.
 
@@ -312,7 +312,7 @@ def test_field_cap_introspection(subject: type[msgspec.Struct], name: str, defau
     assert field_cap(subject, name, default=default) == expected
 
 
-# --- [VALIDATE_DETAIL] -----------------------------------------------------------------------
+# --- [VALIDATE_DETAIL] ------------------------------------------------------------------
 
 
 @given(detail_st)
@@ -326,7 +326,7 @@ def test_validate_detail_none_passthrough() -> None:
     assert validate_detail(None) is None
 
 
-# --- [WIRE_CODEC] ----------------------------------------------------------------------------
+# --- [WIRE_CODEC] -----------------------------------------------------------------------
 # wire_encode is the single deterministic encoder; wire_safe sanitizes lone surrogates for the wire.
 
 
@@ -359,7 +359,7 @@ def test_wire_safe_idempotent_on_clean(text: str) -> None:
     idempotent(wire_safe(text), wire_safe)
 
 
-# --- [PARAMS] --------------------------------------------------------------------------------
+# --- [PARAMS] ---------------------------------------------------------------------------
 # BaseParams default arity is unbounded (None) → bound() is identity; surplus() always clips to the cap.
 
 
@@ -381,7 +381,7 @@ def test_baseparams_default_arity_is_identity(paths: list[str], verb: str) -> No
     assert bound is params
 
 
-# --- [ENUM_PAYLOADS] -------------------------------------------------------------------------
+# --- [ENUM_PAYLOADS] --------------------------------------------------------------------
 # Payload-bearing enums carry typed sidecars (Runner.prefix, Mode.stream/writes, Language.*, Input.*);
 # bare StrEnums (Claim/SourceKind/ArtifactKind/MutationLane/SymbolShape) carry only str-token identity.
 
@@ -426,7 +426,7 @@ def test_bare_strenum_token_identity(enum_cls: type[Claim | SourceKind]) -> None
     assert len({m.value for m in members}) == len(members)
 
 
-# --- [BIND] ----------------------------------------------------------------------------------
+# --- [BIND] -----------------------------------------------------------------------------
 # model.Bind is the registry binding model (claim → verb → handler); it is NOT wire-serializable
 # (handler is a callable, params is a type), so its law is structural well-formedness over REGISTRY.
 

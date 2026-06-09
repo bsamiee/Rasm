@@ -11,7 +11,7 @@ Law design:
 - One polymorphic _FsStub drives every walk/retain/info edge arm via constructor flags — no per-arm class.
 """
 
-# --- [RUNTIME_PRELUDE] ----------------------------------------------------------------------
+# --- [RUNTIME_PRELUDE] ------------------------------------------------------------------
 
 import contextlib
 from datetime import datetime, UTC
@@ -54,7 +54,7 @@ if TYPE_CHECKING:
     from tools.assay.core.model import Envelope
 
 
-# --- [CONSTANTS] ----------------------------------------------------------------------------
+# --- [CONSTANTS] ------------------------------------------------------------------------
 
 # Inclusive cpu_count bounds per Annotated[int, Field(ge=1, le=256)] plus the rejected neighbours.
 _CPU_MIN: Final = 1
@@ -63,7 +63,7 @@ _CPU_BELOW: Final = 0
 _CPU_ABOVE: Final = 300
 
 
-# --- [BOUNDARIES] ---------------------------------------------------------------------------
+# --- [BOUNDARIES] -----------------------------------------------------------------------
 # One polymorphic ArtifactFileSystem stub drives every walk/retain/info/mtime/size edge arm via
 # constructor flags, replacing the five hand-rolled per-arm stub classes. `info_payload` feeds the
 # non-numeric mtime/size fallback arms; `rm_raises` simulates a concurrent-deletion race; `seed`
@@ -141,7 +141,7 @@ class _FsStub(ArtifactFileSystem):  # noqa: PLR0904  # 11 methods satisfy the Ar
     transaction: contextlib.AbstractContextManager[object] = contextlib.nullcontext()
 
 
-# --- [OPERATIONS] ---------------------------------------------------------------------------
+# --- [OPERATIONS] -----------------------------------------------------------------------
 
 # --- StrEnum vocabulary laws (Configuration, LogFormat) -------------------------------------
 
@@ -644,7 +644,7 @@ def test_artifact_store_sorted_history_ids_order(mem_store: ArtifactStore, monke
 register_law(ArtifactStore, "artifact_store_sorted_history_ids_order")
 
 
-# --- [STATEFUL_HISTORY_RBSM] ----------------------------------------------------------------
+# --- [STATEFUL_HISTORY_RBSM] ------------------------------------------------------------
 # The example-based retention laws above pin specific edge arms (keep in {0,1}, exactly 3 runs,
 # concurrent-deletion race). The real contract — across an arbitrary interleaving of write_history,
 # retain_history(keep=N), and load_history, the survivor set is always exactly the N most-recent
@@ -797,7 +797,7 @@ def test_artifact_store_resolve_artifacts_latest_across_roots(mem_store: Artifac
 register_law(ArtifactStore, "artifact_store_resolve_artifacts_latest_across_roots")
 
 
-# --- [PROTOCOL] ----------------------------------------------------------------------------
+# --- [PROTOCOL] -------------------------------------------------------------------------
 # ArtifactFileSystem: structural runtime-checkable contract + default `transaction` property.
 
 

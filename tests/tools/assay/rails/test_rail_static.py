@@ -12,7 +12,7 @@ Law structure:
 - Language inference: suffix narrowing and fallback to all languages.
 """
 
-# --- [RUNTIME_PRELUDE] -------------------------------------------------------------------------
+# --- [RUNTIME_PRELUDE] ------------------------------------------------------------------
 
 from dataclasses import replace as dc_replace
 from typing import TYPE_CHECKING
@@ -44,7 +44,7 @@ if TYPE_CHECKING:
     type _PlanCheckFn = Callable[[Report], bool]
 
 
-# --- [CONSTANTS] -------------------------------------------------------------------------------
+# --- [CONSTANTS] ------------------------------------------------------------------------
 
 _SUFFIX_CASES: tuple[tuple[str, Language], ...] = (
     ("tools/assay/__init__.py", Language.PYTHON),
@@ -60,7 +60,7 @@ _SUFFIX_CASES: tuple[tuple[str, Language], ...] = (
 _CLAIM_VERB_CASES: tuple[tuple[_VerbFn, str], ...] = ((fix, "fix"), (report, "report"), (build, "build"), (full, "full"))
 
 
-# --- [OPERATIONS] ------------------------------------------------------------------------------
+# --- [OPERATIONS] -----------------------------------------------------------------------
 
 # ------ StaticParams laws ---------------------------------------------------------------------
 

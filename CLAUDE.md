@@ -104,6 +104,11 @@ If reviewing, refining, editing, creating, or modifying X file type, use skill Y
 3. [ALWAYS] **Keep project references versionless** under central package management.
 4. [ALWAYS] **Validate graph**: use `uv run python -m tools.quality static plan <changed-manifest>` when routing is uncertain, then `uv run python -m tools.quality static full` for central package, solution, global runner, `.editorconfig`, or analyzer trigger changes.
 
+[IMPORTANT] Python type/lint gate (`tools/assay` + `tests`):
+1. [ALWAYS] **Type (binding)**: `uv run ty check tools/assay tests` — `ty` (`all = "error"`) is the binding type gate.
+2. [ALWAYS] **Type (advisory)**: `uv run mypy` — `[tool.mypy] files` scopes the bare invocation to the two subtrees; divergences live in `[[tool.mypy.overrides]]`, never inline.
+3. [ALWAYS] **Lint/format**: `uv run ruff check tools/assay tests` and `uv run ruff format --check tools/assay tests`.
+
 ### [5.2]-[QUALITY_GATES]
 
 Three orthogonal rails: static analysis, unit tests, runtime verification. Each tool verb owns one rail; never conflate.

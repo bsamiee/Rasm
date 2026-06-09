@@ -1,6 +1,6 @@
 """Shared pytest configuration for repo-local Python tests."""
 
-# --- [RUNTIME_PRELUDE] ------------------------------------------------------------------------
+# --- [RUNTIME_PRELUDE] ------------------------------------------------------------------
 
 from datetime import datetime, UTC
 import os
@@ -20,8 +20,6 @@ os.environ.setdefault("HYPOTHESIS_STORAGE_DIRECTORY", str(HYPOTHESIS_HOME))  # n
 # Default off; zero overhead when unset. Activate with ASSAY_OBSERVABILITY=1.
 if os.environ.get("ASSAY_OBSERVABILITY"):  # noqa: TID251  # pytest boundary: observability gate before hypothesis import
     os.environ.setdefault("HYPOTHESIS_EXPERIMENTAL_OBSERVABILITY", "1")  # noqa: TID251
-
-# --- [IMPORTS] ------------------------------------------------------------------------
 
 from typing import TYPE_CHECKING
 
@@ -49,7 +47,7 @@ if TYPE_CHECKING:
     from structlog.types import EventDict
 
 
-# --- [CONSTANTS] -----------------------------------------------------------------------
+# --- [CONSTANTS] ------------------------------------------------------------------------
 # Repo-local Hypothesis/cache anchors W3 reads directly (no fixture indirection over importable constants).
 # Optional profiles: ``--hypothesis-profile=rasm-ci|rasm-stress|rasm-debug|rasm-adversarial|rasm-stateful|rasm-parity``;
 # mutmut uses ``rasm-mutation`` via ``[tool.mutmut]`` pytest args.
@@ -73,7 +71,7 @@ _SUPPRESSIONS = (HealthCheck.too_slow, HealthCheck.data_too_large)
 _log = structlog.get_logger(__name__)
 
 
-# --- [COMPOSITION] ---------------------------------------------------------------------
+# --- [COMPOSITION] ----------------------------------------------------------------------
 
 
 set_hypothesis_home_dir(HYPOTHESIS_HOME)
@@ -171,7 +169,7 @@ def pytest_collection_modifyitems(items: list[pytest.Item]) -> None:
             item.add_marker(property_, append=False)
 
 
-# --- [EXPORTS] -------------------------------------------------------------------------
+# --- [EXPORTS] --------------------------------------------------------------------------
 
 
 @pytest.fixture(scope="session", autouse=True)

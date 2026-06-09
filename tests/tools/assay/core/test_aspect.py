@@ -6,7 +6,7 @@ guard (exercised THROUGH public ``compose``/``checked_call``), the ``Slot`` mono
 finish-event emission, OTel span stamping, and the recent-events ring contextvar projection.
 """
 
-# --- [RUNTIME_PRELUDE] ------------------------------------------------------------------------
+# --- [RUNTIME_PRELUDE] ------------------------------------------------------------------
 
 from collections import deque
 from collections.abc import Callable  # noqa: TC003  # PEP 649 deferred; runtime annotation on `ident` evaluates lazily
@@ -43,13 +43,13 @@ from tools.assay.core.model import Claim, Fault, fold, Report  # noqa: TC001  # 
 from tools.assay.core.status import RailStatus
 
 
-# --- [CONSTANTS] -----------------------------------------------------------------------
+# --- [CONSTANTS] ------------------------------------------------------------------------
 
 # A rail-shaped success Hom: the production layers all weave functions returning Result[Report, Fault].
 _REPORT: Report = fold(Claim.STATIC, "probe", ())
 
 
-# --- [OPERATIONS] ----------------------------------------------------------------------
+# --- [OPERATIONS] -----------------------------------------------------------------------
 # `_rail` is the canonical typed Hom the layer laws weave; `_keys`/`_attrs` are the
 # logged/traced projection callables matching the production (settings, scope, params) arity-1 probe shape.
 
@@ -70,8 +70,8 @@ def _attrs(_x: object) -> dict[str, object]:
     return {"assay.verb": "probe"}
 
 
-# --- [LAWS] ----------------------------------------------------------------------------
-# --- [SLOT] ----------------------------------------------------------------------------
+# --- [LAWS] -----------------------------------------------------------------------------
+# --- [SLOT] -----------------------------------------------------------------------------
 
 
 def test_slot_ordering_is_monotonic() -> None:
@@ -85,7 +85,7 @@ def test_slot_ordering_is_monotonic() -> None:
     )
 
 
-# --- [COMPOSE / ASSEMBLE] --------------------------------------------------------------
+# --- [COMPOSE / ASSEMBLE] ---------------------------------------------------------------
 
 
 def test_compose_double_checked_equals_single() -> None:
@@ -101,7 +101,7 @@ def test_compose_double_checked_equals_single() -> None:
     layer = checked()  # type: ignore[var-annotated]  # mypy Never-collapse; ty infers the generic layer
     once: Hom[[object], Report] = compose(layer)(_rail)
     twice: Hom[[object], Report] = compose(layer, layer)(_rail)
-    raw: Hom[[object], Report] = compose()(_rail)  # type: ignore[assignment, arg-type]  # mypy Never-collapse on empty compose(); ty clean
+    raw: Hom[[object], Report] = compose()(_rail)  # type: ignore[assignment]  # mypy Never-collapse on empty compose(); ty clean
 
     once_ids: frozenset[int] = getattr(once, "_assay_ids", frozenset())
     # The same layer applied twice yields the SAME marker set as a single application: the guard deduped
@@ -120,7 +120,7 @@ def test_compose_is_assemble_through_ok() -> None:
     trc: Layer[[object], Report] = traced(span="rail.span", attrs=_attrs)
     layers: list[Layer[[object], Report]] = [log, trc]
     woven_compose: Hom[[object], Report] = compose(*layers)(_rail)
-    woven_assemble: Hom[[object], Report] = assert_ok(assemble(block.of_seq(layers), _rail))  # type: ignore[arg-type]  # mypy ParamSpec-in-Callable invariance on of_seq; ty clean
+    woven_assemble: Hom[[object], Report] = assert_ok(assemble(block.of_seq(layers), _rail))
 
     assert assert_ok(woven_compose("x")) == assert_ok(woven_assemble("x"))
 
@@ -165,7 +165,7 @@ def test_compose_raises_typeerror_carrying_inversion() -> None:
     assert raised.value.args[0].outer is Slot.logged
 
 
-# --- [CHECKED / CHECKED_CALL] ----------------------------------------------------------
+# --- [CHECKED / CHECKED_CALL] -----------------------------------------------------------
 
 
 def test_checked_is_checked_slot_layer() -> None:
@@ -206,7 +206,7 @@ def test_checked_call_faults_on_shape_violation() -> None:
         woven(-1)
 
 
-# --- [LOGGED] --------------------------------------------------------------------------
+# --- [LOGGED] ---------------------------------------------------------------------------
 
 
 def test_logged_binds_keys_during_call_clears_after() -> None:
@@ -240,7 +240,7 @@ def test_logged_emits_finish_event_per_rail(log_events: list[dict[str, object]])
     assert {e.get("log_level") for e in finishes} == {"info", "error"}
 
 
-# --- [TRACED] --------------------------------------------------------------------------
+# --- [TRACED] ---------------------------------------------------------------------------
 
 
 def test_traced_sync_records_one_span_with_status(otel_spans: InMemorySpanExporter) -> None:
@@ -271,7 +271,7 @@ def test_traced_stamps_fault_status_and_adds_fault_event(otel_spans: InMemorySpa
     assert tuple(e.name for e in spans[0].events) == ("assay.fault",)
 
 
-# --- [RING_PROCESSOR / RING_RECENT] ----------------------------------------------------
+# --- [RING_PROCESSOR / RING_RECENT] -----------------------------------------------------
 
 
 @given(level=st.sampled_from(("info", "warning", "error")), event=st.text(max_size=32))
@@ -309,7 +309,7 @@ def test_ring_recent_empty_without_active_ring() -> None:
     assert ring_recent() == ()
 
 
-# --- [COMPOSITION] ---------------------------------------------------------------------
+# --- [COMPOSITION] ----------------------------------------------------------------------
 # Import-time law registration: the coverage gate (tests/test_pytest_policy.py) reads MANIFEST after
 # COLLECTION, before the deeper tools/ tests execute, so registration must happen at module import — not
 # inside test bodies. Each subject maps to the law that falsifies its behavior above.
