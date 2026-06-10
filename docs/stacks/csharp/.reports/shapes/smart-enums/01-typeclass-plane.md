@@ -1,0 +1,42 @@
+# [SMART_ENUM_TYPECLASS_PLANE]
+
+[SELF_TYPED_CONSTRAINT_ALGEBRA]:
+- The generated vocabulary interface is an F-bounded static-abstract typeclass: `ISmartEnum<TKey, T, out TError> : ISmartEnum<TKey>, IObjectFactory<T, TKey, TError>, IObjectFactory<TKey>` with `where T : ISmartEnum<TKey>` and `where TError : class, IValidationError<TError>`. The self-reference is the dictionary witness — a generic algorithm constrained on this one interface receives `Items`, `Get`, `TryGet`, static `Validate`, and key projection as static-abstract members callable through the type parameter, so the vocabulary type itself is the passed-in typeclass instance with zero runtime witness object.
+- The constraint is layered so an algorithm requests exactly the capability it needs and no more, and each lower layer is satisfiable by more shapes than the layer above. `ISmartEnum<TKey>` alone yields key projection (`ToValue`) and case-insensitive identity without lookup or admission; `IObjectFactory<T, TValue, TError>` yields admission (`Validate`) without enumeration and is satisfied by keyed value objects equally; `IObjectFactory<TValue>` is the bare marker carrying only the value-type witness. Selecting the minimal layer is the polymorphic-collapse discipline applied to constraints: a projection-only algorithm that constrains on the full enum interface has over-specified and silently rejects every value-object that would have satisfied it.
+- One admission bridge constrained on `IObjectFactory<T, TValue, TError>` serves every keyed generated shape in the program — vocabularies, single-value objects, complex value objects with a value factory — because all of them generate the same static-abstract `Validate`. Widening from the enum interface to the factory interface is the act that turns a vocabulary-specific bridge into a program-wide one:
+
+```csharp
+static Fin<T> Admit<T, TValue, TError>(TValue raw)
+   where T      : IObjectFactory<T, TValue, TError>
+   where TValue : notnull, allows ref struct
+   where TError : class, IValidationError<TError>
+   => T.Validate(raw, null, out var item) is { } e
+      ? Error.New(e.ToString() ?? "invalid")
+      : item!;
+```
+
+[REF_STRUCT_KEYED_DISPATCH]:
+- The factory value parameter carries the `allows ref struct` anti-constraint at every tier — `IObjectFactory<TValue> where TValue : notnull, allows ref struct`, and the static-abstract `Validate(TValue?, IFormatProvider?, out T?)` inherits it. A single generic admission method therefore accepts `ReadOnlySpan<char>` as its `TValue`, so zero-allocation text admission generalizes across every vocabulary that declares a span factory without one allocation and without naming the concrete enum.
+- The internal static-abstract forwarder that dispatches `Validate` from contexts that cannot name a static abstract directly carries `allows ref struct` on its key type parameter, yet still publishes a second overload pinned to `ReadOnlySpan<char>`. The split is forced because the span overload constrains `T : IObjectFactory<T, ReadOnlySpan<char>, TError>` — the concrete span value type — whereas the general overload's static-abstract `Validate` takes a `TValue?` nullable form a span cannot inhabit. The span path is thus a separately constrained entry against the span factory shape, not an instantiation of the general key path, and an algorithm accepting both a heap key and a span over one vocabulary declares two overloads mirroring this split.
+- A vocabulary keyed by a value type cannot route its key through the covariant projection plane: variance is reference-only, so the key-projection interface lifts only reference-typed keys to the object-keyed view. A heterogeneous container that equates value-keyed vocabularies by key must hold the boxed key explicitly and supply a key comparer, because the free covariant lift that unifies string-keyed vocabularies stops at boxing.
+
+[COVARIANT_PROJECTION_LIFT]:
+- Key projection is declared covariant in its output (`IConvertible<out T> where T : notnull, allows ref struct`), so every reference-typed-key vocabulary lifts to the projection view over `object`, and an arbitrary mix of distinct vocabularies share one collection element type. One container holds items drawn from any number of unrelated string-keyed vocabularies, equated and hashed by a chosen string policy, with the boxed projected key as the equality axis:
+
+```csharp
+var allow = new HashSet<IConvertible<string>>(
+   StringKeyedObjectComparer<IConvertible<string>>.OrdinalIgnoreCase)
+   { Channel.Alpha, Tier.High, Region.North };
+```
+
+- The shipped string-keyed projection comparer derives equality and hash solely from `ToValue()` under a chosen string policy, so it equates instances that are reference-distinct and type-distinct whenever their projected keys match under that policy. Its case-insensitive ordinal field is the one that aligns with the vocabulary default identity; every other policy field deliberately diverges from in-process identity and is the explicit signal that the container equates by a non-default key law.
+- The validation-error type parameter of both the enum interface and the factory interface is covariant, so an algorithm constrained on a base error contract accepts vocabularies declaring richer custom error subtypes without re-abstraction. The bridge that produces a unified failure rail names the base error contract once and admits every vocabulary regardless of its declared error type, because the richer error variance-converts up to the contract the algorithm holds.
+
+[STATIC_ABSTRACT_PROJECTED_POLICY]:
+- Comparer policy attaches as a static-abstract accessor type, not an instance: the comparer-accessor interfaces expose `static abstract IComparer<T> Comparer` and `static abstract IEqualityComparer<T> EqualityComparer`, and the key-policy attributes are generic over an accessor type satisfying them. Policy is therefore resolvable at generation time and inside any static generic context — an algorithm can read the vocabulary's comparison policy through its accessor type parameter without an instance and without reflection, which is the mechanism that lets one comparer choice swing lookup, hash seed, ordering, and comparison operators together.
+- The error-construction plane is itself static-abstract: `IValidationError<out T>` requires `static abstract T Create(string)`, and the internal creator forwards `TError.Create(message)` through the constraint. A generic admission pipeline therefore manufactures the exact error subtype the vocabulary declared — never a base placeholder — entirely from the type parameter, so a custom structured error type is honored by a fully generic bridge that never names it.
+
+[FAILURE_SURFACE_OF_GENERIC_ADMISSION]:
+- The static-abstract `Validate` coerces a boxed wrong-typed key by a value pattern that falls through to the default key, so a generic pipeline that boxes keys before dispatch validates the default key on a type mismatch and fails with the empty-key message rather than a type error. A generic bridge that accepts `object` keys must pre-type to the concrete key before entering the static-abstract plane, because the plane swallows the type fault into an admission failure that looks like an unknown key.
+- The static-abstract members resolve through constrained call, which the runtime monomorphizes per closed value-type instantiation and shares per reference-type instantiation. A generic admission method instantiated over a value-keyed vocabulary specializes to a direct constrained call with no interface dispatch and no allocation; the same method over reference-keyed vocabularies shares one body reached by a constrained call that the JIT devirtualizes when the exact type is known. The cost of the typeclass plane over hand-written per-vocabulary admission is therefore zero on value-keyed paths and one devirtualizable indirection otherwise — never a dictionary of witnesses.
+- A generic algorithm that forces enumeration through the static-abstract `Items` triggers the deferred lookup materialization on the queried vocabulary, so the duplicate-key and null-key fail-fast — and its process-lifetime poisoning of the cached exception instance — fire inside the generic call rather than at the call site of a concrete lookup. A startup probe that walks every vocabulary through the generic constraint surfaces this class of defect for the whole program in one pass, which is the only place the poisoning is cheap.
