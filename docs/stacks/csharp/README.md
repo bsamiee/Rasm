@@ -6,16 +6,23 @@ This folder is the C# stack decision atlas. It routes language, shape, surface, 
 
 This table is a lookup by reader decision.
 
-| [INDEX] | [DECISION]             | [READ]                                    | [STATE] |
-| :-----: | :--------------------- | :---------------------------------------- | :------ |
-|   [1]   | language shape         | [language](language.md)                   | active  |
-|   [2]   | domain shape           | [shapes](shapes.md)                       | partial |
-|   [3]   | surface and dispatch   | `surfaces-and-dispatch.md`                | planned |
-|   [4]   | result and effect flow | [rails and effects](rails-and-effects.md) | partial |
-|   [5]   | host and wire boundary | `boundaries.md`                           | planned |
-|   [6]   | numeric approach       | [algorithms](algorithms.md)               | partial |
-|   [7]   | system API replacement | [system APIs](system-apis.md)             | active  |
-|   [8]   | proof rail             | [testing](testing/README.md)              | active  |
+| [INDEX] | [DECISION]              | [READ]                                    | [STATE] |
+| :-----: | :---------------------- | :---------------------------------------- | :------ |
+|   [1]   | language shape          | [language](language.md)                   | active  |
+|   [2]   | domain shape            | [shapes](shapes.md)                       | partial |
+|   [3]   | surface and dispatch    | `surfaces-and-dispatch.md`                | planned |
+|   [4]   | result and effect flow  | [rails and effects](rails-and-effects.md) | partial |
+|   [5]   | host and wire boundary  | `boundaries.md`                           | planned |
+|   [6]   | numeric approach        | [algorithms](algorithms.md)               | partial |
+|   [7]   | system API replacement  | [system APIs](system-apis.md)             | active  |
+|   [8]   | proof rail              | [testing](testing/README.md)              | active  |
+|   [9]   | hosting and runtime     | `domain/runtime.md`                       | planned |
+|  [10]   | concurrency and streams | `domain/concurrency.md`                   | planned |
+|  [11]   | telemetry signal        | `domain/diagnostics.md`                   | planned |
+|  [12]   | boundary validation     | `domain/validation.md`                    | planned |
+|  [13]   | resilience policy       | `domain/resilience.md`                    | planned |
+|  [14]   | data persistence        | `domain/persistence.md`                   | planned |
+|  [15]   | compute lane            | `domain/compute.md`                       | planned |
 
 ## [2]-[DOCTRINE]
 
@@ -94,3 +101,30 @@ Planned pages in build order. Each entry states what the page must decide; the s
 - Thread law: marshaling onto host threads is an explicit boundary effect with captured failure, never an ambient assumption.
 - State law: boundary cells own session, memoization, and singleton lifetime; token-gated ownership prevents stale teardown.
 - Wire law: serialization contracts stay protocol-shaped at the edge; domain owners never carry codec policy.
+
+The `domain/` pages build in dependency order after the root corpus closes, so each later page implicitly carries the earlier law; package admission to the central manifest happens at each page's research start, and the docs lead admission.
+
+[DOMAIN_RUNTIME]:
+- Owns: hosting lifecycle, dependency composition with assembly scanning, decoration, and keyed services, options and configuration with AOT-safe validation, hybrid caching, the process cancellation spine, and time — clock abstraction plus calendar vocabulary.
+- Assumes: boundary state law and effect rails from prior pages; never re-teaches state cells or carrier choice.
+
+[DOMAIN_CONCURRENCY]:
+- Owns: threading law, structured concurrency, channel-based producer-consumer flow, reactive streams where they change the design choice, atomic state cells at concurrency scope, and parallelism policy.
+- Disjoint: the boundaries page owns host-thread marshaling; the rails page owns the effect rails concurrency composes.
+
+[DOMAIN_DIAGNOSTICS]:
+- Owns: structured logging, traces and metrics, sampling and enrichment governance, sensitive-data redaction, and one correlation spine across every signal.
+
+[DOMAIN_VALIDATION]:
+- Owns: wire-DTO, options, and input validation at boundaries, and the law of which validator owns which seam: generated partials admit value objects, functional validation rails own domain accumulation, the boundary validator owns wire shapes.
+- Assumes: domain shape and rail law from prior pages; never re-teaches them.
+
+[DOMAIN_RESILIENCE]:
+- Owns: transport and boundary resilience pipelines for remote and external hops.
+- Law: domain-internal retry and repeat is schedule policy on effect rails; transport resilience is a pipeline at the seam — never both on one seam.
+
+[DOMAIN_PERSISTENCE]:
+- Owns: relational persistence doctrine, provider-polymorphic across embedded and server engines as one case axis inside one doctrine: compiled models, document columns, complex types, interceptors, migrations, bulk movement, integrity, snapshots, and retention.
+
+[DOMAIN_COMPUTE]:
+- Owns: tensor primitives at application scope, measured dispatch with receipts, remote compute lanes over typed contracts, and a model-inference lane scoped to verified surfaces.
