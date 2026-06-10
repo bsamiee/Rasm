@@ -1,10 +1,10 @@
 # Effects-Runtime: Core
 
 [CARRIER_HIERARCHY]:
-- `IO<A>` is the bottom monad — `abstract record` implementing `K<IO, A>`, `Monoid<IO<A>>`, `Semigroup<IO<A>>`. Every execution path bottoms out here; `Eff<A>` and `Eff<RT, A>` are readers over `IO`.
-- `Eff<A>` wraps `Eff<MinRT, A>` where `MinRT` is a zero-byte `readonly struct`. It implements `Readable<Eff<A>, A>` — the type parameter `A` itself is the "runtime" for this carrier, making `ask<A>()` project the bound environment type, not a capability record. Use `Eff<A>` only when the computation needs no capability beyond cancellation and resource tracking.
-- `Eff<RT, A>` is `record Eff<RT, A>(ReaderT<RT, IO, A> effect)` — it is literally a `ReaderT` over `IO` named distinctly for ergonomics. The `RT` type carries capability slots via `Has<Eff<RT>, Cap>` implementations; the computation reads them via `Readable<Eff<RT>, RT>.Ask` or `asks<RT, Cap>()`.
-- `Eff` (non-generic) is the higher-kinded type-class implementing `Readable<Eff, MinRT>`, `Natural<Eff, Eff<MinRT>>`, and all monad/applicative/fallible traits. It is the constraint surface used in carrier-polymorphic arrows: `K<Eff, A>` abstracts over `Eff<A>` and `Eff<MinRT, A>` simultaneously via `Natural` conversions.
+- `IO<A>` is the bottom carrier — `abstract record` implementing `K<IO, A>`, `Monoid<IO<A>>`, `Semigroup<IO<A>>`. Every execution path bottoms out here; `Eff<A>` and `Eff<RT, A>` are readers over `IO`.
+- `Eff<A>` is `record Eff<A>(Eff<MinRT, A> effect)` where `MinRT` is a zero-byte `readonly struct`. It implements `Readable<Eff<A>, A>` via `Deriving.Readable<Eff<A>, A, ReaderT<A, IO>>` — the type parameter `A` itself is the reader environment, so `ask<A>()` projects the bound type, not a capability record. Use `Eff<A>` only when the computation needs no capability beyond cancellation and resource tracking.
+- `Eff<RT, A>` is `record Eff<RT, A>(ReaderT<RT, IO, A> effect)` — a `ReaderT` over `IO` named distinctly for ergonomics. The `RT` type carries capability slots via `Has<Eff<RT>, Cap>` implementations; the computation reads them via `asks<RT, Cap>()` or `Has<Eff<RT>, RT, Cap>.ask`.
+- `Eff` (non-generic) is the higher-kinded type-class implementing `Readable<Eff, MinRT>`, `Natural<Eff, Eff<MinRT>>`, and all monad/applicative/fallible traits. It is the constraint surface for carrier-polymorphic arrows: `K<Eff, A>` abstracts over `Eff<A>` and `Eff<MinRT, A>` simultaneously via `Natural` conversions.
 
 [LIFT_FORMS]:
 - `Eff.lift<A>(Func<A>)`, `Eff.lift<A>(Func<Fin<A>>)`, `Eff.lift<A>(Func<Either<Error,A>>)` — pure synchronous lifts; the `Fin`/`Either` overloads admit pre-computed failure.
@@ -27,14 +27,14 @@
 
 [ENVIO_AND_CONTEXT]:
 - `EnvIO.New(resources, token, source, syncContext, timeout)` — all parameters optional. The `source` and `token` are kept separate: `source` is disposable and owns cancellation; `token` is the read-only observable. Passing `source: null` creates a fresh `CancellationTokenSource` internally.
-- `EnvIO.Local` — new `EnvIO` with `null` resources and `null` source; fresh isolated cancel scope, inherits parent token. Used by `IO.Local()`.
-- `EnvIO.LocalResources` — new `EnvIO` with `null` resources but inherits parent `Source` and `SyncContext`. Used by `IO.BracketFail()` — resource scope is per-attempt, cancellation context is shared.
+- `EnvIO.Local` — `New(null, Token, null, SynchronizationContext.Current)`; creates fresh `Resources` and a fresh `CancellationTokenSource` linked to the parent token. Both are owned (bits 1 and 2 of `Own`). The resulting scope is fully isolated.
+- `EnvIO.LocalResources` — `New(null, Token, Source, SyncContext)`; creates fresh `Resources` (owned) but reuses the parent source and sync context. Used by `IO.BracketFail()` — resource scope is per-attempt, cancellation context is shared across attempts.
 - `EnvIO.LocalCancel` — inherits `Resources` and `Token`, clears `Source`. Used for cancel-scope isolation without resource isolation.
 - `IO.Post()` — marshals execution onto `env.SyncContext` when non-null; no-op when `SyncContext` is null. The SyncContext is captured from `SynchronizationContext.Current` at `EnvIO.New()` time, not at `Post()` call time.
 
 [RESOURCE_SAFETY]:
-- `IO<A>.Bracket()` — acquires a local `Resources` scope via `EnvIO.LocalResources`; disposes on both success and failure. Implemented as `WithEnv(env => env.LocalResources)`. Every `use<A>()` call and `use<A>(acquire, release)` call registers an `IDisposable` or custom release function in `env.Resources`; disposal runs at scope boundary.
-- `IO<A>.BracketFail()` — same as `Bracket()` but uses `WithEnvFail`; disposes only on failure. Used as the atom inside `Retry`: each attempt gets a fresh resource scope, so failed attempts cannot accumulate acquired handles.
+- `IO<A>.Bracket()` — `WithEnv(env => env.LocalResources)`; creates a fresh `Resources` scope that disposes on both success and failure. Every `use<A>()` call and `use<A>(acquire, release)` call registers an `IDisposable` or custom release function in `env.Resources`; disposal runs at scope boundary.
+- `IO<A>.BracketFail()` — `WithEnvFail(env => env.LocalResources)`; disposes the fresh resource scope only on failure. Used as the atom inside `Retry`: each failed attempt releases its acquired handles while the successful attempt's resources propagate to the enclosing scope.
 - `IO<C>.Bracket<B,C>(Func<A, IO<C>> Use, Func<A, IO<B>> Fin)` — the three-argument form is sugar for `Bind(x => Use(x).Finally(Fin(x)))`.
 - `IO<C>.Bracket<B,C>(Use, Catch, Fin)` — adds an error recovery path: `Bind(x => Use(x).Catch(Catch).Finally(Fin(x)))`. `Fin` always runs; `Catch` fires only on error.
 - `Prelude.use<A>(IO<A> acquire) where A : IDisposable` — lifts `acquire` into the current `Resources` scope; the value is released when the enclosing `Bracket()` scope exits. `use<A>(Func<A> acquire, Func<A, IO<Unit>> release)` accepts a custom release function for non-`IDisposable` handles.
@@ -57,7 +57,7 @@
 - `Schedule.linear(Duration seed, double factor = 1.0)` — delay grows linearly: `seed * (1 + factor * n)`.
 - `Schedule.exponential(Duration seed, double factor = 2.0)` — delay doubles (or multiplies by `factor`) each step.
 - `Schedule.fibonacci(Duration seed)` — Fibonacci-shaped delay series.
-- `Schedule.upto(Duration max)` — emits until cumulative wall-clock time exceeds `max`; accepts optional `currentTimeFn` for deterministic testing.
+- `Schedule.upto(Duration max)` — emits until cumulative wall-clock time exceeds `max`; accepts an optional `currentTimeFn` for deterministic testing.
 - `Schedule.fixedInterval(Duration)` — fires at absolute wall-clock boundaries regardless of execution time.
 - `Schedule.windowed(Duration)` — subdivides a window into slots; restarts from the window boundary each cycle.
 - `Schedule.recurs(int times)` — returns `ScheduleTransformer`, not `Schedule`; it applies `.Take(times)` to the base schedule it modifies. Composed as `Schedule.recurs(5) | Schedule.exponential(10.Milliseconds())`.
@@ -65,7 +65,7 @@
 - `Schedule.maxCumulativeDelay(Duration max)` — `ScheduleTransformer`; terminates the schedule once total accumulated delay meets or exceeds `max`. Terminates on the step *before* the threshold is crossed.
 - `Schedule.jitter(Duration min, Duration max)` — `ScheduleTransformer`; adds absolute random jitter in `[min, max]`.
 - `Schedule.jitter(double factor = 0.5)` — `ScheduleTransformer`; adds proportional jitter: `delay * factor * rand`.
-- `Schedule.decorrelate(double factor = 0.1)` — `ScheduleTransformer`; de-correlates parallel retry storms by perturbing each duration up and down; the schedule runs twice as long in total.
+- `Schedule.decorrelate(double factor = 0.1, Option<int> seed = default)` — `ScheduleTransformer`; emits two durations per base step — `current + jitter` then `current - jitter` — doubling the schedule's length. Accepts an optional `seed` for reproducible jitter.
 - `Schedule.NoDelayOnFirst` — `ScheduleTransformer`; strips the first step delay to zero then restores it. Equivalent to `s => s.Tail.Prepend(Duration.Zero)`.
 - `Schedule.RepeatForever` — `ScheduleTransformer`; wraps the schedule in a repeat loop; use `Schedule.Forever` (the bare Schedule) for an infinite constant-zero-delay sequence.
 
@@ -75,7 +75,7 @@
 - `+` on two `Schedule` values is `Combine` (sequential append): appends one series after the other exhausts.
 - `|` on `Schedule | ScheduleTransformer` and `ScheduleTransformer | Schedule` applies the transformer to the schedule — it is *not* a union. Same for `&` with a transformer operand. This asymmetry means `|` means different things depending on operand types.
 - `ScheduleTransformer + ScheduleTransformer` composes transformers left-to-right: `f + g` produces `g(f(s))` for any schedule `s`.
-- `ScheduleTransformer` is implicitly convertible to `Schedule` via `Apply` on itself, making `| ScheduleTransformer` in operator chains produce a `Schedule`.
+- `ScheduleTransformer` is implicitly convertible to `Schedule` via `static implicit operator Schedule(ScheduleTransformer t) => Schedule.Forever | t`, making a bare transformer in an operator chain produce a `Schedule`.
 - `Schedule.Interleave(b)` — alternates durations from two schedules element-by-element; both must run for the result to continue.
 
 [RETRY_AND_REPEAT]:
@@ -108,10 +108,10 @@
 - `Eff<RT, A>` reads the runtime via `asks<RT, Cap>(Func<RT, Cap>)` — returns `Ask<RT, Cap>`, which `Eff<RT,A>.Bind` accepts directly. The `Ask<RT,A>` record resolves via the `Readable<M, Env>` trait without allocating a new monad wrapper.
 - Runtime capability slots use `Has<Eff<RT>, Cap>` — a static abstract interface with a single `static abstract K<M, Cap> Ask { get; }`. Implementing `Has<Eff<RT>, MyService>` on the runtime record enables `Has<Eff<RT>, MyService>.Ask` to inject the service without any explicit environment read.
 - `Eff<A>` (no-RT) is `Readable<Eff<A>, A>` where the env is the type parameter itself — useful for dependency-injection patterns where the outer type binds all capabilities before running, but this form cannot extend capability slots at composition time.
-- `WithRuntime<RT>()` on `Eff<A>` converts to `Eff<RT, A>` via `MonadIO.liftIO<Eff<RT>, A>(effect.RunIO(default(MinRT)))` — it runs the inner `IO` and relists it under the `RT` carrier. This is the escape hatch when an `Eff<A>` value must bind into an `Eff<RT, B>` pipeline.
+- `WithRuntime<RT>()` on `Eff<A>` converts to `Eff<RT, A>` via `MonadIO.liftIO<Eff<RT>, A>(effect.RunIO(default(MinRT))).As()` — it runs the inner `ReaderT<MinRT, IO, A>` against the zero-byte `MinRT` value to produce `IO<A>`, then re-lifts that `IO<A>` under the `RT` carrier. This is a carrier upgrade, not a capability injection; the `RT` value is still required at the final `Run(RT env)` call.
 
 [ASYNC_BOUNDARY_DISCIPLINE]:
 - `IO<A>.Run()` internally calls `RunAsync()` and then blocks if `ValueTask.IsCompleted` is false. There is no dedicated synchronous execution path in the DSL — synchronous appearance is an optimisation for already-completed `ValueTask`.
-- `IO<A>.RunAsync(CancellationToken token)` creates a new `EnvIO.New(null, token)` without linking to any parent source. Prefer passing an existing `EnvIO` to preserve resource scope; the `CancellationToken` overload is for integration points that supply tokens from external callers.
+- `IO<A>.RunAsync(CancellationToken token)` creates `EnvIO.New(null, token)` — fresh resources and a fresh `CancellationTokenSource` linked to the supplied token. Prefer passing an existing `EnvIO` to preserve resource scope and avoid the allocation; the `CancellationToken` overload is for integration points that hand tokens from external callers.
 - `IO.yieldFor(Duration)` emits a `Task.Delay`-based pause; used inside schedule-driven retry/repeat to honour the inter-attempt delay without blocking the thread.
 - `Eff<A>.RunIO()` returns `IO<A>` without executing; enables deferred execution, composition into larger `IO` pipelines, or passing to test harnesses that run the `IO` layer directly.
