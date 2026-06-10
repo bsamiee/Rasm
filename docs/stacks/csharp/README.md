@@ -6,16 +6,16 @@ This folder is the C# stack decision atlas. It routes language, shape, surface, 
 
 This table is a lookup by reader decision.
 
-| [INDEX] | [DECISION]             | [READ]                                               | [STATE] |
-| :-----: | :--------------------- | :--------------------------------------------------- | :------ |
-|   [1]   | language shape         | [language](language.md)                              | active  |
-|   [2]   | domain shape           | [shapes](shapes.md)                                  | active  |
-|   [3]   | surface and dispatch   | `surfaces-and-dispatch.md`                           | planned |
-|   [4]   | result and effect flow | [rails and effects](rails-and-effects.md)            | active  |
-|   [5]   | host and wire boundary | `boundaries.md`                                      | planned |
-|   [6]   | numeric approach       | [algorithms](algorithms.md)                          | active  |
-|   [7]   | system API replacement | [system APIs](system-apis.md)                        | active  |
-|   [8]   | proof rail             | [testing](testing/README.md)                         | active  |
+| [INDEX] | [DECISION]             | [READ]                                    | [STATE] |
+| :-----: | :--------------------- | :---------------------------------------- | :------ |
+|   [1]   | language shape         | [language](language.md)                   | active  |
+|   [2]   | domain shape           | [shapes](shapes.md)                       | partial |
+|   [3]   | surface and dispatch   | `surfaces-and-dispatch.md`                | planned |
+|   [4]   | result and effect flow | [rails and effects](rails-and-effects.md) | partial |
+|   [5]   | host and wire boundary | `boundaries.md`                           | planned |
+|   [6]   | numeric approach       | [algorithms](algorithms.md)               | partial |
+|   [7]   | system API replacement | [system APIs](system-apis.md)             | active  |
+|   [8]   | proof rail             | [testing](testing/README.md)              | active  |
 
 ## [2]-[DOCTRINE]
 
