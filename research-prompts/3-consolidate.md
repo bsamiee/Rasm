@@ -11,7 +11,11 @@ Run per lane folder, sequentially:
 - Consolidate while integrating: where two or three lines say near the same thing, refactor them into one finding that carries the combined value of all of them, carefully, losing nothing.
 - Resolve contradictions: where a new finding conflicts with one already in `00`, investigate both. If they are real nuances rather than an error, correct each line precisely so both read true, without duplicating; if one is wrong, keep only the correct one.
 - Each integrating agent confirms its merge left no duplication or contradiction and clean categorization before handing off.
-- When every file is integrated, delete `01-<slug>.md` through the last file, leaving only `00-bedrock.md`.
+- When every file is integrated, the bedrock is complete.
+
+[GRADE]:
+- The main agent then reads each `00-bedrock.md` cold — giving no weight to the integrating agents' work — and grades and critiques it on the four axes — richness, veracity, density, advancement — and on relevance to the lane, critically, harshly, but fairly, confirming no duplication, no contradiction, and clean categorization. It returns anything short for a targeted fix.
+- Once the bedrock clears, delete `01-<slug>.md` through the last file, leaving only `00-bedrock.md`.
 
 [DISCIPLINE]:
 - The bedrock is findings only — logical category groups filled with findings, with no meta-commentary, sourcing, versions, dates, cross-references, or introduction, routing, summary, or validation section. One H1, then `[GROUP_LABEL]:` groups of contiguous bullets with no blank line between items, and a blank line only around a fenced code block.

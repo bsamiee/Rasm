@@ -14,6 +14,7 @@
 - Findings and candidate cards only — logical category groups, with no meta-commentary, sourcing, versions, dates, cross-references, or introduction, routing, summary, or validation section. One H1, then `[GROUP_LABEL]:` groups of contiguous bullets with no blank line between items, and a blank line only around a fenced code block.
 
 [GRADE]:
-- Score one to ten on four axes — richness, veracity, density, advancement — and on relevance to the lane, against a bar of 9.2 on each. Grading is critical, harsh, but fair — not a 9.2 out of convenience, not low for nit-picking. Rework until it clears.
+- The distill agent scores its own `00-distilled.md` one to ten on four axes — richness, veracity, density, advancement — and on relevance to the lane, against a bar of 9.2 on each. Grading is critical, harsh, but fair — not a 9.2 out of convenience, not low for nit-picking. Rework until it clears.
+- The main agent then reads each `00-distilled.md` cold — giving no weight to the agent's pass — and grades and critiques it the same way, returning anything short, or any line that is not a finding or a strong candidate card, for a targeted fix before the page is authored from it.
 
 The distillate is the reservoir the page is mined from — more than the page will use, so the best can be chosen.
