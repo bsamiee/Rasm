@@ -66,7 +66,8 @@ How pages in this folder are authored. The corpus is one body; these laws keep i
 
 - Atlas law: this README owns doctrine and routing; each concept page owns one disjoint layer; a sibling concern is neither re-shown nor pointed to. The README is the only file that links.
 - Zero meta: concept pages carry no provenance, sourcing, version narration, process or planning state, project, tool, or skill context.
-- Page grammar: narrow index table, then family cards (`Use / Accept / Reject / Law / Boundary`), then the snippet beside the rule it proves, then collapse tests, then a validation list. Structure is identical across stack folders; content never is.
+- Page grammar: narrow index table, then family cards, then the snippet beside the rule it proves; the page ends at its last card section. Structure is identical across stack folders; content never is.
+- Card fields are earned: `Use / Accept / Reject / Law / Boundary` lines appear on a card only where each one decides something; a field line that decides nothing is deleted, not filled.
 - Snippet law: every snippet compiles under the active surface; identifiers are legal neutral names; placeholder strings such as `"<value-a>"` appear only inside literals; no project, host, or domain concept anchors a snippet.
 - Snippet coverage: each snippet is doctrine-exemplary at full operator depth, roughly 3-4x denser than ordinary code, and exercises a surface region no other snippet in the corpus shows — variety within the doctrine, zero duplicated demonstrations.
 - Reject columns are load-bearing: every `Use` names the spelling, wrapper, or local pattern it deletes.
