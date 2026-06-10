@@ -33,9 +33,9 @@ import structlog
 from tools.assay.composition.catalog import select, TOOLS
 from tools.assay.composition.settings import ArtifactScope, AssaySettings
 from tools.assay.core.aspect import _RING, checked_call, compose, Layer, logged, Slot, traced  # noqa: PLC2701
-from tools.assay.core.engine import _RESOURCE, _snapshot, fan_out  # noqa: PLC2701
+from tools.assay.core.engine import _RESOURCE, _snapshot, fan_out                              # noqa: PLC2701
 from tools.assay.core.model import (
-    _HINT_CAP,  # noqa: PLC2701  # private symbol; canonical hint-cap clip site
+    _HINT_CAP,    # noqa: PLC2701  # private symbol; canonical hint-cap clip site
     _RESULT_CAP,  # noqa: PLC2701  # private symbol; canonical result-cap saturation site
     Artifact,
     ArtifactKind,
