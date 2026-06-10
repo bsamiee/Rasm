@@ -100,7 +100,7 @@ This table is a lookup by command surface and verb set:
 
 [TEST_COMMANDS]:
 - Verbs: `run`, `list`, `coverage`
-- Inputs: `[paths...]`, `--language`, `--no-build`, `--mutation`, `--benchmark`, `--coverage`
+- Inputs: `[paths...]`, `--language`, `--mutation`, `--benchmark`, `--coverage`
 - Source-exposed params: `--target`, `--all`, `--filter`, `--limit`, `--grep`
 - Output: `TestRun` detail, or `Match` rows for `list`.
 - Use: mutation is `off`, `changed`, or `full`; `target` and `all` constrain mutation eligibility, while `filter` narrows .NET list/run invocations. `list` emits direct test identity rows and keeps discovery diagnostics separate.

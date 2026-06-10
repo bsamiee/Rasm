@@ -120,7 +120,6 @@ TOOLS: tuple[Tool, ...] = (
     Tool("coverage-json", UV, ("coverage", "json", "-o", ".artifacts/python/coverage/coverage.json"), NONE, PY, Claim.TEST, mode=Mode.CLIENT),
     Tool("coverage-xml", UV, ("coverage", "xml", "-o", ".artifacts/python/coverage/coverage.xml"), NONE, PY, Claim.TEST, mode=Mode.CLIENT),
     Tool("coverage-lcov", UV, ("coverage", "lcov", "-o", ".artifacts/python/coverage/coverage.lcov"), NONE, PY, Claim.TEST, mode=Mode.CLIENT),
-    Tool("coverage-report", UV, ("coverage", "report", "--format=total"), NONE, PY, Claim.TEST, mode=Mode.CLIENT),
     Tool(
         "mutmut",
         UV,
@@ -130,11 +129,7 @@ TOOLS: tuple[Tool, ...] = (
         Claim.TEST,
         mode=Mode.MUTATION,
         groups=("mutation",),
-        stage=Stage(
-            root=".artifacts/python/mutmut/work",
-            inputs=("pyproject.toml", ".gitignore", "tools/assay", "tests/conftest.py", "tests/tools/assay"),
-            project=True,
-        ),
+        stage=Stage(root=".artifacts/python/mutmut/work", inputs=("pyproject.toml", ".gitignore", "tools/assay", "tests/python"), project=True),
     ),
     # --- [TYPESCRIPT]
     Tool("tsc", PNPM, ("tsc", "--noEmit", "-p", "tsconfig.base.json"), PROJECT, TS, Claim.STATIC, mode=Mode.BUILD),

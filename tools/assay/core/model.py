@@ -318,6 +318,9 @@ class Diagnostic(Detail, frozen=True, tag="diagnostic"):
     hint: Annotated[str, msgspec.Meta(max_length=256)] = ""
     dispatched: bool = True
     resource: tuple[tuple[str, float], ...] = ()
+    # trace_id/span_id are additive: defaults keep pre-trace payloads decodable, so schema_version stays 1.
+    trace_id: str = ""
+    span_id: str = ""
 
 
 class PackageRun(Detail, frozen=True, tag="package"):
@@ -364,13 +367,19 @@ class TestRun(Detail, frozen=True, tag="test"):
 
 
 class VerifySummary(Detail, frozen=True, tag="verify"):
-    """Bridge verification summary detail."""
+    """Bridge verification summary detail.
+
+    ``facts`` and ``captures`` carry (scenario_stem, JSON_text) pairs decoded from
+    execute-phase evidence markers; agents filter structurally instead of scanning notes.
+    """
 
     exceptions: int = 0
     report_dir: str = ""
     first_failure: str = ""
     first_fault_phase: str = ""
     first_fault_output: Annotated[str, msgspec.Meta(max_length=256)] = ""
+    facts: tuple[tuple[str, str], ...] = ()
+    captures: tuple[tuple[str, str], ...] = ()
 
 
 type AnyDetail = ApiSource | ApiSurface | VerifySummary | TestRun | PackageRun | ApiResolution | Diagnostic | RunDelta
@@ -450,7 +459,8 @@ class BaseParams:
     """Shared CLI params base."""
 
     paths: tuple[str, ...] = ()
-    language: Language | None = None
+    # show_default=False: cyclopts 4.16.1 help.py:499 renders Optional-enum defaults via default_val.name, which raises on None.
+    language: Annotated[Language | None, Parameter(show_default=False)] = None
 
     def _arity(self, verb: str) -> int | None:  # noqa: PLR6301  # polymorphic dispatch point: package/bridge override on self's type to declare 0
         _ = verb

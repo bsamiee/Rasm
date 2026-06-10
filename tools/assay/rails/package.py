@@ -27,6 +27,8 @@ from expression import Error, Ok, Result
 from expression.collections import block
 from expression.extra.result import sequence
 import msgspec
+import psutil
+import structlog
 
 from tools.assay.composition.catalog import select
 from tools.assay.composition.settings import (  # noqa: TC001  # beartype resolves these at import time, not under TYPE_CHECKING
@@ -55,9 +57,7 @@ from tools.assay.core.model import (
 )
 from tools.assay.core.routing import Routed, Scope
 from tools.assay.core.status import join, RailStatus
-from tools.assay.rails.bridge import (
-    _client_run as _bridge_client_run,  # noqa: PLC2701  # intentional: _client_run is package-rail internal coupling, not a public bridge surface
-)
+from tools.assay.rails.bridge import bridge_lease, client_run
 
 
 if TYPE_CHECKING:
@@ -88,11 +88,11 @@ class _LifecycleStep(StrEnum):
 # --- [CONSTANTS] ------------------------------------------------------------------------
 
 _RHP: Final[str] = ".rhp"
+_COMMIT_PENDING: Final[str] = ".commit-pending.json"
 _YAK_PLATFORM: Final[str] = "mac"
 _YAK_DISTRIBUTION_GLOB: Final[str] = "*-rh9_*-mac.yak"
 _RASM_BRIDGE_SLUG: Final[str] = "rasm-bridge"
 _PACKAGE_STAGE: Final[str] = "package-stage"
-_BRIDGE_LOCK: Final[str] = "bridge"
 _PACKAGE_ROOTS: Final[tuple[str, ...]] = ("apps", "tools")
 _CSPROJ: Final[str] = ".csproj"
 _YAK_SLUG_PROP: Final[str] = "YakPackageSlug"
@@ -141,6 +141,11 @@ class PackageParams(BaseParams):
     def _arity(self, verb: str) -> int:
         _ = verb
         return 0
+
+
+class _CommitMarker(Base, frozen=True, gc=False):
+    pid: int
+    previous: str
 
 
 class _MsbuildProps(Base, frozen=True):
@@ -224,6 +229,7 @@ class YakMeta(Base, frozen=True, gc=False):
 # --- [TABLES] ---------------------------------------------------------------------------
 
 _DECODER: Final[msgspec.json.Decoder[_MsbuildProps]] = msgspec.json.Decoder(_MsbuildProps)
+_MARKER_DECODER: Final[msgspec.json.Decoder[_CommitMarker]] = msgspec.json.Decoder(_CommitMarker)
 
 # Keyed by (verb, is_rasm_bridge_slug); bridge slug forces quit/refresh to cycle the live host.
 _STEP_POLICY: Final[dict[tuple[str, bool], tuple[_LifecycleStep, ...]]] = {
@@ -232,6 +238,11 @@ _STEP_POLICY: Final[dict[tuple[str, bool], tuple[_LifecycleStep, ...]]] = {
     ("publish", False): (_LifecycleStep.INSTALL, _LifecycleStep.PUSH),
     ("publish", True): (_LifecycleStep.QUIT, _LifecycleStep.INSTALL, _LifecycleStep.REFRESH, _LifecycleStep.PUSH),
 }
+
+
+# --- [SERVICES] -------------------------------------------------------------------------
+
+_LOG: structlog.stdlib.BoundLogger = structlog.get_logger("assay.package")
 
 
 # --- [OPERATIONS] -----------------------------------------------------------------------
@@ -384,11 +395,67 @@ def _copy_tree(meta: YakMeta, staged: Path) -> Result[Path, Fault]:
     return Ok(staged)
 
 
+def _pending_marker(package_dir: Path) -> Path:
+    return package_dir.with_name(f"{package_dir.name}{_COMMIT_PENDING}")
+
+
+def _recover(meta: YakMeta, slug: str) -> Result[str, Fault]:
+    """Heal an interrupted commit from its crash-recovery sentinel under the held stage lease.
+
+    Returns:
+        Recovery direction taken (``absent``/``forward``/``back``/``clear``), or a BUSY fault while the marker pid is alive.
+    """
+
+    def dead(pid: int) -> bool:
+        try:
+            return psutil.Process(pid).status() in {psutil.STATUS_DEAD, psutil.STATUS_ZOMBIE}
+        except psutil.NoSuchProcess, ValueError:
+            return True
+        except psutil.AccessDenied:
+            return not psutil.pid_exists(pid)
+
+    def decoded(raw: bytes) -> _CommitMarker | None:
+        try:
+            return _MARKER_DECODER.decode(raw)
+        except msgspec.DecodeError:
+            return None
+
+    def settle(marker: Path, mark: _CommitMarker | None) -> Result[str, Fault]:
+        match mark:
+            case None:
+                marker.unlink(missing_ok=True)
+                _LOG.warning("package.recover", slug=slug, direction="clear", reason="undecodable marker")
+                return Ok("clear")
+            case _ if not dead(mark.pid):
+                return Error(Fault(("yak", "recover", slug), status=RailStatus.BUSY, message=f"package commit pending under live pid {mark.pid}"))
+            case _:
+                previous = Path(mark.previous)
+                sibling = previous.parent == meta.package_dir.parent and previous.name.startswith(f"{meta.package_dir.name}.previous.")
+                # Safe direction from marker contents: an existing package_dir is authoritative (the swap finished or
+                # never started) -> roll forward by dropping previous; a missing package_dir with a sibling previous
+                # means the crash hit mid-swap -> roll back by restoring previous; anything else only clears the marker.
+                direction = "forward" if meta.package_dir.exists() else ("back" if sibling and previous.is_dir() else "clear")
+                try:
+                    rmtree(previous, ignore_errors=True) if direction == "forward" and sibling else None
+                    previous.replace(meta.package_dir) if direction == "back" else None
+                    marker.unlink(missing_ok=True)
+                except OSError as exc:
+                    return Error(Fault(("yak", "recover", slug), message=str(exc)[:1024]))
+                _LOG.warning("package.recover", slug=slug, direction=direction, pid=mark.pid, previous=mark.previous)
+                return Ok(direction)
+
+    marker = _pending_marker(meta.package_dir)
+    return _read_bytes(marker).bind(lambda raw: Ok("absent") if not marker.is_file() else settle(marker, decoded(raw)))
+
+
 def _commit(meta: YakMeta, staged: Path, slug: str) -> Result[Report, Fault]:
-    # Rotate to .previous.<pid> before swap so mid-commit crashes remain recoverable.
+    # Rotate to .previous.<pid> before swap so mid-commit crashes remain recoverable; the .commit-pending.json
+    # sentinel (pid + previous dir) brackets the swap so _recover can heal a dead-pid crash deterministically.
     previous = meta.package_dir.with_name(f"{meta.package_dir.name}.previous.{os.getpid()}")
+    marker = _pending_marker(meta.package_dir)
     try:
         rmtree(previous, ignore_errors=True)
+        marker.write_bytes(msgspec.json.encode(_CommitMarker(pid=os.getpid(), previous=str(previous))))
         meta.package_dir.replace(previous) if meta.package_dir.exists() else None
         staged.replace(meta.package_dir)
         rmtree(previous, ignore_errors=True)
@@ -396,6 +463,9 @@ def _commit(meta: YakMeta, staged: Path, slug: str) -> Result[Report, Fault]:
         previous.replace(meta.package_dir) if previous.exists() and not meta.package_dir.exists() else None
         rmtree(staged, ignore_errors=True)
         return Error(Fault(("yak", "build", slug), message=str(exc)[:1024]))
+    finally:
+        # Sentinel clears only after the swap settled deterministically (committed forward or rolled back).
+        marker.unlink(missing_ok=True)
     return Ok(
         fold(
             Claim.PACKAGE,
@@ -410,8 +480,7 @@ def _stage_meta(settings: AssaySettings, scope: ArtifactScope, meta: YakMeta, sl
     # Temp dir is under package_dir's parent to keep the final rename on the same filesystem.
     resource = f"{_PACKAGE_STAGE}-{meta.package_dir.name}"
 
-    def locked(_held: object) -> Result[Report, Fault]:
-        meta.package_dir.parent.mkdir(parents=True, exist_ok=True)
+    def staged_build() -> Result[Report, Fault]:
         staged = Path(mkdtemp(prefix=f"{meta.package_dir.name}.", dir=meta.package_dir.parent))
         outcome = _build_outputs(meta, settings, scope).bind(lambda built: _copy_after_build(meta, staged, slug, version, built, settings, scope))
         match outcome:
@@ -420,6 +489,10 @@ def _stage_meta(settings: AssaySettings, scope: ArtifactScope, meta: YakMeta, sl
                 return outcome
             case _:
                 return outcome
+
+    def locked(_held: object) -> Result[Report, Fault]:
+        meta.package_dir.parent.mkdir(parents=True, exist_ok=True)
+        return _recover(meta, slug).bind(lambda _direction: staged_build())
 
     return leased(resource, locked, settings=settings, run_id=settings.run_id, project=slug, mode="exclusive")
 
@@ -479,7 +552,7 @@ def _run_step(settings: AssaySettings, scope: ArtifactScope, meta: YakMeta, pack
         case _LifecycleStep.PUSH:
             return _run_yak(meta, _yak_push_tail(meta, package_file), step.mode, cwd=meta.package_dir, settings=settings, scope=scope)
         case _:
-            return _bridge_client_run(settings, str(step))
+            return client_run(settings, str(step))
 
 
 def _resolve_package_file(meta: YakMeta) -> Result[Path, Fault]:
@@ -498,27 +571,20 @@ def _finish(settings: AssaySettings, scope: ArtifactScope, meta: YakMeta, slug: 
             return Ok(staged)
         case _:
             steps = _STEP_POLICY.get((verb, slug == _RASM_BRIDGE_SLUG), ())
-            return _resolve_package_file(meta).bind(lambda package_file: _drive_steps(settings, scope, meta, slug, verb, staged, package_file, steps))
+            return _resolve_package_file(meta).bind(lambda package_file: _drive_steps(settings, scope, meta, verb, staged, package_file, steps))
 
 
 def _drive_steps(
-    settings: AssaySettings,
-    scope: ArtifactScope,
-    meta: YakMeta,
-    slug: str,
-    verb: str,
-    staged: Report,
-    package_file: Path,
-    steps: tuple[_LifecycleStep, ...],
+    settings: AssaySettings, scope: ArtifactScope, meta: YakMeta, verb: str, staged: Report, package_file: Path, steps: tuple[_LifecycleStep, ...]
 ) -> Result[Report, Fault]:
-    def run_steps(_held: object) -> Result[Report, Fault]:
+    def run_steps() -> Result[Report, Fault]:
         return _fold_steps(settings, scope, meta, verb, staged, package_file, steps)
 
     match any(step.needs_bridge for step in steps):
         case True:
-            return leased(_BRIDGE_LOCK, run_steps, settings=settings, run_id=settings.run_id, project=slug, mode="exclusive")
+            return bridge_lease(settings, run_steps)
         case False:
-            return run_steps(None)
+            return run_steps()
 
 
 def _fold_steps(

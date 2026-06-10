@@ -18,12 +18,12 @@ from enum import StrEnum
 import os
 from pathlib import Path
 import sys
-from typing import Annotated, Final, override, Protocol, runtime_checkable
+from typing import Annotated, Final, Literal, override, Protocol, runtime_checkable
 from urllib.parse import urlsplit
 
 import fsspec  # fsspec ships no py.typed marker (declared in [[tool.mypy.overrides]])
 import msgspec
-from pydantic import AliasChoices, BaseModel, BeforeValidator, computed_field, ConfigDict, Field, field_validator, model_validator
+from pydantic import AfterValidator, AliasChoices, BaseModel, BeforeValidator, computed_field, ConfigDict, Field, model_validator
 from pydantic_settings import (  # noqa: TC002  # Pydantic calls the hook by runtime annotations.
     BaseSettings,
     PydanticBaseSettingsSource,
@@ -37,6 +37,7 @@ from tools.assay.core.model import (  # noqa: TC001  # pydantic_settings and Art
     Envelope,
     Report,
     wire_encode,
+    wire_safe,
 )
 
 
@@ -58,10 +59,12 @@ class LogFormat(StrEnum):
 
 
 type AnchoredRoot = Annotated[UPath, BeforeValidator(_anchor)]
+type ExecTarget = Annotated[str, AfterValidator(_exec_target)]
 type ExpandedKnownHosts = Annotated[str | None, BeforeValidator(_expand_or_none)]
 type ExpandedPath = Annotated[UPath, BeforeValidator(lambda v: UPath(v).expanduser())]
-type RunId = Annotated[str, Field(min_length=1, max_length=160, pattern=_RUN_ID_PATTERN)]
+type RunId = Annotated[str, Field(min_length=1, max_length=160, pattern=_RUN_ID_PATTERN), AfterValidator(wire_safe)]
 type StoreProtocol = Annotated[str, Field(min_length=1, max_length=64, pattern=r"^[A-Za-z][A-Za-z0-9+.-]*$")]
+type WireSafeText = Annotated[str, AfterValidator(wire_safe)]  # surrogateescape arrives only via env input; default_factory values are always clean
 
 
 @runtime_checkable  # noqa: PLR0904  # Protocol mirrors fsspec's full structural contract; removing any method breaks the backend boundary.
@@ -135,6 +138,7 @@ _REMOTE_ENV_NAMES: Final[frozenset[str]] = frozenset((
     "PATH",
     "RHINO_WIP_APP_PATH",
 ))
+# Lowercase names are load-bearing: W3C Trace Context defines these keys lowercase and propagate.inject emits them verbatim.
 _TRACE_CONTEXT_ENV: Final[frozenset[str]] = frozenset(("traceparent", "tracestate", "baggage"))
 _PYTHON_TOOL_ENV_REL: Final[dict[str, str]] = {
     "UV_CACHE_DIR": ".cache/uv",
@@ -173,6 +177,24 @@ def _anchor(value: str | UPath) -> UPath:
 def _default_cpu_count() -> int:
     # os.process_cpu_count honors cgroup/affinity limits; engine._governed reads this via AssaySettings.cpu_count.
     return min(256, max(1, os.process_cpu_count() or 8))
+
+
+def _exec_target(value: str) -> str:
+    # Validate scheme, host, and port before engine._run_remote can raise mid-spawn.
+    match value:
+        case "":
+            return value
+        case _:
+            parts = urlsplit(value)
+            match (parts.scheme, parts.hostname, parts.path, parts.query, parts.fragment):
+                case ("ssh", str() as host, "" | "/", "", "") if host:
+                    try:
+                        _ = parts.port
+                    except ValueError as exc:
+                        raise ValueError(f"exec_target has a non-numeric ssh port: {value!r}") from exc
+                    return value
+                case _:
+                    raise ValueError(f"exec_target must be '' (local) or 'ssh://[user@]host[:port]' without path/query/fragment: {value!r}")
 
 
 def _expand_or_none(value: str | UPath | None) -> str | None:
@@ -282,13 +304,14 @@ class AssaySettings(BaseSettings):
         "global.json",
     ))
     trigger_prefixes: tuple[str, ...] = ("tools/cs-analyzer/",)
-    probe_fixture_prefixes: tuple[str, ...] = ("tests/tools/ast-grep/", "tests/tools/py_analyzer/")
+    probe_fixture_prefixes: tuple[str, ...] = ("tests/tools/ast-grep/", "tests/python/tools/py_analyzer/")
     test_target: ExpandedPath = UPath("tests/csharp/libs/Rasm/Rasm.Tests.csproj")
     mutation_python: str = "3.14.5"
     log_format: LogFormat = Field(default_factory=lambda: LogFormat.HUMAN if sys.stderr.isatty() else LogFormat.CI)
+    log_level: Literal["debug", "info", "warning", "error", "critical"] = "info"
     run_id: RunId = Field(default_factory=lambda: f"{datetime.now(tz=UTC):%Y-%m-%dT%H-%M-%S.%f}-{os.getpid()}")
-    agent_task_id: str = ""
-    exec_target: str = Field(default="", description="execution target; '' = local, ssh://[user@]host[:port] = remote")
+    agent_task_id: WireSafeText = ""
+    exec_target: ExecTarget = Field(default="", description="execution target; '' = local, ssh://[user@]host[:port] = remote")
     exec_known_hosts: ExpandedKnownHosts = Field(
         default=str(UPath("~/.ssh/known_hosts").expanduser()),
         description="asyncssh known_hosts path for ssh:// exec_target; empty disables the host-key check",
@@ -296,32 +319,6 @@ class AssaySettings(BaseSettings):
     otel_endpoint: str = Field(
         default="", validation_alias=AliasChoices("ASSAY_OTEL_ENDPOINT", "OTEL_EXPORTER_OTLP_ENDPOINT", "OTEL_EXPORTER_OTLP_TRACES_ENDPOINT")
     )
-
-    @field_validator("run_id", "agent_task_id")
-    @classmethod
-    def _wire_safe(cls, value: str) -> str:
-        # Surrogateescape from invalid-UTF-8 env produces lone surrogates that crash structlog's CI JSONRenderer
-        # and msgspec's Envelope encoder; default_factory values are always clean, so this only fires on env input.
-        return value.encode("utf-8", "replace").decode("utf-8")
-
-    @field_validator("exec_target")
-    @classmethod
-    def _exec_target(cls, value: str) -> str:
-        # Validate scheme, host, and port before engine._run_remote can raise mid-spawn.
-        match value:
-            case "":
-                return value
-            case _:
-                parts = urlsplit(value)
-                match (parts.scheme, parts.hostname, parts.path, parts.query, parts.fragment):
-                    case ("ssh", str() as host, "" | "/", "", "") if host:
-                        try:
-                            _ = parts.port
-                        except ValueError as exc:
-                            raise ValueError(f"exec_target has a non-numeric ssh port: {value!r}") from exc
-                        return value
-                    case _:
-                        raise ValueError(f"exec_target must be '' (local) or 'ssh://[user@]host[:port]' without path/query/fragment: {value!r}")
 
     @override
     @classmethod
@@ -386,9 +383,8 @@ class AssaySettings(BaseSettings):
         return ArtifactStore(fs=fsspec.filesystem(backend.protocol, **opts), root=backend.target(self))
 
     def with_configuration(self, configuration: Configuration) -> AssaySettings:
-        """Return validated settings for a different build configuration."""
-        fields = {name: getattr(self, name) for name in type(self).model_fields}
-        return self.__class__.model_validate({**fields, "configuration": configuration})
+        """Return these settings rebound to a different build configuration."""
+        return self.model_copy(update={"configuration": configuration})
 
     def artifact(self, kind: ArtifactKind, *parts: str | UPath) -> UPath:
         """Project an artifact path from a kind and path parts.

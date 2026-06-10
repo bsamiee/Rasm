@@ -4,7 +4,7 @@ The beartype claw hook must be installed before any other Assay submodule is imp
 ``ASSAY_CLAW`` environment variable gates activation so integration tests can opt out.
 Settings bootstrap errors are captured and deferred to dispatch time rather than raising at import.
 """
-# ruff: noqa: RUF067, E402  # claw hook must install before any Assay module is imported.
+# ruff: noqa: RUF067  # claw hook must install before any Assay module is imported.
 
 # --- [RUNTIME_PRELUDE] ------------------------------------------------------------------
 # core.aspect uses PEP 695 ParamSpec aliases incompatible with beartype_this_package; must be imported before the claw hook installs.
@@ -19,10 +19,11 @@ from pydantic import ValidationError
 import tools.assay.core.aspect
 
 
-{"1": lambda: beartype_this_package(conf=BeartypeConf(is_pep484_tower=True, warning_cls_on_decorator_exception=None))}.get(
-    os.environ.get("ASSAY_CLAW", ""),  # noqa: TID251  # import-time claw gate cannot route through AssaySettings, which is loaded after the hook
-    lambda: None,
-)()
+match os.environ.get("ASSAY_CLAW", ""):  # noqa: TID251  # import-time claw gate cannot route through AssaySettings, which is loaded after the hook
+    case "1":
+        beartype_this_package(conf=BeartypeConf(is_pep484_tower=True, warning_cls_on_decorator_exception=None))
+    case _:
+        pass
 
 from tools.assay._logging import configure_logging  # noqa: PLC2701  # re-exported; callers must not import from the private submodule directly
 from tools.assay.composition.settings import AssaySettings

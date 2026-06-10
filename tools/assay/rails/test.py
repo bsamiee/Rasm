@@ -29,28 +29,33 @@ from tools.assay.core.model import (
     Counts,
     Fault,  # noqa: TC001  # beartype @checked resolves the rail's forward-ref (PEP 649)
     fold,
+    Input,
+    Language,
     Match,
     Mode,
     MutationLane,
     receipt,
     Report,  # noqa: TC001  # beartype @checked resolves the rail's forward-ref (PEP 649)
     Runner,
+    Stage,
     TestRun,
+    Tool,
 )
-from tools.assay.core.routing import route
+from tools.assay.core.routing import infer_languages, route
 from tools.assay.core.status import RailStatus
 
 
 if TYPE_CHECKING:
     from expression.collections import Block
 
-    from tools.assay.core.model import AnyDetail, Language, Tool
+    from tools.assay.core.model import AnyDetail
     from tools.assay.core.routing import Routed
 
 
 # --- [CONSTANTS] ------------------------------------------------------------------------
 
 _GAP_NOTE: str = "mutation requested but no eligible lane (typescript has no mutation runner)"
+_COVERAGE_JSON: str = ".artifacts/python/coverage/coverage.json"
 _COVERAGE_OUTPUTS: tuple[tuple[str, tuple[str, ...]], ...] = (
     ("coverage.json", ("uv", "run", "coverage", "json", "-o", ".artifacts/python/coverage/coverage.json")),
     ("coverage.xml", ("uv", "run", "coverage", "xml", "-o", ".artifacts/python/coverage/coverage.xml")),
@@ -66,6 +71,18 @@ _ROSTER_ENCODER = msgspec.json.Encoder(order="deterministic")
 _MUTATION_SCOPE: dict[str, Callable[[tuple[str, ...]], tuple[str, ...]]] = {
     "dotnet-stryker": lambda files: tuple(flag for f in files for flag in ("--mutate", f))
 }
+# Lease-riding kill-rate gate over the staged mutmut cache; group splice only — never a catalog TOOLS row.
+_GATE_TOOL = Tool(
+    name="mutmut-gate",
+    runner=Runner.UV,
+    command=("python", "-m", "tools.assay.rails.mutation_gate"),
+    input=Input.NONE,
+    language=Language.PYTHON,
+    claim=Claim.TEST,
+    mode=Mode.MUTATION,
+    groups=("mutation",),
+    stage=Stage(project=True),
+)
 
 
 # --- [MODELS] ---------------------------------------------------------------------------
@@ -77,13 +94,24 @@ class TestParams(BaseParams):
 
     target: Path | None = None
     all: bool = False
-    no_build: bool = False
     mutation: MutationLane = MutationLane.OFF
     benchmark: bool = False
     coverage: bool = False
     filter: str = ""
     limit: NonNegativeInt = 0
     grep: str = ""
+
+
+class _CoverageTotals(msgspec.Struct, frozen=True, gc=False):
+    percent_covered: float
+
+
+class _CoverageReport(msgspec.Struct, frozen=True, gc=False):
+    totals: _CoverageTotals
+
+
+# Decoder follows the structs it decodes; required fields make totals-less JSON degrade to None.
+_COVERAGE_DECODER: msgspec.json.Decoder[_CoverageReport] = msgspec.json.Decoder(_CoverageReport)
 
 
 # --- [SERVICES] -------------------------------------------------------------------------
@@ -94,10 +122,10 @@ _LOG: structlog.stdlib.BoundLogger = structlog.get_logger("assay.test")
 # --- [OPERATIONS] -----------------------------------------------------------------------
 
 
-def _languages(selected: Language | None) -> tuple[Language, ...]:
+def _languages(selected: Language | None, paths: tuple[str, ...]) -> tuple[Language, ...]:
     match selected:
         case None:
-            return tuple(sorted({t.language for t in select(Claim.TEST)}, key=lambda member: member.value))
+            return infer_languages(paths, tuple(sorted({t.language for t in select(Claim.TEST)}, key=lambda member: member.value)))
         case language:
             return (language,)
 
@@ -109,8 +137,6 @@ def _eligible(tool: Tool, params: TestParams) -> bool:
             return False
         case (Mode.MUTATION, MutationLane.CHANGED | MutationLane.FULL):
             return True
-        case (Mode.RESTORE, _) | (Mode.BUILD, _):
-            return not params.no_build
         case _:
             return (
                 (tool.name != "pytest" or not (params.benchmark or params.coverage))
@@ -239,12 +265,12 @@ def _test_detail(done: Completed) -> TestRun:
         return TestRun()
 
 
-def _detail(done: tuple[Completed, ...], params: TestParams) -> AnyDetail | None:
+def _detail(done: tuple[Completed, ...], params: TestParams, root: Path) -> AnyDetail | None:
     # Mutation evidence is stdout-derived; use the first decoded receipt carrying a real mutation lane.
     mutation = next(
         (d for c in done if (d := _test_detail(c)) is not None and isinstance(d, TestRun) and d.mutation is not MutationLane.OFF), TestRun()
     )
-    coverage = coverage_percent(done)
+    coverage = coverage_percent(root)
     match (params.mutation, params.coverage, coverage):
         case (MutationLane.OFF, False, _):
             return None
@@ -256,22 +282,17 @@ def _detail(done: tuple[Completed, ...], params: TestParams) -> AnyDetail | None
             return None
 
 
-def coverage_percent(done: tuple[Completed, ...]) -> float | None:
-    """Extract the coverage percentage from a completed coverage report run.
+def coverage_percent(root: Path) -> float | None:
+    """Decode the coverage percentage from the coverage JSON artifact under ``root``.
 
     Returns:
-        Coverage percentage as a float, or None when no coverage report is present.
+        ``totals.percent_covered`` from ``.artifacts/python/coverage/coverage.json``,
+        or None when the file is absent or undecodable.
     """
-    return next(
-        (
-            float(text)
-            for c in done
-            if c.argv[:4] == ("uv", "run", "coverage", "report")
-            for text in (c.stdout.decode(errors="replace").strip(),)
-            if text.replace(".", "", 1).isdigit()
-        ),
-        None,
-    )
+    try:
+        return _COVERAGE_DECODER.decode((root / _COVERAGE_JSON).read_bytes()).totals.percent_covered
+    except OSError, msgspec.DecodeError:
+        return None
 
 
 def _results_artifact(scope: ArtifactScope) -> Artifact:
@@ -306,6 +327,20 @@ def _roster_artifacts(settings: AssaySettings, scope: ArtifactScope, discovered:
     )
 
 
+def _gate(
+    done: tuple[Result[Completed, Fault], ...], routed: Routed, params: TestParams, *, settings: AssaySettings, scope: ArtifactScope
+) -> tuple[Result[Completed, Fault], ...]:
+    # Kill-rate gate rides the held mutation lease: one sequential check against the staged mutmut cache.
+    staged = next((t for t in _rows(routed.language, params, Mode.MUTATION) if t.stage.root), None)
+    succeeded = any(c.returncode == 0 and "mutmut" in c.argv for r in done if r.is_ok() for c in (r.ok,))
+    match (staged, succeeded):
+        case (Tool() as row, True):
+            work = Path(str(settings.root)) / row.stage.root
+            return fan_out((Check(tool=_GATE_TOOL, cwd=work),), settings=settings, scope=scope, routed=routed)
+        case _:
+            return ()
+
+
 def _dispatch_all(
     routed: Routed, params: TestParams, *, settings: AssaySettings, scope: ArtifactScope, mode: Mode
 ) -> tuple[Result[Completed, Fault], ...]:
@@ -315,8 +350,9 @@ def _dispatch_all(
         if params.mutation is not MutationLane.OFF and mode is Mode.RUN
         else ()
     )
+    gate = _gate(mutation, routed, params, settings=settings, scope=scope) if mutation else ()
     coverage = _dispatch(routed, params, settings=settings, scope=scope, mode=Mode.CLIENT) if params.coverage and mode is Mode.RUN else ()
-    return (*run, *mutation, *coverage)
+    return (*run, *mutation, *gate, *coverage)
 
 
 def _thin_rail(settings: AssaySettings, scope: ArtifactScope, params: TestParams, *, claim: Claim, verb: str, mode: Mode) -> Result[Report, Fault]:
@@ -325,7 +361,7 @@ def _thin_rail(settings: AssaySettings, scope: ArtifactScope, params: TestParams
     Returns:
         Folded test report, or routing/spawn/lease fault.
     """
-    languages = _languages(params.language)
+    languages = _languages(params.language, params.paths)
     eligible = tuple(t for language in languages for t in _rows(language, params, Mode.MUTATION if params.mutation is not MutationLane.OFF else mode))
     gap = _mutation_gap(params, eligible)
     match gap:
@@ -337,7 +373,7 @@ def _thin_rail(settings: AssaySettings, scope: ArtifactScope, params: TestParams
     def _work(_held: object = None) -> Result[Report, Fault]:
         def _settle(done: Block[Completed]) -> Report:
             outcomes = tuple(done)
-            base = fold(claim, verb, outcomes, detail=_detail(outcomes, params))
+            base = fold(claim, verb, outcomes, detail=_detail(outcomes, params, Path(str(settings.root))))
             return msgspec.structs.replace(
                 base,
                 artifacts=(*base.artifacts, _results_artifact(scope), *_coverage_artifacts(settings, scope, outcomes)),
@@ -350,11 +386,19 @@ def _thin_rail(settings: AssaySettings, scope: ArtifactScope, params: TestParams
             ).map(_settle)
         )
 
-    match any(t.mode is Mode.MUTATION for t in eligible):
-        case True:
-            return leased("mutation", _work, settings=settings, run_id=settings.run_id, project="mutation", mode="exclusive")
-        case False:
-            return _work()
+    # Per-language mutation leases (mutation-python / mutation-csharp) let mutmut and Stryker run in parallel
+    # across agents; nested sorted non-blocking acquisition keeps contention deterministic and deadlock-free,
+    # and the kill-rate gate dispatched inside _work rides the held language lease.
+    def _nested(resources: tuple[str, ...]) -> Result[Report, Fault]:
+        match resources:
+            case (head, *rest):
+                return leased(
+                    f"mutation-{head}", lambda _held: _nested(tuple(rest)), settings=settings, run_id=settings.run_id, project=head, mode="exclusive"
+                )
+            case _:
+                return _work()
+
+    return _nested(tuple(sorted({t.language.value for t in eligible if t.mode is Mode.MUTATION})))
 
 
 # --- [COMPOSITION] ----------------------------------------------------------------------
@@ -377,7 +421,7 @@ def list(settings: AssaySettings, scope: ArtifactScope, params: TestParams) -> R
     Returns:
         Test roster report, or routing/spawn fault.
     """
-    languages = _languages(params.language)
+    languages = _languages(params.language, params.paths)
     needle = params.grep.strip().lower()
 
     def _settle(done: block.Block[Completed]) -> Report:

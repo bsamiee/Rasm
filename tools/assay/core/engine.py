@@ -13,7 +13,7 @@ import contextlib
 from contextvars import ContextVar
 from dataclasses import dataclass, replace
 import fcntl
-from functools import partial
+from functools import cache
 import os
 from pathlib import Path
 import shlex
@@ -36,15 +36,26 @@ from tools.assay.composition.settings import ArtifactScope, AssaySettings  # unc
 from tools.assay.core.aspect import (
     _CHECKED_LAYER,  # noqa: PLC2701  # co-owned internal seam: aspect and engine share this layer without a public surface
     compose,
+    ring_recent,
     traced,
 )
-from tools.assay.core.model import Artifact, ArtifactKind, Check, Completed, Fault, Mode, receipt, Runner
+from tools.assay.core.model import (  # noqa: TC001  # beartype resolves the Tool annotation on _apphost at runtime under PEP 649
+    Artifact,
+    ArtifactKind,
+    Check,
+    Completed,
+    Fault,
+    Mode,
+    receipt,
+    Runner,
+    Tool,
+)
 from tools.assay.core.routing import place, Routed
 from tools.assay.core.status import RailStatus
 
 
 if TYPE_CHECKING:
-    from collections.abc import AsyncIterator, Coroutine, Generator, Mapping, MutableMapping
+    from collections.abc import AsyncIterator, Awaitable, Coroutine, Generator, Mapping, MutableMapping
 
     from anyio.abc import ByteReceiveStream, ObjectReceiveStream, ObjectSendStream, Process
     import asyncssh
@@ -81,9 +92,22 @@ class _WriteContext(Protocol):
 _LOCKS_OPEN_FLAGS: int = os.O_RDWR | os.O_CREAT
 _LOCK_MODE: int = 0o644
 _FAULT_SNAPSHOT: str = "fault.resource_snapshot"
+_RING_SNAPSHOT: str = "assay.ring"
+_MEM_PRESSURE_PERCENT: float = 90.0
 _SSH_CONNECT_TIMEOUT: float = 15.0
 _SSH_SIGNAL_STATUS: int = 255
+_DOTNET_PROBE_TIMEOUT_S: float = 15.0
+_DOTNET_SHARED_RUNTIME: tuple[str, str] = ("shared", "Microsoft.NETCore.App")
 _RETRY_MIN_REMAINING: float = 0.05
+# A zombie or dead holder can never release its flock; both statuses are stale regardless of create-time match.
+_DEAD_STATUSES: frozenset[str] = frozenset({psutil.STATUS_DEAD, psutil.STATUS_ZOMBIE})
+# Bound at import so a patched psutil module double cannot skew the verdict comparison.
+_DISK_WAIT_STATUS: str = psutil.STATUS_DISK_SLEEP
+# Fixed stall thresholds: a silent child is diagnosed once after 30s over a 5s sample window; predictability beats adaptive tuning.
+_STALL_AFTER_S: float = 30.0
+_STALL_SAMPLE_S: float = 5.0
+_STALL_CPU_PCT: float = 25.0  # of one core across the sample window
+_STALL_CTX_RATE_HZ: float = 100.0  # involuntary context switches per second across the tree
 
 # ty cannot narrow this module to POSIX, so bind the POSIX-only members once to avoid repeated attribute ignores.
 _FLOCK, _LOCK_EX, _LOCK_NB, _LOCK_UN = fcntl.flock, fcntl.LOCK_EX, fcntl.LOCK_NB, fcntl.LOCK_UN  # ty: ignore[possibly-missing-attribute]
@@ -116,6 +140,14 @@ class _SshCache:
 
 
 @dataclass(frozen=True, slots=True)
+class _StallSample:
+    cpu_s: float
+    invol: float
+    status: str
+    procs: int
+
+
+@dataclass(frozen=True, slots=True)
 class _ExecPlan:
     argv: tuple[str, ...]
     check: Check
@@ -142,6 +174,8 @@ class Captured:
 _SSH_CACHE: ContextVar[_SshCache | None] = ContextVar("assay_ssh_cache", default=None)
 # Fault-time snapshots cross the anyio.run boundary; ContextVar threads the snapshot without polluting call signatures.
 _RESOURCE: ContextVar[tuple[tuple[str, float], ...]] = ContextVar("assay_resource", default=())
+# Fan batches share one to_thread limiter so the governed cap binds the whole batch rather than each check separately.
+_FAN_LIMITER: ContextVar[anyio.CapacityLimiter | None] = ContextVar("assay_fan_limiter", default=None)
 
 
 # --- [SERVICES] -------------------------------------------------------------------------
@@ -239,6 +273,50 @@ def discover(argv: tuple[str, ...], *, root: UPath | Path | str, timeout: float)
     return anyio.run(_run)
 
 
+@cache
+def _dotnet_root() -> str | None:
+    # nix exports a DOTNET_ROOT wrapper lacking shared/Microsoft.NETCore.App; resolve the real runtime root once per
+    # process (the `dotnet --list-runtimes` probe is process-stable); tests reset via cache_clear.
+    def valid(path: str) -> str | None:
+        root = Path(path).expanduser()
+        return str(root) if path and Path(root, *_DOTNET_SHARED_RUNTIME).is_dir() else None
+
+    def runtime_root(line: str) -> str | None:
+        match line.rsplit("[", maxsplit=1):
+            case [_, raw] if raw.endswith("]"):
+                return valid(str(Path(raw[:-1]).parent.parent))
+            case _:
+                return None
+
+    def from_env() -> str | None:
+        return valid(os.environ.get("DOTNET_ROOT", ""))  # noqa: TID251  # the host override is the probe's first-precedence source
+
+    def from_runtimes() -> str | None:
+        listed = discover(("dotnet", "--list-runtimes"), root=Path.cwd(), timeout=_DOTNET_PROBE_TIMEOUT_S)
+        lines = listed.map(lambda out: out.decode(errors="replace").splitlines()).default_value([])
+        return next((root for line in lines for root in (runtime_root(line),) if root is not None), None)
+
+    def from_muxer() -> str | None:
+        muxer = shutil.which("dotnet")
+        return valid(str(Path(muxer).resolve().parent)) if muxer else None
+
+    return next((root for probe in (from_env, from_runtimes, from_muxer) for root in (probe(),) if root is not None), None)
+
+
+def _apphost(tool: Tool, env: Mapping[str, str]) -> Mapping[str, str]:
+    # `dotnet tool run` spawns apphost-deployed tools (ilspycmd, stryker) that resolve the runtime from DOTNET_ROOT;
+    # SDK verbs self-locate via the muxer, so only ("tool", "run") heads receive the resolved-root overlay.
+    match (tool.runner, tool.command[:2]):
+        case (Runner.DOTNET, ("tool", "run")):
+            match _dotnet_root():
+                case str(root):
+                    return {**env, "DOTNET_ROOT": root, "DOTNET_MULTILEVEL_LOOKUP": "0"}
+                case None:
+                    return {key: value for key, value in env.items() if key != "DOTNET_ROOT"}
+        case _:
+            return env
+
+
 def _materialize(check: Check, settings: AssaySettings) -> Result[Check, Fault]:
     stage = check.tool.stage
     if not stage.root:
@@ -283,11 +361,6 @@ def _contained(root: Path, rel: str) -> Path | ValueError:
         case False:
             target = (root / text).resolve()
             return target if target.is_relative_to(root) else ValueError(f"stage path escaped root: {rel!r}")
-
-
-async def _drain(stream: ByteReceiveStream | None, *, tail_cap: int, chunk: int) -> bytes:
-    captured = await drain_stream(_recv_anyio(stream, chunk), tail_cap=tail_cap)
-    return captured.tail
 
 
 async def drain_stream(recv: ByteRecv, *, tail_cap: int, sink: WriteSink | None = None, path: str = "") -> Captured:
@@ -337,12 +410,42 @@ def _recv_ssh(reader: asyncssh.SSHReader[bytes], chunk: int) -> ByteRecv:
     return _recv
 
 
+def _touched(recv: ByteRecv, last_output: list[float]) -> ByteRecv:
+    # Every received chunk (and EOF) re-arms the stall clock; silence is measured from the last byte, not from spawn.
+    async def _recv() -> bytes | None:
+        chunk = await recv()
+        last_output[0] = time.monotonic()
+        return chunk
+
+    return _recv
+
+
 def _write_sink(sink: WriteSink | None, payload: bytes) -> None:
     match sink:
         case None:
             pass
         case _:
             sink.write(payload)
+
+
+async def _drain_pair(plan: _ExecPlan, out: ByteRecv, err: ByteRecv, wait: Callable[[], Awaitable[object]]) -> dict[str, Captured]:
+    # Shared local/remote streaming pump: tee both channels into bounded tails (+ optional artifact sinks), then await child exit inside the group.
+    streams: dict[str, Captured] = {}
+    async with anyio.create_task_group() as tg:
+
+        async def _tee(name: str, recv: ByteRecv) -> None:
+            path, handle = _stream_writer(plan, name)
+            match handle:
+                case None:
+                    streams[name] = await drain_stream(recv, tail_cap=plan.tail_cap, path=path)
+                case _:
+                    with handle as sink:
+                        streams[name] = await drain_stream(recv, tail_cap=plan.tail_cap, sink=sink, path=path)
+
+        tg.start_soon(_tee, "out", out)
+        tg.start_soon(_tee, "err", err)
+        await wait()
+    return streams
 
 
 async def _reap(proc: Process, limiter: anyio.CapacityLimiter | None = None) -> None:
@@ -377,33 +480,87 @@ def _reap_tree(pid: int) -> None:
         return
 
 
+def _stall_sample(pid: int) -> _StallSample:
+    # Tree-aggregated: dotnet builds fan out compiler children, so the root process alone under-reports activity.
+    def _tree() -> tuple[psutil.Process, ...]:
+        root = psutil.Process(pid)
+        return (root, *root.children(recursive=True))
+
+    def _cpu(proc: psutil.Process) -> float:
+        def _read() -> float:
+            times = proc.cpu_times()
+            return float(times.user) + float(times.system)
+
+        return _safe_call(_read, 0.0)
+
+    def _invol(proc: psutil.Process) -> float:
+        return _safe_call(lambda: float(proc.num_ctx_switches().involuntary), 0.0)
+
+    tree: tuple[psutil.Process, ...] = _safe_call(_tree, ())
+    return _StallSample(
+        cpu_s=sum(_cpu(proc) for proc in tree),
+        invol=sum(_invol(proc) for proc in tree),
+        status=_safe_call(tree[0].status, "") if tree else "",
+        procs=len(tree),
+    )
+
+
+def _stall_verdict(first: _StallSample, second: _StallSample) -> str:
+    # Triage for agents watching a silent child: which resource the process tree actually consumed across the sample window.
+    cpu_pct = max(0.0, second.cpu_s - first.cpu_s) * 100.0 / max(_STALL_SAMPLE_S, 1e-6)
+    invol_rate = max(0.0, second.invol - first.invol) / max(_STALL_SAMPLE_S, 1e-6)
+    match (cpu_pct, second.status, invol_rate):
+        case (pct, _, _) if pct >= _STALL_CPU_PCT:
+            return f"cpu-bound ({pct:.0f}% of one core, {second.procs} procs)"
+        case (_, status, _) if status == _DISK_WAIT_STATUS:
+            return "disk-wait"
+        case (_, _, rate) if rate >= _STALL_CTX_RATE_HZ:
+            return "scheduler-contention"
+        case _:
+            return "io-or-lock-wait"
+
+
+async def _stall_monitor(pid: int, last_output: list[float], notes: list[str]) -> None:
+    # Armed only after _STALL_AFTER_S of child silence; diagnoses once and exits, so the receipt carries at most one bounded note.
+    while not notes:
+        await anyio.sleep(_STALL_SAMPLE_S)
+        match time.monotonic() - last_output[0] >= _STALL_AFTER_S:
+            case False:
+                pass
+            case True:
+                first = await to_thread.run_sync(_stall_sample, pid)
+                await anyio.sleep(_STALL_SAMPLE_S)
+                second = await to_thread.run_sync(_stall_sample, pid)
+                silent_s = time.monotonic() - last_output[0]
+                verdict = _stall_verdict(first, second)
+                notes.append(f"proc.stall silent={silent_s:.0f}s {verdict}"[:256])
+                _LOG.warning("proc.stall", pid=pid, silent_s=round(silent_s, 1), verdict=verdict, procs=second.procs)
+                trace.get_current_span().add_event("proc.stall", attributes={"proc.pid": pid, "proc.silent_s": silent_s, "proc.verdict": verdict})
+
+
 async def _run_process_backend(plan: _ExecPlan) -> Completed:
     match plan.settings.exec_target:
         case "":
             match plan.streaming:
                 case True:
                     proc = await anyio.open_process(list(plan.argv), cwd=plan.cwd, env=plan.env)
-                    streams: dict[str, Captured] = {}
                     try:
+                        last_output, stall = [time.monotonic()], list[str]()
                         async with anyio.create_task_group() as tg:
-
-                            async def _tee(name: str, stream: ByteReceiveStream | None) -> None:
-                                path, handle = _stream_writer(plan, name)
-                                if handle is None:
-                                    streams[name] = await drain_stream(_recv_anyio(stream, plan.chunk), tail_cap=plan.tail_cap, path=path)
-                                    return
-                                with handle as sink:
-                                    streams[name] = await drain_stream(_recv_anyio(stream, plan.chunk), tail_cap=plan.tail_cap, sink=sink, path=path)
-
-                            tg.start_soon(_tee, "out", proc.stdout)
-                            tg.start_soon(_tee, "err", proc.stderr)
-                            await proc.wait()
-                        stdout, stderr = streams.get("out", Captured()).tail, streams.get("err", Captured()).tail
+                            tg.start_soon(_stall_monitor, proc.pid, last_output, stall)
+                            streams = await _drain_pair(
+                                plan,
+                                _touched(_recv_anyio(proc.stdout, plan.chunk), last_output),
+                                _touched(_recv_anyio(proc.stderr, plan.chunk), last_output),
+                                proc.wait,
+                            )
+                            tg.cancel_scope.cancel()
                         return receipt(
                             plan.argv,
                             proc.returncode or 0,
-                            stdout=stdout,
-                            stderr=stderr,
+                            stdout=streams.get("out", Captured()).tail,
+                            stderr=streams.get("err", Captured()).tail,
+                            notes=tuple(stall),
                             artifacts=_stream_artifacts(plan.scope, plan.settings, plan.check, streams),
                         )
                     finally:
@@ -448,29 +605,16 @@ async def _run_remote(plan: _ExecPlan, target: str) -> Completed:
     async with _ssh_connection(target, plan.settings) as conn:
         match plan.streaming:
             case True:
+                # No stall telemetry on this branch: psutil cannot inspect remote pids across the SSH boundary.
                 proc = await conn.create_process(command, encoding=None, stdin=asyncssh.DEVNULL)
-                streams: dict[str, Captured] = {}
                 try:
-                    async with anyio.create_task_group() as tg:
-
-                        async def _tee(name: str, reader: asyncssh.SSHReader[bytes]) -> None:
-                            path, handle = _stream_writer(plan, name)
-                            if handle is None:
-                                streams[name] = await drain_stream(_recv_ssh(reader, plan.chunk), tail_cap=plan.tail_cap, path=path)
-                                return
-                            with handle as sink:
-                                streams[name] = await drain_stream(_recv_ssh(reader, plan.chunk), tail_cap=plan.tail_cap, sink=sink, path=path)
-
-                        tg.start_soon(_tee, "out", proc.stdout)
-                        tg.start_soon(_tee, "err", proc.stderr)
-                        await proc.wait()
-                    stdout, stderr = streams.get("out", Captured()).tail, streams.get("err", Captured()).tail
+                    streams = await _drain_pair(plan, _recv_ssh(proc.stdout, plan.chunk), _recv_ssh(proc.stderr, plan.chunk), proc.wait)
                     code, notes = ssh_outcome(proc.exit_status, getattr(proc, "exit_signal", None))
                     return receipt(
                         plan.argv,
                         code,
-                        stdout=stdout,
-                        stderr=stderr,
+                        stdout=streams.get("out", Captured()).tail,
+                        stderr=streams.get("err", Captured()).tail,
                         notes=notes,
                         artifacts=_stream_artifacts(plan.scope, plan.settings, plan.check, streams),
                     )
@@ -494,13 +638,9 @@ async def _ssh_connection(target: str, settings: AssaySettings) -> AsyncIterator
         case _SshCache() as pooled:
             async with pooled.lock:
                 cached = pooled.conns.get(target)
-                # is_closed is not stable across asyncssh versions; guard with getattr
-                if cached is None or bool(getattr(cached, "is_closed", lambda: False)()):
-                    conn = await _connect_once(target, settings)
-                    pooled.conns[target] = conn
-                else:
-                    conn = cached
-            yield conn
+                if cached is None or cached.is_closed():
+                    cached = pooled.conns[target] = await _connect_once(target, settings)
+            yield cached
 
 
 @contextlib.asynccontextmanager
@@ -564,9 +704,10 @@ def _as_bytes(data: bytes | str | None) -> bytes:
 
 
 def _safe_call[T](fn: Callable[[], T], default: T) -> T:
+    # NotImplementedError is psutil's off-POSIX signal for per-process probes such as num_fds.
     try:
         return fn()
-    except psutil.Error, TypeError, ValueError, AttributeError, OSError:
+    except psutil.Error, TypeError, ValueError, AttributeError, OSError, NotImplementedError:
         return default
 
 
@@ -581,53 +722,38 @@ def _snapshot() -> dict[str, float]:
             "mem.uss_bytes": _safe_call(lambda: float(proc.memory_full_info().uss), -1.0),
             "mem.percent_rss": _safe_call(lambda: float(info.rss) * 100.0 / max(float(psutil.virtual_memory().total), 1.0), -1.0),
             "cpu.percent": _safe_call(lambda: float(proc.cpu_percent()) if isinstance(proc.cpu_percent, _Nullary) else -1.0, -1.0),
-            "proc.num_fds": float(_num_fds(proc)),
+            "proc.num_fds": _safe_call(lambda: float(proc.num_fds()), -1.0),  # ty: ignore[possibly-missing-attribute]  # POSIX-only probe
             "proc.num_threads": _safe_call(lambda: float(proc.num_threads()) if isinstance(proc.num_threads, _Nullary) else -1.0, -1.0),
         }
-    return {**base, **_memory_pressure(), **_load_pressure()}
+    return {**base, **_sys_pressure()}
 
 
-def _memory_pressure() -> dict[str, float]:
-    try:
-        mem = psutil.virtual_memory()
-        swap = psutil.swap_memory()
+def _sys_pressure() -> dict[str, float]:
+    # Memory and load probes degrade independently: each arm contributes its keys only when its own source calls succeed.
+    def _mem() -> dict[str, float]:
+        mem, swap = psutil.virtual_memory(), psutil.swap_memory()
         return {
             "sys.mem_available_bytes": _safe_call(lambda: float(mem.available), -1.0),
             "sys.mem_percent": _safe_call(lambda: float(mem.percent), -1.0),
             "sys.swap_percent": _safe_call(lambda: float(swap.percent), -1.0),
         }
-    except psutil.Error, TypeError, ValueError, AttributeError:
-        return {}
 
-
-def _load_pressure() -> dict[str, float]:
-    try:
-        getloadavg = getattr(os, "getloadavg", None)
-        if getloadavg is None:
-            return {}
-        load1, _load5, _load15 = getloadavg()
+    def _load() -> dict[str, float]:
+        load1 = os.getloadavg()[0]  # ty: ignore[possibly-missing-attribute]  # POSIX-only; absence degrades through _safe_call
         return {"sys.load1_percent": load1 * 100.0 / max(float(psutil.cpu_count(logical=True) or 1), 1.0)}
-    except OSError, AttributeError, TypeError, ValueError:
-        return {}
 
-
-def _child_rss(child: psutil.Process) -> int:
-    return int(getattr(child.memory_info(), "rss", 0))
+    return {**_safe_call(_mem, {}), **_safe_call(_load, {})}
 
 
 def _children(proc: psutil.Process) -> dict[str, float]:
+    def _rss(child: psutil.Process) -> float:
+        return _safe_call(lambda: float(child.memory_info().rss), 0.0)
+
     try:
         kids = tuple(proc.children(recursive=True))
-        return {"proc.children": float(len(kids)), "proc.children_rss_bytes": float(sum(_safe_call(partial(_child_rss, child), 0) for child in kids))}
+        return {"proc.children": float(len(kids)), "proc.children_rss_bytes": float(sum(_rss(child) for child in kids))}
     except psutil.Error, TypeError, ValueError, AttributeError:
         return {}
-
-
-def _num_fds(proc: psutil.Process) -> int:
-    try:
-        return int(proc.num_fds())  # ty: ignore[possibly-missing-attribute]  # POSIX-only; AttributeError handles absence on non-POSIX
-    except psutil.AccessDenied, NotImplementedError, AttributeError:
-        return -1
 
 
 def _diagnose(exc: BaseException) -> None:
@@ -637,6 +763,7 @@ def _diagnose(exc: BaseException) -> None:
     span = trace.get_current_span()
     span.record_exception(exc)
     span.add_event(_FAULT_SNAPSHOT, attributes=snap)
+    span.add_event(_RING_SNAPSHOT, attributes={"events": ring_recent()})
 
 
 async def _guarded(
@@ -659,7 +786,8 @@ async def _guarded(
 
     try:
         cwd = str(UPath(check.cwd or settings.local_root).path)
-        env = _overlay(settings, scope)
+        # The probe behind _apphost is sync + cached; the thread hop keeps the first `dotnet --list-runtimes` off the loop.
+        env = await to_thread.run_sync(_apphost, check.tool, _overlay(settings, scope))
         propagate.inject(env)
         trace.get_current_span().set_attribute("exec.target", settings.exec_target)
         done = await _execute_retrying(
@@ -669,22 +797,21 @@ async def _guarded(
             argv=argv,
             cwd=cwd,
             env=env,
-            thread_limiter=anyio.CapacityLimiter(governed_concurrency(settings, (check,))),
+            thread_limiter=_FAN_LIMITER.get() or anyio.CapacityLimiter(governed_concurrency(settings, (check,))),
             deadline=bound,
             attempts=attempts,
         )
         return Ok(msgspec.structs.replace(done, duration_ms=(time.monotonic() - t0) * 1000.0))
-    except TimeoutError as exc:
+    except (TimeoutError, FileNotFoundError, OSError, ValueError, asyncssh.Error) as exc:
+        # Spawn-fault fold: deadline → TIMEOUT; missing capability (never retried) → UNSUPPORTED; NUL-in-argv / transport → FAULTED.
         _diagnose(exc)
-        return Error(Fault(argv, status=RailStatus.TIMEOUT, message=_stamped("deadline exceeded")))
-    except FileNotFoundError as exc:
-        # Missing capability at spawn, not a transient fault — never retry.
-        _diagnose(exc)
-        return Error(Fault(argv, status=RailStatus.UNSUPPORTED, message=_stamped(str(exc))))
-    except (OSError, ValueError, asyncssh.Error) as exc:
-        # ValueError covers NUL-in-argv from anyio's create_subprocess_exec.
-        _diagnose(exc)
-        return Error(Fault(argv, status=RailStatus.FAULTED, message=_stamped(str(exc))))
+        match exc:
+            case TimeoutError():
+                return Error(Fault(argv, status=RailStatus.TIMEOUT, message=_stamped("deadline exceeded")))
+            case FileNotFoundError():
+                return Error(Fault(argv, status=RailStatus.UNSUPPORTED, message=_stamped(str(exc))))
+            case _:
+                return Error(Fault(argv, status=RailStatus.FAULTED, message=_stamped(str(exc))))
 
 
 async def _execute_retrying(  # noqa: PLR0913  # all params are load-bearing across the retry body; no grouping reduces the count
@@ -842,11 +969,15 @@ def fan_out(
     async def _run() -> tuple[Result[Completed, Fault], ...]:
         limit = governed_concurrency(settings, checks)
         results: dict[int, Result[Completed, Fault]] = {}
-        with _TRACER.start_as_current_span("assay.fan_out") as parent:
-            parent.set_attribute("assay.checks_total", len(checks))
-            parent.set_attribute("assay.checks_concurrency", limit)
-            async with _pooled_ssh():
-                results.update(await _fan_schedule(checks, settings=settings, scope=scope, routed=routed, deadline=deadline, limit=limit))
+        token = _FAN_LIMITER.set(anyio.CapacityLimiter(limit))
+        try:
+            with _TRACER.start_as_current_span("assay.fan_out") as parent:
+                parent.set_attribute("assay.checks_total", len(checks))
+                parent.set_attribute("assay.checks_concurrency", limit)
+                async with _pooled_ssh():
+                    results.update(await _fan_schedule(checks, settings=settings, scope=scope, routed=routed, deadline=deadline, limit=limit))
+        finally:
+            _FAN_LIMITER.reset(token)
         return tuple(_total(results.get(i)) for i in range(len(checks)))
 
     return anyio.run(_run)
@@ -888,7 +1019,12 @@ async def _fan_worker(
 ) -> None:
     async with recv, send:
         async for i, check in recv:
-            await send.send((i, await run_check_async(check, settings=settings, scope=scope, routed=routed, deadline=deadline)))
+            slot: Result[Completed, Fault]
+            try:
+                slot = await run_check_async(check, settings=settings, scope=scope, routed=routed, deadline=deadline)
+            except Exception as exc:  # noqa: BLE001  # fan resilience: one escaped check must not cancel sibling workers
+                slot = Error(Fault((check.tool.name,), status=RailStatus.FAULTED, message=f"{type(exc).__name__}: {exc}"[:1024]))
+            await send.send((i, slot))
 
 
 @contextlib.asynccontextmanager
@@ -923,29 +1059,41 @@ def _total(slot: Result[Completed, Fault] | None) -> Result[Completed, Fault]:
 def governed_concurrency(settings: AssaySettings, checks: tuple[Check, ...] = ()) -> int:
     """Fold the usable-CPU, DOTNET-runner, and MUTATION-mode ceilings into one concurrency floor.
 
+    Memory-only backpressure: at or above ``_MEM_PRESSURE_PERCENT`` system RAM the folded limit is
+    halved (floor 1) and a ``concurrency.backpressure`` event is emitted.
+
     Returns:
         The concurrency limit, at least 1, bounded by ``max_checks``, the mode cap, and ``settings.cpu_count``.
     """
     runner_cap = settings.dotnet_max_cpu if any(c.tool.runner is Runner.DOTNET for c in checks) else settings.max_checks
     # Mixed DOTNET+MUTATION batches must honour both ceilings; intersect so neither shadows the other.
     mode_cap = min(runner_cap, settings.mutation_max_cpu) if any(c.tool.mode is Mode.MUTATION for c in checks) else runner_cap
-    return max(1, min(settings.max_checks, mode_cap, settings.cpu_count))
+    limit = max(1, min(settings.max_checks, mode_cap, settings.cpu_count))
+    # Load-average backpressure rejected: macOS load1 counts uninterruptible waits, far too noisy a halving signal.
+    mem_percent = _safe_call(lambda: float(psutil.virtual_memory().percent), 0.0)
+    match mem_percent >= _MEM_PRESSURE_PERCENT:
+        case True:
+            halved = max(1, limit // 2)
+            _LOG.warning("concurrency.backpressure", sys_mem_percent=mem_percent, limit=limit, backpressure_limit=halved)
+            return halved
+        case False:
+            return limit
 
 
 # --- [COMPOSITION] ----------------------------------------------------------------------
 
 
 def is_lease_stale(owner: _LeaseOwner, tolerance: float) -> bool:
-    """Decide whether a lease holder is dead or PID-reused and therefore stealable.
+    """Decide whether a lease holder is dead, zombie, or PID-reused and therefore stealable.
 
     Returns:
-        True when the holder process is gone, not running, or drifted past ``tolerance``; False when it is live and matching.
+        True when the holder process is gone, zombie/dead, not running, or drifted past ``tolerance``; False when it is live and matching.
     """
     # (pid, create_time) within the drift band guards against PID reuse presenting as a live holder.
     try:
         proc = psutil.Process(owner.pid)
         with proc.oneshot():
-            return not (proc.is_running() and abs(proc.create_time() - owner.create_time) < tolerance)
+            return proc.status() in _DEAD_STATUSES or not (proc.is_running() and abs(proc.create_time() - owner.create_time) < tolerance)
     except psutil.NoSuchProcess, ValueError:
         # ValueError covers psutil.Process(pid<=0) from a corrupt owner block; treat as dead.
         return True

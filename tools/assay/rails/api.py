@@ -22,13 +22,13 @@ import itertools
 import operator
 from pathlib import Path
 import re
-from typing import assert_never, override, TYPE_CHECKING
+from typing import assert_never, override, TYPE_CHECKING, TypeAliasType
 import xml.etree.ElementTree as ET  # noqa: S405  # trusted local Directory.Packages.props XML, never network-sourced
 
 from cyclopts.types import PositiveInt  # noqa: TC002  # Cyclopts evaluates Param dataclass annotations at runtime.
 from expression import Error, Ok, Result
 import msgspec
-from tree_sitter import Parser as TSParser, QueryCursor, QueryError
+from tree_sitter import Parser as TSParser, QueryCursor
 import tree_sitter_typescript
 
 from tools.assay.composition.catalog import Capture, CAPTURE_ENCODER, CAPTURES, select
@@ -62,7 +62,7 @@ from tools.assay.core.model import (
 )
 from tools.assay.core.routing import Routed, Scope
 from tools.assay.core.status import RailStatus
-from tools.assay.rails.code import _node_text, ts_language, ts_query  # noqa: PLC2701  # shared tree-sitter primitives owned by code.py
+from tools.assay.rails.code import _cap_note, _node_text, ts_language, ts_query  # noqa: PLC2701  # shared rail primitives owned by code.py
 
 
 if TYPE_CHECKING:
@@ -134,7 +134,11 @@ _DECL_NODES: frozenset[str] = frozenset((
     "public_field_definition",
     "variable_declarator",
 ))
-_INSPECT_KINDS: tuple[tuple[str, Callable[[object], bool]], ...] = (("type", inspect.isclass), ("type", inspect.isfunction))
+_INSPECT_KINDS: tuple[tuple[str, Callable[[object], bool]], ...] = (
+    ("type", inspect.isclass),
+    ("type", inspect.isfunction),
+    ("type", lambda obj: isinstance(obj, TypeAliasType)),  # PEP 695 `type` aliases surface alongside classes and functions
+)
 _NAME_CAP: int = 320
 _SIG_CAP: int = 480
 _FULL_CAP: int = 2560  # full .d.ts member body capture
@@ -270,8 +274,8 @@ def _host_source(settings: AssaySettings, key: str) -> _Source | None:
 
 
 @lru_cache(maxsize=8)
-def _packages_at(root_str: str, props_mtime_ns: int) -> dict[str, str]:
-    _ = props_mtime_ns  # lru_cache key slot
+def _packages_at(root_str: str, digest: str) -> dict[str, str]:
+    _ = digest  # lru_cache key slot: content hash, immune to mtime-preserving rewrites
     try:
         root = ET.fromstring(Path(root_str).read_bytes())  # noqa: S314  # trusted local Directory.Packages.props, never network-sourced
     except OSError, ET.ParseError:
@@ -284,10 +288,10 @@ def _packages_at(root_str: str, props_mtime_ns: int) -> dict[str, str]:
 def _packages(settings: AssaySettings) -> dict[str, str]:
     path = settings.root / _PACKAGES_PROPS
     try:
-        mtime_ns = path.stat().st_mtime_ns
+        raw = path.read_bytes()
     except OSError:
         return {}
-    return _packages_at(str(path), mtime_ns)
+    return _packages_at(str(path), hashlib.sha256(raw).hexdigest()[:16])
 
 
 def _candidates(names: tuple[str, ...], needle: str, *, n: int = _CANDIDATE_CAP) -> tuple[tuple[str, int], ...]:
@@ -561,15 +565,21 @@ def _source(settings: AssaySettings, key: str) -> Result[_Source, ApiResolution]
             return Error(ApiResolution(candidates=_candidates(names, key), reason="unknown"))
 
 
+def _clip(text: str, cap: int) -> tuple[str, bool]:
+    # Slice detection: the bool marks a capture whose text was cut at the cap.
+    return text[:cap], len(text) > cap
+
+
 def _module_members(module: object, prefix: str, *, depth: int = 1) -> tuple[Capture, ...]:
     # depth=1 captures same-prefix submodules without walking the full transitive import graph.
     name = getattr(module, "__name__", prefix)
     file = str(getattr(module, "__file__", "") or "")
     own = tuple(
-        Capture(name=cap, text=f"{name}.{ident}"[:_NAME_CAP], file=file, line=0)
+        Capture(name=cap, text=clipped, file=file, line=0, truncated=cut)
         for cap, predicate in _INSPECT_KINDS
         for ident, obj in inspect.getmembers(module, predicate)
         if not ident.startswith("_") and getattr(obj, "__module__", prefix).startswith(prefix)
+        for clipped, cut in (_clip(f"{name}.{ident}", _NAME_CAP),)
     )
     submodules = (
         tuple(
@@ -642,10 +652,13 @@ def _getattr_walk(root: object, parts: tuple[str, ...]) -> object | None:
 
 
 def _member_captures(obj: object, symbol: str) -> tuple[Capture, ...]:
+    sig, sig_cut = _clip(f"{symbol}{_signature(obj)}", _SIG_CAP)
+    doc, doc_cut = _clip(inspect.getdoc(obj) or "", _SIG_CAP)
+    full, full_cut = _clip(_object_source(obj), _NAME_CAP * 8)
     return (
-        Capture(name="signature", text=f"{symbol}{_signature(obj)}"[:_SIG_CAP], file=str(getattr(obj, "__module__", "")), line=0),
-        Capture(name="doc", text=(inspect.getdoc(obj) or "")[:_SIG_CAP], file="", line=0),
-        Capture(name="full", text=_object_source(obj)[: _NAME_CAP * 8], file="", line=0),
+        Capture(name="signature", text=sig, file=str(getattr(obj, "__module__", "")), line=0, truncated=sig_cut),
+        Capture(name="doc", text=doc, file="", line=0, truncated=doc_cut),
+        Capture(name="full", text=full, file="", line=0, truncated=full_cut),
     )
 
 
@@ -702,7 +715,7 @@ def _ts_captures(parser: TSParser, path: Path, symbol: str) -> tuple[Capture, ..
             return (*parse_fault, *_ts_member(root, symbol, path, is_dts=is_dts))
 
 
-def _span_capture(name: str, text: str, node: Node, path: Path) -> Capture:
+def _span_capture(name: str, text: str, node: Node, path: Path, *, truncated: bool = False) -> Capture:
     # tree-sitter points are 0-indexed; Capture line/column are 1-indexed.
     return Capture(
         name=name,
@@ -714,21 +727,26 @@ def _span_capture(name: str, text: str, node: Node, path: Path) -> Capture:
         end_column=node.end_point.column + 1,
         start_byte=node.start_byte,
         end_byte=node.end_byte,
+        truncated=truncated,
     )
 
 
 def _ts_declared(root: Node, path: Path, *, is_dts: bool) -> tuple[Capture, ...]:
     # QueryError on a malformed roster query surfaces as a single capture, mirroring the code.py query rail.
     match ts_query(_TS_GRAMMAR, _TS_DECL_QUERY):
-        case QueryError() as exc:
+        case Result(tag="error", error=exc):
             return (Capture(name="query_error", text=str(exc)[:_NAME_CAP], file=path.name, line=1, parse_error=True),)
         case compiled:
-            return tuple(
-                _span_capture("type", _node_text(node)[:_NAME_CAP], node, path)
-                for nodes in QueryCursor(compiled).captures(root).values()
-                for node in nodes
-                if _exported(node, is_dts=is_dts)
-            )
+            cursor = QueryCursor(compiled.ok)
+    cursor.match_limit = _RESULT_CAP
+    nodes = tuple(node for group in cursor.captures(root).values() for node in group if _exported(node, is_dts=is_dts))
+    # Saturation mirrors code.py's _ts_file_captures: cursor-level match-limit OR roster overflow marks every kept row.
+    saturated = cursor.did_exceed_match_limit or len(nodes) > _RESULT_CAP
+    return tuple(
+        _span_capture("type", clipped, node, path, truncated=cut or saturated)
+        for node in nodes[:_RESULT_CAP]
+        for clipped, cut in (_clip(_node_text(node), _NAME_CAP),)
+    )
 
 
 def _ts_member(root: Node, symbol: str, path: Path, *, is_dts: bool) -> tuple[Capture, ...]:
@@ -759,11 +777,12 @@ def _ts_member(root: Node, symbol: str, path: Path, *, is_dts: bool) -> tuple[Ca
             return _export_member(root, target, path)
         case node:
             full = _node_text(node)
-            doc = _ts_doc(node)
+            sig, sig_cut = _clip(full.splitlines()[0] if full else "", _SIG_CAP)
+            doc, doc_cut = _clip(_ts_doc(node), _SIG_CAP)
             return (
-                _span_capture("signature", full.splitlines()[0][:_SIG_CAP] if full else "", node, path),
-                Capture(name="full", text=full[:_FULL_CAP], file=path.name, line=node.start_point.row + 1),
-                *((Capture(name="doc", text=doc[:_SIG_CAP], file=path.name, line=node.start_point.row + 1),) if doc else ()),
+                _span_capture("signature", sig, node, path, truncated=sig_cut),
+                Capture(name="full", text=full[:_FULL_CAP], file=path.name, line=node.start_point.row + 1, truncated=len(full) > _FULL_CAP),
+                *((Capture(name="doc", text=doc, file=path.name, line=node.start_point.row + 1, truncated=doc_cut),) if doc else ()),
             )
 
 
@@ -790,14 +809,20 @@ def _parents(node: Node) -> tuple[Node, ...]:
 
 
 def _export_aliases(root: Node, path: Path) -> tuple[Capture, ...]:
-    return tuple(_span_capture("type", _export_name(spec)[:_NAME_CAP], spec, path) for spec in _walk(root, "export_specifier") if _export_name(spec))
+    return tuple(
+        _span_capture("type", clipped, spec, path, truncated=cut)
+        for spec in _walk(root, "export_specifier")
+        if _export_name(spec)
+        for clipped, cut in (_clip(_export_name(spec), _NAME_CAP),)
+    )
 
 
 def _export_member(root: Node, target: str, path: Path) -> tuple[Capture, ...]:
     return tuple(
-        _span_capture("signature", _node_text(spec)[:_SIG_CAP], spec, path)
+        _span_capture("signature", clipped, spec, path, truncated=cut)
         for spec in _walk(root, "export_specifier")
         if _export_name(spec) == target
+        for clipped, cut in (_clip(_node_text(spec), _SIG_CAP),)
     )[:1]
 
 
@@ -1073,8 +1098,9 @@ def _api_source(source: _Source, *, status: RailStatus | None = None, selected: 
     )
 
 
-def _matches(rows: tuple[str, ...], kind: ArtifactKind, pattern: str) -> tuple[Match, ...]:
-    # Caller-supplied kind keeps type and scope match evidence distinct.
+def _matches(rows: tuple[str, ...], kind: ArtifactKind, pattern: str) -> tuple[tuple[Match, ...], tuple[str, ...]]:
+    # Caller-supplied kind keeps type and scope match evidence distinct. Ids are identity-shaped
+    # (kind:row) rather than ordinal so delta's (id, line) comparison is meaningful across runs.
     query = pattern.casefold()
 
     def score(text: str) -> int:
@@ -1085,7 +1111,8 @@ def _matches(rows: tuple[str, ...], kind: ArtifactKind, pattern: str) -> tuple[M
 
     filtered = tuple(r for r in rows if not pattern or query in r.casefold())
     scored = sorted(((r, score(r)) for r in filtered), key=lambda x: (-x[1], x[0]))
-    return tuple(Match(id=f"{kind.value}-{i:03d}", kind=kind, text=r[:_NAME_CAP], score=s) for i, (r, s) in enumerate(scored[:_RESULT_CAP], start=1))
+    shown = tuple(Match(id=f"{kind.value}:{r[:_NAME_CAP]}", kind=kind, text=r[:_NAME_CAP], score=s) for r, s in scored[:_RESULT_CAP])
+    return shown, _cap_note(len(shown), len(scored), _RESULT_CAP)
 
 
 # --- [COMPOSITION] ----------------------------------------------------------------------
@@ -1122,13 +1149,13 @@ def doctor(settings: AssaySettings, scope: ArtifactScope, p: ApiParams) -> Resul
     )
     results = tuple(
         Match(
-            id=f"inventory-{i:03d}",
+            id=f"inventory:{source.source_id}",
             kind=ArtifactKind.SCOPE,
             text=f"{source.source_id}: {source.version or source.package_root or source.primary_assembly or source.reason}",
             score=100 if source.status is RailStatus.OK else 0,
             severity=None if source.status is RailStatus.OK else "missing",
         )
-        for i, source in enumerate(compact, start=1)
+        for source in compact
     )
     return _strict(msgspec.structs.replace(fold(Claim.API, "doctor", (done,), detail=detail), artifacts=artifacts, results=results), p)
 
@@ -1153,19 +1180,9 @@ def _inventory_artifacts(settings: AssaySettings, sources: tuple[ApiSource, ...]
 
 
 def _source_tsv(source: ApiSource) -> str:
-    cells: tuple[str, ...] = (
-        str(source.source_kind),
-        str(source.status),
-        source.source_id,
-        source.version,
-        source.package_root or source.primary_assembly,
-        ",".join(source.frameworks),
-        ",".join(source.owners),
-        str(len(source.assemblies)),
-        str(len(source.xmls)),
-        str(len(source.assets)),
-    )
-    return "\t".join(cells)
+    head = (str(source.source_kind), str(source.status), source.source_id, source.version, source.package_root or source.primary_assembly)
+    counts = (len(source.assemblies), len(source.xmls), len(source.assets))
+    return "\t".join((*head, ",".join(source.frameworks), ",".join(source.owners), *map(str, counts)))
 
 
 def _inventory_sources(settings: AssaySettings, app: Path | None, ilspy_ver: str, returncode: int) -> tuple[ApiSource, ...]:
@@ -1251,8 +1268,9 @@ def _resolve_report(settings: AssaySettings, source: _Source, p: ApiParams) -> R
     targets = _resolve_targets(source, p.kind)
     existing = tuple(t for t in targets if t.exists())
     artifact = _artifact(settings, source, f"{p.kind}.paths.txt", "\n".join(str(t) for t in targets))
+    results, cap_notes = _matches(tuple(str(t) for t in targets), ArtifactKind.SCOPE, "")
     note = f"{len(existing)}/{len(targets)} {p.kind} paths present"
-    done = Completed(("api", "resolve", p.key), 0, status=RailStatus.OK if existing else RailStatus.EMPTY, notes=(note,))
+    done = Completed(("api", "resolve", p.key), 0, status=RailStatus.OK if existing else RailStatus.EMPTY, notes=(note, *cap_notes))
     detail = _api_detail(
         source,
         SymbolShape.SEARCH,
@@ -1262,7 +1280,7 @@ def _resolve_report(settings: AssaySettings, source: _Source, p: ApiParams) -> R
         artifact_paths=(artifact.path,),
     )
     report = fold(Claim.API, "resolve", (done,), detail=detail)
-    return msgspec.structs.replace(report, artifacts=(artifact,), results=_matches(tuple(str(t) for t in targets), ArtifactKind.SCOPE, ""))
+    return msgspec.structs.replace(report, artifacts=(artifact,), results=results)
 
 
 def _resolve_targets(source: _Source, kind: _PathKind) -> tuple[Path, ...]:
@@ -1332,11 +1350,12 @@ def _roster_report(settings: AssaySettings, surface: _Surface, shape: SymbolShap
     # INDEX shape attaches the raw surface cache as a second artifact so callers can access the unfiltered ilspycmd output.
     source = surface.source
     artifact = _artifact(settings, source, f"{shape.value}.txt", "\n".join(rows))
+    results, cap_notes = _matches(rows, ArtifactKind.SCOPE, p.grep)
     done = Completed(
         ("api", "query", source.key),
         0,
         status=RailStatus.OK if rows else RailStatus.EMPTY,
-        notes=(f"{len(surface.types)} types across {len(surface.namespaces)} namespaces",),
+        notes=(f"{len(surface.types)} types across {len(surface.namespaces)} namespaces", *cap_notes),
     )
     detail = _api_detail(
         source,
@@ -1350,9 +1369,7 @@ def _roster_report(settings: AssaySettings, surface: _Surface, shape: SymbolShap
     store = settings.store()
     extra = _cache_artifact(store, surface.cache) if shape is SymbolShape.INDEX and store.exists_path(surface.cache) else None
     artifacts = (artifact, extra) if extra is not None else (artifact,)
-    return msgspec.structs.replace(
-        fold(Claim.API, "query", (done,), detail=detail), artifacts=artifacts, results=_matches(rows, ArtifactKind.SCOPE, p.grep)
-    )
+    return msgspec.structs.replace(fold(Claim.API, "query", (done,), detail=detail), artifacts=artifacts, results=results)
 
 
 def _search_report(settings: AssaySettings, surface: _Surface, p: ApiParams) -> Report:
@@ -1365,7 +1382,8 @@ def _search_report(settings: AssaySettings, surface: _Surface, p: ApiParams) -> 
             done = Completed(("api", "query", source.key), 0, status=RailStatus.UNSUPPORTED, notes=(f"no match for '{p.symbol}'",))
             return fold(Claim.API, "query", (done,), detail=ApiResolution(candidates=_candidates(surface.types, p.symbol), reason="partial"))
         case _:
-            done = Completed(("api", "query", source.key), 0, status=RailStatus.OK, notes=(f"{len(hits)} search hits",))
+            results, cap_notes = _matches(hits, ArtifactKind.SCOPE, p.symbol)
+            done = Completed(("api", "query", source.key), 0, status=RailStatus.OK, notes=(f"{len(hits)} search hits", *cap_notes))
             # Artifact carries the full hit set; results are capped at _RESULT_CAP.
             artifact = _artifact(settings, source, "search.txt", "\n".join(hits))
             detail = _api_detail(
@@ -1377,9 +1395,7 @@ def _search_report(settings: AssaySettings, surface: _Surface, p: ApiParams) -> 
                 selected=len(hits),
                 artifact_paths=(artifact.path,),
             )
-            return msgspec.structs.replace(
-                fold(Claim.API, "query", (done,), detail=detail), artifacts=(artifact,), results=_matches(hits, ArtifactKind.SCOPE, p.symbol)
-            )
+            return msgspec.structs.replace(fold(Claim.API, "query", (done,), detail=detail), artifacts=(artifact,), results=results)
 
 
 def _decompile_report(  # noqa: PLR0913,PLR0914  # all slots are structural caller positions shared across C# and INPROC paths
@@ -1421,8 +1437,11 @@ def _decompile_report(  # noqa: PLR0913,PLR0914  # all slots are structural call
                 selected=selected,
                 artifact_paths=(artifact.path,),
             )
-            note = Completed(("api", "query", surface.source.key), 0, status=RailStatus.OK, notes=(f"{selected} selected lines",))
-            result = Match(id=f"{final_shape.value}-001", kind=ArtifactKind.SCOPE, text=(resolved_fqn or p.symbol)[:_NAME_CAP], score=100)
+            shown = len(window.splitlines())
+            window_note = (f"window: {shown} of {selected} lines (--full or --max-lines to widen)",) if truncated else ()
+            note = Completed(("api", "query", surface.source.key), 0, status=RailStatus.OK, notes=(f"{selected} selected lines", *window_note))
+            identity = (resolved_fqn or p.symbol)[:_NAME_CAP]
+            result = Match(id=f"{final_shape.value}:{identity}", kind=ArtifactKind.SCOPE, text=identity, score=100)
             return msgspec.structs.replace(fold(Claim.API, "query", (note,), detail=detail), artifacts=(artifact,), results=(result,))
 
 
@@ -1486,7 +1505,11 @@ def _show_store_report(store: ArtifactStore, path: str, p: ApiParams, *, matched
     detail = ApiSurface(
         source=source, shape=SymbolShape.SEARCH, preview=window, truncated=truncated, lines=total, selected=total, artifact_paths=(path,)
     )
-    notes = (f"{total} selected lines", *(f"{matched} artifact matches; selected newest" for _ in range(1) if matched > 1))
+    notes = (
+        f"{total} selected lines",
+        *((f"window: {len(window.splitlines())} of {total} lines (--full or --max-lines to widen)",) if truncated else ()),
+        *(f"{matched} artifact matches; selected newest" for _ in range(1) if matched > 1),
+    )
     done = Completed(("api", "show", p.token), 0, status=RailStatus.OK, notes=notes)
     return msgspec.structs.replace(fold(Claim.API, "show", (done,), detail=detail), artifacts=(artifact,))
 

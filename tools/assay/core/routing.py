@@ -228,6 +228,26 @@ def _resolve(language: Language, changed: tuple[str, ...], universe: tuple[str, 
     return Ok(Routed(language=language, scope=Scope.CHANGED, files=_norm(tuple(owned.keys())), projects=tuple(sorted(closure)), groups=groups))
 
 
+def infer_languages(paths: RoutePaths, available: tuple[Language, ...]) -> tuple[Language, ...]:
+    """Infer target languages from path suffixes, preserving ``available`` order.
+
+    Smart-default resolution for rails when ``--language`` is omitted: suffix-set
+    intersection narrows to the languages the given paths actually touch, so explicit
+    paths never fan out to unrelated language toolchains.
+
+    Args:
+        paths: Root-relative paths whose suffixes select languages; directories and
+            suffixless paths contribute nothing.
+        available: Candidate languages for the calling rail, in dispatch order.
+
+    Returns:
+        Languages from ``available`` whose suffix sets intersect the path suffixes, or
+        all of ``available`` when no path carries a recognized suffix.
+    """
+    suffixes = frozenset(suffix for p in paths if (suffix := PurePosixPath(p).suffix))
+    return tuple(language for language in available if suffixes & language.suffixes) or available
+
+
 def route(
     language: Language, paths: RoutePaths = (), *, source: Source | None = None, settings: AssaySettings | None = None
 ) -> Result[Routed, Fault]:
@@ -301,4 +321,4 @@ def place(routed: Routed, tool: Tool, *, settings: AssaySettings) -> tuple[tuple
 
 # --- [EXPORTS] --------------------------------------------------------------------------
 
-__all__ = ["ProjectIndex", "RoutePaths", "Routed", "Scope", "Source", "place", "routable_files", "route"]
+__all__ = ["ProjectIndex", "RoutePaths", "Routed", "Scope", "Source", "infer_languages", "place", "routable_files", "route"]

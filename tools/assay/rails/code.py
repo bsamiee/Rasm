@@ -7,16 +7,17 @@ All verbs produce a folded Report on the Ok rail and a Fault on the Error rail.
 """
 
 from dataclasses import dataclass, replace
-from functools import cache, lru_cache, reduce
+from functools import cache, reduce
 from hashlib import sha256
 from pathlib import Path
 import re
-from typing import override, TYPE_CHECKING
+from typing import Annotated, override, TYPE_CHECKING
 
+from cyclopts import Parameter
 from cyclopts.types import NonNegativeInt  # noqa: TC002  # Cyclopts evaluates Param dataclass annotations at runtime.
-from expression import Error, Result  # noqa: TC002  # Result unconditional: @checked's beartype resolves the handler forward-ref (PEP 649)
+from expression import Error, Result  # Result unconditional: @checked's beartype resolves the handler forward-ref (PEP 649)
 from expression.collections import block
-from expression.extra.result import sequence
+from expression.extra.result import catch, sequence
 import msgspec
 from tree_sitter import Language as TSLanguage, Parser as TSParser, Query as TSQuery, QueryCursor, QueryError
 import tree_sitter_python
@@ -42,7 +43,7 @@ from tools.assay.core.model import (
     Report,  # noqa: TC001  # unconditional: see Fault above (same forward-ref resolution)
     Tool,
 )
-from tools.assay.core.routing import route, Routed, Scope
+from tools.assay.core.routing import infer_languages, route, Routed, Scope
 from tools.assay.core.status import RailStatus
 
 
@@ -69,8 +70,8 @@ _METAVAR: re.Pattern[str] = re.compile(r"\$[A-Z_$]")
 class CodeParams(BaseParams):
     """Parameters shared by code verbs."""
 
-    pattern: str = ""
-    rewrite: str = ""
+    pattern: Annotated[str, Parameter(allow_leading_hyphen=True)] = ""
+    rewrite: Annotated[str, Parameter(allow_leading_hyphen=True)] = ""
     apply: bool = False
     max_results: NonNegativeInt = 1000
 
@@ -111,17 +112,16 @@ _GRAMMARS: dict[Language, Callable[[], object]] = {
     Language.PYTHON: tree_sitter_python.language,
     Language.TYPESCRIPT: tree_sitter_typescript.language_typescript,
 }
-_GRAMMAR_KEY_LANGUAGE: dict[str, Language] = {Language.PYTHON.value: Language.PYTHON, Language.TYPESCRIPT.value: Language.TYPESCRIPT}
 _TSX_GRAMMAR: Callable[[], object] = tree_sitter_typescript.language_tsx
 
 
 # --- [OPERATIONS] -----------------------------------------------------------------------
 
 
-def _languages(selected: Language | None) -> tuple[Language, ...]:
+def _languages(selected: Language | None, paths: tuple[str, ...]) -> tuple[Language, ...]:
     match selected:
         case None:
-            return tuple(sorted({t.language for t in select(Claim.CODE)}, key=lambda member: member.value))
+            return infer_languages(paths, tuple(sorted({t.language for t in select(Claim.CODE)}, key=lambda member: member.value)))
         case language:
             return (language,)
 
@@ -154,7 +154,7 @@ def _fan(
     settings: AssaySettings, scope: ArtifactScope, params: CodeParams, *, mode: Mode, splice: Callable[[Tool, Routed], Tool]
 ) -> Result[tuple[Completed, ...], Fault]:
     # Routing, spawn, and timeout Faults short-circuit; non-zero tool exits stay on Completed.
-    return _routed(_languages(params.language), params.paths, settings).bind(
+    return _routed(_languages(params.language, params.paths), params.paths, settings).bind(
         lambda routed: sequence(routed.collect(lambda r: block.of_seq(_dispatch(r, settings=settings, scope=scope, mode=mode, splice=splice)))).map(
             tuple
         )
@@ -249,23 +249,15 @@ def ts_language(grammar: Callable[[], object]) -> TSLanguage:
 
 
 @cache
-def ts_query(grammar: Callable[[], object], query_src: str) -> TSQuery | QueryError:
+@catch(exception=QueryError)
+def ts_query(grammar: Callable[[], object], query_src: str) -> TSQuery:
     """Compile and cache a tree-sitter query keyed on grammar-fn identity and source text.
 
     Returns:
-        Compiled TSQuery on success, or the QueryError from a syntactically invalid
-        query_src; callers discriminate on the return type.
+        Ok carrying the compiled TSQuery, or Error carrying the QueryError from a
+        syntactically invalid query_src.
     """
-    try:
-        return TSQuery(ts_language(grammar), query_src)
-    except QueryError as exc:
-        return exc
-
-
-@lru_cache(maxsize=8)
-def _ts_language(grammar_key: str) -> TSLanguage:
-    grammar = _TSX_GRAMMAR if grammar_key == "tsx" else _GRAMMARS[_GRAMMAR_KEY_LANGUAGE[grammar_key]]
-    return ts_language(grammar)
+    return TSQuery(ts_language(grammar), query_src)
 
 
 def _node_text(node: Node) -> str:
@@ -280,14 +272,16 @@ def _read(path: Path) -> bytes | None:
         return None
 
 
-def _ts_file_captures(query_src: str, language: Language, rel: str, src: bytes, *, cap: int) -> tuple[Capture, ...]:
+def _ts_file_captures(
+    query_src: str, language: Language, rel: str, src: bytes, *, cap: int, parsers: dict[Callable[[], object], TSParser]
+) -> tuple[Capture, ...]:
     grammar = _ts_grammar(language, is_tsx=rel.endswith(".tsx"))
-    root_node = TSParser(ts_language(grammar)).parse(src).root_node
+    root_node = (parsers.get(grammar) or parsers.setdefault(grammar, TSParser(ts_language(grammar)))).parse(src).root_node
     match ts_query(grammar, query_src):
-        case QueryError() as exc:
+        case Result(tag="error", error=exc):
             return (Capture(name="query_error", text=str(exc)[:_TEXT_CAP], file=rel, line=1, parse_error=True),)
         case compiled:
-            cursor = QueryCursor(compiled)
+            cursor = QueryCursor(compiled.ok)
     cursor.match_limit = cap
     raw_matches = tuple(cursor.matches(root_node))
     matches = raw_matches[:cap]
@@ -328,6 +322,7 @@ def _ts_thunk(query_src: str, language: Language, root: Path, *, limit: int) -> 
     """
     needles = _eq_needles(query_src)
     cap = limit if limit > 0 else _RESULT_CAP
+    parsers: dict[Callable[[], object], TSParser] = {}
 
     def run(check: Check) -> Completed:
         rows = tuple(
@@ -335,7 +330,7 @@ def _ts_thunk(query_src: str, language: Language, root: Path, *, limit: int) -> 
             for rel in check.paths
             for src in (_read(root / rel),)
             if src is not None and (needles is None or all(any(needle in src for needle in group) for group in needles))
-            for cap_row in _ts_file_captures(query_src, language, rel, src, cap=cap)
+            for cap_row in _ts_file_captures(query_src, language, rel, src, cap=cap, parsers=parsers)
         )
         captures = tuple(rows[:cap])
         status = RailStatus.FAILED if any(c.parse_error for c in captures) else RailStatus.OK if captures else RailStatus.EMPTY
@@ -378,14 +373,28 @@ def _ag_normalize(completeds: tuple[Completed, ...]) -> tuple[Completed, ...]:
     )
 
 
+def _cap_note(shown: int, total: int, cap: int, *, saturated: bool = False) -> tuple[str, ...]:
+    # Truncation visibility: agents must always know what they are NOT seeing. `saturated`
+    # marks a source-level match-limit cut where `total` is a floor, not the true cardinality.
+    detail = f"cap={cap}, match-limit saturated" if saturated else f"cap={cap}"
+    return (f"results: {shown} of {total} ({detail}); full listing in artifact",) if total > shown or saturated else ()
+
+
 def _report(
-    settings: AssaySettings, scope: ArtifactScope, verb: str, pattern: str, completeds: tuple[Completed, ...], rows: tuple[Match, ...], listing: str
+    settings: AssaySettings,
+    scope: ArtifactScope,
+    verb: str,
+    pattern: str,
+    completeds: tuple[Completed, ...],
+    rows: tuple[Match, ...],
+    listing: str,
+    notes: tuple[str, ...],
 ) -> Report:
     # Rows promote an EMPTY base status to OK; malformed query captures keep their defect
-    # rows; full match cardinality rides Artifact.lines rather than notes to avoid bloat.
+    # rows; full match cardinality rides Artifact.lines, with a cap note when rows were cut.
     base = fold(Claim.CODE, verb, completeds)
     status = RailStatus.OK if rows and base.status is RailStatus.EMPTY else base.status
-    done = Completed(("code", verb, pattern), 1 if status is RailStatus.FAILED else 0, status=status)
+    done = Completed(("code", verb, pattern), 1 if status is RailStatus.FAILED else 0, status=status, notes=notes)
     final_rows = rows or base.results
     return msgspec.structs.replace(
         fold(Claim.CODE, verb, (done,)), artifacts=(_artifact(scope, verb, listing, settings),) if listing else (), results=final_rows
@@ -396,12 +405,12 @@ def _relevance(pattern: str, text: str) -> int:
     return max(1, min(100, len(pattern) * 100 // max(len(text), 1)))
 
 
-def _ag_rows(completeds: tuple[Completed, ...], cap: int, pattern: str) -> tuple[tuple[Match, ...], str]:
+def _ag_rows(completeds: tuple[Completed, ...], cap: int, pattern: str) -> tuple[tuple[Match, ...], str, tuple[str, ...]]:
     matches = tuple(m for done in completeds for m in _safe_decode(AST_MATCHES, done.stdout or b"[]", ()))
     listing = "\n".join(f"{m.file}:{m.range.start.line + 1}: {m.text}" + (f" => {m.replacement}" if m.replacement else "") for m in matches)
     rows = tuple(
         Match(
-            id=f"{m.file}:{m.range.start.line + 1}",
+            id=f"ast-grep:{m.file}:{m.range.start.line + 1}",
             kind=ArtifactKind.CODE,
             text=(f"{m.text} => {m.replacement}" if m.replacement else m.text)[:_TEXT_CAP],
             line=m.range.start.line + 1,
@@ -409,15 +418,15 @@ def _ag_rows(completeds: tuple[Completed, ...], cap: int, pattern: str) -> tuple
         )
         for m in matches[:cap]
     )
-    return rows, listing
+    return rows, listing, _cap_note(len(rows), len(matches), cap)
 
 
-def _ts_rows(completeds: tuple[Completed, ...], cap: int, pattern: str) -> tuple[tuple[Match, ...], str]:
+def _ts_rows(completeds: tuple[Completed, ...], cap: int, pattern: str) -> tuple[tuple[Match, ...], str, tuple[str, ...]]:
     captures = tuple(c for done in completeds for c in _safe_decode(CAPTURES, done.stdout or b"[]", ()))
     listing = "\n".join(f"{c.file}:{c.line}:{c.column}: @{c.name}#{c.ordinal}/{c.pattern} {c.text}" for c in captures)
     rows = tuple(
         Match(
-            id=f"{c.file}:{c.line}:{c.column}:{c.name}:{c.ordinal}",
+            id=f"tree-sitter:{c.file}:{c.line}:{c.name}",
             kind=ArtifactKind.CODE,
             text=f"{'parse-error ' if c.parse_error else ''}@{c.name} {c.text}"[:_TEXT_CAP],
             line=c.line,
@@ -426,7 +435,7 @@ def _ts_rows(completeds: tuple[Completed, ...], cap: int, pattern: str) -> tuple
         )
         for c in captures[:cap]
     )
-    return rows, listing
+    return rows, listing, _cap_note(len(rows), len(captures), cap, saturated=any(c.truncated for c in captures))
 
 
 def _content_splice(tool: Tool, params: CodeParams, root: Path) -> Tool:
@@ -448,7 +457,7 @@ def _rg_status(returncode: int, stderr: str, *, has_rows: bool) -> tuple[RailSta
             return RailStatus.FAILED, (f"ripgrep failed (exit {returncode}): {stderr[:400] or 'error'}",)
 
 
-def _rg_rows(completeds: tuple[Completed, ...], cap: int, pattern: str) -> tuple[tuple[Match, ...], str]:
+def _rg_rows(completeds: tuple[Completed, ...], cap: int, pattern: str) -> tuple[tuple[Match, ...], str, tuple[str, ...]]:
     # Only ripgrep NDJSON events with kind "match" carry hit data; begin, end, and summary
     # events are discarded.
     matches = tuple(
@@ -462,7 +471,7 @@ def _rg_rows(completeds: tuple[Completed, ...], cap: int, pattern: str) -> tuple
     listing = "\n".join(f"{d.path.text}:{d.line_number}: {d.lines.text.rstrip()}" for d in matches)
     rows = tuple(
         Match(
-            id=f"{d.path.text}:{d.line_number}",
+            id=f"ripgrep:{d.path.text}:{d.line_number}",
             kind=ArtifactKind.CODE,
             text=d.lines.text.rstrip()[:_TEXT_CAP],
             line=d.line_number,
@@ -470,7 +479,7 @@ def _rg_rows(completeds: tuple[Completed, ...], cap: int, pattern: str) -> tuple
         )
         for d in matches[:cap]
     )
-    return rows, listing
+    return rows, listing, _cap_note(len(rows), len(matches), cap)
 
 
 def _apply_report(verb: str, pattern: str, completeds: tuple[Completed, ...]) -> Report:
@@ -520,9 +529,9 @@ def _content_search(settings: AssaySettings, scope: ArtifactScope, params: CodeP
 
 
 def _content_report(settings: AssaySettings, scope: ArtifactScope, params: CodeParams, done: Completed) -> Report:
-    rows, listing = _rg_rows((done,), params.max_results, params.pattern)
+    rows, listing, cap_notes = _rg_rows((done,), params.max_results, params.pattern)
     status, notes = _rg_status(done.returncode, (done.stderr or b"").decode(errors="replace").strip(), has_rows=bool(rows))
-    synthetic = Completed(("code", "search", params.pattern), 1 if status is RailStatus.FAILED else 0, status=status, notes=notes)
+    synthetic = Completed(("code", "search", params.pattern), 1 if status is RailStatus.FAILED else 0, status=status, notes=(*notes, *cap_notes))
     return msgspec.structs.replace(
         fold(Claim.CODE, "search", (synthetic,)), artifacts=(_artifact(scope, "search", listing, settings),) if listing else (), results=rows
     )

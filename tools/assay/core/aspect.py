@@ -63,7 +63,6 @@ type Layer[**P, T] = tuple[Slot, Callable[[Hom[P, T]], Hom[P, T]]]
 _ATTR_CAP = 256
 _CONF = BeartypeConf(is_pep484_tower=True, strategy=BeartypeStrategy.O1)
 _RING: ContextVar[deque[str] | None] = ContextVar("assay_ring", default=None)
-_TRACER = trace.get_tracer("assay.core")
 
 
 # --- [ERRORS] ---------------------------------------------------------------------------
@@ -81,6 +80,7 @@ class Inversion(Exception):  # noqa: N818  # surfaced via TypeError, not an *Err
 # --- [SERVICES] -------------------------------------------------------------------------
 
 _LOG: Final = structlog.get_logger("assay")
+_TRACER: Final = trace.get_tracer("assay.core")
 
 
 # --- [OPERATIONS] -----------------------------------------------------------------------

@@ -9,7 +9,7 @@ dependencies = [
     "msgspec>=0.21.1",
     "opentelemetry-api>=1.41.1",
     "opentelemetry-exporter-otlp-proto-http>=1.41.1",
-    "opentelemetry-instrumentation-logging>=0.62b1",
+    "opentelemetry-instrumentation-logging>=0.62b1",  # stdlib-logging-to-OTel record bridging for future Python services; this repo's diagnostics ride structlog to stderr
     "opentelemetry-sdk>=1.41.1",
     "pydantic>=2.13.3",
     "pydantic-settings>=2.14.0",
@@ -168,7 +168,9 @@ ignore_missing_imports = true
 # --- [PYTEST] --------------------------------------------------------------
 
 # Session-separation policy: under `filterwarnings = ["error"]`, loading pytest-benchmark and pytest-xdist in the
-# same session raises an xdist worker INTERNALERROR. `-n` is deliberately NOT in addopts; the main suite runs serially
+# same session raises an xdist worker INTERNALERROR (re-verified 2026-06-09 with `-n 2` and `-n auto`, both exit 3:
+# `pytest_benchmark.logger.PytestBenchmarkWarning: Benchmarks are automatically disabled because xdist plugin is
+# active...` escalated to error by the filter). `-n` is deliberately NOT in addopts; the main suite runs serially
 # and benchmarks run in their own session via `-m benchmark --benchmark-only`. Keep these invocations separate; do not
 # add `-n` here. Parallel runs must opt in per-invocation AND exclude benchmarks (e.g. `-n auto -m "not benchmark"`).
 [tool.pytest]
@@ -182,6 +184,8 @@ python_functions =         ["test_*", "bench_*"]
 collect_imported_tests =   false
 empty_parameter_set_mark = "fail_at_collect"
 addopts = [
+    "-p",
+    "tests.python._testkit.runtime",  # testkit runtime plugin: hypothesis profiles + OTel provider + markers; -p loads it pre-configure for every invocation shape
     "-x",
     "--tb=short",
     "--import-mode=importlib",
@@ -226,8 +230,11 @@ storage-dir =   ".cache/inline-snapshot"
 
 # --- [COVERAGE] ------------------------------------------------------------
 
-# Canonical coverage command: `uv run coverage run -m pytest tests/tools/assay -q && uv run coverage report`.
-# Per-test contexts are opt-in and xdist-safe via pytest-cov's hook: `uv run pytest tests/tools/assay --cov=tools/assay --cov-context=test -q`.
+# Canonical coverage command: `uv run coverage run -m pytest tests/python/tools/assay -q && uv run coverage combine --append && uv run coverage report`.
+# The combine step folds the `cli(isolate=True)` subprocess lane's parallel data files (written under
+# `COVERAGE_PROCESS_START=.config/coverage-subprocess.ini`, gated on the parent's COVERAGE_RUN) into the main data file;
+# `--append` keeps the in-process session's data, which `combine` would otherwise start clean.
+# Per-test contexts are opt-in and xdist-safe via pytest-cov's hook: `uv run pytest tests/python/tools/assay --cov=tools/assay --cov-context=test -q`.
 # `dynamic_context = "test_function"` is intentionally absent: coverage's own dynamic context hard-errors under `pytest --cov`
 # (and blocks `-n auto`), and it mis-attributes property-test lines to the Hypothesis internal frame.
 [tool.coverage.run]
@@ -281,19 +288,18 @@ output = ".artifacts/python/coverage/coverage.lcov"
 # `mutate_only_covered_lines` note below for why mutmut's coverage map is poisoned without it:
 #   COVERAGE_RCFILE=.config/coverage-mutmut.ini PYO3_USE_ABI3_FORWARD_COMPATIBILITY=1 PATH=$HOME/.cargo/bin:$PATH \
 #       .cache/mut-venv/bin/python -m mutmut run
-#   .cache/mut-venv/bin/python tools/quality/mutation_kill_rate.py --threshold 0.80   # kill-rate gate; mutmut owns none
+#   .cache/mut-venv/bin/python -m tools.assay.rails.mutation_gate   # kill-rate gate (floor 0.80 built in); mutmut owns none
 #
 # `-o required_plugins=` below waives the required-plugins guard for the mutation invocation only: mutmut disables
 # pytest-randomly (`-p no:randomly`, its own default) for deterministic kill verdicts, which would otherwise trip the
 # project's `required_plugins` check and abort before any mutant runs.
 #
-# KNOWN 3.15.0b1 CEILING (mutmut-internal, not config): the Rank-13 `relative_files=false` COVERAGE_RCFILE fix is the
-# verified unblock for "no covered mutants" — the runner now passes `store_lines_covered_by_tests` and enters the stats phase.
-# The stats phase then aborts with pytest exit 4 (a pytest STARTUP / usage error, NOT a test failure). Exit 4 means pytest
-# rejected its own invocation before collecting any tests; the IDENTICAL pytest command run manually from the repo root returns
-# 0 (1035 passed), confirming the failure is specific to mutmut-3's `change_cwd(mutants/)` stats pass on 3.15.0b1 — not a
-# frozen-bootstrap realpath issue and not a test-suite defect. The kill-rate gate (tools/quality/mutation_kill_rate.py) is structurally
-# complete but unexercisable until this stats-pass issue resolves, most likely via a newer mutmut-3 release or stable 3.15.
+# The historical stats-phase exit-4 abort was NOT a cwd/rootdir defect: it was `max_stack_depth != -1` opting into a
+# strict-resolve stack walk that dies on `<frozen importlib._bootstrap>` pseudo-filenames (see the note at that key).
+# With the walk disabled the stats phase passes in full (1045 passed under mutants/, verified 2026-06-09). KNOWN CEILING,
+# local not mutmut: the clean-tests phase still fails because mutmut re-invokes `pytest.main` IN-PROCESS and the session
+# OTel fixture (`tests/conftest.py::_otel_provider`) calls set-once `set_tracer_provider` — the second invocation's
+# provider is silently ignored after the first was shut down, so `otel_spans` tests observe zero spans.
 [tool.mutmut]
 source_paths = ["tools/assay"]
 # Type-check pre-filter DISABLED (tests are the kill mechanism — disabling loses no kill power). Root cause, traced to the
@@ -301,7 +307,7 @@ source_paths = ["tools/assay"]
 # diagnostic whose line falls outside a mutated-method span (`mutant is None` -> bare `raise Exception(...)`), aborting the
 # entire run. It is NOT ty failing to resolve the injected `mutmut.mutation.trampoline` import (that line is `# type: ignore`'d
 # and respected). Re-enable only once `ty check tools/assay` is provably zero-diagnostic at HEAD over the `mutants/` copy.
-pytest_add_cli_args_test_selection = ["tests/tools/assay"]
+pytest_add_cli_args_test_selection = ["tests/python/tools/assay"]
 pytest_add_cli_args = [
     "--hypothesis-profile=rasm-mutation",
     "-o",
@@ -311,9 +317,19 @@ pytest_add_cli_args = [
     # subprocess/integration test spawns the real `uv run python -m tools.assay`, which runs the UNMUTATED binary
     # (and fails inside mutmut's mutants/ copy) — useless for mutation, deselected here.
     "--deselect",
-    "tests/tools/assay/test_main.py::test_main_subprocess_exit_code",
+    "tests/python/tools/assay/test_main.py::test_main_subprocess_exit_code",
+    "--deselect",
+    "tests/python/tools/assay/test_main.py::test_main_subprocess_bootstrap_error_config_fault",
+    "--deselect",
+    "tests/python/tools/assay/test_main.py::test_main_subprocess_failing_rail_channel_separation",
+    "--deselect",
+    "tests/python/tools/assay/test_main.py::test_main_subprocess_human_renderer_console_stderr",
+    # hypothesis stateful draws diverge under the stats phase's in-process trampoline + coverage collection
+    # (FlakyStrategyDefinition, reproduced twice 2026-06-10); deselected for mutation runs only.
+    "--deselect",
+    "tests/python/tools/assay/composition/test_settings.py::test_history_retention_state_machine",
 ]
-do_not_mutate = ["tools/assay/__init__.py"]
+do_not_mutate = ["tools/assay/__init__.py", "tools/assay/rails/mutation_gate.py"]
 # Coverage-to-mutant map (Rank 13/14). With `mutate_only_covered_lines = true`, mutmut's `gather_coverage`
 # (`mutmut/code_coverage.py:54-55`) keys covered lines by the ABSOLUTE mutant path then reads them back via
 # `CoverageData.lines(abs)`. The project's `[tool.coverage.run] relative_files = true` makes coverage store RELATIVE keys,
@@ -326,7 +342,12 @@ do_not_mutate = ["tools/assay/__init__.py"]
 # path keying. Flip to `true` (with the `COVERAGE_RCFILE` override, proven sufficient at the coverage gate) only to scope
 # mutation to covered lines for speed.
 mutate_only_covered_lines = false
-max_stack_depth = 10
+# -1 (upstream default) disables the trampoline stack walk. Any other value makes `record_trampoline_hit`
+# (`mutmut/__main__.py:130`) call `Path(frame.co_filename).resolve(strict=True)` on every caller frame; module-level calls
+# into mutated code during conftest import put `<frozen importlib._bootstrap>` pseudo-filenames on that stack, the strict
+# resolve raises FileNotFoundError, the conftest import dies, and pytest exits 4 — the stats-phase abort previously
+# misattributed to the changed cwd. Reproduced and cleared empirically 2026-06-09.
+max_stack_depth = -1
 
 # --- [RUFF] ----------------------------------------------------------------
 
@@ -386,8 +407,6 @@ ignore = [
 
 [tool.ruff.lint.per-file-ignores]
 "__init__.py"      = ["F401"]
-"tools/quality/**" = ["D101", "D102", "D103", "PLR0904", "PLR0912", "PLR0913", "PLR0914", "TC001", "TC002", "TC003", "PLW0108"]
-"tests/tools/quality/**" = ["S101", "PLR2004", "TC002"]
 "**/.claude/skills/**/scripts/**" = [
     "TC003",
     "ANN001",
@@ -417,10 +436,10 @@ ignore = [
     "TRY300",
 ]
 "tools/py_analyzer/**" = ["PLR0912", "TC003"]
-"tools/quality/mutation_kill_rate.py" = ["T201"]  # standalone mutation-gate CLI: the score verdict IS stdout (shell/CI consumes it), not a structlog event
-"tests/**"         = ["S101", "PLR2004", "PLR0913", "ARG001", "ARG002", "ANN201", "ANN401", "D101", "D102", "D103", "SLF001"]
+"tests/**"         = ["S101", "PLR2004", "PLR0913", "ARG001", "ARG002", "ANN201", "ANN401", "D101", "D102", "D103", "SLF001", "PLC2701"]  # PLC2701: the _testkit package is private-by-design; every spec imports it
 "**/adapters/**"   = ["ANN401"]
 "**/conftest.py"   = ["E402", "F401", "ARG001"]
+"tests/python/_testkit/runtime.py" = ["E402"]  # runtime plugin: hypothesis env gates must precede hypothesis imports
 
 [tool.ruff.lint.flake8-annotations]
 allow-star-arg-any =      false

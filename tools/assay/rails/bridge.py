@@ -1,5 +1,6 @@
 """Run live Rhino bridge lifecycle and verification commands."""
 
+from collections.abc import Callable  # noqa: TC003  # beartype resolves the public bridge_lease signature at runtime under PEP 649
 from dataclasses import dataclass
 from pathlib import Path
 import re
@@ -82,6 +83,8 @@ class _Scenario(msgspec.Struct, frozen=True, gc=False):
     exceptions: int = 0
     fault_phase: str = ""
     fault_output: str = ""
+    facts: tuple[str, ...] = ()
+    captures: tuple[str, ...] = ()
     completed: Completed = msgspec.field(default_factory=lambda: receipt((), 0))
 
 
@@ -163,7 +166,14 @@ def _client_check(settings: AssaySettings, *args: str) -> Check:
     return Check(tool=tool, cwd=Path(str(settings.root)))
 
 
-def _client_run(settings: AssaySettings, *args: str, timeout: float | None = None) -> Result[Completed, Fault]:
+def client_run(settings: AssaySettings, *args: str, timeout: float | None = None) -> Result[Completed, Fault]:
+    """Run the rhino-bridge client with the given verb arguments.
+
+    ``timeout`` is a wall-clock budget in seconds, mapped to the run deadline.
+
+    Returns:
+        Client completion receipt, or an operational fault.
+    """
     check = _client_check(settings, *args)
     deadline = time.monotonic() + timeout if timeout is not None else None
     return run_check(check, settings=settings, scope=None, routed=_routed(), deadline=deadline)
@@ -188,16 +198,14 @@ def _coerce_diagnostics(raw: object) -> _BridgeDiagnostics:
         return _BridgeDiagnostics()
 
 
-def _with_facts(done: Completed, result: _BridgeResult) -> Completed:
+def _markers(result: _BridgeResult) -> tuple[tuple[str, ...], tuple[str, ...]]:
     # Evidence markers appear in the decoded execute-phase stdout from the JSON result, not in raw client stdout.
     text = next((out.text for phase in result.phases if phase.phase == _EXECUTE_PHASE for out in phase.outputs if out.source == _STDOUT_SOURCE), "")
-    facts = tuple(
-        f"{label}:{match.group(1)}"
-        for label, pattern in (("facts", _EVIDENCE_RE), ("capture", _CAPTURE_RE))
-        for line in text.splitlines()
-        if (match := pattern.search(line)) is not None
+    lines = text.splitlines()
+    return (
+        tuple(match.group(1) for line in lines if (match := _EVIDENCE_RE.search(line)) is not None),
+        tuple(match.group(1) for line in lines if (match := _CAPTURE_RE.search(line)) is not None),
     )
-    return done if not facts else msgspec.structs.replace(done, notes=(*done.notes, *facts))
 
 
 def first_fault(result: _BridgeResult) -> tuple[str, str]:
@@ -292,13 +300,21 @@ def _run_scenario(settings: AssaySettings, report_dir: Path, scenario: Path) -> 
 
 
 def _run_decoded(settings: AssaySettings, project: Path, scenario: Path, result_path: Path, stem: str) -> _Scenario:
-    run = _client_run(settings, "check", str(project), str(scenario), "--result", str(result_path), timeout=_SCENARIO_TIMEOUT_S)
+    run = client_run(settings, "check", str(project), str(scenario), "--result", str(result_path), timeout=_SCENARIO_TIMEOUT_S)
     match run:
         case Result(tag="ok", ok=done):
             res = _decode_result(done, result_path)
             phase, output = first_fault(res)
+            facts, captures = _markers(res)
             return _Scenario(
-                status=res.status, stem=stem, exceptions=_exceptions(res), fault_phase=phase, fault_output=output, completed=_with_facts(done, res)
+                status=res.status,
+                stem=stem,
+                exceptions=_exceptions(res),
+                fault_phase=phase,
+                fault_output=output,
+                facts=facts,
+                captures=captures,
+                completed=done,
             )
         case Result(error=fault):
             return _Scenario(
@@ -365,6 +381,8 @@ def _is_stale(child: Path, parent: Path, cutoff: float) -> bool:
 
 
 def _rmtree(path: Path) -> Path:
+    # Accepted TOCTOU: _expire_stale runs under bridge_lease and skips the live run_id, so a dir re-created
+    # between _is_stale and this rmtree belongs to a serialized later run; fd-anchored deletion is rejected.
     shutil.rmtree(path, ignore_errors=True)
     return path
 
@@ -380,6 +398,18 @@ def _ensure_dir(report_dir: Path) -> Result[None, Fault]:
 # --- [COMPOSITION] ----------------------------------------------------------------------
 
 
+def bridge_lease[T](settings: AssaySettings, action: Callable[[], Result[T, Fault]]) -> Result[T, Fault]:
+    """Serialize an action through the process-global Rhino bridge lease.
+
+    One RhinoWIP.app exists per machine, so every client, verify, and package lifecycle
+    command acquires the single ``bridge`` resource before touching the live host.
+
+    Returns:
+        Action result when the lease is held, or a busy/fault result otherwise.
+    """
+    return leased("bridge", lambda _held: action(), settings=settings, run_id=settings.run_id, project="bridge")
+
+
 def verify(settings: AssaySettings, scope: ArtifactScope, params: BridgeParams) -> Result[Report, Fault]:
     """Verify bridge scenarios under the live Rhino lease.
 
@@ -387,14 +417,14 @@ def verify(settings: AssaySettings, scope: ArtifactScope, params: BridgeParams) 
         Verification report, or a lease/build/launch fault.
     """
     argv = ("bridge", "verify", params.pattern)
-    return leased("bridge", lambda _held: _verify_locked(settings, scope, params, argv), settings=settings, run_id=settings.run_id, project="bridge")
+    return bridge_lease(settings, lambda: _verify_locked(settings, scope, params, argv))
 
 
 def _verify_locked(settings: AssaySettings, scope: ArtifactScope, params: BridgeParams, argv: tuple[str, ...]) -> Result[Report, Fault]:
     # dir creation, build, and launch are sequenced as a faulting prelude; their receipts are discarded on success.
     report_dir = Path(scope.path) / _VERIFY_DIR
     _expire_stale(report_dir, settings.run_id, _VERIFY_TTL_S)
-    prelude = _ensure_dir(report_dir).bind(lambda _: _build_closure(settings)).bind(lambda _: _faulted(_client_run(settings, "launch")))
+    prelude = _ensure_dir(report_dir).bind(lambda _: _build_closure(settings)).bind(lambda _: _faulted(client_run(settings, "launch")))
     match prelude:
         case Result(tag="ok"):
             return _fold_scenarios(settings, report_dir, _discover(settings, params.pattern), argv)
@@ -416,6 +446,8 @@ def _fold_scenarios(settings: AssaySettings, report_dir: Path, scenarios: tuple[
                 first_failure=first.stem if first is not None else "",
                 first_fault_phase=first.fault_phase if first is not None else "",
                 first_fault_output=first.fault_output if first is not None else "",
+                facts=tuple((row.stem, text) for row in rows for text in row.facts),
+                captures=tuple((row.stem, text) for row in rows for text in row.captures),
             )
             report = fold(Claim.BRIDGE, "verify", tuple(row.completed for row in rows), detail=summary)
             return Ok(msgspec.structs.replace(report, artifacts=(*report.artifacts, *_scenario_artifacts(report_dir))))
@@ -457,13 +489,7 @@ def _faulted(outcome: Result[Completed, Fault]) -> Result[Completed, Fault]:
 
 
 def _lifecycle(settings: AssaySettings, verb: str, *args: str) -> Result[Report, Fault]:
-    return leased(
-        "bridge",
-        lambda _held: _client_run(settings, verb, *args).map(lambda done: fold(Claim.BRIDGE, verb, (done,))),
-        settings=settings,
-        run_id=settings.run_id,
-        project="bridge",
-    )
+    return bridge_lease(settings, lambda: client_run(settings, verb, *args).map(lambda done: fold(Claim.BRIDGE, verb, (done,))))
 
 
 def doctor(settings: AssaySettings, scope: ArtifactScope, params: BridgeParams) -> Result[Report, Fault]:
@@ -530,4 +556,4 @@ def build(settings: AssaySettings, scope: ArtifactScope, params: BridgeParams) -
 
 # --- [EXPORTS] --------------------------------------------------------------------------
 
-__all__ = ["BridgeParams", "build", "check", "clean", "doctor", "first_fault", "launch", "quit", "verify"]
+__all__ = ["BridgeParams", "bridge_lease", "build", "check", "clean", "client_run", "doctor", "first_fault", "launch", "quit", "verify"]

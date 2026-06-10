@@ -9,7 +9,6 @@ incremental MSBuild cache keys remain consistent across invocations.
 from dataclasses import dataclass, replace
 from functools import reduce
 from hashlib import sha256
-from pathlib import PurePosixPath
 from typing import TYPE_CHECKING
 
 from expression import Error, Ok, Result
@@ -35,7 +34,7 @@ from tools.assay.core.model import (
     Mode,
     Report,  # noqa: TC001 — beartype runtime annotation consumer
 )
-from tools.assay.core.routing import route, Routed  # noqa: TC001 — beartype runtime annotation consumer
+from tools.assay.core.routing import infer_languages, route, Routed  # noqa: TC001 — beartype runtime annotation consumer
 from tools.assay.core.status import join, RailStatus
 
 
@@ -75,9 +74,7 @@ def _languages(selected: Language | None, paths: tuple[str, ...]) -> tuple[Langu
         case Language() as language:
             return (language,)
         case None:
-            suffixes = frozenset(PurePosixPath(p).suffix for p in paths if PurePosixPath(p).suffix)
-            inferred = tuple(language for language in Language if suffixes & language.suffixes)
-            return inferred or tuple(Language)
+            return infer_languages(paths, tuple(Language))
 
 
 def _mode_family(mode: Mode) -> tuple[Mode, ...]:

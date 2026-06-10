@@ -34,6 +34,7 @@ def _no_command(tokens: tuple[str, ...]) -> bool:
 
 
 def _returncode(result: object) -> int:
+    # Load-bearing: cyclopts result_action="return_value" returns the result verbatim and never invokes __cyclopts_returncode__ itself.
     match result:
         case int() as code:
             return code
@@ -50,6 +51,8 @@ def _dispatch(tokens: tuple[str, ...]) -> object:
         case _:
             try:
                 return app(tokens, result_action="return_value", backend="asyncio", exit_on_error=False, print_error=False)
+            # Load-bearing: cyclopts error_formatter only console-prints (gated on print_error=True) and the error re-raises regardless,
+            # so this catch is the sole path that can fold a parse failure into the single stdout Envelope.
             except CycloptsError as parse_error:
                 return parse_fault(tokens, str(parse_error))
             except ValidationError as config_error:

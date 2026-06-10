@@ -26,6 +26,7 @@ from beartype.roar import BeartypeCallHintViolation
 from cyclopts import App, Parameter
 from expression import Error, Ok, Result
 import msgspec
+from opentelemetry import trace
 import psutil
 from pydantic import ValidationError
 import structlog
@@ -33,9 +34,9 @@ import structlog
 from tools.assay.composition.catalog import select, TOOLS
 from tools.assay.composition.settings import ArtifactScope, AssaySettings
 from tools.assay.core.aspect import _RING, checked_call, compose, Layer, logged, Slot, traced  # noqa: PLC2701
-from tools.assay.core.engine import _RESOURCE, _snapshot, fan_out                              # noqa: PLC2701
+from tools.assay.core.engine import _RESOURCE, _snapshot, fan_out  # noqa: PLC2701
 from tools.assay.core.model import (
-    _HINT_CAP,    # noqa: PLC2701  # private symbol; canonical hint-cap clip site
+    _HINT_CAP,  # noqa: PLC2701  # private symbol; canonical hint-cap clip site
     _RESULT_CAP,  # noqa: PLC2701  # private symbol; canonical result-cap saturation site
     Artifact,
     ArtifactKind,
@@ -137,6 +138,8 @@ class _ProcessRow(msgspec.Struct, frozen=True, gc=False):
     command: str
 
 
+# --- [TABLES] ---------------------------------------------------------------------------
+
 _ENVELOPE_DECODER: Final[msgspec.json.Decoder[Envelope]] = msgspec.json.Decoder(Envelope)
 _PROBE_DECODER: Final[msgspec.json.Decoder[dict[str, _ProbeRow]]] = msgspec.json.Decoder(dict[str, _ProbeRow])
 
@@ -218,9 +221,19 @@ def _distill(
     budgeted = reason[: max(_HINT_CAP - len(framing) - 1, 0)]
     hint = f"{step}: {budgeted} after {duration_ms:.1f}ms"
     truncated = len(reason) > len(budgeted) or len(fault.message) >= _MESSAGE_CAP or fault.message.endswith("…")
-    dispatched = not (ring and ring[0] == _DISPATCH_NONE)
     snap = resource or _RESOURCE.get() or tuple(_snapshot().items())
-    return Diagnostic(failing_step=step, recent_events=ring, elapsed_ms=duration_ms, hint=hint, dispatched=dispatched, resource=snap), truncated
+    ctx = trace.get_current_span().get_span_context()
+    ids = (f"{ctx.trace_id:032x}", f"{ctx.span_id:016x}") if ctx.is_valid else ("", "")
+    return Diagnostic(
+        failing_step=step,
+        recent_events=ring,
+        elapsed_ms=duration_ms,
+        hint=hint,
+        dispatched=not (ring and ring[0] == _DISPATCH_NONE),
+        resource=snap,
+        trace_id=ids[0],
+        span_id=ids[1],
+    ), truncated
 
 
 def _full_report_artifact(settings: AssaySettings, bind: Bind, report: Report) -> tuple[Artifact, ...]:
@@ -528,15 +541,6 @@ def _probe_token(argv: tuple[str, ...]) -> str | None:
             return None
 
 
-def _under(path: Path, root: Path) -> bool:
-    try:
-        path.relative_to(root)
-    except ValueError:
-        return False
-    else:
-        return True
-
-
 def _tooling_process(cmdline: tuple[str, ...]) -> bool:
     return any(Path(part).name in _ORPHAN_PROCESS_TOKENS or Path(part).name.startswith("python") for part in cmdline)
 
@@ -546,11 +550,11 @@ def _orphan_process(proc: psutil.Process, root: Path, *, now: float) -> _Process
         info = proc.info
         cmdline = tuple(str(part) for part in (info.get("cmdline") or ()))
         command = " ".join(cmdline) or str(info.get("name") or "")
-        cwd = Path(str(info["cwd"])).resolve() if info.get("cwd") else None
+        in_root = bool(info.get("cwd")) and Path(str(info["cwd"])).resolve().is_relative_to(root)
     except OSError, psutil.Error, TypeError, ValueError:
         return None
     age = max(now - float(info.get("create_time") or now), 0.0)
-    match (int(info.get("ppid") or -1) == 1, cwd is not None and _under(cwd, root), age >= ORPHAN_MIN_AGE_S, _tooling_process(cmdline or (command,))):
+    match (int(info.get("ppid") or -1) == 1, in_root, age >= ORPHAN_MIN_AGE_S, _tooling_process(cmdline or (command,))):
         case (True, True, True, True):
             return _ProcessRow(pid=int(info.get("pid") or 0), age_s=age, command=command[:160])
         case _:
@@ -558,12 +562,9 @@ def _orphan_process(proc: psutil.Process, root: Path, *, now: float) -> _Process
 
 
 def _process_hygiene(settings: AssaySettings) -> tuple[tuple[Match, ...], tuple[str, ...]]:
-    root = Path(str(settings.root)).resolve()
+    root, now = Path(str(settings.root)).resolve(), time.time()
     rows = tuple(
-        row
-        for proc in psutil.process_iter(("pid", "ppid", "create_time", "name", "cmdline", "cwd"))
-        for row in (_orphan_process(proc, root, now=time.time()),)
-        if row is not None
+        filter(None, (_orphan_process(proc, root, now=now) for proc in psutil.process_iter(("pid", "ppid", "create_time", "name", "cmdline", "cwd"))))
     )
     if not rows:
         note = "process hygiene: no orphaned repo Python/UV/type-server processes"
@@ -849,7 +850,7 @@ def build_app(registry: tuple[Bind, ...]) -> App:
         name="assay",
         help="Rasm polyglot quality operator.",
         version=_VERSION,
-        default_parameter=Parameter(show_default=False),
+        default_parameter=Parameter(show_default=True),
         result_action="return_value",
         backend="asyncio",
         exit_on_error=False,
