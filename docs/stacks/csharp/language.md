@@ -18,57 +18,74 @@ Treat source files as modern C#, not compatibility layers. Replace older syntax,
 
 Use the active C# surface directly. Replace older spellings and local machinery when syntax, the type system, or member shape owns the behavior.
 
-| [INDEX] | [CONCERN]                     | [USE]                                         | [REPLACE]                             |
-| :-----: | :---------------------------- | :-------------------------------------------- | :------------------------------------ |
-|   [1]   | receiver-owned members        | extension blocks                              | static helper classes, wrapper types  |
-|   [2]   | operators on foreign receiver | extension operators (non-conversion)          | named arithmetic helper methods       |
-|   [3]   | property-local invariant      | `field` accessors                             | manual backing fields                 |
-|   [4]   | mandatory initialization      | `required` members                            | constructor telescoping               |
-|   [5]   | immutable carrier             | `record` and `readonly record struct`         | hand-written equality classes         |
-|   [6]   | nondestructive update         | `with` expressions                            | copy constructors, builders           |
-|   [7]   | constructor boilerplate       | primary constructors                          | assign-only constructor bodies        |
-|   [8]   | generated or hand splits      | partial members, constructors, events         | wrapper forwarding splits             |
-|   [9]   | file-private machinery        | `file` types                                  | name-mangled `internal` types         |
-|  [10]   | attribute payload type        | generic attributes                            | `typeof` constructor arguments        |
-|  [11]   | construction abstraction      | static abstract and virtual interface members | reflection factories                  |
-|  [12]   | numeric abstraction           | generic math constraints                      | per-type arithmetic overload copies   |
-|  [13]   | compound mutation operators   | user-defined compound assignment              | expanded operator round trips         |
-|  [14]   | generic identity              | `nameof` with unbound generics                | string literals, dummy closed names   |
-|  [15]   | dense signature alias         | `using` alias for any type                    | parallel domain type names            |
-|  [16]   | end-relative initialization   | implicit index `[^1]` in initializers         | post-construction assignment loops    |
-|  [17]   | value-returning decision      | switch expressions                            | `if`/`else` ladders, statement switch |
-|  [18]   | shape probe                   | property patterns                             | getter chains with null checks        |
-|  [19]   | range and sign law            | relational and logical patterns               | comparison chains                     |
-|  [20]   | sequence shape                | list and slice patterns                       | count and index guard code            |
-|  [21]   | span text dispatch            | constant string patterns over spans           | `ToString` comparisons                |
-|  [22]   | type test with binding        | declaration and recursive patterns            | `as` plus null check                  |
-|  [23]   | tuple dispatch                | positional patterns                           | nested conditionals                   |
-|  [24]   | null test                     | `is null` and `is not null`                   | `==` null with operator hazard        |
-|  [25]   | exhaustiveness                | total switch over the closed owner            | default arms hiding cases             |
-|  [26]   | inline result binding         | declaration patterns and `out var`            | pre-declared locals                   |
-|  [27]   | repeated type spelling        | target-typed `new()`                          | duplicated constructor type names     |
-|  [28]   | null-coalescing update        | `??=`                                         | if-null assignment blocks             |
-|  [29]   | nullable mutation boundary    | null-conditional assignment                   | if-not-null mutation blocks           |
-|  [30]   | end-relative access           | index `^` and range `..` operators            | length arithmetic                     |
-|  [31]   | literal composition           | collection expressions with spread            | `new[]`, list adds, concat chains     |
-|  [32]   | call-site arity               | `params` collections                          | overload families                     |
-|  [33]   | hot read-only input           | one `ReadOnlySpan<T>` boundary                | parallel array/string/span overloads  |
-|  [34]   | stack scratch                 | `stackalloc` spans in measured kernels        | temporary heap arrays                 |
-|  [35]   | span-capable generics         | `allows ref struct` constraints               | boxed or duplicated span paths        |
-|  [36]   | stack-only contracts          | `ref struct` interface implementations        | boxing interface conversions          |
-|  [37]   | ref safety in coroutines      | `ref` and `unsafe` in iterators and async     | extracted helper duplication          |
-|  [38]   | embedded structured text      | raw string literals                           | escape-laden concatenation            |
-|  [39]   | UTF-8 wire constants          | `u8` literals                                 | runtime UTF-8 encoding calls          |
-|  [40]   | rich interpolation            | full expression grammar in interpolations     | `string.Format`, concat chains        |
-|  [41]   | terminal escapes              | `\e` escape sequence                          | `\x1b` magic literals                 |
-|  [42]   | struct construction freedom   | auto-default structs                          | explicit `this = default` assignment  |
-|  [43]   | by-reference fields           | `ref` fields with `scoped` lifetimes          | pointer carriers                      |
-|  [44]   | readonly by-ref contract      | `ref readonly` parameters                     | `in` and `ref` ambiguity              |
-|  [45]   | synchronous gate              | `System.Threading.Lock`                       | private `object` locks                |
-|  [46]   | delegate adapter shape        | default and modifier-only lambda parameters   | wrapper adapter methods               |
-|  [47]   | capture-free intent           | `static` anonymous functions                  | accidental closure allocation         |
-|  [48]   | direct method reference       | natural-type method groups                    | identity lambda wrappers              |
-|  [49]   | residual overload ambiguity   | `[OverloadResolutionPriority]`                | breaking renames, dummy parameters    |
+[DECLARATION_AND_MEMBER_FORMS]: which declaration, member, or callable form carries the concept.
+
+| [INDEX] | [CONCERN]                     | [USE]                                         | [REPLACE]                            |
+| :-----: | :---------------------------- | :-------------------------------------------- | :----------------------------------- |
+|   [1]   | receiver-owned members        | extension blocks                              | static helper classes, wrapper types |
+|   [2]   | operators on foreign receiver | extension operators (non-conversion)          | named arithmetic helper methods      |
+|   [3]   | property-local invariant      | `field` accessors                             | manual backing fields                |
+|   [4]   | mandatory initialization      | `required` members                            | constructor telescoping              |
+|   [5]   | immutable carrier             | `record` and `readonly record struct`         | hand-written equality classes        |
+|   [6]   | nondestructive update         | `with` expressions                            | copy constructors, builders          |
+|   [7]   | constructor boilerplate       | primary constructors                          | assign-only constructor bodies       |
+|   [8]   | generated or hand splits      | partial members, constructors, events         | wrapper forwarding splits            |
+|   [9]   | file-private machinery        | `file` types                                  | name-mangled `internal` types        |
+|  [10]   | attribute payload type        | generic attributes                            | `typeof` constructor arguments       |
+|  [11]   | construction abstraction      | static abstract and virtual interface members | reflection factories                 |
+|  [12]   | numeric abstraction           | generic math constraints                      | per-type arithmetic overload copies  |
+|  [13]   | compound mutation operators   | user-defined compound assignment              | expanded operator round trips        |
+|  [14]   | generic identity              | `nameof` with unbound generics                | string literals, dummy closed names  |
+|  [15]   | dense signature alias         | `using` alias for any type                    | parallel domain type names           |
+|  [16]   | synchronous gate              | `System.Threading.Lock`                       | private `object` locks               |
+|  [17]   | delegate adapter shape        | default and modifier-only lambda parameters   | wrapper adapter methods              |
+|  [18]   | capture-free intent           | `static` anonymous functions                  | accidental closure allocation        |
+|  [19]   | direct method reference       | natural-type method groups                    | identity lambda wrappers             |
+
+[PATTERN_AND_EXPRESSION_FORMS]: value decisions, shape probes, and null flow stated as one expression.
+
+| [INDEX] | [CONCERN]                  | [USE]                               | [REPLACE]                             |
+| :-----: | :------------------------- | :---------------------------------- | :------------------------------------ |
+|   [1]   | value-returning decision   | switch expressions                  | `if`/`else` ladders, statement switch |
+|   [2]   | shape probe                | property patterns                   | getter chains with null checks        |
+|   [3]   | range and sign law         | relational and logical patterns     | comparison chains                     |
+|   [4]   | sequence shape             | list and slice patterns             | count and index guard code            |
+|   [5]   | span text dispatch         | constant string patterns over spans | `ToString` comparisons                |
+|   [6]   | type test with binding     | declaration and recursive patterns  | `as` plus null check                  |
+|   [7]   | tuple dispatch             | positional patterns                 | nested conditionals                   |
+|   [8]   | null test                  | `is null` and `is not null`         | `==` null with operator hazard        |
+|   [9]   | exhaustiveness             | total switch over the closed owner  | default arms hiding cases             |
+|  [10]   | inline result binding      | declaration patterns and `out var`  | pre-declared locals                   |
+|  [11]   | repeated type spelling     | target-typed `new()`                | duplicated constructor type names     |
+|  [12]   | null-coalescing update     | `??=`                               | if-null assignment blocks             |
+|  [13]   | nullable mutation boundary | null-conditional assignment         | if-not-null mutation blocks           |
+|  [14]   | end-relative access        | index `^` and range `..` operators  | length arithmetic                     |
+
+[CONSTRUCTION_AND_KERNEL_FORMS]: how values are constructed, passed across arity and span boundaries, and laid out in measured kernels.
+
+| [INDEX] | [CONCERN]                   | [USE]                                     | [REPLACE]                            |
+| :-----: | :-------------------------- | :---------------------------------------- | :----------------------------------- |
+|   [1]   | end-relative initialization | implicit index `[^1]` in initializers     | post-construction assignment loops   |
+|   [2]   | literal composition         | collection expressions with spread        | `new[]`, list adds, concat chains    |
+|   [3]   | call-site arity             | `params` collections                      | overload families                    |
+|   [4]   | hot read-only input         | one `ReadOnlySpan<T>` boundary            | parallel array/string/span overloads |
+|   [5]   | stack scratch               | `stackalloc` spans in measured kernels    | temporary heap arrays                |
+|   [6]   | span-capable generics       | `allows ref struct` constraints           | boxed or duplicated span paths       |
+|   [7]   | stack-only contracts        | `ref struct` interface implementations    | boxing interface conversions         |
+|   [8]   | ref safety in coroutines    | `ref` and `unsafe` in iterators and async | extracted helper duplication         |
+|   [9]   | struct construction freedom | auto-default structs                      | explicit `this = default` assignment |
+|  [10]   | by-reference fields         | `ref` fields with `scoped` lifetimes      | pointer carriers                     |
+|  [11]   | readonly by-ref contract    | `ref readonly` parameters                 | `in` and `ref` ambiguity             |
+|  [12]   | residual overload ambiguity | `[OverloadResolutionPriority]`            | breaking renames, dummy parameters   |
+
+[TEXT_LITERAL_FORMS]: structured text, wire constants, and terminal sequences stated as literals.
+
+| [INDEX] | [CONCERN]                | [USE]                                     | [REPLACE]                     |
+| :-----: | :----------------------- | :---------------------------------------- | :---------------------------- |
+|   [1]   | embedded structured text | raw string literals                       | escape-laden concatenation    |
+|   [2]   | UTF-8 wire constants     | `u8` literals                             | runtime UTF-8 encoding calls  |
+|   [3]   | rich interpolation       | full expression grammar in interpolations | `string.Format`, concat chains |
+|   [4]   | terminal escapes         | `\e` escape sequence                      | `\x1b` magic literals         |
 
 ## [3]-[LANGUAGE_FORM_CONTRACTS]
 
