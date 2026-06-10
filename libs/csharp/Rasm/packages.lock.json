@@ -34,9 +34,9 @@
       },
       "Meziantou.Analyzer": {
         "type": "Direct",
-        "requested": "[3.0.98, )",
-        "resolved": "3.0.98",
-        "contentHash": "rs1eAdHccwRCf0o4cYU7hA6d4CX4KTFkrmAuUvpjwO/QLVYptDibDkKWCzGf+BJXrws1xzYXPjrpblQAC+tAdQ=="
+        "requested": "[3.0.102, )",
+        "resolved": "3.0.102",
+        "contentHash": "WhGaJ3QsULOtDUXqZIDMZqTnZ68wvl6UMvPjkdxcZVIe/n3sfJyd2rDRVO3Ea7KitP0xUn3M85L/t7+JGkt63w=="
       },
       "Microsoft.VisualStudio.Threading.Analyzers": {
         "type": "Direct",
@@ -81,9 +81,9 @@
       },
       "FSharp.Core": {
         "type": "CentralTransitive",
-        "requested": "[10.1.300, )",
-        "resolved": "10.1.300",
-        "contentHash": "BACHDBo/KL615GifW2wGB8vw3HLraCJb77VN/XVmQZPceNw+Oc+J+McehOo2yHtcr7hABmW4EqZZzVYiR1Z1EQ=="
+        "requested": "[10.1.301, )",
+        "resolved": "10.1.301",
+        "contentHash": "excLf2zM/qUB3WhRUfI0xvOOaPwcRAEdYT/BXe9eiTKySnWVuIKMQTf5+6ETy5nsb1dpLp1s2j2yAM/XcRgFMg=="
       },
       "MathNet.Numerics.FSharp": {
         "type": "CentralTransitive",

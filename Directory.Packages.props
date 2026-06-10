@@ -12,50 +12,54 @@
     <ItemGroup Label="Numerics">
         <PackageVersion Include="CSparse" Version="4.3.0" />
         <PackageVersion Include="FParsec" Version="2.0.0-beta2" />
-        <PackageVersion Include="FSharp.Core" Version="10.1.300" />
+        <PackageVersion Include="FSharp.Core" Version="10.1.301" />
         <PackageVersion Include="MathNet.Numerics" Version="6.0.0-beta2" />
         <PackageVersion Include="MathNet.Numerics.FSharp" Version="6.0.0-beta2" />
         <PackageVersion Include="MathNet.Symbolics" Version="0.25.0" />
     </ItemGroup>
 
     <ItemGroup Label="Rhino UI Compile Surface">
-        <PackageVersion Include="System.Drawing.Common" Version="10.0.8" />
+        <PackageVersion Include="System.Drawing.Common" Version="10.0.9" />
     </ItemGroup>
 
     <!-- App UI: SkiaSharp 3.119.4 == Avalonia.Skia's exact dependency, unified across LiveCharts2,
          Svg.Skia, and the HarfBuzz shaper. RhinoWIP 9 ships NO managed SkiaSharp; libSkiaSharp.dylib is
          C++-only inside RhCore. macOS dlopen coalesces by install name and SkiaSharp has no symbol
-         isolation, so two different-major copies cannot co-load. Phase-0 gate (AppUi ARCHITECTURE §4.3):
+         isolation, so two different-major copies cannot co-load. AppUi native gate:
          confirm Rhino's bundled libSkiaSharp major; if it matches, reference SkiaSharp.NativeAssets.macOS
          with <ExcludeAssets>native</ExcludeAssets> to share Rhino's copy (a mismatch is a hard build gate).
-         HarfBuzzSharp.NativeAssets.macOS is carried unconditionally. Versions are Phase-0 restore-verified. -->
+         HarfBuzzSharp.NativeAssets.macOS is carried unconditionally. -->
     <ItemGroup Label="App UI">
         <PackageVersion Include="Avalonia" Version="12.0.4" />
         <PackageVersion Include="Avalonia.Controls.ColorPicker" Version="12.0.4" />
         <PackageVersion Include="Avalonia.Controls.DataGrid" Version="12.0.0" />
+        <PackageVersion Include="Avalonia.Controls.TreeDataGrid" Version="12.0.2" />
         <PackageVersion Include="Avalonia.Desktop" Version="12.0.4" />
         <PackageVersion Include="Avalonia.Fonts.Inter" Version="12.0.4" />
-        <PackageVersion Include="bodong.Avalonia.PropertyGrid" Version="12.0.0" />
+        <PackageVersion Include="Avalonia.Themes.Fluent" Version="12.0.4" />
+        <PackageVersion Include="bodong.Avalonia.PropertyGrid" Version="12.0.4.1" />
         <PackageVersion Include="DialogHost.Avalonia" Version="0.12.2" />
         <PackageVersion Include="DynamicData" Version="9.4.31" />
+        <PackageVersion Include="HarfBuzzSharp.NativeAssets.Linux" Version="8.3.1.5" />
         <PackageVersion Include="HarfBuzzSharp.NativeAssets.macOS" Version="8.3.1.5" />
+        <PackageVersion Include="HarfBuzzSharp.NativeAssets.WebAssembly" Version="8.3.1.5" />
         <PackageVersion Include="LiveChartsCore.SkiaSharpView.Avalonia" Version="2.0.4" />
-        <PackageVersion Include="Projektanker.Icons.Avalonia" Version="9.6.2" />
-        <PackageVersion Include="Projektanker.Icons.Avalonia.MaterialDesign" Version="9.6.2" />
+        <PackageVersion Include="MicroCom.Runtime" Version="0.11.6" />
         <PackageVersion Include="ReactiveUI" Version="23.2.28" />
-        <PackageVersion Include="ReactiveUI.Avalonia" Version="12.0.2" />
-        <PackageVersion Include="ReactiveUI.Validation" Version="7.0.5" />
+        <PackageVersion Include="ReactiveUI.Avalonia" Version="12.0.3" />
+        <PackageVersion Include="ReactiveUI.Validation" Version="7.1.0" />
         <PackageVersion Include="SkiaSharp" Version="3.119.4" />
         <PackageVersion Include="SkiaSharp.HarfBuzz" Version="3.119.4" />
         <PackageVersion Include="SkiaSharp.NativeAssets.macOS" Version="3.119.4" />
         <PackageVersion Include="Svg.Controls.Skia.Avalonia" Version="12.0.0.11" />
         <PackageVersion Include="System.Reactive" Version="6.1.0" />
+        <PackageVersion Include="Tmds.DBus.Protocol" Version="0.94.1" />
         <PackageVersion Include="Xaml.Behaviors.Avalonia" Version="12.0.0.1" />
     </ItemGroup>
 
     <ItemGroup Label="Analyzers">
         <PackageVersion Include="Microsoft.VisualStudio.Threading.Analyzers" Version="17.14.15" />
-        <PackageVersion Include="Meziantou.Analyzer" Version="3.0.98" />
+        <PackageVersion Include="Meziantou.Analyzer" Version="3.0.102" />
         <PackageVersion Include="Microsoft.CodeAnalysis.CSharp" Version="5.3.0" />
         <PackageVersion Include="Microsoft.CodeAnalysis.Analyzers" Version="5.3.0" />
     </ItemGroup>

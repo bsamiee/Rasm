@@ -35,6 +35,13 @@ If reviewing, refining, editing, creating, or modifying X file type, use skill Y
 [CRITICAL]:
 - [NEVER] Use emojis; use `[X]` style markers with concise UPPERCASE formatting.
 
+### [2.1]-[SHELL_AND_WORKFLOW_EXECUTION]
+
+[IMPORTANT]:
+- [ALWAYS] Invoke real executables on `PATH`; use `zsh -ic` only when intentionally testing interactive zsh configuration.
+- [ALWAYS] Run Bash-only snippets using `mapfile`, `readarray`, `shopt`, `BASH_*`, arrays, or Bash 5.3 features through `bash -lc`, a Bash heredoc, or an executable with a Bash shebang.
+- [ALWAYS] Treat Claude workflow globals such as `args` as Claude workflow-runtime state, separate from Nix, zsh, aliases, and shell `PATH`; verify `args` before using it for phase selection in saved or scriptPath-launched workflows.
+
 ## [3]-[DEPENDENCY_POLICY]
 
 [IMPORTANT]: **External-Lib-First**: approved dependencies are primary implementation surface.

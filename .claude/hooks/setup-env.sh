@@ -6,12 +6,21 @@ IFS=$'\n\t'
 
 # --- [CONSTANTS] --------------------------------------------------------------
 
-declare -ra _ENV_KEYS=(EXA_API_KEY PERPLEXITY_API_KEY TAVILY_API_KEY SONAR_TOKEN
-    GH_TOKEN GITHUB_TOKEN GH_PROJECTS_TOKEN
-    HOSTINGER_TOKEN GREPTILE_TOKEN CONTEXT7_API_KEY)
-readonly EXTRA_ENV_KEYS="${CLAUDE_ENV_EXPORT_KEYS:-}"
 readonly TOOL_PATHS="${CLAUDE_TOOL_PATHS:-${CLAUDE_EXTRA_PATH:-}}"
 readonly ALLOW_MISSING_TOOL_PATHS="${CLAUDE_ALLOW_MISSING_TOOL_PATHS:-0}"
+readonly EXTRA_ENV_KEYS="${CLAUDE_ENV_EXPORT_KEYS:-}"
+declare -ra _ENV_KEYS=(
+    EXA_API_KEY
+    PERPLEXITY_API_KEY
+    TAVILY_API_KEY
+    SONAR_TOKEN
+    GH_TOKEN
+    GITHUB_TOKEN
+    GH_PROJECTS_TOKEN
+    HOSTINGER_TOKEN
+    GREPTILE_TOKEN
+    CONTEXT7_API_KEY
+)
 
 # --- [FUNCTIONS] --------------------------------------------------------------
 
@@ -52,6 +61,7 @@ _emit_tool_paths() {
 ENV_DIR="$(dirname -- "${CLAUDE_ENV_FILE}")"
 readonly ENV_DIR
 [[ -d "${ENV_DIR}" && -w "${ENV_DIR}" && ! -d "${CLAUDE_ENV_FILE}" ]] || exit 0
+umask 077
 _ENV_TMP="$(mktemp "${CLAUDE_ENV_FILE}.tmp.XXXXXX")"
 readonly _ENV_TMP
 trap 'rm -f "${_ENV_TMP}"' EXIT
@@ -61,4 +71,6 @@ trap 'rm -f "${_ENV_TMP}"' EXIT
     done
     _emit_extra_env_keys
     _emit_tool_paths
-} > "${_ENV_TMP}" && mv "${_ENV_TMP}" "${CLAUDE_ENV_FILE}"
+} > "${_ENV_TMP}"
+chmod 600 "${_ENV_TMP}"
+mv "${_ENV_TMP}" "${CLAUDE_ENV_FILE}"

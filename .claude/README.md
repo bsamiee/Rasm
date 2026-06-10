@@ -2,7 +2,7 @@
 
 ## [1]-[SESSION_START]
 
-`settings.json` runs `hooks/setup-env.sh` on startup, resume, and compaction. The hook writes `CLAUDE_ENV_FILE` only. It does not source local shell files, install tools, write profiles, or call network services.
+`settings.json` runs `hooks/setup-env.sh` on startup, resume, and compaction. The hook writes selected API tokens plus optional PATH additions to `CLAUDE_ENV_FILE` for sub-agent/tool inheritance. It does not source local shell files, install tools, write profiles, or call network services.
 
 **Variables:**
 - `CLAUDE_ENV_EXPORT_KEYS` - Extra env var names to persist, separated by spaces or commas.

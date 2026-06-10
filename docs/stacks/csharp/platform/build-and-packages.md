@@ -85,7 +85,7 @@ Analyzer failures are architecture pressure unless the analyzer is proven wrong.
 App UI packages are direct references in `libs/csharp/Rasm.AppUi/Rasm.AppUi.csproj`. Local App UI architecture owns UI adoption details; this page owns package graph presence.
 
 [RENDERING_AND_UI_FRAMEWORK]:
-- Packages: `Avalonia`, `Avalonia.Desktop`, `Avalonia.Controls.ColorPicker`, `Avalonia.Controls.DataGrid`, `Avalonia.Fonts.Inter`, `Xaml.Behaviors.Avalonia`, `DialogHost.Avalonia`, `bodong.Avalonia.PropertyGrid`, `Projektanker.Icons.Avalonia`, and `Projektanker.Icons.Avalonia.MaterialDesign`.
+- Packages: `Avalonia`, `Avalonia.Desktop`, `Avalonia.Controls.ColorPicker`, `Avalonia.Controls.DataGrid`, `Avalonia.Controls.TreeDataGrid`, `Avalonia.Fonts.Inter`, `Avalonia.Themes.Fluent`, `Xaml.Behaviors.Avalonia`, `DialogHost.Avalonia`, and `bodong.Avalonia.PropertyGrid`.
 
 [REACTIVE_AND_DATA_FLOW]:
 - Packages: `ReactiveUI`, `ReactiveUI.Avalonia`, `ReactiveUI.Validation`, `System.Reactive`, and `DynamicData`.
