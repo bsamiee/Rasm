@@ -1,44 +1,39 @@
 # [RASM_PERSISTENCE]
 
-`Rasm.Persistence` is the local durable-state platform for Rasm plugins and apps, built fully from the foundation: SQLite-backed state, `StoreLifecycleOp`/`StoreQuery<T>` algebra, migrations, snapshots, live-state projection, and support artifacts.
+`Rasm.Persistence` is the local durable-state package for product apps. It owns SQLite/EF Core storage, schema/migrations, app-state projection, snapshots, support artifacts, redaction, cache/index metadata, and AppHost drain integration.
 
 ## [1]-[PURPOSE]
 
-`Rasm.Persistence` owns local SQLite-backed app state, migrations, queries, presets, snapshots, caches, `IObservable<AppState>` live-state projection, support artifacts, redaction, export receipts, and cleanup. AppHost schedules durable work through Persistence's exported `StoreDispatch` capability (typed `Eff<RT, StoreReceipt>`); Persistence owns open, migrate, query, transaction, dispose, and storage receipts.
+Persistence exposes durable-state operations and receipts through typed store algebras and an AppHost dispatch adapter. AppHost supplies runtime scheduling and profile/path inputs. AppUi observes read-only app-state projections. Compute uses Persistence for deterministic model-result cache and benchmark artifact indexing.
 
-It is not a repository wrapper, EF wrapper, serializer wrapper, solve-path cache, GH tree store, or domain model replacement.
+It is not an EF wrapper, repository family, serializer wrapper, GH solve-path cache, Rhino settings wrapper, or domain model replacement.
 
 ## [2]-[STATUS]
 
-| [INDEX] | [SURFACE]           | [STATE]                                              |
-| :-----: | ------------------- | ---------------------------------------------------- |
-|   [1]   | Project file        | Create in Phase 0                                    |
-|   [2]   | Production API      | In progress                                          |
-|   [3]   | Package references  | Add centrally in Phase 0                             |
-|   [4]   | Local store         | SQLite-first                                         |
-|   [5]   | Solve-path behavior | Forbidden                                            |
-|   [6]   | Encryption-at-rest  | Deferred; `NativeEncryptionUnavailable` receipt case |
+| [INDEX] | [SURFACE]          | [STATE]                                     |
+| :-----: | ------------------ | ------------------------------------------- |
+|   [1]   | Project file       | Present in `Workspace.slnx`                 |
+|   [2]   | Production source  | Store rail contract defined                 |
+|   [3]   | Package references | Active setup references are versionless     |
+|   [4]   | Storage            | SQLite/EF Core local durable-state rail     |
+|   [5]   | Encryption         | SQLCipher absent; OS/profile storage policy |
+|   [6]   | Redaction          | First-class support-bundle requirement      |
 
-Add packages centrally at newest viable versions during Phase 0; no version numbers in `.csproj`.
+## [3]-[CONSTRAINTS]
 
-## [3]-[MANUAL]
-
-| [INDEX] | [FILE]             | [READ_FOR]                                                                                                       |
-| :-----: | ------------------ | ---------------------------------------------------------------------------------------------------------------- |
-|   [1]   | `ARCHITECTURE.md` | Type shapes, provider split, operation algebra, bridge, PRAGMA init, migration policy, compaction, failure model |
-|   [2]   | `ROADMAP.md`       | Build sequence and scoped lanes                                                                                  |
-
-## [4]-[CONSTRAINTS]
-
-- Store operations are `StoreLifecycleOp` and `StoreQuery<TResult>` sealed DUs with `Fold`, not an `IRepository<T>` family.
-- `DbContext` lives inside an `Eff<RT,T>` `Bracket` shell — one context per operation, no context lives across operations.
-- Store path resolves from `RhinoApp.GetDataDirectory(persistentSettings:true)`, never `Environment.SpecialFolder`.
-- `SQLitePCL.Batteries.Init()` precedes the first `SqliteConnection`; failure → `MissingNativeAsset` receipt.
-- PRAGMAs (`journal_mode`, `busy_timeout`, `synchronous`, `foreign_keys`) set explicitly per connection.
-- `NodaTime.Instant` stored as `long`/`INTEGER`; never `DateTimeOffset`/`TEXT`.
-- Downgrade guard: `PRAGMA user_version` fast-path check + `__EFMigrationsHistory` on `StoreOpen`; `DowngradeRejected` receipt on mismatch.
-- The live-state projection is read-only `IObservable<AppState>`; `BehaviorSubject` and DynamicData stay internal.
-- AppUi calls `ObserveOn(RasmUiScheduler.RxScheduler)` and applies `Sample`/`Throttle`; Persistence never calls `ObserveOn`.
-- `BehaviorSubject<AppState>.OnNext` is serialized inside the fold worker (not thread-safe).
-- No persistence code runs inside GH solve hot paths.
-- No `EnableRetryOnFailure`, no `__EFMigrationsLock`, no `bundle_e_sqlcipher`, no EF `.Proxies`.
+- Persistence is RhinoCommon-free. AppHost/Rhino supplies resolved profile/path values.
+- Persistence is built as a complete durable-state package for host profiles, companion stores, sidecar stores, app-state projection, support bundles, model-result cache, benchmark indexes, and snapshot exchange through the same store and snapshot rails.
+- Store operations use typed lifecycle/query algebras and receipts, not `IRepository<T>` families.
+- SQLite, file snapshots, JSON snapshots, MessagePack snapshots, companion databases, cache metadata, benchmark indexes, and support bundles enter through the same store or snapshot algebra.
+- Folder architecture is rail-first: store profiles, entity kinds, query shapes, codecs, compression, redaction classes, retention policies, cache/index cases, migration states, and support artifacts add rows, typed cases, receipt fields, and projection records instead of repository families or provider-branded public services.
+- Store profile, path policy, schema version, provider package, snapshot codec, compression policy, redaction class, retention policy, and projection shape are parameterized data, not hardcoded storage branches.
+- `DbContext` is operation-scoped and disposed through the store rail.
+- SQLite native init precedes the first `SqliteConnection`; missing native assets return receipts.
+- EF Core SQLite `__EFMigrationsLock` is real in EF9+ and has abandoned-lock handling.
+- `PRAGMA user_version` and `__EFMigrationsHistory` are separate schema facts.
+- `Microsoft.EntityFrameworkCore.Design` is a migration-generation tool, not a core library dependency.
+- `System.IO.Hashing` supplies `XxHash3` for snapshot and artifact checksums.
+- `MessagePack.Generator` is not used. MessagePack snapshot source uses the analyzer/source-generator route.
+- `EFCore.BulkExtensions` is not core. Bulk import uses measured raw `Microsoft.Data.Sqlite` first.
+- Support-bundle artifacts are classified and redacted before export.
+- No Persistence code runs inside GH solve hot paths.

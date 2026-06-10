@@ -1,0 +1,10 @@
+<Project Sdk="Microsoft.NET.Sdk">
+    <PropertyGroup>
+        <Description>Measured execution package setup and lane doctrine for vector, tensor, model, and remote compute work.</Description>
+    </PropertyGroup>
+
+    <ItemGroup>
+        <ProjectReference Include="../Rasm/Rasm.csproj" />
+        <ProjectReference Include="../Rasm.AppHost/Rasm.AppHost.csproj" />
+    </ItemGroup>
+</Project>

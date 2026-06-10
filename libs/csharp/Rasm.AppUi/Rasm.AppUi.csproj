@@ -5,6 +5,7 @@
 
     <ItemGroup>
         <ProjectReference Include="../Rasm/Rasm.csproj" />
+        <ProjectReference Include="../Rasm.AppHost/Rasm.AppHost.csproj" />
         <ProjectReference Include="../Rasm.Grasshopper/Rasm.Grasshopper.csproj" />
         <ProjectReference Include="../Rasm.Rhino/Rasm.Rhino.csproj" />
     </ItemGroup>
@@ -13,7 +14,6 @@
         <PackageReference Include="Avalonia" />
         <PackageReference Include="Avalonia.Controls.ColorPicker" />
         <PackageReference Include="Avalonia.Controls.DataGrid" />
-        <PackageReference Include="Avalonia.Controls.TreeDataGrid" />
         <PackageReference Include="Avalonia.Desktop" />
         <PackageReference Include="Avalonia.Fonts.Inter" />
         <PackageReference Include="Avalonia.Themes.Fluent" />
@@ -28,7 +28,7 @@
         <PackageReference Include="LiveChartsCore.SkiaSharpView.Avalonia" />
         <PackageReference Include="SkiaSharp" />
         <PackageReference Include="SkiaSharp.HarfBuzz" />
-        <PackageReference Include="SkiaSharp.NativeAssets.macOS" ExcludeAssets="native" />
+        <PackageReference Include="SkiaSharp.NativeAssets.macOS" />
         <PackageReference Include="HarfBuzzSharp.NativeAssets.macOS" />
         <PackageReference Include="Svg.Controls.Skia.Avalonia" />
         <PackageReference Include="System.Reactive" />

@@ -28,9 +28,9 @@
       },
       "Meziantou.Analyzer": {
         "type": "Direct",
-        "requested": "[3.0.98, )",
-        "resolved": "3.0.98",
-        "contentHash": "rs1eAdHccwRCf0o4cYU7hA6d4CX4KTFkrmAuUvpjwO/QLVYptDibDkKWCzGf+BJXrws1xzYXPjrpblQAC+tAdQ=="
+        "requested": "[3.0.102, )",
+        "resolved": "3.0.102",
+        "contentHash": "WhGaJ3QsULOtDUXqZIDMZqTnZ68wvl6UMvPjkdxcZVIe/n3sfJyd2rDRVO3Ea7KitP0xUn3M85L/t7+JGkt63w=="
       },
       "Microsoft.VisualStudio.Threading.Analyzers": {
         "type": "Direct",
@@ -40,11 +40,11 @@
       },
       "System.Drawing.Common": {
         "type": "Direct",
-        "requested": "[10.0.8, )",
-        "resolved": "10.0.8",
-        "contentHash": "LCISd6JAF80vsy9L6wuetZeOMR3FH+SwKovw5Zl0Nov9pB9ZOiCSqvOfMzooypPItQLv0mGfEePjJ1nCCQztNw==",
+        "requested": "[10.0.9, )",
+        "resolved": "10.0.9",
+        "contentHash": "ShkEj8jOhklJgrN3SoaVbCcopvqyIgVXHso2/eibQBL7IZxzJjND77UYVlViHqpwPxyQeA67IOut4b41clBkQw==",
         "dependencies": {
-          "Microsoft.Win32.SystemEvents": "10.0.8"
+          "Microsoft.Win32.SystemEvents": "10.0.9"
         }
       },
       "Thinktecture.Runtime.Extensions": {
@@ -187,8 +187,8 @@
       },
       "Microsoft.Win32.SystemEvents": {
         "type": "Transitive",
-        "resolved": "10.0.8",
-        "contentHash": "J9+VT0lkrA7wW38CGxO2sZd+iH9C0qzioMi/2ztpT32WOVr+04uNqFIrxisTRf+mvtXLtdqcio1AoS0vfAVLLQ=="
+        "resolved": "10.0.9",
+        "contentHash": "dk5HKolAR9bBxlL4dl6Koaf0s/Q47QApog+/o341LSuvWGW6ig4q5fTsgYG0MrK//l2Slv6mygncMK/8lgXVDg=="
       },
       "Mono.Cecil": {
         "type": "Transitive",
@@ -283,7 +283,7 @@
         "dependencies": {
           "LanguageExt.Core": "[5.0.0-beta-77, )",
           "Rasm": "[1.0.0, )",
-          "System.Drawing.Common": "[10.0.8, )",
+          "System.Drawing.Common": "[10.0.9, )",
           "Thinktecture.Runtime.Extensions": "[10.2.0, )"
         }
       },
@@ -299,7 +299,7 @@
         "dependencies": {
           "LanguageExt.Core": "[5.0.0-beta-77, )",
           "Rasm": "[1.0.0, )",
-          "System.Drawing.Common": "[10.0.8, )",
+          "System.Drawing.Common": "[10.0.9, )",
           "Thinktecture.Runtime.Extensions": "[10.2.0, )"
         }
       },
@@ -316,7 +316,7 @@
           "LanguageExt.Core": "[5.0.0-beta-77, )",
           "Rasm": "[1.0.0, )",
           "Rasm.RhinoBridge.Protocol": "[1.0.0, )",
-          "System.Drawing.Common": "[10.0.8, )",
+          "System.Drawing.Common": "[10.0.9, )",
           "Thinktecture.Runtime.Extensions": "[10.2.0, )"
         }
       },
@@ -337,9 +337,9 @@
       },
       "FSharp.Core": {
         "type": "CentralTransitive",
-        "requested": "[10.1.300, )",
-        "resolved": "10.1.300",
-        "contentHash": "BACHDBo/KL615GifW2wGB8vw3HLraCJb77VN/XVmQZPceNw+Oc+J+McehOo2yHtcr7hABmW4EqZZzVYiR1Z1EQ=="
+        "requested": "[10.1.301, )",
+        "resolved": "10.1.301",
+        "contentHash": "excLf2zM/qUB3WhRUfI0xvOOaPwcRAEdYT/BXe9eiTKySnWVuIKMQTf5+6ETy5nsb1dpLp1s2j2yAM/XcRgFMg=="
       },
       "MathNet.Numerics": {
         "type": "CentralTransitive",
@@ -436,8 +436,8 @@
       },
       "Microsoft.Win32.SystemEvents": {
         "type": "Transitive",
-        "resolved": "10.0.8",
-        "contentHash": "J9+VT0lkrA7wW38CGxO2sZd+iH9C0qzioMi/2ztpT32WOVr+04uNqFIrxisTRf+mvtXLtdqcio1AoS0vfAVLLQ=="
+        "resolved": "10.0.9",
+        "contentHash": "dk5HKolAR9bBxlL4dl6Koaf0s/Q47QApog+/o341LSuvWGW6ig4q5fTsgYG0MrK//l2Slv6mygncMK/8lgXVDg=="
       }
     }
   }

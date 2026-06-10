@@ -1,0 +1,10 @@
+<Project Sdk="Microsoft.NET.Sdk">
+    <PropertyGroup>
+        <Description>Runtime spine package setup and neutral composition doctrine for Rasm app packages.</Description>
+    </PropertyGroup>
+
+    <ItemGroup Label="Runtime Spine">
+        <PackageReference Include="Microsoft.Extensions.Logging.Abstractions" />
+        <PackageReference Include="NodaTime" />
+    </ItemGroup>
+</Project>

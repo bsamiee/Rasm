@@ -1,8 +1,8 @@
 # [RASM_APPHOST_ARCHITECTURE]
 
-`Rasm.AppHost` is the composition/runtime boundary for Rasm application surfaces. Its default plugin mode is runtime-record `Eff.runtime<RT>()`; Generic Host and `IServiceCollection` are companion/test/bridge modes only — `[NEVER]` in-process.
+`Rasm.AppHost` owns host-neutral runtime doctrine. Its implementation surface is a small set of polymorphic runtime ports and typed state/receipt rails; implementation packages adapt to those rails without dependency cycles.
 
-## [1]-[BUILD_STATUS]
+## [1]-[SYSTEM_SCOPE]
 
 ```mermaid
 ---
@@ -10,264 +10,175 @@ config:
   layout: elk
   look: neo
   theme: base
-  elk:
-    mergeEdges: false
-    nodePlacementStrategy: BRANDES_KOEPF
-    cycleBreakingStrategy: GREEDY_MODEL_ORDER
 ---
 flowchart LR
-    accTitle: Rasm AppHost runtime boundary
-    accDescr: Rasm AppHost connects the host boundaries, product UI, durable state, execution platform, and kernel through one runtime-record boundary.
-    Host["Rasm.AppHost"] --> Rhino["Rasm.Rhino (host boundary)"]
-    Host --> Gh["Rasm.Grasshopper (host boundary)"]
-    Host --> Ui["Rasm.AppUi"]
-    Host --> Store["Rasm.Persistence"]
-    Host --> Compute["Rasm.Compute"]
-    Host --> Domain["Rasm (kernel)"]
+    accTitle: AppHost runtime spine
+    accDescr: AppHost owns neutral runtime policy used by UI, compute, persistence, Rhino and Grasshopper app roots, and companion services.
+    Host["Rasm.AppHost"]
+    Ui["Rasm.AppUi"]
+    Compute["Rasm.Compute"]
+    Store["Rasm.Persistence"]
+    Rhino["Rasm.Rhino"]
+    Gh["Rasm.Grasshopper"]
+    App["Plugin or companion app"]
+    App --> Host
+    Ui --> Host
+    Compute --> Host
+    Store --> Host
+    App --> Rhino
+    App --> Gh
 ```
 
-Text equivalent: `Rasm.AppHost` is the runtime-record boundary for `Rasm.Rhino`, `Rasm.Grasshopper`, `Rasm.AppUi`, `Rasm.Persistence`, `Rasm.Compute`, and the `Rasm` kernel.
+Text equivalent: plugin and companion roots compose AppHost; AppUi, Compute, and Persistence adapt to AppHost-owned runtime doctrine; Rhino/GH2 APIs remain in their host-boundary packages.
 
-| [INDEX] | [ITEM]           | [STATE]                  |
-| :-----: | ---------------- | ------------------------ |
-|   [1]   | Folder           | Active build             |
-|   [2]   | `.csproj`        | `[NOT_STARTED]`          |
-|   [3]   | Production C#    | In progress              |
-|   [4]   | Host packages    | `[NOT_STARTED]`          |
-|   [5]   | Runtime evidence | Per host scenario        |
+## [2]-[REFERENCE_DIRECTION]
 
-## [2]-[MODE_CONTRACT]
+| [INDEX] | [PROJECT]          | [MAY_REFERENCE_APPHOST] | [APPHOST_MAY_REFERENCE] | [BOUNDARY]                                     |
+| :-----: | ------------------ | :---------------------: | :---------------------: | ---------------------------------------------- |
+|   [1]   | `Rasm`             |           No            |           No            | Kernel below all app packages                  |
+|   [2]   | `Rasm.AppUi`       |           Yes           |           No            | Adapts UI scheduling and diagnostics           |
+|   [3]   | `Rasm.Compute`     |           Yes           |           No            | Consumes runtime cancellation/time/telemetry   |
+|   [4]   | `Rasm.Persistence` |           Yes           |           No            | Adapts store dispatch and support export       |
+|   [5]   | `Rasm.Rhino`       |      App root only      |           No            | Native host behavior stays Rhino-owned         |
+|   [6]   | `Rasm.Grasshopper` |      App root only      |           No            | GH2 behavior stays Grasshopper-owned           |
+|   [7]   | Companion process  |           Yes           |           No            | Generic Host/DI/exporter lane uses same states |
 
-| [INDEX] | [MODE]                        | [OWNED_BY_APPHOST]                                     | [PACKAGE_SCOPE]                      |
-| :-----: | ----------------------------- | ------------------------------------------------------ | ------------------------------------ |
-|   [1]   | In-process Rhino/GH2 plugin   | Runtime record, cancellation token, lifecycle receipts | No container package                 |
-|   [2]   | Companion/test/bridge process | Generic Host lifecycle, DI scope, hosted boot/drain    | Companion-process scope              |
-|   [3]   | External HTTP hop             | One resilience owner, timeout, retry telemetry         | Outbound-hop scope                   |
-|   [4]   | Multi-stage in-process flow   | Channels first; Dataflow on proven topology            | Topology tool, not the default queue |
+ArchUnitNET owns executable dependency law for implementation assemblies. AppHost remains free of implementation-package references.
 
-> [!CAUTION]
-> Generic Host (`IHostBuilder`, `IHostedService`, `IServiceCollection`) is **companion/test/bridge only**. It owns the process in those modes and its `StartAsync`/`StopAsync` lifecycle conflicts with Rhino's `OnLoad`/`OnShutdown` cadence — latency on `OnLoad` causes Rhino to report the plugin as failed. Never start a Generic Host instance inside the in-process plugin path.
+## [3]-[RUNTIME_DOCTRINE]
 
-The public rail accepts typed runtime operations as data and emits lifecycle/status/fault receipts. It does not expose `IServiceProvider` as an application API.
+The runtime spine carries these capability categories as one composition surface:
 
-## [3]-[OWNER_SPLIT]
+| [INDEX] | [CAPABILITY]     | [OWNER]                        | [CONTRACT]                                                  |
+| :-----: | ---------------- | ------------------------------ | ----------------------------------------------------------- |
+|   [1]   | Cancellation     | AppHost root                   | One root token; package work derives child scopes from it   |
+|   [2]   | Time             | AppHost root                   | `TimeProvider` for timers, delays, deadlines, elapsed spans |
+|   [3]   | Semantic clock   | AppHost root                   | `NodaTime.Instant` for persisted/audited boundary facts     |
+|   [4]   | Observability    | AppHost root                   | Stable BCL diagnostic identities and correlation            |
+|   [5]   | UI scheduling    | AppUi adapter                  | UI-bound work crosses one scheduler port                    |
+|   [6]   | Store dispatch   | Persistence adapter            | Durable operations cross one store port                     |
+|   [7]   | Compute dispatch | Compute adapter                | Execution requests cross one compute port                   |
+|   [8]   | Health           | AppHost projection             | Capability health is derived from typed state, not strings  |
+|   [9]   | Support export   | AppHost trigger + package data | Export uses one correlation and bounded collection window   |
 
-| [INDEX] | [CONCERN]   | [APPHOST_OWNS]                            | [OTHER_OWNER]                                                  |
-| :-----: | ----------- | ----------------------------------------- | -------------------------------------------------------------- |
-|   [1]   | UI status   | Correlated status/fault receipts          | AppUi renders user-visible state                               |
-|   [2]   | Persistence | Schedules durable work                    | Persistence opens, migrates, queries, disposes                 |
-|   [3]   | Compute     | Schedules/drains work                     | Compute selects substrate and records benchmark/model receipts |
-|   [4]   | Rhino/GH2   | Host profile and lifecycle correlation    | Rhino/GH owners mutate native state                            |
-|   [5]   | Telemetry   | Stable operation taxonomy and correlation | Exporters only in bootstrap roots                              |
+Capabilities are absent through explicit unavailable/degraded state. They are not represented by `null`, ambient singletons, implementation imports, or hidden service locators.
 
-AppHost owns the shared spine all four folders integrate through. `RasmRuntime` carries: `CancellationToken`, `TimeProvider`, `NodaTime.IClock`, `ObservabilitySlot` (`ActivitySource`/`Meter` refs), `ILogger`, `ChannelWriter<ComputeRequest>` (capacity from a named `RT` field — not a constant), `StoreDispatch` (Persistence-exported capability record; submits `StoreLifecycleOp`/`StoreQuery<T>` as `Eff<RT, StoreReceipt>`), and `RasmUiScheduler` (AppUi-owned sealed record). All capabilities resolve through `Eff.runtime<RT>()` — no `Has<RT,_>` traits or `Readable.asks` (v4 vocabulary; forbidden). Receipts are typed per capability (`LifecycleReceipt`, `ExecutionReceipt`, `StoreReceipt`, `DiagnosticReceipt`); AppHost correlates them through one observability pipeline — never a generic `IReceipt` ledger or split telemetry branch.
+## [4]-[LIFECYCLE_STATES]
 
-`AppHost.Boot(token, timeProvider, uiScheduler, …capabilities)` is the single composition entry, called from `PlugIn.OnLoad` on the UI thread after `RasmUiScheduler` is constructed. `Boot` receives the `RasmUiScheduler`, `StoreDispatch` (Persistence capability), Compute channel config, `ObservabilitySlot`, `RasmConfig`, and logger factory; constructs `RasmRuntime`; wires the root `CancellationTokenSource` to `RhinoApp.Closing`; and returns a `BootReceipt` containing a `DrainHandle`. An app using only AppHost passes empty capability slots and gets a `RasmRuntime` sufficient for any `Eff<RT,T>` not requiring siblings.
+Runtime lifecycle is one ordered state machine:
 
-> [!CAUTION]
-> `RhinoCommon` is **not thread-safe**; on macOS the runtime hard-crashes (`NSInternalInconsistencyException`) if any Rhino API is called off the main thread. Any Channel consumer that must touch `RhinoCommon` after draining a message **must** marshal via `RhinoApp.InvokeOnUiThread` / Eto `Application.Instance.Invoke`. No Channel consumer may touch RhinoCommon inline on the background thread.
+| [INDEX] | [STATE]        | [MEANING]                                                     | [ALLOWED_NEXT]                       |
+| :-----: | -------------- | ------------------------------------------------------------- | ------------------------------------ |
+|   [1]   | Uninitialized  | No runtime record, native handle, store, or companion binding | Bootstrapping                        |
+|   [2]   | Bootstrapping  | Runtime dependencies are selected and adapters are bound      | Ready, Degraded, Faulted             |
+|   [3]   | Ready          | Runtime accepts work and health projection is current         | Running, Degraded, Draining, Faulted |
+|   [4]   | Running        | Work is active through UI/store/compute ports                 | Ready, Degraded, Draining, Faulted   |
+|   [5]   | Degraded       | One capability is unavailable while runtime remains usable    | Ready, Draining, Faulted             |
+|   [6]   | Draining       | New work is fenced; existing work completes by deadline       | Drained, Faulted                     |
+|   [7]   | Drained        | Compute, store, UI, and support collectors are quiesced       | Unloading                            |
+|   [8]   | Unloading      | Runtime slots, native handles, and companion handles dispose  | Unloaded, Faulted                    |
+|   [9]   | Unloaded       | Terminal successful teardown                                  | Uninitialized for a new host boot    |
+|  [10]   | Faulted        | Terminal or operator-visible runtime fault                    | SupportCapture, Unloading            |
+|  [11]   | SupportCapture | Bounded diagnostics export is collecting/redacting artifacts  | Draining, Unloading, Faulted         |
 
-> [!CAUTION]
-> Shutdown sequencing: subscribe `RhinoApp.Closing` (fires **before** the window closes) to cancel the root `CancellationTokenSource`; this is the primary drain trigger. `OnShutdown` is synchronous and fires **after** the window closes — use it for final teardown only; never use `RhinoApp.IsClosing` as the primary trigger. Drain order: (1) signal root token; (2) complete the `ChannelWriter<ComputeRequest>` and await its drain with a `TimeProvider`-based deadline (`CancellationTokenSource.CancelAfter(TimeSpan, TimeProvider)`, 3–5 s then forceful cancel — Rhino will not wait); (3) dispose Persistence so the final store/benchmark writes flush; (4) fence with `RhinoApp.InvokeOnUiThread` before calling `OnCompleted` on UI observables (`OnCompleted`, never `OnError`); (5) dispose the runtime record. Compute-before-Persistence prevents dropping the last batch; Persistence-before-UI prevents racing `OnCompleted` against a pending change-set.
+State transitions emit typed receipts with timestamp, correlation, capability, policy, elapsed duration where relevant, and source boundary. Unsupported transitions are rejected as receipts.
 
-> [!CAUTION]
-> GH2: `async:true` is unsupported in Grasshopper components. GH2 SDK is alpha-unstable. AppHost stays GH2-agnostic; no GH2 API crosses into AppHost code.
+## [5]-[DRAIN_ORDER]
 
-Layout: `Runtime/` (record, lifecycle, cancellation, time), `Flow/` (channel, scheduler, drain, backpressure), with root `AppHost.cs` (Boot/Drain composition) and `Telemetry.cs` (fused observability) — cohesive files with canonical sections, never per-concern mini-files.
+Drain order is fixed:
 
-## [4]-[TYPE_SHAPES]
+| [INDEX] | [STEP]                | [REASON]                                                |
+| :-----: | --------------------- | ------------------------------------------------------- |
+|   [1]   | Fence new work        | Stops new runtime operations                            |
+|   [2]   | Signal cancellation   | Gives active operations a shared deadline               |
+|   [3]   | Drain compute work    | Preserves final execution/model/benchmark evidence      |
+|   [4]   | Flush persistence     | Persists final store, support, and cache receipts       |
+|   [5]   | Fence UI completion   | Completes UI observables after store and compute finish |
+|   [6]   | Dispose runtime slots | Releases diagnostics, resources, and companion handles  |
 
-### [4.1]-[RASMRUNTIME]
+Rhino/GH2 roots subscribe to host shutdown events and call AppHost drain. Host APIs are marshaled by the host-boundary package before AppHost observes completion.
 
-`RasmRuntime` is a **plain sealed record** constructed by the composition root in `PlugIn.OnLoad` (in-process mode) or the companion bootstrap root (companion mode). It is the sole `RT` type argument supplied to `Eff.runtime<RT>()`. Fields:
+## [6]-[PACKAGE_LANES]
 
-| [INDEX] | [FIELD]                              | [TYPE]                              | [PURPOSE]                                    |
-| :-----: | ------------------------------------ | ----------------------------------- | -------------------------------------------- |
-|   [1]   | `Token`                              | `CancellationToken`                 | Root cancellation; linked to `RhinoApp.Closing` |
-|   [2]   | `Time`                               | `TimeProvider`                      | Timers, elapsed time, drain deadlines        |
-|   [3]   | `Clock`                              | `NodaTime.IClock`                   | Persisted semantic instants; shared with Persistence |
-|   [4]   | `Observability`                      | `ObservabilitySlot`                 | `ActivitySource` + `Meter` refs from `Telemetry.cs` |
-|   [5]   | `Logger`                             | `ILogger`                           | `[LoggerMessage]`-generated; `NullLogger` in-process default |
-|   [6]   | `ComputeIn`                          | `ChannelWriter<ComputeRequest>`     | Bounded channel; capacity from `ComputeChannelCapacity` field |
-|   [7]   | `ComputeChannelCapacity`             | `int`                               | Named RT field; not a constant; `BoundedChannelFullMode.Wait` (lossless) |
-|   [8]   | `StoreOps`                           | `StoreDispatch`                     | Persistence-exported capability record; submits `StoreLifecycleOp`/`StoreQuery<T>` as `Eff<RT, StoreReceipt>` |
-|   [9]   | `UiScheduler`                        | `RasmUiScheduler`                   | AppUi-owned sealed record (`Dispatcher` + `RxScheduler`); constructed on UI thread before `Boot` |
+Package lanes are implementation contracts. Graph lanes already have versionless project references or inherited workspace references. Build-contract lanes name the package family that implements the complete runtime capability while public AppHost vocabulary remains provider-neutral.
 
-`RasmRuntime` is never instantiated outside the composition root. No module calls `new RasmRuntime(…)` independently.
+[CORE_RUNTIME]:
+- Package set: `Microsoft.Extensions.Logging.Abstractions`, `NodaTime`.
+- Scope: AppHost graph.
+- Contract: logging abstraction and semantic time are runtime primitives.
 
-### [4.2]-[BOOTRECEIPT_AND_DRAINHANDLE]
+[FUNCTIONAL_SUBSTRATE]:
+- Package set: `LanguageExt.Core`, `Thinktecture.Runtime.Extensions`.
+- Scope: workspace graph.
+- Contract: functional effects and generated shapes are available to AppHost source through the shared workspace substrate.
 
-```
-sealed record BootReceipt(RasmRuntime Runtime, DrainHandle Drain, LifecycleReceipt Lifecycle);
+[BCL_DIAGNOSTICS]:
+- Surface set: `System.Diagnostics.ActivitySource`, `System.Diagnostics.Metrics.Meter`.
+- Scope: in-box.
+- Contract: in-process observability identities, activities, counters, histograms, and correlation are AppHost primitives.
 
-sealed record DrainHandle(
-    CancellationTokenSource RootSource,
-    Task DrainTask,
-    TimeProvider Time
-)
-```
+[FLOW_PRIMITIVES]:
+- Surface set: `System.Threading.Channels`.
+- Package set: `System.Threading.Tasks.Dataflow` for declared multi-stage topologies.
+- Contract: bounded in-process flow uses channels by default, and Dataflow is reserved for explicit stage graphs with observable stage boundaries.
 
-`DrainHandle` owns the root `CancellationTokenSource` and the background drain `Task`. Initiating drain calls `RootSource.CancelAfter(deadline, Time)` (`CancellationTokenSource.CancelAfter(TimeSpan, TimeProvider)`) then awaits `DrainTask`; this performs the ordered drain sequence described in §3. The `Time` field drives the deadline (3–5 s then forceful cancel).
+[COMPANION_BOOTSTRAP]:
+- Package set: `Microsoft.Extensions.Hosting`, `Microsoft.Extensions.DependencyInjection`, `Microsoft.Extensions.Configuration`, `Microsoft.Extensions.Options`, `Scrutor`.
+- Scope: companion roots, bridge services, service-backed integrations, and test hosts.
+- Contract: Generic Host, DI scopes, config binding, options validation, and scan/decorate composition feed AppHost runtime ports.
 
-### [4.3]-[LIFECYCLERECEIPT]
+[HEALTH_EXPORT]:
+- Package set: `Microsoft.Extensions.Diagnostics.HealthChecks`.
+- Scope: companion roots and service endpoints.
+- Contract: health checks project typed AppHost health states without replacing the state machine.
 
-`LifecycleReceipt` is a discriminated union (DU) with cases:
+[TELEMETRY_EXPORT]:
+- Package set: `Serilog`, `OpenTelemetry`, `OpenTelemetry.Extensions.Hosting`.
+- Scope: companion roots and support evidence.
+- Contract: exporters project AppHost activities, meters, logs, and correlation into support evidence without entering domain rails.
 
-| [INDEX] | [CASE]           | [PAYLOAD]                                        |
-| :-----: | ---------------- | ------------------------------------------------ |
-|   [1]   | `Booted`         | `RasmRuntime`, timestamp                         |
-|   [2]   | `Draining`       | drain start timestamp, deadline                  |
-|   [3]   | `Drained`        | elapsed, Compute drain result                    |
-|   [4]   | `Unloaded`       | elapsed since boot, final store receipt          |
-|   [5]   | `Cancelled`      | cancellation source (user/Rhino/token), timestamp |
-|   [6]   | `Faulted`        | faulting sibling, exception, degradation policy applied |
-|   [7]   | `ScopeDisposed`  | scope identity, disposal elapsed                 |
+[OUTBOUND_HTTP]:
+- Package set: `Microsoft.Extensions.Http.Resilience`.
+- Surface set: typed `HttpClient`.
+- Contract: HTTP resilience owns typed outbound service hops and does not stack with domain retry or persistence retry.
 
-AppHost emits `LifecycleReceipt`; AppUi correlates via `DiagnosticReceipt` (AppUi-owned); AppHost references and correlates `DiagnosticReceipt` but does not redefine it.
+[VALIDATION]:
+- Package set: `FluentValidation`, `FluentValidation.DependencyInjectionExtensions`.
+- Scope: external DTO and configuration boundaries.
+- Contract: external inputs validate before folding to `Validation<Error,T>`.
 
-### [4.4]-[OBSERVABILITYSLOT]
+`OpenTelemetry.Instrumentation.Process` is rejected. Process metrics are AppHost `Meter` instruments.
 
-`ObservabilitySlot` (defined in `Telemetry.cs`) holds:
-- `ActivitySource` named `"Rasm.AppHost"` (stable, never renamed)
-- `Meter` named `"Rasm.AppHost"` (stable)
-- Companion-only: OTLP exporter, `OpenTelemetry.Instrumentation.Runtime`, `.Process` wired at the companion bootstrap root; never in-process
+## [7]-[COMPANION_MODE]
 
-In-process instrumentation: `OpenTelemetry.Api` only — pure API, no SDK weight. `ActivitySource.StartActivity(…)` and `Meter.CreateCounter/Histogram(…)` are the only in-process calls.
+Companion mode is a first-class runtime shape. Hidden sidecars, explicit external companions, bridge services, and service-backed integrations boot with Generic Host when they own a process. They use the same runtime states, health states, support-bundle triggering, telemetry correlation, degradation policy, and drain order as in-process AppHost composition. They do not fork a second runtime doctrine.
 
-### [4.5]-[CONFIG_SURFACE]
+All companion integrations are adapters over the AppHost state machine. Generic Host, DI scopes, health checks, exporters, HTTP clients, and validation packages feed runtime ports and receipts; they do not become public application vocabulary.
 
-No Generic Host in-process. Typed config is bound at `Boot` via a plain `IConfiguration` read (companion provides `IConfiguration`; in-process reads from a JSON file or embedded default). The typed config record is `RasmConfig` (sealed record), bound with `IOptions<RasmConfig>` in companion and passed directly in-process. `Microsoft.Extensions.Configuration` + `.Binder` + `.Json` + `Microsoft.Extensions.Options` + `.ConfigurationExtensions` + `.DataAnnotations` are **companion scope** — they wire `IOptions<RasmConfig>` validation at the companion bootstrap root. In-process, `Boot` receives a pre-bound `RasmConfig` value object; no `IConfiguration` object crosses into `RasmRuntime`.
+## [8]-[SUPPORT_BUNDLE]
 
-### [4.6]-[HEALTH_SURFACE]
+AppHost owns trigger and correlation:
 
-`AppHost` exposes an in-process readiness query surface (no HTTP, no middleware):
+| [INDEX] | [FIELD]           | [OWNER]        |
+| :-----: | ----------------- | -------------- |
+|   [1]   | Correlation ID    | AppHost        |
+|   [2]   | Trigger timestamp | AppHost clock  |
+|   [3]   | Collection window | AppHost config |
+|   [4]   | Size cap          | AppHost config |
+|   [5]   | Artifact storage  | Persistence    |
+|   [6]   | Redaction         | Persistence    |
+|   [7]   | UI screenshots    | AppUi          |
+|   [8]   | Runtime receipts  | AppHost        |
+|   [9]   | Compute evidence  | Compute        |
 
-```
-sealed record HealthSnapshot(bool Booted, bool PersistenceAvailable, bool ComputeAccepting, DateTimeOffset At);
-```
+Exported support artifacts are classified and redacted before they leave the local store.
 
-The composition root queries `HealthSnapshot` synchronously; it is a pure projection of current `LifecycleReceipt` DU state plus channel/store state flags. No `IHealthCheck` middleware.
+## [9]-[PROOF]
 
-### [4.7]-[DEGRADATION_POLICY]
-
-When a sibling faults (Persistence unavailable, Compute channel full after deadline, AppUi scheduler disposed), AppHost emits `LifecycleReceipt.Faulted` with the faulting sibling and applied policy. Policy options (named, not anonymous):
-
-| [INDEX] | [POLICY]         | [MEANING]                                             |
-| :-----: | ---------------- | ----------------------------------------------------- |
-|   [1]   | `KeepRunning`    | Sibling fault isolated; other capabilities continue   |
-|   [2]   | `DrainAndReload` | Drain affected capability, attempt single reload      |
-|   [3]   | `UnloadPlugin`   | Fault is unrecoverable; trigger full drain/unload     |
-
-Policy is data in `RasmConfig`; no inline `if`/`switch` branching in domain logic.
-
-### [4.8]-[SUPPORT_BUNDLE]
-
-AppHost owns the support-bundle trigger and collection signal. When triggered (user-requested or fault-triggered), AppHost:
-1. Emits a `SupportBundleRequested` event with a correlation ID and timestamp.
-2. Signals Persistence via a typed `Eff<RT, StoreReceipt>` export operation.
-3. Caps bundle window: last `SupportBundleWindowMinutes` minutes (named `RasmConfig` field), max `SupportBundleSizeCapMb` MB.
-4. Emits `LifecycleReceipt` with the export receipt correlated.
-
-Persistence stores, redacts, and exports; AppHost coordinates collection and size-cap policy — neither owns the other's concern.
-
-## [5]-[PACKAGES]
-
-### [5.1]-[IN_PROCESS_PACKAGES]
-
-Packages that ship inside the in-process plugin binary:
-
-| [INDEX] | [PACKAGE]                                  | [ROLE]                                                   |
-| :-----: | ------------------------------------------ | -------------------------------------------------------- |
-|   [1]   | `LanguageExt.Core`                         | Runtime record, `Schedule` cadence, `Eff`/`IO` effect system |
-|   [2]   | `System.Threading.Channels` (in-box)       | Bounded in-process flow; `BoundedChannelFullMode.Wait`   |
-|   [3]   | `System.Threading.Tasks.Dataflow` (in-box) | Multi-stage bounded block graph on proven topology only  |
-|   [4]   | `System.Diagnostics.DiagnosticSource` (in-box) | `ActivitySource`, `Activity` W3C trace context       |
-|   [5]   | `TimeProvider` (in-box net10.0)            | Timers, elapsed, drain deadlines                         |
-|   [6]   | `OpenTelemetry.Api`                        | `ActivitySource`/`Meter` in-process instrumentation only; no SDK weight |
-|   [7]   | `Microsoft.Extensions.Logging.Abstractions` | `ILogger<T>`, `[LoggerMessage]` source-gen, `NullLogger`; Serilog activates at companion root only |
-|   [8]   | `NodaTime`                                 | Persisted/audited semantic time, shared with Persistence |
-|   [9]   | `FluentValidation`                         | External DTO/config validation at boundary               |
-|  [10]   | `Microsoft.Extensions.Http.Resilience`     | Typed outbound `HttpClient` policy (Polly resilience pipeline inside); never raw Polly |
-
-### [5.2]-[COMPANION_PACKAGES]
-
-Packages that activate **only** at companion/test/bridge bootstrap roots, never in-process:
-
-| [INDEX] | [PACKAGE]                                         | [ROLE]                                                   |
-| :-----: | ------------------------------------------------- | -------------------------------------------------------- |
-|   [1]   | `Microsoft.Extensions.Hosting`                    | Generic Host lifecycle; companion/test/bridge only       |
-|   [2]   | `Microsoft.Extensions.DependencyInjection`        | DI container; companion root only                        |
-|   [3]   | `Microsoft.Extensions.Configuration`              | Config root builder; companion root only                 |
-|   [4]   | `Microsoft.Extensions.Configuration.Binder`       | `Bind`/`Get` typed config; companion root only           |
-|   [5]   | `Microsoft.Extensions.Configuration.Json`         | `appsettings.json` source; companion root only           |
-|   [6]   | `Microsoft.Extensions.Options`                    | `IOptions<T>` validation pipeline; companion root only   |
-|   [7]   | `Microsoft.Extensions.Options.ConfigurationExtensions` | `services.Configure<T>` binding; companion root only |
-|   [8]   | `Microsoft.Extensions.Options.DataAnnotations`    | Annotation-based options validation; companion root only |
-|   [9]   | `Microsoft.Extensions.Diagnostics`                | `IHealthCheck` pipeline in companion; never in-process   |
-|  [10]   | `OpenTelemetry.Instrumentation.Runtime`            | CLR GC/thread/exception metrics; companion only          |
-|  [11]   | `OpenTelemetry.Instrumentation.Process`            | Process CPU/memory metrics; companion only               |
-|  [12]   | `OpenTelemetry.Exporter.OpenTelemetryProtocol`     | OTLP exporter; companion bootstrap root only             |
-|  [13]   | `Serilog`                                         | Structured logging sink; companion bootstrap root only   |
-|  [14]   | `Serilog.Sinks.OpenTelemetry`                     | Serilog → OTLP pipeline; companion root only             |
-|  [15]   | `Serilog.Enrichers.Span`                          | W3C trace-context enrichment; companion root only        |
-|  [16]   | `Serilog.Enrichers.Thread`                        | Thread-ID enrichment; companion root only                |
-|  [17]   | `Serilog.Enrichers.Environment`                   | Machine/env enrichment; companion root only              |
-|  [18]   | `Scrutor`                                         | Scan/decorate at DI composition root; companion only     |
-|  [19]   | `FluentValidation.DependencyInjectionExtensions`  | DI-registered validator scanning; companion root only    |
-|  [20]   | `Microsoft.Extensions.ObjectPool`                 | Object pooling where profiled allocation warrants; conditional |
-
-### [5.3]-[IN_BOX_NO_PIN]
-
-Confirmed in-box on `net10.0` — no `PackageVersion` entry needed:
-
-| [INDEX] | [SURFACE]                             |
-| :-----: | ------------------------------------- |
-|   [1]   | `System.Threading.Channels`           |
-|   [2]   | `System.Threading.Tasks.Dataflow`     |
-|   [3]   | `System.Diagnostics.DiagnosticSource` |
-|   [4]   | `TimeProvider`                        |
-
-### [5.4]-[REJECTIONS]
-
-| [INDEX] | [REJECTED]                                    | [REASON]                                                   |
-| :-----: | --------------------------------------------- | ---------------------------------------------------------- |
-|   [1]   | `MediatR`                                     | License change + duplicates `Eff` dispatch surface         |
-|   [2]   | `Mediator`, `MassTransit`, `NServiceBus`      | Process-ownership and dependency-weight conflicts          |
-|   [3]   | `Microsoft.FeatureManagement`                 | Config-flag concern belongs in `RasmConfig` data           |
-|   [4]   | Raw `Polly` direct reference                  | `Http.Resilience` owns all outbound retry; second retry on a hop |
-|   [5]   | `Serilog.Sinks.Async`                         | OTLP exporter + `Serilog.Sinks.OpenTelemetry` is the pipeline |
-|   [6]   | OpenTelemetry SDK in-process                  | SDK initializes a global tracer provider — process-ownership conflict in Rhino |
-|   [7]   | `Microsoft.Extensions.Caching.Memory`         | Caching is a Persistence concern                           |
-|   [8]   | Any `Microsoft.AspNetCore.*`                  | ASP.NET Core owns the web server process; incompatible with Rhino host |
-
-## [6]-[FLOW_POLICY]
-
-- Runtime records resolve capabilities through `Eff.runtime<RT>()`. No `Has<RT,_>` traits or `Readable.asks`.
-- LanguageExt `Schedule` owns domain and hosted `Eff`/`IO` retry/repeat cadence.
-- `Microsoft.Extensions.Http.Resilience` (standard handler) owns outbound typed `HttpClient` policies only; no raw Polly, no second retry on a hop.
-- `System.Threading.Channels` owns default bounded in-process flow; `BoundedChannelFullMode.Wait` is the lossless default for `ComputeRequest`.
-- Dataflow is a topology tool, not the default runtime queue.
-- `TimeProvider` owns timers and elapsed time; NodaTime owns persisted semantic instants/zones.
-- Channel capacity is a named field in `RasmRuntime`, not a file-level constant.
-- Observability emits from one fused projection surface (`Telemetry.cs`); no split telemetry branches.
-
-## [7]-[RUNTIME_EVIDENCE]
-
-| [INDEX] | [STATE]        | [MEANING]                                |
-| :-----: | -------------- | ---------------------------------------- |
-|   [1]   | Booted         | Runtime profile starts and drains        |
-|   [2]   | Runtime-Proven | Owner receipt records lifecycle evidence |
-
-Evidence categories: startup, drain, cancellation, fault propagation, scope disposal, telemetry correlation, outbound retry ownership, support-bundle correlation, Rhino/GH unload behavior, `InvokeOnUiThread` fence proof, `TimeProvider`-deadline proof, health snapshot query, degradation policy applied.
-
-## [8]-[SOURCE_ANCHORS]
-
-| [INDEX] | [SOURCE]                                                                                                              | [USE]                                      |
-| :-----: | --------------------------------------------------------------------------------------------------------------------- | ------------------------------------------ |
-|   [1]   | `.claude/skills/coding-csharp/references/composition.md`                                                              | runtime-record and composition-root policy |
-|   [2]   | `.claude/skills/coding-csharp/references/concurrency.md`                                                              | Channels-first flow policy                 |
-|   [3]   | `.claude/skills/coding-csharp/references/observability.md`                                                            | telemetry ownership and retry projection   |
-|   [4]   | [System.Threading.Channels](https://learn.microsoft.com/en-us/dotnet/core/extensions/channels)                        | bounded channel source anchor              |
-|   [5]   | [TPL Dataflow](https://learn.microsoft.com/en-us/dotnet/standard/parallel-programming/dataflow-task-parallel-library) | multi-stage graph anchor                   |
-|   [6]   | [OpenTelemetry .NET API](https://opentelemetry.io/docs/languages/dotnet/api/)                                         | in-process `ActivitySource`/`Meter` anchor |
-|   [7]   | [ILogger source generation](https://learn.microsoft.com/en-us/dotnet/core/extensions/logger-message-generator)        | `[LoggerMessage]` in-process logging       |
+| [INDEX] | [RAIL]       | [REQUIRED_PROOF]                                                      |
+| :-----: | ------------ | --------------------------------------------------------------------- |
+|   [1]   | Build        | AppHost project restores as a package scaffold                        |
+|   [2]   | Architecture | AppHost has no AppUi/Compute/Persistence/Rhino/GH2 implementation ref |
+|   [3]   | Managed laws | Runtime state transitions, health projection, degradation, and drain  |
+|   [4]   | Runtime      | Rhino/GH2 roots prove shutdown/drain/fence behavior                   |
+|   [5]   | Companion    | Generic Host, DI, health, telemetry, validation, and HTTP evidence    |

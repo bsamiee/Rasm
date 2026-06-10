@@ -54,7 +54,7 @@ If reviewing, refining, editing, creating, or modifying X file type, use skill Y
 - [NEVER] Create thin wrappers that rename or forward external APIs without adding domain value.
 
 [IMPORTANT]: **.NET-Central-Package-Management**: C# package versions live in `Directory.Packages.props`; project files may declare usage but never versions.
-- [ALWAYS] Check `docs/stacks/csharp/platform` before adding a `System.*` package, global using, or BCL replacement.
+- [ALWAYS] Check `docs/stacks/csharp/system-apis.md` before adding a `System.*` package, global using, or BCL replacement.
 - [ALWAYS] Keep RhinoWIP/GH2/Eto/System.Drawing host assemblies resolved through `Directory.Build.props` app-bundle references; if SDK compilation needs a NuGet reference surface, add it only as a conditioned central compile package.
 
 ## [4]-[UNIVERSAL_CONSTRAINTS]
@@ -109,7 +109,7 @@ If reviewing, refining, editing, creating, or modifying X file type, use skill Y
 1. [ALWAYS] **Check package truth**: `rg -n "<PackageId>" Directory.Packages.props Directory.Build.props **/*.csproj`.
 2. [ALWAYS] **Add version centrally** only when a project, tool, host route, or accepted owner route admits the package.
 3. [ALWAYS] **Keep project references versionless** under central package management.
-4. [ALWAYS] **Validate graph**: use `uv run python -m tools.quality static plan <changed-manifest>` when routing is uncertain, then `uv run python -m tools.quality static full` for central package, solution, global runner, `.editorconfig`, or analyzer trigger changes.
+4. [ALWAYS] **Validate graph**: use `uv run python -m tools.assay static plan <changed-manifest>` when routing is uncertain, then `uv run python -m tools.assay static full` for central package, solution, global runner, `.editorconfig`, or analyzer trigger changes.
 
 [IMPORTANT] Python type/lint gate (`tools/assay` + `tests`):
 1. [ALWAYS] **Type (binding)**: `uv run ty check tools/assay tests` — `ty` (`all = "error"`) is the binding type gate.
@@ -124,13 +124,13 @@ Three orthogonal rails: static analysis, unit tests, runtime verification. Each 
 1. [NEVER] Run static, test, or bridge rails for source-comment-only, docstring-only, XML-doc-only, TSDoc-only, divider-only, declaration-order, or move-only organization work unless the user explicitly requests a quality rail or preservation proof fails.
 
 [IMPORTANT]:
-1. [ALWAYS] **Static fix** — `uv run python -m tools.quality static fix [paths...]`. Run after executable C# source changes, analyzer remediation, or user-requested cleanup when safe autofix is desired. Routes changed files or explicit paths to owning projects. Applies scoped `dotnet format whitespace`, `style`, and `analyzers` fixes. No build, no tests.
-2. [ALWAYS] **Static build** — `uv run python -m tools.quality static build [paths...]`. Run after semantic or compilable source changes. Routes changed files or explicit paths to owning project closure. Runs restore + build + MSBuild analyzers for compile proof. No formatting, no tests.
-3. [ALWAYS] **Static report** — `uv run python -m tools.quality static report [paths...]`. Runs the scoped `dotnet format` ladder as diagnostics only. Use before build when mutation is disallowed or autofix is not allowed.
-4. [ALWAYS] **Full static** — `uv run python -m tools.quality static full`. Runs `Workspace.slnx` parity plus full-solution restore/build/analyzers. Required only when trigger files change (`.config/dotnet-tools.json`, `Directory.Build.props`, `Directory.Build.targets`, `Directory.Packages.props`, `Workspace.slnx`, `.editorconfig`, `global.json`, `tools/cs-analyzer/**`).
-5. [ALWAYS] **Unit tests** — `uv run python -m tools.quality test run [<filter>]`. Runs .NET 10 MTP against the library tests target (`tests/csharp/libs/Rasm/Rasm.Tests.csproj` by default; override via `--target <csproj>` or use `--all`). Mutation is explicit via `--mutation changed|full`; default test runs are unit-only.
-6. [ALWAYS] **Metadata/API lookup** — `uv run python -m tools.quality api doctor|resolve|query|show`. Use before relying on RhinoWIP, GH2, Eto, or central package APIs.
-7. [ALWAYS] **Rhino runtime verification** — `uv run python -m tools.quality bridge verify <path-or-glob>`. Routes scenarios through the in-process bridge against running `RhinoWIP.app`. Outputs JSON evidence and PNG captures under `.artifacts/rhino/verify/`. See the `testing-cs` skill.
+1. [ALWAYS] **Static fix** — `uv run python -m tools.assay static fix [paths...]`. Run after executable C# source changes, analyzer remediation, or user-requested cleanup when safe autofix is desired. Routes changed files or explicit paths to owning projects and mutates under lease. Applies scoped `dotnet format whitespace`, `style`, and `analyzers` fixes. No build, no tests.
+2. [ALWAYS] **Static build** — `uv run python -m tools.assay static build [paths...]`. Run after semantic or compilable source changes. Routes changed files or explicit paths to owning project closure. Runs restore + build + MSBuild analyzers for compile proof. No formatting, no tests.
+3. [ALWAYS] **Static report** — `uv run python -m tools.assay static report [paths...]`. Runs the scoped `dotnet format` ladder as diagnostics only. Use before build when mutation is disallowed or autofix is not allowed.
+4. [ALWAYS] **Full static** — `uv run python -m tools.assay static full`. Runs the full build-shaped closure (restore + build + analyzers for Debug and Release). Required only when trigger files change (`.config/dotnet-tools.json`, `Directory.Build.props`, `Directory.Build.targets`, `Directory.Packages.props`, `Workspace.slnx`, `.editorconfig`, `global.json`, `tools/cs-analyzer/**`).
+5. [ALWAYS] **Unit tests** — `uv run python -m tools.assay test run [paths...]`. Runs .NET 10 MTP against the library tests target (`tests/csharp/libs/Rasm/Rasm.Tests.csproj` by default; override via `--target <csproj>` or use `--all`; narrow via `--filter`). Mutation is explicit via `--mutation changed|full`; default test runs are unit-only.
+6. [ALWAYS] **Metadata/API lookup** — `uv run python -m tools.assay api doctor|resolve|query|show`. Use before relying on RhinoWIP, GH2, Eto, or central package APIs.
+7. [ALWAYS] **Rhino runtime verification** — `uv run python -m tools.assay bridge verify --pattern <path-or-glob>`. Routes scenarios through the in-process bridge against running `RhinoWIP.app`. Outputs JSON evidence and PNG captures under the per-run scope in `.artifacts/assay/`. See the `testing-cs` skill.
 8. [ALWAYS] **Trust the analyzer**: 80+ CSP descriptors (`tools/cs-analyzer/Kernel/RuleCatalog.cs`) enforce coding-csharp standards. When CSP#### fires, fix the architecture; do not suppress.
 9. [NEVER] Re-introduce a `test` mode into the static rail. Tests are a separate gate.
 

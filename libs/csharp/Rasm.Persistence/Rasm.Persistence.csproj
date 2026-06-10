@@ -1,0 +1,23 @@
+<Project Sdk="Microsoft.NET.Sdk">
+    <PropertyGroup>
+        <Description>Local durable-state package setup and doctrine for projection, migration, snapshots, redaction, cache, and support artifacts.</Description>
+    </PropertyGroup>
+
+    <ItemGroup>
+        <ProjectReference Include="../Rasm.AppHost/Rasm.AppHost.csproj" />
+    </ItemGroup>
+
+    <ItemGroup Label="SQLite Store">
+        <PackageReference Include="EFCore.NamingConventions" />
+        <PackageReference Include="Microsoft.Data.Sqlite" />
+        <PackageReference Include="Microsoft.EntityFrameworkCore.Sqlite" />
+        <PackageReference Include="SQLitePCLRaw.bundle_e_sqlite3" />
+    </ItemGroup>
+
+    <ItemGroup Label="Time Serialization And Support">
+        <PackageReference Include="Microsoft.Extensions.Compliance.Redaction" />
+        <PackageReference Include="NodaTime" />
+        <PackageReference Include="NodaTime.Serialization.SystemTextJson" />
+        <PackageReference Include="System.IO.Hashing" />
+    </ItemGroup>
+</Project>

@@ -1,8 +1,8 @@
 # [RASM_PERSISTENCE_ARCHITECTURE]
 
-`Rasm.Persistence` is the local durable-state owner for Rasm plugins and apps. It keeps EF/SQLite and serialization concerns out of `Rasm`, `Rasm.Rhino`, `Rasm.Grasshopper`, and GH solve paths.
+`Rasm.Persistence` owns local durable state. It keeps EF/SQLite, schema migration, snapshots, support artifacts, redaction, cache/index data, and live projection out of the kernel and host solve paths.
 
-## [1]-[BUILD_STATUS]
+## [1]-[SYSTEM_SCOPE]
 
 ```mermaid
 ---
@@ -10,181 +10,181 @@ config:
   layout: elk
   look: neo
   theme: base
-  elk:
-    mergeEdges: false
-    nodePlacementStrategy: BRANDES_KOEPF
-    cycleBreakingStrategy: GREEDY_MODEL_ORDER
 ---
 flowchart LR
-    accTitle: Rasm Persistence durable-state boundary
-    accDescr: AppHost schedules durable work and AppUi observes state through Rasm Persistence, which owns the SQLite store and support artifacts while the kernel and GH2 solve paths stay isolated from store calls.
-    AppHost["Rasm.AppHost (scheduler)"] --> Persistence["Rasm.Persistence (store)"]
-    AppUi["Rasm.AppUi (UI)"] --> Persistence
-    Persistence --> SQLite["SQLite local store"]
-    Persistence --> Support["Support artifacts"]
-    Rasm["Rasm kernel"] -. "no EF/SQLite refs" .- Persistence
+    accTitle: Persistence local durable state
+    accDescr: AppHost supplies profile and scheduling, Persistence owns the SQLite store and redacted support artifacts, AppUi observes state, and Compute uses cache/index contracts.
+    Host["Rasm.AppHost"] --> Persistence["Rasm.Persistence"]
+    Persistence --> SQLite["SQLite / EF Core"]
+    Persistence --> Support["Redacted support bundle"]
+    Ui["Rasm.AppUi"] --> Persistence
+    Compute["Rasm.Compute"] --> Persistence
+    Kernel["Rasm kernel"] -. "no EF or SQLite" .- Persistence
     GH["GH2 solve paths"] -. "no store calls" .- Persistence
 ```
 
-Text equivalent: `Rasm.AppHost` schedules durable work and `Rasm.AppUi` observes state through `Rasm.Persistence`; Persistence owns the SQLite local store and support artifacts, while the `Rasm` kernel and GH2 solve paths stay isolated from EF, SQLite, and store calls.
+Text equivalent: AppHost supplies scheduling/profile data, Persistence owns the local SQLite store and support export, AppUi observes state, Compute uses cache/index operations, and the kernel/GH solve paths stay isolated.
 
-| [INDEX] | [ITEM]        | [STATE]                  |
-| :-----: | ------------- | ------------------------ |
-|   [1]   | Folder        | Active build             |
-|   [2]   | `.csproj`     | Create in Phase 0        |
-|   [3]   | Production C# | In progress              |
-|   [4]   | Store schema  | Define in build          |
-|   [5]   | Packages      | Add centrally in Phase 0 |
+## [2]-[REFERENCE_DIRECTION]
 
-## [2]-[PROVIDER_SPLIT]
+| [INDEX] | [PROJECT]          | [RELATION]                                         |
+| :-----: | ------------------ | -------------------------------------------------- |
+|   [1]   | `Rasm.AppHost`     | Runtime policy, drain, profile/path handoff        |
+|   [2]   | `Rasm.AppUi`       | Observes app-state projection                      |
+|   [3]   | `Rasm.Compute`     | Uses cache/index through store dispatch            |
+|   [4]   | `Rasm.Rhino`       | Resolves host profile/path before Persistence call |
+|   [5]   | `Rasm.Grasshopper` | No solve-path store calls                          |
+|   [6]   | `Rasm`             | No EF, SQLite, redaction, or storage packages      |
 
-| [INDEX] | [PROVIDER]                         | [SCOPE]                    | [USE]                                                |
-| :-----: | ---------------------------------- | -------------------------- | ---------------------------------------------------- |
-|   [1]   | SQLite / EF Core SQLite            | Default local store, now   | Presets, sessions, cache metadata, support artifacts |
-|   [2]   | `Microsoft.Data.Sqlite`            | Lower-level access lane    | Open/close/native-load probes or EF bypass slices    |
-|   [3]   | Postgres / Npgsql                  | Companion service only     | Out-of-process companion                             |
-|   [4]   | System.Text.Json source generation | Default serialization, now | Config, interchange, support payloads                |
-|   [5]   | MessagePack                        | Compact-snapshot lane      | Compact snapshots after binary proof                 |
+Persistence references AppHost for runtime policy. AppHost does not reference Persistence.
 
-Postgres/Npgsql is a companion-service lane, not the default in-process plugin store. Npgsql never appears in the Persistence `.csproj`.
+## [3]-[STORE_ENTITY_MATRIX]
 
-**Core packages:** `Microsoft.EntityFrameworkCore.Sqlite` + `Microsoft.Data.Sqlite` (aligned EF SQLite stack), `Microsoft.EntityFrameworkCore.Design` (`PrivateAssets=all`) with an in-project `IDesignTimeDbContextFactory<T>` for migration authoring. `LanguageExt.Core` (`Eff<RT,T>` shell), `System.Reactive` (observable contract), `DynamicData` (internal projection only). `NodaTime` + `NodaTime.Serialization.SystemTextJson`; store `Instant` as `long` (Unix ticks) via a typed `ValueConverter` using provider type `long` -> `INTEGER` column. `FluentValidation` (boundary validation). `MessagePack` + `MessagePack.Generator` (compact-snapshot lane). `EFCore.NamingConventions` (snake_case column names). `EFCore.BulkExtensions` (conditional cache-import lane). `K4os.Compression.LZ4` (snapshot payload compression, speed lane). `Microsoft.Extensions.Compliance.Redaction` (support-bundle redaction).
+| [INDEX] | [ENTITY]                 | [KEY]             | [APPSTATE] | [RETENTION]                 |
+| :-----: | ------------------------ | ----------------- | :--------: | --------------------------- |
+|   [1]   | Settings                 | Scope + key       |    Yes     | Latest per key              |
+|   [2]   | UI preferences           | Scope + key       |    Yes     | Latest per key              |
+|   [3]   | Presets                  | Preset key        |    Yes     | User-owned                  |
+|   [4]   | Sessions                 | Session key       |    Yes     | Configured recent window    |
+|   [5]   | Cache metadata           | Cache key         |    Yes     | Size and age policy         |
+|   [6]   | Model-result cache       | Model key + input |     No     | Content-hash invalidation   |
+|   [7]   | Benchmark artifact index | Run id            |     No     | Artifact retention policy   |
+|   [8]   | Support artifacts        | Correlation id    |     No     | Export window and size cap  |
+|   [9]   | Snapshots                | Snapshot id       |     No     | Schema compatibility policy |
+|  [10]   | Operation log/counts     | Operation id      |    Yes     | Rolling window              |
+|  [11]   | Retention state          | Policy key        |     No     | Latest per policy           |
+|  [12]   | Schema metadata          | Schema key        |     No     | Append-only                 |
 
-**In-box (no package pin required):** `System.IO.Hashing` (`XxHash3` snapshot checksums), `System.IO.Compression` (Brotli/Deflate support-bundle export), FTS5 + JSON1 (compiled INTO the SQLite native library — no extra package; reachable via `FromSqlRaw`). `System.Text.Json` source generation (default serialization).
+## [4]-[STORE_LIFECYCLE]
 
-> [!CAUTION]
-> macOS-arm64 native chain: `SQLitePCLRaw.bundle_e_sqlite3` (meta-bundle) transitively carrying `SQLitePCLRaw.lib.e_sqlite3` (the macOS-arm64 native asset). The `e_sqlite3` symbol prefix is the isolation guard against RhinoWIP's own bundled SQLite. `SQLitePCL.Batteries.Init()` is called before the first `SqliteConnection`, not merely before the first `DbContext`. A missing native asset is a runtime fault; the `StoreOpen` operation returns `MissingNativeAsset` receipt rather than throwing.
+Store lifecycle is one ordered state machine. The table names normal transitions; receipt failures from native initialization, integrity checks, migration, projection, snapshot, export, compaction, or drain enter `Faulted`. From `Ready`, work states are `Projecting`, `Snapshotting`, `Exporting`, and `Compacting`.
 
-**DO NOT ADD:** MemoryPack (duplicates MessagePack; AOT warnings), `SQLitePCLRaw.bundle_e_sqlcipher` (conflicts with the `e_sqlite3` native lane), Npgsql (in-process plugin state only), linq2db, EF `.Proxies` (lazy-load breaks the per-operation `Bracket` lifetime model), `Microsoft.AspNetCore.DataProtection` (web hosting tax), FlexLabs.Upsert, ZstdSharp.
+| [INDEX] | [STATE]             | [ROLE]                                                  | [NEXT]                                         |
+| :-----: | ------------------- | ------------------------------------------------------- | ---------------------------------------------- |
+|   [1]   | Closed              | No connection, context, worker, or native use           | Opening                                        |
+|   [2]   | Opening             | Accept profile/path and initialize native SQLite        | NativeReady; NativeUnavailable                 |
+|   [3]   | NativeReady         | Load SQLite bundle and apply PRAGMA policy              | IntegrityChecking                              |
+|   [4]   | IntegrityChecking   | Read integrity, version, WAL, and lock facts            | Migrating; Ready; MaintenanceRequired; Corrupt |
+|   [5]   | Migrating           | Apply forward migration under the EF SQLite lock        | Ready; MaintenanceRequired                     |
+|   [6]   | Ready               | Run queries, writes, projection, snapshots, and exports | Work state; Draining                           |
+|   [7]   | Projecting          | Fold committed changes into app state                   | Ready; Draining                                |
+|   [8]   | Snapshotting        | Encode, checksum, and retain snapshot envelope          | Ready                                          |
+|   [9]   | Exporting           | Classify, redact, and write support bundle              | Ready                                          |
+|  [10]   | Compacting          | Run vacuum, checkpoint, or backup outside solve paths   | Ready                                          |
+|  [11]   | Draining            | Fence new operations and complete projection            | Closed                                         |
+|  [12]   | MaintenanceRequired | Expose abandoned lock, partial migration, or repair     | Opening; Closed                                |
+|  [13]   | NativeUnavailable   | Report failed native SQLite bundle load                 | Closed                                         |
+|  [14]   | Corrupt             | Quarantine normal use after integrity failure           | Exporting; Closed                              |
+|  [15]   | Faulted             | Terminal typed failure                                  | Exporting; Closed                              |
 
-**Encryption-at-rest:** no accepted in-process package lane exists. Decision: defer encryption; add `NativeEncryptionUnavailable` as a `StoreReceipt` case; file-system encryption (macOS APFS) is the accepted mitigation for presets, sessions, and cache payloads.
+Lifecycle facts emit receipts with path classification, schema version, lock state, elapsed time, correlation, and redaction status where relevant.
 
-Layout: concern folders `Store/`, `Query/`, `Snapshot/`, `Support/`, each a few cohesive files with canonical sections; unproven lanes (MessagePack, raw bypass, companion) stay conditional branches inside their owning file, never pre-built per-lane folders.
+## [5]-[SCHEMA_AND_MIGRATION]
 
-## [3]-[TYPE_SHAPES]
+| [INDEX] | [SURFACE]               | [CONTRACT]                                                    |
+| :-----: | ----------------------- | ------------------------------------------------------------- |
+|   [1]   | `__EFMigrationsHistory` | Append-only EF migration log                                  |
+|   [2]   | `PRAGMA user_version`   | Integer fast-path schema gate                                 |
+|   [3]   | `__EFMigrationsLock`    | EF9+ SQLite migration concurrency lock                        |
+|   [4]   | Abandoned lock          | Maintenance receipt and operator-visible recovery path        |
+|   [5]   | Partial migration       | Crash/interrupted apply receipt                               |
+|   [6]   | Downgrade guard         | Rejects store versions above the compiled model               |
+|   [7]   | Integrity check         | `PRAGMA integrity_check` before normal open                   |
+|   [8]   | Backup                  | `SqliteConnection.BackupDatabase`, never WAL-racing file copy |
+|   [9]   | Compaction              | `VACUUM INTO` or incremental vacuum plus WAL checkpoint       |
 
-### [3.1]-[STORE_OPERATION_ALGEBRA]
+Migrations are forward-only. Rollback is represented by a new forward migration.
 
-**`StoreLifecycleOp`** — sealed DU of lifecycle-mutating operations with a `Fold` over cases:
-`Open(StoreProfile)` | `Migrate` | `Compact` | `Export(ExportSpec)` | `Snapshot(SnapshotKind)` | `Cleanup(RetentionPolicy)` | `Backup(BackupSpec)` → all yield `Eff<RT, StoreReceipt>`.
+## [6]-[NATIVE_AND_PRAGMA_INIT]
 
-**`StoreQuery<TResult>`** — sealed DU of typed reads with a `Fold` over cases. Query parameters: entity kind (`EntityKind` discriminant), key predicate, time range (`Instant` lower/upper), sort (field + direction), page (offset + count), projection (column subset), include-deleted flag.
+SQLite initialization:
 
-AppHost submits `StoreLifecycleOp` and `StoreQuery<T>` as data; Persistence interprets and executes internally.
+| [INDEX] | [STEP]         | [CONTRACT]                                           |
+| :-----: | -------------- | ---------------------------------------------------- |
+|   [1]   | Native init    | `SQLitePCL.Batteries.Init()` before first connection |
+|   [2]   | Native package | `SQLitePCLRaw.bundle_e_sqlite3` bundle chain         |
+|   [3]   | Journal        | `journal_mode=WAL`                                   |
+|   [4]   | Busy timeout   | Explicit `busy_timeout`                              |
+|   [5]   | Durability     | Explicit `synchronous=NORMAL`                        |
+|   [6]   | Constraints    | Explicit `foreign_keys=ON`                           |
 
-### [3.2]-[STORE_RECEIPT]
+`EnableRetryOnFailure` is not an EF SQLite API. Contention is handled by PRAGMA and AppHost retry cadence through receipts.
 
-**`StoreReceipt`** — sealed DU, SUCCESS cases: `Opened(StoreProfile, SchemaVersion)` | `Migrated(fromVersion, toVersion, stepCount)` | `Queried(count)` | `Wrote(count)` | `Compacted(pagesBefore, pagesAfter)` | `Exported(path, sizeBytes)` | `Snapshotted(SnapshotEnvelope)` | `CleanedUp(deletedCount)` | `BackedUp(path)`.
+## [7]-[LIVE_STATE]
 
-FAILURE cases: `MissingNativeAsset` | `DatabaseNotFound(path)` | `DatabaseCorrupt(path, integrityDetail)` | `PartialMigration(attemptedStep, detail)` | `DowngradeRejected(currentVersion, requestedVersion)` | `TransactionConflict` | `SerializerRejection(codec, detail)` | `CacheInvalidation(entityKind)` | `ExportFailed(detail)` | `RedactionFailed(detail)` | `BackupFailed(detail)` | `NativeEncryptionUnavailable`.
+Persistence owns the EF-to-projection fold. A named serial projection worker receives committed changes, folds them into read-only app state, and publishes serialized updates. `Task.Run` is not a free carve-out. The worker participates in AppHost drain and completes after the final store flush. `OnError` is never called; faults are receipts.
 
-Expected store faults are `StoreReceipt` failure cases, not `Eff` `Error` values — the distinction: structural faults (corrupt, missing, downgrade) return as receipt cases so AppHost can correlate and react without catching exceptions.
+AppUi observes through its scheduler and applies sampling/throttling. DynamicData and mutable subjects stay internal.
 
-### [3.3]-[APP_STATE]
+## [8]-[SUPPORT_AND_REDACTION]
 
-**`AppState`** — minimal sealed record (point-in-time snapshot, read-only): `ActivePresets ImmutableList<PresetKey>`, `SessionMetadata ImmutableList<SessionSummary>`, `CacheStatus CacheStatusSummary`, `SchemaVersion int`, `OpCounts StoreOpCounts`. Not a store cargo object; no `DbContext` reference; safe to publish across threads.
+Support bundles contain classified data:
 
-### [3.4]-[STORE_PROFILE]
+| [INDEX] | [CLASS]          | [EXAMPLES]                                     | [ACTION]                                 |
+| :-----: | ---------------- | ---------------------------------------------- | ---------------------------------------- |
+|   [1]   | Path             | Store path, artifact path, screenshot path     | Redact root/user                         |
+|   [2]   | User content     | Preset names, session labels, logs             | Redact or hash                           |
+|   [3]   | Runtime evidence | Receipts, health, package graph                | Keep bounded                             |
+|   [4]   | Visual evidence  | Screenshots, thumbnails                        | Redact sensitive regions when classified |
+|   [5]   | Store metadata   | Schema, migration, corruption, cache summaries | Keep without raw payload                 |
 
-**`StoreProfile`** — sealed record: `Path` resolved from `RhinoApp.GetDataDirectory(persistentSettings:true)` (not `Environment.SpecialFolder`); `Scope` (plugin identity/instance discriminant); `SchemaVersion int`; `HostIdentity` (RhinoWIP version, platform). Multi-profile semantics: each plugin/scope pair gets an isolated file path under the Rhino data directory; no shared global path.
+`Microsoft.Extensions.Compliance.Redaction` is active only with classification and redactor registration. Persistence owns support export redaction; AppHost owns trigger/correlation.
 
-`RhinoCommon.PlugIn.Settings` is a complementary lightweight KV store for small UI preferences — it coexists with the SQLite store and is not a replacement for it.
+## [9]-[PACKAGE_LANES]
 
-### [3.5]-[SNAPSHOT_ENVELOPE]
+Package lanes are implementation contracts for one store and snapshot rail.
 
-**`SnapshotEnvelope`** — sealed record: `Kind SnapshotKind`, `SchemaVersion int`, `Codec SnapshotCodec` (discriminant: `Json | MessagePack`), `Payload byte[]`, `Checksum ulong` (XxHash3 over payload bytes; use `System.IO.Hashing.XxHash3`), `Compatibility SnapshotCompatibility`.
+[EF_SQLITE]:
+- Package set: `Microsoft.EntityFrameworkCore.Sqlite`, `EFCore.NamingConventions`.
+- Contract: EF owns schema mapping, migrations, history, query shape, naming, downgrade guard, and operation-scoped contexts.
 
-Compatibility logic: on load, compare `Envelope.SchemaVersion` against `StoreProfile.SchemaVersion`; reject when the store profile would downgrade the envelope, apply migration projection when the store profile is ahead, and accept exact matches. Snapshot trigger: on `StoreLifecycleOp.Snapshot`, on migration completion, and on explicit `AppHost` request.
+[RAW_SQLITE]:
+- Package set: `Microsoft.Data.Sqlite`, `SQLitePCLRaw.bundle_e_sqlite3`.
+- Contract: raw SQLite owns native initialization, PRAGMA setup, backup, integrity, compaction, bulk import baselines, and low-level receipts.
 
-Snapshot payload compression: `K4os.Compression.LZ4` (speed lane, default for MessagePack payloads); Brotli/Deflate via `System.IO.Compression` (support-bundle export only).
+[EF_DESIGN]:
+- Package set: `Microsoft.EntityFrameworkCore.Design`.
+- Contract: migration generation is a tooling lane and does not become a runtime core dependency.
 
-### [3.6]-[EF_TO_DYNAMICDATA_BRIDGE]
+[TIME_SERIALIZATION]:
+- Package set: `NodaTime`, `NodaTime.Serialization.SystemTextJson`.
+- Contract: persisted and audited time uses semantic timestamps with explicit JSON serialization.
 
-Bridge contract: `ISaveChangesInterceptor.SavedChangesAsync` (post-commit, on the EF write thread) posts the raw change set to the thread pool via `Task.Run`/`liftAsync`; the pool worker folds it into the current `AppState` and calls `BehaviorSubject<AppState>.OnNext`. The public surface is `Subject.AsObservable()`. Persistence never calls `ObserveOn`.
+[CHECKSUM_AND_REDACTION]:
+- Package set: `System.IO.Hashing`, `Microsoft.Extensions.Compliance.Redaction`.
+- Contract: checksums, classifications, redactors, support exports, cache keys, and artifact identities are part of store receipts.
 
-> [!CAUTION]
-> This `Task.Run` is the single sanctioned carve-out from the cross-package no-`Task.Run` rule: it hands the post-commit fold off the EF write thread so `SaveChangesAsync` returns immediately, and it is internal to Persistence (the change set never crosses a package boundary). The rule still holds everywhere else — runtime/background scheduling is owned by `Rasm.AppHost` and AppUi marshals onto `RasmUiScheduler`; no other module spawns `Task.Run`.
+[JSON_SNAPSHOT]:
+- Surface set: `System.Text.Json` source generation.
+- Contract: JSON is the in-box snapshot codec for readable envelopes and support artifacts.
 
-Fold semantics: for each `EntityEntry` in the change set, discriminate by entity kind and update the relevant `AppState` slot. Deletions decrement counts and remove keys from immutable lists (rebuild-vs-patch: patch for single-entity deltas, full rebuild on bulk). Fold is idempotent on re-delivery (keyed by entity PK). Initial-state seed: `StoreOpen` loads `AppState` from a read query and calls `OnNext` before exposing the observable to consumers. `OnCompleted` fires exactly once on Persistence disposal (after the final `SaveChanges`); shutdown ordering matches AppHost's drain sequence — Persistence flushes before UI `OnCompleted` fires, preventing a race between the final change-set fold and consumer teardown. `OnError` is never called — faults surface via `StoreReceipt`. Back-pressure: `AppUi` applies `Sample`/`Throttle` on `RasmUiScheduler.RxScheduler`; Persistence does not throttle internally. `OnNext` serialization: `BehaviorSubject<AppState>` is not thread-safe; the thread-pool fold worker must serialize `OnNext` calls — use a `lock` or ensure all folds are dispatched through a single serial queue (e.g., `TaskScheduler` with max concurrency 1).
+[MESSAGEPACK_SNAPSHOT]:
+- Package set: `MessagePack`, `MessagePackAnalyzer`.
+- Contract: MessagePack is the compact binary snapshot codec with analyzer/source-generator coverage, round-trip proof, hash proof, and compatibility receipts.
 
-## [4]-[PUBLIC_RAIL_CONTRACT]
+[LZ4_COMPRESSION]:
+- Package set: `K4os.Compression.LZ4`.
+- Contract: LZ4 is the measured compression lane for snapshot payloads and support artifacts.
 
-| [INDEX] | [CONCEPT]         | [OWNS]                                                                                   | [DOES_NOT_OWN]              |
-| :-----: | ----------------- | ---------------------------------------------------------------------------------------- | --------------------------- |
-|   [1]   | Store Profile     | path via `RhinoApp.GetDataDirectory`, scope, schema version, host identity               | global static DB path       |
-|   [2]   | Store Lifecycle   | `StoreLifecycleOp`: open, migrate, compact, export, snapshot, cleanup, backup            | `IRepository<T>` family     |
-|   [3]   | Store Query       | `StoreQuery<TResult>`: typed reads with entity kind, key, time range, page, projection   | method-per-entity API       |
-|   [4]   | Live State        | `IObservable<AppState>` read-only projection; `BehaviorSubject` internal                 | DynamicData public exposure |
-|   [5]   | Snapshot Envelope | Kind, SchemaVersion, Codec, Payload, XxHash3 Checksum, Compatibility                     | raw serializer exposure     |
-|   [6]   | Support Artifact  | redacted bundle artifact, `Microsoft.Extensions.Compliance.Redaction`, retention, export | AppHost collection logic    |
-|   [7]   | Store Receipt     | `StoreReceipt` DU — success + typed failure cases; no generic `IReceipt` ledger          | generic receipt ledger      |
+[COMPANION_DATABASE]:
+- Package set: provider package selected by store profile.
+- Contract: out-of-process storage is one store-profile case with the same lifecycle, query algebra, receipts, redaction, support export, and AppHost drain behavior.
 
-`DbContext` belongs in an `Eff<RT,T>` `Bracket` shell — one context per operation, disposed after the operation completes; no context lives across operations. AppHost submits typed `Eff<RT, StoreReceipt>` and never holds a `DbContext`. AppUi calls `ObserveOn(RasmUiScheduler.RxScheduler)` on the exposed `IObservable<AppState>` and applies `Sample`/`Throttle` for back-pressure. DynamicData `SourceCache`/`SourceList` are internal projection only and never cross the boundary.
+Rejected core packages: SQLCipher bundle, MemoryPack, EF proxies, Npgsql in-process, ASP.NET DataProtection, broad provider bulk-extension packages.
 
-## [5]-[NATIVE_AND_PRAGMA_INIT]
+Provider variety is a store-profile concern. Public code selects store profile, entity kind, query shape, snapshot codec, redaction class, retention policy, and receipt projection; it does not select EF, SQLite, JSON, MessagePack, or external database packages directly.
 
-Native init: `SQLitePCL.Batteries.Init()` runs before the first `SqliteConnection` (not just before the first `DbContext`). The call is idempotent; failure returns `MissingNativeAsset` receipt.
+## [10]-[ENCRYPTION_POLICY]
 
-PRAGMAs set explicitly via `ExecuteSqlRaw` on each new connection open (EF does not auto-apply `busy_timeout` or `synchronous`):
+Core Persistence does not use SQLCipher. File protection is OS/profile/storage-policy owned. Package-level encryption absence is represented by an explicit unavailable receipt; it is not retried and does not fork the SQLite native bundle lane.
 
-| [PRAGMA]       | [VALUE]  | [REASON]                                                                  |
-| -------------- | -------- | ------------------------------------------------------------------------- |
-| `journal_mode` | `WAL`    | Multi-reader + single-writer; EF SQLite default, but set explicitly       |
-| `busy_timeout` | `3000`   | 3 s wait before returning SQLITE_BUSY; EF does NOT set this automatically |
-| `synchronous`  | `NORMAL` | Balanced durability/performance on WAL; not set by EF                     |
-| `foreign_keys` | `ON`     | Enforce FK constraints EF generates                                       |
+## [11]-[PROOF]
 
-> [!CAUTION]
-> `EnableRetryOnFailure` is Npgsql-only and does NOT compile on EF SQLite. Do not use it. Rely on `busy_timeout` + app-level retry (LanguageExt `Schedule`) for transient SQLITE_BUSY.
-
-Connection-pool strategy: one `DbContext` per `Bracket`-scoped operation; `Microsoft.Data.Sqlite` default pool size is 1 per connection string. Persistence does not pre-warm a pool; WAL + page-cache handles multi-read concurrency. The pool is sized implicitly by the per-operation bracket lifetime — no explicit `MaxPoolSize` needed.
-
-Two Rhino instances sharing the same db file: WAL serializes writers; `busy_timeout` mitigates brief lock contention. If contention is sustained, the second instance returns `TransactionConflict` receipt.
-
-## [6]-[SCHEMA_VERSION_AND_MIGRATION]
-
-Schema-version carrier: EF `__EFMigrationsHistory` table (append-only migration log) is the primary carrier; `PRAGMA user_version` mirrors the integer schema version and serves as the fast-path downgrade check before EF initialization. [CRITICAL] `__EFMigrationsLock` is SQL Server-specific — EF Core SQLite does NOT use it; remove any reference to it from failure taxonomies. The real migration risk is a partial/interrupted migration (process crash mid-apply); model this as `PartialMigration(attemptedStep, detail)` receipt. Downgrade guard: read the highest applied migration ID from `__EFMigrationsHistory` (and confirm `PRAGMA user_version`) on `StoreOpen`; if it exceeds the current model's target, return `DowngradeRejected`.
-
-Compaction: `VACUUM INTO '<path>.compact'` (online copy — WAL-safe) then atomic rename, or `PRAGMA auto_vacuum=INCREMENTAL` + periodic `PRAGMA incremental_vacuum`. WAL checkpoint: explicit `PRAGMA wal_checkpoint(TRUNCATE)` after compaction.
-
-Online backup: `SqliteConnection.BackupDatabase(destination)` (not a file copy — file copy races WAL shadow pages). Returns `BackedUp(path)` receipt on success.
-
-Corruption recovery: `PRAGMA integrity_check` on `StoreOpen`. On failure: rename the corrupt file (preserve for diagnostics), open a fresh store, and attempt to restore from the latest valid snapshot. Returns `DatabaseCorrupt` receipt with `integrityDetail`.
-
-## [7]-[REFERENCE_MATRIX]
-
-| [INDEX] | [PROJECT]          | [MAY_REFERENCE_PERSISTENCE] | [MAY_REFERENCE_EF_SQLITE]  | [MAY_CALL_DURING_SOLVE] |
-| :-----: | ------------------ | :-------------------------: | :------------------------: | :---------------------: |
-|   [1]   | `Rasm`             |             No              |             No             |           No            |
-|   [2]   | `Rasm.Rhino`       |        No by default        |             No             |           No            |
-|   [3]   | `Rasm.Grasshopper` |        No by default        |             No             |           No            |
-|   [4]   | `Rasm.AppHost`     |   Yes, orchestration only   |             No             |           No            |
-|   [5]   | `Rasm.AppUi`       |    Yes, app state views     |             No             |           No            |
-|   [6]   | Future plugin/app  |             Yes             | No unless composition root |           No            |
-|   [7]   | `Rasm.Persistence` |            Owns             |            Owns            |           No            |
-
-Cross-folder spine: `Rasm.AppUi` consumes exactly one public surface — `IObservable<AppState>`; it calls `ObserveOn(RasmUiScheduler.RxScheduler)` and applies `Sample`/`Throttle` for back-pressure; no `DbContext`, `SourceCache`, or change-set crosses the boundary. Persistence exports one capability record, `StoreDispatch` (held on AppHost's `RasmRuntime`), through which `Rasm.AppHost` submits `StoreLifecycleOp` and `StoreQuery<T>` as typed `Eff<RT, StoreReceipt>` operations and correlates receipts; it never holds a `DbContext`. Receipts are typed (`StoreReceipt`), never a generic `IReceipt` ledger.
-
-## [8]-[FAILURE_MODEL]
-
-`StoreReceipt` failure taxonomy is the full DU in §3.2. Dispatch rules:
-
-- Structural faults (`DatabaseCorrupt`, `DowngradeRejected`, `PartialMigration`, `MissingNativeAsset`) return as receipt cases — AppHost correlates and applies degradation policy; no exception propagates.
-- Transient contention (`TransactionConflict`) is retried by AppHost via LanguageExt `Schedule`; after the retry budget `TransactionConflict` is returned.
-- Encryption unavailability (`NativeEncryptionUnavailable`) returns immediately; no retry; APFS encryption is the accepted mitigation.
-
-> [!CAUTION]
-> `__EFMigrationsLock` does not exist in EF Core SQLite (SQL Server-specific). `PartialMigration` is the correct interrupted-apply case. Migrations are append-only; rollback is a new forward migration. `EnableRetryOnFailure` is Npgsql-only — never reference it.
-
-## [9]-[PACKAGE_REFERENCES]
-
-| [INDEX] | [REFERENCE]                                                                                                                              | [USE]                                                                                       |
-| :-----: | ---------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------- |
-|   [1]   | [EF Core SQLite](https://learn.microsoft.com/ef/core/providers/sqlite/)                                                                  | local provider anchor                                                                       |
-|   [2]   | [EF Core SQLite limitations](https://learn.microsoft.com/en-us/ef/core/providers/sqlite/limitations)                                     | migration/failure model; no `__EFMigrationsLock`; `PRAGMA user_version` downgrade fast-path |
-|   [3]   | [System.Text.Json source generation](https://learn.microsoft.com/en-us/dotnet/standard/serialization/system-text-json/source-generation) | default serialization guidance                                                              |
-|   [4]   | [SQLitePCLRaw bundle_e_sqlite3](https://www.nuget.org/packages/SQLitePCLRaw.bundle_e_sqlite3)                                            | macOS-arm64 native SQLite asset chain; `e_sqlite3` symbol isolation                         |
-|   [5]   | [NodaTime](https://www.nuget.org/packages/NodaTime)                                                                                      | `IClock`, `Instant`; `long`/`INTEGER` converter for SQLite                                  |
-|   [6]   | [EFCore.NamingConventions](https://www.nuget.org/packages/EFCore.NamingConventions)                                                      | snake_case column mapping                                                                   |
-|   [7]   | [K4os.Compression.LZ4](https://www.nuget.org/packages/K4os.Compression.LZ4)                                                              | snapshot payload compression (speed lane)                                                   |
-|   [8]   | [Microsoft.Extensions.Compliance.Redaction](https://www.nuget.org/packages/Microsoft.Extensions.Compliance.Redaction)                    | support-bundle redaction                                                                    |
+| [INDEX] | [RAIL]       | [REQUIRED_PROOF]                                    |
+| :-----: | ------------ | --------------------------------------------------- |
+|   [1]   | Build        | Persistence project restores as a package scaffold  |
+|   [2]   | Architecture | Persistence does not reference Rhino/GH2/AppUi      |
+|   [3]   | Schema       | Migration, lock, downgrade, partial, integrity laws |
+|   [4]   | Native       | SQLite native load and PRAGMA application           |
+|   [5]   | Projection   | Serial fold, seed, completion, no `OnError`         |
+|   [6]   | Support      | Redaction and bounded export evidence               |

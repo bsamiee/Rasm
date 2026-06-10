@@ -6,8 +6,14 @@
   </Folder>
   <Folder Name="/libs/" />
   <Folder Name="/libs/csharp/" />
+  <Folder Name="/libs/csharp/Rasm.AppHost/">
+    <Project Path="libs/csharp/Rasm.AppHost/Rasm.AppHost.csproj" />
+  </Folder>
   <Folder Name="/libs/csharp/Rasm.AppUi/">
     <Project Path="libs/csharp/Rasm.AppUi/Rasm.AppUi.csproj" />
+  </Folder>
+  <Folder Name="/libs/csharp/Rasm.Compute/">
+    <Project Path="libs/csharp/Rasm.Compute/Rasm.Compute.csproj" />
   </Folder>
   <Folder Name="/libs/csharp/Rasm/">
     <Project Path="libs/csharp/Rasm/Rasm.csproj" />
@@ -17,6 +23,9 @@
   </Folder>
   <Folder Name="/libs/csharp/Rasm.Materials/">
     <Project Path="libs/csharp/Rasm.Materials/Rasm.Materials.csproj" />
+  </Folder>
+  <Folder Name="/libs/csharp/Rasm.Persistence/">
+    <Project Path="libs/csharp/Rasm.Persistence/Rasm.Persistence.csproj" />
   </Folder>
   <Folder Name="/libs/csharp/Rasm.Rhino/">
     <Project Path="libs/csharp/Rasm.Rhino/Rasm.Rhino.csproj" />

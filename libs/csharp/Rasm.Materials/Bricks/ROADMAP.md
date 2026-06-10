@@ -115,8 +115,8 @@ Fin<BrickAssembly> assembly = BrickAssembly.Layout(run: run);
 Use static validation for this slice:
 
 ```bash
-uv run python -m tools.quality static fix
-uv run python -m tools.quality static build
+uv run python -m tools.assay static fix
+uv run python -m tools.assay static build
 ```
 
 Do not run runtime host checks for this pure materials folder.

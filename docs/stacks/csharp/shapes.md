@@ -1,4 +1,4 @@
-# [DOMAIN_SHAPES]
+# [CSHARP_SHAPES]
 
 Generated domain shapes own admission, identity, bounded vocabulary, closed variants, generated factories, validation partials, equality, comparison, and dispatch. Thinktecture is the normal implementation surface for those decisions; LanguageExt carries admitted values and typed failures after the generated owner accepts or rejects raw input.
 
@@ -58,50 +58,50 @@ Admission is a stack. Raw input is normalized at the boundary, generated factori
 
 ```csharp conceptual
 [Union]
-public abstract partial record <Fault> : Error, IValidationError<<Fault>> {
-    private <Fault>() : base() { }
+public abstract partial record Fault : Error, IValidationError<Fault> {
+    private Fault() : base() { }
 
-    public sealed record InvalidRange(int Start, int End) : <Fault>;
-    public sealed record InvalidRaw(string Detail) : <Fault>;
+    public sealed record InvalidRange(int Start, int End) : Fault;
+    public sealed record InvalidRaw(string Detail) : Fault;
 
     public override string Message => Switch(
         invalidRange: static fault => $"invalid range {fault.Start}:{fault.End}",
         invalidRaw: static fault => fault.Detail);
 
-    public static <Fault> Create(string message) => new InvalidRaw(Detail: message);
+    public static Fault Create(string message) => new InvalidRaw(Detail: message);
 }
 
 [ValueObject<string>(KeyMemberName = "Value", KeyMemberAccessModifier = AccessModifier.Public)]
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
 [KeyMemberComparer<ComparerAccessors.StringOrdinalIgnoreCase, string>]
-public readonly partial struct <CodeValue> {
+public readonly partial struct CodeValue {
     static partial void ValidateFactoryArguments(ref ValidationError? validationError, ref string value) {
         value = value.Trim().ToUpperInvariant();
         validationError = value.Length is >= 3 and <= 12
             ? null
-            : new ValidationError(message: "<CodeValue> must contain 3 to 12 characters.");
+            : new ValidationError(message: "CodeValue must contain 3 to 12 characters.");
     }
 }
 
 [ComplexValueObject(DefaultStringComparison = StringComparison.Ordinal)]
-[ValidationError<<Fault>>]
-public readonly partial struct <RangeValue> {
-    public <CodeValue> Code { get; }
+[ValidationError<Fault>]
+public readonly partial struct RangeValue {
+    public CodeValue Code { get; }
     public int Start { get; }
     public int End { get; }
 
     static partial void ValidateFactoryArguments(
-        ref <Fault>? validationError,
-        ref <CodeValue> code,
+        ref Fault? validationError,
+        ref CodeValue code,
         ref int start,
         ref int end) =>
-        validationError = start < end ? null : new <Fault>.InvalidRange(Start: start, End: end);
+        validationError = start < end ? null : new Fault.InvalidRange(Start: start, End: end);
 }
 
-public static Fin<<CodeValue>> AdmitCode(string raw) =>
-    <CodeValue>.TryCreate(value: raw, obj: out <CodeValue> code)
+public static Fin<CodeValue> AdmitCode(string raw) =>
+    CodeValue.TryCreate(value: raw, obj: out CodeValue code)
         ? Fin.Succ(code)
-        : Fin.Fail<<CodeValue>>(new <Fault>.InvalidRaw(Detail: "raw value was rejected"));
+        : Fin.Fail<CodeValue>(new Fault.InvalidRaw(Detail: "raw value was rejected"));
 ```
 
 ## [3]-[GENERATED_OWNERS]
@@ -130,24 +130,24 @@ public static Fin<<CodeValue>> AdmitCode(string raw) =>
 
 ```csharp conceptual
 [SmartEnum<int>]
-public sealed partial class <Mode> {
-    public static readonly <Mode> Strict = new(
+public sealed partial class Mode {
+    public static readonly Mode Strict = new(
         key: 1,
         apply: static input => input.Score > 0
-            ? Fin.Succ(new <Receipt>(Code: input.Code, Count: input.Score))
-            : Fin.Fail<<Receipt>>(new <Fault>.InvalidRaw(Detail: "score was rejected")));
+            ? Fin.Succ(new Receipt(Code: input.Code, Count: input.Score))
+            : Fin.Fail<Receipt>(new Fault.InvalidRaw(Detail: "score was rejected")));
 
-    public static readonly <Mode> Lenient = new(
+    public static readonly Mode Lenient = new(
         key: 2,
-        apply: static input => Fin.Succ(new <Receipt>(Code: input.Code, Count: Math.Max(input.Score, 0))));
+        apply: static input => Fin.Succ(new Receipt(Code: input.Code, Count: Math.Max(input.Score, 0))));
 
     [UseDelegateFromConstructor]
-    internal partial Fin<<Receipt>> Apply(<Input> input);
+    internal partial Fin<Receipt> Apply(Input input);
 
-    internal static Fin<<Mode>> Parse(int key) =>
-        TryGet(key: key, item: out <Mode>? mode) && mode is not null
+    internal static Fin<Mode> Parse(int key) =>
+        TryGet(key: key, item: out Mode? mode) && mode is not null
             ? Fin.Succ(mode)
-            : Fin.Fail<<Mode>>(new <Fault>.InvalidRaw(Detail: "mode was rejected"));
+            : Fin.Fail<Mode>(new Fault.InvalidRaw(Detail: "mode was rejected"));
 }
 ```
 
@@ -156,32 +156,33 @@ public sealed partial class <Mode> {
 - Use: closed variants with named payloads and generated `Switch` or `Map` dispatch.
 - Result rule: dispatch arms must unify to one exact result type, including generic parameters.
 - Context rule: use `SwitchMapStateParameterName` or generated state-threaded overloads when 3 or more arms share context.
+- Generation rule: `SwitchMethods` and `MapMethods` select the generated dispatch surface on the union attribute.
 - Collapse rule: same-payload collapse targets passive, non-generic, non-error unions with repeated payload shape. It does not target empty marker cases, behavior-only cases, `Expected` or `Error` failures, two-case pairs, semantically different member names, or cases with owned behavior.
 - Reject: optional payload bags, repeated switch arms, generated case aliases, and helper dispatch.
 
 ```csharp conceptual
 [GenerateUnionOps]
 [Union(SwitchMapStateParameterName = "runtime")]
-public abstract partial record <Command> {
-    private <Command>() { }
+public abstract partial record Command {
+    private Command() { }
 
-    public sealed record CreateCase(<RangeValue> Value) : <Command>;
-    public sealed record MeasureCase(Seq<<CodeValue>> Codes) : <Command>;
-    public sealed record RecoverCase(string Raw) : <Command>;
+    public sealed record CreateCase(RangeValue Value) : Command;
+    public sealed record MeasureCase(Seq<CodeValue> Codes) : Command;
+    public sealed record RecoverCase(string Raw) : Command;
 
-    public Eff<<Runtime>, <Receipt>> Run() =>
-        from runtime in Eff.runtime<<Runtime>>().As()
+    public Eff<Runtime, Receipt> Run() =>
+        from runtime in Eff.runtime<Runtime>().As()
         from receipt in Switch(
             runtime: runtime,
             createCase: static (runtime, command) =>
-                runtime.Mode.Apply(new <Input>(Code: command.Value.Code, Score: command.Value.End - command.Value.Start)),
+                runtime.Mode.Apply(new Input(Code: command.Value.Code, Score: command.Value.End - command.Value.Start)),
             measureCase: static (runtime, command) =>
                 command.Codes
-                    .TraverseM(code => runtime.Mode.Apply(new <Input>(Code: code, Score: 1)))
+                    .TraverseM(code => runtime.Mode.Apply(new Input(Code: code, Score: 1)))
                     .As()
-                    .Map(static receipts => receipts.Fold(<Receipt>.Empty, static (sum, item) => sum + item)),
+                    .Map(static receipts => receipts.Fold(Receipt.Empty, static (sum, item) => sum + item)),
             recoverCase: static (runtime, command) =>
-                AdmitCode(command.Raw).Bind(code => runtime.Mode.Apply(new <Input>(Code: code, Score: 1))))
+                AdmitCode(command.Raw).Bind(code => runtime.Mode.Apply(new Input(Code: code, Score: 1))))
         select receipt;
 }
 ```
@@ -196,18 +197,19 @@ public abstract partial record <Command> {
 - Shape: sealed manual owner with total dispatch.
 - Use: generator-proven unsupported shape, stack-confined state, open-ended state, type-indexed projection, or constraints the generated union cannot express.
 - Gate: keep construction closed and dispatch total.
+- Exemption: kernel statement loops are confined to the owner body and never escape it.
 - Reject: manual unions that only reproduce generated `Switch` or `Map`.
 
 ```csharp conceptual
-public readonly ref struct <FrameOwner> {
-    private readonly ReadOnlySpan<<Input>> inputs;
+public readonly ref struct FrameOwner {
+    private readonly ReadOnlySpan<Input> inputs;
 
-    public <FrameOwner>(ReadOnlySpan<<Input>> inputs) =>
+    public FrameOwner(ReadOnlySpan<Input> inputs) =>
         this.inputs = inputs;
 
-    public <Result> Fold(<State> state, Func<<State>, <Input>, <State>> step, Func<<State>, <Result>> finish) {
-        <State> current = state;
-        foreach (<Input> input in inputs) {
+    public Outcome Fold(State state, Func<State, Input, State> step, Func<State, Outcome> finish) {
+        State current = state;
+        foreach (Input input in inputs) {
             current = step(current, input);
         }
 
@@ -238,12 +240,12 @@ Generated dispatch is the behavior owner when a closed vocabulary or variant con
 
 [UNION_OPERATION_ROUTING]:
 - Use: generated `Switch`, `Map`, and selected overloads for total case dispatch.
-- Boundary stop: partial overloads are allowed only when the owner deliberately stops dispatch at a named case boundary.
+- Boundary stop: `[UnionSwitchMapOverload(StopAt = typeof(...))]` declares the deliberate partial overload boundary; partial overloads are allowed only when the owner stops dispatch at a named case.
 - Reject: case aliases that only forward to generated construction.
 
 [ALGEBRAIC_OPERATORS]:
 - Use: owner-local operators only when the type has explicit algebraic laws.
-- Gate: generated unions do not imply domain `+` or `|`.
+- Gate: the generator emits no union operators; generated unions do not imply domain `+` or `|`.
 - Reject: operator sugar that only hides dispatch.
 
 ## [5]-[LOCAL_GENERATION_POLICY]
@@ -273,7 +275,7 @@ Generated dispatch is the behavior owner when a closed vocabulary or variant con
 
 [SERIALIZATION]:
 - Rule: keep serialization policy explicit at the boundary.
-- Gate: integration packages stay inactive until package graph and an accepted owner prove adoption.
+- Gate: integration packages stay inactive until package graph and an accepted owner prove adoption; declare `SerializationFrameworks = None` on generated owners when JSON integration is not part of the host surface.
 - Reject: serializer-shaped domain owners.
 
 [FACTORY_HIDING]:

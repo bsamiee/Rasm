@@ -28,7 +28,7 @@ Every boundary converts once into the carrier that states the real outcome. Reus
 [GENERATED_ADMISSION]:
 - Input: generated value-object, complex-value-object, smart-enum, or union admission.
 - Rail: convert generated success or failure once into `Fin<T>` or `Validation<Error,T>`.
-- Boundary: generated shape policy stays in [domain shapes](domain-shapes.md).
+- Boundary: generated shape policy stays with the domain-shape owner.
 - Reject: wrapper factories that only rename generated members.
 
 [NULLABLE_OR_SENTINEL_INPUT]:
@@ -44,12 +44,12 @@ Every boundary converts once into the carrier that states the real outcome. Reus
 - Reject: discarding the captured error after `Try.lift`.
 
 ```csharp conceptual
-public static Fin<<Receipt>> Capture(Func<Fin<<Receipt>>> native) {
+public static Fin<Receipt> Capture(Func<Fin<Receipt>> native) {
     ArgumentNullException.ThrowIfNull(native);
 
-    return Try.lift<Fin<<Receipt>>>(f: native)
+    return Try.lift<Fin<Receipt>>(f: native)
         .Run()
-        .MapFail(error => new <Fault>.NativeRejected(Detail: error.Message))
+        .MapFail(error => new Fault.NativeRejected(Detail: error.Message))
         .Bind(static result => result);
 }
 ```
@@ -97,11 +97,11 @@ Traversal policy is rail policy because the collection shape decides how failure
 - Reject: lazy sequence flow over disposed, borrowed, UI, native, or host-owned resources.
 
 ```csharp conceptual
-public static Fin<Seq<<Receipt>>> TraverseRaw(Seq<string> raw) =>
-    raw.Map((value, index) => AdmitCode(value).Map(code => new <Input>(Code: code, Score: index + 1)))
+public static Fin<Seq<Receipt>> TraverseRaw(Seq<string> raw) =>
+    raw.Map((value, index) => AdmitCode(value).Map(code => new Input(Code: code, Score: index + 1)))
         .TraverseM(identity)
         .As()
-        .Bind(inputs => inputs.TraverseM(input => <Mode>.Strict.Apply(input)).As())
+        .Bind(inputs => inputs.TraverseM(input => Mode.Strict.Apply(input)).As())
         .Map(static receipts => receipts.Strict());
 ```
 
@@ -137,15 +137,15 @@ Use carrier-qualified failure transforms before collapse. Do not throw inside ra
 - Reject: losing exception messages, raw validation messages, or failure categories during conversion.
 
 ```csharp conceptual
-public static Validation<Error, <RangeValue>> AdmitRange(string raw, int start, int end) =>
+public static Validation<Error, RangeValue> AdmitRange(string raw, int start, int end) =>
     (AdmitCode(raw).ToValidation(), ValidateIndex(start).ToValidation(), ValidateIndex(end).ToValidation())
-        .Apply(static (code, s, e) => <RangeValue>.TryCreate(
+        .Apply(static (code, s, e) => RangeValue.TryCreate(
             code: code,
             start: s,
             end: e,
-            obj: out <RangeValue> value)
+            obj: out RangeValue value)
             ? Fin.Succ(value).ToValidation()
-            : Fin.Fail<<RangeValue>>(new <Fault>.InvalidRange(Start: s, End: e)).ToValidation())
+            : Fin.Fail<RangeValue>(new Fault.InvalidRange(Start: s, End: e)).ToValidation())
         .Bind(static validation => validation)
         .As();
 ```
@@ -164,23 +164,24 @@ public static Validation<Error, <RangeValue>> AdmitRange(string raw, int start, 
 - Reject: `await` inside `Eff<RT,T>` returning methods when an effect lift can express the boundary.
 
 ```csharp conceptual
-public sealed record <Runtime>(<Mode> Mode, Atom<HashMap<<CodeValue>, <Receipt>>> Cache, CancellationToken Cancel);
+public sealed record Runtime(Mode Mode, Atom<HashMap<CodeValue, Receipt>> Cache, CancellationToken Cancel);
 
-public static readonly Eff<<Runtime>, <Mode>> AskMode =
-    Eff.runtime<<Runtime>>().Map(static runtime => runtime.Mode).As();
+public static readonly Eff<Runtime, Mode> AskMode =
+    Eff.runtime<Runtime>().Map(static runtime => runtime.Mode).As();
 ```
 
 [RESOURCE_BOUNDARY]:
 - Use: `IO<T>.Bracket`, `BracketFail`, `Finally`, `Prelude.use`, or an owner-local disposable capsule when the effect owns acquisition.
 - Cleanup: the owner that acquires, borrows, or transfers a resource also disposes losing branches and failure paths.
+- Exemption: `using` acquisition inside a boundary capsule is the named statement exemption; it never appears in domain flow.
 - Reject: resource lifetime hidden behind ordinary domain state.
 
 ```csharp conceptual
-internal static Fin<Unit> UseResource(Func<<Resource>> acquire, Func<<Resource>, Fin<Unit>> use) {
+internal static Fin<Unit> UseResource(Func<Resource> acquire, Func<Resource, Fin<Unit>> use) {
     ArgumentNullException.ThrowIfNull(acquire);
     ArgumentNullException.ThrowIfNull(use);
 
-    using <Resource> resource = acquire();
+    using Resource resource = acquire();
     return use(resource);
 }
 ```
@@ -192,12 +193,13 @@ internal static Fin<Unit> UseResource(Func<<Resource>> acquire, Func<<Resource>,
 
 [SCHEDULE_POLICY]:
 - Use: `Schedule`, `IO<T>.Retry(Schedule)`, `Prelude.retry`, and `repeat` for retry, repeat, delay, timeout, and backoff policy when the local owner admits retry.
+- Carrier split: `.Retry(Schedule)` is the `IO<T>` form; `Eff` retry is `Prelude.retry(schedule, eff)`, never a method on the effect.
 - Builders: `recurs`, `spaced`, `linear`, `exponential`, `fibonacci`, `upto`, `jitter`, and `maxDelay`.
 - Algebra: use schedule `|`, `union`, `intersect`, and schedule-transformer `+` only when schedule policy is the local owner.
 - Reject: ad-hoc delay loops and operator-heavy retry code where named schedule policy is clearer.
 
 ```csharp conceptual
-public static IO<<Receipt>> Retry(IO<<Receipt>> work) {
+public static IO<Receipt> Retry(IO<Receipt> work) {
     ArgumentNullException.ThrowIfNull(work);
 
     return work.Retry(
@@ -207,32 +209,47 @@ public static IO<<Receipt>> Retry(IO<<Receipt>> work) {
 ```
 
 [OPERATOR_BOUNDARIES]:
-- Domain `+` and `|`: application-defined operators on domain types.
-- `[Flags] |`: enum bitwise OR, unrelated to LanguageExt.
-- Validation `&`: independent validation product through a monoidal carrier.
-- Schedule `|`: schedule union.
-- Effect/finally `|`: effect-finally composition where the local type proves that owner.
-- Rule: use named methods when the owner is not obvious from the local type.
+
+| [INDEX] | [OPERATOR]            | [CARRIER]                | [OWNS]                            |
+| :-----: | :-------------------- | :----------------------- | :-------------------------------- |
+|   [1]   | `>>`                  | `K<F,A>`                 | Kleisli sequence, discard-first   |
+|   [2]   | `>>>`                 | `K<F,A>`                 | applicative sequence              |
+|   [3]   | `*`                   | `K<F,A>`                 | functor map, applicative apply    |
+|   [4]   | `>> lower`, unary `+` | `K<F,A>`                 | downcast to the concrete rail     |
+|   [5]   | `\|`                  | `Validation` choice      | first success wins                |
+|   [6]   | `\|`                  | `Fallible` with `CatchM` | catch and recovery                |
+|   [7]   | `\|`                  | `Eff` with `Finally`     | finally composition, not choice   |
+|   [8]   | `\|`                  | `Schedule`               | schedule union                    |
+|   [9]   | `&`                   | `Validation`             | applicative product, fault append |
+|  [10]   | `+`                   | `Error`, monoidal `E`    | failure append                    |
+|  [11]   | `+`                   | `ScheduleTransformer`    | transformer composition           |
+|  [12]   | `\|`                  | `[Flags]` enum           | BCL bitwise OR                    |
+|  [13]   | `+`, `\|`             | domain owners            | application-defined algebra       |
+
+- Rule: use named methods when the owner is not obvious from the local type; `union` and `intersect` on `Schedule` are prelude functions, and schedule intersect is not `&`.
+- Rule: `>> lower` and unary `+` downcast `K<F,A>` to the concrete rail; `.As()` is the named equivalent.
 
 ## [6]-[STATE_RECEIPTS]
 
 State belongs at a boundary or session owner, not inside pure domain accumulation.
 
 [ATOM_STATE]:
-- Use: `Atom<T>.Swap(f)` for synchronous state transition.
+- Use: `Atom<T>.Value` for point reads; never read-modify-write outside `Swap`.
+- Use: `Atom<T>.Swap(f)` for synchronous state transition; `Swap` returns the post-transition state.
 - Use: `Atom<T>.SwapMaybe(f)` for optional state transition.
 - Use: `Atom<T>.SwapIO` or `SwapMaybeIO` for IO-backed state transition.
-- Rule: swap functions must be safe to retry under contention.
+- Rule: swap functions must be safe to retry under contention; idempotent transitions such as `TryAdd` make first-writer-wins explicit.
 - Reject: hiding native lifetime, host tree mutation, or ordinary aggregation behind `Atom<T>`.
 
 ```csharp conceptual
-public static Unit ObserveCache(<Runtime> runtime) {
-    ArgumentNullException.ThrowIfNull(runtime);
-
-    HashMap<<CodeValue>, <Receipt>> current = runtime.Cache.Swap(static state => state);
-    _ = current;
-    return unit;
-}
+public static Fin<Receipt> Memoized(Runtime runtime, Input input) =>
+    runtime.Cache.Value.Find(input.Code) is { IsSome: true, Case: Receipt cached }
+        ? Fin.Succ(cached)
+        : runtime.Mode.Apply(input).Map(receipt =>
+            runtime.Cache
+                .Swap(state => state.TryAdd(input.Code, receipt))
+                .Find(input.Code)
+                .IfNone(receipt));
 ```
 
 [BOUNDARY_STATE_FAMILIES]:
@@ -251,10 +268,10 @@ public static Unit ObserveCache(<Runtime> runtime) {
 - Reject: collapsing algorithm proof into a generic receipt ledger.
 
 ```csharp conceptual
-public readonly record struct <Receipt>(<CodeValue> Code, int Count) {
-    public static readonly <Receipt> Empty = new(Code: <CodeValue>.Create(value: "SUM"), Count: 0);
+public readonly record struct Receipt(CodeValue Code, int Count) {
+    public static readonly Receipt Empty = new(Code: CodeValue.Create(value: "SUM"), Count: 0);
 
-    public static <Receipt> operator +(<Receipt> left, <Receipt> right) =>
+    public static Receipt operator +(Receipt left, Receipt right) =>
         new(Code: left.Code, Count: left.Count + right.Count);
 }
 ```

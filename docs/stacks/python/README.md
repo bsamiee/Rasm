@@ -1,135 +1,100 @@
 # [STACKS_PYTHON]
 
-This folder is the Python stack decision atlas. It routes language, shape, surface, rail, boundary, runtime, algorithm, platform, and proof decisions to the concept page that owns the coding choice. The atlas builds one declaration-first paradigm: raw ingress becomes typed payload, payload materializes into one canonical owner, owner operations flow through `Option` or `Result`, and projections leave through explicit boundary or egress surfaces.
+This folder is the Python stack decision atlas. It routes language, type, shape, surface, rail, runtime, and proof decisions to the concept page that owns the coding choice. The atlas builds one declaration-first paradigm: raw ingress becomes typed payload, payload materializes into one canonical owner, owner operations flow through `Option` or `Result`, and projections leave through explicit boundary or egress surfaces.
 
-## [1]-[CHOOSE]
+## [1]-[ATLAS]
 
 This table is a lookup by reader decision.
 
-| [INDEX] | [DECISION]               | [READ]                                                      | [STATE]  |
-| :-----: | :----------------------- | :---------------------------------------------------------- | :------- |
-|   [1]   | language syntax          | [language](language.md)                                     | active   |
-|   [2]   | PEP-backed action        | [PEP standards](pep-standards.md)                           | active   |
-|   [3]   | data shape               | [data shapes](data-shapes.md)                               | active   |
-|   [4]   | surface and dispatch     | future `surfaces-and-dispatch.md`                           | next     |
-|   [5]   | result and effect flow   | future `rails-and-effects.md`                               | target   |
-|   [6]   | boundary and codec       | future `boundaries.md`                                      | target   |
-|   [7]   | runtime and concurrency  | future `runtime.md`                                         | target   |
-|   [8]   | algorithm and data       | future `algorithms.md`                                      | target   |
-|   [9]   | package or platform fact | future `platform/build-and-packages.md`                     | target   |
-|  [10]   | proof rail               | future `testing/README.md`                                  | target   |
+| [INDEX] | [DECISION]                       | [READ]                        | [STATE] |
+| :-----: | :------------------------------- | :---------------------------- | :------ |
+|   [1]   | language syntax and standards    | [language](language.md)       | active  |
+|   [2]   | type evidence and payloads       | [type system](type-system.md) | partial |
+|   [3]   | data shape                       | [shapes](shapes.md)           | active  |
+|   [4]   | surface and dispatch             | `surfaces-and-dispatch.md`    | planned |
+|   [5]   | rail and effect flow             | `rails-and-effects.md`        | planned |
+|   [6]   | concurrency, binary, diagnostics | [runtime](runtime.md)         | partial |
+|   [7]   | proof rail                       | `testing/README.md`           | planned |
 
-## [2]-[OWNER_RULE]
+## [2]-[DOCTRINE]
 
-Concept pages own coding decisions. Package versions, tool versions, optional dependency groups, and static-analysis configuration live in `pyproject.toml`; package-backed decisions live in the concept page that owns the capability.
+Thirteen laws in five groups govern every Python decision in this stack. Concept pages instantiate them; no page restates them.
 
-Approved libraries are normal Python implementation material. Do not create package-named pages or folders; write the domain rule in the page that owns the decision and mention the package only when it changes implementation choice.
+[FLOW]:
+- `EXPRESSION_SPINE` — all domain logic is expression-shaped and composes monadically; statements survive only inside measured kernels and platform-forced boundaries, and any page that shows one names the exemption. Composition runs through `pipe`, `compose`, `@effect.result`, comprehensions, and `match` used as an expression of record.
+- `BOUNDARY_ADMISSION` — raw material is admitted exactly once into an evidence-carrying owner; interior code never re-validates and never sees `None`-as-failure, sentinels, or provider shapes. The lifecycle is `Raw -> Payload -> Canonical owner -> Rail -> Projection -> Egress`: `Option` carries non-failing absence, `Result` carries fallibility, exceptions convert at the owning boundary.
 
-When the stronger package is not admitted yet, keep the target capability in the owning concept and record the adoption gap in the current planning or platform route.
+[SHAPE]:
+- `SHAPE_BUDGET` — a concept owns exactly one type; variants are cases inside one closed family, never sibling types. Families are closed internally, semi-closed at versioned boundaries, and open only where foreign code must extend without editing the owner. Three or more parallel shapes, sibling factories, repeated dispatch arms, or single-call helpers is the collapse trigger, not a style preference.
+- `DEEP_SURFACES` — prefer one rich polymorphic surface over many shallow ones; each module exposes one entrypoint family and keeps internals private. One deep owner that holds a full concern beats four fragments that scatter it.
+- `MODAL_ARITY` — one entrypoint owns all call modalities; singular, plural, batch, and stream discriminate on the shape of the input value — type, tag, pattern, or arity — never on name suffixes or boolean knobs. A parallel parameter that describes the input is a knob smuggled back in; the discriminant must be recoverable from the value itself.
 
-## [3]-[PARADIGM_DECISIONS]
+[DERIVATION]:
+- `POLICY_VALUES` — configuration enters as one domain value that carries its own behavior — a vocabulary member, tagged variant, or frozen policy table — never as flag sets whose combinations the implementation must re-derive. Behavior rows live with the vocabulary that selects them.
+- `DERIVED_LOGIC` — when cases share generative structure, the logic is derived — a `frozendict` table, fold, or comprehension — never enumerated arms. One primary correspondence is declared and every secondary map derives from it.
+- `DERIVED_TYPES` — types are computed where the language allows so one declaration yields the family: inline type parameters with defaults, `TypeForm`, variadic generics, and `@dataclass_transform` owners replace rank-specific or per-provider type copies.
+- `SYMBOLIC_REFERENCE` — names, paths, discriminants, and correspondences travel as symbols and derived values — enum members, `Path` algebra, vocabulary tables — never as string literals that restate something the program already knows.
 
-Use these decisions as the manifest for future concept pages. A construct earns space only when it proves lifecycle position, ownership depth, and boundary role.
+[MATERIAL]:
+- `LIBRARY_DEPTH` — admitted packages are the standard library: `expression` for rails and composition, `pydantic` for admission and settings, `msgspec` for wire codecs, `anyio` for structured concurrency, `cyclopts` for CLI binding, `stamina` for retry, `beartype` for runtime contracts, `structlog` and OpenTelemetry for observability. Use the deepest primitive the package itself reaches for; wrappers, rename adapters, and stdlib-first reflexes are rejected. Language primitives remain owners only when they carry the invariant directly.
+- `DEFINITION_TIME_ASPECTS` — cross-cutting capability — retry, observability, contracts, validation, memoization, registration — attaches at definition time as a signature-preserving, rail-preserving decorator with inline `**P` and `functools.wraps`. Aspects materialize policy, stack in deterministic order, and never raise inside domain flow; two to four recurring wrappers collapse into one parameterized aspect factory.
 
-[PAGE_CRAFT]:
-- Decision: each page is an implicit, skill-style source of truth written as one holistic body — dense tables and tight snippets that teach by structure, not prose; it states its own law directly, with no meta-commentary, no cross-file references or ownership narration, and no project, tool, or skill context.
-- Law: one page owns one layer and never re-demonstrates another's pattern — `language.md` owns primitives, `pep-standards.md` owns PEP-structural typing, `data-shapes.md` owns shapes and owners, each later page owns its architecture; a sibling concern is neither re-shown nor pointed to, because the reader holds the whole atlas as one body.
-- Use: external libraries as first-class native surfaces over a single FP + ROP + `expression` spine — unified rails, ADTs, AOP aspects, and parameterized polymorphism; collapse 2-4 parallel surfaces into one richer one.
-- Reject: duplicated atomic examples across pages, cross-file pointers, hardcoded or flat logic, model/wrapper/alias spam, and any snippet whose density does not beat ordinary Python ~3-4x.
+[INTEGRATION]:
+- `ROOT_REBUILD` — new capability is woven into the owning shape as if it had always existed; reshape the owner rather than appending beside it. No shims, compat aliases, deprecation layers, or migration surfaces — break the API when the collapse improves the system.
+- `ONE_HOP_RESOLUTION` — a name resolves to its semantics in one hop: no alias-to-constant-to-enum-to-class chains, no re-export or barrel files, no helper or util shells, no convenience wrappers. A value that takes two jumps to trace marks a layer to delete.
 
-[SHAPE_LIFECYCLE]:
-- Decision: `Raw -> Payload -> Canonical owner -> Rail/effect -> Projection -> Egress`.
-- Law: raw external material never becomes domain truth directly.
-- Use: `TypedDict` and decoder inputs before materialization; canonical owners inside domain logic; projections at egress.
-- Reject: provider-shaped domain objects, `dict[str, object]` payload drift, wire aliases in interiors, and local shape choice without lifecycle position.
+## [3]-[COLLAPSE_SCAN]
 
-[POLYMORPHISM]:
-- Decision: closed internally, semi-closed at versioned boundaries, open only for foreign extension.
-- Law: an in-repo concept is closed unless external code can add members without editing the owner.
-- Use: total folds, pattern matches, owner-local registry rows, or rich owner methods for closed families; typed extension slots at ingress or egress; `Protocol`, registries, or `singledispatch` at plugin seams.
-- Reject: string dispatch, open protocols for one implementation, optional-field variant bags, and `singledispatch` for owned closed vocabularies.
+Run this scan on every edit. Any signal triggers the move; three or more instances make it mandatory.
 
-[DECORATOR_ADMISSION]:
-- Decision: decorators are admitted only when definition-time composition owns behavior.
-- Law: an aspect must preserve signature shape and materialize policy, registration, validation, capability selection, or observability.
-- Use: inline `**P`, exact return types, `Concatenate` only for real leading context, and `functools.wraps`.
-- Reject: marker-only decorators, erased wrappers, post-definition mutation, hidden provider switches, and decorators that raise inside domain flow.
+| [INDEX] | [SIGNAL]                                          | [MOVE]                                   |
+| :-----: | :------------------------------------------------ | :--------------------------------------- |
+|   [1]   | sibling names share a prefix or suffix            | one modality-polymorphic entrypoint      |
+|   [2]   | same return rail, signatures differ only by arity | input-shape discrimination               |
+|   [3]   | functions differ only by a literal                | parameterize; the literal becomes policy |
+|   [4]   | boolean parameter selects between two bodies      | one derived body or one policy value     |
+|   [5]   | function calls exactly one other function         | delete the hop                           |
+|   [6]   | parallel dispatch arms repeat structure           | table or fold algebra                    |
+|   [7]   | several types share fields for one concept        | one closed family                        |
+|   [8]   | wrapper renames a package API                     | use the package surface directly         |
+|   [9]   | the same 2-4 wrappers recur together              | one parameterized aspect                 |
 
-[RAILS]:
-- Decision: `Option` carries non-failing absence; `Result` carries fallibility; exceptions convert at boundaries.
-- Law: domain logic returns typed rails instead of using exceptions as control flow.
-- Use: sentinels for omitted or inherited parameter state, `Option.none` for valid no-value outcomes, `Result[T, E]` for fallible operations, and typed aggregate failures for grouped or concurrent failures.
-- Reject: `None` for failure, `Option` that hides errors, message-concatenated exceptions, and catch/raise ladders inside domain operations.
+## [4]-[PAGE_CRAFT]
 
-[MATERIALIZATION]:
-- Decision: boundary adapters validate raw material; canonical owners enforce domain invariants; egress validates projection compatibility.
-- Law: payload validation, domain invariant enforcement, and wire serialization are lifecycle positions, not automatic separate model families.
-- Use: `pydantic` for rich ingress, settings, schema, and semantic validation; `msgspec` for fast wire structs and codecs; frozen dataclasses or rich classes for compact in-process owners when they carry behavior better than schema owners.
-- Reject: call-site validation, parallel validation/domain/wire classes with identical semantics, and egress-only validation for domain correctness.
+How pages in this folder are authored. The corpus is one body; these laws keep it coherent.
 
-[SCHEMA_MODEL_CREATION]:
-- Decision: `data-shapes.md` owns schema, model, class, enum, and payload creation rules.
-- Law: no Pydantic model, `msgspec` struct, dataclass, enum, protocol, payload, or rich class appears without a lifecycle role and collapse test.
-- Use: Pydantic models for validated ingress, settings, schemas, semantic domain admission, and error-rich materialization; `msgspec` structs for wire codecs and high-volume serialization; enums for stable external vocabularies; rich classes for behavior-dense canonical owners; protocols only for real ports with independent implementers.
-- Route: protocol dispatch, registry behavior, and decorator admission move to `surfaces-and-dispatch.md`; rail carriers move to `rails-and-effects.md`; codecs and foreign payload translation move to `boundaries.md`.
-- Reject: ad hoc `BaseModel` sprawl, package-named model layers, one-field wrapper classes, enum/string duplication, model-per-provider interiors, and protocol shells that repair weak ownership.
+- Atlas law: this README owns doctrine and routing; each concept page owns one disjoint layer; a sibling concern is neither re-shown nor pointed to. The README is the only file that links.
+- Zero meta: concept pages carry no provenance, sourcing, version narration, process or planning state, project, tool, or skill context.
+- Page grammar: narrow index table, then family cards (`Use / Accept / Reject / Law / Boundary`), then the snippet beside the rule it proves, then collapse tests, then a validation list. Structure is identical across stack folders; content never is.
+- Snippet law: every snippet compiles under the active surface; identifiers are legal neutral names; placeholder strings such as `"<value-a>"` appear only inside literals; no project, host, or domain concept anchors a snippet.
+- Snippet coverage: each snippet is doctrine-exemplary at full operator depth, roughly 3-4x denser than ordinary code, and exercises a surface region no other snippet in the corpus shows — variety within the doctrine, zero duplicated demonstrations.
+- Reject columns are load-bearing: every `Use` names the spelling, wrapper, or local pattern it deletes.
+- Tables enumerate, cards legislate: rows stay atomic and narrow — no prose cramming, no links inside cells; nuance moves to a card.
+- Planning is quarantined: build order, target-page scopes, and conflict rules live only in the README roadmap tail.
+- Manifest truth: package and tool versions live in `pyproject.toml`; no package-named pages or folders; a package is named only where it changes the implementation choice. When a stronger package is not yet admitted, the target capability stays in the owning concept and the adoption gap is recorded in the roadmap.
 
-[PACKAGE_OWNERSHIP]:
-- Decision: capability owner chooses package or standard-library primitive by invariant, not by habit.
-- Law: approved packages are direct implementation material; language primitives remain owners when they carry the invariant directly.
-- Use: `anyio` for structured concurrency, `httpx` for transport boundaries, `cyclopts` for CLI command dispatch, `pydantic-settings` for configuration and `pydantic.validate_call` for boundary admission, `stamina` for retry, `beartype` for runtime type contracts, `expression` for `Option` and `Result`, `structlog` and OpenTelemetry for observability, and standard primitives such as `Path`, `sentinel`, `frozendict`, `StrEnum`, `TypeIs`, and `TypeForm` when they are the exact invariant.
-- Reject: stdlib-first reflexes, package-branded wrappers, thin facades, and public provider leakage.
+## [5]-[ROADMAP]
 
-## [4]-[BUILD_ORDER]
+Planned pages in build order. Each entry states what the page must decide; the scope moves into the page when it is authored and leaves this tail.
 
-This table is a lookup by target page sequence.
+[SURFACES_AND_DISPATCH]:
+- Owns: dispatch and aspect architecture — how one polymorphic surface, its dispatch form, its runtime contract, its registry seam, and its aspects compose. Assumes primitives and shapes from prior pages; never re-teaches `match`, `TypeIs`, `**P`, `@dataclass_transform`, closed-family shape, or the `frozendict` table.
+- Surface law: one entrypoint owns all modalities and the discriminant is recoverable from the input value — shape, runtime type, tag, arity, or pattern; collapsing arity must not smuggle the knob back in, so a parallel parameter that re-describes the input — a batch, many, or mode flag beside the value — is the rejected form, stated explicitly.
+- Dispatch chooser: `match` for owned closed variants; `singledispatch` for open-by-type seams; `frozendict[K, Callable]` for bounded vocabulary keys; `Protocol` plus `TypeIs` for structural capability; `@overload` for static-only variance; `plum` only for genuine NxM positional type matrices; `cyclopts App` for the CLI token boundary.
+- Dispatch contracts: static dispatch is checker-proven and zero-cost; runtime dispatch decides at call time and carries a contract — `beartype` violations lift to `Result` at the boundary, `pydantic.validate_call` coerces ingress; free-threaded builds require import-time registration completion.
+- Registry taxonomy: `frozendict` closed table, `TypeForm[T]`-keyed open registry, `singledispatch` hierarchy, `entry_points` install-time; rows built at definition time returning the original handler; lookup misses return `Option`.
+- Aspects: retry binds to `stamina`, observability to `structlog` and OpenTelemetry, runtime contracts to `beartype`, boundary validation to `pydantic.validate_call`, memoization to `functools.cache`, timeout and scope to `anyio`; cache sits outside the rail and never caches `Error`. Reject `wrapt`.
+- Async dispatch: the async surface is `async def -> Result[T, E]`; timeout lifts through `anyio.move_on_after`; fan-out runs through an `anyio.TaskGroup` with `except*` into one aggregate rail; sync handlers offload through `anyio.to_thread` or `to_process`.
+- Library facts: `effect.result` is a class; `flow` and a standalone `Pipe` do not exist; `result.pipeline` lives in `expression.extra.result`; `plum-dispatch` enters `pyproject.toml` before use.
 
-| [INDEX] | [PAGE]                           | [MUST_DECIDE]                        |
-| :-----: | :------------------------------- | :----------------------------------- |
-|   [1]   | `data-shapes.md`                 | shape, schema, and model ownership   |
-|   [2]   | `surfaces-and-dispatch.md`       | polymorphic dispatch and aspects     |
-|   [3]   | `rails-and-effects.md`           | rail carriers and failure flow       |
-|   [4]   | `boundaries.md`                  | external material and typed adapters |
-|   [5]   | `runtime.md`                     | startup, import, and concurrency law |
-|   [6]   | `algorithms.md`                  | algorithm families and data flow     |
-|   [7]   | `platform/build-and-packages.md` | package admission and tool ownership |
-|   [8]   | `testing/README.md`              | type, runtime, and boundary proof    |
+[RAILS_AND_EFFECTS]:
+- Owns: carrier law and failure flow — `Option` versus `Result` selection, Kleisli composition, `@effect.result` do-notation, aggregate fault carriers, structured-concurrency rail composition, retry, timeout, and cancellation policy as rail policy.
 
-## [5]-[SURFACES_DISPATCH_TARGET]
+[TESTING]:
+- Owns: type, runtime, and boundary proof rails for the Python stack, mirroring the shared testing page grammar.
 
-`data-shapes.md` is complete. `surfaces-and-dispatch.md` is the active target. It owns dispatch and aspect ARCHITECTURE — how one polymorphic surface, its dispatch form, its runtime contract, its registry seam, and its aspects compose. It assumes the primitives and shapes the prior pages own and never re-teaches `match`, `TypeIs`, `**P`, `@dataclass_transform`, closed-family shape, or the `frozendict`-table shape.
-
-[SECTIONS]:
-- Polymorphic-surface law: one entrypoint owns all modalities; the discriminant is input shape, runtime type, tag, arity, value pattern, or predicate; ≥3 siblings sharing a prefix and return rail collapse into one `@tagged_union` request ADT plus one total fold.
-- Dispatch-form chooser: a decision tree of discriminating questions over `match` (owned closed variants) / `singledispatch`(method) (open-by-type, with the ABC-ambiguity pitfall) / `frozendict[K, Callable]` value table (bounded vocabulary key) / `Protocol`+`TypeIs` (structural capability) / `@overload` (static-only variance, with the `get_overloads`+`annotationlib` runtime bridge) / `plum` (N×M positional type matrix) / `cyclopts App` (CLI subcommand token to typed binding).
-- Dispatch contracts: static dispatch (`match`/`@overload`/`TypeIs`) is checker-proven and zero-cost; runtime dispatch (`singledispatch`/value table/`Protocol`) decides at call time and needs a contract — `beartype` (violation lifted to `Result` at the boundary) or `pydantic.validate_call` for coercing ingress; free-threaded builds require import-time registration completion.
-- Registry and seam: registry taxonomy (`frozendict` closed table / `TypeForm[T]`-keyed open registry / `singledispatch` type-hierarchy / `entry_points` install-time); rows built at definition time returning the original handler; `match` owns closed in-repo domains while a registry or `singledispatch` owns the open boundary; lookup misses return `Option`.
-- Aspects: bind each concern to its admitted lib — retry to `stamina`, observability to `structlog` + OpenTelemetry, runtime contract to `beartype`, boundary validation to `pydantic.validate_call`, memoization to `functools.cache`, timeout and scope to `anyio`; aspects materialize policy at definition time, preserve signature, return `Result` instead of raising, stack in deterministic order (cache outside the rail, never caching `Error`), and collapse 2-4 wrappers into one parameterized factory.
-- Composition: `pipe`/`compose`/`curry_flip`, Kleisli `result.pipeline`, and `@effect.result` do-notation (`yield from`); config-driven pipelines fold via `compose(*steps)`; the seam where a dispatch surface returns a rail and downstream `.map`/`.bind` compose.
-- Async dispatch: the async surface is `async def -> Result[T, E]` (`@effect.result` is sync-only); timeout lifts to `Result` via `anyio.move_on_after`; `stamina` async retry raises at the boundary and converts to `Error`; fan-out runs through an `anyio.TaskGroup` with `except*` into one aggregate rail; `anyio.to_thread`/`to_process` offload sync handlers.
-- Collapse tests: a pressure-point scan proving N sibling entrypoints, ad-hoc wrappers, or string-dispatch chains collapse into one polymorphic surface, one parameterized aspect, or one typed table.
-
-[EXTERNAL_LIBS]:
-- `expression` (first-class): `pipe`/`compose`/`curry_flip`, `@tagged_union` for closed dispatch, `@effect.result`/`result.pipeline` for ROP composition, `catch` for boundary lift. `effect.result` is a class; `flow` and a standalone `Pipe` do not exist; `result.pipeline` lives in `expression.extra.result`.
-- `cyclopts` (first-class CLI dispatch): `App` is the command table, `@app.command` registers arms, `@app.meta.default` is the token-level interceptor, `Parameter`/`Group` own typed binding and validation, `result_action="return_value"` embeds the surface programmatically.
-- `stamina` retry, `structlog` + OpenTelemetry observability, `beartype` runtime contracts, `pydantic.validate_call` boundary validation, `anyio` scope/timeout/fan-out/offload, stdlib `functools` (`singledispatch`(method), `cache`, `wraps`, `Placeholder`) + `annotationlib`. Reject `wrapt`.
-- `plum-dispatch` admit ONLY for genuine N×M positional type-matrix dispatch (keyword args bypass it); not yet in `pyproject.toml`, so add it there before use.
-
-[ACCEPTANCE]:
-- Every dispatch surface is one polymorphic entrypoint returning a rail; no sibling-entrypoint proliferation, string dispatch, or `isinstance` ladder survives.
-- Each form is chosen by its discriminating contract; `match` owns closed in-repo domains, registries and `singledispatch` own open boundaries, `cyclopts` owns the CLI boundary, `plum` owns only true N×M.
-- Runtime dispatch carries a contract; violations convert to `Result` at the boundary and never raise inside domain flow.
-- Aspects bind to the admitted libs, materialize at definition time, preserve signature, and return `Result`; 2-4 wrappers collapse into one parameterized aspect with a stated stack order.
-- Async surfaces return `Result` and fan-out collapses to one aggregate rail; sync handlers offload through `anyio`.
-
-## [6]-[CURRENT_CONFLICT_RULE]
-
-When active docs and repository tool configuration disagree, the tool configuration controls executable code and the docs keep the target rule scoped.
-
-[SIGNATURES]:
-- Current code uses inline `**P` decorator parameters, exact return types, `Concatenate` when a leading context is real, and `functools.wraps`.
-- Imported `ParamSpec` is a historical spelling unless a checker or dependency boundary proves no inline form can express the signature.
-
-[IMPORTS]:
-- Current code uses module-scope named imports and no function-local import shims.
-- `lazy import` remains a target language form only after the formatter, linter, type checker, and runtime route admit it in tool configuration.
+[CONFLICT_RULES]:
+- When active docs and repository tool configuration disagree, tool configuration controls executable code and the docs keep the target rule scoped.
+- Signatures: current code uses inline `**P`, exact return types, `Concatenate` only for real leading context, and `functools.wraps`; imported `ParamSpec` is a historical spelling unless a checker or dependency boundary proves no inline form expresses the signature.
+- Imports: current code uses module-scope named imports and no function-local import shims; `lazy import` remains a target form until formatter, linter, type checker, and runtime configuration admit the syntax.
+- Typing floor: `@disjoint_base` is spelled from `typing` and payload extension bands use `extra_items=`; when an active checker rejects a floor spelling, tool configuration controls executable code and the page keeps the target spelling.

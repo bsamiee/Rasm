@@ -1,4 +1,4 @@
-# [PYTHON_DATA_SHAPES]
+# [PYTHON_SHAPES]
 
 Every Python shape must prove its lifecycle role, invariant owner, projection relation, and collapse test. The governing path is `Raw -> Payload -> Canonical owner -> Rail/effect -> Projection -> Egress`; choose role first, owner second, projection third. Stage names, function names, and return types agree with their stage: materialization returns the canonical owner, projection returns the boundary view, egress returns encoded or foreign material.
 
@@ -579,54 +579,3 @@ def patched(shape: Shape, raw: object, /) -> Result[Shape, ShapeFault]:
         note=patch.get("note", shape.note),
     )
 ```
-
-## [8]-[COLLAPSE_TESTS]
-
-Apply this lookup before adding a model, struct, dataclass, enum, protocol, payload, wrapper, alias, or helper. All matching rows apply.
-
-| [INDEX] | [SMELL]                    | [TARGET]                           | [EXIT]                      |
-| :-----: | :------------------------- | :--------------------------------- | :-------------------------- |
-|   [1]   | domain `dict[str, object]` | payload, ingress model, or owner   | domain APIs accept owners   |
-|   [2]   | payload after promotion    | adapter materialization            | no interior payload imports |
-|   [3]   | mirrored DTO/domain/wire   | canonical owner plus projections   | one invariant owner         |
-|   [4]   | duplicate token sets       | vocabulary plus remaps             | no domain `.value` dispatch |
-|   [5]   | one-field wrapper          | owner, vocabulary, or scalar       | independent invariant       |
-|   [6]   | protocol shell             | `Callable`, owner, family, or port | independent implementers    |
-|   [7]   | optional-field variant bag | closed or semi-closed family       | total fold                  |
-|   [8]   | provider-shaped interior   | seam adapter plus owner            | provider names stop         |
-|   [9]   | domain revalidation        | construction gate                  | no domain validator pass    |
-|  [10]   | `model_dump` key surgery   | explicit projection row            | field map owned once        |
-|  [11]   | per-request adapter/codec  | module-level singleton             | no hot-path rebuild         |
-|  [12]   | mutable staging map        | patch plus replacement owner       | mutation stops at gate      |
-
-## [9]-[VALIDATION]
-
-[FILE]:
-- The page gives implementation law, not a research digest, package manual, or essay.
-- Every section changes an implementation decision, and examples use neutral placeholders only.
-- Indexed tables stay narrow; row detail lives in cards.
-- Snippets sit beside the rule they prove and no generic reference-snippet bucket remains.
-
-[SHAPES]:
-- Every admitted shape has a lifecycle role.
-- Every invariant has exactly one owner.
-- Payloads stop at promotion; projections derive from canonical or map inward through adapters.
-- Stage-named snippets return the matching stage artifact.
-- Every closed family has one vocabulary and total folds.
-- Closed-family folds match concrete members or discriminated variants, not guard-only cases.
-- Semi-closed families have typed extension bands or extension variants; open families are justified by foreign extension.
-
-[BOUNDARIES]:
-- Canonical owners do not import projection engines, provider payloads, settings readers, codec singletons, or foreign interiors.
-- Pydantic and msgspec are lifecycle owners, not preferences; aliases, wire tokens, schema versions, command strings, and provider names stay at boundaries.
-- Exceptions from validation and codecs map at boundary owners.
-
-[ABSENCE_AND_FAILURE]:
-- Omitted key, valid `None`, sentinel omission, wire unset/null, explicit state, `Option.none`, and `Result.Error` are distinct.
-- Sentinels are module-global and never serialized; `None` is not failure; `Option` does not hide validation errors.
-
-[COLLAPSE]:
-- Duplicate schema/model/class/enum/protocol/payload surfaces are collapsed before implementation.
-- Replacement examples show both trusted owner swaps and revalidated patch deltas.
-- Wrappers, aliases, constants, helpers, and tiny classes remain only when they add an invariant or boundary role.
-- `dict[str, object]`, provider-shaped interiors, string dispatch, and mutable staging maps are eliminated or confined to their owner stage.

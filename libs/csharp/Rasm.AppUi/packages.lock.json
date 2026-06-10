@@ -32,16 +32,6 @@
           "Avalonia": "12.0.0"
         }
       },
-      "Avalonia.Controls.TreeDataGrid": {
-        "type": "Direct",
-        "requested": "[12.0.2, )",
-        "resolved": "12.0.2",
-        "contentHash": "sXl2ed3SzYMUexZeaVgSKnqCfdeYNizydS/L+w/BUMF8dWV/UBmKbJa5SY0UbK+80xDRvu+xIWO4inw0VoZi0Q==",
-        "dependencies": {
-          "Avalonia": "12.0.0",
-          "AvaloniaUI.Licensing": "3.1.1"
-        }
-      },
       "Avalonia.Desktop": {
         "type": "Direct",
         "requested": "[12.0.4, )",
@@ -334,11 +324,6 @@
           "Avalonia.Skia": "12.0.4"
         }
       },
-      "AvaloniaUI.Licensing": {
-        "type": "Transitive",
-        "resolved": "3.1.1",
-        "contentHash": "8Dqa1R2MEa8QYMFDUGP+euLGTI/j88oRKQrN0gmwtpjnvrCDtdhVe+xcW8PY/NysICvLMvYgAyTPw6Mt4LOGsw=="
-      },
       "bodong.PropertyModels": {
         "type": "Transitive",
         "resolved": "12.0.0",
@@ -377,6 +362,11 @@
           "SkiaSharp": "2.88.9",
           "SkiaSharp.HarfBuzz": "2.88.9"
         }
+      },
+      "Microsoft.Extensions.DependencyInjection.Abstractions": {
+        "type": "Transitive",
+        "resolved": "10.0.9",
+        "contentHash": "g41l/30G3K4B/d/L8kjux0+30e27c8D0FVQ/PFCpbekgfDpj9mnDhieP67EqXWvl1EWNeZh2rpR4F5B/jcDOHA=="
       },
       "Microsoft.Win32.SystemEvents": {
         "type": "Transitive",
@@ -574,6 +564,15 @@
           "Thinktecture.Runtime.Extensions": "[10.2.0, )"
         }
       },
+      "rasm.apphost": {
+        "type": "Project",
+        "dependencies": {
+          "LanguageExt.Core": "[5.0.0-beta-77, )",
+          "Microsoft.Extensions.Logging.Abstractions": "[10.0.9, )",
+          "NodaTime": "[3.3.2, )",
+          "Thinktecture.Runtime.Extensions": "[10.2.0, )"
+        }
+      },
       "rasm.grasshopper": {
         "type": "Project",
         "dependencies": {
@@ -658,6 +657,21 @@
         "requested": "[0.11.6, )",
         "resolved": "0.11.6",
         "contentHash": "NdNWGDiZ6eS/Mf/9+QHR91cj1K7Hy+PX9yrHI/zM7xFYuj9IWT2uxtB6sCHjrnxAeLV9fut1R6zHDUGKX6f9lQ=="
+      },
+      "Microsoft.Extensions.Logging.Abstractions": {
+        "type": "CentralTransitive",
+        "requested": "[10.0.9, )",
+        "resolved": "10.0.9",
+        "contentHash": "9S/DFt4cohlMPpzIxjG6kk0L8MuN2vDm9pbMCulxtJzzk82oJHVLBd8vuQxaPskaYQwKqmFmbannf5eoChgjYg==",
+        "dependencies": {
+          "Microsoft.Extensions.DependencyInjection.Abstractions": "10.0.9"
+        }
+      },
+      "NodaTime": {
+        "type": "CentralTransitive",
+        "requested": "[3.3.2, )",
+        "resolved": "3.3.2",
+        "contentHash": "8hI5b1ENTKQCaPyU6YHpYiMwj5aJKZ4Mnv0bLbhk65Dd44gQsXenUohMzyiIphANa8LdW6vcOvpY/l1urvx4dw=="
       },
       "Tmds.DBus.Protocol": {
         "type": "CentralTransitive",

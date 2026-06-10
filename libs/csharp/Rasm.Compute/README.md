@@ -1,37 +1,33 @@
 # [RASM_COMPUTE]
 
-`Rasm.Compute` is the measured-compute platform for long-running, tensor, model, and remote execution lanes. It wraps the existing `Rasm.Vectors` tensor/numeric substrate in `Eff<RT,ExecutionReceipt>` — adding timing, allocation, cancellation, substrate selection, and progress — without duplicating a single `TensorPrimitives` kernel that `Rasm.Vectors` already owns.
+`Rasm.Compute` is the measured execution package for vector, tensor, model, and remote compute lanes. It owns execution intent, substrate selection doctrine, typed receipts, progress observation, cancellation use, measurement, benchmark evidence, and lane policy.
 
 ## [1]-[PURPOSE]
 
-`Rasm.Compute` coordinates substrate selection, cancellation/progress, benchmark receipts, model lifecycle, remote dispatch, and failure taxonomy for work that outgrows direct `Rasm` operations. `Rasm.Vectors` tensor/numeric algorithms are the default substrate; Compute calls them and does not re-implement them.
+Compute wraps existing kernel and vector operations with runtime measurement, cancellation, substrate selection, progress, and receipts. `Rasm.Vectors` owns numeric algorithms; Compute selects vector calls, tensor primitives, ONNX/CoreML models, and remote companion work through one execution rail.
 
-It is not a tensor wrapper, ONNX Runtime wrapper, gRPC wrapper, job framework, acceleration claim, or replacement for existing `Rasm`/`Rasm.Vectors` numerics.
+It is not a tensor wrapper, ONNX wrapper, gRPC wrapper, ML.NET training pipeline, job framework, queue owner, or replacement for `Rasm`/`Rasm.Vectors`.
 
 ## [2]-[STATUS]
 
-| [INDEX] | [SURFACE]            | [STATE]                                                         |
-| :-----: | -------------------- | --------------------------------------------------------------- |
-|   [1]   | Project file         | Create in Phase 0                                               |
-|   [2]   | Production API       | In progress                                                     |
-|   [3]   | Package references   | Add centrally in Phase 0                                        |
-|   [4]   | Compute substrate    | Rasm.Vectors default; ONNX Runtime model lane; gRPC remote lane |
-|   [5]   | Performance evidence | Per measured input class                                        |
+| [INDEX] | [SURFACE]          | [STATE]                                    |
+| :-----: | ------------------ | ------------------------------------------ |
+|   [1]   | Project file       | Present in `Workspace.slnx`                |
+|   [2]   | Production source  | Compute rail contract defined              |
+|   [3]   | Package references | Project-reference based setup              |
+|   [4]   | Runtime spine      | Consumes AppHost-owned runtime policy      |
+|   [5]   | Benchmarks         | Routed through `tests/csharp/_benchmarks`  |
 
-Add packages centrally at the newest viable versions during Phase 0. Do not pin version numbers in documentation.
+## [3]-[CONSTRAINTS]
 
-## [3]-[MANUAL]
-
-| [INDEX] | [FILE]             | [READ_FOR]                                                                             |
-| :-----: | ------------------ | -------------------------------------------------------------------------------------- |
-|   [1]   | `ARCHITECTURE.md` | Type shapes, substrate selection, packages, boundary rules, failure model, measurement |
-|   [2]   | `ROADMAP.md`       | Build sequence and scoped lanes                                                        |
-
-## [4]-[CONSTRAINTS]
-
-- Substrate choice stays internal to Compute operations; `Rasm.Vectors` owns algorithm bodies.
-- Speed and allocation claims carry benchmark evidence under `.artifacts/compute/benchmarks/`.
-- Models enter only as named, versioned, lifecycle-managed assets keyed by `ModelKey`.
-- Remote compute runs only through an out-of-process companion contract.
-- `ComputeRequest` is defined in the shared-contracts project, not here.
-- `IObservable<ComputeProgress>` is cold; `Subject` is internal; `OnCompleted` fires on success and cancel; `OnError` never fires — faults surface via receipt only. GH2 components with no subscriber incur zero cost. AppUi consumes via `ObserveOn(RasmUiScheduler.RxScheduler)`; Compute never calls `ObserveOn`.
+- Compute owns execution intent, substrate selection, typed execution receipts, progress contracts, cancellation handling, measurement, and allocation classification.
+- Compute is built as a complete execution package for host-submitted work, AppHost-dispatched work, companion processors, sidecar services, model execution, remote execution, benchmark lanes, and UI-observed progress through the same execution rail.
+- AppHost owns dispatch, drain, runtime composition, outbound retry ownership, and shutdown coordination.
+- Persistence owns deterministic model-result cache and benchmark artifact index storage.
+- AppUi observes progress only; UI scheduling belongs to AppUi.
+- Folder architecture is rail-first: vector, tensor, staging, model, remote, units, stream pooling, cache keys, benchmark evidence, progress, and failures add substrate rows, typed intent fields, receipt cases, and measurement records instead of adding lane-specific service families or result systems.
+- Substrate, model identity, endpoint identity, provider options, payload bounds, deadline, allocation class, unit policy, and progress observation are parameterized inputs to the execution rail, not hardcoded provider branches.
+- Progress is subscription-gated. Compute does not call `ObserveOn` or allocate Rx state when progress is unobserved.
+- `System.Numerics.Tensors` is the tensor-lane package; it is not an in-box .NET 10 API in this repo.
+- ONNX Runtime/CoreML is the model lane. Compute does not use ML.NET or `MLContext`.
+- gRPC/protobuf is the remote companion lane. `.proto` generation and `Grpc.Tools` belong to proto-owning source projects.

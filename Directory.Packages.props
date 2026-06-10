@@ -22,18 +22,30 @@
         <PackageVersion Include="System.Drawing.Common" Version="10.0.9" />
     </ItemGroup>
 
-    <!-- App UI: SkiaSharp 3.119.4 == Avalonia.Skia's exact dependency, unified across LiveCharts2,
-         Svg.Skia, and the HarfBuzz shaper. RhinoWIP 9 ships NO managed SkiaSharp; libSkiaSharp.dylib is
-         C++-only inside RhCore. macOS dlopen coalesces by install name and SkiaSharp has no symbol
-         isolation, so two different-major copies cannot co-load. AppUi native gate:
-         confirm Rhino's bundled libSkiaSharp major; if it matches, reference SkiaSharp.NativeAssets.macOS
-         with <ExcludeAssets>native</ExcludeAssets> to share Rhino's copy (a mismatch is a hard build gate).
-         HarfBuzzSharp.NativeAssets.macOS is carried unconditionally. -->
+    <ItemGroup Label="App Host">
+        <PackageVersion Include="Microsoft.Extensions.Logging.Abstractions" Version="10.0.9" />
+        <PackageVersion Include="NodaTime" Version="3.3.2" />
+    </ItemGroup>
+
+    <ItemGroup Label="Persistence">
+        <PackageVersion Include="EFCore.NamingConventions" Version="10.0.1" />
+        <PackageVersion Include="Microsoft.Data.Sqlite" Version="10.0.9" />
+        <PackageVersion Include="Microsoft.EntityFrameworkCore.Sqlite" Version="10.0.9" />
+        <PackageVersion Include="Microsoft.Extensions.Compliance.Redaction" Version="10.7.0" />
+        <PackageVersion Include="NodaTime.Serialization.SystemTextJson" Version="1.4.0" />
+        <PackageVersion Include="SQLitePCLRaw.bundle_e_sqlite3" Version="3.0.3" />
+        <PackageVersion Include="System.IO.Hashing" Version="10.0.9" />
+    </ItemGroup>
+
+    <!-- App UI: central pins force one restored SkiaSharp/HarfBuzz runtime family for Avalonia,
+         LiveCharts2, Svg.Skia, and retained text shaping. LiveCharts2 and SVG packages remain
+         compatibility participants with lower dependency floors, not exact-version peers. AppUi carries
+         macOS native Skia/HarfBuzz assets and proves the runtime load identity; host-native sharing is
+         not an active package claim. -->
     <ItemGroup Label="App UI">
         <PackageVersion Include="Avalonia" Version="12.0.4" />
         <PackageVersion Include="Avalonia.Controls.ColorPicker" Version="12.0.4" />
         <PackageVersion Include="Avalonia.Controls.DataGrid" Version="12.0.0" />
-        <PackageVersion Include="Avalonia.Controls.TreeDataGrid" Version="12.0.2" />
         <PackageVersion Include="Avalonia.Desktop" Version="12.0.4" />
         <PackageVersion Include="Avalonia.Fonts.Inter" Version="12.0.4" />
         <PackageVersion Include="Avalonia.Themes.Fluent" Version="12.0.4" />

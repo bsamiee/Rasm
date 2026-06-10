@@ -1,6 +1,6 @@
 # [CSHARP_TESTING]
 
-This folder routes C# proof-tool choices. Package versions and graph state live in [build and packages](../platform/build-and-packages.md); shared testkit behavior lives with the test source owners.
+This folder routes C# proof-tool choices. Package versions and graph state live in the central package manifest; shared testkit behavior lives with the test source owners.
 
 ## [1]-[CHOOSE]
 

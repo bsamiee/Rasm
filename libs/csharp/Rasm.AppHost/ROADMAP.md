@@ -1,63 +1,49 @@
 # [RASM_APPHOST_ROADMAP]
 
-This roadmap sequences the build. The runtime platform is built fully from the foundation; external-hop and companion lanes integrate with the concern that owns them.
+`Rasm.AppHost` is built through capability-backed runtime rails. Package lanes follow owner responsibility; central pins are executable graph facts.
 
-## [1]-[PHASE_0]
+## [1]-[CAPABILITY_RAILS]
 
-- Add every core package to root `Directory.Packages.props` at the newest viable versions; project references stay versionless; no unusual pinning. In-process: `LanguageExt.Core`, `OpenTelemetry.Api`, `Microsoft.Extensions.Logging.Abstractions`, `NodaTime`, `FluentValidation`, `Microsoft.Extensions.Http.Resilience`. In-box no-pin: `System.Threading.Channels`, `System.Threading.Tasks.Dataflow`, `System.Diagnostics.DiagnosticSource`, `TimeProvider`. Companion: `Microsoft.Extensions.Hosting`, `Microsoft.Extensions.DependencyInjection`, `Microsoft.Extensions.Configuration` (+ `.Binder` + `.Json`), `Microsoft.Extensions.Options` (+ `.ConfigurationExtensions` + `.DataAnnotations`), `Microsoft.Extensions.Diagnostics`, `OpenTelemetry.Instrumentation.Runtime`, `OpenTelemetry.Instrumentation.Process`, `OpenTelemetry.Exporter.OpenTelemetryProtocol`, `Serilog` (+ `.Sinks.OpenTelemetry` + `.Enrichers.Span` + `.Enrichers.Thread` + `.Enrichers.Environment`), `Scrutor`, `FluentValidation.DependencyInjectionExtensions`, `Microsoft.Extensions.ObjectPool` (conditional).
-- Create `Rasm.AppHost.csproj`, wire into `Workspace.slnx` and the central build, resolve host assemblies as sibling libs do. Target `net10.0` (not `net10.0-windows`).
-- Scaffold `Runtime/`, `Flow/`, root `AppHost.cs`, `Telemetry.cs` skeleton and canonical section order.
-- Define `RasmRuntime` sealed record with all fields per §4.1 of `ARCHITECTURE.md` — including `UiScheduler: RasmUiScheduler` (AppUi-owned sealed record) and `StoreOps: StoreDispatch` (Persistence-exported capability record); define `BootReceipt`, `DrainHandle`, `LifecycleReceipt` DU, `HealthSnapshot`, `RasmConfig`, `ObservabilitySlot` per §4.2–§4.6.
+| [INDEX] | [RAIL]             | [EXIT_STATE]                                                                                  |
+| :-----: | ------------------ | --------------------------------------------------------------------------------------------- |
+|   [1]   | Runtime spine      | One runtime surface carries cancellation, time, clock, ports, config                          |
+|   [2]   | Neutral ports      | UI, store, compute, support, health, and observability adapt through one boundary             |
+|   [3]   | Lifecycle states   | Boot, ready, running, degraded, draining, unloaded, faulted, and support capture are explicit |
+|   [4]   | Drain policy       | Deadline, cancellation, operation fencing, and disposal order are executable                  |
+|   [5]   | Health projection  | Health derives from typed capability states and semantic timestamps                           |
+|   [6]   | Degradation policy | Degradation is config data and receipt output, not inline branching                           |
+|   [7]   | Observability      | BCL `ActivitySource` and `Meter` identities are stable                                        |
 
-Phase 0 is complete when restore and build pass clean.
+## [2]-[COMPANION_RAILS]
 
-## [2]-[RUNTIME_CORE]
+| [INDEX] | [RAIL]              | [CONTRACT]                                                              |
+| :-----: | ------------------- | ----------------------------------------------------------------------- |
+|   [1]   | Generic Host        | Companion executable/service owns process lifecycle                     |
+|   [2]   | DI/Scrutor          | Companion composition root scans/decorates real services                |
+|   [3]   | Config/options      | Companion owner binds and validates runtime config                      |
+|   [4]   | Health checks       | Companion owner exposes `Microsoft.Extensions.Diagnostics.HealthChecks` |
+|   [5]   | Serilog/OTel export | Companion exporter root owns sinks/providers                            |
+|   [6]   | HTTP resilience     | One typed outbound HTTP hop owns `Microsoft.Extensions.Http.Resilience` |
+|   [7]   | Object pooling      | Allocation proof identifies a pooled object family                      |
 
-Build the runtime rail with its core mechanisms integrated:
+Companion packages form one bootstrap rail: `Microsoft.Extensions.Hosting`, DI/config/options packages, `Scrutor`, health checks, Serilog, OpenTelemetry, and HTTP resilience. Companion processes, hidden sidecars, bridge services, test hosts, and service-backed integrations use the same lifecycle states, drain policy, health projection, support evidence, and telemetry correlation as in-process AppHost composition.
 
-| [INDEX] | [SURFACE]                       | [MECHANISM]                                                                  |
-| :-----: | ------------------------------- | ---------------------------------------------------------------------------- |
-|   [1]   | Runtime profile and lifecycle   | `RasmRuntime` sealed record; `Eff.runtime<RT>()`; no `Has<RT,_>`             |
-|   [2]   | Boot entry                      | `AppHost.Boot(token, timeProvider, uiScheduler, …capabilities)` → `BootReceipt` |
-|   [3]   | Root cancellation               | `CancellationTokenSource` linked to `RhinoApp.Closing`; `OnShutdown` = teardown only |
-|   [4]   | Bounded in-process flow         | `Channel<ComputeRequest>` with `BoundedChannelFullMode.Wait`; capacity = named RT field |
-|   [5]   | Retry/repeat cadence            | LanguageExt `Schedule`                                                       |
-|   [6]   | Time                            | `TimeProvider` for timers/deadlines; `NodaTime.IClock` for persisted instants |
-|   [7]   | Drain                           | `DrainHandle`; `TimeProvider`-based deadline 3–5 s; `InvokeOnUiThread` fence before UI `OnCompleted` |
-|   [8]   | Telemetry                       | `ObservabilitySlot` in `Telemetry.cs`; `OpenTelemetry.Api` in-process only; one fused surface |
-|   [9]   | In-process logging              | `ILogger` (`[LoggerMessage]`); `NullLogger` default; Serilog at companion root |
-|  [10]   | Typed config                    | `RasmConfig` sealed record; bound at `Boot` (in-process: value object; companion: `IOptions<RasmConfig>`) |
-|  [11]   | Health surface                  | `HealthSnapshot` — synchronous, projection-only; no HTTP, no middleware       |
-|  [12]   | Degradation policy              | `LifecycleReceipt.Faulted`; named policy DU (`KeepRunning`/`DrainAndReload`/`UnloadPlugin`) driven by `RasmConfig` |
-|  [13]   | Support-bundle trigger          | `SupportBundleRequested` event → Persistence export signal; window/size-cap from `RasmConfig` |
+## [3]-[IMPLEMENTATION_DOCTRINE]
 
-Runtime operations return typed `LifecycleReceipt` DU cases; correlate `DiagnosticReceipt` (AppUi-owned) without redefining it.
+- AppHost source never references AppUi, Compute, Persistence, Rhino, or Grasshopper implementation assemblies.
+- AppUi, Compute, and Persistence adapt to AppHost runtime policy through narrow ports.
+- Rhino/GH2 app roots compose AppHost and host-boundary packages; AppHost never calls native host APIs.
+- Runtime packages return typed receipts. Generic `IReceipt` ledgers are not introduced.
+- State machines are closed and transition-driven. Independent booleans, string status fields, and parallel lifecycle enums are rejected.
+- Dispatch is polymorphic and table-driven where variants grow; branching clusters collapse into one rail before new entrypoints appear.
+- Package-specific APIs stay behind the rail that owns the package. Public runtime vocabulary stays provider-neutral.
 
-## [3]-[SCOPED_LANES]
+## [4]-[VALIDATION]
 
-| [INDEX] | [LANE]                            | [INTEGRATES_WITH]                    |
-| :-----: | --------------------------------- | ------------------------------------ |
-|   [1]   | Generic Host / DI / Scrutor       | Companion/test/bridge process        |
-|   [2]   | Config / Options pipeline         | Companion root; in-process = value object |
-|   [3]   | Serilog / OpenTelemetry SDK exporters | Support bundle or telemetry sink; companion root only |
-|   [4]   | OTel runtime/process instrumentation | Companion root only              |
-|   [5]   | HTTP resilience                   | Outbound typed `HttpClient` hop      |
-|   [6]   | FluentValidation DI extensions    | Companion root validator scanning    |
-|   [7]   | Dataflow                          | Multi-stage topology beyond Channels |
-|   [8]   | ObjectPool                        | Conditional; when allocation profiling warrants |
-
-## [4]-[RUNTIME_EVIDENCE]
-
-Runtime claims are scoped to proven profiles. Owner-local receipts identify:
-
-- Startup/drain/unload receipt.
-- Cancellation (via `RhinoApp.Closing`) and fault propagation.
-- Scope disposal.
-- Channel backpressure or Dataflow topology proof.
-- Telemetry correlation and support-bundle receipt.
-- Outbound HTTP resilience ownership on external hops.
-- `InvokeOnUiThread` fence before UI observable `OnCompleted`.
-- `TimeProvider`-based drain deadline (3–5 s); forceful cancel proof.
-- `HealthSnapshot` query at boot and after Persistence/Compute fault.
-- Degradation policy applied on sibling fault.
-- GH2 agnosticism verified: no GH2 API in AppHost source.
+| [INDEX] | [GATE]       | [REQUIRED_STATE]                                                |
+| :-----: | ------------ | --------------------------------------------------------------- |
+|   [1]   | Restore      | AppHost project lockfile is current                             |
+|   [2]   | Build        | AppHost package graph builds                                    |
+|   [3]   | Architecture | AppHost remains below implementation app packages               |
+|   [4]   | Package      | Direct/transitive package checks are clean                      |
+|   [5]   | Runtime      | Rhino/GH2 scenario rail proves drain behavior                   |

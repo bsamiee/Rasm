@@ -1,6 +1,6 @@
 # [RASM_APPUI_ARCHITECTURE]
 
-`Rasm.AppUi` is the product UI engine above `Rasm.Rhino/UI` and `Rasm.Grasshopper/UI`. It owns typed app intent, retained panels, screens, commands, live projections, charts, inspectors, theme, typography, icon assets, diagnostics, and UI receipts through one rail while host-native behavior stays in the Rhino and GH2 UI rails.
+`Rasm.AppUi` is the product UI engine above `Rasm.Rhino/UI` and `Rasm.Grasshopper/UI`. It owns typed app intent, retained panels, screens, commands, live projections, charts, inspectors, theme, typography, assets, diagnostics, and UI lifecycle evidence through one rail while host-native behavior stays in the Rhino and GH2 UI rails.
 
 ## [1]-[SYSTEM_SCOPE]
 
@@ -16,7 +16,7 @@ config:
     cycleBreakingStrategy: GREEDY_MODEL_ORDER
 ---
 flowchart LR
-    accTitle: Rasm AppUi product UI engine
+    accTitle: AppUi product UI engine
     accDescr: Product intent enters AppUi, which owns retained UI composition and delegates host behavior to Rhino and Grasshopper while observing AppHost, Persistence, and Compute.
     Product["Plugin/app intent"] --> AppUi["Rasm.AppUi"]
     AppUi --> RhinoUi["Rasm.Rhino/UI"]
@@ -26,374 +26,254 @@ flowchart LR
     Compute["Rasm.Compute"] --> AppUi
 ```
 
-Text equivalent: product and plugin intent enters `Rasm.AppUi`; AppUi composes retained UI state and delegates host behavior to `Rasm.Rhino/UI` and `Rasm.Grasshopper/UI`; runtime scheduling, durable state, and compute progress flow through `Rasm.AppHost`, `Rasm.Persistence`, and `Rasm.Compute`.
+Text equivalent: product and plugin intent enters AppUi; AppUi composes retained UI state and delegates host behavior to `Rasm.Rhino/UI` and `Rasm.Grasshopper/UI`; runtime scheduling, durable state, and compute progress flow through AppHost, Persistence, and Compute.
 
-| [INDEX] | [ITEM]                | [STATE]                                                 |
-| :-----: | --------------------- | ------------------------------------------------------- |
-|   [1]   | Folder                | Active build                                            |
-|   [2]   | `.csproj`             | Present in `Workspace.slnx`                             |
-|   [3]   | Production C#         | Source rails pending                                    |
-|   [4]   | Package references    | Active direct; every pinned AppUi package is referenced |
-|   [5]   | Host runtime evidence | Owner-local scenario receipts                           |
+| [INDEX] | [ITEM]                | [STATE]                                                                  |
+| :-----: | --------------------- | ------------------------------------------------------------------------ |
+|   [1]   | Folder                | Active package setup                                                     |
+|   [2]   | `.csproj`             | Present in `Workspace.slnx`                                              |
+|   [3]   | Production C#         | Unified UI rail contract defined                                         |
+|   [4]   | Package references    | Active direct, inherited global, closure, and rejected states classified |
+|   [5]   | Host runtime evidence | Owner-local scenario receipts required                                   |
 
 ## [2]-[PUBLIC_RAIL_CONTRACT]
 
 | [INDEX] | [CONCEPT]             | [OWNS]                                                                 | [DOES_NOT_OWN]                   |
 | :-----: | --------------------- | ---------------------------------------------------------------------- | -------------------------------- |
-|   [1]   | Shell                 | Product shell state, route, nav stack, visibility, mode                | Native window parenting          |
+|   [1]   | Shell                 | Product shell, companion shell, sidecar shell, route, nav stack, visibility, mode | Native window parenting          |
 |   [2]   | Screen                | View identity, activation, validation, command availability            | Toolkit ViewModel public surface |
-|   [3]   | Command               | User action intent, `CanExecute`, execution receipt                    | Rhino/GH2 undo mutation          |
+|   [3]   | Command               | User action intent, availability, execution receipt                    | Rhino/GH2 undo mutation          |
 |   [4]   | Input                 | Keyboard, pointer, drag-drop, clipboard intent                         | Global static input hooks        |
 |   [5]   | Live View             | Read-only UI projection from AppHost/Persistence/Compute streams       | DynamicData public exposure      |
-|   [6]   | Visual Request        | HUD, preview, overlay, thumbnail, and scene-mark intent                 | Toolkit-owned viewport drawing   |
+|   [6]   | Visual Request        | HUD, preview, overlay, thumbnail, and scene-mark intent                | Toolkit-owned viewport drawing   |
 |   [7]   | Chart / Dashboard     | Retained data-viz panels, axes, series, legends, interaction           | Viewport overlay rendering       |
-|   [8]   | Table / Tree          | Flat tables, hierarchical tables, row selection, sort/filter state      | Persistence query ownership      |
+|   [8]   | Table / Hierarchy     | Flat tables, hierarchical tables, row selection, sort/filter state     | Persistence query ownership      |
 |   [9]   | Inspector             | Object/property inspection, typed editors, validation, palette editing | Ad hoc property editors          |
 |  [10]   | Theme                 | Control themes, resource tokens, dark/light/high-contrast variants     | Host application theme ownership |
 |  [11]   | Typography            | Font roles, fallback chain, numeric/code/log text policy               | Single-font UI policy            |
 |  [12]   | Icon / Asset Catalog  | Path icons, SVG assets, provider-generated catalogs, custom assets     | Provider-branded public API      |
 |  [13]   | Dialog / Notification | In-panel modal, confirmation, toast, progress, support prompt surfaces | Independent `NSWindow` dialogs   |
 |  [14]   | Accessibility         | Automation names, help text, peers, keyboard reachability              | Platform accessibility runtime   |
-|  [15]   | Diagnostic Receipt    | UI lifecycle, focus, scale, disposal, screenshot, support evidence     | Generic receipt ledger           |
+|  [15]   | Diagnostic Evidence   | UI lifecycle, focus, scale, disposal, screenshot, support evidence     | Generic receipt ledger           |
 
 The public entry accepts typed app-surface operations as data and returns typed outcomes/receipts. Avalonia, ReactiveUI, DynamicData, SkiaSharp, and package-specific types stay internal unless a host API requires them at the boundary.
 
 ## [3]-[HOST_DELEGATION]
 
-| [INDEX] | [APPUI_INTENT] | [RHINO_RAIL]                                     | [GH2_RAIL]                         | [FORBIDDEN_DUPLICATE]       |
-| :-----: | -------------- | ------------------------------------------------ | ---------------------------------- | --------------------------- |
-|   [1]   | Window/shell   | `RhinoUi.Use`, `UiIntent.Window`, `UiWindowSpec` | Editor/canvas rails as applicable  | New parent-window resolver  |
-|   [2]   | Panel          | `PanelOp`                                        | GH2 editor surface rail            | Parallel panel registry     |
-|   [3]   | Repaint        | `RedrawTarget`, Rhino UI paint rails             | `RepaintRequest`, paint hook rails | Manual redraw scheduler     |
-|   [4]   | Host scope     | Rhino document scope                             | GH2 document/canvas scope          | Global static UI context    |
-|   [5]   | Visuals        | `UiHud`, `UiCanvas`, marks/surfaces              | `DrawPlan`, `PaintScope`           | Toolkit-first host renderer |
-|   [6]   | Undo/redo      | Host undo state and mutation rail                | GH2 document mutation rail         | AppUi undo stack            |
-|   [7]   | Lifecycle      | Host rail disposal receipts                      | Subscription and hook disposal     | AppUi-owned host teardown   |
+Host delegation maps retained AppUi intent to the native rail that performs the host operation.
+
+| [INDEX] | [APPUI_INTENT] | [RHINO_RAIL]           | [GH2_RAIL]             | [REJECT]        |
+| :-----: | -------------- | ---------------------- | ---------------------- | --------------- |
+|   [1]   | Window/shell   | window spec and parent | canvas chrome intent   | parent resolver |
+|   [2]   | Panel          | panel operation        | event and chrome slots | panel registry  |
+|   [3]   | Repaint        | redraw target          | repaint request        | redraw schedule |
+|   [4]   | Host scope     | document scope         | document/canvas scope  | static context  |
+|   [5]   | Visuals        | HUD and canvas marks   | canvas paint hooks     | toolkit render  |
+|   [6]   | Undo/redo      | undo and mutation rail | document mutation rail | AppUi stack     |
+|   [7]   | Lifecycle      | disposal receipts      | subscription disposal  | host teardown   |
+
+Rhino rail examples include `RhinoUi.Use`, `UiIntent.Window`, `UiWindowSpec`, `PanelOp`, `RedrawTarget`, `UiHud`, and `UiCanvas`. GH2 rail examples include `GhUi.Canvas`, `GhUi.CanvasChrome`, `GhUi.Event`, `GrasshopperUiIntent`, `RepaintRequest`, and `Paint.Hook`.
 
 macOS support means coexistence inside RhinoWIP/GH2, not generic desktop success.
 
 > [!CAUTION]
-> Avalonia owns panel, dialog, and companion-window surfaces only. It never renders over the native viewport: native content composites above Avalonia, so HUDs and marks over the 3D scene render through the Rhino/GH display conduit only. AppUi SkiaSharp is thumbnails, retained charts, SVG assets, and offscreen draw only; viewport-overlay SkiaSharp lives in the Rhino/GH display conduit.
+> Avalonia owns retained panels, dialogs, companion windows, and sidecar shells. It never renders over the native viewport: native content composites above Avalonia, so HUDs and marks over the 3D scene render through the Rhino/GH display conduit only. AppUi SkiaSharp is thumbnails, retained charts, SVG assets, custom visuals, and offscreen draw only; viewport-overlay SkiaSharp lives in the Rhino/GH display conduit.
 
 > [!CAUTION]
 > Embedding rules:
 - `MacOSPlatformOptions.DisableAvaloniaAppDelegate = true` is set before any Avalonia surface initializes.
 - `CreateEmbeddableTopLevel()` is the retained-panel entry; `CreateEmbeddableWindow()` is not used on macOS.
-- TFM is plain `net10.0`; NSView reparenting is an isolated P/Invoke shim over Avalonia `TryGetPlatformHandle()` and the Eto native handle.
+- TFM is plain `net10.0`; NSView reparenting is isolated over Avalonia platform handles and the Eto native handle.
 - Software rendering validates embedding before the Metal path.
-- Avalonia embeds as a child NSView inside the host `RasmPanel`; independent `NSWindow` surfaces are not AppUi primitives.
-- `PanelHidden` resigns first responder and detaches Avalonia content before Eto disposal.
-- `PanelShown` restores content and first responder.
-- `NSWindowDidChangeBackingProperties` and `WhenActivated` refresh Retina scale.
-- `TopLevel.Closed` completes before base dispose.
-- GH2-Avalonia retained embedding starts only after a GH2 dockable panel-host API exists and the GH2 UI rail owns the host extension. Until then, GH2 surfaces are component input panels, toolbars, canvas paint hooks, and transient popups.
+- Avalonia embeds as a child NSView inside the host panel; independent `NSWindow` surfaces are not AppUi primitives.
+- Hidden panels resign first responder and detach Avalonia content before Eto disposal.
+- Shown panels restore content and first responder.
+- Backing-property and activation events refresh Retina scale.
+- Retained surface closed/disposed events complete before host panel disposal.
+- GH2 retained UI uses existing GH2 canvas, popup, toolbar, component-panel, and overlay surfaces through `GhUi.Canvas`, `GhUi.CanvasChrome`, `GhUi.Event`, `GrasshopperUiIntent`, `RepaintRequest`, and `Paint.Hook`. A GH2 dockable retained-panel host is implemented as one host adapter over the same shell/screen/command/live/theme/asset rail.
 
 ## [4]-[PACKAGE_MATRIX]
 
 Version pins live in `Directory.Packages.props`; project references stay versionless. The AppUi package graph is one coupled runtime matrix, not independent package experiments.
 
-| [INDEX] | [PACKAGE]                               | [ROLE]                                                                                             |
-| :-----: | --------------------------------------- | -------------------------------------------------------------------------------------------------- |
-|   [1]   | Host Eto / Rhino.UI assemblies          | Host shell, parent, modal, panel, focus, and native handle truth                                   |
-|   [2]   | `Avalonia`                              | Retained app UI surface                                                                            |
-|   [3]   | `Avalonia.Desktop`                      | macOS backend and embeddable top-level support                                                     |
-|   [4]   | `Avalonia.Themes.Fluent`                | Official base theme and control-template root                                                      |
-|   [5]   | `Avalonia.Fonts.Inter`                  | Bundled UI text face and initial default font collection                                           |
-|   [6]   | `Avalonia.Controls.DataGrid`            | Flat tabular surfaces                                                                              |
-|   [7]   | `Avalonia.Controls.TreeDataGrid`        | Hierarchical/tabular tree surfaces                                                                 |
-|   [8]   | `Avalonia.Controls.ColorPicker`         | Color picker, palette, swatch, and material/color-editing surfaces                                 |
-|   [9]   | `ReactiveUI`                            | ViewModel activation, commands, observable state, scheduler boundaries                             |
-|  [10]   | `ReactiveUI.Avalonia`                   | ReactiveUI/Avalonia adapter                                                                        |
-|  [11]   | `ReactiveUI.Validation`                 | Screen validation surface                                                                          |
-|  [12]   | `System.Reactive`                       | Observable contracts and scheduler primitives                                                      |
-|  [13]   | `DynamicData`                           | Internal live collection projection and change-set folding                                         |
-|  [14]   | `SkiaSharp`                             | Thumbnails, retained charts, SVG asset rendering, and offscreen draw                               |
-|  [15]   | `SkiaSharp.NativeAssets.macOS`          | Explicit macOS native package with native assets excluded when sharing the Rhino-compatible native |
-|  [16]   | `SkiaSharp.HarfBuzz`                    | Text shaping over SkiaSharp                                                                        |
-|  [17]   | `HarfBuzzSharp.NativeAssets.macOS`      | HarfBuzz native macOS asset                                                                        |
-|  [18]   | `LiveChartsCore.SkiaSharpView.Avalonia` | Retained charts, dashboards, gauges, axes, legends, and chart interaction                          |
-|  [19]   | `Svg.Controls.Skia.Avalonia`            | SVG asset rendering for retained panels and generated asset catalogs                               |
-|  [20]   | `bodong.Avalonia.PropertyGrid`          | Integrated inspector/property-grid surface                                                         |
-|  [21]   | `Xaml.Behaviors.Avalonia`               | Event triggers, key bindings, drag-drop, and behavior composition                                  |
-|  [22]   | `DialogHost.Avalonia`                   | In-panel dialogs, confirmations, toasts, and transient prompts                                     |
+| [INDEX] | [PACKAGE]                               | [ROLE]                                                                               |
+| :-----: | --------------------------------------- | ------------------------------------------------------------------------------------ |
+|   [1]   | Host Eto / Rhino.UI assemblies          | Host shell, parent, modal, panel, focus, and native handle truth                     |
+|   [2]   | `Avalonia`                              | Retained app UI surface                                                              |
+|   [3]   | `Avalonia.Desktop`                      | macOS backend and embeddable top-level support                                       |
+|   [4]   | `Avalonia.Themes.Fluent`                | Official base theme and control-template root                                        |
+|   [5]   | `Avalonia.Fonts.Inter`                  | Bundled UI text face and initial default font collection                             |
+|   [6]   | `Avalonia.Controls.DataGrid`            | Flat tables and AppUi-owned hierarchical row projections on OSS rails                |
+|   [7]   | `Avalonia.Controls.ColorPicker`         | Color picker, palette, swatch, and material/color-editing surfaces                   |
+|   [8]   | `ReactiveUI`                            | ViewModel activation, commands, observable state, scheduler boundaries               |
+|   [9]   | `ReactiveUI.Avalonia`                   | ReactiveUI/Avalonia adapter selected for the current Avalonia/ReactiveUI graph       |
+|  [10]   | `ReactiveUI.Validation`                 | Screen validation surface                                                            |
+|  [11]   | `System.Reactive`                       | Observable contracts and scheduler primitives                                        |
+|  [12]   | `DynamicData`                           | Internal live collection projection and change-set folding                           |
+|  [13]   | `SkiaSharp`                             | Thumbnails, retained charts, SVG asset rendering, custom visuals, and offscreen draw |
+|  [14]   | `SkiaSharp.NativeAssets.macOS`          | AppUi-carried macOS native Skia assets with runtime identity proof                   |
+|  [15]   | `SkiaSharp.HarfBuzz`                    | Text shaping over SkiaSharp                                                          |
+|  [16]   | `HarfBuzzSharp.NativeAssets.macOS`      | AppUi-carried macOS HarfBuzz assets with runtime identity proof                      |
+|  [17]   | `LiveChartsCore.SkiaSharpView.Avalonia` | Retained charts, dashboards, gauges, axes, legends, and chart interaction            |
+|  [18]   | `Svg.Controls.Skia.Avalonia`            | SVG asset rendering for retained panels and generated asset catalogs                 |
+|  [19]   | `bodong.Avalonia.PropertyGrid`          | Integrated inspector/property-grid surface                                           |
+|  [20]   | `Xaml.Behaviors.Avalonia`               | Event triggers, key bindings, drag-drop, and behavior composition                    |
+|  [21]   | `DialogHost.Avalonia`                   | In-panel dialogs, confirmations, toasts, and transient prompts                       |
 
 ### [4.1]-[REJECTED_PACKAGES]
 
-| [INDEX] | [REJECTED_PACKAGE]                         | [REASON]                                                                                  |
-| :-----: | ------------------------------------------ | ----------------------------------------------------------------------------------------- |
-|   [1]   | `FluentAvaloniaUI`                         | Parallel control/theme suite; AppUi uses official Fluent theme plus owner-local controls   |
-|   [2]   | `FluentIcons.Avalonia.Fluent`              | Pulls a parallel FluentAvaloniaUI/Avalonia 11/SkiaSharp 2.x graph                         |
-|   [3]   | `Projektanker.Icons.Avalonia.MaterialDesign` | Material Design provider locks the icon identity to a non-native tooling aesthetic      |
-|   [4]   | `Material.Icons.Avalonia`                  | Material Design provider; AppUi icon identity is path/SVG catalog first                   |
-|   [5]   | `Material.Avalonia`                        | Full-theme takeover; conflicts with AppUi theme tokens and control-theme ownership        |
-|   [6]   | `Dock.Avalonia`                            | Docking/floating-window owner conflicts with host-panel embedding                         |
-|   [7]   | `ScottPlot.Avalonia`                       | Second retained chart stack; LiveCharts2 owns charts                                      |
-|   [8]   | `MessageBox.Avalonia`                      | Window-style dialog owner; DialogHost owns in-panel dialogs                               |
-|   [9]   | `Avalonia.Xaml.Interactions`               | Replaced by `Xaml.Behaviors.Avalonia`                                                     |
+| [INDEX] | [REJECTED_PACKAGE]                           | [REASON]                                                                                 |
+| :-----: | -------------------------------------------- | ---------------------------------------------------------------------------------------- |
+|   [1]   | `FluentAvaloniaUI`                           | Parallel control/theme suite; AppUi uses official Fluent theme plus owner-local controls |
+|   [2]   | `FluentIcons.Avalonia.Fluent`                | Pulls a parallel FluentAvaloniaUI/Avalonia 11/SkiaSharp 2.x graph                        |
+|   [3]   | `Projektanker.Icons.Avalonia.MaterialDesign` | Material Design provider locks the icon identity to a non-native tooling aesthetic       |
+|   [4]   | `Material.Icons.Avalonia`                    | Material Design provider; AppUi icon identity is path/SVG catalog first                  |
+|   [5]   | `Material.Avalonia`                          | Full-theme takeover; conflicts with AppUi theme tokens and control-theme ownership       |
+|   [6]   | `Dock.Avalonia`                              | Docking/floating-window owner conflicts with host-panel embedding                        |
+|   [7]   | `ScottPlot.Avalonia`                         | Second retained chart stack; LiveCharts2 owns charts                                     |
+|   [8]   | `MessageBox.Avalonia`                        | Window-style dialog owner; DialogHost owns in-panel dialogs                              |
+|   [9]   | `Avalonia.Xaml.Interactions`                 | Replaced by `Xaml.Behaviors.Avalonia`                                                    |
+|  [10]   | `Avalonia.Controls.TreeDataGrid`             | Cost-bearing/pro package path; hierarchical inspectors use OSS row projection rails      |
+|  [11]   | `AvaloniaUI.Licensing`                       | License-key package is not part of OSS/no-cost AppUi graph                               |
 
 ### [4.2]-[NATIVE_HAZARD]
 
 > [!CAUTION]
-> SkiaSharp-native coexistence is a host-load boundary. AppUi uses the Avalonia/LiveCharts/SVG SkiaSharp matrix and either shares a host-compatible native major with `<ExcludeAssets>native</ExcludeAssets>` or moves Skia rendering out of the in-process host path. `HarfBuzzSharp.NativeAssets.macOS` is carried independently for text shaping.
+> SkiaSharp-native coexistence is a host-load boundary. AppUi carries its macOS Skia/HarfBuzz native assets through explicit package references. Central pins force one restored managed/native family; LiveCharts2 and SVG rendering are compatibility participants with lower dependency floors, not exact-version peers. Runtime evidence records copied native assets, loaded Skia/HarfBuzz identities, and duplicate-family conflict state.
 
-## [5]-[RAIL_OWNERS]
+## [5]-[LIFECYCLE_STATES]
 
-Layout is cohesive flat files: `Shell.cs`, `Screen.cs`, `Command.cs`, `Live.cs`, `Visual.cs`, `Chart.cs`, `Inspector.cs`, `Theme.cs`, `Typography.cs`, `Assets.cs`, and `Diagnostic.cs`. Each file is a deep owner block with canonical sections; no per-concept subfolders or package-wrapper files.
+AppUi lifecycle is one ordered state machine:
 
-| [INDEX] | [FILE]          | [OWNER]                                                                                       |
-| :-----: | --------------- | --------------------------------------------------------------------------------------------- |
-|   [1]   | `Shell.cs`      | Route identity, navigation stack, shell mode, visibility, panel/screen composition             |
-|   [2]   | `Screen.cs`     | ReactiveUI activation, validation, scheduler-bound binding, screen model projection            |
-|   [3]   | `Command.cs`    | Command identity, `CanExecute`, execution, receipts, host lowering                             |
-|   [4]   | `Live.cs`       | DynamicData-backed live projections and read-only snapshots                                    |
-|   [5]   | `Visual.cs`     | Visual request algebra for thumbnails, previews, HUD intent, overlays, and offscreen graphics  |
-|   [6]   | `Chart.cs`      | LiveCharts2 dashboards, gauges, axes, legends, chart interaction, scheduler-bound updates      |
-|   [7]   | `Inspector.cs`  | Property grid, typed editors, validation slots, table/tree inspection surfaces                 |
-|   [8]   | `Theme.cs`      | Fluent theme root, control themes, token catalog, host dark/light/high-contrast variants       |
-|   [9]   | `Typography.cs` | Font roles, embedded font collections, fallback mappings, numeric/code/log text policy         |
-|  [10]   | `Assets.cs`     | Path icon catalog, SVG asset catalog, provider-generated resources, custom asset registry      |
-|  [11]   | `Diagnostic.cs` | UI lifecycle, host embedding, focus/scale/disposal/screenshot/support receipts                 |
+| [INDEX] | [STATE]            | [MEANING]                                                     | [ALLOWED_NEXT]                          |
+| :-----: | ------------------ | ------------------------------------------------------------- | --------------------------------------- |
+|   [1]   | Uninitialized      | No platform options, scheduler, retained surface, or assets   | PlatformConfigured                      |
+|   [2]   | PlatformConfigured | macOS/Avalonia host options are locked                        | SchedulerCaptured, Faulted              |
+|   [3]   | SchedulerCaptured  | UI dispatcher, Reactive scheduler, and host affinity align    | SurfaceCreated, Faulted                 |
+|   [4]   | SurfaceCreated     | Embeddable retained surface exists inside host panel          | Bound, Hidden, Faulted                  |
+|   [5]   | Bound              | Shell/screen/live/chart/theme/asset rails are attached        | Visible, Hidden, Draining, Faulted      |
+|   [6]   | Visible            | Retained panel is visible and layout/rendering is active      | Focused, Hidden, ScaleChanged, Draining |
+|   [7]   | Focused            | Keyboard/focus routing belongs to AppUi scheduler rail        | Visible, Hidden, ScaleChanged, Draining |
+|   [8]   | Hidden             | Content is detached or inactive without leaking subscriptions | Visible, Draining                       |
+|   [9]   | ScaleChanged       | Retina/font/layout metrics are refreshed                      | Visible, Focused, Faulted               |
+|  [10]   | Draining           | New UI work is fenced and live subscriptions complete         | Disposing, Faulted                      |
+|  [11]   | Disposing          | Retained surface closes before host panel disposal            | Disposed, Faulted                       |
+|  [12]   | Disposed           | Terminal successful teardown                                  | Uninitialized for a new host boot       |
+|  [13]   | Faulted            | Terminal or support-visible UI fault                          | Draining, Disposing                     |
 
-## [6]-[TYPE_SHAPES]
+Lifecycle evidence records host, panel identity, focus state, scale, thread/scheduler identity, native asset identity, screenshot artifacts, and disposal ordering.
 
-### [6.1]-[SCHEDULER]
+## [6]-[RAIL_DOCTRINE]
 
-`RasmUiScheduler` is a sealed record that unifies Avalonia `Dispatcher`, ReactiveUI `RxApp.MainThreadScheduler`, and host-thread affinity. It is constructed once on the UI thread in `PlugIn.OnLoad` before live-projection work and passed into `AppHost.Boot(token, timeProvider, uiScheduler, ...)`.
+| [INDEX] | [RAIL]      | [OWNS]                                                                                    |
+| :-----: | ----------- | ----------------------------------------------------------------------------------------- |
+|   [1]   | Shell       | Route identity, navigation stack, shell mode, visibility, panel/screen composition        |
+|   [2]   | Screen      | ReactiveUI activation, validation, scheduler-bound binding, screen model projection       |
+|   [3]   | Command     | Command identity, icon key, availability, execution, host lowering, receipts              |
+|   [4]   | Live        | DynamicData-backed read-only projections, snapshots, selection state                      |
+|   [5]   | Visual      | Thumbnail, preview, HUD intent, overlay intent, retained/offscreen Skia surfaces          |
+|   [6]   | Chart       | LiveCharts2 series, axes, legends, gauges, dashboard interaction                          |
+|   [7]   | Inspector   | Property grid, typed editor slots, validation projection, table/hierarchy inspection      |
+|   [8]   | Theme       | Official Fluent theme, control themes, token catalogs, host theme synchronization         |
+|   [9]   | Typography  | Font roles, embedded font collections, fallback mappings, numeric/code/log text policy    |
+|  [10]   | Assets      | Path icon catalog, SVG asset catalog, provider-generated resources, custom asset registry |
+|  [11]   | Diagnostics | Embedding, focus, scale, disposal, screenshot, support evidence                           |
 
-```text conceptual
-RasmUiScheduler
-  Dispatcher   : Avalonia.Threading.Dispatcher
-  RxScheduler  : IScheduler
-```
+These are owner rails, not required filenames. Implementation keeps each rail dense and polymorphic: new variants add rows, discriminants, generated catalogs, or folded projections to the owning rail before introducing new public surfaces.
 
-### [6.2]-[SHELL]
+## [7]-[TYPOGRAPHY]
 
-`Shell` owns product UI route identity, navigation, panel composition, visibility, and mode. `AppState` is a durable-state snapshot owned by `Rasm.Persistence`; `Shell` is the retained UI state owner.
+Typography owns font roles instead of a single font. Avalonia font configuration installs embedded font collections; font manager policy defines fallback mappings; HarfBuzz shapes custom Skia text.
 
-```text conceptual
-Shell
-  Route        : RouteId
-  NavStack     : ImmutableStack<RouteId>
-  Mode         : ShellMode
-  Visibility   : ShellVisibility
-  Panels       : ImmutableList<PanelSlot>
-```
+| [INDEX] | [ROLE]  | [USE]                                                      |
+| :-----: | ------- | ---------------------------------------------------------- |
+|   [1]   | UI      | Labels, panels, menus, inspectors, dialogs                 |
+|   [2]   | Numeric | Coordinates, dimensions, counts, measurements, chart ticks |
+|   [3]   | Code    | Expressions, formulas, serialized snippets, identifiers    |
+|   [4]   | Log     | Diagnostics, support bundle previews, receipts             |
+|   [5]   | Chart   | Axis labels, legends, annotations, compact dashboard text  |
+|   [6]   | Symbol  | Geometry symbols, math signs, fallback glyphs              |
 
-### [6.3]-[SCREEN]
+Inter remains the default UI face. Additional embedded font families enter through role tokens and fallback slots, not hardcoded control styles.
 
-`Screen<T>` is a `ReactiveValidationObject`; `T` is the domain model slice the screen projects. Toolkit base classes stay internal.
+## [8]-[ASSET_AND_ICON_CATALOG]
 
-```text conceptual
-Screen<T>
-  ViewId       : ScreenId
-  Model        : T
-  Commands     : IReadOnlyList<Command>
-  Validation   : ValidationContext
-  Activator    : ViewModelActivator
-```
+Assets are source-neutral. Product code consumes `IconKey`, `AssetKey`, theme-aware vector resources, and binary/custom asset identities. It does not consume provider package names.
 
-### [6.4]-[COMMAND_AND_RECEIPT]
-
-```text conceptual
-Command
-  Id           : CommandId
-  Label        : string
-  Icon         : IconKey
-  CanExecute   : IObservable<bool>
-  Execute      : ReactiveCommand<Unit, CommandReceipt>
-
-CommandReceipt
-  CommandId    : CommandId
-  Outcome      : CommandOutcome
-  HostDelegated: bool
-  Elapsed      : TimeSpan
-```
-
-### [6.5]-[LIVE_VIEW]
-
-`LiveView<T>` is DynamicData-backed. It exposes snapshots and selection-ready projections, never `SourceCache` or mutable change-set owners.
-
-```text conceptual
-LiveView<T>
-  Items        : IObservable<IChangeSet<T, Guid>>
-  Snapshot     : IObservable<IReadOnlyList<T>>
-  Selection    : IObservable<SelectionState<Guid>>
-```
-
-### [6.6]-[CHART_DASHBOARD]
-
-```text conceptual
-ChartVm
-  Series       : ObservableCollection<ISeries>
-  Axes         : ObservableCollection<IAxis>
-  Legend       : LegendPosition
-  Interaction  : ChartInteraction
-  UpdateOn     : RasmUiScheduler
-```
-
-### [6.7]-[INSPECTOR]
-
-`Inspector<T>` owns property-grid binding, typed editor selection, table/tree details, validation projection, and command routing for editable object surfaces.
-
-```text conceptual
-Inspector<T>
-  Subject      : T
-  Editors      : IReadOnlyList<EditorSlot>
-  Grid         : PropertyGridSurface
-  Details      : TableTreeSurface
-  Validation   : ValidationContext
-```
-
-### [6.8]-[THEME]
-
-`ThemeRail` owns official Fluent theme installation, control-theme selection, token dictionaries, host dark/light synchronization, high-contrast variant, chart palette, icon stroke/fill policy, and viewport-overlay color tokens.
-
-```text conceptual
-ThemeRail
-  Variant      : ThemeVariant
-  Tokens       : ThemeTokenCatalog
-  Controls     : ControlThemeCatalog
-  ChartPalette : ChartPalette
-  HostSync     : IObservable<HostThemeState>
-```
-
-### [6.9]-[TYPOGRAPHY]
-
-`TypographyRail` owns font roles instead of a single font. Avalonia `ConfigureFonts` installs embedded font collections; `FontManagerOptions` defines fallback mappings; HarfBuzz shapes custom Skia text.
-
-```text conceptual
-TypographyRail
-  Ui           : FontRole
-  Numeric      : FontRole
-  Code         : FontRole
-  Log          : FontRole
-  Chart        : FontRole
-  Fallbacks    : IReadOnlyList<FontFallbackSlot>
-```
-
-Font roles:
-
-| [INDEX] | [ROLE]  | [USE]                                                       |
-| :-----: | ------- | ----------------------------------------------------------- |
-|   [1]   | UI      | Labels, panels, menus, inspectors, dialogs                  |
-|   [2]   | Numeric | Coordinates, dimensions, counts, measurements, chart ticks  |
-|   [3]   | Code    | Expressions, formulas, serialized snippets, identifiers     |
-|   [4]   | Log     | Diagnostics, support bundle previews, receipts              |
-|   [5]   | Chart   | Axis labels, legends, annotations, compact dashboard text    |
-
-### [6.10]-[ASSET_CATALOG]
-
-`AssetCatalog` is path/SVG first. Providers generate or register path resources; product code consumes `IconKey`, `AssetKey`, and theme-aware vector resources.
-
-```text conceptual
-AssetCatalog
-  Icons        : IReadOnlyDictionary<IconKey, IconGlyph>
-  SvgAssets    : IReadOnlyDictionary<AssetKey, SvgAsset>
-  CustomAssets : IReadOnlyDictionary<AssetKey, BinaryAsset>
-  ThemeMap     : IReadOnlyDictionary<AssetKey, ThemeToken>
-```
+| [INDEX] | [SOURCE]                 | [CONTRACT]                                                                 |
+| :-----: | ------------------------ | -------------------------------------------------------------------------- |
+|   [1]   | Generated icon providers | License captured, path/SVG normalized, catalog generated, contrast checked |
+|   [2]   | Custom embedded assets   | Resource identity, DPI policy, theme mapping, and support-export metadata  |
+|   [3]   | External app resources   | Explicit resource provider adapter and stable asset keys                   |
+|   [4]   | Host-provided resources  | Host resource adapter with stable asset keys                               |
+|   [5]   | Runtime-loaded resources | Bounded paths, checksum, redaction class, and unload behavior              |
 
 Provider order:
 
-| [INDEX] | [PROVIDER]             | [USE]                                                                  |
-| :-----: | ---------------------- | ---------------------------------------------------------------------- |
-|   [1]   | Fluent UI System Icons | Primary professional tooling glyph language                            |
-|   [2]   | Lucide                 | Secondary clean outline set for neutral tool actions                   |
-|   [3]   | Phosphor               | Rich weight set for expressive states, fills, and status variants      |
-|   [4]   | Tabler                 | Broad technical/tooling coverage                                       |
-|   [5]   | Custom AppUi assets    | Geometry, graph, parameter, host, and product-specific glyphs          |
+| [INDEX] | [PROVIDER]             | [USE]                                                             |
+| :-----: | ---------------------- | ----------------------------------------------------------------- |
+|   [1]   | Fluent UI System Icons | Primary professional tooling glyph language                       |
+|   [2]   | Lucide                 | Secondary clean outline set for neutral tool actions              |
+|   [3]   | Phosphor               | Rich weight set for expressive states, fills, and status variants |
+|   [4]   | Tabler                 | Broad technical/tooling coverage                                  |
+|   [5]   | Custom AppUi assets    | Geometry, graph, parameter, host, and product-specific glyphs     |
 
-### [6.11]-[DIAGNOSTIC_RECEIPT]
+The asset rail must support adding/removing providers without public API changes. Provider changes regenerate catalogs and resource files; product UI code remains keyed by stable asset identities.
 
-`DiagnosticReceipt` is AppUi-owned; AppHost may correlate it but does not define it.
+## [9]-[COMPOSITION]
 
-```text conceptual
-DiagnosticReceipt
-  PanelId        : PanelId
-  Event          : DiagnosticEvent
-  Timestamp      : NodaTime.Instant
-  ParentHandle   : nint
-  Scale          : double
-  ScreenshotPath : string?
-  Fault          : string?
-```
+Host app startup, companion-window startup, sidecar startup, and downstream app startup configure the UI platform, capture the scheduler boundary on the UI thread, compose AppHost runtime policy, bind store/compute observations, and activate retained UI surfaces through the same shell/screen rail. Inbound contracts are typed and scheduler-bound:
 
-## [7]-[COMPOSITION]
+| [INDEX] | [INBOUND]  | [SOURCE_OWNER]     | [CONTRACT]                                                              |
+| :-----: | ---------- | ------------------ | ----------------------------------------------------------------------- |
+|   [1]   | Live state | `Rasm.Persistence` | Read-only app state observed on the UI scheduler before binding         |
+|   [2]   | Scheduling | `Rasm.AppHost`     | Background/runtime work marshals UI results onto the scheduler boundary |
+|   [3]   | Progress   | `Rasm.Compute`     | Progress is observed on the UI scheduler; faults surface as data        |
 
-`PlugIn.OnLoad` is the composition root. It constructs `RasmUiScheduler` on the UI thread, calls `AppHost.Boot(token, timeProvider, uiScheduler, ...capabilities)`, receives `BootReceipt`, and hands `RasmRuntime` to AppUi to activate inbound observables.
+View layers use ReactiveUI activation, commands, validation, and observable state. Cross-folder work runs through AppHost runtime policy. AppUi submits intents and consumes typed receipts and observables. Rhino panels, GH2 host surfaces, companion windows, sidecar shells, and downstream apps differ by host adapter only.
 
-Inbound contracts are typed and scheduler-bound:
+## [10]-[CAPABILITY_MATRIX]
 
-| [INDEX] | [INBOUND]  | [SOURCE OWNER]     | [CONTRACT]                                                                                       |
-| :-----: | ---------- | ------------------ | ------------------------------------------------------------------------------------------------ |
-|   [1]   | Live state | `Rasm.Persistence` | `IObservable<AppState>` observed on `RasmUiScheduler.RxScheduler` before binding                 |
-|   [2]   | Scheduling | `Rasm.AppHost`     | Background/runtime work dispatched via `RasmRuntime`; UI results marshal onto `RasmUiScheduler`  |
-|   [3]   | Progress   | `Rasm.Compute`     | `IObservable<ComputeProgress>` observed on `RasmUiScheduler.RxScheduler`; faults surface as data |
-
-View layer uses ReactiveUI (`ReactiveCommand`, `IObservable<T>`, activation, validation). Cross-folder work runs as `Eff<RT, T>` inside AppHost's runtime record. AppUi submits intents and consumes typed receipts and observables; it does not carry `Eff` directly.
-
-## [8]-[CAPABILITY_MATRIX]
-
-| [INDEX] | [CAPABILITY]                | [MECHANISM]                                                                                           |
-| :-----: | --------------------------- | ----------------------------------------------------------------------------------------------------- |
-|   [1]   | Retained panel shell        | Avalonia embeddable top level inside host `RasmPanel`                                                 |
-|   [2]   | Multi-screen navigation     | `Shell` route + nav stack + ReactiveUI activation                                                     |
-|   [3]   | Command palette             | `Command` catalog + path icons + key-binding behaviors                                                |
-|   [4]   | Keyboard shortcuts          | `Xaml.Behaviors.Avalonia` scoped per `Screen`                                                         |
-|   [5]   | Live dashboards             | LiveCharts2 series observed on `RasmUiScheduler`                                                      |
-|   [6]   | Tables                      | `Avalonia.Controls.DataGrid`                                                                          |
-|   [7]   | Hierarchical tables         | `Avalonia.Controls.TreeDataGrid`                                                                      |
-|   [8]   | Inspectors                  | `bodong.Avalonia.PropertyGrid` integrated through `Inspector<T>`                                      |
-|   [9]   | Settings / preferences      | `Screen<PreferencesModel>` + inspector/editor slots + Persistence store operation                     |
-|  [10]   | Notifications / toasts      | `DialogHost.Avalonia` in-panel transient host                                                         |
-|  [11]   | Dialogs / confirmations     | `DialogHost.Avalonia` in-panel modal host                                                             |
-|  [12]   | Color and palette editing   | `Avalonia.Controls.ColorPicker` + theme token updates                                                 |
-|  [13]   | Thumbnail/offscreen visuals | SkiaSharp surfaces owned by `Visual.cs`                                                               |
-|  [14]   | SVG/vector assets           | `Svg.Controls.Skia.Avalonia` + path/SVG catalog                                                       |
-|  [15]   | Viewport overlays           | Delegated to Rhino/GH display conduit through `VisualRequest`                                         |
-|  [16]   | Undo-redo surfacing         | Host undo availability observed through host rails and surfaced through `Command.CanExecute`          |
-|  [17]   | Drag-drop                   | Avalonia drag-drop + behaviors, routed through Eto for host-panel drops                               |
-|  [18]   | Clipboard                   | Avalonia `IClipboard` injected into `Screen`                                                          |
+| [INDEX] | [CAPABILITY]                | [MECHANISM]                                                                                            |
+| :-----: | --------------------------- | ------------------------------------------------------------------------------------------------------ |
+|   [1]   | Retained shell              | Avalonia embeddable top level, companion window, sidecar shell, or downstream app shell                 |
+|   [2]   | Multi-screen navigation     | Shell route + nav stack + ReactiveUI activation                                                        |
+|   [3]   | Command palette             | Command catalog + path icons + key-binding behaviors                                                   |
+|   [4]   | Keyboard shortcuts          | `Xaml.Behaviors.Avalonia` scoped per screen                                                            |
+|   [5]   | Live dashboards             | LiveCharts2 series observed on the UI scheduler                                                        |
+|   [6]   | Tables                      | `Avalonia.Controls.DataGrid`                                                                           |
+|   [7]   | Hierarchical tables         | AppUi row models, grouping, expansion state, virtualization, and DataGrid presentation adapters        |
+|   [8]   | Inspectors                  | `bodong.Avalonia.PropertyGrid` integrated through the inspector rail                                   |
+|   [9]   | Settings / preferences      | Screen projection + inspector/editor slots + Persistence store operation                               |
+|  [10]   | Notifications / toasts      | `DialogHost.Avalonia` in-panel transient host                                                          |
+|  [11]   | Dialogs / confirmations     | `DialogHost.Avalonia` in-panel modal host                                                              |
+|  [12]   | Color and palette editing   | `Avalonia.Controls.ColorPicker` + theme token updates                                                  |
+|  [13]   | Thumbnail/offscreen visuals | SkiaSharp retained surfaces                                                                            |
+|  [14]   | SVG/vector assets           | `Svg.Controls.Skia.Avalonia` + path/SVG catalog                                                        |
+|  [15]   | Viewport overlays           | Delegated to Rhino/GH display conduit through visual intent                                            |
+|  [16]   | Undo-redo surfacing         | Host undo availability observed through host rails and surfaced through command availability           |
+|  [17]   | Drag-drop                   | Avalonia drag-drop + behaviors, routed through host-panel drops                                        |
+|  [18]   | Clipboard                   | Avalonia clipboard surface injected at the screen boundary                                             |
 |  [19]   | Theme variants              | Official Fluent theme + AppUi token/control-theme rail + host dark/light/high-contrast synchronization |
-|  [20]   | Typography                  | Font roles, embedded font collections, fallback mappings, HarfBuzz shaping                            |
-|  [21]   | Accessibility               | `AutomationProperties.Name/HelpText`, keyboard reachability, custom `AutomationPeer` surfaces         |
-|  [22]   | Support diagnostics         | `DiagnosticReceipt` + screenshot/support artifact path                                                |
+|  [20]   | Typography                  | Font roles, embedded font collections, fallback mappings, HarfBuzz shaping                             |
+|  [21]   | Accessibility               | Automation names/help text, keyboard reachability, custom automation peer surfaces                     |
+|  [22]   | Support diagnostics         | UI evidence + screenshot/support artifact path                                                         |
 
-## [9]-[RUNTIME_EVIDENCE]
+## [11]-[RUNTIME_EVIDENCE]
 
-| [INDEX] | [STATE]        | [MEANING]                                    |
-| :-----: | -------------- | -------------------------------------------- |
-|   [1]   | Loaded         | Host process loads package/native assets     |
-|   [2]   | Runtime-Proven | Owner receipt records host scenario evidence |
+| [INDEX] | [STATE]        | [MEANING]                                |
+| :-----: | -------------- | ---------------------------------------- |
+|   [1]   | Loaded         | Host process loads package/native assets |
+|   [2]   | Runtime-Proven | Owner receipt records host evidence      |
 
-Evidence categories: RhinoWIP macOS load, GH2 coexistence where a host surface exists, host parent identity, focus/keyboard/z-order, Retina scale, native asset layout, GPU/frame-pacing coexistence with the viewport, retained-panel screenshot, viewport-overlay screenshot, disposal/unload, accessibility, and support-bundle diagnostics.
+Evidence categories: RhinoWIP macOS load, GH2 coexistence where a host surface exists, host parent identity, focus/keyboard/z-order, Retina scale, copied native asset layout, loaded Skia/HarfBuzz identities, duplicate-family conflict state, GPU/frame-pacing coexistence with the viewport, retained-panel screenshot, viewport-overlay screenshot, disposal/unload, accessibility, and support-bundle diagnostics.
 
 Test layers:
 
-| [INDEX] | [LAYER]                  | [PROOF]                                                                 |
-| :-----: | ------------------------ | ----------------------------------------------------------------------- |
-|   [1]   | Pure managed specs       | Rail algebra, receipts, validation, theme tokens, typography roles      |
-|   [2]   | Avalonia headless specs  | Templates, bindings, commands, control themes, automation properties    |
-|   [3]   | Rhino runtime scenarios  | Panel load, NSView parent, focus, scale, screenshot, disposal           |
-|   [4]   | GH2 runtime scenarios    | Canvas hooks, popups, toolbar actions, component panels, overlay routing |
-|   [5]   | Visual captures          | Retained panels and viewport overlays captured separately               |
-
-## [10]-[FRAMEWORK_REFERENCES]
-
-| [INDEX] | [REFERENCE]                                                                                        | [USE]                                                   |
-| :-----: | -------------------------------------------------------------------------------------------------- | ------------------------------------------------------- |
-|   [1]   | [Avalonia macOS](https://docs.avaloniaui.net/docs/platform-specific-guides/macos)                  | macOS backend, native views, host-specific behavior     |
-|   [2]   | [Avalonia native interop](https://docs.avaloniaui.net/docs/app-development/native-interop)         | Native handle and platform interop                      |
-|   [3]   | [Avalonia embeddable TopLevel](https://docs.avaloniaui.net/docs/app-development/embedded-controls) | `CreateEmbeddableTopLevel()` API                        |
-|   [4]   | [Avalonia themes](https://docs.avaloniaui.net/docs/styling/themes)                                 | Official Fluent theme and theme installation            |
-|   [5]   | [Avalonia theme variants](https://docs.avaloniaui.net/docs/styling/theme-variants)                 | Dark/light/high-contrast variant flow                   |
-|   [6]   | [Avalonia control themes](https://docs.avaloniaui.net/docs/styling/control-themes)                 | Replaceable control-level themes                        |
-|   [7]   | [Avalonia icons](https://docs.avaloniaui.net/docs/graphics-animation/adding-icons)                 | Image, icon-font, and path-icon choices                 |
-|   [8]   | [Avalonia PathIcon](https://docs.avaloniaui.net/controls/media/pathicon)                           | Recolorable vector icon rendering                       |
-|   [9]   | [Avalonia custom fonts](https://docs.avaloniaui.net/docs/styling/custom-fonts)                     | Embedded font collections                               |
-|  [10]   | [Avalonia FontManagerOptions](https://docs.avaloniaui.net/api/avalonia/media/fontmanageroptions)   | Default font and fallback mapping                       |
-|  [11]   | [Avalonia TreeDataGrid](https://docs.avaloniaui.net/controls/data-display/structured-data/treedatagrid/) | Hierarchical and tabular data surface              |
-|  [12]   | [ReactiveUI activation](https://www.reactiveui.net/documentation/handbook/when-activated/)         | Activation/disposal and scheduler                       |
-|  [13]   | [DynamicData collections](https://www.reactiveui.net/docs/handbook/collections.html)               | Live projection and UI-scheduler binding                |
-|  [14]   | [LiveCharts2 Avalonia](https://www.nuget.org/packages/LiveChartsCore.SkiaSharpView.Avalonia/)      | Charts and dashboards on SkiaSharp                      |
-|  [15]   | [DialogHost.Avalonia](https://www.nuget.org/packages/DialogHost.Avalonia/)                         | In-panel dialogs and prompts                            |
+| [INDEX] | [LAYER]                 | [PROOF]                                                                  |
+| :-----: | ----------------------- | ------------------------------------------------------------------------ |
+|   [1]   | Pure managed specs      | Rail algebra, receipts, validation, theme tokens, typography roles       |
+|   [2]   | Avalonia headless specs | Templates, bindings, commands, control themes, automation properties     |
+|   [3]   | Rhino runtime scenarios | Panel load, NSView parent, focus, scale, screenshot, disposal            |
+|   [4]   | GH2 runtime scenarios   | Canvas hooks, popups, toolbar actions, component panels, overlay routing |
+|   [5]   | Visual captures         | Retained panels and viewport overlays captured separately                |

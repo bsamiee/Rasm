@@ -1,112 +1,266 @@
 # [CSHARP_LANGUAGE]
 
-C# 14.0 on `net10.0` is the active language surface. `Directory.Build.props` owns `TargetFramework`, `LangVersion`, `Nullable`, and `ImplicitUsings`; this page owns syntax and expression selection for C# code in this repository.
+C# 14.0 on `net10.0` is the active language surface. `Directory.Build.props` owns `TargetFramework`, `LangVersion`, `Nullable`, and `ImplicitUsings`; this page is the language-feature law for choosing syntax, type, member, pattern, and expression forms before adding a local abstraction.
 
 ## [1]-[ACTIVE_SURFACE]
 
 [ACTIVE_SURFACE]:
 - Target framework: `net10.0`
-- Language version: `14.0`
+- Language version: `14.0` explicit; floating values are not allowed
 - Nullable: `enable`
 - Implicit usings: `enable`
 - Compiler: .NET 10 SDK C# compiler
 - Analyzer authoring: `Microsoft.CodeAnalysis.CSharp` with project analyzer packages
 
-Use the active language surface directly. Replace older syntax when the compiler expresses the same behavior with less ceremony.
+Treat source files as modern C#, not compatibility layers. Replace older syntax, overload families, wrapper types, and backing-field ceremony whenever the active surface carries the concept directly.
 
-## [2]-[REQUIRED_PATTERNS]
+## [2]-[CANONICAL_CHOOSER]
 
-| [INDEX] | [PATTERN]                         | [USE]                           |
-| :-----: | :-------------------------------- | :------------------------------ |
-|   [1]   | extension blocks                  | receiver-owned members          |
-|   [2]   | `field` accessors                 | property-local invariants       |
-|   [3]   | `ReadOnlySpan<T>` boundaries      | hot read-only inputs            |
-|   [4]   | collection expressions            | literal composition             |
-|   [5]   | `params` collections              | arity without overload families |
-|   [6]   | `nameof(Generic<>)`               | generic identity                |
-|   [7]   | switch and pattern expressions    | total value dispatch            |
-|   [8]   | `required`, `init`, and records   | immutable carriers              |
-|   [9]   | static abstract interface members | generic math                    |
+Use the active C# surface directly. Replace older spellings and local machinery when syntax, the type system, or member shape owns the behavior.
 
-[RULES]:
-- Use extension blocks when a wrapper type only forwards or decorates receiver behavior.
-- Use `field` when a manual backing field exists only for one property accessor invariant.
-- Prefer one `ReadOnlySpan<T>` hot-path boundary over parallel array, string, and span overloads when implicit conversions keep call intent clear.
-- Use collection expressions and `params` collections before adding array/list overload families.
-- Use switch expressions, property patterns, logical patterns, and list patterns for value-returning domain decisions.
+| [INDEX] | [CONCERN]                     | [USE]                                         | [REPLACE]                             |
+| :-----: | :---------------------------- | :-------------------------------------------- | :------------------------------------ |
+|   [1]   | receiver-owned members        | extension blocks                              | static helper classes, wrapper types  |
+|   [2]   | operators on foreign receiver | extension operators (non-conversion)          | named arithmetic helper methods       |
+|   [3]   | property-local invariant      | `field` accessors                             | manual backing fields                 |
+|   [4]   | mandatory initialization      | `required` members                            | constructor telescoping               |
+|   [5]   | immutable carrier             | `record` and `readonly record struct`         | hand-written equality classes         |
+|   [6]   | nondestructive update         | `with` expressions                            | copy constructors, builders           |
+|   [7]   | constructor boilerplate       | primary constructors                          | assign-only constructor bodies        |
+|   [8]   | generated or hand splits      | partial members, constructors, events         | wrapper forwarding splits             |
+|   [9]   | file-private machinery        | `file` types                                  | name-mangled `internal` types         |
+|  [10]   | attribute payload type        | generic attributes                            | `typeof` constructor arguments        |
+|  [11]   | construction abstraction      | static abstract and virtual interface members | reflection factories                  |
+|  [12]   | numeric abstraction           | generic math constraints                      | per-type arithmetic overload copies   |
+|  [13]   | compound mutation operators   | user-defined compound assignment              | expanded operator round trips         |
+|  [14]   | generic identity              | `nameof` with unbound generics                | string literals, dummy closed names   |
+|  [15]   | dense signature alias         | `using` alias for any type                    | parallel domain type names            |
+|  [16]   | end-relative initialization   | implicit index `[^1]` in initializers         | post-construction assignment loops    |
+|  [17]   | value-returning decision      | switch expressions                            | `if`/`else` ladders, statement switch |
+|  [18]   | shape probe                   | property patterns                             | getter chains with null checks        |
+|  [19]   | range and sign law            | relational and logical patterns               | comparison chains                     |
+|  [20]   | sequence shape                | list and slice patterns                       | count and index guard code            |
+|  [21]   | span text dispatch            | constant string patterns over spans           | `ToString` comparisons                |
+|  [22]   | type test with binding        | declaration and recursive patterns            | `as` plus null check                  |
+|  [23]   | tuple dispatch                | positional patterns                           | nested conditionals                   |
+|  [24]   | null test                     | `is null` and `is not null`                   | `==` null with operator hazard        |
+|  [25]   | exhaustiveness                | total switch over the closed owner            | default arms hiding cases             |
+|  [26]   | inline result binding         | declaration patterns and `out var`            | pre-declared locals                   |
+|  [27]   | repeated type spelling        | target-typed `new()`                          | duplicated constructor type names     |
+|  [28]   | null-coalescing update        | `??=`                                         | if-null assignment blocks             |
+|  [29]   | nullable mutation boundary    | null-conditional assignment                   | if-not-null mutation blocks           |
+|  [30]   | end-relative access           | index `^` and range `..` operators            | length arithmetic                     |
+|  [31]   | literal composition           | collection expressions with spread            | `new[]`, list adds, concat chains     |
+|  [32]   | call-site arity               | `params` collections                          | overload families                     |
+|  [33]   | hot read-only input           | one `ReadOnlySpan<T>` boundary                | parallel array/string/span overloads  |
+|  [34]   | stack scratch                 | `stackalloc` spans in measured kernels        | temporary heap arrays                 |
+|  [35]   | span-capable generics         | `allows ref struct` constraints               | boxed or duplicated span paths        |
+|  [36]   | stack-only contracts          | `ref struct` interface implementations        | boxing interface conversions          |
+|  [37]   | ref safety in coroutines      | `ref` and `unsafe` in iterators and async     | extracted helper duplication          |
+|  [38]   | embedded structured text      | raw string literals                           | escape-laden concatenation            |
+|  [39]   | UTF-8 wire constants          | `u8` literals                                 | runtime UTF-8 encoding calls          |
+|  [40]   | rich interpolation            | full expression grammar in interpolations     | `string.Format`, concat chains        |
+|  [41]   | terminal escapes              | `\e` escape sequence                          | `\x1b` magic literals                 |
+|  [42]   | struct construction freedom   | auto-default structs                          | explicit `this = default` assignment  |
+|  [43]   | by-reference fields           | `ref` fields with `scoped` lifetimes          | pointer carriers                      |
+|  [44]   | readonly by-ref contract      | `ref readonly` parameters                     | `in` and `ref` ambiguity              |
+|  [45]   | synchronous gate              | `System.Threading.Lock`                       | private `object` locks                |
+|  [46]   | delegate adapter shape        | default and modifier-only lambda parameters   | wrapper adapter methods               |
+|  [47]   | capture-free intent           | `static` anonymous functions                  | accidental closure allocation         |
+|  [48]   | direct method reference       | natural-type method groups                    | identity lambda wrappers              |
+|  [49]   | residual overload ambiguity   | `[OverloadResolutionPriority]`                | breaking renames, dummy parameters    |
 
-## [3]-[SCOPED_PATTERNS]
+## [3]-[LANGUAGE_FORM_CONTRACTS]
 
-[NULL_CONDITIONAL_ASSIGNMENT]:
-- Use: nullable host, UI, event, and indexer boundaries with `target?.Prop = value` or `target?.[i] += delta`.
-- Reject: domain logic on nullable mutation chains.
-- Note: `++` and `--` are not valid on a null-conditional left side.
+Use these contracts when the chooser names the form but code still needs a placement rule.
 
-[PARTIAL_MEMBERS]:
-- Use: source-generator, analyzer, binding, or hand/generated splits.
-- Reject: splitting files only to make a type look smaller.
+[EXTENSION_SURFACE_SITE]:
+- Use when: behavior belongs to a receiver the declaring assembly does not own, or a wrapper type would only forward and decorate receiver behavior.
+- Accept: extension blocks holding instance members, static members, and non-conversion operators on the receiver; one block per receiver shape.
+- Reject: wrapper types that rename receiver behavior, static helper classes with receiver-first parameters, and extension conversion operators.
+- Boundary: receiver-owned behavior that admits, validates, or dispatches domain state belongs to the owning domain shape, not to an extension surface.
 
-[STACK_ONLY_GENERIC_ALGORITHMS]:
-- Use: `ref struct` interface implementations, `allows ref struct`, and scoped `ref` locals when a span-like algorithm needs stack-only values.
-- Reject: boxing stack-only values through interface conversions or carrying them across `await` or `yield`.
+```csharp conceptual
+public readonly record struct Shape(string Key, int Span);
 
-[SYSTEM_THREADING_LOCK]:
-- Use: new synchronous boundary gates.
-- Reject: holding a lock across `await`.
+public static class ShapeSurface {
+    extension(Shape source) {
+        public bool Spans(int width) => source.Span >= width;
 
-[REF_READONLY]:
-- Use: API contracts that require a variable by reference without mutation.
-- Reject: blanket large-struct performance policy.
+        public Shape Widened(int delta) => source with { Span = source.Span + delta };
+    }
 
-[OVERLOADRESOLUTIONPRIORITYATTRIBUTE]:
-- Use: public overload sets that remain ambiguous after span and `params` shape cleanup.
-- Reject: unclear overload design hidden by priority.
+    extension(Shape) {
+        public static Shape Origin => new(Key: "<key-a>", Span: 0);
 
-[USING_ALIAS_ANY_TYPE]:
-- Use: dense tuple, pointer, array, and nested generic signatures.
-- Reject: parallel domain type names.
+        public static Shape operator +(Shape left, Shape right) =>
+            new(Key: left.Key, Span: left.Span + right.Span);
+    }
+}
+```
 
-[DEFAULT_LAMBDA_PARAMETERS_AND_SIMPLE_LAMBDA_MODIFIERS]:
-- Use: delegate adapters where the target delegate fixes the shape.
-- Reject: replacing a coherent method surface with lambda-only defaults.
+[PATTERN_DISPATCH_SITE]:
+- Use when: a value-returning decision can state its whole law as one total pattern expression.
+- Accept: switch expressions over property, positional, relational, logical, list, slice, and constant-string-over-span patterns, with `var` bindings inside arms.
+- Reject: `if`/`else` ladders, statement switches for value decisions, guard arms that leave cases unproved, and default arms that hide a missing case of a closed owner.
+- Boundary: closed-family ownership and generated dispatch belong to the domain-shape owner; this site owns the pattern grammar itself.
 
-## [4]-[REPLACEMENTS]
+```csharp conceptual
+public readonly record struct Mark(string Key, int Rank);
 
-[REPLACEMENT_1]:
-- Accepted: `ReadOnlySpan<T>` input plus collection expressions and `params` collections where call shape requires arity.
-- Rejected: `T[]`, `IEnumerable<T>`, `List<T>`, and span overload families for the same operation.
-- Reason: span conversions and `params` collections carry common call shapes without overload drift.
+public static class MarkPolicy {
+    public static string Banded(ReadOnlySpan<Mark> marks) =>
+        marks switch {
+            [] => "<band-empty>",
+            [{ Rank: < 0 }, ..] => "<band-negative>",
+            [.., { Rank: >= 9, Key: var key }] => $"<band-peak>:{key}",
+            [{ } only] => $"<band-single>:{only.Key}",
+            _ => "<band-mixed>",
+        };
 
-[REPLACEMENT_2]:
-- Accepted: `field` accessor validation.
-- Rejected: private backing fields used only by one property setter.
-- Reason: the invariant belongs to the property when no cross-property state is involved.
+    public static int Routed(ReadOnlySpan<char> token) =>
+        token switch {
+            "<token-a>" => 1,
+            "<token-b>" => 2,
+            ['<', .. var body, '>'] => body.Length,
+            _ => 0,
+        };
+}
+```
 
-[REPLACEMENT_3]:
-- Accepted: extension blocks on the receiver type.
-- Rejected: wrapper-only types that rename receiver behavior.
-- Reason: the receiver owns the behavior; a wrapper adds shape without capability.
+[IMMUTABLE_CARRIER_SITE]:
+- Use when: an inert carrier needs identity, mandatory initialization, or property-local invariants without a generated domain owner.
+- Accept: `record` and `readonly record struct`, `required` plus `init`, `field` accessors for one-property invariants, and `with` expressions for nondestructive update.
+- Reject: manual backing fields serving one accessor, constructor telescoping for mandatory members, copy constructors beside `with`, and hand-written equality on inert data.
+- Boundary: carriers with admission, validation, vocabulary, or dispatch pressure graduate to generated domain owners.
 
-[REPLACEMENT_4]:
-- Accepted: `System.Threading.Lock` at new synchronous boundaries.
-- Rejected: private `object` locks for new code.
-- Reason: the runtime lock type is the synchronization owner.
+```csharp conceptual
+public sealed record Profile {
+    public required string Key { get; init; }
 
-[REPLACEMENT_5]:
-- Accepted: collection expressions with spread.
-- Rejected: `new[]`, manual list construction, and concat-then-add boilerplate.
-- Reason: the expression form carries construction and composition directly.
+    public int Weight {
+        get;
+        init => field = int.Max(value, 0);
+    } = 1;
 
-[REPLACEMENT_6]:
-- Accepted: `nameof(List<>)`.
-- Rejected: closed-generic dummy names or string literals for generic type definitions.
-- Reason: diagnostics and telemetry should follow symbol identity.
+    public Profile Reweighted(int delta) => this with { Weight = Weight + delta };
+}
+```
 
-## [5]-[REJECTIONS]
+[COLLECTION_COMPOSITION_SITE]:
+- Use when: composition, arity, and end-relative placement can be stated at the call or initialization site.
+- Accept: collection expressions with spread, `params` collections over span and interface element shapes, and implicit `^` index assignment inside object initializers.
+- Reject: `new[]` plus `Concat` chains, list-add ceremony, overload families that differ only by collection kind, and post-construction index assignment loops.
+- Boundary: immutable domain collection identity belongs to the rail owner; this site owns construction shape.
 
-- Interceptors are not a production baseline.
-- File-based app preprocessor directives are not a project-library pattern.
-- Floating `LangVersion` values are not allowed; use explicit `14.0`.
-- Extension conversion operators are not part of the C# 14 extension-operator surface.
-- Inline arrays are runtime and library-author machinery unless a measured local owner proves direct use.
-- `ExperimentalAttribute` is not a normal authoring pattern for repository domain code.
+```csharp conceptual
+public sealed class Board {
+    public int[] Cells { get; init; } = new int[8];
+}
+
+public static class BoardOps {
+    public static ImmutableArray<int> Merged(ReadOnlySpan<int> head, params ReadOnlySpan<int> tail) =>
+        [.. head, 0, .. tail];
+
+    public static Board Seeded(int first, int last) => new() {
+        Cells = { [0] = first, [^1] = last },
+    };
+}
+```
+
+[GENERIC_ALGEBRA_SITE]:
+- Use when: one algorithm must hold across every type that proves the same construction and operator laws.
+- Accept: static abstract and virtual interface members, the narrowest generic math constraint that carries the invariant, and user-defined compound assignment where mutation-shaped operators are the domain law.
+- Reject: reflection factories, per-type arithmetic overload copies, runtime type switches inside numeric algorithms, and compound assignment that diverges from its expanded operator.
+- Boundary: matrix, solver, and factorization selection belongs to the algorithm owner; this site owns the type-level algebra.
+
+```csharp conceptual
+public interface IMeasured<TSelf> where TSelf : IMeasured<TSelf> {
+    static abstract TSelf Zero { get; }
+    static abstract TSelf operator +(TSelf left, TSelf right);
+}
+
+public record struct Extent(double Span) : IMeasured<Extent> {
+    public static Extent Zero => new(Span: 0d);
+
+    public static Extent operator +(Extent left, Extent right) => new(left.Span + right.Span);
+
+    public void operator +=(Extent other) => Span += other.Span;
+}
+```
+
+[TEXT_LITERAL_SITE]:
+- Use when: structured text, wire constants, or terminal sequences must be stated as literals instead of being assembled at runtime.
+- Accept: raw string literals for embedded structure, `u8` literals for UTF-8 wire constants, full expression grammar inside interpolations, and `\e` for terminal escapes in processed strings.
+- Reject: escape-laden concatenation, runtime UTF-8 encoding of constants, `string.Format` for local interpolation, and `\x1b` magic literals.
+- Boundary: grammar compilation, parsing policy, and codec selection belong to the system API owner; raw string literals do not process escapes, so terminal sequences stay in processed strings.
+
+```csharp conceptual
+public static class Wire {
+    public static ReadOnlySpan<byte> Preamble => "<frame-a>"u8;
+
+    public static string Highlighted(string body) => $"\e[1m{body}\e[0m";
+
+    public static string Manifest(string key, int count) => $$"""
+        {
+          "key": "{{key}}",
+          "count": {{count}}
+        }
+        """;
+}
+```
+
+[STACK_KERNEL_SITE]:
+- Use when: a measured algorithm needs stack-only values, by-reference state, or span traversal that rail combinators cannot carry without allocation.
+- Accept: `ref struct` owners with primary constructors, `ref` fields with `scoped` lifetimes, `allows ref struct` type parameters, `ref struct` interface implementations, and statement loops confined to the kernel body.
+- Reject: boxing stack-only values through interface conversions, carrying `ref struct` state across `await` or `yield`, pointer carriers where `ref` fields express the lifetime, and kernel-style statements leaking into domain flow.
+- Boundary: kernels are the named statement exemption; their public surface returns ordinary values or rails, and the kernel never escapes the owner.
+
+```csharp conceptual
+public interface IStep<TState> {
+    TState Folded(TState state, int value);
+}
+
+public readonly ref struct Frame(ReadOnlySpan<int> values) {
+    private readonly ReadOnlySpan<int> values = values;
+
+    public TState Folded<TState, TStep>(TState seed, scoped ref TStep step)
+        where TStep : IStep<TState>, allows ref struct {
+        TState current = seed;
+        foreach (int value in values) {
+            current = step.Folded(current, value);
+        }
+
+        return current;
+    }
+}
+```
+
+## [4]-[ABSTRACTION_COLLAPSE_TESTS]
+
+Use these tests before keeping a local abstraction beside a language form.
+
+[OVERLOAD_FAMILY]:
+- Smell: sibling overloads differ only by collection kind, arity, or representation of the same input, or implicit span conversions have made a legacy overload set ambiguous.
+- Collapse: one `ReadOnlySpan<T>` boundary, `params` collections, and collection expressions at call sites.
+- Done when: one signature carries every call shape and no representation overload remains.
+
+[WRAPPER_TYPE]:
+- Smell: a type only forwards, renames, or decorates another receiver's behavior.
+- Collapse: an extension block on the receiver, or absorption into the owning domain shape.
+- Done when: callers use the receiver directly and the forwarding type is deleted.
+
+[BACKING_FIELD]:
+- Smell: a private field exists only to serve one property accessor's invariant.
+- Collapse: a `field` accessor on the property.
+- Done when: the invariant lives in the accessor and no cross-property state remains.
+
+[STATEMENT_BRANCH]:
+- Smell: an `if`/`else` ladder or statement switch computes a value, or count and index guards probe a sequence before reading it.
+- Collapse: one switch expression over property, relational, positional, list, or constant-string patterns.
+- Done when: the decision is one total expression and no temporary mutation remains.
+
+[STRING_IDENTITY]:
+- Smell: a string literal restates a type, member, or generic identity the compiler already knows.
+- Collapse: `nameof`, including unbound generic forms.
+- Done when: renames propagate through symbols and no identity literal remains.

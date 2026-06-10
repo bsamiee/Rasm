@@ -123,7 +123,7 @@ This table is a lookup by repeated local smell.
 [LOGGING]:
 - Owner: `[LoggerMessage]` and `ILogger` after `Microsoft.Extensions.Logging.Abstractions` has a source-backed owner route.
 - Replace: `Console.WriteLine` and string-interpolated logs at runtime boundaries.
-- Gate: package adoption belongs in [build and packages](build-and-packages.md); no domain logging rail appears before the boundary owner exists.
+- Gate: package adoption is a graph fact, not a replacement decision; no domain logging rail appears before the boundary owner exists.
 
 [CONCURRENCY]:
 - Owner: `CancellationToken`, linked token sources, `Lock`, `Interlocked`, `Volatile`, `Channel<T>`, `TaskCompletionSource<T>`, `IAsyncEnumerable<T>`, and framework-proven rate limiters.
