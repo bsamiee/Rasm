@@ -8,13 +8,13 @@ Seeded from the corpus as found at program start. Testing pages currently carry 
 
 | [ID]  | [PAGE]              | [CARD]                     | [REGION]                                                                                                                                  |
 | :---: | :------------------ | :------------------------- | :----------------------------------------------------------------------------------------------------------------------------------------- |
-| L-01  | language.md         | EXTENSION_SURFACE_SITE     | extension blocks: instance and static extension members plus a non-conversion extension operator on a foreign receiver                       |
-| L-02  | language.md         | PATTERN_DISPATCH_SITE      | switch-expression pattern grammar: list/slice + property/relational patterns over `ReadOnlySpan<T>`; constant-string and char list patterns over `ReadOnlySpan<char>` |
-| L-03  | language.md         | IMMUTABLE_CARRIER_SITE     | inert carrier surface: `required` + `init`, `field` accessor invariant, `with` nondestructive update on a sealed record                      |
-| L-04  | language.md         | COLLECTION_COMPOSITION_SITE | construction shape: collection-expression spread, `params ReadOnlySpan<T>`, implicit `^` index assignment inside object initializers         |
-| L-05  | language.md         | GENERIC_ALGEBRA_SITE       | type-level algebra: static abstract interface members, self-constrained generic math interface, user-defined compound assignment             |
-| L-06  | language.md         | TEXT_LITERAL_SITE          | literal forms: `u8` span constant, `\e` terminal escape in interpolation, `$$` raw-string interpolation for embedded structure               |
-| L-07  | language.md         | STACK_KERNEL_SITE          | stack-only kernel: `readonly ref struct` primary constructor, `scoped ref` step parameter, `allows ref struct` constraint, confined fold loop |
+| L-01  | language.md         | EXTENSION_SURFACE_SITE     | extension blocks on a foreign BCL receiver: instance property and method, static property, non-conversion static operator                    |
+| L-02  | language.md         | PATTERN_DISPATCH_SITE      | switch-expression pattern grammar: list/slice, positional-in-list, property/relational/logical patterns over `ReadOnlySpan<T>`; constant-string and char list patterns over `ReadOnlySpan<char>` |
+| L-03  | language.md         | IMMUTABLE_CARRIER_SITE     | inert carrier surface: `required` + `init`, `field` accessor invariant, nested `with`-through-struct update across a sealed record and a readonly record struct |
+| L-04  | language.md         | COLLECTION_COMPOSITION_SITE | construction shape: collection-expression spread, `params ReadOnlySpan<T>` and `params IReadOnlyList<T>` element shapes, implicit `^` index assignment inside object initializers |
+| L-05  | language.md         | GENERIC_ALGEBRA_SITE       | type-level algebra: static abstract members, static virtual default-body fold through the self-constraint, void-returning instance compound assignment |
+| L-06  | language.md         | TEXT_LITERAL_SITE          | literal forms: `u8` span constants including escape-bearing, `\e` terminal escapes in processed interpolation, `$$` raw-string interpolation with expression holes |
+| L-07  | language.md         | STACK_KERNEL_SITE          | stack-only kernel: `readonly ref struct` primary constructor, `ref` field with explicit-constructor ref-assign, `ref struct` interface implementation, `scoped ref` + `allows ref struct` step, confined fold loop |
 | S-01  | shapes.md           | ADMISSION_STACK            | generated admission stack: union-shaped typed fault implementing the validation-error contract; key-membered scalar value object with comparer policy and normalizing validation partial; complex value object with typed-fault validation; try-create-to-`Fin` bridge |
 | S-02  | shapes.md           | SMART_ENUM                 | smart-enum behavior rows: constructor delegates with generated delegate partial; keyed lookup projected into `Fin`                           |
 | S-03  | shapes.md           | UNION                      | state-threaded generated `Switch` with static arms inside an `Eff` query expression composing traversal and fold                             |
@@ -30,4 +30,4 @@ Seeded from the corpus as found at program start. Testing pages currently carry 
 
 ## [2]-[KNOWN_OVERLAPS]
 
-- L-07 / S-04: both demonstrate a ref-struct fold kernel with a confined statement loop. Pre-existing duplication; resolve at the shapes.md rebuild (the language page owns the kernel grammar; the shapes page must demonstrate the manual-owner decision through a different region).
+- L-07 / S-04: both demonstrate a ref-struct fold kernel with a confined statement loop. Pre-existing duplication; resolve at the shapes.md rebuild (the language page owns the kernel grammar; the shapes page must demonstrate the manual-owner decision through a different region — type-indexed projection or another generator-unsupported shape, not a loop kernel).

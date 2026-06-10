@@ -98,20 +98,18 @@ Use these contracts when the chooser names the form but code still needs a place
 - Boundary: receiver-owned behavior that admits, validates, or dispatches domain state belongs to the owning domain shape, not to an extension surface.
 
 ```csharp conceptual
-public readonly record struct Shape(string Key, int Span);
+public static class VersionSurface {
+    extension(Version source) {
+        public bool Stable => source.Major >= 1;
 
-public static class ShapeSurface {
-    extension(Shape source) {
-        public bool Spans(int width) => source.Span >= width;
-
-        public Shape Widened(int delta) => source with { Span = source.Span + delta };
+        public Version Advanced(int generations) => new(source.Major + generations, 0);
     }
 
-    extension(Shape) {
-        public static Shape Origin => new(Key: "<key-a>", Span: 0);
+    extension(Version) {
+        public static Version Origin => new(1, 0);
 
-        public static Shape operator +(Shape left, Shape right) =>
-            new(Key: left.Key, Span: left.Span + right.Span);
+        public static Version operator +(Version left, int steps) =>
+            new(left.Major, left.Minor + steps);
     }
 }
 ```
@@ -129,9 +127,9 @@ public static class MarkPolicy {
     public static string Banded(ReadOnlySpan<Mark> marks) =>
         marks switch {
             [] => "<band-empty>",
-            [{ Rank: < 0 }, ..] => "<band-negative>",
+            [(_, < 0), ..] => "<band-negative>",
             [.., { Rank: >= 9, Key: var key }] => $"<band-peak>:{key}",
-            [{ } only] => $"<band-single>:{only.Key}",
+            [{ Rank: >= 0 and < 9 } only] => $"<band-single>:{only.Key}",
             _ => "<band-mixed>",
         };
 
@@ -152,15 +150,22 @@ public static class MarkPolicy {
 - Boundary: carriers with admission, validation, vocabulary, or dispatch pressure graduate to generated domain owners.
 
 ```csharp conceptual
+public readonly record struct Patch(int Offset, int Length);
+
 public sealed record Profile {
     public required string Key { get; init; }
+
+    public required Patch Window { get; init; }
 
     public int Weight {
         get;
         init => field = int.Max(value, 0);
     } = 1;
 
-    public Profile Reweighted(int delta) => this with { Weight = Weight + delta };
+    public Profile Shifted(int delta) => this with {
+        Weight = Weight + delta,
+        Window = Window with { Offset = Window.Offset + delta },
+    };
 }
 ```
 
@@ -180,8 +185,8 @@ public static class BoardOps {
     public static ImmutableArray<int> Merged(ReadOnlySpan<int> head, params ReadOnlySpan<int> tail) =>
         [.. head, 0, .. tail];
 
-    public static Board Seeded(int first, int last) => new() {
-        Cells = { [0] = first, [^1] = last },
+    public static Board Framed(params IReadOnlyList<int> edges) => new() {
+        Cells = { [0] = edges[0], [^1] = edges[^1] },
     };
 }
 ```
@@ -196,6 +201,9 @@ public static class BoardOps {
 public interface IMeasured<TSelf> where TSelf : IMeasured<TSelf> {
     static abstract TSelf Zero { get; }
     static abstract TSelf operator +(TSelf left, TSelf right);
+
+    static virtual TSelf Total(IEnumerable<TSelf> values) =>
+        values.Aggregate(TSelf.Zero, static (sum, value) => sum + value);
 }
 
 public record struct Extent(double Span) : IMeasured<Extent> {
@@ -217,12 +225,14 @@ public record struct Extent(double Span) : IMeasured<Extent> {
 public static class Wire {
     public static ReadOnlySpan<byte> Preamble => "<frame-a>"u8;
 
-    public static string Highlighted(string body) => $"\e[1m{body}\e[0m";
+    public static ReadOnlySpan<byte> Reset => "\e[0m"u8;
+
+    public static string Highlighted(string body) => $"\e[1m{body.Trim()}\e[0m";
 
     public static string Manifest(string key, int count) => $$"""
         {
           "key": "{{key}}",
-          "count": {{count}}
+          "count": {{int.Max(count, 0)}}
         }
         """;
 }
@@ -237,6 +247,14 @@ public static class Wire {
 ```csharp conceptual
 public interface IStep<TState> {
     TState Folded(TState state, int value);
+}
+
+public ref struct Probe : IStep<int> {
+    private readonly ref int peak;
+
+    public Probe(ref int peak) => this.peak = ref peak;
+
+    public int Folded(int state, int value) => peak = int.Max(state, value);
 }
 
 public readonly ref struct Frame(ReadOnlySpan<int> values) {
