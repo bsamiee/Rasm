@@ -151,6 +151,7 @@ public sealed record Profile {
 - Use when: composition, arity, and end-relative placement can be stated at the call or initialization site.
 - Accept: collection expressions with spread, `params` collections over span and interface element shapes, and implicit `^` index assignment inside object initializers.
 - Reject: `new[]` plus `Concat` chains, list-add ceremony, overload families that differ only by collection kind, and post-construction index assignment loops.
+- Law: one signature carries every call shape; a legacy overload set made ambiguous by implicit span conversions is deleted, with `[OverloadResolutionPriority]` only as the residual tiebreaker during the collapse.
 - Boundary: immutable domain collection identity belongs to the rail owner; this site owns construction shape.
 
 ```csharp conceptual
@@ -235,32 +236,3 @@ public readonly ref struct Frame(ReadOnlySpan<int> values) {
     }
 }
 ```
-
-## [4]-[ABSTRACTION_COLLAPSE_TESTS]
-
-Use these tests before keeping a local abstraction beside a language form.
-
-[OVERLOAD_FAMILY]:
-- Smell: sibling overloads differ only by collection kind, arity, or representation of the same input, or implicit span conversions have made a legacy overload set ambiguous.
-- Collapse: one `ReadOnlySpan<T>` boundary, `params` collections, and collection expressions at call sites.
-- Done when: one signature carries every call shape and no representation overload remains.
-
-[WRAPPER_TYPE]:
-- Smell: a type only forwards, renames, or decorates another receiver's behavior.
-- Collapse: an extension block on the receiver, or absorption into the owning domain shape.
-- Done when: callers use the receiver directly and the forwarding type is deleted.
-
-[BACKING_FIELD]:
-- Smell: a private field exists only to serve one property accessor's invariant.
-- Collapse: a `field` accessor on the property.
-- Done when: the invariant lives in the accessor and no cross-property state remains.
-
-[STATEMENT_BRANCH]:
-- Smell: an `if`/`else` ladder or statement switch computes a value, or count and index guards probe a sequence before reading it.
-- Collapse: one switch expression over property, relational, positional, list, or constant-string patterns.
-- Done when: the decision is one total expression and no temporary mutation remains.
-
-[STRING_IDENTITY]:
-- Smell: a string literal restates a type, member, or generic identity the compiler already knows.
-- Collapse: `nameof`, including unbound generic forms.
-- Done when: renames propagate through symbols and no identity literal remains.
