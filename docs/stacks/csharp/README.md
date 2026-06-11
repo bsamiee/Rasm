@@ -2,6 +2,8 @@
 
 This folder is the C# stack decision atlas. It routes language, shape, surface, rail, boundary, algorithm, system-API, and proof decisions to the concept page that owns the coding choice. The atlas builds one admission-first paradigm: raw input is admitted once through generated owners, admitted values travel typed rails, behavior lives on generated dispatch surfaces, and projections leave at explicit boundaries.
 
+The atlas is also a build order: pages are layers of one cumulative body, and every page is authored from the full established law of the pages finalized before it. Prose consumes earlier layers as given — vocabulary, owners, rails, and policy values arrive settled, never re-taught — and spends its lines only on its own layer. Snippets stack the same way: code fully captures the card it proves, then composes on earlier layers' law at full doctrine depth, with the new surface in the spotlight and established surfaces as supporting material. Pages cite no external sources — no links, no version narration, no provenance; verification precedes the page, and the page states law as fact.
+
 ## [1]-[ATLAS]
 
 This table is a lookup by reader decision.
