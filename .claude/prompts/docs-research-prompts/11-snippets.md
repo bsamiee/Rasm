@@ -16,7 +16,7 @@
 
 [ATTEMPTS]:
 - The orchestrator drafts its own full snippet set first and grades each snippet with pros and cons — the baseline and the lessons learned.
-- Dispatch ten independent agents with the same brief, in isolation: the grounding reads, the full `<TARGET>` read, and the region map, with no sight of any other attempt. Each authors the full set and returns it with self-grades.
+- Dispatch three to five independent agents with the same brief, in isolation — the orchestrator sizes the pool to the selected card set, each attempt a focused run inside ten minutes: the grounding reads, the full `<TARGET>` read, and the region map, with no sight of any other attempt. Each authors the full set and returns it with self-grades.
 - Snippets are authored from the card, the doctrine, verified library truth in `<WORKSPACE>`, the reservoirs of finalized pages where the orchestrator supplies them, and installed library source — never from repository source code, and never by inventing an API member.
 
 [SYNTHESIZE]:

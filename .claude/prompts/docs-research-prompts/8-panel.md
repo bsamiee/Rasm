@@ -4,14 +4,14 @@
 - `<DOCTRINE>` =
 - `<WORKSPACE>` =
 
-`<TARGET>` exists as a page with no fenced code, and each lane folder in `<WORKSPACE>` holds a `99-distilled.md`. This work subjects the page to a ten-lens adversarial review against the distilled reservoir, then one adjudicated rewrite.
+`<TARGET>` exists as a page with no fenced code, and each lane folder in `<WORKSPACE>` holds a `99-distilled.md`. This work subjects the page to an adversarial panel review against the distilled reservoir, then one adjudicated rewrite.
 
 [GROUNDING]:
 - Every agent — the orchestrator and every reviewer — fully reads `<DOCTRINE>`, then `docs/standards/style-guide.md`, `docs/standards/information-structure.md`, and `docs/standards/formatting.md`, before any other work: the laws, the collapse scan, the page craft, and the prose, container, and rendering standards. Every finding and every edit answers to them.
 - Every agent reads all of `<TARGET>`. Beyond that, each reviewer reads what its lens demands: every `99-distilled.md` in `<WORKSPACE>` for the coverage, card-power, and stacking lenses; the finalized sibling pages — the doctrine's atlas states which — as binding law and corpus voice for the corpus-fit lens. The orchestrator reads everything.
 
 [PANEL]:
-- Dispatch ten reviewers in parallel. Each reviews the whole page and leads with one assigned lens: opening signal; coverage against the distillates; card power; card stacking opportunities; table craft; prose craft; section order and cohesion; low-value and table-stakes content; doctrine-law adherence; corpus fit against the finalized sibling pages — voice and law, where any restatement of, reference to, or contradiction with a finalized page's territory is a defect.
+- Dispatch three to five reviewers in parallel — the orchestrator sizes the panel and groups the lenses so each reviewer carries one focused, specialized brief; a review running past ten minutes signals the brief was too wide. The lens set covers: opening signal; coverage against the distillates; card power; card stacking opportunities; table craft; prose craft; section order and cohesion; low-value and table-stakes content; doctrine-law adherence; corpus fit against the finalized sibling pages — voice and law, where any restatement of, reference to, or contradiction with a finalized page's territory is a defect.
 - Reviewers never touch the file. Each returns a transcript — graded findings with exact proposed edits — to the orchestrator. Transcripts are working material, never files.
 
 [ADJUDICATE]:
