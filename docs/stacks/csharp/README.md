@@ -8,23 +8,23 @@ The atlas is also a build order: pages are layers of one cumulative body, and ev
 
 This table is a lookup by reader decision.
 
-| [INDEX] | [DECISION]              | [READ]                                    | [STATE]   |
-| :-----: | :---------------------- | :---------------------------------------- | :-------- |
-|   [1]   | language shape          | [language](language.md)                   | finalized |
-|   [2]   | domain shape            | [shapes](shapes.md)                       | partial   |
-|   [3]   | surface and dispatch    | `surfaces-and-dispatch.md`                | planned   |
-|   [4]   | result and effect flow  | [rails and effects](rails-and-effects.md) | partial   |
-|   [5]   | host and wire boundary  | `boundaries.md`                           | planned   |
-|   [6]   | numeric approach        | [algorithms](algorithms.md)               | partial   |
-|   [7]   | system API replacement  | [system APIs](system-apis.md)             | finalized |
-|   [8]   | proof rail              | [testing](testing/README.md)              | finalized |
-|   [9]   | hosting and runtime     | `domain/runtime.md`                       | planned   |
-|  [10]   | concurrency and streams | `domain/concurrency.md`                   | planned   |
-|  [11]   | telemetry signal        | `domain/diagnostics.md`                   | planned   |
-|  [12]   | boundary validation     | `domain/validation.md`                    | planned   |
-|  [13]   | resilience policy       | `domain/resilience.md`                    | planned   |
-|  [14]   | data persistence        | `domain/persistence.md`                   | planned   |
-|  [15]   | compute lane            | `domain/compute.md`                       | planned   |
+| [INDEX] | [DECISION]              | [READ]                                            | [STATE]   |
+| :-----: | :---------------------- | :------------------------------------------------ | :-------- |
+|   [1]   | language shape          | [language](language.md)                           | finalized |
+|   [2]   | domain shape            | [shapes](shapes.md)                               | finalized |
+|   [3]   | surface and dispatch    | [surfaces and dispatch](surfaces-and-dispatch.md) | partial   |
+|   [4]   | result and effect flow  | [rails and effects](rails-and-effects.md)         | finalized |
+|   [5]   | host and wire boundary  | `boundaries.md`                                   | planned   |
+|   [6]   | numeric approach        | [algorithms](algorithms.md)                       | finalized |
+|   [7]   | system API replacement  | [system APIs](system-apis.md)                     | finalized |
+|   [8]   | proof rail              | [testing](testing/README.md)                      | finalized |
+|   [9]   | hosting and runtime     | `domain/runtime.md`                               | planned   |
+|  [10]   | concurrency and streams | `domain/concurrency.md`                           | planned   |
+|  [11]   | telemetry signal        | `domain/diagnostics.md`                           | planned   |
+|  [12]   | boundary validation     | `domain/validation.md`                            | planned   |
+|  [13]   | resilience policy       | `domain/resilience.md`                            | planned   |
+|  [14]   | data persistence        | `domain/persistence.md`                           | planned   |
+|  [15]   | compute lane            | `domain/compute.md`                               | planned   |
 
 ## [2]-[DOCTRINE]
 
@@ -98,13 +98,6 @@ How the corpus accretes. The atlas `[STATE]` column is the law registry: a `fina
 ## [6]-[ROADMAP]
 
 Planned pages in build order. Each entry states what the page must decide; the scope moves into the page when it is authored and leaves this tail.
-
-[SURFACES_AND_DISPATCH]:
-- Owns: surface and aspect architecture — how one polymorphic entrypoint, its arity collapse, its parameter algebra, its dispatch form, and its aspects compose. Assumes language shape and generated owners from prior pages; never re-teaches pattern syntax, generated `Switch`, or smart-enum behavior rows.
-- Entrypoint law: one entrypoint per concern; verb families collapse into a request union with one total dispatch; arity collapses into `params` collections, collection expressions, and span boundaries.
-- Parameter algebra: knob sets collapse into policy values; optional context enters as `Option<T>` or a runtime record, never as nullable flag tails; defaults derive from the policy owner; a parameter that re-describes the input is arity smuggled back into a knob, and the anti-pattern is stated explicitly.
-- Dispatch forms: state-threaded generated `Switch` for shared context, smart-enum delegate rows for case-owned behavior, frozen tables for bounded vocabulary keys, extension blocks for receiver-owned surfaces.
-- Aspects: attribute-directed generation as definition-time weaving; generated partial hooks as construction advice; effect transformers, named catch combinators, and bracket as composition-time policy; deterministic stacking order.
 
 [BOUNDARIES]:
 - Owns: host, native, and wire boundary law — how foreign lifetime, absence, events, threads, and wire shapes become domain material. Assumes carriers and generated admission from prior pages; never re-teaches rail choice or factory shape.
