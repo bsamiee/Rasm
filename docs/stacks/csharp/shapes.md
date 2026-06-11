@@ -24,20 +24,20 @@ When a concept matches several signatures, the most specific row wins.
 ## [2]-[DECISION_LAW]
 
 [OWNER_SELECTION]:
-- `SelectOwner(concept)`: choose by singleton-versus-instance, field coverage, relatedness, invariant, admission boundary, churn rate, payload timing, and openness.
+- `SelectOwner(concept)`: choose by singleton-versus-instance, field coverage, relatedness, invariant, admission boundary, reads-of-evidence per write, payload timing, and openness; high-churn intermediate values stay plain until the seam where evidence becomes domain material.
 - `UseSmartEnum(vocabulary)`: fixed named instances, identity dispatch, behavior columns, key lookup, and declared growth absorption.
 - `UseUnion(family)`: per-occurrence payload, case dispatch, stored call modality, transport carrier under `SwitchMapMethodsGeneration.None`, and ad-hoc members meaningful outside the family.
 - `UseComplexValueObject(product)`: require every field under every value; move discriminator-dependent fields to `UseUnion`; keep non-admitting, no-invariant, default-comparer products as `record`.
 
 [COLLAPSE_FUNCTIONS]:
-- `CollapseFamily(family)`: keep generated closure; delete sibling regrowth, nullable payload bags, enum-dictionary pairs, protocol shadows, owner wrappers, and overload-only modality.
+- `CollapseFamily(family)`: keep generated closure only when the owner absorbs admission, identity, dispatch, policy, boundary projection, or stored modality; delete sibling regrowth, nullable payload bags, enum-dictionary pairs, protocol shadows, owner wrappers, and overload-only modality.
 - `MergeSamePayload(cases)`: collapse only passive, non-generic, non-fault cases with identical semantics; preserve marker, behavior, fault, and named-semantic cases.
 - `ReplaceFlags(capability)`: model combinable capability as vocabulary items in a frozen set; keep behavior in columns, membership as set algebra, and policy as a fold.
 - `UseLanguageEnum(seam)`: permit only foreign wire enum, ABI bit layout, or measured-kernel ordinal; re-close at seam conversion.
 
 [BEHAVIOR_FUNCTIONS]:
-- `PlaceBehavior(selector)`: use generated dispatch for call-site variation, columns or case members for family-owned uniform behavior, and frozen tables for cross-products, startup-admitted external policy, or outside-family keys.
-- `RejectExternalDictionary(key)`: move item-keyed dictionaries into columns, dispatch, or total startup-checked tables; fold repeated full-coverage identical dispatch to a column.
+- `PlaceBehavior(selector)`: use generated `Switch` for call-site variation, behavior columns or case members for family-owned policy, `Items`-derived frozen indexes for single-axis lookup, and generated-owner tables only for cross-products, startup-admitted external policy, or outside-family keys.
+- `RejectExternalDictionary(key)`: collapse item-keyed dictionaries, sibling lookup helpers, and repeated full-coverage `Switch` arms to behavior columns, generated dispatch, or one `Items`-derived frozen index; cross-product tables survive only with generated-owner keys and startup totality against the `Items` product.
 
 [CHANGE_FUNCTIONS]:
 - `PlaceGrowthCost(owner)`: send new union cases to exhaustive `Switch`, smart-enum items to constructors, complex members to factories, and key migrations to conversion and wire seams.
@@ -65,7 +65,8 @@ When a concept matches several signatures, the most specific row wins.
 - Law: the raw key stays private except conversion and explicit-interface egress; consumers compare and dispatch on the owner, and key-type migration breaks at the boundary.
 - Law: comparer policy is a type argument; `IEqualityComparerAccessor<T>` and `IComparerAccessor<T>` swing equality, hashing, ordering, relational operators, and `CompareTo` together, with comparers cached in `static readonly` fields.
 - Law: string keys default to ordinal-ignore-case across generated surfaces but never inherit policy; every string-bearing layer declares one accessor type, and divergence is the defect.
-- Accept: complex-owner equality membership as opt-in member comparers; unmarked members vanish from equality, hashing, and diagnostic text, while collection members use reference identity unless a sequence comparer is attached.
+- Accept: `[MemberEqualityComparer<...>]` makes complex-owner equality opt-in; unmarked members remain materialized but leave equality, hashing, and diagnostic text.
+- Boundary: collection members keep reference identity unless a sequence comparer accessor owns that member.
 
 ```csharp conceptual
 public sealed class FieldKeyPolicy : IEqualityComparerAccessor<string>, IComparerAccessor<string> {
@@ -76,14 +77,16 @@ public sealed class FieldKeyPolicy : IEqualityComparerAccessor<string>, ICompare
     public static IComparer<string> Comparer => Policy;
 }
 
-[ValueObject<string>]
+[ValueObject<string>(
+    ComparisonOperators = OperatorsGeneration.DefaultWithKeyTypeOverloads,
+    EqualityComparisonOperators = OperatorsGeneration.DefaultWithKeyTypeOverloads)]
 [KeyMemberEqualityComparer<FieldKeyPolicy, string>]
 [KeyMemberComparer<FieldKeyPolicy, string>]
 public readonly partial struct FieldKey;
 
 public static class FieldRanks {
-    public static ImmutableSortedDictionary<FieldKey, int> From(IEnumerable<FieldKey> keys) =>
-        keys.Distinct().Order().Select(static (key, rank) => (key, rank))
+    public static ImmutableSortedDictionary<FieldKey, int> From(string rawBound, IEnumerable<FieldKey> keys) =>
+        keys.Where(key => key > rawBound).Distinct().Order().Select(static (key, rank) => (key, rank))
             .ToImmutableSortedDictionary(static row => row.key, static row => row.rank);
 }
 ```
@@ -101,19 +104,19 @@ public static class FieldRanks {
     DivisionOperators = OperatorsGeneration.None,
     ComparisonOperators = OperatorsGeneration.DefaultWithKeyTypeOverloads,
     EqualityComparisonOperators = OperatorsGeneration.DefaultWithKeyTypeOverloads)]
-public readonly partial struct Extent {
-    public static Area operator *(Extent left, Extent right) => Area.Create((double)left * (double)right);
+public readonly partial struct Shape {
+    public static RefinedShape operator *(Shape left, Shape right) => RefinedShape.Create((double)left * (double)right);
 }
 
 [ValueObject<double>(MultiplyOperators = OperatorsGeneration.None, DivisionOperators = OperatorsGeneration.None)]
-public readonly partial struct Area;
+public readonly partial struct RefinedShape;
 
-public static class Measures {
+public static class ShapeOps {
     public static TQuantity Total<TQuantity>(IEnumerable<TQuantity> parts, TQuantity seed)
         where TQuantity : IAdditionOperators<TQuantity, TQuantity, TQuantity> =>
         parts.Aggregate(seed, static (sum, next) => sum + next);
 
-    public static bool Clears(Extent extent, double bound) => extent > bound;
+    public static bool Exceeds(Shape shape, double rawBound) => shape > rawBound;
 }
 ```
 
@@ -147,26 +150,40 @@ public static class Measures {
 - Law: `Switch` is the total dispatch surface: integer jump table, write-once index cell, one hot-path field read, state-threaded forms with span-shaped state and results, and `static` lambdas.
 - Law: totality is method arity; new items add parameters to total overloads, stale exhaustive dispatch fails to compile, and named callback arguments are the reorder shield.
 - Reject: language `switch`, key-pattern probes, and guard chains; items are singletons, not constants, and only generated `Switch` is total.
-- Law: behavior rows ladder through `[UseDelegateFromConstructor]` columns, generated dispatch, then abstract members with private nested derived cases; constructor arity forces columns, and shared inputs collapse into composite delegates.
+- Law: row-owned behavior wins when the vocabulary owns the policy or the same full-coverage `Switch` repeats; `[UseDelegateFromConstructor]` columns force every item to answer once, while generated `Switch` remains for single-consumer reactions.
 - Boundary: partial dispatch is a presence test, not routing; `SwitchPartially` cannot distinguish omitted and null arms, omitted `@default` is no-op, `MapPartially` preserves legal defaults, and 1,000 items retain lookup but lose dispatch.
 
 ```csharp conceptual
 [SmartEnum<string>]
-public sealed partial class Gait {
-    public static readonly Gait Walk = new("walk", stride: 1, StepWalk);
-    public static readonly Gait Sprint = new("sprint", stride: 3, StepSprint);
+public sealed partial class Variant {
+    public static readonly Variant RowA = new("<value-b>", rank: 2, ProjectA);
+    public static readonly Variant RowB = new("<value-a>", rank: 1, ProjectB);
 
-    public int Stride { get; }
+    public int Rank { get; }
+
+    private static readonly Lazy<FrozenDictionary<int, Variant>> ByRank =
+        new(static () => Items.ToFrozenDictionary(static row => row.Rank));
 
     [UseDelegateFromConstructor]
-    public partial (double Cost, double Reach) Step(double load);
+    public partial (double Primary, double Secondary) Project(double input);
 
-    private static (double, double) StepWalk(double load) => (load, load);
-    private static (double, double) StepSprint(double load) => (load * 3d, load * 9d);
+    public static Option<Variant> Ranked(int rank) =>
+        ByRank.Value.TryGetValue(rank, out var row) ? Optional(row) : None;
+
+    private static (double, double) ProjectA(double input) => (input, input);
+    private static (double, double) ProjectB(double input) => (input * 2d, input * 4d);
 }
 
-public static class Pacing {
-    public static double Strain(Gait gait, double load) => gait.Step(load).Cost / gait.Stride;
+public static class VariantOps {
+    extension(Variant row) {
+        public bool Matches(double input) => row.Switch(
+            state: input,
+            rowA: static value => value >= 0d,
+            rowB: static value => value > 1d);
+    }
+
+    public static ImmutableArray<double> Projected(params ReadOnlySpan<Variant> rows) =>
+        [.. rows.ToArray().Select(static row => row.Project(row.Rank).Primary)];
 }
 ```
 
@@ -185,9 +202,9 @@ public static class Pacing {
 - Law: `Map` evaluates every arm before dispatch; keep it to preallocated verdict tables and cold carriers, and move allocating or task-shaped arms to func-form `Switch`.
 - Law: dispatch signatures own case lists; case addition is a binary break across consumers, lockstep across assembly boundaries, free inside one build graph.
 - Law: blast radius partitions by axis; case rename breaks named arguments and embedded type names, while same-name payload changes break only arms touching the member.
-- Law: `StopAt` and intermediate `[Union]` declarations select the growth axis a consumer couples to; each granularity stays total, and the coarse handler is the fold re-entry seam.
+- Law: `StopAt` overloads and intermediate `[Union]` receivers are growth-axis declarations: root consumers couple to sibling growth, branch consumers couple to within-branch growth, and the stopped handler is the fold re-entry seam.
 - Law: operation families attach as extension members with total dispatch; conversions stay generated, ordering stays absent, and rank projects through `Map` to preallocated ordinals.
-- Law: recursive owners declare recursion placement; case-owned recursion absorbs growth locally, dispatch-route recursion breaks call sites, and partial dispatch is rejected for routing because new cases silently default.
+- Law: recursive owners declare recursion placement; case-owned recursion absorbs growth locally, dispatch-route recursion breaks call sites, and partial dispatch is rejected for routing or `K<F,B>` folds; new cases silently route to `@default` across every carrier specialization.
 
 [AD_HOC_FORM]:
 - Law: storage is computed: typed fields per stateful unique member until a second stateful reference member collapses references into one `object` slot; struct members stay inline, and `TxIsStateless` identity rides the discriminator.
@@ -203,7 +220,7 @@ public readonly record struct Blank;
 
 public static class FieldValueOps {
     extension(FieldValue value) {
-        public string Rendered() => value.Switch(
+        public string Projected() => value.Switch(
             text: static text => text.Trim(),
             count: static count => $"<value-a>:{count}",
             blank: static _ => "<value-b>");
@@ -212,36 +229,36 @@ public static class FieldValueOps {
             value.IsText ? Optional(value.AsText) : None;
     }
 
-    public static ImmutableArray<string> RenderAll(params ReadOnlySpan<FieldValue> values) =>
-        [.. values.ToArray().Select(static value => value.Rendered())];
+    public static ImmutableArray<string> ProjectAll(params ReadOnlySpan<FieldValue> values) =>
+        [.. values.ToArray().Select(static value => value.Projected())];
 
-    public static ImmutableArray<FieldValue> Mixed(string text, int count, Blank blank) =>
+    public static ImmutableArray<FieldValue> From(string text, int count, Blank blank) =>
         [text, count, blank];
 }
 ```
 
 [RAIL_ARMS]:
-- Law: non-abstract cases are Kleisli points: payload input, arm lift, generated `Switch` continuation; constant arms use the carrier pure lift to preserve specialization portability.
-- Law: recursive arms are traversals; child folds combine through tuple `Apply`, name the pure combine, and let the carrier trait constraint flip fail-fast versus accumulating behavior.
+- Law: non-abstract cases are Kleisli points: payload input, arm lift, generated total `Switch`; constant arms use the carrier pure lift so one fold specializes across rails.
+- Law: recursive arms are generated traversals: child folds stay `K<F, B>`, `Applicative.apply` combines them with the named pure merge, and `where F : Applicative<F>` keeps the fold carrier-shaped.
 - Law: state and result channels stay orthogonal; environment rides threaded state, results ride the carrier, and a second monad appears only for effectful environments.
 - Boundary: generated dispatch is depth-honest recursion; hostile or unbounded input moves to an explicit-stack kernel at admission.
 
 ```csharp conceptual
 [Union]
-public abstract partial record Trace {
-    public sealed record Point(double Mass) : Trace;
-    public sealed record Pair(Trace Left, Trace Right) : Trace;
+public abstract partial record Node {
+    public sealed record Leaf(double Value) : Node;
+    public sealed record Branch(Node Left, Node Right) : Node;
 }
 
-public static class TraceOps {
-    extension(Trace source) {
-        public K<F, B> Folded<F, B>(Func<Trace.Point, K<F, B>> leaf, Func<B, B, B> merge)
+public static class NodeOps {
+    extension(Node source) {
+        public K<F, B> Fold<F, B>(Func<Node.Leaf, K<F, B>> leaf, Func<B, B, B> merge)
             where F : Applicative<F> =>
-            source.Switch<(Func<Trace.Point, K<F, B>> Leaf, Func<B, B, B> Merge), K<F, B>>(
+            source.Switch<(Func<Node.Leaf, K<F, B>> Leaf, Func<B, B, B> Merge), K<F, B>>(
                 (leaf, merge),
-                point: static (s, p) => s.Leaf(p),
-                pair: static (s, p) => Applicative.apply(
-                    (p.Left.Folded(s.Leaf, s.Merge), p.Right.Folded(s.Leaf, s.Merge)), s.Merge));
+                leaf: static (s, n) => s.Leaf(n),
+                branch: static (s, n) => Applicative.apply(
+                    (n.Left.Fold(s.Leaf, s.Merge), n.Right.Fold(s.Leaf, s.Merge)), s.Merge));
     }
 }
 ```
@@ -255,11 +272,11 @@ public static class TraceOps {
 ## [6]-[ADMISSION_RAILS]
 
 [FAULT_FAMILIES]:
-- Law: fault families have two tiers: one string-bearing case built by static `Create` for generator text, and structured cases built directly by hooks; `ToString` returns the message.
-- Law: a closed union family deriving from `Expected` is validation error, rail error, and exhaustive recovery vocabulary; `StopAt` overloads split severity at boundaries.
-- Law: fault identity keeps structural equality separate from code-keyed recovery; catch-style recovery uses `Is`, `HasCode`, and `IsType<E>`, never `==`, zero codes choose message matching, and domain codes stay outside the reserved negative control band.
-- Law: aggregate disposition is conjunctive for expectedness and disjunctive for exceptionality; gate on `IsExceptional` before fault-case dispatch, and keep typed faults intact through accumulation, foreign-error union, exception capture, and cancellation or timeout normalization.
-- Law: wire triage depends on self-sufficient codes; only message and code serialize, hooks own thrown exceptions, and throwing foreign factories project through `Try`.
+- Law: fault families have two tiers: base `Create` builds the string-bearing case for generator text, structured cases may satisfy `IValidationError<TCase>` for precise generated faults, and `ToString` returns the message.
+- Law: a closed union family deriving from `Expected` is validation error, rail error, and exhaustive recovery vocabulary; `StopAt` partitions severity where a boundary needs a smaller recovery surface.
+- Law: fault identity separates structural equality from code-keyed recovery; use `Is`, `HasCode`, and `IsType<E>` for recovery predicates, never `==`; zero codes choose message matching, and domain codes stay outside the reserved negative control band.
+- Law: aggregate disposition follows the fault members: expectedness is conjunctive, exceptionality is disjunctive, and a `Semigroup` aggregate preserves typed members instead of flattening them to strings.
+- Law: wire triage depends on self-sufficient message and code; only those serialize, hooks own thrown exceptions, and foreign throwing factories enter through the owner `Validate` bridge.
 
 ```csharp conceptual
 [Union]
@@ -269,7 +286,10 @@ public abstract partial record Fault : Expected, IValidationError<Fault>, Semigr
     public static Fault Create(string message) => new Text(message);
 
     public sealed record Text : Fault { public Text(string detail) : base(detail, 4000) { } }
-    public sealed record Bounds : Fault { public Bounds(string detail) : base(detail, 4001) { } }
+    public sealed record Bounds : Fault, IValidationError<Bounds> {
+        public Bounds(string detail) : base(detail, 4001) { }
+        public static new Bounds Create(string detail) => new(detail);
+    }
     public sealed record Aggregate : Fault {
         public Aggregate(Seq<Fault> faults) : base($"{faults.Count} faults", 4099) => Faults = faults;
         public Seq<Fault> Faults { get; }
@@ -285,8 +305,8 @@ public abstract partial record Fault : Expected, IValidationError<Fault>, Semigr
 ```
 
 [RAIL_BRIDGE]:
-- Law: rail projection is one expression: `Validate` property-pattern dispatch plus carrier implicit conversions; one generic extension bridge serves every owner, with owner inference from receiver position.
-- Law: bridge constraints mirror the factory contract; `TRaw` carries `allows ref struct`, and the fault-base constraint uses covariance across precise owner faults.
+- Law: generated admission bridge is one expression: `Validate` property-pattern dispatch plus `Validation<Error,T>` or `Fin<T>` implicit lift; one generic extension bridge serves every owner from receiver inference.
+- Law: bridge constraints mirror `IObjectFactory<TOwner,TRaw,TFault>`; `TRaw` carries `allows ref struct`, precise owner faults flow through the shared fault base, and the bridge names no parser contract beyond the factory.
 - Law: success-arm `!` is legal only for non-null-yield generated contracts; null-yield owners use a three-valued bridge: fault, absence, instance, with absence projected to `Option<T>`.
 - Reject: bridging through `Create`, `TryCreate`, or `IParsable`; framework parsing and downgraded factory forms discard evidence already carried by `Validate`.
 
@@ -308,23 +328,21 @@ public static class Admission {
 ```
 
 [ACCUMULATION_ALGEBRA]:
-- Law: combination algebra comes from the field dependency graph; the generated spine never accumulates, and accumulation lives only in a factory hook aggregate fold or a bridge over independent owners.
-- Law: the failure type owns accumulation; traversal verbs cannot supply a missing semigroup, trait lookup is exact, and sound designs use the error base as currency or a fault-family semigroup with an aggregate case.
-- Law: accumulating bridges preserve attribution by wrapping each member fault in a field-naming fault before combination; flat aggregates stay field-addressable without positional reconstruction.
-- Law: layered admission follows a monotonic trust gradient: leaf owners applicative, composite relations monadic, carrier join between phases; refinements use `guard` with explicit faults, never filter-clause identity.
-- Law: batch and carrier migration share one evidence-preserving lattice: `Traverse` accumulates, `TraverseM` aborts, `ToFin` packs the aggregate intact, and `Match` lifts back to accumulation.
-- Law: alternative grammars keep distinct semantics: eager `|` keeps the left fault, `||` defers fallback, `Combine` accumulates independent grammar failures, and deferred fallback is trait-level `Memo<F,A>`.
+- Law: field dependency graph selects combination; the generated spine never accumulates, and accumulation lives only in a factory-hook `Semigroup` fold or bridge over independent owners.
+- Law: failure type owns the algebra; exact trait lookup cannot manufacture a missing `Semigroup`, so all-fault reporting requires the error base or a fault-family aggregate case.
+- Law: field-attributed faults remain addressable by wrapping member faults before combination; flat aggregates preserve owner and member identity without positional reconstruction.
+- Law: layered admission combines independent leaf owners before composite relations; composite refinements bind after leaf success through `guard` with explicit faults, never `where` or `Filter`.
 
 [CONSTRAINT_PLANE]:
 - Law: every generated owner implements one static-abstract factory contract; vocabularies layer enumeration above it, the owner type is the zero-witness typeclass instance, and shipped expression-tree or boxed relays are reused.
 - Law: static-abstract dispatch monomorphizes per value-keyed instantiation and reaches reference-keyed owners through one devirtualizable constrained call; hot paths keep the generic bridge.
 - Law: use the minimal sufficient constraint tier; projection-only algorithms do not require full vocabulary interfaces, and widening to the factory tier turns a vocabulary bridge program-wide.
-- Law: `K<F,A>` admission arrows are primary; caller carriers select accumulating, short-circuiting, effectful, or transformer-stacked behavior, rejection requires `Fallible<TFail,F>`, and carrier migration is `Natural`.
+- Law: admission algorithms expose the weakest generated factory tier that constructs or projects the owner; `K<F,A>` appears only when one shape algorithm serves multiple carriers, and rejection adds `Fallible<TFail,F>`.
 - Boundary: span admission is a separate overload pinned to the span factory shape; byref-like raw types cannot use the general nullable key path, and span surfaces generate only on keyed lookups with declared span grammar.
 
 [WIRE_OWNERSHIP]:
-- Law: wire contracts earn protocol DTOs only when topology diverges; scalar wires delete DTOs through object factories, string factories become parse-format micro-grammars, and keyed owners choose key converter, `UseForSerialization` projection, or DTO severing at declaration.
-- Law: surviving DTOs stay raw disposable records; they never grow `Validate`, and each field admits exactly once through applicative bridges.
-- Law: factory declaration order is load-bearing; the last matching factory wins consumer resolution, and serialization, persistence, and binding each claim exactly one owner.
-- Law: trusted rehydration is the only no-validation path; `HasCorrespondingConstructor` materializes already-admitted persistence truth, rejects vocabulary bypass, stays ignored by wire and binding, and reflection hydration re-enters static factory contracts per layer.
+- Law: protocol DTOs survive only on topology divergence; scalar wires collapse into object factories, string factories become parse-format micro-grammars, and keyed owners choose key converter, `UseForSerialization`, or DTO severing at declaration.
+- Law: surviving DTOs stay raw disposable records; they never grow `Validate`, and each field admits exactly once through the owner `Validate` bridge.
+- Law: `[ObjectFactory<TValue>]` rows are owner-local admission grammars; declaration order is behavior, the last matching `[ObjectFactory<TValue>]` wins consumer resolution, and serialization, persistence, and binding each claim exactly one owner.
+- Law: wire and binding ingress route through `Validate`; `HasCorrespondingConstructor` is persistence-only trusted rehydration for already-admitted truth, and reflection hydration re-enters static factory contracts per layer.
 - Boundary: the metadata plane belongs to serializer and persistence adapters: owner taxonomy, compiled key projections, expression trees, filtered conversion routes; metadata dispatch in domain code marks a missing typed surface, and only the typed plane makes key mismatch unrepresentable.
