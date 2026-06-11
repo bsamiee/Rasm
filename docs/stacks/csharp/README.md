@@ -102,29 +102,40 @@ Planned pages in build order. Each entry states what the page must decide; the s
 - State law: boundary cells own session, memoization, and singleton lifetime; token-gated ownership prevents stale teardown.
 - Wire law: serialization contracts stay protocol-shaped at the edge; domain owners never carry codec policy.
 
-The `domain/` pages build in strict dependency order — runtime, concurrency, diagnostics, validation, resilience, persistence, compute — after every root page is finalized through the corpus sweep, so each later page implicitly carries the earlier law. Package admission to the central manifest happens at each page's research start, the docs lead admission, and the full build charter lives in [domain](domain/README.md).
+The `domain/` pages build in strict dependency order: runtime -> concurrency -> diagnostics -> validation -> resilience -> persistence -> compute — after every root page is finalized through the corpus sweep, so each later page implicitly carries the earlier law. Package admission to the central manifest happens at each page's research start, the docs lead admission, and the full build charter lives in [domain](domain/README.md).
 
 [DOMAIN_RUNTIME]:
 - Owns: hosting lifecycle, dependency composition with assembly scanning, decoration, and keyed services, options and configuration with AOT-safe validation, hybrid caching, the process cancellation spine, and time — clock abstraction plus calendar vocabulary.
+- Composition law: one composition root per process owns scanning, decoration, and keyed registration; modules contribute registrations and never resolve services themselves.
+- Options law: configuration binds and validates once at startup and travels as policy values; an ambient configuration read inside domain flow marks a seam violation.
 - Assumes: boundary state law and effect rails from prior pages; never re-teaches state cells or carrier choice.
 
 [DOMAIN_CONCURRENCY]:
 - Owns: threading law, structured concurrency, channel-based producer-consumer flow, reactive streams where they change the design choice, atomic state cells at concurrency scope, and parallelism policy.
+- Stream law: channels own producer-consumer seams; reactive streams are admitted only where operator composition changes the design, never as a second effect system beside the rails.
 - Disjoint: the boundaries page owns host-thread marshaling; the rails page owns the effect rails concurrency composes.
 
 [DOMAIN_DIAGNOSTICS]:
 - Owns: structured logging, traces and metrics, sampling and enrichment governance, sensitive-data redaction, and one correlation spine across every signal.
+- Signal law: one correlation identifier crosses logs, traces, and metrics unchanged; sampling and enrichment are root-governed policy, never per-call-site choices.
+- Redaction law: sensitive shapes are redacted at definition time through annotated types; an unredacted sensitive value reaching any exporter is a seam violation.
 
 [DOMAIN_VALIDATION]:
 - Owns: wire-DTO, options, and input validation at boundaries, and the law of which validator owns which seam: generated partials admit value objects, functional validation rails own domain accumulation, the boundary validator owns wire shapes.
+- Boundary: external input crosses one seam in one order — raw shape, boundary validator, typed rail, domain owner; folding an unvalidated external shape straight into a domain model skips the law.
 - Assumes: domain shape and rail law from prior pages; never re-teaches them.
 
 [DOMAIN_RESILIENCE]:
 - Owns: transport and boundary resilience pipelines for remote and external hops.
 - Law: domain-internal retry and repeat is schedule policy on effect rails; transport resilience is a pipeline at the seam — never both on one seam.
+- Ownership: exactly one retry owner per outbound hop, held at the composition root; a lower layer detecting a second owner emits conflict evidence instead of stacking a loop.
 
 [DOMAIN_PERSISTENCE]:
 - Owns: relational persistence doctrine, provider-polymorphic across embedded and server engines as one case axis inside one doctrine: compiled models, document columns, complex types, interceptors, migrations, bulk movement, integrity, snapshots, and retention.
+- Provider law: provider variance selects through one policy value; temporal values persist through one calendar vocabulary, and platform date sentinels never enter persisted shapes.
+- Schema law: a store whose schema is newer than the compiled model is a typed rejection, never a best-effort open; partially applied migrations surface as operator-visible receipts.
 
 [DOMAIN_COMPUTE]:
 - Owns: tensor primitives at application scope, measured dispatch with receipts, remote compute lanes over typed contracts, and a model-inference lane scoped to verified surfaces.
+- Receipt law: every measured dispatch emits typed evidence — route, elapsed, capability — beside its result; remote lanes carry schema-derived contracts proven at compile time, with payloads outside generator coverage projected to attributed records at the boundary.
+- Disjoint: the algorithms page owns numeric route law; this page owns application-scope compute composition.
