@@ -1,33 +1,26 @@
-# Integration Evidence Receipts and Derived Tableau Law
+# Integration Evidence and the Derived Tableau Law
 
 [EVIDENCE_COLLAPSE_PRESSURE]:
-- Every accuracy-bearing output in the integration surface is a bare scalar emitted through an `out` channel or discarded entirely: the adaptive error estimate, the L1-norm cancellation accumulator, the recursion-depth and refinement-level exhaustion flags, the per-segment slope-clamp activations, and the capability booleans on the interpolation contract. Each is a separate channel with its own silent-failure mode, and the union of them is one concept — admissibility of a numeric result — fragmented across nine emission points. The collapse is one closed evidence family whose cases carry exactly the evidence the producing route owns, replacing nine reporting conventions with one discriminated carrier that interior code pattern-matches once.
-- The cancellation diagnostic is recoverable only when the producing route is asked for it: the result-over-L1-norm ratio diagnoses subtractive cancellation in a single pass, but the discarding overload throws the L1 accumulator away and the ratio becomes unrecoverable without a second full evaluation. The same asymmetry appears in the complex-valued line-integral path, where the L1 channel accumulates the modulus per node and keeps the ratio valid for complex fields. A receipt family makes the diagnostic non-optional: the route that computes the accumulator surfaces it as a typed field, and the absence of that field is a type error, not a defaulted zero.
+- Every accuracy-bearing output in the integration surface is a bare scalar emitted through an `out` channel or discarded entirely: the adaptive error estimate, the L1-norm cancellation accumulator, the recursion-depth and refinement-level exhaustion flags, the per-segment slope-clamp activations, and the capability booleans on the interpolation contract. Each is a separate channel with its own silent-failure mode, and the union of them is one concept — admissibility of a numeric result — fragmented across nine emission points. The collapse is one closed evidence family whose cases carry exactly the evidence the producing route owns, replacing nine reporting conventions with one discriminated carrier that interior code pattern-matches once. A receipt family makes each diagnostic non-optional: the route that computes an accumulator surfaces it as a typed field, and the absence of that field is a type error, not a defaulted zero.
 - Three distinct exhaustion mechanisms — adaptive bisection depth, tanh-sinh refinement level, and slice-bracket expansion — all terminate by reaching a hardcoded cap and returning the best-so-far value with no convergence flag set. The result is indistinguishable from a converged result at the call site. One evidence case carries the terminated-at-budget discriminant with the budget that bound it and the residual at termination, so the difference between converged and truncated is recoverable from the value's own shape rather than from a side inspection the caller forgets.
-- The absolute-tolerance seed begins at zero and is reset to the relative tolerance scaled by the root-interval magnitude, then halved at each recursion level; geometric splitting of the tolerance across levels means a sharp local feature absorbs more error budget than its share of the integral, and the per-node estimate clamps to the larger of the embedded-pair difference and twice machine epsilon times the node value. The clamp prevents recursion past numerical resolution but does not restore the proportional bound. The receipt records both the requested tolerance and the achieved per-leaf budget split, exposing the geometric-versus-proportional gap as data instead of leaving it as an invisible accuracy debt.
-
+- The geometric halving of the absolute-tolerance budget across recursion levels means a sharp local feature absorbs more error budget than its share of the integral, and the per-node clamp that stops recursion at numerical resolution does not restore the proportional bound. The receipt records both the requested tolerance and the achieved per-leaf budget split, exposing the geometric-versus-proportional gap as data instead of leaving it as an invisible accuracy debt.
 [TABLEAU_AS_DERIVED_OWNER]:
-- The fixed-step stage arithmetic is written as inlined literal coefficients — the half-step node, the sixth-and-third weight pattern, the multistep predictor coefficients over a fixed denominator — with no structural object behind them. There is no tableau type, no order-condition check, no consistency check, and no node-placement validation; the coefficients are correct only because they were transcribed correctly, and a transposed weight produces a lower-order method that still returns a plausible trajectory. The collapse is one tableau value object whose construction validates the structural laws, so an inadmissible coefficient set cannot be constructed rather than silently degrading order.
-- A Butcher tableau is a closed value carrying the stage matrix, the weight vector, and the node vector; its admissibility laws are the row-sum consistency condition — each node equals the sum of its stage-matrix row — and the order conditions, which are polynomial identities on the coefficients up to the claimed order. These are definition-time facts derivable from the coefficients alone, so they belong on the construction path of a validated value object: the factory returns the order-carrying tableau or a typed structural fault, and no integrator ever receives an unchecked coefficient table.
+- The fixed-step stage arithmetic is written as inlined literal coefficients — the half-step node, the sixth-and-third weight pattern, the multistep predictor coefficients over a fixed denominator — with no structural object behind them. There is no tableau type, no order-condition check, no consistency check, and no node-placement validation; the coefficients are correct only because they were transcribed correctly, and a transposed weight produces a lower-order method that still returns a plausible trajectory. The collapse is one tableau value whose construction validates the structural laws, so an inadmissible coefficient set cannot be constructed rather than silently degrading order.
+- A Butcher tableau is a closed value carrying the stage matrix, the weight vector, and the node vector; its admissibility laws are the row-sum consistency condition — each node equals the sum of its stage-matrix row — and the order conditions, which are polynomial identities on the coefficients up to the claimed order. These are definition-time facts derivable from the coefficients alone, so they belong on the construction path of a validated value: the factory returns the order-carrying tableau or a typed structural fault, and no integrator ever receives an unchecked coefficient table.
 - The order of the method is not an asserted scalar but a derived property: the largest integer for which every order condition holds is the verified order, computed once at tableau construction and carried as evidence on every step the tableau produces. An embedded pair is two weight vectors over one shared stage matrix; the difference of the two weighted sums is the local error estimate at zero additional stage evaluations, and the verified-order gap between the two weight vectors is the order of that estimate. The embedded structure is a property of the tableau value, not a parallel code path, so the error estimate derives from the same owner that produced the step.
 
 ```csharp
-[ComplexValueObject]
-public readonly partial struct ButcherTableau<T> where T : IFloatingPointIeee754<T>
+public sealed record ButcherTableau(
+    double[,] Stages, double[] PrimaryWeights, double[] EmbeddedWeights, double[] Nodes,
+    int VerifiedOrder)
 {
-    public T[,] Stages { get; }       // a[i,j], strictly lower for explicit
-    public T[] PrimaryWeights { get; } // b
-    public T[] EmbeddedWeights { get; } // b̂, empty when no embedded pair
-    public T[] Nodes { get; }          // c, each c[i] == Σ_j a[i,j]
-
-    static partial void ValidateFactoryArguments(
-        T[,] stages, T[] primaryWeights, T[] embeddedWeights, T[] nodes) =>
-        RowSumConsistent(stages, nodes)
-            .Bind(_ => WeightsSumToOne(primaryWeights))
-            .Bind(_ => OrderOf(stages, primaryWeights, nodes) is var p && p >= 1
-                ? Fin<int>.Succ(p)
-                : TableauFault.NonConsistent("order < 1"))
-            .IfFail(f => throw f.ToException()); // generated boundary; never reached on valid input
+    public static Fin<ButcherTableau> Create(
+        double[,] a, double[] b, double[] bHat, double[] c) =>
+        RowSumConsistent(a, c)                                  // c[i] == Σ_j a[i,j]
+            .Bind(_ => WeightsSumToOne(b))
+            .Bind(_ => OrderOf(a, b, c) is var p && p >= 1      // order is DERIVED, never asserted
+                ? FinSucc(new ButcherTableau(a, b, bHat, c, p))
+                : FinFail<ButcherTableau>(Error.New(Codes.Tableau, "no order condition holds")));
 }
 ```
 
@@ -35,30 +28,28 @@ public readonly partial struct ButcherTableau<T> where T : IFloatingPointIeee754
 - The fixed-step solvers ship one overload for scalar state and a structurally identical overload for vector state, the two differing only in the carrier type of the increment arithmetic. Both express the same stage recurrence over a type that supports addition, scalar multiplication, and a step-scaled increment. The collapse is one generic step function constrained to the additive-module operations the recurrence actually uses, so the carrier — scalar, fixed-rank vector, or grid sample — is a type parameter and the stage logic is written once. The vector overload's deviation from the scalar predictor in the second-order method is exactly the class of transcription error a single derived recurrence eliminates by construction.
 - Carrier polymorphism unifies the increment over generic-math constraints rather than over a hand-rolled numeric interface: the stage weighting needs only the additive operators and scalar scaling, so the constraint is the minimal arithmetic interface that admits scalar, complex, and span-backed carriers alike. A field sampled on a regular grid is an N-dimensional carrier whose increment is a fused multiply-add over the flat backing store; the same recurrence that integrates a scalar oscillator advances a whole field slab when the carrier supplies the module operations through the tensor primitive overloads.
 - The tableau itself is carrier-agnostic in its coefficients but carrier-typed at the step: coefficients live in the floating carrier of the time variable while the state advances in a possibly different carrier, so the step is two type parameters — the coefficient field and the state module — bridged by checked numeric creation at the single point where a coefficient scales a state increment. This keeps the order-condition laws in the scalar coefficient field where they are polynomial identities, independent of the state carrier they later drive.
-
 [ADAPTIVE_STEP_EVIDENCE_AS_POLICY_AND_RECEIPT]:
 - Adaptive stepping is a policy value, not a parameter cluster: the safety factor, the minimum and maximum step-ratio clamps, the embedded-pair error-norm choice, and the per-step reject budget are one frozen policy row selected by the integrand regime, not five loose knobs the step loop re-derives. The proposed next step derives from the achieved error and the method order by the standard error-controlled ratio, clamped to the policy's step-ratio bounds and scaled by the policy's safety factor; the policy owns the formula, and the step loop reads the next step off the policy applied to the receipt.
 - Each accepted or rejected step emits one evidence record carrying the attempted step, the error-norm estimate from the embedded difference, the accept-or-reject discriminant, the resulting step-ratio after clamping, and a running reject count against the budget. A stiff or near-singular region surfaces as a run of rejects in the evidence stream rather than as a stall the caller cannot see; budget exhaustion is a terminal evidence case with the residual at the abandoned step, distinct from a clean integration that simply reached the endpoint.
-- The error norm is itself a policy choice with a stability trap: the naive squared-sum-then-root norm has no scaled accumulation and overflows to infinity for field vectors with components near the square root of the carrier's max value divided by component count, so the policy that selects the error norm must select the scaled two-pass form for large-magnitude field state. The receipt records which norm produced the controlling estimate, so an infinity in the error channel is attributable to the norm policy rather than to the integrand.
+- The error norm is itself a policy choice, and the receipt records which norm produced the controlling estimate — large-magnitude field state demands the scaled two-pass form over the naive squared-sum-then-root — so an infinity in the error channel is attributable to the norm policy rather than to the integrand.
 
 ```csharp
 [Union]
-public partial interface StepEvidence<T> where T : IFloatingPointIeee754<T>
+public abstract partial record StepEvidence
 {
-    StepEvidence<T> Accepted(T attempted, T errorNorm, T nextStep, int order);
-    StepEvidence<T> Rejected(T attempted, T errorNorm, T shrunkStep, int rejectsSoFar);
-    StepEvidence<T> BudgetExhausted(T attempted, T residual, int budget);
+    public sealed partial record Accepted(double Attempted, double ErrorNorm, double NextStep, int Order) : StepEvidence;
+    public sealed partial record Rejected(double Attempted, double ErrorNorm, double ShrunkStep, int RejectsSoFar) : StepEvidence;
+    public sealed partial record BudgetExhausted(double Attempted, double Residual, int Budget) : StepEvidence;
 }
 
-static StepEvidence<T> Control<T>(StepPolicy<T> p, T attempted, T errNorm, int order, int rejects)
-    where T : IFloatingPointIeee754<T> =>
-    (errNorm <= T.One, rejects >= p.RejectBudget) switch
+static StepEvidence Control(StepPolicy p, double attempted, double errNorm, int order, int rejects) =>
+    (errNorm <= 1.0, rejects >= p.RejectBudget) switch
     {
-        (_, true) => StepEvidence<T>.BudgetExhausted(attempted, errNorm, p.RejectBudget),
-        (true, _) => StepEvidence<T>.Accepted(
-            attempted, errNorm, attempted * p.Clamp(p.Safety * T.RootN(T.One / errNorm, order + 1)), order),
-        (false, _) => StepEvidence<T>.Rejected(
-            attempted, errNorm, attempted * p.Clamp(p.Safety * T.RootN(T.One / errNorm, order + 1)), rejects + 1),
+        (_, true)  => new StepEvidence.BudgetExhausted(attempted, errNorm, p.RejectBudget),
+        (true, _)  => new StepEvidence.Accepted(attempted, errNorm,
+            attempted * p.Clamp(p.Safety * Math.Pow(1.0 / errNorm, 1.0 / (order + 1))), order),
+        (false, _) => new StepEvidence.Rejected(attempted, errNorm,
+            attempted * p.Clamp(p.Safety * Math.Pow(1.0 / errNorm, 1.0 / (order + 1))), rejects + 1),
     };
 ```
 
@@ -66,8 +57,7 @@ static StepEvidence<T> Control<T>(StepPolicy<T> p, T attempted, T errNorm, int o
 - The interpolation contract advertises differentiation and integration support through runtime boolean properties, and calling an unsupported operation surfaces a runtime exception rather than a compile error; the step interpolant reports differentiation support yet returns the not-a-number distributional signal exactly at every sample point, and the transformed and rational interpolants report no integration support while still exposing the method that throws. The capability is data about the value that the type system already knows at construction but discards. The collapse is capability as a phantom type parameter or a marker-case discriminant so the differentiate and definite-integral operations exist only on the interpolant cases that actually own them, and the unsupported call is unrepresentable.
 - The capability flags are not independent: an interpolant that supports the definite integral over an interval must own an indefinite-integral prefix it caches lazily, and an interpolant that supports differentiation owns a per-segment derivative form; these are two distinct lazily-initialized capabilities on the same value, each gated by its own flag. Modeling them as two phantom capabilities on the carrier lets a composition that needs both reject at the type level any interpolant that owns only one, instead of discovering the gap at the first evaluation that hits a sample point.
 - The not-a-number return at jump discontinuities and at rational-interpolant poles is a third capability axis — definedness of the value itself — that no flag captures: the pole-handling rational interpolant returns not-a-number rather than throwing when its denominator rounds below the unit-in-last-place tolerance, so a gradient-accumulating quadrature over such an interpolant poisons its accumulator silently. The evidence-carrying alternative wraps each evaluation in an absence carrier so a pole or a discontinuity is an empty case the fold skips, and the quadrature receipt records the count of skipped evaluations as a coverage figure rather than propagating the poison.
-
 [INTEGRAND_DOMAIN_FAULTS_AS_TYPED_REGIME]:
 - No adaptive or transformed integration route inspects the integrand's return for non-finiteness; a signed-distance field evaluated across its own zero set returns not-a-number at the surface, and the value flows through the weighted sum without diagnostic, producing a not-a-number integral that is indistinguishable from a numerical-resolution failure. The integrand is a partial function and the integration surface treats it as total. The collapse is admitting the integrand as a guarded delegate that lifts each evaluation into an absence-or-value carrier, so the non-finite return is a domain fault recorded at the evaluation point rather than a poison that reaches the accumulator.
-- The double-exponential and tanh-sinh transformations require the substitution to fire through the facade; calling the transformation directly with infinite bounds passes infinity into abscissa evaluation and produces not-a-number weights, and the Gauss-Legendre facade composes a cubic change-of-variable on top of the already-mapped nodes, so a caller expecting raw nodes on the original interval is silently integrating a different integrand. The substitution chain is itself a regime that belongs in a policy value: the bound shape — finite, semi-infinite, doubly-infinite — selects the substitution, and the receipt records which substitution mapped the integrand so the achieved nodes are reconstructable.
+- The infinity-substitution chain is itself a regime that belongs in a policy value: the bound shape — finite, semi-infinite, doubly-infinite — selects the substitution, and the receipt records which substitution mapped the integrand so the achieved nodes are reconstructable. The facade-versus-direct asymmetry — substitutions and composed changes of variable that fire only through one entry path — means a caller that bypasses the policy is silently integrating a different integrand, and only the recorded substitution makes the discrepancy detectable after the fact.
 - The cancellation regime and the domain-fault regime compose: a field integrand that is near-singular at one end and ill-conditioned by subtraction across the interval needs both the L1-norm ratio and the skipped-evaluation count to be admissible, and a single integration receipt that carries the value, the error estimate, the L1 ratio, the substitution applied, the skipped-evaluation count, and the termination discriminant is the one carrier from which a downstream acceptance gate decides admissibility by pattern match. Best-effort fallback on nonconvergence is inadmissible: the terminal case is the typed nonconvergence evidence, and the consumer chooses recovery or rejection from the case rather than from a flag the producer optionally set.
