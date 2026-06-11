@@ -79,7 +79,7 @@ How pages in this folder are authored. The corpus is one body; these laws keep i
 - Snippet coverage: each snippet is doctrine-exemplary at full operator depth, roughly 3-4x denser than ordinary code, and exercises a surface region no other snippet in the corpus shows — variety within the doctrine, zero duplicated demonstrations.
 - Reject columns are load-bearing: every `Use` names the spelling, wrapper, or local pattern it deletes.
 - Tables enumerate, cards legislate: rows stay atomic and narrow — no prose cramming, no links inside cells; nuance moves to a card.
-- Planning is quarantined: build order, target-page scopes, and conflict rules live only in the README roadmap tail.
+- Planning is quarantined: build order, target-page scopes, and conflict rules live only in README files — this roadmap tail and a planned subfolder's own README; concept pages never carry them.
 - Manifest truth: package versions, references, injected globals, tools, and graph admission live in `Directory.Packages.props` and `Directory.Build.props`; no package-named pages; a package is named only where it changes the implementation choice.
 
 ## [5]-[ROADMAP]
@@ -102,7 +102,7 @@ Planned pages in build order. Each entry states what the page must decide; the s
 - State law: boundary cells own session, memoization, and singleton lifetime; token-gated ownership prevents stale teardown.
 - Wire law: serialization contracts stay protocol-shaped at the edge; domain owners never carry codec policy.
 
-The `domain/` pages build in dependency order after the root corpus closes, so each later page implicitly carries the earlier law; package admission to the central manifest happens at each page's research start, and the docs lead admission.
+The `domain/` pages build in strict dependency order — runtime, concurrency, diagnostics, validation, resilience, persistence, compute — after every root page is finalized through the corpus sweep, so each later page implicitly carries the earlier law. Package admission to the central manifest happens at each page's research start, the docs lead admission, and the full build charter lives in [domain](domain/README.md).
 
 [DOMAIN_RUNTIME]:
 - Owns: hosting lifecycle, dependency composition with assembly scanning, decoration, and keyed services, options and configuration with AOT-safe validation, hybrid caching, the process cancellation spine, and time — clock abstraction plus calendar vocabulary.
