@@ -92,6 +92,7 @@ How the corpus accretes. The atlas `[STATE]` column is the law registry: a `fina
 - Prose consumes earlier layers as given: vocabulary, owners, rails, and policy values arrive settled, never re-taught, and the page spends its lines only on its own layer.
 - Reservoir residue: a page's research workspace deliberately holds more than the page prints, and it outlives the page — later enrichment and snippet work mine it without citing it; depth beyond one page's budget is corpus capital, never waste.
 - Snippet stacking: code fully captures the card it proves, then composes on earlier layers' law at full doctrine depth — the new surface in the spotlight, established surfaces as supporting material, every touched concern built at the standard its owning finalized page legislates.
+- Region ledger: the workspace root keeps one ledger of owned regions — page concerns at card altitude, snippet demonstrations at fence altitude. Snippet rows are written before code exists, page rows at finalization, and a duplicated region is repaired by routing to its owner, never by re-teaching — the ledger is what makes ownership checkable without re-reading the corpus.
 - Purpose: the corpus is loaded as the operative standard in place of weaker context; zero-meta, zero-anchor, and stated-as-fact are absolute because any provenance, hedge, or stale claim poisons every downstream generation that loads the page.
 
 ## [6]-[ROADMAP]
