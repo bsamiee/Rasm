@@ -1,24 +1,34 @@
-# [PAGE_ENRICH]
+# [PAGE_REFINE]
 
 - `<TARGET>` =
 - `<DOCTRINE>` =
 - `<WORKSPACE>` =
 
-`<TARGET>` exists with its structure and cards in place and no fenced code, and each lane folder in `<WORKSPACE>` holds a `00-bedrock.md` with a divergent series above it. This work mines the raw reservoir lane by lane for high-value material the page still lacks, and integrates it without growth for its own sake.
+`<TARGET>` exists with its structure and cards in place and no fenced code. This work runs full refinement passes — two expected, a third earned only by material defects the second still found — each carrying every consideration at once: coverage gaps, card consolidation, and prose density. A pass sees the whole reservoir and the whole page; refinement is never sliced by lane.
 
 [GROUNDING]:
-- Every agent — the orchestrator and every lane agent — fully reads `<DOCTRINE>`, then `docs/standards/style-guide.md`, `docs/standards/information-structure.md`, and `docs/standards/formatting.md`, before any other work: the laws, the collapse scan, the page craft, and the prose, container, and rendering standards. Every addition answers to them.
-- Every agent reads all of `<TARGET>` before judging what it lacks.
+- Every pass agent fully reads `<DOCTRINE>`, then `docs/standards/style-guide.md`, `docs/standards/information-structure.md`, and `docs/standards/formatting.md`, before any other work: the laws, the collapse scan, the page craft, and the prose, container, and rendering standards.
+- Every pass agent reads every `99-distilled.md` in `<WORKSPACE>` and all of `<TARGET>`. The raw reservoir — each lane's `00-bedrock.md` and divergent series — is consulted where a distillate hints at depth the page may have missed; the distillate records the judged cuts, and what distillation deliberately cut re-enters only when the raw files prove value the distillate missed, never by re-litigating the cut.
 
-[SWEEP] — one agent per lane folder, sequentially:
-- The agent reads its lane whole: `00-bedrock.md` and every divergent file above it, plus the lane's `99-distilled.md` as the record of judged material — what distillation deliberately cut re-enters only when the raw files prove value the distillate missed, never by re-litigating the cut.
-- It identifies only critical, high-value, advanced material the page lacks — justified additions, never volume, never a rewrite — and integrates each itself: the addition lands inside the card, table row, or section that owns it, reworking the owner to absorb it. A new card is justified only when no existing owner can absorb the material without weakening. Raw appending is the rejected form.
-- Before handing off, it re-grades card power on every card it touched and reworks any below bar.
+[PASS] — sequential, one fresh agent each:
+- Grade first against the page ladder in `_grading.md` at the reports root. A pass that finds nothing material states so, makes at most surgical trims, and ends the loop — manufactured change is the failure mode.
+- Coverage: walk the distillates against the page — material whose absence costs a reader a real decision integrates into the card that owns it, reworking the owner line to absorb it; a new card is justified only when no existing owner can absorb it without weakening. Raw appending is the rejected form.
+- Consolidation: near-similar lines collapse into one richer line, duplicate concepts integrate as a singular clause, near-peer cards sharing a spine merge, and complementary table rows fold into the card that legislates them.
+- Prose: every card line is recut to one controlling clause — roughly 35-45 words, at most one em-dash joint — naming the surfaces it legislates as code spans, never paraphrasing a nameable attribute, knob, operator, or generated member; long information integrates as richer, shorter prose, never published heavy.
+- Hold the page under 300 lines and push the count down, never up; the card set this stage leaves is the snippet-selection inventory — every surviving card stands whole without code.
+- End the pass with a cold re-read and the grade.
 
-[BUDGET]:
-- The page stays under 300 lines through every lane and should never approach that ceiling — integration and replacement, not accumulation.
+[CARD_LAW]:
+- Cards are the unit of value. A card earns its place by deciding something a strong engineer would otherwise get wrong; table-stakes content is banned.
+- Cards stack: complementary findings fuse into one dense card rather than scattering as near-peers, and complementary table rows collapse into the card that legislates them. When two or three candidate cards share a spine, they merge. Tables enumerate; cards legislate.
 
-[COLD_READ]:
-- After the final lane, the orchestrator reads the page cold and grades it against the page ladder in `_grading.md` at the reports root — a cold grade re-derived from the page alone. It returns anything short for a targeted fix.
+[TABLE_CRAFT]:
+- A table is designed with its prose, never in isolation: prose carries the decision criteria and invariants, cells carry atomic values, and neither restates the other.
+- Header rubrics are bracketed, uppercase, and semantically rich — the header gives every cell in its column meaning the cell does not repeat.
+- Every cell serves its row and every row serves the table's one question. A cell past 8 words, a second prose column, a link in a cell, or a crammed qualification disqualifies the construction — the content moves to a card.
+- Narrow beats wide: split by row axis or move detail to cards before widening.
+
+[GRADE]:
+- Grade against the page ladder in `_grading.md` at the reports root: the minimum across signal, coverage, card power, structure, and doctrine fit clears the stage bar, automatic fails override any score, and the drift checks apply. Rework until every axis clears.
 
 [COMMIT]: stage and commit `<TARGET>`.

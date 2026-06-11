@@ -24,6 +24,7 @@ Each lane folder in `<WORKSPACE>` holds a `99-distilled.md`. This work authors `
 - Cards are the unit of value and the hardest part of the page. A card earns its place by deciding something a strong engineer would otherwise get wrong; table-stakes content is banned.
 - Cards stack: complementary findings — a rule, its accept and reject edges, its boundary, and the interaction that makes it advanced — fuse into one dense card rather than scattering as near-peers, and complementary table rows collapse into the card that legislates them.
 - When two or three candidate cards share a spine, they merge. Tables enumerate; cards legislate.
+- Card lines are dense, never heavy: one controlling clause per line at roughly 35-45 words with at most one em-dash joint — long information integrates as richer, shorter prose, and a line names the surfaces it legislates as code spans, never paraphrasing a nameable attribute, knob, operator, or generated member.
 
 [TABLE_CRAFT]:
 - A table is designed with its prose, never in isolation: prose carries the decision criteria and invariants, cells carry atomic values, and neither restates the other.

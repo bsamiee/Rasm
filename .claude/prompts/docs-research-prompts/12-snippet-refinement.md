@@ -19,7 +19,7 @@
 - End the pass with the grade.
 
 [CONVERGE]:
-- Passes repeat until a pass ends with every snippet clearing the bar and zero edits made. The final pass is always a clean verification pass, never an editing one.
+- Passes repeat until a pass ends with every snippet clearing the bar and zero edits made. The final pass is always a clean verification pass, never an editing one. Two to three passes are the expected shape; convergence still open past three signals the set was authored weak — return to creation rather than grinding refinement.
 - The clean pass finalizes the page: record its state as `finalized` in the doctrine's atlas, retire its roadmap scope from the doctrine's tail, and write the page's regions row — the concerns its cards legislate — into the region ledger.
 
 [GRADE]:

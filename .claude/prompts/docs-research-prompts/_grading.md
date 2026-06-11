@@ -142,7 +142,7 @@ Every grader applies these regardless of ladder:
 - Region duplication: a demonstration or card concern the ledger already assigns to another owner.
 - Container mismatch: prose packed into table cells past one trailing prose column, headers that do not earn their column, record material flattened into rows, or a table doing what a record group does better.
 - Convergence theater: manufactured change in a refinement pass, or a verification pass that rubber-stamps below-bar units.
-
+- Heavy lines: a card line carrying more than one controlling clause or running far past forty-five words — recut into denser prose or split before grading proceeds.
 ## [6]-[BARS_BY_STAGE]
 
 | [INDEX] | [STAGE]            | [LADDER]  | [BAR]        |
