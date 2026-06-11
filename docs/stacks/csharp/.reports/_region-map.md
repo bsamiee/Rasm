@@ -20,10 +20,11 @@ Region ledger for the C# stack corpus: one owner per region, snippet entries bef
 - L-07 STACK_KERNEL_SITE: stack-only kernel — `readonly ref struct` primary constructor; `ref` field with explicit-constructor ref-assign; `ref struct` interface implementation; `scoped ref` + `allows ref struct` step; confined fold loop.
 
 [SHAPES]:
-- S-01 ADMISSION_STACK: generated admission stack — union-shaped typed fault implementing the validation-error contract; key-membered scalar value object with comparer policy and normalizing validation partial; complex value object with typed-fault validation; try-create-to-`Fin` bridge.
-- S-02 SMART_ENUM: smart-enum behavior rows — constructor delegates with generated delegate partial; keyed lookup projected into `Fin`.
-- S-03 UNION: state-threaded generated `Switch` with static arms inside an `Eff` query expression composing traversal and fold.
-- S-04 MANUAL_VARIANT_OWNER: manual variant owner — ref-struct fold owner with confined statement loop and finish projection.
+- S-01 FAULT_FAMILIES: union-shaped dual-contract fault family — `Expected` base with private-constructor closure; `IValidationError` static `Create` as the string-bearing tier beside structured cases; `Semigroup` aggregate-case `Combine` fold.
+- S-02 RAIL_BRIDGE: generic constrained extension-block admission bridge — covariant fault-base factory-contract constraint; `allows ref struct` raw parameter; one-expression property-pattern projection with implicit rail lifts; three-valued option projection for null-yield owners.
+- S-03 OPERATOR_ALGEBRA: operator-axis grant set as declared algebra — per-axis `OperatorsGeneration` declaration; hand-written cross-dimension operator re-entering admission; exact-binary-family generic kernel with admitted seed; key-typed relational threshold gate.
+- S-04 DISPATCH_AND_ROWS: smart-enum behavior-row table — composite-returning `[UseDelegateFromConstructor]` delegate column beside a data column; generated constructor row injection; row invocation through the generated method surface.
+- S-05 RAIL_ARMS: carrier-polymorphic catamorphism over a recursive generated union — trait-constrained `K<F,B>` fold; tuple-state static arms; applicative tuple combine in the recursive arm.
 
 [RAILS_AND_EFFECTS]:
 - R-01 EXCEPTION_CAPTURE: exception capture — `Try.lift` + `Run` + `MapFail` + self-flattening `Bind`.
@@ -39,8 +40,8 @@ Region ledger for the C# stack corpus: one owner per region, snippet entries bef
 - SA-01 READ_MOSTLY_LOOKUP: span-keyed alternate lookup — frozen ordinal-comparer construction; cached `AlternateLookup` probe field; non-throwing `TryGetAlternateLookup` acquisition with span-keyed `TryAdd` mutation.
 - SA-02 FORMAT_AND_PARSE: UTF-8 format-parse pipeline — `Utf8.TryWrite` invariant-culture interpolation; generic numeric round-trip through constraint subsumption; `u8` header constant and span slicing as supporting material.
 
-Entries under [SHAPES] and [RAILS_AND_EFFECTS] describe incumbent partial pages; each rebuild retires or replaces its set at snippet assignment.
+Entries under [RAILS_AND_EFFECTS] describe an incumbent partial page; the rebuild retires or replaces its set at snippet assignment.
 
 ## [3]-[KNOWN_OVERLAPS]
 
-- L-07 / S-04 — both demonstrate a ref-struct fold kernel with a confined statement loop. Owner: language.md. Repair lands at the shapes.md rebuild's snippet assignment: the manual-owner decision demonstrates through a non-loop region such as type-indexed projection.
+None recorded. The L-07 / S-04 ref-struct fold collision was repaired at the shapes.md snippet assignment: the incumbent manual-owner fold snippet was retired and the replacement set demonstrates no ref-struct kernel.

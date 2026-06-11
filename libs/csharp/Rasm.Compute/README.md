@@ -1,33 +1,43 @@
 # [RASM_COMPUTE]
 
-`Rasm.Compute` is the measured execution package for vector, tensor, model, and remote compute lanes. It owns execution intent, substrate selection doctrine, typed receipts, progress observation, cancellation use, measurement, benchmark evidence, and lane policy.
+`Rasm.Compute` is the measured execution package for vector, tensor, model, remote, units, staging, stream, progress, receipt, and benchmark lanes. It owns execution intent, substrate selection, typed receipts, progress observation, cancellation use, measurement, allocation classification, and lane policy as one execution rail.
 
 ## [1]-[PURPOSE]
 
-Compute wraps existing kernel and vector operations with runtime measurement, cancellation, substrate selection, progress, and receipts. `Rasm.Vectors` owns numeric algorithms; Compute selects vector calls, tensor primitives, ONNX/CoreML models, and remote companion work through one execution rail.
+Compute consumes kernel/vector operations, AppHost runtime policy, and Persistence cache/index contracts. Tensor primitives, ONNX/CoreML models, gRPC companion work, unit conversion, staging memory, pooled streams, and benchmark evidence enter as substrate rows inside one execution surface.
 
-It is not a tensor wrapper, ONNX wrapper, gRPC wrapper, ML.NET training pipeline, job framework, queue owner, or replacement for `Rasm`/`Rasm.Vectors`.
+It is not a tensor wrapper, ONNX wrapper, gRPC wrapper, ML.NET training pipeline, job framework, queue owner, UI scheduler, or replacement for `Rasm` and `Rasm.Vectors`.
 
 ## [2]-[STATUS]
 
+This table is a lookup by package surface.
+
 | [INDEX] | [SURFACE]          | [STATE]                                    |
-| :-----: | ------------------ | ------------------------------------------ |
-|   [1]   | Project file       | Present in `Workspace.slnx`                |
-|   [2]   | Production source  | Compute rail contract defined              |
-|   [3]   | Package references | Project-reference based setup              |
-|   [4]   | Runtime spine      | Consumes AppHost-owned runtime policy      |
-|   [5]   | Benchmarks         | Routed through `tests/csharp/_benchmarks`  |
+| :-----: | :----------------- | :----------------------------------------- |
+|   [1]   | Project file       | present in `Workspace.slnx`                |
+|   [2]   | Package manifest   | compute execution packages admitted        |
+|   [3]   | Project contracts  | Rasm, AppHost, Persistence                 |
+|   [4]   | Lockfile           | restored package closure tracked           |
+|   [5]   | Production source  | absent                                     |
+|   [6]   | Package law        | documented in this folder                  |
 
-## [3]-[CONSTRAINTS]
+## [3]-[DOCUMENTS]
 
-- Compute owns execution intent, substrate selection, typed execution receipts, progress contracts, cancellation handling, measurement, and allocation classification.
-- Compute is built as a complete execution package for host-submitted work, AppHost-dispatched work, companion processors, sidecar services, model execution, remote execution, benchmark lanes, and UI-observed progress through the same execution rail.
-- AppHost owns dispatch, drain, runtime composition, outbound retry ownership, and shutdown coordination.
-- Persistence owns deterministic model-result cache and benchmark artifact index storage.
-- AppUi observes progress only; UI scheduling belongs to AppUi.
-- Folder architecture is rail-first: vector, tensor, staging, model, remote, units, stream pooling, cache keys, benchmark evidence, progress, and failures add substrate rows, typed intent fields, receipt cases, and measurement records instead of adding lane-specific service families or result systems.
-- Substrate, model identity, endpoint identity, provider options, payload bounds, deadline, allocation class, unit policy, and progress observation are parameterized inputs to the execution rail, not hardcoded provider branches.
-- Progress is subscription-gated. Compute does not call `ObserveOn` or allocate Rx state when progress is unobserved.
-- `System.Numerics.Tensors` is the tensor-lane package; it is not an in-box .NET 10 API in this repo.
-- ONNX Runtime/CoreML is the model lane. Compute does not use ML.NET or `MLContext`.
-- gRPC/protobuf is the remote companion lane. `.proto` generation and `Grpc.Tools` belong to proto-owning source projects.
+This table routes package documents by reader action.
+
+| [INDEX] | [READ_FOR]              | [OPEN]                      |
+| :-----: | :---------------------- | :-------------------------- |
+|   [1]   | current structure       | [architecture](ARCHITECTURE.md) |
+|   [2]   | implementation sequence | [roadmap](ROADMAP.md)       |
+|   [3]   | package API catalogue   | [.reports/api](.reports/api/README.md) |
+
+## [4]-[CONSTRAINTS]
+
+- Compute owns one substrate-selection rail. New execution lanes add substrate rows, typed intent fields, receipt cases, progress states, cache keys, and benchmark proof.
+- Compute consumes AppHost runtime policy. AppHost does not reference Compute.
+- Compute consumes Persistence cache/index contracts for deterministic model-result cache and benchmark artifact metadata.
+- AppUi observes progress and schedules presentation on its own UI scheduler.
+- Substrate, model identity, endpoint identity, provider options, payload bounds, deadline, allocation class, unit policy, and progress observation are parameterized data.
+- Progress is subscription-gated; Compute does not allocate observable state when progress is unobserved.
+- Model and remote work never run synchronously inside GH2 solve paths.
+- Benchmark claims are input-class claims with timing, allocation, equivalence, and artifact evidence.

@@ -1,35 +1,43 @@
 # [RASM_APPHOST]
 
-`Rasm.AppHost` is the runtime spine for product app packages. It owns neutral composition policy, lifecycle, drain, health, telemetry correlation, support-bundle triggering, degradation policy, and companion-process boundaries.
+`Rasm.AppHost` is the host-neutral runtime spine for app packages. It owns runtime composition policy, lifecycle state, drain order, health projection, telemetry identity, degradation, support triggering, companion bootstrap, and outbound-hop ownership as one runtime rail.
 
 ## [1]-[PURPOSE]
 
-`Rasm.AppHost` provides the shared runtime doctrine consumed by AppUi, Compute, Persistence, Rhino/GH2 plugin roots, bridge roots, and companion processes. In-process Rhino/GH2 apps compose a host-neutral runtime record. Companion processes may use Generic Host, DI, configuration binding, exporters, and service-backed integrations through the same runtime doctrine.
+`Rasm.AppHost` defines the runtime contract consumed by app packages and app roots. AppUi, Compute, Persistence, Rhino/GH2 app roots, bridge roots, companion processes, hidden sidecars, service integrations, and test hosts adapt to AppHost runtime state instead of creating local lifecycle systems.
 
-It is not a domain service layer, job framework, DI wrapper, telemetry wrapper, UI package, persistence package, compute implementation, or shared-contracts project.
+It is not a domain service layer, job framework, dependency-injection wrapper, telemetry wrapper, UI package, persistence package, compute implementation, host-boundary package, or shared-contracts project.
 
 ## [2]-[STATUS]
 
-| [INDEX] | [SURFACE]          | [STATE]                                             |
-| :-----: | ------------------ | --------------------------------------------------- |
-|   [1]   | Project file       | Present in `Workspace.slnx`                         |
-|   [2]   | Production source  | Runtime rail contract defined                       |
-|   [3]   | Package references | Active setup references are versionless             |
-|   [4]   | Runtime mode       | Host-neutral runtime spine                          |
-|   [5]   | Companion mode     | First-class lane behind the same lifecycle doctrine |
-|   [6]   | Boundary proof     | Assembly laws cover implementation assemblies       |
+This table is a lookup by package surface.
 
-## [3]-[CONSTRAINTS]
+| [INDEX] | [SURFACE]          | [STATE]                                    |
+| :-----: | :----------------- | :----------------------------------------- |
+|   [1]   | Project file       | present in `Workspace.slnx`                |
+|   [2]   | Package manifest   | runtime and companion packages admitted    |
+|   [3]   | Lockfile           | restored package closure tracked           |
+|   [4]   | Production source  | absent                                     |
+|   [5]   | Package law        | documented in this folder                  |
+|   [6]   | Boundary proof     | required when source enters architecture tests |
 
-- AppHost owns one host-neutral runtime spine. App packages adapt to it; AppHost never imports AppUi, Compute, Persistence, Rhino, or GH2 implementation records.
-- AppHost is built as a complete runtime package for Rhino/GH2 plugin roots, companion processes, hidden sidecars, bridge services, service-backed integrations, test hosts, and adjacent platform packages through the same runtime rail.
-- Neutral ports are AppHost-owned concepts: UI scheduling, store dispatch, compute dispatch, runtime config, health, degradation, lifecycle, support triggering, and observability.
-- Runtime lifecycle is explicit state, not scattered booleans or independent shutdown flags.
-- Folder architecture is rail-first: runtime state, drain state, health state, degradation policy, support capture, telemetry correlation, and companion bootstrap deepen the same state/receipt shapes instead of adding sibling enum, service, helper, or wrapper families.
-- Configuration, policy, deadlines, health contributors, exporters, validation boundaries, and outbound hops are parameterized inputs to the runtime rail, not hardcoded startup modes.
-- In-process observability is BCL-owned through `System.Diagnostics.ActivitySource`, `Meter`, counters, and histograms. OpenTelemetry SDK/exporters are companion roots only.
+## [3]-[DOCUMENTS]
+
+This table routes package documents by reader action.
+
+| [INDEX] | [READ_FOR]              | [OPEN]                      |
+| :-----: | :---------------------- | :-------------------------- |
+|   [1]   | current structure       | [architecture](ARCHITECTURE.md) |
+|   [2]   | implementation sequence | [roadmap](ROADMAP.md)       |
+|   [3]   | package API catalogue   | [.reports/api](.reports/api/README.md) |
+
+## [4]-[CONSTRAINTS]
+
+- AppHost owns one host-neutral runtime spine. App packages adapt to it; AppHost never references AppUi, Compute, Persistence, Rhino, Grasshopper, Eto, or host implementation assemblies.
+- Runtime lifecycle is explicit state with typed transition receipts. Independent shutdown flags, string status fields, and sibling lifecycle enums are rejected.
+- UI scheduling, store dispatch, compute dispatch, runtime config, health, degradation, support triggering, outbound hops, and observability enter as runtime ports and policy values.
+- Configuration, deadlines, health contributors, exporters, validators, outbound clients, object pools, and companion bootstrap shape are parameterized inputs to the runtime rail.
+- In-process observability uses `ActivitySource`, `Meter`, counters, and histograms. Exporters belong to companion bootstrap and project AppHost signals outward without replacing runtime receipts.
 - `NodaTime.Instant` owns semantic timestamps in receipts and health snapshots. `TimeProvider` owns elapsed time, delays, deadlines, cancellation windows, and deterministic tests.
-- Drain deadlines use supported TimeProvider-aware APIs: `CancellationTokenSource(TimeSpan, TimeProvider)`, `Task.Delay(TimeSpan, TimeProvider, ...)`, or `Task.WaitAsync(TimeSpan, TimeProvider, ...)`.
-- Generic Host, DI, Scrutor, configuration binding, options validation, health-check export, Serilog, and OpenTelemetry exporters belong to companion roots. They do not start inside the Rhino/GH2 in-process plugin path.
-- Companion apps, hidden sidecars, explicit external companions, bridge services, and service-backed integrations use the same runtime states, drain states, health states, support states, and telemetry correlation.
-- Support bundles are exported diagnostics packages: UI receipts, screenshots, logs, store/migration/corruption receipts, compute/runtime evidence, and redacted artifact metadata.
+- Companion processes, hidden sidecars, bridge services, and service-backed integrations use Generic Host, DI, configuration, options, health, telemetry, validation, resilience, and object pooling as one bootstrap rail over the AppHost state machine.
+- Support bundles are bounded diagnostic exports with one correlation spine, redaction policy, collection window, size cap, and package-owned artifact contributions.

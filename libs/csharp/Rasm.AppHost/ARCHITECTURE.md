@@ -1,6 +1,6 @@
 # [RASM_APPHOST_ARCHITECTURE]
 
-`Rasm.AppHost` owns host-neutral runtime doctrine. Its implementation surface is a small set of polymorphic runtime ports and typed state/receipt rails; implementation packages adapt to those rails without dependency cycles.
+`Rasm.AppHost` owns the runtime spine for app packages. The package is a manifest-backed project node with no production source; this page defines the architecture that source must enter.
 
 ## [1]-[SYSTEM_SCOPE]
 
@@ -13,172 +13,69 @@ config:
 ---
 flowchart LR
     accTitle: AppHost runtime spine
-    accDescr: AppHost owns neutral runtime policy used by UI, compute, persistence, Rhino and Grasshopper app roots, and companion services.
-    Host["Rasm.AppHost"]
-    Ui["Rasm.AppUi"]
-    Compute["Rasm.Compute"]
-    Store["Rasm.Persistence"]
-    Rhino["Rasm.Rhino"]
-    Gh["Rasm.Grasshopper"]
-    App["Plugin or companion app"]
-    App --> Host
-    Ui --> Host
-    Compute --> Host
-    Store --> Host
-    App --> Rhino
-    App --> Gh
+    accDescr: AppHost owns runtime policy and implementation packages adapt to it without AppHost referencing implementation assemblies.
+    AppRoot["App root"] --> AppHost["Rasm.AppHost"]
+    AppUi["Rasm.AppUi"] --> AppHost
+    Compute["Rasm.Compute"] --> AppHost
+    Persistence["Rasm.Persistence"] --> AppHost
+    Companion["Companion process"] --> AppHost
+    Bridge["Bridge root"] --> AppHost
 ```
 
-Text equivalent: plugin and companion roots compose AppHost; AppUi, Compute, and Persistence adapt to AppHost-owned runtime doctrine; Rhino/GH2 APIs remain in their host-boundary packages.
+Text equivalent: app roots, AppUi, Compute, Persistence, companion processes, and bridge roots consume AppHost runtime policy. AppHost stays below implementation packages and host-boundary assemblies.
 
-## [2]-[REFERENCE_DIRECTION]
+## [2]-[PROJECT_IDENTITY]
 
-| [INDEX] | [PROJECT]          | [MAY_REFERENCE_APPHOST] | [APPHOST_MAY_REFERENCE] | [BOUNDARY]                                     |
-| :-----: | ------------------ | :---------------------: | :---------------------: | ---------------------------------------------- |
-|   [1]   | `Rasm`             |           No            |           No            | Kernel below all app packages                  |
-|   [2]   | `Rasm.AppUi`       |           Yes           |           No            | Adapts UI scheduling and diagnostics           |
-|   [3]   | `Rasm.Compute`     |           Yes           |           No            | Consumes runtime cancellation/time/telemetry   |
-|   [4]   | `Rasm.Persistence` |           Yes           |           No            | Adapts store dispatch and support export       |
-|   [5]   | `Rasm.Rhino`       |      App root only      |           No            | Native host behavior stays Rhino-owned         |
-|   [6]   | `Rasm.Grasshopper` |      App root only      |           No            | GH2 behavior stays Grasshopper-owned           |
-|   [7]   | Companion process  |           Yes           |           No            | Generic Host/DI/exporter lane uses same states |
+This table is a lookup by project fact.
 
-ArchUnitNET owns executable dependency law for implementation assemblies. AppHost remains free of implementation-package references.
+| [INDEX] | [FACT]            | [VALUE]                                |
+| :-----: | :---------------- | :------------------------------------- |
+|   [1]   | Project file      | `Rasm.AppHost.csproj`                  |
+|   [2]   | Target framework  | inherited from repository build props  |
+|   [3]   | Source state      | no production `.cs` files              |
+|   [4]   | Direct packages   | runtime and companion bootstrap set    |
+|   [5]   | Inherited packages | workspace functional substrate         |
 
-## [3]-[RUNTIME_DOCTRINE]
+## [3]-[DEPENDENCY_DIRECTION]
 
-The runtime spine carries these capability categories as one composition surface:
+This table is a dependency law by package.
 
-| [INDEX] | [CAPABILITY]     | [OWNER]                        | [CONTRACT]                                                  |
-| :-----: | ---------------- | ------------------------------ | ----------------------------------------------------------- |
-|   [1]   | Cancellation     | AppHost root                   | One root token; package work derives child scopes from it   |
-|   [2]   | Time             | AppHost root                   | `TimeProvider` for timers, delays, deadlines, elapsed spans |
-|   [3]   | Semantic clock   | AppHost root                   | `NodaTime.Instant` for persisted/audited boundary facts     |
-|   [4]   | Observability    | AppHost root                   | Stable BCL diagnostic identities and correlation            |
-|   [5]   | UI scheduling    | AppUi adapter                  | UI-bound work crosses one scheduler port                    |
-|   [6]   | Store dispatch   | Persistence adapter            | Durable operations cross one store port                     |
-|   [7]   | Compute dispatch | Compute adapter                | Execution requests cross one compute port                   |
-|   [8]   | Health           | AppHost projection             | Capability health is derived from typed state, not strings  |
-|   [9]   | Support export   | AppHost trigger + package data | Export uses one correlation and bounded collection window   |
+| [INDEX] | [PROJECT]          | [MAY_REFERENCE_APPHOST] | [APPHOST_MAY_REFERENCE] | [BOUNDARY]                         |
+| :-----: | :----------------- | :---------------------: | :---------------------: | :--------------------------------- |
+|   [1]   | `Rasm`             |           no            |           no            | kernel remains below app packages  |
+|   [2]   | `Rasm.AppUi`       |           yes           |           no            | UI adapts runtime scheduling       |
+|   [3]   | `Rasm.Compute`     |           yes           |           no            | execution consumes runtime policy  |
+|   [4]   | `Rasm.Persistence` |           yes           |           no            | store drain and support adapt      |
+|   [5]   | host packages      |        app root         |           no            | native APIs stay host-owned        |
+|   [6]   | companion process  |           yes           |           no            | bootstrap uses the same state rail |
 
-Capabilities are absent through explicit unavailable/degraded state. They are not represented by `null`, ambient singletons, implementation imports, or hidden service locators.
+Architecture tests must load AppHost before dependency law can be claimed executable. Until that test surface exists, the law is documented here and enforced by manifest review.
 
-## [4]-[LIFECYCLE_STATES]
+## [4]-[RUNTIME_RAIL]
 
-Runtime lifecycle is one ordered state machine:
+This table is a lookup by runtime capability.
 
-| [INDEX] | [STATE]        | [MEANING]                                                     | [ALLOWED_NEXT]                       |
-| :-----: | -------------- | ------------------------------------------------------------- | ------------------------------------ |
-|   [1]   | Uninitialized  | No runtime record, native handle, store, or companion binding | Bootstrapping                        |
-|   [2]   | Bootstrapping  | Runtime dependencies are selected and adapters are bound      | Ready, Degraded, Faulted             |
-|   [3]   | Ready          | Runtime accepts work and health projection is current         | Running, Degraded, Draining, Faulted |
-|   [4]   | Running        | Work is active through UI/store/compute ports                 | Ready, Degraded, Draining, Faulted   |
-|   [5]   | Degraded       | One capability is unavailable while runtime remains usable    | Ready, Draining, Faulted             |
-|   [6]   | Draining       | New work is fenced; existing work completes by deadline       | Drained, Faulted                     |
-|   [7]   | Drained        | Compute, store, UI, and support collectors are quiesced       | Unloading                            |
-|   [8]   | Unloading      | Runtime slots, native handles, and companion handles dispose  | Unloaded, Faulted                    |
-|   [9]   | Unloaded       | Terminal successful teardown                                  | Uninitialized for a new host boot    |
-|  [10]   | Faulted        | Terminal or operator-visible runtime fault                    | SupportCapture, Unloading            |
-|  [11]   | SupportCapture | Bounded diagnostics export is collecting/redacting artifacts  | Draining, Unloading, Faulted         |
+| [INDEX] | [CAPABILITY]     | [LOCAL_RAIL]       | [CONTRACT]                           |
+| :-----: | :--------------- | :----------------- | :----------------------------------- |
+|   [1]   | Cancellation     | lifecycle          | one root token and child scopes      |
+|   [2]   | Time             | lifecycle          | elapsed spans, delays, deadlines     |
+|   [3]   | Semantic clock   | receipts           | persisted and audited instants       |
+|   [4]   | Observability    | telemetry          | activities, meters, counters         |
+|   [5]   | Health           | projection         | typed capability health              |
+|   [6]   | Degradation      | policy             | usable failure state and receipts    |
+|   [7]   | Support export   | support            | bounded correlated artifact capture  |
+|   [8]   | Companion boot   | composition        | host, DI, options, export, validation |
+|   [9]   | Outbound hops    | resilience         | one retry owner per remote boundary  |
 
-State transitions emit typed receipts with timestamp, correlation, capability, policy, elapsed duration where relevant, and source boundary. Unsupported transitions are rejected as receipts.
+Capabilities are unavailable through typed state. AppHost never represents missing runtime material as `null`, ambient singleton lookup, implementation import, or provider-branded public vocabulary.
 
-## [5]-[DRAIN_ORDER]
+## [5]-[CATALOGUE_TRUTH]
 
-Drain order is fixed:
+Package API facts live in [.reports/api](.reports/api/README.md). Architecture names package ownership and dependency direction; catalogue pages carry package assemblies, namespaces, usings, type families, and operation families.
 
-| [INDEX] | [STEP]                | [REASON]                                                |
-| :-----: | --------------------- | ------------------------------------------------------- |
-|   [1]   | Fence new work        | Stops new runtime operations                            |
-|   [2]   | Signal cancellation   | Gives active operations a shared deadline               |
-|   [3]   | Drain compute work    | Preserves final execution/model/benchmark evidence      |
-|   [4]   | Flush persistence     | Persists final store, support, and cache receipts       |
-|   [5]   | Fence UI completion   | Completes UI observables after store and compute finish |
-|   [6]   | Dispose runtime slots | Releases diagnostics, resources, and companion handles  |
+## [6]-[BOUNDARIES]
 
-Rhino/GH2 roots subscribe to host shutdown events and call AppHost drain. Host APIs are marshaled by the host-boundary package before AppHost observes completion.
-
-## [6]-[PACKAGE_LANES]
-
-Package lanes are implementation contracts. Graph lanes already have versionless project references or inherited workspace references. Build-contract lanes name the package family that implements the complete runtime capability while public AppHost vocabulary remains provider-neutral.
-
-[CORE_RUNTIME]:
-- Package set: `Microsoft.Extensions.Logging.Abstractions`, `NodaTime`.
-- Scope: AppHost graph.
-- Contract: logging abstraction and semantic time are runtime primitives.
-
-[FUNCTIONAL_SUBSTRATE]:
-- Package set: `LanguageExt.Core`, `Thinktecture.Runtime.Extensions`.
-- Scope: workspace graph.
-- Contract: functional effects and generated shapes are available to AppHost source through the shared workspace substrate.
-
-[BCL_DIAGNOSTICS]:
-- Surface set: `System.Diagnostics.ActivitySource`, `System.Diagnostics.Metrics.Meter`.
-- Scope: in-box.
-- Contract: in-process observability identities, activities, counters, histograms, and correlation are AppHost primitives.
-
-[FLOW_PRIMITIVES]:
-- Surface set: `System.Threading.Channels`.
-- Package set: `System.Threading.Tasks.Dataflow` for declared multi-stage topologies.
-- Contract: bounded in-process flow uses channels by default, and Dataflow is reserved for explicit stage graphs with observable stage boundaries.
-
-[COMPANION_BOOTSTRAP]:
-- Package set: `Microsoft.Extensions.Hosting`, `Microsoft.Extensions.DependencyInjection`, `Microsoft.Extensions.Configuration`, `Microsoft.Extensions.Options`, `Scrutor`.
-- Scope: companion roots, bridge services, service-backed integrations, and test hosts.
-- Contract: Generic Host, DI scopes, config binding, options validation, and scan/decorate composition feed AppHost runtime ports.
-
-[HEALTH_EXPORT]:
-- Package set: `Microsoft.Extensions.Diagnostics.HealthChecks`.
-- Scope: companion roots and service endpoints.
-- Contract: health checks project typed AppHost health states without replacing the state machine.
-
-[TELEMETRY_EXPORT]:
-- Package set: `Serilog`, `OpenTelemetry`, `OpenTelemetry.Extensions.Hosting`.
-- Scope: companion roots and support evidence.
-- Contract: exporters project AppHost activities, meters, logs, and correlation into support evidence without entering domain rails.
-
-[OUTBOUND_HTTP]:
-- Package set: `Microsoft.Extensions.Http.Resilience`.
-- Surface set: typed `HttpClient`.
-- Contract: HTTP resilience owns typed outbound service hops and does not stack with domain retry or persistence retry.
-
-[VALIDATION]:
-- Package set: `FluentValidation`, `FluentValidation.DependencyInjectionExtensions`.
-- Scope: external DTO and configuration boundaries.
-- Contract: external inputs validate before folding to `Validation<Error,T>`.
-
-`OpenTelemetry.Instrumentation.Process` is rejected. Process metrics are AppHost `Meter` instruments.
-
-## [7]-[COMPANION_MODE]
-
-Companion mode is a first-class runtime shape. Hidden sidecars, explicit external companions, bridge services, and service-backed integrations boot with Generic Host when they own a process. They use the same runtime states, health states, support-bundle triggering, telemetry correlation, degradation policy, and drain order as in-process AppHost composition. They do not fork a second runtime doctrine.
-
-All companion integrations are adapters over the AppHost state machine. Generic Host, DI scopes, health checks, exporters, HTTP clients, and validation packages feed runtime ports and receipts; they do not become public application vocabulary.
-
-## [8]-[SUPPORT_BUNDLE]
-
-AppHost owns trigger and correlation:
-
-| [INDEX] | [FIELD]           | [OWNER]        |
-| :-----: | ----------------- | -------------- |
-|   [1]   | Correlation ID    | AppHost        |
-|   [2]   | Trigger timestamp | AppHost clock  |
-|   [3]   | Collection window | AppHost config |
-|   [4]   | Size cap          | AppHost config |
-|   [5]   | Artifact storage  | Persistence    |
-|   [6]   | Redaction         | Persistence    |
-|   [7]   | UI screenshots    | AppUi          |
-|   [8]   | Runtime receipts  | AppHost        |
-|   [9]   | Compute evidence  | Compute        |
-
-Exported support artifacts are classified and redacted before they leave the local store.
-
-## [9]-[PROOF]
-
-| [INDEX] | [RAIL]       | [REQUIRED_PROOF]                                                      |
-| :-----: | ------------ | --------------------------------------------------------------------- |
-|   [1]   | Build        | AppHost project restores as a package scaffold                        |
-|   [2]   | Architecture | AppHost has no AppUi/Compute/Persistence/Rhino/GH2 implementation ref |
-|   [3]   | Managed laws | Runtime state transitions, health projection, degradation, and drain  |
-|   [4]   | Runtime      | Rhino/GH2 roots prove shutdown/drain/fence behavior                   |
-|   [5]   | Companion    | Generic Host, DI, health, telemetry, validation, and HTTP evidence    |
+- AppHost owns runtime state and policy; app roots own process attachment and host events.
+- AppHost owns BCL diagnostic identities; companion bootstrap owns exporter projection.
+- AppHost owns outbound-hop policy; lower packages emit conflict evidence instead of stacking retry loops.
+- AppHost owns support trigger and correlation; contributing packages own artifact classification and payload projection.

@@ -1,60 +1,49 @@
 # [RASM_PERSISTENCE_ROADMAP]
 
-`Rasm.Persistence` is built through store, schema, projection, snapshot, support, redaction, and cache/index rails. Package lanes follow owner responsibility.
+`Rasm.Persistence` implementation starts from a manifest-backed store package and proceeds through one store, source, snapshot, redaction, and receipt rail.
 
-## [1]-[CAPABILITY_RAILS]
+## [1]-[CURRENT_POSITION]
 
-| [INDEX] | [RAIL]          | [EXIT_STATE]                                                             |
-| :-----: | --------------- | ------------------------------------------------------------------------ |
-|   [1]   | Store profile   | Path/scope/schema/host identity received from app root                   |
-|   [2]   | Store lifecycle | Closed through ready/draining/maintenance/corrupt states are explicit    |
-|   [3]   | Store algebra   | Lifecycle and query operations execute through one dispatch rail         |
-|   [4]   | Receipts        | Success/failure cases cover native, schema, migration, redaction, backup |
-|   [5]   | Schema          | EF history, user version, migration lock, downgrade guard                |
-|   [6]   | Native init     | `Batteries.Init()` and PRAGMA setup are receipt-backed                   |
-|   [7]   | Live projection | Serial worker publishes app state and participates in drain              |
-|   [8]   | Snapshot        | Envelope has schema, codec, payload, explicit checksum                   |
-|   [9]   | Support export  | Classified and redacted artifacts                                        |
-|  [10]   | Cache/index     | Model-result cache and benchmark artifact index entities                 |
+This table is a lookup by implementation surface.
 
-## [2]-[LANE_CONTRACT]
+| [INDEX] | [SURFACE]         | [STATE]                         |
+| :-----: | :---------------- | :------------------------------ |
+|   [1]   | Project graph     | solution node present           |
+|   [2]   | Package graph     | store and snapshot packages admitted |
+|   [3]   | Production source | absent                          |
+|   [4]   | API catalogues    | package lookup pages maintained |
+|   [5]   | Host references   | none                            |
 
-| [INDEX] | [LANE]       | [CONTRACT]                                      |
-| :-----: | ------------ | ----------------------------------------------- |
-|   [1]   | EF SQLite    | Active project setup and package references     |
-|   [2]   | Redaction    | Classification and redactor registration source |
-|   [3]   | MessagePack  | Snapshot round-trip proof and analyzer route    |
-|   [4]   | LZ4          | Measured snapshot payload proof                 |
-|   [5]   | Bulk import  | Raw `Microsoft.Data.Sqlite` benchmark first     |
-|   [6]   | FTS5/JSON1   | Native SQLite probe plus query source           |
-|   [7]   | Companion DB | Out-of-process only                             |
+## [2]-[IMPLEMENTATION_TASKS]
 
-The lane set is provider-rich and single-rail. New storage providers, snapshot codecs, cache stores, and companion databases add store-profile cases, query handlers, receipt cases, and proof rows inside the Persistence rail; they do not add repository families or provider-branded public services.
+[PERSISTENCE_STORE_PROFILE]:
+- Status: QUEUED
+- Exit: store profile carries provider, path, scope, schema identity, retention, and host profile inputs.
+- Proof: profile admission specs and host-free dependency tests.
 
-## [3]-[IMPLEMENTATION_DOCTRINE]
+[PERSISTENCE_SCHEMA_QUERY]:
+- Status: QUEUED
+- Exit: lifecycle/query dispatch owns migration, lock, downgrade, integrity, projection, compaction, and drain states.
+- Proof: schema lifecycle specs and operation-scoped context tests.
 
-- Store logic enters through one lifecycle/query dispatch rail. Repository families, ad hoc stores, and per-entity service sets are rejected.
-- Store lifecycle is state-driven. Migration, lock, corruption, native-load, projection, snapshot, export, and drain evidence are first-class receipts.
-- EF Core is an implementation rail, not the public model. Public concepts are store profile, entity kind, query shape, operation state, projection state, and receipt evidence.
-- Redaction is part of export, not an afterthought. Classification, redactor registration, redacted output proof, and failure receipts ship with support bundles.
-- Native SQLite, PRAGMA policy, schema gates, and migration locks are proven at open time before normal operations run.
-- Snapshot codecs and compression carry round-trip, size, hash, and compatibility proof.
-- No store operation runs in GH solve hot paths.
+[PERSISTENCE_SNAPSHOT_CODEC]:
+- Status: QUEUED
+- Exit: JSON, MessagePack, file snapshot, checksum, compression, and compatibility receipts enter one snapshot rail.
+- Proof: round-trip, hash, size, and compatibility specs.
 
-## [4]-[INTEGRATION]
+[PERSISTENCE_SUPPORT_CACHE]:
+- Status: QUEUED
+- Exit: redaction, support artifact classification, model-result cache, benchmark index, and retention states enter typed receipts.
+- Proof: redaction specs, cache key specs, and support export receipts.
 
-- AppHost supplies scheduling, drain, support-bundle trigger, retry cadence, and profile/path handoff.
-- AppUi observes read-only app-state snapshots on its UI scheduler.
-- Compute stores deterministic model-result cache and benchmark artifact index data through the store rail.
-- Rhino/GH2 resolve host profile/path before Persistence is called; Persistence stays RhinoCommon-free.
-- Kernel code never references EF, SQLite, redaction, snapshot, or store packages.
+## [3]-[PACKAGE_PROOF]
 
-## [5]-[VALIDATION]
+This table is a lookup by package rail.
 
-| [INDEX] | [GATE]       | [REQUIRED_STATE]                                      |
-| :-----: | ------------ | ----------------------------------------------------- |
-|   [1]   | Restore      | Persistence lockfile is current                       |
-|   [2]   | Build        | Persistence package scaffold builds                   |
-|   [3]   | Architecture | Persistence has no Rhino/GH2/AppUi implementation ref |
-|   [4]   | Package      | Direct/transitive package checks are clean            |
-|   [5]   | Store laws   | Migration lock, downgrade, checksum, redaction laws   |
+| [INDEX] | [RAIL]     | [REQUIRED_STATE]                       |
+| :-----: | :--------- | :------------------------------------- |
+|   [1]   | Store      | EF SQLite and raw SQLite admitted      |
+|   [2]   | Provider   | PostgreSQL provider packages admitted  |
+|   [3]   | Snapshots  | JSON, MessagePack, hashing, LZ4        |
+|   [4]   | Redaction  | compliance redaction admitted          |
+|   [5]   | Functional | rails and generated shapes inherited   |

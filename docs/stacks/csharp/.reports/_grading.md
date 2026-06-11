@@ -142,7 +142,10 @@ Every grader applies these regardless of ladder:
 - Region duplication: a demonstration or card concern the ledger already assigns to another owner.
 - Container mismatch: prose packed into table cells past one trailing prose column, headers that do not earn their column, record material flattened into rows, or a table doing what a record group does better.
 - Convergence theater: manufactured change in a refinement pass, or a verification pass that rubber-stamps below-bar units.
-- Heavy lines: a card line carrying more than one controlling clause or running far past forty-five words — recut into denser prose or split before grading proceeds.
+- Split lines: a card line legislates exactly one decision — one Law, Accept, Reject, Use, or Boundary; every clause after the first qualifies that decision. A line carrying a second decision splits; a clause restating the decision in other words is deleted.
+- Paraphrased surfaces: a nameable attribute, knob, operator, generated member, or type spelled as prose. The code span is the instruction; the paraphrase is the defect — checked line by line.
+- Descriptive register: prose that explains, narrates, or hedges where a declarative instruction carries the same content — rationale restated after the rule implies it, connective framing such as `this means` or `note that`, consequence prose that names no surface and changes no decision. Card lines instruct and reject; they never describe.
+
 ## [6]-[BARS_BY_STAGE]
 
 | [INDEX] | [STAGE]            | [LADDER]  | [BAR]        |

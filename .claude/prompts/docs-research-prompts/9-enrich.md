@@ -14,7 +14,7 @@
 - Grade first against the page ladder in `_grading.md` at the reports root. A pass that finds nothing material states so, makes at most surgical trims, and ends the loop — manufactured change is the failure mode.
 - Coverage: walk the distillates against the page — material whose absence costs a reader a real decision integrates into the card that owns it, reworking the owner line to absorb it; a new card is justified only when no existing owner can absorb it without weakening. Raw appending is the rejected form.
 - Consolidation: near-similar lines collapse into one richer line, duplicate concepts integrate as a singular clause, near-peer cards sharing a spine merge, and complementary table rows fold into the card that legislates them.
-- Prose: every card line is recut to one controlling clause — roughly 35-45 words, at most one em-dash joint — naming the surfaces it legislates as code spans, never paraphrasing a nameable attribute, knob, operator, or generated member; long information integrates as richer, shorter prose, never published heavy.
+- Prose: every card line is recut to one controlling clause in declarative register — the line instructs or rejects, never describes or explains; every nameable attribute, knob, operator, or generated member appears as a code span, never as paraphrase; clauses after the first qualify the line's one decision, a second decision splits the line, and long information integrates as denser instruction, never published explanation.
 - Hold the page under 300 lines and push the count down, never up; the card set this stage leaves is the snippet-selection inventory — every surviving card stands whole without code.
 - End the pass with a cold re-read and the grade.
 

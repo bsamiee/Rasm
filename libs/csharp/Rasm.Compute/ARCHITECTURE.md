@@ -1,6 +1,6 @@
 # [RASM_COMPUTE_ARCHITECTURE]
 
-`Rasm.Compute` owns measured execution doctrine. It keeps algorithm ownership, model execution, remote dispatch, progress, and benchmark claims explicit and unified.
+`Rasm.Compute` owns measured execution doctrine. The package is a manifest-backed project node with no production source; this page defines the architecture that source must enter.
 
 ## [1]-[SYSTEM_SCOPE]
 
@@ -13,175 +13,67 @@ config:
 ---
 flowchart LR
     accTitle: Compute measured execution
-    accDescr: Compute accepts execution intent, selects a substrate, calls vector/model/remote lanes, emits receipts, and leaves dispatch and storage to AppHost and Persistence.
+    accDescr: Compute accepts execution intent, selects a substrate, emits receipts, consumes runtime policy, and stores cache/index metadata through Persistence.
     Intent["Execution intent"] --> Compute["Rasm.Compute"]
-    Compute --> Vectors["Rasm.Vectors"]
-    Compute --> Tensor["Tensor package lane"]
-    Compute --> Model["ONNX Runtime CoreML lane"]
-    Compute --> Remote["gRPC companion lane"]
-    Host["Rasm.AppHost"] --> Compute
-    Compute --> Store["Rasm.Persistence cache/index"]
-    Compute --> Ui["Rasm.AppUi progress observer"]
+    Compute --> Kernel["Rasm / Rasm.Vectors"]
+    Compute --> Host["Rasm.AppHost"]
+    Compute --> Store["Rasm.Persistence"]
+    Ui["Rasm.AppUi"] --> Compute
 ```
 
-Text equivalent: Compute selects execution substrate and emits receipts; AppHost dispatches and drains; Persistence stores cache/index artifacts; AppUi observes progress.
+Text equivalent: Compute accepts typed execution intent, selects substrate lanes, emits receipts, consumes AppHost runtime policy, uses Persistence cache/index contracts, and exposes progress for AppUi observation.
 
-## [2]-[REFERENCE_DIRECTION]
+## [2]-[PROJECT_IDENTITY]
 
-| [INDEX] | [PROJECT]          | [RELATION]                                 |
-| :-----: | ------------------ | ------------------------------------------ |
-|   [1]   | `Rasm`             | Kernel and vector algorithm source         |
-|   [2]   | `Rasm.AppHost`     | Runtime policy and dispatch owner          |
-|   [3]   | `Rasm.Persistence` | Cache/index owner through store dispatch   |
-|   [4]   | `Rasm.AppUi`       | Observer only; no UI scheduling in Compute |
-|   [5]   | Rhino/GH2          | No direct dependency in Compute            |
+This table is a lookup by project fact.
 
-Compute references AppHost for runtime policy. AppHost does not reference Compute.
+| [INDEX] | [FACT]            | [VALUE]                               |
+| :-----: | :---------------- | :------------------------------------ |
+|   [1]   | Project file      | `Rasm.Compute.csproj`                 |
+|   [2]   | Source state      | no production `.cs` files             |
+|   [3]   | Direct packages   | tensor, model, remote, units, staging |
+|   [4]   | Project contracts | Rasm, AppHost, Persistence            |
+|   [5]   | Benchmark route   | shared benchmark project              |
 
-## [3]-[EXECUTION_LIFECYCLE]
+## [3]-[REFERENCE_DIRECTION]
 
-Every operation follows one lifecycle:
+This table is a dependency law by project.
 
-| [INDEX] | [STATE]              | [MEANING]                                                               | [ALLOWED_NEXT]                |
-| :-----: | -------------------- | ----------------------------------------------------------------------- | ----------------------------- |
-|   [1]   | Accepted             | Intent is typed, bounded, and correlated                                | Selecting, Rejected           |
-|   [2]   | Selecting            | Substrate predicates evaluate in deterministic order                    | Preparing, Rejected           |
-|   [3]   | Preparing            | Inputs, cache keys, model handles, and remote payloads are materialized | Executing, Cancelled, Faulted |
-|   [4]   | Executing            | Vector, tensor, model, or remote lane runs                              | Measuring, Cancelled, Faulted |
-|   [5]   | Measuring            | Timing, allocation, equivalence, and cache evidence fold                | MaterializingReceipt, Faulted |
-|   [6]   | MaterializingReceipt | Output and evidence become one typed receipt                            | Completed, Degraded, Faulted  |
-|   [7]   | Completed            | Terminal success                                                        | None                          |
-|   [8]   | Cancelled            | Terminal cooperative cancellation                                       | None                          |
-|   [9]   | Rejected             | Terminal selection failure                                              | None                          |
-|  [10]   | Degraded             | Terminal usable result with explicit degraded evidence                  | None                          |
-|  [11]   | Faulted              | Terminal typed failure                                                  | None                          |
+| [INDEX] | [PROJECT]          | [RELATION]                              |
+| :-----: | :----------------- | :-------------------------------------- |
+|   [1]   | `Rasm`             | kernel and vector algorithm source      |
+|   [2]   | `Rasm.AppHost`     | runtime policy and drain contract       |
+|   [3]   | `Rasm.Persistence` | cache and benchmark index contract      |
+|   [4]   | `Rasm.AppUi`       | observer only; no scheduling ownership  |
+|   [5]   | host packages      | no direct dependency                    |
 
-Lifecycle state is not a UI progress label. Progress observes lifecycle and reports bounded phase, fraction, elapsed time, allocation class, and correlation.
+Compute references AppHost and Persistence. AppHost does not reference Compute.
 
-## [4]-[SUBSTRATE_MATRIX]
+## [4]-[EXECUTION_RAIL]
 
-| [INDEX] | [SUBSTRATE] | [CONTRACT]                                               | [PROOF]                                     |
-| :-----: | ----------- | -------------------------------------------------------- | ------------------------------------------- |
-|   [1]   | Vectors     | Active core; calls `Rasm.Vectors` algorithms             | Managed laws and benchmark baselines        |
-|   [2]   | Tensor      | `System.Numerics.Tensors` package with measured consumer | Tensor benchmarks and equivalence           |
-|   [3]   | Model       | `Microsoft.ML.OnnxRuntime` with model registry source    | Native load, CoreML EP, CPU baseline        |
-|   [4]   | Remote      | `Grpc.Net.Client`/`Google.Protobuf` with proto source    | Companion contract, payload and retry proof |
+This table is a lookup by execution capability.
 
-`UnitsNet` belongs to external physical-unit boundaries. It is not a parallel scalar model.
+| [INDEX] | [RAIL]     | [OWNS]                                  |
+| :-----: | :--------- | :-------------------------------------- |
+|   [1]   | Intent     | operation, payload, model, endpoint     |
+|   [2]   | Selection  | ordered substrate predicates            |
+|   [3]   | Tensor     | tensor primitives and equivalence       |
+|   [4]   | Model      | ONNX/CoreML identity and inference      |
+|   [5]   | Remote     | gRPC endpoint and payload contracts     |
+|   [6]   | Units      | external physical-unit boundaries       |
+|   [7]   | Staging    | memory, span, and pooling support       |
+|   [8]   | Progress   | subscription-gated observation          |
+|   [9]   | Receipts   | execution, benchmark, model, remote     |
 
-## [5]-[CONTRACT_SHAPES]
+The receipt rail is one polymorphic family. Parallel per-lane result systems, compute-local retry owners, and provider-branded public services are rejected.
 
-Compute public shapes use typed values for model identity, endpoint identity, artifact path, progress phase, payload bounds, allocation class, substrate, and execution failure. Nullable/string sketches are not public contract shapes.
+## [5]-[CATALOGUE_TRUTH]
 
-Required receipt families:
+Package API facts live in [.reports/api](.reports/api/README.md). Architecture names execution rails and dependency direction; catalogue pages carry package assemblies, namespaces, usings, type families, operation families, and rejected execution stacks.
 
-| [INDEX] | [RECEIPT] | [EVIDENCE]                                                       |
-| :-----: | --------- | ---------------------------------------------------------------- |
-|   [1]   | Execution | Substrate, elapsed time, allocation, cancellation, failure       |
-|   [2]   | Benchmark | Baseline, comparator, equivalence, allocation, artifact reference |
-|   [3]   | Model     | Model identity, load timing, inference timing, cache state       |
-|   [4]   | Remote    | Endpoint identity, deadline, payload size, attempts, retry owner |
-|   [5]   | Progress  | Lifecycle phase, fraction, elapsed time, allocation state        |
+## [6]-[BOUNDARIES]
 
-The receipt rail is one polymorphic family. Parallel per-lane result systems are rejected.
-
-## [6]-[PROGRESS_CONTRACT]
-
-Progress is subscription-gated:
-
-| [INDEX] | [RULE]        | [CONTRACT]                                                  |
-| :-----: | ------------- | ----------------------------------------------------------- |
-|   [1]   | Allocation    | No Rx object is allocated when progress is unobserved       |
-|   [2]   | Scheduling    | Compute never calls `ObserveOn`                             |
-|   [3]   | Completion    | Success and cancellation complete the stream                |
-|   [4]   | Faults        | Faults return in execution receipts; no `OnError` rail      |
-|   [5]   | Monotonicity  | Fraction never decreases; unknown fraction is explicit      |
-|   [6]   | Subject usage | Any internal subject is hot, serialized, completed, private |
-
-AppUi observes on its scheduler. GH2 solve code never blocks on model or remote execution.
-
-## [7]-[MODEL_LANE]
-
-ONNX Runtime/CoreML rules:
-
-| [INDEX] | [RULE]       | [CONTRACT]                                                      |
-| :-----: | ------------ | --------------------------------------------------------------- |
-|   [1]   | Provider API | Managed CoreML execution-provider options are explicit          |
-|   [2]   | Native probe | `libonnxruntime.dylib` resolves before session creation         |
-|   [3]   | Thread cap   | ORT thread pools stay below host display/mesh contention levels |
-|   [4]   | Cache key    | Model identity includes content hash and provider options       |
-|   [5]   | CoreML cache | Stale compiled model cache is handled by model-key policy       |
-|   [6]   | Equivalence  | CPU baseline validates CoreML/ANE tolerance and fp16 downcast   |
-
-`Microsoft.ML.OnnxRuntime.Extensions` belongs to custom pre/post-processing operations. Compute does not use ML.NET.
-
-## [8]-[REMOTE_LANE]
-
-Remote compute uses gRPC as a companion contract:
-
-| [INDEX] | [CONCERN]       | [OWNER]                                              |
-| :-----: | --------------- | ---------------------------------------------------- |
-|   [1]   | Client package  | `Grpc.Net.Client`                                    |
-|   [2]   | Message package | `Google.Protobuf`                                    |
-|   [3]   | Code generation | `Grpc.Tools` only in the proto-owning source project |
-|   [4]   | Retry           | AppHost outbound-hop policy                          |
-|   [5]   | Payload limits  | Compute intent and remote receipt                    |
-|   [6]   | Endpoint trust  | Companion/AppHost config                             |
-
-Compute emits retry-owner conflict evidence if a second retry owner appears on the same hop.
-
-## [9]-[BENCHMARK_AND_ARTIFACTS]
-
-BenchmarkDotNet evidence lives under `tests/csharp/_benchmarks`. Compute benchmark rows join the existing benchmark project; per-library benchmark projects are not created. Persistence indexes benchmark artifact metadata and retention state.
-
-## [10]-[PACKAGE_LANES]
-
-Package lanes are implementation contracts for one execution rail.
-
-[CORE]:
-- Package set: `LanguageExt.Core`, `Thinktecture.Runtime.Extensions`.
-- Contract: global workspace references supply effects and generated shapes.
-
-[PROGRESS]:
-- Surface set: `System.IObservable<T>`.
-- Contract: progress contracts use the in-box interface; Compute does not require a public Rx package surface for progress.
-
-[TENSOR]:
-- Package set: `System.Numerics.Tensors`.
-- Contract: tensor execution is a measured substrate row with equivalence and allocation evidence.
-
-[STAGING]:
-- Package set: `CommunityToolkit.HighPerformance`.
-- Contract: span, memory, and pooling helpers support measured staging paths without becoming public vocabulary.
-
-[MODEL]:
-- Package set: `Microsoft.ML.OnnxRuntime`.
-- Contract: ONNX/CoreML execution uses model identity, provider options, native-load receipts, CPU baseline, and cache keys.
-
-[REMOTE]:
-- Package set: `Grpc.Net.Client`, `Google.Protobuf`.
-- Contract: remote companion execution uses typed endpoint identity, payload bounds, deadline, retry-owner evidence, and receipts.
-
-[PROTO]:
-- Package set: `Grpc.Tools`.
-- Contract: code generation is private to the proto-owning source project.
-
-[UNITS]:
-- Package set: `UnitsNet`.
-- Contract: external physical-unit boundaries fold into typed intent and measurement receipts.
-
-[STREAM_POOL]:
-- Package set: `Microsoft.IO.RecyclableMemoryStream`.
-- Contract: stream-shaped hot paths use pooled streams with allocation and lifetime evidence.
-
-Rejected: TorchSharp, ML.NET/`MLContext`, PLINQ, ComputeSharp/Metal direct compute, DirectML/GPU packages, server-side gRPC packages, MessagePack/MemoryPack in Compute.
-
-## [11]-[PROOF]
-
-| [INDEX] | [RAIL]       | [REQUIRED_PROOF]                                                        |
-| :-----: | ------------ | ----------------------------------------------------------------------- |
-|   [1]   | Build        | Compute project restores as a package scaffold                          |
-|   [2]   | Architecture | Compute does not reference AppUi/Rhino/GH2/Persistence implementation   |
-|   [3]   | Managed laws | Selection, receipt, failure, and progress monotonicity                  |
-|   [4]   | Benchmarks   | Input-class timing/allocation/equivalence                               |
-|   [5]   | Runtime      | ONNX native/CoreML and gRPC companion scenarios                         |
+- Compute owns measured execution; Rasm and Rasm.Vectors own algorithms.
+- Compute owns progress data; AppUi owns UI scheduling and presentation.
+- Compute owns model and remote receipts; AppHost owns outbound retry policy.
+- Compute owns cache keys; Persistence owns durable cache/index storage.

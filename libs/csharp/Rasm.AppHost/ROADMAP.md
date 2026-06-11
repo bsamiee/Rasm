@@ -1,49 +1,49 @@
 # [RASM_APPHOST_ROADMAP]
 
-`Rasm.AppHost` is built through capability-backed runtime rails. Package lanes follow owner responsibility; central pins are executable graph facts.
+`Rasm.AppHost` implementation starts from a manifest-backed runtime package and proceeds through one runtime rail.
 
-## [1]-[CAPABILITY_RAILS]
+## [1]-[CURRENT_POSITION]
 
-| [INDEX] | [RAIL]             | [EXIT_STATE]                                                                                  |
-| :-----: | ------------------ | --------------------------------------------------------------------------------------------- |
-|   [1]   | Runtime spine      | One runtime surface carries cancellation, time, clock, ports, config                          |
-|   [2]   | Neutral ports      | UI, store, compute, support, health, and observability adapt through one boundary             |
-|   [3]   | Lifecycle states   | Boot, ready, running, degraded, draining, unloaded, faulted, and support capture are explicit |
-|   [4]   | Drain policy       | Deadline, cancellation, operation fencing, and disposal order are executable                  |
-|   [5]   | Health projection  | Health derives from typed capability states and semantic timestamps                           |
-|   [6]   | Degradation policy | Degradation is config data and receipt output, not inline branching                           |
-|   [7]   | Observability      | BCL `ActivitySource` and `Meter` identities are stable                                        |
+This table is a lookup by implementation surface.
 
-## [2]-[COMPANION_RAILS]
+| [INDEX] | [SURFACE]         | [STATE]                         |
+| :-----: | :---------------- | :------------------------------ |
+|   [1]   | Project graph     | solution node present           |
+|   [2]   | Package graph     | runtime and companion admitted  |
+|   [3]   | Production source | absent                          |
+|   [4]   | API catalogues    | package lookup pages maintained |
+|   [5]   | Boundary tests    | required with source            |
 
-| [INDEX] | [RAIL]              | [CONTRACT]                                                              |
-| :-----: | ------------------- | ----------------------------------------------------------------------- |
-|   [1]   | Generic Host        | Companion executable/service owns process lifecycle                     |
-|   [2]   | DI/Scrutor          | Companion composition root scans/decorates real services                |
-|   [3]   | Config/options      | Companion owner binds and validates runtime config                      |
-|   [4]   | Health checks       | Companion owner exposes `Microsoft.Extensions.Diagnostics.HealthChecks` |
-|   [5]   | Serilog/OTel export | Companion exporter root owns sinks/providers                            |
-|   [6]   | HTTP resilience     | One typed outbound HTTP hop owns `Microsoft.Extensions.Http.Resilience` |
-|   [7]   | Object pooling      | Allocation proof identifies a pooled object family                      |
+## [2]-[IMPLEMENTATION_TASKS]
 
-Companion packages form one bootstrap rail: `Microsoft.Extensions.Hosting`, DI/config/options packages, `Scrutor`, health checks, Serilog, OpenTelemetry, and HTTP resilience. Companion processes, hidden sidecars, bridge services, test hosts, and service-backed integrations use the same lifecycle states, drain policy, health projection, support evidence, and telemetry correlation as in-process AppHost composition.
+[APPHOST_RUNTIME_STATE]:
+- Status: QUEUED
+- Exit: one lifecycle owner carries boot, ready, running, degraded, draining, unloaded, faulted, and support-capture states.
+- Proof: managed state-transition specs and AppHost boundary test admission.
 
-## [3]-[IMPLEMENTATION_DOCTRINE]
+[APPHOST_PORTS]:
+- Status: QUEUED
+- Exit: UI, store, compute, support, health, observability, and outbound-hop ports enter as typed runtime records.
+- Proof: dependency tests show AppHost remains below implementation packages.
 
-- AppHost source never references AppUi, Compute, Persistence, Rhino, or Grasshopper implementation assemblies.
-- AppUi, Compute, and Persistence adapt to AppHost runtime policy through narrow ports.
-- Rhino/GH2 app roots compose AppHost and host-boundary packages; AppHost never calls native host APIs.
-- Runtime packages return typed receipts. Generic `IReceipt` ledgers are not introduced.
-- State machines are closed and transition-driven. Independent booleans, string status fields, and parallel lifecycle enums are rejected.
-- Dispatch is polymorphic and table-driven where variants grow; branching clusters collapse into one rail before new entrypoints appear.
-- Package-specific APIs stay behind the rail that owns the package. Public runtime vocabulary stays provider-neutral.
+[APPHOST_COMPANION_BOOTSTRAP]:
+- Status: QUEUED
+- Exit: Generic Host, DI, configuration, options, Scrutor, health checks, telemetry, validation, resilience, and object pooling feed runtime ports.
+- Proof: companion bootstrap specs and package graph restore.
 
-## [4]-[VALIDATION]
+[APPHOST_SUPPORT_EXPORT]:
+- Status: QUEUED
+- Exit: support trigger, correlation, collection window, size cap, redaction handoff, and package artifact contribution fold into one export receipt.
+- Proof: support receipt specs and redaction boundary tests.
 
-| [INDEX] | [GATE]       | [REQUIRED_STATE]                                                |
-| :-----: | ------------ | --------------------------------------------------------------- |
-|   [1]   | Restore      | AppHost project lockfile is current                             |
-|   [2]   | Build        | AppHost package graph builds                                    |
-|   [3]   | Architecture | AppHost remains below implementation app packages               |
-|   [4]   | Package      | Direct/transitive package checks are clean                      |
-|   [5]   | Runtime      | Rhino/GH2 scenario rail proves drain behavior                   |
+## [3]-[PACKAGE_PROOF]
+
+This table is a lookup by package rail.
+
+| [INDEX] | [RAIL]        | [REQUIRED_STATE]                         |
+| :-----: | :------------ | :--------------------------------------- |
+|   [1]   | Runtime       | logging, time, diagnostics, channels     |
+|   [2]   | Functional    | rails and generated shapes inherited     |
+|   [3]   | Companion     | host, DI, config, options, health, export |
+|   [4]   | Resilience    | outbound HTTP policy has one owner       |
+|   [5]   | Validation    | external input folds to typed rails      |

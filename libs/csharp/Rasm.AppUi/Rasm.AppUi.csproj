@@ -6,7 +6,9 @@
     <ItemGroup>
         <ProjectReference Include="../Rasm/Rasm.csproj" />
         <ProjectReference Include="../Rasm.AppHost/Rasm.AppHost.csproj" />
+        <ProjectReference Include="../Rasm.Compute/Rasm.Compute.csproj" />
         <ProjectReference Include="../Rasm.Grasshopper/Rasm.Grasshopper.csproj" />
+        <ProjectReference Include="../Rasm.Persistence/Rasm.Persistence.csproj" />
         <ProjectReference Include="../Rasm.Rhino/Rasm.Rhino.csproj" />
     </ItemGroup>
 

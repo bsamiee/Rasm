@@ -1,20 +1,27 @@
 <Project Sdk="Microsoft.NET.Sdk">
     <PropertyGroup>
         <Description>Local durable-state package setup and doctrine for projection, migration, snapshots, redaction, cache, and support artifacts.</Description>
+        <NoWarn>$(NoWarn);NU1608</NoWarn>
     </PropertyGroup>
 
     <ItemGroup>
-        <ProjectReference Include="../Rasm.AppHost/Rasm.AppHost.csproj" />
+        <ProjectReference Include="../Rasm.AppHost/Rasm.AppHost.csproj" PrivateAssets="all" />
     </ItemGroup>
 
     <ItemGroup Label="SQLite Store">
         <PackageReference Include="EFCore.NamingConventions" />
         <PackageReference Include="Microsoft.Data.Sqlite" />
+        <PackageReference Include="Microsoft.EntityFrameworkCore.Design" PrivateAssets="all" ExcludeAssets="all" />
         <PackageReference Include="Microsoft.EntityFrameworkCore.Sqlite" />
+        <PackageReference Include="Npgsql" />
+        <PackageReference Include="Npgsql.EntityFrameworkCore.PostgreSQL" />
         <PackageReference Include="SQLitePCLRaw.bundle_e_sqlite3" />
     </ItemGroup>
 
-    <ItemGroup Label="Time Serialization And Support">
+    <ItemGroup Label="Snapshots And Support">
+        <PackageReference Include="K4os.Compression.LZ4" />
+        <PackageReference Include="MessagePack" />
+        <PackageReference Include="MessagePackAnalyzer" PrivateAssets="all" />
         <PackageReference Include="Microsoft.Extensions.Compliance.Redaction" />
         <PackageReference Include="NodaTime" />
         <PackageReference Include="NodaTime.Serialization.SystemTextJson" />
