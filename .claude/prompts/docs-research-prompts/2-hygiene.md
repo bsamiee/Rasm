@@ -22,6 +22,7 @@ Hygiene brings every research file in `<WORKSPACE>` to the bar. One agent per la
 
 [VALIDATE_AND_DEEPEN]:
 - Verify every claim against the newest source. Delete what is false or stale, correct what is wrong in detail, and sharpen what is unclear — never a blind cut.
+- Verification is bounded: at most three probes per claim; a claim that resists verification is weakened to what is provable or cut, never chased.
 - Dig a table-stakes finding deeper until it carries advanced value, or remove it when nothing deeper is there. Build on the file slightly; do not re-run the research.
 
 [GRADE]:

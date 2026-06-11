@@ -8,7 +8,7 @@
 
 [GROUNDING]:
 - Every agent — the orchestrator and every reviewer — fully reads `<DOCTRINE>`, then `docs/standards/style-guide.md`, `docs/standards/information-structure.md`, and `docs/standards/formatting.md`, before any other work: the laws, the collapse scan, the page craft, and the prose, container, and rendering standards. Every finding and every edit answers to them.
-- Every agent reads the finalized sibling pages in `<TARGET>`'s folder — the doctrine's atlas states which — as binding law and corpus voice, every `99-distilled.md` in `<WORKSPACE>`, and all of `<TARGET>`.
+- Every agent reads all of `<TARGET>`. Beyond that, each reviewer reads what its lens demands: every `99-distilled.md` in `<WORKSPACE>` for the coverage, card-power, and stacking lenses; the finalized sibling pages — the doctrine's atlas states which — as binding law and corpus voice for the corpus-fit lens. The orchestrator reads everything.
 
 [PANEL]:
 - Dispatch ten reviewers in parallel. Each reviews the whole page and leads with one assigned lens: opening signal; coverage against the distillates; card power; card stacking opportunities; table craft; prose craft; section order and cohesion; low-value and table-stakes content; doctrine-law adherence; corpus fit against the finalized sibling pages — voice and law, where any restatement of, reference to, or contradiction with a finalized page's territory is a defect.

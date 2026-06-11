@@ -8,7 +8,7 @@
 
 [GROUNDING]:
 - Every pass agent fully reads `<DOCTRINE>`, then `docs/standards/style-guide.md`, `docs/standards/information-structure.md`, and `docs/standards/formatting.md`, before any other work: the laws, the collapse scan, the page craft, and the prose, container, and rendering standards.
-- Every pass agent reads every `99-distilled.md` in `<WORKSPACE>` and all of `<TARGET>`.
+- Every pass agent reads all of `<TARGET>`; it consults a lane's `99-distilled.md` only when re-cutting a card that sources from it — never as a default full read.
 
 [PASS] — up to five, sequentially, one fresh agent each:
 - Grade first. A pass that finds nothing material states so, makes at most surgical trims, and ends the loop — the pass count is a ceiling, not a quota, and manufactured change is the failure mode.
