@@ -3,8 +3,6 @@
 - `<TARGET>` =
 - `<DOCTRINE>` =
 - `<WORKSPACE>` =
-- `<GRADING>` =
-- `<REGIONS>` =
 
 Distillation turns each lane's full reservoir in `<WORKSPACE>` — the bedrock and the divergent series above it — into the single source the page is authored from: every candidate card the page might need, at the depth it needs, with zero duplication inside the lane and zero territory poached from sibling lanes. One agent per lane folder, plus an orchestrator ownership pass before any lane begins.
 
@@ -12,7 +10,7 @@ Distillation turns each lane's full reservoir in `<WORKSPACE>` — the bedrock a
 - Every agent — the orchestrator and every distill agent — fully reads `<DOCTRINE>` before any other work: the laws, the collapse scan, the page craft, and what `<TARGET>` owns. That single read is the whole alignment requirement, and every selection, merge, and grade answers to it.
 
 [OWNERSHIP] — orchestrator, before any lane runs:
-- Free-chosen divergent facets drift across lanes; assume bleed until proven absent. Sweep every lane's file titles and group labels, assign each recurring theme to exactly ONE owning lane, and hand each distill agent its in-list (themes it owns, including variants sitting in other lanes' files) and out-list (themes it must drop because a sibling owns them, or because the doctrine's atlas assigns them to a different page entirely — those drop from this page's distillation and stay in the reservoir; the ledger's page regions at `<REGIONS>` arbitrate that atlas-level routing). Routing moves material to its owner — a nuance is never deleted because it sat in the wrong folder.
+- Free-chosen divergent facets drift across lanes; assume bleed until proven absent. Sweep every lane's file titles and group labels, assign each recurring theme to exactly ONE owning lane, and hand each distill agent its in-list (themes it owns, including variants sitting in other lanes' files) and out-list (themes it must drop because a sibling owns them, or because the doctrine's atlas assigns them to a different page entirely — those drop from this page's distillation and stay in the reservoir; the region ledger's page regions arbitrate that atlas-level routing). Routing moves material to its owner — a nuance is never deleted because it sat in the wrong folder.
 
 [DISTILL] — one agent per lane:
 - Read all of `00-bedrock.md` and every divergent file in the lane — the whole reservoir, nothing skipped — plus the routed-in material the orchestrator assigned from sibling lanes.
@@ -35,7 +33,7 @@ Distillation turns each lane's full reservoir in `<WORKSPACE>` — the bedrock a
 - Findings and candidate cards only — logical category groups, with no meta-commentary, sourcing, versions, dates, cross-references, or introduction, routing, summary, or validation section. One H1, then `[GROUP_LABEL]:` groups of contiguous bullets with no blank line between items, and a blank line only around a fenced code block, with neutral placeholder names.
 
 [GRADE]:
-- The distill agent grades its own `99-distilled.md` against the research ladder in `<GRADING>` — the minimum across its axes clears the stage bar, automatic fails override any score. Rework until it clears.
+- The distill agent grades its own `99-distilled.md` against the research ladder in `_grading.md` at the reports root — the minimum across its axes clears the stage bar, automatic fails override any score. Rework until it clears.
 - The main agent then reads each `99-distilled.md` cold and grades it against the same ladder, adding the ownership check: no sibling territory poached, no routed-in nuance dropped. It returns anything short for a targeted fix.
 
 The distillate is the reservoir the page is mined from — more than the page will use, so the best can be chosen.

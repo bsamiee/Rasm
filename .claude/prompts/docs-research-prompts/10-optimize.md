@@ -3,7 +3,6 @@
 - `<TARGET>` =
 - `<DOCTRINE>` =
 - `<WORKSPACE>` =
-- `<GRADING>` =
 
 `<TARGET>` exists with its structure and cards in place and no fenced code, and each lane folder in `<WORKSPACE>` holds a `99-distilled.md`. This work runs up to five sequential optimization passes that re-cut the page's cards and structure toward maximum signal in a shrinking footprint.
 
@@ -28,6 +27,6 @@
 - Narrow beats wide: split by row axis or move detail to cards before widening.
 
 [GRADE]:
-- Grade against the page ladder in `<GRADING>`: the minimum across signal, coverage, card power, structure, and doctrine fit clears the stage bar, automatic fails override any score, and the drift checks apply. Rework until every axis clears.
+- Grade against the page ladder in `_grading.md` at the reports root: the minimum across signal, coverage, card power, structure, and doctrine fit clears the stage bar, automatic fails override any score, and the drift checks apply. Rework until every axis clears.
 
 [COMMIT]: stage and commit `<TARGET>`.

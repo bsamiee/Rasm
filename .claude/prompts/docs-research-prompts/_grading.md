@@ -1,6 +1,6 @@
 # [GRADING]
 
-Companion artifact to the doc-stack prompt set. The orchestrator installs a verbatim copy at the workspace root (`<GRADING>`) when a stack's first pipeline begins; every stage's grade answers to this file. Concept pages never cite it.
+Companion artifact to the doc-stack prompt set. The initial-research stage installs a verbatim copy at the stack's reports root when its first pipeline begins; every stage's grade answers to this file. Concept pages never cite it.
 
 ## [1]-[MECHANICS]
 

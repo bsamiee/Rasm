@@ -4,8 +4,6 @@
 - `<DOCTRINE>` =
 - `<WORKSPACE>` =
 - `<WAVES>` =
-- `<GRADING>` =
-- `<REGIONS>` =
 
 This work mines the verified, bleeding-edge material from which `<TARGET>` is authored: a deep reservoir of current, advanced findings, organized by lane.
 
@@ -16,7 +14,7 @@ This work mines the verified, bleeding-edge material from which `<TARGET>` is au
 - With that grounding, study `<TARGET>`'s domain enough to clarify what it owns and to identify its lanes — distinct, non-overlapping sub-concerns that together cover everything it governs. Right-size each lane so it can be mined across many passes without exhausting it or straying into another.
 - `<TARGET>`'s scope comes from `<DOCTRINE>`'s atlas and roadmap, never from the page itself: when `<TARGET>` already exists on disk, neither the orchestrator nor any wave agent reads it — the research stays fresh and outside-in.
 - Enumerate every admitted external package relevant to `<TARGET>` from the manifests the doctrine names, and give that integration surface its own lane — or lanes when the package set is wide. No admitted package is left out.
-- Install the grading ladder at `<GRADING>` and the region ledger at `<REGIONS>` when absent — the ladder copied verbatim from this prompt set's `_grading.md` companion, the ledger seeded per the `_region-map.md` companion from every fence and finalized page already in the corpus.
+- Install `_grading.md` and `_region-map.md` at the reports root — the directory above `<WORKSPACE>`, shared by every workspace in the stack — when absent — the ladder copied verbatim from this prompt set's `_grading.md` companion, the ledger seeded per the `_region-map.md` companion from every fence and finalized page already in the corpus.
 - Lane OWNS and ASSUMES lines derive from the doctrine's atlas and the ledger's page regions: a concern a finalized page owns enters a lane brief only as ASSUMES and is never re-mined — an earlier target's reservoir may be consulted read-only to confirm ownership, never re-researched.
 - This understanding is the orchestrator's only research; it writes no findings.
 - Create `<WORKSPACE>` and a subfolder per lane.
@@ -28,7 +26,7 @@ This work mines the verified, bleeding-edge material from which `<TARGET>` is au
 - The same agent then grades its file, and runs its own loop on it until it clears the bar: re-read and critique; strip every anti-pattern: no meta-commentary, no sourcing, no versions (assume and target newest only), and no coupling to any other file or the repository; correct or cut old, wrong, or stale claims; consolidate near-identical lines into one finding that carries the combined value of all of them; and rework each remaining line by its grade — cutting low-value findings (anything table-stakes), replacing them with more accurate material, and keeping only what is relevant to the lane.
 
 [GRADE]:
-- The agent grades its own file against the research ladder in `<GRADING>`: the minimum across richness, veracity, density, advancement, and lane relevance clears the stage bar, automatic fails override any score, and the drift checks apply. A real seven is reworked until it clears, never relabeled.
+- The agent grades its own file against the research ladder in `_grading.md` at the reports root: the minimum across richness, veracity, density, advancement, and lane relevance clears the stage bar, automatic fails override any score, and the drift checks apply. A real seven is reworked until it clears, never relabeled.
 
 [DISCIPLINE]:
 - Findings only — the rule, the mechanism, the API shape, the design pressure, the constraint, the gap, and the code that proves it. Say nothing about the file or the work; never use meta-commentary, "this is..." or "X is..." framing, or any introduction, routing, summary, sources, or validation section — just logical category groups filled with research findings, with code blocks only where justified against a high bar.

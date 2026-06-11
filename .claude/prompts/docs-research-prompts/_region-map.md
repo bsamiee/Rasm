@@ -1,6 +1,6 @@
 # [REGION_MAP]
 
-Companion artifact to the doc-stack prompt set — the template and law for the region ledger. The orchestrator installs one ledger at the workspace root (`<REGIONS>`) when a stack's first pipeline begins, seeded from every fence and every finalized page already in the corpus. The ledger is the corpus's ownership memory: it makes duplication detectable without re-reading the corpus, and it lets a new page build on finalized pages implicitly — owned territory is visible before research begins. Concept pages never cite it.
+Companion artifact to the doc-stack prompt set — the template and law for the region ledger. The initial-research stage installs one ledger at the stack's reports root when its first pipeline begins, seeded from every fence and every finalized page already in the corpus. The ledger is the corpus's ownership memory: it makes duplication detectable without re-reading the corpus, and it lets a new page build on finalized pages implicitly — owned territory is visible before research begins. Concept pages never cite it.
 
 ## [1]-[LAW]
 

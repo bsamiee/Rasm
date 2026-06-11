@@ -3,7 +3,6 @@
 - `<TARGET>` =
 - `<DOCTRINE>` =
 - `<WORKSPACE>` =
-- `<GRADING>` =
 
 `<TARGET>` exists with its structure and cards in place and no fenced code, and each lane folder in `<WORKSPACE>` holds a `00-bedrock.md` with a divergent series above it. This work mines the raw reservoir lane by lane for high-value material the page still lacks, and integrates it without growth for its own sake.
 
@@ -20,6 +19,6 @@
 - The page stays under 300 lines through every lane and should never approach that ceiling — integration and replacement, not accumulation.
 
 [COLD_READ]:
-- After the final lane, the orchestrator reads the page cold and grades it against the page ladder in `<GRADING>` — a cold grade re-derived from the page alone. It returns anything short for a targeted fix.
+- After the final lane, the orchestrator reads the page cold and grades it against the page ladder in `_grading.md` at the reports root — a cold grade re-derived from the page alone. It returns anything short for a targeted fix.
 
 [COMMIT]: stage and commit `<TARGET>`.

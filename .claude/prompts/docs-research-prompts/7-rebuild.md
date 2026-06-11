@@ -3,7 +3,6 @@
 - `<TARGET>` =
 - `<DOCTRINE>` =
 - `<WORKSPACE>` =
-- `<GRADING>` =
 
 `<TARGET>` exists as a published page, and each lane folder in `<WORKSPACE>` holds a `99-distilled.md`. This work replaces the page from the distilled reservoir — a greenfield draft first, an earned-value reconciliation second. The replacement is structure, tables, cards, and prose only: no fenced code, and no card may lean on a future snippet to stand.
 
@@ -38,6 +37,6 @@
 - Narrow beats wide: split by row axis or move detail to cards before widening.
 
 [GRADE]:
-- Grade against the page ladder in `<GRADING>`: the minimum across signal, coverage, card power, structure, and doctrine fit clears the stage bar, automatic fails override any score, and the drift checks apply. Rework until every axis clears.
+- Grade against the page ladder in `_grading.md` at the reports root: the minimum across signal, coverage, card power, structure, and doctrine fit clears the stage bar, automatic fails override any score, and the drift checks apply. Rework until every axis clears.
 
 [COMMIT]: stage and commit `<TARGET>`.

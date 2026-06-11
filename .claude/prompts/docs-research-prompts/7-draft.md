@@ -3,7 +3,6 @@
 - `<TARGET>` =
 - `<DOCTRINE>` =
 - `<WORKSPACE>` =
-- `<GRADING>` =
 
 Each lane folder in `<WORKSPACE>` holds a `99-distilled.md`. This work authors `<TARGET>` from those distillates — structure, tables, cards, and prose only. The page carries no fenced code at this stage, and no card may lean on a future snippet to stand. Use this stage only when `<TARGET>` does not yet exist as a published page; an existing page is replaced through the rebuild stage.
 
@@ -34,6 +33,6 @@ Each lane folder in `<WORKSPACE>` holds a `99-distilled.md`. This work authors `
 - Re-read the draft cold and critique it harshly: opening signal, table width and quality, card power, capture of the distillates' strongest material, and doctrine fit. Rework, then grade; repeat until it clears.
 
 [GRADE]:
-- Grade against the page ladder in `<GRADING>`: the minimum across signal, coverage, card power, structure, and doctrine fit clears the stage bar, automatic fails override any score, and the drift checks apply. Rework until every axis clears.
+- Grade against the page ladder in `_grading.md` at the reports root: the minimum across signal, coverage, card power, structure, and doctrine fit clears the stage bar, automatic fails override any score, and the drift checks apply. Rework until every axis clears.
 
 [COMMIT]: stage and commit `<TARGET>`.
