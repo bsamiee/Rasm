@@ -9,6 +9,7 @@
 [GROUNDING]:
 - Every pass agent fully reads `<DOCTRINE>` before any other work: the laws, the collapse scan, the page craft, the snippet law, and the placeholder discipline.
 - Every pass agent reads all of `<TARGET>` — every card and every snippet, each snippet against the card it proves — every finalized sibling page whole, and every snippet in the sibling pages.
+- Every pass agent reads the region ledger at the reports root: its snippet regions are the duplicated-demonstration arbiter, and a region a pass deepens is updated there in the same pass.
 
 [PASS] — one fresh agent per pass, sequentially:
 - Critique before touching. Build a defect list per snippet: card drift, low-value or decorative lines, flat spellings the doctrine forbids, surface that collapses into a denser construct, missed library capability the card implies, placeholder violations, invented or unverified API shapes, budget padding, duplicated demonstration within the page or against a sibling, a construction that cannot compile as written under the active surface, and code that touches a concern a finalized page legislates below that page's standard or against it.

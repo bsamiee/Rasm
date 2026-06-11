@@ -12,6 +12,7 @@ Each lane folder in `<WORKSPACE>` holds a `99-distilled.md`. This work authors `
 
 [PLAN]:
 - Read every `99-distilled.md` in `<WORKSPACE>`. Plan the page before writing it: section order, the card inventory with each card's stacked concerns named, which distilled findings feed each card, and which tables exist with the one question each answers. The plan is working state, never a file — selection happens before sentences exist to defend themselves.
+- The region ledger's page regions at the reports root mark the territory finalized pages own: a planned card that lands on one is re-teach, cut at the plan.
 
 [DRAFT]:
 - Author the page at or under 225 lines.
