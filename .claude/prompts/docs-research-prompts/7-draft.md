@@ -13,11 +13,12 @@ Each lane folder in `<WORKSPACE>` holds a `99-distilled.md`. This work authors `
 [PLAN]:
 - Read every `99-distilled.md` in `<WORKSPACE>`. Plan the page before writing it: section order, the card inventory with each card's stacked concerns named, which distilled findings feed each card, and which tables exist with the one question each answers. The plan is working state, never a file — selection happens before sentences exist to defend themselves.
 - The region ledger's page regions at the reports root mark the territory finalized pages own: a planned card that lands on one is re-teach, cut at the plan.
+- The distillates are prima materia, never copy: fuse, re-cut, and compress their candidates past their own card boundaries wherever the page gains density — the page owes them their value, not their structure.
 
 [DRAFT]:
 - Author the page at or under 225 lines.
 - The opening is the most expensive real estate on the page: the lead paragraph states the page's whole law, and the first screen stands alone as an operating brief — no warm-up, no inventory, no naming of what the page covers.
-- Findings-grade prose only: state as fact and law, with no meta-commentary, no sourcing, no links, and no narration of what the page is or does.
+- Findings-grade prose only: state as fact and law, with no meta-commentary, no sourcing, no links, and no narration of what the page is or does. The page ends at its last card section — no validation, checklist, collapse-test, or gate tail.
 
 [CARD_LAW]:
 - Cards are the unit of value and the hardest part of the page. A card earns its place by deciding something a strong engineer would otherwise get wrong; table-stakes content is banned.
