@@ -33,16 +33,29 @@ This table is a lookup by repeated local smell.
 - Gate: construct `SearchValues<T>` once as a static field beside the policy; `SearchValues<string>` requires an explicit ordinal-family `StringComparison`.
 - Rule: `Split` and `SplitAny` yield `Range` values over the source span, so slicing replaces substring materialization end to end.
 
-[FORMATTING_AND_PARSING]:
-- Owner: `CompositeFormat`, `string.Create`, `Span<char>.TryWrite` interpolation, and the `ISpanFormattable` and `ISpanParsable<T>` pair with invariant `TryParse`.
-- Replace: repeated format-string parsing, `StringBuilder` for fixed-length construction, and culture-ambient persisted values.
-- Gate: use `CultureInfo.InvariantCulture` for wire and persistence.
-- Rule: domain types that appear in formatted output implement `ISpanFormattable` and compose into `TryWrite` holes without allocation.
+[FORMAT_AND_PARSE]:
+- Owner: `CompositeFormat`, `string.Create`, `Span<char>.TryWrite`, and `Utf8.TryWrite` interpolation over the `ISpanFormattable` and `ISpanParsable<T>` pair and the `IUtf8SpanFormattable` and `IUtf8SpanParsable<T>` pair, with `u8` literals, `Utf8.FromUtf16` and `ToUtf16`, and `Encoding.TryGetBytes` and `TryGetChars` on the UTF-8 side.
+- Replace: repeated format-string parsing, `StringBuilder` for fixed-length construction, culture-ambient persisted values, `Encoding.UTF8.GetBytes` on literals, and UTF-16 round trips on UTF-8 paths.
+- Gate: use `CultureInfo.InvariantCulture` for wire and persistence; chunked transcoding flows through the `OperationStatus` forms.
+- Rule: domain types that appear in formatted output implement the span-formattable pair and compose into `TryWrite` holes without allocation; `IUtf8SpanParsable<T>` is independent of `ISpanParsable<T>` and needs its own constraint.
 
-[UTF8_PIPELINE]:
-- Owner: `u8` literals, `Utf8.TryWrite` interpolation, the `IUtf8SpanFormattable` and `IUtf8SpanParsable<T>` pair, `Utf8.FromUtf16` and `Utf8.ToUtf16`, and `Encoding.TryGetBytes` and `TryGetChars`.
-- Replace: `Encoding.UTF8.GetBytes` on literals, UTF-16 round trips on UTF-8 paths, and throwing encode calls where destination sizing is uncertain.
-- Gate: chunked transcoding flows through the `OperationStatus` forms; `IUtf8SpanParsable<T>` is independent of `ISpanParsable<T>` and needs its own constraint.
+```csharp conceptual
+public static class NumericFrame {
+    private static ReadOnlySpan<byte> Header => "<frame-a>:"u8;
+
+    public static bool TryFramed<T>(Span<byte> sink, T value, T floor, out int written)
+        where T : INumber<T> =>
+        Utf8.TryWrite(sink, CultureInfo.InvariantCulture, $"<frame-a>:{T.Max(value, floor)}", out written);
+
+    public static T Framed<T>(ReadOnlySpan<byte> payload) where T : INumber<T> =>
+        payload.StartsWith(Header) && T.TryParse(payload[Header.Length..], CultureInfo.InvariantCulture, out T value)
+            ? value
+            : T.Zero;
+
+    public static OperationStatus Bridged(ReadOnlySpan<char> text, Span<byte> sink, out int read, out int written) =>
+        Utf8.FromUtf16(text, sink, out read, out written, replaceInvalidSequences: false, isFinalBlock: true);
+}
+```
 
 [JSON]:
 - Owner: `[JsonSerializable]`, `JsonSerializerContext`, `JsonSourceGenerationOptions`, and `JsonTypeInfo<T>` overloads.
@@ -57,13 +70,31 @@ This table is a lookup by repeated local smell.
 - Gate: validate allowed code points with one text policy, not scattered predicates.
 - Rule: codepoint-level work routes through `Rune`; user-perceived characters route through `StringInfo` text elements.
 
-## [3]-[COLLECTIONS_AND_LOOKUP]
+## [3]-[COLLECTIONS_AND_IDENTITY]
 
 [READ_MOSTLY_LOOKUP]:
 - Owner: `FrozenDictionary`, `FrozenSet`, and `GetAlternateLookup<ReadOnlySpan<char>>` for span-keyed probes.
 - Replace: rebuilt static dictionaries, string-key lookup copied per call, and `ToString` materialization before a keyed probe.
 - Gate: pass an explicit comparer; alternate lookup requires an ordinal-family comparer implementing `IAlternateEqualityComparer`, and `TryGetAlternateLookup` is the non-throwing acquisition.
 - Rule: the mutable `Dictionary` and `HashSet` alternate lookups also expose `TryAdd` and `Remove`, so span-keyed mutation needs no interim string.
+
+```csharp conceptual
+public static class RowIndex {
+    private static readonly FrozenDictionary<string, int> Rows =
+        new Dictionary<string, int> { ["<key-a>"] = 1, ["<key-b>"] = 2 }
+            .ToFrozenDictionary(StringComparer.Ordinal);
+
+    private static readonly FrozenDictionary<string, int>.AlternateLookup<ReadOnlySpan<char>> Probe =
+        Rows.GetAlternateLookup<ReadOnlySpan<char>>();
+
+    public static int RankOf(ReadOnlySpan<char> key) =>
+        Probe.TryGetValue(key, out int rank) ? rank : 0;
+
+    public static bool Record(Dictionary<string, int> live, ReadOnlySpan<char> key, int rank) =>
+        live.TryGetAlternateLookup(out Dictionary<string, int>.AlternateLookup<ReadOnlySpan<char>> probe)
+        && probe.TryAdd(key, rank);
+}
+```
 
 [IMMUTABLE_BOUNDARY_PAYLOAD]:
 - Owner: `ImmutableArray`, `ImmutableDictionary`, and `ImmutableHashSet`.
@@ -88,24 +119,13 @@ This table is a lookup by repeated local smell.
 - Gate: pin list size before `AsSpan` because any resizing `Add` invalidates the span; check `GetValueRefOrNullRef` results with `Unsafe.IsNullRef`.
 - Reject: domain public identity built from mutable dictionary internals.
 
-## [4]-[EQUALITY_AND_IDENTITY]
+[IDENTITY_POLICY]:
+- Owner: `EqualityComparer<T>.Default` and `EqualityComparer<T>.Create` with `HashCode` for plain data, Thinktecture value objects with `[KeyMemberEqualityComparer]` and `[KeyMemberComparer]` for branded values, and `RuntimeHelpers.GetHashCode(object)` for live host reference identity.
+- Replace: hand-written comparer classes, XOR or prime hash combining, and primitive branded equality copied across files.
+- Gate: hash with the same comparer policy used by lookup; generated domain shapes own branded identity.
+- Reject: persisting any `GetHashCode` output or using it as stable file identity — in-process hashes are process-randomized, and persistent fingerprints route to the non-cryptographic hashing owners.
 
-[DEFAULT_EQUALITY]:
-- Owner: `EqualityComparer<T>.Default`, `EqualityComparer<T>.Create`, `HashCode`, records, and record structs.
-- Replace: hand-written comparer classes and XOR or prime hash combining for non-branded data.
-- Gate: hash with the same comparer policy used by lookup.
-- Reject: persisting `HashCode` output or using it as stable file identity because the output is process-randomized.
-
-[BRANDED_EQUALITY]:
-- Owner: Thinktecture value objects, `[KeyMemberEqualityComparer]`, and `[KeyMemberComparer]`.
-- Replace: primitive branded string or scalar equality copied across files.
-- Boundary: generated domain shapes own branded identity.
-
-[HOST_IDENTITY]:
-- Owner: `RuntimeHelpers.GetHashCode(object)` for live host reference identity.
-- Reject: persisting `GetHashCode()` output or using it as a stable file key.
-
-## [5]-[NUMERICS]
+## [4]-[NUMERICS]
 
 [SCALAR_AND_GENERIC_MATH]:
 - Owner: `Math`, `MathF`, `Half`, BCL `Complex`, and the narrowest generic math constraint such as `INumberBase<T>`, `IBinaryInteger<T>`, or `IFloatingPointIeee754<T>`.
@@ -118,15 +138,12 @@ This table is a lookup by repeated local smell.
 - Replace: any flat numeric loop whose body is pure arithmetic, math calls, or element casts; element-wise maps, reductions, argmax tracking, and the `ConvertSaturating` conversion family are owned surfaces.
 - Gate: adoption follows measured proof; `System.Numerics.Tensors` requires an explicit package consumer.
 
-[TYPE_COLLISION]:
-- Rule: BCL `Vector<T>` is SIMD, MathNet `Vector<T>` is linear algebra, and BCL `Complex` is not MathNet `Complex32`.
-- Gate: qualify namespaces at boundaries where both meanings appear.
-
-[HOST_GEOMETRY]:
+[NUMERIC_OWNERSHIP]:
+- Rule: BCL `Vector<T>` is SIMD, MathNet `Vector<T>` is linear algebra, and BCL `Complex` is not MathNet `Complex32`; qualify namespaces at boundaries where both meanings appear.
 - Owner: RhinoCommon for geometry, units, tolerances, transforms, and topology.
 - Reject: replacing native host geometry semantics with generic numeric helpers.
 
-## [6]-[RUNTIME_AND_OBSERVABILITY]
+## [5]-[RUNTIME_AND_OBSERVABILITY]
 
 [TIME]:
 - Owner: `TimeProvider`, `PeriodicTimer`, `Stopwatch.GetTimestamp`, and `Stopwatch.GetElapsedTime`.
@@ -167,7 +184,7 @@ This table is a lookup by repeated local smell.
 - Replace: `BlockingCollection<T>` and manual `SemaphoreSlim` producer-consumer loops.
 - Gate: bounded options carry the backpressure decision through `FullMode` and the `itemDropped` callback; `Complete` terminates `ReadAllAsync` naturally.
 
-## [7]-[IO_BUFFERS_AND_INTEGRITY]
+## [6]-[IO_BUFFERS_AND_INTEGRITY]
 
 [PATH_AND_FILE_IO]:
 - Owner: `Path.Join`, `Path.Exists`, `File.OpenHandle`, `RandomAccess`, `FileStreamOptions`, `ReadExactlyAsync`, `ReadAtLeastAsync`, and `File.ReadLinesAsync`.
@@ -186,22 +203,14 @@ This table is a lookup by repeated local smell.
 - Gate: guard `SHA3` and `SHAKE` one-shots behind their `IsSupported` statics; reserve ASN.1 for PKI or signing requirements.
 - Rule: `Random.Shared` and `RandomNumberGenerator` expose the same `GetItems`, `GetString`, `Shuffle`, and `Fill` surface, so the owning type is the entire security decision.
 
-## [8]-[BOUNDARY_AND_INTEROP]
+## [7]-[BOUNDARY_AND_INTEROP]
 
-[NULLABLE_FLOW_AND_SYNTAX_HINTS]:
-- Owner: `NotNullWhen`, `NotNullIfNotNull`, `MemberNotNull`, `DoesNotReturn`, `StringSyntax`, and trim annotations.
-- Replace: null-forgiving scatter after `Try*` or guard APIs.
-- Gate: trim annotations only when pursuing a NativeAOT owner.
-
-[ARGUMENT_GUARDS]:
-- Owner: `ArgumentNullException.ThrowIfNull`, `ArgumentException.ThrowIfNullOrEmpty` and `ThrowIfNullOrWhiteSpace`, the `ArgumentOutOfRangeException.ThrowIf` comparison family, and `ObjectDisposedException.ThrowIf`.
-- Replace: guard-block `if`-`throw` argument checks and hand-formatted parameter-name messages.
+[SEAM_CONTRACTS]:
+- Owner: `ArgumentNullException.ThrowIfNull`, `ArgumentException.ThrowIfNullOrEmpty` and `ThrowIfNullOrWhiteSpace`, the `ArgumentOutOfRangeException.ThrowIf` comparison family, `ObjectDisposedException.ThrowIf`, the nullable-flow annotations `NotNullWhen`, `NotNullIfNotNull`, `MemberNotNull`, `DoesNotReturn`, and `StringSyntax`, and `Validator.TryValidateObject` with `[Required]` and `[Range]` for synchronous DTO checks.
+- Replace: guard-block `if`-`throw` argument checks, hand-formatted parameter-name messages, and null-forgiving scatter after `Try*` or guard APIs.
 - Rule: `[CallerArgumentExpression]` captures the argument expression into the exception automatically; the numeric guards constrain on `INumberBase<T>`, so signed and unsigned bounds share one spelling.
-- Boundary: these guard host and library seams only; domain admission stays on generated owners and typed rails.
-
-[BOUNDARY_VALIDATION]:
-- Owner: `ValidationContext`, `Validator.TryValidateObject`, `[Required]`, and `[Range]` for synchronous DTO checks.
-- Reject: using data annotations for domain admission; use Thinktecture and LanguageExt.
+- Gate: trim annotations only when pursuing a NativeAOT owner.
+- Boundary: these guard host and library seams only; data annotations validate wire DTOs, never domain admission — domain admission stays on generated owners and typed rails.
 
 [COMPILER_AND_INTEROP]:
 - Owner: `CallerArgumentExpression`, `MethodImpl`, `CallerMemberName`, custom interpolated string handlers, `CollectionBuilder`, `StructLayout`, `MemoryMarshal`, `NativeMemory`, and `SuppressGCTransition`.
