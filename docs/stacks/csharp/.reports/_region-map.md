@@ -25,6 +25,8 @@ Region ledger for the C# stack corpus: one owner per region, snippet entries bef
 - S-03 OPERATOR_ALGEBRA: operator-axis grant set as declared algebra — per-axis `OperatorsGeneration` declaration; hand-written cross-dimension operator re-entering admission; exact-binary-family generic kernel with admitted seed; key-typed relational threshold gate.
 - S-04 DISPATCH_AND_ROWS: smart-enum behavior-row table — composite-returning `[UseDelegateFromConstructor]` delegate column beside a data column; generated constructor row injection; row invocation through the generated method surface.
 - S-05 RAIL_ARMS: carrier-polymorphic catamorphism over a recursive generated union — trait-constrained `K<F,B>` fold; tuple-state static arms; applicative tuple combine in the recursive arm.
+- S-06 KEY_AND_IDENTITY_POLICY: value-object comparer accessor policy — one accessor type swings equality, hashing, ordering, relational generation, and `CompareTo`; string policy is declared once per layer.
+- S-07 AD_HOC_FORM: ad-hoc union parameter absorber — named slots, stateless member storage, mixed collection ingress, and generated probes replace overload families and payload bags.
 
 [RAILS_AND_EFFECTS]:
 - R-01 EXCEPTION_CAPTURE: exception capture — `Try.lift` + `Run` + `MapFail` + self-flattening `Bind`.

@@ -80,12 +80,12 @@ Use the active C# surface directly. Replace older spellings and local machinery 
 
 [TEXT_LITERAL_FORMS]: structured text, wire constants, and terminal sequences stated as literals.
 
-| [INDEX] | [CONCERN]                | [USE]                                     | [REPLACE]                     |
-| :-----: | :----------------------- | :---------------------------------------- | :---------------------------- |
-|   [1]   | embedded structured text | raw string literals                       | escape-laden concatenation    |
-|   [2]   | UTF-8 wire constants     | `u8` literals                             | runtime UTF-8 encoding calls  |
+| [INDEX] | [CONCERN]                | [USE]                                     | [REPLACE]                      |
+| :-----: | :----------------------- | :---------------------------------------- | :----------------------------- |
+|   [1]   | embedded structured text | raw string literals                       | escape-laden concatenation     |
+|   [2]   | UTF-8 wire constants     | `u8` literals                             | runtime UTF-8 encoding calls   |
 |   [3]   | rich interpolation       | full expression grammar in interpolations | `string.Format`, concat chains |
-|   [4]   | terminal escapes         | `\e` escape sequence                      | `\x1b` magic literals         |
+|   [4]   | terminal escapes         | `\e` escape sequence                      | `\x1b` magic literals          |
 
 ## [3]-[LANGUAGE_FORM_CONTRACTS]
 

@@ -67,6 +67,27 @@ When a concept matches several signatures, the most specific row wins.
 - Law: string keys default to ordinal-ignore-case across generated surfaces but never inherit policy; every string-bearing layer declares one accessor type, and divergence is the defect.
 - Accept: complex-owner equality membership as opt-in member comparers; unmarked members vanish from equality, hashing, and diagnostic text, while collection members use reference identity unless a sequence comparer is attached.
 
+```csharp conceptual
+public sealed class FieldKeyPolicy : IEqualityComparerAccessor<string>, IComparerAccessor<string> {
+    private static readonly StringComparer Policy = StringComparer.OrdinalIgnoreCase;
+
+    public static IEqualityComparer<string> EqualityComparer => Policy;
+
+    public static IComparer<string> Comparer => Policy;
+}
+
+[ValueObject<string>]
+[KeyMemberEqualityComparer<FieldKeyPolicy, string>]
+[KeyMemberComparer<FieldKeyPolicy, string>]
+public readonly partial struct FieldKey;
+
+public static class FieldRanks {
+    public static ImmutableSortedDictionary<FieldKey, int> From(IEnumerable<FieldKey> keys) =>
+        keys.Distinct().Order().Select(static (key, rank) => (key, rank))
+            .ToImmutableSortedDictionary(static row => row.key, static row => row.rank);
+}
+```
+
 [OPERATOR_ALGEBRA]:
 - Law: operator axes are algebra grants; enabled axes declare closure, generated operators stay homogeneous, and cross-dimension operations are hand-written against the foreign result type.
 - Law: operator bodies re-enter admission through the throwing factory; `checked` adds key-math overflow trapping, so the call-site context selects the failure species.
@@ -171,8 +192,33 @@ public static class Pacing {
 [AD_HOC_FORM]:
 - Law: storage is computed: typed fields per stateful unique member until a second stateful reference member collapses references into one `object` slot; struct members stay inline, and `TxIsStateless` identity rides the discriminator.
 - Law: struct ad-hoc `default` is poison; index zero throws on first observation, never minting, and only `Is{Name}` probes are total enough for rehydration, pooling, and array scans.
-- Law: equality gates by discriminator, then member under `DefaultStringComparison`; hash omits discriminator mixing, and identity-bearing rendering uses `Map` because `ToString` erases the active case.
+- Law: equality gates by discriminator, then member under `DefaultStringComparison`; hash omits discriminator mixing, `ToString` erases the active case, and identity-bearing rendering routes through generated case dispatch or `Is{Name}` and `As{Name}` probes.
 - Boundary: implicit conversions make the union a parameter absorber, replacing overloads and lifting mixed collection expressions, until interface, `object`, type-parameter, or duplicate members require `Create{Name}` factories; closing ingress sets both non-public `ConstructorAccessModifier` and `ConversionFromValue = ConversionOperatorsGeneration.None`.
+
+```csharp conceptual
+[Union<string, int, Blank>(T1Name = "Text", T2Name = "Count", T3Name = "Blank", T3IsStateless = true)]
+public readonly partial struct FieldValue;
+
+public readonly record struct Blank;
+
+public static class FieldValueOps {
+    extension(FieldValue value) {
+        public string Rendered() => value.Switch(
+            text: static text => text.Trim(),
+            count: static count => $"<value-a>:{count}",
+            blank: static _ => "<value-b>");
+
+        public Option<string> TextOrNone() =>
+            value.IsText ? Optional(value.AsText) : None;
+    }
+
+    public static ImmutableArray<string> RenderAll(params ReadOnlySpan<FieldValue> values) =>
+        [.. values.ToArray().Select(static value => value.Rendered())];
+
+    public static ImmutableArray<FieldValue> Mixed(string text, int count, Blank blank) =>
+        [text, count, blank];
+}
+```
 
 [RAIL_ARMS]:
 - Law: non-abstract cases are Kleisli points: payload input, arm lift, generated `Switch` continuation; constant arms use the carrier pure lift to preserve specialization portability.
