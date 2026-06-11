@@ -23,32 +23,32 @@
 - `Stateful<Super, Sub, S>` is the symmetric derivation for state-threaded carriers — `get`, `put`, `modify`, `gets`, and scoped `local` over the wrapper from a representation that threads `S`. State and reader derivations share the identical `NaturalIso` machinery, differing only in the extra `Env`/`S` parameter.
 
 [CAPABILITY_RESOLUTION_AS_DERIVED_LOOKUP]:
-- Multiple capability slots in one runtime record create accessor ambiguity; the fix is not a dispatch table but a derived strongly-typed lookup. `Has<M, Env, VALUE>` (where `Env : Has<M, VALUE>`) exposes `public static readonly K<M, VALUE> ask = Env.Ask`, forcing qualification through the type parameters and caching the static-virtual `Ask` resolution into one field initialization.
-- Reading a capability through the cached `Has<M, Env, VALUE>.ask` collapses per-bind static-virtual dispatch to a single readonly-field load. Adding a capability is adding a `Has<M, VALUE>` implementation to the runtime record; the accessor for it is derived from the type, never hand-written, and never collides with a sibling capability because the three-parameter lookup disambiguates by `VALUE`.
+- Adding a capability is adding one witness implementation to the runtime record; the accessor for it is derived from the three type parameters, never hand-written, and never collides with a sibling slot because the value type disambiguates the lookup — the accessor surface scales with zero authored members.
 - `Local<M, InnerEnv> : Has<M, InnerEnv>` adds exactly one operation — `static abstract K<M, A> With<A>(Func<InnerEnv, InnerEnv>, K<M, A>)` — turning a readable capability into a scopable one. A runtime slot becomes locally-rebindable by implementing one method beside its `Has` membership; the scoped-projection embedding of a dependency-isolated sub-computation is this `With` plus the reader derivation, nothing more.
 
 [CONSTRUCTING_A_DERIVED_CARRIER]:
-- The full recipe for a new effect carrier over an existing representation is one record, two arrow methods, and one supertype list — the trait bodies are inherited:
+- The full recipe for a new effect carrier over an existing representation is one kind class carrying the supertype list, one value record, and two arrow methods — the trait bodies are inherited. The supertype and subtype of the deriving interfaces are both kinds (the representation with its bound value stripped), never instantiated types:
 
 ```csharp
-public readonly record struct App<A>(ReaderT<Caps, IO, A> Run) :
-    K<App, A>,
-    Deriving.MonadUnliftIO<App<A>, ReaderT<Caps, IO, A>>,
-    Deriving.Readable<App<A>, Caps, ReaderT<Caps, IO, A>>
+public sealed class App :
+    Deriving.MonadUnliftIO<App, ReaderT<Caps, IO>>,
+    Deriving.Readable<App, Caps, ReaderT<Caps, IO>>
 {
-    public static K<ReaderT<Caps, IO, A>, B> Transform<B>(K<App<A>, B> fa) =>
-        ((App<B>)fa).Run;                                   // lower to representation
-    public static K<App<A>, B> CoTransform<B>(K<ReaderT<Caps, IO, A>, B> fa) =>
-        new App<B>(fa.As());                                // lift back to wrapper
+    public static K<ReaderT<Caps, IO>, A> Transform<A>(K<App, A> fa) =>
+        ((App<A>)fa).Run;                                   // lower to representation
+    public static K<App, A> CoTransform<A>(K<ReaderT<Caps, IO>, A> fa) =>
+        new App<A>(fa.As());                                // lift back to wrapper
 }
 
-// every IO-runtime combinator now resolves on App<A> with no further code:
-static K<App<A>, B> WithPolicy<B>(K<App<A>, B> ma, Schedule s) =>
+public sealed record App<A>(ReaderT<Caps, IO, A> Run) : K<App, A>;
+
+// every IO-runtime combinator now resolves on K<App, B> with no further code:
+static K<App, B> WithPolicy<B>(K<App, B> ma, Schedule s) =>
     ma.RetryIO(s).TimeoutIO(30 * seconds).BracketIO();
 ```
 
 - The wrapper supplies only the isomorphism; `RetryIO`, `TimeoutIO`, `BracketIO`, `LiftIO`, and the reader's `Asks`/`Local` arrive through the deriving supertypes. A second carrier with different capabilities is the same three lines against its own representation — the runtime surface never proliferates per carrier.
-- Each derived operation costs one `Transform` down-cast and one `CoTransform` up-cast around the representation's own implementation; for a record-struct wrapper over a `ReaderT` both casts are field reads, so the derived carrier is allocation-neutral against running the representation directly.
+- Each derived operation costs one `Transform` lowering and one `CoTransform` lifting around the representation's own implementation; the lowering is a field read, and the lifting allocates one thin wrapper record per derived call unless the wrapper is declared as a struct record — otherwise the derived surface is identical in cost to running the representation directly.
 
 [FAILURE_AND_EDGE_SURFACES]:
 - The derivation is structure-only: `Transform`/`CoTransform` must not inspect, reorder, or drop bound values, or the derived `Monad`/`Applicative` laws break silently — the compiler enforces the type, never the naturality law. A `CoTransform` that re-wraps with altered state is a law violation the type system cannot catch.
