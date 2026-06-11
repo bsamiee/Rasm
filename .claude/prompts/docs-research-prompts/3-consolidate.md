@@ -3,6 +3,7 @@
 - `<TARGET>` =
 - `<DOCTRINE>` =
 - `<WORKSPACE>` =
+- `<GRADING>` =
 
 Consolidation folds each lane's files in `<WORKSPACE>` into one bedrock that holds every finding's value while removing duplication and contradiction; it adds no new research. The bedrock is permanent lane capital: later stages build the divergent series on it, mine it for enrichment, and verify code against it — nothing in it is scaffolding.
 
@@ -19,7 +20,7 @@ Consolidation folds each lane's files in `<WORKSPACE>` into one bedrock that hol
 - When every file is integrated, the bedrock is complete.
 
 [GRADE]:
-- The main agent then reads each `00-bedrock.md` cold — giving no weight to the integrating agents' work — and grades and critiques it on the four axes — richness, veracity, density, advancement — and on relevance to the lane, against a bar of 9.2 on each, critically, harshly, but fairly, confirming no duplication, no contradiction, and clean categorization. It returns anything short for a targeted fix.
+- The main agent then reads each `00-bedrock.md` cold and grades it against the research ladder in `<GRADING>` — a cold grade re-derived from the artifact alone — confirming no duplication, no contradiction, and clean categorization. It returns anything short for a targeted fix.
 - Once the bedrock clears, the main agent deletes `01-<slug>.md` through the last source file, leaving only `00-bedrock.md`.
 
 [DISCIPLINE]:

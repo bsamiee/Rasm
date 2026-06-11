@@ -3,12 +3,13 @@
 - `<TARGET>` =
 - `<DOCTRINE>` =
 - `<WORKSPACE>` =
+- `<GRADING>` =
 
-`<TARGET>` exists with its structure and cards in place and no fenced code, and each lane folder in `<WORKSPACE>` holds a `00-distilled.md`. This work runs up to five sequential optimization passes that re-cut the page's cards and structure toward maximum signal in a shrinking footprint.
+`<TARGET>` exists with its structure and cards in place and no fenced code, and each lane folder in `<WORKSPACE>` holds a `99-distilled.md`. This work runs up to five sequential optimization passes that re-cut the page's cards and structure toward maximum signal in a shrinking footprint.
 
 [GROUNDING]:
 - Every pass agent fully reads `<DOCTRINE>`, then `docs/standards/style-guide.md`, `docs/standards/information-structure.md`, and `docs/standards/formatting.md`, before any other work: the laws, the collapse scan, the page craft, and the prose, container, and rendering standards.
-- Every pass agent reads every `00-distilled.md` in `<WORKSPACE>` and all of `<TARGET>`.
+- Every pass agent reads every `99-distilled.md` in `<WORKSPACE>` and all of `<TARGET>`.
 
 [PASS] — up to five, sequentially, one fresh agent each:
 - Grade first. A pass that finds nothing material states so, makes at most surgical trims, and ends the loop — the pass count is a ceiling, not a quota, and manufactured change is the failure mode.
@@ -27,6 +28,6 @@
 - Narrow beats wide: split by row axis or move detail to cards before widening.
 
 [GRADE]:
-- Score one to ten on five axes — signal, coverage, card power, structure, doctrine fit — against a bar of 9.2 on each. Grading is critical, harsh, but fair — not a 9.2 out of convenience, not low for nit-picking. Rework until every axis clears.
+- Grade against the page ladder in `<GRADING>`: the minimum across signal, coverage, card power, structure, and doctrine fit clears the stage bar, automatic fails override any score, and the drift checks apply. Rework until every axis clears.
 
 [COMMIT]: stage and commit `<TARGET>`.

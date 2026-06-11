@@ -3,6 +3,7 @@
 - `<TARGET>` =
 - `<DOCTRINE>` =
 - `<WORKSPACE>` =
+- `<GRADING>` =
 
 Hygiene brings every research file in `<WORKSPACE>` to the bar. One agent per lane folder; each owns every `NN-<slug>.md` in its folder and reads them line by line.
 
@@ -25,6 +26,6 @@ Hygiene brings every research file in `<WORKSPACE>` to the bar. One agent per la
 - Dig a table-stakes finding deeper until it carries advanced value, or remove it when nothing deeper is there. Build on the file slightly; do not re-run the research.
 
 [GRADE]:
-- Score the content one to ten on four axes — richness, veracity, density, advancement — and on relevance to the lane, against a bar of 9.2 on each. Grading is critical, harsh, but fair — not a 9.2 out of convenience, not low for nit-picking. Rework until every file clears the bar.
+- Grade every file against the research ladder in `<GRADING>` — the minimum across its axes clears the stage bar, automatic fails override any score, and the drift checks apply. Rework until every file clears.
 
 [COMMIT]: stage and commit `<WORKSPACE>`.

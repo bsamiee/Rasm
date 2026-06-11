@@ -3,6 +3,8 @@
 - `<TARGET>` =
 - `<DOCTRINE>` =
 - `<WORKSPACE>` =
+- `<GRADING>` =
+- `<REGIONS>` =
 
 `<TARGET>` exists with its snippets in place. This work runs critical passes over the snippet set — finding problems, low-value code, and surface to collapse — and reworks until the set ends on a pass that changes nothing.
 
@@ -19,9 +21,9 @@
 
 [CONVERGE]:
 - Passes repeat until a pass ends with every snippet clearing the bar and zero edits made. The final pass is always a clean verification pass, never an editing one.
-- The clean pass finalizes the page: record its state as `finalized` in the doctrine's atlas and retire its roadmap scope from the doctrine's tail.
+- The clean pass finalizes the page: record its state as `finalized` in the doctrine's atlas, retire its roadmap scope from the doctrine's tail, and write the page's regions row — the concerns its cards legislate — into `<REGIONS>`.
 
 [GRADE]:
-- Score each snippet one to ten on five axes — card adherence, sophistication, density, placeholder discipline, footprint — against a bar of 9.2 on each. Grading is critical, harsh, but fair — not a 9.2 out of convenience, not low for nit-picking. Two automatic fails override any score: an invented or unverified API member, and a demonstration any other snippet in the page or its siblings already shows.
+- Grade each snippet against the snippet ladder in `<GRADING>` at the FINALIZATION bar — the minimum across the five axes clears 9.5, the ladder's automatic fails override any score, and convergence requires every snippet at or above the bar on the zero-edit pass.
 
 [COMMIT]: stage and commit `<TARGET>`.

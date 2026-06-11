@@ -3,6 +3,8 @@
 - `<TARGET>` =
 - `<DOCTRINE>` =
 - `<WORKSPACE>` =
+- `<GRADING>` =
+- `<REGIONS>` =
 
 `<TARGET>` exists with its cards complete and no fenced code. This work selects the cards that earn snippets and authors the snippet set through independent attempts and adjudicated synthesis — code that exemplifies world-class implementation of its card and stands as the pattern the codebase follows.
 
@@ -12,7 +14,7 @@
 
 [SELECT]:
 - The orchestrator selects the cards that earn snippets: at least four, never every card — only where an advanced mechanism needs proof beyond prose, and only where the card already stands without it. A snippet deepens a card; it never rescues one.
-- Assign each selected card a distinct surface region that no snippet in the page or its sibling pages demonstrates. The region map is fixed before any code is written and is the duplication guarantee. The region is the snippet's spotlight demonstration; finalized surfaces composed as supporting material occupy no region.
+- Assign each selected card a distinct surface region that no snippet in the page or its sibling pages demonstrates. The assignments are recorded in `<REGIONS>` before any code is written — the ledger is the duplication guarantee and its automatic-fail arbiter. The region is the snippet's spotlight demonstration; finalized surfaces composed as supporting material occupy no region.
 
 [ATTEMPTS]:
 - The orchestrator drafts its own full snippet set first and grades each snippet with pros and cons — the baseline and the lessons learned.
@@ -31,6 +33,6 @@
 - The code states the law by showing it; no commentary beside a snippet narrates what it demonstrates.
 
 [GRADE]:
-- Score each snippet one to ten on five axes — card adherence, sophistication, density, placeholder discipline, footprint — against a bar of 9.2 on each. Grading is critical, harsh, but fair — not a 9.2 out of convenience, not low for nit-picking. Two automatic fails override any score: an invented or unverified API member, and a demonstration any other snippet in the page or its siblings already shows. Rework until every snippet clears.
+- Grade each snippet against the snippet ladder in `<GRADING>` at the stage bar — the minimum across card adherence, sophistication, density, placeholder discipline, and footprint clears it, and the ladder's automatic fails — invented API, duplicated region, anchor scent, non-compiling construction — override any score. Rework until every snippet clears.
 
 [COMMIT]: stage and commit `<TARGET>`.

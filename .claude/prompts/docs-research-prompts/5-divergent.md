@@ -4,6 +4,7 @@
 - `<DOCTRINE>` =
 - `<WORKSPACE>` =
 - `<WAVES>` =
+- `<GRADING>` =
 
 Each lane folder in `<WORKSPACE>` holds a `00-bedrock.md`: the verified, current foundation of that lane's knowledge. This stage builds the layer above it — the deeper, more advanced facets from which the page's cards and sections will be drawn — as a fresh series of files per lane, one agent per lane per pass, in sequence across the `<WAVES>` passes.
 
@@ -23,7 +24,7 @@ Each lane folder in `<WORKSPACE>` holds a `00-bedrock.md`: the verified, current
 - Each agent researches external truth only — current official docs, language standards and proposals, and installed library source — verifies each finding, writes its file, then grades it and runs its own loop until it clears the bar: re-read and critique; strip every anti-pattern; correct or cut old, wrong, or stale claims; consolidate near-identical lines into one combined-value finding; and rework each line by its grade, keeping only advanced material relevant to the lane.
 
 [GRADE]:
-- Score one to ten on four axes — richness, veracity, density, advancement — and on relevance to the lane, against a bar of 9.2 on each. Grading is critical, harsh, but fair — not a 9.2 out of convenience, not low for nit-picking. Rework until each axis clears.
+- Grade against the research ladder in `<GRADING>` — the minimum across its axes clears the stage bar; the re-tread and lateral-drift automatic fails are this stage's sharpest edges. Rework until each axis clears.
 
 [DISCIPLINE]:
 - Findings only — the rule, the mechanism, the API shape, the design pressure, the constraint, the gap, and the code that proves it. Say nothing about the file or the work; never use meta-commentary, "this is..." framing, or any introduction, routing, summary, sources, or validation section — just logical category groups filled with findings.
