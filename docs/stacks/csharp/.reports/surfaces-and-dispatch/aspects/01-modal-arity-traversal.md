@@ -15,7 +15,7 @@
 [FIRST_SUCCESS_DISPATCH]:
 - The first-success modality is one fold through a binary choice operator and reaches every alternative carrier uniformly. `oneOf<F, A>(params K<F, A>[])` and the sequence form require `F : Alternative<F>`; the body folds the collection left-to-right through `Choose`, returning the first inhabited result and, when none succeed, the last:
 
-```
+```csharp
 static virtual K<F, A> Choice<A>(in Seq<K<F, A>> ms)
 {
     if (ms.IsEmpty) return Empty<A>();

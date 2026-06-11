@@ -16,7 +16,7 @@
 [LAZY_SECOND_ARGUMENT_IS_LOAD_BEARING_INFRASTRUCTURE]:
 - The choice and apply primitives each ship a paired overload whose second argument is a deferred thunk rather than an evaluated carrier. The deferred overload is the termination mechanism for the recursive combinators, not an optimization knob. The one-or-more and zero-or-more parser combinators are mutually recursive local functions where the recursive arm is passed as the deferred thunk; an eager-only carrier forces the recursion at construction and overflows before parsing begins. Any custom alternative or applicative carrier that omits the deferred overload silently loses the entire repetition and separation surface that derives from it.
 
-```
+```csharp
 static virtual K<F, Seq<A>> Some<A>(K<F, A> fa)
 {
     return some();
