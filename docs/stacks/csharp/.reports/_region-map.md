@@ -35,6 +35,10 @@ Region ledger for the C# stack corpus: one owner per region, snippet entries bef
 - R-07 ATOM_STATE: atom memoization — point read; `{ IsSome: true, Case: }` projection; contention-safe `Swap` with idempotent transition; `IfNone` fallback.
 - R-08 ALGORITHM_RECEIPTS: receipt monoid — record-struct fact carrier with identity element and `operator +` fold algebra.
 
+[SYSTEM_APIS]:
+- SA-01 READ_MOSTLY_LOOKUP: span-keyed alternate lookup — frozen ordinal-comparer construction; cached `AlternateLookup` probe field; non-throwing `TryGetAlternateLookup` acquisition with span-keyed `TryAdd` mutation.
+- SA-02 FORMAT_AND_PARSE: UTF-8 format-parse pipeline — `Utf8.TryWrite` invariant-culture interpolation; generic numeric round-trip through constraint subsumption; `u8` header constant and span slicing as supporting material.
+
 Entries under [SHAPES] and [RAILS_AND_EFFECTS] describe incumbent partial pages; each rebuild retires or replaces its set at snippet assignment.
 
 ## [3]-[KNOWN_OVERLAPS]
