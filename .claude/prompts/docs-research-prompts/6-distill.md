@@ -10,7 +10,7 @@ Distillation turns each lane's full reservoir in `<WORKSPACE>` — the bedrock a
 - Every agent — the orchestrator and every distill agent — fully reads `<DOCTRINE>` before any other work: the laws, the collapse scan, the page craft, and what `<TARGET>` owns. That single read is the whole alignment requirement, and every selection, merge, and grade answers to it.
 
 [OWNERSHIP] — orchestrator, before any lane runs:
-- Free-chosen divergent facets drift across lanes; assume bleed until proven absent. Sweep every lane's file titles and group labels, assign each recurring theme to exactly ONE owning lane, and hand each distill agent its in-list (themes it owns, including variants sitting in other lanes' files) and out-list (themes it must drop because a sibling owns them). Routing moves material to its owner — a nuance is never deleted because it sat in the wrong folder.
+- Free-chosen divergent facets drift across lanes; assume bleed until proven absent. Sweep every lane's file titles and group labels, assign each recurring theme to exactly ONE owning lane, and hand each distill agent its in-list (themes it owns, including variants sitting in other lanes' files) and out-list (themes it must drop because a sibling owns them, or because the doctrine's atlas assigns them to a different page entirely — those drop from this page's distillation and stay in the reservoir). Routing moves material to its owner — a nuance is never deleted because it sat in the wrong folder.
 
 [DISTILL] — one agent per lane:
 - Read all of `00-bedrock.md` and every divergent file in the lane — the whole reservoir, nothing skipped — plus the routed-in material the orchestrator assigned from sibling lanes.

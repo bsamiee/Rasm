@@ -18,6 +18,7 @@ Hygiene brings every research file in `<WORKSPACE>` to the bar. One agent per la
 [PROSE]:
 - Apply the style guide surgically: front-load the controlling rule, tighten every sentence, cut filler and non-load-bearing hedges, one term per concept — never changing a finding's meaning to shorten it.
 - Trim 3-10% of the content where the trim costs no finding value. Careful and surgical; nothing major, nothing structural.
+- These files feed a lane-wide merge next: distinct nuance survives every trim; only prose fat leaves.
 
 [VALIDATE_AND_DEEPEN]:
 - Verify every claim against the newest source. Delete what is false or stale, correct what is wrong in detail, and sharpen what is unclear — never a blind cut.

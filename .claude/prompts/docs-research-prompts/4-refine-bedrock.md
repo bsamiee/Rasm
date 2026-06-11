@@ -21,6 +21,7 @@ Refinement brings each lane's `00-bedrock.md` in `<WORKSPACE>` to publication qu
 
 [VALIDATE_AND_DEEPEN]:
 - Verify every claim against the newest source. Delete what is false or stale, correct what is wrong, and remove low-value noise — but dig a table-stakes finding deeper before cutting it when real depth exists.
+- Depth the page may never print is still value — the bedrock is mined again at enrichment and snippet time; cut noise, never reach.
 
 [GRADE]:
 - Score the content one to ten on four axes — richness, veracity, density, advancement — and on relevance to the lane, against a bar of 9.2 on each. Grading is critical, harsh, but fair — not a 9.2 out of convenience, not low for nit-picking. Rework until it clears.

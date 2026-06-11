@@ -31,5 +31,7 @@ This work mines the verified, bleeding-edge material from which `<TARGET>` is au
 - Assume the newest release of every tool and library; state current behavior, and never name, contrast, or replace an older version, default, or paradigm.
 - Name no version, source, citation, path, or date; make no reference to another file, page, lane, or any repository name, path, or pattern. One H1, then `[GROUP_LABEL]:` groups of contiguous bullets with no blank line between items, and a blank line only around a fenced code block, with neutral placeholder names.
 - Advanced and non-obvious only; a finding a strong engineer already holds is deepened until it is not, or cut.
+- The lane series is mined far past what one page can print: later stages consolidate, distill, enrich, and verify code against it, so depth beyond the page is the deliverable, never waste.
+- External truth never overrides the doctrine: a verified finding that opposes a law enters only as the constraint or boundary it imposes, or is cut — the doctrine selects among truths and is never graded by them.
 
 [COMMIT]: stage and commit `<WORKSPACE>`.

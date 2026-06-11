@@ -4,7 +4,7 @@
 - `<DOCTRINE>` =
 - `<WORKSPACE>` =
 
-Consolidation folds each lane's files in `<WORKSPACE>` into one bedrock that holds every finding's value while removing duplication and contradiction; it adds no new research.
+Consolidation folds each lane's files in `<WORKSPACE>` into one bedrock that holds every finding's value while removing duplication and contradiction; it adds no new research. The bedrock is permanent lane capital: later stages build the divergent series on it, mine it for enrichment, and verify code against it — nothing in it is scaffolding.
 
 [DOCTRINE]:
 - Every agent — the orchestrator and every integrating agent — fully reads `<DOCTRINE>` before any other work: the laws, the collapse scan, the page craft, and what `<TARGET>` owns. That single read is the whole alignment requirement, and every merge, edit, and grade answers to it.

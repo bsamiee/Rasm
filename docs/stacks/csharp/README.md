@@ -2,29 +2,29 @@
 
 This folder is the C# stack decision atlas. It routes language, shape, surface, rail, boundary, algorithm, system-API, and proof decisions to the concept page that owns the coding choice. The atlas builds one admission-first paradigm: raw input is admitted once through generated owners, admitted values travel typed rails, behavior lives on generated dispatch surfaces, and projections leave at explicit boundaries.
 
-The atlas is also a build order: pages are layers of one cumulative body, and every page is authored from the full established law of the pages finalized before it. Prose consumes earlier layers as given — vocabulary, owners, rails, and policy values arrive settled, never re-taught — and spends its lines only on its own layer. Snippets stack the same way: code fully captures the card it proves, then composes on earlier layers' law at full doctrine depth, with the new surface in the spotlight and established surfaces as supporting material. Pages cite no external sources — no links, no version narration, no provenance; verification precedes the page, and the page states law as fact.
+The atlas is also a build order: pages are layers of one cumulative body, and every page is authored from the full established law of the pages finalized before it. Pages cite no external sources — no links, no version narration, no provenance; verification precedes the page, and the page states law as fact.
 
 ## [1]-[ATLAS]
 
 This table is a lookup by reader decision.
 
-| [INDEX] | [DECISION]              | [READ]                                    | [STATE] |
-| :-----: | :---------------------- | :---------------------------------------- | :------ |
-|   [1]   | language shape          | [language](language.md)                   | active  |
-|   [2]   | domain shape            | [shapes](shapes.md)                       | partial |
-|   [3]   | surface and dispatch    | `surfaces-and-dispatch.md`                | planned |
-|   [4]   | result and effect flow  | [rails and effects](rails-and-effects.md) | partial |
-|   [5]   | host and wire boundary  | `boundaries.md`                           | planned |
-|   [6]   | numeric approach        | [algorithms](algorithms.md)               | partial |
-|   [7]   | system API replacement  | [system APIs](system-apis.md)             | active  |
-|   [8]   | proof rail              | [testing](testing/README.md)              | active  |
-|   [9]   | hosting and runtime     | `domain/runtime.md`                       | planned |
-|  [10]   | concurrency and streams | `domain/concurrency.md`                   | planned |
-|  [11]   | telemetry signal        | `domain/diagnostics.md`                   | planned |
-|  [12]   | boundary validation     | `domain/validation.md`                    | planned |
-|  [13]   | resilience policy       | `domain/resilience.md`                    | planned |
-|  [14]   | data persistence        | `domain/persistence.md`                   | planned |
-|  [15]   | compute lane            | `domain/compute.md`                       | planned |
+| [INDEX] | [DECISION]              | [READ]                                    | [STATE]   |
+| :-----: | :---------------------- | :---------------------------------------- | :-------- |
+|   [1]   | language shape          | [language](language.md)                   | finalized |
+|   [2]   | domain shape            | [shapes](shapes.md)                       | partial   |
+|   [3]   | surface and dispatch    | `surfaces-and-dispatch.md`                | planned   |
+|   [4]   | result and effect flow  | [rails and effects](rails-and-effects.md) | partial   |
+|   [5]   | host and wire boundary  | `boundaries.md`                           | planned   |
+|   [6]   | numeric approach        | [algorithms](algorithms.md)               | partial   |
+|   [7]   | system API replacement  | [system APIs](system-apis.md)             | finalized |
+|   [8]   | proof rail              | [testing](testing/README.md)              | finalized |
+|   [9]   | hosting and runtime     | `domain/runtime.md`                       | planned   |
+|  [10]   | concurrency and streams | `domain/concurrency.md`                   | planned   |
+|  [11]   | telemetry signal        | `domain/diagnostics.md`                   | planned   |
+|  [12]   | boundary validation     | `domain/validation.md`                    | planned   |
+|  [13]   | resilience policy       | `domain/resilience.md`                    | planned   |
+|  [14]   | data persistence        | `domain/persistence.md`                   | planned   |
+|  [15]   | compute lane            | `domain/compute.md`                       | planned   |
 
 ## [2]-[DOCTRINE]
 
@@ -73,18 +73,28 @@ Run this scan on every edit. Any signal triggers the move; three or more instanc
 
 How pages in this folder are authored. The corpus is one body; these laws keep it coherent.
 
-- Atlas law: this README owns doctrine and routing; each concept page owns one disjoint layer; a sibling concern is neither re-shown nor pointed to. The README is the only file that links.
+- Atlas law: this README owns doctrine and routing; each concept page owns one disjoint layer; a sibling concern is neither re-shown nor pointed to — cohesion comes from shared law, not linkage. The README is the only file that links.
 - Zero meta: concept pages carry no provenance, sourcing, version narration, process or planning state, project, tool, or skill context.
 - Page grammar: narrow index table, then family cards, then the snippet beside the rule it proves; the page ends at its last card section. Structure is identical across stack folders; content never is.
 - Card fields are earned: `Use / Accept / Reject / Law / Boundary` lines appear on a card only where each one decides something; a field line that decides nothing is deleted, not filled.
 - Snippet law: every snippet compiles under the active surface; identifiers are legal neutral names; placeholder strings such as `"<value-a>"` appear only inside literals; no project, host, or domain concept anchors a snippet.
-- Snippet coverage: each snippet is doctrine-exemplary at full operator depth, roughly 3-4x denser than ordinary code, and exercises a surface region no other snippet in the corpus shows — variety within the doctrine, zero duplicated demonstrations.
+- Snippet coverage: each snippet is doctrine-exemplary at full operator depth, roughly 3-4x denser than ordinary code, and exercises a surface region no other snippet in the corpus shows — variety within the doctrine, zero duplicated demonstrations. The region is the snippet's spotlight demonstration; finalized surfaces composed as supporting material occupy no region and duplicate nothing.
 - Reject columns are load-bearing: every `Use` names the spelling, wrapper, or local pattern it deletes.
 - Tables enumerate, cards legislate: rows stay atomic and narrow — no prose cramming, no links inside cells; nuance moves to a card.
 - Planning is quarantined: build order, target-page scopes, and conflict rules live only in README files — this roadmap tail and a planned subfolder's own README; concept pages never carry them.
 - Manifest truth: package versions, references, injected globals, tools, and graph admission live in `Directory.Packages.props` and `Directory.Build.props`; no package-named pages; a package is named only where it changes the implementation choice.
 
-## [5]-[ROADMAP]
+## [5]-[CORPUS_LAW]
+
+How the corpus accretes. The atlas `[STATE]` column is the law registry: a `finalized` page is binding law for every page authored after it; a `partial` page carries no authority and awaits rebuild; a `planned` page exists only as roadmap scope. Finalization is a one-way gate — the snippet-refinement stage's clean verification pass flips the state.
+
+- Three-layer inheritance: every page is authored under the doctrine, under every finalized page — adhered to, never restated, never referenced, never contradicted — and from its own research reservoir.
+- Prose consumes earlier layers as given: vocabulary, owners, rails, and policy values arrive settled, never re-taught, and the page spends its lines only on its own layer.
+- Reservoir residue: a page's research workspace deliberately holds more than the page prints, and it outlives the page — later enrichment and snippet work mine it without citing it; depth beyond one page's budget is corpus capital, never waste.
+- Snippet stacking: code fully captures the card it proves, then composes on earlier layers' law at full doctrine depth — the new surface in the spotlight, established surfaces as supporting material, every touched concern built at the standard its owning finalized page legislates.
+- Purpose: the corpus is loaded as the operative standard in place of weaker context; zero-meta, zero-anchor, and stated-as-fact are absolute because any provenance, hedge, or stale claim poisons every downstream generation that loads the page.
+
+## [6]-[ROADMAP]
 
 Planned pages in build order. Each entry states what the page must decide; the scope moves into the page when it is authored and leaves this tail.
 

@@ -8,10 +8,10 @@
 
 [GROUNDING]:
 - Every agent — the orchestrator and every reviewer — fully reads `<DOCTRINE>`, then `docs/standards/style-guide.md`, `docs/standards/information-structure.md`, and `docs/standards/formatting.md`, before any other work: the laws, the collapse scan, the page craft, and the prose, container, and rendering standards. Every finding and every edit answers to them.
-- Every agent reads the sibling pages in `<TARGET>`'s folder for the corpus voice, every `00-distilled.md` in `<WORKSPACE>`, and all of `<TARGET>`.
+- Every agent reads the finalized sibling pages in `<TARGET>`'s folder — the doctrine's atlas states which — as binding law and corpus voice, every `00-distilled.md` in `<WORKSPACE>`, and all of `<TARGET>`.
 
 [PANEL]:
-- Dispatch ten reviewers in parallel. Each reviews the whole page and leads with one assigned lens: opening signal; coverage against the distillates; card power; card stacking opportunities; table craft; prose craft; section order and cohesion; low-value and table-stakes content; doctrine-law adherence; corpus fit against the sibling pages.
+- Dispatch ten reviewers in parallel. Each reviews the whole page and leads with one assigned lens: opening signal; coverage against the distillates; card power; card stacking opportunities; table craft; prose craft; section order and cohesion; low-value and table-stakes content; doctrine-law adherence; corpus fit against the finalized sibling pages — voice and law, where any restatement of, reference to, or contradiction with a finalized page's territory is a defect.
 - Reviewers never touch the file. Each returns a transcript — graded findings with exact proposed edits — to the orchestrator. Transcripts are working material, never files.
 
 [ADJUDICATE]:

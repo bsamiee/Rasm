@@ -11,7 +11,7 @@
 - Every agent reads all of `<TARGET>` before judging what it lacks.
 
 [SWEEP] — one agent per lane folder, sequentially:
-- The agent reads its lane whole: `00-bedrock.md` and every divergent file above it.
+- The agent reads its lane whole: `00-bedrock.md` and every divergent file above it, plus the lane's `00-distilled.md` as the record of judged material — what distillation deliberately cut re-enters only when the raw files prove value the distillate missed, never by re-litigating the cut.
 - It identifies only critical, high-value, advanced material the page lacks — justified additions, never volume, never a rewrite — and integrates each itself: the addition lands inside the card, table row, or section that owns it, reworking the owner to absorb it. A new card is justified only when no existing owner can absorb the material without weakening. Raw appending is the rejected form.
 - Before handing off, it re-grades card power on every card it touched and reworks any below bar.
 

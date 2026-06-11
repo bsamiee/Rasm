@@ -12,7 +12,7 @@
 
 [PASS] — up to five, sequentially, one fresh agent each:
 - Grade first. A pass that finds nothing material states so, makes at most surgical trims, and ends the loop — the pass count is a ceiling, not a quota, and manufactured change is the failure mode.
-- The goal is better cards, not more content: merge cards that share a spine, collapse complementary table rows into the card that legislates them, re-cut a weak card around its strongest finding, trim table-stakes and low-signal material, and tighten section order where the structure is weak.
+- The goal is better cards, not more content: merge cards that share a spine, collapse complementary table rows into the card that legislates them, re-cut a weak card around its strongest finding, trim table-stakes and low-signal material, and tighten section order where the structure is weak. The card set this stage leaves is the snippet-selection inventory — every surviving card stands whole without code.
 - Hold the page under 300 lines and push the count down, never up; quality rises as the footprint shrinks.
 - End the pass with a cold re-read, critique, and grade.
 

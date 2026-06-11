@@ -4,11 +4,11 @@
 - `<DOCTRINE>` =
 - `<WORKSPACE>` =
 
-Each lane folder in `<WORKSPACE>` holds a `00-distilled.md`. This work authors `<TARGET>` from those distillates — structure, tables, cards, and prose only. The page carries no fenced code at this stage, and no card may lean on a future snippet to stand.
+Each lane folder in `<WORKSPACE>` holds a `00-distilled.md`. This work authors `<TARGET>` from those distillates — structure, tables, cards, and prose only. The page carries no fenced code at this stage, and no card may lean on a future snippet to stand. Use this stage only when `<TARGET>` does not yet exist as a published page; an existing page is replaced through the rebuild stage.
 
 [GROUNDING]:
 - Fully read `<DOCTRINE>`, then `docs/standards/style-guide.md`, `docs/standards/information-structure.md`, and `docs/standards/formatting.md`, before any other work: the laws, the collapse scan, the page craft, and the prose, container, and rendering standards. Every decision answers to them.
-- Read the sibling pages in `<TARGET>`'s folder for the corpus voice. The page takes whatever form serves it best — siblings are reference, not a mold.
+- Read the finalized sibling pages in `<TARGET>`'s folder — the doctrine's atlas states which — as binding law and corpus voice: their territory is never restated, referenced, or contradicted, and their settled vocabulary, owners, and rails arrive as given. The page takes whatever form serves it best — siblings are reference, not a mold.
 
 [PLAN]:
 - Read every `00-distilled.md` in `<WORKSPACE>`. Plan the page before writing it: section order, the card inventory with each card's stacked concerns named, which distilled findings feed each card, and which tables exist with the one question each answers. The plan is working state, never a file — selection happens before sentences exist to defend themselves.
