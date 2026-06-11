@@ -87,6 +87,12 @@ Grades prose stages: draft, rebuild, panel rewrite, enrich, optimize.
 - 9: three-layer inheritance exact; corpus voice indistinguishable.
 - 9.5: reads as more law from the same lawgiver.
 
+[ABSORPTION]:
+- 6: laws correct for the instance shown.
+- 8: each law names where the next requirement lands — case, row, policy value, or carrier.
+- 9: the page's owners absorb the foreseeable family; growth lands inside declared surfaces, and cross-page composition is stated.
+- 9.5: a complex feature has a composed spelling from this page's owners plus finalized law; nothing foreseeable forces a new surface.
+
 Automatic fails:
 - PF-1 — finalized territory restated, referenced, or contradicted.
 - PF-2 — meta, sourcing, links, or provenance anywhere.
@@ -107,6 +113,12 @@ Grades snippet creation and refinement.
 - 8: one advanced capability at depth.
 - 9: stacked capabilities; no flatter spelling visible.
 - 9.5: deepest operator surface the admitted packages reach for this region; expression-only.
+
+[ABSORPTION]:
+- 6: the form works for the case shown.
+- 8: the growth axis is visible — the next case, row, or policy lands inside the demonstrated owner with zero new surface.
+- 9: additions break loudly or land silently correct — total dispatch, open policy rows, carrier-polymorphic arms; the diff of the next feature is one declaration.
+- 9.5: the fence composes admission, dispatch, rail, and policy as one large-system seam; no foreseeable requirement re-opens the shape.
 
 [DENSITY]:
 - 6: no dead lines, ordinary information per line.
@@ -144,6 +156,7 @@ Every grader applies these regardless of ladder:
 - Convergence theater: manufactured change in a refinement pass, or a verification pass that rubber-stamps below-bar units.
 - Split lines: a card line legislates exactly one decision — one Law, Accept, Reject, Use, or Boundary; every clause after the first qualifies that decision. A line carrying a second decision splits; a clause restating the decision in other words is deleted.
 - Paraphrased surfaces: a nameable attribute, knob, operator, generated member, or type spelled as prose. The code span is the instruction; the paraphrase is the defect — checked line by line.
+- Instance sizing: a demonstrated shape or stated law sized for the case in hand where the family is foreseeable — the absorbed-growth spelling exists and is not shown.
 - Descriptive register: prose that explains, narrates, or hedges where a declarative instruction carries the same content — rationale restated after the rule implies it, connective framing such as `this means` or `note that`, consequence prose that names no surface and changes no decision. Card lines instruct and reject; they never describe.
 
 ## [6]-[BARS_BY_STAGE]

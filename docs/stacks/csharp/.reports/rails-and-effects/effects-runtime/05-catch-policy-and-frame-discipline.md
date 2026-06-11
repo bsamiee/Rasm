@@ -14,6 +14,7 @@ K<M, A> recovered =
   | @catch(_ => true, e => SurfaceFatal<M, A>(e));
 ```
 
+- The `Fallible<Error, M>, Monad<M>` constraint pair on a policy factory is load-bearing as a unit: `expected` resolves against `Monad<M>`, and `pure` inside a handler body is admissible only because `Monad<M> : Applicative<M>` flows the lifting capability through. Relaxing the body to `Fallible<Error, M>` alone breaks both calls at once — the `Monad<M>` constraint is not decorative.
 - The recovery matrix is two orthogonal axes chosen by combinator, never by branches inside a handler: which failures (all, by code, by identity, by leaf subtype, expected-only, exceptional-only) crossed with which multiplicity over a matching batch (the bind-fold variant recovers fail-fast across matching members; the monoid-fold variant visits every matching member and merges handler outcomes). A handler author never branches on "one error or many" — the predicate chooses membership, the combinator chooses multiplicity, and the single-failure and batch paths unify under the same predicate.
 
 [FRAME_DISCIPLINE]:

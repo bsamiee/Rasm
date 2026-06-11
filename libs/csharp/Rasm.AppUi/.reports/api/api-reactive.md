@@ -1,51 +1,53 @@
-# [RASM_APPUI_API_REACTIVE]
+# [RASM_APPUI_API_SYSTEM_REACTIVE]
 
-Reactive APIs supply AppUi activation, commands, validation, observable contracts, live collection folding, and scheduler-bound read-only projections.
+`System.Reactive` supplies observable streams, subjects, schedulers, disposables, and query operators.
 
-## [1]-[SURFACES]
+## [1]-[PACKAGE_SURFACE]
 
-This table is a lookup by reactive package.
+[PACKAGE_SURFACE]: `System.Reactive`
+- package: `System.Reactive`
+- assembly: `System.Reactive`
+- namespace: `System.Reactive`
+- asset: runtime library
+- rail: streams
 
-| [INDEX] | [PACKAGE]                 | [ASSEMBLY]                 | [LOCAL_RAIL] |
-| :-----: | :------------------------ | :------------------------- | :----------- |
-|   [1]   | `ReactiveUI`              | `ReactiveUI`               | screen       |
-|   [2]   | `ReactiveUI.Avalonia`     | `ReactiveUI.Avalonia`      | screen       |
-|   [3]   | `ReactiveUI.Validation`   | `ReactiveUI.Validation`    | validation   |
-|   [4]   | `System.Reactive`         | `System.Reactive`          | live         |
-|   [5]   | `DynamicData`             | `DynamicData`              | live         |
+## [2]-[PUBLIC_TYPES]
 
-## [2]-[API_LOCATORS]
+[PUBLIC_TYPE_SCOPE]: reactive stream family
+- rail: streams
 
-This table is a lookup by assembly.
+| [INDEX] | [SYMBOL]              | [PACKAGE_ROLE]   | [CAPABILITY]              |
+| :-----: | :-------------------- | :--------------- | :------------------------ |
+|   [1]   | `IObservable<T>`      | contract surface | defines boundary contract |
+|   [2]   | `IObserver<T>`        | contract surface | defines boundary contract |
+|   [3]   | `Subject<T>`          | rail contract    | anchors streams contract  |
+|   [4]   | `BehaviorSubject<T>`  | rail contract    | anchors streams contract  |
+|   [5]   | `ReplaySubject<T>`    | rail contract    | anchors streams contract  |
+|   [6]   | `Observable`          | rail contract    | anchors streams contract  |
+|   [7]   | `Scheduler`           | rail contract    | anchors streams contract  |
+|   [8]   | `CompositeDisposable` | rail contract    | anchors streams contract  |
+|   [9]   | `SerialDisposable`    | rail contract    | anchors streams contract  |
 
-| [INDEX] | [ASSEMBLY]              | [NAMESPACE]              | [USING]                   | [API_LOCATOR] |
-| :-----: | :---------------------- | :----------------------- | :------------------------ | :------------ |
-|   [1]   | `ReactiveUI`            | `ReactiveUI`             | `ReactiveUI`              | `.cache/nuget/packages/reactiveui/` |
-|   [2]   | `ReactiveUI.Avalonia`   | `ReactiveUI`             | `ReactiveUI`              | `.cache/nuget/packages/reactiveui.avalonia/` |
-|   [3]   | `ReactiveUI.Validation` | `ReactiveUI.Validation`  | `ReactiveUI.Validation`   | `.cache/nuget/packages/reactiveui.validation/` |
-|   [4]   | `System.Reactive`       | `System.Reactive`        | `System.Reactive`         | `.cache/nuget/packages/system.reactive/` |
-|   [5]   | `DynamicData`           | `DynamicData`            | `DynamicData`             | `.cache/nuget/packages/dynamicdata/` |
+## [3]-[ENTRYPOINTS]
 
-## [3]-[CAPABILITIES]
+[ENTRYPOINT_SCOPE]: stream operations
+- rail: streams
 
-This table is a lookup by type family.
+| [INDEX] | [SURFACE]       | [CALL_SHAPE]   | [CAPABILITY]          |
+| :-----: | :-------------- | :------------- | :-------------------- |
+|   [1]   | `Select`        | query operator | projects stream state |
+|   [2]   | `Where`         | query operator | projects stream state |
+|   [3]   | `Merge`         | query operator | projects stream state |
+|   [4]   | `CombineLatest` | query operator | projects stream state |
+|   [5]   | `Throttle`      | query operator | projects stream state |
+|   [6]   | `ObserveOn`     | query operator | projects stream state |
+|   [7]   | `SubscribeOn`   | query operator | projects stream state |
+|   [8]   | `TakeUntil`     | query operator | projects stream state |
 
-| [INDEX] | [TYPE_FAMILY]           | [ENTRY_SURFACE]              | [LOCAL_RAIL] |
-| :-----: | :---------------------- | :--------------------------- | :----------- |
-|   [1]   | `ReactiveObject`        | observable screen state      | screen       |
-|   [2]   | `ReactiveCommand`       | command execution rail       | command      |
-|   [3]   | activation interfaces   | screen lifetime              | screen       |
-|   [4]   | validation helpers      | screen validation            | validation   |
-|   [5]   | `IObservable<T>`        | live projection contract     | live         |
-|   [6]   | scheduler primitives    | UI observation boundary      | scheduler    |
-|   [7]   | `SourceCache<T,K>`      | keyed collection folding     | live         |
-|   [8]   | `ReadOnlyObservableCollection<T>` | read-only view model | live         |
+## [4]-[IMPLEMENTATION_LAW]
 
-## [4]-[REJECTED]
-
-This table is a lookup by rejected API.
-
-| [INDEX] | [REJECT]             | [LOCAL_RAIL] | [REASON]              |
-| :-----: | :------------------- | :----------- | :-------------------- |
-|   [1]   | alternate MVVM rail  | screen       | ReactiveUI owns rail  |
-|   [2]   | public DynamicData exposure | live | AppUi exposes snapshots |
+[RAIL_LAW]:
+- Package: `System.Reactive`
+- Owns: observable stream algebra
+- Accept: streams terminate at lifecycle scopes
+- Reject: event-handler chains

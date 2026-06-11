@@ -1,41 +1,60 @@
-# [RASM_APPUI_API]
+# [RASM_APPUI_API_CATALOGUE]
 
-This folder carries the AppUi package API catalogue. It maps retained UI, reactive/live, visual/asset, controls/dialogs, and host-boundary APIs to local UI rails.
+`Rasm.AppUi` package API catalogues state external package and host assembly facts for retained UI, reactive state, visuals, controls, and host-aware adapters.
 
-## [1]-[SURFACES]
+## [1]-[PACKAGE_PAGES]
 
-This table routes catalogue pages by API family.
+[RETAINED_UI]:
+- rail: retained-ui
+- pages:
+  - [api-avalonia.md](api-avalonia.md)
+  - [api-avalonia-desktop.md](api-avalonia-desktop.md)
+  - [api-avalonia-fluent.md](api-avalonia-fluent.md)
+  - [api-avalonia-fonts.md](api-avalonia-fonts.md)
+  - [api-avalonia-grid.md](api-avalonia-grid.md)
+  - [api-avalonia-color.md](api-avalonia-color.md)
 
-| [INDEX] | [READ_FOR]              | [OPEN]              |
-| :-----: | :---------------------- | :------------------ |
-|   [1]   | retained UI             | [retained](api-retained.md) |
-|   [2]   | reactive live state     | [reactive](api-reactive.md) |
-|   [3]   | visuals and assets      | [visuals](api-visuals.md) |
-|   [4]   | controls and dialogs    | [controls](api-controls.md) |
-|   [5]   | host boundary           | [host](api-host.md) |
+[REACTIVE]:
+- rail: reactive
+- pages:
+  - [api-reactiveui.md](api-reactiveui.md)
+  - [api-reactiveui-avalonia.md](api-reactiveui-avalonia.md)
+  - [api-reactiveui-validation.md](api-reactiveui-validation.md)
+  - [api-behaviors.md](api-behaviors.md)
+  - [api-dynamicdata.md](api-dynamicdata.md)
+  - [api-reactive.md](api-reactive.md)
 
-## [2]-[API_LOCATORS]
+[VISUALS]:
+- rail: visuals
+- pages:
+  - [api-livecharts.md](api-livecharts.md)
+  - [api-skiasharp.md](api-skiasharp.md)
+  - [api-skia-harfbuzz.md](api-skia-harfbuzz.md)
+  - [api-skia-native.md](api-skia-native.md)
+  - [api-harfbuzz-native.md](api-harfbuzz-native.md)
+  - [api-svg-skia.md](api-svg-skia.md)
 
-This table is a lookup by locator family.
+[CONTROLS]:
+- rail: controls
+- pages:
+  - [api-propertygrid.md](api-propertygrid.md)
+  - [api-dialoghost.md](api-dialoghost.md)
 
-| [INDEX] | [FAMILY]    | [API_LOCATOR]                         | [LOCAL_RAIL] |
-| :-----: | :---------- | :------------------------------------ | :----------- |
-|   [1]   | NuGet       | `.cache/nuget/packages/<package>/`    | package      |
-|   [2]   | Host        | RhinoWIP resource assemblies          | host         |
-|   [3]   | Decompile   | `tools.assay api query` or `ilspycmd` | inspection   |
+[HOST_ASSEMBLIES]:
+- rail: host-assemblies
+- pages:
+  - [api-rhino.md](api-rhino.md)
+  - [api-rhino-ui.md](api-rhino-ui.md)
+  - [api-gh2.md](api-gh2.md)
+  - [api-gh2-io.md](api-gh2-io.md)
+  - [api-eto.md](api-eto.md)
+  - [api-drawing.md](api-drawing.md)
+  - [api-macos.md](api-macos.md)
 
-## [3]-[CAPABILITIES]
+## [2]-[CATALOGUE_LAW]
 
-This table maps catalogue pages to UI rails.
-
-| [INDEX] | [PAGE]     | [CAPABILITY]                      |
-| :-----: | :--------- | :-------------------------------- |
-|   [1]   | retained   | shell, controls, platform, theme  |
-|   [2]   | reactive   | activation, commands, validation  |
-|   [3]   | visuals    | charts, drawing, SVG, typography  |
-|   [4]   | controls   | inspectors, dialogs, behaviors    |
-|   [5]   | host       | Rhino/GH/Eto/macOS boundaries     |
-
-## [4]-[REJECTED]
-
-Rejected UI packages appear on the catalogue page that owns the rail.
+[PACKAGE_SCOPE]:
+- Package pages carry external package facts, host-boundary assembly facts, and package-local admission cards.
+- Architecture pages carry local package law and dependency direction.
+- README pages route catalogues without duplicating member tables.
+- Stack doctrine packages stay in the C# stack atlas, not package-local reports.

@@ -1,37 +1,46 @@
-# [RASM_APPHOST_API]
+# [RASM_APPHOST_API_CATALOGUE]
 
-This folder carries the AppHost package API catalogue. It maps admitted runtime and companion packages to assemblies, namespaces, usings, type families, operation families, and local rails.
+`Rasm.AppHost` package API catalogues state external package facts for runtime, composition, telemetry, resilience, and validation rails.
 
-## [1]-[SURFACES]
+## [1]-[PACKAGE_PAGES]
 
-This table routes catalogue pages by API family.
+[RUNTIME]:
+- rail: runtime
+- pages:
+  - [api-logging.md](api-logging.md)
+  - [api-nodatime.md](api-nodatime.md)
+  - [api-dataflow.md](api-dataflow.md)
+  - [api-objectpool.md](api-objectpool.md)
 
-| [INDEX] | [READ_FOR]              | [OPEN]              |
-| :-----: | :---------------------- | :------------------ |
-|   [1]   | runtime primitives      | [runtime](api-runtime.md) |
-|   [2]   | functional substrate    | [functional](api-functional.md) |
-|   [3]   | companion bootstrap     | [companion](api-companion.md) |
+[COMPOSITION]:
+- rail: composition
+- pages:
+  - [api-hosting.md](api-hosting.md)
+  - [api-di.md](api-di.md)
+  - [api-config.md](api-config.md)
+  - [api-binder.md](api-binder.md)
+  - [api-options.md](api-options.md)
+  - [api-scrutor.md](api-scrutor.md)
 
-## [2]-[API_LOCATORS]
+[OBSERVABILITY]:
+- rail: observability
+- pages:
+  - [api-health.md](api-health.md)
+  - [api-resilience.md](api-resilience.md)
+  - [api-serilog.md](api-serilog.md)
+  - [api-otel.md](api-otel.md)
+  - [api-otel-hosting.md](api-otel-hosting.md)
 
-This table is a lookup by locator family.
+[VALIDATION]:
+- rail: validation
+- pages:
+  - [api-validation.md](api-validation.md)
+  - [api-validation-di.md](api-validation-di.md)
 
-| [INDEX] | [FAMILY]    | [API_LOCATOR]                         | [LOCAL_RAIL] |
-| :-----: | :---------- | :------------------------------------ | :----------- |
-|   [1]   | NuGet       | `.cache/nuget/packages/<package>/`    | package      |
-|   [2]   | BCL         | shared framework reference assemblies | runtime      |
-|   [3]   | Decompile   | `tools.assay api query` or `ilspycmd` | inspection   |
+## [2]-[CATALOGUE_LAW]
 
-## [3]-[CAPABILITIES]
-
-This table maps catalogue pages to package law.
-
-| [INDEX] | [PAGE]        | [CAPABILITY]                       |
-| :-----: | :------------ | :--------------------------------- |
-|   [1]   | runtime       | time, logging, diagnostics, flow   |
-|   [2]   | functional    | effects, results, generated shapes |
-|   [3]   | companion     | host, options, health, export      |
-
-## [4]-[REJECTED]
-
-No rejected package belongs to this index. Rejected packages appear on the catalogue page that owns the rail.
+[PACKAGE_SCOPE]:
+- Package pages carry external package API facts.
+- Architecture pages carry local package law and dependency direction.
+- README pages route catalogues without duplicating member tables.
+- Stack doctrine packages stay in the C# stack atlas, not package-local reports.

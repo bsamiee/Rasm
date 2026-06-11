@@ -1,40 +1,39 @@
-# [RASM_PERSISTENCE_API]
+# [RASM_PERSISTENCE_API_CATALOGUE]
 
-This folder carries the Persistence package API catalogue. It maps store, provider, snapshot, redaction, and functional APIs to one store-profile rail.
+`Rasm.Persistence` package API catalogues state external package facts for store-providers, schema tooling, snapshots, redaction, time, and hashing.
 
-## [1]-[SURFACES]
+## [1]-[PACKAGE_PAGES]
 
-This table routes catalogue pages by API family.
+[STORE_PROVIDERS]:
+- rail: store-providers
+- pages:
+  - [api-ef-sqlite.md](api-ef-sqlite.md)
+  - [api-ef-design.md](api-ef-design.md)
+  - [api-ef-naming.md](api-ef-naming.md)
+  - [api-sqlite.md](api-sqlite.md)
+  - [api-sqlitepcl.md](api-sqlitepcl.md)
+  - [api-npgsql.md](api-npgsql.md)
+  - [api-npgsql-ef.md](api-npgsql-ef.md)
 
-| [INDEX] | [READ_FOR]             | [OPEN]              |
-| :-----: | :--------------------- | :------------------ |
-|   [1]   | store APIs             | [store](api-store.md) |
-|   [2]   | provider APIs          | [provider](api-provider.md) |
-|   [3]   | snapshot APIs          | [snapshots](api-snapshots.md) |
-|   [4]   | redaction APIs         | [redaction](api-redaction.md) |
-|   [5]   | functional substrate   | [functional](api-functional.md) |
+[SNAPSHOTS]:
+- rail: snapshots
+- pages:
+  - [api-lz4.md](api-lz4.md)
+  - [api-messagepack.md](api-messagepack.md)
+  - [api-messagepack-analyzer.md](api-messagepack-analyzer.md)
+  - [api-nodatime-json.md](api-nodatime-json.md)
+  - [api-hashing.md](api-hashing.md)
 
-## [2]-[API_LOCATORS]
+[SUPPORT]:
+- rail: support
+- pages:
+  - [api-redaction.md](api-redaction.md)
+  - [api-nodatime.md](api-nodatime.md)
 
-This table is a lookup by locator family.
+## [2]-[CATALOGUE_LAW]
 
-| [INDEX] | [FAMILY]  | [API_LOCATOR]                         | [LOCAL_RAIL] |
-| :-----: | :-------- | :------------------------------------ | :----------- |
-|   [1]   | NuGet     | `.cache/nuget/packages/<package>/`    | package      |
-|   [2]   | Decompile | `tools.assay api query` or `ilspycmd` | inspection   |
-
-## [3]-[CAPABILITIES]
-
-This table maps catalogue pages to store rails.
-
-| [INDEX] | [PAGE]     | [CAPABILITY]                        |
-| :-----: | :--------- | :---------------------------------- |
-|   [1]   | store      | EF SQLite, raw SQLite, migrations   |
-|   [2]   | provider   | PostgreSQL provider and profile     |
-|   [3]   | snapshots  | JSON, MessagePack, hashing, LZ4     |
-|   [4]   | redaction  | classification and support export   |
-|   [5]   | functional | rails and generated shapes          |
-
-## [4]-[REJECTED]
-
-Rejected provider and codec packages appear on the catalogue page that owns the rail.
+[PACKAGE_SCOPE]:
+- Package pages carry external package API facts and package-local admission cards.
+- Architecture pages carry local package law and dependency direction.
+- README pages route catalogues without duplicating member tables.
+- Stack doctrine packages stay in the C# stack atlas, not package-local reports.

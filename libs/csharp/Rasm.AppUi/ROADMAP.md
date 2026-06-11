@@ -4,8 +4,6 @@
 
 ## [1]-[CURRENT_POSITION]
 
-This table is a lookup by implementation surface.
-
 | [INDEX] | [SURFACE]         | [STATE]                         |
 | :-----: | :---------------- | :------------------------------ |
 |   [1]   | Project graph     | solution node present           |
@@ -15,6 +13,11 @@ This table is a lookup by implementation surface.
 |   [5]   | API catalogues    | package lookup pages maintained |
 
 ## [2]-[IMPLEMENTATION_TASKS]
+
+[APPUI_FOLDER_ARCHITECTURE]:
+- Status: QUEUED
+- Exit: owner folders, rail entrypoints, host adapters, generated shapes, receipts, scheduler boundaries, assets, tokens, and diagnostics are planned before production source.
+- Proof: architecture plan consumes every AppUi package and host assembly API catalogue and names the UI rail owners.
 
 [APPUI_SCHEDULER]:
 - Status: QUEUED
@@ -36,14 +39,29 @@ This table is a lookup by implementation surface.
 - Exit: Rhino panels, GH2 canvas/popup/component/overlay surfaces, companion windows, sidecar shells, and downstream shells differ by host adapter only.
 - Proof: host load, focus, scale, screenshot, accessibility, and disposal receipts.
 
-## [3]-[PACKAGE_PROOF]
+## [3]-[CATALOGUE_USE]
 
-This table is a lookup by package rail.
+[RETAINED_CATALOGUES]:
+- Status: REQUIRED
+- Action: retained UI design consumes Avalonia shell, desktop, fluent, font, grid, and color catalogues.
+- Exit: UI owners name shell root, retained state, screen ownership, theme policy, and asset admission.
 
-| [INDEX] | [RAIL]       | [REQUIRED_STATE]                          |
-| :-----: | :----------- | :---------------------------------------- |
-|   [1]   | Retained     | Avalonia shell and control packages       |
-|   [2]   | Reactive     | activation, commands, validation, streams |
-|   [3]   | Visuals      | charts, Skia, SVG, native assets          |
-|   [4]   | Controls     | property grid, dialogs, behaviors         |
-|   [5]   | Host         | Rhino/GH/Eto/System.Drawing boundaries    |
+[REACTIVE_CATALOGUES]:
+- Status: REQUIRED
+- Action: reactive design consumes ReactiveUI, validation, DynamicData, and System.Reactive catalogues.
+- Exit: UI owners name activation, command availability, validation state, stream ownership, and disposal receipts.
+
+[VISUAL_CATALOGUES]:
+- Status: REQUIRED
+- Action: visual design consumes LiveCharts, SkiaSharp, HarfBuzz, SVG, and native asset catalogues.
+- Exit: UI owners name chart state, drawing paths, text shaping, SVG asset policy, and native identity receipts.
+
+[CONTROL_CATALOGUES]:
+- Status: REQUIRED
+- Action: control design consumes property-grid, dialog-host, and behavior catalogues.
+- Exit: UI owners name editor surfaces, modal ownership, behavior admission, and command routing.
+
+[HOST_CATALOGUES]:
+- Status: REQUIRED
+- Action: host design consumes Rhino, Rhino UI, GH2, GrasshopperIO, Eto, System.Drawing, and macOS catalogues.
+- Exit: adapters name host classification, focus, scaling, screenshot, disposal, and boundary receipts.

@@ -4,8 +4,6 @@
 
 ## [1]-[CURRENT_POSITION]
 
-This table is a lookup by implementation surface.
-
 | [INDEX] | [SURFACE]         | [STATE]                         |
 | :-----: | :---------------- | :------------------------------ |
 |   [1]   | Project graph     | solution node present           |
@@ -15,6 +13,11 @@ This table is a lookup by implementation surface.
 |   [5]   | Boundary tests    | required with source            |
 
 ## [2]-[IMPLEMENTATION_TASKS]
+
+[APPHOST_FOLDER_ARCHITECTURE]:
+- Status: QUEUED
+- Exit: owner folders, rail entrypoints, generated shapes, runtime ports, typed receipts, lifecycle transitions, and boundary adapters are planned before production source.
+- Proof: architecture plan consumes every AppHost package API catalogue and names the runtime spine owners.
 
 [APPHOST_RUNTIME_STATE]:
 - Status: QUEUED
@@ -36,14 +39,24 @@ This table is a lookup by implementation surface.
 - Exit: support trigger, correlation, collection window, size cap, redaction handoff, and package artifact contribution fold into one export receipt.
 - Proof: support receipt specs and redaction boundary tests.
 
-## [3]-[PACKAGE_PROOF]
+## [3]-[CATALOGUE_USE]
 
-This table is a lookup by package rail.
+[RUNTIME_CATALOGUES]:
+- Status: REQUIRED
+- Action: runtime design consumes logging, NodaTime, dataflow, and object-pool catalogues.
+- Exit: runtime owners name lifecycle state, telemetry identity, drain order, and receipt projection.
 
-| [INDEX] | [RAIL]        | [REQUIRED_STATE]                         |
-| :-----: | :------------ | :--------------------------------------- |
-|   [1]   | Runtime       | logging, time, diagnostics, channels     |
-|   [2]   | Functional    | rails and generated shapes inherited     |
-|   [3]   | Companion     | host, DI, config, options, health, export |
-|   [4]   | Resilience    | outbound HTTP policy has one owner       |
-|   [5]   | Validation    | external input folds to typed rails      |
+[COMPANION_CATALOGUES]:
+- Status: REQUIRED
+- Action: companion design consumes hosting, DI, configuration, binder, options, health, and Scrutor catalogues.
+- Exit: companion owners name bootstrap entrypoints, options binding, health projection, and composition boundaries.
+
+[RESILIENCE_CATALOGUES]:
+- Status: REQUIRED
+- Action: outbound design consumes HTTP resilience, OpenTelemetry, and OpenTelemetry hosting catalogues.
+- Exit: outbound owners name retry policy, telemetry projection, and one owner per remote boundary.
+
+[VALIDATION_CATALOGUES]:
+- Status: REQUIRED
+- Action: validation design consumes FluentValidation and validation DI catalogues.
+- Exit: validation owners name external input contracts, typed failure rails, and composition entrypoints.

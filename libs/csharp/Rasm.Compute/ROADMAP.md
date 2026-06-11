@@ -4,8 +4,6 @@
 
 ## [1]-[CURRENT_POSITION]
 
-This table is a lookup by implementation surface.
-
 | [INDEX] | [SURFACE]         | [STATE]                         |
 | :-----: | :---------------- | :------------------------------ |
 |   [1]   | Project graph     | solution node present           |
@@ -15,6 +13,12 @@ This table is a lookup by implementation surface.
 |   [5]   | Benchmarks        | shared benchmark route selected |
 
 ## [2]-[IMPLEMENTATION_TASKS]
+
+[COMPUTE_FOLDER_ARCHITECTURE]:
+- Status: QUEUED
+- Exit: owner folders, rail entrypoints, generated protocol shapes, model receipts,
+  progress contracts, cache keys, benchmark artifacts, and boundaries are planned before production source.
+- Proof: architecture plan consumes every Compute package API catalogue and names the measured execution rail owners.
 
 [COMPUTE_INTENT_SELECTION]:
 - Status: QUEUED
@@ -36,14 +40,29 @@ This table is a lookup by implementation surface.
 - Exit: progress is subscription-gated and benchmark claims are input-class rows with artifacts indexed through Persistence.
 - Proof: progress monotonicity specs and benchmark artifact receipts.
 
-## [3]-[PACKAGE_PROOF]
+## [3]-[CATALOGUE_USE]
 
-This table is a lookup by package rail.
+[TENSOR_CATALOGUES]:
+- Status: REQUIRED
+- Action: tensor design consumes the tensors catalogue before source shape selection.
+- Exit: tensor owners name numeric primitives, spans, receipts, and benchmark evidence.
 
-| [INDEX] | [RAIL]    | [REQUIRED_STATE]                    |
-| :-----: | :-------- | :---------------------------------- |
-|   [1]   | Tensor    | tensor primitives admitted          |
-|   [2]   | Model     | ONNX Runtime and extensions admitted |
-|   [3]   | Remote    | gRPC client, protobuf, tools        |
-|   [4]   | Units     | physical-unit boundary package      |
-|   [5]   | Staging   | memory helpers and pooled streams   |
+[MODEL_CATALOGUES]:
+- Status: REQUIRED
+- Action: model design consumes ONNX Runtime and ONNX extension asset catalogues.
+- Exit: session owners name model load, extension-op admission, inference, allocation, and cache receipts.
+
+[REMOTE_CATALOGUES]:
+- Status: REQUIRED
+- Action: remote design consumes gRPC client, protobuf, and generator catalogues.
+- Exit: remote owners name generated contracts, channel policy, deadline policy, and payload bounds.
+
+[UNITS_CATALOGUES]:
+- Status: REQUIRED
+- Action: unit design consumes the UnitsNet catalogue before numeric boundary design.
+- Exit: unit owners name quantity family, conversion policy, and receipt projection.
+
+[STAGING_CATALOGUES]:
+- Status: REQUIRED
+- Action: staging design consumes high-performance memory and recyclable-stream catalogues.
+- Exit: staging owners name memory ownership, stream reuse, payload bounds, and allocation receipts.

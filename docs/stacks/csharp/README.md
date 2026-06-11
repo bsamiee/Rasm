@@ -12,9 +12,9 @@ This table is a lookup by reader decision.
 | :-----: | :---------------------- | :------------------------------------------------ | :-------- |
 |   [1]   | language shape          | [language](language.md)                           | finalized |
 |   [2]   | domain shape            | [shapes](shapes.md)                               | finalized |
-|   [3]   | surface and dispatch    | [surfaces and dispatch](surfaces-and-dispatch.md) | partial   |
+|   [3]   | surface and dispatch    | [surfaces and dispatch](surfaces-and-dispatch.md) | finalized |
 |   [4]   | result and effect flow  | [rails and effects](rails-and-effects.md)         | finalized |
-|   [5]   | host and wire boundary  | `boundaries.md`                                   | planned   |
+|   [5]   | host and wire boundary  | [boundaries](boundaries.md)                       | finalized |
 |   [6]   | numeric approach        | [algorithms](algorithms.md)                       | finalized |
 |   [7]   | system API replacement  | [system APIs](system-apis.md)                     | finalized |
 |   [8]   | proof rail              | [testing](testing/README.md)                      | finalized |
@@ -28,7 +28,7 @@ This table is a lookup by reader decision.
 
 ## [2]-[DOCTRINE]
 
-Thirteen laws in five groups govern every C# decision in this stack. Concept pages instantiate them; no page restates them. The laws exist so correctness is structural rather than disciplinary: admission-once makes the interior total over valid values; closed families convert change into compile-time pressure; policy-as-values makes behavior recoverable from declarations alone; derivation makes every secondary surface provably consistent with its primary. Density is the consequence, not the goal — when one declaration carries the family, every remaining line is load-bearing. Enforcement is doctrine-first: `.editorconfig` severities, build-injected analyzers, and the repository's own analyzer encode these laws — the doctrine authors the tool, never the reverse. Analyzer findings against these laws are architecture pressure: fix the shape, not the diagnostic.
+Fifteen laws in five groups govern every C# decision in this stack. Concept pages instantiate them; no page restates them. The laws exist so correctness is structural rather than disciplinary: admission-once makes the interior total over valid values; closed families convert change into compile-time pressure; policy-as-values makes behavior recoverable from declarations alone; derivation makes every secondary surface provably consistent with its primary. Density is the consequence, not the goal — when one declaration carries the family, every remaining line is load-bearing. The atlas is sized for large systems: total lines and public surface grow sublinearly with capability because every owner is declared with the capacity to absorb the family it anchors — growth lands as cases, rows, and policy values inside existing owners, never as new surfaces beside them. Enforcement is doctrine-first: `.editorconfig` severities, build-injected analyzers, and the repository's own analyzer encode these laws — the doctrine authors the tool, never the reverse. Analyzer findings against these laws are architecture pressure: fix the shape, not the diagnostic.
 
 [FLOW]:
 - `EXPRESSION_SPINE` — all domain logic is expression-shaped; dependent steps compose monadically and independent computations compose applicatively — dependence licenses sequence, independence licenses accumulation, and the carrier, never a flag, selects the combination algebra. Statements survive only inside measured kernels and platform-forced boundaries, and any page that shows one names the exemption. Composition runs through `Bind`, `Map`, query expressions, switch expressions, and generated `Switch` dispatch; `ref struct` fold kernels and span loops are the named kernel exemption.
@@ -38,6 +38,7 @@ Thirteen laws in five groups govern every C# decision in this stack. Concept pag
 - `SHAPE_BUDGET` — a concept owns exactly one type; variants are cases inside one closed family, never sibling types. `[Union]`, `[SmartEnum<TKey>]`, `[ValueObject<T>]`, and `[ComplexValueObject]` own the family; families are closed internally and open only where foreign code must extend without editing the owner. Three or more parallel shapes, sibling factories, repeated dispatch arms, or single-call helpers is the collapse trigger, not a style preference.
 - `DEEP_SURFACES` — prefer one rich polymorphic surface over many shallow ones; each module exposes one entrypoint family and keeps internals private. One deep owner that holds a full concern beats four fragments that scatter it.
 - `MODAL_ARITY` — one entrypoint owns all call modalities; singular, plural, batch, and stream discriminate on the shape of the input value — type, case, pattern, or arity — never on name suffixes or boolean knobs. `params` collections, collection expressions, and one `ReadOnlySpan<T>` boundary absorb arity; a request `[Union]` plus one total dispatch absorbs verb families. Collapsing arity must not smuggle the knob back in: a parallel parameter that re-describes the input — a batch, many, or mode flag beside the value — is the rejected form, because the discriminant must be recoverable from the value itself.
+- `ANTICIPATORY_COLLAPSE` — an owner is shaped for the family it will absorb, not the instance in hand: the moment a second case, dimension, knob, or modality is conceivable, the shape generalizes so the next requirement lands as a case, a row, a policy value, or a carrier swap with zero new surface. The proof of a correct shape is the diff of the next feature — one declaration inside the owner, every consumer untouched or broken loudly at compile time. Sizing for the instance and widening later is the rejected order: widening after call sites exist multiplies surfaces, widening before they exist is one polymorphic dispatch.
 
 [DERIVATION]:
 - `POLICY_VALUES` — configuration enters as one domain value that carries its own behavior — a smart-enum row with constructor delegates, a union case, or a frozen policy table — never as flag sets whose combinations the implementation must re-derive. Behavior rows live with the vocabulary that selects them.
@@ -52,6 +53,7 @@ Thirteen laws in five groups govern every C# decision in this stack. Concept pag
 [INTEGRATION]:
 - `ROOT_REBUILD` — new capability is woven into the owning shape as if it had always existed; reshape the owner rather than appending beside it. No shims, compat aliases, `[Obsolete]` layers, or migration surfaces — break the API when the collapse improves the system.
 - `ONE_HOP_RESOLUTION` — a name resolves to its semantics in one hop: no alias-to-constant-to-enum-to-class chains, no forwarding helpers, no helper or util shells, no convenience wrappers. A value that takes two jumps to trace marks a layer to delete.
+- `COMPOSED_IMPLEMENTATION` — a feature of any complexity is implemented by composing the page owners — admitted shapes, typed rails, dispatch surfaces, boundary projections, numeric routes — never by scaffolding beside them; the pages are one body, and the same concern resolves identically wherever it appears. A need with no composed spelling marks a missing case in an owning page's law: the law extends first, the feature lands second. Flat code — logic below the operator depth the admitted packages reach — is surface sprawl in time: it re-derives, line by line, what a deeper composed form states once.
 
 ## [3]-[COLLAPSE_SCAN]
 
@@ -79,6 +81,10 @@ How pages in this folder are authored. The corpus is one body; these laws keep i
 - Card fields are earned: `Use / Accept / Reject / Law / Boundary` lines appear on a card only where each one decides something; a field line that decides nothing is deleted, not filled.
 - Snippet law: every snippet compiles under the active surface; identifiers are legal neutral names; placeholder strings such as `"<value-a>"` appear only inside literals; no project, host, or domain concept anchors a snippet.
 - Snippet coverage: each snippet is doctrine-exemplary at full operator depth, roughly 3-4x denser than ordinary code, and exercises a surface region no other snippet in the corpus shows — variety within the doctrine, zero duplicated demonstrations. The region is the snippet's spotlight demonstration; finalized surfaces composed as supporting material occupy no region and duplicate nothing.
+- Scale fidelity: a snippet shows the form at the shape it takes in a large system — admission, dispatch, rail, and policy composed in one fence with the growth axis visible — never an isolated minimum; a statement-bearing snippet sits beside the Exemption line naming its platform-forced seam.
+- Proof before prose: every member a card or snippet names — attribute, knob, operator, generated surface — is verified against the installed package source before it is written; an unprovable claim is not authored, and a nameable surface spelled as prose is a defect — the code span is the instruction.
+- Card economy: cards are few and deep; near-peer cards merge until each retained card owns a decision cluster, and a card line carries exactly one decision — a thin card deciding one thing is a sibling line, not an owner.
+- Altitude routing: when two pages touch one fact, the ledger records the split — mechanics at the owning page, consequence at the consumer; prose re-teaching an owned mechanic is repaired by routing to the owner, while composing owned surfaces inside a snippet is supporting material and owns nothing.
 - Reject columns are load-bearing: every `Use` names the spelling, wrapper, or local pattern it deletes.
 - Tables enumerate, cards legislate: rows stay atomic and narrow — no prose cramming, no links inside cells; nuance moves to a card.
 - Planning is quarantined: build order, target-page scopes, and conflict rules live only in README files — this roadmap tail and a planned subfolder's own README; concept pages never carry them.
@@ -86,7 +92,7 @@ How pages in this folder are authored. The corpus is one body; these laws keep i
 
 ## [5]-[CORPUS_LAW]
 
-How the corpus accretes. The atlas `[STATE]` column is the law registry: a `finalized` page is binding law for every page authored after it; a `partial` page carries no authority and awaits rebuild; a `planned` page exists only as roadmap scope. Finalization is a one-way gate — the snippet-refinement stage's clean verification pass flips the state.
+How the corpus accretes. The atlas `[STATE]` column is the law registry: a `finalized` page is binding law for every page authored after it; a `partial` page carries no authority and awaits rebuild; a `planned` page exists only as roadmap scope. Finalization is a one-way gate — a context-free cold grade of the full page and every snippet, converging to a zero-edit pass, flips the state; the producer's grade admits, the cold grade decides.
 
 - Three-layer inheritance: every page is authored under the doctrine, under every finalized page — adhered to, never restated, never referenced, never contradicted — and from its own research reservoir.
 - Prose consumes earlier layers as given: vocabulary, owners, rails, and policy values arrive settled, never re-taught, and the page spends its lines only on its own layer.
@@ -98,15 +104,6 @@ How the corpus accretes. The atlas `[STATE]` column is the law registry: a `fina
 ## [6]-[ROADMAP]
 
 Planned pages in build order. Each entry states what the page must decide; the scope moves into the page when it is authored and leaves this tail.
-
-[BOUNDARIES]:
-- Owns: host, native, and wire boundary law — how foreign lifetime, absence, events, threads, and wire shapes become domain material. Assumes carriers and generated admission from prior pages; never re-teaches rail choice or factory shape.
-- Resource law: every native or host resource has one capsule owner that acquires, projects, and disposes; borrowed and owned lifetimes are cases of one capsule surface, and projections leave as values, never as live handles.
-- Absence law: host sentinels project to `Option<T>` at the boundary and never propagate inward.
-- Event law: a subscription is a disposable value; attach and detach are symmetric and owned by one seam.
-- Thread law: marshaling onto host threads is an explicit boundary effect with captured failure, never an ambient assumption.
-- State law: boundary cells own session, memoization, and singleton lifetime; token-gated ownership prevents stale teardown.
-- Wire law: serialization contracts stay protocol-shaped at the edge; domain owners never carry codec policy.
 
 The `domain/` pages build in strict dependency order: runtime -> concurrency -> diagnostics -> validation -> resilience -> persistence -> compute — after every root page is finalized through the corpus sweep, so each later page implicitly carries the earlier law. Package admission to the central manifest happens at each page's research start, the docs lead admission, and the full build charter lives in [domain](domain/README.md).
 

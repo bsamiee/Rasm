@@ -13,7 +13,7 @@ When a concept matches several signatures, the most specific row wins.
 |   [3]   | bounded vocabulary, wire-keyed identity        | `[SmartEnum<TKey>]`              | key             |
 |   [4]   | bounded vocabulary, process-local behavior     | `[SmartEnum]` keyless            | reference       |
 |   [5]   | closed alternatives, per-occurrence payload    | `[Union]`                        | case            |
-|   [6]   | one value over 2–5 unrelated types             | `[Union<T1,...>]` ad-hoc         | slot then value |
+|   [6]   | one value over 2-5 unrelated types             | `[Union<T1,...>]` ad-hoc         | slot then value |
 |   [7]   | interior product, no invariant, no admission   | record or readonly record struct | structural      |
 |   [8]   | combinable capability set                      | vocabulary items in a frozen set | key             |
 |   [9]   | runtime-sourced vocabulary                     | keyed owner plus frozen registry | key             |
@@ -93,7 +93,7 @@ public static class FieldRanks {
 
 [OPERATOR_ALGEBRA]:
 - Law: operator axes are algebra grants; enabled axes declare closure, generated operators stay homogeneous, and cross-dimension operations are hand-written against the foreign result type.
-- Law: operator bodies re-enter admission through the throwing factory; `checked` adds key-math overflow trapping, so the call-site context selects the failure species.
+- Law: operator bodies re-enter admission through the throwing `Create` factory; `checked` adds key-math overflow trapping, so the call-site context selects the failure species.
 - Law: no identity element is synthesized; seeds, zeros, bounds, and units are admitted values, `INumber<T>` kernels never see owners, and exact binary operator interfaces are the owner-compatible constraint form.
 - Law: comparison grants are monotone; ordering accessors can synthesize comparison past key algebra, equality generation coerces upward, and impossible key axes emit nothing.
 - Boundary: key-typed overloads accept unadmitted raw operands under owner comparer policy; narrow integral keys compute wide, narrow, and re-admit unchecked, while `checked` throws before narrowing.
@@ -128,7 +128,7 @@ public static class ShapeOps {
 
 [INGRESS_AND_EGRESS]:
 - Law: conversion direction follows the trust gradient; owner-to-key conversion is implicit evidence erasure, key-to-owner conversion is explicit admission, and aggregate reconstruction climbs through explicit admissions.
-- Boundary: key-to-owner casts are hidden throwing admission; keep them at boundaries, remove them with `ConversionFromKeyMemberType` or factory skipping, and account for class reference-key null propagation before factory admission.
+- Boundary: key-to-owner casts are hidden throwing admission; keep them at boundaries, remove them with `ConversionFromKeyMemberType` or `SkipFactoryMethods`, and account for class reference-key null propagation before factory admission.
 - Law: class-owner null contracts are operator-family local; equality tolerates null, comparison and arithmetic throw, unsafe egress faults, and no family lends null-safety to another.
 - Law: one accessibility token gates constructors, conversions, and factories, with domain factory verbs on the owner; `SkipFactoryMethods` removes constructing surfaces and leaves only equality, comparison, and egress over already-admitted values.
 
@@ -142,7 +142,7 @@ public static class ShapeOps {
 
 [LOOKUP_LIFECYCLE]:
 - Law: validity belongs to keys, never instances; no invalid item is constructible, callers choose `Get`, `TryGet`, or `Validate`, and exception catching is the wrong verb.
-- Law: startup probes force the publication-locked lazy, assign indices, build the frozen lookup, fail-fast duplicate keys, and cache one poisoning across metadata consumers walking `Items`.
+- Law: startup probes force the `LazyThreadSafetyMode.ExecutionAndPublication` lazy, assign indices, build the frozen lookup, fail-fast duplicate keys, and cache one poisoning across metadata consumers walking `Items`.
 - Law: derived indexes project from `Items` through accessors, never eager static initializers; the accessor read supplies the materialization edge, and string-keyed vocabularies use the zero-allocation span alternate lookup.
 - Boundary: items are static per load context and generic instantiation; each closed type argument has its own materialization and poisoning, and values cross isolation seams as keys re-admitted on the far side.
 

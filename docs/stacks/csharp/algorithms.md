@@ -1,26 +1,26 @@
 # [ALGORITHMS]
 
-Numeric work is admitted once and routed by shape: raw operands cross into a finite-checked owner at one boundary, the interior is total over admitted values, and the operand's structure — definite, square, overdetermined, symmetric, sparse-pattern, periodic-grid — selects the owning factorization, never the call site and never a knob riding beside the matrix. Every solve route — dense direct, sparse direct, iterative, every conditioning fallback — is one composed lifecycle admit → route → solve → witness → receipt written once; a per-module pipeline re-deriving the chain is the rejected form. MathNet owns dense factorization, the spectral decompositions, `Fourier`, and quadrature; CSparse owns sparse direct factorization, factor reuse, and fill-reducing ordering once a matrix is admitted; the owned-build lane — low-discrepancy sampling, ODE tableaux, spectral multipliers, block eigeniteration, scattered reconstruction — has no library surface and is composed from the rails. Every library refuses its own gates — no constructor checks finiteness, symmetry is tested by exact `!=`, singularity is never asserted, a zero-norm `QR` fills `NaN` while `IsFullRank` returns `true` — so admission re-imposes each refused gate as an explicit predicate. Every result leaves as a domain receipt carrying its route variant, its scale-derived tolerance policy, and the recomputed true relative residual against the original operator — the one correctness signal that survives preconditioning, breakdown substitution, cancellation, and provider divergence — never a `Matrix<T>`, `Vector<T>`, or factorization instance. A hand-rolled kernel is admitted only after a benchmark defeats both libraries.
+Numeric work is admitted once and routed by shape: raw operands cross into a finite-checked owner at one boundary, the interior is total over admitted values, and the operand's structure — definite, square, overdetermined, symmetric, sparse-pattern, periodic-grid — selects the owning factorization, never the call site and never a knob riding beside the matrix. Every solve route — dense direct, sparse direct, iterative, every conditioning fallback — is one composed lifecycle admit → route → solve → witness → receipt written once; a per-module pipeline re-deriving the chain is the rejected form. MathNet owns dense factorization, the spectral decompositions, `Fourier`, and quadrature; CSparse owns sparse direct factorization, factor reuse, and fill-reducing ordering once a matrix is admitted; the owned-build lane — low-discrepancy sampling, ODE tableaux, spectral multipliers, block eigeniteration, scattered reconstruction — has no library surface and is composed from the rails. Every library refuses its own gates — no constructor checks finiteness, symmetry is tested by exact `!=`, singularity is never asserted, a zero-norm `QR` fills `NaN` while `IsFullRank` returns `true` — so admission re-imposes each refused gate as an explicit predicate. Every result leaves as a domain receipt carrying its route variant, its scale-derived tolerance policy, and the recomputed true relative residual against the original operator — the one correctness signal that survives preconditioning, breakdown substitution, cancellation, and provider divergence — never a `Matrix<T>`, `Vector<T>`, or factorization instance. A hand-rolled kernel is admitted only after a benchmark defeats both libraries. In-place numeric kernels — library in-place solve and multiply overloads writing into pre-sized scratch, and per-evaluation counters inside guarded integrands — are this page's named statement exemption.
 
 ## [1]-[ROUTE_SPINE]
 
 The operand shape selects the route before any solve; the most specific shape wins, and the table is one lifecycle's route step, never thirteen pipelines.
 
-| [INDEX] | [OPERAND_SHAPE]                          | [OWNING_ROUTE]                       | [CONDITIONING_FALLBACK]                |
-| :-----: | :--------------------------------------- | :----------------------------------- | :------------------------------------- |
-|   [1]   | dense symmetric positive-definite        | `Cholesky()`                         | `ε·I` shift, then `Evd`                |
-|   [2]   | dense square general                     | `LU()`                               | rank-revealing `Svd(true)`             |
-|   [3]   | dense overdetermined                     | thin `QR()`                          | `Svd(true)` truncated pseudo-inverse   |
-|   [4]   | tiny system below sparse crossover       | dense factorization-as-probe         | managed path beats provider switch     |
-|   [5]   | symmetric or Hermitian spectrum          | `Evd(Symmetricity.Symmetric)`        | congruence-reduced generalized `Evd`   |
-|   [6]   | nonsymmetric spectrum                    | `Evd(Symmetricity.Unknown)`          | block residual witness, no resort      |
-|   [7]   | rank, norm, or condition evidence only   | retained `Svd(false)` handle         | one handle answers all three           |
-|   [8]   | sparse SPD, fixed pattern                | `SparseCholesky` + `AMD`             | rank-1 downdate fails → reconstruct    |
-|   [9]   | sparse symmetric indefinite              | `SparseLDL`                          | `BiCgStab` while structure unproven    |
-|  [10]   | sparse nonsymmetric or uncertain         | `SparseLU` (column-relative `tol`)   | iterative solve + witness gate         |
-|  [11]   | sparse rectangular least-squares         | `SparseQR`                           | augmented-dimension solution sizing    |
-|  [12]   | huge sparse or changing pattern          | `TrySolveIterative` + criterion stack | verdict-routed direct solve            |
-|  [13]   | constant-coefficient periodic grid       | owned spectral multiplier            | regularization at the vanishing symbol |
+| [INDEX] | [OPERAND_SHAPE]                        | [OWNING_ROUTE]                        | [CONDITIONING_FALLBACK]                |
+| :-----: | :------------------------------------- | :------------------------------------ | :------------------------------------- |
+|   [1]   | dense symmetric positive-definite      | `Cholesky()`                          | `ε·I` shift, then `Evd`                |
+|   [2]   | dense square general                   | `LU()`                                | rank-revealing `Svd(true)`             |
+|   [3]   | dense overdetermined                   | thin `QR()`                           | `Svd(true)` truncated pseudo-inverse   |
+|   [4]   | tiny system below sparse crossover     | dense factorization-as-probe          | managed path beats provider switch     |
+|   [5]   | symmetric or Hermitian spectrum        | `Evd(Symmetricity.Symmetric)`         | congruence-reduced generalized `Evd`   |
+|   [6]   | nonsymmetric spectrum                  | `Evd(Symmetricity.Unknown)`           | block residual witness, no resort      |
+|   [7]   | rank, norm, or condition evidence only | retained `Svd(false)` handle          | one handle answers all three           |
+|   [8]   | sparse SPD, fixed pattern              | `SparseCholesky` + `AMD`              | rank-1 downdate fails → reconstruct    |
+|   [9]   | sparse symmetric indefinite            | `SparseLDL`                           | `BiCgStab` while structure unproven    |
+|  [10]   | sparse nonsymmetric or uncertain       | `SparseLU` (column-relative `tol`)    | iterative solve + witness gate         |
+|  [11]   | sparse rectangular least-squares       | `SparseQR`                            | augmented-dimension solution sizing    |
+|  [12]   | huge sparse or changing pattern        | `TrySolveIterative` + criterion stack | verdict-routed direct solve            |
+|  [13]   | constant-coefficient periodic grid     | owned spectral multiplier             | regularization at the vanishing symbol |
 
 Recover the fallback from the route value and record it in the receipt, never a caller-named entrypoint: a fill ratio — symbolic factor nonzeros over input nonzeros, read before the numeric sweep — routes direct versus iterative, and the augmented regression case (the design matrix stacked over a `√λ`-scaled identity under thin `QR`) is the derived consequence of the conditioning budget exceeding the inverse cap. MathNet exposes no CSparse surface, so hybrid routing is integrator-authored and carries its own residual validation. The fallback is a rebind onto the same lifecycle: primary and conditioning routes converge on the one witness gate, and the receipt records the taken path.
 
@@ -59,6 +59,22 @@ public static class DenseRoute
 [FINITE_ADMISSION]:
 - Law: gate every operand on one all-finite predicate over the flat column-major `Values` span before factoring, with NaN-any and Inf-any early-exit variants when the typed rejection must name its cause; no constructor rejects `NaN` or `Inf`, a non-finite entry propagates silently into corrupted factor state, and a strided per-element loop forfeits the one-pass vectorized admission the layout grants.
 
+```csharp conceptual
+public static class Admission
+{
+    public static Fin<double[]> Admit(double[] flat) =>
+        TensorPrimitives.IsFiniteAll<double>(flat)
+            ? Fin.Succ(flat)
+            : TensorPrimitives.IsNaNAny<double>(flat)
+                ? Fin.Fail<double[]>(Error.New(2101, "operand carries NaN"))
+                : Fin.Fail<double[]>(Error.New(2102, "operand carries Inf"));
+
+    public static Fin<DenseMatrix> Admit(DenseMatrix a) => Admit(a.Values).Map(_ => a);
+
+    public static Fin<DenseVector> Admit(DenseVector v) => Admit(v.Values).Map(_ => v);
+}
+```
+
 [SYMMETRY_FORCING]:
 - Law: force symmetry with `(A + A.Transpose()) * 0.5` before the call (`ConjugateTranspose` for Hermitian); `IsSymmetric()` compares entries with exact `!=`, so accumulation-built matrices fail it and `Symmetricity.Unknown` falls to the asymmetric spectral path whose solve throws.
 - Reject: `MapIndexedInplace` self-averaging; it mutates the backing array sequentially, so a mirror entry is already modified when read.
@@ -87,6 +103,31 @@ public static class DenseRoute
 - Reject: `Inverse()` in a hot loop — it clones the factors plus an `n²` identity, crossing the large-object threshold at `n ≥ 104`; solve against an identity through the retained pivoting handle with reused result and right-hand-side buffers.
 - Boundary: form an iterative-refinement residual against the original operator in working precision, never against reconstructed factors — the factors carry exactly the rounding error the correction exists to cancel.
 
+```csharp conceptual
+public static class HeldRefinement
+{
+    public static Fin<(IterationStatus Verdict, Vector<double> X)> Refine(
+        Matrix<double> a, ISolver<double> held, Vector<double> b, Vector<double> x, double tol, int cap)
+    {
+        var (bNorm, scratch, dx) = (b.L2Norm(), Vector<double>.Build.Dense(b.Count), Vector<double>.Build.Dense(b.Count));
+        var r = (Schedule.Forever | Schedule.recurs(cap)).Run().FoldWhile(
+            Residual(a, x, b, scratch, bNorm),
+            (_, _) => { held.Solve(scratch, dx); x.Add(dx, x); return Residual(a, x, b, scratch, bNorm); },
+            t => t.State > tol);
+        return double.IsFinite(r)
+            ? Fin.Succ((r <= tol ? IterationStatus.Converged : IterationStatus.StoppedWithoutConvergence, x))
+            : Fin.Fail<(IterationStatus, Vector<double>)>(Error.New($"refinement residual non-finite: r={r}"));
+    }
+
+    static double Residual(Matrix<double> a, Vector<double> x, Vector<double> b, Vector<double> scratch, double bNorm)
+    {
+        a.Multiply(x, scratch);
+        b.Subtract(scratch, scratch);
+        return scratch.L2Norm() / bNorm;
+    }
+}
+```
+
 [GRAM_WEIGHTING]:
 - Law: apply weighting as one policy row through the typed diagonal operand — its fast path scales each row with no `m×n` intermediate — never per-module `√`-weight row scaling re-derived before each Gram; a raw-array weight has no fast path and forfeits the structural route.
 - Law: select the damped normal form and the augmented `√λ`-stacked form as two cases of one route on a conditioning-budget field; the Gram-plus-ridge form squares `κ` through the densifying transpose-multiply, and the stacked-identity thin `QR` avoids the squaring when condition exceeds the inverse cap.
@@ -110,12 +151,12 @@ public static class DenseRoute
 - Boundary: an asymmetric input to a symmetric kind factors as its symmetrization and returns a correct answer to the wrong system — the post-solve true residual is the only structural signal.
 - Boundary: set the `SparseLU` pivot `tol` in `[0, 1]` as a relative column threshold — `1` full partial pivoting, `0` disabled — never an absolute floor.
 
-| [FACTOR_KIND]            | [RANK1_EDIT] | [TRANSPOSE_SOLVE] | [INERTIA] | [REENTRANT] |
-| :----------------------- | :----------: | :---------------: | :-------: | :---------: |
-| `SparseCholesky` SPD     |     yes      |        no         |     —     |     no      |
-| `SparseLDL` symmetric    |      no      |        no         |  private  |     no      |
-| `SparseLU` unsymmetric   |      no      |        yes        |     —     |     no      |
-| `SparseQR` rectangular   |      no      |        yes        |     —     |     yes     |
+| [FACTOR_KIND]          | [RANK1_EDIT] | [TRANSPOSE_SOLVE] | [INERTIA] | [REENTRANT] |
+| :--------------------- | :----------: | :---------------: | :-------: | :---------: |
+| `SparseCholesky` SPD   |     yes      |        no         |     —     |     no      |
+| `SparseLDL` symmetric  |      no      |        no         |  private  |     no      |
+| `SparseLU` unsymmetric |      no      |        yes        |     —     |     no      |
+| `SparseQR` rectangular |      no      |        yes        |     —     |     yes     |
 
 [FACTOR_CACHE]:
 - Law: collapse a completed factorization to one typed operator value owning the factorization instance, cached permutation, symbolic fill counts, solution dimension, and kind discriminant.
@@ -123,6 +164,33 @@ public static class DenseRoute
 - Law: key the cache on dimensions, sparsity fingerprint (hash of the pointer and index arrays), and ordering identity, populating it success-only so only residual-witnessed factorizations enter and a diverged solve never poisons reuse.
 - Boundary: serialize solves on a cached square factorization — its one constructor-allocated scratch is non-reentrant and a concurrent second solve corrupts both results with no guard — through a capsule owning the factorization or a pattern-keyed instance pool.
 - Boundary: size the rectangular kind's work buffer from the factorization's solution dimension, which exceeds the row count for structurally singular systems; sizing from the matrix shape is the off-by-augmentation fault.
+
+```csharp conceptual
+public enum FactorKind { Spd, Ldl, Lu, Qr }
+
+public sealed record FactoredOp(
+    ISparseFactorization<double> Inner, FactorKind Kind, CompressedColumnStorage<double> A,
+    int[] Permutation, int Fill, int SolutionDim)
+{
+    public bool SharesScratch => Kind is not FactorKind.Qr;
+
+    public Option<Action<double[], double[]>> TransposeSolve => Kind switch
+    {
+        FactorKind.Lu => Some<Action<double[], double[]>>(((SparseLU)Inner).SolveTranspose),
+        FactorKind.Qr => Some<Action<double[], double[]>>(((SparseQR)Inner).SolveTranspose),
+        _ => None,
+    };
+
+    public Fin<double[]> Solve(double[] b, double cap)
+    {
+        var x = new double[SolutionDim];
+        Inner.Solve(b, x);
+        return Witness(A, x, b) is var r && double.IsFinite(r) && r <= cap
+            ? Fin.Succ(x) : Fin.Fail<double[]>(Error.New($"witness failed: kind={Kind} fill={Fill} r={r}"));
+    }
+    public FactoredOp Revalue(double tol) => this with { Inner = SparseLU.Create(A, Permutation, tol) };
+}
+```
 
 [STRUCTURAL_EDIT]:
 - Law: express every structural-edit dialect — pin, prune, rank-1 bump, revalue — as one `Edit` `[Union]` over three primitives: predicate compaction for removal, marker-array scatter for additive merge, tree-path walk along `parent[]` for symmetric rank-1 change.
@@ -272,6 +340,32 @@ public static class SchurDecode
 - Law: map the singular-`U` index (message-string only) and the zero-pivot sparse status to a distinct singular-matrix domain error, not a blanket solver failure.
 - Boundary: only `Expected` errors are wire-faithful — equality is by `Code` alone — so every exceptional error converts to a domain-coded expected error before serialization, and `HasCode` dispatch on a round-tripped error is sound where message-substring matching is not.
 
+```csharp conceptual
+[Union]
+public abstract partial record SolveTerminal
+{
+    public sealed partial record Admitted(Vector<double> X) : SolveTerminal;
+    public sealed partial record Exhausted(Vector<double> Partial, int Budget) : SolveTerminal;
+}
+
+public static class Terminal
+{
+    public static Fin<SolveTerminal> Partition(Fin<(IterationStatus Verdict, Vector<double> X)> run, int budget) =>
+        run.Bind(t => t.Verdict switch
+        {
+            IterationStatus.Converged => Fin.Succ<SolveTerminal>(new SolveTerminal.Admitted(t.X)),
+            IterationStatus.StoppedWithoutConvergence => Fin.Succ<SolveTerminal>(new SolveTerminal.Exhausted(t.X, budget)),
+            var v => Fin.Fail<SolveTerminal>(Error.New((int)v, $"solver terminal: {v}")),
+        })
+        .MapFail(e => e switch
+        {
+            { Exception.Case: NumericalBreakdownException } => Error.New(2201, "numerical breakdown", e),
+            { Exception.Case: NonConvergenceException } => Error.New(2202, "iteration non-convergence", e),
+            _ => e,
+        });
+}
+```
+
 ## [8]-[OWNED_BUILDS]
 
 [QUADRATURE]:
@@ -280,6 +374,24 @@ public static class SchurDecode
 - Boundary: substitute infinite bounds only on the facade entry; the direct double-exponential kernel feeds infinity into abscissa evaluation and yields `NaN` weights.
 - Use: the `L1` value-to-ratio cancellation channel as the free conditioning diagnostic; the short overload discards it.
 - Boundary: record the terminated-at-budget case with its binding budget and residual; the three exhaustion mechanisms return best-so-far indistinguishable from convergence.
+
+```csharp conceptual
+public sealed record QuadratureEvidence(double Value, double Error, double L1Norm, double Ratio, int Skipped);
+
+public static class Quadrature
+{
+    public static Fin<QuadratureEvidence> Kronrod(Func<double, double> f, double a, double b, double floor)
+    {
+        var skipped = 0;
+        var value = Integrate.GaussKronrod(
+            x => f(x) is var y && double.IsFinite(y) ? y : (++skipped, 0.0).Item2,
+            a, b, out var error, out var l1Norm);
+        return Math.Abs(value / l1Norm) is var ratio && double.IsFinite(ratio) && ratio >= floor
+            ? Fin.Succ(new QuadratureEvidence(value, error, l1Norm, ratio, skipped))
+            : Fin.Fail<QuadratureEvidence>(Error.New($"cancellation breach: |value/L1|={ratio} skipped={skipped}"));
+    }
+}
+```
 
 [INTEGRATOR_TABLEAU]:
 - Law: validate the tableau at construction; `Create` returns an order-carrying `StepTableau` or a typed structural fault, row-sum consistency and the order conditions are definition-time facts, and verified order is the largest integer for which every condition holds — derived, never asserted.

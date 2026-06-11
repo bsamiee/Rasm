@@ -1,6 +1,6 @@
 # [SURFACES_AND_DISPATCH]
 
-A concern with many features keeps one dense surface, never a family of shallow ones: one entrypoint absorbs every verb, arity, and modality; one trait core derives a whole operation family; one carrier-polymorphic arrow dispatches `Fin`, `Eff`, `IO`, and `Validation` at once; one keyed declaration is table, vocabulary, and admission factory together. Verbs collapse into a request `[Union]` under one total dispatch, so a new verb breaks every site instead of growing a sibling method. Arity collapses into `params ReadOnlySpan<T>`, collection expressions, and one carrier — the discriminant is the value's shape, never a mode flag beside it. Knob sets collapse into policy values; optional context enters as `Option<T>` or one runtime record. Five dispatch forms are selected by where ownership lives, the carrier is orthogonal to the form and decides accumulate-versus-abort, and aspects split at one seam: definition-time weaves below the admission boundary in generator order, composition-time transformers above it in author order.
+A concern with many features keeps one dense surface, never a family of shallow ones: one entrypoint absorbs every verb, arity, and modality — verbs collapse into a request `[Union]` under one total dispatch so a new verb breaks every site instead of growing a sibling, arity collapses into `params ReadOnlySpan<T>`, collection expressions, and one carrier, and the discriminant is the value's shape, never a mode flag beside it. Knob sets collapse into policy values that carry their own behavior, and optional context enters as `Option<T>` or one runtime record whose default derives from the policy owner. Five dispatch forms are selected by where ownership lives — one trait core derives a whole operation family, one keyed declaration is table, vocabulary, and admission factory together — while the carrier stays orthogonal to the form and alone decides accumulate-versus-abort, one `K<F,A>` arrow dispatching `Fin`, `Eff`, `IO`, and `Validation` at once. Aspects split at one seam: definition-time weaves below the admission boundary in generator order, composition-time transformers above it in author order.
 
 ## [1]-[FORM_CHOOSER]
 
@@ -30,17 +30,17 @@ When a concern matches several rows, the most specific wins; the carrier axis is
 - Boundary: programs that must be inspected or re-interpreted reify verbs as a closed instruction functor under one interpreter arrow; the request union with total dispatch is the form when they only run.
 
 [SEALED_ADMISSION]:
-- Law: a regular `[Union]` seals through reachability, not knobs — private owner and case constructors are the closure, one hand-written `public static` factory the sole ingress, and the generated `Switch` the sole egress; the `Conversion*`/`ConstructorAccessModifier`/`FactoryMethodGeneration` knobs are ad-hoc-only and do not exist here.
+- Law: a regular `[Union]` seals through reachability — the private owner constructor closes the case family, one hand-written `public static` factory is the validated ingress, the generated `Switch` the sole egress, and `ConversionFromValue = ConversionOperatorsGeneration.None` deletes the implicit-by-default value-to-union conversion that would bypass the factory; `ConstructorAccessModifier`/`FactoryMethodGeneration` are ad-hoc-only knobs and do not exist here.
 - Law: `SwitchMapMethodsGeneration.None` deletes the generated dispatch so an extension-block dispatch algebra cannot be bypassed by a second, less-restrictive surface; `SwitchMethods` and `MapMethods` suppress independently.
 - Use: a `private partial record` nested in the owning service when construction must scope to one owner; an internal factory opens the whole assembly, not the enclosing type.
-- Boundary: input validates once at the factory, behavior is reached once through dispatch, and no case is constructible outside the owner.
+- Boundary: input validates once at the factory and behavior is reached once through dispatch; positional cases stay constructible with already-admitted payloads, and construction scopes fully to one owner only in the nested form.
 
 [SURFACE_ATTACHMENT]:
 - Law: the module's public surface is the request union plus one dispatch entrypoint attached through an extension block, routing entirely over the public generated dispatch without touching the partial.
 - Boundary: `[OverloadResolutionPriority]` steers only members co-declared in one static class; cross-class same-name extensions compare by ordinary betterness regardless of priority.
 
 ```csharp conceptual
-[Union]
+[Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
 public abstract partial record Request {
     private Request() { }
     public sealed record Open(CodeValue Code) : Request;
@@ -50,9 +50,9 @@ public abstract partial record Request {
 
 public static class RequestSurface {
     public static Fin<Request> Admit(ReadOnlySpan<char> verb, CodeValue code, int delta) =>
-        Verb.Validate(verb, null, out var v) is { } error
-            ? FinFail<Request>(Error.New(error.ToString() ?? "unknown verb"))
-            : FinSucc(v.Switch(
+        Verb.Validate(verb, null, out var v) is { } fault
+            ? Fin.Fail<Request>(fault)
+            : Fin.Succ(v!.Switch(
                 open:  static s => (Request)new Request.Open(s.Code),
                 amend: static s => new Request.Amend(s.Code, s.Delta),
                 close: static s => new Request.Close(s.Code),
@@ -80,7 +80,7 @@ public static class RequestSurface {
 [MODALITY_FOLD]:
 - Law: singular, plural-preserving, and plural-reducing are call shapes over one arm — singular is `Map`/`Bind`, plural-preserving is `Traverse`/`Sequence` with container shape intact, plural-reducing is monoid-keyed `Fold`/`FoldMap` where the `Monoid` is the policy value selecting the reduction.
 - Law: `TraverseM` threads the carrier's short-circuit reusing the singular arm verbatim; applicative `Traverse` over a `Validation`-shaped carrier is the accumulating sibling — same arm, the carrier alone switching the policy.
-- Use: `foldWhileM`/`foldUntilM` over `(State, Value)` for the bounded-batch entrypoint with no count parameter; `oneOf` over an `Alternative` carrier for first-success, total over an empty spread because `Empty` is supplied.
+- Use: `FoldWhile`/`FoldUntil` with the `(State, Value)` predicate for the bounded-batch entrypoint with no count parameter, `foldWhileM`/`foldUntilM` when each step runs in the carrier — their halt reads the element alone; `oneOf` over an `Alternative` carrier for first-success, total over an empty spread because `Empty` is supplied.
 - Reject: a batch flag, a mode flag, or a count beside a span whose `Length` already answers it; counts and modes derive from `span.Length` or the dispatched case, never the signature.
 - Boundary: after traversal the container is uniformly in the carrier, never mixed admitted-and-raw, which keeps the next entrypoint's discriminant recoverable from shape alone.
 
@@ -111,7 +111,7 @@ public static class BatchSurface {
 ## [4]-[PARAMETER_ALGEBRA]
 
 [POLICY_VALUES]:
-- Law: configuration enters as one value carrying its own behavior — a smart-enum row with constructor delegates, a union case, or a frozen policy row — never a flag set the body re-derives; the collapsed form passes the pre-constructed case and no `if`/`switch` reconstructs the body at dispatch.
+- Law: a policy parameter arrives pre-constructed and carries its own behavior; the entrypoint invokes the value it was handed, and no `if`/`switch` reconstructs at dispatch what the value already encodes.
 - Law: a stateless union case (`T1IsStateless = true`) is the shape for configuration-free policy entries; wrapping it in `Option<T>` stacks a second optionality on a discriminant that already models absence.
 - Use: a frozen policy table whose projection comparer keyed on the request's discriminant declares which dimension governs selection, collapsing payload differences onto one row.
 - Reject: a boolean parameter selecting between two bodies; a behavioral near-twin chosen by flag rather than by the value that encodes the boundary behavior.
@@ -128,15 +128,34 @@ public static class BatchSurface {
 - Boundary: a growing optional tail loses resolution to a tighter sibling whose every parameter received an argument, silently redirecting call sites; collapsing the tail to one `Option<ContextRecord>` deletes the parallel candidate.
 
 [KNOB_TEST]:
-- Law: discrimination is recoverable from the value — type, case, pattern, or arity — never from a parallel parameter; the test is whether removing the parameter loses information the value cannot reconstruct.
-- Reject: a parameter that re-describes the input — a batch, many, or mode flag beside the value — as arity smuggled back into a knob.
+- Law: the knob test is removal — delete the parameter, and if no information is lost that the value cannot reconstruct, the parameter was a knob and the value already discriminates.
 - Reject: a timeout or deadline as an entrypoint parameter; the bound is an effect-layer aspect injected after dispatch, and the signature never grows a token tail for it.
+
+```csharp conceptual
+public sealed record Context(int Ceiling, TimeProvider Clock);
+
+public sealed record Policy(Context Canonical, Func<Input, Context, Fin<Receipt>> Step) {
+    public static readonly Policy Strict = new(
+        new Context(Ceiling: 1, Clock: TimeProvider.System),
+        static (input, context) => input.Score <= context.Ceiling
+            ? Fin.Succ(Receipt.Empty)
+            : Fin.Fail<Receipt>(new Fault.Bounds($"score {input.Score} above {context.Ceiling}")));
+
+    public static readonly Policy Lenient = new(
+        Strict.Canonical with { Ceiling = 8 },
+        static (input, _) => Fin.Succ(Receipt.Degraded));
+}
+
+public static class PolicySurface {
+    public static Fin<Receipt> Run(Policy policy, Input input, Option<Context> context = default) =>
+        policy.Step(input, context.IfNone(policy.Canonical));
+}
+```
 
 ## [5]-[DISPATCH_FORMS]
 
 [FORM_SELECTION]:
-- Law: five forms are selected by where ownership lives — state-threaded `Switch` when the consumer owns the logic but a closed vocabulary owns exhaustiveness; `[UseDelegateFromConstructor]` rows when the vocabulary item is the behavior; frozen tables when the key is a value and the result is static; extension blocks when the receiver is foreign but the behavior is local; structural patterns when the input's shape, not its nominal type, discriminates.
-- Law: three or more consumers writing identical full-coverage `Switch` arms over one vocabulary is the delegate-row collapse signal — completeness becomes a constructor invariant instead of distributed call-site discipline.
+- Law: the five forms are selected by where ownership lives — the chooser's ownership signatures are the selection law — and when two forms both fit, the one whose owner already holds the exhaustiveness obligation wins.
 - Reject: a frozen table restating a vocabulary's own delegate rows — a duplicate-entry burden with a silent missed-new-item failure; structural dispatch over a closed family, trading compile-time totality for a silent `_`.
 - Boundary: mixing forms at one site signals an unresolved ownership boundary, except the two valid compositions — a `Switch` arm probing a frozen table is dispatch plus data retrieval; an extension block owns module-to-domain translation while its inner `Switch` owns per-case projection.
 
@@ -151,6 +170,27 @@ public static class BatchSurface {
 - Law: the generated `Validate(TKey?, IFormatProvider?, out TItem)` is the one-hop bridge from raw external key to dispatch-ready item — open on the way in, a typed error or a vocabulary item on the way out, the subsequent `Switch` compile-time-total.
 - Use: the span-keyed `Validate(ReadOnlySpan<char>, ...)` overload so protocol text admits and dispatches without materializing a string.
 - Boundary: the comparer accessor is the single arbiter of key equality everywhere, so every frozen table keyed on the owner resolves the same comparer and no call site supplies a divergent one.
+
+```csharp conceptual
+[SmartEnum<string>]
+[ValidationError<Fault>]
+public sealed partial class Marker {
+    public static readonly Marker MarkA = new("<key-a>");
+    public static readonly Marker MarkB = new("<key-b>");
+}
+
+public static class MarkerBoundary {
+    public static Fin<int> Admit(ReadOnlySpan<char> raw, Input input) =>
+        Marker.Validate(raw, null, out var marker) is { } fault
+            ? Fin.Fail<int>(fault)
+            : Fin.Succ(marker!.Switch(state: input,
+                markA: static value => value.Score,
+                markB: static value => value.Score * 2));
+
+    public static ImmutableArray<string> Advertised() => [.. Marker.Items.Select(static item => item.Key)];
+    public static Option<Marker> Probe(string key) => Marker.TryGet(key, out var marker) ? Optional(marker) : None;
+}
+```
 
 ## [6]-[CARRIER_POLYMORPHIC_DISPATCH]
 
@@ -172,19 +212,19 @@ public static class BatchSurface {
 - Boundary: carrier changes are one structure-preserving arrow, never a match-and-rebuild bridge; mid-pipeline concretization defeats the polymorphism.
 
 ```csharp conceptual
-public static class Assembly {
-    public static K<F, Order> Assemble<F>(Region region, Tier tier, Channel channel)
+public static class JoinSurface {
+    public static K<F, Composite> Assemble<F>(Source source, Band band, Tag tag)
         where F : Applicative<F> =>
-        (region.Switch(state: unit,
-            domestic: static (_, d) => F.Pure(d.Zone),
-            foreign:  static (_, f) => F.Pure(f.Zone)),
-         tier.Switch(state: unit,
-            gold:     static (_, _) => F.Pure(Priority.High),
-            standard: static (_, _) => F.Pure(Priority.Normal)),
-         channel.Switch(state: unit,
-            web:      static (_, w) => F.Pure(w.Route),
-            partner:  static (_, p) => F.Pure(p.Route)))
-        .Apply(static (zone, priority, route) => new Order(zone, priority, route));
+        (source.Switch(state: unit,
+            primary:   static (_, p) => F.Pure(p.Code),
+            secondary: static (_, s) => F.Pure(s.Code)),
+         band.Switch(state: unit,
+            upper: static (_, _) => F.Pure(2),
+            lower: static (_, _) => F.Pure(1)),
+         tag.Switch(state: unit,
+            declared: static (_, d) => F.Pure(d.Key),
+            derived:  static (_, d) => F.Pure(d.Key)))
+        .Apply(static (code, rank, key) => new Composite(code, rank, key));
 }
 ```
 
@@ -192,7 +232,7 @@ public static class Assembly {
 
 [OPEN_OWNER_BOUNDARY]:
 - Law: the self-constrained factory contract — `where TOwner : IObjectFactory<TOwner, TValue, TError>`, sole member a static abstract `Validate` — is the inversion of case dispatch: `Switch` is closed over one owner's cases, the constrained generic is open over the unbounded family of all owners, resolved by the JIT with no instance, no vtable, no reflection.
-- Law: the error vocabulary stays owner-chosen because `TError` carries its own static abstract `Create`, so a generic bridge synthesizes context-bearing errors without naming any concrete class.
+- Law: the error vocabulary stays owner-chosen because `TError` carries its own static abstract `Create`; bounding `TError` by the shared fault base keeps every owner's precise faults rail-liftable with no translation hop.
 - Use: a span-keyed instantiation — the span is the `TValue` under `allows ref struct` — so protocol text decodes into the closed vocabulary with zero heap traffic on both legs.
 - Reject: one shallow converter per owner; one deep parameterized surface owns conversion for the whole owner set.
 
@@ -206,14 +246,14 @@ public static class Boundary {
     public static Fin<TOwner> Admit<TOwner, TValue, TError>(TValue value, IFormatProvider? culture = null)
         where TOwner : IObjectFactory<TOwner, TValue, TError>
         where TValue : notnull, allows ref struct
-        where TError : class, IValidationError<TError> =>
-        TOwner.Validate(value, culture, out var item) is { } error
-            ? FinFail<TOwner>(Error.New(error.ToString() ?? "rejected"))
-            : FinSucc(item!);
+        where TError : Expected, IValidationError<TError> =>
+        TOwner.Validate(value, culture, out var item) is { } fault
+            ? Fin.Fail<TOwner>(fault)
+            : Fin.Succ(item!);
 
     public static Fin<TOwner> AdmitText<TOwner, TError>(ReadOnlySpan<char> text)
         where TOwner : IObjectFactory<TOwner, ReadOnlySpan<char>, TError>
-        where TError : class, IValidationError<TError> =>
+        where TError : Expected, IValidationError<TError> =>
         Admit<TOwner, ReadOnlySpan<char>, TError>(text);
 }
 ```
@@ -221,34 +261,32 @@ public static class Boundary {
 ## [8]-[ASPECTS]
 
 [WEAVE_TAXONOMY]:
-- Law: a definition-time aspect — admission, identity, dispatch, serialization, grammar — is a property of the type, declared by attribute and present at every call site; a composition-time aspect — retry, recovery, resource lifetime, timeout, marshaling — is a property of a call site, attached as operators in the pipeline.
+- Law: a definition-time aspect is a property of the type — declared by attribute, woven by the generator, present at every call site; a composition-time aspect is a property of one call site — attached as operators in the pipeline it modifies.
 - Law: the classification test is per-site variance — a concern present at every use weaves at definition, a concern that varies per site composes at the site.
-- Boundary: the two layers meet at exactly one seam — the admission boundary where a generated factory's typed error lifts into the carrier; policy pushed across it in either direction gains hidden control flow and stops being recoverable from its declaration.
+- Boundary: the two weaves meet at the one-expression hop this page's admission snippets show — a generated factory's typed fault lifting into the carrier; admission rules hoisted above that hop or effect policy sunk below it stop being recoverable from their declarations.
 
 [CONSTRUCTION_ADVICE]:
 - Law: the generated factory threads advice in a fixed generator-owned order — absence guards, error-slot init, the `ValidateFactoryArguments` normalizer, construction gated on a null error, the constructor hook, post-init — and the author opts into slots, never reorders.
 - Law: a non-void `ValidateFactoryArguments` return threads into post-init as a typed side channel — computation done once during validation handed forward with no field, no closure, no second pass.
 - Reject: rejection logic in the constructor hook or null/blank guards in the factory hook — the weave order fixes absence below both, so either placement is dead code, and a throwing hook breaks the rail bridge above the seam.
-- Boundary: expensive admission belongs in the factory hook, invariant-of-record repair in the constructor hook, which fires on every path including rehydration.
 
 [STACKING_ORDER]:
 - Law: composition-time aspects stack in author-written operator order, and the same two aspects in two orders are two policies — retry around a bracket re-runs acquire-use-release per attempt, a bracket around a retry acquires once and retries only the use.
 - Law: a named catch composes via `|` as handler wrapping, left-associative — inner handlers see errors first, so a broad predicate before a narrow one shadows it with no diagnostic; the finalizer is a transparent pass-through that runs on both exits, so a catch after it still fires.
 - Law: generated dispatch collapses to a value before any transformer runs, so per-case policy is unspellable by wrapping the dispatch — each arm must produce its own policy-wrapped carrier, the granularity fixed by where the carrier is introduced.
-- Reject: a constrained operator on a carrier defined anywhere but an extension block — `extension<E, F, A>(K<F, A> _) where F : Fallible<E, F>` is the only mechanism for a local aspect's operator surface.
+- Reject: a constrained operator on a carrier defined anywhere but an extension block.
+- Boundary: `extension<E, F, A>(K<F, A> _) where F : Fallible<E, F>` is the sole mechanism granting a local aspect an operator surface.
 
 ```csharp conceptual
 public static class Aspects {
     public static IO<Receipt> AcquireThenRetryUse(IO<Resource> acquire, Func<Resource, IO<Receipt>> use) =>
         acquire.Bracket(
             Use: resource => use(resource).Retry(Backoff),
-            Catch: static error => IO.fail<Receipt>(error),
             Fin: static resource => resource.ReleaseIO());
 
     public static IO<Receipt> RetryThenAcquireUse(IO<Resource> acquire, Func<Resource, IO<Receipt>> use) =>
         acquire.Bracket(
             Use: use,
-            Catch: static error => IO.fail<Receipt>(error),
             Fin: static resource => resource.ReleaseIO()).Retry(Backoff);
 }
 ```

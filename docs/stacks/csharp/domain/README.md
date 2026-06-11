@@ -68,28 +68,28 @@ The order is load-bearing because pages are layers of one body: every page is au
 
 Every external library has exactly one doctrine home; a page names a package only where it changes the implementation choice. Cross-references between pages are implicit — only README files link.
 
-| [INDEX] | [PACKAGE]                                                | [HOME]      | [QUEUED_VERSION] |
-| :-----: | :------------------------------------------------------- | :---------- | :--------------- |
-|   [1]   | Scrutor                                                  | runtime     | 7.0.0            |
-|   [2]   | Microsoft.Extensions.Caching.Hybrid                      | runtime     | 10.7.0           |
-|   [3]   | NodaTime (+ TimeProvider law)                            | runtime     | admitted         |
-|   [4]   | System.Threading.Channels                                | concurrency | BCL              |
-|   [5]   | System.Reactive                                          | concurrency | admitted         |
-|   [6]   | DynamicData                                              | concurrency | admitted         |
-|   [7]   | Serilog + Serilog.Extensions.Hosting                     | diagnostics | 4.3.1 / 10.0.0   |
-|   [8]   | OpenTelemetry + OpenTelemetry.Extensions.Hosting         | diagnostics | 1.15.3 / 1.15.3  |
-|   [9]   | Microsoft.Extensions.Telemetry                           | diagnostics | 10.7.0           |
-|  [10]   | Compliance.Redaction + Logging.Abstractions              | diagnostics | admitted         |
-|  [11]   | FluentValidation (+ DI extensions)                       | validation  | 12.1.1           |
-|  [12]   | Polly                                                    | resilience  | 8.6.6            |
-|  [13]   | Microsoft.Extensions.Http.Resilience                     | resilience  | 10.7.0           |
-|  [14]   | EF Core + SQLite provider + SQLitePCLRaw + NamingConventions | persistence | admitted     |
-|  [15]   | Npgsql.EntityFrameworkCore.PostgreSQL + Npgsql.NodaTime  | persistence | 10.0.2 / latest  |
-|  [16]   | EFCore.BulkExtensions                                    | persistence | 10.0.1           |
-|  [17]   | NodaTime.Serialization.SystemTextJson, System.IO.Hashing | persistence | admitted         |
-|  [18]   | System.Numerics.Tensors                                  | compute     | 10.0.9           |
-|  [19]   | Grpc.Net.Client + Google.Protobuf                        | compute     | admitted         |
-|  [20]   | ONNX Runtime .NET                                        | compute     | UNVERIFIED       |
+| [INDEX] | [PACKAGE]                                                    | [HOME]      | [QUEUED_VERSION] |
+| :-----: | :----------------------------------------------------------- | :---------- | :--------------- |
+|   [1]   | Scrutor                                                      | runtime     | 7.0.0            |
+|   [2]   | Microsoft.Extensions.Caching.Hybrid                          | runtime     | 10.7.0           |
+|   [3]   | NodaTime (+ TimeProvider law)                                | runtime     | admitted         |
+|   [4]   | System.Threading.Channels                                    | concurrency | BCL              |
+|   [5]   | System.Reactive                                              | concurrency | admitted         |
+|   [6]   | DynamicData                                                  | concurrency | admitted         |
+|   [7]   | Serilog + Serilog.Extensions.Hosting                         | diagnostics | 4.3.1 / 10.0.0   |
+|   [8]   | OpenTelemetry + OpenTelemetry.Extensions.Hosting             | diagnostics | 1.15.3 / 1.15.3  |
+|   [9]   | Microsoft.Extensions.Telemetry                               | diagnostics | 10.7.0           |
+|  [10]   | Compliance.Redaction + Logging.Abstractions                  | diagnostics | admitted         |
+|  [11]   | FluentValidation (+ DI extensions)                           | validation  | 12.1.1           |
+|  [12]   | Polly                                                        | resilience  | 8.6.6            |
+|  [13]   | Microsoft.Extensions.Http.Resilience                         | resilience  | 10.7.0           |
+|  [14]   | EF Core + SQLite provider + SQLitePCLRaw + NamingConventions | persistence | admitted         |
+|  [15]   | Npgsql.EntityFrameworkCore.PostgreSQL + Npgsql.NodaTime      | persistence | 10.0.2 / latest  |
+|  [16]   | EFCore.BulkExtensions                                        | persistence | 10.0.1           |
+|  [17]   | NodaTime.Serialization.SystemTextJson, System.IO.Hashing     | persistence | admitted         |
+|  [18]   | System.Numerics.Tensors                                      | compute     | 10.0.9           |
+|  [19]   | Grpc.Net.Client + Google.Protobuf                            | compute     | admitted         |
+|  [20]   | ONNX Runtime .NET                                            | compute     | UNVERIFIED       |
 
 - Queued versions were verified 2026-06; re-verify at each page's research stage. Once a package is admitted, `Directory.Packages.props` is truth and its row here expires.
 - Scrutor explicitly does NOT belong to the root boundaries page — DI composition is runtime law; boundaries owns host, native, and wire seams only.
@@ -100,8 +100,8 @@ Every external library has exactly one doctrine home; a page names a package onl
 Run in this order for every page, before any research lane launches:
 
 1. Light user gate (first page only): confirm this charter plus any adjacency-discovered package additions. No re-scoping.
-2. Admit the page's queued packages to `Directory.Packages.props`, run `dotnet restore`, then `uv run python -m tools.assay api doctor` and `resolve` to confirm the surfaces are extractable. Docs lead admission — the package enters the manifest so research can verify installed source, before any production code uses it.
-3. API capture: one agent per package family writes `.reports/<page>/_api/<package>.md` — the full public capability inventory (namespaces, key types, options and DI integration points, source-generated surfaces, extension seams) via `uv run python -m tools.assay api query|show`, which is decompiled installed truth; verified-fresh official docs only where the tool cannot reach (analyzer or generator behavior invisible in IL). Agents execute the assay CLI; they never read `tools/` source.
+2. Admit the page's queued packages to `Directory.Packages.props`; run `dotnet restore` once per package-admission batch. Run `uv run python -m tools.assay api doctor` and `resolve` once when the admitted package inventory changes. Docs lead admission so research verifies installed source before production code uses it.
+3. API capture: one agent per package family writes `.reports/<page>/_api/<package>.md` — the full public capability inventory (namespaces, key types, options and DI integration points, source-generated surfaces, extension seams) via `uv run python -m tools.assay api query|show`. Decompile each installed assembly once and search the saved output. Verified-fresh official docs are reserved for analyzer, generator, MSBuild, or native asset behavior that installed assemblies cannot expose. Agents execute the assay CLI; they never read `tools/` source.
 4. Adjacency discovery: the same agents report companion packages worth admitting (hosting integrations, instrumentation, serialization adapters); discoveries surface at the gate for user decision.
 5. App-library architecture scouts + sanitizer (the application libraries' ARCHITECTURE and ROADMAP documents only); sanitized pressure reaches research agents exclusively through orchestrator-written lane briefs — research agents never read scout maps.
 6. Lane design (orchestrator): 4-6 disjoint lanes per page, at least one package-integration lane per major package family; every lane brief carries an OWNS/ASSUMES disjointness statement derived from the parent roadmap entry, plus the API-map digest and scout pressure inline. Lane agents see no other lane's brief.

@@ -1,42 +1,38 @@
-# [RASM_COMPUTE_API]
+# [RASM_COMPUTE_API_CATALOGUE]
 
-This folder carries the Compute package API catalogue. It maps tensor, model, remote, units, staging, and stream APIs to one measured execution rail.
+`Rasm.Compute` package API catalogues state external package facts for staging, tensors, models, remote contracts, units, and receipts.
 
-## [1]-[SURFACES]
+## [1]-[PACKAGE_PAGES]
 
-This table routes catalogue pages by API family.
+[STAGING]:
+- rail: staging
+- pages:
+  - [api-highperformance.md](api-highperformance.md)
+  - [api-recyclable-stream.md](api-recyclable-stream.md)
 
-| [INDEX] | [READ_FOR]          | [OPEN]              |
-| :-----: | :------------------ | :------------------ |
-|   [1]   | tensor primitives   | [tensor](api-tensor.md) |
-|   [2]   | model execution     | [model](api-model.md) |
-|   [3]   | remote execution    | [remote](api-remote.md) |
-|   [4]   | unit boundaries     | [units](api-units.md) |
-|   [5]   | staging memory      | [staging](api-staging.md) |
-|   [6]   | pooled streams      | [streams](api-streams.md) |
+[REMOTE]:
+- rail: remote
+- pages:
+  - [api-protobuf.md](api-protobuf.md)
+  - [api-grpc-client.md](api-grpc-client.md)
+  - [api-grpc-tools.md](api-grpc-tools.md)
 
-## [2]-[API_LOCATORS]
+[MODEL]:
+- rail: model
+- pages:
+  - [api-onnxruntime.md](api-onnxruntime.md)
+  - [api-onnx-extensions.md](api-onnx-extensions.md)
 
-This table is a lookup by locator family.
+[MATH]:
+- rail: math
+- pages:
+  - [api-tensors.md](api-tensors.md)
+  - [api-unitsnet.md](api-unitsnet.md)
 
-| [INDEX] | [FAMILY]  | [API_LOCATOR]                         | [LOCAL_RAIL] |
-| :-----: | :-------- | :------------------------------------ | :----------- |
-|   [1]   | NuGet     | `.cache/nuget/packages/<package>/`    | package      |
-|   [2]   | Decompile | `tools.assay api query` or `ilspycmd` | inspection   |
+## [2]-[CATALOGUE_LAW]
 
-## [3]-[CAPABILITIES]
-
-This table maps catalogue pages to execution rails.
-
-| [INDEX] | [PAGE]   | [CAPABILITY]                 |
-| :-----: | :------- | :--------------------------- |
-|   [1]   | tensor   | tensor operations            |
-|   [2]   | model    | ONNX Runtime inference       |
-|   [3]   | remote   | gRPC and protobuf contracts  |
-|   [4]   | units    | physical-unit boundaries     |
-|   [5]   | staging  | span and memory helpers      |
-|   [6]   | streams  | recyclable stream pooling    |
-
-## [4]-[REJECTED]
-
-Rejected execution packages appear on the catalogue page that owns the rail.
+[PACKAGE_SCOPE]:
+- Package pages carry external package API facts and package-local admission cards.
+- Architecture pages carry local package law and dependency direction.
+- README pages route catalogues without duplicating member tables.
+- Stack doctrine packages stay in the C# stack atlas, not package-local reports.
