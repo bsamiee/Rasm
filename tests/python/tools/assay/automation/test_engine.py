@@ -22,7 +22,7 @@ from expression import Ok
 import msgspec
 import pytest
 
-from tests.python._testkit._aspect import register_law  # _-prefixed by S1 design; private to the test tree
+from tests.python._testkit.laws import register_law
 from tools.assay.automation import engine as _eng
 from tools.assay.automation.engine import is_governed
 from tools.assay.automation.model import Debounce, Manual, Program, Rail, Schedule, Sequence, Watch, WatchFilter
@@ -33,7 +33,7 @@ from tools.assay.core.status import RailStatus
 if TYPE_CHECKING:
     from collections.abc import AsyncIterator
 
-    from tests.python.tools.assay.conftest import AssayHarness, CpuDoubleInstaller, CpuSampler, RailProbe
+    from tests.python.tools.assay.kit import AssayHarness, CpuDoubleInstaller, CpuSampler, RailProbe
     from tools.assay.automation.model import Action, Trigger
     from tools.assay.core.model import Envelope
 
@@ -93,7 +93,6 @@ _FAULT_CASES: list[tuple[str, Trigger, Action, Claim, str, tuple[str, ...]]] = [
         (),
     ),
 ]
-
 
 # --- [OPERATIONS] -----------------------------------------------------------------------
 
@@ -245,7 +244,6 @@ def test_is_governed_primed_latch_reads_without_warmup(cpu_double: CpuDoubleInst
 
 register_law(is_governed, "test_is_governed_primed_latch_reads_without_warmup")
 
-
 # --- [LAWS_DRIVE_PROGRAM]
 
 
@@ -326,7 +324,6 @@ def test_drive_program_status_projection(
 
 register_law(_eng.drive, "test_drive_program_status_projection")
 
-
 # --- [LAWS_DRIVE_RAIL]
 
 
@@ -349,7 +346,6 @@ def test_drive_rail_resolves_bind_and_emits_canned_envelope(
 
 
 register_law(_eng.drive, "test_drive_rail_resolves_bind_and_emits_canned_envelope")
-
 
 # --- [LAWS_DRIVE_GOVERNOR]
 
@@ -378,7 +374,6 @@ def test_drive_governed_skip_emits_one_skip_envelope(
 
 
 register_law(_eng.drive, "test_drive_governed_skip_emits_one_skip_envelope")
-
 
 # --- [LAWS_DRIVE_SEQUENCE]
 
@@ -517,7 +512,6 @@ def test_drive_sequence_halts_on_fault(
 
 register_law(_eng.drive, "test_drive_sequence_halts_on_fault")
 
-
 # --- [LAWS_DRIVE_WATCH]
 
 
@@ -559,6 +553,45 @@ def test_watch_filter_resolves_tag_to_watchfiles_filter(filter_tag: WatchFilter,
 register_law(_eng.drive, "test_watch_filter_resolves_tag_to_watchfiles_filter")
 
 
+def test_watch_filter_default_extends_builtin_noise_suppression() -> None:
+    """The DEFAULT arm EXTENDS ``DefaultFilter.ignore_entity_patterns`` (keeps ``.pyc``/``.DS_Store``) and adds the spec's ignores.
+
+    Falsified by: a bare ``ignore_entity_patterns=ignores`` that REPLACES the built-in noise defaults — the rebuilt
+    filter would then surface ``.pyc``/``.DS_Store`` churn. ``.git``/``node_modules`` ride ``DefaultFilter.ignore_dirs``,
+    which the entity-pattern override never touches, so they stay suppressed.
+    """
+    flt = _eng._watch_filter(Watch(paths=("x",), filter=WatchFilter.DEFAULT, ignore_patterns=(r"\.custom$",)))
+    patterns = tuple(r.pattern for r in flt._ignore_entity_regexes)  # DefaultFilter stores compiled regexes here
+    assert any("DS_Store" in p for p in patterns), "built-in .DS_Store suppression must survive the extension"
+    assert any("py[cod]" in p for p in patterns), "built-in .pyc suppression must survive the extension"
+    assert any("custom" in p for p in patterns), "the spec's own ignore must be appended"
+    assert {".git", "node_modules"} <= set(flt._ignore_dirs), "default ignore_dirs (.git/node_modules) stay suppressed"
+
+
+register_law(_eng.drive, "test_watch_filter_default_extends_builtin_noise_suppression")
+
+
+def test_watch_skips_empty_timeout_heartbeat(
+    assay_root: AssayHarness, captured_emits: list[Envelope], rail_probe: RailProbe, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """An empty ``awatch`` yield (the ``yield_on_timeout`` stop-latency heartbeat) does NOT fire the action.
+
+    ``rust_timeout``/``yield_on_timeout`` make ``awatch`` surface an empty changeset every window purely to re-check
+    ``stop_event``; the ``case (): pass`` arm drops it. Falsified by firing on the empty batch — the action would run
+    once per timeout window (a phantom Envelope) with no file event.
+    """
+    rail_probe.install(monkeypatch, _eng, "run_check_async", rail_probe.ok(("tool",)))
+    monkeypatch.setattr(_eng, "awatch", _fake_awatch(((), _FIRST, ())))  # empty heartbeat, one real batch, empty heartbeat
+
+    spec = Watch(paths=(str(assay_root.root),))
+    anyio.run(_eng.drive, spec, Program(argv=("tool",)), assay_root.settings)
+
+    assert len(captured_emits) == 1, f"only the non-empty batch fires; empty heartbeats are dropped, got {len(captured_emits)}"
+
+
+register_law(_eng.drive, "test_watch_skips_empty_timeout_heartbeat")
+
+
 def test_drive_watch_debounce_collapses_storm(
     assay_root: AssayHarness, captured_emits: list[Envelope], rail_probe: RailProbe, monkeypatch: pytest.MonkeyPatch
 ) -> None:
@@ -589,7 +622,6 @@ def test_drive_watch_debounce_collapses_storm(
 
 
 register_law(_eng.drive, "test_drive_watch_debounce_collapses_storm")
-
 
 # --- [LAWS_DRIVE_SCHEDULE]
 
@@ -792,7 +824,6 @@ def test_hardened_fire_faults_reset_after_exception(
 
 register_law(_eng.drive, "test_hardened_fire_faults_reset_after_exception")
 
-
 # --- [LAWS_DRIVE_DEBOUNCE]
 
 
@@ -853,7 +884,6 @@ def test_debounce_signal_ignores_when_buffer_full() -> None:
 
 register_law(_eng.drive, "test_debounce_signal_ignores_when_buffer_full")
 
-
 # --- [LAWS_DRIVE_SETUP_FAULT]
 
 
@@ -905,7 +935,7 @@ def test_drive_emits_ndjson_on_stdout(assay_root: AssayHarness, capsysbinary: py
     Falsified by: writing the Envelope to stderr, writing raw non-JSON bytes, or omitting the
     newline separator — any of which breaks the NDJSON framing contract for downstream consumers.
     """
-    from tests.python.tools.assay.conftest import (  # noqa: PLC0415  # deferred: conftest import is typed; top-level would be circular
+    from tests.python.tools.assay.kit import (  # noqa: PLC0415  # deferred: single-test oracle import stays off the module import path
         read_one_envelope_from_bytes,
     )
 

@@ -20,15 +20,13 @@ Each lane folder in `<WORKSPACE>` holds a `00-bedrock.md`: the verified, current
 - The series outlives the page: distillation selects from it, enrichment re-mines it, and snippet work verifies against it — write for that whole life, not for one page's print.
 
 [LOOP]:
-- Each agent researches external truth only — current official docs, language standards and proposals, and installed library source — verifies each finding, writes its file, then grades it and runs its own loop until it clears the bar: re-read and critique; strip every anti-pattern; correct or cut old, wrong, or stale claims; consolidate near-identical lines into one combined-value finding; and rework each line by its grade, keeping only advanced material relevant to the lane.
+- Each agent researches current material only — current official docs, language standards and proposals, and installed library implementation — verifies each finding, writes its file, then grades it and runs its own loop until it clears the bar: re-read and critique; strip every anti-pattern; correct or cut old, wrong, or stale claims; consolidate near-identical lines into one combined-value finding; and rework each line by its grade, keeping only advanced material relevant to the lane.
 
 [GRADE]:
 - Grade against the research ladder in `_grading.md` at the reports root — the minimum across its axes clears the stage bar; the re-tread and lateral-drift automatic fails are this stage's sharpest edges. Rework until each axis clears.
 
 [DISCIPLINE]:
-- Findings only — the rule, the mechanism, the API shape, the design pressure, the constraint, the gap, and the code that proves it. Say nothing about the file or the work; never use meta-commentary, "this is..." framing, or any introduction, routing, summary, sources, or validation section — just logical category groups filled with findings.
-- Assume the newest release of every tool and library; state current behavior, and never name, contrast, or replace an older version, default, or paradigm.
-- Name no version, source, citation, path, or date; make no reference to another file, page, lane, or any repository name, path, or pattern. One H1, then `[GROUP_LABEL]:` groups of contiguous bullets with no blank line between items, and a blank line only around a fenced code block, with neutral placeholder names, and code only where an advanced pattern justifies it.
+- Findings only — the rule, the mechanism, the API shape, the design pressure, the constraint, the gap, and the code that proves it. Say nothing about the file or the work; never use meta-commentary, "this is..." framing, or any introduction, routing, summary, materials, or confirmation tail — just logical category groups filled with findings.
+- Assume the newest release of every tool and library; state current behavior, and never name, contrast, or replace an older release label, default, or paradigm.
+- Name no release label, material, outside link, path, or date; make no reference to another file, page, lane, or any repository name, path, or pattern. One H1, then `[GROUP_LABEL]:` groups of contiguous bullets with no blank line between items, and a blank line only around a fenced code block, with neutral placeholder names, and code only where an advanced pattern justifies it.
 - Advanced and non-obvious only; a finding a strong engineer already holds is deepened until it is not, or cut.
-
-[COMMIT]: stage and commit `<WORKSPACE>`.

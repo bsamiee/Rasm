@@ -1,6 +1,6 @@
 # [SUPPORT_MATRIX_STANDARDS]
 
-A support matrix is policy-backed reference: it states which runtime, platform, version, feature, integration, or combination is supported now, what that status grants, what bounds qualify it, and what evidence refreshes it. It is not a roadmap, release note, migration guide, or recovery procedure. It answers "is this supported, under which conditions, and until when" in one scan.
+A support matrix is policy-backed reference: it states which runtime, platform, version, feature, integration, or combination is supported now, what that status grants, what bounds qualify it, and what confirmation refreshes it. It is not a roadmap, release note, migration guide, or recovery procedure. It answers "is this supported, under which conditions, and until when" in one scan.
 
 ## [1]-[USE_WHEN]
 
@@ -14,7 +14,7 @@ Route future support intent to [roadmap.md](../explanation/roadmap.md), current 
 
 [AUTHORING_CONTRACT]:
 - Agent use: choose one support profile and regime, declare the status vocabulary, then publish only support facts a reader can compare or act on.
-- Required produced structure: lead, `Scope`, `Status vocabulary`, `Matrix`, `Exclusions`, `Boundaries`, and `Validation`, with profile-triggered lifecycle, bounds, dependency, limitation, deprecation, or migration sections inserted only when needed.
+- Required produced structure: lead, `Scope`, `Status vocabulary`, `Matrix`, `Exclusions`, `Boundaries`, and `Result check`, with profile-triggered lifecycle, bounds, dependency, limitation, deprecation, or migration sections inserted only when needed.
 - Section cardinality: one support question per matrix; one status vocabulary; one or more matrix sets only when profile axes differ; conditional sections appear only when their rows consume them.
 - Adjacent checks: check roadmap for future intent, architecture for current path-state or codemap changes, API/code documentation for contract-backed support, README for entry status, how-to for migration steps, runbook for operational recovery, and reference for ordinary lookup facts only when a row changes those reader actions.
 - Maintenance triggers: update the matrix when a source lifecycle, support phase, compatibility bound, generated check, dependency floor, entitlement, host runtime, support row, deprecation warning, replacement, or migration route changes.
@@ -64,12 +64,6 @@ Use this universal template:
 
 ## [5]-[BOUNDARIES]
 
-## [6]-[VALIDATION]
-```
-
-Add these conditional sections only when the selected profile requires them:
-
-```markdown template
 ## [N]-[LIFECYCLE_DATES]
 
 ## [N]-[READING_RULE]
@@ -89,7 +83,7 @@ Section cardinality uses these groups:
 
 [REQUIRED_UNIVERSAL]:
 - Opening lead: required, single; states the support question, profile, and regime.
-- Required sections: `Scope`, `Status vocabulary`, `Matrix`, `Exclusions`, `Boundaries`, and `Validation`.
+- Required sections: `Scope`, `Status vocabulary`, `Matrix`, `Exclusions`, `Boundaries`, and `Result check`.
 - Repeatable section: `Matrix`, one table or grouped subsection per profile axis.
 
 [CONDITIONAL_PROFILE]:
@@ -102,25 +96,25 @@ Section cardinality uses these groups:
 
 [CLOSE]:
 - `Boundaries`: required, single.
-- `Validation`: required, single.
+- `Result check`: required, single.
 
 ## [5]-[LIFECYCLE_BASELINES]
 
 Map imported lifecycle or compatibility concepts to their source instead of flattening them into local vocabulary.
 
-Use local manifests, lockfiles, generated contracts, compatibility checks, release records, and scope-local reference documents for repository support truth. Use imported lifecycle or compatibility values only when a maintained source route preserves the source fields before local mapping.
+Use local manifests, lockfiles, generated contracts, compatibility checks, release records, and scope-local reference documents for repository support truth. Use imported lifecycle or compatibility values only when a maintained material route preserves the source fields before local mapping.
 
-Apply [proof.md](../proof.md) to row-level proof and source-conflict handling. A visible source-model record is required when imported lifecycle data, generated compatibility checks, manifests, lockfiles, or maintained policy controls more than one row. Keep row-level proof for exceptions and rows refreshed independently.
+Apply [proof.md](../proof.md) to row-level confirmation and owner-conflict handling. A visible owner-model record is required when imported lifecycle data, generated compatibility checks, manifests, lockfiles, or maintained policy controls more than one row. Keep row-level confirmation for exceptions and rows refreshed independently.
 
 Do not invent local lifecycle semantics where maintained policy carries phase, date, support entitlement, or compatibility. When a generated compatibility check and prose disagree, the check controls.
 
 ```text template
 Support regime: `<rolling, fixed-term, intersection, skew-governed, entitlement-gated, or local generated>`
-Evidence: `<source path, generated check, manifest, lockfile, maintained policy, or proof gap>`
-Generated from: `<compatibility check, lifecycle import, manifest query, or omitted when manually sourced>`
-Controlling source: `<maintained policy, manifest, lockfile, generated contract, support row, or maintained source>`
-Proof gap: `<missing policy, unrun generated check, unavailable source, or omitted when proved>`
-Last verified: YYYY-MM-DD
+Observed result: `<code path, generated check, manifest, lockfile, maintained policy, or confirmation gap>`
+Generated by: `<compatibility check, lifecycle import, manifest query, or omitted when manually owned>`
+Owner: `<maintained policy, manifest, lockfile, generated contract, support row, or maintained material>`
+Confirmation gap: `<missing policy, unrun generated check, unavailable source, or omitted when proved>`
+Refresh trigger: <owner-change>
 Review trigger: `<policy, lifecycle source, generated check, manifest, package, host, or support document changes>`
 Imported fields: `<source fields preserved before local mapping; omit when not imported>`
 Missing-value rule: `<how null, false, omitted, not announced, and unknown values are preserved>`
@@ -131,7 +125,7 @@ When importing lifecycle data, preserve upstream field names before mapping them
 - Related fields: preserve every source support, maintenance, latest, or custom field when it affects a row.
 - Missing-value rule: preserve omitted fields, explicit `null`, false booleans, not-announced dates, and not-applicable facts as distinct values. Use `—` for absent table cells, source literal `null` only for actual null, `false` only for actual false, `not announced` or source literal wording for unknown dates, and `n/a` only when the domain says the field does not apply.
 
-In support matrices, `n/a` is support-specific: it means the support field does not apply to that surface, version, platform, entitlement, or derived cell. It is not a general synonym for domain `none`, blank data, unknown support, or an unrun proof gate.
+In support matrices, `n/a` is support-specific: it means the support field does not apply to that surface, version, platform, entitlement, or derived cell. It is not a general synonym for domain `none`, blank data, unknown support, or an unrun confirmation gate.
 
 ## [6]-[STATUS_VOCABULARY]
 
@@ -185,9 +179,9 @@ Released: not recorded in repository support policy.
 End of active support: not announced in this matrix.
 End of life: not announced in this matrix.
 End of extended support: n/a
-Evidence: `<manifest or support policy>`
-Controlling source: repository target-framework configuration or support policy.
-Last verified: YYYY-MM-DD
+Observed result: `<manifest or support policy>`
+Owner: repository target-framework configuration or support policy.
+Refresh trigger: <owner-change>
 Review trigger: target framework, SDK pin, or support policy changes.
 ```
 
@@ -223,7 +217,7 @@ Text equivalent: the support row remains `Supported` until the source phase chan
 
 ## [8]-[MATRIX]
 
-Use a table when row-and-column scanning is the clearest comparison and keep it inside the shared table ceiling. Use a definition block when one surface is read by field. Use grouped subsections when a row needs paragraph detail, nested proof, or migration explanation.
+Use a table when row-and-column scanning is the clearest comparison and keep it inside the shared table ceiling. Use a definition block when one surface is read by field. Use grouped subsections when a row needs paragraph detail, nested confirmation, or migration explanation.
 
 Each row must stand alone. Include the applicable field set by purpose:
 
@@ -234,29 +228,29 @@ Each row must stand alone. Include the applicable field set by purpose:
 - `Source phase`: exact lifecycle or support phase from the source, when one exists.
 - `Key date`: lifecycle or deprecation date when the profile carries dates.
 
-[CONSTRAINT_PROOF]:
+[CONSTRAINT_CONFIRMATION]:
 - `Supported capabilities`: capabilities covered when status is partial.
 - `Unsupported capabilities`: capabilities excluded when status is partial.
 - `Compatibility bound`: version range or provider policy term for compatibility rows.
 - `Requirement`: dependency, entitlement, certification, patch, or toolchain floor.
 - `Replacement`: required when deprecated or removed.
-- `Basis when needed`: source path, contract, command, generated check, or maintained policy link.
+- `Basis when needed`: code path, contract, command, generated check, or maintained policy link.
 
-Do not copy a large generated or source-maintained matrix when a maintained source is stronger. Publish only the local subset that changes reader decisions and link the controlling source.
+Do not copy a large generated or source-maintained matrix when a maintained material is stronger. Publish only the local subset that changes reader decisions and link the controlling source.
 
-An accepted matrix shows the comparison axis, support condition, explicit unknowns, and proof stub without turning cells into paragraphs. Use `[CONDITION]` for the shortest support condition; promote the row to a record when source phase, phase grants, requirement, replacement, or proof needs separate fields.
+An accepted matrix shows the comparison axis, support condition, explicit unknowns, and confirmation stub without turning cells into paragraphs. Use `[CONDITION]` for the shortest support condition; promote the row to a record when source phase, phase grants, requirement, replacement, or confirmation needs separate fields.
 
 ```markdown conceptual
-| [INDEX] | [SURFACE]             | [SCOPE]         | [STATUS]  | [CONDITION]           | [KEY_DATE]      | [BASIS]               |
-| :-----: | :-------------------- | :-------------- | :-------- | :-------------------- | :-------------- | :-------------------- |
-|   [1]   | `<surface>`           | `<scope>`       | Supported | `<support condition>` | not announced   | `<maintained source>` |
-|   [2]   | `<integration>`       | `<environment>` | Limited   | `<source condition>`  | still supported | `<source manifest>`   |
-|   [3]   | `<generated surface>` | `<metadata>`    | Supported | `<source key>`        | not announced   | `<generated check>`   |
+| [INDEX] | [SURFACE]             | [SCOPE]         | [STATUS]  | [CONDITION]           | [KEY_DATE]      | [BASIS]                 |
+| :-----: | :-------------------- | :-------------- | :-------- | :-------------------- | :-------------- | :---------------------- |
+|   [1]   | `<surface>`           | `<scope>`       | Supported | `<support condition>` | not announced   | `<maintained material>` |
+|   [2]   | `<integration>`       | `<environment>` | Limited   | `<source condition>`  | still supported | `<source manifest>`     |
+|   [3]   | `<generated surface>` | `<metadata>`    | Supported | `<source key>`        | not announced   | `<generated check>`     |
 ```
 
-Notes: `not announced` and `still supported` are explicit values, not blank cells. Row-level proof belongs beside the row note or promoted record: `Evidence: <policy, generated check, or command>` and `Review trigger: <release line, policy, entitlement, or generated-check change>`.
+Notes: `not announced` and `still supported` are explicit values, not blank cells. Row-level confirmation belongs beside the row note or promoted record: `Observed result: <policy, generated check, or command>` and `Review trigger: <release line, policy, entitlement, or generated-check change>`.
 
-When a table row needs proof, replacement, or migration detail too large for a cell, move that row to a record:
+When a table row needs confirmation, replacement, or migration detail too large for a cell, move that row to a record:
 
 ```text template
 Surface: `<product, component, feature, runtime, platform, API, or plan>`
@@ -267,9 +261,9 @@ Phase grants: `<fix classes or support channel>`
 Key date: `<date, not announced, still supported, or n/a>`
 Requirement: `<dependency, certification, or entitlement; omit when unconditional>`
 Replacement: `<replacement surface; omit when no replacement exists>`
-Evidence: `<source path, generated check, command, contract, or maintained policy>`
-Controlling source: `<source path, manifest, generated contract, or maintained policy>`
-Proof gap: `<missing source, unrun check, unavailable policy, or omitted when proved>`
+Observed result: `<code path, generated check, command, contract, or maintained policy>`
+Owner: `<code path, manifest, generated contract, or maintained policy>`
+Confirmation gap: `<missing source, unrun check, unavailable policy, or omitted when proved>`
 Review trigger: `<release, policy, compatibility, entitlement, or generated-check change>`
 Route-away: `<README, API, roadmap, migration how-to, runbook, or support document body; omit untriggered routes>`
 ```
@@ -312,11 +306,11 @@ Never imply bidirectional or numeric skew support when the source uses another c
 
 ## [11]-[DEPENDENCY_FLOORS]
 
-State dependency floors where support depends on an upstream runtime, OS, toolchain, host, or package. Each row names the minimum supported upstream version, any ceiling, and the upstream end-of-life rule. Local support never extends past the upstream's own end of life unless an explicit extended-support program is named and sourced.
+State dependency floors where support depends on an upstream runtime, OS, toolchain, host, or package. Each row names the minimum supported upstream version, any ceiling, and the upstream end-of-life rule. Local support never extends past the upstream's own end of life unless an explicit extended-support program is named and owned.
 
 ## [12]-[EXCLUSIONS]
 
-Enumerate unsupported configurations explicitly. The absence of a row is not proof of support or lack of support.
+Enumerate unsupported configurations explicitly. The absence of a row is not confirmation of support or lack of support.
 
 ```text conceptual
 Unsupported: treating an unsupported platform package as a runtime dependency; using host-specific collection semantics as generic lists; resolving host API symbols without maintained metadata.
@@ -345,16 +339,16 @@ Warning signal: maintained support policy or contract marks the surface deprecat
 Replacement: `<replacement surface>`.
 Removal: remove stale references when the maintained support source marks the surface retired.
 Behavior change: callers use the replacement surface for the same reader action.
-Evidence: current support policy, API contract, or proof gap.
-Controlling source: maintained support or API contract.
-Proof gap: missing support source or omitted when proved.
-Last verified: YYYY-MM-DD
+Observed result: current support policy, API contract, or confirmation gap.
+Owner: maintained support or API contract.
+Confirmation gap: missing support source or omitted when proved.
+Refresh trigger: <owner-change>
 Review trigger: command surface, generated API contract, support policy, or migration route changes.
 ```
 
 ## [14]-[MIGRATION_PATHS]
 
-Keep migration guidance decision-oriented. For each migration, name source surface, target surface, direct or staged path, prerequisites, known breaking changes, evidence signal, and controlling how-to. Put the step-by-step work in [how-to.md](../task/how-to.md) and operational recovery in [runbook.md](../task/runbook.md).
+Keep migration guidance decision-oriented. For each migration, name source surface, target surface, direct or staged path, prerequisites, known breaking changes, confirmation signal, and controlling how-to. Put the step-by-step work in [how-to.md](../task/how-to.md) and operational recovery in [runbook.md](../task/runbook.md).
 
 Use a migration anchor record when the support matrix links roadmap intent, API deprecation, README status, or a how-to without embedding the sequence:
 
@@ -365,7 +359,7 @@ Support status: `<status vocabulary term>`
 Changed fact: `<support row or lifecycle fact that changed>`
 Consumed by: `<API, architecture, README, roadmap, migration how-to, runbook, or support matrix>`
 Use in this document: `<reader decision the support matrix changes>`
-Evidence: `<command, generated check, source inspection, or proof gap>`
+Observed result: `<command, generated check, source inspection, or confirmation gap>`
 Update when: `<source support status, compatibility bound, generated check, replacement, or migration path changes>`
 Close when: `<target is adopted, source is removed, or consuming document routes away the migration>`
 Route-away: `<step-by-step migration, API catalog, README body, roadmap sequence, or runbook recovery body>`
@@ -373,7 +367,7 @@ Route-away: `<step-by-step migration, API catalog, README body, roadmap sequence
 
 ## [15]-[PLACEMENT]
 
-Place the matrix where the source path or generated artifact that refreshes it first points:
+Place the matrix where the code path or generated artifact that refreshes it first points:
 - Scope-local reference corpus when support truth belongs to one package, tool, or subsystem.
 - Reference-adjacent matrix when support facts sit beside other lookup leaves.
 - Shared support corpus such as `docs/support/<surface>.md` only when that corpus already exists or the change deliberately creates it.
@@ -390,38 +384,9 @@ Do not create a shared support folder by implication inside this standard.
 - [code-documentation.md](code-documentation.md) carries public symbol semantics when support or deprecation changes caller-visible source comments.
 
 [PLANNING_TASK_ROUTES]:
-- [roadmap.md](../explanation/roadmap.md) carries future support intent, task identity, and task exit proof.
+- [roadmap.md](../explanation/roadmap.md) carries future support intent, task identity, and task exit confirmation.
 - [how-to.md](../task/how-to.md) carries step-by-step migration procedures.
 - [runbook.md](../task/runbook.md) carries operational recovery for support-impacting incidents.
 - [README.md](../README.md) carries document-type routing, placement, and lifecycle.
 
 Package graph states are adoption states, not support statuses by default. A support matrix may consume package state only when it maps the row to support regime, source phase, fix classes, support channel, compatibility bounds, replacement, and removal behavior.
-
-## [17]-[VALIDATION]
-
-Use this verification checklist by group:
-
-[SOURCE_STATUS]:
-- [ ] Opening lead carries the support question, profile, and regime.
-- [ ] Scope names the surface, one profile, and the support regime.
-- [ ] Status vocabulary defines only used statuses and maps each to source phase and fix classes.
-- [ ] Imported lifecycle values preserve source names, boolean and date pairs, and null or not-announced distinctions before local mapping.
-- [ ] Imported lifecycle rows distinguish omitted, explicit null, false, and not-announced values where the source model distinguishes them.
-
-[MATRIX_ROWS]:
-- [ ] Matrix rows stand alone and carry claim-level proof through [proof.md](../proof.md) when needed.
-- [ ] Exclusions enumerate unsupported configurations explicitly.
-- [ ] Lifecycle profiles keep active support, end of life, extended support, retirement, discontinuation, maintained, LTS, and latest facts distinct where the source distinguishes them.
-- [ ] Compatibility profiles use the correct source model: skew, semver range, dependency bounds, API window, provider policy, or generated check.
-- [ ] Skew fields appear only for skew-governed systems and use source-defined component bounds.
-- [ ] Dependency-floor rows state the source minimum and support ceiling.
-
-[BOUNDS_DIAGRAMS]:
-- [ ] Unknown dates or undecided statuses are encoded explicitly.
-- [ ] Conditional support uses row-owned records, never paragraph cells.
-- [ ] Lifecycle, deprecation, or compatibility diagrams appear only where transitions or edges change reader action, and each diagram has a text equivalent.
-
-[DEPRECATION_MIGRATION]:
-- [ ] Deprecation entries distinguish current availability, warning signal, replacement, removal, behavior change, and the policy behind removal.
-- [ ] Migration anchors name source, target, roadmap or how-to route, and `Evidence` rather than embedding steps.
-- [ ] Boundaries route adjacent concerns once and every relative link resolves.

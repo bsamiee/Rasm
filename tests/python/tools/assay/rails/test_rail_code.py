@@ -1,9 +1,11 @@
-"""Laws for tools.assay.rails.code — CodeParams, query, rewrite, search."""
+"""Laws for tools.assay.rails.code — CodeParams, query, search."""
 
 # --- [RUNTIME_PRELUDE] ------------------------------------------------------------------
 
 from dataclasses import replace as dc_replace
+from hashlib import sha256
 from pathlib import Path
+import shutil
 import tempfile
 from typing import TYPE_CHECKING
 
@@ -14,32 +16,35 @@ import msgspec.structs
 import pytest
 from upath import UPath
 
-from tests.python._testkit._aspect import register_law  # `_`-prefixed by S1 test-internal design
-from tests.python._testkit._spec import assert_error, assert_ok, validity_matrix, ValidityCase  # `_`-prefixed by S1 test-internal design
-from tests.python._testkit._strategies import resolve  # `_`-prefixed by S1 test-internal design
+from tests.python._testkit.laws import register_law
+from tests.python._testkit.spec import assert_error, assert_ok, validity_matrix, ValidityCase
+from tests.python._testkit.strategies import resolve
 from tools.assay.composition.catalog import AstMatch, Capture, CAPTURE_ENCODER, CAPTURES
 from tools.assay.composition.settings import ArtifactScope, AssaySettings
-from tools.assay.core.model import Check, Claim, Fault, Input, Language, Mode, receipt, Runner, Tool
+from tools.assay.core.model import ArtifactKind, Check, Claim, Fault, Input, Language, Mode, receipt, Runner, Tool
 from tools.assay.core.routing import Routed, Scope
 from tools.assay.core.status import RailStatus
 import tools.assay.rails.code as code_rail
 from tools.assay.rails.code import (
     _ag_normalize,  # private primitives under direct law coverage
-    _ag_rows,  # private primitives under direct law coverage
-    _apply_report,  # private primitives under direct law coverage
+    _AG_SPEC,  # private primitives under direct law coverage
     _artifact,  # private primitives under direct law coverage
     _checks,  # private primitives under direct law coverage
+    _content_splice,  # private primitives under direct law coverage
     _dispatch,  # private primitives under direct law coverage
+    _eq_needles,  # private primitives under direct law coverage
     _languages,  # private primitives under direct law coverage
-    _rg_rows,  # private primitives under direct law coverage
+    _project_rows,  # private primitives under direct law coverage
+    _RG_SPEC,  # private primitives under direct law coverage
     _rg_status,  # private primitives under direct law coverage
+    _search_splice,  # private primitives under direct law coverage
     _targets,  # private primitives under direct law coverage
+    _top_level_patterns,  # private primitives under direct law coverage
     _ts_grammar,  # private primitives under direct law coverage
-    _ts_rows,  # private primitives under direct law coverage
+    _TS_SPEC,  # private primitives under direct law coverage
     _ts_thunk,  # private primitives under direct law coverage
     CodeParams,
     query,
-    rewrite,
     search,
     ts_language,
 )
@@ -48,7 +53,7 @@ from tools.assay.rails.code import (
 if TYPE_CHECKING:
     from collections.abc import Callable
 
-    from tests.python.tools.assay.conftest import AssayHarness
+    from tests.python.tools.assay.kit import AssayHarness
 
 
 # --- [CONSTANTS] ------------------------------------------------------------------------
@@ -58,18 +63,15 @@ _PY_FUNC_QUERY = "(function_definition name: (identifier) @name)"
 _BLANK_CASES: tuple[str, ...] = ("", "   ", "\t")
 _AG_MATCH = AstMatch(text="alpha = 1", file="pkg/mod.py", lines="alpha = 1\n", replacement="let alpha = 1")
 
-
 # --- [OPERATIONS] -----------------------------------------------------------------------
 
 # --- [CODEPARAMS_LAWS]
 
 
 def test_codeparams_defaults() -> None:
-    """Default CodeParams has blank pattern, empty rewrite/paths, apply=False, max_results=1000."""
+    """Default CodeParams has blank pattern, empty paths, max_results=1000."""
     p = CodeParams()
     assert not p.pattern
-    assert not p.rewrite
-    assert not p.apply
     assert p.paths == ()
     assert p.max_results == 1000
 
@@ -79,11 +81,8 @@ def test_codeparams_defaults() -> None:
     [
         ("search", ("mypat", "src/"), "mypat", False),
         ("query", ("qpat",), "qpat", False),
-        ("rewrite", ("pat", "rep", "src/"), "pat", False),
-        ("rewrite", ("pat",), "pat", False),
         ("search", (), "", True),
         ("query", (), "", True),
-        ("rewrite", (), "", True),
         ("search", ("   ",), "", True),
     ],
 )
@@ -93,7 +92,7 @@ def test_codeparams_bound_positional_projection(
     expected_pattern: str,
     is_fault: bool,  # noqa: FBT001  # parametrized bool flag
 ) -> None:
-    """bound() projects positionals into pattern/rewrite, faults on missing or blank pattern."""
+    """bound() projects the leading positional into pattern, faults on missing or blank pattern."""
     result = CodeParams(paths=paths).bound(verb)
     match is_fault:
         case True:
@@ -108,7 +107,7 @@ def test_codeparams_bound_positional_projection(
 @hyp_settings(parent=hyp_settings.get_profile("rasm"))
 def test_codeparams_bound_with_explicit_pattern_never_overwrites(p: CodeParams) -> None:
     """bound() never overwrites a flag-supplied non-blank pattern."""
-    for verb in ("search", "query", "rewrite"):
+    for verb in ("search", "query"):
         result = dc_replace(p, pattern="explicit").bound(verb)
         assert not isinstance(result, Fault), f"flag-pattern must survive bound({verb!r}): {result!r}"
         assert isinstance(result, CodeParams)
@@ -119,7 +118,7 @@ def test_codeparams_bound_with_explicit_pattern_never_overwrites(p: CodeParams) 
 @hyp_settings(parent=hyp_settings.get_profile("rasm"))
 def test_codeparams_bound_idempotent_on_explicit_pattern(p: CodeParams) -> None:
     """bound() is idempotent when pattern is already set — second call changes nothing."""
-    for verb in ("search", "query", "rewrite"):
+    for verb in ("search", "query"):
         first = dc_replace(p, pattern="pat", paths=()).bound(verb)
         assert isinstance(first, CodeParams)
         second = first.bound(verb)
@@ -129,8 +128,8 @@ def test_codeparams_bound_idempotent_on_explicit_pattern(p: CodeParams) -> None:
 
 @pytest.mark.parametrize("blank", _BLANK_CASES, ids=["empty", "spaces", "tab"])
 def test_codeparams_bound_rejects_blank_for_all_code_verbs(blank: str) -> None:
-    """bound() rejects blank/whitespace-only patterns for search, query, and rewrite."""
-    for verb in ("search", "query", "rewrite"):
+    """bound() rejects blank/whitespace-only patterns for search and query."""
+    for verb in ("search", "query"):
         result = CodeParams(pattern=blank).bound(verb)
         assert isinstance(result, Fault), f"expected Fault for {blank!r} on {verb!r}"
         assert result.status is RailStatus.FAULTED
@@ -147,7 +146,6 @@ def test_codeparams_bound_validity_matrix() -> None:
         [
             ValidityCase("search_with_pattern_ok", CodeParams(pattern="x").bound("search"), expected=False),
             ValidityCase("query_with_pattern_ok", CodeParams(pattern="x").bound("query"), expected=False),
-            ValidityCase("rewrite_with_pattern_ok", CodeParams(pattern="x").bound("rewrite"), expected=False),
             ValidityCase("search_blank_fault", CodeParams(pattern="").bound("search"), expected=True),
             ValidityCase("query_blank_fault", CodeParams(pattern="").bound("query"), expected=True),
         ],
@@ -239,7 +237,7 @@ def test_artifact_uses_assay_code_store(assay_root: AssayHarness) -> None:
 @hyp_settings(parent=hyp_settings.get_profile("rasm"))
 def test_artifact_line_count_equals_splitlines(p: CodeParams) -> None:
     """_artifact.lines always equals len(content.splitlines()) for any content derived from params."""
-    content = f"{p.pattern}\n{p.rewrite}"
+    content = "\n".join((p.pattern, *p.paths))
     with tempfile.TemporaryDirectory() as tmp:
         root = Path(tmp)
         (root / "Workspace.slnx").write_text("", encoding="utf-8")
@@ -338,8 +336,8 @@ def test_rg_status_branches(
     ids=["match_events_parsed", "non_match_events_ignored"],
 )
 def test_rg_rows(raw: bytes, expected_count: int, check_listing: str | None) -> None:
-    """_rg_rows decodes ripgrep NDJSON match events; skips begin/end/non-JSON without raising."""
-    rows, listing, notes = _rg_rows((receipt(("rg",), 0, stdout=raw, status=RailStatus.OK),), 100, "alpha")
+    """_project_rows over _RG_SPEC decodes ripgrep NDJSON match events; skips begin/end/non-JSON without raising."""
+    rows, listing, notes = _project_rows((receipt(("rg",), 0, stdout=raw, status=RailStatus.OK),), 100, "alpha", spec=_RG_SPEC)
     assert len(rows) == expected_count
     assert notes == ()  # uncapped row sets carry no truncation note
     if check_listing:
@@ -348,28 +346,6 @@ def test_rg_rows(raw: bytes, expected_count: int, check_listing: str | None) -> 
         assert rows[0].id == "ripgrep:src/a.py:3"
     else:
         assert not listing
-
-
-# --- [APPLY_REPORT_LAWS]
-
-
-@pytest.mark.parametrize(
-    "stdout, rc, status_in, expected_status, ok_count",
-    [
-        (b"", 0, RailStatus.OK, RailStatus.OK, 1),  # empty stdout → no-changes fallback still OK
-        (b"3 files changed", 0, RailStatus.OK, RailStatus.OK, 1),
-        (b"error", 1, RailStatus.FAILED, RailStatus.FAILED, 0),
-        (b"", 0, RailStatus.EMPTY, RailStatus.EMPTY, 0),  # empty completeds tuple → EMPTY, not OK
-    ],
-    ids=["no_output", "with_stderr", "failed", "empty_completeds"],
-)
-def test_apply_report_branches(stdout: bytes, rc: int, status_in: RailStatus, expected_status: RailStatus, ok_count: int) -> None:
-    """_apply_report dispatches across output x status to correct report status."""
-    completeds = (receipt(("code", "rewrite", "pat"), rc, stdout=stdout, status=status_in),) if status_in is not RailStatus.EMPTY else ()
-    report = _apply_report("rewrite", "pat", completeds)
-    assert report.status is expected_status
-    if ok_count:
-        assert report.counts.ok == ok_count
 
 
 # --- [AG_NORMALIZE_TS_ROWS_LAWS]
@@ -406,10 +382,10 @@ def test_ts_rows_produces_match_rows_and_listing(
     expected_id_fragment: str,
     expected_severity: str | None,
 ) -> None:
-    """_ts_rows decodes Capture JSON into Match rows with correct id, text, severity, and listing."""
+    """_project_rows over _TS_SPEC decodes Capture JSON into Match rows with correct id, text, severity, and listing."""
     cap = Capture(name=name, text=text, file="pkg/mod.py" if not parse_error else "pkg/bad.py", line=1, column=5, ordinal=0, parse_error=parse_error)
     done = receipt(("tree-sitter",), rc, stdout=CAPTURE_ENCODER.encode((cap,)), status=status_in)
-    rows, listing, _notes = _ts_rows((done,), 100, "(function_definition)")
+    rows, listing, _notes = _project_rows((done,), 100, "(function_definition)", spec=_TS_SPEC)
     assert len(rows) == 1
     assert expected_id_fragment in rows[0].id
     assert rows[0].severity == expected_severity
@@ -424,15 +400,38 @@ def test_ts_rows_produces_match_rows_and_listing(
 
 
 def test_match_ids_carry_source_prefixes() -> None:
-    """Every row builder emits identity ids shaped source:file:line[:capture] with its tool prefix."""
+    """Every spec row emits identity ids shaped source:file:line[:capture] with its tool prefix."""
     ts_cap = Capture(name="name", text="alpha", file="pkg/mod.py", line=1, column=5)
     rg_event = b'{"type":"match","data":{"path":{"text":"src/a.py"},"lines":{"text":"alpha"},"line_number":3}}\n'
     ag = receipt(("ast-grep",), 0, stdout=msgspec.json.encode((_AG_MATCH,)), status=RailStatus.OK)
     ts = receipt(("tree-sitter",), 0, stdout=CAPTURE_ENCODER.encode((ts_cap,)), status=RailStatus.OK)
     rg = receipt(("rg",), 0, stdout=rg_event, status=RailStatus.OK)
-    assert _ag_rows((ag,), 10, "$X")[0][0].id == "ast-grep:pkg/mod.py:1"
-    assert _ts_rows((ts,), 10, "(q)")[0][0].id == "tree-sitter:pkg/mod.py:1:name"
-    assert _rg_rows((rg,), 10, "alpha")[0][0].id == "ripgrep:src/a.py:3"
+    assert _project_rows((ag,), 10, "$X", spec=_AG_SPEC)[0][0].id == "ast-grep:pkg/mod.py:1"
+    assert _project_rows((ts,), 10, "(q)", spec=_TS_SPEC)[0][0].id == "tree-sitter:pkg/mod.py:1:name"
+    assert _project_rows((rg,), 10, "alpha", spec=_RG_SPEC)[0][0].id == "ripgrep:src/a.py:3"
+
+
+def test_project_rows_shape_parity() -> None:
+    """Each spec row reproduces its per-family projector shape byte-for-byte: id, text, listing line, and empty uncapped note."""
+    ts_cap = Capture(name="name", text="alpha", file="pkg/mod.py", line=1, column=5, ordinal=0, pattern=0)
+    rg_line = b'{"type":"match","data":{"path":{"text":"src/a.py"},"lines":{"text":"alpha = 1 \\n"},"line_number":3}}\n'
+    ag = _project_rows((receipt(("ast-grep",), 0, stdout=msgspec.json.encode((_AG_MATCH,)), status=RailStatus.OK),), 10, "$X", spec=_AG_SPEC)
+    ts = _project_rows((receipt(("tree-sitter",), 0, stdout=CAPTURE_ENCODER.encode((ts_cap,)), status=RailStatus.OK),), 10, "(q)", spec=_TS_SPEC)
+    rg = _project_rows((receipt(("rg",), 0, stdout=rg_line, status=RailStatus.OK),), 10, "alpha", spec=_RG_SPEC)
+    assert (ag[0][0].id, ag[0][0].text, ag[1], ag[2]) == (
+        "ast-grep:pkg/mod.py:1",
+        "alpha = 1 => let alpha = 1",
+        "pkg/mod.py:1: alpha = 1 => let alpha = 1",
+        (),
+    )
+    assert (ts[0][0].id, ts[0][0].text, ts[0][0].severity, ts[1], ts[2]) == (
+        "tree-sitter:pkg/mod.py:1:name",
+        "@name alpha",
+        None,
+        "pkg/mod.py:1:5: @name#0/0 alpha",
+        (),
+    )
+    assert (rg[0][0].id, rg[0][0].text, rg[1], rg[2]) == ("ripgrep:src/a.py:3", "alpha = 1", "src/a.py:3: alpha = 1", ())
 
 
 def test_content_search_forced_cap_emits_results_note(assay_root: AssayHarness, monkeypatch: pytest.MonkeyPatch) -> None:
@@ -485,31 +484,26 @@ def test_query_public(assay_root: AssayHarness, content: str, pattern: str, chec
 
 
 @pytest.mark.parametrize(
-    "content, pattern",
-    [("alpha = 1\nbeta = 2\n", "$NAME = $VAL"), ("def alpha():\n    return 1\n", "alpha")],
+    "content, pattern, binary",
+    [("alpha = 1\nbeta = 2\n", "$NAME = $VAL", "ast-grep"), ("def alpha():\n    return 1\n", "alpha", "rg")],
     ids=["search_structural_on_metavar", "search_content_ok_on_literal_pattern"],
 )
-def test_search_public(assay_root: AssayHarness, content: str, pattern: str) -> None:
-    """search() routes to ast-grep (metavar) or ripgrep (literal); Ok report carries CODE claim."""
+def test_search_public(assay_root: AssayHarness, content: str, pattern: str, binary: str) -> None:
+    """search() routes to ast-grep (metavar) or ripgrep (literal); when the spawn binary resolves, the Ok report carries CODE claim.
+
+    The both-rails fallback survives only when the routed binary is absent from PATH (a CI without ast-grep/rg);
+    a resolvable binary must reach the Ok rail, so a real routing/spawn regression cannot hide behind the Error arm.
+    """
     assay_root.write("pkg/mod.py", content)
     result = search(assay_root.settings, assay_root.scope(Claim.CODE), CodeParams(pattern=pattern, language=Language.PYTHON, paths=("pkg/mod.py",)))
-    match result:
-        case _ if result.is_ok():
-            assert result.ok.claim is Claim.CODE
-        case _:
-            assert result.error.status in {RailStatus.FAULTED, RailStatus.FAILED}
-
-
-def test_rewrite_preview_ok_on_valid_pattern(assay_root: AssayHarness) -> None:
-    """rewrite() in preview mode (apply=False) returns an Ok Report for a valid pattern."""
-    assay_root.write("pkg/mod.py", "alpha = 1\n")
-    params = CodeParams(pattern="$NAME = $VAL", rewrite="let $NAME = $VAL", language=Language.PYTHON, paths=("pkg/mod.py",))
-    result = rewrite(assay_root.settings, assay_root.scope(Claim.CODE), params)
-    match result:
-        case _ if result.is_ok():
-            assert result.ok.claim is Claim.CODE
-        case _:
-            assert result.error.status in {RailStatus.FAULTED, RailStatus.FAILED}
+    match (shutil.which(binary), result.is_ok()):
+        case (str(), _):
+            assert result.is_ok(), f"resolvable {binary!r} must reach the Ok rail, not Error: {result!r}"
+            assert assert_ok(result).claim is Claim.CODE
+        case (None, True):
+            assert assert_ok(result).claim is Claim.CODE
+        case (None, False):
+            assert assert_error(result).status in {RailStatus.FAULTED, RailStatus.FAILED}
 
 
 # --- [MONKEYPATCHED_INTEGRATION_LAWS]
@@ -536,26 +530,197 @@ def test_content_search_monkeypatched(
         assert report.counts.total >= 1
 
 
-@pytest.mark.parametrize("apply", [True, False], ids=["apply_true", "apply_false"])
-def test_rewrite_fan_out(assay_root: AssayHarness, monkeypatch: pytest.MonkeyPatch, apply: bool) -> None:  # noqa: FBT001  # parametrized bool flag
-    """rewrite(apply) routes through fan_out; canned OK match propagates to the report."""
-    canned = receipt(("ast-grep",), 0, stdout=msgspec.json.encode((_AG_MATCH,)), status=RailStatus.OK)
-    monkeypatch.setattr(code_rail, "fan_out", lambda *_a, **_kw: (Ok(canned),))
-    if apply:
-        monkeypatch.setattr(code_rail, "leased", lambda _res, action, **_kw: action(None))
-    params = CodeParams(pattern="$NAME = $VAL", rewrite="let $NAME = $VAL", apply=apply, language=Language.PYTHON, paths=())
-    report = assert_ok(rewrite(assay_root.settings, assay_root.scope(Claim.CODE), params))
-    assert report.claim is Claim.CODE
-    if not apply:
-        assert report.counts.total >= 1
-
-
 def test_content_search_no_catalog_row_returns_fault(assay_root: AssayHarness, monkeypatch: pytest.MonkeyPatch) -> None:
     """_content_search faults with FAULTED when no CONTENT-mode tool exists in the catalog."""
     monkeypatch.setattr(code_rail, "select", lambda *_a, **_kw: ())
     fault = assert_error(search(assay_root.settings, assay_root.scope(Claim.CODE), CodeParams(pattern="anything", paths=())))
     assert fault.status is RailStatus.FAULTED
     assert "no ripgrep" in fault.message
+
+
+# --- [QUERY_KERNEL_BYTE_LAWS]
+
+
+@pytest.mark.parametrize(
+    "query_src, expected",
+    [("(a)", 1), ("(a) (b)", 2), ("(a (b))", 1), ('(a (#eq? @x "(y)"))', 1), ("; note (c)\n(a)", 1), (")(a)", 1), ("", 0)],
+    ids=["single", "two_top_level", "nested_uncounted", "string_masked_paren", "comment_masked_paren", "unbalanced_close_clamped", "empty"],
+)
+def test_top_level_patterns_masked_depth_count(query_src: str, expected: int) -> None:
+    """Kills _top_level_patterns fold mutations.
+
+    String/comment mask-regex corruption, '(' arm removal, count sign flips, and depth-clamp/seed-state
+    perturbations all shift the top-level pattern count.
+    """
+    assert _top_level_patterns(query_src) == expected
+
+
+@pytest.mark.parametrize(
+    "query_src, expected",
+    [
+        ('(function_definition name: (identifier) @name (#eq? @name "alpha"))', (frozenset((b"alpha",)),)),
+        ('(function_definition name: (identifier) @name (#any-of? @name "alpha" "beta"))', (frozenset((b"alpha", b"beta")),)),
+        (
+            '(call function: (identifier) @f (#eq? @f "go") arguments: (argument_list (string) @s (#any-of? @s "x" "y")))',
+            (frozenset((b"go",)), frozenset((b"x", b"y"))),
+        ),
+        ("(a) (b)", None),
+        ('(a (#match? @x "re"))', None),
+        ("(function_definition) @def", None),
+    ],
+    ids=["eq_single", "any_of_group", "eq_plus_any_of", "two_patterns_refused", "regex_predicate_refused", "predicate_free_refused"],
+)
+def test_eq_needles_prefilter_byte_sets(query_src: str, expected: tuple[frozenset[bytes], ...] | None) -> None:
+    """Kills _eq_needles widen/narrow mutations.
+
+    Predicate- or literal-regex corruption, pattern-count gate flips, subset-operator narrowing, and group
+    deletion all change the needle groups or wrongly toggle prefiltering.
+    """
+    assert _eq_needles(query_src) == expected
+
+
+def test_ts_thunk_eq_prefilter_skip_and_admit(assay_root: AssayHarness) -> None:
+    """Kills _ts_thunk prefilter-gate mutations.
+
+    Disabling needles parses needle-free broken files into FAILED instead of EMPTY; inverting membership
+    skips needle-bearing valid files into EMPTY instead of OK.
+    """
+    assay_root.write("pkg/mod.py", "def alpha():\n    return 1\n")
+    assay_root.write("pkg/broken_miss.py", "def broken(:\n")
+    thunk = _ts_thunk('(function_definition name: (identifier) @name (#eq? @name "alpha"))', Language.PYTHON, assay_root.root, limit=10)
+    admitted = thunk(Check(tool=_QUERY_TOOL, paths=("pkg/mod.py",)))
+    skipped = thunk(Check(tool=_QUERY_TOOL, paths=("pkg/broken_miss.py",)))
+    assert (admitted.status, CAPTURES.decode(admitted.stdout)[0].text) == (RailStatus.OK, "alpha")
+    assert (skipped.status, skipped.returncode, tuple(CAPTURES.decode(skipped.stdout))) == (RailStatus.EMPTY, 0, ())
+
+
+def test_ts_thunk_receipt_argv_and_cap_fallback(assay_root: AssayHarness) -> None:
+    """Kills _ts_thunk receipt mutations.
+
+    Argv slot corruption on the tree-sitter provenance tuple and the limit>0 fallback flip that turns
+    limit=0 into cap=0 (EMPTY receipt) instead of the _RESULT_CAP fallback both diverge here.
+    """
+    assay_root.write("pkg/mod.py", "def alpha():\n    return 1\n")
+    done = _ts_thunk(_PY_FUNC_QUERY, Language.PYTHON, assay_root.root, limit=0)(Check(tool=_QUERY_TOOL, paths=("pkg/mod.py",)))
+    assert done.argv == ("tree-sitter", "query", Language.PYTHON, "pkg/mod.py")
+    assert done.status is RailStatus.OK
+    assert len(CAPTURES.decode(done.stdout)) == 1
+
+
+def test_ts_capture_full_byte_shape(assay_root: AssayHarness) -> None:
+    """Kills _ts_file_captures projection mutations.
+
+    Any dropped or offset capture field (column/end_line/end_column/start_byte/end_byte/pattern/ordinal)
+    and the >=-truncation flip at exact cap diverge from the exact Capture rows.
+    """
+    assay_root.write("pkg/mod.py", "def alpha():\n    return 1\n")
+    done = _ts_thunk(_PY_FUNC_QUERY, Language.PYTHON, assay_root.root, limit=10)(Check(tool=_QUERY_TOOL, paths=("pkg/mod.py",)))
+    expected = Capture(name="name", text="alpha", file="pkg/mod.py", line=1, column=5, end_line=1, end_column=10, start_byte=4, end_byte=9)
+    assert tuple(CAPTURES.decode(done.stdout)) == (expected,)
+    assay_root.write("pkg/two.py", "def a():\n    pass\ndef b():\n    pass\n")
+    exact = _ts_thunk(_PY_FUNC_QUERY, Language.PYTHON, assay_root.root, limit=2)(Check(tool=_QUERY_TOOL, paths=("pkg/two.py",)))
+    assert [(c.ordinal, c.truncated) for c in CAPTURES.decode(exact.stdout)] == [(0, False), (1, False)]
+
+
+def test_ts_capture_error_row_identity(assay_root: AssayHarness) -> None:
+    """Kills _ts_file_captures error-row mutations.
+
+    The query_error row must carry the compiler message and file; the parse_error row must keep exact
+    name/text/file and the saturation-derived truncated flag.
+    """
+    assay_root.write("pkg/mod.py", "def alpha():\n    return 1\n")
+    qerr = CAPTURES.decode(_ts_thunk("(", Language.PYTHON, assay_root.root, limit=10)(Check(tool=_QUERY_TOOL, paths=("pkg/mod.py",))).stdout)
+    assert (qerr[0].name, qerr[0].file, qerr[0].line, qerr[0].parse_error) == ("query_error", "pkg/mod.py", 1, True)
+    assert "EOF" in qerr[0].text
+    assay_root.write("pkg/broken_sat.py", "def a():\n    pass\ndef b():\n    pass\ndef oops(:\n")
+    saturated = _ts_thunk(_PY_FUNC_QUERY, Language.PYTHON, assay_root.root, limit=1)(Check(tool=_QUERY_TOOL, paths=("pkg/broken_sat.py",)))
+    expected = Capture(name="parse_error", text="tree-sitter parse error", file="pkg/broken_sat.py", line=1, parse_error=True, truncated=True)
+    assert tuple(CAPTURES.decode(saturated.stdout)) == (expected,)
+
+
+def test_splice_argv_shapes(assay_root: AssayHarness) -> None:
+    """Kills _search_splice/_content_splice argv mutations.
+
+    Flag-string corruption, dropped command splice, and glob/pattern/target tail reordering all diverge
+    from the exact spawn argv.
+    """
+    routed = Routed(language=Language.PYTHON, scope=Scope.CHANGED)
+    ag = _search_splice(CodeParams(pattern="$X = $Y"), assay_root.root)(_QUERY_TOOL, routed)
+    assert ag.command == (*_QUERY_TOOL.command, "-p", "$X = $Y", "-l", "python", "--json=compact", "--no-ignore", "hidden", ".")
+    rg = _content_splice(_QUERY_TOOL, CodeParams(pattern="alpha", language=Language.PYTHON), assay_root.root)
+    globs, tail = rg.command[len(_QUERY_TOOL.command) : -4], rg.command[-4:]
+    assert tail == ("-e", "alpha", "--", ".")
+    assert (globs[::2], set(globs[1::2])) == (("--glob", "--glob"), {"*.py", "*.pyi"})
+    assert _content_splice(_QUERY_TOOL, CodeParams(pattern="alpha"), assay_root.root).command == (*_QUERY_TOOL.command, "-e", "alpha", "--", ".")
+
+
+@pytest.mark.parametrize(
+    "returncode, stderr, has_rows, expected",
+    [
+        (0, "boom", True, (RailStatus.OK, ("content match",))),
+        (2, "x" * 250, True, (RailStatus.OK, ("content match; ripgrep warning: " + "x" * 200,))),
+        (1, "boom", False, (RailStatus.EMPTY, ("no content matches",))),
+        (2, "boom", False, (RailStatus.FAILED, ("ripgrep failed (exit 2): boom",))),
+        (3, "", False, (RailStatus.FAILED, ("ripgrep failed (exit 3): error",))),
+    ],
+    ids=["rc0_rows_no_warning", "rc2_rows_warning_truncated_200", "rc1_norows_exact_note", "rc2_norows_exact_message", "rc3_empty_stderr_fallback"],
+)
+def test_rg_status_exact_note_bytes(
+    returncode: int,
+    stderr: str,
+    has_rows: bool,  # noqa: FBT001  # parametrized bool flag
+    expected: tuple[RailStatus, tuple[str, ...]],
+) -> None:
+    """Kills _rg_status note mutations.
+
+    Warnings on clean exits, corrupted note prose, 200-char stderr truncation off-by-one, and and/or
+    fallback flips all diverge from the exact (status, notes) tuples.
+    """
+    assert _rg_status(returncode, stderr, has_rows=has_rows) == expected
+
+
+def test_content_report_byte_shape(assay_root: AssayHarness, monkeypatch: pytest.MonkeyPatch) -> None:
+    """Kills _content_report mutations.
+
+    The stderr rail must decode with errors=replace (an and-flip drops the warning), verb stays 'search',
+    rows ride Report.results with pinned ids/scores, and the artifact pins digest/kind/bytes/run_id path.
+    """
+    two = (
+        b'{"type":"match","data":{"path":{"text":"a.py"},"lines":{"text":"alpha 1"},"line_number":1}}\n'
+        b'{"type":"match","data":{"path":{"text":"a.py"},"lines":{"text":"alpha 2"},"line_number":2}}\n'
+    )
+    canned = receipt(("rg",), 2, stdout=two, stderr=b"warn \xff tail", status=RailStatus.FAILED)
+    monkeypatch.setattr(code_rail, "run_check", lambda *_a, **_kw: Ok(canned))
+    report = assert_ok(search(assay_root.settings, assay_root.scope(Claim.CODE), CodeParams(pattern="alpha", paths=())))
+    assert (report.verb, report.status) == ("search", RailStatus.OK)
+    assert "content match; ripgrep warning: warn � tail" in report.notes
+    assert tuple((r.id, r.score) for r in report.results) == (("ripgrep:a.py:1", 71), ("ripgrep:a.py:2", 71))
+    listing = "a.py:1: alpha 1\na.py:2: alpha 2"
+    artifact = report.artifacts[0]
+    expected_artifact = (sha256(listing.encode()).hexdigest()[:12], ArtifactKind.CODE, len(listing), 2)
+    assert (artifact.id, artifact.kind, artifact.bytes, artifact.lines) == expected_artifact
+    assert artifact.path.endswith(f"code/search/{assay_root.settings.run_id}/matches.txt")
+
+
+def test_structural_report_promotion_and_defect_rows(assay_root: AssayHarness, monkeypatch: pytest.MonkeyPatch) -> None:
+    """Kills _report fold mutations.
+
+    An EMPTY base with projected rows must promote to OK with rows in Report.results; FAILED with no rows
+    must fall back to fold defect rows carrying tool argv provenance; verb stays 'search'.
+    """
+    assay_root.write("pkg/mod.py", "alpha = 1\n")
+    params = CodeParams(pattern="$NAME = $VAL", language=Language.PYTHON, paths=())
+    hit = msgspec.json.encode((_AG_MATCH,))
+    monkeypatch.setattr(code_rail, "fan_out", lambda *_a, **_kw: (Ok(receipt(("ast-grep", "run"), 0, stdout=hit, status=RailStatus.EMPTY)),))
+    promoted = assert_ok(search(assay_root.settings, assay_root.scope(Claim.CODE), params))
+    assert (promoted.verb, promoted.status) == ("search", RailStatus.OK)
+    assert tuple((r.id, r.score) for r in promoted.results) == (("ast-grep:pkg/mod.py:1", 100),)
+    assert promoted.artifacts[0].id == sha256(b"pkg/mod.py:1: alpha = 1 => let alpha = 1").hexdigest()[:12]
+    panic = receipt(("ast-grep", "run"), 2, stdout=b"ast-grep panicked", status=RailStatus.FAILED)
+    monkeypatch.setattr(code_rail, "fan_out", lambda *_a, **_kw: (Ok(panic),))
+    failed = assert_ok(search(assay_root.settings, assay_root.scope(Claim.CODE), params))
+    assert (failed.verb, failed.status, failed.artifacts) == ("search", RailStatus.FAILED, ())
+    assert [(r.id, "panicked" in r.text) for r in failed.results] == [("ast-grep", True)]
 
 
 # --- [COMPOSITION] ----------------------------------------------------------------------
@@ -590,6 +755,9 @@ register_law(search, "content_search_hit_with_warning_produces_warning_note")
 register_law(search, "content_search_rg_rows_listing_format")
 register_law(search, "content_search_no_catalog_row_returns_fault")
 register_law(search, "match_ids_carry_source_prefixes")
+register_law(search, "project_rows_ag_shape_parity")
+register_law(search, "project_rows_rg_shape_parity")
+register_law(query, "project_rows_ts_shape_parity")
 register_law(search, "content_search_forced_cap_results_note")
 register_law(search, "structural_search_forced_cap_results_note")
 register_law(query, "query_forced_cap_saturation_note")
@@ -598,11 +766,15 @@ register_law(search, "checks_empty_routed_returns_empty_tuple")
 register_law(search, "dispatch_empty_checks_returns_empty_tuple")
 register_law(search, "targets_empty_paths_returns_default_target")
 register_law(search, "ts_language_tsx_key_resolves_tsx_grammar")
-register_law(rewrite, "rewrite_preview_ok")
-register_law(rewrite, "artifact_code_store_path")
-register_law(rewrite, "rewrite_apply_true_via_fan_out")
-register_law(rewrite, "rewrite_preview_fan_ok_report")
-register_law(rewrite, "apply_report_with_no_output_uses_no_changes")
-register_law(rewrite, "apply_report_with_failed_completed_uses_error_status")
-register_law(rewrite, "ag_normalize_exit1_parseable_becomes_empty")
-register_law(rewrite, "ts_rows_produces_match_rows_and_listing")
+register_law(search, "ag_normalize_exit1_parseable_becomes_empty")
+register_law(query, "ts_rows_produces_match_rows_and_listing")
+register_law(query, "top_level_patterns_masked_depth_count")
+register_law(query, "eq_needles_prefilter_byte_sets")
+register_law(query, "ts_thunk_eq_prefilter_skip_and_admit")
+register_law(query, "ts_thunk_receipt_argv_and_cap_fallback")
+register_law(query, "ts_capture_full_byte_shape")
+register_law(query, "ts_capture_error_row_identity")
+register_law(search, "splice_argv_shapes")
+register_law(search, "rg_status_exact_note_bytes")
+register_law(search, "content_report_byte_shape")
+register_law(search, "structural_report_promotion_and_defect_rows")

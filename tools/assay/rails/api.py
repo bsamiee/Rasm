@@ -77,7 +77,6 @@ if TYPE_CHECKING:
 
 type _PathKind = str  # resolve kind token: all | assembly | xml | nuspec | deps | package-root
 
-
 # --- [CONSTANTS] ------------------------------------------------------------------------
 
 _API_ARITY: dict[str, int] = {"query": 1, "resolve": 2, "show": 1}
@@ -143,7 +142,6 @@ _NAME_CAP: int = 320
 _SIG_CAP: int = 480
 _FULL_CAP: int = 2560  # full .d.ts member body capture
 _LATEST_ARTIFACT: str = "latest"
-
 
 # --- [MODELS] ---------------------------------------------------------------------------
 
@@ -1151,7 +1149,7 @@ def doctor(settings: AssaySettings, scope: ArtifactScope, p: ApiParams) -> Resul
         Match(
             id=f"inventory:{source.source_id}",
             kind=ArtifactKind.SCOPE,
-            text=f"{source.source_id}: {source.version or source.package_root or source.primary_assembly or source.reason}",
+            text=_doctor_row_text(source),
             score=100 if source.status is RailStatus.OK else 0,
             severity=None if source.status is RailStatus.OK else "missing",
         )
@@ -1177,6 +1175,23 @@ def _inventory_artifacts(settings: AssaySettings, sources: tuple[ApiSource, ...]
         Artifact(id="doctor-inventory-json", kind=ArtifactKind.SCOPE, path=json_path, bytes=len(json_raw), lines=len(sources)),
         Artifact(id="doctor-inventory-tsv", kind=ArtifactKind.SCOPE, path=tsv_path, bytes=len(tsv_raw), lines=len(sources)),
     )
+
+
+def _doctor_row_text(source: ApiSource) -> str:
+    """Project one doctor inventory source into the stable ``key=value`` health grammar.
+
+    Grammar (single-space-separated, fixed key order):
+    ``<source_id> status=<status> assembly=present|missing xml=present|missing version=<version|->``.
+
+    Returns:
+        The keyed health row text consumed by Match parsers and pinned by the doctor row-text law.
+    """
+    presence = (
+        ("assembly", "present" if source.primary_assembly or source.package_root else "missing"),
+        ("xml", "present" if source.primary_xml else "missing"),
+        ("version", source.version or "-"),
+    )
+    return f"{source.source_id} status={source.status.value} " + " ".join(f"{key}={value}" for key, value in presence)
 
 
 def _source_tsv(source: ApiSource) -> str:

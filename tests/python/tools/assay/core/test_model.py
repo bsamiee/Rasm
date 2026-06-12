@@ -14,9 +14,9 @@ import msgspec
 import msgspec.inspect as msgspec_inspect
 import pytest
 
-from tests.python._testkit._aspect import register_law, register_laws, spec  # sibling test-internal module; `_`-named by S1 design
-from tests.python._testkit._spec import assert_roundtrip, idempotent, metamorphic, support_matrix  # sibling test-internal oracle surface
-from tests.python.tools.assay.conftest import (
+from tests.python._testkit.laws import register_law, register_laws, spec
+from tests.python._testkit.spec import assert_roundtrip, idempotent, metamorphic, support_matrix
+from tests.python.tools.assay.kit import (
     api_resolution_st,
     api_source_st,
     api_surface_st,
@@ -122,7 +122,6 @@ _BARE_STRENUM_CLASSES: tuple[type[Claim | SourceKind | ArtifactKind | MutationLa
     MutationLane,
     SymbolShape,
 )
-
 
 # --- [OPERATIONS] -----------------------------------------------------------------------
 

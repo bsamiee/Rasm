@@ -6,7 +6,7 @@ Code documentation exists only when a public caller needs semantics the declarat
 
 Apply this standard when writing or reviewing source-level documentation for:
 - public visible types, members, functions, methods, modules, packages, properties, scripts, command functions, SQL functions, routines, policies, and catalog objects.
-- public error, fault, result, validation, effect, exit-status, or SQLSTATE variants and their observable channels.
+- public error, fault, result, confirmation, effect, exit-status, or SQLSTATE variants and their observable channels.
 - generic type parameters, type forms, shell namerefs, SQL argument modes, catalog identity, or receiver contracts where the declaration omits caller meaning.
 - lifecycle, resource, concurrency, interop, security, data-exposure, runtime-context, transaction, lock, trap, cleanup, or terminal-runner obligations a caller must honor.
 - inline rationale for a non-obvious implementation, migration, shell, query, planner, security, or resource choice.
@@ -15,7 +15,7 @@ Omit comments that restate source-owned facts: signatures, obvious accessors, pr
 
 [AUTHORING_CONTRACT]:
 - Agent use: decide whether a caller-visible surface needs source documentation, which semantic fields the declaration omits, and which adjacent routes change.
-- Produced structure: opening lead, `Use when`, decision router, produced shape, generated handoff, surface model, language capsules, lifecycle references, anti-patterns, boundaries, and validation.
+- Produced structure: opening lead, `Use when`, decision router, produced shape, generated handoff, surface model, language capsules, lifecycle references, anti-patterns, boundaries, and confirmation.
 - Cardinality: one public-surface decision per comment, one generated-reference handoff only when adjacent output changes, and one language capsule only where the source language applies.
 - Adjacent checks: API for generated reference, README for public entrypoints, reference for lookup facts, architecture for invariants, support matrix for lifecycle, runbook for operational failure response, and how-to or tutorial for usage paths.
 - Maintenance triggers: public surface added, removed, renamed, retyped, made visible, given a new failure carrier, changed side effect, changed generated-reference anchor, changed schema catalog comment, changed script command, or changed caller-visible invariant.
@@ -28,11 +28,11 @@ Review a surface before writing a comment. Public visibility creates a documenta
 [REPAIR_FIRST]:
 - Prefer stronger source shape before prose: rename, retype, add annotation, schema metadata, SQL catalog comment, ShellCheck directive, or generated route when that owner can carry the fact.
 - Treat a comment needed to explain a confusing public shape as a design signal; keep it only when the caller-visible obligation cannot move into source shape or canonical documentation without weakening correctness.
-- Keep examples as semantic probes for likely misuse, not syntax proof, happy-path tutorials, command transcripts, or generated output dumps.
+- Keep examples as semantic probes for likely misuse, not syntax confirmation, happy-path tutorials, command transcripts, or generated output dumps.
 
 [DOCUMENT_WHEN]:
 - The declaration omits caller obligation, unit, ownership, trusted boundary, context requirement, transaction state, lock state, shell environment, SQL role, tenant scope, receiver invariant, or catalog identity.
-- The result, failure carrier, exit status, SQLSTATE, stream item, validation accumulation, effect channel, or generated value needs caller-visible meaning beyond the type.
+- The result, failure carrier, exit status, SQLSTATE, stream item, confirmation accumulation, effect channel, or generated value needs caller-visible meaning beyond the type.
 - The surface exposes side effects, cancellation, retry, resource ownership, terminal execution, native-boundary conversion, security behavior, data exposure, lifecycle, or routed reference obligations.
 
 [OMIT_WHEN]:
@@ -67,7 +67,7 @@ Omit when: `<signature, annotation, schema, catalog, shell declaration, or SQL o
 ```
 
 [SECTION_CARDINALITY]:
-- Opening lead, `Use when`, `Decision router`, `Produced shape`, `Surface model`, `Language capsules`, `Lifecycle references`, `Anti-patterns`, `Boundaries`, and `Validation`: required, single.
+- Opening lead, `Use when`, `Decision router`, `Produced shape`, `Surface model`, `Language capsules`, `Lifecycle references`, `Anti-patterns`, `Boundaries`, and `Result check`: required, single.
 - Language capsule: required for C# 14, TypeScript 7, Python 3.15, Bash 5.3+, and PostgreSQL 18.4 when the source language applies.
 - Generated-reference handoff: conditional; include only when a source-comment fact changes a generated mirror or adjacent maintained route.
 - Lifecycle-tag record: conditional; include only when an external support contract consumes a lifecycle marker.
@@ -75,7 +75,7 @@ Omit when: `<signature, annotation, schema, catalog, shell declaration, or SQL o
 
 ## [4]-[GENERATED_HANDOFF]
 
-Use a generated-reference handoff only when a public comment changes contract behavior, generated output, or an adjacent reader action. When an API page already carries `Generation command` or proof fields, this handoff links the generated anchor and avoids duplicating those fields; when a clarity fix preserves behavior, no adjacent document changes are required.
+Use a generated-reference handoff only when a public comment changes contract behavior, generated output, or an adjacent reader action. When an API page already carries `Generation command` or confirmation fields, this handoff links the generated anchor and avoids duplicating those fields; when a clarity fix preserves behavior, no adjacent document changes are required.
 
 [GENERATED_HANDOFF]:
 - `Changed fact`: public symbol behavior, source-comment contract, generated anchor, failure carrier, catalog comment, script command, or public surface.
@@ -84,7 +84,7 @@ Use a generated-reference handoff only when a public comment changes contract be
 - `Update when`: public symbol, source comment, generated output, catalog comment, failure carrier, script command, or adjacent route changes.
 - `Close when`: generated reference and consuming route are updated, or route-away explicitly declines the fact.
 - `Route-away`: README, api, reference, architecture, roadmap, runbook, how-to, tutorial, or support body that stays in its route.
-- Optional local fields: `Public surface`, `Source paths`, `Generated reference`, `Generation command`, `Failure carriers`, `Evidence`, `Generated from`, `Controlling source`, and `Review trigger`; proof and freshness label meanings stay in [proof.md](../proof.md).
+- Optional local fields: `Public surface`, `Code paths`, `Generated reference`, `Generation command`, `Failure carriers`, `Observed result`, `Generated by`, `Owner`, and `Review trigger`; confirmation and refresh label meanings stay in [proof.md](../proof.md).
 
 ## [5]-[SURFACE_MODEL]
 
@@ -103,22 +103,22 @@ Use only fields whose semantics the source does not already carry. Omit absent f
 [SEMANTIC_FIELDS]:
 - Summary: required, single; states controlling purpose in the surface-kind shape.
 - Caller obligation: parameter, environment value, receiver, SQL argument, shell nameref, runtime service, transaction, lock, or context meaning.
-- Result semantics: returned value, effect, validation result, generator item, stream, catalog row, status envelope, exit payload, or failure carrier meaning.
-- Failure channel: typed errors, accumulated validation, actual thrown exceptions, SQLSTATE exposure, Bash exit codes, process status, or terminal-runner rejection.
+- Result semantics: returned value, effect, confirmation result, generator item, stream, catalog row, status envelope, exit payload, or failure carrier meaning.
+- Failure channel: typed errors, accumulated confirmation, actual thrown exceptions, SQLSTATE exposure, Bash exit codes, process status, or terminal-runner rejection.
 - Side effect: state mutation, artifact writes, time or IO, resource allocation or disposal, work start, external-state change, row locks, catalog changes, or stdout/stderr.
 - Cancellation or resource contract: token, deadline, async iterator, scope, runtime context, disposable, retry policy, trap, file descriptor, cursor, transaction, or lock obligation.
-- Security or data exposure: auth, tenant scope, row-level security, security definer behavior, leakproof behavior, access class, secrets, personal data, public catalog visibility, or trace/log output.
+- Security or data exposure: auth, tenant scope, row-level security, security definer behavior, leakconfirmation behavior, access class, secrets, personal data, public catalog visibility, or trace/log output.
 - Auxiliary routes: lifecycle, cross-reference route, value or attribute entry, remarks or elaboration, actual exception or throw entry, and inline rationale when they change caller action.
 
-Functional, result-oriented, and expression-style APIs document observable channels instead of imperative control flow. Every rail surface states the success value and observable side effect when present, every failure variant, fault, accumulated-validation meaning, status branch, SQLSTATE exposure, or exit-status meaning a caller can receive, and the cancellation, retry, resource, clock, IO, runtime-context, trap, transaction, lock, scope, or terminal-runner requirement the call imposes.
+Functional, result-oriented, and expression-style APIs document observable channels instead of imperative control flow. Every rail surface states the success value and observable side effect when present, every failure variant, fault, accumulated-confirmation meaning, status branch, SQLSTATE exposure, or exit-status meaning a caller can receive, and the cancellation, retry, resource, clock, IO, runtime-context, trap, transaction, lock, scope, or terminal-runner requirement the call imposes.
 
-State boundary details only when the public surface crosses them: native exception conversion, process exit, SQL error conversion, host fault conversion, deferred execution, transaction commit, resource release, or generated-reference mirroring. A comment that says only `returns Fin<T>`, `Effect<A, E, R>`, `Result[T, E]`, `Promise<T>`, SQL return type, or another typed carrier without naming failure variants is incomplete.
+State boundary details only when the public surface crosses them: native exception conversion, process exit, SQL error conversion, host fault conversion, returnable execution, transaction commit, resource release, or generated-reference mirroring. A comment that says only `returns Fin<T>`, `Effect<A, E, R>`, `Result[T, E]`, `Promise<T>`, SQL return type, or another typed carrier without naming failure variants is incomplete.
 
 ## [6]-[LANGUAGE_CAPSULES]
 
 Each language capsule uses the syntax its toolchain parses and keeps semantic content out of generated catalogs. The capsule shape is `Toolchain`, `Generated profile`, `Comment owns`, `Rail/resource rules`, `Special shapes`, `Reject`, and `Syntax cue`; examples are syntax cues, not duplicate policy bodies.
 
-Language-version claims are target standards and route freshness through [proof.md](../proof.md). This file does not claim current repository execution on Python 3.15; current repo Python runtime claims route to `pyproject.toml`.
+Language-version claims are target standards and route refresh through [proof.md](../proof.md). This file does not claim current repository execution on Python 3.15; current repo Python runtime claims route to `pyproject.toml`.
 
 [CAPSULE_INDEX]:
 
@@ -139,14 +139,14 @@ Generated profile: compiler XML and DocFX; `cref` routes compiler-verifiable int
 - `<summary>` purpose.
 - `<typeparam>` and `<typeparamref>` semantic type role, runtime capability, algebraic obligation, or variant family.
 - `<param>` and `<paramref>` caller obligation, ownership, normalization state, trusted boundary, lifetime, or cancellation propagation.
-- `<returns>` success semantics, typed failure rail, validation accumulation, effect runtime, terminal boundary, or resource ownership.
+- `<returns>` success semantics, typed failure rail, confirmation accumulation, effect runtime, terminal boundary, or resource ownership.
 - `<value>` property value meaning.
 - `<remarks>`, `<para>`, and `<list>` invariants, generated-code behavior, resource scope, retry schedule, security/data exposure, interop, or lifecycle details.
 
 [RAIL_RESOURCE_RULES]:
 - `Fin<T>`: success value and domain `Error` meanings.
 - `Validation<Error,T>`: independent obligations and accumulated failure semantics.
-- `Eff<RT,T>`: runtime capabilities, deferred execution, cancellation or interruption behavior, retry or repeat `Schedule`, resource scope, and terminal `Run` owner.
+- `Eff<RT,T>`: runtime capabilities, returnable execution, cancellation or interruption behavior, retry or repeat `Schedule`, resource scope, and terminal `Run` owner.
 - `IO<T>`: boundary action, resource ownership, and execution point.
 - `Bracket`: acquire/use/release ownership and whether release runs on success, failure, and cancellation.
 - `K<F,T>` or trait-polymorphic APIs: algebraic obligation on `F` only when the constraint does not explain caller meaning.
@@ -161,7 +161,7 @@ Generated profile: compiler XML and DocFX; `cref` routes compiler-verifiable int
 - Nullable annotations and attributes own null-state; comments state domain absence, sentinel meaning, default-value pitfall, boundary conversion, or null-propagation behavior only when observable.
 - Cancellation and resource comments name token propagation, observable `OperationCanceledException`, cleanup, borrowed or owned lifetime, disposal or async cleanup, lock release, and DI lifetime only when caller-visible.
 [REJECT]:
-- Reject: missing-comment churn where declarations already carry caller truth, unresolved `cref`, fake `<exception>` tags for typed rails, Markdown-heavy XML unless the generated renderer is the only consumer, generated-member catalogs, `<include>` files without maintained source, and lifecycle wrappers for internal surfaces that should be deleted or replaced.
+- Reject: missing-comment churn where declarations already carry caller truth, unresolved `cref`, fake `<exception>` tags for typed rails, Markdown-heavy XML unless the generated renderer is the only consumer, generated-member catalogs, `<include>` files without maintained material, and lifecycle wrappers for internal surfaces that should be deleted or replaced.
 
 [SYNTAX_CUE]:
 - Syntax cue: `/// <summary>Builds one cancellable geometry import effect.</summary>`.
@@ -176,7 +176,7 @@ Generated profile: API Extractor for strict package API and TypeDoc for browsing
 - `@remarks`: invariants, lifecycle, resource, retry, cancellation, security, terminal runner, or observability semantics.
 - `@typeParam`: semantic generic relationship, not type-expression echo.
 - `@param`: caller obligation, unit, ownership, trust boundary, or resource meaning.
-- `@returns`: success, typed failure, environment, deferred execution, terminal behavior, or stream semantics.
+- `@returns`: success, typed failure, environment, returnable execution, terminal behavior, or stream semantics.
 - `@throws`: escaped exception or terminal-runner Promise rejection only; typed `E` failures belong in `@returns`, `@remarks`, or the rail contract.
 - `{@link ...}` and linked `@see` blocks: resolvable public references through the TypeScript generator profile.
 - `{@inheritDoc ...}`: exact inherited summary, `@remarks`, `@param`, `@typeParam`, and `@returns`; non-copied lifecycle, default, example, or deprecation tags stay explicit.
@@ -229,18 +229,18 @@ Generated profile: Griffe and mkdocstrings.
 - Native exception boundary: converted exceptions belong in `Returns:` as typed errors; intentionally exposed native exceptions belong in `Raises:`.
 
 [SPECIAL_SHAPES]:
-- Annotation owners: `annotationlib`, PEP 649, and PEP 749 govern deferred annotation inspection for generated references; PEP 695 and PEP 696 place type parameters and defaults in signatures.
+- Annotation owners: `annotationlib`, PEP 649, and PEP 749 govern returnable annotation inspection for generated references; PEP 695 and PEP 696 place type parameters and defaults in signatures.
 - Docstring boundary: docstrings add only semantic relationships, variance obligations, runtime constraints, or caller meaning.
 - Narrowing and type forms: PEP 742 `TypeIs`, PEP 747 `TypeForm`, and PEP 800 `@disjoint_base` comments document narrowing, type-expression handling, or nominal disjointness only when public callers depend on it.
 - Payload shape: PEP 728, PEP 705, PEP 655, and PEP 692 let `TypedDict`, `ReadOnly`, `Required`, `NotRequired`, and `Unpack` carry payload shape.
-- Runtime and schema metadata: PEP 810 lazy imports, PEP 661 `sentinel`, and PEP 814 `frozendict` document deferred import-error timing, public absence, identity, snapshot, or hashability semantics only when caller-visible; PEP 702-style deprecation belongs to external support contracts only.
-- Schema owners: Pydantic and msgspec metadata own schema-facing field descriptions, aliases, strictness, immutability, generated JSON Schema, and declarative validation; beartype `Annotated` validators own runtime validation at decorated boundaries.
+- Runtime and schema metadata: PEP 810 lazy imports, PEP 661 `sentinel`, and PEP 814 `frozendict` document returnable import-error timing, public absence, identity, snapshot, or hashability semantics only when caller-visible; PEP 702-style deprecation belongs to external support contracts only.
+- Schema owners: Pydantic and msgspec metadata own schema-facing field descriptions, aliases, strictness, immutability, generated JSON Schema, and declarative confirmation; beartype `Annotated` validators own runtime confirmation at decorated boundaries.
 - Model docstrings: docstrings own model purpose, cross-field invariants, security exposure, resource obligations, and caller-visible failure semantics that schema metadata cannot carry.
 - Sensitive metadata: generated schema annotations are publishable documentation and must exclude secrets, personal data, tenant IDs, credential routes, private hostnames, nonpublic paths, and real sensitive examples from `description`, `examples`, `json_schema_extra`, dataclass `doc`, and generator-consumed metadata.
 
 [REJECT]:
 - Type or signature echo: type echo in `Args:` or `Returns:`, signature-echo summaries, blanket parameter documentation, comments that compensate for missing annotations, and old string-forward-reference lore.
-- Rail mismatch: `Raises:` for typed rails, validation data, warnings, and precondition violations.
+- Rail mismatch: `Raises:` for typed rails, confirmation data, warnings, and precondition violations.
 - Tooling mismatch: docstring-only deprecation where tooling needs `warnings.deprecated`, public `object()` sentinels where `sentinel` fits, and mixed section dialects inside Google docstrings.
 - Schema drift: schema fields documented only in prose when metadata owns them and field examples with sensitive data.
 
@@ -270,7 +270,7 @@ Generated profile: no generated-reference profile by default; help metadata owns
 - `errexit` and `ERR`: comments state ignored contexts, `pipefail` dependency, `errtrace` inheritance, and `inherit_errexit` command-substitution behavior only when the public failure rail depends on them.
 - Traps and cleanup: comments state signal, `BASH_TRAPSIG`, forward target, wait owner, reentrancy guard, cleanup order, child forwarding, exit-status mapping, acquisition/release order, partial acquisition, LIFO ownership, idempotence, temporary path, same-filesystem rename assumption, sensitive `umask`, durability choice, and rollback behavior.
 - Streaming loops and retry: comments state stream boundary, delimiter, subshell or current-shell mutation, backpressure, ordering, finalization, failure propagation, retryable status class, maximum attempts, capped delay, jitter source, idempotence, and terminal failure rail.
-- Atomic replacement and durable write: comments name temp path, same-filesystem or same-directory assumption, destination replacement policy, `EXDEV` or `--no-copy` behavior, rollback, file flush, directory-entry flush, crash model, filesystem caveat, and proof route.
+- Atomic replacement and durable write: comments name temp path, same-filesystem or same-directory assumption, destination replacement policy, `EXDEV` or `--no-copy` behavior, rollback, file flush, directory-entry flush, crash model, filesystem caveat, and confirmation route.
 - Bash 5.3 substitution forms: `${ command; }` captures output in the current shell and preserves side effects when persisted mutation, `return`, `exit`, or positional-parameter sharing is caller-visible; `${| command; }` expands from local `REPLY` while stdout remains on the caller stream when that separation avoids a subshell.
 - Timing and glob forms: `BASH_MONOSECONDS` is for elapsed monotonic duration contracts; `EPOCHREALTIME` is for wall-clock timestamps; `GLOBSORT` appears only when glob ordering is semantic; `shfmt` owns layout and parse shape only.
 - ShellCheck directives: use a short rationale before the directive, name the diagnostic code and local invariant, keep the directive line machine-scannable, and scope it to the smallest complete command; `source`, `source-path`, and `shell` directives name analysis routing or dialect truth, not runtime behavior; `external-sources=true` belongs in `.shellcheckrc`.
@@ -296,31 +296,31 @@ Generated profile: durable generated references extract object comments from `pg
 [RAIL_RESOURCE_RULES]:
 - Objects: schemas, tables, domains, and types own modeled concept, ownership boundary, temporal meaning, tenant scope, or invariant; columns own semantic value, unit, lifecycle, generated meaning, non-obvious nullable meaning, tenant scope, or public data-exposure constraint.
 - Constraints and indexes: invariant, planner purpose, operator class, selectivity assumption, uniqueness/exclusion law, or access path.
-- Functions: contract, volatility, strictness, null behavior, set-returning cardinality, parallel safety, cost/rows when caller-visible, security mode, `search_path` expectation, leakproof promise, and SQLSTATE exposure.
+- Functions: contract, volatility, strictness, null behavior, set-returning cardinality, parallel safety, cost/rows when caller-visible, security mode, `search_path` expectation, leakconfirmation promise, and SQLSTATE exposure.
 - Procedures: contract, security mode, transaction-control limitation where caller-visible, procedure-local `SET` behavior, `search_path` expectation, privilege boundary, and SQLSTATE exposure from the procedure body.
 - Routine identity: routines own catalog identity umbrella only when a generated route or `COMMENT ON ROUTINE` target spans functions and procedures.
 - Policies: access invariant, command scope, role scope, `USING` and `WITH CHECK` split, permissive or restrictive combination, tenant predicate, bypass assumption, owner behavior, race, and covert-channel reasoning.
 - Views: projection scope, owner privilege mode, `security_invoker`, `security_barrier`, `CHECK OPTION`, RLS policy user, function execution mode, and data-exposure rule.
-- Materialized views: stored projection, freshness, `relispopulated` state, refresh owner or event, `CONCURRENTLY` eligibility, unique-index proof, stale-data tolerance, and data-exposure rule.
+- Materialized views: stored projection, refresh, `relispopulated` state, refresh owner or event, `CONCURRENTLY` eligibility, unique-index confirmation, stale-data tolerance, and data-exposure rule.
 - Replication and extension: extensions, publications, and subscriptions own installed purpose, version gate, replication scope, provider assumption, and operational boundary.
 
 [SPECIAL_SHAPES]:
-- Migrations: comments state lock level, rewrite behavior, backfill shape, validation phase, privilege window, rollout gate, irreversibility, rollback boundary, extension gate, and smallest proof-query class without output transcripts.
+- Migrations: comments state lock level, rewrite behavior, backfill shape, confirmation phase, privilege window, rollout gate, irreversibility, rollback boundary, extension gate, and smallest confirmation-query class without output transcripts.
 - Routine bodies: comments state dynamic SQL, exception conversion, search-path hardening, lock ordering, cursor ownership, transaction behavior, and planner assumptions.
-- RLS security: comments state table lookup, current-setting behavior, bypass role, owner behavior, race, leakproof boundary, and covert-channel reasoning that the policy expression alone cannot carry.
-- Catalog proof functions: use `pg_description` plus `obj_description(oid, catalog)` for database-local objects, `col_description(table_oid, column_number)` for columns, and `pg_shdescription` plus `shobj_description(oid, catalog)` for shared objects.
+- RLS security: comments state table lookup, current-setting behavior, bypass role, owner behavior, race, leakconfirmation boundary, and covert-channel reasoning that the policy expression alone cannot carry.
+- Catalog confirmation functions: use `pg_description` plus `obj_description(oid, catalog)` for database-local objects, `col_description(table_oid, column_number)` for columns, and `pg_shdescription` plus `shobj_description(oid, catalog)` for shared objects.
 - Generated dictionaries: derive from catalog address, `pg_identify_object`, owning catalog facts, and description functions; include catalog facts beside comments instead of copying migration prose.
 - Identity: function, procedure, routine, and aggregate comment identity is determined by input-relevant argument types, not names, and `OUT`-only arguments are omitted when identity does not require them.
-- Security proof: security comments on policies, RLS tables, views, materialized views, and functions need catalog proof through `pg_policies` or `pg_policy`, `pg_class.relrowsecurity`, `relforcerowsecurity`, `reloptions`, `relispopulated`, `pg_roles.rolbypassrls`, `pg_proc.proleakproof`, or `prosecdef`.
+- Security confirmation: security comments on policies, RLS tables, views, materialized views, and functions need catalog confirmation through `pg_policies` or `pg_policy`, `pg_class.relrowsecurity`, `relforcerowsecurity`, `reloptions`, `relispopulated`, `pg_roles.rolbypassrls`, `pg_proc.proleakconfirmation`, or `prosecdef`.
 - Exposure and linting: generated dictionaries must not expose subscription `subconninfo` or credentials; `sqlfluff --dialect postgres` proves formatting and linting only, not catalog comments, object identity, privileges, data exposure, replication semantics, or semantic documentation.
 
 [REJECT]:
-- Exposure risks: secrets, credentials, privileged assumptions, exploit details, credential routes, tenant IDs, sensitive operational data, security-critical internals, private backup routes, and proof-query transcripts in `COMMENT ON`.
+- Exposure risks: secrets, credentials, privileged assumptions, exploit details, credential routes, tenant IDs, sensitive operational data, security-critical internals, private backup routes, and confirmation-query transcripts in `COMMENT ON`.
 - Operational drift: migration status, rollout windows, and rollback plans in `COMMENT ON`.
 - Catalog visibility miss: any connected database user can see database-object comments, and connected cluster users can see shared-object comments.
 - Catalog drift: hand-maintained data dictionaries that duplicate catalog comments, source comments for durable schema meaning, and blanket comments like `user id`.
 - Weak description calls: `obj_description(oid)` without catalog identity and one-argument `obj_description(oid)`.
-- Security/freshness gaps: RLS prose without policy comments plus verification route and materialized-view comments that omit freshness and refresh contract.
+- Security/refresh gaps: RLS prose without policy comments plus verification route and materialized-view comments that omit refresh and refresh contract.
 
 [SYNTAX_CUE]:
 - Syntax cue: `COMMENT ON TABLE app.account_event IS 'Append-only account event ledger.';`.
@@ -352,7 +352,7 @@ Reject these cross-language shapes:
 - Hidden side effect or cancellation: a comment that describes only the returned value while the surface mutates state, writes artifacts, starts work, observes time or IO, allocates or disposes resources, locks rows, changes catalog state, or requires cancellation handling. Add the observable obligation or route the detail to the controlling API, runbook, how-to, or schema reference.
 - Name-echo summary: a summary that paraphrases the symbol, command, column, or policy name. Rewrite it to the surface-kind lead shape.
 - Profile or line-narration leakage: a manual-only profile label emitted into a source comment without a toolchain-local tag, or an inline comment that restates the next statement. Remove the label or delete the narration.
-- Generated or lifecycle preservation: a source file or docs leaf that hand-maintains generated public surface, command lists, or SQL dictionaries, or a lifecycle marker on greenfield internal surfaces that should be deleted or replaced.
+- Generated or lifecycle preservation: a code file or docs leaf that hand-maintains generated public surface, command lists, or SQL dictionaries, or a lifecycle marker on greenfield internal surfaces that should be deleted or replaced.
 
 ## [9]-[BOUNDARIES]
 
@@ -365,47 +365,8 @@ Reject these cross-language shapes:
 
 [SHARED_ROUTES]:
 - [style guide](../style-guide.md): prose mechanics inside comments.
-- [proof](../proof.md): source-comment, generated-reference, and catalog-output proof.
+- [confirmation](../proof.md): source-comment, generated-reference, and catalog-output confirmation.
 - source-map pages: generated reference or public-symbol behavior links, never source-comment standards or folder-level mini API catalogs.
 - [standards README](../README.md): document-type routing, placement, lifecycle, and stale-document questions.
 
-Source comments carry no proof details unless a language-specific generator consumes them.
-
-## [10]-[VALIDATION]
-
-Use this verification checklist by group:
-
-[STRUCTURE_ROUTE]:
-- [ ] The standard keeps the comment decision, produced shape, generated handoff, adjacent checks, maintenance triggers, and stale-prevention rules before language mechanics.
-- [ ] The decision router repairs declaration, annotation, schema, catalog, ShellCheck, or generated-route ownership before adding prose.
-- [ ] Route-away rules are visible before generated handoffs and language capsules.
-- [ ] Generated-reference handoffs omit absent optional fields, keep relation fields before proof fields, and route proof/freshness semantics to [proof.md](../proof.md).
-- [ ] Lifecycle-tag states come from the closed vocabulary and serve external support contracts only.
-
-[SYMBOL_CONTRACT]:
-- [ ] One public-surface profile is chosen during review, without leaking review labels into source comments.
-- [ ] The comment carries the required semantic fields for that profile and does not restate declared type, return type, nullability, arity, column name, shell command syntax, SQL syntax, or schema shape.
-- [ ] The lead sentence matches the surface kind and carries contract, not name echo.
-- [ ] FP/ROP surfaces name success, every failure variant, runtime-context requirements, resource contracts, and terminal boundaries where caller-visible.
-- [ ] Throwing and Bash surfaces name actual thrown types with causes, or stdout, stderr, exit status, traps, resources, state, and ShellCheck rationale where those affect callers.
-- [ ] PostgreSQL catalog surfaces use `COMMENT ON` for durable schema meaning and SQL comments only for local rationale.
-
-[ROUTES_GENERATION]:
-- [ ] Public symbol behavior, failure carrier, source comment, generated anchor, README entrypoint, architecture invariant, script command, and catalog comment changes trigger the adjacent checks named in the authoring contract.
-- [ ] C#, TypeScript, Python, Bash, and PostgreSQL comments use the syntax and tags their toolchains parse.
-- [ ] Comment syntax, generated consumer, and generated route are not conflated.
-- [ ] C# references use compiler-checked XML routes where the toolchain can validate them, and cross-references resolve through the controlling toolchain or maintained catalog route.
-
-[COMMENTS_BOUNDARY]:
-- [ ] Inline comments state a reason, not narration.
-- [ ] Folder-level public-surface catalogs route to README, generated API reference, architecture, generated catalog output, or reference leaves instead of leaking into source comments.
-- [ ] Machine-consumed ledgers and generated mirrors declare their consumer and keep parser-required shape without hand-prettifying records into ordinary prose.
-- [ ] Python schema fields use generator-consumed metadata for field descriptions, examples, aliases, constraints, and generated schema facts; docstrings carry only model purpose, cross-field invariants, security exposure, and caller-visible failure or resource semantics omitted by schema metadata.
-- [ ] PostgreSQL routine comments distinguish function-only planner/nullability attributes from procedure-local security and `SET` attributes.
-- [ ] No anti-pattern remains.
-
-[DOCS_ONLY_PROOF]:
-- [ ] `git diff --check -- docs/standards` passes.
-- [ ] Local path and anchor validation runs when headings, links, or anchors change, or a proof gap is stated.
-- [ ] A stale-term scan finds no old doctrine in this file.
-- [ ] C#, TypeScript, Python, Bash, SQL, static, test, bridge, and generated-reference rails stay unrun unless executable source, configs, generated artifacts, or tooling change.
+Source comments carry no confirmation details unless a language-specific generator consumes them.

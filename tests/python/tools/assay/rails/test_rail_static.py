@@ -21,9 +21,9 @@ from expression import Error, Ok
 from hypothesis import given
 import pytest
 
-from tests.python._testkit._aspect import register_law, spec
-from tests.python._testkit._spec import assert_error, assert_ok, support_matrix, validity_matrix, ValidityCase
-from tests.python._testkit._strategies import resolve
+from tests.python._testkit.laws import register_law, spec
+from tests.python._testkit.spec import assert_error, assert_ok, support_matrix, validity_matrix, ValidityCase
+from tests.python._testkit.strategies import resolve
 from tools.assay.core.model import Claim, Fault, Language, Mode, receipt
 from tools.assay.core.routing import Routed, Scope
 from tools.assay.core.status import RailStatus
@@ -36,7 +36,7 @@ if TYPE_CHECKING:
 
     from expression import Result
 
-    from tests.python.tools.assay.conftest import AssayHarness
+    from tests.python.tools.assay.kit import AssayHarness
     from tools.assay.composition.settings import ArtifactScope, AssaySettings
     from tools.assay.core.model import Report
 
@@ -58,11 +58,9 @@ _SUFFIX_CASES: tuple[tuple[str, Language], ...] = (
 
 _CLAIM_VERB_CASES: tuple[tuple[_VerbFn, str], ...] = ((fix, "fix"), (report, "report"), (build, "build"), (full, "full"))
 
-
 # --- [OPERATIONS] -----------------------------------------------------------------------
 
 # --- [STATICPARAMS_LAWS]
-
 
 register_law(StaticParams, "default_fields")
 
@@ -97,7 +95,6 @@ def test_staticparams_language_field(language: Language | None, paths: tuple[str
 
 register_law(StaticParams, "language_field_preserved")
 
-
 # --- [VALIDITY_MATRIX]
 
 
@@ -116,7 +113,6 @@ def test_staticparams_language_validity_matrix(case: ValidityCase[StaticParams])
 
 register_law(StaticParams, "language_validity_matrix")
 register_law(StaticParams, "all_verbs_rop_contract")
-
 
 # --- [LANGUAGE_INFERENCE_LAWS]
 
@@ -166,7 +162,6 @@ def test_language_inference_multi_suffix() -> None:
 
 register_law(Language, "inference_multi_suffix_no_duplicates")
 
-
 # --- [MODE_FAMILY_LAW]
 
 
@@ -179,7 +174,6 @@ def test_mode_family(mode: Mode, expected: tuple[Mode, ...]) -> None:
 
 
 register_law(Mode, "mode_family_build_restore_closure")
-
 
 # --- [SUPPORT_MATRIX]
 
@@ -196,7 +190,6 @@ def test_readonly_verbs_do_not_use_write_mode() -> None:
 register_law(plan, "readonly_verb_no_write_mode")
 register_law(report, "readonly_verb_no_write_mode")
 register_law(build, "readonly_verb_no_write_mode")
-
 
 # --- [PLAN_RAIL_LAWS]
 
@@ -265,7 +258,6 @@ def test_plan_report_routed_object_directly(assay_root: AssayHarness) -> None:
 
 register_law(plan, "plan_report_routed_notes")
 
-
 # --- [ROP_CONTRACT]
 
 
@@ -307,7 +299,6 @@ def test_full_injects_workspace_slnx_when_paths_empty(assay_root: AssayHarness) 
 
 register_law(full, "workspace_slnx_injection")
 
-
 # --- [DISPATCH_EMPTY_CHECKS]
 
 
@@ -320,7 +311,6 @@ def test_dispatch_returns_empty_when_no_checks_for_language(assay_root: AssayHar
 
 
 register_law(Language, "dispatch_empty_checks_toolless_language")
-
 
 # --- [DISPATCH_ARMS]
 
@@ -354,7 +344,6 @@ def test_dispatch_arm(mode: Mode, routed: Routed, prefix: str | None, monkeypatc
 
 register_law(build, "dispatch_build_projects_routes_build_fan")
 register_law(fix, "dispatch_write_mode_routes_write_fan")
-
 
 # --- [FAN_LEASED_LAWS]
 
@@ -427,7 +416,6 @@ def test_write_fan_route_sha_prefix(monkeypatch: pytest.MonkeyPatch, assay_root:
 
 
 register_law(fix, "route_sha_included_in_lease_resource")
-
 
 # --- [VERB_INTEGRATION]
 

@@ -16,26 +16,19 @@ Laws:
 # --- [RUNTIME_PRELUDE] ------------------------------------------------------------------
 
 from dataclasses import replace
-from typing import override, TYPE_CHECKING
+import re
+from typing import override, TYPE_CHECKING, TypeAliasType
 
-from dirty_equals import IsInt, IsStr
+from dirty_equals import IsInt, IsList, IsStr
 from expression import Error, Ok, Result  # runtime: canned run_check replacements return Result instances
 from hypothesis import given as hyp_given, settings as hyp_settings, strategies as st
+from inline_snapshot import external, outsource  # external-file goldens for the large rendered C# decompile surface
 import pytest
 
-from tests.python._testkit._aspect import register_law, spec  # sibling test-internal module; `_`-named by S1 design
-from tests.python._testkit._spec import (  # sibling test-internal module; `_`-named by S1 design
-    assert_error,
-    assert_ok,
-    assert_roundtrip,
-    support_matrix,
-    validity_matrix,
-    ValidityCase,
-)
-from tests.python._testkit._strategies import (  # sibling test-internal module; aliased to avoid collision with tools.assay.rails.api.resolve verb
-    resolve as st_resolve,
-)
-from tests.python.tools.assay.conftest import RailProbe  # shared canned-output DNA; `_`-named by S1 design
+from tests.python._testkit.laws import register_law, spec
+from tests.python._testkit.spec import assert_error, assert_ok, assert_roundtrip, refutes, support_matrix, validity_matrix, ValidityCase
+from tests.python._testkit.strategies import resolve as st_resolve  # aliased to avoid collision with tools.assay.rails.api.resolve verb
+from tests.python.tools.assay.kit import RailProbe
 from tools.assay.composition.catalog import CAPTURES, select
 from tools.assay.core.model import (
     ApiResolution,
@@ -62,7 +55,7 @@ if TYPE_CHECKING:
     from collections.abc import Callable
     from pathlib import Path
 
-    from tests.python.tools.assay.conftest import AssayHarness  # test-internal sibling; `_`-prefixed by convention
+    from tests.python.tools.assay.kit import AssayHarness
     from tools.assay.composition.settings import ArtifactScope, AssaySettings
     from tools.assay.core.model import Report
 
@@ -109,7 +102,6 @@ _TEN_LINES: str = "\n".join(f"line{i}" for i in range(1, 11))
 
 # deps excluded: the fixture lays down no build/analyzers/runtimes dirs, so its target set is empty → EMPTY not OK.
 _PRESENT_KINDS: tuple[str, ...] = ("all", "assembly", "xml", "nuspec", "package-root")
-
 
 # --- [MODELS] ---------------------------------------------------------------------------
 
@@ -214,14 +206,58 @@ def _cs_surface(assay_root: AssayHarness, monkeypatch: pytest.MonkeyPatch, symbo
     ids=["empty", "ws", "1-up", "1-low", "2-up", "rhino-type", "3-up", "parens", "rhino-mem", "3-low"],
 )
 def test_shape_of_dispatch(symbol: str, expected: SymbolShape) -> None:
-    """shape_of dispatches every SymbolShape arm and is idempotent on a canonical representative."""
+    """shape_of dispatches every SymbolShape arm and is idempotent on a canonical representative.
+
+    Falsified by a mutant that collapses any arm onto another (e.g. drops the dotted-vs-cased
+    discriminant): the refutes witness below proves the dispatch table is not a tautology — a
+    deliberately wrong (symbol, expected) pair makes the case-table law raise.
+    """
     assert shape_of(symbol) is expected
     assert shape_of(symbol) is shape_of(symbol)
 
 
+def _shape_law(symbol: str, expected: SymbolShape) -> None:
+    """Oracle: shape_of(symbol) must be ``expected``; raises AssertionError otherwise.
+
+    Driven both as a positive law (every parametrize row) and inverted by ``refutes`` with a
+    deliberately wrong expected, proving the dispatch table discriminates rather than returning a constant.
+    """
+    assert shape_of(symbol) is expected, f"shape_of({symbol!r}) = {shape_of(symbol)} != {expected}"
+
+
+def test_shape_of_dispatch_is_falsifiable() -> None:
+    """``_shape_law`` raises on a wrong (symbol, shape) pair — the dispatch table is not vacuous.
+
+    Without a witness, a mutant collapsing shape_of to a constant SymbolShape could survive whenever a
+    parametrize row happens to expect that constant. refutes pins each shape against a deliberately wrong
+    expectation, so a non-discriminating shape_of cannot pass: every arm must reject the other arms' values.
+    """
+    refutes("System", _shape_law, SymbolShape.MEMBER)  # NAMESPACE-shaped, MEMBER expected → must raise
+    refutes("System.String", _shape_law, SymbolShape.INDEX)  # TYPE-shaped, INDEX expected → must raise
+    refutes("System.String.Contains()", _shape_law, SymbolShape.TYPE)  # MEMBER-shaped, TYPE expected → must raise
+    _shape_law("", SymbolShape.INDEX)  # the same oracle proves the positive arm holds (empty → INDEX)
+
+
+def test_inspect_kinds_roster_pins_pep695_alias_row() -> None:
+    """_INSPECT_KINDS keeps the PEP 695 ``("type", TypeAliasType)`` row that rosters ``type X = ...`` aliases.
+
+    The api rail folds every (cap, predicate) row in _INSPECT_KINDS to roster a pydist's public surface;
+    dropping the TypeAliasType predicate silently stops type-alias members from appearing in a surface
+    query. This law fails if the alias row leaves the roster — proven by sampling the row's predicate
+    against a real ``type`` alias (True) and a plain class (False), so it cannot pass on a renamed/empty row.
+    """
+    type Alias = int  # a real PEP 695 alias object; isinstance(Alias, TypeAliasType) is True
+    assert isinstance(Alias, TypeAliasType)  # anchor: the alias row must accept exactly this object class
+
+    alias_predicates = tuple(pred for cap, pred in api_rail._INSPECT_KINDS if cap == "type" and pred(Alias) and not pred(int))
+    assert len(alias_predicates) == 1, "exactly one _INSPECT_KINDS row must accept a TypeAliasType and reject a plain class"
+    assert [cap for cap, _ in api_rail._INSPECT_KINDS] == IsList("type", "type", "type")  # every roster row caps under @type
+
+
 register_law(shape_of, "shape_of_dispatch")
 register_law(shape_of, "shape_of_idempotent")
-
+register_law(shape_of, "shape_of_dispatch_falsifiable")
+register_law(query, "inspect_kinds_pep695_alias_row")
 
 # --- [API_PARAMS]
 
@@ -325,6 +361,9 @@ def test_doctor_sources_validity_matrix(assay_root: AssayHarness) -> None:
         lambda v: v >= 0,  # predicate: a valid line count is non-negative
     )
     assert lines_all >= lines_rhino >= lines_none == 0  # falsifiable by a defect in _filtered_sources
+    # validity_matrix is non-vacuous: a case whose expected flag contradicts the predicate must raise.
+    # This pins that the matrix oracle truly compares (it would silently pass any input if it ignored `expected`).
+    refutes([ValidityCase("contradiction", lines_none, expected=True)], validity_matrix, lambda v: v > 0)  # 0 > 0 is False ≠ True
 
 
 register_law(doctor, "doctor_sources_prefix_monotone")
@@ -391,6 +430,26 @@ def test_doctor_result_ids_are_identity_shaped(assay_root: AssayHarness) -> None
 
 register_law(doctor, "doctor_result_ids_identity_shaped")
 
+
+_DOCTOR_ROW = re.compile(r"^\S+ status=\S+ assembly=(?:present|missing) xml=(?:present|missing) version=\S+$")
+
+
+def test_doctor_row_text_is_stable_key_value_grammar(assay_root: AssayHarness) -> None:
+    """Each doctor inventory ``Match.text`` follows the fixed ``key=value`` health grammar parsers key off.
+
+    Pins ``<source_id> status=<status> assembly=present|missing xml=present|missing version=<version|->`` —
+    fixed key order, single-space-separated — so a downstream parser reads named keys, not positions. A
+    presence-token flip (``present`` <-> ``missing``) or a dropped key fails the per-row fullmatch.
+    """
+    report = assert_ok(_run(doctor, assay_root))
+    assert report.results
+    for match in report.results:
+        assert _DOCTOR_ROW.fullmatch(match.text), f"doctor row text broke the key=value grammar: {match.text!r}"
+        keys = tuple(token.split("=", 1)[0] for token in match.text.split(" ")[1:])
+        assert keys == ("status", "assembly", "xml", "version"), f"doctor row key order drifted: {match.text!r}"
+
+
+register_law(doctor, "doctor_row_text_is_stable_key_value_grammar")
 
 # --- [RESOLVE]
 
@@ -468,7 +527,6 @@ def test_resolve_pydist_key_ok(assay_root: AssayHarness) -> None:
 
 
 register_law(resolve, "resolve_pydist_key_ok")
-
 
 # --- [SHOW]
 
@@ -563,7 +621,6 @@ def test_show_latest_prefers_api_scope_artifact(assay_root: AssayHarness) -> Non
 
 register_law(show, "show_latest_api_scope_preference")
 
-
 # --- [QUERY]
 
 
@@ -590,7 +647,6 @@ def test_query_key_resolution(
 register_law(query, "query_pydist_ok")
 register_law(query, "query_unknown_key_unsupported")
 
-
 # --- [WIRE_TYPES]
 
 
@@ -611,7 +667,6 @@ def test_wire_roundtrip(type_: type, strategy: st.SearchStrategy[object], data: 
 register_law(ApiResolution, "api_resolution_roundtrip")
 register_law(ApiSource, "api_source_roundtrip")
 register_law(ApiSurface, "api_surface_roundtrip")
-
 
 # --- [CS_QUERY]
 
@@ -647,6 +702,22 @@ def test_cs_query_dispatches_every_shape(
 register_law(query, "cs_query_dispatches_every_shape")
 register_law(query, "cs_query_search_hits")
 register_law(query, "cs_query_empty_decompile_search")
+
+
+def test_cs_query_type_window_renders_full_golden_surface(assay_root: AssayHarness, monkeypatch: pytest.MonkeyPatch) -> None:
+    """The rendered C# type-decompile window reproduces the full anchored surface byte-for-byte.
+
+    Where the dispatch sweep only spot-checks ``anchor in preview``, this pins the entire rendered
+    window (class declaration + every member line, anchored and dedented) against an external golden.
+    Falsified by any decompile-window regression — line reordering, dropped members, anchor drift —
+    that a single-substring assertion would let survive. The golden lives in the external store so the
+    multi-line surface never bloats the test source.
+    """
+    detail = _cs_surface(assay_root, monkeypatch, "Widget")
+    assert outsource(detail.preview, suffix=".txt") == external("uuid:be213712-2b2b-44e5-973c-ec6ff40ee8b9.txt")
+
+
+register_law(query, "cs_query_type_window_golden")
 
 
 def test_cs_query_member_carries_xml_doc(assay_root: AssayHarness, monkeypatch: pytest.MonkeyPatch) -> None:
@@ -781,7 +852,6 @@ def test_cs_surface_empty_assemblies_is_empty_not_fault(assay_root: AssayHarness
 
 register_law(query, "cs_surface_empty_assemblies_empty")
 
-
 # --- [PYDIST_QUERY]
 
 
@@ -822,7 +892,6 @@ def test_pydist_member_grep_and_full_window(assay_root: AssayHarness) -> None:
 
 
 register_law(query, "pydist_member_grep_full")
-
 
 # --- [PYDIST_THUNK]
 
@@ -1145,7 +1214,6 @@ def test_resolve_ambiguous_nuget_falls_through_to_unknown(assay_root: AssayHarne
 
 
 register_law(resolve, "resolve_nuget_ambiguous")
-
 
 # --- [ENGINE_BOUNDARY]
 

@@ -29,7 +29,6 @@ if TYPE_CHECKING:
 
 type ModelShape = tuple[tuple[str, str], ...]
 
-
 # --- [CONSTANTS] ------------------------------------------------------------------------
 
 _PYTHON_GRAMMAR = tree_sitter_python.language
@@ -70,7 +69,6 @@ _TOOLING_ROOTS = ((".claude", "hooks"), (".claude", "skills"), _PY_ANALYZER_ROOT
 _DOMAIN_SCOPES = frozenset({Scope.domain, Scope.application})
 _PUBLIC_SIGNATURE_BANNED_NAMES = _ERASED_NAMES | _MUTABLE_FIELD_NAMES | _PRIMITIVE_NAMES
 _FLOW_NODE_TYPES = frozenset({"if_statement", "for_statement", "while_statement", "try_statement", "raise_statement"})
-
 
 # --- [MODELS] ---------------------------------------------------------------------------
 

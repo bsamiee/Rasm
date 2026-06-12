@@ -1,6 +1,6 @@
 # [TEST_STRATEGY_STANDARDS]
 
-A test strategy document fixes the test portfolio, risk model, gate placement, routing, required proof by change type, flaky-test handling when the scope carries it, and entry or exit criteria when the scope gates releases or manual acceptance. It is a testing-risk policy: it states which test levels exist, where each gate runs, how risk selects test depth, which diagnosis path handles failures, and what evidence closes a change. It is not a contributor command list, framework reference, proof-strength catalog, test plan, runbook, or implementation history.
+A test strategy document fixes the test portfolio, risk model, gate placement, routing, required confirmation by change type, flaky-test handling when the scope carries it, and entry or exit criteria when the scope gates releases or manual acceptance. It is a testing-risk policy: it states which test levels exist, where each gate runs, how risk selects test depth, which diagnosis path handles failures, and what confirmation closes a change. It is not a contributor command list, framework reference, confirmation-strength catalog, test plan, runbook, or implementation history.
 
 Name one profile and one primary strategy archetype in the opening paragraph. Secondary archetype influences are allowed only when they change gate selection and are named explicitly.
 
@@ -12,17 +12,17 @@ Use a test strategy when a maintained scope must state any of these:
 - where each gate runs and which changes trigger it;
 - which entry criteria precede a gate or which exit criteria close an acceptance or release class;
 - which route or source carries a failed, noisy, or quarantined test;
-- which evidence is required to approve, merge, release, or manually accept each change family;
+- which confirmation is required to approve, merge, release, or manually accept each change family;
 - how cost, speed, fidelity, and reliability trade off across the portfolio.
 
 Do not use a test strategy to list every command a contributor runs, catalog runner flags or framework APIs, record milestone sequence, or prescribe incident recovery from a failing production gate.
 
 [AUTHORING_CONTRACT]:
 - Agent use: identify the maintained scope, choose one profile and one primary archetype, then map risk tiers to real local gates without turning the page into a command manual.
-- Required produced structure: lead, `Scope`, `Principles`, `Risk model`, `Test levels`, `Gate mapping`, `Required proof by change`, `Diagnosis and repair`, `Boundaries`, and `Validation`.
+- Required produced structure: lead, `Scope`, `Principles`, `Risk model`, `Test levels`, `Gate mapping`, `Required confirmation by change`, `Diagnosis and repair`, `Boundaries`, and `Result check`.
 - Section cardinality: required sections appear once; entry/exit, flaky-test, metrics, and maintenance sections appear only when their trigger changes gate behavior.
-- Adjacent checks: check architecture for invariants, API and code documentation for generated contracts or public symbols, support matrix for supported targets, roadmap for exit proof, contributing/how-to for command paths, and runbook for production gate recovery only when those facts choose or close a gate.
-- Maintenance triggers: update the strategy when a risk tier, gate, status check, runner, artifact, maintained scope boundary, support target, generated contract, quarantine rule, entry/exit threshold, or proof requirement changes.
+- Adjacent checks: check architecture for invariants, API and code documentation for generated contracts or public symbols, support matrix for supported targets, roadmap for exit confirmation, contributing/how-to for command paths, and runbook for production gate recovery only when those facts choose or close a gate.
+- Maintenance triggers: update the strategy when a risk tier, gate, status check, runner, artifact, maintained scope boundary, support target, generated contract, quarantine rule, entry/exit threshold, or confirmation requirement changes.
 
 ## [2]-[REQUIRED_STRUCTURE]
 
@@ -43,35 +43,12 @@ Use this required section order. Conditional sections are omitted until their tr
 
 ## [5]-[GATE_MAPPING]
 
-## [6]-[REQUIRED_PROOF_BY_CHANGE]
+## [6]-[REQUIRED_CONFIRMATION_BY_CHANGE]
 
 ## [7]-[DIAGNOSIS_REPAIR]
 
 ## [8]-[BOUNDARIES]
 
-## [9]-[VALIDATION]
-```
-
-Use this accepted lead shape:
-
-```markdown conceptual
-# [EVENT_CONTRACT_TEST_STRATEGY]
-
-This `Service integration` strategy uses the `Analytical` archetype for event-contract schema drift. It maps contract, generated-reference, and consumer-review risks to local gates; contributor commands stay in contributing guides and production gate recovery stays in runbooks.
-```
-
-Use this conditional-section decision table:
-
-| [INDEX] | [SECTION]                 | [TRIGGER]               | [AFTER]                                   | [OMIT_WHEN]                 |
-| :-----: | :------------------------ | :---------------------- | :---------------------------------------- | :-------------------------- |
-|   [1]   | `Entry and exit criteria` | release/manual gates    | Gate mapping                              | no open/close criteria      |
-|   [2]   | `Flaky-test policy`       | rerun or quarantine     | Diagnosis and repair                      | scope cannot quarantine     |
-|   [3]   | `Metrics`                 | decision-driving metric | Flaky-test policy or Diagnosis and repair | observational only          |
-|   [4]   | `Maintenance events`      | multiple stale events   | before Boundaries                         | claim-level proof is enough |
-
-Use this conditional-addition template:
-
-```markdown template
 ## [N]-[ENTRY_EXIT_CRITERIA]
 
 ## [N]-[FLAKY_TEST_POLICY]
@@ -82,13 +59,13 @@ Use this conditional-addition template:
 ```
 
 [SECTION_CARDINALITY]:
-- Opening paragraph, `Scope`, `Principles`, `Risk model`, `Test levels`, `Gate mapping`, `Required proof by change`, `Diagnosis and repair`, `Boundaries`, and `Validation` are required.
+- Opening paragraph, `Scope`, `Principles`, `Risk model`, `Test levels`, `Gate mapping`, `Required confirmation by change`, `Diagnosis and repair`, `Boundaries`, and `Result check` are required.
 - Conditional sections appear only when their decision-table trigger holds.
-- Produced strategies contain no placeholders, template gate names, generic gate classes, or unnamed repair paths in place of a source path, status check, contract, or proof gate.
+- Produced strategies contain no placeholders, template gate names, generic gate classes, or unnamed repair paths in place of a code path, status check, contract, or confirmation gate.
 
 ## [3]-[LOCAL_TRUTH]
 
-Separate local executable truth from testing vocabulary. Repository truth carries gate names, commands, runners, status-check identifiers, artifacts, repair paths, and release policy. Produced strategies claim only local policy and local evidence.
+Separate local executable truth from testing vocabulary. Repository truth carries gate names, commands, runners, status-check identifiers, artifacts, repair paths, and release policy. Produced strategies claim only local policy and local confirmation.
 
 Use shared testing terms as local labels only when the strategy defines their meaning before use. If a project must claim compliance with a nonlocal policy, route that policy to the maintained policy document and keep this strategy focused on executable gates.
 
@@ -139,7 +116,7 @@ Testing vocabulary supplies these concepts:
 [FIELD_VALUES]:
 - `Trigger`: `presubmit`, `post-submit`, `nightly`, `release`, `manual runtime gate`, `incident follow-up`.
 - `Blocking`: `blocks merge`, `blocks release`, `blocks acceptance`, `reports only`.
-- `Quarantine status`: active `suspected`, `quarantined`, `repairing`; returnable `re-enabled`; terminal `deleted`. There is no blocked quarantine status: if repair is blocked, the record carries the blocker as evidence and remains `quarantined` or `repairing`. A deleted test is removed from the strategy only when duplicate coverage or retired behavior is proven and the deletion evidence remains in the controlling change record.
+- `Quarantine status`: active `suspected`, `quarantined`, `repairing`; returnable `re-enabled`; terminal `deleted`. There is no blocked quarantine status: if repair is blocked, the record carries the blocker as confirmation and remains `quarantined` or `repairing`. A deleted test is removed from the strategy only when duplicate coverage or retired behavior is proven and the deletion confirmation remains in the controlling change record.
 
 These field-value vocabularies are not lifecycle `Status` unless the record explicitly carries lifecycle. `Trigger` names when a gate runs, `Blocking` names merge or release effect, and quarantine terms name test-row handling. If a strategy also tracks lifecycle work, use the shared record vocabulary or declare a separate lifecycle family before the first record.
 
@@ -148,7 +125,7 @@ These field-value vocabularies are not lifecycle `Status` unless the record expl
 Place test strategies at the nearest scope that owns the policy:
 - Shared scope strategy: `docs/test-strategy.md`.
 - Test-corpus strategy: `docs/testing-strategy.md` or a maintained test-docs hub.
-- Scope-local strategy: `<source-area>/TEST_STRATEGY.md` when the policy binds inside one maintained source area only.
+- Scope-local strategy: `<source-area>/TEST_STRATEGY.md` when the policy binds inside one maintained material area only.
 
 Keep one strategy per scope. Link a lower-level strategy instead of copying its gate map into a shared document.
 
@@ -166,23 +143,23 @@ State the trade-off rules the portfolio obeys with these required rules:
 - Treat hermeticity as the continuous-integration gate: a less hermetic level runs later and records residual risk.
 - Hold a pyramid distribution unless the scope documents why an alternate shape is cheaper to maintain and more reliable.
 - Replace a duplicated end-to-end test with a smaller integration or contract test when the smaller gate catches the same failure class.
-- Reserve high-fidelity gates for critical journeys, cross-boundary behavior, host runtime proof, or nonfunctional budgets.
+- Reserve high-fidelity gates for critical journeys, cross-boundary behavior, host runtime confirmation, or nonfunctional budgets.
 
 [DEPTH_SELECTION]:
 - Select test depth from risk tier or the declared primary archetype, not author preference.
-- Treat coverage percentage as a signal, never proof of correctness.
+- Treat coverage percentage as a signal, never confirmation of correctness.
 - Add a nonfunctional level only when the scope carries that risk.
 
 [EVIDENCE_RAILS]:
-- Keep static analysis, build/type checking, unit/property tests, integration gates, runtime scenario checks, mutation, fuzzing, benchmark, and snapshot/visual proof as separate rail classes unless local policy proves that one gate fully consumes another. A strategy may route commands away, but it must not collapse static-managed evidence and runtime bridge evidence into one unnamed proof bucket.
+- Keep static analysis, build/type checking, unit/property tests, integration gates, runtime scenario checks, mutation, fuzzing, benchmark, and snapshot/visual confirmation as separate rail classes unless local policy proves that one gate fully consumes another. A strategy may route commands away, but it must not collapse static-managed confirmation and runtime bridge confirmation into one unnamed confirmation bucket.
 
 ## [9]-[RISK_MODEL]
 
 Bind test depth and gate selection to an auditable risk tier. State the scoring model the scope actually uses, the tier buckets, and the rule mapping each tier to test depth and minimum gate. Use a decision table so an agent resolves a tier deterministically.
 
-The table below is a default likelihood-by-impact template, not a universal rule. Replace ranges when the local risk register uses a different scale, and replace every proof cell with a real local gate, contract, status check, or proof path in produced strategies.
+The table below is a default likelihood-by-impact template, not a universal rule. Replace ranges when the local risk register uses a different scale, and replace every confirmation cell with a real local gate, contract, status check, or confirmation path in produced strategies.
 
-| [INDEX] | [TIER]  | [DEFAULT_SCORE] | [TEST_DEPTH]              | [MINIMUM_PROOF]                         |
+| [INDEX] | [TIER]  | [DEFAULT_SCORE] | [TEST_DEPTH]              | [MINIMUM_CONFIRMATION]                  |
 | :-----: | :------ | --------------: | :------------------------ | :-------------------------------------- |
 |   [1]   | Extreme |           20-25 | full plus nonfunctional   | release gate from local policy          |
 |   [2]   | High    |           13-19 | integration plus property | post-submit status check or contract    |
@@ -218,17 +195,17 @@ Trigger: <presubmit, post-submit, nightly, release, or manual runtime gate>
 
 Local rail classes stay distinct from test levels. Use this table as a selection checklist, then replace every row a produced strategy uses with the repository's current gate name, status check, or generated artifact:
 
-| [INDEX] | [RAIL_CLASS]                | [TYPICAL_LOCAL_SOURCE]                                  | [PROOF_FUNCTION]                                  |
-| :-----: | :-------------------------- | :------------------------------------------------------ | :------------------------------------------------ |
-|   [1]   | static/type/build           | maintained analyzer, formatter, compiler, or build gate | source-shape and compilation evidence             |
-|   [2]   | unit and property           | maintained unit/property runner or local testkit        | small deterministic behavior evidence             |
-|   [3]   | coverage                    | maintained coverage report                              | exercised-line signal, never correctness proof    |
-|   [4]   | mutation                    | maintained mutation receipt                             | assertion strength for selected behavior          |
-|   [5]   | snapshot or manual artifact | maintained artifact diff                                | stable rendered or serialized artifact comparison |
-|   [6]   | architecture                | maintained architecture gate                            | dependency and layering invariant evidence        |
-|   [7]   | fuzz                        | maintained fuzz harness                                 | crash and parser robustness evidence              |
-|   [8]   | benchmark                   | maintained budget gate                                  | performance-budget evidence                       |
-|   [9]   | host/runtime scenario       | simulator, device, or host scenario                     | integration with external host behavior           |
+| [INDEX] | [RAIL_CLASS]                | [TYPICAL_LOCAL_SOURCE]                                  | [CONFIRMATION_FUNCTION]                               |
+| :-----: | :-------------------------- | :------------------------------------------------------ | :---------------------------------------------------- |
+|   [1]   | static/type/build           | maintained analyzer, formatter, compiler, or build gate | source-shape and compilation confirmation             |
+|   [2]   | unit and property           | maintained unit/property runner or local testkit        | small deterministic behavior confirmation             |
+|   [3]   | coverage                    | maintained coverage report                              | exercised-line signal, never correctness confirmation |
+|   [4]   | mutation                    | maintained mutation receipt                             | assertion strength for selected behavior              |
+|   [5]   | snapshot or manual artifact | maintained artifact diff                                | stable rendered or serialized artifact comparison     |
+|   [6]   | architecture                | maintained architecture gate                            | dependency and layering invariant confirmation        |
+|   [7]   | fuzz                        | maintained fuzz harness                                 | crash and parser robustness confirmation              |
+|   [8]   | benchmark                   | maintained budget gate                                  | performance-budget confirmation                       |
+|   [9]   | host/runtime scenario       | simulator, device, or host scenario                     | integration with external host behavior               |
 
 ## [11]-[GATE_MAPPING]
 
@@ -242,26 +219,26 @@ Blocking: <blocks merge, blocks release, blocks acceptance, or reports only>
 Resource policy: <timeout, retry, shard, or concurrency limit when signal quality changes>
 Status check: <artifact or check location from repository truth>
 Escalation path: <source, command, artifact, or procedure required for triage>
-Residual risk if deferred: <risk left unproven>
-Evidence: <status check, report artifact, generated receipt, or review record>
-Controlling source: <runner config, workflow, quality tool, generated contract, or maintained policy>
+Residual risk if returnable: <risk left unproven>
+Observed result: <status check, report artifact, generated receipt, or review record>
+Owner: <runner config, workflow, quality tool, generated contract, or maintained policy>
 Review trigger: <gate, runner, status check, support target, risk tier, or contract change>
 ```
 
-Order gates by trigger latency. Fast deterministic gates block early. Slower or less hermetic gates run later; each deferred gate states residual risk.
+Order gates by trigger latency. Fast deterministic gates block early. Slower or less hermetic gates run later; each returnable gate states residual risk.
 
-When adjacent truth changes gate selection, proof escalation, support scope, command routing, or recovery routing, add one adjacent proof record beside the gate record:
+When adjacent truth changes gate selection, confirmation escalation, support scope, command routing, or recovery routing, add one adjacent confirmation record beside the gate record:
 
 ```text template
-Changed fact: <invariant, generated contract, support row, public symbol, contributor command, validation path, or recovery route>
-Consumed by: <gate, test level, risk tier, or required-proof row>
-Use in this document: <select gate, escalate proof, defer proof, block acceptance, or route recovery>
+Changed fact: <invariant, generated contract, support row, public symbol, contributor command, confirmation path, or recovery route>
+Consumed by: <gate, test level, risk tier, or required-confirmation row>
+Use in this document: <select gate, escalate confirmation, defer confirmation, block acceptance, or route recovery>
 Update when: <adjacent fact, gate selection, command path, support target, or generated contract changes>
 Close when: <gate record consumes the fact, or this strategy routes the fact away>
 Route-away: <architecture body, API catalog, support policy, command procedure, or runbook recovery body>
 ```
 
-Use architecture when topology or invariants select the gate; API or code documentation when generated contracts or public symbols supply proof; support matrix when supported-version truth controls test scope; contributing or how-to when the executable command path belongs outside strategy; runbook only for production gate recovery. Omit background-only links that do not change gate choice, proof strength, or recovery path.
+Use architecture when topology or invariants select the gate; API or code documentation when generated contracts or public symbols supply confirmation; support matrix when supported-version truth controls test scope; contributing or how-to when the executable command path belongs outside strategy; runbook only for production gate recovery. Omit background-only links that do not change gate choice, confirmation strength, or recovery path.
 
 The diagram below is conceptual, not universal. A produced strategy may include a gate diagram only when it names real local gate IDs, status checks, trigger classes, and the text equivalent that proves the same ordering:
 
@@ -278,16 +255,16 @@ config:
 ---
 flowchart TB
     accTitle: Test gate latency order
-    accDescr: Testing gates move from presubmit through post-submit, nightly, and release gates, with failures blocking early and later gates adding broader proof before acceptance or release.
+    accDescr: Testing gates move from presubmit through post-submit, nightly, and release gates, with failures blocking early and later gates adding broader confirmation before acceptance or release.
     Change["changed-path impact"] --> Presubmit["presubmit gate"]
-    Presubmit -->|unit and contract proof| PostSubmit["post-submit gate"]
-    PostSubmit -->|integration proof| Nightly["nightly gate"]
-    Nightly -->|journey and nonfunctional proof| Release["release gate"]
+    Presubmit -->|unit and contract confirmation| PostSubmit["post-submit gate"]
+    PostSubmit -->|integration confirmation| Nightly["nightly gate"]
+    Nightly -->|journey and nonfunctional confirmation| Release["release gate"]
     Release --> Decision["acceptance or release decision"]
     Presubmit -->|failure| Block["block early"]
 ```
 
-Text equivalent: changed-path impact selects the presubmit gate first; unit and contract proof can defer broader integration to post-submit and nightly gates; release acceptance waits for high-fidelity and nonfunctional proof; presubmit failure blocks early, and any deferred gate must state residual risk in the gate record.
+Text equivalent: changed-path impact selects the presubmit gate first; unit and contract confirmation can defer broader integration to post-submit and nightly gates; release acceptance waits for high-fidelity and nonfunctional confirmation; presubmit failure blocks early, and any returnable gate must state residual risk in the gate record.
 
 ## [12]-[ENTRY_EXIT_CRITERIA]
 
@@ -308,16 +285,16 @@ Exit (hotfix): <tailored thresholds and affected risk areas>
 
 Do not require pass-rate, critical-flow, defect-bound, or escape-budget fields unless the local release policy uses them. An unstated tailored release or gate path is an ungated path.
 
-## [13]-[REQUIRED_PROOF_BY_CHANGE]
+## [13]-[REQUIRED_CONFIRMATION_BY_CHANGE]
 
-Map each change family to the smallest sufficient proof surface. The table below is a template: produced strategies replace every proof cell with repository gate names, contracts, or source checks and link [proof.md](../proof.md) for evidence strength rather than restating the evidence hierarchy.
+Map each change family to the smallest sufficient confirmation surface. The table below is a template: produced strategies replace every confirmation cell with repository gate names, contracts, or source checks and link [proof.md](../proof.md) for confirmation strength rather than restating the confirmation hierarchy.
 
-| [INDEX] | [CHANGE]             | [PROOF]                                | [ESCALATE_WHEN]                         |
+| [INDEX] | [CHANGE]             | [CONFIRMATION]                         | [ESCALATE_WHEN]                         |
 | :-----: | :------------------- | :------------------------------------- | :-------------------------------------- |
 |   [1]   | behavior             | unit/property gate                     | public contract                         |
 |   [2]   | integration boundary | contract gate or diff                  | cross-scope integration boundary        |
 |   [3]   | journey/deploy       | e2e, smoke, or scenario                | critical journey                        |
-|   [4]   | host runtime         | runtime/manual proof                   | host output changes                     |
+|   [4]   | host runtime         | runtime/manual confirmation            | host output changes                     |
 |   [5]   | generated contract   | generated diff or API gate             | callable or serialized contract changes |
 |   [6]   | visual/snapshot      | snapshot or manual artifact gate       | user-visible artifact changes           |
 |   [7]   | nonfunctional        | benchmark, fuzz, budget, or audit gate | budget or robustness breach             |
@@ -325,8 +302,8 @@ Map each change family to the smallest sufficient proof surface. The table below
 
 When an escalation trigger fires, the change also clears the broader gate the row escalates into. A produced strategy that leaves a placeholder, generic gate class, or unowned review path in this table is incomplete.
 
-[PROOF_ROW_CONTRAST]:
-- Rejected proof row: `behavior | generic gate | if risky`
+[CONFIRMATION_ROW_CONTRAST]:
+- Rejected confirmation row: `behavior | generic gate | if risky`
 - Reason: the rejected row names no repository gate, contract, source check, or escalation condition.
 
 ## [14]-[DIAGNOSIS_REPAIR]
@@ -387,9 +364,9 @@ Include metrics only when each metric changes a decision. Bind every metric to t
 - failure-localization quality: level granularity and artifact requirements;
 - risk-weighted or critical-journey coverage: test depth per risk tier;
 - behavior-level coverage per named risk: traceability completeness and gap detection;
-- defect-escape evidence from production or release feedback: gate sufficiency and entry or exit thresholds.
+- defect-escape confirmation from production or release feedback: gate sufficiency and entry or exit thresholds.
 
-Do not publish a metric the scope cannot act on, and do not present raw coverage percentage as proof of correctness.
+Do not publish a metric the scope cannot act on, and do not present raw coverage percentage as confirmation of correctness.
 
 ## [17]-[MAINTENANCE_EVENTS]
 
@@ -415,7 +392,7 @@ Use these common maintenance events:
 [EXPLANATION_TYPES]:
 - [architecture.md](architecture.md) carries architecture topology, runtime boundaries, and invariant checks that select test levels.
 - [adr.md](adr.md) carries process decisions that bind gate policy or quarantine policy.
-- [design-doc.md](design-doc.md) carries proposal proof plans that consume strategy gates.
+- [design-doc.md](design-doc.md) carries proposal confirmation plans that consume strategy gates.
 - [roadmap.md](roadmap.md) carries delivery sequence and milestone exit criteria.
 
 [TASK_REFERENCE_TYPES]:
@@ -423,35 +400,4 @@ Use these common maintenance events:
 - [runbook.md](../task/runbook.md) carries operational recovery from a failing gate in production.
 - [reference.md](../reference/reference.md) carries test-tool and framework API lookup.
 - [README.md](../README.md) carries document-type routing, placement, and lifecycle.
-- [proof.md](../proof.md) carries evidence strength, proof details, and verification gates.
-
-## [19]-[VALIDATION]
-
-Use this verification checklist by group:
-
-[OPENING_SCOPE]:
-- [ ] One profile and one primary archetype are named in the opening paragraph; secondary influences are explicit and justified.
-- [ ] Scope and maintained boundaries are stated, and one primary risk class is local.
-- [ ] Policy taxonomy is separated from local executable gate truth through the local-truth section and testing vocabulary.
-- [ ] Archetype labels are treated as local adaptations, not compliance claims.
-- [ ] Produced strategies contain no placeholder proof cells, generic gate classes, or unnamed repair paths.
-
-[RISK_GATES]:
-- [ ] Conditional sections appear only when their decision-table trigger holds.
-- [ ] The risk model states the scoring scale in use, tier buckets, tier-to-gate mapping, and risk-register link.
-- [ ] Each High or Extreme register risk back-links to the level or gate that covers it.
-- [ ] Each test level carries purpose, risk, size, scope, hermeticity and CI eligibility, diagnosis path, budget, isolation, artifacts, and trigger.
-- [ ] Each gate carries closed-vocabulary trigger, selection rule, blocking behavior, status check or artifact, escalation path, residual risk, evidence, controlling source, and review trigger.
-- [ ] Deferred gates state the risk that remains unproven.
-
-[PROOF_REPAIR]:
-- [ ] Diagnosis and repair names the source, artifact, or procedure used for local executable gate failures.
-- [ ] Entry and exit criteria appear only when the strategy carries release, manual, manual runtime, regulated, or hotfix gates.
-- [ ] Each change family maps to a local gate, contract, or source check, not a generic gate class.
-- [ ] Every large and cross-scope test has a named diagnosis path.
-- [ ] Flaky-test policy appears when rerun, quarantine, noisy-test, re-enable, or deletion decisions exist, and it carries the quarantine status vocabulary plus repair path, duration, residual signal, and re-enable or deletion criteria.
-
-[CONDITIONAL_BOUNDARIES]:
-- [ ] Each metric binds to a named decision; raw coverage percentage is not presented as proof.
-- [ ] Maintenance events use source events, not calendar dates unless a maintained policy requires a scheduled review.
-- [ ] Boundaries carry at most one link per adjacent standard.
+- [proof.md](../proof.md) carries confirmation strength, confirmation details, and verification gates.

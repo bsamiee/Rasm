@@ -19,9 +19,9 @@ from hypothesis import example, given, strategies as st
 import msgspec
 import pytest
 
-from tests.python._testkit._aspect import register_law  # private test-internal module
-from tests.python._testkit._spec import roundtrip  # private test-internal module
-from tests.python._testkit._strategies import resolve  # private test-internal module
+from tests.python._testkit.laws import register_law
+from tests.python._testkit.spec import roundtrip
+from tests.python._testkit.strategies import resolve
 from tools.assay.automation.model import (
     Action,
     ACTION_DECODER,
@@ -59,7 +59,6 @@ _action_st: st.SearchStrategy[Action] = st.deferred(
     )
 )
 _trigger_st: st.SearchStrategy[Trigger] = st.one_of(resolve(Watch), resolve(Schedule), resolve(Manual))
-
 
 # --- [LAWS] -----------------------------------------------------------------------------
 
@@ -99,9 +98,7 @@ register_law(Watch, "test_trigger_encode_decode_roundtrip")
 register_law(Schedule, "test_trigger_encode_decode_roundtrip")
 register_law(Manual, "test_trigger_encode_decode_roundtrip")
 
-
 # --- [DESCRIBE_PREFIX]
-
 
 _DESCRIBE_PREFIXES: tuple[tuple[type[Watch | Schedule | Manual | Rail | Program | Sequence | Debounce], str], ...] = (
     (Watch, "watch["),
@@ -143,7 +140,6 @@ def test_describe_action_nonempty(action: Action) -> None:
 
 register_law(describe, "test_describe_action_nonempty")
 
-
 # --- [SEQUENCE_DESCRIBE]
 
 
@@ -158,7 +154,6 @@ def test_describe_sequence_compositional() -> None:
 
 register_law(Sequence, "test_describe_sequence_compositional")
 
-
 # --- [RAIL_DESCRIBE]
 
 
@@ -170,7 +165,6 @@ def test_describe_rail_claim_verb_projection(claim: Claim) -> None:
 
 
 register_law(Rail, "test_describe_rail_claim_verb_projection")
-
 
 # --- [SCHEDULE_TIMEZONE]
 
@@ -187,7 +181,6 @@ def test_describe_schedule_timezone_suffix() -> None:
 
 register_law(Schedule, "test_describe_schedule_timezone_suffix")
 
-
 # --- [WATCH_DESCRIBE]
 
 
@@ -199,7 +192,6 @@ def test_describe_watch_path_count(watch: Watch) -> None:
 
 
 register_law(Watch, "test_describe_watch_path_count")
-
 
 # --- [WATCHFILTER_SWEEP]
 
@@ -214,7 +206,6 @@ def test_watch_filter_roundtrip(flt: WatchFilter) -> None:
 
 
 register_law(WatchFilter, "test_watch_filter_roundtrip")
-
 
 # --- [CONSTRAINT_VIOLATION]
 
@@ -236,7 +227,6 @@ def test_decode_constraint_violations(blob: bytes, trigger: bool, match: str) ->
 
 
 register_law(decode, "test_decode_constraint_violations")
-
 
 # --- [ENCODE_PURITY]
 

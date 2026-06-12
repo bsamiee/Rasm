@@ -1,6 +1,6 @@
 # [HOW_TO_STANDARDS]
 
-A how-to guide carries one competent reader through one practical goal or problem to an observable outcome. Lead with the outcome, keep only the actions and judgment points needed to reach it, and close with outcome evidence rather than command completion. The reader already knows the domain and exercises judgment; the guide supplies the usable route, not teaching, background, operational recovery, or a lookup catalog.
+A how-to guide carries one competent reader through one practical goal or problem to an observable outcome. Lead with the outcome, keep only the actions and judgment points needed to reach it, and close with outcome confirmation rather than command completion. The reader already knows the domain and exercises judgment; the guide supplies the usable route, not teaching, background, operational recovery, or a lookup catalog.
 
 ## [1]-[USE_WHEN]
 
@@ -13,11 +13,11 @@ Write a how-to guide when every condition holds:
 Route a first-success learning path, an operational symptom response, a contribution workflow, an API surface, supported-version facts, or a conceptual explanation to its own type. The README corpus map resolves the reader need to a type; this standard carries the how-to type only.
 
 [AUTHORING_CONTRACT]:
-- Agent use: state one observable task outcome, write the ordered path for a competent reader, and finish on outcome proof rather than command completion.
+- Agent use: state one observable task outcome, write the ordered path for a competent reader, and finish on outcome confirmation rather than command completion.
 - Required produced structure: `Goal`, ordered `Procedure`, and `Verification`, plus triggered prerequisites, rollback, troubleshooting, boundaries, or maintenance sections.
 - Section cardinality: one goal, one primary successful path, and one verification surface; conditional sections appear only when the task consumes their facts or recovery.
 - Adjacent checks: check API, code documentation, README, architecture, roadmap, reference, runbook, tutorial, onboarding, contributing, test strategy, and support matrix only when their fact controls a target, branch, artifact, input, safety boundary, or verification.
-- Maintenance triggers: update the how-to when a command, tool version, path, target, UI label, prerequisite, artifact, rollback path, troubleshooting signal, adjacent fact, proof gate, or verification result changes.
+- Maintenance triggers: update the how-to when a command, tool version, path, target, UI label, prerequisite, artifact, rollback path, troubleshooting signal, adjacent fact, confirmation gate, or verification result changes.
 
 Opening order is fixed for task standards: route and use contract first, produced structure second, cardinality third, then baselines, examples, and local patterns. Do not let examples define section order implicitly.
 
@@ -25,7 +25,7 @@ Opening order is fixed for task standards: route and use contract first, produce
 
 This standard operationalizes the local how-to route. A how-to is goal-oriented action for an already-competent user who knows what they want to achieve. Its structure follows the user's work, keeps focus on one goal, links explanation and reference instead of embedding them, and phrases unavoidable branches as conditional imperatives.
 
-The rules below add agent-facing structure, conditional section discipline, rollback behavior, troubleshooting boundaries, cross-document handoffs, and claim-level proof. Use those additions to make the route executable; do not turn a how-to into a learning course, operating runbook, API catalog, or roadmap update.
+The rules below add agent-facing structure, conditional section discipline, rollback behavior, troubleshooting boundaries, cross-document handoffs, and claim-level confirmation. Use those additions to make the route executable; do not turn a how-to into a learning course, operating runbook, API catalog, or roadmap update.
 
 ## [3]-[SECTION_RULES]
 
@@ -37,7 +37,7 @@ A how-to guide has a required core and conditional support. The required core is
 - `Boundaries` appears when an adjacent maintained document carries what this guide deliberately excludes.
 - `Maintenance` appears when the how-to describes a path whose commands, signals, targets, or adjacent routes drift independently.
 
-Do not classify guides by project maturity, product size, or broad task family. Required and conditional sections derive from the work the reader must perform and the proof the outcome requires.
+Do not classify guides by project maturity, product size, or broad task family. Required and conditional sections derive from the work the reader must perform and the confirmation the outcome requires.
 
 ## [4]-[REQUIRED_STRUCTURE]
 
@@ -82,7 +82,7 @@ A minimal how-to still carries the full outcome path. Use a compact skeleton whe
 
 ## [1]-[GOAL]
 
-Complete one scoped task so the result and any proof gap are visible.
+Complete one scoped task so the result and any confirmation gap are visible.
 
 ## [2]-[PROCEDURE]
 
@@ -98,12 +98,12 @@ Complete one scoped task so the result and any proof gap are visible.
 ## [3]-[VERIFICATION]
 
 - [ ] `<observable result>` matches the goal.
-- [ ] `<verification check>` proves the result or the proof gap is stated.
+- [ ] `<verification check>` proves the result or the confirmation gap is stated.
 
-Evidence: `<verification check>` result or explicit proof gap.
+Observed result: `<verification check>` result or explicit confirmation gap.
 ```
 
-The skeleton uses a checklist because two independent outcome conditions must hold. A single-condition `Verification` may be a short proof statement with `Evidence:` beside it; do not force a one-item checklist.
+The skeleton uses a checklist because two independent outcome conditions must hold. A single-condition `Verification` may be a short confirmation statement with `Observed result:` beside it; do not force a one-item checklist.
 
 ## [6]-[SCOPE_RULES]
 
@@ -140,7 +140,7 @@ State what the reader confirms, not how they obtain it; route environment setup 
 ```markdown conceptual
 Access: repository checkout with docs-edit permission
 Target context: repository root at `<repo-root>`
-Tools: Git plus repository-local validation environment
+Tools: Git plus repository-local confirmation environment
 Prepared artifact: document-only diff under `<docs-path>`
 ```
 
@@ -197,7 +197,7 @@ Render `Verification` as a checklist when the outcome carries several independen
 ## [3]-[VERIFICATION]
 
 - [ ] `<observable result>` matches the goal.
-- [ ] `<verification check>` proves the result, or the missing checker is recorded as a proof gap.
+- [ ] `<verification check>` proves the result, or the missing checker is recorded as a confirmation gap.
 ```
 
 Rejected verification shape:
@@ -215,7 +215,7 @@ For a state-changing task, give `Rollback` the reverse action, its expected resu
 ```markdown conceptual
 Reverse action: revert the edited Markdown section in the same patch.
 Expected result: the previous rendered section text and links are restored.
-Verification: `<validation-command>` exits 0 after the revert.
+Verification: `<confirmation-command>` exits 0 after the revert.
 ```
 
 ```markdown conceptual
@@ -223,18 +223,18 @@ Reverse action: none; this task permanently exports and publishes the artifact.
 Recovery route: use the publication rollback runbook if the published artifact is wrong.
 ```
 
-A how-to guide claims a path works, so the path must have been run or its gaps stated. Use the proof labels from [proof.md](../proof.md) beside the affected step or outcome:
+A how-to guide claims a path works, so the path must have been run or its gaps stated. Use the confirmation labels from [proof.md](../proof.md) beside the affected step or outcome:
 
 ```markdown conceptual
-Evidence: `<validation-command>` ran against the documented path set; local path and anchor validation passed or the proof gap was recorded.
-Last verified: YYYY-MM-DD
+Observed result: `<confirmation-command>` ran against the documented path set; local path and anchor confirmation passed or the confirmation gap was recorded.
+Refresh trigger: <owner-change>
 ```
 
 State an unrun step honestly: mark it provisional and name the gate that would prove it, rather than asserting a path that was not executed.
 
 ## [10]-[TROUBLESHOOTING_RULES]
 
-Keep `Troubleshooting` to failure modes that block this task and have a concrete recovery; route operational recovery, escalation, and incident evidence to a runbook by topic. A failure-mode set is finite and scannable, so render each entry as a record carrying its signal, cause, and recovery, never as a flat paragraph:
+Keep `Troubleshooting` to failure modes that block this task and have a concrete recovery; route operational recovery, escalation, and incident confirmation to a runbook by topic. A failure-mode set is finite and scannable, so render each entry as a record carrying its signal, cause, and recovery, never as a flat paragraph:
 - `Signal`: the observable symptom the reader sees — an error string, a failed check, or a wrong reading.
 - `Cause`: the condition that produced the signal, when known.
 - `Recovery`: the concrete action that returns the reader to the path, or the route to the controlling runbook when recovery exceeds this task.
@@ -246,7 +246,7 @@ Render each entry as a `### [N.M]-[SYMPTOM]` H3 whose body carries the fields on
 
 Signal: unresolved anchor is reported for `<doc-path>#<expected-anchor>`
 Cause: the heading label changed without updating the in-repo link.
-Recovery: update the link target or restore the heading anchor, then rerun local path and anchor validation.
+Recovery: update the link target or restore the heading anchor, then rerun local path and anchor confirmation.
 ```
 
 A symptom-to-recovery set with three or more short entries may use a lookup table keyed on signal, but do not publish both record blocks and a table for the same failures. Choose the container the reader will scan fastest.
@@ -259,43 +259,20 @@ For a forking procedure, apply the container order from `Procedure rules`: numbe
 
 ## [12]-[MAINTENANCE]
 
-Review a how-to when a command, tool version, target path, UI label, expected output, prerequisite, prepared artifact, rollback path, troubleshooting signal, adjacent source, proof gate, or verification signal changes. Update it from real use when readers choose the wrong branch, need hidden context, rerun unsafe commands, or report outcome checks that no longer prove the goal. Delete or split a how-to whose goal has become multiple tasks rather than preserving broad variants in one guide.
+Review a how-to when a command, tool version, target path, UI label, expected output, prerequisite, prepared artifact, rollback path, troubleshooting signal, adjacent source, confirmation gate, or verification signal changes. Update it from real use when readers choose the wrong branch, need hidden context, rerun unsafe commands, or report outcome checks that no longer prove the goal. Delete or split a how-to whose goal has become multiple tasks rather than preserving broad variants in one guide.
 
 ## [13]-[BOUNDARIES]
 
 These adjacent standards own routed material:
 
 [TASK_DOCUMENTS]:
-- [runbook.md](runbook.md) carries operational symptom response, recovery, escalation, rollback under incident pressure, communication, and incident evidence; a how-to performs normal tasks and routes operational recovery there.
-- [contributing.md](contributing.md) carries contribution workflow, review collaboration, and pull-request evidence.
+- [runbook.md](runbook.md) carries operational symptom response, recovery, escalation, rollback under incident pressure, communication, and incident confirmation; a how-to performs normal tasks and routes operational recovery there.
+- [contributing.md](contributing.md) carries contribution workflow, review collaboration, and pull-request confirmation.
 - [tutorial.md](../learning/tutorial.md) teaches a first-success path and carries learning ramps; a how-to completes a task for a reader who can already act.
 
 [SHARED_STANDARDS]:
-- [proof.md](../proof.md) carries evidence strength, verification gaps, and claim-level evidence details.
+- [proof.md](../proof.md) carries confirmation strength, verification gaps, and claim-level confirmation details.
 - [information-structure.md](../information-structure.md) carries container, table, record, decision-table, checklist, diagram form, and the intent-label vocabulary this guide applies to fenced blocks.
 - This guide carries the leading step markers `Optional:` and `Irreversible:` because they change how a how-to reader acts before a step.
 - [style-guide.md](../style-guide.md) carries imperative and input-neutral phrasing and the conditional-imperative form this guide requires of procedure steps.
 - [README.md](../README.md) carries reader-need classification, document-type choice, placement, and lifecycle; route a draft that serves another reader need there.
-
-## [14]-[VALIDATION]
-
-Use this verification checklist by group:
-
-[SCOPE]:
-- [ ] H1 uses a bracketed semantic task label and `Goal` names one observable outcome.
-- [ ] Conditional sections appear only when the task consumes their facts or actions.
-- [ ] Adjacent routes are named by topic in prose and linked once each only in `Boundaries` when adjacent maintained routes exist.
-- [ ] Adjacent-route handoff records appear only when adjacent truth controls a procedure decision, target, artifact, input, safety boundary, or verification.
-
-[PROCEDURE]:
-- [ ] Prerequisites are a definition block of checkable access, context, versioned-tool, or prepared-artifact records, listing only what this task consumes.
-- [ ] Procedure steps are imperative, input-neutral, ordered by reader flow, condition-first, and place-clear.
-- [ ] Optional and irreversible steps carry their leading markers when present.
-- [ ] Fenced commands appear only when they are clearer than a step record, and every ordinary fenced block carries one intent label.
-
-[VERIFICATION]:
-- [ ] Verification proves the outcome, states each expected result, and uses claim-level evidence through [proof.md](../proof.md).
-- [ ] The path was run or the unrun gate is stated beside the affected step or check.
-- [ ] State-changing guides carry `Rollback` with a reverse check, or state that no reverse exists and route recovery to a runbook by topic.
-- [ ] Troubleshooting is task-local, rendered as signal-cause-recovery records or a lookup table, and actionable.
-- [ ] Maintenance triggers cover commands, tools, targets, expected outputs, rollback, troubleshooting, adjacent routes, and verification signals.

@@ -103,3 +103,8 @@ def main(argv: Sequence[str] | None = None) -> int:
                     return 2
         case _:
             return 2
+
+
+# --- [EXPORTS] --------------------------------------------------------------------------
+
+__all__ = ["emit", "main"]

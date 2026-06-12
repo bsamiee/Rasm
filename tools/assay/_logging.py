@@ -40,7 +40,6 @@ _LEVELS: Final[dict[str, int]] = {
     "critical": logging.CRITICAL,
 }
 
-
 # --- [SERVICES] -------------------------------------------------------------------------
 
 _LOG_ENCODER: Final = msgspec.json.Encoder(enc_hook=str)  # telemetry degrades unencodable values to str; core.model's wire encoder stays strict
@@ -84,7 +83,9 @@ def _chain() -> tuple[Processor, ...]:
         merge_contextvars,  # must be first; binds contextvars before any processor reads the event dict
         ring_processor,
         add_log_level,
-        CallsiteParameterAdder(parameters=(CallsiteParameter.QUAL_MODULE, CallsiteParameter.FUNC_NAME, CallsiteParameter.LINENO)),
+        CallsiteParameterAdder(  # MODULE rides foreign stdlib records (record.module); QUAL_MODULE has no _record_attribute_map entry
+            parameters=(CallsiteParameter.QUAL_MODULE, CallsiteParameter.MODULE, CallsiteParameter.FUNC_NAME, CallsiteParameter.LINENO)
+        ),
         dict_tracebacks,
         TimeStamper(fmt="iso", utc=True),
     )

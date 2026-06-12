@@ -15,8 +15,8 @@ from expression import Error, Ok, Result
 import msgspec
 import pytest
 
-from tests.python._testkit._aspect import register_law
-from tests.python._testkit._spec import assert_error, assert_error_status, assert_ok, support_matrix
+from tests.python._testkit.laws import register_law
+from tests.python._testkit.spec import assert_error, assert_error_status, assert_ok, support_matrix
 from tools.assay.composition.settings import ArtifactScope, AssaySettings
 from tools.assay.core.model import Claim, Fault, receipt, Report, VerifySummary
 from tools.assay.core.status import RailStatus
@@ -57,7 +57,7 @@ from tools.assay.rails.bridge import (
 
 
 if TYPE_CHECKING:
-    from tests.python.tools.assay.conftest import AssayHarness, BridgeResult, RailProbe
+    from tests.python.tools.assay.kit import AssayHarness, BridgeResult, RailProbe
     from tools.assay.core.model import Check, Completed
 
 
@@ -72,7 +72,6 @@ class _LeaseAction(Protocol):
 
 type _BridgeVerb = Callable[[AssaySettings, ArtifactScope, BridgeParams], Result[Report, Fault]]
 
-
 # --- [CONSTANTS] ------------------------------------------------------------------------
 
 _LIFECYCLE_VERBS: tuple[tuple[str, _BridgeVerb], ...] = (
@@ -82,7 +81,6 @@ _LIFECYCLE_VERBS: tuple[tuple[str, _BridgeVerb], ...] = (
     ("launch", launch),
     ("quit", bridge_quit),
 )
-
 
 # --- [OPERATIONS] -----------------------------------------------------------------------
 
@@ -125,7 +123,6 @@ def _br_failed(*phases: _BridgePhase) -> _BridgeResult:
 
 
 # --- [BRIDGE_PARAMS]
-
 
 register_law(BridgeParams, "pattern_from_paths")
 

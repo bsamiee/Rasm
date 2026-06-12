@@ -1,9 +1,10 @@
-"""Structural search, rewrite, content search, and tree-sitter query rails for code.
+"""Structural search, content search, and tree-sitter query rails for code.
 
-Implements four public verbs -- search, rewrite, query, and content search -- over
-language-routed file sets. Structural search and rewrite delegate to ast-grep; content
-search delegates to ripgrep NDJSON; tree-sitter query runs in-process via INPROC thunks.
-All verbs produce a folded Report on the Ok rail and a Fault on the Error rail.
+Implements two public verbs -- search and query -- over language-routed file sets.
+Search dispatches metavariable patterns to ast-grep structural search and literal
+patterns to ripgrep NDJSON content search; tree-sitter query runs in-process via
+INPROC thunks. All verbs produce a folded Report on the Ok rail and a Fault on the
+Error rail.
 """
 
 from dataclasses import dataclass, replace
@@ -11,7 +12,7 @@ from functools import cache, reduce
 from hashlib import sha256
 from pathlib import Path
 import re
-from typing import Annotated, override, TYPE_CHECKING
+from typing import Annotated, Final, override, TYPE_CHECKING
 
 from cyclopts import Parameter
 from cyclopts.types import NonNegativeInt  # noqa: TC002  # Cyclopts evaluates Param dataclass annotations at runtime.
@@ -25,7 +26,7 @@ import tree_sitter_typescript
 
 from tools.assay.composition.catalog import AST_MATCHES, Capture, CAPTURE_ENCODER, CAPTURES, RG_EVENT, select
 from tools.assay.composition.settings import ArtifactScope, AssaySettings  # noqa: TC001  # unconditional: @checked beartype forward-ref (PEP 649)
-from tools.assay.core.engine import fan_out, leased, run_check
+from tools.assay.core.engine import fan_out, run_check
 from tools.assay.core.model import (
     _RESULT_CAP,  # noqa: PLC2701  # shared saturation site for in-process tree-sitter match limiting
     Artifact,
@@ -34,17 +35,18 @@ from tools.assay.core.model import (
     Check,
     Claim,
     Completed,
+    Counts,
     Fault,  # unconditional: @checked resolves the `-> Result[Report, Fault]` forward-ref under PEP 649
     fold,
     Language,
     Match,
     Mode,
     receipt,
-    Report,  # noqa: TC001  # unconditional: see Fault above (same forward-ref resolution)
+    Report,
     Tool,
 )
 from tools.assay.core.routing import infer_languages, route, Routed, Scope
-from tools.assay.core.status import RailStatus
+from tools.assay.core.status import RailStatus, Step
 
 
 if TYPE_CHECKING:
@@ -53,6 +55,7 @@ if TYPE_CHECKING:
     from expression.collections import Block
     from tree_sitter import Node
 
+    from tools.assay.composition.catalog import AstMatch, RgEvent
     from tools.assay.core.model import InprocThunk
 
 
@@ -62,7 +65,6 @@ _TEXT_CAP: int = 320
 _DEFAULT_TARGET: tuple[str, ...] = (".",)
 _METAVAR: re.Pattern[str] = re.compile(r"\$[A-Z_$]")
 
-
 # --- [MODELS] ---------------------------------------------------------------------------
 
 
@@ -71,39 +73,45 @@ class CodeParams(BaseParams):
     """Parameters shared by code verbs."""
 
     pattern: Annotated[str, Parameter(allow_leading_hyphen=True)] = ""
-    rewrite: Annotated[str, Parameter(allow_leading_hyphen=True)] = ""
-    apply: bool = False
     max_results: NonNegativeInt = 1000
 
     @override
     def bound(self, verb: str) -> CodeParams | Fault:
-        """Project leading positionals into the pattern and rewrite slots for a code verb.
+        """Project the leading positional into the pattern slot for a code verb.
 
-        Code verbs are variadic over trailing paths, so positionals after the owned slots
-        stay as search targets; a flag-supplied pattern is never overwritten. The projected
-        pattern is then validated non-blank -- a blank pattern (no positional, an explicit
-        empty string, or whitespace-only) is a parse fault, closing the match-everything
-        degeneracy for ``code search``.
+        Code verbs are variadic over trailing paths, so positionals after the pattern
+        slot stay as search targets; a flag-supplied pattern is never overwritten. The
+        projected pattern is then validated non-blank -- a blank pattern (no positional,
+        an explicit empty string, or whitespace-only) is a parse fault, closing the
+        match-everything degeneracy for ``code search``.
 
         Args:
-            verb: The code verb name; controls how many positionals are consumed.
+            verb: The code verb name; controls whether a positional is consumed.
 
         Returns:
             Projected CodeParams with pattern filled from positionals, or a Fault when
             the resolved pattern is blank for a verb that requires one.
         """
         match (verb, self.pattern, self.paths):
-            case ("rewrite", "", (pattern, rewrite, *rest)):
-                projected = replace(self, pattern=pattern, rewrite=self.rewrite or rewrite, paths=tuple(rest))
-            case (("search" | "query" | "rewrite"), "", (pattern, *rest)):
+            case (("search" | "query"), "", (pattern, *rest)):
                 projected = replace(self, pattern=pattern, paths=tuple(rest))
             case _:
                 projected = self
         match (verb, projected.pattern.strip()):
-            case (("search" | "query" | "rewrite"), ""):
-                return Fault((), RailStatus.FAULTED, f"parse: {verb}: pattern required")
+            case (("search" | "query"), ""):
+                return Fault((), RailStatus.FAULTED, f"{Step.PARSE}: {verb}: pattern required")
             case _:
                 return projected
+
+
+@dataclass(frozen=True, slots=True, kw_only=True)
+class _RowSpec[M]:
+    """One match-family projection row: decode/extract, listing line, Match projection, saturation."""
+
+    extract: Callable[[tuple[Completed, ...]], tuple[M, ...]]
+    entry: Callable[[M], str]
+    row: Callable[[M, str], Match]
+    saturated: Callable[[tuple[M, ...]], bool]
 
 
 # --- [TABLES] ---------------------------------------------------------------------------
@@ -113,7 +121,6 @@ _GRAMMARS: dict[Language, Callable[[], object]] = {
     Language.TYPESCRIPT: tree_sitter_typescript.language_typescript,
 }
 _TSX_GRAMMAR: Callable[[], object] = tree_sitter_typescript.language_tsx
-
 
 # --- [OPERATIONS] -----------------------------------------------------------------------
 
@@ -175,15 +182,6 @@ def _search_splice(params: CodeParams, root: Path) -> Callable[[Tool, Routed], T
     targets = _targets(params.paths, root)
     return lambda tool, routed: msgspec.structs.replace(
         tool, command=(*tool.command, "-p", params.pattern, "-l", routed.language.value, "--json=compact", "--no-ignore", "hidden", *targets)
-    )
-
-
-def _rewrite_splice(params: CodeParams, root: Path, *, apply: bool) -> Callable[[Tool, Routed], Tool]:
-    tail = ("-U",) if apply else ("--json=compact",)
-    targets = _targets(params.paths, root)
-    return lambda tool, routed: msgspec.structs.replace(
-        tool,
-        command=(*tool.command, "-p", params.pattern, "-r", params.rewrite, "-l", routed.language.value, *tail, "--no-ignore", "hidden", *targets),
     )
 
 
@@ -405,37 +403,65 @@ def _relevance(pattern: str, text: str) -> int:
     return max(1, min(100, len(pattern) * 100 // max(len(text), 1)))
 
 
-def _ag_rows(completeds: tuple[Completed, ...], cap: int, pattern: str) -> tuple[tuple[Match, ...], str, tuple[str, ...]]:
-    matches = tuple(m for done in completeds for m in _safe_decode(AST_MATCHES, done.stdout or b"[]", ()))
-    listing = "\n".join(f"{m.file}:{m.range.start.line + 1}: {m.text}" + (f" => {m.replacement}" if m.replacement else "") for m in matches)
-    rows = tuple(
-        Match(
-            id=f"ast-grep:{m.file}:{m.range.start.line + 1}",
-            kind=ArtifactKind.CODE,
-            text=(f"{m.text} => {m.replacement}" if m.replacement else m.text)[:_TEXT_CAP],
-            line=m.range.start.line + 1,
-            score=_relevance(pattern, m.text),
-        )
-        for m in matches[:cap]
-    )
-    return rows, listing, _cap_note(len(rows), len(matches), cap)
+# Three rows, one projector: each row owns decode/extract, listing-line format, Match
+# projection, and the saturated flag for its match family. Output parity with the former
+# per-family projectors is law-pinned byte-for-byte in the rail spec file.
+_AG_SPEC: Final[_RowSpec[AstMatch]] = _RowSpec(
+    extract=lambda completeds: tuple(m for done in completeds for m in _safe_decode(AST_MATCHES, done.stdout or b"[]", ())),
+    entry=lambda m: f"{m.file}:{m.range.start.line + 1}: {m.text}" + (f" => {m.replacement}" if m.replacement else ""),
+    row=lambda m, pattern: Match(
+        id=f"ast-grep:{m.file}:{m.range.start.line + 1}",
+        kind=ArtifactKind.CODE,
+        text=(f"{m.text} => {m.replacement}" if m.replacement else m.text)[:_TEXT_CAP],
+        line=m.range.start.line + 1,
+        score=_relevance(pattern, m.text),
+    ),
+    saturated=lambda _matches: False,
+)
+_TS_SPEC: Final[_RowSpec[Capture]] = _RowSpec(
+    extract=lambda completeds: tuple(c for done in completeds for c in _safe_decode(CAPTURES, done.stdout or b"[]", ())),
+    entry=lambda c: f"{c.file}:{c.line}:{c.column}: @{c.name}#{c.ordinal}/{c.pattern} {c.text}",
+    row=lambda c, pattern: Match(
+        id=f"tree-sitter:{c.file}:{c.line}:{c.name}",
+        kind=ArtifactKind.CODE,
+        text=f"{'parse-error ' if c.parse_error else ''}@{c.name} {c.text}"[:_TEXT_CAP],
+        line=c.line,
+        score=_relevance(pattern, c.text),
+        severity="failed" if c.parse_error else None,
+    ),
+    saturated=lambda captures: any(c.truncated for c in captures),
+)
+# Only ripgrep NDJSON events with kind "match" carry hit data; begin, end, and summary
+# events are discarded at extract time.
+_RG_SPEC: Final[_RowSpec[RgEvent]] = _RowSpec(
+    extract=lambda completeds: tuple(
+        e
+        for done in completeds
+        for line in (done.stdout or b"").splitlines()
+        if line
+        for e in (_safe_decode(RG_EVENT, line, None),)
+        if e is not None and e.kind == "match"
+    ),
+    entry=lambda e: f"{e.data.path.text}:{e.data.line_number}: {e.data.lines.text.rstrip()}",
+    row=lambda e, pattern: Match(
+        id=f"ripgrep:{e.data.path.text}:{e.data.line_number}",
+        kind=ArtifactKind.CODE,
+        text=e.data.lines.text.rstrip()[:_TEXT_CAP],
+        line=e.data.line_number,
+        score=_relevance(pattern, e.data.lines.text.rstrip()),
+    ),
+    saturated=lambda _events: False,
+)
 
 
-def _ts_rows(completeds: tuple[Completed, ...], cap: int, pattern: str) -> tuple[tuple[Match, ...], str, tuple[str, ...]]:
-    captures = tuple(c for done in completeds for c in _safe_decode(CAPTURES, done.stdout or b"[]", ()))
-    listing = "\n".join(f"{c.file}:{c.line}:{c.column}: @{c.name}#{c.ordinal}/{c.pattern} {c.text}" for c in captures)
-    rows = tuple(
-        Match(
-            id=f"tree-sitter:{c.file}:{c.line}:{c.name}",
-            kind=ArtifactKind.CODE,
-            text=f"{'parse-error ' if c.parse_error else ''}@{c.name} {c.text}"[:_TEXT_CAP],
-            line=c.line,
-            score=_relevance(pattern, c.text),
-            severity="failed" if c.parse_error else None,
-        )
-        for c in captures[:cap]
-    )
-    return rows, listing, _cap_note(len(rows), len(captures), cap, saturated=any(c.truncated for c in captures))
+def _project_rows[M](
+    completeds: tuple[Completed, ...], cap: int, pattern: str, *, spec: _RowSpec[M]
+) -> tuple[tuple[Match, ...], str, tuple[str, ...]]:
+    # Shared projection fold: extract -> cap -> Match rows; full listing stays uncapped;
+    # _cap_note is the single truncation-note owner across all three match families.
+    matches = spec.extract(completeds)
+    rows = tuple(spec.row(m, pattern) for m in matches[:cap])
+    return rows, "\n".join(spec.entry(m) for m in matches), _cap_note(len(rows), len(matches), cap, saturated=spec.saturated(matches))
 
 
 def _content_splice(tool: Tool, params: CodeParams, root: Path) -> Tool:
@@ -457,41 +483,6 @@ def _rg_status(returncode: int, stderr: str, *, has_rows: bool) -> tuple[RailSta
             return RailStatus.FAILED, (f"ripgrep failed (exit {returncode}): {stderr[:400] or 'error'}",)
 
 
-def _rg_rows(completeds: tuple[Completed, ...], cap: int, pattern: str) -> tuple[tuple[Match, ...], str, tuple[str, ...]]:
-    # Only ripgrep NDJSON events with kind "match" carry hit data; begin, end, and summary
-    # events are discarded.
-    matches = tuple(
-        e.data
-        for done in completeds
-        for line in (done.stdout or b"").splitlines()
-        if line
-        for e in (_safe_decode(RG_EVENT, line, None),)
-        if e is not None and e.kind == "match"
-    )
-    listing = "\n".join(f"{d.path.text}:{d.line_number}: {d.lines.text.rstrip()}" for d in matches)
-    rows = tuple(
-        Match(
-            id=f"ripgrep:{d.path.text}:{d.line_number}",
-            kind=ArtifactKind.CODE,
-            text=d.lines.text.rstrip()[:_TEXT_CAP],
-            line=d.line_number,
-            score=_relevance(pattern, d.lines.text.rstrip()),
-        )
-        for d in matches[:cap]
-    )
-    return rows, listing, _cap_note(len(rows), len(matches), cap)
-
-
-def _apply_report(verb: str, pattern: str, completeds: tuple[Completed, ...]) -> Report:
-    # ast-grep apply writes its summary to stderr and emits no JSON results; stdout is
-    # consumed as a fallback when stderr is absent.
-    notes = tuple((d.stderr or d.stdout).decode(errors="replace").strip() for d in completeds if d.stderr or d.stdout) or ("no changes",)
-    failed = tuple(d for d in completeds if d.status.severity > RailStatus.OK.severity)
-    status = failed[0].status if failed else (RailStatus.OK if completeds else RailStatus.EMPTY)
-    done = Completed(("code", verb, pattern), 1 if failed else 0, status=status, notes=notes)
-    return fold(Claim.CODE, verb, (done,))
-
-
 # --- [COMPOSITION] ----------------------------------------------------------------------
 
 
@@ -509,7 +500,12 @@ def search(settings: AssaySettings, scope: ArtifactScope, params: CodeParams) ->
         case True:
             return _fan(settings, scope, params, mode=Mode.CHECK, splice=_search_splice(params, Path(str(settings.root)))).map(
                 lambda done: _report(
-                    settings, scope, "search", params.pattern, _ag_normalize(done), *_ag_rows(done, params.max_results, params.pattern)
+                    settings,
+                    scope,
+                    "search",
+                    params.pattern,
+                    _ag_normalize(done),
+                    *_project_rows(done, params.max_results, params.pattern, spec=_AG_SPEC),
                 )
             )
         case False:  # pragma: no cover — exhaustive match(bool); sysmon arc to implicit exit unreachable
@@ -529,43 +525,20 @@ def _content_search(settings: AssaySettings, scope: ArtifactScope, params: CodeP
 
 
 def _content_report(settings: AssaySettings, scope: ArtifactScope, params: CodeParams, done: Completed) -> Report:
-    rows, listing, cap_notes = _rg_rows((done,), params.max_results, params.pattern)
+    # ripgrep defect rows ride Report.results directly; routing the synthetic through `fold` would compute a
+    # discarded empty-text defect (the synthetic carries no stderr/stdout), so the Report is built honestly here.
+    rows, listing, cap_notes = _project_rows((done,), params.max_results, params.pattern, spec=_RG_SPEC)
     status, notes = _rg_status(done.returncode, (done.stderr or b"").decode(errors="replace").strip(), has_rows=bool(rows))
-    synthetic = Completed(("code", "search", params.pattern), 1 if status is RailStatus.FAILED else 0, status=status, notes=(*notes, *cap_notes))
-    return msgspec.structs.replace(
-        fold(Claim.CODE, "search", (synthetic,)), artifacts=(_artifact(scope, "search", listing, settings),) if listing else (), results=rows
+    failed = status is RailStatus.FAILED
+    return Report(
+        Claim.CODE,
+        "search",
+        status,
+        Counts(0, 1, 1) if failed else Counts(1, 0, 1),
+        artifacts=(_artifact(scope, "search", listing, settings),) if listing else (),
+        results=rows,
+        notes=(*notes, *cap_notes),
     )
-
-
-def rewrite(settings: AssaySettings, scope: ArtifactScope, params: CodeParams) -> Result[Report, Fault]:
-    """Preview or apply an ast-grep structural rewrite over language-routed files.
-
-    When ``params.apply`` is true the rewrite is applied in-place under a write lease;
-    when false a dry-run JSON diff is produced without filesystem mutation.
-
-    Returns:
-        Ok carrying a folded Report with diff rows and an Artifact listing (preview), or
-        the apply summary with no match rows (apply mode). Error on routing, spawn, or
-        lease fault.
-    """
-    root = Path(str(settings.root))
-    match params.apply:
-        case True:
-            return leased(
-                "code",
-                lambda _held: _fan(settings, scope, params, mode=Mode.WRITE, splice=_rewrite_splice(params, root, apply=True)).map(
-                    lambda done: _apply_report("rewrite", params.pattern, _ag_normalize(done))
-                ),
-                settings=settings,
-                run_id=settings.run_id,
-                project="code",
-            )
-        case False:  # pragma: no cover — exhaustive match(bool); sysmon arc to implicit exit unreachable
-            return _fan(settings, scope, params, mode=Mode.CHECK, splice=_rewrite_splice(params, root, apply=False)).map(
-                lambda done: _report(
-                    settings, scope, "rewrite", params.pattern, _ag_normalize(done), *_ag_rows(done, params.max_results, params.pattern)
-                )
-            )
 
 
 def query(settings: AssaySettings, scope: ArtifactScope, params: CodeParams) -> Result[Report, Fault]:
@@ -580,10 +553,10 @@ def query(settings: AssaySettings, scope: ArtifactScope, params: CodeParams) -> 
         Error carrying a Fault on routing or spawn failure.
     """
     return _fan(settings, scope, params, mode=Mode.QUERY, splice=_query_splice(params, Path(str(settings.root)))).map(
-        lambda done: _report(settings, scope, "query", params.pattern, done, *_ts_rows(done, params.max_results, params.pattern))
+        lambda done: _report(settings, scope, "query", params.pattern, done, *_project_rows(done, params.max_results, params.pattern, spec=_TS_SPEC))
     )
 
 
 # --- [EXPORTS] --------------------------------------------------------------------------
 
-__all__ = ["CodeParams", "query", "rewrite", "search"]
+__all__ = ["CodeParams", "query", "search"]

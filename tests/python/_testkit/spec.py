@@ -26,6 +26,8 @@ from hypothesis.stateful import Bundle, consumes, invariant, multiple, RuleBased
 import msgspec
 import msgspec.json
 
+from tests.python._testkit.runtime import PROFILE_MUTATION, PROFILE_STATEFUL
+
 
 # --- [TYPES] ----------------------------------------------------------------------------
 
@@ -326,8 +328,8 @@ def assert_error[T, E](result: Result[T, E], *, then: Callable[[E], None] | None
 def assert_error_status[T, E](result: Result[T, E], status: object, *, attr: str = "status") -> E:
     """Assert Error and that `getattr(error, attr) is status`; generalizes `assert_result_status`.
 
-    Reads the status attribute generically so it serves any Result[_, E] where E carries a
-    status-bearing field — not only assay Fault.
+    Reads the status attribute generically so it serves any Result[_, E] whose error is a
+    status-bearing error type.
 
     Args:
         result: The Result under test.
@@ -411,7 +413,7 @@ def assert_roundtrip[T](value: T, typ: type[T], *, codec: msgspec.json.Encoder |
 # --- [STATEFUL_MODEL_BASED]
 
 
-def model_based[M: RuleBasedStateMachine](machine_cls: type[M], *, profile: str = "rasm-stateful", settings: hyp_settings | None = None) -> None:
+def model_based[M: RuleBasedStateMachine](machine_cls: type[M], *, profile: str | None = None, settings: hyp_settings | None = None) -> None:
     """Drive `machine_cls` to completion as a stateful hypothesis test under a settings profile.
 
     Callers define `@initialize`/`@rule`/`@invariant` on their RuleBasedStateMachine
@@ -420,13 +422,21 @@ def model_based[M: RuleBasedStateMachine](machine_cls: type[M], *, profile: str 
         def test_machine_holds_contract() -> None:
             model_based(SomeMachine)
 
+    Resolution order when `settings` is None: an explicit `profile` argument wins; otherwise the
+    profile is derived from the run's active profile — an active `rasm-mutation` profile (short
+    `stateful_step_count`) is honored so stateful machines do not burn the full 200-step
+    `rasm-stateful` budget under a mutation sweep, and every other active profile falls back to
+    `rasm-stateful`.
+
     Args:
         machine_cls: A RuleBasedStateMachine subclass with rules and invariants defined.
-        profile: Registered hypothesis settings profile resolved when `settings` is None.
+        profile: Explicit registered profile name; `None` derives it from the active profile.
         settings: Explicit hypothesis settings; overrides `profile` resolution entirely.
     """
+    active = hyp_settings.get_current_profile_name()
+    resolved = profile if profile is not None else (PROFILE_MUTATION if active == PROFILE_MUTATION else PROFILE_STATEFUL)
     run_state_machine_as_test(  # type: ignore[no-untyped-call]  # hypothesis leaves the driver unannotated
-        machine_cls, settings=settings if settings is not None else hyp_settings.get_profile(profile)
+        machine_cls, settings=settings if settings is not None else hyp_settings.get_profile(resolved)
     )
 
 

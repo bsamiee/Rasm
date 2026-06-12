@@ -31,7 +31,6 @@ if TYPE_CHECKING:
 
 # SeamRecord carries member name for log readability; dispatch keys on Shape VARIANT, not the string.
 type SeamRecord = tuple[str, tuple[object, ...], dict[str, object]]
-
 type Variant = bytes | object
 
 

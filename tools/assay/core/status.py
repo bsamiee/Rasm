@@ -1,4 +1,4 @@
-"""Rail status values and their severity fold."""
+"""Rail status values, their severity fold, and the bounded fault-step vocabulary."""
 
 from enum import StrEnum
 from functools import reduce
@@ -51,6 +51,36 @@ class RailStatus(StrEnum):
                 return cls.FAILED
 
 
+class Step(StrEnum):
+    """Bounded fault-step taxonomy for rail fault classification.
+
+    Declaration order is the prefix-scan order used to classify a fault's failing step. Only the
+    ``scan=True`` members are stamped as ``{step}:`` message prefixes and walked by ``_failing_step``'s
+    prefix scan; SPAWN closes that roster as the unprefixed fallback and never appears as a prefix.
+    The trailing classification-only members (TIMEOUT, LEASE_BUSY, DEFECTS) name failing steps derived
+    from rail status rather than message prefixes and stay out of the scan roster.
+    """
+
+    scan: bool  # bound by __new__; True for the prefix-scan roster, False for status-derived classifications
+
+    STRICT = "strict", True
+    VALIDATION = "validation", True
+    CONFIG = "config", True
+    DISPATCH = "dispatch", True
+    PARSE = "parse", True
+    SPAWN = "spawn", True
+    TIMEOUT = "timeout", False
+    LEASE_BUSY = "lease_busy", False
+    DEFECTS = "defects", False
+
+    def __new__(cls, value: str, scan: bool) -> Self:  # noqa: FBT001  # positional enum-member payload, not a boolean knob
+        """Bind the wire token and the prefix-scan roster flag."""
+        member = str.__new__(cls, value)
+        member._value_ = value
+        member.scan = scan
+        return member
+
+
 # --- [OPERATIONS] -----------------------------------------------------------------------
 
 
@@ -70,5 +100,4 @@ def fold(*members: RailStatus) -> RailStatus:
 
 # --- [EXPORTS] --------------------------------------------------------------------------
 
-
-__all__ = ["RailStatus", "fold", "join"]
+__all__ = ["RailStatus", "Step", "fold", "join"]

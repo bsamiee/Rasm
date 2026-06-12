@@ -104,9 +104,7 @@ class Debounce(Base, frozen=True, tag_field="kind", tag="debounce", forbid_unkno
 type Trigger = Watch | Schedule | Manual
 type Action = Rail | Program | Sequence | Debounce
 
-
 # --- [TABLES] ---------------------------------------------------------------------------
-
 
 TRIGGER_DECODER: json.Decoder[Trigger] = json.Decoder(Trigger)  # msgspec resolves union members eagerly at Decoder.__init__
 ACTION_DECODER: json.Decoder[Action] = json.Decoder(Action)
@@ -163,7 +161,6 @@ def decode(blob: bytes, *, trigger: bool) -> Trigger | Action:
 
 
 # --- [EXPORTS] --------------------------------------------------------------------------
-
 
 __all__ = [
     "ACTION_DECODER",

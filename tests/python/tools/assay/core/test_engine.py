@@ -1,6 +1,6 @@
 """Engine laws: pure-fn algebra (decode/stale/governed/retry/splice/ssh/drain) + the lease RBSM.
 
-Pure-function laws are oracle-driven via ``tests.python._testkit._spec`` (inverse / monotone / validity_matrix /
+Pure-function laws are oracle-driven via ``tests.python._testkit.spec`` (inverse / monotone / validity_matrix /
 projection_matrix / support_matrix / assert_ok / assert_error_status). The synchronous ``exclusive_lease``
 mutual-exclusion contract is held by the ported ``LeaseStateMachine`` RBSM. ``run_check`` / ``fan_out`` /
 ``discover`` are exercised through real subprocess / loopback / psutil-double seams (no mocks of the boundary).
@@ -16,8 +16,10 @@ missing coverage is detected before any test runs.
 from collections import deque
 import contextlib
 import fcntl
+import functools
 from itertools import starmap
 import os
+import signal
 import sys
 import tempfile
 import time
@@ -38,8 +40,8 @@ import psutil
 import pytest
 from upath import UPath
 
-from tests.python._testkit._aspect import register_law  # _-prefixed test-internal surface; private import is intentional
-from tests.python._testkit._spec import (  # _-prefixed test-internal surface; private import is intentional
+from tests.python._testkit.laws import register_law
+from tests.python._testkit.spec import (
     assert_error,
     assert_error_status,
     assert_ok,
@@ -54,7 +56,7 @@ from tests.python._testkit._spec import (  # _-prefixed test-internal surface; p
 
 # AssayHarness/SshLoopback are runtime (not TYPE_CHECKING) imports: hypothesis evaluates @given fixture
 # annotations under PEP 649 eval_str, so they must resolve at module runtime though they appear only in annotations.
-from tests.python.tools.assay.conftest import _make_psutil_module, _proc, AssayHarness, fault_st, SshLoopback  # noqa: TC001
+from tests.python.tools.assay.kit import _make_psutil_module, _proc, AssayHarness, fault_st, SshLoopback  # noqa: TC001
 from tools.assay.composition.settings import AssaySettings
 from tools.assay.core.aspect import _RING  # co-owned ring seam; seeded directly for ring-content assertions
 import tools.assay.core.engine as engine_mod
@@ -69,6 +71,7 @@ from tools.assay.core.engine import (
     governed_concurrency,
     is_lease_stale,
     leased,
+    proc_dead,
     remote_command,
     retry_predicate,
     run_check,
@@ -83,7 +86,7 @@ from tools.assay.core.status import RailStatus
 
 
 if TYPE_CHECKING:
-    from collections.abc import Iterator, Sequence
+    from collections.abc import Callable, Iterator, Mapping, Sequence
     from pathlib import Path
 
     from expression import Result
@@ -129,12 +132,13 @@ _TOOL_RUN = Tool(
 _ROUTED_CHANGED = Routed(language=Language.CSHARP, scope=Scope.CHANGED)
 _PY_CHANGED = Routed(language=Language.PYTHON, scope=Scope.CHANGED)
 
-
 # --- [LAW_COVERAGE]
 
 _LAWS: tuple[tuple[object, str], ...] = (
     (decode_lease_owner, "decode_lease_owner_inverts_encode"),
     (is_lease_stale, "is_lease_stale_decision_table"),
+    (proc_dead, "proc_dead_truth_table"),
+    (proc_dead, "proc_dead_access_denied_defers_to_pid_exists"),
     (governed_concurrency, "governed_concurrency_cap_table"),
     (retry_predicate, "retry_predicate_decision_table"),
     (splice_command, "splice_command_injects_scope_flags_for_dotnet_build_verbs"),
@@ -152,14 +156,33 @@ _LAWS: tuple[tuple[object, str], ...] = (
     (engine_mod._dotnet_root, "dotnet_root_probe_precedence"),
     (engine_mod._apphost, "apphost_overlays_tool_run_heads_only"),
     (run_check, "run_check_executes_direct_tool"),
+    (engine_mod._overlay, "overlay_merges_row_env_into_spawned_process"),
+    (run_check, "spawned_children_detach_into_own_session"),
+    (discover, "discover_detaches_child_session"),
+    (engine_mod._terminate_process_tree, "terminate_tree_reap_ledger_per_phase"),
+    (engine_mod._child_pgid, "child_pgid_self_group_guard"),
     (run_check_async, "run_check_async_is_the_event_loop_boundary"),
     (fan_out, "fan_out_contains_escaped_check_fault"),
     (fan_out, "fan_out_preserves_order_and_backfills_timeout"),
     (exclusive_lease, "exclusive_lease_is_busy_under_a_live_holder"),
     (leased, "leased_runs_action_only_when_held"),
+    (engine_mod._claim, "claim_contention_busy_vs_steal_decision"),
+    (engine_mod._steal, "claim_contention_busy_vs_steal_decision"),
+    (engine_mod._snapshot, "snapshot_and_sys_pressure_pin_exact_metric_projection"),
+    (engine_mod._sys_pressure, "snapshot_and_sys_pressure_pin_exact_metric_projection"),
+    (engine_mod._guarded, "guarded_projects_argv_scope_and_governed_limiter_into_execute"),
+    (engine_mod._guarded, "guarded_fault_messages_are_stamped_exactly"),
+    (engine_mod._run_process_backend, "local_spawn_arms_honor_check_cwd_and_exit_code"),
+    (engine_mod._run_process_backend, "run_process_backend_routes_on_exec_target"),
+    (discover, "discover_runs_at_root_and_pins_fault_evidence"),
+    (argv_for, "argv_for_pins_uv_group_project_segments_and_query_passthrough"),
+    (splice_command, "splice_command_cuts_before_first_separator"),
+    (engine_mod._contained, "contained_verdicts_and_stage_fault_evidence"),
+    (engine_mod._copy_stage_input, "contained_verdicts_and_stage_fault_evidence"),
+    (engine_mod._materialize, "staged_tool_executes_from_materialized_worktree"),
+    (drain_stream, "drain_stream_newline_terminus_rows"),
 )
 _ = tuple(starmap(register_law, _LAWS))
-
 
 # --- [OPERATIONS] -----------------------------------------------------------------------
 
@@ -257,6 +280,41 @@ def test_is_lease_stale_access_denied_stays_live(monkeypatch: pytest.MonkeyPatch
     monkeypatch.setattr(engine_mod, "psutil", fake)
     owner = engine_mod._LeaseOwner(resource="r", run_id="x", pid=99999, create_time=_CT)
     assert is_lease_stale(owner, tolerance=1.0) is False
+
+
+# --- [PROC_DEAD]
+
+_PROC_DEAD_CASES: tuple[tuple[str, _ProcKw, bool], ...] = (
+    ("live-running", {"running": True}, False),
+    ("zombie", {"status": psutil.STATUS_ZOMBIE}, True),
+    ("dead-status", {"status": psutil.STATUS_DEAD}, True),
+    ("no-such-process", {"raise_no_such": True}, True),
+)
+
+
+@pytest.mark.parametrize("label, proc_kw, expected", _PROC_DEAD_CASES, ids=[c[0] for c in _PROC_DEAD_CASES])
+def test_proc_dead_truth_table(label: str, proc_kw: _ProcKw, expected: bool, monkeypatch: pytest.MonkeyPatch) -> None:  # noqa: FBT001
+    """``proc_dead``: zombie/dead/vanished pids are dead, a running pid is live — the shared ownership-liveness ladder."""
+    _ = label
+    monkeypatch.setattr(engine_mod, "psutil", _make_psutil_module({4242: _proc(pid=4242, **proc_kw)}))
+    assert proc_dead(4242) is expected
+
+
+def test_proc_dead_corrupt_pid_is_dead() -> None:
+    """``psutil.Process(pid<=0)`` raises ``ValueError``; a corrupt marker/owner pid folds to dead, never raises."""
+    assert proc_dead(-1) is True
+
+
+def test_proc_dead_access_denied_defers_to_pid_exists(monkeypatch: pytest.MonkeyPatch) -> None:
+    """``AccessDenied`` proves the OS still owns the pid: the verdict defers to ``pid_exists`` instead of declaring death."""
+    guarded = _proc(pid=4242)
+    guarded.status.side_effect = psutil.AccessDenied(pid=4242)
+    fake = _make_psutil_module({4242: guarded})
+    monkeypatch.setattr(engine_mod, "psutil", fake)
+    fake.pid_exists.return_value = True
+    assert proc_dead(4242) is False
+    fake.pid_exists.return_value = False
+    assert proc_dead(4242) is True
 
 
 # --- [GOVERNED_CONCURRENCY]
@@ -545,35 +603,43 @@ def _runtime_tree(base: Path) -> Path:
     return base
 
 
-@pytest.mark.usefixtures("_fresh_dotnet_root")
-def test_dotnet_root_prefers_valid_env_without_probing(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
-    """A valid ``DOTNET_ROOT`` env wins outright: the ``dotnet --list-runtimes`` probe must never spawn."""
+def _dotnet_env_wins(tmp_path: Path, mp: pytest.MonkeyPatch) -> str:
+    # Valid DOTNET_ROOT short-circuits: the listing probe must never spawn.
     root = _runtime_tree(tmp_path / "env-root")
-    monkeypatch.setenv("DOTNET_ROOT", str(root))
-    monkeypatch.setattr(engine_mod, "discover", lambda *_a, **_kw: (_ for _ in ()).throw(AssertionError("probe must not run")))
-    assert engine_mod._dotnet_root() == str(root)
+    mp.setenv("DOTNET_ROOT", str(root))
+    mp.setattr(engine_mod, "discover", lambda *_a, **_kw: (_ for _ in ()).throw(AssertionError("probe must not run")))
+    return str(root)
 
 
-@pytest.mark.usefixtures("_fresh_dotnet_root")
-def test_dotnet_root_falls_back_to_listed_runtimes(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
-    """An invalid env root falls through to the runtime listing, whose bracketed path resolves two levels up."""
+def _dotnet_listing_wins(tmp_path: Path, mp: pytest.MonkeyPatch) -> str:
+    # Invalid env root falls through to the runtime listing, whose bracketed path resolves two levels up.
     real = _runtime_tree(tmp_path / "real-root")
-    monkeypatch.setenv("DOTNET_ROOT", str(tmp_path / "absent"))
-    listing = f"Microsoft.NETCore.App 10.0.0 [{real}/shared/Microsoft.NETCore.App]\nnoise without brackets\n"
-    monkeypatch.setattr(engine_mod, "discover", lambda *_a, **_kw: Ok(listing.encode()))
-    assert engine_mod._dotnet_root() == str(real)
+    mp.setenv("DOTNET_ROOT", str(tmp_path / "absent"))
+    listing = f"Microsoft.NETCore.App 10.0.0 [{real}/shared/Microsoft.NETCore.App]\nnoise\n"
+    mp.setattr(engine_mod, "discover", lambda *_a, **_kw: Ok(listing.encode()))
+    return str(real)
+
+
+def _dotnet_muxer_wins(tmp_path: Path, mp: pytest.MonkeyPatch) -> str:
+    # No env override + a failing listing leaves the muxer's resolved parent as the last candidate.
+    real = _runtime_tree(tmp_path / "muxer-root")
+    (real / "dotnet").write_bytes(b"")
+    mp.delenv("DOTNET_ROOT", raising=False)
+    mp.setattr(engine_mod, "discover", lambda *_a, **_kw: Error(Fault(("dotnet", "--list-runtimes"), RailStatus.FAULTED)))
+    mp.setattr(engine_mod.shutil, "which", lambda _name: str(real / "dotnet"))
+    return str(real)
 
 
 @pytest.mark.usefixtures("_fresh_dotnet_root")
-def test_dotnet_root_falls_back_to_muxer_parent(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
-    """With no env override and a failing runtime listing, the muxer's resolved parent is the last candidate."""
-    real = _runtime_tree(tmp_path / "muxer-root")
-    muxer = real / "dotnet"
-    muxer.write_bytes(b"")
-    monkeypatch.delenv("DOTNET_ROOT", raising=False)
-    monkeypatch.setattr(engine_mod, "discover", lambda *_a, **_kw: Error(Fault(("dotnet", "--list-runtimes"), RailStatus.FAULTED)))
-    monkeypatch.setattr(engine_mod.shutil, "which", lambda _name: str(muxer))
-    assert engine_mod._dotnet_root() == str(real)
+@pytest.mark.parametrize("setup", [_dotnet_env_wins, _dotnet_listing_wins, _dotnet_muxer_wins], ids=["env", "listing", "muxer"])
+def test_dotnet_root_probe_precedence(setup: Callable[[Path, pytest.MonkeyPatch], str], tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    """``_dotnet_root`` walks env → ``--list-runtimes`` → muxer parent, taking the first that resolves a real runtime tree.
+
+    Each row pins one precedence rung: a valid env short-circuits the probe; an invalid env falls to the
+    bracketed listing path resolved two levels up; a failing listing falls to the muxer's resolved parent.
+    """
+    expected = setup(tmp_path, monkeypatch)
+    assert engine_mod._dotnet_root() == expected
 
 
 def test_apphost_overlays_tool_run_heads_only(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
@@ -608,6 +674,39 @@ def test_run_check_injects_traceparent_into_subprocess_env(assay_root: AssayHarn
     assert b"traceparent=00-" in done.stdout, f"traceparent missing from subprocess env: {done.stdout[:400]!r}"
 
 
+def test_run_check_merges_row_env_into_spawned_process(assay_root: AssayHarness) -> None:
+    """A ``Tool.env`` row reaches the spawned process environment; a row without ``env`` leaves the base untouched.
+
+    Falsifiable pair: the env-carrying tool dumps ``ASSAY_ROW_PROBE=row-value``; the bare tool — identical but for
+    ``env=()`` — must not, proving the merge is row-scoped and never a global leak.
+    """
+    carrying = msgspec.structs.replace(_ECHO_TOOL, name="env-row", command=("/usr/bin/env",), env=(("ASSAY_ROW_PROBE", "row-value"),))
+    bare = msgspec.structs.replace(carrying, env=())
+    with_env = assert_ok(_run(Check(tool=carrying), assay_root)).stdout
+    without_env = assert_ok(_run(Check(tool=bare), assay_root)).stdout
+    assert b"ASSAY_ROW_PROBE=row-value" in with_env, f"row env did not reach the spawned process: {with_env[:400]!r}"
+    assert b"ASSAY_ROW_PROBE=" not in without_env, f"row env leaked into a tool that declared none: {without_env[:400]!r}"
+
+
+@pytest.mark.parametrize("mode", [Mode.CHECK, Mode.BUILD], ids=["run-process-arm", "open-process-arm"])
+def test_spawned_children_detach_into_own_session(mode: Mode, assay_root: AssayHarness) -> None:
+    """Both local spawn backends pass ``start_new_session=True``: the child leads its own process group.
+
+    The no-orphan guarantee rests on this — group-kill reaches the whole child tree and can never
+    reach the engine's own group.
+    """
+    probe = (sys.executable, "-c", "import os; print(os.getpgid(0))")
+    tool = Tool("session-law", Runner.DIRECT, probe, Input.NONE, Language.PYTHON, Claim.STATIC, mode=mode)
+    done = assert_ok(_run(Check(tool=tool), assay_root))
+    assert int(done.stdout.split()[0]) != os.getpgid(0), f"{mode}: child shares the engine's process group"  # ty: ignore[possibly-missing-attribute]
+
+
+def test_discover_detaches_child_session(tmp_path: Path) -> None:
+    """``discover`` rides the same ``start_new_session`` spawn posture as the check backends."""
+    out = assert_ok(discover((sys.executable, "-c", "import os; print(os.getpgid(0))"), root=tmp_path, timeout=10.0))
+    assert int(out.split()[0]) != os.getpgid(0), "discovery child shares the engine's process group"  # ty: ignore[possibly-missing-attribute]
+
+
 @pytest.mark.anyio
 async def test_run_check_async_is_the_event_loop_boundary(assay_root: AssayHarness) -> None:
     """``run_check_async`` is the public in-loop entrypoint — async callers never import the woven spawn."""
@@ -615,8 +714,13 @@ async def test_run_check_async_is_the_event_loop_boundary(assay_root: AssayHarne
     assert b"hello" in assert_ok(outcome).stdout
 
 
-def test_run_check_retries_transient_spawn_via_rail_probe(assay_root: AssayHarness, monkeypatch: pytest.MonkeyPatch) -> None:
-    """A transient spawn fault on a remote runner is retried and the recovered receipt carries attempt evidence."""
+def test_run_check_retries_transient_spawn_via_rail_probe(
+    assay_root: AssayHarness, monkeypatch: pytest.MonkeyPatch, log_events: list[dict[str, object]]
+) -> None:
+    """A transient spawn fault on a remote runner is retried; the receipt carries attempt evidence and retry telemetry names the tool.
+
+    The ``with_name`` attribution pin: stamina's StructlogOnRetryHook must log the tool name, not ``<context block>``.
+    """
     calls = [0]
 
     async def flaky(*_args: object, **_kwargs: object) -> Completed:
@@ -631,6 +735,9 @@ def test_run_check_retries_transient_spawn_via_rail_probe(assay_root: AssayHarne
     monkeypatch.setattr(engine_mod, "_execute", flaky)
     done = assert_ok(_run(Check(tool=_REMOTE_TOOL), assay_root))
     assert (calls[0], "retry attempts=2" in done.notes) == (2, True), f"expected one retry with attempt evidence, got {calls[0]} attempts: {done!r}"
+    scheduled = tuple(e for e in log_events if e.get("event") == "stamina.retry_scheduled")
+    assert scheduled, "stamina retry hook emitted no telemetry"
+    assert scheduled[0].get("callable") == _REMOTE_TOOL.name, f"retry telemetry not attributed to the tool: {scheduled[0]!r}"
 
 
 def test_fan_out_preserves_order_and_backfills_timeout(assay_root: AssayHarness, monkeypatch: pytest.MonkeyPatch) -> None:
@@ -1075,19 +1182,36 @@ def test_reap_tree_terminates_real_process_tree() -> None:
     engine_mod._reap_tree(2_147_483_646)
 
 
-def test_terminate_process_tree_kills_terminate_resistant_child() -> None:
-    """``_terminate_process_tree`` escalates to ``kill`` (the SIGKILL fallback) for a child still ``alive`` after ``terminate`` + ``wait_procs``."""
+def test_terminate_process_tree_kills_terminate_resistant_child(log_events: list[dict[str, object]]) -> None:
+    """SIGTERM → SIGKILL ladder for a resistant survivor; a ``proc.reaped`` ledger line is raised through each ``wait_procs`` phase."""
     survivor = _proc(pid=4242, running=True)
     already_dead = _proc(pid=4243, running=False)
     fake = _make_psutil_module({4242: survivor, 4243: already_dead})
-    fake.wait_procs.return_value = ((already_dead,), (survivor,))
+    fake.wait_procs.side_effect = (((already_dead,), (survivor,)), ((survivor,), ()))
     with pytest.MonkeyPatch.context() as patch:
         patch.setattr(engine_mod, "psutil", fake)
-        engine_mod._terminate_process_tree((already_dead, survivor))
-    survivor.terminate.assert_called_once()
-    survivor.kill.assert_called_once()
-    already_dead.terminate.assert_not_called()
-    already_dead.kill.assert_not_called()
+        engine_mod._terminate_process_tree((already_dead, survivor), None)
+    sent = tuple(call.args[0] for call in survivor.send_signal.call_args_list)
+    assert sent == (signal.SIGTERM, signal.SIGKILL), f"ladder escalation wrong: {sent!r}"  # ty: ignore[possibly-missing-attribute]
+    already_dead.send_signal.assert_not_called()
+    ledger = tuple((e.get("killed"), e.get("survived")) for e in log_events if e.get("event") == "proc.reaped")
+    assert ledger == ((1, 1), (1, 0)), f"reap ledger not raised through both wait phases: {ledger!r}"
+
+
+def test_child_pgid_guards_engine_group() -> None:
+    """``_child_pgid`` yields None for the engine's own group (killpg would suicide) and for vanished pids; a session-leader child owns its pgid."""
+    assert engine_mod._child_pgid(os.getpid()) is None, "own process group must never be group-killed"
+    assert engine_mod._child_pgid(2_147_483_646) is None, "vanished pid must degrade to the walk fallback"
+
+    async def _spawn() -> tuple[int | None, int]:
+        proc = await anyio.open_process([sys.executable, "-c", "import time; time.sleep(30)"], start_new_session=True)
+        try:
+            return engine_mod._child_pgid(proc.pid), proc.pid
+        finally:
+            await engine_mod._reap(proc)
+
+    pgid, pid = anyio.run(_spawn)
+    assert pgid == pid, "session-leader child must own its process group"
 
 
 # --- [DIAGNOSE_SNAPSHOT]
@@ -1443,6 +1567,353 @@ def test_stream_writer_rejects_non_context_backend_handle(assay_root: AssayHarne
     )
     with pytest.raises(TypeError, match="non-context writer"):
         engine_mod._stream_writer(plan, "out")
+
+
+# --- [MUTATION_HARDENING]
+
+
+@pytest.mark.mutation
+def test_claim_contention_busy_vs_steal_decision(  # noqa: PLR0915  # three contention scenarios share one scripted flock + fd harness
+    assay_root: AssayHarness, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """``_claim`` contention dispatch: live holder → BUSY without a second flock; stale holder → steal rewrites every owner field.
+
+    Kills the survivor classes on the lease write path: the live/stale match-arm flip (steal suppressed or
+    BUSY inverted), dropped or nulled keyword forwards through ``_claim`` → ``_steal`` → ``_write_owner``
+    (run_id/cwd/project/mode/target), and free-path keyword drops — each changes the persisted owner block
+    bytes or the flock call count pinned here.
+    """
+    self_pid, live_pid, dead_pid = os.getpid(), 88_778, 88_777
+    self_proc = _proc(pid=self_pid, create_time=_CT)
+    fake = _make_psutil_module({
+        None: self_proc,
+        self_pid: self_proc,
+        live_pid: _proc(pid=live_pid, running=True, create_time=_CT),
+        dead_pid: _proc(pid=dead_pid, raise_no_such=True),
+    })
+    monkeypatch.setattr(engine_mod, "psutil", fake)
+    flock_calls: list[int] = []
+    busy_first = [False]
+
+    def scripted_flock(_fd: int, flags: int) -> None:
+        flock_calls.append(flags)
+        if busy_first[0] and len(flock_calls) == 1:
+            raise BlockingIOError
+
+    monkeypatch.setattr(engine_mod, "_FLOCK", scripted_flock)
+
+    def claim(name: str, holder_pid: int | None, *, busy: bool) -> tuple[engine_mod._LeaseOwner | None, engine_mod._LeaseOwner | None, int]:
+        flock_calls.clear()
+        busy_first[0] = busy
+        fd = os.open(str(assay_root.root / f"{name}.lock"), os.O_RDWR | os.O_CREAT, 0o644)
+        try:
+            if holder_pid is not None:
+                _ = os.write(fd, msgspec.json.encode(engine_mod._LeaseOwner(resource=name, run_id="holder", pid=holder_pid, create_time=_CT)))
+                _ = os.lseek(fd, 0, os.SEEK_SET)
+            won = engine_mod._claim(
+                fd, name, run_id="claim-run", tolerance=1.0, target="ssh://probe", cwd="/work/claim", project="proj-claim", mode="shared"
+            )
+            _ = os.lseek(fd, 0, os.SEEK_SET)
+            return won, decode_lease_owner(os.read(fd, 4096)), len(flock_calls)
+        finally:
+            os.close(fd)
+
+    def stamped(resource: str) -> dict[str, object]:
+        return {
+            "resource": resource,
+            "run_id": "claim-run",
+            "pid": self_pid,
+            "create_time": _CT,
+            "cwd": "/work/claim",
+            "project": "proj-claim",
+            "mode": "shared",
+            "target": "ssh://probe",
+        }
+
+    won, persisted, flocks = claim("claim-free", None, busy=False)
+    assert persisted is not None, "free-path acquire wrote no owner block"
+    assert won == persisted, f"free-path return diverged from the persisted block: {won!r}"
+    assert flocks == 1, "free flock did not acquire on the first attempt"
+    assert msgspec.structs.asdict(persisted) == IsPartialDict(stamped("claim-free")), f"free-path owner block wrong: {persisted!r}"
+    won, persisted, flocks = claim("claim-busy", live_pid, busy=True)
+    assert persisted is not None, "live holder block vanished under contention"
+    assert (won, flocks, persisted.run_id) == (None, 1, "holder"), "live holder must map to BUSY without a steal flock or rewrite"
+    won, persisted, flocks = claim("claim-stale", dead_pid, busy=True)
+    assert persisted is not None, "steal wrote no owner block"
+    assert won == persisted, f"steal return diverged from the persisted block: {won!r}"
+    assert flocks == 2, "stale holder must fall through to the steal flock"
+    assert msgspec.structs.asdict(persisted) == IsPartialDict(stamped("claim-stale")), f"steal did not rewrite the full owner block: {persisted!r}"
+
+
+def test_snapshot_and_sys_pressure_pin_exact_metric_projection(monkeypatch: pytest.MonkeyPatch) -> None:
+    """``_snapshot``/``_sys_pressure`` project the exact key→value evidence map from a deterministic psutil double.
+
+    Kills the snapshot survivor classes: key renames (``XXmem.vms_bytesXX``), probe bodies nulled to
+    ``float(None)`` (which degrade to the -1.0 default and diverge from the pinned values), the
+    ``percent_rss`` ``*``/``/`` operator flip, and the ``getloadavg()[0]`` → ``[1]`` index drift — each
+    changes one pinned dict entry.
+    """
+    proc = _proc(pid=os.getpid())
+    proc.memory_info.return_value = SimpleNamespace(rss=2048, vms=4096)
+    proc.memory_full_info.return_value = SimpleNamespace(uss=1024)
+    proc.num_fds.return_value = 6
+    proc.num_threads.return_value = 3
+    fake = _make_psutil_module({None: proc})
+    fake.virtual_memory.return_value = SimpleNamespace(total=8192, available=4096, percent=37.5)
+    fake.swap_memory.return_value = SimpleNamespace(percent=12.5)
+    monkeypatch.setattr(engine_mod, "psutil", fake)
+    monkeypatch.setattr(os, "getloadavg", lambda: (2.0, 9.0, 9.0), raising=False)
+    pressure = {"sys.mem_available_bytes": 4096.0, "sys.mem_percent": 37.5, "sys.swap_percent": 12.5, "sys.load1_percent": 50.0}
+    assert engine_mod._sys_pressure() == pressure, "sys pressure projection drifted from the doubled sources"
+    assert engine_mod._snapshot() == {
+        "mem.rss_bytes": 2048.0,
+        "mem.vms_bytes": 4096.0,
+        "mem.uss_bytes": 1024.0,
+        "mem.percent_rss": 25.0,
+        "proc.num_fds": 6.0,
+        "proc.num_threads": 3.0,
+        **pressure,
+    }, "snapshot projection drifted from the doubled process"
+
+
+def test_guarded_projects_argv_scope_and_governed_limiter_into_execute(assay_root: AssayHarness, monkeypatch: pytest.MonkeyPatch) -> None:
+    """The spawned argv equals the public ``argv_for`` projection, the scope rides intact, and the limiter carries the governed cap.
+
+    Kills ``_guarded``'s ``scope=None`` at the ``_argv`` call site, the ``governed_concurrency(settings,)``
+    checks-drop on the limiter, scope drops through ``_execute_retrying``/``_fan_schedule``, and argv
+    perturbations between ``_guarded`` and ``_execute`` — each diverges from the captured triple.
+    """
+    seen: list[tuple[object, tuple[str, ...], int]] = []
+
+    async def capture(
+        check: Check,
+        settings: AssaySettings,
+        scope: ArtifactScope | None,
+        *,
+        argv: tuple[str, ...],
+        cwd: str,
+        env: Mapping[str, str],
+        thread_limiter: anyio.CapacityLimiter,
+    ) -> Completed:
+        await anyio.sleep(0.0)
+        _ = (check, settings, cwd, env)
+        seen.append((scope, argv, int(thread_limiter.total_tokens)))
+        return receipt(argv, 0)
+
+    monkeypatch.setattr(engine_mod, "_execute", capture)
+    monkeypatch.setattr(engine_mod.psutil, "virtual_memory", lambda: SimpleNamespace(percent=50.0))
+    settings = assay_root.settings.model_copy(update={"cpu_count": 4, "max_checks": 8, "dotnet_max_cpu": 2, "mutation_max_cpu": 8})
+    scope = assay_root.scope(Claim.STATIC)
+    tool = Tool("argv-proj-law", Runner.DOTNET, ("build", "Workspace.slnx"), Input.NONE, Language.CSHARP, Claim.STATIC, mode=Mode.BUILD)
+    check = Check(tool=tool)
+    expected = argv_for(check, _ROUTED_CHANGED, settings=settings, scope=scope)
+    assert set(scope.dotnet_flags) <= set(expected), "law vacuous: scope flags absent from the projected argv"
+    assert_ok(run_check(check, settings=settings, scope=scope, routed=_ROUTED_CHANGED))
+    assert governed_concurrency(settings, (check,)) == 2, "law vacuous: governed cap must differ from the empty-batch cap"
+    assert seen[0][0] is scope, "scope did not reach _execute intact on the single-check path"
+    assert (seen[0][1], seen[0][2]) == (expected, 2), f"spawned argv/limiter diverged from the projection: {seen[0]!r}"
+    assert_ok(fan_out((check,), settings=settings, scope=scope, routed=_ROUTED_CHANGED)[0])
+    assert seen[1][0] is scope, "scope did not reach _execute intact through the fan"
+    assert (seen[1][1], seen[1][2]) == (expected, 2), f"fan argv/limiter diverged from the projection: {seen[1]!r}"
+
+
+def test_guarded_fault_messages_are_stamped_exactly(assay_root: AssayHarness) -> None:
+    """First-attempt spawn faults carry exact, unstamped messages plus the projected argv as fault evidence.
+
+    Kills the ``_stamped`` ``> 1`` → ``>= 1`` flip (which suffixes ``[attempts=1]`` onto every message), the
+    dropped ``message=`` keyword on the UNSUPPORTED arm, and fault-argv nulling — pinned via exact message
+    equality on the deadline arm and message/argv content on the spawn arms.
+    """
+    deadline_tool = Tool(
+        "msg-deadline", Runner.DIRECT, (sys.executable, "-c", "import time; time.sleep(10)"), Input.NONE, Language.PYTHON, Claim.TEST, timeout=0.2
+    )
+    check = Check(tool=deadline_tool)
+    fault = assert_error_status(run_check(check, settings=assay_root.settings, scope=None, routed=_PY_CHANGED), RailStatus.TIMEOUT)
+    assert fault.message == "deadline exceeded", f"deadline message not exact/unstamped: {fault.message!r}"
+    assert fault.argv == argv_for(check, _PY_CHANGED, settings=assay_root.settings, scope=None), f"deadline fault lost its argv: {fault!r}"
+    absent = Tool("msg-absent", Runner.DIRECT, ("/nonexistent/assay-message-law",), Input.NONE, Language.PYTHON, Claim.TEST)
+    fault = assert_error_status(run_check(Check(tool=absent), settings=assay_root.settings, scope=None, routed=_PY_CHANGED), RailStatus.UNSUPPORTED)
+    assert "/nonexistent/assay-message-law" in fault.message, f"UNSUPPORTED message lost the missing binary: {fault.message!r}"
+    assert "attempts=" not in fault.message, f"first attempt must not stamp attempt evidence: {fault.message!r}"
+    nul = Tool("msg-nul", Runner.DIRECT, ("/bin/echo", "a\x00b"), Input.NONE, Language.PYTHON, Claim.TEST)
+    fault = assert_error_status(run_check(Check(tool=nul), settings=assay_root.settings, scope=None, routed=_PY_CHANGED), RailStatus.FAULTED)
+    assert fault.message, "FAULTED message dropped"
+    assert "attempts=" not in fault.message, f"first attempt must not stamp attempt evidence: {fault.message!r}"
+
+
+@pytest.mark.parametrize("mode", [Mode.CHECK, Mode.BUILD], ids=["run-process-arm", "open-process-arm"])
+def test_local_spawn_arms_honor_check_cwd_and_exit_code(mode: Mode, assay_root: AssayHarness) -> None:
+    """Both local spawn backends run the child in ``check.cwd`` and surface its exit code verbatim.
+
+    Kills the dropped ``cwd=`` keyword on ``anyio.run_process``/``anyio.open_process`` (child would report
+    the engine's own cwd), the ``cwd=None`` forward through ``_execute_retrying``, and the streaming-arm
+    ``proc.returncode or 0`` → ``None`` returncode nulling.
+    """
+    workdir = assay_root.root / "spawn-cwd-law"
+    workdir.mkdir(parents=True, exist_ok=True)
+    probe = (sys.executable, "-c", "import os, sys; print(os.getcwd()); sys.exit(7)")
+    tool = Tool("cwd-law", Runner.DIRECT, probe, Input.NONE, Language.PYTHON, Claim.TEST, mode=mode)
+    done = assert_ok(run_check(Check(tool=tool, cwd=workdir), settings=assay_root.settings, scope=None, routed=_PY_CHANGED))
+    assert done.returncode == 7, f"{mode}: child exit code not preserved: {done.returncode!r}"
+    reported = os.path.realpath(done.stdout.decode().strip())
+    assert reported == os.path.realpath(str(workdir)), f"{mode}: child ran outside check.cwd: {reported!r}"
+
+
+def test_run_process_backend_routes_on_exec_target(assay_root: AssayHarness, monkeypatch: pytest.MonkeyPatch) -> None:
+    """``_run_process_backend`` dispatches to ``_run_remote`` exactly when ``exec_target`` is set — no real SSH.
+
+    Kills the whole remote-dispatch arm: deleting ``case target`` (or flipping the match) makes a remote
+    target silently run locally, which the network-marked loopback laws never exercise under ``-m 'not
+    network'``. The recorder also pins item-4's row-env forwarding: ``tool.env`` keys cross into the
+    remote env projection while the ambient allowlist still gates undeclared host env.
+    """
+    recorded: list[tuple[str, dict[str, str]]] = []
+
+    async def _record(plan: object, target: str) -> object:  # noqa: RUF029  # async to match _run_remote's awaited signature
+        recorded.append((target, dict(getattr(plan, "env", {}))))
+        return receipt(("remote",), 0, stdout=b"recorded")
+
+    monkeypatch.setattr(engine_mod, "_run_remote", _record)
+    env_tool = msgspec.structs.replace(_ECHO_TOOL, name="route-law", env=(("ASSAY_ROW_DECLARED", "row-value"),))
+    monkeypatch.setenv("ASSAY_AMBIENT_UNDECLARED", "ambient-value")
+
+    local = assert_ok(run_check(Check(tool=env_tool, cwd=assay_root.root), settings=assay_root.settings, scope=None, routed=_ROUTED_CHANGED))
+    assert (recorded, local.stdout) == ([], b"hello\n"), f"local target must never reach _run_remote: {recorded!r}"
+
+    remote = assay_root.remote("ssh://x@127.0.0.1:2222")
+    done = assert_ok(run_check(Check(tool=env_tool, cwd=assay_root.root), settings=remote, scope=None, routed=_ROUTED_CHANGED))
+    assert (done.stdout, len(recorded)) == (b"recorded", 1), f"remote target did not route to _run_remote: {recorded!r}"
+    target, remote_env = recorded[0]
+    assert target == "ssh://x@127.0.0.1:2222", f"_run_remote received the wrong target: {target!r}"
+    assert remote_env.get("ASSAY_ROW_DECLARED") == "row-value", f"declared row env did not cross the SSH boundary: {remote_env!r}"
+    assert "ASSAY_AMBIENT_UNDECLARED" not in remote_env, f"ambient non-allowlisted env leaked across SSH: {remote_env!r}"
+
+
+def test_discover_runs_at_root_and_pins_fault_evidence(tmp_path: Path) -> None:
+    """``discover`` spawns at ``root`` and every fault carries the exact argv plus a pinned message.
+
+    Kills ``discover_async``'s ``cwd=None`` spawn drop, fault-argv nulling on the timeout/nonzero arms, the
+    timeout message template mutation, and the ``or`` → ``and`` stdout-fallback flip that blanks the
+    nonzero-exit tail.
+    """
+    here = assert_ok(discover((sys.executable, "-c", "import os; print(os.getcwd())"), root=tmp_path, timeout=10.0))
+    assert os.path.realpath(here.decode().strip()) == os.path.realpath(str(tmp_path)), "discovery child did not run at root"
+    slow_argv = (sys.executable, "-c", "import time; time.sleep(5)")
+    slow = assert_error_status(discover(slow_argv, root=tmp_path, timeout=0.2), RailStatus.TIMEOUT)
+    assert (slow.argv, slow.message) == (slow_argv, "timeout after 0.2s"), f"timeout fault evidence wrong: {slow!r}"
+    tail_argv = (sys.executable, "-c", "import sys; sys.stdout.write('warn-tail'); sys.exit(3)")
+    tail = assert_error_status(discover(tail_argv, root=tmp_path, timeout=10.0), RailStatus.FAULTED)
+    assert (tail.argv, tail.message) == (tail_argv, "warn-tail"), f"stdout-only nonzero tail lost: {tail!r}"
+    absent_argv = ("/nonexistent/assay-discover-law",)
+    absent = assert_error_status(discover(absent_argv, root=tmp_path, timeout=10.0), RailStatus.FAULTED)
+    assert absent.argv == absent_argv, f"spawn fault lost its argv: {absent!r}"
+    assert absent.message, f"spawn fault message dropped: {absent!r}"
+
+
+def test_argv_for_pins_uv_group_project_segments_and_query_passthrough(assay_root: AssayHarness) -> None:
+    """``_argv`` UV shaping is exact — ``--project <root>`` then ``--group <g>`` before the body — and QUERY mode never splices.
+
+    Kills the ``--group``/``--project`` literal mutations, the UV-runner gate flips (``is not``/``or``)
+    that leak segments onto non-UV runners, ``str(None)`` as the project root, and the ``mode=None``
+    forward into ``splice_command`` that would splice scope flags into QUERY commands.
+    """
+    settings = assay_root.settings
+    uv_tool = Tool(
+        "uv-argv-law", Runner.UV, ("ruff", "check"), Input.NONE, Language.PYTHON, Claim.TEST, groups=("mutation",), stage=Stage(project=True)
+    )
+    uv_argv = argv_for(Check(tool=uv_tool), _PY_CHANGED, settings=settings, scope=None)
+    assert uv_argv == ("uv", "run", "--project", str(settings.root), "--group", "mutation", "ruff", "check"), f"uv argv drifted: {uv_argv!r}"
+    direct = msgspec.structs.replace(uv_tool, runner=Runner.DIRECT)
+    direct_argv = argv_for(Check(tool=direct), _PY_CHANGED, settings=settings, scope=None)
+    assert direct_argv == ("ruff", "check"), f"non-UV runner leaked uv segments: {direct_argv!r}"
+    scope = assay_root.scope(Claim.STATIC)
+    query = Tool("query-argv-law", Runner.DOTNET, ("build", "Workspace.slnx"), Input.NONE, Language.CSHARP, Claim.STATIC, mode=Mode.QUERY)
+    query_argv = argv_for(Check(tool=query), _ROUTED_CHANGED, settings=settings, scope=scope)
+    assert query_argv == ("dotnet", "build", "Workspace.slnx"), f"QUERY mode must never splice scope flags: {query_argv!r}"
+
+
+def test_splice_command_cuts_before_first_separator(assay_root: AssayHarness) -> None:
+    """Scope flags splice immediately before the FIRST ``--`` separator; everything after rides verbatim.
+
+    Kills the cut-point survivors: ``index`` → ``rindex`` (flags after the second separator),
+    ``index(None)``/``index("XX--XX")`` raises, ``cut=None`` slicing, and the membership-probe mutation
+    that appends flags at the tail instead of before the separator.
+    """
+    scope = assay_root.scope(Claim.STATIC)
+    verbs = assay_root.settings.scoped_verbs
+    flags = tuple(scope.dotnet_flags)
+    single = splice_command(Runner.DOTNET, ("build", "App.slnx", "--", "tail-a"), scope, verbs, Mode.BUILD)
+    assert single == ("build", "App.slnx", *flags, "--", "tail-a"), f"flags not spliced before the separator: {single!r}"
+    double = splice_command(Runner.DOTNET, ("build", "--", "mid", "--", "tail-b"), scope, verbs, Mode.BUILD)
+    assert double == ("build", *flags, "--", "mid", "--", "tail-b"), f"flags must cut at the FIRST separator: {double!r}"
+
+
+@pytest.mark.mutation
+def test_contained_verdicts_and_stage_fault_evidence(tmp_path: Path) -> None:
+    """``_contained`` verdict table (unsafe / resolve-escape / safe) plus ``_copy_stage_input`` fault slots and messages.
+
+    Kills the containment survivors — security-adjacent: backslash-normalization removal, weakened
+    unsafe-disjunct chains, ``is_relative_to`` escape-arm flips, message-literal mutations, and the
+    ``(tool, "stage", rel)`` fault-slot casing/message drops in ``_copy_stage_input``.
+    """
+    base = tmp_path.resolve()
+    root = base / "root"
+    (root / "sub").mkdir(parents=True)
+    outside = base / "outside"
+    outside.mkdir()
+    (root / "link").symlink_to(outside)
+    unsafe = ("..\\evil", "a\x00b", "/abs/path", "", ".", "..", "a//b", "nested/../escape")
+    for rel in unsafe:
+        verdict = engine_mod._contained(root, rel)
+        assert isinstance(verdict, ValueError), f"unsafe path admitted: {rel!r} -> {verdict!r}"
+        assert str(verdict) == f"unsafe stage path: {rel!r}", f"unsafe message drifted: {verdict!s}"
+    escaped = engine_mod._contained(root, "link/f.txt")
+    assert isinstance(escaped, ValueError), f"symlink escape admitted: {escaped!r}"
+    assert str(escaped) == "stage path escaped root: 'link/f.txt'", f"escape message drifted: {escaped!s}"
+    safe = engine_mod._contained(root, "sub/file.txt")
+    assert safe == (root / "sub" / "file.txt").resolve(), f"safe path mis-resolved: {safe!r}"
+    work = base / "work"
+    work.mkdir()
+    missing = engine_mod._copy_stage_input(Check(tool=_ECHO_TOOL), root, work, "sub/absent.txt")
+    assert missing is not None, "missing stage input did not fault"
+    assert (missing.argv, missing.message) == ((_ECHO_TOOL.name, "stage", "sub/absent.txt"), "missing stage input: sub/absent.txt"), (
+        f"missing-input fault evidence wrong: {missing!r}"
+    )
+    breach = engine_mod._copy_stage_input(Check(tool=_ECHO_TOOL), root, work, "../x")
+    assert breach is not None, "escaping stage input did not fault"
+    assert (breach.argv, breach.message) == ((_ECHO_TOOL.name, "stage", "../x"), "unsafe stage path: '../x'"), (
+        f"escape fault evidence wrong: {breach!r}"
+    )
+
+
+@pytest.mark.mutation
+def test_staged_tool_executes_from_materialized_worktree(assay_root: AssayHarness) -> None:
+    """A staged tool EXECUTES from the materialized worktree, not merely copies into it.
+
+    Kills ``_materialize``'s ``cwd=None``/dropped-``cwd`` replace survivors and ``_guarded``'s removed
+    Ok-arm rebind (``check = prepared``) — under each the child runs from the repo root while the worktree
+    assertions of the sibling staging law still pass.
+    """
+    stage = Stage(root=".artifacts/python/stage-cwd-law")
+    probe = (sys.executable, "-c", "import os; print(os.getcwd())")
+    tool = Tool("stage-cwd-law", Runner.DIRECT, probe, Input.NONE, Language.PYTHON, Claim.TEST, mode=Mode.RUN, stage=stage)
+    done = assert_ok(run_check(Check(tool=tool), settings=assay_root.settings, scope=None, routed=_PY_CHANGED))
+    reported = os.path.realpath(done.stdout.decode().strip())
+    worktree = os.path.realpath(str(assay_root.root / ".artifacts/python/stage-cwd-law"))
+    assert reported == worktree, f"staged child ran outside the worktree: {reported!r}"
+
+
+def test_drain_stream_newline_terminus_rows() -> None:
+    """Deterministic newline-terminus rows for the synthetic-final-line count.
+
+    Kills the ``last``-probe survivors the hypothesis law misses by seed luck: ``last = None``,
+    ``read[-1:] and last``, and ``read[+1:]`` — each miscounts a newline-terminated or
+    empty-chunk-trailing stream by one synthetic line.
+    """
+    rows: tuple[tuple[tuple[bytes, ...], int], ...] = (((b"ab\n",), 1), ((b"ab",), 1), ((b"ab\n", b""), 1), ((b"a\nb",), 2))
+    for chunks, expected_lines in rows:
+        captured = anyio.run(functools.partial(drain_stream, _recv_of(chunks), tail_cap=16))
+        assert captured.lines == expected_lines, f"{chunks!r} drained to {captured.lines} lines, expected {expected_lines}"
 
 
 # --- [MUTATION_LANE]

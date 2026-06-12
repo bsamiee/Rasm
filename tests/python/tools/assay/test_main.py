@@ -8,87 +8,79 @@ Covers tools.assay [install_tracing, bootstrap_error] with smoke laws.
 from types import SimpleNamespace
 from typing import TYPE_CHECKING
 
+import msgspec
 import pytest
 
-from tests.python._testkit._aspect import register_laws  # test-framework internal; no public re-export path
-from tests.python._testkit._spec import assert_error_status  # noqa: F401  # conftest re-exports for fixture injection; import triggers registration
-from tests.python.tools.assay.conftest import read_one_envelope_from_bytes
+from tests.python._testkit.laws import register_laws
+from tests.python.tools.assay.kit import read_one_envelope_from_bytes
 from tools.assay import __main__ as _main_mod, bootstrap_error, install_tracing
 from tools.assay.core.model import Claim
 from tools.assay.core.status import RailStatus
 
 
 if TYPE_CHECKING:
-    from tests.python.tools.assay.conftest import VerbRunner
+    from tests.python.tools.assay.kit import VerbRunner
 
 
 # --- [CONSTANTS] ------------------------------------------------------------------------
 
 _FAULTED_EXIT: int = RailStatus.FAULTED.exit_code
 
+# --- [TABLES]
+
+
+class _ParseFault(msgspec.Struct, frozen=True, gc=False):
+    """One parse-fault example row: the argv that never reaches dispatch plus the distinguishing claims.
+
+    Every row pins the FAULTED exit/status floor; ``claim``/``message``/``failing_step`` are the per-row
+    discriminants (``None`` = unchecked). ``claim`` is the Cyclopts-recovered claim of the bare token,
+    ``message`` an ``in``-substring of ``error.message``, ``failing_step`` the ``error_context`` step slug.
+    """
+
+    label: str
+    argv: tuple[str, ...]
+    claim: Claim | None = None
+    message: str | None = None
+    failing_step: str | None = None
+
+
+_PARSE_FAULTS: tuple[_ParseFault, ...] = (
+    _ParseFault("empty-argv", (), message="parse: no command", failing_step="parse"),
+    _ParseFault("bare-static", ("static",), claim=Claim.STATIC, message="incomplete command"),
+    _ParseFault("bare-test", ("test",), claim=Claim.TEST),
+    _ParseFault("bare-code", ("code",), claim=Claim.CODE),
+    _ParseFault("numeric-validator", ("code", "query", "(module) @m", "--max-results", "-1"), failing_step="parse"),
+)
 
 # --- [OPERATIONS] -----------------------------------------------------------------------
 
+# --- [MAIN_PARSE_FAULT_MATRIX]
 
-# --- [MAIN_EMPTY_ARGV]
 
+@pytest.mark.parametrize("row", _PARSE_FAULTS, ids=[r.label for r in _PARSE_FAULTS])
+def test_main_parse_fault_matrix(cli: VerbRunner, row: _ParseFault) -> None:
+    """A pre-dispatch parse fault — empty argv, a bare incomplete claim, or a Cyclopts numeric violation — folds to one FAULTED Envelope on stdout.
 
-def test_main_empty_argv_emits_parse_fault(cli: VerbRunner) -> None:
-    """Empty argv emits exactly one FAULTED Envelope on stdout; exit code matches FAULTED."""
-    res = cli()
+    The FAULTED exit/status floor holds for every row; each row then pins its discriminant: the Cyclopts-recovered
+    ``claim`` of a bare token, an ``error.message`` substring (``parse: no command`` / ``incomplete command``),
+    and/or the ``error_context.failing_step`` slug (``parse`` reaches stdout before any verb dispatch).
+    """
+    res = cli(*row.argv)
     assert res.exit_code == _FAULTED_EXIT
     assert res.envelope.status is RailStatus.FAULTED
-    assert res.envelope.error is not None
-    assert res.envelope.error.message.startswith("parse: no command")
-
-
-# --- [MAIN_BARE_CLAIM]
-
-
-def test_main_bare_claim_emits_parse_fault(cli: VerbRunner) -> None:
-    """A bare claim token is an incomplete command; parse fault Envelope carries the claim."""
-    res = cli("static")
-    assert res.exit_code == _FAULTED_EXIT
-    assert res.envelope.status is RailStatus.FAULTED
-    assert res.envelope.claim is Claim.STATIC
-    assert res.envelope.error is not None
-    assert "incomplete command" in res.envelope.error.message
-
-
-# --- [MAIN_EXIT_CODE_MATRIX]
-
-
-@pytest.mark.parametrize(
-    "argv, expected_claim", [(("static",), Claim.STATIC), (("test",), Claim.TEST), (("code",), Claim.CODE)], ids=["static", "test", "code"]
-)
-def test_main_bare_claim_exit_code_matrix(cli: VerbRunner, argv: tuple[str, ...], expected_claim: Claim) -> None:
-    """Every bare-claim parse fault carries exit code 7 (FAULTED) regardless of claim type."""
-    res = cli(*argv)
-    assert res.exit_code == _FAULTED_EXIT
-    assert res.envelope.claim is expected_claim
-
-
-# --- [MAIN_NUMERIC_VALIDATOR]
-
-
-def test_main_numeric_validator_faults_before_dispatch(cli: VerbRunner) -> None:
-    """Cyclopts numeric constraint violations reach stdout as one parse-fault Envelope."""
-    res = cli("code", "query", "(module) @m", "--max-results", "-1")
-    assert res.exit_code == _FAULTED_EXIT
-    assert res.envelope.status is RailStatus.FAULTED
-    assert res.envelope.error is not None
-    assert res.envelope.error_context is not None
-    assert res.envelope.error_context.failing_step == "parse"
-
-
-# --- [MAIN_NO_COMMAND_CONTEXT]
-
-
-def test_main_no_command_fault_context(cli: VerbRunner) -> None:
-    """No-command fault Envelope carries error_context with failing_step='parse'."""
-    res = cli()
-    assert res.envelope.error_context is not None
-    assert res.envelope.error_context.failing_step == "parse"
+    assert row.claim is None or res.envelope.claim is row.claim
+    match row.message:
+        case None:
+            pass
+        case substring:
+            assert res.envelope.error is not None
+            assert substring in res.envelope.error.message
+    match row.failing_step:
+        case None:
+            pass
+        case step:
+            assert res.envelope.error_context is not None
+            assert res.envelope.error_context.failing_step == step
 
 
 # --- [MAIN_CHANNEL_SEPARATION]
@@ -333,6 +325,48 @@ def test_bootstrap_error_type_contract() -> None:
     assert result is None or isinstance(result, ValidationError)
 
 
+def test_main_version_token_routes_to_verb_params(cli: VerbRunner) -> None:
+    """--version after a verb binds the verb's params field; it never triggers a global version print.
+
+    The root App and every claim sub-App carry version_flags=() — with cyclopts' default flag active,
+    'package plan --version X' is intercepted before dispatch and bare app-version text replaces the
+    Envelope on stdout (a total wire-contract violation). Falsified by restoring any version flag.
+    """
+    res = cli("package", "plan", "--slug", "nonexistent-slug-xyz", "--version", "9.9.9")
+    assert len(res.stdout.splitlines()) == 1
+    decoded = read_one_envelope_from_bytes(res.stdout)
+    assert decoded.claim is Claim.PACKAGE
+    assert decoded.verb == "plan"
+
+
+def test_main_enum_param_help_renders(monkeypatch: pytest.MonkeyPatch, capsysbinary: pytest.CaptureFixture[bytes]) -> None:
+    """--help on a verb with an Enum-hinted None-default param renders usage text and exits 0.
+
+    cyclopts 4.16.1 renders Enum defaults via default_val.name before consulting show_default
+    callables, so language's Parameter must keep show_default=False; falsified by any show_default
+    form that re-enters the Enum branch (AttributeError -> FAULTED exit 2 instead of usage).
+    Help output is plain text, not an Envelope, so this drives main directly rather than the cli runner.
+    """
+    neutralized = SimpleNamespace(force_flush=lambda *_a, **_k: True, shutdown=lambda: None)
+    monkeypatch.setattr(_main_mod, "get_tracer_provider", lambda: neutralized)
+    code = _main_mod.main(["code", "search", "--help"])
+    cap = capsysbinary.readouterr()
+    assert code == 0
+    assert b"Usage:" in cap.out
+    assert b'"status":"faulted"' not in cap.out
+
+
+@pytest.mark.parametrize("result, expected", [(3, 3), (object(), 0)], ids=["bare-int", "hookless-object"])
+def test_main_returncode_non_envelope_arms(result: object, expected: int) -> None:
+    """_returncode passes a bare int through verbatim and folds hook-less results to 0.
+
+    The Envelope arm (__cyclopts_returncode__ hook) rides every CLI law; these two arms only fire on
+    non-Envelope dispatch results, so they need a direct probe. Falsified by a _returncode that coerces
+    every result through the hook lookup (bare int would raise) or returns a non-zero default.
+    """
+    assert _main_mod._returncode(result) == expected
+
+
 # --- [COMPOSITION] ----------------------------------------------------------------------
 # Registrations run at import time so MANIFEST is fully populated before test collection begins.
 
@@ -340,11 +374,10 @@ register_laws(
     (
         _main_mod.main,
         (
-            "test_main_empty_argv_emits_parse_fault",
-            "test_main_bare_claim_emits_parse_fault",
-            "test_main_bare_claim_exit_code_matrix",
-            "test_main_numeric_validator_faults_before_dispatch",
-            "test_main_no_command_fault_context",
+            "test_main_parse_fault_matrix",
+            "test_main_version_token_routes_to_verb_params",
+            "test_main_enum_param_help_renders",
+            "test_main_returncode_non_envelope_arms",
             "test_main_channel_separation",
             "test_main_tracing_lifecycle_order",
             "test_main_surrogate_argv_does_not_crash",

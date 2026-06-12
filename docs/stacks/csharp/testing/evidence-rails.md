@@ -19,11 +19,11 @@ Coverage, mutation, and snapshots are evidence rails over managed tests and dete
 - Defensive unreachable: name the invariant locally; do not force execution through reflection.
 - Dead code: remove it.
 
-[REJECTIONS]:
-- Do not write artificial tests only to raise a percentage.
-- Do not lower thresholds to hide runtime-owned paths.
-- Do not call private methods by reflection for coverage.
-- Do not cover testkit, benchmarks, fuzz harnesses, or runtime scenario scripts as product targets.
+[BOUNDARIES]:
+- Coverage increases through real reachable behavior, not artificial tests.
+- Threshold changes never hide runtime-owned paths.
+- Private methods stay private; coverage reaches them through public laws.
+- Testkit, benchmarks, fuzz harnesses, and runtime scenario scripts are not product coverage targets.
 
 ## [2]-[MUTATION]
 
@@ -74,8 +74,8 @@ Use `Verify.XunitV3` for deterministic artifact contracts. Do not use snapshots 
 - Scrub: machine paths, timestamps, generated IDs, runtime versions, and environment-specific noise.
 - Review: use the Verify CLI for manual review and acceptance; never auto-accept received files in scripts.
 
-[REJECTIONS]:
-- Snapshotting floating numeric output when a tolerance law is available.
-- Snapshotting runtime stdout with clocks, machine paths, or runtime version strings.
-- Snapshotting generated random samples.
-- Accepting snapshots as a way to bless unknown drift.
+[BOUNDARIES]:
+- Floating numeric output uses tolerance law instead of snapshots.
+- Runtime stdout with clocks, machine paths, or runtime version strings is scrubbed or excluded.
+- Generated random samples stay outside snapshot contracts.
+- Snapshots confirm known contracts; they never bless unknown drift.

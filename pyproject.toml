@@ -173,7 +173,10 @@ ignore_missing_imports = true
 # active...` escalated to error by the filter). `-n` is deliberately NOT in addopts; the main suite runs serially
 # and benchmarks run in their own session via `-m benchmark --benchmark-only`. Keep these invocations separate; do not
 # add `-n` here. Parallel runs must opt in per-invocation AND unload the benchmark PLUGIN — the escalated warning
-# fires at configure time when both plugins load, so `-m "not benchmark"` does NOT help: use `-n auto -p no:benchmark`.
+# fires at configure time when both plugins load, so `-m "not benchmark"` does NOT help. Bare `-p no:benchmark` also
+# aborts: `required_plugins` still demands the plugin and the addopts `--benchmark-storage` flag has no owner once it
+# unloads. The working opt-in is `-n auto -p no:benchmark -o required_plugins= -o "addopts=<addopts minus --benchmark-*>"`
+# (verified 2026-06-11 while probing the bench hook revival).
 [tool.pytest]
 minversion =               "9.0"
 strict =                   true
@@ -278,12 +281,9 @@ output = ".artifacts/python/coverage/coverage.lcov"
 
 # --- [MUTMUT] --------------------------------------------------------------
 
-# libcst (mutmut's mutator) ships no cp315 wheel, so it builds from source: install Rust (`rustup default stable`) and set
-# `PYO3_USE_ABI3_FORWARD_COMPATIBILITY=1` so pyo3 targets the 3.15 stable ABI. The supported posture is a dedicated mutation
-# venv (keeps libcst's source build out of the main `.venv`):
-#   uv venv .cache/mut-venv --python 3.15
-#   PYO3_USE_ABI3_FORWARD_COMPATIBILITY=1 PATH=$HOME/.cargo/bin:$PATH \
-#       uv pip install --python .cache/mut-venv -r .cache/mutation-requirements.txt
+# mutmut rides the MAIN venv via the `mutation` dependency group (verified live 2026-06-12: the full staged rail run used
+# `uv run mutmut`). The historical `.cache/mut-venv` (libcst no-cp315-wheel era) is a stale artifact scheduled for deletion
+# in roadmap phase R3 (tools/assay/BACKLOG.md) along with `.cache/mutation-requirements.txt` — do not rebuild it.
 #
 # SUPPORTED RUNNER (one posture only): the RAIL — `uv run python -m tools.assay test run --mutation full|changed`.
 # It stages the project into `.artifacts/python/mutmut/work` (mutmut hard-codes `./mutants` relative to its cwd, so

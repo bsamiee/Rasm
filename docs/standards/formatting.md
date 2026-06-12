@@ -1,6 +1,6 @@
 # [FORMATTING]
 
-This standard carries the presentation layer: markers, alignment, whitespace, and the heading idiom that render a chosen container. It does not choose containers, decompose tables, write prose, or weigh evidence. Keep this layer minimal: markers and styling earn their place by aiding an agent or reader, never by decorating the page.
+This standard carries the presentation layer: markers, alignment, whitespace, and the heading idiom that render a chosen container. It does not choose containers, decompose tables, write prose, or judge claim confidence. Keep this layer minimal: markers and styling earn their place by aiding an agent or reader, never by decorating the page.
 
 ## [1]-[USE_WHEN]
 
@@ -20,39 +20,39 @@ Render an inline status, result, change, or compact state as a bracketed token s
 
 [TOKEN_FAMILIES]:
 
-| [INDEX] | [FAMILY]         | [TOKENS]                                                                                   |
-| :-----: | :--------------- | :----------------------------------------------------------------------------------------- |
-|   [1]   | Result           | `[PASS]`, `[FAIL]`, `[SKIP]`, `[PARTIAL]`, `[N/A]`                                         |
-|   [2]   | Change           | `[ADDED]`, `[REMOVED]`, `[CHANGED]`, `[UNCHANGED]`                                         |
-|   [3]   | Lifecycle marker | `[QUEUED]`, `[ACTIVE]`, `[BLOCKED]`, `[DEFERRED]`, `[COMPLETE]`, `[DROPPED]`, `[CANCELED]` |
-|   [4]   | Compact glyph    | `[o]`, `[x]`, `[!]`, `[?]`, `[+]`, `[-]`, `[=]`, `[/]`, `[~]`, `[$]`                       |
-|   [5]   | Explicit state   | `[OK]`, `[ERROR]`, `[WARNING]`, `[CAUTION]`, `[PENDING]`, `[UNKNOWN]`                      |
-|   [6]   | Explicit state   | `[NEW]`, `[DELETED]`, `[SAME]`, `[NULL]`, `[APPROX]`, `[CACHED]`, `[SAVED]`                |
+| [INDEX] | [FAMILY]         | [TOKENS]                                                                    |
+| :-----: | :--------------- | :-------------------------------------------------------------------------- |
+|   [1]   | Result           | `[PASS]`, `[FAIL]`, `[SKIP]`, `[PARTIAL]`, `[N/A]`                          |
+|   [2]   | Change           | `[ADDED]`, `[REMOVED]`, `[CHANGED]`, `[UNCHANGED]`                          |
+|   [3]   | Lifecycle marker | `[QUEUED]`, `[ACTIVE]`, `[BLOCKED]`, `[COMPLETE]`, `[DROPPED]`, `[RETIRED]` |
+|   [4]   | Compact glyph    | `[o]`, `[x]`, `[!]`, `[?]`, `[+]`, `[-]`, `[=]`, `[/]`, `[~]`, `[$]`        |
+|   [5]   | Explicit state   | `[OK]`, `[ERROR]`, `[WARNING]`, `[CAUTION]`, `[PENDING]`, `[UNKNOWN]`       |
+|   [6]   | Explicit state   | `[NEW]`, `[DELETED]`, `[SAME]`, `[NULL]`, `[APPROX]`, `[CACHED]`, `[SAVED]` |
 
 Token use is separate from the closed set so the table remains scannable:
 
 | [INDEX] | [FAMILY]         | [USE]                      | [REJECT]                             |
 | :-----: | :--------------- | :------------------------- | :----------------------------------- |
 |   [1]   | Result           | gate or check outcome      | lifecycle, boolean, or runtime state |
-|   [2]   | Change           | delta reporting            | status or proof state                |
+|   [2]   | Change           | delta reporting            | status or claim-confidence state     |
 |   [3]   | Lifecycle marker | inline `Status` mirror     | result, check, or domain status      |
 |   [4]   | Compact glyph    | dense cell marker          | boolean, lifecycle, or prose status  |
 |   [5]   | Explicit state   | runtime or operation state | lifecycle unless locally declared    |
 
 [COMPACT_GLYPH_MAP]:
 
-| [INDEX] | [GLYPH] | [MEANING]                                        | [TEXT_EQUIVALENT]          | [REJECT]                           |
-| :-----: | :------ | :----------------------------------------------- | :------------------------- | :--------------------------------- |
-|   [1]   | `[o]`   | passed, available, or affirmative compact result | `pass` or `available`      | lifecycle `COMPLETE`               |
-|   [2]   | `[x]`   | failed, unavailable, or negative compact result  | `fail` or `unavailable`    | checkbox completion                |
-|   [3]   | `[!]`   | attention, warning, or risk marker               | `attention`                | proof gap                          |
-|   [4]   | `[?]`   | source value unknown                             | `unknown`                  | missing evidence; use `Proof gap:` |
-|   [5]   | `[+]`   | added, new, enabled, or increased                | `added`                    | positive sentiment                 |
-|   [6]   | `[-]`   | removed, deleted, disabled, or decreased         | `removed`                  | subtraction expression             |
-|   [7]   | `[=]`   | unchanged, same, or matched                      | `unchanged`                | equality proof without evidence    |
-|   [8]   | `[/]`   | skipped, bypassed, or intentionally not run      | `skipped`                  | partial completion                 |
-|   [9]   | `[~]`   | partial, approximate, or changed-in-progress     | `partial` or `approximate` | unsupported uncertainty            |
-|  [10]   | `[$]`   | cached, saved, materialized, or stored result    | `cached` or `stored`       | cost or price                      |
+| [INDEX] | [GLYPH] | [MEANING]                                        | [TEXT_EQUIVALENT]          | [REJECT]                     |
+| :-----: | :------ | :----------------------------------------------- | :------------------------- | :--------------------------- |
+|   [1]   | `[o]`   | passed, available, or affirmative compact result | `pass` or `available`      | lifecycle `COMPLETE`         |
+|   [2]   | `[x]`   | failed, unavailable, or negative compact result  | `fail` or `unavailable`    | checkbox completion          |
+|   [3]   | `[!]`   | attention, warning, or risk marker               | `attention`                | claim-confidence gap         |
+|   [4]   | `[?]`   | input value unknown                              | `unknown`                  | missing claim detail         |
+|   [5]   | `[+]`   | added, new, enabled, or increased                | `added`                    | positive sentiment           |
+|   [6]   | `[-]`   | removed, deleted, disabled, or decreased         | `removed`                  | subtraction expression       |
+|   [7]   | `[=]`   | unchanged, same, or matched                      | `unchanged`                | equality claim without basis |
+|   [8]   | `[/]`   | skipped, bypassed, or intentionally not run      | `skipped`                  | partial completion           |
+|   [9]   | `[~]`   | partial, approximate, or changed-in-progress     | `partial` or `approximate` | unsupported uncertainty      |
+|  [10]   | `[$]`   | cached, saved, materialized, or stored result    | `cached` or `stored`       | cost or price                |
 
 [ABSENCE_VALUES]:
 
@@ -69,24 +69,24 @@ Token use is separate from the closed set so the table remains scannable:
 - Prefer the most specific family. Do not use two tokens that mean the same thing in one column.
 - Keep domain status vocabularies in their declared casing as field values; bracketed inline lifecycle markers uppercase the canonical token and replace spaces with hyphens. A type-local marker such as `[PROVISIONAL]` or `[DEPRECATED]` is valid only when the type standard declares that marker's closed vocabulary, meaning, and removal behavior before the first rendered example or production use.
 - Suffix forms such as `[ACTIVE <ID>]` are allowed only as codemap or source-key projections where the suffix identifies a source route, milestone, task, path, or row key. The base token must still come from a declared vocabulary, and the suffix must not create lifecycle meaning.
-- Use compact glyphs only where density matters, such as validation lists, delta summaries, or table cells, and only with the global meanings above.
+- Use compact glyphs only where density matters, such as checked lists, delta summaries, or table cells, and only with the global meanings above.
 - Use explicit states when clarity matters more than width.
 - Reserve these tokens for status, result, change, and state reporting; do not scatter bracketed tokens through ordinary prose or duplicate a definition-block field or checkbox state.
 - Use a checkbox when completion is asserted; use `[x]` only as a compact fail marker, never as a replacement for `- [x]`.
 
-Bracketed tokens have distinct jobs. Invocation markers (`[IMPORTANT]`, `[CRITICAL]`, `[ALWAYS]`, `[NEVER]`) belong only to instruction surfaces. Group labels (`[SOURCE_FACTS]:`) introduce a list or table. GitHub alerts (`> [!WARNING]`) interrupt the rendered reading path. Compact glyphs (`[o]`, `[x]`) are dense table or list cells. Lifecycle tokens (`[ACTIVE]`) mirror the default record `Status` vocabulary inline. Do not use one family as a substitute for another.
+Bracketed tokens have distinct jobs. Invocation markers (`[IMPORTANT]`, `[CRITICAL]`, `[ALWAYS]`, `[NEVER]`) belong only to instruction surfaces. Group labels (`[FACTS]:`) introduce a list or table. GitHub alerts (`> [!WARNING]`) interrupt the rendered reading path. Compact glyphs (`[o]`, `[x]`) are dense table or list cells. Lifecycle tokens (`[ACTIVE]`) mirror the default record `Status` vocabulary inline. Do not use one family as a substitute for another.
 
-Render progress as a bar only after [information-structure.md](information-structure.md) defines the maintained actor, numerator, denominator, closure rule, and proof surface. The rendered line is only the label, bracketed bar, and percentage.
+Render progress as a bar only after [information-structure.md](information-structure.md) defines the maintained actor, numerator, denominator, closure rule, and basis surface. The rendered line is only the label, bracketed bar, and percentage.
 
 [PROGRESS_BASIS]:
 - Cells: exactly 20 cells inside `[...]`.
-- Unicode alphabet: `█` marks proven cells; `░` marks remaining cells.
-- ASCII fallback alphabet: `#` marks proven cells; `-` marks remaining cells.
+- Unicode alphabet: `█` marks completed cells; `░` marks remaining cells.
+- ASCII fallback alphabet: `#` marks completed cells; `-` marks remaining cells.
 - Percentage: integer plus `%`, immediately to the right of the bar.
 - Percentage calculation: `floor(100 * numerator / denominator)`.
 - Fill calculation: `floor(20 * numerator / denominator)`.
 - Closure: show `100%` and fill all 20 cells only when numerator equals denominator.
-- Roadmap records use the same 20-cell rule when they render progress; task proof and milestone completion basis stay in roadmap fields, not appended to the progress line.
+- Roadmap records use the same 20-cell rule when they render progress; task and milestone completion basis stay in roadmap fields, not appended to the progress line.
 - Roadmap milestone and phase progress use the same bar; milestone and phase status fields are rejected because progress derives from child task completion.
 
 [PROGRESS_EDGE_CASES]:
@@ -116,15 +116,15 @@ Rejected appended-metadata example:
 Progress: [############--------] 60% (12/20 docs, phase 2, ETA Friday)
 ```
 
-Do not append the count, unit, phase name, date, ETA, or proof text to the progress line. Put those fields in the adjacent record that proves the progress basis.
+Do not append the count, unit, phase name, date, ETA, or basis text to the progress line. Put those fields in the adjacent record that defines the progress basis.
 
-The marker is not a decoration. Omit it when the document cannot define the numerator, denominator, closure rule, and proof surface, or when a checklist already carries the same completion state.
+The marker is not a decoration. Omit it when the document cannot define the numerator, denominator, closure rule, and basis surface, or when a checklist already carries the same completion state.
 
 [GLYPH_RULES]:
 - Allowed jobs: state, progress, hierarchy, alignment, or comparison that the surrounding container needs.
 - Declaration: define the glyph alphabet before first use unless this section already defines it.
 - Closure: keep the alphabet closed for the local surface.
-- Accessibility: provide a text equivalent when meaning is not recoverable from adjacent text; provide a proof basis when the glyph claims evidence or progress.
+- Accessibility: provide a text equivalent when meaning is not recoverable from adjacent text; provide a basis when the glyph claims a completed state or progress.
 - Rejected forms: decorative glyphs, emojis, checkmark or crossmark substitution, FIGlet-style banners, ornamental frames, separator carpets, copied terminal animations, ANSI color output, photo-to-ASCII art, and standalone glyph legends that do not change reader action.
 
 ## [3]-[INVOCATION_MARKERS]
@@ -218,14 +218,14 @@ Use the container that matches the reader action:
 - Prose: one concept, decision, caveat, or transition where a sentence is clearer than a list.
 - Bullets: peer facts, requirements, or unordered options.
 - Numbered lists: ordered actions, ranked choices, lifecycle steps, or gates.
-- Checklists (`- [ ]`): verification, acceptance, or status items whose completion is asserted and checked.
+- Checklists (`- [ ]`): actionable completion, acceptance, readiness, or status items whose completion is asserted and checked.
 ```
 
 GroupedRecord is the normative field carrier for same-section record clusters. Section cardinality uses this shape:
 
 [REQUIRED_UNIVERSAL]:
 - Opening lead: required, single; states the support question, profile, and regime.
-- Required sections: `Scope`, `Status vocabulary`, `Matrix`, `Exclusions`, `Boundaries`, and `Validation`.
+- Required sections: `Scope`, `Status vocabulary`, `Matrix`, `Exclusions`, `Boundaries`, and `Result check`.
 
 [CONDITIONAL_PROFILE]:
 - `Lifecycle dates`: required for product-lifecycle and deprecation profiles.
@@ -236,7 +236,7 @@ Section cardinality uses these groups:
 
 [REQUIRED_UNIVERSAL]:
 - Opening lead: required, single; states the support question, profile, and regime.
-- Required sections: `Scope`, `Status vocabulary`, `Matrix`, `Exclusions`, `Boundaries`, and `Validation`.
+- Required sections: `Scope`, `Status vocabulary`, `Matrix`, `Exclusions`, `Boundaries`, and `Result check`.
 
 [CONDITIONAL_PROFILE]:
 - `Lifecycle dates`: required for product-lifecycle and deprecation profiles.
@@ -257,7 +257,7 @@ Reject heading theater such as `# [H1][NAME]`, bracket tokens outside the allowe
 
 ## [7]-[ANCHORS_COMMENTS]
 
-Treat heading anchors and hidden Markdown comments as source-level notation. Anchor rules below are the local validation convention for in-repo links; external renderers may apply different duplicate-suffix or punctuation rules.
+Treat heading anchors and hidden Markdown comments as source-level notation. Anchor rules below are the local convention for in-repo links; external renderers may apply different duplicate-suffix or punctuation rules.
 
 Use these source-notation rules:
 - Anchor stability: a bracketed heading slug is the lowercased heading text with brackets, punctuation, dots, and underscores removed; `## [10]-[FOLDER_LAYOUT]` becomes `#10folderlayout`. When a heading number or label changes, update every in-repo link to that anchor in the same change.
@@ -265,34 +265,12 @@ Use these source-notation rules:
 - Renumbering: renumber headings only when the document structure changes; cosmetic rewrites preserve existing heading numbers so links stay stable.
 - Hidden comments: use HTML comments only for source-view authoring hints, generator hints, or maintenance notes that should not render: `<!-- source-only: <short reason> -->`.
 - Comment placement: put a hidden comment immediately before the block it annotates, separated by the same blank-line rules as the surrounding block. Keep comments one line when possible; multi-line comments are allowed only for generated source-view notes that would be noisy when rendered.
-- Comment limits: never use a hidden comment as the only carrier of safety, proof, intent, "replace with verified data," or required constraints. Do not put comments inside table rows or cells; use visible prose, a table note, or a definition block instead.
+- Comment limits: never use a hidden comment as the only carrier of safety, claim confidence, intent, current-data replacement, or required constraints. Do not put comments inside table rows or cells; use visible prose, a table note, or a definition block instead.
 
 ## [8]-[BOUNDARIES]
 
 - [information-structure.md](information-structure.md) carries container choice, table construction, code-block intent labels, progress eligibility, and structured-record fields; this standard styles what it builds.
 - [style-guide.md](style-guide.md) carries sentence mechanics, terminology, and requirement modals.
 - [style-guide.md](style-guide.md) carries salience and where a marked constraint sits in a unit.
-- [proof.md](proof.md) carries evidence strength, freshness, and proof label meanings; this standard renders the result and status markers that present evidence or status.
+- [proof.md](proof.md) carries claim confidence, refresh triggers, and confidence label meanings; this standard renders the result and status markers that present confidence or status.
 - [README.md](README.md) carries document-type routing and cross-standard links.
-
-## [9]-[VALIDATION]
-
-Use this verification checklist by group:
-
-[MARKERS_TABLES]:
-- [ ] Status, result, and change markers come from the closed token sets.
-- [ ] Markers do not appear in ordinary prose or duplicate a field or checkbox state.
-- [ ] Progress markers render as a 20-cell bar plus percentage only, with the calculation rule and proof basis visible nearby.
-- [ ] Progress bars, glyph legends, and bitmap-style markers carry adjacent text equivalents where meaning is not otherwise recoverable.
-- [ ] Glyphs, box drawing, and bitmap-style markers encode load-bearing state, progress, hierarchy, alignment, or comparison instead of decoration.
-- [ ] Invocation markers appear only in instruction files, sparingly, on real invariants.
-- [ ] Table columns are aligned by type: text left, numeric/date values right, and only indexes plus compact markers or short booleans centered.
-- [ ] Table cells escape literal pipes, stay single-line, and move long qualifications to visible notes or row-owned records.
-- [ ] Table absence and not-applicable values use the declared absence-value ladder.
-
-[SPACING_HEADINGS]:
-- [ ] Bullets use `-`, list items carry no blank lines between them, and structural elements have one blank line around them.
-- [ ] Rule lists past seven items split into bracketed set-label groups, with a blank line before each standalone group label and no blank line between the label and its list or table.
-- [ ] The document uses the bracketed heading format consistently.
-- [ ] Heading links match the rendered anchor slug, and hidden comments carry only source-view hints.
-- [ ] Code fences use declared language-intent labels, and renderer-local fences keep exact renderer tags.

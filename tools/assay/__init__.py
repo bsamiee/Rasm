@@ -40,7 +40,6 @@ _SERVICE: dict[str, str | int] = {
     "process.runtime.version": sys.version.split()[0],
 }
 
-
 # --- [COMPOSITION] ----------------------------------------------------------------------
 
 
@@ -87,7 +86,6 @@ except ValidationError as exc:
     _SETTINGS = AssaySettings.model_construct()
 
 configure_logging(_SETTINGS.log_format)
-
 
 # --- [EXPORTS] --------------------------------------------------------------------------
 

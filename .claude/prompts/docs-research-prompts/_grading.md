@@ -1,6 +1,6 @@
 # [GRADING]
 
-Companion artifact to the doc-stack prompt set. The initial-research stage installs a verbatim copy at the stack's reports root when its first pipeline begins; every stage's grade answers to this file. Concept pages never cite it.
+The initial-research stage installs a verbatim copy at the stack reports root when its first pipeline begins; every stage grade answers to this file.
 
 ## [1]-[MECHANICS]
 
@@ -23,8 +23,8 @@ Grades findings files, bedrocks, and distillates. Read each axis bottom-up; the 
 
 [VERACITY]:
 - 6: plausible, unverified.
-- 8: load-bearing claims verified, sources current.
-- 9: every claim verified against installed source or live docs.
+- 8: load-bearing claims verified, materials current.
+- 9: every claim verified against installed material or official docs.
 - 9.5: adversarially verified — each claim survives an attempt to refute it.
 
 [DENSITY]:
@@ -48,10 +48,10 @@ Grades findings files, bedrocks, and distillates. Read each axis bottom-up; the 
 The advancement floor: an entry survives only when it carries a non-obvious mechanism, a verified trap or hazard, a law stated with its boundary, or a collapse fusing two or more findings into a richer rule. A table-stakes spine with one advanced edge keeps the edge and sheds the spine.
 
 Automatic fails:
-- RF-1 — invented or unverified API shape; arbiter: installed package source, then the compile harness.
+- RF-1 — invented or unverified API shape; arbiter: installed package material, then the compile harness.
 - RF-2 — bedrock re-tread in a divergent or distilled file.
 - RF-3 — lateral drift: material a sibling lane's OWNS or a finalized page already owns.
-- RF-4 — meta-commentary, sourcing, version, or date residue.
+- RF-4 — meta-commentary, process residue, release label, or date residue.
 
 ## [3]-[PAGE_LADDER]
 
@@ -95,7 +95,7 @@ Grades prose stages: draft, rebuild, panel rewrite, enrich, optimize.
 
 Automatic fails:
 - PF-1 — finalized territory restated, referenced, or contradicted.
-- PF-2 — meta, sourcing, links, or provenance anywhere.
+- PF-2 — meta, process residue, route pointers, or origin residue anywhere.
 - PF-3 — page over its ceiling at stage exit.
 
 ## [4]-[SNIPPET_LADDER]
@@ -139,7 +139,7 @@ Grades snippet creation and refinement.
 - 9.5: smallest size that fully captures the card; flat or falling across passes.
 
 Automatic fails:
-- SF-1 — invented or unverified API member; arbiter: installed package source, then the compile harness — active and retroactive from the corpus sweep.
+- SF-1 — invented or unverified API member; arbiter: installed package material, then the compile harness — active and retroactive from the corpus sweep.
 - SF-2 — duplicated demonstration; arbiter: the region ledger.
 - SF-3 — a project, host, or domain anchor.
 - SF-4 — a construction that cannot compile as written under the active surface.
@@ -150,7 +150,7 @@ Every grader applies these regardless of ladder:
 - Lateral drift: material whose strongest claim belongs to a sibling lane's OWNS or a finalized page's territory.
 - Re-tread: restating a lower layer — bedrock in a divergent, divergent in a distillate, finalized law in a page.
 - Table-stakes survival: an entry below the advancement floor that a prior pass should have cut.
-- Nuance loss: a merge that averaged instead of unioned — any source variant's edge missing from the merged entry.
+- Nuance loss: a merge that averaged instead of unioned — any material variant's edge missing from the merged entry.
 - Region duplication: a demonstration or card concern the ledger already assigns to another owner.
 - Container mismatch: prose packed into table cells past one trailing prose column, headers that do not earn their column, record material flattened into rows, or a table doing what a record group does better.
 - Convergence theater: manufactured change in a refinement pass, or a verification pass that rubber-stamps below-bar units.

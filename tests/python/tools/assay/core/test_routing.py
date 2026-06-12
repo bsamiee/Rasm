@@ -14,30 +14,38 @@ Scope, Source.
 
 from __future__ import annotations
 
-from typing import override, TYPE_CHECKING
+from typing import ClassVar, override, TYPE_CHECKING
 
 from expression import Error, Ok
 from hypothesis import given, HealthCheck, settings as h_settings, strategies as st, target
 import msgspec.structs
 import pytest
+from upath import UPath
 
-from tests.python._testkit._aspect import register_law, spec  # _-prefixed private module; cross-package import is intentional
-from tests.python._testkit._spec import (  # _-prefixed private module; cross-package import is intentional
-    assert_error_status,
-    assert_ok,
-    support_matrix,
-    validity_matrix,
-    ValidityCase,
-)
+from tests.python._testkit.laws import register_law, spec
+from tests.python._testkit.spec import assert_error_status, assert_ok, support_matrix, validity_matrix, ValidityCase
 from tools.assay.core.model import Claim, Fault, Input, Language, Mode, Runner, Tool
-from tools.assay.core.routing import infer_languages, place, routable_files, route, Routed, Scope, Source
+from tools.assay.core.routing import (  # private probes: read/parse degradation arms are unreachable through public route fixtures
+    _LocalSource,
+    _owner,
+    _refs,
+    infer_languages,
+    place,
+    routable_files,
+    route,
+    Routed,
+    Scope,
+    Source,
+)
 from tools.assay.core.status import RailStatus
 
 
 if TYPE_CHECKING:
+    from pathlib import Path
+
     from expression import Result
 
-    from tests.python.tools.assay.conftest import AssayHarness
+    from tests.python.tools.assay.kit import AssayHarness
     from tools.assay.core.routing import ProjectIndex, RoutePaths
 
 
@@ -83,6 +91,38 @@ class _FaultingSource(Source):
         return Ok(b"")
 
 
+class _GraphSource(Source):
+    """Source double over a fixed three-project graph App -> Lib -> Core (backslash-style Include).
+
+    ``read`` returns real ``.csproj`` bytes carrying ``ProjectReference Include`` entries so that
+    ``_refs`` must parse, ``_dependents`` must walk the transitive fixed-point, and ``_resolve`` must
+    project closure/groups; ``enumerate`` yields the full universe regardless of the requested paths.
+    """
+
+    _UNIVERSE: ClassVar[tuple[str, ...]] = ("src/Core/Core.csproj", "src/Lib/Lib.csproj", "src/App/App.csproj", "src/Core/c.cs", "src/App/a.cs")
+    _CSPROJ: ClassVar[dict[str, bytes]] = {
+        "src/Core/Core.csproj": b"<Project></Project>",
+        "src/Lib/Lib.csproj": b'<Project><ItemGroup><ProjectReference Include="..\\Core\\Core.csproj" /></ItemGroup></Project>',
+        "src/App/App.csproj": b'<Project><ItemGroup><ProjectReference Include="..\\Lib\\Lib.csproj" /></ItemGroup></Project>',
+    }
+
+    def __init__(self, changed: tuple[str, ...]) -> None:
+        self._changed = changed
+
+    @override
+    def changed(self) -> Result[tuple[str, ...], Fault]:
+        return Ok(self._changed)
+
+    @override
+    def enumerate(self, paths: RoutePaths) -> Result[tuple[str, ...], Fault]:
+        _ = paths
+        return Ok(self._UNIVERSE)
+
+    @override
+    def read(self, rel: str) -> Result[bytes, Fault]:
+        return Ok(self._CSPROJ.get(rel, b"<Project />"))
+
+
 # --- [CONSTANTS] ------------------------------------------------------------------------
 
 _PY_TOOL = Tool(
@@ -92,12 +132,9 @@ _PY_TOOL = Tool(
 # Mirrors AssaySettings.probe_fixture_prefixes — keeps prefix-stripping law parametrization in sync with settings.
 _DEFAULT_PREFIXES: tuple[str, ...] = ("tests/tools/ast-grep/", "tests/python/tools/py_analyzer/")
 
-
 # --- [OPERATIONS] -----------------------------------------------------------------------
 
-
 # --- [SCOPE_SOURCE_SWEEPS]
-
 
 register_law(Scope, "scope_enum_sweep")
 
@@ -192,7 +229,6 @@ def test_routed_full_triggers_scope_consistency(scope: Scope, full_triggers: tup
 
 # --- [PROJECTINDEX_ROUTEPATHS]
 
-
 register_law("ProjectIndex", "project_index_mapping")
 
 
@@ -213,7 +249,6 @@ def test_route_paths_is_tuple_of_str() -> None:
 
 
 # --- [ROUTE_LAWS]
-
 
 register_law(route, "route_language_table")
 
@@ -290,7 +325,6 @@ def test_route_files_are_normalized(assay_root: AssayHarness) -> None:
 
 # --- [PLACE_LAWS]
 
-
 register_law(place, "place_input_arm_table")
 
 
@@ -303,8 +337,10 @@ register_law(place, "place_input_arm_table")
         (Input.PROJECT, Mode.RUN, Routed(Language.CSHARP, Scope.CHANGED, projects=("A.csproj",)), (("A.csproj",),)),
         (Input.NONE, Mode.CHECK, Routed(Language.PYTHON, Scope.CHANGED, files=("a.py",)), (("a.py",),)),
         (Input.NONE, Mode.CHECK, Routed(Language.PYTHON, Scope.CHANGED), ((),)),
+        (Input.OWNED, Mode.CHECK, Routed(Language.DOCS, Scope.CHANGED, files=("a.md", "b.md")), ((),)),
+        (Input.OWNED, Mode.CHECK, Routed(Language.DOCS, Scope.CHANGED), ((),)),
     ],
-    ids=["files-present", "files-empty", "include-arm", "project-arm", "none-with-files", "none-empty"],
+    ids=["files-present", "files-empty", "include-arm", "project-arm", "none-with-files", "none-empty", "owned-with-files", "owned-empty"],
 )
 def test_place_input_arm_table(
     input_mode: Input, mode: Mode, routed: Routed, expected: tuple[tuple[str, ...], ...], assay_root: AssayHarness
@@ -334,7 +370,6 @@ def test_place_determinism(assay_root: AssayHarness) -> None:
 
 
 # --- [PLACE_PROPORTIONAL]
-
 
 register_law(place, "place_proportional_by_inspection")
 
@@ -366,7 +401,6 @@ def test_place_strips_probe_fixtures_via_files_input(extra_prefix: str, assay_ro
 
 
 # --- [ROUTABLE_FILES_LAWS]
-
 
 register_law(routable_files, "routable_files_strips_prefix")
 
@@ -456,3 +490,158 @@ def test_infer_languages_never_exceeds_available(suffixes: list[str]) -> None:
     result = infer_languages(paths, available)
     assert result
     assert tuple(language for language in available if language in result) == result
+
+
+register_law(route, "local_source_read_and_refs_degrade_isolated")
+
+
+def test_local_source_read_and_refs_degrade_isolated(tmp_path: Path) -> None:
+    """The closure-graph degradation ladder: read faults and malformed .csproj XML collapse to isolated nodes.
+
+    ``_LocalSource.read`` returns Ok(bytes) for a present file and a FAULTED Fault (never a raised OSError)
+    for a missing one; ``_refs`` folds both an unreadable and a malformed .csproj to an empty reference set.
+    Falsified by a read that raises through, a Fault carrying the wrong argv provenance, or a ParseError
+    escaping ``_parse`` instead of degrading to an empty Project element.
+    """
+    src = _LocalSource(root=UPath(tmp_path))
+    (tmp_path / "good.bin").write_bytes(b"payload")
+    assert assert_ok(src.read("good.bin")) == b"payload"
+    fault = assert_error_status(src.read("missing.csproj"), RailStatus.FAULTED)
+    assert fault.argv == ("read", "missing.csproj")
+    assert _refs("missing.csproj", src) == frozenset()
+    (tmp_path / "bad.csproj").write_bytes(b"<not-xml")
+    assert _refs("bad.csproj", src) == frozenset()
+
+
+# --- [CLOSURE_GRAPH_LAWS] -----------------------------------------------------------------
+
+register_law(_refs, "refs_resolves_project_references")
+
+
+@pytest.mark.parametrize(
+    "csproj,expected",
+    [
+        ("src/Lib/Lib.csproj", frozenset({"src/Core/Core.csproj"})),
+        ("src/App/App.csproj", frozenset({"src/Lib/Lib.csproj"})),
+        ("src/Core/Core.csproj", frozenset()),
+    ],
+    ids=["lib-refs-core", "app-refs-lib", "core-leaf"],
+)
+def test_refs_resolves_project_references(csproj: str, expected: frozenset[str]) -> None:
+    r"""_refs parses ProjectReference Include attributes, normalising backslash-relative paths to project-rooted refs.
+
+    Each ``.csproj`` carries a single Windows-style ``Include="..\\X\\X.csproj"``; _refs must read the file, locate
+    every ``ProjectReference`` element, pull its ``Include`` attribute, swap backslash for slash, join against the
+    declaring project's parent directory, and ``normpath`` the join to the exact root-relative reference path.
+    Falsifies the entire _refs happy-path cluster: deleting the ok-arm (always empty), nulling ``base`` (TypeError or
+    wrong root), nulling/garbling ``normpath``/``str`` args, mutating the ``"\\"``→``"/"`` replace literals, renaming
+    the ``"Include"`` attribute key (case-flips, XX-markers), or inverting the ``is not None`` guard — every one alters
+    which project edges the closure graph carries, so each produces a reference set that diverges from ``expected``.
+    """
+    assert _refs(csproj, _GraphSource(())) == expected
+
+
+register_law(_owner, "owner_selects_deepest_project")
+
+
+@pytest.mark.parametrize(
+    "rel,expected",
+    [("src/Lib/Sub/x.cs", "src/Lib/Sub"), ("src/Lib/y.cs", "src/Lib"), ("src/Other/z.cs", None)],
+    ids=["nested-deepest-wins", "parent-only", "unowned"],
+)
+def test_owner_selects_deepest_project(rel: str, expected: str | None) -> None:
+    """_owner returns the longest (deepest) owning project directory, not an arbitrary or insertion-order match.
+
+    With nested index keys ``src/Lib`` and ``src/Lib/Sub`` both relative-to a file under ``src/Lib/Sub``, the file is
+    owned by the deeper project. Falsifies the _owner cluster: dropping ``key=str.__len__`` (or nulling it) makes
+    ``max`` compare the directory strings lexicographically rather than by length, so ``src/Lib`` can win over
+    ``src/Lib/Sub`` and a changed file is attributed to the wrong project — the seed and group projection both shift.
+    """
+    index: ProjectIndex = {"src/Lib": "src/Lib/Lib.csproj", "src/Lib/Sub": "src/Lib/Sub/Sub.csproj"}
+    assert _owner(rel, index) == expected
+
+
+register_law(route, "route_closure_transitive_dependents")
+
+
+def test_route_closure_transitive_dependents(assay_root: AssayHarness) -> None:
+    """A change to the deepest project pulls its full transitive reverse-dependency closure into ``projects``.
+
+    The graph is App -> Lib -> Core; changing ``src/Core/c.cs`` must rebuild Core, Lib, AND App because both
+    transitively reference Core. Falsifies the _dependents monotone-fixed-point cluster: union->intersection
+    (closure shrinks to the seed), ``and``->``or`` (unrelated nodes leak in), ``p not in current``->``p in current``
+    (no node is ever added), ``bool(current & refs)``->``bool(None)`` (no dependents pulled), and
+    ``current & refs``->``current | refs`` (every node pulled regardless of edges) each yield a ``projects`` set that
+    differs from the true ``{Core, Lib, App}`` closure.
+    """
+    routed = assert_ok(route(Language.CSHARP, source=_GraphSource(("src/Core/c.cs",)), settings=assay_root.settings))
+    assert routed.scope is Scope.CHANGED
+    assert routed.projects == ("src/App/App.csproj", "src/Core/Core.csproj", "src/Lib/Lib.csproj")
+
+
+register_law(route, "route_closure_groups_pair_seed_with_owned_files")
+
+
+def test_route_closure_groups_pair_seed_with_owned_files(assay_root: AssayHarness) -> None:
+    """_resolve pairs each seed project with exactly the changed files it owns, sorted, and threads language through.
+
+    Two changed files land in two different seed projects; ``groups`` must associate each seed ``.csproj`` with the
+    files whose ``_owner`` resolves to that project, and ``files`` is the normalised owned set. Falsifies the _resolve
+    cluster: ``groups=None`` / ``groups=`` default (groups vanish), the ``index[owner] == owner_proj`` filter flipped
+    to ``!=`` (each seed paired with every OTHER seed's files), ``language=None`` / ``projects=None`` / ``projects=``
+    default (the carried projection fields drop or null out).
+    """
+    routed = assert_ok(route(Language.CSHARP, source=_GraphSource(("src/Core/c.cs", "src/App/a.cs")), settings=assay_root.settings))
+    assert routed.language is Language.CSHARP
+    assert routed.files == ("src/App/a.cs", "src/Core/c.cs")
+    assert routed.groups == (("src/App/App.csproj", ("src/App/a.cs",)), ("src/Core/Core.csproj", ("src/Core/c.cs",)))
+
+
+register_law(route, "route_escalation_honours_settings_triggers")
+
+
+@pytest.mark.parametrize(
+    "update,changed,expected_scope",
+    [
+        ({"trigger_files": frozenset({"custom-trigger.txt"}), "trigger_prefixes": ()}, ("custom-trigger.txt",), Scope.FULL),
+        ({"trigger_files": frozenset({"custom-trigger.txt"}), "trigger_prefixes": ()}, ("Directory.Build.props",), Scope.CHANGED),
+        ({"trigger_files": frozenset(), "trigger_prefixes": ("custom/gen/",)}, ("custom/gen/build.cs",), Scope.FULL),
+        ({"trigger_files": frozenset(), "trigger_prefixes": ("custom/gen/",)}, ("tools/cs-analyzer/Rule.cs",), Scope.CHANGED),
+    ],
+    ids=["custom-file-escalates", "default-file-ignored", "custom-prefix-escalates", "default-prefix-ignored"],
+)
+def test_route_escalation_honours_settings_triggers(
+    update: dict[str, object], changed: tuple[str, ...], expected_scope: Scope, assay_root: AssayHarness
+) -> None:
+    """FULL-scope escalation consults the active settings' trigger_files/trigger_prefixes, never the module constants.
+
+    Custom triggers escalate the matching change to FULL; a module-default trigger that the custom settings omit does
+    NOT escalate. Falsifies the settings-threading cluster: _escalate flipping ``settings is not None``->``is None``
+    (module defaults used instead of settings), _closure passing ``_escalate(files, None)``, and route passing
+    ``_closure(..., None)`` all swap the consulted trigger set, inverting at least one row of this matrix.
+    """
+    settings = assay_root.settings.model_copy(update=update)
+    routed = assert_ok(route(Language.CSHARP, source=_GraphSource(changed), settings=settings))
+    assert routed.scope is expected_scope
+
+
+register_law(place, "place_project_list_fallback_to_test_target")
+
+
+@pytest.mark.parametrize(
+    "mode,projects,expected_fn",
+    [(Mode.LIST, (), "test_target"), (Mode.RUN, (), "empty"), (Mode.LIST, ("src/A/A.csproj",), "projects")],
+    ids=["list-empty-falls-back", "non-list-empty-yields-nothing", "list-with-projects-passthrough"],
+)
+def test_place_project_list_fallback_to_test_target(mode: Mode, projects: tuple[str, ...], expected_fn: str, assay_root: AssayHarness) -> None:
+    """Input.PROJECT with no routed projects falls back to settings.test_target only when tool.mode is Mode.LIST.
+
+    Falsifies the place PROJECT-arm cluster: ``str(settings.test_target)``->``str(None)`` (the fallback projects the
+    literal ``"None"`` instead of the configured target) and ``tool.mode is Mode.LIST``->``is not Mode.LIST`` (the
+    fallback fires for the wrong modes); the non-LIST empty case yields no invocations, pinning the discriminant.
+    """
+    tool = Tool("t", Runner.DOTNET, ("dotnet",), Input.PROJECT, Language.CSHARP, Claim.STATIC, mode=mode)
+    routed = Routed(Language.CSHARP, Scope.CHANGED, projects=projects)
+    result = place(routed, tool, settings=assay_root.settings)
+    expected = {"test_target": ((str(assay_root.settings.test_target),),), "empty": (), "projects": tuple((p,) for p in projects)}[expected_fn]
+    assert result == expected

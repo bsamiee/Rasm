@@ -1,33 +1,35 @@
-"""Policy meta-tests: law-coverage gate, marker-policy laws, benchmark-storage single-owner policy.
+"""Generic, SUT-agnostic policy meta-tests parameterized over the registered ``SUT_PACKAGES``.
 
-Three orthogonal rails:
+This layer imports NO system-under-test: assay-bound couplings (benchmark-storage URI identity, the
+catalog-import surface) live in ``tests.python.tools.assay.test_policy_assay``. Three orthogonal rails:
 
 1. Law-coverage gate: calls ``assert_law_coverage()`` in-session after all laws have been collected
-   and registered into ``MANIFEST``.  Every public ``tools.assay`` symbol must have at least one law or
-   an explicit exemption recorded in the assay conftest's ``_EXEMPT`` frozenset.
+   and registered into ``MANIFEST``. Every public symbol of every package registered via ``register_sut``
+   (the ``SUT_PACKAGES`` table) must have at least one law or an explicit exemption in that package's
+   conftest ``exempt`` set — the gate is total across all SUTs, not one named package.
 
 2. Marker-policy laws: assert the ``pytest_collection_modifyitems`` hook auto-applies ``network``
-   to tests that request ``socket_enabled`` and ``property`` to hypothesis-backed tests.  The ``mutation``
+   to tests that request ``socket_enabled`` and ``property`` to hypothesis-backed tests. The ``mutation``
    marker is declared in ``pyproject.toml``; its registration is verified structurally.
 
-3. Benchmark-storage single-owner policy: the ``--benchmark-storage`` URI must appear in exactly
-   one place (``[tool.pytest.ini_options] addopts``) and must match the constant declared in
-   ``tools.assay.composition.catalog``.  Duplication across ``conftest.py`` files or per-session
-   ``benchmark.pedantic`` calls is forbidden.
+3. Litter-containment policy: no test tool writes its scratch to the repo root.
 """
 
 # --- [RUNTIME_PRELUDE] ------------------------------------------------------------------
 
-import importlib
 from pathlib import Path  # noqa: TC003  # module-level _PYPROJECT assignment prevents deferral
+import sys
 import tomllib
+from unittest.mock import create_autospec
 
 from hypothesis import is_hypothesis_test
+import msgspec
 import pytest
 
-from tests.python._testkit._aspect import assert_law_coverage, LawRecord, MANIFEST  # test-internal, _-named by design
+from tests.python._testkit import laws as laws_mod
+from tests.python._testkit.bench import _series_from_storage
+from tests.python._testkit.laws import assert_law_coverage, LawRecord, MANIFEST, SUT_PACKAGES
 from tests.python._testkit.runtime import REPO_ROOT
-from tools.assay.composition.catalog import BENCHMARK_STORAGE_URI
 
 
 # --- [CONSTANTS] ------------------------------------------------------------------------
@@ -36,8 +38,10 @@ _PYPROJECT: Path = REPO_ROOT / "pyproject.toml"
 
 _POLICY_MARKERS: frozenset[str] = frozenset({"benchmark", "mutation", "network", "property"})
 
-_LITTER_DIRS: frozenset[str] = frozenset({".hypothesis", ".benchmarks", ".mutants", "mutants", ".coverage", ".approval_tests_temp"})
-
+# mutants/ at the repo ROOT is litter: mutmut hard-codes Path("mutants") relative to its cwd, and the
+# sanctioned mutation posture runs staged (cwd = .artifacts/python/mutmut/work), so root mutants/ can only
+# come from a manual card run launched from the repo root — forbidden.
+_LITTER_DIRS: frozenset[str] = frozenset({".hypothesis", ".benchmarks", ".coverage", ".approval_tests_temp", "mutants", ".mutants"})
 
 # --- [OPERATIONS] -----------------------------------------------------------------------
 
@@ -68,23 +72,12 @@ def _pyproject_data() -> dict[str, object]:
     return data
 
 
-def _pytest_ini_addopts() -> list[str]:
-    """Return the ``[tool.pytest] addopts`` list as a flat string list; empty when the key is absent."""
-    addopts: object = _nav(_pyproject_data(), "tool", "pytest", "addopts")
-    return [str(o) for o in addopts] if isinstance(addopts, list) else []
-
-
 def _pytest_ini_marker_names() -> frozenset[str]:
     """Return the bare marker names declared under ``[tool.pytest] markers`` (e.g. ``{"benchmark", "network"}``); empty when absent."""
     markers: object = _nav(_pyproject_data(), "tool", "pytest", "markers")
     if not isinstance(markers, list):
         return frozenset()
     return frozenset(str(m).split(":")[0].strip() for m in markers)
-
-
-def _benchmark_storage_flags(addopts: list[str]) -> list[str]:
-    """Return addopts entries that start with ``--benchmark-storage``."""
-    return [o for o in addopts if o.startswith("--benchmark-storage")]
 
 
 def _collect_session_items(pytestconfig: pytest.Config) -> list[pytest.Function]:
@@ -98,12 +91,54 @@ def _collect_session_items(pytestconfig: pytest.Config) -> list[pytest.Function]
 
 
 def test_law_coverage_gate() -> None:
-    """Every public tools.assay symbol has >=1 law in MANIFEST or is in the exempt set.
+    """Every public symbol of every registered SUT package has >=1 law in MANIFEST or is exempt.
 
-    Falsifiable by: adding a new public symbol to any tools.assay module ``__all__`` without
-    authoring a corresponding law (the gate finds it in the surface walk and fails with the symbol name).
+    The gate is total across the ``SUT_PACKAGES`` table (each ``register_sut`` call adds one package and
+    its exempt set), so a second SUT growing into the monorepo is covered with no edit to this generic
+    law. Skips only when no SUT is registered (isolated single-file collection).
+
+    Partial-selection sessions fail by design: when a registering conftest loads but only a subset of
+    law files is collected, ``MANIFEST`` misses the deselected modules' laws and the surface walk reports
+    their subjects as uncovered. That false failure is intended — the gate is a full-suite invariant,
+    not a per-file one; run the full ``tests/python`` collection for an authoritative verdict.
+
+    Falsifiable by: adding a new public symbol to any registered SUT module ``__all__`` without authoring
+    a corresponding law — the gate finds it in the surface walk and fails with the symbol name.
     """
+    if not SUT_PACKAGES:
+        pytest.skip("no SUT registered — register_sut was not called in this collection")
     assert_law_coverage()
+
+
+def test_law_coverage_is_package_scoped_not_name_global(tmp_path: Path, monkeypatch: pytest.MonkeyPatch, request: pytest.FixtureRequest) -> None:
+    """A law on package A's ``thing`` never covers package B's same-named ``thing``.
+
+    Synthetic two-package collision: both packages export ``thing``; only A carries a law (its
+    ``subject_module`` resolves inside A). The gate passes with A alone registered and fails the
+    moment B joins — under a single global covered-name set (the historical defect) B would
+    falsely pass on A's law. Registrations are faked against scoped copies of ``MANIFEST`` /
+    ``SUT_PACKAGES`` via monkeypatch; the synthetic modules are purged from ``sys.modules`` on teardown.
+    """
+    names = ("lawpkg_alpha", "lawpkg_beta")
+    for name in names:
+        pkg = tmp_path / name
+        pkg.mkdir()
+        (pkg / "__init__.py").write_text('__all__ = ["thing"]\n\n\ndef thing() -> None: ...\n', encoding="utf-8")
+    monkeypatch.syspath_prepend(str(tmp_path))
+
+    def _purge() -> None:
+        [sys.modules.pop(name, None) for name in names]
+
+    request.addfinalizer(_purge)
+
+    record = LawRecord(subject="thing", law="alpha_thing_law", module=__name__, subject_module="lawpkg_alpha")
+    monkeypatch.setattr(laws_mod, "MANIFEST", [record])
+    monkeypatch.setattr(laws_mod, "SUT_PACKAGES", {"lawpkg_alpha": frozenset()})
+    assert_law_coverage()
+
+    monkeypatch.setattr(laws_mod, "SUT_PACKAGES", {"lawpkg_alpha": frozenset(), "lawpkg_beta": frozenset()})
+    with pytest.raises(AssertionError, match="lawpkg_beta"):
+        assert_law_coverage()
 
 
 # --- [MANIFEST_STRUCTURAL_LAWS]
@@ -192,53 +227,52 @@ def test_property_marker_auto_applied_to_hypothesis_items(pytestconfig: pytest.C
         )
 
 
-# --- [BENCHMARK_STORAGE_POLICY]
+# --- [BENCHMARK_HOOK_POLICY]
 
 
-def test_benchmark_storage_single_owner_in_addopts() -> None:
-    """``--benchmark-storage`` appears in addopts exactly once.
+def test_benchmark_regression_hook_is_registered(pytestconfig: pytest.Config) -> None:
+    """The bench module's ``pytest_benchmark_update_json`` hookimpl is live on the plugin manager.
 
-    Falsifiable by: adding a second ``--benchmark-storage=...`` flag in addopts or a duplicate inline
-    pytest invocation — the single-owner policy breaks and the storage path becomes ambiguous.
+    ``runtime.pytest_configure`` registers ``tests.python._testkit.bench`` under the plugin name
+    ``testkit-bench``; without that registration the Potts/BIC sustained-regression gate is dead code
+    that no session ever calls — this law makes silent hook-death structurally impossible. Skips when
+    pytest-benchmark itself is unloaded (``-p no:benchmark`` xdist posture): the hookspec then does
+    not exist, so there is nothing to implement.
+
+    Falsifiable by: dropping the ``pytest_configure`` registration from the runtime plugin — the
+    hookimpl list loses the ``testkit-bench`` entry.
     """
-    flags = _benchmark_storage_flags(_pytest_ini_addopts())
-    assert len(flags) == 1, f"Expected exactly one --benchmark-storage in addopts, found {len(flags)}: {flags!r}"
+    hook = getattr(pytestconfig.pluginmanager.hook, "pytest_benchmark_update_json", None)
+    if hook is None:
+        pytest.skip("pytest-benchmark plugin not loaded — no pytest_benchmark_update_json hookspec")
+    impl_names = [impl.plugin_name for impl in hook.get_hookimpls()]
+    assert "testkit-bench" in impl_names, f"testkit-bench hookimpl missing; live impls: {impl_names}"
 
 
-def test_benchmark_storage_uri_matches_catalog_constant() -> None:
-    """The ``--benchmark-storage`` URI in addopts equals ``catalog.BENCHMARK_STORAGE_URI``.
+def test_bench_series_keying_is_file_disjoint(tmp_path: Path) -> None:
+    """Two stored entries sharing (group, size) but originating from different benchmark files never merge.
 
-    Falsifiable by: updating the catalog constant without updating pyproject.toml, or vice versa —
-    the benchmark runner would write to a different directory than the catalog's storage declaration.
+    The regression series key is ``(fullname file part, group, size)``: a second SUT package's bench
+    file reusing a group label under the one policy-mandated storage root keeps its own median series.
+
+    Falsifiable by: keying on ``(group, size)`` alone (the historical defect) — both medians would
+    fold into one two-point series and a step in package B's timing would gate package A.
     """
-    flags = _benchmark_storage_flags(_pytest_ini_addopts())
-    assert flags, "--benchmark-storage not found in addopts (prerequisite for URI-match law)"
-    _, _, uri = flags[0].partition("=")
-    assert uri == BENCHMARK_STORAGE_URI, f"addopts URI {uri!r} != catalog.BENCHMARK_STORAGE_URI {BENCHMARK_STORAGE_URI!r}"
+    machine = tmp_path / "store" / "machine"
+    machine.mkdir(parents=True)
+    entry_a = {"fullname": "tests/python/a/bench_a.py::bench_a[g-10]", "group": "g", "extra_info": {"size": 10}, "stats": {"median": 1.0}}
+    entry_b = {"fullname": "tests/python/b/bench_b.py::bench_b[g-10]", "group": "g", "extra_info": {"size": 10}, "stats": {"median": 9.0}}
+    (machine / "0001_run.json").write_bytes(msgspec.json.encode({"benchmarks": [entry_a]}))
+    (machine / "0002_run.json").write_bytes(msgspec.json.encode({"benchmarks": [entry_b]}))
+    config = create_autospec(pytest.Config, instance=True)
+    config.getoption.return_value = "file://store"
+    config.rootpath = tmp_path
 
+    series = _series_from_storage(config, {"benchmarks": []})
 
-def test_benchmark_storage_not_duplicated_in_conftest_files() -> None:
-    """No conftest.py file under ``tests/`` carries a ``--benchmark-storage`` flag.
-
-    Falsifiable by: adding a per-suite ``pytest.ini_options`` or ``addopts`` override in a sub-conftest
-    that duplicates or overrides the benchmark storage path — single-owner policy breaks silently.
-    """
-    violators: list[str] = [
-        str(cf.relative_to(REPO_ROOT)) for cf in (REPO_ROOT / "tests").rglob("conftest.py") if "--benchmark-storage" in cf.read_text(encoding="utf-8")
-    ]
-    assert not violators, f"--benchmark-storage found in conftest file(s) outside addopts: {violators!r}"
-
-
-def test_catalog_module_exposes_benchmark_storage_uri() -> None:
-    """``tools.assay.composition.catalog`` is importable and ``BENCHMARK_STORAGE_URI`` is a non-empty str.
-
-    Falsifiable by: renaming or removing ``BENCHMARK_STORAGE_URI`` from catalog.py — the single-owner
-    policy tests above would also fail, but this law isolates the catalog as the canonical declaration.
-    """
-    mod = importlib.import_module("tools.assay.composition.catalog")
-    uri: object = getattr(mod, "BENCHMARK_STORAGE_URI", None)
-    assert isinstance(uri, str), f"BENCHMARK_STORAGE_URI is absent or not str: {uri!r}"
-    assert uri, f"BENCHMARK_STORAGE_URI is empty: {uri!r}"
+    assert len(series) == 2, f"cross-file series merged: {series!r}"
+    assert all(len(points) == 1 for points in series.values()), f"a series absorbed a foreign median: {series!r}"
+    assert {key[0] for key in series} == {"tests/python/a/bench_a.py", "tests/python/b/bench_b.py"}
 
 
 # --- [LITTER_CONTAINMENT_POLICY]

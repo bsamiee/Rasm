@@ -6,9 +6,9 @@ dispatch, a frozen msgspec.Struct hierarchy (Base -> Detail -> typed Detail
 subtypes) for serialized evidence, and the three primary fold operations that
 collapse process outcomes into Reports, Envelopes, and CLI exit codes.
 
-The module-level encoder and detail decoder (_ENCODER, _DETAIL_DECODER) are
-composition roots; all serialization routes through wire_encode and
-validate_detail to guarantee deterministic ordering and tag enforcement.
+The module-level encoder (_ENCODER) is the composition root; all serialization
+routes through wire_encode and validate_detail to guarantee deterministic
+ordering and tag enforcement.
 """
 
 from collections.abc import Callable
@@ -20,7 +20,7 @@ from typing import Annotated, Literal, Self
 from cyclopts import Parameter
 import msgspec
 
-from tools.assay.core.status import fold as rail_fold, RailStatus
+from tools.assay.core.status import fold as rail_fold, RailStatus, Step
 
 
 # --- [TYPES] ----------------------------------------------------------------------------
@@ -61,6 +61,7 @@ class Input(StrEnum):
     PROJECT = "project", (), True
     SOLUTION = "solution", (), True
     NONE = "none", (), True
+    OWNED = "owned", (), True  # command owns its input placement; place() contributes a single empty tail
 
     def __new__(cls, value: str, flag: tuple[str, ...], scoped: bool) -> Self:  # noqa: FBT001  # enum payload binder mirrors enum field order
         """Bind multi-payload StrEnum fields; StrEnum propagates only the string value, so flag and scoped are assigned manually."""
@@ -163,12 +164,10 @@ class SymbolShape(StrEnum):
 
 type InprocThunk = Callable[[Check], Completed]
 
-
 # --- [CONSTANTS] ------------------------------------------------------------------------
 
 _RESULT_CAP: int = 1000
 _DEFECT_TAIL: int = 400
-
 
 # --- [MODELS] ---------------------------------------------------------------------------
 
@@ -203,6 +202,7 @@ class Tool(Base, frozen=True, cache_hash=True):
     timeout: Annotated[float, msgspec.Meta(gt=0)] | None = None
     thunk: InprocThunk | None = None
     stage: Stage = Stage()
+    env: tuple[tuple[str, str], ...] = ()
 
 
 class Check(Base, frozen=True, cache_hash=True):
@@ -401,6 +401,7 @@ class Report(Base, frozen=True):
 class Envelope(Base, frozen=True, kw_only=True):
     """Top-level Assay wire Envelope."""
 
+    # schema_version is omitted on the wire (omit_defaults) until a v2 divergence forces a discriminant.
     schema_version: Literal[1] = 1
     claim: Claim
     verb: str
@@ -459,7 +460,9 @@ class BaseParams:
     """Shared CLI params base."""
 
     paths: tuple[str, ...] = ()
-    # show_default=False: cyclopts 4.16.1 help.py:499 renders Optional-enum defaults via default_val.name, which raises on None.
+    # show_default stays False: cyclopts 4.16.1 help renders Enum-hinted defaults via default_val.name
+    # BEFORE consulting any show_default callable (cyclopts/help/help.py Enum branch), so a None default
+    # crashes --help with AttributeError regardless of the callable form. Upstream bug; revisit on bump.
     language: Annotated[Language | None, Parameter(show_default=False)] = None
 
     def _arity(self, verb: str) -> int | None:  # noqa: PLR6301  # polymorphic dispatch point: package/bridge override on self's type to declare 0
@@ -479,7 +482,7 @@ class BaseParams:
         """Return a parse fault describing surplus positional tokens."""
         joined = " ".join(tokens)
         clipped = joined[:_SURPLUS_TOKEN_CAP] + ("…" if len(joined) > _SURPLUS_TOKEN_CAP else "")
-        return Fault((), RailStatus.FAULTED, f"parse: {verb}: unexpected positional(s): {clipped}")
+        return Fault((), RailStatus.FAULTED, f"{Step.PARSE}: {verb}: unexpected positional(s): {clipped}")
 
 
 def receipt(
@@ -507,12 +510,13 @@ def receipt(
 
 
 def validate_detail(detail: AnyDetail | None) -> AnyDetail | None:
-    """Round-trip detail through the tagged-union wire codec to enforce tag and field constraints.
+    """Round-trip detail through the tagged-union codec to enforce tag and field constraints.
 
     Returns:
         The decoded detail, or None when the input is None.
     """
-    return _DETAIL_DECODER.decode(_ENCODER.encode(detail))
+    value: AnyDetail | None = msgspec.convert(msgspec.to_builtins(detail), AnyDetail | None)
+    return value
 
 
 def _count(done: Completed) -> tuple[int, int]:
@@ -590,7 +594,6 @@ def wire_safe(text: str) -> str:
 # --- [COMPOSITION] ----------------------------------------------------------------------
 
 _ENCODER = msgspec.json.Encoder(order="deterministic")
-_DETAIL_DECODER: msgspec.json.Decoder[AnyDetail | None] = msgspec.json.Decoder(AnyDetail | None)
 
 # --- [EXPORTS] --------------------------------------------------------------------------
 

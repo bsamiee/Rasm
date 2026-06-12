@@ -1,20 +1,20 @@
 # [GRASSHOPPER_HOST]
 
-Grasshopper 2 host truth comes from local GH2 XML, decompile evidence when XML is silent, the API rail, source-owned bridge scenarios, and the `Rasm.Grasshopper` source boundary.
+Grasshopper 2 host behavior comes from local GH2 XML, decompile confirmation when XML is silent, the API rail, owner-owned bridge scenarios, and the `Rasm.Grasshopper` boundary.
 
 ## [1]-[READ_ROUTE]
 
 - Member availability: local GH2 XML and the API rail.
-- Missing XML semantics: decompile evidence or runtime bridge scenario.
-- Boundary design: `Rasm.Grasshopper` source and architecture routes.
-- Runtime proof: source-owned `*.verify.csx` scenarios through the bridge rail.
+- Missing XML semantics: decompile confirmation or runtime bridge scenario.
+- Boundary design: `Rasm.Grasshopper` and architecture routes.
+- Runtime confirmation: owner-owned `*.verify.csx` scenarios through the bridge rail.
 
 ## [2]-[BOUNDARIES]
 
-Grasshopper docs choose proof routes; `Rasm.Grasshopper` owns public boundary shape. Keep data access, tree paths, canvas behavior, diagnostics, subscriptions, and paint hooks inside GH2 boundary rails before exposing project concepts.
+Grasshopper docs choose confirmation routes; `Rasm.Grasshopper` owns public boundary shape. Keep data access, tree paths, canvas behavior, diagnostics, subscriptions, and paint hooks inside GH2 boundary rails before exposing project concepts.
 
-## [3]-[REJECTIONS]
+## [3]-[BOUNDARIES]
 
-- No GH2 member catalog.
-- No flattened tree/path behavior.
-- No isolated scenario proof when GH2 execution requires the bridge-owned route.
+- GH2 member catalogs stay in generated or API-owned surfaces.
+- Tree/path behavior stays tree-shaped.
+- Scenario confirmation uses the bridge-owned route when GH2 execution requires it.

@@ -12,8 +12,8 @@ from expression import Error, Ok, Result
 import msgspec
 import pytest
 
-from tests.python._testkit._aspect import register_law, spec
-from tests.python._testkit._spec import assert_error, assert_error_status, assert_ok
+from tests.python._testkit.laws import register_law, spec
+from tests.python._testkit.spec import assert_error, assert_error_status, assert_ok
 from tools.assay.composition.settings import ArtifactScope, AssaySettings
 from tools.assay.core.engine import exclusive_lease
 from tools.assay.core.model import ArtifactKind, Claim, Fault, fold, Mode, PackageRun, receipt, Report
@@ -44,7 +44,7 @@ from tools.assay.rails.package import (
 if TYPE_CHECKING:
     import builtins
 
-    from tests.python.tools.assay.conftest import AssayHarness, YakShape
+    from tests.python.tools.assay.kit import AssayHarness, YakShape
     from tools.assay.core.model import Check, Completed
 
 
@@ -52,7 +52,6 @@ if TYPE_CHECKING:
 
 type _VerbFn = Callable[[AssaySettings, ArtifactScope, PackageParams], Result[Report, Fault]]
 type _MetaMutator = Callable[[YakMeta], YakMeta]
-
 
 # --- [CONSTANTS] ------------------------------------------------------------------------
 
@@ -88,11 +87,9 @@ _NON_OK_STATUSES: tuple[RailStatus, ...] = (RailStatus.FAILED, RailStatus.FAULTE
 
 _VERBS: tuple[tuple[_VerbFn, str], ...] = ((stage, "stage"), (deploy, "deploy"), (publish, "publish"))
 
-
 # --- [OPERATIONS] -----------------------------------------------------------------------
 
 # --- [PACKAGE_PARAMS]
-
 
 register_law(PackageParams, "defaults_are_blank")
 register_law(PackageParams, "arity_is_zero")
@@ -108,7 +105,7 @@ def test_packageparams_defaults() -> None:
 @spec(PackageParams, law="roundtrip_encode_clean")
 def test_packageparams_roundtrip(p: PackageParams) -> None:
     """PackageParams round-trips through msgspec JSON (valid instances are encode-clean)."""
-    from tests.python._testkit._spec import assert_roundtrip  # noqa: PLC0415
+    from tests.python._testkit.spec import assert_roundtrip  # noqa: PLC0415
 
     assert_roundtrip(p, PackageParams)
 
@@ -210,7 +207,7 @@ def test_yakmeta_from_props_missing_fields(drop_key: str, assay_root: AssayHarne
 @spec(YakMeta, law="roundtrip_encode_clean")
 def test_yakmeta_roundtrip(m: YakMeta) -> None:
     """YakMeta round-trips through msgspec JSON; Path-typed fields resolve to None via CustomType arm."""
-    from tests.python._testkit._spec import assert_roundtrip  # noqa: PLC0415
+    from tests.python._testkit.spec import assert_roundtrip  # noqa: PLC0415
 
     none_path = m.manifest_dir is None or m.target_dir is None or m.yak_path is None
     none_dir = m.package_dir is None or m.project_dir is None
@@ -458,7 +455,7 @@ def test_stage_full_flow_commits_distribution(assay_root: AssayHarness, yak_shap
 
 def test_deploy_full_flow_runs_install_step(assay_root: AssayHarness, monkeypatch: pytest.MonkeyPatch) -> None:
     """Deploy folds an install step (yak install) for a non-bridge slug — no bridge client call."""
-    from tests.python.tools.assay.conftest import YakShape  # noqa: PLC0415
+    from tests.python.tools.assay.kit import YakShape  # noqa: PLC0415
 
     non_bridge = YakShape(slug="other-pkg", project=Path("apps/widget/widget.csproj"), assembly_name="Widget")
     result, bridge_calls = _install_flow(deploy, assay_root, non_bridge, monkeypatch)
@@ -654,6 +651,7 @@ register_law(_pkg_mod._recover, "absent_marker_is_noop")
 register_law(_pkg_mod._recover, "dead_pid_marker_heals_forward")
 register_law(_pkg_mod._recover, "dead_pid_marker_heals_back")
 register_law(_pkg_mod._recover, "live_pid_marker_is_busy")
+register_law(_pkg_mod._recover, "liveness_delegates_to_engine_proc_dead")
 register_law(_pkg_mod._recover, "corrupt_marker_clears")
 register_law(_pkg_mod._commit, "success_clears_pending_marker")
 register_law(stage, "stage_heals_dead_pid_marker_under_lease")
@@ -718,6 +716,22 @@ def test_recover_live_pid_marker_is_busy(assay_root: AssayHarness, yak_shape: Ya
     e = assert_error_status(_pkg_mod._recover(meta, yak_shape.slug), RailStatus.BUSY)
     assert str(os.getpid()) in e.message
     assert marker.exists()
+
+
+def test_recover_delegates_liveness_to_engine_proc_dead(assay_root: AssayHarness, yak_shape: YakShape, monkeypatch: pytest.MonkeyPatch) -> None:
+    """_recover's liveness check is the engine-owned proc_dead ladder: a live verdict for a dead pid yields BUSY, marker preserved.
+
+    Falsifying witness for the delegation seam — were package to keep a private ladder, patching the
+    imported proc_dead would not flip a dead-pid sentinel back to BUSY.
+    """
+    meta = yak_shape.materialize(assay_root)
+    previous = _seed_previous(meta)
+    marker = _seed_marker(meta, _DEAD_PID, previous)
+    monkeypatch.setattr(_pkg_mod, "proc_dead", lambda _pid: False)
+    e = assert_error_status(_pkg_mod._recover(meta, yak_shape.slug), RailStatus.BUSY)
+    assert str(_DEAD_PID) in e.message
+    assert marker.exists()
+    assert previous.exists()
 
 
 def test_recover_corrupt_marker_clears(assay_root: AssayHarness, yak_shape: YakShape) -> None:

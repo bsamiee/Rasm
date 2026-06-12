@@ -18,7 +18,7 @@ import inspect
 from operator import itemgetter
 from typing import assert_never, Final, TYPE_CHECKING
 
-from beartype import beartype, BeartypeConf, BeartypeStrategy
+from beartype import beartype, BeartypeConf, BeartypeStrategy, BeartypeViolationVerbosity
 from expression import Ok, Result
 from expression.collections import block
 from opentelemetry import baggage, context, trace
@@ -57,13 +57,11 @@ class Slot(IntEnum):
 
 type Layer[**P, T] = tuple[Slot, Callable[[Hom[P, T]], Hom[P, T]]]
 
-
 # --- [CONSTANTS] ------------------------------------------------------------------------
 
 _ATTR_CAP = 256
-_CONF = BeartypeConf(is_pep484_tower=True, strategy=BeartypeStrategy.O1)
+_CONF = BeartypeConf(is_pep484_tower=True, strategy=BeartypeStrategy.O1, violation_verbosity=BeartypeViolationVerbosity.MAXIMAL)
 _RING: ContextVar[deque[str] | None] = ContextVar("assay_ring", default=None)
-
 
 # --- [ERRORS] ---------------------------------------------------------------------------
 
@@ -81,7 +79,6 @@ class Inversion(Exception):  # noqa: N818  # surfaced via TypeError, not an *Err
 
 _LOG: Final = structlog.get_logger("assay")
 _TRACER: Final = trace.get_tracer("assay.core")
-
 
 # --- [OPERATIONS] -----------------------------------------------------------------------
 
@@ -212,7 +209,11 @@ def logged[**P, T](*, event: str, keys: Bind[P]) -> Layer[P, T]:
         @wraps(fn)
         def woven(*a: P.args, **k: P.kwargs) -> Result[T, Fault]:
             with bound_contextvars(**keys(*a, **k)):
-                res = fn(*a, **k)
+                try:  # raised faults bypass the Result rail; emit FAULTED finish then re-propagate (_guard owns classification)
+                    res = fn(*a, **k)
+                except BaseException:
+                    _LOG.error(f"{event}.finish", status=RailStatus.FAULTED, exc_info=True)
+                    raise
                 match res:
                     case Result(tag="ok", ok=done):
                         _LOG.info(f"{event}.finish", status=getattr(done, "status", RailStatus.OK))

@@ -67,7 +67,7 @@ type StoreProtocol = Annotated[str, Field(min_length=1, max_length=64, pattern=r
 type WireSafeText = Annotated[str, AfterValidator(wire_safe)]  # surrogateescape arrives only via env input; default_factory values are always clean
 
 
-@runtime_checkable  # noqa: PLR0904  # Protocol mirrors fsspec's full structural contract; removing any method breaks the backend boundary.
+@runtime_checkable  # Protocol mirrors the fsspec structural subset ArtifactStore consumes; backends satisfy it without an adapter.
 class ArtifactFileSystem(Protocol):
     """Structural subset of fsspec used by Assay artifact storage."""
 
@@ -97,17 +97,18 @@ class ArtifactFileSystem(Protocol):
     def exists(self, path: str) -> bool:
         """Return whether the backend path exists."""
 
-    def pipe_file(self, path: str, value: bytes) -> object:
-        """Write bytes to a backend file."""
-
     def cat_file(self, path: str) -> bytes:
         """Read bytes from a backend file."""
 
     def rm(self, path: str, *, recursive: bool = False) -> object:
         """Remove a backend path."""
 
-    def open(self, path: str, mode: str = "rb") -> object:
-        """Open a backend file."""
+    def open(self, path: str, mode: str = "rb", *, autocommit: bool = True) -> contextlib.AbstractContextManager[object]:
+        """Open a backend file; autocommit=False defers the write to transaction commit (tempfile + move).
+
+        Returns:
+            A context manager yielding a writable/readable file handle.
+        """
 
     @property
     def transaction(self) -> contextlib.AbstractContextManager[object]:
@@ -148,7 +149,6 @@ _PYTHON_TOOL_ENV_REL: Final[dict[str, str]] = {
     "MYPY_CACHE_DIR": ".cache/mypy",
     "COVERAGE_FILE": ".cache/coverage/.coverage",
 }
-
 
 # --- [BOUNDARIES] -----------------------------------------------------------------------
 
@@ -212,14 +212,10 @@ def _root_parts(root: str) -> tuple[str, ...]:
 def _safe_segment(part: str | UPath) -> str:
     text = str(part).replace("\\", "/")
     pieces = tuple(p for p in text.split("/") if p)
-    match (
-        text.startswith("/"),
-        text in {"", ".", ".."},
-        any(p in {".", ".."} for p in pieces),
-        len(pieces) == 1 and text == pieces[0],
-        "\x00" in text,
-    ):
-        case (False, False, False, True, False):
+    # `len(pieces) == 1 and text == pieces[0]` subsumes both the leading-slash and "/"/"."/".." rejects:
+    # an absolute "/abs", a trailing "a/", and the empty/dot segments all break the single-piece identity.
+    match (any(p in {".", ".."} for p in pieces), len(pieces) == 1 and text == pieces[0], "\x00" in text):
+        case (False, True, False):
             return text
         case _:
             raise ValueError(f"unsafe artifact path segment: {text!r}")
@@ -255,16 +251,17 @@ class ArtifactBackend(BaseModel):
         Returns:
             Backend root path used by ArtifactStore.
         """
-        match (self.protocol, self.root):
-            case ("file", ""):
+        # _bounded_non_file_root guarantees every non-file backend carries a non-empty root, so the
+        # non-file branch needs no empty-root fallback. Discriminating on protocol first keeps the match
+        # total for the type checker (file / non-file partition the str) with no unreachable arm.
+        match self.protocol:
+            case "file" if not self.root:
                 return str(settings.store_root)
-            case ("file", root):
-                candidate = UPath(root).expanduser()
+            case "file":
+                candidate = UPath(self.root).expanduser()
                 return str(candidate if candidate.is_absolute() else settings.root / candidate)
-            case (_, root) if root:
-                return root.rstrip("/")
             case _:
-                return f"{_ARTIFACTS}/{_ASSAY}"
+                return self.root.rstrip("/")
 
 
 class AssaySettings(BaseSettings):
@@ -394,14 +391,18 @@ class AssaySettings(BaseSettings):
         """
         return self.store_root.joinpath(kind.value, *(_safe_segment(p) for p in parts))
 
-    def remote_env(self, env: dict[str, str]) -> dict[str, str]:
+    def remote_env(self, env: dict[str, str], *, forward: frozenset[str] = frozenset()) -> dict[str, str]:
         """Project the environment subset safe to export through an SSH command string.
+
+        ``forward`` names keys declared by the row Tool's own ``env`` — a deliberate per-spawn
+        declaration that crosses the SSH boundary explicitly alongside the ambient allowlist; the
+        allowlist continues to gate ambient (host-inherited) environment that was never declared.
 
         Returns:
             Environment variables allowed to cross the SSH execution boundary.
         """
         # ASSAY_RUN_ID lives only in default_factory (never os.environ), so inject it explicitly for remote process run-id sharing.
-        safe_names = frozenset((*self.python_tool_env, *_REMOTE_ENV_NAMES, *_TRACE_CONTEXT_ENV))
+        safe_names = frozenset((*self.python_tool_env, *_REMOTE_ENV_NAMES, *_TRACE_CONTEXT_ENV, *forward))
         source = {"ASSAY_RUN_ID": self.run_id, **env}
         return {k: v for k, v in source.items() if k in safe_names}
 
@@ -433,6 +434,19 @@ class ArtifactStore:
         path = self.path(*parts)
         self.fs.makedirs(path, exist_ok=True)
         return path
+
+    def ensure_path(self, path: str | UPath) -> str:
+        """Create a directory at a backend path previously emitted by this store.
+
+        Routes the makedirs through the store boundary so rails never reach the fsspec
+        handle directly; validates the path against the store root before creating it.
+
+        Returns:
+            The validated, created backend path.
+        """
+        validated = self.backend_path(path)
+        self.fs.makedirs(validated, exist_ok=True)
+        return validated
 
     def glob(self, pattern: str) -> tuple[str, ...]:
         """Expand a glob under the store root.
@@ -564,7 +578,11 @@ class ArtifactStore:
             self.fs.makedirs(parent, exist_ok=True)
             if create and self.fs.exists(path):
                 raise FileExistsError(path)
-            self.fs.pipe_file(path, payload)
+            # Deferred commit (LocalFileOpener: tempfile + atomic move) only under the backend transaction; a
+            # standalone write commits directly — autocommit=False outside a transaction never materializes.
+            with self.fs.open(path, "wb", autocommit=not transaction) as fh:
+                # fsspec file handles expose write; the Protocol yields the structural minimum (object) across backends.
+                fh.write(payload)  # type: ignore[attr-defined]  # ty: ignore[unresolved-attribute]
         return path
 
     def write_bytes(self, payload: bytes, *parts: str | UPath, create: bool = False, transaction: bool = False) -> str:
@@ -611,7 +629,7 @@ class ArtifactStore:
         return self.write_bytes_path(payload.encode(encoding), path, create=create, transaction=transaction)
 
     def write_many(self, rows: tuple[tuple[bytes, tuple[str | UPath, ...]], ...], *, transaction: bool = True) -> tuple[str, ...]:
-        """Write multiple payloads under one backend transaction when supported.
+        """Write multiple payloads, each committed atomically when the backend supports transactions.
 
         Segment validation runs over every part-tuple before the first write, so an unsafe segment cannot leave a
         half-written batch behind.
@@ -620,8 +638,7 @@ class ArtifactStore:
             Backend paths that received the payloads.
         """
         resolved = tuple((self.path(*parts), payload) for payload, parts in rows)
-        with self.fs.transaction if transaction else contextlib.nullcontext():
-            return tuple(self._write_at(path, payload, create=False, transaction=False) for path, payload in resolved)
+        return tuple(self._write_at(path, payload, create=False, transaction=transaction) for path, payload in resolved)
 
     def adopt_file(self, source: str | UPath | Path, *parts: str | UPath) -> str:
         """Copy a local tool-produced file into the configured artifact backend.
@@ -664,6 +681,24 @@ class ArtifactStore:
         payload = wire_encode(report)
         return self.write_bytes(payload, ArtifactKind.HISTORY.value, run_id, name), len(payload)
 
+    def _sorted_run_ids(self, root: str) -> tuple[str, ...]:
+        # Rank run-dir ids oldest-first by (mtime, run_id) within one root; an omitted-mtime backend folds to 0.0,
+        # leaving the lexicographic run id as the chronological tiebreaker.
+        detailed = self.walk(root, detail=True)
+        # walk return is a union; the isinstance guard narrows to detail rows
+        rows = tuple((path.rstrip("/").rsplit("/", 1)[-1], info) for path, info in detailed if isinstance(info, dict)) or tuple(  # type: ignore[str-unpack]
+            (path.rstrip("/").rsplit("/", 1)[-1], {}) for path in self.glob(f"{root}/*")
+        )
+        return tuple(run_id for run_id, _ in sorted(rows, key=lambda row: (mtime_from_info(row[1]), row[0])))
+
+    def _prune(self, root: str, keep: int) -> None:
+        runs = self._sorted_run_ids(root)
+        for run_id in runs[: max(0, len(runs) - keep)]:
+            try:
+                self.remove(root, run_id, recursive=True)
+            except FileNotFoundError:
+                _ = self.exists(root, run_id)
+
     def sorted_history_ids(self) -> tuple[str, ...]:
         """Return history run ids ranked oldest-first by (mtime, run_id) within the history root.
 
@@ -672,21 +707,19 @@ class ArtifactStore:
         Returns:
             Run ids ordered oldest-first.
         """
-        detailed = self.walk(ArtifactKind.HISTORY.value, detail=True)
-        # walk return is a union; the isinstance guard narrows to detail rows
-        rows = tuple((path.rstrip("/").rsplit("/", 1)[-1], info) for path, info in detailed if isinstance(info, dict)) or tuple(  # type: ignore[str-unpack]
-            (path.rstrip("/").rsplit("/", 1)[-1], {}) for path in self.glob(f"{ArtifactKind.HISTORY.value}/*")
-        )
-        return tuple(run_id for run_id, _ in sorted(rows, key=lambda row: (mtime_from_info(row[1]), row[0])))
+        return self._sorted_run_ids(ArtifactKind.HISTORY.value)
 
     def retain_history(self, keep: int) -> None:
         """Prune old run history by backend metadata age, keeping the newest keep runs."""
-        runs = self.sorted_history_ids()
-        for run_id in runs[: max(0, len(runs) - keep)]:
-            try:
-                self.remove(ArtifactKind.HISTORY.value, run_id, recursive=True)
-            except FileNotFoundError:
-                _ = self.exists(ArtifactKind.HISTORY.value, run_id)
+        self._prune(ArtifactKind.HISTORY.value, keep)
+
+    def retain_scopes(self, claim: Claim, keep: int) -> None:
+        """Prune old per-claim scope run-dirs by backend metadata age, keeping the newest keep runs.
+
+        Mirrors retain_history over a claim root (`<claim>/<run_id>/`), bounding the artifact scope pile-up that
+        ArtifactScope.open creates per rail run; prune order is oldest-first by (mtime, run_id).
+        """
+        self._prune(claim.value, keep)
 
     def load_history(self, run_id: str) -> Envelope | None:
         """Load one run Envelope and restore its full report artifact when available.
@@ -778,7 +811,9 @@ class ArtifactScope:
             Artifact scope rooted under the claim and run id.
         """
         store = settings.store()
-        path = store.ensure(claim.value, settings.run_id)
+        # Lazy: compute the path without makedirs — writers makedirs(parent) on first write, and dotnet creates
+        # its own --artifacts-path, so an opened-but-unused scope leaves no empty directory behind.
+        path = store.path(claim.value, settings.run_id)
         return cls(store, path, (_ARTIFACTS_PATH_FLAG, path, _DISABLE_BUILD_SERVERS))
 
     @classmethod
@@ -793,6 +828,17 @@ class ArtifactScope:
         path = store.ensure(_BUILD, closure, config)
         return cls(store, path, (_ARTIFACTS_PATH_FLAG, path, _DISABLE_BUILD_SERVERS))
 
+    def ensure(self) -> str:
+        """Materialize this scope's directory through the store boundary.
+
+        ArtifactScope.open is lazy (no eager makedirs); a rail that writes its own files into
+        the scope path calls this once to create the directory without reaching the fsspec handle.
+
+        Returns:
+            The created scope path.
+        """
+        return self.store.ensure_path(self.path)
+
     @property
     def dotnet_env(self) -> dict[str, str]:
         """Build .NET command environment isolation variables."""
@@ -800,6 +846,5 @@ class ArtifactScope:
 
 
 # --- [EXPORTS] --------------------------------------------------------------------------
-
 
 __all__ = ["ArtifactBackend", "ArtifactScope", "ArtifactStore", "AssaySettings", "Configuration", "LogFormat", "mtime_from_info"]

@@ -62,15 +62,20 @@ _COVERAGE_OUTPUTS: tuple[tuple[str, tuple[str, ...]], ...] = (
     ("coverage.lcov", ("uv", "run", "coverage", "lcov", "-o", ".artifacts/python/coverage/coverage.lcov")),
 )
 
-
 # --- [TABLES] ---------------------------------------------------------------------------
 
 _TESTS = msgspec.json.Decoder(TestRun)
 _ROSTER_ENCODER = msgspec.json.Encoder(order="deterministic")
-# Stryker.NET accepts repeatable `--mutate <glob>`; runners absent here surface UNSUPPORTED on CHANGED lane.
+# CHANGED-lane scope projectors keyed by runner name: changed files → runner-native incremental selectors.
+# Stryker.NET takes repeatable `--mutate <glob>`; mutmut filters by MUTANT NAME, and names are module-dotted
+# (tools.assay.rails.docs.x_fn__mutmut_N), never file paths — a path-shaped glob silently matches zero mutants
+# and mutmut aborts. Runners absent here surface UNSUPPORTED on the CHANGED lane.
 _MUTATION_SCOPE: dict[str, Callable[[tuple[str, ...]], tuple[str, ...]]] = {
-    "dotnet-stryker": lambda files: tuple(flag for f in files for flag in ("--mutate", f))
+    "dotnet-stryker": lambda files: tuple(flag for f in files for flag in ("--mutate", f)),
+    "mutmut": lambda files: tuple(f"{f.removesuffix('.py').replace('/', '.')}.*" for f in files),
 }
+# mutmut forks os.cpu_count() pytest children at the second tier, defeating mutation_max_cpu; the governor caps that fan.
+_MUTATION_GOVERNOR: frozenset[str] = frozenset(("mutmut",))
 # Lease-riding kill-rate gate over the staged mutmut cache; group splice only — never a catalog TOOLS row.
 _GATE_TOOL = Tool(
     name="mutmut-gate",
@@ -83,7 +88,6 @@ _GATE_TOOL = Tool(
     groups=("mutation",),
     stage=Stage(project=True),
 )
-
 
 # --- [MODELS] ---------------------------------------------------------------------------
 
@@ -113,11 +117,9 @@ class _CoverageReport(msgspec.Struct, frozen=True, gc=False):
 # Decoder follows the structs it decodes; required fields make totals-less JSON degrade to None.
 _COVERAGE_DECODER: msgspec.json.Decoder[_CoverageReport] = msgspec.json.Decoder(_CoverageReport)
 
-
 # --- [SERVICES] -------------------------------------------------------------------------
 
 _LOG: structlog.stdlib.BoundLogger = structlog.get_logger("assay.test")
-
 
 # --- [OPERATIONS] -----------------------------------------------------------------------
 
@@ -172,23 +174,32 @@ def _filter(expr: str) -> tuple[str, ...]:
             return ("--filter-method", f"*{method}*")
 
 
-def _scoped_mutation(tool: Tool, params: TestParams, files: tuple[str, ...]) -> Tool | None:
-    # CHANGED lane scopes the runner to changed files; runners absent from _MUTATION_SCOPE yield None → UNSUPPORTED.
+def _governor(tool: Tool, settings: AssaySettings) -> tuple[str, ...]:
+    # mutmut self-parallelizes to os.cpu_count() forked pytest children; --max-children binds the second tier to mutation_max_cpu.
+    return ("--max-children", str(settings.mutation_max_cpu)) if tool.name in _MUTATION_GOVERNOR else ()
+
+
+def _scoped_mutation(tool: Tool, params: TestParams, settings: AssaySettings, files: tuple[str, ...]) -> Tool | None:
+    # The single mutmut/Stryker argv shaper: every MUTATION row carries its governor; CHANGED additionally scopes to changed
+    # files. Runners absent from _MUTATION_SCOPE on the CHANGED lane yield None → UNSUPPORTED.
+    govern = _governor(tool, settings)
     match (tool.mode, params.mutation, _MUTATION_SCOPE.get(tool.name)):
         case (Mode.MUTATION, MutationLane.CHANGED, None):
             return None
         case (Mode.MUTATION, MutationLane.CHANGED, scoped) if scoped is not None:
-            return msgspec.structs.replace(tool, command=(*tool.command, *scoped(files)))
+            return msgspec.structs.replace(tool, command=(*tool.command, *govern, *scoped(files)))
+        case (Mode.MUTATION, _, _):
+            return msgspec.structs.replace(tool, command=(*tool.command, *govern)) if govern else tool
         case _:
             return tool
 
 
-def _checks(routed: Routed, params: TestParams, mode: Mode) -> tuple[Check, ...]:
+def _checks(routed: Routed, params: TestParams, settings: AssaySettings, mode: Mode) -> tuple[Check, ...]:
     # MTP consumes the filter; non-dotnet rows ignore it. CHANGED mutation rows scope to routed files.
     filt = _filter(params.filter)
 
     def _splice(tool: Tool) -> Tool | None:
-        scoped = _scoped_mutation(tool, params, routed.files)
+        scoped = _scoped_mutation(tool, params, settings, routed.files)
         match (scoped, tool.mode, bool(filt), tool.runner):
             case (None, _, _, _) | (_, Mode.MUTATION, _, _):
                 return scoped
@@ -234,7 +245,7 @@ def _select(routed: Routed, params: TestParams, settings: AssaySettings) -> Rout
 def _dispatch(
     routed: Routed, params: TestParams, *, settings: AssaySettings, scope: ArtifactScope, mode: Mode
 ) -> tuple[Result[Completed, Fault], ...]:
-    checks = _checks(routed, params, mode)
+    checks = _checks(routed, params, settings, mode)
     unsupported = _unsupported_scope(routed, params, mode)
     match checks:
         case ():
@@ -430,6 +441,10 @@ def list(settings: AssaySettings, scope: ArtifactScope, params: TestParams) -> R
         discovered = tuple(m for m in _roster_matches(outcomes) if not needle or needle in m.text.lower())
         artifacts = (*base.artifacts, _results_artifact(scope), *_roster_artifacts(settings, scope, discovered))
         roster = discovered[: params.limit] if params.limit > 0 else discovered
+        # discovered vs roster-after-limit is the truth test.py owns; the registry result cap (and its unified
+        # N-of-M note) owns any further downstream clip. detail.selected carries the pre-limit discovered total as
+        # the structured surface an agent reads, independent of the note.
+        detail = TestRun(selected=len(discovered)) if discovered else None
         note = (f"discovery: total={len(discovered)} returned={len(roster)}",) if discovered else ()
         diagnostics = tuple(
             f"discovery {c.status.value}: {' '.join(c.argv)[:120]}{f': {tail}' if tail else ''}"
@@ -440,10 +455,16 @@ def list(settings: AssaySettings, scope: ArtifactScope, params: TestParams) -> R
         notes = (*base.notes, *note, *diagnostics)
         return (
             msgspec.structs.replace(
-                base, status=RailStatus.OK, counts=Counts(len(roster), 0, len(roster)), results=roster, artifacts=artifacts, notes=notes
+                base,
+                status=RailStatus.OK,
+                counts=Counts(len(roster), 0, len(roster)),
+                results=roster,
+                artifacts=artifacts,
+                notes=notes,
+                detail=detail,
             )
             if roster
-            else msgspec.structs.replace(base, artifacts=artifacts, notes=notes)
+            else msgspec.structs.replace(base, artifacts=artifacts, notes=notes, detail=detail)
         )
 
     return _routed(languages, params.paths, settings).bind(

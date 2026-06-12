@@ -3,13 +3,12 @@
 Provides one polymorphic entrypoint ``spec`` that applies ``@given`` + ``@settings`` + pytest marks
 and registers a ``LawRecord`` into the global ``MANIFEST``. ``register_law`` covers multi-arg /
 metamorphic / matrix laws that bring their own ``@given``/``@parametrize``. ``register_sut`` records
-the SUT package surface; ``assert_law_coverage`` walks it via ``pkgutil.walk_packages`` and asserts
-every public symbol has at least one law or explicit exemption.
+the SUT package surface; ``assert_law_coverage`` walks it via a filesystem ``rglob`` over the
+package tree and asserts every public symbol has at least one law or explicit exemption.
 """
 
 # --- [RUNTIME_PRELUDE] ------------------------------------------------------------------
 
-from builtins import sentinel as _sentinel  # 3.15 PEP 661 builtin; mypy typeshed lag (ty resolves)
 from collections.abc import Callable  # noqa: TC003  # PEP 695 ParamSpec annotations are runtime-evaluated; TYPE_CHECKING guard breaks them
 import functools
 import importlib
@@ -20,10 +19,7 @@ from hypothesis import event as hyp_event, given as hyp_given, settings as hyp_s
 import msgspec
 import pytest
 
-
-# --- [CONSTANTS] ------------------------------------------------------------------------
-
-_UNSET: object = _sentinel("_UNSET")
+from tests.python._testkit.runtime import PROFILE_DEFAULT
 
 
 # --- [MODELS] ---------------------------------------------------------------------------
@@ -33,19 +29,23 @@ class LawRecord(msgspec.Struct, frozen=True):
     """One law entry in the global MANIFEST.
 
     ``subject`` and ``law`` hold the qualname / function-name captured at import time so coverage
-    comparisons are stable across interpreter restarts.
+    comparisons are stable across interpreter restarts. ``subject_module`` carries the subject's
+    defining module so the coverage gate scopes a law to the SUT package that owns the subject —
+    a same-named symbol in a second registered package is never falsely covered. Empty when the
+    subject carries no ``__module__`` (instances, tables); such records fall back to global
+    simple-name coverage.
     """
 
     subject: str
     law: str
     module: str
+    subject_module: str = ""
 
 
 # --- [TABLES]
 
 MANIFEST: list[LawRecord] = []
 SUT_PACKAGES: dict[str, frozenset[str]] = {}
-
 
 # --- [OPERATIONS] -----------------------------------------------------------------------
 
@@ -55,42 +55,47 @@ def _qualname(subject: object) -> str:
 
 
 # filesystem walk + per-module __all__/dir fork is one cohesive pass; splitting would fragment ownership
-def _public_surface(package_name: str) -> frozenset[str]:  # noqa: PLR0912
+def _public_surface(package_name: str) -> tuple[frozenset[str], tuple[tuple[str, str], ...]]:  # noqa: PLR0912
     """Walk every leaf module under ``package_name`` and union their public symbols.
 
     Public surface = union of each module's ``__all__``, or all non-underscore attribute names when
     ``__all__`` is absent. Module objects re-exported as attributes are excluded because they are
-    structural namespacing, not callable/type law subjects.
+    structural namespacing, not callable/type law subjects. Underscore-named modules (``_private``,
+    ``__main__`` entry shims) are skipped: their public API counts only via a public re-exporter,
+    and ``__main__`` modules execute on import. Import failures are accumulated, not swallowed —
+    a module that fails to import silently shrinks the surface, so the gate must see it.
 
     Returns:
-        Frozenset of simple (unqualified) public symbol names across the whole SUT package.
+        Pair of (frozenset of simple public symbol names across the whole SUT package,
+        tuple of ``(module_name, error)`` import failures encountered during the walk).
     """
     root = importlib.import_module(package_name)
     # Root __init__ exports must count; submodule walk alone misses them.
     # rglob instead of pkgutil.walk_packages: walk_packages silently skips namespace subpackages (no __init__.py), producing false-pass coverage.
     modules = [root]
+    failures: list[tuple[str, str]] = []
     for base in getattr(root, "__path__", ()):
         for py in sorted(Path(base).rglob("*.py")):
             parts = py.relative_to(base).with_suffix("").parts
             stem = parts[:-1] if parts[-1] == "__init__" else parts
             mod_name = ".".join((package_name, *stem))
-            if mod_name == package_name:
+            if mod_name == package_name or any(part.startswith("_") for part in stem):
                 continue
             try:
                 modules.append(importlib.import_module(mod_name))
-            except Exception:  # noqa: BLE001, S112  # broken or optional modules must not abort the walk
-                continue
+            except Exception as exc:  # noqa: BLE001  # accumulated and surfaced by assert_law_coverage, never swallowed
+                failures.append((mod_name, repr(exc)))
 
     surface: set[str] = set()
     for mod in modules:
-        all_names: list[str] | None = getattr(mod, "__all__", None)
+        all_names: object = getattr(mod, "__all__", None)
         match all_names:
-            case list() as names:
-                surface.update(n for n in names if not inspect.ismodule(getattr(mod, n, None)))
+            case list() | tuple() as names:
+                surface.update(n for n in names if isinstance(n, str) and not inspect.ismodule(getattr(mod, n, None)))
             case _:
                 surface.update(n for n in dir(mod) if not n.startswith("_") and not inspect.ismodule(getattr(mod, n, None)))
 
-    return frozenset(surface)
+    return frozenset(surface), tuple(failures)
 
 
 def spec[**P](
@@ -98,7 +103,7 @@ def spec[**P](
     *,
     given: bool = True,
     mutation: bool = False,
-    profile: str = "rasm",
+    profile: str = PROFILE_DEFAULT,
     markers: tuple[str, ...] = (),
     timeout: float | None = None,
     law: str | None = None,
@@ -138,21 +143,23 @@ def spec[**P](
         A decorator that wraps the function, applies the full mark/settings stack, and registers a
         ``LawRecord`` into ``MANIFEST``.
     """
-    # Lazy import avoids a circular dependency: _strategies imports from _aspect at module level.
-    from tests.python._testkit._strategies import resolve  # noqa: PLC0415  # deferred to break import cycle
 
     def _decorator(fn: Callable[P, None]) -> Callable[P, None]:
         if hasattr(fn, "__wrapped__"):
             msg = f"@spec double-decoration detected on {fn!r}; remove the duplicate decorator."
             raise TypeError(msg)
 
-        # hypothesis requires @given to wrap the raw function before @settings is applied.
-        assert isinstance(subject, type), f"@spec given=True requires a type, got {subject!r}"
         profile_settings = hyp_settings.get_profile(profile)
 
         match given:
             case True:
+                # Lazy import avoids a circular dependency: strategies imports from laws at module level.
+                from tests.python._testkit.strategies import resolve  # noqa: PLC0415  # deferred to break import cycle
+
+                # The type requirement binds only to the strategy-driving mode; given=False subjects may be callables.
+                assert isinstance(subject, type), f"@spec given=True requires a type, got {subject!r}"
                 # functools.wraps preserves the signature for @given injection; __wrapped__ fires the guard on fn, not the wrapper.
+                # hypothesis requires @given to wrap the raw function before @settings is applied.
                 target = (
                     functools.wraps(fn)(lambda *args, **kwargs: ([hyp_event(tag(args[-1])) for tag in events], fn(*args, **kwargs))[-1])
                     if events
@@ -172,7 +179,14 @@ def spec[**P](
         result = functools.reduce(lambda acc, m: getattr(pytest.mark, m)(acc), all_marks, with_settings)
 
         fn_name: str = getattr(fn, "__name__", repr(fn))
-        MANIFEST.append(LawRecord(subject=_qualname(subject), law=law or fn_name, module=getattr(fn, "__module__", "<unknown>")))
+        MANIFEST.append(
+            LawRecord(
+                subject=_qualname(subject),
+                law=law or fn_name,
+                module=getattr(fn, "__module__", "<unknown>"),
+                subject_module=getattr(subject, "__module__", "") or "",
+            )
+        )
 
         # Return the decorated stack as-is: @given already stripped the strategy param from pytest's
         # collected signature; re-stamping fn's signature would re-expose it as a missing fixture.
@@ -194,7 +208,7 @@ def register_law(subject: object, law: str, *, module: str | None = None) -> Non
     """
     frame = inspect.currentframe()
     caller_module = module or (frame.f_back.f_globals.get("__name__", "<unknown>") if frame and frame.f_back else "<unknown>")
-    MANIFEST.append(LawRecord(subject=_qualname(subject), law=law, module=caller_module))
+    MANIFEST.append(LawRecord(subject=_qualname(subject), law=law, module=caller_module, subject_module=getattr(subject, "__module__", "") or ""))
 
 
 def register_laws(*pairs: tuple[object, tuple[str, ...]]) -> None:
@@ -215,36 +229,47 @@ def register_laws(*pairs: tuple[object, tuple[str, ...]]) -> None:
     frame = inspect.currentframe()
     caller_module = frame.f_back.f_globals.get("__name__", "<unknown>") if frame and frame.f_back else "<unknown>"
     MANIFEST.extend(
-        LawRecord(subject=_qualname(subject), law=law_name, module=caller_module) for subject, law_names in pairs for law_name in law_names
+        LawRecord(subject=_qualname(subject), law=law_name, module=caller_module, subject_module=getattr(subject, "__module__", "") or "")
+        for subject, law_names in pairs
+        for law_name in law_names
     )
 
 
 def register_sut(package: str, *, exempt: frozenset[str] = frozenset()) -> None:
     """Record a SUT package for law-coverage gating.
 
-    Called once per project conftest. Multiple calls accumulate packages independently.
+    Called once per project conftest. Multiple calls accumulate packages independently; a duplicate
+    registration of the same package merges exempt sets (idempotent under repeated conftest import).
 
     Args:
-        package: Fully-qualified package name (e.g. ``"tools.assay"``).
+        package: Fully-qualified package name (e.g. ``"tools.<package>"``).
         exempt: Symbol simple-names that are explicitly exempt from law coverage.
     """
-    SUT_PACKAGES[package] = exempt
+    SUT_PACKAGES[package] = SUT_PACKAGES.get(package, frozenset()) | exempt
 
 
 def assert_law_coverage() -> None:
     """Assert every public SUT symbol has at least one registered law or is explicitly exempt.
 
-    Walks each package registered via ``register_sut`` using ``pkgutil.walk_packages``, unions the
+    Walks each package registered via ``register_sut`` over the package filesystem tree, unions the
     public surface across all leaf modules (``__all__`` union; non-underscore fallback; module objects
-    excluded), and asserts that the covered set + exempt set spans the full surface.
+    excluded), and asserts that the covered set + exempt set spans the full surface. Coverage is
+    package-scoped: a record covers a package only when its ``subject_module`` resolves inside that
+    package, so a same-named symbol in a second SUT is never falsely covered; records without a
+    ``subject_module`` (instances, tables) fall back to global simple-name coverage. Module import
+    failures collected during the walk fail the gate — a broken module silently shrinks the surface.
     """
-    covered = frozenset(rec.subject.rsplit(".", 1)[-1] for rec in MANIFEST)
+    global_covered = frozenset(rec.subject.rsplit(".", 1)[-1] for rec in MANIFEST if not rec.subject_module)
 
     for package, exempt in SUT_PACKAGES.items():
-        surface = _public_surface(package)
+        surface, failures = _public_surface(package)
+        covered = global_covered | frozenset(
+            rec.subject.rsplit(".", 1)[-1] for rec in MANIFEST if rec.subject_module == package or rec.subject_module.startswith(f"{package}.")
+        )
         uncovered = surface - covered - exempt
-        assert not uncovered, f"Law coverage gap in '{package}': {len(uncovered)} symbol(s) have no law:\n" + "\n".join(
-            f"  - {name}" for name in sorted(uncovered)
+        gaps = [*(f"  - {name}" for name in sorted(uncovered)), *(f"  ! {mod}: {err}" for mod, err in failures)]
+        assert not gaps, (
+            f"Law coverage gap in '{package}': {len(uncovered)} symbol(s) have no law, {len(failures)} module import failure(s):\n" + "\n".join(gaps)
         )
 
 

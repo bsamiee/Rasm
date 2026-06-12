@@ -1,7 +1,8 @@
 """Pytest runtime plugin for all repo-local Python test suites (loaded via ``-p`` in addopts).
 
 Registers hypothesis profiles (rasm, rasm-ci, rasm-stress, rasm-debug, rasm-mutation,
-rasm-adversarial, rasm-stateful, rasm-parity), installs a process-level OpenTelemetry
+rasm-adversarial, rasm-stateful, rasm-parity), registers the bench module's Potts/BIC
+regression hook with pluggy at configure time, installs a process-level OpenTelemetry
 TracerProvider (set-once) backed by a per-session InMemorySpanExporter, and wires optional
 observability and CPU-profiler side channels controlled by TESTS_OBSERVABILITY and TESTS_PROFILE.
 """
@@ -9,14 +10,14 @@ observability and CPU-profiler side channels controlled by TESTS_OBSERVABILITY a
 # --- [RUNTIME_PRELUDE] ------------------------------------------------------------------
 
 from datetime import datetime, UTC
+import importlib
 import os
 from pathlib import Path
 import threading
 
 
-ROOT = Path(__file__).resolve().parents[3]
-REPO_ROOT = ROOT
-_DEFAULT_HYPOTHESIS_HOME = ROOT / ".cache" / "hypothesis"
+REPO_ROOT = Path(__file__).resolve().parents[3]
+_DEFAULT_HYPOTHESIS_HOME = REPO_ROOT / ".cache" / "hypothesis"
 _hypothesis_storage_directory = os.environ.get("HYPOTHESIS_STORAGE_DIRECTORY")  # noqa: TID251  # precedes hypothesis import; locks storage path
 HYPOTHESIS_HOME = Path(_hypothesis_storage_directory) if _hypothesis_storage_directory else _DEFAULT_HYPOTHESIS_HOME
 os.environ.setdefault("HYPOTHESIS_STORAGE_DIRECTORY", str(HYPOTHESIS_HOME))  # noqa: TID251  # precedes hypothesis import in subprocess workers
@@ -47,7 +48,7 @@ if TYPE_CHECKING:
     from collections.abc import Generator
 
     from hypothesis.database import ExampleDatabase
-    from structlog.types import EventDict
+    from structlog.types import EventDict, Processor
 
 
 # --- [CONSTANTS] ------------------------------------------------------------------------
@@ -56,11 +57,16 @@ if TYPE_CHECKING:
 HYPOTHESIS_EXAMPLES = HYPOTHESIS_HOME / "examples"
 _SUPPRESSIONS = (HealthCheck.too_slow, HealthCheck.data_too_large)
 
+# Profile vocabulary as symbols: consumers (laws.spec default, spec.model_based resolution) import these
+# instead of restating string literals, and the import pins registration order for non-pytest consumers.
+# The pyproject addopts / mutmut literals own their own invocation strings and stay literal by design.
+PROFILE_DEFAULT = "rasm"
+PROFILE_MUTATION = "rasm-mutation"
+PROFILE_STATEFUL = "rasm-stateful"
 
 # --- [SERVICES] -------------------------------------------------------------------------
 
 _log = structlog.get_logger(__name__)
-
 
 # --- [OPERATIONS] -----------------------------------------------------------------------
 
@@ -95,7 +101,6 @@ def _run_profiler(artifact_dir: Path, secs: str) -> None:
 
 # --- [COMPOSITION] ----------------------------------------------------------------------
 
-
 _local_db = BackgroundWriteDatabase(DirectoryBasedExampleDatabase(HYPOTHESIS_EXAMPLES))
 # BackgroundWriteDatabase keeps writes off the critical path; RASM_HYPOTHESIS_GH_REPLAY layers a ReadOnlyDatabase
 # over GitHubArtifactDatabase via MultiplexedDatabase to replay CI-found counterexamples locally.
@@ -107,7 +112,7 @@ match _gh_replay.split("/", 1) if _gh_replay else []:
         _EXAMPLE_DB = _local_db
 
 set_hypothesis_home_dir(HYPOTHESIS_HOME)
-hyp_settings.register_profile("rasm", database=_EXAMPLE_DB, deadline=None, suppress_health_check=_SUPPRESSIONS)
+hyp_settings.register_profile(PROFILE_DEFAULT, database=_EXAMPLE_DB, deadline=None, suppress_health_check=_SUPPRESSIONS)
 hyp_settings.register_profile("rasm-ci", database=_EXAMPLE_DB, deadline=None, max_examples=200, suppress_health_check=_SUPPRESSIONS)
 hyp_settings.register_profile(
     "rasm-stress",
@@ -126,12 +131,15 @@ hyp_settings.register_profile(
     suppress_health_check=_SUPPRESSIONS,
 )
 hyp_settings.register_profile(
-    # no DB: cached examples mask mutants; derandomized: stable kill verdicts; no shrink phase: wastes mutation budget
-    "rasm-mutation",
+    # no DB: cached examples mask mutants; derandomized: stable kill verdicts; no shrink phase: wastes mutation budget.
+    # stateful_step_count is capped to 20 (vs the 200-step rasm-stateful default): long stateful traces are pure wasted
+    # mutation wall-clock — 20 steps already drive every RBSM rule transition the mutants can falsify.
+    PROFILE_MUTATION,
     database=None,
     deadline=None,
     derandomize=True,
     max_examples=50,
+    stateful_step_count=20,
     phases=(Phase.explicit, Phase.generate),
     suppress_health_check=_SUPPRESSIONS,
 )
@@ -145,7 +153,7 @@ hyp_settings.register_profile(
 )
 hyp_settings.register_profile(
     # long step traces drive stateful RBSM interleavings to a minimal counterexample
-    "rasm-stateful",
+    PROFILE_STATEFUL,
     database=_EXAMPLE_DB,
     deadline=None,
     stateful_step_count=200,
@@ -161,7 +169,7 @@ hyp_settings.register_profile(
 )
 # hypothesis registers its own _deliver_to_file callback on import; this second callback redirects observations to the repo artifacts tree.
 if os.environ.get("TESTS_OBSERVABILITY"):  # noqa: TID251
-    _OBS_DIR = ROOT / ".artifacts" / "python" / "observed"
+    _OBS_DIR = REPO_ROOT / ".artifacts" / "python" / "observed"
 
     def _deliver_to_artifacts(observation: object) -> None:
         kind = "testcases" if getattr(observation, "type", None) == "test_case" else "info"
@@ -171,6 +179,22 @@ if os.environ.get("TESTS_OBSERVABILITY"):  # noqa: TID251
             fh.write(msgspec.json.encode(to_jsonable(observation, avoid_realization=False)).decode() + "\n")
 
     add_observability_callback(_deliver_to_artifacts, all_threads=True)
+
+
+def pytest_configure(config: pytest.Config) -> None:
+    """Register the bench module's ``pytest_benchmark_update_json`` hookimpl with pluggy.
+
+    The Potts/BIC regression hook lives in ``tests.python._testkit.bench``, a module pytest never
+    imports as a plugin on its own — without this registration the hook is dead code and the
+    sustained-regression gate silently never runs. Registration is gated on the pytest-benchmark
+    hookspec being present so ``-p no:benchmark`` sessions (xdist posture) stay valid; in ordinary
+    non-benchmark sessions the registered hook is simply never called — harmless.
+    """
+    (
+        config.pluginmanager.register(importlib.import_module("tests.python._testkit.bench"), "testkit-bench")
+        if hasattr(config.pluginmanager.hook, "pytest_benchmark_update_json") and not config.pluginmanager.hasplugin("testkit-bench")
+        else None
+    )
 
 
 def pytest_collection_modifyitems(items: list[pytest.Item]) -> None:
@@ -227,7 +251,7 @@ def _profiling_sampler(_otel_provider: InMemorySpanExporter) -> None:
     if not profile_flag:
         return
     secs = os.environ.get("TESTS_PROFILE_SECS", "60")  # noqa: TID251  # sampling duration override
-    artifact_dir = ROOT / ".artifacts" / "python" / "profile"
+    artifact_dir = REPO_ROOT / ".artifacts" / "python" / "profile"
 
     def _spawn() -> None:
         _run_profiler(artifact_dir, secs)
@@ -247,14 +271,35 @@ def otel_spans(_otel_provider: InMemorySpanExporter) -> InMemorySpanExporter:
 
 
 @pytest.fixture
-def log_events() -> Generator[list[EventDict]]:
-    """Capture structlog events as plain dicts for one test via ``capture_logs()``.
+def log_processors() -> tuple[Processor, ...]:
+    """Project-agnostic default processor chain spliced into ``log_events`` capture (empty).
 
-    INCOMPATIBLE with ``ring_processor`` assertions in the same test: ``capture_logs`` replaces the
-    full processor chain. Use ``_RING.set(deque(...))`` for ring-content assertions instead.
+    Override in a project conftest to splice that project's structlog processors (e.g. a ring buffer)
+    into ``capture_logs`` so ring-content and event-dict assertions hold in the SAME test — structlog
+    >=25.5 ``capture_logs(processors=...)`` runs the supplied chain ahead of the capture sink rather
+    than replacing it, dissolving the prior ring/capture incompatibility.
+
+    Returns:
+        Empty tuple by default; a project conftest returns its own ``(processor, ...)``.
+    """
+    return ()
+
+
+@pytest.fixture
+def log_events(log_processors: tuple[Processor, ...]) -> Generator[list[EventDict]]:
+    """Capture structlog events as plain dicts for one test via ``capture_logs(processors=...)``.
+
+    The ``log_processors`` chain (empty by default, project-specialized via fixture override) runs
+    ahead of the capture sink, so a project's ring buffer or correlation processor still fires during
+    capture — ring-content and event-dict assertions coexist in one test.
 
     Yields:
         Mutable list of captured log event dicts; each entry has ``{'event': str, 'log_level': str, ...}``.
     """
-    with capture_logs() as events:
+    with capture_logs(processors=log_processors) as events:
         yield events
+
+
+# --- [EXPORTS] --------------------------------------------------------------------------
+
+__all__ = ["REPO_ROOT", "HYPOTHESIS_HOME", "HYPOTHESIS_EXAMPLES", "PROFILE_DEFAULT", "PROFILE_MUTATION", "PROFILE_STATEFUL"]

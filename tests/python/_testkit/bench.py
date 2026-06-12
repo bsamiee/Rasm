@@ -19,6 +19,7 @@ import pytest
 
 if TYPE_CHECKING:
     from collections.abc import Sequence
+    from pathlib import Path
 
     from pytest_benchmark.fixture import BenchmarkFixture
 
@@ -31,7 +32,6 @@ _ITERATIONS_CAP = 10_000
 # Potts/BIC step detector: breakpoint admitted when scale-free log-likelihood gain clears beta*ln(n) (~4 DOF/breakpoint, ASV convention).
 _POTTS_BETA = 4.0
 _REGRESSION_TOLERANCE = 0.70
-_BENCHMARK_STORAGE_DIR = ".artifacts/python/benchmarks"
 
 # --- [MODELS] ---------------------------------------------------------------------------
 
@@ -86,8 +86,14 @@ class _StoredStats(msgspec.Struct, frozen=True):
 
 
 class _StoredEntry(msgspec.Struct, frozen=True):
-    """Schema projection of one persisted benchmark entry (median + (label,size) key fields only)."""
+    """Schema projection of one persisted benchmark entry (median + (fullname,group,size) key fields only).
 
+    ``fullname`` is pytest-benchmark's ``<file>::<test>[<param>]`` node id; its file part keys the
+    regression series so same-named groups from different benchmark files (different SUT packages
+    sharing the one policy-mandated storage root) never merge into one series.
+    """
+
+    fullname: str | None = None
     group: str | None = None
     extra_info: dict[str, object] = msgspec.field(default_factory=dict)
     stats: _StoredStats = msgspec.field(default_factory=_StoredStats)
@@ -126,7 +132,7 @@ def run_bench(benchmark: BenchmarkFixture, row: BenchCase, size: int) -> object:
     optional GC gate; the resulting ``benchmark.stats`` drive the dispersion floor (skip when too
     noisy) and the hard absolute-budget assertion. ``benchmark.group`` is set to ``row.label`` so
     relative compares stay within a subject across size variants, and the time series the session-
-    end step detector consumes is keyed by ``(group, extra_info['size'])``.
+    end step detector consumes is keyed by ``(fullname file part, group, extra_info['size'])``.
 
     Args:
         benchmark: The ``pytest-benchmark`` ``BenchmarkFixture`` injected by pytest.
@@ -139,6 +145,11 @@ def run_bench(benchmark: BenchmarkFixture, row: BenchCase, size: int) -> object:
     """
     proc = psutil.Process(os.getpid())
     payload = row.workload(size)
+    # Pre-pedantic, load-bearing: Metadata.__init__ SNAPSHOTS fixture.group when stats are created
+    # inside pedantic; a post-pedantic assignment never reaches the autosaved JSON (group stays null
+    # and the regression series drops every entry). extra_info survives post-hoc update only because
+    # Metadata captures the dict by reference.
+    benchmark.group = row.label
 
     # interval=None primes the psutil interval counter; the second call after pedantic captures user+sys CPU fraction for the timed window.
     proc.cpu_percent(interval=None)
@@ -178,7 +189,6 @@ def run_bench(benchmark: BenchmarkFixture, row: BenchCase, size: int) -> object:
     s = benchmark.stats.stats
     rel_iqr = s.iqr / s.median if s.median > 0 else inf
     observed_ms = getattr(s, row.gate_stat) * 1000.0
-    benchmark.group = row.label
     benchmark.extra_info.update(
         rss_delta_bytes=proc.memory_info().rss - rss_before,
         rss_after_bytes=proc.memory_info().rss,
@@ -263,12 +273,31 @@ def _potts_segments(series: tuple[float, ...]) -> tuple[tuple[float, ...], ...]:
     return _split(series) if n >= 2 else ((series,) if n else ())
 
 
-def _series_from_storage(config: pytest.Config, output_json: dict[str, object]) -> dict[tuple[str, int], tuple[float, ...]]:
+def _storage_root(config: pytest.Config) -> Path:
+    """Resolve the autosaved-benchmark storage root from the live ``--benchmark-storage`` option.
+
+    Single owner = the pytest config option (sourced from ``addopts`` / the catalog
+    ``BENCHMARK_STORAGE_URI``); the ``file://`` scheme is stripped and the remainder resolved under
+    ``config.rootpath`` so the Potts regression hook reads exactly the directory pytest-benchmark
+    autosaves into. Policy mandates ONE storage root for every SUT package (the single-owner
+    addopts law); package disjointness is keyed into the regression series via each entry's
+    ``fullname`` file part, never via per-package storage configuration.
+
+    Returns:
+        Absolute storage root (``config.rootpath / <path>`` for relative URIs).
+    """
+    raw = str(config.getoption("benchmark_storage"))
+    path = raw.removeprefix("file://")
+    return config.rootpath / path
+
+
+def _series_from_storage(config: pytest.Config, output_json: dict[str, object]) -> dict[tuple[str, str, int], tuple[float, ...]]:
     """Reconstruct the per-(label,size) median time series from prior storage plus the current run.
 
     Reads every prior autosaved benchmark JSON under the machine-specific storage subdirectory,
-    keyed by ``(group, extra_info['size'])`` to match the live registry rows, then appends the
-    current run's medians (oldest-first) so the last observation is always the run under gate.
+    keyed by ``(fullname file part, group, extra_info['size'])`` to match the live registry rows
+    package-disjointly, then appends the current run's medians (oldest-first) so the last
+    observation is always the run under gate.
     Documents are decoded into the ``_StoredDoc`` projection so malformed/foreign entries (no
     ``group``/``size``/``median``) are dropped rather than crashing the gate.
 
@@ -277,21 +306,20 @@ def _series_from_storage(config: pytest.Config, output_json: dict[str, object]) 
         output_json: The serialized current-run benchmark report from ``pytest_benchmark_update_json``.
 
     Returns:
-        Mapping from ``(label, size)`` to its ordered median series (seconds), oldest first.
+        Mapping from ``(file, label, size)`` to its ordered median series (seconds), oldest first.
     """
-    storage_root = config.rootpath / _BENCHMARK_STORAGE_DIR
+    storage_root = _storage_root(config)
     prior_docs = (msgspec.json.decode(path.read_bytes(), type=_StoredDoc) for path in sorted(storage_root.glob("*/*.json")))
     current_doc = msgspec.convert(output_json, type=_StoredDoc, strict=False)
     ordered_entries = [entry for doc in (*prior_docs, current_doc) for entry in doc.benchmarks]
 
-    def _accumulate(acc: dict[tuple[str, int], tuple[float, ...]], entry: _StoredEntry) -> dict[tuple[str, int], tuple[float, ...]]:
-        size = entry.extra_info.get("size")
-        median = entry.stats.median
-        return (
-            {**acc, (entry.group, size): (*acc.get((entry.group, size), ()), median)}
-            if (entry.group is not None and isinstance(size, int) and median is not None)
-            else acc
-        )
+    def _accumulate(acc: dict[tuple[str, str, int], tuple[float, ...]], entry: _StoredEntry) -> dict[tuple[str, str, int], tuple[float, ...]]:
+        match (entry.group, entry.extra_info.get("size"), entry.stats.median):
+            case (str() as group, int() as size, float() as median):
+                key = ((entry.fullname or "").partition("::")[0], group, size)
+                return {**acc, key: (*acc.get(key, ()), median)}
+            case _:
+                return acc
 
     return reduce(_accumulate, ordered_entries, {})
 
@@ -326,7 +354,8 @@ def pytest_benchmark_update_json(config: pytest.Config, benchmarks: object, outp
     ]
     (
         pytest.fail(
-            "sustained benchmark regression: " + "; ".join(f"{label}-{size}: +{ratio:.1%}" for (label, size), ratio in breaches), pytrace=False
+            "sustained benchmark regression: " + "; ".join(f"{file}::{label}-{size}: +{ratio:.1%}" for (file, label, size), ratio in breaches),
+            pytrace=False,
         )
         if breaches
         else None

@@ -1,6 +1,6 @@
 # [REFERENCE_DOCUMENTATION]
 
-Reference documentation is lookup truth for a reader who already knows the domain and needs one exact fact while working. It describes and only describes: facts, fields, commands, terms, limits, statuses, and current constraints. It fails when it teaches a path, argues a rationale, hides procedure in tables, or lets drift-prone claims float without nearby proof.
+Reference documentation is lookup truth for a reader who already knows the domain and needs one exact fact while working. It describes and only describes: facts, fields, commands, terms, limits, statuses, and current constraints. It fails when it teaches a path, argues a rationale, hides procedure in tables, or lets drift-prone claims float without nearby confirmation.
 
 ## [1]-[USE_WHEN]
 
@@ -16,10 +16,10 @@ Route HTTP contracts and generated API surfaces to [api.md](api.md), broad suppo
 
 [AUTHORING_CONTRACT]:
 - Agent use: decide the lookup profile, state the source model, then publish only facts a reader can extract without following a task path.
-- Required produced structure: lead, `Scope`, one or more lookup sets, optional status vocabulary or examples, `Boundaries`, and `Validation`.
+- Required produced structure: lead, `Scope`, one or more lookup sets, optional status vocabulary or examples, `Boundaries`, and `Result check`.
 - Section cardinality: one primary profile per leaf; lookup sets repeat by subject shape; examples appear only beside a likely misuse.
 - Adjacent checks: check API, code-documentation, support-matrix, README, how-to, runbook, tutorial, roadmap, architecture, and ADR only when a fact changes the reader action those routes control.
-- Maintenance triggers: update the reference when a source, generated artifact, command output, status vocabulary, field value, maintained source, or adjacent route changes.
+- Maintenance triggers: update the reference when a source, generated artifact, command output, status vocabulary, field value, maintained material, or adjacent route changes.
 
 ## [2]-[PROFILES]
 
@@ -44,13 +44,13 @@ Choose one primary profile per reference leaf. Split the leaf when a second prof
 - Route-away: explanatory concept essays and external ontology catalogs.
 
 [DATA_DICTIONARY]:
-- Carries: data elements with definition, type, value domain, nullability, provenance, routing, and source schema.
+- Carries: data elements with definition, type, value domain, nullability, origin trail, routing, and source schema.
 - Required sets: scope and element entries.
 - Entry shape: data element card or schema-local generated table.
 - Route-away: schema files, migrations, generated API contracts, and warehouse catalogs.
 
 [CAPABILITY_REFERENCE]:
-- Carries: supported features, limitations, status vocabulary, version constraints, and evidence where support is one fact among many.
+- Carries: supported features, limitations, status vocabulary, version constraints, and confirmation where support is one fact among many.
 - Required sets: scope, status vocabulary, and capability entries.
 - Entry shape: status-tagged capability records.
 - Route-away: broad support matrices and future roadmap intent.
@@ -58,18 +58,18 @@ Choose one primary profile per reference leaf. Split the leaf when a second prof
 [SOURCE_MAP_CATALOG]:
 - Carries: source-key maps, package graph posture, BCL/shared-framework surfaces, external-library posture, testing-tool facts, and replacement maps.
 - Required sets: scope with source model, one or more fact sets, and route-away table.
-- Entry shape: fact cards or GroupedRecord clusters when rows need proof/update fields.
+- Entry shape: fact cards or GroupedRecord clusters when rows need confirmation/update fields.
 - Route-away: callable API contracts, support lifecycle, test strategy, how-to commands, architecture, and source comments.
 
 Use this lookup archetype selector. The record trigger names the first signal that the row needs records instead of a wider table:
 
-| [INDEX] | [ARCHETYPE]               | [USE_FOR]                           | [RECORD_TRIGGER]               |
-| :-----: | :------------------------ | :---------------------------------- | :----------------------------- |
-|   [1]   | dependency API fact page  | package or SDK facts                | independent member proof       |
-|   [2]   | repo posture page         | local adoption leaves               | path or support facts spill    |
-|   [3]   | system surface map        | BCL, host, or package maps          | source or review fields appear |
-|   [4]   | replacement map           | approved replacement choice         | replacement gate appears       |
-|   [5]   | package/tool fact catalog | package graph or testing-tool facts | policy changes reader action   |
+| [INDEX] | [ARCHETYPE]               | [USE_FOR]                           | [RECORD_TRIGGER]                |
+| :-----: | :------------------------ | :---------------------------------- | :------------------------------ |
+|   [1]   | dependency API fact page  | package or SDK facts                | independent member confirmation |
+|   [2]   | repo posture page         | local adoption leaves               | path or support facts spill     |
+|   [3]   | system surface map        | BCL, host, or package maps          | source or review fields appear  |
+|   [4]   | replacement map           | approved replacement choice         | replacement gate appears        |
+|   [5]   | package/tool fact catalog | package graph or testing-tool facts | policy changes reader action    |
 
 ## [3]-[REQUIRED_STRUCTURE]
 
@@ -88,12 +88,6 @@ Use this required core:
 
 ## [N]-[BOUNDARIES]
 
-## [N]-[VALIDATION]
-```
-
-Add these conditional sections only when their trigger applies:
-
-```markdown template
 ## [N]-[STATUS_VOCABULARY]
 
 ## [N]-[EXAMPLES]
@@ -101,31 +95,31 @@ Add these conditional sections only when their trigger applies:
 
 [SECTION_CARDINALITY]:
 - Opening scope: required, single.
-- `Source model`: required inside `Scope` for any reference leaf whose facts can drift, are generated, are package/tool facts, or are sourced from command output.
+- `Source model`: required inside `Scope` for any reference leaf whose facts can drift, are generated, are package/tool facts, or are owned from command output.
 - `Status vocabulary`: required for capability references; absent otherwise.
 - Lookup set: required; one or more, named for the subject being cataloged.
 - `Examples`: optional; include only beside a likely misuse.
 - `Boundaries`: required, single.
-- `Validation`: required, single.
+- `Result check`: required, single.
 
 Profile skeletons make the generic `LOOKUP_GROUP` concrete:
-- Fact catalog: `Scope`, one or more subject fact sets, `Boundaries`, and `Validation`.
-- Command reference: `Scope`, one command-family set per callable family, keyed mappings for flags, arguments, output, exit behavior, and side effects, `Boundaries`, and `Validation`.
-- Glossary: `Scope`, term sets by domain or alphabet, alias and status handling where needed, `Boundaries`, and `Validation`.
-- Data dictionary: `Scope`, element sets by source system or subject area, source schema links, `Boundaries`, and `Validation`.
-- Capability reference: `Scope`, `Status vocabulary`, capability entries, `Boundaries`, and `Validation`.
-- Source map or package/tool fact catalog: `Scope` with source model, grouped fact records, route-away table, `Boundaries`, and `Validation`.
+- Fact catalog: `Scope`, one or more subject fact sets, `Boundaries`, and `Result check`.
+- Command reference: `Scope`, one command-family set per callable family, keyed mappings for flags, arguments, output, exit behavior, and side effects, `Boundaries`, and `Result check`.
+- Glossary: `Scope`, term sets by domain or alphabet, alias and status handling where needed, `Boundaries`, and `Result check`.
+- Data dictionary: `Scope`, element sets by source system or subject area, source schema links, `Boundaries`, and `Result check`.
+- Capability reference: `Scope`, `Status vocabulary`, capability entries, `Boundaries`, and `Result check`.
+- Source map or package/tool fact catalog: `Scope` with source model, grouped fact records, route-away table, `Boundaries`, and `Result check`.
 
-Source model records use proof fields only when the source proves drift-prone facts:
+Source model records use confirmation fields only when the source proves drift-prone facts:
 
 ```text template
-Source model: `<maintained source, generated artifact, command output, manifest, source map, or package/tool corpus>`
-Evidence: `<source path, command output, generated artifact, maintained source, or proof gap>`
-Generated from: `<command, schema, generator, or omitted when manually sourced>`
-Controlling source: `<controlling path, manifest, generated contract, package source, or upstream source>`
-Proof gap: `<missing source, unrun generator, unavailable command, or omitted when proved>`
-Last verified: YYYY-MM-DD
-Review trigger: `<source, command, generated artifact, package, support, or route change>`
+Source model: `<maintained material, generated artifact, command output, manifest, source map, or package/tool corpus>`
+Observed result: `<code path, command output, generated artifact, maintained material, or confirmation gap>`
+Generated by: `<command, schema, generator, or omitted when manually owned>`
+Owner: `<controlling path, manifest, generated contract, package source, or upstream owner>`
+Confirmation gap: `<missing owner confirmation, unrun generator, unavailable command, or omitted when proved>`
+Refresh trigger: <owner-change>
+Review trigger: `<owner, command, generated artifact, package, support, or route change>`
 Refresh command: `<exact command; omit when no command refreshes the facts>`
 ```
 
@@ -139,7 +133,7 @@ Reference prose ranks below machine-readable truth:
 3. Source-controlled examples, migration notes, issue records, or known-limitation pages.
 4. Curated reference prose in the document.
 
-This standard carries local term statuses such as `preferred`, `admitted`, `deprecated`, and `rejected`. When a generated contract or maintained source changes, re-derive the local summary from the source rather than editing prose in isolation.
+This standard carries local term statuses such as `preferred`, `admitted`, `deprecated`, and `rejected`. When a generated contract or maintained material changes, re-derive the local summary from the source rather than editing prose in isolation.
 
 Every reference-local status vocabulary must declare exact casing, active values, blocked or unavailable values when present, returnable values when present, terminal values, omitted shared lifecycle states, and removal behavior before the first table or record that uses it. Title-case support or capability labels are display terms; they are not shared lifecycle values unless the record explicitly maps them.
 
@@ -150,7 +144,7 @@ State only fields a reader needs to use the fact:
 - kind, type, category, or route.
 - definition or concise description.
 - allowed values, units, defaults, constraints, lifecycle status, or support status when the fact constrains a caller.
-- source, command, maintained route, or generated artifact when the fact can drift, following [proof.md](../proof.md).
+- owner, command, maintained route, or generated artifact when the fact can drift, following [proof.md](../proof.md).
 - related entries or canonical local links where useful.
 
 Choose the container by how the reader reads the entry. A single record read by field belongs in a definition block. Homogeneous peer entries compared across the same columns belong in a table within the shared table ceiling. Sparse, heterogeneous, or independently updated entries belong in per-entry definition blocks or subsection records, not a table with many empty cells. Mark absent table values with an em-dash so blanks never read as unknown.
@@ -165,37 +159,37 @@ Constraint: `<allowed values, unit, default, or lifecycle; omit when unconstrain
 Use: `<one sentence naming the reader action this fact changes>`
 ```
 
-Use a proof-bearing fact card when the fact can drift, routes adjacent work, or changes generated/API/support behavior:
+Use a confirmation-bearing fact card when the fact can drift, routes adjacent work, or changes generated/API/support behavior:
 
 ```text template
 Name: `<canonical fact, term, command, field, or capability>`
 Definition: `<one factual statement>`
 Constraint: `<allowed values, unit, default, or lifecycle; omit when unconstrained>`
 Use: `<one sentence naming the reader action this fact changes>`
-Evidence: `<source, command, generated artifact, or maintained reference>`
-Generated from: `<generator, command, or schema; omit when manually sourced>`
-Controlling source: `<controlling path, schema, manifest, generated contract, or upstream source>`
-Proof gap: `<missing source, unrun generator, unsupported current claim, or omitted when proved>`
-Last verified: YYYY-MM-DD
+Observed result: `<owner, command, generated artifact, or maintained reference>`
+Generated by: `<generator, command, or schema; omit when manually owned>`
+Owner: `<controlling path, schema, manifest, generated contract, or upstream owner>`
+Confirmation gap: `<missing owner confirmation, unrun generator, unsupported current claim, or omitted when proved>`
+Refresh trigger: <owner-change>
 Review trigger: `<event that makes this fact stale>`
 Route-away: `<README | API | code documentation | support matrix | how-to | runbook | tutorial | roadmap | architecture; omit when absent>`
 ```
 
-Omit fields that do not apply, except `Name` and `Definition`. Put run IDs, source versions, and proof gaps in `Evidence` or a visible proof-gap sentence, not in `Last verified`.
+Omit fields that do not apply, except `Name` and `Definition`. Put run IDs, release labels, and confirmation gaps in `Observed result` or a visible confirmation-gap sentence, not in a dated tail.
 
 Route changed reference facts by the first route whose reader action changes:
 
-| [INDEX] | [CHANGED_FACT]                                                                   | [ROUTE_TO]                                        |
-| :-----: | :------------------------------------------------------------------------------- | :------------------------------------------------ |
-|   [1]   | callable contract, generated output, input/output/failure carrier                | [api.md](api.md)                                  |
-|   [2]   | command flag, lookup value, replacement, package posture, source key             | [reference.md](reference.md)                      |
-|   [3]   | ordered procedure input, verification, migration step                            | [how-to.md](../task/how-to.md)                    |
-|   [4]   | current path, dependency, scope boundary, invariant, generated-contract boundary | [architecture.md](../explanation/architecture.md) |
-|   [5]   | future sequence, milestone umbrella, task exit proof, deferred work, removal timing | [roadmap.md](../explanation/roadmap.md)        |
-|   [6]   | lifecycle, compatibility, support, deprecation policy                            | [support-matrix.md](support-matrix.md)            |
-|   [7]   | operational symptom, rollback, recovery                                          | [runbook.md](../task/runbook.md)                  |
-|   [8]   | public symbol semantics, source comments, generated anchors                      | [code-documentation.md](code-documentation.md)    |
-|   [9]   | entrypoint or first-use route                                                    | [readme.md](readme.md)                            |
+| [INDEX] | [CHANGED_FACT]                                                                               | [ROUTE_TO]                                        |
+| :-----: | :------------------------------------------------------------------------------------------- | :------------------------------------------------ |
+|   [1]   | callable contract, generated output, input/output/failure carrier                            | [api.md](api.md)                                  |
+|   [2]   | command flag, lookup value, replacement, package posture, source key                         | [reference.md](reference.md)                      |
+|   [3]   | ordered procedure input, verification, migration step                                        | [how-to.md](../task/how-to.md)                    |
+|   [4]   | current path, dependency, scope boundary, invariant, generated-contract boundary             | [architecture.md](../explanation/architecture.md) |
+|   [5]   | future sequence, milestone umbrella, task exit confirmation, returnable work, removal timing | [roadmap.md](../explanation/roadmap.md)           |
+|   [6]   | lifecycle, compatibility, support, deprecation policy                                        | [support-matrix.md](support-matrix.md)            |
+|   [7]   | operational symptom, rollback, recovery                                                      | [runbook.md](../task/runbook.md)                  |
+|   [8]   | public symbol semantics, source comments, generated anchors                                  | [code-documentation.md](code-documentation.md)    |
+|   [9]   | entrypoint or first-use route                                                                | [readme.md](readme.md)                            |
 
 When a reference fact changes a procedure, recovery path, public surface, entry map, support decision, tutorial variant, roadmap sequence, architecture boundary, or symbol contract, update the adjacent route at the point it consumes the fact instead of copying that route into the reference page:
 
@@ -216,7 +210,7 @@ Capability entries use these fields:
 - `Capability`: feature, limit, or behavior.
 - `Status`: support state from the declared vocabulary.
 - `Constraint`: version, platform, environment, entitlement, or flag when status is conditional.
-- `Evidence`: source, command output, or maintained link when the support fact can drift, with exact evidence details defined by [proof.md](../proof.md).
+- `Observed result`: owner, command output, or maintained link when the support fact can drift, with exact confirmation details defined by [proof.md](../proof.md).
 
 When status maps deterministically to caller decision, include a compact lookup table keyed by status:
 
@@ -253,7 +247,7 @@ Stderr: `<diagnostics, progress, or empty>`
 Exit status: `<success and failure codes>`
 Artifacts: `<files, reports, captures, or omit when absent>`
 External state: `<service, filesystem, network, runtime, or none when the domain truly allows none>`
-Failure reading: `<how an agent distinguishes usage, validation, runtime, and transport failures>`
+Failure reading: `<how an agent distinguishes usage, confirmation, runtime, and transport failures>`
 Review trigger: `<command, output shape, exit status, artifact, or failure behavior changes>`
 ```
 
@@ -305,19 +299,19 @@ Per element, include the subset that applies:
 
 [GOVERNANCE_SOURCE]:
 - key, relationship, partition, or lineage facts.
-- sensitivity, access class, retention, provenance, quality, and recency facts when applicable.
+- sensitivity, access class, retention, origin trail, quality, and recency facts when applicable.
 - source schema, contract, query, generated catalog, or maintained data standard.
 
 Define every coded value's meaning, not just its name. Link the machine-readable schema rather than copying it. Split dictionaries with more than 20 elements by source system or subject area before the table exceeds the row ceiling.
 
-Use a data element card when schema fields need proof or lineage:
+Use a data element card when schema fields need confirmation or lineage:
 
 ```text template
 Canonical name: `<field or element name>`
 Definition: `<semantic definition, not type echo>`
 Type/unit: `<source type, format, precision, or unit>`
 Value domain: `<enum, range, pattern, nullability, or required state>`
-Source system: `<schema, table, contract, generator, or maintained source path>`
+Source system: `<schema, table, contract, generator, or maintained code path>`
 Aliases/lineage: `<aliases, prior names, or source mapping; omit when absent>`
 Sensitivity/access: `<classification; omit when unrestricted or not classified>`
 ```
@@ -336,7 +330,7 @@ Effect: returns the declared report for `<scope>`.
 Side effect: does not intentionally mutate tracked source.
 ```
 
-Replace placeholders with exact command help, a source path, or a generated command reference before publishing a real command reference.
+Replace placeholders with exact command help, a code path, or a generated command reference before publishing a real command reference.
 
 [COMMAND_WARNING]:
 - Rejected: This command has a dry-run mode, but the warning omits invocation, effect, and side effect.
@@ -353,34 +347,7 @@ Replace placeholders with exact command help, a source path, or a generated comm
 
 [ADJACENT_ROUTES]:
 - [tutorial.md](../learning/tutorial.md) carries learning paths that consume reference facts.
-- [roadmap.md](../explanation/roadmap.md) carries future sequence when a fact changes planned work.
+- [roadmap.md](../explanation/roadmap.md) carries future sequence when a fact changes target work.
 - [architecture.md](../explanation/architecture.md) carries context, structure, invariants, and trade-offs.
 - [adr.md](../explanation/adr.md) carries recorded decision rationale.
 - [README.md](../README.md) carries document-type routing, placement, and lifecycle.
-
-## [12]-[VALIDATION]
-
-Use this verification checklist by group:
-
-[PROFILE_SOURCE]:
-- [ ] The page describes facts rather than teaching a path or arguing a rationale.
-- [ ] One primary profile is chosen and its lookup sets are present.
-- [ ] Drift-prone, generated, source-map, package graph, and command-output facts have a source model.
-- [ ] External-library pages choose package fact catalog, capability reference, repo posture, or generated/package API fact profile instead of relying on file names.
-
-[ENTRIES]:
-- [ ] Lookup sets mirror the subject's shape.
-- [ ] Fact cards carry source guidance, route-away, and use fields where they change maintenance behavior.
-- [ ] Command family cards name invocation pattern, output shape, mutation, and exit behavior.
-- [ ] Glossary entries carry one sense each and redirect non-preferred terms.
-- [ ] Data-dictionary elements cite exact source schemas when schema truth can drift.
-- [ ] Capability sets use status-tagged records from a declared vocabulary.
-
-[MAPPINGS_EXAMPLES]:
-- [ ] Keyed mappings use lookup tables; condition combinations use decision tables.
-- [ ] Sparse or heterogeneous entries use records instead of unnecessary tables.
-- [ ] Examples illustrate one fact and every ordinary fenced block carries an intent label.
-
-[BOUNDARIES]:
-- [ ] Procedures, learning paths, future sequence, rationale, broad support policy, and generated API catalogs route through boundaries when reference facts change reader action.
-- [ ] Every relative link resolves.

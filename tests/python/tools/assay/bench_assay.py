@@ -11,9 +11,9 @@ from typing import TYPE_CHECKING
 import msgspec
 import pytest
 
-from tests.python._testkit._bench import BenchCase, run_registry
-from tests.python._testkit._strategies import resolve
-from tests.python.tools.assay.conftest import WIRE_ENCODER
+from tests.python._testkit.bench import BenchCase, run_registry
+from tests.python._testkit.strategies import resolve
+from tests.python.tools.assay.kit import WIRE_ENCODER
 from tools.assay.core.model import Claim, Completed, Envelope, envelope, fold, Input, Language, Mode, receipt, Runner, Tool
 from tools.assay.core.routing import place, Routed, Scope
 from tools.assay.core.status import RailStatus
@@ -32,7 +32,6 @@ _FILES_TOOL: Tool = Tool(
 
 _SETUP_ENCODER: msgspec.json.Encoder = msgspec.json.Encoder(order="deterministic")
 _WIRE_DECODER: msgspec.json.Decoder[Envelope] = msgspec.json.Decoder(Envelope)
-
 
 # --- [OPERATIONS] -----------------------------------------------------------------------
 
@@ -121,7 +120,6 @@ _ROWS: tuple[BenchCase, ...] = (
         rounds=5,
     ),
 )
-
 
 # --- [COMPOSITION] ----------------------------------------------------------------------
 

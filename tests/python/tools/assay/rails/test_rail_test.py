@@ -17,8 +17,8 @@ import msgspec
 from mutmut import configuration as mutmut_configuration
 import pytest
 
-from tests.python._testkit._aspect import register_law
-from tests.python._testkit._spec import assert_error_status, assert_ok, support_matrix, validity_matrix, ValidityCase
+from tests.python._testkit.laws import register_law
+from tests.python._testkit.spec import assert_error_status, assert_ok, refutes, support_matrix, validity_matrix, ValidityCase
 from tools.assay.composition.catalog import TOOLS
 from tools.assay.composition.settings import ArtifactScope
 from tools.assay.core.engine import exclusive_lease
@@ -53,7 +53,7 @@ if TYPE_CHECKING:
 
     from expression import Result
 
-    from tests.python.tools.assay.conftest import AssayHarness
+    from tests.python.tools.assay.kit import AssayHarness
     from tools.assay.core.model import Completed
 
 
@@ -61,7 +61,6 @@ if TYPE_CHECKING:
 
 _PY = Language.PYTHON
 _PY_ROUTED = Routed(language=_PY, scope=Scope.CHANGED)
-
 
 # --- [OPERATIONS] -----------------------------------------------------------------------
 
@@ -132,7 +131,7 @@ def _stryker_tool() -> Tool:
 
 
 # --- [COMPOSITION] ----------------------------------------------------------------------
-# tests.python._testkit._aspect enforces TOTAL coverage: every exported symbol must appear in at least one register_law call.
+# tests.python._testkit.laws enforces TOTAL coverage: every exported symbol must appear in at least one register_law call.
 
 register_law(coverage_percent, "coverage_percent_from_json")
 register_law(coverage_percent, "coverage_percent_absent_or_malformed_none")
@@ -145,9 +144,12 @@ register_law(TestParams, "testparams_coverage_benchmark_exclusive_intent")
 register_law(TestParams, "eligible_branch_matrix")
 register_law(TestParams, "filter_discriminant_arms")
 register_law(TestParams, "scoped_mutation_arms")
+register_law(TestParams, "scoped_mutation_governor_caps_max_children")
+register_law(TestParams, "scoped_mutation_mutmut_changed_lane_globs")
 register_law(TestParams, "checks_splice_arms")
 register_law(TestParams, "unsupported_scope_arms")
 register_law(TestParams, "select_arms")
+register_law(TestParams, "select_default_arm_routed_closure_untouched")
 register_law(TestParams, "dispatch_empty_checks_returns_unsupported_only")
 register_law(TestParams, "dispatch_non_empty_checks_calls_fan_out")
 register_law(TestParams, "roster_matches_skip_and_kind_arms")
@@ -160,6 +162,7 @@ register_law(test_rail.list, "list_report_projection_arms")
 register_law(test_rail.list, "list_discovery_failure_note")
 register_law(test_rail.list, "list_status_ok_even_with_zero_roster")
 register_law(test_rail.list, "list_roster_artifact_written_to_scope")
+register_law(test_rail.list, "list_detail_selected_is_pre_limit_discovered_total")
 
 register_law(test_rail.run, "run_ok_report_from_dispatch")
 register_law(test_rail.run, "run_mutation_gap_note_emitted")
@@ -179,7 +182,6 @@ register_law(gate, "gate_tool_groups_splice_not_catalog")
 register_law(test_rail.run, "gate_check_rides_staged_mutmut_success")
 register_law(test_rail.run, "gate_skips_without_success_or_stage")
 register_law(test_rail.run, "dispatch_all_gate_rides_mutation_results")
-
 
 # --- [LAWS_COVERAGE_PERCENT]
 
@@ -312,44 +314,79 @@ def test_filter_discriminant_arms(expr: str, expected: tuple[str, ...]) -> None:
 # --- [LAWS_SCOPED_MUTATION]
 
 
-def test_scoped_mutation_arms() -> None:
-    """_scoped_mutation: CHANGED+unscoped runner→None; CHANGED+scoped→--mutate splice; FULL/non-mutation→passthrough."""
-    mutmut, stryker, plain = _mutation_tool(), _stryker_tool(), _tool("pytest", Mode.RUN)
+def _command_law(produced: Tool | None, expected: tuple[str, ...]) -> None:
+    """Oracle: the scoped tool exists and its command equals ``expected``; raises otherwise.
+
+    Driven as the positive law per arm and inverted by ``refutes`` against a wrong expected, proving
+    _scoped_mutation actually transforms the argv (governor splice + glob/--mutate suffix) rather than
+    passing the row through — a tautology a passthrough mutant would otherwise exploit.
+    """
+    assert produced is not None, "scoped tool dropped out of the lane unexpectedly"
+    assert produced.command == expected, f"command {produced.command} != {expected}"
+
+
+def test_scoped_mutation_arms(assay_root: AssayHarness) -> None:
+    """_scoped_mutation: CHANGED+unscoped runner→None; CHANGED+scoped→governor+selector splice; FULL→governor only; non-mutation→passthrough."""
+    settings = assay_root.settings.model_copy(update={"mutation_max_cpu": 2})
+    mutmut, stryker, plain, unscoped = _mutation_tool(), _stryker_tool(), _tool("pytest", Mode.RUN), _mutation_tool("vitest-mut")
     files = ("src/Foo.cs", "src/Bar.cs")
 
-    assert _scoped_mutation(mutmut, TestParams(mutation=MutationLane.CHANGED), ("src/foo.py",)) is None
-    assert _scoped_mutation(mutmut, TestParams(mutation=MutationLane.FULL), ("src/foo.py",)) is mutmut
-    assert _scoped_mutation(plain, TestParams(mutation=MutationLane.CHANGED), ()) is plain
-    scoped = _scoped_mutation(stryker, TestParams(mutation=MutationLane.CHANGED), files)
-    assert scoped is not None
-    assert scoped.command == ("tool", "run", "dotnet-stryker", "--", "--mutate", "src/Foo.cs", "--mutate", "src/Bar.cs")
+    # An unscoped MUTATION runner drops out of the CHANGED lane; a non-mutation row passes through untouched.
+    assert _scoped_mutation(unscoped, TestParams(mutation=MutationLane.CHANGED), settings, ("src/foo.py",)) is None
+    assert _scoped_mutation(plain, TestParams(mutation=MutationLane.CHANGED), settings, ()) is plain
+
+    # FULL mutmut carries the --max-children governor only; CHANGED mutmut adds per-file globs after the governor.
+    full = _scoped_mutation(mutmut, TestParams(mutation=MutationLane.FULL), settings, ("src/foo.py",))
+    _command_law(full, ("mutmut", "--max-children", "2"))
+    changed = _scoped_mutation(mutmut, TestParams(mutation=MutationLane.CHANGED), settings, ("src/a.py", "src/b.py"))
+    _command_law(changed, ("mutmut", "--max-children", "2", "src.a.*", "src.b.*"))
+
+    # Stryker has no governor (dotnet runner cap owns its fan); CHANGED appends per-file --mutate flags.
+    scoped = _scoped_mutation(stryker, TestParams(mutation=MutationLane.CHANGED), settings, files)
+    _command_law(scoped, ("tool", "run", "dotnet-stryker", "--", "--mutate", "src/Foo.cs", "--mutate", "src/Bar.cs"))
+
+    # Falsification witnesses: the CHANGED transform is non-vacuous. A raw passthrough (no glob suffix), a
+    # dropped governor, or an un-suffixed stryker arg must each make _command_law raise — so a mutant that
+    # skips the splice/glob cannot survive behind a tautological "argv == argv" restatement.
+    refutes(changed, _command_law, ("mutmut", "src/a.py", "src/b.py"))  # passthrough: no governor, no module-name glob
+    refutes(changed, _command_law, ("mutmut", "--max-children", "2", "src/a.py*", "src/b.py*"))  # path-shaped glob: matches zero mutant NAMES
+    refutes(full, _command_law, ("mutmut",))  # governor dropped
+    refutes(scoped, _command_law, ("tool", "run", "dotnet-stryker", "--", "src/Foo.cs", "src/Bar.cs"))  # --mutate flag dropped
 
 
 # --- [LAWS_CHECKS]
 
 
-def test_checks_splice_arms(monkeypatch: pytest.MonkeyPatch) -> None:
-    """_checks: DOTNET RUN-mode tools get filter flags spliced; UV runners and MUTATION rows do not; None rows drop."""
+def test_checks_splice_arms(assay_root: AssayHarness, monkeypatch: pytest.MonkeyPatch) -> None:
+    """_checks: DOTNET RUN-mode tools get filter flags spliced; UV runners and MUTATION rows do not; unscoped CHANGED rows drop."""
+    settings = assay_root.settings.model_copy(update={"mutation_max_cpu": 2})
     dotnet = Tool(
         name="dotnet-test", runner=Runner.DOTNET, command=("test",), input=Input.PROJECT, language=Language.CSHARP, claim=Claim.TEST, mode=Mode.RUN
     )
 
     monkeypatch.setattr(test_rail, "_rows", lambda *_a, **_k: (dotnet,))
     csharp_routed = Routed(language=Language.CSHARP, scope=Scope.CHANGED, files=())
-    spliced = _checks(csharp_routed, TestParams(filter="test_something"), Mode.RUN)
+    spliced = _checks(csharp_routed, TestParams(filter="test_something"), settings, Mode.RUN)
     assert any("--filter-method" in c.tool.command for c in spliced)
 
+    # mutmut is a scoped runner: on the CHANGED lane it survives and carries the governor + per-file globs.
     mutmut = _mutation_tool()
     py_routed = Routed(language=_PY, scope=Scope.CHANGED, files=("src/a.py",))
     monkeypatch.setattr(test_rail, "_rows", lambda *_a, **_k: (mutmut,))
-    assert all(c.tool.name != "mutmut" for c in _checks(py_routed, TestParams(mutation=MutationLane.CHANGED), Mode.MUTATION))
+    changed_checks = _checks(py_routed, TestParams(mutation=MutationLane.CHANGED), settings, Mode.MUTATION)
+    assert [c.tool.command for c in changed_checks] == [("mutmut", "--max-children", "2", "src.a.*")]
 
+    # An unscoped MUTATION runner drops out of the CHANGED lane entirely.
+    monkeypatch.setattr(test_rail, "_rows", lambda *_a, **_k: (_mutation_tool("vitest-mut"),))
+    assert _checks(py_routed, TestParams(mutation=MutationLane.CHANGED), settings, Mode.MUTATION) == ()
+
+    monkeypatch.setattr(test_rail, "_rows", lambda *_a, **_k: (mutmut,))
     monkeypatch.setattr(test_rail, "_scoped_mutation", lambda t, *_a, **_k: t)
-    mut_checks = _checks(py_routed, TestParams(filter="MyTests"), Mode.MUTATION)
+    mut_checks = _checks(py_routed, TestParams(filter="MyTests"), settings, Mode.MUTATION)
     assert all("--filter-class" not in c.tool.command for c in mut_checks)
 
     monkeypatch.setattr(test_rail, "_rows", lambda *_a, **_k: (_tool("pytest", Mode.RUN, Runner.UV),))
-    uv_checks = _checks(py_routed, TestParams(filter="test_something"), Mode.RUN)
+    uv_checks = _checks(py_routed, TestParams(filter="test_something"), settings, Mode.RUN)
     assert len(uv_checks) == 1
     assert "--filter-method" not in uv_checks[0].tool.command
 
@@ -358,17 +395,22 @@ def test_checks_splice_arms(monkeypatch: pytest.MonkeyPatch) -> None:
 
 
 def test_unsupported_scope_arms(monkeypatch: pytest.MonkeyPatch) -> None:
-    """_unsupported_scope: CHANGED mutation→UNSUPPORTED receipt for unscoped runners; FULL/non-mutation→empty."""
-    mutmut = _mutation_tool()
+    """_unsupported_scope: CHANGED mutation→UNSUPPORTED receipt for unscoped runners; scoped mutmut/FULL/non-mutation→empty."""
+    unscoped = _mutation_tool("vitest-mut")
     routed = Routed(language=_PY, scope=Scope.CHANGED, files=("src/foo.py",))
-    monkeypatch.setattr(test_rail, "_rows", lambda *_a, **_k: (mutmut,))
+    monkeypatch.setattr(test_rail, "_rows", lambda *_a, **_k: (unscoped,))
 
     results = _unsupported_scope(routed, TestParams(mutation=MutationLane.CHANGED), Mode.MUTATION)
     assert len(results) == 1
     completed = assert_ok(results[0])
     assert completed.status is RailStatus.UNSUPPORTED
-    assert any("mutmut" in n for n in completed.notes)
+    assert any("vitest-mut" in n for n in completed.notes)
 
+    # A scoped runner (mutmut) is never unsupported on the CHANGED lane.
+    monkeypatch.setattr(test_rail, "_rows", lambda *_a, **_k: (_mutation_tool(),))
+    assert _unsupported_scope(routed, TestParams(mutation=MutationLane.CHANGED), Mode.MUTATION) == ()
+
+    monkeypatch.setattr(test_rail, "_rows", lambda *_a, **_k: (unscoped,))
     assert _unsupported_scope(routed, TestParams(mutation=MutationLane.FULL), Mode.MUTATION) == ()
     assert _unsupported_scope(routed, TestParams(mutation=MutationLane.CHANGED), Mode.RUN) == ()
 
@@ -389,6 +431,28 @@ def test_select_arms(assay_root: AssayHarness) -> None:
     assert _select(cs_routed, TestParams(target=target), settings).projects == (str(target),)
     unioned = _select(cs_routed, TestParams(all=True), settings).projects
     assert {str(settings.test_target), rasm} <= set(unioned)
+
+
+def test_select_default_arm_routed_closure_untouched(assay_root: AssayHarness) -> None:
+    """_select default arm (csharp routed, no --target, no --all) passes the routed closure through UNTOUCHED.
+
+    Route-owned discovery is the contract: settings.test_target must NOT appear in projects on the default
+    arm — it enters only via the --all union, a --target pin, or the Mode.LIST place() fallback already
+    law-pinned in test_routing. The synthetic new-owner csproj proves a future test package is dispatched
+    purely from routing with zero configuration.
+
+    Falsifiable by: the default arm splicing settings.test_target into projects (config-owned discovery
+    creeping back in) or returning a rebuilt Routed instead of the identical routed value.
+    """
+    settings = assay_root.settings
+    new_owner = "tests/csharp/apps/Future/Future.Tests.csproj"
+    routed = Routed(language=Language.CSHARP, scope=Scope.CHANGED, projects=(new_owner,))
+
+    selected = _select(routed, TestParams(), settings)
+
+    assert selected is routed, "default arm must pass the routed closure through identically"
+    assert selected.projects == (new_owner,)
+    assert str(settings.test_target) not in selected.projects, "test_target must not enter via the default arm"
 
 
 # --- [LAWS_DISPATCH]
@@ -540,6 +604,22 @@ def test_list_roster_artifact_written_to_scope(assay_root: AssayHarness, monkeyp
     _wire(monkeypatch, _ok(("pytest", "--collect-only"), b"tests/a.py::test_one\n"))
     report = assert_ok(test_rail.list(assay_root.settings, ArtifactScope.open(assay_root.settings, Claim.TEST), TestParams()))
     assert "test-roster" in {a.id for a in report.artifacts}
+
+
+def test_list_detail_selected_is_pre_limit_discovered_total(assay_root: AssayHarness, monkeypatch: pytest.MonkeyPatch) -> None:
+    """List carries detail.selected == the pre-limit discovered total, the structured surface independent of --limit.
+
+    The note tracks discovered-vs-roster-after-limit (what test.py truthfully knows); the registry result cap
+    owns the downstream clip. detail.selected is the agent-readable pre-limit total, so a `--limit` that trims
+    the roster (and a registry cap that later clips the wire rows) never hides how many tests were discovered.
+    Mutant caught: selected populated from the post-limit roster instead of the discovered set (the structured
+    total silently shrinks to the trimmed/clipped count).
+    """
+    _wire(monkeypatch, _ok(("pytest", "--collect-only"), b"tests/a.py::test_one\ntests/a.py::test_two\ntests/a.py::test_three\n"))
+    report = assert_ok(test_rail.list(assay_root.settings, ArtifactScope.open(assay_root.settings, Claim.TEST), TestParams(limit=1)))
+    assert isinstance(report.detail, TestRun)
+    assert report.detail.selected == 3, "detail.selected is the pre-limit discovered total, not the post-limit roster of 1"
+    assert report.counts.total == 1, "the wire roster is trimmed to --limit while detail.selected keeps the full discovered count"
 
 
 # --- [LAWS_RUN_VERB]

@@ -5,7 +5,8 @@ and POSIX flock lease runners. Entry points are run_check, run_check_async, and 
 for single and concurrent check dispatch; governed_concurrency folds CPU, DOTNET, and
 mutation ceilings into one concurrency limit. discover and discover_async serve
 read-only discovery commands outside the check lifecycle. exclusive_lease and leased
-provide the non-blocking POSIX lease protocol used by the quality gate bus.
+provide the non-blocking POSIX lease protocol used by the quality gate bus, and proc_dead
+is the shared dead-process verdict consumed by lease and commit-marker recovery.
 """
 
 from collections.abc import Callable
@@ -18,6 +19,7 @@ import os
 from pathlib import Path
 import shlex
 import shutil
+import signal
 import time
 from typing import Protocol, runtime_checkable, TYPE_CHECKING
 from urllib.parse import urlsplit
@@ -95,6 +97,10 @@ _FAULT_SNAPSHOT: str = "fault.resource_snapshot"
 _RING_SNAPSHOT: str = "assay.ring"
 _MEM_PRESSURE_PERCENT: float = 90.0
 _SSH_CONNECT_TIMEOUT: float = 15.0
+# Keepalive probes detect a wedged transport mid-run: 3 unanswered probes at 15s intervals tears the
+# connection down so the retry rail can re-establish it instead of hanging to the check deadline.
+_SSH_KEEPALIVE_INTERVAL_S: float = 15.0
+_SSH_KEEPALIVE_COUNT_MAX: int = 3
 _SSH_SIGNAL_STATUS: int = 255
 _DOTNET_PROBE_TIMEOUT_S: float = 15.0
 _DOTNET_SHARED_RUNTIME: tuple[str, str] = ("shared", "Microsoft.NETCore.App")
@@ -111,7 +117,7 @@ _STALL_CTX_RATE_HZ: float = 100.0  # involuntary context switches per second acr
 
 # ty cannot narrow this module to POSIX, so bind the POSIX-only members once to avoid repeated attribute ignores.
 _FLOCK, _LOCK_EX, _LOCK_NB, _LOCK_UN = fcntl.flock, fcntl.LOCK_EX, fcntl.LOCK_NB, fcntl.LOCK_UN  # ty: ignore[possibly-missing-attribute]
-
+_GETPGID, _KILLPG, _SIGKILL = os.getpgid, os.killpg, signal.SIGKILL  # ty: ignore[possibly-missing-attribute]
 
 # --- [MODELS] ---------------------------------------------------------------------------
 
@@ -177,17 +183,14 @@ _RESOURCE: ContextVar[tuple[tuple[str, float], ...]] = ContextVar("assay_resourc
 # Fan batches share one to_thread limiter so the governed cap binds the whole batch rather than each check separately.
 _FAN_LIMITER: ContextVar[anyio.CapacityLimiter | None] = ContextVar("assay_fan_limiter", default=None)
 
-
 # --- [SERVICES] -------------------------------------------------------------------------
 
 _LOG = structlog.get_logger("assay.engine")
 _TRACER = trace.get_tracer("assay.engine")
 
-
 # --- [TABLES] ---------------------------------------------------------------------------
 
 _DECODER: msgspec.json.Decoder[_LeaseOwner] = msgspec.json.Decoder(_LeaseOwner)
-
 
 # --- [OPERATIONS] -----------------------------------------------------------------------
 
@@ -211,9 +214,12 @@ def splice_command(
             return command
 
 
-def _overlay(settings: AssaySettings, scope: ArtifactScope | None) -> Mapping[str, str]:
+def _overlay(tool: Tool, settings: AssaySettings, scope: ArtifactScope | None) -> Mapping[str, str]:
+    # Row env layers on the host base so a catalog Tool can carry per-spawn config (e.g. mutmut's COVERAGE_RCFILE);
+    # scope dotnet_env is runtime-resolved and keeps precedence over the static row env.
     base: MutableMapping[str, str] = dict(os.environ)  # noqa: TID251  # clones the host environment at the spawn boundary
     base.update(settings.python_tool_env)
+    base.update(tool.env)
     match scope:
         case ArtifactScope() as s:
             return {**base, **s.dotnet_env}
@@ -247,7 +253,7 @@ async def discover_async(argv: tuple[str, ...], *, root: UPath | Path | str, lim
     """
     try:
         with anyio.fail_after(limit_s):
-            done = await anyio.run_process(list(argv), cwd=str(root), check=False)
+            done = await anyio.run_process(list(argv), cwd=str(root), check=False, start_new_session=True)
     except TimeoutError:
         return Error(Fault(argv, RailStatus.TIMEOUT, f"timeout after {limit_s:g}s"))
     except OSError as exc:
@@ -355,7 +361,8 @@ def _copy_stage_input(check: Check, root: Path, work: Path, rel: str) -> Fault |
 def _contained(root: Path, rel: str) -> Path | ValueError:
     text = rel.replace("\\", "/")
     parts = text.split("/")
-    match text.startswith("/") or text in {"", ".", ".."} or "\x00" in text or any(p in {"", ".", ".."} for p in parts):
+    # "", ".", ".." each split to a single self-part the per-part scan already rejects ("".split("/") == [""]); no standalone disjunct.
+    match text.startswith("/") or "\x00" in text or any(p in {"", ".", ".."} for p in parts):
         case True:
             return ValueError(f"unsafe stage path: {rel!r}")
         case False:
@@ -454,28 +461,47 @@ async def _reap(proc: Process, limiter: anyio.CapacityLimiter | None = None) -> 
         match proc.returncode:
             case None:
                 await to_thread.run_sync(_reap_tree, proc.pid, limiter=limiter)
-                proc.kill()
+                # Backstop for a reap-eluding child; the tree reap may already have consumed the
+                # exit via waitpid, so a ProcessLookupError here degrades through _safe_call.
+                _safe_call(proc.kill, None)
             case _:
                 pass
         await proc.wait()
 
 
-def _terminate_process_tree(tree: tuple[psutil.Process, ...]) -> None:
-    for proc in reversed(tree):
+def _terminate_process_tree(tree: tuple[psutil.Process, ...], pgid: int | None) -> None:
+    # SIGTERM-then-SIGKILL ladder; each phase emits one proc.reaped ledger line after its wait.
+    alive = _signal_phase(tree, pgid, signal.SIGTERM)
+    _ = _signal_phase(alive, pgid, _SIGKILL) if alive else ()
+
+
+def _signal_phase(procs: tuple[psutil.Process, ...], pgid: int | None, sig: signal.Signals) -> tuple[psutil.Process, ...]:
+    # killpg on the child's own group is authoritative: it reaches grandchildren that re-parent out of
+    # the psutil walk; the per-process loop is the fallback and double-covers in-tree stragglers.
+    # A vanished group (ProcessLookupError/PermissionError, both OSError) degrades through _safe_call.
+    _ = _safe_call(lambda: _KILLPG(pgid, sig), None) if pgid is not None else None
+    for proc in reversed(procs):
         if proc.is_running():
-            proc.terminate()
-    _, alive = psutil.wait_procs(tree, timeout=1.0)
-    for proc in alive:
-        if proc.is_running():
-            proc.kill()
-    if alive:
-        psutil.wait_procs(alive, timeout=1.0)
+            proc.send_signal(sig)
+    gone, alive = psutil.wait_procs(procs, timeout=1.0)
+    _LOG.info("proc.reaped", signal=sig.name, killed=len(gone), survived=len(alive))
+    return tuple(alive)
+
+
+def _child_pgid(pid: int) -> int | None:
+    # start_new_session=True makes every spawned child a session leader owning its own group; a pgid
+    # matching the engine's own group means killpg would take the engine down with the child.
+    try:
+        pgid = _GETPGID(pid)
+    except ProcessLookupError, PermissionError:
+        return None
+    return pgid if pgid != _GETPGID(0) else None
 
 
 def _reap_tree(pid: int) -> None:
     try:
         root = psutil.Process(pid)
-        _terminate_process_tree((root, *root.children(recursive=True)))
+        _terminate_process_tree((root, *root.children(recursive=True)), _child_pgid(pid))
     except psutil.Error, ValueError:
         return
 
@@ -528,9 +554,9 @@ async def _stall_monitor(pid: int, last_output: list[float], notes: list[str]) -
             case False:
                 pass
             case True:
-                first = await to_thread.run_sync(_stall_sample, pid)
+                first = await to_thread.run_sync(_stall_sample, pid, abandon_on_cancel=True)
                 await anyio.sleep(_STALL_SAMPLE_S)
-                second = await to_thread.run_sync(_stall_sample, pid)
+                second = await to_thread.run_sync(_stall_sample, pid, abandon_on_cancel=True)
                 silent_s = time.monotonic() - last_output[0]
                 verdict = _stall_verdict(first, second)
                 notes.append(f"proc.stall silent={silent_s:.0f}s {verdict}"[:256])
@@ -543,7 +569,7 @@ async def _run_process_backend(plan: _ExecPlan) -> Completed:
         case "":
             match plan.streaming:
                 case True:
-                    proc = await anyio.open_process(list(plan.argv), cwd=plan.cwd, env=plan.env)
+                    proc = await anyio.open_process(list(plan.argv), cwd=plan.cwd, env=plan.env, start_new_session=True)
                     try:
                         last_output, stall = [time.monotonic()], list[str]()
                         async with anyio.create_task_group() as tg:
@@ -566,10 +592,13 @@ async def _run_process_backend(plan: _ExecPlan) -> Completed:
                     finally:
                         await _reap(proc, plan.thread_limiter)
                 case False:
-                    done = await anyio.run_process(list(plan.argv), cwd=plan.cwd, env=plan.env, check=False)
+                    done = await anyio.run_process(list(plan.argv), cwd=plan.cwd, env=plan.env, check=False, start_new_session=True)
                     return receipt(plan.argv, done.returncode, stdout=done.stdout, stderr=done.stderr)
         case target:
-            return await _run_remote(replace(plan, env=plan.settings.remote_env(dict(plan.env))), target)
+            # Row env keys are a deliberate per-tool declaration: forward them across the SSH boundary explicitly
+            # while the allowlist keeps gating ambient host env the tool never declared.
+            row_env = frozenset(key for key, _ in plan.check.tool.env)
+            return await _run_remote(replace(plan, env=plan.settings.remote_env(dict(plan.env), forward=row_env)), target)
 
 
 def _stream_artifacts(scope: ArtifactScope | None, settings: AssaySettings, check: Check, streams: Mapping[str, Captured]) -> tuple[Artifact, ...]:
@@ -664,6 +693,8 @@ async def _connect_once(target: str, settings: AssaySettings) -> asyncssh.SSHCli
         known_hosts=settings.exec_known_hosts,
         connect_timeout=_SSH_CONNECT_TIMEOUT,
         login_timeout=_SSH_CONNECT_TIMEOUT,
+        keepalive_interval=_SSH_KEEPALIVE_INTERVAL_S,
+        keepalive_count_max=_SSH_KEEPALIVE_COUNT_MAX,
     )
 
 
@@ -721,7 +752,6 @@ def _snapshot() -> dict[str, float]:
             "mem.vms_bytes": _safe_call(lambda: float(info.vms), -1.0),
             "mem.uss_bytes": _safe_call(lambda: float(proc.memory_full_info().uss), -1.0),
             "mem.percent_rss": _safe_call(lambda: float(info.rss) * 100.0 / max(float(psutil.virtual_memory().total), 1.0), -1.0),
-            "cpu.percent": _safe_call(lambda: float(proc.cpu_percent()) if isinstance(proc.cpu_percent, _Nullary) else -1.0, -1.0),
             "proc.num_fds": _safe_call(lambda: float(proc.num_fds()), -1.0),  # ty: ignore[possibly-missing-attribute]  # POSIX-only probe
             "proc.num_threads": _safe_call(lambda: float(proc.num_threads()) if isinstance(proc.num_threads, _Nullary) else -1.0, -1.0),
         }
@@ -771,7 +801,8 @@ async def _guarded(
 ) -> Result[Completed, Fault]:
     import asyncssh  # noqa: PLC0415  # lazy: must bind before the try frame whose except evaluates asyncssh.Error (not an OSError subclass)
 
-    match _materialize(check, settings):
+    # Staging rmtree/copytree are filesystem-bound; the thread hop keeps them off the event loop.
+    match await to_thread.run_sync(_materialize, check, settings):
         case Result(tag="ok", ok=prepared):
             check = prepared
         case Result(error=fault):
@@ -787,7 +818,7 @@ async def _guarded(
     try:
         cwd = str(UPath(check.cwd or settings.local_root).path)
         # The probe behind _apphost is sync + cached; the thread hop keeps the first `dotnet --list-runtimes` off the loop.
-        env = await to_thread.run_sync(_apphost, check.tool, _overlay(settings, scope))
+        env = await to_thread.run_sync(_apphost, check.tool, _overlay(check.tool, settings, scope), abandon_on_cancel=True)
         propagate.inject(env)
         trace.get_current_span().set_attribute("exec.target", settings.exec_target)
         done = await _execute_retrying(
@@ -828,7 +859,10 @@ async def _execute_retrying(  # noqa: PLR0913  # all params are load-bearing acr
 ) -> Completed:
     # list[int] cell carries attempt count across stamina's re-raise boundary for fault stamping in _guarded.
     done: Completed | None = None
-    async for attempt in stamina.retry_context(on=retry_predicate(check, deadline), attempts=3, timeout=_retry_timeout(deadline)):
+    # with_name attributes retry telemetry (stamina's auto-active StructlogOnRetryHook) to the tool
+    # instead of the anonymous "<context block>".
+    retrying = stamina.retry_context(on=retry_predicate(check, deadline), attempts=3, timeout=_retry_timeout(deadline))
+    async for attempt in retrying.with_name(check.tool.name, (), {}):
         attempts[0] = attempt.num
         with attempt:
             with anyio.fail_after(_remaining(deadline)):
@@ -1083,6 +1117,24 @@ def governed_concurrency(settings: AssaySettings, checks: tuple[Check, ...] = ()
 # --- [COMPOSITION] ----------------------------------------------------------------------
 
 
+def proc_dead(pid: int) -> bool:
+    """Decide whether a pid no longer denotes a live owning process.
+
+    Returns:
+        True when the pid is gone, corrupt (non-positive), or in a dead/zombie status — both can
+        never release a resource they hold; False while the OS still runs (or owns) the process,
+        where ``AccessDenied`` defers the verdict to ``pid_exists``.
+    """
+    try:
+        return psutil.Process(pid).status() in _DEAD_STATUSES
+    except psutil.NoSuchProcess, ValueError:
+        # ValueError covers psutil.Process(pid<=0) from a corrupt marker or owner block; treat as dead.
+        return True
+    except psutil.AccessDenied:
+        # AccessDenied means the OS still owns the pid; defer to pid_exists rather than declaring death.
+        return not psutil.pid_exists(pid)
+
+
 def is_lease_stale(owner: _LeaseOwner, tolerance: float) -> bool:
     """Decide whether a lease holder is dead, zombie, or PID-reused and therefore stealable.
 
@@ -1281,6 +1333,7 @@ __all__ = [
     "governed_concurrency",
     "is_lease_stale",
     "leased",
+    "proc_dead",
     "remote_command",
     "retry_predicate",
     "run_check",

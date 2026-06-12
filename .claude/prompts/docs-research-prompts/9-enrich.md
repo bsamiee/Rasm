@@ -4,7 +4,7 @@
 - `<DOCTRINE>` =
 - `<WORKSPACE>` =
 
-`<TARGET>` exists with its structure and cards in place and no fenced code. This work runs full refinement passes — two expected, a third earned only by material defects the second still found — each carrying every consideration at once: coverage gaps, card consolidation, and prose density. A pass sees the whole reservoir and the whole page; refinement is never sliced by lane.
+`<TARGET>` exists with its structure and cards in place and no fenced code. Run full refinement passes — two expected, a third earned only by material defects the second still found — each carrying every consideration at once: coverage gaps, card consolidation, and prose density. A pass sees the whole reservoir and the whole page; refinement is never sliced by lane.
 
 [GROUNDING]:
 - Every pass agent fully reads `<DOCTRINE>`, then `docs/standards/style-guide.md`, `docs/standards/information-structure.md`, and `docs/standards/formatting.md`, before any other work: the laws, the collapse scan, the page craft, and the prose, container, and rendering standards.
@@ -30,5 +30,3 @@
 
 [GRADE]:
 - Grade against the page ladder in `_grading.md` at the reports root: the minimum across signal, coverage, card power, structure, and doctrine fit clears the stage bar, automatic fails override any score, and the drift checks apply. Rework until every axis clears.
-
-[COMMIT]: stage and commit `<TARGET>`.

@@ -1,41 +1,39 @@
 # [DOCUMENTATION_STANDARDS]
 
-This folder is the active standards library and router for documentation. Start here to classify the reader need, pick the document type, and route each rule to its owner. This index is the root route map for the library. Standards link back only at boundaries or when a neighboring rule changes author action.
+This folder is the active standards library and router for durable documentation. Use it to classify the reader need, pick one document type, and route each rule to its owner.
 
 ## [1]-[USE_WHEN]
 
 Use this index when:
 - creating or rewriting Markdown documentation
-- deciding which reader need a draft serves and which document type fits
-- deciding which standard owns a rule
+- deciding which reader need a draft serves
+- choosing the document type
 - splitting, merging, moving, or deleting a document
-- checking whether a standard is active
+- locating the standard that owns a rule.
 
-## [2]-[AUTHORITY_EVIDENCE]
-
-Separate rule authority from claim evidence.
+## [2]-[AUTHORITY]
 
 [RULE_AUTHORITY]:
 - Active instruction files control work order and local constraints.
 - This README controls reader need, document-type choice, corpus placement, split/link rules, and lifecycle routing.
-- Shared standards control form, craft, evidence, and notation.
-- Type standards control artifact-specific structure, status vocabulary, local proof slots, and examples.
+- Shared standards control form, craft, claim discipline, and notation.
+- Type standards control artifact-specific structure, status vocabulary, local fields, and examples.
 
-[CLAIM_EVIDENCE]:
-- [proof.md](proof.md) controls evidence strength, freshness, conflict handling, proof gaps, and docs-as-code gates.
-- Current repository source, manifests, generated contracts, and runnable tool output prove present-tense repository claims.
-- The active repository instruction route applies only when the change involves cross-stack owner precedence, implementation proof, host-library routing, or command/tooling claims outside this standards corpus.
-- Maintained upstream, product, provider, or specification sources apply only where the owning standard requires them.
+[CLAIM_CONFIDENCE]:
+- `proof.md` controls claim discipline, artifact confidence, gaps, generated artifacts, and preservation.
+- Current repository material, manifests, generated contracts, and local tool output decide present-tense repository claims.
+- Active repository instructions apply when the change involves cross-stack owner precedence, implementation confirmation, host-library routing, or command/tooling claims outside this standards corpus.
 
-Current repository truth proves current facts; it does not weaken future-facing standards.
+Current repository state is input. Future-facing standards target the stronger rule, not current drift.
 
 ## [3]-[READ_ORDER]
 
-Read order is workflow order; owner routing and claim evidence still decide conflicts.
+Read order is workflow order; owner routing still decides conflicts.
 
-1. Use the reader-need matrix and type chooser below to pick one primary document type when the artifact serves a reader-need document type.
-2. For document-type standards, apply the page-anatomy and opening-contract rules in [information-structure.md](information-structure.md), then apply the chosen type standard.
-3. Apply the 4 shared standards: form, craft, evidence, and notation.
+1. Use the reader-need matrix and type chooser to pick one primary document type.
+2. Apply page-anatomy and opening-contract rules in [information-structure.md](information-structure.md).
+3. Apply the chosen type standard.
+4. Apply the shared standards: form, craft, claim discipline, and notation.
 
 [NON_TYPE_ROUTES]:
 
@@ -43,35 +41,33 @@ Read order is workflow order; owner routing and claim evidence still decide conf
 | :-----: | :------------------------------- | :------------------------------------------------------------------- |
 |   [1]   | mirrors, indexes, retrieval, MCP | [proof](proof.md), [information-structure](information-structure.md) |
 |   [2]   | structured output and checks     | [proof](proof.md)                                                    |
-|   [3]   | proof fields and gates           | [proof.md](proof.md)                                                 |
-|   [4]   | containers and examples          | [information-structure.md](information-structure.md)                 |
+|   [3]   | confidence fields and gaps       | [proof](proof.md)                                                    |
+|   [4]   | containers and examples          | [information-structure](information-structure.md)                    |
 
 ## [4]-[READER_NEED_MAP]
 
 Classify a document by the reader action:
 
-| [INDEX] | [PRIMARY_AXIS] | [SECOND_AXIS] | [DOCUMENT_FAMILY] | [USE]                                                   |
-| :-----: | :------------- | :------------ | :---------------- | :------------------------------------------------------ |
-|   [1]   | action         | learning      | Tutorial          | teach a tested path                                     |
-|   [2]   | action         | work          | How-to            | complete one real task                                  |
-|   [3]   | cognition      | work          | Reference         | look up accurate facts                                  |
-|   [4]   | cognition      | learning      | Explanation       | understand context, trade-offs, structure, or decisions |
+| [INDEX] | [PRIMARY_AXIS] | [SECOND_AXIS] | [DOCUMENT_FAMILY] | [USE]                            |
+| :-----: | :------------- | :------------ | :---------------- | :------------------------------- |
+|   [1]   | action         | learning      | Tutorial          | teach a tested path              |
+|   [2]   | action         | work          | How-to            | complete one real task           |
+|   [3]   | cognition      | work          | Reference         | look up accurate facts           |
+|   [4]   | cognition      | learning      | Explanation       | understand structure or decision |
 
 Publish only documents that answer a real reader need. If no quadrant fits cleanly, reduce the scope until one reader outcome is primary.
 
 ## [5]-[CHOOSE_TYPE]
 
-Map the reader need to the artifact. Route-away cells name the standards that should receive adjacent content instead.
-
 | [INDEX] | [NEED]                  | [TYPE]                                        | [ROUTE_AWAY]                                          |
 | :-----: | :---------------------- | :-------------------------------------------- | :---------------------------------------------------- |
-|   [1]   | current structure       | [architecture](explanation/architecture.md)   | [ADR](explanation/adr.md), task routes                |
-|   [2]   | durable decision        | [ADR](explanation/adr.md)                     | [design](explanation/design-doc.md), architecture     |
+|   [1]   | current structure       | [architecture](explanation/architecture.md)   | [ADR](explanation/adr.md), roadmap, design            |
+|   [2]   | durable decision        | [ADR](explanation/adr.md)                     | design, architecture                                  |
 |   [3]   | proposal review         | [design](explanation/design-doc.md)           | [ADR](explanation/adr.md), architecture               |
-|   [4]   | task sequence and proof | [roadmap](explanation/roadmap.md)             | release route, [support](reference/support-matrix.md) |
+|   [4]   | target sequence         | [roadmap](explanation/roadmap.md)             | release route, [support](reference/support-matrix.md) |
 |   [5]   | gate policy             | [test strategy](explanation/test-strategy.md) | [how-to](task/how-to.md), [runbook](task/runbook.md)  |
 |   [6]   | entrypoint or hub       | [README](reference/readme.md)                 | [reference](reference/reference.md), tutorial         |
-|   [7]   | lookup truth            | [reference](reference/reference.md)           | [how-to](task/how-to.md), tutorial                    |
+|   [7]   | lookup facts            | [reference](reference/reference.md)           | [how-to](task/how-to.md), tutorial                    |
 |   [8]   | callable API contract   | [API](reference/api.md)                       | symbol docs, [roadmap](explanation/roadmap.md)        |
 |   [9]   | public symbol semantics | [code docs](reference/code-documentation.md)  | endpoint catalogs, tutorial                           |
 |  [10]   | support comparison      | [support matrix](reference/support-matrix.md) | [roadmap](explanation/roadmap.md), migration route    |
@@ -83,39 +79,33 @@ Map the reader need to the artifact. Route-away cells name the standards that sh
 
 ## [6]-[SHARED_STANDARDS]
 
-Each cross-cutting rule routes to exactly one owner:
-
-| [INDEX] | [AXIS]   | [OWNER]                                              | [CONTROLS]                                |
-| :-----: | :------- | :--------------------------------------------------- | :---------------------------------------- |
-|   [1]   | form     | [information-structure.md](information-structure.md) | containers, diagrams, chunks, examples    |
-|   [2]   | craft    | [style-guide.md](style-guide.md)                     | prose, terms, links, accessibility        |
-|   [3]   | evidence | [proof.md](proof.md)                                 | proof, freshness, conflicts, preservation |
-|   [4]   | notation | [formatting.md](formatting.md)                       | markers, tables, whitespace, headings     |
-
-Audit root standards against form, craft, evidence, and notation only. If a finding does not fit those 4 axes, route it to the owning standard instead of creating a local audit category.
+| [INDEX] | [AXIS]           | [OWNER]                                              | [CONTROLS]                             |
+| :-----: | :--------------- | :--------------------------------------------------- | :------------------------------------- |
+|   [1]   | form             | [information-structure.md](information-structure.md) | containers, diagrams, chunks, examples |
+|   [2]   | craft            | [style-guide.md](style-guide.md)                     | prose, terms, links, accessibility     |
+|   [3]   | claim discipline | [proof.md](proof.md)                                 | confidence, gaps, generated artifacts  |
+|   [4]   | notation         | [formatting.md](formatting.md)                       | markers, tables, whitespace, headings  |
 
 [HYGIENE_ROUTES]:
-- Agent-usable docs: [information structure](information-structure.md) chooses the carrier; [style guide](style-guide.md) makes the rule direct.
-- Process narration, source-history prose, and non-load-bearing hedges: [style guide](style-guide.md) removes them.
-- Proof, source, provenance, and freshness fields: [proof](proof.md) owns evidence shape and proof gaps.
-- External-library implementation policy: route cross-stack precedence through [usage](../usage/README.md), and language-specific decisions through `stacks/<language>/`.
+- Agent-usable docs: [information-structure](information-structure.md) chooses the carrier; [style guide](style-guide.md) makes the rule direct.
+- Process narration, research-history prose, and non-load-bearing hedges: [style guide](style-guide.md) removes them.
+- Confidence fields, gaps, generated artifacts, and preservation: [proof](proof.md) owns the shape.
+- External-library implementation policy: route cross-stack precedence through [usage](../usage/README.md), and language-specific decisions through `docs/stacks/<language>/`.
 
 ## [7]-[PLACEMENT]
 
-Place documentation where the reader or tool first looks:
-
 | [INDEX] | [LOOKUP_TRIGGER]                           | [PLACE]               | [OWNER_ROUTE]                                       |
 | :-----: | :----------------------------------------- | :-------------------- | :-------------------------------------------------- |
-|   [1]   | Corpus-wide entry document                 | repository root       | root README or root instruction file                |
-|   [2]   | Package, product, tool, or subsystem truth | scope-local directory | local README, architecture, reference, or runbook   |
-|   [3]   | Shared cross-scope material                | `docs/`               | relevant docs route                                 |
-|   [4]   | Authoring standards                        | `docs/standards/`     | this standards library                              |
-|   [5]   | Public symbol rationale                    | source files          | code documentation standard                         |
-|   [6]   | Scope-local planning set                   | `<scope>/.planning/`  | roadmap, architecture, design spec, optional README |
+|   [1]   | corpus-wide entry document                 | repository root       | root README or root instruction file                |
+|   [2]   | package, product, tool, or subsystem truth | scope-local directory | local README, architecture, reference, or runbook   |
+|   [3]   | shared cross-scope material                | `docs/`               | relevant docs route                                 |
+|   [4]   | authoring standards                        | `docs/standards/`     | this standards library                              |
+|   [5]   | public symbol rationale                    | source files          | code documentation standard                         |
+|   [6]   | scope-local target set                     | `<scope>/.planning/`  | roadmap, architecture, design spec, optional README |
 
 Prefer one owner for a claim. Link across owners instead of copying the same claim into multiple pages.
 
-Use `.planning/` as a flat scope-local planning container when roadmap, planning architecture, and `SPEC.<slug>.md` files need to live together without turning the scope README into a planning surface. A `.planning/README.md` appears only when 2 or more planning files need routing.
+Use `.planning/` as a flat scope-local target container only when roadmap, target architecture, and `SPEC.<slug>.md` files need to live together without turning the scope README into a target-sequence surface.
 
 ## [8]-[SPLIT_LINK]
 
@@ -123,28 +113,26 @@ When a draft serves more than one primary reader need, split it:
 
 | [INDEX] | [CONTENT_SMELL]                          | [REMOVE_FROM]           | [DESTINATION]    |
 | :-----: | :--------------------------------------- | :---------------------- | :--------------- |
-|   [1]   | Background in a procedure                | tutorial or how-to      | explanation      |
-|   [2]   | Catalog, option table, command inventory | how-to or explanation   | reference or API |
-|   [3]   | Step-by-step work in lookup facts        | reference               | how-to           |
-|   [4]   | Operational response                     | how-to                  | runbook          |
-|   [5]   | Durable decision rationale               | architecture            | ADR              |
-|   [6]   | Implementation sequence                  | architecture or README  | roadmap          |
-|   [7]   | Proposal review                          | roadmap or architecture | design doc       |
-|   [8]   | Contribution workflow                    | README                  | contributing     |
-|   [9]   | Scope-local planning routes              | README                  | `.planning/`     |
+|   [1]   | background in a procedure                | tutorial or how-to      | explanation      |
+|   [2]   | catalog, option table, command inventory | how-to or explanation   | reference or API |
+|   [3]   | step-by-step work in lookup facts        | reference               | how-to           |
+|   [4]   | operational response                     | how-to                  | runbook          |
+|   [5]   | durable decision rationale               | architecture            | ADR              |
+|   [6]   | implementation sequence                  | architecture or README  | roadmap          |
+|   [7]   | proposal review                          | roadmap or architecture | design doc       |
+|   [8]   | contribution workflow                    | README                  | contributing     |
+|   [9]   | scope-local target routes                | README                  | `.planning/`     |
 
-After splitting, add the smallest cross-link that changes reader action, proof, or maintenance. Do not leave a summary copy that can drift.
+After splitting, add the smallest cross-link that changes reader action or maintenance. Do not leave a summary copy that can drift.
 
 ## [9]-[LIFECYCLE]
 
-Maintain documentation with these rules:
 - Create the smallest useful document that answers the reader need.
-- Update docs in the same change that alters the controlling source they describe.
-- Delete or replace dead documentation when current proof shows it is wrong.
-- Add a drift condition for a drift-prone claim. Prefer an explicit stale marker over silent uncertainty when a claim cannot be verified during maintenance.
-- Preserve every load-bearing fact during replacement through the preservation rule in [proof.md](proof.md).
-
-Unless live product support and evidence justify them, do not preserve old paths, terminology, commands, or product claims as compatibility notes.
+- Update docs in the same change that alters the current behavior they describe.
+- Delete or replace dead documentation when it is wrong.
+- Add a refresh trigger for a claim that can drift.
+- Preserve every load-bearing fact during replacement through `proof.md`.
+- Do not preserve old paths, terminology, commands, or product claims as compatibility notes unless the document is a concrete support surface.
 
 ## [10]-[FOLDER_LAYOUT]
 
@@ -157,15 +145,13 @@ docs/standards/
 ├── README.md                  # this router
 ├── information-structure.md   # form
 ├── style-guide.md             # craft
-├── proof.md                   # evidence
+├── proof.md                   # claim discipline
 └── formatting.md              # notation
 ```
 
-Active standards are the files in this layout except folders explicitly marked deprecated by a trusted local instruction or route owner.
+Active standards are the files in this layout except folders explicitly marked retired by a trusted local instruction or route owner.
 
 ## [11]-[ANTI_PATTERNS]
-
-These anti-patterns fall into three groups:
 
 [TYPE_DRIFT]:
 - README files that carry design history, tutorials, or API catalogs.
@@ -173,59 +159,37 @@ These anti-patterns fall into three groups:
 - ADRs that include execution procedures instead of decision confirmation.
 - Tutorials that branch into production variants.
 - Reference leaves that hide procedures in dense tables.
-- Runbooks without an observable trigger, route, verification, or escalation.
+- Runbooks without an observable trigger, route, result check, or escalation.
 
 [SURFACE_DRIFT]:
 - Generated API documentation forked by hand-written endpoint or symbol tables.
 - Standards that mention task-prompt or session-process language, removed workflow names, or transient task labels instead of durable document behavior.
+- Durable docs that carry report leads, research trails, confirmation tails, external reference blocks, or origin-history narration.
 
 [MIXED_MODULE_FILES]:
 
-| [INDEX] | [CONTENT_KIND]                  | [DESTINATION]                                         |
-| :-----: | :------------------------------ | :---------------------------------------------------- |
-|   [1]   | current code structure          | [architecture](explanation/architecture.md)           |
-|   [2]   | callable contracts              | [API](reference/api.md)                               |
-|   [3]   | lookup facts                    | [reference](reference/reference.md)                   |
-|   [4]   | source-symbol semantics         | [code documentation](reference/code-documentation.md) |
-|   [5]   | future work and task exit proof | [roadmap](explanation/roadmap.md)                     |
-|   [6]   | failure response                | [runbook](task/runbook.md)                            |
-|   [7]   | contribution workflow           | [contributing](task/contributing.md)                  |
+| [INDEX] | [CONTENT_KIND]         | [DESTINATION]                                         |
+| :-----: | :--------------------- | :---------------------------------------------------- |
+|   [1]   | current code structure | [architecture](explanation/architecture.md)           |
+|   [2]   | callable contracts     | [API](reference/api.md)                               |
+|   [3]   | lookup facts           | [reference](reference/reference.md)                   |
+|   [4]   | symbol semantics       | [code documentation](reference/code-documentation.md) |
+|   [5]   | target sequence        | [roadmap](explanation/roadmap.md)                     |
+|   [6]   | failure response       | [runbook](task/runbook.md)                            |
+|   [7]   | contribution workflow  | [contributing](task/contributing.md)                  |
 
 ## [12]-[MAINTENANCE_RULES]
 
 - Keep this README a route map; put detailed rules in the owner standard.
 - Prefer restructuring, deletion, and route links over duplicated guidance.
-- Route adjacent document updates through the relation record in [information-structure.md](information-structure.md) only when the changed fact alters reader action, proof, or maintenance.
+- Route adjacent document updates through relation records only when the changed fact alters reader action or maintenance.
 - Use a table only when comparison or lookup is clearer than a list.
-- Remove a stale standard instead of keeping a legacy alias.
+- Remove stale standards instead of keeping legacy aliases.
 - Keep release history in the project's release mechanism, not in this index.
-- When project-bound docs feed reusable skills, prompts, templates, or standards, extract only the portable rule shape and replace local names, paths, package facts, commands, task IDs, and proof routes with neutral placeholders.
+- When project-bound docs feed reusable skills, prompts, templates, or standards, extract only the portable rule shape and replace local names, paths, package facts, commands, task IDs, and route details with neutral placeholders.
 
 ## [13]-[BOUNDARIES]
 
 - Shared standards carry cross-cutting rules; this README only routes readers to them.
 - Type standards carry artifact-specific structure; this README only chooses the primary type.
-- The active repository instruction route carries cross-stack implementation precedence and proof order outside the standards library.
-
-## [14]-[VALIDATION]
-
-Use this verification checklist by axis. Command, link, anchor, renderer, and docs-build gates are selected through [proof.md](proof.md); unrun gates are proof gaps.
-
-[FORM]:
-- [ ] The reader-need map and type chooser route to a single primary type.
-- [ ] Each type standard appears in exactly one family.
-- [ ] Mixed module content routes into the owning type standards.
-
-[CRAFT]:
-- [ ] This index routes readers instead of restating standard bodies.
-- [ ] Route labels and links name the owner a reader can act on.
-
-[EVIDENCE]:
-- [ ] Claim evidence and rule authority stay separate.
-- [ ] Cross-stack proof routes to the active repository instruction route only for its scoped cases.
-
-[NOTATION]:
-- [ ] Active standards are linked by current filename.
-- [ ] Shared-standard counts, route labels, and folder inventories use consistent notation.
-- [ ] Root-file audits use only the 4 shared axes.
-- [ ] Router targets are links when the path is an action route and code spans only when the literal path is the fact.
+- Active repository instructions carry cross-stack implementation precedence outside the standards library.

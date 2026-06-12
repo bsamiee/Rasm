@@ -225,9 +225,12 @@ public sealed record CargoReceipt(string ContentHash, double SwapMs, ScenarioEnt
 
 // Ownership: M3's one frozen-forever negotiation shape, both directions. Fingerprint/endpoint are
 // null in the supervisor->shell direction; Capabilities carries the shell's fail-open T2 tap facts
-// in the reply (04 hook 5). RpcVersion carries the StreamJsonRpc assembly version (05 OQ5).
+// in the reply (04 hook 5).
+// [SUPERSEDED — 10 §2 amendment 16] The RpcVersion member below is NOT built: the StreamJsonRpc
+// assembly version rides the reply's Capabilities[] as the fact row `rpc.streamjsonrpc`
+// (07 §2 pin 2 is the operative shape; the "(05 OQ5)" cite this section once carried is closed there).
 public sealed record Handshake(
-    int ContractVersion, string SenderVersion, string RpcVersion,
+    int ContractVersion, string SenderVersion, /* RpcVersion: superseded by amendment 16 */
     CapabilityEntry[] Capabilities, HostFingerprint? Fingerprint, EndpointRecord? Endpoint);
 
 // Ownership: MODAL_ARITY on the wire — selection discriminates by value shape (one union/collection

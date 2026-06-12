@@ -5,7 +5,7 @@ guard (exercised THROUGH public ``compose``/``checked_call``), the ``Slot`` mono
 ``assemble`` folds over, beartype shape validation surfaced as a ``Fault``, structlog key binding +
 finish-event emission, OTel span stamping, and the recent-events ring contextvar projection.
 
-The module-level ``register_law`` loop executes at import time; ``test_pytest_policy.py`` reads the
+The module-level ``register_law`` loop executes at import time; ``test_policy.py`` reads the
 law MANIFEST after collection but before tools/ tests execute, so every subject-to-law mapping must
 be registered before that policy check runs.
 """
@@ -28,8 +28,8 @@ from opentelemetry.sdk.trace.export.in_memory_span_exporter import (
 import pytest
 from structlog.contextvars import get_contextvars
 
-from tests.python._testkit._aspect import register_law  # `_`-prefixed by test-internal S1 design convention
-from tests.python._testkit._spec import assert_error, assert_ok, identity, support_matrix  # test-internal oracle catalog
+from tests.python._testkit.laws import register_law
+from tests.python._testkit.spec import assert_error, assert_ok, identity, support_matrix
 from tools.assay.core.aspect import (
     _RING,  # internal contextvar; ring_processor/ring_recent laws must seed it directly
     assemble,
@@ -53,7 +53,6 @@ from tools.assay.core.status import RailStatus
 
 _REPORT: Report = fold(Claim.STATIC, "probe", ())
 
-
 # --- [OPERATIONS] -----------------------------------------------------------------------
 
 
@@ -61,8 +60,16 @@ def _rail(_x: object) -> Result[Report, Fault]:
     return Ok(_REPORT)
 
 
+def _busy(_x: object) -> Result[Report, Fault]:
+    return Error(Fault((), RailStatus.BUSY, "lease busy"))
+
+
 def _faulting(_x: object) -> Result[Report, Fault]:
     return Error(Fault((), RailStatus.FAULTED, "boom"))
+
+
+def _raising(_x: object) -> Result[Report, Fault]:
+    raise RuntimeError("raised-through-rail")
 
 
 def _keys(_x: object) -> dict[str, object]:
@@ -241,6 +248,43 @@ def test_logged_emits_finish_event_per_rail(log_events: list[dict[str, object]])
     assert {e.get("log_level") for e in finishes} == {"info", "error"}
 
 
+def test_logged_finish_severity_gate_info_below_failed(log_events: list[dict[str, object]]) -> None:
+    """An Error rail whose Fault severity sits below FAILED (BUSY) finishes at info level with its own status.
+
+    Falsified by a ``logged`` that promotes every Error finish to the error channel — the severity gate is
+    what keeps lease-busy exits out of alert noise while still emitting exactly one finish record.
+    """
+    layer: Layer[[object], Report] = logged(event="rail", keys=_keys)
+    woven: Hom[[object], Report] = compose(layer)(_busy)
+
+    _ = assert_error(woven("x"))
+
+    finishes = tuple(e for e in log_events if e.get("event") == "rail.finish")
+    assert len(finishes) == 1
+    assert finishes[0].get("log_level") == "info"
+    assert finishes[0].get("status") is RailStatus.BUSY
+
+
+def test_logged_emits_faulted_finish_on_raised_then_reraises(log_events: list[dict[str, object]]) -> None:
+    """A raised exception bypasses the Result rail: ``logged`` emits one FAULTED ``<event>.finish`` then re-propagates.
+
+    The faulting Result arm (severity-gated info/error) is a returned value; a raised ``BaseException`` is a
+    distinct path that must still surface a finish record with exc traceback before re-raising. Kills any mutant
+    that swallows the raise or drops the FAULTED status/``exc_info``.
+    """
+    layer: Layer[[object], Report] = logged(event="rail", keys=_keys)
+    woven: Hom[[object], Report] = compose(layer)(_raising)
+
+    with pytest.raises(RuntimeError, match="raised-through-rail"):
+        _ = woven("x")
+
+    finishes = tuple(e for e in log_events if e.get("event") == "rail.finish")
+    assert len(finishes) == 1
+    assert finishes[0].get("log_level") == "error"
+    assert finishes[0].get("status") is RailStatus.FAULTED
+    assert finishes[0].get("exc_info") is True
+
+
 # --- [TRACED]
 
 
@@ -312,7 +356,6 @@ def test_ring_recent_empty_without_active_ring() -> None:
 
 # --- [COMPOSITION] ----------------------------------------------------------------------
 
-
 for _subject, _law in (
     (Slot, "test_slot_ordering_is_monotonic"),
     (compose, "test_compose_double_checked_equals_single"),
@@ -320,6 +363,8 @@ for _subject, _law in (
     (checked, "test_checked_is_checked_slot_layer"),
     (checked_call, "test_checked_call_is_idempotent_under_repeat"),
     (logged, "test_logged_binds_keys_during_call_clears_after"),
+    (logged, "test_logged_finish_severity_gate_info_below_failed"),
+    (logged, "test_logged_emits_faulted_finish_on_raised_then_reraises"),
     (traced, "test_traced_sync_records_one_span_with_status"),
     (ring_processor, "test_ring_processor_seeds_ring_and_passes_dict"),
     (ring_recent, "test_ring_recent_empty_without_active_ring"),

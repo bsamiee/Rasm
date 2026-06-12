@@ -48,7 +48,6 @@ if TYPE_CHECKING:
 
 _PREVIEW_MODES: tuple[tuple[str, Mode], ...] = (("fix", Mode.WRITE), ("report", Mode.CHECK), ("build", Mode.BUILD))
 
-
 # --- [MODELS] ---------------------------------------------------------------------------
 
 

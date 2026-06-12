@@ -1,6 +1,6 @@
 # [CLAUDE_MANIFEST]
 
-Operate as a senior developer in a bleeding-edge monorepo; use the newest viable current versions of languages, libraries, plugins, extensions, and add-ons after verifying tooling behavior from docs or local output.
+Operate as a senior developer in a bleeding-edge monorepo; use the newest viable current versions of languages, libraries, plugins, extensions, and add-ons after verifying tooling behavior from current docs or local output.
 
 [IMPORTANT]:
 - [ALWAYS] Treat monorepo code as polymorphic, agnostic, and universal by default.
@@ -26,10 +26,10 @@ If reviewing, refining, editing, creating, or modifying X file type, use skill Y
 ## [2]-[BEHAVIOR]
 
 [IMPORTANT]:
-- [ALWAYS] Use new sources when conducting research; freshness-sensitive sources [MUST] be within the last 3-4 months from current date unless stable official docs are the only primary source for a settled platform rule.
+- [ALWAYS] Use current technical material when conducting research; changing material [MUST] be within the last 3-4 months from current date unless stable official docs are the only primary route for a settled platform rule.
 - [ALWAYS] Tools over internal knowledge: read files, search codebase, verify assumptions.
 - [ALWAYS] Parallelize aggressively: run multiple searches, read several files, call independent tools concurrently.
-- [ALWAYS] Use bounded sub-agents for independent exploration, research, verification, and disjoint implementation when the user asks for sub-agents or parallel agent work; merge findings through current source proof and keep fixed agent counts, transcript order, and critique labels out of durable policy.
+- [ALWAYS] Use bounded sub-agents for independent exploration, research, verification, and disjoint implementation when the user asks for sub-agents or parallel agent work; merge findings through current code and tool output, and keep fixed agent counts, transcript order, and critique labels out of durable policy.
 - [ALWAYS] Reference symbols by name; avoid inline code blocks for context already shown.
 
 [CRITICAL]:
@@ -44,11 +44,11 @@ If reviewing, refining, editing, creating, or modifying X file type, use skill Y
 
 ## [3]-[DEPENDENCY_POLICY]
 
-[IMPORTANT]: **External-Lib-First**: approved dependencies are primary implementation surface.
+[IMPORTANT]: **External-Lib-First**: approved dependencies are primary implementation surfaces.
 - [ALWAYS] Treat dependencies declared in `pyproject.toml`, `pnpm-workspace.yaml`, `Directory.Packages.props`, and equivalent manifests as first-class libraries.
 - [ALWAYS] Integrate approved external libraries directly; use native APIs end-to-end.
 - [ALWAYS] Prefer ecosystem libraries that already own the domain concern over local reinvention.
-- [ALWAYS] Internalize manifest-admitted package capability into the canonical local owner before exposing commands, wrappers, facades, flags, provider selectors, or provider-branded public surfaces.
+- [ALWAYS] Internalize the full admitted package capability into the canonical local owner before exposing commands, wrappers, facades, flags, provider selectors, or provider-branded public surfaces.
 - [NEVER] Hand-roll functionality already provided by approved dependencies.
 - [NEVER] Prefer stdlib alternatives when approved external libraries already cover the requirement.
 - [NEVER] Create thin wrappers that rename or forward external APIs without adding domain value.
@@ -75,7 +75,7 @@ If reviewing, refining, editing, creating, or modifying X file type, use skill Y
 - [NEVER] Couple custom analyzer rules to project namespaces, paths, or one-off symbols. Rules describe semantic shapes and include positive and negative tests for valid compact code.
 - [NEVER] Treat ~350 LOC or any specific byte-count as a refactor trigger. The trigger is concept density: parallel types ≥3, sibling factories ≥3, repeated switch arms ≥3, single-call helpers ≥3.
 - [NEVER] Delete functionality to satisfy a "density" or "LOC" signal. Functionality is preserved in capability through denser polymorphic surfaces, not removed.
-- [NEVER] Replace algorithm-specific proof receipts with generic `IReceipt`, ledger, or reported-value abstractions.
+- [NEVER] Replace algorithm-specific typed receipts with generic `IReceipt`, ledger, or reported-value abstractions.
 
 [IMPORTANT]:
 - [ALWAYS] Collapse related variants into one polymorphic surface before adding new entrypoints.
@@ -94,52 +94,21 @@ If reviewing, refining, editing, creating, or modifying X file type, use skill Y
 - [ALWAYS] Use Markdown: headings for structure, bullets for lists, tables for comparisons.
 - [ALWAYS] Keep responses actionable; lead with what changed, not what you will do.
 
-### [5.1]-[DEPENDENCIES]
-
-[IMPORTANT] TypeScript dependency workflow:
+### [5.1]-[OWNER_ROUTING]
 
 [IMPORTANT]:
-1. [ALWAYS] **Check catalog**: `rg -n "my-dep" pnpm-workspace.yaml`.
-2. [ALWAYS] **Add to catalog** (if missing): `my-dep: 1.2.3` (exact version).
-3. [ALWAYS] **Reference**: `"dependencies": { "my-dep": "catalog:" }`.
-4. [ALWAYS] **Install**: `pnpm install`.
-5. [ALWAYS] **Validate**: `pnpm exec nx run-many -t typecheck`.
-
-[IMPORTANT] C# dependency workflow:
-1. [ALWAYS] **Check package truth**: `rg -n "<PackageId>" Directory.Packages.props Directory.Build.props **/*.csproj`.
-2. [ALWAYS] **Add version centrally** only when a project, tool, host route, or accepted owner route admits the package.
-3. [ALWAYS] **Keep project references versionless** under central package management.
-4. [ALWAYS] **Select the graph proof**: use `uv run python -m tools.assay static plan <changed-manifest>` when routing is uncertain. Run `uv run python -m tools.assay static full` only for source-wide C# semantic changes, analyzer rule changes, target framework changes, solution-wide build-prop changes, or release-grade proof requests. Docs-only and catalogue-only changes use text, path, table, and API lookup checks.
-
-[IMPORTANT] Python type/lint gate (`tools/assay` + `tests`):
-1. [ALWAYS] **Type (binding)**: `uv run ty check tools/assay tests` — `ty` (`all = "error"`) is the binding type gate.
-2. [ALWAYS] **Type (advisory)**: `uv run mypy` — `[tool.mypy] files` scopes the bare invocation to the two subtrees; divergences live in `[[tool.mypy.overrides]]`, never inline.
-3. [ALWAYS] **Lint/format**: `uv run ruff check tools/assay tests` and `uv run ruff format --check tools/assay tests`.
-
-### [5.2]-[QUALITY_GATES]
-
-Three orthogonal rails: static analysis, unit tests, runtime verification. Each tool verb owns one rail; never conflate.
-
-[CRITICAL]:
-1. [NEVER] Run static, test, or bridge rails for source-comment-only, docstring-only, XML-doc-only, TSDoc-only, divider-only, declaration-order, or move-only organization work unless the user explicitly requests a quality rail or preservation proof fails.
-
-[IMPORTANT]:
-1. [ALWAYS] **Static fix** — `uv run python -m tools.assay static fix [paths...]`. Run after executable C# source changes, analyzer remediation, or user-requested cleanup when safe autofix is desired. Routes changed files or explicit paths to owning projects and mutates under lease. Applies scoped `dotnet format whitespace`, `style`, and `analyzers` fixes. No build, no tests.
-2. [ALWAYS] **Static build** — `uv run python -m tools.assay static build [paths...]`. Run after semantic or compilable source changes. Routes changed files or explicit paths to owning project closure. Runs restore + build + MSBuild analyzers for compile proof. No formatting, no tests.
-3. [ALWAYS] **Static report** — `uv run python -m tools.assay static report [paths...]`. Runs the scoped `dotnet format` ladder as diagnostics only. Use before build when mutation is disallowed or autofix is not allowed.
-4. [ALWAYS] **Full static** — `uv run python -m tools.assay static full`. Runs the full build-shaped closure (restore + build + analyzers for Debug and Release). Use for source-wide C# semantic changes, analyzer rule changes, target framework changes, solution-wide build-prop changes, or release-grade proof requests. Docs-only, catalogue-only, report-only, and lockfile-only restore updates use narrower text, path, table, API, restore, or package-list checks unless compiler proof is the requested deliverable.
-5. [ALWAYS] **Unit tests** — `uv run python -m tools.assay test run [paths...]`. Runs .NET 10 MTP against the library tests target (`tests/csharp/libs/Rasm/Rasm.Tests.csproj` by default; override via `--target <csproj>` or use `--all`; narrow via `--filter`). Mutation is explicit via `--mutation changed|full`; default test runs are unit-only.
-6. [ALWAYS] **Metadata/API lookup** — `uv run python -m tools.assay api doctor|resolve|query|show`. Use before relying on RhinoWIP, GH2, Eto, or central package APIs.
-7. [ALWAYS] **Rhino runtime verification** — `uv run python -m tools.assay bridge verify --pattern <path-or-glob>`. Routes scenarios through the in-process bridge against running `RhinoWIP.app`. Outputs JSON evidence and PNG captures under the per-run scope in `.artifacts/assay/`. See the `testing-cs` skill.
-8. [ALWAYS] **Trust the analyzer**: 80+ CSP descriptors (`tools/cs-analyzer/Kernel/RuleCatalog.cs`) enforce coding-csharp standards. When CSP#### fires, fix the architecture; do not suppress.
-9. [NEVER] Re-introduce a `test` mode into the static rail. Tests are a separate gate.
+- [ALWAYS] Dependency graph facts live in manifests, package-manager configuration, lockfiles, project files, and the tool owner that consumes them.
+- [ALWAYS] Quality routes are selected by the owning language/tool surface for the changed files. Root policy owns intent, not command catalogs.
+- [ALWAYS] Static analysis, tests, runtime scenarios, metadata lookup, formatting, restore, and generated-contract checks stay orthogonal. Do not conflate one rail with another or hardcode one suite as universal.
+- [ALWAYS] For docs-only, catalogue-only, read-only, declaration-order, move-only, source-comment-only, docstring-only, XML-doc-only, and TSDoc-only work, use text, path, table, link, owner, and preservation checks unless the user requests an executable quality rail.
+- [NEVER] Add package versions, tool commands, hardcoded project targets, or suite paths to root policy when a manifest, README, repo tool, or language owner carries the exact command.
 
 ### [5.3]-[PLAN_DISCIPLINE]
 
 [IMPORTANT]:
-- [ALWAYS] Plans are documents, not narratives. Code change must be explicit, real, and validated to pass all quality checks per language tooling.
-- [ALWAYS] Structure: Context (1 sentence on why), Critical files (paths + line numbers), Approach (3-5 bullets), Code Change (true to implementaiton code block).
-- [NEVER] Include "Phase 1...Phase N" workflow narration, alternatives considered, or implementation prose. The plan is the blueprint, not a journal.
+- [ALWAYS] Plans are decision-complete blueprints, not narratives. Code change must be explicit, real, and routed to the owning quality policy.
+- [ALWAYS] Structure: Context, critical files, implementation approach, acceptance signals, and explicit assumptions only when they change execution.
+- [NEVER] Include "Phase 1...Phase N" workflow narration, alternatives considered, checklist tails, command catalogs, or boilerplate closure. The plan is the blueprint, not a journal.
 
 ### [5.4]-[SURFACE_PREFERENCE]
 

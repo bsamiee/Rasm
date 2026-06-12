@@ -14,11 +14,12 @@ from hypothesis import given, HealthCheck, settings, strategies as st
 import msgspec
 import pytest
 
-from tests.python._testkit._aspect import register_law
-from tests.python._testkit._spec import assert_error, assert_error_status, assert_ok, support_matrix, validity_matrix, ValidityCase
-from tests.python._testkit._strategies import resolve
-from tests.python.tools.assay.conftest import AssayHarness  # noqa: TC001
-from tools.assay.core.model import Claim, Completed, Fault, fold
+from tests.python._testkit.laws import register_law
+from tests.python._testkit.spec import assert_error, assert_error_status, assert_ok, support_matrix, validity_matrix, ValidityCase
+from tests.python._testkit.strategies import resolve
+from tests.python.tools.assay.kit import AssayHarness  # noqa: TC001
+from tools.assay.core.model import Check, Claim, Completed, Fault, fold, Language, Mode  # noqa: TC001  # Check annotates a local captured list
+from tools.assay.core.routing import Routed, Scope
 from tools.assay.core.status import RailStatus
 from tools.assay.rails import docs as docs_rail
 from tools.assay.rails.docs import check, DocsParams, FaultedPromotion
@@ -29,7 +30,6 @@ from tools.assay.rails.docs import check, DocsParams, FaultedPromotion
 _EMPTY_REPORT = fold(Claim.DOCS, "check", ())
 _FAILED_REPORT = fold(Claim.DOCS, "check", (Completed(("mmdc",), 1, status=RailStatus.FAILED),))
 _OK_REPORT = fold(Claim.DOCS, "check", (Completed(("mmdc",), 0, status=RailStatus.OK),))
-
 
 # --- [LAW_COVERAGE]
 
@@ -54,7 +54,16 @@ register_law(check, "check_failed_receipt_yields_failed_report")
 register_law(check, "check_claim_is_docs")
 register_law(check, "check_strict_flag_propagated")
 register_law(check, "check_multi_fault_first_fault_wins")
+register_law(check, "check_verb_is_check")
+register_law(check, "check_mode_threaded_selects_mmdc")
+register_law(check, "check_routing_settings_threaded_to_root")
+register_law(check, "check_fan_out_receives_real_dependencies")
 
+register_law(docs_rail._outcomes, "outcomes_per_file_argv_shape")
+register_law(docs_rail._outcomes, "outcomes_verb_stamped_into_report")
+register_law(docs_rail._outcomes, "outcomes_fan_out_receives_real_dependencies")
+register_law(docs_rail._outcomes, "outcomes_folds_result_rows_and_artifacts")
+register_law(docs_rail._outcomes, "outcomes_empty_fold_promotes_to_ok")
 
 # --- [LAWS_DOCSPARAMS]
 
@@ -233,3 +242,176 @@ def test_check_multi_fault_first_fault_wins(assay_root: AssayHarness, monkeypatc
     result = check(assay_root.settings, assay_root.scope(Claim.DOCS), DocsParams(paths=("a.md",)))
     err = assert_error(result)
     assert err is f1
+
+
+def test_check_verb_is_check(assay_root: AssayHarness, monkeypatch: pytest.MonkeyPatch) -> None:
+    """Check stamps the literal verb "check" into Report.verb across _thin_rail and the fold.
+
+    Kills the `verb=None`, `verb="XXcheckXX"`, and `verb="CHECK"` mutations at the check boundary
+    (and the threaded `_outcomes(verb=None)`): each changes the exact Report.verb token, which the
+    happy-path fold here surfaces and this asserts to be the byte-exact "check".
+    """
+    monkeypatch.setattr(docs_rail, "fan_out", lambda *_a, **_k: (Ok(Completed(("mmdc",), 0, status=RailStatus.OK)),))
+
+    result = check(assay_root.settings, assay_root.scope(Claim.DOCS), DocsParams(paths=("README.md",)))
+    report = assert_ok(result)
+    assert report.verb == "check", "verb literal is lowercase 'check', not None, 'CHECK', or a marker string"
+
+
+def test_check_mode_threaded_selects_mmdc(assay_root: AssayHarness, monkeypatch: pytest.MonkeyPatch) -> None:
+    """Check threads Mode.CHECK so the `t.mode is mode` filter admits the mmdc tool for a routed file.
+
+    Kills `mode=None` (at check and at the threaded `_outcomes(mode=None)`): with the real mode the
+    select-filter yields exactly one mmdc Check for one routed file; with mode=None the filter
+    rejects every tool, fan_out sees zero checks, and the captured count collapses to zero.
+    """
+    captured: list[Check] = []
+    monkeypatch.setattr(docs_rail, "fan_out", lambda checks, **_k: captured.extend(checks) or (Ok(Completed(("mmdc",), 0, status=RailStatus.OK)),))
+    src = assay_root.write("docs/diagram.md", "# d")
+    assert src.exists()
+
+    check(assay_root.settings, assay_root.scope(Claim.DOCS), DocsParams(paths=("docs/diagram.md",)))
+    assert len(captured) == 1, "Mode.CHECK admits the single mmdc tool; mode=None would admit none"
+    assert captured[0].tool.command[0] == "mmdc"
+
+
+def test_check_routing_settings_threaded_to_root(assay_root: AssayHarness, monkeypatch: pytest.MonkeyPatch) -> None:
+    """Check threads settings into route so enumeration resolves paths under settings.root, not cwd.
+
+    Kills `route(..., settings=None)` / dropped-settings: the harness writes a real .md under its
+    isolated root, so correct settings enumerate one file into one Check; settings=None roots the
+    LocalSource at the process cwd where the file is absent, routing zero files and zero checks.
+    """
+    captured: list[Check] = []
+    monkeypatch.setattr(docs_rail, "fan_out", lambda checks, **_k: captured.extend(checks) or (Ok(Completed(("mmdc",), 0, status=RailStatus.OK)),))
+    assay_root.write("docs/only-here.md", "# here")
+
+    check(assay_root.settings, assay_root.scope(Claim.DOCS), DocsParams(paths=("docs/only-here.md",)))
+    assert len(captured) == 1, "settings.root routing finds the harness-local file; cwd routing finds nothing"
+    cmd = captured[0].tool.command
+    assert cmd[cmd.index("-i") + 1] == "docs/only-here.md", "the routed file is the -i input of the single Check"
+
+
+def test_check_fan_out_receives_real_dependencies(assay_root: AssayHarness, monkeypatch: pytest.MonkeyPatch) -> None:
+    """Check threads the live settings and scope down to fan_out through _thin_rail and _outcomes.
+
+    Kills `_thin_rail(None, scope, ...)` and the threaded `_outcomes(settings=None)`: the captured
+    fan_out kwargs must carry the exact harness settings and scope; a nulled settings argument would
+    surface as `seen["settings"] is None`.
+    """
+    seen: dict[str, object] = {}
+    receipt = (Ok(Completed(("mmdc",), 0, status=RailStatus.OK)),)
+    monkeypatch.setattr(docs_rail, "fan_out", lambda checks, **kw: (seen.update(checks=checks, **kw), receipt)[1])
+    assay_root.write("docs/dep.md", "# dep")
+    scope = assay_root.scope(Claim.DOCS)
+
+    check(assay_root.settings, scope, DocsParams(paths=("docs/dep.md",)))
+    assert seen["settings"] is assay_root.settings, "fan_out receives the settings threaded through check, not None"
+    assert seen["scope"] is scope, "fan_out receives the scope threaded through check, not None"
+
+
+# --- [LAWS_OUTCOMES]
+
+
+def test_outcomes_per_file_argv_shape(assay_root: AssayHarness, monkeypatch: pytest.MonkeyPatch) -> None:
+    """_outcomes builds one mmdc Check per file with -i/-a/-o and a collision-free slugged sink stem.
+
+    The argv must end in the -o markdown sink (Input.OWNED contributes only an empty tail, so the raw
+    input file never re-appends as a bare positional). The -a artefacts path and -o sink both ride the
+    per-run scope path; the sink stem is the slugged full relative path (parts joined by `__`), so two
+    same-basename files never share a sink, and -o ends in <slug>.md.
+    """
+    captured: list[Check] = []
+    monkeypatch.setattr(docs_rail, "fan_out", lambda checks, **_k: captured.extend(checks) or ())
+
+    scope = assay_root.scope(Claim.DOCS)
+    routed = Routed(language=Language.DOCS, scope=Scope.CHANGED, files=("docs/a.md", "tools/assay/README.md"))
+    docs_rail._outcomes(routed, settings=assay_root.settings, scope=scope, claim=Claim.DOCS, verb="check", mode=Mode.CHECK)
+
+    assert len(captured) == 2, "one Check per routed file"
+    for chk, src, stem in zip(captured, routed.files, ("docs__a", "tools__assay__README"), strict=True):
+        cmd = chk.tool.command
+        assert cmd[0] == "mmdc"
+        assert cmd[-6:] == ("-i", src, "-a", scope.path, "-o", f"{scope.path}/{stem}.md")
+        assert cmd[-1].endswith(".md"), "argv terminates at the -o markdown sink, not a bare input positional"
+    assert docs_rail._sink_stem("a/README.md") != docs_rail._sink_stem("b/README.md"), "same-basename files slug to distinct sinks"
+
+
+def test_outcomes_folds_result_rows_and_artifacts(assay_root: AssayHarness, monkeypatch: pytest.MonkeyPatch) -> None:
+    """_outcomes folds one source:<file>:1 result row per routed file and Artifact rows for produced sink files.
+
+    A worked run must surface, in the envelope itself: (a) a per-file result row whose id is the
+    `source:<rel>:1` form and whose severity tracks the mmdc receipt's exit, and (b) Artifact rows for the
+    SVG/MD the run produced under the scope (so an agent reads paths from the envelope, never the scope shape).
+    """
+    assay_root.write("docs/diagram.md", "# d")
+    scope = assay_root.scope(Claim.DOCS)
+    scope.ensure()
+    stem = docs_rail._sink_stem("docs/diagram.md")
+    scope.store.write_bytes(b"<svg/>", *scope.path.removeprefix(f"{scope.store.root}/").split("/"), f"{stem}-1.svg")
+    scope.store.write_bytes(b"# out", *scope.path.removeprefix(f"{scope.store.root}/").split("/"), f"{stem}.md")
+    monkeypatch.setattr(docs_rail, "fan_out", lambda *_a, **_k: (Ok(Completed(("mmdc",), 0, status=RailStatus.OK)),))
+
+    routed = Routed(language=Language.DOCS, scope=Scope.CHANGED, files=("docs/diagram.md",))
+    report = assert_ok(docs_rail._outcomes(routed, settings=assay_root.settings, scope=scope, claim=Claim.DOCS, verb="check", mode=Mode.CHECK))
+
+    assert [m.id for m in report.results] == ["source:docs/diagram.md:1"], "one source:<file>:1 row per routed file"
+    assert report.results[0].severity is None, "an exit-0 mmdc receipt folds to a non-failed row"
+    artifact_names = {a.path.rsplit("/", 1)[-1] for a in report.artifacts}
+    assert {f"{stem}-1.svg", f"{stem}.md"} <= artifact_names, "produced SVG + MD ride the envelope as Artifact rows"
+
+
+def test_outcomes_empty_fold_promotes_to_ok(assay_root: AssayHarness, monkeypatch: pytest.MonkeyPatch) -> None:
+    """_outcomes promotes an EMPTY base fold to OK once result rows fold in, but FAILED receipts stay FAILED.
+
+    The mmdc receipt is rc 0 → EMPTY base status; the worked run carries result rows, so the report status
+    promotes to OK (an agent must see a green run, not an ambiguous EMPTY). A FAILED receipt keeps FAILED and
+    stamps the row severity, so a real render defect is never masked by the promotion.
+    """
+    assay_root.write("docs/ok.md", "# ok")
+    scope = assay_root.scope(Claim.DOCS)
+    monkeypatch.setattr(docs_rail, "fan_out", lambda *_a, **_k: (Ok(Completed(("mmdc",), 0, status=RailStatus.OK)),))
+    ok_routed = Routed(language=Language.DOCS, scope=Scope.CHANGED, files=("docs/ok.md",))
+    ok_report = assert_ok(docs_rail._outcomes(ok_routed, settings=assay_root.settings, scope=scope, claim=Claim.DOCS, verb="check", mode=Mode.CHECK))
+    assert ok_report.status is RailStatus.OK, "EMPTY base + result rows promotes to OK"
+
+    monkeypatch.setattr(docs_rail, "fan_out", lambda *_a, **_k: (Ok(Completed(("mmdc",), 1, status=RailStatus.FAILED)),))
+    bad_report = assert_ok(docs_rail._outcomes(ok_routed, settings=assay_root.settings, scope=scope, claim=Claim.DOCS, verb="check", mode=Mode.CHECK))
+    assert bad_report.status is RailStatus.FAILED, "a FAILED receipt is never promoted away"
+    assert bad_report.results[0].severity == "failed", "the FAILED receipt stamps the row severity"
+
+
+def test_outcomes_verb_stamped_into_report(assay_root: AssayHarness, monkeypatch: pytest.MonkeyPatch) -> None:
+    """_outcomes stamps the `verb` argument verbatim into Report.verb via the fold.
+
+    Kills `fold(claim, None, ...)`: dropping/nulling the verb argument changes the observable
+    Report.verb from the passed token to None (or to another literal), which this asserts exactly.
+    """
+    monkeypatch.setattr(docs_rail, "fan_out", lambda *_a, **_k: (Ok(Completed(("mmdc",), 0, status=RailStatus.OK)),))
+
+    routed = Routed(language=Language.DOCS, scope=Scope.CHANGED, files=("docs/a.md",))
+    result = docs_rail._outcomes(
+        routed, settings=assay_root.settings, scope=assay_root.scope(Claim.DOCS), claim=Claim.DOCS, verb="audit", mode=Mode.CHECK
+    )
+    report = assert_ok(result)
+    assert report.verb == "audit", "Report.verb is the verb argument, not a hardcoded or nulled value"
+
+
+def test_outcomes_fan_out_receives_real_dependencies(assay_root: AssayHarness, monkeypatch: pytest.MonkeyPatch) -> None:
+    """_outcomes forwards the live settings, scope, and routed objects into fan_out unchanged.
+
+    Kills the `fan_out(settings=None | scope=None | routed=None | dropped)` family: each nulled or
+    dropped keyword changes the kwargs fan_out actually receives, which this captures and asserts
+    by identity against the real dependency objects.
+    """
+    seen: dict[str, object] = {}
+    monkeypatch.setattr(docs_rail, "fan_out", lambda checks, **kw: (seen.update(checks=checks, **kw), ())[1])
+
+    scope = assay_root.scope(Claim.DOCS)
+    routed = Routed(language=Language.DOCS, scope=Scope.CHANGED, files=("docs/a.md",))
+    docs_rail._outcomes(routed, settings=assay_root.settings, scope=scope, claim=Claim.DOCS, verb="check", mode=Mode.CHECK)
+
+    assert seen["settings"] is assay_root.settings, "fan_out receives the live settings, not None"
+    assert seen["scope"] is scope, "fan_out receives the live scope, not None"
+    assert seen["routed"] is routed, "fan_out receives the live routed projection, not None"
+    assert set(seen) == {"checks", "settings", "scope", "routed"}, "no fan_out keyword is dropped"

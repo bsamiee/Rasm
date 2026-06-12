@@ -16,17 +16,21 @@ For declaration-order passes, preserve generated semantic/key bands; split group
 
 ## [3]-[TRUST_AND_PRESERVATION]
 
-Skills are execution aids and source material, not durable documentation authority. Mine them only as evidence, then verify and promote portable rules through `docs/`, source, manifests, generated contracts, tool owners, or trusted instruction overlays.
+Skills are execution aids and mining input, not durable documentation authority. Promote portable rules through `docs/`, source, manifests, generated contracts, tool owners, or trusted instruction overlays after current behavior is verified.
 
-Before finalizing non-trivial repository work, classify observed agent mistakes by owner: machine default, repo root policy, subtree overlay, source or documentation owner, tool README, or proof gap. Refine an existing rule first; add a new rule only for a repeated mistake or a single high-risk miss such as secret exposure, false source claims, wrong owner routing, destructive command risk, fake proof, or code-quality regression. Do not copy session narration, report frames, memory notes, or research summaries into active instructions.
+Before finalizing non-trivial repository work, classify observed agent mistakes by owner: machine default, repo root policy, subtree overlay, source or documentation owner, tool README, or confidence gap. Refine an existing rule first; add a new rule only for a repeated mistake or a single high-risk miss such as secret exposure, unsupported claims, wrong owner routing, destructive command risk, fake confirmation, or code-quality regression. Do not copy session narration, report frames, memory notes, or research summaries into active instructions.
 
 ## [5]-[ENGINEERING_CONTRACT]
 
-Extend the canonical owner before adding a rail, object, helper, wrapper, command, proof path, document body, or public surface; when the owner is local, use the nearest overlay, source file, standard, or tool README that owns the concern.
+Extend the canonical owner before adding a rail, object, helper, wrapper, command, confidence path, document body, or public surface; when the owner is local, use the nearest overlay, source file, standard, or tool README that owns the concern.
 
-Plans, documentation, and implementation target the newest objectively stronger language, platform, library, feature, tool, and architectural standard. Current source, manifests, pinned versions, older patterns, partial adoption, and compatibility surfaces are proof inputs and replacement targets, not baseline ceilings.
+Plans, documentation, and implementation target the newest objectively stronger language, platform, library, feature, tool, and architectural standard. Current source, manifests, pinned versions, older patterns, partial adoption, and compatibility surfaces are inputs and replacement targets, not baseline ceilings.
 
 Minimize shape count, not capability. Preserve behavior by deepening the canonical owner with cases, rows, folds, projections, typed receipts, scenarios, or boundary adapters; do not delete capability, split helper files, or add shallow sibling surfaces to make the system look simpler.
+
+All tooling, tests, docs, and libraries discover owners through manifests, configured roots, package graphs, and route maps. Current paths are inputs, never reusable doctrine.
+
+Library owners internalize the full admitted capability of their platform and route-owned packages behind focused surfaces. Limited entry count never means limited capability.
 
 Every repo tool must route generated storage, caches, benchmark output, mutation workdirs, coverage files, snapshots, and scratch artifacts through the owning language/tool configuration or the owning repo tool surface. Do not rely on ambient CLI defaults or gitignore-only tolerance for root litter; configure the tool in `pyproject.toml`, `Directory.Build.props`, tool manifests, test conftests, or the canonical tool engine so outputs land under `.cache`, `.artifacts`, or another owner-declared path.
 
@@ -41,3 +45,7 @@ For docs under `docs/`, use placeholder values in reusable, generic, standard, t
 Use concrete repository names, paths, functions, commands, versions, dates, IDs, or package facts only when the document's job is to describe that exact source-backed repository surface.
 
 Future-facing standards, plans, and target designs do not inherit current drift; remove stale paths, stale commands, compatibility prose, old-baseline caveats, partial-adoption apologies, and invented routes instead of preserving them.
+
+Durable docs, prompts, standards, skills, examples, and reusable templates are agent-facing declarative law, not reports, walkthroughs, origin logs, or checklist tails.
+
+Tables are load-bearing only when headers make each cell meaningful in its row and column. Long cells, repeated columns, and tautological values move to prose, cards, or records.

@@ -19,6 +19,7 @@ from tools.assay import (
 from tools.assay.composition.registry import build_app, parse_fault, REGISTRY
 from tools.assay.composition.settings import AssaySettings
 from tools.assay.core.model import wire_safe
+from tools.assay.core.status import Step
 
 
 # --- [OPERATIONS] -----------------------------------------------------------------------
@@ -57,13 +58,12 @@ def _dispatch(tokens: tuple[str, ...]) -> object:
                 return parse_fault(tokens, str(parse_error))
             except ValidationError as config_error:
                 # Malformed ASSAY_* env var raises at AssaySettings() construction; fold to a config-step Envelope.
-                return parse_fault(tokens, str(config_error), step="config")
+                return parse_fault(tokens, str(config_error), step=Step.CONFIG)
             except Exception as exc:  # noqa: BLE001  # CLI boundary: preserve single-Envelope stdout contract for unexpected dispatch faults
-                return parse_fault(tokens, f"{type(exc).__name__}: {exc}", step="dispatch")
+                return parse_fault(tokens, f"{type(exc).__name__}: {exc}", step=Step.DISPATCH)
 
 
 # --- [COMPOSITION] ----------------------------------------------------------------------
-
 
 app: Final = build_app(REGISTRY)
 _HELP_TOKENS: Final[frozenset[str]] = frozenset((*app.help_flags, *app.version_flags))
@@ -124,7 +124,6 @@ def main(argv: list[str] | None = None) -> int:
 # --- [EXPORTS] --------------------------------------------------------------------------
 
 __all__ = ["main"]
-
 
 # --- [ENTRY] ----------------------------------------------------------------------------
 

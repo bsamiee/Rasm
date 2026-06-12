@@ -1,6 +1,6 @@
 # [REGION_MAP]
 
-Companion artifact to the doc-stack prompt set — the template and law for the region ledger. The initial-research stage installs one ledger at the stack's reports root when its first pipeline begins, seeded from every fence and every finalized page already in the corpus. The ledger is the corpus's ownership memory: it makes duplication detectable without re-reading the corpus, and it lets a new page build on finalized pages implicitly — owned territory is visible before research begins. Concept pages never cite it.
+The region ledger is the corpus ownership memory. The initial-research stage installs one ledger at the stack reports root when its first pipeline begins, seeded from every fence and every finalized page already in the corpus. The ledger makes duplication detectable without re-reading the corpus and lets a new page build on finalized pages implicitly.
 
 ## [1]-[LAW]
 
@@ -9,7 +9,7 @@ Companion artifact to the doc-stack prompt set — the template and law for the 
 - Write order is the integrity guarantee: snippet entries are written BEFORE any code exists (the assignment is the duplication contract the code is then held to); page entries are written at finalization, when the clean verification pass flips the page's state.
 - A duplicated region is repaired by routing to its owner — the owner keeps the demonstration or law, the duplicate is rebuilt on an unclaimed region — never by deleting the nuance and never by re-teaching.
 - Consumers: lane definition reads page regions so OWNS and ASSUMES lines exclude owned territory before research begins; distillation's ownership pass routes atlas-owned material out by it; authoring and review stages test re-teach against it; snippet stages hold snippet regions as the automatic-fail arbiter; the corpus sweep re-grades the whole ledger.
-- An entry is one compact phrase set — the spotlight surfaces named in noun phrases, semicolon-separated, dense enough to arbitrate a collision without re-reading the source. Entries carry no proper nouns except admitted package names, no paths, and no process narration; a region phrase reads true for any codebase in the stack's domain.
+- An entry is one compact phrase set — the spotlight surfaces named in noun phrases, semicolon-separated, dense enough to arbitrate a collision without re-reading the material. Entries carry no proper nouns except admitted package names, no paths, and no process narration; a region phrase reads true for any codebase in the stack's domain.
 
 ## [2]-[STRUCTURE]
 

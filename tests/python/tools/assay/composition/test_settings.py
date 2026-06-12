@@ -6,7 +6,7 @@ Configuration, LogFormat, mtime_from_info.
 Law design:
 - @pytest.mark.parametrize + register_law for case-table laws (enum sweeps, validation/projection matrices).
 - @spec for single-property generated-instance laws; @given for the numeric coercion identities.
-- Direct fixture laws (mem_store / assay_root) for store I/O and settings integration; tests.python._testkit._spec oracles
+- Direct fixture laws (mem_store / assay_root) for store I/O and settings integration; tests.python._testkit.spec oracles
   (assert_some/assert_none/roundtrip/idempotent/validity_matrix) replace hand-rolled is_ok/equality bodies.
 - One polymorphic _FsStub drives every walk/retain/info edge arm via constructor flags — no per-arm class.
 """
@@ -15,30 +15,23 @@ Law design:
 
 import contextlib
 from datetime import datetime, UTC
-import itertools
 import operator
 import tempfile
-from typing import Final, override, TYPE_CHECKING
+from typing import Final, override, Self, TYPE_CHECKING
+import uuid  # noqa: TC003  # runtime import: open_store's annotation is evaluated eagerly (no `from __future__ import annotations`)
 
 from dirty_equals import IsPartialDict, IsStr, IsTuple
 import fsspec
 from hypothesis import given, settings as hyp_settings, strategies as st, target
-from hypothesis.stateful import Bundle, invariant, rule, RuleBasedStateMachine
+from hypothesis.stateful import Bundle, initialize, invariant, rule, RuleBasedStateMachine
 import msgspec
 from pydantic import ValidationError
 import pytest
 from upath import UPath
 
-from tests.python._testkit._aspect import register_law  # underscore-prefixed test-support; private by convention
-from tests.python._testkit._spec import (  # underscore-prefixed test-support; private by convention
-    assert_none,
-    assert_some,
-    idempotent,
-    model_based,
-    roundtrip,
-    validity_matrix,
-)
-from tests.python.tools.assay.conftest import (  # noqa: TC001  # runtime use: instantiated in fixture bodies, not annotation-only
+from tests.python._testkit.laws import register_law
+from tests.python._testkit.spec import assert_none, assert_some, idempotent, model_based, roundtrip, validity_matrix
+from tests.python.tools.assay.kit import (  # noqa: TC001  # runtime use: instantiated in fixture bodies, not annotation-only
     AssayHarness,
     make_history_envelope,
     WIRE_ENCODER,
@@ -72,17 +65,51 @@ _CPU_MAX: Final = 256
 _CPU_BELOW: Final = 0
 _CPU_ABOVE: Final = 300
 
-
 # --- [BOUNDARIES] -----------------------------------------------------------------------
 
 
-class _FsStub(ArtifactFileSystem):  # noqa: PLR0904  # full structural protocol requires all 11 override surfaces
+class _StubWriter(contextlib.AbstractContextManager[object]):
+    """Autocommit-deferred write handle: buffers bytes, committing to the backing dict only on clean __exit__.
+
+    Mirrors fsspec LocalFileOpener(autocommit=False): a write that raises before clean exit leaves the target
+    path untouched (no partial file), which is the write-atomicity contract _write_at relies on.
+    """
+
+    def __init__(self, data: dict[str, bytes], path: str, *, fail: bool = False) -> None:
+        self._data = data
+        self._path = path
+        self._fail = fail
+        self._buffer = bytearray()
+
+    @override
+    def __enter__(self) -> Self:
+        return self
+
+    def write(self, payload: bytes) -> int:
+        match self._fail:
+            case True:
+                raise OSError("injected write failure")
+            case _:
+                self._buffer.extend(payload)
+                return len(payload)
+
+    @override
+    def __exit__(self, *exc: object) -> None:
+        match exc[0]:
+            case None:
+                self._data[self._path] = bytes(self._buffer)
+            case _:
+                pass  # exception in the with-body: discard the buffer, leave the target path unwritten
+
+
+class _FsStub(ArtifactFileSystem):  # noqa: PLR0904  # full structural protocol requires all 10 override surfaces
     """Parametrizable fsspec stub: keyed-dict find detail, configurable info, optional rm race."""
 
-    def __init__(self, *, info_payload: dict[str, object] | None = None, rm_raises: bool = False) -> None:
+    def __init__(self, *, info_payload: dict[str, object] | None = None, rm_raises: bool = False, write_fails: bool = False) -> None:
         self._data: dict[str, bytes] = {}
         self._info = info_payload
         self._rm_raises = rm_raises
+        self._write_fails = write_fails
 
     def seed(self, path: str, payload: bytes) -> None:
         """Seed a backend path so glob/find discover it (test setup, not part of the protocol)."""
@@ -99,7 +126,16 @@ class _FsStub(ArtifactFileSystem):  # noqa: PLR0904  # full structural protocol 
 
     @override
     def ls(self, path: str, *, detail: bool = False) -> list[str] | list[dict[str, object]]:
-        return []
+        # Immediate run-dir children of `path`, derived from seeded keys; rows carry NO mtime so the
+        # (mtime, run_id) rank collapses onto the lexicographic run-id tiebreaker (no monkeypatch).
+        prefix = f"{path.rstrip('/')}/"
+        children = sorted({f"{prefix}{p[len(prefix) :].split('/', 1)[0]}" for p in self._data if p.startswith(prefix)})
+        match detail:
+            case True:
+                rows: list[dict[str, object]] = [{"name": child, "type": "directory"} for child in children]
+                return rows
+            case _:
+                return list(children)
 
     @override
     def find(self, path: str, *, detail: bool = False) -> list[str] | dict[str, dict[str, object]]:
@@ -123,26 +159,28 @@ class _FsStub(ArtifactFileSystem):  # noqa: PLR0904  # full structural protocol 
         return path in self._data or self._info is not None
 
     @override
-    def pipe_file(self, path: str, value: bytes) -> object:
-        self._data[path] = value
-        return None
-
-    @override
     def cat_file(self, path: str) -> bytes:
         return self._data.get(path, b"")
 
     @override
     def rm(self, path: str, *, recursive: bool = False) -> object:
-        match self._rm_raises:
-            case True:
+        match (self._rm_raises, recursive):
+            case (True, _):
                 raise FileNotFoundError(path)
+            case (_, True):
+                # Recursive prune: drop the dir key and every seeded child under `<path>/`.
+                prefix = f"{path.rstrip('/')}/"
+                for key in [p for p in self._data if p == path or p.startswith(prefix)]:
+                    del self._data[key]
+                return None
             case _:
                 self._data.pop(path, None)
                 return None
 
     @override
-    def open(self, path: str, mode: str = "rb") -> object:  # pragma: no cover
-        return None
+    def open(self, path: str, mode: str = "rb", *, autocommit: bool = True) -> contextlib.AbstractContextManager[object]:
+        # autocommit-aware seam: _write_at writes through this handle; the in-memory dict is the commit target.
+        return _StubWriter(self._data, path, fail=self._write_fails)
 
     transaction: contextlib.AbstractContextManager[object] = contextlib.nullcontext()
 
@@ -163,7 +201,6 @@ def test_str_enum_value_roundtrip(enum_cls: type[StrEnum]) -> None:
 
 register_law(Configuration, "str_enum_value_roundtrip")
 register_law(LogFormat, "str_enum_value_roundtrip")
-
 
 # --- [MTIME_FROM_INFO_LAWS]
 
@@ -199,7 +236,6 @@ def test_mtime_from_info_numeric_identity(v: float) -> None:
 
 
 register_law(mtime_from_info, "mtime_from_info_numeric_identity")
-
 
 # --- [ARTIFACT_BACKEND_LAWS]
 
@@ -263,6 +299,42 @@ def test_artifact_backend_target_file_absolute(assay_root: AssayHarness) -> None
 register_law(ArtifactBackend, "artifact_backend_target_dispatch")
 register_law(ArtifactBackend, "artifact_backend_target_file_absolute")
 
+
+def test_artifact_backend_target_relative_file_root_joins_workspace(assay_root: AssayHarness) -> None:
+    """A relative file root is anchored under settings.root, not returned bare.
+
+    Falsifies the three mutations that drop or fail to match the `("file", root)` arm (arm deletion, and the
+    `"file"` literal mutated to `"XXfileXX"` / `"FILE"`): each makes a relative file root fall through to the
+    non-file `root.rstrip("/")` arm, returning the bare `"rel/path"` instead of the workspace-absolute join. The
+    equality (not substring) assertion plus is_absolute pin the full join, which `"rel/path" in result` could not.
+    """
+    settings = assay_root.settings
+    result = ArtifactBackend(protocol="file", root="rel/path").target(settings)
+    assert result == str(settings.root / UPath("rel/path"))
+    assert UPath(result).is_absolute()
+    assert result != "rel/path"
+
+
+register_law(ArtifactBackend, "artifact_backend_target_relative_file_root_joins_workspace")
+
+
+@pytest.mark.parametrize(
+    "root, expected",
+    [("my-prefix/", "my-prefix"), ("my-prefix//", "my-prefix"), ("prefixX", "prefixX")],
+    ids=["trailing_slash", "double_trailing_slash", "trailing_capital_x"],
+)
+def test_artifact_backend_target_non_file_root_rstrips_only_slashes(root: str, expected: str, assay_root: AssayHarness) -> None:
+    """A non-file backend root is right-stripped of '/' exactly — never whitespace, left side, or other chars.
+
+    Pins `root.rstrip("/")` against three survivors: `rstrip(None)` (strips whitespace, leaves trailing slash),
+    `lstrip("/")` (strips the wrong end), and `rstrip("XX/XX")` (also strips a trailing 'X'). The trailing-slash
+    rows kill the first two; the `prefixX` row kills the third because production keeps the 'X' while the mutant
+    eats it.
+    """
+    assert ArtifactBackend(protocol="memory", root=root).target(assay_root.settings) == expected
+
+
+register_law(ArtifactBackend, "artifact_backend_target_non_file_root_rstrips_only_slashes")
 
 # --- [ASSAY_SETTINGS_LAWS]
 
@@ -367,12 +439,91 @@ def test_assay_settings_exec_target_valid_ssh_with_port(tmp_path: Path) -> None:
 register_law(AssaySettings, "assay_settings_exec_target_rejected")
 register_law(AssaySettings, "assay_settings_exec_target_valid_ssh_with_port")
 
+# --- [BOUNDARY_VALIDATOR_LAWS]
+
+
+def test_exec_target_accepts_root_path_only() -> None:
+    """_exec_target accepts only an empty or single-'/' path after the ssh host, rejecting any deeper path.
+
+    Falsifies the path-set literal mutation `"" | "/"` -> `"" | "XX/XX"`: that mutant rejects a trailing-slash
+    `ssh://host/` (urlsplit path == '/') which the contract must accept, while `ssh://host/sub` stays rejected so
+    the accepted set is pinned to exactly {'', '/'} and never widens to arbitrary paths. The accepted rows also pin
+    the round-trip return value, so an accept-as-reject regression cannot pass.
+    """
+    validity_matrix(
+        (
+            ("bare", "ssh://host", True),
+            ("user_port", "ssh://user@host:22", True),
+            ("root_slash", "ssh://host/", True),
+            ("user_port_slash", "ssh://user@host:22/", True),
+            ("non_root_path", "ssh://host/sub", False),
+        ),
+        _exec_target_ok,
+    )
+    assert _settings_mod._exec_target("ssh://host/") == "ssh://host/"
+
+
+def _exec_target_ok(url: str) -> bool:
+    try:
+        _settings_mod._exec_target(url)
+    except ValueError:
+        return False
+    return True
+
+
+register_law(AssaySettings, "exec_target_accepts_root_path_only")
+
+
+@pytest.mark.parametrize(
+    "value, expected",
+    [(None, None), ("", None), ("/abs/host_keys", "/abs/host_keys"), ("~", str(UPath("~").expanduser()))],
+    ids=["none", "empty", "absolute", "tilde_expanded"],
+)
+def test_expand_or_none_projection(value: str | None, expected: str | None) -> None:
+    """_expand_or_none folds None/'' to None and expands every other path through expanduser().
+
+    Three mutations die here: dropping the `case _:` body (non-empty -> None) is killed by the absolute and tilde
+    rows returning a real string; widening the `''` sentinel to a non-empty marker (empty -> expanded '.') is killed
+    by the empty row asserting None; replacing the expansion body with `str(None)` (-> 'None') is killed by the
+    absolute and tilde rows asserting the actual expanded path, and the tilde row pins that expanduser() truly runs.
+    """
+    assert _settings_mod._expand_or_none(value) == expected
+
+
+register_law(AssaySettings, "expand_or_none_projection")
+
+
+@pytest.mark.parametrize(
+    "reported, expected",
+    [(0, 8), (1, 1), (8, 8), (257, 256)],
+    ids=["zero_falls_to_eight", "one_keeps_floor", "eight_identity", "over_cap_clamps_256"],
+)
+def test_default_cpu_count_clamp_table(reported: int, expected: int, monkeypatch: pytest.MonkeyPatch) -> None:
+    """_default_cpu_count clamps a reported core count into [1, 256], falling back to 8 when the count is falsy.
+
+    Pins the exact `min(256, max(1, count or 8))` arithmetic against four boundary mutations: 257-cap (over_cap row
+    yields 256 not 257), floor-2 (one row yields 1 not 2), `or`->`and` (zero/over_cap rows diverge from 8/256), and
+    fallback 8->9 (zero row yields 8 not 9). monkeypatch on os.process_cpu_count removes hardware non-determinism.
+    """
+    monkeypatch.setattr(_settings_mod.os, "process_cpu_count", lambda: reported)
+    assert _settings_mod._default_cpu_count() == expected
+
+
+register_law(AssaySettings, "default_cpu_count_clamp_table")
+
 
 def test_assay_settings_remote_env_filters_and_injects_run_id(assay_root: AssayHarness) -> None:
-    """remote_env injects ASSAY_RUN_ID, retains allowed trace context, and strips unsafe keys."""
-    env = assay_root.settings.remote_env({"traceparent": "00-a-b-01", "baggage": "k=v", "UNSAFE": "x"})
-    assert env == IsPartialDict({"ASSAY_RUN_ID": IsStr, "traceparent": "00-a-b-01", "baggage": "k=v"})
-    assert "UNSAFE" not in env
+    """remote_env injects ASSAY_RUN_ID, retains allowed trace context, strips unsafe keys, and forwards declared row env.
+
+    The ``forward`` set carries deliberately-declared row-Tool env keys across the SSH boundary while the
+    ambient allowlist keeps gating undeclared host env — an asymmetry fix for the local-vs-remote env merge.
+    """
+    source = {"traceparent": "00-a-b-01", "baggage": "k=v", "UNSAFE": "x", "ROW_DECLARED": "row", "ROW_UNDECLARED": "drop"}
+    env = assay_root.settings.remote_env(source, forward=frozenset({"ROW_DECLARED"}))
+    assert env == IsPartialDict({"ASSAY_RUN_ID": IsStr, "traceparent": "00-a-b-01", "baggage": "k=v", "ROW_DECLARED": "row"})
+    assert "UNSAFE" not in env, "ambient non-allowlisted key leaked across SSH"
+    assert "ROW_UNDECLARED" not in env, "an undeclared row key must not cross the boundary on the allowlist alone"
+    assert "ROW_DECLARED" not in assay_root.settings.remote_env(source), "forward must be opt-in: the bare allowlist still gates row keys"
 
 
 register_law(AssaySettings, "assay_settings_remote_env_filters_and_injects_run_id")
@@ -412,23 +563,79 @@ def test_assay_settings_artifact_rejects_unsafe_segments(part: str, assay_root: 
 register_law(AssaySettings, "assay_settings_artifact_rejects_unsafe_segments")
 
 
+def test_assay_settings_store_honors_protocol_and_forwards_opts(assay_root: AssayHarness) -> None:
+    """store() builds the filesystem for the requested protocol and forwards backend opts verbatim.
+
+    Two mutations die: `fsspec.filesystem(None, ...)` (would yield a LocalFileSystem for every protocol) is killed
+    by the memory branch asserting a MemoryFileSystem and the absent file path; dropping `**opts` is killed by the
+    `auto_mkdir=False` opt surviving onto the constructed LocalFileSystem (a dropped-opts mutant reverts to the
+    cached default auto_mkdir=True).
+    """
+    from fsspec.implementations.local import LocalFileSystem  # noqa: PLC0415  # backend-class identity probe is the only fsspec-impl import here
+    from fsspec.implementations.memory import MemoryFileSystem  # noqa: PLC0415  # see above
+
+    mem = assay_root.settings.store(protocol="memory", root=f"store-proto/{assay_root.settings.run_id}")
+    assert isinstance(mem.fs, MemoryFileSystem)
+    mem.write_bytes(b"x", "probe.bin")
+    from pathlib import Path as _Path  # noqa: PLC0415  # on-disk leak probe: a None-protocol mutant would land bytes on the real local FS
+
+    assert not _Path(str(assay_root.settings.store_root / "probe.bin")).exists(), "memory store must not write to the local file backend"
+
+    no_mkdir = assay_root.settings.store(protocol="file", auto_mkdir=False)
+    assert isinstance(no_mkdir.fs, LocalFileSystem)
+    assert no_mkdir.fs.auto_mkdir is False, "store must forward **opts (auto_mkdir) onto the constructed filesystem"
+
+
+register_law(AssaySettings, "assay_settings_store_honors_protocol_and_forwards_opts")
+
 # --- [ARTIFACT_SCOPE_LAWS]
 
 
 @pytest.mark.parametrize("claim", list(Claim))
-def test_artifact_scope_open_creates_path_per_claim(claim: Claim, assay_root: AssayHarness) -> None:
-    """ArtifactScope.open creates a claim-namespaced run directory and returns dotnet_flags.
+def test_artifact_scope_open_computes_path_lazily_per_claim(claim: Claim, assay_root: AssayHarness) -> None:
+    """ArtifactScope.open computes a claim/run-id path and dotnet_flags WITHOUT materializing the directory.
 
-    A mutant swapping claim values in the path fails this check: the claim value must be a path segment.
+    Lazy-ensure law: a mutant swapping claim values fails the segment check; a mutant restoring the eager
+    store.ensure() materializes the run dir on the real file backend, failing the no-empty-dir assertion (writers
+    makedirs(parent) on first write; dotnet creates its own --artifacts-path).
     """
+    from pathlib import Path as _Path  # noqa: PLC0415  # local: filesystem-existence probe is the only on-disk check in this module
+
     scope = ArtifactScope.open(assay_root.settings, claim)
     assert isinstance(scope, ArtifactScope)
     assert claim.value in scope.path
     assert assay_root.settings.run_id in scope.path
     assert {"--artifacts-path", scope.path, "--disable-build-servers"} <= set(scope.dotnet_flags)
+    assert not _Path(scope.path).exists(), "open() must not materialize the scope directory (no empty scope dirs)"
 
 
-register_law(ArtifactScope, "artifact_scope_open_creates_path_per_claim")
+register_law(ArtifactScope, "artifact_scope_open_computes_path_lazily_per_claim")
+
+
+def test_artifact_scope_ensure_materializes_through_store_boundary(assay_root: AssayHarness) -> None:
+    """ArtifactScope.ensure() materializes the lazily-opened scope dir through ArtifactStore.ensure_path, returning its own path.
+
+    open() is lazy; a rail that writes its own files into the scope calls ensure() once. ensure() routes the
+    makedirs through the store boundary (ensure_path), never the raw fsspec handle, and is idempotent. The
+    returned path equals scope.path and the directory now exists on the backend.
+    Mutant caught: ensure() reaching scope.store.fs.makedirs directly (boundary bypass) or returning a path other
+    than scope.path; ensure_path skipping backend_path validation (a path outside the store root would create dirs
+    elsewhere on the backend).
+    """
+    from pathlib import Path as _Path  # noqa: PLC0415  # local: filesystem-existence probe
+
+    scope = ArtifactScope.open(assay_root.settings, Claim.DOCS)
+    assert not _Path(scope.path).exists(), "open() leaves the scope dir absent"
+    created = scope.ensure()
+    assert created == scope.path
+    assert _Path(scope.path).exists(), "ensure() materializes the scope dir"
+    assert scope.ensure() == scope.path, "ensure() is idempotent on an existing dir"
+    with pytest.raises(ValueError, match="escaped store root"):
+        scope.store.ensure_path("/outside/the/store/root")
+
+
+register_law(ArtifactScope, "artifact_scope_ensure_materializes_through_store_boundary")
+register_law(ArtifactStore, "artifact_scope_ensure_materializes_through_store_boundary")
 
 
 @pytest.mark.parametrize(
@@ -454,7 +661,6 @@ def test_artifact_scope_dotnet_env_isolation(assay_root: AssayHarness) -> None:
 
 
 register_law(ArtifactScope, "artifact_scope_dotnet_env_isolation")
-
 
 # --- [PROTOCOL]
 
@@ -487,7 +693,6 @@ def test_artifact_file_system_protocol_default_transaction_is_nullcontext() -> N
 
 
 register_law(ArtifactFileSystem, "artifact_file_system_protocol_default_transaction_is_nullcontext")
-
 
 # --- [ARTIFACT_STORE_IO_LAWS]
 
@@ -557,6 +762,36 @@ def test_artifact_store_path_guards_reject(mem_store: ArtifactStore) -> None:
 register_law(ArtifactStore, "artifact_store_path_guards_reject")
 
 
+def test_artifact_store_write_at_atomic_no_partial_on_failure() -> None:
+    """_write_at routes through fs.open(autocommit=False); a write that raises leaves no partial file at the target.
+
+    The _StubWriter buffers and commits only on clean __exit__ (LocalFileOpener autocommit=False semantics). A
+    write_fails stub raises inside the with-body, so the OSError propagates and exists() stays False — falsified by
+    a pipe_file/eager-write that lands bytes before the failure surfaces.
+    """
+    failing = _FsStub(write_fails=True)
+    store = ArtifactStore(fs=failing, root="atomic-root")
+    with pytest.raises(OSError, match="injected write failure"):
+        store.write_bytes(b"payload", "scope", "partial.bin")
+    assert not store.exists("scope", "partial.bin"), "a failed write must not leave a partial file at the target path"
+
+
+register_law(ArtifactStore, "artifact_store_write_at_atomic_no_partial_on_failure")
+
+
+def test_artifact_store_write_at_commits_through_open_handle(mem_store: ArtifactStore) -> None:
+    """A clean _write_at commits the full payload through the autocommit-deferred open handle (read-back identity).
+
+    Pins that the open(autocommit=False)+write path is the live write route — falsified by a writer that no-ops or
+    drops the buffer on commit.
+    """
+    path = mem_store.write_bytes(b"committed-via-open", "scope", "via-open.bin")
+    assert mem_store.read_path(path) == b"committed-via-open"
+
+
+register_law(ArtifactStore, "artifact_store_write_at_commits_through_open_handle")
+
+
 def test_artifact_store_exists_size_remove_open_adopt(mem_store: ArtifactStore, tmp_path: Path) -> None:
     """exists/exists_path/size_path agree on a written payload; open_write, adopt_file, remove_path round out the lifecycle."""
     payload = b"size-check-payload"
@@ -580,7 +815,6 @@ def test_artifact_store_exists_size_remove_open_adopt(mem_store: ArtifactStore, 
 
 
 register_law(ArtifactStore, "artifact_store_exists_size_remove_open_adopt")
-
 
 # --- [ARTIFACT_STORE_WALK_LAWS]
 
@@ -621,7 +855,6 @@ def test_artifact_store_info_path_non_numeric_fallback(info_payload: dict[str, o
 
 register_law(ArtifactStore, "artifact_store_info_path_non_numeric_fallback")
 
-
 # --- [ARTIFACT_STORE_HISTORY_LAWS]
 
 
@@ -655,6 +888,48 @@ def test_artifact_store_retain_history_prunes_oldest(keep: int, survivors: int, 
 register_law(ArtifactStore, "artifact_store_retain_history_prunes_oldest")
 
 
+@pytest.mark.parametrize("keep, expected", [(2, ("scope-1", "scope-2")), (1, ("scope-2",)), (0, ())], ids=["keep_two", "keep_one", "keep_zero"])
+def test_artifact_store_retain_scopes_prunes_oldest_per_claim(keep: int, expected: tuple[str, ...]) -> None:
+    """retain_scopes(claim, keep) prunes the oldest per-claim run-dirs, keeping the newest keep (lexicographic-stable order).
+
+    Each scope is a `<claim>/<run-id>/file` dir; the _FsStub omits mtime so the (mtime, run_id) rank collapses onto
+    the lexicographic run-id tiebreaker, pinning a deterministic prune order. Falsified by pruning newest-first or
+    pruning a different claim's root.
+    """
+    stub = _FsStub()
+    store = ArtifactStore(fs=stub, root="scopes-root")
+    for run in ("scope-0", "scope-1", "scope-2"):
+        stub.seed(f"scopes-root/{Claim.STATIC.value}/{run}/artifact.bin", b"x")
+    # A second claim root must be untouched: retain_scopes prunes one claim only.
+    stub.seed(f"scopes-root/{Claim.CODE.value}/scope-0/artifact.bin", b"y")
+
+    store.retain_scopes(Claim.STATIC, keep)
+
+    survivors = tuple(run for run in ("scope-0", "scope-1", "scope-2") if store.exists(Claim.STATIC.value, run, "artifact.bin"))
+    assert survivors == expected
+    assert store.exists(Claim.CODE.value, "scope-0", "artifact.bin"), "retain_scopes must not prune a different claim's root"
+
+
+register_law(ArtifactStore, "artifact_store_retain_scopes_prunes_oldest_per_claim")
+
+
+def test_artifact_store_sorted_history_ids_mtime_tie_lexicographic_fallback() -> None:
+    """sorted_history_ids breaks an mtime tie (or omitted-mtime backend) by ascending lexicographic run id.
+
+    The _FsStub omits mtime, so mtime_from_info folds every row to 0.0 and the (mtime, run_id) sort collapses onto
+    the run-id tiebreaker. Falsified by dropping run_id from the sort key (tie order would be backend-arbitrary) —
+    this replaces the monkeypatch-only coverage of the lexicographic fallback branch.
+    """
+    stub = _FsStub()
+    store = ArtifactStore(fs=stub, root="tie-root")
+    for run in ("run-c", "run-a", "run-b"):
+        stub.seed(f"tie-root/{ArtifactKind.HISTORY.value}/{run}/envelope.json", b"{}")
+    assert store.sorted_history_ids() == ("run-a", "run-b", "run-c")
+
+
+register_law(ArtifactStore, "artifact_store_sorted_history_ids_mtime_tie_lexicographic_fallback")
+
+
 def test_artifact_store_retain_history_already_removed_is_tolerated() -> None:
     """retain_history survives a FileNotFoundError mid-prune (concurrent removal race).
 
@@ -676,8 +951,8 @@ def test_artifact_store_sorted_history_ids_order(mem_store: ArtifactStore, monke
         mem_store.write_history(run_id, WIRE_ENCODER.encode(make_history_envelope(run_id)))
     monkeypatch.setattr(_settings_mod, "mtime_from_info", lambda info: 1.0 if "run-a" in str(info.get("name", "")) else 2.0)
     ids = mem_store.sorted_history_ids()
-    assert {"run-a", "run-b"} <= set(ids)
-    assert ids.index("run-a") < ids.index("run-b")
+    seeded = tuple(rid for rid in ids if rid in {"run-a", "run-b"})
+    assert seeded == IsTuple("run-a", "run-b")  # mtime rank (1.0 < 2.0) orders run-a before run-b; both present, in order
 
 
 register_law(ArtifactStore, "artifact_store_sorted_history_ids_order")
@@ -712,7 +987,6 @@ def test_artifact_store_full_report_restore_matrix(mem_store: ArtifactStore) -> 
 
 register_law(ArtifactStore, "artifact_store_full_report_restore_matrix")
 
-
 # --- [STATEFUL_HISTORY_RBSM]
 
 
@@ -724,18 +998,23 @@ class HistoryRetentionStateMachine(RuleBasedStateMachine):
     """
 
     runs: Bundle[str] = Bundle("runs")
-    _instances = itertools.count()  # process-monotonic: a disjoint root per machine, immune to id() reuse across instances
 
     def __init__(self) -> None:
-        """Initialise a fresh in-memory ArtifactStore and the monotonic write-order oracle.
+        """Initialise the monotonic write-order oracle; the store root is drawn in @initialize.
 
-        fsspec memory:// is process-global; each machine owns a disjoint root, purged in
-        teardown, to prevent cross-replay state leaks.
+        The store identity is no longer minted from a process-global itertools.count(): the disjoint root
+        comes from a hypothesis-drawn st.uuids() in @initialize, DataTree-recorded so it replays stably under
+        derandomize. __init__ thus carries no process-global state — only the empty oracle sets.
         """
         super().__init__()
-        self._store = ArtifactStore(fs=fsspec.filesystem("memory"), root=f"rbsm-store/{next(self._instances)}")
+        self._store: ArtifactStore
         self._counter = 0  # monotonic write order == lexicographic run_id order == recency rank
         self._written: set[str] = set()
+
+    @initialize(root_id=st.uuids())
+    def open_store(self, root_id: uuid.UUID) -> None:
+        """Bind a disjoint in-memory store under a hypothesis-drawn UUID root (replay-stable, fsspec-global-safe)."""
+        self._store = ArtifactStore(fs=fsspec.filesystem("memory"), root=f"rbsm-store/{root_id}")
 
     @rule(target=runs)
     def write_run(self) -> str:
@@ -779,7 +1058,6 @@ def test_history_retention_state_machine() -> None:
 
 
 register_law(ArtifactStore, "history_retention_state_machine")
-
 
 # --- [ARTIFACT_STORE_RESOLVE_ARTIFACTS_LAWS]
 
@@ -825,7 +1103,6 @@ def test_artifact_store_resolve_artifacts_latest_across_roots(mem_store: Artifac
 
 
 register_law(ArtifactStore, "artifact_store_resolve_artifacts_latest_across_roots")
-
 
 # --- [ARTIFACT_STORE_OPTION_LAWS]
 

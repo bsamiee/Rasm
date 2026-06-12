@@ -1,19 +1,19 @@
 # [CONTRIBUTING_STANDARDS]
 
-A contributing guide tells a prospective contributor which contribution paths the project accepts, how normal changes move from intent to review, what evidence proves the work, and how pull requests converge. It is a contributor workflow document, not onboarding, architecture, gate taxonomy, roadmap, incident response, repository policy, support policy, or vulnerability-disclosure policy. Keep adjacent concerns in their routes and link them only where the contributor must act on the boundary.
+A contributing guide tells a prospective contributor which contribution paths the project accepts, how normal changes move from intent to review, what confirmation proves the work, and how pull requests converge. It is a contributor workflow document, not onboarding, architecture, gate taxonomy, roadmap, incident response, repository policy, support policy, or vulnerability-disclosure policy. Keep adjacent concerns in their routes and link them only where the contributor must act on the boundary.
 
 ## [1]-[USE_WHEN]
 
-Use a contributing guide when readers need accepted contribution paths, normal-change workflow, contributor-facing quality-gate evidence, pull-request evidence, review-collaboration rules, or security-report routing.
+Use a contributing guide when readers need accepted contribution paths, normal-change workflow, contributor-facing quality-gate confirmation, pull-request confirmation, review-collaboration rules, or security-report routing.
 
 Route away adjacent concerns before authoring the workflow:
 
 [WORKFLOW_ROUTES]:
 - readiness, first safe tasks, and ramp sequence go to onboarding.
 - normal procedures go to how-to guides.
-- implementation sequence, active milestone bodies, terminal work, and task exit proof go to roadmaps.
+- implementation sequence, active milestone bodies, terminal work, and task exit confirmation go to roadmaps.
 - operational symptoms and recovery go to runbooks.
-- gate taxonomy, flake policy, and portfolio proof go to test strategy.
+- gate taxonomy, flake policy, and portfolio confirmation go to test strategy.
 - supported versions, platforms, and compatibility windows go to support matrices.
 
 [POLICY_ROUTES]:
@@ -22,9 +22,9 @@ Route away adjacent concerns before authoring the workflow:
 
 [AUTHORING_CONTRACT]:
 - Agent use: prove the project accepts the contribution path, name the first artifact and contributor-facing gates, and route repository policy, security, support, readiness, and roadmap task state away.
-- Required produced structure: `Scope`, `Ways to contribute`, `Setup workflow`, `Quality gates`, `Pull requests`, `Review`, `Security reports`, `Boundaries`, and `Validation`.
+- Required produced structure: `Scope`, `Ways to contribute`, `Setup workflow`, `Quality gates`, `Pull requests`, `Review`, `Security reports`, `Boundaries`, and `Result check`.
 - Section cardinality: one accepted-path selector; one setup workflow; one quality-gate mapping only when maintained gates exist; conditional `Before you start`, `Getting help`, `Documentation changes`, and `Maintenance` sections only when their trigger changes contributor action.
-- Adjacent checks: check onboarding, how-to, runbook, test strategy, support matrix, proof, README, API, code documentation, roadmap, architecture, and maintained security or repository-policy sources only when the contributor workflow or evidence changes.
+- Adjacent checks: check onboarding, how-to, runbook, test strategy, support matrix, confirmation, README, API, code documentation, roadmap, architecture, and maintained security or repository-policy sources only when the contributor workflow or confirmation changes.
 - Maintenance triggers: update the guide when accepted paths, host discovery, templates, branch protection, required checks, command gates, sign-off, security route, review policy, help route, or documentation-travel rule changes.
 
 Opening order is fixed for task standards: route and use contract first, produced structure second, cardinality third, then baselines, examples, and local patterns. Do not let contribution-path examples define section order implicitly.
@@ -35,7 +35,7 @@ Anchor contribution obligations to project truth first. A guide may mention a ho
 
 Use this source order for contributor-facing claims:
 1. Repository truth: host settings, branch-protection rules, required checks, workflow files, commit linting, sign-off checks, pull-request templates, issue templates, CODEOWNERS, and maintained policy documents.
-2. Local runnable proof: the exact setup, quality, generation, docs, or review command run during maintenance.
+2. Local runnable confirmation: the exact setup, quality, generation, docs, or review command run during maintenance.
 3. Maintained route documents: README, onboarding, how-to, test strategy, support matrix, security policy, repository policy, API, reference, code documentation, architecture, and roadmap.
 4. Maintained host or convention source used only for placement, syntax, or fallback behavior.
 
@@ -66,12 +66,6 @@ The published guide uses a required base plus conditional additions. Each `##` h
 
 ## [8]-[BOUNDARIES]
 
-## [9]-[VALIDATION]
-```
-
-Add these conditional sections only when their trigger applies:
-
-```markdown template
 ## [N]-[BEFORE_YOU_START]
 
 ## [N]-[GETTING_HELP]
@@ -81,16 +75,16 @@ Add these conditional sections only when their trigger applies:
 ## [N]-[MAINTENANCE]
 ```
 
-Place conditional sections where the contributor needs them: `Before you start` before setup, `Getting help` after quality gates, `Documentation changes` before PR evidence, and `Maintenance` before or after `Boundaries` based on whether it changes contribution workflow or only stewardship.
+Place conditional sections where the contributor needs them: `Before you start` before setup, `Getting help` after quality gates, `Documentation changes` before PR confirmation, and `Maintenance` before or after `Boundaries` based on whether it changes contribution workflow or only stewardship.
 
 [SECTION_CARDINALITY]:
-- `Lead`, `Scope`, `Ways to contribute`, `Setup workflow`, `Quality gates`, `Pull requests`, `Review`, `Security reports`, `Boundaries`, and `Validation`: required, single.
+- `Lead`, `Scope`, `Ways to contribute`, `Setup workflow`, `Quality gates`, `Pull requests`, `Review`, `Security reports`, `Boundaries`, and `Result check`: required, single.
 - `Before you start`: conditional; include only for conduct, license, sign-off, discussion, account, permission, or agreement prerequisites.
 - `Getting help`: conditional; include immediately after `Quality gates` only when setup, permission, route, or gate blockers interrupt a reviewable path.
 - `Documentation changes`: conditional; include only when documentation must travel with changed truth.
 - `Maintenance`: conditional in produced guides; include only when the guide itself is an actively maintained contributor contract.
 
-Required sections carry one purpose each. `Scope` states accepted surfaces and route-away topics; `Ways to contribute` selects the first artifact; `Setup workflow` reaches a first-gate-passing tree and states enforced workflow facts; `Quality gates` names contributor-facing results; `Pull requests` records review evidence; `Review` makes threads converge; `Security reports` routes private vulnerability detail; `Boundaries` names adjacent routes; `Validation` verifies the published guide. Omit placeholders, template instructions, maintenance route notes, and speculative routes.
+Required sections carry one purpose each. `Scope` states accepted surfaces and route-away topics; `Ways to contribute` selects the first artifact; `Setup workflow` reaches a first-gate-passing tree and states enforced workflow facts; `Quality gates` names contributor-facing results; `Pull requests` records review confirmation; `Review` makes threads converge; `Security reports` routes private vulnerability detail; `Boundaries` names adjacent routes; `Result check` verifies the published guide. Omit placeholders, template instructions, maintenance route notes, and speculative routes.
 
 ## [4]-[SCOPE]
 
@@ -105,10 +99,10 @@ Do not publish broad encouragement without a reviewable path. A contribution gui
 Use a table only when the project accepts two or more paths that readers compare. Keep the selector narrow:
 
 ```markdown template
-| [INDEX] | [PATH]      | [INTENT]             | [ENTRY_ARTIFACT] | [PREREQUISITE] | [SCOPE_BOUND]          |
-| :-----: | :---------- | :------------------- | :--------------- | :------------- | :--------------------- |
-|   [1]   | <path name> | <contributor intent> | <entry artifact> | <gate or `—`>  | <accepted-scope bound> |
-|   [2]   | <path name> | <contributor intent> | <entry artifact> | <gate or `—`>  | <accepted-scope bound> |
+| [INDEX] | [PATH]   | [INTENT]   | [ENTRY_ARTIFACT] | [PREREQUISITE] | [SCOPE_BOUND]   |
+| :-----: | :------- | :--------- | :--------------- | :------------- | :-------------- |
+|   [1]   | <path-a> | <intent-a> | <artifact-a>     | <gate-a>       | <scope-bound-a> |
+|   [2]   | <path-b> | <intent-b> | <artifact-b>     | <gate-b>       | <scope-bound-b> |
 ```
 
 Use a definition block for one accepted path:
@@ -148,7 +142,7 @@ Include `Before you start` only when a contributor must accept or complete a pre
 - Name required accounts, permissions, or contributor agreements only when they gate contribution.
 - Link the discussion or source-routing contact channel for questions that are not yet a contribution.
 
-Do not embed prerequisite knowledge, first-task guidance, or readiness here; route those to onboarding. Do not embed the full code-of-conduct text, license body, sign-off certification body, or contributor-license-agreement. Route each to its maintained source.
+Do not embed prerequisite knowledge, first-task guidance, or readiness here; route those to onboarding. Do not embed the full code-of-conduct text, license body, sign-off certification body, or contributor-license-agreement. Route each to its maintained material.
 
 ## [7]-[SETUP_WORKFLOW]
 
@@ -172,10 +166,10 @@ State each branch condition before its action: `If <signal>, do <action>`. Do no
 Use a table when contributors must choose between two or more change families:
 
 ```markdown template
-| [INDEX] | [CHANGE]        | [GATE]                                       | [REPORT]            | [GAP]              |
-| :-----: | :-------------- | :------------------------------------------- | :------------------ | :----------------- |
-|   [1]   | <change family> | <runnable command or maintained review gate> | <status and result> | <gap route or `—`> |
-|   [2]   | <change family> | <runnable command or maintained review gate> | <status and result> | <gap route or `—`> |
+| [INDEX] | [CHANGE]   | [GATE]   | [REPORT]   | [GAP]   |
+| :-----: | :--------- | :------- | :--------- | :------ |
+|   [1]   | <change-a> | <gate-a> | <report-a> | <gap-a> |
+|   [2]   | <change-b> | <gate-b> | <report-b> | <gap-b> |
 ```
 
 Use a definition block for one gate:
@@ -187,22 +181,22 @@ Report: <status and result>
 Gap: <gap route or `—`>
 ```
 
-Required gate fields are `Change`, `Gate`, `Report`, and `Gap`. Point every gate at a current runnable command or maintained quality document, state honestly when a gate is human review rather than an executable command, and never assert a gate passed unless it ran in the change or a current status check proves it. Route gate taxonomy, gate routing, flake policy, escalation thresholds, and portfolio-level proof to [test-strategy.md](../explanation/test-strategy.md) or the maintained quality route.
+Required gate fields are `Change`, `Gate`, `Report`, and `Gap`. Point every gate at a current runnable command or maintained quality document, state honestly when a gate is human review rather than an executable command, and never assert a gate passed unless it ran in the change or a current status check proves it. Route gate taxonomy, gate routing, flake policy, escalation thresholds, and portfolio-level confirmation to [test-strategy.md](../explanation/test-strategy.md) or the maintained quality route.
 
 Show a gap in the row or record where the contributor reports a result, not in a separate apology paragraph:
 
 ```markdown conceptual
-| [INDEX] | [CHANGE]          | [GATE]                  | [REPORT]                       | [GAP]                            |
-| :-----: | :---------------- | :---------------------- | :----------------------------- | :------------------------------- |
-|   [1]   | `<change family>` | `<maintained gate>`     | [PASS] `<reported signal>`     | —                                |
-|   [2]   | `<change family>` | maintained review route | [SKIP] validator access needed | unrun: runtime route unavailable |
+| [INDEX] | [CHANGE]     | [GATE]                  | [REPORT]                       | [GAP]                            |
+| :-----: | :----------- | :---------------------- | :----------------------------- | :------------------------------- |
+|   [1]   | `<change-a>` | `<maintained-gate-a>`   | [PASS] `<reported-signal-a>`   | —                                |
+|   [2]   | `<change-b>` | maintained review route | [SKIP] validator access needed | unrun: runtime route unavailable |
 ```
 
 Delete the gate mapping when no maintained gate or review route exists. A polished list of unproved commands is filler, not contributor guidance.
 
 ## [9]-[GETTING_HELP]
 
-Include `Getting help` only for contribution blockers that prevent a contributor from completing a reviewable path: setup command failure, missing permission, unclear route, inaccessible required gate, or a review question that needs maintained source direction. Link the maintained discussion or source-routing contact route only when the project publishes one. Do not use this section for user support, onboarding, repository-policy questions, incident response, roadmap task negotiation, or vulnerability reports; route those topics elsewhere.
+Include `Getting help` only for contribution blockers that prevent a contributor from completing a reviewable path: setup command failure, missing permission, unclear route, inaccessible required gate, or a review question that needs maintained material direction. Link the maintained discussion or source-routing contact route only when the project publishes one. Do not use this section for user support, onboarding, repository-policy questions, incident response, roadmap task negotiation, or vulnerability reports; route those topics elsewhere.
 
 ## [10]-[DOCUMENTATION_CHANGES]
 
@@ -219,7 +213,7 @@ Close when: <the consuming document updates, the guide states no maintained rout
 Route-away: <adjacent document body that remains outside the contributing guide>
 ```
 
-Use richer integration only when the adjacent document changes contributor action or review evidence. API contract changes usually update API documentation and any migration how-to; public symbol intent changes route to code documentation; support status changes route to the support matrix and any README entry route; new contributor gates update both contributing and test strategy; onboarding updates only when a workflow change affects readiness or first safe tasks; roadmap updates only when task sequence or milestone proof changes contributor action. A link is enough when the adjacent document only provides background.
+Use richer integration only when the adjacent document changes contributor action or review confirmation. API contract changes usually update API documentation and any migration how-to; public symbol intent changes route to code documentation; support status changes route to the support matrix and any README entry route; new contributor gates update both contributing and test strategy; onboarding updates only when a workflow change affects readiness or first safe tasks; roadmap updates only when task sequence or milestone confirmation changes contributor action. A link is enough when the adjacent document only provides background.
 
 ## [11]-[PULL_REQUESTS]
 
@@ -235,7 +229,7 @@ Gap: <none, or unrun/failing gate with reason and resolution route>
 
 Scope: <paths, areas, or routes touched; one concern only>
 
-Evidence: <screenshots, recordings, generated artifacts, reproduction steps, governing issue, discussion, design, decision, or roadmap milestone; omit when absent>
+Observed result: <screenshots, recordings, generated artifacts, reproduction steps, governing issue, discussion, design, decision, or roadmap milestone; omit when absent>
 
 Required self-check:
     - [ ] Run results are attached or the gap is stated.
@@ -243,7 +237,7 @@ Required self-check:
     - [ ] Enforced title, commit, or sign-off policy is satisfied, when repository policy requires it.
 ```
 
-State an unrun gate as unrun rather than implying it passed. Update the pull-request body when run results, scope, or risk change during review. Add paths, routes, visual evidence, runtime evidence, generated artifacts, governing decisions, or roadmap milestones only when those facts route review.
+State an unrun gate as unrun rather than implying it passed. Update the pull-request body when run results, scope, or risk change during review. Add paths, routes, visual confirmation, runtime confirmation, generated artifacts, governing decisions, or roadmap milestones only when those facts route review.
 
 ## [12]-[REVIEW]
 
@@ -256,10 +250,10 @@ State an unrun gate as unrun rather than implying it passed. Update the pull-req
 When the project runs a maintained review or triage ladder, describe only the contributor-facing profile signal and policy link. Use a table only when two or more profiles are maintained:
 
 ```markdown template
-| [INDEX] | [PROFILE]      | [TRIGGER]               | [POLICY_LINK]                   | [CONTRIBUTOR_ACTION]        |
-| :-----: | :------------- | :---------------------- | :------------------------------ | :-------------------------- |
-|   [1]   | <profile name> | <review-routing signal> | <maintained review-policy link> | <contributor-facing action> |
-|   [2]   | <profile name> | <review-routing signal> | <maintained review-policy link> | <contributor-facing action> |
+| [INDEX] | [PROFILE]   | [TRIGGER]  | [POLICY_LINK]   | [CONTRIBUTOR_ACTION] |
+| :-----: | :---------- | :--------- | :-------------- | :------------------- |
+|   [1]   | <profile-a> | <signal-a> | <policy-link-a> | <action-a>           |
+|   [2]   | <profile-b> | <signal-b> | <policy-link-b> | <action-b>           |
 ```
 
 Required profile fields are `Trigger`, `Policy link`, and `Contributor action`. Omit the profile mapping when the project runs a single flat review path or when no maintained policy proves the profiles. Branch protection, merge conditions, and repository policy belong to the maintained repository-policy route.
@@ -272,7 +266,7 @@ Carry only the private route and no policy body. Do not embed a `SECURITY.md` te
 
 ## [14]-[MAINTENANCE]
 
-Review a contributing guide when accepted contribution paths, host discovery behavior, issue or pull-request templates, branch protection, required checks, gate commands, sign-off, contributor agreement, commit-title convention, security-report route, review policy, contributor help route, or documentation-travel rule changes. Update the guide from real review failures when contributors repeatedly choose the wrong entry artifact, omit required evidence, report gates ambiguously, publish security details publicly, or ask for hidden repository-policy rules. Delete or route dead contribution paths instead of preserving them as legacy invitations.
+Review a contributing guide when accepted contribution paths, host discovery behavior, issue or pull-request templates, branch protection, required checks, gate commands, sign-off, contributor agreement, commit-title convention, security-report route, review policy, contributor help route, or documentation-travel rule changes. Update the guide from real review failures when contributors repeatedly choose the wrong entry artifact, omit required confirmation, report gates ambiguously, publish security details publicly, or ask for hidden repository-policy rules. Delete or route dead contribution paths instead of preserving them as legacy invitations.
 
 ## [15]-[BOUNDARIES]
 
@@ -281,38 +275,12 @@ These adjacent standards own routed material:
 [TASK_ROUTES]:
 - [README.md](../README.md) carries document-type routing, the reader-need map, placement, and lifecycle for new and changed docs.
 - [how-to.md](how-to.md) carries normal repeatable procedures.
-- [runbook.md](runbook.md) carries operational symptom-to-fix procedures, rollback, escalation, communication, and evidence capture.
-- [onboarding.md](../learning/onboarding.md) carries agent ramp, read-first path, constraints, first safe action, validation, and stop rules.
-- [roadmap.md](../explanation/roadmap.md) carries implementation sequence, active milestone bodies, phase/task state, terminal work, documentation handoffs, progress, and task exit proof.
+- [runbook.md](runbook.md) carries operational symptom-to-fix procedures, rollback, escalation, communication, and confirmation capture.
+- [onboarding.md](../learning/onboarding.md) carries agent ramp, read-first path, constraints, first safe action, confirmation, and stop rules.
+- [roadmap.md](../explanation/roadmap.md) carries implementation sequence, active milestone bodies, phase/task state, terminal work, documentation handoffs, progress, and task exit confirmation.
 
-[POLICY_PROOF]:
-- [proof.md](../proof.md) carries evidence strength and claim-level reporting for workflows, enforced conventions, sign-off, pull requests, and unrun gates.
-- [test-strategy.md](../explanation/test-strategy.md) carries gate taxonomy, gate routing, gate cost, flake policy, and portfolio-level evidence.
+[POLICY_CONFIRMATION]:
+- [proof.md](../proof.md) carries confirmation strength and claim-level reporting for workflows, enforced conventions, sign-off, pull requests, and unrun gates.
+- [test-strategy.md](../explanation/test-strategy.md) carries gate taxonomy, gate routing, gate cost, flake policy, and portfolio-level confirmation.
 - [support-matrix.md](../reference/support-matrix.md) carries supported versions, platforms, runtimes, deprecation, and end-of-support facts.
 - Maintained repository-policy and security-policy documents carry branch protection, merge permissions, disclosure, support-window, and advisory policy when they exist; otherwise this guide routes those topics to source-routing checks without becoming the policy body.
-
-## [16]-[VALIDATION]
-
-Use this verification checklist by group:
-
-[SCOPE_SOURCE]:
-- [ ] Placement is discoverable by the hosting platform or explicitly routed from the repository entrypoint.
-- [ ] No CI, status-check, branch-protection, merge-condition, response-time, sign-off, security, merge-permission, CODEOWNERS, template, contributor-agreement, or commit-convention claim appears without host, repository, or maintained-policy confirmation.
-- [ ] `Scope` states accepted contribution surfaces and route-away topics before workflow details.
-
-[WORKFLOW_RESULTS]:
-- [ ] Every accepted contribution path has `Intent`, `Entry artifact`, and `Scope bound`.
-- [ ] Conduct, license, and sign-off prerequisites are linked, not embedded, when the project enforces them.
-- [ ] Setup commands either have current run results beside the claim or state the unrun gate.
-- [ ] Workflow states each enforced fact, including any commit or title convention, and writes conditions before actions.
-- [ ] Each quality-gate row or record names a runnable command or maintained review gate, the result to report, and how to state gaps.
-- [ ] Pull-request evidence uses one body shape and marks unrun gates honestly.
-
-[ROUTES_STRUCTURE]:
-- [ ] Review rules keep normal collaboration public and require every comment to receive a response.
-- [ ] Documentation-change triggers route new docs through the standards corpus by topic and use the relation record only when docs travel with the change.
-- [ ] Roadmap active milestone bodies, terminal work, progress, and task exit proof stay in roadmap documents.
-- [ ] `Getting help` appears only for contribution blockers and routes support, onboarding, incidents, repository policy, roadmap task negotiation, and security reports elsewhere.
-- [ ] Security reporting points to a private or coordinated route without becoming a security-policy template.
-- [ ] Selector, gate, and review-profile forms match their row count: table for comparable sets, definition block for one record.
-- [ ] Maintenance triggers cover contribution paths, host templates, gates, sign-off policy, security route, review policy, and contributor help routes.

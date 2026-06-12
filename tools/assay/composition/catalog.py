@@ -15,7 +15,6 @@ from tools.assay.core.model import Claim, Input, Language, Mode, Runner, Stage, 
 
 BENCHMARK_STORAGE_URI = "file://.artifacts/python/benchmarks"
 
-
 # --- [MODELS] ---------------------------------------------------------------------------
 
 
@@ -82,7 +81,7 @@ CAPTURE_ENCODER = msgspec.json.Encoder()
 RG_EVENT = msgspec.json.Decoder(RgEvent)
 
 DIRECT, MODULE, UV, DOTNET, PNPM, INPROC = Runner.DIRECT, Runner.MODULE, Runner.UV, Runner.DOTNET, Runner.PNPM, Runner.INPROC
-FILES, INCLUDE, PROJECT, SOLUTION, NONE = (Input.FILES, Input.INCLUDE, Input.PROJECT, Input.SOLUTION, Input.NONE)
+FILES, INCLUDE, PROJECT, SOLUTION, NONE, OWNED = (Input.FILES, Input.INCLUDE, Input.PROJECT, Input.SOLUTION, Input.NONE, Input.OWNED)
 PY, TS, CS, BASH, SQL, DOCS = (Language.PYTHON, Language.TYPESCRIPT, Language.CSHARP, Language.BASH, Language.SQL, Language.DOCS)
 
 TOOLS: tuple[Tool, ...] = (
@@ -124,12 +123,19 @@ TOOLS: tuple[Tool, ...] = (
         "mutmut",
         UV,
         ("mutmut", "run"),
-        NONE,
+        OWNED,
         PY,
         Claim.TEST,
         mode=Mode.MUTATION,
         groups=("mutation",),
-        stage=Stage(root=".artifacts/python/mutmut/work", inputs=("pyproject.toml", ".gitignore", "tools/assay", "tests/python"), project=True),
+        stage=Stage(
+            root=".artifacts/python/mutmut/work",
+            inputs=("pyproject.toml", ".gitignore", ".config/coverage-mutmut.ini", "tools/assay", "tests/python"),
+            project=True,
+        ),
+        # mutmut's in-process Coverage() must read relative_files=false or the covered-lines flip aborts at "no covered mutants".
+        # The rcfile rides stage.inputs so COVERAGE_RCFILE resolves against the staged cwd.
+        env=(("COVERAGE_RCFILE", ".config/coverage-mutmut.ini"),),
     ),
     # --- [TYPESCRIPT]
     Tool("tsc", PNPM, ("tsc", "--noEmit", "-p", "tsconfig.base.json"), PROJECT, TS, Claim.STATIC, mode=Mode.BUILD),
@@ -181,12 +187,10 @@ TOOLS: tuple[Tool, ...] = (
     Tool("sqlfluff", UV, ("sqlfluff", "fix", "--dialect", "postgres"), FILES, SQL, Claim.STATIC, mode=Mode.WRITE),
     Tool("squawk", UV, ("squawk",), FILES, SQL, Claim.STATIC),
     # --- [DOCS]
-    Tool("mmdc", PNPM, ("mmdc", "-a", ".artifacts/mermaid", "-q"), NONE, DOCS, Claim.DOCS),
+    Tool("mmdc", PNPM, ("mmdc", "-q"), OWNED, DOCS, Claim.DOCS),
     # --- [CODE]
     Tool("ast-grep", PNPM, ("ast-grep", "run"), NONE, PY, Claim.CODE),
-    Tool("ast-grep", PNPM, ("ast-grep", "run"), NONE, PY, Claim.CODE, mode=Mode.WRITE),
     Tool("ast-grep", PNPM, ("ast-grep", "run"), NONE, TS, Claim.CODE),
-    Tool("ast-grep", PNPM, ("ast-grep", "run"), NONE, TS, Claim.CODE, mode=Mode.WRITE),
     Tool("tree-sitter", INPROC, ("tree-sitter", "query"), FILES, PY, Claim.CODE, mode=Mode.QUERY),
     Tool("tree-sitter", INPROC, ("tree-sitter", "query"), FILES, TS, Claim.CODE, mode=Mode.QUERY),
     # ripgrep self-walks the tree; PY tag is census-only — rail globs narrow the language at invocation time.
@@ -194,7 +198,6 @@ TOOLS: tuple[Tool, ...] = (
         "ripgrep", DIRECT, ("rg", "--json", "-U", "--multiline-dotall", "-P", "--hidden", "--glob", "!.git"), NONE, PY, Claim.CODE, mode=Mode.CONTENT
     ),
 )
-
 
 # --- [OPERATIONS] -----------------------------------------------------------------------
 

@@ -55,7 +55,6 @@ _STDERR_SOURCE: Final[str] = "stderr"
 _EVIDENCE_RE: Final[re.Pattern[str]] = re.compile(r"rasm\.rhino-bridge\.evidence=facts=(\{.*\})")
 _CAPTURE_RE: Final[re.Pattern[str]] = re.compile(r"rasm\.rhino-bridge\.capture=(\{.*\})")
 
-
 # --- [MODELS] ---------------------------------------------------------------------------
 
 
@@ -151,7 +150,6 @@ _BUILD_TOOL: Final[Tool] = Tool(
     claim=Claim.BRIDGE,
     mode=Mode.BUILD,
 )
-
 
 # --- [OPERATIONS] -----------------------------------------------------------------------
 

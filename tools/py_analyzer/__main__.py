@@ -5,4 +5,5 @@ from tools.py_analyzer.cli import main
 
 # --- [ENTRY] ----------------------------------------------------------------------------
 
-raise SystemExit(main())
+if __name__ == "__main__":
+    raise SystemExit(main())

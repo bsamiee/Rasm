@@ -15,11 +15,11 @@ pairs); and select idempotent (select(claim) is pure with no hidden mutable stat
 
 import pytest
 
-from tests.python._testkit._aspect import register_law, spec
-from tests.python._testkit._spec import assert_roundtrip, idempotent
-from tests.python._testkit._strategies import resolve as _resolve  # noqa: F401  # registers the Tool Hypothesis strategy on import; no call site
+from tests.python._testkit.laws import register_law, spec
+from tests.python._testkit.spec import assert_roundtrip, idempotent
+from tests.python._testkit.strategies import resolve as _resolve  # noqa: F401  # registers the Tool Hypothesis strategy on import; no call site
 from tools.assay.composition.catalog import AST_MATCHES, Capture, CAPTURE_ENCODER, CAPTURES, RG_EVENT, select, TOOLS
-from tools.assay.core.model import Claim, Language, Tool
+from tools.assay.core.model import Claim, Input, Language, Mode, Tool
 
 
 # --- [CONSTANTS] ------------------------------------------------------------------------
@@ -31,9 +31,7 @@ _AST_MATCH_PAYLOAD: bytes = (
     b'[{"text":"def f()","file":"a.py","lines":"1-3","replacement":"","range":{"start":{"line":1,"column":0},"end":{"line":3,"column":1}}}]'
 )
 
-
 # --- [OPERATIONS] -----------------------------------------------------------------------
-
 
 # --- [CAPTURE_ROUNDTRIP]
 
@@ -49,7 +47,6 @@ def test_capture_roundtrip(capture: Capture) -> None:
 register_law("tools.assay.composition.catalog.CAPTURES", "capture_codec_roundtrip", module=__name__)
 register_law("tools.assay.composition.catalog.CAPTURE_ENCODER", "capture_codec_roundtrip", module=__name__)
 
-
 # --- [CAPTURES_STRUCTURAL]
 
 
@@ -60,7 +57,6 @@ def test_captures_empty_array_decodes_to_empty_tuple() -> None:
 
 
 register_law("tools.assay.composition.catalog.CAPTURES", "captures_empty_array", module=__name__)
-
 
 # --- [CAPTURE_ASSERT_ROUNDTRIP]
 
@@ -93,7 +89,6 @@ def test_ast_matches_field_identity() -> None:
 
 register_law("tools.assay.composition.catalog.AST_MATCHES", "ast_matches_field_identity", module=__name__)
 
-
 # --- [RG_EVENT_ALIAS]
 
 
@@ -117,7 +112,6 @@ def test_rg_event_default_fields() -> None:
 
 register_law("tools.assay.composition.catalog.RG_EVENT", "rg_event_defaults", module=__name__)
 
-
 # --- [TOOLS_CENSUS]
 
 
@@ -130,7 +124,6 @@ def test_catalog_census_every_tool_selects_back(claim: Claim) -> None:
 
 register_law("tools.assay.composition.catalog.TOOLS", "tools_census_select_back", module=__name__)
 
-
 # --- [SELECT_TOTAL]
 
 
@@ -140,7 +133,6 @@ def test_select_total_subset_of_tools(claim: Claim) -> None:
 
 
 register_law(select, "select_total_subset", module=__name__)
-
 
 # --- [SELECT_MONOTONE]
 
@@ -157,7 +149,6 @@ def test_select_monotone_language_refinement(claim: Claim, language: Language) -
 
 register_law(select, "select_monotone_language", module=__name__)
 
-
 # --- [SELECT_IDEMPOTENT]
 
 
@@ -169,7 +160,6 @@ def test_select_idempotent(claim: Claim) -> None:
 
 register_law(select, "select_idempotent", module=__name__)
 
-
 # --- [TOOL_GENERATED]
 
 
@@ -180,3 +170,24 @@ def test_tool_generated_instance_selects_back(tool: Tool) -> None:
     assert all(t.claim is tool.claim and t.language is tool.language for t in rows), (
         "select returned a row whose claim/language mismatches the query axes"
     )
+
+
+# --- [MUTATION_INPUT_OWNERSHIP]
+
+
+def test_mutation_rows_own_input_placement() -> None:
+    """Every Mode.MUTATION row places input via OWNED or PROJECT, never NONE.
+
+    place()'s NONE arm re-appends routed.files as bare positionals; mutmut reads positionals as
+    mutant-NAME filters, so a NONE-placed mutation row receives file paths that match zero mutant
+    names and aborts the entire run ("Filtered for specific mutants, but nothing matches" —
+    reproduced live 2026-06-12 on the first staged rail launch). Falsified by any mutation row
+    regressing to Input.NONE.
+    """
+    rows = [t for claim in Claim for t in select(claim) if t.mode is Mode.MUTATION]
+    assert rows, "census expects at least one mutation row"
+    offenders = [t.name for t in rows if t.input is Input.NONE]
+    assert not offenders, f"mutation rows must own input placement, got NONE on: {offenders}"
+
+
+register_law(select, "mutation_rows_own_input_placement", module=__name__)

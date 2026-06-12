@@ -1,224 +1,187 @@
 # [STYLE_GUIDE]
 
-This standard carries craft: the words inside a document, sentence mechanics, terminology, punctuation, links, and code-safe Markdown. Apply it after the document type and container are chosen. It does not decide content position, container form, or evidence strength.
+This standard carries craft: the words inside a durable artifact, sentence mechanics, terminology, punctuation, links, and code-safe Markdown. It makes documentation direct, agent-facing, portable, and free of report framing.
 
 ## [1]-[USE_WHEN]
 
 Apply this standard when writing or reviewing:
-- prose, headings, captions, notes, warnings, and example wording
+- prose, headings, captions, notes, warnings, and examples
 - commands, paths, symbols, placeholders, and technical notation
 - terminology, acronyms, UI labels, product names, and package names
-- accessibility-sensitive wording and text equivalents
+- accessibility-sensitive wording and text equivalents.
 
-Salience and ordering, container form, and evidence strength belong to the position, form, and evidence standards.
+Container form belongs to `information-structure.md`; marker shape belongs to `formatting.md`; claim confidence belongs to `proof.md`.
 
 ## [2]-[WORDING_PRECEDENCE]
 
-Use the first source that decides a naming or wording question:
-1. Current repository source, manifests, generated contracts, API fields, and verified product or package names.
+Use the first owner that decides a naming or wording question:
+1. Current repository material, manifests, generated contracts, API fields, and actual product or package names.
 2. The active document-type standard for the document being written.
-3. Maintained source for product names, UI labels, APIs, commands, and support status.
+3. Maintained product names, UI labels, APIs, commands, and support status.
 4. This guide for local prose and notation rules.
-5. Established editorial style references for unresolved general mechanics.
+5. Established editorial style for unresolved general mechanics.
 
-When sources conflict, choose the repo-local term only when a current route or contract proves it. Never alternate terms to dodge the conflict.
+When owners conflict, choose the repo-local term only when a current route or contract proves it. Never alternate terms to avoid the conflict.
 
-For unresolved sentence composition, use concision, parallelism, positive form, and concrete language. For unresolved punctuation, capitalization, numbers, and quotation mechanics, use established editorial style unless repository notation or code-safe Markdown overrides it.
+## [3]-[AGENT_PROSE]
 
-## [3]-[PROSE_RULES]
+Durable docs, prompts, standards, skills, examples, and templates are agent-facing law. State the rule, contract, route, or gap directly. Do not describe the document, the session, the research process, or the reader’s mental model.
 
-[SHAPE]:
-- Put the controlling rule, constraint, or outcome before supporting detail.
-- Keep one controlling idea in each paragraph.
-- Keep each exception next to the rule it modifies.
-
-[VOICE]:
-- Prefer concrete nouns and verbs over abstract labels.
-- Use active voice for instructions and decisions by default.
-- Use passive voice when the actor is irrelevant or less important than the result.
-- Use present tense for durable standards, future tense for planned work, and past tense only for historical evidence or completed verification.
-- Write instructions as positive imperatives that name the action to take. Convert `do not omit the unit` into `attach the unit to its value`. The cognition rationale for this framing is the position standard's concern.
-- Use `must`, `should`, and `may` only for requirements, recommendations, and permitted options.
+[PROSE_LAW]:
+- Lead with the controlling rule, constraint, or outcome.
+- Keep one controlling idea per paragraph.
+- Keep exceptions next to the rule they modify.
+- Use active voice unless the result matters more than the actor.
+- Use present tense for durable standards.
+- Use target-sequence language for intended work, not schedule or deferral vocabulary.
+- Use past tense only for a document whose purpose is historical record.
 
 [NOISE_REMOVAL]:
-- Remove filler, marketing claims, draft notes, and transient interaction language.
-- Make coding-project documents useful through concrete routes, constraints, fields, examples, proof triggers, update rules, and owner boundaries. Do not narrate that a document is for agents, explain the session that produced it, or describe the intended mental model when the structure can show the rule directly.
-- In coding-project documents, prefer concrete paths, commands, contracts, failure modes, gates, and artifacts over vague planning or operational prose. Remove generic routing language, alignment language, momentum language, or value language when it does not name a real route or change an implementation, validation, access, support, or recovery decision.
-- Remove self-referential handoff prose from ordinary docs: `X routes to Y`, `truth lives in Z`, `read A before B`, and `validation belongs to C`. Use a link only when it changes the reader's action; route maps, relation records, and instruction overlays are the exception.
-- Reject prompt-era process vocabulary in durable docs unless quoted as archival evidence: `dictum`, `dossier`, `stage N`, `validated snippet`, task-ledger labels, and agent-invented abstraction names. Prefer current source names, configured command names, public symbols, and maintained document types.
-- Cut a hedge that carries no information. Replace non-load-bearing hedges with direct rules, preserve qualifiers that mark real scope limits, and route real uncertainty to [proof.md](proof.md) as a proof gap.
+- Remove leads that describe the artifact instead of stating the rule.
+- Remove reference, origin, research-history, origin-history, and checklist-tail sections from ordinary docs.
+- Remove hedges that carry no scope: `may`, `might`, `probably`, `generally`, `where possible`, and `if needed`.
+- Preserve scope qualifiers that are part of the contract: `optional`, `if present`, `where supported`, and `when configured`.
+- Replace negative wording with the direct action when meaning is unchanged.
+- Prefer concrete routes, contracts, fields, commands, public symbols, failure modes, and artifacts over broad value claims.
 
-## [4]-[PARAGRAPH_ARCHITECTURE]
+[SELF_REFERENCE]:
+- Do not write ordinary handoff boilerplate in ordinary docs.
+- Use links only when they change the reader’s action.
+- Route maps, relation records, README indexes, and instruction files may name owner relationships because routing is their job.
 
-Use a front-and-close shape. The first sentence states the rule, claim, scope, outcome, or transition. The middle qualifies, explains, or proves it. The final sentence closes on the consequence, boundary, evidence requirement, or next route.
+## [4]-[SENTENCES]
 
-Give a required condition the first sentence or a separate paragraph. Do not hide the strongest constraint in the middle. End on the term, action, proof, or route the reader should retain, not on a weak qualifier.
-
-Use isolated sentences deliberately. A one-sentence paragraph must be a lead, transition, caption, closing consequence, route boundary, or explicit proof gap. If the sentence is only a named fact, make it a field line. If it is only a category name, make it a group label or heading. If it is only emphasis, delete it or fold it into the controlling paragraph.
-
-Use paragraph pairs when one idea needs a setup and a consequence. The first paragraph states the claim or rule; the second paragraph states the operational consequence, exception, proof route, or route-away. Do not let two short paragraphs become loose labels with periods. A prose sentence stays a sentence when it expresses a complete thought, predicate, and reader consequence; imperative sentences may use an implied subject. Do not turn a sentence into a label.
+Use a front-and-close paragraph shape. The first sentence states the rule, claim, scope, outcome, or transition. The final sentence closes on the consequence, boundary, confirmation, or route the reader should retain.
 
 [KEEP_OR_CONVERT]:
-- Keep a standalone sentence when it leads, transitions, captions, closes, states a consequence, names a route boundary, or marks a proof gap.
-- Convert it to `Label: value` only when the value is scanned, quoted, or updated independently.
-- Convert it to a note, alert, or row-owned record only when its scope is local to a row, claim, risk, or provenance point.
-- Delete or fold it when it only repeats emphasis.
+- Keep a standalone sentence when it leads, transitions, captions, closes, states a consequence, names a route boundary, or marks a gap.
+- Convert a sentence to `Label: value` only when the value is scanned, quoted, or updated independently.
+- Convert local detail to a note, alert, or row-owned record only when its scope is local to one row, claim, risk, or artifact.
+- Delete or fold a sentence that only repeats emphasis.
 
-Use the smallest carrier that preserves the reader job. A packet with only 1 or 2 independently useful fields usually wants prose or a short definition block, not a full template. Omit absent fields rather than filling a packet to satisfy shape.
-
-## [5]-[SENTENCE_MECHANICS]
-
-[CLAUSE_JOINING]:
-- Coordinating conjunctions are `for`, `and`, `nor`, `but`, `or`, `yet`, and `so`.
+[MECHANICS]:
+- Coordinating conjunctions join equal-rank ideas: `for`, `and`, `nor`, `but`, `or`, `yet`, and `so`.
 - Use a comma before a coordinating conjunction joining two independent clauses.
-- For imperative clauses joined by a coordinating conjunction, omit the comma when they share an implied subject and cannot be misread. Split or punctuate when contrast, length, or ambiguity appears.
+- Omit the comma for imperative clauses sharing an implied subject unless contrast, length, or ambiguity requires it.
 - Omit the comma before a coordinating conjunction that joins only a compound predicate.
 - Use a semicolon before and a comma after a conjunctive adverb joining two independent clauses: `however`, `therefore`, `otherwise`.
 - Do not join independent clauses with a comma alone.
-
-[RANK_PARALLELISM]:
-- Join elements of equal rank with a coordinating conjunction: for, and, nor, but, or, yet, so.
-- Subordinate one element to another with a subordinating conjunction: because, although, since, while, if, when.
-- Coordinate only equal ideas and subordinate unequal ones; do not chain equal clauses with repeated `and` or `but`.
+- Use a semicolon only for closely related independent clauses or complex inline lists with internal commas.
+- Use `that` for restrictive clauses and `which` for nonrestrictive clauses.
+- Use sentence-initial conjunctions, split infinitives, and terminal prepositions when they produce the clearest technical sentence.
+- Coordinate only equal ideas and subordinate unequal ones.
 - Construct both arms of a correlative pair in parallel: `both ... and`, `either ... or`, `not only ... but also`.
+- State conditions before the actions they control.
+- Keep modifiers next to the terms they govern.
 - Keep parallel items parallel in grammar and scope.
 
-[CLARITY]:
-- Use `that` for a restrictive clause; use `which`, set off by commas, for a nonrestrictive one.
-- Use sentence-initial conjunctions, split infinitives, and terminal prepositions when they produce the clearest technical sentence.
-- Break center-embedded or multi-condition sentences into shorter sentences.
-- Use ordering transitions such as `First`, `Then`, and `Finally` only when order matters.
-- State a condition before the action it controls: `If <signal>, do <action>`.
-- Keep modifiers and related words next to the terms they govern.
+## [5]-[TERMINOLOGY]
 
-## [6]-[TERMINOLOGY]
+Use one term for one concept inside a bounded context. Names are load-bearing: product names, package names, API members, commands, file paths, UI labels, and config keys must match the actual surface.
 
+[TERM_LAW]:
 - Preserve verified product, package, API, command, file, and UI names exactly.
-- Use one term for one concept within a bounded context.
-- Define a domain term before relying on it unless the target reader must already know it.
+- Define a domain term before relying on it unless the target reader already owns that domain.
 - Introduce an acronym once per document unless the acronym is more recognizable than its expansion.
 - Use singular `they` when gender is unknown, irrelevant, or intentionally unspecified.
 - Do not invent reader-facing names for internal concepts.
-- Do not name stale commands, removed tools, transient task labels, or removed skills unless a current route proves they are still supported.
+- Do not name stale commands, removed tools, transient task labels, or removed skills.
 
-## [7]-[PUNCTUATION_NUMBERS_NOTATION]
+## [6]-[PUNCTUATION]
 
 [LOCAL_MECHANICS]:
-- Use U.S. English spelling unless a product or source name differs.
-- Form the possessive singular by adding `'s` regardless of the final consonant: `Charles's`, `the witness's`, `the boss's`.
-- Use the serial comma in lists of three or more items.
+- Use U.S. English spelling unless a product or proper name differs.
+- Form singular possessives with `'s`.
+- Use the serial comma.
 - Use one space after terminal punctuation.
-
-[STOPS_SEPARATORS]:
-- Use a colon after a complete sentence that directly introduces a list, table, example, consequence, or complete explanation.
-- Capitalize the first word after a colon only when the following material is a complete sentence. Keep fragments, definition-block values, table cells, and field continuations lowercase unless source casing differs.
-- Use semicolons only for closely related independent clauses or complex inline lists with internal commas.
-- Prefer sentence splits or vertical lists in agent-facing documentation, and do not end bullet items with semicolons.
-- Use parentheses for nonessential clarification; promote required conditions into the main sentence. If a parenthetical is a full sentence, put the period inside the closing parenthesis. If it is part of the enclosing sentence, put the period outside.
-
-[DASHES_HYPHENS]:
-- Use spaced em dashes for prose interruptions.
-- Route field separators, checklist trailing fields, and table absence values to [formatting.md](formatting.md).
-- Use en dashes for inclusive ranges, open-compound modifiers in prose such as `New York–based`, and compound modifiers formed from two names.
-- Hyphenate compound modifiers before nouns when needed for clarity.
-- Omit needless hyphens after `-ly` adverbs, and use a suspended hyphen for shared compounds such as `short- and long-term`.
 - Use ASCII hyphen-minus in commands, flags, paths, slugs, identifiers, code, config, tracker literals, and copyable text.
 
-Notation rules use these groups:
+[COLONS_DASHES]:
+- Use a colon after a complete sentence that introduces a list, table, example, consequence, or explanation.
+- Capitalize the first word after a colon only when the following material is a complete sentence.
+- Use parentheses for nonessential clarification; promote required conditions into the main sentence.
+- If a parenthetical is a full sentence, put the period inside the closing parenthesis. If it is part of the enclosing sentence, put the period outside.
+- Use spaced em dashes only for prose interruptions.
+- Use en dashes for inclusive ranges and name-based compounds when the text is not copyable code or config.
+- Hyphenate compound modifiers before nouns when needed for clarity.
+- Omit needless hyphens after `-ly` adverbs, and use a suspended hyphen for shared compounds such as `short- and long-term`.
+- Prefer sentence splits or vertical lists over semicolon-ended bullets.
 
-[MARKUP_LABELS]:
-- Avoid slashes for prose alternatives; use `or`, `and`, or `or both`. Keep slashes for code, paths, URLs, and exact product syntax.
-- Use `[X_Y_Z]:` for a standalone group label before a list or table. Formatting owns the exact group-label shape. Keep prose labels short and concrete.
-- Use `Label: value` only inside list bullets, checklist fields, or fenced templates — not as bare paragraph lines after a colon leader. Formatting owns field-line rendering; this guide owns label wording.
-- Do not bold a whole label line for emphasis. Promote it to a heading when it needs an anchor or independent retrieval; otherwise keep it as a bracketed set label.
+[QUOTES_NUMBERS]:
+- Use numerals for versions, measurements, commands, flags, identifiers, dates, editions, counts, thresholds, and compared values.
+- Spell out isolated nontechnical counts from zero through nine only when the value is not a comparison, threshold, field value, or literal.
+- Use backticks for UI labels, commands, code, exact strings, and copied literals.
+- Place commas and periods inside closing quotation marks in ordinary prose quotations; preserve literal punctuation for UI labels, commands, code, exact strings, and copied text.
+- Use straight quotes and ASCII-safe punctuation in copyable Markdown.
 
-[NUMBERS_QUOTES]:
-- Reserve title case for titles of works, source labels, and verified names outside bracketed notation. In title case, capitalize prepositions of 5 or more letters and capitalize later elements in hyphenated prefixed compounds when the title style requires it.
-- Use numerals for versions, measurements, commands, flags, identifiers, dates, editions, counts, thresholds, exact quantities, and any value readers compare, and keep units attached to their values. Spell out isolated nontechnical counts from zero through nine only when the value is not a comparison, threshold, field value, or literal. A year may open a sentence in numeral form.
-- In ordinary prose quotations, place commas and periods inside closing quotation marks and colons and semicolons outside. For UI labels, commands, code, exact strings, and copied source text, preserve literal punctuation and prefer backticks over quotation marks.
-- Use straight quotes and ASCII-safe punctuation in any Markdown a reader may copy into commands, code, config, or trackers. Curly quotation marks and apostrophes are acceptable only in prose that is never copied as a literal.
-
-## [8]-[CODE_SAFE_MARKDOWN]
+## [7]-[CODE_SAFE_MARKDOWN]
 
 - Wrap commands, flags, paths, environment variables, package IDs, symbols, literal values, and placeholders in backticks.
-- Name a placeholder by route, such as `<scenario-glob>` or `<package-name>`, and use one only when the reader must substitute a value.
-- In reusable code examples, keep placeholders language-valid: use neutral identifiers for code structure and placeholder literals only where the language accepts literal values. Prefer structural names such as `Shape`, `Variant`, `Field`, `Row`, `TABLE`, and `SELECTED` over product, workflow, or repository nouns unless the documented concept is domain-specific.
-- Omit the shell prompt from a copyable command unless the prompt is the subject.
-- Put surrounding sentence punctuation outside a code span unless the punctuation is part of the literal value.
+- Name placeholders by route, such as `<scenario-glob>` or `<package-name>`.
+- Use language-valid neutral identifiers in reusable code examples.
+- Prefer `Shape`, `RefinedShape`, `Variant`, `PRIMARY`, `Field`, `KEY`, `Row`, `ROW_A`, `TABLE`, `SELECTED`, `"<value-a>"`, and `"<result-a>"`.
+- Do not use repository, host, customer, pricing, deployment, or product nouns in reusable examples unless the documented concept is that domain.
+- Omit shell prompts from copyable commands.
+- Put sentence punctuation outside a code span unless it is part of the literal.
 - When inline code contains a backtick, use a longer matching backtick delimiter rather than a backslash escape.
 
-[CODE_PLACEHOLDER_EXAMPLES]:
-- Accepted: `Shape`, `RefinedShape`, and `OtherShape`. Rejected: `Customer`, `PremiumCustomer`, and `WebhookPayload`. Reason: the accepted names show type structure without importing a business domain.
-- Accepted: `Variant`, `PRIMARY`, `SECONDARY`, `"<variant-a>"`, and `"<variant-b>"`. Rejected: `Mode`, `PROD`, `STAGING`, `"basic"`, and `"premium"`. Reason: the accepted names teach enum shape and placeholder data without suggesting deployment or pricing semantics.
-- Accepted: `Field`, `KEY`, `VALUE`, `Row`, `ROW_A`, and `TABLE`. Rejected: `Header`, `Route`, `UserRow`, and `OrderMap`. Reason: the accepted names keep mapping examples structural unless the documented concept is headers, routes, users, or orders.
-- Accepted: `SELECTED`, `SELECTED_RESULT`, `"<value-a>"`, and `"<result-a>"`. Rejected: `active_customer`, `invoice_total`, `"alice"`, and `"acme"`. Reason: the accepted names mark selection and data position without anchoring the sample to an identity or product.
+[PLACEHOLDER_LAW]:
+- Structural examples use structural names.
+- Literal placeholder values stay valid for the language.
+- A reusable example must not introduce a business domain that the rule does not require.
 
-## [9]-[LINKS]
+[PLACEHOLDER_EXAMPLES]:
+- Accepted: `Shape`, `RefinedShape`, and `OtherShape`. Near miss: `Customer`, `PremiumCustomer`, and `WebhookPayload`. Reason: the accepted names show type structure without importing a business domain.
+- Accepted: `Variant`, `PRIMARY`, `SECONDARY`, `"<variant-a>"`, and `"<variant-b>"`. Near miss: `Mode`, `PROD`, `STAGING`, `"basic"`, and `"premium"`. Reason: the accepted names teach enum shape and placeholder data without deployment or pricing semantics.
+- Accepted: `Field`, `KEY`, `VALUE`, `Row`, `ROW_A`, and `TABLE`. Near miss: `Header`, `Route`, `UserRow`, and `OrderMap`. Reason: the accepted names keep mapping examples structural unless the documented concept is headers, routes, users, or orders.
+- Accepted: `SELECTED`, `SELECTED_RESULT`, `"<value-a>"`, and `"<result-a>"`. Near miss: `active_customer`, `invoice_total`, `"alice"`, and `"acme"`. Reason: the accepted names mark selection and data position without anchoring the sample to an identity or product.
 
-- Use link text that describes the destination, and avoid bare URLs unless the URL is the example value.
-- Prefer canonical repo docs, generated contracts, manifests, or maintained source routes, and avoid deep links when a stable top-level reference carries the same truth.
-- Route generated, mirrored, or version-sensitive target freshness and generated mirror behavior to [proof.md](proof.md).
+## [8]-[LINKS]
 
-## [10]-[EXAMPLES]
+Use link text that describes the destination. Avoid bare URLs unless the URL is the example value. Prefer stable local routes and generated contracts over deep external links when the local route carries the same action.
 
-Examples must prove shape or prevent misuse. Place local examples beside the rule they clarify per [information-structure.md](information-structure.md). A late example section is valid only when it is a named reader-route example set that demonstrates how several rules interact. This guide controls example wording; the form standard controls placement.
+[LINK_LAW]:
+- Ordinary docs link only where the link changes reader action.
+- Reusable standards, skills, prompts, examples, and templates avoid external references in produced content.
+- README indexes and route maps may link because navigation is their job.
+- Do not put links inside table cells unless the table is a routing table or the link is the cell value.
 
-Use examples under these limits:
-- Prefer one positive shape and one rejected shape when the distinction matters.
-- Keep an example's wording consistent with the terminology it teaches.
-- When a block could be copied, run, or mistaken for current policy, mark its reuse risk.
-- When the contrast is only short prose or values, use a ContrastRecord from the formatting standard instead of separate fences.
+## [9]-[EXAMPLES]
+
+Examples prove shape or prevent misuse. Place them beside the rule they clarify.
+
+[EXAMPLE_LAW]:
+- Use one positive example and one near miss only when the distinction is likely to be copied incorrectly.
+- Keep example wording aligned with the terminology it teaches.
+- Mark copyable, generated, conceptual, output-only, or rejected blocks with the correct fence intent.
+- Use a ContrastRecord for short accepted/rejected prose or values.
 
 [UNIT_ATTACHMENT]:
 - Accepted: Attach the unit to its value.
 - Rejected: It is probably best to try to avoid not stating the unit when you can.
 - Reason: The accepted sentence names the action directly; the rejected sentence hedges, negates, and hides the unit rule.
 
-## [11]-[ACCESSIBILITY]
+## [10]-[ACCESSIBILITY]
 
 - Carry meaning through text, not through color, position, shape, pointer movement, screenshots, or sound alone.
-- Provide text equivalents for visual, audio, or screenshot-only information, and write alt text that states what the image proves.
-- Write text equivalents for diagrams, alerts, glyph-heavy graphics, progress bars, and monospace structures when the meaning is not already recoverable from adjacent fields. State the relation, state, or proof that the visual encodes, not its appearance.
-- When keyboard, pointer, touch, voice, or automation can perform the action, use input-neutral UI verbs. When the UI label is the action target, describe it exactly.
-- Prefer conventional grammar and punctuation for machine translation and avoid idioms and culture-specific figurative wording.
+- Provide text equivalents for visual, audio, or screenshot-only information.
+- Write text equivalents for diagrams, alerts, glyph-heavy graphics, progress bars, and monospace structures when the meaning is not already recoverable from adjacent fields.
+- State the relation, state, or claim-confidence signal a visual encodes, not its appearance.
+- Use input-neutral UI verbs when keyboard, pointer, touch, voice, or automation can perform the action.
+- Preserve exact UI labels when the label is the action target.
+- Prefer conventional grammar and punctuation for machine translation.
 
-## [12]-[FINAL_PROOFING_PASS]
+## [11]-[FINAL_PASS]
 
 Review craft in 4 passes before publication:
 1. Composition: scope, controlling idea, paragraph order, and section endings.
-2. Mechanics: grammar, punctuation, capitalization, numbers, parallelism, code-safe Markdown, semicolon-ended bullets, prose slashes, digit-hyphen-digit ranges, and colon-lead/list adjacency.
-3. Terminology: names, commands, paths, links, and examples use exact source wording.
-4. Accessibility wording: sensory cues, UI labels, and text equivalents are direct and input-neutral.
+2. Mechanics: grammar, punctuation, capitalization, numbers, parallelism, code-safe Markdown, semicolon-ended bullets, prose slashes, ranges, and colon/list adjacency.
+3. Terminology: names, commands, paths, links, and examples use exact surface wording.
+4. Accessibility: sensory cues, UI labels, and text equivalents are direct and input-neutral.
 
-## [13]-[BOUNDARIES]
+## [12]-[BOUNDARIES]
 
-- [information-structure.md](information-structure.md) carries container form, example placement, and the code-block intent-label vocabulary.
-- [proof.md](proof.md) carries evidence strength and when a hedge is a load-bearing uncertainty marker rather than filler.
-- [formatting.md](formatting.md) carries status and invocation markers, table styling, and whitespace; this standard carries the words.
-- [README.md](README.md) carries document-type routing and cross-standard links.
-
-## [14]-[VALIDATION]
-
-Use this verification checklist by group:
-
-[NAMES_PROSE]:
-- [ ] Repo-local and maintained source names are preserved exactly.
-- [ ] One concept has one term.
-- [ ] Paragraphs carry one controlling idea and close on the intended route, action, proof, or boundary.
-- [ ] Sentences are direct, concrete, and free of needless words.
-- [ ] Conditions appear before the actions they control.
-- [ ] Root-file audit prose states the score basis directly and avoids praise, blame, and session-process narration.
-- [ ] Root-file audit prose uses the 4 shared axes from [README.md](README.md) and does not invent a local grading vocabulary.
-
-[MECHANICS_SOURCES]:
-- [ ] Commands, paths, flags, symbols, and placeholders use backticks.
-- [ ] Punctuation around code spans preserves literal copyability.
-- [ ] Bullet items do not end with semicolons.
-- [ ] Prose alternatives use words instead of slashes.
-- [ ] Prose numeric ranges use en dashes unless they are copyable literals.
-- [ ] A colon lead that introduces a list has no blank gap before the list.
-- [ ] Examples are necessary and placed beside the rule they clarify.
-- [ ] Links use meaningful text and point to canonical sources.
-- [ ] Accessibility does not depend on sensory-only cues.
-- [ ] No transient task language, obsolete command, or unsupported product claim remains.
-- [ ] Live policy uses GroupedRecord, AnchoredRecord, or ContrastRecord bullets; no bare indented field lines or flat contrast paragraphs.
+- `information-structure.md` carries container form, example placement, and code-block intent labels.
+- `proof.md` carries claim confidence and gap fields.
+- `formatting.md` carries status and invocation markers, table styling, whitespace, and heading notation.
+- `README.md` carries document-type routing and cross-standard links.

@@ -62,7 +62,7 @@ Text equivalent: CLI argv resolves through `REGISTRY` into a `Bind`; the rail ow
 
 ## [4][COMMANDS]
 
-Command rows are the curated operator surface, not generated help. Run nested commands as `uv run python -m tools.assay <family> <verb> ...`; root commands omit `<family>`. Exhaustive parameter signatures stay in source and Cyclopts help.
+Command rows are the curated operator surface, not generated help. Run nested commands as `uv run python -m tools.assay <family> <verb> ...`; root commands omit `<family>`. Exhaustive parameter signatures stay in source and Cyclopts help. Cyclopts `--help` hides the `--language` default; the upstream Enum-default branch (`cyclopts/help/help.py`) reads `default_val.name` before consulting any `show_default` callable, so a `None` default would crash `--help`. The flag still accepts every language choice.
 
 This table is a lookup by command surface and verb set:
 
@@ -70,7 +70,7 @@ This table is a lookup by command surface and verb set:
 | :-----: | :-------- | :-------------------------------------------------------------- |
 |   [1]   | root      | `self-test`, `delta`                                            |
 |   [2]   | `static`  | `fix`, `report`, `build`, `full`, `plan`                        |
-|   [3]   | `code`    | `search`, `rewrite`, `query`                                    |
+|   [3]   | `code`    | `search`, `query`                                               |
 |   [4]   | `test`    | `run`, `list`, `coverage`                                       |
 |   [5]   | `bridge`  | `verify`, `doctor`, `launch`, `quit`, `check`, `clean`, `build` |
 |   [6]   | `package` | `stage`, `deploy`, `publish`, `list`, `plan`                    |
@@ -92,10 +92,11 @@ This table is a lookup by command surface and verb set:
 - Example: `uv run python -m tools.assay static plan --language csharp libs/csharp/Rasm`
 
 [CODE_COMMANDS]:
-- Verbs: `search`, `rewrite`, `query`
-- Inputs: `[paths...]`, `--language`, `--pattern`, `--rewrite`, `--apply`, `--max-results`
+- Verbs: `search`, `query`
+- Inputs: `[paths...]`, `--language`, `--pattern`, `--max-results`
 - Output: `Match` rows and rail artifacts.
-- Use: literal search uses ripgrep; metavars use ast-grep; `query` uses in-process tree-sitter; `rewrite --apply` mutates under lease.
+- Use: literal patterns route to ripgrep content search; `$NAME` metavar patterns route to ast-grep structural search; `query` runs an in-process tree-sitter AST query.
+- Grep overlap: the content sub-arm intentionally overlaps the harness Grep tool. It is kept deliberately so a content search produces the same one-`Envelope`, artifact-backed result contract as every other rail rather than raw matcher output.
 - Example: `uv run python -m tools.assay code search --pattern run_check --language python tools/assay`
 
 [TEST_COMMANDS]:
@@ -104,6 +105,7 @@ This table is a lookup by command surface and verb set:
 - Source-exposed params: `--target`, `--all`, `--filter`, `--limit`, `--grep`
 - Output: `TestRun` detail, or `Match` rows for `list`.
 - Use: mutation is `off`, `changed`, or `full`; `target` and `all` constrain mutation eligibility, while `filter` narrows .NET list/run invocations. `list` emits direct test identity rows and keeps discovery diagnostics separate.
+- List truth: `list` carries `detail.selected` = the pre-limit discovered total (the structured surface an agent reads); the `discovery: total=… returned=…` note tracks discovered vs roster after `--limit`. Any further clip to the wire rows is owned by the result cap and its in-band truncation note (see [5]).
 - Example: `uv run python -m tools.assay test run --language csharp tests/csharp`
 
 [BRIDGE_COMMANDS]:
@@ -118,6 +120,7 @@ This table is a lookup by command surface and verb set:
 - Inputs: `--slug`, `--version`
 - Output: `PackageRun` detail.
 - Use: slug and version are flags, not positionals; stage/deploy/publish are Yak/Rhino-package operations.
+- Version routing: the root app declares no global `--version` flag, so `package plan --version <v>` routes the token into `PackageParams.version` rather than printing the app version on bare stdout (which would break the one-`Envelope` contract). Version reporting lives in `self-test`.
 - Example: `uv run python -m tools.assay package plan --slug <yak-slug> --version <version>`
 
 [API_COMMANDS]:
@@ -125,6 +128,7 @@ This table is a lookup by command surface and verb set:
 - Inputs: `--key`, `--symbol`, `--kind`, `--token`, `--max-lines`, `--lines`, `--grep`, `--full`, `--strict`
 - Output: `ApiSurface` or `ApiResolution` detail.
 - Use: sources include host assemblies, NuGet packages, Python distributions, and TypeScript declarations; `show latest` resolves through artifact-store root priority rather than a workspace scan.
+- Row text: each `doctor` inventory `Match.text` is the stable key=value health grammar `<source_id> status=<status> assembly=present|missing xml=present|missing version=<version|->` (fixed key order, single-space-separated) so downstream parsers key off names, not positions.
 - Example: `uv run python -m tools.assay api query --key rhino-common --symbol Rhino.Geometry.Mesh`
 
 [DOCS_COMMANDS]:
@@ -132,6 +136,7 @@ This table is a lookup by command surface and verb set:
 - Inputs: `[paths...]`, `--strict`
 - Output: shared `Report`
 - Use: Mermaid render validation through `mmdc`; not full Markdown standards, links, or anchor validation.
+- Worked-run envelope: a successful `check` reports `status: ok` with one `source:<file>:1` result row per routed file and `Artifact` rows for the produced SVG/MD under the per-run scope, so an agent reads artifact paths from the envelope. `mmdc` runs once per routed file with `-i <file> -a <scope_dir> -o <scope_dir>/<slug>.md`; the `-o` sink stem is the slugged full relative path, so two same-basename files never clobber a shared sink. Files land under `.artifacts/assay/docs/<run_id>/`.
 - Example: `uv run python -m tools.assay docs check tools/assay/README.md`
 
 ## [5][OUTPUT_CONTRACT]
@@ -174,7 +179,7 @@ Assay output is machine-first. The stable consumer rule is simple: parse stdout 
 - Report detail: rail-specific evidence under `report.detail`.
 - Rows: bounded row output under `report.results`.
 - Artifacts: durable files under `report.artifacts`.
-- Truncation: inline lists may set `truncated=true`; envelope-level caps attach a full-report artifact before clipping rows.
+- Truncation: when a result or artifact cap fires, the envelope sets `truncated=true`, clips the rows, attaches the unclipped report as a full-report artifact, and appends one in-band note to `report.notes`. The note is the unified `results: {shown} of {total} (cap={cap}); full report artifact under {run_id}` N-of-M shape — the same grammar the `code` rail uses; there is no stderr truncation side-channel.
 - Result locations are the Assay contract; older tool payload shapes do not define this operator.
 
 ## [6][INTEGRATIONS]
@@ -188,6 +193,7 @@ Integrations are grouped by the reader action they change. They are capability n
 [PYTHON_TOOLS]:
 - Enables: Ruff, ty, mypy, pytest, coverage, mutmut, and py-analyzer proof.
 - Boundary: selected by claim and language rows.
+- Mutation lane: the staged rail posture is the only Python mutation runner. mutmut runs with `cwd=.artifacts/python/mutmut/work` (a copy-staged worktree); a root `mutants/` directory is forbidden by the litter-law policy. `--max-children` is spliced from `mutation_max_cpu` to bind mutmut's second-tier fork fan, and `COVERAGE_RCFILE` (=`.config/coverage-mutmut.ini`) is carried as a row-owned `Tool.env` entry so the covered-lines flip does not abort. The `changed` lane maps changed `.py` files to module-dotted mutant-name globs (`tools.assay.rails.docs.*`), never file paths, because mutmut filters by mutant name.
 
 [TYPESCRIPT_TOOLS]:
 - Enables: `tsc`, Biome, Knip, Sherif, Vitest, and ast-grep proof.
@@ -199,7 +205,7 @@ Integrations are grouped by the reader action they change. They are capability n
 
 [MERMAID_CLI]:
 - Enables: `docs check` render validation on Markdown inputs.
-- Boundary: `mmdc` only; no generic Markdown validation.
+- Boundary: `mmdc` only; no generic Markdown validation. One `mmdc` invocation per routed file carries its own input placement (`-i <file> -a <scope_dir> -o <scope_dir>/<slug>.md`); the slugged `-o` sink keeps concurrent fan-out writes collision-free.
 
 [RHINO_BRIDGE_YAK]:
 - Enables: live scenario verification and package stage, deploy, or publish.
@@ -270,6 +276,8 @@ Artifacts, logs, tracing, and remote execution are operator surfaces. They do no
 
 [RUN_SCOPES]:
 - Layout: per-run scopes live under the claim/run id; stable build scopes exist for build-like closures.
+- Lazy ensure: opening a scope computes its path without materializing the directory; a rail that writes its own files into the scope calls `ArtifactScope.ensure()` once, which routes the `makedirs` through the store boundary. An opened-but-unused scope leaves no empty directory, and `.NET` builds create their own `--artifacts-path`.
+- Retention: per-claim scope run-dirs are pruned oldest-first by `ArtifactStore.retain_scopes(claim, keep)` after each rail run, bounded by `ASSAY_ARTIFACT_RETENTION` (default 50), mirroring history retention. This bounds the per-claim scope pile-up.
 - Trust rule: emitted artifact paths over inferred directory shapes.
 
 [LOGS]:

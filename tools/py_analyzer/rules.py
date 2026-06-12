@@ -155,7 +155,6 @@ RULES: Final[MappingProxyType[RuleId, Rule]] = MappingProxyType({
     ),
 })
 
-
 # --- [OPERATIONS] -----------------------------------------------------------------------
 
 

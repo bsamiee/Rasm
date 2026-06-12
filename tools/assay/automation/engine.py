@@ -53,7 +53,6 @@ type Fire = Callable[[ChangeBatch], Coroutine[None, None, None]]
 type Worker = Callable[[], Coroutine[None, None, None]]
 type RailOutcome = tuple[Envelope, bool]
 
-
 # --- [CONSTANTS] ------------------------------------------------------------------------
 
 # ContextVar isolates the priming latch per async context so tests don't bleed state.
@@ -63,11 +62,9 @@ _JITTER_MS: int = 100
 _NO_CHANGES: ChangeBatch = ()
 _PROGRAM_ROUTED: Routed = Routed(language=Language.PYTHON, scope=Scope.FULL)
 
-
 # --- [SERVICES] -------------------------------------------------------------------------
 
 _LOG: structlog.stdlib.BoundLogger = structlog.get_logger("assay.automation")
-
 
 # --- [OPERATIONS] -----------------------------------------------------------------------
 
@@ -285,7 +282,9 @@ def _watch_filter(spec: Watch) -> BaseFilter:
     ignores = spec.ignore_patterns
     match spec.filter:
         case WatchFilter.DEFAULT:
-            return DefaultFilter(ignore_entity_patterns=ignores)
+            # Extend, don't replace: a bare ignore_entity_patterns= drops watchfiles' built-in file-noise suppression
+            # (.pyc/.DS_Store/swap/editor-lock); keep those and append the spec's own ignores.
+            return DefaultFilter(ignore_entity_patterns=(*DefaultFilter.ignore_entity_patterns, *ignores))
         case WatchFilter.PYTHON:
             return PythonFilter(ignore_paths=ignores, extra_extensions=(".pyi",))
         case _ as unreachable:
@@ -299,14 +298,22 @@ async def _watch(spec: Watch, fire: Fire, stop: anyio.Event) -> None:
         debounce=spec.debounce,
         step=spec.step,
         stop_event=stop,
+        rust_timeout=1000,  # cap the Rust watcher's blocking wait at 1s so a stop_event is honored within ≤1s, not ≤5s
+        yield_on_timeout=True,  # empty-set yields on each 1s timeout are routed safely by the empty-batch fire path
         force_polling=spec.force_polling,
         poll_delay_ms=spec.poll_delay_ms,
         recursive=spec.recursive,
         ignore_permission_denied=spec.ignore_permission_denied,
     ):
         batch = tuple((str(kind), path) for kind, path in sorted(changes, key=itemgetter(1)))
-        _LOG.info("watch.fire", changes=len(batch), paths=tuple(path for _, path in batch[:8]))
-        await fire(batch)
+        # yield_on_timeout surfaces an empty changeset every rust_timeout window purely to re-check the stop_event;
+        # those are stop-latency heartbeats, not file events, so they must not fire the action.
+        match batch:
+            case ():
+                pass
+            case _:
+                _LOG.info("watch.fire", changes=len(batch), paths=tuple(path for _, path in batch[:8]))
+                await fire(batch)
 
 
 def _emit_automation_fault(exc: Exception, settings: AssaySettings, action: Action | None) -> None:

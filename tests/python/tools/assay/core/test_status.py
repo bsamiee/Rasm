@@ -15,9 +15,9 @@ import itertools
 from hypothesis import given, strategies as st
 import pytest
 
-from tests.python._testkit._aspect import register_laws, spec
-from tests.python._testkit._spec import absorbing, associative, commutative, identity_element, monotone, validity_matrix, ValidityCase
-from tests.python.tools.assay.conftest import rail_status_st
+from tests.python._testkit.laws import register_laws, spec
+from tests.python._testkit.spec import absorbing, associative, commutative, identity_element, monotone, validity_matrix, ValidityCase
+from tests.python.tools.assay.kit import rail_status_st
 from tools.assay.core.status import fold, join, RailStatus
 
 
@@ -62,7 +62,6 @@ register_laws(
     ),
     (fold, ("fold_max_severity_oracle", "fold_associativity_split", "fold_empty_seed", "fold_permutation_invariant", "fold_faulted_dominates")),
 )
-
 
 # --- [OPERATIONS] -----------------------------------------------------------------------
 

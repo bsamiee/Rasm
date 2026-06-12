@@ -27,7 +27,6 @@ from expression import Error, Ok, Result
 from expression.collections import block
 from expression.extra.result import sequence
 import msgspec
-import psutil
 import structlog
 
 from tools.assay.composition.catalog import select
@@ -35,7 +34,7 @@ from tools.assay.composition.settings import (  # noqa: TC001  # beartype resolv
     ArtifactScope,
     AssaySettings,
 )
-from tools.assay.core.engine import leased, run_check
+from tools.assay.core.engine import leased, proc_dead, run_check
 from tools.assay.core.model import (
     ArtifactKind,
     Base,
@@ -239,11 +238,9 @@ _STEP_POLICY: Final[dict[tuple[str, bool], tuple[_LifecycleStep, ...]]] = {
     ("publish", True): (_LifecycleStep.QUIT, _LifecycleStep.INSTALL, _LifecycleStep.REFRESH, _LifecycleStep.PUSH),
 }
 
-
 # --- [SERVICES] -------------------------------------------------------------------------
 
 _LOG: structlog.stdlib.BoundLogger = structlog.get_logger("assay.package")
-
 
 # --- [OPERATIONS] -----------------------------------------------------------------------
 
@@ -406,14 +403,6 @@ def _recover(meta: YakMeta, slug: str) -> Result[str, Fault]:
         Recovery direction taken (``absent``/``forward``/``back``/``clear``), or a BUSY fault while the marker pid is alive.
     """
 
-    def dead(pid: int) -> bool:
-        try:
-            return psutil.Process(pid).status() in {psutil.STATUS_DEAD, psutil.STATUS_ZOMBIE}
-        except psutil.NoSuchProcess, ValueError:
-            return True
-        except psutil.AccessDenied:
-            return not psutil.pid_exists(pid)
-
     def decoded(raw: bytes) -> _CommitMarker | None:
         try:
             return _MARKER_DECODER.decode(raw)
@@ -426,7 +415,7 @@ def _recover(meta: YakMeta, slug: str) -> Result[str, Fault]:
                 marker.unlink(missing_ok=True)
                 _LOG.warning("package.recover", slug=slug, direction="clear", reason="undecodable marker")
                 return Ok("clear")
-            case _ if not dead(mark.pid):
+            case _ if not proc_dead(mark.pid):
                 return Error(Fault(("yak", "recover", slug), status=RailStatus.BUSY, message=f"package commit pending under live pid {mark.pid}"))
             case _:
                 previous = Path(mark.previous)

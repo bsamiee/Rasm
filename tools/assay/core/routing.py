@@ -26,7 +26,6 @@ from tools.assay.core.status import RailStatus
 
 # --- [TYPES] ----------------------------------------------------------------------------
 
-
 type RoutePaths = tuple[str, ...]
 type ProjectIndex = Mapping[str, str]
 
@@ -91,7 +90,6 @@ _CACHED: tuple[str, ...] = ("git", "diff", "--cached", "--name-only", "--diff-fi
 _UNTRACKED: tuple[str, ...] = ("git", "ls-files", "--others", "--exclude-standard")
 _FD: tuple[str, ...] = ("fd", "-H", "-t", "f", ".")
 _FD_EXCLUDE: tuple[str, ...] = ("--exclude", ".git", "--exclude", "bin", "--exclude", "obj")
-
 
 # --- [MODELS] ---------------------------------------------------------------------------
 
@@ -285,7 +283,7 @@ def routable_files(files: RoutePaths, settings: AssaySettings) -> RoutePaths:
     return tuple(path for path in files if not any(path.startswith(prefix) for prefix in settings.probe_fixture_prefixes))
 
 
-def place(routed: Routed, tool: Tool, *, settings: AssaySettings) -> tuple[tuple[str, ...], ...]:
+def place(routed: Routed, tool: Tool, *, settings: AssaySettings) -> tuple[tuple[str, ...], ...]:  # noqa: PLR0912  # one arm per Input member; the axis is closed
     """Project routed inputs into command argument tail groups for one tool.
 
     Each inner tuple is one invocation's argument tail. An empty outer tuple means no
@@ -315,6 +313,9 @@ def place(routed: Routed, tool: Tool, *, settings: AssaySettings) -> tuple[tuple
         case Input.NONE:
             files = routable_files(routed.files, settings)
             return ((*files,),) if files else ((),)
+        case Input.OWNED:
+            # The command embeds its own input placement; one invocation with no extra tail.
+            return ((),)
         case never:  # pragma: no cover
             assert_never(never)
 

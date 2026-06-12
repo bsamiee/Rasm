@@ -2,7 +2,7 @@
 
 API documentation is contract-backed reference for a callable surface. It tells an agent which contract carries caller-visible truth, which profile-specific facts may be curated, how generated output is refreshed, and which adjacent document carries everything else. It is not a command catalog, generated symbol mirror, host SDK tutorial, support policy, or local-tool operator guide.
 
-This standard assumes local source-collection mechanics already live in repo instruction files, route READMEs, generated artifacts, and tooling documentation. Do not restate those mechanics here. Follow the local tool route, then write the smallest API page that preserves contract identity, caller obligations, failure/status behavior, proof fields, and adjacent-route handoff.
+This standard assumes local source-collection mechanics already live in repo instruction files, route READMEs, generated artifacts, and tooling documentation. Do not restate those mechanics here. Follow the local tool route, then write the smallest API page that preserves contract identity, caller obligations, failure/status behavior, confirmation fields, and adjacent-route handoff.
 
 ## [1]-[USE_WHEN]
 
@@ -19,7 +19,7 @@ Route source-level public symbol comment style to [code-documentation.md](code-d
 
 [AUTHORING_CONTRACT]:
 - Agent use: locate the controlling contract or upstream artifact, collect generated or maintained truth through the local route, then document only the caller-facing facts the chosen profile requires.
-- Required produced structure: opening scope, `Contract`, one profile body, `API change maintenance`, `Boundaries`, and `Validation`.
+- Required produced structure: opening scope, `Contract`, one profile body, `API change maintenance`, `Boundaries`, and `Result check`.
 - Section cardinality: one primary profile, one contract record, and only the profile sections triggered by the callable surface.
 - Adjacent checks: code documentation for source comments, reference for command flags and lookup tables, README for entrypoints, support matrix for lifecycle, how-to/tutorial for procedures, architecture for routing.
 - Maintenance triggers: callable contract, parameter, field, status, error, envelope, generated output, source comment, support row, or entrypoint changes.
@@ -39,7 +39,7 @@ Choose one primary profile per page. Split the page when a second profile would 
 |   [6]   | Upstream HTTP API facts     | curated upstream facts and caller impact         | copied endpoint catalog              |
 |   [7]   | Upstream SDK/protocol facts | curated upstream facts and local use boundary    | local rail posture or task procedure |
 
-Local and generated profiles name the generated artifact and refresh route. Upstream profiles name the maintained source beside drift-prone facts and never imply local routing of upstream behavior.
+Local and generated profiles name the generated artifact and refresh route. Upstream profiles name the maintained material beside drift-prone facts and never imply local routing of upstream behavior.
 
 ## [3]-[REQUIRED_STRUCTURE]
 
@@ -58,19 +58,6 @@ Use this skeleton, then replace `<PROFILE_BODY>` with the one selected profile s
 
 ## [N]-[BOUNDARIES]
 
-## [N]-[VALIDATION]
-```
-
-Use these required profile bodies:
-- `HTTP_CONTRACT`: local HTTP only; link OpenAPI or checked-in contract output.
-- `COMMAND_ENVELOPE`: local CLI/tool only; name invocation prefix, output channels, statuses, side effects, artifact paths, and controlling source.
-- `TOOL_SCHEMA`: MCP/tool only; name catalog/schema source, authorization/setup, preconditions, field cards, failure carrier, side effects, and evidence.
-- `GENERATED_HOST_METADATA`: generated host/API metadata only; name source key, resolution order, query shapes, output fields, empty/miss behavior, artifacts, and refresh route.
-- `GENERATED_LIBRARY_REFERENCE`: generated library reference only; name generation record and symbol-family links.
-- `EXTERNAL_FACTS`: upstream HTTP, SDK, protocol, or product facts only; name the maintained source or generated proof for every drift-prone fact.
-
-Conditional profile sections appear only when the callable surface exposes the concern: authorization, HTTP mechanics, schemas, errors, async, versioning, examples, generated artifacts, and status/failure contracts.
-
 ## [4]-[CONTRACT_SOURCE]
 
 API prose ranks below the contract or source it describes. Resolve conflicts in this order:
@@ -82,9 +69,9 @@ API prose ranks below the contract or source it describes. Resolve conflicts in 
 
 Curated prose must not fork generated contracts, generated reference models, local host/API query output, or maintained upstream sources. If prose and the controlling source disagree, the controlling source wins and prose is corrected or deleted.
 
-Use [proof.md](../proof.md) for evidence strength, freshness, source conflicts, and proof-field mechanics. API records use proof-local fields in this order when a claim needs them: `Evidence`, `Generated from`, `Controlling source`, `Review trigger`.
+Use [proof.md](../proof.md) for confirmation strength, refresh, owner conflicts, and confirmation-field mechanics. API records use confirmation-local fields in this order when a claim needs them: `Observed result`, `Generated by`, `Owner`, `Review trigger`.
 
-Keep source and proof fields distinct. `Contract source` and `Controlling source` identify controlling artifacts; `Evidence` identifies the observed check or source span that proves the current claim. Do not put a command transcript in `Controlling source`, and do not let a source path stand in for generated-output, parser, or renderer evidence.
+Keep source and confirmation fields distinct. `Contract owner` and `Owner` identify controlling artifacts; `Observed result` identifies the observed check or source span that proves the current claim. Do not put a command transcript in `Owner`, and do not let a code path stand in for generated-output, parser, or renderer confirmation.
 
 ## [5]-[CONTRACT_RECORDS]
 
@@ -93,18 +80,18 @@ Use one contract record per callable surface or surface family. Omit fields that
 ```text template
 Surface: `<callable surface>`
 Profile: `<one profile from PROFILES>`
-Contract source: `<OpenAPI file, schema, command envelope, tool catalog, generated artifact, upstream source, source path, XML, or decompile output>`
+Contract owner: `<OpenAPI file, schema, command envelope, tool catalog, generated artifact, upstream source, code path, XML, or decompile output>`
 Generated artifact: `<output path, URL, or generated reference route; omit when absent>`
 Invocation or query shape: `<method/path, command prefix, tool name, source key query, or symbol-family route>`
 Failure/status carrier: `<HTTP status and body, stdout envelope, stderr diagnostic, exit code, tool error, typed return, exception, miss record, or transport failure>`
 Side effects: `<file edits, generated artifacts, runtime state, external state, or omit when none>`
 Consumer/toolchain: `<validator, renderer, client, SDK, or generator constraint; omit when unconstrained>`
 Route-away: `<command inventory, procedure, runbook, support policy, tutorial, README, architecture, or reference route body>`
-Evidence: `<status check, generated output, command result, maintained source, or proof gap>`
-Generated from: `<exact generation or query route; omit when manual or external>`
-Controlling source: `<contract, schema, source path, generated artifact, XML/decompile output, or maintained upstream source>`
-Proof gap: `<missing source, unrun generator, unsupported renderer, or omitted when proved>`
-Last verified: YYYY-MM-DD
+Observed result: `<status check, generated output, command result, maintained material, or confirmation gap>`
+Generated by: `<exact generation or query route; omit when manual or external>`
+Owner: `<contract, schema, code path, generated artifact, XML/decompile output, or maintained upstream source>`
+Confirmation gap: `<missing source, unrun generator, unsupported renderer, or omitted when proved>`
+Refresh trigger: <owner-change>
 Review trigger: `<contract, source, generated output, field, status, side effect, toolchain, support row, or upstream source changes>`
 ```
 
@@ -115,8 +102,8 @@ Field: `<name>`
 Type/schema: `<type, schema path, enum, or carrier>`
 Required/default: `<required, optional, default, or generated>`
 Allowed values: `<closed values, range, or units; omit when unconstrained>`
-Source: `<contract, schema, source path, XML/decompile output, or generated artifact>`
-Field check: `<parser, gate, schema, or proof gap>`
+Owner: `<contract, schema, code path, XML/decompile output, or generated artifact>`
+Field check: `<parser, gate, schema, or confirmation gap>`
 Failure/status behavior: `<status, exit, typed failure, error, or miss behavior>`
 Review trigger: `<field, source, schema, parser, or generated output changes>`
 ```
@@ -136,16 +123,16 @@ Profile rules split by API surface:
 - Document invocation prefix, stdout/stderr or return envelope, status values, exit codes, side effects, artifact paths, controlling source, and review triggers.
 - Route flags, command inventory, and runnable recipes to reference or task routes.
 - Keep stdout/stderr, typed return, artifacts, and diagnostics separate when agents parse them differently.
-- Use a command card for each callable family that needs independent proof: `Command`, `Invocation`, `Preconditions`, `Inputs`, `Outputs`, `Side effects`, `Exit behavior`, `Evidence`, `Controlling source`, and `Review trigger`.
+- Use a command card for each callable family that needs independent confirmation: `Command`, `Invocation`, `Preconditions`, `Inputs`, `Outputs`, `Side effects`, `Exit behavior`, `Observed result`, `Owner`, and `Review trigger`.
 - Use a CLI envelope record when agents or automation consume channels: `Stdout`, `Stderr`, `Exit status`, `Artifacts`, `External state`, `Diagnostics`, `Failure reading`, and `Close signal`. Do not merge stdout payload, stderr diagnostics, and durable artifacts into one prose field.
 
 [MCP_TOOL]:
-- Document catalog/schema source, authorization or connector setup, preconditions, input field cards, output field cards, side effects, failure carrier, evidence, controlling source, and review trigger.
+- Document catalog/schema source, authorization or connector setup, preconditions, input field cards, output field cards, side effects, failure carrier, confirmation, controlling source, and review trigger.
 - Route installation, workflow, and recovery elsewhere unless they change the callable schema or preconditions.
 
 [HOST_METADATA]:
 - Document source key, resolution order, maintained query shapes, output fields, empty/miss behavior, generated artifacts, and refresh route.
-- Use local tooling and generated output as owner evidence; do not transcribe broad host or package catalogs.
+- Use local tooling and generated output as owner confirmation; do not transcribe broad host or package catalogs.
 - Route host support and availability to support matrix, task procedure to how-to, and source comments to code documentation.
 
 [LIBRARY_REFERENCE]:
@@ -190,7 +177,7 @@ Route-away: `<adjacent route body; omit untriggered routes>`
 ## [8]-[VERSIONING]
 
 State versioning and deprecation as one explicit statement per contract, or route support dates to support matrix. Distinguish versioning scheme, deprecation notice, sunset or removal signal, migration target, and support lifecycle date.
-Name the maintained source only when a local consumer or support policy depends on that source.
+Name the maintained material only when a local consumer or support policy depends on that source.
 
 ## [9]-[BOUNDARIES]
 
@@ -201,29 +188,3 @@ Name the maintained source only when a local consumer or support policy depends 
 - [tutorial.md](../learning/tutorial.md) carries learning paths through API use.
 - [readme.md](readme.md) carries first entry routes and route-document maps.
 - [architecture.md](../explanation/architecture.md) carries current structure, routing boundaries, and generated-output placement when those facts affect code editing.
-
-## [10]-[VALIDATION]
-
-Use this verification checklist by group:
-
-[CONTRACT_SOURCE]:
-- [ ] The page declares exactly one profile and uses that profile's required body.
-- [ ] Contract source, generated artifact, controlling source, and refresh route are named where they exist.
-- [ ] Generated contracts and generated reference output are linked or regenerated, not transcribed.
-- [ ] Local API/tool source-collection mechanics are linked to their route instead of repeated.
-
-[PROFILE_FACTS]:
-- [ ] CLI/tool pages name invocation, output channels or return envelope, statuses, exit codes, side effects, artifact paths, controlling source, and review triggers.
-- [ ] MCP/tool pages name catalog/schema source, authorization/setup, preconditions, input/output fields, side effects, and failure carrier.
-- [ ] Generated host/API pages name source key, resolution order, query shape, output fields, empty/miss behavior, artifact paths, and refresh route.
-- [ ] Upstream SDK/test-tool pages distinguish upstream API facts from local rail posture and route command recipes or strategy policy away.
-
-[HTTP_ERRORS_VERSIONING]:
-- [ ] HTTP-only sections appear only for HTTP surfaces that expose the concern.
-- [ ] OpenAPI pages use the project-declared contract baseline or name the consumer/toolchain pin.
-- [ ] Error documentation carries status mapping, body shape, problem identifier or local error code, repairability, and retry guidance.
-- [ ] Versioning distinguishes deprecation notice, sunset or removal signal, migration target, and support lifecycle dates.
-
-[BOUNDARIES_PROOF]:
-- [ ] API surface cards appear only when adjacent route links change caller or agent behavior.
-- [ ] Every ordinary fenced block carries an intent label, and every relative link resolves.

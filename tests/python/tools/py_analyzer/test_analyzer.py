@@ -20,11 +20,9 @@ from tools.py_analyzer.rules import Diagnostic, OutputFormat, RuleCategory, Rule
 type DiagnosticRow = tuple[str, str, int, int, str, str]
 type DiagnosticJson = dict[str, str | int]
 
-
 # --- [CONSTANTS] ------------------------------------------------------------------------
 
 PY_ANALYZER_SAMPLE = "/".join((*PY_ANALYZER_ROOT, "sample.py"))
-
 
 # --- [OPERATIONS] -----------------------------------------------------------------------
 

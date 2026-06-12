@@ -11,7 +11,7 @@ Hygiene brings every research file in `<WORKSPACE>` to the bar. One agent per la
 - Every agent fully reads `docs/standards/style-guide.md` and applies its craft to the prose itself.
 
 [CLEAN]:
-- Strip every line that is not a finding — meta-commentary, "this is..." or "X is..." framing, any sourcing (external links, package or file paths, version numbers, dates), coupling to another file or the repository, and any introduction, routing, summary, sources, or validation section. Keep only logical category groups filled with findings.
+- Strip every line that is not a finding — meta-commentary, "this is..." or "X is..." framing, any process residue (outside route pointers, package or file paths, release label numbers, dates), coupling to another file or the repository, and any introduction, routing, summary, materials, or confirmation tail. Keep only logical category groups filled with findings.
 - Fix formatting: one H1, then `[GROUP_LABEL]:` groups of contiguous bullets with no blank line between items, and a blank line only around a fenced code block. Group like and adjacent findings; rename a group only when the new name names real shared content.
 - Consolidate: where findings overlap, fold them into one entry that carries the combined value of all of them.
 
@@ -21,11 +21,9 @@ Hygiene brings every research file in `<WORKSPACE>` to the bar. One agent per la
 - These files feed a lane-wide merge next: distinct nuance survives every trim; only prose fat leaves.
 
 [VALIDATE_AND_DEEPEN]:
-- Verify every claim against the newest source. Delete what is false or stale, correct what is wrong in detail, and sharpen what is unclear — never a blind cut.
+- Verify every claim against the newest material. Delete what is false or stale, correct what is wrong in detail, and sharpen what is unclear — never a blind cut.
 - Verification is bounded: at most three probes per claim; a claim that resists verification is weakened to what is provable or cut, never chased.
 - Dig a table-stakes finding deeper until it carries advanced value, or remove it when nothing deeper is there. Build on the file slightly; do not re-run the research.
 
 [GRADE]:
 - Grade every file against the research ladder in `_grading.md` at the reports root — the minimum across its axes clears the stage bar, automatic fails override any score, and the drift checks apply. Rework until every file clears.
-
-[COMMIT]: stage and commit `<WORKSPACE>`.

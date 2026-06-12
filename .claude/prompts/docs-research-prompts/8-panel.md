@@ -4,7 +4,7 @@
 - `<DOCTRINE>` =
 - `<WORKSPACE>` =
 
-`<TARGET>` exists as a page with no fenced code, and each lane folder in `<WORKSPACE>` holds a `99-distilled.md`. This work subjects the page to an adversarial panel review against the distilled reservoir, then one adjudicated rewrite.
+`<TARGET>` exists as a page with no fenced code, and each lane folder in `<WORKSPACE>` holds a `99-distilled.md`. Run an adversarial panel review against the distilled reservoir, then one adjudicated rewrite.
 
 [GROUNDING]:
 - Every agent — the orchestrator and every reviewer — fully reads `<DOCTRINE>`, then `docs/standards/style-guide.md`, `docs/standards/information-structure.md`, and `docs/standards/formatting.md`, before any other work: the laws, the collapse scan, the page craft, and the prose, container, and rendering standards. Every finding and every edit answers to them.
@@ -31,5 +31,3 @@
 
 [GRADE]:
 - Grade against the page ladder in `_grading.md` at the reports root: the minimum across signal, coverage, card power, structure, and doctrine fit clears the stage bar, automatic fails override any score, and the drift checks apply. Rework until every axis clears.
-
-[COMMIT]: stage and commit `<TARGET>`.
