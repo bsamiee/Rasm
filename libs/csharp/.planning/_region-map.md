@@ -6,17 +6,17 @@ Suite ownership ledger for the four app-package planning corpora. Binding preced
 
 [APPHOST]:
 
-- host-profiles.md [PROVISIONAL]: one HostProfile axis resolves every modality variance as row columns; the resolved-profile record is the only profile artifact siblings consume.
-- lifecycle-and-drain.md [PROVISIONAL]: closed RuntimePhase family with total transition law, drain conductor over frozen rank bands, cancellation spine, FaultSource union, crash markers.
-- time-and-deadlines.md [PROVISIONAL]: IClock/TimeProvider seams, DeadlineClass taxonomy, schedule port with CronExpression record, fake pairs on the test row.
-- configuration-and-options.md [PROVISIONAL]: ConfigSource axis with rank + reload-class columns, source-generated binding, validated frozen policy values, receipted reload.
-- composition-and-modules.md [PROVISIONAL]: one composition root per process; ModuleContribution rows; scanning/decoration/keyed-service law.
-- resource-lanes.md [PROVISIONAL]: HybridCache port (stampede, tags, entry options), ObjectPool policy rows, DrainQueue rows.
-- diagnostics-and-telemetry.md [PROVISIONAL]: correlation spine, TelemetrySignal governance, DataClassification taxonomy, contributor consumption.
-- health-and-degradation.md [PROVISIONAL]: HealthContributor fold, DegradationLevel rail incl. LocalOnly, grpc.health.v1 tag-predicate mapping, resource-pressure row.
-- support-bundles.md [PROVISIONAL]: SupportTrigger union, window freeze, contributor fan-in, redaction, cap, manifest, receipt.
-- outbound-resilience.md [PROVISIONAL]: OutboundHop axis (7 cases incl. update-check), one keyed Polly pipeline per hop, discovery manifest law, conflict evidence.
-- runtime-ports.md [PROVISIONAL]: typed port records (TelemetryContributor, ReceiptSink with HLC envelope, DrainParticipant, HostAttach, UiScheduler, Support, Health), suite wire law, TS tooling map, contract-merge rule.
+- host-profiles.md [FINAL]: one HostProfile axis resolves every modality variance as row columns; the resolved-profile record is the only profile artifact siblings consume.
+- lifecycle-and-drain.md [FINAL]: closed RuntimePhase family with total transition law, drain conductor over frozen rank bands, cancellation spine, FaultSource union, crash markers.
+- time-and-deadlines.md [FINAL]: IClock/TimeProvider seams, DeadlineClass taxonomy, schedule port with CronExpression record, fake pairs on the test row.
+- configuration-and-options.md [FINAL]: ConfigSource axis with rank + reload-class columns, source-generated binding, validated frozen policy values, receipted reload.
+- composition-and-modules.md [FINAL]: one composition root per process; ModuleContribution rows; scanning/decoration/keyed-service law.
+- resource-lanes.md [FINAL]: HybridCache port (stampede, tags, entry options), ObjectPool policy rows, DrainQueue rows.
+- diagnostics-and-telemetry.md [FINAL]: correlation spine, TelemetrySignal governance, DataClassification taxonomy, contributor consumption.
+- health-and-degradation.md [FINAL]: HealthContributor fold, DegradationLevel rail incl. LocalOnly, grpc.health.v1 tag-predicate mapping, resource-pressure row.
+- support-bundles.md [FINAL]: SupportTrigger union, window freeze, contributor fan-in, redaction, cap, manifest, receipt.
+- outbound-resilience.md [FINAL]: OutboundHop axis (7 cases incl. update-check), one keyed Polly pipeline per hop, discovery manifest law, conflict evidence.
+- runtime-ports.md [FINAL]: typed port records (TelemetryContributor, ReceiptSink with HLC envelope, DrainParticipant, HostAttach, UiScheduler, Support, Health), suite wire law, TS tooling map, contract-merge rule.
 
 [PERSISTENCE]:
 
@@ -65,6 +65,17 @@ Suite ownership ledger for the four app-package planning corpora. Binding preced
 
 ## [2]-[SIGNATURE_REGIONS]
 
+- AH-01 PROFILE_AXIS|LIFETIME_ADAPTERS|RESOURCE_IDENTITY: HostProfileKeyPolicy, ShipVehicle, RuntimeAttachment, ProfileFault, HostProfile, ResolvedProfile, ProfileSurface, ProfileBoot, ProfileRoots, ProfileIdentity — spotlight: the one host-variance axis and its resolved record.
+- AH-02 PHASE_FAMILY|FAULT_SPINE|DRAIN_CONDUCTOR|CANCEL_SPINE|TS_PROJECTION: CorrelationId, PhaseKeyPolicy, RuntimePhase, PhaseTrigger, LifecycleFault, PhaseReceipt, PhaseSubscription, Lifecycle, FaultSource, FaultRecord, BootMarker, FaultSpine, DrainBand, DrainOutcome, DrainStep, DrainReceipt, DrainConductor, CancelScope, RuntimePhaseKey, DrainOutcomeKey, PhaseReceiptWire, BootMarkerWire, FaultRecordWire, DrainStepWire, DrainReceiptWire — spotlight: total phase law, drain bands, fault spine, boot-minted correlation identity.
+- AH-03 CLOCK_SPLIT|DEADLINE_TAXONOMY|SCHEDULE_PORT: ClockPolicy, TimeKeyPolicy, DeadlineClass, DeadlineOutcome, DeadlineReceipt, DeadlineOps, OccurrenceSpec, LeasePolicy, ScheduleEntry, SchedulePort — spotlight: clock seams, deadline taxonomy, cron schedule port.
+- AH-05 MODULE_TABLE|SCAN_AND_DECORATE|BOUNDARY_ACTIVATION: ModuleContribution, ContributionReceipt, CompositionSurface, BoundaryActivation — spotlight: one composition root, contribution rows.
+- AH-06 CACHE_PORT|OBJECT_POOLS|DRAIN_QUEUES: LaneKeyPolicy, CacheLane, CacheSurface, PoolPolicy<T>, DrainSpec, DrainQueue<T>, DrainSurface — spotlight: hybrid cache port, pool policy rows, drainable queues.
+- AH-07 TELEMETRY_IDENTITY|CORRELATION_SPINE|LOG_PROJECTION|SIGNAL_GOVERNANCE|REDACTION_TAXONOMY: SignalKeyPolicy, TelemetrySource, InstrumentRow, TelemetryIdentity, Correlation, LogPipeline, SpineLog, SerilogProjectionPolicy, TelemetrySignal, SignalGovernance, RedactorKind, DataClassification — spotlight: telemetry identity, W3C spine mapping, classification taxonomy.
+- AH-08 HEALTH_FOLD|DEGRADATION_RAIL|WIRE_HEALTH|TS_PROJECTION: HealthContributorRow, PressurePolicy, HealthSnapshot, HealthSurface, HealthKeyPolicy, Capability, DegradationLevel, DegradationState, DegradationPolicy, DegradationCell, WireHealthRow, WireHealth — spotlight: health fold, degradation rail, grpc.health mapping.
+- AH-09 TRIGGER_UNION|CAPTURE_PIPELINE|MANIFEST_RECEIPT|TS_PROJECTION: SupportTrigger, SupportTriggerOps, SupportArtifact, SupportPolicy, SupportRuntime, SupportCapture, SupportManifest, SupportReceipt, SupportLedger — spotlight: bounded redacted capture with receipts.
+- AH-10 HOP_AXIS|HTTP_PIPELINES|KEYED_PIPELINES|DISCOVERY_ATTACH|OWNERSHIP_LAW: OutboundHop, HopFault, HopIdempotency, HopTransport, ReleaseIdentity, HopPolicy, HopRows, HttpLane, GrpcChannelPolicy, KeyedLane, DiscoveryManifest, CompanionChild, Discovery, HopOutcome, HopReceipt, OutboundRuntime, OutboundSurface — spotlight: hop axis, one retry owner, discovery manifest.
+- AH-11 PORT_RECORDS|WIRE_LAW|TS_PROJECTION: ReceiptEnvelope, ReceiptSinkPort, TelemetryContributorPort, DrainParticipantPort, HostAttachPort, UiSchedulerPort, SupportContributorPort, HealthContributorPort, AppHostWireContext, SuiteContracts, RasmPackage, HlcStampWire, ReceiptEnvelopeWire — spotlight: the seven ports, suite wire law, contract merge.
+
 - AH-04a SOURCE_AXIS: ConfigSource [SmartEnum<string>], ConfigSourceKeyPolicy, ReloadClass [SmartEnum<string>], ConfigLayer — spotlight: the rank+reload-class source axis with per-source factory delegate and precedence fold.
 - AH-04b TYPED_BINDING: PolicyBinding, ConfigError — spotlight: source-generated AOT-safe bind into immutable policy records with fail-closed unknown-key admission folding into Validation<ConfigError,T>.
 - AH-04c POLICY_VALUES: OptionsAdmission, ReloadReceipt, ReloadOutcome [Union] — spotlight: validate-once frozen policy publish, reload-class-gated OptionsMonitor transition, ControlService reload-options consequence.
@@ -72,6 +83,115 @@ Suite ownership ledger for the four app-package planning corpora. Binding preced
 
 ## [3]-[OWNER_SYMBOLS]
 
+- HostProfileKeyPolicy — AppHost/host-profiles#PROFILE_AXIS [comparer accessor]
+- ShipVehicle — AppHost/host-profiles#PROFILE_AXIS [SmartEnum<string>]
+- RuntimeAttachment — AppHost/host-profiles#PROFILE_AXIS [record]
+- ProfileFault — AppHost/host-profiles#PROFILE_AXIS [Union fault]
+- HostProfile — AppHost/host-profiles#PROFILE_AXIS [SmartEnum<string>]
+- ResolvedProfile — AppHost/host-profiles#PROFILE_AXIS [record]
+- ProfileSurface — AppHost/host-profiles#PROFILE_AXIS [static surface]
+- ProfileBoot — AppHost/host-profiles#LIFETIME_ADAPTERS [static surface]
+- ProfileRoots — AppHost/host-profiles#RESOURCE_IDENTITY [record]
+- ProfileIdentity — AppHost/host-profiles#RESOURCE_IDENTITY [record]
+- CorrelationId — AppHost/lifecycle-and-drain#PHASE_FAMILY [ValueObject<Guid>] (relocated owner; diagnostics consumes)
+- PhaseKeyPolicy — AppHost/lifecycle-and-drain#PHASE_FAMILY [comparer accessor]
+- RuntimePhase — AppHost/lifecycle-and-drain#PHASE_FAMILY [SmartEnum<string>]
+- PhaseTrigger — AppHost/lifecycle-and-drain#PHASE_FAMILY [Union]
+- LifecycleFault — AppHost/lifecycle-and-drain#PHASE_FAMILY [Union fault]
+- PhaseReceipt — AppHost/lifecycle-and-drain#PHASE_FAMILY [record]
+- PhaseSubscription — AppHost/lifecycle-and-drain#PHASE_FAMILY [record] (renamed from Subscription)
+- Lifecycle — AppHost/lifecycle-and-drain#PHASE_FAMILY [capsule]
+- FaultSource — AppHost/lifecycle-and-drain#FAULT_SPINE [Union]
+- FaultRecord — AppHost/lifecycle-and-drain#FAULT_SPINE [record wire projection]
+- BootMarker — AppHost/lifecycle-and-drain#FAULT_SPINE [record]
+- FaultSpine — AppHost/lifecycle-and-drain#FAULT_SPINE [capsule]
+- DrainBand — AppHost/lifecycle-and-drain#DRAIN_CONDUCTOR [SmartEnum<int>]
+- DrainOutcome — AppHost/lifecycle-and-drain#DRAIN_CONDUCTOR [Union]
+- DrainStep — AppHost/lifecycle-and-drain#DRAIN_CONDUCTOR [record]
+- DrainReceipt — AppHost/lifecycle-and-drain#DRAIN_CONDUCTOR [record]
+- DrainConductor — AppHost/lifecycle-and-drain#DRAIN_CONDUCTOR [static surface]
+- CancelScope — AppHost/lifecycle-and-drain#CANCEL_SPINE [capsule]
+- ClockPolicy — AppHost/time-and-deadlines#CLOCK_SPLIT [record]
+- TimeKeyPolicy — AppHost/time-and-deadlines#CLOCK_SPLIT [comparer accessor]
+- DeadlineClass — AppHost/time-and-deadlines#DEADLINE_TAXONOMY [SmartEnum<string>]
+- DeadlineOutcome — AppHost/time-and-deadlines#DEADLINE_TAXONOMY [Union]
+- DeadlineReceipt — AppHost/time-and-deadlines#DEADLINE_TAXONOMY [record]
+- DeadlineOps — AppHost/time-and-deadlines#DEADLINE_TAXONOMY [extension fold]
+- OccurrenceSpec — AppHost/time-and-deadlines#SCHEDULE_PORT [Union]
+- LeasePolicy — AppHost/time-and-deadlines#SCHEDULE_PORT [record]
+- ScheduleEntry — AppHost/time-and-deadlines#SCHEDULE_PORT [record]
+- SchedulePort — AppHost/time-and-deadlines#SCHEDULE_PORT [record port]
+- ModuleContribution — AppHost/composition-and-modules#MODULE_TABLE [record]
+- ContributionReceipt — AppHost/composition-and-modules#MODULE_TABLE [record]
+- CompositionSurface — AppHost/composition-and-modules#SCAN_AND_DECORATE [static surface]
+- BoundaryActivation — AppHost/composition-and-modules#BOUNDARY_ACTIVATION [capsule]
+- LaneKeyPolicy — AppHost/resource-lanes#CACHE_PORT [comparer accessor]
+- CacheLane — AppHost/resource-lanes#CACHE_PORT [SmartEnum<string>]
+- CacheSurface — AppHost/resource-lanes#CACHE_PORT [capsule]
+- PoolPolicy<T> — AppHost/resource-lanes#OBJECT_POOLS [record]
+- DrainSpec — AppHost/resource-lanes#DRAIN_QUEUES [record]
+- DrainQueue<T> — AppHost/resource-lanes#DRAIN_QUEUES [Union capsule]
+- DrainSurface — AppHost/resource-lanes#DRAIN_QUEUES [static surface]
+- SignalKeyPolicy — AppHost/diagnostics-and-telemetry#TELEMETRY_IDENTITY [comparer accessor]
+- TelemetrySource — AppHost/diagnostics-and-telemetry#TELEMETRY_IDENTITY [SmartEnum<string>]
+- InstrumentRow — AppHost/diagnostics-and-telemetry#TELEMETRY_IDENTITY [record]
+- TelemetryIdentity — AppHost/diagnostics-and-telemetry#TELEMETRY_IDENTITY [capsule]
+- Correlation — AppHost/diagnostics-and-telemetry#CORRELATION_SPINE [static surface]
+- LogPipeline — AppHost/diagnostics-and-telemetry#LOG_PROJECTION [record]
+- SpineLog — AppHost/diagnostics-and-telemetry#LOG_PROJECTION [static surface]
+- SerilogProjectionPolicy — AppHost/diagnostics-and-telemetry#LOG_PROJECTION [record]
+- TelemetrySignal — AppHost/diagnostics-and-telemetry#SIGNAL_GOVERNANCE [SmartEnum<string>]
+- SignalGovernance — AppHost/diagnostics-and-telemetry#SIGNAL_GOVERNANCE [record]
+- RedactorKind — AppHost/diagnostics-and-telemetry#REDACTION_TAXONOMY [SmartEnum<string>]
+- DataClassification — AppHost/diagnostics-and-telemetry#REDACTION_TAXONOMY [SmartEnum<string>]
+- HealthContributorRow — AppHost/health-and-degradation#HEALTH_FOLD [record]
+- PressurePolicy — AppHost/health-and-degradation#HEALTH_FOLD [record]
+- HealthSnapshot — AppHost/health-and-degradation#HEALTH_FOLD [record]
+- HealthSurface — AppHost/health-and-degradation#HEALTH_FOLD [capsule]
+- HealthKeyPolicy — AppHost/health-and-degradation#DEGRADATION_RAIL [comparer accessor]
+- Capability — AppHost/health-and-degradation#DEGRADATION_RAIL [SmartEnum<string>] (repo homonym with Rasm.Grasshopper Capability ratified: distinct bounded contexts)
+- DegradationLevel — AppHost/health-and-degradation#DEGRADATION_RAIL [SmartEnum<string>] (level keys string-stable for kill-switch binding)
+- DegradationState — AppHost/health-and-degradation#DEGRADATION_RAIL [record]
+- DegradationPolicy — AppHost/health-and-degradation#DEGRADATION_RAIL [record]
+- DegradationCell — AppHost/health-and-degradation#DEGRADATION_RAIL [capsule]
+- WireHealthRow — AppHost/health-and-degradation#WIRE_HEALTH [record]
+- WireHealth — AppHost/health-and-degradation#WIRE_HEALTH [static surface]
+- SupportTrigger — AppHost/support-bundles#TRIGGER_UNION [Union]
+- SupportTriggerOps — AppHost/support-bundles#TRIGGER_UNION [extension fold]
+- SupportArtifact — AppHost/support-bundles#CAPTURE_PIPELINE [record]
+- SupportPolicy — AppHost/support-bundles#CAPTURE_PIPELINE [record]
+- SupportRuntime — AppHost/support-bundles#CAPTURE_PIPELINE [record]
+- SupportCapture — AppHost/support-bundles#CAPTURE_PIPELINE [static surface]
+- SupportManifest — AppHost/support-bundles#MANIFEST_RECEIPT [record]
+- SupportReceipt — AppHost/support-bundles#MANIFEST_RECEIPT [record]
+- SupportLedger — AppHost/support-bundles#MANIFEST_RECEIPT [static surface]
+- OutboundHop — AppHost/outbound-resilience#HOP_AXIS [SmartEnum<string>]
+- HopFault — AppHost/outbound-resilience#HOP_AXIS [Union fault]
+- HopIdempotency — AppHost/outbound-resilience#HOP_AXIS [SmartEnum<string>]
+- HopTransport — AppHost/outbound-resilience#HOP_AXIS [SmartEnum]
+- ReleaseIdentity — AppHost/outbound-resilience#HOP_AXIS [record]
+- HopPolicy — AppHost/outbound-resilience#HOP_AXIS [record]
+- HopRows — AppHost/outbound-resilience#HOP_AXIS [frozen table]
+- HttpLane — AppHost/outbound-resilience#HTTP_PIPELINES [record]
+- GrpcChannelPolicy — AppHost/outbound-resilience#HTTP_PIPELINES [record]
+- KeyedLane — AppHost/outbound-resilience#KEYED_PIPELINES [static surface]
+- DiscoveryManifest — AppHost/outbound-resilience#DISCOVERY_ATTACH [record]
+- CompanionChild — AppHost/outbound-resilience#DISCOVERY_ATTACH [record]
+- Discovery — AppHost/outbound-resilience#DISCOVERY_ATTACH [static surface]
+- HopOutcome — AppHost/outbound-resilience#OWNERSHIP_LAW [Union]
+- HopReceipt — AppHost/outbound-resilience#OWNERSHIP_LAW [record]
+- OutboundRuntime — AppHost/outbound-resilience#OWNERSHIP_LAW [record]
+- OutboundSurface — AppHost/outbound-resilience#OWNERSHIP_LAW [capsule]
+- ReceiptEnvelope — AppHost/runtime-ports#PORT_RECORDS [record]
+- ReceiptSinkPort — AppHost/runtime-ports#PORT_RECORDS [record port]
+- TelemetryContributorPort — AppHost/runtime-ports#PORT_RECORDS [record port]
+- DrainParticipantPort — AppHost/runtime-ports#PORT_RECORDS [record port]
+- HostAttachPort — AppHost/runtime-ports#PORT_RECORDS [record port]
+- UiSchedulerPort — AppHost/runtime-ports#PORT_RECORDS [record port]
+- SupportContributorPort — AppHost/runtime-ports#PORT_RECORDS [record port]
+- HealthContributorPort — AppHost/runtime-ports#PORT_RECORDS [record port]
+- AppHostWireContext — AppHost/runtime-ports#WIRE_LAW [JsonSerializerContext partial]
+- SuiteContracts — AppHost/runtime-ports#WIRE_LAW [static surface]
 - ConfigSource — AppHost/configuration-and-options#SOURCE_AXIS [SmartEnum<string>]
 - ConfigSourceKeyPolicy — AppHost/configuration-and-options#SOURCE_AXIS [comparer accessor]
 - ReloadClass — AppHost/configuration-and-options#SOURCE_AXIS [SmartEnum<string>]
