@@ -7,6 +7,7 @@
 [RUNTIME]:
 - rail: runtime
 - pages:
+  - [api-hybrid-cache.md](api-hybrid-cache.md)
   - [api-logging.md](api-logging.md)
   - [api-nodatime.md](api-nodatime.md)
   - [api-dataflow.md](api-dataflow.md)
@@ -27,6 +28,10 @@
 - pages:
   - [api-health.md](api-health.md)
   - [api-resilience.md](api-resilience.md)
+  - [api-polly-core.md](api-polly-core.md)
+  - [api-polly-extensions.md](api-polly-extensions.md)
+  - [api-polly-ratelimiting.md](api-polly-ratelimiting.md)
+  - [api-telemetry.md](api-telemetry.md)
   - [api-serilog.md](api-serilog.md)
   - [api-otel.md](api-otel.md)
   - [api-otel-hosting.md](api-otel-hosting.md)

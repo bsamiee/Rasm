@@ -6,6 +6,7 @@
     <ItemGroup Label="Runtime Spine">
         <PackageReference Include="FluentValidation" />
         <PackageReference Include="FluentValidation.DependencyInjectionExtensions" />
+        <PackageReference Include="Microsoft.Extensions.Caching.Hybrid" />
         <PackageReference Include="Microsoft.Extensions.Configuration" />
         <PackageReference Include="Microsoft.Extensions.Configuration.Binder" />
         <PackageReference Include="Microsoft.Extensions.DependencyInjection" />
@@ -15,9 +16,13 @@
         <PackageReference Include="Microsoft.Extensions.Logging.Abstractions" />
         <PackageReference Include="Microsoft.Extensions.ObjectPool" />
         <PackageReference Include="Microsoft.Extensions.Options" />
+        <PackageReference Include="Microsoft.Extensions.Telemetry" />
         <PackageReference Include="NodaTime" />
         <PackageReference Include="OpenTelemetry" />
         <PackageReference Include="OpenTelemetry.Extensions.Hosting" />
+        <PackageReference Include="Polly.Core" />
+        <PackageReference Include="Polly.Extensions" />
+        <PackageReference Include="Polly.RateLimiting" />
         <PackageReference Include="Scrutor" />
         <PackageReference Include="Serilog" />
         <PackageReference Include="System.Threading.Tasks.Dataflow" NoWarn="NU1510" />

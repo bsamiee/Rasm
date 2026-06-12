@@ -25,6 +25,7 @@ This table is a lookup by reader decision.
 |  [13]   | resilience policy       | `domain/resilience.md`                            | target    |
 |  [14]   | data persistence        | `domain/persistence.md`                           | target    |
 |  [15]   | compute lane            | `domain/compute.md`                               | target    |
+|  [16]   | retained interaction    | `domain/interaction.md`                           | target    |
 
 ## [2]-[DOCTRINE]
 
@@ -105,7 +106,7 @@ How the corpus accretes. The atlas `[STATE]` column is the law registry: a `fina
 
 Target pages in build order. Each entry states what the page must decide; the scope moves into the page when it is authored and leaves this tail.
 
-The `domain/` pages build in strict dependency order: runtime -> concurrency -> diagnostics -> validation -> resilience -> persistence -> compute — after every root page is finalized through the corpus sweep, so each later page implicitly carries the earlier law. Package admission to the central manifest happens at each page's research start, the docs lead admission, and the full build charter lives in [domain](domain/README.md).
+The `domain/` pages build in strict dependency order: runtime -> concurrency -> diagnostics -> validation -> resilience -> persistence -> compute -> interaction — after every root page is finalized through the corpus sweep, so each later page implicitly carries the earlier law. Package admission to the central manifest happens at each page's research start, the docs lead admission, and the full build charter lives in [domain](domain/README.md).
 
 [DOMAIN_RUNTIME]:
 - Owns: hosting lifecycle, dependency composition with assembly scanning, decoration, and keyed services, options and configuration with AOT-safe validation, hybrid caching, the process cancellation spine, and time — clock abstraction plus calendar vocabulary.
@@ -142,3 +143,8 @@ The `domain/` pages build in strict dependency order: runtime -> concurrency -> 
 - Owns: tensor primitives at application scope, measured dispatch with receipts, remote compute lanes over typed contracts, and a model-inference lane scoped to verified surfaces.
 - Receipt law: every measured dispatch emits typed evidence — route, elapsed, capability — beside its result; remote lanes carry schema-derived contracts proven at compile time, with payloads outside generator coverage projected to attributed records at the boundary.
 - Disjoint: the algorithms page owns numeric route law; this page owns application-scope compute composition.
+
+[DOMAIN_INTERACTION]:
+- Owns: retained shell and screen composition, navigation, reactive view state, command flow, live collection projection, visual assets, control/dialog/inspection surfaces, validation projection, and UI thread-affinity boundaries.
+- Interaction law: one retained interaction spine owns shell, screen, route, command, live state, validation projection, theme, asset, control, dialog, and inspector seams; provider vocabulary enters as package policy and never becomes domain vocabulary.
+- Disjoint: concurrency owns observable-stream mechanics; validation owns boundary-shape validation; diagnostics owns signal capture; interaction owns user-facing composition over those laws.

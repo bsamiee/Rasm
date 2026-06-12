@@ -30,6 +30,18 @@
         "resolved": "3.0.102",
         "contentHash": "WhGaJ3QsULOtDUXqZIDMZqTnZ68wvl6UMvPjkdxcZVIe/n3sfJyd2rDRVO3Ea7KitP0xUn3M85L/t7+JGkt63w=="
       },
+      "Microsoft.Extensions.Caching.Hybrid": {
+        "type": "Direct",
+        "requested": "[10.7.0, )",
+        "resolved": "10.7.0",
+        "contentHash": "DWdLkc6SCZhlQPXFuOjMee1wotUcsdLHzOrN2GN9JsWVscYrGXR91SjH1g7bhUrF6f8ayZD31KxoXAoXxVpCvA==",
+        "dependencies": {
+          "Microsoft.Extensions.Caching.Abstractions": "10.0.9",
+          "Microsoft.Extensions.Caching.Memory": "10.0.9",
+          "Microsoft.Extensions.Logging.Abstractions": "10.0.9",
+          "Microsoft.Extensions.Options": "10.0.9"
+        }
+      },
       "Microsoft.Extensions.Configuration": {
         "type": "Direct",
         "requested": "[10.0.9, )",
@@ -137,6 +149,19 @@
           "Microsoft.Extensions.Primitives": "10.0.9"
         }
       },
+      "Microsoft.Extensions.Telemetry": {
+        "type": "Direct",
+        "requested": "[10.7.0, )",
+        "resolved": "10.7.0",
+        "contentHash": "vZFNVvkz+7IABEv4klzPX/ZdmZQ6TrcReKUfeYIrQ2bbnvEcgZtG1RmOGeWkc1hFg8cq9sAgUc2lHCqlXSqf5A==",
+        "dependencies": {
+          "Microsoft.Extensions.AmbientMetadata.Application": "10.7.0",
+          "Microsoft.Extensions.DependencyInjection.AutoActivation": "10.7.0",
+          "Microsoft.Extensions.Logging.Configuration": "10.0.9",
+          "Microsoft.Extensions.ObjectPool": "10.0.9",
+          "Microsoft.Extensions.Telemetry.Abstractions": "10.7.0"
+        }
+      },
       "Microsoft.VisualStudio.Threading.Analyzers": {
         "type": "Direct",
         "requested": "[17.14.15, )",
@@ -168,6 +193,33 @@
         "dependencies": {
           "Microsoft.Extensions.Hosting.Abstractions": "10.0.0",
           "OpenTelemetry": "1.16.0"
+        }
+      },
+      "Polly.Core": {
+        "type": "Direct",
+        "requested": "[8.7.0, )",
+        "resolved": "8.7.0",
+        "contentHash": "BS2t+nsBer16PIebCEPNBK5fgMisADQyRCd7K+BgkMWpFmSaiYE+rVVNpFhGRqUkJmNSLmw0uCNzHHWfgml28Q=="
+      },
+      "Polly.Extensions": {
+        "type": "Direct",
+        "requested": "[8.7.0, )",
+        "resolved": "8.7.0",
+        "contentHash": "qWLAolrrRkkmDRhQTWZRAxUWxoCmOvcTeFAb8DLEr/nroroq7zypWYvefX9W8h+gGIxRphB+DS0bXOohK8/rpA==",
+        "dependencies": {
+          "Microsoft.Extensions.Logging.Abstractions": "8.0.0",
+          "Microsoft.Extensions.Options": "8.0.0",
+          "Polly.Core": "8.7.0"
+        }
+      },
+      "Polly.RateLimiting": {
+        "type": "Direct",
+        "requested": "[8.7.0, )",
+        "resolved": "8.7.0",
+        "contentHash": "PjbRSHNc0nCKYW26tXRuvj6gNny4HJOa2MHm5cZocyULYaNoGXnl5Q8Q1qKZB25d82E95B5pFvL2Kz6Yjh27GA==",
+        "dependencies": {
+          "Polly.Core": "8.7.0",
+          "System.Threading.RateLimiting": "8.0.0"
         }
       },
       "Scrutor": {
@@ -211,6 +263,26 @@
           "Microsoft.Extensions.Configuration": "10.0.9",
           "Microsoft.Extensions.Hosting.Abstractions": "10.0.9",
           "Microsoft.Extensions.Options.ConfigurationExtensions": "10.0.9"
+        }
+      },
+      "Microsoft.Extensions.Caching.Abstractions": {
+        "type": "Transitive",
+        "resolved": "10.0.9",
+        "contentHash": "5fGxcw2vuYp8s0wio9H1ECiuk4iKSdTIlNuigdLIrkhg+5XAwgFVDB/5Ots3pfN/QhABLYXutA79JFtnUKDSHA==",
+        "dependencies": {
+          "Microsoft.Extensions.Primitives": "10.0.9"
+        }
+      },
+      "Microsoft.Extensions.Caching.Memory": {
+        "type": "Transitive",
+        "resolved": "10.0.9",
+        "contentHash": "G9mregdatGWMCQWeCw012LDeJVP7G/XIxH8Ddbjc8bD1//dA+8VVQdcRE9jI1moyoJxSSZhHITUnNQ8FUDl5+Q==",
+        "dependencies": {
+          "Microsoft.Extensions.Caching.Abstractions": "10.0.9",
+          "Microsoft.Extensions.DependencyInjection.Abstractions": "10.0.9",
+          "Microsoft.Extensions.Logging.Abstractions": "10.0.9",
+          "Microsoft.Extensions.Options": "10.0.9",
+          "Microsoft.Extensions.Primitives": "10.0.9"
         }
       },
       "Microsoft.Extensions.Compliance.Abstractions": {
@@ -485,18 +557,6 @@
           "Polly.RateLimiting": "8.4.2"
         }
       },
-      "Microsoft.Extensions.Telemetry": {
-        "type": "Transitive",
-        "resolved": "10.7.0",
-        "contentHash": "vZFNVvkz+7IABEv4klzPX/ZdmZQ6TrcReKUfeYIrQ2bbnvEcgZtG1RmOGeWkc1hFg8cq9sAgUc2lHCqlXSqf5A==",
-        "dependencies": {
-          "Microsoft.Extensions.AmbientMetadata.Application": "10.7.0",
-          "Microsoft.Extensions.DependencyInjection.AutoActivation": "10.7.0",
-          "Microsoft.Extensions.Logging.Configuration": "10.0.9",
-          "Microsoft.Extensions.ObjectPool": "10.0.9",
-          "Microsoft.Extensions.Telemetry.Abstractions": "10.7.0"
-        }
-      },
       "Microsoft.Extensions.Telemetry.Abstractions": {
         "type": "Transitive",
         "resolved": "10.7.0",
@@ -547,33 +607,6 @@
         "requested": "[10.0.9, )",
         "resolved": "10.0.9",
         "contentHash": "SCDTQ6HubnRvTUjR7dgMKHZvNoCb03t44ttHL8trlFTGgfDteWn/0nRdOxDhcI+lTWhKgd/flCVJEtAOPhSLNg=="
-      },
-      "Polly.Core": {
-        "type": "CentralTransitive",
-        "requested": "[8.7.0, )",
-        "resolved": "8.7.0",
-        "contentHash": "BS2t+nsBer16PIebCEPNBK5fgMisADQyRCd7K+BgkMWpFmSaiYE+rVVNpFhGRqUkJmNSLmw0uCNzHHWfgml28Q=="
-      },
-      "Polly.Extensions": {
-        "type": "CentralTransitive",
-        "requested": "[8.7.0, )",
-        "resolved": "8.7.0",
-        "contentHash": "qWLAolrrRkkmDRhQTWZRAxUWxoCmOvcTeFAb8DLEr/nroroq7zypWYvefX9W8h+gGIxRphB+DS0bXOohK8/rpA==",
-        "dependencies": {
-          "Microsoft.Extensions.Logging.Abstractions": "8.0.0",
-          "Microsoft.Extensions.Options": "8.0.0",
-          "Polly.Core": "8.7.0"
-        }
-      },
-      "Polly.RateLimiting": {
-        "type": "CentralTransitive",
-        "requested": "[8.7.0, )",
-        "resolved": "8.7.0",
-        "contentHash": "PjbRSHNc0nCKYW26tXRuvj6gNny4HJOa2MHm5cZocyULYaNoGXnl5Q8Q1qKZB25d82E95B5pFvL2Kz6Yjh27GA==",
-        "dependencies": {
-          "Polly.Core": "8.7.0",
-          "System.Threading.RateLimiting": "8.0.0"
-        }
       },
       "System.Threading.RateLimiting": {
         "type": "CentralTransitive",

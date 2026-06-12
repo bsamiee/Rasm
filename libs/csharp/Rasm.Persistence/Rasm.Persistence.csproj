@@ -9,6 +9,7 @@
     </ItemGroup>
 
     <ItemGroup Label="SQLite Store">
+        <PackageReference Include="EFCore.BulkExtensions" />
         <PackageReference Include="EFCore.NamingConventions" />
         <PackageReference Include="Microsoft.Data.Sqlite" />
         <PackageReference Include="Microsoft.EntityFrameworkCore.Design" PrivateAssets="all" ExcludeAssets="all" />

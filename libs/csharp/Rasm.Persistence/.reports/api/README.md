@@ -7,6 +7,7 @@
 [STORE_PROVIDERS]:
 - rail: store-providers
 - pages:
+  - [api-bulkextensions.md](api-bulkextensions.md)
   - [api-ef-sqlite.md](api-ef-sqlite.md)
   - [api-ef-design.md](api-ef-design.md)
   - [api-ef-naming.md](api-ef-naming.md)
