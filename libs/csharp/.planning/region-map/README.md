@@ -1,6 +1,6 @@
 # [SUITE_REGION_MAP]
 
-Suite ownership ledger for the four app-package planning corpora. Protocol and row shapes live in the suite standard's [ledger protocol](../README.md#6ledgerprotocol).
+Suite ownership ledger for the four app-package planning corpora. Protocol and row shapes live in the [suite standard](../README.md) ledger-protocol section.
 
 | [INDEX] | [FILE]                                       | [OWNS]                                                               |
 | :-----: | :------------------------------------------- | :------------------------------------------------------------------- |

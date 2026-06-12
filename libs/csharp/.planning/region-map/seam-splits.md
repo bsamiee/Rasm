@@ -1,6 +1,6 @@
 # [REGION_MAP_SEAM_SPLITS]
 
-Suite region map — row shapes and protocol live in the suite standard's [ledger protocol](../README.md#6ledgerprotocol).
+Suite region map — row shapes and protocol live in the [suite standard](../README.md) ledger-protocol section.
 
 - Config reload propagation: mechanics at AppHost/configuration-and-options#POLICY_VALUES (reload-class transition + ReloadReceipt); consequence at Persistence user-settings write and the op-log HLC tag-invalidation cursor (cross-process peer observation); frozen reload-class requires process restart.
 - Operator kill-switch: mechanics at AppHost/configuration-and-options#KILL_SWITCH (KillSwitchConfig row, OperatorOverride union); consequence at AppHost/health-and-degradation#DEGRADATION_RAIL (forced DegradationLevel input to the fold) and the ControlService set-degradation/reload-options inbound verbs for service modalities.

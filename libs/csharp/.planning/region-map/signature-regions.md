@@ -1,6 +1,6 @@
 # [REGION_MAP_SIGNATURE_REGIONS]
 
-Suite region map — row shapes and protocol live in the suite standard's [ledger protocol](../README.md#6ledgerprotocol).
+Suite region map — row shapes and protocol live in the [suite standard](../README.md) ledger-protocol section.
 
 - AH-01 PROFILE_AXIS|LIFETIME_ADAPTERS|RESOURCE_IDENTITY: HostProfileKeyPolicy, ShipVehicle, RuntimeAttachment, ProfileFault, HostProfile, ResolvedProfile, ProfileSurface, ProfileBoot, ProfileRoots, ProfileIdentity — spotlight: the one host-variance axis and its resolved record.
 - AH-02 PHASE_FAMILY|FAULT_SPINE|DRAIN_CONDUCTOR|CANCEL_SPINE|TS_PROJECTION: CorrelationId, PhaseKeyPolicy, RuntimePhase, PhaseTrigger, LifecycleFault, PhaseReceipt, PhaseSubscription, Lifecycle, FaultSource, FaultRecord, BootMarker, FaultSpine, DrainBand, DrainOutcome, DrainStep, DrainReceipt, DrainConductor, CancelScope, RuntimePhaseKey, DrainOutcomeKey, PhaseReceiptWire, BootMarkerWire, FaultRecordWire, DrainStepWire, DrainReceiptWire — spotlight: total phase law, drain bands, fault spine, boot-minted correlation identity.

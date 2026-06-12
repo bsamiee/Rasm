@@ -1,6 +1,6 @@
 # [REGION_MAP_OWNER_SYMBOLS]
 
-Suite region map — row shapes and protocol live in the suite standard's [ledger protocol](../README.md#6ledgerprotocol).
+Suite region map — row shapes and protocol live in the [suite standard](../README.md) ledger-protocol section.
 
 - HostProfileKeyPolicy — AppHost/host-profiles#PROFILE_AXIS [comparer accessor]
 - ShipVehicle — AppHost/host-profiles#PROFILE_AXIS [SmartEnum<string>]

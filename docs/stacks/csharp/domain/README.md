@@ -1,6 +1,6 @@
 # [DOMAIN_STACK]
 
-The domain stack extends the finalized C# root doctrine into runtime, concurrency, diagnostics, boundary admission, resilience, persistence, and compute. Each page adds one layer to the same body: later pages consume earlier law silently and spend their lines only on their own capability.
+The domain stack extends the finalized C# root doctrine into runtime, concurrency, diagnostics, boundary admission, resilience, persistence, compute, and interaction. Each page adds one layer to the same body: later pages consume earlier law silently and spend their lines only on their own capability.
 
 ## [1]-[BUILD_ORDER]
 
@@ -13,6 +13,7 @@ The domain stack extends the finalized C# root doctrine into runtime, concurrenc
 |   [5]   | `resilience.md`  | transport and boundary resilience pipelines        | Polly, Http.Resilience                                  |
 |   [6]   | `persistence.md` | relational doctrine, provider-polymorphic storage  | EF Core, Npgsql, SQLite stack, BulkExtensions           |
 |   [7]   | `compute.md`     | tensors, measured dispatch, remote compute lanes   | Numerics.Tensors, Grpc.Net.Client, Protobuf             |
+|   [8]   | `interaction.md` | retained shell, screens, commands, live view state | Avalonia, ReactiveUI, SkiaSharp, LiveCharts             |
 
 ## [2]-[CUMULATIVE_LAW]
 
@@ -65,6 +66,11 @@ The domain stack extends the finalized C# root doctrine into runtime, concurrenc
 - Remote lanes carry schema-derived contracts at compile time.
 - Payloads outside generator coverage project to attributed records at the boundary.
 
+[INTERACTION]:
+- Owns retained shell, screen, navigation, command, reactive view-state, live collection projection, validation display, visual asset, control, dialog, inspector, and UI thread-affinity law.
+- Provider vocabulary remains package policy at the interaction boundary.
+- Earlier domain pages own runtime, concurrency, diagnostics, validation, resilience, persistence, and compute mechanics; interaction composes those mechanics into user-facing state and commands without re-teaching them.
+
 ## [4]-[PACKAGE_RESIDENCY]
 
 Every package has one doctrine home. Cross-page composition is implicit.
@@ -85,10 +91,15 @@ Every package has one doctrine home. Cross-page composition is implicit.
 |  [12]   | System.Numerics.Tensors                                    | compute     |
 |  [13]   | Grpc.Net.Client and Google.Protobuf                        | compute     |
 |  [14]   | ONNX Runtime .NET                                          | compute     |
+|  [15]   | Avalonia, Avalonia controls, and Avalonia themes           | interaction |
+|  [16]   | ReactiveUI, ReactiveUI.Avalonia, ReactiveUI.Validation     | interaction |
+|  [17]   | SkiaSharp, HarfBuzzSharp, Svg.Skia, and LiveCharts         | interaction |
+|  [18]   | DialogHost.Avalonia, PropertyGrid, and Xaml.Behaviors      | interaction |
 
 ## [5]-[BOUNDARIES]
 
 - Scrutor belongs to runtime law; host and wire boundaries stay in the root boundary page.
-- ReactiveUI is AppUi territory and does not enter the domain stack.
+- System.Reactive and DynamicData stream mechanics belong to concurrency; ReactiveUI retained view-state and command composition belongs to interaction.
+- FluentValidation boundary-shape validation belongs to validation; ReactiveUI.Validation belongs to interaction as user-facing validation projection.
 - Package release labels live in the central manifest, not this charter.
 - API discovery, package admission, and implementation confirmation happen through owning tools and manifests, not through this page.
