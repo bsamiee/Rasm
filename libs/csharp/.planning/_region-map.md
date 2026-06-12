@@ -20,15 +20,15 @@ Suite ownership ledger for the four app-package planning corpora. Binding preced
 
 [PERSISTENCE]:
 
-- store-profiles.md [PROVISIONAL]: six StoreProfile rows with the widened row record (pooling, execution strategy, concurrency, seeding, maintenance, restore, cross-process lease) and placement/provisioning law.
-- data-lanes.md [PROVISIONAL]: seven DataLane rows mapped to engine capabilities and extension rows incl. geometry/geo lanes and the analytical lane.
-- schema-rail.md [PROVISIONAL]: IdentityPolicy axis, migration law, generated columns, HasPostgresExtension rows, naming, concurrency tokens, Thinktecture EF converters.
-- query-rail.md [PROVISIONAL]: StoreOp total dispatch, pooled context factories, bulk lane with self-emitted changefeed, MERGE/RETURNING delta projection, interceptor receipts.
-- native-sqlite.md [PROVISIONAL]: verified e_sqlite3 compile-flag surface, WAL/busy law, loadable-extension route, encryption and vector gates.
-- snapshot-codecs.md [PROVISIONAL]: SnapshotCodec/CompressionPolicy/HashPolicy axes, restore choreography, wire contracts (STJ + MessagePack + GeoJSON projection).
-- cache-indexes.md [PROVISIONAL]: L2 IDistributedCache + serializer factory rows, model-result and artifact-blob indexes.
-- sync-collaboration.md [PROVISIONAL]: SyncTransport axis with M1-M5 rows, op-log HLC changefeed, HttpDelta + JSON-Patch fallback, presence, conflict receipts, BlobRemote frame consumption.
-- redaction-retention.md [PROVISIONAL]: RetentionPolicy rows, classification enforcement consuming the AppHost taxonomy, clock-seam stamping, audit binding.
+- store-profiles.md [FINAL]: six StoreProfile rows with the widened row record (pooling, execution strategy, concurrency, seeding, maintenance, restore, cross-process lease) and placement/provisioning law.
+- data-lanes.md [FINAL]: seven DataLane rows mapped to engine capabilities and extension rows incl. geometry/geo lanes and the analytical lane.
+- schema-rail.md [FINAL]: IdentityPolicy axis, migration law, generated columns, HasPostgresExtension rows, naming, concurrency tokens, Thinktecture EF converters.
+- query-rail.md [FINAL]: StoreOp total dispatch, pooled context factories, bulk lane with self-emitted changefeed, MERGE/RETURNING delta projection, interceptor receipts.
+- native-sqlite.md [FINAL]: verified e_sqlite3 compile-flag surface, WAL/busy law, loadable-extension route, encryption and vector gates.
+- snapshot-codecs.md [FINAL]: SnapshotCodec/CompressionPolicy/HashPolicy axes, restore choreography, wire contracts (STJ + MessagePack + GeoJSON projection).
+- cache-indexes.md [FINAL]: L2 IDistributedCache + serializer factory rows, model-result and artifact-blob indexes.
+- sync-collaboration.md [FINAL]: SyncTransport axis with M1-M5 rows, op-log HLC changefeed, HttpDelta + JSON-Patch fallback, presence, conflict receipts, BlobRemote frame consumption.
+- redaction-retention.md [FINAL]: RetentionPolicy rows, classification enforcement consuming the AppHost taxonomy, clock-seam stamping, audit binding.
 
 [COMPUTE]:
 
@@ -75,6 +75,15 @@ Suite ownership ledger for the four app-package planning corpora. Binding preced
 - AH-09 TRIGGER_UNION|CAPTURE_PIPELINE|MANIFEST_RECEIPT|TS_PROJECTION: SupportTrigger, SupportTriggerOps, SupportArtifact, SupportPolicy, SupportRuntime, SupportCapture, SupportManifest, SupportReceipt, SupportLedger — spotlight: bounded redacted capture with receipts.
 - AH-10 HOP_AXIS|HTTP_PIPELINES|KEYED_PIPELINES|DISCOVERY_ATTACH|OWNERSHIP_LAW: OutboundHop, HopFault, HopIdempotency, HopTransport, ReleaseIdentity, HopPolicy, HopRows, HttpLane, GrpcChannelPolicy, KeyedLane, DiscoveryManifest, CompanionChild, Discovery, HopOutcome, HopReceipt, OutboundRuntime, OutboundSurface — spotlight: hop axis, one retry owner, discovery manifest.
 - AH-11 PORT_RECORDS|WIRE_LAW|TS_PROJECTION: ReceiptEnvelope, ReceiptSinkPort, TelemetryContributorPort, DrainParticipantPort, HostAttachPort, UiSchedulerPort, SupportContributorPort, HealthContributorPort, AppHostWireContext, SuiteContracts, RasmPackage, HlcStampWire, ReceiptEnvelopeWire — spotlight: the seven ports, suite wire law, contract merge.
+- PS-01 PROFILE_AXIS|STORE_LIFECYCLE|CROSS_PROCESS_LAW|PLACEMENT_MATRIX|PROVISIONING_ROWS: StoreKeyPolicy, StoreProfile, StoreRows, BlobRemote (+ nested Descriptor), StoreLifecycle, StoreOpenReceipt, StoreCeremony, StoreLeaseRow, StoreLocality, StorePlacement, ExtensionRequirement — spotlight: six-row engine axis, lifecycle ceremony, cross-process lease, placement fold, provisioning probes.
+- PS-02 LANE_AXIS|DOCUMENT_LANE|SEARCH_LANES|GEO_LANES|ANALYTICAL_LANE: DataLane, KvEntry, JsonIndex, VectorMetric, FullTextMode, EmbeddingIdentity, VectorQuery<TRow>, FullTextQuery, GeoLayer, TabularExportSpec, ParquetSchemaStamp — spotlight: seven-lane capability map with geo and analytical rows.
+- PS-03 IDENTITY_POLICY|MIGRATION_LAW|GENERATED_COLUMNS|EXTENSION_DDL|CONVERTER_RAIL: IdentityPolicy, SchemaFault, SchemaFingerprint, MigrationReceipt, DerivedColumn, SchemaDdl, ConverterRail — spotlight: identity axis, migration law, extension DDL rows, Thinktecture converter rail.
+- PS-04 OPERATION_ALGEBRA|PROJECTION_SHAPES|BULK_LANE|INTERCEPTOR_SPINE: StoreFault, StoreOp<T>, StoreRail, KeysetPage<TRow>, ProjectionRail, BulkRoute, BulkReceipt, BulkDelta<TRow>, StoreFact, InterceptPolicy, StoreInterceptor, StoreObservability — spotlight: total store-op dispatch, pooled-context lease at composition, bulk lane with self-emitted changefeed.
+- PS-05 PRAGMA_TABLE|COMPILE_SURFACE|MAINTENANCE_OPS|EXTENSION_GATES: SqliteKeyPolicy, SqliteFactKind, SqliteFact, SqlitePragma, PragmaOps, SqliteCompileSurface, SqliteMaintenancePolicy, FunctionRegistration, SqliteMaintenance, ExtensionGateState, ExtensionGate, EncryptionGate, ExtensionOps — spotlight: verified e_sqlite3 surface, pragma axis, gated extensions.
+- PS-06 CODEC_AXIS|COMPRESSION_HASHING|SNAPSHOT_PROTOCOL|RESTORE_AND_DIFF|TS_PROJECTION: SnapshotKeyPolicy, WireSurface, PersistenceWireContext, InstantFormatter, SnapshotCodec, CompressionPolicy, HashPolicy, SnapshotHeader, SealedSnapshot, SnapshotCatalogRow, Snapshots, RestoreReceipt, SnapshotDelta, SnapshotRestoreOps — spotlight: codec axis with wire-surface membership, sealed snapshot protocol, restore choreography.
+- PS-07 L2_CONTRIBUTION|MODEL_RESULT_INDEX|ARTIFACT_BLOB_INDEX|BENCHMARK_INDEX: CacheContribution, ModelResultKey, CacheIndexFact, IndexSurface, ArtifactIndexRow, BenchmarkRow — spotlight: L2 cache contribution, result/artifact/benchmark indexes.
+- PS-08 OPLOG_CHANGEFEED|MERGE_LAW|TRANSPORT_AXIS|PRESENCE_AND_BLOB|TS_PROJECTION: SyncKeyPolicy, SyncOpKind, OpLogEntry, SyncCursor, OpLog, ConflictReceipt, ConflictOutcome, SyncApplyReceipt, SyncSession, SyncMerge, SyncTopology, SyncDirection, SyncTransport, SyncPump, PresenceRow, Presence — spotlight: HLC op-log changefeed, merge law, transport axis with M1-M5 fields, presence.
+- PS-09 CLASSIFICATION_ENFORCEMENT|RETENTION_SWEEPS|EXPORT_PROOF|AUDIT_BINDING: ArtifactClassRow, ArtifactClasses, ClassificationGuard, RetentionKeyPolicy, RetentionPolicy, ArtifactFacts, SweepReceipt, RetentionSweep, ExportProof, StoreEvidence, AuditBinding — spotlight: classification enforcement consuming the AppHost taxonomy, receipted sweeps, audit binding.
 
 - AH-04a SOURCE_AXIS: ConfigSource [SmartEnum<string>], ConfigSourceKeyPolicy, ReloadClass [SmartEnum<string>], ConfigLayer — spotlight: the rank+reload-class source axis with per-source factory delegate and precedence fold.
 - AH-04b TYPED_BINDING: PolicyBinding, ConfigError — spotlight: source-generated AOT-safe bind into immutable policy records with fail-closed unknown-key admission folding into Validation<ConfigError,T>.
@@ -204,6 +213,108 @@ Suite ownership ledger for the four app-package planning corpora. Binding preced
 - KillSwitchConfig — AppHost/configuration-and-options#KILL_SWITCH [record]
 - OperatorOverride — AppHost/configuration-and-options#KILL_SWITCH [Union]
 
+- StoreKeyPolicy — Persistence/store-profiles#PROFILE_AXIS [comparer accessor]
+- StoreProfile — Persistence/store-profiles#PROFILE_AXIS [SmartEnum<string>]
+- StoreRows — Persistence/store-profiles#PROFILE_AXIS [frozen table]
+- BlobRemote — Persistence/store-profiles#PROFILE_AXIS [record + nested Descriptor]
+- StorePlacement — Persistence/store-profiles#PROFILE_AXIS [record]
+- StoreLifecycle — Persistence/store-profiles#STORE_LIFECYCLE [SmartEnum<string>]
+- StoreOpenReceipt — Persistence/store-profiles#STORE_LIFECYCLE [record]
+- StoreCeremony — Persistence/store-profiles#STORE_LIFECYCLE [static surface]
+- StoreLeaseRow — Persistence/store-profiles#STORE_LIFECYCLE [record]
+- StoreLocality — Persistence/store-profiles#CROSS_PROCESS_LAW [static surface]
+- ExtensionRequirement — Persistence/store-profiles#PROVISIONING_ROWS [record]
+- DataLane — Persistence/data-lanes#LANE_AXIS [SmartEnum<string>]
+- KvEntry — Persistence/data-lanes#LANE_AXIS [record]
+- JsonIndex — Persistence/data-lanes#DOCUMENT_LANE [SmartEnum<string>]
+- VectorMetric — Persistence/data-lanes#SEARCH_LANES [SmartEnum<string>]
+- FullTextMode — Persistence/data-lanes#SEARCH_LANES [SmartEnum<string>]
+- EmbeddingIdentity — Persistence/data-lanes#SEARCH_LANES [record]
+- VectorQuery<TRow> — Persistence/data-lanes#SEARCH_LANES [record]
+- FullTextQuery — Persistence/data-lanes#SEARCH_LANES [record]
+- GeoLayer — Persistence/data-lanes#GEO_LANES [record]
+- TabularExportSpec — Persistence/data-lanes#ANALYTICAL_LANE [record]
+- ParquetSchemaStamp — Persistence/data-lanes#ANALYTICAL_LANE [record]
+- IdentityPolicy — Persistence/schema-rail#IDENTITY_POLICY [SmartEnum<string>]
+- SchemaFault — Persistence/schema-rail#IDENTITY_POLICY [Union fault]
+- SchemaFingerprint — Persistence/schema-rail#MIGRATION_LAW [readonly struct]
+- MigrationReceipt — Persistence/schema-rail#MIGRATION_LAW [record]
+- DerivedColumn — Persistence/schema-rail#GENERATED_COLUMNS [record]
+- SchemaDdl — Persistence/schema-rail#EXTENSION_DDL [static surface]
+- ConverterRail — Persistence/schema-rail#CONVERTER_RAIL [static surface]
+- StoreFault — Persistence/query-rail#OPERATION_ALGEBRA [Union fault]
+- StoreOp<T> — Persistence/query-rail#OPERATION_ALGEBRA [Union]
+- StoreRail — Persistence/query-rail#OPERATION_ALGEBRA [static surface]
+- KeysetPage<TRow> — Persistence/query-rail#PROJECTION_SHAPES [record]
+- ProjectionRail — Persistence/query-rail#PROJECTION_SHAPES [static surface]
+- BulkRoute — Persistence/query-rail#BULK_LANE [SmartEnum<string>]
+- BulkReceipt — Persistence/query-rail#BULK_LANE [record]
+- BulkDelta<TRow> — Persistence/query-rail#BULK_LANE [record]
+- StoreFact — Persistence/query-rail#INTERCEPTOR_SPINE [record]
+- InterceptPolicy — Persistence/query-rail#INTERCEPTOR_SPINE [record]
+- StoreInterceptor — Persistence/query-rail#INTERCEPTOR_SPINE [capsule]
+- StoreObservability — Persistence/query-rail#INTERCEPTOR_SPINE [static surface]
+- SqliteKeyPolicy — Persistence/native-sqlite#PRAGMA_TABLE [comparer accessor]
+- SqliteFactKind — Persistence/native-sqlite#PRAGMA_TABLE [SmartEnum<string>]
+- SqliteFact — Persistence/native-sqlite#PRAGMA_TABLE [record]
+- SqlitePragma — Persistence/native-sqlite#PRAGMA_TABLE [frozen table]
+- PragmaOps — Persistence/native-sqlite#PRAGMA_TABLE [static surface]
+- SqliteCompileSurface — Persistence/native-sqlite#COMPILE_SURFACE [static surface]
+- SqliteMaintenancePolicy — Persistence/native-sqlite#MAINTENANCE_OPS [record]
+- FunctionRegistration — Persistence/native-sqlite#MAINTENANCE_OPS [record]
+- SqliteMaintenance — Persistence/native-sqlite#MAINTENANCE_OPS [static surface]
+- ExtensionGateState — Persistence/native-sqlite#EXTENSION_GATES [Union]
+- ExtensionGate — Persistence/native-sqlite#EXTENSION_GATES [record]
+- EncryptionGate — Persistence/native-sqlite#EXTENSION_GATES [record]
+- ExtensionOps — Persistence/native-sqlite#EXTENSION_GATES [static surface]
+- SnapshotKeyPolicy — Persistence/snapshot-codecs#CODEC_AXIS [comparer accessor]
+- WireSurface — Persistence/snapshot-codecs#CODEC_AXIS [SmartEnum<string>]
+- PersistenceWireContext — Persistence/snapshot-codecs#CODEC_AXIS [JsonSerializerContext partial]
+- InstantFormatter — Persistence/snapshot-codecs#CODEC_AXIS [MessagePack formatter]
+- SnapshotCodec — Persistence/snapshot-codecs#CODEC_AXIS [SmartEnum<string>]
+- CompressionPolicy — Persistence/snapshot-codecs#COMPRESSION_HASHING [SmartEnum<string>]
+- HashPolicy — Persistence/snapshot-codecs#COMPRESSION_HASHING [SmartEnum<string>]
+- SnapshotHeader — Persistence/snapshot-codecs#SNAPSHOT_PROTOCOL [readonly struct]
+- SealedSnapshot — Persistence/snapshot-codecs#SNAPSHOT_PROTOCOL [record]
+- SnapshotCatalogRow — Persistence/snapshot-codecs#SNAPSHOT_PROTOCOL [record]
+- Snapshots — Persistence/snapshot-codecs#SNAPSHOT_PROTOCOL [static surface]
+- RestoreReceipt — Persistence/snapshot-codecs#RESTORE_AND_DIFF [record]
+- SnapshotDelta — Persistence/snapshot-codecs#RESTORE_AND_DIFF [record]
+- SnapshotRestoreOps — Persistence/snapshot-codecs#RESTORE_AND_DIFF [static surface]
+- CacheContribution — Persistence/cache-indexes#L2_CONTRIBUTION [static surface]
+- CacheIndexFact — Persistence/cache-indexes#L2_CONTRIBUTION [record]
+- ModelResultKey — Persistence/cache-indexes#MODEL_RESULT_INDEX [record]
+- IndexSurface — Persistence/cache-indexes#MODEL_RESULT_INDEX [static surface]
+- ArtifactIndexRow — Persistence/cache-indexes#ARTIFACT_BLOB_INDEX [record]
+- BenchmarkRow — Persistence/cache-indexes#BENCHMARK_INDEX [record]
+- SyncKeyPolicy — Persistence/sync-collaboration#OPLOG_CHANGEFEED [comparer accessor]
+- SyncOpKind — Persistence/sync-collaboration#OPLOG_CHANGEFEED [SmartEnum<string>]
+- OpLogEntry — Persistence/sync-collaboration#OPLOG_CHANGEFEED [record]
+- SyncCursor — Persistence/sync-collaboration#OPLOG_CHANGEFEED [readonly struct]
+- OpLog — Persistence/sync-collaboration#OPLOG_CHANGEFEED [static surface]
+- ConflictReceipt — Persistence/sync-collaboration#MERGE_LAW [record]
+- ConflictOutcome — Persistence/sync-collaboration#MERGE_LAW [Union]
+- SyncApplyReceipt — Persistence/sync-collaboration#MERGE_LAW [record]
+- SyncSession — Persistence/sync-collaboration#MERGE_LAW [record]
+- SyncMerge — Persistence/sync-collaboration#MERGE_LAW [static surface]
+- SyncTopology — Persistence/sync-collaboration#TRANSPORT_AXIS [SmartEnum<string>]
+- SyncDirection — Persistence/sync-collaboration#TRANSPORT_AXIS [SmartEnum<string>]
+- SyncTransport — Persistence/sync-collaboration#TRANSPORT_AXIS [SmartEnum<string>]
+- SyncPump — Persistence/sync-collaboration#TRANSPORT_AXIS [static surface]
+- PresenceRow — Persistence/sync-collaboration#PRESENCE_AND_BLOB [record]
+- Presence — Persistence/sync-collaboration#PRESENCE_AND_BLOB [static surface]
+- ArtifactClassRow — Persistence/redaction-retention#CLASSIFICATION_ENFORCEMENT [record]
+- ArtifactClasses — Persistence/redaction-retention#CLASSIFICATION_ENFORCEMENT [frozen table]
+- ClassificationGuard — Persistence/redaction-retention#CLASSIFICATION_ENFORCEMENT [static surface]
+- RetentionKeyPolicy — Persistence/redaction-retention#RETENTION_SWEEPS [comparer accessor]
+- RetentionPolicy — Persistence/redaction-retention#RETENTION_SWEEPS [SmartEnum<string>]
+- ArtifactFacts — Persistence/redaction-retention#RETENTION_SWEEPS [record]
+- SweepReceipt — Persistence/redaction-retention#RETENTION_SWEEPS [record]
+- RetentionSweep — Persistence/redaction-retention#RETENTION_SWEEPS [static surface]
+- ExportProof — Persistence/redaction-retention#EXPORT_PROOF [record]
+- StoreEvidence — Persistence/redaction-retention#EXPORT_PROOF [static surface]
+- AuditBinding — Persistence/redaction-retention#AUDIT_BINDING [record]
+
 ## [4]-[SEAM_SPLITS]
 
 - Config reload propagation: mechanics at AppHost/configuration-and-options#POLICY_VALUES (reload-class transition + ReloadReceipt); consequence at Persistence user-settings write and the op-log HLC tag-invalidation cursor (cross-process peer observation); frozen reload-class requires process restart.
@@ -221,3 +332,9 @@ Suite ownership ledger for the four app-package planning corpora. Binding preced
 - Receipt sinks: mechanics at AppHost/runtime-ports#ReceiptSinkPort; consequence at Compute/receipts-and-benchmarks, Persistence/query-rail, AppUi/diagnostics-evidence projection rows.
 - Telemetry contribution: mechanics at AppHost/runtime-ports#TelemetryContributorPort; consequence at Persistence (AddNpgsql tracer/meter rows) and Compute (ActivitySource registration rows).
 - Clock seam: mechanics at AppHost/time-and-deadlines#IClock + TimeProvider injection; consequence at Persistence TTL/retention/HLC/lease stamping and Compute elapsed measurement.
+- ArtifactSync framing unification: mechanics at Compute/remote-lane#ArtifactSync (64 KiB frames, Crc32 per frame, XxHash128 whole-artifact); consequence at Persistence/sync-collaboration#PRESENCE_AND_BLOB and store-profiles BlobRemote — frame constants consumed, never re-declared.
+- Pooled-context factory residence: store-profiles rows carry Connect/Configure/Seed delegates only; one PooledDbContextFactory per placement is built at the composition root over the row's Configure output (query-rail leases via CreateDbContextAsync) — neither page re-declares the other's half.
+- Idempotency dedup window: redaction-retention fixes the suite horizon at AgeBound 24h; Compute remote-lane DocumentService.ExecuteTransaction quotes the same value, never re-declares.
+- Fault-code projection: query-rail StoreFault.From projects schema-rail SchemaFault 530x codes into StoreFault.NewerSchema 7005 — single projection site, verified at the final pass.
+- Compiled-model fingerprint slot: store-profiles StoreOpenReceipt carries the fingerprint as bare ulong (no forward reference); schema-rail SchemaFingerprint is the typed owner; BUILD_ORDER places vocabulary owners first.
+- Drain ranks: Persistence store rows rank 310-350 inside the AppHost Stores band (300s); Compute and AppUi registrations rank inside their own bands, never copying these literals.
