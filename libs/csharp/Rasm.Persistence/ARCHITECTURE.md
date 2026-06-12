@@ -1,9 +1,6 @@
 # [RASM_PERSISTENCE_ARCHITECTURE]
 
-`Rasm.Persistence` owns durable state for the app suite through nine finalized
-rails. Each rail is one polymorphic dispatch surface whose variance lives in
-axis rows, cases, and policy values; the finalized pages under
-[.planning](.planning/README.md) carry the transcription-complete signatures.
+`Rasm.Persistence` owns durable state for the app suite through nine finalized rails. Each rail is one polymorphic dispatch surface whose variance lives in axis rows, cases, and policy values; the finalized pages under [.planning](.planning/README.md) carry the transcription-complete signatures.
 
 ## [1]-[RAILS_AND_AXES]
 
@@ -24,8 +21,7 @@ lanes, operations, codecs, and policies; it never selects provider packages.
 
 ## [2]-[CROSS_PACKAGE_MATRIX]
 
-Seam altitudes record in the suite ledger
-[SEAM_SPLITS](../.planning/region-map/); this matrix is the Persistence cut.
+Seam altitudes record in the suite ledger [SEAM_SPLITS](../.planning/region-map/seam-splits.md); this matrix is the Persistence cut.
 
 | [INDEX] | [SEAM]                   | [MECHANICS_OWNER]                                              | [PERSISTENCE_SIDE]                                                                                            |
 | :-----: | :----------------------- | :------------------------------------------------------------- | :------------------------------------------------------------------------------------------------------------ |
@@ -69,32 +65,9 @@ flowchart LR
     OpLog --> SyncPump["SyncPump"]
 ```
 
-Text equivalent: the resolved profile folds to a placement, locality admission
-gates it, the open ceremony proves the store ready, every operation dispatches
-through the store rail into the interceptor spine, and the spine fans out to
-the op-log changefeed, cache invalidation, and the receipt sink; the op-log
-feeds the sync pump.
+Text equivalent: the resolved profile folds to a placement, locality admission gates it, the open ceremony proves the store ready, every operation dispatches through the store rail into the interceptor spine, and the spine fans out to the op-log changefeed, cache invalidation, and the receipt sink; the op-log feeds the sync pump.
 
-## [4]-[PACKAGE_API_MAP]
-
-| [INDEX] | [AXIS]                       | [OWNING_PACKAGES]                                                                                                                                                                                                       |
-| :-----: | :--------------------------- | :---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-|   [1]   | Engine rows + placement      | Microsoft.EntityFrameworkCore.Sqlite · Microsoft.Data.Sqlite · Npgsql · Npgsql.EntityFrameworkCore.PostgreSQL · DuckDB.NET.Data.Full                                                                                    |
-|   [2]   | Document + search lanes      | Npgsql.EntityFrameworkCore.PostgreSQL.NodaTime · Pgvector.EntityFrameworkCore                                                                                                                                           |
-|   [3]   | Geo lanes                    | Npgsql.EntityFrameworkCore.PostgreSQL.NetTopologySuite · NetTopologySuite.IO.GeoPackage                                                                                                                                 |
-|   [4]   | Analytical lane              | DuckDB.NET.Data.Full · Sep                                                                                                                                                                                              |
-|   [5]   | Schema rail                  | Microsoft.EntityFrameworkCore.Design · EFCore.NamingConventions · Thinktecture.Runtime.Extensions.EntityFrameworkCore10 · System.IO.Hashing                                                                             |
-|   [6]   | Query + bulk + observability | linq2db.EntityFrameworkCore · Npgsql.OpenTelemetry · Microsoft.Extensions.Caching.Hybrid                                                                                                                                |
-|   [7]   | Native SQLite floor          | SQLitePCLRaw.bundle_e_sqlite3 · Microsoft.Data.Sqlite                                                                                                                                                                   |
-|   [8]   | Snapshot codecs              | MessagePack · MessagePackAnalyzer · K4os.Compression.LZ4 · Thinktecture.Runtime.Extensions.Json · Thinktecture.Runtime.Extensions.MessagePack · NodaTime.Serialization.SystemTextJson · NetTopologySuite.IO.GeoJSON4STJ |
-|   [9]   | Cache indexes                | Microsoft.Extensions.Caching.Hybrid · MessagePack · System.IO.Hashing                                                                                                                                                   |
-|  [10]   | Sync transports              | Npgsql (logical replication) · NodaTime                                                                                                                                                                                 |
-|  [11]   | Redaction + retention        | Microsoft.Extensions.Compliance.Redaction · NodaTime                                                                                                                                                                    |
-
-Package API facts live in [.api](.api/README.md); this map
-names ownership only and never repeats member tables.
-
-## [5]-[BOUNDARIES]
+## [4]-[BOUNDARIES]
 
 - Persistence is RhinoCommon-free; app roots resolve host profile, paths, and dsn values before any call enters.
 - Typed projection records are the only egress; entity types never cross the package boundary.

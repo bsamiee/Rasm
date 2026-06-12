@@ -187,6 +187,4 @@ public sealed class StreamPool : IDisposable {
 
 ## [5]-[RESEARCH]
 
-| [INDEX] | [ITEM]                                                                                                          | [PROOF]                                                                                                                        | [GATE]      |
-| :-----: | :-------------------------------------------------------------------------------------------------------------- | :----------------------------------------------------------------------------------------------------------------------------- | :---------- |
-|   [1]   | Zero-allocation manager-event fold from handler through `AllocationEvidence` emission without per-event garbage | `uv run python -m tools.assay test run --target Rasm.Compute` running a CsCheck `Check.Faster` spec over the eleven-event fold | STREAM_POOL |
+- [POOL_EVIDENCE]: zero-allocation manager-event fold from handler through `AllocationEvidence` emission without per-event garbage.

@@ -213,6 +213,4 @@ public static class AuditBinding {
 
 ## [6]-[RESEARCH]
 
-| [INDEX] | [ITEM]                                                                                                                  | [PROOF]                                                                                                                                   | [GATE]        |
-| :-----: | :---------------------------------------------------------------------------------------------------------------------- | :---------------------------------------------------------------------------------------------------------------------------------------- | :------------ |
-|   [1]   | pgaudit session-audit category semantics on PG18 under `shared_preload_libraries=pgaudit` against the `Categories` rows | `uv run python -m tools.assay test run --target Rasm.Persistence` with a `pg_settings` capture spec over a provisioned PostgresServer row | AUDIT_BINDING |
+- [PGAUDIT_CATEGORIES]: pgaudit session-audit category semantics on PG18 under `shared_preload_libraries=pgaudit` against the `Categories` rows.

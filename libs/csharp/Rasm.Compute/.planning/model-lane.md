@@ -181,7 +181,7 @@ flowchart LR
 - Auto: `Available` reads the `GetAvailableProviders` probe plus the macOS 12 gate riding the `ModelFormat` row value; `ResultKey` stamps EP key, ORT version, and option-table hash for the deterministic cache key with zero call-site hashing.
 - Packages: Microsoft.ML.OnnxRuntime, System.IO.Hashing, Thinktecture.Runtime.Extensions, LanguageExt.Core, BCL inbox
 - Growth: Cuda and DirectML are one EP row each on Windows profiles; the generative token-streaming successor lands as one designed substrate row, never a chat-client surface; zero new surface.
-- Boundary: `AppendExecutionProvider("CoreML", options)` with the eight verified option keys is the canonical spelling — `AppendExecutionProvider_CoreML(CoreMLFlags)` is the rejected legacy flags route; the macOS 12 gate is per `ModelFormat` value because the legacy NeuralNetwork format alone reaches back to macOS 10.15; `ModelCacheDirectory` binds at registration to the blob-lane artifact directory so compiled CoreML caches are catalogued inventory; dylib-presence heuristics are the deleted probe form.
+- Boundary: `AppendExecutionProvider("CoreML", options)` with the eight option keys is the canonical spelling — `AppendExecutionProvider_CoreML(CoreMLFlags)` is the rejected legacy flags route; the macOS 12 gate is per `ModelFormat` value because the legacy NeuralNetwork format alone reaches back to macOS 10.15; `ModelCacheDirectory` binds at registration to the blob-lane artifact directory so compiled CoreML caches are catalogued inventory; dylib-presence heuristics are the deleted probe form.
 
 ```csharp signature
 public sealed class ModelKeyPolicy : IEqualityComparerAccessor<string>, IComparerAccessor<string> {
@@ -383,8 +383,5 @@ public static class CacheOps {
 
 ## [8]-[RESEARCH]
 
-| [INDEX] | [ITEM]                                                                                                                          | [PROOF]                                                                                                              | [GATE]          |
-| :-----: | :------------------------------------------------------------------------------------------------------------------------------ | :------------------------------------------------------------------------------------------------------------------- | :-------------- |
-|   [1]   | `RunOptions.Terminate` latch propagation latency and the deadline poll cadence on CoreML and CPU rows                           | `uv run python -m tools.assay test run --target Rasm.Compute` terminate-latch spec                                   | INFERENCE_MODES |
-|   [2]   | `libortextensions.dylib` resolution from `runtimes/osx.10.14-arm64` under the portable RID graph inside a no-publish-RID plugin | `dotnet build libs/csharp/Rasm.Compute/Rasm.Compute.csproj -p:UseRidGraph=true` with bin-output native-asset listing | EXTENSION_OPS   |
-|   [3]   | CoreML option value domains beyond `ModelFormat` (`MLComputeUnits` and `SpecializationStrategy` value spellings)                | `curl -sL onnxruntime.ai/docs/execution-providers/CoreML-ExecutionProvider.html`                                     | EP_AXIS         |
+- [CANCELLATION]: `RunOptions.Terminate` latch propagation latency and the deadline poll cadence on the CoreML and CPU rows.
+- [EP_OPTIONS]: CoreML option value domains beyond `ModelFormat` — the `MLComputeUnits` and `SpecializationStrategy` value spellings.

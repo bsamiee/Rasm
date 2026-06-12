@@ -201,7 +201,4 @@ public static class LaneDrain {
 
 ## [6]-[RESEARCH]
 
-| [INDEX] | [ITEM]                                                                                      | [PROOF]                                                                                                                          | [GATE]      |
-| :-----: | :------------------------------------------------------------------------------------------ | :------------------------------------------------------------------------------------------------------------------------------- | :---------- |
-|   [1]   | Bounded `ChannelReader` count surface backing the queue-depth slot on Backpressure evidence | `uv run python -m tools.assay test run --target Rasm.Compute` — a lane spec asserts the count surface across the five rows       | LANE_AXIS   |
-|   [2]   | Drop-callback execution context and allocation profile on receipted-loss rows               | `uv run python -m tools.assay test run --target Rasm.Compute` — CsCheck Check.Faster law over the pressure delegate on drop rows | SOLVE_GUARD |
+- [LANE_EVIDENCE]: bounded `ChannelReader` count surface backing the queue-depth slot on Backpressure evidence; drop-callback execution context and allocation profile on receipted-loss rows.

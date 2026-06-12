@@ -295,6 +295,4 @@ type SupportReceipt =
 
 ## [6]-[RESEARCH]
 
-| [INDEX] | [ITEM]                                                                                 | [PROOF]                                             | [GATE]           |
-| :-----: | :------------------------------------------------------------------------------------- | :-------------------------------------------------- | :--------------- |
-|   [1]   | dump and gcdump capture-tool admission on the 9.0.661903 line for the process-dump row | `dotnet package search dotnet-gcdump --exact-match` | CAPTURE_PIPELINE |
+- [DUMP_ADMISSION]: dump and gcdump capture-tool admission for the process-dump row.

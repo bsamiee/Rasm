@@ -184,6 +184,4 @@ The heartbeat period is one policy value fixed at 3 × the health-probe row; one
 
 ## [5]-[RESEARCH]
 
-| [INDEX] | [ITEM]                                                                                    | [PROOF]                                                                                                                           | [GATE]            |
-| :-----: | ----------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------- | ----------------- |
-|   [1]   | ForceFlush completion latency inside the drain-cooperative allotment during plugin unload | libs/csharp/Rasm.AppHost/scenarios/drain-deadlines.verify.csx measuring drain receipt elapsed against the row under live RhinoWIP | DEADLINE_TAXONOMY |
+- [DRAIN_FLUSH]: ForceFlush completion latency inside the drain-cooperative allotment during plugin unload.

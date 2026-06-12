@@ -294,6 +294,4 @@ interface BenchmarkClaimWire { band: "micro" | "small" | "medium" | "large"; dty
 
 ## [7]-[RESEARCH]
 
-| [INDEX] | [ITEM]                                                                                                                                         | [PROOF]                                                       | [GATE]        |
-| :-----: | :--------------------------------------------------------------------------------------------------------------------------------------------- | :------------------------------------------------------------ | :------------ |
-|   [1]   | `ComputeReceipt` polymorphic kind emission with Thinktecture key scalars and `Seq` collection metadata through the suite Strict resolver merge | `uv run python -m tools.assay test run --target Rasm.Compute` | RECEIPT_UNION |
+- [WIRE_EMISSION]: `ComputeReceipt` polymorphic kind emission with Thinktecture key scalars and `Seq` collection metadata through the suite Strict resolver merge.

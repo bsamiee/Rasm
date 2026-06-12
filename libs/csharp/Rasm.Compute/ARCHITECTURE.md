@@ -1,6 +1,6 @@
 # [RASM_COMPUTE_ARCHITECTURE]
 
-`Rasm.Compute` owns measured execution: one intent rail admits work exactly once at the boundary, one substrate axis routes it over row data, bounded lanes carry it, and one receipt union records every outcome at the sink edge. Mechanics live in the nine `.planning/` pages; this page names the rails, the axes, the cross-package seams, and the external package owners behind each axis.
+`Rasm.Compute` owns measured execution: one intent rail admits work exactly once at the boundary, one substrate axis routes it over row data, bounded lanes carry it, and one receipt union records every outcome at the sink edge. Mechanics live in the nine `.planning/` pages; this page names the rails, the axes, the cross-package seams, and the reference direction. Per-cluster package owners live on the planning-page cards; admitted versions live in the charter ADMISSIONS_RECORD.
 
 ## [1]-[EXECUTION_SPINE]
 
@@ -102,25 +102,7 @@ Each row cites the suite ledger SEAM_SPLITS: mechanics live at the named owner; 
 |   [4]   | Phase-key set                    | progress-and-observation#PHASE_FAMILY | AppUi motion mapping mirrors the nine keys; its conformance sweep fails on drift    |
 |   [5]   | Receipt and progress wire shapes | receipts-and-benchmarks#TS_PROJECTION | AppUi evidence joins and dashboard ingestion consume the projections                |
 
-## [6]-[PACKAGE_API_MAP]
-
-Versions appear only in the charter ADMISSIONS_RECORD.
-
-| [INDEX] | [AXIS/CONCERN]       | [OWNING_PACKAGES]                                                                                  |
-| :-----: | :------------------- | :------------------------------------------------------------------------------------------------- |
-|   [1]   | Vocabulary and rails | Thinktecture.Runtime.Extensions, LanguageExt.Core, NodaTime (suite spine)                          |
-|   [2]   | Tensor lane          | System.Numerics.Tensors, Microsoft.ML.OnnxRuntime, CommunityToolkit.HighPerformance                |
-|   [3]   | Model lane           | Microsoft.ML.OnnxRuntime, Microsoft.ML.OnnxRuntime.Extensions                                      |
-|   [4]   | Result cache         | Microsoft.Extensions.Caching.Hybrid (through the Rasm.AppHost cache port)                          |
-|   [5]   | Remote lane          | Google.Protobuf, Grpc.Net.Client, Grpc.Net.Client.Web, Grpc.Tools, NodaTime.Serialization.Protobuf |
-|   [6]   | Staging and streams  | CommunityToolkit.HighPerformance, Microsoft.IO.RecyclableMemoryStream                              |
-|   [7]   | Scheduling           | System.Threading.Channels (BCL inbox)                                                              |
-|   [8]   | Identity and digests | System.IO.Hashing (through the Rasm closure)                                                       |
-|   [9]   | Units boundary       | UnitsNet                                                                                           |
-|  [10]   | Receipt wire         | System.Text.Json source generation (BCL), Thinktecture.Runtime.Extensions.Json                     |
-|  [11]   | Benchmark evidence   | BenchmarkDotNet (test rail)                                                                        |
-
-## [7]-[REFERENCE_DIRECTION]
+## [6]-[REFERENCE_DIRECTION]
 
 | [INDEX] | [PROJECT]          | [RELATION]                                                |
 | :-----: | :----------------- | :-------------------------------------------------------- |
@@ -130,4 +112,4 @@ Versions appear only in the charter ADMISSIONS_RECORD.
 |   [4]   | `Rasm.AppUi`       | Observer only; marshals through `UiSchedulerPort`         |
 |   [5]   | Host packages      | No direct dependency                                      |
 
-Compute references `Rasm`, `Rasm.AppHost`, and `Rasm.Persistence`. AppHost never references Compute.
+Compute references `Rasm`, `Rasm.AppHost`, and `Rasm.Persistence`; AppHost never references Compute. The package is not a tensor wrapper, ONNX wrapper, gRPC wrapper, training pipeline, job framework, process-queue owner, or UI scheduler — algorithms stay in `Rasm`, runtime policy in `Rasm.AppHost`, durable storage in `Rasm.Persistence`, presentation scheduling in `Rasm.AppUi`.

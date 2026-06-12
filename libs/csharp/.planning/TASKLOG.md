@@ -1,6 +1,6 @@
 # [SUITE_TASKLOG]
 
-Every remaining open item across all ledgers, agent findings, and ROADMAP gates — the suite-level index of work not closed by the planning campaign. Per-folder detail lives in each `ROADMAP.md` (START_GATES / RESEARCH_PROBES tables); this log aggregates and adds the cross-folder and infrastructure rows no single folder owns. Closed items do not appear.
+Every remaining open item across all ledgers and ROADMAP gates — the suite-level index of work not closed by the planning campaign. Per-folder detail lives in each `ROADMAP.md`; this log aggregates and adds the cross-folder and infrastructure rows no single folder owns. Closed items do not appear.
 
 ## [1]-[NATIVE_AND_SERVER_PROBES]
 
@@ -48,7 +48,9 @@ Every remaining open item across all ledgers, agent findings, and ROADMAP gates 
 | [8] | dotnet-counters/trace/gcdump tool-manifest admission (9.0.661903 line, re-verify) | AppHost implementation start |
 | [9] | TimescaleDB / pg_partman / pg_repack / HypoPG / pgaudit operator provisioning | self-provisioned server era |
 
-## [4]-[ASSAY_AND_INFRA_INTEGRATION] (assay changes are their own work, not page edits)
+## [4]-[ASSAY_AND_INFRA_INTEGRATION]
+
+Assay changes are their own work, not page edits.
 
 | [INDEX] | [ITEM] |
 | :-----: | ------ |
@@ -71,7 +73,9 @@ Every remaining open item across all ledgers, agent findings, and ROADMAP gates 
 | [3] | DATAS GC knobs stay claim-gated behind a losing benchmark | AppHost host-profiles at benchmark lane |
 | [4] | Package atlas anchor-column header harmonization on [ANCHORS] (cosmetic) | suite root |
 
-## [6]-[TS_CAMPAIGN] (entry: `libs/typescript/.planning/README.md`)
+## [6]-[TS_CAMPAIGN]
+
+Entry: `libs/typescript/.planning/README.md`.
 
 | [INDEX] | [ITEM] |
 | :-----: | ------ |
@@ -83,7 +87,7 @@ Every remaining open item across all ledgers, agent findings, and ROADMAP gates 
 
 ## [7]-[PLANNING_CLOSE_OUT_SPIKES]
 
-The total planning-phase close-out: these bridge-proofed spikes run ONLY after every other TASKLOG section is done — including rows added by later sessions — as the final gate before implementation. They are not per-folder work and never run incrementally while planning is still moving.
+The total planning-phase close-out: these bridge-proofed spikes run ONLY after every other TASKLOG section is done — including rows added later — as the final gate before implementation. They are not per-folder work and never run incrementally while planning is still moving.
 
 | [INDEX] | [ITEM] | [OWNER] |
 | :-----: | ------ | ------- |

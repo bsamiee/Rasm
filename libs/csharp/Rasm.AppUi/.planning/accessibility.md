@@ -161,8 +161,5 @@ flowchart LR
 
 ## [6]-[RESEARCH]
 
-| [INDEX] | [ITEM]                                                                                                   | [PROOF]                                                                                              | [GATE]           |
-| :-----: | :------------------------------------------------------------------------------------------------------- | :---------------------------------------------------------------------------------------------------- | :--------------- |
-|   [1]   | Automation-peer synthesis over Skia-drawn chart, tile, and preview visuals                                 | `uv run python -m tools.assay test run --target Rasm.AppUi.Tests` headless peer-presence sweep over chart tiles | AUTOMATION_PEERS |
-|   [2]   | VoiceOver reach into embedded-root content across the NSView boundary on Rhino panel rows                  | `tests/csharp/libs/Rasm.Rhino/UI/scenarios/avalonia-embed-a11y.verify.csx`                              | AUTOMATION_PEERS |
-|   [3]   | Live-region projection of `SetLiveSetting` and `SetName` transitions through the macOS automation backend  | `tests/csharp/libs/Rasm.Rhino/UI/scenarios/avalonia-embed-a11y.verify.csx` announcement leg under live VoiceOver | AUTOMATION_PEERS |
+- [PEER_SYNTHESIS]: automation-peer presence over Skia-drawn chart, tile, and preview visuals.
+- [EMBEDDED_VOICEOVER]: VoiceOver reach into embedded-root content across the NSView boundary on Rhino panel rows; live-region projection of `SetLiveSetting` and `SetName` transitions through the macOS automation backend.

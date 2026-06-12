@@ -290,8 +290,5 @@ flowchart LR
 
 ## [6]-[RESEARCH]
 
-| [INDEX] | [ITEM]                                                                                                                     | [PROOF]                                                           | [GATE]            |
-| :-----: | -------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------- | ----------------- |
-|   [1]   | RETURNING old/new SQL emission from `MergeWithOutputAsync` on the pg provider behind the ReturningOldNew capability column | `uv run python -m tools.assay test run --target Rasm.Persistence` | BULK_LANE         |
-|   [2]   | `BulkCopyOptions` ProviderSpecific emission per provider — pg binary COPY and the sqlite multi-row downgrade               | `uv run python -m tools.assay test run --target Rasm.Persistence` | BULK_LANE         |
-|   [3]   | EF Core 10 native `Activity` emission depth beside `AddNpgsql` spans                                                       | `uv run python -m tools.assay test run --target Rasm.Persistence` | INTERCEPTOR_SPINE |
+- [BULK_EMISSION]: RETURNING old/new SQL emission from `MergeWithOutputAsync` on the pg provider behind the ReturningOldNew capability column; `BulkCopyOptions` ProviderSpecific emission per provider — pg binary COPY and the sqlite multi-row downgrade.
+- [TRACE_DEPTH]: EF Core 10 native `Activity` emission depth beside `AddNpgsql` spans.

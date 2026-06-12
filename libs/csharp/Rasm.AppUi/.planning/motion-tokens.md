@@ -126,7 +126,7 @@ flowchart LR
 - Receipt: `MotionReceipt` rows from `Conformance` — token key, resolved key, switch state, `Instant` stamp — feed the headless proof lane and sink through `ReceiptSinkPort` envelopes bound at composition.
 - Packages: LanguageExt.Core, NodaTime, BCL inbox
 - Growth: a new host probe is one `MotionProbeRow` row; the web-browser probe activates as the designed-only surface case; zero new surface.
-- Boundary: per-animation accessibility conditionals are the deleted pattern — reduction lives in this one switch; probe delegates are host-agnostic columns and no host API enters a row — the macOS preference spelling rides the RESEARCH row, the headless row probes constant false with spec-driven `Observe` flips, and the designed-only web row carries no payload from unadmitted packages; reduced selection lands on spring-free rows and applications render reduced pairs as opacity-only, so positional transforms drop with the spring.
+- Boundary: per-animation accessibility conditionals are the deleted pattern — reduction lives in this one switch; probe delegates are host-agnostic columns and no host API enters a row — the macOS preference spelling rides the RESEARCH item, the headless row probes constant false with spec-driven `Observe` flips, and the designed-only web row carries no payload from unadmitted packages; reduced selection lands on spring-free rows and applications render reduced pairs as opacity-only, so positional transforms drop with the spring.
 
 ```csharp signature
 public sealed record MotionProbeRow(string Host, bool Designed, Func<bool> Probe);
@@ -157,6 +157,4 @@ public static class ReducedMotion {
 
 ## [6]-[RESEARCH]
 
-| [INDEX] | [ITEM]                                                                                       | [PROOF]                                                                       | [GATE]             |
-| :-----: | :-------------------------------------------------------------------------------------------- | :------------------------------------------------------------------------------ | :----------------- |
-|   [1]   | macOS reduce-motion preference probe spelling for embedded and standalone rows                 | libs/csharp/Rasm.AppUi/scenarios/reduced-motion-probe.verify.csx under live RhinoWIP | REDUCED_MOTION     |
+- [REDUCED_MOTION_PROBE]: macOS reduce-motion preference probe spelling for embedded and standalone rows.

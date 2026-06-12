@@ -1,6 +1,6 @@
 # [COMPUTE_FEATURES]
 
-Feature atlas for measured execution. Every concept rides `Substrate`, `ModelSource`, `ExecutionProvider`, `RemoteTransport`, `CredentialPolicy`, `AllocationClass`, `WorkLane`, `ProgressPhase`, `QuantityFamily`, `ComputeFault`, and `ComputeReceipt` rows — a new concept is a row, never a surface. Mechanics live in the `.planning/` pages; the ANCHORS column cites page clusters.
+Feature atlas for measured execution. Every concept rides a row on an owned axis — a new concept is a row, never a surface. Mechanics live in the `.planning/` pages; the ANCHORS column cites page clusters.
 
 ## [1]-[EXECUTION_CONCEPTS]
 
@@ -50,8 +50,3 @@ Feature atlas for measured execution. Every concept rides `Substrate`, `ModelSou
 - Lanes (scheduling-and-lanes#LANE_AXIS): five bounded channel rows (interactive, background, bulk, benchmark, capture-ingest) with capacity, full-mode, readers, and rank as row data; band-200 drain participation (scheduling-and-lanes#DRAIN_CANCEL).
 - Units (units-boundary#QUANTITY_TABLE): fifteen frozen quantity rows with conversion exactly once at admission; seven compound dimensional relations swept at composition (units-boundary#DIMENSIONAL_LAW).
 - Receipts (receipts-and-benchmarks#RECEIPT_UNION): 13-case typed receipt union with fold projections; benchmark claims gated by host fingerprint; EP-context and profiling artifacts route to the Persistence blob lane (receipts-and-benchmarks#BENCHMARK_CLAIMS).
-
-## [4]-[GAPS_TRACKED]
-
-- ONNX dylib load in the RhinoWIP ALC and Kestrel-in-plugin-ALC hosting are bridge-proofed start gates in the roadmap START_GATES table.
-- Per-page research rows (32 across the nine pages) resolve through the roadmap RESEARCH_PROBES routes before their gated clusters transcribe; the ONNX Terminate-latch polling cadence and the GH2 async result readback ceiling sit on model-lane and scheduling-and-lanes.

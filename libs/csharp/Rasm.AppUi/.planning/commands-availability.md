@@ -291,6 +291,4 @@ interface CommandReceiptWire { readonly key: string; readonly surface: string; r
 
 ## [7]-[RESEARCH]
 
-| [INDEX] | [ITEM]                                                                                              | [PROOF]                                                          | [GATE]              |
-| :-----: | :--------------------------------------------------------------------------------------------------- | :----------------------------------------------------------------- | :------------------- |
-|   [1]   | Seq-typed payload member round-trip through the Strict camelCase wire options on the inbound remote decode | `uv run python -m tools.assay test run --target Rasm.AppUi`         | PALETTE_AND_REMOTE   |
+- [WIRE_DECODE]: Seq-typed payload member round-trip through the Strict camelCase wire options on the inbound remote decode.

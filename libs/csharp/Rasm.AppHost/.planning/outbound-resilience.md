@@ -389,6 +389,4 @@ public static class OutboundSurface {
 
 ## [7]-[RESEARCH]
 
-| [INDEX] | [ITEM]                                                                                                   | [PROOF]                                                                                                 | [GATE]           |
-| :-----: | -------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------- | ---------------- |
-|   [1]   | Peer-credential projection on accepted UDS sockets through the raw socket-option read on macOS and Linux | dotnet run on a scratch UDS accept spike asserting the LOCAL_PEERCRED raw-option read on both platforms | DISCOVERY_ATTACH |
+- [PEER_CREDENTIAL]: peer-credential projection on accepted UDS sockets through the raw socket-option read on macOS and Linux.

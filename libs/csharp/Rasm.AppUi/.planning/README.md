@@ -57,8 +57,8 @@ TextMateSharp grammar registry (transitive, unpinned) gets a page only if admitt
 | [18] | GeoMap GeoJSON asset dependency routed through icons-assets | charts-dashboards + icons-assets | CLOSED |
 | [19] | Conflict-resolution inspector row consuming Persistence conflict receipts | inspector-editing | CLOSED |
 | [20] | ValueObject editor wiring over Thinktecture factories; UnitsNet quantity editors | inspector-editing | CLOSED |
-| [21] | LocaleRow rides inbox resx/ICU/NodaTime; ICU MessageFormat plural route research row | localization-culture | CLOSED |
-| [22] | Avalonia-12-in-Rhino NSView embedding is the bridge-proofed implementation-start gate; rhino-panel/modal rows carry the embedding shape | surface-hosts | CLOSED |
+| [21] | LocaleRow rides inbox resx/ICU/NodaTime; ICU MessageFormat plural route research item | localization-culture | CLOSED |
+| [22] | Avalonia-in-Rhino NSView embedding is the bridge-proofed implementation-start gate; rhino-panel/modal rows carry the embedding shape | surface-hosts | CLOSED |
 | [23] | Headless + Skia render-hash proof lanes; EvidenceReceipt serialization for dashboards | diagnostics-evidence + visuals-offscreen | CLOSED |
 | [24] | Pan-zoom canvas rows (PanAndZoom package surface) with input-interaction gesture law | input-interaction | CLOSED |
 
@@ -130,7 +130,7 @@ Vocabulary owners land first, then shapes, rails, dispatch surfaces, boundaries,
 
 1. Read this charter end-to-end, then read every page in the file's TRANSCRIBES cell end-to-end before the first edit.
 2. Transcribe the signature fences verbatim; add nothing but file-organization scaffolding (section separators, usings, namespace). Apply the BUILD_ORDER seam notes during transcription, never after.
-3. A RESEARCH-gated member resolves its proof route before its gated cluster is transcribed; an unresolved row blocks the cluster — an improvised spelling is the named defect.
+3. A RESEARCH-gated member resolves before its gated cluster is transcribed; an unresolved item blocks the cluster — an improvised spelling is the named defect.
 4. Run the collapse scan on every edit: three or more parallel types, sibling factories, repeated switch arms, or single-call helpers triggers in-place collapse.
 5. Run `uv run python -m tools.assay static fix`, then `uv run python -m tools.assay static build` on the touched closure; the build is authoritative — grep `': error '` broadly.
 6. Author specs per the `testing-cs` skill against the file's law; run `uv run python -m tools.assay test run --target Rasm.AppUi.Tests` to green.
@@ -146,7 +146,7 @@ Vocabulary owners land first, then shapes, rails, dispatch surfaces, boundaries,
 | specs | `uv run python -m tools.assay test run --target Rasm.AppUi.Tests` | law specs plus the derived ProofEngine matrix green |
 | bridge | `uv run python -m tools.assay bridge verify --pattern <scenario>` | per-scenario facts green under live RhinoWIP |
 | render-hash | `uv run python -m tools.assay test run --target Rasm.AppUi.Tests` (headless Skia lanes) | `FrameHash` equality against blob-lane baselines per `ChartSeriesSpec` row and named dashboard |
-| mermaid | `npx -p @mermaid-js/mermaid-cli mmdc -i <page>` | every planning diagram renders locally (the MCP renderer is permission-blocked) |
+| mermaid | `npx -p @mermaid-js/mermaid-cli mmdc -i <page>` | every planning diagram renders locally |
 
 ## [9]-[PROHIBITIONS]
 
@@ -217,4 +217,4 @@ The executed admissions ledger — the only planning location where versions are
 
 ## [11]-[REFINEMENT_HORIZON]
 
-Entry for the next deepening session: `libs/csharp/.planning/campaign-method.md` then `TASKLOG.md` then this charter. Folder-specific deepening targets: the embedding capsule proven by the NSView bridge spike and extended with the Win32 route; viewport-in-panel and host-data-in-shell compositions rehearsed as concept rows (rhino panels, viewports, and host documents inside the same shell that runs standalone); every element family re-swept after the embedding spike answers its research rows. The bar already set here is the suite bar: any app UI — panel, modal, standalone, companion console — composes from rows with dynamic sourcing and zero host-coupled code.
+Folder-specific deepening targets: the embedding capsule proven by the NSView bridge spike and extended with the Win32 route; viewport-in-panel and host-data-in-shell compositions rehearsed as concept rows (rhino panels, viewports, and host documents inside the same shell that runs standalone); every element family re-swept after the embedding spike answers its research items. The bar already set here is the suite bar: any app UI — panel, modal, standalone, companion console — composes from rows with dynamic sourcing and zero host-coupled code.

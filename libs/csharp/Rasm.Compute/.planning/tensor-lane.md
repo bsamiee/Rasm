@@ -1,14 +1,14 @@
 # [COMPUTE_TENSOR_LANE]
 
-The cpu-tensor execution vocabulary: `Tensor<T>` spans and verified factories as the only tensor shapes, one dtype map between `TensorElementType` and CLR carriers, one `TensorOpFamily` table over the TensorPrimitives surface, one `LayoutForm` algebra over the verified layout members, geometry-to-tensor encoding rows as the canonical geometry-ML input vocabulary, and the equivalence law proving lane kernels against Rasm baselines. The page owns the `TensorDtype`, `TensorOpFamily`, `LayoutForm`, and `GeometryEncoding` axes; AppHost `ClockPolicy` and `CorrelationId` arrive settled, and the substrate row, fault union, and receipt cases ride their owning pages.
+The cpu-tensor execution vocabulary: `Tensor<T>` spans and factories as the only tensor shapes, one dtype map between `TensorElementType` and CLR carriers, one `TensorOpFamily` table over the TensorPrimitives surface, one `LayoutForm` algebra over the layout member surface, geometry-to-tensor encoding rows as the canonical geometry-ML input vocabulary, and the equivalence law proving lane kernels against Rasm baselines. The page owns the `TensorDtype`, `TensorOpFamily`, `LayoutForm`, and `GeometryEncoding` axes; AppHost `ClockPolicy` and `CorrelationId` arrive settled, and the substrate row, fault union, and receipt cases ride their owning pages.
 
 ## [1]-[INDEX]
 
 | [INDEX] | [CLUSTER]           | [OWNS]                                                                |
 | :-----: | ------------------- | --------------------------------------------------------------------- |
-|   [1]   | TENSOR_VOCABULARY   | Tensor shapes, verified factories, dtype map, quantization policy     |
+|   [1]   | TENSOR_VOCABULARY   | Tensor shapes, factories, dtype map, quantization policy              |
 |   [2]   | OPERATION_FAMILIES  | One op-family table; arity kernel tables; claim-gated hot routes      |
-|   [3]   | LAYOUT_ALGEBRA      | LayoutForm rows; permute table; verified layout member surface        |
+|   [3]   | LAYOUT_ALGEBRA      | LayoutForm rows; permute table; layout member surface                 |
 |   [4]   | GEOMETRY_ENCODING   | Geometry-to-tensor cases; free-dimension names; wire-shape rows       |
 |   [5]   | EQUIVALENCE_INTEROP | Equivalence proofs against Rasm kernels; matmul route; copy-point law |
 
@@ -259,7 +259,7 @@ public static class TensorOps {
 - Entry: `public static Fin<Tensor<T>> Reform<T>(Tensor<T> source, LayoutForm origin, LayoutForm target)` — `Fin<T>` aborts on an undeclared permute row.
 - Packages: System.Numerics.Tensors, Thinktecture.Runtime.Extensions, LanguageExt.Core, BCL inbox
 - Growth: a new layout is one `LayoutForm` row plus one permute-table entry; zero new surface.
-- Boundary: the verified layout family — `PermuteDimensions`, `Transpose`, `Squeeze`, `SqueezeDimension`, `Unsqueeze`, `SetSlice`, `Split`, `Stack`, `StackAlongDimension`, `Concatenate`, `ConcatenateOnDimension`, `Reverse`, `Resize`, `Broadcast`, `BroadcastTo`, `Reshape`, `FlattenTo`, `ToDenseTensor`, and `Slice` with `NIndex`/`NRange` — is the only layout surface, replacing the deleted phantom construction factories; the nchw↔nhwc permute rows are the mandatory CoreML image-model pre/post route; `Span2D` planes are views and never substitute for rank permutation; broadcast compatibility and rank/stride invariants ride `Broadcast`/`BroadcastTo` and the dimension spans, stated here once for the lane.
+- Boundary: the layout family — `PermuteDimensions`, `Transpose`, `Squeeze`, `SqueezeDimension`, `Unsqueeze`, `SetSlice`, `Split`, `Stack`, `StackAlongDimension`, `Concatenate`, `ConcatenateOnDimension`, `Reverse`, `Resize`, `Broadcast`, `BroadcastTo`, `Reshape`, `FlattenTo`, `ToDenseTensor`, and `Slice` with `NIndex`/`NRange` — is the only layout surface, replacing the deleted phantom construction factories; the nchw↔nhwc permute rows are the mandatory CoreML image-model pre/post route; `Span2D` planes are views and never substitute for rank permutation; broadcast compatibility and rank/stride invariants ride `Broadcast`/`BroadcastTo` and the dimension spans, stated here once for the lane.
 
 ```csharp signature
 [SmartEnum<string>]

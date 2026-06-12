@@ -4,7 +4,7 @@ This file is the binding authoring standard for the four app-package planning co
 
 ## [1]-[CORPUS_SHAPE]
 
-- Planning home: `libs/csharp/Rasm.<Pkg>/.planning/`, sibling to `.api/`. The suite home `libs/csharp/.planning/` holds this standard, `region-map/`, and the campaign working set (`plan-binding.md`, design payloads, `probes/`); the standard and the ledger are the only durable law.
+- Planning home: `libs/csharp/Rasm.<Pkg>/.planning/`, sibling to `.api/`. The suite home `libs/csharp/.planning/` holds this standard, the ledger `region-map/`, the campaign method (`campaign-method.md`), the open-work log (`TASKLOG.md`), and the concert feature atlas (`FEATURES.md`); the standard and the ledger are the only durable law, and campaign working material lives under `.artifacts/planning-briefs/`.
 - Per package: one charter (`README.md`, the only linking file) plus self-contained domain pages. Pages are decision-complete blueprints an implementation agent transcribes; they are not narratives, reports, or research logs.
 - Package-local planning docs are repo-concrete: they name Rasm projects, admitted packages, and decided policy values. Stack doctrine (`docs/stacks/csharp/`) is never restated; its vocabulary arrives settled and is composed as given.
 - A page over the size cap splits along its index into axis-led siblings; signatures are never truncated to fit.
@@ -13,14 +13,14 @@ This file is the binding authoring standard for the four app-package planning co
 
 - File: `libs/csharp/Rasm.<Pkg>/.planning/<page>.md`. H1: `# [<PKG>_<PAGE>]` where PKG is APPHOST, PERSISTENCE, COMPUTE, or APPUI and PAGE is the file stem upper-snaked.
 - Lead: exactly one declarative paragraph, at most 6 lines, between the H1 and section [1], stating the owned concern, the axes the page owns, and the package spine. No list, table, fence, or heading intervenes.
-- Section headings: `## [k]-[TOKEN]`, k strictly sequential from 1, TOKEN uppercase-snake. Section [1] is INDEX. Section order: INDEX, then one section per cluster in index order, then optional TS_PROJECTION, then RESEARCH last when research rows exist.
+- Section headings: `## [k]-[TOKEN]`, k strictly sequential from 1, TOKEN uppercase-snake. Section [1] is INDEX. Section order: INDEX, then one section per cluster in index order, then optional TS_PROJECTION, then RESEARCH last when research items exist.
 - Index table: 3 columns `[INDEX] | [CLUSTER] | [OWNS]`; one row per cluster; the CLUSTER cell equals the cluster's heading token verbatim; OWNS is a decision statement of at most 12 words; row order equals section order.
 - Clusters per page: 2 to 6. Near-peer clusters merge until each owns a real decision cluster.
 - Cluster internal order: card, then signature fence(s), then at most one Mermaid diagram. The card precedes the first fence; a snippet sits beside the rule it proves.
 - Card: exactly one per cluster, field lines `- Owner:` `- Cases:` `- Entry:` `- Auto:` `- Receipt:` `- Packages:` `- Growth:` `- Boundary:` in that fixed order; Owner, Packages, and Growth are mandatory; the rest appear only when earned.
 - Fence info strings: ```` ```csharp signature ````, ```` ```ts contract ````, ```` ```mermaid ````. Mermaid kinds: stateDiagram-v2 (lifecycles), flowchart (pipelines), sequenceDiagram (cross-boundary handshakes) only.
 - Tables: at most 8 columns and 20 rows; beyond 20 rows decompose into axis-led sibling tables; rows atomic; no links inside cells; tables enumerate, cards legislate.
-- RESEARCH table: 4 columns `[INDEX] | [ITEM] | [PROOF] | [GATE]`. ITEM is a question-free noun phrase naming the unverified fact; PROOF is one executable route; GATE names the cluster anchor whose decision waits on the answer.
+- RESEARCH section: grouped leader lines `- [<GROUP>]:`, each followed by its related unresolved items as compact clauses. An item is a question-free fact statement naming the unverified surface; near-duplicate items merge into one clause. No proof routes and no gate column: the charter PROOF_GATES carries the executable rails once, and the section already sits on the page that owns the decision. An item answerable trivially or owned elsewhere is deleted.
 - Size: target 150-300 lines, hard cap 400.
 - Anchors: cluster tokens are unique within a package's planning set (TS_PROJECTION and RESEARCH are exempt structural tokens); every owner type name is unique across the four-package suite, enforced through the ledger.
 - Disjointness: a sibling page's concern is neither re-shown nor pointed to; a fact owned elsewhere is composed as supporting material inside a fence, never re-taught in prose.
@@ -37,16 +37,16 @@ This file is the binding authoring standard for the four app-package planning co
 - Operation families attach as extension blocks dispatching totally over the owner; one rail per entrypoint, named in the return type and on the Entry line: `Validation<Error,T>` accumulates, `Fin<T>` aborts, `Eff<RT,T>`/`IO<T>` carries effects.
 - Growth axes are marked structurally, never by comment: the closed family declaration with its complete current case list is the axis; the card Growth line states the unit cost.
 - Comment law: signature and contract fences contain zero comment lines; invariants and boundary facts live on the card's Boundary and Growth lines.
-- Literals: every policy literal (duration, capacity, rank, deadline) traces to an axis row on the page or an earlier page. An invented literal is the named highest-risk defect; an untraceable literal becomes a RESEARCH row, never prose.
+- Literals: every policy literal (duration, capacity, rank, deadline) traces to an axis row on the page or an earlier page. An invented literal is the named highest-risk defect; an untraceable literal becomes a RESEARCH item, never prose.
 - TS projection fences are type-only `ts contract` blocks — interfaces, type aliases, literal-discriminated unions — transcribing the wire shape the codec actually emits.
 
 ## [4]-[LANGUAGE]
 
 - Voice: agent-directed declarative present tense; the page states law as fact. No reader address, no narration, no process context.
 - Banned tokens (word-boundary, page-wide): should, could, would, might, maybe, may be, perhaps, likely, probably, propose, proposed, consider, recommended, ideally, TBD, TODO, FIXME, etc., we, our, you. Hedge-synonym forms are equally banned: is expected to, is intended to, can be, aims to, is designed to, in the future, eventually, as needed, if necessary.
-- Future tense is legal only on card Growth lines and RESEARCH rows. The bare word "future" outside those positions is a hedge hit.
+- Future tense is legal only on card Growth lines and RESEARCH items. The bare word "future" outside those positions is a hedge hit.
 - Zero provenance: no links, no URLs, no version narration, no dates, no verification or session context on domain pages. Package versions appear in exactly one planning location: the charter ADMISSIONS_RECORD.
-- An API member, knob, native behavior, or host interaction not traceable to a catalogue page or completed decompile probe is never written into prose or fences; it becomes a RESEARCH row with an executable proof route.
+- An API member, knob, native behavior, or host interaction not traceable to a catalogue page or completed decompile probe is never written into prose or fences; it becomes a RESEARCH item.
 - Gap closures are never recorded on domain pages; a gap is closed by page content. The closure bookkeeping lives in the charter GAP_LEDGER.
 - Where a card or axis names a use, it names the spelling, wrapper, or local pattern it deletes.
 - Prose budget: vocabulary, owners, rails, and policy values from earlier pages and the doctrine arrive settled and are never re-taught.
@@ -80,6 +80,7 @@ Per-package `libs/csharp/Rasm.<Pkg>/.planning/README.md`, the only linking file 
 - [8]-[PROOF_GATES]: `[GATE] | [COMMAND] | [EVIDENCE]` — restore proof, `assay api doctor`/`resolve` catalogue proof, `static plan`/`build` routing proof, `test run --target` spec proof, bridge scenarios for host seams, local Mermaid render proof.
 - [9]-[PROHIBITIONS]: the closed NEVER list — no new public surfaces beside the budgeted owners; no wrappers, rename adapters, helpers, or utility files; no generic receipt abstractions; no sentinel propagation; no DateTime.UtcNow; no second cache/retry/correlation owner; CSP analyzer diagnostics are architecture pressure, not suppression targets.
 - [10]-[ADMISSIONS_RECORD]: `[PACKAGE] | [VERSION] | [PAGE] | [CATALOGUE]` — the executed admissions ledger; the only planning location where versions are written.
+- [11]-[REFINEMENT_HORIZON]: the next deepening session's entry route and the folder-specific deepening targets beyond the closed corpus, closed by a bar statement.
 
 ## [8]-[TOOL_AND_RELOCK_LAW]
 

@@ -179,6 +179,4 @@ interface ProgressMarkWire {
 
 ## [6]-[RESEARCH]
 
-| [INDEX] | [ITEM]                                                                                   | [PROOF]                                                                                                                                               | [GATE]        |
-| :-----: | :--------------------------------------------------------------------------------------- | :---------------------------------------------------------------------------------------------------------------------------------------------------- | :------------ |
-|   [1]   | AtomChangedEvent invocation order across concurrent Advance commits at the coalesce gate | `uv run python -m tools.assay test run --target Rasm.Compute` — CsCheck SampleParallel spec races commits and asserts zero rank regressions delivered | PROGRESS_CELL |
+- [COMMIT_ORDER]: `AtomChangedEvent` invocation order across concurrent `Advance` commits at the coalesce gate.

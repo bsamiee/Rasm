@@ -44,20 +44,20 @@ App-root server packages (Grpc.AspNetCore trio) catalogued at app-root creation.
 |  [14]   | WorkLane name owned here (AppHost renamed to DrainQueue); solve-path guard makes synchronous GH2 execution unrepresentable                                                 | scheduling-and-lanes                  | CLOSED  |
 |  [15]   | Progress subscriptions carry scheduler policy values; zero-alloc readonly record struct capsules; receipts materialize at the sink edge                                    | progress-and-observation              | CLOSED  |
 |  [16]   | Geometry-to-tensor encoding cluster (point-cloud, mesh, voxel, symbolic-dim rows)                                                                                          | tensor-lane                           | CLOSED  |
-|  [17]   | Tensor layout family verified surface (PermuteDimensions, FlattenTo, Squeeze/Unsqueeze, SetSlice, Split, Stack) replaces phantom factories                                 | tensor-lane                           | CLOSED  |
-|  [18]   | CoreML EP row with verified AppendExecutionProvider spelling + OrtEnv.GetAvailableProviders probe; EP-context warm-start artifacts route to the Persistence blob lane      | model-lane                            | CLOSED  |
+|  [17]   | Tensor layout family surface (PermuteDimensions, FlattenTo, Squeeze/Unsqueeze, SetSlice, Split, Stack) replaces phantom factories                                          | tensor-lane                           | CLOSED  |
+|  [18]   | CoreML EP row with the AppendExecutionProvider spelling + OrtEnv.GetAvailableProviders probe; EP-context warm-start artifacts route to the Persistence blob lane           | model-lane                            | CLOSED  |
 |  [19]   | ONNX Terminate-latch cancellation cadence (no native timeout) research row                                                                                                 | model-lane                            | CLOSED  |
 |  [20]   | NodaTime-to-protobuf bridges at the wire edge (ToTimestamp/ToInstant family)                                                                                               | remote-lane + receipts-and-benchmarks | CLOSED  |
 |  [21]   | Benchmark claims gated by environment fingerprint; profiling artifacts to blob lane                                                                                        | receipts-and-benchmarks               | CLOSED  |
 |  [22]   | One canonical wire geometry: the proto geometry family; NTS/RhinoCommon/GeoJSON are boundary projections                                                                   | remote-lane                           | CLOSED  |
-|  [23]   | UnitsNet 6.x QuantityInfo reshape research row (pins 5.75)                                                                                                                 | units-boundary                        | CLOSED  |
+|  [23]   | UnitsNet next-major QuantityInfo reshape research row                                                                                                                      | units-boundary                        | CLOSED  |
 |  [24]   | Discovery manifest consumption (socket path, contractChecksum, storeEpoch) on the UDS transport row                                                                        | remote-lane                           | CLOSED  |
 
 ## [5]-[DENSITY_BAR]
 
 Implementation lands at 25-35% of naive LOC: one owner per axis, one entrypoint family per rail, dispatch over row data through generated total Switches and frozen tables. A new feature is one row or one case on a budgeted owner — never a new surface. Seven comparer accessors exist, one per axis owner and package-local; the `WorkLane` key accessor is `ComputeKeyPolicy`, never the AppHost `LaneKeyPolicy` (suite ledger key-policy posture).
 
-Axis owners (vocabulary budget, derived from the ledger CP-01 through CP-09 signature regions):
+Axis owners (vocabulary budget):
 
 | [INDEX] | [AXIS/CONCERN]     | [OWNER]             | [KIND]                   |   [CASES]   |
 | :-----: | :----------------- | :------------------ | :----------------------- | :---------: |
@@ -146,7 +146,7 @@ Vocabulary owners first, then shapes, rails, dispatch, boundaries, composition. 
 
 1. Read this charter end-to-end: the file's BUILD_ORDER row, the DENSITY_BAR budget, and the PROHIBITIONS list.
 2. Read every page named in the file's TRANSCRIBES cell end-to-end, plus the suite ledger SEAM_SPLITS rows naming those pages.
-3. Resolve the file's gating RESEARCH rows through their PROOF routes before writing the gated fence content.
+3. Resolve the file's open RESEARCH items before writing the gated fence content; proof runs on the PROOF_GATES rails.
 4. Transcribe signature fences verbatim; add only file-organization scaffolding (section separators, usings, namespace).
 5. Run the collapse scan per edit: 3 or more parallel types, sibling factories, repeated switch arms, or single-call helpers triggers in-place collapse.
 6. Run `uv run python -m tools.assay static fix`, then `uv run python -m tools.assay static build` on the touched closure; build is authoritative.

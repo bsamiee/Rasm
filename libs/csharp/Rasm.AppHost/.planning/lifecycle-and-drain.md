@@ -188,12 +188,12 @@ stateDiagram-v2
 ## [3]-[FAULT_SPINE]
 
 - Owner: `FaultSource` `[Union]` four cases; `BootMarker` crash and upgrade marker record; `FaultRecord` kind-discriminated wire-projection record; `FaultSpine` trap and probe surface.
-- Cases: Unhandled, UnobservedTask, Signalled, HostCrashMarker — the locked unhandled / unobserved-task / posix-signal / host-crash-marker axis.
+- Cases: Unhandled, UnobservedTask, Signalled, HostCrashMarker.
 - Entry: `PhaseSubscription ArmTraps(Option<Action<FaultSource>> capture = default, Option<Action> reload = default)` — one LIFO detacher composite over every trap registration.
 - Auto: every in-process fault commit invokes the capture delegate with its `FaultSource` payload before the phase transition, arming the fault-transition support trigger; SIGTERM and SIGQUIT project to the drain transition; SIGHUP invokes the reload delegate feeding the reload-outcome rail.
 - Packages: Thinktecture.Runtime.Extensions, LanguageExt.Core, NodaTime, BCL inbox
 - Growth: one trap registration row inside `ArmTraps` or one host-marker path value; zero new surface.
-- Boundary: `FaultSpine` is the named boundary capsule for the statement carve-out — trap wiring and signal handlers carry language-owned statement forms; plugin rows arm no posix traps because the host owns process signals and host-attach injection drives phases; marker bytes ride the package wire codec handed in as `JsonTypeInfo<BootMarker>`; stale own markers and host `.rhl`/`.ips` markers project to `HostCrashMarker` evidence feeding the support trigger, never a live fault transition; the marker writes at boot, clears on clean drain, and its version stamp doubles as upgrade-boot detection; `FaultRecord.From` is the total flatten — `Error` evidence and `PosixSignal` payloads land as wire-stable record fields under the locked kind literals the suite context serializes.
+- Boundary: `FaultSpine` is the named boundary capsule for the statement carve-out — trap wiring and signal handlers carry language-owned statement forms; plugin rows arm no posix traps because the host owns process signals and host-attach injection drives phases; marker bytes ride the package wire codec handed in as `JsonTypeInfo<BootMarker>`; stale own markers and host `.rhl`/`.ips` markers project to `HostCrashMarker` evidence feeding the support trigger, never a live fault transition; the marker writes at boot, clears on clean drain, and its version stamp doubles as upgrade-boot detection; `FaultRecord.From` is the total flatten — `Error` evidence and `PosixSignal` payloads land as wire-stable record fields under the kind literals the polymorphic metadata pins.
 
 ```csharp signature
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
@@ -367,7 +367,7 @@ public sealed record CancelScope(string Provenance, CancellationTokenSource Sour
 - Owner: `PhaseReceiptWire`, `BootMarkerWire`, `FaultRecordWire`, `DrainStepWire`, `DrainReceiptWire` — the dashboard-ingested shapes of the lifecycle receipts.
 - Packages: BCL inbox
 - Growth: one wire-member row per new receipt field and one key literal per new vocabulary row; zero new surface.
-- Boundary: shapes transcribe the camelCase emission of the suite wire law — smart-enum rows cross as their declared keys, instants and durations cross as round-trip pattern strings, correlation ids cross as guid strings, and the fault record discriminates on the locked kind literals.
+- Boundary: shapes transcribe the camelCase emission of the suite wire law — smart-enum rows cross as their declared keys, instants and durations cross as round-trip pattern strings, correlation ids cross as guid strings, and the fault record discriminates on the kind literals its polymorphic metadata pins.
 
 ```ts contract
 type RuntimePhaseKey = "boot" | "ready" | "running" | "degraded" | "draining" | "unloaded" | "faulted" | "support-capture";
@@ -391,8 +391,5 @@ interface DrainReceiptWire { readonly steps: readonly DrainStepWire[]; readonly 
 
 ## [7]-[RESEARCH]
 
-| [INDEX] | [ITEM]                                                                                       | [PROOF]                                                                                                                     | [GATE]          |
-| :-----: | :------------------------------------------------------------------------------------------- | :-------------------------------------------------------------------------------------------------------------------------- | :-------------- |
-|   [1]   | Standalone-row crash-flag marker path and schema beneath the per-user support root           | `uv run python -m tools.assay test run --target Rasm.AppHost` — marker write, stale-probe, clear round-trip on the test row | FAULT_SPINE     |
-|   [2]   | SIGHUP delivery under launchd and systemd service lifetimes for the reload trigger           | `dotnet run` over a scratch headless host; `kill -HUP` asserts one reload invocation and zero drain transitions             | FAULT_SPINE     |
-|   [3]   | `IO.Timeout` expiry error identity against the escalated and straggled classifier predicates | `uv run python -m tools.assay test run --target Rasm.AppHost` — a token-deaf flush row asserts the straggled outcome        | DRAIN_CONDUCTOR |
+- [FAULT_PROBES]: standalone-row crash-flag marker path and schema beneath the per-user support root; SIGHUP delivery under launchd and systemd service lifetimes for the reload trigger.
+- [DRAIN_CLASSIFIER]: `IO.Timeout` expiry error identity against the escalated and straggled classifier predicates.

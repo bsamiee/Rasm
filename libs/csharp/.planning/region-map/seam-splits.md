@@ -1,6 +1,6 @@
 # [REGION_MAP_SEAM_SPLITS]
 
-Suite region map — see [README.md](README.md) for the ledger protocol and binding precedence.
+Suite region map — row shapes and protocol live in the suite standard's [ledger protocol](../README.md#6ledgerprotocol).
 
 - Config reload propagation: mechanics at AppHost/configuration-and-options#POLICY_VALUES (reload-class transition + ReloadReceipt); consequence at Persistence user-settings write and the op-log HLC tag-invalidation cursor (cross-process peer observation); frozen reload-class requires process restart.
 - Operator kill-switch: mechanics at AppHost/configuration-and-options#KILL_SWITCH (KillSwitchConfig row, OperatorOverride union); consequence at AppHost/health-and-degradation#DEGRADATION_RAIL (forced DegradationLevel input to the fold) and the ControlService set-degradation/reload-options inbound verbs for service modalities.
@@ -20,18 +20,17 @@ Suite region map — see [README.md](README.md) for the ledger protocol and bind
 - ArtifactSync framing unification: mechanics at Compute/remote-lane#ARTIFACT_FRAMES (64 KiB frames, Crc32 per frame, XxHash128 whole-artifact); consequence at Persistence/sync-collaboration#PRESENCE_AND_BLOB and Persistence/store-profiles#PROFILE_AXIS (BlobRemote) — frame constants consumed, never re-declared.
 - Pooled-context factory residence: store-profiles rows carry Connect/Configure/Seed delegates only; one PooledDbContextFactory per placement is built at the composition root over the row's Configure output (query-rail leases via CreateDbContextAsync) — neither page re-declares the other's half.
 - Idempotency dedup window: Compute/remote-lane#PROTO_VOCABULARY fixes the server dedup guarantee at the DeadlineClass.HopTotal allotment (the one retry owner's horizon); Persistence/redaction-retention#CLASSIFICATION_ENFORCEMENT bounds the dedup-record lifetime with the idempotency-dedup AgeBound 24h row — two altitudes, neither re-declares the other.
-- Fault-code projection: query-rail StoreFault.From projects schema-rail SchemaFault 530x codes into StoreFault.NewerSchema 7005 — single projection site, verified at the final pass.
+- Fault-code projection: query-rail StoreFault.From projects schema-rail SchemaFault 530x codes into StoreFault.NewerSchema 7005 — single projection site.
 - Compiled-model fingerprint slot: store-profiles StoreOpenReceipt carries the fingerprint as bare ulong (no forward reference); schema-rail SchemaFingerprint is the typed owner; BUILD_ORDER places vocabulary owners first.
 - Drain ranks: Persistence store rows rank 310-350 inside the AppHost Stores band (300s); Compute and AppUi registrations rank inside their own bands, never copying these literals.
 - Model-result cache: mechanics at Persistence/cache-indexes#MODEL_RESULT_INDEX (IndexSurface HybridCache extension); consequence at Compute/model-lane#RESULT_CACHE (cache.Result read path) — never a direct AppHost CacheSurface read.
-- C19 package-cumulative ruling: within a package, fences resolve against the package's full FINAL symbol set (the intent/dispatch spine composes its axis vocabularies by design); strict earlier-position order applies across packages only.
+- Package-cumulative resolution: within a package, fences resolve against the package's full FINAL symbol set (the intent/dispatch spine composes its axis vocabularies by design); strict earlier-position order applies across packages only.
 - Key-policy posture: one comparer accessor per axis owner, package-local; cross-package accessor reuse is a defect — the scheduling-and-lanes WorkLane accessor is ComputeKeyPolicy, never the AppHost LaneKeyPolicy.
-- Grpc.Core.Api C18 route: transitive package without an assay key — proofs route through the spec-compile rail until the assay source map registers it (charter PROOF_GATES row).
+- Grpc.Core.Api decompile route: transitive package without an assay key — proofs route through the spec-compile rail until the assay source map registers it (charter PROOF_GATES row).
 - Gesture-conflict evidence: mechanics at AppUi/commands-availability#INTENT_TABLE (CommandDeck.GestureConflicts + ConflictKind at deck freeze); consequence at AppUi/input-interaction#HOTKEY_DERIVATION (Bindings consumes the frozen deck, first-wins).
 - Focus-walk: execution at AppUi/diagnostics-evidence#HEADLESS_DERIVATION (ProofCheck.FocusWalk); audit law at AppUi/accessibility#COMPLIANCE_PROOF (AccessAudit.FocusWalk folds the engine result) — homonym is a seam, not a duplicate.
-- Export-union medium split RATIFIED: tables-hierarchy ExportDestination owns tabular text egress (Clipboard/File/BlobLane); visuals-offscreen VisualDestination owns rendered visual egress (FilePath/BlobLane/Bundle) — distinct media, two owners.
+- Export-union medium split: tables-hierarchy ExportDestination owns tabular text egress (Clipboard/File/BlobLane); visuals-offscreen VisualDestination owns rendered visual egress (FilePath/BlobLane/Bundle) — distinct media, two owners.
 - Asset-key law: icons-assets AssetKeys is nameof-derived; every cross-page asset reference uses the nameof spelling, never kebab-case.
 - Phase-set coupling guard: motion-tokens PHASE_MAPPING keys mirror the Compute ProgressPhase nine-case set; the headless conformance sweep (Map keys == ProgressPhase.Items) fails the AppUi proof lane on any Compute phase change by design.
 - Clock-seam conformance: surface-hosts Surfaces.Mount and theme-tokens ThemeCell carry ClockPolicy per the AppHost one-clock-seam law; a bare IClock parameter on any AppUi entrypoint is the named defect.
 - Theme-grid typing: AccessProof.Sweep and ProofEngine.Derive share the typed (ThemeVariantRow, DensityRow) grid; theme-tokens row key literals stay string-stable.
-- Mermaid render route: the MCP renderer is permission-blocked for planning content; C17 validation runs locally via @mermaid-js/mermaid-cli.

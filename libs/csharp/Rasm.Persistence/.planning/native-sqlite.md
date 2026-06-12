@@ -96,7 +96,7 @@ public static class PragmaOps {
 - Receipt: one compile-option fact per probed row plus one expected-function fact each; the open receipt's compile-options slot consumes the stream.
 - Packages: Microsoft.Data.Sqlite, SQLitePCLRaw.bundle_e_sqlite3, LanguageExt.Core, BCL inbox
 - Growth: a newly required engine capability is one expected-capability row on `ExpectedOptions` or `ExpectedFunctions`; zero new surface.
-- Boundary: `Probe` and its `Read` kernel are this fence's boundary capsule over ADO reader ceremony; JSON support is detected through pragma_function_list, never compile_options; the central SQLitePCLRaw bundle pin overrides the provider graph Microsoft.Data.Sqlite is tested against, so the pin settles only on this receipted probe plus the Batteries_V2 round-trip spec named in the research table; a custom native SQLite toolchain admission is the rejected escalation for absent flags — every absent concern routes to the named owner below.
+- Boundary: `Probe` and its `Read` kernel are this fence's boundary capsule over ADO reader ceremony; JSON support is detected through pragma_function_list, never compile_options; the central SQLitePCLRaw bundle pin overrides the provider graph Microsoft.Data.Sqlite is tested against, so the pin settles only on this receipted probe plus the Batteries_V2 round-trip research gate; a custom native SQLite toolchain admission is the rejected escalation for absent flags — every absent concern routes to the named owner below.
 
 ```csharp signature
 public static class SqliteCompileSurface {
@@ -294,10 +294,5 @@ public static class ExtensionOps {
 
 ## [6]-[RESEARCH]
 
-| [INDEX] | [ITEM]                                                                                                                    | [PROOF]                                                          | [GATE]          |
-| :-----: | ------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------- | --------------- |
-|   [1]   | Compile-options receipt spellings under the central bundle-line override plus the Batteries_V2 round-trip proof           | uv run python -m tools.assay test run --target Rasm.Persistence  | COMPILE_SURFACE |
-|   [2]   | Snapshot bracket preconditions — read-transaction entry and checkpoint interaction under the bundled engine               | uv run python -m tools.assay test run --target Rasm.Persistence  | MAINTENANCE_OPS |
-|   [3]   | vec0 live-load proof with the vec_version() fact and the package-payload versus vendored-tarball sourcing decision        | uv run python -m tools.assay test run --target Rasm.Persistence  | EXTENSION_GATES |
-|   [4]   | Hardened-runtime dlopen acceptance of unsigned extension dylibs inside the signed Rhino host process                      | libs/csharp/Rasm.Persistence/scenarios/extension-load.verify.csx | EXTENSION_GATES |
-|   [5]   | SQLCipher provider route with an externally supplied native library on osx-arm64, including the crypto-backend notice set | uv run python -m tools.assay test run --target Rasm.Persistence  | EXTENSION_GATES |
+- [ENGINE_FLOOR]: compile-options receipt spellings under the central bundle-line override plus the Batteries_V2 round-trip; snapshot-bracket preconditions — read-transaction entry and checkpoint interaction under the bundled engine.
+- [EXTENSION_LOADING]: vec0 live load with the `vec_version()` fact and the package-payload versus vendored-tarball sourcing decision; hardened-runtime dlopen acceptance of unsigned extension dylibs inside the signed Rhino host process; SQLCipher provider route with an externally supplied native library on osx-arm64, including the crypto-backend notice set.

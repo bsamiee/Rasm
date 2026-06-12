@@ -292,7 +292,5 @@ interface EvidenceTimelineWire {
 
 ## [8]-[RESEARCH]
 
-| [INDEX] | [ITEM]                                                                                              | [PROOF]                                                                          | [GATE]              |
-| :-----: | :--------------------------------------------------------------------------------------------------- | :---------------------------------------------------------------------------------- | :------------------- |
-|   [1]   | `AvaloniaFact` session dispatch under the xunit.v3 MTP runner on the assay test rail                  | `uv run python -m tools.assay test run --target Rasm.AppUi.Tests`                   | HEADLESS_DERIVATION  |
-|   [2]   | HotAvalonia Release closure strip and markup-loader floor resolution against the central Avalonia pin | `dotnet build libs/csharp/Rasm.AppUi/Rasm.AppUi.csproj -c Release`                  | DEV_LOOP             |
+- [HEADLESS_RUNNER]: `AvaloniaFact` session dispatch under the xunit.v3 MTP runner on the assay test rail.
+- [DEV_LOOP_STRIP]: HotAvalonia Release closure strip and markup-loader floor resolution against the central Avalonia pin.

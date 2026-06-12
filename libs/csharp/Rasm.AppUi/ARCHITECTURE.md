@@ -79,31 +79,7 @@ flowchart LR
 
 Every sibling receipt folds into the one evidence union, seals through the HLC envelope, and re-enters the UI as timeline and dashboard rows — process-local, correlation-keyed, with skew bands rendered as uncertainty regions.
 
-## [4]-[PACKAGE_API_MAP]
-
-| [INDEX] | [AXIS] | [OWNING_PACKAGES] |
-| :-----: | ------ | ----------------- |
-| [1] | surface hosts + embedding | Avalonia, Avalonia.Desktop, ReactiveUI.Avalonia |
-| [2] | shell + dock | Dock.Avalonia, Dock.Model.ReactiveUI, ReactiveUI |
-| [3] | screens + validation | ReactiveUI, ReactiveUI.Validation, System.Reactive |
-| [4] | commands + receipts | ReactiveUI, System.IO.Hashing, Thinktecture.Runtime.Extensions.Json |
-| [5] | live data | DynamicData, System.Reactive |
-| [6] | tables | Avalonia.Controls.DataGrid, DynamicData |
-| [7] | inspector + editors | bodong.Avalonia.PropertyGrid, Avalonia.Controls.ColorPicker, UnitsNet, Avalonia.AvaloniaEdit, AvaloniaEdit.TextMate |
-| [8] | charts | LiveChartsCore.SkiaSharpView.Avalonia, PanAndZoom |
-| [9] | offscreen visuals | SkiaSharp, Avalonia.Skia, AsyncImageLoader.Avalonia |
-| [10] | theme | Avalonia.Themes.Fluent, Avalonia |
-| [11] | typography | Avalonia.Fonts.Inter, SkiaSharp.HarfBuzz, Markdig |
-| [12] | icons + assets | FluentIcons.Avalonia, Svg.Controls.Skia.Avalonia, AsyncImageLoader.Avalonia |
-| [13] | dialogs + notices | DialogHost.Avalonia, Avalonia |
-| [14] | input | Xaml.Behaviors.Avalonia, PanAndZoom, Avalonia |
-| [15] | native identity | SkiaSharp.NativeAssets (macOS/Win32/Linux.NoDependencies), HarfBuzzSharp.NativeAssets (macOS/Win32/Linux) |
-| [16] | evidence + dev loop | Avalonia.Headless, Avalonia.Headless.XUnit, HotAvalonia |
-| [17] | rails + vocabulary | LanguageExt.Core, Thinktecture.Runtime.Extensions, NodaTime |
-
-Member-level facts live in the [API catalogues](.api/README.md); versions live only in the charter [ADMISSIONS_RECORD](.planning/README.md).
-
-## [5]-[BOUNDARIES]
+## [4]-[BOUNDARIES]
 
 - AppUi owns product UI intent; Rasm.Rhino and Rasm.Grasshopper own native host behavior — viewport overlays, HUDs, document mutation, and command-line modality cross only as seam delegates and port tuples.
 - AppUi owns retained composition and offscreen raster; Persistence owns store queries and durable state — blobs cross as opaque versioned payloads through port delegates.

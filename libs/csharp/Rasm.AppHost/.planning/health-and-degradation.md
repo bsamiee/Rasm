@@ -292,6 +292,4 @@ interface DegradationWire {
 
 ## [6]-[RESEARCH]
 
-| [INDEX] | [ITEM]                                                                                                                                             | [PROOF]                                                                 | [GATE]      |
-| :-----: | -------------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------- | ----------- |
-|   [1]   | Wire health service registration surface and tag-predicate mapping overload behind the app-root pin, with the default status-to-serving projection | `uv run python -m tools.assay api resolve grpc.aspnetcore.healthchecks` | WIRE_HEALTH |
+- [WIRE_REGISTRATION]: wire health service registration surface and tag-predicate mapping overload behind the app-root pin, with the default status-to-serving projection.

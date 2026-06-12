@@ -58,14 +58,13 @@ public static class TableSurface {
 }
 ```
 
-| [INDEX] | [LAW]           | [RULING]                                                                                                                                  |
-| :-----: | :-------------- | :----------------------------------------------------------------------------------------------------------------------------------------- |
-|   [1]   | virtualization  | the free `DataGrid` virtualizes rows over the one flat bound collection; a fixed density-token row height keeps the scroll math exact      |
-|   [2]   | materialization | `LoadingRow` stamps row state from theme tokens onto the `DataGridRow` pseudo-classes `:selected`, `:current`, `:editing`, `:edited`, `:invalid`, `:pressed`, `:focus`, `:expanded`, `:sortascending`, `:sortdescending`, `:empty-rows`, `:empty-columns`; `LoadingRowDetails` materializes the single per-screen details template on demand |
-|   [3]   | selection       | selection mode is a per-screen policy value; `SelectedItems` and the current row project into the screen-state snapshot                    |
-|   [4]   | quick filter    | `Matches` is an ordinal case-insensitive scan over visible unclassified column projections; classified columns never match                  |
-|   [5]   | footers         | aggregate footer values arrive from the live-data aggregation rows (`Count`, `Sum`, `Avg`); the grid renders totals, never computes them    |
-|   [6]   | column posture  | user reorder, resize, and sort-toggle flags are per-screen policy values on `CanUserReorderColumns`, `CanUserResizeColumns`, and `CanUserSortColumns`, with `FrozenColumnCount`, `RowHeight`, and `RowDetailsTemplate` as the remaining posture members |
+[SUBSTRATE_LAW]:
+- Virtualization: the free `DataGrid` virtualizes rows over the one flat bound collection; a fixed density-token row height keeps the scroll math exact.
+- Materialization: `LoadingRow` stamps row state from theme tokens onto the `DataGridRow` pseudo-classes `:selected`, `:current`, `:editing`, `:edited`, `:invalid`, `:pressed`, `:focus`, `:expanded`, `:sortascending`, `:sortdescending`, `:empty-rows`, `:empty-columns`; `LoadingRowDetails` materializes the single per-screen details template on demand.
+- Selection: selection mode is a per-screen policy value; `SelectedItems` and the current row project into the screen-state snapshot.
+- Quick filter: `Matches` is an ordinal case-insensitive scan over visible unclassified column projections; classified columns never match.
+- Footers: aggregate footer values arrive from the live-data aggregation rows (`Count`, `Sum`, `Avg`); the grid renders totals, never computes them.
+- Column posture: user reorder, resize, and sort-toggle flags are per-screen policy values on `CanUserReorderColumns`, `CanUserResizeColumns`, and `CanUserSortColumns`, with `FrozenColumnCount`, `RowHeight`, and `RowDetailsTemplate` as the remaining posture members.
 
 ## [3]-[VIEW_STATE]
 
@@ -102,12 +101,11 @@ public static class ViewStateSurface {
 }
 ```
 
-| [INDEX] | [LAW]        | [RULING]                                                                                                                                   |
-| :-----: | :----------- | :----------------------------------------------------------------------------------------------------------------------------------------- |
-|   [1]   | batching     | every multi-descriptor write lands inside one `DeferRefresh` scope; per-descriptor refresh churn is the deleted form                       |
-|   [2]   | paging       | paging is live only while `PageSize` exceeds zero, so value `0` reads as unpaged; a paged projection writes its window through the snapshot field, never a second paging surface |
-|   [3]   | transactions | `AddNew` and `EditItem` fire only as CommandIntent executions; page and current transitions surface through `PageChangingEventArgs` and `DataGridCurrentChangingEventArgs` into screen state |
-|   [4]   | restore      | `CurrentKey` resolves against the keyed live-data cache on the screen; `Apply` receives the resolved item as the `current` value           |
+[VIEW_STATE_LAW]:
+- Batching: every multi-descriptor write lands inside one `DeferRefresh` scope; per-descriptor refresh churn is the deleted form.
+- Paging: paging is live only while `PageSize` exceeds zero, so value `0` reads as unpaged; a paged projection writes its window through the snapshot field, never a second paging surface.
+- Transactions: `AddNew` and `EditItem` fire only as CommandIntent executions; page and current transitions surface through `PageChangingEventArgs` and `DataGridCurrentChangingEventArgs` into screen state.
+- Restore: `CurrentKey` resolves against the keyed live-data cache on the screen; `Apply` receives the resolved item as the `current` value.
 
 ## [4]-[TREE_FLATTEN]
 
@@ -177,12 +175,11 @@ public static class ProjectionFold {
 }
 ```
 
-| [INDEX] | [LAW]          | [RULING]                                                                                                                                  |
-| :-----: | :------------- | :----------------------------------------------------------------------------------------------------------------------------------------- |
-|   [1]   | one stream     | every case lands as `IChangeSet<TreeRow<TRow>, TKey>`; the grid binds one flat collection, so row virtualization covers every projection   |
-|   [2]   | tree order     | view sort descriptors stay empty on a tree projection; sibling order is the case's `Order` comparer — sorting flat indent rows is the deleted form |
-|   [3]   | lazy children  | `LoadChildren` materializes a child stream on first expansion; loaded children merge into the upstream keyed cache, never a side collection |
-|   [4]   | grouped        | a grouped projection folds identity at the change-set altitude; its `GroupColumnKey` lands on the snapshot's group field so the collection view owns group materialization |
+[FLATTEN_LAW]:
+- One stream: every case lands as `IChangeSet<TreeRow<TRow>, TKey>`; the grid binds one flat collection, so row virtualization covers every projection.
+- Tree order: view sort descriptors stay empty on a tree projection; sibling order is the case's `Order` comparer — sorting flat indent rows is the deleted form.
+- Lazy children: `LoadChildren` materializes a child stream on first expansion; loaded children merge into the upstream keyed cache, never a side collection.
+- Grouped: a grouped projection folds identity at the change-set altitude; its `GroupColumnKey` lands on the snapshot's group field so the collection view owns group materialization.
 
 ## [5]-[GRID_COMMIT]
 
@@ -252,10 +249,9 @@ flowchart LR
     Persist --> Fin
 ```
 
-| [INDEX] | [LAW]             | [RULING]                                                                                                                                |
-| :-----: | :---------------- | :--------------------------------------------------------------------------------------------------------------------------------------- |
-|   [1]   | commit rail       | `BeginEdit`, `CommitEdit`, and `CancelEdit` drive the programmatic edit lifecycle; only a committing row passes the `EditAction` filter into the gate |
-|   [2]   | gate altitude     | `Gate` receives the screen validation seam's folded `Fin` rail; a failing gate aborts before `Persist` and surfaces on the screen fault state |
-|   [3]   | persistence split | the `Persist` column is the host-agnostic parameter: store rows, host-object rows, and fake-deterministic rows differ only in the bound delegate |
-|   [4]   | clipboard         | the `Clipboard` destination fixes `Delimiter` at tab with `HeaderRow` true — the rows-as-TSV case                                        |
-|   [5]   | export admission  | classified columns never pass `Admitted`; the delimited projection is the single text-shaping fold for clipboard and Sep destinations    |
+[COMMIT_LAW]:
+- Commit rail: `BeginEdit`, `CommitEdit`, and `CancelEdit` drive the programmatic edit lifecycle; only a committing row passes the `EditAction` filter into the gate.
+- Gate altitude: `Gate` receives the screen validation seam's folded `Fin` rail; a failing gate aborts before `Persist` and surfaces on the screen fault state.
+- Persistence split: the `Persist` column is the host-agnostic parameter: store rows, host-object rows, and fake-deterministic rows differ only in the bound delegate.
+- Clipboard: the `Clipboard` destination fixes `Delimiter` at tab with `HeaderRow` true — the rows-as-TSV case.
+- Export admission: classified columns never pass `Admitted`; the delimited projection is the single text-shaping fold for clipboard and Sep destinations.

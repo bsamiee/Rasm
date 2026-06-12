@@ -287,6 +287,4 @@ public static class AdaptiveLayout {
 
 ## [6]-[RESEARCH]
 
-| [INDEX] | [ITEM]                                                                                                                                  | [PROOF]                                                                                          | [GATE]        |
-| :-----: | ---------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------- | ------------- |
-|   [1]   | Dock serializer round-trip payload shape preserving dockable identity across serialize and restore, with the serializer package named at the first app-root admission | uv run python -m tools.assay test run --target Rasm.AppUi build-serialize-restore headless spec    | DOCK_LAYOUTS  |
+- [DOCK_SERIALIZER]: dock serializer round-trip payload shape preserving dockable identity across serialize and restore; the serializer package is named at the first app-root admission.

@@ -161,7 +161,7 @@ public static class SerilogProjectionPolicy {
 - Auto: provider `ForceFlush` and `Shutdown` ride the telemetry drain band; the fault transition lands the `GlobalLogBuffer.Flush` window inside support capture; `AuditTo` and `FallbackChain` carry receipt-grade events with `SelfLog` as the failure listener at desktop roots.
 - Packages: OpenTelemetry.Extensions.Hosting, OpenTelemetry, OpenTelemetry.Instrumentation.Http, Microsoft.Extensions.Telemetry, OpenTelemetry.Exporter.OpenTelemetryProtocol, Microsoft.Extensions.Diagnostics.Testing.
 - Growth: one governance decision is one policy value row; one stream reshaping is one `AddView` row over `MetricStreamConfiguration`; zero new surface.
-- Boundary: the OTLP exporter package enters only at service app roots with endpoint from `OTEL_EXPORTER_OTLP_*`; the EF and gRPC instrumentation packages stay rejected — native `Activity` emission carries those spans; on net10 the builtin rows delete the meter-side `AddRuntimeInstrumentation` registration while the trace-side `AddHttpClientInstrumentation` row keeps URL-query redaction; test-row trace assertions ride one `BaseProcessor<Activity>` through `AddProcessor` and metric assertions ride `MetricCollector<T>` — no in-memory exporter package enters.
+- Boundary: the OTLP exporter package enters only at service app roots with endpoint from `OTEL_EXPORTER_OTLP_*`; the EF and gRPC instrumentation packages stay rejected — native `Activity` emission carries those spans; the builtin rows delete the meter-side `AddRuntimeInstrumentation` registration while the trace-side `AddHttpClientInstrumentation` row keeps URL-query redaction; test-row trace assertions ride one `BaseProcessor<Activity>` through `AddProcessor` and metric assertions ride `MetricCollector<T>` — no in-memory exporter package enters.
 
 ```csharp signature
 [SmartEnum<string>]
@@ -263,7 +263,5 @@ public sealed partial class DataClassification {
 
 ## [7]-[RESEARCH]
 
-| [INDEX] | [ITEM]                                                                                                           | [PROOF]                                                                                                       | [GATE]            |
-| :-----: | :--------------------------------------------------------------------------------------------------------------- | :------------------------------------------------------------------------------------------------------------ | :---------------- |
-|   [1]   | `AddSerilog` host-bridge registration shape for serilog-projection app roots                                     | `uv run python -m tools.assay api resolve serilog.extensions.hosting`                                         | LOG_PROJECTION    |
-|   [2]   | EF Core 10 and grpc-dotnet native `Activity` emission depth replacing the rejected beta instrumentation packages | `uv run python -m tools.assay test run --target Rasm.AppHost` with one `BaseProcessor<Activity>` capture spec | SIGNAL_GOVERNANCE |
+- [APP_ROOT_BRIDGE]: `AddSerilog` host-bridge registration shape for serilog-projection app roots.
+- [NATIVE_ACTIVITY]: EF Core and grpc-dotnet native `Activity` emission depth replacing the rejected instrumentation packages.

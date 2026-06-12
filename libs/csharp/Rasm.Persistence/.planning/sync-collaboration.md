@@ -244,7 +244,7 @@ public static class SyncPump {
 | :-----: | :------------------------------ | :----------------------------------------------- | :----------------------------------------------------- |
 |   [1]   | generated-column replication    | `PublishGeneratedColumns` on STORED columns only | pairs the STORED generated-column schema law           |
 |   [2]   | idle slot reclamation           | config-sourced `IdleSlotTimeout`                 | server setting verified by the provisioning probe rows |
-|   [3]   | replication conflict statistics | subscription-stats read view                     | research row [1] gates the column set                  |
+|   [3]   | replication conflict statistics | subscription-stats read view                     | the live-replication research gate carries the columns |
 |   [4]   | session admission               | schema-fingerprint equality                      | mismatch is the typed `SyncRejectionWire` refusal      |
 
 ## [5]-[PRESENCE_AND_BLOB]
@@ -365,6 +365,4 @@ interface PresenceRowWire {
 
 ## [7]-[RESEARCH]
 
-| [INDEX] | [ITEM]                                                                                                                                   | [PROOF]                                                           | [GATE]         |
-| :-----: | :--------------------------------------------------------------------------------------------------------------------------------------- | :---------------------------------------------------------------- | :------------- |
-|   [1]   | publish_generated_columns publication parameter, idle slot timeout setting, and subscription conflict-stat columns on a live PG18 server | `uv run python -m tools.assay test run --target Rasm.Persistence` | TRANSPORT_AXIS |
+- [LIVE_REPLICATION]: publish_generated_columns publication parameter, idle-slot timeout setting, and subscription conflict-stat columns on a live PG18 server.

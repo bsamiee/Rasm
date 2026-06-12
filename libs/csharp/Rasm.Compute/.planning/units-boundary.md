@@ -169,6 +169,4 @@ public sealed record UnitEvidence(
 
 ## [5]-[RESEARCH]
 
-| [INDEX] | [ITEM]                                                                                                                                             | [PROOF]                                                                                                                                                                               | [GATE]         |
-| :-----: | -------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------------- |
-|   [1]   | UnitsNet next-major QuantityInfo and QuantityValue reshape against the frozen row record (adoption gate is GA; pin stays at the charter admission) | dotnet package search UnitsNet --prerelease --format json, then uv run python -m tools.assay api query --key unitsnet --symbol UnitsNet.QuantityInfo over a staged next-major restore | QUANTITY_TABLE |
+- [NEXT_MAJOR]: UnitsNet next-major `QuantityInfo` and `QuantityValue` reshape against the frozen row record; the adoption gate is GA, and the pin stays at the charter admission.

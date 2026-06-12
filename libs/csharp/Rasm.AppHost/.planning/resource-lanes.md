@@ -70,18 +70,14 @@ public static class CacheSurface {
 }
 ```
 
-| [INDEX] | [LAW]            | [RULING]                                                                                                                                                                                                                                                                                                                               |
-| :-----: | :--------------- | :------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-|   [1]   | tag cut          | `RemoveByTagAsync` records a timestamp cut; pre-cut entries read as misses in both tiers and persist until natural expiry — logical, never physical                                                                                                                                                                                    |
-|   [2]   | wildcard         | `*` is reserved and illegal as a write-time tag; the wildcard cut invalidates everything including untagged entries                                                                                                                                                                                                                    |
-|   [3]   | glob             | no pattern matching exists; only the bare `*` is special                                                                                                                                                                                                                                                                               |
-|   [4]   | physical removal | `RemoveAsync` is the physical sibling — it deletes the key from both tiers                                                                                                                                                                                                                                                             |
-|   [5]   | tag vocabulary   | tags derive from `CacheLane` keys and admitted owner keys; a free-string tag is the rejected form                                                                                                                                                                                                                                      |
-|   [6]   | cross-process L1 | peer-process L1 staleness is TTL-bounded with no backplane; convergence rides natural expiry or the next tag cut                                                                                                                                                                                                                       |
-|   [7]   | clock seam       | the cache implementation service-locates the DI `TimeProvider` with system fallback; creation stamps and tag cuts ride the injected clock                                                                                                                                                                                              |
-|   [8]   | L1 TTL split     | absolute L1 expiry is delegated to the memory-cache entry's `AbsoluteExpirationRelativeToNow` under the memory cache's own clock — read-time revalidation checks only wildcard and tag cuts against the injected clock, so advancing `FakeTimeProvider` never expires an L1 entry by TTL and specs assert via tag cut or `RemoveAsync` |
-|   [9]   | guards           | `MaximumPayloadBytes` stays the 1 MiB package default and `MaximumKeyLength` the 1024 default; the package clamps `LocalCacheExpiration` to `Expiration` when the L1 row exceeds the L2 row; `ReportTagMetrics` is enabled because the lane tag vocabulary is closed and low-cardinality                                               |
-|  [10]   | test double      | no fake cache type exists or gets hand-rolled; `SetAsync` preloads spec state through the real implementation                                                                                                                                                                                                                          |
+Cache semantics ride these rulings:
+
+- Tag cut: `RemoveByTagAsync` records a timestamp cut; pre-cut entries read as misses in both tiers and persist until natural expiry — logical, never physical; `RemoveAsync` is the physical sibling deleting the key from both tiers.
+- Tag vocabulary: tags derive from `CacheLane` keys and admitted owner keys; a free-string tag is the rejected form; `*` is reserved and illegal as a write-time tag — the wildcard cut invalidates everything including untagged entries, and no other pattern matching exists.
+- Cross-process L1: peer-process L1 staleness is TTL-bounded with no backplane; convergence rides natural expiry or the next tag cut.
+- Clock seam: the cache implementation service-locates the DI `TimeProvider` with system fallback, so creation stamps and tag cuts ride the injected clock; absolute L1 expiry is delegated to the memory-cache entry's `AbsoluteExpirationRelativeToNow` under the memory cache's own clock — read-time revalidation checks only wildcard and tag cuts against the injected clock, so advancing `FakeTimeProvider` never expires an L1 entry by TTL and specs assert via tag cut or `RemoveAsync`.
+- Guards: `MaximumPayloadBytes` stays the 1 MiB package default and `MaximumKeyLength` the 1024 default; the package clamps `LocalCacheExpiration` to `Expiration` when the L1 row exceeds the L2 row; `ReportTagMetrics` is enabled because the lane tag vocabulary is closed and low-cardinality.
+- Test double: no fake cache type exists or gets hand-rolled; `SetAsync` preloads spec state through the real implementation.
 
 ## [3]-[OBJECT_POOLS]
 
@@ -175,12 +171,10 @@ public static class DrainSurface {
 }
 ```
 
-| [INDEX] | [LAW]        | [RULING]                                                                                                                                                                                   |
-| :-----: | :----------- | :----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-|   [1]   | kind split   | `Channel.CreateBounded` owns simple pipe seams; Dataflow blocks own completion-propagating networks — the row's topology fixes the kind, never the call site                               |
-|   [2]   | backpressure | `WriteAsync` and `SendAsync` await fullness on `Wait` rows; `TryWrite` and `Post` are legal only on receipted-loss rows; `NullTarget` absorption is spelled at the link site               |
-|   [3]   | loss         | a `DropOldest` row opens only with an `onDrop` receipt delegate; `Open` rejects an unreceipted-loss row on the `Fin` rail                                                                  |
-|   [4]   | grouping     | `BatchBlock` carries receipt-grade batched hand-off, with `TriggerBatch` flushing a partial batch at drain; the reservation rail, `Encapsulate`, `AsObservable`, and `AsObserver` stay out |
-|   [5]   | drain        | `Drained` completes intake then awaits `Completion` under the conductor token at the row's band; evidence rows complete inside the final band before exporter flush                        |
-|   [6]   | fault        | a faulted block or channel fails `Completion`; the conductor folds the failure into the unload receipt instead of swallowing it                                                            |
-|   [7]   | homonym      | `DrainQueue` is the AppHost name for process-level drainable queues; `WorkLane` belongs to Compute — one altitude per name                                                                 |
+Queue semantics ride these rulings:
+
+- Kind split: `Channel.CreateBounded` owns simple pipe seams; Dataflow blocks own completion-propagating networks — the row's topology fixes the kind, never the call site.
+- Backpressure: `WriteAsync` and `SendAsync` await fullness on `Wait` rows; `TryWrite` and `Post` are legal only on receipted-loss rows; `NullTarget` absorption is spelled at the link site.
+- Loss: a `DropOldest` row opens only with an `onDrop` receipt delegate; `Open` rejects an unreceipted-loss row on the `Fin` rail.
+- Grouping: `BatchBlock` carries receipt-grade batched hand-off, with `TriggerBatch` flushing a partial batch at drain; the reservation rail, `Encapsulate`, `AsObservable`, and `AsObserver` stay out.
+- Drain and fault: `Drained` completes intake then awaits `Completion` under the conductor token at the row's band; evidence rows complete inside the final band before exporter flush; a faulted block or channel fails `Completion`, and the conductor folds the failure into the unload receipt instead of swallowing it.

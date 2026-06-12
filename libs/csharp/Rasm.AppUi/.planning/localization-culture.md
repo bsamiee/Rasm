@@ -188,7 +188,5 @@ public sealed record MirrorPolicy(Seq<string> Directional) {
 
 ## [6]-[RESEARCH]
 
-| [INDEX] | [ITEM]                                                                                                  | [PROOF]                                                                                                              | [GATE]              |
-| :-----: | -------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------- | ------------------- |
-|   [1]   | qps-ploc satellite resx resolution through the ResourceManager fallback fold on ICU-backed globalization   | uv run python -m tools.assay test run --target Rasm.AppUi.Tests pseudo-locale satellite spec                            | LOCALE_AXIS         |
-|   [2]   | ICU MessageFormat plural and gender route replacing the suffix arm — umsg binding over the runtime ICU or a managed CLDR fold | dotnet run scratch probe binding libicui18n umsg_open and u_formatMessage exports via NativeLibrary on macOS | CULTURE_COMPOSITION |
+- [PSEUDO_LOCALE]: qps-ploc satellite resx resolution through the ResourceManager fallback fold on ICU-backed globalization.
+- [ICU_PLURALS]: ICU MessageFormat plural and gender route replacing the suffix arm — umsg binding over the runtime ICU or a managed CLDR fold.

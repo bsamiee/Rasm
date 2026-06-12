@@ -24,18 +24,3 @@ Feature atlas for durable state. Every concept rides StoreProfile, DataLane, Sto
 |  [16]   | Bulk movement with self-emitted changefeed + delta projection | all                                                | query-rail#BULK_LANE · sync-collaboration#OPLOG_CHANGEFEED                                            |
 |  [17]   | Support-bundle store evidence with hash-proved export         | all                                                | redaction-retention#EXPORT_PROOF · redaction-retention#AUDIT_BINDING                                  |
 |  [18]   | Dashboard wire surface (snapshot + sync TS contracts)         | web                                                | snapshot-codecs#TS_PROJECTION · sync-collaboration#TS_PROJECTION                                      |
-
-## [2]-[CAPABILITY_ROWS]
-
-- Engines: SqliteEmbedded, SqliteMemory, PostgresServer (PG 18 dialect pin), FileSnapshot, DuckDbAnalytical, BlobRemote seam — six rows, zero engine growth admitted this cycle (store-profiles#PROFILE_AXIS).
-- PG extensions: 19 declared `SchemaDdl.Extensions` rows (pg_trgm, btree_gin/gist, citext, hstore, ltree, pgcrypto, unaccent, fuzzystrmatch, cube, intarray, tablefunc, amcheck, pg_prewarm, pg_visibility, pg_logicalinspect, postgres_fdw, vector, postgis); PostGIS first-class through the NetTopologySuite chain; built-in ranges/multiranges and native uuidv7 ride with zero extension entry; seven operator-provisioned preload rows; pg_cron rejected — the AppHost schedule port owns cadence (schema-rail#EXTENSION_DDL · store-profiles#PROVISIONING_ROWS).
-- SQLite: verified e_sqlite3 surface (FTS5, FTS4, JSON1, R*Tree, math, snapshot API, column metadata, FK-on); loadable-extension route via EnableExtensions/LoadExtension; vec0 gated with brute-force fallback, sqlean deferred, SQLCipher research-gated with DuckDB vss as the evaluation alternative (native-sqlite#COMPILE_SURFACE · native-sqlite#EXTENSION_GATES).
-- DuckDB: parquet, json, icu, sqlite_scanner ATTACH over the live store; postgres_scanner rejected — the server boundary is parquet-export-only (data-lanes#ANALYTICAL_LANE).
-- Codecs: STJ source-gen JSON + MessagePack (Thinktecture formatters + LZ4 block compression) + GeoJSON projection; jsonb canonical on PG; ComplexProperty().ToJson() mapping; HttpDelta fallback = RFC 6902 JsonPatchDocument subordinate to the HLC op-log changefeed (snapshot-codecs#CODEC_AXIS · data-lanes#DOCUMENT_LANE · sync-collaboration#TRANSPORT_AXIS).
-- Bulk + delta: linq2db bulk lane emitting its own changefeed + tag invalidation; MERGE/RETURNING old/new delta projection behind the ReturningOldNew capability column; pgoutput V4 parallel-streaming replication rows (query-rail#BULK_LANE · sync-collaboration#TRANSPORT_AXIS).
-- Cross-process: WAL + busy-retry + first-opener-migrates + HLC maintenance lease; single-writer epoch fencing; restore choreography fencing all writers and deleting -wal/-shm sidecars; filesystem-locality admission guard (store-profiles#CROSS_PROCESS_LAW · store-profiles#STORE_LIFECYCLE).
-- Identity: uuid-v7 default via Guid.CreateVersion7 with the sqlite uuid7 function leg, content-hash XxHash128, natural-key admission (schema-rail#IDENTITY_POLICY).
-
-## [3]-[RESEARCH_GATES]
-
-Every former atlas gap is closed on its named cluster: conflict-receipt projection (sync-collaboration#MERGE_LAW), snapshot-diff projection (snapshot-codecs#RESTORE_AND_DIFF), parquet schema-versioning (data-lanes#ANALYTICAL_LANE), presence rows (sync-collaboration#PRESENCE_AND_BLOB), pgaudit binding (redaction-retention#AUDIT_BINDING). The remaining unknowns are the per-page RESEARCH rows, gathered as the [implementation-start gates](ROADMAP.md) table.

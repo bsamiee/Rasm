@@ -1,6 +1,6 @@
 # [REGION_MAP_OWNER_SYMBOLS]
 
-Suite region map — see [README.md](README.md) for the ledger protocol and binding precedence.
+Suite region map — row shapes and protocol live in the suite standard's [ledger protocol](../README.md#6ledgerprotocol).
 
 - HostProfileKeyPolicy — AppHost/host-profiles#PROFILE_AXIS [comparer accessor]
 - ShipVehicle — AppHost/host-profiles#PROFILE_AXIS [SmartEnum<string>]
@@ -12,13 +12,13 @@ Suite region map — see [README.md](README.md) for the ledger protocol and bind
 - ProfileBoot — AppHost/host-profiles#LIFETIME_ADAPTERS [static surface]
 - ProfileRoots — AppHost/host-profiles#RESOURCE_IDENTITY [record]
 - ProfileIdentity — AppHost/host-profiles#RESOURCE_IDENTITY [record]
-- CorrelationId — AppHost/lifecycle-and-drain#PHASE_FAMILY [ValueObject<Guid>] (relocated owner; diagnostics consumes)
+- CorrelationId — AppHost/lifecycle-and-drain#PHASE_FAMILY [ValueObject<Guid>] (diagnostics consumes)
 - PhaseKeyPolicy — AppHost/lifecycle-and-drain#PHASE_FAMILY [comparer accessor]
 - RuntimePhase — AppHost/lifecycle-and-drain#PHASE_FAMILY [SmartEnum<string>]
 - PhaseTrigger — AppHost/lifecycle-and-drain#PHASE_FAMILY [Union]
 - LifecycleFault — AppHost/lifecycle-and-drain#PHASE_FAMILY [Union fault]
 - PhaseReceipt — AppHost/lifecycle-and-drain#PHASE_FAMILY [record]
-- PhaseSubscription — AppHost/lifecycle-and-drain#PHASE_FAMILY [record] (renamed from Subscription)
+- PhaseSubscription — AppHost/lifecycle-and-drain#PHASE_FAMILY [record]
 - Lifecycle — AppHost/lifecycle-and-drain#PHASE_FAMILY [capsule]
 - FaultSource — AppHost/lifecycle-and-drain#FAULT_SPINE [Union]
 - FaultRecord — AppHost/lifecycle-and-drain#FAULT_SPINE [record wire projection]
@@ -68,7 +68,7 @@ Suite region map — see [README.md](README.md) for the ledger protocol and bind
 - HealthSnapshot — AppHost/health-and-degradation#HEALTH_FOLD [record]
 - HealthSurface — AppHost/health-and-degradation#HEALTH_FOLD [capsule]
 - HealthKeyPolicy — AppHost/health-and-degradation#DEGRADATION_RAIL [comparer accessor]
-- Capability — AppHost/health-and-degradation#DEGRADATION_RAIL [SmartEnum<string>] (repo homonym with Rasm.Grasshopper Capability ratified: distinct bounded contexts)
+- Capability — AppHost/health-and-degradation#DEGRADATION_RAIL [SmartEnum<string>] (repo homonym with Rasm.Grasshopper Capability; distinct bounded contexts)
 - DegradationLevel — AppHost/health-and-degradation#DEGRADATION_RAIL [SmartEnum<string>] (level keys string-stable for kill-switch binding)
 - DegradationState — AppHost/health-and-degradation#DEGRADATION_RAIL [record]
 - DegradationPolicy — AppHost/health-and-degradation#DEGRADATION_RAIL [record]

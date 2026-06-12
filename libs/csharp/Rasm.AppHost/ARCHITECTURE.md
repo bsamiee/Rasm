@@ -3,7 +3,7 @@
 `Rasm.AppHost` is one runtime spine: every concern is an axis owner with closed cases, every
 entrypoint is a typed rail, and every cross-package fact crosses through one of seven port
 records. Mechanics live in the finalized `.planning/` pages; this page is the atlas — rails and
-axes, dependency direction, cross-package seams, and the package-API map.
+axes, dependency direction, and cross-package seams.
 
 ## [1]-[RUNTIME_SPINE]
 
@@ -100,8 +100,7 @@ detachers composed LIFO.
 
 ## [4]-[CROSS_PACKAGE_SEAMS]
 
-Altitude splits per the suite ledger SEAM_SPLITS
-([_region-map](../.planning/region-map/)); mechanics live at the named AppHost cluster,
+Every two-package fact splits by altitude: mechanics live at the named AppHost cluster,
 consequences land at the consumer.
 
 | [INDEX] | [SEAM]                 | [MECHANICS_AT]                               | [CONSEQUENCE_AT]                                                               |
@@ -121,29 +120,10 @@ consequences land at the consumer.
 |  [13]   | wire vocabulary        | Compute remote-lane proto suite              | runtime-ports#WIRE_LAW suite merge + TS tooling map                            |
 |  [14]   | lane naming            | resource-lanes#DRAIN_QUEUES                  | `DrainQueue` here; `WorkLane` stays the Compute solve-path name                |
 
-## [5]-[PACKAGE_API_MAP]
+## [5]-[BOUNDARIES]
 
-Axis-to-package ownership; member facts live in the catalogues under
-[.api](.api/README.md). LanguageExt.Core and Thinktecture.Runtime.Extensions
-arrive as workspace substrate on every row.
-
-| [INDEX] | [AXIS_OR_CONCERN]      | [OWNING_PACKAGES]                                                                                                                                                                                 |
-| :-----: | :--------------------- | :------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-|   [1]   | profile boot           | Microsoft.Extensions.Hosting, Hosting.Systemd, Hosting.WindowsServices                                                                                                                            |
-|   [2]   | time and schedule      | NodaTime, Cronos                                                                                                                                                                                  |
-|   [3]   | configuration          | Microsoft.Extensions.Configuration + Json, EnvironmentVariables, CommandLine, UserSecrets, Binder                                                                                                 |
-|   [4]   | options and validation | Microsoft.Extensions.Options, FluentValidation, FluentValidation.DependencyInjectionExtensions                                                                                                    |
-|   [5]   | composition            | Microsoft.Extensions.DependencyInjection, Scrutor                                                                                                                                                 |
-|   [6]   | cache lanes            | Microsoft.Extensions.Caching.Hybrid                                                                                                                                                               |
-|   [7]   | pools and queues       | Microsoft.Extensions.ObjectPool, System.Threading.Tasks.Dataflow, BCL channels                                                                                                                    |
-|   [8]   | telemetry              | OpenTelemetry, OpenTelemetry.Extensions.Hosting, Instrumentation.Http, Instrumentation.Runtime, Microsoft.Extensions.Telemetry + Abstractions, Microsoft.Extensions.Logging.Abstractions, Serilog |
-|   [9]   | redaction              | Microsoft.Extensions.Compliance.Redaction                                                                                                                                                         |
-|  [10]   | health and pressure    | Microsoft.Extensions.Diagnostics.HealthChecks, Diagnostics.ResourceMonitoring                                                                                                                     |
-|  [11]   | outbound resilience    | Polly.Core, Polly.Extensions, Polly.RateLimiting, Microsoft.Extensions.Http.Resilience, Grpc.Net.Client                                                                                           |
-|  [12]   | wire law               | Thinktecture.Runtime.Extensions.Json, NodaTime.Serialization.SystemTextJson, BCL System.Text.Json                                                                                                 |
-
-## [6]-[BOUNDARIES]
-
+- AppHost is not a domain service layer, job framework, DI wrapper, telemetry wrapper, UI
+  package, persistence package, compute implementation, or host-boundary package.
 - AppHost owns runtime state and policy; app roots own process attachment, host events, and
   app-root-only pins (OTLP exporter, Kestrel/gRPC surfaces, Serilog host bridge and sinks).
 - Statement carve-outs are named per fence: `Lifecycle`, `FaultSpine`, `ConfigLayer`, `Applied`,

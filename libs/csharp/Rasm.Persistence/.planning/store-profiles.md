@@ -372,6 +372,4 @@ public sealed record ExtensionRequirement(string Name, bool PreloadRequired, boo
 
 ## [7]-[RESEARCH]
 
-| [INDEX] | [ITEM]                                                                                               | [PROOF]                                                           | [GATE]            |
-| :-----: | :--------------------------------------------------------------------------------------------------- | :---------------------------------------------------------------- | :---------------- |
-|   [1]   | Two-process first-open race outcome under racing MigrateAsync calls and busy_timeout on one WAL file | `uv run python -m tools.assay test run --target Rasm.Persistence` | CROSS_PROCESS_LAW |
+- [FIRST_OPEN_RACE]: two-process first-open outcome under racing `MigrateAsync` calls and busy_timeout on one WAL file.

@@ -212,7 +212,7 @@ public static class VisualCodec {
 - Auto: the Bundle arm delivers visual artifacts through the runtime BundleWrite delegate with their classification — the support-contributor consequence; the FilePath arm receives its absolute path as a value from the picker intent and never computes paths; artifact scopes resolve from ProfileRoots.
 - Receipt: one RenderReceipt of kind document per export with whole-payload content hash and the delivered destination key.
 - Packages: SkiaSharp, SkiaSharp.HarfBuzz, Thinktecture.Runtime.Extensions, Rasm.AppHost (project), NodaTime, LanguageExt.Core
-- Growth: one destination case extends delivery and breaks the Deliver dispatch at compile time; one page-size row extends the table; the content-to-page flow algorithm lands once its RESEARCH row clears — zero new surface.
+- Growth: one destination case extends delivery and breaks the Deliver dispatch at compile time; one page-size row extends the table; the content-to-page flow algorithm lands once its RESEARCH item clears — zero new surface.
 - Boundary: Paged and Deliver are the named boundary capsules carrying statement bodies for SKDocument paging and byte delivery; `CreateXps` yields null where the Skia native carries no XPS backend, so the xps arm folds to the `XpsUnavailable` error row and pdf is the proven format on macOS and Linux profiles; pages arrive as precomposed draw folds over the DrawSource vocabulary — shaped text enters as the shaping rail's glyph output and chart snapshots enter as `SKImage` tiles; QuestPDF, ImageSharp, and Magick.NET stay deleted with `SKDocument` and the codec axis as the absorbing owners.
 
 ```csharp signature
@@ -277,6 +277,4 @@ public static class VisualExport {
 
 ## [7]-[RESEARCH]
 
-| [INDEX] | [ITEM]                                                                                                         | [PROOF]                                                                          | [GATE]          |
-| :-----: | :-------------------------------------------------------------------------------------------------------------- | :-------------------------------------------------------------------------------- | :-------------- |
-|   [1]   | Content-to-page flow layout model over `SKDocument` (flow folds, break policy, header and footer bands)          | `uv run python -m tools.assay test run --target Rasm.AppUi.Tests` page-flow spike spec | DOCUMENT_EXPORT |
+- [PAGE_FLOW]: content-to-page flow layout model over `SKDocument` — flow folds, break policy, header and footer bands.

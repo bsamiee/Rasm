@@ -150,6 +150,4 @@ public static class BoundaryActivation {
 
 ## [5]-[RESEARCH]
 
-| [INDEX] | [ITEM]                                                             | [PROOF]                                                                                                                    | [GATE]            |
-| :-----: | :----------------------------------------------------------------- | :------------------------------------------------------------------------------------------------------------------------- | :---------------- |
-|   [1]   | Scrutor decoration behavior over `DescribeKeyed` keyed descriptors | `uv run python -m tools.assay test run` over a composition spec decorating a keyed contributor row under `ValidateOnBuild` | SCAN_AND_DECORATE |
+- [DECORATION]: Scrutor decoration behavior over `DescribeKeyed` keyed descriptors.

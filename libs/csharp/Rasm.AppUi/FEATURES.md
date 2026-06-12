@@ -33,7 +33,3 @@ Feature atlas for the product UI rail. Every concept rides SurfaceHost, DataSour
 - Motion: MotionToken rows with reduced pairs; ProgressPhase-to-MotionToken frozen mapping with a conformance sweep that fails on Compute phase drift; spring parity with the host SpringPreset tuning math; OKLab interpolation in parity with the host kernel (motion-tokens#MOTION_AXIS, #PHASE_MAPPING).
 - Evidence: EvidenceReceipt cases serialize for dashboards; the correlation join owns the three-stream fold keyed correlation + HLC; headless + Skia render-hash lanes prove visual states in CI; replayed journals, deep links, and interactive execution seal the same receipt family (diagnostics-evidence#CORRELATION_JOIN, #HEADLESS_DERIVATION).
 - Wire: command intent, availability, invocation, payload, outcome, and receipt shapes plus the six evidence wire shapes transcribe the camelCase Strict emission; receipts bind as envelope payload type parameters (commands-availability#TS_PROJECTION, diagnostics-evidence#TS_PROJECTION).
-
-## [3]-[GATES_REMAINING]
-
-The charter GAP_LEDGER carries twenty-four CLOSED rows; no design gap remains open. Remaining work is implementation-start proof: the Avalonia-in-Rhino NSView embedding bridge spike (surface-hosts#EMBED_CAPSULE), the four host-seam bridge scenarios, and the per-page RESEARCH-row probes — routed with commands in the [roadmap](ROADMAP.md).

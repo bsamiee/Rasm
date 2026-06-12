@@ -108,14 +108,16 @@ public static class DialogSurface {
 }
 ```
 
-| [INDEX] | [SURFACE]        | [IDENTIFIER]       | [STACKED] | [CLICK_AWAY] | [BLUR] | [TOAST_PIPE]                  | [PICK_PIPE]               |
-| :-----: | :--------------- | :----------------- | :-------: | :----------: | :----: | :---------------------------- | :------------------------ |
-|   [1]   | avalonia-desktop | desktop-root       |   true    |     true     |  true  | manager over window root      | storage provider          |
-|   [2]   | rhino-panel      | rhino-panel-root   |   false   |    false     | false  | manager over embedded root    | embedded storage provider |
-|   [3]   | rhino-modal      | rhino-modal-root   |   false   |    false     | false  | manager over embedded root    | embedded storage provider |
-|   [4]   | gh2-companion    | gh2-companion-root |   true    |     true     | false  | manager over companion window | storage provider          |
-|   [5]   | sidecar-shell    | sidecar-root       |   true    |     true     |  true  | manager over sidecar window   | storage provider          |
-|   [6]   | headless         | headless-root      |   true    |    false     | false  | receipt-only sink             | none — typed fault        |
+`TOAST_PIPE` cells name the root the row's notification manager binds over; `PICK_PIPE` cells name the row's storage-provider route:
+
+| [INDEX] | [SURFACE]        | [IDENTIFIER]       | [STACKED] | [CLICK_AWAY] | [BLUR] | [TOAST_PIPE]      | [PICK_PIPE]               |
+| :-----: | :--------------- | :----------------- | :-------: | :----------: | :----: | :---------------- | :------------------------ |
+|   [1]   | avalonia-desktop | desktop-root       |   true    |     true     |  true  | window root       | storage provider          |
+|   [2]   | rhino-panel      | rhino-panel-root   |   false   |    false     | false  | embedded root     | embedded storage provider |
+|   [3]   | rhino-modal      | rhino-modal-root   |   false   |    false     | false  | embedded root     | embedded storage provider |
+|   [4]   | gh2-companion    | gh2-companion-root |   true    |     true     | false  | companion window  | storage provider          |
+|   [5]   | sidecar-shell    | sidecar-root       |   true    |     true     |  true  | sidecar window    | storage provider          |
+|   [6]   | headless         | headless-root      |   true    |    false     | false  | receipt-only sink | none — typed fault        |
 
 ## [4]-[NOTIFICATIONS]
 
@@ -219,6 +221,4 @@ public static class PickOps {
 
 ## [6]-[RESEARCH]
 
-| [INDEX] | [ITEM]                                                                                                           | [PROOF]                                                                                          | [GATE]                |
-| :-----: | :--------------------------------------------------------------------------------------------------------------- | :----------------------------------------------------------------------------------------------- | :-------------------- |
-|   [1]   | Embedded-root TopLevel service resolution for the toast manager and storage provider inside the rhino-panel root  | `tests/csharp/libs/Rasm.AppUi/scenarios/appui-embedded-toplevel.verify.csx`                        | NOTIFICATIONS         |
+- [EMBEDDED_TOPLEVEL]: embedded-root `TopLevel` service resolution for the toast manager and storage provider inside the rhino-panel root.

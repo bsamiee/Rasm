@@ -136,7 +136,7 @@ Codec residence is fixed per wire surface; exactly one codec owns each surface a
 - Owner: `RasmPackage`, `HlcStampWire`, `ReceiptEnvelopeWire` — the suite-level TS contract; per-record wire shapes ride their owning wire surfaces and bind here as `TPayload`.
 - Packages: BCL inbox
 - Growth: a new wire payload lands as one payload row bound through `ReceiptEnvelopeWire`, zero new surface; the tooling map gains one tool row per new wire codec.
-- Boundary: `logical` resets to zero on every physical advance, so the counter never approaches the JSON number precision envelope; `physical` and `skewBound` cross as NodaTime ISO-8601 and roundtrip-pattern strings; Thinktecture keyed owners cross as their key scalars while polymorphic leafs cross with the locked kind literals their polymorphic metadata pins, reconstructed in TS as literal-discriminated unions.
+- Boundary: `logical` resets to zero on every physical advance, so the counter never approaches the JSON number precision envelope; `physical` and `skewBound` cross as NodaTime ISO-8601 and roundtrip-pattern strings; Thinktecture keyed owners cross as their key scalars while polymorphic leafs cross with the kind literals their polymorphic metadata pins, reconstructed in TS as literal-discriminated unions.
 
 ```ts contract
 type RasmPackage = "Rasm.AppHost" | "Rasm.Persistence" | "Rasm.Compute" | "Rasm.AppUi";
@@ -166,6 +166,4 @@ Each tool row names the surface it consumes, its activation point, and the spell
 
 ## [5]-[RESEARCH]
 
-| [INDEX] | [ITEM]                                                                                       | [PROOF]                                                       | [GATE]   |
-| :-----: | :------------------------------------------------------------------------------------------- | :------------------------------------------------------------ | :------- |
-|   [1]   | NodaTime converter precedence over combined source-gen contract metadata in the Strict merge | `uv run python -m tools.assay test run --target Rasm.AppHost` | WIRE_LAW |
+- [CONVERTER_PRECEDENCE]: NodaTime converter precedence over combined source-gen contract metadata in the Strict merge.

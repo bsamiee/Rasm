@@ -1,6 +1,6 @@
 # [REGION_MAP_PAGE_REGIONS]
 
-Suite region map — see [README.md](README.md) for the ledger protocol and binding precedence.
+Suite region map — row shapes and protocol live in the suite standard's [ledger protocol](../README.md#6ledgerprotocol).
 
 [APPHOST]:
 
@@ -22,7 +22,7 @@ Suite region map — see [README.md](README.md) for the ledger protocol and bind
 - data-lanes.md [FINAL]: seven DataLane rows mapped to engine capabilities and extension rows incl. geometry/geo lanes and the analytical lane.
 - schema-rail.md [FINAL]: IdentityPolicy axis, migration law, generated columns, HasPostgresExtension rows, naming, concurrency tokens, Thinktecture EF converters.
 - query-rail.md [FINAL]: StoreOp total dispatch, pooled context factories, bulk lane with self-emitted changefeed, MERGE/RETURNING delta projection, interceptor receipts.
-- native-sqlite.md [FINAL]: verified e_sqlite3 compile-flag surface, WAL/busy law, loadable-extension route, encryption and vector gates.
+- native-sqlite.md [FINAL]: e_sqlite3 compile-flag surface, WAL/busy law, loadable-extension route, encryption and vector gates.
 - snapshot-codecs.md [FINAL]: SnapshotCodec/CompressionPolicy/HashPolicy axes, restore choreography, wire contracts (STJ + MessagePack + GeoJSON projection).
 - cache-indexes.md [FINAL]: L2 IDistributedCache + serializer factory rows, model-result and artifact-blob indexes.
 - sync-collaboration.md [FINAL]: SyncTransport axis with M1-M5 rows, op-log HLC changefeed, HttpDelta + JSON-Patch fallback, presence, conflict receipts, BlobRemote frame consumption.
@@ -31,8 +31,8 @@ Suite region map — see [README.md](README.md) for the ledger protocol and bind
 [COMPUTE]:
 
 - intent-and-selection.md [FINAL]: typed intent family, substrate-selection rail with ordered predicates and declared fallback rows, one total dispatch surface; wasm is a platform predicate.
-- tensor-lane.md [FINAL]: CpuTensor substrate, verified TensorPrimitives/layout families, shape algebra, geometry-to-tensor encoding rows.
-- model-lane.md [FINAL]: model identity and provenance, session capsule, EP-parameterized Onnx row (CoreML verified spellings), extension-op admission, warm-start artifact routing.
+- tensor-lane.md [FINAL]: CpuTensor substrate, TensorPrimitives/layout families, shape algebra, geometry-to-tensor encoding rows.
+- model-lane.md [FINAL]: model identity and provenance, session capsule, EP-parameterized Onnx row, extension-op admission, warm-start artifact routing.
 - remote-lane.md [FINAL]: the suite proto vocabulary (ComputeService, DocumentService, ControlService, ArtifactSync frame law, grpc.health.v1, FaultDetail), transport rows with streaming-capability and keepalive and node-affinity columns, CredentialPolicy axis, discovery manifest consumption, descriptor-diff contract evolution.
 - staging-and-streams.md [FINAL]: AllocationClass rows with rent/return delegates, recyclable stream policy, zero-copy edges.
 - scheduling-and-lanes.md [FINAL]: WorkLane bounded channels, solve-path guard, backpressure, drain participation.

@@ -185,7 +185,5 @@ public static class LiveDataOps {
 
 ## [6]-[RESEARCH]
 
-| [INDEX] | [ITEM]                                                                                       | [PROOF]                                                                                                     | [GATE]           |
-| :-----: | --------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------ | ---------------- |
-|   [1]   | VirtualTimeScheduler-driven determinism of ExpireAfter and Timer on the fake-deterministic row | uv run python -m tools.assay test run --target Rasm.AppUi                                                     | DATA_SOURCES     |
-|   [2]   | GroupWithImmutableState ordering stability under Page and Virtualise windows                   | uv run python -m tools.assay test run --target Rasm.AppUi grouped-window ordering spec                        | CHANGE_PIPELINES |
+- [VIRTUAL_TIME]: `VirtualTimeScheduler`-driven determinism of `ExpireAfter` and `Timer` on the fake-deterministic row.
+- [GROUPED_WINDOWS]: `GroupWithImmutableState` ordering stability under `Page` and `Virtualise` windows.

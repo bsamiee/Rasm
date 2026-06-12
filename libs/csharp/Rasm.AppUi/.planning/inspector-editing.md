@@ -359,6 +359,4 @@ public sealed record CompletionRow(string Key, string Detail) {
 
 ## [8]-[RESEARCH]
 
-| [INDEX] | [ITEM]                                                                                                                                  | [PROOF]                                                                                                                                       | [GATE]            |
-| :-----: | ---------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------- | ----------------- |
-|   [1]   | Immutable policy-record draft route for grid editing — PropertyModels descriptor synthesis versus a generated mutable draft partial        | dotnet run on a scratch PropertyGrid probe binding a record-draft pair and asserting `SetPropertyValue` lands on the draft, commit rebuilds the record | OPTIONS_INSPECTOR |
+- [RECORD_DRAFT]: immutable policy-record draft route for grid editing — PropertyModels descriptor synthesis against a generated mutable draft partial, with `SetPropertyValue` landing on the draft and commit rebuilding the record.

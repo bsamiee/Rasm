@@ -389,8 +389,5 @@ type SnapshotExtensionRows = never;
 
 ## [7]-[RESEARCH]
 
-| [INDEX] | [ITEM]                                                                                                                                                           | [PROOF]                                                           | [GATE]            |
-| :-----: | :--------------------------------------------------------------------------------------------------------------------------------------------------------------- | :---------------------------------------------------------------- | :---------------- |
-|   [1]   | Directory-handle flush admission after the atomic rename on APFS — rename durability without a directory fsync route                                             | `uv run python -m tools.assay test run --target Rasm.Persistence` | SNAPSHOT_PROTOCOL |
-|   [2]   | `ThinktectureMessageFormatterResolver` coverage over keyed unions and complex value objects composed with `SourceGeneratedFormatterResolver` under Lz4BlockArray | `uv run python -m tools.assay test run --target Rasm.Persistence` | CODEC_AXIS        |
-|   [3]   | `GeoJsonConverterFactory` precedence over combined source-generated contract metadata for geometry-bearing wire records                                          | `uv run python -m tools.assay test run --target Rasm.Persistence` | CODEC_AXIS        |
+- [RENAME_DURABILITY]: directory-handle flush admission after the atomic rename on APFS — rename durability without a directory fsync route.
+- [RESOLVER_PRECEDENCE]: `ThinktectureMessageFormatterResolver` coverage over keyed unions and complex value objects composed with `SourceGeneratedFormatterResolver` under Lz4BlockArray; `GeoJsonConverterFactory` precedence over combined source-generated contract metadata for geometry-bearing wire records.

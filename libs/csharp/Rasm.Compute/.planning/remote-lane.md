@@ -372,6 +372,4 @@ interface ArtifactFrameWire { artifactId: string; artifactBytes: number; offset:
 
 ## [9]-[RESEARCH]
 
-| [INDEX] | [ITEM]                                                                                           | [PROOF]                                                                | [GATE]         |
-| :-----: | ------------------------------------------------------------------------------------------------ | ---------------------------------------------------------------------- | -------------- |
-|   [1]   | `TestServer.CreateHandler` handler seam for the in-process row through the test-host pin surface | uv run python -m tools.assay api resolve microsoft.aspnetcore.testhost | TRANSPORT_AXIS |
+- [TRANSPORTS]: `TestServer.CreateHandler` handler seam for the in-process row through the test-host pin surface.

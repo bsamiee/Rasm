@@ -272,6 +272,4 @@ public static class DashboardSurface {
 
 ## [7]-[RESEARCH]
 
-| [INDEX] | [ITEM]                                                                                  | [PROOF]                                                                                       | [GATE]            |
-| :-----: | ---------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------- | ----------------- |
-|   [1]   | LiveCharts net8-asset render fidelity on the net10 Avalonia 12 host across all fifteen series rows | uv run python -m tools.assay test run --target Rasm.AppUi — headless Skia render-hash sweep per `ChartSeriesSpec` row | SERIES_TABLE      |
+- [SERIES_RENDER]: LiveCharts net8-asset render fidelity on the net10 Avalonia host across all fifteen series rows.

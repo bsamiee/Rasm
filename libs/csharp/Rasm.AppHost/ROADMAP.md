@@ -2,8 +2,7 @@
 
 The `.planning/` corpus is finalized; implementation transcribes pages in the charter
 BUILD_ORDER ([planning charter](.planning/README.md)). Every task exits against named page
-clusters and proves through the charter PROOF_GATES (G1 restore, G2 catalogue, G3 static,
-G4 specs, G5 bridge, G6 mermaid).
+clusters and proves through the charter PROOF_GATES.
 
 ## [1]-[CURRENT_POSITION]
 
@@ -17,9 +16,9 @@ G4 specs, G5 bridge, G6 mermaid).
 
 ## [2]-[START_GATES]
 
-Implementation-start gates from the campaign binding: bridge-proofed spikes and
-research-row resolution probes that need a live host or scratch process. Decompile-grade
-research rows (`assay api query`) resolve inline inside the owning task and are not listed.
+Implementation-start gates: bridge-proofed spikes and research-resolution probes that need a
+live host or scratch process. Decompile-grade research items (`assay api query`) resolve
+inline inside the owning task and are not listed.
 
 | [INDEX] | [GATE]                                                             | [PROBE]                                                                             | [UNBLOCKS]                              |
 | :-----: | :----------------------------------------------------------------- | :---------------------------------------------------------------------------------- | :-------------------------------------- |
@@ -38,7 +37,7 @@ research rows (`assay api query`) resolve inline inside the owning task and are 
 ## [3]-[IMPLEMENTATION_TASKS]
 
 Ordered by the charter BUILD_ORDER; each task transcribes its clusters verbatim, resolves the
-page RESEARCH rows gated on those clusters, and exits on the named proof.
+RESEARCH items its pages carry, and exits on the named proof.
 
 | [INDEX] | [TASK]             | [EXITS_AGAINST]                                                                                                            | [PROOF]                                                                                      |
 | :-----: | :----------------- | :------------------------------------------------------------------------------------------------------------------------- | :------------------------------------------------------------------------------------------- |
@@ -54,7 +53,5 @@ page RESEARCH rows gated on those clusters, and exits on the named proof.
 |  [10]   | `Outbound.cs`      | outbound-resilience#HOP_AXIS, #HTTP_PIPELINES, #KEYED_PIPELINES, #DISCOVERY_ATTACH, #OWNERSHIP_LAW                         | G3 + G4: admission fold, owner-conflict evidence, breaker enforcement; G5: gates [2] and [8] |
 |  [11]   | `Ports.cs`         | runtime-ports#PORT_RECORDS, #WIRE_LAW                                                                                      | G3 + G4: HLC advance law, wire round-trip incl. NodaTime converter precedence                |
 
-TS_PROJECTION clusters (lifecycle-and-drain, health-and-degradation, support-bundles,
-runtime-ports) transcribe into the TS workspace at web app-root creation; they carry no C#
-build row. G1 and G2 run once before task [1] and again on any manifest or catalogue change;
-G6 runs on any page-diagram edit.
+G1 and G2 run once before task [1] and again on any manifest or catalogue change; G6 runs on
+any page-diagram edit.

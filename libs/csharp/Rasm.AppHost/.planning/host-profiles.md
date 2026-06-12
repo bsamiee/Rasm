@@ -212,7 +212,5 @@ public static class ProfileIdentity {
 
 ## [5]-[RESEARCH]
 
-| [INDEX] | [ITEM]                                                                                         | [PROOF]                                                                                       | [GATE]            |
-| :-----: | :--------------------------------------------------------------------------------------------- | :-------------------------------------------------------------------------------------------- | :---------------- |
-|   [1]   | Generic Host boot and unload inside the RhinoWIP plugin load context without process exit      | `uv run python -m tools.assay bridge verify --pattern host_boot_drain`                        | LIFETIME_ADAPTERS |
-|   [2]   | Static-asset spellings at the web app root under the Microsoft.AspNetCore.App shared framework | `dotnet build` over a scratch web app root compiling `UseStaticFiles` and `MapFallbackToFile` | PROFILE_AXIS      |
+- [PLUGIN_HOST]: Generic Host boot and unload inside the RhinoWIP plugin load context without process exit.
+- [WEB_ROOT]: static-asset spellings at the web app root under the Microsoft.AspNetCore.App shared framework.

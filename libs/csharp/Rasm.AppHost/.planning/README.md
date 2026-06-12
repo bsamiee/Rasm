@@ -105,9 +105,8 @@ through AH-11 and AH-04a-d); a public type outside those regions is the named de
 
 Vocabulary owners land before their consumers; shapes before rails, rails before dispatch,
 boundaries before composition. `Ports.cs` lands last because `AppHostWireContext` rows reference
-receipts every earlier file declares — the AppHost instance of the ledger's
-vocabulary-owners-first law (the fingerprint-slot seam note). `CorrelationId` is the relocated
-owner at lifecycle-and-drain#PHASE_FAMILY; `Diagnostics.cs` consumes it and never re-declares.
+receipts every earlier file declares. `CorrelationId` is owned at
+lifecycle-and-drain#PHASE_FAMILY; `Diagnostics.cs` consumes it and never re-declares.
 Drain band literals live only on `DrainBand`; sibling registrations arrive as
 `DrainParticipantPort` rows and never copy them. `DrainQueue` is the AppHost name;
 `WorkLane` stays at Compute. Comparer accessors stay package-local, one per axis owner.
@@ -246,4 +245,4 @@ Substrate, pending, and test-only admissions:
 
 ## [11]-[REFINEMENT_HORIZON]
 
-Entry for the next deepening session: `libs/csharp/.planning/campaign-method.md` then `TASKLOG.md` then this charter. Folder-specific deepening targets beyond the closed corpus: the operational control surface (ControlService consequence rows) exercised against every service modality; watchdog/heartbeat receipts composed with the support pipeline end-to-end; the discovery/attach choreography rehearsed against the paired and companion topologies in `../../FEATURES.md`; keychain secrets-store and SIGHUP routes resolved from their TASKLOG probes into settled rows. The bar: any host modality boots, degrades, drains, and reports through this spine with zero app-side ceremony.
+Folder-specific deepening targets beyond the closed corpus: the operational control surface (ControlService consequence rows) exercised against every service modality; watchdog/heartbeat receipts composed with the support pipeline end-to-end; the discovery/attach choreography rehearsed against the paired and companion topologies in `../../.planning/FEATURES.md`; keychain secrets-store and SIGHUP routes resolved from their probes into settled rows. The bar: any host modality boots, degrades, drains, and reports through this spine with zero app-side ceremony.

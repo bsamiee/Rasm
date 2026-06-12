@@ -8,7 +8,7 @@ Implementation-start gates owned by this package — each unblocks its named clu
 
 | [INDEX] | [GATE] | [PROOF_ROUTE] | [UNBLOCKS] |
 | :-----: | ------ | ------------- | ---------- |
-| [1] | Avalonia-12-in-Rhino NSView embedding spike | `uv run python -m tools.assay bridge verify --pattern avalonia_embed_pump` (+ `avalonia_embed_resize`, `avalonia_embed_render`) | surface-hosts#EMBED_CAPSULE, surface-hosts#SCHEDULER_BOUNDARY, surface-hosts#HOST_AXIS |
+| [1] | Avalonia-in-Rhino NSView embedding spike | `uv run python -m tools.assay bridge verify --pattern avalonia_embed_pump` (+ `avalonia_embed_resize`, `avalonia_embed_render`) | surface-hosts#EMBED_CAPSULE, surface-hosts#SCHEDULER_BOUNDARY, surface-hosts#HOST_AXIS |
 | [2] | `Rasm.AppUi.Tests` target row on the assay test rail | `uv run python -m tools.assay test run --target Rasm.AppUi.Tests` | every specs and render-hash gate below |
 | [3] | HotAvalonia Release closure strip | `dotnet build libs/csharp/Rasm.AppUi/Rasm.AppUi.csproj -c Release` | diagnostics-evidence#DEV_LOOP |
 | [4] | Embedded TopLevel service resolution | `tests/csharp/libs/Rasm.AppUi/scenarios/appui-embedded-toplevel.verify.csx` | dialogs-notifications#NOTIFICATIONS, dialogs-notifications#PICKERS_HOST_MODALITY |
@@ -16,7 +16,7 @@ Implementation-start gates owned by this package — each unblocks its named clu
 | [6] | macOS reduce-motion preference probe | `libs/csharp/Rasm.AppUi/scenarios/reduced-motion-probe.verify.csx` | motion-tokens#REDUCED_MOTION |
 | [7] | VoiceOver reach across the embedded root | `tests/csharp/libs/Rasm.Rhino/UI/scenarios/avalonia-embed-a11y.verify.csx` | accessibility#AUTOMATION_PEERS |
 
-Every remaining research row resolves through its page's RESEARCH table — `uv run python -m tools.assay api query` decompile probes and named scratch probes — before its gated cluster is transcribed. An unresolved row blocks the cluster; the charter [FILE_PROCESS](.planning/README.md) makes the block mechanical.
+Every remaining research item resolves before its gated cluster is transcribed. An unresolved item blocks the cluster; the charter [FILE_PROCESS](.planning/README.md) makes the block mechanical and the charter [PROOF_GATES](.planning/README.md) carry the executable rails.
 
 ## [2]-[IMPLEMENTATION_TASKS]
 

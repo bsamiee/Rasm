@@ -208,7 +208,5 @@ flowchart LR
 
 ## [6]-[RESEARCH]
 
-| [INDEX] | [ITEM]                                                                                                       | [PROOF]                                                                                                                              | [GATE]            |
-| :-----: | ------------------------------------------------------------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------ | ----------------- |
-|   [1]   | Rhino panel return-key policy knob residence and its registration point on the panel host                     | uv run python -m tools.assay api query --key rhino-common --symbol Rhino.UI.Panels                                                    | HOTKEY_DERIVATION |
-|   [2]   | Host-object drag across the NSView boundary carrying Rhino object ids into and out of the embedded panel       | libs/csharp/Rasm.AppUi/scenarios/embedded-drag.verify.csx dragging ids both directions under live RhinoWIP via uv run python -m tools.assay bridge verify | DRAG_CLIPBOARD    |
+- [PANEL_KEYS]: Rhino panel return-key policy knob residence and its registration point on the panel host.
+- [EMBEDDED_DRAG]: host-object drag across the NSView boundary carrying Rhino object ids into and out of the embedded panel.
