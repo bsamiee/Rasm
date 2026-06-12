@@ -17,17 +17,17 @@ item metadata, compiler binaries, import protos, and generated client seams.
 [PACKAGE_ASSET_SCOPE]: MSBuild assets
 - rail: remote-contracts
 
-| [INDEX] | [SYMBOL]                                  | [PACKAGE_ROLE] | [CAPABILITY]             |
-| :-----: | :---------------------------------------- | :------------- | :----------------------- |
-|   [1]   | `build/Grpc.Tools.props`                  | MSBuild import | declares generator props |
-|   [2]   | `build/Grpc.Tools.targets`                | MSBuild import | runs generator targets   |
-|   [3]   | `_grpc/_Grpc.Tools.props`                 | MSBuild import | declares gRPC props      |
-|   [4]   | `_grpc/_Grpc.Tools.targets`               | MSBuild import | runs gRPC target steps   |
-|   [5]   | `_protobuf/Google.Protobuf.Tools.props`   | MSBuild import | declares proto props     |
-|   [6]   | `_protobuf/Google.Protobuf.Tools.targets` | MSBuild import | runs proto target steps  |
-|   [7]   | `Protobuf.MSBuild.dll`                    | task assembly  | executes generator tasks |
-|   [8]   | `Grpc.CSharp.xml`                         | task metadata  | describes gRPC task      |
-|   [9]   | `Protobuf.CSharp.xml`                     | task metadata  | describes proto task     |
+| [INDEX] | [SYMBOL]                                        | [PACKAGE_ROLE] | [CAPABILITY]             |
+| :-----: | :---------------------------------------------- | :------------- | :----------------------- |
+|   [1]   | `build/Grpc.Tools.props`                        | MSBuild import | declares generator props |
+|   [2]   | `build/Grpc.Tools.targets`                      | MSBuild import | runs generator targets   |
+|   [3]   | `build/_grpc/_Grpc.Tools.props`                 | MSBuild import | declares gRPC props      |
+|   [4]   | `build/_grpc/_Grpc.Tools.targets`               | MSBuild import | runs gRPC target steps   |
+|   [5]   | `build/_protobuf/Google.Protobuf.Tools.props`   | MSBuild import | declares proto props     |
+|   [6]   | `build/_protobuf/Google.Protobuf.Tools.targets` | MSBuild import | runs proto target steps  |
+|   [7]   | `Protobuf.MSBuild.dll`                          | task assembly  | executes generator tasks |
+|   [8]   | `Grpc.CSharp.xml`                               | task metadata  | describes gRPC task      |
+|   [9]   | `Protobuf.CSharp.xml`                           | task metadata  | describes proto task     |
 
 [PACKAGE_ASSET_SCOPE]: compiler and import assets
 - rail: remote-contracts
@@ -48,16 +48,16 @@ item metadata, compiler binaries, import protos, and generated client seams.
 [ENTRYPOINT_SCOPE]: project inputs
 - rail: remote-contracts
 
-| [INDEX] | [SURFACE]               | [CALL_SHAPE]  | [CAPABILITY]              |
-| :-----: | :---------------------- | :------------ | :------------------------ |
-|   [1]   | `Protobuf` item         | MSBuild item  | declares proto input      |
-|   [2]   | `GrpcServices=Client`   | item metadata | selects client generation |
-|   [3]   | `ProtoRoot`             | item metadata | scopes import roots       |
-|   [4]   | `AdditionalImportDirs`  | item metadata | resolves imports          |
-|   [5]   | `Access`                | item metadata | controls generated access |
-|   [6]   | `OutputDir`             | item metadata | sets generated directory  |
-|   [7]   | `CompileOutputs`        | item metadata | includes generated code   |
-|   [8]   | `GeneratorResponseFile` | item metadata | passes generator args     |
+| [INDEX] | [SURFACE]                   | [CALL_SHAPE]  | [CAPABILITY]              |
+| :-----: | :-------------------------- | :------------ | :------------------------ |
+|   [1]   | `Protobuf` item             | MSBuild item  | declares proto input      |
+|   [2]   | `GrpcServices=Client`       | item metadata | selects client generation |
+|   [3]   | `ProtoRoot`                 | item metadata | scopes import roots       |
+|   [4]   | `AdditionalImportDirs`      | item metadata | resolves imports          |
+|   [5]   | `Access`                    | item metadata | controls generated access |
+|   [6]   | `OutputDir`                 | item metadata | sets generated directory  |
+|   [7]   | `CompileOutputs`            | item metadata | includes generated code   |
+|   [8]   | `AdditionalProtocArguments` | item metadata | passes generator args     |
 
 [ENTRYPOINT_SCOPE]: generated outputs
 - rail: remote-contracts

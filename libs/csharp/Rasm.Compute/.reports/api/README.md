@@ -15,7 +15,9 @@
 - pages:
   - [api-protobuf.md](api-protobuf.md)
   - [api-grpc-client.md](api-grpc-client.md)
+  - [api-grpc-client-web.md](api-grpc-client-web.md)
   - [api-grpc-tools.md](api-grpc-tools.md)
+  - [api-nodatime-protobuf.md](api-nodatime-protobuf.md)
 
 [MODEL]:
 - rail: model

@@ -21,7 +21,7 @@ convention services for relational model naming policy.
 | :-----: | :---------------------------- | :---------------- | :---------------------- |
 |   [1]   | `NamingConventionsExtensions` | builder extension | admits naming policy    |
 |   [2]   | `NamingConventionSetPlugin`   | convention plugin | applies model naming    |
-|   [3]   | `NameRewriter`                | naming service    | rewrites identifiers    |
+|   [3]   | `INameRewriter`               | rewriter contract | rewrites identifiers    |
 |   [4]   | `SnakeCaseNameRewriter`       | naming service    | writes snake case       |
 |   [5]   | `LowerCaseNameRewriter`       | naming service    | writes lower case       |
 |   [6]   | `UpperCaseNameRewriter`       | naming service    | writes upper case       |

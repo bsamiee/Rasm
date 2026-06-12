@@ -32,13 +32,13 @@ operations for embedded store profiles.
 [STORE_TYPES]: embedded store extensions
 - rail: store-provider
 
-| [INDEX] | [SYMBOL]                     | [PACKAGE_ROLE]    | [CAPABILITY]              |
-| :-----: | :--------------------------- | :---------------- | :------------------------ |
-|   [1]   | `SqliteBlob`                 | blob handle       | streams blob content      |
-|   [2]   | `SqliteConnectionExtensions` | extension surface | loads native extensions   |
-|   [3]   | `SqliteOpenMode`             | open classifier   | classifies open behavior  |
-|   [4]   | `SqliteCacheMode`            | cache classifier  | classifies cache behavior |
-|   [5]   | `SqliteType`                 | type classifier   | classifies value binding  |
+| [INDEX] | [SYMBOL]          | [PACKAGE_ROLE]   | [CAPABILITY]              |
+| :-----: | :---------------- | :--------------- | :------------------------ |
+|   [1]   | `SqliteBlob`      | blob handle      | streams blob content      |
+|   [2]   | `SqliteFactory`   | provider factory | creates provider objects  |
+|   [3]   | `SqliteOpenMode`  | open classifier  | classifies open behavior  |
+|   [4]   | `SqliteCacheMode` | cache classifier | classifies cache behavior |
+|   [5]   | `SqliteType`      | type classifier  | classifies value binding  |
 
 ## [3]-[ENTRYPOINTS]
 
@@ -59,14 +59,14 @@ operations for embedded store profiles.
 [ENTRYPOINT_SCOPE]: embedded features
 - rail: store-provider
 
-| [INDEX] | [SURFACE]          | [CALL_SHAPE]    | [CAPABILITY]              |
-| :-----: | :----------------- | :-------------- | :------------------------ |
-|   [1]   | `CreateFunction`   | connection call | registers scalar function |
-|   [2]   | `CreateAggregate`  | connection call | registers aggregate       |
-|   [3]   | `EnableExtensions` | connection call | enables extension loading |
-|   [4]   | `LoadExtension`    | connection call | loads native extension    |
-|   [5]   | `OpenRead`         | blob call       | reads blob stream         |
-|   [6]   | `OpenWrite`        | blob call       | writes blob stream        |
+| [INDEX] | [SURFACE]             | [CALL_SHAPE]     | [CAPABILITY]              |
+| :-----: | :-------------------- | :--------------- | :------------------------ |
+|   [1]   | `CreateFunction`      | connection call  | registers scalar function |
+|   [2]   | `CreateAggregate`     | connection call  | registers aggregate       |
+|   [3]   | `EnableExtensions`    | connection call  | enables extension loading |
+|   [4]   | `LoadExtension`       | connection call  | loads native extension    |
+|   [5]   | `new SqliteBlob(...)` | constructor call | opens blob stream         |
+|   [6]   | `Read` / `Write`      | blob stream call | moves blob bytes          |
 
 ## [4]-[IMPLEMENTATION_LAW]
 

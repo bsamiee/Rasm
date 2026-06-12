@@ -18,21 +18,21 @@ operation reporting, and reverse-engineering assets for store-profile tooling.
 [DESIGN_TYPES]: design-time service surfaces
 - rail: schema-tooling
 
-| [INDEX] | [SYMBOL]                               | [PACKAGE_ROLE]     | [CAPABILITY]              |
-| :-----: | :------------------------------------- | :----------------- | :------------------------ |
-|   [1]   | `IDesignTimeServices`                  | service contract   | registers design services |
-|   [2]   | `DesignTimeServicesReferenceAttribute` | service attribute  | declares design services  |
-|   [3]   | `DesignTimeProviderServicesAttribute`  | provider attribute | declares provider design  |
-|   [4]   | `DbContextAttribute`                   | context attribute  | selects context           |
-|   [5]   | `DbContextModelAttribute`              | model attribute    | binds compiled model      |
-|   [6]   | `OperationReporter`                    | reporter           | emits tool messages       |
+| [INDEX] | [SYMBOL]                                | [PACKAGE_ROLE]       | [CAPABILITY]               |
+| :-----: | :-------------------------------------- | :------------------- | :------------------------- |
+|   [1]   | `DesignTimeServicesBuilder`             | service builder      | composes design services   |
+|   [2]   | `DesignTimeServiceCollectionExtensions` | service extension    | registers design services  |
+|   [3]   | `OperationExecutor`                     | tool executor        | dispatches tool operations |
+|   [4]   | `DbContextOperations`                   | context operations   | drives context tooling     |
+|   [5]   | `MigrationsOperations`                  | migration operations | drives migration tooling   |
+|   [6]   | `OperationReporter`                     | reporter             | emits tool messages        |
 
 [SCAFFOLDING_TYPES]: migration and model outputs
 - rail: schema-tooling
 
 | [INDEX] | [SYMBOL]                          | [PACKAGE_ROLE]     | [CAPABILITY]             |
 | :-----: | :-------------------------------- | :----------------- | :----------------------- |
-|   [1]   | `MigrationScaffolder`             | migration tool     | scaffolds migrations     |
+|   [1]   | `MigrationsScaffolder`            | migration tool     | scaffolds migrations     |
 |   [2]   | `ReverseEngineerScaffolder`       | model tool         | scaffolds store model    |
 |   [3]   | `ScaffoldedMigration`             | scaffold output    | carries migration files  |
 |   [4]   | `ScaffoldedModel`                 | scaffold output    | carries model files      |
@@ -67,7 +67,7 @@ operation reporting, and reverse-engineering assets for store-profile tooling.
 |   [5]   | `HasPendingModelChanges`         | tool operation | compares model state     |
 |   [6]   | `GetMigrations`                  | tool operation | lists migrations         |
 |   [7]   | `ScaffoldContext`                | tool operation | scaffolds context        |
-|   [8]   | `ScaffoldCompiledModel`          | tool operation | scaffolds compiled model |
+|   [8]   | `Optimize`                       | tool operation | scaffolds compiled model |
 
 ## [4]-[IMPLEMENTATION_LAW]
 

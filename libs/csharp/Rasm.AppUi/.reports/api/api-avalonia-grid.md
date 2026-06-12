@@ -74,18 +74,18 @@
 [GRID_ENTRYPOINTS]: table control operations
 - rail: tables
 
-| [INDEX] | [SURFACE]               | [SURFACE_ROOT] | [RAIL]            |
-| :-----: | :---------------------- | :------------- | :---------------- |
-|   [1]   | `ItemsSource`           | `DataGrid`     | row source        |
-|   [2]   | `Columns`               | `DataGrid`     | column model      |
-|   [3]   | `SelectedItem`          | `DataGrid`     | single selection  |
-|   [4]   | `SelectedItems`         | `DataGrid`     | multi selection   |
-|   [5]   | `AutoGenerateColumns`   | `DataGrid`     | column generation |
-|   [6]   | `CollectionView`        | `DataGrid`     | view model        |
-|   [7]   | `BeginEdit`             | `DataGrid`     | edit start        |
-|   [8]   | `CommitEdit`            | `DataGrid`     | edit commit       |
-|   [9]   | `CancelEdit`            | `DataGrid`     | edit cancel       |
-|  [10]   | `RefreshColumnElements` | `DataGrid`     | cell refresh      |
+| [INDEX] | [SURFACE]             | [SURFACE_ROOT] | [RAIL]            |
+| :-----: | :-------------------- | :------------- | :---------------- |
+|   [1]   | `ItemsSource`         | `DataGrid`     | row source        |
+|   [2]   | `Columns`             | `DataGrid`     | column model      |
+|   [3]   | `SelectedItem`        | `DataGrid`     | single selection  |
+|   [4]   | `SelectedItems`       | `DataGrid`     | multi selection   |
+|   [5]   | `AutoGenerateColumns` | `DataGrid`     | column generation |
+|   [6]   | `CollectionView`      | `DataGrid`     | view model        |
+|   [7]   | `BeginEdit`           | `DataGrid`     | edit start        |
+|   [8]   | `CommitEdit`          | `DataGrid`     | edit commit       |
+|   [9]   | `CancelEdit`          | `DataGrid`     | edit cancel       |
+|  [10]   | `ScrollIntoView`      | `DataGrid`     | row reveal        |
 
 [GRID_EVENTS]: table event operations
 - rail: tables

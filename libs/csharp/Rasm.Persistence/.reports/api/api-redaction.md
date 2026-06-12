@@ -9,6 +9,7 @@ injection registration for support bundles and retained snapshot projections.
 [PACKAGE_SURFACE]: `Microsoft.Extensions.Compliance.Redaction`
 - package: `Microsoft.Extensions.Compliance.Redaction`
 - assembly: `Microsoft.Extensions.Compliance.Redaction`
+- contract assembly: `Microsoft.Extensions.Compliance.Abstractions`
 - namespace: `Microsoft.Extensions.Compliance.Redaction`
 - asset: runtime library
 - rail: redaction
@@ -18,16 +19,16 @@ injection registration for support bundles and retained snapshot projections.
 [REDACTION_TYPES]: redactor and provider surfaces
 - rail: redaction
 
-| [INDEX] | [SYMBOL]                       | [PACKAGE_ROLE]    | [CAPABILITY]             |
-| :-----: | :----------------------------- | :---------------- | :----------------------- |
-|   [1]   | `Redactor`                     | redactor contract | redacts values           |
-|   [2]   | `RedactorProvider`             | provider root     | resolves redactors       |
-|   [3]   | `RedactorProviderOptions`      | provider options  | maps data classes        |
-|   [4]   | `RedactionBuilder`             | builder root      | configures redaction     |
-|   [5]   | `ErasingRedactor`              | redactor          | erases sensitive values  |
-|   [6]   | `HmacRedactor`                 | redactor          | hashes sensitive values  |
-|   [7]   | `HmacRedactorOptions`          | redactor options  | configures HMAC redactor |
-|   [8]   | `HmacRedactorOptionsValidator` | option validator  | validates HMAC options   |
+| [INDEX] | [SYMBOL]                | [PACKAGE_ROLE]     | [CAPABILITY]             |
+| :-----: | :---------------------- | :----------------- | :----------------------- |
+|   [1]   | `Redactor`              | redactor contract  | redacts values           |
+|   [2]   | `IRedactorProvider`     | provider contract  | resolves redactors       |
+|   [3]   | `IRedactionBuilder`     | builder contract   | configures redaction     |
+|   [4]   | `DataClassificationSet` | classification set | keys redactor selection  |
+|   [5]   | `ErasingRedactor`       | redactor           | erases sensitive values  |
+|   [6]   | `HmacRedactor`          | redactor           | hashes sensitive values  |
+|   [7]   | `HmacRedactorOptions`   | redactor options   | configures HMAC redactor |
+|   [8]   | `NullRedactor`          | redactor           | passes values unchanged  |
 
 ## [3]-[ENTRYPOINTS]
 
@@ -48,8 +49,8 @@ injection registration for support bundles and retained snapshot projections.
 
 [REDACTION_POLICY]:
 - namespace: `Microsoft.Extensions.Compliance.Redaction`
-- provider root: `RedactorProvider`
-- builder root: `RedactionBuilder`
+- provider root: `IRedactorProvider`
+- builder root: `IRedactionBuilder`
 - class root: data classification mapping
 - redactor root: erasing and HMAC redactors
 

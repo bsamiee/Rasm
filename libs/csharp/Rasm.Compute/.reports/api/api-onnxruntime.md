@@ -38,8 +38,8 @@ and execution-provider selection for Compute model rails.
 | :-----: | :-------------------------- | :-------------- | :----------------------- |
 |   [1]   | `ModelMetadata`             | model metadata  | describes model          |
 |   [2]   | `NodeMetadata`              | node metadata   | describes model nodes    |
-|   [3]   | `TensorTypeAndShapeInfo`    | tensor metadata | describes tensor shape   |
-|   [4]   | `OrtValueTensor<T>`         | tensor value    | carries typed tensors    |
+|   [3]   | `OrtTensorTypeAndShapeInfo` | tensor metadata | describes tensor shape   |
+|   [4]   | `DenseTensor<T>`            | tensor value    | carries typed tensors    |
 |   [5]   | `OrtIoBinding`              | binding root    | binds inputs and outputs |
 |   [6]   | `PrePackedWeightsContainer` | weights cache   | shares packed weights    |
 |   [7]   | `FixedBufferOnnxValue`      | buffer value    | binds fixed memory       |
@@ -88,7 +88,7 @@ and execution-provider selection for Compute model rails.
 |   [8]   | `RegisterCustomOpLibraryV2`                       | option call  | loads custom operators |
 |   [9]   | `RegisterOrtExtensions`                           | option call  | loads extension ops    |
 |  [10]   | `EnableMemoryPattern`                             | option call  | enables memory reuse   |
-|  [11]   | `RunOptionsSetSyncStream`                         | option call  | binds sync stream      |
+|  [11]   | `RunOptions.AddRunConfigEntry`                    | option call  | sets run config entry  |
 
 ## [4]-[IMPLEMENTATION_LAW]
 

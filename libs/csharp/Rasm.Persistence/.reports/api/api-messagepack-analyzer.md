@@ -45,17 +45,17 @@ contract diagnostics.
 [ENTRYPOINT_SCOPE]: diagnostics and generated surfaces
 - rail: snapshot-codec
 
-| [INDEX] | [SURFACE]                           | [CALL_SHAPE]     | [CAPABILITY]             |
-| :-----: | :---------------------------------- | :--------------- | :----------------------- |
-|   [1]   | `UseMessagePackObjectAttribute`     | diagnostic       | requires contract marker |
-|   [2]   | `MessagePackObjectAllowPrivate`     | diagnostic       | checks private contract  |
-|   [3]   | `AttributeMessagePackObjectMembers` | diagnostic       | checks member markers    |
-|   [4]   | `CollidingFormatters`               | diagnostic       | checks resolver conflict |
-|   [5]   | `InvalidMessagePackObject`          | diagnostic       | checks object contract   |
-|   [6]   | `UnionAttributeRequired`            | diagnostic       | checks union contract    |
-|   [7]   | generated formatter class           | generated output | formats snapshot values  |
-|   [8]   | generated resolver class            | generated output | resolves snapshot values |
-|   [9]   | `AddSource`                         | generator call   | emits generated source   |
+| [INDEX] | [SURFACE]                               | [CALL_SHAPE]     | [CAPABILITY]             |
+| :-----: | :-------------------------------------- | :--------------- | :----------------------- |
+|   [1]   | `TypeMustBeMessagePackObject`           | diagnostic       | requires contract marker |
+|   [2]   | `MessagePackObjectAllowPrivateRequired` | diagnostic       | checks private contract  |
+|   [3]   | `MemberNeedsKey`                        | diagnostic       | checks member markers    |
+|   [4]   | `CollidingFormatters`                   | diagnostic       | checks resolver conflict |
+|   [5]   | `InvalidMessagePackObject`              | diagnostic       | checks object contract   |
+|   [6]   | `UnionAttributeRequired`                | diagnostic       | checks union contract    |
+|   [7]   | generated formatter class               | generated output | formats snapshot values  |
+|   [8]   | generated resolver class                | generated output | resolves snapshot values |
+|   [9]   | `AddSource`                             | generator call   | emits generated source   |
 
 ## [4]-[IMPLEMENTATION_LAW]
 

@@ -29,6 +29,7 @@
 - pages:
   - [api-livecharts.md](api-livecharts.md)
   - [api-skiasharp.md](api-skiasharp.md)
+  - [api-avalonia-skia.md](api-avalonia-skia.md)
   - [api-skia-harfbuzz.md](api-skia-harfbuzz.md)
   - [api-skia-native.md](api-skia-native.md)
   - [api-harfbuzz-native.md](api-harfbuzz-native.md)
@@ -39,6 +40,26 @@
 - pages:
   - [api-propertygrid.md](api-propertygrid.md)
   - [api-dialoghost.md](api-dialoghost.md)
+  - [api-panandzoom.md](api-panandzoom.md)
+  - [api-dock.md](api-dock.md)
+  - [api-avaloniaedit.md](api-avaloniaedit.md)
+  - [api-fluenticons.md](api-fluenticons.md)
+  - [api-asyncimageloader.md](api-asyncimageloader.md)
+
+[CONTENT]:
+- rail: content
+- pages:
+  - [api-markdig.md](api-markdig.md)
+
+[EVIDENCE]:
+- rail: evidence
+- pages:
+  - [api-headless.md](api-headless.md)
+
+[TOOLING]:
+- rail: tooling
+- pages:
+  - [api-hotavalonia.md](api-hotavalonia.md)
 
 [HOST_ASSEMBLIES]:
 - rail: host-assemblies

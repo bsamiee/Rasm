@@ -30,15 +30,39 @@
         <PackageReference Include="LiveChartsCore.SkiaSharpView.Avalonia" />
         <PackageReference Include="SkiaSharp" />
         <PackageReference Include="SkiaSharp.HarfBuzz" />
-        <PackageReference Include="SkiaSharp.NativeAssets.macOS" />
-        <PackageReference Include="HarfBuzzSharp.NativeAssets.macOS" />
         <PackageReference Include="Svg.Controls.Skia.Avalonia" />
         <PackageReference Include="System.Reactive" />
     </ItemGroup>
 
+    <!-- Self-contained native posture across the three desktop platforms. The glibc-coupled
+         Linux flavor that Avalonia.Skia drags is excluded in favor of NoDependencies. -->
+    <ItemGroup Label="Native Text And Raster Assets">
+        <PackageReference Include="HarfBuzzSharp.NativeAssets.macOS" />
+        <PackageReference Include="HarfBuzzSharp.NativeAssets.Linux" />
+        <PackageReference Include="HarfBuzzSharp.NativeAssets.Win32" />
+        <PackageReference Include="SkiaSharp.NativeAssets.macOS" />
+        <PackageReference Include="SkiaSharp.NativeAssets.Linux" ExcludeAssets="all" PrivateAssets="all" />
+        <PackageReference Include="SkiaSharp.NativeAssets.Linux.NoDependencies" />
+        <PackageReference Include="SkiaSharp.NativeAssets.Win32" />
+    </ItemGroup>
+
     <ItemGroup Label="Product Controls">
+        <PackageReference Include="AsyncImageLoader.Avalonia" />
+        <PackageReference Include="Avalonia.AvaloniaEdit" />
+        <PackageReference Include="PanAndZoom" />
+        <PackageReference Include="AvaloniaEdit.TextMate" />
         <PackageReference Include="bodong.Avalonia.PropertyGrid" />
         <PackageReference Include="DialogHost.Avalonia" />
+        <PackageReference Include="Dock.Avalonia" />
+        <PackageReference Include="Dock.Model.ReactiveUI" />
+        <PackageReference Include="FluentIcons.Avalonia" />
+        <PackageReference Include="Markdig" />
+    </ItemGroup>
+
+    <!-- HotAvalonia self-gates to Debug via its buildTransitive props; the reference stays
+         unconditional so packages.lock.json is configuration-independent. -->
+    <ItemGroup Label="Dev Loop">
+        <PackageReference Include="HotAvalonia" PrivateAssets="all" />
     </ItemGroup>
 
 </Project>

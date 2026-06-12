@@ -54,30 +54,30 @@
 [BINDING_ENTRYPOINTS]: Avalonia reactive binding operations
 - rail: reactive-ui
 
-| [INDEX] | [SURFACE]                    | [SURFACE_ROOT]                        | [RAIL]             |
-| :-----: | :--------------------------- | :------------------------------------ | :----------------- |
-|   [1]   | `GetActivationForView`       | `AvaloniaActivationForViewFetcher`    | activation lookup  |
-|   [2]   | `GetActivationForControl`    | `AvaloniaActivationForViewFetcher`    | control activation |
-|   [3]   | `BindCommandToObject`        | `AvaloniaCreatesCommandBinding`       | command binding    |
-|   [4]   | `FindRoutedEvent`            | `AvaloniaCreatesCommandBinding`       | event lookup       |
-|   [5]   | `GetNotificationForProperty` | `AvaloniaObjectObservableForProperty` | property stream    |
-|   [6]   | `GetAvaloniaProperty`        | `AvaloniaObjectObservableForProperty` | property lookup    |
-|   [7]   | `GetSubject`                 | `AvaloniaObjectReactiveExtensions`    | property subject   |
-|   [8]   | `GetBindingSubject`          | `AvaloniaObjectReactiveExtensions`    | binding subject    |
+| [INDEX] | [SURFACE]                    | [SURFACE_ROOT]                        | [RAIL]              |
+| :-----: | :--------------------------- | :------------------------------------ | :------------------ |
+|   [1]   | `GetActivationForView`       | `AvaloniaActivationForViewFetcher`    | activation lookup   |
+|   [2]   | `GetAffinityForView`         | `AvaloniaActivationForViewFetcher`    | activation affinity |
+|   [3]   | `BindCommandToObject`        | `AvaloniaCreatesCommandBinding`       | command binding     |
+|   [4]   | `GetAffinityForObject`       | `AvaloniaCreatesCommandBinding`       | binding affinity    |
+|   [5]   | `GetNotificationForProperty` | `AvaloniaObjectObservableForProperty` | property stream     |
+|   [6]   | `GetAffinityForObject`       | `AvaloniaObjectObservableForProperty` | property affinity   |
+|   [7]   | `GetSubject`                 | `AvaloniaObjectReactiveExtensions`    | property subject    |
+|   [8]   | `GetBindingSubject`          | `AvaloniaObjectReactiveExtensions`    | binding subject     |
 
 [VIEW_HOST_ENTRYPOINTS]: view host operations
 - rail: reactive-ui
 
-| [INDEX] | [SURFACE]             | [SURFACE_ROOT]                    | [RAIL]        |
-| :-----: | :-------------------- | :-------------------------------- | :------------ |
-|   [1]   | `ViewModel`           | `ReactiveUserControl<TViewModel>` | view model    |
-|   [2]   | `ViewModel`           | `ReactiveWindow<TViewModel>`      | view model    |
-|   [3]   | `Router`              | `RoutedViewHost`                  | router source |
-|   [4]   | `ViewContract`        | `RoutedViewHost`                  | view contract |
-|   [5]   | `DefaultContent`      | `RoutedViewHost`                  | fallback view |
-|   [6]   | `NavigateToViewModel` | `RoutedViewHost`                  | route view    |
-|   [7]   | `NavigateToViewModel` | `ViewModelViewHost`               | model view    |
-|   [8]   | `Schedule`            | `AvaloniaScheduler`               | UI scheduling |
+| [INDEX] | [SURFACE]        | [SURFACE_ROOT]                    | [RAIL]        |
+| :-----: | :--------------- | :-------------------------------- | :------------ |
+|   [1]   | `ViewModel`      | `ReactiveUserControl<TViewModel>` | view model    |
+|   [2]   | `ViewModel`      | `ReactiveWindow<TViewModel>`      | view model    |
+|   [3]   | `Router`         | `RoutedViewHost`                  | router source |
+|   [4]   | `ViewContract`   | `RoutedViewHost`                  | view contract |
+|   [5]   | `DefaultContent` | `RoutedViewHost`                  | fallback view |
+|   [6]   | `ViewModel`      | `ViewModelViewHost`               | model view    |
+|   [7]   | `DefaultContent` | `ViewModelViewHost`               | fallback view |
+|   [8]   | `Schedule`       | `AvaloniaScheduler`               | UI scheduling |
 
 ## [4]-[IMPLEMENTATION_LAW]
 

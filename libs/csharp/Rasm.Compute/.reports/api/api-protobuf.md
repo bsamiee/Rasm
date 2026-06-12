@@ -87,16 +87,16 @@ reflection, well-known types, repeated fields, maps, and JSON projection.
 [ENTRYPOINT_SCOPE]: JSON and reflection operations
 - rail: remote-contracts
 
-| [INDEX] | [SURFACE]                  | [CALL_SHAPE]    | [CAPABILITY]         |
-| :-----: | :------------------------- | :-------------- | :------------------- |
-|   [1]   | `JsonFormatter.Format`     | formatter call  | writes JSON payloads |
-|   [2]   | `JsonParser.Parse`         | parser call     | reads JSON payloads  |
-|   [3]   | `WithFormatDefaultValues`  | settings call   | sets JSON policy     |
-|   [4]   | `WithTypeRegistry`         | settings call   | sets type registry   |
-|   [5]   | `FileDescriptor.BuildFrom` | descriptor call | builds descriptors   |
-|   [6]   | `FieldMask.FromString`     | factory call    | parses field masks   |
-|   [7]   | `Timestamp.FromDateTime`   | factory call    | creates timestamp    |
-|   [8]   | `Duration.FromTimeSpan`    | factory call    | creates duration     |
+| [INDEX] | [SURFACE]                             | [CALL_SHAPE]    | [CAPABILITY]         |
+| :-----: | :------------------------------------ | :-------------- | :------------------- |
+|   [1]   | `JsonFormatter.Format`                | formatter call  | writes JSON payloads |
+|   [2]   | `JsonParser.Parse`                    | parser call     | reads JSON payloads  |
+|   [3]   | `WithFormatDefaultValues`             | settings call   | sets JSON policy     |
+|   [4]   | `WithTypeRegistry`                    | settings call   | sets type registry   |
+|   [5]   | `FileDescriptor.BuildFromByteStrings` | descriptor call | builds descriptors   |
+|   [6]   | `FieldMask.FromString`                | factory call    | parses field masks   |
+|   [7]   | `Timestamp.FromDateTime`              | factory call    | creates timestamp    |
+|   [8]   | `Duration.FromTimeSpan`               | factory call    | creates duration     |
 
 ## [4]-[IMPLEMENTATION_LAW]
 

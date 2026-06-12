@@ -13,9 +13,11 @@
         <PackageReference Include="CommunityToolkit.HighPerformance" />
         <PackageReference Include="Google.Protobuf" />
         <PackageReference Include="Grpc.Net.Client" />
+        <PackageReference Include="Grpc.Net.Client.Web" />
         <PackageReference Include="Microsoft.IO.RecyclableMemoryStream" />
         <PackageReference Include="Microsoft.ML.OnnxRuntime" />
         <PackageReference Include="Microsoft.ML.OnnxRuntime.Extensions" />
+        <PackageReference Include="NodaTime.Serialization.Protobuf" />
         <PackageReference Include="System.Numerics.Tensors" />
         <PackageReference Include="UnitsNet" />
     </ItemGroup>

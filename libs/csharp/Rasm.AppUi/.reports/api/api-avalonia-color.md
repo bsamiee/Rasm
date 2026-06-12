@@ -79,7 +79,7 @@
 |   [4]   | `HexInputAlphaPosition` | `ColorView`    | alpha placement |
 |   [5]   | `IsAlphaEnabled`        | `ColorView`    | alpha toggle    |
 |   [6]   | `IsColorPaletteVisible` | `ColorView`    | palette toggle  |
-|   [7]   | `ColorPalette`          | `ColorView`    | palette source  |
+|   [7]   | `Palette`               | `ColorView`    | palette source  |
 |   [8]   | `PaletteColumnCount`    | `ColorView`    | palette layout  |
 
 [PRIMITIVE_ENTRYPOINTS]: primitive and helper operations

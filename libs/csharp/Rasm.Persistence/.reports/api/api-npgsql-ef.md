@@ -10,6 +10,7 @@ query translation, type mapping, value generation, and scaffolding.
 - package: `Npgsql.EntityFrameworkCore.PostgreSQL`
 - assembly: `Npgsql.EntityFrameworkCore.PostgreSQL`
 - namespace: `Npgsql.EntityFrameworkCore.PostgreSQL`
+- plugin package: `Npgsql.EntityFrameworkCore.PostgreSQL.NodaTime`
 - asset: runtime library
 - rail: store-provider
 
@@ -45,13 +46,13 @@ query translation, type mapping, value generation, and scaffolding.
 [MIGRATION_TYPES]: PostgreSQL migration operations
 - rail: store-provider
 
-| [INDEX] | [SYMBOL]                           | [PACKAGE_ROLE]      | [CAPABILITY]             |
-| :-----: | :--------------------------------- | :------------------ | :----------------------- |
-|   [1]   | `CreatePostgresExtensionOperation` | migration operation | creates extension        |
-|   [2]   | `AlterDatabaseOperation`           | migration operation | alters database metadata |
-|   [3]   | `PostgresEnum`                     | metadata operation  | declares enum type       |
-|   [4]   | `PostgresRange`                    | metadata operation  | declares range type      |
-|   [5]   | `NpgsqlHistoryRepository`          | migration service   | owns migration history   |
+| [INDEX] | [SYMBOL]                        | [PACKAGE_ROLE]      | [CAPABILITY]           |
+| :-----: | :------------------------------ | :------------------ | :--------------------- |
+|   [1]   | `PostgresExtension`             | metadata operation  | declares extension     |
+|   [2]   | `NpgsqlCreateDatabaseOperation` | migration operation | creates store database |
+|   [3]   | `PostgresEnum`                  | metadata operation  | declares enum type     |
+|   [4]   | `PostgresRange`                 | metadata operation  | declares range type    |
+|   [5]   | `NpgsqlHistoryRepository`       | migration service   | owns migration history |
 
 ## [3]-[ENTRYPOINTS]
 
@@ -63,7 +64,7 @@ query translation, type mapping, value generation, and scaffolding.
 |   [1]   | `UseNpgsql`                | builder extension  | applies provider policy |
 |   [2]   | `AddEntityFrameworkNpgsql` | service extension  | registers EF services   |
 |   [3]   | `IsNpgsql`                 | database extension | identifies provider     |
-|   [4]   | `UseNodaTime`              | provider option    | maps NodaTime values    |
+|   [4]   | `UseNodaTime`              | plugin option      | maps NodaTime values    |
 |   [5]   | `MapEnum`                  | provider option    | maps enum type          |
 |   [6]   | `MapRange`                 | provider option    | maps range type         |
 |   [7]   | `MigrationsAssembly`       | provider option    | selects migration owner |
@@ -72,13 +73,13 @@ query translation, type mapping, value generation, and scaffolding.
 [ENTRYPOINT_SCOPE]: query and migration operations
 - rail: store-provider
 
-| [INDEX] | [SURFACE]              | [CALL_SHAPE]       | [CAPABILITY]             |
-| :-----: | :--------------------- | :----------------- | :----------------------- |
-|   [1]   | `HasPostgresExtension` | model extension    | declares extension       |
-|   [2]   | `HasPostgresEnum`      | model extension    | declares enum            |
-|   [3]   | `HasPostgresRange`     | model extension    | declares range           |
-|   [4]   | `ForNpgsqlHasName`     | metadata extension | sets provider name       |
-|   [5]   | `MigrationBuilder`     | migration surface  | emits relational changes |
+| [INDEX] | [SURFACE]              | [CALL_SHAPE]    | [CAPABILITY]              |
+| :-----: | :--------------------- | :-------------- | :------------------------ |
+|   [1]   | `HasPostgresExtension` | model extension | declares extension        |
+|   [2]   | `HasPostgresEnum`      | model extension | declares enum             |
+|   [3]   | `HasPostgresRange`     | model extension | declares range            |
+|   [4]   | `UseIdentityColumns`   | model extension | selects identity strategy |
+|   [5]   | `UseSerialColumns`     | model extension | selects serial strategy   |
 
 ## [4]-[IMPLEMENTATION_LAW]
 

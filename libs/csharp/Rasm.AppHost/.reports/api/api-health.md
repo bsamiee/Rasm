@@ -22,9 +22,7 @@
 |   [1]   | `HealthCheckService`          | evaluator service  | health execution     |
 |   [2]   | `HealthCheckServiceOptions`   | registration store | contributor registry |
 |   [3]   | `HealthCheckPublisherOptions` | publisher policy   | report cadence       |
-|   [4]   | `DelegateHealthCheck`         | delegate adapter   | inline contributor   |
-|   [5]   | `IHealthChecksBuilder`        | builder contract   | registration rail    |
-|   [6]   | `HealthCheckLogScope`         | logging scope      | check diagnostics    |
+|   [4]   | `IHealthChecksBuilder`        | builder contract   | registration rail    |
 
 [PUBLIC_TYPE_SCOPE]: health contract family
 - rail: health

@@ -83,15 +83,15 @@
 [COMMAND_ENTRYPOINTS]: command and command-binding operations
 - rail: reactive
 
-| [INDEX] | [SURFACE]              | [SURFACE_ROOT]     | [RAIL]          |
-| :-----: | :--------------------- | :----------------- | :-------------- |
-|   [1]   | `Create`               | `ReactiveCommand`  | command factory |
-|   [2]   | `CreateFromTask`       | `ReactiveCommand`  | task command    |
-|   [3]   | `CreateFromObservable` | `ReactiveCommand`  | stream command  |
-|   [4]   | `CreateCombined`       | `ReactiveCommand`  | command batch   |
-|   [5]   | `CanExecute`           | `IReactiveCommand` | command gate    |
-|   [6]   | `IsExecuting`          | `IReactiveCommand` | execution state |
-|   [7]   | `BindCommand`          | `CommandBinder`    | command binding |
+| [INDEX] | [SURFACE]              | [SURFACE_ROOT]                        | [RAIL]          |
+| :-----: | :--------------------- | :------------------------------------ | :-------------- |
+|   [1]   | `Create`               | `ReactiveCommand`                     | command factory |
+|   [2]   | `CreateFromTask`       | `ReactiveCommand`                     | task command    |
+|   [3]   | `CreateFromObservable` | `ReactiveCommand`                     | stream command  |
+|   [4]   | `CreateCombined`       | `ReactiveCommand`                     | command batch   |
+|   [5]   | `CanExecute`           | `ReactiveCommandBase<TParam,TResult>` | command gate    |
+|   [6]   | `IsExecuting`          | `ReactiveCommandBase<TParam,TResult>` | execution state |
+|   [7]   | `BindCommand`          | `CommandBinder`                       | command binding |
 
 [ACTIVATION_ENTRYPOINTS]: lifecycle operations
 - rail: reactive

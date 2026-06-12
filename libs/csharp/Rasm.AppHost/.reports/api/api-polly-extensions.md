@@ -1,8 +1,8 @@
 # [RASM_APPHOST_API_POLLY_EXTENSIONS]
 
 `Polly.Extensions` supplies resilience telemetry options, telemetry enrichment,
-metering integration, and builder extensions that add telemetry to resilience
-pipelines.
+metering integration, dependency-injection pipeline registration, and builder
+extensions that add telemetry to resilience pipelines.
 
 ## [1]-[PACKAGE_SURFACE]
 
@@ -26,6 +26,7 @@ pipelines.
 |   [3]   | `SeverityProviderArguments`                    | callback argument  | event severity selection |
 |   [4]   | `EnrichmentContext<TKey,TValue>`               | enrichment context | telemetry enrichment     |
 |   [5]   | `MeteringEnricher`                             | enricher           | metric enrichment        |
+|   [6]   | `PollyServiceCollectionExtensions`             | DI extension       | pipeline registration    |
 
 ## [3]-[ENTRYPOINTS]
 
@@ -40,6 +41,9 @@ pipelines.
 |   [4]   | `TelemetryOptions.MeteringEnrichers` | option value      | metric dimension enrichment   |
 |   [5]   | `TelemetryOptions.ResultFormatter`   | option value      | result value formatting       |
 |   [6]   | `TelemetryOptions.SeverityProvider`  | option value      | event severity classification |
+|   [7]   | `AddResiliencePipeline`              | DI extension      | keyed pipeline registration   |
+|   [8]   | `AddResiliencePipelines`             | DI extension      | bulk pipeline registration    |
+|   [9]   | `AddResiliencePipelineRegistry`      | DI extension      | registry registration         |
 
 ## [4]-[IMPLEMENTATION_LAW]
 

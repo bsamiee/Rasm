@@ -38,16 +38,15 @@
 [ELEMENT_TREE]: styled, logical, visual, and layout participation
 - rail: retained-ui
 
-| [INDEX] | [SYMBOL]        | [RAIL]               |
-| :-----: | :-------------- | :------------------- |
-|   [1]   | `StyledElement` | style participant    |
-|   [2]   | `Visual`        | visual tree node     |
-|   [3]   | `Interactive`   | routed input node    |
-|   [4]   | `InputElement`  | focus input node     |
-|   [5]   | `Layoutable`    | measure arrangement  |
-|   [6]   | `ILogical`      | logical tree node    |
-|   [7]   | `IVisual`       | visual tree contract |
-|   [8]   | `IResourceHost` | resource owner       |
+| [INDEX] | [SYMBOL]        | [RAIL]              |
+| :-----: | :-------------- | :------------------ |
+|   [1]   | `StyledElement` | style participant   |
+|   [2]   | `Visual`        | visual tree node    |
+|   [3]   | `Interactive`   | routed input node   |
+|   [4]   | `InputElement`  | focus input node    |
+|   [5]   | `Layoutable`    | measure arrangement |
+|   [6]   | `ILogical`      | logical tree node   |
+|   [7]   | `IResourceHost` | resource owner      |
 
 [CONTROL_SURFACES]: product surface and shell controls
 - rail: retained-ui
@@ -65,7 +64,6 @@
 |   [9]   | `Button`         | command surface     |
 |  [10]   | `TextBox`        | text entry surface  |
 |  [11]   | `TreeView`       | hierarchy surface   |
-|  [12]   | `DataGrid`       | tabular surface     |
 
 [STATE_AND_STYLE]: binding, resources, styles, and templates
 - rail: retained-ui
@@ -138,14 +136,14 @@
 [XAML_AND_RENDER_OPERATIONS]: XAML load and visual invalidation
 - rail: retained-ui
 
-| [INDEX] | [SURFACE]           | [SURFACE_ROOT]        | [RAIL]           |
-| :-----: | :------------------ | :-------------------- | :--------------- |
-|   [1]   | `Configure<TApp>`   | `AppBuilder`          | application root |
-|   [2]   | `Configure`         | `AppBuilder`          | application root |
-|   [3]   | `Load`              | `AvaloniaXamlLoader`  | XAML materialize |
-|   [4]   | `InvalidateVisual`  | `Visual`              | render refresh   |
-|   [5]   | `InvalidateMeasure` | `Layoutable`          | layout refresh   |
-|   [6]   | `AttachDevTools`    | diagnostics extension | diagnostics      |
+| [INDEX] | [SURFACE]           | [SURFACE_ROOT]       | [RAIL]           |
+| :-----: | :------------------ | :------------------- | :--------------- |
+|   [1]   | `Configure<TApp>`   | `AppBuilder`         | application root |
+|   [2]   | `Configure`         | `AppBuilder`         | application root |
+|   [3]   | `Load`              | `AvaloniaXamlLoader` | XAML materialize |
+|   [4]   | `InvalidateVisual`  | `Visual`             | render refresh   |
+|   [5]   | `InvalidateMeasure` | `Layoutable`         | layout refresh   |
+|   [6]   | `InvalidateArrange` | `Layoutable`         | arrange refresh  |
 
 ## [4]-[IMPLEMENTATION_LAW]
 

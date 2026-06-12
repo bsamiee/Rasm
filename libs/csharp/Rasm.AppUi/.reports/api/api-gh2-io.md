@@ -78,8 +78,8 @@
 | :-----: | :---------------- | :------------- | :----------- |
 |   [1]   | `Read`            | `IBinary`      | binary read  |
 |   [2]   | `Write`           | `IBinary`      | binary write |
-|   [3]   | `Read`            | `ISml`         | SML read     |
-|   [4]   | `Write`           | `ISml`         | SML write    |
+|   [3]   | `Write`           | `ISml`         | SML write    |
+|   [4]   | `WriteLine`       | `SmlWriter`    | SML emit     |
 |   [5]   | `TryFind`         | `NamedList<T>` | named lookup |
 |   [6]   | `Add`             | `NamedList<T>` | named add    |
 |   [7]   | `FindDifferences` | `Node`         | node diff    |

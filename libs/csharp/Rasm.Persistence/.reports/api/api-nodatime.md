@@ -69,7 +69,7 @@ resolvers for store profiles, snapshots, and support receipts.
 | [INDEX] | [SURFACE]           | [CALL_SHAPE]    | [CAPABILITY]              |
 | :-----: | :------------------ | :-------------- | :------------------------ |
 |   [1]   | `GetCurrentInstant` | clock call      | reads current instant     |
-|   [2]   | `FromUtc`           | factory call    | creates local date-time   |
+|   [2]   | `FromUtc`           | factory call    | creates instant           |
 |   [3]   | `InZone`            | conversion call | maps instant to zone      |
 |   [4]   | `AtStrictly`        | zone call       | maps local time strictly  |
 |   [5]   | `AtLeniently`       | zone call       | maps local time leniently |

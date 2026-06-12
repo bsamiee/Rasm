@@ -16,11 +16,10 @@
 [PUBLIC_TYPE_SCOPE]: hosting integration
 - rail: telemetry
 
-| [INDEX] | [SYMBOL]                          | [TYPE_FAMILY] | [RAIL]                    |
-| :-----: | :-------------------------------- | :------------ | :------------------------ |
-|   [1]   | `OpenTelemetryBuilder`            | host builder  | telemetry provider setup  |
-|   [2]   | `OpenTelemetryServicesExtensions` | DI extension  | service registration      |
-|   [3]   | `HostingExtensionsEventSource`    | event source  | hosting integration trace |
+| [INDEX] | [SYMBOL]                          | [TYPE_FAMILY] | [RAIL]                   |
+| :-----: | :-------------------------------- | :------------ | :----------------------- |
+|   [1]   | `OpenTelemetryBuilder`            | host builder  | telemetry provider setup |
+|   [2]   | `OpenTelemetryServicesExtensions` | DI extension  | service registration     |
 
 ## [3]-[ENTRYPOINTS]
 
@@ -36,8 +35,9 @@
 |   [5]   | `WithTracing(Action)`           | tracing delegate  | trace provider setup    |
 |   [6]   | `WithMetrics()`                 | metrics admission | default meter provider  |
 |   [7]   | `WithMetrics(Action)`           | metrics delegate  | meter provider setup    |
-|   [8]   | `WithLogging(Action)`           | logging delegate  | logger provider setup   |
-|   [9]   | `WithLogging(Action, Options)`  | logging delegate  | logger options setup    |
+|   [8]   | `WithLogging()`                 | logging admission | default logger provider |
+|   [9]   | `WithLogging(Action)`           | logging delegate  | logger provider setup   |
+|  [10]   | `WithLogging(Action, Options)`  | logging delegate  | logger options setup    |
 
 ## [4]-[IMPLEMENTATION_LAW]
 

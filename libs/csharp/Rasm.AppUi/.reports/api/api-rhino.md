@@ -21,15 +21,15 @@
 [DOCUMENT_TYPES]: document, app, and command surface
 - rail: host-rhino
 
-| [INDEX] | [SYMBOL]     | [RAIL]            |
-| :-----: | :----------- | :---------------- |
-|   [1]   | `RhinoDoc`   | document root     |
-|   [2]   | `RhinoApp`   | application root  |
-|   [3]   | `Command`    | command base      |
-|   [4]   | `RunCommand` | command execution |
-|   [5]   | `Result`     | command result    |
-|   [6]   | `GetObject`  | object selection  |
-|   [7]   | `GetPoint`   | point selection   |
+| [INDEX] | [SYMBOL]    | [RAIL]           |
+| :-----: | :---------- | :--------------- |
+|   [1]   | `RhinoDoc`  | document root    |
+|   [2]   | `RhinoApp`  | application root |
+|   [3]   | `Command`   | command base     |
+|   [4]   | `RhinoGet`  | input utility    |
+|   [5]   | `Result`    | command result   |
+|   [6]   | `GetObject` | object selection |
+|   [7]   | `GetPoint`  | point selection  |
 
 [VIEW_DISPLAY_TYPES]: view, viewport, display, and capture surface
 - rail: host-rhino
@@ -38,7 +38,7 @@
 | :-----: | :---------------- | :---------------- |
 |   [1]   | `RhinoView`       | viewport control  |
 |   [2]   | `RhinoViewport`   | viewport state    |
-|   [3]   | `RhinoViewTable`  | view collection   |
+|   [3]   | `ViewTable`       | view collection   |
 |   [4]   | `DisplayPipeline` | display callback  |
 |   [5]   | `DisplayConduit`  | display conduit   |
 |   [6]   | `DisplayMaterial` | display material  |
@@ -53,7 +53,7 @@
 |   [1]   | `RhinoObject`      | document object      |
 |   [2]   | `ObjRef`           | object reference     |
 |   [3]   | `ObjectAttributes` | object attributes    |
-|   [4]   | `RhinoObjectTable` | object table         |
+|   [4]   | `ObjectTable`      | object table         |
 |   [5]   | `Layer`            | layer record         |
 |   [6]   | `GeometryBase`     | geometry root        |
 |   [7]   | `Brep`             | boundary geometry    |
@@ -92,15 +92,15 @@
 [OBJECT_ENTRYPOINTS]: object and geometry operations
 - rail: host-rhino
 
-| [INDEX] | [SURFACE]           | [SURFACE_ROOT]     | [RAIL]            |
-| :-----: | :------------------ | :----------------- | :---------------- |
-|   [1]   | `Find`              | `RhinoObjectTable` | object lookup     |
-|   [2]   | `Add`               | `RhinoObjectTable` | object add        |
-|   [3]   | `Delete`            | `RhinoObjectTable` | object delete     |
-|   [4]   | `ModifyAttributes`  | `RhinoObjectTable` | attribute update  |
-|   [5]   | `Select`            | `RhinoObject`      | object selection  |
-|   [6]   | `DuplicateGeometry` | `RhinoObject`      | geometry clone    |
-|   [7]   | `GetObject`         | `ObjRef`           | reference resolve |
+| [INDEX] | [SURFACE]           | [SURFACE_ROOT] | [RAIL]            |
+| :-----: | :------------------ | :------------- | :---------------- |
+|   [1]   | `Find`              | `ObjectTable`  | object lookup     |
+|   [2]   | `Add`               | `ObjectTable`  | object add        |
+|   [3]   | `Delete`            | `ObjectTable`  | object delete     |
+|   [4]   | `ModifyAttributes`  | `ObjectTable`  | attribute update  |
+|   [5]   | `Select`            | `RhinoObject`  | object selection  |
+|   [6]   | `DuplicateGeometry` | `RhinoObject`  | geometry clone    |
+|   [7]   | `Object`            | `ObjRef`       | reference resolve |
 
 ## [4]-[IMPLEMENTATION_LAW]
 

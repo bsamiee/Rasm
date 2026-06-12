@@ -1,0 +1,10 @@
+<Project Sdk="Microsoft.NET.Sdk">
+    <ItemGroup>
+        <ProjectReference Include="../../../../libs/csharp/Rasm.AppUi/Rasm.AppUi.csproj" />
+        <ProjectReference Include="../../_testkit/Rasm.TestKit.csproj" />
+    </ItemGroup>
+    <ItemGroup Label="Headless UI And Render Hash">
+        <PackageReference Include="Avalonia.Headless.XUnit" PrivateAssets="all" />
+        <PackageReference Include="Avalonia.Skia" PrivateAssets="all" />
+    </ItemGroup>
+</Project>

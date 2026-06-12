@@ -27,7 +27,7 @@
 |   [3]   | `ComponentAttributes`         | component UI   |
 |   [4]   | `ChainAttributes`             | chain UI       |
 |   [5]   | `FloatingParameterAttributes` | parameter UI   |
-|   [6]   | `Wire`                        | wire model     |
+|   [6]   | `WireData`                    | wire model     |
 
 [COMPONENT_TYPES]: component, parameter, and solve surface
 - rail: host-gh2
@@ -46,41 +46,40 @@
 [BAKE_TYPES]: bake and Rhino interop surface
 - rail: host-gh2
 
-| [INDEX] | [SYMBOL]                | [RAIL]         |
-| :-----: | :---------------------- | :------------- |
-|   [1]   | `BakeContext`           | bake context   |
-|   [2]   | `BakeKey`               | bake identity  |
-|   [3]   | `BakeDataState`         | bake state     |
-|   [4]   | `BakeUpdateMode`        | bake update    |
-|   [5]   | `IBakeAssistant`        | bake assistant |
-|   [6]   | `RhinoDocBakeAssistant` | Rhino bake     |
+| [INDEX] | [SYMBOL]             | [RAIL]        |
+| :-----: | :------------------- | :------------ |
+|   [1]   | `BakeContext`        | bake context  |
+|   [2]   | `BakeKey`            | bake identity |
+|   [3]   | `BakeDataState`      | bake state    |
+|   [4]   | `BakeUpdateMode`     | bake update   |
+|   [5]   | `IBakeAware`         | bake contract |
+|   [6]   | `BakePropertiesForm` | bake UI       |
 
 ## [3]-[ENTRYPOINTS]
 
 [COMPONENT_ENTRYPOINTS]: component and solve operations
 - rail: host-gh2
 
-| [INDEX] | [SURFACE]                   | [SURFACE_ROOT] | [RAIL]           |
-| :-----: | :-------------------------- | :------------- | :--------------- |
-|   [1]   | `CreateAttributes`          | `Component`    | UI attributes    |
-|   [2]   | `AppendAdditionalMenuItems` | component UI   | context menu     |
-|   [3]   | `Render`                    | attributes     | canvas render    |
-|   [4]   | `IDataAccess` operations    | `IDataAccess`  | data transfer    |
-|   [5]   | `InputAdder`                | component API  | input parameter  |
-|   [6]   | `OutputAdder`               | component API  | output parameter |
+| [INDEX] | [SURFACE]                | [SURFACE_ROOT]        | [RAIL]           |
+| :-----: | :----------------------- | :-------------------- | :--------------- |
+|   [1]   | `CreateAttributes`       | `Component`           | UI attributes    |
+|   [2]   | `AddInputs`              | `Component`           | input parameter  |
+|   [3]   | `AddOutputs`             | `Component`           | output parameter |
+|   [4]   | `Layout`                 | `ComponentAttributes` | canvas layout    |
+|   [5]   | `IDataAccess` operations | `IDataAccess`         | data transfer    |
 
 [DOCUMENT_ENTRYPOINTS]: document, canvas, and bake operations
 - rail: host-gh2
 
-| [INDEX] | [SURFACE]          | [SURFACE_ROOT] | [RAIL]             |
-| :-----: | :----------------- | :------------- | :----------------- |
-|   [1]   | `BakeObject`       | `BakeContext`  | object bake        |
-|   [2]   | `BakeTree`         | `BakeContext`  | tree bake          |
-|   [3]   | `FindBakedObjects` | `BakeContext`  | bake lookup        |
-|   [4]   | `WithProcess`      | `BakeContext`  | bake process       |
-|   [5]   | `Render`           | canvas UI      | canvas render      |
-|   [6]   | `Schedule`         | document API   | scheduled work     |
-|   [7]   | `Expire`           | object API     | solve invalidation |
+| [INDEX] | [SURFACE]          | [SURFACE_ROOT]   | [RAIL]             |
+| :-----: | :----------------- | :--------------- | :----------------- |
+|   [1]   | `BakeObject`       | `BakeContext`    | object bake        |
+|   [2]   | `BakeTree`         | `BakeContext`    | tree bake          |
+|   [3]   | `FindBakedObjects` | `BakeContext`    | bake lookup        |
+|   [4]   | `WithProcess`      | `BakeContext`    | bake process       |
+|   [5]   | `Document`         | `Canvas`         | canvas document    |
+|   [6]   | `Solution`         | `Document`       | solution server    |
+|   [7]   | `Expire`           | `DocumentObject` | solve invalidation |
 
 ## [4]-[IMPLEMENTATION_LAW]
 

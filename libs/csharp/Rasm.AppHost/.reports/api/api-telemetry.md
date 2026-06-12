@@ -1,8 +1,7 @@
 # [RASM_APPHOST_API_TELEMETRY]
 
 `Microsoft.Extensions.Telemetry` admits log buffering, enrichment, redaction,
-sampling, latency context, pooled diagnostics helpers, and HTTP route telemetry
-helpers into the observability rail.
+sampling, and latency context into the observability rail.
 
 ## [1]-[PACKAGE_SURFACE]
 
@@ -15,7 +14,6 @@ helpers into the observability rail.
 - namespace: `Microsoft.Extensions.Diagnostics.Sampling`
 - namespace: `Microsoft.Extensions.Logging`
 - namespace: `Microsoft.Extensions.DependencyInjection`
-- namespace: `Microsoft.Extensions.Http.Diagnostics`
 - asset: runtime library
 - rail: observability
 
@@ -24,34 +22,24 @@ helpers into the observability rail.
 [PUBLIC_TYPE_SCOPE]: buffering and enrichment family
 - rail: observability
 
-| [INDEX] | [SYMBOL]                         | [TYPE_FAMILY]     | [RAIL]                    |
-| :-----: | :------------------------------- | :---------------- | :------------------------ |
-|   [1]   | `GlobalLogBufferingOptions`      | buffering options | global log buffer policy  |
-|   [2]   | `LogBufferingFilterRule`         | filter rule       | buffered event selection  |
-|   [3]   | `LogBufferingFilterRuleSelector` | rule selector     | buffering rule selection  |
-|   [4]   | `SerializedLogRecord`            | log record value  | buffered record payload   |
-|   [5]   | `DeserializedLogRecord`          | log record value  | restored record payload   |
-|   [6]   | `ApplicationLogEnricherOptions`  | enricher options  | application dimensions    |
-|   [7]   | `ProcessLogEnricherOptions`      | enricher options  | process dimensions        |
-|   [8]   | `ProcessLogEnricher`             | enricher          | process tag producer      |
-|   [9]   | `StaticProcessLogEnricher`       | enricher          | static process tag source |
+| [INDEX] | [SYMBOL]                        | [TYPE_FAMILY]     | [RAIL]                   |
+| :-----: | :------------------------------ | :---------------- | :----------------------- |
+|   [1]   | `GlobalLogBufferingOptions`     | buffering options | global log buffer policy |
+|   [2]   | `LogBufferingFilterRule`        | filter rule       | buffered event selection |
+|   [3]   | `ApplicationLogEnricherOptions` | enricher options  | application dimensions   |
+|   [4]   | `ProcessLogEnricherOptions`     | enricher options  | process dimensions       |
 
-[PUBLIC_TYPE_SCOPE]: redaction, sampling, latency, and HTTP route family
+[PUBLIC_TYPE_SCOPE]: redaction, sampling, and latency family
 - rail: observability
 
-| [INDEX] | [SYMBOL]                               | [TYPE_FAMILY]      | [RAIL]                    |
-| :-----: | :------------------------------------- | :----------------- | :------------------------ |
-|   [1]   | `LoggerRedactionOptions`               | redaction options  | classified log redaction  |
-|   [2]   | `LoggerEnrichmentOptions`              | enrichment options | tag collection policy     |
-|   [3]   | `RandomProbabilisticSampler`           | sampler            | log sampling              |
-|   [4]   | `RandomProbabilisticSamplerOptions`    | sampler options    | probabilistic policy      |
-|   [5]   | `RandomProbabilisticSamplerFilterRule` | sampler rule       | sampled event selection   |
-|   [6]   | `ILogSamplingFilterRule`               | sampler contract   | sampling rule abstraction |
-|   [7]   | `LatencyContextOptions`                | latency options    | latency context policy    |
-|   [8]   | `LatencyConsoleOptions`                | exporter options   | latency console export    |
-|   [9]   | `HttpRouteParameter`                   | route value        | route parameter policy    |
-|  [10]   | `IHttpRouteParser`                     | route parser       | route segment parsing     |
-|  [11]   | `IHttpRouteFormatter`                  | route formatter    | classified route format   |
+| [INDEX] | [SYMBOL]                               | [TYPE_FAMILY]      | [RAIL]                   |
+| :-----: | :------------------------------------- | :----------------- | :----------------------- |
+|   [1]   | `LoggerRedactionOptions`               | redaction options  | classified log redaction |
+|   [2]   | `LoggerEnrichmentOptions`              | enrichment options | tag collection policy    |
+|   [3]   | `RandomProbabilisticSamplerOptions`    | sampler options    | probabilistic policy     |
+|   [4]   | `RandomProbabilisticSamplerFilterRule` | sampler rule       | sampled event selection  |
+|   [5]   | `LatencyContextOptions`                | latency options    | latency context policy   |
+|   [6]   | `LatencyConsoleOptions`                | exporter options   | latency console export   |
 
 ## [3]-[ENTRYPOINTS]
 
@@ -70,35 +58,32 @@ helpers into the observability rail.
 [ENTRYPOINT_SCOPE]: service operations
 - rail: observability
 
-| [INDEX] | [SURFACE]                       | [ENTRY_FAMILY]    | [RAIL]                   |
-| :-----: | :------------------------------ | :---------------- | :----------------------- |
-|   [1]   | `AddServiceLogEnricher`         | service extension | service dimensions       |
-|   [2]   | `AddApplicationLogEnricher`     | service extension | application dimensions   |
-|   [3]   | `AddProcessLogEnricher`         | service extension | process dimensions       |
-|   [4]   | `AddLatencyContext`             | service extension | latency context          |
-|   [5]   | `AddConsoleLatencyDataExporter` | service extension | latency console export   |
-|   [6]   | `AddHttpRouteProcessor`         | service extension | HTTP route normalization |
+| [INDEX] | [SURFACE]                       | [ENTRY_FAMILY]    | [RAIL]                                       |
+| :-----: | :------------------------------ | :---------------- | :------------------------------------------- |
+|   [1]   | `AddApplicationLogEnricher`     | service extension | application dimensions                       |
+|   [2]   | `AddServiceLogEnricher`         | service extension | obsolete predecessor of application enricher |
+|   [3]   | `AddProcessLogEnricher`         | service extension | process dimensions                           |
+|   [4]   | `AddLatencyContext`             | service extension | latency context                              |
+|   [5]   | `AddConsoleLatencyDataExporter` | service extension | latency console export                       |
 
 ## [4]-[IMPLEMENTATION_LAW]
 
 [TELEMETRY_TOPOLOGY]:
-- namespaces: buffering, enrichment, latency, sampling, logging, HTTP diagnostics
-- buffering surface: global log buffer options, filter rules, serialized and deserialized records
+- namespaces: buffering, enrichment, latency, sampling, logging
+- buffering surface: global log buffer options and filter rules
 - enrichment surface: application, service, and process tag producers
 - redaction surface: logger redaction options and redaction logging extension
 - sampling surface: trace-based, probabilistic, and custom sampler registration
 - latency surface: latency context registration and console exporter options
-- HTTP route surface: parser, formatter, parameter redaction mode, route processor
 
 [LOCAL_ADMISSION]:
 - Telemetry policy is registered at composition boundaries.
 - Enrichment adds bounded dimensions and never smuggles domain payloads into logs.
 - Redaction is a classifier-backed logging policy, not string cleanup at call sites.
 - Sampling decides observability volume before sinks see events.
-- Route processing normalizes telemetry labels without mutating the outbound request contract.
 
 [RAIL_LAW]:
 - Package: `Microsoft.Extensions.Telemetry`
 - Owns: first-party telemetry policy helpers
-- Accept: buffering, enrichment, redaction, sampling, latency, and route normalization policy
+- Accept: buffering, enrichment, redaction, sampling, and latency policy
 - Reject: log-call-local telemetry policy

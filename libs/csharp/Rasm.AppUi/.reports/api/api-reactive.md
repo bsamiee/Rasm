@@ -12,7 +12,7 @@
 - namespace: `System.Reactive.Subjects`
 - namespace: `System.Reactive.Concurrency`
 - namespace: `System.Reactive.Disposables`
-- namespace: `System.ObservableExtensions`
+- namespace: `System` (`ObservableExtensions`)
 - asset: runtime library
 - rail: streams
 

@@ -8,9 +8,10 @@
 - package: `Svg.Controls.Skia.Avalonia`
 - assembly: `Svg.Controls.Skia.Avalonia`
 - assembly: `Svg.Skia`
-- namespace: `Svg.Controls.Skia.Avalonia`
+- assembly: `Svg.SceneGraph`
 - namespace: `Avalonia.Svg.Skia`
 - namespace: `Svg.Skia`
+- namespace: `Svg.Model`
 - asset: runtime library
 - asset: restored SVG rendering library
 - rail: assets
@@ -38,7 +39,7 @@
 | :-----: | :------------------------- | :-------------------- |
 |   [1]   | `SKSvg`                    | SVG document          |
 |   [2]   | `SKSvgSettings`            | load settings         |
-|   [3]   | `SvgDocumentLoadOptions`   | load options          |
+|   [3]   | `SvgSceneNode`             | scene node            |
 |   [4]   | `SvgParameters`            | render parameters     |
 |   [5]   | `SvgSceneDocument`         | retained document     |
 |   [6]   | `SvgSceneRenderer`         | scene renderer        |
@@ -58,37 +59,37 @@
 |   [2]   | `Source`           | `Svg`          | object source     |
 |   [3]   | `Stretch`          | `Svg`          | stretch policy    |
 |   [4]   | `StretchDirection` | `Svg`          | stretch direction |
-|   [5]   | `SourceRect`       | `Svg`          | source bounds     |
-|   [6]   | `Picture`          | `SvgImage`     | picture surface   |
-|   [7]   | `SkSvg`            | `SvgImage`     | document surface  |
+|   [5]   | `Size`             | `SvgImage`     | image size        |
+|   [6]   | `Source`           | `SvgImage`     | image source      |
+|   [7]   | `CurrentColor`     | `SvgImage`     | color override    |
 |   [8]   | `InvalidateVisual` | `Svg`          | redraw request    |
 
 [LOAD_AND_RENDER_ENTRYPOINTS]: document load and render operations
 - rail: assets
 
-| [INDEX] | [SURFACE]               | [SURFACE_ROOT]      | [RAIL]          |
-| :-----: | :---------------------- | :------------------ | :-------------- |
-|   [1]   | `LoadFromSourceAsync`   | `Svg`               | async load      |
-|   [2]   | `LoadFromPath`          | `Svg`               | path load       |
-|   [3]   | `LoadFromStream`        | `Svg`               | stream load     |
-|   [4]   | `LoadSvgDocument`       | `SKSvg`             | document load   |
-|   [5]   | `CreateFromSvgDocument` | `SKSvg`             | document create |
-|   [6]   | `RenderSvgDocument`     | `SKSvg`             | document render |
-|   [7]   | `TryGetPicturePoint`    | `SKSvg`             | hit coordinates |
-|   [8]   | `DrawPicture`           | SVG draw operations | picture draw    |
+| [INDEX] | [SURFACE]               | [SURFACE_ROOT]           | [RAIL]          |
+| :-----: | :---------------------- | :----------------------- | :-------------- |
+|   [1]   | `Load`                  | `SKSvg`                  | stream load     |
+|   [2]   | `FromSvg`               | `SKSvg`                  | string load     |
+|   [3]   | `CreateFromSvgDocument` | `SKSvg`                  | document create |
+|   [4]   | `Save`                  | `SKSvg`                  | encoded output  |
+|   [5]   | `Draw`                  | `SKSvg`                  | canvas draw     |
+|   [6]   | `Picture`               | `SKSvg`                  | picture surface |
+|   [7]   | `TryGetPicturePoint`    | `SKSvg`                  | hit coordinates |
+|   [8]   | `Render`                | `SvgCustomDrawOperation` | picture draw    |
 
 [SCENE_ENTRYPOINTS]: retained scene and animation operations
 - rail: assets
 
-| [INDEX] | [SURFACE]                                | [SURFACE_ROOT] | [RAIL]             |
-| :-----: | :--------------------------------------- | :------------- | :----------------- |
-|   [1]   | `TryEnsureRetainedSceneGraph`            | `SKSvg`        | scene build        |
-|   [2]   | `InvalidateRetainedSceneGraph`           | `SKSvg`        | scene invalidation |
-|   [3]   | `TryApplyRetainedSceneMutationAndRender` | `SKSvg`        | scene mutation     |
-|   [4]   | `DrawAnimationLayer`                     | `SKSvg`        | animation draw     |
-|   [5]   | `AnimationInvalidated`                   | `Svg`          | animation event    |
-|   [6]   | `DispatchSvgMouseEvent`                  | `SKSvg`        | pointer dispatch   |
-|   [7]   | `HitTestSceneNodes`                      | `SKSvg`        | hit testing        |
+| [INDEX] | [SURFACE]                     | [SURFACE_ROOT]             | [RAIL]            |
+| :-----: | :---------------------------- | :------------------------- | :---------------- |
+|   [1]   | `TryEnsureRetainedSceneGraph` | `SKSvg`                    | scene build       |
+|   [2]   | `RetainedSceneGraph`          | `SKSvg`                    | scene access      |
+|   [3]   | `HasRetainedSceneGraph`       | `SKSvg`                    | scene presence    |
+|   [4]   | `AnimationController`         | `SKSvg`                    | animation control |
+|   [5]   | `AnimationInvalidated`        | `SKSvg`                    | animation event   |
+|   [6]   | `HitTestTopmostElement`       | `SvgInteractionDispatcher` | pointer dispatch  |
+|   [7]   | `HitTestSceneNodes`           | `SKSvg`                    | hit testing       |
 
 ## [4]-[IMPLEMENTATION_LAW]
 

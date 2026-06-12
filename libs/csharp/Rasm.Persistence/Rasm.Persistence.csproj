@@ -7,24 +7,34 @@
         <ProjectReference Include="../Rasm.AppHost/Rasm.AppHost.csproj" />
     </ItemGroup>
 
-    <ItemGroup Label="SQLite Store">
-        <PackageReference Include="EFCore.BulkExtensions" />
+    <ItemGroup Label="Store Lanes">
+        <PackageReference Include="DuckDB.NET.Data.Full" />
         <PackageReference Include="EFCore.NamingConventions" />
+        <PackageReference Include="linq2db.EntityFrameworkCore" />
         <PackageReference Include="Microsoft.Data.Sqlite" />
         <PackageReference Include="Microsoft.EntityFrameworkCore.Design" PrivateAssets="all" ExcludeAssets="all" />
         <PackageReference Include="Microsoft.EntityFrameworkCore.Sqlite" />
         <PackageReference Include="Npgsql" />
         <PackageReference Include="Npgsql.EntityFrameworkCore.PostgreSQL" />
+        <PackageReference Include="Npgsql.EntityFrameworkCore.PostgreSQL.NetTopologySuite" />
+        <PackageReference Include="Npgsql.EntityFrameworkCore.PostgreSQL.NodaTime" />
+        <PackageReference Include="Npgsql.OpenTelemetry" />
+        <PackageReference Include="Pgvector.EntityFrameworkCore" />
         <PackageReference Include="SQLitePCLRaw.bundle_e_sqlite3" />
+        <PackageReference Include="Thinktecture.Runtime.Extensions.EntityFrameworkCore10" />
     </ItemGroup>
 
     <ItemGroup Label="Snapshots And Support">
         <PackageReference Include="K4os.Compression.LZ4" />
         <PackageReference Include="MessagePack" />
         <PackageReference Include="MessagePackAnalyzer" PrivateAssets="all" />
+        <PackageReference Include="Microsoft.Extensions.Caching.Hybrid" />
         <PackageReference Include="Microsoft.Extensions.Compliance.Redaction" />
         <PackageReference Include="NodaTime" />
         <PackageReference Include="NodaTime.Serialization.SystemTextJson" />
+        <PackageReference Include="Sep" />
         <PackageReference Include="System.IO.Hashing" />
+        <PackageReference Include="Thinktecture.Runtime.Extensions.Json" />
+        <PackageReference Include="Thinktecture.Runtime.Extensions.MessagePack" />
     </ItemGroup>
 </Project>

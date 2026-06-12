@@ -1,4 +1,12 @@
 <Project>
+    <!-- Rejected modernizations (decided; do not re-introduce without a new decision):
+         UseArtifactsOutput (breaks bridge client resolution + yak staging; assay's per-closure
+         artifacts-path IS the design) · Directory.Build.rsp · .slnf filters · per-lib
+         IsAotCompatible (NativeAOT activation rejected; host-bound libs ineligible) · standing
+         publish config (per-app-root decision) · dotnet-grpc tool (repo-owned .proto + Grpc.Tools)
+         · Velopack/vpk now (ship-vehicle spike gates it) · SBOM emission now (gated with the ship
+         vehicle) · Stryker config file (config-as-argv in the assay catalog is the posture)
+         · XamlStyler (no .axaml support). -->
     <PropertyGroup Label="Project Classification">
         <GrasshopperAppsRoot>$([MSBuild]::NormalizeDirectory('$(MSBuildThisFileDirectory)', 'apps', 'grasshopper'))</GrasshopperAppsRoot>
         <RhinoAppsRoot>$([MSBuild]::NormalizeDirectory('$(MSBuildThisFileDirectory)', 'apps', 'rhino'))</RhinoAppsRoot>
@@ -160,6 +168,8 @@
 
     <ItemGroup Label="Test Runner SDK" Condition="'$(IsTestProject)' == 'true'">
         <PackageReference Include="coverlet.MTP" PrivateAssets="all" />
+        <PackageReference Include="Microsoft.Testing.Extensions.CrashDump" PrivateAssets="all" />
+        <PackageReference Include="Microsoft.Testing.Extensions.HangDump" PrivateAssets="all" />
     </ItemGroup>
 
     <ItemGroup Label="Test Framework (Runnable)" Condition="'$(IsTestProject)' == 'true'">

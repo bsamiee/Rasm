@@ -12,13 +12,16 @@
   - [api-nodatime.md](api-nodatime.md)
   - [api-dataflow.md](api-dataflow.md)
   - [api-objectpool.md](api-objectpool.md)
+  - [api-thinktecture-json.md](api-thinktecture-json.md)
 
 [COMPOSITION]:
 - rail: composition
 - pages:
   - [api-hosting.md](api-hosting.md)
+  - [api-hosting-lifetimes.md](api-hosting-lifetimes.md)
   - [api-di.md](api-di.md)
   - [api-config.md](api-config.md)
+  - [api-config-providers.md](api-config-providers.md)
   - [api-binder.md](api-binder.md)
   - [api-options.md](api-options.md)
   - [api-scrutor.md](api-scrutor.md)
@@ -32,15 +35,23 @@
   - [api-polly-extensions.md](api-polly-extensions.md)
   - [api-polly-ratelimiting.md](api-polly-ratelimiting.md)
   - [api-telemetry.md](api-telemetry.md)
+  - [api-telemetry-abstractions.md](api-telemetry-abstractions.md)
+  - [api-resource-monitoring.md](api-resource-monitoring.md)
   - [api-serilog.md](api-serilog.md)
   - [api-otel.md](api-otel.md)
   - [api-otel-hosting.md](api-otel-hosting.md)
+  - [api-otel-instrumentation.md](api-otel-instrumentation.md)
 
 [VALIDATION]:
 - rail: validation
 - pages:
   - [api-validation.md](api-validation.md)
   - [api-validation-di.md](api-validation-di.md)
+
+[TESTING]:
+- rail: testing seams
+- pages:
+  - [api-testing-seams.md](api-testing-seams.md)
 
 ## [2]-[CATALOGUE_LAW]
 

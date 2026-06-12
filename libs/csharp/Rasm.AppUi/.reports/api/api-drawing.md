@@ -18,19 +18,17 @@
 [DRAWING_TYPES]: bitmap, graphics, and primitive surface
 - rail: host-drawing
 
-| [INDEX] | [SYMBOL]    | [RAIL]          |
-| :-----: | :---------- | :-------------- |
-|   [1]   | `Bitmap`    | bitmap image    |
-|   [2]   | `Image`     | image base      |
-|   [3]   | `Graphics`  | drawing context |
-|   [4]   | `Pen`       | stroke resource |
-|   [5]   | `Brush`     | fill resource   |
-|   [6]   | `Color`     | color value     |
-|   [7]   | `Rectangle` | bounds value    |
-|   [8]   | `Point`     | point value     |
-|   [9]   | `Size`      | size value      |
-|  [10]   | `Font`      | font resource   |
-|  [11]   | `Icon`      | icon resource   |
+| [INDEX] | [SYMBOL]       | [RAIL]          |
+| :-----: | :------------- | :-------------- |
+|   [1]   | `Bitmap`       | bitmap image    |
+|   [2]   | `Image`        | image base      |
+|   [3]   | `Graphics`     | drawing context |
+|   [4]   | `Pen`          | stroke resource |
+|   [5]   | `Brush`        | fill resource   |
+|   [6]   | `SolidBrush`   | solid fill      |
+|   [7]   | `TextureBrush` | texture fill    |
+|   [8]   | `Font`         | font resource   |
+|   [9]   | `Icon`         | icon resource   |
 
 [DRAWING2D_TYPES]: path, transform, and quality surface
 - rail: host-drawing

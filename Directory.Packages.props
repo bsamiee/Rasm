@@ -7,6 +7,8 @@
     <ItemGroup Label="Functional Core">
         <PackageVersion Include="LanguageExt.Core" Version="5.0.0-beta-77" />
         <PackageVersion Include="Thinktecture.Runtime.Extensions" Version="10.2.0" />
+        <PackageVersion Include="Thinktecture.Runtime.Extensions.Json" Version="10.2.0" />
+        <PackageVersion Include="Thinktecture.Runtime.Extensions.MessagePack" Version="10.2.0" />
     </ItemGroup>
 
     <ItemGroup Label="Numerics">
@@ -28,26 +30,44 @@
         <PackageVersion Include="Microsoft.Extensions.Caching.Hybrid" Version="10.7.0" />
         <PackageVersion Include="Microsoft.Extensions.Configuration" Version="10.0.9" />
         <PackageVersion Include="Microsoft.Extensions.Configuration.Binder" Version="10.0.9" />
+        <PackageVersion Include="Microsoft.Extensions.Configuration.CommandLine" Version="10.0.9" />
+        <PackageVersion Include="Microsoft.Extensions.Configuration.EnvironmentVariables" Version="10.0.9" />
+        <PackageVersion Include="Microsoft.Extensions.Configuration.Json" Version="10.0.9" />
+        <PackageVersion Include="Microsoft.Extensions.Configuration.UserSecrets" Version="10.0.9" />
         <PackageVersion Include="Microsoft.Extensions.DependencyInjection" Version="10.0.9" />
         <PackageVersion Include="Microsoft.Extensions.Diagnostics.HealthChecks" Version="10.0.9" />
+        <PackageVersion Include="Microsoft.Extensions.Diagnostics.ResourceMonitoring" Version="10.7.0" />
         <PackageVersion Include="Microsoft.Extensions.Hosting" Version="10.0.9" />
+        <PackageVersion Include="Microsoft.Extensions.Hosting.Systemd" Version="10.0.9" />
+        <PackageVersion Include="Microsoft.Extensions.Hosting.WindowsServices" Version="10.0.9" />
         <PackageVersion Include="Microsoft.Extensions.Http.Resilience" Version="10.7.0" />
         <PackageVersion Include="Microsoft.Extensions.Logging.Abstractions" Version="10.0.9" />
         <PackageVersion Include="Microsoft.Extensions.ObjectPool" Version="10.0.9" />
         <PackageVersion Include="Microsoft.Extensions.Options" Version="10.0.9" />
         <PackageVersion Include="Microsoft.Extensions.Telemetry" Version="10.7.0" />
+        <PackageVersion Include="Microsoft.Extensions.Telemetry.Abstractions" Version="10.7.0" />
         <PackageVersion Include="NodaTime" Version="3.3.2" />
         <PackageVersion Include="OpenTelemetry" Version="1.16.0" />
         <PackageVersion Include="OpenTelemetry.Extensions.Hosting" Version="1.16.0" />
+        <!-- OTLP exporter placement is an app-root decision; libraries never reference it.
+             Only STABLE instrumentation is admitted (Runtime, Http); EF/gRPC instrumentation
+             packages are beta-only and rejected — native Activity emission carries those. -->
+        <PackageVersion Include="OpenTelemetry.Exporter.OpenTelemetryProtocol" Version="1.16.0" />
+        <PackageVersion Include="OpenTelemetry.Instrumentation.Http" Version="1.15.0" />
+        <PackageVersion Include="OpenTelemetry.Instrumentation.Runtime" Version="1.15.1" />
+        <PackageVersion Include="Polly.Core" Version="8.7.0" />
+        <PackageVersion Include="Polly.Extensions" Version="8.7.0" />
+        <PackageVersion Include="Polly.RateLimiting" Version="8.7.0" />
         <PackageVersion Include="Scrutor" Version="7.0.0" />
         <PackageVersion Include="Serilog" Version="4.3.1" />
         <PackageVersion Include="System.Threading.Tasks.Dataflow" Version="10.0.9" />
     </ItemGroup>
 
     <ItemGroup Label="Persistence">
+        <PackageVersion Include="DuckDB.NET.Data.Full" Version="1.5.3" />
         <PackageVersion Include="EFCore.NamingConventions" Version="10.0.1" />
-        <PackageVersion Include="EFCore.BulkExtensions" Version="10.0.1" />
         <PackageVersion Include="K4os.Compression.LZ4" Version="1.3.8" />
+        <PackageVersion Include="linq2db.EntityFrameworkCore" Version="10.4.0" />
         <PackageVersion Include="MessagePack" Version="3.1.7" />
         <PackageVersion Include="MessagePackAnalyzer" Version="3.1.7" />
         <PackageVersion Include="Microsoft.Data.Sqlite" Version="10.0.9" />
@@ -57,31 +77,48 @@
         <PackageVersion Include="NodaTime.Serialization.SystemTextJson" Version="1.4.0" />
         <PackageVersion Include="Npgsql" Version="10.0.3" />
         <PackageVersion Include="Npgsql.EntityFrameworkCore.PostgreSQL" Version="10.0.2" />
+        <PackageVersion Include="Npgsql.EntityFrameworkCore.PostgreSQL.NetTopologySuite" Version="10.0.2" />
+        <PackageVersion Include="Npgsql.EntityFrameworkCore.PostgreSQL.NodaTime" Version="10.0.2" />
+        <PackageVersion Include="Npgsql.NetTopologySuite" Version="10.0.3" />
+        <PackageVersion Include="Npgsql.OpenTelemetry" Version="10.0.3" />
+        <PackageVersion Include="Pgvector.EntityFrameworkCore" Version="0.3.0" />
+        <PackageVersion Include="Sep" Version="0.14.1" />
         <PackageVersion Include="SQLitePCLRaw.bundle_e_sqlite3" Version="3.0.3" />
         <PackageVersion Include="System.IO.Hashing" Version="10.0.9" />
+        <!-- EF companion pairs with the 10.2.0 core generator; stable 10.1.2 lags the core. -->
+        <PackageVersion Include="Thinktecture.Runtime.Extensions.EntityFrameworkCore10" Version="10.2.0-beta01" />
     </ItemGroup>
 
     <ItemGroup Label="Compute">
         <PackageVersion Include="CommunityToolkit.HighPerformance" Version="8.4.2" />
-        <PackageVersion Include="Google.Protobuf" Version="3.35.0" />
+        <PackageVersion Include="Google.Protobuf" Version="3.35.1" />
         <PackageVersion Include="Grpc.Net.Client" Version="2.80.0" />
-        <PackageVersion Include="Grpc.Tools" Version="2.81.0" />
+        <PackageVersion Include="Grpc.Net.Client.Web" Version="2.80.0" />
+        <PackageVersion Include="Grpc.Tools" Version="2.81.1" />
         <PackageVersion Include="Microsoft.IO.RecyclableMemoryStream" Version="3.0.1" />
         <PackageVersion Include="Microsoft.ML.OnnxRuntime" Version="1.26.0" />
+        <PackageVersion Include="NodaTime.Serialization.Protobuf" Version="2.0.2" />
         <PackageVersion Include="Microsoft.ML.OnnxRuntime.Extensions" Version="0.14.0" />
         <PackageVersion Include="System.Numerics.Tensors" Version="10.0.9" />
         <PackageVersion Include="UnitsNet" Version="5.75.0" />
     </ItemGroup>
 
+    <!-- App-root-only pins: versions are central so app roots stay versionless, but no library
+         project references these; companion/standalone app roots compose them at publish time. -->
+    <ItemGroup Label="App Roots">
+        <PackageVersion Include="Grpc.AspNetCore" Version="2.80.0" />
+        <PackageVersion Include="Grpc.AspNetCore.HealthChecks" Version="2.80.0" />
+        <PackageVersion Include="Grpc.AspNetCore.Web" Version="2.80.0" />
+        <PackageVersion Include="System.CommandLine" Version="2.0.9" />
+    </ItemGroup>
+
+    <!-- Transitive-pin conflicts get a named floor row here, never a NoWarn. -->
     <ItemGroup Label="Transitive Floors">
         <PackageVersion Include="Humanizer.Core" Version="3.0.10" />
         <PackageVersion Include="Microsoft.Build.Framework" Version="18.7.1" />
         <PackageVersion Include="Microsoft.Extensions.DependencyModel" Version="10.0.9" />
         <PackageVersion Include="Microsoft.NET.StringTools" Version="18.7.1" />
         <PackageVersion Include="Newtonsoft.Json" Version="13.0.4" />
-        <PackageVersion Include="Polly.Core" Version="8.7.0" />
-        <PackageVersion Include="Polly.Extensions" Version="8.7.0" />
-        <PackageVersion Include="Polly.RateLimiting" Version="8.7.0" />
         <PackageVersion Include="System.CodeDom" Version="10.0.9" />
         <PackageVersion Include="System.Composition" Version="10.0.9" />
         <PackageVersion Include="System.Composition.AttributedModel" Version="10.0.9" />
@@ -98,26 +135,48 @@
          macOS native Skia/HarfBuzz assets and proves the runtime load identity; host-native sharing is
          not an active package claim. -->
     <ItemGroup Label="App UI">
+        <PackageVersion Include="AsyncImageLoader.Avalonia" Version="3.8.0" />
         <PackageVersion Include="Avalonia" Version="12.0.4" />
+        <PackageVersion Include="Avalonia.AvaloniaEdit" Version="12.0.0" />
         <PackageVersion Include="Avalonia.Controls.ColorPicker" Version="12.0.4" />
         <PackageVersion Include="Avalonia.Controls.DataGrid" Version="12.0.0" />
         <PackageVersion Include="Avalonia.Desktop" Version="12.0.4" />
         <PackageVersion Include="Avalonia.Fonts.Inter" Version="12.0.4" />
+        <PackageVersion Include="Avalonia.Headless" Version="12.0.4" />
+        <PackageVersion Include="Avalonia.Headless.XUnit" Version="12.0.4" />
+        <PackageVersion Include="Avalonia.Skia" Version="12.0.4" />
         <PackageVersion Include="Avalonia.Themes.Fluent" Version="12.0.4" />
+        <PackageVersion Include="AvaloniaEdit.TextMate" Version="12.0.0" />
         <PackageVersion Include="bodong.Avalonia.PropertyGrid" Version="12.0.4.1" />
+        <!-- Floor pin: PropertyGrid declares an open >= 12.0.0 range; the floor names the
+             resolved transitive so central transitive pinning stays deterministic. -->
+        <PackageVersion Include="bodong.PropertyModels" Version="12.0.0" />
         <PackageVersion Include="DialogHost.Avalonia" Version="0.12.2" />
+        <PackageVersion Include="Dock.Avalonia" Version="12.0.0.2" />
+        <PackageVersion Include="Dock.Model.ReactiveUI" Version="12.0.0.2" />
         <PackageVersion Include="DynamicData" Version="9.4.31" />
+        <PackageVersion Include="FluentIcons.Avalonia" Version="2.1.328" />
         <PackageVersion Include="HarfBuzzSharp.NativeAssets.Linux" Version="8.3.1.5" />
         <PackageVersion Include="HarfBuzzSharp.NativeAssets.macOS" Version="8.3.1.5" />
         <PackageVersion Include="HarfBuzzSharp.NativeAssets.WebAssembly" Version="8.3.1.5" />
+        <PackageVersion Include="HarfBuzzSharp.NativeAssets.Win32" Version="8.3.1.5" />
+        <PackageVersion Include="HotAvalonia" Version="3.1.1" />
         <PackageVersion Include="LiveChartsCore.SkiaSharpView.Avalonia" Version="2.0.4" />
+        <PackageVersion Include="Markdig" Version="1.2.0" />
         <PackageVersion Include="MicroCom.Runtime" Version="0.11.6" />
+        <PackageVersion Include="PanAndZoom" Version="12.0.0.1" />
         <PackageVersion Include="ReactiveUI" Version="23.2.28" />
         <PackageVersion Include="ReactiveUI.Avalonia" Version="12.0.3" />
         <PackageVersion Include="ReactiveUI.Validation" Version="7.1.0" />
         <PackageVersion Include="SkiaSharp" Version="3.119.4" />
         <PackageVersion Include="SkiaSharp.HarfBuzz" Version="3.119.4" />
+        <!-- Linux ships the NoDependencies flavor (self-contained posture); the glibc-coupled
+             variant Avalonia.Skia drags is pinned and excluded at the AppUi reference. -->
+        <PackageVersion Include="SkiaSharp.NativeAssets.Linux" Version="3.119.4" />
+        <PackageVersion Include="SkiaSharp.NativeAssets.Linux.NoDependencies" Version="3.119.4" />
         <PackageVersion Include="SkiaSharp.NativeAssets.macOS" Version="3.119.4" />
+        <PackageVersion Include="SkiaSharp.NativeAssets.WebAssembly" Version="3.119.4" />
+        <PackageVersion Include="SkiaSharp.NativeAssets.Win32" Version="3.119.4" />
         <PackageVersion Include="Svg.Controls.Skia.Avalonia" Version="12.0.0.11" />
         <PackageVersion Include="System.Reactive" Version="6.1.0" />
         <PackageVersion Include="Tmds.DBus.Protocol" Version="0.94.1" />
@@ -136,16 +195,25 @@
     </ItemGroup>
 
     <ItemGroup Label="Test Stack">
+        <!-- xunit.v3 holds at 3.2.2: Avalonia.Headless.XUnit 12.0.4 floors on
+             xunit.v3.extensibility.core 3.2.2; refuse the 4.0.0-pre offer from outdated probes. -->
         <PackageVersion Include="xunit.v3.mtp-v2" Version="3.2.2" />
         <PackageVersion Include="xunit.v3.assert" Version="3.2.2" />
         <PackageVersion Include="xunit.v3.common" Version="3.2.2" />
         <PackageVersion Include="xunit.v3.extensibility.core" Version="3.2.2" />
         <PackageVersion Include="CsCheck" Version="4.7.0" />
         <PackageVersion Include="coverlet.MTP" Version="10.0.1" />
+        <PackageVersion Include="Microsoft.Extensions.Diagnostics.Testing" Version="10.7.0" />
+        <PackageVersion Include="Microsoft.Extensions.TimeProvider.Testing" Version="10.7.0" />
+        <!-- CrashDump/HangDump version in lockstep with the Microsoft.Testing.Platform pins;
+             dormant until the assay test rail passes the dump argv. -->
+        <PackageVersion Include="Microsoft.Testing.Extensions.CrashDump" Version="2.2.3" />
+        <PackageVersion Include="Microsoft.Testing.Extensions.HangDump" Version="2.2.3" />
         <PackageVersion Include="Microsoft.Testing.Extensions.Telemetry" Version="2.2.3" />
         <PackageVersion Include="Microsoft.Testing.Extensions.TrxReport.Abstractions" Version="2.2.3" />
         <PackageVersion Include="Microsoft.Testing.Platform" Version="2.2.3" />
         <PackageVersion Include="Microsoft.Testing.Platform.MSBuild" Version="2.2.3" />
+        <PackageVersion Include="NodaTime.Testing" Version="3.3.2" />
         <PackageVersion Include="Verify.XunitV3" Version="31.19.0" />
         <PackageVersion Include="TngTech.ArchUnitNET.xUnitV3" Version="0.13.3" />
         <PackageVersion Include="BenchmarkDotNet" Version="0.15.8" />

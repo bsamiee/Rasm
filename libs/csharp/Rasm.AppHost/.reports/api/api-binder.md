@@ -36,15 +36,14 @@ AppHost policy values.
 [ENTRYPOINT_SCOPE]: binding operations
 - rail: configuration
 
-| [INDEX] | [SURFACE]              | [CALL_SHAPE]     | [CAPABILITY]          |
-| :-----: | :--------------------- | :--------------- | :-------------------- |
-|   [1]   | `Get<T>`               | allocation bind  | creates typed value   |
-|   [2]   | `Get(Type)`            | allocation bind  | creates typed value   |
-|   [3]   | `Bind`                 | object bind      | fills existing object |
-|   [4]   | `Bind(string, object)` | section bind     | fills named section   |
-|   [5]   | `GetValue<T>`          | scalar read      | converts scalar value |
-|   [6]   | `GetValue(Type, key)`  | scalar read      | converts scalar value |
-|   [7]   | `CreateInstance`       | constructor bind | creates typed value   |
+| [INDEX] | [SURFACE]              | [CALL_SHAPE]    | [CAPABILITY]          |
+| :-----: | :--------------------- | :-------------- | :-------------------- |
+|   [1]   | `Get<T>`               | allocation bind | creates typed value   |
+|   [2]   | `Get(Type)`            | allocation bind | creates typed value   |
+|   [3]   | `Bind`                 | object bind     | fills existing object |
+|   [4]   | `Bind(string, object)` | section bind    | fills named section   |
+|   [5]   | `GetValue<T>`          | scalar read     | converts scalar value |
+|   [6]   | `GetValue(Type, key)`  | scalar read     | converts scalar value |
 
 ## [4]-[IMPLEMENTATION_LAW]
 

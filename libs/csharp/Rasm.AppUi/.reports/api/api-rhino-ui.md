@@ -6,7 +6,8 @@
 
 [PACKAGE_SURFACE]: host assembly `Rhino.UI`
 - package: `Rhino.UI`
-- assembly: `Rhino.UI`
+- assembly: `Rhino.UI` (Eto bridge surfaces)
+- assembly: `RhinoCommon` (panel registry types in the `Rhino.UI` namespace)
 - namespace: `Rhino.UI`
 - namespace: `Rhino.UI.Controls`
 - asset: host assembly
@@ -21,7 +22,7 @@
 | :-----: | :-------------------- | :------------------ |
 |   [1]   | `Panels`              | panel registry      |
 |   [2]   | `PanelType`           | panel identity      |
-|   [3]   | `DockBar`             | dock container      |
+|   [3]   | `StackedDialogPage`   | stacked page        |
 |   [4]   | `RhinoEtoApp`         | Eto application     |
 |   [5]   | `EtoExtensions`       | Eto bridge          |
 |   [6]   | `IWindow`             | host window         |
@@ -30,39 +31,39 @@
 [PANEL_EVENT_TYPES]: panel lifecycle events
 - rail: host-rhino-ui
 
-| [INDEX] | [SYMBOL]                   | [RAIL]           |
-| :-----: | :------------------------- | :--------------- |
-|   [1]   | `DockBarAdded`             | dockbar add      |
-|   [2]   | `DockBarRemoved`           | dockbar remove   |
-|   [3]   | `PanelVisibilityChanged`   | panel visibility |
-|   [4]   | `CurrentPanelChanged`      | active panel     |
-|   [5]   | `WantReturnInPanelChanged` | keyboard policy  |
+| [INDEX] | [SYMBOL]             | [RAIL]        |
+| :-----: | :------------------- | :------------ |
+|   [1]   | `Show`               | show event    |
+|   [2]   | `Closed`             | close event   |
+|   [3]   | `ShowPanelEventArgs` | show payload  |
+|   [4]   | `PanelEventArgs`     | panel payload |
+|   [5]   | `ShowPanelReason`    | show reason   |
 
 ## [3]-[ENTRYPOINTS]
 
 [PANEL_ENTRYPOINTS]: panel and dockbar operations
 - rail: host-rhino-ui
 
-| [INDEX] | [SURFACE]        | [SURFACE_ROOT] | [RAIL]          |
-| :-----: | :--------------- | :------------- | :-------------- |
-|   [1]   | `RegisterPanel`  | `Panels`       | panel register  |
-|   [2]   | `OpenPanel`      | `Panels`       | panel open      |
-|   [3]   | `ClosePanel`     | `Panels`       | panel close     |
-|   [4]   | `PanelShown`     | `Panels`       | visibility      |
-|   [5]   | `DockBarsFromId` | dockbar API    | dockbar lookup  |
-|   [6]   | `OpenDockBarTab` | dockbar API    | dockbar tab     |
-|   [7]   | `GetPanelDoc`    | panel API      | document lookup |
+| [INDEX] | [SURFACE]            | [SURFACE_ROOT] | [RAIL]         |
+| :-----: | :------------------- | :------------- | :------------- |
+|   [1]   | `RegisterPanel`      | `Panels`       | panel register |
+|   [2]   | `OpenPanel`          | `Panels`       | panel open     |
+|   [3]   | `ClosePanel`         | `Panels`       | panel close    |
+|   [4]   | `IsPanelVisible`     | `Panels`       | visibility     |
+|   [5]   | `PanelDockBar`       | `Panels`       | dockbar lookup |
+|   [6]   | `OpenPanelAsSibling` | `Panels`       | sibling tab    |
+|   [7]   | `GetPanel`           | `Panels`       | panel lookup   |
 
 [ETO_ENTRYPOINTS]: Eto and modal host operations
 - rail: host-rhino-ui
 
-| [INDEX] | [SURFACE]          | [SURFACE_ROOT]  | [RAIL]       |
-| :-----: | :----------------- | :-------------- | :----------- |
-|   [1]   | `MainWindow`       | `RhinoEtoApp`   | host window  |
-|   [2]   | `ShowSemiModal`    | `RhinoEtoApp`   | semi-modal   |
-|   [3]   | `InvokeOnUiThread` | `RhinoEtoApp`   | UI dispatch  |
-|   [4]   | `ToEto`            | `EtoExtensions` | Eto bridge   |
-|   [5]   | `ToRhino`          | `EtoExtensions` | Rhino bridge |
+| [INDEX] | [SURFACE]               | [SURFACE_ROOT]  | [RAIL]          |
+| :-----: | :---------------------- | :-------------- | :-------------- |
+|   [1]   | `MainWindow`            | `RhinoEtoApp`   | host window     |
+|   [2]   | `ShowSemiModal`         | `EtoExtensions` | semi-modal      |
+|   [3]   | `MainWindowForDocument` | `RhinoEtoApp`   | document window |
+|   [4]   | `ToEto`                 | `EtoExtensions` | Eto bridge      |
+|   [5]   | `ToSystemDrawing`       | `EtoExtensions` | drawing bridge  |
 
 ## [4]-[IMPLEMENTATION_LAW]
 

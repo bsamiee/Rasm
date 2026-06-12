@@ -43,12 +43,12 @@
 [FONT_ENTRYPOINTS]: font admission operations
 - rail: typography
 
-| [INDEX] | [SURFACE]           | [SURFACE_ROOT]          | [RAIL]             |
-| :-----: | :------------------ | :---------------------- | :----------------- |
-|   [1]   | `WithInterFont`     | builder extension       | Inter admission    |
-|   [2]   | `ConfigureFonts`    | `FontManager`           | font configuration |
-|   [3]   | `AddFontCollection` | font collection manager | collection load    |
-|   [4]   | constructor         | `InterFontCollection`   | asset collection   |
+| [INDEX] | [SURFACE]           | [SURFACE_ROOT]        | [RAIL]             |
+| :-----: | :------------------ | :-------------------- | :----------------- |
+|   [1]   | `WithInterFont`     | `AppBuilderExtension` | Inter admission    |
+|   [2]   | `ConfigureFonts`    | `AppBuilder`          | font configuration |
+|   [3]   | `AddFontCollection` | `FontManager`         | collection load    |
+|   [4]   | constructor         | `InterFontCollection` | asset collection   |
 
 ## [4]-[IMPLEMENTATION_LAW]
 

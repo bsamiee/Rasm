@@ -76,8 +76,8 @@ surfaces into the AppUi behavior rail.
 |   [7]   | `FileSystemWatcherTrigger`  | file watch        |
 |   [8]   | `WriteTextToFileAction`     | file write        |
 |   [9]   | `HttpRequestAction`         | HTTP request      |
-|  [10]   | `DragBehavior`              | drag operation    |
-|  [11]   | `DropBehavior`              | drop operation    |
+|  [10]   | `ContextDragBehavior`       | drag operation    |
+|  [11]   | `ContextDropBehavior`       | drop operation    |
 |  [12]   | `CanvasDragBehavior`        | canvas drag       |
 |  [13]   | `ListReorderDragBehavior`   | list reorder      |
 |  [14]   | `AdaptiveBehavior`          | adaptive layout   |
@@ -116,18 +116,18 @@ surfaces into the AppUi behavior rail.
 [SYSTEM_ENTRYPOINTS]: picker, file, clipboard, network, and drag operations
 - rail: behaviors
 
-| [INDEX] | [SURFACE]               | [SURFACE_ROOT]         | [RAIL]           |
-| :-----: | :---------------------- | :--------------------- | :--------------- |
-|   [1]   | `StorageProvider`       | picker base            | storage provider |
-|   [2]   | `AllowMultiple`         | open picker actions    | multi-select     |
-|   [3]   | `FileTypeFilter`        | picker actions         | file filter      |
-|   [4]   | `SetClipboardTextAsync` | clipboard actions      | clipboard write  |
-|   [5]   | `GetClipboardTextAsync` | clipboard actions      | clipboard read   |
-|   [6]   | `WriteTextToFileAction` | file-system actions    | file write       |
-|   [7]   | `FileSystemWatcher`     | file-system trigger    | file watch       |
-|   [8]   | `HttpRequestMessage`    | `HttpRequestAction`    | HTTP request     |
-|   [9]   | `DoDragDropAsync`       | drag-and-drop behavior | drag operation   |
-|  [10]   | `PointerMoved`          | draggable behavior     | drag tracking    |
+| [INDEX] | [SURFACE]         | [SURFACE_ROOT]             | [RAIL]           |
+| :-----: | :---------------- | :------------------------- | :--------------- |
+|   [1]   | `StorageProvider` | picker base                | storage provider |
+|   [2]   | `AllowMultiple`   | open picker actions        | multi-select     |
+|   [3]   | `FileTypeFilter`  | picker actions             | file filter      |
+|   [4]   | `Text`            | `SetClipboardTextAction`   | clipboard write  |
+|   [5]   | `Clipboard`       | `GetClipboardTextAction`   | clipboard read   |
+|   [6]   | `Path`            | `WriteTextToFileAction`    | file write       |
+|   [7]   | `Path`            | `FileSystemWatcherTrigger` | file watch       |
+|   [8]   | `Url`             | `HttpRequestAction`        | HTTP request     |
+|   [9]   | `Handler`         | `ContextDragBehavior`      | drag operation   |
+|  [10]   | `Orientation`     | `ItemDragBehavior`         | drag tracking    |
 
 ## [4]-[IMPLEMENTATION_LAW]
 

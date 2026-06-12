@@ -48,6 +48,18 @@
     <Project Path="tests/csharp/_tooling/Rasm.TestingTools.Tests.csproj" />
   </Folder>
   <Folder Name="/tests/csharp/libs/" />
+  <Folder Name="/tests/csharp/libs/Rasm.AppHost/">
+    <Project Path="tests/csharp/libs/Rasm.AppHost/Rasm.AppHost.Tests.csproj" />
+  </Folder>
+  <Folder Name="/tests/csharp/libs/Rasm.AppUi/">
+    <Project Path="tests/csharp/libs/Rasm.AppUi/Rasm.AppUi.Tests.csproj" />
+  </Folder>
+  <Folder Name="/tests/csharp/libs/Rasm.Compute/">
+    <Project Path="tests/csharp/libs/Rasm.Compute/Rasm.Compute.Tests.csproj" />
+  </Folder>
+  <Folder Name="/tests/csharp/libs/Rasm.Persistence/">
+    <Project Path="tests/csharp/libs/Rasm.Persistence/Rasm.Persistence.Tests.csproj" />
+  </Folder>
   <Folder Name="/tests/csharp/libs/Rasm/">
     <Project Path="tests/csharp/libs/Rasm/Rasm.Tests.csproj" />
   </Folder>

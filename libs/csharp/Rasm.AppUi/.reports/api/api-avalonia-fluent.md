@@ -45,7 +45,6 @@
 |   [2]   | `Palettes`     | `FluentTheme`  | palette mapping   |
 |   [3]   | `DensityStyle` | `FluentTheme`  | density selection |
 |   [4]   | `Resources`    | `FluentTheme`  | resource exposure |
-|   [5]   | `Styles`       | `FluentTheme`  | style exposure    |
 
 [PALETTE_ENTRYPOINTS]: color resource properties
 - rail: theme

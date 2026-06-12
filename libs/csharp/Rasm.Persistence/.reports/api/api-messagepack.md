@@ -79,14 +79,14 @@ and annotation contracts.
 [ENTRYPOINT_SCOPE]: resolver and policy operations
 - rail: snapshot-codec
 
-| [INDEX] | [SURFACE]                  | [CALL_SHAPE]      | [CAPABILITY]               |
-| :-----: | :------------------------- | :---------------- | :------------------------- |
-|   [1]   | `WithResolver`             | option call       | sets resolver policy       |
-|   [2]   | `WithSecurity`             | option call       | sets security policy       |
-|   [3]   | `WithCompression`          | option call       | sets compression policy    |
-|   [4]   | `GetFormatter<T>`          | resolver call     | resolves formatter         |
-|   [5]   | `CompositeResolver.Create` | factory call      | composes resolver          |
-|   [6]   | `Unsafe.SkipInit`          | formatter pattern | writes formatter fast path |
+| [INDEX] | [SURFACE]                           | [CALL_SHAPE]    | [CAPABILITY]              |
+| :-----: | :---------------------------------- | :-------------- | :------------------------ |
+|   [1]   | `WithResolver`                      | option call     | sets resolver policy      |
+|   [2]   | `WithSecurity`                      | option call     | sets security policy      |
+|   [3]   | `WithCompression`                   | option call     | sets compression policy   |
+|   [4]   | `GetFormatter<T>`                   | resolver call   | resolves formatter        |
+|   [5]   | `CompositeResolver.Create`          | factory call    | composes resolver         |
+|   [6]   | `MessagePackSecurity.UntrustedData` | security preset | hardens untrusted reading |
 
 ## [4]-[IMPLEMENTATION_LAW]
 

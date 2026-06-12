@@ -21,9 +21,10 @@ by the embedded SQLite store profile.
 | :-----: | :-------------------------------- | :------------------ | :----------------------- |
 |   [1]   | `SQLitePCLRaw.bundle_e_sqlite3`   | bundle package      | admits native provider   |
 |   [2]   | `SQLitePCLRaw.core`               | core dependency     | exposes raw SQLite API   |
-|   [3]   | `SQLitePCLRaw.provider.e_sqlite3` | provider dependency | supplies native provider |
-|   [4]   | `SQLitePCLRaw.lib.e_sqlite3`      | native dependency   | supplies SQLite library  |
-|   [5]   | `Batteries_V2`                    | initializer         | initializes provider     |
+|   [3]   | `SQLitePCLRaw.config.e_sqlite3`   | config dependency   | carries batteries asset  |
+|   [4]   | `SQLitePCLRaw.provider.e_sqlite3` | provider dependency | supplies native provider |
+|   [5]   | `SourceGear.sqlite3`              | native dependency   | supplies SQLite library  |
+|   [6]   | `Batteries_V2`                    | initializer         | initializes provider     |
 
 ## [3]-[ENTRYPOINTS]
 

@@ -39,7 +39,7 @@ replication surfaces for provider store profiles.
 | :-----: | :------------------------------ | :-------------- | :------------------------ |
 |   [1]   | `NpgsqlDbType`                  | type classifier | classifies parameters     |
 |   [2]   | `NpgsqlParameter<T>`            | typed parameter | binds typed values        |
-|   [3]   | `NpgsqlTypeMapper`              | type mapper     | maps provider types       |
+|   [3]   | `INpgsqlTypeMapper`             | type mapper     | maps provider types       |
 |   [4]   | `INpgsqlNameTranslator`         | name translator | maps CLR names            |
 |   [5]   | `NpgsqlSnakeCaseNameTranslator` | name translator | maps snake case names     |
 |   [6]   | `PostgresType`                  | schema metadata | describes store types     |
@@ -51,43 +51,43 @@ replication surfaces for provider store profiles.
 [REPLICATION_TYPES]: logical replication surfaces
 - rail: store-provider
 
-| [INDEX] | [SYMBOL]                         | [PACKAGE_ROLE]      | [CAPABILITY]             |
-| :-----: | :------------------------------- | :------------------ | :----------------------- |
-|   [1]   | `LogicalReplicationConnection`   | replication root    | opens logical stream     |
-|   [2]   | `ReplicationSlot`                | slot metadata       | identifies slot          |
-|   [3]   | `PgOutputReplicationOptions`     | replication policy  | configures pgoutput      |
-|   [4]   | `TestDecodingReplicationOptions` | replication policy  | configures test decoding |
-|   [5]   | `ReplicationMessage`             | replication message | carries stream event     |
+| [INDEX] | [SYMBOL]                       | [PACKAGE_ROLE]      | [CAPABILITY]             |
+| :-----: | :----------------------------- | :------------------ | :----------------------- |
+|   [1]   | `LogicalReplicationConnection` | replication root    | opens logical stream     |
+|   [2]   | `ReplicationSlot`              | slot metadata       | identifies slot          |
+|   [3]   | `PgOutputReplicationOptions`   | replication policy  | configures pgoutput      |
+|   [4]   | `TestDecodingOptions`          | replication policy  | configures test decoding |
+|   [5]   | `ReplicationMessage`           | replication message | carries stream event     |
 
 ## [3]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: data source and execution
 - rail: store-provider
 
-| [INDEX] | [SURFACE]                 | [CALL_SHAPE]        | [CAPABILITY]           |
-| :-----: | :------------------------ | :------------------ | :--------------------- |
-|   [1]   | `NpgsqlDataSource.Create` | factory call        | creates data source    |
-|   [2]   | `Build`                   | builder call        | creates data source    |
-|   [3]   | `Open`                    | connection call     | opens store connection |
-|   [4]   | `OpenAsync`               | async call          | opens store connection |
-|   [5]   | `CreateCommand`           | factory call        | creates command        |
-|   [6]   | `BeginTransaction`        | transaction factory | starts transaction     |
-|   [7]   | `ExecuteReader`           | command call        | reads rows             |
-|   [8]   | `ExecuteNonQuery`         | command call        | writes changes         |
-|   [9]   | `ExecuteScalar`           | command call        | reads scalar value     |
-|  [10]   | `ExecuteBatch`            | batch call          | executes batch         |
+| [INDEX] | [SURFACE]                 | [CALL_SHAPE]        | [CAPABILITY]            |
+| :-----: | :------------------------ | :------------------ | :---------------------- |
+|   [1]   | `NpgsqlDataSource.Create` | factory call        | creates data source     |
+|   [2]   | `Build`                   | builder call        | creates data source     |
+|   [3]   | `Open`                    | connection call     | opens store connection  |
+|   [4]   | `OpenAsync`               | async call          | opens store connection  |
+|   [5]   | `CreateCommand`           | factory call        | creates command         |
+|   [6]   | `BeginTransaction`        | transaction factory | starts transaction      |
+|   [7]   | `ExecuteReader`           | command call        | reads rows              |
+|   [8]   | `ExecuteNonQuery`         | command call        | writes changes          |
+|   [9]   | `ExecuteScalar`           | command call        | reads scalar value      |
+|  [10]   | `OpenConnection`          | data source call    | opens pooled connection |
 
 [ENTRYPOINT_SCOPE]: mapping and replication
 - rail: store-provider
 
-| [INDEX] | [SURFACE]               | [CALL_SHAPE]     | [CAPABILITY]         |
-| :-----: | :---------------------- | :--------------- | :------------------- |
-|   [1]   | `MapEnum`               | builder mapping  | maps enum type       |
-|   [2]   | `MapComposite`          | builder mapping  | maps composite type  |
-|   [3]   | `EnableDynamicJson`     | builder mapping  | enables JSON mapping |
-|   [4]   | `UseNodaTime`           | builder mapping  | enables time mapping |
-|   [5]   | `StartReplication`      | replication call | starts replication   |
-|   [6]   | `CreateReplicationSlot` | replication call | creates slot         |
+| [INDEX] | [SURFACE]                       | [CALL_SHAPE]     | [CAPABILITY]           |
+| :-----: | :------------------------------ | :--------------- | :--------------------- |
+|   [1]   | `MapEnum`                       | builder mapping  | maps enum type         |
+|   [2]   | `MapComposite`                  | builder mapping  | maps composite type    |
+|   [3]   | `EnableDynamicJson`             | builder mapping  | enables JSON mapping   |
+|   [4]   | `EnableUnmappedTypes`           | builder mapping  | enables unmapped types |
+|   [5]   | `StartReplication`              | replication call | starts replication     |
+|   [6]   | `CreatePgOutputReplicationSlot` | replication call | creates slot           |
 
 ## [4]-[IMPLEMENTATION_LAW]
 

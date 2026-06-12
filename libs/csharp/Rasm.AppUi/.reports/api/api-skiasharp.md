@@ -109,18 +109,18 @@
 [IMAGE_ENTRYPOINTS]: image, bitmap, codec, and pixel operations
 - rail: visuals
 
-| [INDEX] | [SURFACE]           | [SURFACE_ROOT] | [RAIL]         |
-| :-----: | :------------------ | :------------- | :------------- |
-|   [1]   | `Create`            | `SKSurface`    | surface create |
-|   [2]   | `MakeImageSnapshot` | `SKSurface`    | snapshot image |
-|   [3]   | `Decode`            | `SKBitmap`     | bitmap decode  |
-|   [4]   | `Encode`            | `SKBitmap`     | bitmap encode  |
-|   [5]   | `Decode`            | `SKCodec`      | codec decode   |
-|   [6]   | `FromBitmap`        | `SKImage`      | image create   |
-|   [7]   | `ReadPixels`        | `SKImage`      | pixel read     |
-|   [8]   | `ReadPixels`        | `SKPixmap`     | pixel read     |
-|   [9]   | `WritePixels`       | `SKBitmap`     | pixel write    |
-|  [10]   | `Encode`            | `SKImage`      | image encode   |
+| [INDEX] | [SURFACE]    | [SURFACE_ROOT] | [RAIL]         |
+| :-----: | :----------- | :------------- | :------------- |
+|   [1]   | `Create`     | `SKSurface`    | surface create |
+|   [2]   | `Snapshot`   | `SKSurface`    | snapshot image |
+|   [3]   | `Decode`     | `SKBitmap`     | bitmap decode  |
+|   [4]   | `Encode`     | `SKBitmap`     | bitmap encode  |
+|   [5]   | `GetPixels`  | `SKCodec`      | codec decode   |
+|   [6]   | `FromBitmap` | `SKImage`      | image create   |
+|   [7]   | `ReadPixels` | `SKImage`      | pixel read     |
+|   [8]   | `ReadPixels` | `SKPixmap`     | pixel read     |
+|   [9]   | `SetPixel`   | `SKBitmap`     | pixel write    |
+|  [10]   | `Encode`     | `SKImage`      | image encode   |
 
 [TEXT_AND_PAINT_ENTRYPOINTS]: text, color, shader, and render operations
 - rail: visuals
@@ -135,20 +135,19 @@
 |   [6]   | `CreateLinearGradient` | `SKShader`        | gradient shader |
 |   [7]   | `CreateBlur`           | `SKImageFilter`   | blur filter     |
 |   [8]   | `CreateDash`           | `SKPathEffect`    | dashed stroke   |
-|   [9]   | `Create`               | `SKRuntimeEffect` | runtime shader  |
+|   [9]   | `CreateShader`         | `SKRuntimeEffect` | runtime shader  |
 
 [GPU_ENTRYPOINTS]: GPU context creation
 - rail: visuals
 
-| [INDEX] | [SURFACE]                | [SURFACE_ROOT]   | [RAIL]           |
-| :-----: | :----------------------- | :--------------- | :--------------- |
-|   [1]   | `Create`                 | `GRContext`      | backend context  |
-|   [2]   | `CreateGl`               | `GRContext`      | OpenGL context   |
-|   [3]   | `CreateMetal`            | `GRContext`      | Metal context    |
-|   [4]   | `CreateVulkan`           | `GRContext`      | Vulkan context   |
-|   [5]   | `CreateDirect3D`         | `GRContext`      | Direct3D context |
-|   [6]   | `CreateDefaultInterface` | `GRGlInterface`  | GL interface     |
-|   [7]   | `Dispose`                | `SKNativeObject` | native release   |
+| [INDEX] | [SURFACE]        | [SURFACE_ROOT]   | [RAIL]           |
+| :-----: | :--------------- | :--------------- | :--------------- |
+|   [1]   | `CreateGl`       | `GRContext`      | OpenGL context   |
+|   [2]   | `CreateMetal`    | `GRContext`      | Metal context    |
+|   [3]   | `CreateVulkan`   | `GRContext`      | Vulkan context   |
+|   [4]   | `CreateDirect3D` | `GRContext`      | Direct3D context |
+|   [5]   | `Create`         | `GRGlInterface`  | GL interface     |
+|   [6]   | `Dispose`        | `SKNativeObject` | native release   |
 
 ## [4]-[IMPLEMENTATION_LAW]
 

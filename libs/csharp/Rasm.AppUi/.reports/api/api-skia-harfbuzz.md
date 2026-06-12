@@ -18,14 +18,13 @@
 [SHAPING_TYPES]: text shaping extensions
 - rail: typography
 
-| [INDEX] | [SYMBOL]             | [RAIL]           |
-| :-----: | :------------------- | :--------------- |
-|   [1]   | `SKShaper`           | text shaper      |
-|   [2]   | `SKShaperExtensions` | shape extensions |
-|   [3]   | `SKCanvasExtensions` | shaped draw      |
-|   [4]   | `SKDataExtensions`   | blob conversion  |
-|   [5]   | `FontExtensions`     | font conversion  |
-|   [6]   | `BlobExtensions`     | blob conversion  |
+| [INDEX] | [SYMBOL]           | [RAIL]          |
+| :-----: | :----------------- | :-------------- |
+|   [1]   | `SKShaper`         | text shaper     |
+|   [2]   | `SKShaper.Result`  | shape result    |
+|   [3]   | `CanvasExtensions` | shaped draw     |
+|   [4]   | `FontExtensions`   | font scale      |
+|   [5]   | `BlobExtensions`   | blob conversion |
 
 [DEPENDENCY_TYPES]: admitted shaping substrate
 - rail: typography
@@ -45,13 +44,13 @@
 [SHAPING_ENTRYPOINTS]: text shaping and drawing operations
 - rail: typography
 
-| [INDEX] | [SURFACE]        | [SURFACE_ROOT]       | [RAIL]          |
-| :-----: | :--------------- | :------------------- | :-------------- |
-|   [1]   | `Shape`          | `SKShaper`           | shape text      |
-|   [2]   | `Shape`          | `SKShaperExtensions` | shape helper    |
-|   [3]   | `DrawShapedText` | `SKCanvasExtensions` | draw glyphs     |
-|   [4]   | `ToHarfBuzzBlob` | `SKDataExtensions`   | blob conversion |
-|   [5]   | `GetFont`        | `FontExtensions`     | font conversion |
+| [INDEX] | [SURFACE]        | [SURFACE_ROOT]     | [RAIL]          |
+| :-----: | :--------------- | :----------------- | :-------------- |
+|   [1]   | `Shape`          | `SKShaper`         | shape text      |
+|   [2]   | `DrawShapedText` | `CanvasExtensions` | draw glyphs     |
+|   [3]   | `ToHarfBuzzBlob` | `BlobExtensions`   | blob conversion |
+|   [4]   | `GetScale`       | `FontExtensions`   | scale read      |
+|   [5]   | `SetScale`       | `FontExtensions`   | scale write     |
 
 ## [4]-[IMPLEMENTATION_LAW]
 

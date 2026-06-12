@@ -74,10 +74,10 @@ execution clients.
 |   [2]   | `HedgingPolicy`                | policy object   | sets hedge bounds        |
 |   [3]   | `RoundRobinConfig`             | balancer config | selects round robin      |
 |   [4]   | `PickFirstConfig`              | balancer config | selects first endpoint   |
-|   [5]   | `Resolver.ResolveAsync`        | resolver call   | resolves endpoint set    |
+|   [5]   | `Resolver.Start` / `Refresh`   | resolver call   | drives endpoint updates  |
 |   [6]   | `Subchannel.RequestConnection` | channel call    | starts connection        |
 |   [7]   | `SubchannelPicker.Pick`        | picker call     | selects subchannel       |
-|   [8]   | `PickResult.ForComplete`       | result factory  | returns selected call    |
+|   [8]   | `PickResult.ForSubchannel`     | result factory  | returns selected channel |
 |   [9]   | `PickResult.ForFailure`        | result factory  | returns failed selection |
 
 ## [4]-[IMPLEMENTATION_LAW]

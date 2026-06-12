@@ -69,7 +69,7 @@ events for execution payload staging.
 |   [5]   | `GenerateCallStacks`      | option property | enables allocation trace |
 |   [6]   | `AggressiveBufferReturn`  | option property | returns buffers eagerly  |
 |   [7]   | `ThrowExceptionOnToArray` | option property | rejects array copy       |
-|   [8]   | `ReportUsage`             | manager call    | emits usage event        |
+|   [8]   | `UsageReport`             | manager event   | reports pool usage       |
 
 ## [4]-[IMPLEMENTATION_LAW]
 

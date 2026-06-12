@@ -24,18 +24,16 @@
 |   [3]   | `AvaloniaX11PlatformExtensions`    | X11 backend     |
 |   [4]   | `Win32ApplicationExtensions`       | Win32 backend   |
 |   [5]   | `SkiaApplicationExtensions`        | Skia renderer   |
-|   [6]   | `HarfBuzzApplicationExtensions`    | text shaping    |
 
 [BACKEND_ASSETS]: admitted desktop payload packages
 - rail: desktop-shell
 
-| [INDEX] | [SYMBOL]            | [RAIL]            |
-| :-----: | :------------------ | :---------------- |
-|   [1]   | `Avalonia.Native`   | macOS native host |
-|   [2]   | `Avalonia.Win32`    | Windows backend   |
-|   [3]   | `Avalonia.X11`      | Linux X11 backend |
-|   [4]   | `Avalonia.Skia`     | raster renderer   |
-|   [5]   | `Avalonia.HarfBuzz` | text shaping      |
+| [INDEX] | [SYMBOL]          | [RAIL]            |
+| :-----: | :---------------- | :---------------- |
+|   [1]   | `Avalonia.Native` | macOS native host |
+|   [2]   | `Avalonia.Win32`  | Windows backend   |
+|   [3]   | `Avalonia.X11`    | Linux X11 backend |
+|   [4]   | `Avalonia.Skia`   | raster renderer   |
 
 ## [3]-[ENTRYPOINTS]
 
@@ -49,18 +47,16 @@
 |   [3]   | `UseX11`            | `AvaloniaX11PlatformExtensions`    | X11 backend        |
 |   [4]   | `UseWin32`          | `Win32ApplicationExtensions`       | Win32 backend      |
 |   [5]   | `UseSkia`           | `SkiaApplicationExtensions`        | renderer admission |
-|   [6]   | `UseHarfBuzz`       | `HarfBuzzApplicationExtensions`    | text shaping       |
 
 [RUNTIME_ASSETS]: desktop asset identity
 - rail: desktop-shell
 
-| [INDEX] | [SURFACE]                 | [SURFACE_ROOT]      | [RAIL]            |
-| :-----: | :------------------------ | :------------------ | :---------------- |
-|   [1]   | `libAvaloniaNative.dylib` | `Avalonia.Native`   | macOS native load |
-|   [2]   | `Avalonia.Win32.dll`      | `Avalonia.Win32`    | Windows host load |
-|   [3]   | `Avalonia.X11.dll`        | `Avalonia.X11`      | Linux host load   |
-|   [4]   | `Avalonia.Skia.dll`       | `Avalonia.Skia`     | renderer load     |
-|   [5]   | `Avalonia.HarfBuzz.dll`   | `Avalonia.HarfBuzz` | shaping load      |
+| [INDEX] | [SURFACE]                 | [SURFACE_ROOT]    | [RAIL]            |
+| :-----: | :------------------------ | :---------------- | :---------------- |
+|   [1]   | `libAvaloniaNative.dylib` | `Avalonia.Native` | macOS native load |
+|   [2]   | `Avalonia.Win32.dll`      | `Avalonia.Win32`  | Windows host load |
+|   [3]   | `Avalonia.X11.dll`        | `Avalonia.X11`    | Linux host load   |
+|   [4]   | `Avalonia.Skia.dll`       | `Avalonia.Skia`   | renderer load     |
 
 ## [4]-[IMPLEMENTATION_LAW]
 

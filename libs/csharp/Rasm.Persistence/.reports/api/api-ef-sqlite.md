@@ -63,7 +63,7 @@ query translation, and type mapping into one store-provider rail.
 | [INDEX] | [SURFACE]                  | [CALL_SHAPE]       | [CAPABILITY]            |
 | :-----: | :------------------------- | :----------------- | :---------------------- |
 |   [1]   | `UseSqlite`                | builder extension  | applies provider policy |
-|   [2]   | `AddSqlite`                | service extension  | registers data source   |
+|   [2]   | `AddSqlite<TContext>`      | service extension  | registers context       |
 |   [3]   | `AddEntityFrameworkSqlite` | service extension  | registers EF services   |
 |   [4]   | `IsSqlite`                 | database extension | identifies provider     |
 |   [5]   | `MigrationsAssembly`       | provider option    | selects migration owner |
@@ -74,13 +74,13 @@ query translation, and type mapping into one store-provider rail.
 [ENTRYPOINT_SCOPE]: migration and model operations
 - rail: store-provider
 
-| [INDEX] | [SURFACE]                       | [CALL_SHAPE]       | [CAPABILITY]              |
-| :-----: | :------------------------------ | :----------------- | :------------------------ |
-|   [1]   | `MigrationBuilder`              | migration surface  | emits relational changes  |
-|   [2]   | `SqliteTableExtensions`         | metadata extension | configures tables         |
-|   [3]   | `SqliteEntityTypeExtensions`    | metadata extension | configures entities       |
-|   [4]   | `SqliteValueGenerationStrategy` | metadata value     | classifies generation     |
-|   [5]   | `ConfigureDesignTimeServices`   | service hook       | registers design services |
+| [INDEX] | [SURFACE]                          | [CALL_SHAPE]        | [CAPABILITY]                |
+| :-----: | :--------------------------------- | :------------------ | :-------------------------- |
+|   [1]   | `SqliteMigrationBuilderExtensions` | migration extension | identifies provider builder |
+|   [2]   | `SqliteTableExtensions`            | metadata extension  | configures tables           |
+|   [3]   | `SqliteEntityTypeExtensions`       | metadata extension  | configures entities         |
+|   [4]   | `SqliteValueGenerationStrategy`    | metadata value      | classifies generation       |
+|   [5]   | `ConfigureDesignTimeServices`      | service hook        | registers design services   |
 
 ## [4]-[IMPLEMENTATION_LAW]
 

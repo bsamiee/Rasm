@@ -125,7 +125,7 @@
 |   [2]   | `ValuesMap`              | `XamlSeries`      | value projection |
 |   [3]   | `AdditionalVisualStates` | `XamlSeries`      | visual states    |
 |   [4]   | `GaugeValue`             | `XamlGaugeSeries` | gauge value      |
-|   [5]   | `EndInit`                | `XamlGaugeSeries` | gauge finalize   |
+|   [5]   | `Invalidate`             | `XamlGaugeSeries` | series refresh   |
 
 ## [4]-[IMPLEMENTATION_LAW]
 

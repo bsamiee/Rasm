@@ -75,18 +75,18 @@ measured execution inputs and receipts.
 [ENTRYPOINT_SCOPE]: quantity operations
 - rail: units
 
-| [INDEX] | [SURFACE]   | [CALL_SHAPE]    | [CAPABILITY]          |
-| :-----: | :---------- | :-------------- | :-------------------- |
-|   [1]   | `From`      | factory call    | creates quantity      |
-|   [2]   | `FromUnit`  | factory call    | creates dynamic value |
-|   [3]   | `Parse`     | parser call     | parses quantity text  |
-|   [4]   | `TryParse`  | parser call     | parses quantity text  |
-|   [5]   | `As`        | conversion call | converts unit value   |
-|   [6]   | `ToUnit`    | conversion call | converts unit value   |
-|   [7]   | `ToString`  | formatter call  | formats quantity text |
-|   [8]   | `CompareTo` | comparison call | compares quantities   |
-|   [9]   | `Equals`    | equality call   | compares quantities   |
-|  [10]   | `UnitMath`  | math surface    | executes unit math    |
+| [INDEX] | [SURFACE]                       | [CALL_SHAPE]    | [CAPABILITY]          |
+| :-----: | :------------------------------ | :-------------- | :-------------------- |
+|   [1]   | `From`                          | factory call    | creates quantity      |
+|   [2]   | `Quantity.FromUnitAbbreviation` | factory call    | creates dynamic value |
+|   [3]   | `Parse`                         | parser call     | parses quantity text  |
+|   [4]   | `TryParse`                      | parser call     | parses quantity text  |
+|   [5]   | `As`                            | conversion call | converts unit value   |
+|   [6]   | `ToUnit`                        | conversion call | converts unit value   |
+|   [7]   | `ToString`                      | formatter call  | formats quantity text |
+|   [8]   | `CompareTo`                     | comparison call | compares quantities   |
+|   [9]   | `Equals`                        | equality call   | compares quantities   |
+|  [10]   | `UnitMath`                      | math surface    | executes unit math    |
 
 [ENTRYPOINT_SCOPE]: setup and metadata
 - rail: units
