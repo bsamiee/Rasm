@@ -1,101 +1,112 @@
 # [RASM_APPUI_ARCHITECTURE]
 
-`Rasm.AppUi` owns product UI composition above host-boundary UI packages.
+`Rasm.AppUi` composes one product UI rail above host-boundary packages. Every concern is one axis owner with a closed case family, one entrypoint family per rail, and growth as rows — the eighteen finalized planning pages under `.planning/` carry the transcription-complete signatures; this page states the assembled shape.
 
-The package is a manifest-backed project node with no production source; this page defines the architecture that source must enter.
+## [1]-[RAILS_AND_AXES]
 
-## [1]-[SYSTEM_SCOPE]
+| [INDEX] | [RAIL] | [OWNERS] | [SOURCE] |
+| :-----: | ------ | -------- | -------- |
+| [1] | surface hosts | SurfaceHost (7), Surfaces, EmbedCapsule, SurfaceScheduler, NativeAssets, SurfaceFact (4) | surface-hosts#HOST_AXIS |
+| [2] | shell + navigation | NavRequest (5), ShellRoot, ShellDockFactory, LayoutLedger, ShellChrome, AdaptiveLayout | shell-navigation#ROUTING_SPINE |
+| [3] | screens | ScreenCatalog, ScreenBase, DerivedOps, ScreenValidation, ScreenState | screens-activation#SCREEN_CATALOG |
+| [4] | commands | CommandIntent + CommandDeck, CommandGate, CommandExecution, CommandProjections | commands-availability#INTENT_TABLE |
+| [5] | live data | DataSource (6), PipelineInputs, BindingCapsule, LiveDataOps | live-data#DATA_SOURCES |
+| [6] | tables + hierarchy | TableColumnRow, TableViewState, TableProjection (5), TableCommit | tables-hierarchy#GRID_SUBSTRATE |
+| [7] | inspector + editing | InspectorSurface, EditorFactory (11), EditGate, OptionsInspector, ConflictPane, CodePane | inspector-editing#EDITOR_FACTORIES |
+| [8] | charts + dashboards | ChartSeriesSpec (15), ChartAxisKind (5), ChartPolicy, ChartFolds, DashboardTile (4) | charts-dashboards#SERIES_TABLE |
+| [9] | offscreen visuals | DrawSource (2), Thumbnails, PreviewRow, VisualCodec, VisualExport | visuals-offscreen#DRAW_CAPSULE |
+| [10] | theme | TokenRow (5), ThemeVariantRow (4) × DensityRow (2), ThemeCell, ThemeRail | theme-tokens#TOKEN_CATALOG |
+| [11] | typography | TypographyRole (10), FontChain, ShapingSurface, MarkdownProjection (7), TextMetricsPolicy | typography-shaping#ROLE_AXIS |
+| [12] | icons + assets | IconSource (5), IconSurface, SvgPipeline, RasterAssets, AssetCatalog | icons-assets#ICON_AXIS |
+| [13] | dialogs + notices | DialogIntent (6), DialogTopology, DialogSurface, ToastGate, PickOps | dialogs-notifications#DIALOG_INTENTS |
+| [14] | input + interaction | GesturePolicy, BehaviorRail, PanZoomRow, DragPayload (5), ClipboardRow | input-interaction#HOTKEY_DERIVATION |
+| [15] | motion | MotionToken (6), MotionApplication, PhaseMotion, ReducedMotion | motion-tokens#MOTION_AXIS |
+| [16] | accessibility | AccessOps, FocusOps, ContrastGate, AccessProof | accessibility#CONTRAST_GATE |
+| [17] | localization | LocaleRow (2), LocaleStrings, LocaleRuntime, MirrorPolicy | localization-culture#LOCALE_AXIS |
+| [18] | evidence | EvidenceReceipt (7), EvidenceJoin, Captures, ProofEngine, DevLoop | diagnostics-evidence#RECEIPT_UNION |
+
+Rails are owner surfaces, not filenames. New capability deepens the owning rail through rows, cases, and policy values before any public surface is added.
+
+## [2]-[CROSS_PACKAGE_MATRIX]
+
+Consumed seams — mechanics live with the named owner; AppUi carries the consequence (ledger SEAM_SPLITS entries):
+
+| [INDEX] | [SEAM] | [MECHANICS_OWNER] | [APPUI_CONSEQUENCE] |
+| :-----: | ------ | ----------------- | ------------------- |
+| [1] | drain order | AppHost lifecycle-and-drain rank bands | screens rank 10, layout flush rank 20 inside the 100s Interaction band via DrainParticipantPort |
+| [2] | receipt sinks | AppHost runtime-ports ReceiptSinkPort | every AppUi receipt seals through the HLC envelope; EvidenceJoin consumes envelopes only |
+| [3] | clock seam | AppHost time-and-deadlines ClockPolicy | all stamps, elapsed, and motion clocks; Surfaces.Mount carries ClockPolicy per the one-clock-seam ruling |
+| [4] | UI scheduler | AppHost UiSchedulerPort | SurfaceScheduler.Port completes Marshal; Phases and Degradation arrive bound |
+| [5] | degradation + capability | AppHost health-and-degradation | CommandGate availability fold; LocalOnly retires HostDocument rows structurally |
+| [6] | runtime phases | AppHost RuntimePhase | toast suppression fold; draining suspends every bound screen |
+| [7] | classification | AppHost DataClassification | column masking, filter/export exclusion, bundle artifact classification |
+| [8] | options reload | AppHost ReloadClass/ReloadReceipt | options-inspector banner fold; locale republish under the transition class |
+| [9] | profile + roots | AppHost ResolvedProfile/ProfileRoots | theme defaults per profile row, asset cache roots, artifact scopes |
+| [10] | schedule + support + faults | AppHost ScheduleEntry, SupportContributorPort, FaultSource | layout checkpoint cadence, dock-layout support artifact, crash-restore offer |
+| [11] | identity keys | Persistence IdentityPolicy | SourceCache key selectors — uuidv7, content hash, natural key |
+| [12] | snapshot + blob lanes | Persistence snapshot-codecs, blob lane | layout blobs, screen state, thumbnails, dashboard layouts, render-hash baselines |
+| [13] | conflict receipts | Persistence sync-collaboration | ConflictPane projection with four resolution intent keys |
+| [14] | tabular export | Persistence Sep lane | TableExportSpec File/BlobLane destinations |
+| [15] | progress phases | Compute progress-and-observation | PhaseMotion frozen map; conformance sweep fails on phase-set drift by design |
+| [16] | receipt streams | Compute receipts-and-benchmarks | DataSource.ComputeReceiptStream, progress dialogs, provenance projection |
+| [17] | host mount + document | Rasm.Rhino / Rasm.Grasshopper | SurfaceSeam columns, WatchEvent-to-HostDocumentFact projection, ViewCapture thumbnails, FileFormat tuples, DocumentEdit.Commit transaction routing |
+
+Provided seams — AppUi owns the mechanics; consumers take the consequence:
+
+| [INDEX] | [SEAM] | [APPUI_OWNER] | [CONSUMER] |
+| :-----: | ------ | ------------- | ---------- |
+| [1] | marshal completion | SurfaceScheduler.Port | AppHost UiSchedulerPort at the composition root |
+| [2] | evidence wire | EvidenceReceipt + AppUiWireContext | app roots merge the context; TS dashboards ingest timelines |
+| [3] | command wire | CommandIntent keys + command wire shapes | TS layer, deep links, remote invocation, journal replay |
+| [4] | gesture conflicts | CommandDeck freeze-time conflict fold | input Bindings consumes the frozen deck first-wins |
+| [5] | focus-walk execution | ProofEngine ProofCheck.FocusWalk | accessibility AccessAudit folds the engine result |
+| [6] | visual egress split | tables ExportDestination (tabular text) · visuals VisualDestination (rendered media) | ratified two-owner split — distinct media, no overlap |
+
+## [3]-[RECEIPT_FLOW]
 
 ```mermaid
----
-config:
-  layout: elk
-  look: neo
-  theme: base
----
 flowchart LR
-    accTitle: AppUi product UI engine
-    accDescr: AppUi owns product UI rails, delegates host behavior to Rhino and Grasshopper UI packages, and consumes runtime, store, and compute contracts.
-    Intent["Product intent"] --> AppUi["Rasm.AppUi"]
-    AppUi --> RhinoUi["Rasm.Rhino/UI"]
-    AppUi --> GhUi["Rasm.Grasshopper/UI"]
-    AppUi --> Host["Rasm.AppHost"]
-    AppUi --> Store["Rasm.Persistence"]
-    AppUi --> Compute["Rasm.Compute"]
+    SurfaceReceipt --> EvidenceReceipt
+    CommandReceipt --> EvidenceReceipt
+    RenderReceipt --> EvidenceReceipt
+    EditReceipt --> EvidenceReceipt
+    NativeAssetFact --> EvidenceReceipt
+    EvidenceReceipt -->|Seal| ReceiptSinkPort
+    ReceiptSinkPort -->|ReceiptEnvelope| EvidenceJoin
+    EvidenceJoin --> EvidenceTimeline
+    EvidenceTimeline --> DashboardTile
 ```
 
-Text equivalent: product intent enters AppUi; AppUi owns retained UI state.
+Every sibling receipt folds into the one evidence union, seals through the HLC envelope, and re-enters the UI as timeline and dashboard rows — process-local, correlation-keyed, with skew bands rendered as uncertainty regions.
 
-AppUi binds host behavior through Rhino and Grasshopper project contracts and consumes AppHost, Persistence, and Compute contracts.
+## [4]-[PACKAGE_API_MAP]
 
-## [2]-[PROJECT_IDENTITY]
+| [INDEX] | [AXIS] | [OWNING_PACKAGES] |
+| :-----: | ------ | ----------------- |
+| [1] | surface hosts + embedding | Avalonia, Avalonia.Desktop, ReactiveUI.Avalonia |
+| [2] | shell + dock | Dock.Avalonia, Dock.Model.ReactiveUI, ReactiveUI |
+| [3] | screens + validation | ReactiveUI, ReactiveUI.Validation, System.Reactive |
+| [4] | commands + receipts | ReactiveUI, System.IO.Hashing, Thinktecture.Runtime.Extensions.Json |
+| [5] | live data | DynamicData, System.Reactive |
+| [6] | tables | Avalonia.Controls.DataGrid, DynamicData |
+| [7] | inspector + editors | bodong.Avalonia.PropertyGrid, Avalonia.Controls.ColorPicker, UnitsNet, Avalonia.AvaloniaEdit, AvaloniaEdit.TextMate |
+| [8] | charts | LiveChartsCore.SkiaSharpView.Avalonia, PanAndZoom |
+| [9] | offscreen visuals | SkiaSharp, Avalonia.Skia, AsyncImageLoader.Avalonia |
+| [10] | theme | Avalonia.Themes.Fluent, Avalonia |
+| [11] | typography | Avalonia.Fonts.Inter, SkiaSharp.HarfBuzz, Markdig |
+| [12] | icons + assets | FluentIcons.Avalonia, Svg.Controls.Skia.Avalonia, AsyncImageLoader.Avalonia |
+| [13] | dialogs + notices | DialogHost.Avalonia, Avalonia |
+| [14] | input | Xaml.Behaviors.Avalonia, PanAndZoom, Avalonia |
+| [15] | native identity | SkiaSharp.NativeAssets (macOS/Win32/Linux.NoDependencies), HarfBuzzSharp.NativeAssets (macOS/Win32/Linux) |
+| [16] | evidence + dev loop | Avalonia.Headless, Avalonia.Headless.XUnit, HotAvalonia |
+| [17] | rails + vocabulary | LanguageExt.Core, Thinktecture.Runtime.Extensions, NodaTime |
 
-| [INDEX] | [FACT]            | [VALUE]                                                 |
-| :-----: | :---------------- | :------------------------------------------------------ |
-|   [1]   | Project file      | `Rasm.AppUi.csproj`                                     |
-|   [2]   | Host awareness    | Rhino, Grasshopper, Eto, macOS                          |
-|   [3]   | Source state      | no production `.cs` files                               |
-|   [4]   | Direct packages   | retained UI, live data, visuals, controls               |
-|   [5]   | Project contracts | Rasm, AppHost, Compute, Persistence, Rhino, Grasshopper |
+Member-level facts live in the [API catalogues](.reports/api/README.md); versions live only in the charter [ADMISSIONS_RECORD](.planning/README.md).
 
-## [3]-[REFERENCE_DIRECTION]
+## [5]-[BOUNDARIES]
 
-| [INDEX] | [PROJECT]          | [RELATION]                              |
-| :-----: | :----------------- | :-------------------------------------- |
-|   [1]   | `Rasm`             | kernel and vector source                |
-|   [2]   | `Rasm.AppHost`     | runtime scheduling and lifecycle policy |
-|   [3]   | `Rasm.Compute`     | progress and execution receipt contract |
-|   [4]   | `Rasm.Persistence` | state projection and support artifacts  |
-|   [5]   | `Rasm.Rhino`       | Rhino panel and display boundary        |
-|   [6]   | `Rasm.Grasshopper` | GH2 canvas and component boundary       |
-
-AppUi is the only package in this set with Rhino/GH/Eto/macOS build awareness. AppHost, Compute, and Persistence remain free of AppUi implementation references.
-
-## [4]-[UI_RAILS]
-
-| [INDEX] | [RAIL]      | [OWNS]                              |
-| :-----: | :---------- | :---------------------------------- |
-|   [1]   | Shell       | routes, nav stack, mode, visibility |
-|   [2]   | Screen      | activation, validation, projection  |
-|   [3]   | Command     | intent, availability, receipts      |
-|   [4]   | Live        | read-only projections and snapshots |
-|   [5]   | Visual      | thumbnails, preview, HUD intent     |
-|   [6]   | Chart       | series, axes, legends, dashboards   |
-|   [7]   | Inspector   | property grid and typed editors     |
-|   [8]   | Theme       | Fluent base, tokens, control themes |
-|   [9]   | Typography  | roles, fallback, shaping            |
-|  [10]   | Assets      | path icons, SVG, custom resources   |
-|  [11]   | Diagnostics | focus, scale, disposal, screenshots |
-
-Rails are owner surfaces, not required filenames.
-
-New UI capability deepens the owning rail through catalog rows, discriminants, receipts, adapters, or folded projections before adding a public surface.
-
-## [5]-[HOST_BOUNDARY]
-
-- Avalonia owns retained panels, dialogs, companion windows, sidecar shells, and downstream app shells.
-- Rhino and Grasshopper display conduits own viewport overlays, HUDs, marks, and native scene composition.
-- Host panel handles, focus state, Retina scale, screenshot capture, native asset identity, and disposal order become AppUi diagnostic receipts.
-- `System.Drawing.Common` is compile support for Rhino-aware projects, not AppUi public vocabulary.
-
-## [6]-[CATALOGUE_TRUTH]
-
-Package API facts live in [.reports/api](.reports/api/README.md).
-
-Architecture names rails, host boundaries, and project contracts without repeating package member lists, package history, or generated lookup tables.
-
-## [7]-[SOURCE_SHAPE_LAW]
-
-- AppUi source enters as one shell, screen, command, live, visual, chart, inspector, theme, typography, asset, dialog, accessibility, and evidence rail.
-- Folder architecture is planned before production source.
-- Owner folders, rail entrypoints, host adapters, generated shapes, receipts, schedulers, and boundary adapters are named together.
-- UI capability deepens the owning rail through product vocabulary, typed commands, projection rows, tokens, receipts, and adapters before any new public surface is added.
-- Avalonia, ReactiveUI, SkiaSharp, LiveCharts, Eto, Rhino, GH2, and native API types stay internal unless a host boundary forces a boundary value.
-- Flat feature files, toolkit-branded services, parallel UI stacks, control wrappers, and per-host product models are rejected.
-
-## [8]-[BOUNDARIES]
-
-- AppUi owns product UI intent; host packages own native host behavior.
-- AppUi owns retained UI composition; Persistence owns store queries and durable state.
+- AppUi owns product UI intent; Rasm.Rhino and Rasm.Grasshopper own native host behavior — viewport overlays, HUDs, document mutation, and command-line modality cross only as seam delegates and port tuples.
+- AppUi owns retained composition and offscreen raster; Persistence owns store queries and durable state — blobs cross as opaque versioned payloads through port delegates.
 - AppUi owns progress presentation; Compute owns execution and progress receipts.
-- AppUi owns scheduler-bound UI observation; AppHost owns runtime scheduling policy.
+- AppUi owns scheduler-bound UI observation; AppHost owns runtime scheduling, lifecycle, configuration, and the correlation spine.
+- Provider types (Avalonia, ReactiveUI, SkiaSharp, LiveCharts, Dock, Eto, host APIs) stay internal; the public vocabulary is the axis owners in [1].
