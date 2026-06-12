@@ -29,57 +29,57 @@ GeoPackage stores.
 [CONVERTER_TYPES]: STJ GeoJSON converter admission
 - rail: spatial-values
 
-| [INDEX] | [SYMBOL]                      | [PACKAGE_ROLE]      | [CAPABILITY]                                  |
-| :-----: | :----------------------------- | :------------------ | :-------------------------------------------- |
-|   [1]   | `GeoJsonConverterFactory`      | converter factory   | admits all GeoJSON converters on STJ options  |
-|   [2]   | `RingOrientationOption`        | orientation policy  | selects polygon ring orientation on write     |
-|   [3]   | `StjAttributesTableExtensions` | obsolete extension  | forwards to `IPartiallyDeserializedAttributesTable` |
+| [INDEX] | [SYMBOL]                       | [PACKAGE_ROLE]     | [CAPABILITY]                                        |
+| :-----: | :----------------------------- | :----------------- | :-------------------------------------------------- |
+|   [1]   | `GeoJsonConverterFactory`      | converter factory  | admits all GeoJSON converters on STJ options        |
+|   [2]   | `RingOrientationOption`        | orientation policy | selects polygon ring orientation on write           |
+|   [3]   | `StjAttributesTableExtensions` | obsolete extension | forwards to `IPartiallyDeserializedAttributesTable` |
 
 [ATTRIBUTE_TYPES]: feature attribute projection
 - rail: spatial-values
 
-| [INDEX] | [SYMBOL]                                | [PACKAGE_ROLE]     | [CAPABILITY]                                   |
-| :-----: | :--------------------------------------- | :----------------- | :--------------------------------------------- |
-|   [1]   | `IPartiallyDeserializedAttributesTable`  | attribute contract | deserializes table or property to typed values |
-|   [2]   | `JsonElementAttributesTable`             | read-only adapter  | adapts `JsonElement` as `IAttributesTable`     |
-|   [3]   | `JsonObjectAttributesTable`              | mutable adapter    | adapts `JsonObject` with `Add`/`DeleteAttribute` |
+| [INDEX] | [SYMBOL]                                | [PACKAGE_ROLE]     | [CAPABILITY]                                     |
+| :-----: | :-------------------------------------- | :----------------- | :----------------------------------------------- |
+|   [1]   | `IPartiallyDeserializedAttributesTable` | attribute contract | deserializes table or property to typed values   |
+|   [2]   | `JsonElementAttributesTable`            | read-only adapter  | adapts `JsonElement` as `IAttributesTable`       |
+|   [3]   | `JsonObjectAttributesTable`             | mutable adapter    | adapts `JsonObject` with `Add`/`DeleteAttribute` |
 
 [GEOPACKAGE_TYPES]: GeoPackage geometry blob codec
 - rail: spatial-values
 
 | [INDEX] | [SYMBOL]              | [PACKAGE_ROLE] | [CAPABILITY]                                  |
-| :-----: | :--------------------- | :------------- | :--------------------------------------------- |
-|   [1]   | `GeoPackageGeoReader`  | blob decoder   | reads GPB header plus WKB body to `Geometry`  |
-|   [2]   | `GeoPackageGeoWriter`  | blob encoder   | writes `Geometry` to GPB header plus WKB body |
+| :-----: | :-------------------- | :------------- | :-------------------------------------------- |
+|   [1]   | `GeoPackageGeoReader` | blob decoder   | reads GPB header plus WKB body to `Geometry`  |
+|   [2]   | `GeoPackageGeoWriter` | blob encoder   | writes `Geometry` to GPB header plus WKB body |
 
 ## [3]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: GeoJSON serializer admission
 - rail: spatial-values
 
-| [INDEX] | [SURFACE]                                | [CALL_SHAPE]          | [CAPABILITY]                                      |
-| :-----: | :---------------------------------------- | :-------------------- | :------------------------------------------------ |
-|   [1]   | `new GeoJsonConverterFactory(...)`        | factory constructor   | carries `GeometryFactory`, bbox, id, ring, mutability policy |
-|   [2]   | `JsonSerializerOptions.Converters.Add`    | options admission     | enables GeoJSON for `Geometry`, `IFeature`, `FeatureCollection`, `IAttributesTable` |
-|   [3]   | `GeoJsonConverterFactory.DefaultIdPropertyName` | policy constant | names the attribute carrying a feature `id` (`_NetTopologySuite_id`) |
+| [INDEX] | [SURFACE]                                       | [CALL_SHAPE]        | [CAPABILITY]                                                                        |
+| :-----: | :---------------------------------------------- | :------------------ | :---------------------------------------------------------------------------------- |
+|   [1]   | `new GeoJsonConverterFactory(...)`              | factory constructor | carries `GeometryFactory`, bbox, id, ring, mutability policy                        |
+|   [2]   | `JsonSerializerOptions.Converters.Add`          | options admission   | enables GeoJSON for `Geometry`, `IFeature`, `FeatureCollection`, `IAttributesTable` |
+|   [3]   | `GeoJsonConverterFactory.DefaultIdPropertyName` | policy constant     | names the attribute carrying a feature `id` (`_NetTopologySuite_id`)                |
 
 [ENTRYPOINT_SCOPE]: attribute value projection
 - rail: spatial-values
 
-| [INDEX] | [SURFACE]                          | [CALL_SHAPE]       | [CAPABILITY]                                |
-| :-----: | :---------------------------------- | :----------------- | :------------------------------------------- |
-|   [1]   | `TryDeserializeJsonObject<T>`       | contract method    | converts a whole table to a typed CLR value  |
-|   [2]   | `TryGetJsonObjectPropertyValue<T>`  | contract method    | converts one property to a typed CLR value   |
-|   [3]   | `GetOptionalValue` / `GetNames` / `GetValues` | table read | reads loosely typed attribute values         |
+| [INDEX] | [SURFACE]                                     | [CALL_SHAPE]    | [CAPABILITY]                                |
+| :-----: | :-------------------------------------------- | :-------------- | :------------------------------------------ |
+|   [1]   | `TryDeserializeJsonObject<T>`                 | contract method | converts a whole table to a typed CLR value |
+|   [2]   | `TryGetJsonObjectPropertyValue<T>`            | contract method | converts one property to a typed CLR value  |
+|   [3]   | `GetOptionalValue` / `GetNames` / `GetValues` | table read      | reads loosely typed attribute values        |
 
 [ENTRYPOINT_SCOPE]: GeoPackage blob codec
 - rail: spatial-values
 
-| [INDEX] | [SURFACE]                                  | [CALL_SHAPE]       | [CAPABILITY]                                |
-| :-----: | :------------------------------------------ | :----------------- | :------------------------------------------- |
-|   [1]   | `GeoPackageGeoReader.Read`                  | byte[] or `Stream` | decodes a GeoPackage blob to `Geometry`      |
-|   [2]   | `GeoPackageGeoWriter.Write`                 | byte[] or `Stream` | encodes a `Geometry` to a GeoPackage blob    |
-|   [3]   | `HandleOrdinates` / `HandleSRID` / `RepairRings` | codec policy  | caps ordinates, stamps header SRID, repairs rings |
+| [INDEX] | [SURFACE]                                        | [CALL_SHAPE]       | [CAPABILITY]                                      |
+| :-----: | :----------------------------------------------- | :----------------- | :------------------------------------------------ |
+|   [1]   | `GeoPackageGeoReader.Read`                       | byte[] or `Stream` | decodes a GeoPackage blob to `Geometry`           |
+|   [2]   | `GeoPackageGeoWriter.Write`                      | byte[] or `Stream` | encodes a `Geometry` to a GeoPackage blob         |
+|   [3]   | `HandleOrdinates` / `HandleSRID` / `RepairRings` | codec policy       | caps ordinates, stamps header SRID, repairs rings |
 
 ## [4]-[IMPLEMENTATION_LAW]
 

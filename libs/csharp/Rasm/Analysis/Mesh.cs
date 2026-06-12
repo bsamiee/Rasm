@@ -6,7 +6,7 @@ namespace Rasm.Analysis;
 // --- [TYPES] ------------------------------------------------------------------------------
 [SkipUnionOps]
 [Union]
-public partial record Meshes : IAspect {
+public partial record Meshes {
     public sealed record SamplesCase(MeshSampleGroup Group) : Meshes;
     public sealed record FaceQualityCase(MeshMetric Metric) : Meshes;
     public sealed record FaceShapeCase : Meshes;
@@ -31,7 +31,7 @@ public partial record Meshes : IAspect {
     public static Meshes VisiblePolygonCount => new VisiblePolygonCountCase();
     public static Meshes NakedEdges => new NakedEdgesCase();
     public static Meshes Outline(Plane plane) => new OutlineCase(Plane: plane);
-    public Operation<TGeometry, TOut> Operation<TGeometry, TOut>() where TGeometry : notnull => Switch(
+    internal Operation<TGeometry, TOut> Operation<TGeometry, TOut>() where TGeometry : notnull => Switch(
         samplesCase: static s => Analyze.MeshLift<TGeometry, TOut, MeshSample>(key: SamplesKey, source: Analyze.MeshSamples(group: s.Group)),
         faceQualityCase: static fq => fq.Metric.Equals(MeshMetric.None)
             ? Analysis.Operation<TGeometry, TOut>.Reject(key: FaceQualityKey, fault: FaceQualityKey.InvalidInput())
@@ -208,7 +208,6 @@ public readonly record struct MeshFaceShape(ComponentIndex Source, VectorCloudSh
 
 // --- [OPERATIONS] -------------------------------------------------------------------------
 public static partial class Analyze {
-    public static Operation<TGeometry, TOut> Meshes<TGeometry, TOut>(Meshes aspect) where TGeometry : notnull => Aspect<Meshes, TGeometry, TOut>(aspect: aspect);
     internal static Operation<TGeometry, TOut> MeshLift<TGeometry, TOut, TValue>(Op key, Operation<Mesh, TValue> source) where TGeometry : notnull =>
         Native<TGeometry, TOut, Mesh, TValue, Operation<Mesh, TValue>>(key: key, state: source, requirement: source.Requirement, requiresContext: source.RequiresContext, project: static (q, mesh) => q.Apply(geometry: Seq(mesh)));
     internal static Operation<Mesh, MeshCheckParameters> MeshCheck {

@@ -19,7 +19,7 @@ Every store operation in Rasm.Persistence executes through one typed dispatch: t
 - Auto: the bracket leases through `PooledDbContextFactory.CreateDbContextAsync` — one pooled factory per placement, built at composition from the profile row's `Configure` output — and `DisposeAsync` returns the lease, so the context never escapes the rail; every arm runs under `CreateExecutionStrategy`, binding pg `EnableRetryOnFailure` and sqlite busy-retry to the profile row while database retry stays excluded from the AppHost hop law; `Timeout` binds the caller's `DeadlineClass` row.
 - Packages: Microsoft.EntityFrameworkCore.Sqlite, Npgsql.EntityFrameworkCore.PostgreSQL, Thinktecture.Runtime.Extensions, LanguageExt.Core, NodaTime.
 - Growth: a new operation posture is one case on `StoreOp<T>` and a new failure is one case row in the 7000 fault-code band, zero new surface.
-- Boundary: arity discriminates on payload shape — `Seq` carries one-or-many and `GetMany`/`UpsertMany` suffixes are the deleted spelling; repository-per-entity, generic repositories, lazy loading, and per-call-site tracking toggles are rejected forms — read posture is NoTracking from the profile factory options and write arms track explicitly attached graphs only; `Unsupported` materializes when a lane-by-profile capability row denies a shape; `ServerNotProvisioned` and `NewerSchema` construct at the provisioning probe and the open gate, and `From` converts their provider-error surfacings on this rail.
+- Boundary: arity discriminates on payload shape — `Seq` carries one-or-many and `GetMany`/`UpsertMany` suffixes are the deleted spelling; repository-per-entity, generic repositories, lazy loading, and per-call-site tracking toggles are rejected forms — read posture is NoTracking from the profile factory options and write arms track explicitly attached graphs only; `Unsupported` materializes when a lane-by-profile capability row denies a shape; `ServerNotProvisioned` and `NewerSchema` construct at the provisioning probe and the open gate, and `From` is the single projection site — the schema-rail `SchemaFault` 5300-band evidence folds to `NewerSchema` 7005 before any provider-exception arm runs; SQLSTATE evidence rides `PostgresException.SqlState` matched against the `PostgresErrorCodes` constants because the `NpgsqlException` base carries no state code.
 
 ```csharp signature
 [Union]
@@ -29,12 +29,15 @@ public abstract partial record StoreFault : Expected, IValidationError<StoreFaul
     public static StoreFault Create(string message) => new Text(message);
 
     public static StoreFault From(Error error) =>
-        error.Exception.Case switch {
-            DbUpdateConcurrencyException ex => new Concurrency(ex.Message),
-            NpgsqlException { SqlState: "42704" } ex => new ServerNotProvisioned(ex.Message),
-            DbException { IsTransient: true } ex => new Transient(ex.Message),
-            Exception ex => new Text(ex.Message),
-            _ => new Text(error.Message),
+        error switch {
+            SchemaFault schema => new NewerSchema(schema.Message),
+            _ => error.Exception.Case switch {
+                DbUpdateConcurrencyException ex => new Concurrency(ex.Message),
+                PostgresException { SqlState: PostgresErrorCodes.UndefinedObject } ex => new ServerNotProvisioned(ex.Message),
+                DbException { IsTransient: true } ex => new Transient(ex.Message),
+                Exception ex => new Text(ex.Message),
+                _ => new Text(error.Message),
+            },
         };
 
     public sealed record Text : StoreFault { public Text(string detail) : base(detail, 7000) { } }
@@ -148,7 +151,7 @@ public static class ProjectionRail {
 - Receipt: `BulkReceipt` — entity, rows, route, provider, elapsed `Duration`, `Instant` stamp.
 - Packages: linq2db.EntityFrameworkCore, Thinktecture.Runtime.Extensions, NodaTime, LanguageExt.Core.
 - Growth: a new movement form is one `BulkRoute` case carrying its receipt row, zero new surface.
-- Boundary: `BulkCopyAsync` rides `BulkCopyOptions` on the ProviderSpecific route; `MergeWithOutputAsync` consumes `Projection`, whose action string is a SQL-mapped sentinel and never caller input; profile rows without the ReturningOldNew capability column capture deltas through the SaveChanges interceptor hook instead; `ToLinqToDB` is the window-function escape inside one query shape; EFCore.BulkExtensions and a query-builder layer are the deleted forms; `Deleted`/`Inserted` sentinels project to `Option` and never travel inward.
+- Boundary: bridge activation is one `LinqToDBForEFTools.Initialize()` call at the composition root before the first bulk shape; `BulkCopyAsync` rides `BulkCopyOptions` on the ProviderSpecific route; `MergeWithOutputAsync` consumes `Projection`, whose action string is a SQL-mapped sentinel and never caller input; profile rows without the ReturningOldNew capability column capture deltas through the SaveChanges interceptor hook instead; `ToLinqToDB` is the window-function escape inside one query shape; EFCore.BulkExtensions and a query-builder layer are the deleted forms; `Deleted`/`Inserted` sentinels project to `Option` and never travel inward.
 
 ```csharp signature
 [SmartEnum]
@@ -287,12 +290,8 @@ flowchart LR
 
 ## [6]-[RESEARCH]
 
-| [INDEX] | [ITEM]                                                                                                                                   | [PROOF]                                                          | [GATE]            |
-| :-----: | ----------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------- | ----------------- |
-|   [1]   | EF Core rail member spellings — `PooledDbContextFactory` lease shape, `CreateExecutionStrategy`, `ExecuteAsync` state overload, `DbUpdateConcurrencyException` | `uv run python -m tools.assay api query efcore PooledDbContextFactory` | OPERATION_ALGEBRA |
-|   [2]   | `NpgsqlException` SqlState taxonomy backing the preload-absence arm of `StoreFault.From`                                                   | `uv run python -m tools.assay api query npgsql NpgsqlException`    | OPERATION_ALGEBRA |
-|   [3]   | EF Core 10 projection member spellings — named filter declaration, `IgnoreQueryFilters` key overload, `EF.CompileAsyncQuery`, `TagWith`, `AsSplitQuery` | `uv run python -m tools.assay api query efcore HasQueryFilter`     | PROJECTION_SHAPES |
-|   [4]   | `MergeWithOutput` RETURNING old/new emission on the pg provider behind the ReturningOldNew capability column                               | `uv run python -m tools.assay api query linq2db MergeWithOutput`   | BULK_LANE         |
-|   [5]   | `BulkCopyOptions` ProviderSpecific route and `ConflictAction` emission per provider                                                        | `uv run python -m tools.assay api query linq2db BulkCopyOptions`   | BULK_LANE         |
-|   [6]   | Default-implementation coverage and event-payload spellings across the four EF interception interfaces backing the single-capsule `StoreInterceptor` | `uv run python -m tools.assay api query efcore.relational IDbCommandInterceptor` | INTERCEPTOR_SPINE |
-|   [7]   | EF Core 10 native `Activity` emission depth beside `AddNpgsql` spans                                                                       | `uv run python -m tools.assay test run --target Rasm.Persistence`  | INTERCEPTOR_SPINE |
+| [INDEX] | [ITEM]                                                                                                                     | [PROOF]                                                           | [GATE]            |
+| :-----: | -------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------- | ----------------- |
+|   [1]   | RETURNING old/new SQL emission from `MergeWithOutputAsync` on the pg provider behind the ReturningOldNew capability column | `uv run python -m tools.assay test run --target Rasm.Persistence` | BULK_LANE         |
+|   [2]   | `BulkCopyOptions` ProviderSpecific emission per provider — pg binary COPY and the sqlite multi-row downgrade               | `uv run python -m tools.assay test run --target Rasm.Persistence` | BULK_LANE         |
+|   [3]   | EF Core 10 native `Activity` emission depth beside `AddNpgsql` spans                                                       | `uv run python -m tools.assay test run --target Rasm.Persistence` | INTERCEPTOR_SPINE |

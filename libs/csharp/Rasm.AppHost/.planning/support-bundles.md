@@ -4,12 +4,12 @@ Support capture is the runtime spine's bounded diagnostic evidence surface: one 
 
 ## [1]-[INDEX]
 
-| [INDEX] | [CLUSTER]        | [OWNS]                                                               |
-| :-----: | :--------------- | :------------------------------------------------------------------- |
-|   [1]   | TRIGGER_UNION    | Six capture causes, one sealed union, typed reason payloads          |
-|   [2]   | CAPTURE_PIPELINE | Window freeze, ordered fan-in, redaction before write, caps          |
-|   [3]   | MANIFEST_RECEIPT | Zip assembly, wire manifest, receipt union, retention, process law   |
-|   [4]   | TS_PROJECTION    | Manifest and receipt wire shapes the TS dashboard ingests            |
+| [INDEX] | [CLUSTER]        | [OWNS]                                                             |
+| :-----: | :--------------- | :----------------------------------------------------------------- |
+|   [1]   | TRIGGER_UNION    | Six capture causes, one sealed union, typed reason payloads        |
+|   [2]   | CAPTURE_PIPELINE | Window freeze, ordered fan-in, redaction before write, caps        |
+|   [3]   | MANIFEST_RECEIPT | Zip assembly, wire manifest, receipt union, retention, process law |
+|   [4]   | TS_PROJECTION    | Manifest and receipt wire shapes the TS dashboard ingests          |
 
 ## [2]-[TRIGGER_UNION]
 
@@ -149,13 +149,13 @@ Policy rows bind through the config rail: rows one through six freeze into the S
 
 Canonical AppHost artifact rows; sibling packages land their rows through the ordered contributor descriptor set:
 
-| [INDEX] | [ARTIFACT]       | [PRODUCER]                                                                      | [STATE]  |
-| :-----: | :--------------- | :------------------------------------------------------------------------------ | :------- |
-|   [1]   | effective-config | redacted `ConfigurationRootExtensions` debug view with per-key source provenance | current  |
-|   [2]   | buffered-logs    | fault-buffer flush rendered by the profile row's log pipeline owner              | current  |
-|   [3]   | phase-receipts   | lifecycle transition receipts inside the frozen window                           | current  |
-|   [4]   | health-snapshot  | latest health fold snapshot                                                      | current  |
-|   [5]   | process-dump     | dump and gcdump capture                                                          | designed |
+| [INDEX] | [ARTIFACT]       | [PRODUCER]                                                                                                                          | [STATE]  |
+| :-----: | :--------------- | :---------------------------------------------------------------------------------------------------------------------------------- | :------- |
+|   [1]   | effective-config | `GetDebugView` with the `Func<ConfigurationDebugViewContext, string>` processValue hook redacting per key, source provenance intact | current  |
+|   [2]   | buffered-logs    | fault-buffer flush rendered by the profile row's log pipeline owner                                                                 | current  |
+|   [3]   | phase-receipts   | lifecycle transition receipts inside the frozen window                                                                              | current  |
+|   [4]   | health-snapshot  | latest health fold snapshot                                                                                                         | current  |
+|   [5]   | process-dump     | dump and gcdump capture                                                                                                             | designed |
 
 ## [4]-[MANIFEST_RECEIPT]
 
@@ -295,7 +295,6 @@ type SupportReceipt =
 
 ## [6]-[RESEARCH]
 
-| [INDEX] | [ITEM]                                                                                  | [PROOF]                                                                                                            | [GATE]           |
-| :-----: | :-------------------------------------------------------------------------------------- | :------------------------------------------------------------------------------------------------------------------ | :--------------- |
-|   [1]   | `ConfigurationRootExtensions` debug-view member shape for the redacted effective-config producer | `uv run python -m tools.assay api query microsoft.extensions.configuration ConfigurationRootExtensions.GetDebugView` | CAPTURE_PIPELINE |
-|   [2]   | dump and gcdump capture-tool admission on the 9.0.661903 line for the process-dump row   | `dotnet package search dotnet-gcdump --exact-match`                                                                  | CAPTURE_PIPELINE |
+| [INDEX] | [ITEM]                                                                                 | [PROOF]                                             | [GATE]           |
+| :-----: | :------------------------------------------------------------------------------------- | :-------------------------------------------------- | :--------------- |
+|   [1]   | dump and gcdump capture-tool admission on the 9.0.661903 line for the process-dump row | `dotnet package search dotnet-gcdump --exact-match` | CAPTURE_PIPELINE |

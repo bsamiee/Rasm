@@ -4,13 +4,13 @@ One thirteen-case `ComputeReceipt` union is the package's only fact vocabulary f
 
 ## [1]-[INDEX]
 
-| [INDEX] | [CLUSTER]        | [OWNS]                                                          |
-| :-----: | :--------------- | :--------------------------------------------------------------- |
-|   [1]   | RECEIPT_UNION    | Thirteen-case fact union; one wire context; sink-port emission  |
-|   [2]   | FOLD_PROJECTIONS | Operational views derive as folds over the fact stream          |
-|   [3]   | WIRE_STAMPS      | NodaTime-protobuf bridges own the temporal wire edge            |
-|   [4]   | BENCHMARK_CLAIMS | Fingerprint-gated claim rows decide performance routes          |
-|   [5]   | TS_PROJECTION    | Receipt payload union and benchmark-claim wire shapes           |
+| [INDEX] | [CLUSTER]        | [OWNS]                                                         |
+| :-----: | :--------------- | :------------------------------------------------------------- |
+|   [1]   | RECEIPT_UNION    | Thirteen-case fact union; one wire context; sink-port emission |
+|   [2]   | FOLD_PROJECTIONS | Operational views derive as folds over the fact stream         |
+|   [3]   | WIRE_STAMPS      | NodaTime-protobuf bridges own the temporal wire edge           |
+|   [4]   | BENCHMARK_CLAIMS | Fingerprint-gated claim rows decide performance routes         |
+|   [5]   | TS_PROJECTION    | Receipt payload union and benchmark-claim wire shapes          |
 
 ## [2]-[RECEIPT_UNION]
 
@@ -19,7 +19,7 @@ One thirteen-case `ComputeReceipt` union is the package's only fact vocabulary f
 - Entry: `public IO<ReceiptEnvelope> Emit(ReceiptSinkPort sink, JsonSerializerOptions wire)` — `IO` carries the sink effect; the returned envelope is the emission evidence.
 - Auto: the wire kind derives from the polymorphic metadata pinned on the union, the HLC stamp and `SkewBound` derive inside `Send`, and the instrument rows register once at composition through `TelemetryContributorPort` — `TelemetrySource.Compute` mints the activity spine so receipt correlation joins the OTel rail with zero call-site ceremony.
 - Receipt: union cases materialize at the sink edge only; hot-path capsules upstream stay allocation-free and the envelope is the sole cross-process causal carrier.
-- Packages: Thinktecture.Runtime.Extensions, LanguageExt.Core, NodaTime, Rasm.AppHost (project), BCL inbox
+- Packages: Thinktecture.Runtime.Extensions, Thinktecture.Runtime.Extensions.Json, LanguageExt.Core, NodaTime, Rasm.AppHost (project), BCL inbox
 - Growth: a new measured concern is one case row on `ComputeReceipt` plus one `[JsonDerivedType]` row and one TS payload row, zero new surface.
 - Boundary: receipts are process-local and HLC-correlated, never globally shared — the envelope stamp is the only cross-process causal primitive; a generic IReceipt/ledger abstraction, a second correlation or HLC stamp, and emission bypassing the sink port are the rejected forms; the `Conflict` case is the receipt complement of the wire fault projection, carrying retry-owner and contract-checksum evidence; spine fields serialize as Thinktecture key scalars and the format members make every receipt span-writable without runtime format strings.
 
@@ -294,6 +294,6 @@ interface BenchmarkClaimWire { band: "micro" | "small" | "medium" | "large"; dty
 
 ## [7]-[RESEARCH]
 
-| [INDEX] | [ITEM]                                                                                                                      | [PROOF]                                                       | [GATE]        |
-| :-----: | :--------------------------------------------------------------------------------------------------------------------------- | :-------------------------------------------------------------- | :------------- |
+| [INDEX] | [ITEM]                                                                                                                                         | [PROOF]                                                       | [GATE]        |
+| :-----: | :--------------------------------------------------------------------------------------------------------------------------------------------- | :------------------------------------------------------------ | :------------ |
 |   [1]   | `ComputeReceipt` polymorphic kind emission with Thinktecture key scalars and `Seq` collection metadata through the suite Strict resolver merge | `uv run python -m tools.assay test run --target Rasm.Compute` | RECEIPT_UNION |

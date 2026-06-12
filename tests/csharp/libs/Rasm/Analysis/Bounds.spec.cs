@@ -162,6 +162,6 @@ public sealed class BoundsRejectionRailLaws {
             });
     [Fact]
     public void NullAspectRejectsWithInputCategory() =>
-        Spec.Invalid(Analyze.Run(operation: Analyze.Bounds<Mesh, BoundingBox>(aspect: null!), input: default(Mesh)!),
+        Spec.Invalid(Analyze.Run(operation: Analyze.Query<Mesh, BoundingBox>(query: null), input: default(Mesh)!),
             then: static error => Assert.Equal(expected: "Input", actual: error.Category()));
 }

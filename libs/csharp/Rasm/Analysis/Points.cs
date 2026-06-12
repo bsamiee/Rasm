@@ -16,7 +16,7 @@ public sealed partial class SpreadAspect {
 
 [SkipUnionOps]
 [Union]
-public partial record Points : IAspect {
+public partial record Points {
     public sealed record ExtremaCase(Option<Seq<Vector3d>> Directions) : Points;
     public sealed record EdgeMidpointsCase : Points;
     public sealed record VerticesCase : Points;
@@ -33,7 +33,7 @@ public partial record Points : IAspect {
     public static Points Vertices => new VerticesCase();
     public static Points ControlPoints => new ControlPointsCase();
     public static Points Spread(SpreadAspect aspect) => new SpreadCase(Aspect: aspect);
-    public Operation<TGeometry, TOut> Operation<TGeometry, TOut>() where TGeometry : notnull => Switch(
+    internal Operation<TGeometry, TOut> Operation<TGeometry, TOut>() where TGeometry : notnull => Switch(
         extremaCase: static c => typeof(TOut) == typeof(Point3d) && GeometryKernel.CanCurveForm(type: typeof(TGeometry))
             ? Analysis.Operation<TGeometry, Point3d>.Build(
                 key: ExtremaKey, requirement: Requirement.Basic, state: (Key: ExtremaKey, c.Directions),
@@ -59,7 +59,7 @@ public partial record Points : IAspect {
                 evaluator: static (op, geometry) => Analyze.CurveProject<TGeometry, Point3d, Point3d>(
                     key: op,
                     aspect: Curves.All,
-                    project: static (projection, _, _) => Fin.Succ(projection.As<Curve>().Map(static curve => new Lease<Curve>.Borrowed(Value: curve).Use(static owned => owned.PointAtNormalizedLength(length: 0.5)))))
+                    project: static (projection, _, _, _) => Fin.Succ(projection.As<Curve>().Map(static curve => new Lease<Curve>.Borrowed(Value: curve).Use(static owned => owned.PointAtNormalizedLength(length: 0.5)))))
                     .Apply(geometry: Seq(geometry))).As<TGeometry, TOut>(key: EdgeMidpointsKey)
             : EdgeMidpointsKey.Unsupported<TGeometry, TOut>(),
         verticesCase: static _ => typeof(TOut) == typeof(Point3d) && GeometryKernel.CanReadVertices(type: typeof(TGeometry))
@@ -94,7 +94,6 @@ public partial record Points : IAspect {
 
 // --- [OPERATIONS] -------------------------------------------------------------------------
 public static partial class Analyze {
-    public static Operation<TGeometry, TOut> Points<TGeometry, TOut>(Points sampling) where TGeometry : notnull => Aspect<Points, TGeometry, TOut>(aspect: sampling);
     internal static Fin<Seq<Point3d>> ControlPointsOf<TGeometry>(TGeometry geometry, Op op) where TGeometry : notnull =>
         Optional(geometry).ToFin(op.InvalidInput()).Bind(g => g switch {
             Curve curve => curve is NurbsCurve nc

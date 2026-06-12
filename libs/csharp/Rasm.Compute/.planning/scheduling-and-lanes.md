@@ -4,16 +4,16 @@ Rasm.Compute schedules every admitted intent through five bounded `WorkLane` cha
 
 ## [1]-[INDEX]
 
-| [INDEX] | [CLUSTER]   | [OWNS]                                                                  |
-| :-----: | :---------- | :----------------------------------------------------------------------- |
-|   [1]   | LANE_AXIS   | Five bounded channel rows; capacity, full-mode, readers, rank as row data |
-|   [2]   | SOLVE_GUARD | One enqueue capsule; solve threads receive handles, never execute work    |
-|   [3]   | CPU_BUDGET  | One processor-budget record shared by all three concurrency axes          |
+| [INDEX] | [CLUSTER]    | [OWNS]                                                                      |
+| :-----: | :----------- | :-------------------------------------------------------------------------- |
+|   [1]   | LANE_AXIS    | Five bounded channel rows; capacity, full-mode, readers, rank as row data   |
+|   [2]   | SOLVE_GUARD  | One enqueue capsule; solve threads receive handles, never execute work      |
+|   [3]   | CPU_BUDGET   | One processor-budget record shared by all three concurrency axes            |
 |   [4]   | DRAIN_CANCEL | Band-200 drain participation; one linked cancellation chain with provenance |
 
 ## [2]-[LANE_AXIS]
 
-- Owner: `WorkLane` `[SmartEnum<string>]` five rows under the `LaneKeyPolicy` ordinal accessor; `LaneHandle` readback handle; `WorkItem` channel element.
+- Owner: `WorkLane` `[SmartEnum<string>]` five rows under the `ComputeKeyPolicy` ordinal accessor; `LaneHandle` readback handle; `WorkItem` channel element.
 - Cases: interactive, background, bulk, benchmark, capture-ingest.
 - Entry: `public BoundedChannelOptions Options(CpuBudget budget)` — pure row projection; capacity, full-mode, and reader fan-out are row data, never call-site arguments.
 - Auto: cadence-driven work (compute-model-warmup, scheduled equivalence sweeps) enters as `ScheduleEntry` rows whose `Work` delegate enqueues onto its declared lane — the schedule port owns when, lanes own throughput; receipted-loss rows construct their channel with the pressure delegate so every drop lands as evidence.
@@ -24,8 +24,8 @@ Rasm.Compute schedules every admitted intent through five bounded `WorkLane` cha
 
 ```csharp signature
 [SmartEnum<string>]
-[KeyMemberEqualityComparer<LaneKeyPolicy, string>]
-[KeyMemberComparer<LaneKeyPolicy, string>]
+[KeyMemberEqualityComparer<ComputeKeyPolicy, string>]
+[KeyMemberComparer<ComputeKeyPolicy, string>]
 public sealed partial class WorkLane {
     public static readonly WorkLane Interactive = new("interactive", capacity: 16, fullMode: BoundedChannelFullMode.Wait, rank: 1, readers: static _ => 1);
     public static readonly WorkLane Background = new("background", capacity: 256, fullMode: BoundedChannelFullMode.Wait, rank: 2, readers: static budget => budget.ReaderCeiling);
@@ -164,16 +164,16 @@ public sealed record CpuBudget(int Total, int HostReserve) {
 
 The posture row supplies `hostReserve` per host-profile row at composition:
 
-| [INDEX] | [PROFILE_ROW]       | [HOST_RESERVE] |
-| :-----: | :------------------ | :------------: |
-|   [1]   | rhino-plugin        | 2              |
-|   [2]   | gh2-plugin          | 2              |
-|   [3]   | standalone-desktop  | 1              |
-|   [4]   | companion           | 1              |
-|   [5]   | sidecar             | 1              |
-|   [6]   | headless-service    | 0              |
-|   [7]   | web-service         | 0              |
-|   [8]   | test-host           | 0              |
+| [INDEX] | [PROFILE_ROW]      | [HOST_RESERVE] |
+| :-----: | :----------------- | :------------: |
+|   [1]   | rhino-plugin       |       2        |
+|   [2]   | gh2-plugin         |       2        |
+|   [3]   | standalone-desktop |       1        |
+|   [4]   | companion          |       1        |
+|   [5]   | sidecar            |       1        |
+|   [6]   | headless-service   |       0        |
+|   [7]   | web-service        |       0        |
+|   [8]   | test-host          |       0        |
 
 ## [5]-[DRAIN_CANCEL]
 
@@ -201,7 +201,7 @@ public static class LaneDrain {
 
 ## [6]-[RESEARCH]
 
-| [INDEX] | [ITEM]                                                                                  | [PROOF]                                                                                                                          | [GATE]      |
-| :-----: | :---------------------------------------------------------------------------------------- | :--------------------------------------------------------------------------------------------------------------------------------- | :---------- |
-|   [1]   | Bounded `ChannelReader` count surface backing the queue-depth slot on Backpressure evidence | `uv run python -m tools.assay test run --target Rasm.Compute` — a lane spec asserts the count surface across the five rows          | LANE_AXIS   |
-|   [2]   | Drop-callback execution context and allocation profile on receipted-loss rows              | `uv run python -m tools.assay test run --target Rasm.Compute` — CsCheck Check.Faster law over the pressure delegate on drop rows     | SOLVE_GUARD |
+| [INDEX] | [ITEM]                                                                                      | [PROOF]                                                                                                                          | [GATE]      |
+| :-----: | :------------------------------------------------------------------------------------------ | :------------------------------------------------------------------------------------------------------------------------------- | :---------- |
+|   [1]   | Bounded `ChannelReader` count surface backing the queue-depth slot on Backpressure evidence | `uv run python -m tools.assay test run --target Rasm.Compute` — a lane spec asserts the count surface across the five rows       | LANE_AXIS   |
+|   [2]   | Drop-callback execution context and allocation profile on receipted-loss rows               | `uv run python -m tools.assay test run --target Rasm.Compute` — CsCheck Check.Faster law over the pressure delegate on drop rows | SOLVE_GUARD |

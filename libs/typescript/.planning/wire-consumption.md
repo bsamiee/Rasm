@@ -40,9 +40,9 @@ plugins:
 |   [1]   | codegen input      | app-root-emitted descriptor set            | published beside the discovery manifest by `ContractGuard`; the pnpm build consumes it, never hand-copied `.proto` files |
 |   [2]   | generated surface  | `*_pb.ts` with one `GenService` per service | each rpc carries `methodKind`, `input`, `output`; the five method-shape aliases in the inventory mirror it |
 |   [3]   | message construction | `create` from `@bufbuild/protobuf`        | generated messages construct through `create`, never object literals cast to message types        |
-|   [4]   | client factory     | `createClient(ServiceDesc, transport)`     | one client per service over one shared transport; hand-written wire clients are the deleted form  |
+|   [4]   | client factory     | `createClient(service: DescService, transport)` | one client per browser-dialable service over one shared transport; hand-written wire clients are the deleted form |
 |   [5]   | browser transport  | `createGrpcWebTransport({ baseUrl })`      | binary format default; same-origin `baseUrl` under the co-hosted topology; `GrpcWebTransportOptions` carries `interceptors`, `fetch`, `defaultTimeoutMs` |
-|   [6]   | call shapes        | unary as `await`, server-stream as `for await` | genuine binary server-streaming over Fetch; the text mode never enters; client-stream and bidi are structurally absent in the browser |
+|   [6]   | call shapes        | unary as `await`, server-stream as `for await` | genuine binary server-streaming over Fetch; the text mode never enters; client-stream and bidi are structurally absent in the browser; the per-call `signal` option carries Effect interruption into transport cancellation |
 |   [7]   | call stamping      | transport interceptor                      | stamps `rasm-correlation` and `traceparent` metadata, mirroring the .NET `CallSpine` constants     |
 
 ## [3]-[CODEC_ROWS]
@@ -52,9 +52,9 @@ plugins:
 |   [1]   | snapshot blobs       | @msgpack/msgpack             | reused `Decoder` instance; `useBigInt64: true` aligns 64-bit integers with .NET; zero `ExtensionCodec` registrations because `SnapshotExtensionRows` is `never` — every shape crosses primitive-mapped |
 |   [2]   | snapshot header      | DataView over the prefix     | `schemaFingerprint` reads through `getBigUint64`; magic, codec, and compression ids read as fixed-width fields |
 |   [3]   | sync segments        | @msgpack/msgpack             | 64-bit sequence and logical fields decode as bigint; content keys cross as 16-byte binary; outcome discriminators reconstruct as literal unions |
-|   [4]   | JSON runtime records | STJ Strict camelCase emission | kind-literal discriminated unions; instants as ISO-8601 text; durations as round-trip text; smart-enum columns as key scalars; correlation as guid strings; absent evidence as explicit null, never an omitted member |
-|   [5]   | geometry JSON        | GeoJSON                      | the JSON projection of the proto geometry family; feeds map and geo dashboard series directly      |
-|   [6]   | fault details        | generated `FaultDetail` message | decoded from `google.rpc.Status` details on the `grpc-status-details-bin` trailer; reconstructs `FaultDetailWire` as the literal-discriminated typed-failure union keyed by `case` |
+|   [4]   | JSON runtime records | STJ Strict camelCase emission | kind-literal discriminated unions; instants as ISO-8601 text; durations as round-trip text; smart-enum columns as key scalars; correlation as guid strings; absent evidence as explicit null, never an omitted member; the decode rail is `Schema.Class` transcription of the json-stj TS_PROJECTION fences, drift-gated by the app-root-emitted JSON schema set in the contract-spec lane |
+|   [5]   | geometry JSON        | GeoJSON                      | the JSON projection of the proto geometry family, emitted through the Persistence `GeoJsonConverterFactory` STJ rail; feeds map and geo dashboard series directly |
+|   [6]   | fault details        | generated `FaultDetail` message | extracted via `ConnectError.findDetails` with the generated `FaultDetail` descriptor — `google.rpc.Status` details ride the `grpc-status-details-bin` trailer; reconstructs `FaultDetailWire` as the literal-discriminated typed-failure union keyed by `case`; hand-parsed trailers are the deleted form |
 |   [7]   | temporal proto fields | well-known Timestamp and Duration | the .NET edge owns the NodaTime conversion; TS reads the generated message fields as emitted    |
 
 A custom .NET MessagePack extension byte pairs one-for-one with one `ExtensionCodec.register({ type, encode, decode })` row; today that set is empty by contract.
@@ -67,7 +67,7 @@ The .NET side classifies descriptor drift as Identical, Additive (tolerated), or
 | :-----: | :---------------- | :----------------------------------------------------- | :------------------------------------------------------------------------------------- |
 |   [1]   | proto fields      | additive numbered fields only; removals become reserved rows | unknown fields skip-decode safely; the client regenerates from the published descriptor set to surface them |
 |   [2]   | proto rpcs        | one rpc row per new verb                                | absent methods are never dialed; the Capabilities verbs gate feature exposure at runtime |
-|   [3]   | JSON members      | one additive member row per contract extension          | schema decode ignores excess members; regenerated schema-derived types absorb them      |
+|   [3]   | JSON members      | one additive member row per contract extension          | schema decode ignores excess members; an additive member lands as one field row on the owning `Schema.Class`, surfaced by the drift gate |
 |   [4]   | kind literals     | one literal per new union case                          | an unknown literal folds to a quarantine case on the decode rail; the stream survives   |
 |   [5]   | key scalars       | smart-enum string keys are stable identifiers           | ordinal string comparison only; display names are never re-derived from keys            |
 |   [6]   | 64-bit envelopes  | `hlcLogical` resets on every physical advance           | JSON logical counters stay inside the number envelope; msgpack 64-bit fields are bigint  |

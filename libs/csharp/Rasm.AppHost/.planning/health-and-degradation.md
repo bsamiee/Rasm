@@ -8,12 +8,12 @@ owns the vocabularies, LanguageExt and NodaTime carry the fold rails and stamps;
 
 ## [1]-[INDEX]
 
-| [INDEX] | [CLUSTER]        | [OWNS]                                                                  |
-| :-----: | ---------------- | ----------------------------------------------------------------------- |
-|   [1]   | HEALTH_FOLD      | Contributor rows, resource pressure, peer reads, one snapshot fold      |
-|   [2]   | DEGRADATION_RAIL | Level vocabulary, retained capabilities, derivation fold, hysteresis    |
-|   [3]   | WIRE_HEALTH      | Tag-predicate wire mapping and the inbound set-degradation route        |
-|   [4]   | TS_PROJECTION    | Health snapshot and degradation level wire shapes                       |
+| [INDEX] | [CLUSTER]        | [OWNS]                                                               |
+| :-----: | ---------------- | -------------------------------------------------------------------- |
+|   [1]   | HEALTH_FOLD      | Contributor rows, resource pressure, peer reads, one snapshot fold   |
+|   [2]   | DEGRADATION_RAIL | Level vocabulary, retained capabilities, derivation fold, hysteresis |
+|   [3]   | WIRE_HEALTH      | Tag-predicate wire mapping and the inbound set-degradation route     |
+|   [4]   | TS_PROJECTION    | Health snapshot and degradation level wire shapes                    |
 
 ## [2]-[HEALTH_FOLD]
 
@@ -257,43 +257,41 @@ public static class WireHealth {
 - Boundary: instants cross as extended-ISO text and elapsed spans as ISO-8601 duration text; level and capability keys are the smart-enum string keys, status crosses as the camel-case enum name, never ordinals.
 
 ```ts contract
-export type HealthStatusWire = 'healthy' | 'degraded' | 'unhealthy';
+type HealthStatusWire = "healthy" | "degraded" | "unhealthy";
 
-export type CapabilityKey =
-  | 'host-document' | 'remote-compute' | 'local-compute'
-  | 'store-write' | 'store-read' | 'telemetry-export';
+type CapabilityKey =
+  | "host-document" | "remote-compute" | "local-compute"
+  | "store-write" | "store-read" | "telemetry-export";
 
-export type DegradationLevelKey =
-  | 'full' | 'reduced-remote' | 'local-only' | 'read-only' | 'suspended';
+type DegradationLevelKey =
+  | "full" | "reduced-remote" | "local-only" | "read-only" | "suspended";
 
-export interface HealthEntryWire {
-  name: string;
-  status: HealthStatusWire;
-  elapsed: string;
-  tags: string[];
-  detail: string | null;
+interface HealthEntryWire {
+  readonly name: string;
+  readonly status: HealthStatusWire;
+  readonly elapsed: string;
+  readonly tags: readonly string[];
+  readonly detail: string | null;
 }
 
-export interface HealthSnapshotWire {
-  status: HealthStatusWire;
-  at: string;
-  correlation: string;
-  entries: HealthEntryWire[];
+interface HealthSnapshotWire {
+  readonly status: HealthStatusWire;
+  readonly at: string;
+  readonly correlation: string;
+  readonly entries: readonly HealthEntryWire[];
 }
 
-export interface DegradationWire {
-  level: DegradationLevelKey;
-  rank: number;
-  retains: CapabilityKey[];
-  forced: DegradationLevelKey | null;
-  since: string | null;
+interface DegradationWire {
+  readonly level: DegradationLevelKey;
+  readonly rank: number;
+  readonly retains: readonly CapabilityKey[];
+  readonly forced: DegradationLevelKey | null;
+  readonly since: string | null;
 }
 ```
 
 ## [6]-[RESEARCH]
 
-| [INDEX] | [ITEM] | [PROOF] | [GATE] |
-| :-----: | ------ | ------- | ------ |
-|   [1]   | HealthChecks member spellings on `HealthReport.Entries`, `HealthReportEntry.Description`, `HealthCheckRegistration.Delay`, `Period`, `Tags` | `uv run python -m tools.assay api query microsoft.extensions.diagnostics.healthchecks HealthReport` | HEALTH_FOLD |
-|   [2]   | `ResourceUtilization` percentage member spellings consumed by `PressurePolicy.Grade` | `uv run python -m tools.assay api query microsoft.extensions.diagnostics.resourcemonitoring ResourceUtilization` | HEALTH_FOLD |
-|   [3]   | Wire health service registration surface and tag-predicate mapping overload behind the app-root pin, with the default status-to-serving projection | `uv run python -m tools.assay api resolve grpc.aspnetcore.healthchecks` | WIRE_HEALTH |
+| [INDEX] | [ITEM]                                                                                                                                             | [PROOF]                                                                 | [GATE]      |
+| :-----: | -------------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------- | ----------- |
+|   [1]   | Wire health service registration surface and tag-predicate mapping overload behind the app-root pin, with the default status-to-serving projection | `uv run python -m tools.assay api resolve grpc.aspnetcore.healthchecks` | WIRE_HEALTH |

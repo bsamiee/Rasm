@@ -54,8 +54,8 @@ public sealed record SpecBuilder {
         ArgumentNullException.ThrowIfNull(argument: port);
         return this with { Inputs = Inputs.Add(value: new ComponentItem<Port>(Value: port, Hidden: hidden)) };
     }
-    public SpecBuilder Output<TOut>(Port<Shape> input, IAspect aspect, string name, string code, string info, Access access = Access.Item, Capability? policy = null, bool hidden = false) where TOut : notnull =>
-        Output(binding: OutputBinding.Of<TOut>(input: input, aspect: aspect, name: name, code: code, info: info, access: access, policy: policy), hidden: hidden);
+    public SpecBuilder Output<TOut>(Port<Shape> input, AnalysisQuery query, string name, string code, string info, Access access = Access.Item, Capability? policy = null, bool hidden = false) where TOut : notnull =>
+        Output(binding: OutputBinding.Of<TOut>(input: input, query: query, name: name, code: code, info: info, access: access, policy: policy), hidden: hidden);
     public SpecBuilder Output(OutputBinding binding, bool hidden = false) {
         ArgumentNullException.ThrowIfNull(argument: binding);
         return this with { Outputs = Outputs.Add(value: new ComponentItem<OutputBinding>(Value: binding, Hidden: hidden)) };

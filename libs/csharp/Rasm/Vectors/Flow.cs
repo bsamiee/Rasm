@@ -361,8 +361,16 @@ public readonly record struct ButcherMomentReceipt(int StageCount, int MethodOrd
         && MaxResidual <= ButcherTableau.CoefficientTolerance;
 }
 
+[SmartEnum<int>]
+public sealed partial class DenseOutputCoefficientFamily {
+    public static readonly DenseOutputCoefficientFamily GenericMomentFit = new(key: 0, methodSpecific: false);
+    public static readonly DenseOutputCoefficientFamily DormandPrinceShampine = new(key: 1, methodSpecific: true);
+    public static readonly DenseOutputCoefficientFamily BogackiShampine = new(key: 2, methodSpecific: true);
+    public bool MethodSpecific { get; }
+}
+
 [StructLayout(LayoutKind.Auto)]
-public readonly record struct DenseOutputReceipt(int StageCount, int MethodOrder, int DenseOrder, int CheckedThetaCount, int CheckedConditionCount, int FailedConditionCount, double MaxResidual, bool UsesStageDerivatives) {
+public readonly record struct DenseOutputReceipt(int StageCount, int MethodOrder, int DenseOrder, int CheckedThetaCount, int CheckedConditionCount, int FailedConditionCount, double MaxResidual, bool UsesStageDerivatives, DenseOutputCoefficientFamily? CoefficientFamily = null, bool GenericCorrectionSolve = false, Option<SolveReceipt> CorrectionSolve = default) {
     internal bool IsValid =>
         StageCount > 0
         && MethodOrder > 0
@@ -373,7 +381,10 @@ public readonly record struct DenseOutputReceipt(int StageCount, int MethodOrder
         && FailedConditionCount == 0
         && RhinoMath.IsValidDouble(x: MaxResidual)
         && MaxResidual <= ButcherTableau.CoefficientTolerance
-        && UsesStageDerivatives;
+        && UsesStageDerivatives
+        && CoefficientFamily is not null
+        && GenericCorrectionSolve == CoefficientFamily.Equals(DenseOutputCoefficientFamily.GenericMomentFit)
+        && CorrectionSolve.Map(static solve => solve.IsUsable).IfNone(noneValue: true);
 }
 
 [BoundaryAdapter, StructLayout(LayoutKind.Auto)]
@@ -421,13 +432,16 @@ internal static class ButcherDenseOutput {
                         CheckedConditionCount: zero.CheckedConditionCount + mid.CheckedConditionCount + one.CheckedConditionCount,
                         FailedConditionCount: zero.FailedConditionCount + mid.FailedConditionCount + one.FailedConditionCount,
                         MaxResidual: Math.Max(val1: zero.MaxResidual, val2: Math.Max(val1: mid.MaxResidual, val2: one.MaxResidual)),
-                        UsesStageDerivatives: true);
+                        UsesStageDerivatives: true,
+                        CoefficientFamily: DenseOutputCoefficientFamily.GenericMomentFit,
+                        GenericCorrectionSolve: true,
+                        CorrectionSolve: mid.CorrectionSolve);
                     return receipt.IsValid ? Fin.Succ(receipt) : Fin.Fail<DenseOutputReceipt>(key.InvalidResult());
                 })));
     internal static Fin<Seq<double>> WeightsAt(ButcherTableau tableau, double theta, Op key) =>
         !RhinoMath.IsValidDouble(x: theta) || theta is < 0.0 or > 1.0
             ? Fin.Fail<Seq<double>>(key.InvalidInput())
-            : Weights(tableau: tableau, theta: theta, key: key);
+            : Weights(tableau: tableau, theta: theta, key: key).Map(static result => result.Values);
     private static int DenseOrder(ButcherTableau tableau) =>
         Math.Max(val1: 1, val2: Math.Min(val1: tableau.MethodOrder, val2: DistinctAbscissaCount(tableau: tableau)));
     private static int DistinctAbscissaCount(ButcherTableau tableau) {
@@ -437,7 +451,8 @@ internal static class ButcherDenseOutput {
         return distinct.Count;
     }
     private static Fin<DenseOutputReceipt> ReceiptAt(ButcherTableau tableau, double theta, Op key) =>
-        Weights(tableau: tableau, theta: theta, key: key).Bind(weights => {
+        Weights(tableau: tableau, theta: theta, key: key).Bind(result => {
+            Seq<double> weights = result.Values;
             int order = DenseOrder(tableau: tableau);
             (bool failed, double maxResidual) = MomentResidual(tableau: tableau, weights: weights, theta: theta, order: order);
             double endpoint = theta <= ButcherTableau.CoefficientTolerance
@@ -453,18 +468,21 @@ internal static class ButcherDenseOutput {
                 CheckedConditionCount: order + ((theta <= ButcherTableau.CoefficientTolerance || 1.0 - theta <= ButcherTableau.CoefficientTolerance) ? tableau.StageCount : 0),
                 FailedConditionCount: (failed ? 1 : 0) + (endpoint <= ButcherTableau.CoefficientTolerance ? 0 : 1),
                 MaxResidual: Math.Max(val1: maxResidual, val2: endpoint),
-                UsesStageDerivatives: true);
+                UsesStageDerivatives: true,
+                CoefficientFamily: DenseOutputCoefficientFamily.GenericMomentFit,
+                GenericCorrectionSolve: true,
+                CorrectionSolve: result.Solve);
             return receipt.IsValid ? Fin.Succ(receipt) : Fin.Fail<DenseOutputReceipt>(key.InvalidResult());
         });
-    private static Fin<Seq<double>> Weights(ButcherTableau tableau, double theta, Op key) {
-        if (theta <= ButcherTableau.CoefficientTolerance) return Fin.Succ(toSeq(Enumerable.Repeat(element: 0.0, count: tableau.StageCount)));
-        if (1.0 - theta <= ButcherTableau.CoefficientTolerance) return Fin.Succ(tableau.Weights);
+    private static Fin<(Seq<double> Values, Option<SolveReceipt> Solve)> Weights(ButcherTableau tableau, double theta, Op key) {
+        if (theta <= ButcherTableau.CoefficientTolerance) return Fin.Succ((Values: toSeq(Enumerable.Repeat(element: 0.0, count: tableau.StageCount)), Solve: Option<SolveReceipt>.None));
+        if (1.0 - theta <= ButcherTableau.CoefficientTolerance) return Fin.Succ((Values: tableau.Weights, Solve: Option<SolveReceipt>.None));
         double endpointScale = theta * (1.0 - theta);
         double[] baseWeights = [.. tableau.Weights.AsIterable().Select(weight => theta * weight)];
         return Correction(tableau: tableau, theta: theta, order: DenseOrder(tableau: tableau), endpointScale: endpointScale, key: key)
-            .Map(correction => toSeq(baseWeights.Zip(correction).Select(pair => pair.First + (endpointScale * pair.Second))));
+            .Map(correction => (Values: toSeq(baseWeights.Zip(correction.Correction).Select(pair => pair.First + (endpointScale * pair.Second))), Solve: Some(correction.Solve)));
     }
-    private static Fin<double[]> Correction(ButcherTableau tableau, double theta, int order, double endpointScale, Op key) {
+    private static Fin<(double[] Correction, SolveReceipt Solve)> Correction(ButcherTableau tableau, double theta, int order, double endpointScale, Op key) {
         double[] a = [.. Enumerable.Range(start: 0, count: order * tableau.StageCount).Select(index => Math.Pow(x: tableau.Abscissae[index % tableau.StageCount], y: index / tableau.StageCount))];
         double[] rhs = [.. Enumerable.Range(start: 0, count: order).Select(m => (Math.Pow(x: theta, y: m + 1) - theta) / ((m + 1.0) * endpointScale))];
         double[] gram = new double[order * order];
@@ -476,9 +494,9 @@ internal static class ButcherDenseOutput {
             }
         return Matrix.Of(rows: Dimension.Create(value: order), cols: Dimension.Create(value: order), entries: new Arr<double>(gram), key: key)
             .Bind(matrix => matrix.SolveDetailed(rhs: new Arr<double>(rhs), key: key))
-            .Map(solved => Enumerable.Range(start: 0, count: tableau.StageCount)
+            .Map(solved => (Correction: Enumerable.Range(start: 0, count: tableau.StageCount)
                 .Select(stage => Enumerable.Range(start: 0, count: order).Sum(row => a[(row * tableau.StageCount) + stage] * solved.Solution[row]))
-                .ToArray());
+                .ToArray(), Solve: solved));
     }
     private static (bool Failed, double Max) MomentResidual(ButcherTableau tableau, Seq<double> weights, double theta, int order) =>
         Enumerable.Range(start: 0, count: order)

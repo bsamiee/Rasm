@@ -67,6 +67,9 @@ operations for embedded store profiles.
 |   [4]   | `LoadExtension`       | connection call  | loads native extension    |
 |   [5]   | `new SqliteBlob(...)` | constructor call | opens blob stream         |
 |   [6]   | `Read` / `Write`      | blob stream call | moves blob bytes          |
+|   [7]   | `CreateCollation`     | connection call  | registers collation       |
+|   [8]   | `GetStream`           | data reader call | streams blob column       |
+|   [9]   | `Handle`              | connection read  | exposes raw handle        |
 
 ## [4]-[IMPLEMENTATION_LAW]
 

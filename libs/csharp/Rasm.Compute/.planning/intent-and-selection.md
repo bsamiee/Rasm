@@ -9,10 +9,10 @@ Thinktecture vocabularies, LanguageExt rails, NodaTime instants, and the settled
 
 ## [1]-[INDEX]
 
-| [INDEX] | [CLUSTER]      | [OWNS]                                                                |
-| :-----: | -------------- | ---------------------------------------------------------------------- |
-|   [1]   | INTENT_FAMILY  | Five intent cases, one shared Spec record, one boundary admission fold |
-|   [2]   | SUBSTRATE_AXIS | Three substrate rows; predicates, ranks, caps, fallback as row columns |
+| [INDEX] | [CLUSTER]      | [OWNS]                                                                     |
+| :-----: | -------------- | -------------------------------------------------------------------------- |
+|   [1]   | INTENT_FAMILY  | Five intent cases, one shared Spec record, one boundary admission fold     |
+|   [2]   | SUBSTRATE_AXIS | Three substrate rows; predicates, ranks, caps, fallback as row columns     |
 |   [3]   | DISPATCH_SPINE | Fault band 2200, ordered selection fold, total dispatch, selection receipt |
 
 ## [2]-[INTENT_FAMILY]
@@ -49,7 +49,7 @@ public abstract partial record ComputeIntent {
         Option<long> ByteCap = default,
         Option<long> ElementCap = default,
         Option<Substrate> Forced = default,
-        Option<ProgressPolicy> Progress = default);
+        Option<SubscriptionPolicy> Progress = default);
 }
 
 public sealed record AdmittedIntent(
@@ -281,10 +281,3 @@ flowchart LR
     SubstrateSelection -- Select --> SelectionReceipt
     SelectionReceipt -- Run --> DispatchTable
 ```
-
-## [5]-[RESEARCH]
-
-| [INDEX] | [ITEM]                                                                                                                | [PROOF]                                                              | [GATE]         |
-| :-----: | ---------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------- | -------------- |
-|   [1]   | `OrtEnv.Instance().GetAvailableProviders()` instance-probe member shape and the `CoreMLExecutionProvider` name literal feeding `SelectionContext.Providers` | `uv run python -m tools.assay api query onnxruntime OrtEnv`            | SUBSTRATE_AXIS |
-|   [2]   | `XxHash128.HashToUInt128` and `XxHash3.HashToUInt64` seed-parameter arities backing the operation-seeded intent digest   | `uv run python -m tools.assay api query system.io.hashing XxHash128`   | INTENT_FAMILY  |

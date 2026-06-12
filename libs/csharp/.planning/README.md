@@ -4,7 +4,7 @@ This file is the binding authoring standard for the four app-package planning co
 
 ## [1]-[CORPUS_SHAPE]
 
-- Planning home: `libs/csharp/Rasm.<Pkg>/.planning/`, sibling to `.reports/`. The suite home `libs/csharp/.planning/` holds exactly this standard and `_region-map.md`.
+- Planning home: `libs/csharp/Rasm.<Pkg>/.planning/`, sibling to `.reports/`. The suite home `libs/csharp/.planning/` holds this standard, `_region-map.md`, and the campaign working set (`plan-binding.md`, design payloads, `probes/`); the standard and the ledger are the only durable law.
 - Per package: one charter (`README.md`, the only linking file) plus self-contained domain pages. Pages are decision-complete blueprints an implementation agent transcribes; they are not narratives, reports, or research logs.
 - Package-local planning docs are repo-concrete: they name Rasm projects, admitted packages, and decided policy values. Stack doctrine (`docs/stacks/csharp/`) is never restated; its vocabulary arrives settled and is composed as given.
 - A page over the size cap splits along its index into axis-led siblings; signatures are never truncated to fit.
@@ -83,7 +83,7 @@ The reviewing agent runs C01-C23 cold (no producer context), reports one [PASS]/
 
 The suite ledger is `libs/csharp/.planning/_region-map.md`. Authors append provisional rows BEFORE writing a page; collisions resolve before authoring; the reviewing agent flips rows to FINAL.
 
-- [1]-[PAGE_REGIONS]: per-package blocks; row shape `- <page>.md [PROVISIONAL|FINAL]: <one-sentence concern law> — <cluster tokens>`.
+- [1]-[PAGE_REGIONS]: per-package blocks; row shape `- <page>.md [PROVISIONAL|FINAL]: <one-sentence concern law>`. Cluster tokens reside once, on the page's SIGNATURE_REGIONS keys.
 - [2]-[SIGNATURE_REGIONS]: one row per signature-fence region, keyed `<AH|PS|CP|AU>-<NN> <CLUSTER_TOKEN>:` followed by the owner symbols the fence declares and its spotlight.
 - [3]-[OWNER_SYMBOLS]: the suite symbol registry — `- <TypeName> — <pkg>/<page>#<CLUSTER> [<kind>]`, append-ordered by authoring position. This registry backs C19/C20.
 - [4]-[SEAM_SPLITS]: every two-package fact records its altitude split — `- <fact>: mechanics at <owner pkg/page#CLUSTER>; consequence at <consumer pkg/page#CLUSTER>.`
@@ -95,17 +95,19 @@ Per-package `libs/csharp/Rasm.<Pkg>/.planning/README.md`, the only linking file 
 
 - H1 `# [<PKG>_PLANNING]` + scope/intent in at most 4 declarative sentences: zero consumers exist; implementation is full-capability with no holding back; pages are transcribed, not re-designed.
 - [1]-[PAGE_INDEX]: `[INDEX] | [PAGE] | [OWNS] | [STATE]`, STATE in {planned, authored, finalized}; finalized is the one-way all-PASS gate.
-- [2]-[DENSITY_BAR]: implementation lands at 25-35% of naive LOC; owner-count budget table `[INDEX] | [AXIS/CONCERN] | [OWNER] | [KIND] | [CASES]` — one owner per axis, one entrypoint family per rail; a new feature is a row or case, never a new surface.
-- [3]-[BUILD_ORDER]: dependency-ordered file plan `[INDEX] | [FILE] | [TRANSCRIBES] | [GATE]` — vocabulary owners first, then shapes, rails, dispatch surfaces, boundaries, composition.
-- [4]-[FILE_PROCESS]: the numbered per-file loop — read the charter and every page in the file's TRANSCRIBES cell end-to-end; transcribe signature fences verbatim; run the collapse scan per edit (parallel types, sibling factories, repeated arms, single-call helpers — each at 3 or more triggers in-place collapse); `uv run python -m tools.assay static fix` then `static build` on the touched closure; author specs per the `testing-cs` skill; bridge scenarios gate host seams.
-- [5]-[PROOF_GATES]: `[GATE] | [COMMAND] | [EVIDENCE]` — restore proof, `assay api doctor`/`resolve` catalogue proof, `static plan`/`build` routing proof, `test run --target` spec proof, bridge scenarios for host seams.
-- [6]-[PROHIBITIONS]: the closed NEVER list — no new public surfaces beside the budgeted owners; no wrappers, rename adapters, helpers, or utility files; no generic receipt abstractions; no sentinel propagation; no DateTime.UtcNow; no second cache/retry/correlation owner; CSP analyzer diagnostics are architecture pressure, not suppression targets.
-- [7]-[GAP_LEDGER]: `[INDEX] | [GAP] | [CLOSED_BY (page#cluster)] | [STATE]` — every adversarial-verifier gap finding for the package; the red-team pass requires every row CLOSED.
-- [8]-[ADMISSIONS_RECORD]: `[PACKAGE] | [VERSION] | [PAGE] | [CATALOGUE]` — the executed admissions ledger; the only planning location where versions are written.
+- [2]-[WIRE_PAGES]: the package's wire-relevant page list; each named page carries exactly one TS_PROJECTION cluster.
+- [3]-[CATALOGUE_PENDING]: app-root-only pins and transitive surfaces catalogued at app-root creation, each with its landing condition.
+- [4]-[GAP_LEDGER]: `[INDEX] | [GAP] | [CLOSED_BY (page#cluster)] | [STATE]` — every adversarial-verifier gap finding for the package; the red-team pass requires every row CLOSED.
+- [5]-[DENSITY_BAR]: implementation lands at 25-35% of naive LOC; owner-count budget table `[INDEX] | [AXIS/CONCERN] | [OWNER] | [KIND] | [CASES]` — one owner per axis, one entrypoint family per rail; a new feature is a row or case, never a new surface.
+- [6]-[BUILD_ORDER]: dependency-ordered file plan `[INDEX] | [FILE] | [TRANSCRIBES] | [GATE]` — vocabulary owners first, then shapes, rails, dispatch surfaces, boundaries, composition; binding seam notes precede the table.
+- [7]-[FILE_PROCESS]: the numbered per-file loop — read the charter and every page in the file's TRANSCRIBES cell end-to-end; transcribe signature fences verbatim; run the collapse scan per edit (parallel types, sibling factories, repeated arms, single-call helpers — each at 3 or more triggers in-place collapse); `uv run python -m tools.assay static fix` then `static build` on the touched closure; author specs per the `testing-cs` skill; bridge scenarios gate host seams.
+- [8]-[PROOF_GATES]: `[GATE] | [COMMAND] | [EVIDENCE]` — restore proof, `assay api doctor`/`resolve` catalogue proof, `static plan`/`build` routing proof, `test run --target` spec proof, bridge scenarios for host seams, local Mermaid render proof.
+- [9]-[PROHIBITIONS]: the closed NEVER list — no new public surfaces beside the budgeted owners; no wrappers, rename adapters, helpers, or utility files; no generic receipt abstractions; no sentinel propagation; no DateTime.UtcNow; no second cache/retry/correlation owner; CSP analyzer diagnostics are architecture pressure, not suppression targets.
+- [10]-[ADMISSIONS_RECORD]: `[PACKAGE] | [VERSION] | [PAGE] | [CATALOGUE]` — the executed admissions ledger; the only planning location where versions are written.
 
 ## [8]-[TOOL_AND_RELOCK_LAW]
 
 - `.config/dotnet-tools.json` is the sole CLI tool pin surface; agents never install global tools or invoke unpinned tool versions.
 - Central version bump law: edit `Directory.Packages.props`, run `dotnet restore --force-evaluate`, and commit every regenerated `packages.lock.json` in the same change. A transitive-pin conflict gets a named Transitive Floors row, never a NoWarn.
-- Mermaid render validation runs through the available MCP renderer; a diagram that fails render is a [C17] fail.
+- Mermaid render validation runs through the local `@mermaid-js/mermaid-cli` route (the MCP renderer is permission-blocked for planning content); a diagram that fails render is a [C17] fail.
 - Decompile probes run through `uv run python -m tools.assay api query` with fuzzy package keys; probe results answer research items at authoring time when the surface is local.

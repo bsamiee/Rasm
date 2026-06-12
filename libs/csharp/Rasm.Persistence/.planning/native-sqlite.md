@@ -140,13 +140,13 @@ public static class SqliteCompileSurface {
 }
 ```
 
-| [INDEX] | [ABSENT_FLAG]                          | [NAMED_OWNER]                                                |
-| :-----: | -------------------------------------- | ------------------------------------------------------------ |
-|   [1]   | SESSION + PREUPDATE_HOOK (changesets)  | the op-log HLC changefeed owns diffing                       |
-|   [2]   | NORMALIZE (normalized SQL text)        | command-interceptor slow-query receipts own statement evidence |
-|   [3]   | DBSTAT virtual table                   | maintenance facts own page-level diagnostics                 |
-|   [4]   | SOUNDEX                                | the sqlean-fuzzy deferred gate owns phonetics                |
-|   [5]   | GEOPOLY                                | PostGIS geometry lanes own geodesy                           |
+| [INDEX] | [ABSENT_FLAG]                         | [NAMED_OWNER]                                                  |
+| :-----: | ------------------------------------- | -------------------------------------------------------------- |
+|   [1]   | SESSION + PREUPDATE_HOOK (changesets) | the op-log HLC changefeed owns diffing                         |
+|   [2]   | NORMALIZE (normalized SQL text)       | command-interceptor slow-query receipts own statement evidence |
+|   [3]   | DBSTAT virtual table                  | maintenance facts own page-level diagnostics                   |
+|   [4]   | SOUNDEX                               | the sqlean-fuzzy deferred gate owns phonetics                  |
+|   [5]   | GEOPOLY                               | PostGIS geometry lanes own geodesy                             |
 
 ## [4]-[MAINTENANCE_OPS]
 
@@ -156,8 +156,8 @@ public static class SqliteCompileSurface {
 - Auto: optimize fires at close and checkpoint TRUNCATE fires at drain through the store lifecycle's band-300 registration; incremental-vacuum arms when freelist_count exceeds `FreelistThresholdPages`; recurring cadence rides the persistence-maintenance `ScheduleEntry` row and executes only under the maintenance lease; the integrity ladder runs quick-check at open, full integrity-check on the Repair path, and foreign-key-check after migrations.
 - Receipt: maintenance facts carry the engine's result rows in the After slot and result-row counts in Count; paged backup emits one progress fact per `BackupStepPages` step with remaining pages in Count and a terminal fact carrying total pages.
 - Packages: Microsoft.Data.Sqlite, SQLitePCLRaw.bundle_e_sqlite3, System.IO.Hashing, NodaTime, LanguageExt.Core, BCL inbox
-- Growth: a new maintenance verb is one Maintain-flagged `SqliteFactKind` row plus one `Sql` entry; a new engine function or collation is one `FunctionRegistration` row; zero new surface.
-- Boundary: `Maintain`, `Register`, `Backup`, and `WithSnapshot` are this fence's boundary capsules over ADO and raw-interop ceremony; the verbs surface upward as the StoreOp.Maintain arm set, never as a service class; blob payloads stream through the constructed `SqliteBlob` write stream and the `GetStream` read path, so whole-payload byte[] materialization is the deleted pattern; paged backup steps the raw backup session over `Handle` — the provider's whole-file `BackupDatabase` copy is subsumed by the paged session, which adds progress facts; the snapshot bracket pins a consistent multi-transaction read view under WAL and always frees the snapshot handle; `uuid7` registration is the sqlite leg of the identity policy, `xxh128` is the non-cryptographic identity scalar, and `instant_iso` collates persisted ExtendedIso text chronologically by parsed comparison.
+- Growth: a new maintenance verb is one Maintain-flagged `SqliteFactKind` row plus one `Sql` entry; a new engine function, aggregate (`CreateAggregate` inside the same `Bind` delegate), or collation is one `FunctionRegistration` row; zero new surface.
+- Boundary: `Maintain`, `Register`, `Backup`, and `WithSnapshot` are this fence's boundary capsules over ADO and raw-interop ceremony; the verbs surface upward as the StoreOp.Maintain arm set, never as a service class; blob payloads stream through the constructed `SqliteBlob` write stream and the `GetStream` read path, so whole-payload byte[] materialization is the deleted pattern; paged backup steps the raw backup session over `Handle` — the provider's whole-file `BackupDatabase` copy is subsumed by the paged session, which adds progress facts; the snapshot bracket pins a consistent multi-transaction read view under WAL, attempts one `sqlite3_snapshot_recover` pass when the initial pin is refused, and frees only a held snapshot handle; `uuid7` registration is the sqlite leg of the identity policy, `xxh128` is the non-cryptographic identity scalar, and `instant_iso` collates persisted ExtendedIso text chronologically by parsed comparison.
 
 ```csharp signature
 public sealed record SqliteMaintenancePolicy(long FreelistThresholdPages, int BackupStepPages) {
@@ -222,12 +222,15 @@ public static class SqliteMaintenance {
     public static IO<Fin<T>> WithSnapshot<T>(SqliteConnection connection, string schema, Func<SqliteConnection, Fin<T>> read) =>
         IO.lift(() => {
             var status = raw.sqlite3_snapshot_get(connection.Handle, schema, out var snapshot);
+            if (status != raw.SQLITE_OK && raw.sqlite3_snapshot_recover(connection.Handle, schema) == raw.SQLITE_OK)
+                status = raw.sqlite3_snapshot_get(connection.Handle, schema, out snapshot);
             try {
                 return status == raw.SQLITE_OK && raw.sqlite3_snapshot_open(connection.Handle, schema, snapshot) == raw.SQLITE_OK
                     ? read(connection)
                     : Fin.Fail<T>(Error.New($"<snapshot-unavailable:{schema}>"));
             } finally {
-                raw.sqlite3_snapshot_free(snapshot);
+                if (snapshot is { } held)
+                    raw.sqlite3_snapshot_free(held);
             }
         });
 
@@ -247,7 +250,7 @@ public static class SqliteMaintenance {
 - Receipt: one extension-load fact per opened gate (Slot = gate name, After = entrypoint); the encryption ceremony receipts cipher_version on the same stream when its research gate opens.
 - Packages: Microsoft.Data.Sqlite, SQLitePCLRaw.bundle_e_sqlite3, Thinktecture.Runtime.Extensions, NodaTime, LanguageExt.Core, BCL inbox
 - Growth: a new loadable concern is one `ExtensionGate` row naming artifact route and fallback lane; future cr-sqlite admission lands as one gate row plus merge-law rows on the sync owner, never a transport case; zero new surface.
-- Boundary: `EnableExtensions` arms only the db_config form, so the SQL-level load_extension() function stays off; the OS loader resolves artifacts directly — absolute path or loader-path variable, with the NuGet RID convention copying payloads to output; the vector gate never deletes the brute-force fallback case; jsonb_* blob functions are an in-process raw-SQL fast path that never crosses a seam while the EF mapping stays TEXT json; the encryption key handle arrives from the app root per open, is never persisted, and applies injection-safe through quote() because PRAGMA forbids parameters; sqlean-math stays rejected (the compile flag owns it) and Microsoft.SemanticKernel.Connectors.SqliteVec stays rejected as a thin loader dragging a foreign graph.
+- Boundary: `EnableExtensions` arms only the db_config form, so the SQL-level load_extension() function stays off; the OS loader resolves artifacts directly — absolute path or loader-path variable, with the NuGet RID convention copying payloads to output; the vector gate never deletes the brute-force fallback case; jsonb_* blob functions are an in-process raw-SQL fast path that never crosses a seam while the EF mapping stays TEXT json; the encryption key handle arrives from the app root per open, is never persisted, and applies through the Password connection-string keyword — the provider issues `PRAGMA key` with `SELECT quote($password)` escaping inside every pooled physical open, so the manual quoted-PRAGMA ceremony covers only `cipher_migrate`, `cipher_version`, and `rekey`; sqlean-math stays rejected (the compile flag owns it) and Microsoft.SemanticKernel.Connectors.SqliteVec stays rejected as a thin loader dragging a foreign graph.
 
 ```csharp signature
 [SmartEnum<string>]
@@ -291,11 +294,10 @@ public static class ExtensionOps {
 
 ## [6]-[RESEARCH]
 
-| [INDEX] | [ITEM]                                                                                                          | [PROOF]                                                                                              | [GATE]          |
-| :-----: | ---------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------- | --------------- |
-|   [1]   | Compile-options receipt spellings under the central bundle-line override plus the Batteries_V2 round-trip proof | uv run python -m tools.assay test run --target Rasm.Persistence                          | COMPILE_SURFACE |
-|   [2]   | Snapshot bracket preconditions — read-transaction entry and checkpoint interaction under the bundled engine     | uv run python -m tools.assay test run --target Rasm.Persistence                          | MAINTENANCE_OPS |
-|   [3]   | vec0 live-load proof with the vec_version() fact and the package-payload versus vendored-tarball sourcing decision | uv run python -m tools.assay test run --target Rasm.Persistence                          | EXTENSION_GATES |
-|   [4]   | Hardened-runtime dlopen acceptance of unsigned extension dylibs inside the signed Rhino host process            | libs/csharp/Rasm.Persistence/scenarios/extension-load.verify.csx                                     | EXTENSION_GATES |
-|   [5]   | Password-keyword key-application scope on connection open relative to the manual quote()-applied PRAGMA ceremony | uv run python -m tools.assay api query --key microsoft.data.sqlite --symbol SqliteConnection.Open    | EXTENSION_GATES |
-|   [6]   | SQLCipher provider route with an externally supplied native library on osx-arm64, including the crypto-backend notice set | uv run python -m tools.assay test run --target Rasm.Persistence                          | EXTENSION_GATES |
+| [INDEX] | [ITEM]                                                                                                                    | [PROOF]                                                          | [GATE]          |
+| :-----: | ------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------- | --------------- |
+|   [1]   | Compile-options receipt spellings under the central bundle-line override plus the Batteries_V2 round-trip proof           | uv run python -m tools.assay test run --target Rasm.Persistence  | COMPILE_SURFACE |
+|   [2]   | Snapshot bracket preconditions — read-transaction entry and checkpoint interaction under the bundled engine               | uv run python -m tools.assay test run --target Rasm.Persistence  | MAINTENANCE_OPS |
+|   [3]   | vec0 live-load proof with the vec_version() fact and the package-payload versus vendored-tarball sourcing decision        | uv run python -m tools.assay test run --target Rasm.Persistence  | EXTENSION_GATES |
+|   [4]   | Hardened-runtime dlopen acceptance of unsigned extension dylibs inside the signed Rhino host process                      | libs/csharp/Rasm.Persistence/scenarios/extension-load.verify.csx | EXTENSION_GATES |
+|   [5]   | SQLCipher provider route with an externally supplied native library on osx-arm64, including the crypto-backend notice set | uv run python -m tools.assay test run --target Rasm.Persistence  | EXTENSION_GATES |

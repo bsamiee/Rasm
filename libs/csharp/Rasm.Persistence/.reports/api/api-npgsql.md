@@ -18,19 +18,21 @@ replication surfaces for provider store profiles.
 [CONNECTION_TYPES]: data source and command surfaces
 - rail: store-provider
 
-| [INDEX] | [SYMBOL]                        | [PACKAGE_ROLE]      | [CAPABILITY]              |
-| :-----: | :------------------------------ | :------------------ | :------------------------ |
-|   [1]   | `NpgsqlDataSource`              | data source         | owns configured pool      |
-|   [2]   | `NpgsqlDataSourceBuilder`       | data source builder | builds data source        |
-|   [3]   | `NpgsqlConnection`              | connection          | opens PostgreSQL store    |
-|   [4]   | `NpgsqlConnectionStringBuilder` | connection builder  | builds connection strings |
-|   [5]   | `NpgsqlCommand`                 | command             | executes statements       |
-|   [6]   | `NpgsqlTransaction`             | transaction         | bounds atomic work        |
-|   [7]   | `NpgsqlBatch`                   | batch command       | executes batched work     |
-|   [8]   | `NpgsqlBatchCommand`            | batch member        | carries batched command   |
-|   [9]   | `NpgsqlParameter`               | parameter           | binds statement values    |
-|  [10]   | `NpgsqlDataReader`              | data reader         | reads result rows         |
-|  [11]   | `NpgsqlException`               | provider exception  | reports provider failure  |
+| [INDEX] | [SYMBOL]                        | [PACKAGE_ROLE]      | [CAPABILITY]                    |
+| :-----: | :------------------------------ | :------------------ | :------------------------------ |
+|   [1]   | `NpgsqlDataSource`              | data source         | owns configured pool            |
+|   [2]   | `NpgsqlDataSourceBuilder`       | data source builder | builds data source              |
+|   [3]   | `NpgsqlConnection`              | connection          | opens PostgreSQL store          |
+|   [4]   | `NpgsqlConnectionStringBuilder` | connection builder  | builds connection strings       |
+|   [5]   | `NpgsqlCommand`                 | command             | executes statements             |
+|   [6]   | `NpgsqlTransaction`             | transaction         | bounds atomic work              |
+|   [7]   | `NpgsqlBatch`                   | batch command       | executes batched work           |
+|   [8]   | `NpgsqlBatchCommand`            | batch member        | carries batched command         |
+|   [9]   | `NpgsqlParameter`               | parameter           | binds statement values          |
+|  [10]   | `NpgsqlDataReader`              | data reader         | reads result rows               |
+|  [11]   | `NpgsqlException`               | provider exception  | reports provider failure        |
+|  [12]   | `PostgresException`             | server exception    | carries `SqlState` server error |
+|  [13]   | `PostgresErrorCodes`            | SQLSTATE constants  | names SQLSTATE values           |
 
 [TYPE_SYSTEM_TYPES]: PostgreSQL type surfaces
 - rail: store-provider
@@ -51,13 +53,17 @@ replication surfaces for provider store profiles.
 [REPLICATION_TYPES]: logical replication surfaces
 - rail: store-provider
 
-| [INDEX] | [SYMBOL]                       | [PACKAGE_ROLE]      | [CAPABILITY]             |
-| :-----: | :----------------------------- | :------------------ | :----------------------- |
-|   [1]   | `LogicalReplicationConnection` | replication root    | opens logical stream     |
-|   [2]   | `ReplicationSlot`              | slot metadata       | identifies slot          |
-|   [3]   | `PgOutputReplicationOptions`   | replication policy  | configures pgoutput      |
-|   [4]   | `TestDecodingOptions`          | replication policy  | configures test decoding |
-|   [5]   | `ReplicationMessage`           | replication message | carries stream event     |
+| [INDEX] | [SYMBOL]                       | [PACKAGE_ROLE]       | [CAPABILITY]                  |
+| :-----: | :----------------------------- | :------------------- | :---------------------------- |
+|   [1]   | `LogicalReplicationConnection` | replication root     | opens logical stream          |
+|   [2]   | `ReplicationSlot`              | slot metadata        | identifies slot               |
+|   [3]   | `PgOutputReplicationOptions`   | replication policy   | configures pgoutput           |
+|   [4]   | `TestDecodingOptions`          | replication policy   | configures test decoding      |
+|   [5]   | `ReplicationMessage`           | replication message  | carries stream event          |
+|   [6]   | `PgOutputReplicationSlot`      | slot handle          | attaches pgoutput slot        |
+|   [7]   | `PgOutputProtocolVersion`      | protocol classifier  | selects protocol version      |
+|   [8]   | `PgOutputStreamingMode`        | streaming classifier | selects streaming mode        |
+|   [9]   | `PgOutputReplicationMessage`   | message base         | roots pgoutput message family |
 
 ## [3]-[ENTRYPOINTS]
 
@@ -80,14 +86,16 @@ replication surfaces for provider store profiles.
 [ENTRYPOINT_SCOPE]: mapping and replication
 - rail: store-provider
 
-| [INDEX] | [SURFACE]                       | [CALL_SHAPE]     | [CAPABILITY]           |
-| :-----: | :------------------------------ | :--------------- | :--------------------- |
-|   [1]   | `MapEnum`                       | builder mapping  | maps enum type         |
-|   [2]   | `MapComposite`                  | builder mapping  | maps composite type    |
-|   [3]   | `EnableDynamicJson`             | builder mapping  | enables JSON mapping   |
-|   [4]   | `EnableUnmappedTypes`           | builder mapping  | enables unmapped types |
-|   [5]   | `StartReplication`              | replication call | starts replication     |
-|   [6]   | `CreatePgOutputReplicationSlot` | replication call | creates slot           |
+| [INDEX] | [SURFACE]                       | [CALL_SHAPE]     | [CAPABILITY]                   |
+| :-----: | :------------------------------ | :--------------- | :----------------------------- |
+|   [1]   | `MapEnum`                       | builder mapping  | maps enum type                 |
+|   [2]   | `MapComposite`                  | builder mapping  | maps composite type            |
+|   [3]   | `EnableDynamicJson`             | builder mapping  | enables JSON mapping           |
+|   [4]   | `EnableUnmappedTypes`           | builder mapping  | enables unmapped types         |
+|   [5]   | `StartReplication`              | replication call | starts replication             |
+|   [6]   | `CreatePgOutputReplicationSlot` | replication call | creates slot                   |
+|   [7]   | `SetReplicationStatus`          | replication call | stamps applied-and-flushed LSN |
+|   [8]   | `SendStatusUpdate`              | replication call | forces feedback flush          |
 
 ## [4]-[IMPLEMENTATION_LAW]
 

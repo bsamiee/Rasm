@@ -4,14 +4,14 @@ Rasm.Compute model lane: ONNX model identity and provenance, the one shared sess
 
 ## [1]-[INDEX]
 
-| [INDEX] | [CLUSTER]       | [OWNS]                                                          |
-| :-----: | :-------------- | :-------------------------------------------------------------- |
+| [INDEX] | [CLUSTER]       | [OWNS]                                                               |
+| :-----: | :-------------- | :------------------------------------------------------------------- |
 |   [1]   | MODEL_IDENTITY  | Checksum identity; acquisition union; schema snapshot; admission law |
-|   [2]   | SESSION_CAPSULE | One shared session per model; lifecycle, warmup, drain rows     |
-|   [3]   | EP_AXIS         | Execution-provider rows with probe, OS gate, option table       |
-|   [4]   | EXTENSION_OPS   | Extension and custom-op registration with asset evidence        |
-|   [5]   | INFERENCE_MODES | OrtValue-only run modes; cancellation edge; profiling artifacts |
-|   [6]   | RESULT_CACHE    | Version-stamped deterministic keys; cache-policy rows           |
+|   [2]   | SESSION_CAPSULE | One shared session per model; lifecycle, warmup, drain rows          |
+|   [3]   | EP_AXIS         | Execution-provider rows with probe, OS gate, option table            |
+|   [4]   | EXTENSION_OPS   | Extension and custom-op registration with asset evidence             |
+|   [5]   | INFERENCE_MODES | OrtValue-only run modes; cancellation edge; profiling artifacts      |
+|   [6]   | RESULT_CACHE    | Version-stamped deterministic keys; cache-policy rows                |
 
 ## [2]-[MODEL_IDENTITY]
 
@@ -20,7 +20,7 @@ Rasm.Compute model lane: ONNX model identity and provenance, the one shared sess
 - Entry: `public static ModelIdentity Snapshot(ModelSource source, ReadOnlySpan<byte> bytes, InferenceSession session, Instant at)` — pure value; identity derives from the bytes, never from the caller.
 - Auto: `Snapshot` stamps the XxHash128 identity checksum, graph version, and input/output slot rows in one call; `Accepts` runs once at load and faults `ModelRejected` with mismatch evidence.
 - Receipt: the ModelLoad receipt case carries checksum, source case, slot counts, and elapsed; emission rides the sink port at the composition edge.
-- Packages: Microsoft.ML.OnnxRuntime; System.IO.Hashing; NodaTime; Thinktecture.Runtime.Extensions; LanguageExt.Core; Rasm.Persistence (project).
+- Packages: Microsoft.ML.OnnxRuntime, System.IO.Hashing, NodaTime, Thinktecture.Runtime.Extensions, LanguageExt.Core, Rasm.Persistence (project)
 - Growth: a new acquisition route is one case on `ModelSource`; zero new surface.
 - Boundary: every downstream cache key, receipt, and claim derives from `Checksum` — path-keyed or filename-keyed model identity is the deleted form; `Slot.FreeDims` rows drive the free-dimension overrides at session build, with symbolic-dim values arriving from the geometry-encoding rows as settled vocabulary; schema admission happens exactly once at load.
 
@@ -81,9 +81,9 @@ public sealed record ModelIdentity(
 - Entry: `public static Fin<InferenceSession> Lease(ModelIdentity model, ReadOnlyMemory<byte> bytes, ExecutionProvider ep, SessionPolicy policy, string artifactDir, ClockPolicy clocks)` — `Fin` aborts on rejected admission; a hit shares the resident session.
 - Auto: the admission fold runs options, EP-context keys, free-dim overrides, device policy, EP registration, custom ops, and resident admission as one rail; every lease touches `LastUsed`; eviction past `ResidentSessions` captures the least-recently-used residents inside the swap and disposes them only after the map commits.
 - Receipt: the Warmup receipt rides the representative-shape first run on the sweep row; the Drain receipt counts unloaded sessions on the band-200 row.
-- Packages: Microsoft.ML.OnnxRuntime; LanguageExt.Core; NodaTime; Rasm.AppHost (project).
+- Packages: Microsoft.ML.OnnxRuntime, LanguageExt.Core, NodaTime, Rasm.AppHost (project)
 - Growth: a lifecycle change is one policy value on `SessionPolicy`; zero new surface.
-- Boundary: `ModelSessions` is the page's boundary capsule and its fence carries language-owned statement forms; ORT sessions are thread-safe for concurrent `Run`, so all lanes share ONE `InferenceSession` per checksum — a session pool is the rejected form; `DisablePerSessionThreads` puts every session on the global pool whose counts arrive as settled processor-budget values through `Boot`; `DisableTelemetryEvents` runs at boot because the telemetry spine owns signals; the sweep entry folds idle eviction before re-warm on the registered `compute-model-warmup` row; EP-context and profile outputs land under the blob-lane artifact directory, never as stray temp files.
+- Boundary: `ModelSessions` is the page's boundary capsule and its fence carries language-owned statement forms; ORT sessions are thread-safe for concurrent `Run`, so all lanes share ONE `InferenceSession` per checksum — a session pool is the rejected form; `DisablePerSessionThreads` puts every session on the global pool whose counts arrive as settled processor-budget values through `Boot` — `OrtThreadingOptions.GlobalIntraOpNumThreads` and `GlobalInterOpNumThreads` bind the budget's `OrtIntraOp` and `OrtInterOp` values; `DisableTelemetryEvents` runs at boot because the telemetry spine owns signals; the sweep entry folds idle eviction before re-warm on the registered `compute-model-warmup` row; EP-context and profile outputs land under the blob-lane artifact directory, never as stray temp files.
 
 ```csharp signature
 public sealed record SessionPolicy(
@@ -179,7 +179,7 @@ flowchart LR
 - Owner: `ModelKeyPolicy` ordinal accessor; `ExecutionProvider` `[SmartEnum<string>]` rows with probe name, OS gate, frozen option table, device policy, and register delegate columns.
 - Cases: `Cpu`, `CoreMl`.
 - Auto: `Available` reads the `GetAvailableProviders` probe plus the macOS 12 gate riding the `ModelFormat` row value; `ResultKey` stamps EP key, ORT version, and option-table hash for the deterministic cache key with zero call-site hashing.
-- Packages: Microsoft.ML.OnnxRuntime; System.IO.Hashing; Thinktecture.Runtime.Extensions; LanguageExt.Core; BCL inbox.
+- Packages: Microsoft.ML.OnnxRuntime, System.IO.Hashing, Thinktecture.Runtime.Extensions, LanguageExt.Core, BCL inbox
 - Growth: Cuda and DirectML are one EP row each on Windows profiles; the generative token-streaming successor lands as one designed substrate row, never a chat-client surface; zero new surface.
 - Boundary: `AppendExecutionProvider("CoreML", options)` with the eight verified option keys is the canonical spelling — `AppendExecutionProvider_CoreML(CoreMLFlags)` is the rejected legacy flags route; the macOS 12 gate is per `ModelFormat` value because the legacy NeuralNetwork format alone reaches back to macOS 10.15; `ModelCacheDirectory` binds at registration to the blob-lane artifact directory so compiled CoreML caches are catalogued inventory; dylib-presence heuristics are the deleted probe form.
 
@@ -241,7 +241,7 @@ public sealed partial class ExecutionProvider {
 - Cases: `RegisterOrtExtensions` bundle row; `RegisterCustomOpLibraryV2` per-path rows; `CreateFromStringTensor` and `CreateTensorWithEmptyStrings` string-tensor rows.
 - Entry: `public static Fin<SessionOptions> Register(SessionOptions options, SessionPolicy policy)` — `Fin` aborts with `ExtensionAssetMissing` naming every absent native asset before any registration runs.
 - Receipt: native-asset evidence rides the ModelLoad receipt; the missing-path set is the fault payload.
-- Packages: Microsoft.ML.OnnxRuntime.Extensions; Microsoft.ML.OnnxRuntime; LanguageExt.Core; BCL inbox.
+- Packages: Microsoft.ML.OnnxRuntime.Extensions, Microsoft.ML.OnnxRuntime, LanguageExt.Core, BCL inbox
 - Growth: a new custom-op library is one path row on `SessionPolicy.CustomOpLibraries`; zero new surface.
 - Boundary: registration extends the `ModelSessions` boundary capsule and this fence carries language-owned statement forms — guard admission before registration and the out-parameter custom-op handle; tokenizer and pre/post operators stay session assets — a preprocessing or tokenizer service family is the rejected form; the `String` dtype is a model-boundary-only row entering through `DenseTensor<string>` and never the interior tensor vocabulary.
 
@@ -269,11 +269,11 @@ public static class CustomOps {
 ## [6]-[INFERENCE_MODES]
 
 - Owner: `RunOps` — the run-mode fold over the shared session: single, lane-enqueued, bound-batch, and windowed runs discriminated by intent payload shape.
-- Cases: single `Run`; lane-enqueued async (the lane seam owns the thread hop — no native `RunAsync` exists on the session); `RunWithBoundResults` batch over `OrtIoBinding`; streaming windows over chunked inputs.
+- Cases: single `Run`; lane-enqueued async (the lane seam owns the thread hop — the native `RunAsync` requires pre-allocated output `OrtValue`s and completes on a native callback outside the lane scope, so it is the rejected spelling); `RunWithBoundResults` batch over `OrtIoBinding`; streaming windows over chunked inputs.
 - Entry: `public Fin<T> Infer<T>(RunOptions options, CancelScope scope, Seq<(string Name, OrtValue Value)> inputs, Seq<string> outputs, Func<IDisposableReadOnlyCollection<OrtValue>, Fin<T>> project)` — the projection runs inside the native-result bracket.
 - Auto: `Plan` wires deadline expiry into the `Terminate` one-way latch from the linked `CancelScope`, attaches LoRA adapters, and sets the arena-shrinkage row on bulk runs; one conversion arm classifies failures into `DeadlineExpired`/`Cancelled` by scope provenance.
 - Receipt: the ModelRun receipt carries route, elapsed, allocation class, and `OrtMemoryInfo` allocator evidence slots; profiling chrome-trace artifacts land as `ArtifactIndexRow.OnnxProfile` rows with the artifact path in the receipt.
-- Packages: Microsoft.ML.OnnxRuntime; LanguageExt.Core; NodaTime; Rasm.AppHost (project); Rasm.Persistence (project).
+- Packages: Microsoft.ML.OnnxRuntime, LanguageExt.Core, NodaTime, Rasm.AppHost (project), Rasm.Persistence (project)
 - Growth: a new run shape is one payload-shape case on the intent family; zero new surface.
 - Boundary: `RunOps` extends the `ModelSessions` boundary capsule and this fence carries bracketed statement forms with deterministic native disposal; OrtValue-only law — `NamedOnnxValue`, `DisposableNamedOnnxValue`, and `FixedBufferOnnxValue` are superseded spellings that never appear; `CreateTensorValueFromMemory` binds rented staging arrays without copies; output projection scopes native memory inside `project` and sentinel or NaN values project to `Option` at the boundary, never inward.
 
@@ -333,7 +333,7 @@ public static class RunOps {
 - Entry: `public ValueTask<T> Through<T, TState>(CachePolicy policy, ModelResultKey key, TState state, Func<TState, CancellationToken, ValueTask<T>> produce, CancellationToken token = default)` — the cache-policy row is an intent field, never a boolean flag.
 - Auto: `Key` stamps model checksum, intent input digest, EP key, ORT version, and option-table hash in one call so cross-version numerical drift never serves as a deterministic hit; stampede single-flight, lane tags, and hit/miss facts ride the composed index surface with zero call-site ceremony.
 - Receipt: `CacheIndexFact` hit/miss/evict facts with byte sizes; `Validated` faults `CacheCorrupt` on checksum-echo mismatch at read.
-- Packages: Microsoft.Extensions.Caching.Hybrid; Microsoft.ML.OnnxRuntime; Thinktecture.Runtime.Extensions; LanguageExt.Core; Rasm.AppHost (project); Rasm.Persistence (project).
+- Packages: Microsoft.Extensions.Caching.Hybrid, Microsoft.ML.OnnxRuntime, Thinktecture.Runtime.Extensions, LanguageExt.Core, Rasm.AppHost (project), Rasm.Persistence (project)
 - Growth: a new cache posture is one `CachePolicy` row; zero new surface.
 - Boundary: `CacheOps` extends the cache boundary capsule and this fence carries the async statement forms of the fresh path; Compute owns keys and policy rows, never a cache instance — `CacheSurface` over `CacheLane.ModelResult` is the single cache owner and hand-rolled memoization beside it is the named defect; cached payloads carry the checksum echo that `Validated` checks before projection.
 
@@ -383,14 +383,8 @@ public static class CacheOps {
 
 ## [8]-[RESEARCH]
 
-| [INDEX] | [ITEM]                                                                                                                                  | [PROOF]                                                                                            | [GATE]          |
-| :-----: | :--------------------------------------------------------------------------------------------------------------------------------------- | :---------------------------------------------------------------------------------------------------- | :-------------- |
-|   [1]   | `RunOptions.Terminate` latch propagation latency and the deadline poll cadence on CoreML and CPU rows                                   | `uv run python -m tools.assay test run --target Rasm.Compute` terminate-latch spec                 | INFERENCE_MODES |
-|   [2]   | `libortextensions.dylib` resolution from `runtimes/osx.10.14-arm64` under the portable RID graph inside a no-publish-RID plugin         | `dotnet build libs/csharp/Rasm.Compute/Rasm.Compute.csproj -p:UseRidGraph=true` with bin-output native-asset listing | EXTENSION_OPS   |
-|   [3]   | `OrtThreadingOptions` global intra-op and inter-op knob spellings for the boot pool                                                     | `uv run python -m tools.assay api query microsoft.ml.onnxruntime OrtThreadingOptions`              | SESSION_CAPSULE |
-|   [4]   | `InferenceSession.InputMetadata`/`OutputMetadata` map shapes, `ModelMetadata.Version`, `NodeMetadata` element and dimension members, `EndProfiling` return path | `uv run python -m tools.assay api query microsoft.ml.onnxruntime InferenceSession`                 | MODEL_IDENTITY  |
-|   [5]   | CoreML option value domains beyond `ModelFormat` (`MLComputeUnits` and `SpecializationStrategy` value spellings)                        | `curl -sL onnxruntime.ai/docs/execution-providers/CoreML-ExecutionProvider.html`                   | EP_AXIS         |
-|   [6]   | `OrtEnv` boot and probe member spellings (`IsCreated`, `CreateInstanceWithOptions` with `EnvironmentCreationOptions` field names, `DisableTelemetryEvents`, `GetVersionString`, `GetAvailableProviders`) | `uv run python -m tools.assay api query microsoft.ml.onnxruntime OrtEnv`                           | SESSION_CAPSULE |
-|   [7]   | `SessionOptions` config-entry, free-dimension, per-session-thread, profiling, and EP-selection member spellings with `ExecutionProviderDevicePolicy` values | `uv run python -m tools.assay api query microsoft.ml.onnxruntime SessionOptions`                   | SESSION_CAPSULE |
-|   [8]   | `OrtValue` string-tensor constructor and `OrtAllocator` member spellings behind the tokenizer boundary                                  | `uv run python -m tools.assay api query microsoft.ml.onnxruntime OrtValue`                         | EXTENSION_OPS   |
-|   [9]   | `RunOptions.AddActiveLoraAdapter` and `IDisposableReadOnlyCollection` member spellings on the run edge                                  | `uv run python -m tools.assay api query microsoft.ml.onnxruntime RunOptions`                       | INFERENCE_MODES |
+| [INDEX] | [ITEM]                                                                                                                          | [PROOF]                                                                                                              | [GATE]          |
+| :-----: | :------------------------------------------------------------------------------------------------------------------------------ | :------------------------------------------------------------------------------------------------------------------- | :-------------- |
+|   [1]   | `RunOptions.Terminate` latch propagation latency and the deadline poll cadence on CoreML and CPU rows                           | `uv run python -m tools.assay test run --target Rasm.Compute` terminate-latch spec                                   | INFERENCE_MODES |
+|   [2]   | `libortextensions.dylib` resolution from `runtimes/osx.10.14-arm64` under the portable RID graph inside a no-publish-RID plugin | `dotnet build libs/csharp/Rasm.Compute/Rasm.Compute.csproj -p:UseRidGraph=true` with bin-output native-asset listing | EXTENSION_OPS   |
+|   [3]   | CoreML option value domains beyond `ModelFormat` (`MLComputeUnits` and `SpecializationStrategy` value spellings)                | `curl -sL onnxruntime.ai/docs/execution-providers/CoreML-ExecutionProvider.html`                                     | EP_AXIS         |

@@ -114,10 +114,13 @@ public readonly record struct Direction {
             _ => Fin.Fail<Direction>(error: key.InvalidResult()),
         }
         select direction;
-    public Fin<Direction> ParallelTransport(Seq<Plane> frames, Op? key = null) =>
-        toSeq(Enumerable.Range(start: 1, count: Math.Max(val1: 0, val2: frames.Count - 1))).Fold(
-            initialState: Of(value: Value, tolerance: RhinoMath.ZeroTolerance, key: key.OrDefault()),
-            f: (acc, i) => acc.Bind(prev => Of(value: Transform.PlaneToPlane(plane0: frames[index: i - 1], plane1: frames[index: i]) * prev.Value, tolerance: RhinoMath.ZeroTolerance, key: key.OrDefault())));
+    public Fin<Direction> ParallelTransport(Seq<Plane> frames, Op? key = null) {
+        Vector3d value = Value;
+        Op op = key.OrDefault();
+        return FieldNabla.PlaneSequence(planes: frames, allowEmpty: false, key: op).Bind(admittedFrames => toSeq(Enumerable.Range(start: 1, count: Math.Max(val1: 0, val2: admittedFrames.Count - 1))).Fold(
+            initialState: Of(value: value, tolerance: RhinoMath.ZeroTolerance, key: op),
+            f: (acc, i) => acc.Bind(prev => Of(value: Transform.PlaneToPlane(plane0: admittedFrames[index: i - 1], plane1: admittedFrames[index: i]) * prev.Value, tolerance: RhinoMath.ZeroTolerance, key: op))));
+    }
     internal Fin<TOut> Project<TOut>(Op key) => AtomProjection.SelfOrValue<Direction, Vector3d, TOut>(self: this, value: Value, key: key);
 }
 

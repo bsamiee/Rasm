@@ -4,11 +4,11 @@ Rasm.AppHost exposes exactly seven typed port records as its only cross-package 
 
 ## [1]-[INDEX]
 
-| [INDEX] | [CLUSTER]     | [OWNS]                                                                          |
-| :-----: | :------------ | :------------------------------------------------------------------------------ |
-|   [1]   | PORT_RECORDS  | Seven inward port records; HLC envelope as sole cross-process causal primitive  |
-|   [2]   | WIRE_LAW      | One Strict context per package; app roots merge resolvers, emit schemas         |
-|   [3]   | TS_PROJECTION | Tooling map and the envelope wire contract the TS dashboard consumes            |
+| [INDEX] | [CLUSTER]     | [OWNS]                                                                         |
+| :-----: | :------------ | :----------------------------------------------------------------------------- |
+|   [1]   | PORT_RECORDS  | Seven inward port records; HLC envelope as sole cross-process causal primitive |
+|   [2]   | WIRE_LAW      | One Strict context per package; app roots merge resolvers, emit schemas        |
+|   [3]   | TS_PROJECTION | Tooling map and the envelope wire contract the TS dashboard consumes           |
 
 ## [2]-[PORT_RECORDS]
 
@@ -121,15 +121,15 @@ public static class SuiteContracts
 
 Codec residence is fixed per wire surface; exactly one codec owns each surface and a second codec on one surface is a conflict, not a fallback:
 
-| [INDEX] | [WIRE_SURFACE]                                                                       | [CODEC]                                | [PRODUCER]                            | [CONSUMER]                       |
-| :-----: | :----------------------------------------------------------------------------------- | :-------------------------------------- | :------------------------------------- | :-------------------------------- |
-|   [1]   | runtime records — phase, fault, health snapshot, degradation, support manifest, receipt envelope | STJ Strict source-gen JSON              | per-package context merged at app roots | TS dashboard, companion upload    |
-|   [2]   | discovery manifest — pid, socketPath, startInstant, contractChecksum, storeEpoch      | STJ Strict JSON, atomic file write       | app-root boot                           | attaching peer process            |
-|   [3]   | service verbs and streams — ComputeService, DocumentService, ControlService, ArtifactSync, grpc.health.v1 | protobuf descriptors over gRPC | app roots compiling GrpcServices=Server | connect-es generated clients      |
-|   [4]   | fault unions on the wire                                                              | FaultDetail into google.rpc.Status details | wire-edge projection                  | TS typed-failure reconstruction   |
-|   [5]   | snapshot blobs                                                                        | MessagePack                              | snapshot codec rows                     | @msgpack/msgpack                  |
-|   [6]   | telemetry signals                                                                     | OTLP                                     | exporter pinned at companion and web app roots | any OTLP collector     |
-|   [7]   | JSON contract schemas                                                                 | JsonSchemaExporter emission              | schema emission at app roots            | schema-derived TS types           |
+| [INDEX] | [WIRE_SURFACE]                                                                                            | [CODEC]                                    | [PRODUCER]                                     | [CONSUMER]                      |
+| :-----: | :-------------------------------------------------------------------------------------------------------- | :----------------------------------------- | :--------------------------------------------- | :------------------------------ |
+|   [1]   | runtime records — phase, fault, health snapshot, degradation, support manifest, receipt envelope          | STJ Strict source-gen JSON                 | per-package context merged at app roots        | TS dashboard, companion upload  |
+|   [2]   | discovery manifest — pid, socketPath, startInstant, contractChecksum, storeEpoch                          | STJ Strict JSON, atomic file write         | app-root boot                                  | attaching peer process          |
+|   [3]   | service verbs and streams — ComputeService, DocumentService, ControlService, ArtifactSync, grpc.health.v1 | protobuf descriptors over gRPC             | app roots compiling GrpcServices=Server        | connect-es generated clients    |
+|   [4]   | fault unions on the wire                                                                                  | FaultDetail into google.rpc.Status details | wire-edge projection                           | TS typed-failure reconstruction |
+|   [5]   | snapshot blobs                                                                                            | MessagePack                                | snapshot codec rows                            | @msgpack/msgpack                |
+|   [6]   | telemetry signals                                                                                         | OTLP                                       | exporter pinned at companion and web app roots | any OTLP collector              |
+|   [7]   | JSON contract schemas                                                                                     | JsonSchemaExporter emission                | schema emission at app roots                   | schema-derived TS types         |
 
 ## [4]-[TS_PROJECTION]
 
@@ -157,15 +157,15 @@ interface ReceiptEnvelopeWire<TPayload> extends HlcStampWire {
 
 Each tool row names the surface it consumes, its activation point, and the spelling it deletes:
 
-| [INDEX] | [TOOL]                            | [SURFACE]                                            | [ACTIVATION]                                       | [DELETES]                                  |
-| :-----: | :--------------------------------- | :---------------------------------------------------- | :--------------------------------------------------- | :------------------------------------------- |
-|   [1]   | connect-es with protoc-gen-es       | suite service descriptors, binary format, unary and server-stream | pnpm workspace bootstrap over the emitted descriptor set | hand-written wire clients and request types |
-|   [2]   | @msgpack/msgpack with useBigInt64   | binary snapshot blobs                                  | dashboard snapshot import                              | a second binary codec on the TS side          |
-|   [3]   | OTLP ingestion                      | telemetry signals                                      | collector endpoint bound through OTEL_EXPORTER_OTLP_* | bespoke telemetry wire formats                |
-|   [4]   | schema-derived TS types             | JSON runtime records via emitted contract schemas      | app-root schema emission feeding the TS build          | hand-mirrored TS interfaces that drift        |
+| [INDEX] | [TOOL]                            | [SURFACE]                                                         | [ACTIVATION]                                             | [DELETES]                                   |
+| :-----: | :-------------------------------- | :---------------------------------------------------------------- | :------------------------------------------------------- | :------------------------------------------ |
+|   [1]   | connect-es with protoc-gen-es     | suite service descriptors, binary format, unary and server-stream | pnpm workspace bootstrap over the emitted descriptor set | hand-written wire clients and request types |
+|   [2]   | @msgpack/msgpack with useBigInt64 | binary snapshot blobs                                             | dashboard snapshot import                                | a second binary codec on the TS side        |
+|   [3]   | OTLP ingestion                    | telemetry signals                                                 | collector endpoint bound through OTEL_EXPORTER_OTLP_*    | bespoke telemetry wire formats              |
+|   [4]   | schema-derived TS types           | JSON runtime records via emitted contract schemas                 | app-root schema emission feeding the TS build            | hand-mirrored TS interfaces that drift      |
 
 ## [5]-[RESEARCH]
 
-| [INDEX] | [ITEM]                                                                                  | [PROOF]                                                | [GATE]   |
-| :-----: | :--------------------------------------------------------------------------------------- | :------------------------------------------------------ | :-------- |
+| [INDEX] | [ITEM]                                                                                       | [PROOF]                                                       | [GATE]   |
+| :-----: | :------------------------------------------------------------------------------------------- | :------------------------------------------------------------ | :------- |
 |   [1]   | NodaTime converter precedence over combined source-gen contract metadata in the Strict merge | `uv run python -m tools.assay test run --target Rasm.AppHost` | WIRE_LAW |

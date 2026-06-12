@@ -143,7 +143,7 @@ flowchart LR
 - Auto: capture keys prefix into the per-run artifact scope behind the runtime blob delegate, so a shot never computes a path; the receipt's `FrameHash` rides the suite content-hash identity row.
 - Packages: SkiaSharp, Avalonia.Headless, Avalonia.Skia, LanguageExt.Core
 - Growth: one capture row absorbs a new surface lane; zero new surface.
-- Boundary: grab delegates bind at composition per surface row and no capture member is named outside its own row — the headless lane rides `CaptureRenderedFrame` and `GetLastRenderedFrame` with `UseHeadlessDrawing` false selecting the Skia backend on every hash lane, the rhino lane rides the settled host viewport capture port, and the desktop in-tree lane stays research-gated; `Regression` compares `FrameHash` values from the settled receipt family, so a per-spec screenshot helper is the deleted form and a second baseline store beside the blob lane is the rejected form.
+- Boundary: grab delegates bind at composition per surface row and no capture member is named outside its own row — the headless lane rides `CaptureRenderedFrame` and `GetLastRenderedFrame` whose `WriteableBitmap` pixels enter the hash fold through `Lock()` over the `ILockedFramebuffer` (`Address`, `RowBytes`, `Size`, `Format`) with `UseHeadlessDrawing` false selecting the Skia backend on every hash lane, the rhino lane rides the settled host viewport capture port, and the desktop in-tree lane renders through `RenderTargetBitmap.Render(Visual)` with `CopyPixels(PixelRect, nint, int, int)` as its pixel projection; `Regression` compares `FrameHash` values from the settled receipt family, so a per-spec screenshot helper is the deleted form and a second baseline store beside the blob lane is the rejected form.
 
 ```csharp signature
 public sealed record CaptureRow(string Key, Func<SurfaceHost, bool> Surface, Func<IO<SKImage>> Grab);
@@ -294,7 +294,5 @@ interface EvidenceTimelineWire {
 
 | [INDEX] | [ITEM]                                                                                              | [PROOF]                                                                          | [GATE]              |
 | :-----: | :--------------------------------------------------------------------------------------------------- | :---------------------------------------------------------------------------------- | :------------------- |
-|   [1]   | In-tree desktop capture member surface and its pixel projection into the FrameHash fold               | `uv run python -m tools.assay api query avalonia RenderTargetBitmap`                | CAPTURE_LANES        |
-|   [2]   | Headless frame bitmap pixel access behind `CaptureRenderedFrame` for hash-lane encoding               | `uv run python -m tools.assay api query avalonia.headless HeadlessWindowExtensions` | CAPTURE_LANES        |
-|   [3]   | `AvaloniaFact` session dispatch under the xunit.v3 MTP runner on the assay test rail                  | `uv run python -m tools.assay test run --target Rasm.AppUi.Tests`                   | HEADLESS_DERIVATION  |
-|   [4]   | HotAvalonia Release closure strip and markup-loader floor resolution against the central Avalonia pin | `dotnet build libs/csharp/Rasm.AppUi/Rasm.AppUi.csproj -c Release`                  | DEV_LOOP             |
+|   [1]   | `AvaloniaFact` session dispatch under the xunit.v3 MTP runner on the assay test rail                  | `uv run python -m tools.assay test run --target Rasm.AppUi.Tests`                   | HEADLESS_DERIVATION  |
+|   [2]   | HotAvalonia Release closure strip and markup-loader floor resolution against the central Avalonia pin | `dotnet build libs/csharp/Rasm.AppUi/Rasm.AppUi.csproj -c Release`                  | DEV_LOOP             |

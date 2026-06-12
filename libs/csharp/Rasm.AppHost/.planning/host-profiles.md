@@ -4,11 +4,11 @@ Rasm.AppHost boots every process through one host-variance axis: eight string-ke
 
 ## [1]-[INDEX]
 
-| [INDEX] | [CLUSTER]         | [OWNS]                                                                |
-| :-----: | :---------------- | :-------------------------------------------------------------------- |
-|   [1]   | PROFILE_AXIS      | Eight rows resolve every modality variance into one record            |
+| [INDEX] | [CLUSTER]         | [OWNS]                                                                     |
+| :-----: | :---------------- | :------------------------------------------------------------------------- |
+|   [1]   | PROFILE_AXIS      | Eight rows resolve every modality variance into one record                 |
 |   [2]   | LIFETIME_ADAPTERS | Builder selection, lifetime delegates, HostOptions policy, hook projection |
-|   [3]   | RESOURCE_IDENTITY | Per-user roots and telemetry resource identity                        |
+|   [3]   | RESOURCE_IDENTITY | Per-user roots and telemetry resource identity                             |
 
 ## [2]-[PROFILE_AXIS]
 
@@ -60,8 +60,8 @@ public abstract partial record ProfileFault : Expected, IValidationError<Profile
 [KeyMemberEqualityComparer<HostProfileKeyPolicy, string>]
 [KeyMemberComparer<HostProfileKeyPolicy, string>]
 public sealed partial class HostProfile {
-    public static readonly HostProfile RhinoPlugin = new("rhino-plugin", serverGc: false, readyToRun: false, moduleScan: true, otlpExport: false, singleInstance: false, coHostedAssets: false, vehicle: ShipVehicle.Yak, createBuilder: ProfileBoot.CreateEmpty, attachLifetime: ProfileBoot.Inherit);
-    public static readonly HostProfile Gh2Plugin = new("gh2-plugin", serverGc: false, readyToRun: false, moduleScan: true, otlpExport: false, singleInstance: false, coHostedAssets: false, vehicle: ShipVehicle.Yak, createBuilder: ProfileBoot.CreateEmpty, attachLifetime: ProfileBoot.Inherit);
+    public static readonly HostProfile RhinoPlugin = new("rhino-plugin", serverGc: false, readyToRun: false, moduleScan: true, otlpExport: false, singleInstance: false, coHostedAssets: false, vehicle: ShipVehicle.Yak, createBuilder: ProfileBoot.CreateEmpty, attachLifetime: ProfileBoot.Detached);
+    public static readonly HostProfile Gh2Plugin = new("gh2-plugin", serverGc: false, readyToRun: false, moduleScan: true, otlpExport: false, singleInstance: false, coHostedAssets: false, vehicle: ShipVehicle.Yak, createBuilder: ProfileBoot.CreateEmpty, attachLifetime: ProfileBoot.Detached);
     public static readonly HostProfile StandaloneDesktop = new("standalone-desktop", serverGc: false, readyToRun: true, moduleScan: true, otlpExport: false, singleInstance: true, coHostedAssets: false, vehicle: ShipVehicle.DesktopBundle, createBuilder: ProfileBoot.CreateApp, attachLifetime: ProfileBoot.Inherit);
     public static readonly HostProfile CompanionProcess = new("companion-process", serverGc: true, readyToRun: true, moduleScan: true, otlpExport: true, singleInstance: false, coHostedAssets: false, vehicle: ShipVehicle.DesktopBundle, createBuilder: ProfileBoot.CreateApp, attachLifetime: ProfileBoot.Quiet);
     public static readonly HostProfile Sidecar = new("sidecar", serverGc: true, readyToRun: true, moduleScan: true, otlpExport: true, singleInstance: false, coHostedAssets: false, vehicle: ShipVehicle.DesktopBundle, createBuilder: ProfileBoot.CreateApp, attachLifetime: ProfileBoot.Quiet);
@@ -103,7 +103,7 @@ public static class ProfileSurface {
 - Auto: Boot composes the row's `CreateBuilder` and `AttachLifetime` delegates with `HostOptions` — startup and shutdown timeouts, concurrent start and stop, `BackgroundServiceExceptionBehavior.StopHost` — deleting per-host bootstrap programs.
 - Packages: Microsoft.Extensions.Hosting, Microsoft.Extensions.Hosting.Systemd, Microsoft.Extensions.Hosting.WindowsServices, Microsoft.Extensions.Options, NodaTime
 - Growth: one adapter row — a static delegate target bound through the row constructor — extends the lifetime surface with zero new surface.
-- Boundary: the web row crosses in through `external` — its builder is constructed at the web app root, where ASP.NET Core enters as a shared-framework asset only; plugin rows install no lifetime and host-attach trigger injection drives phases; `AddSystemd` and `AddWindowsService` coexist because each registration is environment-gated; `HostAbortedException` during build projects to a boot-fault trigger value, never a second state machine.
+- Boundary: the web row crosses in through `external` — its builder is constructed at the web app root, where ASP.NET Core enters as a shared-framework asset only; the host registers `ConsoleLifetime` as the default `IHostLifetime` on every builder path including the empty builder, so plugin rows swap in the no-op `DetachedLifetime` through `Detached` and host-attach trigger injection drives phases; `AddSystemd` and `AddWindowsService` coexist because each registration is environment-gated; `HostAbortedException` during build projects to a boot-fault trigger value, never a second state machine.
 
 ```csharp signature
 public static class ProfileBoot {
@@ -112,6 +112,9 @@ public static class ProfileBoot {
     public static HostApplicationBuilder CreateEmpty(HostApplicationBuilderSettings settings) => Host.CreateEmptyApplicationBuilder(settings);
 
     public static IHostApplicationBuilder Inherit(IHostApplicationBuilder builder) => builder;
+
+    public static IHostApplicationBuilder Detached(IHostApplicationBuilder builder) =>
+        (builder.Services.Replace(ServiceDescriptor.Describe(typeof(IHostLifetime), typeof(DetachedLifetime), ServiceLifetime.Singleton)), builder).Item2;
 
     public static IHostApplicationBuilder Quiet(IHostApplicationBuilder builder) =>
         (builder.Services.Configure<ConsoleLifetimeOptions>(static options => options.SuppressStatusMessages = true), builder).Item2;
@@ -137,6 +140,12 @@ public static class ProfileBoot {
             options.ServicesStopConcurrently = true;
             options.BackgroundServiceExceptionBehavior = BackgroundServiceExceptionBehavior.StopHost;
         }), builder).Item2;
+
+    private sealed class DetachedLifetime : IHostLifetime {
+        public Task WaitForStartAsync(CancellationToken cancellationToken) => Task.CompletedTask;
+
+        public Task StopAsync(CancellationToken cancellationToken) => Task.CompletedTask;
+    }
 }
 ```
 
@@ -158,7 +167,7 @@ Lifetime signals project into phase-transition trigger values consumed by the tr
 
 - Owner: `ProfileIdentity` — per-user root computation and telemetry resource identity; `ProfileRoots` is the path artifact carried inside the resolved record.
 - Entry: `ImmutableArray<KeyValuePair<string, object>> ResourceAttributes(ResolvedProfile resolved, params ReadOnlySpan<KeyValuePair<string, object>> extra)` — pure projection over the resolved record.
-- Auto: identity derives from the resolved record before any provider construction; `ConfigureResource` consumes the attribute set as the one resource feed for every signal provider.
+- Auto: identity derives from the resolved record before any provider construction; `ConfigureResource` admits the attribute set through `ResourceBuilder.AddAttributes` as the one resource feed for every signal provider.
 - Packages: OpenTelemetry, NodaTime, LanguageExt.Core, BCL inbox
 - Growth: one attribute row or one root policy value per new identity fact; zero new surface.
 - Boundary: roots are ApplicationData-rooted per-user paths — store under the application base on plugin and standalone rows, a scoped companion store on the companion row, no local store on sidecar, headless, web, and test rows; Persistence consumes the resolved record and derives no path; host-document identity enters as one extra attribute row on plugin rows; `service.instance.id` is pid joined with the start instant.
@@ -203,11 +212,7 @@ public static class ProfileIdentity {
 
 ## [5]-[RESEARCH]
 
-| [INDEX] | [ITEM]                                                                                                    | [PROOF]                                                                                            | [GATE]            |
-| :-----: | :-------------------------------------------------------------------------------------------------------- | :-------------------------------------------------------------------------------------------------- | :---------------- |
-|   [1]   | `HostApplicationBuilderSettings` member spellings for application name, environment name, and content root | `uv run python -m tools.assay api query Microsoft.Extensions.Hosting.HostApplicationBuilderSettings` | LIFETIME_ADAPTERS |
-|   [2]   | `HostOptions` concurrent start-stop and `BackgroundServiceExceptionBehavior.StopHost` member spellings     | `uv run python -m tools.assay api query Microsoft.Extensions.Hosting.HostOptions`                    | LIFETIME_ADAPTERS |
-|   [3]   | Console-lifetime registration default under `Host.CreateEmptyApplicationBuilder` on plugin rows            | `uv run python -m tools.assay api query Microsoft.Extensions.Hosting.Host`                           | LIFETIME_ADAPTERS |
-|   [4]   | Generic Host boot and unload inside the RhinoWIP plugin load context without process exit                  | `uv run python -m tools.assay bridge verify --pattern host_boot_drain`                               | LIFETIME_ADAPTERS |
-|   [5]   | `ResourceBuilder` attribute admission spellings feeding `ConfigureResource`                                 | `uv run python -m tools.assay api query OpenTelemetry.Resources.ResourceBuilder`                     | RESOURCE_IDENTITY |
-|   [6]   | Static-asset spellings at the web app root under the Microsoft.AspNetCore.App shared framework             | `dotnet build` over a scratch web app root compiling `UseStaticFiles` and `MapFallbackToFile`        | PROFILE_AXIS      |
+| [INDEX] | [ITEM]                                                                                         | [PROOF]                                                                                       | [GATE]            |
+| :-----: | :--------------------------------------------------------------------------------------------- | :-------------------------------------------------------------------------------------------- | :---------------- |
+|   [1]   | Generic Host boot and unload inside the RhinoWIP plugin load context without process exit      | `uv run python -m tools.assay bridge verify --pattern host_boot_drain`                        | LIFETIME_ADAPTERS |
+|   [2]   | Static-asset spellings at the web app root under the Microsoft.AspNetCore.App shared framework | `dotnet build` over a scratch web app root compiling `UseStaticFiles` and `MapFallbackToFile` | PROFILE_AXIS      |

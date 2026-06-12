@@ -5,7 +5,7 @@ namespace Rasm.Analysis;
 // --- [TYPES] ------------------------------------------------------------------------------
 [SkipUnionOps]
 [Union]
-public partial record Measure : IAspect {
+public partial record Measure {
     public sealed record LengthCase : Measure;
     public sealed record SpatialMidpointCase : Measure;
     public sealed record MassPropertyCase(MassKind Mass, MassProperty Property) : Measure;
@@ -20,7 +20,7 @@ public partial record Measure : IAspect {
     public static Measure PrincipalAxes(MassKind mass) => new MassPropertyCase(Mass: mass, Property: MassProperty.PrincipalAxes);
     public static Measure Inertia(MassKind mass) => new MassPropertyCase(Mass: mass, Property: MassProperty.Inertia);
     public static Measure InertiaProducts(MassKind mass) => new MassPropertyCase(Mass: mass, Property: MassProperty.InertiaProducts);
-    public Operation<TGeometry, TOut> Operation<TGeometry, TOut>() where TGeometry : notnull => Switch(
+    internal Operation<TGeometry, TOut> Operation<TGeometry, TOut>() where TGeometry : notnull => Switch(
         lengthCase: static _ => Analyze.Length<TGeometry, TOut>(),
         spatialMidpointCase: static _ => typeof(TOut) == typeof(Point3d) ? Analyze.SpatialMidpoint<TGeometry, TOut>() : Op.Of(name: "SpatialMidpoint").Unsupported<TGeometry, TOut>(),
         massPropertyCase: static p => Analyze.MassPropertyMeasure<TGeometry, TOut>(mass: p.Mass, property: p.Property));
@@ -143,7 +143,6 @@ public sealed partial class MassProperty {
 
 // --- [OPERATIONS] -------------------------------------------------------------------------
 public static partial class Analyze {
-    public static Operation<TGeometry, TOut> Measure<TGeometry, TOut>(Measure aspect) where TGeometry : notnull => Aspect<Measure, TGeometry, TOut>(aspect: aspect);
     internal static Operation<TGeometry, TOut> Length<TGeometry, TOut>() where TGeometry : notnull {
         Op key = Op.Of();
         Option<Requirement> requirement = (typeof(TOut) == typeof(double), typeof(TGeometry), Domain.Kind.Of(typeof(TGeometry)).Case) switch {
@@ -189,15 +188,15 @@ public static partial class Analyze {
     private static Operation<TGeometry, TOut> MassOperation<TGeometry, TOut>(MassKind mass, MassProperty property) where TGeometry : notnull {
         Op key = Op.Of(name: $"{mass.Label}{property.Suffix}");
         return Operation<TGeometry, TOut>.Build(
-            key: key, requirement: mass.Requirement, requiresContext: true,
+            key: key, state: (Key: key, Mass: mass, Property: property), requirement: mass.Requirement, requiresContext: true,
             aggregate: Some<Func<Seq<TGeometry>, Eff<Env, Seq<TOut>>>>(
                 geometry => from context in Env.Asks
                             from aggregate in mass.Aggregate(geometry: geometry.Map(static item => (object)item).AsIterable(), context: context, firstMoments: property.FirstMoments(mass: mass), secondMoments: property.SecondMoments(mass: mass), productMoments: property.ProductMoments(mass: mass), op: key).ToEff()
                             from values in new Lease<IDisposable>.Owned(Value: aggregate).Use(disposable => property.Extract<TOut>(key: key, mass: disposable)).ToEff()
                             select values),
-            evaluator: geometry => from computed in mass.Compute(geometry: geometry, op: key, firstMoments: property.FirstMoments(mass: mass), secondMoments: property.SecondMoments(mass: mass), productMoments: property.ProductMoments(mass: mass))
-                                   from values in new Lease<IDisposable>.Owned(Value: computed).Use(disposable => property.Extract<TOut>(key: key, mass: disposable)).ToEff()
-                                   select values).As<TGeometry, TOut>(key: key);
+            evaluator: static (state, geometry) => from computed in state.Mass.Compute(geometry: geometry, op: state.Key, firstMoments: state.Property.FirstMoments(mass: state.Mass), secondMoments: state.Property.SecondMoments(mass: state.Mass), productMoments: state.Property.ProductMoments(mass: state.Mass))
+                                                   from values in new Lease<IDisposable>.Owned(Value: computed).Use(disposable => state.Property.Extract<TOut>(key: state.Key, mass: disposable)).ToEff()
+                                                   select values).As<TGeometry, TOut>(key: key);
     }
     internal static Fin<Seq<object>> MassPropertyExtract<TProp>(this Op key, IDisposable props, Func<LengthMassProperties, TProp> length, Func<AreaMassProperties, TProp> area, Func<VolumeMassProperties, TProp> volume) =>
         props switch {

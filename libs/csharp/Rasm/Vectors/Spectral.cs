@@ -415,7 +415,9 @@ internal static class SpectralCore {
         from harmonic in topology.Genus.Map(static genus => genus > 0).IfNone(noneValue: false)
             ? BuildHarmonicOneForms(calculus: dec, topology: topology, key: key).Map(static basis => Some(basis))
             : Fin.Succ(Option<HarmonicOneFormBasis>.None)
-        select dec with { Transport = Some(transport), Harmonic = harmonic };
+        let calculus = dec with { Transport = Some(transport), Harmonic = harmonic }
+        from valid in calculus.IsValid ? Fin.Succ(unit) : Fin.Fail<Unit>(key.InvalidResult())
+        select calculus;
 
     private static Fin<DiscreteCalculus> AssembleDecOperators(MeshKernel.IntrinsicMesh imesh, Arr<double> mass, TopologyReceipt topology, Op key) {
         int vertCount = imesh.VertexCount;

@@ -126,7 +126,7 @@ public static class DialogSurface {
 - Receipt: `ToastReceipt` — row, surface, outcome, intent key, `Instant`, correlation — sinks through the `ReceiptSinkPort` envelope; the receipt stream absorbs the audit need and no notification-history store exists.
 - Packages: Avalonia, Thinktecture.Runtime.Extensions, LanguageExt.Core, NodaTime, Rasm.AppHost (project)
 - Growth: one `ToastRow` row or one `ToastOutcome` case; zero new surface.
-- Boundary: enter/exit timing and reduced-motion pairs arrive from the motion vocabulary — linger and suppression are the only timing facts owned here; native Rhino toasts and status panes stay host-owned; `Suspended` drops every note because retained capabilities exclude presentation.
+- Boundary: enter/exit timing and reduced-motion pairs arrive from the motion vocabulary — linger and suppression are the only timing facts owned here; `ToastPipe` binds one `WindowNotificationManager` constructed over the surface `TopLevel`, whose `Show(object, NotificationType, TimeSpan?, ...)` overload carries the row's severity as the `NotificationType` case and the linger as the expiration; native Rhino toasts and status panes stay host-owned; `Suspended` drops every note because retained capabilities exclude presentation.
 
 ```csharp signature
 public sealed class NoticeKeyPolicy : IEqualityComparerAccessor<string>, IComparerAccessor<string> {
@@ -197,7 +197,7 @@ flowchart LR
 - Entry: `public static Seq<PickFilter> Filters(Seq<(string Key, Seq<string> Extensions)> formats)` — pure projection; one filter row per format tuple.
 - Packages: Thinktecture.Runtime.Extensions, LanguageExt.Core, BCL inbox
 - Growth: one `PickKind` row or one format tuple from the host vocabulary; zero new surface.
-- Boundary: the Rasm.Rhino `FileFormat` vocabulary crosses `HostAttachPort` as key-plus-extension tuples — the type never enters this package; host-native modal flows (document file IO, command prompts, Eto semi-modal panels) stay Rasm.Rhino-owned and AppUi raises only the intent through the port; `PickPipe` rows bind the storage provider per surface, and the headless row holds `None`, folding to `DialogFault.PickerUnavailable`.
+- Boundary: the Rasm.Rhino `FileFormat` vocabulary crosses `HostAttachPort` as key-plus-extension tuples — the type never enters this package; host-native modal flows (document file IO, command prompts, Eto semi-modal panels) stay Rasm.Rhino-owned and AppUi raises only the intent through the port; `PickPipe` rows bind `IStorageProvider` per surface — `OpenFilePickerAsync`, `SaveFilePickerAsync`, and `OpenFolderPickerAsync` discriminate on the `PickKind` row with `PickFilter` rows projecting into `FilePickerFileType` patterns — and the headless row holds `None`, folding to `DialogFault.PickerUnavailable`.
 
 ```csharp signature
 [SmartEnum<string>]
@@ -221,6 +221,4 @@ public static class PickOps {
 
 | [INDEX] | [ITEM]                                                                                                           | [PROOF]                                                                                          | [GATE]                |
 | :-----: | :--------------------------------------------------------------------------------------------------------------- | :----------------------------------------------------------------------------------------------- | :-------------------- |
-|   [1]   | Notification manager construction and severity-mapping spelling behind the `ToastPipe` binding                    | `uv run python -m tools.assay api query avalonia Avalonia.Controls.Notifications.WindowNotificationManager` | NOTIFICATIONS         |
-|   [2]   | Storage-provider picker member and option-record spellings behind the `PickPipe` binding                          | `uv run python -m tools.assay api query avalonia Avalonia.Platform.Storage.IStorageProvider`      | PICKERS_HOST_MODALITY |
-|   [3]   | Embedded-root TopLevel service resolution for the toast manager and storage provider inside the rhino-panel root  | `tests/csharp/libs/Rasm.AppUi/scenarios/appui-embedded-toplevel.verify.csx`                        | NOTIFICATIONS         |
+|   [1]   | Embedded-root TopLevel service resolution for the toast manager and storage provider inside the rhino-panel root  | `tests/csharp/libs/Rasm.AppUi/scenarios/appui-embedded-toplevel.verify.csx`                        | NOTIFICATIONS         |

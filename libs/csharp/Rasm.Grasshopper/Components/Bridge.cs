@@ -59,6 +59,7 @@ public readonly record struct Shape {
     internal Unit DisposeUnlessTransferred(Seq<object> outputs) =>
         owned.Filter(disposable => !outputs.Exists(output => ReferenceEquals(objA: output, objB: disposable) || output switch {
             TopologyProjection projection => projection.Transfers(output: disposable),
+            GeometryProjection projection => projection.Transfers(output: disposable),
             BrepFace face => ReferenceEquals(objA: face.Brep, objB: disposable),
             _ => false,
         }))
@@ -66,6 +67,7 @@ public readonly record struct Shape {
     internal Flow<TSource> Detach<TSource>(Flow<TSource> output) =>
         (Inner, output.Item) switch {
             (GeometryBase source, TopologyProjection projection) => output.Project(item: (TSource)(object)projection.DetachFrom(source: source)),
+            (GeometryBase source, GeometryProjection projection) => output.Project(item: (TSource)(object)projection.DetachFrom(source: source)),
             _ => output,
         };
     private static Seq<Func<object, Option<Shape>>> Brokers =>

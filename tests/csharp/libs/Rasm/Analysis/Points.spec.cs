@@ -114,7 +114,7 @@ public sealed class PointsUnsupportedRailLaws {
 
     [Fact]
     public void NullAspectRejectsWithInputCategoryBeforeGeometryEvaluation() =>
-        Spec.Invalid(Analyze.Run(operation: Analyze.Points<Mesh, Point3d>(sampling: null!), input: default(Mesh)!),
+        Spec.Invalid(Analyze.Run(operation: Analyze.Query<Mesh, Point3d>(query: null), input: default(Mesh)!),
             then: static error => Assert.Equal(expected: "Input", actual: error.Category()));
     [Fact]
     public void NullSpreadAspectRejectsWithInputCategoryBeforeGeometryEvaluation() =>

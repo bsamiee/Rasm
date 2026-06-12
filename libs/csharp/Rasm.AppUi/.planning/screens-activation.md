@@ -60,7 +60,7 @@ public sealed record ScreenCatalog(FrozenDictionary<string, ScreenCatalogRow> Ro
 - Receipt: disposal evidence — row id, active `Duration`, disposable count — through `ScreenRuntime.Disposed` into the evidence stream bound at composition.
 - Packages: ReactiveUI, System.Reactive, LanguageExt.Core, NodaTime
 - Growth: one screen is one `ScreenBase` subclass expression body plus one catalog row; zero new surface.
-- Boundary: `ScreenBase` is the named boundary capsule for the statement carve-out — activation wiring, visibility subscription, and disposal registration carry language-owned statement forms while every other member stays expression-shaped; AutoSuspendHelper and RxApp.SuspensionHost are the deleted patterns, suspension rides the state checkpoint plus the visibility fold; the drain row registers rank 10 — the one rank literal here — ordering screen teardown first inside `DrainBand.Interaction`; `Throttle` arrives on `ScreenRuntime` from the motion timing rows, so the fences carry zero duration literals.
+- Boundary: `ScreenBase` is the named boundary capsule for the statement carve-out — activation wiring, visibility subscription, and disposal registration carry language-owned statement forms while every other member stays expression-shaped; `ViewModelActivator` ref-counts through `Interlocked` increments — activation fires only on the zero-to-one edge and `Deactivate` decrements symmetrically — so concurrent visibility-driven suspension and view-driven activation compose without a second guard; AutoSuspendHelper and RxApp.SuspensionHost are the deleted patterns, suspension rides the state checkpoint plus the visibility fold; the drain row registers rank 10 — the one rank literal here — ordering screen teardown first inside `DrainBand.Interaction`; `Throttle` arrives on `ScreenRuntime` from the motion timing rows, so the fences carry zero duration literals.
 
 ```csharp signature
 public sealed record ScreenRuntime(
@@ -155,7 +155,7 @@ public static class DerivedOps {
 - Auto: `Gate` projects `IsValid` into the availability delegate column consumed by the command table; `BindValidation` renders rule text view-side through the one `Formatter` policy with error styling from theme tokens.
 - Packages: ReactiveUI.Validation, ReactiveUI, LanguageExt.Core
 - Growth: one rule row per validated property; zero new surface.
-- Boundary: the lift is the single validation vocabulary — a second rule rail beside `Validation<Error,T>` is the rejected form, and domain factories keep emitting the typed rail untouched; fail text crosses as typed `IValidationText` through `SingleLineFormatter`, never freeform string side channels; `Rules` activates inside the activation scope, so rule subscriptions share screen disposal.
+- Boundary: the lift is the single validation vocabulary — a second rule rail beside `Validation<Error,T>` is the rejected form, and domain factories keep emitting the typed rail untouched; `Admit` lands on the `ValidationRule(Expression, IObservable<IValidationState>)` overload, and `ValidationContext` activation is internal and `_isActive`-guarded, so repeated activation scopes never duplicate rule subscriptions; fail text crosses as typed `IValidationText` through `SingleLineFormatter`, never freeform string side channels; `Rules` activates inside the activation scope, so rule subscriptions share screen disposal.
 
 ```csharp signature
 public readonly record struct AdmissionState(bool IsValid, IValidationText Text) : IValidationState;
@@ -166,7 +166,7 @@ public static class ScreenValidation {
     public static IObservable<IValidationState> States<TValue>(IObservable<Validation<Error, TValue>> admissions) =>
         admissions.Select(static outcome => (IValidationState)new AdmissionState(
             outcome.IsSuccess,
-            ValidationText.Create(outcome.Match(Succ: static _ => string.Empty, Fail: static error => error.Message))));
+            ValidationText.Create(outcome.Case is Error error ? error.Message : string.Empty)));
 
     extension<TScreen>(TScreen screen) where TScreen : ScreenBase {
         public ValidationHelper Admit<TValue>(Expression<Func<TScreen, TValue>> property, IObservable<Validation<Error, TValue>> admissions) =>
@@ -234,10 +234,3 @@ flowchart LR
     Snapshot --> Persist
 ```
 
-## [7]-[RESEARCH]
-
-| [INDEX] | [ITEM]                                                                                              | [PROOF]                                                                                  | [GATE]            |
-| :-----: | :--------------------------------------------------------------------------------------------------- | :----------------------------------------------------------------------------------------- | :---------------- |
-|   [1]   | `ValidationRule` overload set admitting `IObservable<TState>` with `TState : IValidationState`        | `uv run python -m tools.assay api query reactiveui.validation ValidatableViewModelExtensions.ValidationRule` | VALIDATION_UX     |
-|   [2]   | `ValidationContext.Activate` idempotence across repeated activation scopes                            | `uv run python -m tools.assay api query reactiveui.validation ValidationContext.Activate`   | VALIDATION_UX     |
-|   [3]   | `ViewModelActivator` ref-count behavior under concurrent visibility-driven `Deactivate` and view-driven activation | `uv run python -m tools.assay api query reactiveui ViewModelActivator`                      | ACTIVATION_SCOPES |

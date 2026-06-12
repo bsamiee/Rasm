@@ -16,11 +16,11 @@ Typed property inspection and value editing for product state: one `InspectorPol
 ## [2]-[INSPECTOR_SURFACE]
 
 - Owner: `InspectorPolicy` policy record; `InspectorSurface` static boundary capsule.
-- Entry: `Mount(PropertyGrid grid, InspectorPolicy policy, object subject, IClock clock, CorrelationId correlation, Action<EditReceipt> sink)` — `IDisposable` detacher composed LIFO by the activation scope.
+- Entry: `Mount(PropertyGrid grid, InspectorPolicy policy, object subject, ClockPolicy clocks, CorrelationId correlation, Action<EditReceipt> sink)` — `IDisposable` detacher composed LIFO by the activation scope.
 - Receipt: `EditReceipt` focus kind — surface, member path, `Instant`, correlation.
 - Packages: bodong.Avalonia.PropertyGrid, System.Reactive, NodaTime, LanguageExt.Core
 - Growth: one policy value on `InspectorPolicy`; zero new surface.
-- Boundary: `Mount` is the page's PropertyGrid boundary capsule — the inspected subject is object-typed because the grid inspects arbitrary shapes, and canonical typing re-enters at the editor rows; host-API variance lives in the policy's delegate columns (`Admit` descriptor filter, `FocusTarget` member-path projection), so no call site reads grid event internals; `OperationIntents` surface operation controls as command-table intent keys and the derivation fold lives with the command table — a per-screen operation registry is deleted; quick-filter, category, and read-only state are policy values, never control state.
+- Boundary: `Mount` is the page's PropertyGrid boundary capsule — the inspected subject enters through `DataContext` (the grid's only subject channel) as object because the grid inspects arbitrary shapes, and canonical typing re-enters at the editor rows; every grid event is a routed `EventHandler<RoutedEventArgs>` whose args narrow to `CustomPropertyDescriptorFilterEventArgs` (`TargetObject`, `PropertyDescriptor`, settable `IsVisible`) and `PropertyGotFocusEventArgs` (`Context`), so host-API variance lives in the policy's delegate columns (`Admit` descriptor filter, `FocusTarget` member-path projection) and no call site beyond the capsule reads grid event internals; `OperationIntents` surface operation controls as command-table intent keys and the derivation fold lives with the command table — a per-screen operation registry is deleted; quick-filter, category, and read-only state are policy values, never control state.
 
 ```csharp signature
 public sealed record InspectorPolicy(
@@ -34,20 +34,20 @@ public sealed record InspectorPolicy(
     Func<PropertyGotFocusEventArgs, string> FocusTarget);
 
 public static partial class InspectorSurface {
-    public static IDisposable Mount(PropertyGrid grid, InspectorPolicy policy, object subject, IClock clock, CorrelationId correlation, Action<EditReceipt> sink) {
-        grid.ViewModel = subject;
+    public static IDisposable Mount(PropertyGrid grid, InspectorPolicy policy, object subject, ClockPolicy clocks, CorrelationId correlation, Action<EditReceipt> sink) {
+        grid.DataContext = subject;
         grid.IsReadOnly = policy.ReadOnly;
         grid.IsCategoryVisible = policy.CategoriesVisible;
         grid.IsQuickFilterVisible = policy.QuickFilter;
         grid.AllCategoriesExpanded = policy.CategoriesExpanded;
-        EventHandler<CustomPropertyDescriptorFilterEventArgs> admit = (_, args) => policy.Admit(args);
-        EventHandler<PropertyGotFocusEventArgs> focus = (_, args) => sink(new EditReceipt(
+        EventHandler<RoutedEventArgs> admit = (_, args) => policy.Admit((CustomPropertyDescriptorFilterEventArgs)args);
+        EventHandler<RoutedEventArgs> focus = (_, args) => sink(new EditReceipt(
             Kind: EditReceipt.FocusKind,
             Surface: policy.Surface,
-            Target: policy.FocusTarget(args),
+            Target: policy.FocusTarget((PropertyGotFocusEventArgs)args),
             Editor: string.Empty,
             Outcome: new EditOutcome.Observed(),
-            At: clock.GetCurrentInstant(),
+            At: clocks.Now,
             Correlation: correlation));
         grid.CustomPropertyDescriptorFilter += admit;
         grid.PropertyGotFocus += focus;
@@ -67,7 +67,7 @@ public static partial class InspectorSurface {
 - Auto: generated `Items` ordering and key factories under `[ValidationError<EditFault>]`; the `Accepts` column rides `[UseDelegateFromConstructor]`.
 - Packages: bodong.Avalonia.PropertyGrid, Avalonia.Controls.ColorPicker, UnitsNet, Thinktecture.Runtime.Extensions, LanguageExt.Core, BCL inbox
 - Growth: one editor row on `EditorFactory` (key, rank, accept predicate, bridge column); zero new surface — per-shape editor controls and per-`[ValueObject]` editor classes are deleted by the value-object and quantity rows.
-- Boundary: the `Bridge` column names the package factory type a stock row registers; `None` rows (quantity, value-object, optional, choice) ride the one row-driven `AbstractCellEditFactory` adapter whose override spelling is gated on the PropertyGrid decompile row; generated-owner detection scans for `IObjectFactory<,,>` with the generated static `Items` property splitting smart-enum rows from value-object rows, and the Thinktecture metadata-lookup research row supersedes the scan; the optional row re-enters `Match` on the wrapped argument and renders absence as a value, never a sentinel; color rows present `PreviewableColorPicker` with the `Palettes` families and HSV models.
+- Boundary: the `Bridge` column names the package factory type a stock row registers; `None` rows (quantity, value-object, optional, choice) ride the one row-driven `AbstractCellEditFactory` adapter overriding `ImportPriority` (virtual int, stock default 100), `Accept(object accessToken)`, `HandleNewProperty(PropertyCellContext)` returning `Control?`, `HandlePropertyChanged(PropertyCellContext)` returning bool, and `HandleReadOnlyStateChanged(Control, bool)`, with `SetAndRaise(PropertyCellContext, Control, object?)` driving the undo-scoped command pipeline; generated-owner detection rides `MetadataLookup.Find` over the pin-stable `Thinktecture.Internal` metadata classes — `Metadata.Keyed.SmartEnum`/`Metadata.KeylessSmartEnum` split choice rows from `Metadata.Keyed.ValueObject`/`Metadata.ComplexValueObject` value rows, deleting the interface scan and the `Items` reflection probe; the optional row re-enters `Match` on the wrapped argument and renders absence as a value, never a sentinel; color rows present `PreviewableColorPicker` with the `Palettes` families and HSV models.
 
 ```csharp signature
 public sealed class EditorKeyPolicy : IEqualityComparerAccessor<string>, IComparerAccessor<string> {
@@ -112,20 +112,16 @@ public sealed partial class EditorFactory {
     }.ToFrozenSet();
 
     private static bool AcceptQuantity(Type shape) => typeof(IQuantity).IsAssignableFrom(shape);
-    private static bool AcceptValue(Type shape) => GeneratedFactory(shape) && shape.GetProperty("Items", BindingFlags.Public | BindingFlags.Static) is null;
+    private static bool AcceptValue(Type shape) => MetadataLookup.Find(shape) is Metadata.Keyed.ValueObject or Metadata.ComplexValueObject;
     private static bool AcceptOptional(Type shape) => shape is { IsGenericType: true } && shape.GetGenericTypeDefinition() == typeof(Option<>);
     private static bool AcceptColor(Type shape) => shape == typeof(Avalonia.Media.Color);
-    private static bool AcceptChoice(Type shape) => shape.IsEnum || (GeneratedFactory(shape) && shape.GetProperty("Items", BindingFlags.Public | BindingFlags.Static) is not null);
+    private static bool AcceptChoice(Type shape) => shape.IsEnum || MetadataLookup.Find(shape) is Metadata.Keyed.SmartEnum or Metadata.KeylessSmartEnum;
     private static bool AcceptPath(Type shape) => typeof(FileSystemInfo).IsAssignableFrom(shape);
     private static bool AcceptCollection(Type shape) => shape != typeof(string) && typeof(IEnumerable).IsAssignableFrom(shape);
     private static bool AcceptBoolean(Type shape) => shape == typeof(bool);
     private static bool AcceptNumeric(Type shape) => NumericShapes.Contains(shape);
     private static bool AcceptText(Type shape) => shape == typeof(string);
     private static bool AcceptNested(Type shape) => shape is { IsClass: true, IsAbstract: false };
-
-    private static bool GeneratedFactory(Type shape) => System.Array.Exists(
-        shape.GetInterfaces(),
-        static contract => contract is { IsGenericType: true } && contract.GetGenericTypeDefinition() == typeof(IObjectFactory<,,>));
 }
 ```
 
@@ -137,7 +133,7 @@ public sealed partial class EditorFactory {
 - Receipt: `EditReceipt` — kind, surface, target, editor row key, outcome, `Instant`, `CorrelationId`.
 - Packages: Thinktecture.Runtime.Extensions, UnitsNet, ReactiveUI.Validation, NodaTime, LanguageExt.Core
 - Growth: one case on `EditFault` or `EditOutcome`; zero new surface.
-- Boundary: preview events (`PreviewValueChanged`, `PreviewColorChanged`) mutate transient editor state and emit nothing; commit events (`RealValueChanged`, `ColorChanged`) run the gate and sink exactly one `EditReceipt` — the preview-versus-commit split is the whole debounce law; the value-object leg is the doctrine `Validate` bridge, so `Create`/`TryCreate` call sites and per-call-site error translation are deleted; quantity admission parses through `Quantity.TryParse` with explicit culture and unit lists present through `QuantityInfo`/`UnitInfo` from `Quantity.Infos`; `ValidateProperty` text renders through `BindValidation` against the screen validation vocabulary and `IsValid` streams gate commit intents — a second validation rail is deleted; host-mutating edits route through the Rasm.Rhino document-transaction port undo-scoped, and `HostRouted` carries that hop's correlation.
+- Boundary: preview interactions (`PreviewColorChanged` on `PreviewableColorPicker`, transient editor control state) mutate nothing durable and emit nothing; the grid's `CommandExecuting` event carries `RoutedCommandExecutingEventArgs` with a settable `Canceled` — the gate vetoes a failing admission there — and `CommandExecuted` carries `RoutedCommandExecutedEventArgs` (`Command`, `Target`, `Property`, `OldValue`, `NewValue`) and sinks exactly one `EditReceipt` per commit — the executing-versus-executed split is the whole debounce law, with `ColorChanged` as the picker's commit edge; the value-object leg is the doctrine `Validate` bridge, so `Create`/`TryCreate` call sites and per-call-site error translation are deleted; quantity admission parses through `Quantity.TryParse` with explicit culture and unit lists present through `QuantityInfo`/`UnitInfo` from `Quantity.Infos`; `ValidateProperty` text renders through `BindValidation` against the screen validation vocabulary and `IsValid` streams gate commit intents — a second validation rail is deleted; host-mutating edits route through the Rasm.Rhino document-transaction port undo-scoped, and `HostRouted` carries that hop's correlation.
 
 ```csharp signature
 [Union]
@@ -230,7 +226,7 @@ public static class EditGate {
 
 - Owner: `OptionsInspector<T>` binding record; `InspectorSurface` extension `Attach`/`Banner`.
 - Cases: banner keys per `ReloadOutcome` case — options-applied, options-unchanged, options-restart-required, options-rejected; restart-required is the frozen-row path rendered as a typed outcome, never a toast.
-- Entry: `Attach<T>(PropertyGrid grid, OptionsInspector<T> binding, InspectorPolicy policy, IClock clock, CorrelationId correlation, Action<EditReceipt> sink, Action<string> banner)` — `IDisposable` composing the mount, the persist hook, and the receipt subscription.
+- Entry: `Attach<T>(PropertyGrid grid, OptionsInspector<T> binding, InspectorPolicy policy, ClockPolicy clocks, CorrelationId correlation, Action<EditReceipt> sink, Action<string> banner)` — `IDisposable` composing the mount, the persist hook, and the receipt subscription.
 - Auto: the generated `ReloadOutcome` `Switch` is the whole banner fold.
 - Receipt: `EditReceipt` options kind per persisted commit; `ReloadReceipt` consumed from the options monitor stream.
 - Packages: bodong.Avalonia.PropertyGrid, System.Reactive, NodaTime, LanguageExt.Core
@@ -257,21 +253,21 @@ public static partial class InspectorSurface {
         restartRequired: static row => RestartBanner,
         rejected: static row => RejectedBanner);
 
-    public static IDisposable Attach<T>(PropertyGrid grid, OptionsInspector<T> binding, InspectorPolicy policy, IClock clock, CorrelationId correlation, Action<EditReceipt> sink, Action<string> banner) where T : class {
-        var mount = Mount(grid, policy, binding.Snapshot, clock, correlation, sink);
+    public static IDisposable Attach<T>(PropertyGrid grid, OptionsInspector<T> binding, InspectorPolicy policy, ClockPolicy clocks, CorrelationId correlation, Action<EditReceipt> sink, Action<string> banner) where T : class {
+        var mount = Mount(grid, policy, binding.Snapshot, clocks, correlation, sink);
         var reload = binding.Receipts.Subscribe(receipt => banner(Banner(receipt.Outcome)));
-        EventHandler<CellPropertyChangedEventArgs> committed = (_, _) => sink(new EditReceipt(
+        EventHandler<RoutedEventArgs> committed = (_, _) => sink(new EditReceipt(
             Kind: EditReceipt.OptionsKind,
             Surface: policy.Surface,
             Target: binding.Section,
             Editor: string.Empty,
-            Outcome: binding.Persist(binding.Snapshot).Match(
-                Succ: static _ => (EditOutcome)new EditOutcome.Committed(string.Empty),
-                Fail: error => new EditOutcome.Rejected(EditFault.Create(error.Message))),
-            At: clock.GetCurrentInstant(),
+            Outcome: binding.Persist(binding.Snapshot) is { IsFail: true, Case: Error error }
+                ? new EditOutcome.Rejected(EditFault.Create(error.Message))
+                : new EditOutcome.Committed(string.Empty),
+            At: clocks.Now,
             Correlation: correlation));
-        grid.CellPropertyChanged += committed;
-        return new CompositeDisposable(mount, reload, Disposable.Create(() => grid.CellPropertyChanged -= committed));
+        grid.CommandExecuted += committed;
+        return new CompositeDisposable(mount, reload, Disposable.Create(() => grid.CommandExecuted -= committed));
     }
 }
 ```
@@ -324,11 +320,11 @@ public sealed record ConflictPane<TReceipt>(
 ## [7]-[CODE_EDITING]
 
 - Owner: `CodePane` document-editor row record; `CompletionRow` completion projection.
-- Cases: grammar scopes source.rasm, source.rasm-expression, source.json — the Rasm-DSL scopes ride the custom registry row gated on the TextMate research rows.
+- Cases: grammar scopes source.rasm, source.rasm-expression, source.json — the Rasm-DSL scopes register through the custom `IRegistryOptions` implementation row.
 - Entry: `Open(TextEditor editor, IRegistryOptions registry)` — `Fin<(TextMate.Installation Session, Option<FoldingManager> Folding)>` aborts on grammar admission; `FromMetadata(Seq<(string Key, string Detail)> metadata)` — completion fold.
 - Packages: Avalonia.AvaloniaEdit, AvaloniaEdit.TextMate, LanguageExt.Core
 - Growth: one grammar scope row on `CodePane`; zero new surface.
-- Boundary: `Open` is the editor boundary capsule — one TextMate installation per editor, disposed with the pane; highlight colors derive from theme tokens through `SetTheme`/`TryGetThemeColor` and the mono typography role enters as the code role key, so per-editor font setup is deleted; read-only panes are the evidence and conflict viewer mode; completion data is a projection fold over options section keys and policy record member names as nameof-derived symbols — the `ICompletionData` plumbing is gated on its research row; Markdown never renders here — the typography projection owns it and the code pane owns only fenced code.
+- Boundary: `Open` is the editor boundary capsule — one TextMate installation per editor, disposed with the pane; the registry argument implements the four-member `IRegistryOptions` contract (`GetTheme(string)`, `GetGrammar(string)`, `GetInjections(string)`, `GetDefaultTheme()`), and the Rasm-DSL scopes register by returning their raw grammars from `GetGrammar`; highlight colors derive from theme tokens through `SetTheme`/`TryGetThemeColor` and the mono typography role enters as the code role key, so per-editor font setup is deleted; read-only panes are the evidence and conflict viewer mode; completion data is a projection fold over options section keys and policy record member names as nameof-derived symbols, and `CompletionRow` projects into `ICompletionData` (`Image`, `Text`, `Content`, `Description`, `Priority`, `Complete(TextArea, ISegment, EventArgs)`) at the completion-window edge; Markdown never renders here — the typography projection owns it and the code pane owns only fenced code.
 
 ```csharp signature
 public sealed record CodePane(
@@ -365,8 +361,4 @@ public sealed record CompletionRow(string Key, string Detail) {
 
 | [INDEX] | [ITEM]                                                                                                                                  | [PROOF]                                                                                                                                       | [GATE]            |
 | :-----: | ---------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------- | ----------------- |
-|   [1]   | bodong PropertyGrid decompiled member surface — `AbstractCellEditFactory` override signatures, event delegate shapes, event-arg members, `LayoutStyle`/`CellEditAlignment`/`PropertyOperationVisibility` value types | uv run python -m tools.assay api query propertygrid AbstractCellEditFactory                                                                    | INSPECTOR_SURFACE |
-|   [2]   | Thinktecture runtime metadata-lookup surface replacing the interface-scan and `Items`-property predicates on generated-owner rows          | uv run python -m tools.assay api query thinktecture MetadataLookup                                                                              | EDITOR_FACTORIES  |
-|   [3]   | Immutable policy-record draft route for grid editing — PropertyModels descriptor synthesis versus a generated mutable draft partial        | dotnet run on a scratch PropertyGrid probe binding a record-draft pair and asserting `SetPropertyValue` lands on the draft, commit rebuilds the record | OPTIONS_INSPECTOR |
-|   [4]   | `IRegistryOptions` member set and Rasm-DSL grammar registration route over the transitive TextMateSharp registry                           | uv run python -m tools.assay api query textmatesharp IRegistryOptions                                                                           | CODE_EDITING      |
-|   [5]   | `ICompletionData` member set for the completion-row projection — insertion action, content, priority spellings                              | uv run python -m tools.assay api query avaloniaedit ICompletionData                                                                             | CODE_EDITING      |
+|   [1]   | Immutable policy-record draft route for grid editing — PropertyModels descriptor synthesis versus a generated mutable draft partial        | dotnet run on a scratch PropertyGrid probe binding a record-draft pair and asserting `SetPropertyValue` lands on the draft, commit rebuilds the record | OPTIONS_INSPECTOR |

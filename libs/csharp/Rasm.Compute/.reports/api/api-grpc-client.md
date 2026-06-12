@@ -65,6 +65,34 @@ execution clients.
 |   [8]   | `MaxSendMessageSize`                   | option property | bounds request payloads  |
 |   [9]   | `ThrowOperationCanceledOnCancellation` | option property | controls cancellation    |
 
+[ENTRYPOINT_SCOPE]: channel-state and compression operations
+- rail: remote-client
+
+| [INDEX] | [SURFACE]                                 | [CALL_SHAPE]    | [CAPABILITY]                                          |
+| :-----: | :---------------------------------------- | :-------------- | :---------------------------------------------------- |
+|   [1]   | `GrpcChannel.State`                       | state property  | reports `ConnectivityState`                           |
+|   [2]   | `GrpcChannel.WaitForStateChangedAsync`    | state call      | awaits departure from an observed `ConnectivityState` |
+|   [3]   | `GrpcChannelOptions.CompressionProviders` | option property | registers `ICompressionProvider` rows                 |
+|   [4]   | `GrpcChannelOptions.HttpVersion`          | option property | pins the channel HTTP version                         |
+|   [5]   | `grpc-internal-encoding-request`          | metadata key    | selects per-call request compression                  |
+
+[PUBLIC_TYPE_SCOPE]: transitive `Grpc.Core.Api` call contracts
+- rail: remote-client
+
+| [INDEX] | [SYMBOL]                   | [PACKAGE_ROLE]      | [CAPABILITY]                                                                                                                                                                                                                                                                     |
+| :-----: | :------------------------- | :------------------ | :------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+|   [1]   | `Interceptor`              | interceptor base    | client overrides `AsyncUnaryCall` returning `AsyncUnaryCall<TResponse>`, `AsyncServerStreamingCall` returning `AsyncServerStreamingCall<TResponse>`, `AsyncClientStreamingCall` and `AsyncDuplexStreamingCall` returning two-arg call types, each with its continuation delegate |
+|   [2]   | `ClientInterceptorContext` | call context struct | ctor `(Method<TRequest,TResponse>, string?, CallOptions)`; `Method`, `Host`, `Options`                                                                                                                                                                                           |
+|   [3]   | `CallInvoker`              | invocation root     | `Intercept(Interceptor)` extension composes interceptors                                                                                                                                                                                                                         |
+|   [4]   | `CallOptions`              | call policy struct  | ctor named args `headers`, `deadline`, `cancellationToken`; `WithHeaders(Metadata)`                                                                                                                                                                                              |
+|   [5]   | `Metadata`                 | header collection   | `Empty` frozen instance, `Add(Entry)`, `GetValueBytes(string)`                                                                                                                                                                                                                   |
+|   [6]   | `RpcException`             | call failure        | `Trailers`, `Status`, `StatusCode`                                                                                                                                                                                                                                               |
+|   [7]   | `Status`                   | status struct       | `StatusCode`, `Detail`                                                                                                                                                                                                                                                           |
+|   [8]   | `StatusCode`               | status enum         | `Cancelled`, `DeadlineExceeded`, residual taxonomy                                                                                                                                                                                                                               |
+|   [9]   | `CallCredentials`          | per-call trust      | `FromInterceptor(AsyncAuthInterceptor)`                                                                                                                                                                                                                                          |
+|  [10]   | `ChannelCredentials`       | channel trust       | `Insecure`, `SecureSsl`, `Create(ChannelCredentials, CallCredentials)`                                                                                                                                                                                                           |
+|  [11]   | `ConnectivityState`        | state enum          | channel connectivity taxonomy                                                                                                                                                                                                                                                    |
+
 [ENTRYPOINT_SCOPE]: policy and balancing operations
 - rail: remote-client
 

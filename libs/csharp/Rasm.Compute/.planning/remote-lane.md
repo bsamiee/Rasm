@@ -4,15 +4,15 @@ Rasm.Compute owns the suite wire vocabulary: five proto services compiled GrpcSe
 
 ## [1]-[INDEX]
 
-| [INDEX] | [CLUSTER]          | [OWNS]                                                                  |
-| :-----: | ------------------ | ----------------------------------------------------------------------- |
+| [INDEX] | [CLUSTER]          | [OWNS]                                                                    |
+| :-----: | ------------------ | ------------------------------------------------------------------------- |
 |   [1]   | PROTO_VOCABULARY   | Five wire services, canonical geometry messages, generated-client capsule |
-|   [2]   | CONTRACT_EVOLUTION | Descriptor-diff drift law, parse hardening, reserved-number policy       |
-|   [3]   | FAULT_PROJECTION   | One FaultDetail family carrying typed faults through status details      |
-|   [4]   | TRANSPORT_AXIS     | Four transport rows, streaming capability, dial dispatch, redial law     |
-|   [5]   | CALL_POLICY        | Credential axis, one stamping interceptor, deadline and payload edges    |
-|   [6]   | ARTIFACT_FRAMES    | Suite frame law: 64 KiB frames, Crc32, zero-copy wrap                    |
-|   [7]   | TS_PROJECTION      | Browser wire posture, fault and frame contracts, method shapes           |
+|   [2]   | CONTRACT_EVOLUTION | Descriptor-diff drift law, parse hardening, reserved-number policy        |
+|   [3]   | FAULT_PROJECTION   | One FaultDetail family carrying typed faults through status details       |
+|   [4]   | TRANSPORT_AXIS     | Four transport rows, streaming capability, dial dispatch, redial law      |
+|   [5]   | CALL_POLICY        | Credential axis, one stamping interceptor, deadline and payload edges     |
+|   [6]   | ARTIFACT_FRAMES    | Suite frame law: 64 KiB frames, Crc32, zero-copy wrap                     |
+|   [7]   | TS_PROJECTION      | Browser wire posture, fault and frame contracts, method shapes            |
 
 ## [2]-[PROTO_VOCABULARY]
 
@@ -35,30 +35,30 @@ public sealed record WireServices(
 }
 ```
 
-| [INDEX] | [SERVICE]       | [RPC]              | [SHAPE]       | [MESSAGES]                                | [LAW]                                                                                                                     |
-| :-----: | --------------- | ------------------ | ------------- | ----------------------------------------- | ------------------------------------------------------------------------------------------------------------------------- |
-|   [1]   | ComputeService  | Infer              | unary         | InferRequest → InferResponse              | payload caps pre-checked at the call edge; faults ride FaultDetail                                                          |
-|   [2]   | ComputeService  | Progress           | server-stream | ProgressRequest → ProgressUpdate          | phase enum mirrors the nine phase keys 1:1, keyed by correlation                                                            |
-|   [3]   | ComputeService  | Capabilities       | unary         | Empty → ComputeCapabilities               | substrate rows, EP rows, model inventory, payload caps, contract metadata — Compute capability rows only                    |
-|   [4]   | DocumentService | Capabilities       | unary         | Empty → DocumentCapabilities              | verb inventory and document scope                                                                                           |
-|   [5]   | DocumentService | DocumentEvents     | server-stream | WatchRequest → DocumentEvent              | watch-fact stream feeding the live-data spine                                                                               |
-|   [6]   | DocumentService | ExecuteTransaction | unary         | TransactionRequest → TransactionReceipt   | idempotency key; server dedup window equals the DeadlineClass.HopTotal allotment — the one retry owner's horizon; response mirrors the DocumentTransaction typed receipt field-for-field |
-|   [7]   | DocumentService | Query              | unary         | QueryRequest → QueryResponse              | read verb with FieldMask projection                                                                                         |
-|   [8]   | DocumentService | CaptureEvents      | client-stream | CaptureFrame → CaptureSummary             | per-frame HLC idempotency keys; Http2 and UnixDomainSocket rows only                                                        |
-|   [9]   | ControlService  | CaptureSupport     | unary         | Empty → CaptureSupportReply               | projects the SupportManifest receipt                                                                                        |
-|  [10]   | ControlService  | SetDegradation     | unary         | SetDegradationRequest → DegradationReply  | level key lands on the one override rail — the OperatorOverride consequence                                                 |
-|  [11]   | ControlService  | ReloadOptions      | unary         | Empty → ReloadReply                       | projects the ReloadReceipt                                                                                                  |
-|  [12]   | ArtifactSync    | Sync               | bidi          | ArtifactFrame → ArtifactFrame             | frame law below; FieldMask partials; Any artifact envelopes                                                                 |
-|  [13]   | Health          | Check              | unary         | HealthCheckRequest → HealthCheckResponse  | maps from the HealthChecks registry via the WireHealthRow tag predicate; substrate predicate and node selection read it     |
-|  [14]   | Health          | Watch              | server-stream | HealthCheckRequest → HealthCheckResponse  | compiled verbatim from the well-known proto                                                                                 |
+| [INDEX] | [SERVICE]       | [RPC]              | [SHAPE]       | [MESSAGES]                               | [LAW]                                                                                                                                                                                    |
+| :-----: | --------------- | ------------------ | ------------- | ---------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+|   [1]   | ComputeService  | Infer              | unary         | InferRequest → InferResponse             | payload caps pre-checked at the call edge; faults ride FaultDetail                                                                                                                       |
+|   [2]   | ComputeService  | Progress           | server-stream | ProgressRequest → ProgressUpdate         | phase enum mirrors the nine phase keys 1:1, keyed by correlation                                                                                                                         |
+|   [3]   | ComputeService  | Capabilities       | unary         | Empty → ComputeCapabilities              | substrate rows, EP rows, model inventory, payload caps, contract metadata — Compute capability rows only                                                                                 |
+|   [4]   | DocumentService | Capabilities       | unary         | Empty → DocumentCapabilities             | verb inventory and document scope                                                                                                                                                        |
+|   [5]   | DocumentService | DocumentEvents     | server-stream | WatchRequest → DocumentEvent             | watch-fact stream feeding the live-data spine                                                                                                                                            |
+|   [6]   | DocumentService | ExecuteTransaction | unary         | TransactionRequest → TransactionReceipt  | idempotency key; server dedup window equals the DeadlineClass.HopTotal allotment — the one retry owner's horizon; response mirrors the DocumentTransaction typed receipt field-for-field |
+|   [7]   | DocumentService | Query              | unary         | QueryRequest → QueryResponse             | read verb with FieldMask projection                                                                                                                                                      |
+|   [8]   | DocumentService | CaptureEvents      | client-stream | CaptureFrame → CaptureSummary            | per-frame HLC idempotency keys; Http2 and UnixDomainSocket rows only                                                                                                                     |
+|   [9]   | ControlService  | CaptureSupport     | unary         | Empty → CaptureSupportReply              | projects the SupportManifest receipt                                                                                                                                                     |
+|  [10]   | ControlService  | SetDegradation     | unary         | SetDegradationRequest → DegradationReply | level key lands on the one override rail — the OperatorOverride consequence                                                                                                              |
+|  [11]   | ControlService  | ReloadOptions      | unary         | Empty → ReloadReply                      | projects the ReloadReceipt                                                                                                                                                               |
+|  [12]   | ArtifactSync    | Sync               | bidi          | ArtifactFrame → ArtifactFrame            | frame law below; FieldMask partials; Any artifact envelopes                                                                                                                              |
+|  [13]   | Health          | Check              | unary         | HealthCheckRequest → HealthCheckResponse | maps from the HealthChecks registry via the WireHealthRow tag predicate; substrate predicate and node selection read it                                                                  |
+|  [14]   | Health          | Watch              | server-stream | HealthCheckRequest → HealthCheckResponse | compiled verbatim from the well-known proto                                                                                                                                              |
 
-| [INDEX] | [MESSAGE]        | [FIELDS]                                                              | [ALIGNS]                                |
-| :-----: | ---------------- | --------------------------------------------------------------------- | ---------------------------------------- |
-|   [1]   | GeometryPayload  | oneof kind: point_cloud=1, mesh=2, voxel=3; symbolic_dims=4 repeated  | envelope for Infer payloads and artifacts |
-|   [2]   | PointCloudTensor | count=1 int64; channels=2 int32; dtype=3 string; data=4 bytes         | point-cloud N×C encoding row              |
-|   [3]   | MeshTensor       | vertex_count=1 int64; vertices=2 bytes; face_count=3 int64; faces=4 bytes | mesh vertex N×3 and face F×3 rows     |
-|   [4]   | VoxelTensor      | dims=1 repeated int64; dtype=2 string; data=3 bytes                   | voxel NCHW row                            |
-|   [5]   | SymbolicDim      | name=1 string; bound=2 int64                                          | symbolic-dim binding row                  |
+| [INDEX] | [MESSAGE]        | [FIELDS]                                                                  | [ALIGNS]                                  |
+| :-----: | ---------------- | ------------------------------------------------------------------------- | ----------------------------------------- |
+|   [1]   | GeometryPayload  | oneof kind: point_cloud=1, mesh=2, voxel=3; symbolic_dims=4 repeated      | envelope for Infer payloads and artifacts |
+|   [2]   | PointCloudTensor | count=1 int64; channels=2 int32; dtype=3 string; data=4 bytes             | point-cloud N×C encoding row              |
+|   [3]   | MeshTensor       | vertex_count=1 int64; vertices=2 bytes; face_count=3 int64; faces=4 bytes | mesh vertex N×3 and face F×3 rows         |
+|   [4]   | VoxelTensor      | dims=1 repeated int64; dtype=2 string; data=3 bytes                       | voxel NCHW row                            |
+|   [5]   | SymbolicDim      | name=1 string; bound=2 int64                                              | symbolic-dim binding row                  |
 
 ## [3]-[CONTRACT_EVOLUTION]
 
@@ -67,7 +67,7 @@ public sealed record WireServices(
 - Entry: `AdditiveOnly(Seq<ByteString> local, Func<string, Fin<Seq<ByteString>>> peerSetOf)` — the delegate `Discovery.Compatible` consumes; checksum equality or additive drift admits, breaking drift rejects on the hop fault rail.
 - Packages: Google.Protobuf, Thinktecture.Runtime.Extensions, LanguageExt.Core, Rasm.AppHost (project), BCL inbox
 - Growth: a removed field becomes one reserved row carrying its number and name — numbers never return to use; one surface-projection row absorbs a new descriptor dimension; zero new surface.
-- Boundary: contract identity is the serialized descriptor set built through `FileDescriptor.BuildFromByteStrings` at startup and published beside the discovery manifest at `DescriptorPath`; the manifest checksum derives from the published bytes through the settled XxHash128 identity row; `UnknownFieldSet` retention stays at the generated-parser default so forward-decoded payloads re-serialize with unknown fields intact — a discard-configured parser is the rejected form; `ParseGuard.Canonical` bounds inbound decode symmetric with the send-side PayloadOverBounds pre-check.
+- Boundary: contract identity is the serialized descriptor set built through `FileDescriptor.BuildFromByteStrings` at startup and published beside the discovery manifest at `DescriptorPath`; the manifest checksum derives from the published bytes through the settled XxHash128 identity row; `UnknownFieldSet` retention stays at the generated-parser default so forward-decoded payloads re-serialize with unknown fields intact — a discard-configured parser is the rejected form; `ParseGuard.Canonical` bounds inbound decode symmetric with the send-side PayloadOverBounds pre-check, and its recursion bound quotes the package default `CodedInputStream` recursion limit.
 
 ```csharp signature
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
@@ -144,8 +144,8 @@ public static class WireFault {
 }
 ```
 
-| [INDEX] | [MESSAGE]   | [FIELDS]                                                                                                                                      |
-| :-----: | ----------- | ---------------------------------------------------------------------------------------------------------------------------------------------- |
+| [INDEX] | [MESSAGE]   | [FIELDS]                                                                                                                                                                             |
+| :-----: | ----------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
 |   [1]   | FaultDetail | package=1 string; code=2 int32; case=3 string; message=4 string; evidence=5 map<string,string>; correlation=6 string; hlc_physical=7 google.protobuf.Timestamp; hlc_logical=8 uint64 |
 
 ## [5]-[TRANSPORT_AXIS]
@@ -262,7 +262,7 @@ sequenceDiagram
 - Auto: every generated stub call crosses the interceptor — correlation metadata, W3C traceparent, and per-call receipt capture stamp without hand-threaded Metadata.
 - Receipt: per-call route, byte sizes, and deadline outcome evidence emit through `ReceiptSinkPort.Send` at the interceptor seam.
 - Packages: Grpc.Net.Client, Google.Protobuf, Thinktecture.Runtime.Extensions, LanguageExt.Core, NodaTime, Rasm.AppHost (project)
-- Growth: one credential row per new trust shape; the compression row (channel `CompressionProviders` plus the per-call request-encoding metadata key) flips on behind one winning benchmark claim row; zero new surface.
+- Growth: one credential row per new trust shape; the compression row (channel `CompressionProviders` plus the per-call `grpc-internal-encoding-request` metadata key) flips on behind one winning benchmark claim row; zero new surface.
 - Boundary: `GrpcChannelOptions.ServiceConfig` is never set — the whole retry, hedging, and load-balancing config surface is experimental and a second retry owner; the AppHost keyed pipeline owns the hop retry and a detected second owner emits Conflict evidence instead of stacking; `UnsafeUseInsecureChannelCallCredentials` is never set; `ThrowOperationCanceledOnCancellation` stays unset — `RpcException` conversion lives in the one `WireFault.Classify` arm.
 
 ```csharp signature
@@ -290,8 +290,8 @@ public sealed class CallSpine(CorrelationId correlation, Func<string> traceparen
             ? Fin.Succ(message)
             : Fin.Fail<T>(new ComputeFault.PayloadOverBounds($"{message.CalculateSize()} over {GrpcChannelPolicy.Canonical.MaxSendBytes}"));
 
-    public override AsyncUnaryCall<TRequest, TResponse> AsyncUnaryCall<TRequest, TResponse>(TRequest request, ClientInterceptorContext<TRequest, TResponse> context, AsyncUnaryCallContinuation<TRequest, TResponse> continuation) => continuation(request, Stamped(context));
-    public override AsyncServerStreamingCall<TRequest, TResponse> AsyncServerStreamingCall<TRequest, TResponse>(TRequest request, ClientInterceptorContext<TRequest, TResponse> context, AsyncServerStreamingCallContinuation<TRequest, TResponse> continuation) => continuation(request, Stamped(context));
+    public override AsyncUnaryCall<TResponse> AsyncUnaryCall<TRequest, TResponse>(TRequest request, ClientInterceptorContext<TRequest, TResponse> context, AsyncUnaryCallContinuation<TRequest, TResponse> continuation) => continuation(request, Stamped(context));
+    public override AsyncServerStreamingCall<TResponse> AsyncServerStreamingCall<TRequest, TResponse>(TRequest request, ClientInterceptorContext<TRequest, TResponse> context, AsyncServerStreamingCallContinuation<TRequest, TResponse> continuation) => continuation(request, Stamped(context));
     public override AsyncClientStreamingCall<TRequest, TResponse> AsyncClientStreamingCall<TRequest, TResponse>(ClientInterceptorContext<TRequest, TResponse> context, AsyncClientStreamingCallContinuation<TRequest, TResponse> continuation) => continuation(Stamped(context));
     public override AsyncDuplexStreamingCall<TRequest, TResponse> AsyncDuplexStreamingCall<TRequest, TResponse>(ClientInterceptorContext<TRequest, TResponse> context, AsyncDuplexStreamingCallContinuation<TRequest, TResponse> continuation) => continuation(Stamped(context));
 
@@ -337,8 +337,8 @@ public static class FrameEdge {
 }
 ```
 
-| [INDEX] | [MESSAGE]     | [FIELDS]                                                                              |
-| :-----: | ------------- | -------------------------------------------------------------------------------------- |
+| [INDEX] | [MESSAGE]     | [FIELDS]                                                                                          |
+| :-----: | ------------- | ------------------------------------------------------------------------------------------------- |
 |   [1]   | ArtifactFrame | artifact_id=1 bytes; artifact_bytes=2 int64; offset=3 int64; frame_crc=4 fixed32; payload=5 bytes |
 
 ## [8]-[TS_PROJECTION]
@@ -372,14 +372,6 @@ interface ArtifactFrameWire { artifactId: string; artifactBytes: number; offset:
 
 ## [9]-[RESEARCH]
 
-| [INDEX] | [ITEM]                                                                                                                                                   | [PROOF]                                                                  | [GATE]             |
-| :-----: | --------------------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------- | ------------------ |
-|   [1]   | Interceptor surface member spellings — `Interceptor`, `ClientInterceptorContext`, the continuation delegates, `Intercept`, `CallOptions.WithHeaders`, `CallCredentials.FromInterceptor` | uv run python -m tools.assay test run --target Rasm.Compute — the CallSpine spec compiles against the Grpc.Core.Api surface | CALL_POLICY        |
-|   [2]   | `RpcException` trailer and status member spellings — `Trailers`, `Metadata.GetValueBytes`, `Metadata.Empty`, `Status.Detail`, `StatusCode` taxonomy at the conversion arm | uv run python -m tools.assay test run --target Rasm.Compute — the WireFault decode spec compiles against the Grpc.Core.Api surface | FAULT_PROJECTION   |
-|   [3]   | google/rpc/status.proto verbatim compile plus Any pack and unpack member spellings — `Unpack`, `Is`, `ByteString.Span`                                       | uv run python -m tools.assay api query --key google.protobuf --symbol Google.Protobuf.WellKnownTypes.Any | FAULT_PROJECTION   |
-|   [4]   | Descriptor member spellings backing the surface fold — `MessageTypes`, `Fields.InDeclarationOrder`, `FieldNumber`, `FieldType`, `Services`, `Methods`        | uv run python -m tools.assay api query --key google.protobuf --symbol Google.Protobuf.Reflection.FileDescriptor | CONTRACT_EVOLUTION |
-|   [5]   | `CodedInputStream` limit construction and the package default recursion limit backing `ParseGuard.Canonical`                                                | uv run python -m tools.assay api query --key google.protobuf --symbol Google.Protobuf.CodedInputStream | CONTRACT_EVOLUTION |
-|   [6]   | `TestServer.CreateHandler` handler seam for the in-process row through the test-host pin surface                                                            | uv run python -m tools.assay api resolve microsoft.aspnetcore.testhost      | TRANSPORT_AXIS     |
-|   [7]   | `Crc32.HashToUInt32` and XxHash128 static hash spellings on the frame edge                                                                                  | uv run python -m tools.assay api query --key system.io.hashing --symbol System.IO.Hashing.Crc32 | ARTIFACT_FRAMES    |
-|   [8]   | Per-call compression negotiation spelling behind the claim gate — `CompressionProviders` registration with the request-encoding metadata key                 | uv run python -m tools.assay api query --key grpc.net.client --symbol Grpc.Net.Client.GrpcChannelOptions | CALL_POLICY        |
-|   [9]   | `GrpcChannel` state-observation member spellings behind the redial law — `State`, `WaitForStateChangedAsync`, the `ConnectivityState` taxonomy               | uv run python -m tools.assay api query --key grpc.net.client --symbol Grpc.Net.Client.GrpcChannel | TRANSPORT_AXIS     |
+| [INDEX] | [ITEM]                                                                                           | [PROOF]                                                                | [GATE]         |
+| :-----: | ------------------------------------------------------------------------------------------------ | ---------------------------------------------------------------------- | -------------- |
+|   [1]   | `TestServer.CreateHandler` handler seam for the in-process row through the test-host pin surface | uv run python -m tools.assay api resolve microsoft.aspnetcore.testhost | TRANSPORT_AXIS |

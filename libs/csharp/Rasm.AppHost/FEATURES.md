@@ -8,24 +8,24 @@ product-level capabilities the spine owns.
 
 ## [1]-[CONCEPTS]
 
-| [INDEX] | [CONCEPT] | [MODALITIES] | [PAGE_CLUSTERS] |
-| :-----: | --------- | ------------ | ---------------- |
-| [1] | Support-bundle capture console | all | support-bundles#CAPTURE_PIPELINE, support-bundles#MANIFEST_RECEIPT, diagnostics-and-telemetry#SIGNAL_GOVERNANCE |
-| [2] | Live degradation dashboard + operator kill-switch | all | health-and-degradation#DEGRADATION_RAIL, configuration-and-options#KILL_SWITCH |
-| [3] | Crash-recovery boot probe (host markers + own markers) | plugin, standalone | lifecycle-and-drain#FAULT_SPINE, support-bundles#TRIGGER_UNION |
-| [4] | Upgrade detection at boot via marker version stamp | plugin, standalone | lifecycle-and-drain#PHASE_FAMILY, lifecycle-and-drain#FAULT_SPINE |
-| [5] | Options-as-policy inspector with receipted reload | all | configuration-and-options#POLICY_VALUES, configuration-and-options#TYPED_BINDING |
-| [6] | Operational reload verbs (SIGHUP, ControlService reload-options) | service, companion | lifecycle-and-drain#FAULT_SPINE, configuration-and-options#POLICY_VALUES |
-| [7] | Outbound-hop resilience telemetry (incl. chaos lanes) | service, companion | outbound-resilience#KEYED_PIPELINES, outbound-resilience#OWNERSHIP_LAW, diagnostics-and-telemetry#TELEMETRY_IDENTITY |
-| [8] | Resource-pressure health gauges + per-profile GC posture | all | health-and-degradation#HEALTH_FOLD, host-profiles#PROFILE_AXIS |
-| [9] | Scheduled maintenance lane (cron rows on the schedule port) | service, standalone, companion | time-and-deadlines#SCHEDULE_PORT |
-| [10] | Watchdog heartbeat rows with deadline receipts | service, companion | time-and-deadlines#SCHEDULE_PORT, support-bundles#TRIGGER_UNION |
-| [11] | Companion spawn + discovery manifest + UDS attach | standalone, companion | outbound-resilience#DISCOVERY_ATTACH, outbound-resilience#HOP_AXIS |
-| [12] | OTLP telemetry export with runtime + HTTP instrumentation | service app-roots | diagnostics-and-telemetry#SIGNAL_GOVERNANCE, runtime-ports#WIRE_LAW |
-| [13] | Receipted module composition with frozen-graph proof | all | composition-and-modules#MODULE_TABLE, composition-and-modules#SCAN_AND_DECORATE |
-| [14] | HLC-correlated cross-process receipt stream | all | runtime-ports#PORT_RECORDS, lifecycle-and-drain#TS_PROJECTION |
-| [15] | Suite wire law: contract merge, schema emission, TS tooling map | app roots | runtime-ports#WIRE_LAW, runtime-ports#TS_PROJECTION |
-| [16] | Bounded drainable queues with receipted loss | all | resource-lanes#DRAIN_QUEUES, lifecycle-and-drain#DRAIN_CONDUCTOR |
+| [INDEX] | [CONCEPT]                                                        | [MODALITIES]                   | [PAGE_CLUSTERS]                                                                                                      |
+| :-----: | ---------------------------------------------------------------- | ------------------------------ | -------------------------------------------------------------------------------------------------------------------- |
+|   [1]   | Support-bundle capture console                                   | all                            | support-bundles#CAPTURE_PIPELINE, support-bundles#MANIFEST_RECEIPT, diagnostics-and-telemetry#SIGNAL_GOVERNANCE      |
+|   [2]   | Live degradation dashboard + operator kill-switch                | all                            | health-and-degradation#DEGRADATION_RAIL, configuration-and-options#KILL_SWITCH                                       |
+|   [3]   | Crash-recovery boot probe (host markers + own markers)           | plugin, standalone             | lifecycle-and-drain#FAULT_SPINE, support-bundles#TRIGGER_UNION                                                       |
+|   [4]   | Upgrade detection at boot via marker version stamp               | plugin, standalone             | lifecycle-and-drain#PHASE_FAMILY, lifecycle-and-drain#FAULT_SPINE                                                    |
+|   [5]   | Options-as-policy inspector with receipted reload                | all                            | configuration-and-options#POLICY_VALUES, configuration-and-options#TYPED_BINDING                                     |
+|   [6]   | Operational reload verbs (SIGHUP, ControlService reload-options) | service, companion             | lifecycle-and-drain#FAULT_SPINE, configuration-and-options#POLICY_VALUES                                             |
+|   [7]   | Outbound-hop resilience telemetry (incl. chaos lanes)            | service, companion             | outbound-resilience#KEYED_PIPELINES, outbound-resilience#OWNERSHIP_LAW, diagnostics-and-telemetry#TELEMETRY_IDENTITY |
+|   [8]   | Resource-pressure health gauges + per-profile GC posture         | all                            | health-and-degradation#HEALTH_FOLD, host-profiles#PROFILE_AXIS                                                       |
+|   [9]   | Scheduled maintenance lane (cron rows on the schedule port)      | service, standalone, companion | time-and-deadlines#SCHEDULE_PORT                                                                                     |
+|  [10]   | Watchdog heartbeat rows with deadline receipts                   | service, companion             | time-and-deadlines#SCHEDULE_PORT, support-bundles#TRIGGER_UNION                                                      |
+|  [11]   | Companion spawn + discovery manifest + UDS attach                | standalone, companion          | outbound-resilience#DISCOVERY_ATTACH, outbound-resilience#HOP_AXIS                                                   |
+|  [12]   | OTLP telemetry export with runtime + HTTP instrumentation        | service app-roots              | diagnostics-and-telemetry#SIGNAL_GOVERNANCE, runtime-ports#WIRE_LAW                                                  |
+|  [13]   | Receipted module composition with frozen-graph proof             | all                            | composition-and-modules#MODULE_TABLE, composition-and-modules#SCAN_AND_DECORATE                                      |
+|  [14]   | HLC-correlated cross-process receipt stream                      | all                            | runtime-ports#PORT_RECORDS, lifecycle-and-drain#TS_PROJECTION                                                        |
+|  [15]   | Suite wire law: contract merge, schema emission, TS tooling map  | app roots                      | runtime-ports#WIRE_LAW, runtime-ports#TS_PROJECTION                                                                  |
+|  [16]   | Bounded drainable queues with receipted loss                     | all                            | resource-lanes#DRAIN_QUEUES, lifecycle-and-drain#DRAIN_CONDUCTOR                                                     |
 
 ## [2]-[CAPABILITY_ROWS]
 

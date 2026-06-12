@@ -12,21 +12,25 @@ internal static class AnalyzeGens {
     public static Operation<int, int> PerItem() =>
         Operation<int, int>.Build(
             key: Key,
-            evaluator: static value => Fin.Succ(value: Seq(value, -value)).ToEff());
+            state: Unit.Default,
+            evaluator: static (_, value) => Fin.Succ(value: Seq(value, -value)).ToEff());
     public static Operation<int, int> Aggregate() =>
         Operation<int, int>.Build(
             key: Key,
-            evaluator: static value => Fin.Succ(value: Seq(value)).ToEff(),
+            state: Unit.Default,
+            evaluator: static (_, value) => Fin.Succ(value: Seq(value)).ToEff(),
             aggregate: Some<Func<Seq<int>, Eff<Env, Seq<int>>>>(static values => Fin.Succ(value: Seq(Enumerable.Sum(values.AsIterable()))).ToEff()));
     public static Operation<int, int> RequiresContext() =>
         Operation<int, int>.Build(
             key: Key,
+            state: Unit.Default,
             requiresContext: true,
-            evaluator: static _ => Env.Asks.Map(static context => Seq((int)Math.Round(context.Absolute.Value * 1_000.0, MidpointRounding.ToEven))).As());
+            evaluator: static (_, _) => Env.Asks.Map(static context => Seq((int)Math.Round(context.Absolute.Value * 1_000.0, MidpointRounding.ToEven))).As());
     public static Operation<string, int> StringEcho() =>
         Operation<string, int>.Build(
             key: Key,
-            evaluator: static value => Fin.Succ(value: Seq(value.Length)).ToEff());
+            state: Unit.Default,
+            evaluator: static (_, value) => Fin.Succ(value: Seq(value.Length)).ToEff());
 }
 
 // --- [OPERATIONS] ----------------------------------------------------------------------------

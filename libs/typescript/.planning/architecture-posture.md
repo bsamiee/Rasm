@@ -9,9 +9,9 @@ Each suite altitude has exactly one TS form; a second form on the same altitude 
 | [INDEX] | [ALTITUDE]       | [SUITE_FORM]                          | [TS_FORM]                                                                          |
 | :-----: | :--------------- | :------------------------------------ | :----------------------------------------------------------------------------------- |
 |   [1]   | vocabulary axis  | `SmartEnum<string>` rows              | `Schema.Literal` unions plus vocabulary `Record` objects carrying behavior values     |
-|   [2]   | domain shape     | `[Union]` / `[ValueObject]` owners    | `S.Class` per boundary concept; projections via `pick`/`omit`, never parallel structs |
+|   [2]   | domain shape     | `[Union]` / `[ValueObject]` owners    | `Schema.Class` per boundary concept; projections via `pick`/`omit`, never parallel structs |
 |   [3]   | error rail       | typed fault unions on `Fin`/`Validation` | `Data.TaggedError` families; `FaultDetailWire` reconstructs the .NET faults as one tagged family |
-|   [4]   | effect rail      | `Eff`/`IO` carriers                   | `Effect<A, E, R>`; `Either` for pure branching; `Stream` for server-streams            |
+|   [4]   | effect rail      | `Eff`/`IO` carriers                   | `Effect<A, E, R>`; `Either` for pure branching; `Stream` via `Stream.fromAsyncIterable` over connect-es server-streams |
 |   [5]   | service          | port records                          | `Effect.Service` classes, one owner per axis                                          |
 |   [6]   | composition      | one composition root per process      | one `Layer` graph at the app entry; one runtime per host surface                       |
 |   [7]   | boundary         | admission once into evidence owners   | `Schema` decode at the wire edge; the interior never re-validates; `Option` carries absence and `null` exists only at the JSON boundary |
@@ -20,11 +20,11 @@ The service owner budget is closed; a new capability lands as a method or row on
 
 | [INDEX] | [AXIS]            | [OWNER]          | [CONSUMES]                                                              |
 | :-----: | :---------------- | :---------------- | :------------------------------------------------------------------------ |
-|   [1]   | wire clients      | `WireClients`     | the five generated services over one shared grpc-web transport            |
-|   [2]   | snapshot codec    | `SnapshotCodec`   | msgpack decoder and header reads over the Persistence codec rows          |
+|   [1]   | wire clients      | `WireClients`     | the four browser-dialable generated services over one shared grpc-web transport; the grpcWeb capability column excludes an ArtifactSync client |
+|   [2]   | snapshot decode   | `SnapshotFeed`    | msgpack decoder and header reads over the Persistence codec rows          |
 |   [3]   | runtime records   | `RuntimeFeed`     | JSON record decode and receipt-envelope payload binding                   |
 |   [4]   | command gateway   | `CommandGateway`  | intent keys, availability rows, invocation, and deep-link routing         |
-|   [5]   | evidence timeline | `EvidenceTimeline`| correlation-keyed envelope ingestion and the skew-band fold               |
+|   [5]   | evidence timeline | `EvidenceFeed`    | correlation-keyed envelope ingestion and the skew-band fold               |
 
 ## [2]-[STATE_LAYER]
 

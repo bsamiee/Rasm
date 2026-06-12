@@ -18,7 +18,7 @@ One interaction rail owns gesture mechanics for every admitted surface: keyboard
 - Auto: `For` builds the policy whose `Chord` the deck freeze receives; bindings derive once per frozen deck; global rows attach at the surface root during the mount transaction, screen-scoped rows attach inside activation scopes and detach with them.
 - Packages: Avalonia, LanguageExt.Core, BCL inbox
 - Growth: a new hotkey is one gesture value on its command-table row; a new surface posture is one policy value inside `For`; zero new surface.
-- Boundary: the command table owns the `Option<KeyGesture>` column as the only key table in the package and the deck's freeze-time conflict fold is the only conflict evidence — a second conflict fold or receipt shape here is the deleted pattern; canonical gestures are authored with the control modifier and `Chord` swaps it for the platform primary, so one authored chord serves every desktop; web and headless rows pin the control modifier for deterministic specs and serialized parity; the Rhino panel posture holds the return key inside the panel instead of the host command line, with the host knob spelling research-gated; `KeyGesture` member and attachment spellings are research-gated.
+- Boundary: the command table owns the `Option<KeyGesture>` column as the only key table in the package and the deck's freeze-time conflict fold is the only conflict evidence — a second conflict fold or receipt shape here is the deleted pattern; canonical gestures are authored with the control modifier and `Chord` swaps it for the platform primary, so one authored chord serves every desktop; web and headless rows pin the control modifier for deterministic specs and serialized parity; the Rhino panel posture holds the return key inside the panel instead of the host command line, with the host knob spelling research-gated; `KeyGesture` is value-equal with the `(Key, KeyModifiers)` constructor and `Parse`, and bindings attach as `KeyBinding` rows (`Gesture`, `Command`) in the surface root's `KeyBindings` collection.
 
 ```csharp signature
 public sealed record GesturePolicy(
@@ -58,7 +58,7 @@ public sealed record GesturePolicy(
 - Entry: `public static InvokeCommandAction Intent(ICommand command)` — the only action-to-command bridge; the argument is the table-generated ReactiveCommand row resolved by intent key.
 - Packages: Xaml.Behaviors.Avalonia, BCL inbox
 - Growth: a new interaction trigger or action is one admission-table row naming its catalogued type, knob, and timing row; zero new surface.
-- Boundary: `FileSystemWatcherTrigger`, `NetworkInformationTrigger`, `HttpRequestAction`, and `WriteTextToFileAction` are the deleted patterns — asset hot reload rides the HotAvalonia Debug loop over immutable avares content, connectivity reads the AppHost degradation fold, outbound requests ride the AppHost hop registry, and file export rides the offscreen-visuals export rows through the Persistence port; `TimerTrigger` rows carry surface-local micro-cadence only and process cadence stays on the AppHost schedule rows; throttle and debounce intervals resolve from the motion timing vocabulary at composition, so behavior rows carry zero literal intervals; routed-event trigger spellings and timing knob types are research-gated.
+- Boundary: `FileSystemWatcherTrigger`, `NetworkInformationTrigger`, `HttpRequestAction`, and `WriteTextToFileAction` are the deleted patterns — asset hot reload rides the HotAvalonia Debug loop over immutable avares content, connectivity reads the AppHost degradation fold, outbound requests ride the AppHost hop registry, and file export rides the offscreen-visuals export rows through the Persistence port; `TimerTrigger` rows carry surface-local micro-cadence only and process cadence stays on the AppHost schedule rows; throttle and debounce intervals resolve from the motion timing vocabulary at composition, so behavior rows carry zero literal intervals — `ThrottleAction.Interval` and `DebounceAction.Delay` are `TimeSpan` knobs, `ObservableStreamBehavior.Source` carries the observable, and `PassEventArgsToCommand` sits on the action base; the routed-event row materializes as the typed `*EventTrigger` family with `EventTriggerBehavior` covering any remaining named routed event.
 
 ```csharp signature
 public static class BehaviorRail {
@@ -87,7 +87,7 @@ public static class BehaviorRail {
 - Cases: `Dashboard` | `Preview`
 - Packages: PanAndZoom, Xaml.Behaviors.Avalonia, Avalonia, BCL inbox
 - Growth: a new zoomable surface is one `PanZoomRow` row; a new pointer gesture is one routing-table row landing on an existing intent; zero new surface.
-- Boundary: one zoom owner per canvas — a chart tile mounted inside a `PanZoomRow` canvas gates its internal zoom off; `MinZoom` and `MaxZoom` apply to both canvas axes at composition; `Dashboard` animation duration binds from the motion standard row at composition and `Preview` stays animation-free for capture determinism; view state round-trips through `ZoomBorderState` and `ImportState` into the screen-state snapshot rows; focus follows pointer press through `Focus` on `IInputElement`, pointer capture is acquired on press and surrendered on capture-loss through the behavior rail, and tap, double-tap, hold, context-request, and capture spellings are research-gated; the dashboard tile canvas and the offscreen-visuals preview canvas consume these rows as settled values.
+- Boundary: one zoom owner per canvas — a chart tile mounted inside a `PanZoomRow` canvas gates its internal zoom off; the row's `MinZoom` and `MaxZoom` land on the control's per-axis `MinZoomX`/`MinZoomY`/`MaxZoomX`/`MaxZoomY` at composition; `Dashboard` animation duration binds `AnimationDuration` from the motion standard row at composition and `Preview` stays animation-free for capture determinism; view state round-trips through `ExportState` (`ZoomBorderState`) and `ImportState` into the screen-state snapshot rows; focus follows pointer press through `Focus` on `IInputElement`, pointer capture is acquired through `IPointer.Capture` on press and surrendered on `PointerCaptureLostEventTrigger` through the behavior rail; the dashboard tile canvas and the offscreen-visuals preview canvas consume these rows as settled values.
 
 ```csharp signature
 public sealed record PanZoomRow(
@@ -109,12 +109,12 @@ public sealed record PanZoomRow(
 }
 ```
 
-| [INDEX] | [GESTURE]       | [ROUTE]                              | [CONSEQUENCE]                                  |
-| :-----: | --------------- | ------------------------------------ | ---------------------------------------------- |
-|   [1]   | tap             | `Xaml.Behaviors.Interactions.Events` | primary intent action fires                    |
-|   [2]   | double-tap      | `Xaml.Behaviors.Interactions.Events` | canvas rows route through `DoubleClickZoomMode` |
-|   [3]   | press-hold      | `Xaml.Behaviors.Interactions.Events` | context intent raise                           |
-|   [4]   | context-request | `Xaml.Behaviors.Interactions.Events` | menu derivation from the command-table surface predicate |
+| [INDEX] | [GESTURE]       | [ROUTE]                                       | [CONSEQUENCE]                                  |
+| :-----: | --------------- | --------------------------------------------- | ---------------------------------------------- |
+|   [1]   | tap             | `TappedEventTrigger`                          | primary intent action fires                    |
+|   [2]   | double-tap      | `DoubleTappedEventTrigger`                    | canvas rows route through `DoubleClickZoomMode` |
+|   [3]   | press-hold      | `EventTriggerBehavior` over `Gestures.Holding` | context intent raise                           |
+|   [4]   | context-request | `RightTappedEventTrigger`                     | menu derivation from the command-table surface predicate |
 |   [5]   | wheel zoom      | `ZoomBorder`                         | one zoom owner per canvas row                  |
 |   [6]   | pinch zoom      | `ZoomBorder` `EnableGestures`        | same single-owner law                          |
 |   [7]   | canvas drag     | `CanvasDragBehavior`                 | draggable tiles inside canvas rows             |
@@ -129,7 +129,7 @@ public sealed record PanZoomRow(
 - Receipt: admitted payloads raise their command intents and ride the command receipt family — the rail mints no second receipt vocabulary.
 - Packages: Thinktecture.Runtime.Extensions, LanguageExt.Core, Xaml.Behaviors.Avalonia, Avalonia, BCL inbox
 - Growth: a new transfer shape is one union case plus one `ClipboardRow`; zero new surface.
-- Boundary: drag rows ride `ContextDragBehavior`, `ContextDropBehavior`, and `ListReorderDragBehavior`; the `admitted` predicate column arrives from the dialogs file-filter vocabulary; plain-text paste routes to the focused control and never the payload rail, so the text row is copy-only by law; asset keys ride the icons asset-key vocabulary and table-row keys ride the grid row-model identity; the platform clipboard and drag-format boundary spellings are research-gated, and host-object drag across the NSView boundary is research-gated on the embed capsule.
+- Boundary: drag rows ride `ContextDragBehavior`, `ContextDropBehavior`, and `ListReorderDragBehavior`; the `admitted` predicate column arrives from the dialogs file-filter vocabulary; plain-text paste routes to the focused control and never the payload rail, so the text row is copy-only by law; asset keys ride the icons asset-key vocabulary and table-row keys ride the grid row-model identity; copy crosses through one `DataObject` handed to `IClipboard.SetDataAsync` with the row `Format` keys as the data-format identifiers, and host-object drag across the NSView boundary is research-gated on the embed capsule.
 
 ```csharp signature
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
@@ -210,10 +210,5 @@ flowchart LR
 
 | [INDEX] | [ITEM]                                                                                                       | [PROOF]                                                                                                                              | [GATE]            |
 | :-----: | ------------------------------------------------------------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------ | ----------------- |
-|   [1]   | `KeyGesture` constructor and member spellings, `KeyModifiers` flag values, and the binding attachment route on surface roots | uv run python -m tools.assay api query avalonia KeyGesture                                                                            | HOTKEY_DERIVATION |
-|   [2]   | Rhino panel return-key policy knob residence and its registration point on the panel host                     | uv run python -m tools.assay api query rhinocommon WantReturnInPanel                                                                  | HOTKEY_DERIVATION |
-|   [3]   | Routed-event trigger concrete spellings in `Xaml.Behaviors.Interactions.Events` plus `Interval`, `Delay`, and `Source` knob types | uv run python -m tools.assay api query xaml.behaviors ThrottleAction                                                                  | BEHAVIOR_RAIL     |
-|   [4]   | Tap, double-tap, hold, and context-request routed-event identities and pointer-capture member spellings        | uv run python -m tools.assay api query avalonia Gestures                                                                              | POINTER_GESTURES  |
-|   [5]   | `ButtonName`, `WheelBehaviorMode`, and `DoubleClickZoomMode` member spellings for canvas row values            | uv run python -m tools.assay api query panandzoom ButtonName                                                                          | POINTER_GESTURES  |
-|   [6]   | Platform clipboard and drag-format boundary spellings including the PNG byte route                             | uv run python -m tools.assay api query avalonia DataObject                                                                            | DRAG_CLIPBOARD    |
-|   [7]   | Host-object drag across the NSView boundary carrying Rhino object ids into and out of the embedded panel       | libs/csharp/Rasm.AppUi/scenarios/embedded-drag.verify.csx dragging ids both directions under live RhinoWIP via uv run python -m tools.assay bridge verify | DRAG_CLIPBOARD    |
+|   [1]   | Rhino panel return-key policy knob residence and its registration point on the panel host                     | uv run python -m tools.assay api query --key rhino-common --symbol Rhino.UI.Panels                                                    | HOTKEY_DERIVATION |
+|   [2]   | Host-object drag across the NSView boundary carrying Rhino object ids into and out of the embedded panel       | libs/csharp/Rasm.AppUi/scenarios/embedded-drag.verify.csx dragging ids both directions under live RhinoWIP via uv run python -m tools.assay bridge verify | DRAG_CLIPBOARD    |

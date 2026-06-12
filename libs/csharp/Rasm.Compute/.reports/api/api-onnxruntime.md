@@ -45,6 +45,20 @@ and execution-provider selection for Compute model rails.
 |   [7]   | `FixedBufferOnnxValue`      | buffer value    | binds fixed memory       |
 |   [8]   | `OrtLoraAdapter`            | adapter value   | binds LoRA adapter       |
 
+[PUBLIC_TYPE_SCOPE]: environment, threading, and provider-policy contracts
+- rail: model
+
+| [INDEX] | [SYMBOL]                        | [PACKAGE_ROLE]      | [CAPABILITY]                                                                                                  |
+| :-----: | :------------------------------ | :------------------ | :------------------------------------------------------------------------------------------------------------ |
+|   [1]   | `EnvironmentCreationOptions`    | boot options struct | fields `logId`, `logLevel`, `threadOptions`                                                                   |
+|   [2]   | `OrtThreadingOptions`           | global thread pool  | `GlobalIntraOpNumThreads`, `GlobalInterOpNumThreads`, `GlobalSpinControl`                                     |
+|   [3]   | `ExecutionProviderDevicePolicy` | device-policy enum  | `DEFAULT`, `PREFER_CPU`, `PREFER_NPU`, `PREFER_GPU`, `MAX_PERFORMANCE`, `MAX_EFFICIENCY`, `MIN_OVERALL_POWER` |
+|   [4]   | `GraphOptimizationLevel`        | optimization enum   | session graph optimization incl. `ORT_ENABLE_ALL`                                                             |
+|   [5]   | `OrtLoggingLevel`               | logging enum        | boot log severity                                                                                             |
+|   [6]   | `OrtAllocator`                  | allocator handle    | owns native allocation scope                                                                                  |
+|   [7]   | `IDisposableReadOnlyCollection` | result collection   | disposable native result set                                                                                  |
+|   [8]   | `BFloat16`                      | readonly struct     | CLR carrier for the bfloat16 element type                                                                     |
+
 [PUBLIC_TYPE_SCOPE]: package assets
 - rail: model
 
@@ -89,6 +103,34 @@ and execution-provider selection for Compute model rails.
 |   [9]   | `RegisterOrtExtensions`                           | option call  | loads extension ops    |
 |  [10]   | `EnableMemoryPattern`                             | option call  | enables memory reuse   |
 |  [11]   | `RunOptions.AddRunConfigEntry`                    | option call  | sets run config entry  |
+
+[ENTRYPOINT_SCOPE]: environment, session-policy, and run-policy operations
+- rail: model
+
+| [INDEX] | [SURFACE]                                       | [CALL_SHAPE]      | [CAPABILITY]                                                                              |
+| :-----: | :---------------------------------------------- | :---------------- | :---------------------------------------------------------------------------------------- |
+|   [1]   | `OrtEnv.IsCreated`                              | static property   | reports environment creation                                                              |
+|   [2]   | `OrtEnv.Instance`                               | static call       | returns the singleton environment                                                         |
+|   [3]   | `OrtEnv.CreateInstanceWithOptions`              | static call       | boots with `ref EnvironmentCreationOptions`                                               |
+|   [4]   | `OrtEnv.DisableTelemetryEvents`                 | instance call     | silences runtime telemetry                                                                |
+|   [5]   | `OrtEnv.GetVersionString`                       | instance call     | reports the native runtime version                                                        |
+|   [6]   | `OrtEnv.GetAvailableProviders`                  | instance call     | returns `string[]` provider names incl. `CoreMLExecutionProvider`, `CPUExecutionProvider` |
+|   [7]   | `SessionOptions.AddSessionConfigEntry`          | option call       | sets string config entry                                                                  |
+|   [8]   | `SessionOptions.AddFreeDimensionOverrideByName` | option call       | binds symbolic dimension value                                                            |
+|   [9]   | `SessionOptions.DisablePerSessionThreads`       | option call       | routes sessions onto the global pool                                                      |
+|  [10]   | `SessionOptions.SetEpSelectionPolicy`           | option call       | applies `ExecutionProviderDevicePolicy`                                                   |
+|  [11]   | `SessionOptions.EnableProfiling`                | option property   | enables chrome-trace profiling                                                            |
+|  [12]   | `SessionOptions.ProfileOutputPathPrefix`        | option property   | sets profile artifact prefix                                                              |
+|  [13]   | `SessionOptions.GraphOptimizationLevel`         | option property   | sets graph optimization level                                                             |
+|  [14]   | `OrtValue.CreateFromStringTensor`               | factory call      | binds `Tensor<string>` boundary input                                                     |
+|  [15]   | `OrtValue.CreateTensorWithEmptyStrings`         | factory call      | allocates string output slots                                                             |
+|  [16]   | `RunOptions.Terminate`                          | run property      | one-way cancellation latch                                                                |
+|  [17]   | `RunOptions.AddActiveLoraAdapter`               | run call          | attaches `OrtLoraAdapter`                                                                 |
+|  [18]   | `OrtLoraAdapter.Create`                         | factory call      | loads adapter from path or bytes                                                          |
+|  [19]   | `ModelMetadata.Version`                         | metadata property | `long` graph version                                                                      |
+|  [20]   | `NodeMetadata.ElementDataType`                  | metadata property | `TensorElementType` of the slot                                                           |
+|  [21]   | `NodeMetadata.Dimensions`                       | metadata property | `int[]` fixed dimensions                                                                  |
+|  [22]   | `NodeMetadata.SymbolicDimensions`               | metadata property | `string[]` free-dimension names                                                           |
 
 ## [4]-[IMPLEMENTATION_LAW]
 

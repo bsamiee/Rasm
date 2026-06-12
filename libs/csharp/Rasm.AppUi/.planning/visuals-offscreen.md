@@ -19,7 +19,7 @@ Offscreen visuals are the package's raster rail: one DrawSource capsule projects
 - Entry: `public Fin<T> Use<T>(Func<SKCanvas, Fin<T>> draw)` — Fin rail
 - Auto: in-tree visuals lease the live canvas through `ISkiaSharpApiLeaseFeature.Lease` at render scope and fold to Borrowed; offscreen pipelines construct Owned with the target `SKImageInfo` and Materialize a snapshot.
 - Packages: SkiaSharp, Avalonia.Skia, Thinktecture.Runtime.Extensions, LanguageExt.Core
-- Growth: one effect row extends the FX table, and the in-tree draw-operation vehicle lands once its RESEARCH row clears — zero new surface.
+- Growth: one effect row extends the FX table, and the in-tree vehicle is one `ICustomDrawOperation` implementation — `Bounds`, `HitTest(Point)`, `Render(ImmediateDrawingContext)` with the canvas leased through `ISkiaSharpApiLeaseFeature.Lease()` folding to Borrowed — zero new surface.
 - Boundary: `Offscreen` is the named boundary capsule — the using-scoped `SKSurface` create-and-dispose pair is the only place a Skia surface is owned; a Borrowed lease draws into the host's in-flight frame and never materializes, so Materialize folds that arm to the LeaseBound error row; transforms compose as `SKMatrix` values inside `Save`/`Restore` scopes and no mutated canvas state survives a projection.
 
 ```csharp signature
@@ -213,7 +213,7 @@ public static class VisualCodec {
 - Receipt: one RenderReceipt of kind document per export with whole-payload content hash and the delivered destination key.
 - Packages: SkiaSharp, SkiaSharp.HarfBuzz, Thinktecture.Runtime.Extensions, Rasm.AppHost (project), NodaTime, LanguageExt.Core
 - Growth: one destination case extends delivery and breaks the Deliver dispatch at compile time; one page-size row extends the table; the content-to-page flow algorithm lands once its RESEARCH row clears — zero new surface.
-- Boundary: Paged and Deliver are the named boundary capsules carrying statement bodies for SKDocument paging and byte delivery; pages arrive as precomposed draw folds over the DrawSource vocabulary — shaped text enters as the shaping rail's glyph output and chart snapshots enter as `SKImage` tiles; QuestPDF, ImageSharp, and Magick.NET stay deleted with `SKDocument` and the codec axis as the absorbing owners.
+- Boundary: Paged and Deliver are the named boundary capsules carrying statement bodies for SKDocument paging and byte delivery; `CreateXps` yields null where the Skia native carries no XPS backend, so the xps arm folds to the `XpsUnavailable` error row and pdf is the proven format on macOS and Linux profiles; pages arrive as precomposed draw folds over the DrawSource vocabulary — shaped text enters as the shaping rail's glyph output and chart snapshots enter as `SKImage` tiles; QuestPDF, ImageSharp, and Magick.NET stay deleted with `SKDocument` and the codec axis as the absorbing owners.
 
 ```csharp signature
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
@@ -232,24 +232,27 @@ public sealed record VisualExportSpec(
     VisualDestination Destination);
 
 public static class VisualExport {
+    public static readonly Error XpsUnavailable = Error.New("visuals/xps-unavailable: the loaded Skia native carries no XPS backend on this platform");
+
     public static IO<RenderReceipt> Export(VisualRuntime runtime, VisualExportSpec spec) =>
         from mark in IO.lift(runtime.Clocks.Mark)
-        from payload in IO.lift(() => Paged(spec))
+        from payload in IO.lift(() => Paged(spec).ThrowIfFail())
         from destination in Deliver(runtime, spec.Destination, payload)
         from elapsed in IO.lift(() => runtime.Clocks.Elapsed(mark))
         let receipt = new RenderReceipt("document", spec.Format, runtime.ContentHash(payload), payload.LongLength, elapsed, runtime.Correlation, Optional(destination))
         from _ in runtime.Sink(receipt)
         select receipt;
 
-    static byte[] Paged(VisualExportSpec spec) {
+    static Fin<byte[]> Paged(VisualExportSpec spec) {
         using MemoryStream sink = new();
-        using (SKDocument document = spec.Format == "xps" ? SKDocument.CreateXps(sink) : SKDocument.CreatePdf(sink)) {
-            foreach (Func<SKCanvas, Fin<Unit>> page in spec.Pages) {
-                page(document.BeginPage(spec.PageWidth, spec.PageHeight)).ThrowIfFail();
-                document.EndPage();
-            }
-            document.Close();
+        SKDocument? document = spec.Format == "xps" ? SKDocument.CreateXps(sink) : SKDocument.CreatePdf(sink);
+        if (document is null) { return Fin.Fail<byte[]>(XpsUnavailable); }
+        using SKDocument scoped = document;
+        foreach (Func<SKCanvas, Fin<Unit>> page in spec.Pages) {
+            page(scoped.BeginPage(spec.PageWidth, spec.PageHeight)).ThrowIfFail();
+            scoped.EndPage();
         }
+        scoped.Close();
         return sink.ToArray();
     }
 
@@ -276,8 +279,4 @@ public static class VisualExport {
 
 | [INDEX] | [ITEM]                                                                                                         | [PROOF]                                                                          | [GATE]          |
 | :-----: | :-------------------------------------------------------------------------------------------------------------- | :-------------------------------------------------------------------------------- | :-------------- |
-|   [1]   | `ICustomDrawOperation` member surface (render bounds, hit test, lease acquisition) for the in-tree Borrowed vehicle | `uv run python -m tools.assay api query avalonia ICustomDrawOperation`            | DRAW_CAPSULE    |
-|   [2]   | `SKSurface.Canvas` accessor spelling backing the Offscreen rent and snapshot kernels                             | `uv run python -m tools.assay api query skiasharp SKSurface`                      | DRAW_CAPSULE    |
-|   [3]   | `SKEncodedImageFormat` case spellings, `SKImage.Encode` format-quality overload, `SKBitmap.Decode` span overload, `SKData.ToArray` projection | `uv run python -m tools.assay api query skiasharp SKImage.Encode`                 | ENCODE_IDENTITY |
-|   [4]   | `SKDocument` paged-output member surface (CreatePdf, CreateXps, BeginPage, EndPage, Close) and XPS availability on the macOS native | `uv run python -m tools.assay api query skiasharp SKDocument`                     | DOCUMENT_EXPORT |
-|   [5]   | Content-to-page flow layout model over `SKDocument` (flow folds, break policy, header and footer bands)          | `uv run python -m tools.assay test run --target Rasm.AppUi.Tests` page-flow spike spec | DOCUMENT_EXPORT |
+|   [1]   | Content-to-page flow layout model over `SKDocument` (flow folds, break policy, header and footer bands)          | `uv run python -m tools.assay test run --target Rasm.AppUi.Tests` page-flow spike spec | DOCUMENT_EXPORT |

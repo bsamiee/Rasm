@@ -111,7 +111,7 @@ flowchart LR
 ## [3]-[SVG_PIPELINE]
 
 - Owner: `SvgPipeline` — retained SVG document admission, scene access, animation invalidation, hit testing, and tinted image projection.
-- Entry: `public static Fin<SKSvg> Load(AssetKey key, Option<EventHandler> onAnimation = default)` — `Fin` aborts on unknown key and stream admission failure.
+- Entry: `public static Fin<SKSvg> Load(AssetKey key, Option<EventHandler<SvgAnimationFrameChangedEventArgs>> onAnimation = default)` — `Fin` aborts on unknown key and stream admission failure.
 - Auto: the process-static retained table deletes per-control re-parse and per-call picture rebuilds; animation invalidation drives `InvalidateVisual` on the consuming `Svg` control; `SvgParameters` recolor and `CurrentColor` tinting ride the same theme token resolve.
 - Packages: Svg.Controls.Skia.Avalonia, SkiaSharp, Avalonia, LanguageExt.Core, BCL inbox
 - Growth: one retained row per asset key; a recolor or scene policy is one policy value with zero new surface.
@@ -121,7 +121,7 @@ flowchart LR
 public static class SvgPipeline {
     static readonly ConcurrentDictionary<AssetKey, SKSvg> Retained = new();
 
-    public static Fin<SKSvg> Load(AssetKey key, Option<EventHandler> onAnimation = default) =>
+    public static Fin<SKSvg> Load(AssetKey key, Option<EventHandler<SvgAnimationFrameChangedEventArgs>> onAnimation = default) =>
         (Retained.TryGetValue(key, out var hit) ? Fin.Succ(hit) : AssetCatalog.Open(key).Map(payload => Admit(key, payload)))
             .Map(document => Subscribed(document, onAnimation));
 
@@ -132,7 +132,7 @@ public static class SvgPipeline {
         document.HasRetainedSceneGraph ? Optional(document.RetainedSceneGraph) : None;
 
     public static Option<SvgSceneNode> Hit(SKSvg document, float x, float y) =>
-        document.HitTestSceneNodes(x, y).AsIterable().Head();
+        Optional(document.HitTestTopmostSceneNode(new SKPoint(x, y)));
 
     static SKSvg Admit(AssetKey key, Stream payload) {
         using Stream scoped = payload;
@@ -143,7 +143,7 @@ public static class SvgPipeline {
         return retained;
     }
 
-    static SKSvg Subscribed(SKSvg document, Option<EventHandler> onAnimation) {
+    static SKSvg Subscribed(SKSvg document, Option<EventHandler<SvgAnimationFrameChangedEventArgs>> onAnimation) {
         onAnimation.IfSome(handler => document.AnimationInvalidated += handler);
         return document;
     }
@@ -255,14 +255,3 @@ public static class AssetCatalog {
 }
 ```
 
-## [6]-[RESEARCH]
-
-| [INDEX] | [ITEM]                                                                        | [PROOF]                                                                              | [GATE]        |
-| :-----: | :----------------------------------------------------------------------------- | :------------------------------------------------------------------------------------ | :------------ |
-|   [1]   | `AssetLoader` avares open and existence-probe member spellings                 | `uv run python -m tools.assay api query avalonia Avalonia.Platform.AssetLoader`       | ASSET_CATALOG |
-|   [2]   | `IImage` contract, `Bitmap` stream-decode, and `SolidColorBrush` tint spellings | `uv run python -m tools.assay api query avalonia Avalonia.Media`                      | ICON_AXIS     |
-|   [3]   | `SKPath` svg path-data parse spelling                                          | `uv run python -m tools.assay api query skiasharp SkiaSharp.SKPath`                   | ICON_AXIS     |
-|   [4]   | `SKImage` encode and `SKData` byte-egress spellings                            | `uv run python -m tools.assay api query skiasharp SkiaSharp.SKImage`                  | ICON_AXIS     |
-|   [5]   | `SvgSource` load and `SvgParameters` recolor application spellings             | `uv run python -m tools.assay api query svg.controls.skia.avalonia Avalonia.Svg.Skia.SvgSource` | SVG_PIPELINE  |
-|   [6]   | `DiskCachedWebImageLoader` cache-folder constructor spelling                   | `uv run python -m tools.assay api query asyncimageloader AsyncImageLoader.Loaders.DiskCachedWebImageLoader` | RASTER_ASSETS |
-|   [7]   | `SymbolImage` settable member surface (`IconVariant`, `FontSize`, `Foreground`) behind the fluent-symbol materialize arm | `uv run python -m tools.assay api query fluenticons FluentIcons.Avalonia.SymbolImage` | ICON_AXIS     |

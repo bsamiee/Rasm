@@ -4,37 +4,47 @@ Rasm.Persistence contributes exactly one registration row to the suite cache por
 
 ## [1]-[INDEX]
 
-| [INDEX] | [CLUSTER]          | [OWNS]                                                                  |
-| :-----: | :----------------- | :----------------------------------------------------------------------- |
-|   [1]   | L2_CONTRIBUTION    | One registration row: L2 store plus serializer factory behind the port  |
-|   [2]   | MODEL_RESULT_INDEX | Deterministic result identity, read-through entry, one fact stream      |
-|   [3]   | ARTIFACT_BLOB_INDEX | Content-addressed catalog rows for warm-start and profiling artifacts  |
-|   [4]   | BENCHMARK_INDEX    | Persisted benchmark rows; fingerprint-gated claim toward route selection |
+| [INDEX] | [CLUSTER]           | [OWNS]                                                                   |
+| :-----: | :------------------ | :----------------------------------------------------------------------- |
+|   [1]   | L2_CONTRIBUTION     | One registration row: L2 store plus serializer factory behind the port   |
+|   [2]   | MODEL_RESULT_INDEX  | Deterministic result identity, read-through entry, one fact stream       |
+|   [3]   | ARTIFACT_BLOB_INDEX | Content-addressed catalog rows for warm-start and profiling artifacts    |
+|   [4]   | BENCHMARK_INDEX     | Persisted benchmark rows; fingerprint-gated claim toward route selection |
 
 ## [2]-[L2_CONTRIBUTION]
 
-- Owner: `CacheContribution` — one sealed boundary capsule implementing both `IDistributedCache` and `IHybridCacheSerializerFactory`; the package's single cache registration row.
+- Owner: `CacheContribution` — one sealed boundary capsule implementing both `IBufferDistributedCache` and `IHybridCacheSerializerFactory`; the package's single cache registration row.
 - Entry: `bool TryCreateSerializer<T>(out IHybridCacheSerializer<T>? serializer)` — the BCL factory contract shape at the boundary; every other member is the L2 store contract.
-- Auto: `TryCreateSerializer<T>` yields the MessagePack codec for every cache payload type with zero per-type registration; the `MessagePackSerializerOptions` value arrives settled from the MessagePackBinary codec row.
-- Packages: Microsoft.Extensions.Caching.Hybrid; MessagePack; NodaTime; Rasm.AppHost (project).
+- Auto: `TryCreateSerializer<T>` yields the MessagePack codec for every cache payload type with zero per-type registration; the `MessagePackSerializerOptions` value arrives settled from the MessagePackBinary codec row; the hybrid runtime sniffs the buffer contract at registration and routes reads through `TryGetAsync` into its pooled buffer writer and writes through the `ReadOnlySequence<byte>` form, so payload bytes move with zero intermediate arrays.
+- Packages: Microsoft.Extensions.Caching.Hybrid; MessagePack; NodaTime; Rasm.AppHost (project); BCL inbox.
 - Growth: a second L2 residence is one app-root registration row replacing the same `IDistributedCache` registration; zero new surface.
-- Boundary: boundary capsule — the BCL cache contracts own these member shapes and the capsule body carries language-owned statement forms; `HybridCache` reaches L2 through asynchronous members only, so the synchronous members exist for contract totality and bridge by blocking; absolute expiry is the only L2 lifetime and `Refresh` is structurally inert; the capsule deletes a Persistence-owned cache system, a hand-rolled fake cache type, and every second cache owner in the suite.
+- Boundary: boundary capsule — the BCL cache contracts own these member shapes and the capsule body carries language-owned statement forms; the hybrid runtime confines every L2 touch to `GetAsync`, `TryGetAsync`, `SetAsync`, and `RemoveAsync`, so the synchronous members exist for contract totality and bridge by blocking; the `read` delegate serves the array contract and `readInto` serves the buffer contract — one storage row behind both; absolute expiry is the only L2 lifetime and `Refresh` is structurally inert; the capsule deletes a Persistence-owned cache system, a hand-rolled fake cache type, and every second cache owner in the suite.
 
 ```csharp signature
 public sealed class CacheContribution(
     ClockPolicy clocks,
     MessagePackSerializerOptions wire,
     Func<string, CancellationToken, ValueTask<byte[]?>> read,
-    Func<string, byte[], Instant, CancellationToken, ValueTask> write,
-    Func<string, CancellationToken, ValueTask> evict) : IDistributedCache, IHybridCacheSerializerFactory {
+    Func<string, IBufferWriter<byte>, CancellationToken, ValueTask<bool>> readInto,
+    Func<string, ReadOnlySequence<byte>, Instant, CancellationToken, ValueTask> write,
+    Func<string, CancellationToken, ValueTask> evict) : IBufferDistributedCache, IHybridCacheSerializerFactory {
     public byte[]? Get(string key) => GetAsync(key).GetAwaiter().GetResult();
 
     public Task<byte[]?> GetAsync(string key, CancellationToken token = default) => read(key, token).AsTask();
 
+    public bool TryGet(string key, IBufferWriter<byte> destination) => TryGetAsync(key, destination).GetAwaiter().GetResult();
+
+    public ValueTask<bool> TryGetAsync(string key, IBufferWriter<byte> destination, CancellationToken token = default) => readInto(key, destination, token);
+
     public void Set(string key, byte[] value, DistributedCacheEntryOptions options) => SetAsync(key, value, options).GetAwaiter().GetResult();
 
     public Task SetAsync(string key, byte[] value, DistributedCacheEntryOptions options, CancellationToken token = default) =>
-        write(key, value, clocks.Now + Duration.FromTimeSpan(options.AbsoluteExpirationRelativeToNow ?? DeadlineClass.CacheTtl.Allotted.ToTimeSpan()), token).AsTask();
+        SetAsync(key, new ReadOnlySequence<byte>(value), options, token).AsTask();
+
+    public void Set(string key, ReadOnlySequence<byte> value, DistributedCacheEntryOptions options) => SetAsync(key, value, options).GetAwaiter().GetResult();
+
+    public ValueTask SetAsync(string key, ReadOnlySequence<byte> value, DistributedCacheEntryOptions options, CancellationToken token = default) =>
+        write(key, value, clocks.Now + Duration.FromTimeSpan(options.AbsoluteExpirationRelativeToNow ?? DeadlineClass.CacheTtl.Allotted.ToTimeSpan()), token);
 
     public void Refresh(string key) { }
 
@@ -54,14 +64,14 @@ public sealed class CacheContribution(
 }
 ```
 
-| [INDEX] | [LAW]          | [RULING]                                                                                                                                                  |
-| :-----: | :------------- | :--------------------------------------------------------------------------------------------------------------------------------------------------------- |
-|   [1]   | ownership      | port, stampede protection, tag vocabulary, and entry options stay at the AppHost cache port; the contribution is storage and codec only                    |
-|   [2]   | payload        | every L2 payload lands as one key-value row whose codec-id and content-hash columns are settled row law — codec-tagged bytes, never bare blobs             |
-|   [3]   | expiry         | only the write's absolute relative expiry crosses into `ExpiresAt`, stamped through `ClockPolicy`; an absent value traces to the `CacheTtl` deadline row    |
-|   [4]   | sweep          | expired rows leave on the persistence-maintenance `ScheduleEntry` row under the maintenance lease; each sweep deletion emits one evict fact                |
+| [INDEX] | [LAW]          | [RULING]                                                                                                                                                                                                                 |
+| :-----: | :------------- | :----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+|   [1]   | ownership      | port, stampede protection, tag vocabulary, and entry options stay at the AppHost cache port; the contribution is storage and codec only                                                                                  |
+|   [2]   | payload        | every L2 payload lands as one key-value row whose codec-id and content-hash columns are settled row law — codec-tagged bytes, never bare blobs                                                                           |
+|   [3]   | expiry         | only the write's absolute relative expiry crosses into `ExpiresAt`, stamped through `ClockPolicy`; an absent value traces to the `CacheTtl` deadline row                                                                 |
+|   [4]   | sweep          | expired rows leave on the persistence-maintenance `ScheduleEntry` row under the maintenance lease; each sweep deletion emits one evict fact                                                                              |
 |   [5]   | invalidation   | `RemoveByTagAsync` is logical; the bulk path and peer processes drive tag transitions themselves — peers replay entity-kind transitions from the op-log HLC cursor, and L1 staleness stays TTL-bounded with no backplane |
-|   [6]   | residence swap | sqlite-embedded is the default L2; a Redis or pg L2 is one app-root registration row with zero change to any owner declared here                            |
+|   [6]   | residence swap | sqlite-embedded is the default L2; a Redis or pg L2 is one app-root registration row with zero change to any owner declared here                                                                                         |
 
 ## [3]-[MODEL_RESULT_INDEX]
 
@@ -162,10 +172,3 @@ public readonly record struct BenchmarkRow(
 }
 ```
 
-## [6]-[RESEARCH]
-
-| [INDEX] | [ITEM]                                                                                                                                  | [PROOF]                                                                                                                       | [GATE]          |
-| :-----: | :---------------------------------------------------------------------------------------------------------------------------------------- | :------------------------------------------------------------------------------------------------------------------------------ | :--------------- |
-|   [1]   | `IDistributedCache`, `DistributedCacheEntryOptions`, `IHybridCacheSerializer`, and `IHybridCacheSerializerFactory` exact member spellings | `uv run python -m tools.assay api query microsoft.extensions.caching.hybrid IDistributedCache`                                  | L2_CONTRIBUTION |
-|   [2]   | Buffer-distributed-cache surface presence deciding a zero-copy L2 write path                                                              | `uv run python -m tools.assay api query microsoft.extensions.caching.hybrid IBufferDistributedCache`                            | L2_CONTRIBUTION |
-|   [3]   | DefaultHybridCache L2 access confinement to asynchronous member forms                                                                     | `curl -sL raw.githubusercontent.com/dotnet/extensions/main/src/Libraries/Microsoft.Extensions.Caching.Hybrid/Internal/DefaultHybridCache.L2.cs` | L2_CONTRIBUTION |

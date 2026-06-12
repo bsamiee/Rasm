@@ -9,11 +9,11 @@ UnitsNet, Thinktecture.Runtime.Extensions, and LanguageExt.Core over the settled
 
 ## [1]-[INDEX]
 
-| [INDEX] | [CLUSTER]       | [OWNS]                                                              |
-| :-----: | --------------- | ------------------------------------------------------------------- |
-|   [1]   | QUANTITY_TABLE  | Fifteen frozen quantity rows; conversion exactly once at admission  |
-|   [2]   | DIMENSIONAL_LAW | Compound dimensional consistency and the SI baseline policy row     |
-|   [3]   | PARSE_FORMAT    | Culture-scoped parse and format edges; dual unit evidence           |
+| [INDEX] | [CLUSTER]       | [OWNS]                                                             |
+| :-----: | --------------- | ------------------------------------------------------------------ |
+|   [1]   | QUANTITY_TABLE  | Fifteen frozen quantity rows; conversion exactly once at admission |
+|   [2]   | DIMENSIONAL_LAW | Compound dimensional consistency and the SI baseline policy row    |
+|   [3]   | PARSE_FORMAT    | Culture-scoped parse and format edges; dual unit evidence          |
 
 ## [2]-[QUANTITY_TABLE]
 
@@ -139,7 +139,7 @@ public static class UnitAlgebra {
 - Receipt: `UnitEvidence` — family key, original unit and value, canonical unit and value, correlation id; the receipt union's unit-projection case carries it verbatim.
 - Packages: UnitsNet, Thinktecture.Runtime.Extensions, LanguageExt.Core
 - Growth: one `QuantityInfo` catalogue row per admitted family — the dashboard quantity picker derives from `Catalogue()`; zero new surface.
-- Boundary: boundary text parses culture-scoped through `Quantity.TryParse(policy.Culture, ...)` with `Resolve` owning abbreviation resolution over the same parse route backed by `UnitAbbreviationsCache.Default`, a `UnitProject` target unit entering `Render` as the resolved target override, and `QuantityFormatter` owning the rendered text behind `ToString(policy.Culture)`; `Catalogue()` projects the fifteen `Info` rows for the dashboard quantity picker with zero call-site reflection; evidence fields are plain strings and doubles, so the record serializes through the package wire context while UnitsNet types never cross a JSON or proto wire — the recorded UnitsNet-serialization SKIP stays law and conversion-at-admission is what enforces it.
+- Boundary: boundary text parses culture-scoped through `Quantity.TryParse(policy.Culture, ...)` with `Resolve` owning abbreviation resolution over the same parse route backed by `UnitAbbreviationsCache.Default`, whose lookup falls back to the invariant-culture abbreviation set when the policy culture lacks a localized one, a `UnitProject` target unit entering `Render` as the resolved target override, and `QuantityFormatter` owning the rendered text behind `ToString(policy.Culture)`; `Catalogue()` projects the fifteen `Info` rows for the dashboard quantity picker with zero call-site reflection; evidence fields are plain strings and doubles, so the record serializes through the package wire context while UnitsNet types never cross a JSON or proto wire — the recorded UnitsNet-serialization SKIP stays law and conversion-at-admission is what enforces it.
 
 ```csharp signature
 public sealed record UnitEvidence(
@@ -169,7 +169,6 @@ public sealed record UnitEvidence(
 
 ## [5]-[RESEARCH]
 
-| [INDEX] | [ITEM]                                                                                                                          | [PROOF]                                                                                                                                              | [GATE]         |
-| :-----: | -------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------- | -------------- |
+| [INDEX] | [ITEM]                                                                                                                                             | [PROOF]                                                                                                                                                                               | [GATE]         |
+| :-----: | -------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------------- |
 |   [1]   | UnitsNet next-major QuantityInfo and QuantityValue reshape against the frozen row record (adoption gate is GA; pin stays at the charter admission) | dotnet package search UnitsNet --prerelease --format json, then uv run python -m tools.assay api query --key unitsnet --symbol UnitsNet.QuantityInfo over a staged next-major restore | QUANTITY_TABLE |
-|   [2]   | UnitParser culture fallback chain for abbreviation resolution when the UnitPolicy culture lacks a localized abbreviation set       | uv run python -m tools.assay api query --key unitsnet --symbol UnitsNet.UnitAbbreviationsCache --full tracing the fallback read path                    | PARSE_FORMAT   |

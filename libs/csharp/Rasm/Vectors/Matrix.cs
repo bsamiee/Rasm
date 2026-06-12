@@ -61,6 +61,9 @@ public sealed partial class SolveStop {
     public static readonly SolveStop LeastSquaresSolved = new(key: 1, isUsable: true);
     public static readonly SolveStop ResidualConverged = new(key: 2, isUsable: true);
     public static readonly SolveStop DirectFallbackSolved = new(key: 3, isUsable: true);
+    public static readonly SolveStop RankDeficient = new(key: 4, isUsable: false);
+    public static readonly SolveStop IterativeExhausted = new(key: 5, isUsable: false);
+    public static readonly SolveStop FallbackRejected = new(key: 6, isUsable: false);
     public bool IsUsable { get; }
 }
 
@@ -176,21 +179,59 @@ public readonly record struct SparseHermitian(Dimension Order, Arr<int> RowPtr, 
     }
 }
 
-public readonly record struct SolveReceipt(Arr<double> Solution, SolvePath Path, SolveStop Stop, Dimension Rows, Dimension Cols, int RhsLength, Option<int> Iterations, Option<int> MaxIterations, Option<double> Tolerance, double Residual, Option<bool> FullRank, Option<int> InputNonZeros, Option<int> FactorNonZeros) {
-    public bool IsUsable =>
-        Stop.IsUsable
-        && RhinoMath.IsValidDouble(x: Residual)
-        && Solution.Count == Cols.Value
-        && Solution.ForAll(RhinoMath.IsValidDouble);
+public readonly record struct SolveReceipt(Arr<double> Solution, SolvePath Path, SolveStop Stop, Dimension Rows, Dimension Cols, int RhsLength, Option<int> Iterations, Option<int> MaxIterations, Option<double> Tolerance, double Residual, Option<bool> FullRank, Option<int> InputNonZeros, Option<int> FactorNonZeros, Option<GaugeReceipt> Gauge = default) {
+    public bool IsUsable {
+        get {
+            SolvePath path = Path;
+            SolveStop stop = Stop;
+            Option<int> maxIterations = MaxIterations;
+            return path is not null
+                && stop is not null
+                && stop.IsUsable
+                && Rows.Value > 0
+                && Cols.Value > 0
+                && RhsLength == Rows.Value
+                && RhinoMath.IsValidDouble(x: Residual)
+                && Residual <= Tolerance.IfNone(double.PositiveInfinity)
+                && Solution.Count == Cols.Value
+                && Solution.ForAll(RhinoMath.IsValidDouble)
+                && FullRank.Map(rank => !path.Equals(SolvePath.DenseQrLeastSquares) || rank).IfNone(noneValue: true)
+                && FactorNonZeros.Map(nz => !path.Equals(SolvePath.SparseCholesky) || nz > 0).IfNone(noneValue: true)
+                && Iterations.Map(iter => iter >= 0 && maxIterations.Map(max => max >= iter).IfNone(noneValue: true)).IfNone(noneValue: true)
+                && Gauge.Map(static receipt => receipt.IsValid).IfNone(noneValue: true);
+        }
+    }
 }
 
 public readonly record struct EigenSolveReceipt<TEigen, TVector>(Seq<(TEigen Eigenvalue, TVector Eigenvector)> Pairs, EigenSolvePath Path, EigenSolveStop Stop, int RequestedPairs, int ReturnedPairs, Option<int> Iterations, Option<int> MaxIterations, Option<double> Tolerance, double MaxResidual, Option<int> FactorNonZeros = default) {
-    public bool IsUsable =>
-        Stop.IsUsable
-        && ReturnedPairs is > 0
-        && ReturnedPairs <= RequestedPairs
-        && Pairs.Count == ReturnedPairs
-        && RhinoMath.IsValidDouble(x: MaxResidual);
+    public bool IsUsable {
+        get {
+            EigenSolvePath path = Path;
+            EigenSolveStop stop = Stop;
+            Option<int> maxIterations = MaxIterations;
+            return path is not null
+                && stop is not null
+                && stop.IsUsable
+                && RequestedPairs >= 1
+                && ReturnedPairs is > 0
+                && ReturnedPairs <= RequestedPairs
+                && Pairs.Count == ReturnedPairs
+                && RhinoMath.IsValidDouble(x: MaxResidual)
+                && MaxResidual <= Tolerance.IfNone(double.PositiveInfinity)
+                && Iterations.Map(iter => iter >= 0 && maxIterations.Map(max => max >= iter).IfNone(noneValue: true)).IfNone(noneValue: true)
+                && FactorNonZeros.Map(static count => count > 0).IfNone(noneValue: true);
+        }
+    }
+}
+
+public readonly record struct GaugeReceipt(Option<int> PinnedIndex, bool MeanZero, int ConstraintRows, double RhsMutationNorm, double ResidualAfterGauge) {
+    public bool IsValid =>
+        ConstraintRows >= 0
+        && PinnedIndex.Map(static index => index >= 0).IfNone(noneValue: true)
+        && RhinoMath.IsValidDouble(x: RhsMutationNorm)
+        && RhsMutationNorm >= 0.0
+        && RhinoMath.IsValidDouble(x: ResidualAfterGauge)
+        && ResidualAfterGauge >= 0.0;
 }
 
 [BoundaryAdapter, StructLayout(LayoutKind.Auto)]
@@ -224,6 +265,7 @@ public readonly record struct CholeskyResult {
 [BoundaryAdapter]
 public sealed record CholeskySparse {
     private CholeskySparse(SparseMatrix source, CSparse.Double.Factorization.SparseCholesky factor, Dimension order) { Source = source; Factor = factor; Order = order; }
+    private readonly Lock solveLock = new();
     public static Fin<CholeskySparse> Of(SparseMatrix symmetric, Op? key = null) =>
         symmetric.Rows.Value != symmetric.Cols.Value || !symmetric.IsValid
             ? Fin.Fail<CholeskySparse>(error: key.OrDefault().InvalidInput())
@@ -244,7 +286,9 @@ public sealed record CholeskySparse {
             : key.OrDefault().Catch(() => {
                 double[] b = [.. rhs.AsIterable()];
                 double[] x = new double[Order.Value];
-                Factor.Solve(input: b.AsSpan(), result: x.AsSpan());
+                lock (solveLock) {
+                    Factor.Solve(input: b.AsSpan(), result: x.AsSpan());
+                }
                 Arr<double> solution = new(x);
                 return MatrixKernel.SparseSymmetricResidual(matrix: Source, solution: solution, rhs: rhs, key: key.OrDefault()).Bind(residual =>
                     MatrixKernel.SolveSuccess(solution: solution, solutionLength: Order.Value, path: SolvePath.SparseCholesky, stop: SolveStop.DirectSolved, rows: Source.Rows, cols: Source.Cols, rhsLength: rhs.Count, residual: residual, key: key.OrDefault(), inputNonZeros: Some(Source.NonZeros), factorNonZeros: Some(Factor.NonZerosCount)));
@@ -365,10 +409,12 @@ internal static class MatrixKernel {
             double residual = (a.Multiply(v) - scale(arg: (v, pair.Eigenvalue))).L2Norm() / Math.Max(val1: 1.0, val2: v.L2Norm());
             return Math.Max(val1: max, val2: residual);
         });
-    internal static Fin<SolveReceipt> SolveSuccess(Arr<double> solution, int solutionLength, SolvePath path, SolveStop stop, Dimension rows, Dimension cols, int rhsLength, double residual, Op key, double residualCap = double.PositiveInfinity, Option<int> iterations = default, Option<int> maxIterations = default, Option<double> tolerance = default, Option<bool> fullRank = default, Option<int> inputNonZeros = default, Option<int> factorNonZeros = default) =>
-        solution.Count == solutionLength && solution.ForAll(RhinoMath.IsValidDouble) && RhinoMath.IsValidDouble(x: residual) && residual <= residualCap
-            ? Fin.Succ(new SolveReceipt(Solution: solution, Path: path, Stop: stop, Rows: rows, Cols: cols, RhsLength: rhsLength, Iterations: iterations, MaxIterations: maxIterations, Tolerance: tolerance, Residual: residual, FullRank: fullRank, InputNonZeros: inputNonZeros, FactorNonZeros: factorNonZeros))
+    internal static Fin<SolveReceipt> SolveSuccess(Arr<double> solution, int solutionLength, SolvePath path, SolveStop stop, Dimension rows, Dimension cols, int rhsLength, double residual, Op key, double residualCap = double.PositiveInfinity, Option<int> iterations = default, Option<int> maxIterations = default, Option<double> tolerance = default, Option<bool> fullRank = default, Option<int> inputNonZeros = default, Option<int> factorNonZeros = default, Option<GaugeReceipt> gauge = default) {
+        SolveReceipt receipt = new(Solution: solution, Path: path, Stop: stop, Rows: rows, Cols: cols, RhsLength: rhsLength, Iterations: iterations, MaxIterations: maxIterations, Tolerance: tolerance, Residual: residual, FullRank: fullRank, InputNonZeros: inputNonZeros, FactorNonZeros: factorNonZeros, Gauge: gauge);
+        return solution.Count == solutionLength && solution.ForAll(RhinoMath.IsValidDouble) && RhinoMath.IsValidDouble(x: residual) && residual <= residualCap && (!stop.IsUsable || receipt.IsUsable)
+            ? Fin.Succ(receipt)
             : Fin.Fail<SolveReceipt>(key.InvalidResult());
+    }
     private static Fin<EigenSolveReceipt<TEigen, TVector>> EigenReceiptOf<TEigen, TVector>(Seq<(TEigen Eigenvalue, TVector Eigenvector)> pairs, EigenSolvePath path, EigenSolveStop stop, int requestedPairs, double maxResidual, Op key, Option<int> expectedVectorLength = default, Option<int> iterations = default, Option<int> maxIterations = default, Option<double> tolerance = default, Option<int> factorNonZeros = default) =>
         requestedPairs >= 1 && pairs.Count is > 0 && pairs.Count <= requestedPairs && RhinoMath.IsValidDouble(x: maxResidual) && pairs.ForAll(pair => EigenvalueIsFinite(value: pair.Eigenvalue) && EigenvectorIsFinite(vector: pair.Eigenvector, expectedLength: expectedVectorLength))
             ? Fin.Succ(new EigenSolveReceipt<TEigen, TVector>(Pairs: pairs, Path: path, Stop: stop, RequestedPairs: requestedPairs, ReturnedPairs: pairs.Count, Iterations: iterations, MaxIterations: maxIterations, Tolerance: tolerance, MaxResidual: maxResidual, FactorNonZeros: factorNonZeros))
@@ -455,7 +501,7 @@ internal static class MatrixKernel {
         DenseSolveGated(source: matrix, rhs: rhs, key: key, square: false, solve: static (source, right, op) => op.Catch(() => {
             Matrix<double> design = ToMathNet(source);
             MathNet.Numerics.LinearAlgebra.Factorization.QR<double> qr = design.QR(MathNet.Numerics.LinearAlgebra.Factorization.QRMethod.Full);
-            return DenseSolve(source: source, rhs: right, key: op, path: SolvePath.DenseQrLeastSquares, stop: SolveStop.LeastSquaresSolved, solve: new Func<LinearVector, LinearVector>(qr.Solve), fullRank: Some(qr.IsFullRank));
+            return DenseSolve(source: source, rhs: right, key: op, path: SolvePath.DenseQrLeastSquares, stop: qr.IsFullRank ? SolveStop.LeastSquaresSolved : SolveStop.RankDeficient, solve: new Func<LinearVector, LinearVector>(qr.Solve), fullRank: Some(qr.IsFullRank));
         }));
     internal static Fin<SolveReceipt> LuSolve(LuResult lu, Arr<double> rhs, Op key) =>
         !lu.IsValid
@@ -557,7 +603,8 @@ internal static class MatrixKernel {
                 bool iterativeConverged = iteratorConverged && RhinoMath.IsValidDouble(x: iterativeResidual) && iterativeResidual <= RhinoMath.SqrtEpsilon;
                 LinearVector x = iterativeConverged ? iterative : A.Solve(b);
                 double residual = RelativeResidual(a: A, x: x, b: b);
-                return SolveSuccess(solution: ArrFromVector(x), solutionLength: matrix.Cols.Value, path: iterativeConverged ? SolvePath.SparseBiCgStabDiagonal : SolvePath.SparseMathNetDirectFallback, stop: iterativeConverged ? SolveStop.ResidualConverged : SolveStop.DirectFallbackSolved, rows: matrix.Rows, cols: matrix.Cols, rhsLength: rhs.Count, residual: residual, key: key, residualCap: Math.Sqrt(RhinoMath.SqrtEpsilon), maxIterations: Some(iterationCap), tolerance: Some(RhinoMath.SqrtEpsilon), inputNonZeros: Some(matrix.NonZeros));
+                bool fallbackAccepted = RhinoMath.IsValidDouble(x: residual) && residual <= Math.Sqrt(RhinoMath.SqrtEpsilon);
+                return SolveSuccess(solution: ArrFromVector(x), solutionLength: matrix.Cols.Value, path: iterativeConverged ? SolvePath.SparseBiCgStabDiagonal : SolvePath.SparseMathNetDirectFallback, stop: iterativeConverged ? SolveStop.ResidualConverged : fallbackAccepted ? SolveStop.DirectFallbackSolved : SolveStop.FallbackRejected, rows: matrix.Rows, cols: matrix.Cols, rhsLength: rhs.Count, residual: residual, key: key, residualCap: fallbackAccepted ? Math.Sqrt(RhinoMath.SqrtEpsilon) : double.PositiveInfinity, maxIterations: Some(iterationCap), tolerance: Some(iterativeConverged ? RhinoMath.SqrtEpsilon : Math.Sqrt(RhinoMath.SqrtEpsilon)), inputNonZeros: Some(matrix.NonZeros));
             });
     // --- [GENERALIZED_EIGEN] -----------------------------------------------------------------
     internal static Fin<EigenSolveReceipt<double, Arr<double>>> GeneralizedEigenpairsDetailed(SparseMatrix stiffness, SparseMatrix mass, int k, Op key) =>
@@ -712,8 +759,11 @@ internal static class MatrixKernel {
         where T : struct, IEquatable<T>, IFormattable =>
         Enumerable.Range(start: 0, count: m.ColumnCount).Aggregate(seed: 0.0, func: (max, j) => Math.Max(max, m.Column(j).L2Norm()));
     private static Matrix<T> ApplyJacobi<T>(Matrix<T> R, MathNet.Numerics.LinearAlgebra.Vector<T> invDiag)
-        where T : struct, IEquatable<T>, IFormattable =>
-        Matrix<T>.Build.DenseOfDiagonalVector(invDiag).Multiply(R);
+        where T : struct, IEquatable<T>, IFormattable {
+        Matrix<T> scaled = R.Clone();
+        for (int i = 0; i < R.RowCount; i++) scaled.SetRow(rowIndex: i, row: R.Row(i).Multiply(scalar: invDiag[i]));
+        return scaled;
+    }
     private static Matrix<T> AssembleSubspace<T>(Matrix<T> X, Matrix<T> W, Matrix<T> P, bool includePrevious, Func<Matrix<T>, Matrix<T>> orthonormalise)
         where T : struct, IEquatable<T>, IFormattable =>
         orthonormalise(arg: includePrevious ? X.Append(W).Append(P) : X.Append(W));

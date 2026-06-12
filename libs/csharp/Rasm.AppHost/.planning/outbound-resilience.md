@@ -4,13 +4,13 @@ Outbound boundary ownership for the runtime spine: seven `OutboundHop` cases bin
 
 ## [1]-[INDEX]
 
-| [INDEX] | [CLUSTER]        | [OWNS]                                                            |
-| :-----: | ---------------- | ----------------------------------------------------------------- |
-|   [1]   | HOP_AXIS         | Seven hop cases bound to frozen policy rows with total dispatch   |
-|   [2]   | HTTP_PIPELINES   | Standard and hedging handlers for SocketsHttpHandler-borne rows   |
-|   [3]   | KEYED_PIPELINES  | One keyed Polly registry and channel policy for non-HTTP hops     |
+| [INDEX] | [CLUSTER]        | [OWNS]                                                             |
+| :-----: | ---------------- | ------------------------------------------------------------------ |
+|   [1]   | HOP_AXIS         | Seven hop cases bound to frozen policy rows with total dispatch    |
+|   [2]   | HTTP_PIPELINES   | Standard and hedging handlers for SocketsHttpHandler-borne rows    |
+|   [3]   | KEYED_PIPELINES  | One keyed Polly registry and channel policy for non-HTTP hops      |
 |   [4]   | DISCOVERY_ATTACH | Manifest law, UDS attach, checksum gate, companion child lifecycle |
-|   [5]   | OWNERSHIP_LAW    | One retry owner per hop with conflict evidence and receipts       |
+|   [5]   | OWNERSHIP_LAW    | One retry owner per hop with conflict evidence and receipts        |
 
 ## [2]-[HOP_AXIS]
 
@@ -108,7 +108,7 @@ public static class HopRows {
 - Auto: package-generated option validators prove the bound standard and hedging records at startup; `EnableReloads` keeps named policy live through the options monitor on the handler context route.
 - Packages: Microsoft.Extensions.Http.Resilience, Thinktecture.Runtime.Extensions, BCL inbox
 - Growth: one options row per pipeline key under the `Outbound` section root; a new HTTP-borne hop is one `Wire` call over its row — zero new surface.
-- Boundary: `AddStandardResilienceHandler` binds rate limiter, total timeout, retry, breaker, and attempt timeout as one options record from the `Outbound:{PipelineKey}` section; hedging admits only rows whose idempotency is `Idempotent`, with ordered routing groups bound from the `:Routing` subsection; `DisableForUnsafeHttpMethods` is the method-derived guard; `SelectPipelineByAuthority` keys pipeline identity by authority; resilience context crosses through the request-message extensions, never ambient state.
+- Boundary: `AddStandardResilienceHandler` binds rate limiter, total timeout, retry, breaker, and attempt timeout as one options record from the `Outbound:{PipelineKey}` section; hedging admits only rows whose idempotency is `Idempotent`, with ordered routing groups bound from the `:Routing` subsection; `DisableForUnsafeHttpMethods` is the method-derived guard; `SelectPipelineByAuthority` keys pipeline identity by authority; the named-client `AddHttpClient` registration arrives through the Microsoft.Extensions.Http transitive closure of the resilience package, never a direct pin; resilience context crosses through the request-message extensions, never ambient state.
 
 ```csharp signature
 public static class HttpLane {
@@ -142,7 +142,7 @@ public static class HttpLane {
 - Entry: `Register(IServiceCollection services, ILoggerFactory telemetry, Func<DeadlineClass, TimeSpan> allotted, params ReadOnlySpan<HopPolicy> rows)` — one `AddResiliencePipeline` entry per row.
 - Auto: `ConfigureTelemetry` inserts the telemetry strategy at pipeline head; resilience events land under the pipeline key in the package meter and logger.
 - Packages: Polly.Core, Polly.Extensions, Polly.RateLimiting, LanguageExt.Core, BCL inbox
-- Growth: one strategy row inside one keyed pipeline; chaos latency, fault, and outcome rows attach on the test-host profile row as one strategy row each — zero new surface.
+- Growth: one strategy row inside one keyed pipeline; chaos rows attach on the test-host profile row as one `AddChaosLatency`, `AddChaosFault`, or `AddChaosOutcome` strategy row each — zero new surface.
 - Boundary: gRPC-native retry is rejected — the channel `ServiceConfig` retry and hedging policies are experimental surfaces and a second retry owner; reconnect on the UDS hop is redial-only; `CircuitBreakerManualControl` keyed per hop is the kill-switch enforcement surface; the `allotted` projection is the deadline-row read so no duration literal lives in a strategy; the canonical channel record carries keepalive 60s/30s, infinite pooled-connection idle, multiplexed HTTP/2, and 4 MiB caps in both directions.
 
 ```csharp signature
@@ -389,10 +389,6 @@ public static class OutboundSurface {
 
 ## [7]-[RESEARCH]
 
-| [INDEX] | [ITEM]                                                                                                                                      | [PROOF]                                                                                              | [GATE]           |
-| :-----: | -------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------- | ---------------- |
-|   [1]   | Named-client registration owner (`AddHttpClient`, `IHttpClientBuilder`) arriving through the Http.Resilience closure without a direct pin     | uv run python -m tools.assay api resolve microsoft.extensions.http                                     | HTTP_PIPELINES   |
-|   [2]   | Keyed-strategy member spellings beyond the catalogue surface: `RetryStrategyOptions` backoff and jitter members, `CircuitBreakerStrategyOptions.ManualControl`, `ResiliencePipelineProvider<string>.GetPipeline`, `CircuitBreakerManualControl.IsolateAsync` and `CloseAsync`, `CircuitState` | uv run python -m tools.assay api query polly.core RetryStrategyOptions                                  | KEYED_PIPELINES  |
-|   [3]   | Chaos strategy builder surface (latency, fault, and outcome injection) inside Polly.Core for the test-host-gated rows                          | uv run python -m tools.assay api query polly.core Polly.Simmy                                           | KEYED_PIPELINES  |
-|   [4]   | `GrpcChannel` construction members behind the UDS handler (`GrpcChannelOptions.MaxSendMessageSize`, `MaxReceiveMessageSize`, `HttpHandler`, `ForAddress`) | uv run python -m tools.assay api query grpc.net.client GrpcChannelOptions                               | DISCOVERY_ATTACH |
-|   [5]   | Peer-credential projection on accepted UDS sockets through the raw socket-option read on macOS and Linux                                       | dotnet run on a scratch UDS accept spike asserting the LOCAL_PEERCRED raw-option read on both platforms | DISCOVERY_ATTACH |
+| [INDEX] | [ITEM]                                                                                                   | [PROOF]                                                                                                 | [GATE]           |
+| :-----: | -------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------- | ---------------- |
+|   [1]   | Peer-credential projection on accepted UDS sockets through the raw socket-option read on macOS and Linux | dotnet run on a scratch UDS accept spike asserting the LOCAL_PEERCRED raw-option read on both platforms | DISCOVERY_ATTACH |

@@ -4,13 +4,13 @@ Rasm.Persistence encodes every durable payload through one three-row `SnapshotCo
 
 ## [1]-[INDEX]
 
-| [INDEX] | [CLUSTER]           | [OWNS]                                                              |
-| :-----: | :------------------ | :------------------------------------------------------------------ |
+| [INDEX] | [CLUSTER]           | [OWNS]                                                                |
+| :-----: | :------------------ | :-------------------------------------------------------------------- |
 |   [1]   | CODEC_AXIS          | Three codec rows, package wire context, generated converter admission |
-|   [2]   | COMPRESSION_HASHING | Compression rows, hash rows, framing routes and identity values      |
-|   [3]   | SNAPSHOT_PROTOCOL   | Header law, atomic write fold, catalog row, orphan sweep             |
-|   [4]   | RESTORE_AND_DIFF    | Verified read, restore receipt parity, content-addressed diff        |
-|   [5]   | TS_PROJECTION       | Wire shapes and msgpack alignment the dashboard consumes             |
+|   [2]   | COMPRESSION_HASHING | Compression rows, hash rows, framing routes and identity values       |
+|   [3]   | SNAPSHOT_PROTOCOL   | Header law, atomic write fold, catalog row, orphan sweep              |
+|   [4]   | RESTORE_AND_DIFF    | Verified read, restore receipt parity, content-addressed diff         |
+|   [5]   | TS_PROJECTION       | Wire shapes and msgpack alignment the dashboard consumes              |
 
 ## [2]-[CODEC_AXIS]
 
@@ -20,7 +20,7 @@ Rasm.Persistence encodes every durable payload through one three-row `SnapshotCo
 - Auto: registering `ThinktectureJsonConverterFactory` and `ThinktectureMessageFormatterResolver.Instance` once derives every value-object, smart-enum, and keyed-union converter and formatter — per-type hand-written codec classes are the deleted pattern; `GeoJsonConverterFactory` derives the GeoJSON projection of every NetTopologySuite geometry riding the STJ rail.
 - Packages: MessagePack, MessagePackAnalyzer, Thinktecture.Runtime.Extensions, Thinktecture.Runtime.Extensions.Json, Thinktecture.Runtime.Extensions.MessagePack, NetTopologySuite.IO.GeoJSON4STJ, NodaTime, NodaTime.Serialization.SystemTextJson, BCL inbox.
 - Growth: one codec is one row; a new wire record is one `[JsonSerializable]` row on `PersistenceWireContext` plus one MessagePack union tag row when polymorphic; zero new surface.
-- Boundary: artifact-kind-to-codec residence is fixed at write — a second codec on one kind is a conflict, not a fallback; `ProjectJson` is diagnostic egress only and never a payload route; `Foreign` gates every payload arriving across a process boundary; MessagePack union tag rows are append-only and a retired tag never returns; a hand-written converter or formatter beside the generated ones is the named defect; MemoryPack, CBOR, and protobuf snapshot encodings stay rejected — proto owns RPC payloads only; the MessagePackBinary row is the value the cache serializer registration consumes.
+- Boundary: artifact-kind-to-codec residence is fixed at write — a second codec on one kind is a conflict, not a fallback; `GeoJsonConverterFactory` writes RFC-orientation polygon rings and reads through its SRID-4326 default `GeometryFactory`, so geometry wire records carry no per-call geometry policy; `ProjectJson` is diagnostic egress only and never a payload route; `Foreign` gates every payload arriving across a process boundary; MessagePack union tag rows are append-only and a retired tag never returns; a hand-written converter or formatter beside the generated ones is the named defect; MemoryPack, CBOR, and protobuf snapshot encodings stay rejected — proto owns RPC payloads only; the MessagePackBinary row is the value the cache serializer registration consumes.
 
 ```csharp signature
 public sealed class SnapshotKeyPolicy : IEqualityComparerAccessor<string>, IComparerAccessor<string> {
@@ -163,11 +163,11 @@ public sealed partial class HashPolicy {
 }
 ```
 
-| [INDEX] | [ROUTE]            | [PAYLOAD_CLASS]                  | [MECHANISM]                                  | [VALUE]                              |
-| :-----: | :----------------- | :------------------------------- | :-------------------------------------------- | :------------------------------------ |
-|   [1]   | in-codec           | MessagePackBinary payloads       | `MessagePackCompression.Lz4BlockArray` blocks | `CompressionMinLength` floor 64 bytes |
-|   [2]   | standalone frame   | JsonStj and FileRaw payloads     | `LZ4Pickler` self-describing frame            | level from the selected row           |
-|   [3]   | contiguity ceiling | payloads above 1 MiB             | block-array segmenting, no contiguous buffer  | `SuggestedContiguousMemorySize` 1 MiB |
+| [INDEX] | [ROUTE]            | [PAYLOAD_CLASS]              | [MECHANISM]                                   | [VALUE]                                                |
+| :-----: | :----------------- | :--------------------------- | :-------------------------------------------- | :----------------------------------------------------- |
+|   [1]   | in-codec           | MessagePackBinary payloads   | `MessagePackCompression.Lz4BlockArray` blocks | `CompressionMinLength` provider default 64 bytes       |
+|   [2]   | standalone frame   | JsonStj and FileRaw payloads | `LZ4Pickler` self-describing frame            | level from the selected row                            |
+|   [3]   | contiguity ceiling | payloads above 1 MiB         | block-array segmenting, no contiguous buffer  | `SuggestedContiguousMemorySize` provider default 1 MiB |
 
 ## [4]-[SNAPSHOT_PROTOCOL]
 
@@ -389,9 +389,8 @@ type SnapshotExtensionRows = never;
 
 ## [7]-[RESEARCH]
 
-| [INDEX] | [ITEM]                                                                                                            | [PROOF]                                                       | [GATE]            |
-| :-----: | :------------------------------------------------------------------------------------------------------------------ | :-------------------------------------------------------------- | :----------------- |
-|   [1]   | Directory-handle flush admission after the atomic rename on APFS — rename durability without a directory fsync route | `uv run python -m tools.assay test run --target Rasm.Persistence` | SNAPSHOT_PROTOCOL |
+| [INDEX] | [ITEM]                                                                                                                                                           | [PROOF]                                                           | [GATE]            |
+| :-----: | :--------------------------------------------------------------------------------------------------------------------------------------------------------------- | :---------------------------------------------------------------- | :---------------- |
+|   [1]   | Directory-handle flush admission after the atomic rename on APFS — rename durability without a directory fsync route                                             | `uv run python -m tools.assay test run --target Rasm.Persistence` | SNAPSHOT_PROTOCOL |
 |   [2]   | `ThinktectureMessageFormatterResolver` coverage over keyed unions and complex value objects composed with `SourceGeneratedFormatterResolver` under Lz4BlockArray | `uv run python -m tools.assay test run --target Rasm.Persistence` | CODEC_AXIS        |
-|   [3]   | `GeoJsonConverterFactory` precedence over combined source-generated contract metadata for geometry-bearing wire records | `uv run python -m tools.assay test run --target Rasm.Persistence` | CODEC_AXIS        |
-|   [4]   | `MessagePackSerializerOptions` compression-threshold and contiguous-memory member spellings backing the framing-route values | `uv run python -m tools.assay api query messagepack MessagePackSerializerOptions` | COMPRESSION_HASHING |
+|   [3]   | `GeoJsonConverterFactory` precedence over combined source-generated contract metadata for geometry-bearing wire records                                          | `uv run python -m tools.assay test run --target Rasm.Persistence` | CODEC_AXIS        |

@@ -77,7 +77,7 @@ public sealed class LocationDispatchLaws {
 public sealed class LocationRejectionRailLaws {
     [Fact]
     public void InvalidDerivativeAndNullAspectRejectBeforeNativeEvaluation() {
-        Spec.Invalid(Analyze.Run(operation: Analyze.Location<Curve, Point3d>(aspect: null!), input: default(Curve)!),
+        Spec.Invalid(Analyze.Run(operation: Analyze.Query<Curve, Point3d>(query: null), input: default(Curve)!),
             then: static error => Assert.Equal(expected: "Input", actual: error.Category()));
         Spec.Invalid(
             Analyze.Run(operation: LocationAspect.At(new Locator.CurveParameter(T: 0.5), LocationValue.Derivative(order: -1)).Operation<Curve, Vector3d>(), input: default(Curve)!),

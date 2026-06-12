@@ -5,7 +5,7 @@ namespace Rasm.Analysis;
 // --- [TYPES] ------------------------------------------------------------------------------
 [SkipUnionOps]
 [Union]
-public partial record Topologies : IAspect {
+public partial record Topologies {
     public sealed record KindCase : Topologies;
     public sealed record DomainsCase : Topologies;
     public sealed record SolidOrientationCase : Topologies;
@@ -25,7 +25,7 @@ public partial record Topologies : IAspect {
     public static Topologies FaceCount => new ScalarCase(Scalar: TopologyScalar.FaceCount);
     public static Topologies EdgeCount => new ScalarCase(Scalar: TopologyScalar.EdgeCount);
     public static Topologies VertexCount => new ScalarCase(Scalar: TopologyScalar.VertexCount);
-    public Operation<TGeometry, TOut> Operation<TGeometry, TOut>() where TGeometry : notnull => Switch(
+    internal Operation<TGeometry, TOut> Operation<TGeometry, TOut>() where TGeometry : notnull => Switch(
         kindCase: static _ => Analyze.Kind<TGeometry, TOut>(),
         domainsCase: static _ => Analyze.TopologyDomains<TGeometry, TOut>(),
         solidOrientationCase: static _ => Analyze.TopologySolidOrientation<TGeometry, TOut>(),
@@ -51,8 +51,7 @@ public sealed partial class TopologyScalar {
 
 // --- [OPERATIONS] -------------------------------------------------------------------------
 public static partial class Analyze {
-    public static Operation<TGeometry, TOut> Topologies<TGeometry, TOut>(Topologies aspect) where TGeometry : notnull => Aspect<Topologies, TGeometry, TOut>(aspect: aspect);
-    public static Operation<TGeometry, TOut> Coerce<TGeometry, TOut>() where TGeometry : notnull where TOut : notnull {
+    internal static Operation<TGeometry, TOut> Coerce<TGeometry, TOut>() where TGeometry : notnull where TOut : notnull {
         Op key = Op.Of();
         return (Domain.Kind.Of(typeof(TOut)), GeometryKernel.CanCoerce(typeof(TGeometry), typeof(TOut))) switch {
             (Option<Kind> someKind, true) when someKind.IsSome => KernelLift<TGeometry, TOut, Op>(key: key, state: key, requirement: Requirement.Basic, extract: static (op, g, ctx) => GeometryKernel.CoerceTo<TOut>(g, ctx, op).Bind(coerced => op.Accept(value: coerced))),

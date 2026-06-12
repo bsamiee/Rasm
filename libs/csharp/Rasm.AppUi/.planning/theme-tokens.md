@@ -122,7 +122,7 @@ public static class ThemeCatalog {
 - Auto: host appearance flips ride the mount transaction's appearance-change facts into `Track`, so a host dark-mode change re-resolves and receipts with zero per-control handlers.
 - Packages: Avalonia, Thinktecture.Runtime.Extensions, LanguageExt.Core
 - Growth: one variant row with one probe arm and one `Paint` column; zero new surface.
-- Boundary: probes are host-agnostic delegate columns supplied at mount — the rhino probe lands as one registration row on the host-attach port and its member spelling is research-gated, gh2 rows ride the same host probe, empty-host standalone rows probe platform color values, and the browser probe stays a designed-only column on the web-browser growth case with zero authored interop; the per-surface override is the `SurfaceOverride` delegate column on the swap capsule, so a panel tracks its host while a sidecar stays user-chosen.
+- Boundary: probes are host-agnostic delegate columns supplied at mount — the rhino probe lands as one registration row on the host-attach port reading `HostUtils.RunningInDarkMode` with change flips riding `Rhino.UI.ThemeSettings.ThemeChanged` host-side, gh2 rows ride the same host probe, empty-host standalone rows read `IPlatformSettings.GetColorValues()` whose `PlatformColorValues` carries `ThemeVariant` and `ContrastPreference` with re-probe on `ColorValuesChanged`, and the browser probe stays a designed-only column on the web-browser growth case with zero authored interop; the per-surface override is the `SurfaceOverride` delegate column on the swap capsule, so a panel tracks its host while a sidecar stays user-chosen.
 
 ```csharp signature
 public sealed class ThemeKeyPolicy : IEqualityComparerAccessor<string>, IComparerAccessor<string> {
@@ -158,13 +158,13 @@ public sealed partial class ThemeVariantRow {
 }
 ```
 
-| [INDEX] | [SURFACE_ROWS]            | [PROBE_SOURCE]                      | [ROUTE_STATE]  |
-| :-----: | :------------------------ | :----------------------------------- | :------------- |
-|   [1]   | rhino-panel, rhino-modal  | host appearance via host-attach row  | research-gated |
-|   [2]   | gh2-companion             | same host appearance row as rhino    | research-gated |
-|   [3]   | avalonia-desktop, sidecar | platform color-values probe          | research-gated |
-|   [4]   | web-browser               | designed-only column, zero interop   | designed-only  |
-|   [5]   | headless                  | probe absent, `Light` default        | settled        |
+| [INDEX] | [SURFACE_ROWS]            | [PROBE_SOURCE]                                          | [ROUTE_STATE] |
+| :-----: | :------------------------ | :------------------------------------------------------ | :------------ |
+|   [1]   | rhino-panel, rhino-modal  | `RunningInDarkMode` read, `ThemeChanged` flips           | settled       |
+|   [2]   | gh2-companion             | same host appearance row as rhino                        | settled       |
+|   [3]   | avalonia-desktop, sidecar | `GetColorValues()` read, `ColorValuesChanged` flips      | settled       |
+|   [4]   | web-browser               | designed-only column, zero interop                       | designed-only |
+|   [5]   | headless                  | probe absent, `Light` default                            | settled       |
 
 ## [4]-[DENSITY_AXIS]
 
@@ -313,12 +313,3 @@ flowchart LR
     ThemeCell --> ThemeSwitchReceipt
 ```
 
-## [6]-[RESEARCH]
-
-| [INDEX] | [ITEM]                                                                                              | [PROOF]                                                                                                          | [GATE]         |
-| :-----: | :--------------------------------------------------------------------------------------------------- | :----------------------------------------------------------------------------------------------------------------- | :------------- |
-|   [1]   | Rhino appearance dark-mode read and appearance-change event spellings for the host probe row          | `uv run python -m tools.assay api query --key rhino-common --symbol Rhino.ApplicationSettings.AppearanceSettings` | VARIANT_AXIS   |
-|   [2]   | `IPlatformSettings` color-values probe and `PlatformColorValues` member spellings on standalone rows  | `uv run python -m tools.assay api query --key avalonia --symbol Avalonia.Platform.IPlatformSettings`              | VARIANT_AXIS   |
-|   [3]   | `ThemeVariant` key construction with `FluentTheme.Palettes` and `DensityStyle` member spellings       | `uv run python -m tools.assay api query --key avalonia.themes.fluent --symbol Avalonia.Themes.Fluent.FluentTheme` | DENSITY_AXIS   |
-|   [4]   | `Application.RequestedThemeVariant` and merged-dictionary swap-surface member spellings               | `uv run python -m tools.assay api query --key avalonia --symbol Avalonia.Application`                             | CONTROL_THEMES |
-|   [5]   | `Color.FromUInt32` construction spelling backing the paint and shadow columns                         | `uv run python -m tools.assay api query --key avalonia --symbol Avalonia.Media.Color`                             | TOKEN_CATALOG  |

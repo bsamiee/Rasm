@@ -38,6 +38,17 @@ by the embedded SQLite store profile.
 |   [3]   | native library   | runtime asset    | executes SQLite calls |
 |   [4]   | provider factory | runtime asset    | connects raw provider |
 
+[ENTRYPOINT_SCOPE]: raw interop surface (`SQLitePCLRaw.core`, namespace `SQLitePCL`)
+- rail: store-provider
+
+| [INDEX] | [SURFACE]                                                                     | [CALL_SHAPE]    | [CAPABILITY]          |
+| :-----: | :---------------------------------------------------------------------------- | :-------------- | :-------------------- |
+|   [1]   | `raw.sqlite3_backup_init` / `_step` / `_remaining` / `_pagecount` / `_finish` | static raw call | pages live backup     |
+|   [2]   | `raw.sqlite3_snapshot_get` / `_open` / `_cmp` / `_recover` / `_free`          | static raw call | pins consistent view  |
+|   [3]   | `raw.sqlite3_db_config`                                                       | static raw call | configures connection |
+|   [4]   | `raw.SQLITE_OK` / `raw.SQLITE_DONE`                                           | status constant | reports raw status    |
+|   [5]   | `sqlite3` / `sqlite3_backup` / `sqlite3_snapshot`                             | handle type     | owns native handle    |
+
 ## [4]-[IMPLEMENTATION_LAW]
 
 [NATIVE_ADMISSION]:

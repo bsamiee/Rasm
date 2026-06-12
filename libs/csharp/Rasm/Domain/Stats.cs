@@ -32,17 +32,6 @@ public sealed partial class ExtremumDirection {
 
 [SkipUnionOps]
 [Union]
-public partial record CurvatureMode {
-    public sealed record VectorCase : CurvatureMode;
-    public sealed record ScalarCase(ScalarMetric Metric) : CurvatureMode;
-    public static CurvatureMode Vector => new VectorCase();
-    public static CurvatureMode Scalar(ScalarMetric metric) => new ScalarCase(Metric: metric);
-    internal bool IsCurveMagnitude => this switch { VectorCase => true, ScalarCase { Metric: ScalarMetric metric } => metric.IsMagnitude, _ => false };
-    internal Seq<ScalarMetric> SurfaceMetrics => this switch { VectorCase => Seq(ScalarMetric.Gaussian, ScalarMetric.Mean), ScalarCase { Metric: ScalarMetric metric } when metric.IsSurface => Seq(metric), _ => Seq<ScalarMetric>() };
-}
-
-[SkipUnionOps]
-[Union]
 public partial record StatContext {
     public sealed record NoneCase : StatContext;
     public sealed record MetricCase(ScalarMetric Value) : StatContext;
@@ -53,23 +42,7 @@ public partial record StatContext {
         new ToleranceCase(Value: tolerance, WithinTolerance: Math.Max(val1: Math.Abs(value: minimum), val2: Math.Abs(value: maximum)) <= tolerance);
 }
 
-[SkipUnionOps]
-[Union]
-internal partial record ResidualAggregate {
-    public sealed record DistancesCase : ResidualAggregate;
-    public sealed record SummaryCase(double Tolerance) : ResidualAggregate;
-    public sealed record MaximumCase : ResidualAggregate;
-    public sealed record DistributionCase(Seq<double> Percentiles) : ResidualAggregate;
-    public static ResidualAggregate Distances => new DistancesCase();
-    public static ResidualAggregate Summary(double tolerance) => new SummaryCase(Tolerance: tolerance);
-    public static ResidualAggregate Maximum => new MaximumCase();
-    public static ResidualAggregate Distribution(Seq<double> percentiles) => new DistributionCase(Percentiles: percentiles);
-}
-
 // --- [MODELS] -----------------------------------------------------------------------------
-[BoundaryAdapter, StructLayout(LayoutKind.Auto)]
-public readonly record struct ResidualSample(int Index, Point3d Location, double Distance, double Tolerance, bool WithinTolerance);
-
 [BoundaryAdapter, StructLayout(LayoutKind.Auto)]
 public readonly record struct Stat(int Count, double Minimum, double Maximum, double Mean, double Variance, StatContext Context) {
     internal double Rms => Math.Sqrt(d: (Mean * Mean) + Variance);
@@ -92,19 +65,6 @@ public readonly record struct Stat(int Count, double Minimum, double Maximum, do
             double score when state.Direction * score >= (state.Direction * state.Best) - state.Tolerance => state with { Best = state.Direction * score > state.Direction * state.Best ? score : state.Best, Hits = item.Cons(state.Hits) },
             _ => state,
         }).Hits.Rev();
-    internal static Fin<TOut> Residuals<TOut>(Seq<ResidualSample> samples, Op key, ResidualAggregate aggregate) =>
-        samples.TraverseM(sample => key.AcceptValue(value: sample)).As()
-            .Bind(validated => (aggregate, typeof(TOut)) switch {
-                (ResidualAggregate.DistancesCase, Type t) when t == typeof(Seq<double>) => key.Accept(values: validated.Map(static sample => sample.Distance)).Map(static distances => (TOut)(object)distances),
-                (ResidualAggregate.SummaryCase summary, Type t) when t == typeof(Stat) => Of(values: validated.Map(static sample => sample.Distance), key: key)
-                    .Bind(stat => key.AcceptValue(value: stat with { Context = StatContext.Tolerance(tolerance: summary.Tolerance, minimum: stat.Minimum, maximum: stat.Maximum) }))
-                    .Map(static stat => (TOut)(object)stat),
-                (ResidualAggregate.MaximumCase, Type t) when t == typeof(ResidualSample) => Extrema(items: validated, projection: static sample => sample.Distance, tolerance: 0.0, direction: ExtremumDirection.Maximum).Head.ToFin(key.InvalidResult())
-                    .Bind(sample => key.AcceptValue(value: sample))
-                    .Map(static sample => (TOut)(object)sample),
-                (ResidualAggregate.DistributionCase dist, Type t) when t == typeof(Distribution) => Distribution.Of(values: validated.Map(static sample => sample.Distance), percentiles: dist.Percentiles, key: key).Map(d => (TOut)(object)d),
-                _ => Fin.Fail<TOut>(key.Unsupported(geometryType: typeof(ResidualSample), outputType: typeof(TOut))),
-            });
 }
 
 [BoundaryAdapter, StructLayout(LayoutKind.Auto)]

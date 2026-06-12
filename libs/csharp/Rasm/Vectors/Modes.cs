@@ -136,16 +136,17 @@ public sealed partial class MotionInterpolation {
     [UseDelegateFromConstructor] internal partial Fin<Plane> Interpolate(Plane a, Plane b, UnitInterval t, Op key);
 
     private static Fin<Plane> InterpolatePlanes(Plane a, Plane b, UnitInterval t, bool spherical, Op key) =>
-        (!a.IsValid || !b.IsValid, a.EpsilonEquals(other: b, epsilon: RhinoMath.ZeroTolerance)) switch {
-            (true, _) => Fin.Fail<Plane>(key.InvalidInput()),
-            (_, true) => Fin.Succ(a),
-            _ => (Quaternion.Rotation(plane0: Plane.WorldXY, plane1: a), Quaternion.Rotation(plane0: Plane.WorldXY, plane1: b)) switch {
+        from left in FieldNabla.Plane(basis: a, key: key)
+        from right in FieldNabla.Plane(basis: b, key: key)
+        from output in left.EpsilonEquals(other: right, epsilon: RhinoMath.ZeroTolerance)
+            ? Fin.Succ(left)
+            : (Quaternion.Rotation(plane0: Plane.WorldXY, plane1: left), Quaternion.Rotation(plane0: Plane.WorldXY, plane1: right)) switch {
                 (Quaternion qa, Quaternion qb) => (spherical switch {
                     true => Quaternion.Slerp(a: qa, b: qb, t: t.Value),
                     false => Quaternion.Lerp(a: qa, b: qb, t: t.Value),
                 }).GetRotation(plane: out Plane oriented) && oriented.IsValid
-                    ? Fin.Succ(new Plane(origin: a.Origin + ((b.Origin - a.Origin) * t.Value), xDirection: oriented.XAxis, yDirection: oriented.YAxis))
+                    ? FieldNabla.Plane(basis: new Plane(origin: left.Origin + ((right.Origin - left.Origin) * t.Value), xDirection: oriented.XAxis, yDirection: oriented.YAxis), key: key)
                     : Fin.Fail<Plane>(key.InvalidResult()),
-            },
-        };
+            }
+        select output;
 }

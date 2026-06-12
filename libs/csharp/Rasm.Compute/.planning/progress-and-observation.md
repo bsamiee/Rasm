@@ -6,12 +6,12 @@ Correlation identity, cancellation provenance, the clock pair, the scheduler mar
 
 ## [1]-[INDEX]
 
-| [INDEX] | [CLUSTER]         | [OWNS]                                                       |
-| :-----: | :---------------- | :----------------------------------------------------------- |
-|   [1]   | PHASE_FAMILY      | Nine monotonic phase rows with rank and terminal columns     |
-|   [2]   | PROGRESS_CELL     | Atom-backed capsule; CAS rank guard; cadence-gated delivery  |
-|   [3]   | OBSERVATION_SEAMS | AppUi marshal seam; wire mirror seam; sink-edge receipt law  |
-|   [4]   | TS_PROJECTION     | Progress wire shape consumed as connect-es server-stream     |
+| [INDEX] | [CLUSTER]         | [OWNS]                                                      |
+| :-----: | :---------------- | :---------------------------------------------------------- |
+|   [1]   | PHASE_FAMILY      | Nine monotonic phase rows with rank and terminal columns    |
+|   [2]   | PROGRESS_CELL     | Atom-backed capsule; CAS rank guard; cadence-gated delivery |
+|   [3]   | OBSERVATION_SEAMS | AppUi marshal seam; wire mirror seam; sink-edge receipt law |
+|   [4]   | TS_PROJECTION     | Progress wire shape consumed as connect-es server-stream    |
 
 ## [2]-[PHASE_FAMILY]
 
@@ -179,6 +179,6 @@ interface ProgressMarkWire {
 
 ## [6]-[RESEARCH]
 
-| [INDEX] | [ITEM]                                                                                   | [PROOF]                                                                                                                                          | [GATE]        |
-| :-----: | :---------------------------------------------------------------------------------------- | :------------------------------------------------------------------------------------------------------------------------------------------------ | :------------ |
+| [INDEX] | [ITEM]                                                                                   | [PROOF]                                                                                                                                               | [GATE]        |
+| :-----: | :--------------------------------------------------------------------------------------- | :---------------------------------------------------------------------------------------------------------------------------------------------------- | :------------ |
 |   [1]   | AtomChangedEvent invocation order across concurrent Advance commits at the coalesce gate | `uv run python -m tools.assay test run --target Rasm.Compute` — CsCheck SampleParallel spec races commits and asserts zero rank regressions delivered | PROGRESS_CELL |

@@ -20,7 +20,7 @@ One typographic law serves every AppUi surface: `TypographyRole` is the ten-row 
 - Auto: one role resolve yields retained styles, chart paints, editor fonts, table columns, and shaped Skia labels alike — per-label font, size, weight, and feature setup call sites are deleted.
 - Packages: Thinktecture.Runtime.Extensions, LanguageExt.Core, BCL inbox
 - Growth: a new text appearance is one `TypographyRole` row; zero new surface.
-- Boundary: every size, weight, tracking, line-height, and OpenType-feature literal in AppUi traces to a role row — a bare font value at a call site is the named defect and the deleted pattern; numeric and temporal text arrives pre-formatted through the `ClockPolicy` NodaTime patterns and the `CompositeFormat` rail, and the numeric row guarantees tabular glyph geometry only; uppercase casing applies at presentation from the row flag; wrap behavior is a row column consumed by the metrics policy; retained-rail feature and letter-spacing application rides its research row.
+- Boundary: every size, weight, tracking, line-height, and OpenType-feature literal in AppUi traces to a role row — a bare font value at a call site is the named defect and the deleted pattern; numeric and temporal text arrives pre-formatted through the `ClockPolicy` NodaTime patterns and the `CompositeFormat` rail, and the numeric row guarantees tabular glyph geometry only; uppercase casing applies at presentation from the row flag; wrap behavior is a row column consumed by the metrics policy; the retained rail applies row values through `TextBlock.FontFeatures` (a `FontFeatureCollection`), `TextBlock.LetterSpacing`, `TextBlock.LineHeight`, and `TextBlock.TextTrimming`, and the shaping seam consumes the same tags through `TextShaperOptions.FontFeatures`.
 
 ```csharp signature
 public sealed class TypographyKeyPolicy : IEqualityComparerAccessor<string>, IComparerAccessor<string> {
@@ -79,10 +79,10 @@ public sealed record TextStyleRow(string Family, double Size, int Weight, double
 
 - Owner: `FontChain`
 - Cases: MacOS | Windows | Linux
-- Entry: `public static AppBuilder Admit(AppBuilder builder)` — one boot-time admission on the application builder; no second font registration path exists.
+- Entry: `public static AppBuilder Admit(AppBuilder builder, FontChain chain)` — one boot-time admission on the application builder; no second font registration path exists.
 - Packages: Avalonia.Fonts.Inter, Avalonia, SkiaSharp, LanguageExt.Core
 - Growth: a new platform or script coverage is one `FontChain` row or one ranked family value on an existing row; zero new surface.
-- Boundary: the chain row binds once at composition from the resolved profile — ambient OS probing and system-font assumptions are the deleted patterns; embedded Inter resolves first on every surface, host families participate only as declared ranked rows beneath it, and the symbols row terminates every walk; the mono ranks exist for the code role only; the retained fallback-chain knob spelling rides its research row.
+- Boundary: the chain row binds once at composition from the resolved profile — ambient OS probing and system-font assumptions are the deleted patterns; `WithInterFont` registers the embedded collection under the `fonts:Inter` key through the `ConfigureFonts(Action<FontManager>)` seam, `FontManagerOptions.DefaultFamilyName` pins the `fonts:Inter#Inter` family so embedded Inter resolves first on every surface, and the ranked host families plus the symbols terminator land as `FontFallbacks` rows; the mono ranks exist for the code role only and resolve through `SKFontManager.MatchFamily` on the Skia side.
 
 ```csharp signature
 public sealed record FontChain(string Rid, Seq<string> Sans, Seq<string> Mono, string Symbols) {
@@ -92,14 +92,25 @@ public sealed record FontChain(string Rid, Seq<string> Sans, Seq<string> Mono, s
 
     public SKTypeface Face(SKFontManager manager, bool mono) =>
         (mono ? Mono : Sans)
-            .Map(manager.CreateTypeface)
+            .Map(family => manager.MatchFamily(family))
             .Filter(static face => face is not null)
             .HeadOrNone()
-            .IfNone(() => manager.CreateTypeface(Symbols));
+            .IfNone(() => manager.MatchFamily(Symbols));
 }
 
 public static class FontAdmission {
-    public static AppBuilder Admit(AppBuilder builder) => builder.WithInterFont();
+    public const string EmbeddedInter = "fonts:Inter#Inter";
+
+    public static AppBuilder Admit(AppBuilder builder, FontChain chain) =>
+        builder
+            .WithInterFont()
+            .With(new FontManagerOptions {
+                DefaultFamilyName = EmbeddedInter,
+                FontFallbacks = [
+                    .. chain.Sans.Tail.Map(static family => new FontFallback { FontFamily = family }),
+                    new FontFallback { FontFamily = chain.Symbols },
+                ],
+            });
 }
 ```
 
@@ -110,7 +121,7 @@ public static class FontAdmission {
 - Receipt: the first shaped draw on a profile emits the libHarfBuzzSharp load identity — version, path, RID — consumed as typography proof by the evidence stream.
 - Packages: SkiaSharp.HarfBuzz, SkiaSharp, HarfBuzzSharp.NativeAssets.macOS, HarfBuzzSharp.NativeAssets.Win32, HarfBuzzSharp.NativeAssets.Linux, LanguageExt.Core
 - Growth: a new script or feature requirement is one policy value on the role row riding the same shaping call; zero new surface.
-- Boundary: shaping precedes drawing for every Skia-rendered glyph — manual glyph placement, per-script branches, and per-control glyph positioning are the deleted patterns; bidi and complex-script resolution happen inside the shaper; one central HarfBuzz native line serves the retained text stack and the shaped rail on every desktop profile; per-role feature tags enter the shaped rail through the gated feature-array route.
+- Boundary: shaping precedes drawing for every Skia-rendered glyph — manual glyph placement, per-script branches, and per-control glyph positioning are the deleted patterns; bidi and complex-script resolution happen inside the shaper; one central HarfBuzz native line serves the retained text stack and the shaped rail on every desktop profile; per-role feature tags enter the shaped rail as `HarfBuzzSharp.Feature` values through `Font.Shape(Buffer, params Feature[])`, and `SKShaper.Result` exposes `Codepoints`, `Clusters`, `Points`, and `Width` for direct glyph runs.
 
 ```csharp signature
 public static class ShapingSurface {
@@ -127,8 +138,8 @@ public static class ShapingSurface {
 - Cases: Heading | Paragraph | Quote | ListRows | Grid | CodeFence | Rule
 - Entry: `public static Seq<MarkdownRow> Project(string markdown)` — pure fold from document text to role-keyed rows; presentation consumes rows, never the AST.
 - Packages: Markdig, Thinktecture.Runtime.Extensions, LanguageExt.Core
-- Growth: a new document construct is one `MarkdownRow` case plus one dispatch arm on the same fold; the pipe-table arm will land on the declared `Grid` case once its block family spelling is proven; zero new surface.
-- Boundary: the pipeline is built once with in-package extensions only; `CodeFence` payloads hand off to the code-editor surface with their language tag — the projection never highlights or renders code; `HtmlBlock` and `HtmlInline` payloads degrade to empty runs so raw HTML never enters the retained tree; document headings cap at `Headline` — `Display` is reserved for shell hero text; Markdown.Avalonia and any parallel Markdown node model are the deleted patterns; retained materialization of `InlineRun` sequences rides its research row.
+- Growth: a new document construct is one `MarkdownRow` case plus one dispatch arm on the same fold; zero new surface.
+- Boundary: the pipeline is built once with in-package extensions only, and `UseAdvancedExtensions` admits the pipe-table family whose `Table`/`TableRow`/`TableCell` blocks fold into the `Grid` arm; `CodeFence` payloads hand off to the code-editor surface with their language tag — the projection never highlights or renders code; `HtmlBlock` and `HtmlInline` payloads degrade to empty runs so raw HTML never enters the retained tree; document headings cap at `Headline` — `Display` is reserved for shell hero text; Markdown.Avalonia and any parallel Markdown node model are the deleted patterns; retained materialization renders `InlineRun` sequences through the `Avalonia.Controls.Documents` family — `Run` inside `Span`, `Bold`, and `Italic` with `LineBreak`, appended to one `InlineCollection`.
 
 ```csharp signature
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
@@ -143,7 +154,7 @@ public abstract partial record MarkdownRow {
 
     public sealed record ListRows(bool Ordered, Seq<Seq<MarkdownRow>> Items) : MarkdownRow;
 
-    public sealed record Grid(Seq<Seq<InlineRun>> Cells) : MarkdownRow;
+    public sealed record Grid(Seq<Seq<Seq<InlineRun>>> Rows) : MarkdownRow;
 
     public sealed record CodeFence(string Language, string Source) : MarkdownRow;
 
@@ -167,6 +178,9 @@ public static class MarkdownProjection {
             FencedCodeBlock fence => new MarkdownRow.CodeFence(fence.Info ?? "", fence.Lines.ToString()),
             CodeBlock code => new MarkdownRow.CodeFence("", code.Lines.ToString()),
             QuoteBlock quote => new MarkdownRow.Quote(toSeq<Block>(quote).Map(Row)),
+            Markdig.Extensions.Tables.Table table => new MarkdownRow.Grid(
+                toSeq<Block>(table).Map(static row => toSeq<Block>((Markdig.Extensions.Tables.TableRow)row).Map(static cell =>
+                    toSeq<Block>((Markdig.Extensions.Tables.TableCell)cell).Bind(static inner => inner is LeafBlock leaf ? Runs(leaf) : Seq<InlineRun>())))),
             ListBlock list => new MarkdownRow.ListRows(list.IsOrdered, toSeq<Block>(list).Map(static item => toSeq<Block>((ListItemBlock)item).Map(Row))),
             ThematicBreakBlock => new MarkdownRow.Rule(),
             ParagraphBlock paragraph => new MarkdownRow.Paragraph(Runs(paragraph)),
@@ -233,17 +247,3 @@ public sealed record TextMetricsPolicy(double BaselineUnit) {
 }
 ```
 
-## [7]-[RESEARCH]
-
-| [INDEX] | [ITEM]                                                                                  | [PROOF]                                                                              | [GATE]              |
-| :-----: | ---------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------- | ------------------- |
-|   [1]   | Retained-rail OpenType feature and letter-spacing property spelling for role-row application | uv run python -m tools.assay api query avalonia Avalonia.Media.FontFeature             | ROLE_AXIS           |
-|   [2]   | ConfigureFonts payload and FontManagerOptions fallback-chain knob spelling                 | uv run python -m tools.assay api query avalonia Avalonia.Media.FontManagerOptions      | FONT_ADMISSION      |
-|   [3]   | SKFontManager.CreateTypeface lookup arity for the chain-walk fold                          | uv run python -m tools.assay api query skiasharp SkiaSharp.SKFontManager.CreateTypeface | FONT_ADMISSION      |
-|   [4]   | DrawShapedText overload arity and SKShaper.Result member spelling                          | uv run python -m tools.assay api query skiasharp.harfbuzz SkiaSharp.HarfBuzz.CanvasExtensions | SHAPING_RAIL        |
-|   [5]   | HarfBuzz feature-array shaping route carrying per-role feature tags                        | uv run python -m tools.assay api query harfbuzzsharp HarfBuzzSharp.Font.Shape           | SHAPING_RAIL        |
-|   [6]   | Markdig block payload member spellings and container enumeration for the dispatch arms     | uv run python -m tools.assay api query markdig Markdig.Syntax                           | MARKDOWN_PROJECTION |
-|   [7]   | Markdig inline payload member spellings for the run flatten                                | uv run python -m tools.assay api query markdig Markdig.Syntax.Inlines                   | MARKDOWN_PROJECTION |
-|   [8]   | Markdig pipe-table extension block family spelling for the Grid dispatch arm               | uv run python -m tools.assay api query markdig Markdig.Extensions.Tables.Table          | MARKDOWN_PROJECTION |
-|   [9]   | Avalonia inline document element family spelling for retained InlineRun materialization    | uv run python -m tools.assay api query avalonia Avalonia.Controls.Documents.Run         | MARKDOWN_PROJECTION |
-|  [10]   | SKFontMetrics member spelling for cap-height and baseline-box math                         | uv run python -m tools.assay api query skiasharp SkiaSharp.SKFontMetrics                | TEXT_METRICS        |

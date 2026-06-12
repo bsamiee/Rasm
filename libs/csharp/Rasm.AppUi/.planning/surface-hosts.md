@@ -16,7 +16,7 @@ Rasm.AppUi mounts one shell into every admitted host substrate through a single 
 
 - Owner: `SurfaceHost` — one `[Union]` host axis; `SurfaceSeam` — the host-delegate column record; `SurfaceRow` — the resolved policy row; `Surfaces` — the total dispatch and mount surface; `SurfaceFault` — the fault family; `SurfaceReceipt` and `SurfaceSession` — mount evidence.
 - Cases: AvaloniaDesktopWindow, RhinoPanel, RhinoModal, Gh2CompanionWindow, SidecarShell, WebBrowser, Headless; `SurfaceFault` = Text | HostAbsent | MountRejected | HandleUnavailable | ThreadAffinity in the 4100 code band.
-- Entry: `Fin<SurfaceSession> Mount(SurfaceHost host, SurfaceSeam seam, Control content, IClock clock, CorrelationId correlation)` — `Fin` aborts on absent host, rejected mount, missing handle, and thread-affinity violation.
+- Entry: `Fin<SurfaceSession> Mount(SurfaceHost host, SurfaceSeam seam, Control content, ClockPolicy clocks, CorrelationId correlation)` — `Fin` aborts on absent host, rejected mount, missing handle, and thread-affinity violation.
 - Auto: one mount transaction replaces seven boot programs — boot-edge guard, builder shaping, parent-handle capture, scale capture, disposal registration, and receipt emission land in one fold; raw case keys serialize through the suite wire law as locked kind literals.
 - Receipt: `SurfaceReceipt` — host case, native handle identity as descriptor and value, scale, `Instant`, `CorrelationId`.
 - Packages: Avalonia, Avalonia.Desktop, Avalonia.Headless, ReactiveUI.Avalonia, System.Reactive, Thinktecture.Runtime.Extensions, LanguageExt.Core, NodaTime, Rasm.Rhino (project), Rasm.Grasshopper (project)
@@ -94,12 +94,12 @@ public static class Surfaces {
         from started in FirstBoot() ? row.Start(row.Build(entry())) : Fin.Succ(unit)
         select started;
 
-    public static Fin<SurfaceSession> Mount(SurfaceHost host, SurfaceSeam seam, Control content, IClock clock, CorrelationId correlation) =>
+    public static Fin<SurfaceSession> Mount(SurfaceHost host, SurfaceSeam seam, Control content, ClockPolicy clocks, CorrelationId correlation) =>
         from row in Row(host, seam)
         from gate in SurfaceScheduler.For(host, row).Affinity(nameof(Mount))
         from attached in row.Attach(content)
         select new SurfaceSession(
-            new SurfaceReceipt(host, attached.Descriptor, attached.Handle, row.Scale(), clock.GetCurrentInstant(), correlation),
+            new SurfaceReceipt(host, attached.Descriptor, attached.Handle, row.Scale(), clocks.Now, correlation),
             row.Facts,
             attached.Teardown);
 
@@ -132,7 +132,7 @@ public static class Surfaces {
             .Map(static window => (fun(window.Show)(), window).Item2)
             .Map(static window => (
                 window.TryGetPlatformHandle() is { } handle ? handle.Handle.ToInt64() : 0L,
-                window.TryGetPlatformHandle() is { } shape ? shape.HandleDescriptor : nameof(SurfaceHost.Headless),
+                window.TryGetPlatformHandle()?.HandleDescriptor ?? nameof(SurfaceHost.Headless),
                 (IDisposable)Disposable.Create(window.Close)));
 }
 ```
@@ -144,26 +144,33 @@ public static class Surfaces {
 - Auto: construction runs the load-bearing order in one body — `EnforceClientSize` value, `Content`, `Prepare` — and `Mounted` appends retained-view capture, seam attach, and `StartRendering`; teardown composes `StopRendering`, seam detach, `Dispose` in declared order.
 - Packages: Avalonia, System.Reactive, LanguageExt.Core, Rasm.Rhino (project)
 - Growth: one `EmbedOptions` policy value per new platform knob; zero new surface.
-- Boundary: `EmbedCapsule` is the named boundary capsule for the statement carve-out — the constructor carries the ordered statements; `GetNSViewRetained` hands a retained pointer whose release belongs to the host seam after detach; the host seam pushes frame sync on every panel-resize fact while `EnforceClientSize` holds true; `MacOSPlatformOptions` and `AvaloniaNativePlatformOptions` values enter only through `EmbedOptions.Admit` and a hardcoded platform knob in boot code is the rejected form; the win32 reparent column and the dispatcher-pump regime stay research-gated.
+- Boundary: `EmbedCapsule` is the named boundary capsule for the statement carve-out — the constructor carries the ordered statements; `GetNSViewRetained` hands a retained pointer whose release belongs to the host seam after detach, and the accessor carries Avalonia's unstable-API obsolete marker, so the capsule's `RetainedView` body is the single acknowledged suppression site; `EnforceClientSize` is a protected setter reachable only inside the derived capsule, and the host seam pushes frame sync on every panel-resize fact while it holds true; `MacOSPlatformOptions` and `AvaloniaNativePlatformOptions` values enter only through `EmbedOptions.Admit` and a hardcoded platform knob in boot code is the rejected form — `ShowInDock` false keeps embedded rows out of the macOS Dock, `DisableDefaultApplicationMenuItems` strips the default app menu under the host menu bar, and `RenderingMode` is the backend policy column over Metal, OpenGl, and Software whose embedded value the render research row decides; the win32 reparent column and the dispatcher-pump regime stay research-gated.
 
 ```csharp signature
 public sealed record EmbedOptions(
     bool DisableAvaloniaAppDelegate,
     bool DisableSetProcessName,
     bool DisableNativeMenus,
+    bool DisableDefaultApplicationMenuItems,
+    bool ShowInDock,
     bool EnforceClientSize,
-    Option<string> NativeLibraryPath) {
+    Option<string> NativeLibraryPath,
+    Option<Seq<AvaloniaNativeRenderingMode>> RenderingMode) {
     public static readonly EmbedOptions Embedded = new(
         DisableAvaloniaAppDelegate: true,
         DisableSetProcessName: true,
         DisableNativeMenus: true,
+        DisableDefaultApplicationMenuItems: true,
+        ShowInDock: false,
         EnforceClientSize: true,
-        NativeLibraryPath: None);
+        NativeLibraryPath: None,
+        RenderingMode: None);
 
     public AppBuilder Admit(AppBuilder builder) =>
-        NativeLibraryPath
-            .Map(path => builder.With(new AvaloniaNativePlatformOptions { AvaloniaNativeLibraryPath = path }))
-            .IfNone(builder)
+        builder
+            .With(RenderingMode
+                .Map(modes => new AvaloniaNativePlatformOptions { AvaloniaNativeLibraryPath = (string?)NativeLibraryPath.Case, RenderingMode = [.. modes] })
+                .IfNone(() => new AvaloniaNativePlatformOptions { AvaloniaNativeLibraryPath = (string?)NativeLibraryPath.Case }))
             .UseSkia()
             .UseAvaloniaNative()
             .UseReactiveUI()
@@ -171,6 +178,8 @@ public sealed record EmbedOptions(
                 DisableAvaloniaAppDelegate = DisableAvaloniaAppDelegate,
                 DisableSetProcessName = DisableSetProcessName,
                 DisableNativeMenus = DisableNativeMenus,
+                DisableDefaultApplicationMenuItems = DisableDefaultApplicationMenuItems,
+                ShowInDock = ShowInDock,
             });
 }
 
@@ -191,7 +200,7 @@ public sealed class EmbedCapsule : EmbeddableControlRoot {
     public Fin<(long Handle, string Descriptor)> RetainedView() =>
         TryGetPlatformHandle() switch {
             IMacOSTopLevelPlatformHandle mac => Fin.Succ((mac.GetNSViewRetained().ToInt64(), "NSView")),
-            { } handle => Fin.Succ((handle.Handle.ToInt64(), handle.HandleDescriptor)),
+            { } handle => Fin.Succ((handle.Handle.ToInt64(), handle.HandleDescriptor ?? string.Empty)),
             null => Fin.Fail<(long, string)>(new SurfaceFault.HandleUnavailable(nameof(EmbedCapsule))),
         };
 
@@ -292,8 +301,7 @@ public abstract partial record SurfaceFact {
 
 | [INDEX] | [ITEM]                                                                                                                                                                                                                  | [PROOF]                                                                              | [GATE]             |
 | :-----: | :----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | :------------------------------------------------------------------------------------ | :------------------ |
-|   [1]   | Avalonia embedding member surface — `EmbeddableControlRoot` lifecycle members, `IMacOSTopLevelPlatformHandle` retained accessors, the `TryGetPlatformHandle` accessor and `IPlatformHandle` descriptor values, `MacOSPlatformOptions` and `AvaloniaNativePlatformOptions` knobs, `SetupWithoutStarting` admission, `Window` and `Control` content contract | `uv run python -m tools.assay api query avalonia Avalonia.Controls.Embedding.EmbeddableControlRoot` | EMBED_CAPSULE      |
-|   [2]   | Dispatcher and scheduler boundary spellings with run-loop coexistence under the Rhino-owned AppKit loop — `Dispatcher.UIThread` post and access assertion, `AvaloniaScheduler` singleton accessor, input and IME delivery, CADisplayLink-paced pump fallback row | `uv run python -m tools.assay bridge verify --pattern avalonia_embed_pump`            | SCHEDULER_BOUNDARY |
-|   [3]   | `EnforceClientSize` tracking of the foreign host view against seam-pushed frame sync on panel resize                                                                                                                      | `uv run python -m tools.assay bridge verify --pattern avalonia_embed_resize`          | EMBED_CAPSULE      |
-|   [4]   | Win32 embedding route — raw HWND reparent against the WinForms interoperability host and the Rhino Windows panel host type                                                                                                | `uv run python -m tools.assay api query avalonia.win32 WinFormsAvaloniaControlHost`   | EMBED_CAPSULE      |
-|   [5]   | Render-backend selection for the embedded surface — Metal contention against the host pipeline against software raster, compared on frame-elapsed receipts                                                                | `uv run python -m tools.assay bridge verify --pattern avalonia_embed_render`          | HOST_AXIS          |
+|   [1]   | Dispatcher and scheduler boundary spellings with run-loop coexistence under the Rhino-owned AppKit loop — `Dispatcher.UIThread` post and access assertion, `AvaloniaScheduler` singleton accessor, input and IME delivery, CADisplayLink-paced pump fallback row | `uv run python -m tools.assay bridge verify --pattern avalonia_embed_pump`            | SCHEDULER_BOUNDARY |
+|   [2]   | `EnforceClientSize` tracking of the foreign host view against seam-pushed frame sync on panel resize                                                                                                                      | `uv run python -m tools.assay bridge verify --pattern avalonia_embed_resize`          | EMBED_CAPSULE      |
+|   [3]   | Win32 embedding route — raw HWND reparent against the WinForms interoperability host (a package outside the current restore set) and the Rhino Windows panel host type                                                    | `dotnet package search Avalonia.Win32.Interoperability --exact-match`                 | EMBED_CAPSULE      |
+|   [4]   | Render-backend selection for the embedded surface — `RenderingMode` orderings of Metal against the host pipeline against software raster, compared on frame-elapsed receipts                                              | `uv run python -m tools.assay bridge verify --pattern avalonia_embed_render`          | HOST_AXIS          |

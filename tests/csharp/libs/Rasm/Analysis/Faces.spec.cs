@@ -58,7 +58,7 @@ public sealed class FacesDispatchLaws {
 public sealed class FacesRejectionRailLaws {
     [Fact]
     public void NullAspectAndUnsupportedOutputRejectBeforeNativeEvaluation() {
-        Spec.Invalid(Analyze.Run(operation: Analyze.Faces<Brep, Brep>(aspect: null!), input: default(Brep)!),
+        Spec.Invalid(Analyze.Run(operation: Analyze.Query<Brep, Brep>(query: null), input: default(Brep)!),
             then: static error => Assert.Equal(expected: "Input", actual: error.Category()));
         Spec.Invalid(Analyze.Run(operation: Faces.All.Operation<Brep, Curve>(), input: default(Brep)!),
             then: static error => {

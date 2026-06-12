@@ -4,13 +4,13 @@ Telemetry identity, the correlation spine, log projection, signal governance, an
 
 ## [1]-[INDEX]
 
-| [INDEX] | [CLUSTER]          | [OWNS]                                                                |
-| :-----: | :----------------- | :-------------------------------------------------------------------- |
-|   [1]   | TELEMETRY_IDENTITY | Minted source and meter identity plus the instrument registry         |
-|   [2]   | CORRELATION_SPINE  | One boot-minted root id stamped across every signal and hop           |
-|   [3]   | LOG_PROJECTION     | Generated lib-level delegates and per-profile pipeline-owner arbitration |
+| [INDEX] | [CLUSTER]          | [OWNS]                                                                      |
+| :-----: | :----------------- | :-------------------------------------------------------------------------- |
+|   [1]   | TELEMETRY_IDENTITY | Minted source and meter identity plus the instrument registry               |
+|   [2]   | CORRELATION_SPINE  | One boot-minted root id stamped across every signal and hop                 |
+|   [3]   | LOG_PROJECTION     | Generated lib-level delegates and per-profile pipeline-owner arbitration    |
 |   [4]   | SIGNAL_GOVERNANCE  | Per-signal sampling, buffering, enrichment, exporter placement, drain flush |
-|   [5]   | REDACTION_TAXONOMY | Seven classification rows binding redactor policy at every exporter seam |
+|   [5]   | REDACTION_TAXONOMY | Seven classification rows binding redactor policy at every exporter seam    |
 
 ## [2]-[TELEMETRY_IDENTITY]
 
@@ -20,7 +20,7 @@ Telemetry identity, the correlation spine, log projection, signal governance, an
 - Auto: builtin rows feed GC, threadpool, exception-rate, and HttpClient duration streams through `AddMeter` with zero package; minted meters carry version and correlation tags at construction.
 - Packages: Thinktecture.Runtime.Extensions, LanguageExt.Core, BCL inbox.
 - Growth: one source is one vocabulary row and one instrument is one registry row; zero new surface.
-- Boundary: a process-static `Meter` field outliving its provider is the named defect — minted pairs are `IMeterFactory`-owned and unload with the host ALC; the minted pair is the registration payload TelemetryContributorPort carries inward, deleting handler-local `ActivitySource` and `Meter` owners.
+- Boundary: a process-static `Meter` field outliving its provider is the named defect — minted pairs are `IMeterFactory`-owned and unload with the host ALC; the host builder registers the metrics services on every path including the empty builder, so `IMeterFactory` arrives with zero registration row; the minted pair is the registration payload TelemetryContributorPort carries inward, deleting handler-local `ActivitySource` and `Meter` owners.
 
 ```csharp signature
 public sealed class SignalKeyPolicy : IEqualityComparerAccessor<string>, IComparerAccessor<string> {
@@ -196,7 +196,8 @@ public static class SignalGovernance {
         LogPipeline.Owner(profile).Switch(
             state: services.AddOpenTelemetry()
                 .ConfigureResource(identity)
-                .WithTracing(static tracing => tracing
+                .WithTracing(tracing => tracing
+                    .SetSampler(new ParentBasedSampler(new TraceIdRatioBasedSampler(TelemetrySignal.Trace.Ratio(profile))))
                     .AddSource([.. TelemetrySource.Items.Where(static row => row.Minted).Select(static row => row.Key)])
                     .AddHttpClientInstrumentation())
                 .WithMetrics(static metrics => metrics
@@ -214,18 +215,18 @@ public static class SignalGovernance {
 
 [GOVERNANCE_VALUES]:
 
-| [INDEX] | [POLICY]                                        | [VALUE]                       | [BINDING]                                      |
-| :-----: | :---------------------------------------------- | :---------------------------- | :--------------------------------------------- |
-|   [1]   | trace admission ratio, serilog-projection rows  | 1.0                           | `Ratio` column, parent-based trace-id-ratio sampler |
-|   [2]   | trace admission ratio, otel-export rows         | 0.1                           | `Ratio` column, parent-based trace-id-ratio sampler |
-|   [3]   | log sampling                                    | trace-coupled                 | `AddTraceBasedSampler`                          |
-|   [4]   | metric exemplar policy                          | trace-based                   | `SetExemplarFilter` at service app roots        |
-|   [5]   | metric reader cadence                           | 60 s                          | `PeriodicExportingMetricReader` at service app roots |
-|   [6]   | global buffer admission                         | Warning and below             | `AddGlobalBuffer`                               |
-|   [7]   | buffer flush window                             | support-window deadline row   | `GlobalLogBuffer.Flush` on the fault transition |
-|   [8]   | destructuring depth cap                         | 4                             | `Destructure.ToMaximumDepth`                    |
-|   [9]   | desktop level floor                             | Information                   | `LoggingLevelSwitch` under `MinimumLevel.ControlledBy` |
-|  [10]   | spine event-id band                             | 1000-1999                     | `LoggerMessage` `EventId` values                |
+| [INDEX] | [POLICY]                                       | [VALUE]                     | [BINDING]                                              |
+| :-----: | :--------------------------------------------- | :-------------------------- | :----------------------------------------------------- |
+|   [1]   | trace admission ratio, serilog-projection rows | 1.0                         | `Ratio` column, parent-based trace-id-ratio sampler    |
+|   [2]   | trace admission ratio, otel-export rows        | 0.1                         | `Ratio` column, parent-based trace-id-ratio sampler    |
+|   [3]   | log sampling                                   | trace-coupled               | `AddTraceBasedSampler`                                 |
+|   [4]   | metric exemplar policy                         | trace-based                 | `SetExemplarFilter` at service app roots               |
+|   [5]   | metric reader cadence                          | 60 s                        | `PeriodicExportingMetricReader` at service app roots   |
+|   [6]   | global buffer admission                        | Warning and below           | `AddGlobalBuffer`                                      |
+|   [7]   | buffer flush window                            | support-window deadline row | `GlobalLogBuffer.Flush` on the fault transition        |
+|   [8]   | destructuring depth cap                        | 4                           | `Destructure.ToMaximumDepth`                           |
+|   [9]   | desktop level floor                            | Information                 | `LoggingLevelSwitch` under `MinimumLevel.ControlledBy` |
+|  [10]   | spine event-id band                            | 1000-1999                   | `LoggerMessage` `EventId` values                       |
 
 ## [6]-[REDACTION_TAXONOMY]
 
@@ -234,7 +235,7 @@ public static class SignalGovernance {
 - Auto: classification flows through `[LogProperties]` and `[TagProvider]` generated methods as `LoggerMessageState.ClassifiedTag`; `EnableRedaction` applies the bound redactor before any sink or exporter observes the tag, and the `rasm.apphost.redaction.tags` count rises per redacted tag.
 - Packages: Microsoft.Extensions.Compliance.Redaction, Microsoft.Extensions.Telemetry.Abstractions, Thinktecture.Runtime.Extensions.
 - Growth: one classification row plus one redactor binding; one redactor kind is one case; zero new surface.
-- Boundary: an unredacted classified value reaching any exporter is a seam violation; classification attributes annotate shapes at definition time through the transitively arriving compliance-abstractions surface; hmac rows pseudonymize while preserving cross-event correlation, erase rows destroy the value, and credential plus secret material never persists in any signal; one redaction policy serves logs, traces, and support capture, deleting call-site string scrubbing.
+- Boundary: an unredacted classified value reaching any exporter is a seam violation; classification attributes annotate shapes at definition time as `DataClassificationAttribute` subclasses through the transitively arriving compliance-abstractions surface; redactor binding rides `AddRedaction` with one `SetHmacRedactor` row, one `SetRedactor<ErasingRedactor>` row, and `SetFallbackRedactor<ErasingRedactor>` as the fail-closed default for unmapped classifications; hmac rows pseudonymize while preserving cross-event correlation, erase rows destroy the value, and credential plus secret material never persists in any signal; one redaction policy serves logs, traces, and support capture, deleting call-site string scrubbing.
 
 ```csharp signature
 [SmartEnum]
@@ -262,11 +263,7 @@ public sealed partial class DataClassification {
 
 ## [7]-[RESEARCH]
 
-| [INDEX] | [ITEM]                                                                                                   | [PROOF]                                                                                            | [GATE]             |
-| :-----: | :-------------------------------------------------------------------------------------------------------- | :-------------------------------------------------------------------------------------------------- | :----------------- |
-|   [1]   | `IMeterFactory` registration route, `MeterOptions` knob set, and `Instrument` mint overloads on net10      | `uv run python -m tools.assay api query microsoft.extensions.diagnostics.abstractions IMeterFactory` | TELEMETRY_IDENTITY |
-|   [2]   | `AddSerilog` host-bridge registration shape for serilog-projection app roots                                | `uv run python -m tools.assay api resolve serilog.extensions.hosting`                                | LOG_PROJECTION     |
-|   [3]   | Parent-based trace-id-ratio sampler and trace-based exemplar-filter argument spellings                      | `uv run python -m tools.assay api query opentelemetry TracerProviderBuilder`                         | SIGNAL_GOVERNANCE  |
-|   [4]   | `AddGlobalBuffer`, `EnableRedaction`, and `EnableEnrichment` configurator overloads plus `LogBufferingFilterRule` fields | `uv run python -m tools.assay api query microsoft.extensions.telemetry AddGlobalBuffer`              | SIGNAL_GOVERNANCE  |
-|   [5]   | Erasing and HMAC redactor provider registration spellings plus the classification attribute bridge          | `uv run python -m tools.assay api resolve compliance.redaction`                                      | REDACTION_TAXONOMY |
-|   [6]   | EF Core 10 and grpc-dotnet native `Activity` emission depth replacing the rejected beta instrumentation packages | `uv run python -m tools.assay test run --target Rasm.AppHost` with one `BaseProcessor<Activity>` capture spec | SIGNAL_GOVERNANCE  |
+| [INDEX] | [ITEM]                                                                                                           | [PROOF]                                                                                                       | [GATE]            |
+| :-----: | :--------------------------------------------------------------------------------------------------------------- | :------------------------------------------------------------------------------------------------------------ | :---------------- |
+|   [1]   | `AddSerilog` host-bridge registration shape for serilog-projection app roots                                     | `uv run python -m tools.assay api resolve serilog.extensions.hosting`                                         | LOG_PROJECTION    |
+|   [2]   | EF Core 10 and grpc-dotnet native `Activity` emission depth replacing the rejected beta instrumentation packages | `uv run python -m tools.assay test run --target Rasm.AppHost` with one `BaseProcessor<Activity>` capture spec | SIGNAL_GOVERNANCE |

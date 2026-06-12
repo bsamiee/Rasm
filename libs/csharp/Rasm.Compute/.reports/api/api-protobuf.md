@@ -98,6 +98,24 @@ reflection, well-known types, repeated fields, maps, and JSON projection.
 |   [7]   | `Timestamp.FromDateTime`              | factory call    | creates timestamp    |
 |   [8]   | `Duration.FromTimeSpan`               | factory call    | creates duration     |
 
+[ENTRYPOINT_SCOPE]: any-envelope, descriptor-surface, and parse-bound operations
+- rail: remote-contracts
+
+| [INDEX] | [SURFACE]                           | [CALL_SHAPE]     | [CAPABILITY]                                                            |
+| :-----: | :---------------------------------- | :--------------- | :---------------------------------------------------------------------- |
+|   [1]   | `Any.Pack`                          | factory call     | wraps a typed message                                                   |
+|   [2]   | `Any.Unpack`                        | envelope call    | extracts a typed message                                                |
+|   [3]   | `Any.Is`                            | envelope call    | tests against a `MessageDescriptor`                                     |
+|   [4]   | `ByteString.Span`                   | byte property    | exposes `ReadOnlySpan<byte>`                                            |
+|   [5]   | `FileDescriptor.MessageTypes`       | descriptor walk  | lists `MessageDescriptor` rows                                          |
+|   [6]   | `FileDescriptor.Services`           | descriptor walk  | lists `ServiceDescriptor` rows                                          |
+|   [7]   | `MessageDescriptor.Fields`          | descriptor walk  | field collection with `InDeclarationOrder`                              |
+|   [8]   | `FieldDescriptor.FieldNumber`       | descriptor value | wire field number                                                       |
+|   [9]   | `FieldDescriptor.FieldType`         | descriptor value | wire field type                                                         |
+|  [10]   | `ServiceDescriptor.Methods`         | descriptor walk  | lists `MethodDescriptor` rows                                           |
+|  [11]   | `MessageParser<T>.ParseFrom`        | parser call      | accepts `ReadOnlySequence<byte>` fragmented payloads                    |
+|  [12]   | `CodedInputStream.CreateWithLimits` | factory call     | binds size and recursion limits; package default recursion limit is 100 |
+
 ## [4]-[IMPLEMENTATION_LAW]
 
 [WIRE_CONTRACTS]:

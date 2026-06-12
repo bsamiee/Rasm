@@ -25,93 +25,22 @@ public sealed class OutputBinding {
     }
     public static OutputBinding Of<TOut>(
         Port<Shape> input,
-        IAspect aspect,
+        AnalysisQuery query,
         string name,
         string code,
         string info,
         Access access = Access.Item,
         Capability? policy = null) where TOut : notnull {
         ArgumentNullException.ThrowIfNull(argument: input);
-        ArgumentNullException.ThrowIfNull(argument: aspect);
+        ArgumentNullException.ThrowIfNull(argument: query);
         return Make(
             inputs: Seq<Port>(input),
             output: Port.Of<TOut>(name: name, code: code, info: info, access: access, requirement: Requirement.MustExist, kind: null, policy: policy, side: Side.Output),
-            operation: _ => Fin.Succ(aspect.Operation<object, TOut>()),
+            operation: _ => Fin.Succ(Analyze.Query<object, TOut>(query: query)),
             read: runtime => runtime.Shape(port: input).Map(static flows => flows.Map(static flow => flow.Project(item: (object)flow.Item))),
             lift: static flow => ((Shape)flow.Item).Inner,
             detach: static (flow, output) => ((Shape)flow.Item).Detach(output: output),
             release: static (source, transfers) => source.Iter(flow => ((Shape)flow.Item).DisposeUnlessTransferred(outputs: transfers)));
-    }
-    public static OutputBinding Of<TIn, TOut>(
-        Port<TIn> input,
-        Operation<object, TOut> operation,
-        string name,
-        string code,
-        string info,
-        Access access = Access.Item,
-        Capability? policy = null)
-        where TIn : notnull
-        where TOut : notnull {
-        ArgumentNullException.ThrowIfNull(argument: input);
-        ArgumentNullException.ThrowIfNull(argument: operation);
-        return Make(
-            inputs: Seq<Port>(input),
-            output: Port.Of<TOut>(name: name, code: code, info: info, access: access, requirement: Requirement.MustExist, kind: null, policy: policy, side: Side.Output),
-            operation: _ => Fin.Succ(operation),
-            read: runtime => runtime.Read(port: input).Map(static flows => flows.Map(static flow => flow.Project(item: (object)flow.Item))),
-            lift: static flow => flow.Item,
-            detach: static (_, output) => output,
-            release: static (_, _) => unit);
-    }
-    // Caller supplies an aggregate Operation; the first source owns detach evidence.
-    public static OutputBinding Aggregate<TIn, TOut>(
-        Port<TIn> input,
-        Operation<object, TOut> operation,
-        string name,
-        string code,
-        string info,
-        Access access = Access.Item,
-        Capability? policy = null)
-        where TIn : notnull
-        where TOut : notnull {
-        ArgumentNullException.ThrowIfNull(argument: input);
-        ArgumentNullException.ThrowIfNull(argument: operation);
-        return Make(
-            inputs: Seq<Port>(input),
-            output: Port.Of<TOut>(name: name, code: code, info: info, access: access, requirement: Requirement.MustExist, kind: null, policy: policy, side: Side.Output),
-            operation: _ => Fin.Succ(operation),
-            read: runtime => runtime.Read(port: input).Map(static flows => flows.Map(static flow => flow.Project(item: (object)flow.Item))),
-            lift: static flow => flow.Item,
-            detach: static (_, output) => output,
-            release: static (_, _) => unit);
-    }
-    public static OutputBinding Zip<TA, TB, TOut>(
-        Port<TA> left,
-        Port<TB> right,
-        Operation<object, TOut> operation,
-        string name,
-        string code,
-        string info,
-        Access access = Access.Item,
-        Capability? policy = null)
-        where TA : notnull
-        where TB : notnull
-        where TOut : notnull {
-        ArgumentNullException.ThrowIfNull(argument: left);
-        ArgumentNullException.ThrowIfNull(argument: right);
-        ArgumentNullException.ThrowIfNull(argument: operation);
-        return Make(
-            inputs: Seq<Port>(left, right),
-            output: Port.Of<TOut>(name: name, code: code, info: info, access: access, requirement: Requirement.MustExist, kind: null, policy: policy, side: Side.Output),
-            operation: _ => Fin.Succ(operation),
-            read: runtime =>
-                from a in runtime.Read(port: left)
-                from b in runtime.Read(port: right)
-                from zipped in ZipFlows(left: left, right: right, a: a, b: b)
-                select zipped,
-            lift: static flow => flow.Item,
-            detach: static (_, output) => output,
-            release: static (_, _) => unit);
     }
     internal Seq<Port> Inputs { get; }
     internal Port Input => Inputs[0];
@@ -136,12 +65,6 @@ public sealed class OutputBinding {
             run: (access, outputs, runtime, source) => Output.Run(port: output, operation: operation, lift: lift, detach: detach, access: access, outputs: outputs, runtime: runtime, source: source),
             release: release,
             empty: (access, outputs) => outputs.Slot(port: output).Iter(slot => Output.Clear(port: output, access: access, slot: slot)));
-    private static Fin<Seq<Flow<object>>> ZipFlows<TA, TB>(Port<TA> left, Port<TB> right, Seq<Flow<TA>> a, Seq<Flow<TB>> b)
-        where TA : notnull
-        where TB : notnull =>
-        a.Count == b.Count
-            ? Fin.Succ(toSeq(Enumerable.Range(start: 0, count: a.Count)).Map(index => a[index].Project(item: (object)(a[index].Item, b[index].Item))))
-            : Fin.Fail<Seq<Flow<object>>>(new PortFault.InvalidValue(Port: $"{left.Name}+{right.Name}", Detail: string.Create(CultureInfo.InvariantCulture, $"zipped input cardinality mismatch {a.Count}:{b.Count}")));
 }
 
 internal readonly record struct Hints(Seq<(Port Port, int Slot)> Inputs) {
@@ -236,8 +159,13 @@ internal static class Output {
         };
     private static Seq<object> Drain<TOut>(Port<TOut> port, int slot, Seq<Flow<TOut>> values, IDataAccess access) {
         Seq<object> transfers = access.Write(slot: slot, port: port, values: values);
-        _ = values.Choose(static value => value.Item is TopologyProjection projection ? Some(projection) : Option<TopologyProjection>.None)
-            .Iter(projection => _ = transfers.Exists(output => ReferenceEquals(objA: output, objB: projection) || projection.Transfers(output: output)) switch { true => unit, false => projection.Dispose() });
+        _ = values.Choose(static value => value.Item switch {
+            TopologyProjection topology => Some((Resource: (object)topology, Transfers: (Func<object, bool>)topology.Transfers, Dispose: (Action)(() => _ = topology.Dispose()))),
+            GeometryProjection geometry => Some((Resource: (object)geometry, Transfers: (Func<object, bool>)geometry.Transfers, Dispose: (Action)geometry.Dispose)),
+            _ => Option<(object Resource, Func<object, bool> Transfers, Action Dispose)>.None,
+        }).Iter(projection => _ = Op.SideWhen(
+                condition: !transfers.Exists(output => ReferenceEquals(objA: output, objB: projection.Resource) || projection.Transfers(arg: output)),
+                action: projection.Dispose));
         return transfers;
     }
     private static Unit RemarkUnsupported(Port port, IDataAccess access, Seq<Fault.Unsupported> faults) {

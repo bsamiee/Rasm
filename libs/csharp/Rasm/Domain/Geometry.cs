@@ -45,12 +45,6 @@ public sealed partial class Kind {
     private static Type? InheritsBase(Type type) => type.BaseType is Type b ? (ByType.Value.ContainsKey(key: b) ? b : InheritsBase(type: b)) : null;
 }
 
-[SmartEnum<int>]
-public sealed partial class IntersectionKind {
-    public static readonly IntersectionKind Unknown = new(0), Point = new(1), Overlap = new(2), Curve = new(3);
-}
-public enum IntersectionTangency { Unknown = 0, Transversal = 1, Tangent = 2 }
-public enum CurveFeature { Input = 0, Segment = 1, Edge = 2, Boundary = 3, NakedOuter = 4, NakedInner = 5, Interior = 6, NonManifold = 7, OuterLoop = 8, InnerLoop = 9, Iso = 10, Silhouette = 11, SubCurve = 12, Draft = 13 }
 [SkipUnionOps]
 [Union]
 public partial record CurveForm {
@@ -62,84 +56,87 @@ public partial record CurveForm {
     public sealed record NurbsCase(int Degree, bool IsClosed, bool IsPlanar, bool IsPeriodic, int SpanCount, int Dimension) : CurveForm;
 }
 
-[BoundaryAdapter]
 [SkipUnionOps]
 [Union]
-public abstract partial record IntersectionHit {
-    private IntersectionHit() { }
-    public sealed record PointCase(Point3d Point, IntersectionTangency Tangency = IntersectionTangency.Unknown) : IntersectionHit;
-    public sealed record CurveCase(Curve Curve, IntersectionKind CurveKind) : IntersectionHit;
-    public sealed record OverlapCase(Point3d Start, Point3d End, Interval OverlapA, Interval OverlapB, Option<Curve> Curve) : IntersectionHit;
-    public IntersectionKind Kind => Switch(pointCase: static _ => IntersectionKind.Point, curveCase: static c => c.CurveKind, overlapCase: static _ => IntersectionKind.Overlap);
-    public Seq<Curve> Curves => Switch(pointCase: static _ => Seq<Curve>(), curveCase: static c => Seq(c.Curve), overlapCase: static o => o.Curve.ToSeq());
-    public Seq<Point3d> Points => Switch(pointCase: static p => Seq(p.Point), curveCase: static _ => Seq<Point3d>(), overlapCase: static o => Seq(o.Start, o.End));
-    public Seq<Interval> Intervals => Switch(pointCase: static _ => Seq<Interval>(), curveCase: static _ => Seq<Interval>(), overlapCase: static o => Seq(o.OverlapA, o.OverlapB));
-    public static IntersectionHit At(Point3d point, IntersectionTangency tangency = IntersectionTangency.Unknown) => new PointCase(point, tangency);
-    public static IntersectionHit Along(Curve curve, IntersectionKind kind) => new CurveCase(curve, kind);
-    public static IntersectionHit Overlap(Point3d start, Point3d end, Interval overlapA, Interval overlapB, Option<Curve> curve = default) => new OverlapCase(start, end, overlapA, overlapB, curve);
-    internal bool IsValid => Switch(
-        pointCase: static p => p.Point.IsValid,
-        curveCase: static c => (c.CurveKind == IntersectionKind.Curve || c.CurveKind == IntersectionKind.Overlap) && Optional(c.Curve).Map(static curve => curve.IsValid).IfNone(noneValue: false),
-        overlapCase: static o => o.Start.IsValid && o.End.IsValid && o.OverlapA.IsValid && o.OverlapB.IsValid && o.Curve.Map(static c => c.IsValid).IfNone(noneValue: true));
-    internal Unit Dispose() => Curves.Iter(static curve => curve.Dispose());
-    internal static bool CanProjectTo(Type output) =>
-        output == typeof(IntersectionHit) || output == typeof(Curve) || output == typeof(Point3d) || output == typeof(Interval) || output == typeof(IntersectionKind) || output == typeof(IntersectionTangency);
-    internal static Fin<Seq<TOut>> Project<TOut>(Seq<IntersectionHit> hits, Op key) =>
-        hits.ForAll(static hit => hit.IsValid) switch {
-            false => DropCurves(hits: hits, result: Fin.Fail<Seq<TOut>>(key.InvalidResult())),
-            true => typeof(TOut) switch {
-                Type t when t == typeof(IntersectionHit) => key.AcceptResults<IntersectionHit, TOut>(values: hits),
-                Type t when t == typeof(Curve) => key.AcceptResults<Curve, TOut>(values: hits.Bind(static value => value.Curves)),
-                Type t when t == typeof(Point3d) => DropCurves(hits: hits, result: key.AcceptResults<Point3d, TOut>(values: hits.Bind(static value => value.Points))),
-                Type t when t == typeof(Interval) => DropCurves(hits: hits, result: key.AcceptResults<Interval, TOut>(values: hits.Bind(static value => value.Intervals))),
-                Type t when t == typeof(IntersectionKind) => DropCurves(hits: hits, result: key.AcceptResults<IntersectionKind, TOut>(values: hits.Map(static value => value.Kind))),
-                Type t when t == typeof(IntersectionTangency) => DropCurves(hits: hits, result: key.AcceptResults<IntersectionTangency, TOut>(values: hits.Map(static value => value is PointCase pc ? pc.Tangency : IntersectionTangency.Unknown))),
-                _ => DropCurves(hits: hits, result: Fin.Fail<Seq<TOut>>(key.Unsupported(geometryType: typeof(IntersectionHit), outputType: typeof(TOut)))),
-            },
-        };
-    private static Fin<Seq<TOut>> DropCurves<TOut>(Seq<IntersectionHit> hits, Fin<Seq<TOut>> result) {
-        _ = hits.Iter(static value => value.Dispose());
-        return result;
-    }
-}
-
-[SkipUnionOps]
-[Union]
-internal abstract partial record Lease<T> where T : class, IDisposable {
+public abstract partial record Lease<T> where T : class, IDisposable {
     private Lease() { }
     public sealed record Owned(T Value) : Lease<T> {
         internal TResult Project<TResult>(Func<T, TResult> project) { using T owned = Value; return project(arg: owned); }
         internal TResult Project<TState, TResult>(TState state, Func<TState, T, TResult> project) { using T owned = Value; return project(arg1: state, arg2: owned); }
     }
     public sealed record Borrowed(T Value) : Lease<T>;
-    internal TResult Use<TResult>(Func<T, TResult> project) => Switch(state: project, owned: static (use, owned) => owned.Project(project: use), borrowed: static (use, borrowed) => use(arg: borrowed.Value));
-    internal TResult Use<TState, TResult>(TState state, Func<TState, T, TResult> project) =>
+    public TResult Use<TResult>(Func<T, TResult> project) => Switch(state: project, owned: static (use, owned) => owned.Project(project: use), borrowed: static (use, borrowed) => use(arg: borrowed.Value));
+    public TResult Use<TState, TResult>(TState state, Func<TState, T, TResult> project) =>
         Switch(state: (State: state, Project: project), owned: static (use, owned) => owned.Project(state: use.State, project: use.Project), borrowed: static (use, borrowed) => use.Project(arg1: use.State, arg2: borrowed.Value));
-    internal T Resource => Switch(owned: static owned => owned.Value, borrowed: static borrowed => borrowed.Value);
-    internal Unit Dispose() => Switch(owned: static owned => { owned.Value.Dispose(); return unit; }, borrowed: static _ => unit);
+    public T Resource => Switch(owned: static owned => owned.Value, borrowed: static borrowed => borrowed.Value);
+    public Unit Dispose() => Switch(owned: static owned => { owned.Value.Dispose(); return unit; }, borrowed: static _ => unit);
 }
 // --- [MODELS] -----------------------------------------------------------------------------
-[BoundaryAdapter, StructLayout(LayoutKind.Auto)]
-public readonly record struct RayQuery(Ray3d Ray, int MaxReflections = 1) {
-    public static RayQuery Of(Ray3d ray, int maxReflections = 1) => new(Ray: ray, MaxReflections: maxReflections);
-    internal bool IsValid => Ray.Position.IsValid && Ray.Direction.IsValid && !Ray.Direction.IsTiny() && MaxReflections is >= 1 and <= 1000;
+
+[SkipUnionOps]
+[Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
+public abstract partial record GeometryRequest {
+    private GeometryRequest() { }
+    public sealed record KindCase : GeometryRequest;
+    public sealed record CoerceCase(Type Output) : GeometryRequest;
+    public sealed record BoundsCase : GeometryRequest;
+    public sealed record CurveFormCase : GeometryRequest;
+    public sealed record SurfaceFormCase : GeometryRequest;
+    public sealed record BrepFormCase : GeometryRequest;
+    public sealed record VerticesCase : GeometryRequest;
+    public sealed record SamplePointsCase(int Count) : GeometryRequest;
+    public sealed record SurfaceUvCase(Point2d Uv) : GeometryRequest;
+    public sealed record ClosestCase(Point3d Target) : GeometryRequest;
+    public sealed record SignedDistanceCase(Point3d Sample, ClosestHit Hit) : GeometryRequest;
+    public static GeometryRequest Kind => new KindCase();
+    public static GeometryRequest Coerce(Type output) {
+        ArgumentNullException.ThrowIfNull(argument: output);
+        return new CoerceCase(Output: output);
+    }
+    public static GeometryRequest Bounds => new BoundsCase();
+    public static GeometryRequest CurveForm => new CurveFormCase();
+    public static GeometryRequest SurfaceForm => new SurfaceFormCase();
+    public static GeometryRequest BrepForm => new BrepFormCase();
+    public static GeometryRequest Vertices => new VerticesCase();
+    public static GeometryRequest SamplePoints(int count) => new SamplePointsCase(Count: count);
+    public static GeometryRequest SurfaceUv(Point2d uv) => new SurfaceUvCase(Uv: uv);
+    public static GeometryRequest Closest(Point3d target) => new ClosestCase(Target: target);
+    public static GeometryRequest SignedDistance(Point3d sample, ClosestHit hit) => new SignedDistanceCase(Sample: sample, Hit: hit);
 }
+
+[BoundaryAdapter]
+public sealed record GeometryProjection(Lease<GeometryBase> Geometry, ComponentIndex Source, bool Reversed = false) : IDisposable {
+    private static readonly Op Key = Op.Of(name: nameof(GeometryProjection));
+    public GeometryBase Value => Geometry.Resource;
+    public bool IsValid => Geometry.Use(static geometry => geometry.IsValid) && Source.ComponentIndexType != ComponentIndexType.InvalidType;
+    public Fin<T> As<T>(Op? key = null) where T : GeometryBase =>
+        Geometry.Use(g => g is T typed ? Fin.Succ(typed) : Fin.Fail<T>((key ?? Key).Unsupported(g.GetType(), typeof(T))));
+    public bool Transfers(object? output) => output switch {
+        IDisposable disposable => ReferenceEquals(objA: disposable, objB: Geometry.Resource),
+        _ => false,
+    };
+    public GeometryBase DetachFrom(GeometryBase source) {
+        ArgumentNullException.ThrowIfNull(source);
+        return Geometry.Use(g => ReferenceEquals(objA: g, objB: source) ? g.Duplicate() : g);
+    }
+    public void Dispose() => _ = Geometry.Dispose();
+}
+
 [BoundaryAdapter]
 public sealed record TopologyProjection {
     private static readonly Op Key = Op.Of(name: nameof(TopologyProjection));
     private readonly Lease<GeometryBase> value;
     private readonly bool detachedSingleFace;
     private Option<Lease<Brep>> faceBrep;
-    private TopologyProjection(Lease<GeometryBase> value, CurveFeature feature, ComponentIndex source, bool reversed = false, bool detachedSingleFace = false) { this.value = value; this.detachedSingleFace = detachedSingleFace; Feature = feature; Source = source; Reversed = reversed; }
-    public static TopologyProjection Of(Curve curve, CurveFeature feature, ComponentIndex source) { ArgumentNullException.ThrowIfNull(curve); return new(value: new Lease<GeometryBase>.Owned(Value: curve), feature: feature, source: source); }
+    private TopologyProjection(Lease<GeometryBase> value, ComponentIndex source, bool reversed = false, bool detachedSingleFace = false) { this.value = value; this.detachedSingleFace = detachedSingleFace; Source = source; Reversed = reversed; }
+    public static TopologyProjection Of(Curve curve, ComponentIndex source) { ArgumentNullException.ThrowIfNull(curve); return new(value: new Lease<GeometryBase>.Owned(Value: curve), source: source); }
     public static TopologyProjection Of(BrepFace face, bool copy = false) {
         ArgumentNullException.ThrowIfNull(face);
-        return new(value: copy ? new Lease<GeometryBase>.Owned(face.DuplicateFace(duplicateMeshes: false)) : new Lease<GeometryBase>.Borrowed(face), feature: CurveFeature.Input, source: new ComponentIndex(type: ComponentIndexType.BrepFace, index: face.FaceIndex), reversed: face.OrientationIsReversed, detachedSingleFace: copy);
+        return new(value: copy ? new Lease<GeometryBase>.Owned(face.DuplicateFace(duplicateMeshes: false)) : new Lease<GeometryBase>.Borrowed(face), source: new ComponentIndex(type: ComponentIndexType.BrepFace, index: face.FaceIndex), reversed: face.OrientationIsReversed, detachedSingleFace: copy);
     }
     public static Fin<TopologyProjection> FromMesh(Mesh? mesh, ComponentIndex source) =>
-        Optional(mesh).ToFin(Key.InvalidInput()).Bind(native => new TopologyProjection(value: new Lease<GeometryBase>.Borrowed(Value: native), feature: CurveFeature.Input, source: source) switch { { HasValidSource: true } projection => Fin.Succ(projection), _ => Fin.Fail<TopologyProjection>(Key.InvalidInput()) });
+        Optional(mesh).ToFin(Key.InvalidInput()).Bind(native => new TopologyProjection(value: new Lease<GeometryBase>.Borrowed(Value: native), source: source) switch { { HasValidSource: true } projection => Fin.Succ(projection), _ => Fin.Fail<TopologyProjection>(Key.InvalidInput()) });
     public GeometryBase Value => value.Resource;
-    public CurveFeature Feature { get; }
     public ComponentIndex Source { get; }
     public bool Reversed { get; }
     internal bool HasValidSource => (Value, Source) switch {
@@ -172,7 +169,7 @@ public sealed record TopologyProjection {
         return (Value, source) switch {
             (BrepFace face, _) when ReferenceEquals(face.Brep, source) => Of(face, copy: true),
             (Mesh mesh, Mesh owner) when ReferenceEquals(mesh, owner) && HasValidSource =>
-                new(value: new Lease<GeometryBase>.Owned(Value: mesh.DuplicateMesh()), feature: Feature, source: Source, reversed: Reversed),
+                new(value: new Lease<GeometryBase>.Owned(Value: mesh.DuplicateMesh()), source: Source, reversed: Reversed),
             _ => this,
         };
     }
@@ -234,10 +231,6 @@ public readonly record struct ClosestHit(Point3d Point, Option<double> Distance,
         return hit.Distance.ToFin(Fail: key.InvalidResult()).Bind(distance => hit.Normal.ToFin(Fail: key.InvalidResult()).Map(normal => ((sample - hit.Point) * normal) >= 0.0 ? distance : -distance));
     }
 }
-[BoundaryAdapter, StructLayout(LayoutKind.Auto)] public readonly record struct Hit(int Id);
-[BoundaryAdapter, StructLayout(LayoutKind.Auto)] public readonly record struct Couple(int A, int B);
-[BoundaryAdapter, StructLayout(LayoutKind.Auto)] public readonly record struct CurveDeviation(double MinimumDistance, Point3d MinimumA, Point3d MinimumB, double MaximumDistance, Point3d MaximumA, Point3d MaximumB, double Tolerance, bool WithinTolerance);
-
 // --- [OPERATIONS] -------------------------------------------------------------------------
 [BoundaryAdapter]
 internal static class GeometryKernel {

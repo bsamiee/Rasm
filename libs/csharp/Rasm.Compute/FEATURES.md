@@ -4,41 +4,41 @@ Feature atlas for measured execution. Every concept rides `Substrate`, `ModelSou
 
 ## [1]-[EXECUTION_CONCEPTS]
 
-| [INDEX] | [CONCEPT] | [MODALITIES] | [ANCHORS] |
-| :-----: | --------- | ------------ | --------- |
-| [1] | Typed intent admission and total dispatch | all | intent-and-selection#INTENT_FAMILY, intent-and-selection#DISPATCH_SPINE |
-| [2] | Substrate selection with fallback chains and boot-frozen benchmark ranks | all | intent-and-selection#SUBSTRATE_AXIS |
-| [3] | CPU tensor lane (TensorPrimitives SIMD families, 45 op rows) | all | tensor-lane#TENSOR_VOCABULARY, tensor-lane#OPERATION_FAMILIES |
-| [4] | Layout algebra and plane staging views | all | tensor-lane#LAYOUT_ALGEBRA, staging-and-streams#PLANE_VIEWS |
-| [5] | Geometry-to-tensor feature encoding | all | tensor-lane#GEOMETRY_ENCODING |
-| [6] | Kernel equivalence proofs against Rasm baselines | all | tensor-lane#EQUIVALENCE_INTEROP |
-| [7] | Geometry ML inference (ONNX, EP-parameterized, OrtValue-only) | all | model-lane#EP_AXIS, model-lane#INFERENCE_MODES |
-| [8] | Apple-silicon ANE/GPU inference (CoreML EP row) | plugin, standalone, companion | model-lane#EP_AXIS |
-| [9] | Model provenance and extension-op admission | all | model-lane#MODEL_IDENTITY, model-lane#EXTENSION_OPS |
-| [10] | Shared session capsule with LRU eviction and warmup sweeps | all | model-lane#SESSION_CAPSULE |
-| [11] | Deterministic model-result cache (version-stamped keys, policy rows) | all | model-lane#RESULT_CACHE |
-| [12] | Staging allocation classes and pooled recyclable streams | all | staging-and-streams#ALLOCATION_AXIS, staging-and-streams#STREAM_POOL |
-| [13] | Bounded work lanes with backpressure receipts | all | scheduling-and-lanes#LANE_AXIS |
-| [14] | Solve-path isolation (GH2 structural enqueue guard) | gh2, plugin | scheduling-and-lanes#SOLVE_GUARD |
-| [15] | One processor budget across the three concurrency axes | all | scheduling-and-lanes#CPU_BUDGET |
-| [16] | Units-aware AEC calculation with dual unit evidence | all | units-boundary#QUANTITY_TABLE, units-boundary#PARSE_FORMAT |
-| [17] | Compound dimensional consistency at composition | all | units-boundary#DIMENSIONAL_LAW |
+| [INDEX] | [CONCEPT]                                                                | [MODALITIES]                  | [ANCHORS]                                                               |
+| :-----: | ------------------------------------------------------------------------ | ----------------------------- | ----------------------------------------------------------------------- |
+|   [1]   | Typed intent admission and total dispatch                                | all                           | intent-and-selection#INTENT_FAMILY, intent-and-selection#DISPATCH_SPINE |
+|   [2]   | Substrate selection with fallback chains and boot-frozen benchmark ranks | all                           | intent-and-selection#SUBSTRATE_AXIS                                     |
+|   [3]   | CPU tensor lane (TensorPrimitives SIMD families, 45 op rows)             | all                           | tensor-lane#TENSOR_VOCABULARY, tensor-lane#OPERATION_FAMILIES           |
+|   [4]   | Layout algebra and plane staging views                                   | all                           | tensor-lane#LAYOUT_ALGEBRA, staging-and-streams#PLANE_VIEWS             |
+|   [5]   | Geometry-to-tensor feature encoding                                      | all                           | tensor-lane#GEOMETRY_ENCODING                                           |
+|   [6]   | Kernel equivalence proofs against Rasm baselines                         | all                           | tensor-lane#EQUIVALENCE_INTEROP                                         |
+|   [7]   | Geometry ML inference (ONNX, EP-parameterized, OrtValue-only)            | all                           | model-lane#EP_AXIS, model-lane#INFERENCE_MODES                          |
+|   [8]   | Apple-silicon ANE/GPU inference (CoreML EP row)                          | plugin, standalone, companion | model-lane#EP_AXIS                                                      |
+|   [9]   | Model provenance and extension-op admission                              | all                           | model-lane#MODEL_IDENTITY, model-lane#EXTENSION_OPS                     |
+|  [10]   | Shared session capsule with LRU eviction and warmup sweeps               | all                           | model-lane#SESSION_CAPSULE                                              |
+|  [11]   | Deterministic model-result cache (version-stamped keys, policy rows)     | all                           | model-lane#RESULT_CACHE                                                 |
+|  [12]   | Staging allocation classes and pooled recyclable streams                 | all                           | staging-and-streams#ALLOCATION_AXIS, staging-and-streams#STREAM_POOL    |
+|  [13]   | Bounded work lanes with backpressure receipts                            | all                           | scheduling-and-lanes#LANE_AXIS                                          |
+|  [14]   | Solve-path isolation (GH2 structural enqueue guard)                      | gh2, plugin                   | scheduling-and-lanes#SOLVE_GUARD                                        |
+|  [15]   | One processor budget across the three concurrency axes                   | all                           | scheduling-and-lanes#CPU_BUDGET                                         |
+|  [16]   | Units-aware AEC calculation with dual unit evidence                      | all                           | units-boundary#QUANTITY_TABLE, units-boundary#PARSE_FORMAT              |
+|  [17]   | Compound dimensional consistency at composition                          | all                           | units-boundary#DIMENSIONAL_LAW                                          |
 
 ## [2]-[WIRE_AND_EVIDENCE_CONCEPTS]
 
-| [INDEX] | [CONCEPT] | [MODALITIES] | [ANCHORS] |
-| :-----: | --------- | ------------ | --------- |
-| [1] | Remote compute services on the suite wire vocabulary | companion, paired, web-fed | remote-lane#PROTO_VOCABULARY, remote-lane#TRANSPORT_AXIS |
-| [2] | Contract evolution by descriptor diff (additive tolerated, breaking rejected) | companion, paired, web-fed | remote-lane#CONTRACT_EVOLUTION |
-| [3] | Typed faults across the wire (FaultDetail through status details) | companion, paired, web-fed | remote-lane#FAULT_PROJECTION, intent-and-selection#DISPATCH_SPINE |
-| [4] | Credential axis behind one stamping interceptor | companion, paired, web-fed | remote-lane#CALL_POLICY |
-| [5] | Artifact frame law (64 KiB frames, Crc32, XxHash128, zero-copy wrap) | companion, paired, web-fed | remote-lane#ARTIFACT_FRAMES |
-| [6] | Progress observation and cancellation spine | all | progress-and-observation#PROGRESS_CELL, scheduling-and-lanes#DRAIN_CANCEL |
-| [7] | Observation seams: UI marshal, wire stream, sink-edge receipts | all | progress-and-observation#OBSERVATION_SEAMS |
-| [8] | Receipt union with fold projections and provenance chains | all | receipts-and-benchmarks#RECEIPT_UNION, receipts-and-benchmarks#FOLD_PROJECTIONS |
-| [9] | NodaTime-protobuf wire stamps at the temporal edge | all | receipts-and-benchmarks#WIRE_STAMPS |
-| [10] | Benchmark and profiling evidence farm with fingerprint-gated claims | service, test-host | receipts-and-benchmarks#BENCHMARK_CLAIMS |
-| [11] | TS dashboard projections (wire, progress, receipts) | web-fed | remote-lane#TS_PROJECTION, progress-and-observation#TS_PROJECTION, receipts-and-benchmarks#TS_PROJECTION |
+| [INDEX] | [CONCEPT]                                                                     | [MODALITIES]               | [ANCHORS]                                                                                                |
+| :-----: | ----------------------------------------------------------------------------- | -------------------------- | -------------------------------------------------------------------------------------------------------- |
+|   [1]   | Remote compute services on the suite wire vocabulary                          | companion, paired, web-fed | remote-lane#PROTO_VOCABULARY, remote-lane#TRANSPORT_AXIS                                                 |
+|   [2]   | Contract evolution by descriptor diff (additive tolerated, breaking rejected) | companion, paired, web-fed | remote-lane#CONTRACT_EVOLUTION                                                                           |
+|   [3]   | Typed faults across the wire (FaultDetail through status details)             | companion, paired, web-fed | remote-lane#FAULT_PROJECTION, intent-and-selection#DISPATCH_SPINE                                        |
+|   [4]   | Credential axis behind one stamping interceptor                               | companion, paired, web-fed | remote-lane#CALL_POLICY                                                                                  |
+|   [5]   | Artifact frame law (64 KiB frames, Crc32, XxHash128, zero-copy wrap)          | companion, paired, web-fed | remote-lane#ARTIFACT_FRAMES                                                                              |
+|   [6]   | Progress observation and cancellation spine                                   | all                        | progress-and-observation#PROGRESS_CELL, scheduling-and-lanes#DRAIN_CANCEL                                |
+|   [7]   | Observation seams: UI marshal, wire stream, sink-edge receipts                | all                        | progress-and-observation#OBSERVATION_SEAMS                                                               |
+|   [8]   | Receipt union with fold projections and provenance chains                     | all                        | receipts-and-benchmarks#RECEIPT_UNION, receipts-and-benchmarks#FOLD_PROJECTIONS                          |
+|   [9]   | NodaTime-protobuf wire stamps at the temporal edge                            | all                        | receipts-and-benchmarks#WIRE_STAMPS                                                                      |
+|  [10]   | Benchmark and profiling evidence farm with fingerprint-gated claims           | service, test-host         | receipts-and-benchmarks#BENCHMARK_CLAIMS                                                                 |
+|  [11]   | TS dashboard projections (wire, progress, receipts)                           | web-fed                    | remote-lane#TS_PROJECTION, progress-and-observation#TS_PROJECTION, receipts-and-benchmarks#TS_PROJECTION |
 
 ## [3]-[CAPABILITY_ROWS]
 

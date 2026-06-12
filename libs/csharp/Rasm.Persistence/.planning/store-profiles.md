@@ -4,13 +4,13 @@ Rasm.Persistence anchors every durable store on one six-row `StoreProfile` axis:
 
 ## [1]-[INDEX]
 
-| [INDEX] | [CLUSTER]         | [OWNS]                                                          |
-| :-----: | :---------------- | :--------------------------------------------------------------- |
+| [INDEX] | [CLUSTER]         | [OWNS]                                                              |
+| :-----: | :---------------- | :------------------------------------------------------------------ |
 |   [1]   | PROFILE_AXIS      | Six widened engine rows, delegate columns, the blob contract record |
-|   [2]   | STORE_LIFECYCLE   | Five states, open and restore folds, drain rows, health row      |
-|   [3]   | CROSS_PROCESS_LAW | One lease shape, locality admission, epoch fencing               |
-|   [4]   | PLACEMENT_MATRIX  | Eight modality arms resolve placement from the resolved profile  |
-|   [5]   | PROVISIONING_ROWS | Operator manifest, verification fold, maintenance rows           |
+|   [2]   | STORE_LIFECYCLE   | Five states, open and restore folds, drain rows, health row         |
+|   [3]   | CROSS_PROCESS_LAW | One lease shape, locality admission, epoch fencing                  |
+|   [4]   | PLACEMENT_MATRIX  | Eight modality arms resolve placement from the resolved profile     |
+|   [5]   | PROVISIONING_ROWS | Operator manifest, verification fold, maintenance rows              |
 
 ## [2]-[PROFILE_AXIS]
 
@@ -20,7 +20,7 @@ Rasm.Persistence anchors every durable store on one six-row `StoreProfile` axis:
 - Auto: the pg row pins `SetPostgresVersion(18, 0)` so uuidv7 and virtual-generated-column translations activate over the provider's 14.0 default dialect; the memory row rides Mode=Memory plus Cache=Shared with a token-gated keeper proof pinning the shared-cache lifetime; the seed delegate enters EF through the UseSeeding and UseAsyncSeeding option hooks at pooled-factory build.
 - Packages: Microsoft.EntityFrameworkCore.Sqlite, Microsoft.Data.Sqlite, Npgsql, Npgsql.EntityFrameworkCore.PostgreSQL, Npgsql.EntityFrameworkCore.PostgreSQL.NodaTime, Pgvector.EntityFrameworkCore, Npgsql.EntityFrameworkCore.PostgreSQL.NetTopologySuite, DuckDB.NET.Data.Full, Thinktecture.Runtime.Extensions, LanguageExt.Core, NodaTime, Rasm.AppHost (project)
 - Growth: one profile row — key, capability columns, three delegate bindings — absorbs a new engine with zero new surface; the sqlite vector gate flips one capability column; a mapped enum or composite is one MapEnum or MapComposite row on the data-source builder; S3 lands later as one app-root registration row implementing `BlobRemote` with zero Persistence rework.
-- Boundary: profile residence is single — placement consumes `ResolvedProfile` and `ProfileRoots.StoreRoot`, and Persistence owns no profile-keyed table and derives no per-user path; `FileSnapshot` implements the `BlobRemote` record today over the snapshot catalog protocol; the database is excluded from the AppHost hop law — `EnableRetryOnFailure` on the pg row and busy-retry on the sqlite rows are the only database retry owners; dsn and store-root inputs are host-resolved values handed over by app roots.
+- Boundary: profile residence is single — placement consumes `ResolvedProfile` and `ProfileRoots.StoreRoot`, and Persistence owns no profile-keyed table and derives no per-user path; `FileSnapshot` implements the `BlobRemote` record today over the snapshot catalog protocol; the database is excluded from the AppHost hop law — `EnableRetryOnFailure` on the pg row and busy-retry on the sqlite rows are the only database retry owners; dsn and store-root inputs are host-resolved values handed over by app roots; the data-source `UseNodaTime` and `UseNetTopologySuite` registrations are builder-preserving generic extensions while `UseVector` returns the erased mapper interface, so the vector registration binds by tuple-capture beside the typed builder and never re-types the chain.
 
 ```csharp signature
 public sealed class StoreKeyPolicy : IEqualityComparerAccessor<string>, IComparerAccessor<string> {
@@ -71,7 +71,9 @@ public static class StoreRows {
 
     public static IO<DbConnection> Postgres(StorePlacement placement) =>
         placement.Dsn is { IsSome: true, Case: string dsn }
-            ? IO.lift(() => (DbConnection)new NpgsqlDataSourceBuilder(dsn).EnableDynamicJson().UseNodaTime().UseVector().UseNetTopologySuite().Build().OpenConnection())
+            ? IO.lift(() => new NpgsqlDataSourceBuilder(dsn).EnableDynamicJson().UseNodaTime().UseNetTopologySuite())
+                .Map(static builder => (builder.UseVector(), builder).Item2)
+                .Map(static builder => (DbConnection)builder.Build().OpenConnection())
             : IO.fail<DbConnection>(Error.New("<dsn-absent:postgres-server>"));
 
     public static IO<DbConnection> DuckDb(StorePlacement placement) =>
@@ -130,7 +132,7 @@ public sealed record BlobRemote(
 - Cases: closed, opening, ready, drain, repair; legal transitions: closed to opening; opening to ready, repair, or closed; ready to drain or repair; drain to closed; repair to opening or closed.
 - Entry: `public static IO<StoreOpenReceipt> Open(StoreProfile row, StorePlacement placement, Atom<(StoreLifecycle State, Option<StoreOpenReceipt> Latest)> cell, Func<DbConnection, IO<StoreOpenReceipt>> prove, ClockPolicy clocks)` — `IO` carries the bracketed ceremony; ready is unreachable without a green receipt.
 - Auto: the prove delegate runs the row's open-proof order — token-gated Batteries_V2 init once per process, PRAGMA ladder, writer-lease and first-opener gate, `MigrateAsync` (the migration lock is provider-internal on both providers — lock outcome reads from migration receipts, never from Internal-namespace types), compiled-model fingerprint gate consuming the XxHash3 value as `ulong`, quick_check before ready; `Restore` fences every sharing writer, hash-verifies the staged payload, materializes to a temp file, integrity-checks, atomically renames while deleting the -wal and -shm sidecars, bumps the writer-lease epoch, and reopens through `Open`.
-- Receipt: `StoreOpenReceipt` — profile, provider route, schema fingerprint, migrations applied, pragmas applied, ordered proof facts, integrity result, lock holder, elapsed `Duration`, `Instant`, `CorrelationId`; step facts ride the receipt-sink envelope under the store-open, store-restore, and store-drain kinds.
+- Receipt: `StoreOpenReceipt` — profile, provider route, schema fingerprint, migrations applied, pragmas applied, ordered proof facts, integrity result, lock holder, elapsed `Duration`, `Instant`, `CorrelationId`; step facts ride the receipt-sink envelope under the store-open, store-restore, and store-drain kinds; `LockHolderPid` fills from the `StoreLeaseRow` first-opener row because the provider's public migration-lock handle carries no holder identity.
 - Packages: SQLitePCLRaw.bundle_e_sqlite3, Microsoft.EntityFrameworkCore.Sqlite, Microsoft.Extensions.Diagnostics.HealthChecks, Thinktecture.Runtime.Extensions, LanguageExt.Core, NodaTime, Rasm.AppHost (project)
 - Growth: one lifecycle row plus its `Legal` arms, or one proof kind appended to a row's open-proof order; zero new surface.
 - Boundary: `StoreCeremony` is the named boundary capsule for the statement carve-out — the CAS transition body carries language-owned statement forms while every other member stays expression-shaped; drain registration is the band-300 row set in checkpoint, optimize, sweep, backup, close order — ranks are the page's frozen order rows inside the AppHost Stores band, and store writes foreclose at the Telemetry band; the health row grades the lifecycle cell plus the latest receipt, with cadence one policy value derived from the health-probe deadline row at composition.
@@ -362,18 +364,14 @@ public sealed record ExtensionRequirement(string Name, bool PreloadRequired, boo
 }
 ```
 
-| [INDEX] | [ROW]              | [WORK]                            | [CADENCE]                            | [LEASE]     |
-| :-----: | :----------------- | :-------------------------------- | :----------------------------------- | :---------- |
-|   [1]   | pg-analyze         | ANALYZE                           | persistence-maintenance cron occurrence | maintenance |
-|   [2]   | pg-reindex         | REINDEX CONCURRENTLY              | persistence-maintenance cron occurrence | maintenance |
-|   [3]   | autovacuum-posture | pg_settings autovacuum read       | open ceremony                         | none        |
+| [INDEX] | [ROW]              | [WORK]                      | [CADENCE]                               | [LEASE]     |
+| :-----: | :----------------- | :-------------------------- | :-------------------------------------- | :---------- |
+|   [1]   | pg-analyze         | ANALYZE                     | persistence-maintenance cron occurrence | maintenance |
+|   [2]   | pg-reindex         | REINDEX CONCURRENTLY        | persistence-maintenance cron occurrence | maintenance |
+|   [3]   | autovacuum-posture | pg_settings autovacuum read | open ceremony                           | none        |
 
 ## [7]-[RESEARCH]
 
-| [INDEX] | [ITEM]                                                                                                                  | [PROOF]                                                                       | [GATE]            |
-| :-----: | :------------------------------------------------------------------------------------------------------------------------ | :------------------------------------------------------------------------------ | :---------------- |
-|   [1]   | PooledDbContextFactory construction and UseSeeding plus UseAsyncSeeding option spellings on the EF core options surface     | `uv run python -m tools.assay api query efcore DbContextOptionsBuilder`          | PROFILE_AXIS      |
-|   [2]   | SetPostgresVersion and EnableRetryOnFailure overloads on NpgsqlDbContextOptionsBuilder plus UseNodaTime and UseVector data-source-builder spellings | `uv run python -m tools.assay api query npgsql-ef NpgsqlDbContextOptionsBuilder` | PROFILE_AXIS      |
-|   [3]   | SqliteConnectionStringBuilder DataSource, Mode, Cache, and Pooling members with SqliteOpenMode.Memory and SqliteCacheMode.Shared | `uv run python -m tools.assay api query sqlite SqliteConnectionStringBuilder`    | PROFILE_AXIS      |
-|   [4]   | Two-process first-open race outcome under racing MigrateAsync calls and busy_timeout on one WAL file                        | `uv run python -m tools.assay test run --target Rasm.Persistence`                | CROSS_PROCESS_LAW |
-|   [5]   | Migration-lock holder evidence for the LockHolderPid receipt slot without Internal-namespace types                          | `uv run python -m tools.assay api query efcore RelationalDatabaseFacadeExtensions` | STORE_LIFECYCLE   |
+| [INDEX] | [ITEM]                                                                                               | [PROOF]                                                           | [GATE]            |
+| :-----: | :--------------------------------------------------------------------------------------------------- | :---------------------------------------------------------------- | :---------------- |
+|   [1]   | Two-process first-open race outcome under racing MigrateAsync calls and busy_timeout on one WAL file | `uv run python -m tools.assay test run --target Rasm.Persistence` | CROSS_PROCESS_LAW |

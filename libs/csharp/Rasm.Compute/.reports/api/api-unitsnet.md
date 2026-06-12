@@ -50,6 +50,27 @@ measured execution inputs and receipts.
 |  [14]   | `Torque`       | quantity       | carries torque values   |
 |  [15]   | `Ratio`        | quantity       | carries ratio values    |
 
+[PUBLIC_TYPE_SCOPE]: admitted unit enum families (`UnitsNet.Units`)
+- rail: units
+
+| [INDEX] | [SYMBOL]           | [PACKAGE_ROLE] | [CAPABILITY]                                   |
+| :-----: | :----------------- | :------------- | :--------------------------------------------- |
+|   [1]   | `LengthUnit`       | unit enum      | `Meter` canonical, `Millimeter` display        |
+|   [2]   | `AreaUnit`         | unit enum      | `SquareMeter` canonical and display            |
+|   [3]   | `VolumeUnit`       | unit enum      | `CubicMeter` canonical and display             |
+|   [4]   | `MassUnit`         | unit enum      | `Kilogram` canonical and display               |
+|   [5]   | `DurationUnit`     | unit enum      | `Second` canonical and display                 |
+|   [6]   | `SpeedUnit`        | unit enum      | `MeterPerSecond` canonical and display         |
+|   [7]   | `AccelerationUnit` | unit enum      | `MeterPerSecondSquared` canonical and display  |
+|   [8]   | `ForceUnit`        | unit enum      | `Newton` canonical and display                 |
+|   [9]   | `PressureUnit`     | unit enum      | `Pascal` canonical, `Kilopascal` display       |
+|  [10]   | `EnergyUnit`       | unit enum      | `Joule` canonical, `KilowattHour` display      |
+|  [11]   | `PowerUnit`        | unit enum      | `Watt` canonical and display                   |
+|  [12]   | `TemperatureUnit`  | unit enum      | `Kelvin` canonical, `DegreeCelsius` display    |
+|  [13]   | `AngleUnit`        | unit enum      | `Radian` canonical, `Degree` display           |
+|  [14]   | `TorqueUnit`       | unit enum      | `NewtonMeter` canonical and display            |
+|  [15]   | `RatioUnit`        | unit enum      | `DecimalFraction` canonical, `Percent` display |
+
 [PUBLIC_TYPE_SCOPE]: parsing, metadata, and units
 - rail: units
 
@@ -101,6 +122,24 @@ measured execution inputs and receipts.
 |   [6]   | `QuantityFormatter.Format`       | formatter call    | writes quantity text    |
 |   [7]   | `GenericMathExtensions`          | extension surface | applies generic math    |
 |   [8]   | `DecimalGenericMathExtensions`   | extension surface | applies decimal math    |
+
+[ENTRYPOINT_SCOPE]: metadata, dimensions, and unit-system policy
+- rail: units
+
+| [INDEX] | [SURFACE]                      | [CALL_SHAPE]       | [CAPABILITY]                                 |
+| :-----: | :----------------------------- | :----------------- | :------------------------------------------- |
+|   [1]   | `Quantity.TryFrom`             | factory call       | creates dynamic value from numeric plus enum |
+|   [2]   | `Info` (per-quantity static)   | metadata property  | exposes the family `QuantityInfo`            |
+|   [3]   | `QuantityInfo.ValueType`       | metadata property  | names the quantity CLR type                  |
+|   [4]   | `QuantityInfo.BaseDimensions`  | metadata property  | exposes the dimension vector                 |
+|   [5]   | `IQuantity.Dimensions`         | metadata property  | exposes constructed-quantity dimensions      |
+|   [6]   | `IQuantity.Unit`               | unit property      | names the constructed unit enum value        |
+|   [7]   | `BaseDimensions.Multiply`      | dimension algebra  | composes dimension products                  |
+|   [8]   | `BaseDimensions.Divide`        | dimension algebra  | composes dimension quotients                 |
+|   [9]   | `BaseDimensions.Dimensionless` | dimension constant | names the zero-dimension vector              |
+|  [10]   | `UnitSystem.SI`                | unit policy        | provides the SI base-unit system             |
+|  [11]   | `UnitParser.Default`           | parser property    | provides the default unit parser             |
+|  [12]   | `UnitConverter.TryConvert`     | converter call     | converts numeric values without throwing     |
 
 ## [4]-[IMPLEMENTATION_LAW]
 

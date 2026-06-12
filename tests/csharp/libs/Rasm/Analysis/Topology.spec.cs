@@ -106,7 +106,7 @@ public sealed class TopologyAspectDispatchLaws {
         Assert.False(condition: Topologies.ContainsPoint(point: Point3d.Unset).Operation<Mesh, bool>().IsSupported);
     [Fact]
     public void NullAspectRejectsWithInputFaultAndUnsupportedCarriesTypePair() {
-        Spec.Invalid(Analyze.Run(operation: Analyze.Topologies<Mesh, int>(aspect: null!), input: default(Mesh)!),
+        Spec.Invalid(Analyze.Run(operation: Analyze.Query<Mesh, int>(query: null), input: default(Mesh)!),
             then: static error => Assert.Equal(expected: "Input", actual: error.Category()));
         Spec.Invalid(Analyze.Run(operation: Topologies.Domains.Operation<Mesh, Interval>(), input: default(Mesh)!),
             then: static error => {

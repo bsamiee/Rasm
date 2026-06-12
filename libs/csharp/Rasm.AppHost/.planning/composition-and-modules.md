@@ -4,10 +4,10 @@ One composition root per process folds a frozen module table into the service gr
 
 ## [1]-[INDEX]
 
-| [INDEX] | [CLUSTER]           | [OWNS]                                                            |
-| :-----: | :------------------ | :---------------------------------------------------------------- |
-|   [1]   | MODULE_TABLE        | Frozen contribution rows; one descriptor algebra for every fan-in seam |
-|   [2]   | SCAN_AND_DECORATE   | One-pass scan, decoration, keyed registration fold with receipted freeze |
+| [INDEX] | [CLUSTER]           | [OWNS]                                                                        |
+| :-----: | :------------------ | :---------------------------------------------------------------------------- |
+|   [1]   | MODULE_TABLE        | Frozen contribution rows; one descriptor algebra for every fan-in seam        |
+|   [2]   | SCAN_AND_DECORATE   | One-pass scan, decoration, keyed registration fold with receipted freeze      |
 |   [3]   | BOUNDARY_ACTIVATION | Cached constructor plans and validator discovery at admission boundaries only |
 
 ## [2]-[MODULE_TABLE]
@@ -62,7 +62,7 @@ Module keys are `nameof`-derived assembly symbols, never free literals; the rece
 Pass law:
 - Scan sources are `FromAssemblies` over the row's explicit `Assembly`. `FromApplicationDependencies` and `FromDependencyContext` walk the default dependency closure and are the deleted sources: plugin load contexts never appear in that closure, so closure-walking scans silently miss every plugin assembly.
 - Selection composes `AddClasses`, then `AssignableTo`, `WithAttribute`, and `InNamespaces` filters, then mapping: `UsingAttributes` maps `ServiceDescriptorAttribute`-annotated classes, `AsImplementedInterfaces` and `AsSelfWithInterfaces` map the rest, and `WithLifetime` plus `WithServiceKey` bind lifetime and key inside the same pass.
-- Duplicate registrations resolve under the throw `RegistrationStrategy`; the thrown rejection captures into the rail as conflict evidence carrying the module key — never a silent append, never a silent replace. `RegistrationStrategy.Replace` survives only as an explicit row-level policy on a row that names the contract it overrides.
+- Duplicate registrations resolve under `UsingRegistrationStrategy(RegistrationStrategy.Throw)` bound inside the same `Scan` pass; the thrown rejection captures into the rail as conflict evidence carrying the module key — never a silent append, never a silent replace. `RegistrationStrategy.Replace` survives only as an explicit row-level policy on a row that names the contract it overrides.
 - `Decorate` and `TryDecorate` registrar rows wrap contributor ports with telemetry and receipt decoration; the decorated contract stays the public contract, and `TryDecorate` is the spelling on rows whose target contract is profile-conditional.
 - Registration is bootstrap-only: after `MakeReadOnly`, descriptor mutation throws, so every late registration attempt surfaces at the root instead of drifting into runtime state.
 
@@ -113,7 +113,7 @@ The fold is the only writer of the collection: scan first inside each module so 
 
 Activation law:
 - Empty arity routes through `GetServiceOrCreateInstance` — registered contract first, constructed instance second — so optional host contracts admit without a parallel probe entrypoint.
-- Supplied arity routes through the `ActivatorUtilities.CreateFactory` plan cached per boundary type; the plan's argument vector derives from the first admission, so a boundary-constructed type owns exactly one explicit-dependency shape, and a second shape for the same type is a row on a new type, never an overload.
+- Supplied arity routes through the `ActivatorUtilities.CreateFactory(Type, Type[])` plan cached per boundary type — the returned `ObjectFactory` delegate invokes as `(IServiceProvider, object?[]?) -> object`; the plan's argument vector derives from the first admission, so a boundary-constructed type owns exactly one explicit-dependency shape, and a second shape for the same type is a row on a new type, never an overload.
 - Every activation failure converts at this seam: the capture funnel projects construction rejections into the rail with the target type name, and no raw activation exception crosses inward.
 - `AddValidatorsFromAssemblies` discovers validators with an explicit `ServiceLifetime` and a deterministic `AssemblyScanner.AssemblyScanResult` filter; `includeInternalTypes` stays `false`, so public validators are the admitted set. The produced delegate enters the module table as one `Registrars` row — validator discovery owns no second registration path.
 
@@ -150,8 +150,6 @@ public static class BoundaryActivation {
 
 ## [5]-[RESEARCH]
 
-| [INDEX] | [ITEM]                                                                    | [PROOF]                                                                                          | [GATE]              |
-| :-----: | :------------------------------------------------------------------------ | :------------------------------------------------------------------------------------------------ | :------------------ |
-|   [1]   | Scrutor decoration behavior over `DescribeKeyed` keyed descriptors        | `uv run python -m tools.assay test run` over a composition spec decorating a keyed contributor row under `ValidateOnBuild` | SCAN_AND_DECORATE   |
-|   [2]   | Selector spelling binding the throw `RegistrationStrategy` inside one `Scan` pass | `uv run python -m tools.assay api query scrutor IServiceTypeSelector`                              | SCAN_AND_DECORATE   |
-|   [3]   | `ObjectFactory` delegate shape returned by `ActivatorUtilities.CreateFactory` | `uv run python -m tools.assay api query dependencyinjection ActivatorUtilities`                    | BOUNDARY_ACTIVATION |
+| [INDEX] | [ITEM]                                                             | [PROOF]                                                                                                                    | [GATE]            |
+| :-----: | :----------------------------------------------------------------- | :------------------------------------------------------------------------------------------------------------------------- | :---------------- |
+|   [1]   | Scrutor decoration behavior over `DescribeKeyed` keyed descriptors | `uv run python -m tools.assay test run` over a composition spec decorating a keyed contributor row under `ValidateOnBuild` | SCAN_AND_DECORATE |

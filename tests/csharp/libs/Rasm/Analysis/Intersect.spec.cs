@@ -130,3 +130,30 @@ public sealed class CapabilityPredicateLaws {
             ("Plane×Curve", static () => Analyze.CanDeviation(left: typeof(Plane), right: typeof(Curve)), false),
             ("Mesh×Brep", static () => Analyze.CanDeviation(left: typeof(Mesh), right: typeof(Brep)), false));
 }
+
+public sealed class RelationQuerySupportLaws {
+    private static readonly RayQuery ForwardRay = RayQuery.Of(new Ray3d(position: new Point3d(x: -1.0, y: 0.0, z: 0.0), direction: Vector3d.XAxis));
+
+    [Fact]
+    public void QueryRailOwnsPairRelationCapabilitiesAndRejectsForeignOutputs() =>
+        Spec.SupportMatrix(
+            ("Intersections Line×Line→Point3d", static () => Analyze.Query<Line, Line, Point3d>(AnalysisQuery.Relation(RelationQuery.Intersections)).IsSupported, true),
+            ("Intersections Line×Line→string", static () => Analyze.Query<Line, Line, string>(AnalysisQuery.Relation(RelationQuery.Intersections)).IsSupported, false),
+            ("Classification Curve×Curve→IntersectionTangency", static () => Analyze.Query<Curve, Curve, IntersectionTangency>(AnalysisQuery.Relation(RelationQuery.Classification)).IsSupported, true),
+            ("Deviation Curve×Line→CurveDeviation", static () => Analyze.Query<Curve, Line, CurveDeviation>(AnalysisQuery.Relation(RelationQuery.CurveDeviation)).IsSupported, true),
+            ("Deviation Curve×Mesh→CurveDeviation", static () => Analyze.Query<Curve, Mesh, CurveDeviation>(AnalysisQuery.Relation(RelationQuery.CurveDeviation)).IsSupported, false),
+            ("Conformance Curve×Plane→double", static () => Analyze.Query<Curve, Plane, double>(AnalysisQuery.Relation(RelationQuery.Conformance(metric: ConformanceMetric.Distance, count: 8))).IsSupported, true),
+            ("Conformance Point3d×Plane→double", static () => Analyze.Query<Point3d, Plane, double>(AnalysisQuery.Relation(RelationQuery.Conformance(metric: ConformanceMetric.Distance, count: 8))).IsSupported, false));
+
+    [Fact]
+    public void QueryRailOwnsSingleGeometryRelationCapabilitiesAndInvalidRayInput() {
+        Spec.SupportMatrix(
+            ("Self Curve→IntersectionHit", static () => Analyze.Query<Curve, IntersectionHit>(AnalysisQuery.Relation(RelationQuery.SelfIntersection)).IsSupported, true),
+            ("Self Brep→IntersectionHit", static () => Analyze.Query<Brep, IntersectionHit>(AnalysisQuery.Relation(RelationQuery.SelfIntersection)).IsSupported, false),
+            ("Ray Mesh→Point3d", static () => Analyze.Query<Mesh, Point3d>(AnalysisQuery.Relation(RelationQuery.Ray(ForwardRay))).IsSupported, true),
+            ("Ray Mesh→string", static () => Analyze.Query<Mesh, string>(AnalysisQuery.Relation(RelationQuery.Ray(ForwardRay))).IsSupported, false));
+        Spec.Invalid(
+            result: Analyze.Run<Mesh, Point3d>(query: AnalysisQuery.Relation(RelationQuery.Ray(RayQuery.Of(new Ray3d(position: Point3d.Origin, direction: Vector3d.Unset)))), input: new Mesh()),
+            then: static error => Assert.Equal(expected: "Input", actual: error.Category()));
+    }
+}

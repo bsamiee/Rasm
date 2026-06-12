@@ -6,7 +6,7 @@ using Rhino.Geometry;
 namespace Rasm.Tests.Domain;
 
 // --- [MODELS] ----------------------------------------------------------------------------
-// LOC overage (~213) is a justified multi-concept owner: Stat (Welford) + Distribution (quantile) + SampleMoment (covariance) + ScalarMetric/CurvatureMode/StatContext/ExtremumDirection/ResidualAggregate dispatch.
+// LOC overage is a justified multi-concept owner: Stat (Welford) + Distribution (quantile) + SampleMoment (covariance) + ScalarMetric/StatContext/ExtremumDirection.
 internal static class StatGens {
     public static readonly Op Key = Op.Of(name: "stats-test");
     public static readonly Func<double, double, bool> Approx = Gens.Approx(relativeTolerance: 1.0e-6);
@@ -15,8 +15,6 @@ internal static class StatGens {
     public static readonly Gen<Seq<double>> ConstantFinite = Gens.Finite.Select(Gen.Int[2, 64], static (double x, int n) => toSeq(Enumerable.Repeat(element: x, count: n)));
     public static readonly Gen<ScalarMetric> ScalarMetricCase = Gen.OneOfConst(ScalarMetric.Magnitude, ScalarMetric.Gaussian, ScalarMetric.Mean);
     public static readonly Gen<ExtremumDirection> ExtremumDirectionCase = Gen.OneOfConst(ExtremumDirection.Maximum, ExtremumDirection.Minimum);
-    public static readonly Gen<Seq<ResidualSample>> Residuals = Gens.NonEmptyArray(Gens.Finite.Select(Gen.Int[0, 20], static (double d, int i) =>
-        new ResidualSample(Index: i, Location: Point3d.Origin, Distance: Math.Abs(d), Tolerance: 0.5, WithinTolerance: Math.Abs(d) <= 0.5)), max: 24).Select(static rows => toSeq(rows));
 }
 
 // --- [OPERATIONS] ----------------------------------------------------------------------------
@@ -134,28 +132,11 @@ public sealed class SampleMomentLaws {
     }
 }
 
-public sealed class ResidualAndCurvatureLaws {
+public sealed class ExtremaToleranceLaws {
     [Fact]
-    public void ResidualDispatchOwnsDistancesSummaryMaximumDistributionAndUnsupported() =>
-        Spec.ForAll(StatGens.Residuals, samples => {
-            Spec.Succ(Stat.Residuals<Seq<double>>(samples: samples, key: StatGens.Key, aggregate: ResidualAggregate.Distances), then: distances => Assert.Equal(expected: samples.Count, actual: distances.Count));
-            Spec.Succ(Stat.Residuals<Stat>(samples: samples, key: StatGens.Key, aggregate: ResidualAggregate.Summary(tolerance: 0.5)), then: summary => Assert.Equal(expected: samples.Count, actual: summary.Count));
-            Spec.Succ(Stat.Residuals<ResidualSample>(samples: samples, key: StatGens.Key, aggregate: ResidualAggregate.Maximum), then: max => Assert.Equal(expected: samples.AsIterable().Max(static s => s.Distance), actual: max.Distance));
-            Spec.Succ(Stat.Residuals<Distribution>(samples: samples, key: StatGens.Key, aggregate: ResidualAggregate.Distribution(Seq(50.0))), then: dist => Assert.Single(collection: dist.Percentiles));
-            Spec.Fail(Stat.Residuals<int>(samples: samples, key: StatGens.Key, aggregate: ResidualAggregate.Distances));
-        });
-    [Fact]
-    public void ExtremaPreservesToleranceTiesAndCurvatureRoutesMetrics() {
+    public void ExtremaPreservesToleranceTies() {
         Seq<(string Id, double Score)> items = Seq(("a", 1.0), ("b", 1.04), ("c", 0.0));
         Assert.Equal<string>(expected: ["a", "b"], actual: Stat.Extrema(items: items, projection: static x => x.Score, tolerance: 0.05, direction: ExtremumDirection.Maximum).Map(static x => x.Id).AsIterable().ToArray());
-        Assert.True(CurvatureMode.Vector.IsCurveMagnitude);
-        Assert.True(CurvatureMode.Scalar(metric: ScalarMetric.Magnitude).IsCurveMagnitude);
-        Assert.False(CurvatureMode.Scalar(metric: ScalarMetric.Gaussian).IsCurveMagnitude);
-        Assert.False(CurvatureMode.Scalar(metric: ScalarMetric.Mean).IsCurveMagnitude);
-        Assert.Equal<ScalarMetric>(expected: [ScalarMetric.Gaussian, ScalarMetric.Mean], actual: CurvatureMode.Vector.SurfaceMetrics.AsIterable().ToArray());
-        Assert.Empty(collection: CurvatureMode.Scalar(metric: ScalarMetric.Magnitude).SurfaceMetrics);
-        Assert.Equal<ScalarMetric>(expected: [ScalarMetric.Gaussian], actual: CurvatureMode.Scalar(metric: ScalarMetric.Gaussian).SurfaceMetrics.AsIterable().ToArray());
-        Assert.Equal<ScalarMetric>(expected: [ScalarMetric.Mean], actual: CurvatureMode.Scalar(metric: ScalarMetric.Mean).SurfaceMetrics.AsIterable().ToArray());
     }
 }
 

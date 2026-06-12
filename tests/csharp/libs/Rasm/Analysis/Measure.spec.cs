@@ -141,7 +141,7 @@ public sealed class MeasureDispatchLaws {
         });
     [Fact]
     public void RejectedDispatchSurfacesYieldStableFaultCategoriesWithoutNativeEvaluation() {
-        Spec.Invalid(Analyze.Run(operation: Analyze.Measure<Curve, double>(aspect: null!), input: default(Curve)!),
+        Spec.Invalid(Analyze.Run(operation: Analyze.Query<Curve, double>(query: null), input: default(Curve)!),
             then: static error => Assert.Equal(expected: "Input", actual: error.Category()));
         Spec.Invalid(Analyze.Run(operation: Measure.SpatialMidpoint.Operation<Mesh, double>(), input: default(Mesh)!),
             then: static error => {

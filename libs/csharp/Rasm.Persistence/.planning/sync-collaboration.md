@@ -4,13 +4,13 @@ Rasm.Persistence owns local-first synchronization and collaboration: the op-log 
 
 ## [1]-[INDEX]
 
-| [INDEX] | [CLUSTER]         | [OWNS]                                                                  |
-| :-----: | :---------------- | :----------------------------------------------------------------------- |
+| [INDEX] | [CLUSTER]         | [OWNS]                                                                          |
+| :-----: | :---------------- | :------------------------------------------------------------------------------ |
 |   [1]   | OPLOG_CHANGEFEED  | Op-log shape, HLC stamping, transfer manifests, tag-transition cursor mechanics |
-|   [2]   | MERGE_LAW         | LWW adjudication, conflict receipts, idempotent apply fold               |
-|   [3]   | TRANSPORT_AXIS    | Three transport cases widened by topology and direction fields           |
-|   [4]   | PRESENCE_AND_BLOB | Presence rows, DropOldest lane, settled blob-contract framing, offline queue |
-|   [5]   | TS_PROJECTION     | MessagePack wire shapes for segments, conflicts, presence, rejection     |
+|   [2]   | MERGE_LAW         | LWW adjudication, conflict receipts, idempotent apply fold                      |
+|   [3]   | TRANSPORT_AXIS    | Three transport cases widened by topology and direction fields                  |
+|   [4]   | PRESENCE_AND_BLOB | Presence rows, DropOldest lane, settled blob-contract framing, offline queue    |
+|   [5]   | TS_PROJECTION     | MessagePack wire shapes for segments, conflicts, presence, rejection            |
 
 ## [2]-[OPLOG_CHANGEFEED]
 
@@ -63,10 +63,10 @@ public static class OpLog {
 }
 ```
 
-| [INDEX] | [POLICY]               | [VALUE]                       | [BINDING]                                          |
-| :-----: | :--------------------- | :---------------------------- | :-------------------------------------------------- |
-|   [1]   | cursor replay cadence  | `Every` 15 s                  | one `ScheduleEntry` row per peer process, lease none |
-|   [2]   | tombstone retention    | age-bound class on delete rows | retention sweep rows fold over the op-log artifact class |
+| [INDEX] | [POLICY]              | [VALUE]                        | [BINDING]                                                |
+| :-----: | :-------------------- | :----------------------------- | :------------------------------------------------------- |
+|   [1]   | cursor replay cadence | `Every` 15 s                   | one `ScheduleEntry` row per peer process, lease none     |
+|   [2]   | tombstone retention   | age-bound class on delete rows | retention sweep rows fold over the op-log artifact class |
 
 ## [3]-[MERGE_LAW]
 
@@ -158,11 +158,11 @@ public static class SyncMerge {
 - Owner: `SyncTopology` and `SyncDirection` keyless vocabularies; `SyncTransport` `[Union]`; the `SyncPump` dispatch surface with the `CopyGraph` transport bridge.
 - Cases: 3 transport cases — PgLogicalReplication, HttpDelta, SpeckleLikeDiff — widened by the `Topology` and `Direction` fields; fan-in, fan-out, and capture direction are field values, never new cases.
 - Entry: `public static IO<SyncApplyReceipt> Run(SyncSession session, SyncTransport transport)` — one total state-threaded dispatch.
-- Auto: `Options` fixes the non-obsolete pgoutput spelling — protocol V4, parallel streaming, binary wire; `Open` is the slot-attach stream with `StartReplication` taking a non-optional cancellation token; slot create and acknowledge complete the lifecycle, with acknowledge gated on the message-hierarchy research row.
+- Auto: `Options` fixes the non-obsolete pgoutput spelling — protocol V4, parallel streaming, binary wire; `Open` is the slot-attach stream with `StartReplication` taking a non-optional cancellation token; `CreatePgOutputReplicationSlot` creates the slot and acknowledgement rides `SetReplicationStatus` with the applied-and-flushed LSN after each committed apply, flushed by `SendStatusUpdate` or the 10-second `WalReceiverStatusInterval` feedback cadence.
 - Receipt: every pump run yields one `SyncApplyReceipt`; slot lifecycle evidence rides `ReceiptSinkPort` kinds.
 - Packages: Npgsql, LanguageExt.Core, Thinktecture.Runtime.Extensions, NodaTime, BCL inbox.
 - Growth: a new transport is one case row plus one dispatch arm, zero new surface; future PowerSync lands as one designed-for case behind its admission gate; future cr-sqlite lands as native-sqlite extension rows plus merge-law rows, never a case here.
-- Boundary: HttpDelta rides the AppHost `OutboundHop` http-api keyed pipeline — retry, backoff, and hop deadlines are owned there and the database stays excluded from the hop law; the document-granular fallback is the RFC 6902 patch payload, subordinate to the op-log changefeed, and RFC 7386 merge-patch is the rejected form; SSE and WebSocket transports are rejected — server-stream verbs own streaming; the obsolete ulong-protocol `PgOutputReplicationOptions` constructors are the rejected spellings; `Decode` quarantines the replication-message read behind the session delegate until its research row resolves; a transport bridge is two sessions composed through `CopyGraph` — transport state and op-log mechanics live here, the wire leg is the settled proto vocabulary.
+- Boundary: HttpDelta rides the AppHost `OutboundHop` http-api keyed pipeline — retry, backoff, and hop deadlines are owned there and the database stays excluded from the hop law; the document-granular fallback is the RFC 6902 patch payload, subordinate to the op-log changefeed, and RFC 7386 merge-patch is the rejected form; SSE and WebSocket transports are rejected — server-stream verbs own streaming; the obsolete ulong-protocol `PgOutputReplicationOptions` constructor is the rejected spelling; `Decode` folds the pgoutput message family — `InsertMessage`, the `DefaultUpdateMessage`/`FullUpdateMessage`/`IndexUpdateMessage` update leaves, the `KeyDeleteMessage`/`FullDeleteMessage` delete leaves, `TruncateMessage`, and the stream control frames — over `RelationMessage` schema context into op-log entries behind the session delegate; a transport bridge is two sessions composed through `CopyGraph` — transport state and op-log mechanics live here, the wire leg is the settled proto vocabulary.
 
 ```csharp signature
 [SmartEnum]
@@ -240,12 +240,12 @@ public static class SyncPump {
 }
 ```
 
-| [INDEX] | [POLICY]                       | [VALUE]                                | [BINDING]                                              |
-| :-----: | :----------------------------- | :-------------------------------------- | :------------------------------------------------------- |
-|   [1]   | generated-column replication   | `PublishGeneratedColumns` on STORED columns only | pairs the STORED generated-column schema law      |
-|   [2]   | idle slot reclamation          | config-sourced `IdleSlotTimeout`         | server setting verified by the provisioning probe rows   |
-|   [3]   | replication conflict statistics | subscription-stats read view            | research row [2] gates the column set                    |
-|   [4]   | session admission              | schema-fingerprint equality              | mismatch is the typed `SyncRejectionWire` refusal        |
+| [INDEX] | [POLICY]                        | [VALUE]                                          | [BINDING]                                              |
+| :-----: | :------------------------------ | :----------------------------------------------- | :----------------------------------------------------- |
+|   [1]   | generated-column replication    | `PublishGeneratedColumns` on STORED columns only | pairs the STORED generated-column schema law           |
+|   [2]   | idle slot reclamation           | config-sourced `IdleSlotTimeout`                 | server setting verified by the provisioning probe rows |
+|   [3]   | replication conflict statistics | subscription-stats read view                     | research row [1] gates the column set                  |
+|   [4]   | session admission               | schema-fingerprint equality                      | mismatch is the typed `SyncRejectionWire` refusal      |
 
 ## [5]-[PRESENCE_AND_BLOB]
 
@@ -288,12 +288,12 @@ public static class Presence {
 }
 ```
 
-| [INDEX] | [POLICY]            | [VALUE]                                       | [BINDING]                                        |
-| :-----: | :------------------ | :--------------------------------------------- | :------------------------------------------------ |
-|   [1]   | presence heartbeat  | `Every` 15 s                                   | one `ScheduleEntry` row per active editing surface |
-|   [2]   | presence TTL        | 45 s — 3 × heartbeat                           | `Ttl`                                             |
-|   [3]   | presence lane       | capacity 64, DropOldest, single reader          | `Lane`                                            |
-|   [4]   | blob framing        | 64 KiB frames, Crc32 per frame, XxHash128 whole | settled ArtifactSync frame constants              |
+| [INDEX] | [POLICY]           | [VALUE]                                         | [BINDING]                                          |
+| :-----: | :----------------- | :---------------------------------------------- | :------------------------------------------------- |
+|   [1]   | presence heartbeat | `Every` 15 s                                    | one `ScheduleEntry` row per active editing surface |
+|   [2]   | presence TTL       | 45 s — 3 × heartbeat                            | `Ttl`                                              |
+|   [3]   | presence lane      | capacity 64, DropOldest, single reader          | `Lane`                                             |
+|   [4]   | blob framing       | 64 KiB frames, Crc32 per frame, XxHash128 whole | settled ArtifactSync frame constants               |
 
 ## [6]-[TS_PROJECTION]
 
@@ -365,7 +365,6 @@ interface PresenceRowWire {
 
 ## [7]-[RESEARCH]
 
-| [INDEX] | [ITEM]                                                                                                          | [PROOF]                                                              | [GATE]         |
-| :-----: | :--------------------------------------------------------------------------------------------------------------- | :--------------------------------------------------------------------- | :-------------- |
-|   [1]   | PgOutputReplicationMessage leaf set and the LSN acknowledgement member behind the `Decode` delegate               | `uv run python -m tools.assay api query npgsql LogicalReplicationConnection` | TRANSPORT_AXIS |
-|   [2]   | publish_generated_columns publication parameter, idle slot timeout setting, and subscription conflict-stat columns on a live PG18 server | `uv run python -m tools.assay test run --target Rasm.Persistence`       | TRANSPORT_AXIS |
+| [INDEX] | [ITEM]                                                                                                                                   | [PROOF]                                                           | [GATE]         |
+| :-----: | :--------------------------------------------------------------------------------------------------------------------------------------- | :---------------------------------------------------------------- | :------------- |
+|   [1]   | publish_generated_columns publication parameter, idle slot timeout setting, and subscription conflict-stat columns on a live PG18 server | `uv run python -m tools.assay test run --target Rasm.Persistence` | TRANSPORT_AXIS |

@@ -187,7 +187,7 @@ public readonly record struct OverlayDecision(Option<BoundingBox> Bounds = defau
     public static OverlayDecision operator +(OverlayDecision left, OverlayDecision right) => Add(left: left, right: right);
 
     internal static Fin<BoundingBox> BoundsOf(object source, Op op) =>
-        Analyze.Run(operation: Analyze.Bounds<object, BoundingBox>(aspect: Analysis.Bounds.AxisAligned), input: source)
+        Analyze.Run<object, BoundingBox>(query: AnalysisQuery.Measure(Analysis.Bounds.AxisAligned), input: source)
             .ToFin()
             .Bind(boxes => boxes.Count switch { > 0 => Fin.Succ(value: boxes[0]), _ => Fin.Fail<BoundingBox>(error: op.InvalidResult()) })
             .Bind(box => op.AcceptValue(value: box));

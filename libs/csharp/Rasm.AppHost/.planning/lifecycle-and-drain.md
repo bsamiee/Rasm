@@ -4,13 +4,13 @@ Rasm.AppHost runs one process lifecycle: eight string-keyed `RuntimePhase` rows 
 
 ## [1]-[INDEX]
 
-| [INDEX] | [CLUSTER]       | [OWNS]                                                          |
-| :-----: | :-------------- | :-------------------------------------------------------------- |
+| [INDEX] | [CLUSTER]       | [OWNS]                                                                      |
+| :-----: | :-------------- | :-------------------------------------------------------------------------- |
 |   [1]   | PHASE_FAMILY    | Eight phases, ten triggers, one CAS transition law, receipted subscriptions |
 |   [2]   | FAULT_SPINE     | Four fault sources, trap registrations, crash-marker and upgrade boot probe |
-|   [3]   | DRAIN_CONDUCTOR | Frozen rank bands fold participant rows into one unload receipt  |
-|   [4]   | CANCEL_SPINE    | One root source; derived scopes carry provenance and deadlines   |
-|   [5]   | TS_PROJECTION   | Phase, fault, and unload receipt wire shapes                     |
+|   [3]   | DRAIN_CONDUCTOR | Frozen rank bands fold participant rows into one unload receipt             |
+|   [4]   | CANCEL_SPINE    | One root source; derived scopes carry provenance and deadlines              |
+|   [5]   | TS_PROJECTION   | Phase, fault, and unload receipt wire shapes                                |
 
 ## [2]-[PHASE_FAMILY]
 
@@ -391,8 +391,8 @@ interface DrainReceiptWire { readonly steps: readonly DrainStepWire[]; readonly 
 
 ## [7]-[RESEARCH]
 
-| [INDEX] | [ITEM]                                                                                  | [PROOF]                                                                                                                  | [GATE]          |
-| :-----: | :--------------------------------------------------------------------------------------- | :------------------------------------------------------------------------------------------------------------------------ | :-------------- |
-|   [1]   | Standalone-row crash-flag marker path and schema beneath the per-user support root        | `uv run python -m tools.assay test run --target Rasm.AppHost` — marker write, stale-probe, clear round-trip on the test row | FAULT_SPINE     |
-|   [2]   | SIGHUP delivery under launchd and systemd service lifetimes for the reload trigger        | `dotnet run` over a scratch headless host; `kill -HUP` asserts one reload invocation and zero drain transitions             | FAULT_SPINE     |
+| [INDEX] | [ITEM]                                                                                       | [PROOF]                                                                                                                     | [GATE]          |
+| :-----: | :------------------------------------------------------------------------------------------- | :-------------------------------------------------------------------------------------------------------------------------- | :-------------- |
+|   [1]   | Standalone-row crash-flag marker path and schema beneath the per-user support root           | `uv run python -m tools.assay test run --target Rasm.AppHost` — marker write, stale-probe, clear round-trip on the test row | FAULT_SPINE     |
+|   [2]   | SIGHUP delivery under launchd and systemd service lifetimes for the reload trigger           | `dotnet run` over a scratch headless host; `kill -HUP` asserts one reload invocation and zero drain transitions             | FAULT_SPINE     |
 |   [3]   | `IO.Timeout` expiry error identity against the escalated and straggled classifier predicates | `uv run python -m tools.assay test run --target Rasm.AppHost` — a token-deaf flush row asserts the straggled outcome        | DRAIN_CONDUCTOR |

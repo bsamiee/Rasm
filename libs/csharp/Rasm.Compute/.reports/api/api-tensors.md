@@ -32,12 +32,13 @@ for measured Compute execution.
 [PUBLIC_TYPE_SCOPE]: indexing and marshalling
 - rail: tensor
 
-| [INDEX] | [SYMBOL]           | [NAMESPACE]                      | [CAPABILITY]            |
-| :-----: | :----------------- | :------------------------------- | :---------------------- |
-|   [1]   | `NIndex`           | `System.Buffers`                 | addresses dimensions    |
-|   [2]   | `NRange`           | `System.Buffers`                 | slices dimensions       |
-|   [3]   | `TensorMarshal`    | `System.Runtime.InteropServices` | bridges raw tensor refs |
-|   [4]   | `TensorPrimitives` | `System.Numerics.Tensors`        | executes vectorized ops |
+| [INDEX] | [SYMBOL]           | [NAMESPACE]                      | [CAPABILITY]             |
+| :-----: | :----------------- | :------------------------------- | :----------------------- |
+|   [1]   | `NIndex`           | `System.Buffers`                 | addresses dimensions     |
+|   [2]   | `NRange`           | `System.Buffers`                 | slices dimensions        |
+|   [3]   | `TensorShape`      | `System.Numerics.Tensors`        | carries rank and strides |
+|   [4]   | `TensorMarshal`    | `System.Runtime.InteropServices` | bridges raw tensor refs  |
+|   [5]   | `TensorPrimitives` | `System.Numerics.Tensors`        | executes vectorized ops  |
 
 ## [3]-[ENTRYPOINTS]
 
@@ -65,6 +66,17 @@ for measured Compute execution.
 |  [17]   | `Tensor<T>.ToDenseTensor`         | tensor call      | densifies strided data   |
 |  [18]   | `Tensor<T>.GetPinnableReference`  | tensor call      | exposes pinned ref       |
 
+[ENTRYPOINT_SCOPE]: shape-edit and remap operations
+- rail: tensor
+
+| [INDEX] | [SURFACE]                | [CALL_SHAPE] | [CAPABILITY]               |
+| :-----: | :----------------------- | :----------- | :------------------------- |
+|   [1]   | `SqueezeDimension`       | shape call   | removes one unit dimension |
+|   [2]   | `StackAlongDimension`    | shape call   | stacks along a chosen axis |
+|   [3]   | `ConcatenateOnDimension` | shape call   | joins along a chosen axis  |
+|   [4]   | `Reverse`                | remap call   | reverses element order     |
+|   [5]   | `Resize`                 | remap call   | resizes to a new shape     |
+
 [ENTRYPOINT_SCOPE]: primitive operations
 - rail: tensor
 
@@ -89,6 +101,43 @@ for measured Compute execution.
 |  [17]   | `Log`                  | transcendental call | computes logarithm op   |
 |  [18]   | `ConvertChecked`       | conversion call     | converts values         |
 |  [19]   | `ConvertSaturating`    | conversion call     | converts values         |
+
+[ENTRYPOINT_SCOPE]: elementwise, rounding, and transcendental primitives
+- rail: tensor
+
+| [INDEX] | [SURFACE]          | [CALL_SHAPE]        | [CAPABILITY]               |
+| :-----: | :----------------- | :------------------ | :------------------------- |
+|   [1]   | `Negate`           | primitive call      | computes elementwise op    |
+|   [2]   | `Abs`              | primitive call      | computes elementwise op    |
+|   [3]   | `CopySign`         | primitive call      | transfers sign elementwise |
+|   [4]   | `AddMultiply`      | primitive call      | computes fused op          |
+|   [5]   | `Clamp`            | primitive call      | bounds values elementwise  |
+|   [6]   | `Round`            | rounding call       | rounds values              |
+|   [7]   | `Floor`            | rounding call       | rounds values down         |
+|   [8]   | `Ceiling`          | rounding call       | rounds values up           |
+|   [9]   | `Sin`              | transcendental call | computes trig op           |
+|  [10]   | `Tanh`             | transcendental call | computes hyperbolic op     |
+|  [11]   | `Sqrt`             | transcendental call | computes square root       |
+|  [12]   | `Cbrt`             | transcendental call | computes cube root         |
+|  [13]   | `DegreesToRadians` | transcendental call | converts angle units       |
+|  [14]   | `Pow`              | transcendental call | computes power op          |
+|  [15]   | `Atan2`            | transcendental call | computes arctangent op     |
+
+[ENTRYPOINT_SCOPE]: reduction, similarity, bitwise, and conversion primitives
+- rail: tensor
+
+| [INDEX] | [SURFACE]              | [CALL_SHAPE]    | [CAPABILITY]                 |
+| :-----: | :--------------------- | :-------------- | :--------------------------- |
+|   [1]   | `Norm`                 | reduction call  | computes Euclidean norm      |
+|   [2]   | `MaxMagnitude`         | reduction call  | reduces by absolute extremum |
+|   [3]   | `Average`              | statistics call | computes mean                |
+|   [4]   | `StdDev`               | statistics call | computes standard deviation  |
+|   [5]   | `Distance`             | similarity call | computes Euclidean distance  |
+|   [6]   | `HammingDistance`      | similarity call | counts differing elements    |
+|   [7]   | `BitwiseAnd`           | bitwise call    | computes bitwise op          |
+|   [8]   | `ShiftLeft`            | bitwise call    | shifts integer values        |
+|   [9]   | `ShiftRightArithmetic` | bitwise call    | shifts with sign extension   |
+|  [10]   | `ConvertTruncating`    | conversion call | converts values              |
 
 [ENTRYPOINT_SCOPE]: marshalling operations
 - rail: tensor

@@ -6,11 +6,11 @@ Schema truth for every store the suite opens: `IdentityPolicy` is the three-row 
 
 | [INDEX] | [CLUSTER]         | [OWNS]                                                       |
 | :-----: | ----------------- | ------------------------------------------------------------ |
-|   [1]   | IDENTITY_POLICY   | Three-row key axis with per-provider default SQL              |
-|   [2]   | MIGRATION_LAW     | Migration faults, fingerprint gate, receipted apply ceremony  |
-|   [3]   | GENERATED_COLUMNS | Stored-versus-virtual decision for derived projections        |
-|   [4]   | EXTENSION_DDL     | Declared extension rows, index method and operator classes    |
-|   [5]   | CONVERTER_RAIL    | One converter and naming registration row                     |
+|   [1]   | IDENTITY_POLICY   | Three-row key axis with per-provider default SQL             |
+|   [2]   | MIGRATION_LAW     | Migration faults, fingerprint gate, receipted apply ceremony |
+|   [3]   | GENERATED_COLUMNS | Stored-versus-virtual decision for derived projections       |
+|   [4]   | EXTENSION_DDL     | Declared extension rows, index method and operator classes   |
+|   [5]   | CONVERTER_RAIL    | One converter and naming registration row                    |
 
 ## [2]-[IDENTITY_POLICY]
 
@@ -55,7 +55,7 @@ public sealed partial class IdentityPolicy {
 - Receipt: `MigrationReceipt` — profile, applied ids, failed step, lock holder, compiled fingerprint, elapsed `Duration`, `Instant`, correlation.
 - Packages: Microsoft.EntityFrameworkCore.Design, Microsoft.EntityFrameworkCore.Sqlite, Npgsql.EntityFrameworkCore.PostgreSQL, System.IO.Hashing, NodaTime, Thinktecture.Runtime.Extensions, LanguageExt.Core, Rasm.AppHost (project)
 - Growth: one case on `SchemaFault` or one slot on `MigrationReceipt`; zero new surface.
-- Boundary: one migrations source emits two provider SQL generators through `MigrationsAssembly`; `MigrateAsync` acquires the provider migration lock itself — hand-acquired `SqliteMigrationDatabaseLock` ceremony and pg advisory-lock acquisition are the deleted patterns, and the lock outcome reads from `MigrationReceipt`, never from `Migrations/Internal` types; a store history ahead of the compiled assembly folds to `NewerSchema`, never best-effort open; `HasPendingModelChanges` feeds `Gate` on the development profile only; `SchemaFingerprint.From` hashes the compiled model snapshot, the store metadata row persists it, and the open ceremony folds the persisted value through `Gate` before any provider open completes; service deploys ride idempotent `ScriptMigration` output and `MigrationsBundle` artifacts; compiled-model adoption waits on the naming research row; expand precedes contract, and a destructive step lands only behind a retention-approval receipt or folds to `DestructiveUnapproved`; design tooling stays a private asset.
+- Boundary: one migrations source emits two provider SQL generators through `MigrationsAssembly`; `MigrateAsync` acquires the provider migration lock itself — hand-acquired `SqliteMigrationDatabaseLock` ceremony and pg advisory-lock acquisition are the deleted patterns, and the public lock surface `IMigrationsDatabaseLock` is a bare disposable handle carrying no holder identity, so `LockHolder` fills from the `StoreLeaseRow` first-opener row, never from `Migrations/Internal` types; a store history ahead of the compiled assembly folds to `NewerSchema`, never best-effort open; `HasPendingModelChanges` feeds `Gate` on the development profile only; `SchemaFingerprint.From` hashes the compiled model snapshot, the store metadata row persists it, and the open ceremony folds the persisted value through `Gate` before any provider open completes; service deploys ride idempotent `ScriptMigration` output and `MigrationsBundle` artifacts; compiled-model adoption waits on the naming research row; expand precedes contract, and a destructive step lands only behind a retention-approval receipt or folds to `DestructiveUnapproved`; design tooling stays a private asset.
 
 ```csharp signature
 [Union]
@@ -174,7 +174,7 @@ public abstract partial record SchemaDdl {
 - Auto: `ThinktectureValueConverterFactory` converters cover every `[ValueObject]`, `[SmartEnum]`, and keyed `[Union]` column behind `UseThinktectureValueConverters` — zero hand-written converter classes.
 - Packages: Thinktecture.Runtime.Extensions.EntityFrameworkCore10, EFCore.NamingConventions, Npgsql.EntityFrameworkCore.PostgreSQL.NodaTime, NodaTime
 - Growth: one policy value per naming override; a new generated domain owner costs zero converter code on the same registration row; zero new surface.
-- Boundary: `UseSnakeCaseNamingConvention` is the single naming policy — hand-written provider naming patches and per-entity converter classes are the deleted patterns; pg temporal columns ride the profile row's `UseNodaTime` option and sqlite temporal columns persist `InstantPattern.ExtendedIso` text, so no `DateTime` sentinel reaches a store; concurrency tokens are schema facts declared here — the pg row maps the system `xmin` column and the sqlite row carries an integer version column bumped per write — while the provider-exception fault projection belongs to the query rail.
+- Boundary: `UseSnakeCaseNamingConvention` is the single naming policy — hand-written provider naming patches and per-entity converter classes are the deleted patterns; key-column width rides the converter registration's `Configuration` value — `Configuration.Default` bounds smart-enum and keyed value-object columns and `NoMaxLength` is the rejected unbounded form; pg temporal columns ride the profile row's `UseNodaTime` option and sqlite temporal columns persist `InstantPattern.ExtendedIso` text, so no `DateTime` sentinel reaches a store; concurrency tokens are schema facts declared here — the pg row maps the system `xmin` column and the sqlite row carries an integer version column bumped per write — while the provider-exception fault projection belongs to the query rail.
 
 ```csharp signature
 public static class ConverterRail {
@@ -185,8 +185,7 @@ public static class ConverterRail {
 
 ## [7]-[RESEARCH]
 
-| [INDEX] | [ITEM]                                                                                                                          | [PROOF]                                                                                                                                              | [GATE]          |
-| :-----: | -------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------- | --------------- |
-|   [1]   | uuidv7 double-generation precedence between the client `Guid.CreateVersion7` value and the `"uuidv7()"` pg column default on one key | dotnet ef migrations script on a spike entity carrying both generation routes, asserting the emitted DEFAULT clause and the insert-time value source     | IDENTITY_POLICY |
-|   [2]   | snake-case naming interaction with compiled-model output (policy names baked into the optimized model versus migration SQL)        | dotnet ef dbcontext optimize on a spike context under UseSnakeCaseNamingConvention, diffing generated names against ScriptMigration SQL                  | MIGRATION_LAW   |
-|   [3]   | lock-outcome source slot for `MigrationReceipt` (provider diagnostics surface exposing migration-lock acquisition outside Internal) | uv run python -m tools.assay api query --key microsoft.entityframeworkcore.sqlite --symbol SqliteMigrationDatabaseLock --full                            | MIGRATION_LAW   |
+| [INDEX] | [ITEM]                                                                                                                               | [PROOF]                                                                                                                                              | [GATE]          |
+| :-----: | ------------------------------------------------------------------------------------------------------------------------------------ | ---------------------------------------------------------------------------------------------------------------------------------------------------- | --------------- |
+|   [1]   | uuidv7 double-generation precedence between the client `Guid.CreateVersion7` value and the `"uuidv7()"` pg column default on one key | dotnet ef migrations script on a spike entity carrying both generation routes, asserting the emitted DEFAULT clause and the insert-time value source | IDENTITY_POLICY |
+|   [2]   | snake-case naming interaction with compiled-model output (policy names baked into the optimized model versus migration SQL)          | dotnet ef dbcontext optimize on a spike context under UseSnakeCaseNamingConvention, diffing generated names against ScriptMigration SQL              | MIGRATION_LAW   |

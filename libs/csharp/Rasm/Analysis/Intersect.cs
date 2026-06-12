@@ -1,8 +1,81 @@
+using Foundation.CSharp.Analyzers.Contracts;
 using Rasm.Vectors;
 
 namespace Rasm.Analysis;
 
 // --- [TYPES] ------------------------------------------------------------------------------
+[SmartEnum<int>]
+public sealed partial class IntersectionKind {
+    public static readonly IntersectionKind Unknown = new(key: 0), Point = new(key: 1), Overlap = new(key: 2), Curve = new(key: 3);
+}
+
+public enum IntersectionTangency { Unknown = 0, Transversal = 1, Tangent = 2 }
+
+[BoundaryAdapter, StructLayout(LayoutKind.Auto)]
+public readonly record struct RayQuery(Ray3d Ray, int MaxReflections = 1) {
+    public static RayQuery Of(Ray3d ray, int maxReflections = 1) => new(Ray: ray, MaxReflections: maxReflections);
+    internal bool IsValid => Ray.Position.IsValid && Ray.Direction.IsValid && !Ray.Direction.IsTiny() && MaxReflections is >= 1 and <= 1000;
+}
+
+[BoundaryAdapter, StructLayout(LayoutKind.Auto)]
+public readonly record struct CurveDeviation(
+    double MinimumDistance,
+    Point3d MinimumA,
+    Point3d MinimumB,
+    double MaximumDistance,
+    Point3d MaximumA,
+    Point3d MaximumB,
+    double Tolerance,
+    bool WithinTolerance) {
+    public bool IsValid =>
+        RhinoMath.IsValidDouble(MinimumDistance) && MinimumDistance >= 0.0
+        && RhinoMath.IsValidDouble(MaximumDistance) && MaximumDistance >= MinimumDistance
+        && MinimumA.IsValid && MinimumB.IsValid && MaximumA.IsValid && MaximumB.IsValid
+        && RhinoMath.IsValidDouble(Tolerance) && Tolerance >= 0.0
+        && WithinTolerance == (MaximumDistance <= Tolerance);
+}
+
+[BoundaryAdapter]
+[SkipUnionOps]
+[Union]
+public abstract partial record IntersectionHit {
+    private IntersectionHit() { }
+    public sealed record PointCase(Point3d Point, IntersectionTangency Tangency = IntersectionTangency.Unknown) : IntersectionHit;
+    public sealed record CurveCase(Curve Curve, IntersectionKind CurveKind) : IntersectionHit;
+    public sealed record OverlapCase(Point3d Start, Point3d End, Interval OverlapA, Interval OverlapB, Option<Curve> Curve) : IntersectionHit;
+    public IntersectionKind Kind => Switch(pointCase: static _ => IntersectionKind.Point, curveCase: static c => c.CurveKind, overlapCase: static _ => IntersectionKind.Overlap);
+    public Seq<Curve> Curves => Switch(pointCase: static _ => Seq<Curve>(), curveCase: static c => Seq(c.Curve), overlapCase: static o => o.Curve.ToSeq());
+    public Seq<Point3d> Points => Switch(pointCase: static p => Seq(p.Point), curveCase: static _ => Seq<Point3d>(), overlapCase: static o => Seq(o.Start, o.End));
+    public Seq<Interval> Intervals => Switch(pointCase: static _ => Seq<Interval>(), curveCase: static _ => Seq<Interval>(), overlapCase: static o => Seq(o.OverlapA, o.OverlapB));
+    public static IntersectionHit At(Point3d point, IntersectionTangency tangency = IntersectionTangency.Unknown) => new PointCase(point, tangency);
+    public static IntersectionHit Along(Curve curve, IntersectionKind kind) => new CurveCase(curve, kind);
+    public static IntersectionHit Overlap(Point3d start, Point3d end, Interval overlapA, Interval overlapB, Option<Curve> curve = default) => new OverlapCase(start, end, overlapA, overlapB, curve);
+    internal bool IsValid => Switch(
+        pointCase: static p => p.Point.IsValid,
+        curveCase: static c => (c.CurveKind == IntersectionKind.Curve || c.CurveKind == IntersectionKind.Overlap) && Optional(c.Curve).Map(static curve => curve.IsValid).IfNone(noneValue: false),
+        overlapCase: static o => o.Start.IsValid && o.End.IsValid && o.OverlapA.IsValid && o.OverlapB.IsValid && o.Curve.Map(static c => c.IsValid).IfNone(noneValue: true));
+    internal Unit Dispose() => Curves.Iter(static curve => curve.Dispose());
+    internal static bool CanProjectTo(Type output) =>
+        output == typeof(IntersectionHit) || output == typeof(Curve) || output == typeof(Point3d) || output == typeof(Interval) || output == typeof(IntersectionKind) || output == typeof(IntersectionTangency);
+    internal static Fin<Seq<TOut>> Project<TOut>(Seq<IntersectionHit> hits, Op key) =>
+        hits.ForAll(static hit => hit.IsValid) switch {
+            false => DropCurves(hits: hits, result: Fin.Fail<Seq<TOut>>(key.InvalidResult())),
+            true => typeof(TOut) switch {
+                Type t when t == typeof(IntersectionHit) => new AnalysisOutput<TOut>(key).Many(values: hits),
+                Type t when t == typeof(Curve) => new AnalysisOutput<TOut>(key).Many(values: hits.Bind(static value => value.Curves)),
+                Type t when t == typeof(Point3d) => DropCurves(hits: hits, result: new AnalysisOutput<TOut>(key).Many(values: hits.Bind(static value => value.Points))),
+                Type t when t == typeof(Interval) => DropCurves(hits: hits, result: new AnalysisOutput<TOut>(key).Many(values: hits.Bind(static value => value.Intervals))),
+                Type t when t == typeof(IntersectionKind) => DropCurves(hits: hits, result: new AnalysisOutput<TOut>(key).Many(values: hits.Map(static value => value.Kind))),
+                Type t when t == typeof(IntersectionTangency) => DropCurves(hits: hits, result: new AnalysisOutput<TOut>(key).Many(values: hits.Map(static value => value is PointCase pc ? pc.Tangency : IntersectionTangency.Unknown))),
+                _ => DropCurves(hits: hits, result: Fin.Fail<Seq<TOut>>(key.Unsupported(geometryType: typeof(IntersectionHit), outputType: typeof(TOut)))),
+            },
+        };
+    private static Fin<Seq<TOut>> DropCurves<TOut>(Seq<IntersectionHit> hits, Fin<Seq<TOut>> result) {
+        _ = hits.Iter(static value => value.Dispose());
+        return result;
+    }
+}
+
 [SkipUnionOps]
 [Union]
 internal partial record IntersectionResult {
@@ -34,49 +107,46 @@ internal partial record IntersectionResult {
         points: static (k, p) => UniformAs<Point3d, TOut>(values: p.Values, key: k, caseType: typeof(Points), tag: IntersectionKind.Point),
         intervals: static (k, i) => UniformAs<Interval, TOut>(values: i.Values, key: k, caseType: typeof(Intervals), tag: IntersectionKind.Overlap),
         polylines: static (k, p) => typeof(TOut) switch {
-            Type t when t == typeof(Polyline) => k.AcceptResults<Polyline, TOut>(values: p.Values.Map(static x => x.Curve)),
-            Type t when t == typeof(IntersectionKind) => k.AcceptResults<IntersectionKind, TOut>(values: p.Values.Map(static x => x.Kind)),
+            Type t when t == typeof(Polyline) => new AnalysisOutput<TOut>(k).Many(values: p.Values.Map(static x => x.Curve)),
+            Type t when t == typeof(IntersectionKind) => new AnalysisOutput<TOut>(k).Many(values: p.Values.Map(static x => x.Kind)),
             _ => Fin.Fail<Seq<TOut>>(k.Unsupported(geometryType: typeof(Polylines), outputType: typeof(TOut))),
         },
         hits: static (k, h) => IntersectionHit.Project<TOut>(hits: h.Values, key: k));
     private static Fin<Seq<TOut>> UniformAs<TNative, TOut>(Seq<TNative> values, Op key, Type caseType, IntersectionKind tag) where TNative : notnull => typeof(TOut) switch {
-        Type t when t == typeof(TNative) => key.AcceptResults<TNative, TOut>(values: values),
-        Type t when t == typeof(IntersectionKind) => key.AcceptResults<IntersectionKind, TOut>(values: toSeq(Enumerable.Repeat(element: tag, count: values.Count))),
+        Type t when t == typeof(TNative) => new AnalysisOutput<TOut>(key).Many(values: values),
+        Type t when t == typeof(IntersectionKind) => new AnalysisOutput<TOut>(key).Many(values: toSeq(Enumerable.Repeat(element: tag, count: values.Count))),
         _ => Fin.Fail<Seq<TOut>>(key.Unsupported(geometryType: caseType, outputType: typeof(TOut))),
     };
 }
 
 // --- [OPERATIONS] -------------------------------------------------------------------------
 public static partial class Analyze {
-    public static Operation<(TA A, TB B), TOut> Intersect<TA, TB, TOut>() where TA : notnull where TB : notnull =>
+    internal static Operation<(TA A, TB B), TOut> RelationIntersection<TA, TB, TOut>(Op key) where TA : notnull where TB : notnull =>
         PairOp<TA, TB, TOut>(
-            key: Op.Of(),
+            key: key,
             supported: IntersectionResult.Supports(left: typeof(TA), right: typeof(TB), output: typeof(TOut), unordered: true),
             compute: static (a, b, ctx, op, p, ct) => IntersectionOf(left: a, right: b, context: ctx, op: op, progress: p, unordered: true, cancel: ct));
-    public static Operation<(TA A, TB B), TOut> Classify<TA, TB, TOut>() where TA : notnull where TB : notnull {
+    internal static Operation<(TA A, TB B), TOut> RelationClassification<TA, TB, TOut>(Op key) where TA : notnull where TB : notnull {
         bool curvePair = GeometryKernel.CanCurveForm(type: typeof(TA)) && GeometryKernel.CanCurveForm(type: typeof(TB));
         return PairOp<TA, TB, TOut>(
-            key: Op.Of(),
+            key: key,
             supported: curvePair
                        && IntersectionResult.Supports(left: typeof(TA), right: typeof(TB), output: typeof(TOut), unordered: true)
                        && (typeof(TOut) == typeof(IntersectionHit) || typeof(TOut) == typeof(IntersectionTangency)),
             compute: static (a, b, ctx, op, p, ct) => ClassifiedIntersectionOf(left: a, right: b, context: ctx, op: op, progress: p, cancel: ct));
     }
-    public static Operation<(TA A, TB B), TOut> Deviation<TA, TB, TOut>() where TA : notnull where TB : notnull {
-        Op key = Op.Of();
-        return (CanDeviation(left: typeof(TA), right: typeof(TB)) && typeof(TOut) == typeof(CurveDeviation))
+    internal static Operation<(TA A, TB B), TOut> RelationDeviation<TA, TB, TOut>(Op key) where TA : notnull where TB : notnull =>
+        (CanDeviation(left: typeof(TA), right: typeof(TB)) && typeof(TOut) == typeof(CurveDeviation))
             ? Operation<(TA A, TB B), TOut>.Build(
                 key: key, requiresContext: true, state: key,
                 evaluator: static (op, pair) => from runtime in Env.EnvAsks
                                                 from resolved in runtime.Context.Pair(a: pair.A, b: pair.B, op: op, requirements: static (_, _, _) => Fin.Succ((A: Requirement.CurveLength, B: Requirement.CurveLength)), cancel: runtime.Cancellation).ToEff()
                                                 from deviation in DeviationOf(left: resolved.A, right: resolved.B, context: runtime.Context, op: op).ToEff()
-                                                from result in op.AcceptResults<CurveDeviation, TOut>(values: Seq(deviation)).ToEff()
+                                                from result in new AnalysisOutput<TOut>(op).Many(values: Seq(deviation)).ToEff()
                                                 select result)
             : key.Unsupported<(TA A, TB B), TOut>();
-    }
-    public static Operation<TGeometry, TOut> SelfIntersect<TGeometry, TOut>() where TGeometry : notnull {
-        Op key = Op.Of();
-        return (CanSelfIntersect(geometry: typeof(TGeometry)) && IntersectionResult.HitsShape.CanProject(output: typeof(TOut)))
+    internal static Operation<TGeometry, TOut> RelationSelfIntersection<TGeometry, TOut>(Op key) where TGeometry : notnull =>
+        (CanSelfIntersect(geometry: typeof(TGeometry)) && IntersectionResult.HitsShape.CanProject(output: typeof(TOut)))
             ? Operation<TGeometry, TOut>.Build(
                 key: key, requirement: Requirement.Basic, state: key,
                 evaluator: static (op, geometry) => from runtime in Env.EnvAsks
@@ -84,7 +154,17 @@ public static partial class Analyze {
                                                     from typed in result.Project<TOut>(key: op).ToEff()
                                                     select typed)
             : key.Unsupported<TGeometry, TOut>();
-    }
+    internal static Operation<TGeometry, TOut> RelationRay<TGeometry, TOut>(RayQuery query, Op key) where TGeometry : notnull =>
+        IntersectionResult.Supports(left: typeof(RayQuery), right: typeof(TGeometry), output: typeof(TOut), unordered: false)
+            ? Operation<TGeometry, TOut>.Build(
+                key: key, requiresContext: true, state: (Key: key, Query: query),
+                evaluator: static (state, geometry) => from runtime in Env.EnvAsks
+                                                       from ray in state.Key.AcceptValue(value: state.Query).ToEff()
+                                                       from ready in Requirement.Basic.Apply(context: runtime.Context, value: geometry, cancel: runtime.Cancellation).ToEff()
+                                                       from result in IntersectionOf(left: ray, right: ready, context: runtime.Context, op: state.Key, progress: runtime.Progress, unordered: false, cancel: runtime.Cancellation).ToEff()
+                                                       from typed in result.Project<TOut>(key: state.Key).ToEff()
+                                                       select typed)
+            : key.Unsupported<TGeometry, TOut>();
     internal static Option<IntersectionResult> IntersectionShape(Type left, Type right, Type output, bool unordered) =>
         IntersectionShapeOrdered(left: left, right: right, output: output) | (unordered ? IntersectionShapeOrdered(left: right, right: left, output: output) : Option<IntersectionResult>.None);
     private static Option<IntersectionResult> IntersectionShapeOrdered(Type left, Type right, Type output) =>

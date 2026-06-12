@@ -116,7 +116,7 @@ public sealed record PipelineInputs<TRow>(
 |   [2]   | comparative-sort     | Sort                    | comparer stream from `Comparers` for mid-pipeline order            |
 |   [3]   | projection           | Transform               | row models projected from store and receipt shapes                 |
 |   [4]   | flat-map             | TransformMany           | one host fact expands to N child rows                              |
-|   [5]   | live-grouping        | GroupOn                 | group change sets for live tiles                                   |
+|   [5]   | live-grouping        | Group                   | group change sets for live tiles                                   |
 |   [6]   | stable-grouping      | GroupWithImmutableState | the projection-policy row for paged and virtualized projections    |
 |   [7]   | property-refresh     | AutoRefresh             | `Refresh` buffer, 250 ms on host-fact rows                         |
 |   [8]   | child-merge          | MergeMany               | child observable composition                                       |
@@ -178,8 +178,8 @@ public static class LiveDataOps {
 |   [1]   | count        | Count                               | stat tiles                                  |
 |   [2]   | sum          | Sum                                 | stat tiles                                  |
 |   [3]   | average      | Avg                                 | stat tiles                                  |
-|   [4]   | minimum      | Min                                 | stat tiles                                  |
-|   [5]   | maximum      | Max                                 | stat tiles                                  |
+|   [4]   | minimum      | Minimum                             | stat tiles                                  |
+|   [5]   | maximum      | Maximum                             | stat tiles                                  |
 |   [6]   | deviation    | StdDev                              | stat tiles                                  |
 |   [7]   | change-audit | CollectUpdateStats to ChangeSummary | evidence stream via `ReceiptSinkPort` envelope |
 
@@ -188,6 +188,4 @@ public static class LiveDataOps {
 | [INDEX] | [ITEM]                                                                                       | [PROOF]                                                                                                     | [GATE]           |
 | :-----: | --------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------ | ---------------- |
 |   [1]   | VirtualTimeScheduler-driven determinism of ExpireAfter and Timer on the fake-deterministic row | uv run python -m tools.assay test run --target Rasm.AppUi                                                     | DATA_SOURCES     |
-|   [2]   | GroupWithImmutableState ordering stability under Page and Virtualise windows                   | uv run python -m tools.assay api query --key dynamicdata --symbol DynamicData.ObservableCacheEx --grep GroupWithImmutableState | CHANGE_PIPELINES |
-|   [3]   | TransformMany, GroupOn, and And/Or/Except/Xor combinator spellings on the keyed change-set rail | uv run python -m tools.assay api query dynamicdata DynamicData.ObservableCacheEx                                              | CHANGE_PIPELINES |
-|   [4]   | CollectUpdateStats projection from keyed change sets to ChangeSummary                          | uv run python -m tools.assay api query dynamicdata DynamicData.Diagnostics.DiagnosticOperators                                | AGGREGATION_SPINE |
+|   [2]   | GroupWithImmutableState ordering stability under Page and Virtualise windows                   | uv run python -m tools.assay test run --target Rasm.AppUi grouped-window ordering spec                        | CHANGE_PIPELINES |

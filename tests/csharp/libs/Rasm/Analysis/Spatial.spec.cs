@@ -6,7 +6,7 @@ using Rhino.Geometry;
 namespace Rasm.Tests.Analysis;
 
 // --- [MODELS] ----------------------------------------------------------------------------
-// BRIDGE-DEFERRED: native Tree.*; static owns Probe catalog, ValidatePoints, and PointPairs vs an independent sorted oracle.
+// BRIDGE-DEFERRED: native Tree.*; static owns SpatialProbe catalog, ValidatePoints, and PointPairs vs an independent sorted oracle.
 internal static class SpatialGens {
     public static readonly Op Key = Op.Of(name: "spatial-test");
     public static readonly Point3d[] InvalidPoints =
@@ -16,47 +16,98 @@ internal static class SpatialGens {
     public static readonly Gen<int[][]> NeighborRows =
         Gen.Int[0, 16].Array[0, 12].Select(static (int[] counts) =>
             counts.Select(static (int n, int needle) => Enumerable.Range(start: needle, count: n % 6).ToArray()).ToArray());
-    public static Seq<Couple> ExpandSorted(int[][] rows) =>
-        toSeq(rows.SelectMany(static (int[] ids, int needle) => ids.Select(source => new Couple(A: needle, B: source)))
+    public static Tree TreeOf(params Point3d[] points) =>
+        Tree.Points(points: points).Match(Succ: static tree => tree, Fail: error => throw new InvalidOperationException(error.Message));
+    public static Validation<Error, Seq<SpatialPair>> PointPairs(Point3d[] points, Point3d[] needles, SpatialProbe probe) =>
+        Analyze.Run<SpatialPair>(query: AnalysisQuery.Spatial(SpatialQuery.PointPairs(points: points, needles: needles, probe: probe)));
+    public static Seq<SpatialPair> ExpandSorted(int[][] rows) =>
+        toSeq(rows.SelectMany(static (int[] ids, int needle) => ids.Select(source => new SpatialPair(A: needle, B: source)))
             .OrderBy(static c => c.A).ThenBy(static c => c.B));
 }
 
 // --- [OPERATIONS] ----------------------------------------------------------------------------
-public sealed class ProbeUnionCatalogLaws {
-    public static readonly (string Label, Probe Case)[] Cases =
-        [("Nearest", Probe.Nearest(count: 5)), ("Within", Probe.Within(distance: 2.5))];
+public sealed class SpatialProbeUnionCatalogLaws {
+    public static readonly (string Label, SpatialProbe Case)[] Cases =
+        [("Nearest", SpatialProbe.Nearest(count: 5)), ("Within", SpatialProbe.Within(distance: 2.5))];
     [Fact]
     public void FactoriesProjectDistinctCasesAndTransportPayloadVerbatim() {
         Assert.Equal(expected: 2, actual: Cases.Select(static c => c.Case.GetType()).Distinct().Count());
-        Assert.Equal(expected: 7, actual: Assert.IsType<Probe.NearestCase>(@object: Probe.Nearest(count: 7)).Count);
-        Spec.Equal(left: Assert.IsType<Probe.WithinCase>(@object: Probe.Within(distance: -3.25)).Distance,
+        Assert.Equal(expected: 7, actual: Assert.IsType<SpatialProbe.NearestCase>(@object: SpatialProbe.Nearest(count: 7)).Count);
+        Spec.Equal(left: Assert.IsType<SpatialProbe.WithinCase>(@object: SpatialProbe.Within(distance: -3.25)).Distance,
             right: -3.25, tolerance: 0.0, what: "within distance transport");
     }
     [Fact]
     public void PayloadChannelsAreIndependentAcrossFactories() =>
         Spec.ForAll(Gen.Int[-50, 50].Select(Gens.Finite, static (int count, double distance) => (Count: count, Distance: distance)), static pair => {
-            Assert.Equal(expected: pair.Count, actual: Assert.IsType<Probe.NearestCase>(@object: Probe.Nearest(count: pair.Count)).Count);
-            Spec.Equal(left: Assert.IsType<Probe.WithinCase>(@object: Probe.Within(distance: pair.Distance)).Distance,
+            Assert.Equal(expected: pair.Count, actual: Assert.IsType<SpatialProbe.NearestCase>(@object: SpatialProbe.Nearest(count: pair.Count)).Count);
+            Spec.Equal(left: Assert.IsType<SpatialProbe.WithinCase>(@object: SpatialProbe.Within(distance: pair.Distance)).Distance,
                 right: pair.Distance, tolerance: 0.0, what: "within distance");
         });
 }
 
-public sealed class ProbeValidationLaws {
+public sealed class SpatialProbeValidationLaws {
     [Fact]
     public void InvalidProbeParametersRejectBeforeNativeNeighborSearch() {
-        Spec.FailCategory(result: Spatial.NearestPoints(points: [Point3d.Origin], needles: [Point3d.Origin], probe: Probe.Nearest(count: 0)).Run(ContextFixtureValue), category: "Input");
-        Spec.FailCategory(result: Spatial.NearestPoints(points: [Point3d.Origin], needles: [Point3d.Origin], probe: Probe.Within(distance: 0.0)).Run(ContextFixtureValue), category: "Input");
-        Spec.FailCategory(result: Spatial.NearestPoints(points: [Point3d.Origin], needles: [Point3d.Origin], probe: Probe.Within(distance: double.NaN)).Run(ContextFixtureValue), category: "Input");
+        Spec.Invalid(result: SpatialGens.PointPairs(points: [Point3d.Origin], needles: [Point3d.Origin], probe: SpatialProbe.Nearest(count: 0)),
+            then: static error => Assert.Equal(expected: "Input", actual: error.Category()));
+        Spec.Invalid(result: SpatialGens.PointPairs(points: [Point3d.Origin], needles: [Point3d.Origin], probe: SpatialProbe.Within(distance: 0.0)),
+            then: static error => Assert.Equal(expected: "Input", actual: error.Category()));
+        Spec.Invalid(result: SpatialGens.PointPairs(points: [Point3d.Origin], needles: [Point3d.Origin], probe: SpatialProbe.Within(distance: double.NaN)),
+            then: static error => Assert.Equal(expected: "Input", actual: error.Category()));
     }
 
     [Fact]
     public void InvalidPointInputsRejectBeforeProbeEvaluation() {
-        Spec.FailCategory(result: Spatial.NearestPoints(points: [Point3d.Unset], needles: [Point3d.Origin], probe: Probe.Nearest(count: 1)).Run(ContextFixtureValue), category: "Input");
-        Spec.FailCategory(result: Spatial.NearestPoints(points: [Point3d.Origin], needles: [Point3d.Unset], probe: Probe.Within(distance: 1.0)).Run(ContextFixtureValue), category: "Input");
+        Spec.Invalid(result: SpatialGens.PointPairs(points: [Point3d.Unset], needles: [Point3d.Origin], probe: SpatialProbe.Nearest(count: 1)),
+            then: static error => Assert.Equal(expected: "Input", actual: error.Category()));
+        Spec.Invalid(result: SpatialGens.PointPairs(points: [Point3d.Origin], needles: [Point3d.Unset], probe: SpatialProbe.Within(distance: 1.0)),
+            then: static error => Assert.Equal(expected: "Input", actual: error.Category()));
+    }
+}
+
+public sealed class SpatialQueryExecutionLaws {
+    [Fact]
+    public void TreeSearchByBoxAndSphereReturnsSortedHitIdsThroughServiceQuery() {
+        using Tree tree = SpatialGens.TreeOf(Point3d.Origin, new Point3d(x: 2.0, y: 0.0, z: 0.0), new Point3d(x: 4.0, y: 0.0, z: 0.0));
+        Spec.Valid(
+            result: Analyze.Run<SpatialHit>(query: AnalysisQuery.Spatial(SpatialQuery.Search(index: tree, box: new BoundingBox(min: new Point3d(x: -0.5, y: -0.5, z: -0.5), max: new Point3d(x: 2.5, y: 0.5, z: 0.5))))),
+            then: static hits => Assert.Equal(expected: Seq(new SpatialHit(Id: 0), new SpatialHit(Id: 1)), actual: hits));
+        Spec.Valid(
+            result: Analyze.Run<SpatialHit>(query: AnalysisQuery.Spatial(SpatialQuery.Search(index: tree, sphere: new Sphere(center: new Point3d(x: 4.0, y: 0.0, z: 0.0), radius: 0.25)))),
+            then: static hits => Assert.Equal(expected: Seq(new SpatialHit(Id: 2)), actual: hits));
+    }
+
+    [Fact]
+    public void TreeOverlapAndNearestPointPairsReturnSortedPairsThroughServiceQuery() {
+        using Tree left = SpatialGens.TreeOf(Point3d.Origin, new Point3d(x: 2.0, y: 0.0, z: 0.0));
+        using Tree right = SpatialGens.TreeOf(new Point3d(x: 0.1, y: 0.0, z: 0.0), new Point3d(x: 2.2, y: 0.0, z: 0.0));
+        Spec.Valid(
+            result: Analyze.Run<SpatialPair>(query: AnalysisQuery.Spatial(SpatialQuery.Overlaps(left: left, right: right, tolerance: 0.25))),
+            then: static pairs => Assert.Equal(expected: Seq(new SpatialPair(A: 0, B: 0), new SpatialPair(A: 1, B: 1)), actual: pairs));
+        Spec.Valid(
+            result: SpatialGens.PointPairs(
+                points: [Point3d.Origin, new Point3d(x: 2.0, y: 0.0, z: 0.0)],
+                needles: [new Point3d(x: 0.2, y: 0.0, z: 0.0), new Point3d(x: 1.8, y: 0.0, z: 0.0)],
+                probe: SpatialProbe.Nearest(count: 1)),
+            then: static pairs => Assert.Equal(expected: Seq(new SpatialPair(A: 0, B: 0), new SpatialPair(A: 1, B: 1)), actual: pairs));
+    }
+
+    [Fact]
+    public void CancelledScopeStopsPointPairsBeforeNativeNeighborSearch() {
+        using CancellationTokenSource source = new();
+        source.Cancel();
+        Spec.Invalid(
+            result: Analyze.In(context: ContextFixtureValue).With(cancellation: source.Token).Run(
+                operation: Analyze.Query<SpatialPair>(query: AnalysisQuery.Spatial(SpatialQuery.PointPairs(
+                    points: [Point3d.Origin],
+                    needles: [Point3d.Origin],
+                    probe: SpatialProbe.Nearest(count: 1)))),
+                input: Unit.Default),
+            then: static error => Assert.Equal(expected: "Cancelled", actual: error.Category()));
     }
 
     private static readonly Context ContextFixtureValue =
-        Spec.SuccValue(Context.Of(absolute: 0.001, relative: 1.0e-8, angle: 0.01, units: Rhino.UnitSystem.Millimeters).ToFin(), label: "spatial context");
+        Spec.SuccValue(Context.Of(absolute: 0.001, relative: 1.0e-8, angle: 0.01, units: Rhino.UnitSystem.Millimeters).ToFin(), label: "spatial query context");
 }
 
 public sealed class ValidatePointsGuardLaws {

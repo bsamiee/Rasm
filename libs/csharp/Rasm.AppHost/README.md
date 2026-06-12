@@ -20,15 +20,15 @@ resilience, and the seven cross-package runtime ports.
 
 ## [2]-[DOCUMENTS]
 
-| [INDEX] | [READ_FOR]                                        | [OPEN]                                            |
-| :-----: | :------------------------------------------------ | :------------------------------------------------ |
-|   [1]   | rails, axes, seams, package-API map               | [architecture](ARCHITECTURE.md)                   |
-|   [2]   | implementation sequence and start gates           | [roadmap](ROADMAP.md)                             |
-|   [3]   | product capability atlas                          | [features](FEATURES.md)                           |
-|   [4]   | implementation charter: density bar, build order  | [planning charter](.planning/README.md)           |
-|   [5]   | decision-complete concept pages                   | [.planning](.planning/README.md)                  |
-|   [6]   | external package API catalogues                   | [.reports/api](.reports/api/README.md)            |
-|   [7]   | C# stack doctrine                                 | [C# stack](../../../docs/stacks/csharp/README.md) |
+| [INDEX] | [READ_FOR]                                       | [OPEN]                                            |
+| :-----: | :----------------------------------------------- | :------------------------------------------------ |
+|   [1]   | rails, axes, seams, package-API map              | [architecture](ARCHITECTURE.md)                   |
+|   [2]   | implementation sequence and start gates          | [roadmap](ROADMAP.md)                             |
+|   [3]   | product capability atlas                         | [features](FEATURES.md)                           |
+|   [4]   | implementation charter: density bar, build order | [planning charter](.planning/README.md)           |
+|   [5]   | decision-complete concept pages                  | [.planning](.planning/README.md)                  |
+|   [6]   | external package API catalogues                  | [.reports/api](.reports/api/README.md)            |
+|   [7]   | C# stack doctrine                                | [C# stack](../../../docs/stacks/csharp/README.md) |
 
 The charter is the only linking file in the planning set; its PAGE_INDEX routes to all eleven
 concept pages. Package-local documents state AppHost law and package API facts only.

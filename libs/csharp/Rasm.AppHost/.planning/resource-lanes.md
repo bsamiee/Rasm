@@ -15,7 +15,7 @@ Bounded runtime resource lanes for the Rasm.AppHost spine: the HybridCache read-
 - Owner: `CacheLane` `[SmartEnum<string>]` under the `LaneKeyPolicy` ordinal accessor; `CacheSurface` attaches the dispatch to `HybridCache` as one extension block.
 - Cases: `ModelResult`, `Projection`, `ArtifactBlob`.
 - Entry: `ValueTask<T> Read<T, TState>(CacheLane lane, string key, TState state, Func<TState, CancellationToken, ValueTask<T>> factory, Option<Seq<string>> tags = default, CancellationToken token = default)`.
-- Auto: `GetOrCreateAsync` owns stampede single-flight; hit, miss, and stampede-merged counts ride the package meter with `ReportTagMetrics` tag dimensions and zero call-site metric code.
+- Auto: `GetOrCreateAsync` owns stampede single-flight; local and distributed hit, miss, and write counts, stampede joins, and tag invalidations ride the package `Microsoft-Extensions-HybridCache` event source as polling counters with zero call-site metric code.
 - Packages: Microsoft.Extensions.Caching.Hybrid; NodaTime; Thinktecture.Runtime.Extensions; LanguageExt.Core.
 - Growth: one lane row on `CacheLane`; a lifetime or flag change is one policy value; zero new surface.
 - Boundary: the L2 `IDistributedCache` and the `IHybridCacheSerializerFactory` registration arrive as the single Persistence row; `AddHybridCache` composes after the DI `TimeProvider` registration so the test row's `FakeTimeProvider` drives creation stamps and tag cuts; this port deletes hand-rolled double-checked caches, `ICacheService` wrappers, and every second cache owner in the suite.
@@ -33,15 +33,17 @@ public sealed class LaneKeyPolicy : IEqualityComparerAccessor<string>, IComparer
 [KeyMemberEqualityComparer<LaneKeyPolicy, string>]
 [KeyMemberComparer<LaneKeyPolicy, string>]
 public sealed partial class CacheLane {
-    public static readonly CacheLane ModelResult = new("model-result", ttl: DeadlineClass.CacheTtl, flags: HybridCacheEntryFlags.None);
-    public static readonly CacheLane Projection = new("projection", ttl: DeadlineClass.CacheTtl, flags: HybridCacheEntryFlags.None);
-    public static readonly CacheLane ArtifactBlob = new("artifact-blob", ttl: DeadlineClass.CacheTtl, flags: HybridCacheEntryFlags.None);
+    public static readonly CacheLane ModelResult = new("model-result", ttl: DeadlineClass.CacheTtl, l1Ttl: DeadlineClass.CacheTtl, flags: HybridCacheEntryFlags.None);
+    public static readonly CacheLane Projection = new("projection", ttl: DeadlineClass.CacheTtl, l1Ttl: DeadlineClass.CacheTtl, flags: HybridCacheEntryFlags.None);
+    public static readonly CacheLane ArtifactBlob = new("artifact-blob", ttl: DeadlineClass.CacheTtl, l1Ttl: DeadlineClass.CacheTtl, flags: HybridCacheEntryFlags.None);
 
     public DeadlineClass Ttl { get; }
 
+    public DeadlineClass L1Ttl { get; }
+
     public HybridCacheEntryFlags Flags { get; }
 
-    public HybridCacheEntryOptions Entry => new() { Expiration = Ttl.Allotted.ToTimeSpan(), Flags = Flags };
+    public HybridCacheEntryOptions Entry => new() { Expiration = Ttl.Allotted.ToTimeSpan(), LocalCacheExpiration = L1Ttl.Allotted.ToTimeSpan(), Flags = Flags };
 
     public string Scoped(string key) => $"{Key}:{key}";
 }
@@ -68,18 +70,18 @@ public static class CacheSurface {
 }
 ```
 
-| [INDEX] | [LAW]            | [RULING]                                                                                                                                            |
-| :-----: | :--------------- | :-------------------------------------------------------------------------------------------------------------------------------------------------- |
-|   [1]   | tag cut          | `RemoveByTagAsync` records a timestamp cut; pre-cut entries read as misses in both tiers and persist until natural expiry — logical, never physical |
-|   [2]   | wildcard         | `*` is reserved and illegal as a write-time tag; the wildcard cut invalidates everything including untagged entries                                 |
-|   [3]   | glob             | no pattern matching exists; only the bare `*` is special                                                                                            |
-|   [4]   | physical removal | `RemoveAsync` is the physical sibling — it deletes the key from both tiers                                                                          |
-|   [5]   | tag vocabulary   | tags derive from `CacheLane` keys and admitted owner keys; a free-string tag is the rejected form                                                   |
-|   [6]   | cross-process L1 | peer-process L1 staleness is TTL-bounded with no backplane; convergence rides natural expiry or the next tag cut                                    |
-|   [7]   | clock seam       | the cache implementation service-locates the DI `TimeProvider` with system fallback; creation stamps and tag cuts ride the injected clock           |
-|   [8]   | L1 TTL split     | the L1 `MemoryCache` resolves its own clock; advancing `FakeTimeProvider` never expires an L1 entry by TTL — specs assert via tag cut or `RemoveAsync` |
-|   [9]   | guards           | `MaximumPayloadBytes` and `MaximumKeyLength` stay package defaults; `ReportTagMetrics` is enabled because the lane tag vocabulary is closed and low-cardinality |
-|  [10]   | test double      | no fake cache type exists or gets hand-rolled; `SetAsync` preloads spec state through the real implementation                                       |
+| [INDEX] | [LAW]            | [RULING]                                                                                                                                                                                                                                                                                                                               |
+| :-----: | :--------------- | :------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+|   [1]   | tag cut          | `RemoveByTagAsync` records a timestamp cut; pre-cut entries read as misses in both tiers and persist until natural expiry — logical, never physical                                                                                                                                                                                    |
+|   [2]   | wildcard         | `*` is reserved and illegal as a write-time tag; the wildcard cut invalidates everything including untagged entries                                                                                                                                                                                                                    |
+|   [3]   | glob             | no pattern matching exists; only the bare `*` is special                                                                                                                                                                                                                                                                               |
+|   [4]   | physical removal | `RemoveAsync` is the physical sibling — it deletes the key from both tiers                                                                                                                                                                                                                                                             |
+|   [5]   | tag vocabulary   | tags derive from `CacheLane` keys and admitted owner keys; a free-string tag is the rejected form                                                                                                                                                                                                                                      |
+|   [6]   | cross-process L1 | peer-process L1 staleness is TTL-bounded with no backplane; convergence rides natural expiry or the next tag cut                                                                                                                                                                                                                       |
+|   [7]   | clock seam       | the cache implementation service-locates the DI `TimeProvider` with system fallback; creation stamps and tag cuts ride the injected clock                                                                                                                                                                                              |
+|   [8]   | L1 TTL split     | absolute L1 expiry is delegated to the memory-cache entry's `AbsoluteExpirationRelativeToNow` under the memory cache's own clock — read-time revalidation checks only wildcard and tag cuts against the injected clock, so advancing `FakeTimeProvider` never expires an L1 entry by TTL and specs assert via tag cut or `RemoveAsync` |
+|   [9]   | guards           | `MaximumPayloadBytes` stays the 1 MiB package default and `MaximumKeyLength` the 1024 default; the package clamps `LocalCacheExpiration` to `Expiration` when the L1 row exceeds the L2 row; `ReportTagMetrics` is enabled because the lane tag vocabulary is closed and low-cardinality                                               |
+|  [10]   | test double      | no fake cache type exists or gets hand-rolled; `SetAsync` preloads spec state through the real implementation                                                                                                                                                                                                                          |
 
 ## [3]-[OBJECT_POOLS]
 
@@ -88,7 +90,7 @@ public static class CacheSurface {
 - Auto: return-time cleanup folds `IResettable.TryReset` before the row's sanity predicate; a false return discards the instance instead of re-pooling it.
 - Packages: Microsoft.Extensions.ObjectPool.
 - Growth: one pool policy row per pooled type; a capacity change is one policy value; zero new surface.
-- Boundary: pooled instances never carry request, document, or host state across returns; `DefaultObjectPoolProvider` mints every pool with `MaximumRetained` at the package default, the text pool rides `CreateStringBuilderPool` with `InitialCapacity` and `MaximumRetainedCapacity` at package defaults, and `LeakTrackingObjectPoolProvider` wraps the provider on the test-host row only — this cluster deletes ad hoc static pools and per-site `StringBuilder` churn.
+- Boundary: pooled instances never carry request, document, or host state across returns; `DefaultObjectPoolProvider` mints every pool with `MaximumRetained` at the package default of twice the processor count, the text pool rides `CreateStringBuilderPool` with the `InitialCapacity` 100 and `MaximumRetainedCapacity` 4096 package defaults, and `LeakTrackingObjectPoolProvider` wraps the provider on the test-host row only — this cluster deletes ad hoc static pools and per-site `StringBuilder` churn.
 
 ```csharp signature
 public sealed class PoolPolicy<T>(Func<T> create, Func<T, bool> sane) : PooledObjectPolicy<T> where T : class {
@@ -173,23 +175,12 @@ public static class DrainSurface {
 }
 ```
 
-| [INDEX] | [LAW]        | [RULING]                                                                                                                                       |
-| :-----: | :----------- | :---------------------------------------------------------------------------------------------------------------------------------------------- |
-|   [1]   | kind split   | `Channel.CreateBounded` owns simple pipe seams; Dataflow blocks own completion-propagating networks — the row's topology fixes the kind, never the call site |
-|   [2]   | backpressure | `WriteAsync` and `SendAsync` await fullness on `Wait` rows; `TryWrite` and `Post` are legal only on receipted-loss rows; `NullTarget` absorption is spelled at the link site |
-|   [3]   | loss         | a `DropOldest` row opens only with an `onDrop` receipt delegate; `Open` rejects an unreceipted-loss row on the `Fin` rail                        |
+| [INDEX] | [LAW]        | [RULING]                                                                                                                                                                                   |
+| :-----: | :----------- | :----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+|   [1]   | kind split   | `Channel.CreateBounded` owns simple pipe seams; Dataflow blocks own completion-propagating networks — the row's topology fixes the kind, never the call site                               |
+|   [2]   | backpressure | `WriteAsync` and `SendAsync` await fullness on `Wait` rows; `TryWrite` and `Post` are legal only on receipted-loss rows; `NullTarget` absorption is spelled at the link site               |
+|   [3]   | loss         | a `DropOldest` row opens only with an `onDrop` receipt delegate; `Open` rejects an unreceipted-loss row on the `Fin` rail                                                                  |
 |   [4]   | grouping     | `BatchBlock` carries receipt-grade batched hand-off, with `TriggerBatch` flushing a partial batch at drain; the reservation rail, `Encapsulate`, `AsObservable`, and `AsObserver` stay out |
-|   [5]   | drain        | `Drained` completes intake then awaits `Completion` under the conductor token at the row's band; evidence rows complete inside the final band before exporter flush |
-|   [6]   | fault        | a faulted block or channel fails `Completion`; the conductor folds the failure into the unload receipt instead of swallowing it                  |
-|   [7]   | homonym      | `DrainQueue` is the AppHost name for process-level drainable queues; `WorkLane` belongs to Compute — one altitude per name                       |
-
-## [5]-[RESEARCH]
-
-| [INDEX] | [ITEM]                                                                                                          | [PROOF]                                                                                                                          | [GATE]       |
-| :-----: | :--------------------------------------------------------------------------------------------------------------- | :-------------------------------------------------------------------------------------------------------------------------------- | :----------- |
-|   [1]   | `HybridCacheEntryOptions` and `HybridCacheEntryFlags` complete member spellings beyond `Expiration`              | `uv run python -m tools.assay api query Microsoft.Extensions.Caching.Hybrid.HybridCacheEntryOptions`                              | CACHE_PORT   |
-|   [2]   | Hybrid-level absolute-TTL recheck against the injected clock on the L1 read path                                  | `curl -sL raw.githubusercontent.com/dotnet/extensions/main/src/Libraries/Microsoft.Extensions.Caching.Hybrid/Internal/DefaultHybridCache.cs` | CACHE_PORT   |
-|   [3]   | `DefaultObjectPoolProvider` retained-count and `StringBuilder` pool capacity package defaults                     | `uv run python -m tools.assay api query Microsoft.Extensions.ObjectPool.DefaultObjectPoolProvider`                                | OBJECT_POOLS |
-|   [4]   | channel pipe member spellings (`BoundedChannelOptions` knobs, `BoundedChannelFullMode` cases, completion members) | `uv run python -m tools.assay api query System.Threading.Channels`                                                                | DRAIN_QUEUES |
-|   [5]   | `ExecutionDataflowBlockOptions` knob spellings (capacity, degree, ordering, scheduler)                            | `uv run python -m tools.assay api query System.Threading.Tasks.Dataflow.ExecutionDataflowBlockOptions`                            | DRAIN_QUEUES |
-|   [6]   | hybrid-cache meter name and hit/miss/stampede instrument spellings backing the builtin source-row admission       | `uv run python -m tools.assay api query microsoft.extensions.caching.hybrid HybridCache`                                          | TELEMETRY_IDENTITY |
+|   [5]   | drain        | `Drained` completes intake then awaits `Completion` under the conductor token at the row's band; evidence rows complete inside the final band before exporter flush                        |
+|   [6]   | fault        | a faulted block or channel fails `Completion`; the conductor folds the failure into the unload receipt instead of swallowing it                                                            |
+|   [7]   | homonym      | `DrainQueue` is the AppHost name for process-level drainable queues; `WorkLane` belongs to Compute — one altitude per name                                                                 |

@@ -51,12 +51,9 @@ public abstract partial record ContourPolicy {
             _ => Fin.Fail<ContourPolicy>(key.OrDefault().InvalidInput()),
         };
     public static Fin<ContourPolicy> MeshScalar(Arr<double> values, Seq<double> levels, Op? key = null) =>
-        values.Count > 0
-            && !levels.IsEmpty
-            && values.All(RhinoMath.IsValidDouble)
-            && levels.ForAll(RhinoMath.IsValidDouble)
-            ? Fin.Succ<ContourPolicy>(new MeshScalarCase(Values: values, Levels: levels))
-            : Fin.Fail<ContourPolicy>(key.OrDefault().InvalidInput());
+        from scalars in values.Count > 0 ? FieldNabla.AllFinite(values: values, key: key.OrDefault()) : Fin.Fail<Unit>(key.OrDefault().InvalidInput())
+        from admittedLevels in FieldNabla.FiniteScalars(values: levels, allowEmpty: false, key: key.OrDefault())
+        select (ContourPolicy)new MeshScalarCase(Values: values, Levels: admittedLevels);
     internal Fin<ContourPolicy> Admit(Op key) =>
         Switch(
             state: key,
@@ -72,9 +69,9 @@ public abstract partial record ContourPolicy {
                 (IsoStatus.North or IsoStatus.East or IsoStatus.South or IsoStatus.West, _) => Fin.Succ<ContourPolicy>(policy),
                 _ => Fin.Fail<ContourPolicy>(op.InvalidInput()),
             },
-            meshScalarCase: static (op, policy) => policy.Values.Count > 0 && !policy.Levels.IsEmpty && policy.Values.All(RhinoMath.IsValidDouble) && policy.Levels.ForAll(RhinoMath.IsValidDouble)
-                ? Fin.Succ<ContourPolicy>(policy)
-                : Fin.Fail<ContourPolicy>(op.InvalidInput()));
+            meshScalarCase: static (op, policy) => from scalars in policy.Values.Count > 0 ? FieldNabla.AllFinite(values: policy.Values, key: op) : Fin.Fail<Unit>(op.InvalidInput())
+                                                   from levels in FieldNabla.FiniteScalars(values: policy.Levels, allowEmpty: false, key: op)
+                                                   select (ContourPolicy)policy);
 }
 
 [Union]
@@ -295,7 +292,7 @@ public abstract partial record ExtractionDomain {
     private static Fin<CurveBatch> AcceptCurves(Seq<Curve> curves, int attempted, ExtractionStatus status, bool nativeRouted, Op key, Option<double> tolerance = default, bool parallelCallback = false, ToleranceSource? toleranceSource = null, Option<ScalarIsolineResult> scalarIsoline = default) {
         Seq<Curve> accepted = curves.Filter(static curve => curve is not null && curve.IsValid);
         int emitted = accepted.Count;
-        return ExtractionReceipt.Of(status: status, attempted: attempted, emitted: emitted, nativeRouted: nativeRouted, toleranceSource: toleranceSource ?? (tolerance.IsSome ? ToleranceSource.Context : ToleranceSource.NotApplicable), tolerance: tolerance, parallelCallback: parallelCallback, key: key, scalarIsoline: scalarIsoline.Map(static result => result.Receipt))
+        return ExtractionReceipt.Of(status: status, attempted: attempted, emitted: emitted, nativeRouted: nativeRouted, toleranceSource: toleranceSource ?? (tolerance.IsSome ? ToleranceSource.Context : ToleranceSource.NotApplicable), tolerance: tolerance, parallelCallback: parallelCallback, key: key, scalarIsoline: scalarIsoline.Map(static result => result.Receipt), nativeRouteFailures: nativeRouted ? Some(attempted - emitted) : Option<int>.None)
             .Map(receipt => new CurveBatch(Curves: accepted, ScalarIsoline: scalarIsoline, Receipt: receipt));
     }
 }
@@ -404,7 +401,7 @@ internal abstract partial record Extraction {
                     Type t when t.Equals(typeof(Mesh)) => result.Receipt.Valid ? AtomProjection.Value<Mesh, TOut>(value: result.Mesh, key: state.Key, owner: typeof(IsoSurfaceCase)) : Fin.Fail<TOut>(state.Key.InvalidResult()),
                     Type t when t == typeof(IsoSurfaceReceipt) => Fin.Succ((TOut)(object)result.Receipt),
                     Type t when t == typeof(IsoSurfaceResult) => Fin.Succ((TOut)(object)result),
-                    Type t when t == typeof(ExtractionReceipt) => ExtractionReceipt.Of(status: result.Receipt.Valid ? ExtractionStatus.Complete : ExtractionStatus.Approximate, attempted: 1, emitted: result.Receipt.Valid ? 1 : 0, nativeRouted: result.Receipt.NativeRouted, toleranceSource: result.Receipt.FixedTolerance.IsSome ? ToleranceSource.RhinoDefault : ToleranceSource.NotApplicable, tolerance: result.Receipt.FixedTolerance, parallelCallback: result.Receipt.ParallelCallback, key: state.Key, isoSurface: Some(result.Receipt)).Map(static receipt => (TOut)(object)receipt),
+                    Type t when t == typeof(ExtractionReceipt) => ExtractionReceipt.Of(status: result.Receipt.Valid ? ExtractionStatus.Complete : ExtractionStatus.Approximate, attempted: 1, emitted: result.Receipt.Valid ? 1 : 0, nativeRouted: result.Receipt.NativeRouted, toleranceSource: result.Receipt.FixedTolerance.IsSome ? ToleranceSource.RhinoDefault : ToleranceSource.NotApplicable, tolerance: result.Receipt.FixedTolerance, parallelCallback: result.Receipt.ParallelCallback, key: state.Key, isoSurface: Some(result.Receipt), nativeRouteFailures: result.Receipt.Valid ? Option<int>.None : Some(1)).Map(static receipt => (TOut)(object)receipt),
                     _ => Fin.Fail<TOut>(error: state.Key.Unsupported(geometryType: typeof(IsoSurfaceCase), outputType: typeof(TOut))),
                 }
                 select output,
@@ -437,7 +434,7 @@ internal abstract partial record Extraction {
         from samples in kind.Evaluate(domain: domain, context: context, key: key)
         from sampled in SampledItems(points: samples.Points, context: context, key: key, state: state, sample: sample)
         from output in typeof(TOut) == typeof(ExtractionReceipt)
-            ? Receipt<TOut>(attempted: sampled.Attempted, emitted: sampled.Emitted, nativeRouted: false, toleranceSource: ToleranceSource.NotApplicable, tolerance: Option<double>.None, parallelCallback: false, key: key, sample: Some(samples.Receipt))
+            ? Receipt<TOut>(attempted: sampled.Attempted, emitted: sampled.Emitted, nativeRouted: false, toleranceSource: ToleranceSource.NotApplicable, tolerance: Option<double>.None, parallelCallback: false, key: key, sample: Some(samples.Receipt), vectorSampleFailures: typeof(TItem) == typeof(Line) ? Some(sampled.Rejected) : Option<int>.None, scalarSampleFailures: typeof(TItem) == typeof((Point3d, double)) ? Some(sampled.Rejected) : Option<int>.None, streamTraceFailures: typeof(TItem) == typeof(StreamlineTrace) ? Some(sampled.Rejected) : Option<int>.None)
             : sampled.Rejected == 0
                 ? project(sampled.Items, key)
                 : Fin.Fail<TOut>(key.InvalidResult())
@@ -451,8 +448,8 @@ internal abstract partial record Extraction {
                 Fail: _ => { rejected++; return unit; });
         return Fin.Succ((Items: toSeq(items), Attempted: points.Count, Emitted: items.Count, Rejected: rejected));
     }
-    private static Fin<TOut> Receipt<TOut>(int attempted, int emitted, bool nativeRouted, ToleranceSource toleranceSource, Option<double> tolerance, bool parallelCallback, Op key, Option<SampleReceipt> sample = default) =>
-        ExtractionReceipt.Of(status: emitted == attempted ? ExtractionStatus.Complete : ExtractionStatus.Approximate, attempted: attempted, emitted: emitted, nativeRouted: nativeRouted, toleranceSource: toleranceSource, tolerance: tolerance, parallelCallback: parallelCallback, key: key, sample: sample)
+    private static Fin<TOut> Receipt<TOut>(int attempted, int emitted, bool nativeRouted, ToleranceSource toleranceSource, Option<double> tolerance, bool parallelCallback, Op key, Option<SampleReceipt> sample = default, Option<int> vectorSampleFailures = default, Option<int> scalarSampleFailures = default, Option<int> streamTraceFailures = default) =>
+        ExtractionReceipt.Of(status: emitted == attempted ? ExtractionStatus.Complete : ExtractionStatus.Approximate, attempted: attempted, emitted: emitted, nativeRouted: nativeRouted, toleranceSource: toleranceSource, tolerance: tolerance, parallelCallback: parallelCallback, key: key, sample: sample, vectorSampleFailures: vectorSampleFailures, scalarSampleFailures: scalarSampleFailures, streamTraceFailures: streamTraceFailures)
             .Map(static receipt => (TOut)(object)receipt);
 }
 
@@ -468,12 +465,12 @@ internal readonly record struct ScalarIsolineSegment(Point3d A, Point3d B);
 internal sealed class ScalarIsolineStats { internal int RawSegments, DedupedSegments, DegenerateRejected, PlateauRejected, StitchedCandidates, BranchStops, BranchNodes, MaxIncidentSegments, EmittedCurves; }
 
 [BoundaryAdapter, StructLayout(LayoutKind.Auto)]
-public readonly record struct ExtractionReceipt(ExtractionStatus Status, int Attempted, int Emitted, int Rejected, bool NativeRouted, ToleranceSource ToleranceSource, Option<double> Tolerance, bool ParallelCallback, Option<IsoSurfaceReceipt> IsoSurface = default, Option<ScalarIsolineReceipt> ScalarIsoline = default, Option<SampleReceipt> Sample = default) {
+public readonly record struct ExtractionReceipt(ExtractionStatus Status, int Attempted, int Emitted, int Rejected, bool NativeRouted, ToleranceSource ToleranceSource, Option<double> Tolerance, bool ParallelCallback, Option<IsoSurfaceReceipt> IsoSurface = default, Option<ScalarIsolineReceipt> ScalarIsoline = default, Option<SampleReceipt> Sample = default, Option<int> VectorSampleFailures = default, Option<int> ScalarSampleFailures = default, Option<int> StreamTraceFailures = default, Option<int> NativeRouteFailures = default) {
     public ExtractionRoute Route => NativeRouted ? ExtractionRoute.Native : ExtractionRoute.Local;
-    internal static Fin<ExtractionReceipt> Of(ExtractionStatus status, int attempted, int emitted, bool nativeRouted, ToleranceSource toleranceSource, Option<double> tolerance, bool parallelCallback, Op key, Option<IsoSurfaceReceipt> isoSurface = default, Option<ScalarIsolineReceipt> scalarIsoline = default, Option<SampleReceipt> sample = default) =>
+    internal static Fin<ExtractionReceipt> Of(ExtractionStatus status, int attempted, int emitted, bool nativeRouted, ToleranceSource toleranceSource, Option<double> tolerance, bool parallelCallback, Op key, Option<IsoSurfaceReceipt> isoSurface = default, Option<ScalarIsolineReceipt> scalarIsoline = default, Option<SampleReceipt> sample = default, Option<int> vectorSampleFailures = default, Option<int> scalarSampleFailures = default, Option<int> streamTraceFailures = default, Option<int> nativeRouteFailures = default) =>
         attempted < 0 || emitted < 0 || emitted > attempted
             ? Fin.Fail<ExtractionReceipt>(error: key.InvalidResult())
-            : Fin.Succ(new ExtractionReceipt(Status: status, Attempted: attempted, Emitted: emitted, Rejected: attempted - emitted, NativeRouted: nativeRouted, ToleranceSource: toleranceSource, Tolerance: tolerance, ParallelCallback: parallelCallback, IsoSurface: isoSurface, ScalarIsoline: scalarIsoline, Sample: sample));
+            : Fin.Succ(new ExtractionReceipt(Status: status, Attempted: attempted, Emitted: emitted, Rejected: attempted - emitted, NativeRouted: nativeRouted, ToleranceSource: toleranceSource, Tolerance: tolerance, ParallelCallback: parallelCallback, IsoSurface: isoSurface, ScalarIsoline: scalarIsoline, Sample: sample, VectorSampleFailures: vectorSampleFailures, ScalarSampleFailures: scalarSampleFailures, StreamTraceFailures: streamTraceFailures, NativeRouteFailures: nativeRouteFailures));
 }
 
 [BoundaryAdapter, StructLayout(LayoutKind.Auto)]

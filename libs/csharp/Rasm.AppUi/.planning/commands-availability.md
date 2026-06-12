@@ -293,6 +293,4 @@ interface CommandReceiptWire { readonly key: string; readonly surface: string; r
 
 | [INDEX] | [ITEM]                                                                                              | [PROOF]                                                          | [GATE]              |
 | :-----: | :--------------------------------------------------------------------------------------------------- | :----------------------------------------------------------------- | :------------------- |
-|   [1]   | KeyGesture parse, equality, and platform-modifier formatting surface behind the gesture column, the chord delegate, and conflict grouping | `uv run python -m tools.assay api query avalonia KeyGesture`        | INTENT_TABLE         |
-|   [2]   | ReactiveCommand.CreateFromTask cancellation-token overload arity against the IO RunAsync ValueTask bridge | `uv run python -m tools.assay api query reactiveui ReactiveCommand` | EXECUTION_RECEIPTS   |
-|   [3]   | Seq-typed payload member round-trip through the Strict camelCase wire options on the inbound remote decode | `uv run python -m tools.assay test run --target Rasm.AppUi`         | PALETTE_AND_REMOTE   |
+|   [1]   | Seq-typed payload member round-trip through the Strict camelCase wire options on the inbound remote decode | `uv run python -m tools.assay test run --target Rasm.AppUi`         | PALETTE_AND_REMOTE   |

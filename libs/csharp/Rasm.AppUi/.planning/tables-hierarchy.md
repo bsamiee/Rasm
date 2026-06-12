@@ -61,11 +61,11 @@ public static class TableSurface {
 | [INDEX] | [LAW]           | [RULING]                                                                                                                                  |
 | :-----: | :-------------- | :----------------------------------------------------------------------------------------------------------------------------------------- |
 |   [1]   | virtualization  | the free `DataGrid` virtualizes rows over the one flat bound collection; a fixed density-token row height keeps the scroll math exact      |
-|   [2]   | materialization | `LoadingRow` stamps row-state pseudo-classes from theme tokens; `LoadingRowDetails` materializes the single per-screen details template on demand |
+|   [2]   | materialization | `LoadingRow` stamps row state from theme tokens onto the `DataGridRow` pseudo-classes `:selected`, `:current`, `:editing`, `:edited`, `:invalid`, `:pressed`, `:focus`, `:expanded`, `:sortascending`, `:sortdescending`, `:empty-rows`, `:empty-columns`; `LoadingRowDetails` materializes the single per-screen details template on demand |
 |   [3]   | selection       | selection mode is a per-screen policy value; `SelectedItems` and the current row project into the screen-state snapshot                    |
 |   [4]   | quick filter    | `Matches` is an ordinal case-insensitive scan over visible unclassified column projections; classified columns never match                  |
 |   [5]   | footers         | aggregate footer values arrive from the live-data aggregation rows (`Count`, `Sum`, `Avg`); the grid renders totals, never computes them    |
-|   [6]   | column posture  | user reorder, resize, and sort-toggle flags are per-screen policy values; their member spellings ride the research table                    |
+|   [6]   | column posture  | user reorder, resize, and sort-toggle flags are per-screen policy values on `CanUserReorderColumns`, `CanUserResizeColumns`, and `CanUserSortColumns`, with `FrozenColumnCount`, `RowHeight`, and `RowDetailsTemplate` as the remaining posture members |
 
 ## [3]-[VIEW_STATE]
 
@@ -105,7 +105,7 @@ public static class ViewStateSurface {
 | [INDEX] | [LAW]        | [RULING]                                                                                                                                   |
 | :-----: | :----------- | :----------------------------------------------------------------------------------------------------------------------------------------- |
 |   [1]   | batching     | every multi-descriptor write lands inside one `DeferRefresh` scope; per-descriptor refresh churn is the deleted form                       |
-|   [2]   | paging       | `PageSize` value `0` reads as unpaged; a paged projection writes its window through the snapshot field, never a second paging surface      |
+|   [2]   | paging       | paging is live only while `PageSize` exceeds zero, so value `0` reads as unpaged; a paged projection writes its window through the snapshot field, never a second paging surface |
 |   [3]   | transactions | `AddNew` and `EditItem` fire only as CommandIntent executions; page and current transitions surface through `PageChangingEventArgs` and `DataGridCurrentChangingEventArgs` into screen state |
 |   [4]   | restore      | `CurrentKey` resolves against the keyed live-data cache on the screen; `Apply` receives the resolved item as the `current` value           |
 
@@ -117,7 +117,7 @@ public static class ViewStateSurface {
 - Auto: an expansion toggle re-emits the flattened stream through the change-set diff; expansion keys persist on the `Expanded` snapshot field through the row key's string projection, and restore mints the expansion cell before the first projection subscription.
 - Packages: DynamicData; System.Reactive; Thinktecture.Runtime.Extensions; LanguageExt.Core.
 - Growth: one projection case; an ordering or depth change is one policy value; zero new surface — the closed five-case family is the axis.
-- Boundary: `TreeDataGrid` stays rejected — every hierarchy renders as `TreeRow` indent rows on the flat virtualized `DataGrid`, which is the absorbing fold; grouped virtualization stability rides the live-data immutable-group projection-policy row; the expansion cell disposes inside the activation scope with its `DisposalReceipt`.
+- Boundary: `TreeDataGrid` stays rejected — every hierarchy renders as `TreeRow` indent rows on the flat virtualized `DataGrid`, which is the absorbing fold; `TransformToTree` emits root nodes only (its default predicate is `IsRoot`), so the recursive `Rows` fold owns child materialization and never double-counts; grouped virtualization stability rides the live-data immutable-group projection-policy row; the expansion cell disposes inside the activation scope with its `DisposalReceipt`.
 
 ```csharp signature
 public readonly record struct TreeRow<TRow>(TRow Item, int Level, bool HasChildren, bool IsExpanded) {
@@ -217,9 +217,10 @@ public sealed record TableCommit<TRow>(
 public static class CommitSurface {
     extension<TRow>(TableCommit<TRow> commit) {
         public Func<TRow, CancellationToken, ValueTask<Fin<Unit>>> Execution =>
-            (row, token) => commit.Gate(row).Match(
-                Succ: valid => commit.Persist(valid, token),
-                Fail: static error => ValueTask.FromResult<Fin<Unit>>(error));
+            (row, token) => commit.Gate(row) switch {
+                { IsSucc: true, Case: TRow valid } => commit.Persist(valid, token),
+                var failed => ValueTask.FromResult<Fin<Unit>>((Error)failed.Case!),
+            };
 
         public IDisposable Attach(DataGrid grid, Action<string, TRow> invoke) => Observable
             .FromEventPattern<EventHandler<DataGridRowEditEndingEventArgs>, DataGridRowEditEndingEventArgs>(handler => grid.RowEditEnding += handler, handler => grid.RowEditEnding -= handler)
@@ -258,13 +259,3 @@ flowchart LR
 |   [3]   | persistence split | the `Persist` column is the host-agnostic parameter: store rows, host-object rows, and fake-deterministic rows differ only in the bound delegate |
 |   [4]   | clipboard         | the `Clipboard` destination fixes `Delimiter` at tab with `HeaderRow` true — the rows-as-TSV case                                        |
 |   [5]   | export admission  | classified columns never pass `Admitted`; the delimited projection is the single text-shaping fold for clipboard and Sep destinations    |
-
-## [6]-[RESEARCH]
-
-| [INDEX] | [ITEM]                                                                                                                       | [PROOF]                                                                                  | [GATE]         |
-| :-----: | :----------------------------------------------------------------------------------------------------------------------------- | :------------------------------------------------------------------------------------------ | :------------- |
-|   [1]   | `TransformToTree`/`TransformMany` operator signatures, `Node<TObject,TKey>` member spellings (`Item`, `Depth`, `Children` enumeration), and root-emission semantics | `uv run python -m tools.assay api query dynamicdata DynamicData.Node`                       | TREE_FLATTEN   |
-|   [2]   | `DataGridSortDescription.FromPath` factory, the concrete path group-description type, descriptor-collection mutation members, and `PageSize` zero-as-unpaged semantics | `uv run python -m tools.assay api query avalonia.datagrid Avalonia.Collections.DataGridSortDescription` | VIEW_STATE     |
-|   [3]   | `DataGridColumn` and `DataGrid` policy-member spellings (header, width, read-only, cell template, reorder/resize/sort flags, selection mode, row height, row-details template, frozen columns) | `uv run python -m tools.assay api query avalonia.datagrid Avalonia.Controls.DataGrid`       | GRID_SUBSTRATE |
-|   [4]   | `DataGridRow` pseudo-class state names backing row-state styling rows                                                          | `uv run python -m tools.assay api query avalonia.datagrid Avalonia.Controls.DataGridRow`    | GRID_SUBSTRATE |
-|   [5]   | DataGrid edit-event member spellings (`RowEditEnding`/row-edit-ended pair, `DataGridEditAction` discrimination, `Row.DataContext` payload access) | `uv run python -m tools.assay api query avalonia.datagrid Avalonia.Controls.DataGrid`       | GRID_COMMIT    |

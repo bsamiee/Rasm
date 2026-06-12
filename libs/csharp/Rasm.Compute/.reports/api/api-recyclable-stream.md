@@ -60,16 +60,20 @@ events for execution payload staging.
 [ENTRYPOINT_SCOPE]: pool policy and telemetry
 - rail: staging
 
-| [INDEX] | [SURFACE]                 | [CALL_SHAPE]    | [CAPABILITY]             |
-| :-----: | :------------------------ | :-------------- | :----------------------- |
-|   [1]   | `BlockSize`               | option property | sets block size          |
-|   [2]   | `LargeBufferMultiple`     | option property | sets large increment     |
-|   [3]   | `MaximumBufferSize`       | option property | caps buffer size         |
-|   [4]   | `MaximumStreamCapacity`   | option property | caps stream capacity     |
-|   [5]   | `GenerateCallStacks`      | option property | enables allocation trace |
-|   [6]   | `AggressiveBufferReturn`  | option property | returns buffers eagerly  |
-|   [7]   | `ThrowExceptionOnToArray` | option property | rejects array copy       |
-|   [8]   | `UsageReport`             | manager event   | reports pool usage       |
+| [INDEX] | [SURFACE]                   | [CALL_SHAPE]    | [CAPABILITY]               |
+| :-----: | :-------------------------- | :-------------- | :------------------------- |
+|   [1]   | `BlockSize`                 | option property | sets block size            |
+|   [2]   | `LargeBufferMultiple`       | option property | sets large increment       |
+|   [3]   | `MaximumBufferSize`         | option property | caps buffer size           |
+|   [4]   | `MaximumSmallPoolFreeBytes` | option property | caps small pool retention  |
+|   [5]   | `MaximumLargePoolFreeBytes` | option property | caps large pool retention  |
+|   [6]   | `MaximumStreamCapacity`     | option property | caps stream capacity       |
+|   [7]   | `UseExponentialLargeBuffer` | option property | selects large growth curve |
+|   [8]   | `GenerateCallStacks`        | option property | enables allocation trace   |
+|   [9]   | `AggressiveBufferReturn`    | option property | returns buffers eagerly    |
+|  [10]   | `ZeroOutBuffer`             | option property | clears buffers on cycle    |
+|  [11]   | `ThrowExceptionOnToArray`   | option property | rejects array copy         |
+|  [12]   | `UsageReport`               | manager event   | reports pool usage         |
 
 ## [4]-[IMPLEMENTATION_LAW]
 

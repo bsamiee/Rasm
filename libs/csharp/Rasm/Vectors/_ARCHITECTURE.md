@@ -16,7 +16,7 @@
 | Tier 2 | `[implemented]` | Shared admission routes through `FieldNabla`; `AtomProjection` remains the local raw projection utility; dense solve guards route through `DenseSolveGated`; hot-path validation has no extra helper file. | Further collapse is opportunistic only and must reduce code or remove duplication. |
 | Tier 3 | `[implemented]` | Cloud admission/neighborhood/curvature receipts, spectral wave/WKS normalization receipts, matrix solve/eigen receipts, and owner-local receipt projections are landed. | None at the current receipt-gap level. |
 | Tier 4 | `[implemented]` | Current executable rails are complete: mesh-candidate Bridson-style selection, Dwork candidate and continuous mesh active-list rails, scalar-density candidate priority, capacity-limited Lloyd residuals, thresholded mesh-spectrum receipts, mesh feature/segmentation receipts, vector-heat tangent log approximation, generalized winding SDF, boundary-source SignedHeat, closed regular-grid `VolumeGrid` SignedHeat, caller-supplied tet SignedHeat, affine MLS approximation, and RK event tracing with dense-output/bounded-bisection receipts. Bridge proof is landed for mesh Dwork, cloud neighborhood/curvature, mesh features, all six segmentation rails, sampling spectrum, tangent log approximation, scalar isolines, native iso-surface facts, and closed `VolumeGrid` sampling. | Proof hardening only: glyph/bundle runtime geometry and runtime bridge proof for newer Tier 5 rails such as GICP. |
-| Tier 5 | `[partial]` | Executable slices exist for continuous mesh Dwork, PCA-backed GICP, caller-supplied tet SignedHeat, tableau-derived RK dense output, reconstruction success/failure admission, tufted-intrinsic receipt assembly, signpost-style transport receipts, and DEC harmonic one-form receipts. | Paper-complete work remains: exact exp/log by window/path tracing, true power CCVT/continuous OT, full side-glued tufted cover plus exact signpost common-subdivision consumption over flipped snapshots, paper-faithful Levin/APSS/Poisson/screened Poisson success rails, GICP runtime proof, and method-specific dense-output coefficients if stronger RK claims are made. |
+| Tier 5 | `[partial]` | Executable slices exist for continuous mesh Dwork, PCA-backed GICP, caller-supplied tet SignedHeat, generic RK dense output, reconstruction success/failure admission, tufted-intrinsic receipt assembly, signpost-style transport receipts, and DEC harmonic one-form receipts. | The backlog below is the complete Tier 5 closure problem set. No current receipt-backed approximation promotes to paper-complete, exact, continuous, or runtime-proven status until its item closes. |
 
 ### Status By Owner
 
@@ -35,13 +35,97 @@ Matrix, extraction admission, cloud/alignment/transport mass diagnostics, and Fl
 
 ### Remaining Work
 
-Dependency-ordered implementation contracts. A current rail is done only for the executable behavior named in this file; it does not promote stronger academic variants.
+This backlog is dependency-ordered and limited to Tier 5 gaps. A current rail is done only for the executable behavior already named in this file; it does not promote stronger academic, exact, continuous, or runtime-proven variants.
 
-1. **Mesh and spectral exactness:** implement a true tufted cover with explicit front/back sheets, side gluing, cover-local halfedges, cover collapse, and receipts that distinguish logical cover facts from the current doubled-count proxy. Then implement signpost transport over flipped intrinsic snapshots with exact common-subdivision segments, per-halfedge directions, path/trace facts, and consumption by vector/cross-field or CR connection rails. Exact exp/log comes after that substrate and must report path faces/windows, local-vs-global exactness, cut-locus/boundary ambiguity, alternate path deltas, and residuals.
-2. **Continuous OT/CCVT:** add restricted mesh power-cell clipping per triangle, target masses, convex dual weight solve, density-weighted centroids, capacity residuals, OT energy deltas, empty-cell failures, and spectrum validation. Keep `Cloud.cs` Sinkhorn as discrete transport evidence only.
-3. **Paper reconstruction rails:** keep `ReconstructionMode.Executable` as the admission truth. Levin MLS and APSS need their paper-specific local projection systems before success is allowed. Poisson and screened Poisson need sparse incidence/system assembly, gauge handling, residual receipts, and mesh extraction before success is allowed.
-4. **Runtime hardening:** add bridge proof for glyph/bundle runtime geometry and GICP over Rhino point clouds. Add tufted/signpost/harmonic runtime scenarios only after the exact cover/transport consumption work exists.
-5. **RK dense-output strengthening:** current dense output is tableau-derived, stage-derivative-backed, and endpoint/moment checked. If a future claim needs paper method-specific continuous-extension coefficients, add those coefficient tables and receipts explicitly instead of reusing the generic interpolant claim.
+1. **Matrix nullspace and dual solves**
+   - Owner: `Matrix.cs`
+   - Problem: Poisson, screened Poisson, harmonic forms, heat systems, and continuous OT need one Matrix-owned nullspace and gauge policy instead of local solve mutations.
+   - Required work: add gauge application and dual-solve surfaces with pinned-index or mean-zero policy, constraint rows, RHS mutation norm, nullspace status, and residual-after-gauge.
+   - Receipt closure: every consumer that solves a nullspace system attaches child solve facts plus `GaugeReceipt`; no Tier 5 consumer calls MathNet or CSparse directly.
+
+2. **Real tufted cover**
+   - Owner: `Mesh.cs`
+   - Problem: `MeshLaplacian.TuftedIntrinsic` is mollified/IDT/collapsed cotan assembly, not a side-glued Sharp-Crane nonmanifold cover.
+   - Required work: build cover-local topology with front/back face copies, side ids, cover-local halfedges, face-side glue maps, circular face ordering, boundary gluing, cover-to-base collapse maps, and cover-local adjacency.
+   - Receipt closure: cover edge incident-side counts, glue completeness, collapse dimensions, intrinsic mollification, triangle-inequality residual, min cotan weight, negative weight count, mass positivity, and operator symmetry residual prove the substrate; `CoverAware=true` is only legal after this closes.
+
+3. **Signpost transport and exact common subdivision**
+   - Owner: `Mesh.cs`, consumed by `Spectral.cs`
+   - Problem: current signpost-style receipts are non-exact and `ExactCommonSubdivision` remains false.
+   - Required work: store per-halfedge intrinsic lengths, tangent directions, frame residuals, traced path segments, crossed edge sequences, barycentric endpoints, snap handling, degenerate handling, subdivision points, source-face maps, ordered intersections, restriction matrices, and interpolation matrices.
+   - Receipt closure: every intrinsic edge consumed by a flipped-snapshot operator has a traced path, matrix row-sum residual, edge-length interpolation residual, intersection histogram, and exact common-subdivision facts.
+
+4. **Exact exponential and exact log boundaries**
+   - Owner: `Mesh.cs`
+   - Problem: tangent log is still vector-heat approximate; exact global log is not single-valued outside a normal neighborhood.
+   - Required work: implement exact exp by face-unfolding path tracing with boundary/barrier/max-iteration stops; implement exact log only through a real shortest-path substrate such as MMP/window propagation and backtracing.
+   - Receipt closure: receipts expose path faces, crossed edges, path length, length residual, boundary/barrier stops, cut-locus ambiguity, non-unique path count, selected policy, and alternate path deltas. Exact log remains unsupported until those facts exist.
+
+5. **Harmonic one-form and Hodge runtime hardening**
+   - Owner: `Spectral.cs`, consumed by `Mesh.cs`
+   - Problem: harmonic one-form receipts exist, but genus-positive Hodge still needs final runtime proof and residual completeness.
+   - Required work: route Hodge through spectral harmonic basis when available, triangulate or fail non-triangle faces explicitly, and validate closed/co-closed residuals against the active DEC substrate.
+   - Receipt closure: expected dimension `2g`, basis count, edge count, finite vector length count, closed residual, co-closed residual, star-orthonormal residual, nullity/rank relation, positive `Star1` count, usable eigen receipt, and valid DEC substrate.
+
+6. **Restricted power-cell mesh substrate**
+   - Owner: `Mesh.cs`
+   - Problem: continuous CCVT/OT has no triangle-local restricted power-cell geometry.
+   - Required work: clip each triangle by power halfspaces, emit per-site fragments, integrate fragment area and first moments, track neighbor facets and empty cells, and admit constant density first before scalar-density quadrature.
+   - Receipt closure: clipped triangle count, fragment count, fragment area range, total area, first-moment finite count, neighbor facet count, empty-cell count, clipping tolerance, density policy, non-finite density rejection count, and integration residual.
+
+7. **Continuous power CCVT and OT sampling**
+   - Owner: `Sample.cs`, with `Mesh.cs` and `Matrix.cs`
+   - Problem: `SampleKind.PowerCcvt` must not reuse candidate capacity Lloyd or discrete Sinkhorn evidence.
+   - Required work: initialize sites, solve gauge-fixed power weights, integrate restricted cells, move to density-weighted centroids, record OT energy and residual deltas, stop on capacity residual and centroid movement, and require mesh-spectrum validation for Tier 5 blue-noise claims.
+   - Receipt closure: `PowerCcvtReceipt` carries site count, density policy, target/actual mass ranges, max/L1/L2 residuals, outer/dual iterations, gauge policy, weight range, objective, OT energy delta, centroid shift, empty cells, step-halving count, fragment facts, child solve receipt, and child spectrum receipt.
+
+8. **Levin MLS reconstruction**
+   - Owner: `Field.cs`
+   - Problem: current MLS is oriented affine approximation, not Levin nonlinear MLS projection.
+   - Required work: local weighted polynomial fit, nonlinear projection iteration, fixed-point residual, gradient evaluation, normal agreement, and support/rank/conditioning failures.
+   - Receipt closure: support count, rejected samples, weight sum, local plane origin/normal/offset, polynomial degree, basis size, projection iterations, fixed-point residual, rank, condition, weighted fit residual, gradient norm, normal agreement, and solve receipt.
+
+9. **APSS reconstruction**
+   - Owner: `Field.cs`
+   - Problem: APSS is unsupported; there is no moving algebraic sphere fit or degeneracy-to-plane policy.
+   - Required work: weighted algebraic sphere fitting, degeneracy detection, plane fallback, curvature parameter, implicit gradient, nonlinear projection, and finite residual gates.
+   - Receipt closure: local radii range, global scale, curvature parameter, algebraic coefficients, coefficient conditioning, derivative residual, position residual, degenerate-plane flag, projection iterations, gradient validity, normal agreement, and solve receipt.
+
+10. **Poisson reconstruction**
+    - Owner: `Field.cs`, with `Matrix.cs`
+    - Problem: there is no global indicator field from oriented samples with sparse Laplacian/divergence assembly and extraction proof.
+    - Required work: define domain/grid or adaptive cell policy, accumulate normal/vector contributions, assemble sparse Laplacian and divergence RHS, apply gauge, solve, choose isovalue, sample the field, and extract an iso mesh through a truthful native route.
+    - Receipt closure: grid/adaptive policy, contribution counts, rejected normal count, Laplacian nonzeros, divergence nonzeros, RHS norm, gauge receipt, solve receipt, isovalue, field residuals, sample residuals, extraction route, extraction validity, and Rhino regular-grid facts when used.
+
+11. **Screened Poisson reconstruction**
+    - Owner: `Field.cs`, with `Matrix.cs`
+    - Problem: screened Poisson is unsupported and must not be represented as a diagonal shift.
+    - Required work: add sparse interpolation/data constraints, point weight, confidence/normal policy, data residual, gradient residual, separated energy components, and unscreened equivalence when `pointWeight=0`.
+    - Receipt closure: point weight, confidence policy, interpolation row count, screened matrix nonzeros, data residual, gradient residual, smoothness energy, screening energy, total energy, gauge receipt, solve receipt, extraction receipt, and unscreened-equivalence flag.
+
+12. **GICP runtime proof and optimizer receipts**
+    - Owner: `Align.cs`
+    - Problem: GICP has production code but lacks runtime bridge proof and complete optimizer/covariance receipt facts.
+    - Required work: keep `AlignKind.Generalized` as the only rail; add covariance policy, neighbor count, radius, eigen floor, accepted/rejected samples, rank clamps, fallback count, SPD batch facts, regularization facts, condition proxies, objective decrease, gradient norm, damping status, normal-equation status, step norm, line-search steps, initial cost, and final cost.
+    - Receipt closure: asymmetric nonplanar point-cloud alignment proves finite correspondences, usable 6x6 solve, PCA facts, finite Mahalanobis values, transform recovery, and cost reduction.
+
+13. **Method-specific dense output**
+    - Owner: `Flow.cs`
+    - Problem: current dense output is generic moment-fit executable behavior, not a method-specific continuous extension.
+    - Required work: add method-keyed coefficient families only for audited Dormand-Prince/Shampine and Bogacki-Shampine coefficient matrices; keep Cash-Karp executable-only until a stronger source is admitted.
+    - Receipt closure: coefficient family, generic-vs-method-specific status, endpoint value residual, endpoint derivative residual, coefficient residual, method order, dense order, theta checks, correction solve receipt when used, and event localization residuals.
+
+14. **Extraction runtime receipts**
+    - Owner: `Extraction.cs`
+    - Problem: glyph/grid/stream bundle paths need runtime proof with diagnosable failure categories.
+    - Required work: preserve vector span failures, scalar sampling failures, streamline trace failures, native route failures, dense-output usage, root-localization routes, termination causes, rejected-step counts, and residual bounds per aggregate receipt.
+    - Receipt closure: explicit seeds over constant vector/scalar fields produce glyph lines, grid samples, and RK streamlines with emitted/rejected counts and trace facts.
+
+15. **Native remesh and reduce policy exposure**
+    - Owner: `Mesh.cs`
+    - Problem: native remesh/reduce receipts do not expose the full admitted Rhino policy surface.
+    - Required work: extend existing `RemeshKind` ownership for `QuadRemeshParameters` and `ReduceMeshParameters` without adding a parallel wrapper.
+    - Receipt closure: quad remesh receipts carry target length/count, adaptive size/count, hard-edge detection, guide influence, preserve-edge mode, symmetry axis, guide curves, face blocks, cancellation/progress/error, and before/after topology; reduce receipts carry desired polygon count, distortion, accuracy, normalize size, tags/locks, cancellation/progress/error, and before/after topology.
 
 ### Validation Centralization
 

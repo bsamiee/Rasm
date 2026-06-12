@@ -133,10 +133,10 @@ public static class RetentionSweep {
 }
 ```
 
-| [INDEX] | [POLICY]      | [VALUE]                                | [BINDING]                                                 |
-| :-----: | :------------ | :-------------------------------------- | :--------------------------------------------------------- |
-|   [1]   | sweep cadence | config-sourced cron, `@daily` default  | `SweepEntry` schedule row under `LeasePolicy.Maintenance`  |
-|   [2]   | drain sweep   | one fold invocation before close        | band-300 store drain order                                 |
+| [INDEX] | [POLICY]      | [VALUE]                               | [BINDING]                                                 |
+| :-----: | :------------ | :------------------------------------ | :-------------------------------------------------------- |
+|   [1]   | sweep cadence | config-sourced cron, `@daily` default | `SweepEntry` schedule row under `LeasePolicy.Maintenance` |
+|   [2]   | drain sweep   | one fold invocation before close      | band-300 store drain order                                |
 
 ## [4]-[EXPORT_PROOF]
 
@@ -147,7 +147,7 @@ public static class RetentionSweep {
 - Receipt: one `ExportProof` per artifact — classification, redactor kind, redaction and failure counts, `XxHash128` content hash, bytes, `Instant` stamp; proofs ship inside the bundle through the export-proofs row.
 - Packages: System.IO.Hashing, Microsoft.Extensions.Compliance.Redaction, NodaTime, LanguageExt.Core, Rasm.AppHost (project).
 - Growth: one artifact row lands a new contribution; zero new surface.
-- Boundary: produce delegates emit only redacted bytes with their redaction count over the frozen capture `Interval` — the redactor resolves from the row classification's `Redactor` column through the AppHost-registered provider and its `Redact` application, deleting ad hoc string masking and a local redactor map; a failed redaction folds its source row into a redaction-failure entry written into the same artifact stream, never silent evidence loss; estimated bytes are row values on the `Rows` table and the AppHost artifact cap truncates above them.
+- Boundary: produce delegates emit only redacted bytes with their redaction count over the frozen capture `Interval` — the redactor resolves from the row classification's `Redactor` column through the AppHost-registered provider, sizes through `GetRedactedLength(ReadOnlySpan<char>)`, and fills through `Redact(ReadOnlySpan<char>, Span<char>)`, deleting ad hoc string masking and a local redactor map; a failed redaction folds its source row into a redaction-failure entry written into the same artifact stream, never silent evidence loss; estimated bytes are row values on the `Rows` table and the AppHost artifact cap truncates above them.
 
 ```csharp signature
 public readonly record struct ExportProof(
@@ -213,7 +213,6 @@ public static class AuditBinding {
 
 ## [6]-[RESEARCH]
 
-| [INDEX] | [ITEM]                                                                                                       | [PROOF]                                                                                                              | [GATE]        |
-| :-----: | :------------------------------------------------------------------------------------------------------------- | :---------------------------------------------------------------------------------------------------------------------- | :------------ |
+| [INDEX] | [ITEM]                                                                                                                  | [PROOF]                                                                                                                                   | [GATE]        |
+| :-----: | :---------------------------------------------------------------------------------------------------------------------- | :---------------------------------------------------------------------------------------------------------------------------------------- | :------------ |
 |   [1]   | pgaudit session-audit category semantics on PG18 under `shared_preload_libraries=pgaudit` against the `Categories` rows | `uv run python -m tools.assay test run --target Rasm.Persistence` with a `pg_settings` capture spec over a provisioned PostgresServer row | AUDIT_BINDING |
-|   [2]   | Span-based `Redact` and `GetRedactedLength` overload shapes for the produce-delegate writer                      | `uv run python -m tools.assay api query compliance.redaction Redactor`                                                   | EXPORT_PROOF  |

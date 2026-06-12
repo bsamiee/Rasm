@@ -5,7 +5,7 @@ namespace Rasm.Analysis;
 // --- [TYPES] ------------------------------------------------------------------------------
 [SkipUnionOps]
 [Union]
-public partial record Bounds : IAspect {
+public partial record Bounds {
     public sealed record AxisAlignedCase : Bounds;
     public sealed record InPlaneCase(Plane Plane) : Bounds;
     public sealed record TransformedCase(Transform Xform) : Bounds;
@@ -51,7 +51,7 @@ public partial record Bounds : IAspect {
     public static Bounds EnclosingSphere(int count = 64) => new EnclosingSphereCase(Count: count);
     public static Bounds EnclosingCircle(Plane plane, int count = 64) => new EnclosingCircleCase(Plane: plane, Count: count);
     public static Bounds EnclosingCylinder(Vector3d axis, int count = 64) => new EnclosingCylinderCase(Axis: axis, Count: count);
-    public Operation<TGeometry, TOut> Operation<TGeometry, TOut>() where TGeometry : notnull => Switch(
+    internal Operation<TGeometry, TOut> Operation<TGeometry, TOut>() where TGeometry : notnull => Switch(
         axisAlignedCase: static _ => (typeof(TOut) == typeof(BoundingBox) && GeometryKernel.CanBound(typeof(TGeometry), includeSphere: true))
             ? Analysis.Operation<TGeometry, BoundingBox>.Build(
                 key: BoundsKey, state: BoundsKey,
@@ -188,7 +188,6 @@ public partial record Bounds : IAspect {
 
 // --- [OPERATIONS] -------------------------------------------------------------------------
 public static partial class Analyze {
-    public static Operation<TGeometry, TOut> Bounds<TGeometry, TOut>(Bounds aspect) where TGeometry : notnull => Aspect<Bounds, TGeometry, TOut>(aspect: aspect);
     internal static Operation<TGeometry, TOut> BoxMetric<TGeometry, TOut>(Op key, Func<BoundingBox, double> boundingBox, Func<Box, double> box) where TGeometry : notnull =>
         (typeof(TOut) == typeof(double), typeof(TGeometry)) switch {
             (true, Type geometry) when geometry == typeof(BoundingBox) => Operation<BoundingBox, double>.Build(

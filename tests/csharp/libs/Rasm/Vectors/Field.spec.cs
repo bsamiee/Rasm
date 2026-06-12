@@ -167,7 +167,7 @@ public sealed class FieldReconstructionAndSdfLaws {
             Assert.Equal(expected: plane.Count, actual: sample.Receipt.NeighborhoodCount);
             Assert.True(condition: sample.Receipt.Rank >= 2);
             Assert.True(condition: sample.Receipt.WeightSum > 0.0);
-            Spec.Equal(left: sample.Receipt.GradientNorm, right: 1.0, tolerance: 1.0e-12, what: "mls gradient norm");
+        Spec.Equal(left: sample.Receipt.GradientNorm.IfNone(double.NaN), right: 1.0, tolerance: 1.0e-12, what: "mls gradient norm");
         });
         Spec.Succ(ExtractionProbe.Scalar(source: result.Field).Project<double>(sample: new Point3d(x: 0.0, y: 0.0, z: -0.25), context: FieldGens.Model, key: FieldGens.Key),
             then: value => Spec.Equal(left: value, right: -0.25, tolerance: 1.0e-12, what: "mls scalar rail"));
@@ -193,7 +193,7 @@ public sealed class FieldReconstructionAndSdfLaws {
     [Fact]
     public void IsoSurfaceReceiptCarriesNativeThreadingAndToleranceFacts() {
         BoundingBox bounds = new(min: new Point3d(x: -2.0, y: -1.0, z: -0.5), max: new Point3d(x: 2.0, y: 1.0, z: 0.5));
-        IsoSurfaceGrid grid = new(Bounds: bounds, Resolution: 4, XCells: 16, YCells: 8, ZCells: 4, CellSize: 0.25, HexCellCount: 512, CornerSampleCount: 765, CenterSampleCount: 512, InitialSampleCount: 1277);
+        IsoSurfaceGrid grid = new(Bounds: bounds, Resolution: 4, XCells: 16, YCells: 8, ZCells: 4, CellSize: 0.25, HexCellCount: 512, CornerSampleCount: 765, CenterSampleCount: 512, InitialSampleCount: 1277, MaxCells: 1024);
         IsoSurfaceReceipt receipt = new(
             NativeRouted: true, Status: IsoSurfaceStatus.NativeValid, Grid: grid, MaxRootSteps: 16, ParallelCallback: true, EvaluatorFailures: 0, Valid: true, VertexCount: 4, FaceCount: 4, FixedTolerance: Some(0.001), FixedNormalSampleDistance: Some(1.0e-5), MeshPreflight: Option<SdfMeshReceipt>.None);
         Spec.Succ(ExtractionReceipt.Of(status: ExtractionStatus.Complete, attempted: 1, emitted: 1, nativeRouted: receipt.NativeRouted, toleranceSource: ToleranceSource.RhinoDefault, tolerance: receipt.FixedTolerance, parallelCallback: receipt.ParallelCallback, key: FieldGens.Key, isoSurface: Some(receipt)), then: extraction => {

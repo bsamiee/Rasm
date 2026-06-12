@@ -121,7 +121,7 @@ public sealed class ShellDockFactory(ShellRoot shell, Seq<DockableRow> rows) : F
     }
 
     private IDockable Dockable(DockableRow row) {
-        DockableBase dockable = row.IsTool ? CreateTool() : (DockableBase)CreateDocument();
+        var dockable = row.IsTool ? (DockableBase)CreateTool() : (DockableBase)CreateDocument();
         var make = shell.Routes[row.RouteKey];
         dockable.Id = row.RouteKey;
         dockable.Title = row.Title;
@@ -221,7 +221,7 @@ flowchart LR
 - Entry: `public static Seq<ChromeRow> Project(SurfaceHost host, ChromeSlot slot, Seq<ChromeRow> rows)` — pure projection; rows filter on slot and host predicate and order by rank.
 - Packages: Avalonia, Thinktecture.Runtime.Extensions, LanguageExt.Core, BCL inbox
 - Growth: a new chrome surface is one `ChromeSlot` case, and a new entry is one `ChromeRow` row naming an existing intent key; zero new surface.
-- Boundary: rows carry intent keys only — command mechanics, gestures, and availability live on the intent table and arrive as settled vocabulary, so menu item classes and per-surface registries are the deleted patterns; the Menu slot projects to the macOS global-menu export on window-owning rows and to the managed in-window menu elsewhere, and the Tray slot materializes only where the matrix admits it, with the exact export member spellings research-gated; embedded rows suppress menu and status chrome because the host owns its own chrome, and the WebBrowser row exposes serialized keys only; window titles compose the product name with the active dockable `Title` through `Title`; the Headless floating cell stays vacuously open because no `HostWindow` materializes without a windowing platform.
+- Boundary: rows carry intent keys only — command mechanics, gestures, and availability live on the intent table and arrive as settled vocabulary, so menu item classes and per-surface registries are the deleted patterns; the Menu slot projects to the macOS global-menu export through the `NativeMenu.MenuProperty` attached value on the `TopLevel` with `GetIsNativeMenuExported` as the export probe, and to the managed `NativeMenuBar` in-window control elsewhere; the Tray slot materializes only where the matrix admits it through the `TrayIcon.IconsProperty` attached `TrayIcons` collection with `Icon`, `ToolTipText`, `Command`, `Menu`, and `IsVisible` per icon; embedded rows suppress menu and status chrome because the host owns its own chrome, and the WebBrowser row exposes serialized keys only; window titles compose the product name with the active dockable `Title` through `Title`; the Headless floating cell stays vacuously open because no `HostWindow` materializes without a windowing platform.
 
 ```csharp signature
 public sealed class ChromeKeyPolicy : IEqualityComparerAccessor<string>, IComparerAccessor<string> {
@@ -289,7 +289,4 @@ public static class AdaptiveLayout {
 
 | [INDEX] | [ITEM]                                                                                                                                  | [PROOF]                                                                                          | [GATE]        |
 | :-----: | ---------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------- | ------------- |
-|   [1]   | RoutingState navigation command surface — Navigate, NavigateBack, NavigateAndReset shapes and the awaitable Execute form on the ReactiveUI 23 line | uv run python -m tools.assay api query reactiveui RoutingState                                    | ROUTING_SPINE |
-|   [2]   | Dock model composition member surface — IDockable contract, dockable identity, context, float-pin-close flags, visible-dockable lists, proportion and orientation members | uv run python -m tools.assay api query dock.model.reactiveui DockableBase                          | DOCK_LAYOUTS  |
-|   [3]   | DockSerializer round-trip payload shape preserving dockable identity across serialize and restore                                          | uv run python -m tools.assay test run --target Rasm.AppUi build-serialize-restore headless spec    | DOCK_LAYOUTS  |
-|   [4]   | NativeMenuBar export and TrayIcon attachment spellings on the Avalonia 12 line per SurfaceHost row                                         | uv run python -m tools.assay api query avalonia NativeMenuBar                                      | SHELL_CHROME  |
+|   [1]   | Dock serializer round-trip payload shape preserving dockable identity across serialize and restore, with the serializer package named at the first app-root admission | uv run python -m tools.assay test run --target Rasm.AppUi build-serialize-restore headless spec    | DOCK_LAYOUTS  |

@@ -5,18 +5,9 @@ using Rhino.Geometry;
 namespace Rasm.Tests.Domain;
 
 // --- [MODELS] ----------------------------------------------------------------------------
-// BRIDGE-DEFERRED: native GeometryKernel/coercion/closest; static owns Kind/Topology catalogs, capability lattice, IntersectionHit construction.
+// BRIDGE-DEFERRED: native GeometryKernel/coercion/closest; static owns Kind/Topology catalogs and capability lattice.
 internal static class GeometryGens {
     public static readonly Op Key = Op.Of(name: "geometry-test");
-    // Distinct per-channel values so a Start<->End or OverlapA<->OverlapB swap is observable.
-    public static readonly Point3d Start = new(x: 2.0, y: 3.0, z: 5.0);
-    public static readonly Point3d End = new(x: 7.0, y: 11.0, z: 13.0);
-    public static readonly Interval OverlapA = new(t0: 17.0, t1: 19.0);
-    public static readonly Interval OverlapB = new(t0: 23.0, t1: 29.0);
-    public static readonly Gen<IntersectionHit> PointHit = Gens.Point.Where(static p => p.IsValid).Select(
-        Gen.OneOfConst(IntersectionTangency.Transversal, IntersectionTangency.Tangent, IntersectionTangency.Unknown),
-        static (Point3d p, IntersectionTangency t) => IntersectionHit.At(point: p, tangency: t));
-    public static readonly IntersectionHit Overlap = IntersectionHit.Overlap(start: Start, end: End, overlapA: OverlapA, overlapB: OverlapB);
     public static readonly (Rhino.DocObjects.ObjectType ObjectType, Kind Kind)[] ObjectTypeKind =
         [
             (Rhino.DocObjects.ObjectType.Point, Kind.Point), (Rhino.DocObjects.ObjectType.Curve, Kind.Curve), (Rhino.DocObjects.ObjectType.Surface, Kind.Surface), (Rhino.DocObjects.ObjectType.Brep, Kind.Brep),
@@ -116,79 +107,17 @@ public sealed class KindCapabilityLaws {
         });
 }
 
-public sealed class TopologyAndIntersectionCatalogLaws {
+public sealed class TopologyAndCurveFormCatalogLaws {
     [Fact]
     public void TopologyCatalogIsDenseAndUnique() =>
         Spec.SmartEnumCatalogMatches(production: Topology.Items, expectedKeys: [.. Enumerable.Range(start: 0, count: 10)], key: static t => t.Key);
 
     [Fact]
-    public void IntersectionKindCatalogIsDenseAndUnique() {
-        Spec.SmartEnumCatalogMatches(production: IntersectionKind.Items, expectedKeys: [0, 1, 2, 3], key: static k => k.Key);
+    public void CurveFormCasesRemainTypedAndAssignable() {
         Spec.Cases(items: new[] { typeof(CurveForm.LineCase), typeof(CurveForm.CircleCase), typeof(CurveForm.ArcCase), typeof(CurveForm.EllipseCase), typeof(CurveForm.NurbsCase) },
             key: static t => t, law: static t => Assert.True(condition: typeof(CurveForm).IsAssignableFrom(c: t)));
         _ = Assert.IsType<CurveForm.PolylineCase>(@object: new CurveForm.PolylineCase(Value: [], IsClosed: false));
         _ = Assert.IsType<CurveForm.NurbsCase>(@object: new CurveForm.NurbsCase(Degree: 3, IsClosed: false, IsPlanar: true, IsPeriodic: false, SpanCount: 1, Dimension: 3));
-    }
-}
-
-public sealed class IntersectionHitLaws {
-    [Fact]
-    public void PointCaseProjectionOwnsPointKindTangencyAndRejectsForeignChannels() =>
-        Spec.ForAll(GeometryGens.PointHit, static hit => {
-            Seq<IntersectionHit> hits = Seq(hit);
-            IntersectionHit.PointCase point = Assert.IsType<IntersectionHit.PointCase>(@object: hit);
-            Assert.True(condition: hit.IsValid);
-            Assert.Same(expected: IntersectionKind.Point, actual: hit.Kind);
-            Assert.Equal(expected: 1, actual: hit.Points.Count);
-            Spec.Holds(condition: hit.Curves.IsEmpty && hit.Intervals.IsEmpty, label: "point hit carries no curves or intervals");
-            Spec.Succ(result: IntersectionHit.Project<Point3d>(hits: Seq(hit), key: GeometryGens.Key), then: pts => Spec.Equal(left: pts[index: 0], right: point.Point, what: "projected point"));
-            Spec.Succ(result: IntersectionHit.Project<IntersectionKind>(hits: Seq(hit), key: GeometryGens.Key), then: kinds => Assert.Same(expected: IntersectionKind.Point, actual: kinds[index: 0]));
-            Spec.Succ(result: IntersectionHit.Project<IntersectionTangency>(hits: Seq(hit), key: GeometryGens.Key), then: ts => Assert.Equal(expected: point.Tangency, actual: ts[index: 0]));
-            Spec.Succ(result: IntersectionHit.Project<Curve>(hits: Seq(hit), key: GeometryGens.Key), then: curves => Spec.Holds(condition: curves.IsEmpty, label: "point hit projects no curves"));
-            Spec.FailUnsupportedFor(result: IntersectionHit.Project<Plane>(hits: hits, key: GeometryGens.Key), geometryType: typeof(IntersectionHit), outputType: typeof(Plane));
-            Spec.FailCategory(result: IntersectionHit.Project<double>(hits: Seq(hit), key: GeometryGens.Key), category: "Unsupported");
-        });
-
-    [Fact]
-    public void OverlapCaseTransportsDistinctEndpointsAndIntervalsWithoutChannelSwap() {
-        IntersectionHit overlap = GeometryGens.Overlap;
-        Seq<IntersectionHit> hits = Seq(overlap);
-        Spec.Holds(condition: overlap.IsValid, label: "distinct-channel overlap is valid");
-        Assert.Same(expected: IntersectionKind.Overlap, actual: overlap.Kind);
-        Assert.Equal(expected: 2, actual: overlap.Points.Count);
-        Assert.Equal(expected: GeometryGens.Start, actual: overlap.Points[index: 0]);
-        Assert.Equal(expected: GeometryGens.End, actual: overlap.Points[index: 1]);
-        Assert.Equal(expected: GeometryGens.OverlapA, actual: overlap.Intervals[index: 0]);
-        Assert.Equal(expected: GeometryGens.OverlapB, actual: overlap.Intervals[index: 1]);
-        Spec.Succ(result: IntersectionHit.Project<Interval>(hits: Seq(overlap), key: GeometryGens.Key), then: ivs => {
-            Assert.Equal(expected: 2, actual: ivs.Count);
-            Assert.Equal(expected: GeometryGens.OverlapA, actual: ivs[index: 0]);
-            Assert.Equal(expected: GeometryGens.OverlapB, actual: ivs[index: 1]);
-        });
-        Spec.Succ(result: IntersectionHit.Project<Point3d>(hits: Seq(overlap), key: GeometryGens.Key), then: pts => Assert.Equal(expected: Seq(GeometryGens.Start, GeometryGens.End), actual: pts));
-        Spec.Succ(result: IntersectionHit.Project<IntersectionTangency>(hits: Seq(overlap), key: GeometryGens.Key), then: ts => Assert.Equal(expected: IntersectionTangency.Unknown, actual: ts[index: 0]));
-        Spec.FailUnsupportedFor(result: IntersectionHit.Project<double>(hits: hits, key: GeometryGens.Key), geometryType: typeof(IntersectionHit), outputType: typeof(double));
-    }
-
-    [Fact]
-    public void CurveCaseRejectsInvalidKindsBeforeTouchingNativeCurve() =>
-        Spec.Cases(
-            items: [
-                (Label: "curve-null", Kind: IntersectionKind.Curve),
-                (Label: "overlap-null", Kind: IntersectionKind.Overlap),
-                (Label: "point", Kind: IntersectionKind.Point),
-                (Label: "unknown", Kind: IntersectionKind.Unknown),
-            ],
-            key: static row => row.Label,
-            law: static row => Assert.False(condition: IntersectionHit.Along(curve: null!, kind: row.Kind).IsValid));
-
-    [Fact]
-    public void InvalidEndpointsBreakValidity() {
-        IntersectionHit invalid = IntersectionHit.Overlap(start: new Point3d(x: double.NaN, y: 0.0, z: 0.0), end: GeometryGens.End, overlapA: GeometryGens.OverlapA, overlapB: GeometryGens.OverlapB);
-        Assert.False(condition: invalid.IsValid);
-        Assert.False(condition: IntersectionHit.At(point: new Point3d(x: 0.0, y: double.PositiveInfinity, z: 0.0)).IsValid);
-        Spec.FailCategory(result: IntersectionHit.Project<IntersectionKind>(hits: Seq(invalid), key: GeometryGens.Key), category: "Result");
-        Spec.FailCategory(result: IntersectionHit.Project<IntersectionTangency>(hits: Seq(invalid), key: GeometryGens.Key), category: "Result");
     }
 }
 

@@ -17,8 +17,8 @@ Seven binding rows fix how TS consumes the .NET wire. Each row names the produci
 | :-----: | :--------------------- | :--------------------------------------- | :----------------------------------------------------------------------- |
 |   [1]   | proto vocabulary       | Compute/remote-lane                      | connect-es codegen over the app-root-emitted descriptor set              |
 |   [2]   | snapshot blobs         | Persistence/snapshot-codecs              | @msgpack/msgpack decode over the SnapshotCodec rows                       |
-|   [3]   | JSON runtime records   | AppHost/runtime-ports merged contexts    | STJ Strict camelCase records; schema-derived types from schema emission   |
-|   [4]   | geometry JSON          | Compute/remote-lane GeoJSON projection   | GeoJSON features on map and geo dashboard series                          |
+|   [3]   | JSON runtime records   | AppHost/runtime-ports merged contexts    | STJ Strict camelCase records; `Schema.Class` decode drift-gated by the emitted schema set |
+|   [4]   | geometry JSON          | Persistence/snapshot-codecs GeoJSON rail | GeoJSON features on map and geo dashboard series; projection law at Compute/remote-lane |
 |   [5]   | telemetry signals      | AppHost OTLP exporter at app roots       | collector ingestion; dashboards read the collector, never a bespoke wire  |
 |   [6]   | command deep links     | AppUi/commands-availability              | CommandIntent string keys drive remote invocation and deep links          |
 |   [7]   | evidence dashboard     | AppUi/diagnostics-evidence               | EvidenceReceipt timeline ingestion through the receipt envelope wire      |

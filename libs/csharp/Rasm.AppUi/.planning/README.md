@@ -100,7 +100,7 @@ Implementation lands at 25-35% of the naive LOC for this capability set. One own
 
 ## [6]-[BUILD_ORDER]
 
-Vocabulary owners land first, then shapes, rails, dispatch surfaces, boundaries, and composition. Ledger seam notes are binding at transcription: `Surfaces.Mount` retypes its bare `IClock` parameter to `ClockPolicy` per the AppHost one-clock-seam law; the input file consumes the frozen deck's gesture-conflict fold and mints no second conflict shape; `AssetKeys` nameof spellings are the only cross-file asset references; the `PhaseMotion` map keys mirror the Compute `ProgressPhase` nine-case set and the conformance sweep fails on drift; `AccessProof.Sweep` and `ProofEngine.Derive` share the typed `(ThemeVariantRow, DensityRow)` grid.
+Vocabulary owners land first, then shapes, rails, dispatch surfaces, boundaries, and composition. Ledger seam notes are binding at transcription: `Surfaces.Mount`, `InspectorSurface.Mount`, and `InspectorSurface.Attach` carry `ClockPolicy` per the AppHost one-clock-seam law and the page fences already spell it; the input file consumes the frozen deck's gesture-conflict fold and mints no second conflict shape; `AssetKeys` nameof spellings are the only cross-file asset references; the `PhaseMotion` map keys mirror the Compute `ProgressPhase` nine-case set and the conformance sweep fails on drift; `AccessProof.Sweep` and `ProofEngine.Derive` share the typed `(ThemeVariantRow, DensityRow)` grid.
 
 | [INDEX] | [FILE] | [TRANSCRIBES] | [GATE] |
 | :-----: | ------ | ------------- | ------ |

@@ -60,15 +60,16 @@ for measured staging payloads.
 [ENTRYPOINT_SCOPE]: allocation and ownership
 - rail: staging
 
-| [INDEX] | [SURFACE]                            | [CALL_SHAPE]   | [CAPABILITY]           |
-| :-----: | :----------------------------------- | :------------- | :--------------------- |
-|   [1]   | `MemoryOwner<T>.Allocate`            | factory call   | rents owned memory     |
-|   [2]   | `SpanOwner<T>.Allocate`              | factory call   | rents owned span       |
-|   [3]   | `MemoryOwner<T>.Slice`               | instance call  | slices owned memory    |
-|   [4]   | `ArrayPoolExtensions.Resize`         | extension call | resizes rented array   |
-|   [5]   | `ArrayPoolExtensions.EnsureCapacity` | extension call | grows rented array     |
-|   [6]   | `StringPool.GetOrAdd`                | pool call      | interns text payload   |
-|   [7]   | `Dispose`                            | lifetime call  | returns pooled storage |
+| [INDEX] | [SURFACE]                            | [CALL_SHAPE]   | [CAPABILITY]                         |
+| :-----: | :----------------------------------- | :------------- | :----------------------------------- |
+|   [1]   | `MemoryOwner<T>.Allocate`            | factory call   | rents owned memory                   |
+|   [2]   | `SpanOwner<T>.Allocate`              | factory call   | rents owned span                     |
+|   [3]   | `MemoryOwner<T>.Slice`               | instance call  | slices owned memory                  |
+|   [4]   | `MemoryOwner<T>.DangerousGetArray`   | instance call  | exposes the rented `ArraySegment<T>` |
+|   [5]   | `ArrayPoolExtensions.Resize`         | extension call | resizes rented array                 |
+|   [6]   | `ArrayPoolExtensions.EnsureCapacity` | extension call | grows rented array                   |
+|   [7]   | `StringPool.GetOrAdd`                | pool call      | interns text payload                 |
+|   [8]   | `Dispose`                            | lifetime call  | returns pooled storage               |
 
 [ENTRYPOINT_SCOPE]: projections and transforms
 - rail: staging

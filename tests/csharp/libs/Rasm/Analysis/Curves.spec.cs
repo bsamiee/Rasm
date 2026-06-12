@@ -69,7 +69,7 @@ public sealed class CurvesDispatchLaws {
 public sealed class CurvesRejectionRailLaws {
     [Fact]
     public void NullAspectAndForeignOutputRejectBeforeNativeEvaluation() {
-        Spec.Invalid(Analyze.Run(operation: Analyze.Curves<Curve, Curve>(aspect: null!), input: default(Curve)!),
+        Spec.Invalid(Analyze.Run(operation: Analyze.Query<Curve, Curve>(query: null), input: default(Curve)!),
             then: static error => Assert.Equal(expected: "Input", actual: error.Category()));
         Spec.Invalid(Analyze.Run(operation: Curves.All.Operation<Curve, Point3d>(), input: default(Curve)!),
             then: static error => {

@@ -45,6 +45,17 @@ public partial record Division {
 
 [SkipUnionOps]
 [Union]
+public partial record CurvatureMode {
+    public sealed record VectorCase : CurvatureMode;
+    public sealed record ScalarCase(ScalarMetric Metric) : CurvatureMode;
+    public static CurvatureMode Vector => new VectorCase();
+    public static CurvatureMode Scalar(ScalarMetric metric) => new ScalarCase(Metric: metric);
+    internal bool IsCurveMagnitude => this switch { VectorCase => true, ScalarCase { Metric: ScalarMetric metric } => metric.IsMagnitude, _ => false };
+    internal Seq<ScalarMetric> SurfaceMetrics => this switch { VectorCase => Seq(ScalarMetric.Gaussian, ScalarMetric.Mean), ScalarCase { Metric: ScalarMetric metric } when metric.IsSurface => Seq(metric), _ => Seq<ScalarMetric>() };
+}
+
+[SkipUnionOps]
+[Union]
 internal partial record CurvatureAggregation {
     public sealed record SamplesCase : CurvatureAggregation;
     public sealed record ExtremaCase(ExtremumDirection Direction) : CurvatureAggregation;
@@ -52,7 +63,7 @@ internal partial record CurvatureAggregation {
 
 [SkipUnionOps]
 [Union]
-public partial record Location : IAspect {
+public partial record Location {
     public sealed record AtCase(Locator Locator, LocationValue Value) : LocationAspect;
     public sealed record CurvatureSamplesCase(int Count, CurvatureMode Mode) : LocationAspect;
     public sealed record CurvatureExtremaCase(int Count, CurvatureMode Mode, ExtremumDirection Direction) : LocationAspect;
@@ -83,7 +94,7 @@ public partial record Location : IAspect {
     public static LocationAspect Orientation(Plane plane) => new OrientationCase(Plane: plane);
     public static LocationAspect Contains(Point3d point, Plane plane) => new ContainsCase(Probe: point, Frame: plane);
     public static LocationAspect ShortPath(Point2d start, Point2d end) => new ShortPathCase(Start: start, End: end);
-    public Operation<TGeometry, TOut> Operation<TGeometry, TOut>() where TGeometry : notnull => Switch(
+    internal Operation<TGeometry, TOut> Operation<TGeometry, TOut>() where TGeometry : notnull => Switch(
         atCase: static at => Analyze.LocatedValue<TGeometry, TOut>(locator: at.Locator, value: at.Value),
         curvatureSamplesCase: static cs => Analyze.CurvatureOp<TGeometry, TOut>(count: cs.Count, mode: cs.Mode, agg: new CurvatureAggregation.SamplesCase()),
         curvatureExtremaCase: static ce => Analyze.CurvatureOp<TGeometry, TOut>(count: ce.Count, mode: ce.Mode, agg: new CurvatureAggregation.ExtremaCase(Direction: ce.Direction)),
@@ -112,7 +123,6 @@ public partial record Location : IAspect {
 
 // --- [OPERATIONS] -------------------------------------------------------------------------
 public static partial class Analyze {
-    public static Operation<TGeometry, TOut> Location<TGeometry, TOut>(LocationAspect aspect) where TGeometry : notnull => Aspect<LocationAspect, TGeometry, TOut>(aspect: aspect);
     internal static Operation<TGeometry, TOut> Located<TGeometry, TOut, TNative, TValue>(Op key, Func<Operation<TGeometry, TValue>> operation) where TGeometry : notnull =>
         (((typeof(TNative) == typeof(Curve) && GeometryKernel.CanCurveForm(type: typeof(TGeometry)))
             || (typeof(TNative) == typeof(Surface) && GeometryKernel.CanSurfaceForm(type: typeof(TGeometry)))

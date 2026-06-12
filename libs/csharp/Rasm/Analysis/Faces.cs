@@ -5,7 +5,7 @@ namespace Rasm.Analysis;
 // --- [TYPES] ------------------------------------------------------------------------------
 [SkipUnionOps]
 [Union]
-public partial record Faces : IAspect {
+public partial record Faces {
     public sealed record AllCase : Faces;
     public sealed record RankedCase(Vector3d Axis, ExtremumDirection Direction) : Faces;
     public sealed record AtCase(int? Value) : Faces;
@@ -14,7 +14,7 @@ public partial record Faces : IAspect {
     public static Faces Top(Vector3d? axis = null) => new RankedCase(Axis: axis ?? Vector3d.ZAxis, Direction: ExtremumDirection.Maximum);
     public static Faces Bottom(Vector3d? axis = null) => new RankedCase(Axis: axis ?? Vector3d.ZAxis, Direction: ExtremumDirection.Minimum);
     public static Faces At(int? index = null) => new AtCase(Value: index);
-    public Operation<TGeometry, TOut> Operation<TGeometry, TOut>() where TGeometry : notnull =>
+    internal Operation<TGeometry, TOut> Operation<TGeometry, TOut>() where TGeometry : notnull =>
         GeometryKernel.CanDecomposeFaces(type: typeof(TGeometry)) switch {
             false => Key.Unsupported<TGeometry, TOut>(),
             true => typeof(TOut) switch {
@@ -33,7 +33,6 @@ public partial record Faces : IAspect {
 
 // --- [OPERATIONS] -------------------------------------------------------------------------
 public static partial class Analyze {
-    public static Operation<TGeometry, TOut> Faces<TGeometry, TOut>(Faces aspect) where TGeometry : notnull => Aspect<Faces, TGeometry, TOut>(aspect: aspect);
     internal static Operation<TGeometry, TOut> FaceOperation<TGeometry, TOut, TValue>(Op key, Faces selector, Requirement requirement, Func<Seq<TopologyProjection>, Context, Fin<Seq<TValue>>> project) where TGeometry : notnull =>
         Operation<TGeometry, TValue>.Build(
             key: key, state: (Key: key, Selector: selector, Project: project), requirement: requirement, requiresContext: true,

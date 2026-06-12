@@ -169,8 +169,8 @@ public readonly record struct TuftedLaplacianReceipt(MeshLaplacian Kind, int Ori
 }
 
 [BoundaryAdapter, StructLayout(LayoutKind.Auto)]
-public readonly record struct SparseLaplacian(SparseMatrix Stiffness, SparseMatrix MassConsistent, Arr<double> MassLumped, int SkippedDegenerateFaces = 0, Option<TuftedLaplacianReceipt> Tufted = default) {
-    public bool IsValid => Stiffness.IsValid && MassConsistent.IsValid && Stiffness.Rows.Value == MassConsistent.Rows.Value && Stiffness.Cols.Value == MassConsistent.Cols.Value && Stiffness.Rows.Value == Stiffness.Cols.Value && MassLumped.Count == Stiffness.Rows.Value && MassLumped.All(static v => RhinoMath.IsValidDouble(x: v) && v >= 0.0) && Tufted.Map(static receipt => receipt.IsValid).IfNone(noneValue: true);
+public readonly record struct SparseLaplacian(SparseMatrix Stiffness, SparseMatrix MassConsistent, Arr<double> MassLumped, int SkippedDegenerateFaces = 0, Option<TuftedLaplacianReceipt> Tufted = default, int NegativeCotangentCount = 0) {
+    public bool IsValid => Stiffness.IsValid && MassConsistent.IsValid && Stiffness.Rows.Value == MassConsistent.Rows.Value && Stiffness.Cols.Value == MassConsistent.Cols.Value && Stiffness.Rows.Value == Stiffness.Cols.Value && MassLumped.Count == Stiffness.Rows.Value && MassLumped.All(static v => RhinoMath.IsValidDouble(x: v) && v >= 0.0) && SkippedDegenerateFaces >= 0 && NegativeCotangentCount >= 0 && Tufted.Map(static receipt => receipt.IsValid).IfNone(noneValue: true);
 }
 
 [BoundaryAdapter, StructLayout(LayoutKind.Auto)] public readonly record struct SpectralBasisBundle(SpectralBasis Basis, EigenSolveReceipt<double, Arr<double>> Eigen, bool CacheHit = false, int SkippedDegenerateFaces = 0, Option<int> FactorNonZeros = default);
@@ -451,6 +451,7 @@ internal static class MeshKernel {
         internal readonly List<(int Row, int Col, double Value)> Stiffness = [], Mass = [];
         internal readonly double[] Lumped;
         internal int SkippedDegenerateFaces;
+        internal int NegativeCotangentCount;
         internal LaplacianTriplets(int vertexCount) {
             this.vertexCount = vertexCount;
             Lumped = new double[vertexCount];
@@ -473,7 +474,7 @@ internal static class MeshKernel {
         internal Fin<SparseLaplacian> Build(Op key) =>
             from stiff in SparseMatrix.FromTriplets(rows: Dimension.Create(value: vertexCount), cols: Dimension.Create(value: vertexCount), triplets: Stiffness, key: key)
             from mass in SparseMatrix.FromTriplets(rows: Dimension.Create(value: vertexCount), cols: Dimension.Create(value: vertexCount), triplets: Mass, key: key)
-            select new SparseLaplacian(Stiffness: stiff, MassConsistent: mass, MassLumped: new Arr<double>(Lumped), SkippedDegenerateFaces: SkippedDegenerateFaces);
+            select new SparseLaplacian(Stiffness: stiff, MassConsistent: mass, MassLumped: new Arr<double>(Lumped), SkippedDegenerateFaces: SkippedDegenerateFaces, NegativeCotangentCount: NegativeCotangentCount);
     }
     private static bool ContainsQuads(Mesh mesh) => mesh.Faces.QuadCount > 0;
 
@@ -530,8 +531,9 @@ internal static class MeshKernel {
             double cotA = -ab * -ac / (2.0 * area);
             double cotB = ab * -bc / (2.0 * area);
             double cotC = ac * bc / (2.0 * area);
-            if (cotA < 0.0 || cotB < 0.0 || cotC < 0.0)
-                return Fin.Fail<SparseLaplacian>(key.InvalidResult());
+            if (cotA < 0.0) triplets.NegativeCotangentCount++;
+            if (cotB < 0.0) triplets.NegativeCotangentCount++;
+            if (cotC < 0.0) triplets.NegativeCotangentCount++;
             triplets.AddTriangle(va: va, vb: vb, vc: vc, area: area, cotA: cotA, cotB: cotB, cotC: cotC);
         }
         return triplets.Build(key: key);
@@ -767,8 +769,9 @@ internal static class MeshKernel {
             double cotA = ((lAC * lAC) + (lAB * lAB) - (lBC * lBC)) / (4.0 * area);
             double cotB = ((lAB * lAB) + (lBC * lBC) - (lAC * lAC)) / (4.0 * area);
             double cotC = ((lAC * lAC) + (lBC * lBC) - (lAB * lAB)) / (4.0 * area);
-            if (cotA < -RhinoMath.SqrtEpsilon || cotB < -RhinoMath.SqrtEpsilon || cotC < -RhinoMath.SqrtEpsilon)
-                return Fin.Fail<SparseLaplacian>(key.InvalidResult());
+            if (cotA < 0.0) triplets.NegativeCotangentCount++;
+            if (cotB < 0.0) triplets.NegativeCotangentCount++;
+            if (cotC < 0.0) triplets.NegativeCotangentCount++;
             triplets.AddTriangle(va: va, vb: vb, vc: vc, area: area, cotA: cotA, cotB: cotB, cotC: cotC);
         }
         return triplets.Build(key: key);
@@ -794,7 +797,7 @@ internal static class MeshKernel {
             MassNonZeros: laplacian.MassConsistent.NonZeros,
             PositiveMassCount: laplacian.MassLumped.Count(static value => value > RhinoMath.ZeroTolerance),
             SkippedDegenerateFaces: laplacian.SkippedDegenerateFaces,
-            CoverAware: imesh.TuftedCover,
+            CoverAware: false,
             CollapsedToOriginalVertices: true)
         from _ in receipt.IsValid ? Fin.Succ(unit) : Fin.Fail<Unit>(key.InvalidResult())
         select laplacian with { Tufted = Some(receipt) };
@@ -1606,9 +1609,8 @@ internal static class MeshKernel {
     }
     private static Fin<Arr<double>> NormalizedCutProjection(EigenSolveReceipt<double, Arr<double>> eigen, int expectedCount, Op key) {
         (double Eigenvalue, Arr<double> Eigenvector)[] pairs = [.. eigen.Pairs.AsIterable()];
-        Arr<double> vector = pairs.Length > 1 ? pairs[1].Eigenvector : pairs.Length == 1 ? pairs[0].Eigenvector : [];
-        return eigen.IsUsable && vector.Count == expectedCount && vector.ForAll(RhinoMath.IsValidDouble)
-            ? Fin.Succ(vector)
+        return eigen.IsUsable && pairs.Length >= 2 && pairs[1].Eigenvector.Count == expectedCount && pairs[1].Eigenvector.ForAll(RhinoMath.IsValidDouble)
+            ? Fin.Succ(pairs[1].Eigenvector)
             : Fin.Fail<Arr<double>>(key.InvalidResult());
     }
     private static double NormalizedCutValue(Mesh mesh, Arr<double> scalars, int[] labels, double sigma) {
@@ -1752,7 +1754,7 @@ internal static class MeshKernel {
                            Spectrum = Some(receipt),
                        }),
                    },
-               }).Match(Succ: Fin.Succ, Fail: _ => Fin.Succ(result));
+               });
     private static Fin<MeshSamplingSpectrumReceipt> SamplingSpectrumReceiptOf(MeshSpace space, Seq<Point3d> points, SpectralBasis basis, Op key) {
         int vertexCount = space.Native.Vertices.Count;
         if (basis.Eigenvectors.Count == 0 || points.IsEmpty) return Fin.Fail<MeshSamplingSpectrumReceipt>(key.InvalidInput());
@@ -1801,9 +1803,9 @@ internal static class MeshKernel {
         int nEdges = mesh.TopologyEdges.Count;
         double[] negDivergence = new double[nVerts];
         return from topology in TopologyDetailed(space: space, key: key)
-               from _ in topology.Genus.Match(
+               from harmonic in topology.Genus.Match(
                    Some: genus => genus > 0
-                       ? Fin.Fail<Unit>(key.Unsupported(geometryType: typeof(MeshSpace), outputType: typeof(HodgeBundle)))
+                       ? SpectralCore.Build(space: space, key: key).Bind(calculus => calculus.Harmonic.IsSome ? Fin.Succ(unit) : Fin.Fail<Unit>(key.InvalidResult()))
                        : Fin.Succ(unit),
                    None: () => Fin.Fail<Unit>(key.Unsupported(geometryType: typeof(MeshSpace), outputType: typeof(HodgeBundle))))
                from bundle in toSeq(Enumerable.Range(start: 0, count: nEdges)).Fold(
@@ -1843,13 +1845,16 @@ internal static class MeshKernel {
                select potential;
     }
     private static Fin<HodgeBundle> BuildHodgeFromPotential(Mesh mesh, VectorField source, Arr<double> potential, MeshSpace space, Op key) {
-        int nVerts = mesh.Vertices.Count;
+        using Mesh active = mesh.DuplicateMesh();
+        if (ContainsQuads(mesh: active) && !active.Faces.ConvertQuadsToTriangles())
+            return Fin.Fail<HodgeBundle>(key.InvalidResult());
+        int nVerts = active.Vertices.Count;
         Vector3d[] irrotPerVertex = new Vector3d[nVerts];
         double[] faceTally = new double[nVerts];
-        for (int f = 0; f < mesh.Faces.Count; f++) {
-            MeshFace face = mesh.Faces[index: f];
+        for (int f = 0; f < active.Faces.Count; f++) {
+            MeshFace face = active.Faces[index: f];
             if (!face.IsTriangle) continue;
-            Point3d pa = mesh.Vertices[index: face.A]; Point3d pb = mesh.Vertices[index: face.B]; Point3d pc = mesh.Vertices[index: face.C];
+            Point3d pa = active.Vertices[index: face.A]; Point3d pb = active.Vertices[index: face.B]; Point3d pc = active.Vertices[index: face.C];
             Vector3d ab = pb - pa; Vector3d ac = pc - pa;
             Vector3d n = Vector3d.CrossProduct(a: ab, b: ac);
             double twoArea = n.Length;
@@ -1866,7 +1871,7 @@ internal static class MeshKernel {
         for (int v = 0; v < nVerts; v++)
             if (faceTally[v] > 0.0) irrotPerVertex[v] /= faceTally[v];
         return toSeq(Enumerable.Range(start: 0, count: nVerts)).TraverseM(v =>
-            source.SampleVector(sample: mesh.Vertices[index: v], context: space.Tolerance, key: key)
+            source.SampleVector(sample: active.Vertices[index: v], context: space.Tolerance, key: key)
                 .Map(sampled => sampled - irrotPerVertex[v])).As()
             .Map(solenoid => new HodgeBundle(
                 Irrotational: new Arr<Vector3d>(irrotPerVertex),

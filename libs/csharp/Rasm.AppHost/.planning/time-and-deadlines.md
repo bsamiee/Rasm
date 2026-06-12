@@ -4,11 +4,11 @@ One temporal law serves the whole suite: `TimeProvider` owns elapsed measurement
 
 ## [1]-[INDEX]
 
-| [INDEX] | [CLUSTER]         | [OWNS]                                                              |
-| :-----: | ----------------- | ------------------------------------------------------------------- |
+| [INDEX] | [CLUSTER]         | [OWNS]                                                                    |
+| :-----: | ----------------- | ------------------------------------------------------------------------- |
 |   [1]   | CLOCK_SPLIT       | One injected clock pair; elapsed versus semantic time; sentinel admission |
-|   [2]   | DEADLINE_TAXONOMY | Nine deadline rows; every suite duration literal traces here        |
-|   [3]   | SCHEDULE_PORT     | The suite scheduler; cron and period rows; lease values             |
+|   [2]   | DEADLINE_TAXONOMY | Nine deadline rows; every suite duration literal traces here              |
+|   [3]   | SCHEDULE_PORT     | The suite scheduler; cron and period rows; lease values                   |
 
 ## [2]-[CLOCK_SPLIT]
 
@@ -121,7 +121,7 @@ public static class DeadlineOps {
 - Receipt: every occurrence run yields its `DeadlineReceipt` paired with the work outcome — a miss past the allotted bound is the watchdog signal consumed by the support owner.
 - Packages: Cronos, NodaTime, Thinktecture.Runtime.Extensions, LanguageExt.Core
 - Growth: a new scheduled concern is one `ScheduleEntry` row registered by its consumer, and a new occurrence grammar is one case on `OccurrenceSpec`; zero new surface.
-- Boundary: this port is the suite's only scheduler — per-package timer loops, host idle hooks, pg_cron, Quartz, Hangfire, and NCrontab are the deleted patterns; occurrence math consumes and emits UTC instants with zone projection confined inside the occurrence call; cron rows persist as expression text and rebuild through `TryParse` at composition, so `CronFormatException` never crosses the configuration boundary; lease release has two distinct values — handoff-on-drain releases immediately on the drain conductor's signal, crash-reclaim waits `CrashStaleness` past the holder's last stamp, and `CrashStaleness` exceeds the drain-cooperative plus drain-forced sum so a draining holder is never reclaimed mid-drain; a watchdog is a heartbeat row plus a deadline class, never a service type.
+- Boundary: this port is the suite's only scheduler — per-package timer loops, host idle hooks, pg_cron, Quartz, Hangfire, and NCrontab are the deleted patterns; occurrence math consumes and emits UTC instants with zone projection confined inside the occurrence call; cron rows persist as expression text and rebuild through `TryParse` at composition, so `CronFormatException` never crosses the configuration boundary; `H` fields hash deterministically from the four-arg `TryParse` jitter-seed integer, so fleet spreading of a shared cron row is one schedule-key-derived seed value, never a hand-edited expression; lease release has two distinct values — handoff-on-drain releases immediately on the drain conductor's signal, crash-reclaim waits `CrashStaleness` past the holder's last stamp, and `CrashStaleness` exceeds the drain-cooperative plus drain-forced sum so a draining holder is never reclaimed mid-drain; a watchdog is a heartbeat row plus a deadline class, never a service type.
 
 ```csharp signature
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
@@ -132,8 +132,10 @@ public abstract partial record OccurrenceSpec {
 
     public sealed record Every(Duration Period) : OccurrenceSpec;
 
-    public static Fin<OccurrenceSpec> Admit(string expression, CronFormat format) =>
-        CronExpression.TryParse(expression, format, out var parsed)
+    public static Fin<OccurrenceSpec> Admit(string expression, CronFormat format, Option<int> jitterSeed = default) =>
+        (jitterSeed is { IsSome: true, Case: int seed }
+            ? CronExpression.TryParse(expression, format, seed, out var parsed)
+            : CronExpression.TryParse(expression, format, out parsed))
             ? Fin.Succ<OccurrenceSpec>(new Cron(parsed!))
             : Fin.Fail<OccurrenceSpec>(Error.New($"<invalid-cron:{expression}>"));
 }
@@ -170,19 +172,18 @@ public static class SchedulePort {
 
 Consumers register rows, never ports — the registered set at composition:
 
-| [INDEX] | [CONSUMER_ROW]            | [SPEC]              | [DEADLINE]        | [LEASE]           |
-| :-----: | ------------------------- | ------------------- | :---------------- | :---------------- |
-|   [1]   | persistence-maintenance   | config-sourced cron | consumer-declared | maintenance-lease |
-|   [2]   | support-scheduled-capture | config-sourced cron | support-window    | none              |
-|   [3]   | bundle-retention-eviction | support-owned cadence row | support-window | none           |
-|   [4]   | compute-model-warmup      | consumer-declared   | consumer-declared | none              |
-|   [5]   | watchdog-heartbeat        | `Every` 15 s        | health-probe      | none              |
+| [INDEX] | [CONSUMER_ROW]            | [SPEC]                    | [DEADLINE]        | [LEASE]           |
+| :-----: | ------------------------- | ------------------------- | :---------------- | :---------------- |
+|   [1]   | persistence-maintenance   | config-sourced cron       | consumer-declared | maintenance-lease |
+|   [2]   | support-scheduled-capture | config-sourced cron       | support-window    | none              |
+|   [3]   | bundle-retention-eviction | support-owned cadence row | support-window    | none              |
+|   [4]   | compute-model-warmup      | consumer-declared         | consumer-declared | none              |
+|   [5]   | watchdog-heartbeat        | `Every` 15 s              | health-probe      | none              |
 
 The heartbeat period is one policy value fixed at 3 × the health-probe row; one heartbeat row exists per watched child or peer, and a run whose receipt outcome is not met is the watchdog-timeout consequence at its consuming owner. Maintenance work executes only while the registering process holds the maintenance lease; `LeasePolicy.Maintenance` carries the reclamation value both release routes share.
 
 ## [5]-[RESEARCH]
 
-| [INDEX] | [ITEM]                                                                          | [PROOF]                                                                                                  | [GATE]            |
-| :-----: | ------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------- | ----------------- |
+| [INDEX] | [ITEM]                                                                                    | [PROOF]                                                                                                                           | [GATE]            |
+| :-----: | ----------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------- | ----------------- |
 |   [1]   | ForceFlush completion latency inside the drain-cooperative allotment during plugin unload | libs/csharp/Rasm.AppHost/scenarios/drain-deadlines.verify.csx measuring drain receipt elapsed against the row under live RhinoWIP | DEADLINE_TAXONOMY |
-|   [2]   | Cronos jitter-seed parameter shape for key-derived `H` schedule rows            | uv run python -m tools.assay api query cronos CronExpression.Parse                                        | SCHEDULE_PORT     |

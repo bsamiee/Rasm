@@ -4,12 +4,12 @@ The cpu-tensor execution vocabulary: `Tensor<T>` spans and verified factories as
 
 ## [1]-[INDEX]
 
-| [INDEX] | [CLUSTER]           | [OWNS]                                                          |
-| :-----: | ------------------- | --------------------------------------------------------------- |
-|   [1]   | TENSOR_VOCABULARY   | Tensor shapes, verified factories, dtype map, quantization policy |
-|   [2]   | OPERATION_FAMILIES  | One op-family table; arity kernel tables; claim-gated hot routes |
-|   [3]   | LAYOUT_ALGEBRA      | LayoutForm rows; permute table; verified layout member surface   |
-|   [4]   | GEOMETRY_ENCODING   | Geometry-to-tensor cases; free-dimension names; wire-shape rows  |
+| [INDEX] | [CLUSTER]           | [OWNS]                                                                |
+| :-----: | ------------------- | --------------------------------------------------------------------- |
+|   [1]   | TENSOR_VOCABULARY   | Tensor shapes, verified factories, dtype map, quantization policy     |
+|   [2]   | OPERATION_FAMILIES  | One op-family table; arity kernel tables; claim-gated hot routes      |
+|   [3]   | LAYOUT_ALGEBRA      | LayoutForm rows; permute table; verified layout member surface        |
+|   [4]   | GEOMETRY_ENCODING   | Geometry-to-tensor cases; free-dimension names; wire-shape rows       |
 |   [5]   | EQUIVALENCE_INTEROP | Equivalence proofs against Rasm kernels; matmul route; copy-point law |
 
 ## [2]-[TENSOR_VOCABULARY]
@@ -259,7 +259,7 @@ public static class TensorOps {
 - Entry: `public static Fin<Tensor<T>> Reform<T>(Tensor<T> source, LayoutForm origin, LayoutForm target)` — `Fin<T>` aborts on an undeclared permute row.
 - Packages: System.Numerics.Tensors, Thinktecture.Runtime.Extensions, LanguageExt.Core, BCL inbox
 - Growth: a new layout is one `LayoutForm` row plus one permute-table entry; zero new surface.
-- Boundary: the verified layout family — `PermuteDimensions`, `Transpose`, `Squeeze`, `SqueezeDimension`, `Unsqueeze`, `SetSlice`, `Split`, `Stack`, `StackAlongDimension`, `Concatenate`, `ConcatenateOnDimension`, `Reverse`, `Resize`, `Broadcast`, `BroadcastTo`, `Reshape`, and `Slice` with `NIndex`/`NRange` — is the only layout surface, replacing the deleted phantom construction factories; the nchw↔nhwc permute rows are the mandatory CoreML image-model pre/post route; `Span2D` planes are views and never substitute for rank permutation; broadcast compatibility and rank/stride invariants ride `Broadcast`/`BroadcastTo` and the dimension spans, stated here once for the lane.
+- Boundary: the verified layout family — `PermuteDimensions`, `Transpose`, `Squeeze`, `SqueezeDimension`, `Unsqueeze`, `SetSlice`, `Split`, `Stack`, `StackAlongDimension`, `Concatenate`, `ConcatenateOnDimension`, `Reverse`, `Resize`, `Broadcast`, `BroadcastTo`, `Reshape`, `FlattenTo`, `ToDenseTensor`, and `Slice` with `NIndex`/`NRange` — is the only layout surface, replacing the deleted phantom construction factories; the nchw↔nhwc permute rows are the mandatory CoreML image-model pre/post route; `Span2D` planes are views and never substitute for rank permutation; broadcast compatibility and rank/stride invariants ride `Broadcast`/`BroadcastTo` and the dimension spans, stated here once for the lane.
 
 ```csharp signature
 [SmartEnum<string>]
@@ -358,7 +358,7 @@ flowchart LR
 - Receipt: equivalence runs and explicit copy points materialize as TensorRun receipt evidence at the sink edge, stamped through `ClockPolicy` and keyed by `CorrelationId`.
 - Packages: Rasm (project), System.Numerics.Tensors, CommunityToolkit.HighPerformance, NodaTime, LanguageExt.Core
 - Growth: a new kernel route is one `TensorOpFamily` row with one `EquivalencePolicy` row; convolution lands as one matrix-kind row bound to its Rasm kernel; zero new surface.
-- Boundary: TensorPrimitives carries no matrix kernels — `Matrix.Multiply` (Rasm) is the kernel route behind the matmul row; zero-copy projections cross at three receipted copy points — tensor span to `OrtValue` through `CreateTensorValueFromSystemNumericsTensorObject` (model lane), to `Span2D` planes (staging views), to `ByteString` through `UnsafeByteOperations` (remote edge); `ParallelHelper.For` partitioning enters only behind a winning benchmark-claim row inside the shared processor-budget record; loosening a `ToleranceClass` bound to pass equivalence is the named production-slack defect — the kernel is fixed, never the bound.
+- Boundary: TensorPrimitives carries no matrix kernels — `Matrix.Multiply` (Rasm) is the kernel route behind the matmul row; zero-copy projections cross at three receipted copy points — tensor span to `OrtValue` through `CreateTensorValueFromSystemNumericsTensorObject` (model lane), to `Span2D` planes (staging views), to `ByteString` through `UnsafeByteOperations` (remote edge); `ParallelHelper.For` partitioning enters only behind a winning benchmark-claim row inside the shared processor-budget record; equivalence sample tensors fill through `Tensor.FillUniformDistribution` and `FillGaussianNormalDistribution` — a hand-rolled sample-RNG loop is the deleted form; loosening a `ToleranceClass` bound to pass equivalence is the named production-slack defect — the kernel is fixed, never the bound.
 
 ```csharp signature
 public sealed record EquivalencePolicy(TensorOpFamily Family, int SampleCount) {
@@ -380,12 +380,3 @@ public static class EquivalenceLaw {
     }
 }
 ```
-
-## [7]-[RESEARCH]
-
-| [INDEX] | [ITEM]                                                                                                                                  | [PROOF]                                                          | [GATE]              |
-| :-----: | ---------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------- | ------------------- |
-|   [1]   | Uncatalogued TensorPrimitives member set behind the operation rows (negation, absolute, fused-arithmetic, clamp, sign-transfer, transcendental, rounding, power, statistics, norm, bitwise, shift, angular, magnitude, similarity-distance, conversion members) with span overload shapes | uv run python -m tools.assay api query tensors TensorPrimitives  | OPERATION_FAMILIES  |
-|   [2]   | Layout and shape member surface beyond the catalogue rows (SqueezeDimension, StackAlongDimension, ConcatenateOnDimension, Reverse, Resize, TensorShape, Tensor rank accessor) | uv run python -m tools.assay api query tensors Tensor             | LAYOUT_ALGEBRA      |
-|   [3]   | TensorElementType case set and the BFloat16 CLR carrier struct behind the bfloat16 row                                                    | uv run python -m tools.assay api query onnxruntime TensorElementType | TENSOR_VOCABULARY   |
-|   [4]   | MemoryOwner rented-array seam (DangerousGetArray) behind zero-copy Tensor.Create admission                                                | uv run python -m tools.assay api query highperformance MemoryOwner | TENSOR_VOCABULARY   |

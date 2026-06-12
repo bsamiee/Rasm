@@ -173,11 +173,14 @@ internal static class AlignKernel {
     }
     private static Fin<AlignmentMatch> FindCorrespondences(Seq<Point3d> source, Arr<double> sourceMass, VectorCloud.ClusterCase target, Arr<double> targetMass, Vector3d[] normals, Transform current, Option<CloudNeighborhoodPcaResult> sourcePca, Option<CloudNeighborhoodPcaResult> targetPca, Op key) {
         int n = source.Count;
-        Point3d[] transformed = [.. source.AsIterable().Select(point => current * point)];
-        int[][] nearestIds = [.. RTree.PointCloudKNeighbors(pointcloud: target.Indexed, needlePts: transformed, amount: 1)];
-        return FieldNabla.SameCount(expected: source.Count, key: key, counts: [sourceMass.Count])
-        .Bind(_ => FieldNabla.SameCount(expected: target.Vertices.Count, key: key, counts: [targetMass.Count]))
-        .Bind(_ => {
+        Fin<Unit> admitted = from sourceCount in FieldNabla.SameCount(expected: n, key: key, counts: [sourceMass.Count])
+                             from targetCount in FieldNabla.SameCount(expected: target.Vertices.Count, key: key, counts: [targetMass.Count])
+                             from normalCount in normals.Length == 0 ? Fin.Succ(unit) : FieldNabla.SameCount(expected: target.Vertices.Count, key: key, counts: [normals.Length])
+                             from transform in guard(current.IsValid, key.InvalidInput()).ToFin()
+                             select unit;
+        return admitted.Bind(_ => key.Catch(() => {
+            Point3d[] transformed = [.. source.AsIterable().Select(point => current * point)];
+            int[][] nearestIds = [.. RTree.PointCloudKNeighbors(pointcloud: target.Indexed, needlePts: transformed, amount: 1)];
             Point3d[] targets = new Point3d[n]; Vector3d[] rowNormals = normals.Length == 0 ? [] : new Vector3d[n]; double[] distances = new double[n]; double[] rowMass = new double[n]; int[] targetIndices = new int[n];
             List<CloudCorrespondence> items = new(capacity: n);
             for (int i = 0; i < n; i++) {
@@ -203,7 +206,7 @@ internal static class AlignKernel {
                     Confidence: Option<double>.None));
             }
             return Fin.Succ(new AlignmentMatch(Correspondences: CloudCorrespondenceSet.Of(items: toSeq(items), sourceCount: source.Count, targetCount: target.Vertices.Count), Targets: targets, Normals: rowNormals, Distances: distances, RowMass: rowMass, TargetIndices: targetIndices, SourcePca: sourcePca, TargetPca: targetPca));
-        });
+        }));
     }
     internal static Fin<AlignmentStep> SolvePointToPoint(Seq<Point3d> source, Point3d[] target, double[] rowMass, Transform current, Op key) =>
         SolveProcrustes(source: source, target: target, weights: rowMass, current: current, key: key)
@@ -262,7 +265,9 @@ internal static class AlignKernel {
         from targetIndexCount in FieldNabla.SameCount(expected: rows, key: key, counts: [match.TargetIndices.Length])
         from targetIndices in guard(match.TargetIndices.All(index => index >= 0 && index < targetPca.Samples.Count), key.InvalidInput())
         from initial in GicpObjectiveOf(source: source, match: match, sourcePca: sourcePca, targetPca: targetPca, current: current, key: key)
+        from initialFinite in guard(RhinoMath.IsValidDouble(x: initial.Cost) && initial.Cost >= 0.0 && sourcePca.Receipt.IsValid && targetPca.Receipt.IsValid, key.InvalidResult())
         from solve in GicpNormalEquation(source: source, match: match, sourcePca: sourcePca, targetPca: targetPca, current: current, damping: policy.ConvergenceTolerance.Value, key: key)
+        from usableSolve in guard(solve.IsUsable && solve.Solution.Count == 6 && solve.Solution.ForAll(RhinoMath.IsValidDouble), key.InvalidResult())
         from step in GicpLineSearch(source: source, match: match, sourcePca: sourcePca, targetPca: targetPca, current: current, initial: initial, solution: solve, tolerance: policy.ConvergenceTolerance.Value, key: key)
         select step;
     private static Fin<int> AdmitAlignmentRows(Seq<Point3d> source, Point3d[] target, double[] weights, int minimum, Op key) =>
@@ -394,6 +399,8 @@ internal static class AlignKernel {
                 .Bind(normal => normal.SolveDetailed(rhs: new Arr<double>(rhs), key: key));
         });
     private static Fin<AlignmentStep> GicpLineSearch(Seq<Point3d> source, AlignmentMatch match, CloudNeighborhoodPcaResult sourcePca, CloudNeighborhoodPcaResult targetPca, Transform current, GicpObjective initial, SolveReceipt solution, double tolerance, Op key) {
+        if (!solution.IsUsable || solution.Solution.Count != 6 || !solution.Solution.ForAll(RhinoMath.IsValidDouble) || !RhinoMath.IsValidDouble(x: initial.Cost) || initial.Cost < 0.0 || !sourcePca.Receipt.IsValid || !targetPca.Receipt.IsValid)
+            return Fin.Fail<AlignmentStep>(key.InvalidResult());
         double stepNorm = Math.Sqrt(d: solution.Solution.AsIterable().Sum(static value => value * value));
         if (stepNorm <= tolerance) {
             AlignmentOptimizerReceipt settled = new(

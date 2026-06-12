@@ -10,13 +10,13 @@ The package has zero consumers; implementation lands full-capability with no hol
 
 ## [2]-[ROUTING]
 
-| [INDEX] | [OPEN]                                                  | [READ_FOR]                                                     |
-| :-----: | ------------------------------------------------------- | -------------------------------------------------------------- |
-|   [1]   | [ARCHITECTURE.md](ARCHITECTURE.md)                      | Rails, axes, cross-package seams, package-API map               |
-|   [2]   | [ROADMAP.md](ROADMAP.md)                                | Start gates, research probes, build-order-sequenced tasks       |
-|   [3]   | [FEATURES.md](FEATURES.md)                              | Capability atlas keyed to planning-page anchors                 |
-|   [4]   | [Implementation charter](.planning/README.md)           | Page index, density bar, build order, proof gates, admissions   |
-|   [5]   | [Package API catalogues](.reports/api/README.md)        | External package API facts per lane                             |
-|   [6]   | [C# stack doctrine](../../../docs/stacks/csharp/README.md) | Language, shapes, rails, surfaces, and boundary law          |
-|   [7]   | [Suite planning standard](../.planning/README.md)       | Page grammar and machine checks governing `.planning/`          |
-|   [8]   | [Suite region map](../.planning/_region-map.md)         | Suite symbol ledger and seam splits                             |
+| [INDEX] | [OPEN]                                                     | [READ_FOR]                                                    |
+| :-----: | ---------------------------------------------------------- | ------------------------------------------------------------- |
+|   [1]   | [ARCHITECTURE.md](ARCHITECTURE.md)                         | Rails, axes, cross-package seams, package-API map             |
+|   [2]   | [ROADMAP.md](ROADMAP.md)                                   | Start gates, research probes, build-order-sequenced tasks     |
+|   [3]   | [FEATURES.md](FEATURES.md)                                 | Capability atlas keyed to planning-page anchors               |
+|   [4]   | [Implementation charter](.planning/README.md)              | Page index, density bar, build order, proof gates, admissions |
+|   [5]   | [Package API catalogues](.reports/api/README.md)           | External package API facts per lane                           |
+|   [6]   | [C# stack doctrine](../../../docs/stacks/csharp/README.md) | Language, shapes, rails, surfaces, and boundary law           |
+|   [7]   | [Suite planning standard](../.planning/README.md)          | Page grammar and machine checks governing `.planning/`        |
+|   [8]   | [Suite region map](../.planning/_region-map.md)            | Suite symbol ledger and seam splits                           |

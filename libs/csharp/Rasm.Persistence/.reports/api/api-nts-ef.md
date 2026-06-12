@@ -35,26 +35,26 @@ the geometry wire codecs on the ADO data source, and transitive
 [PLUGIN_TYPES]: EF plugin admission and services
 - rail: store-provider
 
-| [INDEX] | [SYMBOL]                                              | [PACKAGE_ROLE]      | [CAPABILITY]                |
-| :-----: | :----------------------------------------------------- | :------------------ | :-------------------------- |
-|   [1]   | `NpgsqlNetTopologySuiteDbContextOptionsBuilderExtensions` | builder extension | admits plugin               |
-|   [2]   | `NpgsqlNetTopologySuiteServiceCollectionExtensions`     | service extension   | admits plugin services      |
-|   [3]   | `NpgsqlNetTopologySuiteDbFunctionsExtensions`           | function surface    | projects PostGIS functions  |
-|   [4]   | `NpgsqlNetTopologySuiteOptionsExtension`                | options extension   | carries plugin policy       |
-|   [5]   | `NetTopologySuiteDataSourceConfigurationPlugin`         | data source plugin  | enables geometry wire       |
-|   [6]   | `NpgsqlNetTopologySuiteTypeMappingSourcePlugin`         | mapping plugin      | resolves geometry mappings  |
-|   [7]   | `NpgsqlGeometryTypeMapping`                             | geometry mapping    | maps geometry and geography |
-|   [8]   | `NpgsqlNetTopologySuiteMethodCallTranslatorPlugin`      | method plugin       | translates geometry methods |
-|   [9]   | `NpgsqlNetTopologySuiteMemberTranslatorPlugin`          | member plugin       | translates geometry members |
-|  [10]   | `NpgsqlNetTopologySuiteAggregateMethodCallTranslatorPlugin` | aggregate plugin | translates spatial aggregates |
-|  [11]   | `NpgsqlNetTopologySuiteConventionSetPlugin`             | convention plugin   | adds postgis extension      |
-|  [12]   | `NpgsqlNetTopologySuiteCodeGeneratorPlugin`             | scaffolding plugin  | emits plugin admission      |
-|  [13]   | `NpgsqlNetTopologySuiteDesignTimeServices`              | design services     | admits design tooling       |
+| [INDEX] | [SYMBOL]                                                    | [PACKAGE_ROLE]     | [CAPABILITY]                  |
+| :-----: | :---------------------------------------------------------- | :----------------- | :---------------------------- |
+|   [1]   | `NpgsqlNetTopologySuiteDbContextOptionsBuilderExtensions`   | builder extension  | admits plugin                 |
+|   [2]   | `NpgsqlNetTopologySuiteServiceCollectionExtensions`         | service extension  | admits plugin services        |
+|   [3]   | `NpgsqlNetTopologySuiteDbFunctionsExtensions`               | function surface   | projects PostGIS functions    |
+|   [4]   | `NpgsqlNetTopologySuiteOptionsExtension`                    | options extension  | carries plugin policy         |
+|   [5]   | `NetTopologySuiteDataSourceConfigurationPlugin`             | data source plugin | enables geometry wire         |
+|   [6]   | `NpgsqlNetTopologySuiteTypeMappingSourcePlugin`             | mapping plugin     | resolves geometry mappings    |
+|   [7]   | `NpgsqlGeometryTypeMapping`                                 | geometry mapping   | maps geometry and geography   |
+|   [8]   | `NpgsqlNetTopologySuiteMethodCallTranslatorPlugin`          | method plugin      | translates geometry methods   |
+|   [9]   | `NpgsqlNetTopologySuiteMemberTranslatorPlugin`              | member plugin      | translates geometry members   |
+|  [10]   | `NpgsqlNetTopologySuiteAggregateMethodCallTranslatorPlugin` | aggregate plugin   | translates spatial aggregates |
+|  [11]   | `NpgsqlNetTopologySuiteConventionSetPlugin`                 | convention plugin  | adds postgis extension        |
+|  [12]   | `NpgsqlNetTopologySuiteCodeGeneratorPlugin`                 | scaffolding plugin | emits plugin admission        |
+|  [13]   | `NpgsqlNetTopologySuiteDesignTimeServices`                  | design services    | admits design tooling         |
 
 [WIRE_TYPES]: ADO wire admission
 - rail: store-provider
 
-| [INDEX] | [SYMBOL]                                 | [PACKAGE_ROLE]        | [CAPABILITY]                |
+| [INDEX] | [SYMBOL]                                  | [PACKAGE_ROLE]        | [CAPABILITY]                |
 | :-----: | :---------------------------------------- | :-------------------- | :-------------------------- |
 |   [1]   | `NpgsqlNetTopologySuiteExtensions`        | type-mapper extension | admits geometry wire codecs |
 |   [2]   | `NetTopologySuiteTypeInfoResolverFactory` | resolver factory      | resolves geometry codecs    |
@@ -62,54 +62,54 @@ the geometry wire codecs on the ADO data source, and transitive
 [GEOMETRY_TYPES]: NetTopologySuite geometry model
 - rail: spatial-values
 
-| [INDEX] | [SYMBOL]             | [PACKAGE_ROLE]   | [CAPABILITY]                       |
-| :-----: | :-------------------- | :--------------- | :--------------------------------- |
-|   [1]   | `Geometry`            | geometry root    | owns spatial algebra and predicates |
-|   [2]   | `Point`               | point geometry   | carries X, Y, Z coordinates        |
-|   [3]   | `LineString`          | curve geometry   | carries ordered coordinates        |
-|   [4]   | `LinearRing`          | ring geometry    | closes a coordinate sequence       |
-|   [5]   | `Polygon`             | surface geometry | carries shell and holes            |
-|   [6]   | `MultiPoint`          | collection       | aggregates points                  |
-|   [7]   | `MultiLineString`     | collection       | aggregates line strings            |
-|   [8]   | `MultiPolygon`        | collection       | aggregates polygons                |
-|   [9]   | `GeometryCollection`  | collection       | aggregates mixed geometries        |
-|  [10]   | `GeometryFactory`     | factory          | creates geometries with SRID policy |
-|  [11]   | `Coordinate`          | coordinate value | carries ordinate values            |
-|  [12]   | `Envelope`            | bounding box     | bounds geometry extents            |
+| [INDEX] | [SYMBOL]             | [PACKAGE_ROLE]   | [CAPABILITY]                        |
+| :-----: | :------------------- | :--------------- | :---------------------------------- |
+|   [1]   | `Geometry`           | geometry root    | owns spatial algebra and predicates |
+|   [2]   | `Point`              | point geometry   | carries X, Y, Z coordinates         |
+|   [3]   | `LineString`         | curve geometry   | carries ordered coordinates         |
+|   [4]   | `LinearRing`         | ring geometry    | closes a coordinate sequence        |
+|   [5]   | `Polygon`            | surface geometry | carries shell and holes             |
+|   [6]   | `MultiPoint`         | collection       | aggregates points                   |
+|   [7]   | `MultiLineString`    | collection       | aggregates line strings             |
+|   [8]   | `MultiPolygon`       | collection       | aggregates polygons                 |
+|   [9]   | `GeometryCollection` | collection       | aggregates mixed geometries         |
+|  [10]   | `GeometryFactory`    | factory          | creates geometries with SRID policy |
+|  [11]   | `Coordinate`         | coordinate value | carries ordinate values             |
+|  [12]   | `Envelope`           | bounding box     | bounds geometry extents             |
 
 ## [3]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: plugin admission
 - rail: store-provider
 
-| [INDEX] | [SURFACE]                                  | [CALL_SHAPE]            | [CAPABILITY]                  |
-| :-----: | :------------------------------------------ | :---------------------- | :---------------------------- |
-|   [1]   | `UseNetTopologySuite`                       | provider option         | maps geometry values in EF    |
-|   [2]   | `AddEntityFrameworkNpgsqlNetTopologySuite`  | service extension       | registers plugin services     |
-|   [3]   | `UseNetTopologySuite`                       | type-mapper extension   | admits wire codecs on `NpgsqlDataSourceBuilder` |
+| [INDEX] | [SURFACE]                                  | [CALL_SHAPE]          | [CAPABILITY]                                    |
+| :-----: | :----------------------------------------- | :-------------------- | :---------------------------------------------- |
+|   [1]   | `UseNetTopologySuite`                      | provider option       | maps geometry values in EF                      |
+|   [2]   | `AddEntityFrameworkNpgsqlNetTopologySuite` | service extension     | registers plugin services                       |
+|   [3]   | `UseNetTopologySuite`                      | type-mapper extension | admits wire codecs on `NpgsqlDataSourceBuilder` |
 
 [ENTRYPOINT_SCOPE]: SQL function projections
 - rail: store-provider
 
-| [INDEX] | [SURFACE]          | [CALL_SHAPE]            | [CAPABILITY]                     |
-| :-----: | :------------------ | :---------------------- | :------------------------------- |
-|   [1]   | `Distance`          | `DbFunctions` extension | measures spheroid distance       |
-|   [2]   | `IsWithinDistance`  | `DbFunctions` extension | tests spheroid proximity         |
-|   [3]   | `DistanceKnn`       | `DbFunctions` extension | orders by KNN distance           |
-|   [4]   | `Transform`         | `DbFunctions` extension | reprojects to a target SRID      |
-|   [5]   | `Force2D`           | `DbFunctions` extension | drops Z and M ordinates          |
+| [INDEX] | [SURFACE]          | [CALL_SHAPE]            | [CAPABILITY]                |
+| :-----: | :----------------- | :---------------------- | :-------------------------- |
+|   [1]   | `Distance`         | `DbFunctions` extension | measures spheroid distance  |
+|   [2]   | `IsWithinDistance` | `DbFunctions` extension | tests spheroid proximity    |
+|   [3]   | `DistanceKnn`      | `DbFunctions` extension | orders by KNN distance      |
+|   [4]   | `Transform`        | `DbFunctions` extension | reprojects to a target SRID |
+|   [5]   | `Force2D`          | `DbFunctions` extension | drops Z and M ordinates     |
 
 [ENTRYPOINT_SCOPE]: geometry construction and algebra
 - rail: spatial-values
 
-| [INDEX] | [SURFACE]                                | [CALL_SHAPE]      | [CAPABILITY]                  |
-| :-----: | :---------------------------------------- | :---------------- | :---------------------------- |
-|   [1]   | `GeometryFactory.CreatePoint`             | factory call      | creates points                |
-|   [2]   | `GeometryFactory.CreateLineString`        | factory call      | creates line strings          |
-|   [3]   | `GeometryFactory.CreatePolygon`           | factory call      | creates polygons              |
-|   [4]   | `Geometry.Intersects` / `Geometry.Contains` | spatial predicate | tests spatial relations     |
-|   [5]   | `Geometry.Distance` / `Geometry.Buffer`   | spatial operation | measures and dilates          |
-|   [6]   | `Geometry.AsText` / `Geometry.AsBinary`   | projection call   | emits WKT and WKB             |
+| [INDEX] | [SURFACE]                                   | [CALL_SHAPE]      | [CAPABILITY]            |
+| :-----: | :------------------------------------------ | :---------------- | :---------------------- |
+|   [1]   | `GeometryFactory.CreatePoint`               | factory call      | creates points          |
+|   [2]   | `GeometryFactory.CreateLineString`          | factory call      | creates line strings    |
+|   [3]   | `GeometryFactory.CreatePolygon`             | factory call      | creates polygons        |
+|   [4]   | `Geometry.Intersects` / `Geometry.Contains` | spatial predicate | tests spatial relations |
+|   [5]   | `Geometry.Distance` / `Geometry.Buffer`     | spatial operation | measures and dilates    |
+|   [6]   | `Geometry.AsText` / `Geometry.AsBinary`     | projection call   | emits WKT and WKB       |
 
 ## [4]-[IMPLEMENTATION_LAW]
 

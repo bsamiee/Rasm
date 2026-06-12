@@ -16,13 +16,13 @@ receipts, drain, classification, cache) as settled vocabulary.
 
 ## [2]-[ROUTING]
 
-| [INDEX] | [READ_FOR]                                | [OPEN]                                                       |
-| :-----: | :---------------------------------------- | :------------------------------------------------------------ |
-|   [1]   | rails, seams, package ownership           | [architecture](ARCHITECTURE.md)                                |
-|   [2]   | implementation sequence + start gates     | [roadmap](ROADMAP.md)                                          |
-|   [3]   | capability atlas                          | [features](FEATURES.md)                                        |
-|   [4]   | implementation charter + finalized pages  | [.planning](.planning/README.md)                               |
-|   [5]   | package API catalogues                    | [.reports/api](.reports/api/README.md)                         |
-|   [6]   | suite planning standard                   | [suite standard](../.planning/README.md)                       |
-|   [7]   | suite ownership ledger                    | [region map](../.planning/_region-map.md)                      |
-|   [8]   | C# stack doctrine                         | [C# stack](../../../docs/stacks/csharp/README.md)              |
+| [INDEX] | [READ_FOR]                               | [OPEN]                                            |
+| :-----: | :--------------------------------------- | :------------------------------------------------ |
+|   [1]   | rails, seams, package ownership          | [architecture](ARCHITECTURE.md)                   |
+|   [2]   | implementation sequence + start gates    | [roadmap](ROADMAP.md)                             |
+|   [3]   | capability atlas                         | [features](FEATURES.md)                           |
+|   [4]   | implementation charter + finalized pages | [.planning](.planning/README.md)                  |
+|   [5]   | package API catalogues                   | [.reports/api](.reports/api/README.md)            |
+|   [6]   | suite planning standard                  | [suite standard](../.planning/README.md)          |
+|   [7]   | suite ownership ledger                   | [region map](../.planning/_region-map.md)         |
+|   [8]   | C# stack doctrine                        | [C# stack](../../../docs/stacks/csharp/README.md) |
